@@ -84,6 +84,10 @@ namespace ProcGenGame
         private SpinBox _seedXBox = null!;
         private SpinBox _seedYBox = null!;
         private SpinBox _seedTBox = null!;
+        private SpinBox _octavesBox = null!;
+        private SpinBox _frequencyBox = null!;
+        private SpinBox _persistenceBox = null!;
+        private SpinBox _lacunarityBox = null!;
         private SpinBox _transformationBox = null!;
         private VBoxContainer _tilesContainer = null!;
         private LineEdit _newTileIdEdit = null!;
@@ -277,6 +281,19 @@ namespace ProcGenGame
             _seedTBox = AddDoubleField(root, "T", -1000000, 1000000, OnSeedChanged);
             root.AddChild(new HSeparator());
 
+            root.AddChild(Header("Noise (selected layer)"));
+            _octavesBox = AddIntField(root, "Octaves", 1, 1, 8, v => { CurrentLayer().Noise.Octaves = v; Regenerate(); });
+            _frequencyBox = AddDoubleField(root, "Frequency", 0.001, 10, OnNoiseChanged);
+            _persistenceBox = AddDoubleField(root, "Persistence", 0, 1, OnNoiseChanged);
+            _lacunarityBox = AddDoubleField(root, "Lacunarity", 0.1, 10, OnNoiseChanged);
+            root.AddChild(new Label
+            {
+                Text = "Fewer octaves / lower frequency = smoother, more gradual terrain transitions (e.g. a wide sandy beach ring); more octaves = rougher, more detailed but steeper edges.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            root.AddChild(new HSeparator());
+
             root.AddChild(Header("Tiles (selected layer)"));
             _tilesContainer = new VBoxContainer();
             root.AddChild(_tilesContainer);
@@ -455,12 +472,18 @@ namespace ProcGenGame
             _seedXBox.Value = layer.Seed.X;
             _seedYBox.Value = layer.Seed.Y;
             _seedTBox.Value = layer.Seed.T;
+            _octavesBox.Value = layer.Noise.Octaves;
+            _frequencyBox.Value = layer.Noise.Frequency;
+            _persistenceBox.Value = layer.Noise.Persistence;
+            _lacunarityBox.Value = layer.Noise.Lacunarity;
             _suppressSignals = false;
 
             RebuildTileRows(layer);
             UpdateOverlayView();
             Regenerate();
         }
+
+        private LayerDef CurrentLayer() => _definition.Layers[_selectedLayerIndex];
 
         private void RebuildTileRows(LayerDef layer)
         {
@@ -576,6 +599,15 @@ namespace ProcGenGame
         {
             var layer = _definition.Layers[_selectedLayerIndex];
             layer.Seed = new SeedPosition(_seedXBox.Value, _seedYBox.Value, _seedTBox.Value);
+            Regenerate();
+        }
+
+        private void OnNoiseChanged()
+        {
+            var noise = CurrentLayer().Noise;
+            noise.Frequency = _frequencyBox.Value;
+            noise.Persistence = _persistenceBox.Value;
+            noise.Lacunarity = _lacunarityBox.Value;
             Regenerate();
         }
 
