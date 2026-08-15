@@ -28,7 +28,11 @@ namespace ProcGenGame
         private const int MapMargin = 16;
         private const int SidePanelWidth = 400;
 
-        private static readonly Dictionary<string, Color> TileColors = new Dictionary<string, Color>
+        // Display color per tile id -- a rendering concern, so it lives here in the tool, not on
+        // the engine's TileDef. Colors stand in for tile art until real art exists ("represented
+        // by color blocks for now"); a tool built against real art would swap this for atlas
+        // coordinates the same way ProcGenTileMapView does.
+        private readonly Dictionary<string, Color> _tileColors = new Dictionary<string, Color>
         {
             ["deep_water"] = new Color(0.10f, 0.20f, 0.55f),
             ["shallow_water"] = new Color(0.25f, 0.45f, 0.85f),
@@ -58,6 +62,8 @@ namespace ProcGenGame
         private SpinBox _seedTBox = null!;
         private SpinBox _transformationBox = null!;
         private VBoxContainer _tilesContainer = null!;
+        private LineEdit _newTileIdEdit = null!;
+        private Label _addTileHintLabel = null!;
         private Label _statusLabel = null!;
         private CheckBox _compositeToggle = null!;
 
@@ -77,7 +83,7 @@ namespace ProcGenGame
             _overrides = new OverrideStore();
 
             BuildUi();
-            _overlay.SetTileColors(TileColors);
+            _overlay.SetTileColors(_tileColors);
 
             RefreshLayerList();
             SelectLayer(0);
@@ -196,6 +202,17 @@ namespace ProcGenGame
             root.AddChild(Header("Tiles (selected layer)"));
             _tilesContainer = new VBoxContainer();
             root.AddChild(_tilesContainer);
+
+            var addRow = new HBoxContainer();
+            _newTileIdEdit = new LineEdit { PlaceholderText = "new tile id", CustomMinimumSize = new Vector2(200, 0) };
+            addRow.AddChild(_newTileIdEdit);
+            var addTileButton = new Button { Text = "Add Tile" };
+            addTileButton.Pressed += OnAddTilePressed;
+            addRow.AddChild(addTileButton);
+            root.AddChild(addRow);
+
+            _addTileHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_addTileHintLabel);
         }
 
         private static Label Header(string text)
@@ -276,12 +293,21 @@ namespace ProcGenGame
             foreach (var tile in layer.Tiles)
             {
                 var row = new HBoxContainer();
-                row.AddChild(new Label { Text = tile.Id, CustomMinimumSize = new Vector2(90, 0) });
+
+                var colorButton = new ColorPickerButton { Color = GetTileColor(tile.Id), CustomMinimumSize = new Vector2(28, 0) };
+                colorButton.ColorChanged += c =>
+                {
+                    _tileColors[tile.Id] = c;
+                    _overlay.SetTileColors(_tileColors);
+                };
+                row.AddChild(colorButton);
+
+                row.AddChild(new Label { Text = tile.Id, CustomMinimumSize = new Vector2(70, 0) });
 
                 var minus = new Button { Text = "-" };
                 // Fixed width for the same reason as the Transformation field above: predictable
                 // total row size inside a ScrollContainer, regardless of expand-fill clipping.
-                var spin = new SpinBox { Step = 0.1, MinValue = 0, MaxValue = 1000, CustomMinimumSize = new Vector2(80, 0) };
+                var spin = new SpinBox { Step = 0.1, MinValue = 0, MaxValue = 1000, CustomMinimumSize = new Vector2(70, 0) };
                 spin.Value = tile.Range;
                 var plus = new Button { Text = "+" };
 
@@ -298,8 +324,67 @@ namespace ProcGenGame
                 row.AddChild(minus);
                 row.AddChild(spin);
                 row.AddChild(plus);
+
+                var remove = new Button { Text = "x", Disabled = layer.Tiles.Count <= 1 };
+                remove.TooltipText = layer.Tiles.Count <= 1
+                    ? "A layer needs at least one tile"
+                    : $"Remove '{tile.Id}' from this layer";
+                remove.Pressed += () => OnRemoveTile(layer, tile);
+                row.AddChild(remove);
+
                 _tilesContainer.AddChild(row);
             }
+        }
+
+        private void OnAddTilePressed()
+        {
+            string id = _newTileIdEdit.Text.Trim();
+            var layer = _definition.Layers[_selectedLayerIndex];
+
+            if (string.IsNullOrEmpty(id))
+            {
+                _addTileHintLabel.Text = "Enter a tile id first.";
+                return;
+            }
+            if (layer.Tiles.Exists(t => t.Id == id))
+            {
+                _addTileHintLabel.Text = $"Layer '{layer.Id}' already has a tile called '{id}'.";
+                return;
+            }
+
+            layer.Tiles.Add(new TileDef(id, 1.0));
+            GetTileColor(id); // assigns this new id a default color if it doesn't have one yet
+            _newTileIdEdit.Text = "";
+            _addTileHintLabel.Text = "";
+
+            RebuildTileRows(layer);
+            _overlay.SetTileColors(_tileColors);
+            Regenerate();
+        }
+
+        private void OnRemoveTile(LayerDef layer, TileDef tile)
+        {
+            if (layer.Tiles.Count <= 1) return; // CompiledLayer requires at least one tile
+            layer.Tiles.Remove(tile);
+            RebuildTileRows(layer);
+            Regenerate();
+        }
+
+        private Color GetTileColor(string tileId)
+        {
+            if (!_tileColors.TryGetValue(tileId, out var color))
+            {
+                color = NextDefaultColor();
+                _tileColors[tileId] = color;
+            }
+            return color;
+        }
+
+        /// <summary>Spreads hues around the color wheel (golden-ratio step) so tiles added one after another get visually distinct default colors.</summary>
+        private Color NextDefaultColor()
+        {
+            float hue = (_tileColors.Count * 0.618034f) % 1.0f;
+            return Color.FromHsv(hue, 0.55f, 0.85f);
         }
 
         private void UpdateOverlayView()
@@ -373,9 +458,19 @@ namespace ProcGenGame
         private void Regenerate()
         {
             var region = new RegionSpec(_originX, _originY, _regionWidth, _regionHeight, _transformation);
-            var result = MapGenerator.GenerateRegion(_definition, region, _overrides);
-            _overlay.Render(result, region, _overrides);
-            UpdateStatus();
+            try
+            {
+                var result = MapGenerator.GenerateRegion(_definition, region, _overrides);
+                _overlay.Render(result, region, _overrides);
+                UpdateStatus();
+            }
+            catch (ArgumentException ex)
+            {
+                // Reachable now that tile ranges/removal are editable, e.g. every tile on a layer
+                // nudged to a range of 0 leaves nothing to select from. Report it instead of
+                // crashing; the last successful render stays on screen.
+                _statusLabel.Text = $"Cannot generate: {ex.Message}";
+            }
         }
 
         private void UpdateStatus()

@@ -187,19 +187,23 @@ that's the architectural guarantee from milestone 1.
 
 `godot/Scenes/MapEditorTool.tscn` / `Scripts/MapEditorToolScene.cs` is a working reference for the
 property-panel half of a map-making tool: a fixed side panel (region origin/size, Transformation,
-a layer picker, the selected layer's seed X/Y/T, and the selected layer's tile ranges with manual
-entry + `-`/`+` nudge buttons) that writes straight into a live `MapDefinition`/`OverrideStore` and
-regenerates on every change, plus click-to-paint on top via `ProcGenDebugOverlay`. It's built
-entirely from Godot `Control` nodes constructed in code (no Inspector/editor-plugin dependency),
-so it runs the same way whether it's a standalone tool scene (as here) or embedded in a bigger
-editor UI. See its doc comment and the README's "The map editor tool" section for a screenshot and
+a layer picker, the selected layer's seed X/Y/T, and the selected layer's tiles -- each with a
+`ColorPickerButton` swatch, manual-entry range + `-`/`+` nudge buttons, and a remove button, plus
+an "Add Tile" field/button below the list) that writes straight into a live
+`MapDefinition`/`OverrideStore` and regenerates on every change, plus click-to-paint on top via
+`ProcGenDebugOverlay`. It's built entirely from Godot `Control` nodes constructed in code (no
+Inspector/editor-plugin dependency), so it runs the same way whether it's a standalone tool scene
+(as here) or embedded in a bigger editor UI. Tile color is tracked per tile id in the tool (not on
+the engine's `TileDef`, since it's a rendering concern) and stands in for tile art until real art
+exists. See its doc comment and the README's "The map editor tool" section for a screenshot and
 the panel layout.
 
 Still not built, per the milestone-1 scope ("Deferred by design" in the root `README.md`):
 - A camera/pan-and-zoom setup around the map view for navigating without typing exact
   origin/width/height (the region fields already support "any arbitrary region," just not by
   dragging).
-- Add/remove/reorder layers and tiles, `writes_over` filter editing, and noise parameter editing
-  (octaves/frequency/persistence/lacunarity) — the panel currently edits an existing layer's seed
-  and tile ranges only.
-- Saving/loading `MapDefinition` + `OverrideStore`.
+- Add/remove layers (tiles can already be added/removed per layer), reordering layers or tiles,
+  `writes_over` filter editing, and noise parameter editing
+  (octaves/frequency/persistence/lacunarity).
+- Saving/loading `MapDefinition` + `OverrideStore` (which would also need to persist the tool's
+  tile-id -> color map alongside it, for the palette to survive a reload).

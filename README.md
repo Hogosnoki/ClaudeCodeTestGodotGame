@@ -108,7 +108,7 @@ writes straight into the live `MapDefinition`/`OverrideStore` the engine consume
 `MapGenerator.GenerateRegion` again — there's no separate "tool state" that could drift from what
 actually gets generated.
 
-![Map editor tool: region/Transformation/layer/seed/tile-range panel on the right, live-generated map on the left, one hand-painted override outlined](docs/map_editor_tool_reference.png)
+![Map editor tool: region/Transformation/layer/seed/tile-range panel on the right, live-generated map on the left, a color-picker-assigned tile color visible in the tile list](docs/map_editor_tool_reference.png)
 
 Panel sections, top to bottom:
 - **Region** — origin X/Y and width/height of the generated region, so you can generate/view any
@@ -120,9 +120,23 @@ Panel sections, top to bottom:
   layer's raw resolution (or check "Show final composite" to see the composited result instead).
 - **Seed (selected layer)** — that layer's X/Y/T position in the generation lattice, freely
   editable.
-- **Tiles (selected layer)** — one row per tile: id, a `-` button, a manually-editable range field,
-  and a `+` button, each nudge moving the range by 0.1 exactly as asked for. Changing a range
-  regenerates immediately, so the effect on the map is visible right away.
+- **Tiles (selected layer)** — one row per tile: a color swatch, id, a `-` button, a
+  manually-editable range field, a `+` button (each nudge moving the range by 0.1), and an `x` to
+  remove that tile. Below the list, a text field + "Add Tile" button appends a new tile (default
+  range 1.0) to the selected layer. Changing any of this regenerates immediately.
+  - The color swatch is a real `ColorPickerButton` — clicking it opens Godot's native color
+    picker (RGB/HSV/hex, swatches, recent colors). Since there's no tile art yet, color is what
+    represents a tile visually; a newly added tile gets an auto-assigned color (spread around the
+    hue wheel so consecutive additions look distinct) that you can then repick.
+  - Removing a tile (or adding one, or nudging any range) changes the layer's total weight, which
+    reshuffles the cumulative selection bounds for *every* tile on that layer -- not just the one
+    you touched. That's the weighted-range model working as specified (selection normalizes into
+    `[0, sum of ranges)`), not a bug, but it means a small edit can visibly reshuffle tiles you
+    didn't touch. `RangeSum` in `Selection/CompiledLayer.cs` is where this happens.
+  - The last remaining tile on a layer can't be removed (the `x` button disables itself) --
+    `CompiledLayer` requires at least one tile with positive total range, and `Regenerate()` now
+    catches that `ArgumentException` and reports it in the status label instead of crashing, in
+    case a layer's ranges are nudged all the way down to a zero total.
 
 Left-click on the map still cycles a manual override on the selected layer at that cell (same
 mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
@@ -193,7 +207,7 @@ Not built yet, on purpose:
   list" for "look up this layer's compiled tile list *at this position*" — not a restructure.
 - The Godot `Resource` save/export adapter (layer definitions + seeds + override diffs, mirroring
   `MapDefinition`/`OverrideStore` 1:1, living in `godot/` so the engine stays Godot-free).
-- In the editor tool specifically: add/remove/reorder layers and tiles, `writes_over` filter
-  editing, noise parameter editing (octaves/frequency/persistence/lacunarity), and a pan/zoom
-  camera for the map view (the region panel's Origin X/Y fields cover "any arbitrary region," just
-  not by dragging).
+- In the editor tool specifically: add/remove layers (tiles can already be added/removed per
+  layer), reordering layers or tiles, `writes_over` filter editing, noise parameter editing
+  (octaves/frequency/persistence/lacunarity), and a pan/zoom camera for the map view (the region
+  panel's Origin X/Y fields cover "any arbitrary region," just not by dragging).
