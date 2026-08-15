@@ -92,6 +92,81 @@ namespace ProcGen.Engine.Tests
         }
 
         [Fact]
+        public void ExpandWritesOverFamily_IncludesTilesOfLayersThatWriteOverIt()
+        {
+            var def = Milestone1Fixture.BuildDefinition();
+
+            var family = TraversalEditing.ExpandWritesOverFamily("land", def.Layers);
+
+            Assert.Equal(new HashSet<string> { "land", "dirt", "grass", "tallgrass" }, family);
+        }
+
+        [Fact]
+        public void ExpandWritesOverFamily_TileNothingWritesOver_IsJustItself()
+        {
+            var def = Milestone1Fixture.BuildDefinition();
+
+            var family = TraversalEditing.ExpandWritesOverFamily("sand", def.Layers);
+
+            Assert.Equal(new HashSet<string> { "sand" }, family);
+        }
+
+        [Fact]
+        public void ExpandWritesOverFamily_IsTransitiveAcrossMultipleLayers()
+        {
+            var bottom = new LayerDef("bottom", new List<TileDef> { new TileDef("land", 1.0) },
+                new List<WritesOverRule>(), new SeedPosition(0, 0, 0), new NoiseParams());
+            var middle = new LayerDef("middle", new List<TileDef> { new TileDef("grass", 1.0) },
+                new List<WritesOverRule> { new WritesOverRule("bottom", "land") }, new SeedPosition(1, 1, 0), new NoiseParams());
+            var top = new LayerDef("top", new List<TileDef> { new TileDef("flower", 1.0) },
+                new List<WritesOverRule> { new WritesOverRule("middle", "grass") }, new SeedPosition(2, 2, 0), new NoiseParams());
+            var layers = new List<LayerDef> { bottom, middle, top };
+
+            var family = TraversalEditing.ExpandWritesOverFamily("land", layers);
+
+            Assert.Equal(new HashSet<string> { "land", "grass", "flower" }, family);
+        }
+
+        [Fact]
+        public void MakeSolidFamily_BlocksOutsideTilesFromEveryFamilyMember_ButNotAmongFamilyMembers()
+        {
+            var def = Milestone1Fixture.BuildDefinition();
+            var allTiles = new[] { "deep_water", "shallow_water", "sand", "land", "dirt", "grass", "tallgrass" };
+            var rules = new List<TileTransitionRule>();
+
+            TraversalEditing.MakeSolidFamily(rules, "land", allTiles, def.Layers);
+
+            Assert.Equal(12, rules.Count); // 3 outside tiles x 4 family members
+            foreach (var outside in new[] { "deep_water", "shallow_water", "sand" })
+            {
+                foreach (var family in new[] { "land", "dirt", "grass", "tallgrass" })
+                {
+                    Assert.Contains(rules, r => r.FromTileId == outside && r.ToTileId == family);
+                }
+            }
+            // No blocking among family members, and leaving is never blocked.
+            Assert.DoesNotContain(rules, r => r.FromTileId == "land" || r.FromTileId == "dirt" || r.FromTileId == "grass" || r.FromTileId == "tallgrass");
+        }
+
+        [Fact]
+        public void ClearBlocksIntoFamily_RemovesRulesTargetingAnyFamilyMember()
+        {
+            var def = Milestone1Fixture.BuildDefinition();
+            var rules = new List<TileTransitionRule>
+            {
+                new TileTransitionRule("sand", "land"),
+                new TileTransitionRule("sand", "grass"),
+                new TileTransitionRule("shallow_water", "sand"),
+            };
+
+            TraversalEditing.ClearBlocksIntoFamily(rules, "land", def.Layers);
+
+            Assert.Single(rules);
+            Assert.Equal("shallow_water", rules[0].FromTileId);
+            Assert.Equal("sand", rules[0].ToTileId);
+        }
+
+        [Fact]
         public void RoundTrip_PreservesBlockedTransitions()
         {
             var def = Milestone1Fixture.BuildDefinition();

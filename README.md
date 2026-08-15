@@ -283,9 +283,21 @@ Edited from the panel behind the **Edit: Movement** dropdown option:
   never blocks a tile from itself, so two adjacent cells of the same tile always stay walkable
   between each other. **Open** removes every rule blocking movement onto that tile
   (`TraversalEditing.ClearBlocksInto`).
+- An **"Include tiles this one writes over"** checkbox changes what Solid/Open above act on. Off
+  (default): the literal tile id only -- e.g. just the `land` cells a higher layer hasn't painted
+  over. On: the tile's whole **writes_over family** -- `land` plus every tile any layer's
+  `writes_over` rule lets appear in its place (`ground_cover`'s `dirt`/`grass`/`tallgrass`, since
+  its `WritesOverRule("ground", "land")` means any of its own tiles can be the actual final result
+  wherever `land` would otherwise have been), computed transitively via
+  `TraversalEditing.ExpandWritesOverFamily` so a third layer writing over `grass` would pull its
+  tiles in too. With the family on, Solid/Open (`MakeSolidFamily`/`ClearBlocksIntoFamily`) block or
+  open every family member from/to the outside *together*, while every family member stays
+  walkable to every other one -- the "same tile" exemption extended to the whole family, since
+  they're all conceptually still "land" once painted.
 - A **Transition rules** list shows every current rule (bulk-generated or hand-added — they're
   stored identically and equally editable) with a remove button, plus a From/To tile dropdown pair
-  and **Add Rule** button for adding one-off rules by hand.
+  and **Add Rule** button for adding one-off rules by hand (this one always acts on the literal
+  tile ids picked, family expansion is Solid/Open-only).
 
 Like entrance/exit ids, `BlockedTransitions` is plain `MapDefinition` data, so it round-trips
 through Save/Load and gets deep-cloned by **Duplicate** the same as everything else on a map.
@@ -293,18 +305,20 @@ through Save/Load and gets deep-cloned by **Duplicate** the same as everything e
 While the Movement panel is open, `TraversalOverlay` draws a thin red line along every
 adjacent-cell edge in the current viewport that's actually blocked (in either direction) --
 evaluated against each cell's real final resolved tile id via `CompiledTraversalRules`, not the
-abstract rule list, so what's drawn always matches what a player would actually hit. This is why
-making "land" solid on the milestone-1 starter map draws no red lines around the visible tan
-shoreline: `ground_cover`'s `writes_over` has already replaced most of those `land` cells with
-grass/dirt/tallgrass by the time they're the *final* tile, and the rule only covers `land` --
-switch on **Show final composite** (Map panel) to see exactly which cells are still truly `land`
-in the result. Making `sand` solid instead (never written over) traces a clean red outline around
-its entire shore.
+abstract rule list, so what's drawn always matches what a player would actually hit. This is also
+what makes the family checkbox visually obvious: making "land" solid on the milestone-1 starter
+map with the checkbox **off** draws almost no red lines around the visible tan shoreline, since
+`ground_cover`'s `writes_over` has already replaced most `land` cells with grass/dirt/tallgrass by
+the time they're the *final* tile, and a literal `land` rule doesn't cover those -- switch on
+**Show final composite** (Map panel) to see exactly which cells are still truly `land`. Turning the
+family checkbox **on** before clicking Solid traces a clean red outline around the entire
+land-or-anything-that-used-to-be-land shoreline instead, matching what a player actually
+experiences.
 
 ## Running it
 
 ```bash
-# Engine unit tests (53 tests, no Godot needed):
+# Engine unit tests (58 tests, no Godot needed):
 dotnet test tests/ProcGen.Engine.Tests/ProcGen.Engine.Tests.csproj
 
 # Milestone-1 console proof, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):

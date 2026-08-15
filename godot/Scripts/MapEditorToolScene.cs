@@ -154,6 +154,7 @@ namespace ProcGenGame
         private Label _exitHintLabel = null!;
         private VBoxContainer _movementModePanel = null!;
         private VBoxContainer _solidTileRowsContainer = null!;
+        private CheckBox _includeWritesOverFamilyToggle = null!;
         private VBoxContainer _transitionRulesContainer = null!;
         private OptionButton _newRuleFromDropdown = null!;
         private OptionButton _newRuleToDropdown = null!;
@@ -545,6 +546,14 @@ namespace ProcGenGame
             {
                 Text = "'Solid' blocks every other known tile from moving onto this one -- but never blocks this tile from moving onto anything else, so a character can never get stuck standing on a tile made solid after the fact, and two adjacent cells of the same tile always stay walkable between each other. 'Open' clears all of this tile's incoming blocks.",
                 Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _includeWritesOverFamilyToggle = new CheckBox { Text = "Include tiles this one writes over (e.g. land's dirt/grass/tallgrass)" };
+            root.AddChild(_includeWritesOverFamilyToggle);
+            root.AddChild(new Label
+            {
+                Text = "Off: Solid/Open act on just the literal tile id -- e.g. 'land' cells a higher layer hasn't painted over. On: they treat the tile as a whole family -- 'land' plus every tile any layer's writes_over rule lets appear in its place -- so the two are blocked from/opened to the outside together, while staying walkable among themselves.",
+                Modulate = new Color(1, 1, 1, 0.5f),
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
             });
             _solidTileRowsContainer = new VBoxContainer();
@@ -1165,7 +1174,10 @@ namespace ProcGenGame
                 var solid = new Button { Text = "Solid", TooltipText = $"Block every other tile from moving onto '{tileId}'" };
                 solid.Pressed += () =>
                 {
-                    TraversalEditing.MakeSolid(_definition.BlockedTransitions, tileId, GetAllTileIds());
+                    if (_includeWritesOverFamilyToggle.ButtonPressed)
+                        TraversalEditing.MakeSolidFamily(_definition.BlockedTransitions, tileId, GetAllTileIds(), _definition.Layers);
+                    else
+                        TraversalEditing.MakeSolid(_definition.BlockedTransitions, tileId, GetAllTileIds());
                     RefreshMovementPanel();
                     Regenerate();
                 };
@@ -1173,7 +1185,10 @@ namespace ProcGenGame
                 var open = new Button { Text = "Open", TooltipText = $"Clear every rule blocking movement onto '{tileId}'" };
                 open.Pressed += () =>
                 {
-                    TraversalEditing.ClearBlocksInto(_definition.BlockedTransitions, tileId);
+                    if (_includeWritesOverFamilyToggle.ButtonPressed)
+                        TraversalEditing.ClearBlocksIntoFamily(_definition.BlockedTransitions, tileId, _definition.Layers);
+                    else
+                        TraversalEditing.ClearBlocksInto(_definition.BlockedTransitions, tileId);
                     RefreshMovementPanel();
                     Regenerate();
                 };
