@@ -108,18 +108,28 @@ overlay.Render(result, region, overrides);
    tells the overlay which layer actually produced the visible tile, so it knows which layer's
    override to check) — overrides are visually distinct from procedural output without any extra
    wiring on your part.
-5. `overlay.LocalPositionToCell(overlay.GetLocalMousePosition())` converts a click into a
-   region-local cell, so wiring up click-to-paint is a few lines:
+5. `overlay.LocalPositionToCell(overlay.GetLocalMousePosition())` converts a click into an
+   absolute world cell (or null if that cell isn't part of whatever region was last rendered), so
+   wiring up click-to-paint is a few lines:
 
 ```csharp
 var cell = overlay.LocalPositionToCell(overlay.GetLocalMousePosition());
 if (cell != null)
 {
-    overrides.Set("ground", region.OriginX + cell.Value.X, region.OriginY + cell.Value.Y, "land");
+    overrides.Set("ground", cell.Value.X, cell.Value.Y, "land");
     var result = MapGenerator.GenerateRegion(def, region, overrides);
     overlay.Render(result, region, overrides);
 }
 ```
+
+The overlay always draws (and reports click positions) in absolute world-cell coordinates, not
+positions relative to the rendered region's origin -- world cell `(wx, wy)` always draws at pixel
+`(wx * CellPixelSize, wy * CellPixelSize)` in the overlay's own local space, regardless of which
+region is currently loaded. That's what lets a consumer freely pan/zoom a camera around the
+overlay (by transforming a parent `Node2D`, as `MapEditorToolScene` does) without needing to
+reposition the overlay itself every time a different region gets generated -- see "Camera: pan,
+zoom, and the designated area" in the README for the fuller picture, including
+`ProcGenDebugOverlay.DesignatedArea` for dimming content outside a map's "real" boundary.
 
 **A working example of all of this** is in this repo at `godot/Scripts/VisualDebugDemoScene.cs` /
 `godot/Scenes/VisualDebugDemo.tscn` — open the scene in the Godot editor and press F6 (Run Current
@@ -185,23 +195,23 @@ overlay on top, semi-transparent, toggled with a key) — they're independent co
 Everything above works identically whether it's driven by gameplay code or by editor-tool code —
 that's the architectural guarantee from milestone 1.
 
-`godot/Scenes/MapEditorTool.tscn` / `Scripts/MapEditorToolScene.cs` is a working reference for the
-property-panel half of a map-making tool: a fixed side panel (region origin/size, Transformation,
-a layer picker, the selected layer's seed X/Y/T, and the selected layer's tiles -- each with a
+`godot/Scenes/MapEditorTool.tscn` / `Scripts/MapEditorToolScene.cs` is a working reference for a
+full map-making tool: a fixed side panel (designated-area origin/size, Transformation, a layer
+picker, the selected layer's seed X/Y/T, and the selected layer's tiles -- each with a
 `ColorPickerButton` swatch, manual-entry range + `-`/`+` nudge buttons, and a remove button, plus
-an "Add Tile" field/button below the list) that writes straight into a live
-`MapDefinition`/`OverrideStore` and regenerates on every change, plus click-to-paint on top via
-`ProcGenDebugOverlay`. It's built entirely from Godot `Control` nodes constructed in code (no
-Inspector/editor-plugin dependency), so it runs the same way whether it's a standalone tool scene
-(as here) or embedded in a bigger editor UI. Tile color is tracked per tile id in the tool (not on
-the engine's `TileDef`, since it's a rendering concern) and stands in for tile art until real art
-exists. See its doc comment and the README's "The map editor tool" section for a screenshot and
-the panel layout.
+an "Add Tile" field/button below the list) driving live regeneration, plus a free mouse-wheel-zoom
+/ click-drag-pan camera over the generation space with the designated area rendered dimmed-outside
+(via `ProcGenDebugOverlay.DesignatedArea`), a coordinate readout, and a "Return to Map Area"
+button. Every field/gesture writes straight into a live `MapDefinition`/`OverrideStore` and calls
+`MapGenerator.GenerateRegion` again against whatever's currently visible -- there's no separate
+"tool state" that could drift from what actually gets generated. It's built entirely from Godot
+`Control`/`Node2D` nodes constructed in code (no Inspector/editor-plugin dependency), so it runs
+the same way whether it's a standalone tool scene (as here) or embedded in a bigger editor UI.
+Tile color is tracked per tile id in the tool (not on the engine's `TileDef`, since it's a
+rendering concern) and stands in for tile art until real art exists. See its doc comment and the
+README's "The map editor tool" section for screenshots and the full control layout.
 
 Still not built, per the milestone-1 scope ("Deferred by design" in the root `README.md`):
-- A camera/pan-and-zoom setup around the map view for navigating without typing exact
-  origin/width/height (the region fields already support "any arbitrary region," just not by
-  dragging).
 - Add/remove layers (tiles can already be added/removed per layer), reordering layers or tiles,
   `writes_over` filter editing, and noise parameter editing
   (octaves/frequency/persistence/lacunarity).

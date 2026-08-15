@@ -106,11 +106,13 @@ namespace ProcGenGame
                 return;
             }
 
+            // LocalPositionToCell now returns absolute world cell coordinates directly (the
+            // overlay draws every cell at its world position), so no region-origin offset needed.
             var cell = _overlay.LocalPositionToCell(_overlay.GetLocalMousePosition());
             if (cell == null) return;
 
-            int worldX = BaseRegion.OriginX + cell.Value.X;
-            int worldY = BaseRegion.OriginY + cell.Value.Y;
+            int worldX = cell.Value.X;
+            int worldY = cell.Value.Y;
 
             if (mouse.ButtonIndex == MouseButton.Right)
             {

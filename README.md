@@ -111,8 +111,10 @@ actually gets generated.
 ![Map editor tool: region/Transformation/layer/seed/tile-range panel on the right, live-generated map on the left, a color-picker-assigned tile color visible in the tile list](docs/map_editor_tool_reference.png)
 
 Panel sections, top to bottom:
-- **Region** — origin X/Y and width/height of the generated region, so you can generate/view any
-  arbitrary area of X/Y space, not just a fixed one.
+- **Region (designated map area)** — origin X/Y and width/height of the map that would actually
+  get exported/used. Editing these fields does *not* move the camera (see below) — it only moves
+  the dimming boundary, so you can look somewhere else and reshape the designated area to match
+  without the view yanking away from what you're looking at.
 - **Transformation** — `-0.1`/`+0.1` buttons plus a manually-editable field; both paths go through
   `TransformationAxis.ClampStep`, so typing an oversized jump gets clamped exactly like an
   oversized nudge would.
@@ -143,10 +145,38 @@ mechanism as the visual debug demo); right-click clears it. Painting is the exce
 when a setting alone can't express what you want — tuning ranges/seeds/region is meant to be how
 you shape most of a map.
 
+### Camera: pan, zoom, and the designated area
+
+The generation space is treated as effectively infinite, and the map view is a free camera over
+it rather than a fixed window onto one fixed region:
+
+![Zoomed out to the 0.2x limit: many separately-generated landmasses scattered across the dimmed generation space, with the bright designated area (yellow-outlined) in the middle](docs/map_editor_camera_reference.png)
+
+- **Mouse wheel** zooms in/out, centered on the cursor (the world point under the cursor stays
+  under it as you zoom), clamped between 0.2x and 3x.
+- **Draw Mode** (top-right checkbox, on by default) governs what left-click-drag does. On:
+  left-click paints, same as always. Off: dragging pans the camera instead — this is the
+  "scroll/drag the map around" navigation mode, deliberately gated behind the same toggle so you
+  can't accidentally pan while trying to paint or vice versa.
+- Whatever's on screen is generated live: every pan/zoom recomputes the visible world-cell
+  rectangle and regenerates *that*, not the designated area — so panning to a distant, never-seen
+  location shows freshly generated content immediately, same engine call as everywhere else.
+  (Panning specifically skips the regenerate when the computed viewport hasn't actually changed
+  cell-wise, since a mouse-drag can fire many motion events per pixel of movement; every other
+  trigger — zoom, edits, painting — always regenerates unconditionally.)
+- Cells outside the designated area render dimmed, with a bright border outlining exactly where it
+  is, via `ProcGenDebugOverlay.DesignatedArea`. This is what makes "decide if you want to move the
+  map origin" a visual decision: wander around with the mouse, read its coordinates off the
+  bottom-left HUD, and type them into the Region fields once you've found where you want the map.
+- **"Return to Map Area"** (top-left button) resets zoom to 1x and recenters the camera on the
+  designated area — the escape hatch for when you've panned somewhere and lost track of it.
+
 This was built and verified the same way as the rest of the tool consumers: run in the real Godot
-4.4.1 editor under Xvfb + software OpenGL, driven with actual `xdotool` clicks and keystrokes —
-selecting layers, nudging tile ranges and watching the map reshape live, typing a seed value
-directly into a field, and painting/clearing an override — not just built and assumed to work.
+4.4.1 editor under Xvfb + software OpenGL, driven with actual `xdotool` clicks, drags, and mouse
+wheel events — zoomed out to the 0.2x limit and back, dragged the camera away and used "Return to
+Map Area" to recover, watched a hand-painted override render dimmed after moving the designated
+area away from it, and confirmed painting/clearing overrides and every panel control still work
+correctly with the camera in play — not just built and assumed to work.
 
 ## Running it
 
@@ -208,6 +238,5 @@ Not built yet, on purpose:
 - The Godot `Resource` save/export adapter (layer definitions + seeds + override diffs, mirroring
   `MapDefinition`/`OverrideStore` 1:1, living in `godot/` so the engine stays Godot-free).
 - In the editor tool specifically: add/remove layers (tiles can already be added/removed per
-  layer), reordering layers or tiles, `writes_over` filter editing, noise parameter editing
-  (octaves/frequency/persistence/lacunarity), and a pan/zoom camera for the map view (the region
-  panel's Origin X/Y fields cover "any arbitrary region," just not by dragging).
+  layer), reordering layers or tiles, `writes_over` filter editing, and noise parameter editing
+  (octaves/frequency/persistence/lacunarity).

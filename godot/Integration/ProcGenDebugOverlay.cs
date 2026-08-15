@@ -14,6 +14,12 @@ namespace ProcGenGame.Integration
     /// carry a manual override so hand-edits are visually distinguishable from procedural output.
     /// Like <see cref="ProcGenTileMapView"/>, this is integration glue: it renders whatever
     /// <see cref="MapResult"/> it's given and never re-derives generation logic itself.
+    ///
+    /// Cells are drawn at their absolute world position (world cell (wx, wy) always draws at
+    /// pixel (wx * CellPixelSize, wy * CellPixelSize) in this node's own local space), not at a
+    /// position relative to the rendered region's origin. That's what lets a consumer freely pan
+    /// a camera around this node (e.g. by moving/scaling a parent Node2D) without needing to
+    /// reposition the overlay itself every time a different region gets generated.
     /// </summary>
     public partial class ProcGenDebugOverlay : Node2D
     {
@@ -24,6 +30,8 @@ namespace ProcGenGame.Integration
         private static readonly Color GridColor = new Color(0, 0, 0, 0.25f);
         private static readonly Color OverrideMarkerColor = new Color(1, 1, 1, 0.9f);
         private static readonly Color UnknownTileColor = new Color(1, 0, 1, 1); // loud magenta: "you forgot to map this tile id"
+        private static readonly Color DesignatedAreaBorderColor = new Color(1f, 0.95f, 0.3f, 0.9f);
+        private const float DimAmount = 0.6f; // how far outside-area cells are darkened toward black, 0..1
 
         private MapResult? _result;
         private RegionSpec _region;
@@ -31,6 +39,15 @@ namespace ProcGenGame.Integration
 
         /// <summary>Which layer's raw resolution to display. Null means "final composite" (the normal in-game view).</summary>
         public string? LayerId { get; private set; }
+
+        /// <summary>
+        /// World-cell rectangle of the "real" map that will actually be used/exported. Cells
+        /// rendered outside this area (still generated so the surrounding space is navigable) are
+        /// dimmed and the area's boundary is outlined, so it's visually obvious where the
+        /// designated map ends and the rest of the (effectively infinite) generation space begins.
+        /// Null disables dimming entirely (draws everything at full brightness).
+        /// </summary>
+        public Rect2I? DesignatedArea { get; set; }
 
         private Dictionary<string, Color> _tileColors = new();
 
@@ -73,25 +90,40 @@ namespace ProcGenGame.Integration
             {
                 DrawGridLines();
             }
+
+            DrawDesignatedAreaBorder();
         }
 
         private void DrawCell(int x, int y)
         {
             string? tile = LayerId == null ? _result!.GetFinalTile(x, y) : _result!.GetLayerTile(LayerId, x, y);
-            var rect = new Rect2(x * CellPixelSize, y * CellPixelSize, CellPixelSize, CellPixelSize);
-
             if (tile == null)
             {
                 return; // nothing resolved here on the selected layer -- leave transparent
             }
 
+            int worldX = _region.OriginX + x;
+            int worldY = _region.OriginY + y;
+            var rect = new Rect2(worldX * CellPixelSize, worldY * CellPixelSize, CellPixelSize, CellPixelSize);
+
             Color color = _tileColors.TryGetValue(tile, out var mapped) ? mapped : UnknownTileColor;
+            if (DesignatedArea.HasValue && !IsInsideDesignatedArea(worldX, worldY))
+            {
+                color = color.Darkened(DimAmount);
+            }
             DrawRect(rect, color, filled: true);
 
             if (ShowOverrideMarkers && _overrides != null && IsOverridden(x, y))
             {
                 DrawRect(rect, OverrideMarkerColor, filled: false, width: 2f);
             }
+        }
+
+        private bool IsInsideDesignatedArea(int worldX, int worldY)
+        {
+            var area = DesignatedArea!.Value;
+            return worldX >= area.Position.X && worldX < area.Position.X + area.Size.X &&
+                   worldY >= area.Position.Y && worldY < area.Position.Y + area.Size.Y;
         }
 
         private bool IsOverridden(int localX, int localY)
@@ -110,31 +142,51 @@ namespace ProcGenGame.Integration
 
         private void DrawGridLines()
         {
-            float w = _region.Width * CellPixelSize;
-            float h = _region.Height * CellPixelSize;
+            float left = _region.OriginX * CellPixelSize;
+            float top = _region.OriginY * CellPixelSize;
+            float right = (_region.OriginX + _region.Width) * CellPixelSize;
+            float bottom = (_region.OriginY + _region.Height) * CellPixelSize;
 
             for (int x = 0; x <= _region.Width; x++)
             {
-                float px = x * CellPixelSize;
-                DrawLine(new Vector2(px, 0), new Vector2(px, h), GridColor);
+                float px = left + x * CellPixelSize;
+                DrawLine(new Vector2(px, top), new Vector2(px, bottom), GridColor);
             }
             for (int y = 0; y <= _region.Height; y++)
             {
-                float py = y * CellPixelSize;
-                DrawLine(new Vector2(0, py), new Vector2(w, py), GridColor);
+                float py = top + y * CellPixelSize;
+                DrawLine(new Vector2(left, py), new Vector2(right, py), GridColor);
             }
         }
 
-        /// <summary>Converts a local mouse/click position (in this node's local coordinates) to a region-local cell, or null if outside the rendered region.</summary>
+        private void DrawDesignatedAreaBorder()
+        {
+            if (!DesignatedArea.HasValue) return;
+            var area = DesignatedArea.Value;
+            var rect = new Rect2(
+                area.Position.X * CellPixelSize, area.Position.Y * CellPixelSize,
+                area.Size.X * CellPixelSize, area.Size.Y * CellPixelSize);
+            DrawRect(rect, DesignatedAreaBorderColor, filled: false, width: 2f);
+        }
+
+        /// <summary>
+        /// Converts a local position (in this node's local coordinates -- see the class doc
+        /// comment on what "local" means here) to the absolute world cell it falls in, or null if
+        /// that cell isn't part of the currently rendered region (so there's no data for it yet).
+        /// </summary>
         public Vector2I? LocalPositionToCell(Vector2 localPosition)
         {
-            int cx = Mathf.FloorToInt(localPosition.X / CellPixelSize);
-            int cy = Mathf.FloorToInt(localPosition.Y / CellPixelSize);
-            if (_result == null || cx < 0 || cy < 0 || cx >= _region.Width || cy >= _region.Height)
+            if (_result == null) return null;
+
+            int wx = Mathf.FloorToInt(localPosition.X / CellPixelSize);
+            int wy = Mathf.FloorToInt(localPosition.Y / CellPixelSize);
+
+            if (wx < _region.OriginX || wy < _region.OriginY ||
+                wx >= _region.OriginX + _region.Width || wy >= _region.OriginY + _region.Height)
             {
                 return null;
             }
-            return new Vector2I(cx, cy);
+            return new Vector2I(wx, wy);
         }
     }
 }
