@@ -91,6 +91,7 @@ namespace ProcGenGame
         private OverrideStore _overrides => _allMaps[_currentMapIndex].Overrides;
         private ProcGenDebugOverlay _overlay = null!;
         private EntranceExitOverlay _markerOverlay = null!;
+        private TraversalOverlay _traversalOverlay = null!;
         private Node2D _worldRoot = null!;
 
         // Designated area (see class doc comment).
@@ -226,6 +227,8 @@ namespace ProcGenGame
             _worldRoot.AddChild(_overlay);
             _markerOverlay = new EntranceExitOverlay { CellPixelSize = CellPixelSize, Visible = false };
             _worldRoot.AddChild(_markerOverlay);
+            _traversalOverlay = new TraversalOverlay { CellPixelSize = CellPixelSize, Visible = false };
+            _worldRoot.AddChild(_traversalOverlay);
 
             BuildMapHud();
             BuildSidePanel();
@@ -384,6 +387,7 @@ namespace ProcGenGame
             _entranceExitModePanel.Visible = mode == 1;
             _movementModePanel.Visible = mode == 2;
             _projectOverviewPanel.Visible = mode == 3;
+            _traversalOverlay.Visible = mode == 2;
             _armedEntrance = null;
             _armedExit = null;
             if (mode == 3) RefreshProjectOverview();
@@ -1163,6 +1167,7 @@ namespace ProcGenGame
                 {
                     TraversalEditing.MakeSolid(_definition.BlockedTransitions, tileId, GetAllTileIds());
                     RefreshMovementPanel();
+                    Regenerate();
                 };
                 row.AddChild(solid);
                 var open = new Button { Text = "Open", TooltipText = $"Clear every rule blocking movement onto '{tileId}'" };
@@ -1170,6 +1175,7 @@ namespace ProcGenGame
                 {
                     TraversalEditing.ClearBlocksInto(_definition.BlockedTransitions, tileId);
                     RefreshMovementPanel();
+                    Regenerate();
                 };
                 row.AddChild(open);
                 _solidTileRowsContainer.AddChild(row);
@@ -1190,6 +1196,7 @@ namespace ProcGenGame
                 {
                     _definition.BlockedTransitions.RemoveAt(index);
                     RefreshMovementPanel();
+                    Regenerate();
                 };
                 row.AddChild(remove);
                 _transitionRulesContainer.AddChild(row);
@@ -1239,6 +1246,7 @@ namespace ProcGenGame
             _definition.BlockedTransitions.Add(new TileTransitionRule(from, to));
             _movementHintLabel.Text = "";
             RefreshMovementPanel();
+            Regenerate();
         }
 
         private void RefreshMarkerOverlay()
@@ -1602,6 +1610,7 @@ namespace ProcGenGame
             {
                 var result = MapGenerator.GenerateRegion(_definition, viewport, _overrides);
                 _overlay.Render(result, viewport, _overrides);
+                _traversalOverlay.Render(result, viewport, CompiledTraversalRules.Compile(_definition));
                 UpdateStatus();
             }
             catch (ArgumentException ex)

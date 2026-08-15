@@ -37,6 +37,9 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
                                     ProcGen.Engine/Serialization.
   Scripts/EntranceExitOverlay.cs   Draws the entrance/exit markers described above -- a pure
                                     visualization aid, no engine data flows through it.
+  Scripts/TraversalOverlay.cs      Draws a thin red line on every adjacent-cell edge the
+                                    Movement panel's rules currently block, evaluated against
+                                    the actual generated tiles -- also a pure visualization aid.
 docs/                     Reference screenshots for INTEGRATION.md / this README.
 INTEGRATION.md            How to copy this into your own Godot project, render with real
                            tile art, and visually debug generation.
@@ -286,6 +289,17 @@ Edited from the panel behind the **Edit: Movement** dropdown option:
 
 Like entrance/exit ids, `BlockedTransitions` is plain `MapDefinition` data, so it round-trips
 through Save/Load and gets deep-cloned by **Duplicate** the same as everything else on a map.
+
+While the Movement panel is open, `TraversalOverlay` draws a thin red line along every
+adjacent-cell edge in the current viewport that's actually blocked (in either direction) --
+evaluated against each cell's real final resolved tile id via `CompiledTraversalRules`, not the
+abstract rule list, so what's drawn always matches what a player would actually hit. This is why
+making "land" solid on the milestone-1 starter map draws no red lines around the visible tan
+shoreline: `ground_cover`'s `writes_over` has already replaced most of those `land` cells with
+grass/dirt/tallgrass by the time they're the *final* tile, and the rule only covers `land` --
+switch on **Show final composite** (Map panel) to see exactly which cells are still truly `land`
+in the result. Making `sand` solid instead (never written over) traces a clean red outline around
+its entire shore.
 
 ## Running it
 
