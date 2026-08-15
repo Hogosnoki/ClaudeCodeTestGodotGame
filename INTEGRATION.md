@@ -183,11 +183,23 @@ overlay on top, semi-transparent, toggled with a key) — they're independent co
 ## Notes for the editor tool specifically
 
 Everything above works identically whether it's driven by gameplay code or by editor-tool code —
-that's the architectural guarantee from milestone 1. A map-making tool would additionally want:
-- A camera/pan-and-zoom setup around the `ProcGenDebugOverlay` or `ProcGenTileMapView` for
-  navigating arbitrary regions (not built here — this guide's demo scene uses a fixed region).
-- Per-layer parameter controls (tile ranges, seeds, noise params) wired to Inspector-editable
-  fields or a custom dock, calling `MapGenerator.GenerateRegion` again on every change and
-  re-rendering — the same `Render`/`ShowLayer` calls used above.
-- Saving/loading `MapDefinition` + `OverrideStore` — still deferred, per the milestone-1 scope
-  ("Deferred by design" in the root `README.md`).
+that's the architectural guarantee from milestone 1.
+
+`godot/Scenes/MapEditorTool.tscn` / `Scripts/MapEditorToolScene.cs` is a working reference for the
+property-panel half of a map-making tool: a fixed side panel (region origin/size, Transformation,
+a layer picker, the selected layer's seed X/Y/T, and the selected layer's tile ranges with manual
+entry + `-`/`+` nudge buttons) that writes straight into a live `MapDefinition`/`OverrideStore` and
+regenerates on every change, plus click-to-paint on top via `ProcGenDebugOverlay`. It's built
+entirely from Godot `Control` nodes constructed in code (no Inspector/editor-plugin dependency),
+so it runs the same way whether it's a standalone tool scene (as here) or embedded in a bigger
+editor UI. See its doc comment and the README's "The map editor tool" section for a screenshot and
+the panel layout.
+
+Still not built, per the milestone-1 scope ("Deferred by design" in the root `README.md`):
+- A camera/pan-and-zoom setup around the map view for navigating without typing exact
+  origin/width/height (the region fields already support "any arbitrary region," just not by
+  dragging).
+- Add/remove/reorder layers and tiles, `writes_over` filter editing, and noise parameter editing
+  (octaves/frequency/persistence/lacunarity) — the panel currently edits an existing layer's seed
+  and tile ranges only.
+- Saving/loading `MapDefinition` + `OverrideStore`.

@@ -23,7 +23,11 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
   Scripts/Milestone1TestScene.cs   Headless console proof of the milestone-1 scenario.
   Scripts/VisualDebugDemoScene.cs  Interactive, on-screen demo: colored-cell rendering,
                                     click-to-paint overrides, Transformation scrubbing.
-docs/                     Reference screenshot for INTEGRATION.md.
+  Scripts/MapEditorToolScene.cs    The map-making tool: a fixed side property panel
+                                    (region, Transformation, per-layer seed, per-layer tile
+                                    ranges with manual entry + nudge buttons) driving live
+                                    regeneration, plus click-to-paint on top.
+docs/                     Reference screenshots for INTEGRATION.md / this README.
 INTEGRATION.md            How to copy this into your own Godot project, render with real
                            tile art, and visually debug generation.
 ```
@@ -96,6 +100,40 @@ layers see when evaluating their own filters — matching the composition order 
 show one rule per layer, so this is a documented design choice, not something pinned down by the
 spec text.
 
+## The map editor tool
+
+`godot/Scenes/MapEditorTool.tscn` is the actual "map-making tool" from the spec: a fixed property
+panel docked to the right, map view on the left, no hand-painting-every-tile required. Every field
+writes straight into the live `MapDefinition`/`OverrideStore` the engine consumes and triggers
+`MapGenerator.GenerateRegion` again — there's no separate "tool state" that could drift from what
+actually gets generated.
+
+![Map editor tool: region/Transformation/layer/seed/tile-range panel on the right, live-generated map on the left, one hand-painted override outlined](docs/map_editor_tool_reference.png)
+
+Panel sections, top to bottom:
+- **Region** — origin X/Y and width/height of the generated region, so you can generate/view any
+  arbitrary area of X/Y space, not just a fixed one.
+- **Transformation** — `-0.1`/`+0.1` buttons plus a manually-editable field; both paths go through
+  `TransformationAxis.ClampStep`, so typing an oversized jump gets clamped exactly like an
+  oversized nudge would.
+- **Layer** — click to choose which layer you're working on; also switches the map view to that
+  layer's raw resolution (or check "Show final composite" to see the composited result instead).
+- **Seed (selected layer)** — that layer's X/Y/T position in the generation lattice, freely
+  editable.
+- **Tiles (selected layer)** — one row per tile: id, a `-` button, a manually-editable range field,
+  and a `+` button, each nudge moving the range by 0.1 exactly as asked for. Changing a range
+  regenerates immediately, so the effect on the map is visible right away.
+
+Left-click on the map still cycles a manual override on the selected layer at that cell (same
+mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
+when a setting alone can't express what you want — tuning ranges/seeds/region is meant to be how
+you shape most of a map.
+
+This was built and verified the same way as the rest of the tool consumers: run in the real Godot
+4.4.1 editor under Xvfb + software OpenGL, driven with actual `xdotool` clicks and keystrokes —
+selecting layers, nudging tile ranges and watching the map reshape live, typing a seed value
+directly into a field, and painting/clearing an override — not just built and assumed to work.
+
 ## Running it
 
 ```bash
@@ -108,6 +146,9 @@ godot --headless --path .
 
 # Interactive visual debugger (open in the editor and press F6, or run directly):
 godot --path . res://Scenes/VisualDebugDemo.tscn
+
+# The map editor tool -- property panel + live regeneration:
+godot --path . res://Scenes/MapEditorTool.tscn
 ```
 
 The headless scene prints an ASCII render of the generated region, the Transformation-axis
@@ -140,8 +181,7 @@ debugger, is in [`INTEGRATION.md`](INTEGRATION.md).
 
 ## Deferred by design (per "stop there" in the spec)
 
-Not built yet, on purpose — milestone 1 is only meant to prove the core mechanics, and this
-integration pass only adds copy-paste packaging + rendering/debug consumers on top of it:
+Not built yet, on purpose:
 
 - More than 2 layers, and the `no_override` pseudo-tile.
 - **Zones** (spatially-varying parameter overrides). Integration point to keep in mind: the
@@ -152,5 +192,8 @@ integration pass only adds copy-paste packaging + rendering/debug consumers on t
   everything per-cell, so this should be a matter of swapping "look up this layer's compiled tile
   list" for "look up this layer's compiled tile list *at this position*" — not a restructure.
 - The Godot `Resource` save/export adapter (layer definitions + seeds + override diffs, mirroring
-  `MapDefinition`/`OverrideStore` 1:1, living in `godot/` so the engine stays Godot-free) and the
-  full editor tool UI (pan/zoom camera, per-layer parameter panels, reorderable layer list).
+  `MapDefinition`/`OverrideStore` 1:1, living in `godot/` so the engine stays Godot-free).
+- In the editor tool specifically: add/remove/reorder layers and tiles, `writes_over` filter
+  editing, noise parameter editing (octaves/frequency/persistence/lacunarity), and a pan/zoom
+  camera for the map view (the region panel's Origin X/Y fields cover "any arbitrary region," just
+  not by dragging).
