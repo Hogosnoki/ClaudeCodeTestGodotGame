@@ -211,12 +211,20 @@ Tile color is tracked per tile id in the tool (not on the engine's `TileDef`, si
 rendering concern) and stands in for tile art until real art exists. See its doc comment and the
 README's "The map editor tool" section for screenshots and the full control layout.
 
-Project save/load, multiple maps per project, and entrance/exit point editing (with click-to-place
-canvas markers and a dangling-exit diagnostic panel) are built -- see "Save/load, multiple maps,
-and entrance/exit points" in the README. A project file is one whole game: saving goes through
-`ProcGen.Engine.Serialization.ProjectFileSerializer`, the same reader/writer a game must use to
-load one back, and every map in the project is read/written together; nothing editor-only (tile
-display colors, camera state) is part of the saved format.
+Project save/load, multiple maps per project, entrance/exit point editing (with click-to-place
+canvas markers and a dangling-exit diagnostic panel), and directional tile-transition
+(movement-blocking) rule editing are built -- see "Save/load, multiple maps, and entrance/exit
+points" and "Movement: tile transition rules" in the README. A project file is one whole game:
+saving goes through `ProcGen.Engine.Serialization.ProjectFileSerializer`, the same reader/writer a
+game must use to load one back, and every map in the project is read/written together; nothing
+editor-only (tile display colors, camera state) is part of the saved format.
+
+Movement blocking is deliberately a single mechanism: there is no separate per-tile "walkable"
+flag, only a list of directional `ProcGen.Engine.Model.TileTransitionRule(FromTileId, ToTileId)`
+pairs on `MapDefinition.BlockedTransitions`, checked against each cell's final resolved tile id
+(never its layer) via `ProcGen.Engine.Movement.CompiledTraversalRules`. A game should compile this
+once per loaded map (not per movement check) and call `IsBlocked(fromTileId, toTileId)` before
+letting a character step from one cell onto an adjacent one.
 
 Still not built, per the milestone-1 scope ("Deferred by design" in the root `README.md`):
 - Add/remove layers (tiles can already be added/removed per layer), and reordering layers, tiles,

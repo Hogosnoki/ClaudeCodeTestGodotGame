@@ -44,5 +44,13 @@ namespace ProcGen.Engine.Model
 
         /// <summary>A point the player leaves through, naming a destination map id and one of that destination's entrance ids.</summary>
         public List<ExitPoint> Exits { get; set; } = new List<ExitPoint>();
+
+        /// <summary>
+        /// Directional movement-blocking rules between adjacent cells, keyed by final tile id --
+        /// evaluated by <see cref="ProcGen.Engine.Movement.CompiledTraversalRules"/>, never
+        /// consulted by generation itself. This is the only movement-blocking mechanism; there is
+        /// no separate per-tile "walkable" flag. See <see cref="TileTransitionRule"/>.
+        /// </summary>
+        public List<TileTransitionRule> BlockedTransitions { get; set; } = new List<TileTransitionRule>();
     }
 }

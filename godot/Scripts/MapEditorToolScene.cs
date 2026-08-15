@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Godot;
 using ProcGen.Engine.Generation;
 using ProcGen.Engine.Model;
+using ProcGen.Engine.Movement;
 using ProcGen.Engine.Overrides;
 using ProcGen.Engine.Serialization;
 using ProcGen.Engine.Validation;
@@ -34,12 +35,16 @@ namespace ProcGenGame
     /// properties, not fields, so every existing read site keeps working unchanged regardless of
     /// which map is currently selected.
     ///
-    /// An "Edit: Map / Entrance-Exit / Project Overview" dropdown swaps the panel between the
-    /// settings above, a panel for adding/positioning this map's named entrance and exit points
-    /// (so those controls aren't cluttering the view all the time), and a project-wide summary
+    /// An "Edit: Map / Entrance-Exit / Movement / Project Overview" dropdown swaps the panel
+    /// between the settings above, a panel for adding/positioning this map's named entrance and
+    /// exit points (so those controls aren't cluttering the view all the time), a panel for
+    /// editing directional tile-transition (movement-blocking) rules, and a project-wide summary
     /// that flags exits whose destination doesn't resolve to a real map/entrance. Entrance/exit
     /// points render as colored markers on the map while that panel is active; a "Place" button
-    /// per point arms it so the next map click sets its position.
+    /// per point arms it so the next map click sets its position. There is no separate per-tile
+    /// "walkable" flag anywhere in the tool -- the Movement panel's "Solid"/"Open" buttons are a
+    /// convenience that bulk-add/remove ordinary <see cref="ProcGen.Engine.Model.TileTransitionRule"/>s
+    /// via <see cref="ProcGen.Engine.Movement.TraversalEditing"/>, so that's the only mechanism.
     ///
     /// Two rectangles matter here and are easy to conflate:
     ///   - The "designated area" (Region panel: Origin X/Y, Width/Height) -- the actual map that
@@ -137,7 +142,7 @@ namespace ProcGenGame
         private ItemList _mapList = null!;
         private Label _mapListHintLabel = null!;
         private OptionButton _modeDropdown = null!;
-        private int _panelMode; // 0 = Map, 1 = Entrance/Exit, 2 = Project Overview
+        private int _panelMode; // 0 = Map, 1 = Entrance/Exit, 2 = Movement, 3 = Project Overview
         private VBoxContainer _mapModePanel = null!;
         private VBoxContainer _entranceExitModePanel = null!;
         private VBoxContainer _entrancesContainer = null!;
@@ -146,6 +151,12 @@ namespace ProcGenGame
         private VBoxContainer _exitsContainer = null!;
         private LineEdit _newExitIdEdit = null!;
         private Label _exitHintLabel = null!;
+        private VBoxContainer _movementModePanel = null!;
+        private VBoxContainer _solidTileRowsContainer = null!;
+        private VBoxContainer _transitionRulesContainer = null!;
+        private OptionButton _newRuleFromDropdown = null!;
+        private OptionButton _newRuleToDropdown = null!;
+        private Label _movementHintLabel = null!;
         private VBoxContainer _projectOverviewPanel = null!;
         private VBoxContainer _projectOverviewMapsContainer = null!;
         private VBoxContainer _danglingExitsContainer = null!;
@@ -177,6 +188,7 @@ namespace ProcGenGame
             RefreshLayerList();
             RebuildEntranceRows();
             RebuildExitRows();
+            RefreshMovementPanel();
             CenterOnDesignatedArea();
             SelectLayer(0);
         }
@@ -338,6 +350,7 @@ namespace ProcGenGame
             _modeDropdown = new OptionButton();
             _modeDropdown.AddItem("Map");
             _modeDropdown.AddItem("Entrance / Exit");
+            _modeDropdown.AddItem("Movement");
             _modeDropdown.AddItem("Project Overview");
             _modeDropdown.ItemSelected += index => SetPanelMode((int)index);
             root.AddChild(_modeDropdown);
@@ -353,6 +366,11 @@ namespace ProcGenGame
             root.AddChild(_entranceExitModePanel);
             BuildEntranceExitModePanel(_entranceExitModePanel);
 
+            _movementModePanel = new VBoxContainer { Visible = false };
+            _movementModePanel.AddThemeConstantOverride("separation", 6);
+            root.AddChild(_movementModePanel);
+            BuildMovementModePanel(_movementModePanel);
+
             _projectOverviewPanel = new VBoxContainer { Visible = false };
             _projectOverviewPanel.AddThemeConstantOverride("separation", 6);
             root.AddChild(_projectOverviewPanel);
@@ -364,10 +382,11 @@ namespace ProcGenGame
             _panelMode = mode;
             _mapModePanel.Visible = mode == 0;
             _entranceExitModePanel.Visible = mode == 1;
-            _projectOverviewPanel.Visible = mode == 2;
+            _movementModePanel.Visible = mode == 2;
+            _projectOverviewPanel.Visible = mode == 3;
             _armedEntrance = null;
             _armedExit = null;
-            if (mode == 2) RefreshProjectOverview();
+            if (mode == 3) RefreshProjectOverview();
             RefreshMarkerOverlay();
         }
 
@@ -507,6 +526,53 @@ namespace ProcGenGame
             root.AddChild(_exitHintLabel);
         }
 
+        private void BuildMovementModePanel(VBoxContainer root)
+        {
+            root.AddChild(new Label
+            {
+                Text = "Whether a character standing on one tile can step onto an adjacent one, checked purely by the final tile id each cell resolves to -- never by layer. There's no separate 'walkable' flag on a tile; every rule below, hand-added or bulk-generated by 'Solid', lives in the same list and is equally editable.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            root.AddChild(new HSeparator());
+
+            root.AddChild(Header("Make a tile solid"));
+            root.AddChild(new Label
+            {
+                Text = "'Solid' blocks every other known tile from moving onto this one -- but never blocks this tile from moving onto anything else, so a character can never get stuck standing on a tile made solid after the fact, and two adjacent cells of the same tile always stay walkable between each other. 'Open' clears all of this tile's incoming blocks.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _solidTileRowsContainer = new VBoxContainer();
+            root.AddChild(_solidTileRowsContainer);
+            root.AddChild(new HSeparator());
+
+            root.AddChild(Header("Transition rules"));
+            root.AddChild(new Label
+            {
+                Text = "Every current rule, one per row: a character standing on 'From' cannot step onto an adjacent 'To'. Blocking is one-directional -- add the reverse rule too if movement should be blocked both ways.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _transitionRulesContainer = new VBoxContainer();
+            root.AddChild(_transitionRulesContainer);
+
+            var addRuleRow = new HBoxContainer();
+            _newRuleFromDropdown = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            addRuleRow.AddChild(_newRuleFromDropdown);
+            addRuleRow.AddChild(new Label { Text = "->" });
+            _newRuleToDropdown = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            addRuleRow.AddChild(_newRuleToDropdown);
+            root.AddChild(addRuleRow);
+
+            var addRuleButton = new Button { Text = "Add Rule" };
+            addRuleButton.Pressed += OnAddTransitionRulePressed;
+            root.AddChild(addRuleButton);
+
+            _movementHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_movementHintLabel);
+        }
+
         private void BuildProjectOverviewPanel(VBoxContainer root)
         {
             root.AddChild(Header("Maps"));
@@ -632,9 +698,9 @@ namespace ProcGenGame
                     PlaceArmedMarkerAtMouse();
                     return;
                 }
-                // In Entrance/Exit edit mode there's nothing to paint -- dragging always pans,
+                // In every non-Map edit mode there's nothing to paint -- dragging always pans,
                 // regardless of the Draw Mode toggle (which only makes sense for terrain).
-                if (_panelMode == 1 || !_drawMode)
+                if (_panelMode != 0 || !_drawMode)
                 {
                     _isPanning = mouse.Pressed;
                     _lastPanMousePos = mouse.Position;
@@ -851,6 +917,7 @@ namespace ProcGenGame
 
             RebuildTileRows(layer);
             _overlay.SetTileColors(_tileColors);
+            RefreshMovementPanel();
             Regenerate();
         }
 
@@ -859,6 +926,7 @@ namespace ProcGenGame
             if (layer.Tiles.Count <= 1) return; // CompiledLayer requires at least one tile
             layer.Tiles.Remove(tile);
             RebuildTileRows(layer);
+            RefreshMovementPanel();
             Regenerate();
         }
 
@@ -1063,6 +1131,116 @@ namespace ProcGenGame
             RebuildExitRows();
         }
 
+        /// <summary>Every distinct tile id used by any layer of the current map, in first-seen order -- the universe "Solid" bulk-blocks against and the dropdown options for hand-added rules.</summary>
+        private List<string> GetAllTileIds()
+        {
+            var seen = new HashSet<string>();
+            var ids = new List<string>();
+            foreach (var layer in _definition.Layers)
+            {
+                foreach (var tile in layer.Tiles)
+                {
+                    if (seen.Add(tile.Id)) ids.Add(tile.Id);
+                }
+            }
+            return ids;
+        }
+
+        private void RefreshMovementPanel()
+        {
+            var tileIds = GetAllTileIds();
+
+            foreach (Node child in _solidTileRowsContainer.GetChildren())
+            {
+                child.QueueFree();
+            }
+            foreach (var tileId in tileIds)
+            {
+                var row = new HBoxContainer();
+                row.AddChild(new Label { Text = tileId, CustomMinimumSize = new Vector2(120, 0) });
+                var solid = new Button { Text = "Solid", TooltipText = $"Block every other tile from moving onto '{tileId}'" };
+                solid.Pressed += () =>
+                {
+                    TraversalEditing.MakeSolid(_definition.BlockedTransitions, tileId, GetAllTileIds());
+                    RefreshMovementPanel();
+                };
+                row.AddChild(solid);
+                var open = new Button { Text = "Open", TooltipText = $"Clear every rule blocking movement onto '{tileId}'" };
+                open.Pressed += () =>
+                {
+                    TraversalEditing.ClearBlocksInto(_definition.BlockedTransitions, tileId);
+                    RefreshMovementPanel();
+                };
+                row.AddChild(open);
+                _solidTileRowsContainer.AddChild(row);
+            }
+
+            foreach (Node child in _transitionRulesContainer.GetChildren())
+            {
+                child.QueueFree();
+            }
+            for (int i = 0; i < _definition.BlockedTransitions.Count; i++)
+            {
+                int index = i;
+                var rule = _definition.BlockedTransitions[i];
+                var row = new HBoxContainer();
+                row.AddChild(new Label { Text = $"{rule.FromTileId} -> {rule.ToTileId}", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+                var remove = new Button { Text = "x", TooltipText = "Remove this rule" };
+                remove.Pressed += () =>
+                {
+                    _definition.BlockedTransitions.RemoveAt(index);
+                    RefreshMovementPanel();
+                };
+                row.AddChild(remove);
+                _transitionRulesContainer.AddChild(row);
+            }
+
+            PopulateTileDropdown(_newRuleFromDropdown, tileIds, "");
+            PopulateTileDropdown(_newRuleToDropdown, tileIds, "");
+        }
+
+        private static void PopulateTileDropdown(OptionButton dropdown, List<string> tileIds, string currentValue)
+        {
+            dropdown.Clear();
+            dropdown.AddItem("(choose a tile)");
+            dropdown.SetItemMetadata(0, "");
+            int selectIndex = 0;
+
+            for (int i = 0; i < tileIds.Count; i++)
+            {
+                dropdown.AddItem(tileIds[i]);
+                dropdown.SetItemMetadata(i + 1, tileIds[i]);
+                if (!string.IsNullOrEmpty(currentValue) && tileIds[i] == currentValue) selectIndex = i + 1;
+            }
+            dropdown.Select(selectIndex);
+        }
+
+        private void OnAddTransitionRulePressed()
+        {
+            string from = _newRuleFromDropdown.GetItemMetadata(_newRuleFromDropdown.Selected).AsString();
+            string to = _newRuleToDropdown.GetItemMetadata(_newRuleToDropdown.Selected).AsString();
+
+            if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
+            {
+                _movementHintLabel.Text = "Choose both a From and a To tile first.";
+                return;
+            }
+            if (from == to)
+            {
+                _movementHintLabel.Text = "A tile can't block movement into itself -- same-type movement always stays open.";
+                return;
+            }
+            if (_definition.BlockedTransitions.Exists(r => r.FromTileId == from && r.ToTileId == to))
+            {
+                _movementHintLabel.Text = "This rule already exists.";
+                return;
+            }
+
+            _definition.BlockedTransitions.Add(new TileTransitionRule(from, to));
+            _movementHintLabel.Text = "";
+            RefreshMovementPanel();
+        }
+
         private void RefreshMarkerOverlay()
         {
             var entrances = _definition.Entrances.ConvertAll(e => (e.Id, e.X, e.Y));
@@ -1113,6 +1291,7 @@ namespace ProcGenGame
             RefreshLayerList();
             RebuildEntranceRows();
             RebuildExitRows();
+            RefreshMovementPanel();
             SelectLayer(0);
             CenterOnDesignatedArea();
             RefreshMapList();
@@ -1181,6 +1360,7 @@ namespace ProcGenGame
             }
             foreach (var e in source.Entrances) clone.Entrances.Add(new EntrancePoint(e.Id, e.X, e.Y));
             foreach (var e in source.Exits) clone.Exits.Add(new ExitPoint(e.Id, e.X, e.Y, e.DestinationMapId, e.DestinationEntranceId));
+            foreach (var r in source.BlockedTransitions) clone.BlockedTransitions.Add(new TileTransitionRule(r.FromTileId, r.ToTileId));
             return clone;
         }
 

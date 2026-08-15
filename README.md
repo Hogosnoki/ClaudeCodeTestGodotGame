@@ -28,11 +28,12 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
                                     ranges with manual entry + nudge buttons) driving live
                                     regeneration, plus click-to-paint on top, a "Maps in this
                                     project" list (New/Duplicate/Delete), and an "Edit: Map /
-                                    Entrance-Exit / Project Overview" dropdown that swaps in a
-                                    panel for this map's named entrance/exit points (with
-                                    click-to-place canvas markers) or a project-wide summary
-                                    that flags dangling exits. Save/Load read and write every
-                                    map in the project at once as JSON via
+                                    Entrance-Exit / Movement / Project Overview" dropdown that
+                                    swaps in a panel for this map's named entrance/exit points
+                                    (with click-to-place canvas markers), a panel for editing
+                                    directional tile-transition (movement-blocking) rules, or a
+                                    project-wide summary that flags dangling exits. Save/Load
+                                    read and write every map in the project at once as JSON via
                                     ProcGen.Engine/Serialization.
   Scripts/EntranceExitOverlay.cs   Draws the entrance/exit markers described above -- a pure
                                     visualization aid, no engine data flows through it.
@@ -162,11 +163,12 @@ Panel sections, top to bottom:
 Above the panel sections described so far sits **Project** (a save file name field and Save/Load
 buttons, acting on every map at once), **Maps in this project** (a list of every map in the
 project with New/Duplicate/Delete, switching which map the rest of the panel edits), **Map** (just
-the currently-selected map's id), and an **Edit: Map / Entrance-Exit / Project Overview** dropdown
-that swaps everything below it between the panel just described, a second panel for this map's
-named entrance/exit points, and a project-wide summary -- so those controls aren't cluttering the
-view for maps that don't need them yet. See "Save/load, multiple maps, and entrance/exit points"
-below.
+the currently-selected map's id), and an **Edit: Map / Entrance-Exit / Movement / Project
+Overview** dropdown that swaps everything below it between the panel just described, a second
+panel for this map's named entrance/exit points, a third for movement/traversal rules, and a
+project-wide summary -- so those controls aren't cluttering the view for maps that don't need them
+yet. See "Save/load, multiple maps, and entrance/exit points" and "Movement: tile transition
+rules" below.
 
 Left-click on the map still cycles a manual override on the selected layer at that cell (same
 mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
@@ -253,10 +255,42 @@ and flags exactly that: every exit whose destination doesn't resolve within the 
 since a map under active construction may legitimately reference a destination you haven't built
 yet.
 
+### Movement: tile transition rules
+
+Beyond a tile being solid or open outright, movement between two *specific* adjacent tile types can
+be blocked -- e.g. characters can walk on both shallow water and grass individually, but not step
+directly from one onto the other, forcing a sandy bank in between. There is deliberately only one
+mechanism for all of this: `MapDefinition.BlockedTransitions`, a list of directional
+`TileTransitionRule(FromTileId, ToTileId)` pairs. There is no separate per-tile "walkable" flag
+anywhere in the engine or the tool.
+
+Blocking is checked purely against each cell's **final resolved tile id** (`MapResult.GetFinalTile`
+— see `ProcGen.Engine.Movement.CompiledTraversalRules`), never against which layer produced it, so a
+rule can freely pair tiles from different layers (e.g. `ground.shallow_water` -> `ground_cover.grass`).
+Rules are one-directional: `(shallow_water, grass)` blocks stepping from shallow water onto grass but
+not the reverse, and a symmetric block is just two rules. That asymmetry is also what makes a
+one-way transition (e.g. drop down a ledge but can't climb back up) fall out for free, with no
+special case.
+
+Edited from the panel behind the **Edit: Movement** dropdown option:
+- Every tile id used anywhere in the current map gets a row with **Solid** / **Open** buttons.
+  **Solid** bulk-adds a rule from every *other* known tile into this one
+  (`ProcGen.Engine.Movement.TraversalEditing.MakeSolid`) — but never a rule out of it, so a
+  character can never get stranded on a tile that was made solid after they walked onto it, and it
+  never blocks a tile from itself, so two adjacent cells of the same tile always stay walkable
+  between each other. **Open** removes every rule blocking movement onto that tile
+  (`TraversalEditing.ClearBlocksInto`).
+- A **Transition rules** list shows every current rule (bulk-generated or hand-added — they're
+  stored identically and equally editable) with a remove button, plus a From/To tile dropdown pair
+  and **Add Rule** button for adding one-off rules by hand.
+
+Like entrance/exit ids, `BlockedTransitions` is plain `MapDefinition` data, so it round-trips
+through Save/Load and gets deep-cloned by **Duplicate** the same as everything else on a map.
+
 ## Running it
 
 ```bash
-# Engine unit tests (46 tests, no Godot needed):
+# Engine unit tests (53 tests, no Godot needed):
 dotnet test tests/ProcGen.Engine.Tests/ProcGen.Engine.Tests.csproj
 
 # Milestone-1 console proof, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):
