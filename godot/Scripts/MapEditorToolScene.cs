@@ -24,12 +24,22 @@ namespace ProcGenGame
     /// <see cref="OverrideStore"/> the engine consumes -- there is no separate "tool state" that
     /// could drift from what actually gets generated.
     ///
-    /// An "Edit: Map / Entrance-Exit" dropdown swaps the panel between the settings above and a
-    /// second panel for adding/positioning this map's named entrance and exit points (so those
-    /// controls aren't cluttering the view all the time). Save/Load read and write the exact same
-    /// <see cref="MapDefinition"/>/<see cref="OverrideStore"/> pair as JSON via
-    /// <see cref="MapFileSerializer"/> -- the same reader/writer the game itself must use, so a
-    /// saved file is guaranteed to reproduce identically wherever it's loaded.
+    /// A project file *is* a game: <see cref="_allMaps"/> holds every map belonging to it, and
+    /// Save/Load act on all of them at once via <see cref="ProjectFileSerializer"/> -- the same
+    /// reader/writer the game itself must use, so a saved file reproduces identically wherever
+    /// it's loaded. There is deliberately no way to load a single map out of a different project
+    /// file; an exit's destination is always resolved against maps already in memory. The "Maps
+    /// in this project" list switches which map the rest of the panel edits (New/Duplicate/Delete
+    /// included); <see cref="_definition"/>/<see cref="_overrides"/> below are computed
+    /// properties, not fields, so every existing read site keeps working unchanged regardless of
+    /// which map is currently selected.
+    ///
+    /// An "Edit: Map / Entrance-Exit / Project Overview" dropdown swaps the panel between the
+    /// settings above, a panel for adding/positioning this map's named entrance and exit points
+    /// (so those controls aren't cluttering the view all the time), and a project-wide summary
+    /// that flags exits whose destination doesn't resolve to a real map/entrance. Entrance/exit
+    /// points render as colored markers on the map while that panel is active; a "Place" button
+    /// per point arms it so the next map click sets its position.
     ///
     /// Two rectangles matter here and are easy to conflate:
     ///   - The "designated area" (Region panel: Origin X/Y, Width/Height) -- the actual map that
@@ -65,9 +75,17 @@ namespace ProcGenGame
             ["tallgrass"] = new Color(0.15f, 0.45f, 0.15f),
         };
 
-        private MapDefinition _definition = null!;
-        private OverrideStore _overrides = null!;
+        // Every map in the project, in project order; _currentMapIndex says which one the rest of
+        // the panel is editing. _definition/_overrides below are computed, not stored -- every
+        // existing read site (`_definition.Layers`, `_overrides.TryGet(...)`, etc.) keeps working
+        // unchanged, since a property reads exactly like a field at the call site. The only places
+        // that ever need to *reassign* which map is active go through _currentMapIndex instead.
+        private List<(MapDefinition Definition, OverrideStore Overrides)> _allMaps = null!;
+        private int _currentMapIndex;
+        private MapDefinition _definition => _allMaps[_currentMapIndex].Definition;
+        private OverrideStore _overrides => _allMaps[_currentMapIndex].Overrides;
         private ProcGenDebugOverlay _overlay = null!;
+        private EntranceExitOverlay _markerOverlay = null!;
         private Node2D _worldRoot = null!;
 
         // Designated area (see class doc comment).
@@ -109,12 +127,17 @@ namespace ProcGenGame
         private CheckBox _compositeToggle = null!;
         private CheckBox _drawModeToggle = null!;
 
-        // Save/load and the Map / Entrance-Exit panel switch.
+        // Save/load, the maps-in-project list, and the Map / Entrance-Exit / Project Overview
+        // panel switch. A project file *is* a game (see class doc comment) -- Save/Load act on
+        // every map in _allMaps at once, not just the currently selected one.
         private const string MapsDirectory = "res://Maps";
         private LineEdit _mapIdEdit = null!;
         private LineEdit _saveFileNameEdit = null!;
         private Label _saveLoadStatusLabel = null!;
+        private ItemList _mapList = null!;
+        private Label _mapListHintLabel = null!;
         private OptionButton _modeDropdown = null!;
+        private int _panelMode; // 0 = Map, 1 = Entrance/Exit, 2 = Project Overview
         private VBoxContainer _mapModePanel = null!;
         private VBoxContainer _entranceExitModePanel = null!;
         private VBoxContainer _entrancesContainer = null!;
@@ -123,6 +146,14 @@ namespace ProcGenGame
         private VBoxContainer _exitsContainer = null!;
         private LineEdit _newExitIdEdit = null!;
         private Label _exitHintLabel = null!;
+        private VBoxContainer _projectOverviewPanel = null!;
+        private VBoxContainer _projectOverviewMapsContainer = null!;
+        private VBoxContainer _danglingExitsContainer = null!;
+
+        // Click-to-place: "arming" an entrance/exit for placement makes the next map click set
+        // its position, instead of painting or panning. At most one of these is non-null.
+        private EntrancePoint? _armedEntrance;
+        private ExitPoint? _armedExit;
 
         // Guards programmatic SpinBox.Value assignments (e.g. syncing seed fields on layer
         // switch) from re-entering the same handler that would just write the value straight back.
@@ -136,12 +167,13 @@ namespace ProcGenGame
             // child (a panel button/field) claims them first.
             MouseFilter = MouseFilterEnum.Ignore;
 
-            _definition = BuildDefinition();
-            _overrides = new OverrideStore();
+            _allMaps = new List<(MapDefinition, OverrideStore)> { (BuildDefinition(), new OverrideStore()) };
+            _currentMapIndex = 0;
 
             BuildUi();
             _overlay.SetTileColors(_tileColors);
 
+            RefreshMapList();
             RefreshLayerList();
             RebuildEntranceRows();
             RebuildExitRows();
@@ -180,6 +212,8 @@ namespace ProcGenGame
             mapClip.AddChild(_worldRoot);
             _overlay = new ProcGenDebugOverlay { CellPixelSize = CellPixelSize };
             _worldRoot.AddChild(_overlay);
+            _markerOverlay = new EntranceExitOverlay { CellPixelSize = CellPixelSize, Visible = false };
+            _worldRoot.AddChild(_markerOverlay);
 
             BuildMapHud();
             BuildSidePanel();
@@ -251,12 +285,8 @@ namespace ProcGenGame
             root.AddChild(_statusLabel);
             root.AddChild(new HSeparator());
 
-            root.AddChild(Header("Map"));
-            _mapIdEdit = new LineEdit { PlaceholderText = "map id (how other maps' exits refer to this one)", Text = _definition.MapId };
-            _mapIdEdit.TextChanged += t => _definition.MapId = t;
-            root.AddChild(_mapIdEdit);
-
-            _saveFileNameEdit = new LineEdit { PlaceholderText = "file name, e.g. starter_island.json" };
+            root.AddChild(Header("Project"));
+            _saveFileNameEdit = new LineEdit { PlaceholderText = "project file name, e.g. mygame.json" };
             root.AddChild(_saveFileNameEdit);
 
             var saveLoadRow = new HBoxContainer();
@@ -270,17 +300,45 @@ namespace ProcGenGame
 
             _saveLoadStatusLabel = new Label
             {
-                Text = $"Reads/writes {MapsDirectory}/<file name>. The map id above is separate from the file name -- it's the stable id other maps' exits reference.",
+                Text = $"Reads/writes every map at once from/to {MapsDirectory}/<file name> -- a project file is one whole game. There is no way to load a single map from a different project file.",
                 Modulate = new Color(1, 1, 1, 0.6f),
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
             };
             root.AddChild(_saveLoadStatusLabel);
             root.AddChild(new HSeparator());
 
+            root.AddChild(Header("Maps in this project"));
+            _mapList = new ItemList { CustomMinimumSize = new Vector2(0, 90) };
+            _mapList.ItemSelected += index => SelectMap((int)index);
+            root.AddChild(_mapList);
+
+            var mapActionsRow = new HBoxContainer();
+            var newMapButton = new Button { Text = "New" };
+            newMapButton.Pressed += OnNewMapPressed;
+            mapActionsRow.AddChild(newMapButton);
+            var duplicateMapButton = new Button { Text = "Duplicate" };
+            duplicateMapButton.Pressed += OnDuplicateMapPressed;
+            mapActionsRow.AddChild(duplicateMapButton);
+            var deleteMapButton = new Button { Text = "Delete" };
+            deleteMapButton.Pressed += OnDeleteMapPressed;
+            mapActionsRow.AddChild(deleteMapButton);
+            root.AddChild(mapActionsRow);
+
+            _mapListHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_mapListHintLabel);
+            root.AddChild(new HSeparator());
+
+            root.AddChild(Header("Map"));
+            _mapIdEdit = new LineEdit { PlaceholderText = "map id (how exits refer to this map)", Text = _definition.MapId };
+            _mapIdEdit.TextChanged += t => { _definition.MapId = t; RefreshMapList(); };
+            root.AddChild(_mapIdEdit);
+            root.AddChild(new HSeparator());
+
             root.AddChild(Header("Edit"));
             _modeDropdown = new OptionButton();
             _modeDropdown.AddItem("Map");
             _modeDropdown.AddItem("Entrance / Exit");
+            _modeDropdown.AddItem("Project Overview");
             _modeDropdown.ItemSelected += index => SetPanelMode((int)index);
             root.AddChild(_modeDropdown);
             root.AddChild(new HSeparator());
@@ -294,12 +352,23 @@ namespace ProcGenGame
             _entranceExitModePanel.AddThemeConstantOverride("separation", 6);
             root.AddChild(_entranceExitModePanel);
             BuildEntranceExitModePanel(_entranceExitModePanel);
+
+            _projectOverviewPanel = new VBoxContainer { Visible = false };
+            _projectOverviewPanel.AddThemeConstantOverride("separation", 6);
+            root.AddChild(_projectOverviewPanel);
+            BuildProjectOverviewPanel(_projectOverviewPanel);
         }
 
         private void SetPanelMode(int mode)
         {
+            _panelMode = mode;
             _mapModePanel.Visible = mode == 0;
             _entranceExitModePanel.Visible = mode == 1;
+            _projectOverviewPanel.Visible = mode == 2;
+            _armedEntrance = null;
+            _armedExit = null;
+            if (mode == 2) RefreshProjectOverview();
+            RefreshMarkerOverlay();
         }
 
         private void BuildMapModePanel(VBoxContainer root)
@@ -419,7 +488,7 @@ namespace ProcGenGame
             root.AddChild(Header("Exits"));
             root.AddChild(new Label
             {
-                Text = "A point the player leaves through, toward a destination map id and one of that map's entrance ids -- both typed here as plain strings, not checked against the other file.",
+                Text = "A point the player leaves through, toward a destination map and one of that map's entrances -- pick both from the dropdowns below. Check Project Overview for exits whose destination has since been deleted.",
                 Modulate = new Color(1, 1, 1, 0.6f),
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
             });
@@ -436,6 +505,71 @@ namespace ProcGenGame
 
             _exitHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
             root.AddChild(_exitHintLabel);
+        }
+
+        private void BuildProjectOverviewPanel(VBoxContainer root)
+        {
+            root.AddChild(Header("Maps"));
+            _projectOverviewMapsContainer = new VBoxContainer();
+            root.AddChild(_projectOverviewMapsContainer);
+            root.AddChild(new HSeparator());
+
+            root.AddChild(Header("Dangling exits"));
+            root.AddChild(new Label
+            {
+                Text = "Exits whose destination map or entrance doesn't exist in this project. Not an error by itself -- a map under construction may reference a destination you haven't built yet -- but worth checking before you consider the project finished.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _danglingExitsContainer = new VBoxContainer();
+            root.AddChild(_danglingExitsContainer);
+
+            var refreshButton = new Button { Text = "Refresh" };
+            refreshButton.Pressed += RefreshProjectOverview;
+            root.AddChild(refreshButton);
+        }
+
+        private void RefreshProjectOverview()
+        {
+            foreach (Node child in _projectOverviewMapsContainer.GetChildren())
+            {
+                child.QueueFree();
+            }
+            for (int i = 0; i < _allMaps.Count; i++)
+            {
+                var def = _allMaps[i].Definition;
+                string marker = i == _currentMapIndex ? "-> " : "    ";
+                string label = string.IsNullOrEmpty(def.MapId) ? "(untitled map)" : def.MapId;
+                _projectOverviewMapsContainer.AddChild(new Label
+                {
+                    Text = $"{marker}{label}   [{def.Layers.Count} layer(s), {def.Entrances.Count} entrance(s), {def.Exits.Count} exit(s)]",
+                });
+            }
+
+            foreach (Node child in _danglingExitsContainer.GetChildren())
+            {
+                child.QueueFree();
+            }
+            var problems = ProjectValidation.FindDanglingExits(_allMaps.ConvertAll(m => m.Definition));
+            if (problems.Count == 0)
+            {
+                _danglingExitsContainer.AddChild(new Label { Text = "None.", Modulate = new Color(1, 1, 1, 0.6f) });
+            }
+            else
+            {
+                foreach (var p in problems)
+                {
+                    string reason = p.Reason == DanglingExitReason.MapNotFound
+                        ? $"destination map '{p.DestinationMapId}' doesn't exist"
+                        : $"map '{p.DestinationMapId}' has no entrance '{p.DestinationEntranceId}'";
+                    _danglingExitsContainer.AddChild(new Label
+                    {
+                        Text = $"{p.SourceMapId} / exit '{p.ExitId}': {reason}",
+                        Modulate = new Color(1f, 0.6f, 0.5f, 1f),
+                        AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                    });
+                }
+            }
         }
 
         private static Label Header(string text)
@@ -493,7 +627,14 @@ namespace ProcGenGame
 
             if (mouse.ButtonIndex == MouseButton.Left)
             {
-                if (!_drawMode)
+                if (mouse.Pressed && (_armedEntrance != null || _armedExit != null))
+                {
+                    PlaceArmedMarkerAtMouse();
+                    return;
+                }
+                // In Entrance/Exit edit mode there's nothing to paint -- dragging always pans,
+                // regardless of the Draw Mode toggle (which only makes sense for terrain).
+                if (_panelMode == 1 || !_drawMode)
                 {
                     _isPanning = mouse.Pressed;
                     _lastPanMousePos = mouse.Position;
@@ -503,9 +644,30 @@ namespace ProcGenGame
                 return;
             }
 
-            if (mouse.ButtonIndex == MouseButton.Right && mouse.Pressed && _drawMode)
+            if (mouse.ButtonIndex == MouseButton.Right && mouse.Pressed && _drawMode && _panelMode == 0)
             {
                 ClearOverrideAtMouse();
+            }
+        }
+
+        private void PlaceArmedMarkerAtMouse()
+        {
+            var cell = _overlay.LocalPositionToCell(_overlay.GetLocalMousePosition());
+            if (cell == null) return;
+
+            if (_armedEntrance != null)
+            {
+                _armedEntrance.X = cell.Value.X;
+                _armedEntrance.Y = cell.Value.Y;
+                _armedEntrance = null;
+                RebuildEntranceRows();
+            }
+            else if (_armedExit != null)
+            {
+                _armedExit.X = cell.Value.X;
+                _armedExit.Y = cell.Value.Y;
+                _armedExit = null;
+                RebuildExitRows();
             }
         }
 
@@ -703,7 +865,7 @@ namespace ProcGenGame
         // ---------- Entrances / Exits ----------
         // Unlike tiles, entrance/exit points don't feed the generation algorithm at all -- they're
         // pure gameplay metadata carried alongside the map -- so editing them never calls
-        // Regenerate().
+        // Regenerate(). They do refresh the marker overlay, which is a pure visualization aid.
 
         private void RebuildEntranceRows()
         {
@@ -715,21 +877,31 @@ namespace ProcGenGame
             foreach (var entrance in _definition.Entrances)
             {
                 var row = new HBoxContainer();
-                row.AddChild(new Label { Text = entrance.Id, CustomMinimumSize = new Vector2(100, 0) });
+                row.AddChild(new Label { Text = entrance.Id, CustomMinimumSize = new Vector2(80, 0) });
 
-                var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(80, 0) };
+                var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(65, 0) };
                 xBox.Value = entrance.X;
-                xBox.ValueChanged += v => entrance.X = (int)Math.Round(v);
+                xBox.ValueChanged += v => { entrance.X = (int)Math.Round(v); RefreshMarkerOverlay(); };
                 row.AddChild(xBox);
 
-                var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(80, 0) };
+                var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(65, 0) };
                 yBox.Value = entrance.Y;
-                yBox.ValueChanged += v => entrance.Y = (int)Math.Round(v);
+                yBox.ValueChanged += v => { entrance.Y = (int)Math.Round(v); RefreshMarkerOverlay(); };
                 row.AddChild(yBox);
+
+                var place = new Button { Text = "Place", TooltipText = "Click, then click the map to set this entrance's position" };
+                place.Pressed += () =>
+                {
+                    _armedEntrance = entrance;
+                    _armedExit = null;
+                    RefreshMarkerOverlay();
+                };
+                row.AddChild(place);
 
                 var remove = new Button { Text = "x", TooltipText = $"Remove entrance '{entrance.Id}'" };
                 remove.Pressed += () =>
                 {
+                    if (_armedEntrance == entrance) _armedEntrance = null;
                     _definition.Entrances.Remove(entrance);
                     RebuildEntranceRows();
                 };
@@ -737,6 +909,7 @@ namespace ProcGenGame
 
                 _entrancesContainer.AddChild(row);
             }
+            RefreshMarkerOverlay();
         }
 
         private void OnAddEntrancePressed()
@@ -772,10 +945,19 @@ namespace ProcGenGame
                 card.AddThemeConstantOverride("separation", 2);
 
                 var headerRow = new HBoxContainer();
-                headerRow.AddChild(new Label { Text = exit.Id, CustomMinimumSize = new Vector2(150, 0) });
+                headerRow.AddChild(new Label { Text = exit.Id, CustomMinimumSize = new Vector2(110, 0) });
+                var place = new Button { Text = "Place", TooltipText = "Click, then click the map to set this exit's position" };
+                place.Pressed += () =>
+                {
+                    _armedExit = exit;
+                    _armedEntrance = null;
+                    RefreshMarkerOverlay();
+                };
+                headerRow.AddChild(place);
                 var remove = new Button { Text = "x", TooltipText = $"Remove exit '{exit.Id}'" };
                 remove.Pressed += () =>
                 {
+                    if (_armedExit == exit) _armedExit = null;
                     _definition.Exits.Remove(exit);
                     RebuildExitRows();
                 };
@@ -786,26 +968,79 @@ namespace ProcGenGame
                 posRow.AddChild(new Label { Text = "X", CustomMinimumSize = new Vector2(20, 0) });
                 var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(70, 0) };
                 xBox.Value = exit.X;
-                xBox.ValueChanged += v => exit.X = (int)Math.Round(v);
+                xBox.ValueChanged += v => { exit.X = (int)Math.Round(v); RefreshMarkerOverlay(); };
                 posRow.AddChild(xBox);
                 posRow.AddChild(new Label { Text = "Y", CustomMinimumSize = new Vector2(20, 0) });
                 var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(70, 0) };
                 yBox.Value = exit.Y;
-                yBox.ValueChanged += v => exit.Y = (int)Math.Round(v);
+                yBox.ValueChanged += v => { exit.Y = (int)Math.Round(v); RefreshMarkerOverlay(); };
                 posRow.AddChild(yBox);
                 card.AddChild(posRow);
 
-                var destMapEdit = new LineEdit { PlaceholderText = "destination map id", Text = exit.DestinationMapId };
-                destMapEdit.TextChanged += t => exit.DestinationMapId = t;
-                card.AddChild(destMapEdit);
+                card.AddChild(new Label { Text = "Destination map", Modulate = new Color(1, 1, 1, 0.6f) });
+                var destMapDropdown = new OptionButton();
+                var destEntranceDropdown = new OptionButton();
+                PopulateDestinationMapDropdown(destMapDropdown, exit.DestinationMapId);
+                PopulateDestinationEntranceDropdown(destEntranceDropdown, exit.DestinationMapId, exit.DestinationEntranceId);
+                destMapDropdown.ItemSelected += idx =>
+                {
+                    string selectedMapId = destMapDropdown.GetItemMetadata((int)idx).AsString();
+                    exit.DestinationMapId = selectedMapId;
+                    exit.DestinationEntranceId = "";
+                    PopulateDestinationEntranceDropdown(destEntranceDropdown, selectedMapId, "");
+                };
+                card.AddChild(destMapDropdown);
 
-                var destEntranceEdit = new LineEdit { PlaceholderText = "destination entrance id", Text = exit.DestinationEntranceId };
-                destEntranceEdit.TextChanged += t => exit.DestinationEntranceId = t;
-                card.AddChild(destEntranceEdit);
+                card.AddChild(new Label { Text = "Destination entrance", Modulate = new Color(1, 1, 1, 0.6f) });
+                destEntranceDropdown.ItemSelected += idx =>
+                {
+                    exit.DestinationEntranceId = destEntranceDropdown.GetItemMetadata((int)idx).AsString();
+                };
+                card.AddChild(destEntranceDropdown);
 
                 card.AddChild(new HSeparator());
                 _exitsContainer.AddChild(card);
             }
+            RefreshMarkerOverlay();
+        }
+
+        /// <summary>Fills a dropdown with every map in the project (plus a "not chosen" placeholder), selecting whichever matches currentValue -- or the placeholder, if currentValue is empty or names a map no longer in the project, without overwriting it.</summary>
+        private void PopulateDestinationMapDropdown(OptionButton dropdown, string currentValue)
+        {
+            dropdown.Clear();
+            dropdown.AddItem("(choose a map)");
+            dropdown.SetItemMetadata(0, "");
+            int selectIndex = 0;
+
+            for (int i = 0; i < _allMaps.Count; i++)
+            {
+                string id = _allMaps[i].Definition.MapId;
+                dropdown.AddItem(string.IsNullOrEmpty(id) ? "(untitled map)" : id);
+                dropdown.SetItemMetadata(i + 1, id);
+                if (!string.IsNullOrEmpty(currentValue) && id == currentValue) selectIndex = i + 1;
+            }
+            dropdown.Select(selectIndex);
+        }
+
+        private void PopulateDestinationEntranceDropdown(OptionButton dropdown, string destinationMapId, string currentValue)
+        {
+            dropdown.Clear();
+            dropdown.AddItem("(choose an entrance)");
+            dropdown.SetItemMetadata(0, "");
+            int selectIndex = 0;
+
+            var destMap = _allMaps.Find(m => m.Definition.MapId == destinationMapId).Definition;
+            if (destMap != null)
+            {
+                for (int i = 0; i < destMap.Entrances.Count; i++)
+                {
+                    string id = destMap.Entrances[i].Id;
+                    dropdown.AddItem(id);
+                    dropdown.SetItemMetadata(i + 1, id);
+                    if (!string.IsNullOrEmpty(currentValue) && id == currentValue) selectIndex = i + 1;
+                }
+            }
+            dropdown.Select(selectIndex);
         }
 
         private void OnAddExitPressed()
@@ -828,39 +1063,168 @@ namespace ProcGenGame
             RebuildExitRows();
         }
 
-        // ---------- Save / Load ----------
+        private void RefreshMarkerOverlay()
+        {
+            var entrances = _definition.Entrances.ConvertAll(e => (e.Id, e.X, e.Y));
+            var exits = _definition.Exits.ConvertAll(e => (e.Id, e.X, e.Y));
+            (bool IsEntrance, string Id)? armed = null;
+            if (_armedEntrance != null) armed = (true, _armedEntrance.Id);
+            else if (_armedExit != null) armed = (false, _armedExit.Id);
+
+            _markerOverlay.Visible = _panelMode == 1;
+            _markerOverlay.SetPoints(entrances, exits, armed);
+        }
+
+        // ---------- Maps in this project ----------
+
+        private void RefreshMapList()
+        {
+            _mapList.Clear();
+            for (int i = 0; i < _allMaps.Count; i++)
+            {
+                string id = _allMaps[i].Definition.MapId;
+                _mapList.AddItem(string.IsNullOrEmpty(id) ? "(untitled map)" : id);
+            }
+            if (_currentMapIndex < _mapList.ItemCount)
+            {
+                _mapList.Select(_currentMapIndex);
+            }
+        }
+
+        private void SelectMap(int index)
+        {
+            if (index < 0 || index >= _allMaps.Count || index == _currentMapIndex) return;
+            _currentMapIndex = index;
+            ActivateCurrentMap();
+        }
+
+        /// <summary>Refreshes every panel section to reflect whichever map _currentMapIndex now points at -- called after switching, creating, duplicating, or deleting a map.</summary>
+        private void ActivateCurrentMap()
+        {
+            _selectedLayerIndex = 0;
+            _armedEntrance = null;
+            _armedExit = null;
+
+            _suppressSignals = true;
+            _mapIdEdit.Text = _definition.MapId;
+            _suppressSignals = false;
+
+            ResetRegionAndTransformFields();
+            RefreshLayerList();
+            RebuildEntranceRows();
+            RebuildExitRows();
+            SelectLayer(0);
+            CenterOnDesignatedArea();
+            RefreshMapList();
+        }
+
+        private void OnNewMapPressed()
+        {
+            var newDef = BuildDefinition();
+            newDef.MapId = GenerateUniqueMapId("new_map");
+            _allMaps.Add((newDef, new OverrideStore()));
+            _currentMapIndex = _allMaps.Count - 1;
+            ActivateCurrentMap();
+            _mapListHintLabel.Text = "";
+        }
+
+        private void OnDuplicateMapPressed()
+        {
+            var clone = CloneMapDefinition(_definition, GenerateUniqueMapId(_definition.MapId));
+            var clonedOverrides = OverrideStore.FromRecords(new List<TileOverride>(_overrides.Enumerate()));
+            _allMaps.Add((clone, clonedOverrides));
+            _currentMapIndex = _allMaps.Count - 1;
+            ActivateCurrentMap();
+            _mapListHintLabel.Text = "";
+        }
+
+        private void OnDeleteMapPressed()
+        {
+            if (_allMaps.Count <= 1)
+            {
+                _mapListHintLabel.Text = "A project needs at least one map.";
+                return;
+            }
+            _allMaps.RemoveAt(_currentMapIndex);
+            _currentMapIndex = Math.Min(_currentMapIndex, _allMaps.Count - 1);
+            ActivateCurrentMap();
+            _mapListHintLabel.Text = "";
+        }
+
+        private string GenerateUniqueMapId(string baseId)
+        {
+            var existing = new HashSet<string>();
+            foreach (var (definition, _) in _allMaps) existing.Add(definition.MapId);
+
+            if (!existing.Contains(baseId)) return baseId;
+            int n = 2;
+            while (existing.Contains($"{baseId}_{n}")) n++;
+            return $"{baseId}_{n}";
+        }
+
+        /// <summary>Deep-clones a map's layers/tiles/entrances/exits so editing the copy can never mutate the source. Overrides are cloned separately by the caller (OverrideStore has no owning object to clone from here).</summary>
+        private static MapDefinition CloneMapDefinition(MapDefinition source, string newMapId)
+        {
+            var clone = new MapDefinition { MapId = newMapId, WorldSeed = source.WorldSeed };
+            foreach (var layer in source.Layers)
+            {
+                var tiles = layer.Tiles.ConvertAll(t => new TileDef(t.Id, t.Range));
+                var writesOver = new List<WritesOverRule>(layer.WritesOver);
+                var noise = new NoiseParams
+                {
+                    Octaves = layer.Noise.Octaves,
+                    Frequency = layer.Noise.Frequency,
+                    Persistence = layer.Noise.Persistence,
+                    Lacunarity = layer.Noise.Lacunarity,
+                };
+                clone.Layers.Add(new LayerDef(layer.Id, tiles, writesOver, layer.Seed, noise));
+            }
+            foreach (var e in source.Entrances) clone.Entrances.Add(new EntrancePoint(e.Id, e.X, e.Y));
+            foreach (var e in source.Exits) clone.Exits.Add(new ExitPoint(e.Id, e.X, e.Y, e.DestinationMapId, e.DestinationEntranceId));
+            return clone;
+        }
+
+        // ---------- Save / Load (whole project -- every map in _allMaps, together) ----------
 
         private void OnSavePressed()
         {
-            string mapId = _definition.MapId.Trim();
             string fileName = NormalizeFileName(_saveFileNameEdit.Text);
-
-            if (string.IsNullOrEmpty(mapId))
-            {
-                _saveLoadStatusLabel.Text = "Set a Map ID before saving.";
-                return;
-            }
             if (string.IsNullOrEmpty(fileName))
             {
                 _saveLoadStatusLabel.Text = "Enter a file name before saving.";
                 return;
             }
-            if (MapDefinitionValidation.TryFindDuplicateId(_definition.Entrances.ConvertAll(e => e.Id), out var dupEntrance))
+
+            var mapIds = _allMaps.ConvertAll(m => m.Definition.MapId.Trim());
+            if (mapIds.Exists(string.IsNullOrEmpty))
             {
-                _saveLoadStatusLabel.Text = $"Duplicate entrance id '{dupEntrance}' -- ids must be unique within a map.";
+                _saveLoadStatusLabel.Text = "Every map needs a Map ID before saving.";
                 return;
             }
-            if (MapDefinitionValidation.TryFindDuplicateId(_definition.Exits.ConvertAll(e => e.Id), out var dupExit))
+            if (MapDefinitionValidation.TryFindDuplicateId(mapIds, out var dupMapId))
             {
-                _saveLoadStatusLabel.Text = $"Duplicate exit id '{dupExit}' -- ids must be unique within a map.";
+                _saveLoadStatusLabel.Text = $"Duplicate map id '{dupMapId}' -- map ids must be unique within a project.";
                 return;
+            }
+            foreach (var (definition, _) in _allMaps)
+            {
+                if (MapDefinitionValidation.TryFindDuplicateId(definition.Entrances.ConvertAll(e => e.Id), out var dupEntrance))
+                {
+                    _saveLoadStatusLabel.Text = $"Map '{definition.MapId}': duplicate entrance id '{dupEntrance}'.";
+                    return;
+                }
+                if (MapDefinitionValidation.TryFindDuplicateId(definition.Exits.ConvertAll(e => e.Id), out var dupExit))
+                {
+                    _saveLoadStatusLabel.Text = $"Map '{definition.MapId}': duplicate exit id '{dupExit}'.";
+                    return;
+                }
             }
 
             string path = $"{MapsDirectory}/{fileName}";
             try
             {
                 DirAccess.MakeDirRecursiveAbsolute(MapsDirectory);
-                string json = MapFileSerializer.Serialize(_definition, _overrides);
+                string json = ProjectFileSerializer.Serialize(_allMaps.ConvertAll(m => (m.Definition, m.Overrides)));
 
                 using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
                 if (file == null)
@@ -869,7 +1233,7 @@ namespace ProcGenGame
                     return;
                 }
                 file.StoreString(json);
-                _saveLoadStatusLabel.Text = $"Saved to {path}";
+                _saveLoadStatusLabel.Text = $"Saved {_allMaps.Count} map(s) to {path}";
             }
             catch (Exception ex)
             {
@@ -902,30 +1266,13 @@ namespace ProcGenGame
                     return;
                 }
                 string json = file.GetAsText();
-                var (map, overrides) = MapFileSerializer.Deserialize(json);
+                var loaded = ProjectFileSerializer.Deserialize(json);
 
-                if (map.Layers.Count == 0)
-                {
-                    _saveLoadStatusLabel.Text = "Loaded map has no layers -- nothing to generate.";
-                    return;
-                }
+                _allMaps = loaded.ConvertAll(m => (m.Map, m.Overrides));
+                _currentMapIndex = 0;
+                ActivateCurrentMap();
 
-                _definition = map;
-                _overrides = overrides;
-                _selectedLayerIndex = 0;
-
-                _suppressSignals = true;
-                _mapIdEdit.Text = _definition.MapId;
-                _suppressSignals = false;
-
-                ResetRegionAndTransformFields();
-                RefreshLayerList();
-                RebuildEntranceRows();
-                RebuildExitRows();
-                SelectLayer(0);
-                CenterOnDesignatedArea();
-
-                _saveLoadStatusLabel.Text = $"Loaded {path}";
+                _saveLoadStatusLabel.Text = $"Loaded {_allMaps.Count} map(s) from {path}";
             }
             catch (Exception ex)
             {
@@ -1114,7 +1461,9 @@ namespace ProcGenGame
         {
             var layer = _definition.Layers[_selectedLayerIndex];
             string view = _showFinalComposite ? "final composite" : layer.Id;
+            string mapLabel = string.IsNullOrEmpty(_definition.MapId) ? "(untitled map)" : _definition.MapId;
             _statusLabel.Text =
+                $"Map: {mapLabel} ({_currentMapIndex + 1}/{_allMaps.Count} in project)\n" +
                 $"Editing layer: {layer.Id}\n" +
                 $"Viewing: {view}\n" +
                 $"Designated area: ({_originX}, {_originY}) {_regionWidth}x{_regionHeight}\n" +

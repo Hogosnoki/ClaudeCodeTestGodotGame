@@ -211,11 +211,14 @@ Tile color is tracked per tile id in the tool (not on the engine's `TileDef`, si
 rendering concern) and stands in for tile art until real art exists. See its doc comment and the
 README's "The map editor tool" section for screenshots and the full control layout.
 
-Save/load, a map id field, and entrance/exit point editing are built -- see "Save/load and
-entrance/exit points" in the README. Saving goes through
-`ProcGen.Engine.Serialization.MapFileSerializer`, the same reader/writer a game must use to load a
-map back; nothing editor-only (tile display colors, camera state) is part of the saved format.
+Project save/load, multiple maps per project, and entrance/exit point editing (with click-to-place
+canvas markers and a dangling-exit diagnostic panel) are built -- see "Save/load, multiple maps,
+and entrance/exit points" in the README. A project file is one whole game: saving goes through
+`ProcGen.Engine.Serialization.ProjectFileSerializer`, the same reader/writer a game must use to
+load one back, and every map in the project is read/written together; nothing editor-only (tile
+display colors, camera state) is part of the saved format.
 
 Still not built, per the milestone-1 scope ("Deferred by design" in the root `README.md`):
 - Add/remove layers (tiles can already be added/removed per layer), and reordering layers, tiles,
   or `writes_over` filter editing.
+- Undo/redo, and multi-cell paint tools (brush/fill/rectangle-select).

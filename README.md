@@ -26,11 +26,16 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
   Scripts/MapEditorToolScene.cs    The map-making tool: a fixed side property panel
                                     (region, Transformation, per-layer seed, per-layer tile
                                     ranges with manual entry + nudge buttons) driving live
-                                    regeneration, plus click-to-paint on top. An "Edit:
-                                    Map / Entrance-Exit" dropdown swaps in a second panel for
-                                    this map's named entrance/exit points, and Save/Load read
-                                    and write the JSON format from
+                                    regeneration, plus click-to-paint on top, a "Maps in this
+                                    project" list (New/Duplicate/Delete), and an "Edit: Map /
+                                    Entrance-Exit / Project Overview" dropdown that swaps in a
+                                    panel for this map's named entrance/exit points (with
+                                    click-to-place canvas markers) or a project-wide summary
+                                    that flags dangling exits. Save/Load read and write every
+                                    map in the project at once as JSON via
                                     ProcGen.Engine/Serialization.
+  Scripts/EntranceExitOverlay.cs   Draws the entrance/exit markers described above -- a pure
+                                    visualization aid, no engine data flows through it.
 docs/                     Reference screenshots for INTEGRATION.md / this README.
 INTEGRATION.md            How to copy this into your own Godot project, render with real
                            tile art, and visually debug generation.
@@ -53,15 +58,19 @@ code. They were resolved as follows:
    noise"), extended to three axes (X, Y, Transformation) by treating Transformation as an
    ordinary third lattice axis interpolated exactly like X/Y. See
    `engine/ProcGen.Engine/Noise/LatticeNoise3D.cs`.
-3. **Save/export format: JSON, read and written by the engine itself.** Superseding the earlier
-   plan of a Godot `Resource` adapter: `ProcGen.Engine.Serialization.MapFileSerializer` is the one
-   reader/writer both the editor tool and the actual game call through, so "configuration +
-   algorithm reproduces the map exactly" only depends on both consumers running the same engine
-   assembly against the same file -- not on a Godot-specific adapter staying in sync with it. The
-   saved file is the full `MapDefinition` (including the map's id and its named entrance/exit
-   points) plus the `OverrideStore` diff; nothing editor-only (e.g. the tool's tile display colors)
-   is part of the format. See `MapDefinition.MapId`/`.Entrances`/`.Exits` and
-   `MapFileSerializer.Serialize`/`.Deserialize`.
+3. **Save/export format: JSON, read and written by the engine itself, one file per project (not
+   per map).** Superseding the earlier plan of a Godot `Resource` adapter:
+   `ProcGen.Engine.Serialization.ProjectFileSerializer` is the one reader/writer both the editor
+   tool and the actual game call through, so "configuration + algorithm reproduces the map
+   exactly" only depends on both consumers running the same engine assembly against the same file
+   -- not on a Godot-specific adapter staying in sync with it. A project file *is* one whole game:
+   it holds every map belonging to it (each a `MapDefinition`, including its id and its named
+   entrance/exit points, plus its `OverrideStore` diff), and there is deliberately no way for an
+   exit to reference a map in a *different* project file -- every valid destination is always
+   available in-memory alongside the map that references it. That's also why map ids only need to
+   be unique within a project, not globally. Nothing editor-only (e.g. the tool's tile display
+   colors) is part of the format. See `MapDefinition.MapId`/`.Entrances`/`.Exits` and
+   `ProjectFileSerializer.Serialize`/`.Deserialize`.
 
 ## Determinism
 
@@ -150,11 +159,14 @@ Panel sections, top to bottom:
     catches that `ArgumentException` and reports it in the status label instead of crashing, in
     case a layer's ranges are nudged all the way down to a zero total.
 
-Above the panel sections described so far sits **Map** (this map's id, a save file name field, and
-Save/Load buttons) and an **Edit: Map / Entrance-Exit** dropdown that swaps everything below it
-between the panel just described and a second panel for this map's named entrance/exit points --
-so those controls aren't cluttering the view for maps that don't need them yet. See "Save/load and
-entrance/exit points" below.
+Above the panel sections described so far sits **Project** (a save file name field and Save/Load
+buttons, acting on every map at once), **Maps in this project** (a list of every map in the
+project with New/Duplicate/Delete, switching which map the rest of the panel edits), **Map** (just
+the currently-selected map's id), and an **Edit: Map / Entrance-Exit / Project Overview** dropdown
+that swaps everything below it between the panel just described, a second panel for this map's
+named entrance/exit points, and a project-wide summary -- so those controls aren't cluttering the
+view for maps that don't need them yet. See "Save/load, multiple maps, and entrance/exit points"
+below.
 
 Left-click on the map still cycles a manual override on the selected layer at that cell (same
 mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
@@ -194,36 +206,57 @@ Map Area" to recover, watched a hand-painted override render dimmed after moving
 area away from it, and confirmed painting/clearing overrides and every panel control still work
 correctly with the camera in play — not just built and assumed to work.
 
-### Save/load and entrance/exit points
+### Save/load, multiple maps, and entrance/exit points
 
-A map's **id** (`MapDefinition.MapId`) is how *other* maps' exits refer to it once everything is
-loaded into memory, and is deliberately separate from the **file name** it's saved under — the
-file name is only how the game engine locates the file on disk. Both are plain text fields at the
-top of the panel; Save/Load act on `res://Maps/<file name>.json` (the `.json` suffix is added for
-you if you leave it off).
+**A project file is one whole game.** It holds every map belonging to it; there is deliberately no
+way to load a single map out of a *different* project file, and an exit's destination is always
+resolved against maps already in memory alongside it — never a cross-file lookup. That's the
+entire reason map ids only need to be unique *within* a project, not globally: a reference to one
+is always the pair (an exit's DestinationMapId, DestinationEntranceId), resolved inside the same
+loaded project.
 
-The file is written and read by `ProcGen.Engine.Serialization.MapFileSerializer` — the same
-reader/writer a game must call through, so a saved file reproduces identically wherever it's
-loaded, given the same engine assembly. It holds exactly two things: the full `MapDefinition`
-(world seed, every layer's tiles/writes_over/seed/noise, the map id, and its entrance/exit points)
-and the `OverrideStore` diff. Nothing editor-only — the tool's tile display colors, camera
-position, region/Transformation fields — is part of the format; those reset to defaults on load.
+The **Project** section's file name field is separate from any individual **Map**'s id (below
+it): the file name is only how the game engine locates the project on disk, the map id is how the
+game refers to a map once the project is loaded. Save/Load act on
+`res://Maps/<file name>.json` (the `.json` suffix is added for you if you leave it off) and cover
+every map in **Maps in this project** at once, not just whichever one is currently selected.
 
-Entrance and exit points are plain named markers on the map, edited from the second panel behind
-the **Edit: Map / Entrance-Exit** dropdown:
+The file is written and read by `ProcGen.Engine.Serialization.ProjectFileSerializer` — the same
+reader/writer a game must call through, so a saved project reproduces identically wherever it's
+loaded, given the same engine assembly. It holds a list of (`MapDefinition`, `OverrideStore` diff)
+pairs, one per map -- nothing editor-only (the tool's tile display colors, camera position,
+region/Transformation fields) is part of the format; those reset to defaults on load.
+
+**Maps in this project** switches which map the rest of the panel edits. **New** starts a fresh
+map from the same starter layout as a brand-new project; **Duplicate** deep-clones the selected
+map's layers/tiles/entrances/exits (so editing the copy can never mutate the original) under a
+generated-unique id; **Delete** removes it (a project always keeps at least one map).
+
+Entrance and exit points are plain named markers on a map, edited from the panel behind the
+**Edit: Entrance / Exit** dropdown option, and rendered as colored markers on the map canvas while
+that panel is open (green for entrances, orange for exits) -- a **Place** button per point arms it
+so the next map click sets its position, instead of typing coordinates blind.
 - An **entrance** (id + X/Y) is where a player arrives after taking some exit — on this map or any
-  other — whose destination entrance id names it.
-- An **exit** (id + X/Y + destination map id + destination entrance id) is where a player leaves
-  through, toward another map's named entrance. The destination fields are plain strings, not
-  validated against the other map's file — resolving them is a game-side concern at load time.
+  other in the project — whose destination entrance id names it.
+- An **exit** (id + X/Y + destination map + destination entrance) is where a player leaves
+  through. The destination map/entrance are chosen from dropdowns populated with every map (and
+  that map's entrances) already in the project — not typed as free text — so a fresh exit always
+  points somewhere real by construction.
 - Ids only need to be unique *within* their own map (checked on Add, and again by
-  `MapFileSerializer.Deserialize` on load) — a reference to one is always the pair (map id,
-  entrance id), and the map id half of that pair is what's globally unique.
+  `ProjectFileSerializer.Deserialize` on load) — the map id half of an exit's destination pair is
+  what's unique project-wide.
+
+Exits can still go dangling after the fact (e.g. the destination map or entrance was since
+deleted). The **Edit: Project Overview** panel lists every map with its layer/entrance/exit counts
+and flags exactly that: every exit whose destination doesn't resolve within the project, via
+`ProcGen.Engine.Validation.ProjectValidation.FindDanglingExits` — a diagnostic, not a hard error,
+since a map under active construction may legitimately reference a destination you haven't built
+yet.
 
 ## Running it
 
 ```bash
-# Engine unit tests (39 tests, no Godot needed):
+# Engine unit tests (46 tests, no Godot needed):
 dotnet test tests/ProcGen.Engine.Tests/ProcGen.Engine.Tests.csproj
 
 # Milestone-1 console proof, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):
@@ -279,6 +312,6 @@ Not built yet, on purpose:
   list" for "look up this layer's compiled tile list *at this position*" — not a restructure.
 - In the editor tool specifically: add/remove layers (tiles can already be added/removed per
   layer), and reordering layers, tiles, or `writes_over` filter editing.
-- Cross-file validation of entrance/exit references (an exit's DestinationMapId/
-  DestinationEntranceId are plain strings, not checked against the destination map's own saved
-  file) -- resolving those at runtime is a game-side concern.
+- Undo/redo, and multi-cell paint tools (brush size, fill, rectangle select) -- painting is
+  currently one cell per click, same as milestone 1.
+- Autosave / an unsaved-changes indicator.

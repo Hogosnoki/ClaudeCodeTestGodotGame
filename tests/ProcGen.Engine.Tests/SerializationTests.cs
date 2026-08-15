@@ -1,9 +1,10 @@
 using System;
-using System.Linq;
+using System.Collections.Generic;
 using ProcGen.Engine.Generation;
 using ProcGen.Engine.Model;
 using ProcGen.Engine.Overrides;
 using ProcGen.Engine.Serialization;
+using ProcGen.Engine.Validation;
 using Xunit;
 
 namespace ProcGen.Engine.Tests
@@ -11,7 +12,7 @@ namespace ProcGen.Engine.Tests
     public class SerializationTests
     {
         [Fact]
-        public void RoundTrip_PreservesEveryFieldOfTheConfiguration()
+        public void RoundTrip_PreservesEveryFieldOfASingleMapProject()
         {
             var def = Milestone1Fixture.BuildDefinition();
             def.MapId = "starter_island";
@@ -22,8 +23,11 @@ namespace ProcGen.Engine.Tests
             overrides.Set("ground", 3, 4, "sand");
             overrides.Set("ground_cover", -2, 7, "dirt");
 
-            string json = MapFileSerializer.Serialize(def, overrides);
-            var (loadedMap, loadedOverrides) = MapFileSerializer.Deserialize(json);
+            string json = ProjectFileSerializer.Serialize(new[] { (def, overrides) });
+            var loaded = ProjectFileSerializer.Deserialize(json);
+
+            Assert.Single(loaded);
+            var (loadedMap, loadedOverrides) = loaded[0];
 
             Assert.Equal(def.MapId, loadedMap.MapId);
             Assert.Equal(def.WorldSeed, loadedMap.WorldSeed);
@@ -77,6 +81,31 @@ namespace ProcGen.Engine.Tests
         }
 
         [Fact]
+        public void RoundTrip_PreservesMultipleMapsInOneProject_InOrder()
+        {
+            var mapA = Milestone1Fixture.BuildDefinition();
+            mapA.MapId = "overworld";
+            mapA.Exits.Add(new ExitPoint("to_forest", 5, 5, "forest", "entry"));
+
+            var mapB = Milestone1Fixture.BuildDefinition();
+            mapB.MapId = "forest";
+            mapB.Entrances.Add(new EntrancePoint("entry", 0, 0));
+
+            var loaded = ProjectFileSerializer.Deserialize(
+                ProjectFileSerializer.Serialize(new[]
+                {
+                    (mapA, new OverrideStore()),
+                    (mapB, new OverrideStore()),
+                }));
+
+            Assert.Equal(2, loaded.Count);
+            Assert.Equal("overworld", loaded[0].Map.MapId);
+            Assert.Equal("forest", loaded[1].Map.MapId);
+            Assert.Equal("to_forest", loaded[0].Map.Exits[0].Id);
+            Assert.Equal("entry", loaded[1].Map.Entrances[0].Id);
+        }
+
+        [Fact]
         public void RoundTrip_ProducesByteIdenticalGenerationOutput()
         {
             var def = Milestone1Fixture.BuildDefinition();
@@ -87,8 +116,8 @@ namespace ProcGen.Engine.Tests
             var region = new RegionSpec(originX: -10, originY: -10, width: 60, height: 60, transformation: 0.0);
             var before = MapGenerator.GenerateRegion(def, region, overrides);
 
-            string json = MapFileSerializer.Serialize(def, overrides);
-            var (loadedMap, loadedOverrides) = MapFileSerializer.Deserialize(json);
+            string json = ProjectFileSerializer.Serialize(new[] { (def, overrides) });
+            var (loadedMap, loadedOverrides) = ProjectFileSerializer.Deserialize(json)[0];
             var after = MapGenerator.GenerateRegion(loadedMap, region, loadedOverrides);
 
             for (int x = 0; x < region.Width; x++)
@@ -101,15 +130,44 @@ namespace ProcGen.Engine.Tests
         }
 
         [Fact]
+        public void Deserialize_DuplicateMapIds_Throws()
+        {
+            var mapA = Milestone1Fixture.BuildDefinition();
+            mapA.MapId = "same_id";
+            var mapB = Milestone1Fixture.BuildDefinition();
+            mapB.MapId = "same_id";
+
+            string json = ProjectFileSerializer.Serialize(new[]
+            {
+                (mapA, new OverrideStore()),
+                (mapB, new OverrideStore()),
+            });
+
+            var ex = Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize(json));
+            Assert.Contains("same_id", ex.Message);
+        }
+
+        [Fact]
+        public void Deserialize_MissingMapId_Throws()
+        {
+            var def = Milestone1Fixture.BuildDefinition();
+            def.MapId = "";
+            string json = ProjectFileSerializer.Serialize(new[] { (def, new OverrideStore()) });
+
+            Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize(json));
+        }
+
+        [Fact]
         public void Deserialize_DuplicateEntranceIds_Throws()
         {
             var def = Milestone1Fixture.BuildDefinition();
+            def.MapId = "m";
             def.Entrances.Add(new EntrancePoint("gate", 0, 0));
             def.Entrances.Add(new EntrancePoint("gate", 5, 5));
 
-            string json = MapFileSerializer.Serialize(def, new OverrideStore());
+            string json = ProjectFileSerializer.Serialize(new[] { (def, new OverrideStore()) });
 
-            var ex = Assert.Throws<FormatException>(() => MapFileSerializer.Deserialize(json));
+            var ex = Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize(json));
             Assert.Contains("gate", ex.Message);
         }
 
@@ -117,30 +175,91 @@ namespace ProcGen.Engine.Tests
         public void Deserialize_DuplicateExitIds_Throws()
         {
             var def = Milestone1Fixture.BuildDefinition();
+            def.MapId = "m";
             def.Exits.Add(new ExitPoint("out", 0, 0, "other", "in"));
             def.Exits.Add(new ExitPoint("out", 5, 5, "other2", "in2"));
 
-            string json = MapFileSerializer.Serialize(def, new OverrideStore());
+            string json = ProjectFileSerializer.Serialize(new[] { (def, new OverrideStore()) });
 
-            Assert.Throws<FormatException>(() => MapFileSerializer.Deserialize(json));
+            Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize(json));
         }
 
         [Fact]
         public void Deserialize_EmptyOrMalformedJson_ThrowsFormatException()
         {
-            Assert.Throws<FormatException>(() => MapFileSerializer.Deserialize(""));
-            Assert.Throws<FormatException>(() => MapFileSerializer.Deserialize("not json"));
-            Assert.Throws<FormatException>(() => MapFileSerializer.Deserialize("{}"));
-            Assert.Throws<FormatException>(() => MapFileSerializer.Deserialize("{\"map\": null}"));
+            Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize(""));
+            Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize("not json"));
+            Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize("{}"));
+            Assert.Throws<FormatException>(() => ProjectFileSerializer.Deserialize("{\"maps\": []}"));
         }
 
         [Fact]
         public void Serialize_OmitsNothingEditorOnly_JsonHasNoColorFields()
         {
             var def = Milestone1Fixture.BuildDefinition();
-            string json = MapFileSerializer.Serialize(def, new OverrideStore());
+            def.MapId = "m";
+            string json = ProjectFileSerializer.Serialize(new[] { (def, new OverrideStore()) });
 
             Assert.DoesNotContain("color", json, StringComparison.OrdinalIgnoreCase);
+        }
+
+        [Fact]
+        public void FindDanglingExits_ResolvedExit_ReportsNothing()
+        {
+            var mapA = Milestone1Fixture.BuildDefinition();
+            mapA.MapId = "a";
+            mapA.Exits.Add(new ExitPoint("out", 0, 0, "b", "in"));
+            var mapB = Milestone1Fixture.BuildDefinition();
+            mapB.MapId = "b";
+            mapB.Entrances.Add(new EntrancePoint("in", 0, 0));
+
+            var problems = ProjectValidation.FindDanglingExits(new List<MapDefinition> { mapA, mapB });
+
+            Assert.Empty(problems);
+        }
+
+        [Fact]
+        public void FindDanglingExits_UnknownDestinationMap_IsReported()
+        {
+            var mapA = Milestone1Fixture.BuildDefinition();
+            mapA.MapId = "a";
+            mapA.Exits.Add(new ExitPoint("out", 0, 0, "nonexistent", "in"));
+
+            var problems = ProjectValidation.FindDanglingExits(new List<MapDefinition> { mapA });
+
+            var problem = Assert.Single(problems);
+            Assert.Equal("a", problem.SourceMapId);
+            Assert.Equal("out", problem.ExitId);
+            Assert.Equal(DanglingExitReason.MapNotFound, problem.Reason);
+        }
+
+        [Fact]
+        public void FindDanglingExits_UnknownDestinationEntrance_IsReported()
+        {
+            var mapA = Milestone1Fixture.BuildDefinition();
+            mapA.MapId = "a";
+            mapA.Exits.Add(new ExitPoint("out", 0, 0, "b", "nonexistent"));
+            var mapB = Milestone1Fixture.BuildDefinition();
+            mapB.MapId = "b";
+            mapB.Entrances.Add(new EntrancePoint("in", 0, 0));
+
+            var problems = ProjectValidation.FindDanglingExits(new List<MapDefinition> { mapA, mapB });
+
+            var problem = Assert.Single(problems);
+            Assert.Equal(DanglingExitReason.EntranceNotFound, problem.Reason);
+        }
+
+        [Fact]
+        public void FindDanglingExits_SelfReferencingSameMap_IsAllowed()
+        {
+            var mapA = Milestone1Fixture.BuildDefinition();
+            mapA.MapId = "a";
+            mapA.Entrances.Add(new EntrancePoint("loop_in", 1, 1));
+            mapA.Exits.Add(new ExitPoint("loop_out", 0, 0, "a", "loop_in"));
+
+            var problems = ProjectValidation.FindDanglingExits(new List<MapDefinition> { mapA });
+
+            Assert.Empty(problems);
         }
     }
 }

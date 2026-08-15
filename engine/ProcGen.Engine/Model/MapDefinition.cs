@@ -10,16 +10,19 @@ namespace ProcGen.Engine.Model
     /// from a separate per-layer integer -- see SeedPosition's doc comment.
     /// This whole type, plus the override diff painted on top of it, is the entire "configuration"
     /// half of "configuration + algorithm reproduces the map exactly" -- see
-    /// <see cref="ProcGen.Engine.Serialization.MapFileSerializer"/> for the save/load format.
+    /// <see cref="ProcGen.Engine.Serialization.ProjectFileSerializer"/> for the save/load format.
+    /// One <c>MapDefinition</c> is one map among possibly many in a single project file, which is
+    /// itself one whole game -- see <see cref="ProcGen.Engine.Serialization.ProjectFile"/>.
     /// </summary>
     public sealed class MapDefinition
     {
         /// <summary>
-        /// This map's identifier -- how other maps' <see cref="ExitPoint"/>s refer to it, and how
-        /// the game looks it up once loaded into memory. Deliberately separate from the file name
-        /// a map is saved under: the file name is only how the game engine locates the file on
-        /// disk, while the map id is how the game refers to it afterward, so the two are free to
-        /// differ (e.g. renaming a file doesn't break every exit that points at the map inside it).
+        /// This map's identifier within its project -- how other maps' <see cref="ExitPoint"/>s
+        /// refer to it, and how the game looks it up once the project is loaded into memory. Only
+        /// needs to be unique within the project file it lives in (enforced on load by
+        /// <see cref="ProcGen.Engine.Serialization.ProjectFileSerializer"/>): a project *is* a
+        /// game, there is no way for an exit to reference a map in a different project file, so
+        /// there is never a reason for two maps in the same game to share an id.
         /// </summary>
         public string MapId { get; set; } = "";
 
@@ -33,9 +36,9 @@ namespace ProcGen.Engine.Model
 
         /// <summary>
         /// Where a player arrives when entering this map through some other exit (on this map or
-        /// any other) whose DestinationEntranceId names one of these. An id only needs to be
-        /// unique within this map -- a reference to one is always the pair (this map's MapId,
-        /// entrance id), and the MapId half of that pair is what's globally unique.
+        /// any other in the project) whose DestinationEntranceId names one of these. An id only
+        /// needs to be unique within this map -- a reference to one is always the pair (this map's
+        /// MapId, entrance id), and the MapId half of that pair is what's unique project-wide.
         /// </summary>
         public List<EntrancePoint> Entrances { get; set; } = new List<EntrancePoint>();
 
