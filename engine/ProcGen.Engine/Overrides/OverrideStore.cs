@@ -1,3 +1,6 @@
+// File-scoped so this compiles cleanly even when copied into a host project that hasn't
+// opted into <Nullable>enable</Nullable> project-wide.
+#nullable enable
 using System.Collections.Generic;
 
 namespace ProcGen.Engine.Overrides

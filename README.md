@@ -1,22 +1,34 @@
-# Procedural Map Generation — Milestone 1
+# Procedural Map Generation — Milestone 1 + integration package
 
-Core mechanics for the procedural map generation system, proven end-to-end. See "Confirmed
-decisions" below for the architecture questions this raised before implementation started.
+Core mechanics for the procedural map generation system, proven end-to-end, plus a copy-paste
+integration package for dropping the engine into any Godot project. See "Confirmed decisions"
+below for the architecture questions this raised before implementation started, and
+**[`INTEGRATION.md`](INTEGRATION.md)** for how to bring this into your own project, render it with
+real tile art, and visually debug it.
 
 ## Layout
 
 ```
 engine/ProcGen.Engine/    The generation engine. Plain C# class library, net8.0, zero
                            dependency on Godot or any UI/editor code. This is the single
-                           source of truth both the tool and the game call into.
+                           source of truth both the tool and the game call into. This is
+                           also the folder you copy-paste into another Godot project --
+                           see INTEGRATION.md.
 tests/ProcGen.Engine.Tests/  xUnit tests proving the milestone-1 acceptance criteria against
                            the engine directly (no Godot runtime needed to run these).
-godot/                    Minimal Godot 4.4 C# project. One test scene
-                           (Scripts/Milestone1TestScene.cs) that references the engine
-                           project and calls into it exactly like the game/tool will.
+godot/                    Minimal Godot 4.4 C# project demonstrating both consumers:
+  Integration/               Godot-dependent rendering/debug helpers (ProcGenTileMapView,
+                              ProcGenDebugOverlay) -- the other copy-paste folder. Thin
+                              consumers of the engine, not part of it.
+  Scripts/Milestone1TestScene.cs   Headless console proof of the milestone-1 scenario.
+  Scripts/VisualDebugDemoScene.cs  Interactive, on-screen demo: colored-cell rendering,
+                                    click-to-paint overrides, Transformation scrubbing.
+docs/                     Reference screenshot for INTEGRATION.md.
+INTEGRATION.md            How to copy this into your own Godot project, render with real
+                           tile art, and visually debug generation.
 ```
 
-`ProceduralMapGen.sln` at the repo root ties all three projects together.
+`ProceduralMapGen.sln` at the repo root ties all the C# projects together.
 
 ## Confirmed decisions
 
@@ -87,17 +99,20 @@ spec text.
 ## Running it
 
 ```bash
-# Engine unit tests (32 tests, no Godot needed):
+# Engine unit tests (33 tests, no Godot needed):
 dotnet test tests/ProcGen.Engine.Tests/ProcGen.Engine.Tests.csproj
 
-# Milestone-1 scene, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):
+# Milestone-1 console proof, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):
 cd godot
 godot --headless --path .
+
+# Interactive visual debugger (open in the editor and press F6, or run directly):
+godot --path . res://Scenes/VisualDebugDemo.tscn
 ```
 
-The scene prints an ASCII render of the generated region, the Transformation-axis agreement
-percentages between T=0.0/0.1/0.2, the override + `writes_over` re-evaluation check, and the
-determinism check — then exits with code 0 on success. This was run against the actual
+The headless scene prints an ASCII render of the generated region, the Transformation-axis
+agreement percentages between T=0.0/0.1/0.2, the override + `writes_over` re-evaluation check, and
+the determinism check — then exits with code 0 on success. This was run against the actual
 Godot 4.4.1 mono editor binary during development; sample output:
 
 ```
@@ -108,9 +123,25 @@ After hand-painting ground=(0,14) -> land: ground_cover=grass (re-evaluated writ
 PASS: regeneration is bit-identical.
 ```
 
+The interactive scene was similarly run and driven with real synthetic input (via `xdotool`,
+under Xvfb + software OpenGL) during development — see [`INTEGRATION.md`](INTEGRATION.md) for a
+screenshot and the full walkthrough of what it demonstrates (layer switching, click-to-paint
+overrides with a visible override marker, and the Transformation step clamp visibly capping an
+oversized jump).
+
+## Copy-paste integration package
+
+`engine/ProcGen.Engine/` (minus its `.csproj`/`bin`/`obj`) and `godot/Integration/` are the two
+folders meant to be copied into any other Godot project as-is — no project-reference plumbing, no
+NuGet package. This was verified for real: those exact files were copied into a brand-new,
+unrelated Godot project with nothing but the default C# template, and it built and ran with zero
+warnings. Full walkthrough, including rendering with real tile art and the no-art-required visual
+debugger, is in [`INTEGRATION.md`](INTEGRATION.md).
+
 ## Deferred by design (per "stop there" in the spec)
 
-Not built yet, on purpose — milestone 1 is only meant to prove the core mechanics:
+Not built yet, on purpose — milestone 1 is only meant to prove the core mechanics, and this
+integration pass only adds copy-paste packaging + rendering/debug consumers on top of it:
 
 - More than 2 layers, and the `no_override` pseudo-tile.
 - **Zones** (spatially-varying parameter overrides). Integration point to keep in mind: the
@@ -122,4 +153,4 @@ Not built yet, on purpose — milestone 1 is only meant to prove the core mechan
   list" for "look up this layer's compiled tile list *at this position*" — not a restructure.
 - The Godot `Resource` save/export adapter (layer definitions + seeds + override diffs, mirroring
   `MapDefinition`/`OverrideStore` 1:1, living in `godot/` so the engine stays Godot-free) and the
-  full editor tool UI.
+  full editor tool UI (pan/zoom camera, per-layer parameter panels, reorderable layer list).

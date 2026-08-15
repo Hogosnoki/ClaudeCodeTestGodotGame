@@ -1,3 +1,6 @@
+// File-scoped so this compiles cleanly even when copied into a host project that hasn't
+// opted into <Nullable>enable</Nullable> project-wide.
+#nullable enable
 using System;
 using System.Collections.Generic;
 using ProcGen.Engine.Model;
@@ -38,6 +41,7 @@ namespace ProcGen.Engine.Generation
                 perLayerGrids[layer.Id] = new string?[region.Width, region.Height];
             }
             var finalGrid = new string?[region.Width, region.Height];
+            var finalLayerGrid = new string?[region.Width, region.Height];
 
             // Reused across cells to avoid an allocation per cell; cleared each iteration.
             var resolvedThisCell = new Dictionary<string, string?>(layers.Count);
@@ -79,11 +83,13 @@ namespace ProcGen.Engine.Generation
                         perLayerGrids[layer.Id][lx, ly] = tileId;
                     }
 
-                    finalGrid[lx, ly] = ComputeFinalTile(layers, resolvedThisCell);
+                    var (finalTile, finalLayer) = ComputeFinalTile(layers, resolvedThisCell);
+                    finalGrid[lx, ly] = finalTile;
+                    finalLayerGrid[lx, ly] = finalLayer;
                 }
             }
 
-            return new MapResult(region, layerIds, perLayerGrids, finalGrid);
+            return new MapResult(region, layerIds, perLayerGrids, finalGrid, finalLayerGrid);
         }
 
         /// <summary>
@@ -106,14 +112,15 @@ namespace ProcGen.Engine.Generation
             return false;
         }
 
-        private static string? ComputeFinalTile(List<LayerDef> layers, Dictionary<string, string?> resolvedThisCell)
+        /// <summary>Returns the topmost layer's tile and that layer's id, for whichever layer actually produced output at this cell.</summary>
+        private static (string? TileId, string? LayerId) ComputeFinalTile(List<LayerDef> layers, Dictionary<string, string?> resolvedThisCell)
         {
             for (int i = layers.Count - 1; i >= 0; i--)
             {
                 var tile = resolvedThisCell[layers[i].Id];
-                if (tile != null) return tile;
+                if (tile != null) return (tile, layers[i].Id);
             }
-            return null;
+            return (null, null);
         }
     }
 }

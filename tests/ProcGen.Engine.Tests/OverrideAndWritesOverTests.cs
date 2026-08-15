@@ -102,6 +102,28 @@ namespace ProcGen.Engine.Tests
         }
 
         [Fact]
+        public void GetFinalLayerId_IdentifiesWhichLayerProducedTheFinalTile()
+        {
+            var def = Milestone1Fixture.BuildDefinition();
+            var region = new RegionSpec(originX: 0, originY: 0, width: 40, height: 40, transformation: 0.0);
+            var overrides = new OverrideStore();
+            var map = MapGenerator.GenerateRegion(def, region, overrides);
+
+            for (int x = 0; x < region.Width; x++)
+            {
+                for (int y = 0; y < region.Height; y++)
+                {
+                    string? finalLayer = map.GetFinalLayerId(x, y);
+                    Assert.NotNull(finalLayer);
+                    Assert.Equal(map.GetLayerTile(finalLayer!, x, y), map.GetFinalTile(x, y));
+
+                    bool groundCoverProduced = map.GetLayerTile("ground_cover", x, y) != null;
+                    Assert.Equal(groundCoverProduced ? "ground_cover" : "ground", finalLayer);
+                }
+            }
+        }
+
+        [Fact]
         public void OverridePersists_AcrossRepeatedGeneration()
         {
             var def = Milestone1Fixture.BuildDefinition();
