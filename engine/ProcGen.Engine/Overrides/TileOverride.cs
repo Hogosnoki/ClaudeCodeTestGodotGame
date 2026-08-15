@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ProcGen.Engine.Overrides
 {
     /// <summary>One hand-painted (layer, position, tile) diff record.</summary>
@@ -8,6 +10,7 @@ namespace ProcGen.Engine.Overrides
         public int Y { get; }
         public string TileId { get; }
 
+        [JsonConstructor]
         public TileOverride(string layerId, int x, int y, string tileId)
         {
             LayerId = layerId;

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ProcGen.Engine.Model
 {
     /// <summary>
@@ -13,6 +15,7 @@ namespace ProcGen.Engine.Model
         public string Id { get; }
         public double Range { get; set; }
 
+        [JsonConstructor]
         public TileDef(string id, double range)
         {
             Id = id;

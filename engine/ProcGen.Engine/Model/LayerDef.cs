@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace ProcGen.Engine.Model
 {
@@ -16,6 +17,7 @@ namespace ProcGen.Engine.Model
         public SeedPosition Seed { get; set; }
         public NoiseParams Noise { get; set; }
 
+        [JsonConstructor]
         public LayerDef(string id, List<TileDef> tiles, List<WritesOverRule> writesOver, SeedPosition seed, NoiseParams noise)
         {
             Id = id;

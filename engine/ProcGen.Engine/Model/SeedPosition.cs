@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ProcGen.Engine.Model
 {
     /// <summary>
@@ -11,6 +13,7 @@ namespace ProcGen.Engine.Model
         public double Y { get; }
         public double T { get; }
 
+        [JsonConstructor]
         public SeedPosition(double x, double y, double t)
         {
             X = x;

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace ProcGen.Engine.Model
 {
     /// <summary>
@@ -12,6 +14,7 @@ namespace ProcGen.Engine.Model
         public string LayerId { get; }
         public string TileId { get; }
 
+        [JsonConstructor]
         public WritesOverRule(string layerId, string tileId)
         {
             LayerId = layerId;

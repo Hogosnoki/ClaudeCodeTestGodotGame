@@ -26,7 +26,11 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
   Scripts/MapEditorToolScene.cs    The map-making tool: a fixed side property panel
                                     (region, Transformation, per-layer seed, per-layer tile
                                     ranges with manual entry + nudge buttons) driving live
-                                    regeneration, plus click-to-paint on top.
+                                    regeneration, plus click-to-paint on top. An "Edit:
+                                    Map / Entrance-Exit" dropdown swaps in a second panel for
+                                    this map's named entrance/exit points, and Save/Load read
+                                    and write the JSON format from
+                                    ProcGen.Engine/Serialization.
 docs/                     Reference screenshots for INTEGRATION.md / this README.
 INTEGRATION.md            How to copy this into your own Godot project, render with real
                            tile art, and visually debug generation.
@@ -49,9 +53,15 @@ code. They were resolved as follows:
    noise"), extended to three axes (X, Y, Transformation) by treating Transformation as an
    ordinary third lattice axis interpolated exactly like X/Y. See
    `engine/ProcGen.Engine/Noise/LatticeNoise3D.cs`.
-3. **Save/export format: Godot Resource (`.tres`/`.res`).** Not yet implemented (see "Deferred by
-   design" below) — the engine's plain C# data model is what will get mirrored by a thin Godot
-   `Resource` adapter layer living in `godot/`, not folded into the engine itself.
+3. **Save/export format: JSON, read and written by the engine itself.** Superseding the earlier
+   plan of a Godot `Resource` adapter: `ProcGen.Engine.Serialization.MapFileSerializer` is the one
+   reader/writer both the editor tool and the actual game call through, so "configuration +
+   algorithm reproduces the map exactly" only depends on both consumers running the same engine
+   assembly against the same file -- not on a Godot-specific adapter staying in sync with it. The
+   saved file is the full `MapDefinition` (including the map's id and its named entrance/exit
+   points) plus the `OverrideStore` diff; nothing editor-only (e.g. the tool's tile display colors)
+   is part of the format. See `MapDefinition.MapId`/`.Entrances`/`.Exits` and
+   `MapFileSerializer.Serialize`/`.Deserialize`.
 
 ## Determinism
 
@@ -140,6 +150,12 @@ Panel sections, top to bottom:
     catches that `ArgumentException` and reports it in the status label instead of crashing, in
     case a layer's ranges are nudged all the way down to a zero total.
 
+Above the panel sections described so far sits **Map** (this map's id, a save file name field, and
+Save/Load buttons) and an **Edit: Map / Entrance-Exit** dropdown that swaps everything below it
+between the panel just described and a second panel for this map's named entrance/exit points --
+so those controls aren't cluttering the view for maps that don't need them yet. See "Save/load and
+entrance/exit points" below.
+
 Left-click on the map still cycles a manual override on the selected layer at that cell (same
 mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
 when a setting alone can't express what you want — tuning ranges/seeds/region is meant to be how
@@ -178,10 +194,36 @@ Map Area" to recover, watched a hand-painted override render dimmed after moving
 area away from it, and confirmed painting/clearing overrides and every panel control still work
 correctly with the camera in play — not just built and assumed to work.
 
+### Save/load and entrance/exit points
+
+A map's **id** (`MapDefinition.MapId`) is how *other* maps' exits refer to it once everything is
+loaded into memory, and is deliberately separate from the **file name** it's saved under — the
+file name is only how the game engine locates the file on disk. Both are plain text fields at the
+top of the panel; Save/Load act on `res://Maps/<file name>.json` (the `.json` suffix is added for
+you if you leave it off).
+
+The file is written and read by `ProcGen.Engine.Serialization.MapFileSerializer` — the same
+reader/writer a game must call through, so a saved file reproduces identically wherever it's
+loaded, given the same engine assembly. It holds exactly two things: the full `MapDefinition`
+(world seed, every layer's tiles/writes_over/seed/noise, the map id, and its entrance/exit points)
+and the `OverrideStore` diff. Nothing editor-only — the tool's tile display colors, camera
+position, region/Transformation fields — is part of the format; those reset to defaults on load.
+
+Entrance and exit points are plain named markers on the map, edited from the second panel behind
+the **Edit: Map / Entrance-Exit** dropdown:
+- An **entrance** (id + X/Y) is where a player arrives after taking some exit — on this map or any
+  other — whose destination entrance id names it.
+- An **exit** (id + X/Y + destination map id + destination entrance id) is where a player leaves
+  through, toward another map's named entrance. The destination fields are plain strings, not
+  validated against the other map's file — resolving them is a game-side concern at load time.
+- Ids only need to be unique *within* their own map (checked on Add, and again by
+  `MapFileSerializer.Deserialize` on load) — a reference to one is always the pair (map id,
+  entrance id), and the map id half of that pair is what's globally unique.
+
 ## Running it
 
 ```bash
-# Engine unit tests (33 tests, no Godot needed):
+# Engine unit tests (39 tests, no Godot needed):
 dotnet test tests/ProcGen.Engine.Tests/ProcGen.Engine.Tests.csproj
 
 # Milestone-1 console proof, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):
@@ -235,8 +277,8 @@ Not built yet, on purpose:
   cell) rather than one fixed `CompiledLayer` per layer per region. The cell loop already resolves
   everything per-cell, so this should be a matter of swapping "look up this layer's compiled tile
   list" for "look up this layer's compiled tile list *at this position*" — not a restructure.
-- The Godot `Resource` save/export adapter (layer definitions + seeds + override diffs, mirroring
-  `MapDefinition`/`OverrideStore` 1:1, living in `godot/` so the engine stays Godot-free).
 - In the editor tool specifically: add/remove layers (tiles can already be added/removed per
-  layer), reordering layers or tiles, `writes_over` filter editing, and noise parameter editing
-  (octaves/frequency/persistence/lacunarity).
+  layer), and reordering layers, tiles, or `writes_over` filter editing.
+- Cross-file validation of entrance/exit references (an exit's DestinationMapId/
+  DestinationEntranceId are plain strings, not checked against the destination map's own saved
+  file) -- resolving those at runtime is a game-side concern.

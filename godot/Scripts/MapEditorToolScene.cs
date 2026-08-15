@@ -5,6 +5,7 @@ using Godot;
 using ProcGen.Engine.Generation;
 using ProcGen.Engine.Model;
 using ProcGen.Engine.Overrides;
+using ProcGen.Engine.Serialization;
 using ProcGen.Engine.Validation;
 using ProcGenGame.Integration;
 
@@ -22,6 +23,13 @@ namespace ProcGenGame
     /// Every field writes straight into the same <see cref="MapDefinition"/> /
     /// <see cref="OverrideStore"/> the engine consumes -- there is no separate "tool state" that
     /// could drift from what actually gets generated.
+    ///
+    /// An "Edit: Map / Entrance-Exit" dropdown swaps the panel between the settings above and a
+    /// second panel for adding/positioning this map's named entrance and exit points (so those
+    /// controls aren't cluttering the view all the time). Save/Load read and write the exact same
+    /// <see cref="MapDefinition"/>/<see cref="OverrideStore"/> pair as JSON via
+    /// <see cref="MapFileSerializer"/> -- the same reader/writer the game itself must use, so a
+    /// saved file is guaranteed to reproduce identically wherever it's loaded.
     ///
     /// Two rectangles matter here and are easy to conflate:
     ///   - The "designated area" (Region panel: Origin X/Y, Width/Height) -- the actual map that
@@ -89,6 +97,10 @@ namespace ProcGenGame
         private SpinBox _persistenceBox = null!;
         private SpinBox _lacunarityBox = null!;
         private SpinBox _transformationBox = null!;
+        private SpinBox _originXBox = null!;
+        private SpinBox _originYBox = null!;
+        private SpinBox _widthBox = null!;
+        private SpinBox _heightBox = null!;
         private VBoxContainer _tilesContainer = null!;
         private LineEdit _newTileIdEdit = null!;
         private Label _addTileHintLabel = null!;
@@ -96,6 +108,21 @@ namespace ProcGenGame
         private Label _coordsLabel = null!;
         private CheckBox _compositeToggle = null!;
         private CheckBox _drawModeToggle = null!;
+
+        // Save/load and the Map / Entrance-Exit panel switch.
+        private const string MapsDirectory = "res://Maps";
+        private LineEdit _mapIdEdit = null!;
+        private LineEdit _saveFileNameEdit = null!;
+        private Label _saveLoadStatusLabel = null!;
+        private OptionButton _modeDropdown = null!;
+        private VBoxContainer _mapModePanel = null!;
+        private VBoxContainer _entranceExitModePanel = null!;
+        private VBoxContainer _entrancesContainer = null!;
+        private LineEdit _newEntranceIdEdit = null!;
+        private Label _entranceHintLabel = null!;
+        private VBoxContainer _exitsContainer = null!;
+        private LineEdit _newExitIdEdit = null!;
+        private Label _exitHintLabel = null!;
 
         // Guards programmatic SpinBox.Value assignments (e.g. syncing seed fields on layer
         // switch) from re-entering the same handler that would just write the value straight back.
@@ -116,6 +143,8 @@ namespace ProcGenGame
             _overlay.SetTileColors(_tileColors);
 
             RefreshLayerList();
+            RebuildEntranceRows();
+            RebuildExitRows();
             CenterOnDesignatedArea();
             SelectLayer(0);
         }
@@ -222,11 +251,64 @@ namespace ProcGenGame
             root.AddChild(_statusLabel);
             root.AddChild(new HSeparator());
 
+            root.AddChild(Header("Map"));
+            _mapIdEdit = new LineEdit { PlaceholderText = "map id (how other maps' exits refer to this one)", Text = _definition.MapId };
+            _mapIdEdit.TextChanged += t => _definition.MapId = t;
+            root.AddChild(_mapIdEdit);
+
+            _saveFileNameEdit = new LineEdit { PlaceholderText = "file name, e.g. starter_island.json" };
+            root.AddChild(_saveFileNameEdit);
+
+            var saveLoadRow = new HBoxContainer();
+            var saveButton = new Button { Text = "Save" };
+            saveButton.Pressed += OnSavePressed;
+            saveLoadRow.AddChild(saveButton);
+            var loadButton = new Button { Text = "Load" };
+            loadButton.Pressed += OnLoadPressed;
+            saveLoadRow.AddChild(loadButton);
+            root.AddChild(saveLoadRow);
+
+            _saveLoadStatusLabel = new Label
+            {
+                Text = $"Reads/writes {MapsDirectory}/<file name>. The map id above is separate from the file name -- it's the stable id other maps' exits reference.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            };
+            root.AddChild(_saveLoadStatusLabel);
+            root.AddChild(new HSeparator());
+
+            root.AddChild(Header("Edit"));
+            _modeDropdown = new OptionButton();
+            _modeDropdown.AddItem("Map");
+            _modeDropdown.AddItem("Entrance / Exit");
+            _modeDropdown.ItemSelected += index => SetPanelMode((int)index);
+            root.AddChild(_modeDropdown);
+            root.AddChild(new HSeparator());
+
+            _mapModePanel = new VBoxContainer();
+            _mapModePanel.AddThemeConstantOverride("separation", 6);
+            root.AddChild(_mapModePanel);
+            BuildMapModePanel(_mapModePanel);
+
+            _entranceExitModePanel = new VBoxContainer { Visible = false };
+            _entranceExitModePanel.AddThemeConstantOverride("separation", 6);
+            root.AddChild(_entranceExitModePanel);
+            BuildEntranceExitModePanel(_entranceExitModePanel);
+        }
+
+        private void SetPanelMode(int mode)
+        {
+            _mapModePanel.Visible = mode == 0;
+            _entranceExitModePanel.Visible = mode == 1;
+        }
+
+        private void BuildMapModePanel(VBoxContainer root)
+        {
             root.AddChild(Header("Region (designated map area)"));
-            AddIntField(root, "Origin X", _originX, -100000, 100000, v => { _originX = v; Regenerate(); });
-            AddIntField(root, "Origin Y", _originY, -100000, 100000, v => { _originY = v; Regenerate(); });
-            AddIntField(root, "Width", _regionWidth, 1, 200, v => { _regionWidth = v; Regenerate(); });
-            AddIntField(root, "Height", _regionHeight, 1, 200, v => { _regionHeight = v; Regenerate(); });
+            _originXBox = AddIntField(root, "Origin X", _originX, -100000, 100000, v => { _originX = v; Regenerate(); });
+            _originYBox = AddIntField(root, "Origin Y", _originY, -100000, 100000, v => { _originY = v; Regenerate(); });
+            _widthBox = AddIntField(root, "Width", _regionWidth, 1, 200, v => { _regionWidth = v; Regenerate(); });
+            _heightBox = AddIntField(root, "Height", _regionHeight, 1, 200, v => { _regionHeight = v; Regenerate(); });
             root.AddChild(new Label
             {
                 Text = "Content outside this area renders dimmed. Editing these fields doesn't move the camera -- use the coordinate readout to find where to place it, then type it in here.",
@@ -308,6 +390,52 @@ namespace ProcGenGame
 
             _addTileHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
             root.AddChild(_addTileHintLabel);
+        }
+
+        private void BuildEntranceExitModePanel(VBoxContainer root)
+        {
+            root.AddChild(Header("Entrances"));
+            root.AddChild(new Label
+            {
+                Text = "Where a player arrives via some other exit (on this map or any other) targeting one of these ids. Ids only need to be unique on this map. Use the coordinate readout over the map to find where to place one, then type it in here.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _entrancesContainer = new VBoxContainer();
+            root.AddChild(_entrancesContainer);
+
+            var addEntranceRow = new HBoxContainer();
+            _newEntranceIdEdit = new LineEdit { PlaceholderText = "new entrance id", CustomMinimumSize = new Vector2(200, 0) };
+            addEntranceRow.AddChild(_newEntranceIdEdit);
+            var addEntranceButton = new Button { Text = "Add Entrance" };
+            addEntranceButton.Pressed += OnAddEntrancePressed;
+            addEntranceRow.AddChild(addEntranceButton);
+            root.AddChild(addEntranceRow);
+
+            _entranceHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_entranceHintLabel);
+            root.AddChild(new HSeparator());
+
+            root.AddChild(Header("Exits"));
+            root.AddChild(new Label
+            {
+                Text = "A point the player leaves through, toward a destination map id and one of that map's entrance ids -- both typed here as plain strings, not checked against the other file.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _exitsContainer = new VBoxContainer();
+            root.AddChild(_exitsContainer);
+
+            var addExitRow = new HBoxContainer();
+            _newExitIdEdit = new LineEdit { PlaceholderText = "new exit id", CustomMinimumSize = new Vector2(200, 0) };
+            addExitRow.AddChild(_newExitIdEdit);
+            var addExitButton = new Button { Text = "Add Exit" };
+            addExitButton.Pressed += OnAddExitPressed;
+            addExitRow.AddChild(addExitButton);
+            root.AddChild(addExitRow);
+
+            _exitHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_exitHintLabel);
         }
 
         private static Label Header(string text)
@@ -572,6 +700,264 @@ namespace ProcGenGame
             Regenerate();
         }
 
+        // ---------- Entrances / Exits ----------
+        // Unlike tiles, entrance/exit points don't feed the generation algorithm at all -- they're
+        // pure gameplay metadata carried alongside the map -- so editing them never calls
+        // Regenerate().
+
+        private void RebuildEntranceRows()
+        {
+            foreach (Node child in _entrancesContainer.GetChildren())
+            {
+                child.QueueFree();
+            }
+
+            foreach (var entrance in _definition.Entrances)
+            {
+                var row = new HBoxContainer();
+                row.AddChild(new Label { Text = entrance.Id, CustomMinimumSize = new Vector2(100, 0) });
+
+                var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(80, 0) };
+                xBox.Value = entrance.X;
+                xBox.ValueChanged += v => entrance.X = (int)Math.Round(v);
+                row.AddChild(xBox);
+
+                var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(80, 0) };
+                yBox.Value = entrance.Y;
+                yBox.ValueChanged += v => entrance.Y = (int)Math.Round(v);
+                row.AddChild(yBox);
+
+                var remove = new Button { Text = "x", TooltipText = $"Remove entrance '{entrance.Id}'" };
+                remove.Pressed += () =>
+                {
+                    _definition.Entrances.Remove(entrance);
+                    RebuildEntranceRows();
+                };
+                row.AddChild(remove);
+
+                _entrancesContainer.AddChild(row);
+            }
+        }
+
+        private void OnAddEntrancePressed()
+        {
+            string id = _newEntranceIdEdit.Text.Trim();
+            if (string.IsNullOrEmpty(id))
+            {
+                _entranceHintLabel.Text = "Enter an entrance id first.";
+                return;
+            }
+            if (_definition.Entrances.Exists(e => e.Id == id))
+            {
+                _entranceHintLabel.Text = $"This map already has an entrance called '{id}'.";
+                return;
+            }
+
+            _definition.Entrances.Add(new EntrancePoint(id, 0, 0));
+            _newEntranceIdEdit.Text = "";
+            _entranceHintLabel.Text = "";
+            RebuildEntranceRows();
+        }
+
+        private void RebuildExitRows()
+        {
+            foreach (Node child in _exitsContainer.GetChildren())
+            {
+                child.QueueFree();
+            }
+
+            foreach (var exit in _definition.Exits)
+            {
+                var card = new VBoxContainer();
+                card.AddThemeConstantOverride("separation", 2);
+
+                var headerRow = new HBoxContainer();
+                headerRow.AddChild(new Label { Text = exit.Id, CustomMinimumSize = new Vector2(150, 0) });
+                var remove = new Button { Text = "x", TooltipText = $"Remove exit '{exit.Id}'" };
+                remove.Pressed += () =>
+                {
+                    _definition.Exits.Remove(exit);
+                    RebuildExitRows();
+                };
+                headerRow.AddChild(remove);
+                card.AddChild(headerRow);
+
+                var posRow = new HBoxContainer();
+                posRow.AddChild(new Label { Text = "X", CustomMinimumSize = new Vector2(20, 0) });
+                var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(70, 0) };
+                xBox.Value = exit.X;
+                xBox.ValueChanged += v => exit.X = (int)Math.Round(v);
+                posRow.AddChild(xBox);
+                posRow.AddChild(new Label { Text = "Y", CustomMinimumSize = new Vector2(20, 0) });
+                var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(70, 0) };
+                yBox.Value = exit.Y;
+                yBox.ValueChanged += v => exit.Y = (int)Math.Round(v);
+                posRow.AddChild(yBox);
+                card.AddChild(posRow);
+
+                var destMapEdit = new LineEdit { PlaceholderText = "destination map id", Text = exit.DestinationMapId };
+                destMapEdit.TextChanged += t => exit.DestinationMapId = t;
+                card.AddChild(destMapEdit);
+
+                var destEntranceEdit = new LineEdit { PlaceholderText = "destination entrance id", Text = exit.DestinationEntranceId };
+                destEntranceEdit.TextChanged += t => exit.DestinationEntranceId = t;
+                card.AddChild(destEntranceEdit);
+
+                card.AddChild(new HSeparator());
+                _exitsContainer.AddChild(card);
+            }
+        }
+
+        private void OnAddExitPressed()
+        {
+            string id = _newExitIdEdit.Text.Trim();
+            if (string.IsNullOrEmpty(id))
+            {
+                _exitHintLabel.Text = "Enter an exit id first.";
+                return;
+            }
+            if (_definition.Exits.Exists(e => e.Id == id))
+            {
+                _exitHintLabel.Text = $"This map already has an exit called '{id}'.";
+                return;
+            }
+
+            _definition.Exits.Add(new ExitPoint(id, 0, 0, "", ""));
+            _newExitIdEdit.Text = "";
+            _exitHintLabel.Text = "";
+            RebuildExitRows();
+        }
+
+        // ---------- Save / Load ----------
+
+        private void OnSavePressed()
+        {
+            string mapId = _definition.MapId.Trim();
+            string fileName = NormalizeFileName(_saveFileNameEdit.Text);
+
+            if (string.IsNullOrEmpty(mapId))
+            {
+                _saveLoadStatusLabel.Text = "Set a Map ID before saving.";
+                return;
+            }
+            if (string.IsNullOrEmpty(fileName))
+            {
+                _saveLoadStatusLabel.Text = "Enter a file name before saving.";
+                return;
+            }
+            if (MapDefinitionValidation.TryFindDuplicateId(_definition.Entrances.ConvertAll(e => e.Id), out var dupEntrance))
+            {
+                _saveLoadStatusLabel.Text = $"Duplicate entrance id '{dupEntrance}' -- ids must be unique within a map.";
+                return;
+            }
+            if (MapDefinitionValidation.TryFindDuplicateId(_definition.Exits.ConvertAll(e => e.Id), out var dupExit))
+            {
+                _saveLoadStatusLabel.Text = $"Duplicate exit id '{dupExit}' -- ids must be unique within a map.";
+                return;
+            }
+
+            string path = $"{MapsDirectory}/{fileName}";
+            try
+            {
+                DirAccess.MakeDirRecursiveAbsolute(MapsDirectory);
+                string json = MapFileSerializer.Serialize(_definition, _overrides);
+
+                using var file = FileAccess.Open(path, FileAccess.ModeFlags.Write);
+                if (file == null)
+                {
+                    _saveLoadStatusLabel.Text = $"Could not open '{path}' for writing ({FileAccess.GetOpenError()}).";
+                    return;
+                }
+                file.StoreString(json);
+                _saveLoadStatusLabel.Text = $"Saved to {path}";
+            }
+            catch (Exception ex)
+            {
+                _saveLoadStatusLabel.Text = $"Save failed: {ex.Message}";
+            }
+        }
+
+        private void OnLoadPressed()
+        {
+            string fileName = NormalizeFileName(_saveFileNameEdit.Text);
+            if (string.IsNullOrEmpty(fileName))
+            {
+                _saveLoadStatusLabel.Text = "Enter a file name to load.";
+                return;
+            }
+
+            string path = $"{MapsDirectory}/{fileName}";
+            if (!FileAccess.FileExists(path))
+            {
+                _saveLoadStatusLabel.Text = $"No file at {path}";
+                return;
+            }
+
+            try
+            {
+                using var file = FileAccess.Open(path, FileAccess.ModeFlags.Read);
+                if (file == null)
+                {
+                    _saveLoadStatusLabel.Text = $"Could not open '{path}' for reading ({FileAccess.GetOpenError()}).";
+                    return;
+                }
+                string json = file.GetAsText();
+                var (map, overrides) = MapFileSerializer.Deserialize(json);
+
+                if (map.Layers.Count == 0)
+                {
+                    _saveLoadStatusLabel.Text = "Loaded map has no layers -- nothing to generate.";
+                    return;
+                }
+
+                _definition = map;
+                _overrides = overrides;
+                _selectedLayerIndex = 0;
+
+                _suppressSignals = true;
+                _mapIdEdit.Text = _definition.MapId;
+                _suppressSignals = false;
+
+                ResetRegionAndTransformFields();
+                RefreshLayerList();
+                RebuildEntranceRows();
+                RebuildExitRows();
+                SelectLayer(0);
+                CenterOnDesignatedArea();
+
+                _saveLoadStatusLabel.Text = $"Loaded {path}";
+            }
+            catch (Exception ex)
+            {
+                _saveLoadStatusLabel.Text = $"Load failed: {ex.Message}";
+            }
+        }
+
+        private static string NormalizeFileName(string typed)
+        {
+            string trimmed = typed.Trim();
+            if (trimmed.Length == 0) return "";
+            return trimmed.EndsWith(".json", StringComparison.OrdinalIgnoreCase) ? trimmed : trimmed + ".json";
+        }
+
+        /// <summary>Resets the designated-area/Transformation fields to their defaults after loading a different map, syncing the SpinBoxes without re-triggering their change handlers.</summary>
+        private void ResetRegionAndTransformFields()
+        {
+            _originX = 0;
+            _originY = 0;
+            _regionWidth = 32;
+            _regionHeight = 20;
+            _transformation = 0.0;
+
+            _suppressSignals = true;
+            _originXBox.Value = _originX;
+            _originYBox.Value = _originY;
+            _widthBox.Value = _regionWidth;
+            _heightBox.Value = _regionHeight;
+            _transformationBox.Value = _transformation;
+            _suppressSignals = false;
+        }
+
         private Color GetTileColor(string tileId)
         {
             if (!_tileColors.TryGetValue(tileId, out var color))
@@ -767,7 +1153,7 @@ namespace ProcGenGame
                 new SeedPosition(-500.62, 7500.19, 0.0),
                 new NoiseParams { Octaves = 2, Frequency = 0.08, Persistence = 0.5, Lacunarity = 2.0 });
 
-            var def = new MapDefinition { WorldSeed = 12345 };
+            var def = new MapDefinition { MapId = "new_map", WorldSeed = 12345 };
             def.Layers.Add(ground);
             def.Layers.Add(groundCover);
             return def;
