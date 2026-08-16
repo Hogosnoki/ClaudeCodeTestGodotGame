@@ -208,8 +208,9 @@ button. Every field/gesture writes straight into a live `MapDefinition`/`Overrid
 `Control`/`Node2D` nodes constructed in code (no Inspector/editor-plugin dependency), so it runs
 the same way whether it's a standalone tool scene (as here) or embedded in a bigger editor UI.
 Tile color is tracked per tile id in the tool (not on the engine's `TileDef`, since it's a
-rendering concern) and stands in for tile art until real art exists. See its doc comment and the
-README's "The map editor tool" section for screenshots and the full control layout.
+rendering concern) and stands in for tile art until real art is imported for that tile id (see
+"Tile image import" below). See its doc comment and the README's "The map editor tool" section for
+screenshots and the full control layout.
 
 Project save/load, multiple maps per project, entrance/exit point editing (with click-to-place
 canvas markers and a dangling-exit diagnostic panel), and directional tile-transition
@@ -226,7 +227,29 @@ pairs on `MapDefinition.BlockedTransitions`, checked against each cell's final r
 once per loaded map (not per movement check) and call `IsBlocked(fromTileId, toTileId)` before
 letting a character step from one cell onto an adjacent one.
 
+Layer and tile ids can be renamed in place from the tool (an **Id** field for the selected layer,
+an editable id per tile row), and tiles within a layer can be reordered with `^`/`v`. A rename
+can't just mutate the id -- `writes_over` rules, transition rules, and override records all
+reference layers/tiles by id string -- so `ProcGen.Engine.Editing.RenameOperations` replaces the
+renamed `LayerDef`/`TileDef` with a new instance and cascades the new id through every reference
+within the map; nothing outside the engine needs to know this happened, a game just calls
+`MapGenerator.GenerateRegion` against the updated `MapDefinition` as usual.
+
+A layer's tile list can include a reserved `TileDef.NoOverrideId` ("no_override") entry -- selecting
+it (procedurally or via a manual override) resolves that layer to null at that cell, letting a
+lower layer show through, same as an ineligible layer. `MapResult.GetFinalTile`/`GetLayerTile`
+already return nullable strings, so a consumer that already treats null as "nothing here" needs no
+changes to support it.
+
+Tile art can be imported per tile id from the tool (an **Img** button per row, via a native
+`FileDialog`), copied into `res://TileArt/<tileId>.png` and rendered through
+`ProcGenDebugOverlay.SetTileTextures` in place of that tile's flat color. This is separate from
+`ProcGenTileMapView`'s atlas-coordinate mapping (Step 4 above) -- it's a debug-overlay-level
+convenience, not (yet) a `TileSet`/atlas integration, and imported art is not currently part of the
+saved project JSON.
+
 Still not built, per the milestone-1 scope ("Deferred by design" in the root `README.md`):
-- Add/remove layers (tiles can already be added/removed per layer), and reordering layers, tiles,
-  or `writes_over` filter editing.
+- Adding/removing/reordering whole layers, and `writes_over` filter editing.
 - Undo/redo, and multi-cell paint tools (brush/fill/rectangle-select).
+- Tile art at sizes other than the fixed cell size, and imported art as part of the saved project
+  format.

@@ -85,9 +85,43 @@ namespace ProcGen.Engine.Tests
         [Fact]
         public void SampleFbm_IsDeterministic()
         {
-            double a = LatticeNoise3D.SampleFbm(12.3, -4.5, 0.2, seed: 3, octaves: 4, frequency: 0.1, persistence: 0.5, lacunarity: 2.0);
-            double b = LatticeNoise3D.SampleFbm(12.3, -4.5, 0.2, seed: 3, octaves: 4, frequency: 0.1, persistence: 0.5, lacunarity: 2.0);
+            double a = LatticeNoise3D.SampleFbm(12.3, -4.5, 0.2, 1000.0, 2000.0, 0.0, seed: 3, octaves: 4, frequency: 0.1, persistence: 0.5, lacunarity: 2.0);
+            double b = LatticeNoise3D.SampleFbm(12.3, -4.5, 0.2, 1000.0, 2000.0, 0.0, seed: 3, octaves: 4, frequency: 0.1, persistence: 0.5, lacunarity: 2.0);
             Assert.Equal(a, b);
+        }
+
+        [Fact]
+        public void SampleFbm_OriginAtZeroCoordinate_IsInvariantToFrequency()
+        {
+            // At the sampled coordinate (0,0,0), x*freq/y*freq/z*freq is always exactly 0
+            // regardless of frequency, so the resulting lattice position is exactly
+            // (originX, originY, originZ) -- origin must not itself be scaled by frequency, so
+            // varying frequency here must not change the output at all. This is the direct fix
+            // for the hypersensitivity bug: a real SeedPosition's origin is meant to be a fixed
+            // decorrelation offset, not something that gets re-multiplied by every frequency
+            // (or, via lacunarity, per-octave frequency) tweak.
+            double originX = 1000.37, originY = 2000.81, originZ = 0.0;
+            double first = LatticeNoise3D.SampleFbm(0.0, 0.0, 0.0, originX, originY, originZ, seed: 9, octaves: 1, frequency: 0.01, persistence: 0.5, lacunarity: 2.0);
+            foreach (double frequency in new[] { 0.05, 0.1, 0.5, 2.0 })
+            {
+                double v = LatticeNoise3D.SampleFbm(0.0, 0.0, 0.0, originX, originY, originZ, seed: 9, octaves: 1, frequency: frequency, persistence: 0.5, lacunarity: 2.0);
+                Assert.Equal(first, v);
+            }
+        }
+
+        [Fact]
+        public void SampleFbm_SmallFrequencyNudge_WithLargeOrigin_ChangesOutputOnlyGradually()
+        {
+            // Regression test for the hypersensitivity bug: with a large, realistic SeedPosition-
+            // style origin, a small relative nudge to frequency (or lacunarity, which multiplies
+            // frequency per octave) must not blow the sampled point past a neighboring lattice
+            // cell -- that would show up as a large, discontinuous-looking output change instead
+            // of a gradual one.
+            double origin = 1000.37;
+            double baseFrequency = 0.05;
+            double a = LatticeNoise3D.SampleFbm(10.0, 4.0, 0.0, origin, 2000.81, 0.0, seed: 11, octaves: 3, frequency: baseFrequency, persistence: 0.5, lacunarity: 2.0);
+            double b = LatticeNoise3D.SampleFbm(10.0, 4.0, 0.0, origin, 2000.81, 0.0, seed: 11, octaves: 3, frequency: baseFrequency * 1.01, persistence: 0.5, lacunarity: 2.0);
+            Assert.True(System.Math.Abs(a - b) < 0.2, $"A 1% frequency nudge changed raw output by {System.Math.Abs(a - b)}, expected a small change.");
         }
     }
 }

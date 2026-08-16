@@ -62,11 +62,15 @@ namespace ProcGen.Engine.Generation
                         string? tileId = null;
                         if (eligible)
                         {
-                            double nx = worldX + layer.Seed.X;
-                            double ny = worldY + layer.Seed.Y;
-                            double nt = region.Transformation + layer.Seed.T;
+                            // layer.Seed is a fixed lattice-space translation (decorrelates layers
+                            // from each other) -- passed to SampleFbm separately from the sampled
+                            // position so it's applied AFTER frequency scaling, not before. See
+                            // SampleFbm's doc comment for why that ordering matters.
                             var noise = layer.Noise;
-                            double raw = LatticeNoise3D.SampleFbm(nx, ny, nt, definition.WorldSeed, noise.Octaves, noise.Frequency, noise.Persistence, noise.Lacunarity);
+                            double raw = LatticeNoise3D.SampleFbm(
+                                worldX, worldY, region.Transformation,
+                                layer.Seed.X, layer.Seed.Y, layer.Seed.T,
+                                definition.WorldSeed, noise.Octaves, noise.Frequency, noise.Persistence, noise.Lacunarity);
                             double unit = LatticeNoise3D.ToUnitInterval(raw);
                             var selection = TileSelector.Select(compiled[i], unit);
                             tileId = selection.TileId;
@@ -77,6 +81,15 @@ namespace ProcGen.Engine.Generation
                         if (overrides.TryGet(layer.Id, worldX, worldY, out var overrideTileId))
                         {
                             tileId = overrideTileId;
+                        }
+
+                        // The no_override sentinel means "this layer produces nothing here" --
+                        // resolve it to null (same as an ineligible/filtered-out layer) so lower
+                        // layers show through, whether it came from the procedural roll or a
+                        // manual override painting it directly.
+                        if (tileId == TileDef.NoOverrideId)
+                        {
+                            tileId = null;
                         }
 
                         resolvedThisCell[layer.Id] = tileId;

@@ -50,5 +50,15 @@ namespace ProcGen.Engine.Overrides
             }
             return store;
         }
+
+        /// <summary>Replaces every entry wholesale, e.g. after rewriting layer/tile ids that this store's keys or values referenced -- see <see cref="ProcGen.Engine.Editing.RenameOperations"/>.</summary>
+        public void ReplaceAll(IEnumerable<TileOverride> records)
+        {
+            _overrides.Clear();
+            foreach (var r in records)
+            {
+                Set(r.LayerId, r.X, r.Y, r.TileId);
+            }
+        }
     }
 }

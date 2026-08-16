@@ -118,8 +118,21 @@ namespace ProcGen.Engine.Noise
         /// Fractal Brownian Motion: sums octaves of <see cref="Sample"/> at increasing frequency
         /// and decreasing amplitude, normalized by total amplitude so the result stays within
         /// approximately [-1, 1] regardless of octave count.
+        ///
+        /// (x, y, z) is the position being sampled (e.g. world cell coordinates); (originX,
+        /// originY, originZ) is a fixed lattice-space translation -- typically a layer's
+        /// <see cref="ProcGen.Engine.Model.SeedPosition"/> -- added AFTER each octave's frequency
+        /// scaling rather than before it. That ordering matters: origin is what decorrelates
+        /// different layers by placing them at unrelated locations in the shared noise field, and
+        /// keeping it outside the `* freq` multiplication means it stays a fixed offset regardless
+        /// of whatever frequency/lacunarity happen to be dialed to. Adding it before scaling (as
+        /// an earlier version of this method did, via `(x + origin) * freq`) would re-multiply the
+        /// origin by every frequency/lacunarity change -- since origin is typically large (on the
+        /// order of thousands, to guarantee separation), even a tiny frequency nudge would shift
+        /// the sampled lattice position by many whole cells, producing an unrelated pattern instead
+        /// of a gradual change. See NoiseTests for a regression check on this.
         /// </summary>
-        public static double SampleFbm(double x, double y, double z, int seed, int octaves, double frequency, double persistence, double lacunarity)
+        public static double SampleFbm(double x, double y, double z, double originX, double originY, double originZ, int seed, int octaves, double frequency, double persistence, double lacunarity)
         {
             if (octaves < 1) octaves = 1;
 
@@ -133,7 +146,7 @@ namespace ProcGen.Engine.Noise
                 // Distinct integer seed per octave so octaves sample uncorrelated lattices
                 // instead of aliasing against each other.
                 int octaveSeed = unchecked(seed + o * 1013904223);
-                sum += Sample(x * freq, y * freq, z * freq, octaveSeed) * amplitude;
+                sum += Sample(x * freq + originX, y * freq + originY, z * freq + originZ, octaveSeed) * amplitude;
                 maxAmplitude += amplitude;
                 amplitude *= persistence;
                 freq *= lacunarity;

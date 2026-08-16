@@ -50,11 +50,23 @@ namespace ProcGenGame.Integration
         public Rect2I? DesignatedArea { get; set; }
 
         private Dictionary<string, Color> _tileColors = new();
+        private Dictionary<string, Texture2D> _tileTextures = new();
 
-        /// <summary>Assigns a display color per engine tile id. Unmapped tile ids render as loud magenta so gaps are obvious.</summary>
+        /// <summary>Assigns a display color per engine tile id. Unmapped tile ids render as loud magenta so gaps are obvious. Ignored for a tile id that also has a texture via <see cref="SetTileTextures"/> -- texture wins.</summary>
         public void SetTileColors(Dictionary<string, Color> colors)
         {
             _tileColors = colors;
+            QueueRedraw();
+        }
+
+        /// <summary>
+        /// Assigns an imported image per engine tile id, taking priority over that tile's flat
+        /// color wherever both are set. A tile id with no entry here just falls back to
+        /// <see cref="SetTileColors"/> -- importing art is optional per tile, not all-or-nothing.
+        /// </summary>
+        public void SetTileTextures(Dictionary<string, Texture2D> textures)
+        {
+            _tileTextures = textures;
             QueueRedraw();
         }
 
@@ -105,13 +117,19 @@ namespace ProcGenGame.Integration
             int worldX = _region.OriginX + x;
             int worldY = _region.OriginY + y;
             var rect = new Rect2(worldX * CellPixelSize, worldY * CellPixelSize, CellPixelSize, CellPixelSize);
+            bool dimmed = DesignatedArea.HasValue && !IsInsideDesignatedArea(worldX, worldY);
 
-            Color color = _tileColors.TryGetValue(tile, out var mapped) ? mapped : UnknownTileColor;
-            if (DesignatedArea.HasValue && !IsInsideDesignatedArea(worldX, worldY))
+            if (_tileTextures.TryGetValue(tile, out var texture) && texture != null)
             {
-                color = color.Darkened(DimAmount);
+                Color modulate = dimmed ? Colors.White.Darkened(DimAmount) : Colors.White;
+                DrawTextureRect(texture, rect, false, modulate);
             }
-            DrawRect(rect, color, filled: true);
+            else
+            {
+                Color color = _tileColors.TryGetValue(tile, out var mapped) ? mapped : UnknownTileColor;
+                if (dimmed) color = color.Darkened(DimAmount);
+                DrawRect(rect, color, filled: true);
+            }
 
             if (ShowOverrideMarkers && _overrides != null && IsOverridden(x, y))
             {

@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using ProcGen.Engine.Editing;
 using ProcGen.Engine.Generation;
 using ProcGen.Engine.Model;
 using ProcGen.Engine.Movement;
@@ -45,6 +46,17 @@ namespace ProcGenGame
     /// "walkable" flag anywhere in the tool -- the Movement panel's "Solid"/"Open" buttons are a
     /// convenience that bulk-add/remove ordinary <see cref="ProcGen.Engine.Model.TileTransitionRule"/>s
     /// via <see cref="ProcGen.Engine.Movement.TraversalEditing"/>, so that's the only mechanism.
+    ///
+    /// Each tile row also has an "Img" button that imports an image (any format Godot's
+    /// <see cref="Image"/> can load) via a native file-browse dialog, copying it into
+    /// <c>res://TileArt/&lt;tileId&gt;.png</c> and handing it to the overlay
+    /// (<see cref="ProcGenDebugOverlay.SetTileTextures"/>), where it takes priority over that
+    /// tile's flat color -- the same pool of art serves both procedurally-generated cells and
+    /// manually-painted overrides, since both are just a tile id underneath. Unlike tile colors,
+    /// imported art is not reset on Load (it's re-hydrated from TileArtDirectory instead) since
+    /// it's meant to persist across sessions -- but it's not yet part of the saved project JSON
+    /// itself, so a project shared with someone else needs its TileArt folder shared alongside it
+    /// for now.
     ///
     /// Two rectangles matter here and are easy to conflate:
     ///   - The "designated area" (Region panel: Origin X/Y, Width/Height) -- the actual map that
@@ -113,6 +125,8 @@ namespace ProcGenGame
         private bool _drawMode = true;
 
         private ItemList _layerList = null!;
+        private LineEdit _layerIdEdit = null!;
+        private Label _layerIdHintLabel = null!;
         private SpinBox _seedXBox = null!;
         private SpinBox _seedYBox = null!;
         private SpinBox _seedTBox = null!;
@@ -128,6 +142,18 @@ namespace ProcGenGame
         private VBoxContainer _tilesContainer = null!;
         private LineEdit _newTileIdEdit = null!;
         private Label _addTileHintLabel = null!;
+        private Button _addBlankRangeButton = null!;
+
+        // Tile art import (see class doc comment): an imported image, keyed by tile id, takes
+        // priority over that tile's flat color in the overlay -- the same pool serves both
+        // procedurally-generated cells and manually-painted overrides, since both just resolve to
+        // a tile id that this dictionary is keyed by. Copied into TileArtDirectory so it survives
+        // across sessions (unlike colors, which are pure in-memory editor state); not yet part of
+        // the saved project JSON -- see class doc comment.
+        private const string TileArtDirectory = "res://TileArt";
+        private readonly Dictionary<string, Texture2D> _tileTextures = new Dictionary<string, Texture2D>();
+        private FileDialog _importImageDialog = null!;
+        private string? _pendingImportTileId;
         private Label _statusLabel = null!;
         private Label _coordsLabel = null!;
         private CheckBox _compositeToggle = null!;
@@ -140,6 +166,7 @@ namespace ProcGenGame
         private LineEdit _mapIdEdit = null!;
         private LineEdit _saveFileNameEdit = null!;
         private Label _saveLoadStatusLabel = null!;
+        private ItemList _savedProjectsList = null!;
         private ItemList _mapList = null!;
         private Label _mapListHintLabel = null!;
         private OptionButton _modeDropdown = null!;
@@ -191,6 +218,8 @@ namespace ProcGenGame
             RebuildEntranceRows();
             RebuildExitRows();
             RefreshMovementPanel();
+            RefreshSavedProjectsList();
+            HydrateTileTexturesFromDisk();
             CenterOnDesignatedArea();
             SelectLayer(0);
         }
@@ -233,6 +262,17 @@ namespace ProcGenGame
 
             BuildMapHud();
             BuildSidePanel();
+
+            _importImageDialog = new FileDialog
+            {
+                FileMode = FileDialog.FileModeEnum.OpenFile,
+                Access = FileDialog.AccessEnum.Filesystem,
+                Title = "Import tile image",
+                Size = new Vector2I(800, 600),
+            };
+            _importImageDialog.Filters = new[] { "*.png,*.jpg,*.jpeg,*.bmp,*.webp,*.tga ; Image files" };
+            _importImageDialog.FileSelected += OnImportImageFileSelected;
+            AddChild(_importImageDialog);
         }
 
         /// <summary>Floating controls over the map viewport itself -- deliberately not inside the scrollable side panel, so they're reachable no matter how lost the camera gets.</summary>
@@ -321,6 +361,22 @@ namespace ProcGenGame
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
             };
             root.AddChild(_saveLoadStatusLabel);
+
+            var savedProjectsRow = new HBoxContainer();
+            savedProjectsRow.AddChild(new Label { Text = "Existing projects", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+            var refreshSavedProjectsButton = new Button { Text = "Refresh" };
+            refreshSavedProjectsButton.Pressed += RefreshSavedProjectsList;
+            savedProjectsRow.AddChild(refreshSavedProjectsButton);
+            root.AddChild(savedProjectsRow);
+            _savedProjectsList = new ItemList { CustomMinimumSize = new Vector2(0, 80) };
+            _savedProjectsList.ItemSelected += index => _saveFileNameEdit.Text = _savedProjectsList.GetItemText((int)index);
+            root.AddChild(_savedProjectsList);
+            root.AddChild(new Label
+            {
+                Text = "Click a name to fill it into the field above, then Save (overwrite) or Load.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
             root.AddChild(new HSeparator());
 
             root.AddChild(Header("Maps in this project"));
@@ -440,6 +496,16 @@ namespace ProcGenGame
             _layerList.ItemSelected += index => SelectLayer((int)index);
             root.AddChild(_layerList);
 
+            var layerIdRow = new HBoxContainer();
+            layerIdRow.AddChild(new Label { Text = "Id", CustomMinimumSize = new Vector2(80, 0) });
+            _layerIdEdit = new LineEdit { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            _layerIdEdit.TextSubmitted += _ => OnLayerIdSubmitted();
+            _layerIdEdit.FocusExited += OnLayerIdSubmitted;
+            layerIdRow.AddChild(_layerIdEdit);
+            root.AddChild(layerIdRow);
+            _layerIdHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_layerIdHintLabel);
+
             _compositeToggle = new CheckBox { Text = "Show final composite" };
             _compositeToggle.Toggled += on =>
             {
@@ -458,9 +524,9 @@ namespace ProcGenGame
 
             root.AddChild(Header("Noise (selected layer)"));
             _octavesBox = AddIntField(root, "Octaves", 1, 1, 8, v => { CurrentLayer().Noise.Octaves = v; Regenerate(); });
-            _frequencyBox = AddDoubleField(root, "Frequency", 0.001, 10, OnNoiseChanged);
+            _frequencyBox = AddDoubleField(root, "Frequency", 0.0001, 10, OnNoiseChanged, step: 0.0001);
             _persistenceBox = AddDoubleField(root, "Persistence", 0, 1, OnNoiseChanged);
-            _lacunarityBox = AddDoubleField(root, "Lacunarity", 0.1, 10, OnNoiseChanged);
+            _lacunarityBox = AddDoubleField(root, "Lacunarity", 0.1, 10, OnNoiseChanged, step: 0.001);
             root.AddChild(new Label
             {
                 Text = "Fewer octaves / lower frequency = smoother, more gradual terrain transitions (e.g. a wide sandy beach ring); more octaves = rougher, more detailed but steeper edges.",
@@ -483,6 +549,21 @@ namespace ProcGenGame
 
             _addTileHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
             root.AddChild(_addTileHintLabel);
+
+            _addBlankRangeButton = new Button
+            {
+                Text = "Add Blank Range",
+                TooltipText = "Adds a weighted-range slot that produces no tile -- lets the layer(s) below show through instead.",
+                Visible = false,
+            };
+            _addBlankRangeButton.Pressed += OnAddBlankRangePressed;
+            root.AddChild(_addBlankRangeButton);
+            root.AddChild(new Label
+            {
+                Text = "Only offered for layers other than the bottom one -- the bottom layer has nothing beneath it to reveal.",
+                Modulate = new Color(1, 1, 1, 0.5f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
         }
 
         private void BuildEntranceExitModePanel(VBoxContainer root)
@@ -674,11 +755,11 @@ namespace ProcGenGame
             return spin;
         }
 
-        private SpinBox AddDoubleField(VBoxContainer parent, string label, double min, double max, Action onChanged)
+        private SpinBox AddDoubleField(VBoxContainer parent, string label, double min, double max, Action onChanged, double step = 0.01)
         {
             var row = new HBoxContainer();
             row.AddChild(new Label { Text = label, CustomMinimumSize = new Vector2(80, 0) });
-            var spin = new SpinBox { Step = 0.01, MinValue = min, MaxValue = max, SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            var spin = new SpinBox { Step = step, MinValue = min, MaxValue = max, SizeFlagsHorizontal = SizeFlags.ExpandFill };
             spin.ValueChanged += _ =>
             {
                 if (_suppressSignals) return;
@@ -827,6 +908,10 @@ namespace ProcGenGame
             {
                 _layerList.AddItem(layer.Id);
             }
+            if (_selectedLayerIndex < _layerList.ItemCount)
+            {
+                _layerList.Select(_selectedLayerIndex);
+            }
         }
 
         private void SelectLayer(int index)
@@ -838,6 +923,8 @@ namespace ProcGenGame
 
             var layer = _definition.Layers[index];
             _suppressSignals = true;
+            _layerIdEdit.Text = layer.Id;
+            _layerIdHintLabel.Text = "";
             _seedXBox.Value = layer.Seed.X;
             _seedYBox.Value = layer.Seed.Y;
             _seedTBox.Value = layer.Seed.T;
@@ -847,12 +934,41 @@ namespace ProcGenGame
             _lacunarityBox.Value = layer.Noise.Lacunarity;
             _suppressSignals = false;
 
+            _addBlankRangeButton.Visible = index > 0;
             RebuildTileRows(layer);
             UpdateOverlayView();
             Regenerate();
         }
 
         private LayerDef CurrentLayer() => _definition.Layers[_selectedLayerIndex];
+
+        private void OnLayerIdSubmitted()
+        {
+            if (_suppressSignals) return;
+            string oldId = CurrentLayer().Id;
+            string newId = _layerIdEdit.Text.Trim();
+            if (newId == oldId)
+            {
+                _layerIdHintLabel.Text = "";
+                return;
+            }
+            if (!RenameOperations.RenameLayer(_definition, _overrides, oldId, newId))
+            {
+                _layerIdHintLabel.Text = string.IsNullOrEmpty(newId)
+                    ? "Layer id can't be empty."
+                    : $"A layer called '{newId}' already exists.";
+                _layerIdEdit.Text = oldId;
+                return;
+            }
+            _layerIdHintLabel.Text = "";
+            RefreshLayerList();
+            // The overlay's "which layer am I viewing" selector holds the layer id as of the last
+            // ShowLayer call -- without refreshing it here, it stays pointed at the old id, and
+            // the next regenerate (from any cause) hands it a MapResult whose per-layer grid is
+            // keyed by the new id, throwing a KeyNotFoundException when it tries to look itself up.
+            UpdateOverlayView();
+            Regenerate();
+        }
 
         private void RebuildTileRows(LayerDef layer)
         {
@@ -861,24 +977,67 @@ namespace ProcGenGame
                 child.QueueFree();
             }
 
-            foreach (var tile in layer.Tiles)
+            for (int i = 0; i < layer.Tiles.Count; i++)
             {
+                int index = i;
+                var tile = layer.Tiles[i];
                 var row = new HBoxContainer();
 
-                var colorButton = new ColorPickerButton { Color = GetTileColor(tile.Id), CustomMinimumSize = new Vector2(28, 0) };
-                colorButton.ColorChanged += c =>
+                bool isBlank = tile.Id == TileDef.NoOverrideId;
+                if (isBlank)
                 {
-                    _tileColors[tile.Id] = c;
-                    _overlay.SetTileColors(_tileColors);
-                };
-                row.AddChild(colorButton);
+                    // No color and no rename for the blank sentinel -- it has nothing to draw,
+                    // and renaming it away would silently turn it into an ordinary opaque tile.
+                    row.AddChild(new Label
+                    {
+                        Text = "(blank -- shows layer below)",
+                        CustomMinimumSize = new Vector2(98, 0),
+                        Modulate = new Color(1, 1, 1, 0.7f),
+                    });
+                }
+                else
+                {
+                    var colorButton = new ColorPickerButton { Color = GetTileColor(tile.Id), CustomMinimumSize = new Vector2(28, 0) };
+                    colorButton.ColorChanged += c =>
+                    {
+                        _tileColors[tile.Id] = c;
+                        _overlay.SetTileColors(_tileColors);
+                    };
+                    row.AddChild(colorButton);
 
-                row.AddChild(new Label { Text = tile.Id, CustomMinimumSize = new Vector2(70, 0) });
+                    var idEdit = new LineEdit { Text = tile.Id, CustomMinimumSize = new Vector2(70, 0) };
+                    idEdit.TextSubmitted += _ => OnTileIdSubmitted(layer, tile, idEdit);
+                    idEdit.FocusExited += () => OnTileIdSubmitted(layer, tile, idEdit);
+                    row.AddChild(idEdit);
+
+                    bool hasArt = _tileTextures.ContainsKey(tile.Id);
+                    var importButton = new Button { Text = hasArt ? "Img*" : "Img", TooltipText = hasArt ? "Replace this tile's imported image" : "Import an image for this tile" };
+                    importButton.Pressed += () =>
+                    {
+                        _pendingImportTileId = tile.Id;
+                        _importImageDialog.PopupCentered();
+                    };
+                    row.AddChild(importButton);
+
+                    if (hasArt)
+                    {
+                        var clearArt = new Button { Text = "x Img", TooltipText = "Remove the imported image -- falls back to the color swatch" };
+                        clearArt.Pressed += () =>
+                        {
+                            _tileTextures.Remove(tile.Id);
+                            _overlay.SetTileTextures(_tileTextures);
+                            RebuildTileRows(layer);
+                        };
+                        row.AddChild(clearArt);
+                    }
+                }
 
                 var minus = new Button { Text = "-" };
                 // Fixed width for the same reason as the Transformation field above: predictable
                 // total row size inside a ScrollContainer, regardless of expand-fill clipping.
-                var spin = new SpinBox { Step = 0.1, MinValue = 0, MaxValue = 1000, CustomMinimumSize = new Vector2(70, 0) };
+                // Step is deliberately finer than the -/+ buttons' fixed 0.1 nudge below -- Step
+                // only governs how much precision typing a value directly preserves/rounds to.
+                var spin = new SpinBox { Step = 0.001, MinValue = 0, MaxValue = 1000, CustomMinimumSize = new Vector2(80, 0) };
                 spin.Value = tile.Range;
                 var plus = new Button { Text = "+" };
 
@@ -896,6 +1055,29 @@ namespace ProcGenGame
                 row.AddChild(spin);
                 row.AddChild(plus);
 
+                // Reordering changes the cumulative weighted-range boundaries (CompiledLayer sums
+                // ranges in list order), so it can reshuffle which tiles land where -- same caveat
+                // as editing a range, just via position instead of value.
+                var up = new Button { Text = "^", Disabled = index == 0, TooltipText = "Move up (changes range boundaries)" };
+                up.Pressed += () =>
+                {
+                    layer.Tiles.RemoveAt(index);
+                    layer.Tiles.Insert(index - 1, tile);
+                    RebuildTileRows(layer);
+                    Regenerate();
+                };
+                row.AddChild(up);
+
+                var down = new Button { Text = "v", Disabled = index == layer.Tiles.Count - 1, TooltipText = "Move down (changes range boundaries)" };
+                down.Pressed += () =>
+                {
+                    layer.Tiles.RemoveAt(index);
+                    layer.Tiles.Insert(index + 1, tile);
+                    RebuildTileRows(layer);
+                    Regenerate();
+                };
+                row.AddChild(down);
+
                 var remove = new Button { Text = "x", Disabled = layer.Tiles.Count <= 1 };
                 remove.TooltipText = layer.Tiles.Count <= 1
                     ? "A layer needs at least one tile"
@@ -907,6 +1089,63 @@ namespace ProcGenGame
             }
         }
 
+        /// <summary>
+        /// Commits a tile-id edit. Bound to both TextSubmitted (Enter) and FocusExited (click
+        /// away) so either commits the rename; the `layer.Tiles.Contains(tile)` guard makes this
+        /// idempotent if both fire for the same edit (RenameOperations.RenameTile replaces the
+        /// TileDef instance rather than mutating it in place, so a stale `tile` reference is no
+        /// longer present in the list after the first successful call).
+        /// </summary>
+        private void OnTileIdSubmitted(LayerDef layer, TileDef tile, LineEdit idEdit)
+        {
+            if (_suppressSignals || !layer.Tiles.Contains(tile)) return;
+
+            string oldId = tile.Id;
+            string newId = idEdit.Text.Trim();
+            if (newId == oldId) return;
+
+            if (newId == TileDef.NoOverrideId)
+            {
+                _addTileHintLabel.Text = $"'{TileDef.NoOverrideId}' is reserved -- use 'Add Blank Range' to add a blank slot instead of renaming one into it.";
+                idEdit.Text = oldId;
+                return;
+            }
+
+            if (!RenameOperations.RenameTile(_definition, _overrides, layer.Id, oldId, newId))
+            {
+                _addTileHintLabel.Text = string.IsNullOrEmpty(newId)
+                    ? "Tile id can't be empty."
+                    : $"Layer '{layer.Id}' already has a tile called '{newId}'.";
+                idEdit.Text = oldId;
+                return;
+            }
+
+            // The tile's display color and any imported art are keyed by id string -- carry both
+            // over to the new id so a rename doesn't look like it reset them.
+            if (_tileColors.TryGetValue(oldId, out var color))
+            {
+                _tileColors.Remove(oldId);
+                _tileColors[newId] = color;
+            }
+            if (_tileTextures.TryGetValue(oldId, out var texture))
+            {
+                _tileTextures.Remove(oldId);
+                _tileTextures[newId] = texture;
+                string oldArtPath = $"{TileArtDirectory}/{oldId}.png";
+                if (FileAccess.FileExists(oldArtPath))
+                {
+                    DirAccess.RenameAbsolute(oldArtPath, $"{TileArtDirectory}/{newId}.png");
+                }
+            }
+
+            _addTileHintLabel.Text = "";
+            RebuildTileRows(layer);
+            _overlay.SetTileColors(_tileColors);
+            _overlay.SetTileTextures(_tileTextures);
+            RefreshMovementPanel();
+            Regenerate();
+        }
+
         private void OnAddTilePressed()
         {
             string id = _newTileIdEdit.Text.Trim();
@@ -915,6 +1154,11 @@ namespace ProcGenGame
             if (string.IsNullOrEmpty(id))
             {
                 _addTileHintLabel.Text = "Enter a tile id first.";
+                return;
+            }
+            if (id == TileDef.NoOverrideId)
+            {
+                _addTileHintLabel.Text = $"'{TileDef.NoOverrideId}' is reserved -- use 'Add Blank Range' below instead.";
                 return;
             }
             if (layer.Tiles.Exists(t => t.Id == id))
@@ -932,6 +1176,84 @@ namespace ProcGenGame
             _overlay.SetTileColors(_tileColors);
             RefreshMovementPanel();
             Regenerate();
+        }
+
+        private void OnAddBlankRangePressed()
+        {
+            var layer = CurrentLayer();
+            if (layer.Tiles.Exists(t => t.Id == TileDef.NoOverrideId))
+            {
+                _addTileHintLabel.Text = "This layer already has a blank range -- adjust its weight instead of adding another.";
+                return;
+            }
+
+            layer.Tiles.Add(new TileDef(TileDef.NoOverrideId, 1.0));
+            _addTileHintLabel.Text = "";
+            RebuildTileRows(layer);
+            Regenerate();
+        }
+
+        /// <summary>
+        /// Loads the picked image, copies it into TileArtDirectory keyed by tile id (always
+        /// re-encoded as PNG, regardless of source format, so lookups only ever need to check one
+        /// fixed extension), and hands the resulting texture to the overlay -- the same pool the
+        /// procedurally-generated cells and manually-painted overrides both render through, since
+        /// both just resolve to a tile id.
+        /// </summary>
+        private void OnImportImageFileSelected(string path)
+        {
+            if (_pendingImportTileId == null) return;
+            string tileId = _pendingImportTileId;
+            _pendingImportTileId = null;
+
+            var image = new Image();
+            var loadErr = image.Load(path);
+            if (loadErr != Error.Ok)
+            {
+                _addTileHintLabel.Text = $"Could not load '{path}': {loadErr}";
+                return;
+            }
+
+            DirAccess.MakeDirRecursiveAbsolute(TileArtDirectory);
+            string destPath = $"{TileArtDirectory}/{tileId}.png";
+            var saveErr = image.SavePng(destPath);
+            if (saveErr != Error.Ok)
+            {
+                _addTileHintLabel.Text = $"Could not save imported image to '{destPath}': {saveErr}";
+                return;
+            }
+
+            _tileTextures[tileId] = ImageTexture.CreateFromImage(image);
+            _overlay.SetTileTextures(_tileTextures);
+            _addTileHintLabel.Text = "";
+            RebuildTileRows(CurrentLayer());
+            Regenerate();
+        }
+
+        /// <summary>
+        /// Loads any already-imported art for the current map's tile ids from TileArtDirectory --
+        /// called on map switch/load so art imported in an earlier session (or for another map
+        /// sharing this Godot project) reappears without re-importing. Unlike tile colors, art
+        /// isn't reset to defaults on load -- see class doc comment on why it's stored this way.
+        /// </summary>
+        private void HydrateTileTexturesFromDisk()
+        {
+            foreach (var layer in _definition.Layers)
+            {
+                foreach (var tile in layer.Tiles)
+                {
+                    if (tile.Id == TileDef.NoOverrideId || _tileTextures.ContainsKey(tile.Id)) continue;
+                    string path = $"{TileArtDirectory}/{tile.Id}.png";
+                    if (!FileAccess.FileExists(path)) continue;
+
+                    var image = new Image();
+                    if (image.Load(path) == Error.Ok)
+                    {
+                        _tileTextures[tile.Id] = ImageTexture.CreateFromImage(image);
+                    }
+                }
+            }
+            _overlay.SetTileTextures(_tileTextures);
         }
 
         private void OnRemoveTile(LayerDef layer, TileDef tile)
@@ -1145,6 +1467,7 @@ namespace ProcGenGame
         }
 
         /// <summary>Every distinct tile id used by any layer of the current map, in first-seen order -- the universe "Solid" bulk-blocks against and the dropdown options for hand-added rules.</summary>
+        /// <summary>Every distinct real tile id used anywhere in the map -- excludes the no_override sentinel, which never appears as a final resolved tile and so can never sensibly appear in a movement rule.</summary>
         private List<string> GetAllTileIds()
         {
             var seen = new HashSet<string>();
@@ -1153,7 +1476,7 @@ namespace ProcGenGame
             {
                 foreach (var tile in layer.Tiles)
                 {
-                    if (seen.Add(tile.Id)) ids.Add(tile.Id);
+                    if (tile.Id != TileDef.NoOverrideId && seen.Add(tile.Id)) ids.Add(tile.Id);
                 }
             }
             return ids;
@@ -1315,6 +1638,7 @@ namespace ProcGenGame
             RebuildEntranceRows();
             RebuildExitRows();
             RefreshMovementPanel();
+            HydrateTileTexturesFromDisk();
             SelectLayer(0);
             CenterOnDesignatedArea();
             RefreshMapList();
@@ -1437,6 +1761,7 @@ namespace ProcGenGame
                 }
                 file.StoreString(json);
                 _saveLoadStatusLabel.Text = $"Saved {_allMaps.Count} map(s) to {path}";
+                RefreshSavedProjectsList();
             }
             catch (Exception ex)
             {
@@ -1481,6 +1806,29 @@ namespace ProcGenGame
             {
                 _saveLoadStatusLabel.Text = $"Load failed: {ex.Message}";
             }
+        }
+
+        /// <summary>Lists every ".json" file directly inside MapsDirectory, alphabetically, so Load doesn't require typing a file name blind.</summary>
+        private void RefreshSavedProjectsList()
+        {
+            _savedProjectsList.Clear();
+
+            using var dir = DirAccess.Open(MapsDirectory);
+            if (dir == null) return; // no saves made yet -- directory doesn't exist
+
+            var names = new List<string>();
+            dir.ListDirBegin();
+            string entry = dir.GetNext();
+            while (entry != "")
+            {
+                if (!dir.CurrentIsDir() && entry.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                    names.Add(entry);
+                entry = dir.GetNext();
+            }
+            dir.ListDirEnd();
+
+            names.Sort(StringComparer.OrdinalIgnoreCase);
+            foreach (var name in names) _savedProjectsList.AddItem(name);
         }
 
         private static string NormalizeFileName(string typed)

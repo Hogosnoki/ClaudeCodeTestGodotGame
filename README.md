@@ -13,7 +13,9 @@ engine/ProcGen.Engine/    The generation engine. Plain C# class library, net8.0,
                            dependency on Godot or any UI/editor code. This is the single
                            source of truth both the tool and the game call into. This is
                            also the folder you copy-paste into another Godot project --
-                           see INTEGRATION.md.
+                           see INTEGRATION.md. Includes Editing/RenameOperations.cs (safe
+                           layer/tile id renaming, cascading through every reference) and
+                           Movement/ (traversal-rule compilation/bulk-editing).
 tests/ProcGen.Engine.Tests/  xUnit tests proving the milestone-1 acceptance criteria against
                            the engine directly (no Godot runtime needed to run these).
 godot/                    Minimal Godot 4.4 C# project demonstrating both consumers:
@@ -25,13 +27,15 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
                                     click-to-paint overrides, Transformation scrubbing.
   Scripts/MapEditorToolScene.cs    The map-making tool: a fixed side property panel
                                     (region, Transformation, per-layer seed, per-layer tile
-                                    ranges with manual entry + nudge buttons) driving live
-                                    regeneration, plus click-to-paint on top, a "Maps in this
-                                    project" list (New/Duplicate/Delete), and an "Edit: Map /
-                                    Entrance-Exit / Movement / Project Overview" dropdown that
-                                    swaps in a panel for this map's named entrance/exit points
-                                    (with click-to-place canvas markers), a panel for editing
-                                    directional tile-transition (movement-blocking) rules, or a
+                                    ranges with manual entry + nudge buttons, tile rename/
+                                    reorder/image-import) driving live regeneration, plus
+                                    click-to-paint on top, a "Maps in this project" list
+                                    (New/Duplicate/Delete), an "Existing projects" list for
+                                    Load, and an "Edit: Map / Entrance-Exit / Movement /
+                                    Project Overview" dropdown that swaps in a panel for this
+                                    map's named entrance/exit points (with click-to-place
+                                    canvas markers), a panel for editing directional
+                                    tile-transition (movement-blocking) rules, or a
                                     project-wide summary that flags dangling exits. Save/Load
                                     read and write every map in the project at once as JSON via
                                     ProcGen.Engine/Serialization.
@@ -96,6 +100,21 @@ between platforms — is addressed by construction:
 This reasoning is documented in `LatticeNoise3D`'s doc comment so it stays next to the code it
 governs.
 
+**A layer's `SeedPosition` (X/Y/T) is a fixed lattice-space translation, applied *after* each
+octave's frequency scaling, not before it.** `LatticeNoise3D.SampleFbm` takes the sampled position
+and the origin as separate parameters and only ever multiplies the *position* by frequency —
+`Sample(x * freq + originX, ...)`, never `Sample((x + originX) * freq, ...)`. This matters because
+a `SeedPosition` needs to be large (on the order of thousands) to reliably decorrelate different
+layers into unrelated regions of the shared noise field; if that large constant were multiplied by
+frequency (as an earlier version of this method did), then any change to frequency -- or, via
+lacunarity, to a later octave's *effective* frequency -- would re-scale the origin along with it,
+shifting the sampled lattice position by many whole cells from a single small nudge. That showed up
+as tiny Frequency/Lacunarity edits producing wildly different, seemingly-unrelated terrain instead
+of a gradual change. With origin applied post-scaling, it stays a fixed offset regardless of
+whatever frequency/lacunarity a layer is tuned to, and nudging either one now reshapes terrain
+smoothly. See `SampleFbm`'s doc comment and `NoiseTests.SampleFbm_SmallFrequencyNudge_*` for the
+regression coverage.
+
 ## Weighted-range tile selection
 
 Implemented as a precomputed cumulative-bounds table (`Selection/CompiledLayer.cs`) plus a binary
@@ -108,6 +127,17 @@ for, though the milestone-1 scene doesn't render a blended view yet.
 Note: the spec's worked example states `0.7 + 0.3 + 0.2 + 2.0 = 2.2`; that sum is actually 3.2.
 The engine implements the described *mechanism* correctly; tests use the correct sum. Worth
 double-checking against your intended tile weights when you move past the example values.
+
+**The `no_override` pseudo-tile** (`TileDef.NoOverrideId`) is a reserved tile id meaning "this
+weighted-range slot produces no tile here" -- selecting it resolves the layer to null at that cell
+instead of one of its own tiles, exactly as if the layer had been ineligible there, letting
+whatever's on a lower layer show through. It's an ordinary `TileDef` (a normal weight, sortable and
+removable like any other tile) with a magic id that `MapGenerator` special-cases after both the
+procedural roll and manual-override resolution, so painting `no_override` directly onto a cell
+works too. Only meaningful on a layer with something beneath it to reveal -- the engine itself
+doesn't restrict which layers may use it, but the editor tool only offers "Add Blank Range" for
+layers other than the bottom one. See `TileDef.NoOverrideId`'s doc comment and
+`NoOverrideTileTests`.
 
 ## Layers and `writes_over`
 
@@ -143,25 +173,78 @@ Panel sections, top to bottom:
   oversized nudge would.
 - **Layer** — click to choose which layer you're working on; also switches the map view to that
   layer's raw resolution (or check "Show final composite" to see the composited result instead).
+  An **Id** field below the list renames the selected layer -- see "Renaming, reordering, and
+  blank ranges" below for what that cascades through.
 - **Seed (selected layer)** — that layer's X/Y/T position in the generation lattice, freely
   editable.
-- **Tiles (selected layer)** — one row per tile: a color swatch, id, a `-` button, a
-  manually-editable range field, a `+` button (each nudge moving the range by 0.1), and an `x` to
-  remove that tile. Below the list, a text field + "Add Tile" button appends a new tile (default
-  range 1.0) to the selected layer. Changing any of this regenerates immediately.
+- **Noise (selected layer)** — Octaves/Frequency/Persistence/Lacunarity. Frequency and Lacunarity
+  accept much finer typed precision (down to 0.0001 and 0.001 respectively) than Octaves/
+  Persistence, since both compound multiplicatively across octaves and a coarse step size made it
+  hard to dial in a specific look -- see the noise seed-offset fix above for why a small nudge now
+  actually behaves like a small nudge.
+- **Tiles (selected layer)** — one row per tile: a color swatch, an editable id, an "Img" button,
+  a `-` button, a manually-editable range field (typed precision down to 0.001; the `-`/`+`
+  buttons still nudge by a fixed 0.1 regardless), a `+` button, `^`/`v` reorder buttons, and an `x`
+  to remove that tile. Below the list, a text field + "Add Tile" button appends a new tile (default
+  range 1.0) to the selected layer, and an "Add Blank Range" button (non-bottom layers only) adds
+  a `no_override` slot -- see "Renaming, reordering, and blank ranges" below. Changing any of this
+  regenerates immediately.
   - The color swatch is a real `ColorPickerButton` — clicking it opens Godot's native color
-    picker (RGB/HSV/hex, swatches, recent colors). Since there's no tile art yet, color is what
-    represents a tile visually; a newly added tile gets an auto-assigned color (spread around the
-    hue wheel so consecutive additions look distinct) that you can then repick.
-  - Removing a tile (or adding one, or nudging any range) changes the layer's total weight, which
-    reshuffles the cumulative selection bounds for *every* tile on that layer -- not just the one
-    you touched. That's the weighted-range model working as specified (selection normalizes into
-    `[0, sum of ranges)`), not a bug, but it means a small edit can visibly reshuffle tiles you
-    didn't touch. `RangeSum` in `Selection/CompiledLayer.cs` is where this happens.
+    picker (RGB/HSV/hex, swatches, recent colors). A newly added tile gets an auto-assigned color
+    (spread around the hue wheel so consecutive additions look distinct) that you can then repick.
+    An imported image (see "Tile image import" below) takes priority over the color wherever both
+    are set.
+  - Removing a tile (or adding one, reordering, or nudging any range) changes the layer's total
+    weight or list order, which reshuffles the cumulative selection bounds for *every* tile on
+    that layer -- not just the one you touched. That's the weighted-range model working as
+    specified (selection normalizes into `[0, sum of ranges)`), not a bug, but it means a small
+    edit can visibly reshuffle tiles you didn't touch. `RangeSum` in `Selection/CompiledLayer.cs`
+    is where this happens.
   - The last remaining tile on a layer can't be removed (the `x` button disables itself) --
     `CompiledLayer` requires at least one tile with positive total range, and `Regenerate()` now
     catches that `ArgumentException` and reports it in the status label instead of crashing, in
     case a layer's ranges are nudged all the way down to a zero total.
+
+### Renaming, reordering, and blank ranges
+
+Layer ids and tile ids are edited in place (commits on Enter or on clicking away) rather than only
+being set at creation time. Since `writes_over` rules, transition rules, and override records all
+reference layers/tiles by id string, a rename can't just mutate the id -- `TileDef.Id`/`LayerDef.Id`
+are deliberately immutable, so `ProcGen.Engine.Editing.RenameOperations.RenameLayer`/`RenameTile`
+replace the renamed instance with a new one carrying the new id (same slot, same other data) and
+cascade the rename through every reference within the map: every other layer's `WritesOverRule`,
+every `TileTransitionRule` in the Movement panel's rule list, and every matching `OverrideStore`
+entry. A rename that would collide with an existing id (or that's left empty) is rejected with an
+inline hint and the field reverts, the same way "Add Tile"/"Add Entrance" already reject duplicates.
+
+Tiles within a layer can also be reordered with `^`/`v` -- since `CompiledLayer` sums ranges in
+list order, this changes the cumulative selection boundaries the same way editing a range does
+(see the reshuffle note above), just via position instead of value.
+
+"Add Blank Range" (non-bottom layers only) adds a `no_override` slot to the selected layer -- see
+the pseudo-tile writeup above. Its row skips the color swatch and id field (renaming it away would
+silently turn it into an ordinary opaque tile) but keeps the weight/reorder/remove controls, since
+those are still meaningful. Only one per layer is allowed; the button shows a hint and no-ops if
+one already exists.
+
+### Tile image import
+
+Each tile row's **Img** button opens a native file-browse dialog (`FileDialog`, filesystem access,
+common image formats) to import art for that tile. The picked image is copied into
+`res://TileArt/<tileId>.png` (always re-encoded as PNG, so a lookup only ever needs one fixed
+extension per tile id) and handed to `ProcGenDebugOverlay.SetTileTextures`, where it takes priority
+over that tile's flat color -- both procedurally-generated cells and manually-painted overrides
+render through the same tile-id-to-texture lookup, so the same imported art automatically covers
+both without separate wiring. A second **x Img** button appears once art is assigned, clearing it
+back to the flat color.
+
+Unlike tile colors (pure in-memory editor state, reset on Load), imported art is meant to persist
+across sessions: it's re-hydrated from `TileArtDirectory` on map switch/Load by checking for
+`<tileId>.png`, rather than being reset to defaults. It is *not* yet part of the saved project
+JSON, though -- a project shared with someone else currently needs its `TileArt` folder shared
+alongside it. Tile size is still fixed at `CellPixelSize`; rendering imported art at other sizes
+(and letting manually-placed tiles take up more visual space) is future work, not part of this
+pass.
 
 Above the panel sections described so far sits **Project** (a save file name field and Save/Load
 buttons, acting on every map at once), **Maps in this project** (a list of every map in the
@@ -231,6 +314,11 @@ reader/writer a game must call through, so a saved project reproduces identicall
 loaded, given the same engine assembly. It holds a list of (`MapDefinition`, `OverrideStore` diff)
 pairs, one per map -- nothing editor-only (the tool's tile display colors, camera position,
 region/Transformation fields) is part of the format; those reset to defaults on load.
+
+An **Existing projects** list under the Project section shows every `.json` file already in
+`res://Maps`, refreshed on load and after every Save (plus a manual Refresh button) -- click a name
+to fill it into the file name field rather than having to already know or type it, then Save
+(overwrite) or Load as usual.
 
 **Maps in this project** switches which map the rest of the panel edits. **New** starts a fresh
 map from the same starter layout as a brand-new project; **Duplicate** deep-clones the selected
@@ -318,7 +406,7 @@ experiences.
 ## Running it
 
 ```bash
-# Engine unit tests (58 tests, no Godot needed):
+# Engine unit tests (77 tests, no Godot needed):
 dotnet test tests/ProcGen.Engine.Tests/ProcGen.Engine.Tests.csproj
 
 # Milestone-1 console proof, live inside real Godot (requires the Godot 4.4 mono/.NET editor binary):
@@ -364,7 +452,8 @@ debugger, is in [`INTEGRATION.md`](INTEGRATION.md).
 
 Not built yet, on purpose:
 
-- More than 2 layers, and the `no_override` pseudo-tile.
+- More than 2 layers in the starter/editor content (the engine itself has no such limit -- see
+  "Layers and `writes_over`").
 - **Zones** (spatially-varying parameter overrides). Integration point to keep in mind: the
   resolution loop in `MapGenerator` currently compiles one `CompiledLayer` per `LayerDef` for the
   whole region. Zones will need the per-cell noise-parameters/tile-list lookup to become
@@ -372,8 +461,14 @@ Not built yet, on purpose:
   cell) rather than one fixed `CompiledLayer` per layer per region. The cell loop already resolves
   everything per-cell, so this should be a matter of swapping "look up this layer's compiled tile
   list" for "look up this layer's compiled tile list *at this position*" — not a restructure.
-- In the editor tool specifically: add/remove layers (tiles can already be added/removed per
-  layer), and reordering layers, tiles, or `writes_over` filter editing.
+- In the editor tool specifically: adding/removing/reordering whole layers, and `writes_over`
+  filter editing (which lower layer/tile a layer's eligibility rule targets). Tiles within a layer
+  can already be added, removed, renamed, and reordered, and layers can already be renamed -- see
+  "Renaming, reordering, and blank ranges".
 - Undo/redo, and multi-cell paint tools (brush size, fill, rectangle select) -- painting is
   currently one cell per click, same as milestone 1.
 - Autosave / an unsaved-changes indicator.
+- Tile art at sizes other than `CellPixelSize`, and manually-placed tiles rendering larger than a
+  single cell -- see "Tile image import".
+- Imported tile art as part of the saved project JSON (currently persisted on disk via
+  `TileArtDirectory`, keyed by tile id, but not referenced from the project file itself).
