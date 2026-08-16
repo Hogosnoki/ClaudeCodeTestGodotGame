@@ -58,6 +58,17 @@ namespace ProcGenGame
     /// itself, so a project shared with someone else needs its TileArt folder shared alongside it
     /// for now.
     ///
+    /// A "Test" button (top-left, below "Return to Map Area") spawns a <see cref="TestPlayerController"/>
+    /// -- a plain circle, keyboard-controlled (arrow keys), moving pixel-smoothly rather than
+    /// snapping tile to tile -- at the center of the designated area, so the Movement panel's
+    /// traversal rules can be tried out live instead of just inspected as data. Movement is
+    /// resolved one axis at a time against <see cref="CompiledTraversalRules.IsBlocked"/> using
+    /// the actual generated tile at each cell (via <see cref="CanEnterCell"/>), the camera follows
+    /// the player, and the TraversalOverlay's red blocked-edge lines stay visible regardless of
+    /// which edit panel was open when Test was pressed, so a blocked step is visually explained on
+    /// the spot. Escape returns to the editor, restoring the pre-test camera position/zoom;
+    /// map-click painting/panning is disabled for the duration since movement is keyboard-only.
+    ///
     /// Two rectangles matter here and are easy to conflate:
     ///   - The "designated area" (Region panel: Origin X/Y, Width/Height) -- the actual map that
     ///     would get exported/used. Content outside it renders dimmed, and it's the target the
@@ -105,6 +116,18 @@ namespace ProcGenGame
         private EntranceExitOverlay _markerOverlay = null!;
         private TraversalOverlay _traversalOverlay = null!;
         private Node2D _worldRoot = null!;
+
+        // "Test" mode: a keyboard-controlled TestPlayerController spawned into _worldRoot so it
+        // shares the same coordinate space as the terrain, driven from _Process while active.
+        // _lastResult/_lastCompiledRules are the data the last Regenerate() produced -- cached here
+        // (rather than recomputed) since movement collision checks happen every frame.
+        private Button _testButton = null!;
+        private TestPlayerController? _testPlayer;
+        private bool _testMode;
+        private Vector2 _preTestCameraPosition;
+        private float _preTestZoom;
+        private MapResult? _lastResult;
+        private CompiledTraversalRules? _lastCompiledRules;
 
         // Designated area (see class doc comment).
         private int _originX;
@@ -234,7 +257,28 @@ namespace ProcGenGame
                 case InputEventMouseMotion motion:
                     HandleMouseMotion(motion);
                     break;
+                case InputEventKey { Pressed: true, Keycode: Key.Escape } when _testMode:
+                    ExitTestMode();
+                    break;
             }
+        }
+
+        public override void _Process(double delta)
+        {
+            if (!_testMode || _testPlayer == null) return;
+
+            Vector2 inputDir = Vector2.Zero;
+            if (Input.IsActionPressed("ui_left")) inputDir.X -= 1f;
+            if (Input.IsActionPressed("ui_right")) inputDir.X += 1f;
+            if (Input.IsActionPressed("ui_up")) inputDir.Y -= 1f;
+            if (Input.IsActionPressed("ui_down")) inputDir.Y += 1f;
+
+            _testPlayer.TryMove(inputDir, (float)delta, CellPixelSize, CanEnterCell);
+
+            // Camera follow: keep the player centered in the viewport, same math HandleZoom uses
+            // to keep a fixed world point under a fixed screen point.
+            _worldRoot.Position = GetMapViewportSize() / 2f - _testPlayer.Position * _zoom;
+            RegenerateIfViewportChanged();
         }
 
         // ---------- UI construction ----------
@@ -283,6 +327,12 @@ namespace ProcGenGame
             returnButton.OffsetLeft = 12; returnButton.OffsetTop = 12;
             returnButton.Pressed += CenterOnDesignatedArea;
             AddChild(returnButton);
+
+            _testButton = new Button { Text = "Test", TooltipText = "Spawn a keyboard-controlled test player to try out the Movement panel's traversal rules. Arrow keys to move, Escape to return to the editor." };
+            _testButton.AnchorLeft = 0f; _testButton.AnchorTop = 0f; _testButton.AnchorRight = 0f; _testButton.AnchorBottom = 0f;
+            _testButton.OffsetLeft = 12; _testButton.OffsetTop = 48;
+            _testButton.Pressed += EnterTestMode;
+            AddChild(_testButton);
 
             _drawModeToggle = new CheckBox { Text = "Draw Mode (uncheck to pan by dragging)", ButtonPressed = true };
             _drawModeToggle.AnchorLeft = 1f; _drawModeToggle.AnchorRight = 1f; _drawModeToggle.AnchorTop = 0f; _drawModeToggle.AnchorBottom = 0f;
@@ -785,6 +835,11 @@ namespace ProcGenGame
                 return;
             }
 
+            // No painting/panning/placing while testing -- movement is keyboard-only and the
+            // camera follows the player, so a click here would just fight that. Zoom above still
+            // works, since it doesn't touch player or camera-follow state.
+            if (_testMode) return;
+
             if (mouse.ButtonIndex == MouseButton.Left)
             {
                 if (mouse.Pressed && (_armedEntrance != null || _armedExit != null))
@@ -859,6 +914,71 @@ namespace ProcGenGame
 
             UpdateCoordsHud(screenMousePos);
             RegenerateIfViewportChanged();
+        }
+
+        // ---------- Test mode ----------
+
+        /// <summary>Spawns a keyboard-controlled TestPlayerController at the center of the designated area to try out the Movement panel's traversal rules live. Escape (see _UnhandledInput) returns to the editor.</summary>
+        private void EnterTestMode()
+        {
+            if (_testMode) return;
+            _testMode = true;
+
+            // A focused SpinBox/LineEdit would otherwise eat the arrow keys meant for movement.
+            GetViewport().GuiReleaseFocus();
+
+            _preTestCameraPosition = _worldRoot.Position;
+            _preTestZoom = _zoom;
+
+            var spawnWorldPixel = new Vector2(
+                (_originX + _regionWidth / 2f) * CellPixelSize,
+                (_originY + _regionHeight / 2f) * CellPixelSize);
+            _testPlayer = new TestPlayerController { Position = spawnWorldPixel };
+            _worldRoot.AddChild(_testPlayer);
+
+            // Show blocked edges regardless of which edit panel was open, so a tester can see
+            // exactly why a step was refused.
+            _traversalOverlay.Visible = true;
+            _testButton.Disabled = true;
+            UpdateStatus();
+        }
+
+        private void ExitTestMode()
+        {
+            if (!_testMode) return;
+            _testMode = false;
+
+            _testPlayer?.QueueFree();
+            _testPlayer = null;
+
+            _zoom = _preTestZoom;
+            _worldRoot.Scale = Vector2.One * _zoom;
+            _worldRoot.Position = _preTestCameraPosition;
+
+            _traversalOverlay.Visible = _panelMode == 2;
+            _testButton.Disabled = false;
+            RegenerateIfViewportChanged();
+            UpdateStatus();
+        }
+
+        /// <summary>Whether the test player may step from fromCellWorld onto the adjacent toCellWorld -- an unresolved (not-yet-generated, out-of-viewport) cell fails closed rather than letting the player walk into the unknown.</summary>
+        private bool CanEnterCell(Vector2I fromCellWorld, Vector2I toCellWorld)
+        {
+            if (_lastResult == null || _lastCompiledRules == null || !_lastViewport.HasValue) return false;
+
+            string? fromTile = TileAtWorldCell(fromCellWorld, _lastViewport.Value);
+            string? toTile = TileAtWorldCell(toCellWorld, _lastViewport.Value);
+            if (fromTile == null || toTile == null) return false;
+
+            return !_lastCompiledRules.IsBlocked(fromTile, toTile);
+        }
+
+        private string? TileAtWorldCell(Vector2I worldCell, RegionSpec viewport)
+        {
+            int lx = worldCell.X - viewport.OriginX;
+            int ly = worldCell.Y - viewport.OriginY;
+            if (lx < 0 || ly < 0 || lx >= viewport.Width || ly >= viewport.Height) return null;
+            return _lastResult!.GetFinalTile(lx, ly);
         }
 
         /// <summary>Resets zoom to 1x and pans so the designated area is centered in the map viewport -- the "return to map area" escape hatch.</summary>
@@ -1972,8 +2092,10 @@ namespace ProcGenGame
             try
             {
                 var result = MapGenerator.GenerateRegion(_definition, viewport, _overrides);
+                _lastResult = result;
+                _lastCompiledRules = CompiledTraversalRules.Compile(_definition);
                 _overlay.Render(result, viewport, _overrides);
-                _traversalOverlay.Render(result, viewport, CompiledTraversalRules.Compile(_definition));
+                _traversalOverlay.Render(result, viewport, _lastCompiledRules);
                 UpdateStatus();
             }
             catch (ArgumentException ex)
@@ -2011,6 +2133,17 @@ namespace ProcGenGame
 
         private void UpdateStatus()
         {
+            if (_testMode && _testPlayer != null)
+            {
+                int cellX = Mathf.FloorToInt(_testPlayer.Position.X / CellPixelSize);
+                int cellY = Mathf.FloorToInt(_testPlayer.Position.Y / CellPixelSize);
+                string tile = TileAtWorldCell(new Vector2I(cellX, cellY), _lastViewport ?? default) ?? "?";
+                _statusLabel.Text =
+                    "Test mode -- arrow keys to move, Escape to return to the editor.\n" +
+                    $"Player cell: ({cellX}, {cellY})   Standing on: {tile}";
+                return;
+            }
+
             var layer = _definition.Layers[_selectedLayerIndex];
             string view = _showFinalComposite ? "final composite" : layer.Id;
             string mapLabel = string.IsNullOrEmpty(_definition.MapId) ? "(untitled map)" : _definition.MapId;

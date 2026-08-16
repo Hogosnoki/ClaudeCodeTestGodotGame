@@ -403,6 +403,27 @@ family checkbox **on** before clicking Solid traces a clean red outline around t
 land-or-anything-that-used-to-be-land shoreline instead, matching what a player actually
 experiences.
 
+### Test mode: trying traversal rules live
+
+A **Test** button (top-left, below "Return to Map Area") spawns a keyboard-controlled player --
+a plain circle, no art yet, since this exists to exercise the Movement panel's rules rather than
+to look like anything -- at the center of the designated area. Arrow keys move it pixel-smoothly
+(not tile-snapped), the camera follows it, and the red `TraversalOverlay` lines stay visible
+regardless of which edit panel was open when you pressed Test, so a blocked step is visually
+explained on the spot rather than just silently refused. **Escape** returns to the editor,
+restoring the exact pre-test camera position/zoom; map clicks (painting/panning) are disabled for
+the duration since movement is keyboard-only.
+
+Movement is resolved one axis at a time (X then Y) against `CompiledTraversalRules.IsBlocked`,
+checked using the actual generated tile at each cell -- so it's exercising the same data the
+Movement panel edits, not a separate simplified check. Resolving axis-by-axis is what lets the
+player slide along a blocked edge instead of stopping dead when approaching it diagonally, the
+usual approach for grid-aware continuous movement. An unresolved cell (not yet generated, or
+outside the current viewport) fails closed rather than letting the player walk into the unknown.
+`TestPlayerController` (`godot/Scripts/TestPlayerController.cs`) is a small, self-contained
+Node2D -- like `EntranceExitOverlay`/`TraversalOverlay`, it doesn't know about `MapDefinition` or
+the engine at all; the tool hands it a `canEnter` callback per move.
+
 ## Running it
 
 ```bash
