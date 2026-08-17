@@ -302,11 +302,47 @@ namespace ProcGenGame
             if (Input.IsActionPressed("ui_down")) inputDir.Y += 1f;
 
             _testPlayer.TryMove(inputDir, (float)delta, CellPixelSize, CanEnterCell);
+            CheckForExitTransition();
 
             // Camera follow: keep the player centered in the viewport, same math HandleZoom uses
-            // to keep a fixed world point under a fixed screen point.
+            // to keep a fixed world point under a fixed screen point. Harmless to redo after a
+            // transition -- CheckForExitTransition already centered on the new position and
+            // regenerated, so this and RegenerateIfViewportChanged below are no-ops in that case.
             _worldRoot.Position = GetMapViewportSize() / 2f - _testPlayer.Position * _zoom;
             RegenerateIfViewportChanged();
+        }
+
+        /// <summary>
+        /// If the test player's current cell has an exit, jumps straight to the destination
+        /// map's matching entrance -- the same live-project-in-memory lookup a real game would
+        /// do, just triggered by standing on the cell instead of a dedicated "interact" input.
+        /// A no-op if the exit's destination map/entrance doesn't resolve (e.g. a dangling exit;
+        /// see the Game tab's project overview), so a bad link fails safe rather than crashing
+        /// Test mode.
+        /// </summary>
+        private void CheckForExitTransition()
+        {
+            if (_testPlayer == null) return;
+
+            int cellX = Mathf.FloorToInt(_testPlayer.Position.X / CellPixelSize);
+            int cellY = Mathf.FloorToInt(_testPlayer.Position.Y / CellPixelSize);
+            var exit = _definition.Exits.Find(e => e.X == cellX && e.Y == cellY);
+            if (exit == null) return;
+
+            int destMapIndex = _allMaps.FindIndex(m => m.Definition.MapId == exit.DestinationMapId);
+            if (destMapIndex < 0) return;
+            var destEntrance = _allMaps[destMapIndex].Definition.Entrances.Find(e => e.Id == exit.DestinationEntranceId);
+            if (destEntrance == null) return;
+
+            _currentMapIndex = destMapIndex;
+            _selectedLayerIndex = 0;
+            _selectedVariationId = null;
+
+            // Center the camera on the new spawn point *before* regenerating, since
+            // RegenerateWithViewport computes what to generate from the current camera position.
+            _testPlayer.Position = new Vector2((destEntrance.X + 0.5f) * CellPixelSize, (destEntrance.Y + 0.5f) * CellPixelSize);
+            _worldRoot.Position = GetMapViewportSize() / 2f - _testPlayer.Position * _zoom;
+            Regenerate(); // not RegenerateIfViewportChanged -- the map changed even if the cell-quantized viewport rectangle didn't
         }
 
         // ---------- Tab state ----------
@@ -1452,9 +1488,12 @@ namespace ProcGenGame
                 int cellX = Mathf.FloorToInt(_testPlayer.Position.X / CellPixelSize);
                 int cellY = Mathf.FloorToInt(_testPlayer.Position.Y / CellPixelSize);
                 string tile = TileAtWorldCell(new Vector2I(cellX, cellY), _lastViewport ?? default) ?? "?";
+                string testMapLabel = string.IsNullOrEmpty(_definition.MapId) ? "(untitled map)" : _definition.MapId;
                 _statusLabel.Text =
                     "Test mode -- arrow keys to move, Escape to return to the editor.\n" +
-                    $"Player cell: ({cellX}, {cellY})   Standing on: {tile}";
+                    $"Map: {testMapLabel}\n" +
+                    $"Player cell: ({cellX}, {cellY})   Standing on: {tile}\n" +
+                    "Walking onto an exit jumps to its destination entrance.";
                 return;
             }
 
