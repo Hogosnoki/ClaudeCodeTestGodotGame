@@ -25,24 +25,28 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
   Scripts/Milestone1TestScene.cs   Headless console proof of the milestone-1 scenario.
   Scripts/VisualDebugDemoScene.cs  Interactive, on-screen demo: colored-cell rendering,
                                     click-to-paint overrides, Transformation scrubbing.
-  Scripts/MapEditorToolScene.cs    The map-making tool: a fixed side property panel
-                                    (region, Transformation, per-layer seed, per-layer tile
-                                    ranges with manual entry + nudge buttons, tile rename/
-                                    reorder/image-import) driving live regeneration, plus
-                                    click-to-paint on top, a "Maps in this project" list
-                                    (New/Duplicate/Delete), an "Existing projects" list for
-                                    Load, and an "Edit: Map / Entrance-Exit / Movement /
-                                    Project Overview" dropdown that swaps in a panel for this
-                                    map's named entrance/exit points (with click-to-place
-                                    canvas markers), a panel for editing directional
-                                    tile-transition (movement-blocking) rules, or a
-                                    project-wide summary that flags dangling exits. Save/Load
-                                    read and write every map in the project at once as JSON via
-                                    ProcGen.Engine/Serialization.
+  Scripts/MapEditorToolScene.cs    The map-making tool: a two-tier tabbed side panel over a
+                                    free pan/zoom camera. Top-level "Game" tab holds Save/Load,
+                                    an "Existing projects" list, and a project-wide overview
+                                    (every map's summary, dangling exits); "Maps" tab holds a
+                                    "Maps in this project" list (New/Duplicate/Delete) and the
+                                    selected layer's picker above four sub-tabs -- "Generation"
+                                    (region, Transformation, per-layer seed/noise), "Tiles"
+                                    (per-layer tile ranges with manual entry + nudge buttons,
+                                    rename/reorder/image-import), "Rules" (directional
+                                    tile-transition/movement-blocking rules), and
+                                    "Entrance-Exit" (this map's named entrance/exit points with
+                                    click-to-place canvas markers). Click-to-paint is active
+                                    while Generation or Tiles is showing. The per-tab UI
+                                    construction code is split across
+                                    MapEditorToolScene.{GameTab,MapsTab,Generation,Tiles,Rules,
+                                    EntranceExit}.cs (all partial classes of the same type).
+                                    Save/Load read and write every map in the project at once
+                                    as JSON via ProcGen.Engine/Serialization.
   Scripts/EntranceExitOverlay.cs   Draws the entrance/exit markers described above -- a pure
                                     visualization aid, no engine data flows through it.
   Scripts/TraversalOverlay.cs      Draws a thin red line on every adjacent-cell edge the
-                                    Movement panel's rules currently block, evaluated against
+                                    Rules sub-tab's rules currently block, evaluated against
                                     the actual generated tiles -- also a pure visualization aid.
 docs/                     Reference screenshots for INTEGRATION.md / this README.
 INTEGRATION.md            How to copy this into your own Godot project, render with real
@@ -163,7 +167,9 @@ actually gets generated.
 
 ![Map editor tool: region/Transformation/layer/seed/tile-range panel on the right, live-generated map on the left, a color-picker-assigned tile color visible in the tile list](docs/map_editor_tool_reference.png)
 
-Panel sections, top to bottom:
+Panel sections, top to bottom (Layer sits in the Maps tab's shared header, above its Generation/
+Tiles/Rules/Entrance-Exit sub-tabs; Region/Transformation/Seed/Noise are on the **Generation**
+sub-tab and Tiles is on the **Tiles** sub-tab):
 - **Region (designated map area)** — origin X/Y and width/height of the map that would actually
   get exported/used. Editing these fields does *not* move the camera (see below) — it only moves
   the dimming boundary, so you can look somewhere else and reshape the designated area to match
@@ -213,7 +219,7 @@ reference layers/tiles by id string, a rename can't just mutate the id -- `TileD
 are deliberately immutable, so `ProcGen.Engine.Editing.RenameOperations.RenameLayer`/`RenameTile`
 replace the renamed instance with a new one carrying the new id (same slot, same other data) and
 cascade the rename through every reference within the map: every other layer's `WritesOverRule`,
-every `TileTransitionRule` in the Movement panel's rule list, and every matching `OverrideStore`
+every `TileTransitionRule` in the Rules sub-tab's rule list, and every matching `OverrideStore`
 entry. A rename that would collide with an existing id (or that's left empty) is rejected with an
 inline hint and the field reverts, the same way "Add Tile"/"Add Entrance" already reject duplicates.
 
@@ -246,15 +252,16 @@ alongside it. Tile size is still fixed at `CellPixelSize`; rendering imported ar
 (and letting manually-placed tiles take up more visual space) is future work, not part of this
 pass.
 
-Above the panel sections described so far sits **Project** (a save file name field and Save/Load
-buttons, acting on every map at once), **Maps in this project** (a list of every map in the
-project with New/Duplicate/Delete, switching which map the rest of the panel edits), **Map** (just
-the currently-selected map's id), and an **Edit: Map / Entrance-Exit / Movement / Project
-Overview** dropdown that swaps everything below it between the panel just described, a second
-panel for this map's named entrance/exit points, a third for movement/traversal rules, and a
-project-wide summary -- so those controls aren't cluttering the view for maps that don't need them
-yet. See "Save/load, multiple maps, and entrance/exit points" and "Movement: tile transition
-rules" below.
+The side panel is a two-tier tabbed layout. A top-level **Game** tab holds **Project** (a save
+file name field and Save/Load buttons, acting on every map at once) and a project-wide overview;
+a top-level **Maps** tab holds **Maps in this project** (a list of every map in the project with
+New/Duplicate/Delete, switching which map the rest of the panel edits), **Map** (just the
+currently-selected map's id), and the layer picker, all sitting above four sub-tabs --
+**Generation** (the region/Transformation/seed/noise fields described above), **Tiles** (the tile
+ranges panel just described), **Rules** (movement/traversal rules), and **Entrance-Exit** (this
+map's named entrance/exit points) -- so those controls aren't cluttering the view for maps that
+don't need them yet. See "Save/load, multiple maps, and entrance/exit points" and "Movement: tile
+transition rules" below.
 
 Left-click on the map still cycles a manual override on the selected layer at that cell (same
 mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
@@ -325,9 +332,9 @@ map from the same starter layout as a brand-new project; **Duplicate** deep-clon
 map's layers/tiles/entrances/exits (so editing the copy can never mutate the original) under a
 generated-unique id; **Delete** removes it (a project always keeps at least one map).
 
-Entrance and exit points are plain named markers on a map, edited from the panel behind the
-**Edit: Entrance / Exit** dropdown option, and rendered as colored markers on the map canvas while
-that panel is open (green for entrances, orange for exits) -- a **Place** button per point arms it
+Entrance and exit points are plain named markers on a map, edited from the Maps tab's
+**Entrance-Exit** sub-tab, and rendered as colored markers on the map canvas while that sub-tab is
+active (green for entrances, orange for exits) -- a **Place** button per point arms it
 so the next map click sets its position, instead of typing coordinates blind.
 - An **entrance** (id + X/Y) is where a player arrives after taking some exit — on this map or any
   other in the project — whose destination entrance id names it.
@@ -340,7 +347,7 @@ so the next map click sets its position, instead of typing coordinates blind.
   what's unique project-wide.
 
 Exits can still go dangling after the fact (e.g. the destination map or entrance was since
-deleted). The **Edit: Project Overview** panel lists every map with its layer/entrance/exit counts
+deleted). The **Game** tab's overview lists every map with its layer/entrance/exit counts
 and flags exactly that: every exit whose destination doesn't resolve within the project, via
 `ProcGen.Engine.Validation.ProjectValidation.FindDanglingExits` — a diagnostic, not a hard error,
 since a map under active construction may legitimately reference a destination you haven't built
@@ -363,7 +370,7 @@ not the reverse, and a symmetric block is just two rules. That asymmetry is also
 one-way transition (e.g. drop down a ledge but can't climb back up) fall out for free, with no
 special case.
 
-Edited from the panel behind the **Edit: Movement** dropdown option:
+Edited from the Maps tab's **Rules** sub-tab:
 - Every tile id used anywhere in the current map gets a row with **Solid** / **Open** buttons.
   **Solid** bulk-adds a rule from every *other* known tile into this one
   (`ProcGen.Engine.Movement.TraversalEditing.MakeSolid`) — but never a rule out of it, so a
@@ -390,7 +397,7 @@ Edited from the panel behind the **Edit: Movement** dropdown option:
 Like entrance/exit ids, `BlockedTransitions` is plain `MapDefinition` data, so it round-trips
 through Save/Load and gets deep-cloned by **Duplicate** the same as everything else on a map.
 
-While the Movement panel is open, `TraversalOverlay` draws a thin red line along every
+While the Rules sub-tab is showing, `TraversalOverlay` draws a thin red line along every
 adjacent-cell edge in the current viewport that's actually blocked (in either direction) --
 evaluated against each cell's real final resolved tile id via `CompiledTraversalRules`, not the
 abstract rule list, so what's drawn always matches what a player would actually hit. This is also
@@ -398,7 +405,7 @@ what makes the family checkbox visually obvious: making "land" solid on the mile
 map with the checkbox **off** draws almost no red lines around the visible tan shoreline, since
 `ground_cover`'s `writes_over` has already replaced most `land` cells with grass/dirt/tallgrass by
 the time they're the *final* tile, and a literal `land` rule doesn't cover those -- switch on
-**Show final composite** (Map panel) to see exactly which cells are still truly `land`. Turning the
+**Show final composite** (Maps tab) to see exactly which cells are still truly `land`. Turning the
 family checkbox **on** before clicking Solid traces a clean red outline around the entire
 land-or-anything-that-used-to-be-land shoreline instead, matching what a player actually
 experiences.
@@ -406,17 +413,17 @@ experiences.
 ### Test mode: trying traversal rules live
 
 A **Test** button (top-left, below "Return to Map Area") spawns a keyboard-controlled player --
-a plain circle, no art yet, since this exists to exercise the Movement panel's rules rather than
+a plain circle, no art yet, since this exists to exercise the Rules sub-tab's rules rather than
 to look like anything -- at the center of the designated area. Arrow keys move it pixel-smoothly
 (not tile-snapped), the camera follows it, and the red `TraversalOverlay` lines stay visible
-regardless of which edit panel was open when you pressed Test, so a blocked step is visually
+regardless of which tab was open when you pressed Test, so a blocked step is visually
 explained on the spot rather than just silently refused. **Escape** returns to the editor,
 restoring the exact pre-test camera position/zoom; map clicks (painting/panning) are disabled for
 the duration since movement is keyboard-only.
 
 Movement is resolved one axis at a time (X then Y) against `CompiledTraversalRules.IsBlocked`,
 checked using the actual generated tile at each cell -- so it's exercising the same data the
-Movement panel edits, not a separate simplified check. Resolving axis-by-axis is what lets the
+Rules sub-tab edits, not a separate simplified check. Resolving axis-by-axis is what lets the
 player slide along a blocked edge instead of stopping dead when approaching it diagonally, the
 usual approach for grid-aware continuous movement. An unresolved cell (not yet generated, or
 outside the current viewport) fails closed rather than letting the player walk into the unknown.

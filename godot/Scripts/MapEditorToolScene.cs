@@ -36,16 +36,23 @@ namespace ProcGenGame
     /// properties, not fields, so every existing read site keeps working unchanged regardless of
     /// which map is currently selected.
     ///
-    /// An "Edit: Map / Entrance-Exit / Movement / Project Overview" dropdown swaps the panel
-    /// between the settings above, a panel for adding/positioning this map's named entrance and
-    /// exit points (so those controls aren't cluttering the view all the time), a panel for
-    /// editing directional tile-transition (movement-blocking) rules, and a project-wide summary
-    /// that flags exits whose destination doesn't resolve to a real map/entrance. Entrance/exit
-    /// points render as colored markers on the map while that panel is active; a "Place" button
-    /// per point arms it so the next map click sets its position. There is no separate per-tile
-    /// "walkable" flag anywhere in the tool -- the Movement panel's "Solid"/"Open" buttons are a
-    /// convenience that bulk-add/remove ordinary <see cref="ProcGen.Engine.Model.TileTransitionRule"/>s
-    /// via <see cref="ProcGen.Engine.Movement.TraversalEditing"/>, so that's the only mechanism.
+    /// The side panel is a two-tier tab layout (see <c>MapEditorToolScene.*.cs</c> for the
+    /// per-tab construction code, split out of this file since each tab's UI-building code is
+    /// substantial): a top-level "Game" tab (project save/load, plus a project-wide overview
+    /// listing every map and any exit whose destination doesn't resolve to a real map/entrance)
+    /// and a "Maps" tab. The Maps tab holds controls that apply regardless of which of its four
+    /// sub-tabs is showing -- the maps-in-project list and the selected layer picker -- above
+    /// "Generation" (region/Transformation/seed/noise), "Tiles" (the selected layer's tile
+    /// ranges), "Rules" (directional tile-transition/movement-blocking rules), and
+    /// "Entrance-Exit" (this map's named entrance and exit points) sub-tabs. Painting/panning on
+    /// the map is only active while Generation or Tiles is showing; entrance/exit points render
+    /// as colored markers on the map only while Entrance-Exit is showing; the traversal overlay's
+    /// red blocked-edge lines only show while Rules is showing (or unconditionally during Test
+    /// mode -- see below). A "Place" button per entrance/exit point arms it so the next map click
+    /// sets its position. There is no separate per-tile "walkable" flag anywhere in the tool --
+    /// Rules' "Solid"/"Open" buttons are a convenience that bulk-add/remove ordinary
+    /// <see cref="ProcGen.Engine.Model.TileTransitionRule"/>s via
+    /// <see cref="ProcGen.Engine.Movement.TraversalEditing"/>, so that's the only mechanism.
     ///
     /// Each tile row also has an "Img" button that imports an image (any format Godot's
     /// <see cref="Image"/> can load) via a native file-browse dialog, copying it into
@@ -60,12 +67,12 @@ namespace ProcGenGame
     ///
     /// A "Test" button (top-left, below "Return to Map Area") spawns a <see cref="TestPlayerController"/>
     /// -- a plain circle, keyboard-controlled (arrow keys), moving pixel-smoothly rather than
-    /// snapping tile to tile -- at the center of the designated area, so the Movement panel's
+    /// snapping tile to tile -- at the center of the designated area, so the Rules sub-tab's
     /// traversal rules can be tried out live instead of just inspected as data. Movement is
     /// resolved one axis at a time against <see cref="CompiledTraversalRules.IsBlocked"/> using
     /// the actual generated tile at each cell (via <see cref="CanEnterCell"/>), the camera follows
     /// the player, and the TraversalOverlay's red blocked-edge lines stay visible regardless of
-    /// which edit panel was open when Test was pressed, so a blocked step is visually explained on
+    /// which tab was open when Test was pressed, so a blocked step is visually explained on
     /// the spot. Escape returns to the editor, restoring the pre-test camera position/zoom;
     /// map-click painting/panning is disabled for the duration since movement is keyboard-only.
     ///
@@ -87,6 +94,14 @@ namespace ProcGenGame
         private const float ZoomStep = 1.15f;
         private const int ViewportMargin = 2; // extra cells generated past the visible edge, so panning doesn't show a bare edge for one frame
         private const int MaxViewportCells = 300; // safety cap on viewport width/height regardless of zoom/window size
+
+        // Top-tier and Maps-tab sub-tier tab indices (see class doc comment for what each holds).
+        private const int GameTabIndex = 0;
+        private const int MapsTabIndex = 1;
+        private const int GenerationSubTabIndex = 0;
+        private const int TilesSubTabIndex = 1;
+        private const int RulesSubTabIndex = 2;
+        private const int EntranceExitSubTabIndex = 3;
 
         // Display color per tile id -- a rendering concern, so it lives here in the tool, not on
         // the engine's TileDef. Colors stand in for tile art until real art exists ("represented
@@ -182,9 +197,10 @@ namespace ProcGenGame
         private CheckBox _compositeToggle = null!;
         private CheckBox _drawModeToggle = null!;
 
-        // Save/load, the maps-in-project list, and the Map / Entrance-Exit / Project Overview
-        // panel switch. A project file *is* a game (see class doc comment) -- Save/Load act on
-        // every map in _allMaps at once, not just the currently selected one.
+        // Save/load, the maps-in-project list, and the top-level Game/Maps tabs (with Maps'
+        // Generation/Tiles/Rules/Entrance-Exit sub-tabs -- see the per-tab partial-class files).
+        // A project file *is* a game (see class doc comment) -- Save/Load act on every map in
+        // _allMaps at once, not just the currently selected one.
         private const string MapsDirectory = "res://Maps";
         private LineEdit _mapIdEdit = null!;
         private LineEdit _saveFileNameEdit = null!;
@@ -192,24 +208,20 @@ namespace ProcGenGame
         private ItemList _savedProjectsList = null!;
         private ItemList _mapList = null!;
         private Label _mapListHintLabel = null!;
-        private OptionButton _modeDropdown = null!;
-        private int _panelMode; // 0 = Map, 1 = Entrance/Exit, 2 = Movement, 3 = Project Overview
-        private VBoxContainer _mapModePanel = null!;
-        private VBoxContainer _entranceExitModePanel = null!;
+        private TabContainer _topTabs = null!; // Game (0) / Maps (1)
+        private TabContainer _mapsSubTabs = null!; // Generation (0) / Tiles (1) / Rules (2) / Entrance-Exit (3)
         private VBoxContainer _entrancesContainer = null!;
         private LineEdit _newEntranceIdEdit = null!;
         private Label _entranceHintLabel = null!;
         private VBoxContainer _exitsContainer = null!;
         private LineEdit _newExitIdEdit = null!;
         private Label _exitHintLabel = null!;
-        private VBoxContainer _movementModePanel = null!;
         private VBoxContainer _solidTileRowsContainer = null!;
         private CheckBox _includeWritesOverFamilyToggle = null!;
         private VBoxContainer _transitionRulesContainer = null!;
         private OptionButton _newRuleFromDropdown = null!;
         private OptionButton _newRuleToDropdown = null!;
         private Label _movementHintLabel = null!;
-        private VBoxContainer _projectOverviewPanel = null!;
         private VBoxContainer _projectOverviewMapsContainer = null!;
         private VBoxContainer _danglingExitsContainer = null!;
 
@@ -281,6 +293,43 @@ namespace ProcGenGame
             RegenerateIfViewportChanged();
         }
 
+        // ---------- Tab state ----------
+        // Replaces the old single `_panelMode` int -- painting/overlay visibility now depend on
+        // both which top-level tab and (when on Maps) which sub-tab is active.
+
+        private bool IsMapsTabActive => _topTabs.CurrentTab == MapsTabIndex;
+        private bool IsGenerationSubTabActive => _mapsSubTabs.CurrentTab == GenerationSubTabIndex;
+        private bool IsTilesSubTabActive => _mapsSubTabs.CurrentTab == TilesSubTabIndex;
+        private bool IsRulesSubTabActive => _mapsSubTabs.CurrentTab == RulesSubTabIndex;
+        private bool IsEntranceExitSubTabActive => _mapsSubTabs.CurrentTab == EntranceExitSubTabIndex;
+
+        /// <summary>Whether the map viewport should paint/clear overrides on click rather than pan -- true only for the Maps tab's Generation and Tiles sub-tabs, the two that actually shape terrain.</summary>
+        private bool CanPaintOrDraw => IsMapsTabActive && (IsGenerationSubTabActive || IsTilesSubTabActive);
+
+        private void OnTopTabChanged(long index)
+        {
+            _armedEntrance = null;
+            _armedExit = null;
+            if (index == GameTabIndex) RefreshProjectOverview();
+            RefreshMarkerOverlay();
+            UpdateTraversalOverlayVisibility();
+        }
+
+        private void OnMapsSubTabChanged(long index)
+        {
+            _armedEntrance = null;
+            _armedExit = null;
+            RefreshMarkerOverlay();
+            UpdateTraversalOverlayVisibility();
+        }
+
+        private void UpdateTraversalOverlayVisibility()
+        {
+            // Test mode keeps the blocked-edge overlay visible regardless of the active tab (see
+            // class doc comment) -- outside Test mode it only makes sense while Rules is showing.
+            _traversalOverlay.Visible = _testMode || (IsMapsTabActive && IsRulesSubTabActive);
+        }
+
         // ---------- UI construction ----------
 
         private void BuildUi()
@@ -328,7 +377,7 @@ namespace ProcGenGame
             returnButton.Pressed += CenterOnDesignatedArea;
             AddChild(returnButton);
 
-            _testButton = new Button { Text = "Test", TooltipText = "Spawn a keyboard-controlled test player to try out the Movement panel's traversal rules. Arrow keys to move, Escape to return to the editor." };
+            _testButton = new Button { Text = "Test", TooltipText = "Spawn a keyboard-controlled test player to try out the Rules sub-tab's traversal rules. Arrow keys to move, Escape to return to the editor." };
             _testButton.AnchorLeft = 0f; _testButton.AnchorTop = 0f; _testButton.AnchorRight = 0f; _testButton.AnchorBottom = 0f;
             _testButton.OffsetLeft = 12; _testButton.OffsetTop = 48;
             _testButton.Pressed += EnterTestMode;
@@ -351,6 +400,7 @@ namespace ProcGenGame
             AddChild(_coordsLabel);
         }
 
+        /// <summary>Builds the panel shell (scroll container + status label) and the top-level Game/Maps tabs. Each tab's own content is built by <c>BuildGameTab</c>/<c>BuildMapsTab</c> in their respective partial-class files.</summary>
         private void BuildSidePanel()
         {
             var panel = new PanelContainer
@@ -391,395 +441,19 @@ namespace ProcGenGame
             root.AddChild(_statusLabel);
             root.AddChild(new HSeparator());
 
-            root.AddChild(Header("Project"));
-            _saveFileNameEdit = new LineEdit { PlaceholderText = "project file name, e.g. mygame.json" };
-            root.AddChild(_saveFileNameEdit);
+            _topTabs = new TabContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
+            root.AddChild(_topTabs);
 
-            var saveLoadRow = new HBoxContainer();
-            var saveButton = new Button { Text = "Save" };
-            saveButton.Pressed += OnSavePressed;
-            saveLoadRow.AddChild(saveButton);
-            var loadButton = new Button { Text = "Load" };
-            loadButton.Pressed += OnLoadPressed;
-            saveLoadRow.AddChild(loadButton);
-            root.AddChild(saveLoadRow);
+            BuildGameTab(_topTabs);
+            BuildMapsTab(_topTabs);
 
-            _saveLoadStatusLabel = new Label
-            {
-                Text = $"Reads/writes every map at once from/to {MapsDirectory}/<file name> -- a project file is one whole game. There is no way to load a single map from a different project file.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            };
-            root.AddChild(_saveLoadStatusLabel);
-
-            var savedProjectsRow = new HBoxContainer();
-            savedProjectsRow.AddChild(new Label { Text = "Existing projects", SizeFlagsHorizontal = SizeFlags.ExpandFill });
-            var refreshSavedProjectsButton = new Button { Text = "Refresh" };
-            refreshSavedProjectsButton.Pressed += RefreshSavedProjectsList;
-            savedProjectsRow.AddChild(refreshSavedProjectsButton);
-            root.AddChild(savedProjectsRow);
-            _savedProjectsList = new ItemList { CustomMinimumSize = new Vector2(0, 80) };
-            _savedProjectsList.ItemSelected += index => _saveFileNameEdit.Text = _savedProjectsList.GetItemText((int)index);
-            root.AddChild(_savedProjectsList);
-            root.AddChild(new Label
-            {
-                Text = "Click a name to fill it into the field above, then Save (overwrite) or Load.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Maps in this project"));
-            _mapList = new ItemList { CustomMinimumSize = new Vector2(0, 90) };
-            _mapList.ItemSelected += index => SelectMap((int)index);
-            root.AddChild(_mapList);
-
-            var mapActionsRow = new HBoxContainer();
-            var newMapButton = new Button { Text = "New" };
-            newMapButton.Pressed += OnNewMapPressed;
-            mapActionsRow.AddChild(newMapButton);
-            var duplicateMapButton = new Button { Text = "Duplicate" };
-            duplicateMapButton.Pressed += OnDuplicateMapPressed;
-            mapActionsRow.AddChild(duplicateMapButton);
-            var deleteMapButton = new Button { Text = "Delete" };
-            deleteMapButton.Pressed += OnDeleteMapPressed;
-            mapActionsRow.AddChild(deleteMapButton);
-            root.AddChild(mapActionsRow);
-
-            _mapListHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-            root.AddChild(_mapListHintLabel);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Map"));
-            _mapIdEdit = new LineEdit { PlaceholderText = "map id (how exits refer to this map)", Text = _definition.MapId };
-            _mapIdEdit.TextChanged += t => { _definition.MapId = t; RefreshMapList(); };
-            root.AddChild(_mapIdEdit);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Edit"));
-            _modeDropdown = new OptionButton();
-            _modeDropdown.AddItem("Map");
-            _modeDropdown.AddItem("Entrance / Exit");
-            _modeDropdown.AddItem("Movement");
-            _modeDropdown.AddItem("Project Overview");
-            _modeDropdown.ItemSelected += index => SetPanelMode((int)index);
-            root.AddChild(_modeDropdown);
-            root.AddChild(new HSeparator());
-
-            _mapModePanel = new VBoxContainer();
-            _mapModePanel.AddThemeConstantOverride("separation", 6);
-            root.AddChild(_mapModePanel);
-            BuildMapModePanel(_mapModePanel);
-
-            _entranceExitModePanel = new VBoxContainer { Visible = false };
-            _entranceExitModePanel.AddThemeConstantOverride("separation", 6);
-            root.AddChild(_entranceExitModePanel);
-            BuildEntranceExitModePanel(_entranceExitModePanel);
-
-            _movementModePanel = new VBoxContainer { Visible = false };
-            _movementModePanel.AddThemeConstantOverride("separation", 6);
-            root.AddChild(_movementModePanel);
-            BuildMovementModePanel(_movementModePanel);
-
-            _projectOverviewPanel = new VBoxContainer { Visible = false };
-            _projectOverviewPanel.AddThemeConstantOverride("separation", 6);
-            root.AddChild(_projectOverviewPanel);
-            BuildProjectOverviewPanel(_projectOverviewPanel);
-        }
-
-        private void SetPanelMode(int mode)
-        {
-            _panelMode = mode;
-            _mapModePanel.Visible = mode == 0;
-            _entranceExitModePanel.Visible = mode == 1;
-            _movementModePanel.Visible = mode == 2;
-            _projectOverviewPanel.Visible = mode == 3;
-            _traversalOverlay.Visible = mode == 2;
-            _armedEntrance = null;
-            _armedExit = null;
-            if (mode == 3) RefreshProjectOverview();
+            _topTabs.TabChanged += OnTopTabChanged;
+            // Start on Maps (Generation sub-tab), matching the old default of editing straight
+            // into region/seed/noise -- "Game" is listed first per its project-wide role, but
+            // isn't where map-making actually happens.
+            _topTabs.CurrentTab = MapsTabIndex;
             RefreshMarkerOverlay();
-        }
-
-        private void BuildMapModePanel(VBoxContainer root)
-        {
-            root.AddChild(Header("Region (designated map area)"));
-            _originXBox = AddIntField(root, "Origin X", _originX, -100000, 100000, v => { _originX = v; Regenerate(); });
-            _originYBox = AddIntField(root, "Origin Y", _originY, -100000, 100000, v => { _originY = v; Regenerate(); });
-            _widthBox = AddIntField(root, "Width", _regionWidth, 1, 200, v => { _regionWidth = v; Regenerate(); });
-            _heightBox = AddIntField(root, "Height", _regionHeight, 1, 200, v => { _regionHeight = v; Regenerate(); });
-            root.AddChild(new Label
-            {
-                Text = "Content outside this area renders dimmed. Editing these fields doesn't move the camera -- use the coordinate readout to find where to place it, then type it in here.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Transformation"));
-            var tRow = new HBoxContainer();
-            var minusT = new Button { Text = "-0.1" };
-            minusT.Pressed += () => StepTransformation(-0.1);
-            tRow.AddChild(minusT);
-            // Fixed (not expand-fill) width: the ScrollContainer this sits in doesn't reliably
-            // clip an expand-fill child to available width, so a flexible width here can push
-            // the trailing "+0.1" button out past the visible panel. A fixed width keeps the
-            // row's total size small and predictable regardless.
-            _transformationBox = new SpinBox { Step = 0.01, MinValue = -100000, MaxValue = 100000, CustomMinimumSize = new Vector2(110, 0) };
-            _transformationBox.Value = _transformation;
-            _transformationBox.ValueChanged += OnTransformationBoxChanged;
-            tRow.AddChild(_transformationBox);
-            var plusT = new Button { Text = "+0.1" };
-            plusT.Pressed += () => StepTransformation(0.1);
-            tRow.AddChild(plusT);
-            root.AddChild(tRow);
-            root.AddChild(new Label
-            {
-                Text = "Larger steps are clamped to 0.1, to keep shapes continuous.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Layer"));
-            _layerList = new ItemList { CustomMinimumSize = new Vector2(0, 70) };
-            _layerList.ItemSelected += index => SelectLayer((int)index);
-            root.AddChild(_layerList);
-
-            var layerIdRow = new HBoxContainer();
-            layerIdRow.AddChild(new Label { Text = "Id", CustomMinimumSize = new Vector2(80, 0) });
-            _layerIdEdit = new LineEdit { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            _layerIdEdit.TextSubmitted += _ => OnLayerIdSubmitted();
-            _layerIdEdit.FocusExited += OnLayerIdSubmitted;
-            layerIdRow.AddChild(_layerIdEdit);
-            root.AddChild(layerIdRow);
-            _layerIdHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-            root.AddChild(_layerIdHintLabel);
-
-            _compositeToggle = new CheckBox { Text = "Show final composite" };
-            _compositeToggle.Toggled += on =>
-            {
-                _showFinalComposite = on;
-                UpdateOverlayView();
-                Regenerate();
-            };
-            root.AddChild(_compositeToggle);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Seed (selected layer)"));
-            _seedXBox = AddDoubleField(root, "X", -1000000, 1000000, OnSeedChanged);
-            _seedYBox = AddDoubleField(root, "Y", -1000000, 1000000, OnSeedChanged);
-            _seedTBox = AddDoubleField(root, "T", -1000000, 1000000, OnSeedChanged);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Noise (selected layer)"));
-            _octavesBox = AddIntField(root, "Octaves", 1, 1, 8, v => { CurrentLayer().Noise.Octaves = v; Regenerate(); });
-            _frequencyBox = AddDoubleField(root, "Frequency", 0.0001, 10, OnNoiseChanged, step: 0.0001);
-            _persistenceBox = AddDoubleField(root, "Persistence", 0, 1, OnNoiseChanged);
-            _lacunarityBox = AddDoubleField(root, "Lacunarity", 0.1, 10, OnNoiseChanged, step: 0.001);
-            root.AddChild(new Label
-            {
-                Text = "Fewer octaves / lower frequency = smoother, more gradual terrain transitions (e.g. a wide sandy beach ring); more octaves = rougher, more detailed but steeper edges.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Tiles (selected layer)"));
-            _tilesContainer = new VBoxContainer();
-            root.AddChild(_tilesContainer);
-
-            var addRow = new HBoxContainer();
-            _newTileIdEdit = new LineEdit { PlaceholderText = "new tile id", CustomMinimumSize = new Vector2(200, 0) };
-            addRow.AddChild(_newTileIdEdit);
-            var addTileButton = new Button { Text = "Add Tile" };
-            addTileButton.Pressed += OnAddTilePressed;
-            addRow.AddChild(addTileButton);
-            root.AddChild(addRow);
-
-            _addTileHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-            root.AddChild(_addTileHintLabel);
-
-            _addBlankRangeButton = new Button
-            {
-                Text = "Add Blank Range",
-                TooltipText = "Adds a weighted-range slot that produces no tile -- lets the layer(s) below show through instead.",
-                Visible = false,
-            };
-            _addBlankRangeButton.Pressed += OnAddBlankRangePressed;
-            root.AddChild(_addBlankRangeButton);
-            root.AddChild(new Label
-            {
-                Text = "Only offered for layers other than the bottom one -- the bottom layer has nothing beneath it to reveal.",
-                Modulate = new Color(1, 1, 1, 0.5f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-        }
-
-        private void BuildEntranceExitModePanel(VBoxContainer root)
-        {
-            root.AddChild(Header("Entrances"));
-            root.AddChild(new Label
-            {
-                Text = "Where a player arrives via some other exit (on this map or any other) targeting one of these ids. Ids only need to be unique on this map. Use the coordinate readout over the map to find where to place one, then type it in here.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _entrancesContainer = new VBoxContainer();
-            root.AddChild(_entrancesContainer);
-
-            var addEntranceRow = new HBoxContainer();
-            _newEntranceIdEdit = new LineEdit { PlaceholderText = "new entrance id", CustomMinimumSize = new Vector2(200, 0) };
-            addEntranceRow.AddChild(_newEntranceIdEdit);
-            var addEntranceButton = new Button { Text = "Add Entrance" };
-            addEntranceButton.Pressed += OnAddEntrancePressed;
-            addEntranceRow.AddChild(addEntranceButton);
-            root.AddChild(addEntranceRow);
-
-            _entranceHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-            root.AddChild(_entranceHintLabel);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Exits"));
-            root.AddChild(new Label
-            {
-                Text = "A point the player leaves through, toward a destination map and one of that map's entrances -- pick both from the dropdowns below. Check Project Overview for exits whose destination has since been deleted.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _exitsContainer = new VBoxContainer();
-            root.AddChild(_exitsContainer);
-
-            var addExitRow = new HBoxContainer();
-            _newExitIdEdit = new LineEdit { PlaceholderText = "new exit id", CustomMinimumSize = new Vector2(200, 0) };
-            addExitRow.AddChild(_newExitIdEdit);
-            var addExitButton = new Button { Text = "Add Exit" };
-            addExitButton.Pressed += OnAddExitPressed;
-            addExitRow.AddChild(addExitButton);
-            root.AddChild(addExitRow);
-
-            _exitHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-            root.AddChild(_exitHintLabel);
-        }
-
-        private void BuildMovementModePanel(VBoxContainer root)
-        {
-            root.AddChild(new Label
-            {
-                Text = "Whether a character standing on one tile can step onto an adjacent one, checked purely by the final tile id each cell resolves to -- never by layer. There's no separate 'walkable' flag on a tile; every rule below, hand-added or bulk-generated by 'Solid', lives in the same list and is equally editable.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Make a tile solid"));
-            root.AddChild(new Label
-            {
-                Text = "'Solid' blocks every other known tile from moving onto this one -- but never blocks this tile from moving onto anything else, so a character can never get stuck standing on a tile made solid after the fact, and two adjacent cells of the same tile always stay walkable between each other. 'Open' clears all of this tile's incoming blocks.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _includeWritesOverFamilyToggle = new CheckBox { Text = "Include tiles this one writes over (e.g. land's dirt/grass/tallgrass)" };
-            root.AddChild(_includeWritesOverFamilyToggle);
-            root.AddChild(new Label
-            {
-                Text = "Off: Solid/Open act on just the literal tile id -- e.g. 'land' cells a higher layer hasn't painted over. On: they treat the tile as a whole family -- 'land' plus every tile any layer's writes_over rule lets appear in its place -- so the two are blocked from/opened to the outside together, while staying walkable among themselves.",
-                Modulate = new Color(1, 1, 1, 0.5f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _solidTileRowsContainer = new VBoxContainer();
-            root.AddChild(_solidTileRowsContainer);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Transition rules"));
-            root.AddChild(new Label
-            {
-                Text = "Every current rule, one per row: a character standing on 'From' cannot step onto an adjacent 'To'. Blocking is one-directional -- add the reverse rule too if movement should be blocked both ways.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _transitionRulesContainer = new VBoxContainer();
-            root.AddChild(_transitionRulesContainer);
-
-            var addRuleRow = new HBoxContainer();
-            _newRuleFromDropdown = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            addRuleRow.AddChild(_newRuleFromDropdown);
-            addRuleRow.AddChild(new Label { Text = "->" });
-            _newRuleToDropdown = new OptionButton { SizeFlagsHorizontal = SizeFlags.ExpandFill };
-            addRuleRow.AddChild(_newRuleToDropdown);
-            root.AddChild(addRuleRow);
-
-            var addRuleButton = new Button { Text = "Add Rule" };
-            addRuleButton.Pressed += OnAddTransitionRulePressed;
-            root.AddChild(addRuleButton);
-
-            _movementHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
-            root.AddChild(_movementHintLabel);
-        }
-
-        private void BuildProjectOverviewPanel(VBoxContainer root)
-        {
-            root.AddChild(Header("Maps"));
-            _projectOverviewMapsContainer = new VBoxContainer();
-            root.AddChild(_projectOverviewMapsContainer);
-            root.AddChild(new HSeparator());
-
-            root.AddChild(Header("Dangling exits"));
-            root.AddChild(new Label
-            {
-                Text = "Exits whose destination map or entrance doesn't exist in this project. Not an error by itself -- a map under construction may reference a destination you haven't built yet -- but worth checking before you consider the project finished.",
-                Modulate = new Color(1, 1, 1, 0.6f),
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            });
-            _danglingExitsContainer = new VBoxContainer();
-            root.AddChild(_danglingExitsContainer);
-
-            var refreshButton = new Button { Text = "Refresh" };
-            refreshButton.Pressed += RefreshProjectOverview;
-            root.AddChild(refreshButton);
-        }
-
-        private void RefreshProjectOverview()
-        {
-            foreach (Node child in _projectOverviewMapsContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-            for (int i = 0; i < _allMaps.Count; i++)
-            {
-                var def = _allMaps[i].Definition;
-                string marker = i == _currentMapIndex ? "-> " : "    ";
-                string label = string.IsNullOrEmpty(def.MapId) ? "(untitled map)" : def.MapId;
-                _projectOverviewMapsContainer.AddChild(new Label
-                {
-                    Text = $"{marker}{label}   [{def.Layers.Count} layer(s), {def.Entrances.Count} entrance(s), {def.Exits.Count} exit(s)]",
-                });
-            }
-
-            foreach (Node child in _danglingExitsContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-            var problems = ProjectValidation.FindDanglingExits(_allMaps.ConvertAll(m => m.Definition));
-            if (problems.Count == 0)
-            {
-                _danglingExitsContainer.AddChild(new Label { Text = "None.", Modulate = new Color(1, 1, 1, 0.6f) });
-            }
-            else
-            {
-                foreach (var p in problems)
-                {
-                    string reason = p.Reason == DanglingExitReason.MapNotFound
-                        ? $"destination map '{p.DestinationMapId}' doesn't exist"
-                        : $"map '{p.DestinationMapId}' has no entrance '{p.DestinationEntranceId}'";
-                    _danglingExitsContainer.AddChild(new Label
-                    {
-                        Text = $"{p.SourceMapId} / exit '{p.ExitId}': {reason}",
-                        Modulate = new Color(1f, 0.6f, 0.5f, 1f),
-                        AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                    });
-                }
-            }
+            UpdateTraversalOverlayVisibility();
         }
 
         private static Label Header(string text)
@@ -847,9 +521,10 @@ namespace ProcGenGame
                     PlaceArmedMarkerAtMouse();
                     return;
                 }
-                // In every non-Map edit mode there's nothing to paint -- dragging always pans,
-                // regardless of the Draw Mode toggle (which only makes sense for terrain).
-                if (_panelMode != 0 || !_drawMode)
+                // Outside the Maps tab's Generation/Tiles sub-tabs there's nothing to paint --
+                // dragging always pans, regardless of the Draw Mode toggle (which only makes
+                // sense for terrain).
+                if (!CanPaintOrDraw || !_drawMode)
                 {
                     _isPanning = mouse.Pressed;
                     _lastPanMousePos = mouse.Position;
@@ -859,7 +534,7 @@ namespace ProcGenGame
                 return;
             }
 
-            if (mouse.ButtonIndex == MouseButton.Right && mouse.Pressed && _drawMode && _panelMode == 0)
+            if (mouse.ButtonIndex == MouseButton.Right && mouse.Pressed && _drawMode && CanPaintOrDraw)
             {
                 ClearOverrideAtMouse();
             }
@@ -918,7 +593,7 @@ namespace ProcGenGame
 
         // ---------- Test mode ----------
 
-        /// <summary>Spawns a keyboard-controlled TestPlayerController at the center of the designated area to try out the Movement panel's traversal rules live. Escape (see _UnhandledInput) returns to the editor.</summary>
+        /// <summary>Spawns a keyboard-controlled TestPlayerController at the center of the designated area to try out the Rules sub-tab's traversal rules live. Escape (see _UnhandledInput) returns to the editor.</summary>
         private void EnterTestMode()
         {
             if (_testMode) return;
@@ -936,9 +611,9 @@ namespace ProcGenGame
             _testPlayer = new TestPlayerController { Position = spawnWorldPixel };
             _worldRoot.AddChild(_testPlayer);
 
-            // Show blocked edges regardless of which edit panel was open, so a tester can see
-            // exactly why a step was refused.
-            _traversalOverlay.Visible = true;
+            // Show blocked edges regardless of which tab was open, so a tester can see exactly
+            // why a step was refused.
+            UpdateTraversalOverlayVisibility();
             _testButton.Disabled = true;
             UpdateStatus();
         }
@@ -955,7 +630,7 @@ namespace ProcGenGame
             _worldRoot.Scale = Vector2.One * _zoom;
             _worldRoot.Position = _preTestCameraPosition;
 
-            _traversalOverlay.Visible = _panelMode == 2;
+            UpdateTraversalOverlayVisibility();
             _testButton.Disabled = false;
             RegenerateIfViewportChanged();
             UpdateStatus();
@@ -1088,635 +763,6 @@ namespace ProcGenGame
             // keyed by the new id, throwing a KeyNotFoundException when it tries to look itself up.
             UpdateOverlayView();
             Regenerate();
-        }
-
-        private void RebuildTileRows(LayerDef layer)
-        {
-            foreach (Node child in _tilesContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-
-            for (int i = 0; i < layer.Tiles.Count; i++)
-            {
-                int index = i;
-                var tile = layer.Tiles[i];
-                var row = new HBoxContainer();
-
-                bool isBlank = tile.Id == TileDef.NoOverrideId;
-                if (isBlank)
-                {
-                    // No color and no rename for the blank sentinel -- it has nothing to draw,
-                    // and renaming it away would silently turn it into an ordinary opaque tile.
-                    row.AddChild(new Label
-                    {
-                        Text = "(blank -- shows layer below)",
-                        CustomMinimumSize = new Vector2(98, 0),
-                        Modulate = new Color(1, 1, 1, 0.7f),
-                    });
-                }
-                else
-                {
-                    var colorButton = new ColorPickerButton { Color = GetTileColor(tile.Id), CustomMinimumSize = new Vector2(28, 0) };
-                    colorButton.ColorChanged += c =>
-                    {
-                        _tileColors[tile.Id] = c;
-                        _overlay.SetTileColors(_tileColors);
-                    };
-                    row.AddChild(colorButton);
-
-                    var idEdit = new LineEdit { Text = tile.Id, CustomMinimumSize = new Vector2(70, 0) };
-                    idEdit.TextSubmitted += _ => OnTileIdSubmitted(layer, tile, idEdit);
-                    idEdit.FocusExited += () => OnTileIdSubmitted(layer, tile, idEdit);
-                    row.AddChild(idEdit);
-
-                    bool hasArt = _tileTextures.ContainsKey(tile.Id);
-                    var importButton = new Button { Text = hasArt ? "Img*" : "Img", TooltipText = hasArt ? "Replace this tile's imported image" : "Import an image for this tile" };
-                    importButton.Pressed += () =>
-                    {
-                        _pendingImportTileId = tile.Id;
-                        _importImageDialog.PopupCentered();
-                    };
-                    row.AddChild(importButton);
-
-                    if (hasArt)
-                    {
-                        var clearArt = new Button { Text = "x Img", TooltipText = "Remove the imported image -- falls back to the color swatch" };
-                        clearArt.Pressed += () =>
-                        {
-                            _tileTextures.Remove(tile.Id);
-                            _overlay.SetTileTextures(_tileTextures);
-                            RebuildTileRows(layer);
-                        };
-                        row.AddChild(clearArt);
-                    }
-                }
-
-                var minus = new Button { Text = "-" };
-                // Fixed width for the same reason as the Transformation field above: predictable
-                // total row size inside a ScrollContainer, regardless of expand-fill clipping.
-                // Step is deliberately finer than the -/+ buttons' fixed 0.1 nudge below -- Step
-                // only governs how much precision typing a value directly preserves/rounds to.
-                var spin = new SpinBox { Step = 0.001, MinValue = 0, MaxValue = 1000, CustomMinimumSize = new Vector2(80, 0) };
-                spin.Value = tile.Range;
-                var plus = new Button { Text = "+" };
-
-                // The tile itself is the single source of truth; nudging just moves the SpinBox's
-                // Value, which fires this same handler -- no separate "apply" step.
-                spin.ValueChanged += v =>
-                {
-                    tile.Range = v;
-                    Regenerate();
-                };
-                minus.Pressed += () => spin.Value = Math.Max(0, spin.Value - 0.1);
-                plus.Pressed += () => spin.Value = spin.Value + 0.1;
-
-                row.AddChild(minus);
-                row.AddChild(spin);
-                row.AddChild(plus);
-
-                // Reordering changes the cumulative weighted-range boundaries (CompiledLayer sums
-                // ranges in list order), so it can reshuffle which tiles land where -- same caveat
-                // as editing a range, just via position instead of value.
-                var up = new Button { Text = "^", Disabled = index == 0, TooltipText = "Move up (changes range boundaries)" };
-                up.Pressed += () =>
-                {
-                    layer.Tiles.RemoveAt(index);
-                    layer.Tiles.Insert(index - 1, tile);
-                    RebuildTileRows(layer);
-                    Regenerate();
-                };
-                row.AddChild(up);
-
-                var down = new Button { Text = "v", Disabled = index == layer.Tiles.Count - 1, TooltipText = "Move down (changes range boundaries)" };
-                down.Pressed += () =>
-                {
-                    layer.Tiles.RemoveAt(index);
-                    layer.Tiles.Insert(index + 1, tile);
-                    RebuildTileRows(layer);
-                    Regenerate();
-                };
-                row.AddChild(down);
-
-                var remove = new Button { Text = "x", Disabled = layer.Tiles.Count <= 1 };
-                remove.TooltipText = layer.Tiles.Count <= 1
-                    ? "A layer needs at least one tile"
-                    : $"Remove '{tile.Id}' from this layer";
-                remove.Pressed += () => OnRemoveTile(layer, tile);
-                row.AddChild(remove);
-
-                _tilesContainer.AddChild(row);
-            }
-        }
-
-        /// <summary>
-        /// Commits a tile-id edit. Bound to both TextSubmitted (Enter) and FocusExited (click
-        /// away) so either commits the rename; the `layer.Tiles.Contains(tile)` guard makes this
-        /// idempotent if both fire for the same edit (RenameOperations.RenameTile replaces the
-        /// TileDef instance rather than mutating it in place, so a stale `tile` reference is no
-        /// longer present in the list after the first successful call).
-        /// </summary>
-        private void OnTileIdSubmitted(LayerDef layer, TileDef tile, LineEdit idEdit)
-        {
-            if (_suppressSignals || !layer.Tiles.Contains(tile)) return;
-
-            string oldId = tile.Id;
-            string newId = idEdit.Text.Trim();
-            if (newId == oldId) return;
-
-            if (newId == TileDef.NoOverrideId)
-            {
-                _addTileHintLabel.Text = $"'{TileDef.NoOverrideId}' is reserved -- use 'Add Blank Range' to add a blank slot instead of renaming one into it.";
-                idEdit.Text = oldId;
-                return;
-            }
-
-            if (!RenameOperations.RenameTile(_definition, _overrides, layer.Id, oldId, newId))
-            {
-                _addTileHintLabel.Text = string.IsNullOrEmpty(newId)
-                    ? "Tile id can't be empty."
-                    : $"Layer '{layer.Id}' already has a tile called '{newId}'.";
-                idEdit.Text = oldId;
-                return;
-            }
-
-            // The tile's display color and any imported art are keyed by id string -- carry both
-            // over to the new id so a rename doesn't look like it reset them.
-            if (_tileColors.TryGetValue(oldId, out var color))
-            {
-                _tileColors.Remove(oldId);
-                _tileColors[newId] = color;
-            }
-            if (_tileTextures.TryGetValue(oldId, out var texture))
-            {
-                _tileTextures.Remove(oldId);
-                _tileTextures[newId] = texture;
-                string oldArtPath = $"{TileArtDirectory}/{oldId}.png";
-                if (FileAccess.FileExists(oldArtPath))
-                {
-                    DirAccess.RenameAbsolute(oldArtPath, $"{TileArtDirectory}/{newId}.png");
-                }
-            }
-
-            _addTileHintLabel.Text = "";
-            RebuildTileRows(layer);
-            _overlay.SetTileColors(_tileColors);
-            _overlay.SetTileTextures(_tileTextures);
-            RefreshMovementPanel();
-            Regenerate();
-        }
-
-        private void OnAddTilePressed()
-        {
-            string id = _newTileIdEdit.Text.Trim();
-            var layer = _definition.Layers[_selectedLayerIndex];
-
-            if (string.IsNullOrEmpty(id))
-            {
-                _addTileHintLabel.Text = "Enter a tile id first.";
-                return;
-            }
-            if (id == TileDef.NoOverrideId)
-            {
-                _addTileHintLabel.Text = $"'{TileDef.NoOverrideId}' is reserved -- use 'Add Blank Range' below instead.";
-                return;
-            }
-            if (layer.Tiles.Exists(t => t.Id == id))
-            {
-                _addTileHintLabel.Text = $"Layer '{layer.Id}' already has a tile called '{id}'.";
-                return;
-            }
-
-            layer.Tiles.Add(new TileDef(id, 1.0));
-            GetTileColor(id); // assigns this new id a default color if it doesn't have one yet
-            _newTileIdEdit.Text = "";
-            _addTileHintLabel.Text = "";
-
-            RebuildTileRows(layer);
-            _overlay.SetTileColors(_tileColors);
-            RefreshMovementPanel();
-            Regenerate();
-        }
-
-        private void OnAddBlankRangePressed()
-        {
-            var layer = CurrentLayer();
-            if (layer.Tiles.Exists(t => t.Id == TileDef.NoOverrideId))
-            {
-                _addTileHintLabel.Text = "This layer already has a blank range -- adjust its weight instead of adding another.";
-                return;
-            }
-
-            layer.Tiles.Add(new TileDef(TileDef.NoOverrideId, 1.0));
-            _addTileHintLabel.Text = "";
-            RebuildTileRows(layer);
-            Regenerate();
-        }
-
-        /// <summary>
-        /// Loads the picked image, copies it into TileArtDirectory keyed by tile id (always
-        /// re-encoded as PNG, regardless of source format, so lookups only ever need to check one
-        /// fixed extension), and hands the resulting texture to the overlay -- the same pool the
-        /// procedurally-generated cells and manually-painted overrides both render through, since
-        /// both just resolve to a tile id.
-        /// </summary>
-        private void OnImportImageFileSelected(string path)
-        {
-            if (_pendingImportTileId == null) return;
-            string tileId = _pendingImportTileId;
-            _pendingImportTileId = null;
-
-            var image = new Image();
-            var loadErr = image.Load(path);
-            if (loadErr != Error.Ok)
-            {
-                _addTileHintLabel.Text = $"Could not load '{path}': {loadErr}";
-                return;
-            }
-
-            DirAccess.MakeDirRecursiveAbsolute(TileArtDirectory);
-            string destPath = $"{TileArtDirectory}/{tileId}.png";
-            var saveErr = image.SavePng(destPath);
-            if (saveErr != Error.Ok)
-            {
-                _addTileHintLabel.Text = $"Could not save imported image to '{destPath}': {saveErr}";
-                return;
-            }
-
-            _tileTextures[tileId] = ImageTexture.CreateFromImage(image);
-            _overlay.SetTileTextures(_tileTextures);
-            _addTileHintLabel.Text = "";
-            RebuildTileRows(CurrentLayer());
-            Regenerate();
-        }
-
-        /// <summary>
-        /// Loads any already-imported art for the current map's tile ids from TileArtDirectory --
-        /// called on map switch/load so art imported in an earlier session (or for another map
-        /// sharing this Godot project) reappears without re-importing. Unlike tile colors, art
-        /// isn't reset to defaults on load -- see class doc comment on why it's stored this way.
-        /// </summary>
-        private void HydrateTileTexturesFromDisk()
-        {
-            foreach (var layer in _definition.Layers)
-            {
-                foreach (var tile in layer.Tiles)
-                {
-                    if (tile.Id == TileDef.NoOverrideId || _tileTextures.ContainsKey(tile.Id)) continue;
-                    string path = $"{TileArtDirectory}/{tile.Id}.png";
-                    if (!FileAccess.FileExists(path)) continue;
-
-                    var image = new Image();
-                    if (image.Load(path) == Error.Ok)
-                    {
-                        _tileTextures[tile.Id] = ImageTexture.CreateFromImage(image);
-                    }
-                }
-            }
-            _overlay.SetTileTextures(_tileTextures);
-        }
-
-        private void OnRemoveTile(LayerDef layer, TileDef tile)
-        {
-            if (layer.Tiles.Count <= 1) return; // CompiledLayer requires at least one tile
-            layer.Tiles.Remove(tile);
-            RebuildTileRows(layer);
-            RefreshMovementPanel();
-            Regenerate();
-        }
-
-        // ---------- Entrances / Exits ----------
-        // Unlike tiles, entrance/exit points don't feed the generation algorithm at all -- they're
-        // pure gameplay metadata carried alongside the map -- so editing them never calls
-        // Regenerate(). They do refresh the marker overlay, which is a pure visualization aid.
-
-        private void RebuildEntranceRows()
-        {
-            foreach (Node child in _entrancesContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-
-            foreach (var entrance in _definition.Entrances)
-            {
-                var row = new HBoxContainer();
-                row.AddChild(new Label { Text = entrance.Id, CustomMinimumSize = new Vector2(80, 0) });
-
-                var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(65, 0) };
-                xBox.Value = entrance.X;
-                xBox.ValueChanged += v => { entrance.X = (int)Math.Round(v); RefreshMarkerOverlay(); };
-                row.AddChild(xBox);
-
-                var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(65, 0) };
-                yBox.Value = entrance.Y;
-                yBox.ValueChanged += v => { entrance.Y = (int)Math.Round(v); RefreshMarkerOverlay(); };
-                row.AddChild(yBox);
-
-                var place = new Button { Text = "Place", TooltipText = "Click, then click the map to set this entrance's position" };
-                place.Pressed += () =>
-                {
-                    _armedEntrance = entrance;
-                    _armedExit = null;
-                    RefreshMarkerOverlay();
-                };
-                row.AddChild(place);
-
-                var remove = new Button { Text = "x", TooltipText = $"Remove entrance '{entrance.Id}'" };
-                remove.Pressed += () =>
-                {
-                    if (_armedEntrance == entrance) _armedEntrance = null;
-                    _definition.Entrances.Remove(entrance);
-                    RebuildEntranceRows();
-                };
-                row.AddChild(remove);
-
-                _entrancesContainer.AddChild(row);
-            }
-            RefreshMarkerOverlay();
-        }
-
-        private void OnAddEntrancePressed()
-        {
-            string id = _newEntranceIdEdit.Text.Trim();
-            if (string.IsNullOrEmpty(id))
-            {
-                _entranceHintLabel.Text = "Enter an entrance id first.";
-                return;
-            }
-            if (_definition.Entrances.Exists(e => e.Id == id))
-            {
-                _entranceHintLabel.Text = $"This map already has an entrance called '{id}'.";
-                return;
-            }
-
-            _definition.Entrances.Add(new EntrancePoint(id, 0, 0));
-            _newEntranceIdEdit.Text = "";
-            _entranceHintLabel.Text = "";
-            RebuildEntranceRows();
-        }
-
-        private void RebuildExitRows()
-        {
-            foreach (Node child in _exitsContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-
-            foreach (var exit in _definition.Exits)
-            {
-                var card = new VBoxContainer();
-                card.AddThemeConstantOverride("separation", 2);
-
-                var headerRow = new HBoxContainer();
-                headerRow.AddChild(new Label { Text = exit.Id, CustomMinimumSize = new Vector2(110, 0) });
-                var place = new Button { Text = "Place", TooltipText = "Click, then click the map to set this exit's position" };
-                place.Pressed += () =>
-                {
-                    _armedExit = exit;
-                    _armedEntrance = null;
-                    RefreshMarkerOverlay();
-                };
-                headerRow.AddChild(place);
-                var remove = new Button { Text = "x", TooltipText = $"Remove exit '{exit.Id}'" };
-                remove.Pressed += () =>
-                {
-                    if (_armedExit == exit) _armedExit = null;
-                    _definition.Exits.Remove(exit);
-                    RebuildExitRows();
-                };
-                headerRow.AddChild(remove);
-                card.AddChild(headerRow);
-
-                var posRow = new HBoxContainer();
-                posRow.AddChild(new Label { Text = "X", CustomMinimumSize = new Vector2(20, 0) });
-                var xBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(70, 0) };
-                xBox.Value = exit.X;
-                xBox.ValueChanged += v => { exit.X = (int)Math.Round(v); RefreshMarkerOverlay(); };
-                posRow.AddChild(xBox);
-                posRow.AddChild(new Label { Text = "Y", CustomMinimumSize = new Vector2(20, 0) });
-                var yBox = new SpinBox { Step = 1, MinValue = -1000000, MaxValue = 1000000, Rounded = true, CustomMinimumSize = new Vector2(70, 0) };
-                yBox.Value = exit.Y;
-                yBox.ValueChanged += v => { exit.Y = (int)Math.Round(v); RefreshMarkerOverlay(); };
-                posRow.AddChild(yBox);
-                card.AddChild(posRow);
-
-                card.AddChild(new Label { Text = "Destination map", Modulate = new Color(1, 1, 1, 0.6f) });
-                var destMapDropdown = new OptionButton();
-                var destEntranceDropdown = new OptionButton();
-                PopulateDestinationMapDropdown(destMapDropdown, exit.DestinationMapId);
-                PopulateDestinationEntranceDropdown(destEntranceDropdown, exit.DestinationMapId, exit.DestinationEntranceId);
-                destMapDropdown.ItemSelected += idx =>
-                {
-                    string selectedMapId = destMapDropdown.GetItemMetadata((int)idx).AsString();
-                    exit.DestinationMapId = selectedMapId;
-                    exit.DestinationEntranceId = "";
-                    PopulateDestinationEntranceDropdown(destEntranceDropdown, selectedMapId, "");
-                };
-                card.AddChild(destMapDropdown);
-
-                card.AddChild(new Label { Text = "Destination entrance", Modulate = new Color(1, 1, 1, 0.6f) });
-                destEntranceDropdown.ItemSelected += idx =>
-                {
-                    exit.DestinationEntranceId = destEntranceDropdown.GetItemMetadata((int)idx).AsString();
-                };
-                card.AddChild(destEntranceDropdown);
-
-                card.AddChild(new HSeparator());
-                _exitsContainer.AddChild(card);
-            }
-            RefreshMarkerOverlay();
-        }
-
-        /// <summary>Fills a dropdown with every map in the project (plus a "not chosen" placeholder), selecting whichever matches currentValue -- or the placeholder, if currentValue is empty or names a map no longer in the project, without overwriting it.</summary>
-        private void PopulateDestinationMapDropdown(OptionButton dropdown, string currentValue)
-        {
-            dropdown.Clear();
-            dropdown.AddItem("(choose a map)");
-            dropdown.SetItemMetadata(0, "");
-            int selectIndex = 0;
-
-            for (int i = 0; i < _allMaps.Count; i++)
-            {
-                string id = _allMaps[i].Definition.MapId;
-                dropdown.AddItem(string.IsNullOrEmpty(id) ? "(untitled map)" : id);
-                dropdown.SetItemMetadata(i + 1, id);
-                if (!string.IsNullOrEmpty(currentValue) && id == currentValue) selectIndex = i + 1;
-            }
-            dropdown.Select(selectIndex);
-        }
-
-        private void PopulateDestinationEntranceDropdown(OptionButton dropdown, string destinationMapId, string currentValue)
-        {
-            dropdown.Clear();
-            dropdown.AddItem("(choose an entrance)");
-            dropdown.SetItemMetadata(0, "");
-            int selectIndex = 0;
-
-            var destMap = _allMaps.Find(m => m.Definition.MapId == destinationMapId).Definition;
-            if (destMap != null)
-            {
-                for (int i = 0; i < destMap.Entrances.Count; i++)
-                {
-                    string id = destMap.Entrances[i].Id;
-                    dropdown.AddItem(id);
-                    dropdown.SetItemMetadata(i + 1, id);
-                    if (!string.IsNullOrEmpty(currentValue) && id == currentValue) selectIndex = i + 1;
-                }
-            }
-            dropdown.Select(selectIndex);
-        }
-
-        private void OnAddExitPressed()
-        {
-            string id = _newExitIdEdit.Text.Trim();
-            if (string.IsNullOrEmpty(id))
-            {
-                _exitHintLabel.Text = "Enter an exit id first.";
-                return;
-            }
-            if (_definition.Exits.Exists(e => e.Id == id))
-            {
-                _exitHintLabel.Text = $"This map already has an exit called '{id}'.";
-                return;
-            }
-
-            _definition.Exits.Add(new ExitPoint(id, 0, 0, "", ""));
-            _newExitIdEdit.Text = "";
-            _exitHintLabel.Text = "";
-            RebuildExitRows();
-        }
-
-        /// <summary>Every distinct tile id used by any layer of the current map, in first-seen order -- the universe "Solid" bulk-blocks against and the dropdown options for hand-added rules.</summary>
-        /// <summary>Every distinct real tile id used anywhere in the map -- excludes the no_override sentinel, which never appears as a final resolved tile and so can never sensibly appear in a movement rule.</summary>
-        private List<string> GetAllTileIds()
-        {
-            var seen = new HashSet<string>();
-            var ids = new List<string>();
-            foreach (var layer in _definition.Layers)
-            {
-                foreach (var tile in layer.Tiles)
-                {
-                    if (tile.Id != TileDef.NoOverrideId && seen.Add(tile.Id)) ids.Add(tile.Id);
-                }
-            }
-            return ids;
-        }
-
-        private void RefreshMovementPanel()
-        {
-            var tileIds = GetAllTileIds();
-
-            foreach (Node child in _solidTileRowsContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-            foreach (var tileId in tileIds)
-            {
-                var row = new HBoxContainer();
-                row.AddChild(new Label { Text = tileId, CustomMinimumSize = new Vector2(120, 0) });
-                var solid = new Button { Text = "Solid", TooltipText = $"Block every other tile from moving onto '{tileId}'" };
-                solid.Pressed += () =>
-                {
-                    if (_includeWritesOverFamilyToggle.ButtonPressed)
-                        TraversalEditing.MakeSolidFamily(_definition.BlockedTransitions, tileId, GetAllTileIds(), _definition.Layers);
-                    else
-                        TraversalEditing.MakeSolid(_definition.BlockedTransitions, tileId, GetAllTileIds());
-                    RefreshMovementPanel();
-                    Regenerate();
-                };
-                row.AddChild(solid);
-                var open = new Button { Text = "Open", TooltipText = $"Clear every rule blocking movement onto '{tileId}'" };
-                open.Pressed += () =>
-                {
-                    if (_includeWritesOverFamilyToggle.ButtonPressed)
-                        TraversalEditing.ClearBlocksIntoFamily(_definition.BlockedTransitions, tileId, _definition.Layers);
-                    else
-                        TraversalEditing.ClearBlocksInto(_definition.BlockedTransitions, tileId);
-                    RefreshMovementPanel();
-                    Regenerate();
-                };
-                row.AddChild(open);
-                _solidTileRowsContainer.AddChild(row);
-            }
-
-            foreach (Node child in _transitionRulesContainer.GetChildren())
-            {
-                child.QueueFree();
-            }
-            for (int i = 0; i < _definition.BlockedTransitions.Count; i++)
-            {
-                int index = i;
-                var rule = _definition.BlockedTransitions[i];
-                var row = new HBoxContainer();
-                row.AddChild(new Label { Text = $"{rule.FromTileId} -> {rule.ToTileId}", SizeFlagsHorizontal = SizeFlags.ExpandFill });
-                var remove = new Button { Text = "x", TooltipText = "Remove this rule" };
-                remove.Pressed += () =>
-                {
-                    _definition.BlockedTransitions.RemoveAt(index);
-                    RefreshMovementPanel();
-                    Regenerate();
-                };
-                row.AddChild(remove);
-                _transitionRulesContainer.AddChild(row);
-            }
-
-            PopulateTileDropdown(_newRuleFromDropdown, tileIds, "");
-            PopulateTileDropdown(_newRuleToDropdown, tileIds, "");
-        }
-
-        private static void PopulateTileDropdown(OptionButton dropdown, List<string> tileIds, string currentValue)
-        {
-            dropdown.Clear();
-            dropdown.AddItem("(choose a tile)");
-            dropdown.SetItemMetadata(0, "");
-            int selectIndex = 0;
-
-            for (int i = 0; i < tileIds.Count; i++)
-            {
-                dropdown.AddItem(tileIds[i]);
-                dropdown.SetItemMetadata(i + 1, tileIds[i]);
-                if (!string.IsNullOrEmpty(currentValue) && tileIds[i] == currentValue) selectIndex = i + 1;
-            }
-            dropdown.Select(selectIndex);
-        }
-
-        private void OnAddTransitionRulePressed()
-        {
-            string from = _newRuleFromDropdown.GetItemMetadata(_newRuleFromDropdown.Selected).AsString();
-            string to = _newRuleToDropdown.GetItemMetadata(_newRuleToDropdown.Selected).AsString();
-
-            if (string.IsNullOrEmpty(from) || string.IsNullOrEmpty(to))
-            {
-                _movementHintLabel.Text = "Choose both a From and a To tile first.";
-                return;
-            }
-            if (from == to)
-            {
-                _movementHintLabel.Text = "A tile can't block movement into itself -- same-type movement always stays open.";
-                return;
-            }
-            if (_definition.BlockedTransitions.Exists(r => r.FromTileId == from && r.ToTileId == to))
-            {
-                _movementHintLabel.Text = "This rule already exists.";
-                return;
-            }
-
-            _definition.BlockedTransitions.Add(new TileTransitionRule(from, to));
-            _movementHintLabel.Text = "";
-            RefreshMovementPanel();
-            Regenerate();
-        }
-
-        private void RefreshMarkerOverlay()
-        {
-            var entrances = _definition.Entrances.ConvertAll(e => (e.Id, e.X, e.Y));
-            var exits = _definition.Exits.ConvertAll(e => (e.Id, e.X, e.Y));
-            (bool IsEntrance, string Id)? armed = null;
-            if (_armedEntrance != null) armed = (true, _armedEntrance.Id);
-            else if (_armedExit != null) armed = (false, _armedExit.Id);
-
-            _markerOverlay.Visible = _panelMode == 1;
-            _markerOverlay.SetPoints(entrances, exits, armed);
         }
 
         // ---------- Maps in this project ----------
