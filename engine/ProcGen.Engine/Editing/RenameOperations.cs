@@ -44,6 +44,23 @@ namespace ProcGen.Engine.Editing
                     : record);
             }
             overrides.ReplaceAll(renamed);
+
+            // Variations reference layers by the same id string (LayerVariation.LayerId, and
+            // each variation's own override records) -- cascade there too, or a rename would
+            // silently orphan every variation's overrides for this layer.
+            foreach (var variation in def.Variations)
+            {
+                foreach (var layerVariation in variation.LayerOverrides)
+                {
+                    if (layerVariation.LayerId == oldLayerId) layerVariation.LayerId = newLayerId;
+                }
+                for (int i = 0; i < variation.Overrides.Count; i++)
+                {
+                    var record = variation.Overrides[i];
+                    if (record.LayerId == oldLayerId)
+                        variation.Overrides[i] = new TileOverride(newLayerId, record.X, record.Y, record.TileId);
+                }
+            }
             return true;
         }
 
@@ -87,6 +104,55 @@ namespace ProcGen.Engine.Editing
                     : record);
             }
             overrides.ReplaceAll(renamed);
+
+            // Cascade into every variation's own tile-list replacement (if it has one for this
+            // layer) and its own override records, the same way as the base map above.
+            foreach (var variation in def.Variations)
+            {
+                foreach (var layerVariation in variation.LayerOverrides)
+                {
+                    if (layerVariation.LayerId != layerId || layerVariation.Tiles == null) continue;
+                    int variationTileIndex = layerVariation.Tiles.FindIndex(t => t.Id == oldTileId);
+                    if (variationTileIndex >= 0)
+                        layerVariation.Tiles[variationTileIndex] = new TileDef(newTileId, layerVariation.Tiles[variationTileIndex].Range);
+                }
+                for (int i = 0; i < variation.Overrides.Count; i++)
+                {
+                    var record = variation.Overrides[i];
+                    if (record.LayerId == layerId && record.TileId == oldTileId)
+                        variation.Overrides[i] = new TileOverride(record.LayerId, record.X, record.Y, newTileId);
+                }
+            }
+            return true;
+        }
+
+        /// <summary>
+        /// Renames a tile id within one variation's own tile-list replacement for a layer (see
+        /// <see cref="LayerVariation.Tiles"/>) -- for a tile id a variation introduced itself
+        /// (e.g. "ice" in a winter palette swap) rather than one shared with the base map, so
+        /// there is no base-layer WritesOverRule/BlockedTransitions/base-override cascade to
+        /// worry about, only this variation's own override records. Returns false (no-op) if the
+        /// variation has no tile-list override for layerId, oldTileId isn't in it, or newTileId
+        /// is empty/already taken within that same list.
+        /// </summary>
+        public static bool RenameVariationTile(MapVariation variation, string layerId, string oldTileId, string newTileId)
+        {
+            newTileId = newTileId?.Trim() ?? "";
+            if (string.IsNullOrEmpty(newTileId) || oldTileId == newTileId) return false;
+            var layerVariation = variation.LayerOverrides.Find(lv => lv.LayerId == layerId);
+            if (layerVariation?.Tiles == null) return false;
+            if (layerVariation.Tiles.Exists(t => t.Id == newTileId)) return false;
+            int tileIndex = layerVariation.Tiles.FindIndex(t => t.Id == oldTileId);
+            if (tileIndex < 0) return false;
+
+            layerVariation.Tiles[tileIndex] = new TileDef(newTileId, layerVariation.Tiles[tileIndex].Range);
+
+            for (int i = 0; i < variation.Overrides.Count; i++)
+            {
+                var record = variation.Overrides[i];
+                if (record.LayerId == layerId && record.TileId == oldTileId)
+                    variation.Overrides[i] = new TileOverride(record.LayerId, record.X, record.Y, newTileId);
+            }
             return true;
         }
     }

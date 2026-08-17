@@ -55,14 +55,24 @@ namespace ProcGenGame
             });
             root.AddChild(new HSeparator());
 
-            root.AddChild(Header("Seed (selected layer)"));
+            var seedHeaderRow = new HBoxContainer();
+            seedHeaderRow.AddChild(new Label { Text = "Seed (selected layer)", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+            _seedResetButton = new Button { Text = "Reset to base", Visible = false, TooltipText = "Discard this variation's seed override -- inherit the base map's seed again" };
+            _seedResetButton.Pressed += OnSeedResetPressed;
+            seedHeaderRow.AddChild(_seedResetButton);
+            root.AddChild(seedHeaderRow);
             _seedXBox = AddDoubleField(root, "X", -1000000, 1000000, OnSeedChanged);
             _seedYBox = AddDoubleField(root, "Y", -1000000, 1000000, OnSeedChanged);
             _seedTBox = AddDoubleField(root, "T", -1000000, 1000000, OnSeedChanged);
             root.AddChild(new HSeparator());
 
-            root.AddChild(Header("Noise (selected layer)"));
-            _octavesBox = AddIntField(root, "Octaves", 1, 1, 8, v => { CurrentLayer().Noise.Octaves = v; Regenerate(); });
+            var noiseHeaderRow = new HBoxContainer();
+            noiseHeaderRow.AddChild(new Label { Text = "Noise (selected layer)", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+            _noiseResetButton = new Button { Text = "Reset to base", Visible = false, TooltipText = "Discard this variation's noise override -- inherit the base map's noise again" };
+            _noiseResetButton.Pressed += OnNoiseResetPressed;
+            noiseHeaderRow.AddChild(_noiseResetButton);
+            root.AddChild(noiseHeaderRow);
+            _octavesBox = AddIntField(root, "Octaves", 1, 1, 8, v => { EditableNoise().Octaves = v; _noiseResetButton.Visible = _selectedVariationId != null; Regenerate(); });
             _frequencyBox = AddDoubleField(root, "Frequency", 0.0001, 10, OnNoiseChanged, step: 0.0001);
             _persistenceBox = AddDoubleField(root, "Persistence", 0, 1, OnNoiseChanged);
             _lacunarityBox = AddDoubleField(root, "Lacunarity", 0.1, 10, OnNoiseChanged, step: 0.001);

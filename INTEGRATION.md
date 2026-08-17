@@ -227,6 +227,17 @@ pairs on `MapDefinition.BlockedTransitions`, checked against each cell's final r
 once per loaded map (not per movement check) and call `IsBlocked(fromTileId, toTileId)` before
 letting a character step from one cell onto an adjacent one.
 
+A map can also carry named **variations** -- e.g. "winter" or "night" -- each storing only what
+diverges from the map's base configuration (`MapDefinition.Variations`, a list of
+`ProcGen.Engine.Model.MapVariation`). A game (or any consumer other than the editor tool) never
+needs to understand the divergence format itself: call
+`ProcGen.Engine.Generation.VariationResolution.Resolve(baseDefinition, baseOverrides, variationId)`
+first, which returns an ordinary `(MapDefinition, OverrideStore)` pair with that variation's
+per-layer seed/noise/tile-list overrides and its own hand-painted diff already folded in, then
+call `MapGenerator.GenerateRegion` against that pair exactly as usual -- passing `null`/`""` for
+`variationId` (or skipping the resolve step entirely) generates the base map unchanged. See
+"Variations: seasonal/time-of-day divergences" in the README for how the tool edits these.
+
 Layer and tile ids can be renamed in place from the tool (an **Id** field for the selected layer,
 an editable id per tile row), and tiles within a layer can be reordered with `^`/`v`. A rename
 can't just mutate the id -- `writes_over` rules, transition rules, and override records all

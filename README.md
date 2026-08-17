@@ -14,8 +14,11 @@ engine/ProcGen.Engine/    The generation engine. Plain C# class library, net8.0,
                            source of truth both the tool and the game call into. This is
                            also the folder you copy-paste into another Godot project --
                            see INTEGRATION.md. Includes Editing/RenameOperations.cs (safe
-                           layer/tile id renaming, cascading through every reference) and
-                           Movement/ (traversal-rule compilation/bulk-editing).
+                           layer/tile id renaming, cascading through every reference),
+                           Movement/ (traversal-rule compilation/bulk-editing), and
+                           Generation/VariationResolution.cs (resolves a map's named
+                           variations -- see MapVariation's doc comment -- into the
+                           ordinary MapDefinition/OverrideStore pair the generator consumes).
 tests/ProcGen.Engine.Tests/  xUnit tests proving the milestone-1 acceptance criteria against
                            the engine directly (no Godot runtime needed to run these).
 godot/                    Minimal Godot 4.4 C# project demonstrating both consumers:
@@ -29,8 +32,10 @@ godot/                    Minimal Godot 4.4 C# project demonstrating both consum
                                     free pan/zoom camera. Top-level "Game" tab holds Save/Load,
                                     an "Existing projects" list, and a project-wide overview
                                     (every map's summary, dangling exits); "Maps" tab holds a
-                                    "Maps in this project" list (New/Duplicate/Delete) and the
-                                    selected layer's picker above four sub-tabs -- "Generation"
+                                    "Maps in this project" list (New/Duplicate/Delete), the
+                                    selected layer's picker, and a Variation picker (New/
+                                    Duplicate/Delete a named divergence -- see "Variations" in
+                                    this README) above four sub-tabs -- "Generation"
                                     (region, Transformation, per-layer seed/noise), "Tiles"
                                     (per-layer tile ranges with manual entry + nudge buttons,
                                     rename/reorder/image-import), "Rules" (directional
@@ -256,17 +261,60 @@ The side panel is a two-tier tabbed layout. A top-level **Game** tab holds **Pro
 file name field and Save/Load buttons, acting on every map at once) and a project-wide overview;
 a top-level **Maps** tab holds **Maps in this project** (a list of every map in the project with
 New/Duplicate/Delete, switching which map the rest of the panel edits), **Map** (just the
-currently-selected map's id), and the layer picker, all sitting above four sub-tabs --
-**Generation** (the region/Transformation/seed/noise fields described above), **Tiles** (the tile
-ranges panel just described), **Rules** (movement/traversal rules), and **Entrance-Exit** (this
-map's named entrance/exit points) -- so those controls aren't cluttering the view for maps that
-don't need them yet. See "Save/load, multiple maps, and entrance/exit points" and "Movement: tile
-transition rules" below.
+currently-selected map's id), the layer picker, and the **Variation** picker (see "Variations:
+seasonal/time-of-day divergences" below), all sitting above four sub-tabs -- **Generation** (the
+region/Transformation/seed/noise fields described above), **Tiles** (the tile ranges panel just
+described), **Rules** (movement/traversal rules), and **Entrance-Exit** (this map's named
+entrance/exit points) -- so those controls aren't cluttering the view for maps that don't need
+them yet. See "Save/load, multiple maps, and entrance/exit points" and "Movement: tile transition
+rules" below.
 
 Left-click on the map still cycles a manual override on the selected layer at that cell (same
 mechanism as the visual debug demo); right-click clears it. Painting is the exception path for
 when a setting alone can't express what you want — tuning ranges/seeds/region is meant to be how
 you shape most of a map.
+
+### Variations: seasonal/time-of-day divergences
+
+A **variation** is a named divergence from a map's base configuration -- e.g. "winter" or
+"night" -- that reuses the same layers/seeds by default and only stores what it actually
+changes. The Maps tab's **Variation** list (below the layer picker) always has one built-in
+entry, **(Base)**, plus every `ProcGen.Engine.Model.MapVariation` on the current map;
+**New**/**Duplicate**/**Delete** manage the list the same way **Maps in this project** manages
+maps, and the **Id** field renames the selected one.
+
+Selecting a variation doesn't switch to a different set of controls -- the Generation and Tiles
+sub-tabs stay exactly where they are, but every field on them now shows and edits that
+variation's *effective* value for the current layer: whatever the variation itself overrides, or
+the base layer's own value if it doesn't. Editing a seed/noise field, or adding/removing/
+reordering/renaming a tile, while a variation is selected lazily forks that one thing into the
+variation's own `LayerVariation` entry (seed as a whole `SeedPosition`, noise as a whole
+`NoiseParams`, tiles as a whole replacement list -- see `LayerVariation`'s doc comment for why
+tiles are all-or-nothing rather than a per-tile patch) the moment you touch it, cloned from the
+base layer's current value so untouched fields still match. A **Reset to base** button appears
+next to Seed/Noise/Tiles once that section has an override, discarding it and reverting to pure
+inheritance. Left/right-click painting on the map works the same way while a variation is
+selected -- it writes into that variation's own override diff, layered on top of the base map's
+own overrides, rather than the base map's diff directly; clearing a cell there only ever removes
+*that variation's* paint, never reaches into the base map's.
+
+Turning a variation into something `MapGenerator.GenerateRegion` can actually consume is
+`ProcGen.Engine.Generation.VariationResolution.Resolve`'s job: it produces an ordinary-looking,
+already-resolved `MapDefinition`/`OverrideStore` pair, so the generator itself has no idea
+variations exist. Renaming a layer/tile on the base map cascades into every variation's own
+`LayerVariation.LayerId`/tile-list/override records the same way it cascades everywhere else (see
+"Renaming, reordering, and blank ranges" above); renaming a tile id a variation introduced
+*itself* (e.g. "ice" in a winter palette swap that doesn't exist on the base map) only cascades
+through that variation's own overrides, via `RenameOperations.RenameVariationTile`. A variation's
+own tile-list swap can change which base-layer `writes_over` filters match (since eligibility is
+checked against the resolved tile id, not a fixed vocabulary) -- an intentional consequence of
+"every generation and tile parameter can be varied", not a special case the tool works around.
+Movement rules (the Rules sub-tab) stay scoped to the base map's tile vocabulary; a variation
+that introduces new tile ids of its own doesn't yet get its own movement rules for them.
+
+Variations ride along with the rest of a `MapDefinition`'s own JSON, so Save/Load, **Duplicate**
+(map), and the project's own validation (unique variation ids per map, alongside unique
+entrance/exit ids) all cover them with no separate wiring.
 
 ### Camera: pan, zoom, and the designated area
 

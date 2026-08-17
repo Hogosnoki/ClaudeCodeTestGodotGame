@@ -71,6 +71,42 @@ namespace ProcGenGame
             root.AddChild(_compositeToggle);
             root.AddChild(new HSeparator());
 
+            root.AddChild(Header("Variation"));
+            root.AddChild(new Label
+            {
+                Text = "A named divergence from this map's base configuration -- e.g. a season or time of day. Only what you actually change here (seed, noise, tiles, or hand-painted cells) is stored; everything else keeps generating exactly as (Base) does.",
+                Modulate = new Color(1, 1, 1, 0.6f),
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            });
+            _variationList = new ItemList { CustomMinimumSize = new Vector2(0, 70) };
+            _variationList.ItemSelected += index => SelectVariation((int)index);
+            root.AddChild(_variationList);
+
+            var variationActionsRow = new HBoxContainer();
+            var newVariationButton = new Button { Text = "New" };
+            newVariationButton.Pressed += OnNewVariationPressed;
+            variationActionsRow.AddChild(newVariationButton);
+            var duplicateVariationButton = new Button { Text = "Duplicate" };
+            duplicateVariationButton.Pressed += OnDuplicateVariationPressed;
+            variationActionsRow.AddChild(duplicateVariationButton);
+            var deleteVariationButton = new Button { Text = "Delete" };
+            deleteVariationButton.Pressed += OnDeleteVariationPressed;
+            variationActionsRow.AddChild(deleteVariationButton);
+            root.AddChild(variationActionsRow);
+
+            var variationIdRow = new HBoxContainer();
+            variationIdRow.AddChild(new Label { Text = "Id", CustomMinimumSize = new Vector2(80, 0) });
+            _variationIdEdit = new LineEdit { SizeFlagsHorizontal = SizeFlags.ExpandFill, Editable = false };
+            _variationIdEdit.TextSubmitted += _ => OnVariationIdSubmitted();
+            _variationIdEdit.FocusExited += OnVariationIdSubmitted;
+            variationIdRow.AddChild(_variationIdEdit);
+            root.AddChild(variationIdRow);
+            _variationIdHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_variationIdHintLabel);
+            _variationListHintLabel = new Label { Modulate = new Color(1, 1, 1, 0.6f), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+            root.AddChild(_variationListHintLabel);
+            root.AddChild(new HSeparator());
+
             _mapsSubTabs = new TabContainer { SizeFlagsHorizontal = SizeFlags.ExpandFill };
             root.AddChild(_mapsSubTabs);
 

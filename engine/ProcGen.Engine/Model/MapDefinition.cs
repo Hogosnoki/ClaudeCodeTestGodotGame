@@ -52,5 +52,12 @@ namespace ProcGen.Engine.Model
         /// no separate per-tile "walkable" flag. See <see cref="TileTransitionRule"/>.
         /// </summary>
         public List<TileTransitionRule> BlockedTransitions { get; set; } = new List<TileTransitionRule>();
+
+        /// <summary>
+        /// Named divergences from this map's base configuration -- e.g. seasonal or time-of-day
+        /// variants that reuse most of the same layers/seeds. See <see cref="MapVariation"/>.
+        /// Empty by default; a map with no variations behaves exactly as before this existed.
+        /// </summary>
+        public List<MapVariation> Variations { get; set; } = new List<MapVariation>();
     }
 }

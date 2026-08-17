@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Godot;
 using ProcGen.Engine.Editing;
 using ProcGen.Engine.Model;
@@ -11,6 +12,14 @@ namespace ProcGenGame
     /// imported art/range/reorder/remove per row), split out of what used to be a single combined
     /// "Map" panel alongside Generation. Painting/panning on the map stays active while this
     /// sub-tab is showing (see <see cref="MapEditorToolScene.CanPaintOrDraw"/>).
+    ///
+    /// Every row operation below goes through <see cref="MapEditorToolScene.EditableTiles"/>
+    /// rather than a captured LayerDef -- when a variation is selected this lazily forks a copy
+    /// of the base layer's tile list into that variation's <see cref="LayerVariation.Tiles"/> on
+    /// first edit, so the same row-building/mutation code edits either the base layer or the
+    /// current variation's own palette without needing two parallel code paths. Rows are always
+    /// *displayed* from <see cref="MapEditorToolScene.EffectiveTiles"/> (the resolved base-or-
+    /// variation list) so switching layers/variations never has to guess which list to show.
     /// </summary>
     public partial class MapEditorToolScene
     {
@@ -20,7 +29,12 @@ namespace ProcGenGame
             root.AddThemeConstantOverride("separation", 6);
             parent.AddChild(root);
 
-            root.AddChild(Header("Tiles (selected layer)"));
+            var tilesHeaderRow = new HBoxContainer();
+            tilesHeaderRow.AddChild(new Label { Text = "Tiles (selected layer)", SizeFlagsHorizontal = SizeFlags.ExpandFill });
+            _tilesResetButton = new Button { Text = "Reset to base", Visible = false, TooltipText = "Discard this variation's tile-list override -- inherit the base map's tiles again" };
+            _tilesResetButton.Pressed += OnTilesResetPressed;
+            tilesHeaderRow.AddChild(_tilesResetButton);
+            root.AddChild(tilesHeaderRow);
             _tilesContainer = new VBoxContainer();
             root.AddChild(_tilesContainer);
 
@@ -51,17 +65,17 @@ namespace ProcGenGame
             });
         }
 
-        private void RebuildTileRows(LayerDef layer)
+        private void RebuildTileRows(List<TileDef> tiles)
         {
             foreach (Node child in _tilesContainer.GetChildren())
             {
                 child.QueueFree();
             }
 
-            for (int i = 0; i < layer.Tiles.Count; i++)
+            for (int i = 0; i < tiles.Count; i++)
             {
                 int index = i;
-                var tile = layer.Tiles[i];
+                var tile = tiles[i];
                 var row = new HBoxContainer();
 
                 bool isBlank = tile.Id == TileDef.NoOverrideId;
@@ -87,8 +101,8 @@ namespace ProcGenGame
                     row.AddChild(colorButton);
 
                     var idEdit = new LineEdit { Text = tile.Id, CustomMinimumSize = new Vector2(70, 0) };
-                    idEdit.TextSubmitted += _ => OnTileIdSubmitted(layer, tile, idEdit);
-                    idEdit.FocusExited += () => OnTileIdSubmitted(layer, tile, idEdit);
+                    idEdit.TextSubmitted += _ => OnTileIdSubmitted(index, tile.Id, idEdit);
+                    idEdit.FocusExited += () => OnTileIdSubmitted(index, tile.Id, idEdit);
                     row.AddChild(idEdit);
 
                     bool hasArt = _tileTextures.ContainsKey(tile.Id);
@@ -107,7 +121,7 @@ namespace ProcGenGame
                         {
                             _tileTextures.Remove(tile.Id);
                             _overlay.SetTileTextures(_tileTextures);
-                            RebuildTileRows(layer);
+                            RebuildTileRows(EffectiveTiles());
                         };
                         row.AddChild(clearArt);
                     }
@@ -122,11 +136,13 @@ namespace ProcGenGame
                 spin.Value = tile.Range;
                 var plus = new Button { Text = "+" };
 
-                // The tile itself is the single source of truth; nudging just moves the SpinBox's
-                // Value, which fires this same handler -- no separate "apply" step.
+                // Always writes through EditableTiles() (by position, not the captured `tile`
+                // reference) so the first edit against a variation forks the list at exactly
+                // this moment, whichever control triggers it.
                 spin.ValueChanged += v =>
                 {
-                    tile.Range = v;
+                    EditableTiles()[index].Range = v;
+                    _tilesResetButton.Visible = _selectedVariationId != null;
                     Regenerate();
                 };
                 minus.Pressed += () => spin.Value = Math.Max(0, spin.Value - 0.1);
@@ -142,28 +158,34 @@ namespace ProcGenGame
                 var up = new Button { Text = "^", Disabled = index == 0, TooltipText = "Move up (changes range boundaries)" };
                 up.Pressed += () =>
                 {
-                    layer.Tiles.RemoveAt(index);
-                    layer.Tiles.Insert(index - 1, tile);
-                    RebuildTileRows(layer);
+                    var editable = EditableTiles();
+                    var moved = editable[index];
+                    editable.RemoveAt(index);
+                    editable.Insert(index - 1, moved);
+                    _tilesResetButton.Visible = _selectedVariationId != null;
+                    RebuildTileRows(EffectiveTiles());
                     Regenerate();
                 };
                 row.AddChild(up);
 
-                var down = new Button { Text = "v", Disabled = index == layer.Tiles.Count - 1, TooltipText = "Move down (changes range boundaries)" };
+                var down = new Button { Text = "v", Disabled = index == tiles.Count - 1, TooltipText = "Move down (changes range boundaries)" };
                 down.Pressed += () =>
                 {
-                    layer.Tiles.RemoveAt(index);
-                    layer.Tiles.Insert(index + 1, tile);
-                    RebuildTileRows(layer);
+                    var editable = EditableTiles();
+                    var moved = editable[index];
+                    editable.RemoveAt(index);
+                    editable.Insert(index + 1, moved);
+                    _tilesResetButton.Visible = _selectedVariationId != null;
+                    RebuildTileRows(EffectiveTiles());
                     Regenerate();
                 };
                 row.AddChild(down);
 
-                var remove = new Button { Text = "x", Disabled = layer.Tiles.Count <= 1 };
-                remove.TooltipText = layer.Tiles.Count <= 1
+                var remove = new Button { Text = "x", Disabled = tiles.Count <= 1 };
+                remove.TooltipText = tiles.Count <= 1
                     ? "A layer needs at least one tile"
                     : $"Remove '{tile.Id}' from this layer";
-                remove.Pressed += () => OnRemoveTile(layer, tile);
+                remove.Pressed += () => OnRemoveTile(index);
                 row.AddChild(remove);
 
                 _tilesContainer.AddChild(row);
@@ -172,16 +194,22 @@ namespace ProcGenGame
 
         /// <summary>
         /// Commits a tile-id edit. Bound to both TextSubmitted (Enter) and FocusExited (click
-        /// away) so either commits the rename; the `layer.Tiles.Contains(tile)` guard makes this
-        /// idempotent if both fire for the same edit (RenameOperations.RenameTile replaces the
-        /// TileDef instance rather than mutating it in place, so a stale `tile` reference is no
-        /// longer present in the list after the first successful call).
+        /// away) so either commits the rename; the "does the tile at this index still have the id
+        /// we captured when the row was built" guard makes this idempotent if both fire for the
+        /// same edit (a rename replaces the TileDef instance, so re-checking by captured id
+        /// rather than by stale object reference is what catches the second, now-stale signal).
+        /// Renaming the base map's tile cascades through writes_over/BlockedTransitions/overrides
+        /// via <see cref="RenameOperations.RenameTile"/>; renaming a tile a variation introduced
+        /// itself only cascades through that variation's own overrides, via
+        /// <see cref="RenameOperations.RenameVariationTile"/> -- see that method's doc comment.
         /// </summary>
-        private void OnTileIdSubmitted(LayerDef layer, TileDef tile, LineEdit idEdit)
+        private void OnTileIdSubmitted(int index, string capturedId, LineEdit idEdit)
         {
-            if (_suppressSignals || !layer.Tiles.Contains(tile)) return;
+            if (_suppressSignals) return;
+            var tiles = EditableTiles();
+            if (index < 0 || index >= tiles.Count || tiles[index].Id != capturedId) return;
 
-            string oldId = tile.Id;
+            string oldId = capturedId;
             string newId = idEdit.Text.Trim();
             if (newId == oldId) return;
 
@@ -192,35 +220,51 @@ namespace ProcGenGame
                 return;
             }
 
-            if (!RenameOperations.RenameTile(_definition, _overrides, layer.Id, oldId, newId))
+            bool renamed = _selectedVariationId == null
+                ? RenameOperations.RenameTile(_definition, _overrides, CurrentLayer().Id, oldId, newId)
+                : RenameOperations.RenameVariationTile(CurrentVariation()!, CurrentLayer().Id, oldId, newId);
+            if (!renamed)
             {
                 _addTileHintLabel.Text = string.IsNullOrEmpty(newId)
                     ? "Tile id can't be empty."
-                    : $"Layer '{layer.Id}' already has a tile called '{newId}'.";
+                    : $"Layer '{CurrentLayer().Id}' already has a tile called '{newId}'.";
                 idEdit.Text = oldId;
                 return;
             }
 
             // The tile's display color and any imported art are keyed by id string -- carry both
-            // over to the new id so a rename doesn't look like it reset them.
+            // over to the new id so a rename doesn't look like it reset them. oldId is only
+            // removed from these *global* (not per-variation) dictionaries if nothing else in
+            // the map -- a base layer, or another variation's own tile-list override -- still
+            // uses it; otherwise this rename (e.g. a variation's own copy of "land" becoming
+            // "snow") would steal the color/art out from under whoever else still has "land".
+            bool oldIdStillInUse = TileIdInUseAnywhere(oldId);
             if (_tileColors.TryGetValue(oldId, out var color))
             {
-                _tileColors.Remove(oldId);
+                if (!oldIdStillInUse) _tileColors.Remove(oldId);
                 _tileColors[newId] = color;
             }
             if (_tileTextures.TryGetValue(oldId, out var texture))
             {
-                _tileTextures.Remove(oldId);
                 _tileTextures[newId] = texture;
                 string oldArtPath = $"{TileArtDirectory}/{oldId}.png";
                 if (FileAccess.FileExists(oldArtPath))
                 {
-                    DirAccess.RenameAbsolute(oldArtPath, $"{TileArtDirectory}/{newId}.png");
+                    if (oldIdStillInUse)
+                    {
+                        DirAccess.CopyAbsolute(oldArtPath, $"{TileArtDirectory}/{newId}.png");
+                    }
+                    else
+                    {
+                        _tileTextures.Remove(oldId);
+                        DirAccess.RenameAbsolute(oldArtPath, $"{TileArtDirectory}/{newId}.png");
+                    }
                 }
             }
 
             _addTileHintLabel.Text = "";
-            RebuildTileRows(layer);
+            _tilesResetButton.Visible = _selectedVariationId != null;
+            RebuildTileRows(EffectiveTiles());
             _overlay.SetTileColors(_tileColors);
             _overlay.SetTileTextures(_tileTextures);
             RefreshMovementPanel();
@@ -230,7 +274,7 @@ namespace ProcGenGame
         private void OnAddTilePressed()
         {
             string id = _newTileIdEdit.Text.Trim();
-            var layer = _definition.Layers[_selectedLayerIndex];
+            var tiles = EditableTiles();
 
             if (string.IsNullOrEmpty(id))
             {
@@ -242,18 +286,19 @@ namespace ProcGenGame
                 _addTileHintLabel.Text = $"'{TileDef.NoOverrideId}' is reserved -- use 'Add Blank Range' below instead.";
                 return;
             }
-            if (layer.Tiles.Exists(t => t.Id == id))
+            if (tiles.Exists(t => t.Id == id))
             {
-                _addTileHintLabel.Text = $"Layer '{layer.Id}' already has a tile called '{id}'.";
+                _addTileHintLabel.Text = $"Layer '{CurrentLayer().Id}' already has a tile called '{id}'.";
                 return;
             }
 
-            layer.Tiles.Add(new TileDef(id, 1.0));
+            tiles.Add(new TileDef(id, 1.0));
             GetTileColor(id); // assigns this new id a default color if it doesn't have one yet
             _newTileIdEdit.Text = "";
             _addTileHintLabel.Text = "";
+            _tilesResetButton.Visible = _selectedVariationId != null;
 
-            RebuildTileRows(layer);
+            RebuildTileRows(EffectiveTiles());
             _overlay.SetTileColors(_tileColors);
             RefreshMovementPanel();
             Regenerate();
@@ -261,16 +306,17 @@ namespace ProcGenGame
 
         private void OnAddBlankRangePressed()
         {
-            var layer = CurrentLayer();
-            if (layer.Tiles.Exists(t => t.Id == TileDef.NoOverrideId))
+            var tiles = EditableTiles();
+            if (tiles.Exists(t => t.Id == TileDef.NoOverrideId))
             {
                 _addTileHintLabel.Text = "This layer already has a blank range -- adjust its weight instead of adding another.";
                 return;
             }
 
-            layer.Tiles.Add(new TileDef(TileDef.NoOverrideId, 1.0));
+            tiles.Add(new TileDef(TileDef.NoOverrideId, 1.0));
             _addTileHintLabel.Text = "";
-            RebuildTileRows(layer);
+            _tilesResetButton.Visible = _selectedVariationId != null;
+            RebuildTileRows(EffectiveTiles());
             Regenerate();
         }
 
@@ -307,41 +353,75 @@ namespace ProcGenGame
             _tileTextures[tileId] = ImageTexture.CreateFromImage(image);
             _overlay.SetTileTextures(_tileTextures);
             _addTileHintLabel.Text = "";
-            RebuildTileRows(CurrentLayer());
+            RebuildTileRows(EffectiveTiles());
             Regenerate();
         }
 
         /// <summary>
-        /// Loads any already-imported art for the current map's tile ids from TileArtDirectory --
-        /// called on map switch/load so art imported in an earlier session (or for another map
-        /// sharing this Godot project) reappears without re-importing. Unlike tile colors, art
-        /// isn't reset to defaults on load -- see class doc comment on why it's stored this way.
+        /// Loads any already-imported art for the current map's tile ids (base layers plus every
+        /// variation's own tile-list overrides) from TileArtDirectory -- called on map switch/
+        /// load so art imported in an earlier session (or for another map sharing this Godot
+        /// project) reappears without re-importing. Unlike tile colors, art isn't reset to
+        /// defaults on load -- see class doc comment on why it's stored this way.
         /// </summary>
         private void HydrateTileTexturesFromDisk()
         {
             foreach (var layer in _definition.Layers)
             {
-                foreach (var tile in layer.Tiles)
+                HydrateTileTexturesFromDisk(layer.Tiles);
+            }
+            foreach (var variation in _definition.Variations)
+            {
+                foreach (var layerVariation in variation.LayerOverrides)
                 {
-                    if (tile.Id == TileDef.NoOverrideId || _tileTextures.ContainsKey(tile.Id)) continue;
-                    string path = $"{TileArtDirectory}/{tile.Id}.png";
-                    if (!FileAccess.FileExists(path)) continue;
-
-                    var image = new Image();
-                    if (image.Load(path) == Error.Ok)
-                    {
-                        _tileTextures[tile.Id] = ImageTexture.CreateFromImage(image);
-                    }
+                    if (layerVariation.Tiles != null) HydrateTileTexturesFromDisk(layerVariation.Tiles);
                 }
             }
             _overlay.SetTileTextures(_tileTextures);
         }
 
-        private void OnRemoveTile(LayerDef layer, TileDef tile)
+        private void HydrateTileTexturesFromDisk(List<TileDef> tiles)
         {
-            if (layer.Tiles.Count <= 1) return; // CompiledLayer requires at least one tile
-            layer.Tiles.Remove(tile);
-            RebuildTileRows(layer);
+            foreach (var tile in tiles)
+            {
+                if (tile.Id == TileDef.NoOverrideId || _tileTextures.ContainsKey(tile.Id)) continue;
+                string path = $"{TileArtDirectory}/{tile.Id}.png";
+                if (!FileAccess.FileExists(path)) continue;
+
+                var image = new Image();
+                if (image.Load(path) == Error.Ok)
+                {
+                    _tileTextures[tile.Id] = ImageTexture.CreateFromImage(image);
+                }
+            }
+        }
+
+        /// <summary>Whether any tile list anywhere in the current map -- any base layer, or any variation's own tile-list override -- still contains this exact id.</summary>
+        private bool TileIdInUseAnywhere(string tileId)
+        {
+            foreach (var layer in _definition.Layers)
+            {
+                if (layer.Tiles.Exists(t => t.Id == tileId)) return true;
+            }
+            foreach (var variation in _definition.Variations)
+            {
+                foreach (var layerVariation in variation.LayerOverrides)
+                {
+                    if (layerVariation.Tiles != null && layerVariation.Tiles.Exists(t => t.Id == tileId)) return true;
+                }
+            }
+            return false;
+        }
+
+        private void OnRemoveTile(int index)
+        {
+            var tiles = EditableTiles();
+            if (tiles.Count <= 1) return; // CompiledLayer requires at least one tile
+            if (index < 0 || index >= tiles.Count) return;
+
+            tiles.RemoveAt(index);
+            _tilesResetButton.Visible = _selectedVariationId != null;
+            RebuildTileRows(EffectiveTiles());
             RefreshMovementPanel();
             Regenerate();
         }

@@ -19,7 +19,7 @@ namespace ProcGen.Engine.Serialization
     /// </summary>
     public static class ProjectFileSerializer
     {
-        public const int CurrentFormatVersion = 2;
+        public const int CurrentFormatVersion = 3;
 
         private static readonly JsonSerializerOptions Options = new JsonSerializerOptions
         {
@@ -99,6 +99,10 @@ namespace ProcGen.Engine.Serialization
             if (MapDefinitionValidation.TryFindDuplicateId(map.Exits.ConvertAll(e => e.Id), out var dupExit))
             {
                 throw new FormatException($"Map '{map.MapId}': duplicate exit id '{dupExit}' -- exit ids must be unique within a map.");
+            }
+            if (MapDefinitionValidation.TryFindDuplicateId(map.Variations.ConvertAll(v => v.Id), out var dupVariation))
+            {
+                throw new FormatException($"Map '{map.MapId}': duplicate variation id '{dupVariation}' -- variation ids must be unique within a map.");
             }
         }
     }

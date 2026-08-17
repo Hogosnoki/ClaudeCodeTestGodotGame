@@ -225,6 +225,21 @@ namespace ProcGenGame
         private VBoxContainer _projectOverviewMapsContainer = null!;
         private VBoxContainer _danglingExitsContainer = null!;
 
+        // Variations (see MapVariation's doc comment): a named divergence from the current map's
+        // base configuration, selected alongside the layer picker since it's shared context for
+        // the Generation/Tiles sub-tabs below. Null means "editing the base map" -- the same
+        // Generation/Tiles fields and handlers are reused either way (see CurrentVariation/
+        // CurrentLayerVariation/EditableNoise/EditableTiles), just redirected to write into the
+        // selected variation's LayerVariation instead of the base LayerDef when one is selected.
+        private ItemList _variationList = null!;
+        private LineEdit _variationIdEdit = null!;
+        private Label _variationIdHintLabel = null!;
+        private Label _variationListHintLabel = null!;
+        private string? _selectedVariationId;
+        private Button _seedResetButton = null!;
+        private Button _noiseResetButton = null!;
+        private Button _tilesResetButton = null!;
+
         // Click-to-place: "arming" an entrance/exit for placement makes the next map click set
         // its position, instead of painting or panning. At most one of these is non-null.
         private EntrancePoint? _armedEntrance;
@@ -250,6 +265,7 @@ namespace ProcGenGame
 
             RefreshMapList();
             RefreshLayerList();
+            RefreshVariationList();
             RebuildEntranceRows();
             RebuildExitRows();
             RefreshMovementPanel();
@@ -720,22 +736,202 @@ namespace ProcGenGame
             _suppressSignals = true;
             _layerIdEdit.Text = layer.Id;
             _layerIdHintLabel.Text = "";
-            _seedXBox.Value = layer.Seed.X;
-            _seedYBox.Value = layer.Seed.Y;
-            _seedTBox.Value = layer.Seed.T;
-            _octavesBox.Value = layer.Noise.Octaves;
-            _frequencyBox.Value = layer.Noise.Frequency;
-            _persistenceBox.Value = layer.Noise.Persistence;
-            _lacunarityBox.Value = layer.Noise.Lacunarity;
             _suppressSignals = false;
 
             _addBlankRangeButton.Visible = index > 0;
-            RebuildTileRows(layer);
+            RefreshGenerationAndTilesFields();
             UpdateOverlayView();
             Regenerate();
         }
 
         private LayerDef CurrentLayer() => _definition.Layers[_selectedLayerIndex];
+
+        // ---------- Variations ----------
+        // A variation is a named divergence from the current map's base configuration (see
+        // MapVariation's doc comment) -- null _selectedVariationId means "editing the base map".
+        // The Generation/Tiles sub-tabs are reused unchanged either way: their fields always show
+        // the EFFECTIVE (resolved) seed/noise/tiles for the current layer+variation combination,
+        // and their handlers always write through EditableNoise()/EditableTiles(), which lazily
+        // creates the variation's LayerVariation entry (cloned from the base layer) on first
+        // write rather than requiring a separate "start overriding" step.
+
+        private MapVariation? CurrentVariation() =>
+            _selectedVariationId == null ? null : _definition.Variations.Find(v => v.Id == _selectedVariationId);
+
+        /// <summary>The current variation's override entry for the current layer, if any. createIfMissing lazily adds an empty one (inheriting everything) the first time something is actually edited -- never called just to display effective values.</summary>
+        private LayerVariation? CurrentLayerVariation(bool createIfMissing)
+        {
+            var variation = CurrentVariation();
+            if (variation == null) return null;
+            string layerId = CurrentLayer().Id;
+            var existing = variation.LayerOverrides.Find(lv => lv.LayerId == layerId);
+            if (existing != null || !createIfMissing) return existing;
+
+            var created = new LayerVariation { LayerId = layerId };
+            variation.LayerOverrides.Add(created);
+            return created;
+        }
+
+        private SeedPosition EffectiveSeed() => CurrentLayerVariation(false)?.Seed ?? CurrentLayer().Seed;
+        private NoiseParams EffectiveNoise() => CurrentLayerVariation(false)?.Noise ?? CurrentLayer().Noise;
+        private List<TileDef> EffectiveTiles() => CurrentLayerVariation(false)?.Tiles ?? CurrentLayer().Tiles;
+
+        /// <summary>The NoiseParams instance to write into: the base layer's own, or (lazily forked from it) the current variation's override.</summary>
+        private NoiseParams EditableNoise()
+        {
+            if (_selectedVariationId == null) return CurrentLayer().Noise;
+            var lv = CurrentLayerVariation(createIfMissing: true)!;
+            var baseNoise = CurrentLayer().Noise;
+            lv.Noise ??= new NoiseParams { Octaves = baseNoise.Octaves, Frequency = baseNoise.Frequency, Persistence = baseNoise.Persistence, Lacunarity = baseNoise.Lacunarity };
+            return lv.Noise;
+        }
+
+        /// <summary>The tile list to mutate: the base layer's own, or (lazily cloned from it) the current variation's override.</summary>
+        private List<TileDef> EditableTiles()
+        {
+            if (_selectedVariationId == null) return CurrentLayer().Tiles;
+            var lv = CurrentLayerVariation(createIfMissing: true)!;
+            lv.Tiles ??= CurrentLayer().Tiles.ConvertAll(t => new TileDef(t.Id, t.Range));
+            return lv.Tiles;
+        }
+
+        /// <summary>Refreshes the Generation sub-tab's seed/noise fields and the Tiles sub-tab's rows from the current layer+variation's effective values -- called on layer switch, variation switch, and after a Reset-to-base.</summary>
+        private void RefreshGenerationAndTilesFields()
+        {
+            var seed = EffectiveSeed();
+            var noise = EffectiveNoise();
+            _suppressSignals = true;
+            _seedXBox.Value = seed.X;
+            _seedYBox.Value = seed.Y;
+            _seedTBox.Value = seed.T;
+            _octavesBox.Value = noise.Octaves;
+            _frequencyBox.Value = noise.Frequency;
+            _persistenceBox.Value = noise.Persistence;
+            _lacunarityBox.Value = noise.Lacunarity;
+            _suppressSignals = false;
+
+            bool editingVariation = _selectedVariationId != null;
+            var layerVariation = CurrentLayerVariation(false);
+            _seedResetButton.Visible = editingVariation && layerVariation?.Seed != null;
+            _noiseResetButton.Visible = editingVariation && layerVariation?.Noise != null;
+            _tilesResetButton.Visible = editingVariation && layerVariation?.Tiles != null;
+
+            RebuildTileRows(EffectiveTiles());
+        }
+
+        private void RefreshVariationList()
+        {
+            _variationList.Clear();
+            _variationList.AddItem("(Base)");
+            foreach (var variation in _definition.Variations)
+            {
+                _variationList.AddItem(variation.Id);
+            }
+            int selectIndex = _selectedVariationId == null
+                ? 0
+                : _definition.Variations.FindIndex(v => v.Id == _selectedVariationId) + 1;
+            _variationList.Select(Math.Max(0, selectIndex));
+        }
+
+        private void SelectVariation(int index)
+        {
+            _selectedVariationId = index <= 0 || index > _definition.Variations.Count
+                ? null
+                : _definition.Variations[index - 1].Id;
+            _variationList.Select(index);
+            _suppressSignals = true;
+            _variationIdEdit.Text = _selectedVariationId ?? "";
+            _variationIdEdit.Editable = _selectedVariationId != null;
+            _variationIdHintLabel.Text = "";
+            _suppressSignals = false;
+            RefreshGenerationAndTilesFields();
+            Regenerate();
+        }
+
+        private void OnNewVariationPressed()
+        {
+            var variation = new MapVariation { Id = GenerateUniqueVariationId("variation") };
+            _definition.Variations.Add(variation);
+            _selectedVariationId = variation.Id;
+            RefreshVariationList();
+            SelectVariation(_definition.Variations.Count);
+            _variationListHintLabel.Text = "";
+        }
+
+        private void OnDuplicateVariationPressed()
+        {
+            var source = CurrentVariation();
+            var clone = new MapVariation
+            {
+                Id = GenerateUniqueVariationId(source?.Id ?? "variation"),
+                LayerOverrides = source?.LayerOverrides.ConvertAll(lv => new LayerVariation
+                {
+                    LayerId = lv.LayerId,
+                    Seed = lv.Seed,
+                    Noise = lv.Noise == null ? null : new NoiseParams { Octaves = lv.Noise.Octaves, Frequency = lv.Noise.Frequency, Persistence = lv.Noise.Persistence, Lacunarity = lv.Noise.Lacunarity },
+                    Tiles = lv.Tiles?.ConvertAll(t => new TileDef(t.Id, t.Range)),
+                }) ?? new List<LayerVariation>(),
+                Overrides = source == null ? new List<TileOverride>() : new List<TileOverride>(source.Overrides),
+            };
+            _definition.Variations.Add(clone);
+            _selectedVariationId = clone.Id;
+            RefreshVariationList();
+            SelectVariation(_definition.Variations.Count);
+            _variationListHintLabel.Text = "";
+        }
+
+        private void OnDeleteVariationPressed()
+        {
+            var variation = CurrentVariation();
+            if (variation == null)
+            {
+                _variationListHintLabel.Text = "Select a variation to delete -- (Base) can't be removed.";
+                return;
+            }
+            _definition.Variations.Remove(variation);
+            _selectedVariationId = null;
+            RefreshVariationList();
+            SelectVariation(0);
+            _variationListHintLabel.Text = "";
+        }
+
+        private void OnVariationIdSubmitted()
+        {
+            if (_suppressSignals) return;
+            var variation = CurrentVariation();
+            if (variation == null) return;
+
+            string oldId = variation.Id;
+            string newId = _variationIdEdit.Text.Trim();
+            if (newId == oldId) return;
+            if (string.IsNullOrEmpty(newId))
+            {
+                _variationIdHintLabel.Text = "Variation id can't be empty.";
+                _variationIdEdit.Text = oldId;
+                return;
+            }
+            if (_definition.Variations.Exists(v => v.Id == newId))
+            {
+                _variationIdHintLabel.Text = $"A variation called '{newId}' already exists.";
+                _variationIdEdit.Text = oldId;
+                return;
+            }
+            variation.Id = newId;
+            _selectedVariationId = newId;
+            _variationIdHintLabel.Text = "";
+            RefreshVariationList();
+        }
+
+        private string GenerateUniqueVariationId(string baseId)
+        {
+            var existing = new HashSet<string>();
+            foreach (var v in _definition.Variations) existing.Add(v.Id);
+
+            if (!existing.Contains(baseId)) return baseId;
+            int n = 2;
+            while (existing.Contains($"{baseId}_{n}")) n++;
+            return $"{baseId}_{n}";
+        }
 
         private void OnLayerIdSubmitted()
         {
@@ -792,6 +988,7 @@ namespace ProcGenGame
         private void ActivateCurrentMap()
         {
             _selectedLayerIndex = 0;
+            _selectedVariationId = null;
             _armedEntrance = null;
             _armedExit = null;
 
@@ -801,6 +998,7 @@ namespace ProcGenGame
 
             ResetRegionAndTransformFields();
             RefreshLayerList();
+            RefreshVariationList();
             RebuildEntranceRows();
             RebuildExitRows();
             RefreshMovementPanel();
@@ -874,6 +1072,21 @@ namespace ProcGenGame
             foreach (var e in source.Entrances) clone.Entrances.Add(new EntrancePoint(e.Id, e.X, e.Y));
             foreach (var e in source.Exits) clone.Exits.Add(new ExitPoint(e.Id, e.X, e.Y, e.DestinationMapId, e.DestinationEntranceId));
             foreach (var r in source.BlockedTransitions) clone.BlockedTransitions.Add(new TileTransitionRule(r.FromTileId, r.ToTileId));
+            foreach (var v in source.Variations)
+            {
+                clone.Variations.Add(new MapVariation
+                {
+                    Id = v.Id,
+                    LayerOverrides = v.LayerOverrides.ConvertAll(lv => new LayerVariation
+                    {
+                        LayerId = lv.LayerId,
+                        Seed = lv.Seed,
+                        Noise = lv.Noise == null ? null : new NoiseParams { Octaves = lv.Noise.Octaves, Frequency = lv.Noise.Frequency, Persistence = lv.Noise.Persistence, Lacunarity = lv.Noise.Lacunarity },
+                        Tiles = lv.Tiles?.ConvertAll(t => new TileDef(t.Id, t.Range)),
+                    }),
+                    Overrides = new List<TileOverride>(v.Overrides),
+                });
+            }
             return clone;
         }
 
@@ -1047,17 +1260,50 @@ namespace ProcGenGame
 
         private void OnSeedChanged()
         {
-            var layer = _definition.Layers[_selectedLayerIndex];
-            layer.Seed = new SeedPosition(_seedXBox.Value, _seedYBox.Value, _seedTBox.Value);
+            var newSeed = new SeedPosition(_seedXBox.Value, _seedYBox.Value, _seedTBox.Value);
+            if (_selectedVariationId == null)
+            {
+                CurrentLayer().Seed = newSeed;
+            }
+            else
+            {
+                CurrentLayerVariation(createIfMissing: true)!.Seed = newSeed;
+                _seedResetButton.Visible = true;
+            }
             Regenerate();
         }
 
         private void OnNoiseChanged()
         {
-            var noise = CurrentLayer().Noise;
+            var noise = EditableNoise();
             noise.Frequency = _frequencyBox.Value;
             noise.Persistence = _persistenceBox.Value;
             noise.Lacunarity = _lacunarityBox.Value;
+            _noiseResetButton.Visible = _selectedVariationId != null;
+            Regenerate();
+        }
+
+        private void OnSeedResetPressed()
+        {
+            var lv = CurrentLayerVariation(false);
+            if (lv != null) lv.Seed = null;
+            RefreshGenerationAndTilesFields();
+            Regenerate();
+        }
+
+        private void OnNoiseResetPressed()
+        {
+            var lv = CurrentLayerVariation(false);
+            if (lv != null) lv.Noise = null;
+            RefreshGenerationAndTilesFields();
+            Regenerate();
+        }
+
+        private void OnTilesResetPressed()
+        {
+            var lv = CurrentLayerVariation(false);
+            if (lv != null) lv.Tiles = null;
+            RefreshGenerationAndTilesFields();
             Regenerate();
         }
 
@@ -1084,35 +1330,54 @@ namespace ProcGenGame
 
         private void PaintAtMouse()
         {
-            var layer = _definition.Layers[_selectedLayerIndex];
             var cell = _overlay.LocalPositionToCell(_overlay.GetLocalMousePosition());
             if (cell == null) return;
-
-            int nextIndex = 0;
-            if (_overrides.TryGet(layer.Id, cell.Value.X, cell.Value.Y, out var current))
-            {
-                nextIndex = layer.Tiles.FindIndex(t => t.Id == current) + 1;
-            }
-
-            if (nextIndex >= layer.Tiles.Count)
-            {
-                _overrides.Clear(layer.Id, cell.Value.X, cell.Value.Y); // cycled past the last tile: back to procedural
-            }
-            else
-            {
-                _overrides.Set(layer.Id, cell.Value.X, cell.Value.Y, layer.Tiles[nextIndex].Id);
-            }
+            PaintOrClearAtCell(cell.Value, clear: false);
             Regenerate();
         }
 
         private void ClearOverrideAtMouse()
         {
-            var layer = _definition.Layers[_selectedLayerIndex];
             var cell = _overlay.LocalPositionToCell(_overlay.GetLocalMousePosition());
             if (cell == null) return;
-
-            _overrides.Clear(layer.Id, cell.Value.X, cell.Value.Y);
+            PaintOrClearAtCell(cell.Value, clear: true);
             Regenerate();
+        }
+
+        /// <summary>
+        /// Cycles (or clears) a manual override at a cell. Editing the base map writes straight
+        /// into <see cref="_overrides"/>, same as always. Editing a variation writes into that
+        /// variation's own override diff instead -- never the base map's -- so a variation only
+        /// ever stores what diverges (see MapVariation's doc comment); clearing a cell there just
+        /// means "stop diverging here", not "erase whatever the base map painted".
+        /// </summary>
+        private void PaintOrClearAtCell(Vector2I cell, bool clear)
+        {
+            string layerId = CurrentLayer().Id;
+            var variation = CurrentVariation();
+            if (variation == null)
+            {
+                if (clear) _overrides.Clear(layerId, cell.X, cell.Y);
+                else CycleOverride(_overrides, _overrides, layerId, EffectiveTiles(), cell);
+                return;
+            }
+
+            var variationStore = OverrideStore.FromRecords(variation.Overrides);
+            if (clear) variationStore.Clear(layerId, cell.X, cell.Y);
+            else CycleOverride(variationStore, _overrides, layerId, EffectiveTiles(), cell);
+            variation.Overrides = new List<TileOverride>(variationStore.Enumerate());
+        }
+
+        /// <summary>Advances a cell's override to the next tile in order (wrapping back to "no override"), starting from whatever's currently effectively visible: writeTo's own value if it has one at this cell, else readFallback's -- but the result is only ever written into writeTo.</summary>
+        private static void CycleOverride(OverrideStore writeTo, OverrideStore readFallback, string layerId, List<TileDef> tiles, Vector2I cell)
+        {
+            string? current = writeTo.TryGet(layerId, cell.X, cell.Y, out var own)
+                ? own
+                : readFallback.TryGet(layerId, cell.X, cell.Y, out var fallback) ? fallback : null;
+            int nextIndex = current == null ? 0 : tiles.FindIndex(t => t.Id == current) + 1;
+
+            if (nextIndex >= tiles.Count) writeTo.Clear(layerId, cell.X, cell.Y);
+            else writeTo.Set(layerId, cell.X, cell.Y, tiles[nextIndex].Id);
         }
 
         /// <summary>Regenerates the currently visible viewport. The workhorse for every discrete, user-initiated change (tile/seed/region edits, layer switches, zoom, painting).</summary>
@@ -1137,10 +1402,13 @@ namespace ProcGenGame
             _overlay.DesignatedArea = new Rect2I(_originX, _originY, _regionWidth, _regionHeight);
             try
             {
-                var result = MapGenerator.GenerateRegion(_definition, viewport, _overrides);
+                // Resolving through VariationResolution is a no-op (returns the base pair
+                // unchanged) whenever _selectedVariationId is null -- see its doc comment.
+                var (effectiveDefinition, effectiveOverrides) = VariationResolution.Resolve(_definition, _overrides, _selectedVariationId);
+                var result = MapGenerator.GenerateRegion(effectiveDefinition, viewport, effectiveOverrides);
                 _lastResult = result;
-                _lastCompiledRules = CompiledTraversalRules.Compile(_definition);
-                _overlay.Render(result, viewport, _overrides);
+                _lastCompiledRules = CompiledTraversalRules.Compile(effectiveDefinition);
+                _overlay.Render(result, viewport, effectiveOverrides);
                 _traversalOverlay.Render(result, viewport, _lastCompiledRules);
                 UpdateStatus();
             }
@@ -1193,8 +1461,10 @@ namespace ProcGenGame
             var layer = _definition.Layers[_selectedLayerIndex];
             string view = _showFinalComposite ? "final composite" : layer.Id;
             string mapLabel = string.IsNullOrEmpty(_definition.MapId) ? "(untitled map)" : _definition.MapId;
+            string variationLabel = _selectedVariationId == null ? "(Base)" : _selectedVariationId;
             _statusLabel.Text =
                 $"Map: {mapLabel} ({_currentMapIndex + 1}/{_allMaps.Count} in project)\n" +
+                $"Variation: {variationLabel}\n" +
                 $"Editing layer: {layer.Id}\n" +
                 $"Viewing: {view}\n" +
                 $"Designated area: ({_originX}, {_originY}) {_regionWidth}x{_regionHeight}\n" +
