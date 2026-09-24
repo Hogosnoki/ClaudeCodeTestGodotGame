@@ -7,15 +7,15 @@ namespace DaggerCave;
 /// <summary>Everything upgrades can change about the dagger wielder.</summary>
 public sealed class PlayerStats
 {
-    public float MaxHp = 60;
-    public float HurtInvuln = 0.4f;      // seconds of invulnerability after being struck
+    public float MaxHp = Tune.Hero.StartHp;
+    public float HurtInvuln = Tune.Hero.HurtInvuln;      // seconds of invulnerability after being struck
     public float DamageMult = 1f;
     public float AttackSpeed = 1f;       // swing cooldown divisor
     public float DaggerReach = 1f;       // swing range multiplier
     public float MoveSpeed = 1f;
     public float JumpMult = 1f;
     public float SwimSpeed = 1f;
-    public float BreathMax = 8f;         // seconds
+    public float BreathMax = Tune.Hero.BreathSeconds;         // seconds
     public float DodgeCdMult = 1f;
     public float DamageReduction = 0f;   // 0..1
     public float LifeSteal = 0f;         // fraction of damage dealt
@@ -23,7 +23,7 @@ public sealed class PlayerStats
     public int KnockbackLevel = 0;
     public int DodgeCharges = 1;
     public int ThrowCharges = 1;
-    public float ThrowCooldown = 2f;
+    public float ThrowCooldown = Tune.Hero.ThrowCooldown;
     public int Bounces = 0;
     public bool Pierce, WallJump, DoubleJump, AirDash, Pogo, Combo, ThirdCombo, DodgeIFrames, ThrowReturn;
     public float MagnetMult = 1f;

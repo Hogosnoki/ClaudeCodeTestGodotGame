@@ -23,7 +23,7 @@ public partial class XpOrb : Node2D
         {
             var to = p.GlobalPosition - GlobalPosition;
             float d = to.Length();
-            float magnet = 85f * p.Stats.MagnetMult;
+            float magnet = Tune.Hero.XpMagnetRange * p.Stats.MagnetMult;
             if (d < 14) { p.AddXp(Value); G.Sfx.Play("xp", GlobalPosition, -6, 0.15f, 1f + Math.Min(Value, 10) * 0.02f); QueueFree(); return; }
             if (d < magnet || _t > 12) { Vel = Vel.MoveToward(to.Normalized() * 420f, 1400f * dt); GlobalPosition += Vel * dt; QueueRedraw(); return; }
         }
@@ -62,7 +62,7 @@ public partial class HeartPickup : Node2D
         var p = G.Player;
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < 16)
         {
-            p.Heal(15);
+            p.Heal(Tune.Drops.HeartHeal);
             G.Sfx.Play("heal", GlobalPosition, -4);
             QueueFree();
             return;
@@ -102,7 +102,7 @@ public partial class Chest : Node2D
             _open = true;
             G.Sfx.Play("chest", GlobalPosition);
             G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
-            p.Heal(12);
+            p.Heal(Tune.Drops.ChestHeal);
             G.Main.OfferUpgrades(true);
         }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);

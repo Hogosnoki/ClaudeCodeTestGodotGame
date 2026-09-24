@@ -40,13 +40,13 @@ public static class G
     /// Continuous difficulty curve: every enemy stat doubles every 10 minutes of play
     /// (2^(t/600)), so a run keeps getting harder smoothly rather than in steps.
     /// </summary>
-    public static float Threat => MathF.Pow(2f, RunTime / 600f);
+    public static float Threat => MathF.Pow(2f, RunTime / (Tune.Difficulty.DoublingMinutes * 60f));
 
     /// <summary>Enemy movement/attack tempo: the same curve, capped at 2x so fights stay readable.</summary>
-    public static float Tempo => MathF.Min(2f, Threat);
+    public static float Tempo => MathF.Min(Tune.Difficulty.TempoCap, Threat);
 
     /// <summary>Spawn intensity 0..3: how busy the cave is (grows over the first half hour).</summary>
-    public static float Pace => MathF.Min(3f, RunTime / 600f);
+    public static float Pace => MathF.Min(Tune.Difficulty.PaceMax, RunTime / (Tune.Difficulty.PaceMinutesPerStep * 60f));
 
     /// <summary>Enemy health multiplier.</summary>
     public static float DepthHp => Threat;

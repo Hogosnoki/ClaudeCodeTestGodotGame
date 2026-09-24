@@ -76,11 +76,11 @@ public abstract partial class Enemy : CharacterBody2D
     public virtual void MakeElite()
     {
         Elite = true;
-        Size *= 1.7f;
-        MaxHp *= 6f;
-        ContactDamage *= 1.4f;
-        XpValue *= 7;
-        KnockResist = Math.Max(KnockResist, 0.6f);
+        Size *= Tune.Elite.SizeMult;
+        MaxHp *= Tune.Elite.HpMult;
+        ContactDamage *= Tune.Elite.DamageMult;
+        XpValue = (int)(XpValue * Tune.Elite.XpMult);
+        KnockResist = Math.Max(KnockResist, Tune.Elite.MinKnockResist);
         DisplayName = "Elite " + DisplayName;
     }
 
@@ -195,10 +195,10 @@ public abstract partial class Enemy : CharacterBody2D
         for (int k = 0; k < orbs; k++)
             G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
         // healing is scarce: rare from regular kills, likely (not certain) from mini-bosses
-        if (G.Chance(IsBoss ? 1f : Elite ? 0.4f : 0.02f)) G.Spawn(new HeartPickup { Position = GlobalPosition });
+        if (G.Chance(IsBoss ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance)) G.Spawn(new HeartPickup { Position = GlobalPosition });
         P?.OnKill();
-        if (Elite && !IsBoss) G.Main.SlowMo(0.45f, 0.25f);
-        if (IsBoss) G.Main.SlowMo(1.3f, 0.15f);
+        if (Elite && !IsBoss) G.Main.SlowMo(Tune.Feel.EliteKillSlowMo, Tune.Feel.EliteKillSlowMoScale);
+        if (IsBoss) G.Main.SlowMo(Tune.Feel.BossKillSlowMo, Tune.Feel.BossKillSlowMoScale);
         OnDeath?.Invoke(this);
         Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
         QueueFree();

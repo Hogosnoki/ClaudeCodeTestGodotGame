@@ -23,7 +23,8 @@ namespace DaggerCave;
 /// </summary>
 public static class CaveGenerator
 {
-    public const int W = 400, H = 240;
+    public static int W => Tune.Cave.Width;
+    public static int H => Tune.Cave.Height;
     private const float MaxPitch = 0.60f; // ~34 degrees
     private const int ModeAir = 0, ModeShaft = 1, ModeWater = 2;
 
@@ -66,10 +67,10 @@ public static class CaveGenerator
                     if (k >= 0 && k < W * H && c.ReachMask[k]) { reachable = true; break; }
                 }
             if (!reachable) score += 50000;
-            if (c.Boss.Center.DistanceTo(c.StartPos) < 150 * CaveData.Cell) score += 5000;
+            if (c.Boss.Center.DistanceTo(c.StartPos) < Tune.Cave.BossMinDistanceCells * CaveData.Cell) score += 5000;
             int minis = 0;
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
-            if (minis < 3) score += 2000;
+            if (minis < Tune.Cave.MiniBossesMin) score += 2000;
         }
         return score;
     }
@@ -85,7 +86,7 @@ public static class CaveGenerator
         var beaches = new List<Vector2>();
         var queue = new Queue<Walker>();
         int total = 0;
-        const int budget = 4400;
+        int budget = Tune.Cave.TunnelBudget;
 
         float sx = W * 0.5f + Rnd(-40, 40);
         float sy = H * 0.15f + Rnd(-2, 3);
@@ -426,7 +427,7 @@ public static class CaveGenerator
             foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Treasure or RoomKind.Ambush) candidates.Add(r);
             var startPx = new Vector2(sx, sy) * CaveData.Cell;
             candidates.Sort((a, b) => b.Center.DistanceTo(startPx).CompareTo(a.Center.DistanceTo(startPx)));
-            int want = 3 + rng.Next(2);
+            int want = Tune.Cave.MiniBossesMin + rng.Next(Tune.Cave.MiniBossesMax - Tune.Cave.MiniBossesMin + 1);
             var chosen = new List<Room>();
             foreach (float spacing in new[] { 70f, 45f, 25f })
                 foreach (var r in candidates)

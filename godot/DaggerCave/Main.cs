@@ -260,7 +260,7 @@ public partial class Main : Node
         }
         G.Player = player;
 
-        _cam = new Camera2D { Zoom = new Vector2(2.1f, 2.1f), ProcessCallback = Camera2D.Camera2DProcessCallback.Physics };
+        _cam = new Camera2D { Zoom = new Vector2(Tune.Feel.CameraZoom, Tune.Feel.CameraZoom), ProcessCallback = Camera2D.Camera2DProcessCallback.Physics };
         _cam.LimitLeft = 0; _cam.LimitTop = 0;
         _cam.LimitRight = (int)cave.SizePx.X; _cam.LimitBottom = (int)cave.SizePx.Y;
         _world.AddChild(_cam);
@@ -287,16 +287,16 @@ public partial class Main : Node
     {
         var rng = new Random(cave.Seed ^ 0x5eed);
         int moths = 0, crabs = 0;
-        for (int tries = 0; tries < 9000 && (moths < 80 || crabs < 60); tries++)
+        for (int tries = 0; tries < 9000 && (moths < Tune.Cave.Moths || crabs < Tune.Cave.Crabs); tries++)
         {
             var pos = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
             if (cave.IsSolid(pos) || pos.DistanceTo(cave.StartPos) < 120) continue;
-            if (moths < 80 && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
+            if (moths < Tune.Cave.Moths && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
             {
                 _world.AddChild(new GlowMoth { Position = pos });
                 moths++;
             }
-            else if (crabs < 60 && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)))
+            else if (crabs < Tune.Cave.Crabs && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)))
             {
                 _world.AddChild(new CaveCrab { Position = fl + new Vector2(0, -5) });
                 crabs++;
@@ -321,7 +321,7 @@ public partial class Main : Node
         _state = State.Playing;
         _runTime = 0;
         G.RunTime = 0;
-        _waveT = 18f;
+        _waveT = Tune.Spawning.FirstWave;
         _sfx.SetMusic("ambient");
     }
 
@@ -376,9 +376,10 @@ public partial class Main : Node
     }
 
     /// <summary>Freezes the action for a beat so hits land with weight.</summary>
-    public void HitStop(float seconds, float timeScale = 0.02f)
+    public void HitStop(float seconds, float timeScale = -1f)
     {
         // measured in unscaled frame time (not the wall clock) so it also works when rendering a movie
+        if (timeScale < 0) timeScale = Tune.Feel.HitStopTimeScale;
         _hitStopLeft = Math.Max(_hitStopLeft, seconds);
         Engine.TimeScale = Math.Min(Engine.TimeScale, timeScale);
     }
@@ -505,7 +506,7 @@ public partial class Main : Node
         if (p == null || _cam == null) return;
         var target = p.GlobalPosition + new Vector2(p.Velocity.X * 0.15f, p.Velocity.Y * 0.08f - 10);
         if (ActiveBoss != null && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
-        _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * 7));
+        _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * Tune.Feel.CameraFollowSharpness));
         float s = _fx?.Shake ?? 0;
         _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
         // hold the frame perfectly still during a hit-stop; the shake plays out once time resumes
@@ -515,7 +516,7 @@ public partial class Main : Node
 
     // ------------------------------------------------------------------ spawning
 
-    private float _waveT = 18f;
+    private float _waveT = Tune.Spawning.FirstWave;
     private readonly List<(Enemy e, float d0, float t0)> _entrants = new();
 
     /// <summary>True if a world point is inside the camera's view (plus a margin).</summary>
@@ -540,9 +541,9 @@ public partial class Main : Node
         if (p.Dead) return;
         // only enemies in the neighbourhood count toward the cap (far-off residents are asleep)
         int alive = G.Enemies.Count(e => !e.Dead && e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) < 900 * 900);
-        int cap = 8 + (int)(G.Pace * 10);
+        int cap = Tune.Spawning.CapBase + (int)(G.Pace * Tune.Spawning.CapPerPace);
         // Residents: how many spawn points actually hold a group rises from ~40% to 100% over 8 minutes.
-        float fill = Math.Min(1f, 0.4f + G.RunTime / 480f * 0.6f);
+        float fill = Math.Min(1f, Tune.Spawning.ResidentFillStart + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart));
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -552,10 +553,10 @@ public partial class Main : Node
                 if (sp.Cooldown <= 0 && d > 1000) sp.Used = false;
                 continue;
             }
-            if (d > 720 || alive >= cap || OnScreen(sp.Pos)) continue;
+            if (d > Tune.Spawning.ResidentMaxDistance || alive >= cap || OnScreen(sp.Pos)) continue;
             sp.Used = true;
             if (!G.Chance(fill)) { sp.Cooldown = G.Range(40, 80); continue; }
-            sp.Cooldown = G.Range(90, 150) / (1f + G.Pace);
+            sp.Cooldown = G.Range(Tune.Spawning.ResidentRespawnMin, Tune.Spawning.ResidentRespawnMax) / (1f + G.Pace);
             alive += SpawnGroup(sp);
         }
 
@@ -563,7 +564,7 @@ public partial class Main : Node
         _waveT -= dt;
         if (_waveT <= 0 && alive < cap + 4)
         {
-            _waveT = Math.Max(4.5f, 22f / (1f + G.RunTime / 160f)) * G.Range(0.8f, 1.2f);
+            _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / (1f + G.RunTime / Tune.Spawning.IntervalRampSeconds)) * G.Range(0.8f, 1.2f);
             SpawnEntrance(p);
         }
     }
@@ -585,12 +586,12 @@ public partial class Main : Node
         {
             var c = q.Dequeue();
             int d = dist[c.Y * W + c.X];
-            if (d >= 24)
+            if (d >= Tune.Spawning.EntranceMinCells)
             {
                 var w = new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
                 if (!OnScreen(w, 24)) ring.Add(w);
             }
-            if (d >= 34) continue;
+            if (d >= Tune.Spawning.EntranceMaxCells) continue;
             foreach (var o in new[] { new Vector2I(1, 0), new Vector2I(-1, 0), new Vector2I(0, 1), new Vector2I(0, -1) })
             {
                 var n = c + o;
@@ -620,7 +621,7 @@ public partial class Main : Node
         }
         bool hasFloor = cave.FindFloor(at, 140, out var floor);
         double roll = G.Rng.NextDouble();
-        if (!hasFloor || roll < 0.35)
+        if (!hasFloor || roll < Tune.Spawning.EntranceBatChance)
         {
             for (int k = 0; k < count + 1; k++) Enter(new Bat(), at + new Vector2(G.Range(-25, 25), G.Range(-15, 15)));
             return;

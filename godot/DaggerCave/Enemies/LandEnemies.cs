@@ -19,7 +19,7 @@ public partial class Bat : Enemy
         UseSprite("bat");
     }
 
-    public Bat() { MaxHp = 12; BodyRadius = 7; ContactDamage = 7; XpValue = 3; }
+    public Bat() { MaxHp = Tune.Bat.Hp; BodyRadius = 7; ContactDamage = Tune.Bat.Contact; XpValue = Tune.Bat.Xp; }
 
     /// <summary>Entrance: already on the wing, swooping in from off-screen.</summary>
     public override void Engage()
@@ -38,14 +38,14 @@ public partial class Bat : Enemy
             case 0:
                 Velocity = Vector2.Zero;
                 ContactActive = false;
-                if (DistP < 240 && SeesP || HurtFlash > 0) { _state = 1; _stateT = 0; G.Sfx.Play("bat", GlobalPosition, -4); ContactActive = true; Anim.Once("wake", 3); }
+                if (DistP < Tune.Bat.WakeRange && SeesP || HurtFlash > 0) { _state = 1; _stateT = 0; G.Sfx.Play("bat", GlobalPosition, -4); ContactActive = true; Anim.Once("wake", 3); }
                 return;
             case 1:
             {
                 var to = ToP + new Vector2(0, -6);
                 var dir = to.Normalized();
                 var perp = new Vector2(-dir.Y, dir.X);
-                var desired = dir * (170f + (Elite ? 40 : 0)) + perp * MathF.Sin(T * 6 + _wob) * 110f;
+                var desired = dir * (Tune.Bat.FlySpeed + (Elite ? 40 : 0)) + perp * MathF.Sin(T * 6 + _wob) * Tune.Bat.WobbleSpeed;
                 Velocity = Velocity.MoveToward(desired, 520f * dt);
                 if (DistP < 18 || _stateT > 2.6f) { _state = 2; _stateT = 0; }
                 break;
@@ -76,9 +76,10 @@ public partial class Frog : Enemy
 {
     private float _hopCd = 1f, _tongueCd = 1.5f, _tongueT = -1, _croakT;
     private Vector2 _tongueDir;
-    private const float TongueLen = 90f, TongueTime = 0.38f;
+    private static float TongueLen => Tune.Frog.TongueRange;
+    private const float TongueTime = 0.38f;
 
-    public Frog() { MaxHp = 20; BodyRadius = 9; ContactDamage = 6; XpValue = 4; }
+    public Frog() { MaxHp = Tune.Frog.Hp; BodyRadius = 9; ContactDamage = Tune.Frog.Contact; XpValue = Tune.Frog.Xp; }
 
     private float _hopWind = -1, _hopDir;
     private bool _wasAir;
@@ -107,7 +108,7 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
             if (_hopWind < 0)
             {
-                v = new Vector2(_hopDir * G.Range(140, 200), -G.Range(330, 400));
+                v = new Vector2(_hopDir * Tune.Frog.HopSpeedX * G.Range(0.82f, 1.18f), -Tune.Frog.HopSpeedY * G.Range(0.9f, 1.1f));
                 G.Sfx.Play("jump", GlobalPosition, -14, 0.1f, 0.7f);
             }
             Velocity = v;
@@ -121,24 +122,24 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             float ext = TongueExtent();
             var tip = GlobalPosition + new Vector2(0, -2) + _tongueDir * ext;
-            if (!P.Dead && tip.DistanceTo(P.GlobalPosition) < 12) P.Hurt(9f * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition);
+            if (!P.Dead && tip.DistanceTo(P.GlobalPosition) < 12) P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition);
             if (_tongueT > TongueTime) _tongueT = -1;
         }
         else if (floor)
         {
             v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
-            if (Awake && DistP < Aggro(360))
+            if (Awake && DistP < Aggro(Tune.Frog.AggroRange))
             {
                 Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
                 if (DistP < TongueLen * Size && _tongueCd <= 0 && SeesP)
                 {
-                    _tongueT = 0; _tongueCd = 2.2f; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
+                    _tongueT = 0; _tongueCd = Tune.Frog.TongueCooldown; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
                     G.Sfx.Play("tongue", GlobalPosition, -4);
                     Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
                 }
                 else if (_hopCd <= 0)
                 {
-                    _hopCd = G.Range(1.0f, 1.6f);
+                    _hopCd = G.Range(Tune.Frog.HopCooldownMin, Tune.Frog.HopCooldownMax);
                     _hopDir = Math.Sign(ToP.X);
                     _hopWind = 4f / 24f;
                     Anim.Once("crouch", 2);
@@ -184,7 +185,7 @@ public partial class Goblin : Enemy
     private int _state; // 0 chase, 1 windup, 2 recover
     private float _stateT, _throwCd = 1.5f, _gruntT;
 
-    public Goblin() { MaxHp = 26; BodyRadius = 9; ContactDamage = 4; XpValue = 5; }
+    public Goblin() { MaxHp = Tune.Goblin.Hp; BodyRadius = 9; ContactDamage = Tune.Goblin.Contact; XpValue = Tune.Goblin.Xp; }
 
     private float _throwDelay = -1;
     private bool _wasAir;
@@ -212,10 +213,10 @@ public partial class Goblin : Enemy
             return;
         }
         bool floor = IsOnFloor();
-        float speed = (Slinger ? 95f : 125f) * (Elite ? 1.15f : 1f);
+        float speed = (Slinger ? Tune.Goblin.SlingerSpeed : Tune.Goblin.RunSpeed) * (Elite ? 1.15f : 1f);
         if (_gruntT <= 0) { _gruntT = G.Range(3, 8); if (Awake && DistP < 500) G.Sfx.Play("goblin", GlobalPosition, -8, 0.2f); }
 
-        if (!Awake || DistP > Aggro(460)) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
+        if (!Awake || DistP > Aggro(Tune.Goblin.AggroRange)) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
 
         float dx = ToP.X;
         if (_state == 0)
@@ -226,13 +227,13 @@ public partial class Goblin : Enemy
                 float d = Math.Abs(dx);
                 want = d < 130 ? -Math.Sign(dx) : d > 230 ? Math.Sign(dx) : 0;
                 Face = Math.Sign(dx) == 0 ? Face : Math.Sign(dx);
-                if (_throwCd <= 0 && DistP < 340 && SeesP) { _throwDelay = 0.36f; Anim.Once("throw", 3); _throwCd = Elite ? 1.4f : 2.4f; }
+                if (_throwCd <= 0 && DistP < 340 && SeesP) { _throwDelay = 0.36f; Anim.Once("throw", 3); _throwCd = Tune.Goblin.ThrowCooldown * (Elite ? 0.6f : 1f); }
             }
             else
             {
                 want = Math.Abs(dx) > 8 ? Math.Sign(dx) : 0;
                 if (want != 0) Face = want;
-                if (DistP < 34 * Size && Math.Abs(ToP.Y) < 30) { _state = 1; _stateT = 0; want = 0; G.Sfx.Play("goblin", GlobalPosition, -4, 0.2f, 1.2f); Anim.Once("windup", 3, 6f / (0.38f * 24f)); }
+                if (DistP < 34 * Size && Math.Abs(ToP.Y) < 30) { _state = 1; _stateT = 0; want = 0; G.Sfx.Play("goblin", GlobalPosition, -4, 0.2f, 1.2f); Anim.Once("windup", 3, 6f / (Tune.Goblin.WindupTime * 24f)); }
             }
             v.X = Mathf.MoveToward(v.X, want * speed, 900 * dt);
             if (floor && (IsOnWall() || (ToP.Y < -50 && Math.Abs(dx) < 90)) && want != 0) v.Y = -390;
@@ -242,14 +243,14 @@ public partial class Goblin : Enemy
         else if (_state == 1)
         {
             v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
-            if (_stateT > 0.38f)
+            if (_stateT > Tune.Goblin.WindupTime)
             {
                 _state = 2; _stateT = 0;
                 G.Sfx.Play("swing_heavy", GlobalPosition, -4, 0.1f, 0.7f);
                 Anim.Once("strike", 3);
                 var rel = ToP;
                 if (Math.Abs(rel.X) < 40 * Size && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size)
-                    P.Hurt(12f * G.DepthDmg * (Elite ? 1.4f : 1f), GlobalPosition);
+                    P.Hurt(Tune.Goblin.ClubDamage * G.DepthDmg * (Elite ? 1.4f : 1f), GlobalPosition);
             }
         }
         else
@@ -271,7 +272,7 @@ public partial class Goblin : Enemy
         var vel = new Vector2((target.X - from.X) / t, (target.Y - from.Y) / t - 0.5f * g * t);
         int n = Elite ? 3 : 1;
         for (int k = 0; k < n; k++)
-            G.Spawn(new EnemyProjectile { Position = from, Vel = vel.Rotated((k - (n - 1) / 2f) * 0.12f), Grav = g, Damage = 8 * G.DepthDmg, Kind = "rock", Radius = 4 });
+            G.Spawn(new EnemyProjectile { Position = from, Vel = vel.Rotated((k - (n - 1) / 2f) * 0.12f), Grav = g, Damage = Tune.Goblin.RockDamage * G.DepthDmg, Kind = "rock", Radius = 4 });
         G.Sfx.Play("throw", GlobalPosition, -8, 0.1f, 0.6f);
         _state = 2; _stateT = 0.2f;
     }
@@ -297,7 +298,7 @@ public partial class Spider : Enemy
 
     protected override bool UsesGravity => _state == 4;
 
-    public Spider() { MaxHp = 18; BodyRadius = 8; ContactDamage = 9; XpValue = 4; }
+    public Spider() { MaxHp = Tune.Spider.Hp; BodyRadius = 8; ContactDamage = Tune.Spider.Contact; XpValue = Tune.Spider.Xp; }
 
     protected override void Setup()
     {
@@ -319,7 +320,7 @@ public partial class Spider : Enemy
                 float dx = ToP.X;
                 if (Awake && Math.Abs(dx) > 6 && ToP.Y > 0 && DistP < Aggro(400))
                 {
-                    float nx = GlobalPosition.X + Math.Sign(dx) * 70 * dt;
+                    float nx = GlobalPosition.X + Math.Sign(dx) * Tune.Spider.CrawlSpeed * dt;
                     // stay on the ceiling contour
                     if (cave.FindCeiling(new Vector2(nx, GlobalPosition.Y + 12), 50, out var ce) && !cave.IsSolid(new Vector2(nx, ce.Y + 8)))
                     {
@@ -334,7 +335,7 @@ public partial class Spider : Enemy
             }
             case 1:
             {
-                var np = GlobalPosition + new Vector2(0, 330 * dt);
+                var np = GlobalPosition + new Vector2(0, Tune.Spider.DropSpeed * dt);
                 bool floor = cave.IsSolid(np + new Vector2(0, BodyRadius * Size + 2)) || cave.IsWater(np);
                 if (floor || np.Y > P.GlobalPosition.Y + 6) { _state = 2; _stateT = 0; }
                 else GlobalPosition = np;
@@ -356,10 +357,10 @@ public partial class Spider : Enemy
                 if (IsOnFloor())
                 {
                     Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-                    v.X = Mathf.MoveToward(v.X, Face * 150, 900 * dt);
+                    v.X = Mathf.MoveToward(v.X, Face * Tune.Spider.GroundSpeed, 900 * dt);
                     if (_pounceCd <= 0 && DistP < 110 && SeesP)
                     {
-                        _pounceCd = 1.4f;
+                        _pounceCd = Tune.Spider.PounceCooldown;
                         v = new Vector2(Math.Sign(ToP.X) * 230, -300);
                         Anim.Once("pounce", 3);
                         G.Sfx.Play("spider", GlobalPosition, -4);
@@ -410,7 +411,7 @@ public partial class LavaMonster : Enemy
 {
     private float _lobCd = 2f, _puddleT, _windup = -1;
 
-    public LavaMonster() { MaxHp = 40; BodyRadius = 12; ContactDamage = 10; XpValue = 8; KnockResist = 0.3f; }
+    public LavaMonster() { MaxHp = Tune.Magma.Hp; BodyRadius = 12; ContactDamage = Tune.Magma.Contact; XpValue = Tune.Magma.Xp; KnockResist = 0.3f; }
 
     protected override void Setup() { DisplayName = "Magma Brute"; UseSprite("magma"); }
     protected override Color BloodColor => new(1f, 0.5f, 0.1f);
@@ -422,7 +423,7 @@ public partial class LavaMonster : Enemy
         if (InWater)
         {
             // It boils away in water.
-            Hp -= 15 * dt;
+            Hp -= Tune.Magma.WaterDamagePerSec * dt;
             if (G.Chance(0.3f)) G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(0.85f, 0.85f, 0.85f, 0.5f), 1, 40, 4f, 0.8f, -100);
             if (G.Chance(0.02f)) G.Sfx.Play("lava", GlobalPosition, -10);
             v = v.MoveToward(new Vector2(0, -90), 400 * dt);
@@ -439,9 +440,9 @@ public partial class LavaMonster : Enemy
         else if (Awake && DistP < Aggro(420))
         {
             Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-            v.X = Mathf.MoveToward(v.X, Face * 45, 300 * dt);
+            v.X = Mathf.MoveToward(v.X, Face * Tune.Magma.WalkSpeed, 300 * dt);
             if (IsOnFloor() && IsOnWall()) v.Y = -300;
-            if (_lobCd <= 0 && DistP < 340 && SeesP) { _windup = 0; _lobCd = Elite ? 2f : 3.2f; G.Sfx.Play("lava", GlobalPosition, -6); Anim.Once("lob_windup", 3, 8f / (0.55f * 24f)); }
+            if (_lobCd <= 0 && DistP < 340 && SeesP) { _windup = 0; _lobCd = Tune.Magma.LobCooldown * (Elite ? 0.62f : 1f); G.Sfx.Play("lava", GlobalPosition, -6); Anim.Once("lob_windup", 3, 8f / (0.55f * 24f)); }
             if (_puddleT <= 0 && IsOnFloor() && Math.Abs(v.X) > 10)
             {
                 _puddleT = 1.3f;
@@ -462,7 +463,7 @@ public partial class LavaMonster : Enemy
         float t = Math.Clamp(from.DistanceTo(target) / 260f, 0.5f, 1.2f);
         var baseV = new Vector2((target.X - from.X) / t, (target.Y - from.Y) / t - 0.5f * g * t);
         for (int k = 0; k < n; k++)
-            G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = 9 * G.DepthDmg, Kind = "lava", Radius = 5 });
+            G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = Tune.Magma.GlobDamage * G.DepthDmg, Kind = "lava", Radius = 5 });
     }
 
     protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 8 && IsOnFloor() ? "walk" : "idle", 1.4f);
@@ -480,7 +481,7 @@ public partial class Golem : Enemy
 {
     private float _slamCd = 1.5f, _windup = -1, _recover;
 
-    public Golem() { MaxHp = 90; BodyRadius = 15; ContactDamage = 12; XpValue = 14; KnockResist = 0.85f; }
+    public Golem() { MaxHp = Tune.Golem.Hp; BodyRadius = 15; ContactDamage = Tune.Golem.Contact; XpValue = Tune.Golem.Xp; KnockResist = 0.85f; }
 
     protected override void Setup() { DisplayName = "Golem"; UseSprite("golem"); }
     protected override Color BloodColor => new(0.6f, 0.58f, 0.55f);
@@ -494,7 +495,7 @@ public partial class Golem : Enemy
         {
             _windup += dt;
             v.X = 0;
-            if (_windup > 0.8f) { Slam(); _windup = -1; _recover = 1.0f; Anim.Once("slam", 3); }
+            if (_windup > Tune.Golem.SlamWindup) { Slam(); _windup = -1; _recover = 1.0f; Anim.Once("slam", 3); }
         }
         else if (_recover > 0)
         {
@@ -504,9 +505,9 @@ public partial class Golem : Enemy
         else if (Awake && DistP < Aggro(460))
         {
             Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-            v.X = Mathf.MoveToward(v.X, Face * 40, 300 * dt);
+            v.X = Mathf.MoveToward(v.X, Face * Tune.Golem.WalkSpeed, 300 * dt);
             if (IsOnFloor() && IsOnWall()) v.Y = -330;
-            if (_slamCd <= 0 && DistP < 190 && Math.Abs(ToP.Y) < 70 && IsOnFloor()) { _windup = 0; G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.4f); Anim.Once("slam_windup", 3, 12f / (0.8f * 24f)); }
+            if (_slamCd <= 0 && DistP < 190 && Math.Abs(ToP.Y) < 70 && IsOnFloor()) { _windup = 0; G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.4f); Anim.Once("slam_windup", 3, 12f / (Tune.Golem.SlamWindup * 24f)); }
         }
         else v.X = Mathf.MoveToward(v.X, 0, 600 * dt);
         Velocity = v;
@@ -515,15 +516,15 @@ public partial class Golem : Enemy
 
     private void Slam()
     {
-        _slamCd = Elite ? 2.2f : 3.2f;
+        _slamCd = Tune.Golem.SlamCooldown * (Elite ? 0.7f : 1f);
         G.Sfx.Play("slam", GlobalPosition);
         G.Fx.AddShake(8);
         var foot = GlobalPosition + new Vector2(0, BodyRadius * Size);
         G.Fx.Burst(foot, new Color(0.6f, 0.55f, 0.5f), 20, 200, 3f, 0.5f);
         for (int s = -1; s <= 1; s += 2)
-            G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = 14 * G.DepthDmg * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Elite ? 300 : 250 });
+            G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = Tune.Golem.ShockwaveDamage * G.DepthDmg * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Tune.Golem.ShockwaveSpeed * (Elite ? 1.2f : 1f) });
         var rel = ToP;
-        if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(18 * G.DepthDmg, GlobalPosition, 320);
+        if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(Tune.Golem.SlamDamage * G.DepthDmg, GlobalPosition, 320);
     }
 
     protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 6 && IsOnFloor() ? "walk" : "idle", 1.2f);

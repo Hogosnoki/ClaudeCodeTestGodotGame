@@ -7,6 +7,41 @@ far end of each cave to open a portal one depth deeper.
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
 the project's main scene; the older map-editor and demo scenes are still in `Scenes/`.
 
+## Running it at home
+
+1. **Install the .NET edition of Godot 4.4.x.** On godotengine.org's download page, pick "Godot
+   Engine - .NET". The standard edition can't run C# and will refuse to build the project.
+2. **Install the .NET 8 SDK** (dotnet.microsoft.com, ".NET 8.0", SDK). Restart your computer if
+   Godot later can't find it.
+3. **Get the code.** This work lives on the branch `claude/dagger-rogue-lite-cave-7snpg9`, not on
+   `main`. Either:
+   - On GitHub, switch the branch dropdown to it, then choose Code, then Download ZIP, and unzip it.
+   - Or run `git clone <repo url>`, then `git checkout claude/dagger-rogue-lite-cave-7snpg9`.
+4. **Import the project.** In Godot's Project Manager, click Import and select the file
+   **`godot/project.godot`** (the `godot` folder, not the repository root). The first open takes
+   a minute while Godot imports the sprite sheets.
+5. **Press Play** (F5, or the triangle at the top right). Godot builds the C# code the first time.
+   A controller plugged in before or during play works straight away.
+
+## Tuning
+
+Almost every gameplay number is in **`Core/Tuning.cs`**, grouped by topic (`Tune.Hero`,
+`Tune.Feel`, `Tune.Difficulty`, `Tune.Spawning`, `Tune.Drops`, one class per enemy,
+`Tune.Boss`, `Tune.Cave`). Each has a short comment. To try a change: edit a value, save,
+press Play; Godot rebuilds automatically. Upgrade amounts are in the table in
+`Player/Upgrades.cs`.
+
+Handy starting points:
+
+| To change | Edit |
+| --- | --- |
+| Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
+| Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance` |
+| Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
+| How fast it gets hard | `Difficulty.DoublingMinutes`, `Difficulty.TempoCap` |
+| How busy it is | `Spawning.IntervalStart`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
+| Map size | `Cave.Width`, `Cave.Height`, `Cave.TunnelBudget` (keep these roughly in proportion) |
+
 ## Controls
 
 | Action | Keyboard / mouse | Controller |

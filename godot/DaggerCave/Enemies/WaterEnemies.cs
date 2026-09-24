@@ -16,7 +16,7 @@ public partial class Fish : Enemy
 
     protected override bool UsesGravity => _state != 0;
 
-    public Fish() { MaxHp = 10; BodyRadius = 6; ContactDamage = 7; XpValue = 2; }
+    public Fish() { MaxHp = Tune.Fish.Hp; BodyRadius = 6; ContactDamage = Tune.Fish.Contact; XpValue = Tune.Fish.Xp; }
 
     protected override void Setup()
     {
@@ -44,13 +44,13 @@ public partial class Fish : Enemy
             case 0:
             {
                 bool playerIn = P.InWater;
-                if (Awake && playerIn && DistP < Aggro(320))
+                if (Awake && playerIn && DistP < Aggro(Tune.Fish.AggroRange))
                 {
                     if (_dartT > 0) { /* keep dashing */ }
                     else if (_dartCd <= 0)
                     {
                         _dartT = 0.4f; _dartCd = G.Range(0.9f, 1.5f) * (Elite ? 0.6f : 1f);
-                        v = ToP.Normalized() * (Elite ? 330 : 280);
+                        v = ToP.Normalized() * Tune.Fish.DartSpeed * (Elite ? 1.18f : 1f);
                     }
                     else v = v.MoveToward(ToP.Normalized() * 30 + new Vector2(0, MathF.Sin(T * 5) * 20), 400 * dt);
                 }
@@ -136,7 +136,7 @@ public partial class Urchin : Enemy
 
     protected override bool UsesGravity => false;
 
-    public Urchin() { MaxHp = 30; BodyRadius = 10; ContactDamage = 9; XpValue = 5; KnockResist = 1f; }
+    public Urchin() { MaxHp = Tune.Urchin.Hp; BodyRadius = 10; ContactDamage = Tune.Urchin.Contact; XpValue = Tune.Urchin.Xp; KnockResist = 1f; }
 
     protected override void Setup()
     {
@@ -165,7 +165,7 @@ public partial class Urchin : Enemy
         if (_cycle > 3f) { _cycle -= 3f; _hitThisPulse = false; }
         if (prev < 2.1f && _cycle >= 2.1f && DistP < 400) G.Sfx.Play("spike", GlobalPosition, -6);
         float reach = (BodyRadius + SpikeLen()) * Size;
-        if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(12 * G.DepthDmg, GlobalPosition); _hitThisPulse = true; }
+        if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(Tune.Urchin.SpikeDamage * G.DepthDmg, GlobalPosition); _hitThisPulse = true; }
     }
 
     protected override void Animate()
@@ -192,7 +192,7 @@ public partial class Eel : Enemy
     public override bool CanBeHit => _state != 0;
     public override float HitRadius => 8 * Size;
 
-    public Eel() { MaxHp = 24; BodyRadius = 7; ContactDamage = 10; XpValue = 6; KnockResist = 1f; }
+    public Eel() { MaxHp = Tune.Eel.Hp; BodyRadius = 7; ContactDamage = Tune.Eel.Contact; XpValue = Tune.Eel.Xp; KnockResist = 1f; }
 
     protected override void Setup()
     {
@@ -211,7 +211,7 @@ public partial class Eel : Enemy
     protected override void Think(float dt)
     {
         _stateT += dt; _cd -= dt;
-        float maxLen = 170 * (Elite ? 1.4f : 1f);
+        float maxLen = Tune.Eel.LungeLength * (Elite ? 1.4f : 1f);
         switch (_state)
         {
             case 0:
@@ -227,7 +227,7 @@ public partial class Eel : Enemy
                 break;
             case 1:
                 ContactActive = true;
-                _head = _head.MoveToward(_target, 460 * dt);
+                _head = _head.MoveToward(_target, Tune.Eel.LungeSpeed * dt);
                 if (_head.DistanceTo(_target) < 2 || _stateT > 0.6f) { _state = 2; _stateT = 0; }
                 break;
             case 2:
@@ -235,7 +235,7 @@ public partial class Eel : Enemy
                 break;
             default:
                 _head = _head.MoveToward(_home, 150 * dt);
-                if (_head.DistanceTo(_home) < 2) { _state = 0; _stateT = 0; _cd = Elite ? 1.0f : 1.8f; }
+                if (_head.DistanceTo(_home) < 2) { _state = 0; _stateT = 0; _cd = Tune.Eel.Cooldown * (Elite ? 0.55f : 1f); }
                 break;
         }
         GlobalPosition = _head;

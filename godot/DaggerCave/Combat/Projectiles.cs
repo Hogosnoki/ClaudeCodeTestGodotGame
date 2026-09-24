@@ -12,7 +12,8 @@ public partial class ThrownDagger : Node2D
     public int BouncesLeft;
     public bool Pierce;
 
-    private const float Speed = 820f, MaxRange = 560f;
+    private static float Speed => Tune.Hero.ThrowSpeed;
+    private static float MaxRange => Tune.Hero.ThrowRange;
     private float _traveled, _fadeT = -1, _t;
     private Vector2 _fallVel;
     private readonly HashSet<Enemy> _hit = new();
@@ -52,7 +53,7 @@ public partial class ThrownDagger : Node2D
             if (dealt > 0)
             {
                 G.Player.OnDealtDamage(dealt);
-                G.Main.HitStop(0.065f);
+                G.Main.HitStop(Tune.Feel.HitStopThrown);
                 G.Fx.Spark(e.GlobalPosition - Dir * e.HitRadius, Dir, e.Dead, new Color(0.8f, 0.95f, 1f));
                 G.Main.Kick(Dir * 2f);
                 G.Main.Rumble(0.25f, 0.1f, 0.07f);
@@ -62,7 +63,7 @@ public partial class ThrownDagger : Node2D
             if (BouncesLeft > 0 && Retarget(e.GlobalPosition))
             {
                 BouncesLeft--;
-                Damage *= 0.85f;
+                Damage *= Tune.Hero.RicochetDamageMult;
                 _traveled = 0;
                 GlobalPosition = e.GlobalPosition;
                 G.Fx.Ring(e.GlobalPosition, 10, new Color(1f, 0.9f, 0.5f));
@@ -91,7 +92,7 @@ public partial class ThrownDagger : Node2D
 
     private bool Retarget(Vector2 from)
     {
-        Enemy best = null; float bd = 280f;
+        Enemy best = null; float bd = Tune.Hero.RicochetRange;
         foreach (var e in G.Enemies)
         {
             if (e.Dead || _hit.Contains(e)) continue;
@@ -117,7 +118,7 @@ public partial class ThrownDagger : Node2D
     {
         float a = _fadeT >= 0 ? Math.Clamp(_fadeT / 0.3f, 0, 1) : 1;
         bool flying = _fadeT < 0;
-        float spin = flying ? _t * 44f * (Dir.X >= 0 ? 1 : -1) : 0;
+        float spin = flying ? _t * Tune.Hero.ThrowSpinRadPerSec * (Dir.X >= 0 ? 1 : -1) : 0;
         const float r = 9f;
         if (flying)
         {
@@ -259,7 +260,7 @@ public partial class LavaPuddle : Node2D
         if (p != null && _tick <= 0)
         {
             var d = p.GlobalPosition - GlobalPosition;
-            if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6) { p.Hurt(6f * G.DepthDmg, GlobalPosition + new Vector2(0, 10), 120); _tick = 0.5f; }
+            if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6) { p.Hurt(Tune.Magma.PuddleDamage * G.DepthDmg, GlobalPosition + new Vector2(0, 10), 120); _tick = 0.5f; }
         }
         if (G.Chance(0.1f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-HalfW, HalfW), -2), new Color(1f, 0.6f, 0.15f, 0.8f), 1, 30, 1.8f, 0.4f, -60);
         QueueRedraw();

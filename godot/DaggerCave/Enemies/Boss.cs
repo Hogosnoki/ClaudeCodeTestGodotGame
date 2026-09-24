@@ -18,7 +18,7 @@ public partial class CavernColossus : Enemy
     private Room _room;
     private bool _phase2;
 
-    public CavernColossus() { MaxHp = 650; BodyRadius = 30; ContactDamage = 16; XpValue = 120; KnockResist = 1f; IsBoss = true; }
+    public CavernColossus() { MaxHp = Tune.Boss.Hp; BodyRadius = 30; ContactDamage = Tune.Boss.Contact; XpValue = Tune.Boss.Xp; KnockResist = 1f; IsBoss = true; }
 
     public void Init(Room room) => _room = room;
 
@@ -36,7 +36,7 @@ public partial class CavernColossus : Enemy
         if (_s == S.Stunned) dmg *= 1.5f;
         if (_s == S.Intro) return 0;
         float d = base.Hurt(dmg, knock, hitPos);
-        if (!_phase2 && Hp < MaxHp * 0.5f && !Dead)
+        if (!_phase2 && Hp < MaxHp * Tune.Boss.EnrageAt && !Dead)
         {
             _phase2 = true;
             G.Sfx.Play("roar", GlobalPosition, 2, 0, 0.85f);
@@ -46,7 +46,7 @@ public partial class CavernColossus : Enemy
         return d;
     }
 
-    private float Speed => _phase2 ? 1.35f : 1f;
+    private float Speed => _phase2 ? Tune.Boss.EnragedSpeedMult : 1f;
 
     protected override void Think(float dt)
     {
@@ -75,7 +75,7 @@ public partial class CavernColossus : Enemy
                 return;
             case S.Walk:
                 Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-                v.X = Mathf.MoveToward(v.X, Face * 55 * Speed, 400 * dt);
+                v.X = Mathf.MoveToward(v.X, Face * Tune.Boss.WalkSpeed * Speed, 400 * dt);
                 _next -= dt;
                 if (_next <= 0) PickAttack();
                 break;
@@ -98,8 +98,8 @@ public partial class CavernColossus : Enemy
                     var foot = GlobalPosition + new Vector2(0, BodyRadius);
                     G.Fx.Burst(foot, new Color(0.6f, 0.55f, 0.5f), 30, 260, 3.5f, 0.6f);
                     for (int s = -1; s <= 1; s += 2)
-                        G.Spawn(new Shockwave { Position = foot + new Vector2(s * 34, 0), Dir = s, Damage = 16 * G.DepthDmg, Size = 1.6f, Speed = 300 * Speed, Life = 2f });
-                    if (DistP < 55) P.Hurt(22 * G.DepthDmg, GlobalPosition, 350);
+                        G.Spawn(new Shockwave { Position = foot + new Vector2(s * 34, 0), Dir = s, Damage = Tune.Boss.ShockwaveDamage * G.DepthDmg, Size = 1.6f, Speed = 300 * Speed, Life = 2f });
+                    if (DistP < 55) P.Hurt(Tune.Boss.SlamDamage * G.DepthDmg, GlobalPosition, 350);
                     v.X = 0;
                     Go(S.Land);
                 }
@@ -118,7 +118,7 @@ public partial class CavernColossus : Enemy
                         float x = _room.Center.X + G.Range(-_room.RxPx + 30, _room.RxPx - 30);
                         if (k == 0) x = P.GlobalPosition.X;
                         if (G.Cave.FindCeiling(new Vector2(x, _room.Floor.Y - 30), _room.RyPx * 2.5f, out var ce))
-                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = 14 * G.DepthDmg });
+                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = Tune.Boss.RockDamage * G.DepthDmg });
                     }
                     if (_phase2)
                         for (int k = 0; k < 2; k++)
@@ -134,7 +134,7 @@ public partial class CavernColossus : Enemy
                 if (_t > 0.65f / Speed) { Go(S.Charge); G.Sfx.Play("roar", GlobalPosition, -4, 0, 1.4f); }
                 break;
             case S.Charge:
-                v.X = Face * 400 * Speed;
+                v.X = Face * Tune.Boss.ChargeSpeed * Speed;
                 if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition + new Vector2(-Face * 20, BodyRadius), new Color(0.6f, 0.55f, 0.5f, 0.8f), 1, 80, 3f, 0.4f, 200);
                 if (IsOnWall() || _t > 2.2f)
                 {
@@ -144,7 +144,7 @@ public partial class CavernColossus : Enemy
                     {
                         float x = GlobalPosition.X - Face * G.Range(40, 200);
                         if (G.Cave.FindCeiling(new Vector2(x, GlobalPosition.Y - 20), 400, out var ce))
-                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = 12 * G.DepthDmg });
+                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = Tune.Boss.RockDamage * 0.85f * G.DepthDmg });
                     }
                     v.X = -Face * 120;
                     v.Y = -200;

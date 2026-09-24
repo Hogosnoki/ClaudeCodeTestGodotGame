@@ -19,21 +19,26 @@ public struct PlayerInput
 /// </summary>
 public partial class Player : CharacterBody2D
 {
-    // --- Tunables (pixels, seconds) ---
-    // Gravity and jump speed are both scaled by the same factor k (g*k, v*sqrt(k)) so the jump
-    // height is unchanged but the arc is a touch floatier.
-    private const float Gravity = 1350f * 0.88f, MaxFall = 675f;
-    private const float RunSpeed = 170f;
-    private static readonly float BaseJumpV = 470f * MathF.Sqrt(0.88f);
-    private const float SwimSpeedBase = 150f;
-    private const float SwingCooldownBase = 0.36f, SwingActive = 0.11f, ComboWindow = 0.55f;
-    private const float BaseReach = 30f;
-    private const float BaseDamage = 10f, ThrowDamage = 16f;
-    private const float DodgeSpeed = 450f, DodgeTime = 0.2f, DodgeCdBase = 0.95f;
+    // Tunables live in Core/Tuning.cs (Tune.Hero). Gravity and jump speed are both scaled by
+    // Floatiness (g*k, v*sqrt(k)) so jump height is unchanged while the arc gets floatier.
+    private static float Gravity => Tune.Hero.Gravity * Tune.Hero.Floatiness;
+    private static float MaxFall => Tune.Hero.MaxFallSpeed;
+    private static float RunSpeed => Tune.Hero.RunSpeed;
+    private static float BaseJumpV => Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness);
+    private static float SwimSpeedBase => Tune.Hero.SwimSpeed;
+    private static float SwingCooldownBase => Tune.Hero.SwingCooldown;
+    private static float SwingActive => Tune.Hero.SwingActiveTime;
+    private static float ComboWindow => Tune.Hero.ComboWindow;
+    private static float BaseReach => Tune.Hero.SwingReach;
+    private static float BaseDamage => Tune.Hero.SwingDamage;
+    private static float ThrowDamage => Tune.Hero.ThrowDamage;
+    private static float DodgeSpeed => Tune.Hero.DodgeSpeed;
+    private static float DodgeTime => Tune.Hero.DodgeTime;
+    private static float DodgeCdBase => Tune.Hero.DodgeCooldown;
 
     public PlayerStats Stats = new();
-    public float Hp = 60;
-    public float Breath = 8f;
+    public float Hp = Tune.Hero.StartHp;
+    public float Breath = Tune.Hero.BreathSeconds;
     public int Level = 1;
     public int Xp;
     public int PendingLevelUps;
@@ -67,7 +72,7 @@ public partial class Player : CharacterBody2D
     public float[] ThrowCooldowns => _throwCd;
     public float[] DodgeCooldowns => _dodgeCd;
     public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
-    public int XpToNext => (int)(12 + 8 * Level + 1.6f * Level * Level);
+    public int XpToNext => (int)(Tune.Hero.XpBase + Tune.Hero.XpLinear * Level + Tune.Hero.XpQuadratic * Level * Level);
     public bool Invulnerable => _invuln > 0 || _iframes > 0;
 
     public override void _Ready()
@@ -156,8 +161,8 @@ public partial class Player : CharacterBody2D
         _wallSliding = false;
         _jumpedFromGround = false;
         bool surfaceFloat = !onFloor && !InWater && GlobalPosition.Y > cave.WaterY - 10 && cave.IsWater(GlobalPosition + new Vector2(0, 14));
-        if (onFloor || surfaceFloat) { _coyote = 0.1f; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
-        if (inp.Jump) _jumpBuffer = 0.13f;
+        if (onFloor || surfaceFloat) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
+        if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
 
         if (inp.Dodge && _dodgeT <= 0 && _airDashT <= 0) TryDodge(inp);
 
@@ -169,7 +174,7 @@ public partial class Player : CharacterBody2D
         }
         else if (_airDashT > 0)
         {
-            v = _airDashDir * 540f;
+            v = _airDashDir * Tune.Hero.AirDashSpeed;
             if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.55f, 0.9f, 1f), 0.2f);
             if (_airDashT - dt <= 0) v *= 0.5f;
         }
@@ -287,7 +292,7 @@ public partial class Player : CharacterBody2D
             {
                 Breath = 0;
                 _drownTick -= dt;
-                if (_drownTick <= 0) { _drownTick = 0.5f; TakeRawDamage(5f + Stats.MaxHp * 0.02f, "drown"); }
+                if (_drownTick <= 0) { _drownTick = 0.5f; TakeRawDamage(Tune.Hero.DrownDamageFlat + Stats.MaxHp * Tune.Hero.DrownDamageFrac, "drown"); }
             }
         }
         else
@@ -301,9 +306,9 @@ public partial class Player : CharacterBody2D
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
         float target = inp.Move.X * RunSpeed * Stats.MoveSpeed;
-        float accel = onFloor ? 1900f : (_wallJumpLock > 0 ? 350f : 1200f);
+        float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
         v.X = Mathf.MoveToward(v.X, target, accel * dt);
-        v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? 1.2f : 1f), MaxFall);
+        v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), MaxFall);
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult);
         int wallSide = WallSide();
@@ -311,7 +316,7 @@ public partial class Player : CharacterBody2D
 
         if (Stats.WallJump && onWall && v.Y > 0 && Math.Sign(inp.Move.X) == wallSide)
         {
-            v.Y = Math.Min(v.Y, 110f);
+            v.Y = Math.Min(v.Y, Tune.Hero.WallSlideSpeed);
             _wallSliding = true;
             Facing = wallSide;
             if (G.Chance(0.2f)) G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 6), new Color(0.6f, 0.55f, 0.5f, 0.6f), 1, 20, 1.5f, 0.3f, 30);
@@ -328,7 +333,7 @@ public partial class Player : CharacterBody2D
             }
             else if (Stats.WallJump && onWall)
             {
-                v = new Vector2(-wallSide * 250f, -jumpV * 0.92f);
+                v = new Vector2(-wallSide * Tune.Hero.WallJumpPush, -jumpV * Tune.Hero.WallJumpMult);
                 Facing = -wallSide; _wallJumpLock = 0.16f; _jumpBuffer = 0; _jumpCutDone = false;
                 G.Sfx.Play("jump", GlobalPosition, -6, 0.05f, 1.2f);
                 Anim.Face((int)Facing, instant: true);
@@ -337,7 +342,7 @@ public partial class Player : CharacterBody2D
             }
             else if (Stats.DoubleJump && _airJumps > 0)
             {
-                _airJumps--; v.Y = -jumpV * 0.9f; _jumpBuffer = 0; _jumpCutDone = false;
+                _airJumps--; v.Y = -jumpV * Tune.Hero.DoubleJumpMult; _jumpBuffer = 0; _jumpCutDone = false;
                 G.Sfx.Play("jump", GlobalPosition, -5, 0.05f, 1.4f);
                 Anim.Once("dodge", 2, 1.6f);
                 G.Fx.Ring(GlobalPosition + new Vector2(0, 12), 10, new Color(0.7f, 0.9f, 1f, 0.8f));
@@ -346,7 +351,7 @@ public partial class Player : CharacterBody2D
             {
                 _airDashes--; _jumpBuffer = 0;
                 var d = inp.Move.LengthSquared() > 0.04f ? inp.Move.Normalized() : new Vector2(Facing, 0);
-                _airDashDir = d; _airDashT = 0.16f;
+                _airDashDir = d; _airDashT = Tune.Hero.AirDashTime;
                 if (d.X != 0) Facing = Math.Sign(d.X);
                 G.Sfx.Play("airdash", GlobalPosition, -4);
                 Anim.Face((int)Facing, instant: true);
@@ -354,7 +359,7 @@ public partial class Player : CharacterBody2D
                 G.Fx.Ring(GlobalPosition, 12, new Color(0.6f, 0.9f, 1f, 0.8f));
             }
         }
-        if (!inp.JumpHeld && v.Y < -120 && !_jumpCutDone) { v.Y *= 0.5f; _jumpCutDone = true; }
+        if (!inp.JumpHeld && v.Y < -120 && !_jumpCutDone) { v.Y *= Tune.Hero.JumpCutMult; _jumpCutDone = true; }
         return v;
     }
 
@@ -374,7 +379,7 @@ public partial class Player : CharacterBody2D
         float spd = SwimSpeedBase * Stats.SwimSpeed;
         if (dir.LengthSquared() > 0.04f)
         {
-            v = v.MoveToward(dir.Normalized() * spd, 800f * dt);
+            v = v.MoveToward(dir.Normalized() * spd, Tune.Hero.SwimAccel * dt);
             if (G.Chance(0.05f)) G.Fx.Bubbles(GlobalPosition, 1);
         }
         else v = v.MoveToward(new Vector2(0, 22), 320f * dt);
@@ -382,7 +387,7 @@ public partial class Player : CharacterBody2D
         bool nearSurface = GlobalPosition.Y < cave.WaterY + 20;
         if (_jumpBuffer > 0 && nearSurface)
         {
-            v.Y = -BaseJumpV * MathF.Sqrt(Stats.JumpMult) * 0.95f;
+            v.Y = -BaseJumpV * MathF.Sqrt(Stats.JumpMult) * Tune.Hero.SurfaceLeapMult;
             _jumpBuffer = 0; _jumpCutDone = true;
             G.Sfx.Play("jump", GlobalPosition, -6, 0.05f, 0.8f);
         }
@@ -415,9 +420,9 @@ public partial class Player : CharacterBody2D
         _swingDir = aim;
         if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
         bool finisher = Stats.ThirdCombo && _comboStep == 2;
-        _swingArc = Mathf.DegToRad(finisher ? 170 : 115);
-        _swingReach = BaseReach * Stats.DaggerReach * (finisher ? 1.25f : 1f);
-        _swingDmg = BaseDamage * Stats.DamageMult * (finisher ? 2f : 1f);
+        _swingArc = Mathf.DegToRad(finisher ? Tune.Hero.FinisherArcDegrees : Tune.Hero.SwingArcDegrees);
+        _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f);
+        _swingDmg = BaseDamage * Stats.DamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f);
         _swingT = 0;
         _swingCd = SwingCooldownBase / Stats.AttackSpeed;
         _swingHits.Clear();
@@ -464,9 +469,10 @@ public partial class Player : CharacterBody2D
     private void OnSwingHit(Enemy e, Vector2 to)
     {
         var dir = (_swingDir + to.Normalized()).Normalized();
-        float kb = Stats.KnockbackLevel switch { 0 => 40f, 1 => 260f, 2 => 380f, _ => 480f };
+        var kbTable = Tune.Hero.KnockbackByLevel;
+        float kb = kbTable[Math.Clamp(Stats.KnockbackLevel, 0, kbTable.Length - 1)];
         bool finisher = Stats.ThirdCombo && _comboStep == 2;
-        if (finisher) kb += 120;
+        if (finisher) kb += Tune.Hero.FinisherExtraKnockback;
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
         float dealt = e.Hurt(_swingDmg * G.Range(0.9f, 1.1f), dir * kb, hitPos);
         if (dealt <= 0)
@@ -479,19 +485,19 @@ public partial class Player : CharacterBody2D
         bool killed = e.Dead;
         // impact: sparks, freeze-frame, a camera nudge in the direction of the blow, rumble
         G.Fx.Spark(hitPos, dir, finisher || killed, finisher ? new Color(1f, 0.85f, 0.4f) : Colors.White);
-        G.Main.Kick(dir * (finisher ? 6f : killed ? 4f : 2.5f));
+        G.Main.Kick(dir * (finisher ? Tune.Feel.KickFinisher : killed ? Tune.Feel.KickKill : Tune.Feel.KickNormal));
         G.Main.Rumble(finisher ? 0.6f : 0.35f, finisher ? 0.7f : 0.15f, finisher ? 0.16f : 0.08f);
-        if (finisher || killed) G.Fx.AddShake(finisher ? 5 : 3);
+        if (finisher || killed) G.Fx.AddShake(finisher ? Tune.Feel.ShakeFinisher : Tune.Feel.ShakeKill);
         if (finisher && G.Chance(1f)) Afterimage.Spawn(Anim, new Color(1f, 0.85f, 0.4f), 0.18f);
         if (!_swingHitSomething)
         {
             _swingHitSomething = true;
             if (_comboResetPending) { _swingCd = 0.04f; _comboResetPending = false; }
-            G.Main.HitStop(finisher ? 0.15f : killed ? 0.12f : 0.08f);
+            G.Main.HitStop(finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
             {
-                Velocity = new Vector2(Velocity.X, -BaseJumpV * 0.95f * MathF.Sqrt(Stats.JumpMult));
+                Velocity = new Vector2(Velocity.X, -BaseJumpV * Tune.Hero.PogoBounceMult * MathF.Sqrt(Stats.JumpMult));
                 _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; _jumpCutDone = true;
                 G.Fx.Ring(e.GlobalPosition, 14, new Color(1f, 1f, 0.7f, 0.9f));
             }
@@ -544,8 +550,8 @@ public partial class Player : CharacterBody2D
         Anim.Face((int)Facing, instant: true);
         Anim.Once("hurt", 4);
         Anim.Flash(1f);
-        G.Main.HitStop(0.1f);
-        G.Main.Kick(away * 6f);
+        G.Main.HitStop(Tune.Feel.HitStopPlayerHurt);
+        G.Main.Kick(away * Tune.Feel.KickPlayerHurt);
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
         Velocity = new Vector2(Math.Sign(away.X == 0 ? -Facing : away.X) * knock, InWater ? away.Y * knock : -170f);
