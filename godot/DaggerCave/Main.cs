@@ -47,7 +47,11 @@ public partial class Main : Node
     private string _titleShot = "";
     private float _titleT;
     private bool _menuShotDone;
-    private bool _bestiary;
+    private bool _bestiary, _animTest, _padTest;
+    private float _padT;
+    private int _padStep;
+    private float _animT;
+    private int _animFrame;
     private float _bestiaryT = -1;
     private BotPilot _bot;
 
@@ -103,7 +107,19 @@ public partial class Main : Node
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 1;
         BuildLevel(_seed, freshPlayer: true);
-        if (_bestiary)
+        if (_padTest)
+        {
+            // Starts on the title screen and drives everything with synthetic controller events.
+            GetTree().Paused = true;
+            _state = State.Title;
+        }
+        else if (_animTest)
+        {
+            StartPlaying();
+            _hud.HintTime = 0;
+            G.Player.InputOverride = AnimTestInput;
+        }
+        else if (_bestiary)
         {
             StartPlaying();
             _hud.HintTime = 0;
@@ -124,11 +140,14 @@ public partial class Main : Node
             _overlay.Show("DAGGER DEEP", 0.55f,
                 "A rogue-lite descent through flooded caverns.",
                 "",
-                "A / D  move      SPACE  jump      W / S  swim up / down",
-                "LEFT CLICK  swing dagger toward the mouse      RIGHT CLICK  throw dagger",
-                "SHIFT  dodge      ESC  pause      (J / K / L also swing / throw / dodge)",
+                "KEYBOARD + MOUSE",
+                "A / D  move      SPACE  jump      W / S  swim up / down      SHIFT  dodge",
+                "LEFT CLICK  swing toward the mouse      RIGHT CLICK  throw      (J / K / L  swing / throw / dodge)",
+                "CONTROLLER",
+                "Left stick / D-pad  move      A  jump      X  swing      RB / RT  throw      B / LB  dodge",
+                "Right stick  aims swings and throws (otherwise they follow the left stick)      START  pause",
                 "",
-                "!Press ENTER or click to begin");
+                "!Press ENTER / A or click to begin");
             _sfx.SetMusic("ambient");
         }
     }
@@ -146,6 +165,8 @@ public partial class Main : Node
             else if (a.StartsWith("--start=")) _startAt = a[8..];
             else if (a.StartsWith("--titleshot=")) _titleShot = a[12..];
             else if (a == "--bestiary") _bestiary = true;
+            else if (a == "--animtest") _animTest = true;
+            else if (a == "--padtest") _padTest = true;
         }
     }
 
@@ -160,16 +181,16 @@ public partial class Main : Node
         InputEventJoypadButton J(JoyButton b) => new() { ButtonIndex = b };
         InputEventJoypadMotion Ax(JoyAxis a, float v) => new() { Axis = a, AxisValue = v };
 
-        Act("move_left", K(Key.A), K(Key.Left), Ax(JoyAxis.LeftX, -1));
-        Act("move_right", K(Key.D), K(Key.Right), Ax(JoyAxis.LeftX, 1));
-        Act("move_up", K(Key.W), K(Key.Up), Ax(JoyAxis.LeftY, -1));
-        Act("move_down", K(Key.S), K(Key.Down), Ax(JoyAxis.LeftY, 1));
+        Act("move_left", K(Key.A), K(Key.Left), Ax(JoyAxis.LeftX, -1), J(JoyButton.DpadLeft));
+        Act("move_right", K(Key.D), K(Key.Right), Ax(JoyAxis.LeftX, 1), J(JoyButton.DpadRight));
+        Act("move_up", K(Key.W), K(Key.Up), Ax(JoyAxis.LeftY, -1), J(JoyButton.DpadUp));
+        Act("move_down", K(Key.S), K(Key.Down), Ax(JoyAxis.LeftY, 1), J(JoyButton.DpadDown));
         Act("jump", K(Key.Space), J(JoyButton.A));
         Act("attack", new InputEventMouseButton { ButtonIndex = MouseButton.Left });
         Act("attack_alt", K(Key.J), J(JoyButton.X));
         Act("throw", new InputEventMouseButton { ButtonIndex = MouseButton.Right });
-        Act("throw_alt", K(Key.K), J(JoyButton.RightShoulder));
-        Act("dodge", K(Key.Shift), K(Key.L), J(JoyButton.B));
+        Act("throw_alt", K(Key.K), J(JoyButton.RightShoulder), Ax(JoyAxis.TriggerRight, 1));
+        Act("dodge", K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder), Ax(JoyAxis.TriggerLeft, 1));
         Act("pause", K(Key.Escape), J(JoyButton.Start));
         Act("confirm", K(Key.Enter), K(Key.KpEnter), J(JoyButton.A));
         Act("restart", K(Key.R), J(JoyButton.Y));
@@ -251,9 +272,32 @@ public partial class Main : Node
             _world.AddChild(new Chest { Position = floor });
         }
 
+        SpawnCritters(cave);
         _hud.ResetMap(cave);
         _hud.ShowBanner($"DEPTH {G.Depth}", 3f);
         _spawnT = 0;
+    }
+
+    /// <summary>Ambient wildlife: glow moths in dry tunnels, crabs on floors (including the sea bed).</summary>
+    private void SpawnCritters(CaveData cave)
+    {
+        var rng = new Random(cave.Seed ^ 0x5eed);
+        int moths = 0, crabs = 0;
+        for (int tries = 0; tries < 4000 && (moths < 36 || crabs < 28); tries++)
+        {
+            var pos = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
+            if (cave.IsSolid(pos) || pos.DistanceTo(cave.StartPos) < 120) continue;
+            if (moths < 36 && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
+            {
+                _world.AddChild(new GlowMoth { Position = pos });
+                moths++;
+            }
+            else if (crabs < 28 && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)))
+            {
+                _world.AddChild(new CaveCrab { Position = fl + new Vector2(0, -5) });
+                crabs++;
+            }
+        }
     }
 
     public void NextDepth()
@@ -325,10 +369,37 @@ public partial class Main : Node
         _state = State.Playing;
     }
 
-    public void HitStop(float seconds)
+    /// <summary>Freezes the action for a beat so hits land with weight.</summary>
+    public void HitStop(float seconds, float timeScale = 0.05f)
     {
-        _hitStopUntil = Time.GetTicksMsec() + (ulong)(seconds * 1000);
-        Engine.TimeScale = 0.08;
+        ulong until = Time.GetTicksMsec() + (ulong)(seconds * 1000);
+        if (until > _hitStopUntil) _hitStopUntil = until;
+        Engine.TimeScale = Math.Min(Engine.TimeScale, timeScale);
+    }
+
+    /// <summary>Kill-cam style slow motion (real-time duration).</summary>
+    public void SlowMo(float seconds, float timeScale = 0.3f) => HitStop(seconds, timeScale);
+
+    /// <summary>Nudges the camera (decays quickly) - used on hits for directional impact.</summary>
+    public void Kick(Vector2 offset) => _kick += offset;
+
+    /// <summary>Controller rumble, only while a controller is the active device.</summary>
+    public void Rumble(float weak, float strong, float seconds)
+    {
+        if (!UsingPad) return;
+        foreach (int id in Input.GetConnectedJoypads()) Input.StartJoyVibration(id, weak, strong, seconds);
+    }
+
+    /// <summary>True when the last input came from a controller (drives prompts and hides the mouse).</summary>
+    public bool UsingPad;
+    private Vector2 _kick;
+
+    public override void _Input(InputEvent e)
+    {
+        bool pad = e is InputEventJoypadButton { Pressed: true } || (e is InputEventJoypadMotion jm && Math.Abs(jm.AxisValue) > 0.5f);
+        bool kbm = e is InputEventKey { Pressed: true } || e is InputEventMouseButton { Pressed: true } || (e is InputEventMouseMotion mm && mm.Relative.Length() > 3);
+        if (pad && !UsingPad) { UsingPad = true; Input.MouseMode = Input.MouseModeEnum.Hidden; }
+        else if (kbm && UsingPad) { UsingPad = false; Input.MouseMode = Input.MouseModeEnum.Visible; }
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -345,6 +416,7 @@ public partial class Main : Node
         float dt = (float)delta;
         if (_hitStopUntil != 0 && Time.GetTicksMsec() >= _hitStopUntil) { Engine.TimeScale = 1; _hitStopUntil = 0; }
 
+        if (_padTest) PadTestTick(dt);
         switch (_state)
         {
             case State.Title:
@@ -367,9 +439,9 @@ public partial class Main : Node
                     _overlay.Show("YOU DIED", 0.6f,
                         $"Depth {G.Depth}   ·   Level {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}",
                         "",
-                        "!Press R to descend again");
+                        UsingPad ? "!Press Y or A to descend again" : "!Press R or ENTER to descend again");
                 }
-                if (_deadT > 1.2f && Input.IsActionJustPressed("restart")) Restart();
+                if (_deadT > 1.5f && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
                 if (_autotest && _deadT > 3f) Restart();
                 break;
             case State.Choosing:
@@ -389,7 +461,7 @@ public partial class Main : Node
                 {
                     _state = State.Paused;
                     GetTree().Paused = true;
-                    _overlay.Show("PAUSED", 0.5f, "", "!Press ESC to resume");
+                    _overlay.Show("PAUSED", 0.5f, "", UsingPad ? "!Press START to resume" : "!Press ESC to resume");
                     return;
                 }
                 _runTime += dt;
@@ -408,6 +480,7 @@ public partial class Main : Node
         }
         if (_autotest) AutotestTick(dt);
         if (_bestiary) BestiaryTick(dt);
+        if (_animTest) AnimTestTick(dt);
     }
 
     private void UpdateCamera(float dt)
@@ -418,7 +491,8 @@ public partial class Main : Node
         if (ActiveBoss != null && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * 7));
         float s = _fx?.Shake ?? 0;
-        _cam.Offset = s > 0 ? new Vector2(G.Range(-s, s), G.Range(-s, s)) * 0.5f : Vector2.Zero;
+        _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
+        _cam.Offset = (s > 0 ? new Vector2(G.Range(-s, s), G.Range(-s, s)) * 0.5f : Vector2.Zero) + _kick;
     }
 
     // ------------------------------------------------------------------ spawning
@@ -710,6 +784,71 @@ public partial class Main : Node
             GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/bestiary_boss.png");
             GetTree().Quit();
         }
+    }
+
+    /// <summary>Feeds synthetic joypad events through Godot's input pipeline and checks the game reacts.</summary>
+    private void PadTestTick(float dt)
+    {
+        _padT += dt;
+        void Btn(JoyButton b, bool down) => Input.ParseInputEvent(new InputEventJoypadButton { ButtonIndex = b, Pressed = down, Device = 0 });
+        void Axis(JoyAxis a, float v) => Input.ParseInputEvent(new InputEventJoypadMotion { Axis = a, AxisValue = v, Device = 0 });
+        var steps = new (float at, Action act, string label)[]
+        {
+            (0.5f, () => { Btn(JoyButton.A, true); }, "A on title"),
+            (0.6f, () => { Btn(JoyButton.A, false); GD.Print($"[padtest] state after A: {_state}, usingPad {UsingPad}, mouse {Input.MouseMode}"); }, ""),
+            (1.0f, () => Axis(JoyAxis.LeftX, 1f), "stick right"),
+            (1.6f, () => { GD.Print($"[padtest] player vx after stick: {G.Player.Velocity.X:0}"); Axis(JoyAxis.LeftX, 0f); }, ""),
+            (1.8f, () => Btn(JoyButton.X, true), "X swing"),
+            (1.85f, () => { Btn(JoyButton.X, false); GD.Print($"[padtest] anim after X: {G.Player.Anim.Current}"); }, ""),
+            (2.3f, () => Axis(JoyAxis.TriggerRight, 1f), "RT throw"),
+            (2.35f, () => { Axis(JoyAxis.TriggerRight, 0f); GD.Print($"[padtest] throw cooldown after RT: {G.Player.ThrowCooldowns[0]:0.00}"); }, ""),
+            (2.6f, () => Btn(JoyButton.B, true), "B dodge"),
+            (2.65f, () => { Btn(JoyButton.B, false); GD.Print($"[padtest] dodging after B: {G.Player.IsDodging}"); }, ""),
+            (3.0f, () => { G.Player.PendingLevelUps = 1; }, "level up"),
+            (3.6f, () => { GD.Print($"[padtest] state: {_state}"); Btn(JoyButton.DpadRight, true); }, "dpad right"),
+            (3.65f, () => Btn(JoyButton.DpadRight, false), ""),
+            (3.8f, () => Btn(JoyButton.A, true), "A pick"),
+            (3.85f, () => { Btn(JoyButton.A, false); GD.Print($"[padtest] after pick: state {_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}]"); }, ""),
+            (4.2f, () => Btn(JoyButton.Start, true), "start pause"),
+            (4.25f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start: {_state}"); }, ""),
+            (4.5f, () => Btn(JoyButton.Start, true), ""),
+            (4.55f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start again: {_state}"); GetTree().Quit(); }, ""),
+        };
+        while (_padStep < steps.Length && _padT >= steps[_padStep].at) steps[_padStep++].act();
+    }
+
+    /// <summary>Scripted inputs that walk the player through every movement/attack transition.</summary>
+    private PlayerInput AnimTestInput()
+    {
+        float t = _animT;
+        var i = new PlayerInput();
+        bool Edge(float at) => t >= at && t - (float)GetProcessDeltaTime() < at;
+        if (t > 0.3f && t < 1.0f) i.Move.X = 1;
+        else if (t > 1.0f && t < 1.45f) i.Move.X = -1;
+        i.Jump = Edge(1.7f);
+        i.JumpHeld = t > 1.7f && t < 2.0f;
+        if (Edge(2.6f)) { i.Attack = true; i.Aim = new Vector2(-1, 0); }
+        if (Edge(2.9f)) { i.Attack = true; i.Aim = new Vector2(-0.3f, -1).Normalized(); }
+        if (Edge(3.2f)) { i.Attack = true; i.Aim = new Vector2(-1, 0.1f).Normalized(); }
+        if (Edge(3.7f)) { i.Dodge = true; i.Move.X = 1; }
+        if (Edge(4.2f)) { i.Throw = true; i.Aim = new Vector2(1, 0); }
+        if (Edge(4.6f)) G.Player.Hurt(1, G.Player.GlobalPosition + new Vector2(20, 0));
+        return i;
+    }
+
+    private void AnimTestTick(float dt)
+    {
+        _animT += dt;
+        if (_animT > 0.2f && (int)(_animT * 20) > _animFrame)
+        {
+            _animFrame = (int)(_animT * 20);
+            var img = GetViewport().GetTexture().GetImage();
+            var sp = G.Player.GetGlobalTransformWithCanvas().Origin;
+            var scale = img.GetSize() / GetViewport().GetVisibleRect().Size;
+            var r = new Rect2I((int)(sp.X * scale.X) - 80, (int)(sp.Y * scale.Y) - 90, 160, 140);
+            img.GetRegion(r).SavePng($"{_shotDir}/at_{_animFrame:000}.png");
+        }
+        if (_animT > 5.4f) GetTree().Quit();
     }
 
     private void RunGenTest()

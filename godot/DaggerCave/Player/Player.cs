@@ -41,12 +41,18 @@ public partial class Player : CharacterBody2D
     public float Facing = 1;
 
     public Func<PlayerInput> InputOverride;
+    public SpriteAnimator Anim;
+
+    // animation bookkeeping
+    private bool _wallSliding, _jumpedFromGround;
+    private string _lastBase = "idle";
+    private float _lastAbsVx;
 
     // Timers / state
     private float _coyote, _jumpBuffer, _invuln, _iframes, _swingCd, _swingT = -1, _swingSinceLast = 9, _drownTick;
     private float[] _throwCd = new float[1];
     private float[] _dodgeCd = new float[1];
-    private float _dodgeT, _airDashT, _wallJumpLock, _landSquash, _runPhase, _hurtFlash, _bubbleT, _animT;
+    private float _dodgeT, _airDashT, _wallJumpLock, _hurtFlash, _bubbleT, _animT;
     private Vector2 _dodgeDir, _airDashDir, _swingDir;
     private int _comboStep, _airJumps, _airDashes;
     private bool _jumpCutDone, _wasOnFloor, _comboResetPending, _swingHitSomething;
@@ -71,6 +77,8 @@ public partial class Player : CharacterBody2D
         SafeMargin = 0.5f;
         AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 6.5f, Height = 26f } });
         ZIndex = 1;
+        Anim = SpriteAnimator.Create("player");
+        AddChild(Anim);
         Hp = Stats.MaxHp;
         Breath = Stats.BreathMax;
     }
@@ -122,7 +130,7 @@ public partial class Player : CharacterBody2D
     {
         float dt = (float)delta;
         _animT += dt;
-        if (Dead) { Velocity = new Vector2(0, Math.Min(Velocity.Y + Gravity * dt, MaxFall)); MoveAndSlide(); QueueRedraw(); return; }
+        if (Dead) { Velocity = new Vector2(0, Math.Min(Velocity.Y + Gravity * dt, MaxFall)); MoveAndSlide(); Anim.Rotation = 0; QueueRedraw(); return; }
         var cave = G.Cave;
         var inp = ReadInput();
 
@@ -143,6 +151,8 @@ public partial class Player : CharacterBody2D
 
         var v = Velocity;
         bool onFloor = IsOnFloor();
+        _wallSliding = false;
+        _jumpedFromGround = false;
         bool surfaceFloat = !onFloor && !InWater && GlobalPosition.Y > cave.WaterY - 10 && cave.IsWater(GlobalPosition + new Vector2(0, 14));
         if (onFloor || surfaceFloat) { _coyote = 0.1f; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
         if (inp.Jump) _jumpBuffer = 0.13f;
@@ -152,13 +162,13 @@ public partial class Player : CharacterBody2D
         if (_dodgeT > 0)
         {
             v = _dodgeDir * DodgeSpeed;
-            if (G.Chance(0.6f)) G.Fx.Ghost(GlobalPosition, Facing);
+            if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.45f, 0.8f, 1f), 0.2f);
             if (_dodgeT - dt <= 0) v *= 0.45f;
         }
         else if (_airDashT > 0)
         {
             v = _airDashDir * 540f;
-            if (G.Chance(0.7f)) G.Fx.Ghost(GlobalPosition, Facing);
+            if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.55f, 0.9f, 1f), 0.2f);
             if (_airDashT - dt <= 0) v *= 0.5f;
         }
         else if (InWater) v = Swim(inp, v, dt, cave);
@@ -175,7 +185,7 @@ public partial class Player : CharacterBody2D
         {
             G.Sfx.Play("land", GlobalPosition, -6);
             G.Fx.Burst(GlobalPosition + new Vector2(0, 13), new Color(0.6f, 0.55f, 0.5f, 0.7f), 6, 60, 2f, 0.35f, 50);
-            _landSquash = 0.12f;
+            Anim.Once("land", 1);
         }
         _wasOnFloor = nowFloor;
 
@@ -184,8 +194,56 @@ public partial class Player : CharacterBody2D
         if (inp.Throw && _dodgeT <= 0) TryThrow(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
         if (_swingT >= 0) UpdateSwing(dt);
 
-        if (Math.Abs(Velocity.X) > 20 && nowFloor) _runPhase += dt * Math.Abs(Velocity.X) * 0.075f;
+        UpdateAnimation(nowFloor);
         QueueRedraw();
+    }
+
+    /// <summary>Chooses the looping clip for the current movement state and triggers transitions.</summary>
+    private void UpdateAnimation(bool onFloor)
+    {
+        var vel = Velocity;
+        float avx = Math.Abs(vel.X);
+        string clip;
+        float speed = 1f;
+        float rot = 0f;
+        if (InWater && _dodgeT <= 0)
+        {
+            if (vel.Length() > 40)
+            {
+                clip = "swim";
+                speed = Math.Clamp(vel.Length() / 130f, 0.6f, 1.6f);
+                float ang = MathF.Atan2(vel.Y, Math.Max(avx, 1f));
+                rot = Mathf.Clamp(ang, -0.9f, 0.9f) * Facing;
+            }
+            else clip = "swim_idle";
+        }
+        else if (_wallSliding) clip = "wall_slide";
+        else if (!onFloor)
+        {
+            if (_jumpedFromGround) Anim.Once("jump_start", 1);
+            clip = vel.Y < -130 ? "jump_rise" : vel.Y < 140 ? "jump_apex" : "fall";
+        }
+        else if (avx > 25)
+        {
+            clip = "run";
+            speed = Math.Clamp(avx / (RunSpeed * 0.95f), 0.5f, 1.5f);
+            if (_lastBase == "idle") Anim.Once("run_start", 1);
+        }
+        else
+        {
+            clip = "idle";
+            if (_lastBase == "run" && _lastAbsVx > 140) Anim.Once("run_stop", 1);
+        }
+        _lastBase = clip;
+        _lastAbsVx = avx;
+        Anim.Loop(clip, speed);
+        Anim.Face((int)Facing);
+        // Ease the sprite's tilt toward the swim direction.
+        Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, rot, 0.25f);
+
+        // i-frame shimmer and post-hit blink
+        float a = _invuln > 0 && (int)(_animT * 20) % 2 == 0 ? 0.35f : 1f;
+        Anim.Modulate = _iframes > 0 ? new Color(0.75f, 0.95f, 1f, a) : new Color(1, 1, 1, a);
     }
 
     private float _stuckInRock;
@@ -211,7 +269,7 @@ public partial class Player : CharacterBody2D
     private void TickTimers(float dt)
     {
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
-        _wallJumpLock -= dt; _landSquash -= dt; _hurtFlash -= dt;
+        _wallJumpLock -= dt; _hurtFlash -= dt;
         for (int k = 0; k < _throwCd.Length; k++) if (_throwCd[k] > 0) _throwCd[k] -= dt;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] > 0) _dodgeCd[k] -= dt;
     }
@@ -252,6 +310,8 @@ public partial class Player : CharacterBody2D
         if (Stats.WallJump && onWall && v.Y > 0 && Math.Sign(inp.Move.X) == wallSide)
         {
             v.Y = Math.Min(v.Y, 110f);
+            _wallSliding = true;
+            Facing = wallSide;
             if (G.Chance(0.2f)) G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 6), new Color(0.6f, 0.55f, 0.5f, 0.6f), 1, 20, 1.5f, 0.3f, 30);
         }
 
@@ -260,19 +320,24 @@ public partial class Player : CharacterBody2D
             if (_coyote > 0)
             {
                 v.Y = -jumpV; _coyote = 0; _jumpBuffer = 0; _jumpCutDone = false;
+                _jumpedFromGround = true;
                 G.Sfx.Play("jump", GlobalPosition, -8);
+                G.Fx.Burst(GlobalPosition + new Vector2(0, 13), new Color(0.6f, 0.55f, 0.5f, 0.6f), 5, 50, 1.8f, 0.3f, 40);
             }
             else if (Stats.WallJump && onWall)
             {
                 v = new Vector2(-wallSide * 250f, -jumpV * 0.92f);
                 Facing = -wallSide; _wallJumpLock = 0.16f; _jumpBuffer = 0; _jumpCutDone = false;
                 G.Sfx.Play("jump", GlobalPosition, -6, 0.05f, 1.2f);
+                Anim.Face((int)Facing, instant: true);
+                Anim.Once("jump_start", 2);
                 G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 0), new Color(0.7f, 0.65f, 0.6f, 0.8f), 6, 80, 2f, 0.3f, 100);
             }
             else if (Stats.DoubleJump && _airJumps > 0)
             {
                 _airJumps--; v.Y = -jumpV * 0.9f; _jumpBuffer = 0; _jumpCutDone = false;
                 G.Sfx.Play("jump", GlobalPosition, -5, 0.05f, 1.4f);
+                Anim.Once("dodge", 2, 1.6f);
                 G.Fx.Ring(GlobalPosition + new Vector2(0, 12), 10, new Color(0.7f, 0.9f, 1f, 0.8f));
             }
             else if (Stats.AirDash && _airDashes > 0)
@@ -282,6 +347,8 @@ public partial class Player : CharacterBody2D
                 _airDashDir = d; _airDashT = 0.16f;
                 if (d.X != 0) Facing = Math.Sign(d.X);
                 G.Sfx.Play("airdash", GlobalPosition, -4);
+                Anim.Face((int)Facing, instant: true);
+                Anim.Once("airdash", 3);
                 G.Fx.Ring(GlobalPosition, 12, new Color(0.6f, 0.9f, 1f, 0.8f));
             }
         }
@@ -330,6 +397,9 @@ public partial class Player : CharacterBody2D
         if (InWater) d = inp.Move.LengthSquared() > 0.04f ? inp.Move.Normalized() : new Vector2(Facing, 0);
         else d = new Vector2(Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing, 0);
         _dodgeDir = d; _dodgeT = DodgeTime;
+        if (Math.Abs(d.X) > 0.2f) Facing = Math.Sign(d.X);
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("dodge", 3, 6f / (DodgeTime * 24f));
         if (Stats.DodgeIFrames) _iframes = DodgeTime + 0.12f;
         G.Sfx.Play("dodge", GlobalPosition, -3);
     }
@@ -351,6 +421,13 @@ public partial class Player : CharacterBody2D
         _swingHits.Clear();
         _swingHitSomething = false;
         _comboResetPending = Stats.Combo && _comboStep < maxSteps - 1;
+        // body animation: combo letter + the nearest of five aim directions in front of the player
+        var local = new Vector2(aim.X * Facing, aim.Y);
+        float la = MathF.Atan2(local.Y, Math.Max(local.X, -0.2f));
+        string dir = la < -1.18f ? "up" : la < -0.39f ? "upfwd" : la < 0.39f ? "fwd" : la < 1.18f ? "downfwd" : "down";
+        string letter = finisher ? "c" : _comboStep % 2 == 0 ? "a" : "b";
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once($"slash_{letter}_{dir}", 3, Math.Max(1f, Stats.AttackSpeed) * (finisher ? 1f : 1.05f));
         G.Sfx.Play(finisher ? "swing_heavy" : "swing", GlobalPosition, -2, 0.12f, 1f + _comboStep * 0.08f);
     }
 
@@ -388,14 +465,27 @@ public partial class Player : CharacterBody2D
         float kb = Stats.KnockbackLevel switch { 0 => 40f, 1 => 260f, 2 => 380f, _ => 480f };
         bool finisher = Stats.ThirdCombo && _comboStep == 2;
         if (finisher) kb += 120;
-        float dealt = e.Hurt(_swingDmg * G.Range(0.9f, 1.1f), dir * kb, e.GlobalPosition - to.Normalized() * e.HitRadius);
-        if (dealt <= 0) { G.Sfx.Play("clink", GlobalPosition, -6); return; }
+        var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
+        float dealt = e.Hurt(_swingDmg * G.Range(0.9f, 1.1f), dir * kb, hitPos);
+        if (dealt <= 0)
+        {
+            G.Sfx.Play("clink", GlobalPosition, -6);
+            G.Fx.Spark(hitPos, -dir, false, new Color(1f, 0.9f, 0.6f));
+            return;
+        }
         OnDealtDamage(dealt);
+        bool killed = e.Dead;
+        // impact: sparks, freeze-frame, a camera nudge in the direction of the blow, rumble
+        G.Fx.Spark(hitPos, dir, finisher || killed, finisher ? new Color(1f, 0.85f, 0.4f) : Colors.White);
+        G.Main.Kick(dir * (finisher ? 6f : killed ? 4f : 2.5f));
+        G.Main.Rumble(finisher ? 0.6f : 0.35f, finisher ? 0.7f : 0.15f, finisher ? 0.16f : 0.08f);
+        if (finisher || killed) G.Fx.AddShake(finisher ? 5 : 3);
+        if (finisher && G.Chance(1f)) Afterimage.Spawn(Anim, new Color(1f, 0.85f, 0.4f), 0.18f);
         if (!_swingHitSomething)
         {
             _swingHitSomething = true;
             if (_comboResetPending) { _swingCd = 0.04f; _comboResetPending = false; }
-            G.Main.HitStop(finisher ? 0.07f : 0.035f);
+            G.Main.HitStop(finisher ? 0.11f : killed ? 0.08f : 0.055f);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
             {
@@ -425,6 +515,9 @@ public partial class Player : CharacterBody2D
         _throwCd[idx] = Stats.ThrowCooldown;
         aim = aim.Normalized();
         if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("throw", 3, 1.4f);
+        G.Main.Rumble(0.2f, 0f, 0.08f);
         var d = new ThrownDagger
         {
             Dir = aim,
@@ -444,6 +537,14 @@ public partial class Player : CharacterBody2D
         TakeRawDamage(dmg, "hit");
         _invuln = 0.85f;
         var away = (GlobalPosition - from).Normalized();
+        // turn to face what hit you, then recoil
+        if (Math.Abs(from.X - GlobalPosition.X) > 2) Facing = Math.Sign(from.X - GlobalPosition.X);
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("hurt", 4);
+        Anim.Flash(1f);
+        G.Main.HitStop(0.06f);
+        G.Main.Kick(away * 6f);
+        G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
         Velocity = new Vector2(Math.Sign(away.X == 0 ? -Facing : away.X) * knock, InWater ? away.Y * knock : -170f);
         _dodgeT = 0; _airDashT = 0;
@@ -464,6 +565,9 @@ public partial class Player : CharacterBody2D
     {
         if (Dead) return;
         Dead = true; Hp = 0;
+        Anim.Once("death", 99);
+        Anim.Modulate = Colors.White;
+        G.Main.Rumble(1f, 1f, 0.6f);
         G.Sfx.Play("player_die", GlobalPosition);
         G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.1f, 0.1f), 30, 200, 3f, 0.9f);
         G.Main.OnPlayerDied();
@@ -471,118 +575,53 @@ public partial class Player : CharacterBody2D
 
     // ---------------------------------------------------------------- drawing
 
-    private static readonly Color Cloak = new(0.16f, 0.36f, 0.42f);
-    private static readonly Color CloakDark = new(0.09f, 0.21f, 0.26f);
-    private static readonly Color Skin = new(0.93f, 0.78f, 0.62f);
-    private static readonly Color Scarf = new(0.78f, 0.2f, 0.18f);
-    private static readonly Color Steel = new(0.85f, 0.9f, 0.95f);
-
+    /// <summary>
+    /// The body is a sprite (see <see cref="Anim"/>); this draws the blade smear on top: a
+    /// crescent that sweeps with the swing, brightest at its leading edge, fading behind it.
+    /// </summary>
     public override void _Draw()
     {
-        if (Dead) { DrawCircle(new Vector2(0, 8), 5, CloakDark); return; }
-        bool flicker = _invuln > 0 && (int)(_animT * 20) % 2 == 0;
-        float alpha = flicker ? 0.35f : 1f;
-        var tint = _hurtFlash > 0 ? new Color(1, 0.5f, 0.5f) : Colors.White;
-        if (_iframes > 0) tint = new Color(0.7f, 0.95f, 1f);
-        Color C(Color c) => new(c.R * tint.R, c.G * tint.G, c.B * tint.B, alpha);
-
-        var vel = Velocity;
-        bool swimming = InWater && _dodgeT <= 0;
-        float rot = 0;
-        if (swimming && vel.Length() > 30) rot = Mathf.Clamp(Mathf.Wrap(Facing > 0 ? vel.Angle() : vel.Angle() - Mathf.Pi, -Mathf.Pi, Mathf.Pi), -1.2f, 1.2f) * 0.8f;
-        if (_dodgeT > 0 && !InWater) rot = (1 - _dodgeT / DodgeTime) * Mathf.Tau * Facing;
-        float squash = _landSquash > 0 ? 1 + _landSquash * 1.5f : 1;
-        DrawSetTransform(Vector2.Zero, rot, new Vector2(Facing * squash, 1 / squash));
-
-        bool grounded = IsOnFloor();
-        float run = MathF.Sin(_runPhase);
-        float run2 = MathF.Cos(_runPhase);
-        // scarf
-        float sway = MathF.Sin(_animT * 7) * 2f;
-        var sb = new Vector2(-2, -8);
-        float trail = Math.Clamp(Math.Abs(vel.X) / 180f, 0.2f, 1.2f);
-        DrawPolyline(new[] { sb, sb + new Vector2(-6 * trail, 2 + sway * 0.5f), sb + new Vector2(-11 * trail, 1 + sway), sb + new Vector2(-15 * trail, 3 + sway * 1.5f) }, C(Scarf), 2.5f);
-
-        // legs
-        Vector2 hip = new(0, 5);
-        Vector2 f1, f2;
-        if (swimming) { float k = MathF.Sin(_animT * 10); f1 = new Vector2(-5 + k * 2, 12); f2 = new Vector2(-5 - k * 2, 11); }
-        else if (!grounded) { f1 = new Vector2(3, 10); f2 = new Vector2(-3, 12); }
-        else if (Math.Abs(vel.X) > 20) { f1 = new Vector2(run * 5, 13 - Math.Max(0, run2) * 3); f2 = new Vector2(-run * 5, 13 - Math.Max(0, -run2) * 3); }
-        else { f1 = new Vector2(2.5f, 13); f2 = new Vector2(-2.5f, 13); }
-        DrawLine(hip, f2, C(CloakDark), 3f);
-        DrawLine(hip, f1, C(CloakDark), 3f);
-
-        // body / cloak
-        float flare = Math.Clamp(-vel.X * Facing / 200f, -0.5f, 1f) * 3 + MathF.Sin(_animT * 5) * 0.8f;
-        DrawColoredPolygon(new[] { new Vector2(-4, -6), new Vector2(4, -6), new Vector2(5, 6), new Vector2(-6 - flare, 8) }, C(Cloak));
-        DrawLine(new Vector2(-4, 1), new Vector2(4.5f, 1), C(new Color(0.45f, 0.3f, 0.18f)), 1.5f); // belt
-
-        // head + hood
-        var head = new Vector2(0.5f, -10.5f);
-        DrawCircle(head, 5.5f, C(Cloak));
-        DrawCircle(head + new Vector2(1.5f, 0.8f), 3.6f, C(Skin));
-        DrawColoredPolygon(new[] { head + new Vector2(-5.5f, 0), head + new Vector2(-2, -6), head + new Vector2(-9, -3) }, C(CloakDark));
-        DrawCircle(head + new Vector2(3, 0.2f), 0.9f, new Color(0.1f, 0.1f, 0.15f, alpha));
-
-        // arm + dagger
-        bool inHand = DaggerInHand;
-        var shoulder = new Vector2(1, -3);
-        if (_swingT >= 0 && _swingT < 0.2f)
+        if (Dead || _swingT < 0 || _swingT > 0.26f) return;
+        bool finisher = Stats.ThirdCombo && _comboStep == 2;
+        float prog = Math.Clamp(_swingT / SwingActive, 0, 1);
+        prog = 1 - (1 - prog) * (1 - prog) * (1 - prog);
+        float fade = 1 - Math.Clamp((_swingT - SwingActive) / 0.15f, 0, 1);
+        float dirSign = _comboStep % 2 == 0 ? 1 : -1;
+        float baseA = _swingDir.Angle();
+        float a0 = baseA - dirSign * _swingArc * 0.5f;
+        float head = a0 + dirSign * _swingArc * prog;
+        // the tail catches up with the head as the swing fades out
+        float tail = a0 + dirSign * _swingArc * Math.Max(0, prog - 0.85f + (1 - fade) * 0.85f);
+        if (Math.Abs(head - tail) < 0.02f) return;
+        var o = new Vector2(0, -3);
+        const int n = 18;
+        float outer = _swingReach + 3, width = finisher ? 15 : 11;
+        var pts = new Vector2[n * 2];
+        var cols = new Color[n * 2];
+        var edge = new Vector2[n];
+        var edgeCols = new Color[n];
+        var tint = finisher ? new Color(1f, 0.82f, 0.35f) : new Color(0.8f, 0.95f, 1f);
+        for (int k = 0; k < n; k++)
         {
-            float prog = Math.Clamp(_swingT / SwingActive, 0, 1);
-            float dirSign = _comboStep % 2 == 0 ? 1 : -1;
-            // world-space blade angle, converted into the flipped/rotated local space
-            float wa = _swingDir.Angle() + dirSign * _swingArc * (prog - 0.5f);
-            var lv = Vector2.Right.Rotated(wa).Rotated(-rot);
-            lv.X *= Facing;
-            float a = lv.Angle();
-            var hand = shoulder + Vector2.Right.Rotated(a) * 7;
-            DrawLine(shoulder, hand, C(Skin), 2.5f);
-            DrawDagger(hand, a, alpha);
+            float t = k / (float)(n - 1);            // 0 = tail, 1 = head
+            float ang = Mathf.Lerp(tail, head, t);
+            float w = width * MathF.Sin(t * MathF.PI * 0.5f + 0.15f);
+            var d = Vector2.Right.Rotated(ang);
+            pts[k] = o + d * outer;
+            pts[2 * n - 1 - k] = o + d * (outer - w);
+            float alpha = t * t * fade;
+            cols[k] = new Color(tint, 0.85f * alpha);
+            cols[2 * n - 1 - k] = new Color(tint, 0.0f);
+            edge[k] = o + d * (outer + 0.5f);
+            edgeCols[k] = new Color(1, 1, 1, alpha);
         }
-        else
+        DrawPolygon(pts, cols);
+        DrawPolylineColors(edge, edgeCols, finisher ? 2.5f : 1.8f);
+        if (finisher)
         {
-            float bob = grounded && Math.Abs(vel.X) > 20 ? run * 2 : 0;
-            var hand = shoulder + new Vector2(4 + bob * 0.5f, 5);
-            DrawLine(shoulder, hand, C(Skin), 2.5f);
-            if (inHand) DrawDagger(hand, Mathf.DegToRad(swimming ? 10 : 60 + bob * 5), alpha);
+            // an echo arc slightly inside the main one
+            for (int k = 0; k < n; k++) edge[k] = o + (edge[k] - o) * 0.72f;
+            DrawPolylineColors(edge, edgeCols, 1.2f);
         }
-        DrawSetTransform(Vector2.Zero, 0, Vector2.One);
-
-        // slash arc (world orientation)
-        if (_swingT >= 0 && _swingT < 0.2f)
-        {
-            float prog = Math.Clamp(_swingT / SwingActive, 0, 1);
-            float fade = 1 - Math.Clamp((_swingT - SwingActive) / 0.09f, 0, 1);
-            bool finisher = Stats.ThirdCombo && _comboStep == 2;
-            float dirSign = _comboStep % 2 == 0 ? 1 : -1;
-            float baseA = _swingDir.Angle();
-            float a0 = baseA - dirSign * _swingArc * 0.5f;
-            float a1 = baseA - dirSign * _swingArc * 0.5f + dirSign * _swingArc * prog;
-            int n = 14;
-            var pts = new Vector2[n * 2];
-            var o = new Vector2(0, -3);
-            for (int k = 0; k < n; k++)
-            {
-                float t = k / (float)(n - 1);
-                float ang = Mathf.Lerp(a0, a1, t);
-                float thick = MathF.Sin(t * MathF.PI * 0.5f + 0.2f);
-                pts[k] = o + Vector2.Right.Rotated(ang) * (_swingReach + 2);
-                pts[2 * n - 1 - k] = o + Vector2.Right.Rotated(ang) * (_swingReach + 2 - 11 * thick);
-            }
-            var col = finisher ? new Color(1f, 0.85f, 0.4f, 0.75f * fade) : new Color(0.85f, 0.97f, 1f, 0.6f * fade);
-            if (Math.Abs(a1 - a0) > 0.05f) DrawColoredPolygon(pts, col);
-        }
-    }
-
-    private void DrawDagger(Vector2 hand, float angle, float alpha)
-    {
-        var d = Vector2.Right.Rotated(angle);
-        var perp = new Vector2(-d.Y, d.X);
-        float len = 9f * Stats.DaggerReach;
-        DrawLine(hand - d * 2, hand + d * 1, new Color(0.35f, 0.22f, 0.12f, alpha), 2.5f);
-        DrawLine(hand + d + perp * 2.5f, hand + d - perp * 2.5f, new Color(0.7f, 0.6f, 0.3f, alpha), 1.5f);
-        DrawColoredPolygon(new[] { hand + d * 1.5f + perp * 1.3f, hand + d * (1.5f + len), hand + d * 1.5f - perp * 1.3f }, new Color(Steel, alpha));
     }
 }

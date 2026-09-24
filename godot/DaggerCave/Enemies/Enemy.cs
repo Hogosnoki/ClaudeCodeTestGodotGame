@@ -24,6 +24,7 @@ public abstract partial class Enemy : CharacterBody2D
     public Action<Enemy> OnDeath;
 
     protected float T, HurtFlash, Stun;
+    protected SpriteAnimator Anim;
     protected Vector2 KnockVel;
     protected float Face = 1;
     protected bool Awake;
@@ -59,6 +60,17 @@ public abstract partial class Enemy : CharacterBody2D
     public override void _ExitTree() => G.Enemies.Remove(this);
 
     protected virtual void Setup() { }
+
+    /// <summary>Attaches this creature's sprite sheet (call from Setup).</summary>
+    protected void UseSprite(string set)
+    {
+        Anim = SpriteAnimator.Create(set, Size);
+        Anim.Facing = (int)Face;
+        AddChild(Anim);
+    }
+
+    /// <summary>Picks clips for the current state; runs after Think every physics frame.</summary>
+    protected virtual void Animate() { }
 
     /// <summary>Turns this enemy into a mini-boss. Call before adding to the tree.</summary>
     public virtual void MakeElite()
@@ -99,6 +111,11 @@ public abstract partial class Enemy : CharacterBody2D
             Think(dt);
             if (!ManualMove) MoveAndSlide();
         }
+        if (Anim != null)
+        {
+            Animate();
+            Anim.Face((int)Face);
+        }
 
         if (ContactActive && ContactDamage > 0 && !p.Dead && dist < HitRadius + 7)
             p.Hurt(ContactDamage, GlobalPosition);
@@ -119,6 +136,16 @@ public abstract partial class Enemy : CharacterBody2D
         Awake = true;
         Hp -= dmg;
         HurtFlash = 0.12f;
+        if (Anim != null)
+        {
+            Anim.Flash(1f);
+            if (Hp > 0) Anim.Once("hurt", 4);
+            // squash-and-stretch punch away from the blow
+            var baseScale = Vector2.One;
+            Anim.Scale = new Vector2(1.25f, 0.8f);
+            var tw = Anim.CreateTween();
+            tw.TweenProperty(Anim, "scale", baseScale, 0.18f).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        }
         var k = knock * (1f - KnockResist);
         if (k.Length() > 60 && !ManualMove) { Stun = 0.2f; KnockVel = k; }
         bool big = dmg >= 15;
@@ -131,6 +158,7 @@ public abstract partial class Enemy : CharacterBody2D
     }
 
     protected virtual void OnHurt() { }
+    protected virtual Vector2 DeathDrift => Vector2.Zero;
     protected virtual Color BloodColor => new(0.75f, 0.1f, 0.12f);
 
     protected virtual void Die()
@@ -146,7 +174,10 @@ public abstract partial class Enemy : CharacterBody2D
             G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
         if (G.Chance(Elite ? 1f : 0.06f)) G.Spawn(new HeartPickup { Position = GlobalPosition });
         P?.OnKill();
+        if (Elite && !IsBoss) G.Main.SlowMo(0.45f, 0.25f);
+        if (IsBoss) G.Main.SlowMo(1.3f, 0.15f);
         OnDeath?.Invoke(this);
+        Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
         QueueFree();
     }
 

@@ -26,6 +26,7 @@ public partial class CavernColossus : Enemy
     {
         DisplayName = "Cavern Colossus";
         Awake = true;
+        UseSprite("colossus");
     }
 
     protected override Color BloodColor => new(0.65f, 0.6f, 0.55f);
@@ -182,52 +183,32 @@ public partial class CavernColossus : Enemy
         }
     }
 
+    protected override void Animate()
+    {
+        switch (_s)
+        {
+            case S.Intro: Anim.Loop(IsOnFloor() ? "idle" : "leap"); break;
+            case S.Walk: Anim.Loop("walk", 1.2f * Speed); break;
+            case S.LeapCrouch: Anim.Loop("crouch", 8f / (0.55f / Speed * 24f)); break;
+            case S.Leap: Anim.Loop("leap"); break;
+            case S.Land: Anim.Loop("land", 8f / (0.7f / Speed * 24f)); break;
+            case S.Roar: Anim.Loop("roar", 20f / (0.9f * 24f)); break;
+            case S.ChargeWindup: Anim.Loop("charge_windup", 10f / (0.65f / Speed * 24f)); break;
+            case S.Charge: Anim.Loop("charge", 1.4f); break;
+            case S.Stunned: Anim.Loop("stunned"); break;
+        }
+        // the one-shot clips above are driven as "loops" of non-looping clips: restart them on state entry
+        if (_s != _animState) { _animState = _s; Anim.Sprite.Frame = 0; Anim.Sprite.Play(); }
+        Anim.AllowTurns = _s == S.Walk;
+        Anim.Modulate = _phase2 ? new Color(1f, 0.78f, 0.7f) : Colors.White;
+    }
+
+    private S _animState = S.Intro;
+
     public override void _Draw()
     {
-        var plate = Tint(new Color(0.42f, 0.38f, 0.36f));
-        var dark = Tint(new Color(0.24f, 0.21f, 0.22f));
         var core = _phase2 ? new Color(1f, 0.35f, 0.15f) : new Color(0.4f, 0.9f, 1f);
         float pulse = 0.6f + 0.4f * MathF.Sin(T * (_phase2 ? 9 : 4));
-        float crouch = _s == S.LeapCrouch ? Math.Min(1, _t * 3) * 6 : 0;
-        float headDown = _s is S.ChargeWindup or S.Charge ? 1 : 0;
-        float stunWobble = _s == S.Stunned ? MathF.Sin(T * 10) * 0.08f : 0;
-        float walk = _s == S.Walk || _s == S.Charge ? MathF.Sin(T * (_s == S.Charge ? 20 : 7)) : 0;
-
-        DrawCircle(new Vector2(0, 0), 50, new Color(core, 0.06f * pulse));
-        Begin(stunWobble);
-        // legs
-        for (int k = 0; k < 3; k++)
-        {
-            float x = -18 + k * 16;
-            float lift = (k % 2 == 0 ? walk : -walk) * 4;
-            DrawLine(new Vector2(x, 10 + crouch), new Vector2(x - 8, 30 - Math.Max(0, lift)), dark, 6);
-        }
-        // body
-        var bodyPts = new[]
-        {
-            new Vector2(-34, 14 + crouch), new Vector2(-30, -10 + crouch), new Vector2(-14, -26 + crouch + headDown * 6),
-            new Vector2(10, -28 + crouch + headDown * 8), new Vector2(30, -12 + crouch + headDown * 10), new Vector2(34, 14 + crouch),
-        };
-        DrawColoredPolygon(bodyPts, plate);
-        DrawPolyline(new[] { bodyPts[0], bodyPts[1], bodyPts[2], bodyPts[3], bodyPts[4], bodyPts[5] }, dark, 2);
-        DrawLine(new Vector2(-20, -18 + crouch), new Vector2(-8, 8 + crouch), dark, 2);
-        DrawLine(new Vector2(6, -22 + crouch), new Vector2(14, 6 + crouch), dark, 2);
-        // core
-        DrawCircle(new Vector2(-2, 0 + crouch), 8, new Color(core, 0.35f));
-        DrawCircle(new Vector2(-2, 0 + crouch), 5 * pulse + 1, core);
-        // head
-        var head = new Vector2(30, -8 + crouch + headDown * 14);
-        DrawColoredPolygon(new[] { head + new Vector2(-8, -10), head + new Vector2(12, -6), head + new Vector2(14, 6), head + new Vector2(-6, 8) }, plate);
-        DrawRect(new Rect2(head + new Vector2(4, -4), new Vector2(6, 3)), _s == S.Stunned ? new Color(1, 1, 0.4f) : core);
-        // horns
-        DrawColoredPolygon(new[] { head + new Vector2(-4, -9), head + new Vector2(6, -22), head + new Vector2(4, -8) }, dark);
-        // claws
-        float clawA = _s == S.Roar ? -1.2f : _s == S.LeapCrouch ? 0.8f : 0.3f + walk * 0.1f;
-        var sh = new Vector2(20, 2 + crouch);
-        var claw = sh + Vector2.Right.Rotated(clawA) * 20;
-        DrawLine(sh, claw, dark, 7);
-        DrawColoredPolygon(new[] { claw + new Vector2(-4, -6), claw + new Vector2(12, -4), claw + new Vector2(2, 2) }, plate);
-        DrawColoredPolygon(new[] { claw + new Vector2(-4, 6), claw + new Vector2(12, 6), claw + new Vector2(2, 0) }, plate);
-        End();
+        DrawCircle(Vector2.Zero, 60, new Color(core, 0.05f * pulse));
     }
 }

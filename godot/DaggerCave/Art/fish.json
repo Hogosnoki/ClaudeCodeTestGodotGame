@@ -1,0 +1,165 @@
+{
+ "frame_w": 72,
+ "frame_h": 52,
+ "columns": 56,
+ "scale": 2.0,
+ "origin": [
+  38.0,
+  26.0
+ ],
+ "fps": 24,
+ "animations": {
+  "swim_r": {
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ],
+   "loop": true
+  },
+  "swim_l": {
+   "frames": [
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15
+   ],
+   "loop": true
+  },
+  "dart_r": {
+   "frames": [
+    16,
+    17,
+    18,
+    19
+   ],
+   "loop": true
+  },
+  "dart_l": {
+   "frames": [
+    20,
+    21,
+    22,
+    23
+   ],
+   "loop": true
+  },
+  "turn_r2l": {
+   "frames": [
+    24,
+    25,
+    26,
+    27
+   ],
+   "loop": false
+  },
+  "turn_l2r": {
+   "frames": [
+    28,
+    29,
+    30,
+    31
+   ],
+   "loop": false
+  },
+  "flop_r": {
+   "frames": [
+    32,
+    33,
+    34,
+    35,
+    36,
+    37
+   ],
+   "loop": true
+  },
+  "flop_l": {
+   "frames": [
+    38,
+    39,
+    40,
+    41,
+    42,
+    43
+   ],
+   "loop": true
+  },
+  "leap_r": {
+   "frames": [
+    44,
+    45,
+    46,
+    47
+   ],
+   "loop": true
+  },
+  "leap_l": {
+   "frames": [
+    48,
+    49,
+    50,
+    51
+   ],
+   "loop": true
+  },
+  "hurt_r": {
+   "frames": [
+    52,
+    53,
+    54,
+    55,
+    56
+   ],
+   "loop": false
+  },
+  "hurt_l": {
+   "frames": [
+    57,
+    58,
+    59,
+    60,
+    61
+   ],
+   "loop": false
+  },
+  "death_r": {
+   "frames": [
+    62,
+    63,
+    64,
+    65,
+    66,
+    67,
+    68,
+    69,
+    70,
+    71
+   ],
+   "loop": false
+  },
+  "death_l": {
+   "frames": [
+    72,
+    73,
+    74,
+    75,
+    76,
+    77,
+    78,
+    79,
+    80,
+    81
+   ],
+   "loop": false
+  }
+ }
+}

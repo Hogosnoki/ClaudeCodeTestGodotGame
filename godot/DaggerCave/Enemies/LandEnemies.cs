@@ -16,6 +16,7 @@ public partial class Bat : Enemy
         DisplayName = "Bat";
         _wob = G.Range(0, 10);
         MotionMode = MotionModeEnum.Floating;
+        UseSprite("bat");
     }
 
     public Bat() { MaxHp = 12; BodyRadius = 7; ContactDamage = 7; XpValue = 3; }
@@ -29,7 +30,7 @@ public partial class Bat : Enemy
             case 0:
                 Velocity = Vector2.Zero;
                 ContactActive = false;
-                if (DistP < 240 && SeesP || HurtFlash > 0) { _state = 1; _stateT = 0; G.Sfx.Play("bat", GlobalPosition, -4); ContactActive = true; }
+                if (DistP < 240 && SeesP || HurtFlash > 0) { _state = 1; _stateT = 0; G.Sfx.Play("bat", GlobalPosition, -4); ContactActive = true; Anim.Once("wake", 3); }
                 return;
             case 1:
             {
@@ -53,35 +54,13 @@ public partial class Bat : Enemy
         if (Velocity.X != 0) Face = Math.Sign(Velocity.X);
     }
 
-    public override void _Draw()
+    protected override void Animate()
     {
-        var body = Tint(new Color(0.28f, 0.2f, 0.32f));
-        var wing = Tint(new Color(0.2f, 0.14f, 0.25f));
-        if (_state == 0)
-        {
-            Begin(0, 1, 1);
-            DrawColoredPolygon(new[] { new Vector2(-5, -6), new Vector2(5, -6), new Vector2(4, 5), new Vector2(0, 8), new Vector2(-4, 5) }, wing);
-            DrawCircle(new Vector2(0, 4), 3, body);
-            DrawLine(new Vector2(-2, -6), new Vector2(-2, -9), body, 1.5f);
-            DrawLine(new Vector2(2, -6), new Vector2(2, -9), body, 1.5f);
-            End();
-            return;
-        }
-        float flap = MathF.Sin(T * 22);
-        Begin();
-        var lw = new[] { new Vector2(-2, -1), new Vector2(-9, -6 - flap * 7), new Vector2(-15, -2 - flap * 9), new Vector2(-11, 2 - flap * 3), new Vector2(-6, 1) };
-        var rw = new Vector2[lw.Length];
-        for (int k = 0; k < lw.Length; k++) rw[k] = new Vector2(-lw[k].X, lw[k].Y);
-        DrawColoredPolygon(lw, wing);
-        DrawColoredPolygon(rw, wing);
-        DrawCircle(Vector2.Zero, 5, body);
-        DrawColoredPolygon(new[] { new Vector2(-4, -3), new Vector2(-3, -9), new Vector2(-1, -4) }, body);
-        DrawColoredPolygon(new[] { new Vector2(4, -3), new Vector2(3, -9), new Vector2(1, -4) }, body);
-        DrawCircle(new Vector2(2, -1), 1.2f, new Color(1f, 0.25f, 0.2f));
-        DrawCircle(new Vector2(-1, -1), 1.2f, new Color(1f, 0.25f, 0.2f));
-        End();
-        DrawHealthBar();
+        Anim.Loop(_state == 0 ? "roost" : _state == 1 && DistP < 70 ? "dive" : "fly");
+        Anim.AllowTurns = _state != 0;
     }
+
+    public override void _Draw() => DrawHealthBar();
 }
 
 /// <summary>Hops toward the player in arcs and lashes its tongue at close range. Swims too.</summary>
@@ -93,7 +72,10 @@ public partial class Frog : Enemy
 
     public Frog() { MaxHp = 20; BodyRadius = 9; ContactDamage = 6; XpValue = 4; }
 
-    protected override void Setup() { DisplayName = "Frog"; _croakT = G.Range(1, 5); }
+    private float _hopWind = -1, _hopDir;
+    private bool _wasAir;
+
+    protected override void Setup() { DisplayName = "Frog"; _croakT = G.Range(1, 5); UseSprite("frog"); }
 
     protected override void Think(float dt)
     {
@@ -109,7 +91,21 @@ public partial class Frog : Enemy
             return;
         }
         bool floor = IsOnFloor();
-        if (_croakT <= 0) { _croakT = G.Range(3, 7); if (DistP < 600) G.Sfx.Play("frog", GlobalPosition, -8); }
+        if (_croakT <= 0) { _croakT = G.Range(3, 7); if (DistP < 600) G.Sfx.Play("frog", GlobalPosition, -8); Anim.Once("croak", 1); }
+        if (_hopWind >= 0)
+        {
+            // crouch first, then spring
+            _hopWind -= dt;
+            v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
+            if (_hopWind < 0)
+            {
+                v = new Vector2(_hopDir * G.Range(140, 200), -G.Range(330, 400));
+                G.Sfx.Play("jump", GlobalPosition, -14, 0.1f, 0.7f);
+            }
+            Velocity = v;
+            ApplyGravity(dt);
+            return;
+        }
 
         if (_tongueT >= 0)
         {
@@ -130,13 +126,14 @@ public partial class Frog : Enemy
                 {
                     _tongueT = 0; _tongueCd = 2.2f; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
                     G.Sfx.Play("tongue", GlobalPosition, -4);
+                    Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
                 }
                 else if (_hopCd <= 0)
                 {
                     _hopCd = G.Range(1.0f, 1.6f);
-                    float dir = Math.Sign(ToP.X);
-                    v = new Vector2(dir * G.Range(140, 200), -G.Range(330, 400));
-                    G.Sfx.Play("jump", GlobalPosition, -14, 0.1f, 0.7f);
+                    _hopDir = Math.Sign(ToP.X);
+                    _hopWind = 4f / 24f;
+                    Anim.Once("crouch", 2);
                 }
             }
         }
@@ -150,38 +147,24 @@ public partial class Frog : Enemy
         return (t < 0.4f ? t / 0.4f : 1 - (t - 0.4f) / 0.6f) * TongueLen * Size;
     }
 
+    protected override void Animate()
+    {
+        bool air = !IsOnFloor() && !InWater;
+        if (_wasAir && !air && !InWater) Anim.Once("land", 1);
+        _wasAir = air;
+        Anim.Loop(InWater ? "swim" : air ? (Velocity.Y < 0 ? "hop" : "fall") : "idle");
+    }
+
     public override void _Draw()
     {
-        var skin = Tint(new Color(0.32f, 0.62f, 0.28f));
-        var belly = Tint(new Color(0.75f, 0.8f, 0.45f));
         if (_tongueT >= 0)
         {
-            var tip = new Vector2(0, -2) + _tongueDir * TongueExtent();
-            DrawLine(new Vector2(0, -2), tip, new Color(0.95f, 0.45f, 0.55f), 2.5f);
+            var mouth = new Vector2(Face * 7.6f * Size, 1.8f * Size);
+            var tip = mouth + _tongueDir * TongueExtent();
+            DrawLine(mouth, tip, new Color(0.35f, 0.08f, 0.12f), 3.6f);
+            DrawLine(mouth, tip, new Color(0.95f, 0.45f, 0.55f), 2.4f);
             DrawCircle(tip, 3, new Color(0.95f, 0.45f, 0.55f));
         }
-        bool air = !IsOnFloor() && !InWater;
-        float croak = _croakT < 0.3f ? 1 : 0;
-        Begin();
-        if (air)
-        {
-            DrawLine(new Vector2(-4, 4), new Vector2(-11, 10), skin, 2.5f);
-            DrawLine(new Vector2(4, 4), new Vector2(9, 9), skin, 2.5f);
-        }
-        else
-        {
-            DrawColoredPolygon(new[] { new Vector2(-9, 7), new Vector2(-4, 1), new Vector2(-1, 7) }, skin);
-            DrawColoredPolygon(new[] { new Vector2(9, 7), new Vector2(4, 1), new Vector2(3, 7) }, skin);
-        }
-        DrawSetTransform(Vector2.Zero, 0, new Vector2(Face * Size * 1.25f, Size * 0.85f));
-        DrawCircle(Vector2.Zero, 8, skin);
-        DrawCircle(new Vector2(2, 3), 5 + croak * 2, belly);
-        Begin();
-        DrawCircle(new Vector2(3, -7), 3, skin);
-        DrawCircle(new Vector2(-2, -7), 3, skin);
-        DrawCircle(new Vector2(3.5f, -7.5f), 1.6f, new Color(0.1f, 0.1f, 0.1f));
-        DrawCircle(new Vector2(-1.5f, -7.5f), 1.6f, new Color(0.1f, 0.1f, 0.1f));
-        End();
         DrawHealthBar();
     }
 }
@@ -195,12 +178,25 @@ public partial class Goblin : Enemy
 
     public Goblin() { MaxHp = 26; BodyRadius = 9; ContactDamage = 4; XpValue = 5; }
 
-    protected override void Setup() { DisplayName = Slinger ? "Goblin Slinger" : "Goblin"; _gruntT = G.Range(2, 6); }
+    private float _throwDelay = -1;
+    private bool _wasAir;
+
+    protected override void Setup() { DisplayName = Slinger ? "Goblin Slinger" : "Goblin"; _gruntT = G.Range(2, 6); UseSprite(Slinger ? "slinger" : "goblin"); }
 
     protected override void Think(float dt)
     {
         _stateT += dt; _throwCd -= dt; _gruntT -= dt;
         var v = Velocity;
+        if (_throwDelay >= 0)
+        {
+            // the sling whirls, then lets go on the release frame
+            _throwDelay -= dt;
+            if (_throwDelay < 0) ThrowRock();
+            v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
+            Velocity = v;
+            ApplyGravity(dt);
+            return;
+        }
         if (InWater)
         {
             v = v.MoveToward(new Vector2(Math.Sign(ToP.X) * 50, -60), 300 * dt);
@@ -222,13 +218,13 @@ public partial class Goblin : Enemy
                 float d = Math.Abs(dx);
                 want = d < 130 ? -Math.Sign(dx) : d > 230 ? Math.Sign(dx) : 0;
                 Face = Math.Sign(dx) == 0 ? Face : Math.Sign(dx);
-                if (_throwCd <= 0 && DistP < 340 && SeesP) { ThrowRock(); _throwCd = Elite ? 1.2f : 2.2f; }
+                if (_throwCd <= 0 && DistP < 340 && SeesP) { _throwDelay = 0.36f; Anim.Once("throw", 3); _throwCd = Elite ? 1.4f : 2.4f; }
             }
             else
             {
                 want = Math.Abs(dx) > 8 ? Math.Sign(dx) : 0;
                 if (want != 0) Face = want;
-                if (DistP < 34 * Size && Math.Abs(ToP.Y) < 30) { _state = 1; _stateT = 0; want = 0; G.Sfx.Play("goblin", GlobalPosition, -4, 0.2f, 1.2f); }
+                if (DistP < 34 * Size && Math.Abs(ToP.Y) < 30) { _state = 1; _stateT = 0; want = 0; G.Sfx.Play("goblin", GlobalPosition, -4, 0.2f, 1.2f); Anim.Once("windup", 3, 6f / (0.38f * 24f)); }
             }
             v.X = Mathf.MoveToward(v.X, want * speed, 900 * dt);
             if (floor && (IsOnWall() || (ToP.Y < -50 && Math.Abs(dx) < 90)) && want != 0) v.Y = -390;
@@ -242,6 +238,7 @@ public partial class Goblin : Enemy
             {
                 _state = 2; _stateT = 0;
                 G.Sfx.Play("swing_heavy", GlobalPosition, -4, 0.1f, 0.7f);
+                Anim.Once("strike", 3);
                 var rel = ToP;
                 if (Math.Abs(rel.X) < 40 * Size && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size)
                     P.Hurt(12f * G.DepthDmg * (Elite ? 1.4f : 1f), GlobalPosition);
@@ -250,6 +247,7 @@ public partial class Goblin : Enemy
         else
         {
             v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
+            if (_stateT > 0.25f && _stateT - dt <= 0.25f) Anim.Once("recover", 2, 1.2f);
             if (_stateT > 0.5f) { _state = 0; _stateT = 0; }
         }
         Velocity = v;
@@ -270,36 +268,17 @@ public partial class Goblin : Enemy
         _state = 2; _stateT = 0.2f;
     }
 
-    public override void _Draw()
+    protected override void Animate()
     {
-        var skin = Tint(Slinger ? new Color(0.45f, 0.55f, 0.3f) : new Color(0.38f, 0.5f, 0.24f));
-        var cloth = Tint(new Color(0.42f, 0.28f, 0.18f));
-        bool moving = Math.Abs(Velocity.X) > 15;
-        float run = moving ? MathF.Sin(T * 14) : 0;
-        Begin();
-        DrawLine(new Vector2(0, 4), new Vector2(3 + run * 4, 10), skin, 2.5f);
-        DrawLine(new Vector2(0, 4), new Vector2(-3 - run * 4, 10), skin, 2.5f);
-        DrawColoredPolygon(new[] { new Vector2(-5, -3), new Vector2(5, -3), new Vector2(6, 6), new Vector2(-6, 6) }, cloth);
-        DrawCircle(new Vector2(1, -8), 5.5f, skin);
-        DrawColoredPolygon(new[] { new Vector2(-3, -9), new Vector2(-11, -13), new Vector2(-3, -6) }, skin);
-        DrawColoredPolygon(new[] { new Vector2(5, -10), new Vector2(11, -14), new Vector2(5, -7) }, skin);
-        DrawCircle(new Vector2(3.5f, -8.5f), 1.3f, new Color(1f, 0.9f, 0.2f));
-        DrawLine(new Vector2(2, -5), new Vector2(5, -5), new Color(0.15f, 0.1f, 0.05f), 1f);
-        // weapon
-        float armA = _state == 1 ? -2.4f + MathF.Sin(_stateT * 40) * 0.1f : _state == 2 && !Slinger ? 0.9f : -0.4f;
-        var sh = new Vector2(2, -2);
-        var hand = sh + Vector2.Right.Rotated(armA) * 7;
-        DrawLine(sh, hand, skin, 2.2f);
-        if (!Slinger)
-        {
-            var tip = hand + Vector2.Right.Rotated(armA - 0.3f) * 12;
-            DrawLine(hand, tip, new Color(0.45f, 0.3f, 0.15f), 3.5f);
-            DrawCircle(tip, 3.2f, new Color(0.5f, 0.35f, 0.18f));
-        }
-        else DrawCircle(hand, 2.5f, new Color(0.55f, 0.5f, 0.45f));
-        End();
-        DrawHealthBar();
+        bool air = !IsOnFloor() && !InWater;
+        if (air && !_wasAir && Velocity.Y < -100) Anim.Once("jump", 1);
+        if (!air && _wasAir) Anim.Once("land", 1);
+        _wasAir = air;
+        float avx = Math.Abs(Velocity.X);
+        Anim.Loop(air ? "fall" : avx > 15 ? "run" : "idle", Math.Clamp(avx / 110f, 0.6f, 1.4f));
     }
+
+    public override void _Draw() => DrawHealthBar();
 }
 
 /// <summary>Creeps along the ceiling, drops on a silk thread when you pass beneath, then climbs back. Lands and pounces if its thread is cut.</summary>
@@ -317,6 +296,7 @@ public partial class Spider : Enemy
         DisplayName = "Spider";
         _anchorY = GlobalPosition.Y - 8;
         MotionMode = MotionModeEnum.Floating;
+        UseSprite("spider");
     }
 
     protected override void Think(float dt)
@@ -373,6 +353,7 @@ public partial class Spider : Enemy
                     {
                         _pounceCd = 1.4f;
                         v = new Vector2(Math.Sign(ToP.X) * 230, -300);
+                        Anim.Once("pounce", 3);
                         G.Sfx.Play("spider", GlobalPosition, -4);
                     }
                 }
@@ -392,28 +373,26 @@ public partial class Spider : Enemy
         }
     }
 
+    private float _lastX;
+
+    protected override void Animate()
+    {
+        bool moving = Math.Abs(GlobalPosition.X - _lastX) > 0.2f || Math.Abs(Velocity.X) > 10;
+        _lastX = GlobalPosition.X;
+        Anim.FlipV = _state == 0;
+        Anim.Loop(_state switch
+        {
+            0 => moving ? "crawl" : "idle",
+            1 => "drop",
+            2 or 3 => "hang",
+            _ => IsOnFloor() && Math.Abs(Velocity.X) > 10 ? "crawl" : "idle",
+        }, 1.3f);
+    }
+
     public override void _Draw()
     {
         if (_state is 1 or 2 or 3 || (_state == 0 && GlobalPosition.Y - _anchorY > 9))
             DrawLine(new Vector2(0, _anchorY - GlobalPosition.Y), Vector2.Zero, new Color(0.9f, 0.9f, 0.95f, 0.6f), 1f);
-        var body = Tint(new Color(0.12f, 0.1f, 0.12f));
-        bool upside = _state == 0;
-        Begin(0, 1, upside ? -1 : 1);
-        float walk = MathF.Sin(T * 16);
-        for (int k = 0; k < 4; k++)
-        {
-            float a = -0.9f + k * 0.45f;
-            float wig = (k % 2 == 0 ? walk : -walk) * 0.2f;
-            var knee = new Vector2(MathF.Cos(a + wig) * 8, -4 + MathF.Sin(a) * 3);
-            DrawPolyline(new[] { Vector2.Zero, knee, knee + new Vector2(knee.X * 0.3f, 8) }, body, 1.3f);
-            DrawPolyline(new[] { Vector2.Zero, new Vector2(-knee.X, knee.Y), new Vector2(-knee.X * 1.3f, knee.Y + 8) }, body, 1.3f);
-        }
-        DrawCircle(new Vector2(-3, -1), 6, body);
-        DrawCircle(new Vector2(4, 0), 4, body);
-        DrawColoredPolygon(new[] { new Vector2(-4, -4), new Vector2(-2, -1), new Vector2(-4, 2), new Vector2(-6, -1) }, new Color(0.85f, 0.1f, 0.1f));
-        DrawCircle(new Vector2(6, -1), 1f, new Color(1f, 0.2f, 0.2f));
-        DrawCircle(new Vector2(5, 1), 1f, new Color(1f, 0.2f, 0.2f));
-        End();
         DrawHealthBar();
     }
 }
@@ -425,7 +404,7 @@ public partial class LavaMonster : Enemy
 
     public LavaMonster() { MaxHp = 40; BodyRadius = 12; ContactDamage = 10; XpValue = 8; KnockResist = 0.3f; }
 
-    protected override void Setup() => DisplayName = "Magma Brute";
+    protected override void Setup() { DisplayName = "Magma Brute"; UseSprite("magma"); }
     protected override Color BloodColor => new(1f, 0.5f, 0.1f);
 
     protected override void Think(float dt)
@@ -447,14 +426,14 @@ public partial class LavaMonster : Enemy
         {
             _windup += dt;
             v.X = Mathf.MoveToward(v.X, 0, 600 * dt);
-            if (_windup > 0.55f) { Lob(); _windup = -1; }
+            if (_windup > 0.55f) { Lob(); _windup = -1; Anim.Once("lob", 3); }
         }
         else if (Awake && DistP < 420)
         {
             Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
             v.X = Mathf.MoveToward(v.X, Face * 45, 300 * dt);
             if (IsOnFloor() && IsOnWall()) v.Y = -300;
-            if (_lobCd <= 0 && DistP < 340 && SeesP) { _windup = 0; _lobCd = Elite ? 2f : 3.2f; G.Sfx.Play("lava", GlobalPosition, -6); }
+            if (_lobCd <= 0 && DistP < 340 && SeesP) { _windup = 0; _lobCd = Elite ? 2f : 3.2f; G.Sfx.Play("lava", GlobalPosition, -6); Anim.Once("lob_windup", 3, 8f / (0.55f * 24f)); }
             if (_puddleT <= 0 && IsOnFloor() && Math.Abs(v.X) > 10)
             {
                 _puddleT = 1.3f;
@@ -478,29 +457,12 @@ public partial class LavaMonster : Enemy
             G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = 9 * G.DepthDmg, Kind = "lava", Radius = 5 });
     }
 
+    protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 8 && IsOnFloor() ? "walk" : "idle", 1.4f);
+
     public override void _Draw()
     {
         float pulse = 0.5f + 0.5f * MathF.Sin(T * 4);
-        float glow = _windup >= 0 ? 1 : pulse * 0.6f;
-        var crust = Tint(new Color(0.3f, 0.1f, 0.06f));
-        var hot = new Color(1f, 0.45f + glow * 0.3f, 0.1f);
-        DrawCircle(Vector2.Zero, (BodyRadius + 10) * Size, new Color(1f, 0.4f, 0.05f, 0.1f + glow * 0.08f));
-        float wob = MathF.Sin(T * 3) * 1.2f;
-        Begin();
-        var pts = new Vector2[12];
-        for (int k = 0; k < 12; k++)
-        {
-            float a = k * Mathf.Tau / 12;
-            float r = 12 + MathF.Sin(a * 3 + T * 2) * 1.5f;
-            pts[k] = new Vector2(MathF.Cos(a) * r, MathF.Sin(a) * r * 0.9f + (MathF.Sin(a) > 0 ? 2 : wob));
-        }
-        DrawColoredPolygon(pts, Tint(hot));
-        DrawColoredPolygon(new[] { new Vector2(-9, -6), new Vector2(-3, -10), new Vector2(0, -4), new Vector2(-6, -1) }, crust);
-        DrawColoredPolygon(new[] { new Vector2(2, 2), new Vector2(8, -2), new Vector2(10, 5), new Vector2(4, 8) }, crust);
-        DrawColoredPolygon(new[] { new Vector2(-8, 4), new Vector2(-3, 3), new Vector2(-4, 9) }, crust);
-        DrawLine(new Vector2(2, -5), new Vector2(8, -4), new Color(1f, 0.95f, 0.5f), 2f);
-        DrawLine(new Vector2(-4, -5), new Vector2(0, -4), new Color(1f, 0.95f, 0.5f), 2f);
-        End();
+        DrawCircle(Vector2.Zero, (BodyRadius + 12) * Size, new Color(1f, 0.4f, 0.05f, 0.06f + pulse * 0.05f));
         DrawHealthBar();
     }
 }
@@ -512,7 +474,7 @@ public partial class Golem : Enemy
 
     public Golem() { MaxHp = 90; BodyRadius = 15; ContactDamage = 12; XpValue = 14; KnockResist = 0.85f; }
 
-    protected override void Setup() => DisplayName = "Golem";
+    protected override void Setup() { DisplayName = "Golem"; UseSprite("golem"); }
     protected override Color BloodColor => new(0.6f, 0.58f, 0.55f);
 
     protected override void Think(float dt)
@@ -524,15 +486,19 @@ public partial class Golem : Enemy
         {
             _windup += dt;
             v.X = 0;
-            if (_windup > 0.8f) { Slam(); _windup = -1; _recover = 1.0f; }
+            if (_windup > 0.8f) { Slam(); _windup = -1; _recover = 1.0f; Anim.Once("slam", 3); }
         }
-        else if (_recover > 0) v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
+        else if (_recover > 0)
+        {
+            v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
+            if (_recover < 0.75f && _recover + dt >= 0.75f) Anim.Once("recover", 2, 10f / (0.75f * 24f));
+        }
         else if (Awake && DistP < 460)
         {
             Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
             v.X = Mathf.MoveToward(v.X, Face * 40, 300 * dt);
             if (IsOnFloor() && IsOnWall()) v.Y = -330;
-            if (_slamCd <= 0 && DistP < 190 && Math.Abs(ToP.Y) < 70 && IsOnFloor()) { _windup = 0; G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.4f); }
+            if (_slamCd <= 0 && DistP < 190 && Math.Abs(ToP.Y) < 70 && IsOnFloor()) { _windup = 0; G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.4f); Anim.Once("slam_windup", 3, 12f / (0.8f * 24f)); }
         }
         else v.X = Mathf.MoveToward(v.X, 0, 600 * dt);
         Velocity = v;
@@ -552,32 +518,7 @@ public partial class Golem : Enemy
         if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(18 * G.DepthDmg, GlobalPosition, 320);
     }
 
-    public override void _Draw()
-    {
-        var stone = Tint(new Color(0.45f, 0.44f, 0.43f));
-        var dark = Tint(new Color(0.3f, 0.29f, 0.3f));
-        float step = Math.Abs(Velocity.X) > 5 ? MathF.Sin(T * 6) : 0;
-        float raise = _windup >= 0 ? Math.Min(1, _windup / 0.5f) : 0;
-        float shake = _windup >= 0.5f ? MathF.Sin(T * 60) * 1f : 0;
-        Begin();
-        DrawRect(new Rect2(-10 + shake, 6 + step, 7, 9), dark);
-        DrawRect(new Rect2(3 + shake, 6 - step, 7, 9), dark);
-        DrawColoredPolygon(new[] { new Vector2(-13 + shake, -8), new Vector2(12 + shake, -10), new Vector2(14 + shake, 8), new Vector2(-12 + shake, 9) }, stone);
-        DrawRect(new Rect2(-6 + shake, -18, 13, 10), stone);
-        var eye = new Color(0.4f, 0.95f, 1f, 0.8f + raise * 0.2f);
-        DrawRect(new Rect2(1 + shake, -15, 4, 2.5f), eye);
-        DrawLine(new Vector2(-6, -1), new Vector2(4, 3), dark, 1.2f);
-        // arms
-        float armA = Mathf.Lerp(1.3f, -1.9f, raise);
-        var sh = new Vector2(10 + shake, -5);
-        var fist = sh + Vector2.Right.Rotated(armA) * 13;
-        DrawLine(sh, fist, stone, 6);
-        DrawCircle(fist, 5, dark);
-        var sh2 = new Vector2(-11 + shake, -5);
-        var fist2 = sh2 + Vector2.Right.Rotated(Mathf.Pi - armA) * 13;
-        DrawLine(sh2, fist2, stone, 6);
-        DrawCircle(fist2, 5, dark);
-        End();
-        DrawHealthBar();
-    }
+    protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 6 && IsOnFloor() ? "walk" : "idle", 1.2f);
+
+    public override void _Draw() => DrawHealthBar();
 }

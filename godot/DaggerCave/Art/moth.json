@@ -1,0 +1,53 @@
+{
+ "frame_w": 36,
+ "frame_h": 32,
+ "columns": 20,
+ "scale": 2.0,
+ "origin": [
+  18.0,
+  16.0
+ ],
+ "fps": 24,
+ "animations": {
+  "flutter_r": {
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5
+   ],
+   "loop": true
+  },
+  "flutter_l": {
+   "frames": [
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "loop": true
+  },
+  "turn_r2l": {
+   "frames": [
+    12,
+    13,
+    14,
+    15
+   ],
+   "loop": false
+  },
+  "turn_l2r": {
+   "frames": [
+    16,
+    17,
+    18,
+    19
+   ],
+   "loop": false
+  }
+ }
+}

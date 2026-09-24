@@ -170,12 +170,19 @@ public partial class Hud : Control
         if (HintTime > 0)
         {
             float a = Math.Clamp(HintTime / 2f, 0, 1) * 0.85f;
-            string[] lines =
-            {
-                "A/D move · SPACE jump · W/S swim up/down",
-                "LEFT CLICK swing (aim with mouse) · RIGHT CLICK throw dagger",
-                "SHIFT dodge · ESC pause    —    find and slay the boss",
-            };
+            string[] lines = G.Main.UsingPad
+                ? new[]
+                {
+                    "Left stick move · A jump · hold up/down to swim",
+                    "X swing (aim with right stick) · RB/RT throw dagger",
+                    "B/LB dodge · START pause    —    find and slay the boss",
+                }
+                : new[]
+                {
+                    "A/D move · SPACE jump · W/S swim up/down",
+                    "LEFT CLICK swing (aim with mouse) · RIGHT CLICK throw dagger",
+                    "SHIFT dodge · ESC pause    —    find and slay the boss",
+                };
             for (int k = 0; k < lines.Length; k++)
                 DrawString(font, new Vector2(vs.X / 2 - 230, vs.Y - 110 + k * 20), lines[k], HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, a));
         }

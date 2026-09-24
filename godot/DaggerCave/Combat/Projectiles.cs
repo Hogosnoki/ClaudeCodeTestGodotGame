@@ -49,7 +49,14 @@ public partial class ThrownDagger : Node2D
             if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 4) continue;
             _hit.Add(e);
             float dealt = e.Hurt(Damage, Dir * 120f, e.GlobalPosition - Dir * e.HitRadius);
-            if (dealt > 0) { G.Player.OnDealtDamage(dealt); G.Main.HitStop(0.03f); }
+            if (dealt > 0)
+            {
+                G.Player.OnDealtDamage(dealt);
+                G.Main.HitStop(0.045f);
+                G.Fx.Spark(e.GlobalPosition - Dir * e.HitRadius, Dir, e.Dead, new Color(0.8f, 0.95f, 1f));
+                G.Main.Kick(Dir * 2f);
+                G.Main.Rumble(0.25f, 0.1f, 0.07f);
+            }
             else G.Sfx.Play("clink", GlobalPosition, -4);
             if (Pierce) continue;
             if (BouncesLeft > 0 && Retarget(e.GlobalPosition))

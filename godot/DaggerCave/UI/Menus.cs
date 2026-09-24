@@ -36,7 +36,7 @@ public partial class UpgradeMenu : Control
     {
         _choices = choices;
         _title = title;
-        _hover = -1;
+        _hover = G.Main.UsingPad ? 0 : -1;
         _openedAt = _t;
         Visible = true;
         QueueRedraw();
@@ -56,6 +56,14 @@ public partial class UpgradeMenu : Control
         if (Input.IsActionJustPressed("pick_1")) Choose(0);
         else if (Input.IsActionJustPressed("pick_2")) Choose(1);
         else if (Input.IsActionJustPressed("pick_3")) Choose(2);
+        // controller / arrow-key navigation
+        int n = _choices.Count;
+        if (n > 0)
+        {
+            if (Input.IsActionJustPressed("move_left")) { _hover = _hover < 0 ? 0 : (_hover + n - 1) % n; G.Sfx.Play("ui", null, -8); }
+            if (Input.IsActionJustPressed("move_right")) { _hover = _hover < 0 ? 0 : (_hover + 1) % n; G.Sfx.Play("ui", null, -8); }
+            if (Input.IsActionJustPressed("confirm") && _hover >= 0) Choose(_hover);
+        }
         QueueRedraw();
     }
 
@@ -80,7 +88,7 @@ public partial class UpgradeMenu : Control
         var tsz = font.GetStringSize(_title, HorizontalAlignment.Left, -1, 34);
         float pop = 1 + 0.05f * MathF.Sin(_t * 5);
         DrawString(font, new Vector2(vs.X / 2 - tsz.X * pop / 2, vs.Y * 0.2f), _title, HorizontalAlignment.Left, -1, (int)(34 * pop), new Color(1f, 0.9f, 0.5f));
-        const string sub = "Choose one  (click or press 1 / 2 / 3)";
+        string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)" : "Choose one  (click, 1 / 2 / 3, or arrows + ENTER)";
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.7f));
 

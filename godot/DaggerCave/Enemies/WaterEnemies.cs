@@ -23,7 +23,9 @@ public partial class Fish : Enemy
         DisplayName = "Cave Fish";
         _home = GlobalPosition;
         _wanderA = G.Range(0, Mathf.Tau);
-        _col = G.Chance(0.5f) ? new Color(0.95f, 0.55f, 0.2f) : new Color(0.35f, 0.75f, 0.8f);
+        bool orange = G.Chance(0.5f);
+        _col = orange ? new Color(0.95f, 0.55f, 0.2f) : new Color(0.35f, 0.75f, 0.8f);
+        UseSprite(orange ? "fish" : "fish2");
         MotionMode = MotionModeEnum.Floating;
         _dartCd = G.Range(0.3f, 1.2f);
     }
@@ -109,24 +111,21 @@ public partial class Fish : Enemy
         }
     }
 
-    public override void _Draw()
+    protected override void Animate()
     {
-        var c = Tint(_col);
-        float wig = MathF.Sin(T * (_state == 0 ? 12 : 25)) * (_state == 2 ? 0.5f : 0.25f);
-        float rot = _state == 0 ? 0 : (_state == 2 ? MathF.Sin(T * 20) * 0.6f : Velocity.Angle() * Face);
-        if (_state == 1) rot = Mathf.Clamp(Velocity.Y / 600f, -1, 1) * -Face * -1;
-        Begin(rot);
-        DrawColoredPolygon(new[] { new Vector2(-6, 0), new Vector2(-12, -5 + wig * 8), new Vector2(-12, 5 + wig * 8) }, c.Darkened(0.2f));
-        DrawSetTransform(Vector2.Zero, rot, new Vector2(Face * Size * 1.4f, Size * 0.85f));
-        DrawCircle(Vector2.Zero, 6, c);
-        Begin(rot);
-        DrawColoredPolygon(new[] { new Vector2(-3, -4), new Vector2(2, -9), new Vector2(3, -4) }, c.Darkened(0.25f));
-        DrawCircle(new Vector2(5, -1.5f), 1.6f, Colors.White);
-        DrawCircle(new Vector2(5.4f, -1.5f), 0.9f, Colors.Black);
-        DrawLine(new Vector2(8, 1.5f), new Vector2(6, 2.5f), new Color(0.2f, 0.05f, 0.05f), 1f);
-        End();
-        DrawHealthBar();
+        var v = Velocity;
+        if (_state == 1 && Math.Abs(v.X) > 5) Face = Math.Sign(v.X);
+        Anim.AllowTurns = _state == 0;
+        Anim.Loop(_state == 0 ? (_dartT > 0 ? "dart" : "swim") : _state == 1 ? "leap" : "flop",
+                  _state == 0 ? Math.Clamp(v.Length() / 80f, 0.6f, 2f) : 1f);
+        float rot = 0;
+        if (_state != 2 && v.Length() > 20) rot = Mathf.Clamp(MathF.Atan2(v.Y, Math.Max(Math.Abs(v.X), 1f)), _state == 1 ? -1.3f : -0.7f, _state == 1 ? 1.3f : 0.7f) * Face;
+        Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, rot, 0.2f);
     }
+
+    protected override Vector2 DeathDrift => InWater ? new Vector2(0, -30) : Vector2.Zero;
+
+    public override void _Draw() => DrawHealthBar();
 }
 
 /// <summary>Stationary spiny urchin on the sea floor; periodically bristles its spikes outward.</summary>
@@ -143,6 +142,8 @@ public partial class Urchin : Enemy
     {
         DisplayName = "Urchin";
         _cycle = G.Range(0, 2.5f);
+        UseSprite("urchin");
+        Anim.AllowTurns = false;
         MotionMode = MotionModeEnum.Floating;
         ManualMove = true;
     }
@@ -167,25 +168,13 @@ public partial class Urchin : Enemy
         if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(12 * G.DepthDmg, GlobalPosition); _hitThisPulse = true; }
     }
 
-    public override void _Draw()
+    protected override void Animate()
     {
-        float sl = SpikeLen();
-        float tremble = _cycle > 1.6f && _cycle < 2.1f ? MathF.Sin(T * 70) * 0.8f : 0;
-        var body = Tint(new Color(0.3f, 0.12f, 0.38f));
-        var spike = Tint(new Color(0.55f, 0.35f, 0.65f));
-        Begin();
-        for (int k = 0; k < 18; k++)
-        {
-            float a = k * Mathf.Tau / 18 + T * 0.2f;
-            var d = Vector2.Right.Rotated(a);
-            float l = sl * (k % 2 == 0 ? 1f : 0.75f);
-            DrawLine(d * 8, d * (10 + l) + new Vector2(tremble, 0), spike, 1.4f);
-        }
-        DrawCircle(Vector2.Zero, 10, body);
-        for (int k = 0; k < 5; k++) DrawCircle(Vector2.Right.Rotated(k * 1.3f + 0.4f) * 5, 1.3f, new Color(0.9f, 0.5f, 1f, 0.6f + 0.4f * MathF.Sin(T * 3 + k)));
-        End();
-        DrawHealthBar();
+        // the sprite's 72-frame pulse is the same 3 s cycle the damage uses
+        if (!Anim.OnceActive) Anim.SetFrameManual("pulse", _cycle);
     }
+
+    public override void _Draw() => DrawHealthBar();
 }
 
 /// <summary>
@@ -210,6 +199,9 @@ public partial class Eel : Enemy
         DisplayName = "Eel";
         _home = GlobalPosition;
         _head = _home;
+        UseSprite("eel");
+        Anim.AllowTurns = false;
+        Anim.ZIndex = 1;
         MotionMode = MotionModeEnum.Floating;
         ManualMove = true;
         ContactActive = false;
@@ -230,6 +222,7 @@ public partial class Eel : Enemy
                     var d = P.GlobalPosition + P.Velocity * 0.15f - _home;
                     _target = _home + d.Normalized() * Math.Min(d.Length() + 20, maxLen);
                     G.Sfx.Play("eel", _home, -2);
+                    Anim.Once("bite", 3);
                 }
                 break;
             case 1:
@@ -249,12 +242,20 @@ public partial class Eel : Enemy
         if ((_head - _home).X != 0) Face = Math.Sign((_head - _home).X);
     }
 
+    protected override void Animate()
+    {
+        var dir = _head - _home;
+        if (dir.Length() < 2) dir = WallNormal;
+        if (Math.Abs(dir.X) > 0.01f) Face = Math.Sign(dir.X);
+        Anim.Face((int)Face, instant: true);
+        Anim.Rotation = Face > 0 ? dir.Angle() : Mathf.Wrap(dir.Angle() - Mathf.Pi, -Mathf.Pi, Mathf.Pi);
+        Anim.Loop(_state is 1 or 2 ? "hold" : "lurk");
+    }
+
+    /// <summary>The sprite is the head; the body is a wavy tube drawn from the burrow to it.</summary>
     public override void _Draw()
     {
         var homeL = _home - GlobalPosition;
-        var body = Tint(new Color(0.25f, 0.35f, 0.22f));
-        var belly = Tint(new Color(0.7f, 0.75f, 0.35f));
-        // burrow
         DrawCircle(homeL, 9 * Size, new Color(0.03f, 0.03f, 0.05f, 0.9f));
         var seg = -homeL;
         float len = seg.Length();
@@ -262,25 +263,20 @@ public partial class Eel : Enemy
         {
             var dir = seg / len;
             var perp = new Vector2(-dir.Y, dir.X);
-            int n = Math.Max(3, (int)(len / 6));
+            int n = Math.Max(3, (int)(len / 5));
             var pts = new Vector2[n + 1];
             for (int k = 0; k <= n; k++)
             {
                 float t = k / (float)n;
-                pts[k] = homeL + seg * t + perp * MathF.Sin(t * 9 - T * 14) * 5 * MathF.Sin(t * MathF.PI) * Size;
+                pts[k] = homeL + seg * t * 0.92f + perp * MathF.Sin(t * 9 - T * 14) * 5 * MathF.Sin(t * MathF.PI) * Size;
             }
+            var body = new Color(0.235f, 0.353f, 0.204f);
+            DrawPolyline(pts, body.Darkened(0.6f), 8.6f * Size);
             DrawPolyline(pts, body, 7 * Size);
-            DrawPolyline(pts, belly, 2 * Size);
-            if (_state is 1 or 2 && G.Chance(0.3f))
+            DrawPolyline(pts, new Color(0.725f, 0.753f, 0.392f), 2.2f * Size);
+            if (_state is 1 or 2 && G.Chance(0.4f))
                 DrawLine(pts[n / 2], pts[n / 2] + G.RandDir() * 8, new Color(0.7f, 0.9f, 1f), 1f);
         }
-        var fwd = len > 3 ? seg / len : WallNormal;
-        DrawSetTransform(Vector2.Zero, fwd.Angle(), new Vector2(Size, Size));
-        float jaw = _state == 1 || _state == 2 ? 0.5f : 0.1f;
-        DrawColoredPolygon(new[] { new Vector2(-5, -5), new Vector2(9, -1 - jaw * 4), new Vector2(9, 0), new Vector2(-5, 0) }, body);
-        DrawColoredPolygon(new[] { new Vector2(-5, 0), new Vector2(9, 1 + jaw * 4), new Vector2(-5, 5) }, body.Darkened(0.2f));
-        DrawCircle(new Vector2(2, -3), 1.4f, new Color(1f, 0.9f, 0.3f));
-        End();
         DrawHealthBar();
     }
 }
