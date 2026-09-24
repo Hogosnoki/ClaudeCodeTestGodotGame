@@ -21,6 +21,14 @@ public partial class Bat : Enemy
 
     public Bat() { MaxHp = 12; BodyRadius = 7; ContactDamage = 7; XpValue = 3; }
 
+    /// <summary>Entrance: already on the wing, swooping in from off-screen.</summary>
+    public override void Engage()
+    {
+        base.Engage();
+        _state = 1;
+        ContactActive = true;
+    }
+
     protected override void Think(float dt)
     {
         _stateT += dt;
@@ -119,7 +127,7 @@ public partial class Frog : Enemy
         else if (floor)
         {
             v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
-            if (Awake && DistP < 360)
+            if (Awake && DistP < Aggro(360))
             {
                 Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
                 if (DistP < TongueLen * Size && _tongueCd <= 0 && SeesP)
@@ -207,7 +215,7 @@ public partial class Goblin : Enemy
         float speed = (Slinger ? 95f : 125f) * (Elite ? 1.15f : 1f);
         if (_gruntT <= 0) { _gruntT = G.Range(3, 8); if (Awake && DistP < 500) G.Sfx.Play("goblin", GlobalPosition, -8, 0.2f); }
 
-        if (!Awake || DistP > 460) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
+        if (!Awake || DistP > Aggro(460)) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
 
         float dx = ToP.X;
         if (_state == 0)
@@ -309,7 +317,7 @@ public partial class Spider : Enemy
             case 0:
             {
                 float dx = ToP.X;
-                if (Awake && Math.Abs(dx) > 6 && ToP.Y > 0 && DistP < 400)
+                if (Awake && Math.Abs(dx) > 6 && ToP.Y > 0 && DistP < Aggro(400))
                 {
                     float nx = GlobalPosition.X + Math.Sign(dx) * 70 * dt;
                     // stay on the ceiling contour
@@ -428,7 +436,7 @@ public partial class LavaMonster : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 600 * dt);
             if (_windup > 0.55f) { Lob(); _windup = -1; Anim.Once("lob", 3); }
         }
-        else if (Awake && DistP < 420)
+        else if (Awake && DistP < Aggro(420))
         {
             Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
             v.X = Mathf.MoveToward(v.X, Face * 45, 300 * dt);
@@ -493,7 +501,7 @@ public partial class Golem : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             if (_recover < 0.75f && _recover + dt >= 0.75f) Anim.Once("recover", 2, 10f / (0.75f * 24f));
         }
-        else if (Awake && DistP < 460)
+        else if (Awake && DistP < Aggro(460))
         {
             Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
             v.X = Mathf.MoveToward(v.X, Face * 40, 300 * dt);

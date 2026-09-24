@@ -7,7 +7,8 @@ namespace DaggerCave;
 /// <summary>Everything upgrades can change about the dagger wielder.</summary>
 public sealed class PlayerStats
 {
-    public float MaxHp = 100;
+    public float MaxHp = 60;
+    public float HurtInvuln = 0.4f;      // seconds of invulnerability after being struck
     public float DamageMult = 1f;
     public float AttackSpeed = 1f;       // swing cooldown divisor
     public float DaggerReach = 1f;       // swing range multiplier
@@ -81,7 +82,8 @@ public static class Upgrades
         new() { Id = "dodge2", Name = "Second Wind", Desc = "Gain a second dodge charge.", Icon = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.DodgeCharges = 2; p.SyncCharges(); } },
 
         // --- Survival ---
-        new() { Id = "hp", Name = "Vitality", Desc = "+25 max HP and heal 25.", Icon = "life", MaxStacks = 5, Weight = 1.2f, Apply = (s, p) => { s.MaxHp += 25; p.Heal(25); } },
+        new() { Id = "hp", Name = "Vitality", Desc = "+20 max HP and heal 20.", Icon = "life", MaxStacks = 5, Weight = 1.2f, Apply = (s, p) => { s.MaxHp += 20; p.Heal(20); } },
+        new() { Id = "resilience", Name = "Resilience", Desc = "Stay invulnerable 0.2 s longer after being struck.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HurtInvuln += 0.2f },
         new() { Id = "armor", Name = "Toughened Hide", Desc = "Take 10% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = Math.Min(0.6f, s.DamageReduction + 0.10f) },
         new() { Id = "leech", Name = "Thirsty Blade", Desc = "Heal 4% of damage dealt.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.LifeSteal += 0.04f },
         new() { Id = "onkill", Name = "Trophy Hunter", Desc = "Heal 3 HP on every kill.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HealOnKill += 3f },

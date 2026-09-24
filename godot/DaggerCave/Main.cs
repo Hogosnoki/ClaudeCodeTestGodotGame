@@ -32,6 +32,7 @@ public partial class Main : Node
     private enum State { Title, Playing, Paused, Choosing, Dead }
     private State _state = State.Title;
     private float _hitStopLeft;
+    private float _frameScale = 1f;
     private float _spawnT, _runTime, _deadT;
     private int _seed;
     private readonly Random _rng = new();
@@ -286,16 +287,16 @@ public partial class Main : Node
     {
         var rng = new Random(cave.Seed ^ 0x5eed);
         int moths = 0, crabs = 0;
-        for (int tries = 0; tries < 4000 && (moths < 36 || crabs < 28); tries++)
+        for (int tries = 0; tries < 9000 && (moths < 80 || crabs < 60); tries++)
         {
             var pos = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
             if (cave.IsSolid(pos) || pos.DistanceTo(cave.StartPos) < 120) continue;
-            if (moths < 36 && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
+            if (moths < 80 && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
             {
                 _world.AddChild(new GlowMoth { Position = pos });
                 moths++;
             }
-            else if (crabs < 28 && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)))
+            else if (crabs < 60 && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)))
             {
                 _world.AddChild(new CaveCrab { Position = fl + new Vector2(0, -5) });
                 crabs++;
@@ -319,6 +320,8 @@ public partial class Main : Node
         GetTree().Paused = false;
         _state = State.Playing;
         _runTime = 0;
+        G.RunTime = 0;
+        _waveT = 18f;
         _sfx.SetMusic("ambient");
     }
 
@@ -373,7 +376,7 @@ public partial class Main : Node
     }
 
     /// <summary>Freezes the action for a beat so hits land with weight.</summary>
-    public void HitStop(float seconds, float timeScale = 0.05f)
+    public void HitStop(float seconds, float timeScale = 0.02f)
     {
         // measured in unscaled frame time (not the wall clock) so it also works when rendering a movie
         _hitStopLeft = Math.Max(_hitStopLeft, seconds);
@@ -417,11 +420,15 @@ public partial class Main : Node
     public override void _Process(double delta)
     {
         float dt = (float)delta;
+        // This frame's delta was scaled by whatever time scale was in effect when the frame began,
+        // so un-scale it with that value (not with a scale a hit may have set during this frame).
+        float unscaled = dt / Math.Max(0.001f, _frameScale);
         if (_hitStopLeft > 0)
         {
-            _hitStopLeft -= dt / (float)Math.Max(0.01, Engine.TimeScale);
+            _hitStopLeft -= unscaled;
             if (_hitStopLeft <= 0) Engine.TimeScale = 1;
         }
+        _frameScale = (float)Engine.TimeScale;
 
         if (_padTest) PadTestTick(dt);
         switch (_state)
@@ -472,6 +479,7 @@ public partial class Main : Node
                     return;
                 }
                 _runTime += dt;
+                G.RunTime = _runTime;
                 TryOpenUpgradeMenu();
                 break;
         }
@@ -500,18 +508,41 @@ public partial class Main : Node
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * 7));
         float s = _fx?.Shake ?? 0;
         _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
-        _cam.Offset = (s > 0 ? new Vector2(G.Range(-s, s), G.Range(-s, s)) * 0.5f : Vector2.Zero) + _kick;
+        // hold the frame perfectly still during a hit-stop; the shake plays out once time resumes
+        if (_hitStopLeft <= 0)
+            _cam.Offset = (s > 0 ? new Vector2(G.Range(-s, s), G.Range(-s, s)) * 0.5f : Vector2.Zero) + _kick;
     }
 
     // ------------------------------------------------------------------ spawning
 
+    private float _waveT = 18f;
+    private readonly List<(Enemy e, float d0, float t0)> _entrants = new();
+
+    /// <summary>True if a world point is inside the camera's view (plus a margin).</summary>
+    private bool OnScreen(Vector2 p, float margin = 40f)
+    {
+        var half = GetViewport().GetVisibleRect().Size / _cam.Zoom * 0.5f + new Vector2(margin, margin);
+        var c = _cam.GetScreenCenterPosition();
+        return Math.Abs(p.X - c.X) < half.X && Math.Abs(p.Y - c.Y) < half.Y;
+    }
+
+    /// <summary>
+    /// Two sources of enemies. Residents sit at the cave's pre-computed spawn points and are only
+    /// ever created out of view, so they are simply "there" when you arrive; early on many
+    /// points stay empty. Entrances arrive in waves on a timer that shortens as the run goes on:
+    /// they appear at a point along the tunnels just out of view and come to you by their own
+    /// means (bats fly in, frogs hop, goblins run, fish swim).
+    /// </summary>
     private void RunSpawner(float dt)
     {
         var cave = G.Cave;
         var p = G.Player;
         if (p.Dead) return;
-        int alive = G.Enemies.Count(e => !e.Dead);
-        int cap = 22 + G.Depth * 4;
+        // only enemies in the neighbourhood count toward the cap (far-off residents are asleep)
+        int alive = G.Enemies.Count(e => !e.Dead && e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) < 900 * 900);
+        int cap = 8 + (int)(G.Pace * 10);
+        // Residents: how many spawn points actually hold a group rises from ~40% to 100% over 8 minutes.
+        float fill = Math.Min(1f, 0.4f + G.RunTime / 480f * 0.6f);
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -521,17 +552,94 @@ public partial class Main : Node
                 if (sp.Cooldown <= 0 && d > 1000) sp.Used = false;
                 continue;
             }
-            if (d < 330 || d > 640 || alive >= cap) continue;
+            if (d > 720 || alive >= cap || OnScreen(sp.Pos)) continue;
             sp.Used = true;
-            sp.Cooldown = G.Range(70, 110);
+            if (!G.Chance(fill)) { sp.Cooldown = G.Range(40, 80); continue; }
+            sp.Cooldown = G.Range(90, 150) / (1f + G.Pace);
             alive += SpawnGroup(sp);
+        }
+
+        // Entrances: every ~22 s at the start, speeding up to every ~5 s.
+        _waveT -= dt;
+        if (_waveT <= 0 && alive < cap + 4)
+        {
+            _waveT = Math.Max(4.5f, 22f / (1f + G.RunTime / 160f)) * G.Range(0.8f, 1.2f);
+            SpawnEntrance(p);
+        }
+    }
+
+    /// <summary>
+    /// Finds cells 24-34 tunnel-steps from the player (so the newcomer has a route to them) that
+    /// are off-screen, and brings in a group suited to the terrain there.
+    /// </summary>
+    private void SpawnEntrance(Player p)
+    {
+        var cave = G.Cave;
+        int W = cave.W, H = cave.H;
+        var start = new Vector2I((int)(p.GlobalPosition.X / CaveData.Cell), (int)(p.GlobalPosition.Y / CaveData.Cell));
+        var dist = new Dictionary<int, int>();
+        var q = new Queue<Vector2I>();
+        q.Enqueue(start); dist[start.Y * W + start.X] = 0;
+        var ring = new List<Vector2>();
+        while (q.Count > 0)
+        {
+            var c = q.Dequeue();
+            int d = dist[c.Y * W + c.X];
+            if (d >= 24)
+            {
+                var w = new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
+                if (!OnScreen(w, 24)) ring.Add(w);
+            }
+            if (d >= 34) continue;
+            foreach (var o in new[] { new Vector2I(1, 0), new Vector2I(-1, 0), new Vector2I(0, 1), new Vector2I(0, -1) })
+            {
+                var n = c + o;
+                if (n.X < 0 || n.Y < 0 || n.X >= W || n.Y >= H || dist.ContainsKey(n.Y * W + n.X) || !cave.CellOpen(n.X, n.Y)) continue;
+                dist[n.Y * W + n.X] = d + 1;
+                q.Enqueue(n);
+            }
+        }
+        if (ring.Count == 0) return;
+        var at = ring[G.Rng.Next(ring.Count)];
+        int count = 1 + G.RangeI(0, 1 + (int)(G.Pace * 1.5f));
+        bool water = cave.IsWater(at);
+
+        void Enter(Enemy e, Vector2 pos)
+        {
+            if (cave.IsSolid(pos)) pos = at;
+            e.Engage();
+            e.Position = pos;
+            _world.AddChild(e);
+            if (_autotest) _entrants.Add((e, pos.DistanceTo(p.GlobalPosition), _runTime));
+        }
+
+        if (water)
+        {
+            for (int k = 0; k < count + 1; k++) Enter(new Fish(), at + G.RandDir() * G.Range(0, 20));
+            return;
+        }
+        bool hasFloor = cave.FindFloor(at, 140, out var floor);
+        double roll = G.Rng.NextDouble();
+        if (!hasFloor || roll < 0.35)
+        {
+            for (int k = 0; k < count + 1; k++) Enter(new Bat(), at + new Vector2(G.Range(-25, 25), G.Range(-15, 15)));
+            return;
+        }
+        var ground = floor + new Vector2(0, -12);
+        for (int k = 0; k < count; k++)
+        {
+            var pos = ground + new Vector2(G.Range(-24, 24), 0);
+            float r = G.RandF();
+            Enemy e = r < 0.4f ? new Frog() : r < 0.75f ? new Goblin() : r < 0.9f ? new Goblin { Slinger = true }
+                : G.Chance(0.5f) ? new Golem() : new LavaMonster();
+            Enter(e, pos);
         }
     }
 
     private int SpawnGroup(SpawnPoint sp)
     {
         var cave = G.Cave;
-        int extra = G.Depth - 1;
+        int extra = (int)(G.Pace * 1.4f);
         int n = 0;
         void Add(Enemy e, Vector2 pos)
         {
@@ -707,6 +815,10 @@ public partial class Main : Node
         if (_duration <= 0)
         {
             var p = G.Player;
+            foreach (var (e, d0, t0) in _entrants)
+                GD.Print($"[autotest] entrance {e.GetType().Name,-12} at t={t0:0.0}s spawned {d0:0}px away (off-screen) -> " +
+                         (IsInstanceValid(e) && !e.Dead ? $"now {e.GlobalPosition.DistanceTo(p.GlobalPosition):0}px" : "killed/gone"));
+            GD.Print($"[autotest] threat x{G.Threat:0.00} tempo x{G.Tempo:0.00} pace {G.Pace:0.00}");
             foreach (var e in G.Enemies)
                 if (e.GlobalPosition.DistanceTo(p.GlobalPosition) < 700)
                     GD.Print($"[autotest] near: {e.GetType().Name} at {e.GlobalPosition - p.GlobalPosition} water {G.Cave.IsWater(e.GlobalPosition)} solid {G.Cave.IsSolid(e.GlobalPosition)}");
@@ -897,7 +1009,7 @@ public partial class Main : Node
             var img = GetViewport().GetTexture().GetImage();
             var sp = G.Player.GetGlobalTransformWithCanvas().Origin;
             var scale = img.GetSize() / GetViewport().GetVisibleRect().Size;
-            var r = new Rect2I((int)(sp.X * scale.X) - 80, (int)(sp.Y * scale.Y) - 90, 160, 140);
+            var r = new Rect2I((int)(sp.X * scale.X) - 60, (int)(sp.Y * scale.Y) - 90, 300, 140);
             img.GetRegion(r).SavePng($"{_shotDir}/at_{_animFrame:000}.png");
         }
         if (_animT > 5.4f) GetTree().Quit();
@@ -916,7 +1028,7 @@ public partial class Main : Node
             if (c.TrapCells <= 6) clean++;
             int dead = c.Rooms.Count(r => r.Kind != RoomKind.Start && r.Kind != RoomKind.Boss);
             float bossDist = c.Boss == null ? -1 : c.Boss.Center.DistanceTo(c.StartPos);
-            GD.Print($"seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} deadEndRooms {dead} boss {(c.Boss != null)} bossDist {bossDist:0} spawns {c.Spawns.Count}");
+            GD.Print($"seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} deadEndRooms {dead} miniBosses {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossDist {bossDist:0} spawns {c.Spawns.Count}");
         }
         foreach (int s in new[] { 7091, 1013, 20260 })
         {

@@ -52,7 +52,7 @@ public partial class ThrownDagger : Node2D
             if (dealt > 0)
             {
                 G.Player.OnDealtDamage(dealt);
-                G.Main.HitStop(0.045f);
+                G.Main.HitStop(0.065f);
                 G.Fx.Spark(e.GlobalPosition - Dir * e.HitRadius, Dir, e.Dead, new Color(0.8f, 0.95f, 1f));
                 G.Main.Kick(Dir * 2f);
                 G.Main.Rumble(0.25f, 0.1f, 0.07f);
@@ -109,17 +109,42 @@ public partial class ThrownDagger : Node2D
         _fallVel = new Vector2(-Dir.X * 80, -160);
     }
 
+    /// <summary>
+    /// A dagger cartwheeling end over end (~7 turns a second), with a faint spin disc and a blur
+    /// arc trailing its tip so it reads as a whirling blade rather than a spear.
+    /// </summary>
     public override void _Draw()
     {
         float a = _fadeT >= 0 ? Math.Clamp(_fadeT / 0.3f, 0, 1) : 1;
-        if (_fadeT < 0)
+        bool flying = _fadeT < 0;
+        float spin = flying ? _t * 44f * (Dir.X >= 0 ? 1 : -1) : 0;
+        const float r = 9f;
+        if (flying)
         {
-            DrawLine(-Dir * 26, Vector2.Zero, new Color(0.8f, 0.95f, 1f, 0.35f), 2f);
-            DrawSetTransform(Vector2.Zero, Dir.Angle(), Vector2.One);
+            DrawCircle(Vector2.Zero, r + 1, new Color(0.8f, 0.95f, 1f, 0.10f));
+            // blur arcs behind the tip and the pommel
+            for (int k = 0; k < 2; k++)
+            {
+                float tip = spin + k * Mathf.Pi;
+                const int n = 10;
+                var pts = new Vector2[n];
+                var cols = new Color[n];
+                float sweep = 1.9f * (Dir.X >= 0 ? -1 : 1);
+                for (int i = 0; i < n; i++)
+                {
+                    float t = i / (float)(n - 1);
+                    pts[i] = Vector2.Right.Rotated(tip + sweep * (1 - t)) * (k == 0 ? r : r * 0.6f);
+                    cols[i] = new Color(0.85f, 0.97f, 1f, t * (k == 0 ? 0.75f : 0.35f));
+                }
+                DrawPolylineColors(pts, cols, k == 0 ? 2.2f : 1.4f);
+            }
         }
-        DrawLine(new Vector2(-8, 0), new Vector2(-3, 0), new Color(0.4f, 0.25f, 0.12f, a), 2.5f);
-        DrawLine(new Vector2(-3, -3), new Vector2(-3, 3), new Color(0.75f, 0.65f, 0.3f, a), 1.5f);
-        DrawColoredPolygon(new[] { new Vector2(-2, -1.6f), new Vector2(9, 0), new Vector2(-2, 1.6f) }, new Color(0.9f, 0.95f, 1f, a));
+        DrawSetTransform(Vector2.Zero, spin, Vector2.One);
+        // centered on its balance point so it whirls in place
+        DrawLine(new Vector2(-6.5f, 0), new Vector2(-2f, 0), new Color(0.4f, 0.25f, 0.12f, a), 2.5f);
+        DrawLine(new Vector2(-2f, -3), new Vector2(-2f, 3), new Color(0.78f, 0.66f, 0.3f, a), 1.6f);
+        DrawColoredPolygon(new[] { new Vector2(-1, -1.7f), new Vector2(r, 0), new Vector2(-1, 1.7f) }, new Color(0.92f, 0.96f, 1f, a));
+        DrawLine(new Vector2(-1, -0.4f), new Vector2(r - 1.5f, -0.1f), new Color(1f, 1f, 1f, a * 0.8f), 0.6f);
         DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 }

@@ -23,7 +23,7 @@ namespace DaggerCave;
 /// </summary>
 public static class CaveGenerator
 {
-    public const int W = 240, H = 170;
+    public const int W = 400, H = 240;
     private const float MaxPitch = 0.60f; // ~34 degrees
     private const int ModeAir = 0, ModeShaft = 1, ModeWater = 2;
 
@@ -66,7 +66,10 @@ public static class CaveGenerator
                     if (k >= 0 && k < W * H && c.ReachMask[k]) { reachable = true; break; }
                 }
             if (!reachable) score += 50000;
-            if (c.Boss.Center.DistanceTo(c.StartPos) < 75 * CaveData.Cell) score += 5000;
+            if (c.Boss.Center.DistanceTo(c.StartPos) < 150 * CaveData.Cell) score += 5000;
+            int minis = 0;
+            foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
+            if (minis < 3) score += 2000;
         }
         return score;
     }
@@ -82,7 +85,7 @@ public static class CaveGenerator
         var beaches = new List<Vector2>();
         var queue = new Queue<Walker>();
         int total = 0;
-        const int budget = 1800;
+        const int budget = 4400;
 
         float sx = W * 0.5f + Rnd(-40, 40);
         float sy = H * 0.15f + Rnd(-2, 3);
@@ -91,8 +94,8 @@ public static class CaveGenerator
         // all the way to the water so the flooded half is always reachable (and escapable) on foot.
         {
             float hs = rng.Next(2) == 0 ? 1 : -1;
-            queue.Enqueue(new Walker { X = sx - hs * 7, Y = sy + 0.5f, A = hs > 0 ? Mathf.Pi + Rnd(-0.15f, 0.15f) : Rnd(-0.15f, 0.15f), R = 3.4f, TR = 3.6f, Len = Rnd(170, 240), Main = true });
-            queue.Enqueue(new Walker { X = sx + hs * 7, Y = sy + 0.5f, A = hs > 0 ? MaxPitch * 0.6f : Mathf.Pi - MaxPitch * 0.6f, R = 3.3f, TR = 3.5f, Len = Rnd(170, 230), Main = true, Descender = true });
+            queue.Enqueue(new Walker { X = sx - hs * 7, Y = sy + 0.5f, A = hs > 0 ? Mathf.Pi + Rnd(-0.15f, 0.15f) : Rnd(-0.15f, 0.15f), R = 3.4f, TR = 3.6f, Len = Rnd(320, 440), Main = true });
+            queue.Enqueue(new Walker { X = sx + hs * 7, Y = sy + 0.5f, A = hs > 0 ? MaxPitch * 0.6f : Mathf.Pi - MaxPitch * 0.6f, R = 3.3f, TR = 3.5f, Len = Rnd(260, 360), Main = true, Descender = true });
         }
 
         void ClampPitch(Walker w)
@@ -175,13 +178,13 @@ public static class CaveGenerator
                 stamps.Add(new Stamp { X = w.X, Y = w.Y, R = w.R, Main = w.Main && w.Mode != ModeShaft, Mode = w.Mode, Kind = w.Descender ? 6 : w.Mode });
                 w.Len -= 1; total++;
 
-                if (w.Mode != ModeShaft && total < budget && w.Gen < 5 && rng.NextDouble() < 0.017)
+                if (w.Mode != ModeShaft && total < budget && w.Gen < 6 && rng.NextDouble() < 0.017)
                 {
                     var c = new Walker
                     {
                         X = w.X, Y = w.Y, Gen = w.Gen + 1,
                         R = Math.Min(w.R, 3.4f), TR = Rnd(3.0f, 4.2f),
-                        Len = Rnd(50, 140) * (1f - w.Gen * 0.12f),
+                        Len = Rnd(70, 200) * (1f - w.Gen * 0.11f),
                     };
                     if (w.Mode == ModeAir && w.Y < waterRow - 12 && rng.NextDouble() < 0.2)
                     {
@@ -391,7 +394,7 @@ public static class CaveGenerator
                 Dome(cx, cy + ry, rx, ry, false);
                 cave.Rooms.Add(new Room
                 {
-                    Kind = rng.NextDouble() < 0.6 ? RoomKind.Treasure : RoomKind.MiniBoss,
+                    Kind = RoomKind.Treasure,
                     Underwater = true,
                     Center = new Vector2(cx, cy) * CaveData.Cell,
                     Floor = new Vector2(cx, cy + ry - 0.5f) * CaveData.Cell,
@@ -409,12 +412,32 @@ public static class CaveGenerator
                 double roll = rng.NextDouble();
                 cave.Rooms.Add(new Room
                 {
-                    Kind = roll < 0.42 ? RoomKind.Treasure : roll < 0.82 ? RoomKind.MiniBoss : RoomKind.Ambush,
+                    Kind = roll < 0.6 ? RoomKind.Treasure : RoomKind.Ambush,
                     Center = new Vector2(cx, floorY - ry * 0.5f) * CaveData.Cell,
                     Floor = new Vector2(cx, floorY) * CaveData.Cell,
                     RxPx = rx * CaveData.Cell, RyPx = ry * CaveData.Cell,
                 });
             }
+        }
+
+        // Exactly 3-4 mini-boss lairs, spread out and weighted toward the far reaches of the cave.
+        {
+            var candidates = new List<Room>();
+            foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Treasure or RoomKind.Ambush) candidates.Add(r);
+            var startPx = new Vector2(sx, sy) * CaveData.Cell;
+            candidates.Sort((a, b) => b.Center.DistanceTo(startPx).CompareTo(a.Center.DistanceTo(startPx)));
+            int want = 3 + rng.Next(2);
+            var chosen = new List<Room>();
+            foreach (float spacing in new[] { 70f, 45f, 25f })
+                foreach (var r in candidates)
+                {
+                    if (chosen.Count >= want) break;
+                    if (chosen.Contains(r) || r.Center.DistanceTo(startPx) < 40 * CaveData.Cell) continue;
+                    bool ok = true;
+                    foreach (var c in chosen) if (c.Center.DistanceTo(r.Center) < spacing * CaveData.Cell) { ok = false; break; }
+                    if (ok) chosen.Add(r);
+                }
+            foreach (var r in chosen) r.Kind = RoomKind.MiniBoss;
         }
 
         // Solid border.

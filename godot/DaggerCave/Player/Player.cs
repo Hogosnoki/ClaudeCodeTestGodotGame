@@ -20,9 +20,11 @@ public struct PlayerInput
 public partial class Player : CharacterBody2D
 {
     // --- Tunables (pixels, seconds) ---
-    private const float Gravity = 1350f, MaxFall = 720f;
-    private const float RunSpeed = 185f;
-    private const float BaseJumpV = 470f;
+    // Gravity and jump speed are both scaled by the same factor k (g*k, v*sqrt(k)) so the jump
+    // height is unchanged but the arc is a touch floatier.
+    private const float Gravity = 1350f * 0.88f, MaxFall = 675f;
+    private const float RunSpeed = 170f;
+    private static readonly float BaseJumpV = 470f * MathF.Sqrt(0.88f);
     private const float SwimSpeedBase = 150f;
     private const float SwingCooldownBase = 0.36f, SwingActive = 0.11f, ComboWindow = 0.55f;
     private const float BaseReach = 30f;
@@ -30,7 +32,7 @@ public partial class Player : CharacterBody2D
     private const float DodgeSpeed = 450f, DodgeTime = 0.2f, DodgeCdBase = 0.95f;
 
     public PlayerStats Stats = new();
-    public float Hp = 100;
+    public float Hp = 60;
     public float Breath = 8f;
     public int Level = 1;
     public int Xp;
@@ -485,7 +487,7 @@ public partial class Player : CharacterBody2D
         {
             _swingHitSomething = true;
             if (_comboResetPending) { _swingCd = 0.04f; _comboResetPending = false; }
-            G.Main.HitStop(finisher ? 0.11f : killed ? 0.08f : 0.055f);
+            G.Main.HitStop(finisher ? 0.15f : killed ? 0.12f : 0.08f);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
             {
@@ -535,14 +537,14 @@ public partial class Player : CharacterBody2D
         if (Dead || Invulnerable) return;
         dmg *= 1f - Stats.DamageReduction;
         TakeRawDamage(dmg, "hit");
-        _invuln = 0.85f;
+        _invuln = Stats.HurtInvuln;
         var away = (GlobalPosition - from).Normalized();
         // turn to face what hit you, then recoil
         if (Math.Abs(from.X - GlobalPosition.X) > 2) Facing = Math.Sign(from.X - GlobalPosition.X);
         Anim.Face((int)Facing, instant: true);
         Anim.Once("hurt", 4);
         Anim.Flash(1f);
-        G.Main.HitStop(0.06f);
+        G.Main.HitStop(0.1f);
         G.Main.Kick(away * 6f);
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);

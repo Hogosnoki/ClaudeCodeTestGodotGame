@@ -79,6 +79,8 @@ public partial class SpriteAnimator : Node2D
     public int Facing = 1;          // the facing the sprite currently shows
     public bool AllowTurns = true;
     public float BaseSpeed = 1f;
+    /// <summary>Extra playback multiplier (the enemy difficulty tempo).</summary>
+    public float TimeMult = 1f;
 
     private string _base = "idle";
     private string _once;
@@ -228,13 +230,13 @@ void fragment() {
             bool sameClip = Sprite.Animation.ToString().Length > 2 && want.Length > 2 &&
                             Sprite.Animation.ToString()[..^2] == want[..^2] && !restart;
             Sprite.Play(want);
-            Sprite.SpeedScale = speed;
+            Sprite.SpeedScale = speed * TimeMult;
             if (sameClip && frame < Sheet.Frames.GetFrameCount(want)) Sprite.SetFrameAndProgress(frame, progress);
         }
         else
         {
             if (restart) { Sprite.Stop(); Sprite.Play(want); }
-            Sprite.SpeedScale = speed;
+            Sprite.SpeedScale = speed * TimeMult;
         }
     }
 

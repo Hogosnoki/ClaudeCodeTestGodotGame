@@ -48,8 +48,8 @@ public abstract partial class Enemy : CharacterBody2D
         FloorMaxAngle = Mathf.DegToRad(50);
         FloorSnapLength = 6f;
         ZIndex = 0;
+        // Health is fixed at spawn from the difficulty curve; damage and tempo follow it live.
         MaxHp *= G.DepthHp;
-        ContactDamage *= G.DepthDmg;
         Hp = MaxHp;
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });
         G.Enemies.Add(this);
@@ -86,16 +86,32 @@ public abstract partial class Enemy : CharacterBody2D
 
     protected abstract void Think(float dt);
 
+    /// <summary>
+    /// True for enemies spawned as an "entrance" (they arrive from off-screen and come looking for
+    /// the player rather than waiting to be found).
+    /// </summary>
+    public bool Hunting;
+
+    /// <summary>Makes this enemy seek the player from out of view. Call before adding to the tree.</summary>
+    public virtual void Engage() { Awake = true; Hunting = true; }
+
+    /// <summary>How far away this enemy notices the player (much further when hunting).</summary>
+    protected float Aggro(float range) => Hunting ? 1200f : range;
+
     public override void _PhysicsProcess(double delta)
     {
         if (Dead) return;
         var p = P;
         if (p == null) return;
-        float dt = (float)delta;
         float dist = DistP;
+        if (Hunting && !IsBoss && dist > 1700) { QueueFree(); return; } // wandered off-stage
         if (!IsBoss && dist > 1500) return; // asleep
         if (!Awake && dist < 420) Awake = true;
-        T += dt; HurtFlash -= dt;
+        // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
+        // and animations all scale together.
+        float tempo = G.Tempo;
+        float dt = (float)delta * tempo;
+        T += dt; HurtFlash -= (float)delta;
 
         if (Stun > 0)
         {
@@ -109,16 +125,22 @@ public abstract partial class Enemy : CharacterBody2D
         else
         {
             Think(dt);
-            if (!ManualMove) MoveAndSlide();
+            if (!ManualMove)
+            {
+                Velocity *= tempo;
+                MoveAndSlide();
+                Velocity /= tempo;
+            }
         }
         if (Anim != null)
         {
+            Anim.TimeMult = tempo;
             Animate();
             Anim.Face((int)Face);
         }
 
         if (ContactActive && ContactDamage > 0 && !p.Dead && dist < HitRadius + 7)
-            p.Hurt(ContactDamage, GlobalPosition);
+            p.Hurt(ContactDamage * G.DepthDmg, GlobalPosition);
         QueueRedraw();
     }
 
@@ -172,7 +194,8 @@ public abstract partial class Enemy : CharacterBody2D
         int per = Math.Max(1, XpValue / orbs);
         for (int k = 0; k < orbs; k++)
             G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
-        if (G.Chance(Elite ? 1f : 0.06f)) G.Spawn(new HeartPickup { Position = GlobalPosition });
+        // healing is scarce: rare from regular kills, likely (not certain) from mini-bosses
+        if (G.Chance(IsBoss ? 1f : Elite ? 0.4f : 0.02f)) G.Spawn(new HeartPickup { Position = GlobalPosition });
         P?.OnKill();
         if (Elite && !IsBoss) G.Main.SlowMo(0.45f, 0.25f);
         if (IsBoss) G.Main.SlowMo(1.3f, 0.15f);

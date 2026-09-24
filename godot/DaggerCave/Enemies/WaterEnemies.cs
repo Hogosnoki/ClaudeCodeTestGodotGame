@@ -44,7 +44,7 @@ public partial class Fish : Enemy
             case 0:
             {
                 bool playerIn = P.InWater;
-                if (Awake && playerIn && DistP < 320)
+                if (Awake && playerIn && DistP < Aggro(320))
                 {
                     if (_dartT > 0) { /* keep dashing */ }
                     else if (_dartCd <= 0)

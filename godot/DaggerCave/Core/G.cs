@@ -33,10 +33,25 @@ public static class G
     public static Vector2 RandDir() { float a = Range(0, Mathf.Tau); return new Vector2(Mathf.Cos(a), Mathf.Sin(a)); }
     public static T Pick<T>(IList<T> list) => list[Rng.Next(list.Count)];
 
-    /// <summary>Enemy health multiplier for the current depth.</summary>
-    public static float DepthHp => 1f + 0.35f * (Depth - 1);
-    /// <summary>Enemy damage multiplier for the current depth.</summary>
-    public static float DepthDmg => 1f + 0.2f * (Depth - 1);
+    /// <summary>Seconds of play in this run (excluding pauses/menus); drives the difficulty curve.</summary>
+    public static float RunTime;
+
+    /// <summary>
+    /// Continuous difficulty curve: every enemy stat doubles every 10 minutes of play
+    /// (2^(t/600)), so a run keeps getting harder smoothly rather than in steps.
+    /// </summary>
+    public static float Threat => MathF.Pow(2f, RunTime / 600f);
+
+    /// <summary>Enemy movement/attack tempo: the same curve, capped at 2x so fights stay readable.</summary>
+    public static float Tempo => MathF.Min(2f, Threat);
+
+    /// <summary>Spawn intensity 0..3: how busy the cave is (grows over the first half hour).</summary>
+    public static float Pace => MathF.Min(3f, RunTime / 600f);
+
+    /// <summary>Enemy health multiplier.</summary>
+    public static float DepthHp => Threat;
+    /// <summary>Enemy damage multiplier.</summary>
+    public static float DepthDmg => Threat;
 
     public static void Spawn(Node n) => World.AddChild(n);
 }
