@@ -31,7 +31,7 @@ public partial class Main : Node
 
     private enum State { Title, Playing, Paused, Choosing, Dead }
     private State _state = State.Title;
-    private ulong _hitStopUntil;
+    private float _hitStopLeft;
     private float _spawnT, _runTime, _deadT;
     private int _seed;
     private readonly Random _rng = new();
@@ -47,7 +47,9 @@ public partial class Main : Node
     private string _titleShot = "";
     private float _titleT;
     private bool _menuShotDone;
-    private bool _bestiary, _animTest, _padTest;
+    private bool _bestiary, _animTest, _padTest, _showcase;
+    private float _showT;
+    private int _showStage = -1;
     private float _padT;
     private int _padStep;
     private float _animT;
@@ -167,6 +169,7 @@ public partial class Main : Node
             else if (a == "--bestiary") _bestiary = true;
             else if (a == "--animtest") _animTest = true;
             else if (a == "--padtest") _padTest = true;
+            else if (a == "--showcase") { _showcase = true; _autotest = true; }
         }
     }
 
@@ -372,8 +375,8 @@ public partial class Main : Node
     /// <summary>Freezes the action for a beat so hits land with weight.</summary>
     public void HitStop(float seconds, float timeScale = 0.05f)
     {
-        ulong until = Time.GetTicksMsec() + (ulong)(seconds * 1000);
-        if (until > _hitStopUntil) _hitStopUntil = until;
+        // measured in unscaled frame time (not the wall clock) so it also works when rendering a movie
+        _hitStopLeft = Math.Max(_hitStopLeft, seconds);
         Engine.TimeScale = Math.Min(Engine.TimeScale, timeScale);
     }
 
@@ -414,7 +417,11 @@ public partial class Main : Node
     public override void _Process(double delta)
     {
         float dt = (float)delta;
-        if (_hitStopUntil != 0 && Time.GetTicksMsec() >= _hitStopUntil) { Engine.TimeScale = 1; _hitStopUntil = 0; }
+        if (_hitStopLeft > 0)
+        {
+            _hitStopLeft -= dt / (float)Math.Max(0.01, Engine.TimeScale);
+            if (_hitStopLeft <= 0) Engine.TimeScale = 1;
+        }
 
         if (_padTest) PadTestTick(dt);
         switch (_state)
@@ -478,6 +485,7 @@ public partial class Main : Node
             if (_spawnT <= 0) { _spawnT = 0.25f; RunSpawner(0.25f); RunRooms(); }
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;
         }
+        if (_showcase) ShowcaseTick(dt);
         if (_autotest) AutotestTick(dt);
         if (_bestiary) BestiaryTick(dt);
         if (_animTest) AnimTestTick(dt);
@@ -783,6 +791,50 @@ public partial class Main : Node
         {
             GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/bestiary_boss.png");
             GetTree().Quit();
+        }
+    }
+
+    /// <summary>
+    /// A directed demo for recording: the autopilot fights a spread of land creatures, then
+    /// dives into the water, then takes on the boss. Pair with Godot's --write-movie.
+    /// </summary>
+    private void ShowcaseTick(float dt)
+    {
+        if (_state != State.Playing) return;
+        _showT += dt;
+        var p = G.Player;
+        var cave = G.Cave;
+        void Teleport(Vector2 at) { p.GlobalPosition = at; p.Velocity = Vector2.Zero; _cam.GlobalPosition = at; }
+        void Put(Enemy e, Vector2 at) { e.Position = at; _world.AddChild(e); }
+        int stage = _showT < 11 ? 0 : _showT < 21 ? 1 : 2;
+        if (stage == _showStage) return;
+        _showStage = stage;
+        foreach (var e in G.Enemies.ToArray()) if (!e.IsBoss) e.QueueFree();
+        switch (stage)
+        {
+            case 0:
+                // a seasoned rogue: combo + finisher + knockback + pogo, and enough health to survive the bot
+                foreach (var id in new[] { "combo", "combo3", "knock", "pogo", "throw2", "atkspd" }) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
+                p.Stats.MaxHp = 600; p.Hp = 600;
+                var s0 = p.GlobalPosition;
+                Put(new Goblin(), s0 + new Vector2(90, -10));
+                Put(new Frog(), s0 + new Vector2(-80, -6));
+                Put(new Goblin { Slinger = true }, s0 + new Vector2(150, -10));
+                Put(new Bat(), s0 + new Vector2(40, -60));
+                Put(new Bat(), s0 + new Vector2(-40, -70));
+                Put(new Golem(), s0 + new Vector2(-150, -14));
+                p.AddXp(p.XpToNext - 1);
+                break;
+            case 1:
+                var sp = cave.Spawns.FirstOrDefault(x => x.Kind == SpawnKind.Water && x.Pos.Y > cave.WaterY + 60);
+                var w = sp?.Pos ?? cave.StartPos;
+                Teleport(w);
+                for (int k = 0; k < 4; k++) Put(new Fish(), w + new Vector2(60 + k * 20, G.Range(-30, 30)));
+                Put(new Urchin(), w + new Vector2(-70, 30));
+                break;
+            default:
+                Teleport(cave.Boss.Center + new Vector2(-cave.Boss.RxPx * 0.5f, 0));
+                break;
         }
     }
 

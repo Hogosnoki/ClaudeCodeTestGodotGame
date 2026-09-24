@@ -148,6 +148,14 @@ xvfb-run godot --path godot --rendering-driver opengl3 -- --seed=1013 --bestiary
 
 `--start=boss` and `--start=water` change where the player spawns, and `--seed=N` fixes the cave.
 
+To record gameplay, `--showcase` runs a directed demo (a land fight, then underwater, then the
+boss). Combine it with Godot's movie writer, which renders frame by frame at a fixed rate and
+captures the audio:
+
+```
+xvfb-run godot --path godot --rendering-driver opengl3 --write-movie /tmp/v/f.png --fixed-fps 30 -- --showcase --seed=1013 --duration=31
+```
+
 Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,
   turn, stop, jump, land, slashes, dodge, throw, hurt) and saves a frame every 1/20 s.
