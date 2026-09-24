@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://dgdeep0main01"]
+
+[ext_resource type="Script" path="res://DaggerCave/Main.cs" id="1_main"]
+
+[node name="DaggerDeep" type="Node"]
+script = ExtResource("1_main")

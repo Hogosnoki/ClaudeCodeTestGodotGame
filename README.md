@@ -6,6 +6,11 @@ below for the architecture questions this raised before implementation started, 
 **[`INTEGRATION.md`](INTEGRATION.md)** for how to bring this into your own project, render it with
 real tile art, and visually debug it.
 
+**Dagger Deep**, a playable side-view rogue-lite built on top of this project, lives in
+[`godot/DaggerCave/`](godot/DaggerCave/README.md). Its scene (`godot/Scenes/DaggerDeep.tscn`) is
+now the Godot project's main scene. The milestone-1, visual-debug and map-editor scenes are
+unchanged and can still be run from `godot/Scenes/`.
+
 ## Layout
 
 ```

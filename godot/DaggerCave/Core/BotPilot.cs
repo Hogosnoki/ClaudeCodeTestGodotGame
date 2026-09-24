@@ -1,0 +1,133 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+
+namespace DaggerCave;
+
+/// <summary>
+/// A crude autopilot used by `--autotest` to exercise the game headlessly: path-finds over open
+/// cells toward the boss room (or a random room when stuck), jumps at ledges, swims toward
+/// waypoints, and fights whatever is nearby.
+/// </summary>
+public sealed class BotPilot
+{
+    private PlayerInput _cur;
+    private List<Vector2> _path = new();
+    private float _pathT, _stuckT, _goalT, _atkCd, _throwCd, _dodgeCd, _jumpHoldT;
+    private Vector2 _lastPos;
+    private Vector2 _goal;
+    private bool _haveGoal;
+    private readonly Random _rng = new(5);
+
+    public PlayerInput Read()
+    {
+        var r = _cur;
+        _cur.Jump = false; _cur.Attack = false; _cur.Throw = false; _cur.Dodge = false;
+        return r;
+    }
+
+    public void Tick(float dt)
+    {
+        var p = G.Player;
+        var cave = G.Cave;
+        if (p == null || p.Dead || cave == null) return;
+        _pathT -= dt; _goalT -= dt; _atkCd -= dt; _throwCd -= dt; _dodgeCd -= dt; _jumpHoldT -= dt;
+        var pos = p.GlobalPosition;
+
+        if (!_haveGoal || _goalT <= 0)
+        {
+            _haveGoal = true;
+            if (cave.Boss != null && _rng.NextDouble() < 0.6) { _goal = cave.Boss.Center; _goalT = 40; }
+            else { _goal = cave.Rooms[_rng.Next(cave.Rooms.Count)].Center; _goalT = 25; }
+            _pathT = 0;
+        }
+        if (_pathT <= 0) { _pathT = 1.2f; _path = FindPath(cave, pos, _goal); }
+
+        // stuck detection
+        if (pos.DistanceTo(_lastPos) < 1.5f) _stuckT += dt; else _stuckT = 0;
+        _lastPos = pos;
+        if (_stuckT > 5f) { _goalT = 0; _stuckT = 0; }
+
+        Vector2 wp = _goal;
+        while (_path.Count > 1 && _path[0].DistanceTo(pos) < 20) _path.RemoveAt(0);
+        if (_path.Count > 0) wp = _path[Math.Min(2, _path.Count - 1)];
+
+        var to = wp - pos;
+        var move = Vector2.Zero;
+        if (p.InWater)
+        {
+            move = to.Normalized();
+            _cur.JumpHeld = to.Y < -10;
+            if (to.Y < -10 && pos.Y < cave.WaterY + 24) _cur.Jump = true;
+        }
+        else
+        {
+            if (Math.Abs(to.X) > 5) move.X = Math.Sign(to.X);
+            bool needUp = to.Y < -18;
+            if ((needUp || _stuckT > 0.35f) && p.IsOnFloor()) { _cur.Jump = true; _jumpHoldT = 0.35f; }
+            else if (!p.IsOnFloor() && needUp && p.Velocity.Y > 50) _cur.Jump = true; // uses double jump / air dash / wall jump
+            _cur.JumpHeld = _jumpHoldT > 0;
+            if (to.Y > 20) move.Y = 1;
+        }
+
+        // Combat
+        Enemy target = null; float bd = 230;
+        foreach (var e in G.Enemies)
+        {
+            if (e.Dead || !e.CanBeHit) continue;
+            float d = e.GlobalPosition.DistanceTo(pos);
+            if (d < bd && cave.LineClear(pos, e.GlobalPosition)) { bd = d; target = e; }
+        }
+        _cur.Aim = move.LengthSquared() > 0 ? move.Normalized() : Vector2.Right;
+        if (target != null)
+        {
+            var te = target.GlobalPosition - pos;
+            _cur.Aim = te.Normalized();
+            if (bd < 44 + target.HitRadius && _atkCd <= 0) { _cur.Attack = true; _atkCd = 0.12f; }
+            else if (bd > 70 && _throwCd <= 0) { _cur.Throw = true; _throwCd = 1.0f; }
+            if (bd > 44 && !p.InWater) move.X = Math.Sign(te.X);
+            if (p.Hp < p.Stats.MaxHp * 0.4f && bd < 60 && _dodgeCd <= 0) { _cur.Dodge = true; _dodgeCd = 1.5f; move.X = -Math.Sign(te.X); }
+        }
+        _cur.Move = move;
+    }
+
+    private static List<Vector2> FindPath(CaveData cave, Vector2 from, Vector2 to)
+    {
+        int W = cave.W, H = cave.H;
+        var s = new Vector2I((int)(from.X / CaveData.Cell), (int)(from.Y / CaveData.Cell));
+        var g = new Vector2I((int)(to.X / CaveData.Cell), (int)(to.Y / CaveData.Cell));
+        var prev = new int[W * H];
+        Array.Fill(prev, -2);
+        var q = new Queue<int>();
+        int si = s.Y * W + s.X;
+        if (si < 0 || si >= W * H) return new List<Vector2>();
+        prev[si] = -1; q.Enqueue(si);
+        int gi = g.Y * W + g.X, found = -1;
+        int best = si; int bestD = int.MaxValue;
+        while (q.Count > 0)
+        {
+            int u = q.Dequeue();
+            if (u == gi) { found = u; break; }
+            int ui = u % W, uj = u / W;
+            int dd = Math.Abs(ui - g.X) + Math.Abs(uj - g.Y);
+            if (dd < bestD) { bestD = dd; best = u; }
+            for (int dj = -1; dj <= 1; dj++)
+                for (int di = -1; di <= 1; di++)
+                {
+                    if (di == 0 && dj == 0) continue;
+                    int i = ui + di, j = uj + dj;
+                    if (i < 0 || j < 0 || i >= W || j >= H) continue;
+                    int v = j * W + i;
+                    if (prev[v] != -2 || !cave.CellOpen(i, j)) continue;
+                    // keep a cell of clearance so the path doesn't hug walls
+                    if (!cave.CellOpen(i, j - 1) && !cave.CellOpen(i, j + 1)) continue;
+                    prev[v] = u; q.Enqueue(v);
+                }
+        }
+        if (found < 0) found = best;
+        var path = new List<Vector2>();
+        for (int c = found; c >= 0; c = prev[c]) path.Add(new Vector2(c % W + 0.5f, c / W + 0.5f) * CaveData.Cell);
+        path.Reverse();
+        return path;
+    }
+}

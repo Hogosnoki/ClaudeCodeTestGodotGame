@@ -1,0 +1,349 @@
+using System;
+using System.Collections.Generic;
+using Godot;
+
+namespace DaggerCave;
+
+/// <summary>The player's thrown dagger: flies straight, optionally ricochets to another enemy or pierces.</summary>
+public partial class ThrownDagger : Node2D
+{
+    public Vector2 Dir;
+    public float Damage;
+    public int BouncesLeft;
+    public bool Pierce;
+
+    private const float Speed = 820f, MaxRange = 560f;
+    private float _traveled, _fadeT = -1, _t;
+    private Vector2 _fallVel;
+    private readonly HashSet<Enemy> _hit = new();
+
+    public override void _Ready() { ZIndex = 2; }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt;
+        if (_fadeT >= 0)
+        {
+            _fadeT -= dt;
+            if (_fallVel != Vector2.Zero)
+            {
+                _fallVel.Y += 900 * dt;
+                var np = GlobalPosition + _fallVel * dt;
+                if (G.Cave.IsSolid(np)) _fallVel = Vector2.Zero; else GlobalPosition = np;
+                Rotation += dt * 14;
+            }
+            if (_fadeT <= 0) QueueFree();
+            QueueRedraw();
+            return;
+        }
+        var cave = G.Cave;
+        float spd = cave.IsWater(GlobalPosition) ? Speed * 0.6f : Speed;
+        var from = GlobalPosition;
+        var step = Dir * spd * dt;
+        var to = from + step;
+
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e.Dead || _hit.Contains(e)) continue;
+            if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 4) continue;
+            _hit.Add(e);
+            float dealt = e.Hurt(Damage, Dir * 120f, e.GlobalPosition - Dir * e.HitRadius);
+            if (dealt > 0) { G.Player.OnDealtDamage(dealt); G.Main.HitStop(0.03f); }
+            else G.Sfx.Play("clink", GlobalPosition, -4);
+            if (Pierce) continue;
+            if (BouncesLeft > 0 && Retarget(e.GlobalPosition))
+            {
+                BouncesLeft--;
+                Damage *= 0.85f;
+                _traveled = 0;
+                GlobalPosition = e.GlobalPosition;
+                G.Fx.Ring(e.GlobalPosition, 10, new Color(1f, 0.9f, 0.5f));
+                QueueRedraw();
+                return;
+            }
+            Drop();
+            return;
+        }
+
+        if (cave.Raycast(from, Dir, step.Length(), out var hit, 3f))
+        {
+            GlobalPosition = hit;
+            G.Sfx.Play("clink", hit, -4);
+            G.Fx.Directional(hit, -Dir, 0.9f, new Color(1f, 0.9f, 0.6f), 6, 160, 1.5f, 0.25f, 300);
+            _fadeT = 0.6f;
+            _fallVel = Vector2.Zero;
+            QueueRedraw();
+            return;
+        }
+        GlobalPosition = to;
+        _traveled += step.Length();
+        if (_traveled > MaxRange) Drop();
+        QueueRedraw();
+    }
+
+    private bool Retarget(Vector2 from)
+    {
+        Enemy best = null; float bd = 280f;
+        foreach (var e in G.Enemies)
+        {
+            if (e.Dead || _hit.Contains(e)) continue;
+            float d = e.GlobalPosition.DistanceTo(from);
+            if (d < bd && G.Cave.LineClear(from, e.GlobalPosition)) { bd = d; best = e; }
+        }
+        if (best == null) return false;
+        Dir = (best.GlobalPosition - from).Normalized();
+        return true;
+    }
+
+    private void Drop()
+    {
+        _fadeT = 0.7f;
+        _fallVel = new Vector2(-Dir.X * 80, -160);
+    }
+
+    public override void _Draw()
+    {
+        float a = _fadeT >= 0 ? Math.Clamp(_fadeT / 0.3f, 0, 1) : 1;
+        if (_fadeT < 0)
+        {
+            DrawLine(-Dir * 26, Vector2.Zero, new Color(0.8f, 0.95f, 1f, 0.35f), 2f);
+            DrawSetTransform(Vector2.Zero, Dir.Angle(), Vector2.One);
+        }
+        DrawLine(new Vector2(-8, 0), new Vector2(-3, 0), new Color(0.4f, 0.25f, 0.12f, a), 2.5f);
+        DrawLine(new Vector2(-3, -3), new Vector2(-3, 3), new Color(0.75f, 0.65f, 0.3f, a), 1.5f);
+        DrawColoredPolygon(new[] { new Vector2(-2, -1.6f), new Vector2(9, 0), new Vector2(-2, 1.6f) }, new Color(0.9f, 0.95f, 1f, a));
+        DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+    }
+}
+
+/// <summary>Deflectable enemy projectile (thrown rocks, lava globs, spit).</summary>
+public partial class EnemyProjectile : Node2D
+{
+    public Vector2 Vel;
+    public float Grav;
+    public float Radius = 5f;
+    public float Damage = 8f;
+    public string Kind = "rock";
+    public float Life = 4f;
+
+    public override void _Ready()
+    {
+        ZIndex = 2;
+        G.Main.EnemyProjectiles.Add(this);
+    }
+
+    public override void _ExitTree() => G.Main.EnemyProjectiles.Remove(this);
+
+    public void Deflect()
+    {
+        G.Fx.Burst(GlobalPosition, Kind == "lava" ? new Color(1f, 0.5f, 0.1f) : new Color(0.8f, 0.75f, 0.7f), 8, 140, 2f, 0.3f);
+        G.Sfx.Play("clink", GlobalPosition, -4);
+        QueueFree();
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        Life -= dt;
+        var cave = G.Cave;
+        bool water = cave.IsWater(GlobalPosition);
+        if (Kind == "lava" && water)
+        {
+            G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.8f, 0.8f, 0.6f), 6, 60, 3f, 0.6f, -80);
+            G.Sfx.Play("lava", GlobalPosition, -10);
+            QueueFree(); return;
+        }
+        Vel.Y += Grav * dt * (water ? 0.3f : 1f);
+        if (water) Vel *= 1f / (1f + 2f * dt);
+        var np = GlobalPosition + Vel * dt;
+        if (cave.IsSolid(np) || Life <= 0)
+        {
+            Impact(np);
+            return;
+        }
+        GlobalPosition = np;
+        var p = G.Player;
+        if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
+        {
+            p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10);
+            Impact(GlobalPosition);
+            return;
+        }
+        if (Kind == "lava" && G.Chance(0.4f)) G.Fx.Burst(GlobalPosition, new Color(1f, 0.55f, 0.1f, 0.8f), 1, 20, 2f, 0.3f, -30);
+        QueueRedraw();
+    }
+
+    private void Impact(Vector2 at)
+    {
+        if (Kind == "lava")
+        {
+            G.Sfx.Play("lava", at, -8);
+            G.Fx.Burst(at, new Color(1f, 0.5f, 0.1f), 10, 120, 2.5f, 0.4f);
+            if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
+                G.Spawn(new LavaPuddle { Position = fl });
+        }
+        else
+        {
+            G.Sfx.Play("rock", at, -10);
+            G.Fx.Burst(at, new Color(0.6f, 0.55f, 0.5f), 8, 100, 2f, 0.4f);
+        }
+        QueueFree();
+    }
+
+    public override void _Draw()
+    {
+        switch (Kind)
+        {
+            case "lava":
+                DrawCircle(Vector2.Zero, Radius + 3, new Color(1f, 0.4f, 0.05f, 0.3f));
+                DrawCircle(Vector2.Zero, Radius, new Color(1f, 0.55f, 0.1f));
+                DrawCircle(new Vector2(-1, -1), Radius * 0.5f, new Color(1f, 0.9f, 0.4f));
+                break;
+            case "spit":
+                DrawCircle(Vector2.Zero, Radius, new Color(0.5f, 0.9f, 0.3f, 0.9f));
+                break;
+            default:
+                DrawColoredPolygon(new[] { new Vector2(-Radius, -1), new Vector2(-1, -Radius), new Vector2(Radius, -1), new Vector2(1, Radius) }, new Color(0.55f, 0.5f, 0.45f));
+                break;
+        }
+    }
+}
+
+/// <summary>Burning patch left by lava monsters and their globs.</summary>
+public partial class LavaPuddle : Node2D
+{
+    private float _life = 3.5f, _tick, _t;
+    private const float HalfW = 16f;
+
+    public override void _Ready() { ZIndex = 3; }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _life -= dt; _t += dt; _tick -= dt;
+        if (_life <= 0) { QueueFree(); return; }
+        var p = G.Player;
+        if (p != null && _tick <= 0)
+        {
+            var d = p.GlobalPosition - GlobalPosition;
+            if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6) { p.Hurt(6f * G.DepthDmg, GlobalPosition + new Vector2(0, 10), 120); _tick = 0.5f; }
+        }
+        if (G.Chance(0.1f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-HalfW, HalfW), -2), new Color(1f, 0.6f, 0.15f, 0.8f), 1, 30, 1.8f, 0.4f, -60);
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        float a = Math.Clamp(_life / 0.6f, 0, 1);
+        float w = HalfW * (0.9f + 0.1f * MathF.Sin(_t * 6));
+        DrawSetTransform(Vector2.Zero, 0, new Vector2(1, 0.3f));
+        DrawCircle(Vector2.Zero, w + 6, new Color(1f, 0.4f, 0.05f, 0.25f * a));
+        DrawCircle(Vector2.Zero, w, new Color(1f, 0.45f, 0.08f, 0.9f * a));
+        DrawCircle(new Vector2(MathF.Sin(_t * 3) * 5, 0), w * 0.45f, new Color(1f, 0.85f, 0.35f, a));
+        DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+    }
+}
+
+/// <summary>Ground-hugging shockwave from golem slams: jump over it.</summary>
+public partial class Shockwave : Node2D
+{
+    public float Dir = 1, Speed = 260f, Damage = 14f, Life = 1.4f, Size = 1f;
+    private bool _hitPlayer;
+    private float _t;
+
+    public override void _Ready() { ZIndex = 3; }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt; Life -= dt;
+        var cave = G.Cave;
+        var next = GlobalPosition + new Vector2(Dir * Speed * dt, 0);
+        if (Life <= 0 || cave.IsSolid(next + new Vector2(Dir * 4, -10 * Size)) || cave.IsWater(next + new Vector2(0, -4)))
+        { Fizzle(); return; }
+        if (!cave.FindFloor(next + new Vector2(0, -18), 44, out var fl)) { Fizzle(); return; }
+        GlobalPosition = fl;
+        var p = G.Player;
+        if (!_hitPlayer && p != null && !p.Dead)
+        {
+            var d = p.GlobalPosition - GlobalPosition;
+            if (Math.Abs(d.X) < 12 * Size && d.Y > -22 * Size - 8 && d.Y < 6) { p.Hurt(Damage, GlobalPosition + new Vector2(-Dir * 10, 10), 260); _hitPlayer = true; }
+        }
+        if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition, new Color(0.6f, 0.55f, 0.5f, 0.8f), 1, 80, 2f, 0.35f, 400);
+        QueueRedraw();
+    }
+
+    private void Fizzle()
+    {
+        G.Fx.Burst(GlobalPosition, new Color(0.6f, 0.55f, 0.5f, 0.8f), 5, 80, 2f, 0.35f, 400);
+        QueueFree();
+    }
+
+    public override void _Draw()
+    {
+        var c = new Color(0.62f, 0.56f, 0.5f);
+        for (int k = 0; k < 3; k++)
+        {
+            float x = -Dir * k * 7 * Size;
+            float h = (16 - k * 4) * Size * (0.8f + 0.2f * MathF.Sin(_t * 30 + k));
+            DrawColoredPolygon(new[] { new Vector2(x - 5 * Size, 2), new Vector2(x + Dir * 2, -h), new Vector2(x + 5 * Size, 2) }, c.Darkened(k * 0.15f));
+        }
+    }
+}
+
+/// <summary>A stalactite that shakes loose from the ceiling (boss attack) with a telegraph.</summary>
+public partial class FallingRock : Node2D
+{
+    public float Damage = 14f;
+    private float _warn = 0.8f, _vy;
+    private Vector2 _floor;
+    private bool _hasFloor;
+
+    public override void _Ready()
+    {
+        ZIndex = 3;
+        _hasFloor = G.Cave.FindFloor(GlobalPosition, 800, out _floor);
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        if (_warn > 0)
+        {
+            _warn -= dt;
+            if (G.Chance(0.3f)) G.Fx.Burst(GlobalPosition, new Color(0.6f, 0.55f, 0.5f, 0.7f), 1, 20, 1.5f, 0.5f, 300);
+            QueueRedraw();
+            return;
+        }
+        _vy = Math.Min(_vy + 1400 * dt, 900);
+        var np = GlobalPosition + new Vector2(0, _vy * dt);
+        var p = G.Player;
+        if (p != null && !p.Dead && Math.Abs(p.GlobalPosition.X - np.X) < 12 && Math.Abs(p.GlobalPosition.Y - np.Y) < 20)
+        { p.Hurt(Damage, np - new Vector2(0, 20), 150); Shatter(np); return; }
+        if (G.Cave.IsSolid(np + new Vector2(0, 10))) { Shatter(np); return; }
+        GlobalPosition = np;
+        QueueRedraw();
+    }
+
+    private void Shatter(Vector2 at)
+    {
+        G.Sfx.Play("rock", at, -4);
+        G.Fx.Burst(at, new Color(0.6f, 0.55f, 0.5f), 12, 150, 2.5f, 0.5f);
+        QueueFree();
+    }
+
+    public override void _Draw()
+    {
+        if (_warn > 0 && _hasFloor)
+        {
+            var local = ToLocal(_floor);
+            float a = 0.25f + 0.25f * MathF.Sin(_warn * 30);
+            DrawSetTransform(local, 0, new Vector2(1, 0.3f));
+            DrawCircle(Vector2.Zero, 12, new Color(0, 0, 0, a + 0.2f));
+            DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+        }
+        float shake = _warn > 0 ? MathF.Sin(_warn * 60) * 1.5f : 0;
+        DrawColoredPolygon(new[] { new Vector2(-7 + shake, -10), new Vector2(7 + shake, -10), new Vector2(shake, 14) }, new Color(0.5f, 0.45f, 0.42f));
+    }
+}
