@@ -21,11 +21,12 @@ namespace DaggerCave;
 /// counts "trap" cells -- reachable from the start but with no way back -- and generation retries
 /// with a new seed if any meaningful trap exists.
 /// </summary>
-public static class CaveGenerator
+public static partial class CaveGenerator
 {
-    public static int W => Tune.Cave.Width;
-    public static int H => Tune.Cave.Height;
-    private const float MaxPitch = 0.60f; // ~34 degrees
+    /// <summary>The biome being generated, and its size in cells (set by Generate).</summary>
+    public static BiomeDef B;
+    public static int W, H;
+    private static float MaxPitch => B?.MaxPitch ?? 0.6f; // ~34 degrees
     private const int ModeAir = 0, ModeShaft = 1, ModeWater = 2;
 
     private sealed class Walker
@@ -35,15 +36,26 @@ public static class CaveGenerator
         public bool Main, MustExit, Exited, Descender;
     }
 
-    private struct Stamp { public float X, Y, R; public bool Main; public int Mode; public int Kind; }
+    internal struct Stamp { public float X, Y, R; public bool Main; public int Mode; public int Kind; }
     private struct EndInfo { public float X, Y, R, A; public int Mode; }
 
-    public static CaveData Generate(int seed)
+    public static CaveData Generate(int seed) => Generate(Biomes.Get(BiomeId.Slime), seed);
+
+    public static CaveData Generate(BiomeDef biome, int seed)
     {
+        B = biome; W = biome.W; H = biome.H;
         CaveData best = null;
         for (int attempt = 0; attempt < 12; attempt++)
         {
-            var c = GenerateOnce(seed + attempt * 7919);
+            int s = seed + attempt * 7919;
+            var c = biome.Style switch
+            {
+                GenStyle.Corridor => GenerateCorridor(s),
+                GenStyle.Rooms => GenerateRooms(s),
+                GenStyle.Ruins => GenerateRuins(s),
+                GenStyle.Arena => GenerateArena(s),
+                _ => GenerateOnce(s),
+            };
             c.Attempts = attempt + 1;
             if (best == null || Score(c) < Score(best)) best = c;
             if (Score(c) <= 6) break;
@@ -58,19 +70,20 @@ public static class CaveGenerator
         if (c.Boss == null) score += 100000;
         else
         {
-            int bi = (int)(c.Boss.Center.X / CaveData.Cell), bj = (int)(c.Boss.Center.Y / CaveData.Cell);
+            // standing height just above the exit chamber's floor
+            int bi = (int)(c.Boss.Floor.X / CaveData.Cell), bj = (int)(c.Boss.Floor.Y / CaveData.Cell) - 2;
             bool reachable = false;
             for (int dj = -3; dj <= 3 && !reachable; dj++)
-                for (int di = -3; di <= 3; di++)
+                for (int di = -4; di <= 4; di++)
                 {
                     int k = (bj + dj) * W + bi + di;
                     if (k >= 0 && k < W * H && c.ReachMask[k]) { reachable = true; break; }
                 }
             if (!reachable) score += 50000;
-            if (c.Boss.Center.DistanceTo(c.StartPos) < Tune.Cave.BossMinDistanceCells * CaveData.Cell) score += 5000;
+            if (B.Style == GenStyle.Walkers && c.Boss.Center.DistanceTo(c.StartPos) < W * 0.33f * CaveData.Cell) score += 5000;
             int minis = 0;
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
-            if (minis < Tune.Cave.MiniBossesMin) score += 2000;
+            if (minis < B.MiniBossesMin) score += 2000;
         }
         return score;
     }
@@ -79,16 +92,19 @@ public static class CaveGenerator
     {
         var rng = new Random(seed);
         float Rnd(float a, float b) => a + (b - a) * (float)rng.NextDouble();
-        float waterRow = H * 0.5f;
+        // no liquid: the "water line" sits below the map, so nothing ever counts as submerged
+        float waterRow = B.HasLiquid ? H * (1f - B.LiquidFraction) : H + 200;
+        // descenders head for the water, or (in dry caves) for the lower reaches of the map
+        float descendTo = B.HasLiquid ? waterRow + 2 : H * 0.78f;
 
         var stamps = new List<Stamp>(4096);
         var ends = new List<EndInfo>();
         var beaches = new List<Vector2>();
         var queue = new Queue<Walker>();
         int total = 0;
-        int budget = Tune.Cave.TunnelBudget;
+        int budget = B.TunnelBudget;
 
-        float sx = W * 0.5f + Rnd(-40, 40);
+        float sx = W * 0.5f + Rnd(-W * 0.08f, W * 0.08f);
         float sy = H * 0.15f + Rnd(-2, 3);
 
         // Initial walkers leave from either side of the start room: one level, one descending gently
@@ -122,8 +138,18 @@ public static class CaveGenerator
                     case ModeAir:
                         w.AV += Rnd(-0.05f, 0.05f); w.AV *= 0.92f; w.A += w.AV;
                         // a gentle preference for long horizontal sweeps (more floor to walk on)
-                        if (!w.Descender) w.A = Mathf.LerpAngle(w.A, Mathf.Cos(w.A) >= 0 ? 0 : Mathf.Pi, Tune.Cave.HorizontalBias);
-                        if (w.Descender && w.Y < waterRow + 2)
+                        if (!w.Descender) w.A = Mathf.LerpAngle(w.A, Mathf.Cos(w.A) >= 0 ? 0 : Mathf.Pi, B.HorizontalBias);
+                        if (B.Diagonal && !w.Descender)
+                        {
+                            // tight tunnels run flat or at a steady diagonal
+                            float hsd = Mathf.Cos(w.A) >= 0 ? 1 : -1;
+                            float pd = Mathf.Asin(Mathf.Clamp(Mathf.Sin(w.A), -1, 1));
+                            float snap = Math.Abs(pd) < MaxPitch * 0.45f ? 0 : Math.Sign(pd) * MaxPitch * 0.95f;
+                            float target = hsd > 0 ? snap : Mathf.Pi - snap;
+                            w.A = Mathf.LerpAngle(w.A, target, 0.15f);
+                        }
+                        if (w.Descender && w.Y >= descendTo) w.Descender = false;
+                        if (w.Descender && w.Y < descendTo)
                         {
                             // keep heading downhill until it reaches the water
                             float hs0 = Mathf.Cos(w.A) >= 0 ? 1 : -1;
@@ -172,7 +198,7 @@ public static class CaveGenerator
                 if (w.Y < 9 && Mathf.Sin(w.A) < 0) { w.A = -w.A; w.AV = 0; }
                 if (w.Y > H - 8 && Mathf.Sin(w.A) > 0) { w.A = -w.A; w.AV = 0; }
 
-                if (rng.NextDouble() < 0.02) w.TR = w.Mode == ModeWater ? Rnd(3.0f, 4.7f) : Rnd(Tune.Cave.AirRadiusMin, Tune.Cave.AirRadiusMax);
+                if (rng.NextDouble() < 0.02) w.TR = w.Mode == ModeWater ? Rnd(3.0f, 4.7f) : Rnd(B.AirRMin, B.AirRMax);
                 w.R += (w.TR - w.R) * 0.04f;
                 w.X += Mathf.Cos(w.A) * 0.9f;
                 w.Y += Mathf.Sin(w.A) * 0.9f;
@@ -186,10 +212,10 @@ public static class CaveGenerator
                     var c = new Walker
                     {
                         X = w.X, Y = w.Y, Gen = w.Gen + 1,
-                        R = Math.Min(w.R, 3.4f), TR = w.Mode == ModeAir ? Rnd(Tune.Cave.AirRadiusMin, Tune.Cave.AirRadiusMax) : Rnd(3.0f, 4.2f),
+                        R = Math.Min(w.R, 3.4f), TR = w.Mode == ModeAir ? Rnd(B.AirRMin, B.AirRMax) : Rnd(3.0f, 4.2f),
                         Len = Rnd(70, 200) * (1f - w.Gen * 0.11f),
                     };
-                    if (w.Mode == ModeAir && w.Y < waterRow - 12 && rng.NextDouble() < 0.2)
+                    if (B.HasLiquid && w.Mode == ModeAir && w.Y < waterRow - 12 && rng.NextDouble() < 0.2)
                     {
                         c.Mode = ModeShaft; c.A = Mathf.Pi / 2 + Rnd(-0.3f, 0.3f); c.MustExit = true; c.Len = Math.Max(c.Len, 70);
                     }
@@ -197,8 +223,8 @@ public static class CaveGenerator
                     {
                         c.Mode = ModeAir; c.Main = w.Main;
                         float hs = rng.NextDouble() < 0.6 ? -Mathf.Sign(Mathf.Cos(w.A)) : Mathf.Sign(Mathf.Cos(w.A));
-                        float p = Rnd(-MaxPitch, MaxPitch) * Tune.Cave.BranchPitchMult;
-                        if (w.Main && w.Y < waterRow - 10 && rng.NextDouble() < 0.12) { p = MaxPitch * 0.85f; c.Descender = true; c.Len = Math.Max(c.Len, 60); }
+                        float p = Rnd(-MaxPitch, MaxPitch) * B.BranchPitchMult;
+                        if (w.Main && w.Y < descendTo - 12 && rng.NextDouble() < 0.12) { p = MaxPitch * 0.85f; c.Descender = true; c.Len = Math.Max(c.Len, 60); }
                         c.A = hs > 0 ? p : Mathf.Pi - p;
                     }
                     else
@@ -262,7 +288,7 @@ public static class CaveGenerator
         }
 
         // --- Field ---
-        var cave = new CaveData { W = W, H = H, Seed = seed, WaterY = waterRow * CaveData.Cell };
+        var cave = new CaveData { W = W, H = H, Seed = seed, WaterY = waterRow * CaveData.Cell, Liquid = B.Liquid, Biome = B };
         int stride = W + 1;
         var open = new float[stride * (H + 1)];
         var rough = new float[stride * (H + 1)];
@@ -436,7 +462,7 @@ public static class CaveGenerator
             foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Treasure or RoomKind.Ambush) candidates.Add(r);
             var startPx = new Vector2(sx, sy) * CaveData.Cell;
             candidates.Sort((a, b) => b.Center.DistanceTo(startPx).CompareTo(a.Center.DistanceTo(startPx)));
-            int want = Tune.Cave.MiniBossesMin + rng.Next(Tune.Cave.MiniBossesMax - Tune.Cave.MiniBossesMin + 1);
+            int want = B.MiniBossesMin + rng.Next(B.MiniBossesMax - B.MiniBossesMin + 1);
             var chosen = new List<Room>();
             foreach (float spacing in new[] { 70f, 45f, 25f })
                 foreach (var r in candidates)
@@ -484,9 +510,10 @@ public static class CaveGenerator
     /// take more luck or better movement upgrades. In narrow shafts a ledge becomes a shelf on one
     /// wall that leaves a gap to drop through.
     /// </summary>
-    private static void AddPlatforms(CaveData cave, Random rng)
+    internal static void AddPlatforms(CaveData cave, Random rng)
     {
-        int waterRow = (int)(cave.WaterY / CaveData.Cell);
+        // no liquid: measure heights from the bottom of the map instead
+        int waterRow = Math.Min((int)(cave.WaterY / CaveData.Cell), H - 3);
         bool Open(int i, int j) => cave.CellOpen(i, j);
         var placed = new List<Vector3>(); // (centre x, standing row, half width)
         var keepOut = new List<Room>();
@@ -495,7 +522,7 @@ public static class CaveGenerator
         float Chance(int standRow)
         {
             float h = Math.Clamp((waterRow - standRow) / (float)Math.Max(1, waterRow - 4), 0f, 1f);
-            return Mathf.Lerp(Tune.Cave.PlatformDensityBottom, Tune.Cave.PlatformDensityTop, h);
+            return Mathf.Lerp(B.PlatformBottom, B.PlatformTop, h);
         }
 
         // Tries to put a ledge whose top you stand on in cell row s, near column x. Returns the
@@ -532,7 +559,9 @@ public static class CaveGenerator
             else return null;
             foreach (var p in placed)
                 if (Math.Abs(p.Y - s) < 6 && Math.Abs(p.X - cx) < p.Z + half + gap) return null;
-            StampLedge(cave, cx, s + 1.8f, half);
+            // frozen caverns: the ledges are breakable ice (placed as objects by the level), not rock
+            if (B.IcePlatforms) cave.IceLedges.Add(new Vector3(cx, s + 1.0f, half));
+            else StampLedge(cave, cx, s + 1.8f, half);
             placed.Add(new Vector3(cx, s, half));
             return cx;
         }
@@ -574,15 +603,15 @@ public static class CaveGenerator
             for (int j = waterRow - 2; j > 8; j--)
             {
                 if (!Open(i, j) || Open(i, j + 1)) continue; // standing cells only
-                int clear = 0;
-                while (clear < 10 && Open(i, j - 1 - clear)) clear++;
-                if (clear >= 10) Chain(x + (rng.Next(2) == 0 ? -3 : 3), j - 3 - rng.Next(2));
+                int clear = 0, need = B.TallThreshold;
+                while (clear < need && Open(i, j - 1 - clear)) clear++;
+                if (clear >= need) Chain(x + (rng.Next(2) == 0 ? -3 : 3), j - 3 - rng.Next(2));
             }
         }
     }
 
     /// <summary>A flat-topped rock slab centred at (cx, cy) in cells, 1.6 cells thick.</summary>
-    private static void StampLedge(CaveData cave, float cx, float cy, float halfWidth)
+    internal static void StampLedge(CaveData cave, float cx, float cy, float halfWidth)
     {
         int stride = W + 1;
         const float ry = 0.8f;
@@ -602,7 +631,7 @@ public static class CaveGenerator
     /// Deletes tiny isolated rock specks floating in open space (and tiny sealed air pockets
     /// inside rock) that noise leaves behind; they read as visual glitches.
     /// </summary>
-    private static void RemoveSpecks(CaveData cave)
+    internal static void RemoveSpecks(CaveData cave)
     {
         int stride = W + 1, n = stride * (H + 1);
         var seen = new bool[n];
@@ -708,8 +737,12 @@ public static class CaveGenerator
                     bool standing = !O(i, j + 1);
                     if (standing)
                     {
-                        Add(i - 1, j); Add(i + 1, j);
-                        if (O(i, j - 1)) { Add(i - 1, j - 1); Add(i + 1, j - 1); }
+                        // walking needs headroom: the hero is two cells tall
+                        for (int s = -1; s <= 1; s += 2)
+                        {
+                            if (O(i + s, j - 1)) Add(i + s, j);
+                            if (O(i, j - 1) && O(i + s, j - 2)) Add(i + s, j - 1);
+                        }
                         jumpFrom = true;
                     }
                     else
@@ -756,7 +789,7 @@ public static class CaveGenerator
     /// Finds the trapped floor cell closest (through open space) to the safe region and builds a
     /// staircase of small rock ledges along that route, 3 cells of height apart.
     /// </summary>
-    private static bool RepairTraps(CaveData cave, HashSet<int> tried)
+    internal static bool RepairTraps(CaveData cave, HashSet<int> tried)
     {
         int n = W * H;
         var prev = new int[n];
@@ -809,10 +842,10 @@ public static class CaveGenerator
         return true;
     }
 
-    private static void BuildSpawns(CaveData cave, List<Stamp> stamps, Vector2 startCells, Random rng)
+    internal static void BuildSpawns(CaveData cave, List<Stamp> stamps, Vector2 startCells, Random rng, int stride = 8)
     {
         float cell = CaveData.Cell;
-        for (int k = 0; k < stamps.Count; k += 8)
+        for (int k = 0; k < stamps.Count; k += stride)
         {
             var s = stamps[k];
             var pc = new Vector2(s.X, s.Y);
@@ -827,6 +860,7 @@ public static class CaveGenerator
 
             if (p.Y > cave.WaterY + 1.5f * cell)
             {
+                if (cave.Liquid != Liquid.Water) continue; // nothing lives in lava
                 double roll = rng.NextDouble();
                 if (roll < 0.25 && cave.FindFloor(p, (s.R + 3) * cell, out var fl))
                     cave.Spawns.Add(new SpawnPoint { Pos = fl + new Vector2(0, -8), Kind = SpawnKind.WaterFloor });
@@ -864,7 +898,7 @@ public static class CaveGenerator
         return true;
     }
 
-    private static float[] ComputeRockDepth(CaveData cave)
+    internal static float[] ComputeRockDepth(CaveData cave)
     {
         int stride = W + 1, n = stride * (H + 1);
         var depth = new float[n];

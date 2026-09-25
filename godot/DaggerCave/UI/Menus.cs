@@ -22,6 +22,7 @@ public partial class UpgradeMenu : Control
         "move" => new Color(0.5f, 1f, 0.6f),
         "dodge" => new Color(0.75f, 0.6f, 1f),
         "shield" => new Color(0.45f, 0.7f, 1f),
+        "skip" => new Color(0.6f, 0.58f, 0.55f),
         _ => new Color(1f, 0.45f, 0.5f),
     };
 
@@ -57,6 +58,7 @@ public partial class UpgradeMenu : Control
         if (Input.IsActionJustPressed("pick_1")) Choose(0);
         else if (Input.IsActionJustPressed("pick_2")) Choose(1);
         else if (Input.IsActionJustPressed("pick_3")) Choose(2);
+        else if (Input.IsActionJustPressed("pick_4")) Choose(3);
         // controller / arrow-key navigation
         int n = _choices.Count;
         if (n > 0)
@@ -89,13 +91,13 @@ public partial class UpgradeMenu : Control
         var tsz = font.GetStringSize(_title, HorizontalAlignment.Left, -1, 34);
         float pop = 1 + 0.05f * MathF.Sin(_t * 5);
         DrawString(font, new Vector2(vs.X / 2 - tsz.X * pop / 2, vs.Y * 0.2f), _title, HorizontalAlignment.Left, -1, (int)(34 * pop), new Color(1f, 0.9f, 0.5f));
-        string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)" : "Choose one  (click, 1 / 2 / 3, or arrows + ENTER)";
+        string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)";
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.7f));
 
         _cards.Clear();
         int n = _choices.Count;
-        float cw = 250, ch = 300, gap = 26;
+        float cw = n > 3 ? 220 : 250, ch = 300, gap = n > 3 ? 18 : 26;
         float total = n * cw + (n - 1) * gap;
         float x0 = vs.X / 2 - total / 2, y0 = vs.Y * 0.3f;
         var stats = G.Player?.Stats;
@@ -103,6 +105,8 @@ public partial class UpgradeMenu : Control
         {
             var u = _choices[k];
             bool hov = k == _hover;
+            if (u.Icon == "skip") { ch = 230; }
+            else ch = 300;
             var r = new Rect2(x0 + k * (cw + gap), y0 - (hov ? 8 : 0), cw, ch);
             _cards.Add(r);
             var cat = CategoryColor(u.Icon);
@@ -122,7 +126,7 @@ public partial class UpgradeMenu : Control
                 DrawString(font, r.Position + new Vector2(cw - 70, 22), "ABILITY", HorizontalAlignment.Left, -1, 11, cat);
             DrawString(font, r.Position + new Vector2(0, 130), u.Name, HorizontalAlignment.Center, cw, 20, Colors.White);
             DrawMultilineString(font, r.Position + new Vector2(16, 162), u.Desc, HorizontalAlignment.Center, cw - 32, 14, -1, new Color(0.85f, 0.85f, 0.9f));
-            if (stats != null && u.MaxStacks > 1)
+            if (stats != null && u.MaxStacks > 1 && u.Icon != "skip")
                 DrawString(font, r.Position + new Vector2(0, ch - 16), $"{stats.StackOf(u.Id)} / {u.MaxStacks}", HorizontalAlignment.Center, cw, 12, new Color(1, 1, 1, 0.5f));
             if (u.Excludes.Length > 0)
                 DrawString(font, r.Position + new Vector2(0, ch - 34), "excludes " + Upgrades.Get(u.Excludes[0]).Name, HorizontalAlignment.Center, cw, 11, new Color(1f, 0.6f, 0.5f, 0.7f));

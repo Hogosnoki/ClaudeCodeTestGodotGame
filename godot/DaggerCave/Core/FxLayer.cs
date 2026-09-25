@@ -12,7 +12,9 @@ public partial class FxLayer : Node2D
         public Vector2 Pos, Vel;
         public float Life, Max, Size, Grav, Drag;
         public Color Col;
-        public int Kind; // 0 dot, 1 streak, 2 bubble, 3 ring, 5 spark streak, 6 impact flash
+        public int Kind; // 0 dot, 1 streak, 2 bubble, 3 ring, 5 spark streak, 6 impact flash, 7 flash, 8 shockwave,
+                         // 9 smoke, 10 debris, 11 droplet, 12 glint, 13 ember, 14 swoosh
+        public float Rot, Spin;
     }
 
     private struct FloatText
@@ -79,6 +81,91 @@ public partial class FxLayer : Node2D
 
     public void AddShake(float amount) => Shake = Math.Min(14f, Shake + amount);
 
+    private void Add(Vector2 pos, Vector2 vel, float life, float size, Color col, int kind, float grav = 0, float drag = 1.5f, float spin = 0)
+        => _parts.Add(new Particle { Pos = pos, Vel = vel, Life = life, Max = life, Size = size, Col = col, Kind = kind, Grav = grav, Drag = drag, Rot = G.Range(0, Mathf.Tau), Spin = spin });
+
+    /// <summary>A small hit spark in a random direction.</summary>
+    public void Spark(Vector2 pos, Color col) => Spark(pos, G.RandDir(), false, col);
+
+    /// <summary>A bright disc that blooms and fades in a blink.</summary>
+    public void Flash(Vector2 pos, float radius, Color col, float life = 0.14f) => Add(pos, Vector2.Zero, life, radius, col, 7);
+
+    /// <summary>A flattened ring racing outward along the ground.</summary>
+    public void Shockwave(Vector2 pos, float radius, Color col, float life = 0.35f) => Add(pos, Vector2.Zero, life, radius, col, 8);
+
+    /// <summary>Puffs of dust at the feet (landings, skids, charges).</summary>
+    public void Dust(Vector2 pos, int n, float spread = 1f, Color? col = null)
+    {
+        var c = col ?? new Color(0.7f, 0.64f, 0.56f, 0.55f);
+        for (int k = 0; k < n; k++)
+            Add(pos + new Vector2(G.Range(-6, 6) * spread, G.Range(-2, 1)), new Vector2(G.Range(-50, 50) * spread, G.Range(-30, -8)), G.Range(0.35f, 0.6f), G.Range(3f, 5.5f), c, 9, -20, 3f);
+    }
+
+    public void Smoke(Vector2 pos, int n, Color col, float speed = 40f)
+    {
+        for (int k = 0; k < n; k++)
+            Add(pos + G.RandDir() * 6, G.RandDir() * speed * G.Range(0.3f, 1f) + new Vector2(0, -20), G.Range(0.6f, 1.1f), G.Range(5, 9), col, 9, -30, 2f);
+    }
+
+    /// <summary>Tumbling chunks of rock (or bone, or crystal).</summary>
+    public void Debris(Vector2 pos, Color col, int n, float speed = 220f)
+    {
+        for (int k = 0; k < n; k++)
+            Add(pos, G.RandDir() * speed * G.Range(0.4f, 1f) + new Vector2(0, -80), G.Range(0.5f, 0.9f), G.Range(1.8f, 3.4f), col, 10, 700, 0.6f, G.Range(-14, 14));
+    }
+
+    /// <summary>A fan of droplets thrown up where something hits the water (or lava).</summary>
+    public void Splash(Vector2 pos, float strength, Color col)
+    {
+        int n = (int)(6 + strength * 14);
+        for (int k = 0; k < n; k++)
+        {
+            float a = -Mathf.Pi / 2 + G.Range(-0.9f, 0.9f);
+            Add(pos, new Vector2(MathF.Cos(a), MathF.Sin(a)) * G.Range(80, 180 + strength * 160), G.Range(0.4f, 0.8f), G.Range(1.4f, 2.6f), col, 11, 650, 0.4f);
+        }
+        Shockwave(pos, 16 + strength * 22, new Color(col, 0.7f), 0.4f);
+    }
+
+    /// <summary>A four-point star twinkle (sheens on treasure, crystals, curling shardlings).</summary>
+    public void Glint(Vector2 pos, Color col, float size = 7f) => Add(pos, Vector2.Zero, 0.35f, size, col, 12, 0, 0, G.Range(-3, 3));
+
+    /// <summary>A glowing mote that drifts upward and flickers out.</summary>
+    public void Ember(Vector2 pos, Color col) => Add(pos, new Vector2(G.Range(-20, 20), G.Range(-70, -30)), G.Range(0.5f, 1.1f), G.Range(1.2f, 2.2f), col, 13, -20, 0.8f);
+
+    /// <summary>A single fading mote left behind by something moving fast.</summary>
+    public void Trail(Vector2 pos, Color col) => Add(pos, Vector2.Zero, 0.25f, 3f, col, 0, 0);
+
+    /// <summary>A crescent of air where a big blow sweeps past (dir = +1 right, -1 left).</summary>
+    public void Swoosh(Vector2 pos, float dir, float radius, Color col) => Add(pos, new Vector2(dir, 0), 0.18f, radius, col, 14);
+
+    /// <summary>Enemy death: a pop of light, a ring and a scatter of bits.</summary>
+    public void Pop(Vector2 pos, Color col, float radius)
+    {
+        Flash(pos, radius + 8, new Color(1f, 0.95f, 0.85f), 0.12f);
+        Ring(pos, radius + 4, new Color(col, 0.8f), 0.25f);
+        Burst(pos, col, 8, 150, 2.2f, 0.45f);
+        Burst(pos, new Color(1, 1, 1, 0.9f), 4, 110, 1.6f, 0.25f, 0);
+    }
+
+    /// <summary>The big one: flash, shockwave, sparks, embers, smoke and debris.</summary>
+    public void Explosion(Vector2 pos, Color col, float scale = 1f)
+    {
+        Flash(pos, 34 * scale, new Color(1f, 0.95f, 0.8f), 0.18f);
+        Shockwave(pos, 60 * scale, new Color(1f, 0.9f, 0.7f, 0.9f), 0.4f);
+        Ring(pos, 30 * scale, new Color(col, 0.9f), 0.35f);
+        for (int k = 0; k < 10 * scale; k++) Spark(pos, G.RandDir(), true, col);
+        for (int k = 0; k < 8 * scale; k++) Ember(pos + G.RandDir() * 10, new Color(1f, 0.7f, 0.3f));
+        Smoke(pos, (int)(6 * scale), new Color(0.3f, 0.28f, 0.26f, 0.5f), 70 * scale);
+        Debris(pos, col.Darkened(0.3f), (int)(8 * scale), 260 * scale);
+        AddShake(5 * scale);
+    }
+
+    private Color _screenCol;
+    private float _screenT, _screenMax;
+
+    /// <summary>Washes the whole view with a colour for a moment (level-ups, enrages, potions).</summary>
+    public void ScreenFlash(Color col, float seconds = 0.25f) { _screenCol = col; _screenT = _screenMax = seconds; }
+
     public void Clear() { _parts.Clear(); _texts.Clear(); Shake = 0; }
 
     public override void _Process(double delta)
@@ -93,6 +180,8 @@ public partial class FxLayer : Node2D
             p.Vel.Y += p.Grav * dt;
             p.Vel *= 1f / (1f + p.Drag * dt);
             p.Pos += p.Vel * dt;
+            p.Rot += p.Spin * dt;
+            if (p.Kind == 10 && cave != null && cave.IsSolid(p.Pos)) { p.Vel = new Vector2(p.Vel.X * 0.5f, -p.Vel.Y * 0.35f); p.Pos -= new Vector2(0, 1); }
             if (p.Kind == 2 && cave != null && p.Pos.Y < cave.WaterY) p.Life = 0;
             _parts[k] = p;
         }
@@ -104,6 +193,7 @@ public partial class FxLayer : Node2D
             if (t.Life <= 0) _texts.RemoveAt(k); else _texts[k] = t;
         }
         Shake = Math.Max(0, Shake - dt * 30f);
+        _screenT = Math.Max(0, _screenT - dt);
         QueueRedraw();
     }
 
@@ -124,7 +214,68 @@ public partial class FxLayer : Node2D
                     DrawCircle(p.Pos, p.Size * (1.2f - a * 0.4f), new Color(p.Col, 0.35f * a));
                     DrawCircle(p.Pos, p.Size * 0.55f * a, new Color(1, 1, 1, 0.9f * a));
                     break;
+                case 7:
+                {
+                    float r = p.Size * (1.25f - 0.5f * a);
+                    DrawCircle(p.Pos, r, new Color(p.Col, 0.3f * a));
+                    DrawCircle(p.Pos, r * 0.6f, new Color(p.Col, 0.55f * a));
+                    DrawCircle(p.Pos, r * 0.3f * a, new Color(1, 1, 1, 0.9f * a));
+                    break;
+                }
+                case 8:
+                {
+                    float r = p.Size * (1.1f - a);
+                    DrawSetTransform(p.Pos, 0, new Vector2(1, 0.32f));
+                    DrawArc(Vector2.Zero, Math.Max(1, r), 0, Mathf.Tau, 32, c, 5f * a + 1f);
+                    DrawArc(Vector2.Zero, Math.Max(1, r * 0.85f), 0, Mathf.Tau, 32, new Color(1, 1, 1, 0.4f * a), 2f * a + 0.5f);
+                    DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+                    break;
+                }
+                case 9: DrawCircle(p.Pos, p.Size * (1.6f - 0.6f * a), new Color(p.Col, p.Col.A * a * 0.8f)); break;
+                case 10:
+                {
+                    var ax = new Vector2(MathF.Cos(p.Rot), MathF.Sin(p.Rot)) * p.Size;
+                    var ay = new Vector2(-ax.Y, ax.X) * 0.7f;
+                    DrawColoredPolygon(new[] { p.Pos + ax, p.Pos + ay, p.Pos - ax, p.Pos - ay }, new Color(p.Col, Math.Min(1, a * 2)));
+                    break;
+                }
+                case 11: DrawLine(p.Pos, p.Pos - p.Vel * 0.02f, c, p.Size); DrawCircle(p.Pos, p.Size * 0.6f, c); break;
+                case 12:
+                {
+                    float s = p.Size * MathF.Sin(a * Mathf.Pi);
+                    var d1 = new Vector2(MathF.Cos(p.Rot), MathF.Sin(p.Rot)) * s;
+                    var d2 = new Vector2(-d1.Y, d1.X);
+                    DrawLine(p.Pos - d1, p.Pos + d1, new Color(1, 1, 1, a), 1.4f);
+                    DrawLine(p.Pos - d2 * 0.6f, p.Pos + d2 * 0.6f, new Color(1, 1, 1, a), 1.2f);
+                    DrawCircle(p.Pos, s * 0.35f, new Color(p.Col, 0.7f * a));
+                    break;
+                }
+                case 13:
+                {
+                    float fl = 0.6f + 0.4f * MathF.Sin(p.Life * 40 + p.Rot * 5);
+                    DrawCircle(p.Pos, p.Size * 2.2f, new Color(p.Col, 0.18f * a * fl));
+                    DrawCircle(p.Pos, p.Size, new Color(p.Col.Lightened(0.3f), a * fl));
+                    break;
+                }
+                case 14:
+                {
+                    // a thick crescent sweeping from above to below on the facing side
+                    float dir = p.Vel.X >= 0 ? 1 : -1;
+                    float start = dir > 0 ? -1.3f : Mathf.Pi - 1.3f;
+                    float sweep = 2.6f * (1.15f - a * 0.4f);
+                    float from = dir > 0 ? start : Mathf.Pi + 1.3f - sweep;
+                    DrawArc(p.Pos, p.Size, from, from + sweep, 18, new Color(p.Col, p.Col.A * a), 6f * a + 1f);
+                    DrawArc(p.Pos, p.Size * 0.88f, from + 0.2f, from + sweep - 0.2f, 16, new Color(1, 1, 1, 0.6f * a), 2f * a + 0.5f);
+                    break;
+                }
             }
+        }
+        if (_screenT > 0)
+        {
+            var inv = GetViewport().GetCanvasTransform().AffineInverse();
+            var size = GetViewport().GetVisibleRect().Size;
+            var tl = inv * Vector2.Zero; var br = inv * size;
+            DrawRect(new Rect2(tl - new Vector2(40, 40), br - tl + new Vector2(80, 80)), new Color(_screenCol, _screenCol.A * 0.45f * (_screenT / _screenMax)));
         }
         var font = ThemeDB.FallbackFont;
         foreach (var t in _texts)

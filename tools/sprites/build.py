@@ -16,7 +16,9 @@ sys.path.insert(0, HERE)
 OUT = os.path.normpath(os.path.join(HERE, '..', '..', 'godot', 'DaggerCave', 'Art'))
 
 CREATURES = ['swordsman', 'warden', 'bat', 'frog', 'goblin', 'slinger', 'spider', 'magma', 'golem', 'fish',
-             'fish2', 'urchin', 'eel', 'colossus', 'moth', 'crab']
+             'fish2', 'urchin', 'eel', 'colossus', 'moth', 'crab',
+             'rat', 'bear', 'scorpion', 'hornet', 'skeleton', 'sporeling', 'wraith', 'shardling', 'dragon']
+MONSTERS = ('rat', 'bear', 'scorpion', 'hornet', 'skeleton', 'sporeling', 'wraith', 'shardling', 'dragon')
 
 
 def main(argv):
@@ -30,7 +32,7 @@ def main(argv):
     for name in names:
         t0 = time.time()
         heroes = ('swordsman', 'warden')
-        mod = importlib.import_module('player' if name in heroes else 'creatures')
+        mod = importlib.import_module('player' if name in heroes else 'monsters' if name in MONSTERS else 'creatures')
         sheet = mod.make(name) if name in heroes else mod.MAKERS[name]()
         n, w, h = sheet.save(OUT)
         print(f'{name:10s} {n:4d} frames  {w}x{h}  {time.time() - t0:.1f}s')

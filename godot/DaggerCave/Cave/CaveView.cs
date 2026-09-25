@@ -14,20 +14,14 @@ public partial class CaveView : Node2D
 {
     private const int Chunk = 32;
 
-    public static (Color edge, Color deep, Color moss, Color rim, Color glow) Palette(int depth)
-    {
-        return ((depth - 1) % 3) switch
-        {
-            0 => (new Color(0.29f, 0.24f, 0.22f), new Color(0.07f, 0.06f, 0.07f), new Color(0.32f, 0.52f, 0.25f), new Color(0.46f, 0.39f, 0.34f), new Color(0.45f, 0.9f, 1f)),
-            1 => (new Color(0.22f, 0.25f, 0.31f), new Color(0.05f, 0.06f, 0.09f), new Color(0.25f, 0.5f, 0.52f), new Color(0.38f, 0.43f, 0.52f), new Color(0.8f, 0.5f, 1f)),
-            _ => (new Color(0.33f, 0.19f, 0.17f), new Color(0.09f, 0.04f, 0.04f), new Color(0.6f, 0.36f, 0.18f), new Color(0.55f, 0.32f, 0.26f), new Color(1f, 0.6f, 0.25f)),
-        };
-    }
+    /// <summary>The level's colours (from its biome).</summary>
+    public static (Color edge, Color deep, Color moss, Color rim, Color glow) Palette(CaveData cave)
+        => (cave.Biome ?? Biomes.Get(BiomeId.Slime)).Palette;
 
     public void Build(CaveData cave)
     {
         int cw = (cave.W + Chunk - 1) / Chunk, chh = (cave.H + Chunk - 1) / Chunk;
-        var pal = Palette(G.Depth);
+        var pal = Palette(cave);
         for (int cy = 0; cy < chh; cy++)
             for (int cx = 0; cx < cw; cx++)
                 BuildChunk(cave, cx, cy, pal);
@@ -118,6 +112,7 @@ public partial class CaveView : Node2D
             var mesh = new ArrayMesh();
             mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
             AddChild(new MeshInstance2D { Mesh = mesh, ZIndex = 10 });
+            if (cave.Biome != null && cave.Biome.Bricks) AddChild(new BrickLayer { ZIndex = 10, Cave = cave, Cx = cx, Cy = cy, Col = pal.deep.Lerp(pal.edge, 0.2f) });
         }
 
         if (segs.Count > 0)
@@ -135,6 +130,38 @@ public partial class CaveView : Node2D
     {
         int i = Math.Clamp((int)MathF.Round(x), 0, cave.W), j = Math.Clamp((int)MathF.Round(y), 0, cave.H);
         return cave.RockDepth[j * (cave.W + 1) + i];
+    }
+
+    /// <summary>Masonry lines on the rock near the open space (the ruins).</summary>
+    private partial class BrickLayer : Node2D
+    {
+        public CaveData Cave;
+        public int Cx, Cy;
+        public Color Col;
+
+        public override void _Draw()
+        {
+            float cell = CaveData.Cell;
+            int iEnd = Math.Min(Cave.W, (Cx + 1) * Chunk), jEnd = Math.Min(Cave.H, (Cy + 1) * Chunk);
+            var col = new Color(Col, 0.8f);
+            var hi = new Color(1, 1, 1, 0.05f);
+            for (int j = Cy * Chunk; j < jEnd; j++)
+                for (int i = Cx * Chunk; i < iEnd; i++)
+                {
+                    // solid cells within a few cells of the open space
+                    if (Cave.Corner(i, j) >= 0.5f || Cave.Corner(i + 1, j) >= 0.5f || Cave.Corner(i, j + 1) >= 0.5f || Cave.Corner(i + 1, j + 1) >= 0.5f) continue;
+                    if (Cave.RockDepth[j * (Cave.W + 1) + i] > 4) continue;
+                    // two courses of bricks per cell, offset like a running bond
+                    for (int course = 0; course < 2; course++)
+                    {
+                        float y = j * cell + course * cell * 0.5f;
+                        DrawLine(new Vector2(i * cell, y), new Vector2((i + 1) * cell, y), col, 1f);
+                        DrawLine(new Vector2(i * cell, y + 1), new Vector2((i + 1) * cell, y + 1), hi, 1f);
+                        float x = i * cell + (((j * 2 + course) % 2 == 0) ? 0 : cell * 0.5f);
+                        if (x < (i + 1) * cell) DrawLine(new Vector2(x, y), new Vector2(x, y + cell * 0.5f), col, 1f);
+                    }
+                }
+        }
     }
 
     /// <summary>Rim highlights and surface decorations for one chunk; drawn once and cached by the canvas.</summary>
@@ -163,9 +190,10 @@ public partial class CaveView : Node2D
                 _rimCols[k].A = 1;
                 int hx = (int)(m.X / 5), hy = (int)(m.Y / 5);
                 float r = Hash01(hx, hy, cave.Seed + 3);
+                var bd = cave.Biome ?? Biomes.Get(BiomeId.Slime);
                 if (up > walkable && !underwater)
                 {
-                    if (r < 0.35f)
+                    if (r < bd.Grass)
                     {
                         // grass tuft
                         for (int g = 0; g < 3; g++)
@@ -176,7 +204,7 @@ public partial class CaveView : Node2D
                             _lines.Add((root, root + new Vector2((g - 1) * 1.5f, -h), pal.moss.Lightened(0.15f), 1.3f));
                         }
                     }
-                    else if (r < 0.39f)
+                    else if (r < bd.Grass + bd.Mushrooms)
                     {
                         // glowing mushroom
                         var stem = m + new Vector2(0, -5);
@@ -184,17 +212,22 @@ public partial class CaveView : Node2D
                         _polys.Add((new[] { stem + new Vector2(-4, 1), stem + new Vector2(0, -3), stem + new Vector2(4, 1) }, pal.glow));
                         _glows.Add((stem, 14, new Color(pal.glow, 0.10f)));
                     }
+                    else if (bd.IceSheet && r < bd.Grass + bd.Mushrooms + 0.3f)
+                    {
+                        // frost rime
+                        _lines.Add((a + new Vector2(0, -1), b + new Vector2(0, -1), new Color(0.92f, 0.98f, 1f, 0.8f), 2f));
+                    }
                 }
                 else if (up < -0.6f)
                 {
-                    if (r < 0.22f)
+                    if (r < bd.Stalactites)
                     {
                         float len = 6 + Hash01(hx, hy, cave.Seed + 9) * 16;
                         float wdt = 3 + Hash01(hx, hy, cave.Seed + 5) * 4;
-                        var c = pal.rim.Darkened(0.25f);
+                        var c = bd.IceSheet ? new Color(0.8f, 0.93f, 1f, 0.85f) : pal.rim.Darkened(0.25f);
                         _polys.Add((new[] { m + new Vector2(-wdt, -2), m + new Vector2(wdt, -2), m + new Vector2(0, len) }, c));
                     }
-                    else if (r < 0.25f && !underwater)
+                    else if (r < bd.Stalactites + 0.03f && !underwater)
                     {
                         // hanging glow worm thread
                         float len = 10 + Hash01(hx, hy, cave.Seed + 7) * 22;
@@ -202,7 +235,7 @@ public partial class CaveView : Node2D
                         _glows.Add((m + new Vector2(0, len), 6, new Color(pal.glow, 0.5f)));
                     }
                 }
-                else if (r < 0.03f)
+                else if (r < bd.Crystals)
                 {
                     // crystal cluster on walls
                     var dir = nrm;

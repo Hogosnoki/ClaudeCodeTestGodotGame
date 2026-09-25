@@ -204,7 +204,7 @@ public partial class Urchin : Enemy
         if (_cycle > 3f) { _cycle -= 3f; _hitThisPulse = false; }
         if (prev < 2.1f && _cycle >= 2.1f && DistP < 400) G.Sfx.Play("spike", GlobalPosition, -6);
         float reach = (BodyRadius + SpikeLen()) * Size;
-        if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(Tune.Urchin.SpikeDamage * G.DepthDmg, GlobalPosition, source: this); _hitThisPulse = true; }
+        if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(Tune.Urchin.SpikeDamage * DmgK, GlobalPosition, source: this); _hitThisPulse = true; }
     }
 
     protected override void Animate()

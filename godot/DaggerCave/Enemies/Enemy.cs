@@ -23,6 +23,20 @@ public abstract partial class Enemy : CharacterBody2D
     public bool Dead;
     public Action<Enemy> OnDeath;
 
+    // ---- biome variants and guardians
+    /// <summary>Put before the creature's name ("Frost ", "Ember "...).</summary>
+    public string NamePrefix = "";
+    /// <summary>A guardian's title, shown on its banner and health bar.</summary>
+    public string Title = "";
+    /// <summary>The exit guardian of a level (its death opens the exits).</summary>
+    public bool IsGuardian;
+    /// <summary>Colour wash over the sprite for biome variants.</summary>
+    public Color? Tint;
+    /// <summary>Extra damage multiplier (variants, guardians).</summary>
+    public float DmgMult = 1f;
+    /// <summary>What every hit this creature deals is multiplied by: difficulty curve times its own multiplier.</summary>
+    protected float DmgK => G.DepthDmg * DmgMult;
+
     protected float T, HurtFlash, Stun;
     protected SpriteAnimator Anim;
     protected Vector2 KnockVel;
@@ -55,6 +69,8 @@ public abstract partial class Enemy : CharacterBody2D
         G.Enemies.Add(this);
         Face = G.Chance(0.5f) ? 1 : -1;
         Setup();
+        DisplayName = (Elite && !IsGuardian && !IsBoss ? "Elite " : "") + NamePrefix + DisplayName;
+        if (Tint is Color tint && Anim != null) Anim.Sprite.SelfModulate = tint;
     }
 
     public override void _ExitTree()
@@ -86,7 +102,6 @@ public abstract partial class Enemy : CharacterBody2D
         ContactDamage *= Tune.Elite.DamageMult;
         XpValue = (int)(XpValue * Tune.Elite.XpMult);
         KnockResist = Math.Max(KnockResist, Tune.Elite.MinKnockResist);
-        DisplayName = "Elite " + DisplayName;
     }
 
     protected abstract void Think(float dt);
@@ -99,6 +114,9 @@ public abstract partial class Enemy : CharacterBody2D
 
     /// <summary>Makes this enemy seek the player from out of view. Call before adding to the tree.</summary>
     public virtual void Engage() { Awake = true; Hunting = true; }
+
+    /// <summary>Starts it awake (guardians), without the hunting behaviour.</summary>
+    public void Wake() => Awake = true;
 
     /// <summary>How far away this enemy notices the player (much further when hunting).</summary>
     protected float Aggro(float range) => Hunting ? 1200f : range;
@@ -179,7 +197,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (ContactActive && touch > 0 && !p.Dead && dist < HitRadius + 7)
         {
             // a strike that lands, or that the shield stops, is spent
-            if ((p.Hurt(touch * G.DepthDmg, GlobalPosition, source: this) > 0 || p.LastHitBlocked) && striking) _strikeLanded = true;
+            if ((p.Hurt(touch * DmgK, GlobalPosition, source: this) > 0 || p.LastHitBlocked) && striking) _strikeLanded = true;
         }
         QueueRedraw();
     }
@@ -259,12 +277,16 @@ public abstract partial class Enemy : CharacterBody2D
         G.Sfx.Play("enemy_die", GlobalPosition, 0, 0.15f, Elite ? 0.7f : 1f);
         G.Fx.Burst(GlobalPosition, BloodColor, Elite ? 36 : 16, Elite ? 260 : 170, 2.8f, 0.6f);
         G.Fx.Ring(GlobalPosition, HitRadius + 6, new Color(1, 1, 1, 0.6f));
-        int orbs = Math.Clamp(XpValue / 2, 1, 12);
-        int per = Math.Max(1, XpValue / orbs);
+        int xp = (int)MathF.Round(XpValue * (Elite ? Meta.EliteXpMult : 1f));
+        int orbs = Math.Clamp(xp / 2, 1, 12);
+        int per = Math.Max(1, xp / orbs);
         for (int k = 0; k < orbs; k++)
             G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
-        // healing is scarce: rare from regular kills, likely (not certain) from mini-bosses
-        if (G.Chance(IsBoss ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance)) G.Spawn(new HeartPickup { Position = GlobalPosition });
+        // healing is scarce: rare from regular kills, likelier from mini-bosses; potions rarer still
+        if (G.Chance(IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance)) G.Spawn(new HeartPickup { Position = GlobalPosition });
+        if (G.Chance(Meta.PotionDropChance(P))) G.Spawn(new PotionPickup { Position = GlobalPosition + new Vector2(6, -4) });
+        if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);
+        else G.Fx.Pop(GlobalPosition, BloodColor, HitRadius);
         P?.OnKill();
         if (Elite && !IsBoss) G.Main.SlowMo(Tune.Feel.EliteKillSlowMo, Tune.Feel.EliteKillSlowMoScale);
         if (IsBoss) G.Main.SlowMo(Tune.Feel.BossKillSlowMo, Tune.Feel.BossKillSlowMoScale);
@@ -282,12 +304,11 @@ public abstract partial class Enemy : CharacterBody2D
 
     protected void End() => DrawSetTransform(Vector2.Zero, 0, Vector2.One);
 
-    protected Color Tint(Color c) => HurtFlash > 0 ? new Color(1, 1, 1, c.A) : c;
 
     protected void DrawHealthBar()
     {
         DrawBrainLabel();
-        if (!Elite || IsBoss || Hp >= MaxHp) return;
+        if (!Elite || IsBoss || IsGuardian || Hp >= MaxHp) return;
         float w = 30 * Size * 0.6f;
         var pos = new Vector2(-w / 2, -HitRadius - 12);
         DrawRect(new Rect2(pos, new Vector2(w, 4)), new Color(0, 0, 0, 0.7f));

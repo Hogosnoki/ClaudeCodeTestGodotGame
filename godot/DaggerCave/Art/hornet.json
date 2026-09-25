@@ -1,0 +1,139 @@
+{
+ "frame_w": 80,
+ "frame_h": 72,
+ "columns": 51,
+ "scale": 2.0,
+ "origin": [
+  40.0,
+  36.0
+ ],
+ "fps": 24,
+ "animations": {
+  "fly_r": {
+   "frames": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "loop": true
+  },
+  "fly_l": {
+   "frames": [
+    4,
+    5,
+    6,
+    7
+   ],
+   "loop": true
+  },
+  "dive_r": {
+   "frames": [
+    8,
+    9,
+    10,
+    11
+   ],
+   "loop": true
+  },
+  "dive_l": {
+   "frames": [
+    12,
+    13,
+    14,
+    15
+   ],
+   "loop": true
+  },
+  "aim_r": {
+   "frames": [
+    16,
+    17,
+    18,
+    19,
+    20,
+    21
+   ],
+   "loop": false
+  },
+  "aim_l": {
+   "frames": [
+    22,
+    23,
+    24,
+    25,
+    26,
+    27
+   ],
+   "loop": false
+  },
+  "turn_r2l": {
+   "frames": [
+    28,
+    29,
+    30,
+    31
+   ],
+   "loop": false
+  },
+  "turn_l2r": {
+   "frames": [
+    32,
+    33,
+    34,
+    35
+   ],
+   "loop": false
+  },
+  "hurt_r": {
+   "frames": [
+    36,
+    37,
+    38,
+    39,
+    40
+   ],
+   "loop": false
+  },
+  "hurt_l": {
+   "frames": [
+    41,
+    42,
+    43,
+    44,
+    45
+   ],
+   "loop": false
+  },
+  "death_r": {
+   "frames": [
+    46,
+    47,
+    48,
+    49,
+    50,
+    51,
+    52,
+    53,
+    54,
+    55
+   ],
+   "loop": false
+  },
+  "death_l": {
+   "frames": [
+    56,
+    57,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    64,
+    65
+   ],
+   "loop": false
+  }
+ }
+}

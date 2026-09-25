@@ -38,17 +38,22 @@ public static class G
     /// <summary>The hero picked on the title (or death) screen.</summary>
     public static HeroKind Hero = HeroKind.Swordsman;
 
+    /// <summary>The biome of the current level.</summary>
+    public static BiomeDef Biome;
+    /// <summary>Tests don't touch the saved meta progress.</summary>
+    public static bool NoSave;
+
     /// <summary>
-    /// Continuous difficulty curve: every enemy stat doubles every 10 minutes of play
-    /// (2^(t/600)), so a run keeps getting harder smoothly rather than in steps.
+    /// Difficulty: grows with depth (x DepthGrowth per level of depth) and, more slowly, with
+    /// time (doubling every DoublingMinutes), so both diving and dawdling make things harder.
     /// </summary>
-    public static float Threat => MathF.Pow(2f, RunTime / (Tune.Difficulty.DoublingMinutes * 60f));
+    public static float Threat => MathF.Pow(Tune.Difficulty.DepthGrowth, Depth) * MathF.Pow(2f, RunTime / (Tune.Difficulty.DoublingMinutes * 60f));
 
-    /// <summary>Enemy movement/attack tempo: the same curve, capped at 2x so fights stay readable.</summary>
-    public static float Tempo => MathF.Min(Tune.Difficulty.TempoCap, Threat);
+    /// <summary>Enemy movement/attack tempo: a gentle share of the threat, capped so fights stay readable.</summary>
+    public static float Tempo => MathF.Min(Tune.Difficulty.TempoCap, 1f + (Threat - 1f) * Tune.Difficulty.TempoShare);
 
-    /// <summary>Spawn intensity 0..3: how busy the cave is (grows over the first half hour).</summary>
-    public static float Pace => MathF.Min(Tune.Difficulty.PaceMax, RunTime / (Tune.Difficulty.PaceMinutesPerStep * 60f));
+    /// <summary>Spawn intensity 0..3: how busy the cave is (grows with depth and time).</summary>
+    public static float Pace => MathF.Min(Tune.Difficulty.PaceMax, Depth * Tune.Difficulty.PacePerDepth + RunTime / (Tune.Difficulty.PaceMinutesPerStep * 60f));
 
     /// <summary>Enemy health multiplier.</summary>
     public static float DepthHp => Threat;

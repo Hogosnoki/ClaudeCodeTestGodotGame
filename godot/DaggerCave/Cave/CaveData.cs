@@ -45,7 +45,11 @@ public sealed class CaveData
     public int Seed;
     public float[] Open;       // (W+1)*(H+1) corner samples
     public float[] RockDepth;  // (W+1)*(H+1): distance (in cells) from the nearest open corner
-    public float WaterY;       // world px; everything open below this is underwater
+    public float WaterY;       // world px; everything open below this is underwater (or lava)
+    public Liquid Liquid = Liquid.Water;
+    public BiomeDef Biome;
+    /// <summary>Breakable ice ledges (frozen caverns): centre x, top y (cells), half width.</summary>
+    public readonly List<Vector3> IceLedges = new();
 
     public Vector2 StartPos;
     public Room Boss;
@@ -79,7 +83,8 @@ public sealed class CaveData
 
     public float Sample(Vector2 p) => SampleCells(p.X / Cell, p.Y / Cell);
     public bool IsSolid(Vector2 p) => Sample(p) < 0.5f;
-    public bool IsWater(Vector2 p) => p.Y > WaterY && !IsSolid(p);
+    public bool IsWater(Vector2 p) => Liquid == Liquid.Water && p.Y > WaterY && !IsSolid(p);
+    public bool IsLava(Vector2 p) => Liquid == Liquid.Lava && p.Y > WaterY && !IsSolid(p);
     public bool CellOpen(int i, int j) => SampleCells(i + 0.5f, j + 0.5f) >= 0.5f;
 
     /// <summary>True when no rock lies on the straight segment a-b.</summary>

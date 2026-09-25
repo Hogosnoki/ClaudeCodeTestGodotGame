@@ -8,7 +8,7 @@ public struct PlayerInput
 {
     public Vector2 Move;        // -1..1 each axis; up is negative Y
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
-    public bool Jump, JumpHeld, Attack, Throw, Dodge;
+    public bool Jump, JumpHeld, Attack, Throw, Dodge, Potion;
     public bool GuardHeld;      // dodge button held (the warden's shield)
     public Vector2 GuardAim;    // right stick, else the mouse (keyboard + mouse), else zero = facing
 }
@@ -51,7 +51,13 @@ public partial class Player : CharacterBody2D
     public float Breath = Tune.Hero.BreathSeconds;
     public int Level = 1;
     public int Xp;
-    public int PendingLevelUps;
+    /// <summary>Milestone picks waiting to be offered (every few levels).</summary>
+    public int PendingMilestones;
+    /// <summary>Potions carried (drink with Q / Y).</summary>
+    public int Potions = 1;
+    /// <summary>Set each frame while stuck in a web.</summary>
+    public float WebbedT;
+    private float _hotLeft, _hotRate, _lavaTick, _xpFrac, _slideDust;
     public int Kills;
     public bool Dead;
     public bool InWater, HeadUnder;
@@ -74,6 +80,7 @@ public partial class Player : CharacterBody2D
     private int _comboStep, _airJumps, _airDashes;
     private bool _jumpCutDone, _wasOnFloor, _swingHitSomething, _chainLive, _finisher;
     private readonly HashSet<Enemy> _swingHits = new();
+    private readonly HashSet<IBreakable> _brokeThisSwing = new();
     private float _swingArc, _swingReach, _swingDmg;
     private float _lastFallSpeed;
 
@@ -149,13 +156,44 @@ public partial class Player : CharacterBody2D
 
     public void AddXp(int amount)
     {
-        Xp += amount;
-        while (Xp >= XpToNext) { Xp -= XpToNext; Level++; PendingLevelUps++; }
+        _xpFrac += amount * Meta.XpMult;
+        int whole = (int)_xpFrac;
+        _xpFrac -= whole;
+        Xp += whole;
+        while (Xp >= XpToNext)
+        {
+            Xp -= XpToNext;
+            Level++;
+            Progression.AutoLevel(this);
+            if (Level % Meta.MilestoneEvery == 0) PendingMilestones++;
+        }
     }
+
+    /// <summary>Drinks a potion: part of the heal at once, the rest over the next seconds.</summary>
+    public bool DrinkPotion()
+    {
+        if (Dead || Potions <= 0 || Hp >= Stats.MaxHp - 0.5f) return false;
+        Potions--;
+        Heal(Stats.MaxHp * Meta.PotionHealNow);
+        _hotRate = Stats.MaxHp * Meta.PotionHealOverTime / Meta.PotionHotSeconds;
+        _hotLeft = Meta.PotionHotSeconds;
+        G.Sfx.Play("heal", GlobalPosition, 0, 0, 0.8f);
+        G.Sfx.Play("bubble", GlobalPosition, -4, 0, 0.6f);
+        G.Fx.Flash(GlobalPosition, 26, new Color(1f, 0.45f, 0.6f));
+        G.Fx.Ring(GlobalPosition, 22, new Color(1f, 0.55f, 0.7f));
+        for (int k = 0; k < 10; k++) G.Fx.Ember(GlobalPosition + G.RandDir() * 10, new Color(1f, 0.5f, 0.65f));
+        G.Fx.ScreenFlash(new Color(1f, 0.35f, 0.5f), 0.25f);
+        Anim.Flash(0.6f);
+        return true;
+    }
+
+    /// <summary>True while a potion's heal over time is still running.</summary>
+    public bool Mending => _hotLeft > 0;
 
     private PlayerInput ReadInput()
     {
         if (InputOverride != null) return InputOverride();
+        if (G.Main.MenuOpen) return default;
         var inp = new PlayerInput
         {
             Move = new Vector2(Input.GetAxis("move_left", "move_right"), Input.GetAxis("move_up", "move_down")),
@@ -163,6 +201,7 @@ public partial class Player : CharacterBody2D
             JumpHeld = Input.IsActionPressed("jump"),
             Dodge = Input.IsActionJustPressed("dodge"),
             GuardHeld = Input.IsActionPressed("dodge"),
+            Potion = Input.IsActionJustPressed("potion"),
         };
         bool mouseAttack = Input.IsActionJustPressed("attack");
         bool kbAttack = Input.IsActionJustPressed("attack_alt");
@@ -210,8 +249,11 @@ public partial class Player : CharacterBody2D
         if (InWater != wasInWater && Math.Abs(Velocity.Y) > 80)
         {
             G.Sfx.Play("splash", GlobalPosition, -4);
-            G.Fx.Directional(new Vector2(GlobalPosition.X, cave.WaterY), Vector2.Up, 0.7f, new Color(0.6f, 0.85f, 1f, 0.9f), 14, 220, 2.5f, 0.6f, 600, 0);
+            G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), Math.Clamp(Math.Abs(Velocity.Y) / 500f, 0.2f, 1f), new Color(0.65f, 0.88f, 1f, 0.9f));
+            if (InWater) G.Fx.Bubbles(GlobalPosition, 8);
         }
+        Hazards(cave, dt);
+        if (inp.Potion) DrinkPotion();
         // hitting the water soaks up most of the speed you carried in
         if (InWater && !wasInWater) Velocity *= Tune.Hero.WaterEntryDamp;
         UpdateBreath(dt);
@@ -254,7 +296,8 @@ public partial class Player : CharacterBody2D
         if (nowFloor && !_wasOnFloor && _lastFallSpeed > 260)
         {
             G.Sfx.Play("land", GlobalPosition, -6);
-            G.Fx.Burst(GlobalPosition + new Vector2(0, 13), new Color(0.6f, 0.55f, 0.5f, 0.7f), 6, 60, 2f, 0.35f, 50);
+            G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3 + (int)(_lastFallSpeed / 120f), 1.2f);
+            if (_lastFallSpeed > 450) G.Fx.Shockwave(GlobalPosition + new Vector2(0, 13), 26, new Color(1, 1, 1, 0.35f), 0.25f);
             Anim.Once("land", 1);
         }
         _wasOnFloor = nowFloor;
@@ -323,6 +366,22 @@ public partial class Player : CharacterBody2D
 
     private float _stuckInRock;
 
+    /// <summary>Lava: it burns (a big share of your health) and throws you back up out of it.</summary>
+    private void Hazards(CaveData cave, float dt)
+    {
+        if (!cave.IsLava(GlobalPosition + new Vector2(0, 8))) return;
+        if (G.Chance(0.5f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-8, 8), 8), new Color(1f, 0.6f, 0.2f));
+        if (_lavaTick > 0) return;
+        _lavaTick = 0.7f;
+        G.Sfx.Play("lava", GlobalPosition, 0, 0.1f, 0.8f);
+        G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), 0.8f, new Color(1f, 0.55f, 0.15f));
+        G.Fx.Smoke(GlobalPosition, 4, new Color(0.25f, 0.2f, 0.2f, 0.5f));
+        TakeRawDamage((Stats.MaxHp * 0.16f + 4) * (1f - Stats.DamageReduction), "burn");
+        Velocity = new Vector2(Velocity.X * 0.5f, -BaseJumpV * 1.05f);
+        _coyote = 0;
+        _invuln = Math.Max(_invuln, 0.3f);
+    }
+
     /// <summary>A fallen body still obeys the world: it drops on land, and drifts down slowly in water.</summary>
     private void DeadPhysics(CaveData cave, float dt)
     {
@@ -365,7 +424,13 @@ public partial class Player : CharacterBody2D
     {
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
         _wallJumpLock -= dt; _hurtFlash -= dt; _lungeT -= dt;
-        _barrierCd -= dt; _waveCd -= dt;
+        _barrierCd -= dt; _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
+        if (_hotLeft > 0)
+        {
+            _hotLeft -= dt;
+            Hp = Math.Min(Stats.MaxHp, Hp + _hotRate * dt);
+            if (G.Chance(0.15f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-7, 7), G.Range(-10, 10)), new Color(1f, 0.55f, 0.7f));
+        }
         if (_barrierT > 0)
         {
             _barrierT -= dt;
@@ -405,12 +470,21 @@ public partial class Player : CharacterBody2D
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
         float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f);
+        if (WebbedT > 0) target *= 0.45f;
         float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
+        // frozen ground: slow to get going and slower to stop
+        if (onFloor && G.Biome != null && G.Biome.Slippery)
+        {
+            accel *= Math.Abs(target) > Math.Abs(v.X) && Math.Sign(target) == Math.Sign(v.X) ? 0.35f : 0.12f;
+            _slideDust -= dt;
+            if (Math.Abs(v.X - target) > 60 && _slideDust <= 0) { _slideDust = 0.05f; G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 1, 0.5f, new Color(0.85f, 0.95f, 1f, 0.6f)); }
+        }
+        else if (onFloor && Math.Abs(v.X) > 150 && Math.Sign(target) != Math.Sign(v.X) && G.Chance(0.3f)) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 1, 0.6f);
         v.X = Mathf.MoveToward(v.X, target, accel * dt);
         if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
         v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), MaxFall);
 
-        float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult);
+        float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult) * (WebbedT > 0 ? 0.75f : 1f);
         int wallSide = WallSide();
         bool onWall = !onFloor && wallSide != 0;
 
@@ -429,7 +503,7 @@ public partial class Player : CharacterBody2D
                 v.Y = -jumpV; _coyote = 0; _jumpBuffer = 0; _jumpCutDone = false;
                 _jumpedFromGround = true;
                 G.Sfx.Play("jump", GlobalPosition, -8);
-                G.Fx.Burst(GlobalPosition + new Vector2(0, 13), new Color(0.6f, 0.55f, 0.5f, 0.6f), 5, 50, 1.8f, 0.3f, 40);
+                G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3);
             }
             else if (Stats.WallJump && onWall)
             {
@@ -510,6 +584,8 @@ public partial class Player : CharacterBody2D
         Anim.Once("dodge", 3, 6f / (DodgeTime * 24f));
         if (Stats.DodgeIFrames) _iframes = DodgeTime + 0.12f;
         G.Sfx.Play("dodge", GlobalPosition, -3);
+        if (!InWater && IsOnFloor()) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.4f);
+        G.Fx.Directional(GlobalPosition, -d, 0.5f, new Color(0.7f, 0.9f, 1f, 0.6f), 6, 160, 1.5f, 0.2f, 0);
     }
 
     private void StartSwing(Vector2 aim)
@@ -534,6 +610,7 @@ public partial class Player : CharacterBody2D
         _active = SwingActive / speed;
         _swingCd = SwingCooldownBase / Stats.AttackSpeed;
         _swingHits.Clear();
+        _brokeThisSwing.Clear();
         _swingHitSomething = false;
         // coil for the wind-up
         Anim.Punch(new Vector2(1.08f, 0.9f));
@@ -592,6 +669,15 @@ public partial class Player : CharacterBody2D
                 if (!G.Cave.LineClear(origin, e.GlobalPosition - to.Normalized() * Math.Min(dist, e.HitRadius))) continue;
                 _swingHits.Add(e);
                 OnSwingHit(e, to);
+            }
+            foreach (var b in Breakables.All.ToArray())
+            {
+                var to = b.HitCenter - origin;
+                float reach = _swingReach + b.HitSize * 0.6f;
+                if (to.Length() > reach || _brokeThisSwing.Contains(b)) continue;
+                if (to.Length() > 14 && Math.Abs(_swingDir.AngleTo(to)) > _swingArc * 0.5f + 0.4f) continue;
+                _brokeThisSwing.Add(b);
+                b.Strike(origin);
             }
             foreach (var pr in G.Main.EnemyProjectiles.ToArray())
             {

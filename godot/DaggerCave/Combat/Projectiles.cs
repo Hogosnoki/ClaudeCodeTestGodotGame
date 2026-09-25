@@ -183,9 +183,19 @@ public partial class EnemyProjectile : Node2D
 
     public override void _ExitTree() => G.Main.EnemyProjectiles.Remove(this);
 
+    private Color KindColor => Kind switch
+    {
+        "lava" or "fire" => new Color(1f, 0.5f, 0.1f),
+        "ice" => new Color(0.75f, 0.95f, 1f),
+        "crystal" => new Color(0.65f, 0.85f, 1f),
+        "spit" => new Color(0.5f, 0.9f, 0.3f),
+        _ => new Color(0.8f, 0.75f, 0.7f),
+    };
+
     public void Deflect()
     {
-        G.Fx.Burst(GlobalPosition, Kind == "lava" ? new Color(1f, 0.5f, 0.1f) : new Color(0.8f, 0.75f, 0.7f), 8, 140, 2f, 0.3f);
+        G.Fx.Burst(GlobalPosition, KindColor, 8, 140, 2f, 0.3f);
+        G.Fx.Flash(GlobalPosition, 10, KindColor, 0.1f);
         G.Sfx.Play("clink", GlobalPosition, -4);
         QueueFree();
     }
@@ -235,6 +245,8 @@ public partial class EnemyProjectile : Node2D
             return;
         }
         if (Kind == "lava" && G.Chance(0.4f)) G.Fx.Burst(GlobalPosition, new Color(1f, 0.55f, 0.1f, 0.8f), 1, 20, 2f, 0.3f, -30);
+        else if (Kind == "fire" && G.Chance(0.35f)) G.Fx.Ember(GlobalPosition, new Color(1f, 0.6f, 0.2f));
+        else if ((Kind == "ice" || Kind == "crystal") && G.Chance(0.3f)) G.Fx.Trail(GlobalPosition, new Color(KindColor, 0.6f));
         QueueRedraw();
     }
 
@@ -247,10 +259,22 @@ public partial class EnemyProjectile : Node2D
             if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
                 G.Spawn(new LavaPuddle { Position = fl, Source = Source });
         }
+        else if (Kind == "fire")
+        {
+            G.Fx.Smoke(at, 2, new Color(0.3f, 0.25f, 0.22f, 0.4f), 20);
+            G.Fx.Ember(at, new Color(1f, 0.6f, 0.2f));
+        }
+        else if (Kind == "ice" || Kind == "crystal")
+        {
+            G.Sfx.Play("clink", at, -10, 0.2f, 1.3f);
+            G.Fx.Debris(at, KindColor, 5, 120);
+            G.Fx.Glint(at, KindColor, 6);
+        }
         else
         {
             G.Sfx.Play("rock", at, -10);
             G.Fx.Burst(at, new Color(0.6f, 0.55f, 0.5f), 8, 100, 2f, 0.4f);
+            G.Fx.Debris(at, new Color(0.5f, 0.45f, 0.4f), 3, 100);
         }
         QueueFree();
     }
@@ -267,6 +291,26 @@ public partial class EnemyProjectile : Node2D
             case "spit":
                 DrawCircle(Vector2.Zero, Radius, new Color(0.5f, 0.9f, 0.3f, 0.9f));
                 break;
+            case "fire":
+            {
+                float a = Math.Clamp(Life / 0.85f, 0, 1);
+                float r = Radius * (1.6f - a * 0.6f);
+                DrawCircle(Vector2.Zero, r + 3, new Color(1f, 0.35f, 0.05f, 0.25f * a));
+                DrawCircle(Vector2.Zero, r, new Color(1f, 0.55f, 0.1f, 0.7f * a));
+                DrawCircle(Vector2.Zero, r * 0.5f, new Color(1f, 0.9f, 0.5f, 0.9f * a));
+                break;
+            }
+            case "ice":
+            case "crystal":
+            {
+                var d = Vel.LengthSquared() > 1 ? Vel.Normalized() : Vector2.Right;
+                var n = new Vector2(-d.Y, d.X);
+                var col = KindColor;
+                DrawColoredPolygon(new[] { d * Radius * 2f, n * Radius * 0.7f, -d * Radius * 1.2f, -n * Radius * 0.7f }, col);
+                DrawLine(-d * Radius, d * Radius * 1.8f, new Color(1, 1, 1, 0.8f), 1f);
+                DrawCircle(Vector2.Zero, Radius * 2, new Color(col, 0.12f));
+                break;
+            }
             default:
                 DrawColoredPolygon(new[] { new Vector2(-Radius, -1), new Vector2(-1, -Radius), new Vector2(Radius, -1), new Vector2(1, Radius) }, new Color(0.55f, 0.5f, 0.45f));
                 break;

@@ -20,6 +20,14 @@ public partial class Main : Node
 {
     public readonly List<EnemyProjectile> EnemyProjectiles = new();
     public Enemy ActiveBoss;
+    /// <summary>Rewards skipped on this level: each pays an ember if its guardian falls.</summary>
+    public int SkipBank;
+    /// <summary>True while a menu or screen has the controls (the hero ignores input).</summary>
+    public bool MenuOpen => _state != State.Playing;
+    private MetaMenu _metaMenu;
+    private bool _victory;
+    private int _runEmbers;
+    private string _runFinds = "";
 
     private Node2D _world;
     private Camera2D _cam;
@@ -58,7 +66,31 @@ public partial class Main : Node
     private int _animFrame;
     private float _bestiaryT = -1;
     private BotPilot _bot;
-    private bool _nnTest;
+    private bool _nnTest, _fullRun;
+    private string _metaShot = "";
+    private int _metaShotStep;
+
+    /// <summary>--metashot=DIR: screenshots of the potion tree's introduction and the tree screen.</summary>
+    private void MetaShotTick()
+    {
+        var steps = new (float at, Action act)[]
+        {
+            (0.5f, () => { Meta.Embers = 4; Meta.RollResource(new Random(1)); Meta.Found["potion"] = 1; Meta.Held["potion"] = 1; _metaMenu.Open(MetaMenu.Mode.PotionTutorial); }),
+            (1.2f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_1.png")),
+            (1.3f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = true })),
+            (1.35f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = false })),
+            (1.4f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = true })),
+            (1.45f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
+            (1.9f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_2.png")),
+            (2.0f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = true })),
+            (2.05f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
+            (2.6f, () => { Meta.Found["pearl"] = 2; Meta.Held["pearl"] = 1; GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_3.png"); }),
+            (3.0f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_4.png")),
+            (3.2f, () => { GD.Print($"[metashot] hot rank active: {Meta.Active.Contains("hot1")}, embers {Meta.Embers}"); GetTree().Quit(); }),
+        };
+        while (_metaShotStep < steps.Length && _titleT >= steps[_metaShotStep].at) steps[_metaShotStep++].act();
+    }
+    private string _biomeArg;
 
     public override void _Ready()
     {
@@ -94,8 +126,12 @@ public partial class Main : Node
         _uiLayer.AddChild(_upgradeMenu);
         _overlay = new ScreenOverlay();
         _uiLayer.AddChild(_overlay);
+        _metaMenu = new MetaMenu();
+        _metaMenu.Closed += OnMetaClosed;
+        _uiLayer.AddChild(_metaMenu);
 
         ParseArgs(out bool gentest);
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -108,11 +144,19 @@ public partial class Main : Node
     private void Begin(bool gentest)
     {
         if (gentest) { RunGenTest(); return; }
+        if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }
 
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
-        G.Depth = 1;
+        G.Depth = 0;
+        G.Biome = Biomes.Get(BiomeId.Entrance);
+        if (_biomeArg == null && (_heroTest || _bestiary || _animTest || _showcase)) _biomeArg = "slime"; // these need water
+        if (_biomeArg != null)
+        {
+            G.Biome = Biomes.All.First(b => b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase));
+            G.Depth = G.Biome.MinDepth;
+        }
         BuildLevel(_seed, freshPlayer: true);
         if (_padTest)
         {
@@ -142,8 +186,9 @@ public partial class Main : Node
         else if (_autotest)
         {
             StartPlaying();
-            _bot = new BotPilot();
+            _bot = new BotPilot { Focused = _fullRun, SkipAhead = _fullRun };
             G.Player.InputOverride = _bot.Read;
+            if (_fullRun) { G.Player.Stats.MaxHp = 5000; G.Player.Hp = 5000; G.Player.Stats.DamageMult = 3f; }
         }
         else
         {
@@ -159,11 +204,20 @@ public partial class Main : Node
     {
         _overlay.HeroCards = true;
         _overlay.Show("DAGGER DEEP", 0.55f,
-            "A rogue-lite descent through flooded caverns.  Choose your hero:",
+            "A rogue-lite descent from the cave mouth to the dragon at the bottom of the world.  Choose your hero:",
             "@",
-            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK swing   RIGHT CLICK throw / barrier   SHIFT dodge / shield",
-            "CONTROLLER:  stick move   A jump   X swing   RB / RT throw / barrier   B / LB dodge / shield   right stick aims",
+            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK swing   RIGHT CLICK throw / barrier   SHIFT dodge / shield   Q potion",
+            "CONTROLLER:  stick move   A jump   X swing   RB / RT throw / barrier   B / LB dodge / shield   Y potion   right stick aims",
+            CampLine(),
             "!LEFT / RIGHT to choose  -  ENTER / A to begin");
+    }
+
+    /// <summary>The line about embers and the upgrade trees on the title and camp screens.</summary>
+    private string CampLine()
+    {
+        bool trees = Meta.Trees.Any(Meta.Visible);
+        string pad = UsingPad ? "BACK" : "U";
+        return trees ? $"Embers: {Meta.Embers}   ·   press {pad} for the upgrade trees" : Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "";
     }
 
     private void ParseArgs(out bool gentest)
@@ -188,6 +242,9 @@ public partial class Main : Node
             else if (a == "--hero=swordsman") G.Hero = HeroKind.Swordsman;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
+            else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
+            else if (a == "--fullrun") _fullRun = true;
+            else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
         }
     }
 
@@ -218,27 +275,38 @@ public partial class Main : Node
         Act("pick_1", K(Key.Key1));
         Act("pick_2", K(Key.Key2));
         Act("pick_3", K(Key.Key3));
+        Act("pick_4", K(Key.Key4));
+        Act("potion", K(Key.Q), J(JoyButton.Y));
+        Act("meta", K(Key.U), J(JoyButton.Back));
+        Act("skip", K(Key.X), J(JoyButton.X));
     }
 
     // ------------------------------------------------------------------ level
 
     private void BuildLevel(int seed, bool freshPlayer)
     {
-        PlayerStats keepStats = null; float keepHp = 0; int keepLevel = 1, keepXp = 0, keepKills = 0;
+        PlayerStats keepStats = null; float keepHp = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0;
         if (!freshPlayer && G.Player != null)
         {
-            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills;
+            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
+            keepMilestones = G.Player.PendingMilestones;
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
         EnemyProjectiles.Clear();
+        Breakables.All.Clear();
         _roomElites.Clear();
         ActiveBoss = null;
+        SkipBank = 0;
+        _guardianDown = false;
+        _victoryT = -1;
+        ExitSpots.Clear();
 
         ulong t0 = Time.GetTicksMsec();
-        var cave = CaveGenerator.Generate(seed);
+        var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
+        var cave = CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
-        GD.Print($"[DaggerDeep] depth {G.Depth} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
+        GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
 
         var back = new Backdrop();
         back.Setup(cave);
@@ -260,7 +328,8 @@ public partial class Main : Node
         if (keepStats != null)
         {
             player.Hp = Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
-            player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills;
+            player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
+            player.PendingMilestones = keepMilestones;
             player.SyncCharges();
         }
         player.GlobalPosition = cave.StartPos;
@@ -284,10 +353,12 @@ public partial class Main : Node
         _cam.GlobalPosition = player.GlobalPosition;
         _cam.MakeCurrent();
 
-        // Treasure chests are visible from the start.
-        foreach (var room in cave.Rooms)
+        // Treasure chests are visible from the start (a few of the treasure rooms hold one).
+        int roomChests = 0;
+        foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Treasure).OrderBy(_ => G.Rng.Next()))
         {
-            if (room.Kind != RoomKind.Treasure || !G.Chance(Tune.Drops.TreasureRoomChestChance)) continue;
+            if (roomChests >= biome.RoomChests || !G.Chance(Tune.Drops.TreasureRoomChestChance)) continue;
+            roomChests++;
             // Sit the chest on real ground (the room's floor line may have been cut by another tunnel).
             if (!cave.FindFloor(room.Center, 700, out var floor)) continue;
             _world.AddChild(new Chest { Position = floor });
@@ -295,9 +366,10 @@ public partial class Main : Node
 
         PlaceCaches(cave);
         SpawnCritters(cave);
-        PlaceAirVents(cave);
+        if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
+        PlaceHazards(cave);
         _hud.ResetMap(cave);
-        _hud.ShowBanner($"DEPTH {G.Depth}", 3f);
+        _hud.ShowBanner(G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
         _spawnT = 0;
     }
 
@@ -306,16 +378,18 @@ public partial class Main : Node
     {
         var rng = new Random(cave.Seed ^ 0x5eed);
         int moths = 0, crabs = 0;
-        for (int tries = 0; tries < 9000 && (moths < Tune.Cave.Moths || crabs < Tune.Cave.Crabs); tries++)
+        float share = (cave.Biome?.Critters ?? 60) / 60f * cave.W * cave.H / (250f * 150f);
+        int wantMoths = (int)(Tune.Cave.Moths * share), wantCrabs = (int)(Tune.Cave.Crabs * share);
+        for (int tries = 0; tries < 9000 && (moths < wantMoths || crabs < wantCrabs); tries++)
         {
             var pos = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
-            if (cave.IsSolid(pos) || pos.DistanceTo(cave.StartPos) < 120) continue;
-            if (moths < Tune.Cave.Moths && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
+            if (cave.IsSolid(pos) || pos.DistanceTo(cave.StartPos) < 120 || cave.IsLava(pos)) continue;
+            if (moths < wantMoths && !cave.IsWater(pos) && rng.NextDouble() < 0.5)
             {
                 _world.AddChild(new GlowMoth { Position = pos });
                 moths++;
             }
-            else if (crabs < Tune.Cave.Crabs && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)))
+            else if (crabs < wantCrabs && cave.FindFloor(pos, 160, out var fl) && !cave.IsSolid(fl + new Vector2(0, -8)) && !cave.IsLava(fl + new Vector2(0, -8)))
             {
                 _world.AddChild(new CaveCrab { Position = fl + new Vector2(0, -5) });
                 crabs++;
@@ -351,8 +425,10 @@ public partial class Main : Node
                 made++;
             }
         }
-        Scatter(Tune.Drops.WaterCaches, cave.WaterY + 40, cave.SizePx.Y - 40, true);
-        Scatter(Tune.Drops.HighCaches, 60, cave.WaterY * Tune.Drops.HighZoneFraction, false);
+        var bd = cave.Biome;
+        if (cave.Liquid == Liquid.Water) Scatter(bd?.WaterCaches ?? Tune.Drops.WaterCaches, cave.WaterY + 40, cave.SizePx.Y - 40, true);
+        float dryBottom = Math.Min(cave.WaterY, cave.SizePx.Y);
+        Scatter(bd?.HighCaches ?? Tune.Drops.HighCaches, 60, dryBottom * Tune.Drops.HighZoneFraction, false);
         if (_autotest) GD.Print($"[autotest] caches placed: {placed.Count - cave.Rooms.Count}");
     }
 
@@ -371,14 +447,71 @@ public partial class Main : Node
         }
     }
 
-    public void NextDepth()
+    /// <summary>Walks through an exit tunnel: on to that biome, that many levels deeper.</summary>
+    public void EnterExit(BiomeDef to, int depth) => CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth);
+
+    private void GoDeeper(int biome, int depth)
     {
         if (Brains.Training) Brains.SaveAll();
-        G.Depth++;
+        G.Depth = depth;
+        G.Biome = Biomes.Get((BiomeId)biome);
+        Meta.BestDepth = Math.Max(Meta.BestDepth, G.Depth);
         _seed = _rng.Next(1, 999999);
         BuildLevel(_seed, freshPlayer: false);
-        if (_bot != null) G.Player.InputOverride = _bot.Read;
+        if (_bot != null) { G.Player.InputOverride = _bot.Read; _bot.Reset(); }
         _sfx.SetMusic("ambient");
+    }
+
+    /// <summary>
+    /// Biome hazards and features: spore pods, webs, crystal spikes, fire vents on the floors;
+    /// the frozen water surface and breakable ice ledges in the frost caverns.
+    /// </summary>
+    private void PlaceHazards(CaveData cave)
+    {
+        var b = cave.Biome;
+        if (b == null) return;
+        var rng = new Random(cave.Seed ^ 0x4a2a);
+        var placed = new List<Vector2>();
+        bool Clear(Vector2 at)
+        {
+            if (at.DistanceTo(cave.StartPos) < 260) return false;
+            foreach (var r in cave.Rooms) if (r.Kind == RoomKind.Boss && at.DistanceTo(r.Center) < r.RxPx + 80) return false;
+            return !placed.Any(q => q.DistanceTo(at) < 180);
+        }
+        void Floors(int n, Func<Vector2, Node2D> make)
+        {
+            int made = 0;
+            for (int tries = 0; tries < 3000 && made < n; tries++)
+            {
+                var at = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
+                if (cave.IsSolid(at) || cave.IsWater(at) || cave.IsLava(at)) continue;
+                if (!cave.FindFloor(at, 400, out var fl) || cave.IsWater(fl + new Vector2(0, -6)) || cave.IsLava(fl + new Vector2(0, -6))) continue;
+                // flat enough to sit on
+                if (!cave.IsSolid(fl + new Vector2(-12, 6)) || !cave.IsSolid(fl + new Vector2(12, 6)) || cave.IsSolid(fl + new Vector2(-12, -6)) || cave.IsSolid(fl + new Vector2(12, -6))) continue;
+                if (!Clear(fl)) continue;
+                placed.Add(fl);
+                _world.AddChild(make(fl));
+                made++;
+            }
+        }
+        int count = (int)(b.HazardCount * cave.W * cave.H / (230f * 120f));
+        if (b.Spores) Floors(count, fl => new SporePod { Position = fl });
+        if (b.CrystalSpikes) Floors(count, fl => new CrystalSpikes { Position = fl });
+        if (b.FireVents) Floors(count, fl => new FireVent { Position = fl });
+        if (b.Webs) Floors(count, fl => new WebPatch { Position = fl + new Vector2(0, -26), Radius = 28 + rng.Next(8) });
+        if (b.IceSheet && cave.Liquid == Liquid.Water)
+        {
+            // the frozen surface: tiles wherever the water meets open air
+            float wy = cave.WaterY;
+            for (float x = 24; x < cave.SizePx.X - 24; x += 48)
+            {
+                if (cave.IsSolid(new Vector2(x, wy - 4)) || !cave.IsWater(new Vector2(x, wy + 6))) continue;
+                if (cave.IsSolid(new Vector2(x - 20, wy + 2)) || cave.IsSolid(new Vector2(x + 20, wy + 2))) continue;
+                _world.AddChild(new IceSheet { Position = new Vector2(x, wy), HalfW = 24 });
+            }
+        }
+        foreach (var l in cave.IceLedges)
+            _world.AddChild(new IcePlatform { Position = new Vector2(l.X, l.Y) * CaveData.Cell, HalfW = l.Z * CaveData.Cell });
     }
 
     private void StartPlaying()
@@ -391,6 +524,10 @@ public partial class Main : Node
         _runTime = 0;
         G.RunTime = 0;
         _waveT = Tune.Spawning.FirstWave;
+        _victory = false;
+        _runEmbers = 0;
+        _runFinds = "";
+        Meta.Runs++;
         _sfx.SetMusic("ambient");
     }
 
@@ -405,7 +542,8 @@ public partial class Main : Node
     private void Restart()
     {
         if (Brains.Training) Brains.SaveAll();
-        G.Depth = 1;
+        G.Depth = 0;
+        G.Biome = Biomes.Get(BiomeId.Entrance);
         _seed = _rng.Next(1, 999999);
         _pendingTreasure.Clear();
         BuildLevel(_seed, freshPlayer: true);
@@ -420,7 +558,31 @@ public partial class Main : Node
         if (Brains.Training) Brains.SaveAll();
         _state = State.Dead;
         _deadT = 0;
+        _deaths++;
         _sfx.SetMusic("");
+        Meta.Save();
+    }
+
+    /// <summary>The camp between runs: how the run went, what it earned, the heroes, and the trees.</summary>
+    private void ShowCamp()
+    {
+        var p = G.Player;
+        int secs = (int)_runTime;
+        _overlay.HeroCards = true;
+        string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
+        _overlay.Show(_victory ? "VICTORY" : "YOU DIED", 0.6f,
+            _victory ? "The Elder Dragon is slain. The deep is quiet... for now." : $"Fell at depth {G.Depth} in the {G.Biome?.Name ?? "cave"}",
+            $"Level {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}",
+            earned,
+            "@",
+            CampLine(),
+            UsingPad ? "!LEFT / RIGHT to switch hero  -  Y or A to descend again" : "!LEFT / RIGHT to switch hero  -  R or ENTER to descend again");
+    }
+
+    private void OnMetaClosed()
+    {
+        if (_state == State.Dead) ShowCamp();
+        else if (_state == State.Title) ShowTitle();
     }
 
     /// <summary>A chest was opened at <paramref name="at"/>: offer its upgrades next.</summary>
@@ -434,21 +596,26 @@ public partial class Main : Node
         List<Upgrade> choices;
         bool treasure;
         if (_pendingTreasure.Count > 0) { treasure = true; choices = Upgrades.RollChest(p.Stats, _rng, _pendingTreasure.Dequeue()); }
-        else if (p.PendingLevelUps > 0) { treasure = false; p.PendingLevelUps--; choices = Upgrades.RollLevelUp(p.Stats, _rng); }
+        else if (p.PendingMilestones > 0) { treasure = false; p.PendingMilestones--; choices = Upgrades.RollMilestone(p.Stats, _rng); }
         else return;
         if (choices.Count == 0) { p.Heal(30); return; }
+        if (!_guardianDown) choices.Add(Upgrades.Skip); // (once the guardian is down, a skip would pay nothing)
         _state = State.Choosing;
         GetTree().Paused = true;
         _sfx.Play(treasure ? "chest" : "levelup");
-        _upgradeMenu.Open(choices, treasure ? "TREASURE!" : $"LEVEL {p.Level - p.PendingLevelUps}!");
+        _upgradeMenu.Open(choices, treasure ? "TREASURE!" : "MILESTONE!");
         _autoPickT = 0.5f;
     }
 
     private void OnUpgradePicked(Upgrade u)
     {
-        Upgrades.Apply(u, G.Player.Stats, G.Player);
-        _sfx.Play("ui");
-        _hud.ShowBanner(u.Name, 1.6f);
+        if (u == Upgrades.Skip) { SkipBank++; _sfx.Play("ui", null, 0, 0, 0.7f); _hud.ShowBanner("LEFT BEHIND  ·  +1 ember if the guardian falls", 1.8f); }
+        else
+        {
+            Upgrades.Apply(u, G.Player.Stats, G.Player);
+            _sfx.Play("ui");
+            _hud.ShowBanner(u.Name, 1.6f);
+        }
         GetTree().Paused = false;
         _state = State.Playing;
     }
@@ -519,6 +686,7 @@ public partial class Main : Node
                 return;
             }
         }
+        if (_metaMenu.Visible) return;
         if ((_state == State.Title || (_state == State.Dead && _overlay.Visible)) && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
         {
             PickHero(G.Hero == HeroKind.Swordsman ? HeroKind.Warden : HeroKind.Swordsman);
@@ -554,6 +722,8 @@ public partial class Main : Node
         {
             case State.Title:
                 _titleT += dt;
+                if (_metaShot != "") MetaShotTick();
+                if (!_metaMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
@@ -565,18 +735,17 @@ public partial class Main : Node
                 return;
             case State.Dead:
                 _deadT += dt;
+                if (_metaMenu.Visible) break;
                 if (_deadT > 1.2f && !_overlay.Visible)
                 {
-                    var p = G.Player;
-                    int secs = (int)_runTime;
-                    _overlay.HeroCards = true;
-                    _overlay.Show("YOU DIED", 0.6f,
-                        $"Depth {G.Depth}   ·   Level {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}",
-                        "@",
-                        UsingPad ? "!LEFT / RIGHT to switch hero  -  Y or A to descend again" : "!LEFT / RIGHT to switch hero  -  R or ENTER to descend again");
+                    ShowCamp();
+                    // back at camp after the first reagent: the potion tree's introduction
+                    if (!_autotest && Meta.Visible(Meta.PotionTree) && !Meta.PotionTutorialDone) _metaMenu.Open(MetaMenu.Mode.PotionTutorial);
+                    else if (!_autotest && Meta.Visible(Meta.PearlTree) && !Meta.PearlTutorialDone) _metaMenu.Open(MetaMenu.Mode.PearlIntro);
                 }
-                if (_deadT > 1.5f && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
-                if (_autotest && _deadT > 3f) Restart();
+                if (_deadT > 1.5f && _overlay.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                else if (_deadT > 1.5f && _overlay.Visible && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
+                if (_autotest && _deadT > 3f) { if (_fullRun && _victory) { FinishFullRun(true); return; } Restart(); }
                 break;
             case State.Choosing:
                 if (_autotest)
@@ -601,6 +770,11 @@ public partial class Main : Node
                 }
                 _runTime += dt;
                 G.RunTime = _runTime;
+                if (_victoryT > 0)
+                {
+                    _victoryT -= dt;
+                    if (_victoryT <= 0) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); }
+                }
                 Brains.Tick(unscaled);
                 TryOpenUpgradeMenu();
                 break;
@@ -627,7 +801,7 @@ public partial class Main : Node
         var p = G.Player;
         if (p == null || _cam == null) return;
         var target = p.GlobalPosition + new Vector2(p.Velocity.X * 0.15f, p.Velocity.Y * 0.08f - 10);
-        if (ActiveBoss != null && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
+        if (ActiveBoss != null && IsInstanceValid(ActiveBoss) && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * Tune.Feel.CameraFollowSharpness));
         float s = _fx?.Shake ?? 0;
         _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
@@ -662,10 +836,13 @@ public partial class Main : Node
         var p = G.Player;
         if (p.Dead) return;
         // only enemies in the neighbourhood count toward the cap (far-off residents are asleep)
+        var biome = G.Biome;
         int alive = G.Enemies.Count(e => !e.Dead && e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) < 900 * 900);
-        int cap = Tune.Spawning.CapBase + (int)(G.Pace * Tune.Spawning.CapPerPace);
-        // Residents: how many spawn points actually hold a group rises from ~40% to 100% over 8 minutes.
-        float fill = Math.Min(1f, Tune.Spawning.ResidentFillStart + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart));
+        int cap = (int)((Tune.Spawning.CapBase + G.Pace * Tune.Spawning.CapPerPace) * Math.Max(0.5f, biome.Density));
+        // Residents: how many spawn points actually hold a group rises from ~40% to 100% over the run
+        // (sooner the deeper you are); sparse biomes stay sparse.
+        float fill = biome.ResidentFill >= 0 ? biome.ResidentFill
+            : Math.Min(1f, Tune.Spawning.ResidentFillStart + G.Depth * 0.08f + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart)) * Math.Min(1f, biome.Density);
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -684,7 +861,7 @@ public partial class Main : Node
 
         // Entrances: slow at first; the rate doubles every RateDoublingMinutes, like the difficulty.
         _waveT -= dt;
-        if (_waveT <= 0 && alive < cap + 4)
+        if (biome.Waves && _waveT <= 0 && alive < cap + 4)
         {
             float rate = MathF.Pow(2f, G.RunTime / (Tune.Spawning.RateDoublingMinutes * 60f));
             _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / rate) * G.Range(0.8f, 1.2f);
@@ -749,6 +926,7 @@ public partial class Main : Node
             var list = open[k % open.Count];
             var at = list[G.Rng.Next(list.Count)];
             var e = EntrantFor(at, out var pos);
+            if (e == null) continue;
             e.Engage();
             e.Position = cave.IsSolid(pos) ? at : pos;
             _world.AddChild(e);
@@ -756,87 +934,50 @@ public partial class Main : Node
         }
     }
 
+    /// <summary>A newcomer suited to the spot and the biome: swimmers in water, fliers where there's no floor.</summary>
     private static Enemy EntrantFor(Vector2 at, out Vector2 pos)
     {
         var cave = G.Cave;
+        var b = G.Biome;
         pos = at;
-        if (cave.IsWater(at)) return new Fish();
-        if (!cave.FindFloor(at, 140, out var floor) || G.Chance(Tune.Spawning.EntranceBatChance)) return new Bat();
+        if (cave.IsLava(at)) return null;
+        if (cave.IsWater(at)) return Biomes.Make(b.WaterEntrants);
+        if (!cave.FindFloor(at, 140, out var floor) || (b.AirEntrants.Count > 0 && G.Chance(Tune.Spawning.EntranceBatChance)) || b.GroundEntrants.Count == 0)
+            return Biomes.Make(b.AirEntrants);
+        if (cave.IsLava(floor + new Vector2(0, -12))) return Biomes.Make(b.AirEntrants);
         pos = floor + new Vector2(0, -12);
-        float r = G.RandF();
-        return r < 0.4f ? new Frog() : r < 0.75f ? new Goblin() : r < 0.9f ? new Goblin { Slinger = true }
-            : G.Chance(0.5f) ? new Golem() : new LavaMonster();
+        return Biomes.Make(b.GroundEntrants);
     }
 
+    /// <summary>Fills a resident spawn point with a group from the biome's table for that kind of spot.</summary>
     private int SpawnGroup(SpawnPoint sp)
     {
         var cave = G.Cave;
-        int extra = (int)(G.Pace * 1.4f);
+        var b = G.Biome;
+        if (!b.Residents.TryGetValue(sp.Kind, out var table) || table.Count == 0) return 0;
+        var entry = Biomes.Pick(table);
+        int count = G.RangeI(entry.Min, entry.Max);
+        if (count > 1) count += Math.Min((int)(G.Pace * 1.2f), 2);
+        bool elite = G.Chance(b.EliteChance);
+        if (elite) count = 1;
         int n = 0;
-        void Add(Enemy e, Vector2 pos)
+        for (int k = 0; k < count; k++)
         {
+            var e = entry.Make();
+            if (elite) e.MakeElite();
+            Vector2 pos = sp.Kind switch
+            {
+                SpawnKind.Ground => sp.Pos + new Vector2(G.Range(-30, 30), -4 - e.BodyRadius * e.Size * 0.5f),
+                SpawnKind.Ceiling => sp.Pos + new Vector2(G.Range(-40, 40), 0),
+                SpawnKind.Water => sp.Pos + G.RandDir() * G.Range(0, 30),
+                _ => sp.Pos,
+            };
+            if (e is Spider { Grounded: false } && cave.FindCeiling(pos + new Vector2(0, 20), 60, out var ce)) pos = ce + new Vector2(0, 8);
+            if (e is Eel eel) eel.WallNormal = sp.Normal;
             if (cave.IsSolid(pos)) pos = sp.Pos;
             e.Position = pos;
             _world.AddChild(e);
             n++;
-        }
-        switch (sp.Kind)
-        {
-            case SpawnKind.Ground:
-            {
-                float lowFactor = Math.Clamp(sp.Pos.Y / cave.WaterY, 0, 1);
-                float r = G.RandF();
-                float pLava = 0.08f + 0.2f * lowFactor, pGolem = 0.08f + 0.03f * extra;
-                if (r < pLava) Add(new LavaMonster(), sp.Pos + new Vector2(0, -4));
-                else if (r < pLava + pGolem) Add(new Golem(), sp.Pos + new Vector2(0, -8));
-                else if (r < 0.6f)
-                {
-                    int c = G.RangeI(1, 2 + Math.Min(extra, 2));
-                    for (int k = 0; k < c; k++) Add(new Goblin { Slinger = G.Chance(0.35f) }, sp.Pos + new Vector2(G.Range(-30, 30), -4));
-                }
-                else
-                {
-                    int c = G.RangeI(1, 2 + Math.Min(extra, 1));
-                    for (int k = 0; k < c; k++) Add(new Frog(), sp.Pos + new Vector2(G.Range(-30, 30), -2));
-                }
-                break;
-            }
-            case SpawnKind.Ceiling:
-                if (G.Chance(0.6f))
-                {
-                    int c = G.RangeI(2, 3 + Math.Min(extra, 2));
-                    for (int k = 0; k < c; k++) Add(new Bat(), sp.Pos + new Vector2(G.Range(-40, 40), 0));
-                }
-                else
-                {
-                    int c = G.RangeI(1, 2);
-                    for (int k = 0; k < c; k++)
-                    {
-                        var pos = sp.Pos + new Vector2(k * 40 - 20, 0);
-                        if (cave.FindCeiling(pos + new Vector2(0, 20), 60, out var ce)) pos = ce + new Vector2(0, 8);
-                        Add(new Spider(), pos);
-                    }
-                }
-                break;
-            case SpawnKind.Water:
-            {
-                int c = G.RangeI(2, 4 + Math.Min(extra, 2));
-                for (int k = 0; k < c; k++) Add(new Fish(), sp.Pos + G.RandDir() * G.Range(0, 30));
-                // urchins are slow to bother anyone, so they're common on the floor below
-                if (G.Chance(Tune.Spawning.UrchinWithFishChance) && cave.FindFloor(sp.Pos, 260, out var fl) && cave.IsWater(fl + new Vector2(0, -10)))
-                    Add(new Urchin(), fl + new Vector2(G.Range(-20, 20), -8));
-                break;
-            }
-            case SpawnKind.WaterWall:
-                Add(new Eel { WallNormal = sp.Normal }, sp.Pos);
-                if (G.Chance(0.4f)) Add(new Fish(), sp.Pos + sp.Normal * 40);
-                break;
-            case SpawnKind.WaterFloor:
-                Add(new Urchin(), sp.Pos);
-                if (G.Chance(0.6f) && cave.FindFloor(sp.Pos + new Vector2(G.Chance(0.5f) ? -44 : 44, -24), 80, out var fl2) && cave.IsWater(fl2 + new Vector2(0, -10)))
-                    Add(new Urchin(), fl2 + new Vector2(0, -8));
-                if (G.Chance(0.5f)) for (int k = 0; k < 2; k++) Add(new Fish(), sp.Pos + new Vector2(G.Range(-40, 40), -40));
-                break;
         }
         return n;
     }
@@ -857,20 +998,28 @@ public partial class Main : Node
             {
                 case RoomKind.Boss:
                 {
-                    var boss = new CavernColossus { Position = room.Floor + new Vector2(room.RxPx * 0.25f * Math.Sign(room.Center.X - p.GlobalPosition.X), -room.RyPx * 0.7f) };
-                    boss.Init(room);
-                    boss.OnDeath = e => OnBossKilled(room, e);
+                    var b = G.Biome;
+                    var boss = b.Guardian(room);
+                    float side = Math.Sign(room.Center.X - p.GlobalPosition.X);
+                    boss.Position = boss is Dragon
+                        ? new Vector2(room.Center.X, room.Center.Y - room.RyPx * 0.5f)
+                        : room.Floor + new Vector2(room.RxPx * 0.25f * side, -Math.Min(room.RyPx * 0.7f, 90));
+                    if (cave.IsSolid(boss.Position)) boss.Position = room.Center;
+                    boss.OnDeath = e => OnGuardianKilled(room, e);
+                    boss.Wake();
                     _world.AddChild(boss);
                     ActiveBoss = boss;
-                    _hud.ShowBanner("THE CAVERN COLOSSUS", 3f);
+                    _hud.ShowBanner(boss.Title != "" ? boss.Title : boss.DisplayName.ToUpperInvariant(), 3f);
                     _sfx.SetMusic("boss");
+                    if (boss is Dragon) { G.Fx.ScreenFlash(new Color(1f, 0.4f, 0.1f), 0.5f); G.Fx.AddShake(10); }
                     break;
                 }
                 case RoomKind.MiniBoss:
                 {
-                    Enemy elite = room.Underwater
-                        ? (G.Chance(0.5f) ? new Eel() : new Fish())
-                        : G.Pick(new Func<Enemy>[] { () => new Golem(), () => new Goblin(), () => new Frog(), () => new LavaMonster(), () => new Goblin { Slinger = true } })();
+                    var b = G.Biome;
+                    var slime = Biomes.Get(BiomeId.Slime);
+                    var pool = room.Underwater ? (b.WaterMiniBosses.Count > 0 ? b.WaterMiniBosses : slime.WaterMiniBosses) : (b.MiniBosses.Count > 0 ? b.MiniBosses : slime.MiniBosses);
+                    Enemy elite = G.Pick(pool)();
                     elite.MakeElite();
                     var pos = room.Center;
                     if (elite is Eel eel)
@@ -911,10 +1060,13 @@ public partial class Main : Node
                 case RoomKind.Treasure:
                 {
                     // a couple of guards
-                    int n = G.RangeI(1, 2);
+                    var b = G.Biome;
+                    var table = room.Underwater ? b.WaterEntrants : b.GroundEntrants.Count > 0 ? b.GroundEntrants : b.Residents.GetValueOrDefault(SpawnKind.Ground);
+                    int n = G.Chance(b.Density) ? G.RangeI(1, 2) : 0;
                     for (int k = 0; k < n; k++)
                     {
-                        Enemy e = room.Underwater ? new Fish() : (G.Chance(0.5f) ? new Goblin() : new Frog());
+                        var e = Biomes.Make(table);
+                        if (e == null) break;
                         e.Position = room.Underwater ? room.Center + G.RandDir() * 30 : room.Floor + new Vector2(G.Range(-40, 40), -14);
                         _world.AddChild(e);
                     }
@@ -926,16 +1078,76 @@ public partial class Main : Node
 
     private void SpawnChest(Vector2 at) => _world.AddChild(new Chest { Position = at });
 
-    private void OnBossKilled(Room room, Enemy boss)
+    private bool _guardianDown;
+    private float _victoryT = -1;
+    /// <summary>Where the exits are (for the autopilot).</summary>
+    public readonly List<Vector2> ExitSpots = new();
+
+    /// <summary>
+    /// The level's guardian is dead: pay out the embers (its own, plus one per reward skipped on
+    /// this level), roll a resource, drop a chest and open the exits. The dragon ends the run.
+    /// </summary>
+    private void OnGuardianKilled(Room room, Enemy boss)
     {
-        _hud.ShowBanner("COLOSSUS SLAIN", 3f);
+        _guardianDown = true;
         _sfx.SetMusic("ambient");
         G.Fx.AddShake(14);
-        CallDeferred(MethodName.SpawnPortal, room.Floor + new Vector2(0, -30));
-        CallDeferred(MethodName.SpawnChest, room.Floor + new Vector2(60, 0));
+        G.Fx.ScreenFlash(new Color(1f, 0.9f, 0.6f), 0.3f);
+        bool dragon = boss is Dragon;
+        int embers = dragon ? 5 : G.Depth >= 5 ? 2 : 1;
+        int skipped = SkipBank;
+        embers += skipped;
+        SkipBank = 0;
+        Meta.AddEmbers(embers);
+        _runEmbers += embers;
+        var found = Meta.RollResource(_rng);
+        if (_autotest) GD.Print($"[autotest] guardian {boss.DisplayName} killed at depth {G.Depth} ({G.Biome.Name}) after {_runTime:0}s, level {G.Player.Level}");
+        string name = boss.Title != "" ? boss.Title : boss.DisplayName.ToUpperInvariant();
+        _hud.ShowBanner($"{name} SLAIN  ·  +{embers} EMBER{(embers > 1 ? "S" : "")}", 3.5f);
+        var at = boss.GlobalPosition;
+        G.Fx.Text(at + new Vector2(0, -40), $"+{embers} ember{(embers > 1 ? "s" : "")}" + (skipped > 0 ? $" ({skipped} for rewards left behind)" : ""), new Color(1f, 0.7f, 0.35f), 13, 2.5f);
+        if (found != null)
+        {
+            _runFinds += $", 1 {found.Resource}";
+            G.Fx.Text(at + new Vector2(0, -58), $"FOUND: {found.Resource.ToUpperInvariant()}", found.Color, 15, 3f);
+            for (int k = 0; k < 12; k++) G.Fx.Glint(at + G.RandDir() * G.Range(10, 40), found.Color, 9);
+            _sfx.Play("levelup", at, 0, 0, 1.3f);
+        }
+        if (dragon)
+        {
+            _victory = true;
+            Meta.Victories++;
+            Meta.Save();
+            _victoryT = 5f;
+            _hud.ShowBanner("THE ELDER DRAGON IS SLAIN", 5f);
+            return;
+        }
+        CallDeferred(MethodName.SpawnChest, room.Floor + new Vector2(0, 0));
+        // the way on: one or two tunnels into what lies below
+        var exits = Biomes.ChooseExits(G.Depth, _rng);
+        ExitSpots.Clear();
+        for (int k = 0; k < exits.Count; k++)
+        {
+            float off = exits.Count == 1 ? 0 : (k == 0 ? -1 : 1) * room.RxPx * 0.55f;
+            var probe = new Vector2(room.Floor.X + off, room.Floor.Y - 40);
+            if (G.Cave.IsSolid(probe)) probe = room.Center;
+            var floor = G.Cave.FindFloor(probe, 400, out var f) ? f : room.Floor;
+            var (bd, depth) = exits[k];
+            string label = exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way";
+            ExitSpots.Add(floor + new Vector2(0, -16));
+            CallDeferred(MethodName.SpawnPortal, floor + new Vector2(0, -30), (int)bd.Id, depth, label);
+        }
     }
 
-    private void SpawnPortal(Vector2 at) => _world.AddChild(new Portal { Position = at });
+    private void SpawnPortal(Vector2 at, int biome, int depth, string label)
+        => _world.AddChild(new Portal { Position = at, To = Biomes.Get((BiomeId)biome), Depth = depth, Label = label });
+
+    private void FinishFullRun(bool ok)
+    {
+        GD.Print($"[fullrun] {(ok ? "VICTORY" : "FAILED")}: depth {G.Depth}, level {G.Player?.Level}, time {_runTime:0}s, deaths {_deaths}");
+        GetTree().Quit(ok ? 0 : 1);
+    }
+    private int _deaths;
 
     // ------------------------------------------------------------------ testing
 
@@ -950,6 +1162,7 @@ public partial class Main : Node
             img.SavePng($"{_shotDir}/shot_{_shotN++:000}.png");
         }
         _duration -= dt;
+        if (_duration <= 0 && _fullRun) { FinishFullRun(false); return; }
         if (_duration <= 0)
         {
             var p = G.Player;
@@ -1002,11 +1215,13 @@ public partial class Main : Node
     {
         var p = G.Player.GlobalPosition;
         _world.AddChild(new Chest { Position = p + new Vector2(-60, 14) });
-        Enemy[] land = { new Bat(), new Frog(), new Goblin(), new Goblin { Slinger = true }, new Spider(), new LavaMonster(), new Golem() };
+        Enemy[] land = { new Bat(), new Frog(), new Goblin(), new Goblin { Slinger = true }, new Spider(), new LavaMonster(), new Golem(),
+            new Rat(), new Bear(), new Scorpion(), new Hornet(), new Skeleton(), new Sporeling(), new FrostWraith(), new Shardling() };
         for (int k = 0; k < land.Length; k++)
         {
-            var at = p + new Vector2(-150 + k * 50, -30);
+            var at = p + new Vector2(-190 + (k % 8) * 54, k < 8 ? -30 : -80);
             if (land[k] is Bat or Spider && G.Cave.FindCeiling(at, 200, out var ce)) at = ce + new Vector2(0, 10);
+            if (G.Cave.IsSolid(at)) at = p + new Vector2(0, -40);
             land[k].Position = at;
             _world.AddChild(land[k]);
         }
@@ -1037,9 +1252,17 @@ public partial class Main : Node
             G.Player.GlobalPosition = G.Cave.Boss.Floor + new Vector2(-120, -20);
             _cam.GlobalPosition = G.Player.GlobalPosition;
         }
-        if (_bestiaryT > 4.2f)
+        if (_bestiaryT > 4.2f && _bestiaryT - dt <= 4.2f)
         {
             GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/bestiary_boss.png");
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            var d = new Dragon { Position = G.Cave.Boss.Floor + new Vector2(60, -80) };
+            d.Init(G.Cave.Boss);
+            _world.AddChild(d);
+        }
+        if (_bestiaryT > 6.4f)
+        {
+            GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/bestiary_dragon.png");
             GetTree().Quit();
         }
     }
@@ -1106,7 +1329,7 @@ public partial class Main : Node
             (2.35f, () => { Axis(JoyAxis.TriggerRight, 0f); GD.Print($"[padtest] throw cooldown after RT: {G.Player.ThrowCooldowns[0]:0.00}"); }, ""),
             (2.6f, () => Btn(JoyButton.B, true), "B dodge"),
             (2.65f, () => { Btn(JoyButton.B, false); GD.Print($"[padtest] dodging after B: {G.Player.IsDodging}"); }, ""),
-            (3.0f, () => { G.Player.PendingLevelUps = 1; }, "level up"),
+            (3.0f, () => { G.Player.PendingMilestones = 1; }, "milestone"),
             (3.6f, () => { GD.Print($"[padtest] state: {_state}"); Btn(JoyButton.DpadRight, true); }, "dpad right"),
             (3.65f, () => Btn(JoyButton.DpadRight, false), ""),
             (3.8f, () => Btn(JoyButton.A, true), "A pick"),
@@ -1423,27 +1646,74 @@ public partial class Main : Node
 
     private void RunGenTest()
     {
-        int n = 30, clean = 0;
+        int n = 12, cleanAll = 0, totalAll = 0;
         ulong total = 0;
-        for (int s = 1; s <= n; s++)
+        foreach (var b in Biomes.All)
         {
-            ulong t0 = Time.GetTicksMsec();
-            var c = CaveGenerator.Generate(s * 1013);
-            ulong ms = Time.GetTicksMsec() - t0;
-            total += ms;
-            if (c.TrapCells <= 6) clean++;
-            int dead = c.Rooms.Count(r => r.Kind != RoomKind.Start && r.Kind != RoomKind.Boss);
-            float bossDist = c.Boss == null ? -1 : c.Boss.Center.DistanceTo(c.StartPos);
-            GD.Print($"seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} deadEndRooms {dead} miniBosses {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossDist {bossDist:0} spawns {c.Spawns.Count}");
+            if (_biomeArg != null && !b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase)) continue;
+            G.Biome = b;
+            int clean = 0;
+            for (int s = 1; s <= n; s++)
+            {
+                ulong t0 = Time.GetTicksMsec();
+                var c = CaveGenerator.Generate(b, s * 1013);
+                ulong ms = Time.GetTicksMsec() - t0;
+                total += ms;
+                bool ok = c.TrapCells <= 6 && c.Boss != null && BossReachable(c);
+                if (ok) clean++;
+                if (!ok || s == 1)
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} spawns {c.Spawns.Count} ice {c.IceLedges.Count}");
+                if (s == 1) SaveCaveImage(c, $"user://cave_{b.Id}.png");
+            }
+            GD.Print($"[gentest] {b.Id}: {clean}/{n} trap-free with a reachable exit  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
+            cleanAll += clean; totalAll += n;
         }
-        foreach (int s in new[] { 7091, 1013, 20260 })
-        {
-            var c = CaveGenerator.GenerateOnce(s);
-            SaveCaveImage(c, $"user://cave_{s}.png");
-            GD.Print($"image seed {s}: traps {c.TrapCells} -> {ProjectSettings.GlobalizePath($"user://cave_{s}.png")}");
-
-        }
-        GD.Print($"[gentest] {clean}/{n} trap-free, avg {total / (ulong)n} ms");
+        GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, avg {total / (ulong)Math.Max(1, totalAll)} ms");
         GetTree().Quit();
+    }
+
+    /// <summary>--metatest: the resource draw, buying and activating ranks, and their effects.</summary>
+    private void RunMetaTest()
+    {
+        bool ok = true;
+        void Check(string what, bool cond) { GD.Print($"[metatest] {(cond ? "ok  " : "FAIL")} {what}"); ok &= cond; }
+        Meta.Embers = 0; Meta.Bought.Clear(); Meta.Active.Clear(); Meta.Held.Clear(); Meta.Found.Clear();
+        Check("trees hidden before any resource", !Meta.Trees.Any(Meta.Visible));
+        var rng = new Random(3);
+        int reagents = 0, pearls = 0;
+        for (int k = 0; k < 22; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
+        Check($"22 draws give every resource once (13 reagents: {reagents}, 9 pearls: {pearls})", reagents == 13 && pearls == 9);
+        Check("nothing once all are found", Meta.RollResource(rng) == null);
+        var heal1 = Meta.PotionTree.Branch("heal").First();
+        Check("can't buy without embers", !Meta.Buy(heal1));
+        Meta.Embers = 10;
+        Check("buying rank 1 costs 1 ember", Meta.Buy(heal1) && Meta.Embers == 9);
+        Check("a bought rank does nothing until activated", Math.Abs(Meta.PotionHealNow - 0.15f) < 1e-4f);
+        Check("activating spends a reagent", Meta.Activate(heal1) && Meta.HeldOf(Meta.PotionTree) == 12);
+        Check($"immediate heal now 20% ({Meta.PotionHealNow:P0})", Math.Abs(Meta.PotionHealNow - 0.20f) < 1e-4f);
+        foreach (var id in new[] { "speed1", "speed2", "speed3", "max1", "mile1", "mile2", "mile3", "xp1" })
+        {
+            var tier = Meta.Trees.SelectMany(t => t.Tiers).First(x => x.Id == id);
+            Meta.Embers += tier.Cost; Meta.Buy(tier); Meta.Activate(tier);
+        }
+        Check($"heal over time takes 10 s after three ranks ({Meta.PotionHotSeconds})", Math.Abs(Meta.PotionHotSeconds - 10f) < 1e-4f);
+        Check($"two potions with one flask rank ({Meta.MaxPotions})", Meta.MaxPotions == 2);
+        Check($"milestones every 5 levels ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 5);
+        Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
+        GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
+        GetTree().Quit(ok ? 0 : 1);
+    }
+
+    private static bool BossReachable(CaveData c)
+    {
+        if (c.Boss == null || c.ReachMask == null) return false;
+        int bi = (int)(c.Boss.Floor.X / CaveData.Cell), bj = (int)(c.Boss.Floor.Y / CaveData.Cell) - 2;
+        for (int dj = -3; dj <= 3; dj++)
+            for (int di = -4; di <= 4; di++)
+            {
+                int i = bi + di, j = bj + dj;
+                if (i >= 0 && j >= 0 && i < c.W && j < c.H && c.ReachMask[j * c.W + i]) return true;
+            }
+        return false;
     }
 }

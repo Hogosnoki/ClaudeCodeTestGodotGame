@@ -456,6 +456,15 @@ public static class Brains
         "urchin" => BrainLocks.Urchin,
         "eel" => BrainLocks.Eel,
         "boss" => BrainLocks.Boss,
+        "rat" => BrainLocks.Rat,
+        "bear" => BrainLocks.Bear,
+        "scorpion" => BrainLocks.Scorpion,
+        "hornet" => BrainLocks.Hornet,
+        "skeleton" => BrainLocks.Skeleton,
+        "sporeling" => BrainLocks.Sporeling,
+        "wraith" => BrainLocks.Wraith,
+        "shardling" => BrainLocks.Shardling,
+        "dragon" => BrainLocks.Dragon,
         _ => false,
     };
 

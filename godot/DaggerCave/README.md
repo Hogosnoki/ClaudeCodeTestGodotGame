@@ -1,9 +1,11 @@
 # Dagger Deep
 
-A 2D side-view rogue-lite: descend through procedurally generated, half-flooded caverns as a
-sword-swinging, dodging Swordsman or a shield-bearing Warden. Level up by picking stat boosts,
-hunt down chests for the real upgrades, and slay the Cavern Colossus at the far end of each cave
-to open a portal one depth deeper.
+A 2D side-view rogue-lite: descend from a cave mouth to a dragon at the bottom of the world, as a
+sword-swinging, dodging Swordsman or a shield-bearing Warden. Each level is a biome with its own
+cave generator, creatures and hazards. Slay the guardian of each level's exit, then choose one of
+two tunnels on: a gentle one (one depth deeper) or a steep one (two deeper), each into a
+different biome. Depth 10 is the dragon's lair. Between runs, embers and rare resources buy
+permanent ranks in the upgrade trees.
 
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
 the project's main scene; the older map-editor and demo scenes are still in `Scenes/`.
@@ -176,36 +178,47 @@ and damage taken while a controller is active.
 
 ## What's in it
 
-**The cave** (`Cave/`). `CaveGenerator` carves tunnels with branching "walkers" into a scalar
+**The run**. You start at the Cave Entrance (depth 0). Every level ends in a guardian's chamber
+(marked EXIT on the minimap); killing the guardian drops a chest and opens the exit tunnels. The
+tunnels show which biome they lead to and how deep: the gentle way goes one depth down, the steep
+way two (harder, but fewer levels to the dragon). The last levels lead into the Dragon's Lair at
+depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp screen.
+
+**Biomes** (`Core/Biomes.cs`, generators in `Cave/CaveGenerator.cs` and `Cave/BiomeGen.cs`).
+Each biome sets its generator and its parameters, palette, darkness, liquid, hazards, spawn tables,
+mini-bosses and guardian:
+
+| Depth | Biome | Cave | Creatures | Hazards / features | Guardian |
+| --- | --- | --- | --- | --- | --- |
+| 0 | Cave Entrance | one long winding corridor with side pockets; no darkness; few enemies | spiders, bats, rats | - | The Web-Mother (a weak ground spider that calls its brood) |
+| 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Den Mother (bear) |
+| 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, hornets, spiders | webs that slow you (cut them) | The Brood Queen (scorpion) |
+| 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
+| 3-4 | Fungal Cavern | wide, low-lying tunnels, little vertical variation | sporelings, frogs, mossback golems, spore hornets | spore pods that burst into choking clouds | The Mossback Hulk |
+| 3-5 | Tunnels | slightly smaller map, tight flat or diagonal passages, water low down | rats, bears, bats, fish, eels, urchins | - | The Tunnel Brute (bear) |
+| 4-6 | Slime Cavern | the original half-flooded cave | goblins, frogs, magma brutes, golems, bats, spiders, fish, eels, urchins | air vents | The Cavern Colossus |
+| 5-7 | Frost Caverns | mostly horizontal, ice everywhere | frost bears, rime skeletons, frost wraiths, ice bats | slippery ground; a frozen water surface (break it to swim, and break it again from below to get out); ice ledges that shatter after 3 landings or 2 blows and refreeze | The Rime Colossus |
+| 6-8 | Crystal Caves | ledges in every tall space, so no long falls | shardlings, crystal golems, skeletons | crystal spikes | The Prism Golem |
+| 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out), fire vents | The Molten Colossus |
+| 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
+
+Every generator ends with the same pass. A movement-aware reachability check (walk, jump, fall and
+swim over cells) looks for any spot you could fall into but not climb out of, fixes it with
+stepping-stone ledges, and retries the seed if needed. The exit chamber must be reachable.
+
+**The walker caves** (`CaveGenerator`) carve tunnels with branching "walkers" into a scalar
 field. `CaveView` then runs marching squares over that field, which makes every wall an angled
 slope rather than a block. The same iso-lines become the collision segments. Above the water,
 walkers never climb or drop more steeply than about 34°, so every dry tunnel can be walked in
 both directions. Any slope up to 56° is walkable (`Cave.WalkableSlopeDegrees`), and moss and
-grass grow on exactly those slopes, so green ground is always ground you can walk on. Steep shafts drop only into the flooded bottom half, and every flooded system a
-shaft feeds is given a gentle beach plus a connector tunnel back to the main network.
+grass grow on exactly those slopes, so green ground is always ground you can walk on. Steep shafts
+drop only into the flooded bottom, and every flooded system a shaft feeds gets a gentle beach plus
+a connector tunnel back to the main network.
 
-After carving, a movement-aware reachability check (walk, jump, fall and swim over cells) looks
-for any spot you could fall into but not climb out of. Each such pit is fixed by adding
-stepping-stone ledges, and a seed is retried if that isn't enough. The same pass removes noise
-specks and makes sure the boss room is reachable and far from the start.
-
-Tall open spaces get ledge staircases that zig-zag upward one jump at a time, starting from the
-water surface and from the floors of tall caverns:
-- They're dense at the water line and thin out toward the roof (`Cave.PlatformDensityBottom` /
-  `PlatformDensityTop`). The low caves are easy to climb around. The heights take luck or better
-  movement upgrades, but are never out of reach.
-- In a narrow shaft a ledge becomes a shelf on one wall, leaving a gap to drop through.
-- Ledges at similar heights keep a clear sideways gap (`Cave.PlatformGapCells`) and never stack
-  directly overhead, so jumping between them doesn't bump your head.
-
-Dry tunnels are fairly narrow (`Cave.AirRadiusMin` / `AirRadiusMax`) and lean toward long
-horizontal sweeps (`Cave.HorizontalBias`), so more rock is left standing to walk and climb on.
-The start room has a solid floor.
-
-The cave is about 460 x 240 cells (7360 x 3840 px), sized for roughly 15-20 minutes of exploring. Dead ends
-become treasure rooms (ambush rooms exist too but are off: `Spawning.AmbushRooms`), and 3-4 of them (spread out, favoring the far reaches) are
-elite mini-boss lairs. The dead end farthest from the start (measured
-along the tunnels) becomes the boss arena, which gets a dome and a solid floor.
+Tall open spaces get ledge staircases that zig-zag upward one jump at a time. They are dense low
+down and thin out toward the roof (per biome: the crystal caves put ledges almost everywhere).
+Dead ends become treasure rooms, a few become elite mini-boss lairs, and the dead end farthest from
+the start becomes the exit chamber.
 
 **The heroes** (`Player/`). Pick one on the title screen, or switch on the death screen, with
 left / right.
@@ -256,12 +269,17 @@ launching you upward.
 3. Each Flurry upgrade adds one more refund to the chain, up to 3.
 4. With Finisher, the last strike of a chain of three or more hits much harder.
 
-**Level-ups and chests** (`Player/Upgrades.cs`). Each time, you choose one of three:
-- **Level-ups** offer small stat nudges: +8 max HP, +6% damage, +6% swing speed, +5% reach, +4%
-  speed, +5% jump, +10% swim, +1.5 s breath, 3% less damage taken, or longer post-hit
-  invulnerability. Each hero also gets their own:
-  - Swordsman: faster dodge and throw recharge.
-  - Warden: shield strength, shield regeneration, and faster recovery from a break.
+**Growth during a run** (`Player/Upgrades.cs`):
+- **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
+  level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield.
+- **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three +15% boosts:
+  damage, swing speed, max health, damage reduction, run and swim speed, reach, and per hero
+  faster dodges and throws or a stronger shield and barrier.
+- **Leave it**: every chest and milestone screen also offers to take nothing. Each reward left
+  behind pays 1 ember if you then kill that level's guardian.
+- **Potions**: you start with one and can carry one (more with the Potion tree). Q / Y drinks it:
+  15% of your health at once and 15% more over 20 s. Enemies drop one 1% of the time.
+- **Hearts** heal 5% of your health and drop from 3% of kills (30% of elites).
 - **Chests** hold the real upgrades and abilities.
   - 80% of treasure dead ends hold a chest (`Drops.TreasureRoomChestChance`). Mini-bosses and
     the boss always drop one.
@@ -302,9 +320,37 @@ Each one moves differently:
 | Cave Fish | Darts at you in water. It also leaps out at you on shore, then flops around on land. |
 | Urchin | Stationary on the seabed and pulses its spikes outward. Common: they often sit beneath schools of fish. |
 | Eel | Hides in a wall burrow and can't be hurt there. It lunges along a line at swimmers. |
-| Cavern Colossus (boss) | Leap slams, a roar that brings stalactites down, and a wall charge that leaves it stunned. It enrages at half health and summons bats. |
+| Rat | Runs in packs, crouches for a quarter second and lunges with a bite. |
+| Bear | Rears up for a heavy swipe, or roars and charges, stunning itself if it hits a wall. |
+| Scorpion | Scuttles close, arches its tail and stings forward and up. |
+| Hornet | Hovers above you, takes aim with a buzz, then dives in a straight line. |
+| Skeleton | Plods forward and slashes. Sometimes a felled skeleton pulls itself back together at half health. |
+| Sporeling | Waddles close and puffs a choking spore cloud; bursts into one when killed. |
+| Frost Wraith | Keeps its distance and casts fans of ice shards. |
+| Shardling | Curls up and bursts in a spray of crystal shards; shatters into more when killed. |
+| Cavern Colossus | Leap slams, a roar that brings stalactites down, and a wall charge that leaves it stunned. It enrages at half health and summons bats. |
+| Elder Dragon | Stalks the arena floor, sweeps a cone of fire, flies up and dives with a ground-shaking landing, lashes its tail, and roars down a rain of fire. It enrages at half health and calls fire bats. |
 
-Mini-bosses are elite versions of these enemies and drop a chest.
+Biomes also field tinted variants (frost bears, rime skeletons, ember scorpions, obsidian golems,
+fire bats...). Mini-bosses are elite versions and drop a chest; guardians are elites with extra
+health and a title.
+
+**Between runs: embers, resources and the upgrade trees** (`Core/Meta.cs`, `UI/MetaMenu.cs`).
+Progress saved in `user://meta.json`:
+- **Embers** come from guardians (1, 2 from depth 5, 5 for the dragon) plus 1 per reward you left
+  behind on that level. Embers buy the ranks of the trees.
+- **Resources**: each guardian yields one, drawn evenly from every resource not yet found (13
+  Reagents and 9 Obsidian Pearls in all, so each is a 1-in-22 chance at first). A bought rank only
+  takes effect once you spend a resource of its tree on it. A tree stays hidden until you find its
+  first resource.
+- **The Potion tree** (Reagents): immediate heal +5% x3, heal over time +5% x3, heal-over-time
+  3 s / 3 s / 4 s faster, drop rate +1% (and +1% more while you carry none), and two more flasks.
+  Back at camp after your first Reagent, a short introduction gives one first rank free and asks
+  you to spend the Reagent on it (both skippable).
+- **The Path** (Obsidian Pearls): milestones every 7, 6 then 5 levels; +5 / +7 / +8% experience;
+  the same for elites.
+
+Open the trees with U (controller: BACK) on the title or camp screen.
 
 **Spawning and difficulty**. Enemies come from two sources:
 - **Residents** sit at points scattered through the tunnels. They are only ever created while out
@@ -324,9 +370,9 @@ scales their speed, gravity and jump height together, while aimed leaps (the fis
 ambush, the Colossus's slam) still land where they aim. Magma puddles burn for 3, and blue fish
 bite softer than orange ones.
 
-Difficulty rises continuously with play time. Enemy health and damage follow 2^(minutes/10), so
-they double every 10 minutes. Enemy speed, attack rate and animation speed follow the same curve,
-capped at 2x so fights stay readable. They are sped up by running each enemy on a faster clock.
+Difficulty rises with depth and, more slowly, with play time: enemy health and damage are
+1.13^depth x 2^(minutes/30) (`Tune.Difficulty`). Enemy speed, attack rate and animation speed rise
+by a fifth of that, capped at 1.6x so fights stay readable. Spawn intensity grows with both too.
 
 **Sprites** (`Art/`, generated by `tools/sprites/`). Every character is a sprite-sheet animation
 played at 24 fps:
@@ -395,9 +441,12 @@ The finisher gets one more frame of wind-up and follow-through. The speeds are
 - A swing smear that is brightest at the blade's leading edge, with a golden echo on finishers.
 - Afterimage trails on dodges and air dashes.
 
-**Presentation**. The cave, water, lighting and effects are drawn procedurally. The rock is
-vertex-colored and has moss, stalactites, glowing mushrooms, crystals and glow worms. There's
-also animated water, a torchlight vignette, particles and a minimap.
+**Presentation**. The cave, water, lava, lighting and effects are drawn procedurally, coloured
+per biome. The rock is vertex-colored and has moss, stalactites, glowing mushrooms, crystals,
+frost, brickwork and glow worms. There's also animated water and lava, a torchlight vignette
+(strength per biome, none at the entrance), and a minimap. Effects include splashes, dust puffs,
+flashes, shockwaves, explosions on elite and boss deaths, pops on kills, tumbling debris, embers,
+glints on treasure and crystals, blow swooshes, projectile trails and full-screen flashes.
 
 All sound effects and both music loops (ambient exploration and boss) are synthesized at startup
 (`Audio/`). The sprite sheets in `Art/` are the game's only asset files.
@@ -407,7 +456,8 @@ All sound effects and both music loops (ambient exploration and boss) are synthe
 The harness takes command-line user args after `--`:
 
 ```
-# 30 seeds: generation time, retries, trap cells (must be 0), rooms, boss distance
+# 12 seeds per biome: generation time, retries, trap cells (must be 0), a reachable exit;
+# saves a map image of each biome (add --biome=NAME for just one)
 godot --headless --path godot -- --gentest
 
 # The autopilot bot plays for 60 s and saves a screenshot every 3 s
@@ -417,7 +467,11 @@ xvfb-run godot --path godot --rendering-driver opengl3 -- --autotest --seed=1013
 xvfb-run godot --path godot --rendering-driver opengl3 -- --seed=1013 --bestiary --shots=/tmp/shots
 ```
 
-`--start=boss` and `--start=water` change where the player spawns, and `--seed=N` fixes the cave.
+`--start=boss` and `--start=water` change where the player spawns, `--seed=N` fixes the cave, and
+`--biome=NAME` (entrance, den, nest, ruins, fungal, tunnels, slime, frost, crystal, magma, lair)
+starts in that biome at its depth. `--fullrun` with `--autotest` gives the bot a very sturdy hero
+and has it head for each guardian and then the steep exit, all the way to the dragon; it prints
+`[fullrun] VICTORY` and quits when the dragon dies.
 
 To record gameplay, `--showcase` runs a directed demo (a land fight, then underwater, then the
 boss). Combine it with Godot's movie writer, which renders frame by frame at a fixed rate and

@@ -21,9 +21,9 @@ public partial class Backdrop : Node2D
     public override void _Draw()
     {
         var size = _cave.SizePx;
-        var pal = CaveView.Palette(G.Depth);
+        var pal = CaveView.Palette(_cave);
         var top = pal.deep.Lerp(pal.edge, 0.35f);
-        var bottom = new Color(0.02f, 0.05f, 0.1f);
+        var bottom = _cave.Biome?.BackBottom ?? new Color(0.02f, 0.05f, 0.1f);
         const int bands = 24;
         for (int b = 0; b < bands; b++)
         {
@@ -40,7 +40,7 @@ public partial class Backdrop : Node2D
         {
             var rng = new Random(Cave.Seed * 3 + 1);
             var size = Cave.SizePx;
-            var pal = CaveView.Palette(G.Depth);
+            var pal = CaveView.Palette(Cave);
             var col = pal.edge.Darkened(0.3f);
             col.A = 0.45f;
             // Pillars / stalactite silhouettes spread over the (parallax-shrunk) map extent.
@@ -89,16 +89,28 @@ public partial class WaterView : Node2D
         float x0 = c.X - vs.X * 0.6f, x1 = c.X + vs.X * 0.6f;
         float yTop = c.Y - vs.Y * 0.6f, yBot = c.Y + vs.Y * 0.6f;
         float wy = _cave.WaterY;
-        if (yBot < wy - 10) return;
+        if (_cave.Liquid == Liquid.None || yBot < wy - 10) return;
+        var bd = _cave.Biome ?? Biomes.Get(BiomeId.Slime);
+        bool lava = _cave.Liquid == Liquid.Lava;
         float y0 = Math.Max(wy, yTop);
         // Depth-graded bands.
         const int bands = 6;
         for (int b = 0; b < bands; b++)
         {
             float ya = y0 + (yBot - y0) * b / bands, yb = y0 + (yBot - y0) * (b + 1) / bands;
-            float depth = Math.Clamp((ya - wy) / 900f, 0, 1);
-            var col = new Color(0.08f, 0.32f - depth * 0.12f, 0.55f - depth * 0.2f, 0.38f + depth * 0.15f);
-            DrawRect(new Rect2(x0, ya, x1 - x0, yb - ya + 1), col);
+            float depth = Math.Clamp((ya - wy) / (lava ? 200f : 900f), 0, 1);
+            DrawRect(new Rect2(x0, ya, x1 - x0, yb - ya + 1), bd.LiquidTop.Lerp(bd.LiquidBottom, depth));
+        }
+        if (lava)
+        {
+            // molten glow and slow bright blotches
+            for (int k = 0; k < 10; k++)
+            {
+                float x = Mathf.Floor(x0 / 70f) * 70f + k * 110f + Mathf.Sin(_t * 0.5f + k * 1.7f) * 30f;
+                DrawCircle(new Vector2(x, wy + 18 + Mathf.Sin(_t + k) * 6), 22 + Mathf.Sin(_t * 1.3f + k) * 6, new Color(1f, 0.8f, 0.3f, 0.12f));
+            }
+            DrawRect(new Rect2(x0, wy - 40, x1 - x0, 40), new Color(1f, 0.45f, 0.1f, 0.06f));
+            if (G.Fx != null && G.Chance(0.25f)) G.Fx.Ember(new Vector2(G.Range(x0, x1), wy), new Color(1f, 0.6f, 0.2f));
         }
         if (wy > yTop - 20)
         {
@@ -109,9 +121,9 @@ public partial class WaterView : Node2D
                 float x = x0 + (x1 - x0) * k / n;
                 pts[k] = new Vector2(x, wy + Mathf.Sin(x * 0.03f + _t * 2f) * 1.6f + Mathf.Sin(x * 0.071f - _t * 1.3f) * 1.1f);
             }
-            DrawPolyline(pts, new Color(0.55f, 0.85f, 1f, 0.7f), 2f);
+            DrawPolyline(pts, bd.LiquidLine, lava ? 3f : 2f);
             // light shafts just below the surface
-            for (int k = 0; k < 8; k++)
+            for (int k = 0; k < (lava ? 0 : 8); k++)
             {
                 float x = Mathf.Floor(x0 / 90f) * 90f + k * 150f + Mathf.Sin(_t * 0.4f + k) * 20f;
                 DrawColoredPolygon(new[] { new Vector2(x, wy), new Vector2(x + 30, wy), new Vector2(x + 60, wy + 140), new Vector2(x + 10, wy + 140) },

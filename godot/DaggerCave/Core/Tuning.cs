@@ -163,12 +163,14 @@ public static class Tune
     // =============================================================================== DIFFICULTY
     public static class Difficulty
     {
-        /// <summary>Enemy health and damage double every this many minutes (continuous curve).</summary>
-        public static float DoublingMinutes = 10f;
-        /// <summary>Enemy speed/attack-rate follows the same curve but is capped here (2 = at most twice as fast).</summary>
-        public static float TempoCap = 2f;
-        /// <summary>Spawn intensity ("pace") reaches 1.0 after this many minutes, capped at PaceMax.</summary>
-        public static float PaceMinutesPerStep = 10f, PaceMax = 3f;
+        /// <summary>Enemy health and damage grow by this factor per level of depth...</summary>
+        public static float DepthGrowth = 1.13f;
+        /// <summary>...and double every this many minutes of play (continuous curve).</summary>
+        public static float DoublingMinutes = 30f;
+        /// <summary>Enemy speed/attack rate: this share of the threat's growth, capped (1.6 = at most 60% faster).</summary>
+        public static float TempoShare = 0.2f, TempoCap = 1.6f;
+        /// <summary>Spawn intensity ("pace"): PacePerDepth per level of depth plus 1 per PaceMinutesPerStep minutes, capped at PaceMax.</summary>
+        public static float PacePerDepth = 0.22f, PaceMinutesPerStep = 14f, PaceMax = 3f;
         /// <summary>Scales how far enemies move: their speed, gravity and jump speed together
         /// (0.8 = 20% slower, same jump timing, 20% lower jumps). Aimed leaps compensate.</summary>
         public static float EnemyMoveScale = 0.8f;
@@ -208,8 +210,9 @@ public static class Tune
     // =============================================================================== DROPS
     public static class Drops
     {
-        public static float HeartChance = 0.02f, HeartChanceElite = 0.4f;
-        public static float HeartHeal = 15f, ChestHeal = 12f;
+        /// <summary>Heart drops (heal HeartHealFrac of max health) and potion drops.</summary>
+        public static float HeartChance = 0.03f, HeartChanceElite = 0.3f, HeartHealFrac = 0.05f, ChestHeal = 12f;
+        public static float PotionChance = 0.01f;
         /// <summary>Chance each treasure dead end actually holds a chest (mini-bosses and the boss always drop one).</summary>
         public static float TreasureRoomChestChance = 0.8f;
         /// <summary>Extra chests scattered on the flooded floor and high in the dry caves.</summary>
@@ -298,6 +301,64 @@ public static class Tune
         /// <summary>Below this share of health the boss enrages (faster, summons bats).</summary>
         public static float EnrageAt = 0.5f, EnragedSpeedMult = 1.35f;
         public static int Xp = 120;
+    }
+
+    // ---- biome creatures
+    public static class Rat
+    {
+        public static float Hp = 9, Contact = 5, BiteDamage = 5, RunSpeed = 150, Windup = 0.25f, LungeSpeed = 300, Cooldown = 1.1f;
+        public static int Xp = 2;
+    }
+
+    public static class Bear
+    {
+        public static float Hp = 70, Contact = 12, SwipeDamage = 16, WalkSpeed = 60, ChargeSpeed = 240, SwipeWindup = 0.45f, ChargeWindup = 0.55f, ChargeCooldown = 5f;
+        public static int Xp = 12;
+    }
+
+    public static class Scorpion
+    {
+        public static float Hp = 26, Contact = 6, StingDamage = 11, WalkSpeed = 72, StingWindup = 0.45f, StingReach = 40, StingCooldown = 1.6f;
+        public static int Xp = 5;
+    }
+
+    public static class Hornet
+    {
+        public static float Hp = 10, Contact = 8, FlySpeed = 135, AimTime = 0.38f, DiveSpeed = 330, DiveCooldown = 2.2f;
+        public static int Xp = 3;
+    }
+
+    public static class Skeleton
+    {
+        public static float Hp = 30, Contact = 5, SlashDamage = 12, WalkSpeed = 62, Windup = 0.45f, Recover = 0.7f;
+        /// <summary>Chance a felled skeleton pulls itself back together once (at ReassembleHp of its health).</summary>
+        public static float ReassembleChance = 0.4f, ReassembleHp = 0.5f, ReassembleTime = 2.5f;
+        public static int Xp = 6;
+    }
+
+    public static class Sporeling
+    {
+        public static float Hp = 16, Contact = 4, WalkSpeed = 46, PuffWindup = 0.5f, PuffCooldown = 3.5f, CloudDamage = 4, CloudTime = 2.6f, CloudRadius = 36;
+        public static int Xp = 4;
+    }
+
+    public static class Wraith
+    {
+        public static float Hp = 18, Contact = 6, FlySpeed = 95, CastWindup = 0.6f, CastCooldown = 3f, ShardDamage = 7, ShardSpeed = 230;
+        public static int Xp = 6;
+    }
+
+    public static class Shardling
+    {
+        public static float Hp = 14, Contact = 5, WalkSpeed = 66, CurlTime = 0.5f, BurstCooldown = 4f, BurstDamage = 10, ShardDamage = 6;
+        public static int Xp = 4;
+    }
+
+    public static class Dragon
+    {
+        public static float Hp = 1500, Contact = 18, WalkSpeed = 70, FireDamage = 7, DiveDamage = 26, TailDamage = 20, ShockwaveDamage = 16, RainDamage = 12;
+        public static float EnrageAt = 0.5f, EnragedSpeedMult = 1.3f;
+        public static int Xp = 300;
     }
 
     // =============================================================================== CAVE
@@ -399,4 +460,13 @@ public static class BrainLocks
     public static bool Urchin = false;
     public static bool Eel = false;
     public static bool Boss = false;
+    public static bool Rat = false;
+    public static bool Bear = false;
+    public static bool Scorpion = false;
+    public static bool Hornet = false;
+    public static bool Skeleton = false;
+    public static bool Sporeling = false;
+    public static bool Wraith = false;
+    public static bool Shardling = false;
+    public static bool Dragon = false;
 }

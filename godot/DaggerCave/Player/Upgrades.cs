@@ -178,7 +178,27 @@ public static class Upgrades
         new() { Id = "lv_break", Name = "Resolve", Desc = "A broken shield recovers 0.6 s sooner.", Icon = "shield", Only = W, MaxStacks = 6, Weight = 1.2f, Apply = (s, p) => s.ShieldBreakTime = Math.Max(1.5f, s.ShieldBreakTime - 0.6f) },
     };
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(LevelUp);
+    /// <summary>The big picks offered every few levels (Meta.MilestoneEvery): +15% each.</summary>
+    public static readonly List<Upgrade> Milestone = new()
+    {
+        new() { Id = "m_dmg", Name = "Might", Desc = "+15% damage.", Icon = "blade", MaxStacks = 6, Apply = (s, p) => s.DamageMult *= 1.15f },
+        new() { Id = "m_atk", Name = "Haste", Desc = "Swing 15% faster.", Icon = "blade", MaxStacks = 6, Apply = (s, p) => s.AttackSpeed *= 1.15f },
+        new() { Id = "m_hp", Name = "Fortitude", Desc = "+15% max health (and heal that much).", Icon = "life", MaxStacks = 6, Apply = (s, p) => { float add = s.MaxHp * 0.15f; s.MaxHp += add; p.Heal(add); } },
+        new() { Id = "m_armor", Name = "Iron Skin", Desc = "Take 15% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = Math.Min(0.75f, 1 - (1 - s.DamageReduction) * 0.85f) },
+        new() { Id = "m_move", Name = "Fleetness", Desc = "Run and swim 15% faster.", Icon = "move", MaxStacks = 4, Apply = (s, p) => { s.MoveSpeed *= 1.15f; s.SwimSpeed *= 1.15f; } },
+        new() { Id = "m_reach", Name = "Long Arm", Desc = "+15% blade reach.", Icon = "blade", MaxStacks = 3, Apply = (s, p) => s.DaggerReach *= 1.15f },
+        new() { Id = "m_dodge", Name = "Wind Runner", Desc = "Dodges and thrown daggers recharge 15% faster.", Icon = "dodge", Only = S, MaxStacks = 4, Apply = (s, p) => { s.DodgeCdMult *= 0.85f; s.ThrowCooldown *= 0.85f; } },
+        new() { Id = "m_shield", Name = "Aegis", Desc = "+15% shield strength and regeneration.", Icon = "shield", Only = W, MaxStacks = 4, Apply = (s, p) => { s.ShieldMax *= 1.15f; s.ShieldRegen *= 1.15f; } },
+        new() { Id = "m_ward", Name = "Warding", Desc = "Barrier 15% stronger, and ready 15% sooner.", Icon = "shield", Only = W, MaxStacks = 4, Apply = (s, p) => { s.BarrierAmount *= 1.15f; s.BarrierCooldown *= 0.85f; } },
+    };
+
+    /// <summary>The "leave it" card on reward screens: nothing now, an ember if the level's guardian falls.</summary>
+    public static readonly Upgrade Skip = new() { Id = "skip", Name = "Leave It", Desc = "Take nothing. Earn 1 ember (kept between runs) if you defeat this level's guardian.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
+
+    public static IEnumerable<Upgrade> All => Chest.Concat(LevelUp).Concat(Milestone).Append(Skip);
+
+    /// <summary>Three milestone picks.</summary>
+    public static List<Upgrade> RollMilestone(PlayerStats s, Random rng) => Roll(Milestone, s, 3, rng, u => u.Weight);
 
     public static Upgrade Get(string id) => All.First(u => u.Id == id);
 
@@ -233,5 +253,38 @@ public static class Upgrades
     {
         s.Stacks[u.Id] = s.StackOf(u.Id) + 1;
         u.Apply(s, p);
+    }
+}
+
+/// <summary>What each level gives on its own, by hero: the swordsman leans on damage, the warden on toughness.</summary>
+public static class Progression
+{
+    public static void AutoLevel(Player p)
+    {
+        var s = p.Stats;
+        string gain;
+        if (s.Hero == HeroKind.Warden)
+        {
+            s.MaxHp += 4; p.Heal(4);
+            s.DamageMult += 0.015f;
+            s.DamageReduction = Math.Min(0.75f, s.DamageReduction + 0.01f);
+            s.ShieldMax += 2;
+            gain = "+4 HP  +1% guard";
+        }
+        else
+        {
+            s.MaxHp += 2; p.Heal(2);
+            s.DamageMult += 0.03f;
+            s.AttackSpeed += 0.015f;
+            gain = "+3% damage";
+        }
+        G.Sfx.Play("levelup", p.GlobalPosition, -2);
+        G.Fx.Text(p.GlobalPosition + new Vector2(0, -34), $"LEVEL {p.Level}", new Color(1f, 0.9f, 0.45f), 14, 1.3f);
+        G.Fx.Text(p.GlobalPosition + new Vector2(0, -20), gain, new Color(0.9f, 0.95f, 1f), 9, 1.1f);
+        G.Fx.Flash(p.GlobalPosition, 30, new Color(1f, 0.9f, 0.5f));
+        G.Fx.Ring(p.GlobalPosition, 26, new Color(1f, 0.9f, 0.5f));
+        G.Fx.Shockwave(p.GlobalPosition + new Vector2(0, 13), 40, new Color(1f, 0.9f, 0.5f, 0.8f));
+        for (int k = 0; k < 10; k++) G.Fx.Glint(p.GlobalPosition + G.RandDir() * G.Range(8, 26), new Color(1f, 0.9f, 0.5f), 6);
+        p.Anim.Flash(0.7f);
     }
 }

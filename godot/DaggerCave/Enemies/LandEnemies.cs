@@ -159,7 +159,7 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             float ext = TongueExtent();
             var tip = GlobalPosition + new Vector2(0, -2) + _tongueDir * ext;
-            if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && (P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0 || P.LastHitBlocked)) _tongueHit = true;
+            if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && (P.Hurt(Tune.Frog.TongueDamage * DmgK * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0 || P.LastHitBlocked)) _tongueHit = true;
             if (_tongueT > TongueTime) _tongueT = -1;
         }
         else if (floor)
@@ -314,7 +314,7 @@ public partial class Goblin : Enemy
                 Anim.Once("strike", 3);
                 var rel = ToP;
                 if (Math.Abs(rel.X) < 40 * Size && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size)
-                    P.Hurt(Tune.Goblin.ClubDamage * G.DepthDmg * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
+                    P.Hurt(Tune.Goblin.ClubDamage * DmgK * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
             }
         }
         else
@@ -336,7 +336,7 @@ public partial class Goblin : Enemy
         var vel = new Vector2((target.X - from.X) / t, (target.Y - from.Y) / t - 0.5f * g * t);
         int n = Elite ? 3 : 1;
         for (int k = 0; k < n; k++)
-            G.Spawn(new EnemyProjectile { Position = from, Vel = vel.Rotated((k - (n - 1) / 2f) * 0.12f), Grav = g, Damage = Tune.Goblin.RockDamage * G.DepthDmg, Kind = "rock", Radius = 4, Source = this });
+            G.Spawn(new EnemyProjectile { Position = from, Vel = vel.Rotated((k - (n - 1) / 2f) * 0.12f), Grav = g, Damage = Tune.Goblin.RockDamage * DmgK, Kind = "rock", Radius = 4, Source = this });
         G.Sfx.Play("throw", GlobalPosition, -8, 0.1f, 0.6f);
         _state = 2; _stateT = 0.2f;
     }
@@ -395,11 +395,16 @@ public partial class Spider : Enemy
 
     public Spider() { MaxHp = Tune.Spider.Hp; BodyRadius = 8; ContactDamage = Tune.Spider.Contact; XpValue = Tune.Spider.Xp; }
 
+    /// <summary>Lives on the ground (hunting spiders, the web-mother) instead of the ceiling.</summary>
+    public bool Grounded;
+    private float _broodT = 6f;
+
     protected override void Setup()
     {
-        DisplayName = "Spider";
+        DisplayName = Grounded ? "Hunting Spider" : "Spider";
         _anchorY = GlobalPosition.Y - 8;
-        MotionMode = MotionModeEnum.Floating;
+        if (Grounded) { _state = 4; ManualMove = false; }
+        MotionMode = Grounded ? MotionModeEnum.Grounded : MotionModeEnum.Floating;
         UseSprite("spider");
     }
 
@@ -451,6 +456,22 @@ public partial class Spider : Enemy
             default:
             {
                 var v = Velocity;
+                // the web-mother calls her brood down from the ceiling
+                if (IsGuardian && Awake && (_broodT -= dt) <= 0)
+                {
+                    _broodT = G.Range(6f, 8f);
+                    int live = 0;
+                    foreach (var e in G.Enemies) if (e is Spider && e != this && !e.Dead) live++;
+                    for (int k = 0; k < 2 && live < 4; k++, live++)
+                    {
+                        var at = GlobalPosition + new Vector2(G.Range(-120, 120), -30);
+                        if (!cave.FindCeiling(at, 300, out var ce)) continue;
+                        var kid = new Spider { Position = ce + new Vector2(0, 8) };
+                        kid.Engage();
+                        G.Spawn(kid);
+                    }
+                    G.Sfx.Play("spider", GlobalPosition, 0, 0.1f, 0.7f);
+                }
                 if (IsOnFloor())
                 {
                     int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
@@ -501,7 +522,7 @@ public partial class Spider : Enemy
     {
         if ((_state == 1 || _state == 2 || _state == 3) && G.Chance(0.45f))
         {
-            _state = 4; ManualMove = false; Velocity = Vector2.Zero;
+            _state = 4; ManualMove = false; Velocity = Vector2.Zero; MotionMode = MotionModeEnum.Grounded;
         }
     }
 
@@ -604,7 +625,7 @@ public partial class LavaMonster : Enemy
         float t = Math.Clamp(from.DistanceTo(target) / 260f, 0.5f, 1.2f);
         var baseV = new Vector2((target.X - from.X) / t, (target.Y - from.Y) / t - 0.5f * g * t);
         for (int k = 0; k < n; k++)
-            G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = Tune.Magma.GlobDamage * G.DepthDmg, Kind = "lava", Radius = 5, Source = this });
+            G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = Tune.Magma.GlobDamage * DmgK, Kind = "lava", Radius = 5, Source = this });
     }
 
     protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 8 && IsOnFloor() ? "walk" : "idle", 1.4f);
@@ -681,9 +702,9 @@ public partial class Golem : Enemy
         var foot = GlobalPosition + new Vector2(0, BodyRadius * Size);
         G.Fx.Burst(foot, new Color(0.6f, 0.55f, 0.5f), 20, 200, 3f, 0.5f);
         for (int s = -1; s <= 1; s += 2)
-            G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = Tune.Golem.ShockwaveDamage * G.DepthDmg * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Tune.Golem.ShockwaveSpeed * (Elite ? 1.2f : 1f), Source = this });
+            G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = Tune.Golem.ShockwaveDamage * DmgK * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Tune.Golem.ShockwaveSpeed * (Elite ? 1.2f : 1f), Source = this });
         var rel = ToP;
-        if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(Tune.Golem.SlamDamage * G.DepthDmg, GlobalPosition, 320, this);
+        if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(Tune.Golem.SlamDamage * DmgK, GlobalPosition, 320, this);
     }
 
     protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 6 && IsOnFloor() ? "walk" : "idle", 1.2f);

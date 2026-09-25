@@ -59,7 +59,7 @@ public partial class Hud : Control
                 _revealed[k] = true; changed = true;
                 bool open = cave.CellOpen(i, j);
                 Color c;
-                if (open) c = (j + 0.5f) * CaveData.Cell > cave.WaterY ? new Color(0.2f, 0.45f, 0.75f, 0.85f) : new Color(0.62f, 0.58f, 0.52f, 0.85f);
+                if (open) c = (j + 0.5f) * CaveData.Cell > cave.WaterY ? (cave.Liquid == Liquid.Lava ? new Color(0.9f, 0.35f, 0.1f, 0.85f) : new Color(0.2f, 0.45f, 0.75f, 0.85f)) : new Color(0.62f, 0.58f, 0.52f, 0.85f);
                 else
                 {
                     bool edge = cave.CellOpen(i + 1, j) || cave.CellOpen(i - 1, j) || cave.CellOpen(i, j + 1) || cave.CellOpen(i, j - 1);
@@ -138,16 +138,29 @@ public partial class Hud : Control
             DrawString(font, db + new Vector2(0, -6), "DODGE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         }
 
-        // --- Depth / kills ---
-        DrawString(font, new Vector2(vs.X / 2 - 60, 22), $"DEPTH {G.Depth}   ·   {p.Kills} kills", HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
+        // --- Potions (under the bars) ---
+        {
+            var pp = xpPos + new Vector2(xpW + 60, -18);
+            for (int k = 0; k < Meta.MaxPotions; k++)
+                PotionPickup.DrawFlask(this, pp + new Vector2(k * 18, 6), 1.35f, 1f, k >= p.Potions);
+            DrawString(font, pp + new Vector2(-8, 28), G.Main.UsingPad ? "Y" : "Q", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.5f));
+            if (p.Mending) DrawString(font, pp + new Vector2(6, 28), "mending", HorizontalAlignment.Left, -1, 10, new Color(1f, 0.6f, 0.7f, 0.7f + 0.3f * MathF.Sin(_t * 6)));
+        }
+
+        // --- Depth / biome / kills ---
+        string where = $"DEPTH {G.Depth}  ·  {G.Biome?.Name.ToUpperInvariant() ?? ""}  ·  {p.Kills} kills";
+        var wsz = font.GetStringSize(where, HorizontalAlignment.Left, -1, 14);
+        DrawString(font, new Vector2(vs.X / 2 - wsz.X / 2, 22), where, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
+        if (G.Main.SkipBank > 0)
+            DrawString(font, new Vector2(vs.X / 2 - 90, 40), $"{G.Main.SkipBank} ember{(G.Main.SkipBank > 1 ? "s" : "")} riding on the guardian", HorizontalAlignment.Center, 180, 11, new Color(1f, 0.7f, 0.4f, 0.7f));
 
         // --- Boss bar ---
         var boss = G.Main.ActiveBoss;
-        if (boss != null && !boss.Dead)
+        if (boss != null && IsInstanceValid(boss) && !boss.Dead)
         {
             float bw = Math.Min(560, vs.X - 360);
             var bp = new Vector2(vs.X / 2 - bw / 2, vs.Y - 46);
-            DrawString(font, bp + new Vector2(0, -6), boss.DisplayName.ToUpperInvariant(), HorizontalAlignment.Left, -1, 15, new Color(1f, 0.85f, 0.7f));
+            DrawString(font, bp + new Vector2(0, -6), (boss.Title != "" ? boss.Title : boss.DisplayName).ToUpperInvariant(), HorizontalAlignment.Left, -1, 15, new Color(1f, 0.85f, 0.7f));
             DrawRect(new Rect2(bp - new Vector2(3, 3), new Vector2(bw + 6, 20)), new Color(0, 0, 0, 0.7f));
             DrawRect(new Rect2(bp, new Vector2(bw * Math.Clamp(boss.Hp / boss.MaxHp, 0, 1), 14)), new Color(0.8f, 0.25f, 0.15f));
         }
@@ -160,14 +173,15 @@ public partial class Hud : Control
             DrawRect(new Rect2(mp - new Vector2(4, 4), new Vector2(mw + 8, mh + 8)), new Color(0, 0, 0, 0.55f));
             DrawTextureRect(_mapTex, new Rect2(mp, new Vector2(mw, mh)), false);
             float sx = mw / G.Cave.SizePx.X, sy = mh / G.Cave.SizePx.Y;
-            DrawLine(mp + new Vector2(0, G.Cave.WaterY * sy), mp + new Vector2(mw, G.Cave.WaterY * sy), new Color(0.4f, 0.7f, 1f, 0.35f), 1f);
+            if (G.Cave.Liquid != Liquid.None)
+                DrawLine(mp + new Vector2(0, G.Cave.WaterY * sy), mp + new Vector2(mw, G.Cave.WaterY * sy), G.Cave.Liquid == Liquid.Lava ? new Color(1f, 0.5f, 0.2f, 0.4f) : new Color(0.4f, 0.7f, 1f, 0.35f), 1f);
             var pp = mp + new Vector2(p.GlobalPosition.X * sx, p.GlobalPosition.Y * sy);
             DrawCircle(pp, 3, new Color(1f, 0.95f, 0.4f));
             if (G.Cave.Boss != null)
             {
                 var b = mp + new Vector2(G.Cave.Boss.Center.X * sx, G.Cave.Boss.Center.Y * sy);
                 DrawArc(b, 4 + MathF.Sin(_t * 4), 0, Mathf.Tau, 12, new Color(1f, 0.25f, 0.2f), 2f);
-                DrawString(font, b + new Vector2(6, 4), "BOSS", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.4f, 0.35f));
+                DrawString(font, b + new Vector2(6, 4), "EXIT", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.4f, 0.35f));
             }
         }
 
@@ -182,15 +196,15 @@ public partial class Hud : Control
             string[] lines = G.Main.UsingPad
                 ? new[]
                 {
-                    "Left stick move · A jump · hold up/down to swim",
+                    "Left stick move · A jump · hold up/down to swim · Y drink a potion",
                     warden ? "X swing · RB/RT barrier · hold B/LB to raise the shield (right stick aims it)" : "X swing (aim with right stick) · RB/RT throw dagger",
-                    warden ? "Raise the shield just before a hit for a perfect block · START pause" : "B/LB dodge · START pause    —    find and slay the boss",
+                    warden ? "Raise the shield just before a hit for a perfect block · START pause" : "B/LB dodge · START pause    —    find and slay the exit's guardian",
                 }
                 : new[]
                 {
-                    "A/D move · SPACE jump · W/S swim up/down",
+                    "A/D move · SPACE jump · W/S swim up/down · Q drink a potion",
                     warden ? "LEFT CLICK swing · RIGHT CLICK barrier · hold SHIFT to raise the shield toward the mouse" : "LEFT CLICK swing (aim with mouse) · RIGHT CLICK throw dagger",
-                    warden ? "Raise the shield just before a hit for a perfect block · ESC pause" : "SHIFT dodge · ESC pause    —    find and slay the boss",
+                    warden ? "Raise the shield just before a hit for a perfect block · ESC pause" : "SHIFT dodge · ESC pause    —    find and slay the exit's guardian",
                 };
             for (int k = 0; k < lines.Length; k++)
                 DrawString(font, new Vector2(vs.X / 2 - 230, vs.Y - 110 + k * 20), lines[k], HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, a));
@@ -312,5 +326,6 @@ void fragment() {
         float w = p.HeadUnder ? 1f : 0f;
         _mat.SetShaderParameter("water", w);
         _mat.SetShaderParameter("radius", p.HeadUnder ? 0.5f : 0.62f);
+        _mat.SetShaderParameter("strength", p.HeadUnder ? Math.Max(0.6f, G.Biome?.Darkness ?? 0.82f) : G.Biome?.Darkness ?? 0.82f);
     }
 }

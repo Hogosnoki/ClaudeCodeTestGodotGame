@@ -22,9 +22,18 @@ public sealed class BotPilot
     public PlayerInput Read()
     {
         var r = _cur;
-        _cur.Jump = false; _cur.Attack = false; _cur.Throw = false; _cur.Dodge = false;
+        _cur.Jump = false; _cur.Attack = false; _cur.Throw = false; _cur.Dodge = false; _cur.Potion = false;
         return r;
     }
+
+    /// <summary>A new level: forget the old goal.</summary>
+    public void Reset() { _haveGoal = false; _path.Clear(); _stuckT = 0; _bestGoalDist = float.MaxValue; _noProgressT = 0; }
+
+    /// <summary>Head straight for the guardian (and then the exits) rather than wandering.</summary>
+    public bool Focused;
+    /// <summary>Test harness only: when the bot makes no headway for a while, skip it along its path.</summary>
+    public bool SkipAhead;
+    private float _bestGoalDist = float.MaxValue, _noProgressT;
 
     public void Tick(float dt)
     {
@@ -34,14 +43,34 @@ public sealed class BotPilot
         _pathT -= dt; _goalT -= dt; _atkCd -= dt; _throwCd -= dt; _dodgeCd -= dt; _jumpHoldT -= dt;
         var pos = p.GlobalPosition;
 
+        var exits = G.Main.ExitSpots;
+        if (exits.Count > 0 && (!_haveGoal || !exits.Contains(_goal) || _goalT <= 0))
+        {
+            // the guardian is down: take the steeper way on
+            _haveGoal = true; _goal = exits[^1]; _goalT = 60; _pathT = 0; _bestGoalDist = float.MaxValue;
+        }
         if (!_haveGoal || _goalT <= 0)
         {
             _haveGoal = true;
-            if (cave.Boss != null && _rng.NextDouble() < 0.6) { _goal = cave.Boss.Center; _goalT = 40; }
+            if (cave.Boss != null && _rng.NextDouble() < (Focused ? 0.85 : 0.6)) { _goal = Focused ? cave.Boss.Floor + new Vector2(0, -20) : cave.Boss.Center; _goalT = 40; }
             else { _goal = cave.Rooms[_rng.Next(cave.Rooms.Count)].Center; _goalT = 25; }
+            _bestGoalDist = float.MaxValue;
             _pathT = 0;
         }
+        if (p.Hp < p.Stats.MaxHp * 0.35f && p.Potions > 0) _cur.Potion = true;
         if (_pathT <= 0) { _pathT = 1.2f; _path = FindPath(cave, pos, _goal); }
+
+        float gd = pos.DistanceTo(_goal);
+        if (gd < _bestGoalDist - 32) { _bestGoalDist = gd; _noProgressT = 0; }
+        else _noProgressT += dt;
+        if (SkipAhead && _noProgressT > 15f && _path.Count > 2)
+        {
+            var at = _path[Math.Min(14, _path.Count - 1)];
+            p.GlobalPosition = at; p.Velocity = Vector2.Zero;
+            _noProgressT = 0; _bestGoalDist = at.DistanceTo(_goal);
+            _pathT = 0;
+            GD.Print($"[bot] no headway for 15 s: skipped ahead along the path to {at}");
+        }
 
         // stuck detection
         if (pos.DistanceTo(_lastPos) < 1.5f) _stuckT += dt; else _stuckT = 0;
@@ -119,6 +148,7 @@ public sealed class BotPilot
                     if (i < 0 || j < 0 || i >= W || j >= H) continue;
                     int v = j * W + i;
                     if (prev[v] != -2 || !cave.CellOpen(i, j)) continue;
+                    if (cave.Liquid == Liquid.Lava && (j + 0.5f) * CaveData.Cell > cave.WaterY - 8) continue;
                     // keep a cell of clearance so the path doesn't hug walls
                     if (!cave.CellOpen(i, j - 1) && !cave.CellOpen(i, j + 1)) continue;
                     prev[v] = u; q.Enqueue(v);
