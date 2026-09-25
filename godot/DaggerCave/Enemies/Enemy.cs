@@ -129,6 +129,7 @@ public abstract partial class Enemy : CharacterBody2D
         float tempo = G.Tempo;
         float dt = (float)delta * tempo;
         T += dt; HurtFlash -= (float)delta;
+        if (_primeT > 0) _primeT -= dt;
         if (_bleedT > 0)
         {
             _bleedT -= dt;
@@ -320,7 +321,32 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>The move being carried out now.</summary>
     protected int Intent;
     /// <summary>Clears a one-shot move (an attack) once it has started, so it isn't repeated.</summary>
-    protected void Consume() => Intent = 0;
+    protected void Consume()
+    {
+        if (IsAttack(Intent)) _lastAttackStart = G.RunTime; // this creature has the floor for a moment
+        Intent = 0;
+    }
+
+    // ---- attack etiquette
+    /// <summary>Which of this creature's moves are attacks (they obey the first-attack delay and take turns).</summary>
+    protected virtual bool IsAttack(int a) => false;
+    private float _primeT;                       // first-attack countdown
+    private bool _primed;                        // has wanted to attack at least once
+    private static float _lastAttackStart = -99; // shared: when any nearby creature last started an attack
+
+    /// <summary>
+    /// Holds back an attack when (1) this is the first time the creature wants to attack: it waits
+    /// FirstAttackDelay first, so nothing strikes the moment it drops into view; or (2) another
+    /// creature near the player started an attack less than AttackStagger ago: they take turns.
+    /// </summary>
+    private void GateAttack()
+    {
+        if (!IsAttack(Intent)) return;
+        if (!_primed) { _primed = true; _primeT = Tune.Combat.FirstAttackDelay; }
+        bool waiting = _primeT > 0;
+        bool turn = IsBoss || G.RunTime - _lastAttackStart >= Tune.Combat.AttackStagger || DistP > 600;
+        if (waiting || !turn) Intent = 0;
+    }
 
     public Brain Brain => _brain;
     public bool BrainDriven { get; private set; }
@@ -375,6 +401,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             BrainDriven = false;
             Intent = Teacher();
+            GateAttack();
             return;
         }
         BrainDriven = true;
@@ -406,6 +433,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         else action = _brain.Choose(x, mask, learn, out value, _probs);
         Intent = action;
+        GateAttack();
 
         _pending = true;
         _pendingLearn = learn;

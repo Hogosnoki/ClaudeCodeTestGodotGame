@@ -93,6 +93,7 @@ public partial class Bat : Enemy
     protected override bool Busy => _state == 0;
     protected override int Teacher() => _state == 2 ? Retreat : Swoop;
     protected override bool Striking => _state != 0 && Intent == Swoop;
+    protected override bool IsAttack(int a) => a == Swoop;
 
     protected override void Animate()
     {
@@ -122,6 +123,9 @@ public partial class Frog : Enemy
     protected override void Think(float dt)
     {
         _hopCd -= dt; _tongueCd -= dt; _croakT -= dt;
+        // the tongue is only for a frog with its feet planted: settled a moment, and never mid-air
+        _groundT = IsOnFloor() && !InWater ? _groundT + dt : 0;
+        if (_tongueT >= 0 && _groundT <= 0) _tongueT = -1;
         var v = Velocity;
         if (InWater)
         {
@@ -165,7 +169,7 @@ public partial class Frog : Enemy
             {
                 int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
                 Face = dirP;
-                if (Intent == Tongue && CanAct(Tongue))
+                if (Intent == Tongue && CanAct(Tongue) && _groundT > 0.25f)
                 {
                     _tongueT = 0; _tongueHit = false; _tongueCd = Tune.Frog.TongueCooldown; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
                     G.Sfx.Play("tongue", GlobalPosition, -4);
@@ -198,9 +202,11 @@ public partial class Frog : Enemy
     protected override bool CanAct(int a) => a switch
     {
         HopToward or HopAway => _hopCd <= 0,
-        Tongue => _tongueCd <= 0,
+        Tongue => _tongueCd <= 0 && _groundT > 0.25f,
         _ => true,
     };
+    protected override bool IsAttack(int a) => a == Tongue;
+    private float _groundT;
 
     protected override int Teacher()
     {
@@ -315,7 +321,7 @@ public partial class Goblin : Enemy
         {
             v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
             if (_stateT > 0.25f && _stateT - dt <= 0.25f) Anim.Once("recover", 2, 1.2f);
-            if (_stateT > 0.5f) { _state = 0; _stateT = 0; }
+            if (_stateT > Tune.Goblin.RecoverTime) { _state = 0; _stateT = 0; }
         }
         Velocity = v;
         ApplyGravity(dt);
@@ -350,6 +356,7 @@ public partial class Goblin : Enemy
         Attack => !Slinger || _throwCd <= 0,
         _ => true,
     };
+    protected override bool IsAttack(int a) => a == Attack;
 
     protected override int Teacher()
     {
@@ -478,6 +485,7 @@ public partial class Spider : Enemy
     protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
 
     protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
+    protected override bool IsAttack(int a) => a == Strike;
     protected override bool Striking => _state == 1 || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
 
     protected override int Teacher()
@@ -579,6 +587,7 @@ public partial class LavaMonster : Enemy
     protected override bool Busy => _windup >= 0 || InWater;
     protected override float AttackReady => 1 - Math.Clamp(_lobCd / Tune.Magma.LobCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Lob_ || _lobCd <= 0;
+    protected override bool IsAttack(int a) => a == Lob_;
 
     protected override int Teacher()
     {
@@ -656,6 +665,7 @@ public partial class Golem : Enemy
     protected override bool Busy => _windup >= 0 || _recover > 0 || InWater;
     protected override float AttackReady => 1 - Math.Clamp(_slamCd / Tune.Golem.SlamCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Slam_ || (_slamCd <= 0 && IsOnFloor());
+    protected override bool IsAttack(int a) => a == Slam_;
 
     protected override int Teacher()
     {

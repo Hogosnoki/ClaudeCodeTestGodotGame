@@ -293,6 +293,7 @@ public partial class Main : Node
             _world.AddChild(new Chest { Position = floor });
         }
 
+        PlaceCaches(cave);
         SpawnCritters(cave);
         PlaceAirVents(cave);
         _hud.ResetMap(cave);
@@ -320,6 +321,39 @@ public partial class Main : Node
                 crabs++;
             }
         }
+    }
+
+    /// <summary>
+    /// Extra chests away from the dead ends: some on the flooded floor (where movement upgrades are
+    /// likeliest) and some high in the dry caves (survival upgrades), spread apart and reachable.
+    /// </summary>
+    private void PlaceCaches(CaveData cave)
+    {
+        var placed = new List<Vector2>();
+        foreach (var r in cave.Rooms) placed.Add(r.Floor);
+        bool Reachable(Vector2 p)
+        {
+            int i = (int)(p.X / CaveData.Cell), j = (int)(p.Y / CaveData.Cell) - 1;
+            return cave.ReachMask != null && i >= 0 && j >= 0 && i < cave.W && j < cave.H && cave.ReachMask[j * cave.W + i];
+        }
+        void Scatter(int count, float yMin, float yMax, bool underwater)
+        {
+            int made = 0;
+            for (int tries = 0; tries < 2000 && made < count; tries++)
+            {
+                var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(yMin, yMax));
+                if (cave.IsSolid(at) || cave.IsWater(at) != underwater) continue;
+                if (!cave.FindFloor(at, 300, out var floor) || cave.IsWater(floor + new Vector2(0, -10)) != underwater) continue;
+                if (!underwater && floor.Y > yMax) continue;
+                if (!Reachable(floor) || placed.Any(q => q.DistanceTo(floor) < 350)) continue;
+                placed.Add(floor);
+                _world.AddChild(new Chest { Position = floor });
+                made++;
+            }
+        }
+        Scatter(Tune.Drops.WaterCaches, cave.WaterY + 40, cave.SizePx.Y - 40, true);
+        Scatter(Tune.Drops.HighCaches, 60, cave.WaterY * Tune.Drops.HighZoneFraction, false);
+        if (_autotest) GD.Print($"[autotest] caches placed: {placed.Count - cave.Rooms.Count}");
     }
 
     /// <summary>A sparse scattering of air vents on the flooded cave floor.</summary>
@@ -788,6 +822,9 @@ public partial class Main : Node
             {
                 int c = G.RangeI(2, 4 + Math.Min(extra, 2));
                 for (int k = 0; k < c; k++) Add(new Fish(), sp.Pos + G.RandDir() * G.Range(0, 30));
+                // urchins are slow to bother anyone, so they're common on the floor below
+                if (G.Chance(Tune.Spawning.UrchinWithFishChance) && cave.FindFloor(sp.Pos, 260, out var fl) && cave.IsWater(fl + new Vector2(0, -10)))
+                    Add(new Urchin(), fl + new Vector2(G.Range(-20, 20), -8));
                 break;
             }
             case SpawnKind.WaterWall:
@@ -796,6 +833,8 @@ public partial class Main : Node
                 break;
             case SpawnKind.WaterFloor:
                 Add(new Urchin(), sp.Pos);
+                if (G.Chance(0.6f) && cave.FindFloor(sp.Pos + new Vector2(G.Chance(0.5f) ? -44 : 44, -24), 80, out var fl2) && cave.IsWater(fl2 + new Vector2(0, -10)))
+                    Add(new Urchin(), fl2 + new Vector2(0, -8));
                 if (G.Chance(0.5f)) for (int k = 0; k < 2; k++) Add(new Fish(), sp.Pos + new Vector2(G.Range(-40, 40), -40));
                 break;
         }
@@ -1112,12 +1151,21 @@ public partial class Main : Node
         // keep enemies out of the way
         foreach (var e in G.Enemies.ToArray()) if (e.GlobalPosition.DistanceTo(p.GlobalPosition) < 600 && !e.IsBoss && e.GetMeta("test", false).AsBool() == false) e.QueueFree();
         bool warden = p.Stats.Hero == HeroKind.Warden;
+        if (_dir == 0 && !p.IsOnFloor() && _heroT < 4f) { _heroT = 0; return; } // wait until landed
+        if (_dir == 0)
+        {
+            // test toward whichever side has open floor (the start spot varies by cave)
+            float Open(int side) { int n = 0; for (int k = 1; k <= 10; k++) if (!G.Cave.IsSolid(p.GlobalPosition + new Vector2(side * k * 18, -10)) && G.Cave.FindFloor(p.GlobalPosition + new Vector2(side * k * 18, -10), 40, out _)) n++; else break; return n; }
+            _dir = Open(1) >= Open(-1) ? 1 : -1;
+        }
         // steps are keyed by time (tenths of a second); each runs once
         int s = (int)(_heroT * 10);
-        while (_lastHeroStep < s)
+        if (_lastHeroStep < s)
         {
-            // run every step, even if a slow frame skipped past one
+            // one step per frame (so an input set by one step is seen before the next clears it);
+            // a slow frame just delays the steps a little rather than skipping any
             int step = ++_lastHeroStep;
+            if (OS.GetCmdlineUserArgs().Contains("--herodebug") && step % 3 == 0) GD.Print($"[herodebug] step {step} t={_heroT:0.00} dir {_dir} swing {p.IsSwinging} shield {p.ShieldRaised} guardIn {_heroInput.GuardHeld} atk {_heroInput.Attack} state {_state} paused {GetTree().Paused} pos {p.GlobalPosition}");
             if (warden) WardenStep(step, p); else SwordStep(step, p);
             if (_shotDir != "" && (step == 12 || step == 145 || step == 163 || step == 9 || step == 10 || step == 22 || step == 23)) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
         }
@@ -1129,20 +1177,20 @@ public partial class Main : Node
         switch (s)
         {
             case 5: // raise the shield to the right, fire from the right
-                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right };
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) };
                 _hpMark = p.Hp; _shieldMark = p.ShieldHp;
                 break;
-            case 10: _probe = Shoot(new Vector2(120, -4)); break;
+            case 10: _probe = Shoot(new Vector2(_dir * 120, -4)); break;
             case 18:
                 Check($"shield blocks a shot from the front (hp {p.Hp:0}/{_hpMark:0}, shield {p.ShieldHp:0.0} < {_shieldMark:0.0})", p.Hp == _hpMark && p.ShieldHp < _shieldMark);
-                _probe = Shoot(new Vector2(-120, -4)); // from behind
+                _probe = Shoot(new Vector2(_dir * -120, -4)); // from behind
                 break;
             case 26:
                 Check($"a shot from behind gets through (hp {p.Hp:0} < {_hpMark:0})", p.Hp < _hpMark);
                 p.Heal(100);
                 break;
             case 40: // wait out the post-hit invulnerability, then break it
-                for (int k = 0; k < 12; k++) { var pr = Shoot(new Vector2(110 + k * 30, -4)); pr.Damage = 8; }
+                for (int k = 0; k < 12; k++) { var pr = Shoot(new Vector2(_dir * (110 + k * 30), -4)); pr.Damage = 8; }
                 break;
             case 70:
                 Check($"shield breaks when drained (shield {p.ShieldHp:0.0}, broken {p.ShieldBroken})", p.ShieldBroken && p.ShieldHp == 0);
@@ -1158,8 +1206,8 @@ public partial class Main : Node
                 p.Heal(100);
                 _heroInput = default;
                 break;
-            case 143: _probe = Shoot(new Vector2(70, -4)); break;
-            case 144: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right }; break; // raised ~0.2 s before impact
+            case 143: _probe = Shoot(new Vector2(_dir * 70, -4)); break;
+            case 144: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) }; break; // raised ~0.2 s before impact
             case 150:
                 Check($"a perfect block reflects the shot (reflected {IsInstanceValid(_probe) && _probe.Reflected})", IsInstanceValid(_probe) && _probe.Reflected);
                 _heroInput = default;
@@ -1171,9 +1219,9 @@ public partial class Main : Node
                 _heroInput = default;
                 Check($"barrier is up ({p.BarrierHp:0.0})", p.BarrierHp > 0);
                 _hpMark = p.Hp;
-                Shoot(new Vector2(-90, -4)).Damage = 4;
+                Shoot(new Vector2(_dir * -90, -4)).Damage = 4;
                 break;
-            case 165: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right, Attack = true, Aim = Vector2.Right }; break;
+            case 165: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0), Attack = true, Aim = new Vector2(_dir, 0) }; break;
             case 166:
                 Check($"can swing with the shield up (swinging {p.IsSwinging}, shield {p.ShieldRaised})", p.IsSwinging && p.ShieldRaised);
                 _heroInput = default;
@@ -1184,8 +1232,8 @@ public partial class Main : Node
                 p.Heal(100);
                 p.RefillShield();
                 _hpMark = p.Hp;
-                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right };
-                var gob = new Goblin { Position = p.GlobalPosition + new Vector2(26, -4) };
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) };
+                var gob = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 26, -4) };
                 gob.SetMeta("test", true);
                 _world.AddChild(gob);
                 gob.Engage();
@@ -1220,7 +1268,7 @@ public partial class Main : Node
             case 5:
             {
                 // a dummy 50 px away: out of the old dagger's reach, inside the sword's
-                var dummy = new Golem { Position = p.GlobalPosition + new Vector2(50, -6) };
+                var dummy = new Golem { Position = p.GlobalPosition + new Vector2(_dir * 50, -6) };
                 dummy.SetMeta("test", true);
                 _world.AddChild(dummy);
                 _probeEnemy = dummy;
@@ -1230,19 +1278,19 @@ public partial class Main : Node
             case 8:
                 _hpMark = _probeEnemy.Hp;
                 _posMark = p.GlobalPosition;
-                _heroInput = new PlayerInput { Attack = true, Aim = Vector2.Right };
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
             case 9: _heroInput = default; break;
             case 14:
                 Check($"sword reaches a golem 50 px away (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
-                Check($"the swing lunges forward ({p.GlobalPosition.X - _posMark.X:0.0} px)", p.GlobalPosition.X - _posMark.X > 8);
+                Check($"the swing lunges forward ({(p.GlobalPosition.X - _posMark.X) * _dir:0.0} px)", (p.GlobalPosition.X - _posMark.X) * _dir > 8);
                 // Crescent Wave: a swing from well out of reach still cuts the golem
                 Upgrades.Apply(Upgrades.Get("wave"), p.Stats, p);
-                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(120, -6);
+                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 120, -6);
                 break;
             case 20:
                 _hpMark = _probeEnemy.Hp;
-                _heroInput = new PlayerInput { Attack = true, Aim = Vector2.Right };
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
             case 21: _heroInput = default; break;
             case 28:
@@ -1253,10 +1301,10 @@ public partial class Main : Node
                 Check("the cave has air vents", vent != null);
                 if (vent != null)
                 {
-                    p.GlobalPosition = vent.GlobalPosition + new Vector2(0, -40);
+                    p.GlobalPosition = vent.GlobalPosition + new Vector2(_dir * 0, -40);
                     p.Velocity = Vector2.Zero;
                     p.Breath = 1f;
-                    _world.AddChild(new AirBubble { Position = p.GlobalPosition + new Vector2(0, 6) });
+                    _world.AddChild(new AirBubble { Position = p.GlobalPosition + new Vector2(_dir * 0, 6) });
                 }
                 break;
             case 31:
@@ -1266,6 +1314,7 @@ public partial class Main : Node
         }
     }
     private Enemy _probeEnemy;
+    private float _dir;
 
     private void Finish()
     {

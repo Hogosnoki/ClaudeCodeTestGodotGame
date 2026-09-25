@@ -48,7 +48,7 @@ public partial class Fish : Enemy
                 if (_dartT > 0) { /* keep dashing */ }
                 else if (Intent == Dart && _dartCd <= 0)
                 {
-                    _dartT = 0.4f; _dartCd = G.Range(0.9f, 1.5f) * (Elite ? 0.6f : 1f);
+                    _dartT = 0.45f; _dartCd = G.Range(1.2f, 2.0f) * (Elite ? 0.6f : 1f);
                     v = ToP.Normalized() * Tune.Fish.DartSpeed * (Elite ? 1.18f : 1f);
                     Consume();
                 }
@@ -115,6 +115,7 @@ public partial class Fish : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _state != 0 || _dartT > 0;
     protected override bool Striking => _dartT > 0 || _state == 1;
+    protected override bool IsAttack(int a) => a is Dart or Leap;
     protected override float AttackReady => _dartCd <= 0 ? 1 : 0;
 
     protected override bool CanAct(int a) => a switch
@@ -190,6 +191,7 @@ public partial class Urchin : Enemy
     protected override bool Busy => _cycle > RestEnd;
     protected override bool CanAct(int a) => a != Bristle || _cycle >= MinRest;
     protected override float AttackReady => Math.Clamp(_cycle / RestEnd, 0, 1);
+    protected override bool IsAttack(int a) => a == Bristle;
     protected override int Teacher() => _cycle >= RestEnd - 0.05f ? Bristle : Rest;
 
     protected override void Think(float dt)
@@ -287,6 +289,7 @@ public partial class Eel : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _state != 0;
     protected override bool Striking => _state is 1 or 2;
+    protected override bool IsAttack(int a) => a == Lunge;
     protected override bool CanAct(int a) => a != Lunge || _cd <= 0;
     protected override float AttackReady => _cd <= 0 ? 1 : 0;
 

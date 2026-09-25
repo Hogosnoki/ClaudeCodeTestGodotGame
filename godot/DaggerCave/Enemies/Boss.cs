@@ -170,7 +170,7 @@ public partial class CavernColossus : Enemy
     private void ToWalk()
     {
         Go(S.Walk);
-        _next = G.Range(0.8f, 1.6f) / Speed;
+        _next = G.Range(1.1f, 2.0f) / Speed;
     }
 
     // ---- brain interface: while walking it picks when (and which) attack to start
@@ -181,6 +181,7 @@ public partial class CavernColossus : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _s != S.Walk;
     protected override bool Striking => _s is S.Charge or S.Leap;
+    protected override bool IsAttack(int a) => a >= LeapSlam;
     protected override float AttackReady => _next <= 0 ? 1 : 0;
     protected override bool CanAct(int a) => a < LeapSlam || _next <= 0;
 

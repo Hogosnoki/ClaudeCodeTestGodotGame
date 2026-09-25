@@ -121,6 +121,8 @@ public static class CaveGenerator
                 {
                     case ModeAir:
                         w.AV += Rnd(-0.05f, 0.05f); w.AV *= 0.92f; w.A += w.AV;
+                        // a gentle preference for long horizontal sweeps (more floor to walk on)
+                        if (!w.Descender) w.A = Mathf.LerpAngle(w.A, Mathf.Cos(w.A) >= 0 ? 0 : Mathf.Pi, Tune.Cave.HorizontalBias);
                         if (w.Descender && w.Y < waterRow + 2)
                         {
                             // keep heading downhill until it reaches the water
@@ -170,7 +172,7 @@ public static class CaveGenerator
                 if (w.Y < 9 && Mathf.Sin(w.A) < 0) { w.A = -w.A; w.AV = 0; }
                 if (w.Y > H - 8 && Mathf.Sin(w.A) > 0) { w.A = -w.A; w.AV = 0; }
 
-                if (rng.NextDouble() < 0.02) w.TR = w.Mode == ModeWater ? Rnd(3.0f, 4.7f) : Rnd(2.9f, 4.2f);
+                if (rng.NextDouble() < 0.02) w.TR = w.Mode == ModeWater ? Rnd(3.0f, 4.7f) : Rnd(Tune.Cave.AirRadiusMin, Tune.Cave.AirRadiusMax);
                 w.R += (w.TR - w.R) * 0.04f;
                 w.X += Mathf.Cos(w.A) * 0.9f;
                 w.Y += Mathf.Sin(w.A) * 0.9f;
@@ -184,7 +186,7 @@ public static class CaveGenerator
                     var c = new Walker
                     {
                         X = w.X, Y = w.Y, Gen = w.Gen + 1,
-                        R = Math.Min(w.R, 3.4f), TR = Rnd(3.0f, 4.2f),
+                        R = Math.Min(w.R, 3.4f), TR = w.Mode == ModeAir ? Rnd(Tune.Cave.AirRadiusMin, Tune.Cave.AirRadiusMax) : Rnd(3.0f, 4.2f),
                         Len = Rnd(70, 200) * (1f - w.Gen * 0.11f),
                     };
                     if (w.Mode == ModeAir && w.Y < waterRow - 12 && rng.NextDouble() < 0.2)
@@ -195,7 +197,7 @@ public static class CaveGenerator
                     {
                         c.Mode = ModeAir; c.Main = w.Main;
                         float hs = rng.NextDouble() < 0.6 ? -Mathf.Sign(Mathf.Cos(w.A)) : Mathf.Sign(Mathf.Cos(w.A));
-                        float p = Rnd(-MaxPitch, MaxPitch);
+                        float p = Rnd(-MaxPitch, MaxPitch) * Tune.Cave.BranchPitchMult;
                         if (w.Main && w.Y < waterRow - 10 && rng.NextDouble() < 0.12) { p = MaxPitch * 0.85f; c.Descender = true; c.Len = Math.Max(c.Len, 60); }
                         c.A = hs > 0 ? p : Mathf.Pi - p;
                     }
@@ -303,6 +305,13 @@ public static class CaveGenerator
 
         Dome(sx, sy + 3.2f, 9, 6.5f, true);
         foreach (var s in stamps) Carve(s.X, s.Y, s.R);
+        // the start room keeps a solid floor, so no tunnel passing underneath drops you on arrival
+        for (int j = (int)(sy + 3.2f); j <= (int)(sy + 3.2f) + 3 && j <= H; j++)
+            for (int i = Math.Max(0, (int)(sx - 8)); i <= Math.Min(W, (int)(sx + 8)); i++)
+            {
+                int k = j * stride + i;
+                open[k] = Math.Min(open[k], Math.Clamp(0.5f - (j - (sy + 3.2f)) * 0.5f, 0f, 1f));
+            }
         cave.Open = open;
 
         // --- Dead ends and rooms ---

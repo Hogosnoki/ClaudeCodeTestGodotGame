@@ -198,8 +198,11 @@ water surface and from the floors of tall caverns:
 - Ledges at similar heights keep a clear sideways gap (`Cave.PlatformGapCells`) and never stack
   directly overhead, so jumping between them doesn't bump your head.
 
-The cave is about
-400 x 240 cells (6400 x 3840 px), sized for roughly 15-20 minutes of exploring. Dead ends
+Dry tunnels are fairly narrow (`Cave.AirRadiusMin` / `AirRadiusMax`) and lean toward long
+horizontal sweeps (`Cave.HorizontalBias`), so more rock is left standing to walk and climb on.
+The start room has a solid floor.
+
+The cave is about 460 x 240 cells (7360 x 3840 px), sized for roughly 15-20 minutes of exploring. Dead ends
 become treasure rooms (ambush rooms exist too but are off: `Spawning.AmbushRooms`), and 3-4 of them (spread out, favoring the far reaches) are
 elite mini-boss lairs. The dead end farthest from the start (measured
 along the tunnels) becomes the boss arena, which gets a dome and a solid floor.
@@ -209,14 +212,14 @@ left / right.
 
 | | Swordsman | Warden |
 | --- | --- | --- |
-| Weapon | Medium sword: 45 px reach, 20 damage per strike, slower swings (0.6 s apart) with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 10 damage, swings every 0.36 s with a fast sweep |
+| Weapon | Medium sword: 45 px reach, 20 damage per strike, slower swings (0.6 s apart) with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep |
 | Defense (Shift / B / LB) | Dodge roll | Hold to raise the shield (see below) |
 | Secondary (right click / RB) | Thrown dagger (2 s recharge, doesn't lock the sword) | Barrier: absorbs 5 damage for 5 s, 10 s cooldown |
 | Movement | Full speed and jump | 85% speed and jump height (80% speed while shielding) |
 | Toughness | 60 HP, 15 s of breath | 80 HP, 16 s of breath |
 
 Warden's shield:
-- **Blocking**: it's a narrow arc of blue light (70°). It absorbs melee attacks (each blow costs
+- **Blocking**: it's a broad arc of blue light (135°). It absorbs melee attacks (each blow costs
   the shield its damage once and ends that attack) and projectiles that arrive within
   its arc. Like a swing, it aims at the right stick, else the left stick on a controller, else
   the mouse. You can swing while it's up, but those swings don't combo.
@@ -262,6 +265,8 @@ launching you upward.
 - **Chests** hold the real upgrades and abilities.
   - 80% of treasure dead ends hold a chest (`Drops.TreasureRoomChestChance`). Mini-bosses and
     the boss always drop one.
+  - Extra caches are scattered away from the dead ends: 6 on the flooded floor and 4 high in the
+    dry caves (`Drops.WaterCaches`, `Drops.HighCaches`).
   - Where a chest is tilts its odds (`Drops.ZoneBias`). Movement upgrades are 4x likelier in
     underwater chests, which is how you gear up for the heights. Survival upgrades are 4x
     likelier in chests high in the cave.
@@ -276,7 +281,15 @@ launching you upward.
 | Movement (both) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
 | Survival (both) | max HP, longer invulnerability after being struck (Resilience), damage reduction, life steal, heal on kill, XP magnet |
 
-**Enemies** (`Enemies/`). Each one moves differently:
+**Enemies** (`Enemies/`). They follow some etiquette (`Tune.Combat`):
+- The first time a creature wants to attack, it waits 1 s (`FirstAttackDelay`), so nothing
+  strikes the instant it drops into view.
+- Creatures near you take turns: an attack can't start within 0.45 s of another one
+  (`AttackStagger`; the boss is exempt).
+- Attack cooldowns are longer, frogs only use their tongue with their feet planted, and fish
+  dart more slowly.
+
+Each one moves differently:
 
 | Enemy | Behavior |
 | --- | --- |
@@ -287,7 +300,7 @@ launching you upward.
 | Magma Brute | Leaves burning puddles and lobs lava globs. Water boils it away. |
 | Golem | Slow and almost impossible to knock back. It telegraphs a ground slam that sends shockwaves along the floor, which you can jump over. |
 | Cave Fish | Darts at you in water. It also leaps out at you on shore, then flops around on land. |
-| Urchin | Stationary on the seabed and pulses its spikes outward. |
+| Urchin | Stationary on the seabed and pulses its spikes outward. Common: they often sit beneath schools of fish. |
 | Eel | Hides in a wall burrow and can't be hurt there. It lunges along a line at swimmers. |
 | Cavern Colossus (boss) | Leap slams, a roar that brings stalactites down, and a wall charge that leaves it stunned. It enrages at half health and summons bats. |
 

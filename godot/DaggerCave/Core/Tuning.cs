@@ -99,7 +99,7 @@ public static class Tune
     public static class Warden
     {
         /// <summary>Shortsword: dagger length and damage, but the blade sweeps faster.</summary>
-        public static float Reach = 30f, Damage = 10f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
+        public static float Reach = 30f, Damage = 13f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>85% of the swordsman's run speed and jump height.</summary>
         public static float MoveMult = 0.85f, JumpMult = 0.85f;
@@ -108,7 +108,7 @@ public static class Tune
 
         /// <summary>Shield: damage it can block, its arc (degrees), regeneration per second, the
         /// pause after a block before it regenerates, and how long it stays at zero once broken.</summary>
-        public static float ShieldHp = 40f, ShieldArcDegrees = 70f, ShieldRegen = 3f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
+        public static float ShieldHp = 40f, ShieldArcDegrees = 135f, ShieldRegen = 3f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
         /// <summary>A block within this many seconds of raising the shield is "perfect".</summary>
         public static float PerfectWindow = 0.18f;
         /// <summary>Share of damage the shield takes on a perfect block (with the upgrade).</summary>
@@ -136,6 +136,12 @@ public static class Tune
         /// <summary>Free swing-cooldown resets per combo before any Flurry upgrades: hit something
         /// and you can swing again at once, this many times, then the full cooldown runs.</summary>
         public static int ComboResetsBase = 1;
+        /// <summary>The first time a creature wants to attack, it waits this long first (so nothing
+        /// strikes the instant it drops into view).</summary>
+        public static float FirstAttackDelay = 1f;
+        /// <summary>Creatures near you take turns: an attack can't start within this many seconds
+        /// of another one starting (the boss ignores this).</summary>
+        public static float AttackStagger = 0.45f;
     }
 
     // =============================================================================== HIT FEEL
@@ -192,6 +198,8 @@ public static class Tune
         public static bool AmbushRooms = false;
         /// <summary>Chance an above-water entrance is bats (otherwise ground walkers).</summary>
         public static float EntranceBatChance = 0.35f;
+        /// <summary>Chance a school of fish also has an urchin on the floor beneath it.</summary>
+        public static float UrchinWithFishChance = 0.6f;
 
         /// <summary>Max enemies near the player = CapBase + CapPerPace * pace (entrances get +4 headroom).</summary>
         public static int CapBase = 6, CapPerPace = 10;
@@ -204,6 +212,8 @@ public static class Tune
         public static float HeartHeal = 15f, ChestHeal = 12f;
         /// <summary>Chance each treasure dead end actually holds a chest (mini-bosses and the boss always drop one).</summary>
         public static float TreasureRoomChestChance = 0.8f;
+        /// <summary>Extra chests scattered on the flooded floor and high in the dry caves.</summary>
+        public static int WaterCaches = 6, HighCaches = 4;
         /// <summary>Chest odds by location: movement upgrades are this many times likelier in
         /// underwater chests, survival upgrades in chests above HighZoneFraction of the water line's
         /// height (0.5 = the upper half of the dry caves).</summary>
@@ -227,7 +237,7 @@ public static class Tune
 
     public static class Frog
     {
-        public static float Hp = 20, Contact = 6, TongueDamage = 9, TongueRange = 90, TongueCooldown = 2.2f;
+        public static float Hp = 20, Contact = 6, TongueDamage = 9, TongueRange = 90, TongueCooldown = 2.8f;
         public static float AggroRange = 360, HopSpeedX = 170, HopSpeedY = 365, HopCooldownMin = 1.0f, HopCooldownMax = 1.6f;
         public static int Xp = 4;
     }
@@ -235,33 +245,35 @@ public static class Tune
     public static class Goblin
     {
         public static float Hp = 26, Contact = 4, ClubDamage = 12, RunSpeed = 125, SlingerSpeed = 95;
-        public static float AggroRange = 460, WindupTime = 0.38f, RockDamage = 8, ThrowCooldown = 2.4f;
+        public static float AggroRange = 460, WindupTime = 0.38f, RockDamage = 8, ThrowCooldown = 3.0f;
+        /// <summary>Pause after a club swing before the goblin acts again.</summary>
+        public static float RecoverTime = 0.8f;
         public static int Xp = 5;
     }
 
     public static class Spider
     {
-        public static float Hp = 18, Contact = 9, CrawlSpeed = 70, DropSpeed = 330, GroundSpeed = 150, PounceCooldown = 1.4f;
+        public static float Hp = 18, Contact = 9, CrawlSpeed = 70, DropSpeed = 330, GroundSpeed = 150, PounceCooldown = 1.9f;
         public static int Xp = 4;
     }
 
     public static class Magma
     {
-        public static float Hp = 40, Contact = 10, WalkSpeed = 45, GlobDamage = 9, PuddleDamage = 3, LobCooldown = 3.2f;
+        public static float Hp = 40, Contact = 10, WalkSpeed = 45, GlobDamage = 9, PuddleDamage = 3, LobCooldown = 3.8f;
         public static float WaterDamagePerSec = 15;
         public static int Xp = 8;
     }
 
     public static class Golem
     {
-        public static float Hp = 90, Contact = 12, WalkSpeed = 40, SlamWindup = 0.8f, SlamCooldown = 3.2f;
+        public static float Hp = 90, Contact = 12, WalkSpeed = 40, SlamWindup = 0.8f, SlamCooldown = 3.8f;
         public static float ShockwaveDamage = 14, ShockwaveSpeed = 250, SlamDamage = 18;
         public static int Xp = 14;
     }
 
     public static class Fish
     {
-        public static float Hp = 10, Contact = 7, DartSpeed = 280, AggroRange = 320;
+        public static float Hp = 10, Contact = 7, DartSpeed = 210, AggroRange = 320;
         /// <summary>The blue variant's dart damage, as a share of Contact.</summary>
         public static float BlueDamageMult = 0.55f;
         public static int Xp = 2;
@@ -275,7 +287,7 @@ public static class Tune
 
     public static class Eel
     {
-        public static float Hp = 24, Contact = 10, LungeLength = 170, LungeSpeed = 460, Cooldown = 1.8f;
+        public static float Hp = 24, Contact = 10, LungeLength = 170, LungeSpeed = 460, Cooldown = 2.3f;
         public static int Xp = 6;
     }
 
@@ -292,9 +304,14 @@ public static class Tune
     public static class Cave
     {
         /// <summary>Map size in 16 px cells. Water fills the bottom half.</summary>
-        public static int Width = 400, Height = 240;
+        public static int Width = 460, Height = 240;
         /// <summary>Total tunnel-carving steps: more = more (and longer) tunnels.</summary>
-        public static int TunnelBudget = 4400;
+        public static int TunnelBudget = 4600;
+        /// <summary>Radius range (cells) of dry tunnels. Narrower leaves more ground and ledges.</summary>
+        public static float AirRadiusMin = 2.6f, AirRadiusMax = 3.7f;
+        /// <summary>How strongly dry tunnels straighten out toward horizontal each step (0 = not at
+        /// all), and how steep new branches may start (fraction of the max slope).</summary>
+        public static float HorizontalBias = 0.012f, BranchPitchMult = 0.8f;
         public static int MiniBossesMin = 3, MiniBossesMax = 4;
         /// <summary>The boss room must be at least this many cells (straight line) from the start.</summary>
         public static float BossMinDistanceCells = 150;
