@@ -27,8 +27,8 @@ public static class Tune
         /// Jump shape. Height stays constant while you change Floatiness: gravity is multiplied by
         /// it and jump speed by its square root. Lower = floatier, slower arcs.
         /// </summary>
-        public static float JumpVelocity = 470f, Gravity = 1350f, Floatiness = 0.88f;
-        public static float MaxFallSpeed = 675f;
+        public static float JumpVelocity = 470f, Gravity = 1350f, Floatiness = 0.76f;
+        public static float MaxFallSpeed = 560f;
         /// <summary>Extra gravity multiplier while falling (snappier landings).</summary>
         public static float FallGravityMult = 1.2f;
         public static float CoyoteTime = 0.1f, JumpBuffer = 0.13f;
@@ -41,32 +41,68 @@ public static class Tune
 
         public static float SwimSpeed = 120f, SwimAccel = 650f;
         /// <summary>Water resistance (per second): slows swimming and sinking. Higher = thicker water.</summary>
-        public static float WaterDrag = 3.5f;
+        public static float WaterDrag = 1.75f;
         /// <summary>Speed kept when you plunge into water (0.5 = half).</summary>
-        public static float WaterEntryDamp = 0.5f;
+        public static float WaterEntryDamp = 0.75f;
         /// <summary>How hard you leap out of the water at the surface (fraction of jump speed).</summary>
         public static float SurfaceLeapMult = 0.95f;
 
         public static float DodgeSpeed = 450f, DodgeTime = 0.2f, DodgeCooldown = 0.95f;
 
-        // Swing
-        public static float SwingCooldown = 0.36f, SwingActiveTime = 0.11f, ComboWindow = 0.55f;
-        public static float SwingReach = 30f, SwingDamage = 10f;
+        // Swing (shared by both heroes; blade length, speed and damage are per hero below)
+        public static float ComboWindow = 0.55f;
         public static float SwingArcDegrees = 115f, FinisherArcDegrees = 170f;
         public static float FinisherDamageMult = 2f, FinisherReachMult = 1.25f;
-        /// <summary>Knockback speed by Knockback upgrade level (0 = no upgrade).</summary>
-        public static float[] KnockbackByLevel = { 40f, 260f, 380f, 480f };
+        /// <summary>Extra knockback by Heavy Pommel level (0 = no upgrade), added to the hero's own.</summary>
+        public static float[] KnockbackByLevel = { 0f, 220f, 340f, 440f };
         public static float FinisherExtraKnockback = 120f;
         public static float PogoBounceMult = 0.95f;
 
         // Throw
-        public static float ThrowDamage = 16f, ThrowCooldown = 2f;
+        public static float ThrowDamage = 16f, ThrowCooldown = 2f; // swordsman's thrown dagger
         public static float ThrowSpeed = 820f, ThrowRange = 560f, ThrowSpinRadPerSec = 44f;
         public static float RicochetRange = 280f, RicochetDamageMult = 0.85f;
 
         /// <summary>XP needed for the next level: Base + Linear*L + Quadratic*L^2.</summary>
         public static float XpBase = 12f, XpLinear = 8f, XpQuadratic = 1.6f;
         public static float XpMagnetRange = 85f;
+    }
+
+    // =============================================================================== HEROES
+    /// <summary>The swordsman: medium sword, dodge roll, throwing daggers.</summary>
+    public static class Swordsman
+    {
+        /// <summary>Sword reach (px), damage per strike, time between swings, and how long the
+        /// blade takes to sweep its arc (longer = heavier, slower-looking swing).</summary>
+        public static float Reach = 60f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.17f;
+        /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
+        public static float Lunge = 190f;
+        /// <summary>Knockback (px/s) on every hit, before Heavy Pommel.</summary>
+        public static float Knockback = 180f;
+        public static float MoveMult = 1f, JumpMult = 1f;
+    }
+
+    /// <summary>The warden: shortsword, an aimable shield, and a barrier buff.</summary>
+    public static class Warden
+    {
+        /// <summary>Shortsword: dagger length and damage, but the blade sweeps faster.</summary>
+        public static float Reach = 30f, Damage = 10f, SwingCooldown = 0.36f, SwingTime = 0.075f;
+        public static float Lunge = 0f, Knockback = 60f;
+        /// <summary>85% of the swordsman's run speed and jump height.</summary>
+        public static float MoveMult = 0.85f, JumpMult = 0.85f;
+
+        /// <summary>Shield: damage it can block, its arc (degrees), regeneration per second, the
+        /// pause after a block before it regenerates, and how long it stays at zero once broken.</summary>
+        public static float ShieldHp = 40f, ShieldArcDegrees = 70f, ShieldRegen = 3f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
+        /// <summary>A block within this many seconds of raising the shield is "perfect".</summary>
+        public static float PerfectWindow = 0.18f;
+        /// <summary>Share of damage the shield takes on a perfect block (with the upgrade).</summary>
+        public static float PerfectSoakMult = 0.3f;
+        /// <summary>Move speed while the shield is raised.</summary>
+        public static float ShieldMoveMult = 0.8f;
+
+        /// <summary>Barrier buff: damage absorbed, duration and cooldown (seconds).</summary>
+        public static float BarrierAmount = 5f, BarrierDuration = 5f, BarrierCooldown = 10f;
     }
 
     // =============================================================================== COMBAT
@@ -146,6 +182,12 @@ public static class Tune
     {
         public static float HeartChance = 0.02f, HeartChanceElite = 0.4f;
         public static float HeartHeal = 15f, ChestHeal = 12f;
+        /// <summary>Chance each treasure dead end actually holds a chest (mini-bosses and the boss always drop one).</summary>
+        public static float TreasureRoomChestChance = 0.4f;
+        /// <summary>Chest odds by location: movement upgrades are this many times likelier in
+        /// underwater chests, survival upgrades in chests above HighZoneFraction of the water line's
+        /// height (0.5 = the upper half of the dry caves).</summary>
+        public static float ZoneBias = 3f, HighZoneFraction = 0.5f;
     }
 
     // =============================================================================== ENEMIES

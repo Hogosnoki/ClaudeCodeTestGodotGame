@@ -111,6 +111,18 @@ public abstract partial class Enemy : CharacterBody2D
         if (Hunting && !IsBoss && dist > 1700) { QueueFree(); return; } // wandered off-stage
         if (!IsBoss && dist > 1500) return; // asleep
         if (!Awake && dist < 420) Awake = true;
+        // hit-stop: this creature alone holds still for a beat (with a little shudder)
+        if (_freeze > 0)
+        {
+            _freeze -= (float)delta;
+            if (Anim != null)
+            {
+                Anim.TimeMult = 0;
+                Anim.Position = _freeze > 0 ? new Vector2(G.Range(-1.5f, 1.5f), G.Range(-0.8f, 0.8f)) : Vector2.Zero;
+            }
+            QueueRedraw();
+            return;
+        }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
         // and animations all scale together.
         float tempo = G.Tempo;
@@ -157,6 +169,11 @@ public abstract partial class Enemy : CharacterBody2D
         }
         QueueRedraw();
     }
+
+    private float _freeze;
+
+    /// <summary>Freezes just this creature for a hit-stop.</summary>
+    public void Freeze(float seconds) { if (!Dead) _freeze = Math.Max(_freeze, seconds); }
 
     /// <summary>True while a body attack is under way: touching the player then hurts (once).</summary>
     protected virtual bool Striking => false;
@@ -417,9 +434,9 @@ public abstract partial class Enemy : CharacterBody2D
         x[i++] = p.InWater ? 1 : 0;
         x[i++] = p.IsOnFloor() ? 1 : 0;
         x[i++] = p.IsSwinging ? 1 : 0;                          // danger: the dagger is out
-        x[i++] = p.IsDodging || p.Invulnerable ? 1 : 0;
+        x[i++] = p.Guarding ? 1 : 0;                           // dodging, invulnerable, or shield up
         x[i++] = p.Facing * -sx;                                // +1 = the player is facing me
-        x[i++] = p.DaggerInHand ? 1 : 0;                        // a throw could be coming
+        x[i++] = p.SecondaryReady ? 1 : 0;                      // a throw / barrier could be coming
         x[i++] = cave.IsSolid(pos + new Vector2(sx * 20, 0)) ? 1 : 0;   // wall between us
         x[i++] = !cave.IsSolid(pos + new Vector2(sx * 16, 30)) && !cave.IsSolid(pos + new Vector2(sx * 16, 60)) ? 1 : 0; // gap toward the player
         x[i++] = cave.IsSolid(pos + new Vector2(0, -40)) ? 1 : 0;     // low ceiling

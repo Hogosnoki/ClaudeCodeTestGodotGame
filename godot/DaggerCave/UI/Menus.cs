@@ -21,6 +21,7 @@ public partial class UpgradeMenu : Control
         "throw" => new Color(0.55f, 0.85f, 1f),
         "move" => new Color(0.5f, 1f, 0.6f),
         "dodge" => new Color(0.75f, 0.6f, 1f),
+        "shield" => new Color(0.45f, 0.7f, 1f),
         _ => new Color(1f, 0.45f, 0.5f),
     };
 
@@ -135,7 +136,36 @@ public partial class ScreenOverlay : Control
     public string Title = "";
     public string[] Lines = Array.Empty<string>();
     public float Dim = 0.65f;
+    /// <summary>Show the two hero cards where a line reads "@" (title and death screens).</summary>
+    public bool HeroCards;
     private float _t;
+    private readonly Rect2[] _cardRects = new Rect2[2];
+
+    private const float CardW = 400, CardH = 170;
+
+    private static readonly (HeroKind kind, string name, string sheet, string[] lines)[] Heroes =
+    {
+        (HeroKind.Swordsman, "SWORDSMAN", "swordsman", new[]
+        {
+            "Medium sword: long reach, heavy",
+            "hits, slower swings that lunge.",
+            "Dodge roll and throwing daggers.",
+        }),
+        (HeroKind.Warden, "WARDEN", "warden", new[]
+        {
+            "Fast shortsword and an aimable",
+            "shield that blocks until it breaks.",
+            "Barrier buff. Sturdy, a bit slower.",
+        }),
+    };
+
+    /// <summary>Which hero card (0/1) is under a screen point, or -1.</summary>
+    public int CardAt(Vector2 p)
+    {
+        if (!Visible || !HeroCards) return -1;
+        for (int k = 0; k < 2; k++) if (_cardRects[k].HasPoint(p)) return k;
+        return -1;
+    }
 
     public override void _Ready()
     {
@@ -158,18 +188,53 @@ public partial class ScreenOverlay : Control
         DrawRect(new Rect2(Vector2.Zero, vs), new Color(0, 0, 0, Dim));
         int ts = 56;
         var tsz = font.GetStringSize(Title, HorizontalAlignment.Left, -1, ts);
-        var tp = new Vector2(vs.X / 2 - tsz.X / 2, vs.Y * 0.32f);
+        var tp = new Vector2(vs.X / 2 - tsz.X / 2, vs.Y * (HeroCards ? 0.17f : 0.32f));
+        float y = tp.Y + 50;
         DrawString(font, tp + new Vector2(3, 3), Title, HorizontalAlignment.Left, -1, ts, new Color(0, 0, 0, 0.8f));
         DrawString(font, tp, Title, HorizontalAlignment.Left, -1, ts, new Color(0.95f, 0.85f, 0.6f));
         for (int k = 0; k < Lines.Length; k++)
         {
             var line = Lines[k];
+            if (line == "@")
+            {
+                if (HeroCards) { DrawHeroCards(font, vs, y); y += CardH + 22; }
+                continue;
+            }
             bool emph = line.StartsWith("!");
             if (emph) line = line.Substring(1);
             int size = emph ? 20 : 15;
+            if (!emph && line.Length > 90) size = 13;
             var sz = font.GetStringSize(line, HorizontalAlignment.Left, -1, size);
             float a = emph ? 0.6f + 0.4f * MathF.Sin(_t * 4) : 0.85f;
-            DrawString(font, new Vector2(vs.X / 2 - sz.X / 2, tp.Y + 50 + k * 26), line, HorizontalAlignment.Left, -1, size, new Color(1, 1, 1, a));
+            DrawString(font, new Vector2(vs.X / 2 - sz.X / 2, y), line, HorizontalAlignment.Left, -1, size, new Color(1, 1, 1, a));
+            y += 26;
+        }
+    }
+
+    private void DrawHeroCards(Font font, Vector2 vs, float top)
+    {
+        float gap = 30, x0 = vs.X / 2 - CardW - gap / 2;
+        for (int k = 0; k < 2; k++)
+        {
+            var h = Heroes[k];
+            bool sel = G.Hero == h.kind;
+            var r = new Rect2(x0 + k * (CardW + gap), top - (sel ? 6 : 0), CardW, CardH);
+            _cardRects[k] = r;
+            var accent = h.kind == HeroKind.Warden ? new Color(0.45f, 0.7f, 1f) : new Color(0.95f, 0.45f, 0.35f);
+            DrawRect(r, new Color(0.07f, 0.07f, 0.1f, sel ? 0.95f : 0.75f));
+            DrawRect(r, sel ? accent : accent.Darkened(0.55f), false, sel ? 3 : 1.5f);
+            // the hero's idle frame, big
+            var set = SpriteSet.Get(h.sheet);
+            string anim = set.Names.Contains("idle_r") ? "idle_r" : "idle";
+            int frames = set.Frames.GetFrameCount(anim);
+            var tex = set.Frames.GetFrameTexture(anim, sel ? (int)(_t * 24) % frames : 0);
+            float scale = 2.6f / set.Scale;
+            var size = tex.GetSize() * scale;
+            var at = r.Position + new Vector2(66, CardH * 0.55f) - set.Origin * scale;
+            DrawTextureRect(tex, new Rect2(at, size), false, sel ? Colors.White : new Color(0.6f, 0.6f, 0.65f));
+            DrawString(font, r.Position + new Vector2(130, 40), h.name, HorizontalAlignment.Left, -1, 22, sel ? accent.Lightened(0.3f) : new Color(1, 1, 1, 0.6f));
+            for (int j = 0; j < h.lines.Length; j++)
+                DrawString(font, r.Position + new Vector2(130, 72 + j * 22), h.lines[j], HorizontalAlignment.Left, CardW - 140, 13, new Color(1, 1, 1, sel ? 0.9f : 0.5f));
         }
     }
 }

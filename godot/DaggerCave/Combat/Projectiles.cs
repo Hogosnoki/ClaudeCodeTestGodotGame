@@ -53,7 +53,7 @@ public partial class ThrownDagger : Node2D
             if (dealt > 0)
             {
                 G.Player.OnDealtDamage(dealt);
-                G.Main.HitStop(Tune.Feel.HitStopThrown);
+                if (!e.Dead) e.Freeze(Tune.Feel.HitStopThrown);
                 G.Fx.Spark(e.GlobalPosition - Dir * e.HitRadius, Dir, e.Dead, new Color(0.8f, 0.95f, 1f));
                 G.Main.Kick(Dir * 2f);
                 G.Main.Rumble(0.25f, 0.1f, 0.07f);
@@ -161,11 +161,24 @@ public partial class EnemyProjectile : Node2D
     public float Life = 4f;
     /// <summary>Who threw it (credited with the damage for learning).</summary>
     public Enemy Source;
+    /// <summary>Sent back by a perfect shield block: now it hurts enemies instead.</summary>
+    public bool Reflected;
 
     public override void _Ready()
     {
         ZIndex = 2;
         G.Main.EnemyProjectiles.Add(this);
+    }
+
+    public void Reflect(Vector2 dir, float damageMult)
+    {
+        Reflected = true;
+        Vel = dir.Normalized() * Math.Max(Vel.Length(), 340f);
+        Grav *= 0.3f;
+        Damage *= 1.5f * damageMult;
+        Life = 2f;
+        G.Main.EnemyProjectiles.Remove(this); // no longer something to block or swat
+        G.Fx.Ring(GlobalPosition, 10, new Color(1f, 0.95f, 0.6f));
     }
 
     public override void _ExitTree() => G.Main.EnemyProjectiles.Remove(this);
@@ -198,7 +211,23 @@ public partial class EnemyProjectile : Node2D
             return;
         }
         GlobalPosition = np;
+        if (Reflected)
+        {
+            foreach (var e in G.Enemies.ToArray())
+            {
+                if (e.Dead || e.GlobalPosition.DistanceTo(GlobalPosition) > Radius + e.HitRadius) continue;
+                float dealt = e.Hurt(Damage, Vel.Normalized() * 150f, GlobalPosition);
+                if (dealt > 0) G.Player?.OnDealtDamage(dealt);
+                Impact(GlobalPosition);
+                return;
+            }
+            QueueRedraw();
+            return;
+        }
         var p = G.Player;
+        // the warden's shield sits a little in front of her
+        if (p != null && !p.Dead && p.ShieldRaised && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 20 && p.TryBlockProjectile(this))
+            return;
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
         {
             p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10, source: Source);

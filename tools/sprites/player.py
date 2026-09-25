@@ -1,5 +1,7 @@
-"""The dagger wielder: a hooded rogue with a red scarf. Right-handed (the dagger hand is the far
-arm when facing right, the near arm when facing left)."""
+"""The two heroes, drawn by one rig with a style switch:
+ * swordsman -- a hooded rogue with a red scarf and a medium-length sword;
+ * warden    -- a blue-tabarded shield-bearer with a gold sash, a shortsword and a buckler.
+Right-handed (the weapon hand is the far arm when facing right, the near arm when facing left)."""
 import math
 from rig import (keys as _keys, hexc, lighten, darken, ellipse, circle, poly, limb, line, glow, rot, add, polar,
                  ik2, keys, lerp, smooth, ease_out, ease_in, transform, Sheet)
@@ -15,6 +17,19 @@ STEEL = hexc('e3ecf2')
 HILT = hexc('6e4b22')
 GUARD = hexc('c9a54a')
 EYE = hexc('1b1b26')
+BLADE_LEN = 8.5      # set per style by make()
+BLADE_W = 1.1
+GUARD_W = 2.2
+BUCKLER = False
+BUCKLER_WOOD = hexc('7a5530')
+BUCKLER_RIM = hexc('b8c4cc')
+
+STYLES = {
+    'swordsman': dict(CLOAK='2b6272', CLOAK_D='183d49', SCARF='cc3a2e', PANTS='2e2c38', BELT='70502c',
+                      BLADE_LEN=17.0, BLADE_W=1.3, GUARD_W=3.0, BUCKLER=False),
+    'warden': dict(CLOAK='34457e', CLOAK_D='1f2a52', SCARF='d4a93a', PANTS='3a3530', BELT='5a3c22',
+                   BLADE_LEN=9.5, BLADE_W=1.25, GUARD_W=2.5, BUCKLER=True),
+}
 
 BASE = dict(sa=0.0, bx=0, by=0, lean=0.06, lfx=-2.4, lfy=13, lnx=2.6, lny=13,
             dhx=5.5, dhy=2.5, da=1.0, fhx=-2.5, fhy=3.0, ht=0.0, sw=0.0, sl=0.0, cf=0.0,
@@ -95,14 +110,28 @@ def build(pose):
     if P['blade'] > 0.05:
         d = (math.cos(P['da']), math.sin(P['da']))
         n = (-d[1], d[0])
-        L = 8.5 * P['blade']
-        parts.append(line([add(dhand, (-d[0] * 2.2, -d[1] * 2.2)), add(dhand, (d[0] * 1.0, d[1] * 1.0))], 1.7, HILT, z=dz + 0.25))
-        parts.append(line([add(add(dhand, (d[0] * 1.1, d[1] * 1.1)), (n[0] * 2.2, n[1] * 2.2)),
-                           add(add(dhand, (d[0] * 1.1, d[1] * 1.1)), (-n[0] * 2.2, -n[1] * 2.2))], 1.2, GUARD, z=dz + 0.3))
+        L = BLADE_LEN * P['blade']
+        grip = 2.2 if BLADE_LEN < 12 else 3.0
+        parts.append(line([add(dhand, (-d[0] * grip, -d[1] * grip)), add(dhand, (d[0] * 1.0, d[1] * 1.0))], 1.7, HILT, z=dz + 0.25))
+        parts.append(line([add(add(dhand, (d[0] * 1.1, d[1] * 1.1)), (n[0] * GUARD_W, n[1] * GUARD_W)),
+                           add(add(dhand, (d[0] * 1.1, d[1] * 1.1)), (-n[0] * GUARD_W, -n[1] * GUARD_W))], 1.2, GUARD, z=dz + 0.3))
         b0 = add(dhand, (d[0] * 1.6, d[1] * 1.6))
-        parts.append(poly([add(b0, (n[0] * 1.1, n[1] * 1.1)), add(b0, (d[0] * L, d[1] * L)),
-                           add(b0, (-n[0] * 1.1, -n[1] * 1.1))], STEEL, z=dz + 0.3, thick=0.3))
+        if BLADE_LEN < 12:
+            parts.append(poly([add(b0, (n[0] * BLADE_W, n[1] * BLADE_W)), add(b0, (d[0] * L, d[1] * L)),
+                               add(b0, (-n[0] * BLADE_W, -n[1] * BLADE_W))], STEEL, z=dz + 0.3, thick=0.3))
+        else:
+            # a straight double-edged blade that tapers only near the tip
+            sh = add(b0, (d[0] * L * 0.82, d[1] * L * 0.82))
+            parts.append(poly([add(b0, (n[0] * BLADE_W, n[1] * BLADE_W)), add(sh, (n[0] * BLADE_W * 0.85, n[1] * BLADE_W * 0.85)),
+                               add(b0, (d[0] * L, d[1] * L)),
+                               add(sh, (-n[0] * BLADE_W * 0.85, -n[1] * BLADE_W * 0.85)), add(b0, (-n[0] * BLADE_W, -n[1] * BLADE_W))],
+                              STEEL, z=dz + 0.3, thick=0.3))
     arm(add(shoulder, (0.3, 0.1)), (P['fhx'], P['fhy']), 2.6, -1)
+    if BUCKLER:
+        fh = (P['fhx'], P['fhy'])
+        parts.append(circle(fh, 3.6, BUCKLER_RIM, z=2.95))
+        parts.append(circle(fh, 2.8, BUCKLER_WOOD, z=3.0, outline=False))
+        parts.append(circle(fh, 0.9, BUCKLER_RIM, z=3.05, outline=False))
 
     # whole-body squash (around the feet) and rotation (rolls, swimming)
     if P['sq'] != 1.0:
@@ -279,8 +308,13 @@ def death(u, i):
     return build(p)
 
 
-def make():
-    sh = Sheet('player', 64, 60, origin=(30, 34), scale=2.0, outline_w=0.9)
+def make(style='swordsman'):
+    g = globals()
+    for k, v in STYLES[style].items():
+        g[k] = hexc(v) if isinstance(v, str) else v
+    long_blade = BLADE_LEN > 12
+    sh = Sheet(style, 72 if long_blade else 64, 66 if long_blade else 60,
+               origin=(36, 36) if long_blade else (30, 34), scale=2.0, outline_w=0.9)
     sh.add_anim('idle', 24, True, idle)
     sh.add_anim('run', 16, True, run)
     sh.add_anim('run_start', 3, False, run_start)

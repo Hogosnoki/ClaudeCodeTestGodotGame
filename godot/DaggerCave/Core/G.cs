@@ -35,6 +35,8 @@ public static class G
 
     /// <summary>Seconds of play in this run (excluding pauses/menus); drives the difficulty curve.</summary>
     public static float RunTime;
+    /// <summary>The hero picked on the title (or death) screen.</summary>
+    public static HeroKind Hero = HeroKind.Swordsman;
 
     /// <summary>
     /// Continuous difficulty curve: every enemy stat doubles every 10 minutes of play

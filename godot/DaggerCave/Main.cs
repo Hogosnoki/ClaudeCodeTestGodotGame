@@ -37,7 +37,7 @@ public partial class Main : Node
     private float _spawnT, _runTime, _deadT;
     private int _seed;
     private readonly Random _rng = new();
-    private readonly Queue<bool> _pendingTreasure = new();
+    private readonly Queue<Vector2> _pendingTreasure = new(); // chests opened (where), awaiting a pick
     private readonly Dictionary<Room, Enemy> _roomElites = new();
 
     // test harness
@@ -49,7 +49,7 @@ public partial class Main : Node
     private string _titleShot = "";
     private float _titleT;
     private bool _menuShotDone;
-    private bool _bestiary, _animTest, _padTest, _showcase;
+    private bool _bestiary, _animTest, _padTest, _showcase, _heroTest;
     private float _showT;
     private int _showStage = -1;
     private float _padT;
@@ -119,6 +119,12 @@ public partial class Main : Node
             GetTree().Paused = true;
             _state = State.Title;
         }
+        else if (_heroTest)
+        {
+            StartPlaying();
+            _hud.HintTime = 0;
+            G.Player.InputOverride = () => _heroInput;
+        }
         else if (_animTest)
         {
             StartPlaying();
@@ -143,19 +149,20 @@ public partial class Main : Node
             GetTree().Paused = true;
             _state = State.Title;
             _hud.Visible = false;
-            _overlay.Show("DAGGER DEEP", 0.55f,
-                "A rogue-lite descent through flooded caverns.",
-                "",
-                "KEYBOARD + MOUSE",
-                "A / D  move      SPACE  jump      W / S  swim up / down      SHIFT  dodge",
-                "LEFT CLICK  swing toward the mouse      RIGHT CLICK  throw      (J / K / L  swing / throw / dodge)",
-                "CONTROLLER",
-                "Left stick / D-pad  move      A  jump      X  swing      RB / RT  throw      B / LB  dodge",
-                "Right stick  aims swings and throws (otherwise they follow the left stick)      START  pause",
-                "",
-                "!Press ENTER / A or click to begin");
+            ShowTitle();
             _sfx.SetMusic("ambient");
         }
+    }
+
+    private void ShowTitle()
+    {
+        _overlay.HeroCards = true;
+        _overlay.Show("DAGGER DEEP", 0.55f,
+            "A rogue-lite descent through flooded caverns.  Choose your hero:",
+            "@",
+            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK swing   RIGHT CLICK throw / barrier   SHIFT dodge / shield",
+            "CONTROLLER:  stick move   A jump   X swing   RB / RT throw / barrier   B / LB dodge / shield   right stick aims",
+            "!LEFT / RIGHT to choose  -  ENTER / A to begin");
     }
 
     private void ParseArgs(out bool gentest)
@@ -172,9 +179,12 @@ public partial class Main : Node
             else if (a.StartsWith("--titleshot=")) _titleShot = a[12..];
             else if (a == "--bestiary") _bestiary = true;
             else if (a == "--animtest") _animTest = true;
+            else if (a == "--herotest") _heroTest = true;
             else if (a == "--padtest") _padTest = true;
             else if (a == "--showcase") { _showcase = true; _autotest = true; }
             else if (a == "--train") Brains.Training = true;
+            else if (a == "--hero=warden") G.Hero = HeroKind.Warden;
+            else if (a == "--hero=swordsman") G.Hero = HeroKind.Swordsman;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
         }
@@ -276,7 +286,7 @@ public partial class Main : Node
         // Treasure chests are visible from the start.
         foreach (var room in cave.Rooms)
         {
-            if (room.Kind != RoomKind.Treasure) continue;
+            if (room.Kind != RoomKind.Treasure || !G.Chance(Tune.Drops.TreasureRoomChestChance)) continue;
             // Sit the chest on real ground (the room's floor line may have been cut by another tunnel).
             if (!cave.FindFloor(room.Center, 700, out var floor)) continue;
             _world.AddChild(new Chest { Position = floor });
@@ -323,6 +333,7 @@ public partial class Main : Node
     private void StartPlaying()
     {
         _overlay.Visible = false;
+        _overlay.HeroCards = false;
         _hud.Visible = true;
         GetTree().Paused = false;
         _state = State.Playing;
@@ -330,6 +341,14 @@ public partial class Main : Node
         G.RunTime = 0;
         _waveT = Tune.Spawning.FirstWave;
         _sfx.SetMusic("ambient");
+    }
+
+    private void PickHero(HeroKind h)
+    {
+        if (G.Hero == h) return;
+        G.Hero = h;
+        _sfx.Play("ui", null, -6);
+        _overlay.QueueRedraw();
     }
 
     private void Restart()
@@ -353,25 +372,24 @@ public partial class Main : Node
         _sfx.SetMusic("");
     }
 
-    public void OfferUpgrades(bool treasure)
-    {
-        _pendingTreasure.Enqueue(treasure);
-    }
+    /// <summary>A chest was opened at <paramref name="at"/>: offer its upgrades next.</summary>
+    public void OfferChest(Vector2 at) => _pendingTreasure.Enqueue(at);
 
     private void TryOpenUpgradeMenu()
     {
         var p = G.Player;
         if (p == null || p.Dead || _upgradeMenu.Visible) return;
-        bool? treasure = null;
-        if (_pendingTreasure.Count > 0) treasure = _pendingTreasure.Dequeue();
-        else if (p.PendingLevelUps > 0) { p.PendingLevelUps--; treasure = false; }
-        if (treasure == null) return;
-        var choices = Upgrades.Roll(p.Stats, 3, treasure.Value, _rng);
+        // chests hand out the real upgrades; level-ups a small stat of your choice
+        List<Upgrade> choices;
+        bool treasure;
+        if (_pendingTreasure.Count > 0) { treasure = true; choices = Upgrades.RollChest(p.Stats, _rng, _pendingTreasure.Dequeue()); }
+        else if (p.PendingLevelUps > 0) { treasure = false; p.PendingLevelUps--; choices = Upgrades.RollLevelUp(p.Stats, _rng); }
+        else return;
         if (choices.Count == 0) { p.Heal(30); return; }
         _state = State.Choosing;
         GetTree().Paused = true;
-        _sfx.Play(treasure.Value ? "chest" : "levelup");
-        _upgradeMenu.Open(choices, treasure.Value ? "TREASURE!" : $"LEVEL {p.Level}!");
+        _sfx.Play(treasure ? "chest" : "levelup");
+        _upgradeMenu.Open(choices, treasure ? "TREASURE!" : $"LEVEL {p.Level - p.PendingLevelUps}!");
         _autoPickT = 0.5f;
     }
 
@@ -450,8 +468,18 @@ public partial class Main : Node
                 return;
             }
         }
+        if ((_state == State.Title || (_state == State.Dead && _overlay.Visible)) && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
+        {
+            PickHero(G.Hero == HeroKind.Swordsman ? HeroKind.Warden : HeroKind.Swordsman);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if (_state == State.Title && (e.IsActionPressed("confirm") || (e is InputEventMouseButton mb && mb.Pressed)))
         {
+            // a click on a hero card picks that hero before starting
+            if (e is InputEventMouseButton click) { int card = _overlay.CardAt(click.Position); if (card >= 0) PickHero((HeroKind)card); }
+            // the level was built for the hero shown when the game launched: rebuild if it changed
+            if (G.Player != null && G.Player.Stats.Hero != G.Hero) BuildLevel(_seed, freshPlayer: true);
             StartPlaying();
             GetViewport().SetInputAsHandled();
         }
@@ -490,10 +518,11 @@ public partial class Main : Node
                 {
                     var p = G.Player;
                     int secs = (int)_runTime;
+                    _overlay.HeroCards = true;
                     _overlay.Show("YOU DIED", 0.6f,
                         $"Depth {G.Depth}   ·   Level {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}",
-                        "",
-                        UsingPad ? "!Press Y or A to descend again" : "!Press R or ENTER to descend again");
+                        "@",
+                        UsingPad ? "!LEFT / RIGHT to switch hero  -  Y or A to descend again" : "!LEFT / RIGHT to switch hero  -  R or ENTER to descend again");
                 }
                 if (_deadT > 1.5f && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
                 if (_autotest && _deadT > 3f) Restart();
@@ -515,6 +544,7 @@ public partial class Main : Node
                 {
                     _state = State.Paused;
                     GetTree().Paused = true;
+                    _overlay.HeroCards = false;
                     _overlay.Show("PAUSED", 0.5f, "", UsingPad ? "!Press START to resume" : "!Press ESC to resume");
                     return;
                 }
@@ -538,6 +568,7 @@ public partial class Main : Node
         if (_autotest) AutotestTick(dt);
         if (_bestiary) BestiaryTick(dt);
         if (_animTest) AnimTestTick(dt);
+        if (_heroTest) HeroTestTick(dt);
     }
 
     private void UpdateCamera(float dt)
@@ -1033,6 +1064,139 @@ public partial class Main : Node
     }
 
     /// <summary>Scripted inputs that walk the player through every movement/attack transition.</summary>
+    // ------------------------------------------------------------------ --herotest
+    // Scripted checks of both heroes' mechanics (run once with --hero=warden, once without).
+    private PlayerInput _heroInput;
+    private float _heroT;
+    private bool _heroOk = true;
+    private float _hpMark, _shieldMark;
+    private Vector2 _posMark;
+    private EnemyProjectile _probe;
+
+    private void Check(string what, bool ok)
+    {
+        GD.Print($"[herotest] {(ok ? "ok  " : "FAIL")} {what}");
+        _heroOk &= ok;
+    }
+
+    private EnemyProjectile Shoot(Vector2 fromOffset)
+    {
+        var p = G.Player;
+        var pr = new EnemyProjectile { Position = p.GlobalPosition + fromOffset, Vel = -fromOffset.Normalized() * 260, Grav = 0, Damage = 6, Kind = "rock", Radius = 4 };
+        _world.AddChild(pr);
+        return pr;
+    }
+
+    private void HeroTestTick(float dt)
+    {
+        var p = G.Player;
+        _heroT += dt;
+        if (Engine.TimeScale < 0.99) Check($"game clock untouched by hit-stops (time scale {Engine.TimeScale})", false);
+        // keep enemies out of the way
+        foreach (var e in G.Enemies.ToArray()) if (e.GlobalPosition.DistanceTo(p.GlobalPosition) < 600 && !e.IsBoss && e.GetMeta("test", false).AsBool() == false) e.QueueFree();
+        bool warden = p.Stats.Hero == HeroKind.Warden;
+        // steps are keyed by time (tenths of a second); each runs once
+        int s = (int)(_heroT * 10);
+        if (s != _lastHeroStep)
+        {
+            _lastHeroStep = s;
+            if (warden) WardenStep(s, p); else SwordStep(s, p);
+            if (_shotDir != "" && (s == 12 || s == 145 || s == 163 || s == 9 || s == 10)) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{s:000}.png");
+        }
+    }
+    private int _lastHeroStep = -1;
+
+    private void WardenStep(int s, Player p)
+    {
+        switch (s)
+        {
+            case 5: // raise the shield to the right, fire from the right
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right };
+                _hpMark = p.Hp; _shieldMark = p.ShieldHp;
+                break;
+            case 10: _probe = Shoot(new Vector2(120, -4)); break;
+            case 18:
+                Check($"shield blocks a shot from the front (hp {p.Hp:0}/{_hpMark:0}, shield {p.ShieldHp:0.0} < {_shieldMark:0.0})", p.Hp == _hpMark && p.ShieldHp < _shieldMark);
+                _probe = Shoot(new Vector2(-120, -4)); // from behind
+                break;
+            case 26:
+                Check($"a shot from behind gets through (hp {p.Hp:0} < {_hpMark:0})", p.Hp < _hpMark);
+                p.Heal(100);
+                break;
+            case 40: // wait out the post-hit invulnerability, then break it
+                for (int k = 0; k < 12; k++) { var pr = Shoot(new Vector2(110 + k * 30, -4)); pr.Damage = 8; }
+                break;
+            case 70:
+                Check($"shield breaks when drained (shield {p.ShieldHp:0.0}, broken {p.ShieldBroken})", p.ShieldBroken && p.ShieldHp == 0);
+                Check("a broken shield can't be raised", !p.ShieldRaised);
+                break;
+            case 95:
+                Check($"still broken a few seconds later, at zero ({p.ShieldHp:0.0}, {p.ShieldBrokenLeft:0.0}s left)", p.ShieldBroken && p.ShieldHp == 0);
+                break;
+            case 140:
+                Check($"recovers after the break time and regenerates slowly ({p.ShieldHp:0.0})", !p.ShieldBroken && p.ShieldHp > 0 && p.ShieldHp < 14);
+                // perfect block + reflect
+                Upgrades.Apply(Upgrades.Get("perfect_reflect"), p.Stats, p);
+                p.Heal(100);
+                _heroInput = default;
+                break;
+            case 143: _probe = Shoot(new Vector2(70, -4)); break;
+            case 144: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right }; break; // raised ~0.2 s before impact
+            case 150:
+                Check($"a perfect block reflects the shot (reflected {IsInstanceValid(_probe) && _probe.Reflected})", IsInstanceValid(_probe) && _probe.Reflected);
+                _heroInput = default;
+                break;
+            case 160: // barrier
+                _heroInput = new PlayerInput { Throw = true };
+                break;
+            case 161:
+                _heroInput = default;
+                Check($"barrier is up ({p.BarrierHp:0.0})", p.BarrierHp > 0);
+                _hpMark = p.Hp;
+                Shoot(new Vector2(-90, -4)).Damage = 4;
+                break;
+            case 170:
+                Check($"barrier soaks a small hit (hp {p.Hp:0}/{_hpMark:0}, barrier {p.BarrierHp:0.0})", p.Hp == _hpMark);
+                Finish();
+                break;
+        }
+    }
+
+    private void SwordStep(int s, Player p)
+    {
+        switch (s)
+        {
+            case 5:
+            {
+                // a dummy 50 px away: out of the old dagger's reach, inside the sword's
+                var dummy = new Golem { Position = p.GlobalPosition + new Vector2(50, -6) };
+                dummy.SetMeta("test", true);
+                _world.AddChild(dummy);
+                _probeEnemy = dummy;
+                _posMark = p.GlobalPosition;
+                break;
+            }
+            case 8:
+                _hpMark = _probeEnemy.Hp;
+                _posMark = p.GlobalPosition;
+                _heroInput = new PlayerInput { Attack = true, Aim = Vector2.Right };
+                break;
+            case 9: _heroInput = default; break;
+            case 14:
+                Check($"sword reaches 50 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
+                Check($"the swing lunges forward ({p.GlobalPosition.X - _posMark.X:0.0} px)", p.GlobalPosition.X - _posMark.X > 8);
+                Finish();
+                break;
+        }
+    }
+    private Enemy _probeEnemy;
+
+    private void Finish()
+    {
+        GD.Print(_heroOk ? "[herotest] PASS" : "[herotest] FAIL");
+        GetTree().Quit(_heroOk ? 0 : 1);
+    }
+
     private PlayerInput AnimTestInput()
     {
         float t = _animT;

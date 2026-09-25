@@ -1,8 +1,9 @@
 # Dagger Deep
 
 A 2D side-view rogue-lite: descend through procedurally generated, half-flooded caverns as a
-dagger wielder, level up by picking one of three upgrades, and slay the Cavern Colossus at the
-far end of each cave to open a portal one depth deeper.
+sword-swinging, dodging Swordsman or a shield-bearing Warden. Level up by picking stat boosts,
+hunt down chests for the real upgrades, and slay the Cavern Colossus at the far end of each cave
+to open a portal one depth deeper.
 
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
 the project's main scene; the older map-editor and demo scenes are still in `Scenes/`.
@@ -38,6 +39,8 @@ Handy starting points:
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
+| The two heroes | `Swordsman.*` (sword reach, damage, speed, lunge), `Warden.*` (shortsword, shield, barrier) |
+| Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the stat list is `Upgrades.LevelUp` |
 | How fast it gets hard | `Difficulty.DoublingMinutes`, `Difficulty.TempoCap` |
 | How busy it is | `Spawning.IntervalStart`, `Spawning.RateDoublingMinutes`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
 | Map size | `Cave.Width`, `Cave.Height`, `Cave.TunnelBudget` (keep these roughly in proportion) |
@@ -85,7 +88,7 @@ There are 32 inputs, plus which move the creature made last:
 | Category | Inputs |
 | --- | --- |
 | Where the player is | direction as x/distance and y/distance (instead of an angle), distance, a "closeness" value that is sharp at close range, raw x/y offsets |
-| What the player is doing | velocity, HP share, in water, on the ground, swinging the dagger, dodging or invulnerable, facing this creature, holding a dagger to throw |
+| What the player is doing | velocity, HP share, in water, on the ground, swinging, guarding (dodging, invulnerable or shield raised), facing this creature, secondary (throw or barrier) ready |
 | Itself | velocity, HP share, on the ground, in water, line of sight to the player, how long it has been fighting, "recently hurt" and "recently landed a hit" traces, main attack readiness |
 | Terrain toward the player | wall, gap, low ceiling |
 | Allies | nearest ally's offset, how many allies are within 200 px |
@@ -155,9 +158,10 @@ The panel's columns:
 | Move | A / D (or arrows) | Left stick or D-pad |
 | Swim up / down | W / S (Space also swims up) | Left stick up / down (A also swims up) |
 | Jump | Space | A |
-| Swing dagger | Left click, toward the mouse (J swings toward your held direction) | X, toward the right stick if held, otherwise the left stick |
-| Throw dagger | Right click (or K) | RB or RT |
-| Dodge | Shift (or L) | B, LB or LT |
+| Swing | Left click, toward the mouse (J swings toward your held direction) | X, toward the right stick if held, otherwise the left stick |
+| Throw dagger (swordsman) / barrier (warden) | Right click (or K) | RB or RT |
+| Dodge (swordsman) / hold to raise the shield (warden) | Shift (or L); the shield points at the mouse | B, LB or LT; the shield points along the right stick, or the way you face |
+| Choose hero | Left / right on the title or death screen, or click a card | D-pad or stick left / right |
 | Pause | Esc | Start |
 | Pick upgrade | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
 | Start / restart | Enter or click / R | A / Y |
@@ -195,15 +199,35 @@ become treasure rooms (ambush rooms exist too but are off: `Spawning.AmbushRooms
 elite mini-boss lairs. The dead end farthest from the start (measured
 along the tunnels) becomes the boss arena, which gets a dome and a solid floor.
 
-**The dagger wielder** (`Player/`). Movement has coyote time, jump buffering and variable jump
-height. Swimming has a breath meter; you take drowning damage when it runs out and the audio is
-muffled while your head is underwater. Water is thick: it soaks up most of your speed when you
-plunge in and slows swimming and sinking (`Hero.WaterDrag`, `Hero.WaterEntryDamp`). You can swing the dagger in any direction and dodge. The
-thrown dagger locks your weapon for 2 s per charge, and you can keep swinging while any dagger is
-still in hand, and it flies as a whirling blade.
+**The heroes** (`Player/`). Pick one on the title screen, or switch on the death screen, with
+left / right.
 
-You start with 60 HP. After being struck you are invulnerable for 0.4 s, which the Resilience
-upgrade extends.
+| | Swordsman | Warden |
+| --- | --- | --- |
+| Weapon | Medium sword: 60 px reach, 20 damage per strike, slower swings (0.6 s apart) that lunge you forward, heavy knockback | Shortsword: 30 px reach, 10 damage, swings every 0.36 s with a fast sweep |
+| Defense (Shift / B / LB) | Dodge roll | Hold to raise the shield (see below) |
+| Secondary (right click / RB) | Thrown dagger (2 s recharge, doesn't lock the sword) | Barrier: absorbs 5 damage for 5 s, 10 s cooldown |
+| Movement | Full speed and jump | 85% speed and jump height (80% speed while shielding) |
+
+Warden's shield:
+- **Blocking**: it's a narrow arc of blue light (70°). It points where you face, or toward the
+  right stick / mouse when you aim. It blocks melee attacks and projectiles that arrive within
+  its arc, and you can't swing while it's up.
+- **Strength**: it holds 40 damage and regenerates 3 per second, starting 1 s after its last block.
+- **Breaking**: once drained it breaks, stays at zero for 6 s, then regenerates from zero again.
+- **Perfect block**: raising it at most 0.18 s before a hit counts as a perfect block, which the
+  Riposte Guard and Iron Timing upgrades build on.
+
+All of these numbers are in `Tune.Swordsman` and `Tune.Warden`.
+
+Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
+(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 560 px/s.
+Swimming has a breath meter; you take drowning damage when it runs out and the audio is muffled
+while your head is underwater. Water soaks up a quarter of your speed when you plunge in and
+drags a little on swimming and sinking (`Hero.WaterDrag`, `Hero.WaterEntryDamp`).
+
+You start with 60 HP. After being struck you are invulnerable for 0.4 s. Healing is scarce:
+hearts drop from 2% of regular kills and 40% of mini-bosses.
 
 Enemies only hurt you with actual attacks, never by just touching you. The attacks are clubs,
 tongues, rocks, slams and spikes, plus body attacks like a bat's swoop, a fish's dart, an eel's
@@ -218,18 +242,29 @@ launching you upward.
 1. When a swing lands, your swing cooldown is refunded once, so you can strike again at once.
 2. The next swing runs the full cooldown, and then a new combo can start.
 3. Each Flurry upgrade adds one more refund to the chain, up to 3.
-4. With Finisher, the last strike of a chain of three or more hits much harder. Healing is scarce: hearts drop from 2% of regular kills and 40% of mini-bosses.
+4. With Finisher, the last strike of a chain of three or more hits much harder.
 
-**Upgrades** (`Player/Upgrades.cs`). These come from XP level-ups and treasure chests, and each
-time you choose one of three:
+**Level-ups and chests** (`Player/Upgrades.cs`). Each time, you choose one of three:
+- **Level-ups** offer small stat nudges: +8 max HP, +6% damage, +6% swing speed, +5% reach, +4%
+  speed, +5% jump, +10% swim, +1.5 s breath, 3% less damage taken, or longer post-hit
+  invulnerability. Each hero also gets their own:
+  - Swordsman: faster dodge and throw recharge.
+  - Warden: shield strength, shield regeneration, and faster recovery from a break.
+- **Chests** hold the real upgrades and abilities.
+  - Only 40% of treasure dead ends hold a chest (`Drops.TreasureRoomChestChance`). Mini-bosses
+    and the boss always drop one.
+  - Where a chest is tilts its odds (`Drops.ZoneBias`). Movement upgrades are 3x likelier in
+    underwater chests, and survival upgrades 3x likelier in chests high in the cave, which you
+    need movement upgrades to reach.
 
-| Area | Upgrades |
+| Area | Chest upgrades |
 | --- | --- |
-| Dagger | attack speed, reach, damage, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback |
-| Throw | ricochet *or* pierce (you can only have one), a second throw charge, faster recall |
-| Movement | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
-| Dodge | invulnerability while dodging, shorter cooldown, a second dodge charge |
-| Survival | max HP, longer invulnerability after being struck (Resilience), damage reduction, life steal, heal on kill, XP magnet |
+| Blade (both) | attack speed, reach, damage, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback |
+| Thrown dagger (swordsman) | ricochet *or* pierce (you can only have one), a second throw charge, faster recall |
+| Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
+| Shield and barrier (warden) | Riposte Guard (perfect blocks reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc), barrier: shorter cooldown, longer duration, more absorption, Thorned Ward (melee attackers take back what they deal) |
+| Movement (both) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
+| Survival (both) | max HP, longer invulnerability after being struck (Resilience), damage reduction, life steal, heal on kill, XP magnet |
 
 **Enemies** (`Enemies/`). Each one moves differently:
 
@@ -269,7 +304,7 @@ played at 24 fps:
 
 | Group | Characters |
 | --- | --- |
-| Player | the player |
+| Heroes | the Swordsman and the Warden |
 | Enemies | every enemy type |
 | Boss | the Cavern Colossus |
 | Passive critters | glow moths and cave crabs (new ambient wildlife) |
@@ -277,11 +312,15 @@ played at 24 fps:
 The game has no allies yet. Each character has separate right-facing and left-facing clips, plus
 turn-around clips that rotate it through a front-facing view.
 
-The left-facing sprites are real renders, not mirrored copies. That means the dagger stays in the
-rogue's right hand (the far hand when facing right, the near hand when facing left), and the light
+The left-facing sprites are real renders, not mirrored copies. That means the blade stays in the
+hero's right hand (the far hand when facing right, the near hand when facing left), and the light
 always comes from the upper left.
 
-The player's clips cover:
+Both heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
+- The Swordsman: a teal cloak, a red scarf and a medium sword.
+- The Warden: a blue tabard, a gold sash, a shortsword and a buckler.
+
+They share every clip:
 - idle
 - run, run start and skid stop
 - turn
@@ -303,8 +342,9 @@ The sheets come from a small 2.5D vector rig renderer (Python + cairo). To regen
 `--contact DIR` option also writes a preview sheet per character.
 
 **Game feel**. Hits have several layers:
-- Freeze-frames scaled to the hit: longer for finishers and kills, with slow motion for mini-boss
-  and boss kills.
+- Freeze-frames scaled to the hit: longer for finishers and kills. Only the hero and the
+  creature trading the blow freeze (with a small shudder); the rest of the cave carries on.
+  Mini-boss and boss kills still get a moment of whole-game slow motion.
 - A white flash, an elastic squash on the creature that was hit, and an impact spark.
 - A camera kick in the direction of the blow, plus controller rumble.
 - Damage numbers that pop in.
@@ -352,6 +392,17 @@ godot --headless --path godot -- --nntest
 
 To have the autopilot bot train the brains, add `--train` to an `--autotest` run. Add
 `--braindir=DIR` to keep those brains out of the project.
+
+`--herotest` (add `--hero=warden` for the Warden) scripts checks of each hero's mechanics and
+prints ok / FAIL for each:
+- the sword's reach and lunge;
+- the shield blocking from the front but not from behind;
+- the shield breaking, staying down and recovering;
+- a perfect block reflecting a shot;
+- the barrier absorbing a hit;
+- the game clock never slowing for a hit-stop.
+
+`--hero=warden` also works with `--autotest` and the other modes.
 
 Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,

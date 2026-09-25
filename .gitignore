@@ -13,3 +13,4 @@ export_presets.cfg
 .vscode/
 *.user
 .DS_Store
+__pycache__/

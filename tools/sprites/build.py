@@ -15,7 +15,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 OUT = os.path.normpath(os.path.join(HERE, '..', '..', 'godot', 'DaggerCave', 'Art'))
 
-CREATURES = ['player', 'bat', 'frog', 'goblin', 'slinger', 'spider', 'magma', 'golem', 'fish',
+CREATURES = ['swordsman', 'warden', 'bat', 'frog', 'goblin', 'slinger', 'spider', 'magma', 'golem', 'fish',
              'fish2', 'urchin', 'eel', 'colossus', 'moth', 'crab']
 
 
@@ -29,8 +29,9 @@ def main(argv):
     names = argv or CREATURES
     for name in names:
         t0 = time.time()
-        mod = importlib.import_module(name if name in ('player',) else 'creatures')
-        sheet = mod.make() if name == 'player' else mod.MAKERS[name]()
+        heroes = ('swordsman', 'warden')
+        mod = importlib.import_module('player' if name in heroes else 'creatures')
+        sheet = mod.make(name) if name in heroes else mod.MAKERS[name]()
         n, w, h = sheet.save(OUT)
         print(f'{name:10s} {n:4d} frames  {w}x{h}  {time.time() - t0:.1f}s')
         if contact:

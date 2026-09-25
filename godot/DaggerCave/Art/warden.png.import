@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://cq8gig61gjc1e"
-path="res://.godot/imported/player.png-ca584369e767eeb1fe8c957bec2e36e4.ctex"
+uid="uid://cac8uc0f0uwle"
+path="res://.godot/imported/warden.png-f6fe98011f34d537e9626c5df731f043.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://DaggerCave/Art/player.png"
-dest_files=["res://.godot/imported/player.png-ca584369e767eeb1fe8c957bec2e36e4.ctex"]
+source_file="res://DaggerCave/Art/warden.png"
+dest_files=["res://.godot/imported/warden.png-f6fe98011f34d537e9626c5df731f043.ctex"]
 
 [params]
 

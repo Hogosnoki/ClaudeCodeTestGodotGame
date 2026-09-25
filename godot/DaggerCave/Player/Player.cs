@@ -9,6 +9,8 @@ public struct PlayerInput
     public Vector2 Move;        // -1..1 each axis; up is negative Y
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
     public bool Jump, JumpHeld, Attack, Throw, Dodge;
+    public bool GuardHeld;      // dodge button held (the warden's shield)
+    public Vector2 GuardAim;    // right stick, else the mouse (keyboard + mouse), else zero = facing
 }
 
 /// <summary>
@@ -26,17 +28,21 @@ public partial class Player : CharacterBody2D
     private static float RunSpeed => Tune.Hero.RunSpeed;
     private static float BaseJumpV => Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness);
     private static float SwimSpeedBase => Tune.Hero.SwimSpeed;
-    private static float SwingCooldownBase => Tune.Hero.SwingCooldown;
-    private static float SwingActive => Tune.Hero.SwingActiveTime;
     private static float ComboWindow => Tune.Hero.ComboWindow;
-    private static float BaseReach => Tune.Hero.SwingReach;
-    private static float BaseDamage => Tune.Hero.SwingDamage;
+    // weapon: the swordsman's medium sword or the warden's shortsword
+    private bool IsWarden => Stats.Hero == HeroKind.Warden;
+    private float SwingCooldownBase => IsWarden ? Tune.Warden.SwingCooldown : Tune.Swordsman.SwingCooldown;
+    private float SwingActive => IsWarden ? Tune.Warden.SwingTime : Tune.Swordsman.SwingTime;
+    private float BaseReach => IsWarden ? Tune.Warden.Reach : Tune.Swordsman.Reach;
+    private float BaseDamage => IsWarden ? Tune.Warden.Damage : Tune.Swordsman.Damage;
+    private float BaseKnock => IsWarden ? Tune.Warden.Knockback : Tune.Swordsman.Knockback;
+    private float LungeSpeed => IsWarden ? Tune.Warden.Lunge : Tune.Swordsman.Lunge;
     private static float ThrowDamage => Tune.Hero.ThrowDamage;
     private static float DodgeSpeed => Tune.Hero.DodgeSpeed;
     private static float DodgeTime => Tune.Hero.DodgeTime;
     private static float DodgeCdBase => Tune.Hero.DodgeCooldown;
 
-    public PlayerStats Stats = new();
+    public PlayerStats Stats = new(G.Hero);
     public float Hp = Tune.Hero.StartHp;
     public float Breath = Tune.Hero.BreathSeconds;
     public int Level = 1;
@@ -69,7 +75,30 @@ public partial class Player : CharacterBody2D
 
     public bool IsDodging => _dodgeT > 0;
     public bool IsSwinging => _swingT >= 0;
-    public bool DaggerInHand { get { foreach (var c in _throwCd) if (c <= 0) return true; return false; } }
+    /// <summary>The secondary (thrown dagger / barrier) is ready to use.</summary>
+    public bool SecondaryReady
+    {
+        get
+        {
+            if (IsWarden) return _barrierCd <= 0;
+            foreach (var c in _throwCd) if (c <= 0) return true;
+            return false;
+        }
+    }
+    /// <summary>Dodging, invulnerable, or behind a raised shield (an input for the enemy brains).</summary>
+    public bool Guarding => IsDodging || Invulnerable || ShieldRaised;
+
+    // warden
+    public float ShieldHp { get; private set; } = Tune.Warden.ShieldHp;
+    public bool ShieldRaised { get; private set; }
+    public bool ShieldBroken => _shieldBrokenT > 0;
+    public float ShieldBrokenLeft => _shieldBrokenT;
+    public Vector2 ShieldDir { get; private set; } = Vector2.Right;
+    public float ShieldArc => Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
+    public float BarrierHp { get; private set; }
+    public float BarrierCooldownFrac => Math.Clamp(_barrierCd / Math.Max(0.01f, Stats.BarrierCooldown), 0, 1);
+    private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _barrierT, _barrierCd;
+    private float _freeze, _lungeT, _lungeDir;
     public float[] ThrowCooldowns => _throwCd;
     public float[] DodgeCooldowns => _dodgeCd;
     public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
@@ -85,9 +114,10 @@ public partial class Player : CharacterBody2D
         SafeMargin = 0.5f;
         AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 6.5f, Height = 26f } });
         ZIndex = 1;
-        Anim = SpriteAnimator.Create("player");
+        Anim = SpriteAnimator.Create(IsWarden ? "warden" : "swordsman");
         AddChild(Anim);
         Hp = Stats.MaxHp;
+        ShieldHp = Stats.ShieldMax;
         Breath = Stats.BreathMax;
     }
 
@@ -120,6 +150,7 @@ public partial class Player : CharacterBody2D
             Jump = Input.IsActionJustPressed("jump"),
             JumpHeld = Input.IsActionPressed("jump"),
             Dodge = Input.IsActionJustPressed("dodge"),
+            GuardHeld = Input.IsActionPressed("dodge"),
         };
         bool mouseAttack = Input.IsActionJustPressed("attack");
         bool kbAttack = Input.IsActionJustPressed("attack_alt");
@@ -128,6 +159,8 @@ public partial class Player : CharacterBody2D
         inp.Attack = mouseAttack || kbAttack;
         inp.Throw = mouseThrow || kbThrow;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
+        if (stick.Length() > 0.35f) inp.GuardAim = stick.Normalized();
+        else if (!G.Main.UsingPad) inp.GuardAim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
         if (stick.Length() > 0.35f) inp.Aim = stick.Normalized();
         else if (kbAttack || kbThrow) inp.Aim = inp.Move.Length() > 0.2f ? inp.Move.Normalized() : new Vector2(Facing, 0);
         else inp.Aim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
@@ -139,10 +172,22 @@ public partial class Player : CharacterBody2D
         float dt = (float)delta;
         _animT += dt;
         var cave = G.Cave;
-        if (Dead) { DeadPhysics(cave, dt); return; }
+        if (Dead) { Anim.TimeMult = 1; Anim.Position = Vector2.Zero; DeadPhysics(cave, dt); return; }
+        // hit-stop: only the hero (and whoever it traded blows with) freezes, the world carries on
+        if (_freeze > 0)
+        {
+            _freeze -= dt;
+            Anim.TimeMult = 0;
+            Anim.Position = new Vector2(G.Range(-1.2f, 1.2f), G.Range(-0.6f, 0.6f));
+            QueueRedraw();
+            return;
+        }
+        Anim.TimeMult = 1;
+        Anim.Position = Vector2.Zero;
         var inp = ReadInput();
 
         TickTimers(dt);
+        if (IsWarden) UpdateShield(inp, dt);
 
         bool wasInWater = InWater;
         InWater = cave.IsWater(GlobalPosition + new Vector2(0, 2));
@@ -167,7 +212,7 @@ public partial class Player : CharacterBody2D
         if (onFloor || surfaceFloat) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
 
-        if (inp.Dodge && _dodgeT <= 0 && _airDashT <= 0) TryDodge(inp);
+        if (!IsWarden && inp.Dodge && _dodgeT <= 0 && _airDashT <= 0) TryDodge(inp);
 
         if (_dodgeT > 0)
         {
@@ -199,9 +244,13 @@ public partial class Player : CharacterBody2D
         }
         _wasOnFloor = nowFloor;
 
-        // Attacks
-        if (inp.Attack && _swingCd <= 0 && DaggerInHand && _dodgeT <= 0) StartSwing(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
-        if (inp.Throw && _dodgeT <= 0) TryThrow(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
+        // Attacks (raising the shield means you aren't swinging)
+        if (inp.Attack && _swingCd <= 0 && _dodgeT <= 0 && !ShieldRaised) StartSwing(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
+        if (inp.Throw && _dodgeT <= 0)
+        {
+            if (IsWarden) TryBarrier();
+            else TryThrow(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
+        }
         if (_swingT >= 0) UpdateSwing(dt);
 
         UpdateAnimation(nowFloor);
@@ -299,7 +348,9 @@ public partial class Player : CharacterBody2D
     private void TickTimers(float dt)
     {
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
-        _wallJumpLock -= dt; _hurtFlash -= dt;
+        _wallJumpLock -= dt; _hurtFlash -= dt; _lungeT -= dt;
+        _barrierCd -= dt;
+        if (_barrierT > 0) { _barrierT -= dt; if (_barrierT <= 0) BarrierHp = 0; }
         for (int k = 0; k < _throwCd.Length; k++) if (_throwCd[k] > 0) _throwCd[k] -= dt;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] > 0) _dodgeCd[k] -= dt;
     }
@@ -328,9 +379,10 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed;
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised ? Tune.Warden.ShieldMoveMult : 1f);
         float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
         v.X = Mathf.MoveToward(v.X, target, accel * dt);
+        if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
         v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), MaxFall);
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult);
@@ -452,6 +504,8 @@ public partial class Player : CharacterBody2D
         _swingDmg = BaseDamage * Stats.DamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f);
         _swingT = 0;
         _swingCd = SwingCooldownBase / Stats.AttackSpeed;
+        // the sword carries you forward a little (horizontal strikes, on your feet)
+        if (LungeSpeed > 0 && !InWater && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
         _swingHits.Clear();
         _swingHitSomething = false;
         // body animation: combo letter + the nearest of five aim directions in front of the player
@@ -460,7 +514,8 @@ public partial class Player : CharacterBody2D
         string dir = la < -1.18f ? "up" : la < -0.39f ? "upfwd" : la < 0.39f ? "fwd" : la < 1.18f ? "downfwd" : "down";
         string letter = finisher ? "c" : _comboStep % 2 == 0 ? "a" : "b";
         Anim.Face((int)Facing, instant: true);
-        Anim.Once($"slash_{letter}_{dir}", 3, Math.Max(1f, Stats.AttackSpeed) * (finisher ? 1f : 1.05f));
+        // the clip is timed for a 0.11 s sweep: slow it for the sword, speed it up for the shortsword
+        Anim.Once($"slash_{letter}_{dir}", 3, Math.Max(1f, Stats.AttackSpeed) * (finisher ? 1f : 1.05f) * Math.Clamp(0.11f / SwingActive, 0.55f, 1.6f));
         G.Sfx.Play(finisher ? "swing_heavy" : "swing", GlobalPosition, -2, 0.12f, 1f + _comboStep * 0.08f);
     }
 
@@ -489,14 +544,14 @@ public partial class Player : CharacterBody2D
                 pr.Deflect();
             }
         }
-        if (_swingT > 0.22f) _swingT = -1;
+        if (_swingT > SwingActive + 0.11f) _swingT = -1;
     }
 
     private void OnSwingHit(Enemy e, Vector2 to)
     {
         var dir = (_swingDir + to.Normalized()).Normalized();
         var kbTable = Tune.Hero.KnockbackByLevel;
-        float kb = kbTable[Math.Clamp(Stats.KnockbackLevel, 0, kbTable.Length - 1)];
+        float kb = BaseKnock + kbTable[Math.Clamp(Stats.KnockbackLevel, 0, kbTable.Length - 1)];
         bool finisher = _finisher;
         if (finisher) kb += Tune.Hero.FinisherExtraKnockback;
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
@@ -509,6 +564,8 @@ public partial class Player : CharacterBody2D
         }
         OnDealtDamage(dealt);
         bool killed = e.Dead;
+        float stop = finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal;
+        if (!killed) e.Freeze(stop);
         // impact: sparks, freeze-frame, a camera nudge in the direction of the blow, rumble
         G.Fx.Spark(hitPos, dir, finisher || killed, finisher ? new Color(1f, 0.85f, 0.4f) : Colors.White);
         G.Main.Kick(dir * (finisher ? Tune.Feel.KickFinisher : killed ? Tune.Feel.KickKill : Tune.Feel.KickNormal));
@@ -521,7 +578,7 @@ public partial class Player : CharacterBody2D
             if (_comboStep < Stats.ComboResets) { _swingCd = 0.04f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             if (Math.Abs(to.X) > 2) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
-            G.Main.HitStop(finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal);
+            Freeze(stop);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
             {
@@ -570,7 +627,29 @@ public partial class Player : CharacterBody2D
     public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null)
     {
         if (Dead || Invulnerable) return 0;
+        bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
+        if (TryBlock(from, dmg, out _))
+        {
+            if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
+            return 0;
+        }
         dmg *= 1f - Stats.DamageReduction;
+        if (BarrierHp > 0)
+        {
+            // the barrier soaks what it can; with thorns, melee attackers get the hit back
+            if (Stats.BarrierThorns && melee) source.Hurt(dmg, (source.GlobalPosition - GlobalPosition).Normalized() * 120, source.GlobalPosition);
+            float soak = Math.Min(BarrierHp, dmg);
+            BarrierHp -= soak; dmg -= soak;
+            G.Fx.Ring(GlobalPosition, 16, new Color(0.55f, 0.85f, 1f, 0.9f));
+            G.Sfx.Play("clink", GlobalPosition, -4, 0.1f, 0.8f);
+            if (BarrierHp <= 0) { _barrierT = 0; G.Fx.Burst(GlobalPosition, new Color(0.55f, 0.85f, 1f), 14, 140, 2f, 0.4f); }
+            if (dmg <= 0.01f)
+            {
+                _invuln = 0.25f;
+                if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
+                return 0;
+            }
+        }
         if (source != null && GodotObject.IsInstanceValid(source))
         {
             source.CreditDamage(dmg);
@@ -585,7 +664,8 @@ public partial class Player : CharacterBody2D
         Anim.Face((int)Facing, instant: true);
         Anim.Once("hurt", 4);
         Anim.Flash(1f);
-        G.Main.HitStop(Tune.Feel.HitStopPlayerHurt);
+        Freeze(Tune.Feel.HitStopPlayerHurt);
+        if (source != null && GodotObject.IsInstanceValid(source) && !source.Dead) source.Freeze(Tune.Feel.HitStopPlayerHurt);
         G.Main.Kick(away * Tune.Feel.KickPlayerHurt);
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
@@ -594,6 +674,81 @@ public partial class Player : CharacterBody2D
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         _dodgeT = 0; _airDashT = 0;
         return dmg;
+    }
+
+    /// <summary>Freezes just the hero for a hit-stop.</summary>
+    public void Freeze(float seconds) => _freeze = Math.Max(_freeze, seconds);
+
+    // ---------------------------------------------------------------- warden: shield + barrier
+
+    private void UpdateShield(PlayerInput inp, float dt)
+    {
+        // regeneration: at zero after a break for ShieldBreakTime, then back at the normal rate
+        if (_shieldBrokenT > 0) _shieldBrokenT -= dt;
+        else if (_shieldRegenWait > 0) _shieldRegenWait -= dt;
+        else ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt);
+        _shieldFlash -= dt;
+
+        bool want = inp.GuardHeld || inp.Dodge;
+        bool was = ShieldRaised;
+        ShieldRaised = want && !ShieldBroken && ShieldHp > 0 && _swingT < 0;
+        if (ShieldRaised && !was) _shieldUpT = 0;
+        _shieldUpT += dt;
+        // aim: right stick / mouse when given, otherwise the way you face
+        var aim = inp.GuardAim.LengthSquared() > 0.01f ? inp.GuardAim.Normalized() : new Vector2(Facing, 0);
+        ShieldDir = aim;
+        if (ShieldRaised && Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
+    }
+
+    /// <summary>Blocks a hit arriving from <paramref name="from"/> if the raised shield covers it.</summary>
+    public bool TryBlock(Vector2 from, float dmg, out bool perfect)
+    {
+        perfect = false;
+        if (!IsWarden || !ShieldRaised) return false;
+        var to = from - GlobalPosition;
+        if (to.LengthSquared() < 1) to = ShieldDir;
+        if (Math.Abs(ShieldDir.AngleTo(to)) > ShieldArc * 0.5f + 0.15f) return false;
+        perfect = _shieldUpT <= Tune.Warden.PerfectWindow;
+        float cost = dmg * (perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
+        ShieldHp -= cost;
+        _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
+        _shieldFlash = perfect ? 0.25f : 0.12f;
+        var at = GlobalPosition + ShieldDir * 16;
+        G.Fx.Spark(at, ShieldDir, perfect, perfect ? new Color(1f, 1f, 0.8f) : new Color(0.55f, 0.8f, 1f));
+        G.Sfx.Play("clink", at, perfect ? 0 : -3, 0.1f, perfect ? 1.3f : 0.9f);
+        G.Main.Rumble(0.3f, 0.2f, 0.08f);
+        Freeze(perfect ? 0.08f : 0.04f);
+        if (perfect) G.Fx.Text(GlobalPosition + new Vector2(0, -26), "PERFECT", new Color(1f, 0.95f, 0.6f), 10, 0.6f);
+        if (ShieldHp <= 0)
+        {
+            ShieldHp = 0;
+            _shieldBrokenT = Stats.ShieldBreakTime;
+            ShieldRaised = false;
+            G.Sfx.Play("rock", at, 0, 0.1f, 1.4f);
+            G.Fx.Burst(at, new Color(0.55f, 0.8f, 1f), 22, 180, 2.5f, 0.5f);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -26), "SHIELD BROKEN", new Color(0.6f, 0.8f, 1f), 10, 1f);
+        }
+        return true;
+    }
+
+    /// <summary>Projectiles meet the shield first; a perfect block with Riposte Guard sends them back.</summary>
+    public bool TryBlockProjectile(EnemyProjectile pr)
+    {
+        if (!TryBlock(pr.GlobalPosition - pr.Vel.Normalized() * 10, pr.Damage, out bool perfect)) return false;
+        if (perfect && Stats.PerfectReflect) pr.Reflect(ShieldDir, Stats.DamageMult);
+        else pr.Deflect();
+        return true;
+    }
+
+    private void TryBarrier()
+    {
+        if (_barrierCd > 0) return;
+        _barrierCd = Stats.BarrierCooldown;
+        _barrierT = Stats.BarrierDuration;
+        BarrierHp = Stats.BarrierAmount;
+        G.Sfx.Play("levelup", GlobalPosition, -10, 0.05f, 1.6f);
+        G.Fx.Ring(GlobalPosition, 18, new Color(0.55f, 0.85f, 1f, 0.9f));
+        Anim.Flash(0.5f);
     }
 
     private void TakeRawDamage(float dmg, string kind)
@@ -621,13 +776,35 @@ public partial class Player : CharacterBody2D
 
     // ---------------------------------------------------------------- drawing
 
+    private void DrawGuard()
+    {
+        if (BarrierHp > 0)
+        {
+            float a = 0.18f + 0.1f * MathF.Sin(_animT * 6);
+            if (_barrierT < 1f) a *= _barrierT; // fading out
+            DrawCircle(new Vector2(0, -2), 19, new Color(0.45f, 0.75f, 1f, a * 0.5f));
+            DrawArc(new Vector2(0, -2), 19, 0, Mathf.Tau, 32, new Color(0.6f, 0.9f, 1f, a * 2.5f), 1.2f);
+        }
+        if (!ShieldRaised) return;
+        // a narrow arc of blue light in front of the shield hand
+        float frac = Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1);
+        bool perfectWindow = _shieldUpT <= Tune.Warden.PerfectWindow;
+        var col = perfectWindow || _shieldFlash > 0 ? new Color(0.85f, 0.95f, 1f) : new Color(0.35f, 0.65f, 1f);
+        float ang = ShieldDir.Angle(), half = ShieldArc * 0.5f;
+        var c = new Vector2(0, -3);
+        const float r = 17;
+        DrawArc(c, r, ang - half, ang + half, 16, new Color(col, 0.25f + 0.3f * frac), 6f);
+        DrawArc(c, r + 1.5f, ang - half, ang + half, 16, new Color(col, 0.55f + 0.45f * frac), 1.6f);
+    }
+
     /// <summary>
     /// The body is a sprite (see <see cref="Anim"/>); this draws the blade smear on top: a
     /// crescent that sweeps with the swing, brightest at its leading edge, fading behind it.
     /// </summary>
     public override void _Draw()
     {
-        if (Dead || _swingT < 0 || _swingT > 0.26f) return;
+        if (!Dead && IsWarden) DrawGuard();
+        if (Dead || _swingT < 0 || _swingT > SwingActive + 0.15f) return;
         bool finisher = _finisher;
         float prog = Math.Clamp(_swingT / SwingActive, 0, 1);
         prog = 1 - (1 - prog) * (1 - prog) * (1 - prog);

@@ -103,7 +103,7 @@ public partial class Chest : Node2D
             G.Sfx.Play("chest", GlobalPosition);
             G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
             p.Heal(Tune.Drops.ChestHeal);
-            G.Main.OfferUpgrades(true);
+            G.Main.OfferChest(GlobalPosition);
         }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);
         QueueRedraw();
