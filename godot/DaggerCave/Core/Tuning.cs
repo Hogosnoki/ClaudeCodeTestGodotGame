@@ -16,7 +16,11 @@ public static class Tune
         public static float StartHp = 60f;
         /// <summary>Invulnerability after being struck (the Resilience upgrade adds to this).</summary>
         public static float HurtInvuln = 0.4f;
-        public static float BreathSeconds = 10f;
+        public static float BreathSeconds = 15f;
+        /// <summary>Air bubbles rising from vents on the sea floor: seconds of breath each, how
+        /// many vents per cave, and seconds between bubbles from one vent.</summary>
+        public static float AirBubbleBreath = 2f, AirVentIntervalMin = 4f, AirVentIntervalMax = 9f;
+        public static int AirVents = 28;
         /// <summary>Drowning damage per tick (every 0.5 s) = flat + fraction of max HP.</summary>
         public static float DrownDamageFlat = 3f, DrownDamageFrac = 0.01f;
 
@@ -74,7 +78,9 @@ public static class Tune
     {
         /// <summary>Sword reach (px), damage per strike, time between swings, and how long the
         /// blade takes to sweep its arc (longer = heavier, slower-looking swing).</summary>
-        public static float Reach = 45f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.17f;
+        public static float Reach = 45f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.12f;
+        /// <summary>Wind-up before the blade comes around (the first two animation frames).</summary>
+        public static float SwingWindup = 0.12f;
         /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
         public static float Lunge = 130f;
         /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
@@ -93,7 +99,7 @@ public static class Tune
     public static class Warden
     {
         /// <summary>Shortsword: dagger length and damage, but the blade sweeps faster.</summary>
-        public static float Reach = 30f, Damage = 10f, SwingCooldown = 0.36f, SwingTime = 0.075f;
+        public static float Reach = 30f, Damage = 10f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>85% of the swordsman's run speed and jump height.</summary>
         public static float MoveMult = 0.85f, JumpMult = 0.85f;
@@ -136,8 +142,8 @@ public static class Tune
     public static class Feel
     {
         /// <summary>Freeze-frame lengths (seconds). The game runs at HitStopTimeScale meanwhile.</summary>
-        public static float HitStopNormal = 0.08f, HitStopKill = 0.12f, HitStopFinisher = 0.15f;
-        public static float HitStopThrown = 0.065f, HitStopPlayerHurt = 0.1f;
+        public static float HitStopNormal = 0.16f, HitStopKill = 0.22f, HitStopFinisher = 0.28f;
+        public static float HitStopThrown = 0.12f, HitStopPlayerHurt = 0.18f;
         public static float HitStopTimeScale = 0.02f;
         /// <summary>Slow motion on mini-boss / boss kills: (seconds, time scale).</summary>
         public static float EliteKillSlowMo = 0.45f, EliteKillSlowMoScale = 0.25f;
@@ -166,16 +172,16 @@ public static class Tune
     public static class Spawning
     {
         /// <summary>Share of resident spawn points that hold enemies at the start, rising to 100% by FillMinutes.</summary>
-        public static float ResidentFillStart = 0.3f, ResidentFillMinutes = 10f;
+        public static float ResidentFillStart = 0.18f, ResidentFillMinutes = 16f;
         /// <summary>Residents are created this far away at most, and only when off-camera.</summary>
         public static float ResidentMaxDistance = 720f;
         /// <summary>Base respawn delay for a used resident point (divided by 1 + pace).</summary>
-        public static float ResidentRespawnMin = 90f, ResidentRespawnMax = 150f;
+        public static float ResidentRespawnMin = 120f, ResidentRespawnMax = 200f;
 
         /// <summary>Entrance waves: the first comes after FirstWave s. The gap between waves starts at
         /// IntervalStart and halves every RateDoublingMinutes (like the difficulty curve), never
         /// dropping below IntervalMin.</summary>
-        public static float FirstWave = 30f, IntervalStart = 30f, IntervalMin = 5f, RateDoublingMinutes = 8f;
+        public static float FirstWave = 25f, IntervalStart = 26f, IntervalMin = 5f, RateDoublingMinutes = 8f;
         /// <summary>Wave size: 1 + up to (pace x this) extra enemies, each from its own direction.</summary>
         public static float WaveGrowthPerPace = 1.5f;
         /// <summary>Newcomers appear in a band this many px wide just outside the screen edges.</summary>

@@ -134,7 +134,7 @@ public static class Upgrades
         new() { Id = "barrier_amt", Name = "Thick Ward", Desc = "Barrier absorbs 5 more damage.", Icon = "shield", Only = W, MaxStacks = 3, Apply = (s, p) => s.BarrierAmount += 5f },
         new() { Id = "stalwart", Name = "Stalwart", Desc = "Full speed with the shield raised, and hits never knock you back.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.Stalwart = true },
         new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", Only = W, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegen *= 1.5f; } },
-        new() { Id = "restoring", Name = "Restoring Ward", Desc = "When your barrier fades, whatever it didn't absorb heals you.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.RestoringWard = true },
+        new() { Id = "restoring", Name = "Restoring Ward", Desc = "If your barrier takes a hit but lasts until it fades, whatever it has left heals you.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.RestoringWard = true },
         new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a fresh barrier.", Icon = "life", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
         new() { Id = "barrier_thorns", Name = "Thorned Ward", Desc = "While your barrier is up, melee attackers take back the damage they deal.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BarrierThorns = true },
 

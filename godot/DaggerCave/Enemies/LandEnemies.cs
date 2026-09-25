@@ -155,7 +155,7 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             float ext = TongueExtent();
             var tip = GlobalPosition + new Vector2(0, -2) + _tongueDir * ext;
-            if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0) _tongueHit = true;
+            if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && (P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0 || P.LastHitBlocked)) _tongueHit = true;
             if (_tongueT > TongueTime) _tongueT = -1;
         }
         else if (floor)

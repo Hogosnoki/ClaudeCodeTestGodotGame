@@ -33,6 +33,10 @@ public partial class Player : CharacterBody2D
     private bool IsWarden => Stats.Hero == HeroKind.Warden;
     private float SwingCooldownBase => IsWarden ? Tune.Warden.SwingCooldown : Tune.Swordsman.SwingCooldown;
     private float SwingActive => IsWarden ? Tune.Warden.SwingTime : Tune.Swordsman.SwingTime;
+    private float SwingWindup => IsWarden ? Tune.Warden.SwingWindup : Tune.Swordsman.SwingWindup;
+    // this swing's beats (scaled by attack speed): wind-up, then the sweep (the hitbox), then follow-through
+    private float _windup, _active;
+    private bool _released;
     private float BaseReach => IsWarden ? Tune.Warden.Reach : Tune.Swordsman.Reach;
     private float BaseDamage => IsWarden ? Tune.Warden.Damage : Tune.Swordsman.Damage;
     private float BaseKnock => IsWarden ? Tune.Warden.Knockback : Tune.Swordsman.Knockback;
@@ -99,6 +103,7 @@ public partial class Player : CharacterBody2D
     public float BarrierCooldownFrac => Math.Clamp(_barrierCd / Math.Max(0.01f, Stats.BarrierCooldown), 0, 1);
     private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _barrierT, _barrierCd;
     private float _freeze, _lungeT, _lungeDir, _waveCd;
+    private bool _barrierStruck;
     public float[] ThrowCooldowns => _throwCd;
     public float[] DodgeCooldowns => _dodgeCd;
     public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
@@ -115,6 +120,7 @@ public partial class Player : CharacterBody2D
         AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 6.5f, Height = 26f } });
         ZIndex = 1;
         Anim = SpriteAnimator.Create(IsWarden ? "warden" : "swordsman");
+        Anim.FootOffset = 13f;
         AddChild(Anim);
         Hp = Stats.MaxHp;
         ShieldHp = Stats.ShieldMax;
@@ -134,6 +140,12 @@ public partial class Player : CharacterBody2D
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
         if (Hp - before >= 1f) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + Mathf.RoundToInt(Hp - before), new Color(0.4f, 1f, 0.5f), 10);
     }
+
+    /// <summary>Test harness: a fresh, full shield.</summary>
+    public void RefillShield() { ShieldHp = Stats.ShieldMax; _shieldBrokenT = 0; }
+
+    /// <summary>A gulp of air (the vents' bubbles).</summary>
+    public void AddBreath(float seconds) => Breath = Math.Min(Stats.BreathMax, Breath + seconds);
 
     public void AddXp(int amount)
     {
@@ -300,6 +312,7 @@ public partial class Player : CharacterBody2D
         _lastAbsVx = avx;
         Anim.Loop(clip, speed);
         Anim.Face((int)Facing);
+        Anim.Motion(InWater ? vel * 0.3f : vel);
         // Ease the sprite's tilt toward the swim direction.
         Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, rot, 0.25f);
 
@@ -358,7 +371,8 @@ public partial class Player : CharacterBody2D
             _barrierT -= dt;
             if (_barrierT <= 0)
             {
-                if (Stats.RestoringWard && BarrierHp > 0) Heal(BarrierHp); // what it didn't have to absorb heals you
+                // Restoring Ward: if the barrier was struck but outlasted the attack, what's left heals you
+                if (Stats.RestoringWard && _barrierStruck && BarrierHp > 0) Heal(BarrierHp);
                 BarrierHp = 0;
             }
         }
@@ -514,11 +528,36 @@ public partial class Player : CharacterBody2D
         _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f);
         _swingDmg = BaseDamage * Stats.DamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f);
         _swingT = 0;
+        _released = false;
+        float speed = Math.Max(1f, Stats.AttackSpeed);
+        _windup = SwingWindup / speed * (finisher ? 1.5f : 1f);
+        _active = SwingActive / speed;
         _swingCd = SwingCooldownBase / Stats.AttackSpeed;
-        // the sword carries you forward a little (horizontal strikes, on your feet)
-        if (LungeSpeed > 0 && !InWater && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
         _swingHits.Clear();
         _swingHitSomething = false;
+        // coil for the wind-up
+        Anim.Punch(new Vector2(1.08f, 0.9f));
+        // body animation: combo letter + the nearest of five aim directions in front of the player
+        var local = new Vector2(aim.X * Facing, aim.Y);
+        float la = MathF.Atan2(local.Y, Math.Max(local.X, -0.2f));
+        string dir = la < -1.18f ? "up" : la < -0.39f ? "upfwd" : la < 0.39f ? "fwd" : la < 1.18f ? "downfwd" : "down";
+        string letter = finisher ? "c" : _comboStep % 2 == 0 ? "a" : "b";
+        Anim.Face((int)Facing, instant: true);
+        // clip frames: wind-up (2, or 3 for the finisher), woosh (2), follow-through (the rest).
+        // Play it so the wind-up frames last exactly the wind-up time; the woosh then lands with the hitbox.
+        float windFrames = finisher ? 3 : 2;
+        Anim.Once($"slash_{letter}_{dir}", 3, windFrames / 24f / _windup);
+    }
+
+    /// <summary>The moment the blade comes around: sound, lunge, crescent wave, stretch.</summary>
+    private void ReleaseSwing()
+    {
+        _released = true;
+        var aim = _swingDir;
+        G.Sfx.Play(_finisher ? "swing_heavy" : "swing", GlobalPosition, -2, 0.12f, 1f + _comboStep * 0.08f);
+        // the sword carries you forward a little (horizontal strikes, on your feet)
+        if (LungeSpeed > 0 && !InWater && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
+        Anim.Punch(new Vector2(1.22f, 0.86f));
         if (Stats.CrescentWave && _waveCd <= 0)
         {
             _waveCd = Tune.Swordsman.WaveCooldown;
@@ -530,21 +569,16 @@ public partial class Player : CharacterBody2D
                 Range = Tune.Swordsman.WaveRange,
             });
         }
-        // body animation: combo letter + the nearest of five aim directions in front of the player
-        var local = new Vector2(aim.X * Facing, aim.Y);
-        float la = MathF.Atan2(local.Y, Math.Max(local.X, -0.2f));
-        string dir = la < -1.18f ? "up" : la < -0.39f ? "upfwd" : la < 0.39f ? "fwd" : la < 1.18f ? "downfwd" : "down";
-        string letter = finisher ? "c" : _comboStep % 2 == 0 ? "a" : "b";
-        Anim.Face((int)Facing, instant: true);
-        // the clip is timed for a 0.11 s sweep: slow it for the sword, speed it up for the shortsword
-        Anim.Once($"slash_{letter}_{dir}", 3, Math.Max(1f, Stats.AttackSpeed) * (finisher ? 1f : 1.05f) * Math.Clamp(0.11f / SwingActive, 0.55f, 1.6f));
-        G.Sfx.Play(finisher ? "swing_heavy" : "swing", GlobalPosition, -2, 0.12f, 1f + _comboStep * 0.08f);
     }
+
+    /// <summary>Time into the sweep (negative during the wind-up).</summary>
+    private float SweepT => _swingT - _windup;
 
     private void UpdateSwing(float dt)
     {
         _swingT += dt;
-        if (_swingT <= SwingActive)
+        if (!_released && SweepT >= 0) ReleaseSwing();
+        if (SweepT >= 0 && SweepT <= _active)
         {
             var origin = GlobalPosition + new Vector2(0, -3);
             foreach (var e in G.Enemies.ToArray())
@@ -566,7 +600,8 @@ public partial class Player : CharacterBody2D
                 pr.Deflect();
             }
         }
-        if (_swingT > SwingActive + 0.11f) _swingT = -1;
+        // follow-through: the rest of the clip (3-4 frames at the clip's speed), a held beat
+        if (SweepT > _active + _windup * 1.6f) _swingT = -1;
     }
 
     private void OnSwingHit(Enemy e, Vector2 to)
@@ -660,10 +695,12 @@ public partial class Player : CharacterBody2D
     /// <summary>Returns the damage taken. <paramref name="source"/> is credited with it (enemy learning).</summary>
     public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null)
     {
+        LastHitBlocked = false;
         if (Dead || Invulnerable) return 0;
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
-        if (TryBlock(from, dmg, out _))
+        if (TryBlock(from, dmg, out _, melee))
         {
+            LastHitBlocked = true;
             if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
             return 0;
         }
@@ -673,6 +710,7 @@ public partial class Player : CharacterBody2D
             // the barrier soaks what it can; with thorns, melee attackers get the hit back
             if (Stats.BarrierThorns && melee) source.Hurt(dmg, (source.GlobalPosition - GlobalPosition).Normalized() * 120, source.GlobalPosition);
             float soak = Math.Min(BarrierHp, dmg);
+            _barrierStruck = true;
             BarrierHp -= soak; dmg -= soak;
             G.Fx.Ring(GlobalPosition, 16, new Color(0.55f, 0.85f, 1f, 0.9f));
             G.Sfx.Play("clink", GlobalPosition, -4, 0.1f, 0.8f);
@@ -721,7 +759,7 @@ public partial class Player : CharacterBody2D
         if (_shieldBrokenT > 0) _shieldBrokenT -= dt;
         else if (_shieldRegenWait > 0) _shieldRegenWait -= dt * (Stats.QuickMend ? 4f : 1f);
         else ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt);
-        _shieldFlash -= dt;
+        _shieldFlash -= dt; _blockGrace -= dt;
 
         bool want = inp.GuardHeld || inp.Dodge;
         bool was = ShieldRaised;
@@ -734,14 +772,23 @@ public partial class Player : CharacterBody2D
         if (ShieldRaised && Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
     }
 
+    /// <summary>True when the last Hurt was stopped by the shield (the attacker's strike is spent).</summary>
+    public bool LastHitBlocked { get; private set; }
+    private float _blockGrace;
+
     /// <summary>Blocks a hit arriving from <paramref name="from"/> if the raised shield covers it.</summary>
-    public bool TryBlock(Vector2 from, float dmg, out bool perfect)
+    public bool TryBlock(Vector2 from, float dmg, out bool perfect, bool melee = false)
     {
         perfect = false;
         if (!IsWarden || !ShieldRaised) return false;
         var to = from - GlobalPosition;
-        if (to.LengthSquared() < 1) to = ShieldDir;
-        if (Math.Abs(ShieldDir.AngleTo(to)) > ShieldArc * 0.5f + 0.15f) return false;
+        // an attacker pressed right up against you is judged by which side it's on
+        if (to.Length() < 14) to = new Vector2(to.X == 0 ? ShieldDir.X : Math.Sign(to.X), 0);
+        if (to.LengthSquared() < 0.01f) to = ShieldDir;
+        if (Math.Abs(ShieldDir.AngleTo(to)) > ShieldArc * 0.5f + 0.2f) return false;
+        // melee blows landing on the shield in the same instant cost it once
+        if (melee && _blockGrace > 0) return true;
+        if (melee) _blockGrace = 0.2f;
         perfect = _shieldUpT <= Tune.Warden.PerfectWindow;
         float cost = dmg * (perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
         ShieldHp -= cost;
@@ -780,6 +827,7 @@ public partial class Player : CharacterBody2D
         _barrierCd = Stats.BarrierCooldown;
         _barrierT = Stats.BarrierDuration;
         BarrierHp = Stats.BarrierAmount;
+        _barrierStruck = false;
         G.Sfx.Play("levelup", GlobalPosition, -10, 0.05f, 1.6f);
         G.Fx.Ring(GlobalPosition, 18, new Color(0.55f, 0.85f, 1f, 0.9f));
         Anim.Flash(0.5f);
@@ -851,11 +899,11 @@ public partial class Player : CharacterBody2D
     public override void _Draw()
     {
         if (!Dead && IsWarden) DrawGuard();
-        if (Dead || _swingT < 0 || _swingT > SwingActive + 0.15f) return;
+        if (Dead || _swingT < 0 || SweepT < 0 || SweepT > _active + 0.15f) return;
         bool finisher = _finisher;
-        float prog = Math.Clamp(_swingT / SwingActive, 0, 1);
+        float prog = Math.Clamp(SweepT / _active, 0, 1);
         prog = 1 - (1 - prog) * (1 - prog) * (1 - prog);
-        float fade = 1 - Math.Clamp((_swingT - SwingActive) / 0.15f, 0, 1);
+        float fade = 1 - Math.Clamp((SweepT - _active) / 0.15f, 0, 1);
         float dirSign = _comboStep % 2 == 0 ? 1 : -1;
         float baseA = _swingDir.Angle();
         float a0 = baseA - dirSign * _swingArc * 0.5f;

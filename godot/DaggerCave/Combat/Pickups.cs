@@ -161,3 +161,81 @@ public partial class Portal : Node2D
         DrawSetTransform(Vector2.Zero, 0, Vector2.One);
     }
 }
+
+/// <summary>A crack in the flooded cave floor that now and then lets go of a big air bubble.</summary>
+public partial class AirVent : Node2D
+{
+    private float _t, _next;
+
+    public override void _Ready()
+    {
+        ZIndex = 1;
+        _next = G.Range(0.5f, Tune.Hero.AirVentIntervalMax);
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt; _next -= dt;
+        var p = G.Player;
+        if (p == null || p.GlobalPosition.DistanceSquaredTo(GlobalPosition) > 1400 * 1400) return; // idle when far
+        if (_next <= 0)
+        {
+            _next = G.Range(Tune.Hero.AirVentIntervalMin, Tune.Hero.AirVentIntervalMax);
+            G.Spawn(new AirBubble { Position = GlobalPosition + new Vector2(G.Range(-3, 3), -4) });
+        }
+        if (G.Chance(0.06f)) G.Fx.Bubbles(GlobalPosition + new Vector2(G.Range(-4, 4), -2), 1);
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        // a dark fissure with a faint shimmer above it
+        DrawColoredPolygon(new[] { new Vector2(-7, 1), new Vector2(-2, -2), new Vector2(2, -1.5f), new Vector2(7, 1) }, new Color(0.02f, 0.04f, 0.06f, 0.9f));
+        float a = 0.08f + 0.05f * MathF.Sin(_t * 3);
+        DrawCircle(new Vector2(0, -6), 7, new Color(0.7f, 0.9f, 1f, a));
+    }
+}
+
+/// <summary>A rising air bubble: swim into it for a breath of air.</summary>
+public partial class AirBubble : Node2D
+{
+    private float _t;
+    private readonly float _phase = G.Range(0, 6);
+
+    public override void _Ready() => ZIndex = 3;
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt;
+        var pos = GlobalPosition + new Vector2(MathF.Sin(_t * 2.6f + _phase) * 14f * dt, -34f * dt);
+        if (!G.Cave.IsWater(pos) || G.Cave.IsSolid(pos) || _t > 30f) { Pop(); return; }
+        GlobalPosition = pos;
+        var p = G.Player;
+        if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition + new Vector2(0, 4)) < 15)
+        {
+            p.AddBreath(Tune.Hero.AirBubbleBreath);
+            G.Sfx.Play("bubble", GlobalPosition, -2, 0.1f, 0.7f);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -12), "+AIR", new Color(0.7f, 0.95f, 1f), 9, 0.7f);
+            Pop();
+            return;
+        }
+        QueueRedraw();
+    }
+
+    private void Pop()
+    {
+        G.Fx.Bubbles(GlobalPosition, 4);
+        QueueFree();
+    }
+
+    public override void _Draw()
+    {
+        float r = 6f + 0.6f * MathF.Sin(_t * 5);
+        DrawCircle(Vector2.Zero, r + 3, new Color(0.6f, 0.9f, 1f, 0.12f));
+        DrawCircle(Vector2.Zero, r, new Color(0.75f, 0.93f, 1f, 0.28f));
+        DrawArc(Vector2.Zero, r, 0, Mathf.Tau, 20, new Color(0.9f, 0.98f, 1f, 0.85f), 1.2f);
+        DrawCircle(new Vector2(-r * 0.35f, -r * 0.4f), r * 0.25f, new Color(1, 1, 1, 0.8f));
+    }
+}

@@ -70,6 +70,7 @@ public abstract partial class Enemy : CharacterBody2D
     {
         Anim = SpriteAnimator.Create(set, Size);
         Anim.Facing = (int)Face;
+        Anim.FootOffset = BodyRadius * Size;
         AddChild(Anim);
     }
 
@@ -165,6 +166,7 @@ public abstract partial class Enemy : CharacterBody2D
             Anim.TimeMult = tempo;
             Animate();
             Anim.Face((int)Face);
+            if (!ManualMove) Anim.Motion(Velocity * MoveScale);
         }
 
         // Touching an enemy only hurts during a body attack (a swoop, dart, lunge, drop, charge),
@@ -175,7 +177,8 @@ public abstract partial class Enemy : CharacterBody2D
         float touch = striking ? (_strikeLanded ? 0 : ContactDamage) : ContactDamage * Tune.Combat.PassiveContactMult;
         if (ContactActive && touch > 0 && !p.Dead && dist < HitRadius + 7)
         {
-            if (p.Hurt(touch * G.DepthDmg, GlobalPosition, source: this) > 0 && striking) _strikeLanded = true;
+            // a strike that lands, or that the shield stops, is spent
+            if ((p.Hurt(touch * G.DepthDmg, GlobalPosition, source: this) > 0 || p.LastHitBlocked) && striking) _strikeLanded = true;
         }
         QueueRedraw();
     }

@@ -92,6 +92,50 @@ public partial class SpriteAnimator : Node2D
     private float _flash;
     private bool _manual;
 
+    // ---- squash & stretch ("juice"): a springy scale on top of the sprite's own size
+    private Vector2 _baseMag = Vector2.One;       // the sprite's scale magnitude without juice
+    private Vector2 _punch = Vector2.One, _punchVel;
+    private Vector2 _motion = Vector2.One, _motionTarget = Vector2.One;
+    /// <summary>Distance from the origin down to the feet: squashes are anchored there.</summary>
+    public float FootOffset = 10f;
+    /// <summary>1 = normal, 0 = no squash and stretch (critters, stationary things).</summary>
+    public float Juice = 1f;
+
+    /// <summary>Kicks the springy scale (e.g. (1.3, 0.7) squashes, (0.8, 1.25) stretches); it
+    /// overshoots and wobbles back.</summary>
+    public void Punch(Vector2 scale)
+    {
+        _punch = Vector2.One + (scale - Vector2.One) * Juice;
+        _punchVel = Vector2.Zero;
+    }
+
+    /// <summary>Continuous stretch from movement: long when falling or leaping, wide when running.</summary>
+    public void Motion(Vector2 velocity)
+    {
+        float sy = 1 + Math.Clamp(Math.Abs(velocity.Y) / 700f, 0, 0.2f) * Juice;
+        float sx = 1 + Math.Clamp(Math.Abs(velocity.X) / 1400f, 0, 0.1f) * Juice;
+        _motionTarget = new Vector2(sx / MathF.Sqrt(sy), sy / MathF.Sqrt(sx));
+    }
+
+    // wind-ups hold a coiled squash for as long as they play; strikes pop a stretch
+    private static bool IsWindup(string n) => n.Contains("windup") || n == "crouch";
+    private static bool IsStrike(string n) => n is "strike" or "slam" or "lob" or "pounce" or "tongue" or "bite" or "throw" or "leap" or "charge" or "roar" or "hop";
+
+    private void UpdateJuice(float dt)
+    {
+        if (Juice <= 0 || dt <= 0) return;
+        var rest = _once != null && IsWindup(_once) ? Vector2.One + new Vector2(0.16f, -0.18f) * Juice : Vector2.One;
+        // an under-damped spring: overshoots a little, which reads as energetic
+        var acc = (rest - _punch) * 320f - _punchVel * 16f;
+        _punchVel += acc * dt;
+        _punch += _punchVel * dt;
+        _motion = _motion.Lerp(_motionTarget, 1 - MathF.Exp(-dt * 14f));
+        var k = _punch * _motion;
+        var cur = Sprite.Scale;
+        Sprite.Scale = new Vector2(Mathf.Sign(cur.X == 0 ? 1 : cur.X) * _baseMag.X * k.X, Mathf.Sign(cur.Y == 0 ? 1 : cur.Y) * _baseMag.Y * k.Y);
+        Sprite.Position = new Vector2(0, FootOffset * (1 - k.Y));
+    }
+
     public string Current => _once ?? _base;
     public bool OnceActive => _once != null;
     public string OnceName => _once;
@@ -130,11 +174,16 @@ void fragment() {
         };
         AddChild(Sprite);
         Sprite.AnimationFinished += OnFinished;
+        _baseMag = Vector2.One * (sizeMult / Sheet.Scale);
     }
 
     public float SizeMult
     {
-        set => Sprite.Scale = new Vector2(Mathf.Sign(Sprite.Scale.X == 0 ? 1 : Sprite.Scale.X), Mathf.Sign(Sprite.Scale.Y == 0 ? 1 : Sprite.Scale.Y)) * (value / Sheet.Scale);
+        set
+        {
+            _baseMag = Vector2.One * (value / Sheet.Scale);
+            Sprite.Scale = new Vector2(Mathf.Sign(Sprite.Scale.X == 0 ? 1 : Sprite.Scale.X), Mathf.Sign(Sprite.Scale.Y == 0 ? 1 : Sprite.Scale.Y)) * (value / Sheet.Scale);
+        }
     }
 
     /// <summary>Mirror vertically (spiders on the ceiling). Left/right facing is unaffected.</summary>
@@ -164,6 +213,10 @@ void fragment() {
         _turning = false;
         _manual = false;
         Apply(true);
+        if (IsStrike(name)) Punch(new Vector2(0.8f, 1.26f));
+        else if (name == "land") Punch(new Vector2(1.32f, 0.7f));
+        else if (name is "jump" or "jump_start") Punch(new Vector2(0.82f, 1.24f));
+        else if (name == "hurt") Punch(new Vector2(1.28f, 0.76f));
         return true;
     }
 
@@ -253,6 +306,7 @@ void fragment() {
 
     public override void _Process(double delta)
     {
+        UpdateJuice((float)delta * TimeMult);
         if (_flash > 0)
         {
             _mat.SetShaderParameter("flash", Math.Min(1f, _flash));

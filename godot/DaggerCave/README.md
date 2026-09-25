@@ -167,6 +167,9 @@ The panel's columns:
 | Start / restart | Enter or click / R | A / Y |
 | Enemy training (debug) | F9 on/off, F10 save now, F8 move labels | - |
 
+Resizing or maximizing the window scales the whole picture up, keeping its 16:9 shape
+(letterboxed if the window's shape differs).
+
 You can switch between the two at any time. The game follows whichever device you used last: it
 hides the mouse cursor, changes the on-screen button prompts, and turns rumble on for hits, kills
 and damage taken while a controller is active.
@@ -210,10 +213,11 @@ left / right.
 | Defense (Shift / B / LB) | Dodge roll | Hold to raise the shield (see below) |
 | Secondary (right click / RB) | Thrown dagger (2 s recharge, doesn't lock the sword) | Barrier: absorbs 5 damage for 5 s, 10 s cooldown |
 | Movement | Full speed and jump | 85% speed and jump height (80% speed while shielding) |
-| Toughness | 60 HP, 10 s of breath | 80 HP, 11 s of breath |
+| Toughness | 60 HP, 15 s of breath | 80 HP, 16 s of breath |
 
 Warden's shield:
-- **Blocking**: it's a narrow arc of blue light (70°). It blocks melee attacks and projectiles that arrive within
+- **Blocking**: it's a narrow arc of blue light (70°). It absorbs melee attacks (each blow costs
+  the shield its damage once and ends that attack) and projectiles that arrive within
   its arc. Like a swing, it aims at the right stick, else the left stick on a controller, else
   the mouse. You can swing while it's up, but those swings don't combo.
 - **Strength**: it holds 40 damage and regenerates 3 per second, starting 1 s after its last block.
@@ -226,7 +230,8 @@ All of these numbers are in `Tune.Swordsman` and `Tune.Warden`.
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
 (`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 560 px/s.
 Swimming has a breath meter; you take drowning damage when it runs out and the audio is muffled
-while your head is underwater. Water soaks up a quarter of your speed when you plunge in and
+while your head is underwater. Sparse air vents on the flooded cave floor release a big bubble
+every 4-9 s. Swim into one for 2 s of air (`Hero.AirBubbleBreath`, `Hero.AirVents`). Water soaks up a quarter of your speed when you plunge in and
 drags a little on swimming and sinking (`Hero.WaterDrag`, `Hero.WaterEntryDamp`).
 
 After being struck you are invulnerable for 0.4 s. Drowning costs 3 HP plus 1% of max HP every
@@ -267,7 +272,7 @@ launching you upward.
 | Sword techniques (swordsman) | Rending Edge (hits bleed for 40% more over 3 s, stacks twice), Crescent Wave (swings loose a flying slash, half damage, every 1.2 s), Executioner (+60% damage to enemies under 35% health) |
 | Thrown dagger (swordsman) | ricochet *or* pierce (you can only have one), a second throw charge, faster recall, Fan of Knives (two extra daggers per throw) |
 | Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
-| Shield and barrier (warden) | Stalwart (full speed while shielding, no knockback), Quick Mend (shield regenerates almost at once after a block, 50% faster), Restoring Ward (an expiring barrier heals what it didn't absorb), Last Stand (once per depth, survive a killing blow at 1 HP with a fresh barrier), Riposte Guard (perfect blocks reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc), barrier: shorter cooldown, longer duration, more absorption, Thorned Ward (melee attackers take back what they deal) |
+| Shield and barrier (warden) | Stalwart (full speed while shielding, no knockback), Quick Mend (shield regenerates almost at once after a block, 50% faster), Restoring Ward (a barrier that takes a hit but outlasts it heals what it has left when it fades), Last Stand (once per depth, survive a killing blow at 1 HP with a fresh barrier), Riposte Guard (perfect blocks reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc), barrier: shorter cooldown, longer duration, more absorption, Thorned Ward (melee attackers take back what they deal) |
 | Movement (both) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
 | Survival (both) | max HP, longer invulnerability after being struck (Resilience), damage reduction, life steal, heal on kill, XP magnet |
 
@@ -290,9 +295,10 @@ Mini-bosses are elite versions of these enemies and drop a chest.
 
 **Spawning and difficulty**. Enemies come from two sources:
 - **Residents** sit at points scattered through the tunnels. They are only ever created while out
-  of view, so they are already there when you arrive. Early in a run most points stay empty;
-  after about 10 minutes all of them fill.
-- **Entrances** arrive in waves on a timer. The first wave comes at 30 s with one enemy. The gap
+  of view, so they are already there when you arrive. Early in a run most points stay empty
+  (18% filled). They fill up over 16 minutes and respawn slowly, so exploring stirs up fewer
+  enemies than time does.
+- **Entrances** arrive in waves on a timer. The first wave comes at 25 s with one enemy. The gap
   between waves halves every 8 minutes (`Spawning.RateDoublingMinutes`), down to 5 s, and waves
   grow with time.
   - Each newcomer gets its own entry point from a different direction, in a band just outside
@@ -351,8 +357,23 @@ The sheets come from a small 2.5D vector rig renderer (Python + cairo). To regen
 `pip install pycairo`, then `python3 tools/sprites/build.py [names] [--contact DIR]`. The
 `--contact DIR` option also writes a preview sheet per character.
 
+**Swings** have three beats, drawn into the sprites and matched by the hitbox:
+1. **Wind-up** (2 frames, 0.12 s for the sword and 0.06 s for the shortsword): the blade pulls back.
+2. **Woosh** (2 frames, when the blade actually hits): the blade becomes a translucent motion arc,
+   and the smear drawn in-game follows your real reach and aim.
+3. **Follow-through** (3 frames): the blade overshoots and holds for a beat, then recovers.
+
+The finisher gets one more frame of wind-up and follow-through. The speeds are
+`Swordsman.SwingWindup` / `SwingTime` and the `Warden` equivalents.
+
+**Squash and stretch**. Every character sits on a springy scale that overshoots a little:
+- wind-ups coil (squash) for as long as they play;
+- strikes, leaps and jumps pop into a stretch;
+- landings and hurts squash;
+- fast movement stretches along the motion.
+
 **Game feel**. Hits have several layers:
-- Freeze-frames scaled to the hit: longer for finishers and kills. Only the hero and the
+- Freeze-frames scaled to the hit: 0.16 s, 0.22 s on kills, 0.28 s on finishers. Only the hero and the
   creature trading the blow freeze (with a small shudder); the rest of the cave carries on.
   Mini-boss and boss kills still get a moment of whole-game slow motion.
 - A white flash, an elastic squash on the creature that was hit, and an impact spark.

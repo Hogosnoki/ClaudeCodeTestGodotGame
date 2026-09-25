@@ -246,38 +246,88 @@ def airdash(u, i):
 DIRS = {'up': -math.pi / 2, 'upfwd': -math.pi / 4, 'fwd': 0.0, 'downfwd': math.pi / 4, 'down': math.pi / 2}
 
 
+WOOSH = (0.88, 0.95, 1.0)
+
+
+def woosh_arc(sh, r0, r1, s, e, z):
+    """A translucent motion smear between radii r0..r1 from angle s to e around the shoulder:
+    a faint full-width band, a brighter outer band, and a bright leading edge."""
+    parts = []
+    n = 10
+    angs = [s + (e - s) * k / (n - 1) for k in range(n)]
+    rm = r0 + (r1 - r0) * 0.55
+    inner = [polar(sh, r0, a) for a in angs]
+    mid = [polar(sh, rm, a) for a in angs]
+    outer = [polar(sh, r1, a) for a in angs]
+    parts.append(poly(outer + inner[::-1], WOOSH + (0.16,), z=z, outline=False, shade=False))
+    parts.append(poly(outer + mid[::-1], WOOSH + (0.3,), z=z + 0.01, outline=False, shade=False))
+    parts.append(line([polar(sh, r0 + 1, e), polar(sh, r1 + 0.6, e)], 1.2, (1, 1, 1, 0.95), z=z + 0.02))
+    parts.append(line(outer[n // 2:], 0.8, (1, 1, 1, 0.6), z=z + 0.02))
+    return parts
+
+
 def slash(kind, alpha):
-    """Anticipation -> contact -> follow-through -> recover, aimed along alpha (facing right)."""
+    """Traditional three-beat swing, aimed along alpha (facing right):
+      wind-up  (frames 1-2, three for the finisher): the sword pulled far back, body coiled;
+      woosh    (the next two frames): the blade becomes a motion smear, body lunging through;
+      follow-through (the rest): the sword past its target, held for a beat, then recovering."""
     if kind == 'a':
-        a0, a1, reach = alpha - 1.5, alpha + 1.1, 8.2
+        a0, a1 = alpha - 1.75, alpha + 1.3
     elif kind == 'b':
-        a0, a1, reach = alpha + 1.5, alpha - 1.1, 8.2
+        a0, a1 = alpha + 1.75, alpha - 1.3
     else:
-        a0, a1, reach = alpha - 2.6, alpha + 1.4, 8.8
+        a0, a1 = alpha - 2.8, alpha + 1.6
     heavy = kind == 'c'
-    lean_to = 0.25 * math.cos(alpha) + (0.25 if alpha > 0.5 else 0) - (0.3 if alpha < -0.5 else 0)
+    wind = 3 if heavy else 2
+    lean_to = 0.32 * math.cos(alpha) + (0.25 if alpha > 0.5 else 0) - (0.3 if alpha < -0.5 else 0)
     step = 1.0 if abs(alpha) < 1.2 else 0.0
+    span = a1 - a0
 
     def f(u, i):
-        # the swing angle: small wind-up back, then a fast arc, then settle
-        p = keys(u, [
-            (0.0, dict(sa=a0 - (a1 - a0) * 0.12, lean=-0.15 * math.cos(alpha), lnx=2.6, bx=0, sq=1.0, cf=0.2)),
-            (0.18, dict(sa=a0, lean=-0.2 * math.cos(alpha) - 0.05, lnx=2.6, bx=-0.5, sq=0.96, cf=0.3)),
-            (0.42, dict(sa=a1 - (a1 - a0) * 0.15, lean=lean_to + (0.15 if heavy else 0), lnx=2.6 + 3 * step, bx=1.2 * step + (1 if heavy else 0), sq=1.03, cf=1.2)),
-            (0.6, dict(sa=a1, lean=lean_to, lnx=2.6 + 3 * step, bx=1.2 * step, sq=1.0, cf=1.0)),
-            (1.0, dict(sa=a1 - (a1 - a0) * 0.08, lean=0.06, lnx=2.6 + 1.5 * step, bx=0.4 * step, sq=1.0, cf=0.3)),
-        ], ease=smooth)
-        sa = p.pop('sa')
-        sh = (1.2 + p['bx'], -4 + 0)
-        hand = polar(sh, reach * (0.85 + 0.15 * math.sin(min(1, u * 1.6) * math.pi)), sa)
-        extra = dict(p, dhx=hand[0], dhy=hand[1], da=sa + 0.25 * (1 if a1 > a0 else -1), armz=3.6,
-                     fhx=-3.5 - 1.5 * math.cos(alpha), fhy=1.5 - 2 * math.sin(alpha) * 0.3,
-                     sl=0.5, scarf=1.1, sw=u * 6)
+        common = dict(sl=0.5, scarf=1.2, fhx=-3.5 - 1.5 * math.cos(alpha), fhy=1.5 - 0.6 * math.sin(alpha), armz=3.6)
+        extra = {}
+        if i < wind:
+            # coil: pull the sword back past the start of the arc, crouch and lean away
+            w = (i + 1) / wind
+            sa = a0 - span * 0.16 * w
+            body = dict(lean=-0.32 * math.cos(alpha) * w, bx=-1.3 * w, by=0.9 * w, sq=1 - 0.1 * w, cf=0.2, lnx=2.6, lfx=-3.2)
+            reach = 7.2
+            blade = 1.0
+            smear = None
+        elif i < wind + 2:
+            # the woosh: blade replaced by a smear, body thrown forward and stretched
+            j = i - wind
+            sa = a0 + span * (0.62 if j == 0 else 1.0)
+            body = dict(lean=lean_to + (0.2 if heavy else 0.12), bx=1.8 * step + (1 if heavy else 0), by=-0.3, sq=1.07,
+                        cf=1.4, lnx=2.6 + 4.2 * step, lfx=-3.8)
+            reach = 9.2
+            blade = 0.0
+            smear = (a0 - span * 0.05, a0 + span * 0.62) if j == 0 else (a0 + span * 0.3, a1)
+        else:
+            # follow-through: overshoot, hold (the dramatic beat), then settle back
+            j = i - wind - 2
+            n_follow = (9 if heavy else 7) - wind - 2
+            over = [0.14, 0.12, 0.03, -0.06][min(j, 3)]
+            settle = 0 if j < 2 else (j - 1) / max(1, n_follow - 1)
+            sa = a1 + span * over
+            body = dict(lean=lean_to * (1 - settle) + 0.06 * settle, bx=1.4 * step * (1 - settle), by=0.2 * (1 - settle),
+                        sq=1.0 - 0.03 * (1 - settle), cf=1.0 - 0.7 * settle, lnx=2.6 + 3.5 * step * (1 - settle) + 1.0 * settle,
+                        lfx=-3.4)
+            reach = 8.6 - 0.8 * settle
+            blade = 1.0
+            smear = None
+        sh = (1.2 + body['bx'], -4 + body.get('by', 0) * 0.5)
+        hand = polar(sh, reach, sa)
+        extra = dict(body, dhx=hand[0], dhy=hand[1], da=sa + 0.25 * (1 if a1 > a0 else -1), blade=blade, sw=u * 6, **common)
         if alpha > 1.0:  # downward strike: tuck the legs (usually airborne)
             extra.update(lfx=-2.5, lfy=10.5, lnx=3.5, lny=9.5)
         if alpha < -1.0:
             extra.update(ht=-0.25)
-        return build(extra)
+        parts = build(extra)
+        if smear is not None:
+            r1 = reach + 1.6 + BLADE_LEN
+            parts += woosh_arc(sh, reach + 1.2, r1, smear[0], smear[1], 4.5)
+        return parts
     return f
 
 

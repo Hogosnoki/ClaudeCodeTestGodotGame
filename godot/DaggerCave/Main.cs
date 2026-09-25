@@ -68,7 +68,8 @@ public partial class Main : Node
         var win = GetWindow();
         win.ContentScaleSize = new Vector2I(1280, 720);
         win.ContentScaleMode = Window.ContentScaleModeEnum.CanvasItems;
-        win.ContentScaleAspect = Window.ContentScaleAspectEnum.Expand;
+        // resizing or maximizing scales the whole picture up, keeping 16:9 (letterboxed if needed)
+        win.ContentScaleAspect = Window.ContentScaleAspectEnum.Keep;
         win.Title = "Dagger Deep";
         RenderingServer.SetDefaultClearColor(Colors.Black);
 
@@ -293,6 +294,7 @@ public partial class Main : Node
         }
 
         SpawnCritters(cave);
+        PlaceAirVents(cave);
         _hud.ResetMap(cave);
         _hud.ShowBanner($"DEPTH {G.Depth}", 3f);
         _spawnT = 0;
@@ -317,6 +319,21 @@ public partial class Main : Node
                 _world.AddChild(new CaveCrab { Position = fl + new Vector2(0, -5) });
                 crabs++;
             }
+        }
+    }
+
+    /// <summary>A sparse scattering of air vents on the flooded cave floor.</summary>
+    private void PlaceAirVents(CaveData cave)
+    {
+        var vents = new List<Vector2>();
+        for (int tries = 0; tries < 600 && vents.Count < Tune.Hero.AirVents; tries++)
+        {
+            var at = new Vector2(G.Range(48, cave.SizePx.X - 48), G.Range(cave.WaterY + 40, cave.SizePx.Y - 40));
+            if (!cave.IsWater(at) || !cave.FindFloor(at, 600, out var floor)) continue;
+            if (!cave.IsWater(floor + new Vector2(0, -10))) continue;
+            if (vents.Any(v => v.DistanceTo(floor) < 260)) continue;
+            vents.Add(floor);
+            _world.AddChild(new AirVent { Position = floor });
         }
     }
 
@@ -1163,6 +1180,34 @@ public partial class Main : Node
                 break;
             case 170:
                 Check($"barrier soaks a small hit (hp {p.Hp:0}/{_hpMark:0}, barrier {p.BarrierHp:0.0})", p.Hp == _hpMark);
+                // a goblin clubbing the raised shield: no damage, the shield pays once per blow
+                p.Heal(100);
+                p.RefillShield();
+                _hpMark = p.Hp;
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right };
+                var gob = new Goblin { Position = p.GlobalPosition + new Vector2(26, -4) };
+                gob.SetMeta("test", true);
+                _world.AddChild(gob);
+                gob.Engage();
+                _probeEnemy = gob;
+                break;
+            case 172: _shieldMark = p.ShieldHp; break;
+            case 200:
+                Check($"goblin clubs are absorbed by the shield (hp {p.Hp:0}/{_hpMark:0}, shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", p.Hp == _hpMark && p.ShieldHp < _shieldMark);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                _heroInput = default;
+                // Restoring Ward: the barrier raised at 16 s was struck and still has 1 left when it fades at 21 s
+                Upgrades.Apply(Upgrades.Get("restoring"), p.Stats, p);
+                p.Hp = 40; _hpMark = p.Hp;
+                break;
+            case 212:
+                Check($"a struck barrier that fades heals what it had left (hp {_hpMark:0} -> {p.Hp:0.0})", p.Hp > _hpMark && p.Hp <= _hpMark + 1.01f);
+                _hpMark = p.Hp;
+                break;
+            case 262: _heroInput = new PlayerInput { Throw = true }; break; // cooldown is over: an untouched barrier
+            case 263: _heroInput = default; break;
+            case 320:
+                Check($"an unstruck barrier doesn't heal (hp {p.Hp:0.0} = {_hpMark:0.0})", Math.Abs(p.Hp - _hpMark) < 0.01f);
                 Finish();
                 break;
         }
@@ -1202,6 +1247,20 @@ public partial class Main : Node
             case 21: _heroInput = default; break;
             case 28:
                 Check($"crescent wave hits at 120 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
+                _probeEnemy.QueueFree();
+                // an air bubble from a vent gives back breath
+                var vent = _world.GetChildren().OfType<AirVent>().FirstOrDefault();
+                Check("the cave has air vents", vent != null);
+                if (vent != null)
+                {
+                    p.GlobalPosition = vent.GlobalPosition + new Vector2(0, -40);
+                    p.Velocity = Vector2.Zero;
+                    p.Breath = 1f;
+                    _world.AddChild(new AirBubble { Position = p.GlobalPosition + new Vector2(0, 6) });
+                }
+                break;
+            case 31:
+                Check($"an air bubble refills breath ({p.Breath:0.0} s)", p.Breath > 2.2f);
                 Finish();
                 break;
         }
