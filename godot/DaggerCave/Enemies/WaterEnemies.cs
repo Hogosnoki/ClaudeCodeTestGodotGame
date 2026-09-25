@@ -44,41 +44,36 @@ public partial class Fish : Enemy
             case 0:
             {
                 bool playerIn = P.InWater;
-                if (Awake && playerIn && DistP < Aggro(Tune.Fish.AggroRange))
+                if (_dartT > 0) { /* keep dashing */ }
+                else if (Intent == Dart && _dartCd <= 0)
                 {
-                    if (_dartT > 0) { /* keep dashing */ }
-                    else if (_dartCd <= 0)
-                    {
-                        _dartT = 0.4f; _dartCd = G.Range(0.9f, 1.5f) * (Elite ? 0.6f : 1f);
-                        v = ToP.Normalized() * Tune.Fish.DartSpeed * (Elite ? 1.18f : 1f);
-                    }
-                    else v = v.MoveToward(ToP.Normalized() * 30 + new Vector2(0, MathF.Sin(T * 5) * 20), 400 * dt);
+                    _dartT = 0.4f; _dartCd = G.Range(0.9f, 1.5f) * (Elite ? 0.6f : 1f);
+                    v = ToP.Normalized() * Tune.Fish.DartSpeed * (Elite ? 1.18f : 1f);
+                    Consume();
                 }
-                else
+                else if (Intent == Leap && CanAct(Leap))
                 {
                     // Shore ambush: leap at a player standing near the water.
-                    var rel = ToP;
-                    if (Awake && !playerIn && _leapCd <= 0 && Math.Abs(rel.X) < 190 && P.GlobalPosition.Y > cave.WaterY - 170 && GlobalPosition.Y < cave.WaterY + 90 && rel.Y < 0)
-                    {
-                        _leapCd = G.Range(3f, 5f);
-                        float t = 0.75f;
-                        var target = P.GlobalPosition;
-                        v = new Vector2((target.X - GlobalPosition.X) / t, (target.Y - GlobalPosition.Y) / t - 0.5f * Grav * t);
-                        v.Y = Math.Max(v.Y, -720);
-                        G.Sfx.Play("splash", GlobalPosition, -8, 0.2f, 1.3f);
-                    }
-                    else
-                    {
-                        _wanderA += G.Range(-2, 2) * dt;
-                        var wander = Vector2.Right.Rotated(_wanderA) * 50;
-                        if (GlobalPosition.DistanceTo(_home) > 120) wander = (_home - GlobalPosition).Normalized() * 60;
-                        v = v.MoveToward(wander, 200 * dt);
-                        if (!Awake || playerIn == false)
-                        {
-                            // drift toward the surface under the player to set up a leap
-                            if (Awake && Math.Abs(ToP.X) < 260) v = v.MoveToward(new Vector2(Math.Sign(ToP.X) * 60, -40), 250 * dt);
-                        }
-                    }
+                    _leapCd = G.Range(3f, 5f);
+                    float t = 0.75f;
+                    var target = P.GlobalPosition;
+                    v = new Vector2((target.X - GlobalPosition.X) / t, (target.Y - GlobalPosition.Y) / t - 0.5f * Grav * t);
+                    v.Y = Math.Max(v.Y, -720);
+                    G.Sfx.Play("splash", GlobalPosition, -8, 0.2f, 1.3f);
+                    Consume();
+                }
+                else if (Intent == Approach && playerIn)
+                    v = v.MoveToward(ToP.Normalized() * 30 + new Vector2(0, MathF.Sin(T * 5) * 20), 400 * dt);
+                else if (Intent == Flee)
+                    v = v.MoveToward(-ToP.Normalized() * 90, 300 * dt);
+                else
+                {
+                    _wanderA += G.Range(-2, 2) * dt;
+                    var wander = Vector2.Right.Rotated(_wanderA) * 50;
+                    if (GlobalPosition.DistanceTo(_home) > 120) wander = (_home - GlobalPosition).Normalized() * 60;
+                    v = v.MoveToward(wander, 200 * dt);
+                    // drift toward the surface under the player to set up a leap
+                    if (Intent == Approach) v = v.MoveToward(new Vector2(Math.Sign(ToP.X) * 60, -40), 250 * dt);
                 }
                 // Stay under water unless leaping.
                 if (GlobalPosition.Y < cave.WaterY + 8 && v.Y < 0 && v.Y > -300) v.Y = 20;
@@ -109,6 +104,31 @@ public partial class Fish : Enemy
                 break;
             }
         }
+    }
+
+    // ---- brain interface
+    private const int Drift = 0, Approach = 1, Flee = 2, Dart = 3, Leap = 4;
+    private static readonly string[] Moves = { "drift", "approach", "flee", "dart", "leap" };
+    protected override string BrainName => "fish";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _state != 0 || _dartT > 0;
+    protected override float AttackReady => _dartCd <= 0 ? 1 : 0;
+
+    protected override bool CanAct(int a) => a switch
+    {
+        Dart => _dartCd <= 0,
+        Leap => _leapCd <= 0 && GlobalPosition.Y < G.Cave.WaterY + 90 && ToP.Y < 0,
+        _ => true,
+    };
+
+    protected override int Teacher()
+    {
+        if (!Awake) return Drift;
+        bool playerIn = P.InWater;
+        if (playerIn && DistP < Aggro(Tune.Fish.AggroRange)) return _dartCd <= 0 ? Dart : Approach;
+        var rel = ToP;
+        if (!playerIn && _leapCd <= 0 && Math.Abs(rel.X) < 190 && P.GlobalPosition.Y > G.Cave.WaterY - 170 && GlobalPosition.Y < G.Cave.WaterY + 90 && rel.Y < 0) return Leap;
+        return !playerIn && Math.Abs(rel.X) < 260 ? Approach : Drift;
     }
 
     protected override void Animate()
@@ -158,14 +178,28 @@ public partial class Urchin : Enemy
         return 20 - (c - 2.6f) / 0.4f * 13;
     }
 
+    // ---- brain interface: it can hold its spikes in (rest) or start a pulse early (bristle)
+    private const int Rest = 0, Bristle = 1;
+    private const float RestEnd = 1.59f, MinRest = 0.5f;
+    private static readonly string[] Moves = { "rest", "bristle" };
+    protected override string BrainName => "urchin";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _cycle > RestEnd;
+    protected override bool CanAct(int a) => a != Bristle || _cycle >= MinRest;
+    protected override float AttackReady => Math.Clamp(_cycle / RestEnd, 0, 1);
+    protected override int Teacher() => _cycle >= RestEnd - 0.05f ? Bristle : Rest;
+
     protected override void Think(float dt)
     {
         float prev = _cycle;
+        bool go = Intent == Bristle;
+        if (go && _cycle < RestEnd) { _cycle = RestEnd; prev = _cycle; Consume(); }
         _cycle += dt * (Elite ? 1.3f : 1f);
+        if (!go && prev <= RestEnd && _cycle > RestEnd) _cycle = RestEnd; // hold the spikes in
         if (_cycle > 3f) { _cycle -= 3f; _hitThisPulse = false; }
         if (prev < 2.1f && _cycle >= 2.1f && DistP < 400) G.Sfx.Play("spike", GlobalPosition, -6);
         float reach = (BodyRadius + SpikeLen()) * Size;
-        if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(Tune.Urchin.SpikeDamage * G.DepthDmg, GlobalPosition); _hitThisPulse = true; }
+        if (!_hitThisPulse && SpikeLen() > 12 && DistP < reach + 6) { P.Hurt(Tune.Urchin.SpikeDamage * G.DepthDmg, GlobalPosition, source: this); _hitThisPulse = true; }
     }
 
     protected override void Animate()
@@ -216,8 +250,9 @@ public partial class Eel : Enemy
         {
             case 0:
                 ContactActive = false;
-                if (Awake && _cd <= 0 && P.InWater && P.GlobalPosition.DistanceTo(_home) < maxLen + 20 && G.Cave.LineClear(_home, P.GlobalPosition))
+                if (Awake && Intent == Lunge && _cd <= 0)
                 {
+                    Consume();
                     _state = 1; _stateT = 0;
                     var d = P.GlobalPosition + P.Velocity * 0.15f - _home;
                     _target = _home + d.Normalized() * Math.Min(d.Length() + 20, maxLen);
@@ -240,6 +275,21 @@ public partial class Eel : Enemy
         }
         GlobalPosition = _head;
         if ((_head - _home).X != 0) Face = Math.Sign((_head - _home).X);
+    }
+
+    // ---- brain interface
+    private const int Lurk = 0, Lunge = 1;
+    private static readonly string[] Moves = { "lurk", "lunge" };
+    protected override string BrainName => "eel";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _state != 0;
+    protected override bool CanAct(int a) => a != Lunge || _cd <= 0;
+    protected override float AttackReady => _cd <= 0 ? 1 : 0;
+
+    protected override int Teacher()
+    {
+        float maxLen = Tune.Eel.LungeLength * (Elite ? 1.4f : 1f);
+        return _cd <= 0 && P.InWater && P.GlobalPosition.DistanceTo(_home) < maxLen + 20 && G.Cave.LineClear(_home, P.GlobalPosition) ? Lunge : Lurk;
     }
 
     protected override void Animate()

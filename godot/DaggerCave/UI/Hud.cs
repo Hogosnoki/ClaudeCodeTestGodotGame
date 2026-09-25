@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using Godot;
 
@@ -166,6 +167,9 @@ public partial class Hud : Control
             }
         }
 
+        // --- Brain training panel (F9) ---
+        if (Brains.Training) DrawBrainPanel(font, vs);
+
         // --- Hints / banner ---
         if (HintTime > 0)
         {
@@ -194,6 +198,33 @@ public partial class Hud : Control
             var pos = new Vector2(vs.X / 2 - sz.X / 2, vs.Y * 0.3f);
             DrawString(font, pos + new Vector2(2, 2), Banner, HorizontalAlignment.Left, -1, size, new Color(0, 0, 0, a * 0.8f));
             DrawString(font, pos, Banner, HorizontalAlignment.Left, -1, size, new Color(1f, 0.9f, 0.7f, a));
+        }
+    }
+
+    private void DrawBrainPanel(Font font, Vector2 vs)
+    {
+        var brains = new List<Brain>(Brains.Loaded);
+        brains.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
+        float w = 330, rowH = 15, h = 44 + Math.Max(1, brains.Count) * rowH;
+        var o = new Vector2(vs.X - w - 12, 150);
+        DrawRect(new Rect2(o, new Vector2(w, h)), new Color(0, 0, 0, 0.6f));
+        DrawString(font, o + new Vector2(8, 16), $"TRAINING  (F9 off · F10 save)   {Brains.LastSaveText}", HorizontalAlignment.Left, w - 16, 11, new Color(1f, 0.85f, 0.35f));
+        var dim = new Color(1, 1, 1, 0.55f);
+        string[] heads = { "brain", "decisions", "teacher", "reward", "dealt" };
+        float[] cols = { 8, 104, 170, 222, 282 };
+        for (int c = 0; c < heads.Length; c++) DrawString(font, o + new Vector2(cols[c], 32), heads[c], HorizontalAlignment.Left, -1, 10, dim);
+        if (brains.Count == 0) DrawString(font, o + new Vector2(8, 46), "(no creatures met yet)", HorizontalAlignment.Left, -1, 10, dim);
+        for (int k = 0; k < brains.Count; k++)
+        {
+            var b = brains[k];
+            bool locked = Brains.IsLocked(b.Name);
+            var y = o.Y + 46 + k * rowH;
+            var col = locked ? new Color(0.6f, 0.8f, 1f) : Colors.White;
+            DrawString(font, new Vector2(o.X + 8, y), b.Name + (locked ? " (locked)" : ""), HorizontalAlignment.Left, -1, 10, col);
+            DrawString(font, new Vector2(o.X + 104, y), b.Experience.ToString(), HorizontalAlignment.Left, -1, 10, col);
+            DrawString(font, new Vector2(o.X + 170, y), $"{Math.Min(0.9f, b.TeacherWeight) * 100:0}%", HorizontalAlignment.Left, -1, 10, col);
+            DrawString(font, new Vector2(o.X + 222, y), $"{b.AvgReward:+0.000;-0.000}", HorizontalAlignment.Left, -1, 10, b.AvgReward >= 0 ? new Color(0.5f, 1f, 0.6f) : new Color(1f, 0.55f, 0.5f));
+            DrawString(font, new Vector2(o.X + 282, y), $"{b.AvgDealt:0.00}", HorizontalAlignment.Left, -1, 10, col);
         }
     }
 

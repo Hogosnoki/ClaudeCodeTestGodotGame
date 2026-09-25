@@ -209,4 +209,75 @@ public static class Tune
         public static float BossMinDistanceCells = 150;
         public static int Moths = 80, Crabs = 60;
     }
+
+    // =============================================================================== ENEMY BRAINS
+    /// <summary>
+    /// The neural-network enemy AI (Core/Brain.cs). Each creature type shares one tiny network
+    /// that picks its next move every DecisionInterval seconds. Toggle training with F9 (or launch
+    /// with --train); lock a type in <see cref="BrainLocks"/> once it is good enough.
+    /// </summary>
+    public static class Brains
+    {
+        /// <summary>Master switch. False = every creature uses its original scripted AI.</summary>
+        public static bool Enabled = true;
+        /// <summary>Outside training, a type only uses its brain once it has this many decisions of
+        /// experience (until then the scripted AI plays it, so an untrained brain never ships).</summary>
+        public static long MinExperienceToPlay = 3000;
+
+        // --- when decisions happen
+        /// <summary>Seconds between decisions (on the creature's own clock), +/- DecisionJitter.</summary>
+        public static float DecisionInterval = 0.2f, DecisionJitter = 0.05f;
+        /// <summary>Most decisions made across all creatures in one physics frame (the rest wait a frame).</summary>
+        public static int MaxDecisionsPerFrame = 12;
+
+        // --- rewards
+        /// <summary>Reward per 10% of the player's max HP dealt.</summary>
+        public static float DamageDealtReward = 1f;
+        /// <summary>Penalty per 100% of its own max HP taken (so dying costs this much at most).</summary>
+        public static float DamageTakenPenalty = 1f;
+        /// <summary>Penalty per second of being alive and engaged ("punished for living too long").</summary>
+        public static float TimePenaltyPerSec = 0.01f;
+        /// <summary>Discount per decision (how far ahead it plans: 0.95 = about 20 decisions, 4 s).</summary>
+        public static float Gamma = 0.95f;
+
+        // --- learning
+        public static float LearningRate = 0.003f;
+        /// <summary>Decisions collected per creature type before each optimiser step.</summary>
+        public static int BatchSize = 32;
+        /// <summary>Keeps it trying new things (higher = more random).</summary>
+        public static float EntropyBonus = 0.01f;
+        public static float ValueLossWeight = 0.5f;
+        public static float GradClip = 5f;
+        /// <summary>
+        /// Head start: a fresh brain is pulled toward what the scripted AI would do, and early on
+        /// the scripted move is sometimes executed outright. The pull halves every TeacherHalfLife
+        /// decisions, after which rewards alone shape it. TeacherStart = 0 learns from scratch.
+        /// </summary>
+        public static float TeacherStart = 1f, TeacherHalfLife = 2500f;
+        /// <summary>Outside training the brain samples its moves at this temperature (lower = more
+        /// decisive, 1 = as trained).</summary>
+        public static float PlayTemperature = 0.7f;
+        /// <summary>Autosave interval while training, in seconds.</summary>
+        public static float AutosaveSeconds = 60f;
+    }
+}
+
+/// <summary>
+/// Learning locks, one per creature brain. true = frozen: the creature still uses its brain
+/// (once trained) but stops changing it. Lock a type once it's as strong as you want it, then
+/// keep training the others.
+/// </summary>
+public static class BrainLocks
+{
+    public static bool Bat = false;
+    public static bool Frog = false;
+    public static bool Goblin = false;
+    public static bool Slinger = false;
+    public static bool Spider = false;
+    public static bool Magma = false;
+    public static bool Golem = false;
+    public static bool Fish = false;
+    public static bool Urchin = false;
+    public static bool Eel = false;
+    public static bool Boss = false;
 }

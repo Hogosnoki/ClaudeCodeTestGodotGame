@@ -41,6 +41,112 @@ Handy starting points:
 | How fast it gets hard | `Difficulty.DoublingMinutes`, `Difficulty.TempoCap` |
 | How busy it is | `Spawning.IntervalStart`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
 | Map size | `Cave.Width`, `Cave.Height`, `Cave.TunnelBudget` (keep these roughly in proportion) |
+| Enemy brains | `Brains.*` (rewards, learning rate, when brains take over) and the `BrainLocks` flags |
+
+## Training the enemy brains
+
+Every creature has a tiny neural network that can drive it in place of its hand-written AI. Each
+creature type shares one network. You train them by fighting them.
+
+### Training loop
+
+1. **Press F9 in game** (or launch with `-- --train`) to start training. A panel on the right
+   lists each creature type's brain, and each creature shows its current move above its head.
+   F8 hides those labels.
+2. **Fight.** Every creature on screen learns from how the fight goes. Die, restart, repeat.
+3. **Saving is automatic.** Brains are saved every 60 s, and also when you die, restart, go down a
+   depth, turn training off (F9), or quit. F10 saves on the spot.
+4. **Lock a creature type** once it's as strong as you want. Open `Core/Tuning.cs` and set its
+   flag in `BrainLocks` to `true`, for example `public static bool Goblin = true;`. A locked
+   brain still plays, but stops changing. Keep training the others.
+
+### Where the brains are saved
+
+When you run from the Godot editor, brains are saved into the project at
+`DaggerCave/Brains/<type>.json`, so you can commit them to git. An exported build saves to
+Godot's user data folder instead.
+
+To ship trained brains inside an exported build, add `DaggerCave/Brains/*.json` to the export
+preset's "Filters to export non-resource files".
+
+To start a creature over, delete its `.json` file.
+
+### Normal play (training off)
+
+A type plays with its brain once the brain has at least `Tune.Brains.MinExperienceToPlay`
+decisions of training (3000 by default). Until then, the original scripted AI plays that type,
+so a half-trained brain never reaches normal play by accident. `Tune.Brains.Enabled = false`
+switches every creature back to the scripted AI.
+
+### What the network sees
+
+There are 32 inputs, plus which move the creature made last:
+
+| Category | Inputs |
+| --- | --- |
+| Where the player is | direction as x/distance and y/distance (instead of an angle), distance, a "closeness" value that is sharp at close range, raw x/y offsets |
+| What the player is doing | velocity, HP share, in water, on the ground, swinging the dagger, dodging or invulnerable, facing this creature, holding a dagger to throw |
+| Itself | velocity, HP share, on the ground, in water, line of sight to the player, how long it has been fighting, "recently hurt" and "recently landed a hit" traces, main attack readiness |
+| Terrain toward the player | wall, gap, low ceiling |
+| Allies | nearest ally's offset, how many allies are within 200 px |
+| Difficulty | the difficulty tempo |
+
+### What it chooses
+
+The network picks a move about every 0.2 s. It doesn't pick while the creature is mid-attack,
+airborne, and so on. Moves the creature can't make right now (an attack on cooldown, for
+example) are masked out.
+
+| Creature | Moves |
+| --- | --- |
+| Goblin | idle, approach, retreat, jump, club |
+| Slinger | idle, approach, retreat, jump, throw |
+| Frog | sit, hop toward, hop away, tongue |
+| Spider | wait, toward, away, strike (drop on its thread from the ceiling, or pounce on the ground) |
+| Magma Brute | stand, advance, retreat, lob |
+| Golem | stand, advance, retreat, slam |
+| Bat | hover, swoop, retreat, circle (roosting and waking stay scripted) |
+| Fish | drift, approach, flee, dart, leap |
+| Urchin | rest (hold its spikes in), bristle |
+| Eel | lurk, lunge |
+| Colossus | advance, back off, leap slam, roar, charge |
+
+### How it learns
+
+It learns by advantage actor-critic:
+- The network has two hidden layers of 24 tanh units.
+- It has one output per move, plus a "critic" output that estimates how well things are going.
+
+Rewards:
+- **Damage dealt to the player:** +1 per 10% of the player's max HP. This includes damage from
+  its projectiles, puddles and shockwaves.
+- **Damage taken:** -1 per 100% of its own max HP.
+- **Time alive and fighting:** -0.01 per second.
+
+All three amounts are in `Tune.Brains`. Because being killed costs at most the damage taken, a
+bigger time penalty makes creatures more reckless. They learn that ending the fight early is
+worth it.
+
+Features that make it learn fast:
+- **Teacher head start.** A fresh brain copies the scripted AI, and early on the scripted move is
+  often executed outright. The teacher's share fades by half every 2500 decisions, so after a few
+  sessions the rewards alone shape it.
+- **Standard optimizer settings.** It uses the Adam optimizer with a fairly high learning rate
+  (0.003), advantage normalization, gradient clipping and an entropy bonus, so it keeps trying new
+  things.
+- **Shared experience.** Every goblin on screen feeds the same goblin brain.
+
+A decision costs about 5 microseconds. At most 12 decisions run per physics frame, and a creature
+that doesn't get a slot waits a frame, so big crowds can't stall the game.
+
+The panel's columns:
+
+| Column | Shows |
+| --- | --- |
+| decisions | the brain's training experience |
+| teacher | how often the scripted move is still being forced |
+| reward | the average reward per decision (rising = getting better) |
+| dealt | the average damage dealt to the player per decision |
 
 ## Controls
 
@@ -55,6 +161,7 @@ Handy starting points:
 | Pause | Esc | Start |
 | Pick upgrade | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
 | Start / restart | Enter or click / R | A / Y |
+| Enemy training (debug) | F9 on/off, F10 save now, F8 move labels | - |
 
 You can switch between the two at any time. The game follows whichever device you used last: it
 hides the mouse cursor, changes the on-screen button prompts, and turns rumble on for hits, kills
@@ -205,6 +312,16 @@ captures the audio:
 ```
 xvfb-run godot --path godot --rendering-driver opengl3 --write-movie /tmp/v/f.png --fixed-fps 30 -- --showcase --seed=1013 --duration=31
 ```
+
+To check the neural network's maths (a gradient check, learning a simple task from rewards, and
+a save/load round trip), run:
+
+```
+godot --headless --path godot -- --nntest
+```
+
+To have the autopilot bot train the brains, add `--train` to an `--autotest` run. Add
+`--braindir=DIR` to keep those brains out of the project.
 
 Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,

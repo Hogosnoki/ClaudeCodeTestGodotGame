@@ -40,31 +40,62 @@ public partial class Bat : Enemy
                 ContactActive = false;
                 if (DistP < Tune.Bat.WakeRange && SeesP || HurtFlash > 0) { _state = 1; _stateT = 0; G.Sfx.Play("bat", GlobalPosition, -4); ContactActive = true; Anim.Once("wake", 3); }
                 return;
-            case 1:
-            {
-                var to = ToP + new Vector2(0, -6);
-                var dir = to.Normalized();
-                var perp = new Vector2(-dir.Y, dir.X);
-                var desired = dir * (Tune.Bat.FlySpeed + (Elite ? 40 : 0)) + perp * MathF.Sin(T * 6 + _wob) * Tune.Bat.WobbleSpeed;
-                Velocity = Velocity.MoveToward(desired, 520f * dt);
-                if (DistP < 18 || _stateT > 2.6f) { _state = 2; _stateT = 0; }
-                break;
-            }
             default:
-            {
-                var away = (-ToP).Normalized() + new Vector2(0, -0.8f);
-                Velocity = Velocity.MoveToward(away.Normalized() * 150f, 500f * dt);
-                if (_stateT > 0.9f) { _state = 1; _stateT = 0; if (G.Chance(0.4f)) G.Sfx.Play("bat", GlobalPosition, -8); }
+                // The script's rhythm (swoop until close or 2.6 s, retreat 0.9 s) keeps ticking as
+                // the teacher's suggestion; Intent decides what the bat actually does.
+                if (_state == 1 && (DistP < 18 || _stateT > 2.6f)) { _state = 2; _stateT = 0; }
+                else if (_state == 2 && _stateT > 0.9f) { _state = 1; _stateT = 0; if (G.Chance(0.4f)) G.Sfx.Play("bat", GlobalPosition, -8); }
+                Fly(dt);
                 break;
-            }
         }
         if (GlobalPosition.Y > cave.WaterY - 14) Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y, -80));
         if (Velocity.X != 0) Face = Math.Sign(Velocity.X);
     }
 
+    private void Fly(float dt)
+    {
+        var to = ToP + new Vector2(0, -6);
+        var dir = to.LengthSquared() > 1 ? to.Normalized() : Vector2.Up;
+        var perp = new Vector2(-dir.Y, dir.X);
+        switch (Intent)
+        {
+            case Swoop:
+            {
+                var desired = dir * (Tune.Bat.FlySpeed + (Elite ? 40 : 0)) + perp * MathF.Sin(T * 6 + _wob) * Tune.Bat.WobbleSpeed;
+                Velocity = Velocity.MoveToward(desired, 520f * dt);
+                break;
+            }
+            case Retreat:
+            {
+                var away = -dir + new Vector2(0, -0.8f);
+                Velocity = Velocity.MoveToward(away.Normalized() * 150f, 500f * dt);
+                break;
+            }
+            case Circle:
+            {
+                // orbit at ~90 px, correcting in or out
+                float d = to.Length();
+                var desired = perp * Tune.Bat.FlySpeed * 0.8f * (_wob > 5 ? 1 : -1) + dir * (d - 90) * 1.5f;
+                Velocity = Velocity.MoveToward(desired.LimitLength(Tune.Bat.FlySpeed), 500f * dt);
+                break;
+            }
+            default:
+                Velocity = Velocity.MoveToward(new Vector2(0, MathF.Sin(T * 4 + _wob) * 25), 400f * dt);
+                break;
+        }
+    }
+
+    // ---- brain interface (roosting stays scripted: the brain takes over once it is on the wing)
+    private const int Hover = 0, Swoop = 1, Retreat = 2, Circle = 3;
+    private static readonly string[] Moves = { "hover", "swoop", "retreat", "circle" };
+    protected override string BrainName => "bat";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _state == 0;
+    protected override int Teacher() => _state == 2 ? Retreat : Swoop;
+
     protected override void Animate()
     {
-        Anim.Loop(_state == 0 ? "roost" : _state == 1 && DistP < 70 ? "dive" : "fly");
+        Anim.Loop(_state == 0 ? "roost" : Intent == Swoop && DistP < 70 ? "dive" : "fly");
         Anim.AllowTurns = _state != 0;
     }
 
@@ -122,32 +153,58 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             float ext = TongueExtent();
             var tip = GlobalPosition + new Vector2(0, -2) + _tongueDir * ext;
-            if (!P.Dead && tip.DistanceTo(P.GlobalPosition) < 12) P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition);
+            if (!P.Dead && tip.DistanceTo(P.GlobalPosition) < 12) P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition, source: this);
             if (_tongueT > TongueTime) _tongueT = -1;
         }
         else if (floor)
         {
             v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
-            if (Awake && DistP < Aggro(Tune.Frog.AggroRange))
+            if (Awake && (BrainDriven || DistP < Aggro(Tune.Frog.AggroRange)))
             {
-                Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-                if (DistP < TongueLen * Size && _tongueCd <= 0 && SeesP)
+                int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+                Face = dirP;
+                if (Intent == Tongue && CanAct(Tongue))
                 {
                     _tongueT = 0; _tongueCd = Tune.Frog.TongueCooldown; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
                     G.Sfx.Play("tongue", GlobalPosition, -4);
                     Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
+                    Consume();
                 }
-                else if (_hopCd <= 0)
+                else if ((Intent == HopToward || Intent == HopAway) && _hopCd <= 0)
                 {
                     _hopCd = G.Range(Tune.Frog.HopCooldownMin, Tune.Frog.HopCooldownMax);
-                    _hopDir = Math.Sign(ToP.X);
+                    _hopDir = Intent == HopAway ? -dirP : dirP;
+                    Face = _hopDir;
                     _hopWind = 4f / 24f;
                     Anim.Once("crouch", 2);
+                    Consume();
                 }
             }
         }
         Velocity = v;
         ApplyGravity(dt);
+    }
+
+    // ---- brain interface
+    private const int Sit = 0, HopToward = 1, HopAway = 2, Tongue = 3;
+    private static readonly string[] Moves = { "sit", "hop to", "hop away", "tongue" };
+    protected override string BrainName => "frog";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _hopWind >= 0 || _tongueT >= 0 || InWater || !IsOnFloor();
+    protected override float AttackReady => 1 - Math.Clamp(_tongueCd / Tune.Frog.TongueCooldown, 0, 1);
+
+    protected override bool CanAct(int a) => a switch
+    {
+        HopToward or HopAway => _hopCd <= 0,
+        Tongue => _tongueCd <= 0,
+        _ => true,
+    };
+
+    protected override int Teacher()
+    {
+        if (DistP >= Aggro(Tune.Frog.AggroRange)) return Sit;
+        if (DistP < TongueLen * Size && _tongueCd <= 0 && SeesP) return Tongue;
+        return _hopCd <= 0 ? HopToward : Sit;
     }
 
     private float TongueExtent()
@@ -216,27 +273,26 @@ public partial class Goblin : Enemy
         float speed = (Slinger ? Tune.Goblin.SlingerSpeed : Tune.Goblin.RunSpeed) * (Elite ? 1.15f : 1f);
         if (_gruntT <= 0) { _gruntT = G.Range(3, 8); if (Awake && DistP < 500) G.Sfx.Play("goblin", GlobalPosition, -8, 0.2f); }
 
-        if (!Awake || DistP > Aggro(Tune.Goblin.AggroRange)) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
+        if (!Awake) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
 
         float dx = ToP.X;
         if (_state == 0)
         {
-            float want;
+            int dirP = Math.Sign(dx) == 0 ? (int)Face : Math.Sign(dx);
+            float want = Intent switch { MoveToward => dirP, MoveAway => -dirP, _ => 0 };
             if (Slinger)
             {
-                float d = Math.Abs(dx);
-                want = d < 130 ? -Math.Sign(dx) : d > 230 ? Math.Sign(dx) : 0;
-                Face = Math.Sign(dx) == 0 ? Face : Math.Sign(dx);
-                if (_throwCd <= 0 && DistP < 340 && SeesP) { _throwDelay = 0.36f; Anim.Once("throw", 3); _throwCd = Tune.Goblin.ThrowCooldown * (Elite ? 0.6f : 1f); }
+                Face = dirP; // slingers never turn their back
+                if (Intent == Attack && CanAct(Attack)) { _throwDelay = 0.36f; Anim.Once("throw", 3); _throwCd = Tune.Goblin.ThrowCooldown * (Elite ? 0.6f : 1f); Consume(); }
             }
             else
             {
-                want = Math.Abs(dx) > 8 ? Math.Sign(dx) : 0;
                 if (want != 0) Face = want;
-                if (DistP < 34 * Size && Math.Abs(ToP.Y) < 30) { _state = 1; _stateT = 0; want = 0; G.Sfx.Play("goblin", GlobalPosition, -4, 0.2f, 1.2f); Anim.Once("windup", 3, 6f / (Tune.Goblin.WindupTime * 24f)); }
+                if (Intent == Attack) { Face = dirP; _state = 1; _stateT = 0; want = 0; G.Sfx.Play("goblin", GlobalPosition, -4, 0.2f, 1.2f); Anim.Once("windup", 3, 6f / (Tune.Goblin.WindupTime * 24f)); Consume(); }
             }
             v.X = Mathf.MoveToward(v.X, want * speed, 900 * dt);
-            if (floor && (IsOnWall() || (ToP.Y < -50 && Math.Abs(dx) < 90)) && want != 0) v.Y = -390;
+            if (Intent == Jump && floor) { v.Y = -390; Consume(); }
+            else if (floor && (IsOnWall() || (ToP.Y < -50 && Math.Abs(dx) < 90)) && want != 0) v.Y = -390;
             if (floor && want != 0 && !G.Cave.IsSolid(GlobalPosition + new Vector2(want * 16, 30)) && !G.Cave.IsSolid(GlobalPosition + new Vector2(want * 16, 60)) && ToP.Y < 40)
                 v.Y = -330; // hop gaps rather than falling in
         }
@@ -250,7 +306,7 @@ public partial class Goblin : Enemy
                 Anim.Once("strike", 3);
                 var rel = ToP;
                 if (Math.Abs(rel.X) < 40 * Size && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size)
-                    P.Hurt(Tune.Goblin.ClubDamage * G.DepthDmg * (Elite ? 1.4f : 1f), GlobalPosition);
+                    P.Hurt(Tune.Goblin.ClubDamage * G.DepthDmg * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
             }
         }
         else
@@ -272,9 +328,39 @@ public partial class Goblin : Enemy
         var vel = new Vector2((target.X - from.X) / t, (target.Y - from.Y) / t - 0.5f * g * t);
         int n = Elite ? 3 : 1;
         for (int k = 0; k < n; k++)
-            G.Spawn(new EnemyProjectile { Position = from, Vel = vel.Rotated((k - (n - 1) / 2f) * 0.12f), Grav = g, Damage = Tune.Goblin.RockDamage * G.DepthDmg, Kind = "rock", Radius = 4 });
+            G.Spawn(new EnemyProjectile { Position = from, Vel = vel.Rotated((k - (n - 1) / 2f) * 0.12f), Grav = g, Damage = Tune.Goblin.RockDamage * G.DepthDmg, Kind = "rock", Radius = 4, Source = this });
         G.Sfx.Play("throw", GlobalPosition, -8, 0.1f, 0.6f);
         _state = 2; _stateT = 0.2f;
+    }
+
+    // ---- brain interface
+    private const int Idle = 0, MoveToward = 1, MoveAway = 2, Jump = 3, Attack = 4;
+    private static readonly string[] MeleeMoves = { "idle", "approach", "retreat", "jump", "club" };
+    private static readonly string[] SlingerMoves = { "idle", "approach", "retreat", "jump", "throw" };
+    protected override string BrainName => Slinger ? "slinger" : "goblin";
+    protected override string[] Actions => Slinger ? SlingerMoves : MeleeMoves;
+    protected override bool Busy => _state != 0 || _throwDelay >= 0 || InWater || !IsOnFloor();
+    protected override float AttackReady => Slinger ? 1 - Math.Clamp(_throwCd / Tune.Goblin.ThrowCooldown, 0, 1) : 1;
+
+    protected override bool CanAct(int a) => a switch
+    {
+        Jump => IsOnFloor(),
+        Attack => !Slinger || _throwCd <= 0,
+        _ => true,
+    };
+
+    protected override int Teacher()
+    {
+        if (DistP > Aggro(Tune.Goblin.AggroRange)) return Idle;
+        float dx = ToP.X;
+        if (Slinger)
+        {
+            if (_throwCd <= 0 && DistP < 340 && SeesP) return Attack;
+            float d = Math.Abs(dx);
+            return d < 130 ? MoveAway : d > 230 ? MoveToward : Idle;
+        }
+        if (DistP < 34 * Size && Math.Abs(ToP.Y) < 30) return Attack;
+        return Math.Abs(dx) > 8 ? MoveToward : Idle;
     }
 
     protected override void Animate()
@@ -318,19 +404,21 @@ public partial class Spider : Enemy
             case 0:
             {
                 float dx = ToP.X;
-                if (Awake && Math.Abs(dx) > 6 && ToP.Y > 0 && DistP < Aggro(400))
+                int dirP = Math.Sign(dx) == 0 ? (int)Face : Math.Sign(dx);
+                int crawl = Intent == Toward ? dirP : Intent == Away ? -dirP : 0;
+                if (Awake && crawl != 0)
                 {
-                    float nx = GlobalPosition.X + Math.Sign(dx) * Tune.Spider.CrawlSpeed * dt;
+                    float nx = GlobalPosition.X + crawl * Tune.Spider.CrawlSpeed * dt;
                     // stay on the ceiling contour
                     if (cave.FindCeiling(new Vector2(nx, GlobalPosition.Y + 12), 50, out var ce) && !cave.IsSolid(new Vector2(nx, ce.Y + 8)))
                     {
                         GlobalPosition = new Vector2(nx, ce.Y + 8);
                         _anchorY = ce.Y;
-                        Face = Math.Sign(dx);
+                        Face = crawl;
                     }
                 }
-                if (Awake && Math.Abs(dx) < 34 && ToP.Y > 20 && ToP.Y < 300 && SeesP)
-                { _state = 1; _stateT = 0; G.Sfx.Play("spider", GlobalPosition, -4); }
+                if (Awake && Intent == Strike)
+                { _state = 1; _stateT = 0; G.Sfx.Play("spider", GlobalPosition, -4); Consume(); }
                 break;
             }
             case 1:
@@ -356,14 +444,18 @@ public partial class Spider : Enemy
                 var v = Velocity;
                 if (IsOnFloor())
                 {
-                    Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-                    v.X = Mathf.MoveToward(v.X, Face * Tune.Spider.GroundSpeed, 900 * dt);
-                    if (_pounceCd <= 0 && DistP < 110 && SeesP)
+                    int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+                    int run = Intent == Away ? -dirP : Intent == Wait ? 0 : dirP;
+                    if (run != 0) Face = run;
+                    v.X = Mathf.MoveToward(v.X, run * Tune.Spider.GroundSpeed, 900 * dt);
+                    if (Intent == Strike && _pounceCd <= 0)
                     {
                         _pounceCd = Tune.Spider.PounceCooldown;
-                        v = new Vector2(Math.Sign(ToP.X) * 230, -300);
+                        Face = dirP;
+                        v = new Vector2(dirP * 230, -300);
                         Anim.Once("pounce", 3);
                         G.Sfx.Play("spider", GlobalPosition, -4);
+                        Consume();
                     }
                 }
                 if (InWater) v = v.MoveToward(new Vector2(0, -80), 400 * dt);
@@ -372,6 +464,25 @@ public partial class Spider : Enemy
                 break;
             }
         }
+    }
+
+    // ---- brain interface: on the ceiling, Strike drops on a thread; on the ground, it pounces
+    private const int Wait = 0, Toward = 1, Away = 2, Strike = 3;
+    private static readonly string[] Moves = { "wait", "toward", "away", "strike" };
+    protected override string BrainName => "spider";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor());
+    protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
+
+    protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
+
+    protected override int Teacher()
+    {
+        if (_state == 4) return _pounceCd <= 0 && DistP < 110 && SeesP ? Strike : Toward;
+        float dx = ToP.X;
+        if (Math.Abs(dx) < 34 && ToP.Y > 20 && ToP.Y < 300 && SeesP) return Strike;
+        if (Math.Abs(dx) > 6 && ToP.Y > 0 && DistP < Aggro(400)) return Toward;
+        return Wait;
     }
 
     protected override void OnHurt()
@@ -437,21 +548,38 @@ public partial class LavaMonster : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 600 * dt);
             if (_windup > 0.55f) { Lob(); _windup = -1; Anim.Once("lob", 3); }
         }
-        else if (Awake && DistP < Aggro(420))
+        else if (Awake && (BrainDriven || DistP < Aggro(420)))
         {
-            Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-            v.X = Mathf.MoveToward(v.X, Face * Tune.Magma.WalkSpeed, 300 * dt);
-            if (IsOnFloor() && IsOnWall()) v.Y = -300;
-            if (_lobCd <= 0 && DistP < 340 && SeesP) { _windup = 0; _lobCd = Tune.Magma.LobCooldown * (Elite ? 0.62f : 1f); G.Sfx.Play("lava", GlobalPosition, -6); Anim.Once("lob_windup", 3, 8f / (0.55f * 24f)); }
+            int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+            int walk = Intent == Advance ? dirP : Intent == Retreat ? -dirP : 0;
+            Face = walk != 0 ? walk : dirP;
+            v.X = Mathf.MoveToward(v.X, walk * Tune.Magma.WalkSpeed, 300 * dt);
+            if (IsOnFloor() && IsOnWall() && walk != 0) v.Y = -300;
+            if (Intent == Lob_ && CanAct(Lob_)) { Face = dirP; _windup = 0; _lobCd = Tune.Magma.LobCooldown * (Elite ? 0.62f : 1f); G.Sfx.Play("lava", GlobalPosition, -6); Anim.Once("lob_windup", 3, 8f / (0.55f * 24f)); Consume(); }
             if (_puddleT <= 0 && IsOnFloor() && Math.Abs(v.X) > 10)
             {
                 _puddleT = 1.3f;
-                G.Spawn(new LavaPuddle { Position = GlobalPosition + new Vector2(0, BodyRadius * Size) });
+                G.Spawn(new LavaPuddle { Position = GlobalPosition + new Vector2(0, BodyRadius * Size), Source = this });
             }
         }
         else v.X = Mathf.MoveToward(v.X, 0, 300 * dt);
         Velocity = v;
         ApplyGravity(dt);
+    }
+
+    // ---- brain interface
+    private const int Stand = 0, Advance = 1, Retreat = 2, Lob_ = 3;
+    private static readonly string[] Moves = { "stand", "advance", "retreat", "lob" };
+    protected override string BrainName => "magma";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _windup >= 0 || InWater;
+    protected override float AttackReady => 1 - Math.Clamp(_lobCd / Tune.Magma.LobCooldown, 0, 1);
+    protected override bool CanAct(int a) => a != Lob_ || _lobCd <= 0;
+
+    protected override int Teacher()
+    {
+        if (DistP >= Aggro(420)) return Stand;
+        return _lobCd <= 0 && DistP < 340 && SeesP ? Lob_ : Advance;
     }
 
     private void Lob()
@@ -463,7 +591,7 @@ public partial class LavaMonster : Enemy
         float t = Math.Clamp(from.DistanceTo(target) / 260f, 0.5f, 1.2f);
         var baseV = new Vector2((target.X - from.X) / t, (target.Y - from.Y) / t - 0.5f * g * t);
         for (int k = 0; k < n; k++)
-            G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = Tune.Magma.GlobDamage * G.DepthDmg, Kind = "lava", Radius = 5 });
+            G.Spawn(new EnemyProjectile { Position = from, Vel = baseV * G.Range(0.8f, 1.15f) + new Vector2((k - (n - 1) / 2f) * 45, 0), Grav = g, Damage = Tune.Magma.GlobDamage * G.DepthDmg, Kind = "lava", Radius = 5, Source = this });
     }
 
     protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 8 && IsOnFloor() ? "walk" : "idle", 1.4f);
@@ -502,16 +630,33 @@ public partial class Golem : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             if (_recover < 0.75f && _recover + dt >= 0.75f) Anim.Once("recover", 2, 10f / (0.75f * 24f));
         }
-        else if (Awake && DistP < Aggro(460))
+        else if (Awake && (BrainDriven || DistP < Aggro(460)))
         {
-            Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-            v.X = Mathf.MoveToward(v.X, Face * Tune.Golem.WalkSpeed, 300 * dt);
-            if (IsOnFloor() && IsOnWall()) v.Y = -330;
-            if (_slamCd <= 0 && DistP < 190 && Math.Abs(ToP.Y) < 70 && IsOnFloor()) { _windup = 0; G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.4f); Anim.Once("slam_windup", 3, 12f / (Tune.Golem.SlamWindup * 24f)); }
+            int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+            int walk = Intent == Advance ? dirP : Intent == Retreat ? -dirP : 0;
+            Face = walk != 0 ? walk : dirP;
+            v.X = Mathf.MoveToward(v.X, walk * Tune.Golem.WalkSpeed, 300 * dt);
+            if (IsOnFloor() && IsOnWall() && walk != 0) v.Y = -330;
+            if (Intent == Slam_ && CanAct(Slam_)) { Face = dirP; _windup = 0; G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.4f); Anim.Once("slam_windup", 3, 12f / (Tune.Golem.SlamWindup * 24f)); Consume(); }
         }
         else v.X = Mathf.MoveToward(v.X, 0, 600 * dt);
         Velocity = v;
         ApplyGravity(dt);
+    }
+
+    // ---- brain interface
+    private const int Stand = 0, Advance = 1, Retreat = 2, Slam_ = 3;
+    private static readonly string[] Moves = { "stand", "advance", "retreat", "slam" };
+    protected override string BrainName => "golem";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _windup >= 0 || _recover > 0 || InWater;
+    protected override float AttackReady => 1 - Math.Clamp(_slamCd / Tune.Golem.SlamCooldown, 0, 1);
+    protected override bool CanAct(int a) => a != Slam_ || (_slamCd <= 0 && IsOnFloor());
+
+    protected override int Teacher()
+    {
+        if (DistP >= Aggro(460)) return Stand;
+        return _slamCd <= 0 && DistP < 190 && Math.Abs(ToP.Y) < 70 && IsOnFloor() ? Slam_ : Advance;
     }
 
     private void Slam()
@@ -522,9 +667,9 @@ public partial class Golem : Enemy
         var foot = GlobalPosition + new Vector2(0, BodyRadius * Size);
         G.Fx.Burst(foot, new Color(0.6f, 0.55f, 0.5f), 20, 200, 3f, 0.5f);
         for (int s = -1; s <= 1; s += 2)
-            G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = Tune.Golem.ShockwaveDamage * G.DepthDmg * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Tune.Golem.ShockwaveSpeed * (Elite ? 1.2f : 1f) });
+            G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = Tune.Golem.ShockwaveDamage * G.DepthDmg * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Tune.Golem.ShockwaveSpeed * (Elite ? 1.2f : 1f), Source = this });
         var rel = ToP;
-        if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(Tune.Golem.SlamDamage * G.DepthDmg, GlobalPosition, 320);
+        if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(Tune.Golem.SlamDamage * G.DepthDmg, GlobalPosition, 320, this);
     }
 
     protected override void Animate() => Anim.Loop(Math.Abs(Velocity.X) > 6 && IsOnFloor() ? "walk" : "idle", 1.2f);

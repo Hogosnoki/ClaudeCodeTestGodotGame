@@ -68,6 +68,7 @@ public partial class Player : CharacterBody2D
     private float _lastFallSpeed;
 
     public bool IsDodging => _dodgeT > 0;
+    public bool IsSwinging => _swingT >= 0;
     public bool DaggerInHand { get { foreach (var c in _throwCd) if (c <= 0) return true; return false; } }
     public float[] ThrowCooldowns => _throwCd;
     public float[] DodgeCooldowns => _dodgeCd;
@@ -538,10 +539,12 @@ public partial class Player : CharacterBody2D
         G.Sfx.Play("throw", GlobalPosition, -2);
     }
 
-    public void Hurt(float dmg, Vector2 from, float knock = 230f)
+    /// <summary>Returns the damage taken. <paramref name="source"/> is credited with it (enemy learning).</summary>
+    public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null)
     {
-        if (Dead || Invulnerable) return;
+        if (Dead || Invulnerable) return 0;
         dmg *= 1f - Stats.DamageReduction;
+        if (source != null && GodotObject.IsInstanceValid(source)) source.CreditDamage(dmg);
         TakeRawDamage(dmg, "hit");
         _invuln = Stats.HurtInvuln;
         var away = (GlobalPosition - from).Normalized();
@@ -556,6 +559,7 @@ public partial class Player : CharacterBody2D
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
         Velocity = new Vector2(Math.Sign(away.X == 0 ? -Facing : away.X) * knock, InWater ? away.Y * knock : -170f);
         _dodgeT = 0; _airDashT = 0;
+        return dmg;
     }
 
     private void TakeRawDamage(float dmg, string kind)

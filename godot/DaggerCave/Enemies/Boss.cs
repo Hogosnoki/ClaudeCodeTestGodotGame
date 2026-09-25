@@ -74,11 +74,15 @@ public partial class CavernColossus : Enemy
                 }
                 return;
             case S.Walk:
-                Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
-                v.X = Mathf.MoveToward(v.X, Face * Tune.Boss.WalkSpeed * Speed, 400 * dt);
+            {
+                int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+                int walk = Intent == BackOff ? -dirP : dirP;
+                Face = walk;
+                v.X = Mathf.MoveToward(v.X, walk * Tune.Boss.WalkSpeed * Speed, 400 * dt);
                 _next -= dt;
-                if (_next <= 0) PickAttack();
+                if (Intent >= LeapSlam && CanAct(Intent)) { StartAttack(Intent - LeapSlam); Consume(); }
                 break;
+            }
             case S.LeapCrouch:
                 v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
                 if (_t > 0.55f / Speed)
@@ -98,8 +102,8 @@ public partial class CavernColossus : Enemy
                     var foot = GlobalPosition + new Vector2(0, BodyRadius);
                     G.Fx.Burst(foot, new Color(0.6f, 0.55f, 0.5f), 30, 260, 3.5f, 0.6f);
                     for (int s = -1; s <= 1; s += 2)
-                        G.Spawn(new Shockwave { Position = foot + new Vector2(s * 34, 0), Dir = s, Damage = Tune.Boss.ShockwaveDamage * G.DepthDmg, Size = 1.6f, Speed = 300 * Speed, Life = 2f });
-                    if (DistP < 55) P.Hurt(Tune.Boss.SlamDamage * G.DepthDmg, GlobalPosition, 350);
+                        G.Spawn(new Shockwave { Position = foot + new Vector2(s * 34, 0), Dir = s, Damage = Tune.Boss.ShockwaveDamage * G.DepthDmg, Size = 1.6f, Speed = 300 * Speed, Life = 2f, Source = this });
+                    if (DistP < 55) P.Hurt(Tune.Boss.SlamDamage * G.DepthDmg, GlobalPosition, 350, this);
                     v.X = 0;
                     Go(S.Land);
                 }
@@ -118,7 +122,7 @@ public partial class CavernColossus : Enemy
                         float x = _room.Center.X + G.Range(-_room.RxPx + 30, _room.RxPx - 30);
                         if (k == 0) x = P.GlobalPosition.X;
                         if (G.Cave.FindCeiling(new Vector2(x, _room.Floor.Y - 30), _room.RyPx * 2.5f, out var ce))
-                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = Tune.Boss.RockDamage * G.DepthDmg });
+                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = Tune.Boss.RockDamage * G.DepthDmg, Source = this });
                     }
                     if (_phase2)
                         for (int k = 0; k < 2; k++)
@@ -144,7 +148,7 @@ public partial class CavernColossus : Enemy
                     {
                         float x = GlobalPosition.X - Face * G.Range(40, 200);
                         if (G.Cave.FindCeiling(new Vector2(x, GlobalPosition.Y - 20), 400, out var ce))
-                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = Tune.Boss.RockDamage * 0.85f * G.DepthDmg });
+                            G.Spawn(new FallingRock { Position = ce + new Vector2(0, 14), Damage = Tune.Boss.RockDamage * 0.85f * G.DepthDmg, Source = this });
                     }
                     v.X = -Face * 120;
                     v.Y = -200;
@@ -169,11 +173,33 @@ public partial class CavernColossus : Enemy
         _next = G.Range(0.8f, 1.6f) / Speed;
     }
 
-    private void PickAttack()
+    // ---- brain interface: while walking it picks when (and which) attack to start
+    private const int Advance = 0, BackOff = 1, LeapSlam = 2, RoarAttack = 3, ChargeAttack = 4;
+    private static readonly string[] Moves = { "advance", "back off", "leap slam", "roar", "charge" };
+    private int _teacherPick = -1;
+    protected override string BrainName => "boss";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _s != S.Walk;
+    protected override float AttackReady => _next <= 0 ? 1 : 0;
+    protected override bool CanAct(int a) => a < LeapSlam || _next <= 0;
+
+    /// <summary>The scripted boss walks for a while, then picks a random attack (rarely the same twice).</summary>
+    protected override int Teacher()
     {
-        int a;
-        do a = G.RangeI(0, 2); while (a == _lastAttack && G.Chance(0.7f));
+        if (_s != S.Walk || _next > 0) return Advance;
+        if (_teacherPick < 0)
+        {
+            int a;
+            do a = G.RangeI(0, 2); while (a == _lastAttack && G.Chance(0.7f));
+            _teacherPick = a;
+        }
+        return LeapSlam + _teacherPick;
+    }
+
+    private void StartAttack(int a)
+    {
         _lastAttack = a;
+        _teacherPick = -1;
         Face = Math.Sign(ToP.X) == 0 ? Face : Math.Sign(ToP.X);
         switch (a)
         {
@@ -210,5 +236,6 @@ public partial class CavernColossus : Enemy
         var core = _phase2 ? new Color(1f, 0.35f, 0.15f) : new Color(0.4f, 0.9f, 1f);
         float pulse = 0.6f + 0.4f * MathF.Sin(T * (_phase2 ? 9 : 4));
         DrawCircle(Vector2.Zero, 60, new Color(core, 0.05f * pulse));
+        DrawHealthBar(); // (bosses have their own bar; this shows the brain's label while training)
     }
 }

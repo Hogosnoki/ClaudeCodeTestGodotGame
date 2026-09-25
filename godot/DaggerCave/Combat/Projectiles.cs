@@ -159,6 +159,8 @@ public partial class EnemyProjectile : Node2D
     public float Damage = 8f;
     public string Kind = "rock";
     public float Life = 4f;
+    /// <summary>Who threw it (credited with the damage for learning).</summary>
+    public Enemy Source;
 
     public override void _Ready()
     {
@@ -199,7 +201,7 @@ public partial class EnemyProjectile : Node2D
         var p = G.Player;
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
         {
-            p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10);
+            p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10, source: Source);
             Impact(GlobalPosition);
             return;
         }
@@ -214,7 +216,7 @@ public partial class EnemyProjectile : Node2D
             G.Sfx.Play("lava", at, -8);
             G.Fx.Burst(at, new Color(1f, 0.5f, 0.1f), 10, 120, 2.5f, 0.4f);
             if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
-                G.Spawn(new LavaPuddle { Position = fl });
+                G.Spawn(new LavaPuddle { Position = fl, Source = Source });
         }
         else
         {
@@ -248,6 +250,7 @@ public partial class LavaPuddle : Node2D
 {
     private float _life = 3.5f, _tick, _t;
     private const float HalfW = 16f;
+    public Enemy Source;
 
     public override void _Ready() { ZIndex = 3; }
 
@@ -260,7 +263,7 @@ public partial class LavaPuddle : Node2D
         if (p != null && _tick <= 0)
         {
             var d = p.GlobalPosition - GlobalPosition;
-            if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6) { p.Hurt(Tune.Magma.PuddleDamage * G.DepthDmg, GlobalPosition + new Vector2(0, 10), 120); _tick = 0.5f; }
+            if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6) { p.Hurt(Tune.Magma.PuddleDamage * G.DepthDmg, GlobalPosition + new Vector2(0, 10), 120, Source); _tick = 0.5f; }
         }
         if (G.Chance(0.1f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-HalfW, HalfW), -2), new Color(1f, 0.6f, 0.15f, 0.8f), 1, 30, 1.8f, 0.4f, -60);
         QueueRedraw();
@@ -282,6 +285,7 @@ public partial class LavaPuddle : Node2D
 public partial class Shockwave : Node2D
 {
     public float Dir = 1, Speed = 260f, Damage = 14f, Life = 1.4f, Size = 1f;
+    public Enemy Source;
     private bool _hitPlayer;
     private float _t;
 
@@ -301,7 +305,7 @@ public partial class Shockwave : Node2D
         if (!_hitPlayer && p != null && !p.Dead)
         {
             var d = p.GlobalPosition - GlobalPosition;
-            if (Math.Abs(d.X) < 12 * Size && d.Y > -22 * Size - 8 && d.Y < 6) { p.Hurt(Damage, GlobalPosition + new Vector2(-Dir * 10, 10), 260); _hitPlayer = true; }
+            if (Math.Abs(d.X) < 12 * Size && d.Y > -22 * Size - 8 && d.Y < 6) { p.Hurt(Damage, GlobalPosition + new Vector2(-Dir * 10, 10), 260, Source); _hitPlayer = true; }
         }
         if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition, new Color(0.6f, 0.55f, 0.5f, 0.8f), 1, 80, 2f, 0.35f, 400);
         QueueRedraw();
@@ -329,6 +333,7 @@ public partial class Shockwave : Node2D
 public partial class FallingRock : Node2D
 {
     public float Damage = 14f;
+    public Enemy Source;
     private float _warn = 0.8f, _vy;
     private Vector2 _floor;
     private bool _hasFloor;
@@ -353,7 +358,7 @@ public partial class FallingRock : Node2D
         var np = GlobalPosition + new Vector2(0, _vy * dt);
         var p = G.Player;
         if (p != null && !p.Dead && Math.Abs(p.GlobalPosition.X - np.X) < 12 && Math.Abs(p.GlobalPosition.Y - np.Y) < 20)
-        { p.Hurt(Damage, np - new Vector2(0, 20), 150); Shatter(np); return; }
+        { p.Hurt(Damage, np - new Vector2(0, 20), 150, Source); Shatter(np); return; }
         if (G.Cave.IsSolid(np + new Vector2(0, 10))) { Shatter(np); return; }
         GlobalPosition = np;
         QueueRedraw();

@@ -57,7 +57,11 @@ public abstract partial class Enemy : CharacterBody2D
         Setup();
     }
 
-    public override void _ExitTree() => G.Enemies.Remove(this);
+    public override void _ExitTree()
+    {
+        G.Enemies.Remove(this);
+        BrainFlush(terminal: false);
+    }
 
     protected virtual void Setup() { }
 
@@ -112,6 +116,7 @@ public abstract partial class Enemy : CharacterBody2D
         float tempo = G.Tempo;
         float dt = (float)delta * tempo;
         T += dt; HurtFlash -= (float)delta;
+        BrainAccount(dt);
 
         if (Stun > 0)
         {
@@ -124,6 +129,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         else
         {
+            BrainDecide(dt);
             Think(dt);
             if (!ManualMove)
             {
@@ -140,7 +146,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
 
         if (ContactActive && ContactDamage > 0 && !p.Dead && dist < HitRadius + 7)
-            p.Hurt(ContactDamage * G.DepthDmg, GlobalPosition);
+            p.Hurt(ContactDamage * G.DepthDmg, GlobalPosition, source: this);
         QueueRedraw();
     }
 
@@ -199,6 +205,7 @@ public abstract partial class Enemy : CharacterBody2D
         P?.OnKill();
         if (Elite && !IsBoss) G.Main.SlowMo(Tune.Feel.EliteKillSlowMo, Tune.Feel.EliteKillSlowMoScale);
         if (IsBoss) G.Main.SlowMo(Tune.Feel.BossKillSlowMo, Tune.Feel.BossKillSlowMoScale);
+        BrainFlush(terminal: true);
         OnDeath?.Invoke(this);
         Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
         QueueFree();
@@ -216,10 +223,217 @@ public abstract partial class Enemy : CharacterBody2D
 
     protected void DrawHealthBar()
     {
+        DrawBrainLabel();
         if (!Elite || IsBoss || Hp >= MaxHp) return;
         float w = 30 * Size * 0.6f;
         var pos = new Vector2(-w / 2, -HitRadius - 12);
         DrawRect(new Rect2(pos, new Vector2(w, 4)), new Color(0, 0, 0, 0.7f));
         DrawRect(new Rect2(pos, new Vector2(w * Math.Max(0, Hp / MaxHp), 4)), new Color(0.9f, 0.2f, 0.25f));
+    }
+
+    // ================================================================== neural brain
+    // Each creature type exposes a small set of high-level moves (Actions). Every frame the
+    // subclass's Think carries out the current Intent. Who sets the Intent:
+    //  * scripted: Teacher() -- the original hand-written AI -- every frame;
+    //  * brain:    the type's shared network, every DecisionInterval seconds, while not Busy.
+    // Rewards (damage dealt to the player, damage taken, time alive) are collected between
+    // decisions and fed back to the network while training.
+
+    /// <summary>Inputs every creature feeds its brain, before the one-hot of its previous move.</summary>
+    public const int BaseInputs = 32;
+
+    /// <summary>Shared brain name (see BrainLocks), or null for creatures with no brain.</summary>
+    protected virtual string BrainName => null;
+    /// <summary>Names of the moves this creature can choose between; index = action id. 0 should be a safe "do nothing much".</summary>
+    protected virtual string[] Actions => null;
+    /// <summary>What the original scripted AI would do right now.</summary>
+    protected virtual int Teacher() => 0;
+    /// <summary>Whether a move is possible now (impossible ones are masked out of the choice).</summary>
+    protected virtual bool CanAct(int a) => true;
+    /// <summary>True mid-attack, airborne, etc.: no new decisions until it's free again.</summary>
+    protected virtual bool Busy => false;
+    /// <summary>0..1: how ready its main attack is.</summary>
+    protected virtual float AttackReady => 1f;
+
+    /// <summary>The move being carried out now.</summary>
+    protected int Intent;
+    /// <summary>Clears a one-shot move (an attack) once it has started, so it isn't repeated.</summary>
+    protected void Consume() => Intent = 0;
+
+    public Brain Brain => _brain;
+    public bool BrainDriven { get; private set; }
+    public string IntentName => Actions != null && Intent >= 0 && Intent < Actions.Length ? Actions[Intent] : "";
+
+    private Brain _brain;
+    private float _decideT = -1, _hpSeen = float.NaN;
+    private float _dealtTrace, _takenTrace, _alive;
+    private float[] _probs;
+    // the decision awaiting its outcome
+    private bool _pending, _pendingLearn;
+    private Brain.Transition _pendingT;
+    private float _pendingReward, _pendingTime, _pendingDealt, _pendingTaken;
+
+    private bool HasBrain => Actions != null && BrainName != null && Tune.Brains.Enabled;
+
+    /// <summary>Called by Player.Hurt (directly or through this creature's projectiles).</summary>
+    public void CreditDamage(float dmg)
+    {
+        if (!HasBrain || dmg <= 0) return;
+        float frac = dmg / Math.Max(1f, P?.Stats.MaxHp ?? 60f);
+        _pendingReward += Tune.Brains.DamageDealtReward * frac * 10f;
+        _pendingDealt += dmg;
+        _dealtTrace += frac * 5f;
+    }
+
+    private void BrainAccount(float dt)
+    {
+        if (!HasBrain) return;
+        float hp = Math.Max(0, Hp);
+        if (float.IsNaN(_hpSeen)) _hpSeen = hp;
+        if (hp < _hpSeen)
+        {
+            float frac = (_hpSeen - hp) / Math.Max(1f, MaxHp);
+            _pendingReward -= Tune.Brains.DamageTakenPenalty * frac;
+            _pendingTaken += frac;
+            _takenTrace += frac * 3f;
+        }
+        _hpSeen = hp;
+        float decay = MathF.Exp(-dt / 1.5f);
+        _dealtTrace *= decay; _takenTrace *= decay;
+        if (!Awake) return;
+        _alive += dt;
+        if (_pending) { _pendingReward -= Tune.Brains.TimePenaltyPerSec * dt; _pendingTime += dt; }
+    }
+
+    private void BrainDecide(float dt)
+    {
+        if (!HasBrain) { BrainDriven = false; return; }
+        _brain ??= Brains.Get(BrainName, BaseInputs + Actions.Length, Actions.Length);
+        if (!Brains.Drives(_brain) || !Awake)
+        {
+            BrainDriven = false;
+            Intent = Teacher();
+            return;
+        }
+        BrainDriven = true;
+        _decideT -= dt;
+        if (_decideT > 0 || Busy || !Brains.TakeDecisionSlot()) return;
+        _decideT = Tune.Brains.DecisionInterval + G.Range(-1f, 1f) * Tune.Brains.DecisionJitter;
+
+        int n = Actions.Length;
+        var x = new float[BaseInputs + n];
+        FillFeatures(x);
+        var mask = new bool[n];
+        bool any = false;
+        for (int a = 0; a < n; a++) { mask[a] = CanAct(a); any |= mask[a]; }
+        if (!any) mask[0] = true;
+
+        bool learn = Brains.Learns(_brain);
+        float value = 0;
+        if (_pending && _pendingLearn && learn)
+            Commit(_brain.Value(x));
+
+        int teacher = Teacher();
+        if (teacher < 0 || teacher >= n || !mask[teacher]) teacher = -1;
+        _probs ??= new float[n];
+        int action;
+        bool forced = false;
+        if (learn && teacher >= 0 && G.Chance(Math.Min(0.9f, _brain.TeacherWeight)))
+        {
+            action = teacher; forced = true;
+        }
+        else action = _brain.Choose(x, mask, learn, out value, _probs);
+        Intent = action;
+
+        _pending = true;
+        _pendingLearn = learn;
+        _pendingT = new Brain.Transition { X = x, Mask = mask, Action = action, Teacher = teacher, Forced = forced };
+        _pendingReward = 0; _pendingTime = 0; _pendingDealt = 0; _pendingTaken = 0;
+        if (learn) { _brain.Experience++; _brain.Dirty = true; }
+    }
+
+    /// <summary>Closes the pending decision: target = reward + discounted value of where it led.</summary>
+    private void Commit(float nextValue)
+    {
+        float steps = Math.Max(1f, _pendingTime / Math.Max(0.01f, Tune.Brains.DecisionInterval));
+        _pendingT.Target = _pendingReward + MathF.Pow(Tune.Brains.Gamma, steps) * nextValue;
+        _brain.Remember(_pendingT);
+        _brain.NoteStats(_pendingReward, _pendingDealt, _pendingTaken);
+        _pending = false;
+    }
+
+    /// <summary>On death (terminal: no future) or on leaving the level (bootstrap from the last state).</summary>
+    private void BrainFlush(bool terminal)
+    {
+        if (!_pending || !_pendingLearn || _brain == null) { _pending = false; return; }
+        if (terminal) BrainAccount(0); // count the killing blow
+        Commit(terminal ? 0f : _brain.Value(_pendingT.X));
+    }
+
+    private void FillFeatures(float[] x)
+    {
+        var p = P;
+        var to = ToP;
+        float dist = Math.Max(1f, to.Length());
+        var pos = GlobalPosition;
+        var cave = G.Cave;
+        int sx = to.X >= 0 ? 1 : -1;
+        int i = 0;
+        x[i++] = to.X / dist;                                   // direction to the player (angle substitute)
+        x[i++] = to.Y / dist;
+        x[i++] = Math.Min(dist / 500f, 2f);                     // distance
+        x[i++] = MathF.Exp(-dist / 80f);                        // closeness (sharp near the player)
+        x[i++] = MathF.Tanh(to.X / 150f);                       // precise offsets at close range
+        x[i++] = MathF.Tanh(to.Y / 150f);
+        x[i++] = Math.Clamp(p.Velocity.X / 300f, -2, 2);        // player motion
+        x[i++] = Math.Clamp(p.Velocity.Y / 300f, -2, 2);
+        x[i++] = Math.Clamp(Velocity.X / 300f, -2, 2);          // own motion
+        x[i++] = Math.Clamp(Velocity.Y / 300f, -2, 2);
+        x[i++] = Hp / Math.Max(1f, MaxHp);
+        x[i++] = p.Hp / Math.Max(1f, p.Stats.MaxHp);
+        x[i++] = SeesP ? 1 : 0;
+        x[i++] = IsOnFloor() ? 1 : 0;
+        x[i++] = InWater ? 1 : 0;
+        x[i++] = p.InWater ? 1 : 0;
+        x[i++] = p.IsOnFloor() ? 1 : 0;
+        x[i++] = p.IsSwinging ? 1 : 0;                          // danger: the dagger is out
+        x[i++] = p.IsDodging || p.Invulnerable ? 1 : 0;
+        x[i++] = p.Facing * -sx;                                // +1 = the player is facing me
+        x[i++] = p.DaggerInHand ? 1 : 0;                        // a throw could be coming
+        x[i++] = cave.IsSolid(pos + new Vector2(sx * 20, 0)) ? 1 : 0;   // wall between us
+        x[i++] = !cave.IsSolid(pos + new Vector2(sx * 16, 30)) && !cave.IsSolid(pos + new Vector2(sx * 16, 60)) ? 1 : 0; // gap toward the player
+        x[i++] = cave.IsSolid(pos + new Vector2(0, -40)) ? 1 : 0;     // low ceiling
+        // nearest ally, and how crowded it is
+        Enemy near = null; float nd = float.MaxValue; int allies = 0;
+        foreach (var e in G.Enemies)
+        {
+            if (e == this || e.Dead) continue;
+            float d = e.GlobalPosition.DistanceSquaredTo(pos);
+            if (d < 200 * 200) allies++;
+            if (d < nd) { nd = d; near = e; }
+        }
+        var toA = near != null ? near.GlobalPosition - pos : new Vector2(400, 0);
+        x[i++] = MathF.Tanh(toA.X / 200f);
+        x[i++] = MathF.Tanh(toA.Y / 200f);
+        x[i++] = Math.Min(allies / 5f, 1.5f);
+        x[i++] = MathF.Tanh(_alive / 20f);                      // how long it has been fighting
+        x[i++] = Math.Min(_takenTrace, 2f);                     // recently hurt
+        x[i++] = Math.Min(_dealtTrace, 2f);                     // recently landed a hit
+        x[i++] = G.Tempo - 1f;                                  // difficulty
+        x[i++] = AttackReady;
+        // one-hot of the previous move
+        for (int a = 0; a < Actions.Length; a++) x[BaseInputs + a] = a == Intent ? 1 : 0;
+        if (i != BaseInputs) throw new InvalidOperationException($"feature count {i} != {BaseInputs}");
+    }
+
+    private void DrawBrainLabel()
+    {
+        if (!Brains.Training || !BrainDriven || !Brains.ShowLabels) return;
+        var font = ThemeDB.FallbackFont;
+        string txt = IntentName + (Brains.IsLocked(BrainName) ? " *" : "");
+        var col = Brains.IsLocked(BrainName) ? new Color(0.6f, 0.8f, 1f, 0.9f) : new Color(1f, 0.9f, 0.4f, 0.9f);
+        var at = new Vector2(-40, -HitRadius - 16);
+        DrawStringOutline(font, at, txt, HorizontalAlignment.Center, 80, 7, 2, new Color(0, 0, 0, 0.8f));
+        DrawString(font, at, txt, HorizontalAlignment.Center, 80, 7, col);
     }
 }

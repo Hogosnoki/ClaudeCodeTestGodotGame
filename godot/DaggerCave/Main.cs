@@ -13,7 +13,8 @@ namespace DaggerCave;
 /// Command-line user args (after `--`): `--seed=N`, `--autotest` (bot plays, screenshots are
 /// written to `--shots=DIR` every few seconds for `--duration=S`), `--gentest` (prints
 /// generator statistics for a batch of seeds and quits), `--start=boss|water` (spawn position
-/// for testing).
+/// for testing), `--train` (enemy brain training on from the start), `--braindir=DIR` and
+/// `--nntest` (checks the neural-net maths and quits).
 /// </summary>
 public partial class Main : Node
 {
@@ -57,6 +58,7 @@ public partial class Main : Node
     private int _animFrame;
     private float _bestiaryT = -1;
     private BotPilot _bot;
+    private bool _nnTest;
 
     public override void _Ready()
     {
@@ -105,6 +107,7 @@ public partial class Main : Node
     private void Begin(bool gentest)
     {
         if (gentest) { RunGenTest(); return; }
+        if (_nnTest) { RunNnTest(); return; }
 
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
@@ -171,6 +174,9 @@ public partial class Main : Node
             else if (a == "--animtest") _animTest = true;
             else if (a == "--padtest") _padTest = true;
             else if (a == "--showcase") { _showcase = true; _autotest = true; }
+            else if (a == "--train") Brains.Training = true;
+            else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
+            else if (a == "--nntest") _nnTest = true;
         }
     }
 
@@ -306,6 +312,7 @@ public partial class Main : Node
 
     public void NextDepth()
     {
+        if (Brains.Training) Brains.SaveAll();
         G.Depth++;
         _seed = _rng.Next(1, 999999);
         BuildLevel(_seed, freshPlayer: false);
@@ -327,6 +334,7 @@ public partial class Main : Node
 
     private void Restart()
     {
+        if (Brains.Training) Brains.SaveAll();
         G.Depth = 1;
         _seed = _rng.Next(1, 999999);
         _pendingTreasure.Clear();
@@ -339,6 +347,7 @@ public partial class Main : Node
 
     public void OnPlayerDied()
     {
+        if (Brains.Training) Brains.SaveAll();
         _state = State.Dead;
         _deadT = 0;
         _sfx.SetMusic("");
@@ -409,8 +418,38 @@ public partial class Main : Node
         else if (kbm && UsingPad) { UsingPad = false; Input.MouseMode = Input.MouseModeEnum.Visible; }
     }
 
+    public override void _Notification(int what)
+    {
+        // closing the window (or quitting from code) keeps what was learned
+        if ((what == NotificationWMCloseRequest || what == NotificationExitTree) && Brains.Training) Brains.SaveAll();
+    }
+
     public override void _UnhandledInput(InputEvent e)
     {
+        if (e is InputEventKey { Pressed: true, Echo: false } k)
+        {
+            if (k.PhysicalKeycode == Key.F9)
+            {
+                Brains.Training = !Brains.Training;
+                if (!Brains.Training) Brains.SaveAll();
+                _hud.ShowBanner(Brains.Training ? "ENEMY TRAINING ON" : "ENEMY TRAINING OFF (saved)", 1.6f);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (k.PhysicalKeycode == Key.F10)
+            {
+                Brains.SaveAll(force: true);
+                _hud.ShowBanner("BRAINS SAVED", 1.2f);
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+            if (k.PhysicalKeycode == Key.F8 && Brains.Training)
+            {
+                Brains.ShowLabels = !Brains.ShowLabels;
+                GetViewport().SetInputAsHandled();
+                return;
+            }
+        }
         if (_state == State.Title && (e.IsActionPressed("confirm") || (e is InputEventMouseButton mb && mb.Pressed)))
         {
             StartPlaying();
@@ -481,6 +520,7 @@ public partial class Main : Node
                 }
                 _runTime += dt;
                 G.RunTime = _runTime;
+                Brains.Tick(unscaled);
                 TryOpenUpgradeMenu();
                 break;
         }
@@ -1014,6 +1054,72 @@ public partial class Main : Node
             img.GetRegion(r).SavePng($"{_shotDir}/at_{_animFrame:000}.png");
         }
         if (_animT > 5.4f) GetTree().Quit();
+    }
+
+    /// <summary>--nntest: checks the brain's maths (gradients, learning, save/load) without a window.</summary>
+    private void RunNnTest()
+    {
+        bool ok = true;
+        float worst = Brain.GradientCheck();
+        GD.Print($"[nntest] gradient check: worst relative error {worst:0.00000}");
+        ok &= worst < 0.02f;
+
+        // A contextual bandit: 4 moves, the right one is whichever of the first 4 inputs is largest.
+        // From scratch (no teacher) it must learn it from rewards alone.
+        float teacher = Tune.Brains.TeacherStart;
+        Tune.Brains.TeacherStart = 0;
+        var rng = new Random(7);
+        var b = new Brain("bandit", 8, 4, 11);
+        var probs = new float[4];
+        var mask = new[] { true, true, true, true };
+        float Accuracy()
+        {
+            int hit = 0;
+            for (int n = 0; n < 400; n++)
+            {
+                var x = new float[8];
+                for (int i = 0; i < 8; i++) x[i] = (float)rng.NextDouble() * 2 - 1;
+                b.Choose(x, mask, false, out _, probs);
+                int best = 0, pick = 0;
+                for (int k = 1; k < 4; k++) { if (x[k] > x[best]) best = k; if (probs[k] > probs[pick]) pick = k; }
+                if (pick == best) hit++;
+            }
+            return hit / 400f;
+        }
+        float before = Accuracy();
+        for (int n = 0; n < 12000; n++)
+        {
+            var x = new float[8];
+            for (int i = 0; i < 8; i++) x[i] = (float)rng.NextDouble() * 2 - 1;
+            int a = b.Choose(x, mask, true, out _, probs);
+            int best = 0;
+            for (int k = 1; k < 4; k++) if (x[k] > x[best]) best = k;
+            b.Remember(new Brain.Transition { X = x, Mask = mask, Action = a, Teacher = -1, Target = a == best ? 1 : -0.2f });
+        }
+        float after = Accuracy();
+        GD.Print($"[nntest] reward learning: accuracy {before:P0} -> {after:P0} ({b.Updates} updates, {b.ParamCount} parameters)");
+        ok &= after > 0.8f;
+        Tune.Brains.TeacherStart = teacher;
+
+        // save / load round trip
+        var copy = Brain.FromJson(b.ToJson(), "bandit", 8, 4);
+        var probe = new float[] { 0.1f, -0.3f, 0.9f, 0.2f, 0, 0.5f, -0.5f, 0.3f };
+        bool same = copy != null && Math.Abs(copy.Value(probe) - b.Value(probe)) < 1e-6f;
+        bool rejects = Brain.FromJson(b.ToJson(), "bandit", 9, 4) == null;
+        GD.Print($"[nntest] save/load round trip: {(same ? "identical" : "MISMATCH")}; wrong shape rejected: {rejects}");
+        ok &= same && rejects;
+
+        // decision cost
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var big = new Brain("speed", Enemy.BaseInputs + 5, 5, 3);
+        var xs = new float[Enemy.BaseInputs + 5];
+        var pr = new float[5];
+        var m5 = new[] { true, true, true, true, true };
+        for (int n = 0; n < 10000; n++) big.Choose(xs, m5, true, out _, pr);
+        GD.Print($"[nntest] one decision takes {sw.Elapsed.TotalMilliseconds / 10000 * 1000:0.0} microseconds");
+
+        GD.Print(ok ? "[nntest] PASS" : "[nntest] FAIL");
+        GetTree().Quit(ok ? 0 : 1);
     }
 
     private void RunGenTest()
