@@ -376,7 +376,7 @@ public partial class Player : CharacterBody2D
         G.Sfx.Play("lava", GlobalPosition, 0, 0.1f, 0.8f);
         G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), 0.8f, new Color(1f, 0.55f, 0.15f));
         G.Fx.Smoke(GlobalPosition, 4, new Color(0.25f, 0.2f, 0.2f, 0.5f));
-        TakeRawDamage((Stats.MaxHp * 0.16f + 4) * (1f - Stats.DamageReduction), "burn");
+        TakeRawDamage(Math.Min(Stats.MaxHp * 0.16f + 4, 30 * G.DepthDmg) * (1f - Stats.DamageReduction), "burn");
         Velocity = new Vector2(Velocity.X * 0.5f, -BaseJumpV * 1.05f);
         _coyote = 0;
         _invuln = Math.Max(_invuln, 0.3f);

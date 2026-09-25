@@ -93,9 +93,12 @@ public static partial class CaveGenerator
         var rng = new Random(seed);
         float Rnd(float a, float b) => a + (b - a) * (float)rng.NextDouble();
         // no liquid: the "water line" sits below the map, so nothing ever counts as submerged
-        float waterRow = B.HasLiquid ? H * (1f - B.LiquidFraction) : H + 200;
+        // only water gets flooded tunnel systems; lava caves are carved dry and the lava then
+        // pools in the lowest basins (see below)
+        bool flooded = B.Liquid == Liquid.Water;
+        float waterRow = flooded ? H * (1f - B.LiquidFraction) : H + 200;
         // descenders head for the water, or (in dry caves) for the lower reaches of the map
-        float descendTo = B.HasLiquid ? waterRow + 2 : H * 0.78f;
+        float descendTo = flooded ? waterRow + 2 : H * 0.78f;
 
         var stamps = new List<Stamp>(4096);
         var ends = new List<EndInfo>();
@@ -215,7 +218,7 @@ public static partial class CaveGenerator
                         R = Math.Min(w.R, 3.4f), TR = w.Mode == ModeAir ? Rnd(B.AirRMin, B.AirRMax) : Rnd(3.0f, 4.2f),
                         Len = Rnd(70, 200) * (1f - w.Gen * 0.11f),
                     };
-                    if (B.HasLiquid && w.Mode == ModeAir && w.Y < waterRow - 12 && rng.NextDouble() < 0.2)
+                    if (flooded && w.Mode == ModeAir && w.Y < waterRow - 12 && rng.NextDouble() < 0.2)
                     {
                         c.Mode = ModeShaft; c.A = Mathf.Pi / 2 + Rnd(-0.3f, 0.3f); c.MustExit = true; c.Len = Math.Max(c.Len, 70);
                     }
@@ -484,6 +487,15 @@ public static partial class CaveGenerator
         cave.StartPos = new Vector2(sx, sy + 3.2f - 1.2f) * CaveData.Cell;
         foreach (var st in stamps) cave.DebugStamps.Add((new Vector2(st.X, st.Y), st.Kind));
         RemoveSpecks(cave);
+        if (B.Liquid == Liquid.Lava)
+        {
+            // lava fills the bottoms of the lowest tunnels, a few cells deep, below the exit chamber
+            int lowest = 0;
+            for (int j = 0; j < H; j++) for (int i = 0; i < W; i++) if (cave.CellOpen(i, j)) lowest = Math.Max(lowest, j);
+            float row = lowest - 3.5f;
+            if (cave.Boss != null) row = Math.Max(row, cave.Boss.Floor.Y / CaveData.Cell + 2);
+            cave.WaterY = row * CaveData.Cell;
+        }
         AddPlatforms(cave, rng);
 
         // Reachability validation, with repairs: stepping-stone ledges up out of any pit the
