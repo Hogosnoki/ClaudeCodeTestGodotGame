@@ -414,3 +414,64 @@ public partial class FallingRock : Node2D
         DrawColoredPolygon(new[] { new Vector2(-7 + shake, -10), new Vector2(7 + shake, -10), new Vector2(shake, 14) }, new Color(0.5f, 0.45f, 0.42f));
     }
 }
+
+/// <summary>The swordsman's Crescent Wave: a slicing arc that flies ahead of a swing and cuts
+/// through every enemy in its path once.</summary>
+public partial class SwordWave : Node2D
+{
+    public Vector2 Dir;
+    public float Damage, Range = 150f, Speed = 480f;
+    private float _traveled;
+    private readonly HashSet<Enemy> _hit = new();
+
+    public override void _Ready() { ZIndex = 2; Rotation = Dir.Angle(); }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        var from = GlobalPosition;
+        var to = from + Dir * Speed * dt;
+        _traveled += Speed * dt;
+        if (G.Cave.IsSolid(to) || _traveled > Range)
+        {
+            G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.95f, 1f, 0.8f), 6, 90, 1.8f, 0.3f);
+            QueueFree();
+            return;
+        }
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e.Dead || _hit.Contains(e)) continue;
+            if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 10) continue;
+            _hit.Add(e);
+            float dealt = e.Hurt(Damage, Dir * 120f, e.GlobalPosition - Dir * e.HitRadius);
+            if (dealt > 0)
+            {
+                G.Player?.OnDealtDamage(dealt);
+                if (!e.Dead) e.Freeze(Tune.Feel.HitStopThrown);
+                G.Fx.Spark(e.GlobalPosition, Dir, false, new Color(0.8f, 0.95f, 1f));
+            }
+        }
+        GlobalPosition = to;
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        float a = 1f - _traveled / Range;
+        // a crescent facing the way it flies (drawn in local space: +x is forward)
+        const int n = 14;
+        var outer = new Vector2[n];
+        var inner = new Vector2[n];
+        for (int k = 0; k < n; k++)
+        {
+            float t = k / (float)(n - 1) * 2 - 1;      // -1..1 across the crescent
+            float ang = t * 1.1f;
+            outer[k] = new Vector2(MathF.Cos(ang) * 12, MathF.Sin(ang) * 14);
+            inner[k] = new Vector2(MathF.Cos(ang) * 12 - 6 * (1 - t * t), MathF.Sin(ang) * 12);
+        }
+        var poly = new Vector2[n * 2];
+        for (int k = 0; k < n; k++) { poly[k] = outer[k]; poly[2 * n - 1 - k] = inner[k]; }
+        DrawColoredPolygon(poly, new Color(0.75f, 0.92f, 1f, 0.55f * a));
+        DrawPolyline(outer, new Color(1, 1, 1, 0.9f * a), 1.6f);
+    }
+}

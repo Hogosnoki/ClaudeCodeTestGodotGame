@@ -410,7 +410,7 @@ public partial class Spider : Enemy
                 int crawl = Intent == Toward ? dirP : Intent == Away ? -dirP : 0;
                 if (Awake && crawl != 0)
                 {
-                    float nx = GlobalPosition.X + crawl * Tune.Spider.CrawlSpeed * dt;
+                    float nx = GlobalPosition.X + crawl * Tune.Spider.CrawlSpeed * MoveScale * dt;
                     // stay on the ceiling contour
                     if (cave.FindCeiling(new Vector2(nx, GlobalPosition.Y + 12), 50, out var ce) && !cave.IsSolid(new Vector2(nx, ce.Y + 8)))
                     {
@@ -425,7 +425,7 @@ public partial class Spider : Enemy
             }
             case 1:
             {
-                var np = GlobalPosition + new Vector2(0, Tune.Spider.DropSpeed * dt);
+                var np = GlobalPosition + new Vector2(0, Tune.Spider.DropSpeed * MoveScale * dt);
                 bool floor = cave.IsSolid(np + new Vector2(0, BodyRadius * Size + 2)) || cave.IsWater(np);
                 if (floor || np.Y > P.GlobalPosition.Y + 6) { _state = 2; _stateT = 0; }
                 else GlobalPosition = np;
@@ -436,7 +436,7 @@ public partial class Spider : Enemy
                 break;
             case 3:
             {
-                var np = GlobalPosition + new Vector2(0, -120 * dt);
+                var np = GlobalPosition + new Vector2(0, -120 * MoveScale * dt);
                 if (np.Y <= _anchorY + 8) { np.Y = _anchorY + 8; _state = 0; _stateT = 0; }
                 GlobalPosition = np;
                 break;

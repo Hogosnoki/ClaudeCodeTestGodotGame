@@ -98,7 +98,7 @@ public partial class Player : CharacterBody2D
     public float BarrierHp { get; private set; }
     public float BarrierCooldownFrac => Math.Clamp(_barrierCd / Math.Max(0.01f, Stats.BarrierCooldown), 0, 1);
     private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _barrierT, _barrierCd;
-    private float _freeze, _lungeT, _lungeDir;
+    private float _freeze, _lungeT, _lungeDir, _waveCd;
     public float[] ThrowCooldowns => _throwCd;
     public float[] DodgeCooldowns => _dodgeCd;
     public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
@@ -159,8 +159,11 @@ public partial class Player : CharacterBody2D
         inp.Attack = mouseAttack || kbAttack;
         inp.Throw = mouseThrow || kbThrow;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
+        // the shield points wherever a swing would go: right stick, else the left stick on a
+        // controller (else your facing), or the mouse
         if (stick.Length() > 0.35f) inp.GuardAim = stick.Normalized();
-        else if (!G.Main.UsingPad) inp.GuardAim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
+        else if (G.Main.UsingPad) inp.GuardAim = inp.Move.Length() > 0.3f ? inp.Move.Normalized() : Vector2.Zero;
+        else inp.GuardAim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
         if (stick.Length() > 0.35f) inp.Aim = stick.Normalized();
         else if (kbAttack || kbThrow) inp.Aim = inp.Move.Length() > 0.2f ? inp.Move.Normalized() : new Vector2(Facing, 0);
         else inp.Aim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
@@ -244,8 +247,8 @@ public partial class Player : CharacterBody2D
         }
         _wasOnFloor = nowFloor;
 
-        // Attacks (raising the shield means you aren't swinging)
-        if (inp.Attack && _swingCd <= 0 && _dodgeT <= 0 && !ShieldRaised) StartSwing(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
+        // Attacks (the warden can swing from behind the shield, but can't combo there)
+        if (inp.Attack && _swingCd <= 0 && _dodgeT <= 0) StartSwing(inp.Aim.LengthSquared() > 0.01f ? inp.Aim : new Vector2(Facing, 0));
         if (inp.Throw && _dodgeT <= 0)
         {
             if (IsWarden) TryBarrier();
@@ -349,8 +352,16 @@ public partial class Player : CharacterBody2D
     {
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
         _wallJumpLock -= dt; _hurtFlash -= dt; _lungeT -= dt;
-        _barrierCd -= dt;
-        if (_barrierT > 0) { _barrierT -= dt; if (_barrierT <= 0) BarrierHp = 0; }
+        _barrierCd -= dt; _waveCd -= dt;
+        if (_barrierT > 0)
+        {
+            _barrierT -= dt;
+            if (_barrierT <= 0)
+            {
+                if (Stats.RestoringWard && BarrierHp > 0) Heal(BarrierHp); // what it didn't have to absorb heals you
+                BarrierHp = 0;
+            }
+        }
         for (int k = 0; k < _throwCd.Length; k++) if (_throwCd[k] > 0) _throwCd[k] -= dt;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] > 0) _dodgeCd[k] -= dt;
     }
@@ -379,7 +390,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised ? Tune.Warden.ShieldMoveMult : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f);
         float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
         v.X = Mathf.MoveToward(v.X, target, accel * dt);
         if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
@@ -508,6 +519,17 @@ public partial class Player : CharacterBody2D
         if (LungeSpeed > 0 && !InWater && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
         _swingHits.Clear();
         _swingHitSomething = false;
+        if (Stats.CrescentWave && _waveCd <= 0)
+        {
+            _waveCd = Tune.Swordsman.WaveCooldown;
+            G.Spawn(new SwordWave
+            {
+                Position = GlobalPosition + new Vector2(0, -3) + aim * (_swingReach * 0.6f),
+                Dir = aim,
+                Damage = _swingDmg * Tune.Swordsman.WaveDamage,
+                Range = Tune.Swordsman.WaveRange,
+            });
+        }
         // body animation: combo letter + the nearest of five aim directions in front of the player
         var local = new Vector2(aim.X * Facing, aim.Y);
         float la = MathF.Atan2(local.Y, Math.Max(local.X, -0.2f));
@@ -555,7 +577,10 @@ public partial class Player : CharacterBody2D
         bool finisher = _finisher;
         if (finisher) kb += Tune.Hero.FinisherExtraKnockback;
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
-        float dealt = e.Hurt(_swingDmg * G.Range(0.9f, 1.1f), dir * kb, hitPos);
+        float dmg = _swingDmg * G.Range(0.9f, 1.1f);
+        if (Stats.Execute && e.Hp < e.MaxHp * Tune.Swordsman.ExecuteBelow) dmg *= 1f + Tune.Swordsman.ExecuteBonus;
+        float dealt = e.Hurt(dmg, dir * kb, hitPos);
+        if (dealt > 0 && Stats.BleedShare > 0 && !e.Dead) e.Bleed(dealt * Stats.BleedShare, Tune.Swordsman.BleedSeconds);
         if (dealt <= 0)
         {
             G.Sfx.Play("clink", GlobalPosition, -6);
@@ -575,7 +600,8 @@ public partial class Player : CharacterBody2D
         if (!_swingHitSomething)
         {
             _swingHitSomething = true;
-            if (_comboStep < Stats.ComboResets) { _swingCd = 0.04f; _chainLive = true; }
+            // (no combo from behind a raised shield)
+            if (_comboStep < Stats.ComboResets && !ShieldRaised) { _swingCd = 0.04f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             if (Math.Abs(to.X) > 2) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
             Freeze(stop);
@@ -620,6 +646,14 @@ public partial class Player : CharacterBody2D
         };
         d.GlobalPosition = GlobalPosition + new Vector2(0, -4) + aim * 8;
         G.Spawn(d);
+        if (Stats.FanOfKnives)
+            for (int s = -1; s <= 1; s += 2)
+            {
+                var side = aim.Rotated(s * 0.2f);
+                var extra = new ThrownDagger { Dir = side, Damage = ThrowDamage * Stats.DamageMult * Tune.Swordsman.FanDamage, Pierce = Stats.Pierce };
+                extra.GlobalPosition = GlobalPosition + new Vector2(0, -4) + side * 8;
+                G.Spawn(extra);
+            }
         G.Sfx.Play("throw", GlobalPosition, -2);
     }
 
@@ -670,7 +704,7 @@ public partial class Player : CharacterBody2D
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
         // horizontal only (plus a gentle push in water) so nothing can juggle you upward
-        float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult;
+        float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f);
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         _dodgeT = 0; _airDashT = 0;
         return dmg;
@@ -685,13 +719,13 @@ public partial class Player : CharacterBody2D
     {
         // regeneration: at zero after a break for ShieldBreakTime, then back at the normal rate
         if (_shieldBrokenT > 0) _shieldBrokenT -= dt;
-        else if (_shieldRegenWait > 0) _shieldRegenWait -= dt;
+        else if (_shieldRegenWait > 0) _shieldRegenWait -= dt * (Stats.QuickMend ? 4f : 1f);
         else ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt);
         _shieldFlash -= dt;
 
         bool want = inp.GuardHeld || inp.Dodge;
         bool was = ShieldRaised;
-        ShieldRaised = want && !ShieldBroken && ShieldHp > 0 && _swingT < 0;
+        ShieldRaised = want && !ShieldBroken && ShieldHp > 0;
         if (ShieldRaised && !was) _shieldUpT = 0;
         _shieldUpT += dt;
         // aim: right stick / mouse when given, otherwise the way you face
@@ -751,9 +785,22 @@ public partial class Player : CharacterBody2D
         Anim.Flash(0.5f);
     }
 
+    private int _lastStandDepth = -1;
+
     private void TakeRawDamage(float dmg, string kind)
     {
         Hp -= dmg;
+        if (Hp <= 0 && Stats.LastStand && _lastStandDepth != G.Depth)
+        {
+            // once per depth, a killing blow leaves you standing with a fresh barrier
+            _lastStandDepth = G.Depth;
+            Hp = 1;
+            _invuln = Tune.Warden.LastStandInvuln;
+            BarrierHp = Stats.BarrierAmount; _barrierT = Stats.BarrierDuration;
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), "LAST STAND", new Color(1f, 0.85f, 0.4f), 13, 1.5f);
+            G.Fx.Ring(GlobalPosition, 24, new Color(1f, 0.85f, 0.4f));
+            G.Sfx.Play("roar", GlobalPosition, -8, 0, 1.8f);
+        }
         _hurtFlash = 0.15f;
         G.Fx.Text(GlobalPosition + new Vector2(0, -24), Mathf.RoundToInt(dmg).ToString(), new Color(1f, 0.35f, 0.3f), 12);
         G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.1f, 0.1f), 8, 120, 2.2f, 0.45f);
@@ -818,9 +865,14 @@ public partial class Player : CharacterBody2D
         if (Math.Abs(head - tail) < 0.02f) return;
         var o = new Vector2(0, -3);
         const int n = 18;
-        float outer = _swingReach + 3, width = finisher ? 15 : 11;
-        var pts = new Vector2[n * 2];
-        var cols = new Color[n * 2];
+        // The smear covers the whole blade, from the hand to the tip, and fades both along the
+        // swing (bright at the leading edge) and across it (bright at the tip, clear at the hand).
+        float outer = _swingReach + 3;
+        float blade = _swingReach * (IsWarden ? 0.62f : 0.8f) * (finisher ? 1.1f : 1f);
+        var outerBand = new Vector2[n * 2];
+        var innerBand = new Vector2[n * 2];
+        var outerCols = new Color[n * 2];
+        var innerCols = new Color[n * 2];
         var edge = new Vector2[n];
         var edgeCols = new Color[n];
         var tint = finisher ? new Color(1f, 0.82f, 0.35f) : new Color(0.8f, 0.95f, 1f);
@@ -828,17 +880,22 @@ public partial class Player : CharacterBody2D
         {
             float t = k / (float)(n - 1);            // 0 = tail, 1 = head
             float ang = Mathf.Lerp(tail, head, t);
-            float w = width * MathF.Sin(t * MathF.PI * 0.5f + 0.15f);
+            float w = blade * (0.35f + 0.65f * MathF.Sin(t * MathF.PI * 0.5f)); // the tail thins out
             var d = Vector2.Right.Rotated(ang);
-            pts[k] = o + d * outer;
-            pts[2 * n - 1 - k] = o + d * (outer - w);
             float alpha = t * t * fade;
-            cols[k] = new Color(tint, 0.85f * alpha);
-            cols[2 * n - 1 - k] = new Color(tint, 0.0f);
+            var pOuter = o + d * outer;
+            var pMid = o + d * (outer - w * 0.4f);
+            var pInner = o + d * (outer - w);
+            outerBand[k] = pOuter; outerBand[2 * n - 1 - k] = pMid;
+            innerBand[k] = pMid; innerBand[2 * n - 1 - k] = pInner;
+            outerCols[k] = new Color(tint, 0.8f * alpha);
+            outerCols[2 * n - 1 - k] = innerCols[k] = new Color(tint, 0.32f * alpha);
+            innerCols[2 * n - 1 - k] = new Color(tint, 0f);
             edge[k] = o + d * (outer + 0.5f);
             edgeCols[k] = new Color(1, 1, 1, alpha);
         }
-        DrawPolygon(pts, cols);
+        DrawPolygon(innerBand, innerCols);
+        DrawPolygon(outerBand, outerCols);
         DrawPolylineColors(edge, edgeCols, finisher ? 2.5f : 1.8f);
         if (finisher)
         {

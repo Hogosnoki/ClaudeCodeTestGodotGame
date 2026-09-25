@@ -26,7 +26,7 @@ BUCKLER_RIM = hexc('b8c4cc')
 
 STYLES = {
     'swordsman': dict(CLOAK='2b6272', CLOAK_D='183d49', SCARF='cc3a2e', PANTS='2e2c38', BELT='70502c',
-                      BLADE_LEN=17.0, BLADE_W=1.3, GUARD_W=3.0, BUCKLER=False),
+                      BLADE_LEN=13.0, BLADE_W=1.3, GUARD_W=2.8, BUCKLER=False),
     'warden': dict(CLOAK='34457e', CLOAK_D='1f2a52', SCARF='d4a93a', PANTS='3a3530', BELT='5a3c22',
                    BLADE_LEN=9.5, BLADE_W=1.25, GUARD_W=2.5, BUCKLER=True),
 }

@@ -89,7 +89,7 @@ public partial class CavernColossus : Enemy
                 {
                     float air = 0.85f;
                     float tx = Mathf.Clamp(P.GlobalPosition.X, _room.Center.X - _room.RxPx + 50, _room.Center.X + _room.RxPx - 50);
-                    v = new Vector2((tx - GlobalPosition.X) / air, -0.5f * Grav * air);
+                    v = new Vector2((tx - GlobalPosition.X) / air / MoveScale, -0.5f * Grav * air); // lands on target despite MoveScale
                     G.Sfx.Play("jump", GlobalPosition, 0, 0, 0.4f);
                     Go(S.Leap);
                 }

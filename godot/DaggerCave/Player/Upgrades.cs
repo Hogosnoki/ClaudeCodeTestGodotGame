@@ -39,6 +39,8 @@ public sealed class PlayerStats
     public float ThrowCooldown = Tune.Hero.ThrowCooldown;
     public int Bounces = 0;
     public bool Pierce;
+    public float BleedShare;             // Rending Edge
+    public bool Execute, CrescentWave, FanOfKnives;
 
     // warden: shield + barrier
     public float ShieldMax = Tune.Warden.ShieldHp;
@@ -50,6 +52,7 @@ public sealed class PlayerStats
     public float BarrierDuration = Tune.Warden.BarrierDuration;
     public float BarrierCooldown = Tune.Warden.BarrierCooldown;
     public bool BarrierThorns;
+    public bool Stalwart, QuickMend, RestoringWard, LastStand;
 
     public readonly Dictionary<string, int> Stacks = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
@@ -57,7 +60,11 @@ public sealed class PlayerStats
     public PlayerStats(HeroKind hero = HeroKind.Swordsman)
     {
         Hero = hero;
-        if (hero == HeroKind.Warden) { MoveSpeed = Tune.Warden.MoveMult; JumpMult = Tune.Warden.JumpMult; }
+        if (hero == HeroKind.Warden)
+        {
+            MoveSpeed = Tune.Warden.MoveMult; JumpMult = Tune.Warden.JumpMult;
+            MaxHp = Tune.Warden.StartHp; BreathMax += Tune.Warden.ExtraBreath;
+        }
         else { MoveSpeed = Tune.Swordsman.MoveMult; JumpMult = Tune.Swordsman.JumpMult; }
     }
 }
@@ -107,6 +114,12 @@ public static class Upgrades
         new() { Id = "throw2", Name = "Spare Dagger", Desc = "A second throwing charge.", Icon = "throw", Only = S, Tier = UpgradeTier.Ability, Apply = (s, p) => { s.ThrowCharges = 2; p.SyncCharges(); } },
         new() { Id = "throwcd", Name = "Quick Recall", Desc = "Thrown daggers return 25% faster.", Icon = "throw", Only = S, MaxStacks = 2, Apply = (s, p) => s.ThrowCooldown *= 0.75f },
 
+        // --- Sword techniques (swordsman) ---
+        new() { Id = "rend", Name = "Rending Edge", Desc = "Sword hits make enemies bleed for 40% more damage over 3 s.", Icon = "blade", Only = S, MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BleedShare += Tune.Swordsman.BleedShare },
+        new() { Id = "wave", Name = "Crescent Wave", Desc = "Swings loose a slicing wave that flies ahead and cuts through enemies (half damage, every 1.2 s).", Icon = "blade", Only = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.CrescentWave = true },
+        new() { Id = "execute", Name = "Executioner", Desc = "+60% damage to enemies below 35% health.", Icon = "blade", Only = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.Execute = true },
+        new() { Id = "fan", Name = "Fan of Knives", Desc = "Each throw also flings two daggers at an angle (60% damage).", Icon = "throw", Only = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.FanOfKnives = true },
+
         // --- Dodge (swordsman) ---
         new() { Id = "iframes", Name = "Phantom Step", Desc = "Dodging makes you briefly invulnerable.", Icon = "dodge", Only = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DodgeIFrames = true },
         new() { Id = "dodgecd", Name = "Nimble", Desc = "Dodge cooldown -20%.", Icon = "dodge", Only = S, MaxStacks = 3, Apply = (s, p) => s.DodgeCdMult *= 0.8f },
@@ -119,6 +132,10 @@ public static class Upgrades
         new() { Id = "barrier_cd", Name = "Ward Ready", Desc = "Barrier cooldown -20%.", Icon = "shield", Only = W, MaxStacks = 3, Apply = (s, p) => s.BarrierCooldown *= 0.8f },
         new() { Id = "barrier_time", Name = "Lasting Ward", Desc = "Barrier lasts 2 s longer.", Icon = "shield", Only = W, MaxStacks = 3, Apply = (s, p) => s.BarrierDuration += 2f },
         new() { Id = "barrier_amt", Name = "Thick Ward", Desc = "Barrier absorbs 5 more damage.", Icon = "shield", Only = W, MaxStacks = 3, Apply = (s, p) => s.BarrierAmount += 5f },
+        new() { Id = "stalwart", Name = "Stalwart", Desc = "Full speed with the shield raised, and hits never knock you back.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.Stalwart = true },
+        new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", Only = W, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegen *= 1.5f; } },
+        new() { Id = "restoring", Name = "Restoring Ward", Desc = "When your barrier fades, whatever it didn't absorb heals you.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.RestoringWard = true },
+        new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a fresh barrier.", Icon = "life", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
         new() { Id = "barrier_thorns", Name = "Thorned Ward", Desc = "While your barrier is up, melee attackers take back the damage they deal.", Icon = "shield", Only = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BarrierThorns = true },
 
         // --- Movement ---

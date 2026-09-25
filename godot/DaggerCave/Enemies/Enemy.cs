@@ -128,6 +128,13 @@ public abstract partial class Enemy : CharacterBody2D
         float tempo = G.Tempo;
         float dt = (float)delta * tempo;
         T += dt; HurtFlash -= (float)delta;
+        if (_bleedT > 0)
+        {
+            _bleedT -= dt;
+            Hp -= _bleedDps * dt;
+            if (G.Chance(0.15f)) G.Fx.Burst(GlobalPosition, BloodColor, 1, 30, 1.8f, 0.4f, 200);
+            if (Hp <= 0) { Die(); return; }
+        }
         BrainAccount(dt);
 
         if (Stun > 0)
@@ -145,9 +152,12 @@ public abstract partial class Enemy : CharacterBody2D
             Think(dt);
             if (!ManualMove)
             {
-                Velocity *= tempo;
+                // tempo speeds the creature up; MoveScale shrinks every move it makes (speed,
+                // gravity and jump height together, with the same timing)
+                float k = tempo * MoveScale;
+                Velocity *= k;
                 MoveAndSlide();
-                Velocity /= tempo;
+                Velocity /= k;
             }
         }
         if (Anim != null)
@@ -170,7 +180,19 @@ public abstract partial class Enemy : CharacterBody2D
         QueueRedraw();
     }
 
-    private float _freeze;
+    private float _freeze, _bleedT, _bleedDps;
+
+    /// <summary>How far enemies move relative to their numbers (Tune.Difficulty.EnemyMoveScale).</summary>
+    protected static float MoveScale => Tune.Difficulty.EnemyMoveScale;
+
+    /// <summary>Damage over time (the swordsman's Rending Edge). Stacks by topping up.</summary>
+    public void Bleed(float total, float seconds)
+    {
+        if (Dead || total <= 0) return;
+        float left = _bleedT > 0 ? _bleedDps * _bleedT : 0;
+        _bleedT = seconds;
+        _bleedDps = (left + total) / seconds;
+    }
 
     /// <summary>Freezes just this creature for a hit-stop.</summary>
     public void Freeze(float seconds) { if (!Dead) _freeze = Math.Max(_freeze, seconds); }

@@ -479,7 +479,7 @@ public static class CaveGenerator
     {
         int waterRow = (int)(cave.WaterY / CaveData.Cell);
         bool Open(int i, int j) => cave.CellOpen(i, j);
-        var placed = new List<Vector2>();
+        var placed = new List<Vector3>(); // (centre x, standing row, half width)
         var keepOut = new List<Room>();
         foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Boss or RoomKind.Start) keepOut.Add(r);
 
@@ -498,7 +498,11 @@ public static class CaveGenerator
             // headroom to stand and jump
             for (int j = s - 3; j <= s; j++) if (!Open(ci, j)) return null;
             if (!Open(ci, s + 1)) return null; // there's already ground here
-            foreach (var p in placed) if (Math.Abs(p.X - x) < 6 && Math.Abs(p.Y - s) < 3) return null;
+            // keep a clear sideways gap from ledges at a similar height, and never stack one
+            // right above another (you'd bump your head jumping up)
+            float gap = Tune.Cave.PlatformGapCells;
+            foreach (var p in placed)
+                if (Math.Abs(p.Y - s) < 6 && Math.Abs(p.X - x) < p.Z + 3.2f + gap) return null;
             var px = new Vector2(x, s) * CaveData.Cell;
             foreach (var r in keepOut) if (Math.Abs(px.X - r.Center.X) < r.RxPx + 48 && Math.Abs(px.Y - r.Center.Y) < r.RyPx + 64) return null;
             // how wide is the gap at the ledge's row?
@@ -517,8 +521,10 @@ public static class CaveGenerator
                 cx = left ? l - 0.8f + half : rr + 1.8f - half;
             }
             else return null;
+            foreach (var p in placed)
+                if (Math.Abs(p.Y - s) < 6 && Math.Abs(p.X - cx) < p.Z + half + gap) return null;
             StampLedge(cave, cx, s + 1.8f, half);
-            placed.Add(new Vector2(cx, s));
+            placed.Add(new Vector3(cx, s, half));
             return cx;
         }
 
@@ -535,8 +541,10 @@ public static class CaveGenerator
                     at = TryLedge(x - side * 4, s);
                     if (at == null) return;
                 }
-                x = at.Value + side * (2.5f + (float)rng.NextDouble() * 2.5f);
-                s -= 3 + rng.Next(2); // 3-4 cells: always within one jump
+                // the next ledge sits off to the side (a clear gap between edges) and one short hop up
+                float halfHere = placed[^1].Z;
+                x = at.Value + side * (halfHere + 3.3f + Tune.Cave.PlatformGapCells + (float)rng.NextDouble() * 1.5f);
+                s -= 3; // 3 cells: within even the warden's jump
                 side = -side;
             }
         }

@@ -192,6 +192,8 @@ water surface and from the floors of tall caverns:
   `PlatformDensityTop`). The low caves are easy to climb around. The heights take luck or better
   movement upgrades, but are never out of reach.
 - In a narrow shaft a ledge becomes a shelf on one wall, leaving a gap to drop through.
+- Ledges at similar heights keep a clear sideways gap (`Cave.PlatformGapCells`) and never stack
+  directly overhead, so jumping between them doesn't bump your head.
 
 The cave is about
 400 x 240 cells (6400 x 3840 px), sized for roughly 15-20 minutes of exploring. Dead ends
@@ -204,15 +206,16 @@ left / right.
 
 | | Swordsman | Warden |
 | --- | --- | --- |
-| Weapon | Medium sword: 60 px reach, 20 damage per strike, slower swings (0.6 s apart) that lunge you forward, heavy knockback | Shortsword: 30 px reach, 10 damage, swings every 0.36 s with a fast sweep |
+| Weapon | Medium sword: 45 px reach, 20 damage per strike, slower swings (0.6 s apart) with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 10 damage, swings every 0.36 s with a fast sweep |
 | Defense (Shift / B / LB) | Dodge roll | Hold to raise the shield (see below) |
 | Secondary (right click / RB) | Thrown dagger (2 s recharge, doesn't lock the sword) | Barrier: absorbs 5 damage for 5 s, 10 s cooldown |
 | Movement | Full speed and jump | 85% speed and jump height (80% speed while shielding) |
+| Toughness | 60 HP, 10 s of breath | 80 HP, 11 s of breath |
 
 Warden's shield:
-- **Blocking**: it's a narrow arc of blue light (70°). It points where you face, or toward the
-  right stick / mouse when you aim. It blocks melee attacks and projectiles that arrive within
-  its arc, and you can't swing while it's up.
+- **Blocking**: it's a narrow arc of blue light (70°). It blocks melee attacks and projectiles that arrive within
+  its arc. Like a swing, it aims at the right stick, else the left stick on a controller, else
+  the mouse. You can swing while it's up, but those swings don't combo.
 - **Strength**: it holds 40 damage and regenerates 3 per second, starting 1 s after its last block.
 - **Breaking**: once drained it breaks, stays at zero for 6 s, then regenerates from zero again.
 - **Perfect block**: raising it at most 0.18 s before a hit counts as a perfect block, which the
@@ -226,7 +229,8 @@ Swimming has a breath meter; you take drowning damage when it runs out and the a
 while your head is underwater. Water soaks up a quarter of your speed when you plunge in and
 drags a little on swimming and sinking (`Hero.WaterDrag`, `Hero.WaterEntryDamp`).
 
-You start with 60 HP. After being struck you are invulnerable for 0.4 s. Healing is scarce:
+After being struck you are invulnerable for 0.4 s. Drowning costs 3 HP plus 1% of max HP every
+half second once your breath runs out. Healing is scarce:
 hearts drop from 2% of regular kills and 40% of mini-bosses.
 
 Enemies only hurt you with actual attacks, never by just touching you. The attacks are clubs,
@@ -251,18 +255,19 @@ launching you upward.
   - Swordsman: faster dodge and throw recharge.
   - Warden: shield strength, shield regeneration, and faster recovery from a break.
 - **Chests** hold the real upgrades and abilities.
-  - Only 40% of treasure dead ends hold a chest (`Drops.TreasureRoomChestChance`). Mini-bosses
-    and the boss always drop one.
-  - Where a chest is tilts its odds (`Drops.ZoneBias`). Movement upgrades are 3x likelier in
-    underwater chests, and survival upgrades 3x likelier in chests high in the cave, which you
-    need movement upgrades to reach.
+  - 80% of treasure dead ends hold a chest (`Drops.TreasureRoomChestChance`). Mini-bosses and
+    the boss always drop one.
+  - Where a chest is tilts its odds (`Drops.ZoneBias`). Movement upgrades are 4x likelier in
+    underwater chests, which is how you gear up for the heights. Survival upgrades are 4x
+    likelier in chests high in the cave.
 
 | Area | Chest upgrades |
 | --- | --- |
 | Blade (both) | attack speed, reach, damage, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback |
-| Thrown dagger (swordsman) | ricochet *or* pierce (you can only have one), a second throw charge, faster recall |
+| Sword techniques (swordsman) | Rending Edge (hits bleed for 40% more over 3 s, stacks twice), Crescent Wave (swings loose a flying slash, half damage, every 1.2 s), Executioner (+60% damage to enemies under 35% health) |
+| Thrown dagger (swordsman) | ricochet *or* pierce (you can only have one), a second throw charge, faster recall, Fan of Knives (two extra daggers per throw) |
 | Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
-| Shield and barrier (warden) | Riposte Guard (perfect blocks reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc), barrier: shorter cooldown, longer duration, more absorption, Thorned Ward (melee attackers take back what they deal) |
+| Shield and barrier (warden) | Stalwart (full speed while shielding, no knockback), Quick Mend (shield regenerates almost at once after a block, 50% faster), Restoring Ward (an expiring barrier heals what it didn't absorb), Last Stand (once per depth, survive a killing blow at 1 HP with a fresh barrier), Riposte Guard (perfect blocks reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc), barrier: shorter cooldown, longer duration, more absorption, Thorned Ward (melee attackers take back what they deal) |
 | Movement (both) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
 | Survival (both) | max HP, longer invulnerability after being struck (Resilience), damage reduction, life steal, heal on kill, XP magnet |
 
@@ -294,6 +299,11 @@ Mini-bosses are elite versions of these enemies and drop a chest.
     the screen edges, and every entry point is reachable along the tunnels.
   - What arrives suits the spot: fish in water, bats where there's no floor, walkers on the
     ground. Each comes to you its own way: bats fly in, frogs hop, goblins run, fish swim.
+
+Enemies move 20% less far than their raw numbers say (`Difficulty.EnemyMoveScale`). That
+scales their speed, gravity and jump height together, while aimed leaps (the fish's shore
+ambush, the Colossus's slam) still land where they aim. Magma puddles burn for 3, and blue fish
+bite softer than orange ones.
 
 Difficulty rises continuously with play time. Enemy health and damage follow 2^(minutes/10), so
 they double every 10 minutes. Enemy speed, attack rate and animation speed follow the same curve,

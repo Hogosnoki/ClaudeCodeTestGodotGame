@@ -16,9 +16,9 @@ public static class Tune
         public static float StartHp = 60f;
         /// <summary>Invulnerability after being struck (the Resilience upgrade adds to this).</summary>
         public static float HurtInvuln = 0.4f;
-        public static float BreathSeconds = 8f;
+        public static float BreathSeconds = 10f;
         /// <summary>Drowning damage per tick (every 0.5 s) = flat + fraction of max HP.</summary>
-        public static float DrownDamageFlat = 5f, DrownDamageFrac = 0.02f;
+        public static float DrownDamageFlat = 3f, DrownDamageFrac = 0.01f;
 
         public static float RunSpeed = 170f;
         public static float GroundAccel = 1900f, AirAccel = 1200f;
@@ -74,9 +74,16 @@ public static class Tune
     {
         /// <summary>Sword reach (px), damage per strike, time between swings, and how long the
         /// blade takes to sweep its arc (longer = heavier, slower-looking swing).</summary>
-        public static float Reach = 60f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.17f;
+        public static float Reach = 45f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.17f;
         /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
-        public static float Lunge = 190f;
+        public static float Lunge = 130f;
+        /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
+        /// Crescent Wave (damage share, range px, cooldown s), Executioner (bonus vs. enemies below
+        /// the HP share), Fan of Knives (extra daggers' damage share).</summary>
+        public static float BleedShare = 0.4f, BleedSeconds = 3f;
+        public static float WaveDamage = 0.5f, WaveRange = 150f, WaveCooldown = 1.2f;
+        public static float ExecuteBonus = 0.6f, ExecuteBelow = 0.35f;
+        public static float FanDamage = 0.6f;
         /// <summary>Knockback (px/s) on every hit, before Heavy Pommel.</summary>
         public static float Knockback = 180f;
         public static float MoveMult = 1f, JumpMult = 1f;
@@ -90,6 +97,8 @@ public static class Tune
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>85% of the swordsman's run speed and jump height.</summary>
         public static float MoveMult = 0.85f, JumpMult = 0.85f;
+        /// <summary>Sturdier: more starting HP and one more second of breath.</summary>
+        public static float StartHp = 80f, ExtraBreath = 1f;
 
         /// <summary>Shield: damage it can block, its arc (degrees), regeneration per second, the
         /// pause after a block before it regenerates, and how long it stays at zero once broken.</summary>
@@ -101,6 +110,8 @@ public static class Tune
         /// <summary>Move speed while the shield is raised.</summary>
         public static float ShieldMoveMult = 0.8f;
 
+        /// <summary>Last Stand upgrade: invulnerability after surviving a killing blow (once per depth).</summary>
+        public static float LastStandInvuln = 1.5f;
         /// <summary>Barrier buff: damage absorbed, duration and cooldown (seconds).</summary>
         public static float BarrierAmount = 5f, BarrierDuration = 5f, BarrierCooldown = 10f;
     }
@@ -146,6 +157,9 @@ public static class Tune
         public static float TempoCap = 2f;
         /// <summary>Spawn intensity ("pace") reaches 1.0 after this many minutes, capped at PaceMax.</summary>
         public static float PaceMinutesPerStep = 10f, PaceMax = 3f;
+        /// <summary>Scales how far enemies move: their speed, gravity and jump speed together
+        /// (0.8 = 20% slower, same jump timing, 20% lower jumps). Aimed leaps compensate.</summary>
+        public static float EnemyMoveScale = 0.8f;
     }
 
     // =============================================================================== SPAWNING
@@ -183,11 +197,11 @@ public static class Tune
         public static float HeartChance = 0.02f, HeartChanceElite = 0.4f;
         public static float HeartHeal = 15f, ChestHeal = 12f;
         /// <summary>Chance each treasure dead end actually holds a chest (mini-bosses and the boss always drop one).</summary>
-        public static float TreasureRoomChestChance = 0.4f;
+        public static float TreasureRoomChestChance = 0.8f;
         /// <summary>Chest odds by location: movement upgrades are this many times likelier in
         /// underwater chests, survival upgrades in chests above HighZoneFraction of the water line's
         /// height (0.5 = the upper half of the dry caves).</summary>
-        public static float ZoneBias = 3f, HighZoneFraction = 0.5f;
+        public static float ZoneBias = 4f, HighZoneFraction = 0.5f;
     }
 
     // =============================================================================== ENEMIES
@@ -227,7 +241,7 @@ public static class Tune
 
     public static class Magma
     {
-        public static float Hp = 40, Contact = 10, WalkSpeed = 45, GlobDamage = 9, PuddleDamage = 6, LobCooldown = 3.2f;
+        public static float Hp = 40, Contact = 10, WalkSpeed = 45, GlobDamage = 9, PuddleDamage = 3, LobCooldown = 3.2f;
         public static float WaterDamagePerSec = 15;
         public static int Xp = 8;
     }
@@ -242,6 +256,8 @@ public static class Tune
     public static class Fish
     {
         public static float Hp = 10, Contact = 7, DartSpeed = 280, AggroRange = 320;
+        /// <summary>The blue variant's dart damage, as a share of Contact.</summary>
+        public static float BlueDamageMult = 0.55f;
         public static int Xp = 2;
     }
 
@@ -282,7 +298,10 @@ public static class Tune
         /// <summary>Ledge staircases through tall open spaces: the chance each next ledge up is
         /// placed, at the water line and at the roof (in between it blends). High at the bottom,
         /// sparse at the top, so the heights are harder (not impossible) to reach.</summary>
-        public static float PlatformDensityBottom = 0.95f, PlatformDensityTop = 0.2f;
+        public static float PlatformDensityBottom = 0.85f, PlatformDensityTop = 0.17f;
+        /// <summary>Minimum sideways gap (cells) between ledges at similar heights, so you can
+        /// jump between them without hitting your head.</summary>
+        public static float PlatformGapCells = 2.5f;
         /// <summary>Roughly how far apart (in cells) staircases start.</summary>
         public static int PlatformSpacingCells = 9;
     }

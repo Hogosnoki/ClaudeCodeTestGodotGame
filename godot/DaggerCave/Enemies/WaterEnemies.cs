@@ -26,6 +26,7 @@ public partial class Fish : Enemy
         bool orange = G.Chance(0.5f);
         _col = orange ? new Color(0.95f, 0.55f, 0.2f) : new Color(0.35f, 0.75f, 0.8f);
         UseSprite(orange ? "fish" : "fish2");
+        if (!orange) ContactDamage *= Tune.Fish.BlueDamageMult; // the blue ones bite softer
         MotionMode = MotionModeEnum.Floating;
         _dartCd = G.Range(0.3f, 1.2f);
     }
@@ -57,7 +58,8 @@ public partial class Fish : Enemy
                     _leapCd = G.Range(3f, 5f);
                     float t = 0.75f;
                     var target = P.GlobalPosition;
-                    v = new Vector2((target.X - GlobalPosition.X) / t, (target.Y - GlobalPosition.Y) / t - 0.5f * Grav * t);
+                    // aimed so it lands on you once MoveScale shrinks the arc
+                    v = new Vector2((target.X - GlobalPosition.X) / MoveScale / t, (target.Y - GlobalPosition.Y) / MoveScale / t - 0.5f * Grav * t);
                     v.Y = Math.Max(v.Y, -720);
                     G.Sfx.Play("splash", GlobalPosition, -8, 0.2f, 1.3f);
                     Consume();

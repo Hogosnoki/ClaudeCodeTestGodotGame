@@ -1097,11 +1097,12 @@ public partial class Main : Node
         bool warden = p.Stats.Hero == HeroKind.Warden;
         // steps are keyed by time (tenths of a second); each runs once
         int s = (int)(_heroT * 10);
-        if (s != _lastHeroStep)
+        while (_lastHeroStep < s)
         {
-            _lastHeroStep = s;
-            if (warden) WardenStep(s, p); else SwordStep(s, p);
-            if (_shotDir != "" && (s == 12 || s == 145 || s == 163 || s == 9 || s == 10)) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{s:000}.png");
+            // run every step, even if a slow frame skipped past one
+            int step = ++_lastHeroStep;
+            if (warden) WardenStep(step, p); else SwordStep(step, p);
+            if (_shotDir != "" && (step == 12 || step == 145 || step == 163 || step == 9 || step == 10 || step == 22 || step == 23)) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
         }
     }
     private int _lastHeroStep = -1;
@@ -1155,6 +1156,11 @@ public partial class Main : Node
                 _hpMark = p.Hp;
                 Shoot(new Vector2(-90, -4)).Damage = 4;
                 break;
+            case 165: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = Vector2.Right, Attack = true, Aim = Vector2.Right }; break;
+            case 166:
+                Check($"can swing with the shield up (swinging {p.IsSwinging}, shield {p.ShieldRaised})", p.IsSwinging && p.ShieldRaised);
+                _heroInput = default;
+                break;
             case 170:
                 Check($"barrier soaks a small hit (hp {p.Hp:0}/{_hpMark:0}, barrier {p.BarrierHp:0.0})", p.Hp == _hpMark);
                 Finish();
@@ -1183,8 +1189,19 @@ public partial class Main : Node
                 break;
             case 9: _heroInput = default; break;
             case 14:
-                Check($"sword reaches 50 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
+                Check($"sword reaches a golem 50 px away (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
                 Check($"the swing lunges forward ({p.GlobalPosition.X - _posMark.X:0.0} px)", p.GlobalPosition.X - _posMark.X > 8);
+                // Crescent Wave: a swing from well out of reach still cuts the golem
+                Upgrades.Apply(Upgrades.Get("wave"), p.Stats, p);
+                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(120, -6);
+                break;
+            case 20:
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Attack = true, Aim = Vector2.Right };
+                break;
+            case 21: _heroInput = default; break;
+            case 28:
+                Check($"crescent wave hits at 120 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
                 Finish();
                 break;
         }
