@@ -62,7 +62,7 @@ public partial class Player : CharacterBody2D
     private float _dodgeT, _airDashT, _wallJumpLock, _hurtFlash, _bubbleT, _animT;
     private Vector2 _dodgeDir, _airDashDir, _swingDir;
     private int _comboStep, _airJumps, _airDashes;
-    private bool _jumpCutDone, _wasOnFloor, _comboResetPending, _swingHitSomething;
+    private bool _jumpCutDone, _wasOnFloor, _swingHitSomething, _chainLive, _finisher;
     private readonly HashSet<Enemy> _swingHits = new();
     private float _swingArc, _swingReach, _swingDmg;
     private float _lastFallSpeed;
@@ -80,7 +80,7 @@ public partial class Player : CharacterBody2D
     {
         CollisionLayer = G.LayerPlayer;
         CollisionMask = G.LayerTerrain;
-        FloorMaxAngle = Mathf.DegToRad(48);
+        FloorMaxAngle = Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees);
         FloorSnapLength = 7f;
         SafeMargin = 0.5f;
         AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 6.5f, Height = 26f } });
@@ -138,8 +138,8 @@ public partial class Player : CharacterBody2D
     {
         float dt = (float)delta;
         _animT += dt;
-        if (Dead) { Velocity = new Vector2(0, Math.Min(Velocity.Y + Gravity * dt, MaxFall)); MoveAndSlide(); Anim.Rotation = 0; QueueRedraw(); return; }
         var cave = G.Cave;
+        if (Dead) { DeadPhysics(cave, dt); return; }
         var inp = ReadInput();
 
         TickTimers(dt);
@@ -152,6 +152,8 @@ public partial class Player : CharacterBody2D
             G.Sfx.Play("splash", GlobalPosition, -4);
             G.Fx.Directional(new Vector2(GlobalPosition.X, cave.WaterY), Vector2.Up, 0.7f, new Color(0.6f, 0.85f, 1f, 0.9f), 14, 220, 2.5f, 0.6f, 600, 0);
         }
+        // hitting the water soaks up most of the speed you carried in
+        if (InWater && !wasInWater) Velocity *= Tune.Hero.WaterEntryDamp;
         UpdateBreath(dt);
         Unstick(cave, dt);
 
@@ -255,6 +257,26 @@ public partial class Player : CharacterBody2D
     }
 
     private float _stuckInRock;
+
+    /// <summary>A fallen body still obeys the world: it drops on land, and drifts down slowly in water.</summary>
+    private void DeadPhysics(CaveData cave, float dt)
+    {
+        var v = Velocity;
+        if (cave.IsWater(GlobalPosition))
+        {
+            v *= 1f / (1f + Tune.Hero.WaterDrag * 1.5f * dt);
+            v = v.MoveToward(new Vector2(0, 28), 400f * dt);
+        }
+        else
+        {
+            v.X = Mathf.MoveToward(v.X, 0, (IsOnFloor() ? 900f : 200f) * dt);
+            v.Y = Math.Min(v.Y + Gravity * dt, MaxFall);
+        }
+        Velocity = v;
+        MoveAndSlide();
+        Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, 0, 0.2f);
+        QueueRedraw();
+    }
 
     /// <summary>Safety net: if the player ever ends up embedded in rock, nudge them out to open space.</summary>
     private void Unstick(CaveData cave, float dt)
@@ -384,6 +406,7 @@ public partial class Player : CharacterBody2D
             if (G.Chance(0.05f)) G.Fx.Bubbles(GlobalPosition, 1);
         }
         else v = v.MoveToward(new Vector2(0, 22), 320f * dt);
+        v *= 1f / (1f + Tune.Hero.WaterDrag * dt);
 
         bool nearSurface = GlobalPosition.Y < cave.WaterY + 20;
         if (_jumpBuffer > 0 && nearSurface)
@@ -415,12 +438,15 @@ public partial class Player : CharacterBody2D
     private void StartSwing(Vector2 aim)
     {
         aim = aim.Normalized();
-        int maxSteps = Stats.ThirdCombo ? 3 : 2;
-        _comboStep = _swingSinceLast < ComboWindow ? (_comboStep + 1) % maxSteps : 0;
+        // Combo: a strike that lands refunds the swing cooldown, up to ComboResets times in a row.
+        // A swing made without a refund (or after a pause) starts a new chain.
+        _comboStep = _chainLive && _swingSinceLast < SwingCooldownBase / Stats.AttackSpeed + ComboWindow ? _comboStep + 1 : 0;
+        _chainLive = false;
         _swingSinceLast = 0;
         _swingDir = aim;
         if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
-        bool finisher = Stats.ThirdCombo && _comboStep == 2;
+        // Finisher: the last strike of a full chain of three or more hits much harder
+        bool finisher = _finisher = Stats.ThirdCombo && _comboStep >= 2 && _comboStep == Stats.ComboResets;
         _swingArc = Mathf.DegToRad(finisher ? Tune.Hero.FinisherArcDegrees : Tune.Hero.SwingArcDegrees);
         _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f);
         _swingDmg = BaseDamage * Stats.DamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f);
@@ -428,7 +454,6 @@ public partial class Player : CharacterBody2D
         _swingCd = SwingCooldownBase / Stats.AttackSpeed;
         _swingHits.Clear();
         _swingHitSomething = false;
-        _comboResetPending = Stats.Combo && _comboStep < maxSteps - 1;
         // body animation: combo letter + the nearest of five aim directions in front of the player
         var local = new Vector2(aim.X * Facing, aim.Y);
         float la = MathF.Atan2(local.Y, Math.Max(local.X, -0.2f));
@@ -472,7 +497,7 @@ public partial class Player : CharacterBody2D
         var dir = (_swingDir + to.Normalized()).Normalized();
         var kbTable = Tune.Hero.KnockbackByLevel;
         float kb = kbTable[Math.Clamp(Stats.KnockbackLevel, 0, kbTable.Length - 1)];
-        bool finisher = Stats.ThirdCombo && _comboStep == 2;
+        bool finisher = _finisher;
         if (finisher) kb += Tune.Hero.FinisherExtraKnockback;
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
         float dealt = e.Hurt(_swingDmg * G.Range(0.9f, 1.1f), dir * kb, hitPos);
@@ -493,7 +518,9 @@ public partial class Player : CharacterBody2D
         if (!_swingHitSomething)
         {
             _swingHitSomething = true;
-            if (_comboResetPending) { _swingCd = 0.04f; _comboResetPending = false; }
+            if (_comboStep < Stats.ComboResets) { _swingCd = 0.04f; _chainLive = true; }
+            // mutual bounce: you rebound slightly from what you hit (sideways only)
+            if (Math.Abs(to.X) > 2) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
             G.Main.HitStop(finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
@@ -544,7 +571,12 @@ public partial class Player : CharacterBody2D
     {
         if (Dead || Invulnerable) return 0;
         dmg *= 1f - Stats.DamageReduction;
-        if (source != null && GodotObject.IsInstanceValid(source)) source.CreditDamage(dmg);
+        if (source != null && GodotObject.IsInstanceValid(source))
+        {
+            source.CreditDamage(dmg);
+            // mutual bounce: an enemy that struck you in melee rebounds a little too
+            if (source.GlobalPosition.DistanceTo(GlobalPosition) < 70) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
+        }
         TakeRawDamage(dmg, "hit");
         _invuln = Stats.HurtInvuln;
         var away = (GlobalPosition - from).Normalized();
@@ -557,7 +589,9 @@ public partial class Player : CharacterBody2D
         G.Main.Kick(away * Tune.Feel.KickPlayerHurt);
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
-        Velocity = new Vector2(Math.Sign(away.X == 0 ? -Facing : away.X) * knock, InWater ? away.Y * knock : -170f);
+        // horizontal only (plus a gentle push in water) so nothing can juggle you upward
+        float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult;
+        Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         _dodgeT = 0; _airDashT = 0;
         return dmg;
     }
@@ -594,7 +628,7 @@ public partial class Player : CharacterBody2D
     public override void _Draw()
     {
         if (Dead || _swingT < 0 || _swingT > 0.26f) return;
-        bool finisher = Stats.ThirdCombo && _comboStep == 2;
+        bool finisher = _finisher;
         float prog = Math.Clamp(_swingT / SwingActive, 0, 1);
         prog = 1 - (1 - prog) * (1 - prog) * (1 - prog);
         float fade = 1 - Math.Clamp((_swingT - SwingActive) / 0.15f, 0, 1);

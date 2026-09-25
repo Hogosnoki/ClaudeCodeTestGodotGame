@@ -600,18 +600,21 @@ public partial class Main : Node
             alive += SpawnGroup(sp);
         }
 
-        // Entrances: every ~22 s at the start, speeding up to every ~5 s.
+        // Entrances: slow at first; the rate doubles every RateDoublingMinutes, like the difficulty.
         _waveT -= dt;
         if (_waveT <= 0 && alive < cap + 4)
         {
-            _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / (1f + G.RunTime / Tune.Spawning.IntervalRampSeconds)) * G.Range(0.8f, 1.2f);
+            float rate = MathF.Pow(2f, G.RunTime / (Tune.Spawning.RateDoublingMinutes * 60f));
+            _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / rate) * G.Range(0.8f, 1.2f);
             SpawnEntrance(p);
         }
     }
 
     /// <summary>
-    /// Finds cells 24-34 tunnel-steps from the player (so the newcomer has a route to them) that
-    /// are off-screen, and brings in a group suited to the terrain there.
+    /// Brings in a wave from all around the view: each newcomer gets its own entry point in a band
+    /// just outside the screen edges, spread across different directions, and reachable along the
+    /// tunnels (so it has a route to you). What comes in suits the spot: fish in water, bats where
+    /// there's no floor, walkers on the ground.
     /// </summary>
     private void SpawnEntrance(Player p)
     {
@@ -621,15 +624,18 @@ public partial class Main : Node
         var dist = new Dictionary<int, int>();
         var q = new Queue<Vector2I>();
         q.Enqueue(start); dist[start.Y * W + start.X] = 0;
-        var ring = new List<Vector2>();
+        var band = new List<Vector2>();   // just off-screen: the ideal entry points
+        var farther = new List<Vector2>(); // fallback when the band is all rock
+        float edge = Tune.Spawning.EntranceBandPx;
         while (q.Count > 0)
         {
             var c = q.Dequeue();
             int d = dist[c.Y * W + c.X];
-            if (d >= Tune.Spawning.EntranceMinCells)
+            var w = new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
+            if (!OnScreen(w, 24))
             {
-                var w = new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
-                if (!OnScreen(w, 24)) ring.Add(w);
+                if (OnScreen(w, 24 + edge)) band.Add(w);
+                else farther.Add(w);
             }
             if (d >= Tune.Spawning.EntranceMaxCells) continue;
             foreach (var o in new[] { new Vector2I(1, 0), new Vector2I(-1, 0), new Vector2I(0, 1), new Vector2I(0, -1) })
@@ -640,41 +646,44 @@ public partial class Main : Node
                 q.Enqueue(n);
             }
         }
-        if (ring.Count == 0) return;
-        var at = ring[G.Rng.Next(ring.Count)];
-        int count = 1 + G.RangeI(0, 1 + (int)(G.Pace * 1.5f));
-        bool water = cave.IsWater(at);
+        var pool = band.Count > 0 ? band : farther;
+        if (pool.Count == 0) return;
 
-        void Enter(Enemy e, Vector2 pos)
+        // sort the candidates into 8 directions around the view and take each newcomer from a
+        // different direction (cycling if the wave is bigger than the directions available)
+        var center = _cam.GetScreenCenterPosition();
+        var sectors = new List<Vector2>[8];
+        for (int k = 0; k < 8; k++) sectors[k] = new List<Vector2>();
+        foreach (var w in pool)
         {
-            if (cave.IsSolid(pos)) pos = at;
-            e.Engage();
-            e.Position = pos;
-            _world.AddChild(e);
-            if (_autotest) _entrants.Add((e, pos.DistanceTo(p.GlobalPosition), _runTime));
+            float ang = Mathf.PosMod((w - center).Angle(), Mathf.Tau);
+            sectors[Math.Min(7, (int)(ang / Mathf.Tau * 8))].Add(w);
         }
+        var open = sectors.Where(s => s.Count > 0).OrderBy(_ => G.Rng.Next()).ToList();
+        int count = 1 + G.RangeI(0, (int)(G.Pace * Tune.Spawning.WaveGrowthPerPace));
 
-        if (water)
-        {
-            for (int k = 0; k < count + 1; k++) Enter(new Fish(), at + G.RandDir() * G.Range(0, 20));
-            return;
-        }
-        bool hasFloor = cave.FindFloor(at, 140, out var floor);
-        double roll = G.Rng.NextDouble();
-        if (!hasFloor || roll < Tune.Spawning.EntranceBatChance)
-        {
-            for (int k = 0; k < count + 1; k++) Enter(new Bat(), at + new Vector2(G.Range(-25, 25), G.Range(-15, 15)));
-            return;
-        }
-        var ground = floor + new Vector2(0, -12);
         for (int k = 0; k < count; k++)
         {
-            var pos = ground + new Vector2(G.Range(-24, 24), 0);
-            float r = G.RandF();
-            Enemy e = r < 0.4f ? new Frog() : r < 0.75f ? new Goblin() : r < 0.9f ? new Goblin { Slinger = true }
-                : G.Chance(0.5f) ? new Golem() : new LavaMonster();
-            Enter(e, pos);
+            var list = open[k % open.Count];
+            var at = list[G.Rng.Next(list.Count)];
+            var e = EntrantFor(at, out var pos);
+            e.Engage();
+            e.Position = cave.IsSolid(pos) ? at : pos;
+            _world.AddChild(e);
+            if (_autotest) _entrants.Add((e, e.Position.DistanceTo(p.GlobalPosition), _runTime));
         }
+    }
+
+    private static Enemy EntrantFor(Vector2 at, out Vector2 pos)
+    {
+        var cave = G.Cave;
+        pos = at;
+        if (cave.IsWater(at)) return new Fish();
+        if (!cave.FindFloor(at, 140, out var floor) || G.Chance(Tune.Spawning.EntranceBatChance)) return new Bat();
+        pos = floor + new Vector2(0, -12);
+        float r = G.RandF();
+        return r < 0.4f ? new Frog() : r < 0.75f ? new Goblin() : r < 0.9f ? new Goblin { Slinger = true }
+            : G.Chance(0.5f) ? new Golem() : new LavaMonster();
     }
 
     private int SpawnGroup(SpawnPoint sp)
@@ -799,6 +808,7 @@ public partial class Main : Node
                 }
                 case RoomKind.Ambush:
                 {
+                    if (!Tune.Spawning.AmbushRooms) break;
                     int n = 3 + G.Depth;
                     for (int k = 0; k < n; k++)
                     {

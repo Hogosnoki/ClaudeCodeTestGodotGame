@@ -39,7 +39,11 @@ public static class Tune
         public static float WallSlideSpeed = 110f, WallJumpPush = 250f, WallJumpMult = 0.92f;
         public static float AirDashSpeed = 540f, AirDashTime = 0.16f;
 
-        public static float SwimSpeed = 150f, SwimAccel = 800f;
+        public static float SwimSpeed = 120f, SwimAccel = 650f;
+        /// <summary>Water resistance (per second): slows swimming and sinking. Higher = thicker water.</summary>
+        public static float WaterDrag = 3.5f;
+        /// <summary>Speed kept when you plunge into water (0.5 = half).</summary>
+        public static float WaterEntryDamp = 0.5f;
         /// <summary>How hard you leap out of the water at the surface (fraction of jump speed).</summary>
         public static float SurfaceLeapMult = 0.95f;
 
@@ -63,6 +67,22 @@ public static class Tune
         /// <summary>XP needed for the next level: Base + Linear*L + Quadratic*L^2.</summary>
         public static float XpBase = 12f, XpLinear = 8f, XpQuadratic = 1.6f;
         public static float XpMagnetRange = 85f;
+    }
+
+    // =============================================================================== COMBAT
+    public static class Combat
+    {
+        /// <summary>Touch damage from an enemy that isn't attacking, as a share of its attack
+        /// damage. 0 = bumping into enemies is harmless; only their actual attacks hurt.</summary>
+        public static float PassiveContactMult = 0f;
+        /// <summary>Horizontal bounce (px/s) the attacker gets when it lands a melee hit, both
+        /// you and enemies. Never vertical.</summary>
+        public static float StrikeRecoil = 110f;
+        /// <summary>Scales how far you are pushed back when struck (horizontal only).</summary>
+        public static float HurtKnockbackMult = 0.8f;
+        /// <summary>Free swing-cooldown resets per combo before any Flurry upgrades: hit something
+        /// and you can swing again at once, this many times, then the full cooldown runs.</summary>
+        public static int ComboResetsBase = 1;
     }
 
     // =============================================================================== HIT FEEL
@@ -96,22 +116,29 @@ public static class Tune
     public static class Spawning
     {
         /// <summary>Share of resident spawn points that hold enemies at the start, rising to 100% by FillMinutes.</summary>
-        public static float ResidentFillStart = 0.4f, ResidentFillMinutes = 8f;
+        public static float ResidentFillStart = 0.3f, ResidentFillMinutes = 10f;
         /// <summary>Residents are created this far away at most, and only when off-camera.</summary>
         public static float ResidentMaxDistance = 720f;
         /// <summary>Base respawn delay for a used resident point (divided by 1 + pace).</summary>
         public static float ResidentRespawnMin = 90f, ResidentRespawnMax = 150f;
 
-        /// <summary>Entrance waves: first after FirstWave s; the interval starts at IntervalStart and
-        /// shrinks as IntervalStart / (1 + time / IntervalRampSeconds), never below IntervalMin.</summary>
-        public static float FirstWave = 18f, IntervalStart = 22f, IntervalMin = 4.5f, IntervalRampSeconds = 160f;
-        /// <summary>Entrance distance along the tunnels, in cells (16 px).</summary>
-        public static int EntranceMinCells = 24, EntranceMaxCells = 34;
+        /// <summary>Entrance waves: the first comes after FirstWave s. The gap between waves starts at
+        /// IntervalStart and halves every RateDoublingMinutes (like the difficulty curve), never
+        /// dropping below IntervalMin.</summary>
+        public static float FirstWave = 30f, IntervalStart = 30f, IntervalMin = 5f, RateDoublingMinutes = 8f;
+        /// <summary>Wave size: 1 + up to (pace x this) extra enemies, each from its own direction.</summary>
+        public static float WaveGrowthPerPace = 1.5f;
+        /// <summary>Newcomers appear in a band this many px wide just outside the screen edges.</summary>
+        public static float EntranceBandPx = 200f;
+        /// <summary>How far along the tunnels (in 16 px cells) to look for entry points.</summary>
+        public static int EntranceMaxCells = 48;
+        /// <summary>Dead-end ambush rooms (a pack springs out when you arrive). Off for now.</summary>
+        public static bool AmbushRooms = false;
         /// <summary>Chance an above-water entrance is bats (otherwise ground walkers).</summary>
         public static float EntranceBatChance = 0.35f;
 
         /// <summary>Max enemies near the player = CapBase + CapPerPace * pace (entrances get +4 headroom).</summary>
-        public static int CapBase = 8, CapPerPace = 10;
+        public static int CapBase = 6, CapPerPace = 10;
     }
 
     // =============================================================================== DROPS
@@ -208,6 +235,14 @@ public static class Tune
         /// <summary>The boss room must be at least this many cells (straight line) from the start.</summary>
         public static float BossMinDistanceCells = 150;
         public static int Moths = 80, Crabs = 60;
+        /// <summary>Steepest walkable slope (degrees). Moss and grass grow on exactly these slopes.</summary>
+        public static float WalkableSlopeDegrees = 56f;
+        /// <summary>Ledge staircases through tall open spaces: the chance each next ledge up is
+        /// placed, at the water line and at the roof (in between it blends). High at the bottom,
+        /// sparse at the top, so the heights are harder (not impossible) to reach.</summary>
+        public static float PlatformDensityBottom = 0.95f, PlatformDensityTop = 0.2f;
+        /// <summary>Roughly how far apart (in cells) staircases start.</summary>
+        public static int PlatformSpacingCells = 9;
     }
 
     // =============================================================================== ENEMY BRAINS

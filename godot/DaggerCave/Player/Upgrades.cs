@@ -25,7 +25,9 @@ public sealed class PlayerStats
     public int ThrowCharges = 1;
     public float ThrowCooldown = Tune.Hero.ThrowCooldown;
     public int Bounces = 0;
-    public bool Pierce, WallJump, DoubleJump, AirDash, Pogo, Combo, ThirdCombo, DodgeIFrames, ThrowReturn;
+    public bool Pierce, WallJump, DoubleJump, AirDash, Pogo, ThirdCombo, DodgeIFrames, ThrowReturn;
+    /// <summary>How many times in a row a landed strike refunds the swing cooldown.</summary>
+    public int ComboResets = Tune.Combat.ComboResetsBase;
     public float MagnetMult = 1f;
 
     public readonly Dictionary<string, int> Stacks = new();
@@ -55,8 +57,8 @@ public static class Upgrades
         new() { Id = "atkspd", Name = "Quick Hands", Desc = "Swing 18% faster.", Icon = "blade", MaxStacks = 5, Apply = (s, p) => s.AttackSpeed += 0.18f },
         new() { Id = "reach", Name = "Longer Blade", Desc = "Dagger reach +22%.", Icon = "blade", MaxStacks = 3, Apply = (s, p) => s.DaggerReach += 0.22f },
         new() { Id = "dmg", Name = "Whetstone", Desc = "+15% damage.", Icon = "blade", MaxStacks = 6, Weight = 1.2f, Apply = (s, p) => s.DamageMult += 0.15f },
-        new() { Id = "combo", Name = "Flurry", Desc = "Striking an enemy resets your swing cooldown once, chaining a combo.", Icon = "blade", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Combo = true },
-        new() { Id = "combo3", Name = "Finisher", Desc = "Adds a third combo strike that hits much harder (x2 damage, wider arc).", Icon = "blade", Requires = "combo", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ThirdCombo = true },
+        new() { Id = "combo", Name = "Flurry", Desc = "Your combo chains one more strike: landing it refunds the swing cooldown again.", Icon = "blade", MaxStacks = 3, Tier = UpgradeTier.Ability, Apply = (s, p) => s.ComboResets += 1 },
+        new() { Id = "combo3", Name = "Finisher", Desc = "The last strike of a full combo hits much harder (x2 damage, wider arc).", Icon = "blade", Requires = "combo", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ThirdCombo = true },
         new() { Id = "pogo", Name = "Downward Thrust", Desc = "Aerial down-slashes bounce you off enemies and refresh air jumps.", Icon = "blade", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Pogo = true },
         new() { Id = "knock", Name = "Heavy Pommel", Desc = "Dagger strikes knock enemies back.", Icon = "blade", Tier = UpgradeTier.Ability, Apply = (s, p) => s.KnockbackLevel = Math.Max(1, s.KnockbackLevel) },
         new() { Id = "knock2", Name = "Crushing Blows", Desc = "Knockback strength increased.", Icon = "blade", MaxStacks = 2, Requires = "knock", Apply = (s, p) => s.KnockbackLevel += 1 },

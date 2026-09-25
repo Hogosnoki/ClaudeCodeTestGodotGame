@@ -449,6 +449,7 @@ public static class CaveGenerator
         cave.StartPos = new Vector2(sx, sy + 3.2f - 1.2f) * CaveData.Cell;
         foreach (var st in stamps) cave.DebugStamps.Add((new Vector2(st.X, st.Y), st.Kind));
         RemoveSpecks(cave);
+        AddPlatforms(cave, rng);
 
         // Reachability validation, with repairs: stepping-stone ledges up out of any pit the
         // movement model says you could fall into but not climb out of.
@@ -463,6 +464,121 @@ public static class CaveGenerator
         BuildSpawns(cave, stamps, new Vector2(sx, sy), rng);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
+    }
+
+    /// <summary>
+    /// Ledge staircases through tall open spaces, so the high caverns can be climbed back into
+    /// rather than only reached by swimming around. Chains start at the water surface and on the
+    /// floors of tall spaces and zig-zag upward one jump at a time. Each step continues with a
+    /// chance that falls with height (Tune.Cave.PlatformDensityBottom at the water line down to
+    /// PlatformDensityTop at the roof), so the low caves are easy to climb around and the heights
+    /// take more luck or better movement upgrades. In narrow shafts a ledge becomes a shelf on one
+    /// wall that leaves a gap to drop through.
+    /// </summary>
+    private static void AddPlatforms(CaveData cave, Random rng)
+    {
+        int waterRow = (int)(cave.WaterY / CaveData.Cell);
+        bool Open(int i, int j) => cave.CellOpen(i, j);
+        var placed = new List<Vector2>();
+        var keepOut = new List<Room>();
+        foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Boss or RoomKind.Start) keepOut.Add(r);
+
+        float Chance(int standRow)
+        {
+            float h = Math.Clamp((waterRow - standRow) / (float)Math.Max(1, waterRow - 4), 0f, 1f);
+            return Mathf.Lerp(Tune.Cave.PlatformDensityBottom, Tune.Cave.PlatformDensityTop, h);
+        }
+
+        // Tries to put a ledge whose top you stand on in cell row s, near column x. Returns the
+        // column it was centred on, or null.
+        float? TryLedge(float x, int s)
+        {
+            int ci = (int)x;
+            if (s < 6 || s >= waterRow - 1 || ci < 4 || ci >= W - 4) return null;
+            // headroom to stand and jump
+            for (int j = s - 3; j <= s; j++) if (!Open(ci, j)) return null;
+            if (!Open(ci, s + 1)) return null; // there's already ground here
+            foreach (var p in placed) if (Math.Abs(p.X - x) < 6 && Math.Abs(p.Y - s) < 3) return null;
+            var px = new Vector2(x, s) * CaveData.Cell;
+            foreach (var r in keepOut) if (Math.Abs(px.X - r.Center.X) < r.RxPx + 48 && Math.Abs(px.Y - r.Center.Y) < r.RyPx + 64) return null;
+            // how wide is the gap at the ledge's row?
+            int row = s + 1, l = ci, rr = ci;
+            while (l > 0 && Open(l - 1, row) && ci - l < 12) l--;
+            while (rr < W - 1 && Open(rr + 1, row) && rr - ci < 12) rr++;
+            int run = rr - l + 1;
+            float cx, half;
+            if (run >= 10) { half = 2.2f + (float)rng.NextDouble() * 1.0f; cx = x; }
+            else if (run >= 6)
+            {
+                // wall shelf, leaving a 3-cell gap
+                float len = run - 3;
+                half = len * 0.5f + 0.8f;
+                bool left = rng.Next(2) == 0;
+                cx = left ? l - 0.8f + half : rr + 1.8f - half;
+            }
+            else return null;
+            StampLedge(cave, cx, s + 1.8f, half);
+            placed.Add(new Vector2(cx, s));
+            return cx;
+        }
+
+        void Chain(float x, int s)
+        {
+            int side = rng.Next(2) == 0 ? -1 : 1;
+            for (int step = 0; step < 40; step++)
+            {
+                if (rng.NextDouble() > Chance(s)) return;
+                float? at = TryLedge(x, s);
+                if (at == null)
+                {
+                    // try the other side once before giving up
+                    at = TryLedge(x - side * 4, s);
+                    if (at == null) return;
+                }
+                x = at.Value + side * (2.5f + (float)rng.NextDouble() * 2.5f);
+                s -= 3 + rng.Next(2); // 3-4 cells: always within one jump
+                side = -side;
+            }
+        }
+
+        int spacing = Math.Max(4, Tune.Cave.PlatformSpacingCells);
+        // from the water surface
+        for (float x = 5; x < W - 5; x += spacing + (float)rng.NextDouble() * 3)
+        {
+            int i = (int)x;
+            bool tall = true;
+            for (int j = waterRow - 1; j >= waterRow - 8; j--) if (!Open(i, j)) { tall = false; break; }
+            if (tall) Chain(x, waterRow - 3);
+        }
+        // from the floors of tall dry spaces
+        for (float x = 5; x < W - 5; x += spacing + (float)rng.NextDouble() * 3)
+        {
+            int i = (int)x;
+            for (int j = waterRow - 2; j > 8; j--)
+            {
+                if (!Open(i, j) || Open(i, j + 1)) continue; // standing cells only
+                int clear = 0;
+                while (clear < 10 && Open(i, j - 1 - clear)) clear++;
+                if (clear >= 10) Chain(x + (rng.Next(2) == 0 ? -3 : 3), j - 3 - rng.Next(2));
+            }
+        }
+    }
+
+    /// <summary>A flat-topped rock slab centred at (cx, cy) in cells, 1.6 cells thick.</summary>
+    private static void StampLedge(CaveData cave, float cx, float cy, float halfWidth)
+    {
+        int stride = W + 1;
+        const float ry = 0.8f;
+        for (int j = (int)(cy - 2); j <= (int)(cy + 2); j++)
+            for (int i = (int)(cx - halfWidth - 2); i <= (int)(cx + halfWidth + 2); i++)
+            {
+                if (i < 0 || j < 0 || i > W || j > H) continue;
+                float ex = (i - cx) / halfWidth, ey = (j - cy) / ry;
+                float e = MathF.Pow(ex * ex * ex * ex + ey * ey * ey * ey, 0.25f); // squarish: flat top
+                float v = Math.Clamp(0.5f - (1 - e) * 0.9f, 0f, 1f);
+                int k = j * stride + i;
+                if (v < cave.Open[k]) cave.Open[k] = v;
+            }
     }
 
     /// <summary>

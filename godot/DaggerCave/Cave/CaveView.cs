@@ -157,11 +157,13 @@ public partial class CaveView : Node2D
                 var m = (a + b) * 0.5f;
                 bool underwater = m.Y > cave.WaterY;
                 float up = -nrm.Y;
-                _rimCols[k] = up > 0.45f && !underwater ? pal.moss : pal.rim * (underwater ? 0.8f : 1f);
+                // moss and grass grow exactly where the ground is walkable, so green = you can walk it
+                float walkable = MathF.Cos(Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees)) - 0.01f;
+                _rimCols[k] = up > walkable && !underwater ? pal.moss : pal.rim * (underwater ? 0.8f : 1f);
                 _rimCols[k].A = 1;
                 int hx = (int)(m.X / 5), hy = (int)(m.Y / 5);
                 float r = Hash01(hx, hy, cave.Seed + 3);
-                if (up > 0.6f && !underwater)
+                if (up > walkable && !underwater)
                 {
                     if (r < 0.35f)
                     {

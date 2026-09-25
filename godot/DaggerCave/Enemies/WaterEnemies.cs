@@ -112,6 +112,7 @@ public partial class Fish : Enemy
     protected override string BrainName => "fish";
     protected override string[] Actions => Moves;
     protected override bool Busy => _state != 0 || _dartT > 0;
+    protected override bool Striking => _dartT > 0 || _state == 1;
     protected override float AttackReady => _dartCd <= 0 ? 1 : 0;
 
     protected override bool CanAct(int a) => a switch
@@ -283,6 +284,7 @@ public partial class Eel : Enemy
     protected override string BrainName => "eel";
     protected override string[] Actions => Moves;
     protected override bool Busy => _state != 0;
+    protected override bool Striking => _state is 1 or 2;
     protected override bool CanAct(int a) => a != Lunge || _cd <= 0;
     protected override float AttackReady => _cd <= 0 ? 1 : 0;
 

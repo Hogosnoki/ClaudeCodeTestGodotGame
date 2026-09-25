@@ -180,6 +180,7 @@ public partial class CavernColossus : Enemy
     protected override string BrainName => "boss";
     protected override string[] Actions => Moves;
     protected override bool Busy => _s != S.Walk;
+    protected override bool Striking => _s is S.Charge or S.Leap;
     protected override float AttackReady => _next <= 0 ? 1 : 0;
     protected override bool CanAct(int a) => a < LeapSlam || _next <= 0;
 

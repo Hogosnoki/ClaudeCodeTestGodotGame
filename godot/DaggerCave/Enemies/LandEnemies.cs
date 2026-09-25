@@ -92,6 +92,7 @@ public partial class Bat : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _state == 0;
     protected override int Teacher() => _state == 2 ? Retreat : Swoop;
+    protected override bool Striking => _state != 0 && Intent == Swoop;
 
     protected override void Animate()
     {
@@ -107,6 +108,7 @@ public partial class Frog : Enemy
 {
     private float _hopCd = 1f, _tongueCd = 1.5f, _tongueT = -1, _croakT;
     private Vector2 _tongueDir;
+    private bool _tongueHit;
     private static float TongueLen => Tune.Frog.TongueRange;
     private const float TongueTime = 0.38f;
 
@@ -153,7 +155,7 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             float ext = TongueExtent();
             var tip = GlobalPosition + new Vector2(0, -2) + _tongueDir * ext;
-            if (!P.Dead && tip.DistanceTo(P.GlobalPosition) < 12) P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition, source: this);
+            if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && P.Hurt(Tune.Frog.TongueDamage * G.DepthDmg * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0) _tongueHit = true;
             if (_tongueT > TongueTime) _tongueT = -1;
         }
         else if (floor)
@@ -165,7 +167,7 @@ public partial class Frog : Enemy
                 Face = dirP;
                 if (Intent == Tongue && CanAct(Tongue))
                 {
-                    _tongueT = 0; _tongueCd = Tune.Frog.TongueCooldown; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
+                    _tongueT = 0; _tongueHit = false; _tongueCd = Tune.Frog.TongueCooldown; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
                     G.Sfx.Play("tongue", GlobalPosition, -4);
                     Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
                     Consume();
@@ -380,7 +382,7 @@ public partial class Goblin : Enemy
 public partial class Spider : Enemy
 {
     private int _state; // 0 ceiling, 1 drop, 2 hang, 3 climb, 4 ground
-    private float _stateT, _anchorY, _pounceCd;
+    private float _stateT, _anchorY, _pounceCd, _pounceLeft;
 
     protected override bool UsesGravity => _state == 4;
 
@@ -396,7 +398,7 @@ public partial class Spider : Enemy
 
     protected override void Think(float dt)
     {
-        _stateT += dt; _pounceCd -= dt;
+        _stateT += dt; _pounceCd -= dt; _pounceLeft -= dt;
         var cave = G.Cave;
         ManualMove = _state != 4;
         switch (_state)
@@ -451,6 +453,7 @@ public partial class Spider : Enemy
                     if (Intent == Strike && _pounceCd <= 0)
                     {
                         _pounceCd = Tune.Spider.PounceCooldown;
+                        _pounceLeft = 0.7f;
                         Face = dirP;
                         v = new Vector2(dirP * 230, -300);
                         Anim.Once("pounce", 3);
@@ -475,6 +478,7 @@ public partial class Spider : Enemy
     protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
 
     protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
+    protected override bool Striking => _state == 1 || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
 
     protected override int Teacher()
     {

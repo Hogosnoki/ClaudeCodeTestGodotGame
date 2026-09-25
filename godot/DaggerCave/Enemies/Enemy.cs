@@ -45,7 +45,7 @@ public abstract partial class Enemy : CharacterBody2D
     {
         CollisionLayer = G.LayerEnemy;
         CollisionMask = G.LayerTerrain;
-        FloorMaxAngle = Mathf.DegToRad(50);
+        FloorMaxAngle = Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees + 2);
         FloorSnapLength = 6f;
         ZIndex = 0;
         // Health is fixed at spawn from the difficulty curve; damage and tempo follow it live.
@@ -145,9 +145,28 @@ public abstract partial class Enemy : CharacterBody2D
             Anim.Face((int)Face);
         }
 
-        if (ContactActive && ContactDamage > 0 && !p.Dead && dist < HitRadius + 7)
-            p.Hurt(ContactDamage * G.DepthDmg, GlobalPosition, source: this);
+        // Touching an enemy only hurts during a body attack (a swoop, dart, lunge, drop, charge),
+        // and then only once per attack. Idle bodies do PassiveContactMult of that (0 by default).
+        bool striking = Striking;
+        if (striking && !_wasStriking) _strikeLanded = false;
+        _wasStriking = striking;
+        float touch = striking ? (_strikeLanded ? 0 : ContactDamage) : ContactDamage * Tune.Combat.PassiveContactMult;
+        if (ContactActive && touch > 0 && !p.Dead && dist < HitRadius + 7)
+        {
+            if (p.Hurt(touch * G.DepthDmg, GlobalPosition, source: this) > 0 && striking) _strikeLanded = true;
+        }
         QueueRedraw();
+    }
+
+    /// <summary>True while a body attack is under way: touching the player then hurts (once).</summary>
+    protected virtual bool Striking => false;
+    private bool _wasStriking, _strikeLanded;
+
+    /// <summary>A small horizontal bounce back after landing a hit on the player.</summary>
+    public void Recoil(float dirX)
+    {
+        if (ManualMove || IsBoss || dirX == 0) return;
+        Velocity = new Vector2(Math.Sign(dirX) * Tune.Combat.StrikeRecoil * (1f - KnockResist * 0.7f), Velocity.Y);
     }
 
     protected void ApplyGravity(float dt, float mult = 1f)
@@ -176,6 +195,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         var k = knock * (1f - KnockResist);
         if (k.Length() > 60 && !ManualMove) { Stun = 0.2f; KnockVel = k; }
+        else if (!ManualMove && knock.X != 0) Recoil(knock.X); // even without Heavy Pommel, a hit nudges it back
         bool big = dmg >= 15;
         G.Fx.Text(hitPos + new Vector2(0, -10), Mathf.RoundToInt(dmg).ToString(), big ? new Color(1f, 0.85f, 0.3f) : Colors.White, big ? 13 : 11);
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);

@@ -36,10 +36,10 @@ Handy starting points:
 | To change | Edit |
 | --- | --- |
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
-| Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance` |
+| Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
 | How fast it gets hard | `Difficulty.DoublingMinutes`, `Difficulty.TempoCap` |
-| How busy it is | `Spawning.IntervalStart`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
+| How busy it is | `Spawning.IntervalStart`, `Spawning.RateDoublingMinutes`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
 | Map size | `Cave.Width`, `Cave.Height`, `Cave.TunnelBudget` (keep these roughly in proportion) |
 | Enemy brains | `Brains.*` (rewards, learning rate, when brains take over) and the `BrainLocks` flags |
 
@@ -173,33 +173,59 @@ and damage taken while a controller is active.
 field. `CaveView` then runs marching squares over that field, which makes every wall an angled
 slope rather than a block. The same iso-lines become the collision segments. Above the water,
 walkers never climb or drop more steeply than about 34°, so every dry tunnel can be walked in
-both directions. Steep shafts drop only into the flooded bottom half, and every flooded system a
+both directions. Any slope up to 56° is walkable (`Cave.WalkableSlopeDegrees`), and moss and
+grass grow on exactly those slopes, so green ground is always ground you can walk on. Steep shafts drop only into the flooded bottom half, and every flooded system a
 shaft feeds is given a gentle beach plus a connector tunnel back to the main network.
 
 After carving, a movement-aware reachability check (walk, jump, fall and swim over cells) looks
 for any spot you could fall into but not climb out of. Each such pit is fixed by adding
 stepping-stone ledges, and a seed is retried if that isn't enough. The same pass removes noise
-specks and makes sure the boss room is reachable and far from the start. The cave is about
+specks and makes sure the boss room is reachable and far from the start.
+
+Tall open spaces get ledge staircases that zig-zag upward one jump at a time, starting from the
+water surface and from the floors of tall caverns:
+- They're dense at the water line and thin out toward the roof (`Cave.PlatformDensityBottom` /
+  `PlatformDensityTop`). The low caves are easy to climb around. The heights take luck or better
+  movement upgrades, but are never out of reach.
+- In a narrow shaft a ledge becomes a shelf on one wall, leaving a gap to drop through.
+
+The cave is about
 400 x 240 cells (6400 x 3840 px), sized for roughly 15-20 minutes of exploring. Dead ends
-become treasure rooms or ambushes, and 3-4 of them (spread out, favoring the far reaches) are
+become treasure rooms (ambush rooms exist too but are off: `Spawning.AmbushRooms`), and 3-4 of them (spread out, favoring the far reaches) are
 elite mini-boss lairs. The dead end farthest from the start (measured
 along the tunnels) becomes the boss arena, which gets a dome and a solid floor.
 
 **The dagger wielder** (`Player/`). Movement has coyote time, jump buffering and variable jump
 height. Swimming has a breath meter; you take drowning damage when it runs out and the audio is
-muffled while your head is underwater. You can swing the dagger in any direction and dodge. The
+muffled while your head is underwater. Water is thick: it soaks up most of your speed when you
+plunge in and slows swimming and sinking (`Hero.WaterDrag`, `Hero.WaterEntryDamp`). You can swing the dagger in any direction and dodge. The
 thrown dagger locks your weapon for 2 s per charge, and you can keep swinging while any dagger is
 still in hand, and it flies as a whirling blade.
 
 You start with 60 HP. After being struck you are invulnerable for 0.4 s, which the Resilience
-upgrade extends. Healing is scarce: hearts drop from 2% of regular kills and 40% of mini-bosses.
+upgrade extends.
+
+Enemies only hurt you with actual attacks, never by just touching you. The attacks are clubs,
+tongues, rocks, slams and spikes, plus body attacks like a bat's swoop, a fish's dart, an eel's
+lunge, a spider's drop or pounce, and the Colossus's charge and leap. Each body attack can hit you
+at most once (`Combat.PassiveContactMult` brings back touch damage).
+
+Landing a hit bounces the attacker back a little, horizontally only. That applies both to you
+and to enemies (`Combat.StrikeRecoil`). Getting struck also pushes you sideways without
+launching you upward.
+
+**Combo**:
+1. When a swing lands, your swing cooldown is refunded once, so you can strike again at once.
+2. The next swing runs the full cooldown, and then a new combo can start.
+3. Each Flurry upgrade adds one more refund to the chain, up to 3.
+4. With Finisher, the last strike of a chain of three or more hits much harder. Healing is scarce: hearts drop from 2% of regular kills and 40% of mini-bosses.
 
 **Upgrades** (`Player/Upgrades.cs`). These come from XP level-ups and treasure chests, and each
 time you choose one of three:
 
 | Area | Upgrades |
 | --- | --- |
-| Dagger | attack speed, reach, damage, combo (a hit resets your swing cooldown), finisher (a harder third strike, requires combo), aerial down-slash pogo, knockback, stronger knockback |
+| Dagger | attack speed, reach, damage, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback |
 | Throw | ricochet *or* pierce (you can only have one), a second throw charge, faster recall |
 | Movement | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
 | Dodge | invulnerability while dodging, shorter cooldown, a second dodge charge |
@@ -224,11 +250,15 @@ Mini-bosses are elite versions of these enemies and drop a chest.
 
 **Spawning and difficulty**. Enemies come from two sources:
 - **Residents** sit at points scattered through the tunnels. They are only ever created while out
-  of view, so they are already there when you arrive. Early in a run many points stay empty;
-  after about 8 minutes all of them fill.
-- **Entrances** arrive in waves on a timer: about every 22 s at first, shortening to about every
-  5 s. Each wave picks a point along the tunnels just out of view (so it has a route to you), and
-  the enemies come to you their own way: bats fly in, frogs hop, goblins run, fish swim.
+  of view, so they are already there when you arrive. Early in a run most points stay empty;
+  after about 10 minutes all of them fill.
+- **Entrances** arrive in waves on a timer. The first wave comes at 30 s with one enemy. The gap
+  between waves halves every 8 minutes (`Spawning.RateDoublingMinutes`), down to 5 s, and waves
+  grow with time.
+  - Each newcomer gets its own entry point from a different direction, in a band just outside
+    the screen edges, and every entry point is reachable along the tunnels.
+  - What arrives suits the spot: fish in water, bats where there's no floor, walkers on the
+    ground. Each comes to you its own way: bats fly in, frogs hop, goblins run, fish swim.
 
 Difficulty rises continuously with play time. Enemy health and damage follow 2^(minutes/10), so
 they double every 10 minutes. Enemy speed, attack rate and animation speed follow the same curve,

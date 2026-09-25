@@ -243,6 +243,8 @@ void fragment() {
     private void OnFinished()
     {
         if (_once == null) return;
+        // death clips (priority 99) hold their last frame instead of returning to the idle loop
+        if (_oncePriority >= 99) return;
         _once = null;
         _turning = false;
         if (_targetFacing != Facing) Face(_targetFacing);
