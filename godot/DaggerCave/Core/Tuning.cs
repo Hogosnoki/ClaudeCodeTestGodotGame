@@ -158,6 +158,10 @@ public static class Tune
         public static float KickNormal = 2.5f, KickKill = 4f, KickFinisher = 6f, KickPlayerHurt = 6f;
         public static float ShakeFinisher = 5f, ShakeKill = 3f;
         public static float CameraZoom = 2.1f, CameraFollowSharpness = 7f;
+        /// <summary>The 3D camera: vertical field of view (degrees; its distance follows from
+        /// CameraZoom so it frames the same stretch of the play plane), how far above the action
+        /// it sits (metres; higher shows more of each floor) and how far above the action it aims.</summary>
+        public static float Camera3DFov = 50f, Camera3DLift = 4.2f, Camera3DLookLift = 0.4f;
     }
 
     // =============================================================================== DIFFICULTY

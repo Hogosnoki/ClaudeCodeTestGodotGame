@@ -31,6 +31,9 @@ public partial class Main : Node
 
     private Node2D _world;
     private Camera2D _cam;
+    private Stage3D _stage;
+    /// <summary>The gameplay camera (2D): it decides what counts as on screen; the 3D camera follows it.</summary>
+    public Camera2D Cam2D => _cam;
     private CanvasLayer _uiLayer, _darkLayer;
     private Hud _hud;
     private UpgradeMenu _upgradeMenu;
@@ -109,11 +112,16 @@ public partial class Main : Node
         AddChild(_sfx);
         G.Sfx = _sfx;
 
-        _world = new Node2D { Name = "World", ProcessMode = ProcessModeEnum.Pausable };
+        // What you see is 3D (Stage3D); the 2D world below still runs the whole simulation but
+        // draws nothing (F7 shows it on top, for checking collisions against the 3D art).
+        _stage = new Stage3D();
+        AddChild(_stage);
+
+        _world = new Node2D { Name = "World", ProcessMode = ProcessModeEnum.Pausable, Visible = false };
         AddChild(_world);
         G.World = _world;
 
-        _darkLayer = new CanvasLayer { Layer = 5 };
+        _darkLayer = new CanvasLayer { Layer = 5, Visible = false };
         AddChild(_darkLayer);
         _darkLayer.AddChild(new DarknessOverlay());
 
@@ -131,7 +139,7 @@ public partial class Main : Node
         _uiLayer.AddChild(_metaMenu);
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -182,6 +190,12 @@ public partial class Main : Node
             _hud.HintTime = 0;
             G.Player.InputOverride = () => default;
             SpawnBestiary();
+        }
+        else if (_lookShot != "")
+        {
+            StartPlaying();
+            _hud.HintTime = 0;
+            G.Player.InputOverride = () => default;
         }
         else if (_autotest)
         {
@@ -245,7 +259,22 @@ public partial class Main : Node
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
             else if (a == "--fullrun") _fullRun = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
+            else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
+            else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
         }
+    }
+
+    // --lookshot=PATH [--frames=N]: build the level, stand still for N frames, save a screenshot
+    // and quit (look development for the 3D presentation)
+    private string _lookShot = "";
+    private int _lookFrames = 24, _lookFrame;
+
+    private void LookShotTick()
+    {
+        if (++_lookFrame < _lookFrames) return;
+        GetViewport().GetTexture().GetImage().SavePng(_lookShot);
+        GD.Print($"[lookshot] saved {_lookShot}");
+        GetTree().Quit();
     }
 
     private static void SetupInput()
@@ -307,6 +336,7 @@ public partial class Main : Node
         var cave = CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
+        _stage.BuildLevel(cave);
 
         var back = new Backdrop();
         back.Setup(cave);
@@ -679,6 +709,13 @@ public partial class Main : Node
                 GetViewport().SetInputAsHandled();
                 return;
             }
+            if (k.PhysicalKeycode == Key.F7)
+            {
+                // debug: the 2D simulation drawn over the 3D view
+                _world.Visible = !_world.Visible;
+                GetViewport().SetInputAsHandled();
+                return;
+            }
             if (k.PhysicalKeycode == Key.F8 && Brains.Training)
             {
                 Brains.ShowLabels = !Brains.ShowLabels;
@@ -790,6 +827,7 @@ public partial class Main : Node
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;
         }
         if (_showcase) ShowcaseTick(dt);
+        if (_lookShot != "") LookShotTick();
         if (_autotest) AutotestTick(dt);
         if (_bestiary) BestiaryTick(dt);
         if (_animTest) AnimTestTick(dt);

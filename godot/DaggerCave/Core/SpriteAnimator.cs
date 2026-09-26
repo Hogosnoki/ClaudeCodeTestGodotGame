@@ -125,10 +125,17 @@ public partial class SpriteAnimator : Node2D
     {
         if (Juice <= 0 || dt <= 0) return;
         var rest = _once != null && IsWindup(_once) ? Vector2.One + new Vector2(0.16f, -0.18f) * Juice : Vector2.One;
-        // an under-damped spring: overshoots a little, which reads as energetic
-        var acc = (rest - _punch) * 320f - _punchVel * 16f;
-        _punchVel += acc * dt;
-        _punch += _punchVel * dt;
+        // an under-damped spring: overshoots a little, which reads as energetic. Integrated in
+        // small steps so one long frame can't make it explode.
+        float left = Math.Min(dt, 0.1f);
+        while (left > 0f)
+        {
+            float h = Math.Min(left, 1f / 120f);
+            var acc = (rest - _punch) * 320f - _punchVel * 16f;
+            _punchVel += acc * h;
+            _punch += _punchVel * h;
+            left -= h;
+        }
         _motion = _motion.Lerp(_motionTarget, 1 - MathF.Exp(-dt * 14f));
         var k = _punch * _motion;
         var cur = Sprite.Scale;
