@@ -39,6 +39,8 @@ public abstract partial class Enemy : CharacterBody2D
 
     protected float T, HurtFlash, Stun;
     protected SpriteAnimator Anim;
+    /// <summary>This creature's animator (and through it, its 3D model).</summary>
+    public SpriteAnimator Animator => Anim;
     protected Vector2 KnockVel;
     protected float Face = 1;
     protected bool Awake;

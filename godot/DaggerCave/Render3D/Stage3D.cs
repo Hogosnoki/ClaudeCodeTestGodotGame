@@ -182,7 +182,7 @@ public partial class Stage3D : Node3D
     private void UpdateProxies()
     {
         var p = G.Player;
-        if (p != null && IsInstanceValid(p))
+        if (p != null && IsInstanceValid(p) && p.Anim?.Model3D == null)
         {
             if (_lantern == null || !IsInstanceValid(_lantern))
             {
@@ -196,8 +196,9 @@ public partial class Stage3D : Node3D
             _lantern.Position = W3.P(p.GlobalPosition, 1.1f) + new Vector3(0, 0.6f, 0);
             Proxy(p, 0.4f, 1.62f, new Color(0.2f, 0.55f, 0.6f));
         }
+        else if (_lantern != null && IsInstanceValid(_lantern)) { _lantern.QueueFree(); _lantern = null; }
         foreach (var e in G.Enemies)
-            if (IsInstanceValid(e) && !e.Dead) Proxy(e, W3.M(e.HitRadius), W3.M(e.HitRadius) * 2f, new Color(0.7f, 0.15f, 0.12f));
+            if (IsInstanceValid(e) && !e.Dead && e.Animator?.Model3D == null) Proxy(e, W3.M(e.HitRadius), W3.M(e.HitRadius) * 2f, new Color(0.7f, 0.15f, 0.12f));
         var dead = new List<Node2D>();
         foreach (var kv in _proxies)
             if (!IsInstanceValid(kv.Key) || (kv.Key is Enemy en && en.Dead)) { kv.Value.QueueFree(); dead.Add(kv.Key); }

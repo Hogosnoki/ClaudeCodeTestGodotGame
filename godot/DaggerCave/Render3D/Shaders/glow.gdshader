@@ -18,7 +18,7 @@ void vertex() {
 
 void fragment() {
 	float g = COLOR.a;
-	vec3 base = COLOR.rgb;
+	vec3 base = pow(COLOR.rgb, vec3(2.2)); // authored in sRGB
 	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), 3.0);
 	float beat = 1.0 - pulse * (0.5 + 0.5 * sin(TIME * 1.3 + v_wp.x * 1.7 + v_wp.y * 1.1));
 	ALBEDO = mix(base, glow_color * 0.5 + base * 0.3, g * 0.6 + crystal * 0.3);

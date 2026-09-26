@@ -86,6 +86,8 @@ public partial class Player : CharacterBody2D
 
     public bool IsDodging => _dodgeT > 0;
     public bool IsSwinging => _swingT >= 0;
+    /// <summary>The current swing's aim (zero when not swinging); the 3D body sweeps the blade through it.</summary>
+    public Vector2 SwingAim => _swingT >= 0 ? _swingDir : Vector2.Zero;
     /// <summary>The secondary (thrown dagger / barrier) is ready to use.</summary>
     public bool SecondaryReady
     {

@@ -182,15 +182,79 @@ void fragment() {
         AddChild(Sprite);
         Sprite.AnimationFinished += OnFinished;
         _baseMag = Vector2.One * (sizeMult / Sheet.Scale);
+        _size = sizeMult;
+        // What you actually see: the 3D model of this creature, posed from this animator's clips.
+        Model3D = CreatureModel.Create(setName);
+        if (Model3D != null) AddChild(Model3D);
     }
+
+    /// <summary>The 3D model this animator drives (null for sets without one yet).</summary>
+    public CreatureModel Model3D { get; private set; }
+    private float _size = 1f;
+    private float _animTime, _clipTime;
+    private string _clipKey = "";
+    private Color _flashColor = Colors.White;
 
     public float SizeMult
     {
         set
         {
+            _size = value;
             _baseMag = Vector2.One * (value / Sheet.Scale);
             Sprite.Scale = new Vector2(Mathf.Sign(Sprite.Scale.X == 0 ? 1 : Sprite.Scale.X), Mathf.Sign(Sprite.Scale.Y == 0 ? 1 : Sprite.Scale.Y)) * (value / Sheet.Scale);
         }
+    }
+
+    /// <summary>
+    /// Mirrors this frame's animation state onto the 3D model: clip and progress (the sprite
+    /// sheet's frames stay the clock, so hitboxes and poses stay in step), facing, squash and
+    /// stretch, roll, hit flash, biome tint, and fading or burning away.
+    /// </summary>
+    private void Sync3D(float dt)
+    {
+        var m = Model3D;
+        if (m == null) return;
+        bool shown = Visible;
+        for (Node n = GetParent(); shown && n != null && n != G.World; n = n.GetParent())
+            if (n is CanvasItem ci && !ci.Visible) shown = false;
+        m.Visible = shown;
+        if (!shown) return;
+
+        string anim = Sprite.Animation;
+        string clip = anim.EndsWith("_r") || anim.EndsWith("_l") ? anim[..^2] : anim;
+        int frames = Math.Max(1, Sheet.Frames.GetFrameCount(anim));
+        bool loop = Sheet.Frames.GetAnimationLoop(anim);
+        float t = Math.Clamp((Sprite.Frame + Sprite.FrameProgress) / frames, 0f, 1f);
+        float tdt = dt * TimeMult;
+        _animTime += tdt;
+        if (clip != _clipKey) { _clipKey = clip; _clipTime = 0f; }
+        _clipTime += tdt;
+
+        var owner = GetParent() as Node2D;
+        var body = owner as CharacterBody2D;
+        var vel = body?.Velocity ?? Vector2.Zero;
+        var input = new AnimInput
+        {
+            Clip = clip, Frame = Sprite.Frame, Frames = frames, T = t, Loop = loop, Time = _animTime, Dt = tdt,
+            Facing = Facing, Vel = new Vector2(vel.X, -vel.Y) / W3.Ppu, OnFloor = body?.IsOnFloor() ?? false,
+            InWater = G.Cave != null && G.Cave.IsWater(GlobalPosition), ClipTime = _clipTime, Owner = owner,
+        };
+        m.Face(Facing, clip, t, dt);
+        m.Animate(input);
+
+        // squash and stretch (the sprite's springy scale) times the node's hit punch
+        var ss = Sprite.Scale;
+        var squash = new Vector2(MathF.Abs(ss.X) / Math.Max(1e-4f, _baseMag.X) * MathF.Abs(Scale.X), MathF.Abs(ss.Y) / Math.Max(1e-4f, _baseMag.Y) * MathF.Abs(Scale.Y));
+        m.Position = W3.P(GlobalPosition);
+        m.Scale = Vector3.One * _size;
+        m.UpdatePivot(squash, -GlobalRotation, FootOffset / W3.Ppu / Math.Max(0.01f, _size), ss.Y < 0);
+
+        m.SetFlash(Math.Min(1f, _flash), _flashColor);
+        var tint = Sprite.SelfModulate;
+        m.SetTint(tint, tint.R > 0.99f && tint.G > 0.99f && tint.B > 0.99f ? 0f : 1f);
+        float alpha = Modulate.A;
+        if (clip == "death") { m.SetDissolve(1f - alpha); m.SetFade(1f); }
+        else { m.SetDissolve(0f); m.SetFade(alpha); }
     }
 
     /// <summary>Mirror vertically (spiders on the ceiling). Left/right facing is unaffected.</summary>
@@ -267,7 +331,7 @@ void fragment() {
 
     public void Flash(float amount = 1f) => _flash = Math.Max(_flash, amount);
 
-    public Color FlashColor { set => _mat.SetShaderParameter("flash_color", value); }
+    public Color FlashColor { set { _flashColor = value; _mat.SetShaderParameter("flash_color", value); } }
 
     private string Resolve(string name)
     {
@@ -321,6 +385,7 @@ void fragment() {
             if (_flash <= 0) _mat.SetShaderParameter("flash", 0f);
         }
         if (!_manual) Apply(false);
+        Sync3D((float)delta);
     }
 
     /// <summary>
