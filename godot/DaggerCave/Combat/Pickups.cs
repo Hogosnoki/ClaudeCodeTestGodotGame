@@ -9,6 +9,7 @@ public partial class XpOrb : Node2D
     public int Value = 1;
     public Vector2 Vel;
     private float _t, _life = 45f;
+    public float T => _t;
 
     public override void _Ready() { ZIndex = 2; }
 
@@ -54,6 +55,8 @@ public partial class XpOrb : Node2D
 public partial class HeartPickup : Node2D
 {
     private float _t, _life = 25f, _vy = -120f;
+    public float T => _t;
+    public float LifeLeft => _life;
 
     public override void _Ready() { ZIndex = 2; }
 
@@ -95,6 +98,8 @@ public partial class HeartPickup : Node2D
 public partial class PotionPickup : Node2D
 {
     private float _t, _life = 40f, _vy = -140f;
+    public float T => _t;
+    public float LifeLeft => _life;
 
     public override void _Ready() { ZIndex = 2; }
 
@@ -144,6 +149,8 @@ public partial class Chest : Node2D
 {
     private bool _open;
     private float _t, _openT;
+    public bool Open => _open;
+    public float OpenT => _openT;
 
     public override void _Ready() { ZIndex = 2; }
 
@@ -196,6 +203,7 @@ public partial class Portal : Node2D
     public string Label = "";
     private float _t;
     private bool _used;
+    public float Age => _t;
 
     public override void _Ready() { ZIndex = -1; G.Sfx.Play("portal", GlobalPosition); }
 
@@ -284,6 +292,7 @@ public partial class AirBubble : Node2D
 {
     private float _t;
     private readonly float _phase = G.Range(0, 6);
+    public float T => _t;
 
     public override void _Ready() => ZIndex = 3;
 

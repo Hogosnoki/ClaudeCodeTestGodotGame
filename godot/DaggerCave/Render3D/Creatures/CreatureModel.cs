@@ -74,6 +74,7 @@ public static class CreatureLibrary
     }
 
     private static System.Threading.Thread _bg;
+    private static volatile bool _stopBg;
 
     /// <summary>Bakes every other type on one low-priority background thread.</summary>
     public static void PrebuildRest()
@@ -84,10 +85,29 @@ public static class CreatureLibrary
         _bg = new System.Threading.Thread(() =>
         {
             foreach (var l in lazies)
+            {
+                if (_stopBg) return;
                 try { _ = l.Value; }
                 catch (Exception e) { GD.PrintErr($"[3D] background creature bake failed: {e.Message}"); }
+            }
         }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal, Name = "CreatureBake" };
         _bg.Start();
+    }
+
+    /// <summary>Frees every built kit (before the engine shuts down; see PropViews.ReleaseShared).</summary>
+    public static void ReleaseShared()
+    {
+        // stop the background baker first (it finishes the sculpt in hand)
+        _stopBg = true;
+        _bg?.Join(5000);
+        foreach (var k in Kits.Values)
+        {
+            k.Sculpt.Mesh?.Dispose();
+            k.Sculpt.Skin?.Dispose();
+            k.Material?.Dispose();
+        }
+        Kits.Clear();
+        _shader = null;
     }
 
     public static CreatureKit Get(string name)

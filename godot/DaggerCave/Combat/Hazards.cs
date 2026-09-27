@@ -24,6 +24,7 @@ public partial class SporeCloud : Node2D
     public float Radius = 36f, Life = 2.6f;
     public Enemy Source;
     private float _t, _tick;
+    public float T => _t;
 
     public override void _Ready() { ZIndex = 3; }
 
@@ -61,6 +62,9 @@ public partial class SporeCloud : Node2D
 public partial class SporePod : Node2D
 {
     private float _cd, _t, _swell;
+    /// <summary>For the 3D stage: how far it has swollen before it bursts, and whether it is ready to.</summary>
+    public float Swell => _swell;
+    public bool Primed => _cd <= 0;
 
     public override void _Ready() { ZIndex = 1; }
 
@@ -153,6 +157,7 @@ public partial class CrystalSpikes : Node2D
     public float HalfW = 14f;
     private float _t;
     private readonly float[] _h = new float[5];
+    public float[] Heights => _h;
 
     public override void _Ready()
     {
@@ -195,7 +200,9 @@ public partial class CrystalSpikes : Node2D
 public partial class FireVent : Node2D
 {
     private float _t, _phase;
-    private const float Idle = 3.2f, Warn = 0.9f, Burn = 1.3f;
+    public const float Idle = 3.2f, Warn = 0.9f, Burn = 1.3f;
+    /// <summary>For the 3D stage: where it is in its idle - warn - burn cycle (seconds).</summary>
+    public float Cycle => (_t + _phase) % (Idle + Warn + Burn);
     private float _tick;
 
     public override void _Ready() { ZIndex = 2; _phase = G.Range(0, Idle + Warn + Burn); }
@@ -256,6 +263,8 @@ public partial class IceSheet : StaticBody2D, IBreakable
     public float HalfW = 24f;
     private int _hp = 2;
     private float _flash;
+    public bool Cracked => _hp < 2;
+    public float FlashT => _flash;
     public Vector2 HitCenter => GlobalPosition;
     public float HitSize => HalfW;
 
@@ -309,6 +318,10 @@ public partial class IcePlatform : StaticBody2D, IBreakable
     private int _landings, _hits;
     private bool _broken, _playerOn;
     private float _respawn, _crack, _flash;
+    public bool Broken => _broken;
+    public int Cracks => _landings + _hits;
+    public float FlashT => _flash;
+    public float Shaking => _crack;
     private CollisionShape2D _shape;
     public Vector2 HitCenter => GlobalPosition + new Vector2(0, 6);
     public float HitSize => _broken ? 0 : HalfW;

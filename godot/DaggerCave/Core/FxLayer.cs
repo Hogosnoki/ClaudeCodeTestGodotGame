@@ -4,10 +4,14 @@ using Godot;
 
 namespace DaggerCave;
 
-/// <summary>Lightweight particle / floating text / screen-shake system drawn from one node.</summary>
+/// <summary>
+/// Lightweight particle / floating text / screen-shake system. It simulates in the 2D world's
+/// pixels; the 3D stage (Fx3D, FxOverlay) renders what it holds, giving every particle a depth
+/// of its own so bursts fill space instead of a plane.
+/// </summary>
 public partial class FxLayer : Node2D
 {
-    private struct Particle
+    public struct Particle
     {
         public Vector2 Pos, Vel;
         public float Life, Max, Size, Grav, Drag;
@@ -15,9 +19,12 @@ public partial class FxLayer : Node2D
         public int Kind; // 0 dot, 1 streak, 2 bubble, 3 ring, 5 spark streak, 6 impact flash, 7 flash, 8 shockwave,
                          // 9 smoke, 10 debris, 11 droplet, 12 glint, 13 ember, 14 swoosh
         public float Rot, Spin;
+        /// <summary>Depth (metres toward the camera from the play plane) and its speed: 3D only.</summary>
+        public float Z, ZVel;
+        public float Seed;
     }
 
-    private struct FloatText
+    public struct FloatText
     {
         public Vector2 Pos;
         public string Text;
@@ -26,9 +33,40 @@ public partial class FxLayer : Node2D
         public int Size;
     }
 
+    /// <summary>A brief light where something flashes (the 3D stage lights the scene with it).</summary>
+    public struct LightFlash
+    {
+        public Vector2 Pos;
+        public Color Col;
+        public float Energy, Range, Life;
+    }
+
     private readonly List<Particle> _parts = new(1024);
     private readonly List<FloatText> _texts = new();
     public float Shake;
+    public IReadOnlyList<Particle> Particles => _parts;
+    public IReadOnlyList<FloatText> Texts => _texts;
+    /// <summary>Flashes since the renderer last took them.</summary>
+    public readonly List<LightFlash> Flashes = new();
+    // visual-only randomness (depth, seeds) never touches the gameplay RNG
+    private readonly Random _vis = new(7);
+    private float VR(float a, float b) => a + (float)_vis.NextDouble() * (b - a);
+
+    /// <summary>Asks the 3D stage for a brief light here.</summary>
+    public void LightUp(Vector2 pos, Color col, float energy, float rangePx, float life)
+    {
+        if (Flashes.Count > 24) Flashes.RemoveAt(0);
+        Flashes.Add(new LightFlash { Pos = pos, Col = col, Energy = energy, Range = rangePx, Life = life });
+    }
+
+    /// <summary>Gives a particle its depth: things thrown outward also fly toward or away from the viewer.</summary>
+    private Particle Deep(Particle p, float spread)
+    {
+        p.Z = 0.35f + VR(-0.15f, 0.15f);
+        p.ZVel = spread > 0 ? VR(-1f, 1f) * spread : 0f;
+        p.Seed = VR(0f, 1f);
+        return p;
+    }
 
     public override void _Ready() { ZIndex = 12; }
 
@@ -37,7 +75,7 @@ public partial class FxLayer : Node2D
         for (int k = 0; k < n; k++)
         {
             var d = G.RandDir() * speed * G.Range(0.3f, 1f);
-            _parts.Add(new Particle { Pos = pos, Vel = d, Life = life * G.Range(0.6f, 1.1f), Max = life, Size = size * G.Range(0.6f, 1.3f), Grav = grav, Drag = drag, Col = col, Kind = kind });
+            _parts.Add(Deep(new Particle { Pos = pos, Vel = d, Life = life * G.Range(0.6f, 1.1f), Max = life, Size = size * G.Range(0.6f, 1.3f), Grav = grav, Drag = drag, Col = col, Kind = kind }, speed / 16f * 0.7f));
         }
     }
 
@@ -46,14 +84,14 @@ public partial class FxLayer : Node2D
         for (int k = 0; k < n; k++)
         {
             var d = dir.Rotated(G.Range(-spread, spread)) * speed * G.Range(0.4f, 1f);
-            _parts.Add(new Particle { Pos = pos, Vel = d, Life = life * G.Range(0.6f, 1.1f), Max = life, Size = size, Grav = grav, Drag = 2f, Col = col, Kind = kind });
+            _parts.Add(Deep(new Particle { Pos = pos, Vel = d, Life = life * G.Range(0.6f, 1.1f), Max = life, Size = size, Grav = grav, Drag = 2f, Col = col, Kind = kind }, speed / 16f * 0.35f));
         }
     }
 
     public void Bubbles(Vector2 pos, int n)
     {
         for (int k = 0; k < n; k++)
-            _parts.Add(new Particle { Pos = pos + G.RandDir() * 4, Vel = new Vector2(G.Range(-15, 15), G.Range(-60, -20)), Life = G.Range(0.6f, 1.4f), Max = 1.4f, Size = G.Range(1.5f, 3.5f), Grav = -60, Drag = 1f, Col = new Color(0.75f, 0.95f, 1f, 0.8f), Kind = 2 });
+            _parts.Add(Deep(new Particle { Pos = pos + G.RandDir() * 4, Vel = new Vector2(G.Range(-15, 15), G.Range(-60, -20)), Life = G.Range(0.6f, 1.4f), Max = 1.4f, Size = G.Range(1.5f, 3.5f), Grav = -60, Drag = 1f, Col = new Color(0.75f, 0.95f, 1f, 0.8f), Kind = 2 }, 0.4f));
     }
 
     /// <summary>
@@ -63,32 +101,37 @@ public partial class FxLayer : Node2D
     {
         if (dir.LengthSquared() < 0.01f) dir = Vector2.Right;
         dir = dir.Normalized();
-        _parts.Add(new Particle { Pos = pos, Life = big ? 0.12f : 0.08f, Max = big ? 0.12f : 0.08f, Size = big ? 13 : 8, Col = col, Kind = 6 });
+        _parts.Add(Deep(new Particle { Pos = pos, Life = big ? 0.12f : 0.08f, Max = big ? 0.12f : 0.08f, Size = big ? 13 : 8, Col = col, Kind = 6 }, 0f));
+        LightUp(pos, col, big ? 5f : 2.5f, big ? 90f : 55f, big ? 0.16f : 0.1f);
         int n = big ? 9 : 5;
         for (int k = 0; k < n; k++)
         {
             var d = (k < n / 2 + 1 ? dir.Rotated(G.Range(-0.6f, 0.6f)) : G.RandDir());
             float sp = G.Range(250, big ? 520 : 380);
-            _parts.Add(new Particle { Pos = pos, Vel = d * sp, Life = G.Range(0.08f, 0.16f), Max = 0.16f, Size = big ? 2.2f : 1.6f, Grav = 0, Drag = 6f, Col = col, Kind = 5 });
+            _parts.Add(Deep(new Particle { Pos = pos, Vel = d * sp, Life = G.Range(0.08f, 0.16f), Max = 0.16f, Size = big ? 2.2f : 1.6f, Grav = 0, Drag = 6f, Col = col, Kind = 5 }, sp / 16f * 0.5f));
         }
     }
 
     public void Ring(Vector2 pos, float radius, Color col, float life = 0.3f)
-        => _parts.Add(new Particle { Pos = pos, Life = life, Max = life, Size = radius, Col = col, Kind = 3 });
+        => _parts.Add(Deep(new Particle { Pos = pos, Life = life, Max = life, Size = radius, Col = col, Kind = 3 }, 0f));
 
     public void Text(Vector2 pos, string text, Color col, int size = 11, float life = 0.8f)
         => _texts.Add(new FloatText { Pos = pos + new Vector2(G.Range(-6, 6), 0), Text = text, Col = col, Life = life, Max = life, Size = size });
 
     public void AddShake(float amount) => Shake = Math.Min(14f, Shake + amount);
 
-    private void Add(Vector2 pos, Vector2 vel, float life, float size, Color col, int kind, float grav = 0, float drag = 1.5f, float spin = 0)
-        => _parts.Add(new Particle { Pos = pos, Vel = vel, Life = life, Max = life, Size = size, Col = col, Kind = kind, Grav = grav, Drag = drag, Rot = G.Range(0, Mathf.Tau), Spin = spin });
+    private void Add(Vector2 pos, Vector2 vel, float life, float size, Color col, int kind, float grav = 0, float drag = 1.5f, float spin = 0, float depthSpread = 0f)
+        => _parts.Add(Deep(new Particle { Pos = pos, Vel = vel, Life = life, Max = life, Size = size, Col = col, Kind = kind, Grav = grav, Drag = drag, Rot = G.Range(0, Mathf.Tau), Spin = spin }, depthSpread));
 
     /// <summary>A small hit spark in a random direction.</summary>
     public void Spark(Vector2 pos, Color col) => Spark(pos, G.RandDir(), false, col);
 
     /// <summary>A bright disc that blooms and fades in a blink.</summary>
-    public void Flash(Vector2 pos, float radius, Color col, float life = 0.14f) => Add(pos, Vector2.Zero, life, radius, col, 7);
+    public void Flash(Vector2 pos, float radius, Color col, float life = 0.14f)
+    {
+        Add(pos, Vector2.Zero, life, radius, col, 7);
+        LightUp(pos, col, 1.5f + radius * 0.05f, radius * 3f, life * 1.6f);
+    }
 
     /// <summary>A flattened ring racing outward along the ground.</summary>
     public void Shockwave(Vector2 pos, float radius, Color col, float life = 0.35f) => Add(pos, Vector2.Zero, life, radius, col, 8);
@@ -98,20 +141,20 @@ public partial class FxLayer : Node2D
     {
         var c = col ?? new Color(0.7f, 0.64f, 0.56f, 0.55f);
         for (int k = 0; k < n; k++)
-            Add(pos + new Vector2(G.Range(-6, 6) * spread, G.Range(-2, 1)), new Vector2(G.Range(-50, 50) * spread, G.Range(-30, -8)), G.Range(0.35f, 0.6f), G.Range(3f, 5.5f), c, 9, -20, 3f);
+            Add(pos + new Vector2(G.Range(-6, 6) * spread, G.Range(-2, 1)), new Vector2(G.Range(-50, 50) * spread, G.Range(-30, -8)), G.Range(0.35f, 0.6f), G.Range(3f, 5.5f), c, 9, -20, 3f, 0, 1.2f * spread);
     }
 
     public void Smoke(Vector2 pos, int n, Color col, float speed = 40f)
     {
         for (int k = 0; k < n; k++)
-            Add(pos + G.RandDir() * 6, G.RandDir() * speed * G.Range(0.3f, 1f) + new Vector2(0, -20), G.Range(0.6f, 1.1f), G.Range(5, 9), col, 9, -30, 2f);
+            Add(pos + G.RandDir() * 6, G.RandDir() * speed * G.Range(0.3f, 1f) + new Vector2(0, -20), G.Range(0.6f, 1.1f), G.Range(5, 9), col, 9, -30, 2f, 0, speed / 16f * 0.5f);
     }
 
     /// <summary>Tumbling chunks of rock (or bone, or crystal).</summary>
     public void Debris(Vector2 pos, Color col, int n, float speed = 220f)
     {
         for (int k = 0; k < n; k++)
-            Add(pos, G.RandDir() * speed * G.Range(0.4f, 1f) + new Vector2(0, -80), G.Range(0.5f, 0.9f), G.Range(1.8f, 3.4f), col, 10, 700, 0.6f, G.Range(-14, 14));
+            Add(pos, G.RandDir() * speed * G.Range(0.4f, 1f) + new Vector2(0, -80), G.Range(0.5f, 0.9f), G.Range(1.8f, 3.4f), col, 10, 700, 0.6f, G.Range(-14, 14), speed / 16f * 0.45f);
     }
 
     /// <summary>A fan of droplets thrown up where something hits the water (or lava).</summary>
@@ -121,7 +164,7 @@ public partial class FxLayer : Node2D
         for (int k = 0; k < n; k++)
         {
             float a = -Mathf.Pi / 2 + G.Range(-0.9f, 0.9f);
-            Add(pos, new Vector2(MathF.Cos(a), MathF.Sin(a)) * G.Range(80, 180 + strength * 160), G.Range(0.4f, 0.8f), G.Range(1.4f, 2.6f), col, 11, 650, 0.4f);
+            Add(pos, new Vector2(MathF.Cos(a), MathF.Sin(a)) * G.Range(80, 180 + strength * 160), G.Range(0.4f, 0.8f), G.Range(1.4f, 2.6f), col, 11, 650, 0.4f, 0, 3f + strength * 3f);
         }
         Shockwave(pos, 16 + strength * 22, new Color(col, 0.7f), 0.4f);
     }
@@ -130,7 +173,7 @@ public partial class FxLayer : Node2D
     public void Glint(Vector2 pos, Color col, float size = 7f) => Add(pos, Vector2.Zero, 0.35f, size, col, 12, 0, 0, G.Range(-3, 3));
 
     /// <summary>A glowing mote that drifts upward and flickers out.</summary>
-    public void Ember(Vector2 pos, Color col) => Add(pos, new Vector2(G.Range(-20, 20), G.Range(-70, -30)), G.Range(0.5f, 1.1f), G.Range(1.2f, 2.2f), col, 13, -20, 0.8f);
+    public void Ember(Vector2 pos, Color col) => Add(pos, new Vector2(G.Range(-20, 20), G.Range(-70, -30)), G.Range(0.5f, 1.1f), G.Range(1.2f, 2.2f), col, 13, -20, 0.8f, 0, 1.2f);
 
     /// <summary>A single fading mote left behind by something moving fast.</summary>
     public void Trail(Vector2 pos, Color col) => Add(pos, Vector2.Zero, 0.25f, 3f, col, 0, 0);
@@ -141,6 +184,7 @@ public partial class FxLayer : Node2D
     /// <summary>Enemy death: a pop of light, a ring and a scatter of bits.</summary>
     public void Pop(Vector2 pos, Color col, float radius)
     {
+        LightUp(pos, col, 4f, radius * 6f + 60f, 0.3f);
         Flash(pos, radius + 8, new Color(1f, 0.95f, 0.85f), 0.12f);
         Ring(pos, radius + 4, new Color(col, 0.8f), 0.25f);
         Burst(pos, col, 8, 150, 2.2f, 0.45f);
@@ -150,6 +194,7 @@ public partial class FxLayer : Node2D
     /// <summary>The big one: flash, shockwave, sparks, embers, smoke and debris.</summary>
     public void Explosion(Vector2 pos, Color col, float scale = 1f)
     {
+        LightUp(pos, new Color(1f, 0.75f, 0.45f), 10f * scale, 220f * scale, 0.5f);
         Flash(pos, 34 * scale, new Color(1f, 0.95f, 0.8f), 0.18f);
         Shockwave(pos, 60 * scale, new Color(1f, 0.9f, 0.7f, 0.9f), 0.4f);
         Ring(pos, 30 * scale, new Color(col, 0.9f), 0.35f);
@@ -165,8 +210,10 @@ public partial class FxLayer : Node2D
 
     /// <summary>Washes the whole view with a colour for a moment (level-ups, enrages, potions).</summary>
     public void ScreenFlash(Color col, float seconds = 0.25f) { _screenCol = col; _screenT = _screenMax = seconds; }
+    /// <summary>The screen wash right now (alpha already faded).</summary>
+    public Color ScreenWash => _screenT > 0 ? new Color(_screenCol, _screenCol.A * 0.45f * (_screenT / _screenMax)) : new Color(0, 0, 0, 0);
 
-    public void Clear() { _parts.Clear(); _texts.Clear(); Shake = 0; }
+    public void Clear() { _parts.Clear(); _texts.Clear(); Flashes.Clear(); Shake = 0; }
 
     public override void _Process(double delta)
     {
@@ -180,6 +227,8 @@ public partial class FxLayer : Node2D
             p.Vel.Y += p.Grav * dt;
             p.Vel *= 1f / (1f + p.Drag * dt);
             p.Pos += p.Vel * dt;
+            p.ZVel *= 1f / (1f + p.Drag * dt);
+            p.Z = Math.Clamp(p.Z + p.ZVel * dt, -1.2f, 2.5f);
             p.Rot += p.Spin * dt;
             if (p.Kind == 10 && cave != null && cave.IsSolid(p.Pos)) { p.Vel = new Vector2(p.Vel.X * 0.5f, -p.Vel.Y * 0.35f); p.Pos -= new Vector2(0, 1); }
             if (p.Kind == 2 && cave != null && p.Pos.Y < cave.WaterY) p.Life = 0;

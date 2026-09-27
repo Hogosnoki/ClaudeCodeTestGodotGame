@@ -427,6 +427,7 @@ public partial class Afterimage : Sprite2D
     public static void Spawn(SpriteAnimator src, Color tint, float life = 0.22f)
     {
         if (src?.Sprite == null) return;
+        if (src.Model3D != null) { Ghost3D.Spawn(src.Model3D, tint, life); return; }
         var a = new Afterimage
         {
             Texture = src.CurrentTexture,

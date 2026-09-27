@@ -959,6 +959,67 @@ public partial class Player : CharacterBody2D
 
     // ---------------------------------------------------------------- drawing
 
+    /// <summary>The blade smear of the current swing (for the 3D stage): angles in 2D radians, sizes in pixels.</summary>
+    public struct Smear
+    {
+        public float Head, Tail, Outer, Blade, Fade;
+        public bool Finisher;
+        public Color Tint;
+        public Vector2 Origin;
+    }
+
+    public bool GetSmear(out Smear sm)
+    {
+        sm = default;
+        if (Dead || _swingT < 0 || SweepT < 0 || SweepT > _active + 0.15f) return false;
+        float prog = Math.Clamp(SweepT / _active, 0, 1);
+        prog = 1 - (1 - prog) * (1 - prog) * (1 - prog);
+        float fade = 1 - Math.Clamp((SweepT - _active) / 0.15f, 0, 1);
+        float dirSign = _comboStep % 2 == 0 ? 1 : -1;
+        float a0 = _swingDir.Angle() - dirSign * _swingArc * 0.5f;
+        sm.Head = a0 + dirSign * _swingArc * prog;
+        sm.Tail = a0 + dirSign * _swingArc * Math.Max(0, prog - 0.85f + (1 - fade) * 0.85f);
+        if (Math.Abs(sm.Head - sm.Tail) < 0.02f) return false;
+        sm.Finisher = _finisher;
+        sm.Outer = _swingReach + 3;
+        sm.Blade = _swingReach * (IsWarden ? 0.62f : 0.8f) * (_finisher ? 1.1f : 1f);
+        sm.Fade = fade;
+        sm.Tint = _finisher ? new Color(1f, 0.82f, 0.35f) : new Color(0.8f, 0.95f, 1f);
+        sm.Origin = GlobalPosition + new Vector2(0, -3);
+        return true;
+    }
+
+    /// <summary>The Warden's guard (for the 3D stage): barrier glow and the shield's arc of light.</summary>
+    public struct Guard
+    {
+        public float Barrier;          // barrier bubble opacity (0 = none)
+        public bool Shield;
+        public float Angle, Half, Strength;
+        public Color Col;
+    }
+
+    public Guard GetGuard()
+    {
+        var g = new Guard();
+        if (Dead || !IsWarden) return g;
+        if (BarrierHp > 0)
+        {
+            float a = 0.18f + 0.1f * MathF.Sin(_animT * 6);
+            if (_barrierT < 1f) a *= _barrierT;
+            g.Barrier = a;
+        }
+        if (ShieldRaised)
+        {
+            g.Shield = true;
+            g.Strength = Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1);
+            bool perfectWindow = _shieldUpT <= Tune.Warden.PerfectWindow;
+            g.Col = perfectWindow || _shieldFlash > 0 ? new Color(0.85f, 0.95f, 1f) : new Color(0.35f, 0.65f, 1f);
+            g.Angle = ShieldDir.Angle();
+            g.Half = ShieldArc * 0.5f;
+        }
+        return g;
+    }
+
     private void DrawGuard()
     {
         if (BarrierHp > 0)

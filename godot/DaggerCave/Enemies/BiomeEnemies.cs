@@ -119,6 +119,8 @@ public partial class Bear : Walker
     private float _st, _chargeCd = 2.5f, _swipeCd;
 
     public Bear() { MaxHp = Tune.Bear.Hp; BodyRadius = 14; ContactDamage = Tune.Bear.Contact; XpValue = Tune.Bear.Xp; KnockResist = 0.6f; }
+    /// <summary>For the 3D stage: stars circle a stunned bear's head.</summary>
+    public bool Stunned => _s == S.Stunned;
 
     protected override void Setup() { DisplayName = "Bear"; UseSprite("bear"); }
     protected override Color BloodColor => new(0.6f, 0.1f, 0.1f);

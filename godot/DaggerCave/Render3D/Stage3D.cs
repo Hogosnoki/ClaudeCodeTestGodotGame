@@ -119,6 +119,13 @@ public partial class Stage3D : Node3D
         AddChild(Level);
         Lights = new LightPool3D { Name = "Lights" };
         AddChild(Lights);
+        // effects: particles and lights in 3D, damage numbers and screen washes over the top
+        AddChild(new Fx3D());
+        // every prop (projectile, pickup, hazard...) gets a 3D body as it enters the world
+        GetTree().NodeAdded += PropViews.Attach;
+        var overlay = new CanvasLayer { Name = "FxOverlayLayer", Layer = 6 };
+        AddChild(overlay);
+        overlay.AddChild(new FxOverlay());
 
         // debug: --cam3d=yaw,pitch,distance orbits the camera around the action;
         // --bright floods the scene with light to inspect geometry
@@ -134,6 +141,15 @@ public partial class Stage3D : Node3D
             if (a == "--bright") _debugBright = true;
             if (a == "--terraindebug") _debugTerrain = true;
         }
+    }
+
+    public override void _ExitTree()
+    {
+        GetTree().NodeAdded -= PropViews.Attach;
+        // shared resources held in statics must go while the engine is still up
+        PropViews.ReleaseShared();
+        Ghost3D.ReleaseShared();
+        CreatureLibrary.ReleaseShared();
     }
 
     private Vector3? _debugOrbit;

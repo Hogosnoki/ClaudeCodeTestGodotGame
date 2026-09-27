@@ -16,6 +16,10 @@ public partial class ThrownDagger : Node2D
     private static float MaxRange => Tune.Hero.ThrowRange;
     private float _traveled, _fadeT = -1, _t;
     private Vector2 _fallVel;
+    /// <summary>For the 3D stage: still flying, the whirl angle, and how visible it is while it falls away.</summary>
+    public bool Flying => _fadeT < 0;
+    public float Spin => Flying ? _t * Tune.Hero.ThrowSpinRadPerSec * (Dir.X >= 0 ? 1 : -1) : 0;
+    public float Alpha => _fadeT >= 0 ? Math.Clamp(_fadeT / 0.3f, 0, 1) : 1;
     private readonly HashSet<Enemy> _hit = new();
 
     public override void _Ready() { ZIndex = 2; }
@@ -322,8 +326,9 @@ public partial class EnemyProjectile : Node2D
 public partial class LavaPuddle : Node2D
 {
     private float _life = 3.5f, _tick, _t;
-    private const float HalfW = 16f;
+    public const float HalfW = 16f;
     public Enemy Source;
+    public float LifeLeft => _life;
 
     public override void _Ready() { ZIndex = 3; }
 
@@ -361,6 +366,7 @@ public partial class Shockwave : Node2D
     public Enemy Source;
     private bool _hitPlayer;
     private float _t;
+    public float T => _t;
 
     public override void _Ready() { ZIndex = 3; }
 
@@ -410,6 +416,9 @@ public partial class FallingRock : Node2D
     private float _warn = 0.8f, _vy;
     private Vector2 _floor;
     private bool _hasFloor;
+    /// <summary>For the 3D stage: the telegraph time left and where it will land.</summary>
+    public float Warn => _warn;
+    public Vector2? Target => _hasFloor ? _floor : null;
 
     public override void _Ready()
     {
@@ -466,6 +475,7 @@ public partial class SwordWave : Node2D
     public Vector2 Dir;
     public float Damage, Range = 150f, Speed = 480f;
     private float _traveled;
+    public float Traveled => _traveled;
     private readonly HashSet<Enemy> _hit = new();
 
     public override void _Ready() { ZIndex = 2; Rotation = Dir.Angle(); }

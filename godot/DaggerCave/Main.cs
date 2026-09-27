@@ -262,6 +262,8 @@ public partial class Main : Node
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
+            else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
+            else if (a == "--proptest") _propTest = true;
         }
     }
 
@@ -270,9 +272,67 @@ public partial class Main : Node
     private string _lookShot = "";
     private int _lookFrames = 24, _lookFrame;
 
+    private int _fxTest;
+    private bool _propTest;
+
+    /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
+    private void SpawnPropTest()
+    {
+        var p = G.Player.GlobalPosition;
+        var cave = G.Cave;
+        Vector2 Floor(float dx) => cave.FindFloor(p + new Vector2(dx, -40), 200, out var f) ? f : p + new Vector2(dx, 12);
+        void Add(Node2D n, Vector2 at) { n.Position = at; _world.AddChild(n); }
+        Add(new Chest(), Floor(-150));
+        Add(new XpOrb { Value = 3 }, p + new Vector2(-110, -40));
+        Add(new XpOrb { Value = 10 }, p + new Vector2(-95, -52));
+        Add(new HeartPickup(), p + new Vector2(-70, -45));
+        Add(new PotionPickup(), p + new Vector2(-45, -45));
+        Add(new EnemyProjectile { Kind = "rock", Vel = Vector2.Zero, Grav = 0, Life = 99 }, p + new Vector2(40, -70));
+        Add(new EnemyProjectile { Kind = "lava", Vel = Vector2.Zero, Grav = 0, Life = 99 }, p + new Vector2(60, -70));
+        Add(new EnemyProjectile { Kind = "fire", Vel = Vector2.Zero, Grav = 0, Life = 0.6f }, p + new Vector2(80, -70));
+        Add(new EnemyProjectile { Kind = "ice", Vel = new Vector2(1, 0), Grav = 0, Life = 99 }, p + new Vector2(100, -70));
+        Add(new EnemyProjectile { Kind = "spit", Vel = Vector2.Zero, Grav = 0, Life = 99 }, p + new Vector2(120, -70));
+        Add(new LavaPuddle(), Floor(60));
+        Add(new CrystalSpikes(), Floor(110));
+        Add(new FireVent(), Floor(160));
+        Add(new SporePod(), Floor(-110));
+        Add(new WebPatch { Radius = 26 }, p + new Vector2(170, -60));
+        Add(new SporeCloud { Radius = 30, Life = 99 }, p + new Vector2(-160, -70));
+        Add(new SwordWave { Dir = Vector2.Right, Damage = 0, Range = 9999, Speed = 1 }, p + new Vector2(0, -80));
+    }
+
+    /// <summary>Test aid: one of every effect in a grid around the player (for tuning their 3D look).</summary>
+    private void SpawnFxTest()
+    {
+        var fx = G.Fx;
+        var p = G.Player.GlobalPosition + new Vector2(0, -40);
+        float dx = 70, x0 = -2 * dx;
+        Vector2 At(int col, int row) => p + new Vector2(x0 + col * dx, -60 + row * 55);
+        fx.Burst(At(0, 0), new Color(1f, 0.6f, 0.2f), 14, 180, 2.5f, 0.6f);
+        fx.Spark(At(1, 0), Vector2.Right, true, new Color(1f, 0.9f, 0.5f));
+        fx.Explosion(At(2, 0), new Color(1f, 0.5f, 0.2f), 0.8f);
+        fx.Pop(At(3, 0), new Color(0.9f, 0.2f, 0.2f), 12);
+        fx.Flash(At(4, 0), 20, new Color(0.6f, 0.9f, 1f));
+        fx.Smoke(At(0, 1), 8, new Color(0.35f, 0.33f, 0.32f, 0.6f));
+        fx.Dust(At(1, 1), 8);
+        fx.Debris(At(2, 1), new Color(0.45f, 0.42f, 0.38f), 10);
+        fx.Splash(At(3, 1), 1f, new Color(0.6f, 0.85f, 1f, 0.85f));
+        for (int k = 0; k < 6; k++) fx.Ember(At(4, 1) + G.RandDir() * 8, new Color(1f, 0.6f, 0.2f));
+        fx.Ring(At(0, 2), 20, new Color(1f, 0.85f, 0.4f));
+        fx.Shockwave(At(1, 2), 50, new Color(1f, 0.9f, 0.7f, 0.9f));
+        fx.Glint(At(2, 2), new Color(1f, 0.95f, 0.7f), 10);
+        fx.Swoosh(At(3, 2), 1, 22, new Color(0.85f, 0.95f, 1f, 0.9f));
+        fx.Text(At(4, 2), "123", new Color(1f, 0.9f, 0.3f), 12);
+        fx.Bubbles(At(4, 2) + new Vector2(0, 30), 6);
+    }
+
     private void LookShotTick()
     {
-        if (++_lookFrame < _lookFrames) return;
+        ++_lookFrame;
+        // --fxtest: lay out one of every effect around the player a moment before the shot
+        if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
+        if (_propTest && _lookFrame == 2) SpawnPropTest();
+        if (_lookFrame < _lookFrames) return;
         GetViewport().GetTexture().GetImage().SavePng(_lookShot);
         GD.Print($"[lookshot] saved {_lookShot}");
         GetTree().Quit();
