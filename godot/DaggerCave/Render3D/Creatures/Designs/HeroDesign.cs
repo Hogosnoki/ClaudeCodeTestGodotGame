@@ -4,9 +4,11 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The two heroes, one rig. The Swordsman: hood and teal cloak, a red scarf over the face, a long
-/// sword. The Warden: great helm, mail under a blue tabard with a gold sash, a shortsword and a
-/// kite shield. Both carry a lantern at the hip that lights the cave around them.
+/// The three heroes, one rig. The Swordsman: hood and teal cloak, a red scarf over the face, a
+/// long sword. The Warden: great helm, mail under a blue tabard with a gold sash, a shortsword and
+/// a kite shield. The Vitalist: a deep green robe and cowl over a bone mask with eyes that glow,
+/// a blood-red sash, and a gnarled staff whose crystal flares with every spell. All three carry a
+/// lantern at the hip that lights the cave around them.
 ///
 /// Animation: the legs follow real movement (a gait phase driven by ground speed, air poses by
 /// vertical speed) while the upper body plays the clip, so strikes while running look right.
@@ -15,16 +17,17 @@ namespace DaggerCave;
 /// </summary>
 public sealed class HeroDesign : CreatureDesign
 {
-    private readonly bool _warden;
-    public HeroDesign(bool warden) { _warden = warden; }
-    public override string Name => _warden ? "warden" : "swordsman";
+    private readonly HeroKind _kind;
+    private readonly bool _warden, _vitalist;
+    public HeroDesign(HeroKind kind) { _kind = kind; _warden = kind == HeroKind.Warden; _vitalist = kind == HeroKind.Vitalist; }
+    public override string Name => _kind switch { HeroKind.Warden => "warden", HeroKind.Vitalist => "vitalist", _ => "swordsman" };
     public override float Cell => 0.013f;
     public override float ThreeQuarter => 20f;
     public override float FloorY => Floor;
 
     public override CreatureLook Look => new()
     {
-        Eye = new Color(1f, 0.9f, 0.75f), EyeEnergy = 0.5f,
+        Eye = _vitalist ? new Color(0.5f, 1f, 0.42f) : new Color(1f, 0.9f, 0.75f), EyeEnergy = _vitalist ? 2.4f : 0.5f,
         Glow = new Color(1f, 0.68f, 0.32f), GlowEnergy = 6f,
         Rim = new Color(0.55f, 0.68f, 0.95f), RimEnergy = 0.28f,
         DetailScale = 34f, DetailStrength = 0.6f,
@@ -32,6 +35,10 @@ public sealed class HeroDesign : CreatureDesign
 
     private const float Floor = -0.81f;
     private static readonly Vector3 LanternAt = new(0.02f, -0.02f, -0.19f);
+    /// <summary>Where the hand grips (rest space); the Vitalist's staff runs through it along +X, crystal forward.</summary>
+    private static readonly Vector3 Grip = new(0.02f, -0.11f, 0.2f);
+    private const float StaffUp = 0.6f, StaffDown = 0.98f, GemAt = 0.72f;
+    private static readonly Color Life = new(0.45f, 1f, 0.4f);
 
     private int hips, spine, chest, neck, head, cape0, cape1, cape2, cape3, scarf0, scarf1, scarf2;
     private readonly int[] clav = new int[2], uarm = new int[2], farm = new int[2], hand = new int[2], thigh = new int[2], shin = new int[2], foot = new int[2];
@@ -62,9 +69,13 @@ public sealed class HeroDesign : CreatureDesign
         var leatherDk = C(0.15f, 0.095f, 0.06f);
         var steel = C(0.62f, 0.64f, 0.67f);
         var gold = C(0.78f, 0.58f, 0.24f);
-        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : C(0.07f, 0.27f, 0.28f);
-        var body = _warden ? C(0.42f, 0.44f, 0.47f) : leather; // mail vs. jerkin
-        var bodyMat = _warden ? Mat.Metal : Mat.Leather;
+        var robe = C(0.075f, 0.18f, 0.115f);
+        var boneWhite = C(0.8f, 0.76f, 0.66f);
+        var blood = C(0.46f, 0.05f, 0.06f);
+        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : C(0.07f, 0.27f, 0.28f);
+        var body = _warden ? C(0.42f, 0.44f, 0.47f) : _vitalist ? robe : leather; // mail, robe, jerkin
+        var bodyMat = _warden ? Mat.Metal : _vitalist ? Mat.Cloth : Mat.Leather;
+        if (_vitalist) skin = C(0.6f, 0.5f, 0.45f); // pale, bloodless hands
 
         int hipsB = s.Bone("hips", -1, new(0, 0.02f, 0));
         int spineB = s.Bone("spine", hipsB, new(0, 0.14f, 0));
@@ -103,6 +114,14 @@ public sealed class HeroDesign : CreatureDesign
             s.Egg(hipsB, new(0.02f, -0.1f, 0), new(0.13f, 0.17f, 0.15f), cloak, Mat.Cloth, 0.03f);
             s.Limb(chestB, new(0.1f, 0.44f, -0.16f), new(0.12f, 0.12f, 0.15f), 0.028f, 0.028f, gold, Mat.Cloth, 0.01f);
         }
+        else if (_vitalist)
+        {
+            // a heavy mantle over the shoulders, the robe falling to mid-thigh, a blood-red sash
+            s.Egg(chestB, new(0f, 0.44f, 0), new(0.15f, 0.065f, 0.205f), cloak, Mat.Cloth, 0.03f);
+            s.Egg(hipsB, new(0.012f, -0.15f, 0), new(0.15f, 0.21f, 0.168f), robe, Mat.Cloth, 0.03f);
+            s.Limb(chestB, new(0.1f, 0.43f, 0.15f), new(0.11f, 0.1f, -0.15f), 0.024f, 0.022f, blood, Mat.Cloth, 0.008f);
+            s.Limb(hipsB, new(0.14f, 0.07f, -0.1f), new(0.15f, -0.2f, -0.12f), 0.018f, 0.012f, blood, Mat.Cloth, 0.006f);
+        }
         else
         {
             // leather flaps over the hips
@@ -112,7 +131,7 @@ public sealed class HeroDesign : CreatureDesign
             s.Limb(chestB, new(0.1f, 0.43f, 0.15f), new(0.11f, 0.12f, -0.15f), 0.018f, 0.018f, leatherDk, Mat.Leather, 0.008f);
         }
         s.Egg(hipsB, new(0, 0.075f, 0), new(0.14f, 0.03f, 0.158f), leatherDk, Mat.Leather, 0.01f);
-        s.Block(hipsB, new(0.14f, 0.075f, 0), new(0.012f, 0.022f, 0.028f), 0.004f, gold, Mat.Gold, 0.004f);
+        s.Block(hipsB, new(0.14f, 0.075f, 0), new(0.012f, 0.022f, 0.028f), 0.004f, _vitalist ? boneWhite : gold, _vitalist ? Mat.Bone : Mat.Gold, 0.004f);
 
         // ---- neck and head
         s.Limb(neckB, new(0.01f, 0.47f, 0), new(0.02f, 0.6f, 0), 0.056f, 0.052f, skin, Mat.Skin, 0.03f);
@@ -126,6 +145,21 @@ public sealed class HeroDesign : CreatureDesign
             s.Limb(headB, new(-0.02f, 0.87f, 0), new(-0.09f, 0.83f, 0), 0.03f, 0.02f, C(0.55f, 0.06f, 0.05f), Mat.Cloth, 0.02f);
             s.Eye(headB, new(0.13f, 0.725f, 0.035f), 0.009f, C(0.9f, 0.85f, 0.7f), 0.4f);
             s.Eye(headB, new(0.13f, 0.725f, -0.035f), 0.009f, C(0.9f, 0.85f, 0.7f), 0.4f);
+        }
+        else if (_vitalist)
+        {
+            // a deep cowl, and in its shadow a bone mask: hollow eyes lit green from within, a slit mouth
+            s.Egg(headB, new(-0.002f, 0.748f, 0), new(0.138f, 0.152f, 0.126f), cloak, Mat.Cloth, 0.02f);
+            s.Limb(headB, new(-0.07f, 0.76f, 0), new(-0.12f, 0.52f, 0), 0.09f, 0.12f, cloak, Mat.Cloth, 0.04f);
+            s.Limb(headB, new(0.03f, 0.88f, 0), new(-0.08f, 0.9f, 0), 0.03f, 0.012f, cloak, Mat.Cloth, 0.03f);
+            s.CarveBall(headB, new(0.17f, 0.7f, 0), 0.102f, 0.02f);
+            s.Egg(headB, new(0.036f, 0.705f, 0), new(0.09f, 0.11f, 0.08f), boneWhite, Mat.Bone, 0.012f);
+            s.Limb(headB, new(0.112f, 0.735f, 0), new(0.128f, 0.69f, 0), 0.014f, 0.01f, boneWhite, Mat.Bone, 0.01f);
+            s.CarveBall(headB, new(0.12f, 0.73f, 0.035f), 0.02f, 0.006f);
+            s.CarveBall(headB, new(0.12f, 0.73f, -0.035f), 0.02f, 0.006f);
+            s.CarveLimb(headB, new(0.124f, 0.664f, -0.024f), new(0.124f, 0.664f, 0.024f), 0.005f, 0.005f, 0.003f);
+            s.Eye(headB, new(0.106f, 0.73f, 0.035f), 0.011f, Life, 1f);
+            s.Eye(headB, new(0.106f, 0.73f, -0.035f), 0.011f, Life, 1f);
         }
         else
         {
@@ -141,7 +175,7 @@ public sealed class HeroDesign : CreatureDesign
         }
         // scarf knot and tail (the warden has a crest instead of a scarf, but keeps the bones)
         var scarfCol = C(0.55f, 0.07f, 0.05f);
-        if (!_warden)
+        if (!_warden && !_vitalist)
         {
             s.Ball(s0, new(-0.07f, 0.595f, 0), 0.042f, scarfCol, Mat.Cloth, 0.02f);
             s.Limb(s0, new(-0.07f, 0.59f, 0.005f), new(-0.2f, 0.57f, 0.025f), 0.04f, 0.034f, scarfCol, Mat.Cloth, 0.015f);
@@ -155,6 +189,15 @@ public sealed class HeroDesign : CreatureDesign
             float z = k == 0 ? 1 : -1;
             string sfx = k == 0 ? "_r" : "_l";
             int ua = s["uarm" + sfx], fa = s["farm" + sfx], hd = s["hand" + sfx];
+            if (_vitalist)
+            {
+                s.Egg(ua, new(0, 0.45f, 0.19f * z), new(0.08f, 0.07f, 0.074f), cloak, Mat.Cloth, 0.02f);
+                s.Limb(ua, new(0, 0.45f, 0.19f * z), new(0, 0.2f, 0.2f * z), 0.052f, 0.047f, robe, Mat.Cloth, 0.02f);
+                s.Ball(fa, new(0, 0.19f, 0.2f * z), 0.046f, robe, Mat.Cloth, 0.015f);
+                s.Limb(fa, new(0, 0.18f, 0.2f * z), new(0, -0.015f, 0.2f * z), 0.046f, 0.06f, robe, Mat.Cloth, 0.015f);
+                s.Limb(hd, new(0.005f, -0.04f, 0.2f * z), new(0.018f, -0.125f, 0.2f * z), 0.03f, 0.024f, skin, Mat.Skin, 0.012f);
+                continue;
+            }
             s.Egg(ua, new(0, 0.45f, 0.19f * z), new(0.078f, 0.068f, 0.072f), _warden ? steel : leather, _warden ? Mat.Metal : Mat.Leather, 0.02f);
             s.Limb(ua, new(0, 0.45f, 0.19f * z), new(0, 0.2f, 0.2f * z), 0.05f, 0.043f, _warden ? body : dark, _warden ? Mat.Metal : Mat.Cloth, 0.02f);
             s.Ball(fa, new(0, 0.19f, 0.2f * z), 0.043f, _warden ? body : dark, Mat.Cloth, 0.015f);
@@ -185,7 +228,7 @@ public sealed class HeroDesign : CreatureDesign
                 (0.24f, 0.2f, -0.15f, 0.07f),
                 (-0.06f, 0.212f, -0.168f, 0.055f),
                 (-0.34f, 0.22f, -0.178f, 0.05f),
-                (-0.56f, 0.215f, -0.186f, 0.045f),
+                (_vitalist ? -0.64f : -0.56f, 0.215f, -0.186f, 0.045f),
             };
             const int cols = 9;
             var grid = new Vector3[rowSpec.Length][];
@@ -207,13 +250,17 @@ public sealed class HeroDesign : CreatureDesign
 
         // ---- equipment
         int handR = s["hand_r"], handL = s["hand_l"];
-        var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
-        var sword = _warden
-            ? PropMeshes.Sword(0.58f, 0.03f, C(0.82f, 0.84f, 0.88f), gold, leatherDk, 0.075f)
-            : PropMeshes.Sword(1.05f, 0.032f, C(0.8f, 0.82f, 0.86f), steel, leatherDk, 0.11f);
-        var sw = new MeshBuilder();
-        sw.Append(sword, grip);
-        s.Rigid(handR, sw, Mat.Metal);
+        if (_vitalist) SculptStaff(s, handR, blood);
+        else
+        {
+            var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
+            var sword = _warden
+                ? PropMeshes.Sword(0.58f, 0.03f, C(0.82f, 0.84f, 0.88f), gold, leatherDk, 0.075f)
+                : PropMeshes.Sword(1.05f, 0.032f, C(0.8f, 0.82f, 0.86f), steel, leatherDk, 0.11f);
+            var sw = new MeshBuilder();
+            sw.Append(sword, grip);
+            s.Rigid(handR, sw, Mat.Metal);
+        }
         if (_warden)
         {
             var shield = PropMeshes.KiteShield(0.62f, 0.4f, C(0.1f, 0.18f, 0.45f), gold, C(0.85f, 0.7f, 0.3f));
@@ -241,8 +288,97 @@ public sealed class HeroDesign : CreatureDesign
         s.Rigid(hipsB, gl, Mat.Crystal, 1f);
     }
 
+    /// <summary>
+    /// The Vitalist's staff, through the fist along +X: a gnarled shaft, a blood-red binding under
+    /// the head, and three wooden prongs curling around the crystal (the crystal itself is a lit
+    /// attachment, so it can flare with each spell).
+    /// </summary>
+    private static void SculptStaff(Sculptor s, int handR, Color blood)
+    {
+        var wood = new Color(0.27f, 0.18f, 0.1f);
+        var rng = new Random(11);
+        var path = new System.Collections.Generic.List<Vector3>();
+        var radii = new System.Collections.Generic.List<float>();
+        const int n = 9;
+        for (int k = 0; k <= n; k++)
+        {
+            float t = k / (float)n;
+            float x = -StaffDown + (StaffDown + StaffUp) * t;
+            var wob = k == 0 || k == n ? Vector3.Zero : new Vector3(0, ((float)rng.NextDouble() - 0.5f) * 0.018f, ((float)rng.NextDouble() - 0.5f) * 0.014f);
+            path.Add(Grip + new Vector3(x, 0, 0) + wob);
+            radii.Add(0.017f + 0.005f * t + (k % 3 == 1 ? 0.004f : 0f));
+        }
+        var mb = new MeshBuilder();
+        mb.Tube(path, radii, 7, wood);
+        for (int k = 0; k < 3; k++)
+        {
+            float a = k * Mathf.Tau / 3f + 0.4f;
+            var d = new Vector3(0, MathF.Cos(a), MathF.Sin(a));
+            var prong = new[] { Grip + new Vector3(StaffUp - 0.04f, 0, 0) + d * 0.01f, Grip + new Vector3(GemAt - 0.07f, 0, 0) + d * 0.05f,
+                                Grip + new Vector3(GemAt + 0.04f, 0, 0) + d * 0.058f, Grip + new Vector3(GemAt + 0.12f, 0, 0) + d * 0.022f };
+            mb.Tube(prong, new[] { 0.011f, 0.009f, 0.007f, 0.004f }, 5, wood);
+        }
+        s.Rigid(handR, mb, Mat.Wood);
+        var wrap = new MeshBuilder();
+        wrap.Tube(new[] { Grip + new Vector3(StaffUp - 0.2f, 0, 0), Grip + new Vector3(StaffUp - 0.1f, 0, 0) }, new[] { 0.026f, 0.026f }, 8, blood);
+        wrap.Tube(new[] { Grip + new Vector3(StaffUp - 0.2f, 0, 0), Grip + new Vector3(StaffUp - 0.32f, -0.06f, 0.012f) }, new[] { 0.01f, 0.005f }, 5, blood);
+        s.Rigid(handR, wrap, Mat.Cloth);
+    }
+
     public override void Attach(CreatureModel m)
     {
+        if (_vitalist)
+        {
+            // the staff's crystal: its own glowing mesh and a small light, both flaring with spells
+            var hand = m.AttachTo("hand_r");
+            hand.Name = "StaffHand";
+            var mb = new MeshBuilder();
+            mb.Crystal(0.035f, 0.1f, 0.05f, Colors.White);
+            var lower = new MeshBuilder();
+            lower.Append(mb, new Transform3D(new Basis(Vector3.Right, MathF.PI), Vector3.Zero));
+            mb.Append(lower, Transform3D.Identity);
+            var gemMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.55f, 1f, 0.5f, 0.85f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.15f,
+                EmissionEnabled = true, Emission = Life, EmissionEnergyMultiplier = 2.5f, RimEnabled = true, Rim = 0.6f,
+            };
+            // the crystal lies along the staff (the hand's +X), grown from the rest-space grip
+            var gemAt = Grip + new Vector3(GemAt, 0, 0) - new Vector3(0f, -0.05f, 0.2f);
+            hand.AddChild(new MeshInstance3D
+            {
+                Name = "Gem", Mesh = mb.ToMesh(gemMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                Transform = new Transform3D(new Basis(Vector3.Back, -MathF.PI / 2f), gemAt),
+            });
+            hand.AddChild(new OmniLight3D
+            {
+                Name = "GemLight", LightColor = Life, LightEnergy = 0.4f, OmniRange = 3.2f, OmniAttenuation = 1.4f,
+                ShadowEnabled = false, LightVolumetricFogEnergy = 0.3f, Position = gemAt,
+            });
+        }
+        else if (!_warden)
+        {
+            // the Charged Strike: a burning edge along the blade, shown while the blade is charged
+            var hand = m.AttachTo("hand_r");
+            hand.Name = "BladeHand";
+            var edgeMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1f, 0.5f, 0.2f, 0.5f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled, NoDepthTest = false,
+                EmissionEnabled = true, Emission = new Color(1f, 0.45f, 0.15f), EmissionEnergyMultiplier = 3f,
+            };
+            // along the blade (it runs down -Y from the grip), in the hand's local space
+            var mid = new Vector3(0.016f, -0.1f - 0.03f - 0.52f, 0.2f) - new Vector3(0f, -0.05f, 0.2f);
+            hand.AddChild(new MeshInstance3D
+            {
+                Name = "ChargeEdge", Mesh = new BoxMesh { Size = new Vector3(0.1f, 1.04f, 0.03f) }, MaterialOverride = edgeMat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = mid, Visible = false,
+            });
+            hand.AddChild(new OmniLight3D
+            {
+                Name = "ChargeLight", LightColor = new Color(1f, 0.55f, 0.25f), LightEnergy = 0f, OmniRange = 2.8f, OmniAttenuation = 1.3f,
+                ShadowEnabled = false, LightVolumetricFogEnergy = 0.4f, Position = mid, Visible = false,
+            });
+        }
         // the lantern lights the cave; the hero's own body doesn't block it
         m.Body.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         var at = m.AttachTo("hips");
@@ -250,7 +386,7 @@ public sealed class HeroDesign : CreatureDesign
         var col = new Color(1f, 0.76f, 0.48f);
         at.AddChild(new OmniLight3D
         {
-            LightColor = col, LightEnergy = 2.4f, OmniRange = 15f, OmniAttenuation = 1.15f,
+            LightColor = col, LightEnergy = 2.9f, OmniRange = 15f, OmniAttenuation = 1.25f,
             ShadowEnabled = true, LightVolumetricFogEnergy = 0f, LightSize = 0.08f, ShadowBias = 0.06f,
             Position = lampAt,
         });
@@ -258,10 +394,41 @@ public sealed class HeroDesign : CreatureDesign
         // cull masks) and casts no shadows: shadowed fog breaks up into streaks at this froxel size
         at.AddChild(new OmniLight3D
         {
-            LightColor = col, LightEnergy = 2.4f, OmniRange = 15f, OmniAttenuation = 1.15f,
+            LightColor = col, LightEnergy = 2.9f, OmniRange = 15f, OmniAttenuation = 1.25f,
             ShadowEnabled = false, LightVolumetricFogEnergy = 1.2f, LightCullMask = 0, LightSpecular = 0f,
             Position = lampAt,
         });
+    }
+
+    public override void Frame(CreatureModel m, in AnimInput a)
+    {
+        var player = a.Owner as Player;
+        if (_vitalist)
+        {
+            var gem = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/StaffHand/Gem");
+            var light = m.GetNodeOrNull<OmniLight3D>("Pivot/Skeleton/StaffHand/GemLight");
+            if (gem == null || light == null) return;
+            float glow = player?.CastGlow ?? 0f;
+            bool dead = player == null || player.Dead;
+            float pulse = 0.85f + 0.15f * MathF.Sin(a.Time * 2.6f);
+            if (gem.Mesh.SurfaceGetMaterial(0) is StandardMaterial3D mat)
+                mat.EmissionEnergyMultiplier = dead ? 0.4f : (1.8f + 7f * glow) * pulse;
+            light.LightEnergy = dead ? 0f : (0.35f + 2.6f * glow) * pulse;
+            light.OmniRange = 3.2f + 2.5f * glow;
+        }
+        else if (!_warden)
+        {
+            var edge = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ChargeEdge");
+            var light = m.GetNodeOrNull<OmniLight3D>("Pivot/Skeleton/BladeHand/ChargeLight");
+            if (edge == null || light == null) return;
+            bool on = player != null && !player.Dead && (player.Charged > 0 || player.SwingCharged);
+            edge.Visible = on;
+            light.Visible = on;
+            if (!on) return;
+            float flick = 0.75f + 0.25f * MathF.Sin(a.Time * 23f) * MathF.Sin(a.Time * 7.3f);
+            if (edge.MaterialOverride is StandardMaterial3D em) em.EmissionEnergyMultiplier = 2.2f + 1.6f * flick;
+            light.LightEnergy = 1.1f * flick;
+        }
     }
 
     // ================================================================== animation
@@ -301,6 +468,7 @@ public sealed class HeroDesign : CreatureDesign
             HR = 12, KR = 16, HRx = 5, HL = -8, KL = 10, HLx = 5,
         };
         if (_warden) { o.SL = 36; o.EL = 78; o.AL = 4; o.WL = -(o.SL + o.EL); o.WR = 40; o.SR = 18; }
+        if (_vitalist) { o.SR = 20 + b * 1.5f; o.ER = 75; o.AR = 10; o.SL = -6 - b * 2; o.EL = 22; o.AL = 10; }
         return o;
     }
 
@@ -319,6 +487,7 @@ public sealed class HeroDesign : CreatureDesign
             HRx = 3, HLx = 3,
         };
         if (_warden) { o.SL = 40 + 6 * sn; o.EL = 80; o.WL = -(o.SL + o.EL); }
+        if (_vitalist) { o.SR = 24 + 8 * sn; o.ER = 72; o.AR = 12; }
         return Lerp(Idle(0), o, amount);
     }
 
@@ -329,6 +498,7 @@ public sealed class HeroDesign : CreatureDesign
         var fall = new Body { Lean = -2, HeadPitch = 6, SR = 105, ER = 25, WR = 15, AR = 28, SL = 118, EL = 20, AL = 30, HR = 18, KR = 28, HL = -6, KL = 18, HRx = 7, HLx = 7 };
         Body o = vy > 0 ? Lerp(apex, rise, W3.SmoothStep(0.5f, 5f, vy)) : Lerp(apex, fall, W3.SmoothStep(-0.5f, -6f, vy));
         if (_warden) { o.SL = 40; o.EL = 80; o.WL = -(o.SL + o.EL); }
+        if (_vitalist) { o.SR = 40; o.ER = 60; o.AR = 14; }
         return o;
     }
 
@@ -425,6 +595,8 @@ public sealed class HeroDesign : CreatureDesign
 
         // ---- the clip on top
         var player = a.Owner as Player;
+        // the Vitalist's staff: its angle in the body's frame (degrees from forward, up positive)
+        float staff = 78f;
         if (c.StartsWith("slash_"))
         {
             float aim = AimAngle(c[8..]);
@@ -489,6 +661,57 @@ public sealed class HeroDesign : CreatureDesign
                     o.Lean += Key(k, (0, 0), (0.35f, -8), (0.55f, 12), (1, 4));
                     break;
                 }
+            case "bash":
+                {
+                    // the Warden's shield dash: driven low behind the shield, sword held back
+                    float k = Key(t, (0, 0.3f), (0.25f, 1f), (1, 1f));
+                    o.Lean = Mathf.Lerp(o.Lean, 28, k); o.Twist = Mathf.Lerp(o.Twist, 12, k); o.HeadPitch = Mathf.Lerp(o.HeadPitch, -12, k);
+                    o.Root.Y = Mathf.Lerp(o.Root.Y, -0.08f, k);
+                    o.SR = Mathf.Lerp(o.SR, -35, k); o.ER = Mathf.Lerp(o.ER, 55, k); o.WR = Mathf.Lerp(o.WR, 25, k); o.AR = 14;
+                    o.HR = Mathf.Lerp(o.HR, 48, k); o.KR = Mathf.Lerp(o.KR, 40, k); o.HL = Mathf.Lerp(o.HL, -30, k); o.KL = Mathf.Lerp(o.KL, 14, k);
+                    break;
+                }
+            case "cast":
+                {
+                    // the drain bolt: staff drawn back, then thrust crystal-first along the aim
+                    float aim = 0f;
+                    if (player != null) aim = Math.Clamp(Mathf.RadToDeg(MathF.Atan2(-player.CastDir.Y, MathF.Max(player.CastDir.X * a.Facing, -0.2f))), -70f, 80f);
+                    float draw = Key(t, (0, 0.4f), (0.3f, 1f), (0.45f, 0f));
+                    float thrust = Key(t, (0.3f, 0f), (0.45f, 1f), (0.8f, 1f), (1f, 0f));
+                    o.SR = Mathf.Lerp(Mathf.Lerp(o.SR, 35, draw), 78 + aim * 0.75f, thrust);
+                    o.ER = Mathf.Lerp(Mathf.Lerp(o.ER, 85, draw), 12, thrust);
+                    o.Twist += -12 * draw + 14 * thrust;
+                    o.Lean += -4 * draw + 8 * thrust - aim * 0.05f * thrust;
+                    o.HeadPitch += -aim * 0.2f * thrust;
+                    o.SL = Mathf.Lerp(o.SL, 62 + aim * 0.5f, thrust); o.EL = Mathf.Lerp(o.EL, 16, thrust); o.AL = Mathf.Lerp(o.AL, 20, thrust);
+                    staff = Mathf.Lerp(Mathf.Lerp(staff, 108, draw), aim + 18, thrust);
+                    break;
+                }
+            case "hex":
+                {
+                    // raised overhead in both hands, then driven down into the ground
+                    float up = Key(t, (0, 0), (0.4f, 1f), (0.52f, 0f));
+                    float slam = Key(t, (0.4f, 0f), (0.52f, 1f), (0.8f, 1f), (1f, 0f));
+                    // (the fist stays high enough in the slam for the heel to strike the floor, not sink into it)
+                    o.SR = Mathf.Lerp(Mathf.Lerp(o.SR, 150, up), 70, slam); o.ER = Mathf.Lerp(Mathf.Lerp(o.ER, 25, up), 42, slam);
+                    o.SL = Mathf.Lerp(Mathf.Lerp(o.SL, 148, up), 60, slam); o.EL = Mathf.Lerp(Mathf.Lerp(o.EL, 30, up), 40, slam); o.AL = 18;
+                    o.Lean += -8 * up + 24 * slam; o.HeadPitch += -12 * up + 10 * slam;
+                    o.Root.Y -= 0.12f * slam;
+                    o.HR += 35 * slam; o.KR += 55 * slam; o.HL += 30 * slam; o.KL += 50 * slam;
+                    staff = Mathf.Lerp(Mathf.Lerp(staff, 92, up), 86, slam);
+                    break;
+                }
+            case "heal":
+                {
+                    // the staff lifted high, the free hand opened, the face turned upward
+                    float k = Key(t, (0, 0), (0.25f, 1f), (0.75f, 1f), (1f, 0f));
+                    o.SR = Mathf.Lerp(o.SR, 165, k); o.ER = Mathf.Lerp(o.ER, 8, k); o.AR = Mathf.Lerp(o.AR, 14, k);
+                    o.SL = Mathf.Lerp(o.SL, 105, k); o.EL = Mathf.Lerp(o.EL, 12, k); o.AL = Mathf.Lerp(o.AL, 50, k);
+                    o.HeadPitch += -22 * k; o.Lean += -6 * k;
+                    o.Root.Y += 0.02f * k;
+                    staff = Mathf.Lerp(staff, 90, k);
+                    break;
+                }
             case "hurt":
                 {
                     float k = Key(t, (0, 0), (0.2f, 1), (1, 0.15f));
@@ -520,6 +743,9 @@ public sealed class HeroDesign : CreatureDesign
                 if (_warden) { o.SL = 70; o.EL = 60; o.WL = -(o.SL + o.EL); }
                 break;
         }
+
+        // ---- the Vitalist's hand holds the staff at its angle, whatever the arm is doing
+        if (_vitalist && c != "death") o.WR = staff + o.Lean - o.SR - o.ER;
 
         // ---- the warden's shield, raised toward where she guards
         if (_warden && player != null && player.ShieldRaised && !c.StartsWith("dodge") && c != "death")

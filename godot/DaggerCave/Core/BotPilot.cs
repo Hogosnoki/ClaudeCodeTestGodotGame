@@ -22,7 +22,7 @@ public sealed class BotPilot
     public PlayerInput Read()
     {
         var r = _cur;
-        _cur.Jump = false; _cur.Attack = false; _cur.Throw = false; _cur.Dodge = false; _cur.Potion = false;
+        _cur.Jump = false; _cur.Attack = false; _cur.Ability = false; _cur.Dodge = false; _cur.Potion = false; _cur.Interact = false;
         return r;
     }
 
@@ -58,6 +58,8 @@ public sealed class BotPilot
             _pathT = 0;
         }
         if (p.Hp < p.Stats.MaxHp * 0.35f && p.Potions > 0) _cur.Potion = true;
+        // exits wait to be taken: step in when standing at one
+        if (exits.Count > 0 && pos.DistanceTo(_goal) < 30) _cur.Interact = true;
         if (_pathT <= 0) { _pathT = 1.2f; _path = FindPath(cave, pos, _goal); }
 
         float gd = pos.DistanceTo(_goal);
@@ -112,10 +114,24 @@ public sealed class BotPilot
         {
             var te = target.GlobalPosition - pos;
             _cur.Aim = te.Normalized();
-            if (bd < 44 + target.HitRadius && _atkCd <= 0) { _cur.Attack = true; _atkCd = 0.12f; }
-            else if (bd > 70 && _throwCd <= 0) { _cur.Throw = true; _throwCd = 1.0f; }
-            if (bd > 44 && !p.InWater) move.X = Math.Sign(te.X);
-            if (p.Hp < p.Stats.MaxHp * 0.4f && bd < 60 && _dodgeCd <= 0) { _cur.Dodge = true; _dodgeCd = 1.5f; move.X = -Math.Sign(te.X); }
+            // the Vitalist fights from medium range; the blades close in
+            bool caster = p.Stats.Hero == HeroKind.Vitalist;
+            float reach = caster ? Tune.Vitalist.BoltRange * 0.8f : 44 + target.HitRadius;
+            if (bd < reach && _atkCd <= 0) { _cur.Attack = true; _atkCd = 0.12f; }
+            // abilities: charge the blade before closing in, dash into attacks, heal when hurt
+            if (_throwCd <= 0)
+            {
+                bool use = p.Stats.Hero switch
+                {
+                    HeroKind.Warden => target.Attacking && bd < 90,
+                    HeroKind.Vitalist => p.Hp < p.Stats.MaxHp * 0.6f,
+                    _ => bd < 120,
+                };
+                if (use) { _cur.Ability = true; _throwCd = 1.0f; }
+            }
+            if (bd > reach * 0.8f && !p.InWater) move.X = Math.Sign(te.X);
+            else if (caster && bd < 60 && !p.InWater) move.X = -Math.Sign(te.X);
+            if (_dodgeCd <= 0 && (caster ? bd < 90 : p.Hp < p.Stats.MaxHp * 0.4f && bd < 60)) { _cur.Dodge = true; _dodgeCd = 1.5f; if (!caster) move.X = -Math.Sign(te.X); }
         }
         _cur.Move = move;
     }

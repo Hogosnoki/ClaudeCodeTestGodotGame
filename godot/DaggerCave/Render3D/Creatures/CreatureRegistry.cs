@@ -9,8 +9,9 @@ public static class CreatureRegistry
 {
     public static void RegisterAll()
     {
-        CreatureLibrary.Register("swordsman", () => new HeroDesign(false));
-        CreatureLibrary.Register("warden", () => new HeroDesign(true));
+        CreatureLibrary.Register("swordsman", () => new HeroDesign(HeroKind.Swordsman));
+        CreatureLibrary.Register("warden", () => new HeroDesign(HeroKind.Warden));
+        CreatureLibrary.Register("vitalist", () => new HeroDesign(HeroKind.Vitalist));
         CreatureLibrary.Register("spider", () => new SpiderDesign());
         CreatureLibrary.Register("goblin", () => new GoblinDesign(false));
         CreatureLibrary.Register("slinger", () => new GoblinDesign(true));
@@ -56,7 +57,7 @@ public static class CreatureRegistry
     /// <summary>Every creature type a level of this biome can put on screen (for loading ahead).</summary>
     public static IEnumerable<string> Roster(BiomeDef b)
     {
-        var names = new HashSet<string> { G.Hero == HeroKind.Warden ? "warden" : "swordsman", "moth", "crab" };
+        var names = new HashSet<string> { G.Hero switch { HeroKind.Warden => "warden", HeroKind.Vitalist => "vitalist", _ => "swordsman" }, "moth", "crab" };
         void Add(Func<Enemy> make)
         {
             if (make == null) return;

@@ -110,32 +110,13 @@ public partial class Hud : Control
             if (p.Breath <= 0) DrawString(font, bp + new Vector2(8 + bubbles * 18, 13), "DROWNING!", HorizontalAlignment.Left, -1, 13, new Color(1f, 0.4f, 0.4f));
         }
 
-        // --- Ability charges (bottom-left) ---
+        // --- Ability gauges (bottom-left) ---
         var ab = new Vector2(24, vs.Y - 44);
-        if (p.Stats.Hero == HeroKind.Warden) DrawWardenGauges(font, p, ab);
-        else
+        switch (p.Stats.Hero)
         {
-            var tc = p.ThrowCooldowns;
-            for (int k = 0; k < tc.Length; k++)
-            {
-                var c = ab + new Vector2(k * 40, 0);
-                DrawRect(new Rect2(c, new Vector2(34, 34)), new Color(0, 0, 0, 0.55f));
-                float f = Math.Clamp(tc[k] / p.Stats.ThrowCooldown, 0, 1);
-                DrawDaggerIcon(c + new Vector2(17, 17), f <= 0 ? Colors.White : new Color(0.5f, 0.5f, 0.55f));
-                if (f > 0) DrawRect(new Rect2(c + new Vector2(0, 34 * (1 - f)), new Vector2(34, 34 * f)), new Color(0, 0, 0, 0.55f));
-            }
-            DrawString(font, ab + new Vector2(0, -6), "THROW", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
-            var db = ab + new Vector2(tc.Length * 40 + 16, 0);
-            var dc = p.DodgeCooldowns;
-            for (int k = 0; k < dc.Length; k++)
-            {
-                var c = db + new Vector2(k * 40 + 17, 17);
-                float cd = Tune.Hero.DodgeCooldown * p.Stats.DodgeCdMult;
-                float f = Math.Clamp(dc[k] / cd, 0, 1);
-                DrawCircle(c, 17, new Color(0, 0, 0, 0.55f));
-                DrawArc(c, 12, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (1 - f), 24, f <= 0 ? new Color(0.5f, 0.9f, 1f) : new Color(0.4f, 0.5f, 0.6f), 4f);
-            }
-            DrawString(font, db + new Vector2(0, -6), "DODGE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+            case HeroKind.Warden: DrawWardenGauges(font, p, ab); break;
+            case HeroKind.Vitalist: DrawVitalistGauges(font, p, ab); break;
+            default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
         // --- Potions (under the bars) ---
@@ -192,20 +173,32 @@ public partial class Hud : Control
         if (HintTime > 0)
         {
             float a = Math.Clamp(HintTime / 2f, 0, 1) * 0.85f;
-            bool warden = p.Stats.Hero == HeroKind.Warden;
-            string[] lines = G.Main.UsingPad
-                ? new[]
+            bool pad = G.Main.UsingPad;
+            string move = pad ? "Left stick move · A jump · hold up/down to swim · Y drink a potion" : "A/D move · SPACE jump · W/S swim up/down · Q drink a potion";
+            string[] lines = p.Stats.Hero switch
+            {
+                HeroKind.Warden => new[]
                 {
-                    "Left stick move · A jump · hold up/down to swim · Y drink a potion",
-                    warden ? "X swing · RB/RT barrier · hold B/LB to raise the shield (right stick aims it)" : "X swing (aim with right stick) · RB/RT throw dagger",
-                    warden ? "Raise the shield just before a hit for a perfect block · START pause" : "B/LB dodge · START pause    —    find and slay the exit's guardian",
-                }
-                : new[]
+                    move,
+                    pad ? "X swing · RB/RT shield dash (breaks off attacks it meets) · B/LB or the right stick raise the shield"
+                        : "LEFT CLICK swing · RIGHT CLICK shield dash (breaks off attacks it meets) · hold SHIFT to raise the shield",
+                    "The shield stops 70% of a blow; raise it just before the hit for a perfect block · " + (pad ? "START pause" : "ESC pause"),
+                },
+                HeroKind.Vitalist => new[]
                 {
-                    "A/D move · SPACE jump · W/S swim up/down · Q drink a potion",
-                    warden ? "LEFT CLICK swing · RIGHT CLICK barrier · hold SHIFT to raise the shield toward the mouse" : "LEFT CLICK swing (aim with mouse) · RIGHT CLICK throw dagger",
-                    warden ? "Raise the shield just before a hit for a perfect block · ESC pause" : "SHIFT dodge · ESC pause    —    find and slay the exit's guardian",
-                };
+                    move,
+                    pad ? "X drain bolt (aim with the right stick) · B/LB hex · RB/RT heal (costs alimus)"
+                        : "LEFT CLICK drain bolt (aim with the mouse) · SHIFT hex · RIGHT CLICK heal (costs alimus)",
+                    "Your bolts' damage feeds your alimus · " + (pad ? "START pause" : "ESC pause") + "    —    find and slay the exit's guardian",
+                },
+                _ => new[]
+                {
+                    move,
+                    pad ? "X swing (aim with the right stick) · RB/RT charge your blade · B/LB dodge (swing out of it)"
+                        : "LEFT CLICK swing (aim with the mouse) · RIGHT CLICK charge your blade · SHIFT dodge (swing out of it)",
+                    "A charged swing hits harder and saps what it cuts · " + (pad ? "START pause" : "ESC pause") + "    —    find and slay the exit's guardian",
+                },
+            };
             for (int k = 0; k < lines.Length; k++)
                 DrawString(font, new Vector2(vs.X / 2 - 230, vs.Y - 110 + k * 20), lines[k], HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, a));
         }
@@ -247,18 +240,52 @@ public partial class Hud : Control
         }
     }
 
-    /// <summary>Barrier cooldown square and the shield's strength bar.</summary>
+    /// <summary>A square ability icon with its cooldown filling it from the top, and a label.</summary>
+    private void AbilitySquare(Font font, Vector2 at, string label, float cooldownFrac, bool ready, Color col, Action<Vector2, Color> icon)
+    {
+        DrawRect(new Rect2(at, new Vector2(34, 34)), new Color(0, 0, 0, 0.55f));
+        icon(at + new Vector2(17, 17), ready ? col : new Color(0.45f, 0.47f, 0.52f));
+        if (cooldownFrac > 0) DrawRect(new Rect2(at + new Vector2(0, 34 * (1 - cooldownFrac)), new Vector2(34, 34 * cooldownFrac)), new Color(0, 0, 0, 0.55f));
+        if (ready) DrawRect(new Rect2(at - new Vector2(1, 1), new Vector2(36, 36)), new Color(col, 0.35f + 0.25f * MathF.Sin(_t * 5)), false, 1.5f);
+        DrawString(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+    }
+
+    /// <summary>A round cooldown dial (dodges, the hex).</summary>
+    private void Dial(Vector2 c, float frac, Color readyCol)
+    {
+        DrawCircle(c, 17, new Color(0, 0, 0, 0.55f));
+        DrawArc(c, 12, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (1 - frac), 24, frac <= 0 ? readyCol : new Color(0.4f, 0.5f, 0.6f), 4f);
+    }
+
+    /// <summary>Dodge charges and the Charged Strike.</summary>
+    private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)
+    {
+        var dc = p.DodgeCooldowns;
+        for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(0.5f, 0.9f, 1f));
+        DrawString(font, ab + new Vector2(0, -6), "DODGE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        var cb = ab + new Vector2(dc.Length * 40 + 16, 0);
+        bool charged = p.Charged > 0;
+        AbilitySquare(font, cb, charged ? "CHARGED" : "CHARGE", charged ? 0 : p.ChargeCooldownFrac, charged || p.ChargeCooldownFrac <= 0, new Color(1f, 0.55f, 0.25f), (c, col) =>
+        {
+            // a sword with a burning edge
+            var d = new Vector2(1, -1).Normalized();
+            var perp = new Vector2(-d.Y, d.X);
+            DrawLine(c - d * 11, c - d * 5, new Color(0.55f, 0.35f, 0.2f), 3f);
+            DrawLine(c - d * 5 + perp * 4, c - d * 5 - perp * 4, new Color(0.8f, 0.7f, 0.3f), 2f);
+            DrawColoredPolygon(new[] { c - d * 4 + perp * 2.2f, c + d * 12, c - d * 4 - perp * 2.2f }, col);
+            if (charged) DrawCircle(c + d * 3, 8 + MathF.Sin(_t * 9) * 1.5f, new Color(1f, 0.5f, 0.2f, 0.25f));
+        });
+    }
+
+    /// <summary>The shield dash and the shield's strength bar.</summary>
     private void DrawWardenGauges(Font font, Player p, Vector2 ab)
     {
-        // barrier
-        float f = p.BarrierCooldownFrac;
-        DrawRect(new Rect2(ab, new Vector2(34, 34)), new Color(0, 0, 0, 0.55f));
-        var c = ab + new Vector2(17, 17);
-        var col = p.BarrierHp > 0 ? new Color(0.7f, 0.95f, 1f) : f <= 0 ? new Color(0.5f, 0.8f, 1f) : new Color(0.4f, 0.45f, 0.55f);
-        DrawArc(c, 10, 0, Mathf.Tau, 20, col, 2.5f);
-        DrawCircle(c, 5, new Color(col, 0.5f));
-        if (f > 0) DrawRect(new Rect2(ab + new Vector2(0, 34 * (1 - f)), new Vector2(34, 34 * f)), new Color(0, 0, 0, 0.55f));
-        DrawString(font, ab + new Vector2(0, -6), "BARRIER", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        AbilitySquare(font, ab, "DASH", p.DashCooldownFrac, p.DashCooldownFrac <= 0, new Color(0.55f, 0.85f, 1f), (c, col) =>
+        {
+            // a kite shield with speed lines
+            DrawColoredPolygon(new[] { c + new Vector2(-4, -9), c + new Vector2(7, -9), c + new Vector2(7, 1), c + new Vector2(1.5f, 10), c + new Vector2(-4, 1) }, col);
+            for (int k = 0; k < 3; k++) DrawLine(c + new Vector2(-8, -5 + k * 5), c + new Vector2(-14, -5 + k * 5), new Color(col, 0.7f), 1.5f);
+        });
 
         // shield
         var sp = ab + new Vector2(52, 10);
@@ -267,17 +294,34 @@ public partial class Hud : Control
         DrawRect(new Rect2(sp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
         var bar = p.ShieldBroken ? new Color(0.45f, 0.45f, 0.5f) : p.ShieldRaised ? new Color(0.6f, 0.85f, 1f) : new Color(0.35f, 0.6f, 0.95f);
         DrawRect(new Rect2(sp, new Vector2(w * frac, 12)), bar);
-        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Mathf.CeilToInt(p.ShieldHp)} / {Mathf.RoundToInt(p.Stats.ShieldMax)}";
+        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Mathf.CeilToInt(p.ShieldHp)} / {Mathf.RoundToInt(p.Stats.ShieldMax)}   blocks {p.Stats.BlockShare * 100:0}%";
         DrawString(font, sp + new Vector2(0, -8), label, HorizontalAlignment.Left, -1, 10, p.ShieldBroken ? new Color(1f, 0.6f, 0.5f) : new Color(1, 1, 1, 0.6f));
     }
 
-    private void DrawDaggerIcon(Vector2 c, Color col)
+    /// <summary>Alimus, the hex and the heal.</summary>
+    private void DrawVitalistGauges(Font font, Player p, Vector2 ab)
     {
-        var d = new Vector2(1, -1).Normalized();
-        var perp = new Vector2(-d.Y, d.X);
-        DrawLine(c - d * 11, c - d * 5, new Color(0.55f, 0.35f, 0.2f), 3f);
-        DrawLine(c - d * 5 + perp * 4, c - d * 5 - perp * 4, new Color(0.8f, 0.7f, 0.3f), 2f);
-        DrawColoredPolygon(new[] { c - d * 4 + perp * 2.2f, c + d * 12, c - d * 4 - perp * 2.2f }, col);
+        var green = new Color(0.55f, 1f, 0.45f);
+        Dial(ab + new Vector2(17, 17), p.HexCooldownFrac, green);
+        DrawString(font, ab + new Vector2(0, -6), "HEX", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        var hb = ab + new Vector2(56, 0);
+        bool affordable = p.Alimus >= p.HealCost;
+        AbilitySquare(font, hb, $"HEAL ({p.HealCost:0})", p.HealCooldownFrac, affordable && p.HealCooldownFrac <= 0, new Color(0.5f, 1f, 0.55f), (c, col) =>
+        {
+            DrawRect(new Rect2(c - new Vector2(3, 10), new Vector2(6, 20)), col);
+            DrawRect(new Rect2(c - new Vector2(10, 3), new Vector2(20, 6)), col);
+        });
+        // the alimus reserve
+        var bp = hb + new Vector2(52, 10);
+        const float w = 150;
+        float frac = Math.Clamp(p.Alimus / Math.Max(1f, p.Stats.AlimusMax), 0, 1);
+        DrawRect(new Rect2(bp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
+        DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), new Color(0.42f, 0.85f, 0.4f));
+        DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(0.9f, 0.3f, 0.35f, 0.5f));
+        // tick marks: one heal's worth each
+        for (float x = p.HealCost; x < p.Stats.AlimusMax; x += p.HealCost)
+            DrawLine(bp + new Vector2(w * x / p.Stats.AlimusMax, 0), bp + new Vector2(w * x / p.Stats.AlimusMax, 12), new Color(0, 0, 0, 0.45f), 1f);
+        DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Mathf.FloorToInt(p.Alimus)} / {Mathf.RoundToInt(p.Stats.AlimusMax)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
     }
 }
 

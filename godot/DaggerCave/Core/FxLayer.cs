@@ -178,6 +178,30 @@ public partial class FxLayer : Node2D
     /// <summary>A single fading mote left behind by something moving fast.</summary>
     public void Trail(Vector2 pos, Color col) => Add(pos, Vector2.Zero, 0.25f, 3f, col, 0, 0);
 
+    /// <summary>A faint mote carried on a draught from one spot to another, sinking away from the viewer (air drawn down an exit).</summary>
+    public void Mote(Vector2 from, Vector2 to, Color col)
+    {
+        float life = G.Range(1f, 1.6f);
+        var p = Deep(new Particle { Pos = from, Vel = (to - from) / life, Life = life, Max = life, Size = G.Range(1f, 1.7f), Col = col, Kind = 0 }, 0f);
+        p.ZVel = -0.9f;
+        _parts.Add(p);
+    }
+
+    /// <summary>A stream of light from one point to another (a heal reaching an ally).</summary>
+    public void Beam(Vector2 from, Vector2 to, Color col)
+    {
+        float len = from.DistanceTo(to);
+        int n = Math.Clamp((int)(len / 7f), 3, 60);
+        var dir = len > 0.01f ? (to - from) / len : Vector2.Right;
+        for (int k = 0; k <= n; k++)
+        {
+            float t = k / (float)n;
+            // motes drift along toward the target, the ones near it brightest
+            Add(from.Lerp(to, t) + G.RandDir() * 1.5f, dir * 60f, 0.2f + 0.25f * t, 2.2f + 1.2f * t, col, 0, 0, 2f);
+        }
+        LightUp(to, col, 2f, 70f, 0.25f);
+    }
+
     /// <summary>A crescent of air where a big blow sweeps past (dir = +1 right, -1 left).</summary>
     public void Swoosh(Vector2 pos, float dir, float radius, Color col) => Add(pos, new Vector2(dir, 0), 0.18f, radius, col, 14);
 

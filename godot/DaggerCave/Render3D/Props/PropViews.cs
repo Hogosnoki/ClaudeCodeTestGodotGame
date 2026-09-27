@@ -15,7 +15,7 @@ public static class PropViews
     {
         PropView v = n switch
         {
-            ThrownDagger => new DaggerView(),
+            DrainBolt => new DrainBoltView(),
             EnemyProjectile => new ProjectileView(),
             LavaPuddle => new LavaPuddleView(),
             Shockwave => new ShockwaveView(),
@@ -43,11 +43,10 @@ public static class PropViews
     }
 
     // ---- shared materials and meshes
-    private static ShaderMaterial _sprite, _cloud, _bubble, _vortex;
+    private static ShaderMaterial _sprite, _cloud, _bubble;
     public static ShaderMaterial SpriteMat => _sprite ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_sprite.gdshader") };
     public static ShaderMaterial CloudMat => _cloud ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_cloud.gdshader") };
     public static ShaderMaterial BubbleMat => _bubble ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_bubble.gdshader") };
-    public static ShaderMaterial VortexMat => _vortex ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_vortex.gdshader") };
     private static QuadMesh _quad;
     public static QuadMesh Quad => _quad ??= new QuadMesh { Size = new Vector2(2, 2) };
 
@@ -73,8 +72,9 @@ public static class PropViews
     /// </summary>
     public static void ReleaseShared()
     {
-        foreach (var r in new Resource[] { _sprite, _cloud, _bubble, _vortex, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _vcol }) r?.Dispose();
-        _sprite = _cloud = _bubble = _vortex = null; _quad = null;
+        foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _vcol }) r?.Dispose();
+        _sprite = _cloud = _bubble = null; _quad = null;
+        PortalView.ReleaseShared();
         _ice = _steel = _wood = _gold = _glass = _rock = _vcol = null;
     }
 
@@ -140,43 +140,45 @@ public abstract partial class PropView : Node3D
 
 // ============================================================================ projectiles
 
-public partial class DaggerView : PropView
+/// <summary>The Vitalist's drain bolt: a pulsing mote of green life with a blood-red comet tail, lighting its way.</summary>
+public partial class DrainBoltView : PropView
 {
-    private Node3D _spin;
-    private MeshInstance3D _trail, _glow;
+    private MeshInstance3D _core, _halo;
+    private readonly MeshInstance3D[] _tail = new MeshInstance3D[4];
     private OmniLight3D _light;
 
     protected override void Build()
     {
-        _spin = new Node3D();
-        AddChild(_spin);
-        // a throwing knife, balanced at its middle, laid in the play plane
-        var mb = PropMeshes.Sword(0.34f, 0.028f, new Color(0.85f, 0.88f, 0.92f), new Color(0.75f, 0.6f, 0.25f), new Color(0.35f, 0.22f, 0.12f), 0.045f);
-        var knife = PropViews.Mesh(mb, PropViews.Steel);
-        knife.Position = new Vector3(0, 0.2f, 0);
-        knife.RotationDegrees = new Vector3(90, 0, 0);
-        var arm = new Node3D { RotationDegrees = new Vector3(0, 0, -90) };
-        arm.AddChild(knife);
-        _spin.AddChild(arm);
-        _trail = PropViews.Sprite(new Color(0.75f, 0.92f, 1f), 2, 1.8f, 0.62f, 0.06f);
-        AddChild(_trail);
-        _glow = PropViews.Sprite(new Color(0.7f, 0.9f, 1f), 0, 1.2f, 0.45f);
-        AddChild(_glow);
-        _light = PropViews.Light(new Color(0.7f, 0.9f, 1f), 0.8f, 2.5f);
+        _halo = PropViews.Sprite(new Color(0.45f, 1f, 0.4f), 0, 1.6f, 0.7f);
+        AddChild(_halo);
+        _core = PropViews.Sprite(new Color(0.85f, 1f, 0.8f), 3, 2.2f, 0.34f);
+        AddChild(_core);
+        for (int k = 0; k < _tail.Length; k++)
+        {
+            float f = 1f - k / (float)_tail.Length;
+            _tail[k] = PropViews.Sprite(new Color(0.95f, 0.22f, 0.25f), 0, 1.2f * f, 0.42f * f + 0.1f);
+            AddChild(_tail[k]);
+        }
+        _light = PropViews.Light(new Color(0.5f, 1f, 0.45f), 1.4f, 3.2f);
         AddChild(_light);
     }
 
     protected override void Sync(float dt)
     {
-        var d = (ThrownDagger)Owner2D;
+        var b = (DrainBolt)Owner2D;
         Follow(default, 0.3f);
-        // the 2D spin angle is y-down; mirror it into y-up
-        _spin.Rotation = new Vector3(0, 0, -(d.Flying ? d.Spin : Owner2D.GlobalRotation));
-        float a = d.Alpha;
-        _trail.Visible = d.Flying;
-        _glow.Visible = d.Flying;
-        _light.LightEnergy = d.Flying ? 0.8f : 0f;
-        Scale = Vector3.One * (0.6f + 0.4f * a);
+        float a = b.Alpha, grow = 0.4f + 0.6f * a;
+        float pulse = 1f + 0.15f * MathF.Sin(b.Age * 40f);
+        _halo.Scale = Vector3.One * 0.7f * pulse * grow;
+        _core.Scale = Vector3.One * 0.34f * grow;
+        // the tail streams back along its flight (2D y-down mirrored to y-up)
+        var back = new Vector3(-b.Dir.X, b.Dir.Y, 0f);
+        for (int k = 0; k < _tail.Length; k++)
+        {
+            _tail[k].Position = back * (0.16f + 0.17f * k);
+            _tail[k].Visible = a > 0.5f;
+        }
+        _light.LightEnergy = 1.4f * a;
     }
 }
 
@@ -563,57 +565,153 @@ public partial class ChestView : PropView
     }
 }
 
+/// <summary>
+/// An exit: a dressed-stone doorway cut into a knuckle of rock, and through it a stairway going
+/// down into the dark (fx_stairwell traces the steps behind the opening). It reads as a way
+/// down by its depth, not by light: the only glow is a faint breath of the next biome far below
+/// and a carved chevron (two for the steep way) on the keystone. The name above it is pale text
+/// with a heavy dark outline, and a prompt shows when someone is standing at the door.
+/// </summary>
 public partial class PortalView : PropView
 {
-    private MeshInstance3D _mouth, _arch;
-    private OmniLight3D _light;
-    private Label3D _title, _sub;
+    private const float HalfW = 1.05f, DoorH = 3f;
+    private MeshInstance3D _stairs, _glyph;
+    private OmniLight3D _breath;
+    private Label3D _title, _sub, _prompt;
+    private StandardMaterial3D _glyphMat;
+    private Color _glow;
+
+    private static ShaderMaterial _stairMat;
+    private static ShaderMaterial StairMat => _stairMat ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_stairwell.gdshader") };
+    public static ShaderMaterial StairMatOrNull => _stairMat;
+    public static void ReleaseShared() => _stairMat = null;
 
     protected override void Build()
     {
         var p = (Portal)Owner2D;
-        var glow = p.To?.Glow ?? new Color(0.7f, 0.5f, 1f);
-        var deep = p.To?.Deep ?? new Color(0.1f, 0.05f, 0.2f);
-        var edge = p.To?.Edge ?? new Color(0.4f, 0.3f, 0.5f);
-        // the arch: rough standing stones around the mouth
+        _glow = p.To?.Glow ?? new Color(0.7f, 0.5f, 1f);
+        var rockCol = (G.Biome?.Edge ?? new Color(0.35f, 0.32f, 0.3f)).Lerp(new Color(0.24f, 0.22f, 0.2f), 0.5f);
+        var stone = rockCol.Lerp(new Color(0.33f, 0.31f, 0.29f), 0.5f);
+        var rng = new Random(p.Depth * 31 + (int)(p.To?.Id ?? 0));
+        float R() => (float)rng.NextDouble();
         var mb = new MeshBuilder();
-        var rng = new Random(3);
-        for (int k = 0; k <= 10; k++)
+        // the rock the stair is cut into
+        for (int k = 0; k < 9; k++)
         {
-            float a = MathF.PI * k / 10f;
-            var at = new Vector3(MathF.Cos(a) * 1.75f, 1.9f + MathF.Sin(a) * 1.9f - 0.1f, 0);
-            if (k == 0 || k == 10) at.Y = 1.9f;
-            mb.Blob(at, new Vector3(0.38f, 0.4f, 0.5f) * (0.8f + 0.4f * (float)rng.NextDouble()), 4, edge.Darkened(0.2f), new Noise3(k), 0.3f, 2f);
+            float a = MathF.PI * (0.08f + 0.84f * k / 8f);
+            var at = new Vector3(MathF.Cos(a) * 2.6f, 0.2f + MathF.Sin(a) * 3.1f, -1.4f - 0.6f * R());
+            mb.Blob(at, new Vector3(1.3f, 1.2f, 1.2f) * (0.8f + 0.35f * R()), 5, rockCol.Darkened(0.15f + 0.15f * R()), new Noise3(40 + k), 0.35f, 1.4f, 0.3f);
         }
-        foreach (float x in new[] { -1.8f, 1.8f })
-            for (int k = 0; k < 3; k++)
-                mb.Blob(new Vector3(x, 0.35f + k * 0.62f, 0), new Vector3(0.42f, 0.36f, 0.5f), 4, edge.Darkened(0.25f), new Noise3(20 + k), 0.3f, 2f);
-        _arch = PropViews.Mesh(mb, PropViews.VertexColored);
-        AddChild(_arch);
-        _mouth = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(3.2f, 3.8f) }, MaterialOverride = PropViews.VortexMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 1.9f, -0.05f) };
-        _mouth.SetInstanceShaderParameter("deep_color", deep);
-        _mouth.SetInstanceShaderParameter("glow_color", glow);
-        AddChild(_mouth);
-        _light = PropViews.Light(glow, 2.2f, 7f);
-        _light.Position = new Vector3(0, 2f, 1f);
-        AddChild(_light);
-        _title = new Label3D { Text = p.To?.Name.ToUpperInvariant() ?? "DEEPER", Modulate = glow, FontSize = 64, PixelSize = 0.012f, OutlineSize = 12, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, Position = new Vector3(0, 4.9f, 0.3f) };
-        _sub = new Label3D { Text = p.Label, Modulate = new Color(1, 1, 1, 0.85f), FontSize = 40, PixelSize = 0.012f, OutlineSize = 10, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, Position = new Vector3(0, 4.35f, 0.3f) };
+        // jambs: coursed blocks up to the springing of the arch
+        foreach (float side in new[] { -1f, 1f })
+        {
+            float y = 0f;
+            for (int k = 0; y < DoorH - HalfW - 0.05f; k++)
+            {
+                float h = Math.Min(0.42f + 0.12f * R(), DoorH - HalfW - y);
+                float w = 0.34f + 0.1f * R();
+                var at = new Vector3(side * (HalfW + w), y + h * 0.5f, -0.25f + 0.05f * R());
+                var xf = new Transform3D(new Basis(Vector3.Up, (R() - 0.5f) * 0.06f), at);
+                mb.Box(xf, new Vector3(w - 0.02f, h * 0.5f - 0.02f, 0.38f), stone.Darkened(0.05f + 0.2f * R()));
+                y += h;
+            }
+        }
+        // voussoirs around the arch, the keystone proud of the rest
+        const int n = 9;
+        for (int k = 0; k < n; k++)
+        {
+            float a = MathF.PI * (k + 0.5f) / n;
+            bool key = k == n / 2;
+            float r = HalfW + 0.3f;
+            var at = new Vector3(MathF.Cos(a) * r, DoorH - HalfW + MathF.Sin(a) * r, key ? -0.12f : -0.24f);
+            var basis = new Basis(Vector3.Back, a - MathF.PI / 2);
+            var half = new Vector3(MathF.PI * r / n * 0.5f - 0.02f, key ? 0.4f : 0.31f, key ? 0.5f : 0.38f);
+            mb.Box(new Transform3D(basis, at), half, stone.Darkened(key ? 0.02f : 0.08f + 0.15f * R()));
+        }
+        // a worn threshold slab and some fallen stones
+        mb.Box(new Transform3D(Basis.Identity, new Vector3(0, -0.04f, 0.05f)), new Vector3(HalfW + 0.2f, 0.08f, 0.35f), stone.Darkened(0.2f));
+        for (int k = 0; k < 4; k++)
+        {
+            float x = (k % 2 == 0 ? -1 : 1) * (HalfW + 0.9f + 0.9f * R());
+            mb.Blob(new Vector3(x, 0.12f, 0.2f + 0.5f * R()), new Vector3(0.3f, 0.2f, 0.26f) * (0.7f + 0.6f * R()), 4, rockCol.Darkened(0.2f), new Noise3(60 + k), 0.3f, 2f, 0.5f);
+        }
+        AddChild(PropViews.Mesh(mb, PropViews.VertexColored));
+
+        // the stair going down, behind the opening
+        _stairs = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(HalfW * 2f, DoorH) }, MaterialOverride = StairMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, DoorH * 0.5f, -0.2f) };
+        _stairs.SetInstanceShaderParameter("below_color", _glow);
+        _stairs.SetInstanceShaderParameter("stone_color", stone);
+        AddChild(_stairs);
+
+        // the chevron cut into the keystone (two for the steep way), holding a little of the light below
+        var gb = new MeshBuilder();
+        int chevrons = p.Depth - G.Depth >= 2 ? 2 : 1;
+        for (int c = 0; c < chevrons; c++)
+        {
+            float y = DoorH + 0.36f - c * 0.2f + (chevrons - 1) * 0.1f;
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var basis = new Basis(Vector3.Back, side * 0.62f);
+                gb.Box(new Transform3D(basis, new Vector3(side * 0.085f, y, 0.4f)), new Vector3(0.12f, 0.026f, 0.02f), Colors.White);
+            }
+        }
+        _glyphMat = new StandardMaterial3D { AlbedoColor = new Color(0.05f, 0.05f, 0.05f), EmissionEnabled = true, Emission = _glow, EmissionEnergyMultiplier = 0.9f, Roughness = 0.8f };
+        _glyph = new MeshInstance3D { Mesh = gb.ToMesh(_glyphMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        AddChild(_glyph);
+
+        // barely a light: enough to tint the threshold and the inner faces of the jambs
+        _breath = PropViews.Light(_glow, 0.35f, 2.6f);
+        _breath.LightVolumetricFogEnergy = 0f;
+        _breath.Position = new Vector3(0, 0.5f, 0.35f);
+        AddChild(_breath);
+
+        var dark = new Color(0f, 0f, 0f, 0.92f);
+        _title = new Label3D
+        {
+            Text = p.To?.Name.ToUpperInvariant() ?? "DEEPER", Modulate = _glow.Lerp(Colors.White, 0.6f), OutlineModulate = dark,
+            FontSize = 72, PixelSize = 0.011f, OutlineSize = 24, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1,
+            Position = new Vector3(0, 5.25f, 0.6f),
+        };
+        _sub = new Label3D
+        {
+            Text = p.Label, Modulate = new Color(0.92f, 0.9f, 0.86f), OutlineModulate = dark,
+            FontSize = 44, PixelSize = 0.011f, OutlineSize = 18, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1,
+            Position = new Vector3(0, 4.62f, 0.6f),
+        };
+        _prompt = new Label3D
+        {
+            Text = "", Modulate = new Color(1f, 0.96f, 0.85f), OutlineModulate = dark,
+            FontSize = 40, PixelSize = 0.011f, OutlineSize = 16, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1,
+            Position = new Vector3(0, 2.35f, 0.9f), Visible = false,
+        };
         AddChild(_title);
         AddChild(_sub);
+        AddChild(_prompt);
     }
 
     protected override void Sync(float dt)
     {
         var p = (Portal)Owner2D;
         Follow(new Vector2(0, 30), 0f);
-        float grow = Math.Min(1f, p.Age);
-        Scale = Vector3.One * Math.Max(0.01f, grow);
-        _mouth.SetInstanceShaderParameter("grow", grow);
-        _light.LightEnergy = 2.2f * grow * (0.85f + 0.15f * MathF.Sin(Time * 3f));
-        float a = Math.Min(1f, p.Age * 2f);
+        // it rises out of the floor rather than popping into being
+        float grow = W3.Smooth01(p.Age / 0.9f);
+        Scale = new Vector3(1f, Math.Max(0.01f, grow), 1f);
+        float breathe = 0.85f + 0.15f * MathF.Sin(Time * 1.3f);
+        _breath.LightEnergy = 0.35f * grow * breathe;
+        _glyphMat.EmissionEnergyMultiplier = (0.6f + 0.5f * p.Near) * breathe;
+        float a = Math.Clamp(p.Age * 2f - 0.6f, 0f, 1f);
         _title.Modulate = _title.Modulate with { A = a };
-        _sub.Modulate = _sub.Modulate with { A = 0.85f * a };
+        _title.OutlineModulate = _title.OutlineModulate with { A = 0.92f * a };
+        _sub.Modulate = _sub.Modulate with { A = 0.95f * a };
+        _sub.OutlineModulate = _sub.OutlineModulate with { A = 0.92f * a };
+        _prompt.Visible = p.Near > 0.01f && !p.Used;
+        if (_prompt.Visible)
+        {
+            _prompt.Text = G.Main.UsingPad ? "UP  ·  DESCEND" : "E  ·  DESCEND";
+            float pa = p.Near * (0.8f + 0.2f * MathF.Sin(Time * 5f));
+            _prompt.Modulate = _prompt.Modulate with { A = pa };
+            _prompt.OutlineModulate = _prompt.OutlineModulate with { A = 0.92f * p.Near };
+        }
     }
 }
 

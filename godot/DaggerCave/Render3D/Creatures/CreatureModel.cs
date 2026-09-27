@@ -23,7 +23,7 @@ public static class CreatureLibrary
     private static readonly Dictionary<string, CreatureKit> Kits = new();
     private static readonly Dictionary<string, Func<CreatureDesign>> Designs = new();
     private static readonly Dictionary<string, Lazy<Baked>> Bakes = new();
-    private static Shader _shader;
+    private static Shader _shader, _inkShader;
 
     private sealed class Baked
     {
@@ -116,6 +116,7 @@ public static class CreatureLibrary
         }
         Kits.Clear();
         _shader = null;
+        _inkShader = null;
     }
 
     public static CreatureKit Get(string name)
@@ -143,6 +144,11 @@ public static class CreatureLibrary
         mat.SetShaderParameter("vein_color", look.VeinColor);
         mat.SetShaderParameter("wet", look.Wet);
         if (!float.IsNaN(look.GhostBelow)) { mat.SetShaderParameter("ghost_below", look.GhostBelow); mat.SetShaderParameter("ghost_fade", look.GhostFade); }
+        // ink outlines: a Sobel pass over each creature's own pixels (see creature_ink.gdshader)
+        _inkShader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/creature_ink.gdshader");
+        var ink = new ShaderMaterial { Shader = _inkShader };
+        if (!float.IsNaN(look.GhostBelow)) { ink.SetShaderParameter("ghost_below", look.GhostBelow); ink.SetShaderParameter("ghost_fade", look.GhostFade); }
+        mat.NextPass = ink;
         res.Mesh.SurfaceSetMaterial(0, mat);
         kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, BuildMs = baked.Ms };
         Kits[name] = kit;
@@ -208,6 +214,7 @@ public partial class CreatureModel : Node3D
         SetDissolve(0f);
         SetTint(Colors.White, 0f);
         Body.SetInstanceShaderParameter("glow_boost", 1f);
+        Body.SetInstanceShaderParameter("aura", new Color(0, 0, 0, 0));
         Pose = new CreaturePose(bones.Length);
         _prevRot = new Quaternion[bones.Length];
         _prevScale = new Vector3[bones.Length];
@@ -302,5 +309,14 @@ public partial class CreatureModel : Node3D
 
     public void SetTint(Color tint, float strength) => Body.SetInstanceShaderParameter("tint", new Color(tint.R, tint.G, tint.B, strength));
     public void SetFade(float visible) => Body.SetInstanceShaderParameter("fade", visible);
+
+    private Color _aura;
+    /// <summary>An affliction's glow (weakened, hexed); alpha = strength, 0 = none.</summary>
+    public void SetAura(Color c)
+    {
+        if (c == _aura) return;
+        _aura = c;
+        Body.SetInstanceShaderParameter("aura", c);
+    }
     public void SetDissolve(float amount) => Body.SetInstanceShaderParameter("dissolve", amount);
 }

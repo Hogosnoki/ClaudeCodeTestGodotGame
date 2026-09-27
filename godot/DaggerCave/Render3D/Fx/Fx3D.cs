@@ -323,11 +323,12 @@ public partial class Fx3D : Node3D
             else _bladeLight.Visible = false;
             var g = p.GetGuard();
             if (g.Shield) { GuardArc(p, g); any = true; }
-            if (g.Barrier > 0f)
+            if (g.Dash)
             {
+                // the shield dash: a shell of blue light around the charging Warden
                 _barrier.Visible = true;
-                _barrier.GlobalTransform = new Transform3D(Basis.FromScale(Vector3.One * 19f / W3.Ppu), W3.P(p.GlobalPosition + new Vector2(0, -2), 0f));
-                _barrier.SetInstanceShaderParameter("ghost_color", new Color(0.45f, 0.75f, 1f, Math.Clamp(g.Barrier * 3f, 0f, 1f)));
+                _barrier.GlobalTransform = new Transform3D(Basis.FromScale(Vector3.One * 17f / W3.Ppu), W3.P(p.GlobalPosition + new Vector2(0, -2), 0f));
+                _barrier.SetInstanceShaderParameter("ghost_color", new Color(0.45f, 0.75f, 1f, 0.55f));
             }
         }
         else _bladeLight.Visible = false;
@@ -367,7 +368,7 @@ public partial class Fx3D : Node3D
                 float t0 = k / (float)(n - 1), t1 = (k + 1) / (float)(n - 1);
                 float an0 = Mathf.Lerp(sm.Tail, sm.Head, t0), an1 = Mathf.Lerp(sm.Tail, sm.Head, t1);
                 float al0 = t0 * t0 * sm.Fade, al1 = t1 * t1 * sm.Fade;
-                float th = sm.Finisher ? 1.4f : 1f;
+                float th = sm.Finisher || sm.Charged ? 1.4f : 1f;
                 var A = Pt(an0, sm.Outer + th); var B = Pt(an1, sm.Outer + th); var C = Pt(an1, sm.Outer - th); var D = Pt(an0, sm.Outer - th);
                 var w0 = new Color(1, 1, 1, al0 * 1.4f); var w1 = new Color(1, 1, 1, al1 * 1.4f);
                 _rmesh.SurfaceSetColor(w0); _rmesh.SurfaceAddVertex(A);
@@ -383,7 +384,7 @@ public partial class Fx3D : Node3D
         _bladeLight.Visible = true;
         _bladeLight.Position = Pt(sm.Head, sm.Outer * 0.8f);
         _bladeLight.LightColor = sm.Tint;
-        _bladeLight.LightEnergy = (sm.Finisher ? 2.2f : 1.3f) * sm.Fade;
+        _bladeLight.LightEnergy = (sm.Finisher || sm.Charged ? 2.2f : 1.3f) * sm.Fade;
     }
 
     private void GuardArc(Player p, Player.Guard g)
@@ -396,7 +397,8 @@ public partial class Fx3D : Node3D
         {
             float a0 = g.Angle - g.Half + 2f * g.Half * k / (n - 1), a1 = g.Angle - g.Half + 2f * g.Half * (k + 1) / (n - 1);
             float edge0 = MathF.Sin(k / (float)(n - 1) * MathF.PI), edge1 = MathF.Sin((k + 1) / (float)(n - 1) * MathF.PI);
-            foreach (var (r0, r1, alpha) in new[] { (14f, 20f, 0.35f + 0.35f * g.Strength), (18f, 19.6f, 0.8f + 0.6f * g.Strength) })
+            float grow = g.Dash ? 1.35f : 1f; // the charge leads with a bigger, brighter guard
+            foreach (var (r0, r1, alpha) in new[] { (14f * grow, 20f * grow, (0.35f + 0.35f * g.Strength) * grow), (18f * grow, 19.6f * grow, (0.8f + 0.6f * g.Strength) * grow) })
             {
                 var A = W3.P(o + Vector2.Right.Rotated(a0) * r1, 0.4f); var B = W3.P(o + Vector2.Right.Rotated(a1) * r1, 0.4f);
                 var C = W3.P(o + Vector2.Right.Rotated(a1) * r0, 0.4f); var D = W3.P(o + Vector2.Right.Rotated(a0) * r0, 0.4f);

@@ -32,6 +32,30 @@ public sealed class MeshBuilder
 
     public void Quad(int a, int b, int c, int d) { Tri(a, b, c); Tri(a, c, d); }
 
+    /// <summary>A flat-shaded box of half-extents <paramref name="half"/>, placed by <paramref name="xf"/> (dressed stone, planks).</summary>
+    public void Box(Transform3D xf, Vector3 half, Color col)
+    {
+        var nb = xf.Basis.Inverse().Transposed();
+        for (int f = 0; f < 6; f++)
+        {
+            int axis = f / 2;
+            float s = f % 2 == 0 ? 1f : -1f;
+            var n = Vector3.Zero; n[axis] = s;
+            // two in-face axes, ordered so the corners run counter-clockwise seen from outside
+            var u = Vector3.Zero; u[(axis + 1) % 3] = 1f;
+            var v = Vector3.Zero; v[(axis + 2) % 3] = 1f;
+            if (s < 0) (u, v) = (v, u);
+            var c = n * half;
+            var du = u * half; var dv = v * half;
+            var wn = (nb * n).Normalized();
+            int a = Add(xf * (c - du - dv), wn, col);
+            int b = Add(xf * (c + du - dv), wn, col);
+            int d = Add(xf * (c + du + dv), wn, col);
+            int e = Add(xf * (c - du + dv), wn, col);
+            Quad(a, b, d, e);
+        }
+    }
+
     /// <summary>Appends another builder's geometry transformed by <paramref name="xf"/>.</summary>
     public void Append(MeshBuilder o, Transform3D xf, Color? tint = null)
     {

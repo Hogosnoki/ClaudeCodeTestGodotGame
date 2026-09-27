@@ -18,6 +18,9 @@ public static class G
     public static Main Main;
     public static CaveData Cave;
     public static Player Player;
+    /// <summary>Everyone playing. One hero for now, but the heroes are built to complement each
+    /// other (the vitalist's heal shares health out among all of them in range).</summary>
+    public static readonly List<Player> Players = new();
     public static Node2D World;
     public static FxLayer Fx;
     public static SoundBank Sfx;

@@ -94,6 +94,7 @@ public partial class Bat : Enemy
     protected override int Teacher() => _state == 2 ? Retreat : Swoop;
     protected override bool Striking => _state != 0 && Intent == Swoop;
     protected override bool IsAttack(int a) => a == Swoop;
+    protected override void OnInterrupted() { if (_state != 0) { _state = 2; _stateT = 0; } }
 
     protected override void Animate()
     {
@@ -206,6 +207,8 @@ public partial class Frog : Enemy
         _ => true,
     };
     protected override bool IsAttack(int a) => a == Tongue;
+    public override bool Attacking => _tongueT >= 0;
+    protected override void OnInterrupted() { _tongueT = -1; _hopWind = -1; _tongueCd = Math.Max(_tongueCd, 1.5f); }
     private float _groundT;
 
     protected override int Teacher()
@@ -362,6 +365,8 @@ public partial class Goblin : Enemy
         _ => true,
     };
     protected override bool IsAttack(int a) => a == Attack;
+    public override bool Attacking => _state == 1 || _throwDelay >= 0;
+    protected override void OnInterrupted() { _throwDelay = -1; if (_state == 1) { _state = 2; _stateT = 0; } }
 
     protected override int Teacher()
     {
@@ -517,6 +522,7 @@ public partial class Spider : Enemy
 
     protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
     protected override bool IsAttack(int a) => a == Strike;
+    protected override void OnInterrupted() { if (_state is 1 or 2) { _state = 3; _stateT = 0; } _pounceLeft = 0; }
     protected override bool Striking => _state == 1 || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
 
     protected override int Teacher()
@@ -619,6 +625,8 @@ public partial class LavaMonster : Enemy
     protected override float AttackReady => 1 - Math.Clamp(_lobCd / Tune.Magma.LobCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Lob_ || _lobCd <= 0;
     protected override bool IsAttack(int a) => a == Lob_;
+    public override bool Attacking => _windup >= 0;
+    protected override void OnInterrupted() { _windup = -1; _lobCd = Math.Max(_lobCd, 1.2f); }
 
     protected override int Teacher()
     {
@@ -697,6 +705,8 @@ public partial class Golem : Enemy
     protected override float AttackReady => 1 - Math.Clamp(_slamCd / Tune.Golem.SlamCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Slam_ || (_slamCd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Slam_;
+    public override bool Attacking => _windup >= 0;
+    protected override void OnInterrupted() { _windup = -1; _recover = 0.5f; _slamCd = Math.Max(_slamCd, 1.5f); }
 
     protected override int Teacher()
     {

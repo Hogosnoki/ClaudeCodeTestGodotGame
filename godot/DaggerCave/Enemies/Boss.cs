@@ -183,6 +183,7 @@ public partial class CavernColossus : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _s != S.Walk;
     protected override bool Striking => _s is S.Charge or S.Leap;
+    public override bool Attacking => _s is S.LeapCrouch or S.Leap or S.ChargeWindup or S.Charge;
     protected override bool IsAttack(int a) => a >= LeapSlam;
     protected override float AttackReady => _next <= 0 ? 1 : 0;
     protected override bool CanAct(int a) => a < LeapSlam || _next <= 0;

@@ -4,22 +4,22 @@ using Godot;
 
 namespace DaggerCave;
 
-/// <summary>The player's thrown dagger: flies straight, optionally ricochets to another enemy or pierces.</summary>
-public partial class ThrownDagger : Node2D
+/// <summary>
+/// The Vitalist's drain bolt: a mote of stolen life that streaks at its target (curving after
+/// it), strikes that one creature, and hands a share of the damage back as alimus. With
+/// Splitting Bolt it leaps on to another creature nearby.
+/// </summary>
+public partial class DrainBolt : Node2D
 {
-    public Vector2 Dir;
-    public float Damage;
-    public int BouncesLeft;
-    public bool Pierce;
-
-    private static float Speed => Tune.Hero.ThrowSpeed;
-    private static float MaxRange => Tune.Hero.ThrowRange;
-    private float _traveled, _fadeT = -1, _t;
-    private Vector2 _fallVel;
-    /// <summary>For the 3D stage: still flying, the whirl angle, and how visible it is while it falls away.</summary>
-    public bool Flying => _fadeT < 0;
-    public float Spin => Flying ? _t * Tune.Hero.ThrowSpinRadPerSec * (Dir.X >= 0 ? 1 : -1) : 0;
-    public float Alpha => _fadeT >= 0 ? Math.Clamp(_fadeT / 0.3f, 0, 1) : 1;
+    public Vector2 Dir = Vector2.Right;
+    public Enemy Target;
+    public float Damage, Range = 175f;
+    /// <summary>How many more creatures it leaps to after striking one.</summary>
+    public int Leaps;
+    /// <summary>For the 3D stage: seconds since it was cast, and how bright it still is.</summary>
+    public float Age => _t;
+    public float Alpha => _fade >= 0 ? Math.Clamp(_fade / 0.15f, 0, 1) : 1;
+    private float _t, _traveled, _fade = -1;
     private readonly HashSet<Enemy> _hit = new();
 
     public override void _Ready() { ZIndex = 2; }
@@ -28,129 +28,92 @@ public partial class ThrownDagger : Node2D
     {
         float dt = (float)delta;
         _t += dt;
-        if (_fadeT >= 0)
+        if (_fade >= 0)
         {
-            _fadeT -= dt;
-            if (_fallVel != Vector2.Zero)
-            {
-                _fallVel.Y += 900 * dt;
-                var np = GlobalPosition + _fallVel * dt;
-                if (G.Cave.IsSolid(np)) _fallVel = Vector2.Zero; else GlobalPosition = np;
-                Rotation += dt * 14;
-            }
-            if (_fadeT <= 0) QueueFree();
-            QueueRedraw();
+            _fade -= dt;
+            if (_fade <= 0) QueueFree();
             return;
         }
         var cave = G.Cave;
-        float spd = cave.IsWater(GlobalPosition) ? Speed * 0.6f : Speed;
+        // curve after the target (a homing bolt is how a single-target spell reads)
+        if (Target != null && IsInstanceValid(Target) && !Target.Dead && !_hit.Contains(Target))
+        {
+            var want = (Target.GlobalPosition - GlobalPosition).Normalized();
+            float turn = Math.Clamp(Dir.AngleTo(want), -14f * dt, 14f * dt);
+            Dir = Dir.Rotated(turn);
+        }
+        float spd = Tune.Vitalist.BoltSpeed * (cave.IsWater(GlobalPosition) ? 0.7f : 1f);
         var from = GlobalPosition;
         var step = Dir * spd * dt;
         var to = from + step;
-
         foreach (var e in G.Enemies.ToArray())
         {
-            if (e.Dead || _hit.Contains(e)) continue;
-            if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 4) continue;
-            _hit.Add(e);
-            float dealt = e.Hurt(Damage, Dir * 120f, e.GlobalPosition - Dir * e.HitRadius);
-            if (dealt > 0)
-            {
-                G.Player.OnDealtDamage(dealt);
-                if (!e.Dead) e.Freeze(Tune.Feel.HitStopThrown);
-                G.Fx.Spark(e.GlobalPosition - Dir * e.HitRadius, Dir, e.Dead, new Color(0.8f, 0.95f, 1f));
-                G.Main.Kick(Dir * 2f);
-                G.Main.Rumble(0.25f, 0.1f, 0.07f);
-            }
-            else G.Sfx.Play("clink", GlobalPosition, -4);
-            if (Pierce) continue;
-            if (BouncesLeft > 0 && Retarget(e.GlobalPosition))
-            {
-                BouncesLeft--;
-                Damage *= Tune.Hero.RicochetDamageMult;
-                _traveled = 0;
-                GlobalPosition = e.GlobalPosition;
-                G.Fx.Ring(e.GlobalPosition, 10, new Color(1f, 0.9f, 0.5f));
-                QueueRedraw();
-                return;
-            }
-            Drop();
+            if (e.Dead || _hit.Contains(e) || !e.CanBeHit) continue;
+            if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 3) continue;
+            Strike(e);
             return;
         }
-
-        if (cave.Raycast(from, Dir, step.Length(), out var hit, 3f))
-        {
-            GlobalPosition = hit;
-            G.Sfx.Play("clink", hit, -4);
-            G.Fx.Directional(hit, -Dir, 0.9f, new Color(1f, 0.9f, 0.6f), 6, 160, 1.5f, 0.25f, 300);
-            _fadeT = 0.6f;
-            _fallVel = Vector2.Zero;
-            QueueRedraw();
-            return;
-        }
+        if (cave.Raycast(from, Dir, step.Length(), out var wall, 2f)) { GlobalPosition = wall; Fizzle(); return; }
         GlobalPosition = to;
         _traveled += step.Length();
-        if (_traveled > MaxRange) Drop();
-        QueueRedraw();
+        if (_traveled > Range) Fizzle();
+    }
+
+    private void Strike(Enemy e)
+    {
+        _hit.Add(e);
+        var at = e.GlobalPosition - Dir * e.HitRadius;
+        float dealt = e.Hurt(Damage, Dir * 90f, at);
+        var col = new Color(0.55f, 1f, 0.5f);
+        if (dealt > 0)
+        {
+            G.Player?.OnDealtDamage(dealt);
+            if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
+            G.Fx.Spark(at, Dir, e.Dead, col);
+            G.Fx.Burst(at, new Color(0.9f, 0.2f, 0.25f), 6, 120, 1.8f, 0.4f);
+            G.Main.Rumble(0.2f, 0.05f, 0.06f);
+        }
+        else G.Sfx.Play("clink", GlobalPosition, -6);
+        G.Sfx.Play("hit", at, -8, 0.15f, 1.5f);
+        if (Leaps > 0 && Retarget(e.GlobalPosition))
+        {
+            Leaps--;
+            Damage *= 0.6f;
+            _traveled = 0;
+            GlobalPosition = e.GlobalPosition;
+            G.Fx.Ring(e.GlobalPosition, 9, new Color(col, 0.8f));
+            return;
+        }
+        Fizzle();
     }
 
     private bool Retarget(Vector2 from)
     {
-        Enemy best = null; float bd = Tune.Hero.RicochetRange;
+        Enemy best = null; float bd = 130f;
         foreach (var e in G.Enemies)
         {
-            if (e.Dead || _hit.Contains(e)) continue;
+            if (e.Dead || _hit.Contains(e) || !e.CanBeHit) continue;
             float d = e.GlobalPosition.DistanceTo(from);
             if (d < bd && G.Cave.LineClear(from, e.GlobalPosition)) { bd = d; best = e; }
         }
         if (best == null) return false;
+        Target = best;
         Dir = (best.GlobalPosition - from).Normalized();
         return true;
     }
 
-    private void Drop()
+    private void Fizzle()
     {
-        _fadeT = 0.7f;
-        _fallVel = new Vector2(-Dir.X * 80, -160);
+        _fade = 0.15f;
+        G.Fx.Burst(GlobalPosition, new Color(0.5f, 1f, 0.45f, 0.8f), 5, 70, 1.5f, 0.3f);
     }
 
-    /// <summary>
-    /// A dagger cartwheeling end over end (~7 turns a second), with a faint spin disc and a blur
-    /// arc trailing its tip so it reads as a whirling blade rather than a spear.
-    /// </summary>
     public override void _Draw()
     {
-        float a = _fadeT >= 0 ? Math.Clamp(_fadeT / 0.3f, 0, 1) : 1;
-        bool flying = _fadeT < 0;
-        float spin = flying ? _t * Tune.Hero.ThrowSpinRadPerSec * (Dir.X >= 0 ? 1 : -1) : 0;
-        const float r = 9f;
-        if (flying)
-        {
-            DrawCircle(Vector2.Zero, r + 1, new Color(0.8f, 0.95f, 1f, 0.10f));
-            // blur arcs behind the tip and the pommel
-            for (int k = 0; k < 2; k++)
-            {
-                float tip = spin + k * Mathf.Pi;
-                const int n = 10;
-                var pts = new Vector2[n];
-                var cols = new Color[n];
-                float sweep = 1.9f * (Dir.X >= 0 ? -1 : 1);
-                for (int i = 0; i < n; i++)
-                {
-                    float t = i / (float)(n - 1);
-                    pts[i] = Vector2.Right.Rotated(tip + sweep * (1 - t)) * (k == 0 ? r : r * 0.6f);
-                    cols[i] = new Color(0.85f, 0.97f, 1f, t * (k == 0 ? 0.75f : 0.35f));
-                }
-                DrawPolylineColors(pts, cols, k == 0 ? 2.2f : 1.4f);
-            }
-        }
-        DrawSetTransform(Vector2.Zero, spin, Vector2.One);
-        // centered on its balance point so it whirls in place
-        DrawLine(new Vector2(-6.5f, 0), new Vector2(-2f, 0), new Color(0.4f, 0.25f, 0.12f, a), 2.5f);
-        DrawLine(new Vector2(-2f, -3), new Vector2(-2f, 3), new Color(0.78f, 0.66f, 0.3f, a), 1.6f);
-        DrawColoredPolygon(new[] { new Vector2(-1, -1.7f), new Vector2(r, 0), new Vector2(-1, 1.7f) }, new Color(0.92f, 0.96f, 1f, a));
-        DrawLine(new Vector2(-1, -0.4f), new Vector2(r - 1.5f, -0.1f), new Color(1f, 1f, 1f, a * 0.8f), 0.6f);
-        DrawSetTransform(Vector2.Zero, 0, Vector2.One);
+        float a = Alpha;
+        DrawCircle(Vector2.Zero, 6, new Color(0.5f, 1f, 0.45f, 0.18f * a));
+        DrawCircle(Vector2.Zero, 3, new Color(0.8f, 1f, 0.7f, a));
+        DrawLine(Vector2.Zero, -Dir * 10, new Color(0.9f, 0.25f, 0.3f, 0.6f * a), 2f);
     }
 }
 
@@ -396,6 +359,15 @@ public partial class Shockwave : Node2D
         QueueFree();
     }
 
+    /// <summary>Stopped dead (the Warden's shield dash): it bursts into gravel.</summary>
+    public void Break()
+    {
+        if (IsQueuedForDeletion()) return;
+        G.Fx.Burst(GlobalPosition, new Color(0.6f, 0.55f, 0.5f, 0.9f), 12, 160, 2.2f, 0.4f, 400);
+        G.Fx.Debris(GlobalPosition + new Vector2(0, -6), new Color(0.5f, 0.46f, 0.42f), 5, 140);
+        QueueFree();
+    }
+
     public override void _Draw()
     {
         var c = new Color(0.62f, 0.56f, 0.5f);
@@ -501,7 +473,7 @@ public partial class SwordWave : Node2D
             if (dealt > 0)
             {
                 G.Player?.OnDealtDamage(dealt);
-                if (!e.Dead) e.Freeze(Tune.Feel.HitStopThrown);
+                if (!e.Dead) e.Freeze(Tune.Feel.HitStopWave);
                 G.Fx.Spark(e.GlobalPosition, Dir, false, new Color(0.8f, 0.95f, 1f));
             }
         }

@@ -143,6 +143,14 @@ public sealed class WraithDesign : CreatureDesign
                     break;
                 }
             case "hurt": { float k = Key(t, (0, 0), (0.2f, 1), (1, 0)); lean -= 25f * k; armL = 40f * k; armR = 40f * k; break; }
+            case "float" when a.Owner is FrostWraith { Looming: true } fw:
+                {
+                    // looming over its prey: arms flung wide, jaw hanging open, eyes and frost blazing
+                    float k = fw.LoomAmount;
+                    armR = armL = 95f * k; jaw = 42f * k; lean += 14f * k;
+                    p.Glow = 1f + 3.5f * k;
+                    break;
+                }
             case "death":
                 {
                     // rises, spreads its arms, and comes apart (the dissolve does the rest)

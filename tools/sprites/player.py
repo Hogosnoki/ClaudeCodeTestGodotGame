@@ -1,6 +1,7 @@
-"""The two heroes, drawn by one rig with a style switch:
+"""The three heroes, drawn by one rig with a style switch:
  * swordsman -- a hooded rogue with a red scarf and a medium-length sword;
- * warden    -- a blue-tabarded shield-bearer with a gold sash, a shortsword and a buckler.
+ * warden    -- a blue-tabarded shield-bearer with a gold sash, a shortsword and a buckler;
+ * vitalist  -- a green-robed caster in a bone mask, with a crystal-headed staff.
 Right-handed (the weapon hand is the far arm when facing right, the near arm when facing left)."""
 import math
 from rig import (keys as _keys, hexc, lighten, darken, ellipse, circle, poly, limb, line, glow, rot, add, polar,
@@ -23,17 +24,23 @@ GUARD_W = 2.2
 BUCKLER = False
 BUCKLER_WOOD = hexc('7a5530')
 BUCKLER_RIM = hexc('b8c4cc')
+STAFF = False
+STAFF_WOOD = hexc('5a3d22')
+STAFF_GEM = hexc('8dff7a')
+MASK = hexc('e2dac8')
 
 STYLES = {
     'swordsman': dict(CLOAK='2b6272', CLOAK_D='183d49', SCARF='cc3a2e', PANTS='2e2c38', BELT='70502c',
                       BLADE_LEN=13.0, BLADE_W=1.3, GUARD_W=2.8, BUCKLER=False),
     'warden': dict(CLOAK='34457e', CLOAK_D='1f2a52', SCARF='d4a93a', PANTS='3a3530', BELT='5a3c22',
                    BLADE_LEN=9.5, BLADE_W=1.25, GUARD_W=2.5, BUCKLER=True),
+    'vitalist': dict(CLOAK='24503a', CLOAK_D='122a1e', SCARF='8e1f24', PANTS='2a2a26', BELT='4a3020',
+                     BLADE_LEN=0.0, BLADE_W=1.0, GUARD_W=1.0, BUCKLER=False, STAFF=True),
 }
 
 BASE = dict(sa=0.0, bx=0, by=0, lean=0.06, lfx=-2.4, lfy=13, lnx=2.6, lny=13,
             dhx=5.5, dhy=2.5, da=1.0, fhx=-2.5, fhy=3.0, ht=0.0, sw=0.0, sl=0.0, cf=0.0,
-            armz=-3.0, sq=1.0, rot=0.0, kneeb=1.0, blade=1.0, scarf=1.0, blink=0.0)
+            armz=-3.0, sq=1.0, rot=0.0, kneeb=1.0, blade=1.0, scarf=1.0, blink=0.0, st=-1.45, gem=0.0)
 
 
 def keys(u, table, ease=smooth):
@@ -86,11 +93,15 @@ def build(pose):
     parts.append(poly([add(head, rot(p, P['ht'])) for p in [(-4.4, -1.5), (-2.0, -6.2), (-9.0, -3.2)]],
                       CLOAK_D, z=0.0, thick=0.5, bias=-0.8))
     parts.append(circle(head, 5.4, CLOAK, z=0.0, thick=1.0))
-    parts.append(ellipse(add(head, rot((1.9, 0.9), P['ht'])), 3.3, 3.6, SKIN, z=0.0, thick=0.9, rot=P['ht'], bias=0.5))
+    parts.append(ellipse(add(head, rot((1.9, 0.9), P['ht'])), 3.3, 3.6, MASK if STAFF else SKIN, z=0.0, thick=0.9, rot=P['ht'], bias=0.5))
     blink = P['blink']
     for ez in (1.6, -1.6):
         ec = add(head, rot((3.4, 0.3), P['ht']))
-        if blink > 0.5:
+        if STAFF:
+            # the mask's eye holes, lit from within
+            parts.append(ellipse(ec, 0.9, 1.1, EYE, z=ez + 0.4, outline=False, shade=False))
+            parts.append(circle(ec, 0.45, STAFF_GEM, z=ez + 0.45, outline=False, shade=False))
+        elif blink > 0.5:
             parts.append(line([add(ec, (-0.7, 0)), add(ec, (0.7, 0))], 0.6, EYE, z=ez + 0.4))
         else:
             parts.append(ellipse(ec, 0.75, 1.0, EYE, z=ez + 0.4, outline=False, shade=False))
@@ -106,8 +117,22 @@ def build(pose):
     dz = P['armz']
     dhand = (P['dhx'], P['dhy'])
     arm(add(shoulder, (-0.3, 0.2)), dhand, dz, -1)
+    if STAFF:
+        # a staff through the fist: the crystal end leads (st = its angle), the heel trails
+        d = (math.cos(P['st']), math.sin(P['st']))
+        top = add(dhand, (d[0] * 11.0, d[1] * 11.0))
+        heel = add(dhand, (-d[0] * 9.0, -d[1] * 9.0))
+        parts.append(line([heel, top], 1.3, STAFF_WOOD, z=dz + 0.25))
+        n = (-d[1], d[0])
+        for k in (-1, 1):
+            parts.append(line([add(top, (-d[0] * 1.2, -d[1] * 1.2)), add(top, (d[0] * 1.6 + n[0] * k * 1.5, d[1] * 1.6 + n[1] * k * 1.5))],
+                              0.7, STAFF_WOOD, z=dz + 0.3))
+        gem = add(top, (d[0] * 1.4, d[1] * 1.4))
+        if P['gem'] > 0.05:
+            parts.append(glow(gem, 3.0 + 3.0 * P['gem'], STAFF_GEM[:3] + (0.5 * P['gem'],), z=dz + 0.2))
+        parts.append(circle(gem, 1.3, STAFF_GEM, z=dz + 0.35))
     # dagger in the right hand
-    if P['blade'] > 0.05:
+    elif P['blade'] > 0.05:
         d = (math.cos(P['da']), math.sin(P['da']))
         n = (-d[1], d[0])
         L = BLADE_LEN * P['blade']
@@ -342,6 +367,42 @@ def throw(u, i):
                       fhx=-2 + 2 * u, fhy=2, sl=0.4))
 
 
+def bash(u, i):
+    """The Warden's shield dash: shield driven forward, low and leaning into it, sword held back."""
+    p = keys(u, [(0, dict(lean=0.2, bx=0.5, fhx=2, fhy=0, dhx=-1, dhy=3, da=2.0, lnx=4, lfx=-3, cf=0.8, sl=0.6)),
+                 (0.3, dict(lean=0.45, bx=1.4, by=1.0, fhx=6.5, fhy=-1.5, dhx=-2.5, dhy=2.5, da=2.4, lnx=6.5, lfx=-4.5, cf=1.5, sl=1.0, scarf=1.4)),
+                 (1, dict(lean=0.4, bx=1.2, by=0.8, fhx=6, fhy=-1, dhx=-2, dhy=2.5, da=2.3, lnx=6, lfx=-4, cf=1.3, sl=0.9, scarf=1.3))], ease=ease_out)
+    return build(p)
+
+
+def cast(u, i):
+    """The Vitalist's drain bolt: the staff drawn back, then thrust out crystal-first."""
+    p = keys(u, [(0, dict(st=-1.9, dhx=2.5, dhy=0.5, lean=-0.1, fhx=-2, fhy=2)),
+                 (0.35, dict(st=-2.15, dhx=1.2, dhy=-1.0, lean=-0.16, bx=-0.6, fhx=-3, fhy=1)),
+                 (0.55, dict(st=-0.3, dhx=8.0, dhy=-1.5, lean=0.25, bx=0.8, fhx=6.0, fhy=-2.0, gem=1.0, lnx=4.5, cf=1.0)),
+                 (1, dict(st=-1.25, dhx=5.5, dhy=1.0, lean=0.08, fhx=0, fhy=2.5, gem=0.3))], ease=smooth)
+    return build(p)
+
+
+def hex_(u, i):
+    """The Vitalist's hex: staff raised overhead in both hands, then driven down into the ground."""
+    p = keys(u, [(0, dict()),
+                 (0.4, dict(st=-1.57, dhx=3.0, dhy=-9.0, fhx=-0.5, fhy=-8.0, lean=-0.2, by=-0.5, gem=0.6, ht=-0.2)),
+                 (0.6, dict(st=-1.35, dhx=6.0, dhy=4.0, fhx=4.0, fhy=2.0, lean=0.38, by=2.6, sq=0.9, gem=1.0, cf=1.2, lnx=4.5, lfx=-3.5)),
+                 (0.8, dict(st=-1.4, dhx=6.0, dhy=3.5, fhx=4.0, fhy=2.0, lean=0.34, by=2.2, sq=0.93, gem=0.8, cf=1.0, lnx=4.5, lfx=-3.5)),
+                 (1, dict())], ease=smooth)
+    return build(p)
+
+
+def heal(u, i):
+    """The Vitalist's heal: the staff lifted high, the free hand opened, face turned upward."""
+    p = keys(u, [(0, dict()),
+                 (0.3, dict(st=-1.57, dhx=2.5, dhy=-10.0, fhx=-5.5, fhy=-5.5, lean=-0.12, ht=-0.3, gem=1.0, by=-0.4)),
+                 (0.75, dict(st=-1.57, dhx=2.5, dhy=-10.5, fhx=-6.0, fhy=-6.0, lean=-0.14, ht=-0.35, gem=0.8, by=-0.6)),
+                 (1, dict())], ease=smooth)
+    return build(p)
+
+
 def hurt(u, i):
     p = keys(u, [(0, dict(lean=-0.55, bx=-1.5, by=0.8, ht=-0.4, dhx=6.5, dhy=-3, fhx=-6, fhy=-4, sq=0.92, cf=-1.2, sl=1.0, blink=1)),
                  (0.4, dict(lean=-0.45, bx=-1.2, by=0.6, ht=-0.3, dhx=6, dhy=-1.5, fhx=-5.5, fhy=-2, sq=0.95, cf=-0.8, sl=0.8, blink=1)),
@@ -362,7 +423,7 @@ def make(style='swordsman'):
     g = globals()
     for k, v in STYLES[style].items():
         g[k] = hexc(v) if isinstance(v, str) else v
-    long_blade = BLADE_LEN > 12
+    long_blade = BLADE_LEN > 12 or STAFF
     sh = Sheet(style, 72 if long_blade else 64, 66 if long_blade else 60,
                origin=(36, 36) if long_blade else (30, 34), scale=2.0, outline_w=0.9)
     sh.add_anim('idle', 24, True, idle)
@@ -380,10 +441,17 @@ def make(style='swordsman'):
     sh.add_anim('swim_idle', 24, True, swim_idle)
     sh.add_anim('dodge', 6, False, dodge)
     sh.add_anim('airdash', 4, False, airdash)
-    for kind in ('a', 'b', 'c'):
-        for dname, alpha in DIRS.items():
-            sh.add_anim(f'slash_{kind}_{dname}', 7 if kind != 'c' else 9, False, slash(kind, alpha))
-    sh.add_anim('throw', 6, False, throw)
+    if STAFF:
+        # the Vitalist fights with spells, not a blade
+        sh.add_anim('cast', 6, False, cast)
+        sh.add_anim('hex', 10, False, hex_)
+        sh.add_anim('heal', 12, False, heal)
+    else:
+        for kind in ('a', 'b', 'c'):
+            for dname, alpha in DIRS.items():
+                sh.add_anim(f'slash_{kind}_{dname}', 7 if kind != 'c' else 9, False, slash(kind, alpha))
+    if BUCKLER:
+        sh.add_anim('bash', 6, False, bash)
     sh.add_anim('hurt', 6, False, hurt)
     sh.add_anim('death', 18, False, death)
     return sh

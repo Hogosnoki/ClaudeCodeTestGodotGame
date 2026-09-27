@@ -20,13 +20,15 @@ uniform vec3 burn_color : source_color = vec3(1.0, 0.45, 0.1);
 uniform float ghost_below = -100.0;
 uniform float ghost_fade = 0.3;
 
-instance uniform float flash = 0.0;
-instance uniform vec4 flash_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
-instance uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 0.0);
-instance uniform float fade = 1.0;
-instance uniform float dissolve = 0.0;
+instance uniform float flash : instance_index(0) = 0.0;
+instance uniform vec4 flash_color : source_color, instance_index(1) = vec4(1.0, 1.0, 1.0, 1.0);
+instance uniform vec4 tint : source_color, instance_index(2) = vec4(1.0, 1.0, 1.0, 0.0);
+instance uniform float fade : instance_index(3) = 1.0;
+instance uniform float dissolve : instance_index(4) = 0.0;
 // designs brighten their glowing parts for tells (a puff gathering, a spell charging)
-instance uniform float glow_boost = 1.0;
+instance uniform float glow_boost : instance_index(5) = 1.0;
+// an affliction washing over the creature (weakened, hexed): colour, alpha = strength
+instance uniform vec4 aura : source_color, instance_index(6) = vec4(0.0);
 
 varying vec3 v_rest;
 varying vec4 v_mat;
@@ -172,11 +174,13 @@ void fragment() {
 	else emit += glow_color * glow_energy * glow * glow_boost;
 	emit += rim_color * rim_energy * fres * (1.0 - v_mat.x * 0.6);
 	emit += burn_color * burn * 8.0;
-	emit += flash_color.rgb * flash * 1.6;
+	// the hit flash is a quick pop, not a white-out: the frozen pose must stay readable
+	emit += flash_color.rgb * flash * 0.8;
+	emit += aura.rgb * aura.a * (0.12 + fres * 2.2) * (0.8 + 0.2 * sin(TIME * 5.0 + p.y * 12.0));
 
 	// fleshy parts: a little light bleeds through where they are lit from behind (screen-space
 	// subsurface scattering is far too blurry at this scale, so only backlight is used)
-	ALBEDO = mix(alb, flash_color.rgb, flash * 0.85);
+	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);
 	ROUGHNESS = rough;
 	METALLIC = v_mat.x;
 	SPECULAR = 0.5;

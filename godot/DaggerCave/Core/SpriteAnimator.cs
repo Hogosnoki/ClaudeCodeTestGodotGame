@@ -251,6 +251,7 @@ void fragment() {
 
         m.Design.Frame(m, input);
         m.SetFlash(Math.Min(1f, _flash), _flashColor);
+        if (owner is Enemy foe) m.SetAura(foe.AfflictionAura);
         var tint = Sprite.SelfModulate;
         m.SetTint(tint, tint.R > 0.99f && tint.G > 0.99f && tint.B > 0.99f ? 0f : 1f);
         float alpha = Modulate.A;
@@ -382,7 +383,7 @@ void fragment() {
         if (_flash > 0)
         {
             _mat.SetShaderParameter("flash", Math.Min(1f, _flash));
-            _flash = Math.Max(0, _flash - (float)delta * 9f);
+            _flash = Math.Max(0, _flash - (float)delta * 13f);
             if (_flash <= 0) _mat.SetShaderParameter("flash", 0f);
         }
         if (!_manual) Apply(false);

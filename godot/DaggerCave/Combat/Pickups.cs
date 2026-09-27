@@ -193,33 +193,48 @@ public partial class Chest : Node2D
 }
 
 /// <summary>
-/// An exit tunnel that opens where the guardian fell. Each leads to a different biome (its
-/// palette shows through the opening) and descends one or two levels deeper.
+/// An exit that opens where the guardian fell: a stairway down into what lies below. Each
+/// leads to a different biome and descends one or two levels deeper. Nobody is taken down
+/// until they choose to go (the interact button, or up, while standing at it), so one that
+/// opens underfoot can't snatch you away from the guardian's chest.
 /// </summary>
 public partial class Portal : Node2D
 {
     public BiomeDef To;
     public int Depth;
     public string Label = "";
-    private float _t;
+    private float _t, _near;
     private bool _used;
     public float Age => _t;
+    /// <summary>For the 3D view: 0..1, how strongly to show the "descend" prompt (a hero is at the door).</summary>
+    public float Near => _near;
+    public bool Used => _used;
 
-    public override void _Ready() { ZIndex = -1; G.Sfx.Play("portal", GlobalPosition); }
+    public override void _Ready() { ZIndex = -1; G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
+
+    /// <summary>Is someone standing at <paramref name="p"/> close enough to go down?</summary>
+    public bool Reaches(Vector2 p) => !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
+
+    /// <summary>Go down.</summary>
+    public void Enter()
+    {
+        if (_used) return;
+        _used = true;
+        G.Sfx.Play("portal", GlobalPosition, 0, 0.05f, 0.8f);
+        G.Fx.Flash(GlobalPosition, 40, (To?.Glow ?? new Color(0.7f, 0.5f, 1f)).Darkened(0.3f), 0.25f);
+        G.Main.EnterExit(To, Depth);
+    }
 
     public override void _PhysicsProcess(double delta)
     {
-        _t += (float)delta;
-        var p = G.Player;
-        if (!_used && _t > 1f && p != null && !p.Dead && Math.Abs(p.GlobalPosition.X - GlobalPosition.X) < 22 && Math.Abs(p.GlobalPosition.Y - GlobalPosition.Y) < 34)
-        {
-            _used = true;
-            G.Sfx.Play("portal");
-            G.Fx.Flash(GlobalPosition, 60, To?.Glow ?? new Color(0.7f, 0.5f, 1f));
-            G.Main.EnterExit(To, Depth);
-        }
+        float dt = (float)delta;
+        _t += dt;
+        bool near = false;
+        foreach (var p in G.Players) if (!p.Dead && Reaches(p.GlobalPosition)) near = true;
+        _near = Math.Clamp(_near + (near ? dt * 5f : -dt * 3f), 0f, 1f);
+        // a draught: faint motes of the world below, drawn down into the dark
         var glow = To?.Glow ?? new Color(0.7f, 0.5f, 1f);
-        if (G.Chance(0.3f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-18, 18), G.Range(-30, 20)), glow);
+        if (G.Chance(0.12f)) G.Fx.Mote(GlobalPosition + new Vector2(G.Range(-30, 30), G.Range(-40, -10)), GlobalPosition + new Vector2(G.Range(-6, 6), 24), new Color(glow, 0.55f));
         QueueRedraw();
     }
 

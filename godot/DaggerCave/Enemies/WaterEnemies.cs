@@ -116,6 +116,7 @@ public partial class Fish : Enemy
     protected override bool Busy => _state != 0 || _dartT > 0;
     protected override bool Striking => _dartT > 0 || _state == 1;
     protected override bool IsAttack(int a) => a is Dart or Leap;
+    protected override void OnInterrupted() => _dartT = 0;
     protected override float AttackReady => _dartCd <= 0 ? 1 : 0;
 
     protected override bool CanAct(int a) => a switch
@@ -192,6 +193,8 @@ public partial class Urchin : Enemy
     protected override bool CanAct(int a) => a != Bristle || _cycle >= MinRest;
     protected override float AttackReady => Math.Clamp(_cycle / RestEnd, 0, 1);
     protected override bool IsAttack(int a) => a == Bristle;
+    public override bool Attacking => _cycle > 2.05f && _cycle < 2.7f;
+    protected override void OnInterrupted() { if (_cycle > 1.6f && _cycle < 2.6f) _cycle = 2.6f; _hitThisPulse = true; }
     protected override int Teacher() => _cycle >= RestEnd - 0.05f ? Bristle : Rest;
 
     protected override void Think(float dt)
@@ -292,6 +295,7 @@ public partial class Eel : Enemy
     protected override bool Busy => _state != 0;
     protected override bool Striking => _state is 1 or 2;
     protected override bool IsAttack(int a) => a == Lunge;
+    protected override void OnInterrupted() { if (_state is 1 or 2) { _state = 3; _stateT = 0; } }
     protected override bool CanAct(int a) => a != Lunge || _cd <= 0;
     protected override float AttackReady => _cd <= 0 ? 1 : 0;
 

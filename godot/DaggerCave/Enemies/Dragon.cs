@@ -261,6 +261,7 @@ public partial class Dragon : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _s != S.Walk;
     protected override bool Striking => _s is S.Dive;
+    public override bool Attacking => _s is S.BreathWindup or S.Breath or S.Dive or S.TailWindup or S.Tail;
     protected override bool IsAttack(int a) => a >= Breath;
     protected override float AttackReady => _next <= 0 ? 1 : 0;
     protected override bool CanAct(int a) => a < Breath || (_next <= 0 && (a != TailAttack || DistP < 140));

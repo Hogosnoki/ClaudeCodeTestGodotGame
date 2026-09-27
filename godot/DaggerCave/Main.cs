@@ -141,7 +141,7 @@ public partial class Main : Node
         _uiLayer.AddChild(_metaMenu);
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -162,7 +162,7 @@ public partial class Main : Node
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 0;
         G.Biome = Biomes.Get(BiomeId.Entrance);
-        if (_biomeArg == null && (_heroTest || _bestiary || _animTest || _showcase)) _biomeArg = "slime"; // these need water
+        if (_biomeArg == null && (_heroTest || _bestiary || _animTest || _showcase || _hitStopTest)) _biomeArg = "slime"; // these need water
         if (_biomeArg != null)
         {
             G.Biome = Biomes.All.First(b => b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase));
@@ -179,7 +179,19 @@ public partial class Main : Node
         {
             StartPlaying();
             _hud.HintTime = 0;
-            G.Player.InputOverride = () => _heroInput;
+            // a step's presses last one frame, like a real button (held flags stay as the step set them)
+            G.Player.InputOverride = () =>
+            {
+                var i = _heroInput;
+                _heroInput.Attack = _heroInput.Ability = _heroInput.Dodge = _heroInput.Jump = _heroInput.Potion = _heroInput.Interact = false;
+                return i;
+            };
+        }
+        else if (_hitStopTest)
+        {
+            StartPlaying();
+            _hud.HintTime = 0;
+            G.Player.InputOverride = HitStopTestInput;
         }
         else if (_animTest)
         {
@@ -223,8 +235,8 @@ public partial class Main : Node
         _overlay.Show("DAGGER DEEP", 0.55f,
             "A rogue-lite descent from the cave mouth to the dragon at the bottom of the world.  Choose your hero:",
             "@",
-            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK swing   RIGHT CLICK throw / barrier   SHIFT dodge / shield   Q potion",
-            "CONTROLLER:  stick move   A jump   X swing   RB / RT throw / barrier   B / LB dodge / shield   Y potion   right stick aims",
+            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK attack   RIGHT CLICK ability   SHIFT dodge / shield / hex   E enter   Q potion",
+            "CONTROLLER:  stick move   A jump   X attack   RB / RT ability   B / LB dodge / shield / hex   UP enter   Y potion   right stick aims (and raises the shield)",
             CampLine(),
             "!LEFT / RIGHT to choose  -  ENTER / A to begin");
     }
@@ -252,11 +264,13 @@ public partial class Main : Node
             else if (a == "--bestiary") _bestiary = true;
             else if (a == "--animtest") _animTest = true;
             else if (a == "--herotest") _heroTest = true;
+            else if (a == "--hitstoptest") _hitStopTest = true;
             else if (a == "--padtest") _padTest = true;
             else if (a == "--showcase") { _showcase = true; _autotest = true; }
             else if (a == "--train") Brains.Training = true;
             else if (a == "--hero=warden") G.Hero = HeroKind.Warden;
             else if (a == "--hero=swordsman") G.Hero = HeroKind.Swordsman;
+            else if (a == "--hero=vitalist") G.Hero = HeroKind.Vitalist;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
@@ -266,6 +280,7 @@ public partial class Main : Node
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
+            else if (a == "--exittest") _exitTest = true;
         }
     }
 
@@ -273,11 +288,26 @@ public partial class Main : Node
     // and quit (look development for the 3D presentation)
     private string _lookShot = "";
     private int _lookFrames = 24, _lookFrame;
+    private bool _exitTest;
 
     private int _fxTest;
     private bool _propTest;
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
+    /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
+    private void SpawnExitTest()
+    {
+        var p = G.Player.GlobalPosition;
+        Vector2 Floor(float dx) => G.Cave.FindFloor(p + new Vector2(dx, -40), 200, out var f) ? f : p + new Vector2(dx, 12);
+        var exits = Biomes.ChooseExits(G.Depth, _rng);
+        for (int k = 0; k < exits.Count && k < 2; k++)
+        {
+            var (bd, depth) = exits[k];
+            string label = exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way";
+            _world.AddChild(new Portal { Position = Floor(k * 170) + new Vector2(0, -30), To = bd, Depth = depth, Label = label });
+        }
+    }
+
     private void SpawnPropTest()
     {
         var p = G.Player.GlobalPosition;
@@ -334,6 +364,7 @@ public partial class Main : Node
         // --fxtest: lay out one of every effect around the player a moment before the shot
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
+        if (_exitTest && _lookFrame == 2) SpawnExitTest();
         if (_lookFrame < _lookFrames) return;
         GetViewport().GetTexture().GetImage().SavePng(_lookShot);
         GD.Print($"[lookshot] saved {_lookShot}");
@@ -358,8 +389,9 @@ public partial class Main : Node
         Act("jump", K(Key.Space), J(JoyButton.A));
         Act("attack", new InputEventMouseButton { ButtonIndex = MouseButton.Left });
         Act("attack_alt", K(Key.J), J(JoyButton.X));
-        Act("throw", new InputEventMouseButton { ButtonIndex = MouseButton.Right });
-        Act("throw_alt", K(Key.K), J(JoyButton.RightShoulder), Ax(JoyAxis.TriggerRight, 1));
+        Act("ability", new InputEventMouseButton { ButtonIndex = MouseButton.Right });
+        Act("ability_alt", K(Key.K), J(JoyButton.RightShoulder), Ax(JoyAxis.TriggerRight, 1));
+        Act("interact", K(Key.E));
         Act("dodge", K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder), Ax(JoyAxis.TriggerLeft, 1));
         Act("pause", K(Key.Escape), J(JoyButton.Start));
         Act("confirm", K(Key.Enter), K(Key.KpEnter), J(JoyButton.A));
@@ -377,11 +409,12 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer)
     {
-        PlayerStats keepStats = null; float keepHp = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepAlimus = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
             keepMilestones = G.Player.PendingMilestones;
+            keepAlimus = G.Player.Alimus;
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
@@ -423,6 +456,7 @@ public partial class Main : Node
             player.Hp = Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.PendingMilestones = keepMilestones;
+            player.SetAlimus(Math.Max(keepAlimus, Tune.Vitalist.AlimusStart * 0.5f));
             player.SyncCharges();
         }
         player.GlobalPosition = cave.StartPos;
@@ -624,6 +658,8 @@ public partial class Main : Node
         _sfx.SetMusic("ambient");
     }
 
+    private const int HeroCount = 3;
+
     private void PickHero(HeroKind h)
     {
         if (G.Hero == h) return;
@@ -790,7 +826,8 @@ public partial class Main : Node
         if (_metaMenu.Visible) return;
         if ((_state == State.Title || (_state == State.Dead && _overlay.Visible)) && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
         {
-            PickHero(G.Hero == HeroKind.Swordsman ? HeroKind.Warden : HeroKind.Swordsman);
+            int step = e.IsActionPressed("move_left") ? -1 : 1;
+            PickHero((HeroKind)(((int)G.Hero + step + HeroCount) % HeroCount));
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -897,6 +934,7 @@ public partial class Main : Node
         if (_bestiary) BestiaryTick(dt);
         if (_animTest) AnimTestTick(dt);
         if (_heroTest) HeroTestTick(dt);
+        if (_hitStopTest) HitStopTestTick();
     }
 
     private void UpdateCamera(float dt)
@@ -1390,7 +1428,7 @@ public partial class Main : Node
         {
             case 0:
                 // a seasoned rogue: combo + finisher + knockback + pogo, and enough health to survive the bot
-                foreach (var id in new[] { "combo", "combo3", "knock", "pogo", "throw2", "atkspd" }) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
+                foreach (var id in new[] { "combo", "combo3", "knock", "pogo", "charge2", "atkspd" }) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
                 p.Stats.MaxHp = 600; p.Hp = 600;
                 var s0 = p.GlobalPosition;
                 Put(new Goblin(), s0 + new Vector2(90, -10));
@@ -1428,8 +1466,8 @@ public partial class Main : Node
             (1.6f, () => { GD.Print($"[padtest] player vx after stick: {G.Player.Velocity.X:0}"); Axis(JoyAxis.LeftX, 0f); }, ""),
             (1.8f, () => Btn(JoyButton.X, true), "X swing"),
             (1.85f, () => { Btn(JoyButton.X, false); GD.Print($"[padtest] anim after X: {G.Player.Anim.Current}"); }, ""),
-            (2.3f, () => Axis(JoyAxis.TriggerRight, 1f), "RT throw"),
-            (2.35f, () => { Axis(JoyAxis.TriggerRight, 0f); GD.Print($"[padtest] throw cooldown after RT: {G.Player.ThrowCooldowns[0]:0.00}"); }, ""),
+            (2.3f, () => Axis(JoyAxis.TriggerRight, 1f), "RT ability"),
+            (2.35f, () => { Axis(JoyAxis.TriggerRight, 0f); GD.Print($"[padtest] charged strike after RT: {G.Player.Charged} (cooldown {G.Player.ChargeCooldownFrac:0.00})"); }, ""),
             (2.6f, () => Btn(JoyButton.B, true), "B dodge"),
             (2.65f, () => { Btn(JoyButton.B, false); GD.Print($"[padtest] dodging after B: {G.Player.IsDodging}"); }, ""),
             (3.0f, () => { G.Player.PendingMilestones = 1; }, "milestone"),
@@ -1445,9 +1483,45 @@ public partial class Main : Node
         while (_padStep < steps.Length && _padT >= steps[_padStep].at) steps[_padStep++].act();
     }
 
+    // ------------------------------------------------------------------ --hitstoptest
+    // A golem dummy in front of the hero, swings on cue, and every frame around the impacts saved
+    // (--shots=DIR/hs_NNN.png) with both freezes printed: for judging hit-stop and combos.
+    private bool _hitStopTest;
+    private int _hsFrame;
+    private Enemy _hsDummy;
+    private int[] _hsAttackFrames = { 40, 58 };
+
+    private PlayerInput HitStopTestInput()
+    {
+        var i = new PlayerInput();
+        foreach (int f in _hsAttackFrames) if (_hsFrame == f) { i.Attack = true; i.Aim = new Vector2(G.Player.Facing, 0); }
+        return i;
+    }
+
+    private void HitStopTestTick()
+    {
+        _hsFrame++;
+        var p = G.Player;
+        if (_hsFrame == 20)
+        {
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            _hsDummy = new Golem { Position = p.GlobalPosition + new Vector2(p.Facing * 40, -6) };
+            _hsDummy.SetMeta("test", true);
+            _world.AddChild(_hsDummy);
+            _hsDummy.Wake();
+        }
+        if (_hsFrame >= 38 && _hsFrame <= 96)
+        {
+            string e = IsInstanceValid(_hsDummy) ? $"golem freeze {_hsDummy.FreezeLeft:0.000} hp {_hsDummy.Hp:0}" : "golem gone";
+            GD.Print($"[hitstop] frame {_hsFrame}: hero freeze {p.FreezeLeft:0.000} swinging {p.IsSwinging} anim {p.Anim.Sprite.Animation}:{p.Anim.Sprite.Frame} | {e}");
+            if (_shotDir != "") GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hs_{_hsFrame:000}.png");
+        }
+        if (_hsFrame > 96) SafeQuit.Request(this);
+    }
+
     /// <summary>Scripted inputs that walk the player through every movement/attack transition.</summary>
     // ------------------------------------------------------------------ --herotest
-    // Scripted checks of both heroes' mechanics (run once with --hero=warden, once without).
+    // Scripted checks of each hero's mechanics (run once per hero: --hero=warden, --hero=vitalist, or neither).
     private PlayerInput _heroInput;
     private float _heroT;
     private bool _heroOk = true;
@@ -1491,9 +1565,9 @@ public partial class Main : Node
             // one step per frame (so an input set by one step is seen before the next clears it);
             // a slow frame just delays the steps a little rather than skipping any
             int step = ++_lastHeroStep;
-            if (OS.GetCmdlineUserArgs().Contains("--herodebug") && step % 3 == 0) GD.Print($"[herodebug] step {step} t={_heroT:0.00} dir {_dir} swing {p.IsSwinging} shield {p.ShieldRaised} guardIn {_heroInput.GuardHeld} atk {_heroInput.Attack} state {_state} paused {GetTree().Paused} pos {p.GlobalPosition}");
-            if (warden) WardenStep(step, p); else SwordStep(step, p);
-            if (_shotDir != "" && (step == 12 || step == 145 || step == 163 || step == 9 || step == 10 || step == 22 || step == 23)) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
+            if (OS.GetCmdlineUserArgs().Contains("--herodebug")) GD.Print($"[herodebug] step {step} t={_heroT:0.00} dir {_dir} swing {p.IsSwinging} shield {p.ShieldRaised} guardIn {_heroInput.GuardHeld} atk {_heroInput.Attack} abl {_heroInput.Ability} state {_state} paused {GetTree().Paused} pos {p.GlobalPosition} | {p.DebugState} | probe {(IsInstanceValid(_probe) ? $"{_probe.GlobalPosition} v {_probe.Vel}" : "none")}");
+            if (warden) WardenStep(step, p); else if (p.Stats.Hero == HeroKind.Vitalist) VitalistStep(step, p); else SwordStep(step, p);
+            if (_shotDir != "" && step % 20 == 0) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
         }
     }
     private int _lastHeroStep = -1;
@@ -1508,15 +1582,23 @@ public partial class Main : Node
                 break;
             case 10: _probe = Shoot(new Vector2(_dir * 120, -4)); break;
             case 18:
-                Check($"shield blocks a shot from the front (hp {p.Hp:0}/{_hpMark:0}, shield {p.ShieldHp:0.0} < {_shieldMark:0.0})", p.Hp == _hpMark && p.ShieldHp < _shieldMark);
+            {
+                // 70% stopped (costing the shield half of that), 30% through, less armour
+                float through = 6f * (1f - p.Stats.BlockShare) * (1f - p.Stats.DamageReduction);
+                float cost = 6f * p.Stats.BlockShare * Tune.Warden.ShieldCost;
+                Check($"the shield stops most of a shot from the front (hp {_hpMark:0.00} -> {p.Hp:0.00}, want -{through:0.00}; shield {_shieldMark:0.0} -> {p.ShieldHp:0.0}, want -{cost:0.0})",
+                    Math.Abs(_hpMark - p.Hp - through) < 0.05f && Math.Abs(_shieldMark - p.ShieldHp - cost) < 0.3f);
+                _hpMark = p.Hp;
                 _probe = Shoot(new Vector2(_dir * -120, -4)); // from behind
                 break;
+            }
             case 26:
-                Check($"a shot from behind gets through (hp {p.Hp:0} < {_hpMark:0})", p.Hp < _hpMark);
+                Check($"a shot from behind gets through in full (hp {p.Hp:0.0} < {_hpMark:0.0} by {_hpMark - p.Hp:0.0})", _hpMark - p.Hp > 5f);
                 p.Heal(100);
                 break;
-            case 40: // wait out the post-hit invulnerability, then break it
-                for (int k = 0; k < 12; k++) { var pr = Shoot(new Vector2(_dir * (110 + k * 30), -4)); pr.Damage = 8; }
+            case 40: // wait out the post-hit invulnerability, then break it (a sturdier Warden for this)
+                p.Stats.MaxHp = 500; p.Hp = 500;
+                for (int k = 0; k < 12; k++) { var pr = Shoot(new Vector2(_dir * (110 + k * 30), -4)); pr.Damage = 20; }
                 break;
             case 70:
                 Check($"shield breaks when drained (shield {p.ShieldHp:0.0}, broken {p.ShieldBroken})", p.ShieldBroken && p.ShieldHp == 0);
@@ -1524,12 +1606,20 @@ public partial class Main : Node
                 break;
             case 95:
                 Check($"still broken a few seconds later, at zero ({p.ShieldHp:0.0}, {p.ShieldBrokenLeft:0.0}s left)", p.ShieldBroken && p.ShieldHp == 0);
+                // healing mends a broken shield at once (half as much as it heals)
+                _shieldMark = p.ShieldHp;
+                p.Hp -= 30;
+                p.Heal(10);
+                break;
+            case 96:
+                Check($"healing mends a broken shield at once (broken {p.ShieldBroken}, shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", !p.ShieldBroken && Math.Abs(p.ShieldHp - _shieldMark - 5f) < 0.3f);
+                _heroInput = default;
+                p.RefillShield();
                 break;
             case 140:
-                Check($"recovers after the break time and regenerates slowly ({p.ShieldHp:0.0})", !p.ShieldBroken && p.ShieldHp > 0 && p.ShieldHp < 14);
                 // perfect block + reflect
                 Upgrades.Apply(Upgrades.Get("perfect_reflect"), p.Stats, p);
-                p.Heal(100);
+                p.Heal(1000);
                 _heroInput = default;
                 break;
             case 143: _probe = Shoot(new Vector2(_dir * 70, -4)); break;
@@ -1538,54 +1628,105 @@ public partial class Main : Node
                 Check($"a perfect block reflects the shot (reflected {IsInstanceValid(_probe) && _probe.Reflected})", IsInstanceValid(_probe) && _probe.Reflected);
                 _heroInput = default;
                 break;
-            case 160: // barrier
-                _heroInput = new PlayerInput { Throw = true };
+            case 155:
+            {
+                // a perfect block breaks off a melee attack; an ordinary block doesn't
+                var gob = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 20, -4) };
+                gob.SetMeta("test", true);
+                _world.AddChild(gob);
+                _probeEnemy = gob;
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) };
                 break;
-            case 161:
-                _heroInput = default;
-                Check($"barrier is up ({p.BarrierHp:0.0})", p.BarrierHp > 0);
+            }
+            case 156:
+            {
                 _hpMark = p.Hp;
-                Shoot(new Vector2(_dir * -90, -4)).Damage = 4;
+                var b = p.TryBlock(_probeEnemy.GlobalPosition, 10f, _probeEnemy);
+                Check($"a perfect block stops all of a melee blow and breaks the attack off (through {b.Through:0.0}, reeling {_probeEnemy.Reeling})", b.Perfect && b.Through <= 0.01f && _probeEnemy.Reeling);
                 break;
+            }
+            case 162:
+            {
+                // held for a while now: an ordinary block (no stagger)
+                var gob2 = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 20, -4) };
+                gob2.SetMeta("test", true);
+                _world.AddChild(gob2);
+                var b = p.TryBlock(gob2.GlobalPosition, 10f, gob2);
+                Check($"an ordinary block lets 30% through and leaves the attacker be (through {b.Through:0.0}, reeling {gob2.Reeling})", !b.Perfect && Math.Abs(b.Through - 10f * (1f - p.Stats.BlockShare)) < 0.01f && !gob2.Reeling);
+                gob2.QueueFree();
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                break;
+            }
             case 165: _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0), Attack = true, Aim = new Vector2(_dir, 0) }; break;
             case 166:
                 Check($"can swing with the shield up (swinging {p.IsSwinging}, shield {p.ShieldRaised})", p.IsSwinging && p.ShieldRaised);
-                _heroInput = default;
+                _heroInput = new PlayerInput { StickGuard = true, GuardAim = new Vector2(-_dir, 0), Move = new Vector2(_dir, 0) };
                 break;
-            case 170:
-                Check($"barrier soaks a small hit (hp {p.Hp:0}/{_hpMark:0}, barrier {p.BarrierHp:0.0})", p.Hp == _hpMark);
-                // a goblin clubbing the raised shield: no damage, the shield pays once per blow
-                p.Heal(100);
+            case 168:
+                Check($"the right stick raises the shield by itself, even behind you while you run (raised {p.ShieldRaised}, dir {p.ShieldDir.X:0}, facing {p.Facing})", p.ShieldRaised && Math.Sign(p.ShieldDir.X) == -_dir && (int)p.Facing == (int)_dir);
+                _heroInput = default;
                 p.RefillShield();
-                _hpMark = p.Hp;
-                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) };
-                var gob = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 26, -4) };
-                gob.SetMeta("test", true);
-                _world.AddChild(gob);
-                gob.Engage();
-                _probeEnemy = gob;
                 break;
-            case 172: _shieldMark = p.ShieldHp; break;
-            case 200:
-                Check($"goblin clubs are absorbed by the shield (hp {p.Hp:0}/{_hpMark:0}, shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", p.Hp == _hpMark && p.ShieldHp < _shieldMark);
+
+            // ---- the shield dash
+            case 180:
+                _hpMark = p.Hp;
+                _probe = Shoot(new Vector2(_dir * 110, -4));
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 181: _heroInput = default; break;
+            case 186:
+                // (with Riposte Guard, taken above, it goes back where it came from instead)
+                Check($"the shield dash swallows a projectile (gone {!IsInstanceValid(_probe)}, reflected {IsInstanceValid(_probe) && _probe.Reflected}, hp {_hpMark:0.0} -> {p.Hp:0.0}, still dashing {p.IsShieldDashing})",
+                    (!IsInstanceValid(_probe) || _probe.Reflected) && p.Hp >= _hpMark - 0.01f && !p.IsShieldDashing);
+                var golem = new Golem { Position = p.GlobalPosition + new Vector2(_dir * 70, -6) };
+                golem.SetMeta("test", true);
+                _world.AddChild(golem);
+                golem.Wake();
+                _probeEnemy = golem;
+                break;
+            case 187: _posMark = p.GlobalPosition; p.ResetAbilityCooldowns(); break;
+            case 290:
+                Check("the golem attacked (for the dash to meet)", _dashedAt > 0);
+                break;
+            case 292:
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
-                _heroInput = default;
-                // Restoring Ward: the barrier raised at 16 s was struck and still has 1 left when it fades at 21 s
-                Upgrades.Apply(Upgrades.Get("restoring"), p.Stats, p);
-                p.Hp = 40; _hpMark = p.Hp;
                 break;
-            case 212:
-                Check($"a struck barrier that fades heals what it had left (hp {_hpMark:0} -> {p.Hp:0.0})", p.Hp > _hpMark && p.Hp <= _hpMark + 1.01f);
-                _hpMark = p.Hp;
+            case 328:
+            {
+                // a creature that has only just turned up (it can't have started a swing or a throw)
+                var walker = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 45, -4) };
+                walker.SetMeta("test", true);
+                _world.AddChild(walker);
+                _probeEnemy = walker;
+                p.ResetAbilityCooldowns();
                 break;
-            case 262: _heroInput = new PlayerInput { Throw = true }; break; // cooldown is over: an untouched barrier
-            case 263: _heroInput = default; break;
-            case 320:
-                Check($"an unstruck barrier doesn't heal (hp {p.Hp:0.0} = {_hpMark:0.0})", Math.Abs(p.Hp - _hpMark) < 0.01f);
+            }
+            case 330:
+                foreach (var pr in EnemyProjectiles.ToArray()) pr.QueueFree();
+                _posMark = p.GlobalPosition;
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 331: _heroInput = default; break;
+            case 336:
+                Check($"the dash passes by a creature that isn't attacking ({(p.GlobalPosition.X - _posMark.X) * _dir:0} px on, reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling})",
+                    (p.GlobalPosition.X - _posMark.X) * _dir > 60 && IsInstanceValid(_probeEnemy) && !_probeEnemy.Reeling);
                 Finish();
                 break;
         }
+        // between steps 188 and 289: dash into the golem the moment it starts its slam
+        if (s > 187 && s < 290 && _dashedAt < 0 && IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking && _probeEnemy is Golem)
+        {
+            _dashedAt = s;
+            _hpMark = _probeEnemy.Hp;
+            _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+        }
+        else if (_dashedAt > 0 && s == _dashedAt + 1) _heroInput = default;
+        else if (_dashedAt > 0 && s == _dashedAt + 5)
+            Check($"the dash breaks off an attack it meets (golem reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling}, hp {_hpMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0}, still attacking {IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking})",
+                IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling && !_probeEnemy.Attacking && _probeEnemy.Hp < _hpMark);
     }
+    private int _dashedAt = -1;
 
     private void SwordStep(int s, Player p)
     {
@@ -1610,16 +1751,66 @@ public partial class Main : Node
             case 14:
                 Check($"sword reaches a golem 50 px away (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
                 Check($"the swing lunges forward ({(p.GlobalPosition.X - _posMark.X) * _dir:0.0} px)", (p.GlobalPosition.X - _posMark.X) * _dir > 8);
+                _normalHit = _hpMark - _probeEnemy.Hp;
+                break;
+            case 20:
+                // a combo pressed during the hit-stop follows the moment it ends
+                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 36, -6);
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 21: _heroInput = default; break;
+        }
+        if (s > 21 && s < 40 && _comboPressedAt < 0 && p.FreezeLeft > 0)
+        {
+            _comboPressedAt = s;
+            _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+            GD.Print($"[herotest] pressed attack during the hit-stop (freeze {p.FreezeLeft:0.00} s)");
+        }
+        else if (_comboPressedAt > 0 && s == _comboPressedAt + 1) _heroInput = default;
+        else if (_comboPressedAt > 0 && s == _comboPressedAt + 4)
+            Check($"a swing pressed during the hit-stop starts as it ends (clip {p.Anim.Current})", p.Anim.Current.StartsWith("slash_b"));
+        switch (s)
+        {
+            case 42:
+                Check("the combo swing was pressed during a hit-stop", _comboPressedAt > 0);
+                // Charged Strike: the next swing hits 50% harder, reaches further and weakens
+                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 50, -6);
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 46: // (a blow landing on the hero just then would hold the press through its hit-stop)
+                Check($"the ability charges the blade (charged swings {p.Charged}, cooldown {p.ChargeCooldownFrac:0.00})", p.Charged == 1 && p.ChargeCooldownFrac > 0.9f);
+                _heroInput = default;
+                _hpMark = _probeEnemy.Hp;
+                break;
+            case 50: _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) }; break;
+            case 51: _heroInput = default; break;
+            case 58:
+            {
+                float dealt = _hpMark - _probeEnemy.Hp;
+                Check($"a charged swing hits much harder ({dealt:0} vs {_normalHit:0}) and is spent (charged {p.Charged})", dealt > _normalHit * 1.3f && p.Charged == 0);
+                Check($"what it struck is weakened (weakened {_probeEnemy.Weakened})", _probeEnemy.Weakened);
+                break;
+            }
+            case 60:
+                // a swing out of a dodge: the roll turns into the strike
+                _heroInput = new PlayerInput { Dodge = true, Move = new Vector2(-_dir, 0) };
+                break;
+            case 61: _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(-_dir, 0) }; break;
+            case 62:
+                Check($"a swing can be started mid-dodge (swinging {p.IsSwinging}, dodging {p.IsDodging})", p.IsSwinging && !p.IsDodging);
+                _heroInput = default;
+                break;
+            case 70:
                 // Crescent Wave: a swing from well out of reach still cuts the golem
                 Upgrades.Apply(Upgrades.Get("wave"), p.Stats, p);
                 _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 120, -6);
                 break;
-            case 20:
+            case 76:
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 21: _heroInput = default; break;
-            case 28:
+            case 77: _heroInput = default; break;
+            case 84:
                 Check($"crescent wave hits at 120 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
                 _probeEnemy.QueueFree();
                 // an air bubble from a vent gives back breath
@@ -1633,12 +1824,82 @@ public partial class Main : Node
                     _world.AddChild(new AirBubble { Position = p.GlobalPosition + new Vector2(_dir * 0, 6) });
                 }
                 break;
-            case 31:
+            case 87:
                 Check($"an air bubble refills breath ({p.Breath:0.0} s)", p.Breath > 2.2f);
                 Finish();
                 break;
         }
     }
+    private float _normalHit;
+    private int _comboPressedAt = -1;
+
+    private void VitalistStep(int s, Player p)
+    {
+        switch (s)
+        {
+            case 5:
+            {
+                var dummy = new Golem { Position = p.GlobalPosition + new Vector2(_dir * 110, -6) };
+                dummy.SetMeta("test", true);
+                _world.AddChild(dummy);
+                _probeEnemy = dummy;
+                p.SetAlimus(20);
+                break;
+            }
+            case 8:
+                _hpMark = _probeEnemy.Hp;
+                _shieldMark = p.Alimus;
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.2f).Normalized() };
+                break;
+            case 9: _heroInput = default; break;
+            case 16:
+            {
+                float dealt = _hpMark - _probeEnemy.Hp;
+                Check($"a drain bolt strikes a golem 110 px away (hp {_hpMark:0} -> {_probeEnemy.Hp:0})", dealt > 0);
+                Check($"and a tenth of the damage comes back as alimus ({_shieldMark:0.0} -> {p.Alimus:0.0}, want +{dealt * 0.1f:0.0})", Math.Abs(p.Alimus - _shieldMark - dealt * 0.1f) < 0.05f);
+                _normalHit = dealt;
+                break;
+            }
+            case 18: _heroInput = new PlayerInput { Dodge = true }; break;
+            case 19: _heroInput = default; break;
+            case 20:
+                Check($"the hex reaches the golem (hexed {_probeEnemy.Hexed})", _probeEnemy.Hexed);
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.2f).Normalized() };
+                break;
+            case 21: _heroInput = default; break;
+            case 28:
+            {
+                float dealt = _hpMark - _probeEnemy.Hp;
+                Check($"a hexed creature takes more damage ({dealt:0.0} vs {_normalHit:0.0})", dealt > _normalHit * 1.08f);
+                _probeEnemy.QueueFree();
+                // the heal: everything to the one hurt player in range
+                p.Hp = 20;
+                p.SetAlimus(50);
+                _hpMark = p.Hp;
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            }
+            case 29: _heroInput = default; break;
+            case 31:
+            {
+                float want = Tune.Vitalist.HealAmount * p.Stats.HealMult;
+                Check($"the heal restores {want:0} (hp {_hpMark:0} -> {p.Hp:0}) for {p.HealCost:0} alimus (50 -> {p.Alimus:0})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && Math.Abs(50 - p.Alimus - p.HealCost) < 0.01f);
+                break;
+            }
+            case 40:
+                p.Hp = p.Stats.MaxHp;
+                _shieldMark = p.Alimus;
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            case 41: _heroInput = default; break;
+            case 43:
+                Check($"no heal (and no alimus spent) when no one is hurt ({_shieldMark:0} -> {p.Alimus:0})", Math.Abs(p.Alimus - _shieldMark) < 0.01f);
+                Finish();
+                break;
+        }
+    }
+
     private Enemy _probeEnemy;
     private float _dir;
 
@@ -1661,7 +1922,7 @@ public partial class Main : Node
         if (Edge(2.9f)) { i.Attack = true; i.Aim = new Vector2(-0.3f, -1).Normalized(); }
         if (Edge(3.2f)) { i.Attack = true; i.Aim = new Vector2(-1, 0.1f).Normalized(); }
         if (Edge(3.7f)) { i.Dodge = true; i.Move.X = 1; }
-        if (Edge(4.2f)) { i.Throw = true; i.Aim = new Vector2(1, 0); }
+        if (Edge(4.2f)) { i.Ability = true; i.Aim = new Vector2(1, 0); }
         if (Edge(4.6f)) G.Player.Hurt(1, G.Player.GlobalPosition + new Vector2(20, 0));
         return i;
     }

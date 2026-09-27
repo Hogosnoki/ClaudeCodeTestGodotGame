@@ -43,7 +43,7 @@ uniform vec3 liquid_glow : source_color = vec3(1.0, 0.42, 0.08);
 uniform vec3 water_light : source_color = vec3(0.45, 0.8, 1.0);
 uniform float cap_darkness = 0.6;
 // how much darker the back wall of the tunnels is than the surfaces at the play plane
-uniform float back_dim = 0.5;
+uniform float back_dim = 0.38;
 // the front lip of floors and ceilings (metres toward the camera): beyond it is the cut rock face
 uniform float lip_z = 1.15;
 // A soft light from the viewer's side that only reaches the rock face toward the camera, so the

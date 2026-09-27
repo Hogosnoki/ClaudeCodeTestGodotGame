@@ -51,9 +51,13 @@ public static class Tune
         /// <summary>How hard you leap out of the water at the surface (fraction of jump speed).</summary>
         public static float SurfaceLeapMult = 0.95f;
 
-        public static float DodgeSpeed = 450f, DodgeTime = 0.2f, DodgeCooldown = 0.95f;
+        public static float DodgeSpeed = 450f, DodgeTime = 0.2f, DodgeCooldown = 0.55f;
 
-        // Swing (shared by both heroes; blade length, speed and damage are per hero below)
+        /// <summary>A press of attack, ability or dodge is remembered this long (and through a
+        /// hit-stop), so it fires the moment it's allowed: combos pressed during an impact flow on.</summary>
+        public static float PressBuffer = 0.22f;
+
+        // Swing (shared by the two sword heroes; blade length, speed and damage are per hero below)
         public static float ComboWindow = 0.55f;
         public static float SwingArcDegrees = 115f, FinisherArcDegrees = 170f;
         public static float FinisherDamageMult = 2f, FinisherReachMult = 1.25f;
@@ -62,18 +66,13 @@ public static class Tune
         public static float FinisherExtraKnockback = 120f;
         public static float PogoBounceMult = 0.95f;
 
-        // Throw
-        public static float ThrowDamage = 16f, ThrowCooldown = 2f; // swordsman's thrown dagger
-        public static float ThrowSpeed = 820f, ThrowRange = 560f, ThrowSpinRadPerSec = 44f;
-        public static float RicochetRange = 280f, RicochetDamageMult = 0.85f;
-
         /// <summary>XP needed for the next level: Base + Linear*L + Quadratic*L^2.</summary>
         public static float XpBase = 12f, XpLinear = 8f, XpQuadratic = 1.6f;
         public static float XpMagnetRange = 85f;
     }
 
     // =============================================================================== HEROES
-    /// <summary>The swordsman: medium sword, dodge roll, throwing daggers.</summary>
+    /// <summary>The swordsman: medium sword, a quick dodge roll, and the charged strike.</summary>
     public static class Swordsman
     {
         /// <summary>Sword reach (px), damage per strike, time between swings, and how long the
@@ -85,41 +84,87 @@ public static class Tune
         public static float Lunge = 130f;
         /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
         /// Crescent Wave (damage share, range px, cooldown s), Executioner (bonus vs. enemies below
-        /// the HP share), Fan of Knives (extra daggers' damage share).</summary>
+        /// the HP share).</summary>
         public static float BleedShare = 0.4f, BleedSeconds = 3f;
         public static float WaveDamage = 0.5f, WaveRange = 150f, WaveCooldown = 1.2f;
         public static float ExecuteBonus = 0.6f, ExecuteBelow = 0.35f;
-        public static float FanDamage = 0.6f;
         /// <summary>Knockback (px/s) on every hit, before Heavy Pommel.</summary>
         public static float Knockback = 180f;
+        /// <summary>Faster and springier than the Warden.</summary>
         public static float MoveMult = 1f, JumpMult = 1f;
+        public static float StartHp = 60f;
+
+        /// <summary>
+        /// Charged Strike (the ability button): the next swing hits ChargeDamage x as hard with
+        /// ChargeReach x the reach, and whatever it strikes deals WeakenMult x damage for
+        /// WeakenSeconds. Recharges in ChargeCooldown s; using it never breaks a combo.
+        /// </summary>
+        public static float ChargeCooldown = 12f, ChargeDamage = 1.5f, ChargeReach = 1.25f, WeakenMult = 0.8f, WeakenSeconds = 5f;
     }
 
-    /// <summary>The warden: shortsword, an aimable shield, and a barrier buff.</summary>
+    /// <summary>The warden: shortsword, an aimable shield, and the shield dash.</summary>
     public static class Warden
     {
         /// <summary>Shortsword: dagger length and damage, but the blade sweeps faster.</summary>
         public static float Reach = 30f, Damage = 13f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
         public static float Lunge = 0f, Knockback = 60f;
-        /// <summary>85% of the swordsman's run speed and jump height.</summary>
-        public static float MoveMult = 0.85f, JumpMult = 0.85f;
-        /// <summary>Sturdier: more starting HP and one more second of breath.</summary>
-        public static float StartHp = 80f, ExtraBreath = 1f;
+        /// <summary>A little slower than the Swordsman, with lower jumps.</summary>
+        public static float MoveMult = 0.92f, JumpMult = 0.9f;
+        /// <summary>Sturdier: a little more health, some armour, and one more second of breath.</summary>
+        public static float StartHp = 75f, Armor = 0.1f, ExtraBreath = 1f;
 
-        /// <summary>Shield: damage it can block, its arc (degrees), regeneration per second, the
-        /// pause after a block before it regenerates, and how long it stays at zero once broken.</summary>
+        /// <summary>Shield: its strength, arc (degrees), regeneration per second, the pause after
+        /// a block before it regenerates, and how long it stays at zero once broken.</summary>
         public static float ShieldHp = 40f, ShieldArcDegrees = 135f, ShieldRegen = 3f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
-        /// <summary>A block within this many seconds of raising the shield is "perfect".</summary>
-        public static float PerfectWindow = 0.18f;
+        /// <summary>
+        /// Share of a blow the raised shield stops (the rest gets through), and how much of the
+        /// stopped damage the shield itself loses. A perfect block stops everything.
+        /// </summary>
+        public static float BlockShare = 0.7f, ShieldCost = 0.5f;
+        /// <summary>A block within this many seconds of raising the shield is "perfect": nothing
+        /// gets through and a melee attacker's attack is broken off (it reels for PerfectStagger s).</summary>
+        public static float PerfectWindow = 0.18f, PerfectStagger = 0.6f;
         /// <summary>Share of damage the shield takes on a perfect block (with the upgrade).</summary>
         public static float PerfectSoakMult = 0.3f;
         /// <summary>Move speed while the shield is raised.</summary>
         public static float ShieldMoveMult = 0.8f;
+        /// <summary>Healing the Warden receives also mends the shield by this share (and a broken
+        /// shield is usable again at once).</summary>
+        public static float HealToShield = 0.5f;
 
         /// <summary>Last Stand upgrade: invulnerability after surviving a killing blow (once per depth).</summary>
         public static float LastStandInvuln = 1.5f;
-        /// <summary>Barrier buff: damage absorbed, duration and cooldown (seconds).</summary>
-        public static float BarrierAmount = 5f, BarrierDuration = 5f, BarrierCooldown = 10f;
+
+        /// <summary>
+        /// Shield dash (the ability button): a guarded charge (speed px/s, seconds) that stops at
+        /// the first projectile or attacking creature it meets, breaking the attack off (the
+        /// creature reels for DashStagger s, pushed DashPush px/s, and takes DashDamage). Walkers
+        /// that aren't attacking are passed through.
+        /// </summary>
+        public static float DashSpeed = 520f, DashTime = 0.24f, DashCooldown = 3.2f, DashStagger = 0.8f, DashPush = 260f, DashDamage = 6f;
+    }
+
+    /// <summary>
+    /// The vitalist (a vitality manipulator): no blade. A life-draining bolt at medium range feeds
+    /// alimus, which pays for heals; a hex slows creatures and makes them take more damage.
+    /// </summary>
+    public static class Vitalist
+    {
+        public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
+        /// <summary>Drain bolt: damage, range (px), time between casts, flight speed (px/s), and
+        /// the cone (degrees either side of your aim) it looks for a target in.</summary>
+        public static float BoltDamage = 15f, BoltRange = 175f, BoltCooldown = 0.5f, BoltSpeed = 720f, BoltConeDegrees = 38f;
+        /// <summary>Alimus: gained as this share of damage you deal; the most you can hold; what
+        /// you start a level with (at least).</summary>
+        public static float AlimusGain = 0.1f, AlimusMax = 100f, AlimusStart = 40f;
+        /// <summary>
+        /// Heal: costs HealCost alimus, and shares HealAmount of health among everyone in
+        /// HealRange px who is hurt, by how hurt they are (the share of their health missing).
+        /// </summary>
+        public static float HealCost = 12f, HealAmount = 22f, HealRange = 420f, HealCooldown = 3f;
+        /// <summary>Hex: creatures within HexRadius px move and act at HexSlow speed and take
+        /// HexVulnerability x damage for HexSeconds; it recharges in HexCooldown s.</summary>
+        public static float HexRadius = 110f, HexSlow = 0.55f, HexVulnerability = 1.2f, HexSeconds = 5f, HexCooldown = 6f;
     }
 
     // =============================================================================== COMBAT
@@ -139,17 +184,26 @@ public static class Tune
         /// <summary>The first time a creature wants to attack, it waits this long first (so nothing
         /// strikes the instant it drops into view).</summary>
         public static float FirstAttackDelay = 1f;
-        /// <summary>Creatures near you take turns: an attack can't start within this many seconds
-        /// of another one starting (the boss ignores this).</summary>
-        public static float AttackStagger = 0.45f;
+        /// <summary>
+        /// Attack slots: of the creatures within SlotRange px that are ready to attack, this share
+        /// (rounded up, at least one) may be attacking at the same time. A creature holds its slot
+        /// through its attack and SlotHold s after; SlotReserve s covers the gap between deciding
+        /// to attack and starting. Bosses and guardians ignore the slots.
+        /// </summary>
+        public static float AttackerShare = 0.33f, SlotRange = 560f, SlotHold = 0.35f, SlotReserve = 0.3f;
     }
 
     // =============================================================================== HIT FEEL
     public static class Feel
     {
-        /// <summary>Freeze-frame lengths (seconds). The game runs at HitStopTimeScale meanwhile.</summary>
-        public static float HitStopNormal = 0.16f, HitStopKill = 0.22f, HitStopFinisher = 0.28f;
-        public static float HitStopThrown = 0.12f, HitStopPlayerHurt = 0.18f;
+        /// <summary>
+        /// Hit-stop lengths (seconds): the hero and whatever was struck freeze on the impact pose
+        /// (with a shudder) while the rest of the world carries on. Presses made meanwhile are
+        /// kept (Tune.Hero.PressBuffer), so the next strike of a combo follows the instant it ends.
+        /// </summary>
+        public static float HitStopNormal = 0.17f, HitStopKill = 0.23f, HitStopFinisher = 0.3f, HitStopCharged = 0.32f;
+        public static float HitStopWave = 0.12f, HitStopBolt = 0.07f, HitStopDash = 0.14f, HitStopPlayerHurt = 0.18f;
+        /// <summary>Game speed during SlowMo (the only thing that slows the whole game: elite and boss kills).</summary>
         public static float HitStopTimeScale = 0.02f;
         /// <summary>Slow motion on mini-boss / boss kills: (seconds, time scale).</summary>
         public static float EliteKillSlowMo = 0.45f, EliteKillSlowMoScale = 0.25f;
@@ -346,9 +400,15 @@ public static class Tune
         public static int Xp = 4;
     }
 
+    /// <summary>
+    /// Frost wraiths are a presence more than a gunner: they haunt the player from a distance,
+    /// now and then loom close with a shriek (no harm in it, only dread), and only rarely loose a
+    /// single ice shard after a long, obvious wind-up (three for an elite).
+    /// </summary>
     public static class Wraith
     {
-        public static float Hp = 18, Contact = 6, FlySpeed = 95, CastWindup = 0.6f, CastCooldown = 3f, ShardDamage = 7, ShardSpeed = 230;
+        public static float Hp = 11, Contact = 5, FlySpeed = 85, CastWindup = 1.0f, CastCooldown = 7.5f, FirstCast = 4f, ShardDamage = 6, ShardSpeed = 185;
+        public static float LoomCooldown = 8f, LoomTime = 1.1f, LoomDistance = 58f;
         public static int Xp = 6;
     }
 

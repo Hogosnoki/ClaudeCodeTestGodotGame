@@ -34,8 +34,9 @@ public abstract partial class Enemy : CharacterBody2D
     public Color? Tint;
     /// <summary>Extra damage multiplier (variants, guardians).</summary>
     public float DmgMult = 1f;
-    /// <summary>What every hit this creature deals is multiplied by: difficulty curve times its own multiplier.</summary>
-    protected float DmgK => G.DepthDmg * DmgMult;
+    /// <summary>What every hit this creature deals is multiplied by: difficulty curve times its own
+    /// multiplier (and less while weakened by a charged strike).</summary>
+    protected float DmgK => G.DepthDmg * DmgMult * (_weakT > 0 ? _weakMult : 1f);
 
     protected float T, HurtFlash, Stun;
     protected SpriteAnimator Anim;
@@ -144,12 +145,14 @@ public abstract partial class Enemy : CharacterBody2D
             QueueRedraw();
             return;
         }
+        if (!TickAfflictions((float)delta)) return;
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
-        // and animations all scale together.
-        float tempo = G.Tempo;
+        // and animations all scale together (a hex slows the whole clock down).
+        float tempo = G.Tempo * (_hexT > 0 ? _hexSlow : 1f);
         float dt = (float)delta * tempo;
         T += dt; HurtFlash -= (float)delta;
         if (_primeT > 0) _primeT -= dt;
+        TickSlot(dt);
         if (_bleedT > 0)
         {
             _bleedT -= dt;
@@ -220,10 +223,105 @@ public abstract partial class Enemy : CharacterBody2D
 
     /// <summary>Freezes just this creature for a hit-stop.</summary>
     public void Freeze(float seconds) { if (!Dead) _freeze = Math.Max(_freeze, seconds); }
+    /// <summary>Seconds of hit-stop left.</summary>
+    public float FreezeLeft => _freeze;
 
     /// <summary>True while a body attack is under way: touching the player then hurts (once).</summary>
     protected virtual bool Striking => false;
     private bool _wasStriking, _strikeLanded;
+
+    // ================================================================== breaking attacks off
+    /// <summary>
+    /// True while an attack is under way: its wind-up or its blow. Only such a creature stops the
+    /// Warden's shield dash (walking up to you, however menacingly, doesn't count).
+    /// </summary>
+    public virtual bool Attacking => Striking;
+
+    /// <summary>Bosses shrug interruptions off (the blow itself is still stopped).</summary>
+    public virtual bool Interruptible => !IsBoss;
+
+    /// <summary>
+    /// Breaks off the attack under way (a perfect block, the shield dash): the creature reels
+    /// for <paramref name="stagger"/> seconds and its attack starts over from scratch.
+    /// </summary>
+    public void Interrupt(Vector2 push, float stagger)
+    {
+        if (Dead) return;
+        _strikeLanded = true; // whatever blow was coming is spent
+        if (!Interruptible) { Recoil(push.X); return; }
+        OnInterrupted();
+        Intent = 0;
+        _slotT = 0; // its attack slot goes to someone else
+        Stun = Math.Max(Stun, stagger);
+        KnockVel = ManualMove ? Vector2.Zero : push * (1f - KnockResist * 0.7f);
+        if (Anim != null)
+        {
+            Anim.CancelOnce();
+            Anim.Once("hurt", 5);
+            Anim.Flash(0.45f);
+        }
+        G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 14), "BROKEN", new Color(0.75f, 0.9f, 1f), 9, 0.7f);
+    }
+
+    /// <summary>Resets this creature's attack state after an interruption (override per creature).</summary>
+    protected virtual void OnInterrupted() { }
+
+    /// <summary>Knocked back or reeling from a broken attack.</summary>
+    public bool Reeling => Stun > 0;
+
+    // ================================================================== afflictions
+    private float _weakT, _weakMult = 1f;                  // deals less damage (the Swordsman's charged strike)
+    private float _hexT, _hexSlow = 1f, _hexVuln = 1f;     // slowed, and hurt more (the Vitalist's hex)
+    private float _moteT;
+    public bool Weakened => _weakT > 0;
+    public bool Hexed => _hexT > 0;
+
+    /// <summary>For <paramref name="seconds"/>, every hit this creature deals is multiplied by <paramref name="dmgMult"/>.</summary>
+    public void Weaken(float dmgMult, float seconds)
+    {
+        if (Dead) return;
+        _weakMult = _weakT > 0 ? Math.Min(_weakMult, dmgMult) : dmgMult;
+        _weakT = Math.Max(_weakT, seconds);
+    }
+
+    /// <summary>For <paramref name="seconds"/>, it moves and acts at <paramref name="slow"/> speed,
+    /// takes <paramref name="vulnerability"/> times the damage, and (Withering Hex) rots away
+    /// <paramref name="rotDps"/> health a second.</summary>
+    public void Hex(float vulnerability, float slow, float seconds, float rotDps = 0f)
+    {
+        if (Dead) return;
+        _hexVuln = _hexT > 0 ? Math.Max(_hexVuln, vulnerability) : vulnerability;
+        _hexSlow = _hexT > 0 ? Math.Min(_hexSlow, slow) : slow;
+        _hexRot = _hexT > 0 ? Math.Max(_hexRot, rotDps) : rotDps;
+        _hexT = Math.Max(_hexT, seconds);
+    }
+    private float _hexRot;
+
+    /// <summary>Ticks the afflictions; false if it rotted to death.</summary>
+    private bool TickAfflictions(float dt)
+    {
+        if (_weakT > 0) _weakT -= dt;
+        if (_hexT > 0) _hexT -= dt;
+        if (_hexT > 0 && _hexRot > 0 && CanBeHit)
+        {
+            float before = Hp;
+            Hp -= _hexRot * dt;
+            G.Player?.OnDealtDamage(before - Math.Max(0, Hp));
+            if (Hp <= 0) { Die(); return false; }
+        }
+        if (_weakT <= 0 && _hexT <= 0) return true;
+        // a few motes drifting off whatever ails it
+        _moteT -= dt;
+        if (_moteT > 0) return true;
+        _moteT = G.Range(0.08f, 0.16f);
+        var at = GlobalPosition + new Vector2(G.Range(-1f, 1f) * HitRadius, G.Range(-1f, 0.4f) * HitRadius);
+        if (_hexT > 0) G.Fx.Burst(at, new Color(0.6f, 0.95f, 0.45f, 0.8f), 1, 22, 1.5f, 0.7f, -40);
+        if (_weakT > 0) G.Fx.Burst(at, new Color(1f, 0.35f, 0.25f, 0.7f), 1, 18, 1.3f, 0.6f, -30);
+        return true;
+    }
+
+    /// <summary>The colour an affliction washes over the creature (for the 3D model), alpha = strength.</summary>
+    public Color AfflictionAura => _hexT > 0 ? new Color(0.45f, 1f, 0.35f, 0.8f) : _weakT > 0 ? new Color(1f, 0.25f, 0.15f, 0.6f) : new Color(0, 0, 0, 0);
 
     /// <summary>A small horizontal bounce back after landing a hit on the player.</summary>
     public void Recoil(float dirX)
@@ -244,6 +342,7 @@ public abstract partial class Enemy : CharacterBody2D
     {
         if (Dead || !CanBeHit) return 0;
         Awake = true;
+        if (_hexT > 0) dmg *= _hexVuln;
         Hp -= dmg;
         HurtFlash = 0.12f;
         if (Anim != null)
@@ -346,29 +445,67 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>Clears a one-shot move (an attack) once it has started, so it isn't repeated.</summary>
     protected void Consume()
     {
-        if (IsAttack(Intent)) _lastAttackStart = G.RunTime; // this creature has the floor for a moment
+        // an attack under way keeps its slot until it has played out (see TickSlot)
+        if (IsAttack(Intent)) _slotT = Math.Max(_slotT, Tune.Combat.SlotHold);
         Intent = 0;
     }
 
     // ---- attack etiquette
-    /// <summary>Which of this creature's moves are attacks (they obey the first-attack delay and take turns).</summary>
+    /// <summary>Which of this creature's moves are attacks (they obey the first-attack delay and the attack slots).</summary>
     protected virtual bool IsAttack(int a) => false;
-    private float _primeT;                       // first-attack countdown
-    private bool _primed;                        // has wanted to attack at least once
-    private static float _lastAttackStart = -99; // shared: when any nearby creature last started an attack
+    private float _primeT;   // first-attack countdown
+    private bool _primed;    // has wanted to attack at least once
+    private float _slotT;    // > 0 while this creature holds one of the attack slots
+
+    // Attack slots: of the creatures fighting the player and ready to strike, only a share
+    // (Tune.Combat.AttackerShare, rounded up) may be attacking at once, so a crowd hits harder
+    // than a lone creature but never all together. Counted once per physics frame.
+    private static ulong _slotFrame = ulong.MaxValue;
+    private static int _slotsAllowed = 1, _slotsTaken;
+
+    private static void CountSlots()
+    {
+        ulong frame = Engine.GetPhysicsFrames();
+        if (frame == _slotFrame) return;
+        _slotFrame = frame;
+        int ready = 0, taken = 0;
+        var p = G.Player;
+        if (p != null)
+        {
+            float r2 = Tune.Combat.SlotRange * Tune.Combat.SlotRange;
+            foreach (var e in G.Enemies)
+            {
+                if (e.Dead || !e.Awake || e.IsBoss || e.IsGuardian || e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) > r2) continue;
+                if (e._slotT > 0) { taken++; ready++; }
+                else if (e.AttackReady >= 0.99f) ready++;
+            }
+        }
+        _slotsTaken = taken;
+        _slotsAllowed = Math.Max(1, (int)MathF.Ceiling(ready * Tune.Combat.AttackerShare - 1e-3f));
+    }
 
     /// <summary>
     /// Holds back an attack when (1) this is the first time the creature wants to attack: it waits
-    /// FirstAttackDelay first, so nothing strikes the moment it drops into view; or (2) another
-    /// creature near the player started an attack less than AttackStagger ago: they take turns.
+    /// FirstAttackDelay first, so nothing strikes the moment it drops into view; or (2) every attack
+    /// slot near the player is taken. Bosses and guardians, and creatures far off, never wait.
     /// </summary>
     private void GateAttack()
     {
         if (!IsAttack(Intent)) return;
         if (!_primed) { _primed = true; _primeT = Tune.Combat.FirstAttackDelay; }
-        bool waiting = _primeT > 0;
-        bool turn = IsBoss || G.RunTime - _lastAttackStart >= Tune.Combat.AttackStagger || DistP > 600;
-        if (waiting || !turn) Intent = 0;
+        if (_primeT > 0) { Intent = 0; return; }
+        if (IsBoss || IsGuardian || _slotT > 0 || DistP > Tune.Combat.SlotRange) return;
+        CountSlots();
+        if (_slotsTaken >= _slotsAllowed) { Intent = 0; return; }
+        // reserve a slot now (others deciding this frame see it taken); Consume holds it longer
+        _slotsTaken++;
+        _slotT = Tune.Combat.SlotReserve;
+    }
+
+    /// <summary>A slot drains only while the creature is free again, so it is held for the whole attack.</summary>
+    private void TickSlot(float dt)
+    {
+        if (_slotT > 0 && !Busy) _slotT -= dt;
     }
 
     public Brain Brain => _brain;

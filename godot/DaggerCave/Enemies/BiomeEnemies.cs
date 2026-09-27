@@ -91,6 +91,8 @@ public partial class Rat : Walker
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Rat.Cooldown, 0, 1);
     protected override bool CanAct(int a) => a != Bite || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Bite;
+    public override bool Attacking => _s is 1 or 2;
+    protected override void OnInterrupted() { _s = 3; _st = 0; }
     protected override bool Striking => _s == 2;
 
     protected override int Teacher()
@@ -218,6 +220,9 @@ public partial class Bear : Walker
         _ => true,
     };
     protected override bool IsAttack(int a) => a >= Swipe;
+    public override bool Attacking => _s is S.SwipeWindup or S.ChargeWindup or S.Charge || (_s == S.Swipe && _st < 0.12f);
+    // a charge broken off by a shield leaves it reeling, as if it had hit a wall
+    protected override void OnInterrupted() => Go(_s == S.Charge ? S.Stunned : S.Walk);
     protected override bool Striking => _s == S.Charge;
 
     protected override int Teacher()
@@ -312,6 +317,8 @@ public partial class Scorpion : Walker
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Scorpion.StingCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Sting || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Sting;
+    public override bool Attacking => _s == 1;
+    protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
     {
@@ -408,6 +415,8 @@ public partial class Hornet : Enemy
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Hornet.DiveCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Dive || _cd <= 0;
     protected override bool IsAttack(int a) => a == Dive;
+    public override bool Attacking => _s is 1 or 2;
+    protected override void OnInterrupted() { if (_s is 1 or 2) { _s = 3; _st = 0; } }
     protected override bool Striking => _s == 2;
 
     public override void Engage() { base.Engage(); _cd = 1.5f; }
@@ -527,6 +536,8 @@ public partial class Skeleton : Walker
     protected override bool Busy => _s != 0 || InWater || !IsOnFloor();
     protected override bool CanAct(int a) => a != Slash || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Slash;
+    public override bool Attacking => _s == 1;
+    protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
     {
@@ -610,6 +621,8 @@ public partial class Sporeling : Walker
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Sporeling.PuffCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Puff || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Puff;
+    public override bool Attacking => _s == 1;
+    protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
     {
@@ -629,13 +642,23 @@ public partial class Sporeling : Walker
 
 // ============================================================================ frost wraith
 
-/// <summary>Drifts at a distance through walls of cold air and casts fans of ice shards.</summary>
+/// <summary>
+/// A haunting more than a hunter: it drifts at a distance, looms in close now and then with a
+/// shriek (arms spread, jaw wide, eyes blazing, but doing no harm), and only rarely, after a long
+/// and obvious wind-up, looses a single ice shard (an elite, a fan of three).
+/// </summary>
 public partial class FrostWraith : Enemy
 {
-    private int _s; // 0 drift, 1 casting
-    private float _st, _cd = 1.8f, _wob;
+    private int _s; // 0 drift, 1 casting, 2 looming
+    private float _st, _cd = Tune.Wraith.FirstCast, _wob, _loomCd;
+    private Vector2 _loomAt;
 
     protected override bool UsesGravity => false;
+
+    /// <summary>For the 3D model: it is looming over the player right now.</summary>
+    public bool Looming => _s == 2;
+    /// <summary>For the 3D model: 0..1, how far into the loom (rises quickly, falls away at the end).</summary>
+    public float LoomAmount => _s != 2 ? 0f : W3.Smooth01(_st * 4f) * W3.Smooth01((Tune.Wraith.LoomTime - _st) * 4f);
 
     public FrostWraith() { MaxHp = Tune.Wraith.Hp; BodyRadius = 9; ContactDamage = Tune.Wraith.Contact; XpValue = Tune.Wraith.Xp; }
 
@@ -643,6 +666,8 @@ public partial class FrostWraith : Enemy
     {
         DisplayName = "Frost Wraith";
         _wob = G.Range(0, 10);
+        _cd = Tune.Wraith.FirstCast * G.Range(0.8f, 1.4f);
+        _loomCd = G.Range(2f, Tune.Wraith.LoomCooldown);
         MotionMode = MotionModeEnum.Floating;
         UseSprite("wraith");
     }
@@ -651,7 +676,7 @@ public partial class FrostWraith : Enemy
 
     protected override void Think(float dt)
     {
-        _st += dt; _cd -= dt;
+        _st += dt; _cd -= dt; _loomCd -= dt;
         var to = ToP;
         var dir = to.LengthSquared() > 1 ? to.Normalized() : Vector2.Up;
         if (_s == 0)
@@ -662,33 +687,56 @@ public partial class FrostWraith : Enemy
             {
                 Approach => dir * Tune.Wraith.FlySpeed + bob,
                 Retreat => -dir * Tune.Wraith.FlySpeed + bob,
-                // keep 120-180 px away, a little above
-                _ => dir * (d - 150) * 0.8f + new Vector2(0, -20) + bob,
+                // keep 150-200 px away, a little above: always there at the edge of the light
+                _ => dir * (d - 175) * 0.7f + new Vector2(0, -26) + bob,
             };
-            Velocity = Velocity.MoveToward(desired.LimitLength(Tune.Wraith.FlySpeed), 260 * dt);
+            Velocity = Velocity.MoveToward(desired.LimitLength(Tune.Wraith.FlySpeed), 240 * dt);
             if (Awake && Intent == Cast && CanAct(Cast))
             {
                 _s = 1; _st = 0;
                 Anim.Once("cast_windup", 3, 10f / (Tune.Wraith.CastWindup * 24f));
-                G.Sfx.Play("gasp", GlobalPosition, -6, 0.1f, 1.6f);
+                G.Sfx.Play("gasp", GlobalPosition, -4, 0.1f, 1.3f);
                 Consume();
+            }
+            else if (Awake && _loomCd <= 0 && SeesP && d < 300 && d > 90)
+            {
+                // loom: rush in to hang just out of reach, shrieking, then fall back
+                _s = 2; _st = 0;
+                _loomAt = P.GlobalPosition + new Vector2(-Math.Sign(to.X == 0 ? 1 : to.X) * Tune.Wraith.LoomDistance, -30);
+                G.Sfx.Play("gasp", GlobalPosition, 0, 0.05f, 0.55f);
+                G.Sfx.Play("roar", GlobalPosition, -8, 0.05f, 2.4f);
+                Anim.Flash(0.5f);
+                Anim.FlashColor = new Color(0.7f, 0.95f, 1f);
+            }
+        }
+        else if (_s == 1)
+        {
+            Velocity = Velocity.MoveToward(Vector2.Zero, 300 * dt);
+            if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition + new Vector2(Face * 10, -8), new Color(0.75f, 0.95f, 1f, 0.8f), 1, 40, 1.8f, 0.5f, -20);
+            if (_st > Tune.Wraith.CastWindup)
+            {
+                _s = 0; _cd = Tune.Wraith.CastCooldown * G.Range(0.8f, 1.3f) * (Elite ? 0.7f : 1f);
+                Anim.Once("cast", 3);
+                G.Sfx.Play("clink", GlobalPosition, -2, 0.1f, 0.7f);
+                int n = Elite ? 3 : 1;
+                var from = GlobalPosition + new Vector2(Face * 10, -8);
+                var aim = (P.GlobalPosition - from).Normalized();
+                for (int k = 0; k < n; k++)
+                    G.Spawn(new EnemyProjectile { Position = from, Vel = aim.Rotated((k - (n - 1) / 2f) * 0.22f) * Tune.Wraith.ShardSpeed, Grav = 0, Damage = Tune.Wraith.ShardDamage * DmgK, Kind = "ice", Radius = 4, Life = 2.4f, Source = this });
+                G.Fx.Flash(from, 22, new Color(0.8f, 0.95f, 1f));
             }
         }
         else
         {
-            Velocity = Velocity.MoveToward(Vector2.Zero, 300 * dt);
-            if (G.Chance(0.4f)) G.Fx.Burst(GlobalPosition + new Vector2(Face * 10, -8), new Color(0.75f, 0.95f, 1f, 0.8f), 1, 40, 1.6f, 0.4f, -20);
-            if (_st > Tune.Wraith.CastWindup)
+            // looming: hang over the player, trailing frost, then drift back out
+            var at = _loomAt - GlobalPosition;
+            Velocity = Velocity.MoveToward(at.LimitLength(1f) * Math.Min(220f, at.Length() * 5f), 900 * dt);
+            if (G.Chance(0.6f)) G.Fx.Burst(GlobalPosition + G.RandDir() * 8, new Color(0.7f, 0.92f, 1f, 0.7f), 1, 30, 2.2f, 0.7f, -30);
+            if (_st > Tune.Wraith.LoomTime)
             {
-                _s = 0; _cd = Tune.Wraith.CastCooldown * (Elite ? 0.65f : 1f);
-                Anim.Once("cast", 3);
-                G.Sfx.Play("clink", GlobalPosition, -2, 0.1f, 0.7f);
-                int n = Elite ? 5 : 3;
-                var from = GlobalPosition + new Vector2(Face * 10, -8);
-                var aim = (P.GlobalPosition - from).Normalized();
-                for (int k = 0; k < n; k++)
-                    G.Spawn(new EnemyProjectile { Position = from, Vel = aim.Rotated((k - (n - 1) / 2f) * 0.2f) * Tune.Wraith.ShardSpeed, Grav = 0, Damage = Tune.Wraith.ShardDamage * DmgK, Kind = "ice", Radius = 4, Life = 2.2f, Source = this });
-                G.Fx.Flash(from, 22, new Color(0.8f, 0.95f, 1f));
+                _s = 0;
+                _loomCd = Tune.Wraith.LoomCooldown * G.Range(0.8f, 1.5f);
+                Velocity = -dir * Tune.Wraith.FlySpeed * 1.6f;
             }
         }
         if (GlobalPosition.Y > G.Cave.WaterY - 14) Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y, -60));
@@ -703,12 +751,14 @@ public partial class FrostWraith : Enemy
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Wraith.CastCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Cast || _cd <= 0;
     protected override bool IsAttack(int a) => a == Cast;
+    public override bool Attacking => _s == 1;
+    protected override void OnInterrupted() { if (_s != 0) { _s = 0; _cd = Tune.Wraith.CastCooldown; } }
 
     protected override int Teacher()
     {
         if (DistP > Aggro(420)) return Drift;
-        if (_cd <= 0 && DistP < 320 && SeesP) return Cast;
-        return DistP < 110 ? Retreat : DistP > 220 ? Approach : Drift;
+        if (_cd <= 0 && DistP < 320 && DistP > 100 && SeesP) return Cast;
+        return DistP < 120 ? Retreat : DistP > 240 ? Approach : Drift;
     }
 
     protected override void Animate() => Anim.Loop("float");
@@ -800,6 +850,8 @@ public partial class Shardling : Walker
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Shardling.BurstCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Burst || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Burst;
+    public override bool Attacking => _s == 1;
+    protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
     {

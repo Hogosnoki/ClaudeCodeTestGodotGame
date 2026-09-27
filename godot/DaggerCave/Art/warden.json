@@ -801,7 +801,7 @@
    ],
    "loop": false
   },
-  "throw_r": {
+  "bash_r": {
    "frames": [
     492,
     493,
@@ -812,7 +812,7 @@
    ],
    "loop": false
   },
-  "throw_l": {
+  "bash_l": {
    "frames": [
     498,
     499,

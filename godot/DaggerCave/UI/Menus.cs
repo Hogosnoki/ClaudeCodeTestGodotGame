@@ -140,13 +140,13 @@ public partial class ScreenOverlay : Control
     public string Title = "";
     public string[] Lines = Array.Empty<string>();
     public float Dim = 0.65f;
-    /// <summary>Show the two hero cards where a line reads "@" (title and death screens).</summary>
+    /// <summary>Show the hero cards where a line reads "@" (title and death screens).</summary>
     public bool HeroCards;
     private float _t;
-    private readonly Rect2[] _cardRects = new Rect2[2];
-    private readonly HeroPortrait[] _portraits = new HeroPortrait[2];
+    private readonly Rect2[] _cardRects = new Rect2[3];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[3];
 
-    private const float CardW = 400, CardH = 170;
+    private const float CardW = 372, CardH = 170;
     private static readonly Vector2 PortraitSize = new(126, CardH - 4);
     private static GradientTexture2D _halo;
     /// <summary>A soft radial spot, white in the middle fading to nothing.</summary>
@@ -160,23 +160,36 @@ public partial class ScreenOverlay : Control
     {
         (HeroKind.Swordsman, "SWORDSMAN", "swordsman", new[]
         {
-            "Medium sword: long reach, heavy",
-            "hits, slower swings that lunge.",
-            "Dodge roll and throwing daggers.",
+            "The damage dealer. Long, heavy",
+            "sword; a quick dodge roll to swing",
+            "out of; Charged Strike saps foes.",
         }),
         (HeroKind.Warden, "WARDEN", "warden", new[]
         {
-            "Fast shortsword and an aimable",
-            "shield that blocks until it breaks.",
-            "Barrier buff. Sturdy, a bit slower.",
+            "The guardian. Shield stops 70% of",
+            "each blow; a guarded dash breaks",
+            "attacks off. Sturdiest, slowest.",
         }),
+        (HeroKind.Vitalist, "VITALIST", "vitalist", new[]
+        {
+            "The healer. Drain bolts feed alimus",
+            "for heals; a hex slows foes and",
+            "makes them take 20% more damage.",
+        }),
+    };
+
+    private static Color Accent(HeroKind k) => k switch
+    {
+        HeroKind.Warden => new Color(0.45f, 0.7f, 1f),
+        HeroKind.Vitalist => new Color(0.5f, 1f, 0.45f),
+        _ => new Color(0.95f, 0.45f, 0.35f),
     };
 
     /// <summary>Which hero card (0/1) is under a screen point, or -1.</summary>
     public int CardAt(Vector2 p)
     {
         if (!Visible || !HeroCards) return -1;
-        for (int k = 0; k < 2; k++) if (_cardRects[k].HasPoint(p)) return k;
+        for (int k = 0; k < _cardRects.Length; k++) if (_cardRects[k].HasPoint(p)) return k;
         return -1;
     }
 
@@ -199,7 +212,7 @@ public partial class ScreenOverlay : Control
         // the hero portraits are made the first time the cards show (rendered at twice the size
         // they're drawn), and only render while they show
         if (cards && _portraits[0] == null)
-            for (int k = 0; k < 2; k++)
+            for (int k = 0; k < Heroes.Length; k++)
             {
                 _portraits[k] = new HeroPortrait { Design = Heroes[k].sheet, Size = (Vector2I)(PortraitSize * 2) };
                 AddChild(_portraits[k]);
@@ -241,14 +254,15 @@ public partial class ScreenOverlay : Control
 
     private void DrawHeroCards(Font font, Vector2 vs, float top)
     {
-        float gap = 30, x0 = vs.X / 2 - CardW - gap / 2;
-        for (int k = 0; k < 2; k++)
+        int n = Heroes.Length;
+        float gap = 18, x0 = vs.X / 2 - (n * CardW + (n - 1) * gap) / 2;
+        for (int k = 0; k < n; k++)
         {
             var h = Heroes[k];
             bool sel = G.Hero == h.kind;
             var r = new Rect2(x0 + k * (CardW + gap), top - (sel ? 6 : 0), CardW, CardH);
             _cardRects[k] = r;
-            var accent = h.kind == HeroKind.Warden ? new Color(0.45f, 0.7f, 1f) : new Color(0.95f, 0.45f, 0.35f);
+            var accent = Accent(h.kind);
             DrawRect(r, new Color(0.07f, 0.07f, 0.1f, sel ? 0.95f : 0.75f));
             DrawRect(r, sel ? accent : accent.Darkened(0.55f), false, sel ? 3 : 1.5f);
             // the hero in 3D, idling (only the chosen one moves)
@@ -262,7 +276,7 @@ public partial class ScreenOverlay : Control
             }
             DrawString(font, r.Position + new Vector2(130, 40), h.name, HorizontalAlignment.Left, -1, 22, sel ? accent.Lightened(0.3f) : new Color(1, 1, 1, 0.6f));
             for (int j = 0; j < h.lines.Length; j++)
-                DrawString(font, r.Position + new Vector2(130, 72 + j * 22), h.lines[j], HorizontalAlignment.Left, CardW - 140, 13, new Color(1, 1, 1, sel ? 0.9f : 0.5f));
+                DrawString(font, r.Position + new Vector2(130, 72 + j * 22), h.lines[j], HorizontalAlignment.Left, CardW - 136, 12, new Color(1, 1, 1, sel ? 0.9f : 0.5f));
         }
     }
 }
