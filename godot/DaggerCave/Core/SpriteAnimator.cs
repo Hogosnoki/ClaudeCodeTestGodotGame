@@ -249,6 +249,7 @@ void fragment() {
         m.Scale = Vector3.One * _size;
         m.UpdatePivot(squash, -GlobalRotation, FootOffset / W3.Ppu / Math.Max(0.01f, _size), ss.Y < 0);
 
+        m.Design.Frame(m, input);
         m.SetFlash(Math.Min(1f, _flash), _flashColor);
         var tint = Sprite.SelfModulate;
         m.SetTint(tint, tint.R > 0.99f && tint.G > 0.99f && tint.B > 0.99f ? 0f : 1f);

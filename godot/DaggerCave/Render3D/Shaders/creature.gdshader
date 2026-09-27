@@ -16,12 +16,17 @@ uniform float veins = 0.0;
 uniform vec3 vein_color : source_color = vec3(0.25, 0.02, 0.03);
 uniform float wet = 0.0;
 uniform vec3 burn_color : source_color = vec3(1.0, 0.45, 0.1);
+// ghosts: the body thins out into nothing below this rest-pose height (metres)
+uniform float ghost_below = -100.0;
+uniform float ghost_fade = 0.3;
 
 instance uniform float flash = 0.0;
 instance uniform vec4 flash_color : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 instance uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 0.0);
 instance uniform float fade = 1.0;
 instance uniform float dissolve = 0.0;
+// designs brighten their glowing parts for tells (a puff gathering, a spell charging)
+instance uniform float glow_boost = 1.0;
 
 varying vec3 v_rest;
 varying vec4 v_mat;
@@ -100,6 +105,10 @@ void fragment() {
 	vec3 p = v_rest;
 	float kind = floor(v_mat.w * 8.0 + 0.5);
 	float glow = v_mat.z;
+	if (p.y < ghost_below + ghost_fade) {
+		float g = (p.y - (ghost_below - ghost_fade * 0.2)) / ghost_fade + (vnoise(p * 9.0 + vec3(0.0, TIME * 0.6, 0.0)) - 0.5) * 0.9;
+		if (g < bayer4(FRAGCOORD.xy)) discard;
+	}
 
 	// burning away on death: noise threshold with a glowing rim
 	float burn = 0.0;
@@ -160,7 +169,7 @@ void fragment() {
 
 	vec3 emit = vec3(0.0);
 	if (kind > 4.5 && kind < 5.5) emit += eye_color * eye_energy * glow * (0.85 + 0.15 * sin(TIME * 2.0));
-	else emit += glow_color * glow_energy * glow;
+	else emit += glow_color * glow_energy * glow * glow_boost;
 	emit += rim_color * rim_energy * fres * (1.0 - v_mat.x * 0.6);
 	emit += burn_color * burn * 8.0;
 	emit += flash_color.rgb * flash * 1.6;

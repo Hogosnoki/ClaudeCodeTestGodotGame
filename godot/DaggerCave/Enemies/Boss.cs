@@ -17,6 +17,8 @@ public partial class CavernColossus : Enemy
     private int _lastAttack = -1;
     private Room _room;
     private bool _phase2;
+    /// <summary>For the 3D model: enraged (the core burns red).</summary>
+    public bool Phase2 => _phase2;
 
     public CavernColossus() { MaxHp = Tune.Boss.Hp; BodyRadius = 30; ContactDamage = Tune.Boss.Contact; XpValue = Tune.Boss.Xp; KnockResist = 1f; IsBoss = true; }
 

@@ -13,14 +13,31 @@ public sealed class CreatureKit
     public float BuildMs;
 }
 
-/// <summary>Builds each creature type on first use and keeps it.</summary>
+/// <summary>
+/// Builds each creature type once and keeps it. Sculpts are baked on worker threads where
+/// possible (<see cref="Prefetch"/> for a level's roster while it loads, <see cref="PrebuildRest"/>
+/// in the background afterwards); a type needed before its bake is done is built on the spot.
+/// </summary>
 public static class CreatureLibrary
 {
     private static readonly Dictionary<string, CreatureKit> Kits = new();
     private static readonly Dictionary<string, Func<CreatureDesign>> Designs = new();
+    private static readonly Dictionary<string, Lazy<Baked>> Bakes = new();
     private static Shader _shader;
 
-    public static void Register(string name, Func<CreatureDesign> make) => Designs[name] = make;
+    private sealed class Baked
+    {
+        public CreatureDesign Design;
+        public SculptData Data;
+        public float Ms;
+    }
+
+    public static void Register(string name, Func<CreatureDesign> make)
+    {
+        Designs[name] = make;
+        Bakes[name] = new Lazy<Baked>(() => Bake(make), System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+    }
+
     public static bool Has(string name) { EnsureRegistered(); return Designs.ContainsKey(name); }
 
     private static bool _registered;
@@ -31,17 +48,58 @@ public static class CreatureLibrary
         CreatureRegistry.RegisterAll();
     }
 
+    private static Baked Bake(Func<CreatureDesign> make)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        var design = make();
+        var s = new Sculptor(design.Seed) { Cell = design.Cell };
+        design.Sculpt(s);
+        var data = SculptMesher.Bake(s);
+        design.BindBones(data.Bones);
+        return new Baked { Design = design, Data = data, Ms = (float)sw.Elapsed.TotalMilliseconds };
+    }
+
+    /// <summary>Bakes these types in parallel now (blocking), e.g. a level's roster while it loads.</summary>
+    public static void Prefetch(IEnumerable<string> names)
+    {
+        EnsureRegistered();
+        var todo = new List<string>();
+        foreach (var n in names)
+            if (n != null && Bakes.ContainsKey(n) && !Kits.ContainsKey(n) && !todo.Contains(n)) todo.Add(n);
+        if (todo.Count == 0) return;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        System.Threading.Tasks.Parallel.ForEach(todo, n => { _ = Bakes[n].Value; });
+        foreach (var n in todo) Get(n);
+        GD.Print($"[3D] prefetched {todo.Count} creature types in {sw.ElapsedMilliseconds} ms: {string.Join(", ", todo)}");
+    }
+
+    private static System.Threading.Thread _bg;
+
+    /// <summary>Bakes every other type on one low-priority background thread.</summary>
+    public static void PrebuildRest()
+    {
+        EnsureRegistered();
+        if (_bg != null) return;
+        var lazies = new List<Lazy<Baked>>(Bakes.Values);
+        _bg = new System.Threading.Thread(() =>
+        {
+            foreach (var l in lazies)
+                try { _ = l.Value; }
+                catch (Exception e) { GD.PrintErr($"[3D] background creature bake failed: {e.Message}"); }
+        }) { IsBackground = true, Priority = System.Threading.ThreadPriority.BelowNormal, Name = "CreatureBake" };
+        _bg.Start();
+    }
+
     public static CreatureKit Get(string name)
     {
         EnsureRegistered();
         if (Kits.TryGetValue(name, out var kit)) return kit;
-        if (!Designs.TryGetValue(name, out var make)) return null;
-        ulong t0 = Time.GetTicksMsec();
-        var design = make();
-        var s = new Sculptor(design.Seed) { Cell = design.Cell };
-        design.Sculpt(s);
-        var res = SculptMesher.Build(s);
-        design.BindBones(res.Bones);
+        if (!Bakes.TryGetValue(name, out var lazy)) return null;
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        bool ready = lazy.IsValueCreated;
+        var baked = lazy.Value;
+        var design = baked.Design;
+        var res = SculptMesher.Finish(baked.Data);
         _shader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/creature.gdshader");
         var mat = new ShaderMaterial { Shader = _shader };
         var look = design.Look;
@@ -56,10 +114,12 @@ public static class CreatureLibrary
         mat.SetShaderParameter("veins", look.Veins);
         mat.SetShaderParameter("vein_color", look.VeinColor);
         mat.SetShaderParameter("wet", look.Wet);
+        if (!float.IsNaN(look.GhostBelow)) { mat.SetShaderParameter("ghost_below", look.GhostBelow); mat.SetShaderParameter("ghost_fade", look.GhostFade); }
         res.Mesh.SurfaceSetMaterial(0, mat);
-        kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, BuildMs = Time.GetTicksMsec() - t0 };
+        kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, BuildMs = baked.Ms };
         Kits[name] = kit;
-        GD.Print($"[3D] creature '{name}': {res.Triangles / 1000f:0.0}k triangles, {res.Bones.Length} bones, built in {kit.BuildMs} ms");
+        GD.Print($"[3D] creature '{name}': {res.Triangles / 1000f:0.0}k triangles, {res.Bones.Length} bones, baked in {baked.Ms:0} ms" +
+                 (ready ? " (ahead of time)" : "") + $", finished in {sw.ElapsedMilliseconds} ms");
         return kit;
     }
 }
@@ -80,7 +140,9 @@ public partial class CreatureModel : Node3D
     public OmniLight3D Light { get; private set; }
 
     private float _yaw = float.NaN;
+    private float _glow = 1f;
     private Quaternion[] _prevRot;
+    private Vector3[] _prevScale;
     private string _lastClip = "";
     private float _blendT = 1f;
 
@@ -117,9 +179,11 @@ public partial class CreatureModel : Node3D
         SetFade(1f);
         SetDissolve(0f);
         SetTint(Colors.White, 0f);
+        Body.SetInstanceShaderParameter("glow_boost", 1f);
         Pose = new CreaturePose(bones.Length);
         _prevRot = new Quaternion[bones.Length];
-        for (int k = 0; k < bones.Length; k++) _prevRot[k] = Quaternion.Identity;
+        _prevScale = new Vector3[bones.Length];
+        for (int k = 0; k < bones.Length; k++) { _prevRot[k] = Quaternion.Identity; _prevScale[k] = Vector3.One; }
         var look = kit.Design.Look;
         if (look.LightEnergy > 0f)
         {
@@ -127,6 +191,14 @@ public partial class CreatureModel : Node3D
             Pivot.AddChild(Light);
         }
         kit.Design.Attach(this);
+        SetActorLayer(this);
+    }
+
+    /// <summary>Puts every mesh under this node on the actor layer (lit by the actor key and rim).</summary>
+    public static void SetActorLayer(Node n)
+    {
+        if (n is GeometryInstance3D g) g.Layers |= Stage3D.ActorLayer;
+        foreach (var c in n.GetChildren()) SetActorLayer(c);
     }
 
     /// <summary>Bone attachment (weapons, lanterns): a node that follows the bone.</summary>
@@ -143,6 +215,7 @@ public partial class CreatureModel : Node3D
         var pose = Pose;
         pose.Clear();
         Design.Animate(pose, a);
+        if (pose.Glow != _glow) { _glow = pose.Glow; Body.SetInstanceShaderParameter("glow_boost", _glow); }
         // cross-fade briefly whenever the clip changes so poses never snap
         if (a.Clip != _lastClip) { _lastClip = a.Clip; _blendT = 0f; }
         _blendT = Math.Min(1f, _blendT + a.Dt / 0.09f);
@@ -156,6 +229,9 @@ public partial class CreatureModel : Node3D
             Skel.SetBonePoseRotation(k, q);
             var local = bones[k].Head - (bones[k].Parent >= 0 ? bones[bones[k].Parent].Head : Vector3.Zero);
             Skel.SetBonePosePosition(k, local + pose.Offset[k]);
+            var sc = w >= 1f ? pose.Scale[k] : _prevScale[k].Lerp(pose.Scale[k], w);
+            _prevScale[k] = sc;
+            Skel.SetBonePoseScale(k, sc);
         }
     }
 

@@ -15,6 +15,19 @@ public sealed class SculptResult
 }
 
 /// <summary>
+/// A sculpt baked to plain arrays (no engine resources), so it can be computed on a worker
+/// thread; <see cref="SculptMesher.Finish"/> turns it into a mesh on the main thread.
+/// </summary>
+public sealed class SculptData
+{
+    public MeshBuilder Body;
+    public float[] Custom;
+    public int[] BoneIdx;
+    public float[] Weights;
+    public BoneDef[] Bones;
+}
+
+/// <summary>
 /// Turns a <see cref="Sculptor"/> design into a skinned mesh: the primitives are smooth-unioned
 /// into a voxel grid (each only within its own bounds), the surface is extracted with surface
 /// nets, and every vertex takes its colour, material and bone weights from the primitives near
@@ -27,7 +40,26 @@ public static class SculptMesher
     private static readonly int[] EdgeA = { 0, 2, 4, 6, 0, 1, 4, 5, 0, 1, 2, 3 };
     private static readonly int[] EdgeB = { 1, 3, 5, 7, 2, 3, 6, 7, 4, 5, 6, 7 };
 
-    public static SculptResult Build(Sculptor s)
+    public static SculptResult Build(Sculptor s) => Finish(Bake(s));
+
+    /// <summary>Makes the engine mesh and skin (main thread).</summary>
+    public static SculptResult Finish(SculptData d)
+    {
+        var body = d.Body;
+        var arrays = body.Arrays(withUv2: true);
+        arrays[(int)Mesh.ArrayType.Custom0] = d.Custom;
+        arrays[(int)Mesh.ArrayType.Bones] = d.BoneIdx;
+        arrays[(int)Mesh.ArrayType.Weights] = d.Weights;
+        var fmt = (Mesh.ArrayFormat)((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom0Shift);
+        var mesh = new ArrayMesh();
+        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays, null, null, fmt);
+        var skin = new Skin();
+        for (int k = 0; k < d.Bones.Length; k++) skin.AddBind(k, new Transform3D(Basis.Identity, -d.Bones[k].Head));
+        return new SculptResult { Mesh = mesh, Skin = skin, Bones = d.Bones, Bounds = body.Bounds(), Triangles = body.I.Count / 3 };
+    }
+
+    /// <summary>Voxelizes, meshes and weights the sculpt (pure computation; any thread).</summary>
+    public static SculptData Bake(Sculptor s)
     {
         var prims = s.Prims;
         float cell = s.Cell;
@@ -212,17 +244,7 @@ public static class SculptMesher
             body.UV2[k] = new Vector2(body.V[k].Z, 0f);
         }
 
-        var arrays = body.Arrays(withUv2: true);
-        arrays[(int)Mesh.ArrayType.Custom0] = custom.ToArray();
-        arrays[(int)Mesh.ArrayType.Bones] = bones.ToArray();
-        arrays[(int)Mesh.ArrayType.Weights] = weights.ToArray();
-        var fmt = (Mesh.ArrayFormat)((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom0Shift);
-        var mesh = new ArrayMesh();
-        mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays, null, null, fmt);
-
-        var skin = new Skin();
-        for (int k = 0; k < nb; k++) skin.AddBind(k, new Transform3D(Basis.Identity, -s.Bones[k].Head));
-        return new SculptResult { Mesh = mesh, Skin = skin, Bones = s.Bones.ToArray(), Bounds = body.Bounds(), Triangles = body.I.Count / 3 };
+        return new SculptData { Body = body, Custom = custom.ToArray(), BoneIdx = bones.ToArray(), Weights = weights.ToArray(), Bones = s.Bones.ToArray() };
     }
 
     /// <summary>The surface-detail kind of the primitive closest to q (kinds don't blend).</summary>

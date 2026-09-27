@@ -23,7 +23,10 @@ public partial class Stage3D : Node3D
     /// <summary>Everything built for the current level (freed on the next build).</summary>
     public Node3D Level { get; private set; }
 
-    private DirectionalLight3D _fill, _top;
+    /// <summary>Visual layer of creatures and heroes: they get a key and rim light of their own.</summary>
+    public const uint ActorLayer = 1u << 1;
+
+    private DirectionalLight3D _fill, _top, _actorKey, _actorRim;
     private Vector3 _camPos;
     private bool _camInit;
     private float _shakeT;
@@ -94,6 +97,24 @@ public partial class Stage3D : Node3D
         AddChild(_top);
         _top.LookAtFromPosition(Vector3.Zero, new Vector3(0.12f, -1f, -0.3f), Vector3.Forward);
 
+        // Actors get their own key and rim (lighting only the actor layer), so every creature
+        // reads against the rock however dark the cave: a warm key from the viewer's upper left,
+        // a cool rim from behind that draws the silhouette.
+        _actorKey = new DirectionalLight3D
+        {
+            LightColor = new Color(1f, 0.92f, 0.82f), LightEnergy = 0.9f, ShadowEnabled = false,
+            LightVolumetricFogEnergy = 0f, LightCullMask = ActorLayer, LightSpecular = 0.6f,
+        };
+        AddChild(_actorKey);
+        _actorKey.LookAtFromPosition(Vector3.Zero, new Vector3(0.45f, -0.5f, -0.75f), Vector3.Up);
+        _actorRim = new DirectionalLight3D
+        {
+            LightColor = new Color(0.65f, 0.78f, 1f), LightEnergy = 1.8f, ShadowEnabled = false,
+            LightVolumetricFogEnergy = 0f, LightCullMask = ActorLayer, LightSpecular = 1f,
+        };
+        AddChild(_actorRim);
+        _actorRim.LookAtFromPosition(Vector3.Zero, new Vector3(-0.35f, -0.4f, 0.85f), Vector3.Up);
+
         Level = new Node3D { Name = "Level" };
         AddChild(Level);
         Lights = new LightPool3D { Name = "Lights" };
@@ -123,6 +144,8 @@ public partial class Stage3D : Node3D
     {
         foreach (var c in Level.GetChildren()) { Level.RemoveChild(c); c.QueueFree(); }
         Lights.Clear();
+        // this biome's creatures bake in parallel now rather than one by one as they spawn
+        CreatureLibrary.Prefetch(CreatureRegistry.Roster(cave.Biome ?? G.Biome ?? Biomes.Get(BiomeId.Entrance)));
         Terrain = new TerrainView { Name = "Terrain" };
         Level.AddChild(Terrain);
         Terrain.Build(cave);
@@ -135,6 +158,8 @@ public partial class Stage3D : Node3D
         liquid.Build(cave, Terrain.Field, Lights);
         ApplyBiome(cave);
         _camInit = false;
+        // everything else bakes in the background while this level plays
+        CreatureLibrary.PrebuildRest();
     }
 
     /// <summary>Lighting and atmosphere per biome (the 2D game's darkness becomes real darkness).</summary>
@@ -153,6 +178,9 @@ public partial class Stage3D : Node3D
         _fill.LightEnergy = Mathf.Lerp(0.3f, 0.06f, dark);
         _top.LightEnergy = Mathf.Lerp(0.7f, 0.3f, dark);
         _top.LightColor = edge.Lerp(glow, 0.3f).Lerp(new Color(0.85f, 0.87f, 0.95f), 0.6f);
+        _actorKey.LightEnergy = Mathf.Lerp(1.0f, 0.75f, dark);
+        _actorRim.LightEnergy = Mathf.Lerp(1.6f, 2.0f, dark);
+        _actorRim.LightColor = glow.Lerp(new Color(0.7f, 0.8f, 1f), 0.6f);
         Terrain?.Material?.SetShaderParameter("face_fill_energy", Mathf.Lerp(1.1f, 0.6f, dark));
         Terrain?.Material?.SetShaderParameter("face_fill", edge.Lerp(glow, 0.25f).Lerp(new Color(0.6f, 0.65f, 0.8f), 0.5f));
         if (cave.Liquid == Liquid.Lava)

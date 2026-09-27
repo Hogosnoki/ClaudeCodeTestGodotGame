@@ -151,7 +151,7 @@ public partial class Main : Node
 
     private void Begin(bool gentest)
     {
-        if (ModelSheet.Wanted) { _hud.Visible = false; AddChild(new ModelSheet()); return; }
+        if (ModelSheet.Wanted) { _uiLayer.Visible = false; AddChild(new ModelSheet()); return; }
         if (gentest) { RunGenTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }

@@ -107,9 +107,9 @@ public sealed class Sculptor
     /// A curved cone: a tooth, claw, horn, spike or fang, from base toward tip, bending by
     /// <paramref name="curl"/> metres toward <paramref name="bendDir"/> at its middle.
     /// </summary>
-    public void Horn(int bone, Vector3 b0, Vector3 tip, float r, Color col, Mat mat = Mat.Claw, Vector3 bendDir = default, float curl = 0f, int sides = 7, int rings = 6)
+    public void Horn(int bone, Vector3 b0, Vector3 tip, float r, Color col, Mat mat = Mat.Claw, Vector3 bendDir = default, float curl = 0f, int sides = 7, int rings = 6, float emit = -1f)
     {
-        var p = NewPart(mat);
+        var p = NewPart(mat, emit);
         var path = new List<Vector3>();
         var radii = new List<float>();
         for (int i = 0; i <= rings; i++)
@@ -161,6 +161,63 @@ public sealed class Sculptor
         }
         mb.SmoothNormals();
         mb.FixWinding(0, mb.I.Count);
+    }
+
+    /// <summary>
+    /// A double-sided skin stretched over triangles of anchor points (wing membranes, webs, fins).
+    /// Each anchor follows its bone; points inside a triangle follow the two nearest anchors'
+    /// bones. Edges listed in <paramref name="sagEdges"/> (as anchor pairs) sag inward by
+    /// <paramref name="sag"/> metres at their middle, giving scalloped trailing edges.
+    /// </summary>
+    public void Sheet(Vector3[] pts, int[] bones, (int a, int b, int c)[] tris, int subdiv, Color col,
+        float thickness = 0.004f, Mat mat = Mat.Membrane, (int a, int b)[] sagEdges = null, float sag = 0f)
+    {
+        var p = NewPart(mat);
+        var mb = p.Mesh;
+        bool IsSag(int a, int b)
+        {
+            if (sagEdges == null) return false;
+            foreach (var e in sagEdges) if ((e.a == a && e.b == b) || (e.a == b && e.b == a)) return true;
+            return false;
+        }
+        foreach (var (ia, ib, ic) in tris)
+        {
+            int[] corner = { ia, ib, ic };
+            var faceN = (pts[ib] - pts[ia]).Cross(pts[ic] - pts[ia]).Normalized();
+            for (int side = 0; side < 2; side++)
+            {
+                int start = mb.Count;
+                var idx = new Dictionary<(int, int), int>();
+                for (int i = 0; i <= subdiv; i++)
+                    for (int j = 0; j <= subdiv - i; j++)
+                    {
+                        float u = i / (float)subdiv, v = j / (float)subdiv, w = 1f - u - v;
+                        var pos = pts[ia] * w + pts[ib] * u + pts[ic] * v;
+                        // sag the free edges toward the opposite corner
+                        if (w < 1e-4f && IsSag(ib, ic)) pos += (pts[ia] - pos).Normalized() * sag * 4f * u * v;
+                        if (u < 1e-4f && IsSag(ia, ic)) pos += (pts[ib] - pos).Normalized() * sag * 4f * w * v;
+                        if (v < 1e-4f && IsSag(ia, ib)) pos += (pts[ic] - pos).Normalized() * sag * 4f * w * u;
+                        pos += faceN * (side == 0 ? thickness : -thickness);
+                        idx[(i, j)] = mb.Add(pos, side == 0 ? faceN : -faceN, col, new Vector2(u, v));
+                        float[] bw = { w, u, v };
+                        int m0 = 0; for (int q = 1; q < 3; q++) if (bw[q] > bw[m0]) m0 = q;
+                        int m1 = m0 == 0 ? 1 : 0; for (int q = 0; q < 3; q++) if (q != m0 && bw[q] > bw[m1]) m1 = q;
+                        float wa = bw[m0] / Math.Max(1e-5f, bw[m0] + bw[m1]);
+                        p.Binds.Add((bones[corner[m0]], bones[corner[m1]], wa));
+                    }
+                for (int i = 0; i < subdiv; i++)
+                    for (int j = 0; j < subdiv - i; j++)
+                    {
+                        int a = idx[(i, j)], b = idx[(i + 1, j)], c = idx[(i, j + 1)];
+                        if (side == 0) mb.Tri(a, b, c); else mb.Tri(a, c, b);
+                        if (i + j < subdiv - 1)
+                        {
+                            int d = idx[(i + 1, j + 1)];
+                            if (side == 0) mb.Tri(b, d, c); else mb.Tri(b, c, d);
+                        }
+                    }
+            }
+        }
     }
 
     /// <summary>Any MeshBuilder geometry (already in model space) bound rigidly to one bone.</summary>

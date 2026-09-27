@@ -215,6 +215,11 @@ public partial class Frog : Enemy
         return _hopCd <= 0 ? HopToward : Sit;
     }
 
+    /// <summary>For the 3D model: whether the tongue is out, and its root and tip (local pixels).</summary>
+    public bool TongueOut => _tongueT >= 0;
+    public Vector2 TongueMouth => new(Face * 7.6f * Size, 1.8f * Size);
+    public Vector2 TongueTip => TongueMouth + _tongueDir * TongueExtent();
+
     private float TongueExtent()
     {
         float t = _tongueT / TongueTime;
@@ -397,6 +402,11 @@ public partial class Spider : Enemy
 
     /// <summary>Lives on the ground (hunting spiders, the web-mother) instead of the ceiling.</summary>
     public bool Grounded;
+
+    /// <summary>Where its silk thread is anchored (world y, px) while one shows, else null.</summary>
+    public float? ThreadAnchorY => _state is 1 or 2 or 3 || (_state == 0 && GlobalPosition.Y - _anchorY > 9) ? _anchorY : null;
+    /// <summary>0 ceiling, 1 dropping, 2 hanging, 3 climbing, 4 on the ground.</summary>
+    public int State => _state;
     private float _broodT = 6f;
 
     protected override void Setup()

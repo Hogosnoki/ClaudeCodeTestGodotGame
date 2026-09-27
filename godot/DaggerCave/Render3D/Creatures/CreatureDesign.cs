@@ -35,6 +35,8 @@ public sealed class CreaturePose
 {
     public readonly Quaternion[] Rot;
     public readonly Vector3[] Offset;
+    /// <summary>Per-bone scale (1 = rest): throat sacs, pulsing bodies, bristling spines.</summary>
+    public readonly Vector3[] Scale;
     public readonly Dictionary<int, float> Springs = new();
     public readonly Dictionary<int, float> SpringVel = new();
     /// <summary>Per-creature scratch state for designs (gait phase, last values...).</summary>
@@ -43,18 +45,21 @@ public sealed class CreaturePose
     public float Yaw;
     /// <summary>A whole-body lift (metres), e.g. for hops.</summary>
     public Vector3 Root;
+    /// <summary>Multiplier on the glowing parts this frame (tells: a spell charging, a puff gathering).</summary>
+    public float Glow = 1f;
 
     public CreaturePose(int bones)
     {
         Rot = new Quaternion[bones];
         Offset = new Vector3[bones];
+        Scale = new Vector3[bones];
         Clear();
     }
 
     public void Clear()
     {
-        for (int k = 0; k < Rot.Length; k++) { Rot[k] = Quaternion.Identity; Offset[k] = Vector3.Zero; }
-        Yaw = 0; Root = Vector3.Zero;
+        for (int k = 0; k < Rot.Length; k++) { Rot[k] = Quaternion.Identity; Offset[k] = Vector3.Zero; Scale[k] = Vector3.One; }
+        Yaw = 0; Root = Vector3.Zero; Glow = 1f;
     }
 
     public static Quaternion Q(float xDeg, float yDeg, float zDeg) =>
@@ -70,6 +75,17 @@ public sealed class CreaturePose
     public void Bend(int bone, float deg) => Add(bone, 0, 0, deg);
 
     public void Move(int bone, Vector3 m) { if (bone >= 0) Offset[bone] += m; }
+
+    /// <summary>Scales a bone (and everything skinned to it) about its joint.</summary>
+    public void Grow(int bone, Vector3 s) { if (bone >= 0) Scale[bone] *= s; }
+    public void Grow(int bone, float s) => Grow(bone, Vector3.One * s);
+
+    /// <summary>Adds a rotation about an arbitrary axis (model axes, degrees) before the bone's current rotation.</summary>
+    public void AddAxis(int bone, Vector3 axis, float deg)
+    {
+        if (bone < 0 || deg == 0f || axis.LengthSquared() < 1e-8f) return;
+        Rot[bone] = new Quaternion(axis.Normalized(), Mathf.DegToRad(deg)) * Rot[bone];
+    }
 
     /// <summary>
     /// A damped spring toward <paramref name="target"/> kept per creature (tails, ears, capes).
@@ -107,6 +123,8 @@ public sealed class CreatureLook
     public Color VeinColor = new(0.25f, 0.02f, 0.03f);
     /// <summary>Wet sheen on skin (lower roughness).</summary>
     public float Wet = 0f;
+    /// <summary>Ghosts thin out into nothing below this rest-pose height (NaN = solid all the way down).</summary>
+    public float GhostBelow = float.NaN, GhostFade = 0.3f;
     /// <summary>A light the creature carries (eyes that light the ground, a lantern, burning flesh).</summary>
     public Color LightColor;
     public float LightEnergy, LightRange = 3f;
@@ -136,6 +154,9 @@ public abstract class CreatureDesign
 
     /// <summary>Attachments (weapons, lanterns) once the model exists.</summary>
     public virtual void Attach(CreatureModel m) { }
+
+    /// <summary>Per-frame extras after posing (silk threads, tongues, burrow bodies...).</summary>
+    public virtual void Frame(CreatureModel m, in AnimInput a) { }
 
     private Dictionary<string, int> _bones;
     /// <summary>Bone index by name (-1 when this design has no such bone).</summary>

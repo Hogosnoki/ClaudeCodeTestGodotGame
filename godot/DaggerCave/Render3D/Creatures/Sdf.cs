@@ -26,7 +26,7 @@ public readonly struct MatInfo
         Mat.Bone => new(0.55f, 0f, 0.25f, 0f, 3),
         Mat.Claw => new(0.3f, 0f, 0.1f, 0f, 0),
         Mat.Eye => new(0.05f, 0f, 0f, 1f, 5),
-        Mat.Membrane => new(0.5f, 0f, 0.9f, 0f, 1),
+        Mat.Membrane => new(0.78f, 0f, 0.9f, 0f, 1),
         Mat.Metal => new(0.35f, 0.9f, 0f, 0f, 3),
         Mat.Cloth => new(0.9f, 0f, 0.2f, 0f, 4),
         Mat.Leather => new(0.65f, 0f, 0.1f, 0f, 1),

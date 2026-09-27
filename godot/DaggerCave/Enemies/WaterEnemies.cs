@@ -224,6 +224,8 @@ public partial class Eel : Enemy
 {
     public Vector2 WallNormal = Vector2.Up;
     private Vector2 _home, _target, _head;
+    /// <summary>For the 3D model: the burrow the body runs back into.</summary>
+    public Vector2 Home => _home;
     private int _state; // 0 hidden, 1 lunge, 2 hold, 3 retract
     private float _stateT, _cd = 1f;
 

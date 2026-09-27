@@ -20,6 +20,10 @@ public partial class Dragon : Enemy
     private bool _phase2;
     private float _diveX;
     private Vector2 _breathDir;
+    /// <summary>For the 3D model: enraged, and where the fire is going.</summary>
+    public bool Phase2 => _phase2;
+    public Vector2 BreathDir => _breathDir;
+    public bool Breathing => _s == S.Breath;
 
     public Dragon()
     {
