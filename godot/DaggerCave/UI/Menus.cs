@@ -144,8 +144,17 @@ public partial class ScreenOverlay : Control
     public bool HeroCards;
     private float _t;
     private readonly Rect2[] _cardRects = new Rect2[2];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[2];
 
     private const float CardW = 400, CardH = 170;
+    private static readonly Vector2 PortraitSize = new(126, CardH - 4);
+    private static GradientTexture2D _halo;
+    /// <summary>A soft radial spot, white in the middle fading to nothing.</summary>
+    private static GradientTexture2D Halo => _halo ??= new GradientTexture2D
+    {
+        Gradient = new Gradient { Colors = new[] { Colors.White, new Color(1, 1, 1, 0.3f), new Color(1, 1, 1, 0) }, Offsets = new[] { 0f, 0.45f, 1f } },
+        Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.5f), FillTo = new Vector2(1f, 0.5f), Width = 128, Height = 128,
+    };
 
     private static readonly (HeroKind kind, string name, string sheet, string[] lines)[] Heroes =
     {
@@ -183,7 +192,22 @@ public partial class ScreenOverlay : Control
         Title = title; Lines = lines; Dim = dim; Visible = true; QueueRedraw();
     }
 
-    public override void _Process(double delta) { _t += (float)delta; if (Visible) QueueRedraw(); }
+    public override void _Process(double delta)
+    {
+        _t += (float)delta;
+        bool cards = Visible && HeroCards;
+        // the hero portraits are made the first time the cards show (rendered at twice the size
+        // they're drawn), and only render while they show
+        if (cards && _portraits[0] == null)
+            for (int k = 0; k < 2; k++)
+            {
+                _portraits[k] = new HeroPortrait { Design = Heroes[k].sheet, Size = (Vector2I)(PortraitSize * 2) };
+                AddChild(_portraits[k]);
+            }
+        foreach (var p in _portraits)
+            if (p != null) p.RenderTargetUpdateMode = cards ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
+        if (Visible) QueueRedraw();
+    }
 
     public override void _Draw()
     {
@@ -227,15 +251,15 @@ public partial class ScreenOverlay : Control
             var accent = h.kind == HeroKind.Warden ? new Color(0.45f, 0.7f, 1f) : new Color(0.95f, 0.45f, 0.35f);
             DrawRect(r, new Color(0.07f, 0.07f, 0.1f, sel ? 0.95f : 0.75f));
             DrawRect(r, sel ? accent : accent.Darkened(0.55f), false, sel ? 3 : 1.5f);
-            // the hero's idle frame, big
-            var set = SpriteSet.Get(h.sheet);
-            string anim = set.Names.Contains("idle_r") ? "idle_r" : "idle";
-            int frames = set.Frames.GetFrameCount(anim);
-            var tex = set.Frames.GetFrameTexture(anim, sel ? (int)(_t * 24) % frames : 0);
-            float scale = 2.6f / set.Scale;
-            var size = tex.GetSize() * scale;
-            var at = r.Position + new Vector2(66, CardH * 0.55f) - set.Origin * scale;
-            DrawTextureRect(tex, new Rect2(at, size), false, sel ? Colors.White : new Color(0.6f, 0.6f, 0.65f));
+            // the hero in 3D, idling (only the chosen one moves)
+            var portrait = _portraits[k];
+            if (portrait != null)
+            {
+                portrait.Playing = sel;
+                // a soft glow of the hero's colour behind the chosen one
+                if (sel) DrawTextureRect(Halo, new Rect2(r.Position + new Vector2(66 - 80, CardH * 0.5f - 80), new Vector2(160, 160)), false, new Color(accent, 0.5f));
+                DrawTextureRect(portrait.GetTexture(), new Rect2(r.Position + new Vector2(2, 2), PortraitSize), false, sel ? Colors.White : new Color(0.6f, 0.6f, 0.65f));
+            }
             DrawString(font, r.Position + new Vector2(130, 40), h.name, HorizontalAlignment.Left, -1, 22, sel ? accent.Lightened(0.3f) : new Color(1, 1, 1, 0.6f));
             for (int j = 0; j < h.lines.Length; j++)
                 DrawString(font, r.Position + new Vector2(130, 72 + j * 22), h.lines[j], HorizontalAlignment.Left, CardW - 140, 13, new Color(1, 1, 1, sel ? 0.9f : 0.5f));

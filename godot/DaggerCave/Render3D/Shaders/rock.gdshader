@@ -274,6 +274,11 @@ void fragment() {
 		alb = k * (0.5 + 0.5 * bake_ao);
 		emit = vec3(0.0);
 		dn = vec3(0.0);
+	} else if (debug_view == 2) {
+		// the triplanar projections' weights: red side-on, green top-down, blue front-on
+		alb = vec3(0.0);
+		emit = t.w * 0.7;
+		dn = vec3(0.0);
 	}
 
 	vec3 wn = normalize(n + dn * normal_strength);

@@ -220,6 +220,90 @@ public sealed class Sculptor
         }
     }
 
+    /// <summary>
+    /// Draped cloth (a cloak, a banner) through a grid of points, with a little thickness. Row k
+    /// follows bone k. The grid is smoothed and subdivided (Catmull-Rom both ways, <paramref name="sub"/>
+    /// steps per span), and points between two rows blend those rows' bones, so the fabric bends
+    /// smoothly. The side facing <paramref name="outward"/> at the middle of the grid is the
+    /// outside; the inside is a shade darker, like a lining.
+    /// </summary>
+    public void Cloth(int[] bones, Vector3[][] rows, Color col, Vector3 outward, Mat mat = Mat.Cloth, float thickness = 0.006f, int sub = 3)
+    {
+        var p = NewPart(mat);
+        var mb = p.Mesh;
+        int R = rows.Length, C = rows[0].Length;
+        int nr = (R - 1) * sub + 1, nc = (C - 1) * sub + 1;
+        static Vector3 CatRom(Vector3 p0, Vector3 p1, Vector3 p2, Vector3 p3, float t) =>
+            0.5f * (2f * p1 + (p2 - p0) * t + (2f * p0 - 5f * p1 + 4f * p2 - p3) * (t * t) + (3f * p1 - p0 - 3f * p2 + p3) * (t * t * t));
+        // across each row first, then down the columns
+        var wide = new Vector3[R][];
+        for (int r = 0; r < R; r++)
+        {
+            wide[r] = new Vector3[nc];
+            var row = rows[r];
+            for (int j = 0; j < nc; j++)
+            {
+                int c = Math.Min(j / sub, C - 2);
+                float t = (j - c * sub) / (float)sub;
+                wide[r][j] = CatRom(row[Math.Max(c - 1, 0)], row[c], row[c + 1], row[Math.Min(c + 2, C - 1)], t);
+            }
+        }
+        var pos = new Vector3[nr, nc];
+        var bind = new (int, int, float)[nr];
+        for (int i = 0; i < nr; i++)
+        {
+            int r = Math.Min(i / sub, R - 2);
+            float t = (i - r * sub) / (float)sub;
+            for (int j = 0; j < nc; j++)
+                pos[i, j] = CatRom(wide[Math.Max(r - 1, 0)][j], wide[r][j], wide[r + 1][j], wide[Math.Min(r + 2, R - 1)][j], t);
+            bind[i] = (bones[r], bones[r + 1], 1f - t);
+        }
+        // normals from the grid's tangents, all turned to the same side
+        var nrm = new Vector3[nr, nc];
+        for (int i = 0; i < nr; i++)
+            for (int j = 0; j < nc; j++)
+            {
+                var du = pos[i, Math.Min(j + 1, nc - 1)] - pos[i, Math.Max(j - 1, 0)];
+                var dv = pos[Math.Min(i + 1, nr - 1), j] - pos[Math.Max(i - 1, 0), j];
+                nrm[i, j] = du.Cross(dv).Normalized();
+            }
+        if (nrm[nr / 2, nc / 2].Dot(outward) < 0)
+            for (int i = 0; i < nr; i++) for (int j = 0; j < nc; j++) nrm[i, j] = -nrm[i, j];
+
+        var lining = col.Darkened(0.3f);
+        var idx = new int[2, nr, nc];
+        for (int side = 0; side < 2; side++)
+        {
+            float s = side == 0 ? 1f : -1f;
+            for (int i = 0; i < nr; i++)
+                for (int j = 0; j < nc; j++)
+                {
+                    idx[side, i, j] = mb.Add(pos[i, j] + nrm[i, j] * thickness * s, nrm[i, j] * s, side == 0 ? col : lining);
+                    p.Binds.Add(bind[i]);
+                }
+        }
+        int start = mb.I.Count;
+        for (int side = 0; side < 2; side++)
+            for (int i = 0; i < nr - 1; i++)
+                for (int j = 0; j < nc - 1; j++)
+                    mb.Quad(idx[side, i, j], idx[side, i, j + 1], idx[side, i + 1, j + 1], idx[side, i + 1, j]);
+        // the cut edges, so the cloth has a hem rather than a gap; (di, dj) steps inward
+        void Edge(int i0, int j0, int i1, int j1, int di, int dj)
+        {
+            var e0 = (pos[i0, j0] - pos[i0 + di, j0 + dj]).Normalized();
+            var e1 = (pos[i1, j1] - pos[i1 + di, j1 + dj]).Normalized();
+            int a = mb.Add(pos[i0, j0] + nrm[i0, j0] * thickness, e0, lining);
+            int b = mb.Add(pos[i0, j0] - nrm[i0, j0] * thickness, e0, lining);
+            int c = mb.Add(pos[i1, j1] - nrm[i1, j1] * thickness, e1, lining);
+            int d = mb.Add(pos[i1, j1] + nrm[i1, j1] * thickness, e1, lining);
+            p.Binds.Add(bind[i0]); p.Binds.Add(bind[i0]); p.Binds.Add(bind[i1]); p.Binds.Add(bind[i1]);
+            mb.Quad(a, b, c, d);
+        }
+        for (int j = 0; j < nc - 1; j++) { Edge(nr - 1, j, nr - 1, j + 1, -1, 0); Edge(0, j, 0, j + 1, 1, 0); }
+        for (int i = 0; i < nr - 1; i++) { Edge(i, 0, i + 1, 0, 0, 1); Edge(i, nc - 1, i + 1, nc - 1, 0, -1); }
+        mb.FixWinding(start, mb.I.Count);
+    }
+
     /// <summary>Any MeshBuilder geometry (already in model space) bound rigidly to one bone.</summary>
     public void Rigid(int bone, MeshBuilder geo, Mat mat, float emit = -1f)
     {

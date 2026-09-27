@@ -352,7 +352,7 @@ public partial class Fx3D : Node3D
                 float al0 = t0 * t0 * sm.Fade, al1 = t1 * t1 * sm.Fade;
                 float ro0 = band == 0 ? sm.Outer : sm.Outer - w0 * 0.4f, ro1 = band == 0 ? sm.Outer : sm.Outer - w1 * 0.4f;
                 float ri0 = band == 0 ? sm.Outer - w0 * 0.4f : sm.Outer - w0, ri1 = band == 0 ? sm.Outer - w1 * 0.4f : sm.Outer - w1;
-                float ao0 = band == 0 ? 0.9f : 0.35f, ai0 = band == 0 ? 0.35f : 0f;
+                float ao0 = band == 0 ? 0.9f : 0.2f, ai0 = band == 0 ? 0.2f : 0f;
                 Color c(float alpha) => new(tint.R, tint.G, tint.B, alpha);
                 var A = Pt(an0, ro0); var B = Pt(an1, ro1); var C = Pt(an1, ri1); var D = Pt(an0, ri0);
                 _rmesh.SurfaceSetColor(c(ao0 * al0)); _rmesh.SurfaceAddVertex(A);

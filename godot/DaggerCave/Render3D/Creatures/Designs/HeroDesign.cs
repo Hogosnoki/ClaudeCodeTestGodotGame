@@ -57,8 +57,9 @@ public sealed class HeroDesign : CreatureDesign
     {
         var skin = C(0.72f, 0.52f, 0.42f);
         var dark = C(0.12f, 0.13f, 0.15f);
-        var leather = C(0.34f, 0.22f, 0.13f);
-        var leatherDk = C(0.18f, 0.12f, 0.08f);
+        // dark, oiled leather: well apart from the skin tone under the warm lantern light
+        var leather = C(0.25f, 0.15f, 0.085f);
+        var leatherDk = C(0.15f, 0.095f, 0.06f);
         var steel = C(0.62f, 0.64f, 0.67f);
         var gold = C(0.78f, 0.58f, 0.24f);
         var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : C(0.07f, 0.27f, 0.28f);
@@ -175,11 +176,34 @@ public sealed class HeroDesign : CreatureDesign
             s.Limb(ft, new(-0.03f, -0.775f, 0.095f * z), new(0.115f, -0.785f, 0.095f * z), 0.046f, 0.036f, leatherDk, Mat.Leather, 0.012f);
         }
 
-        // ---- cloak down the back
-        s.Egg(c0, new(-0.1f, 0.42f, 0), new(0.05f, 0.1f, 0.205f), cloak, Mat.Cloth, 0.045f);
-        s.Egg(c1, new(-0.13f, 0.17f, 0), new(0.038f, 0.15f, 0.2f), cloak, Mat.Cloth, 0.045f);
-        s.Egg(c2, new(-0.15f, -0.12f, 0), new(0.033f, 0.16f, 0.19f), cloak, Mat.Cloth, 0.045f);
-        s.Egg(c3, new(-0.16f, -0.38f, 0), new(0.028f, 0.12f, 0.17f), cloak, Mat.Cloth, 0.04f, bump: 0.01f);
+        // ---- cloak down the back: draped cloth, wrapping forward at the sides and flaring a
+        // little toward the hem, with folds that deepen as it falls
+        {
+            (float y, float w, float x, float wrap)[] rowSpec =
+            {
+                (0.5f, 0.15f, -0.095f, 0.08f),
+                (0.24f, 0.2f, -0.15f, 0.07f),
+                (-0.06f, 0.212f, -0.168f, 0.055f),
+                (-0.34f, 0.22f, -0.178f, 0.05f),
+                (-0.56f, 0.215f, -0.186f, 0.045f),
+            };
+            const int cols = 9;
+            var grid = new Vector3[rowSpec.Length][];
+            for (int r = 0; r < rowSpec.Length; r++)
+            {
+                var (y, w, x, wrap) = rowSpec[r];
+                float fall = r / (float)(rowSpec.Length - 1);
+                grid[r] = new Vector3[cols];
+                for (int c = 0; c < cols; c++)
+                {
+                    float a = -1f + 2f * c / (cols - 1);
+                    float fold = 0.016f * fall * MathF.Sin(a * MathF.PI * 2f + 0.6f);
+                    float hem = r == rowSpec.Length - 1 ? 0.02f * MathF.Sin(a * MathF.PI * 3f + 1.1f) : 0f;
+                    grid[r][c] = new Vector3(x + wrap * a * a - fold, y + hem, w * a);
+                }
+            }
+            s.Cloth(new[] { c0, c1, c2, c3, c3 }, grid, cloak, new Vector3(-1, 0, 0), Mat.Cloth, 0.006f, 3);
+        }
 
         // ---- equipment
         int handR = s["hand_r"], handL = s["hand_l"];
@@ -222,13 +246,22 @@ public sealed class HeroDesign : CreatureDesign
         // the lantern lights the cave; the hero's own body doesn't block it
         m.Body.CastShadow = GeometryInstance3D.ShadowCastingSetting.Off;
         var at = m.AttachTo("hips");
-        var light = new OmniLight3D
+        var lampAt = LanternAt + new Vector3(0.12f, -0.02f, 0.25f);
+        var col = new Color(1f, 0.76f, 0.48f);
+        at.AddChild(new OmniLight3D
         {
-            LightColor = new Color(1f, 0.76f, 0.48f), LightEnergy = 2.4f, OmniRange = 15f, OmniAttenuation = 1.15f,
-            ShadowEnabled = true, LightVolumetricFogEnergy = 1.2f, LightSize = 0.08f, ShadowBias = 0.06f,
-            Position = LanternAt + new Vector3(0.12f, -0.02f, 0.25f),
-        };
-        at.AddChild(light);
+            LightColor = col, LightEnergy = 2.4f, OmniRange = 15f, OmniAttenuation = 1.15f,
+            ShadowEnabled = true, LightVolumetricFogEnergy = 0f, LightSize = 0.08f, ShadowBias = 0.06f,
+            Position = lampAt,
+        });
+        // its glow in the cave's haze comes from a twin that lights only the fog (the fog ignores
+        // cull masks) and casts no shadows: shadowed fog breaks up into streaks at this froxel size
+        at.AddChild(new OmniLight3D
+        {
+            LightColor = col, LightEnergy = 2.4f, OmniRange = 15f, OmniAttenuation = 1.15f,
+            ShadowEnabled = false, LightVolumetricFogEnergy = 1.2f, LightCullMask = 0, LightSpecular = 0f,
+            Position = lampAt,
+        });
     }
 
     // ================================================================== animation

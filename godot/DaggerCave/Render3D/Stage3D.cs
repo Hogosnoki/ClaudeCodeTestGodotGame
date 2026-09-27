@@ -45,7 +45,7 @@ public partial class Stage3D : Node3D
             AmbientLightColor = new Color(0.5f, 0.52f, 0.6f),
             AmbientLightEnergy = 0.25f,
             TonemapMode = Godot.Environment.ToneMapper.Agx,
-            TonemapExposure = 1.0f,
+            TonemapExposure = 1.1f,
             SsaoEnabled = true,
             SsaoRadius = 1.2f,
             SsaoIntensity = 2.2f,
@@ -139,7 +139,9 @@ public partial class Stage3D : Node3D
                     float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
             }
             if (a == "--bright") _debugBright = true;
-            if (a == "--terraindebug") _debugTerrain = true;
+            if (a == "--nofog") _debugNoFog = true;
+            if (a == "--terraindebug") _debugTerrain = 1;
+            if (a == "--terraindebug=weights") _debugTerrain = 2;
         }
     }
 
@@ -153,7 +155,8 @@ public partial class Stage3D : Node3D
     }
 
     private Vector3? _debugOrbit;
-    private bool _debugBright, _debugTerrain;
+    private bool _debugBright, _debugNoFog;
+    private int _debugTerrain;
 
     /// <summary>Builds the 3D level for a freshly generated cave.</summary>
     public void BuildLevel(CaveData cave)
@@ -165,7 +168,7 @@ public partial class Stage3D : Node3D
         Terrain = new TerrainView { Name = "Terrain" };
         Level.AddChild(Terrain);
         Terrain.Build(cave);
-        if (_debugTerrain) Terrain.Material.SetShaderParameter("debug_view", 1);
+        if (_debugTerrain > 0) Terrain.Material.SetShaderParameter("debug_view", _debugTerrain);
         var decor = new CaveDecor3D { Name = "Decor" };
         Level.AddChild(decor);
         decor.Build(Terrain.Field, cave, Terrain.Material, Lights);
@@ -211,6 +214,7 @@ public partial class Stage3D : Node3D
             Env.VolumetricFogEnabled = false;
             _fill.LightEnergy = 1.2f;
         }
+        if (_debugNoFog) Env.VolumetricFogEnabled = false;
     }
 
     public override void _Process(double delta)

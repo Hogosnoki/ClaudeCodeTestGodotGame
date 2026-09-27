@@ -48,11 +48,19 @@ public static class CreatureLibrary
         CreatureRegistry.RegisterAll();
     }
 
+    /// <summary>
+    /// Voxel size multiplier for sculpts. In play the camera stands well back, so creatures are
+    /// sculpted a little coarser than their designs ask (fewer triangles to skin and to shadow);
+    /// look-development sheets set it back to 1.
+    /// </summary>
+    public static float CellScale = 1.3f;
+
     private static Baked Bake(Func<CreatureDesign> make)
     {
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var design = make();
-        var s = new Sculptor(design.Seed) { Cell = design.Cell };
+        // (small creatures with fine limbs keep their full resolution)
+        var s = new Sculptor(design.Seed) { Cell = design.Cell * (design.Cell >= 0.014f ? CellScale : 1f) };
         design.Sculpt(s);
         var data = SculptMesher.Bake(s);
         design.BindBones(data.Bones);

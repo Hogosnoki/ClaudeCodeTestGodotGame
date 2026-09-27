@@ -25,6 +25,7 @@ public partial class ModelSheet : Node3D
 
     public override void _Ready()
     {
+        CreatureLibrary.CellScale = 1f; // full detail for close-ups
         foreach (var a in OS.GetCmdlineUserArgs())
         {
             if (a.StartsWith("--modelsheet=")) _names.AddRange(a[13..].Split(','));
@@ -82,7 +83,7 @@ public partial class ModelSheet : Node3D
         _index++;
         _frame = 0;
         _time = 0;
-        if (_index >= _names.Count) { GetTree().Quit(); return; }
+        if (_index >= _names.Count) { SafeQuit.Request(this); return; }
         string name = _names[_index];
         var clips = _clips ?? DefaultClips(name);
         float span = 0;

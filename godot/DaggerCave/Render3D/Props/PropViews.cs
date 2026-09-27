@@ -646,7 +646,7 @@ public partial class AirBubbleView : PropView
     {
         _ball = new MeshInstance3D { Mesh = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 16, Rings = 8 }, MaterialOverride = PropViews.BubbleMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
         AddChild(_ball);
-        _hl = PropViews.Sprite(new Color(0.8f, 0.95f, 1f), 0, 0.6f, 0.8f);
+        _hl = PropViews.Sprite(new Color(0.8f, 0.95f, 1f), 0, 0.2f, 0.6f);
         AddChild(_hl);
     }
 

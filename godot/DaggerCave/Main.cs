@@ -89,7 +89,7 @@ public partial class Main : Node
             (2.05f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
             (2.6f, () => { Meta.Found["pearl"] = 2; Meta.Held["pearl"] = 1; GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_3.png"); }),
             (3.0f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_4.png")),
-            (3.2f, () => { GD.Print($"[metashot] hot rank active: {Meta.Active.Contains("hot1")}, embers {Meta.Embers}"); GetTree().Quit(); }),
+            (3.2f, () => { GD.Print($"[metashot] hot rank active: {Meta.Active.Contains("hot1")}, embers {Meta.Embers}"); SafeQuit.Request(this); }),
         };
         while (_metaShotStep < steps.Length && _titleT >= steps[_metaShotStep].at) steps[_metaShotStep++].act();
     }
@@ -99,6 +99,8 @@ public partial class Main : Node
     {
         G.Main = this;
         ProcessMode = ProcessModeEnum.Always;
+        // closing the window waits out background shader compiles first (see SafeQuit)
+        GetTree().AutoAcceptQuit = false;
         SetupInput();
         var win = GetWindow();
         win.ContentScaleSize = new Vector2I(1280, 720);
@@ -144,7 +146,7 @@ public partial class Main : Node
         catch (Exception ex)
         {
             GD.PrintErr(ex.ToString());
-            if (_autotest || gentest) GetTree().Quit(1);
+            if (_autotest || gentest) SafeQuit.Request(this, 1);
             else throw;
         }
     }
@@ -335,7 +337,7 @@ public partial class Main : Node
         if (_lookFrame < _lookFrames) return;
         GetViewport().GetTexture().GetImage().SavePng(_lookShot);
         GD.Print($"[lookshot] saved {_lookShot}");
-        GetTree().Quit();
+        SafeQuit.Request(this);
     }
 
     private static void SetupInput()
@@ -749,6 +751,7 @@ public partial class Main : Node
     {
         // closing the window (or quitting from code) keeps what was learned
         if ((what == NotificationWMCloseRequest || what == NotificationExitTree) && Brains.Training) Brains.SaveAll();
+        if (what == NotificationWMCloseRequest) SafeQuit.Request(this);
     }
 
     public override void _UnhandledInput(InputEvent e)
@@ -804,6 +807,7 @@ public partial class Main : Node
 
     public override void _Process(double delta)
     {
+        if (SafeQuit.Quitting) return;
         float dt = (float)delta;
         // This frame's delta was scaled by whatever time scale was in effect when the frame began,
         // so un-scale it with that value (not with a scale a hit may have set during this frame).
@@ -825,7 +829,7 @@ public partial class Main : Node
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
-                    GetTree().Quit();
+                    SafeQuit.Request(this);
                 }
                 return;
             case State.Paused:
@@ -1244,7 +1248,7 @@ public partial class Main : Node
     private void FinishFullRun(bool ok)
     {
         GD.Print($"[fullrun] {(ok ? "VICTORY" : "FAILED")}: depth {G.Depth}, level {G.Player?.Level}, time {_runTime:0}s, deaths {_deaths}");
-        GetTree().Quit(ok ? 0 : 1);
+        SafeQuit.Request(this, ok ? 0 : 1);
     }
     private int _deaths;
 
@@ -1273,7 +1277,7 @@ public partial class Main : Node
                 if (e.GlobalPosition.DistanceTo(p.GlobalPosition) < 700)
                     GD.Print($"[autotest] near: {e.GetType().Name} at {e.GlobalPosition - p.GlobalPosition} water {G.Cave.IsWater(e.GlobalPosition)} solid {G.Cave.IsSolid(e.GlobalPosition)}");
             GD.Print($"[autotest] done: depth {G.Depth} level {p.Level} hp {p.Hp:0}/{p.Stats.MaxHp} kills {p.Kills} enemies {G.Enemies.Count} upgrades [{string.Join(",", p.Stats.Stacks.Keys)}] pos {p.GlobalPosition} runtime {_runTime:0.0}");
-            GetTree().Quit();
+            SafeQuit.Request(this);
         }
     }
 
@@ -1362,7 +1366,7 @@ public partial class Main : Node
         if (_bestiaryT > 6.4f)
         {
             GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/bestiary_dragon.png");
-            GetTree().Quit();
+            SafeQuit.Request(this);
         }
     }
 
@@ -1436,7 +1440,7 @@ public partial class Main : Node
             (4.2f, () => Btn(JoyButton.Start, true), "start pause"),
             (4.25f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start: {_state}"); }, ""),
             (4.5f, () => Btn(JoyButton.Start, true), ""),
-            (4.55f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start again: {_state}"); GetTree().Quit(); }, ""),
+            (4.55f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start again: {_state}"); SafeQuit.Request(this); }, ""),
         };
         while (_padStep < steps.Length && _padT >= steps[_padStep].at) steps[_padStep++].act();
     }
@@ -1641,7 +1645,7 @@ public partial class Main : Node
     private void Finish()
     {
         GD.Print(_heroOk ? "[herotest] PASS" : "[herotest] FAIL");
-        GetTree().Quit(_heroOk ? 0 : 1);
+        SafeQuit.Request(this, _heroOk ? 0 : 1);
     }
 
     private PlayerInput AnimTestInput()
@@ -1674,7 +1678,7 @@ public partial class Main : Node
             var r = new Rect2I((int)(sp.X * scale.X) - 60, (int)(sp.Y * scale.Y) - 90, 300, 140);
             img.GetRegion(r).SavePng($"{_shotDir}/at_{_animFrame:000}.png");
         }
-        if (_animT > 5.4f) GetTree().Quit();
+        if (_animT > 5.4f) SafeQuit.Request(this);
     }
 
     /// <summary>--nntest: checks the brain's maths (gradients, learning, save/load) without a window.</summary>
@@ -1740,7 +1744,7 @@ public partial class Main : Node
         GD.Print($"[nntest] one decision takes {sw.Elapsed.TotalMilliseconds / 10000 * 1000:0.0} microseconds");
 
         GD.Print(ok ? "[nntest] PASS" : "[nntest] FAIL");
-        GetTree().Quit(ok ? 0 : 1);
+        SafeQuit.Request(this, ok ? 0 : 1);
     }
 
     private void RunGenTest()
@@ -1768,7 +1772,7 @@ public partial class Main : Node
             cleanAll += clean; totalAll += n;
         }
         GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, avg {total / (ulong)Math.Max(1, totalAll)} ms");
-        GetTree().Quit();
+        SafeQuit.Request(this);
     }
 
     /// <summary>--metatest: the resource draw, buying and activating ranks, and their effects.</summary>
@@ -1800,7 +1804,7 @@ public partial class Main : Node
         Check($"milestones every 5 levels ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 5);
         Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
         GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
-        GetTree().Quit(ok ? 0 : 1);
+        SafeQuit.Request(this, ok ? 0 : 1);
     }
 
     private static bool BossReachable(CaveData c)
