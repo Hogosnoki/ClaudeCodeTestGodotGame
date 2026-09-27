@@ -13,7 +13,7 @@ public sealed class BotPilot
 {
     private PlayerInput _cur;
     private List<Vector2> _path = new();
-    private float _pathT, _stuckT, _goalT, _atkCd, _throwCd, _dodgeCd, _jumpHoldT;
+    private float _pathT, _stuckT, _goalT, _atkCd, _throwCd, _ability2Cd, _dodgeCd, _jumpHoldT;
     private Vector2 _lastPos;
     private Vector2 _goal;
     private bool _haveGoal;
@@ -22,7 +22,7 @@ public sealed class BotPilot
     public PlayerInput Read()
     {
         var r = _cur;
-        _cur.Jump = false; _cur.Attack = false; _cur.Ability = false; _cur.Dodge = false; _cur.Potion = false; _cur.Interact = false;
+        _cur.Jump = false; _cur.Attack = false; _cur.Ability = false; _cur.Ability2 = false; _cur.Dodge = false; _cur.Potion = false; _cur.Interact = false;
         return r;
     }
 
@@ -40,7 +40,7 @@ public sealed class BotPilot
         var p = G.Player;
         var cave = G.Cave;
         if (p == null || p.Dead || cave == null) return;
-        _pathT -= dt; _goalT -= dt; _atkCd -= dt; _throwCd -= dt; _dodgeCd -= dt; _jumpHoldT -= dt;
+        _pathT -= dt; _goalT -= dt; _atkCd -= dt; _throwCd -= dt; _ability2Cd -= dt; _dodgeCd -= dt; _jumpHoldT -= dt;
         var pos = p.GlobalPosition;
 
         var exits = G.Main.ExitSpots;
@@ -116,7 +116,7 @@ public sealed class BotPilot
             _cur.Aim = te.Normalized();
             // the Vitalist fights from medium range; the blades close in
             bool caster = p.Stats.Hero == HeroKind.Vitalist;
-            float reach = caster ? Tune.Vitalist.BoltRange * 0.8f : 44 + target.HitRadius;
+            float reach = caster ? Tune.Vitalist.DrainRange * 0.8f : 44 + target.HitRadius;
             if (bd < reach && _atkCd <= 0) { _cur.Attack = true; _atkCd = 0.12f; }
             // abilities: charge the blade before closing in, dash into attacks, heal when hurt
             if (_throwCd <= 0)
@@ -128,6 +128,17 @@ public sealed class BotPilot
                     _ => bd < 120,
                 };
                 if (use) { _cur.Ability = true; _throwCd = 1.0f; }
+            }
+            // second abilities: bash what's about to strike, heave at close quarters, rupture when the reserve is full
+            if (_ability2Cd <= 0)
+            {
+                bool use2 = p.Stats.Hero switch
+                {
+                    HeroKind.Warden => bd < 50,
+                    HeroKind.Vitalist => p.RuptureReady && bd < Tune.Vitalist.RuptureRange,
+                    _ => bd < 60 && p.IsOnFloor(),
+                };
+                if (use2) { _cur.Ability2 = true; _ability2Cd = 1.5f; }
             }
             if (bd > reach * 0.8f && !p.InWater) move.X = Math.Sign(te.X);
             else if (caster && bd < 60 && !p.InWater) move.X = -Math.Sign(te.X);

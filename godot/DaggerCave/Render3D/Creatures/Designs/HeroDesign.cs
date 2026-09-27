@@ -411,8 +411,21 @@ public sealed class HeroDesign : CreatureDesign
             float glow = player?.CastGlow ?? 0f;
             bool dead = player == null || player.Dead;
             float pulse = 0.85f + 0.15f * MathF.Sin(a.Time * 2.6f);
+            // the crystal takes the colour of the spell it just cast: pink for a heal, crimson for
+            // stolen life, its own green at rest and for the hex
+            var spell = player?.LastCast switch
+            {
+                "heal" => Player.HealColor,
+                "drain" or "rupture" => new Color(1f, 0.22f, 0.3f),
+                _ => Life,
+            };
+            var col = Life.Lerp(spell, Math.Clamp(glow * 1.6f, 0f, 1f));
             if (gem.Mesh.SurfaceGetMaterial(0) is StandardMaterial3D mat)
+            {
                 mat.EmissionEnergyMultiplier = dead ? 0.4f : (1.8f + 7f * glow) * pulse;
+                mat.Emission = col;
+            }
+            light.LightColor = col;
             light.LightEnergy = dead ? 0f : (0.35f + 2.6f * glow) * pulse;
             light.OmniRange = 3.2f + 2.5f * glow;
         }
@@ -577,6 +590,54 @@ public sealed class HeroDesign : CreatureDesign
         return o;
     }
 
+    /// <summary>
+    /// The Swordsman's heaving swing: both hands on the hilt, the sword hauled up over the head and
+    /// far behind (the long wind-up, rooted), then brought over and down in one great arc into a
+    /// deep lunge, and held there a moment.
+    /// </summary>
+    private static Body Heave(Body basePose, float t, bool grounded)
+    {
+        const float w = 7f / 16f, u = 9f / 16f;
+        float blade, lean, twist;
+        if (t < w)
+        {
+            float k = W3.Smooth01(t / w);
+            blade = Mathf.Lerp(basePose.SR - 90f + basePose.ER * 0.5f, 158f, k);
+            lean = Mathf.Lerp(basePose.Lean, -14f, k);
+            twist = -22f * k;
+        }
+        else if (t < u)
+        {
+            float k = (t - w) / (u - w);
+            k = 1f - (1f - k) * (1f - k);
+            blade = Mathf.Lerp(158f, -64f, k);
+            lean = Mathf.Lerp(-14f, 36f, k);
+            twist = Mathf.Lerp(-22f, 26f, k);
+        }
+        else
+        {
+            float k = W3.SmoothStep(0.3f, 1f, (t - u) / (1f - u));
+            blade = Mathf.Lerp(-64f, -40f, k);
+            lean = Mathf.Lerp(36f, 14f, k);
+            twist = Mathf.Lerp(26f, 8f, k);
+        }
+        var o = basePose;
+        float bend = t < w ? Mathf.Lerp(40f, 70f, t / w) : t < u ? Mathf.Lerp(70f, 6f, (t - w) / (u - w)) : 10f;
+        o.SR = 90f + blade - bend * 0.35f; o.ER = bend; o.WR = -bend * 0.55f; o.AR = 14f; o.WRy = 0;
+        // the off hand joins the sword hand on the hilt
+        o.SL = o.SR - 10f; o.EL = bend + 12f; o.AL = 26f; o.WL = o.WR;
+        o.Lean = lean; o.Twist = twist;
+        o.HeadPitch = t < w ? -16f * (t / w) : 8f;
+        if (grounded)
+        {
+            float low = t < w ? 0.35f * (t / w) : t < u ? Mathf.Lerp(0.35f, 1f, (t - w) / (u - w)) : Mathf.Lerp(1f, 0.6f, (t - u) / (1f - u));
+            o.HR = Mathf.Lerp(o.HR, 46f, low); o.KR = Mathf.Lerp(o.KR, 64f, low);
+            o.HL = Mathf.Lerp(o.HL, -28f, low); o.KL = Mathf.Lerp(o.KL, 22f, low);
+            o.Root.Y = Mathf.Lerp(o.Root.Y, -0.13f, low);
+        }
+        return o;
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";
@@ -687,6 +748,42 @@ public sealed class HeroDesign : CreatureDesign
                     staff = Mathf.Lerp(Mathf.Lerp(staff, 108, draw), aim + 18, thrust);
                     break;
                 }
+            case "rupture":
+                {
+                    // the staff raised high behind, the free hand thrust out at the creature, open...
+                    // then clenched and torn back to the chest as it bursts
+                    float aim = 0f;
+                    if (player != null) aim = Math.Clamp(Mathf.RadToDeg(MathF.Atan2(-player.CastDir.Y, MathF.Max(player.CastDir.X * a.Facing, -0.2f))), -60f, 70f);
+                    float reach = Key(t, (0, 0), (0.3f, 1f), (0.46f, 1f), (0.56f, 0f));
+                    float yank = Key(t, (0.46f, 0f), (0.56f, 1f), (0.8f, 1f), (1f, 0f));
+                    o.SL = Mathf.Lerp(Mathf.Lerp(o.SL, 84 + aim * 0.8f, reach), 30, yank);
+                    o.EL = Mathf.Lerp(Mathf.Lerp(o.EL, 6, reach), 118, yank);
+                    o.AL = Mathf.Lerp(o.AL, 24, Math.Max(reach, yank));
+                    o.WL = Mathf.Lerp(-18f * reach, 40f, yank);
+                    o.SR = Mathf.Lerp(o.SR, 150, Math.Max(reach, yank)); o.ER = Mathf.Lerp(o.ER, 30, Math.Max(reach, yank));
+                    o.Lean += 12 * reach - 10 * yank - aim * 0.05f * reach;
+                    o.Twist += -16 * reach + 20 * yank;
+                    o.HeadPitch += -aim * 0.25f * reach;
+                    o.HR += 20 * reach; o.KR += 18 * reach; o.HL -= 12 * reach;
+                    staff = Mathf.Lerp(staff, 104, Math.Max(reach, yank));
+                    break;
+                }
+            case "heave":
+                o = Heave(o, t, a.OnFloor);
+                break;
+            case "shove":
+                {
+                    // the Warden's shield bash: a short step and the shield punched straight out
+                    float k = Key(t, (0, 0), (0.22f, 1f), (0.55f, 1f), (1f, 0f));
+                    o.SL = Mathf.Lerp(45, 96, k); o.EL = Mathf.Lerp(75, 8, k); o.AL = 8;
+                    o.WL = -(o.SL + o.EL) + 90f * k;
+                    o.WLy = a.Facing > 0 ? -30 : 30;
+                    o.SR = Mathf.Lerp(o.SR, -25, k); o.ER = Mathf.Lerp(o.ER, 70, k);
+                    o.Lean = Mathf.Lerp(o.Lean, 26, k); o.Twist = Mathf.Lerp(o.Twist, -18, k); o.HeadPitch = Mathf.Lerp(o.HeadPitch, -6, k);
+                    o.HR = Mathf.Lerp(o.HR, 40, k); o.KR = Mathf.Lerp(o.KR, 36, k); o.HL = Mathf.Lerp(o.HL, -26, k); o.KL = Mathf.Lerp(o.KL, 12, k);
+                    o.Root.Y = Mathf.Lerp(o.Root.Y, -0.06f, k);
+                    break;
+                }
             case "hex":
                 {
                     // raised overhead in both hands, then driven down into the ground
@@ -748,7 +845,7 @@ public sealed class HeroDesign : CreatureDesign
         if (_vitalist && c != "death") o.WR = staff + o.Lean - o.SR - o.ER;
 
         // ---- the warden's shield, raised toward where she guards
-        if (_warden && player != null && player.ShieldRaised && !c.StartsWith("dodge") && c != "death")
+        if (_warden && player != null && player.ShieldRaised && !c.StartsWith("dodge") && c != "death" && c != "shove")
         {
             var d = player.ShieldDir;
             float ang = Mathf.RadToDeg(MathF.Atan2(-d.Y, d.X * a.Facing));

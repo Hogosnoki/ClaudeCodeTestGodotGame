@@ -10,7 +10,9 @@ namespace DaggerCave;
 /// normal blocks don't stop an attack, but a perfect block (raised just before the hit) stops
 /// all of it and breaks the attack off. Healing also mends the shield. The ability is the
 /// shield dash: a guarded charge that stops at the first projectile or attacking creature in
-/// its way and breaks that attack off, passing straight by creatures that aren't attacking.
+/// its way and breaks that attack off, passing straight by creatures that aren't attacking. The
+/// second ability is the shield bash: a short shove that stuns what it meets (breaking off its
+/// attack) at the cost of a dent in the shield.
 /// </summary>
 public partial class Player
 {
@@ -22,11 +24,18 @@ public partial class Player
     public float ShieldArc => Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
     private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _blockGrace;
 
-    private float _dashT, _dashCd;
+    private float _dashT;
     private Vector2 _dashDir = Vector2.Right;
     public bool IsShieldDashing => _dashT > 0;
     /// <summary>0 = the shield dash is ready, 1 = just used.</summary>
-    public float DashCooldownFrac => Math.Clamp(_dashCd / Math.Max(0.01f, Stats.DashCooldown + Stats.DashTime), 0, 1);
+    public float DashCooldownFrac => AbilityCooldownFrac;
+
+    private float _bashT, _bashCd;
+    private bool _bashHit;
+    private Vector2 _bashDir = Vector2.Right;
+    public bool IsShieldBashing => _bashT > 0;
+    /// <summary>0 = the shield bash is ready, 1 = just used.</summary>
+    public float BashCooldownFrac => Math.Clamp(_bashCd / Math.Max(0.01f, Stats.BashCooldown), 0, 1);
 
     /// <summary>Test harness: a fresh, full shield.</summary>
     public void RefillShield() { ShieldHp = Stats.ShieldMax; _shieldBrokenT = 0; }
@@ -51,18 +60,18 @@ public partial class Player
         else ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt);
         _shieldFlash -= dt; _blockGrace -= dt;
 
-        bool dashing = _dashT > 0;
+        bool dashing = _dashT > 0, bashing = _bashT > 0;
         bool want = inp.GuardHeld || inp.Dodge || inp.StickGuard;
         bool was = ShieldRaised;
-        ShieldRaised = dashing || (want && !ShieldBroken && ShieldHp > 0);
+        ShieldRaised = dashing || (bashing && !ShieldBroken) || (want && !ShieldBroken && ShieldHp > 0);
         if (ShieldRaised && !was) _shieldUpT = 0;
         _shieldUpT += dt;
         // aim: right stick / mouse when given, otherwise the way you face
-        var aim = dashing ? _dashDir : inp.GuardAim.LengthSquared() > 0.01f ? inp.GuardAim.Normalized() : new Vector2(Facing, 0);
+        var aim = dashing ? _dashDir : bashing ? _bashDir : inp.GuardAim.LengthSquared() > 0.01f ? inp.GuardAim.Normalized() : new Vector2(Facing, 0);
         ShieldDir = aim;
         // held with the button, the shield turns you to face it; held with the right stick it
         // can point behind you while you run
-        if (ShieldRaised && !dashing && !inp.StickGuard && Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
+        if (ShieldRaised && !dashing && !bashing && !inp.StickGuard && Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
     }
 
     public struct Block
@@ -158,13 +167,13 @@ public partial class Player
 
     private bool TryShieldDash(Vector2 aim)
     {
-        if (!IsWarden || _dashCd > 0 || _dashT > 0) return false;
+        if (!IsWarden || !AbilityChargeReady || _dashT > 0) return false;
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         // on your feet it's a charge along the ground (unless you aim well upward)
         if (!InWater && IsOnFloor() && d.Y > -0.5f) d = new Vector2(Math.Abs(d.X) > 0.1f ? Math.Sign(d.X) : Facing, 0);
         _dashDir = d;
         _dashT = Stats.DashTime;
-        _dashCd = Stats.DashTime + Stats.DashCooldown;
+        SpendAbilityCharge();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
         _swingT = -1; // a swing still under way gives way to the charge
         _shieldUpT = 0;
@@ -243,6 +252,98 @@ public partial class Player
         _dashT = 0;
         _shieldUpT = 0; // still braced: a blow that follows at once is a perfect block too
         Velocity = new Vector2(-_dashDir.X * 110f, Math.Min(Velocity.Y, 0f) * 0.2f);
+    }
+
+    // ---------------------------------------------------------------- shield bash
+
+    private bool TryShieldBash(Vector2 aim)
+    {
+        if (!IsWarden || _bashCd > 0 || _bashT > 0) return false;
+        if (ShieldBroken || ShieldHp <= 0) { _bashCd = 0.5f; SayNo("SHIELD BROKEN"); return true; }
+        var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        // on your feet it's a shove straight ahead; in the air or the water, wherever you aim
+        if (!InWater && IsOnFloor()) d = new Vector2(Math.Abs(d.X) > 0.2f ? Math.Sign(d.X) : Facing, 0);
+        _bashDir = d;
+        _bashT = Tune.Warden.BashTime;
+        _bashCd = Stats.BashCooldown;
+        _bashHit = false;
+        if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
+        _swingT = -1; // a swing still under way gives way to the shove
+        _shieldUpT = 0;
+        ShieldRaised = true;
+        ShieldDir = d;
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("shove", 3, 8f / 24f / (Tune.Warden.BashTime * 1.8f));
+        G.Sfx.Play("dodge", GlobalPosition, -4, 0.05f, 0.6f);
+        if (!InWater && IsOnFloor()) G.Fx.Dust(GlobalPosition + new Vector2(Facing * -4, 12), 3, 1f);
+        return true;
+    }
+
+    /// <summary>The shove's own motion: a short burst forward, fading (it stops dead on impact).</summary>
+    private float BashMotion(float vx)
+    {
+        if (_bashHit) return vx;
+        float k = Math.Clamp(_bashT / Tune.Warden.BashTime, 0, 1);
+        return _bashDir.X * Tune.Warden.BashLunge * k;
+    }
+
+    private void TickBash(float dt)
+    {
+        if (_bashT <= 0) return;
+        _bashT -= dt;
+        if (_bashHit) return;
+        if (InWater || !IsOnFloor()) Velocity = Velocity.Lerp(_bashDir * Tune.Warden.BashLunge * 0.6f, 0.3f);
+        var front = GlobalPosition + new Vector2(0, -3) + _bashDir * 10;
+        // the shield meets projectiles on the way, as it would held up
+        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
+        {
+            if (pr.GlobalPosition.DistanceTo(front) > pr.Radius + 14) continue;
+            if (Stats.PerfectReflect) pr.Reflect(_bashDir, Stats.DamageMult); else pr.Deflect();
+        }
+        Enemy best = null;
+        float bestD = float.MaxValue;
+        foreach (var e in G.Enemies)
+        {
+            if (e.Dead || !e.CanBeHit) continue;
+            float d = e.GlobalPosition.DistanceTo(front) - e.HitRadius;
+            if (d > Tune.Warden.BashReach || d >= bestD) continue;
+            if (!G.Cave.LineClear(GlobalPosition + new Vector2(0, -3), e.GlobalPosition)) continue;
+            best = e; bestD = d;
+        }
+        if (best != null) BashImpact(best);
+    }
+
+    /// <summary>The shove lands: damage, a stun that breaks off whatever it was doing, and a dent in the shield.</summary>
+    private void BashImpact(Enemy e)
+    {
+        _bashHit = true;
+        _bashT = Math.Min(_bashT, 0.1f);
+        var at = e.GlobalPosition - (e.GlobalPosition - GlobalPosition).Normalized() * e.HitRadius;
+        // (the blow first, then the stun: a hit's own short reel mustn't cut the stun short)
+        float dealt = e.Hurt(Tune.Warden.BashDamage * Stats.DamageMult, _bashDir * Tune.Warden.BashPush, at);
+        if (dealt > 0) OnDealtDamage(dealt);
+        if (!e.Dead)
+        {
+            float stun = Tune.Warden.BashStun * (e.Elite || e.IsGuardian ? 0.5f : 1f);
+            e.Interrupt(_bashDir * Tune.Warden.BashPush, stun, "STUNNED");
+            e.Freeze(Tune.Feel.HitStopDash);
+        }
+        // the shield takes the blow too
+        ShieldHp -= Tune.Warden.BashShieldCost;
+        _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
+        _shieldFlash = 0.25f;
+        G.Fx.Spark(at, _bashDir, true, new Color(1f, 0.95f, 0.75f));
+        G.Fx.Ring(at, 16, new Color(0.7f, 0.9f, 1f, 0.9f));
+        G.Fx.Shockwave(at, 26, new Color(1f, 1f, 1f, 0.7f), 0.25f);
+        for (int k = 0; k < 5; k++) G.Fx.Glint(at + G.RandDir() * G.Range(4, 14), new Color(1f, 0.9f, 0.5f), 6);
+        G.Sfx.Play("clink", at, 2, 0.05f, 0.55f);
+        G.Sfx.Play("slam", at, -4, 0.05f, 1.6f);
+        G.Main.Kick(_bashDir * Tune.Feel.KickFinisher);
+        G.Fx.AddShake(3.5f);
+        G.Main.Rumble(0.6f, 0.7f, 0.18f);
+        Freeze(Tune.Feel.HitStopDash);
+        Velocity = new Vector2(-_bashDir.X * 70f, Math.Min(Velocity.Y, 0f));
+        if (ShieldHp <= 0) BreakShield(at);
     }
 
     // ---------------------------------------------------------------- drawing

@@ -5,7 +5,9 @@ namespace DaggerCave;
 
 /// <summary>
 /// The Swordsman's kit: a quick dodge roll on a short cooldown (a swing can be started out of
-/// it), and the Charged Strike, which empowers the next swing without breaking a combo.
+/// it), the Charged Strike, which empowers the next swing without breaking a combo, and the
+/// Heaving Swing: a slow, rooted, two-handed blow on your feet that hits twice as hard (and
+/// spends a waiting Charged Strike, for more still).
 /// </summary>
 public partial class Player
 {
@@ -13,30 +15,39 @@ public partial class Player
     private static float DodgeTime => Tune.Hero.DodgeTime;
 
     private float[] _dodgeCd = new float[1];
-    private float _dodgeT, _chargeCd, _chargeGlowT;
+    private float _dodgeT, _chargeGlowT, _heaveCd, _heaveRootT;
     private Vector2 _dodgeDir;
+    private bool _heave, _heaveWanted;
 
     public bool IsDodging => _dodgeT > 0;
+    /// <summary>Planted for a heaving swing: no running, jumping or rolling until it's done.</summary>
+    public bool Heaving => _heaveRootT > 0;
+    /// <summary>True while the current swing is a heaving swing (for the 3D smear).</summary>
+    public bool SwingHeave => _swingT >= 0 && _heave;
+    /// <summary>0 = the heaving swing is ready, 1 = just used.</summary>
+    public float HeaveCooldownFrac => Math.Clamp(_heaveCd / Math.Max(0.01f, Stats.HeaveCooldown), 0, 1);
+
     /// <summary>Test harness: every ability ready again.</summary>
     public void ResetAbilityCooldowns()
     {
-        _dashCd = _chargeCd = _hexCd = _healCd = _boltCd = 0;
+        _hexCd = _healCd = _drainCd = _ruptureCd = _bashCd = _heaveCd = 0;
         for (int k = 0; k < _dodgeCd.Length; k++) _dodgeCd[k] = 0;
+        for (int k = 0; k < _abilityCd.Length; k++) _abilityCd[k] = 0;
     }
 
     /// <summary>Test harness: the timers that gate the buttons.</summary>
-    public string DebugState => $"freeze {_freeze:0.00} swingCd {_swingCd:0.00} swingT {_swingT:0.00} dodgeT {_dodgeT:0.00} atkBuf {_attackBuf:0.00} ablBuf {_abilityBuf:0.00} chargeCd {_chargeCd:0.0} charged {Charged} dashT {_dashT:0.00} dashCd {_dashCd:0.00} shield {ShieldRaised}";
+    public string DebugState => $"freeze {_freeze:0.00} swingCd {_swingCd:0.00} swingT {_swingT:0.00} dodgeT {_dodgeT:0.00} atkBuf {_attackBuf:0.00} ablBuf {_abilityBuf:0.00} abl2Buf {_ability2Buf:0.00} ability {AbilityCooldownFrac:0.00} charged {Charged} dashT {_dashT:0.00} bashT {_bashT:0.00} heave {_heaveRootT:0.00} shield {ShieldRaised}";
     public float[] DodgeCooldowns => _dodgeCd;
     /// <summary>A dodge charge's whole recharge, from the roll starting (for the HUD).</summary>
     public float DodgeCooldownTotal => DodgeTime + Tune.Hero.DodgeCooldown * Stats.DodgeCdMult;
     /// <summary>Swings still empowered by the Charged Strike (0 = none).</summary>
     public int Charged { get; private set; }
     /// <summary>0 = the Charged Strike is ready, 1 = just used.</summary>
-    public float ChargeCooldownFrac => Math.Clamp(_chargeCd / Math.Max(0.01f, Stats.ChargeCooldown), 0, 1);
+    public float ChargeCooldownFrac => AbilityCooldownFrac;
 
     private bool TryDodge(in PlayerInput inp)
     {
-        if (_dodgeT > 0 || _airDashT > 0) return false;
+        if (_dodgeT > 0 || _airDashT > 0 || Heaving) return false;
         int idx = -1;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] <= 0) { idx = k; break; }
         if (idx < 0) return false;
@@ -71,8 +82,8 @@ public partial class Player
     /// </summary>
     private bool TryCharge()
     {
-        if (!IsSwordsman || _chargeCd > 0 || Charged > 0) return false;
-        _chargeCd = Stats.ChargeCooldown;
+        if (!IsSwordsman || !AbilityChargeReady || Charged > 0) return false;
+        SpendAbilityCharge();
         Charged = Stats.ChargeSwings;
         // a swing still coiling takes the charge at once
         if (_swingT >= 0 && !_released && !_swingCharged) ChargeCurrentSwing();
@@ -104,8 +115,76 @@ public partial class Player
         _swingDmg *= Tune.Swordsman.ChargeDamage;
     }
 
+    // ---------------------------------------------------------------- heaving swing
+
+    private bool TryHeave(Vector2 aim)
+    {
+        if (!IsSwordsman || _heaveCd > 0 || Heaving) return false;
+        // it needs your feet on the ground (a press just before landing still takes)
+        if (InWater || !IsOnFloor()) { _heaveWanted = true; return false; }
+        _heaveWanted = false;
+        _heaveCd = Stats.HeaveCooldown;
+        _dodgeT = 0;
+        float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
+        Facing = dir;
+        StartHeave();
+        return true;
+    }
+
+    private void StartHeave()
+    {
+        _heave = true;
+        _finisher = false;
+        _comboStep = 0;
+        _chainLive = false;
+        _swingSinceLast = 0;
+        // one great arc over the top, from behind your head down to the floor in front
+        _swingDir = new Vector2(Facing, -0.25f).Normalized();
+        bool charged = _swingCharged = ConsumeCharge();
+        float speed = Math.Max(1f, Stats.AttackSpeed);
+        _swingArc = Mathf.DegToRad(Tune.Swordsman.HeaveArcDegrees);
+        _swingReach = BaseReach * Stats.DaggerReach * Tune.Swordsman.HeaveReach * (charged ? Tune.Swordsman.ChargeReach : 1f);
+        _swingDmg = BaseDamage * Stats.DamageMult * Tune.Swordsman.HeaveDamage * (charged ? Tune.Swordsman.ChargeDamage : 1f);
+        _swingT = 0;
+        _released = false;
+        _windup = Tune.Swordsman.HeaveWindup / speed;
+        _active = SwingActive * 1.6f / speed;
+        _heaveRootT = _windup + _active + Tune.Swordsman.HeaveRecover;
+        _swingHits.Clear();
+        _brokeThisSwing.Clear();
+        _swingHitSomething = false;
+        Velocity = new Vector2(0, Velocity.Y);
+        Anim.Face((int)Facing, instant: true);
+        // the clip's seven wind-up frames last exactly the wind-up
+        Anim.Once("heave", 4, 7f / 24f / _windup);
+        Anim.Punch(new Vector2(0.9f, 1.12f));
+        G.Sfx.Play("gasp", GlobalPosition, -10, 0.05f, 0.55f);
+        G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.2f);
+        if (charged) G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 16, new Color(1f, 0.6f, 0.3f));
+    }
+
+    /// <summary>The heaving swing lands on the floor in front: a crack of dust and a jolt.</summary>
+    private void HeaveImpact()
+    {
+        var at = GlobalPosition + new Vector2(Facing * _swingReach * 0.75f, 12);
+        if (!G.Cave.IsSolid(at + new Vector2(0, 6))) return;
+        G.Fx.Dust(at, 10, 2.2f);
+        G.Fx.Debris(at, new Color(0.45f, 0.4f, 0.36f), 6, 200);
+        G.Fx.Shockwave(at, 34, new Color(1f, 0.95f, 0.85f, 0.6f), 0.3f);
+        G.Fx.AddShake(3.5f);
+        G.Sfx.Play("slam", at, -6, 0.05f, 1.3f);
+        G.Main.Rumble(0.4f, 0.6f, 0.15f);
+    }
+
     private void TickSwordsman(float dt)
     {
+        if (_heaveRootT > 0) _heaveRootT -= dt;
+        if (_heaveWanted && _ability2Buf <= 0)
+        {
+            // the press ran out while you were in the air
+            _heaveWanted = false;
+            SayNo("FEET ON THE GROUND");
+        }
         if (Charged <= 0) return;
         // embers stream off the charged blade
         _chargeGlowT -= dt;

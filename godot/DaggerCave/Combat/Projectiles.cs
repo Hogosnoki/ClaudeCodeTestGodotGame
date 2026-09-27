@@ -5,24 +5,32 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Vitalist's drain bolt: a mote of stolen life that streaks at its target (curving after
-/// it), strikes that one creature, and hands a share of the damage back as alimus. With
-/// Splitting Bolt it leaps on to another creature nearby.
+/// Life torn out of a creature by the Vitalist's drain (or rupture): a crimson mote that whips
+/// out sideways and then races back to the caster's staff, where it becomes alimus. It isn't
+/// stopped by rock: it's life, going home.
 /// </summary>
-public partial class DrainBolt : Node2D
+public partial class LifeMote : Node2D
 {
-    public Vector2 Dir = Vector2.Right;
-    public Enemy Target;
-    public float Damage, Range = 175f;
-    /// <summary>How many more creatures it leaps to after striking one.</summary>
-    public int Leaps;
-    /// <summary>For the 3D stage: seconds since it was cast, and how bright it still is.</summary>
+    public Player Caster;
+    /// <summary>The alimus it carries.</summary>
+    public float Alimus;
+    /// <summary>1 for a full drain, less for the splash of a rupture or a Many Mouths strand.</summary>
+    public float Size = 1f;
+    public Vector2 Vel;
+    /// <summary>For the 3D stage: seconds since it was torn out, and how bright it still is.</summary>
     public float Age => _t;
-    public float Alpha => _fade >= 0 ? Math.Clamp(_fade / 0.15f, 0, 1) : 1;
-    private float _t, _traveled, _fade = -1;
-    private readonly HashSet<Enemy> _hit = new();
+    public float Alpha => _fade >= 0 ? Math.Clamp(_fade / 0.12f, 0, 1) : Math.Min(1f, _t * 12f);
+    private float _t, _fade = -1;
 
-    public override void _Ready() { ZIndex = 2; }
+    public override void _Ready()
+    {
+        ZIndex = 2;
+        if (Caster == null || !IsInstanceValid(Caster)) return;
+        // flung out to one side first, so the way home is a whip-crack of an arc
+        var home = (Caster.CastPoint - GlobalPosition).Normalized();
+        var side = new Vector2(-home.Y, home.X) * (G.Chance(0.5f) ? 1 : -1);
+        Vel = side * G.Range(150, 260) - home * G.Range(40, 110);
+    }
 
     public override void _PhysicsProcess(double delta)
     {
@@ -34,86 +42,30 @@ public partial class DrainBolt : Node2D
             if (_fade <= 0) QueueFree();
             return;
         }
-        var cave = G.Cave;
-        // curve after the target (a homing bolt is how a single-target spell reads)
-        if (Target != null && IsInstanceValid(Target) && !Target.Dead && !_hit.Contains(Target))
+        if (Caster == null || !IsInstanceValid(Caster) || Caster.Dead) { _fade = 0.12f; return; }
+        var to = Caster.CastPoint - GlobalPosition;
+        float d = to.Length();
+        if (d < 9f || _t > 1.6f)
         {
-            var want = (Target.GlobalPosition - GlobalPosition).Normalized();
-            float turn = Math.Clamp(Dir.AngleTo(want), -14f * dt, 14f * dt);
-            Dir = Dir.Rotated(turn);
-        }
-        float spd = Tune.Vitalist.BoltSpeed * (cave.IsWater(GlobalPosition) ? 0.7f : 1f);
-        var from = GlobalPosition;
-        var step = Dir * spd * dt;
-        var to = from + step;
-        foreach (var e in G.Enemies.ToArray())
-        {
-            if (e.Dead || _hit.Contains(e) || !e.CanBeHit) continue;
-            if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 3) continue;
-            Strike(e);
+            GlobalPosition = Caster.CastPoint;
+            Caster.AbsorbMote(Alimus, Size);
+            _fade = 0.08f;
             return;
         }
-        if (cave.Raycast(from, Dir, step.Length(), out var wall, 2f)) { GlobalPosition = wall; Fizzle(); return; }
-        GlobalPosition = to;
-        _traveled += step.Length();
-        if (_traveled > Range) Fizzle();
-    }
-
-    private void Strike(Enemy e)
-    {
-        _hit.Add(e);
-        var at = e.GlobalPosition - Dir * e.HitRadius;
-        float dealt = e.Hurt(Damage, Dir * 90f, at);
-        var col = new Color(0.55f, 1f, 0.5f);
-        if (dealt > 0)
-        {
-            G.Player?.OnDealtDamage(dealt);
-            if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
-            G.Fx.Spark(at, Dir, e.Dead, col);
-            G.Fx.Burst(at, new Color(0.9f, 0.2f, 0.25f), 6, 120, 1.8f, 0.4f);
-            G.Main.Rumble(0.2f, 0.05f, 0.06f);
-        }
-        else G.Sfx.Play("clink", GlobalPosition, -6);
-        G.Sfx.Play("hit", at, -8, 0.15f, 1.5f);
-        if (Leaps > 0 && Retarget(e.GlobalPosition))
-        {
-            Leaps--;
-            Damage *= 0.6f;
-            _traveled = 0;
-            GlobalPosition = e.GlobalPosition;
-            G.Fx.Ring(e.GlobalPosition, 9, new Color(col, 0.8f));
-            return;
-        }
-        Fizzle();
-    }
-
-    private bool Retarget(Vector2 from)
-    {
-        Enemy best = null; float bd = 130f;
-        foreach (var e in G.Enemies)
-        {
-            if (e.Dead || _hit.Contains(e) || !e.CanBeHit) continue;
-            float d = e.GlobalPosition.DistanceTo(from);
-            if (d < bd && G.Cave.LineClear(from, e.GlobalPosition)) { bd = d; best = e; }
-        }
-        if (best == null) return false;
-        Target = best;
-        Dir = (best.GlobalPosition - from).Normalized();
-        return true;
-    }
-
-    private void Fizzle()
-    {
-        _fade = 0.15f;
-        G.Fx.Burst(GlobalPosition, new Color(0.5f, 1f, 0.45f, 0.8f), 5, 70, 1.5f, 0.3f);
+        // homing, ever faster: a lazy curl at first, then a snap home
+        float speed = Tune.Vitalist.MoteSpeed * Math.Min(1.3f, 0.3f + _t * 2.6f);
+        Vel = Vel.Lerp(to / d * speed, 1f - MathF.Exp(-dt * (5f + _t * 18f)));
+        var step = Vel * dt;
+        if (step.Length() > d) step = to;
+        GlobalPosition += step;
     }
 
     public override void _Draw()
     {
         float a = Alpha;
-        DrawCircle(Vector2.Zero, 6, new Color(0.5f, 1f, 0.45f, 0.18f * a));
-        DrawCircle(Vector2.Zero, 3, new Color(0.8f, 1f, 0.7f, a));
-        DrawLine(Vector2.Zero, -Dir * 10, new Color(0.9f, 0.25f, 0.3f, 0.6f * a), 2f);
+        DrawCircle(Vector2.Zero, 5 * Size, new Color(Player.LifeColor, 0.25f * a));
+        DrawCircle(Vector2.Zero, 2.4f * Size, new Color(Player.LifeColorLight, a));
+        DrawLine(Vector2.Zero, -Vel.Normalized() * 9 * Size, new Color(Player.LifeColor, 0.6f * a), 2f);
     }
 }
 

@@ -187,6 +187,20 @@ public partial class FxLayer : Node2D
         _parts.Add(p);
     }
 
+    /// <summary>Motes drawn in from a ring around a point, reaching it as they fade (something being seized from within).</summary>
+    public void Converge(Vector2 center, float radius, Color col, int n, float life)
+    {
+        life = Math.Max(0.05f, life);
+        for (int k = 0; k < n; k++)
+        {
+            var from = center + G.RandDir() * radius * G.Range(0.7f, 1.1f);
+            float l = life * G.Range(0.75f, 1f);
+            var p = Deep(new Particle { Pos = from, Vel = (center - from) / l, Life = l, Max = l, Size = G.Range(1.4f, 2.4f), Col = col, Kind = 13, Rot = G.Range(0, Mathf.Tau) }, 0f);
+            p.ZVel = (0.35f - p.Z) / l;
+            _parts.Add(p);
+        }
+    }
+
     /// <summary>A stream of light from one point to another (a heal reaching an ally).</summary>
     public void Beam(Vector2 from, Vector2 to, Color col)
     {

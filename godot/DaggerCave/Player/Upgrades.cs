@@ -17,6 +17,12 @@ public sealed class PlayerStats
     public float HurtInvuln = Tune.Hero.HurtInvuln;      // seconds of invulnerability after being struck
     public float DamageMult = 1f;
     public float AttackSpeed = 1f;       // swing / cast cooldown divisor
+    /// <summary>Damage of the attack button only (a swing, the drain): Heavy Hand's side of the bargain.</summary>
+    public float PrimaryDamageMult = 1f;
+    /// <summary>The ability button (charged strike, shield dash, heal): how many uses it holds, and
+    /// how much longer each takes to come back (Twin Reserve).</summary>
+    public int AbilityCharges = 1;
+    public float AbilityCdMult = 1f;
     public float DaggerReach = 1f;       // swing reach (and bolt range) multiplier
     public float MoveSpeed = 1f;
     public float JumpMult = 1f;
@@ -42,6 +48,7 @@ public sealed class PlayerStats
     public bool ChargeWave;
     public float BleedShare;             // Rending Edge
     public bool Execute, CrescentWave;
+    public float HeaveCooldown = Tune.Swordsman.HeaveCooldown;
 
     // warden: shield + shield dash
     public float ShieldMax = Tune.Warden.ShieldHp;
@@ -55,14 +62,17 @@ public sealed class PlayerStats
     public float DashDamageMult = 1f;
     public bool DashMend, ShieldThorns;
     public bool Stalwart, QuickMend, LastStand;
+    public float BashCooldown = Tune.Warden.BashCooldown;
 
-    // vitalist: drain bolt, hex, heal
+    // vitalist: drain, hex, heal, rupture
     public float AlimusMax = Tune.Vitalist.AlimusMax;
     public float AlimusGain = Tune.Vitalist.AlimusGain;
     public float HealMult = 1f, HealCostMult = 1f;
-    public int BoltLeaps;
+    /// <summary>Many Mouths: how many more creatures near the target each drain also strikes.</summary>
+    public int DrainExtra;
     public float HexRadiusMult = 1f, HexSeconds = Tune.Vitalist.HexSeconds, HexCooldown = Tune.Vitalist.HexCooldown;
     public float HexRot;                 // damage per second to hexed creatures
+    public float RuptureCostMult = 1f, RuptureRadiusMult = 1f, RuptureSplashMult = 1f;
 
     public readonly Dictionary<string, int> Stacks = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
@@ -141,6 +151,7 @@ public static class Upgrades
         new() { Id = "charge2", Name = "Twin Charge", Desc = "Charged Strike empowers your next two swings.", Icon = "charge", For = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.ChargeSwings = 2 },
         new() { Id = "cripple", Name = "Crippling Strike", Desc = "Enemies struck by a charged swing deal 35% less damage instead of 20%.", Icon = "charge", For = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.WeakenMult = 0.65f },
         new() { Id = "storm", Name = "Storm Edge", Desc = "A charged swing looses a full-strength crescent wave.", Icon = "charge", For = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.ChargeWave = true },
+        new() { Id = "heave_cd", Name = "Broad Shoulders", Desc = "Heaving swing recharges 20% faster.", Icon = "charge", For = S, MaxStacks = 2, Apply = (s, p) => s.HeaveCooldown *= 0.8f },
 
         // --- Dodge (swordsman) ---
         new() { Id = "iframes", Name = "Phantom Step", Desc = "Dodging makes you briefly invulnerable.", Icon = "dodge", For = S, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DodgeIFrames = true },
@@ -158,14 +169,17 @@ public static class Upgrades
         new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a whole shield.", Icon = "life", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
         new() { Id = "dash_cd", Name = "Ready Charge", Desc = "Shield dash cooldown -20%.", Icon = "shield", For = W, MaxStacks = 3, Apply = (s, p) => s.DashCooldown *= 0.8f },
         new() { Id = "dash_far", Name = "Long Charge", Desc = "Your shield dash carries you 30% farther.", Icon = "shield", For = W, MaxStacks = 2, Apply = (s, p) => s.DashTime *= 1.3f },
-        new() { Id = "dash_bash", Name = "Shield Bash", Desc = "Your shield dash hits what it stops four times as hard.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashDamageMult = 4f },
+        new() { Id = "dash_bash", Name = "Battering Charge", Desc = "Your shield dash hits what it stops four times as hard.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashDamageMult = 4f },
         new() { Id = "dash_mend", Name = "Rallying Charge", Desc = "Breaking an attack with your shield dash mends your shield by 12 and heals 4.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashMend = true },
+        new() { Id = "bash_cd", Name = "Hard Shoulder", Desc = "Shield bash recharges 20% faster.", Icon = "shield", For = W, MaxStacks = 2, Apply = (s, p) => s.BashCooldown *= 0.8f },
 
         // --- Spells (vitalist) ---
-        new() { Id = "leap", Name = "Splitting Bolt", Desc = "Drain bolts leap on to another creature nearby (60% damage).", Icon = "spell", For = V, MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BoltLeaps += 1 },
-        new() { Id = "bolt_range", Name = "Far Reach", Desc = "Drain bolts reach 25% farther.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.DaggerReach += 0.25f },
+        new() { Id = "mouths", Name = "Many Mouths", Desc = "Your drain also tears the life out of one more creature near its target (60% damage).", Icon = "spell", For = V, MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DrainExtra += 1 },
+        new() { Id = "bolt_range", Name = "Far Reach", Desc = "Your drain and rupture reach 25% farther.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.DaggerReach += 0.25f },
         new() { Id = "hunger", Name = "Hungering Spirit", Desc = "Gain half again as much alimus from the damage you deal.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.AlimusGain += Tune.Vitalist.AlimusGain * 0.5f },
-        new() { Id = "well", Name = "Deep Well", Desc = "Hold 40 more alimus.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 40f },
+        new() { Id = "well", Name = "Deep Well", Desc = "Hold 15 more alimus.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 15f },
+        new() { Id = "rupture_wide", Name = "Burst Veins", Desc = "Your rupture's burst reaches 40% farther and splashes for half again as much.", Icon = "spell", For = V, Tier = UpgradeTier.Ability, Apply = (s, p) => { s.RuptureRadiusMult += 0.4f; s.RuptureSplashMult += 0.5f; } },
+        new() { Id = "rupture_cheap", Name = "Thin Blood", Desc = "Your rupture costs 20% less alimus.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.RuptureCostMult *= 0.8f },
         new() { Id = "heal_more", Name = "Deep Mending", Desc = "Your heal restores 30% more.", Icon = "life", For = V, MaxStacks = 2, Apply = (s, p) => s.HealMult += 0.3f },
         new() { Id = "heal_cheap", Name = "Frugal Rites", Desc = "Your heal costs 25% less alimus.", Icon = "life", For = V, MaxStacks = 2, Apply = (s, p) => s.HealCostMult *= 0.75f },
         new() { Id = "hex_wide", Name = "Spreading Blight", Desc = "Your hex reaches 30% farther.", Icon = "spell", For = V, MaxStacks = 2, Apply = (s, p) => s.HexRadiusMult += 0.3f },
@@ -188,6 +202,12 @@ public static class Upgrades
         new() { Id = "leech", Name = "Thirsty Blade", Desc = "Heal 4% of damage dealt.", Icon = "life", For = Blades, MaxStacks = 3, Apply = (s, p) => s.LifeSteal += 0.04f },
         new() { Id = "onkill", Name = "Trophy Hunter", Desc = "Heal 3 HP on every kill.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HealOnKill += 3f },
         new() { Id = "magnet", Name = "Lodestone", Desc = "Pull experience from further away.", Icon = "life", MaxStacks = 2, Weight = 0.6f, Apply = (s, p) => s.MagnetMult += 0.6f },
+
+        // --- Risk and reward (all): something given, something taken ---
+        new() { Id = "rr_heavy", Name = "Heavy Hand", Desc = "Your attacks come 34% slower, but hit 66% harder.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.AttackSpeed *= 0.66f; s.PrimaryDamageMult *= 1.66f; } },
+        new() { Id = "rr_bones", Name = "Hollow Bones", Desc = "Jump 20% higher, but swim 40% slower.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.JumpMult *= 1.2f; s.SwimSpeed *= 0.6f; } },
+        new() { Id = "rr_gills", Name = "Gill-Touched", Desc = "Swim 50% faster, but run 20% slower.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.SwimSpeed *= 1.5f; s.MoveSpeed *= 0.8f; } },
+        new() { Id = "rr_reserve", Name = "Twin Reserve", Desc = "Your {ability} holds a second use, but each use takes twice as long to come back.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.AbilityCharges += 1; s.AbilityCdMult *= 2f; p.SyncCharges(); } },
     };
 
     /// <summary>Small, stackable stat nudges offered on level-up.</summary>
@@ -212,7 +232,7 @@ public static class Upgrades
         new() { Id = "lv_break", Name = "Steadfast", Desc = "A broken shield recovers 0.6 s sooner.", Icon = "shield", For = W, MaxStacks = 6, Weight = 1.2f, Apply = (s, p) => s.ShieldBreakTime = Math.Max(1.5f, s.ShieldBreakTime - 0.6f) },
         new() { Id = "lv_dash", Name = "Momentum", Desc = "Shield dash recharges 6% faster.", Icon = "shield", For = W, MaxStacks = 8, Apply = (s, p) => s.DashCooldown *= 0.94f },
         // vitalist
-        new() { Id = "lv_alimus", Name = "Reservoir", Desc = "Hold 8 more alimus.", Icon = "spell", For = V, MaxStacks = 10, Apply = (s, p) => s.AlimusMax += 8f },
+        new() { Id = "lv_alimus", Name = "Reservoir", Desc = "Hold 3 more alimus.", Icon = "spell", For = V, MaxStacks = 10, Apply = (s, p) => s.AlimusMax += 3f },
         new() { Id = "lv_heal", Name = "Kindness", Desc = "Your heal restores 6% more.", Icon = "life", For = V, MaxStacks = 10, Apply = (s, p) => s.HealMult += 0.06f },
         new() { Id = "lv_hex", Name = "Malice", Desc = "Hex recharges 6% faster.", Icon = "spell", For = V, MaxStacks = 8, Apply = (s, p) => s.HexCooldown *= 0.94f },
     };
@@ -241,6 +261,17 @@ public static class Upgrades
     public static List<Upgrade> RollMilestone(PlayerStats s, Random rng) => Roll(Milestone, s, 3, rng, u => u.Weight);
 
     public static Upgrade Get(string id) => All.First(u => u.Id == id);
+
+    /// <summary>The hero's ability button, by name (for card texts).</summary>
+    public static string AbilityName(HeroKind h) => h switch
+    {
+        HeroKind.Warden => "shield dash",
+        HeroKind.Vitalist => "heal",
+        _ => "Charged Strike",
+    };
+
+    /// <summary>A card's text for this hero.</summary>
+    public static string DescFor(Upgrade u, PlayerStats s) => s == null ? u.Desc.Replace("{ability}", "ability") : u.Desc.Replace("{ability}", AbilityName(s.Hero));
 
     public static bool Available(Upgrade u, PlayerStats s)
     {
@@ -316,8 +347,8 @@ public static class Progression
             case HeroKind.Vitalist:
                 s.MaxHp += 3; p.Heal(3);
                 s.DamageMult += 0.02f;
-                s.AlimusMax += 3;
-                gain = "+2% damage  +3 alimus";
+                s.AlimusMax += 1;
+                gain = "+2% damage  +1 alimus";
                 break;
             default:
                 s.MaxHp += 2; p.Heal(2);

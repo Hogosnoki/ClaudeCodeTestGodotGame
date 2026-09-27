@@ -24,7 +24,11 @@ public partial class Main : Node
     public int SkipBank;
     /// <summary>True while a menu or screen has the controls (the hero ignores input).</summary>
     public bool MenuOpen => _state != State.Playing;
+    /// <summary>A menu is open over a game that keeps running (online play): the hero ignores input.</summary>
+    public bool OverlayMenuOpen;
     private MetaMenu _metaMenu;
+    private PauseMenu _pauseMenu;
+    private SettingsMenu _settingsMenu;
     private bool _victory;
     private int _runEmbers;
     private string _runFinds = "";
@@ -118,6 +122,7 @@ public partial class Main : Node
         // draws nothing (F7 shows it on top, for checking collisions against the 3D art).
         _stage = new Stage3D();
         AddChild(_stage);
+        GameSettings.Apply(this);
 
         _world = new Node2D { Name = "World", ProcessMode = ProcessModeEnum.Pausable, Visible = false };
         AddChild(_world);
@@ -139,9 +144,14 @@ public partial class Main : Node
         _metaMenu = new MetaMenu();
         _metaMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_metaMenu);
+        UiKit.EnsureMenuControls();
+        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
+        _uiLayer.AddChild(_pauseMenu);
+        _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
+        _uiLayer.AddChild(_settingsMenu);
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -184,7 +194,7 @@ public partial class Main : Node
             G.Player.InputOverride = () =>
             {
                 var i = _heroInput;
-                _heroInput.Attack = _heroInput.Ability = _heroInput.Dodge = _heroInput.Jump = _heroInput.Potion = _heroInput.Interact = false;
+                _heroInput.Attack = _heroInput.Ability = _heroInput.Ability2 = _heroInput.Dodge = _heroInput.Jump = _heroInput.Potion = _heroInput.Interact = false;
                 return i;
             };
         }
@@ -206,6 +216,12 @@ public partial class Main : Node
             _hud.HintTime = 0;
             G.Player.InputOverride = () => default;
             SpawnBestiary();
+        }
+        else if (_menuShot != "")
+        {
+            StartPlaying();
+            _hud.HintTime = 0;
+            G.Player.InputOverride = () => default;
         }
         else if (_lookShot != "")
         {
@@ -236,10 +252,19 @@ public partial class Main : Node
         _overlay.Show("DAGGER DEEP", 0.55f,
             "A rogue-lite descent from the cave mouth to the dragon at the bottom of the world.  Choose your hero:",
             "@",
-            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK attack   RIGHT CLICK ability   SHIFT dodge / shield / hex   E descend   Q potion",
-            "CONTROLLER:  stick move   A jump   X attack   RB / RT ability   B / LB dodge / shield / hex   UP descend   Y potion   right stick aims (and raises the shield)",
+            ControlsLine(false),
+            ControlsLine(true),
             CampLine(),
-            "!LEFT / RIGHT to choose  -  ENTER / A to begin");
+            UsingPad ? "!LEFT / RIGHT to choose  -  A to begin  -  START for settings" : "!LEFT / RIGHT to choose  -  ENTER to begin  -  ESC for settings");
+    }
+
+    /// <summary>The controls in one line, as bound (keyboard and mouse, or the controller).</summary>
+    private static string ControlsLine(bool pad)
+    {
+        string N(string a) => Controls.Name(a, pad);
+        return pad
+            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("potion")} potion   right stick aims"
+            : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} descend   {N("potion")} potion";
     }
 
     /// <summary>The line about embers and the upgrade trees on the title and camp screens.</summary>
@@ -282,12 +307,31 @@ public partial class Main : Node
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
             else if (a == "--exittest") _exitTest = true;
+            else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
         }
     }
 
     // --lookshot=PATH [--frames=N]: build the level, stand still for N frames, save a screenshot
     // and quit (look development for the 3D presentation)
     private string _lookShot = "";
+    // --menushot=DIR: the pause menu and each settings tab, saved as screenshots
+    private string _menuShot = "";
+    private int _menuShotFrame;
+
+    private void MenuShotTick()
+    {
+        int f = ++_menuShotFrame;
+        void Shot(string n) { GetViewport().GetTexture().GetImage().SavePng($"{_menuShot}/{n}.png"); GD.Print($"[menushot] {n}"); }
+        switch (f)
+        {
+            case 20: PauseGame(); break;
+            case 30: Shot("pause"); OpenSettings(); break;
+            case 40: Shot("settings_graphics"); _settingsMenu.ShowTab(1); break;
+            case 50: Shot("settings_sound"); _settingsMenu.ShowTab(2); break;
+            case 60: Shot("settings_controls"); break;
+            case 62: SafeQuit.Request(this); break;
+        }
+    }
     private int _lookFrames = 24, _lookFrame;
     private bool _exitTest;
 
@@ -374,38 +418,11 @@ public partial class Main : Node
         SafeQuit.Request(this);
     }
 
+    /// <summary>Every action with its default bindings, then the player's saved settings (and bindings) on top.</summary>
     private static void SetupInput()
     {
-        void Act(string name, params InputEvent[] evs)
-        {
-            if (!InputMap.HasAction(name)) InputMap.AddAction(name, 0.25f);
-            foreach (var e in evs) InputMap.ActionAddEvent(name, e);
-        }
-        InputEventKey K(Key k) => new() { PhysicalKeycode = k };
-        InputEventJoypadButton J(JoyButton b) => new() { ButtonIndex = b };
-        InputEventJoypadMotion Ax(JoyAxis a, float v) => new() { Axis = a, AxisValue = v };
-
-        Act("move_left", K(Key.A), K(Key.Left), Ax(JoyAxis.LeftX, -1), J(JoyButton.DpadLeft));
-        Act("move_right", K(Key.D), K(Key.Right), Ax(JoyAxis.LeftX, 1), J(JoyButton.DpadRight));
-        Act("move_up", K(Key.W), K(Key.Up), Ax(JoyAxis.LeftY, -1), J(JoyButton.DpadUp));
-        Act("move_down", K(Key.S), K(Key.Down), Ax(JoyAxis.LeftY, 1), J(JoyButton.DpadDown));
-        Act("jump", K(Key.Space), J(JoyButton.A));
-        Act("attack", new InputEventMouseButton { ButtonIndex = MouseButton.Left });
-        Act("attack_alt", K(Key.J), J(JoyButton.X));
-        Act("ability", new InputEventMouseButton { ButtonIndex = MouseButton.Right });
-        Act("ability_alt", K(Key.K), J(JoyButton.RightShoulder), Ax(JoyAxis.TriggerRight, 1));
-        Act("interact", K(Key.E));
-        Act("dodge", K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder), Ax(JoyAxis.TriggerLeft, 1));
-        Act("pause", K(Key.Escape), J(JoyButton.Start));
-        Act("confirm", K(Key.Enter), K(Key.KpEnter), J(JoyButton.A));
-        Act("restart", K(Key.R), J(JoyButton.Y));
-        Act("pick_1", K(Key.Key1));
-        Act("pick_2", K(Key.Key2));
-        Act("pick_3", K(Key.Key3));
-        Act("pick_4", K(Key.Key4));
-        Act("potion", K(Key.Q), J(JoyButton.Y));
-        Act("meta", K(Key.U), J(JoyButton.Back));
-        Act("skip", K(Key.X), J(JoyButton.X));
+        Controls.SetupDefaults();
+        GameSettings.Load();
     }
 
     // ------------------------------------------------------------------ level
@@ -771,6 +788,42 @@ public partial class Main : Node
         _state = State.Playing;
     }
 
+    // ------------------------------------------------------------------ pause and settings
+
+    private void PauseGame()
+    {
+        _state = State.Paused;
+        GetTree().Paused = true;
+        _pauseMenu.Open(online: false);
+    }
+
+    private void Unpause()
+    {
+        _pauseMenu.Visible = false;
+        if (_state != State.Paused) return;
+        GetTree().Paused = false;
+        _state = State.Playing;
+    }
+
+    private void OpenSettings()
+    {
+        _pauseMenu.Visible = false;
+        _settingsMenu.Open();
+    }
+
+    private void OnSettingsClosed()
+    {
+        if (_state == State.Paused) _pauseMenu.Open(online: false);
+        else if (_state == State.Title) ShowTitle();
+    }
+
+    /// <summary>Gives up the run from the pause menu: the hero falls, and it's back to camp.</summary>
+    private void GiveUpRun()
+    {
+        Unpause();
+        G.Player?.GiveUp();
+    }
+
     /// <summary>Freezes the action for a beat so hits land with weight.</summary>
     public void HitStop(float seconds, float timeScale = -1f)
     {
@@ -784,12 +837,12 @@ public partial class Main : Node
     public void SlowMo(float seconds, float timeScale = 0.3f) => HitStop(seconds, timeScale);
 
     /// <summary>Nudges the camera (decays quickly) - used on hits for directional impact.</summary>
-    public void Kick(Vector2 offset) => _kick += offset;
+    public void Kick(Vector2 offset) => _kick += offset * GameSettings.Shake;
 
     /// <summary>Controller rumble, only while a controller is the active device.</summary>
     public void Rumble(float weak, float strong, float seconds)
     {
-        if (!UsingPad) return;
+        if (!UsingPad || !GameSettings.Vibration) return;
         foreach (int id in Input.GetConnectedJoypads()) Input.StartJoyVibration(id, weak, strong, seconds);
     }
 
@@ -799,6 +852,7 @@ public partial class Main : Node
 
     public override void _Input(InputEvent e)
     {
+        GameSettings.NoteInput(e);
         bool pad = e is InputEventJoypadButton { Pressed: true } || (e is InputEventJoypadMotion jm && Math.Abs(jm.AxisValue) > 0.5f);
         bool kbm = e is InputEventKey { Pressed: true } || e is InputEventMouseButton { Pressed: true } || (e is InputEventMouseMotion mm && mm.Relative.Length() > 3);
         if (pad && !UsingPad) { UsingPad = true; Input.MouseMode = Input.MouseModeEnum.Hidden; }
@@ -846,6 +900,12 @@ public partial class Main : Node
             }
         }
         if (_metaMenu.Visible) return;
+        if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible)
+        {
+            PauseGame();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
         if ((_state == State.Title || (_state == State.Dead && _overlay.Visible)) && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
         {
             int step = e.IsActionPressed("move_left") ? -1 : 1;
@@ -853,6 +913,14 @@ public partial class Main : Node
             GetViewport().SetInputAsHandled();
             return;
         }
+        if (_state == State.Title && !_settingsMenu.Visible && e.IsActionPressed("pause"))
+        {
+            _overlay.Visible = false;
+            _settingsMenu.Open();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (_settingsMenu.Visible) return;
         if (_state == State.Title && (e.IsActionPressed("confirm") || (e is InputEventMouseButton mb && mb.Pressed)))
         {
             // a click on a hero card picks that hero before starting
@@ -879,6 +947,7 @@ public partial class Main : Node
         _frameScale = (float)Engine.TimeScale;
 
         if (_padTest) PadTestTick(dt);
+        if (_menuShot != "") MenuShotTick();
         switch (_state)
         {
             case State.Title:
@@ -892,7 +961,6 @@ public partial class Main : Node
                 }
                 return;
             case State.Paused:
-                if (Input.IsActionJustPressed("pause")) { _overlay.Visible = false; GetTree().Paused = false; _state = State.Playing; }
                 return;
             case State.Dead:
                 _deadT += dt;
@@ -921,14 +989,6 @@ public partial class Main : Node
                 }
                 return;
             case State.Playing:
-                if (Input.IsActionJustPressed("pause"))
-                {
-                    _state = State.Paused;
-                    GetTree().Paused = true;
-                    _overlay.HeroCards = false;
-                    _overlay.Show("PAUSED", 0.5f, "", UsingPad ? "!Press START to resume" : "!Press ESC to resume");
-                    return;
-                }
                 _runTime += dt;
                 G.RunTime = _runTime;
                 if (_victoryT > 0)
@@ -966,7 +1026,7 @@ public partial class Main : Node
         var target = p.GlobalPosition + new Vector2(p.Velocity.X * 0.15f, p.Velocity.Y * 0.08f - 10);
         if (ActiveBoss != null && IsInstanceValid(ActiveBoss) && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * Tune.Feel.CameraFollowSharpness));
-        float s = _fx?.Shake ?? 0;
+        float s = (_fx?.Shake ?? 0) * GameSettings.Shake;
         _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
         // hold the frame perfectly still during a hit-stop; the shake plays out once time resumes
         if (_hitStopLeft <= 0)
@@ -1592,6 +1652,13 @@ public partial class Main : Node
         }
     }
 
+    private bool _padOk = true;
+    private void PadCheck(string what, bool ok)
+    {
+        GD.Print($"[padtest] {(ok ? "ok  " : "FAIL")} {what}");
+        _padOk &= ok;
+    }
+
     /// <summary>Feeds synthetic joypad events through Godot's input pipeline and checks the game reacts.</summary>
     private void PadTestTick(float dt)
     {
@@ -1601,24 +1668,46 @@ public partial class Main : Node
         var steps = new (float at, Action act, string label)[]
         {
             (0.5f, () => { Btn(JoyButton.A, true); }, "A on title"),
-            (0.6f, () => { Btn(JoyButton.A, false); GD.Print($"[padtest] state after A: {_state}, usingPad {UsingPad}, mouse {Input.MouseMode}"); }, ""),
+            (0.6f, () => { Btn(JoyButton.A, false); PadCheck($"A on the title starts (state {_state}, using pad {UsingPad}, mouse {Input.MouseMode})", _state == State.Playing && UsingPad); }, ""),
             (1.0f, () => Axis(JoyAxis.LeftX, 1f), "stick right"),
-            (1.6f, () => { GD.Print($"[padtest] player vx after stick: {G.Player.Velocity.X:0}"); Axis(JoyAxis.LeftX, 0f); }, ""),
+            (1.6f, () => { PadCheck($"the stick runs (vx {G.Player.Velocity.X:0})", G.Player.Velocity.X > 100); Axis(JoyAxis.LeftX, 0f); }, ""),
             (1.8f, () => Btn(JoyButton.X, true), "X swing"),
-            (1.85f, () => { Btn(JoyButton.X, false); GD.Print($"[padtest] anim after X: {G.Player.Anim.Current}"); }, ""),
-            (2.3f, () => Axis(JoyAxis.TriggerRight, 1f), "RT ability"),
-            (2.35f, () => { Axis(JoyAxis.TriggerRight, 0f); GD.Print($"[padtest] charged strike after RT: {G.Player.Charged} (cooldown {G.Player.ChargeCooldownFrac:0.00})"); }, ""),
+            (1.85f, () => { Btn(JoyButton.X, false); PadCheck($"X swings (anim {G.Player.Anim.Current})", G.Player.Anim.Current.StartsWith("slash")); }, ""),
+            (2.3f, () => Btn(JoyButton.RightShoulder, true), "RB ability"),
+            (2.35f, () => { Btn(JoyButton.RightShoulder, false); PadCheck($"RB charges the blade ({G.Player.Charged}, cooldown {G.Player.ChargeCooldownFrac:0.00})", G.Player.Charged == 1); }, ""),
             (2.6f, () => Btn(JoyButton.B, true), "B dodge"),
-            (2.65f, () => { Btn(JoyButton.B, false); GD.Print($"[padtest] dodging after B: {G.Player.IsDodging}"); }, ""),
-            (3.0f, () => { G.Player.PendingMilestones = 1; }, "milestone"),
-            (3.6f, () => { GD.Print($"[padtest] state: {_state}"); Btn(JoyButton.DpadRight, true); }, "dpad right"),
-            (3.65f, () => Btn(JoyButton.DpadRight, false), ""),
-            (3.8f, () => Btn(JoyButton.A, true), "A pick"),
-            (3.85f, () => { Btn(JoyButton.A, false); GD.Print($"[padtest] after pick: state {_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}]"); }, ""),
-            (4.2f, () => Btn(JoyButton.Start, true), "start pause"),
-            (4.25f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start: {_state}"); }, ""),
-            (4.5f, () => Btn(JoyButton.Start, true), ""),
-            (4.55f, () => { Btn(JoyButton.Start, false); GD.Print($"[padtest] after start again: {_state}"); SafeQuit.Request(this); }, ""),
+            (2.65f, () => { Btn(JoyButton.B, false); PadCheck($"B dodges ({G.Player.IsDodging})", G.Player.IsDodging); }, ""),
+            (3.0f, () => Axis(JoyAxis.TriggerRight, 1f), "RT second ability"),
+            (3.05f, () => { Axis(JoyAxis.TriggerRight, 0f); PadCheck($"RT heaves (heaving {G.Player.Heaving}, anim {G.Player.Anim.Current})", G.Player.Heaving); }, ""),
+            (3.4f, () => { G.Player.PendingMilestones = 1; }, "milestone"),
+            (4.0f, () => { PadCheck($"a milestone offers a pick ({_state})", _state == State.Choosing); Btn(JoyButton.DpadRight, true); }, "dpad right"),
+            (4.05f, () => Btn(JoyButton.DpadRight, false), ""),
+            (4.2f, () => Btn(JoyButton.A, true), "A pick"),
+            (4.25f, () => Btn(JoyButton.A, false), ""),
+            (4.4f, () => PadCheck($"A takes it (state {_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", _state == State.Playing && G.Player.Stats.Stacks.Count > 0), ""),
+            (4.6f, () => Btn(JoyButton.Start, true), "start pause"),
+            (4.65f, () => Btn(JoyButton.Start, false), ""),
+            (4.8f, () => PadCheck($"START pauses with the menu up ({_state}, menu {_pauseMenu.Visible})", _state == State.Paused && _pauseMenu.Visible), ""),
+            // down to Settings, A opens it, B backs out to the pause menu, START resumes
+            (4.9f, () => Btn(JoyButton.DpadDown, true), "menu down"),
+            (4.95f, () => Btn(JoyButton.DpadDown, false), ""),
+            (5.05f, () => PadCheck($"the d-pad moves down the menu (focus: {(GetViewport().GuiGetFocusOwner() as Button)?.Text})", (GetViewport().GuiGetFocusOwner() as Button)?.Text == "Settings"), ""),
+            (5.1f, () => Btn(JoyButton.A, true), "A settings"),
+            (5.15f, () => Btn(JoyButton.A, false), ""),
+            (5.3f, () => PadCheck($"A opens the settings ({_settingsMenu.Visible})", _settingsMenu.Visible), ""),
+            (5.4f, () => Btn(JoyButton.RightShoulder, true), "RB tab"),
+            (5.45f, () => Btn(JoyButton.RightShoulder, false), ""),
+            (5.5f, () => Btn(JoyButton.B, true), "B back"),
+            (5.55f, () => Btn(JoyButton.B, false), ""),
+            (5.7f, () => PadCheck($"B backs out to the pause menu (settings {_settingsMenu.Visible}, pause menu {_pauseMenu.Visible})", !_settingsMenu.Visible && _pauseMenu.Visible), ""),
+            (5.8f, () => Btn(JoyButton.Start, true), ""),
+            (5.85f, () => Btn(JoyButton.Start, false), ""),
+            (6.0f, () =>
+            {
+                PadCheck($"START resumes ({_state}, menu {_pauseMenu.Visible})", _state == State.Playing && !_pauseMenu.Visible);
+                GD.Print(_padOk ? "[padtest] PASS" : "[padtest] FAIL");
+                SafeQuit.Request(this, _padOk ? 0 : 1);
+            }, ""),
         };
         while (_padStep < steps.Length && _padT >= steps[_padStep].at) steps[_padStep++].act();
     }
@@ -1851,6 +1940,44 @@ public partial class Main : Node
             case 336:
                 Check($"the dash passes by a creature that isn't attacking ({(p.GlobalPosition.X - _posMark.X) * _dir:0} px on, reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling})",
                     (p.GlobalPosition.X - _posMark.X) * _dir > 60 && IsInstanceValid(_probeEnemy) && !_probeEnemy.Reeling);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                break;
+
+            // ---- the shield bash
+            case 345:
+            {
+                var gob = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 30, -4) };
+                gob.SetMeta("test", true);
+                _world.AddChild(gob);
+                _probeEnemy = gob;
+                p.RefillShield();
+                p.ResetAbilityCooldowns();
+                foreach (var pr in EnemyProjectiles.ToArray()) pr.QueueFree();
+                break;
+            }
+            case 347:
+                _hpMark = _probeEnemy.Hp;
+                _shieldMark = p.ShieldHp;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 348: _heroInput = default; break;
+            case 352:
+            {
+                float dealt = _hpMark - (IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0);
+                Check($"the shield bash hits for {Tune.Warden.BashDamage:0} (goblin {_hpMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0})", Math.Abs(dealt - Tune.Warden.BashDamage * p.Stats.DamageMult) < 0.5f);
+                Check($"and the shield takes {Tune.Warden.BashShieldCost:0} ({_shieldMark:0} -> {p.ShieldHp:0})", Math.Abs(_shieldMark - p.ShieldHp - Tune.Warden.BashShieldCost) < 1f);
+                Check($"the goblin is stunned (reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling})", IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling);
+                break;
+            }
+            case 362:
+                Check($"still stunned a second later (reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling})", IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling);
+                _hpMark = IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 363: _heroInput = default; break;
+            case 368:
+                Check($"the bash waits out its cooldown (goblin hp {_hpMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0}, cooldown {p.BashCooldownFrac:0.00})",
+                    IsInstanceValid(_probeEnemy) && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f && p.BashCooldownFrac > 0.8f);
                 Finish();
                 break;
         }
@@ -1927,7 +2054,9 @@ public partial class Main : Node
             case 58:
             {
                 float dealt = _hpMark - _probeEnemy.Hp;
-                Check($"a charged swing hits much harder ({dealt:0} vs {_normalHit:0}) and is spent (charged {p.Charged})", dealt > _normalHit * 1.3f && p.Charged == 0);
+                // (swings vary by 10% either way: beyond the strongest plain swing, by a margin)
+                float most = Tune.Swordsman.Damage * p.Stats.DamageMult * 1.1f;
+                Check($"a charged swing hits much harder ({dealt:0} vs {_normalHit:0}, a plain swing's best {most:0}) and is spent (charged {p.Charged})", dealt > most * 1.15f && p.Charged == 0);
                 Check($"what it struck is weakened (weakened {_probeEnemy.Weakened})", _probeEnemy.Weakened);
                 break;
             }
@@ -1940,17 +2069,46 @@ public partial class Main : Node
                 Check($"a swing can be started mid-dodge (swinging {p.IsSwinging}, dodging {p.IsDodging})", p.IsSwinging && !p.IsDodging);
                 _heroInput = default;
                 break;
-            case 70:
+            // ---- the heaving swing, carrying a Charged Strike
+            case 64:
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 65:
+                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 55, -6);
+                _hpMark = _probeEnemy.Hp;
+                _posMark = p.GlobalPosition;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 66:
+                Check($"the heaving swing plants you and takes the waiting charge (heaving {p.Heaving}, charged {p.Charged}, swing charged {p.SwingCharged})", p.Heaving && p.Charged == 0 && p.SwingCharged);
+                Check($"nothing is struck during its long wind-up (golem {_hpMark:0} -> {_probeEnemy.Hp:0})", Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
+                // try to walk (and jump) away: rooted
+                _heroInput = new PlayerInput { Move = new Vector2(-_dir, 0), Jump = true, JumpHeld = true };
+                break;
+            case 67: _heroInput = new PlayerInput { Move = new Vector2(-_dir, 0) }; break;
+            case 73:
+            {
+                float dealt = _hpMark - _probeEnemy.Hp;
+                Check($"it lands for about three normal swings with the charge ({dealt:0} vs {_normalHit:0} a swing)", dealt > _normalHit * 2.4f);
+                Check($"and you stayed put through it ({(p.GlobalPosition.X - _posMark.X):0.0} px, {(p.GlobalPosition.Y - _posMark.Y):0.0} px)", Math.Abs(p.GlobalPosition.X - _posMark.X) < 3f && Math.Abs(p.GlobalPosition.Y - _posMark.Y) < 3f);
+                _heroInput = default;
+                break;
+            }
+            case 78:
+                Check($"free to move once it's done (heaving {p.Heaving})", !p.Heaving);
+                break;
+            case 80:
                 // Crescent Wave: a swing from well out of reach still cuts the golem
                 Upgrades.Apply(Upgrades.Get("wave"), p.Stats, p);
                 _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 120, -6);
                 break;
-            case 76:
+            case 86:
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 77: _heroInput = default; break;
-            case 84:
+            case 87: _heroInput = default; break;
+            case 94:
                 Check($"crescent wave hits at 120 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
                 _probeEnemy.QueueFree();
                 // an air bubble from a vent gives back breath
@@ -1964,7 +2122,7 @@ public partial class Main : Node
                     _world.AddChild(new AirBubble { Position = p.GlobalPosition + new Vector2(_dir * 0, 6) });
                 }
                 break;
-            case 87:
+            case 97:
                 Check($"an air bubble refills breath ({p.Breath:0.0} s)", p.Breath > 2.2f);
                 Finish();
                 break;
@@ -1975,29 +2133,39 @@ public partial class Main : Node
 
     private void VitalistStep(int s, Player p)
     {
+        Enemy Dummy(Enemy e, float dx)
+        {
+            e.Position = p.GlobalPosition + new Vector2(_dir * dx, -6);
+            e.SetMeta("test", true);
+            _world.AddChild(e);
+            e.Wake();
+            return e;
+        }
         switch (s)
         {
             case 5:
-            {
-                var dummy = new Golem { Position = p.GlobalPosition + new Vector2(_dir * 110, -6) };
-                dummy.SetMeta("test", true);
-                _world.AddChild(dummy);
-                _probeEnemy = dummy;
-                p.SetAlimus(20);
+                _probeEnemy = Dummy(new Golem(), 110);
+                p.SetAlimus(10);
                 break;
-            }
             case 8:
                 _hpMark = _probeEnemy.Hp;
                 _shieldMark = p.Alimus;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.2f).Normalized() };
                 break;
-            case 9: _heroInput = default; break;
+            case 9:
+            {
+                _heroInput = default;
+                float dealt = _hpMark - _probeEnemy.Hp;
+                Check($"the drain strikes a golem 110 px away the instant it's cast (hp {_hpMark:0} -> {_probeEnemy.Hp:0})", dealt > 0);
+                Check($"and its life flies back as a mote (motes {_world.GetChildren().OfType<LifeMote>().Count()})", _world.GetChildren().OfType<LifeMote>().Any());
+                break;
+            }
             case 16:
             {
                 float dealt = _hpMark - _probeEnemy.Hp;
-                Check($"a drain bolt strikes a golem 110 px away (hp {_hpMark:0} -> {_probeEnemy.Hp:0})", dealt > 0);
-                Check($"and a tenth of the damage comes back as alimus ({_shieldMark:0.0} -> {p.Alimus:0.0}, want +{dealt * 0.1f:0.0})", Math.Abs(p.Alimus - _shieldMark - dealt * 0.1f) < 0.05f);
+                Check($"the mote arrives: a tenth of the damage as alimus ({_shieldMark:0.0} -> {p.Alimus:0.0}, want +{dealt * 0.1f:0.0})", Math.Abs(p.Alimus - _shieldMark - dealt * 0.1f) < 0.05f && !_world.GetChildren().OfType<LifeMote>().Any());
                 _normalHit = dealt;
+                Check($"a drain hits for about {Tune.Vitalist.DrainDamage:0} ({dealt:0.0})", dealt > Tune.Vitalist.DrainDamage * 0.9f && dealt < Tune.Vitalist.DrainDamage * 1.1f);
                 break;
             }
             case 18: _heroInput = new PlayerInput { Dodge = true }; break;
@@ -2011,11 +2179,15 @@ public partial class Main : Node
             case 28:
             {
                 float dealt = _hpMark - _probeEnemy.Hp;
-                Check($"a hexed creature takes more damage ({dealt:0.0} vs {_normalHit:0.0})", dealt > _normalHit * 1.08f);
+                // (more than the strongest drain could do unhexed: its damage varies by 8% either way)
+                float most = Tune.Vitalist.DrainDamage * p.Stats.DamageMult * 1.08f;
+                Check($"a hexed creature takes more damage ({dealt:0.0}, more than an unhexed drain's best {most:0.0})", dealt > most);
                 _probeEnemy.QueueFree();
+                Check($"alimus holds {Tune.Vitalist.AlimusMax:0} at most (max {p.Stats.AlimusMax:0})", Math.Abs(p.Stats.AlimusMax - Tune.Vitalist.AlimusMax) < 0.01f);
                 // the heal: everything to the one hurt player in range
                 p.Hp = 20;
-                p.SetAlimus(50);
+                p.SetAlimus(30);
+                p.ResetAbilityCooldowns();
                 _hpMark = p.Hp;
                 _heroInput = new PlayerInput { Ability = true };
                 break;
@@ -2024,21 +2196,103 @@ public partial class Main : Node
             case 31:
             {
                 float want = Tune.Vitalist.HealAmount * p.Stats.HealMult;
-                Check($"the heal restores {want:0} (hp {_hpMark:0} -> {p.Hp:0}) for {p.HealCost:0} alimus (50 -> {p.Alimus:0})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && Math.Abs(50 - p.Alimus - p.HealCost) < 0.01f);
+                Check($"the heal restores {want:0} (hp {_hpMark:0} -> {p.Hp:0}) for {p.HealCost:0} alimus (30 -> {p.Alimus:0})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && Math.Abs(30 - p.Alimus - p.HealCost) < 0.01f);
                 break;
             }
             case 40:
                 p.Hp = p.Stats.MaxHp;
+                p.ResetAbilityCooldowns();
                 _shieldMark = p.Alimus;
                 _heroInput = new PlayerInput { Ability = true };
                 break;
             case 41: _heroInput = default; break;
             case 43:
                 Check($"no heal (and no alimus spent) when no one is hurt ({_shieldMark:0} -> {p.Alimus:0})", Math.Abs(p.Alimus - _shieldMark) < 0.01f);
+                break;
+
+            // ---- the rupture
+            case 45:
+                _probeEnemy = Dummy(new Golem(), 110);
+                _probe2 = Dummy(new Goblin(), 150);   // 40 px from the golem: in the burst
+                _probe3 = Dummy(new Goblin(), 290);   // well outside it
+                p.SetAlimus(30);
+                p.ResetAbilityCooldowns();
+                break;
+            case 47:
+                // the goblins held where they are for the burst (one right beside the golem, one well away)
+                _probe2.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(_dir * 26, 0);
+                _probe3.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(_dir * 180, 0);
+                if (G.Cave.IsSolid(_probe3.GlobalPosition)) _probe3.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(-_dir * 180, -20);
+                _probe2.Freeze(1.2f); _probe3.Freeze(1.2f);
+                _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp; _hp3 = _probe3.Hp;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
+                break;
+            case 48:
+                _heroInput = default;
+                Check($"the rupture spends {p.RuptureCost:0} alimus (left {p.Alimus:0}) and seizes the golem first (frozen {_probeEnemy.FreezeLeft:0.00} s, hp {_hpMark:0} -> {_probeEnemy.Hp:0})",
+                    p.Alimus < 0.5f && _probeEnemy.FreezeLeft > 0 && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
+                break;
+            case 54:
+            {
+                float main = _hpMark - _probeEnemy.Hp, near = _hp2 - (IsInstanceValid(_probe2) ? _probe2.Hp : 0), far = _hp3 - _probe3.Hp;
+                Check($"then it bursts: {main:0} to the golem, {near:0} to the goblin beside it, {far:0} to the one far off",
+                    main > Tune.Vitalist.RuptureDamage * 0.9f && Math.Abs(near - Tune.Vitalist.RuptureSplash) < 0.6f && far < 0.01f);
+                // not enough alimus: refused, nothing spent
+                p.ResetAbilityCooldowns();
+                p.SetAlimus(10);
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
+                _hpMark = _probeEnemy.Hp;
+                break;
+            }
+            case 55: _heroInput = default; break;
+            case 60:
+                Check($"no rupture without the alimus for it (alimus {p.Alimus:0}, golem {_hpMark:0} -> {_probeEnemy.Hp:0})", Math.Abs(p.Alimus - 10) < 0.5f && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
+                foreach (var e in new[] { _probe2, _probe3 }) if (IsInstanceValid(e)) e.QueueFree();
+                break;
+
+            // ---- Many Mouths: the drain takes a second creature near the target
+            case 62:
+                Upgrades.Apply(Upgrades.Get("mouths"), p.Stats, p);
+                _probe2 = Dummy(new Golem(), 150);
+                break;
+            case 64:
+                _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp;
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
+                break;
+            case 65:
+            {
+                _heroInput = default;
+                float a = _hpMark - _probeEnemy.Hp, b = _hp2 - _probe2.Hp;
+                Check($"Many Mouths drains the creature beside the target too ({a:0} and {b:0}, want {b:0} ~ 60% of {a:0})", a > 0 && b > 0 && Math.Abs(b / a - Tune.Vitalist.MultiShare) < 0.2f);
+                _probeEnemy.QueueFree(); _probe2.QueueFree();
+                break;
+            }
+
+            // ---- Twin Reserve: two heals back to back, then a long wait
+            case 67:
+                Upgrades.Apply(Upgrades.Get("rr_reserve"), p.Stats, p);
+                p.ResetAbilityCooldowns();
+                p.SetAlimus(30);
+                p.Hp = 10;
+                _hpMark = p.Hp;
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            case 68: _heroInput = default; break;
+            case 73: _heroInput = new PlayerInput { Ability = true }; break;
+            case 74: _heroInput = default; break;
+            case 77:
+            {
+                float want = 2 * Tune.Vitalist.HealAmount * p.Stats.HealMult;
+                Check($"Twin Reserve: two heals in a row (hp {_hpMark:0} -> {p.Hp:0}, want +{want:0}; uses left {p.AbilityUsesReady})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && p.AbilityUsesReady == 0);
+                Check($"each use comes back in twice the time ({p.AbilityRecharge:0.0} s)", Math.Abs(p.AbilityRecharge - 2 * Tune.Vitalist.HealCooldown) < 0.01f);
                 Finish();
                 break;
+            }
         }
     }
+
+    private Enemy _probe2, _probe3;
+    private float _hp2, _hp3;
 
     private Enemy _probeEnemy;
     private float _dir;

@@ -167,6 +167,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Stun > 0)
         {
             Stun -= dt;
+            if (_dazed) { if (Stun > 0) DazeFx(dt); else _dazed = false; }
             var v = KnockVel;
             KnockVel *= 1f / (1f + 8f * dt);
             if (UsesGravity && !InWater) v.Y += 200;
@@ -246,7 +247,7 @@ public abstract partial class Enemy : CharacterBody2D
     /// Breaks off the attack under way (a perfect block, the shield dash): the creature reels
     /// for <paramref name="stagger"/> seconds and its attack starts over from scratch.
     /// </summary>
-    public void Interrupt(Vector2 push, float stagger)
+    public void Interrupt(Vector2 push, float stagger, string label = "BROKEN")
     {
         if (Dead) return;
         _strikeLanded = true; // whatever blow was coming is spent
@@ -255,6 +256,8 @@ public abstract partial class Enemy : CharacterBody2D
         Intent = 0;
         _slotT = 0; // its attack slot goes to someone else
         Stun = Math.Max(Stun, stagger);
+        // a long stun leaves it seeing stars
+        if (stagger >= 1f) _dazed = true;
         KnockVel = ManualMove ? Vector2.Zero : push * (1f - KnockResist * 0.7f);
         if (Anim != null)
         {
@@ -262,7 +265,26 @@ public abstract partial class Enemy : CharacterBody2D
             Anim.Once("hurt", 5);
             Anim.Flash(0.45f);
         }
-        G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 14), "BROKEN", new Color(0.75f, 0.9f, 1f), 9, 0.7f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 14), label, new Color(0.75f, 0.9f, 1f), 9, 0.7f);
+    }
+
+    private bool _dazed;
+    private float _dazeFxT;
+
+    /// <summary>Stars wheeling around the head of a stunned creature.</summary>
+    private void DazeFx(float dt)
+    {
+        _dazeFxT -= dt;
+        if (_dazeFxT > 0) return;
+        _dazeFxT = 0.07f;
+        float a = T * 7f;
+        float r = Math.Max(8f, HitRadius * 0.8f);
+        var head = GlobalPosition + new Vector2(0, -HitRadius - 6);
+        for (int k = 0; k < 2; k++)
+        {
+            float ak = a + k * MathF.PI;
+            G.Fx.Glint(head + new Vector2(MathF.Cos(ak) * r, MathF.Sin(ak) * r * 0.3f), new Color(1f, 0.92f, 0.45f), 5f);
+        }
     }
 
     /// <summary>Resets this creature's attack state after an interruption (override per creature).</summary>

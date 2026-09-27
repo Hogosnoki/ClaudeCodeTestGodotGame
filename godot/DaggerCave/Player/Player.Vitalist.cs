@@ -1,36 +1,49 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
 
 /// <summary>
-/// The Vitalist's kit (a vitality manipulator, with no blade). The attack button casts a drain
-/// bolt: a single-target strike at medium range that homes on the creature you aim at and hands
-/// back a share of its damage as alimus. The dodge button casts a hex: creatures around you slow
-/// down and take more damage for a while. The ability button spends alimus on a heal, shared
-/// among everyone nearby who is hurt, by how hurt each of them is.
+/// The Vitalist's kit (a vitality manipulator, with no blade). The attack button drains: the
+/// creature you aim at is struck the instant you cast (no travel time), and the life torn out of
+/// it flies back to you as a mote that becomes alimus when it arrives. The dodge button casts a
+/// hex: creatures around you slow down and take more damage for a while. The ability button
+/// spends alimus on a heal, shared among everyone nearby who is hurt, by how hurt each of them
+/// is. The second ability spends a full reserve on a rupture: the creature you aim at is seized
+/// where it stands and bursts, splashing everything around it.
 /// </summary>
 public partial class Player
 {
-    /// <summary>The Vitalist's reserve (like mana): earned by dealing damage, spent on heals.</summary>
+    /// <summary>The Vitalist's reserve (like mana): earned by draining life, spent on heals and ruptures.</summary>
     public float Alimus { get; private set; }
-    private float _boltCd, _hexCd, _healCd, _castGlow;
+    private float _drainCd, _hexCd, _healCd, _ruptureCd, _castGlow;
+
+    /// <summary>Healing's colour, everywhere (the potion's pink).</summary>
+    public static readonly Color HealColor = new(1f, 0.5f, 0.66f), HealColorLight = new(1f, 0.75f, 0.84f);
+    /// <summary>Life torn out of a creature (the drain, the rupture).</summary>
+    public static readonly Color LifeColor = new(0.95f, 0.16f, 0.24f), LifeColorLight = new(1f, 0.55f, 0.55f);
 
     /// <summary>What a heal costs now.</summary>
     public float HealCost => Tune.Vitalist.HealCost * Stats.HealCostMult;
+    /// <summary>What a rupture costs now.</summary>
+    public float RuptureCost => Tune.Vitalist.RuptureCost * Stats.RuptureCostMult;
     public float HexCooldownFrac => Math.Clamp(_hexCd / Math.Max(0.01f, Stats.HexCooldown), 0, 1);
-    public float HealCooldownFrac => Math.Clamp(_healCd / Tune.Vitalist.HealCooldown, 0, 1);
+    public float HealCooldownFrac => AbilityCooldownFrac;
+    public float RuptureCooldownFrac => Math.Clamp(_ruptureCd / Tune.Vitalist.RuptureCooldown, 0, 1);
+    /// <summary>A rupture could be cast now (alimus and cooldown allowing).</summary>
+    public bool RuptureReady => _ruptureCd <= 0 && _ruptureT < 0 && Alimus >= RuptureCost - 0.001f;
     /// <summary>For the 3D model: 1 the moment a spell leaves the hands, fading to 0.</summary>
     public float CastGlow => _castGlow;
-    /// <summary>For the 3D model: the last spell cast ("bolt", "hex" or "heal").</summary>
+    /// <summary>For the 3D model: the last spell cast ("drain", "hex", "heal" or "rupture").</summary>
     public string LastCast { get; private set; } = "";
-    /// <summary>For the 3D model: where the last drain bolt was aimed.</summary>
+    /// <summary>For the 3D model: where the last spell was aimed.</summary>
     public Vector2 CastDir { get; private set; } = Vector2.Right;
 
-    private float BoltRange => Tune.Vitalist.BoltRange * Stats.DaggerReach;
-    /// <summary>Where spells leave from: the crystal atop the staff.</summary>
-    private Vector2 CastPoint => GlobalPosition + new Vector2(Facing * 7, -12);
+    private float DrainRange => Tune.Vitalist.DrainRange * Stats.DaggerReach;
+    /// <summary>Where spells leave from, and stolen life returns to: the crystal atop the staff.</summary>
+    public Vector2 CastPoint => GlobalPosition + new Vector2(Facing * 7, -12);
 
     public void GainAlimus(float amount)
     {
@@ -45,55 +58,155 @@ public partial class Player
     {
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         if (Alimus > Stats.AlimusMax) Alimus = Stats.AlimusMax;
+        TickRupture(dt);
     }
 
-    private bool CastBolt(Vector2 aim)
+    // ---------------------------------------------------------------- drain
+
+    private bool CastDrain(Vector2 aim)
     {
-        if (_boltCd > 0) return false;
-        _boltCd = Tune.Vitalist.BoltCooldown / Math.Max(0.2f, Stats.AttackSpeed);
+        if (_drainCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        var target = FindBoltTarget(aim);
-        if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
-        var from = CastPoint;
-        var dir = target != null ? (target.GlobalPosition - from).Normalized() : aim;
+        var target = FindSpellTarget(aim, DrainRange);
+        var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
-        from = CastPoint;
         CastDir = dir;
         Anim.Face((int)Facing, instant: true);
         Anim.Once("cast", 3, 1.6f);
-        G.Spawn(new DrainBolt
+        LastCast = "drain";
+        if (target == null)
         {
-            Position = from, Dir = dir, Target = target, Range = BoltRange, Leaps = Stats.BoltLeaps,
-            Damage = Tune.Vitalist.BoltDamage * Stats.DamageMult * G.Range(0.92f, 1.08f),
-        });
-        G.Sfx.Play("throw", from, -6, 0.1f, 1.5f);
-        G.Sfx.Play("bubble", from, -12, 0.1f, 1.8f);
-        G.Fx.Flash(from, 7, new Color(0.55f, 1f, 0.5f), 0.08f);
+            // nothing within reach to drain: a wisp goes out and comes to nothing
+            _drainCd = Tune.Vitalist.DrainWhiffCooldown / Math.Max(0.2f, Stats.AttackSpeed);
+            G.Fx.Directional(CastPoint, dir, 0.35f, new Color(LifeColor, 0.5f), 5, 110, 1.4f, 0.25f, 0, 0);
+            G.Sfx.Play("throw", CastPoint, -14, 0.1f, 1.7f);
+            _castGlow = 0.4f;
+            return true;
+        }
+        _drainCd = Tune.Vitalist.DrainCooldown / Math.Max(0.2f, Stats.AttackSpeed);
+        float dmg = Tune.Vitalist.DrainDamage * Stats.DamageMult * Stats.PrimaryDamageMult * G.Range(0.92f, 1.08f);
+        DrainFrom(target, dmg, 1f);
+        // Many Mouths: the creatures nearest the target give up their life too
+        if (Stats.DrainExtra > 0)
+        {
+            var near = G.Enemies
+                .Where(e => e != target && !e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(target.GlobalPosition) < Tune.Vitalist.MultiRadius + e.HitRadius
+                            && InSight(target.GlobalPosition, e))
+                .OrderBy(e => e.GlobalPosition.DistanceSquaredTo(target.GlobalPosition))
+                .Take(Stats.DrainExtra).ToList();
+            foreach (var e in near)
+            {
+                G.Fx.Beam(target.GlobalPosition, e.GlobalPosition, new Color(LifeColor, 0.7f));
+                DrainFrom(e, dmg * Tune.Vitalist.MultiShare, 0.7f);
+            }
+        }
+        G.Sfx.Play("drain", target.GlobalPosition, -3, 0.1f);
         _castGlow = 1f;
-        LastCast = "bolt";
         return true;
     }
 
-    /// <summary>The creature a bolt should seek: in the cone of your aim, in range and in sight, nearest the line of aim.</summary>
-    private Enemy FindBoltTarget(Vector2 aim)
+    /// <summary>
+    /// Tears the life out of one creature: it's struck on the spot (tugged toward you, shuddering),
+    /// and what it lost flies back to you as a mote carrying the alimus.
+    /// </summary>
+    private void DrainFrom(Enemy e, float dmg, float size)
+    {
+        var toMe = (CastPoint - e.GlobalPosition).Normalized();
+        var at = e.GlobalPosition + toMe * e.HitRadius * 0.5f;
+        float dealt = e.Hurt(dmg, toMe * 40f, at);
+        if (dealt <= 0)
+        {
+            G.Sfx.Play("clink", at, -6);
+            G.Fx.Spark(at, toMe, false, new Color(0.8f, 0.8f, 0.85f));
+            return;
+        }
+        OnDealtDamage(dealt, alimusByMote: true);
+        if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
+        // the life comes out of it toward you
+        G.Fx.Flash(at, 10 * size + 4, LifeColorLight, 0.1f);
+        G.Fx.Directional(at, toMe, 0.55f, LifeColor, (int)(9 * size), 200, 2f, 0.3f, 0, 0);
+        G.Fx.Ring(at, 7 + 5 * size, new Color(LifeColor, 0.8f), 0.2f);
+        G.Main.Rumble(0.2f, 0.05f, 0.06f);
+        G.Spawn(new LifeMote { Position = at, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = size });
+    }
+
+    /// <summary>Stolen life reaching the staff: it becomes alimus.</summary>
+    public void AbsorbMote(float alimus, float size)
+    {
+        GainAlimus(alimus);
+        _castGlow = Math.Max(_castGlow, 0.35f * size);
+        G.Fx.Flash(CastPoint, 5 + 4 * size, LifeColorLight, 0.08f);
+        if (G.Chance(0.5f)) G.Sfx.Play("bubble", CastPoint, -16, 0.2f, 0.7f);
+    }
+
+    /// <summary>The creature a spell should seize: in the cone of your aim, in range and in sight, nearest the line of aim.</summary>
+    private Enemy FindSpellTarget(Vector2 aim, float range)
     {
         Enemy best = null;
-        float bestScore = float.MaxValue, cone = Mathf.DegToRad(Tune.Vitalist.BoltConeDegrees);
+        float bestScore = float.MaxValue, cone = Mathf.DegToRad(Tune.Vitalist.DrainConeDegrees);
         var origin = CastPoint;
         foreach (var e in G.Enemies)
         {
             if (e.Dead || !e.CanBeHit) continue;
             var to = e.GlobalPosition - origin;
             float d = to.Length();
-            if (d > BoltRange + e.HitRadius) continue;
+            if (d > range + e.HitRadius) continue;
             float ang = Math.Abs(aim.AngleTo(to));
             if (d > 12 && ang > cone + MathF.Atan2(e.HitRadius, d)) continue;
-            if (!G.Cave.LineClear(origin, e.GlobalPosition)) continue;
+            if (!InSight(origin, e)) continue;
             float score = d * (1f + ang * 1.5f);
             if (score < bestScore) { bestScore = score; best = e; }
         }
         return best;
     }
+
+    /// <summary>
+    /// Whether a spell from <paramref name="from"/> can reach a creature: a clear line to its
+    /// middle, or to the top of its body (a creature a step lower, or behind a lip of rock, shows
+    /// its head over it), or over the top from a little higher up.
+    /// </summary>
+    private static bool InSight(Vector2 from, Enemy e)
+    {
+        var c = e.GlobalPosition;
+        var top = c - new Vector2(0, e.HitRadius * 0.8f);
+        var cave = G.Cave;
+        return cave.LineClear(from, c) || cave.LineClear(from, top) || (!cave.IsSolid(from - new Vector2(0, 10)) && cave.LineClear(from - new Vector2(0, 10), top));
+    }
+
+    /// <summary>
+    /// Whether a burst at <paramref name="from"/> spreads to <paramref name="to"/> through open
+    /// space, going no further than <paramref name="reach"/> px (so it rounds a lip of rock or
+    /// drops down a step, but never goes through a wall).
+    /// </summary>
+    private static bool Spreads(Vector2 from, Vector2 to, float reach)
+    {
+        var cave = G.Cave;
+        const float C = CaveData.Cell;
+        int si = (int)(from.X / C), sj = (int)(from.Y / C), ti = (int)(to.X / C), tj = (int)(to.Y / C);
+        int steps = (int)MathF.Ceiling(reach / C) + 1;
+        var seen = new HashSet<(int, int)>();
+        var q = new Queue<(int i, int j, int d)>();
+        if (cave.CellOpen(si, sj)) { q.Enqueue((si, sj, 0)); seen.Add((si, sj)); }
+        while (q.Count > 0)
+        {
+            var (i, j, d) = q.Dequeue();
+            if (Math.Abs(i - ti) <= 0 && Math.Abs(j - tj) <= 1) return true;
+            if (d >= steps) continue;
+            for (int dj = -1; dj <= 1; dj++)
+                for (int di = -1; di <= 1; di++)
+                {
+                    if (di == 0 && dj == 0) continue;
+                    int a = i + di, b = j + dj;
+                    if (a < 0 || b < 0 || a >= cave.W || b >= cave.H || !cave.CellOpen(a, b) || !seen.Add((a, b))) continue;
+                    // (no squeezing diagonally between two rock corners)
+                    if (di != 0 && dj != 0 && !cave.CellOpen(i + di, j) && !cave.CellOpen(i, j + dj)) continue;
+                    q.Enqueue((a, b, d + 1));
+                }
+        }
+        return false;
+    }
+
+    // ---------------------------------------------------------------- hex
 
     private bool TryHex()
     {
@@ -121,13 +234,15 @@ public partial class Player
         return true;
     }
 
+    // ---------------------------------------------------------------- heal
+
     /// <summary>
     /// Shares HealAmount among everyone in range who is hurt, by the share of their health each
     /// is missing: with sumP the sum of those shares, each gets amount x (their share / sumP).
     /// </summary>
     private bool TryHeal()
     {
-        if (!IsVitalist || _healCd > 0) return false;
+        if (!IsVitalist || _healCd > 0 || !AbilityChargeReady) return false;
         var hurt = new List<(Player who, float miss)>();
         float sumP = 0;
         foreach (var p in G.Players)
@@ -140,20 +255,23 @@ public partial class Player
         }
         if (hurt.Count == 0) return Refuse("NO ONE IS HURT");
         float cost = HealCost;
-        if (Alimus < cost) return Refuse("NOT ENOUGH ALIMUS");
-        Alimus -= cost;
-        _healCd = Tune.Vitalist.HealCooldown;
+        if (Alimus < cost - 0.001f) return Refuse("NOT ENOUGH ALIMUS");
+        Alimus = Math.Max(0, Alimus - cost);
+        SpendAbilityCharge();
+        _healCd = 0.4f; // (with a second charge, not both in the same instant)
         float amount = Tune.Vitalist.HealAmount * Stats.HealMult;
         var from = CastPoint;
         foreach (var (p, miss) in hurt)
         {
-            p.Heal(amount * miss / sumP);
+            float share = amount * miss / sumP;
             var at = p.GlobalPosition + new Vector2(0, -6);
-            if (p != this) G.Fx.Beam(from, at, new Color(0.55f, 1f, 0.5f));
-            G.Fx.Flash(at, 20, new Color(0.5f, 1f, 0.55f), 0.18f);
-            G.Fx.Ring(at, 18, new Color(0.6f, 1f, 0.55f, 0.9f));
-            for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), new Color(0.55f, 1f, 0.5f));
+            if (p != this) G.Fx.Beam(from, at, HealColor);
+            G.Fx.Flash(at, 20, HealColor, 0.18f);
+            G.Fx.Ring(at, 18, new Color(HealColorLight, 0.9f));
+            for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
             p.Anim.Flash(0.4f);
+            p.Anim.FlashColor = HealColorLight;
+            p.Heal(share);
         }
         G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
         Anim.Once("heal", 3);
@@ -165,9 +283,112 @@ public partial class Player
     /// <summary>A heal that can't be cast: say why (the press is spent, and it can't be spammed).</summary>
     private bool Refuse(string why)
     {
-        _healCd = 0.5f;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -28), why, new Color(0.75f, 0.85f, 0.7f), 9, 0.8f);
-        G.Sfx.Play("clink", GlobalPosition, -14, 0.05f, 0.5f);
+        _healCd = Math.Max(_healCd, 0.5f);
+        SayNo(why);
         return true;
+    }
+
+    private void SayNo(string why)
+    {
+        G.Fx.Text(GlobalPosition + new Vector2(0, -28), why, new Color(0.85f, 0.8f, 0.8f), 9, 0.8f);
+        G.Sfx.Play("clink", GlobalPosition, -14, 0.05f, 0.5f);
+    }
+
+    // ---------------------------------------------------------------- rupture
+
+    private Enemy _ruptureTarget;
+    private Vector2 _rupturePos, _ruptureDir;
+    private float _ruptureT = -1, _ruptureGatherT;
+
+    /// <summary>For the 3D model: 0..1 through the rupture's seizing (the hand closing), -1 when none.</summary>
+    public float RuptureGrip => _ruptureT < 0 ? -1f : 1f - _ruptureT / Tune.Vitalist.RuptureWindup;
+
+    private bool TryRupture(Vector2 aim)
+    {
+        if (!IsVitalist || _ruptureCd > 0 || _ruptureT >= 0) return false;
+        if (Alimus < RuptureCost - 0.001f) { _ruptureCd = 0.5f; SayNo("NOT ENOUGH ALIMUS"); return true; }
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        var target = FindSpellTarget(aim, Tune.Vitalist.RuptureRange * Stats.DaggerReach);
+        if (target == null) { _ruptureCd = 0.3f; SayNo("NOTHING TO RUPTURE"); return true; }
+        Alimus = Math.Max(0, Alimus - RuptureCost);
+        _ruptureCd = Tune.Vitalist.RuptureCooldown;
+        _ruptureTarget = target;
+        _rupturePos = target.GlobalPosition;
+        _ruptureDir = (target.GlobalPosition - CastPoint).Normalized();
+        _ruptureT = Tune.Vitalist.RuptureWindup;
+        _ruptureGatherT = 0;
+        if (Math.Abs(_ruptureDir.X) > 0.15f) Facing = Math.Sign(_ruptureDir.X);
+        CastDir = _ruptureDir;
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("rupture", 3);
+        // it begins at the creature: seized where it stands, its life drawn in to a point
+        float r = target.HitRadius;
+        target.Freeze(Tune.Vitalist.RuptureWindup);
+        G.Fx.Ring(target.GlobalPosition, r + 16, new Color(LifeColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f);
+        G.Fx.Converge(target.GlobalPosition, r + 30, LifeColor, 14, Tune.Vitalist.RuptureWindup);
+        G.Fx.Flash(target.GlobalPosition, r + 6, new Color(0.5f, 0.05f, 0.1f), Tune.Vitalist.RuptureWindup);
+        G.Sfx.Play("gasp", target.GlobalPosition, -2, 0.05f, 0.45f);
+        G.Sfx.Play("drain", target.GlobalPosition, -6, 0.05f, 0.6f);
+        _castGlow = 1f;
+        LastCast = "rupture";
+        return true;
+    }
+
+    private void TickRupture(float dt)
+    {
+        if (_ruptureT < 0) return;
+        if (_ruptureTarget != null && IsInstanceValid(_ruptureTarget) && !_ruptureTarget.Dead) _rupturePos = _ruptureTarget.GlobalPosition;
+        _ruptureGatherT -= dt;
+        if (_ruptureGatherT <= 0)
+        {
+            _ruptureGatherT = 0.05f;
+            G.Fx.Converge(_rupturePos, 26, LifeColorLight, 3, 0.15f);
+        }
+        _ruptureT -= dt;
+        if (_ruptureT < 0) RuptureBurst();
+    }
+
+    /// <summary>The seized creature bursts: full damage to it, a splash to everything around it.</summary>
+    private void RuptureBurst()
+    {
+        _ruptureT = -1;
+        var at = _rupturePos;
+        var main = _ruptureTarget != null && IsInstanceValid(_ruptureTarget) && !_ruptureTarget.Dead ? _ruptureTarget : null;
+        _ruptureTarget = null;
+        float mult = Stats.DamageMult;
+        if (main != null)
+        {
+            float dealt = main.Hurt(Tune.Vitalist.RuptureDamage * mult * G.Range(0.95f, 1.05f), _ruptureDir * 60f, at);
+            if (dealt > 0)
+            {
+                OnDealtDamage(dealt, alimusByMote: true);
+                for (int k = 0; k < 3; k++) G.Spawn(new LifeMote { Position = at + G.RandDir() * 5, Caster = this, Alimus = dealt * Stats.AlimusGain / 3f, Size = 0.8f });
+                if (!main.Dead) main.Freeze(Tune.Feel.HitStopCharged * 0.6f);
+            }
+        }
+        float radius = Tune.Vitalist.RuptureRadius * Stats.RuptureRadiusMult;
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e == main || e.Dead || !e.CanBeHit) continue;
+            var to = e.GlobalPosition - at;
+            if (to.Length() > radius + e.HitRadius || !(InSight(at, e) || Spreads(at, e.GlobalPosition, radius + e.HitRadius))) continue;
+            var away = to.LengthSquared() > 1 ? to.Normalized() : G.RandDir();
+            float dealt = e.Hurt(Tune.Vitalist.RuptureSplash * Stats.RuptureSplashMult * mult, away * 170f, e.GlobalPosition - away * e.HitRadius);
+            if (dealt <= 0) continue;
+            OnDealtDamage(dealt, alimusByMote: true);
+            G.Spawn(new LifeMote { Position = e.GlobalPosition, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = 0.55f });
+        }
+        // a burst of crimson from inside it
+        G.Fx.Flash(at, 30, LifeColorLight, 0.16f);
+        G.Fx.Shockwave(at, radius, new Color(LifeColor, 0.85f), 0.4f);
+        G.Fx.Ring(at, radius * 0.85f, new Color(LifeColor, 0.8f), 0.35f);
+        G.Fx.Burst(at, LifeColor, 26, 280, 2.6f, 0.55f, 250);
+        G.Fx.Burst(at, new Color(0.45f, 0.03f, 0.08f), 14, 170, 3.4f, 0.7f, 400);
+        G.Fx.Spark(at, _ruptureDir, true, LifeColorLight);
+        G.Fx.AddShake(4);
+        G.Main.Kick(_ruptureDir * Tune.Feel.KickFinisher);
+        G.Main.Rumble(0.6f, 0.6f, 0.2f);
+        G.Sfx.Play("rupture", at, 0, 0.08f);
+        _castGlow = 1f;
     }
 }

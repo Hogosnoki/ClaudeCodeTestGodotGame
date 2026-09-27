@@ -15,7 +15,7 @@ public static class PropViews
     {
         PropView v = n switch
         {
-            DrainBolt => new DrainBoltView(),
+            LifeMote => new LifeMoteView(),
             EnemyProjectile => new ProjectileView(),
             LavaPuddle => new LavaPuddleView(),
             Shockwave => new ShockwaveView(),
@@ -142,45 +142,49 @@ public abstract partial class PropView : Node3D
 
 // ============================================================================ projectiles
 
-/// <summary>The Vitalist's drain bolt: a pulsing mote of green life with a blood-red comet tail, lighting its way.</summary>
-public partial class DrainBoltView : PropView
+/// <summary>Stolen life flying home to the Vitalist: a pulsing crimson mote with a comet tail, lighting its way.</summary>
+public partial class LifeMoteView : PropView
 {
     private MeshInstance3D _core, _halo;
-    private readonly MeshInstance3D[] _tail = new MeshInstance3D[4];
+    private readonly MeshInstance3D[] _tail = new MeshInstance3D[5];
     private OmniLight3D _light;
+    private float _size = 1f;
 
     protected override void Build()
     {
-        _halo = PropViews.Sprite(new Color(0.45f, 1f, 0.4f), 0, 1.6f, 0.7f);
+        _size = ((LifeMote)Owner2D).Size;
+        _halo = PropViews.Sprite(Player.LifeColor, 0, 1.7f, 0.6f);
         AddChild(_halo);
-        _core = PropViews.Sprite(new Color(0.85f, 1f, 0.8f), 3, 2.2f, 0.34f);
+        _core = PropViews.Sprite(new Color(1f, 0.82f, 0.8f), 3, 2.4f, 0.28f);
         AddChild(_core);
         for (int k = 0; k < _tail.Length; k++)
         {
             float f = 1f - k / (float)_tail.Length;
-            _tail[k] = PropViews.Sprite(new Color(0.95f, 0.22f, 0.25f), 0, 1.2f * f, 0.42f * f + 0.1f);
+            _tail[k] = PropViews.Sprite(new Color(0.85f, 0.08f, 0.16f), 0, 1.3f * f, (0.36f * f + 0.08f) * _size);
             AddChild(_tail[k]);
         }
-        _light = PropViews.Light(new Color(0.5f, 1f, 0.45f), 1.4f, 3.2f);
+        _light = PropViews.Light(new Color(1f, 0.3f, 0.35f), 1.2f * _size, 2.8f);
         AddChild(_light);
     }
 
     protected override void Sync(float dt)
     {
-        var b = (DrainBolt)Owner2D;
+        var m = (LifeMote)Owner2D;
         Follow(default, 0.3f);
-        float a = b.Alpha, grow = 0.4f + 0.6f * a;
-        float pulse = 1f + 0.15f * MathF.Sin(b.Age * 40f);
-        _halo.Scale = Vector3.One * 0.7f * pulse * grow;
-        _core.Scale = Vector3.One * 0.34f * grow;
-        // the tail streams back along its flight (2D y-down mirrored to y-up)
-        var back = new Vector3(-b.Dir.X, b.Dir.Y, 0f);
+        float a = m.Alpha, grow = (0.4f + 0.6f * a) * _size;
+        float pulse = 1f + 0.18f * MathF.Sin(m.Age * 38f);
+        _halo.Scale = Vector3.One * 0.6f * pulse * grow;
+        _core.Scale = Vector3.One * 0.28f * grow;
+        // the tail streams back along its flight (2D y-down mirrored to y-up), longer the faster it goes
+        var v = m.Vel;
+        float stretch = Math.Clamp(v.Length() / 600f, 0.3f, 1.3f);
+        var back = v.LengthSquared() > 1 ? new Vector3(-v.X, v.Y, 0f).Normalized() : Vector3.Zero;
         for (int k = 0; k < _tail.Length; k++)
         {
-            _tail[k].Position = back * (0.16f + 0.17f * k);
-            _tail[k].Visible = a > 0.5f;
+            _tail[k].Position = back * (0.12f + 0.13f * k) * stretch * _size;
+            _tail[k].Visible = a > 0.4f;
         }
-        _light.LightEnergy = 1.4f * a;
+        _light.LightEnergy = 1.2f * a * _size;
     }
 }
 

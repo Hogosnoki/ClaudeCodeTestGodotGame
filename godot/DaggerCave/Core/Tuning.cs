@@ -102,6 +102,15 @@ public static class Tune
         /// WeakenSeconds. Recharges in ChargeCooldown s; using it never breaks a combo.
         /// </summary>
         public static float ChargeCooldown = 12f, ChargeDamage = 1.5f, ChargeReach = 1.25f, WeakenMult = 0.8f, WeakenSeconds = 5f;
+
+        /// <summary>
+        /// Heaving Swing (the second ability), on your feet only: planted for HeaveWindup s as the
+        /// sword goes up, one great arc (HeaveArcDegrees, HeaveReach x the reach) for HeaveDamage x
+        /// a normal swing, then planted HeaveRecover s more. A waiting Charged Strike is spent on
+        /// it (multiplying it again). Knocks back at least HeaveKnockback px/s. Every HeaveCooldown s.
+        /// </summary>
+        public static float HeaveWindup = 0.42f, HeaveRecover = 0.3f, HeaveDamage = 2f, HeaveReach = 1.3f, HeaveArcDegrees = 190f;
+        public static float HeaveKnockback = 420f, HeaveCooldown = 6f;
     }
 
     /// <summary>The warden: shortsword, an aimable shield, and the shield dash.</summary>
@@ -144,29 +153,54 @@ public static class Tune
         /// that aren't attacking are passed through.
         /// </summary>
         public static float DashSpeed = 520f, DashTime = 0.24f, DashCooldown = 3.2f, DashStagger = 0.8f, DashPush = 260f, DashDamage = 6f;
+
+        /// <summary>
+        /// Shield Bash (the second ability): a BashTime s shove behind the shield (BashLunge px/s,
+        /// fading). The first creature within BashReach px ahead takes BashDamage, is stunned for
+        /// BashStun s (half that for mini-bosses and guardians; the great bosses shrug it off) and
+        /// whatever it was doing is broken off. The shield takes BashShieldCost. Every BashCooldown s.
+        /// </summary>
+        public static float BashDamage = 20f, BashShieldCost = 20f, BashStun = 1.6f, BashCooldown = 10f;
+        public static float BashTime = 0.2f, BashReach = 24f, BashLunge = 240f, BashPush = 160f;
     }
 
     /// <summary>
-    /// The vitalist (a vitality manipulator): no blade. A life-draining bolt at medium range feeds
-    /// alimus, which pays for heals; a hex slows creatures and makes them take more damage.
+    /// The vitalist (a vitality manipulator): no blade. Draining life at medium range feeds
+    /// alimus, which pays for heals and ruptures; a hex slows creatures and makes them take more damage.
     /// </summary>
     public static class Vitalist
     {
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
-        /// <summary>Drain bolt: damage, range (px), time between casts, flight speed (px/s), and
-        /// the cone (degrees either side of your aim) it looks for a target in.</summary>
-        public static float BoltDamage = 15f, BoltRange = 175f, BoltCooldown = 0.5f, BoltSpeed = 720f, BoltConeDegrees = 38f;
+        /// <summary>
+        /// Drain (the attack button): the life is torn out of the creature you aim at the instant
+        /// you cast, with no travel time. Damage, reach (px), time between casts, and the cone
+        /// (degrees either side of your aim) it looks for a creature in. The stolen life flies back
+        /// to you at MoteSpeed px/s and becomes alimus when it arrives.
+        /// </summary>
+        public static float DrainDamage = 10f, DrainRange = 175f, DrainCooldown = 0.5f, DrainConeDegrees = 38f, MoteSpeed = 640f;
+        /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
+        public static float DrainWhiffCooldown = 0.25f;
+        /// <summary>Many Mouths: each extra creature drained (within MultiRadius px of the target)
+        /// takes this share of the damage.</summary>
+        public static float MultiRadius = 120f, MultiShare = 0.6f;
         /// <summary>Alimus: gained as this share of damage you deal; the most you can hold; what
-        /// you start a level with (at least).</summary>
-        public static float AlimusGain = 0.1f, AlimusMax = 100f, AlimusStart = 40f;
+        /// you start a run with.</summary>
+        public static float AlimusGain = 0.1f, AlimusMax = 30f, AlimusStart = 15f;
         /// <summary>
         /// Heal: costs HealCost alimus, and shares HealAmount of health among everyone in
         /// HealRange px who is hurt, by how hurt they are (the share of their health missing).
         /// </summary>
-        public static float HealCost = 12f, HealAmount = 22f, HealRange = 420f, HealCooldown = 3f;
+        public static float HealCost = 15f, HealAmount = 15f, HealRange = 420f, HealCooldown = 3f;
         /// <summary>Hex: creatures within HexRadius px move and act at HexSlow speed and take
         /// HexVulnerability x damage for HexSeconds; it recharges in HexCooldown s.</summary>
         public static float HexRadius = 110f, HexSlow = 0.55f, HexVulnerability = 1.2f, HexSeconds = 5f, HexCooldown = 6f;
+        /// <summary>
+        /// Rupture (the second ability): costs RuptureCost alimus. The creature you aim at (within
+        /// RuptureRange px) is seized where it stands and, RuptureWindup s later, bursts for
+        /// RuptureDamage; every other creature within RuptureRadius px of it takes RuptureSplash.
+        /// </summary>
+        public static float RuptureCost = 30f, RuptureDamage = 30f, RuptureSplash = 10f, RuptureRadius = 80f, RuptureRange = 200f;
+        public static float RuptureWindup = 0.24f, RuptureCooldown = 1.5f;
     }
 
     // =============================================================================== COMBAT
@@ -404,11 +438,6 @@ public static class Tune
         public static int Xp = 4;
     }
 
-    /// <summary>
-    /// Frost wraiths are a presence more than a gunner: they haunt the player from a distance,
-    /// now and then loom close with a shriek (no harm in it, only dread), and only rarely loose a
-    /// single ice shard after a long, obvious wind-up (three for an elite).
-    /// </summary>
     /// <summary>Grasping roots: how long they must hold you before the weapon is snagged, for how long, and how many cuts free them.</summary>
     public static class Roots
     {
@@ -423,6 +452,11 @@ public static class Tune
         public static int RocksMin = 2, RocksMax = 4;
     }
 
+    /// <summary>
+    /// Frost wraiths are a presence more than a gunner: they haunt the player from a distance,
+    /// now and then loom close with a shriek (no harm in it, only dread), and only rarely loose a
+    /// single ice shard after a long, obvious wind-up (three for an elite).
+    /// </summary>
     public static class Wraith
     {
         public static float Hp = 11, Contact = 5, FlySpeed = 85, CastWindup = 1.0f, CastCooldown = 7.5f, FirstCast = 4f, ShardDamage = 6, ShardSpeed = 185;

@@ -51,6 +51,7 @@ public partial class Player
     private void StartSwing(Vector2 aim)
     {
         aim = aim.Normalized();
+        _heave = false;
         // Combo: a strike that lands refunds the swing cooldown, up to ComboResets times in a row.
         // A swing made without a refund (or after a pause) starts a new chain.
         _comboStep = _chainLive && _swingSinceLast < SwingCooldownBase / Stats.AttackSpeed + ComboWindow ? _comboStep + 1 : 0;
@@ -64,7 +65,7 @@ public partial class Player
         bool charged = _swingCharged = ConsumeCharge();
         _swingArc = Mathf.DegToRad(finisher ? Tune.Hero.FinisherArcDegrees : Tune.Hero.SwingArcDegrees) * (charged ? 1.15f : 1f);
         _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f) * (charged ? Tune.Swordsman.ChargeReach : 1f);
-        _swingDmg = BaseDamage * Stats.DamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f) * (charged ? Tune.Swordsman.ChargeDamage : 1f);
+        _swingDmg = BaseDamage * Stats.DamageMult * Stats.PrimaryDamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f) * (charged ? Tune.Swordsman.ChargeDamage : 1f);
         _swingT = 0;
         _released = false;
         float speed = Math.Max(1f, Stats.AttackSpeed);
@@ -93,9 +94,10 @@ public partial class Player
     {
         _released = true;
         var aim = _swingDir;
-        G.Sfx.Play(_finisher || _swingCharged ? "swing_heavy" : "swing", GlobalPosition, -2, 0.12f, 1f + _comboStep * 0.08f);
-        // the sword carries you forward a little (horizontal strikes, on your feet)
-        if (LungeSpeed > 0 && !InWater && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
+        G.Sfx.Play(_finisher || _swingCharged || _heave ? "swing_heavy" : "swing", GlobalPosition, _heave ? 1 : -2, 0.12f, _heave ? 0.7f : 1f + _comboStep * 0.08f);
+        // the sword carries you forward a little (horizontal strikes, on your feet; never a heave)
+        if (LungeSpeed > 0 && !InWater && !_heave && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
+        if (_heave) Afterimage.Spawn(Anim, _swingCharged ? new Color(1f, 0.55f, 0.3f) : new Color(0.8f, 0.9f, 1f), 0.2f);
         Anim.Punch(new Vector2(1.22f, 0.86f));
         if (Stats.CrescentWave && _waveCd <= 0)
         {
@@ -157,18 +159,25 @@ public partial class Player
                 pr.Deflect();
             }
         }
+        // a heave ends in the floor in front of you
+        if (_heave && !_heaveLanded && SweepT >= _active * 0.8f) { _heaveLanded = true; HeaveImpact(); }
+        if (SweepT < 0) _heaveLanded = false;
         // follow-through: the rest of the clip (3-4 frames at the clip's speed), a held beat
-        if (SweepT > _active + _windup * 1.6f) _swingT = -1;
+        float follow = _heave ? Tune.Swordsman.HeaveRecover : _windup * 1.6f;
+        if (SweepT > _active + follow) _swingT = -1;
     }
+
+    private bool _heaveLanded;
 
     private void OnSwingHit(Enemy e, Vector2 to)
     {
         var dir = (_swingDir + to.Normalized()).Normalized();
         var kbTable = Tune.Hero.KnockbackByLevel;
         float kb = BaseKnock + kbTable[Math.Clamp(Stats.KnockbackLevel, 0, kbTable.Length - 1)];
-        bool finisher = _finisher, charged = _swingCharged;
+        bool finisher = _finisher || _heave, charged = _swingCharged;
         if (finisher) kb += Tune.Hero.FinisherExtraKnockback;
         if (charged) kb += Tune.Hero.FinisherExtraKnockback * 0.6f;
+        if (_heave) kb = Math.Max(kb, Tune.Swordsman.HeaveKnockback);
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
         float dmg = _swingDmg * G.Range(0.9f, 1.1f);
         if (Stats.Execute && e.Hp < e.MaxHp * Tune.Swordsman.ExecuteBelow) dmg *= 1f + Tune.Swordsman.ExecuteBonus;
@@ -199,8 +208,9 @@ public partial class Player
         {
             _swingHitSomething = true;
             // the combo stays live: the next swing may follow at once (a press during the
-            // hit-stop is kept and fires the moment it ends). No combo from behind a raised shield.
-            if (_comboStep < Stats.ComboResets && !ShieldRaised) { _swingCd = 0f; _chainLive = true; }
+            // hit-stop is kept and fires the moment it ends). No combo from behind a raised shield,
+            // nor out of a heave.
+            if (_comboStep < Stats.ComboResets && !ShieldRaised && !_heave) { _swingCd = 0f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             if (Math.Abs(to.X) > 2) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
             Freeze(stop);
@@ -230,15 +240,16 @@ public partial class Player
         float prog = Math.Clamp(SweepT / _active, 0, 1);
         prog = 1 - (1 - prog) * (1 - prog) * (1 - prog);
         float fade = 1 - Math.Clamp((SweepT - _active) / 0.15f, 0, 1);
-        float dirSign = _comboStep % 2 == 0 ? 1 : -1;
+        // (a heave always comes over the top: from behind your head down to the floor in front)
+        float dirSign = _heave ? Facing : _comboStep % 2 == 0 ? 1 : -1;
         float a0 = _swingDir.Angle() - dirSign * _swingArc * 0.5f;
         sm.Head = a0 + dirSign * _swingArc * prog;
         sm.Tail = a0 + dirSign * _swingArc * Math.Max(0, prog - 0.85f + (1 - fade) * 0.85f);
         if (Math.Abs(sm.Head - sm.Tail) < 0.02f) return false;
-        sm.Finisher = _finisher;
+        sm.Finisher = _finisher || _heave;
         sm.Charged = _swingCharged;
         sm.Outer = _swingReach + 3;
-        sm.Blade = _swingReach * (IsWarden ? 0.62f : 0.8f) * (_finisher ? 1.1f : 1f);
+        sm.Blade = _swingReach * (IsWarden ? 0.62f : 0.8f) * (_finisher || _heave ? 1.1f : 1f);
         sm.Fade = fade;
         sm.Tint = _swingCharged ? new Color(1f, 0.5f, 0.28f) : _finisher ? new Color(1f, 0.82f, 0.35f) : new Color(0.8f, 0.95f, 1f);
         sm.Origin = GlobalPosition + new Vector2(0, -3);

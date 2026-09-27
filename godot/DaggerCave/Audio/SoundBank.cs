@@ -28,10 +28,11 @@ public partial class SoundBank : Node
         BuildSfx();
         _ambient = BuildAmbientMusic();
         _boss = BuildBossMusic();
-        for (int k = 0; k < 28; k++) { var p = new AudioStreamPlayer2D { MaxDistance = 1100, Attenuation = 1.2f }; AddChild(p); _pool2D.Add(p); }
-        for (int k = 0; k < 8; k++) { var p = new AudioStreamPlayer(); AddChild(p); _poolUi.Add(p); }
-        _musicA = new AudioStreamPlayer { VolumeDb = -8 };
-        _musicB = new AudioStreamPlayer { VolumeDb = -80 };
+        GameSettings.ApplySound(); // (makes the Music and SFX buses)
+        for (int k = 0; k < 28; k++) { var p = new AudioStreamPlayer2D { MaxDistance = 1100, Attenuation = 1.2f, Bus = "SFX" }; AddChild(p); _pool2D.Add(p); }
+        for (int k = 0; k < 8; k++) { var p = new AudioStreamPlayer { Bus = "SFX" }; AddChild(p); _poolUi.Add(p); }
+        _musicA = new AudioStreamPlayer { VolumeDb = -8, Bus = "Music" };
+        _musicB = new AudioStreamPlayer { VolumeDb = -80, Bus = "Music" };
         AddChild(_musicA); AddChild(_musicB);
 
         var lp = new AudioEffectLowPassFilter { CutoffHz = 700, Resonance = 0.6f };
@@ -178,6 +179,23 @@ public partial class SoundBank : Node
         b = Buf(0.4f); NoiseBurst(b, 0, 0.4f, t => 0.1f + 0.2f * t, AD(0.4f, 3f)); Osc(b, 0, 0.4f, ExpSweep(200, 500), AD(0.5f, 4f), 3); Add("gasp", b, 0.4f);
         b = Buf(0.9f); Osc(b, 0, 0.9f, ExpSweep(400, 60), AD(0.02f, 2f), 2); NoiseBurst(b, 0, 0.9f, Const(0.1f), Decay(3)); LowPass(b, 0.3f); Add("player_die", b, 0.8f);
         b = Buf(0.3f); Osc(b, 0, 0.3f, ExpSweep(600, 200), Decay(4), 3); NoiseBurst(b, 0, 0.3f, Const(0.3f), Decay(6)); Add("web", b, 0.35f);
+
+        // the drain: a wet rip, then a rising, sucking rush (life pulled out and away)
+        b = Buf(0.34f);
+        NoiseBurst(b, 0, 0.05f, Const(0.7f), Decay(18));
+        NoiseBurst(b, 0.02f, 0.32f, t => 0.04f + 0.4f * t * t, t => MathF.Sin(MathF.Min(1f, t * 1.4f) * MathF.PI) * 0.8f);
+        Osc(b, 0.02f, 0.3f, ExpSweep(160, 620), t => MathF.Sin(t * MathF.PI) * 0.5f, 3);
+        Osc(b, 0.04f, 0.26f, ExpSweep(240, 900), t => MathF.Sin(t * MathF.PI) * 0.25f, 0);
+        LowPass(b, 0.55f); Add("drain", b, 0.6f);
+
+        // the rupture: a deep, wet burst with a crack at its heart
+        b = Buf(0.7f);
+        NoiseBurst(b, 0, 0.7f, t => 0.35f * (1 - t) + 0.03f, AD(0.01f, 5f));
+        Osc(b, 0, 0.5f, ExpSweep(110, 38), AD(0.01f, 5f), 2);
+        Osc(b, 0, 0.3f, ExpSweep(420, 90), Decay(9), 1);
+        NoiseBurst(b, 0, 0.03f, Const(1f), Decay(25), true);
+        for (int k = 0; k < 5; k++) NoiseBurst(b, 0.08f + k * 0.07f, 0.04f, Const(0.5f), Decay(14));
+        LowPass(b, 0.45f); Add("rupture", b, 0.9f);
     }
 
     /// <summary>A 32 s seamless ambient loop: filtered drone, slow pad chords, echoing pentatonic plinks and drips.</summary>

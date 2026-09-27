@@ -74,7 +74,8 @@ public partial class HeartPickup : Node2D
         {
             p.Heal(p.Stats.MaxHp * Tune.Drops.HeartHealFrac);
             G.Sfx.Play("heal", GlobalPosition, -4);
-            G.Fx.Pop(GlobalPosition, new Color(1f, 0.3f, 0.4f), 6);
+            G.Fx.Pop(GlobalPosition, Player.HealColor, 6);
+            G.Fx.Ring(p.GlobalPosition, 16, Player.HealColorLight, 0.3f);
             QueueFree();
             return;
         }

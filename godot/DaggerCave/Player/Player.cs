@@ -8,7 +8,9 @@ public struct PlayerInput
 {
     public Vector2 Move;        // -1..1 each axis; up is negative Y
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
-    public bool Jump, JumpHeld, Attack, Ability, Dodge, Potion, Interact;
+    public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact;
+    /// <summary>The interact button held (reviving a fallen friend takes a moment).</summary>
+    public bool InteractHeld;
     public bool GuardHeld;      // dodge button held (the warden's shield)
     public Vector2 GuardAim;    // right stick, else the mouse (keyboard + mouse), else zero = facing
     /// <summary>The right stick is pushed: the warden's shield goes up that way, no button needed.</summary>
@@ -19,9 +21,9 @@ public struct PlayerInput
 /// The hero. This file is the body every hero shares: ground movement with coyote time, jump
 /// buffering and variable jump height, free swimming with a breath meter, hazards, health,
 /// potions and experience, and the buffering of presses. What each hero fights with lives in
-/// the other Player.*.cs files: the blade (Swordsman and Warden), the Swordsman's dodge and
-/// charged strike, the Warden's shield and shield dash, and the Vitalist's bolt, hex and heal.
-/// Every tunable that upgrades touch lives in <see cref="PlayerStats"/>.
+/// the other Player.*.cs files: the blade (Swordsman and Warden), the Swordsman's dodge, charged
+/// strike and heaving swing, the Warden's shield, shield dash and shield bash, and the Vitalist's
+/// drain, hex, heal and rupture. Every tunable that upgrades touch lives in <see cref="PlayerStats"/>.
 /// </summary>
 public partial class Player : CharacterBody2D
 {
@@ -57,6 +59,9 @@ public partial class Player : CharacterBody2D
 
     public Func<PlayerInput> InputOverride;
     public SpriteAnimator Anim;
+    /// <summary>Another player's hero in an online game: a puppet shown from what their machine
+    /// sends (it doesn't simulate or take damage here).</summary>
+    public bool IsRemote;
 
     // animation bookkeeping
     private bool _wallSliding, _jumpedFromGround;
@@ -72,8 +77,8 @@ public partial class Player : CharacterBody2D
     private float _lastFallSpeed, _freeze, _stuckInRock;
 
     // presses waiting to fire (see BufferPresses)
-    private float _attackBuf, _abilityBuf, _dodgeBuf;
-    private Vector2 _attackAim, _abilityAim;
+    private float _attackBuf, _abilityBuf, _ability2Buf, _dodgeBuf;
+    private Vector2 _attackAim, _abilityAim, _ability2Aim;
     private PlayerInput _dodgeInput;
 
     public bool Invulnerable => _invuln > 0 || _iframes > 0;
@@ -82,9 +87,9 @@ public partial class Player : CharacterBody2D
     /// <summary>The hero's ability (charged strike, shield dash, heal) is ready to use.</summary>
     public bool SecondaryReady => Stats.Hero switch
     {
-        HeroKind.Warden => _dashCd <= 0,
-        HeroKind.Vitalist => _healCd <= 0 && Alimus >= HealCost,
-        _ => _chargeCd <= 0 || Charged > 0,
+        HeroKind.Vitalist => AbilityChargeReady && Alimus >= HealCost,
+        HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
+        _ => AbilityChargeReady,
     };
     public int XpToNext => (int)(Tune.Hero.XpBase + Tune.Hero.XpLinear * Level + Tune.Hero.XpQuadratic * Level * Level);
 
@@ -112,6 +117,7 @@ public partial class Player : CharacterBody2D
     public void SyncCharges()
     {
         if (_dodgeCd.Length != Stats.DodgeCharges) Array.Resize(ref _dodgeCd, Stats.DodgeCharges);
+        if (_abilityCd.Length != Stats.AbilityCharges) Array.Resize(ref _abilityCd, Stats.AbilityCharges);
     }
 
     /// <summary>Heals (pickups, potions, the vitalist). The Warden's shield takes a share too.</summary>
@@ -120,7 +126,7 @@ public partial class Player : CharacterBody2D
         if (Dead || amount <= 0) return;
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
-        if (Hp - before >= 1f) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + Mathf.RoundToInt(Hp - before), new Color(0.4f, 1f, 0.5f), 10);
+        if (Hp - before >= 1f) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + Mathf.RoundToInt(Hp - before), HealColorLight, 10);
         if (IsWarden) MendShield(amount * Tune.Warden.HealToShield);
     }
 
@@ -152,10 +158,10 @@ public partial class Player : CharacterBody2D
         _hotLeft = Meta.PotionHotSeconds;
         G.Sfx.Play("heal", GlobalPosition, 0, 0, 0.8f);
         G.Sfx.Play("bubble", GlobalPosition, -4, 0, 0.6f);
-        G.Fx.Flash(GlobalPosition, 26, new Color(1f, 0.45f, 0.6f));
-        G.Fx.Ring(GlobalPosition, 22, new Color(1f, 0.55f, 0.7f));
-        for (int k = 0; k < 10; k++) G.Fx.Ember(GlobalPosition + G.RandDir() * 10, new Color(1f, 0.5f, 0.65f));
-        G.Fx.ScreenFlash(new Color(1f, 0.35f, 0.5f), 0.25f);
+        G.Fx.Flash(GlobalPosition, 26, HealColor);
+        G.Fx.Ring(GlobalPosition, 22, HealColorLight);
+        for (int k = 0; k < 10; k++) G.Fx.Ember(GlobalPosition + G.RandDir() * 10, HealColor);
+        if (!IsRemote) G.Fx.ScreenFlash(new Color(1f, 0.35f, 0.5f), 0.25f);
         Anim.Flash(0.6f);
         return true;
     }
@@ -166,7 +172,18 @@ public partial class Player : CharacterBody2D
     private PlayerInput ReadInput()
     {
         if (InputOverride != null) return InputOverride();
-        if (G.Main.MenuOpen) return default;
+        return ReadLocalInput(this);
+    }
+
+    /// <summary>
+    /// This machine's controls, for the hero <paramref name="p"/>: keyboard and mouse or a
+    /// controller, as bound in the settings. Aim: the right stick, else (on a controller) the left
+    /// stick; with keyboard and mouse, the mouse pointer while the mouse is in use, else the way
+    /// you move (see <see cref="GameSettings.AimFromMouse"/>).
+    /// </summary>
+    public static PlayerInput ReadLocalInput(Player p)
+    {
+        if (G.Main.MenuOpen || G.Main.OverlayMenuOpen) return default;
         var inp = new PlayerInput
         {
             Move = new Vector2(Input.GetAxis("move_left", "move_right"), Input.GetAxis("move_up", "move_down")),
@@ -175,27 +192,27 @@ public partial class Player : CharacterBody2D
             Dodge = Input.IsActionJustPressed("dodge"),
             GuardHeld = Input.IsActionPressed("dodge"),
             Potion = Input.IsActionJustPressed("potion"),
+            Attack = Input.IsActionJustPressed("attack"),
+            Ability = Input.IsActionJustPressed("ability"),
+            Ability2 = Input.IsActionJustPressed("ability2"),
+            InteractHeld = Input.IsActionPressed("interact"),
         };
         // up works too, but only a deliberate push (running past a door on a tilted stick shouldn't take you down)
         inp.Interact = Input.IsActionJustPressed("interact") || (Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f);
-        bool mouseAttack = Input.IsActionJustPressed("attack");
-        bool kbAttack = Input.IsActionJustPressed("attack_alt");
-        bool mouseAbility = Input.IsActionJustPressed("ability");
-        bool kbAbility = Input.IsActionJustPressed("ability_alt");
-        inp.Attack = mouseAttack || kbAttack;
-        inp.Ability = mouseAbility || kbAbility;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
         bool stickOn = stick.Length() > 0.35f;
         // the right stick raises the Warden's shield by itself, pointing where it's pushed
         inp.StickGuard = stickOn;
+        var toMouse = (p.GetGlobalMousePosition() - p.GlobalPosition).Normalized();
+        bool mouse = !G.Main.UsingPad && GameSettings.AimFromMouse;
         // the shield points wherever a swing would go: right stick, else the left stick on a
         // controller (else your facing), or the mouse
         if (stickOn) inp.GuardAim = stick.Normalized();
-        else if (G.Main.UsingPad) inp.GuardAim = inp.Move.Length() > 0.3f ? inp.Move.Normalized() : Vector2.Zero;
-        else inp.GuardAim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
+        else if (!mouse) inp.GuardAim = inp.Move.Length() > 0.3f ? inp.Move.Normalized() : Vector2.Zero;
+        else inp.GuardAim = toMouse;
         if (stickOn) inp.Aim = stick.Normalized();
-        else if (kbAttack || kbAbility || G.Main.UsingPad) inp.Aim = inp.Move.Length() > 0.2f ? inp.Move.Normalized() : new Vector2(Facing, 0);
-        else inp.Aim = (GetGlobalMousePosition() - GlobalPosition).Normalized();
+        else if (!mouse) inp.Aim = inp.Move.Length() > 0.2f ? inp.Move.Normalized() : new Vector2(p.Facing, 0);
+        else inp.Aim = toMouse;
         return inp;
     }
 
@@ -209,6 +226,7 @@ public partial class Player : CharacterBody2D
         var aim = inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0);
         if (inp.Attack) { _attackBuf = Tune.Hero.PressBuffer; _attackAim = aim; }
         if (inp.Ability) { _abilityBuf = Tune.Hero.PressBuffer; _abilityAim = aim; }
+        if (inp.Ability2) { _ability2Buf = Tune.Hero.PressBuffer; _ability2Aim = aim; }
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
         if (inp.Potion) DrinkPotion();
@@ -308,10 +326,12 @@ public partial class Player : CharacterBody2D
         }
         _wasOnFloor = nowFloor;
 
-        // the attack button, then the ability button (each fires once it's allowed)
+        // the attack button, then the two ability buttons (each fires once it's allowed)
         if (_attackBuf > 0 && Primary(_attackAim)) _attackBuf = 0;
         if (_abilityBuf > 0 && Ability(_abilityAim)) _abilityBuf = 0;
+        if (_ability2Buf > 0 && Ability2(_ability2Aim)) _ability2Buf = 0;
         if (_swingT >= 0) UpdateSwing(dt);
+        TickBash(dt);
 
         UpdateAnimation(nowFloor);
         QueueRedraw();
@@ -333,20 +353,28 @@ public partial class Player : CharacterBody2D
         Anim.FlashColor = new Color(0.7f, 0.6f, 0.35f);
     }
 
-    /// <summary>The attack button: a swing, or the Vitalist's drain bolt. True once it fires.</summary>
+    /// <summary>The attack button: a swing, or the Vitalist's drain. True once it fires.</summary>
     private bool Primary(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
-        HeroKind.Vitalist => CastBolt(aim),
-        HeroKind.Warden => _dashT <= 0 && TrySwing(aim),
-        _ => TrySwing(aim),
+        HeroKind.Vitalist => CastDrain(aim),
+        HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim),
+        _ => !Heaving && TrySwing(aim),
     };
 
     /// <summary>The ability button: charged strike, shield dash, or heal. True once it fires.</summary>
     private bool Ability(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
-        HeroKind.Warden => TryShieldDash(aim),
+        HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => TryHeal(),
         _ => TryCharge(),
+    };
+
+    /// <summary>The second ability button: heaving swing, shield bash, or rupture. True once it fires.</summary>
+    private bool Ability2(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
+    {
+        HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
+        HeroKind.Vitalist => TryRupture(aim),
+        _ => TryHeave(aim),
     };
 
     /// <summary>The dodge button's press: a roll or a hex (the Warden's shield reads the button itself).</summary>
@@ -465,8 +493,9 @@ public partial class Player : CharacterBody2D
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
         _wallJumpLock -= dt; _hurtFlash -= dt; _lungeT -= dt;
         _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
-        _attackBuf -= dt; _abilityBuf -= dt; _dodgeBuf -= dt;
-        _chargeCd -= dt; _dashCd -= dt; _boltCd -= dt; _hexCd -= dt; _healCd -= dt; _snagT -= dt;
+        _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
+        _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
+        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0) _abilityCd[k] -= dt;
         if (_hotLeft > 0)
         {
             _hotLeft -= dt;
@@ -503,6 +532,9 @@ public partial class Player : CharacterBody2D
     {
         float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f);
         if (WebbedT > 0) target *= 0.45f;
+        // planted for a heaving swing, or braced behind a shield bash
+        bool rooted = Heaving || (_bashT > 0 && onFloor);
+        if (rooted) target = 0;
         float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
         // frozen ground: slow to get going and slower to stop
         if (onFloor && G.Biome != null && G.Biome.Slippery)
@@ -512,8 +544,9 @@ public partial class Player : CharacterBody2D
             if (Math.Abs(v.X - target) > 60 && _slideDust <= 0) { _slideDust = 0.05f; G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 1, 0.5f, new Color(0.85f, 0.95f, 1f, 0.6f)); }
         }
         else if (onFloor && Math.Abs(v.X) > 150 && Math.Sign(target) != Math.Sign(v.X) && G.Chance(0.3f)) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 1, 0.6f);
-        v.X = Mathf.MoveToward(v.X, target, accel * dt);
+        v.X = Mathf.MoveToward(v.X, target, (rooted ? 4000f : accel) * dt);
         if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
+        if (_bashT > 0) v.X = BashMotion(v.X);
         v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), MaxFall);
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult) * (WebbedT > 0 ? 0.75f : 1f);
@@ -528,7 +561,7 @@ public partial class Player : CharacterBody2D
             if (G.Chance(0.2f)) G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 6), new Color(0.6f, 0.55f, 0.5f, 0.6f), 1, 20, 1.5f, 0.3f, 30);
         }
 
-        if (_jumpBuffer > 0)
+        if (_jumpBuffer > 0 && !Heaving)
         {
             if (_coyote > 0)
             {
@@ -601,10 +634,14 @@ public partial class Player : CharacterBody2D
         return v;
     }
 
-    public void OnDealtDamage(float dealt)
+    /// <summary>
+    /// Damage this hero dealt: life steal, and the Vitalist's alimus (unless the stolen life is
+    /// flying home as a <see cref="LifeMote"/> that pays it on arrival).
+    /// </summary>
+    public void OnDealtDamage(float dealt, bool alimusByMote = false)
     {
         if (Stats.LifeSteal > 0) Hp = Math.Min(Stats.MaxHp, Hp + dealt * Stats.LifeSteal);
-        if (IsVitalist) GainAlimus(dealt * Stats.AlimusGain);
+        if (IsVitalist && !alimusByMote) GainAlimus(dealt * Stats.AlimusGain);
     }
 
     public void OnKill()
@@ -688,6 +725,14 @@ public partial class Player : CharacterBody2D
         G.Fx.AddShake(kind == "drown" ? 2 : chip ? 1.5f : 6);
         if (!chip) G.Sfx.Play(kind == "drown" ? "bubble" : "hurt", GlobalPosition, -2);
         if (Hp <= 0) Die();
+    }
+
+    /// <summary>Gives up the run (the pause menu): the hero falls where they stand.</summary>
+    public void GiveUp()
+    {
+        if (Dead) return;
+        Hp = 0;
+        Die();
     }
 
     private void Die()

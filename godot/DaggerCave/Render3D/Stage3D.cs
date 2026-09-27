@@ -220,6 +220,16 @@ public partial class Stage3D : Node3D
             _fill.LightEnergy = 1.2f;
         }
         if (_debugNoFog) Env.VolumetricFogEnabled = false;
+        ApplySettings();
+    }
+
+    /// <summary>The graphics settings that live in the environment: haze, bloom, ambient occlusion, brightness.</summary>
+    public void ApplySettings()
+    {
+        Env.VolumetricFogEnabled = GameSettings.Fog && !_debugBright && !_debugNoFog;
+        Env.GlowEnabled = GameSettings.Bloom;
+        Env.SsaoEnabled = GameSettings.AmbientOcclusion;
+        Env.TonemapExposure = 1.1f * GameSettings.Brightness;
     }
 
     public override void _Process(double delta)
@@ -305,7 +315,7 @@ public partial class Stage3D : Node3D
         Cam.Fov = fov;
         // a little rotational shake on top of the 2D camera's positional shake
         _shakeT += dt;
-        float s = G.Fx?.Shake ?? 0f;
+        float s = (G.Fx?.Shake ?? 0f) * GameSettings.Shake;
         float roll = s > 0 ? _shakeNoise.Sample(_shakeT * 18f, 0, 0) * s * 0.0035f : 0f;
         if (_debugOrbit is Vector3 o)
         {

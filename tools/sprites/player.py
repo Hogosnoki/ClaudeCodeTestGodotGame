@@ -403,6 +403,62 @@ def heal(u, i):
     return build(p)
 
 
+def heave(u, i):
+    """The Swordsman's heaving swing (16 frames): both hands on the hilt, the sword hauled up over
+    the head and far behind (seven frames, rooted), brought over and down in one great arc (two
+    frames of smear), then a deep lunge held a moment before recovering."""
+    wind, sweep = 7, 2
+    a0, a1 = -2.75, 1.05
+    if i < wind:
+        w = smooth((i + 1) / wind)
+        sa = lerp(-0.9, a0, w)
+        body = dict(lean=-0.28 * w, bx=-1.0 * w, by=0.5 * w, sq=1 - 0.05 * w, cf=0.2, lnx=3.0, lfx=-3.4, ht=-0.25 * w)
+        reach, blade, smear = 6.4, 1.0, None
+    elif i < wind + sweep:
+        j = i - wind
+        sa = a1 if j else lerp(a0, a1, 0.55)
+        body = dict(lean=0.5, bx=2.2, by=1.8, sq=0.94, cf=1.6, lnx=7.0, lfx=-4.6, ht=0.1)
+        reach, blade = 8.6, 0.0
+        smear = (a0 - 0.1, lerp(a0, a1, 0.6)) if j == 0 else (lerp(a0, a1, 0.35), a1)
+    else:
+        j = i - wind - sweep
+        settle = smooth(j / (16 - wind - sweep - 1))
+        sa = a1 + 0.1 - 0.35 * settle
+        body = dict(lean=0.5 * (1 - settle) + 0.06 * settle, bx=2.2 * (1 - settle), by=1.8 * (1 - settle), sq=0.94 + 0.06 * settle,
+                    cf=1.6 - 1.3 * settle, lnx=7.0 - 4.4 * settle, lfx=-4.6 + 2.2 * settle)
+        reach, blade, smear = 8.2 - 1.5 * settle, 1.0, None
+    sh = (1.2 + body['bx'], -4 + body.get('by', 0) * 0.5)
+    hand = polar(sh, reach, sa)
+    # the off hand on the hilt, just below the sword hand
+    off = polar(sh, reach - 1.8, sa)
+    parts = build(dict(body, dhx=hand[0], dhy=hand[1], da=sa + 0.2, blade=blade, fhx=off[0], fhy=off[1], armz=3.6,
+                       sl=0.6, scarf=1.3, sw=u * 7))
+    if smear is not None:
+        parts += woosh_arc(sh, reach + 1.2, reach + 2.0 + BLADE_LEN, smear[0], smear[1], 4.5)
+    return parts
+
+
+def shove(u, i):
+    """The Warden's shield bash (8 frames): a short step and the buckler punched straight out."""
+    p = keys(u, [(0, dict(lean=0.1, fhx=0.5, fhy=1.5, dhx=-1.0, dhy=3.0, da=2.2, lnx=3.0, lfx=-2.6)),
+                 (0.25, dict(lean=0.42, bx=1.6, by=0.8, fhx=8.0, fhy=-1.0, dhx=-2.5, dhy=2.0, da=2.5, lnx=7.0, lfx=-4.2, cf=1.5, sl=1.0, scarf=1.4)),
+                 (0.55, dict(lean=0.38, bx=1.4, by=0.7, fhx=7.4, fhy=-0.8, dhx=-2.2, dhy=2.2, da=2.4, lnx=6.5, lfx=-4.0, cf=1.3, sl=0.9, scarf=1.3)),
+                 (1, dict())], ease=ease_out)
+    return build(p)
+
+
+def rupture(u, i):
+    """The Vitalist's rupture (12 frames): the staff raised behind, the free hand thrust out open
+    at the creature... then clenched and torn back to the chest as it bursts."""
+    p = keys(u, [(0, dict()),
+                 (0.35, dict(st=-2.0, dhx=0.5, dhy=-6.5, fhx=8.5, fhy=-3.0, lean=0.22, bx=0.6, gem=0.8, lnx=5.0, lfx=-3.2, cf=0.8, ht=-0.1)),
+                 (0.46, dict(st=-2.0, dhx=0.5, dhy=-6.5, fhx=8.8, fhy=-3.2, lean=0.25, bx=0.7, gem=1.0, lnx=5.0, lfx=-3.2, cf=0.9, ht=-0.1)),
+                 (0.56, dict(st=-1.9, dhx=0.0, dhy=-6.0, fhx=2.5, fhy=-1.0, lean=-0.18, bx=-0.8, gem=1.0, lnx=3.4, lfx=-2.8, cf=-0.4, sl=0.8)),
+                 (0.8, dict(st=-1.7, dhx=2.0, dhy=-2.0, fhx=2.0, fhy=0.0, lean=-0.08, gem=0.5)),
+                 (1, dict())], ease=smooth)
+    return build(p)
+
+
 def hurt(u, i):
     p = keys(u, [(0, dict(lean=-0.55, bx=-1.5, by=0.8, ht=-0.4, dhx=6.5, dhy=-3, fhx=-6, fhy=-4, sq=0.92, cf=-1.2, sl=1.0, blink=1)),
                  (0.4, dict(lean=-0.45, bx=-1.2, by=0.6, ht=-0.3, dhx=6, dhy=-1.5, fhx=-5.5, fhy=-2, sq=0.95, cf=-0.8, sl=0.8, blink=1)),
@@ -446,12 +502,16 @@ def make(style='swordsman'):
         sh.add_anim('cast', 6, False, cast)
         sh.add_anim('hex', 10, False, hex_)
         sh.add_anim('heal', 12, False, heal)
+        sh.add_anim('rupture', 12, False, rupture)
     else:
         for kind in ('a', 'b', 'c'):
             for dname, alpha in DIRS.items():
                 sh.add_anim(f'slash_{kind}_{dname}', 7 if kind != 'c' else 9, False, slash(kind, alpha))
+        if not BUCKLER:
+            sh.add_anim('heave', 16, False, heave)
     if BUCKLER:
         sh.add_anim('bash', 6, False, bash)
+        sh.add_anim('shove', 8, False, shove)
     sh.add_anim('hurt', 6, False, hurt)
     sh.add_anim('death', 18, False, death)
     return sh

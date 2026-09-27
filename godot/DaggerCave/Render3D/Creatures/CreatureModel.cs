@@ -10,6 +10,8 @@ public sealed class CreatureKit
     public CreatureDesign Design;
     public SculptResult Sculpt;
     public ShaderMaterial Material;
+    /// <summary>The ink outline pass (the material's next pass while outlines are on).</summary>
+    public ShaderMaterial Ink;
     public float BuildMs;
 }
 
@@ -21,6 +23,13 @@ public sealed class CreatureKit
 public static class CreatureLibrary
 {
     private static readonly Dictionary<string, CreatureKit> Kits = new();
+
+    /// <summary>Turns the ink outlines (the Sobel pass) on or off for every creature, built or to come.</summary>
+    public static void SetInk(bool on)
+    {
+        foreach (var k in Kits.Values)
+            if (k.Material != null) k.Material.NextPass = on ? k.Ink : null;
+    }
     private static readonly Dictionary<string, Func<CreatureDesign>> Designs = new();
     private static readonly Dictionary<string, Lazy<Baked>> Bakes = new();
     private static Shader _shader, _inkShader;
@@ -148,9 +157,9 @@ public static class CreatureLibrary
         _inkShader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/creature_ink.gdshader");
         var ink = new ShaderMaterial { Shader = _inkShader };
         if (!float.IsNaN(look.GhostBelow)) { ink.SetShaderParameter("ghost_below", look.GhostBelow); ink.SetShaderParameter("ghost_fade", look.GhostFade); }
-        mat.NextPass = ink;
+        mat.NextPass = GameSettings.InkOutlines ? ink : null;
         res.Mesh.SurfaceSetMaterial(0, mat);
-        kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, BuildMs = baked.Ms };
+        kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, Ink = ink, BuildMs = baked.Ms };
         Kits[name] = kit;
         GD.Print($"[3D] creature '{name}': {res.Triangles / 1000f:0.0}k triangles, {res.Bones.Length} bones, baked in {baked.Ms:0} ms" +
                  (ready ? " (ahead of time)" : "") + $", finished in {sw.ElapsedMilliseconds} ms");

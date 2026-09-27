@@ -23,6 +23,7 @@ public partial class UpgradeMenu : Control
         "dodge" => new Color(0.75f, 0.6f, 1f),
         "shield" => new Color(0.45f, 0.7f, 1f),
         "skip" => new Color(0.6f, 0.58f, 0.55f),
+        "risk" => new Color(0.86f, 0.42f, 1f),
         _ => new Color(1f, 0.45f, 0.5f),
     };
 
@@ -122,10 +123,12 @@ public partial class UpgradeMenu : Control
             DrawColoredPolygon(gem, cat.Darkened(0.2f));
             DrawCircle(gc, 12, cat.Lightened(0.3f));
             DrawString(font, r.Position + new Vector2(12, 22), $"[{k + 1}]", HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, 0.5f));
-            if (u.Tier == UpgradeTier.Ability)
+            if (u.Icon == "risk")
+                DrawString(font, r.Position + new Vector2(cw - 112, 22), "RISK · REWARD", HorizontalAlignment.Left, -1, 11, cat);
+            else if (u.Tier == UpgradeTier.Ability)
                 DrawString(font, r.Position + new Vector2(cw - 70, 22), "ABILITY", HorizontalAlignment.Left, -1, 11, cat);
             DrawString(font, r.Position + new Vector2(0, 130), u.Name, HorizontalAlignment.Center, cw, 20, Colors.White);
-            DrawMultilineString(font, r.Position + new Vector2(16, 162), u.Desc, HorizontalAlignment.Center, cw - 32, 14, -1, new Color(0.85f, 0.85f, 0.9f));
+            DrawMultilineString(font, r.Position + new Vector2(16, 162), Upgrades.DescFor(u, stats), HorizontalAlignment.Center, cw - 32, 14, -1, new Color(0.85f, 0.85f, 0.9f));
             if (stats != null && u.MaxStacks > 1 && u.Icon != "skip")
                 DrawString(font, r.Position + new Vector2(0, ch - 16), $"{stats.StackOf(u.Id)} / {u.MaxStacks}", HorizontalAlignment.Center, cw, 12, new Color(1, 1, 1, 0.5f));
             if (u.Excludes.Length > 0)
@@ -160,21 +163,21 @@ public partial class ScreenOverlay : Control
     {
         (HeroKind.Swordsman, "SWORDSMAN", "swordsman", new[]
         {
-            "The damage dealer. Long, heavy",
-            "sword; a quick dodge roll to swing",
-            "out of; Charged Strike saps foes.",
+            "The damage dealer. A heavy sword,",
+            "a quick dodge roll, a Charged Strike",
+            "and a rooted, crushing heaving swing.",
         }),
         (HeroKind.Warden, "WARDEN", "warden", new[]
         {
             "The guardian. Shield stops 70% of",
             "each blow; a guarded dash breaks",
-            "attacks off. Sturdiest, slowest.",
+            "attacks off; a shield bash stuns.",
         }),
         (HeroKind.Vitalist, "VITALIST", "vitalist", new[]
         {
-            "The healer. Drain bolts feed alimus",
-            "for heals; a hex slows foes and",
-            "makes them take 20% more damage.",
+            "The healer. Drained life feeds",
+            "alimus for heals and ruptures; a hex",
+            "slows foes and makes them frail.",
         }),
     };
 
