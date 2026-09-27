@@ -56,6 +56,8 @@ public static class Tune
         /// <summary>A press of attack, ability or dodge is remembered this long (and through a
         /// hit-stop), so it fires the moment it's allowed: combos pressed during an impact flow on.</summary>
         public static float PressBuffer = 0.22f;
+        /// <summary>Murky water (the root-choked tunnels): breath runs out this much faster, swimming is this much slower.</summary>
+        public static float MurkyBreathDrain = 1.5f, MurkySwimMult = 0.8f;
 
         // Swing (shared by the two sword heroes; blade length, speed and damage are per hero below)
         public static float ComboWindow = 0.55f;
@@ -191,6 +193,8 @@ public static class Tune
         /// to attack and starting. Bosses and guardians ignore the slots.
         /// </summary>
         public static float AttackerShare = 0.33f, SlotRange = 560f, SlotHold = 0.35f, SlotReserve = 0.3f;
+        /// <summary>A creature busy this long with something that isn't an attack gives its slot up.</summary>
+        public static float SlotMaxBusy = 1.5f;
     }
 
     // =============================================================================== HIT FEEL
@@ -405,6 +409,20 @@ public static class Tune
     /// now and then loom close with a shriek (no harm in it, only dread), and only rarely loose a
     /// single ice shard after a long, obvious wind-up (three for an elite).
     /// </summary>
+    /// <summary>Grasping roots: how long they must hold you before the weapon is snagged, for how long, and how many cuts free them.</summary>
+    public static class Roots
+    {
+        public static float GripToSnag = 0.75f, SnagSeconds = 0.9f, Regrip = 2.2f;
+        public static int CutsToClear = 2;
+    }
+
+    /// <summary>Cave-ins: warning rumble, rocks per collapse, their damage, and the rest between collapses.</summary>
+    public static class CaveIn
+    {
+        public static float Rumble = 1.0f, Damage = 12f, RestMin = 6f, RestMax = 10f, Reach = 44f;
+        public static int RocksMin = 2, RocksMax = 4;
+    }
+
     public static class Wraith
     {
         public static float Hp = 11, Contact = 5, FlySpeed = 85, CastWindup = 1.0f, CastCooldown = 7.5f, FirstCast = 4f, ShardDamage = 6, ShardSpeed = 185;

@@ -503,9 +503,14 @@ public abstract partial class Enemy : CharacterBody2D
     }
 
     /// <summary>A slot drains only while the creature is free again, so it is held for the whole attack.</summary>
+    private float _slotBusy;
     private void TickSlot(float dt)
     {
-        if (_slotT > 0 && !Busy) _slotT -= dt;
+        if (_slotT <= 0) { _slotBusy = 0; return; }
+        if (!Busy) { _slotT -= dt; _slotBusy = 0; }
+        // caught up in something long (stunned, hanging on a thread, burrowed) rather than an
+        // attack: let the slot go, so it can't keep everyone else waiting
+        else if ((_slotBusy += dt) > Tune.Combat.SlotMaxBusy && !Attacking) _slotT = 0;
     }
 
     public Brain Brain => _brain;
@@ -649,7 +654,7 @@ public abstract partial class Enemy : CharacterBody2D
         x[i++] = p.IsSwinging ? 1 : 0;                          // danger: the dagger is out
         x[i++] = p.Guarding ? 1 : 0;                           // dodging, invulnerable, or shield up
         x[i++] = p.Facing * -sx;                                // +1 = the player is facing me
-        x[i++] = p.SecondaryReady ? 1 : 0;                      // a throw / barrier could be coming
+        x[i++] = p.SecondaryReady ? 1 : 0;                      // a Charged Strike / shield dash / heal could be coming
         x[i++] = cave.IsSolid(pos + new Vector2(sx * 20, 0)) ? 1 : 0;   // wall between us
         x[i++] = !cave.IsSolid(pos + new Vector2(sx * 16, 30)) && !cave.IsSolid(pos + new Vector2(sx * 16, 60)) ? 1 : 0; // gap toward the player
         x[i++] = cave.IsSolid(pos + new Vector2(0, -40)) ? 1 : 0;     // low ceiling

@@ -218,7 +218,8 @@ public partial class Player : CharacterBody2D
     /// <summary>Walks into an exit tunnel the hero stands at (exits no longer take you by surprise).</summary>
     private void TryInteract()
     {
-        if (Dead || G.Main.MenuOpen) return;
+        // only standing at the door (or swimming): not mid-jump, or while an attack is under way
+        if (Dead || G.Main.MenuOpen || (!IsOnFloor() && !InWater) || IsSwinging) return;
         foreach (var n in G.World.GetChildren())
             if (n is Portal portal && portal.Reaches(GlobalPosition)) { portal.Enter(); return; }
     }
@@ -316,8 +317,24 @@ public partial class Player : CharacterBody2D
         QueueRedraw();
     }
 
+    private float _snagT;
+    /// <summary>For the HUD and the 3D model: the weapon is caught in grasping roots.</summary>
+    public bool Snagged => _snagT > 0;
+
+    /// <summary>Grasping roots catch the weapon (or staff): no swings, spells or abilities for a moment.</summary>
+    public void Snag(float seconds)
+    {
+        if (Dead) return;
+        _snagT = Math.Max(_snagT, seconds);
+        _swingT = -1;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "SNAGGED", new Color(0.8f, 0.72f, 0.45f), 10, 0.8f);
+        G.Sfx.Play("web", GlobalPosition, -2, 0.1f, 0.6f);
+        Anim.Flash(0.25f);
+        Anim.FlashColor = new Color(0.7f, 0.6f, 0.35f);
+    }
+
     /// <summary>The attack button: a swing, or the Vitalist's drain bolt. True once it fires.</summary>
-    private bool Primary(Vector2 aim) => Stats.Hero switch
+    private bool Primary(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Vitalist => CastBolt(aim),
         HeroKind.Warden => _dashT <= 0 && TrySwing(aim),
@@ -325,7 +342,7 @@ public partial class Player : CharacterBody2D
     };
 
     /// <summary>The ability button: charged strike, shield dash, or heal. True once it fires.</summary>
-    private bool Ability(Vector2 aim) => Stats.Hero switch
+    private bool Ability(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Warden => TryShieldDash(aim),
         HeroKind.Vitalist => TryHeal(),
@@ -449,7 +466,7 @@ public partial class Player : CharacterBody2D
         _wallJumpLock -= dt; _hurtFlash -= dt; _lungeT -= dt;
         _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
         _attackBuf -= dt; _abilityBuf -= dt; _dodgeBuf -= dt;
-        _chargeCd -= dt; _dashCd -= dt; _boltCd -= dt; _hexCd -= dt; _healCd -= dt;
+        _chargeCd -= dt; _dashCd -= dt; _boltCd -= dt; _hexCd -= dt; _healCd -= dt; _snagT -= dt;
         if (_hotLeft > 0)
         {
             _hotLeft -= dt;
@@ -463,7 +480,8 @@ public partial class Player : CharacterBody2D
     {
         if (HeadUnder)
         {
-            Breath -= dt;
+            // thick, rotting water leaves you gasping sooner
+            Breath -= dt * (G.Biome?.Murky == true ? Tune.Hero.MurkyBreathDrain : 1f);
             _bubbleT -= dt;
             if (_bubbleT <= 0) { _bubbleT = G.Range(0.4f, 1.0f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 2); }
             if (Breath <= 0)
@@ -564,7 +582,7 @@ public partial class Player : CharacterBody2D
     {
         var dir = inp.Move;
         if (inp.JumpHeld) dir.Y = -1;
-        float spd = SwimSpeedBase * Stats.SwimSpeed;
+        float spd = SwimSpeedBase * Stats.SwimSpeed * (G.Biome?.Murky == true ? Tune.Hero.MurkySwimMult : 1f);
         if (dir.LengthSquared() > 0.04f)
         {
             v = v.MoveToward(dir.Normalized() * spd, Tune.Hero.SwimAccel * dt);

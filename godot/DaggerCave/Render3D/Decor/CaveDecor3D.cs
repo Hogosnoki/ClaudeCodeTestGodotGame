@@ -160,7 +160,20 @@ public partial class CaveDecor3D : Node3D
         var worms = new Kind[2];
         for (int k = 0; k < worms.Length; k++) worms[k] = NewKind(DecorMeshes.GlowThreads(_rng, 5 + k * 4, 0.9f + k * 0.5f, b.Glow), wormMat, false);
         var icicles = frost ? new[] { NewKind(DecorMeshes.Icicles(_rng, 5, 0.8f), iceMat, true), NewKind(DecorMeshes.Icicles(_rng, 9, 1.3f), iceMat, true) } : null;
-        var roots = entrance ? new[] { NewKind(DecorMeshes.Roots(_rng, 6, 1.6f, noise), rootMat, true), NewKind(DecorMeshes.Roots(_rng, 10, 2.4f, noise), rootMat, true) } : null;
+        var roots = entrance || b.GiantRoots ? new[] { NewKind(DecorMeshes.Roots(_rng, 6, 1.6f, noise), rootMat, true), NewKind(DecorMeshes.Roots(_rng, 10, 2.4f, noise), rootMat, true) } : null;
+        // the root-choked tunnels: massive roots down through the ceilings from the world above
+        var barkMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.95f };
+        var bark = b.Edge.Lerp(new Color(0.25f, 0.17f, 0.1f), 0.7f);
+        Kind[] giantRoots = null;
+        if (b.GiantRoots)
+        {
+            giantRoots = new Kind[4];
+            for (int k = 0; k < giantRoots.Length; k++) giantRoots[k] = NewKind(DecorMeshes.GiantRoot(_rng, noise, 3.5f + k * 1.6f, 0.34f + k * 0.08f, bark.Lightened(0.04f * k)), barkMat, true);
+        }
+        // the fossil graveyards: old bones everywhere underfoot (and ribcages and skulls, below)
+        var boneMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.78f, RimEnabled = true, Rim = 0.2f };
+        var boneCol = b.Glow.Lerp(new Color(0.78f, 0.72f, 0.6f), 0.7f).Darkened(0.12f);
+        var bonePiles = b.Leviathans ? new[] { NewKind(DecorMeshes.Bones(_rng, noise, 5, 1f, boneCol), boneMat, true), NewKind(DecorMeshes.Bones(_rng, noise, 9, 1.3f, boneCol), boneMat, true) } : null;
 
         float walkable = MathF.Cos(Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees)) - 0.01f;
         float waterY = cave.WaterY / CaveData.Cell; // cave metres
@@ -216,6 +229,12 @@ public partial class CaveDecor3D : Node3D
                     if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))
                         Put(pebbles[_rng.Next(pebbles.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.5f, R(0.7f, 1.4f)), pos));
                 }
+                if (bonePiles != null && floor && !wet && R() < 0.22f * len)
+                {
+                    float z = R() < 0.75f ? R(-2.6f, -0.3f) : R(0.2f, 0.9f);
+                    if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))
+                        Put(bonePiles[_rng.Next(bonePiles.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.8f, z > 0 ? R(0.5f, 0.8f) : R(0.7f, 1.4f)), pos));
+                }
                 if (floor && R() < 0.05f * len)
                 {
                     float z = R(-3f, -1.4f);
@@ -256,7 +275,25 @@ public partial class CaveDecor3D : Node3D
                         Light(pos + Vector3.Down * 0.7f + Vector3.Back * 0.2f, b.Glow, 0.35f, 3.5f, 0.8f);
                     }
                 }
-                if (roots != null && R() < 0.3f * len)
+                if (giantRoots != null && R() < 0.07f * len)
+                {
+                    bool front = R() < 0.15f;
+                    float z = front ? R(0.7f, 1.05f) : R(-3.6f, -0.9f);
+                    if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))
+                    {
+                        float sc = front ? R(0.4f, 0.65f) : R(0.8f, 1.3f);
+                        var basis = Orient(nn, Vector3.Down, 0.9f, sc);
+                        Put(giantRoots[_rng.Next(giantRoots.Length)], new Transform3D(basis, pos));
+                        // pale lichen glowing on the bark, so the great roots read in the dark
+                        if (!front && R() < 0.6f)
+                        {
+                            var along = pos + basis.Y.Normalized() * R(1.2f, 3.5f) * sc + Vector3.Back * 0.5f * sc;
+                            Put(worms[_rng.Next(worms.Length)], new Transform3D(Orient(nn, Vector3.Down, 1f, R(0.6f, 1f)), along));
+                            Light(along + Vector3.Back * 0.4f, b.Glow, 0.45f, 4f, 0.6f);
+                        }
+                    }
+                }
+                if (roots != null && R() < (b.GiantRoots ? 0.45f : 0.3f) * len)
                 {
                     float z = R(-2.4f, 0.6f);
                     if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))
@@ -271,6 +308,36 @@ public partial class CaveDecor3D : Node3D
                     float sc = R(0.6f, 1.5f);
                     Put(crystals[_rng.Next(crystals.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.25f, sc), pos - nn * 0.1f));
                     Light(pos + nn * 0.5f, b.Glow, 0.9f * sc, 3.5f + sc * 1.5f);
+                }
+            }
+        }
+
+        // ---- the fossil graveyards: a leviathan's ribcage across each great chamber, running from
+        // deep in the back to just in front of you, and a skull sunk into the back wall
+        if (b.Leviathans)
+        {
+            foreach (var room in cave.Rooms)
+            {
+                float rx = room.RxPx / CaveData.Cell, ry = room.RyPx / CaveData.Cell;
+                if (rx < 9f || ry < 6f) continue;
+                var c = room.Center / CaveData.Cell;
+                float topY = c.Y - ry * 0.78f;
+                f.Column(c.X, topY, out float sTop, out _, out _);
+                if (sTop > -0.6f) continue; // no open space up there for the spine
+                int ribs = Math.Clamp((int)(ry * 0.45f), 4, 8);
+                const float spacing = 1.15f;
+                float z0 = 0.6f - (ribs - 1) * spacing;
+                var cage = DecorMeshes.Ribcage(_rng, noise, ribs, spacing, rx * 0.78f, ry * 1.85f, boneCol);
+                AddChild(new MeshInstance3D { Mesh = cage.ToMesh(boneMat), Position = new Vector3(c.X, -topY, z0), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
+                // a faint pale light in the cage, so its arches read in the dark
+                Light(new Vector3(c.X, -(c.Y - ry * 0.2f), -1.5f), boneCol.Lerp(b.Glow, 0.5f), 0.9f, rx * 1.1f, 0.5f);
+                float side = R() < 0.5f ? -1f : 1f;
+                if (BackWallAt(c.X + side * rx * R(0.25f, 0.6f), c.Y + ry * R(0.2f, 0.55f), out var wp, out var wn))
+                {
+                    float size = R(1.6f, 2.6f);
+                    var skull = DecorMeshes.Skull(_rng, noise, size, boneCol);
+                    var basis = new Basis(Vector3.Up, -MathF.PI / 2f + side * R(0.2f, 0.7f)) * new Basis(Vector3.Right, R(-0.35f, 0.35f));
+                    AddChild(new MeshInstance3D { Mesh = skull.ToMesh(boneMat), Transform = new Transform3D(basis, wp - wn * size * 0.35f), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
                 }
             }
         }

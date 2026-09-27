@@ -63,11 +63,12 @@ public partial class Stage3D : Node3D
             VolumetricFogLength = 72f,
             VolumetricFogDetailSpread = 2f,
             VolumetricFogAnisotropy = 0.35f,
-            // more contrast than the tonemapper gives on its own: the play layer and its creatures
-            // stand out of the murk instead of sharing its mid-tones
+            // a little more contrast than the tonemapper gives on its own (a gentle curve: the
+            // separation comes mostly from darker back walls, thinner haze and inked creatures,
+            // so shadows keep their detail)
             AdjustmentEnabled = true,
-            AdjustmentContrast = 1.24f,
-            AdjustmentSaturation = 1.1f,
+            AdjustmentContrast = 1.14f,
+            AdjustmentSaturation = 1.08f,
         };
         for (int k = 0; k < 7; k++) Env.SetGlowLevel(k, k is >= 1 and <= 4 ? 1f : 0f);
         WorldEnv = new WorldEnvironment { Environment = Env };
@@ -191,9 +192,9 @@ public partial class Stage3D : Node3D
         var glow = b.Glow;
         var edge = b.Edge;
         Env.AmbientLightColor = edge.Lerp(glow, 0.35f).Lerp(new Color(0.6f, 0.62f, 0.7f), 0.4f);
-        // darker fill and thinner haze than before: shadows stay dark, distance falls away into
-        // the dark, and what the lanterns light stands out (contrast, not murk)
-        Env.AmbientLightEnergy = Mathf.Lerp(0.8f, 0.32f, dark);
+        // thinner haze than before: distance falls away into the dark and the play layer stands
+        // clear of it (contrast without murk); the fill stays, so shadows keep their detail
+        Env.AmbientLightEnergy = Mathf.Lerp(0.95f, 0.45f, dark);
         Env.VolumetricFogAlbedo = glow.Lerp(new Color(0.75f, 0.78f, 0.85f), 0.6f);
         Env.VolumetricFogDensity = 0.008f + dark * 0.01f;
         Env.VolumetricFogEmission = b.BackBottom.Lerp(glow, 0.15f);

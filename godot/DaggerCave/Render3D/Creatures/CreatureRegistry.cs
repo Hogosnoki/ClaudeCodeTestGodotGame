@@ -51,7 +51,7 @@ public static class CreatureRegistry
     {
         [BiomeId.Entrance] = "spider", [BiomeId.Den] = "bear", [BiomeId.Nest] = "scorpion", [BiomeId.Ruins] = "skeleton", [BiomeId.Fungal] = "golem",
         [BiomeId.Tunnels] = "bear", [BiomeId.Slime] = "colossus", [BiomeId.Frost] = "colossus", [BiomeId.Crystal] = "golem", [BiomeId.Magma] = "colossus",
-        [BiomeId.Lair] = "dragon",
+        [BiomeId.Lair] = "dragon", [BiomeId.Roots] = "bear", [BiomeId.Fossils] = "colossus",
     };
 
     /// <summary>Every creature type a level of this biome can put on screen (for loading ahead).</summary>

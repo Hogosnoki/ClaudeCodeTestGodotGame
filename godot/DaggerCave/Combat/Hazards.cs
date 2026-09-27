@@ -398,3 +398,137 @@ public partial class IcePlatform : StaticBody2D, IBreakable
             DrawLine(new Vector2(-HalfW * 0.6f + k * 14, 1), new Vector2(-HalfW * 0.6f + k * 14 + 5, 8), new Color(0.3f, 0.5f, 0.7f), 1.2f);
     }
 }
+
+/// <summary>
+/// Grasping roots (the root-choked tunnels): a knot of roots on the floor that slows whoever
+/// wades through it, and if it holds them long enough, catches their weapon for a moment. Two
+/// cuts clear it.
+/// </summary>
+public partial class GraspingRoots : Node2D, IBreakable
+{
+    public float Radius = 26f;
+    private float _t, _grip, _regrip;
+    private int _cuts = Tune.Roots.CutsToClear;
+    public Vector2 HitCenter => GlobalPosition + new Vector2(0, -8);
+    public float HitSize => Radius;
+    /// <summary>For the 3D view: 0..1, how tightly it is closing on someone (it writhes harder).</summary>
+    public float Grip => Math.Clamp(_grip / Tune.Roots.GripToSnag, 0f, 1f);
+    public float Age => _t;
+    /// <summary>For the 3D view: cut once (it sags).</summary>
+    public bool Wounded => _cuts < Tune.Roots.CutsToClear;
+
+    public override void _Ready() { ZIndex = -1; Breakables.All.Add(this); }
+    public override void _ExitTree() => Breakables.All.Remove(this);
+
+    public void Strike(Vector2 from)
+    {
+        G.Sfx.Play("web", GlobalPosition, -4, 0.1f, 0.7f);
+        G.Fx.Burst(GlobalPosition + new Vector2(0, -8), new Color(0.45f, 0.33f, 0.2f, 0.9f), 10, 130, 1.8f, 0.5f, 300, 10);
+        _grip = 0;
+        if (--_cuts > 0) return;
+        G.Fx.Burst(GlobalPosition, new Color(0.35f, 0.26f, 0.16f), 14, 170, 2.2f, 0.6f, 400, 10);
+        QueueFree();
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt;
+        _regrip -= dt;
+        var p = G.Player;
+        bool held = p != null && !p.Dead && Math.Abs(p.GlobalPosition.X - GlobalPosition.X) < Radius && p.GlobalPosition.Y > GlobalPosition.Y - 30 && p.GlobalPosition.Y < GlobalPosition.Y + 6;
+        if (held)
+        {
+            if (p.WebbedT <= 0) G.Sfx.Play("web", GlobalPosition, -12, 0.2f, 0.6f);
+            p.WebbedT = 0.15f;
+            if (_regrip <= 0)
+            {
+                _grip += dt;
+                if (_grip >= Tune.Roots.GripToSnag)
+                {
+                    p.Snag(Tune.Roots.SnagSeconds);
+                    _grip = 0;
+                    _regrip = Tune.Roots.Regrip;
+                }
+            }
+        }
+        else _grip = Math.Max(0, _grip - dt * 0.8f);
+        QueueRedraw();
+    }
+
+    public override void _Draw()
+    {
+        var col = new Color(0.36f, 0.26f, 0.15f, 0.9f);
+        for (int k = 0; k < 7; k++)
+        {
+            float x = -Radius + k * Radius / 3f;
+            float h = 10 + 6 * MathF.Sin(_t * (2f + Grip * 6f) + k * 1.7f);
+            DrawLine(new Vector2(x, 0), new Vector2(x + 3 * MathF.Sin(_t * 1.5f + k), -h), col, 2f);
+        }
+    }
+}
+
+/// <summary>
+/// An unstable stretch of ceiling (the fossil graveyards): when someone walks beneath it, dust
+/// sifts down and the rock groans, then a few stones break loose (each one telegraphed where it
+/// will land). Then it settles for a while.
+/// </summary>
+public partial class CaveIn : Node2D
+{
+    /// <summary>How far down the floor under it is (px), set when placed.</summary>
+    public float Drop = 200f;
+    private float _t, _rumble = -1f, _rest;
+    public float Age => _t;
+    /// <summary>For the 3D view: 0..1 while it is about to give way.</summary>
+    public float Rumbling => _rumble < 0 ? 0f : 1f - _rumble / Tune.CaveIn.Rumble;
+
+    public override void _Ready() { ZIndex = 2; _rest = G.Range(0.5f, 2f); }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt;
+        var p = G.Player;
+        if (_rumble >= 0)
+        {
+            _rumble -= dt;
+            if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-Tune.CaveIn.Reach, Tune.CaveIn.Reach), 4), new Color(0.62f, 0.57f, 0.5f, 0.7f), 1, 20, 1.6f, 0.7f, 300);
+            if (_rumble < 0) Collapse();
+            return;
+        }
+        _rest -= dt;
+        if (_rest > 0 || p == null || p.Dead) return;
+        var to = p.GlobalPosition - GlobalPosition;
+        if (Math.Abs(to.X) < Tune.CaveIn.Reach + 20 && to.Y > 0 && to.Y < Drop + 20)
+        {
+            _rumble = Tune.CaveIn.Rumble;
+            G.Sfx.Play("rock", GlobalPosition, -6, 0.1f, 0.5f);
+            G.Sfx.Play("roar", GlobalPosition, -18, 0.1f, 0.4f);
+            G.Fx.AddShake(2.5f);
+            G.Main.Rumble(0.2f, 0.4f, 0.5f);
+        }
+    }
+
+    private void Collapse()
+    {
+        int n = G.RangeI(Tune.CaveIn.RocksMin, Tune.CaveIn.RocksMax);
+        for (int k = 0; k < n; k++)
+        {
+            var at = GlobalPosition + new Vector2(G.Range(-Tune.CaveIn.Reach, Tune.CaveIn.Reach), 6);
+            if (G.Cave.IsSolid(at)) continue;
+            G.Spawn(new FallingRock { Position = at, Damage = Tune.CaveIn.Damage * G.DepthDmg });
+        }
+        G.Fx.AddShake(4f);
+        G.Sfx.Play("slam", GlobalPosition, -8, 0.1f, 0.6f);
+        _rest = G.Range(Tune.CaveIn.RestMin, Tune.CaveIn.RestMax);
+    }
+
+    public override void _Draw()
+    {
+        // cracks in the ceiling, widening as it groans
+        var col = new Color(0.15f, 0.12f, 0.1f, 0.8f);
+        float w = 1f + 2f * Rumbling;
+        DrawLine(new Vector2(-Tune.CaveIn.Reach * 0.7f, 0), new Vector2(0, 5), col, w);
+        DrawLine(new Vector2(0, 5), new Vector2(Tune.CaveIn.Reach * 0.6f, 1), col, w);
+    }
+}

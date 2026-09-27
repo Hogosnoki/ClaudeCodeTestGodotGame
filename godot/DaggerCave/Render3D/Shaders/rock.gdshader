@@ -172,6 +172,22 @@ void fragment() {
 		alb = mix(alb, mix(sa, luma(sa) * tint, 0.4), k);
 		arm = mix(arm, tri_col(s_arm, t, scale_s).rgb, k);
 		dn = mix(dn, tri_nrm(s_nrm, t, scale_s), k);
+	} else if (special_mode == 6) {
+		// root mats: dark fibrous strands running down the rock (the root-choked tunnels)
+		float fib = texture(mask_noise, vec2(p.x * 0.55 + p.z * 0.3, p.y * 0.05)).r;
+		float strand = 1.0 - smoothstep(0.0, 0.035, abs(fract(fib * 7.0) - 0.5) - 0.44);
+		float mat = smoothstep(0.45, 0.65, texture(mask_noise, p.xy * 0.03 + vec2(0.13, 0.57)).r) * (1.0 - capness * 0.6);
+		float roots_k = strand * mat * special_amount;
+		alb = mix(alb, vec3(0.2, 0.14, 0.08) * (0.8 + 0.4 * fib), roots_k * 0.85);
+		arm.g = mix(arm.g, 0.95, roots_k);
+	} else if (special_mode == 7) {
+		// sediment laid down in layers, with the bones of old things caught in it (the fossil graveyards)
+		float wob = texture(mask_noise, p.xz * 0.02).r * 2.0;
+		float layer = 0.5 + 0.5 * sin(p.y * 2.3 + wob * 3.0);
+		alb *= mix(0.78, 1.12, smoothstep(0.2, 0.8, layer));
+		float bone = smoothstep(0.86, 0.91, texture(mask_noise, vec2(p.x * 0.35, p.y * 1.1) + p.z * 0.2).r) * (1.0 - capness * 0.5);
+		alb = mix(alb, vec3(0.78, 0.72, 0.6), bone * special_amount);
+		arm.g = mix(arm.g, 0.6, bone);
 	}
 
 	// ---- floors: gravel and grit on anything you could stand on
@@ -232,6 +248,11 @@ void fragment() {
 		rough = mix(rough, 0.08, fleck);
 		spec = mix(spec, 0.9, fleck);
 		emit += glow_color * fleck * 0.18 * special_amount * (1.0 - capness);
+	} else if (special_mode == 6) {
+		// a few pale glowing specks in the root mats
+		float dots = smoothstep(0.9, 0.95, texture(mask_noise, p.xz * 1.1 + p.y * 0.4).r);
+		float breathe = 0.6 + 0.4 * sin(TIME * 0.7 + big * 9.0);
+		emit += glow_color * dots * max(moss, up * 0.3) * breathe * 0.8 * special_amount;
 	} else if (special_mode == 5) {
 		// bioluminescent spots in the growth
 		float dots = smoothstep(0.86, 0.93, texture(mask_noise, p.xz * 0.9 + p.y * 0.3).r);

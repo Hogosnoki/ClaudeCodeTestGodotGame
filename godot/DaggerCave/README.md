@@ -1,11 +1,12 @@
 # Dagger Deep
 
 A side-view rogue-lite in 3D: descend from a cave mouth to a dragon at the bottom of the world, as a
-sword-swinging, dodging Swordsman or a shield-bearing Warden. You move on a 2D plane (left, right,
+sword-swinging, dodging Swordsman, a shield-bearing Warden, or a Vitalist who drains life from
+creatures and gives it to the living. You move on a 2D plane (left, right,
 up, down), but everything you see is 3D: sculpted rock, lit water and lava, skinned and animated
 creatures, and effects with real light (see **3D presentation** below). Each level is a biome with its own
 cave generator, creatures and hazards. Slay the guardian of each level's exit, then choose one of
-two tunnels on: a gentle one (one depth deeper) or a steep one (two deeper), each into a
+two ways down: a gentle one (one depth deeper) or a steep one (two deeper), each into a
 different biome. Depth 10 is the dragon's lair. Between runs, embers and rare resources buy
 permanent ranks in the upgrade trees.
 
@@ -47,7 +48,9 @@ Handy starting points:
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
-| The two heroes | `Swordsman.*` (sword reach, damage, speed, lunge), `Warden.*` (shortsword, shield, barrier) |
+| The three heroes | `Swordsman.*` (sword, dodge, Charged Strike), `Warden.*` (shortsword, shield, shield dash), `Vitalist.*` (drain bolt, alimus, heal, hex) |
+| How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
+| Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the stat list is `Upgrades.LevelUp` |
 | How fast it gets hard | `Difficulty.DoublingMinutes`, `Difficulty.TempoCap` |
 | How busy it is | `Spawning.IntervalStart`, `Spawning.RateDoublingMinutes`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
@@ -96,7 +99,7 @@ There are 32 inputs, plus which move the creature made last:
 | Category | Inputs |
 | --- | --- |
 | Where the player is | direction as x/distance and y/distance (instead of an angle), distance, a "closeness" value that is sharp at close range, raw x/y offsets |
-| What the player is doing | velocity, HP share, in water, on the ground, swinging, guarding (dodging, invulnerable or shield raised), facing this creature, secondary (throw or barrier) ready |
+| What the player is doing | velocity, HP share, in water, on the ground, swinging, guarding (dodging, invulnerable or shield raised), facing this creature, ability (Charged Strike, shield dash or heal) ready |
 | Itself | velocity, HP share, on the ground, in water, line of sight to the player, how long it has been fighting, "recently hurt" and "recently landed a hit" traces, main attack readiness |
 | Terrain toward the player | wall, gap, low ceiling |
 | Allies | nearest ally's offset, how many allies are within 200 px |
@@ -166,9 +169,12 @@ The panel's columns:
 | Move | A / D (or arrows) | Left stick or D-pad |
 | Swim up / down | W / S (Space also swims up) | Left stick up / down (A also swims up) |
 | Jump | Space | A |
-| Swing | Left click, toward the mouse (J swings toward your held direction) | X, toward the right stick if held, otherwise the left stick |
-| Throw dagger (swordsman) / barrier (warden) | Right click (or K) | RB or RT |
-| Dodge (swordsman) / hold to raise the shield (warden) | Shift (or L); the shield points at the mouse | B, LB or LT; the shield points along the right stick, or the way you face |
+| Attack: swing (swordsman, warden) / drain bolt (vitalist) | Left click, toward the mouse (J attacks toward your held direction) | X, toward the right stick if held, otherwise the left stick |
+| Ability: Charged Strike / shield dash / heal | Right click (or K) | RB or RT |
+| Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B, LB or LT; the shield points along the right stick, or the way you face |
+| Raise the Warden's shield without a button | - | Push the right stick: the shield rises by itself and points along it, even behind you while you run the other way |
+| Go down an exit | E, or W / up, at the doorway | Left stick or D-pad up at the doorway |
+| Drink a potion | Q | Y |
 | Choose hero | Left / right on the title or death screen, or click a card | D-pad or stick left / right |
 | Pause | Esc | Start |
 | Pick upgrade | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
@@ -185,9 +191,12 @@ and damage taken while a controller is active.
 ## What's in it
 
 **The run**. You start at the Cave Entrance (depth 0). Every level ends in a guardian's chamber
-(marked EXIT on the minimap); killing the guardian drops a chest and opens the exit tunnels. The
-tunnels show which biome they lead to and how deep: the gentle way goes one depth down, the steep
-way two (harder, but fewer levels to the dragon). The last levels lead into the Dragon's Lair at
+(marked EXIT on the minimap); killing the guardian drops a chest and opens the exits: stone
+doorways onto passages that go down into the dark. Each shows which biome it leads to (a faint
+breath of that biome's colour comes up from far below) and how deep: the gentle way goes one depth
+down (one chevron on the keystone), the steep way two (two chevrons; harder, but fewer levels to
+the dragon). Nobody is taken down until they choose to go: stand at the doorway and press E or
+up, so an exit that opens under your feet can't whisk you away from the guardian's chest. The last levels lead into the Dragon's Lair at
 depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp screen.
 
 **Biomes** (`Core/Biomes.cs`, generators in `Cave/CaveGenerator.cs` and `Cave/BiomeGen.cs`).
@@ -198,12 +207,14 @@ mini-bosses and guardian:
 | --- | --- | --- | --- | --- | --- |
 | 0 | Cave Entrance | one long winding corridor with side pockets; no darkness; few enemies | spiders, bats, rats | - | The Web-Mother (a weak ground spider that calls its brood) |
 | 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Den Mother (bear) |
+| 1-3 | Root-Choked Tunnels (the deep canopy) | branching tunnels through rock riven by massive tree roots coming down from the surface world; pools of murky water low down | rats, spiders, rot frogs, bats, mire fish, root eels | grasping roots that slow you and, if they hold you long enough, snag your weapon for a moment (two cuts clear them); thick, rotting water that leaves you gasping 50% sooner and swimming 20% slower | The Rotback (bear) |
 | 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, hornets, spiders | webs that slow you (cut them) | The Brood Queen (scorpion) |
 | 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
 | 3-4 | Fungal Cavern | wide, low-lying tunnels, little vertical variation | sporelings, frogs, mossback golems, spore hornets | spore pods that burst into choking clouds | The Mossback Hulk |
 | 3-5 | Tunnels | slightly smaller map, tight flat or diagonal passages, water low down | rats, bears, bats, fish, eels, urchins | - | The Tunnel Brute (bear) |
 | 4-6 | Slime Cavern | the original half-flooded cave | goblins, frogs, magma brutes, golems, bats, spiders, fish, eels, urchins | air vents | The Cavern Colossus |
 | 5-7 | Frost Caverns | mostly horizontal, ice everywhere | frost bears, rime skeletons, frost wraiths, ice bats | slippery ground; a frozen water surface (break it to swim, and break it again from below to get out); ice ledges that shatter after 3 landings or 2 blows and refreeze | The Rime Colossus |
+| 5-7 | Fossil Graveyards | a few vast, echoing chambers of layered sediment; in each, the ribcage of a leviathan arches from deep in the back to just in front of you, and a great skull is sunk in the wall | fossil skeletons, bone scorpions, ossuary golems, marrow rats, bats | unstable ceilings: walk beneath one and dust sifts down and the rock groans, then a few stones break loose (each one shows where it will land) | The Ossuary Colossus |
 | 6-8 | Crystal Caves | ledges in every tall space, so no long falls | shardlings, crystal golems, skeletons | crystal spikes | The Prism Golem |
 | 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out), fire vents | The Molten Colossus |
 | 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
@@ -226,28 +237,38 @@ down and thin out toward the roof (per biome: the crystal caves put ledges almos
 Dead ends become treasure rooms, a few become elite mini-boss lairs, and the dead end farthest from
 the start becomes the exit chamber.
 
-**The heroes** (`Player/`). Pick one on the title screen, or switch on the death screen, with
-left / right.
+**The heroes** (`Player/`: `Player.cs` for what they share, `Player.Blade.cs` for the sword and
+shortsword, and one file per hero). Pick one on the title screen, or switch on the death screen,
+with left / right. They're meant to complement each other in a party (the game is single-player
+for now, but the heal and the shield dash already work on every hero present): the Swordsman
+deals the damage, the Warden takes it for others, the Vitalist keeps everyone alive.
 
-| | Swordsman | Warden |
-| --- | --- | --- |
-| Weapon | Medium sword: 45 px reach, 20 damage per strike, slower swings (0.6 s apart) with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep |
-| Defense (Shift / B / LB) | Dodge roll | Hold to raise the shield (see below) |
-| Secondary (right click / RB) | Thrown dagger (2 s recharge, doesn't lock the sword) | Barrier: absorbs 5 damage for 5 s, 10 s cooldown |
-| Movement | Full speed and jump | 85% speed and jump height (80% speed while shielding) |
-| Toughness | 60 HP, 15 s of breath | 80 HP, 16 s of breath |
+| | Swordsman | Warden | Vitalist |
+| --- | --- | --- | --- |
+| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep | Drain bolt: a single-target spell at medium range (175 px) that seeks the creature you aim at, 15 damage, every 0.5 s; a tenth of the damage comes back as alimus |
+| Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown |
+| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Shield dash: a guarded charge that stops at the first projectile or attacking creature it meets, swallowing the projectile and breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 12 alimus to restore 22 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 22 x their share of missing health / the sum of those shares); 3 s cooldown |
+| Movement | Full speed and jump | 92% speed, 90% jump height (80% speed while shielding) | 97% speed and jump |
+| Toughness | 60 HP, 15 s of breath | 75 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath |
 
 Warden's shield:
-- **Blocking**: it's a broad arc of blue light (135°). It absorbs melee attacks (each blow costs
-  the shield its damage once and ends that attack) and projectiles that arrive within
-  its arc. Like a swing, it aims at the right stick, else the left stick on a controller, else
-  the mouse. You can swing while it's up, but those swings don't combo.
-- **Strength**: it holds 40 damage and regenerates 3 per second, starting 1 s after its last block.
+- **Blocking**: it's a broad arc of blue light (135°) that stops 70% of each blow arriving within
+  it, melee or projectile; the other 30% gets through as chip damage (no flinch, no knockback).
+  The shield loses half of what it stops. An ordinary block doesn't end the attack.
+- **Aiming**: like a swing, it aims at the right stick, else the left stick on a controller, else
+  the mouse. Pushing the right stick raises it by itself, so you can run one way and guard the
+  other without holding a button. You can swing while it's up, but those swings don't combo.
+- **Strength**: it holds 40 and regenerates 3 per second, starting 1 s after its last block.
 - **Breaking**: once drained it breaks, stays at zero for 6 s, then regenerates from zero again.
-- **Perfect block**: raising it at most 0.18 s before a hit counts as a perfect block, which the
-  Riposte Guard and Iron Timing upgrades build on.
+- **Healing**: whenever the Warden is healed (a heart, a potion, the Vitalist's heal), the shield
+  mends by half as much, and a broken shield is usable again at once.
+- **Perfect block**: raising it at most 0.18 s before a hit stops all of the blow and breaks the
+  attack off (the attacker reels). The shield dash does the same to whatever it meets.
 
-All of these numbers are in `Tune.Swordsman` and `Tune.Warden`.
+The Vitalist's alimus is like mana: earned by dealing damage (a tenth of it), held up to 100, and
+spent on heals. You start each level with at least 40.
+
+All of these numbers are in `Tune.Swordsman`, `Tune.Warden` and `Tune.Vitalist`.
 
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
 (`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 560 px/s.
@@ -277,10 +298,12 @@ launching you upward.
 
 **Growth during a run** (`Player/Upgrades.cs`):
 - **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
-  level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield.
+  level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
+  max HP, +2% damage and +3 alimus capacity.
 - **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three +15% boosts:
-  damage, swing speed, max health, damage reduction, run and swim speed, reach, and per hero
-  faster dodges and throws or a stronger shield and barrier.
+  damage, attack speed, max health, damage reduction, run and swim speed, reach, and per hero
+  faster dodges and Charged Strike (Wind Runner), a stronger shield (Aegis) and faster dash
+  (Vanguard), or more alimus and stronger heals (Wellspring).
 - **Leave it**: every chest and milestone screen also offers to take nothing. Each reward left
   behind pays 1 ember if you then kill that level's guardian.
 - **Potions**: you start with one and can carry one (more with the Potion tree). Q / Y drinks it:
@@ -297,19 +320,22 @@ launching you upward.
 
 | Area | Chest upgrades |
 | --- | --- |
-| Blade (both) | attack speed, reach, damage, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback |
+| Blade (swordsman, warden) | reach, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback, life steal |
 | Sword techniques (swordsman) | Rending Edge (hits bleed for 40% more over 3 s, stacks twice), Crescent Wave (swings loose a flying slash, half damage, every 1.2 s), Executioner (+60% damage to enemies under 35% health) |
-| Thrown dagger (swordsman) | ricochet *or* pierce (you can only have one), a second throw charge, faster recall, Fan of Knives (two extra daggers per throw) |
+| Charged Strike (swordsman) | Focus (recharges 20% faster), Twin Charge (empowers two swings), Crippling Strike (what it cuts deals 35% less instead of 20%), Storm Edge (a charged swing looses a full-strength crescent wave) |
 | Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
-| Shield and barrier (warden) | Stalwart (full speed while shielding, no knockback), Quick Mend (shield regenerates almost at once after a block, 50% faster), Restoring Ward (a barrier that takes a hit but outlasts it heals what it has left when it fades), Last Stand (once per depth, survive a killing blow at 1 HP with a fresh barrier), Riposte Guard (perfect blocks reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc), barrier: shorter cooldown, longer duration, more absorption, Thorned Ward (melee attackers take back what they deal) |
-| Movement (both) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
-| Survival (both) | max HP, longer invulnerability after being struck (Resilience), damage reduction, life steal, heal on kill, XP magnet |
+| Shield (warden) | Tempered Shield (stops 10% more), Stalwart (full speed while shielding, no knockback), Quick Mend (regenerates almost at once after a block, 50% faster), Spiked Shield (melee attackers take 40% of the blow back), Last Stand (once per depth, survive a killing blow at 1 HP with a whole shield), Riposte Guard (perfect blocks, and the dash, reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc) |
+| Shield dash (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Shield Bash (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
+| Spells (vitalist) | Splitting Bolt (bolts leap to a second creature), Far Reach (+25% bolt range), Hungering Spirit (+50% alimus from damage), Deep Well (+40 alimus capacity), Deep Mending (+30% heal), Frugal Rites (heals cost 25% less), Spreading Blight (+30% hex radius), Lingering Hex (+2 s), Withering Hex (hexed creatures rot for 6 health a second) |
+| Movement (everyone) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
+| Everyone | attack speed, damage; max HP, longer invulnerability after being struck (Resilience), damage reduction, heal on kill, XP magnet |
 
 **Enemies** (`Enemies/`). They follow some etiquette (`Tune.Combat`):
 - The first time a creature wants to attack, it waits 1 s (`FirstAttackDelay`), so nothing
   strikes the instant it drops into view.
-- Creatures near you take turns: an attack can't start within 0.45 s of another one
-  (`AttackStagger`; the boss is exempt).
+- Creatures near you share out attack slots: of those within 560 px that are ready to attack, a
+  third (rounded up, at least one) may be attacking at once (`AttackerShare`). A crowd you've
+  gathered doesn't queue politely behind one attacker any more. Bosses and guardians are exempt.
 - Attack cooldowns are longer, frogs only use their tongue with their feet planted, and fish
   dart more slowly.
 
@@ -332,7 +358,7 @@ Each one moves differently:
 | Hornet | Hovers above you, takes aim with a buzz, then dives in a straight line. |
 | Skeleton | Plods forward and slashes. Sometimes a felled skeleton pulls itself back together at half health. |
 | Sporeling | Waddles close and puffs a choking spore cloud; bursts into one when killed. |
-| Frost Wraith | Keeps its distance and casts fans of ice shards. |
+| Frost Wraith | A haunting more than a hunter: it drifts at the edge of the light, now and then looms in over you with a shriek (arms flung wide, jaw open, eyes blazing, but doing no harm), and only rarely, after a long and obvious wind-up, looses a single ice shard (an elite, a fan of three). Frail once you reach it. |
 | Shardling | Curls up and bursts in a spray of crystal shards; shatters into more when killed. |
 | Cavern Colossus | Leap slams, a roar that brings stalactites down, and a wall charge that leaves it stunned. It enrages at half health and summons bats. |
 | Elder Dragon | Stalks the arena floor, sweeps a cone of fire, flies up and dives with a ground-shaking landing, lashes its tail, and roars down a rain of fire. It enrages at half health and calls fire bats. |
@@ -387,7 +413,7 @@ to, so every attack's wind-up, strike and hitbox lines up exactly as before. The
 
 | Group | Characters |
 | --- | --- |
-| Heroes | the Swordsman and the Warden |
+| Heroes | the Swordsman, the Warden and the Vitalist |
 | Enemies | every enemy type |
 | Boss | the Cavern Colossus |
 | Passive critters | glow moths and cave crabs (new ambient wildlife) |
@@ -399,9 +425,10 @@ The left-facing sprites are real renders, not mirrored copies. That means the bl
 hero's right hand (the far hand when facing right, the near hand when facing left), and the light
 always comes from the upper left.
 
-Both heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
+All three heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
 - The Swordsman: a teal cloak, a red scarf and a medium sword.
 - The Warden: a blue tabard, a gold sash, a shortsword and a buckler.
+- The Vitalist: a green robe, a bone mask with glowing eyes and a crystal-headed staff.
 
 They share every clip:
 - idle
@@ -412,8 +439,9 @@ They share every clip:
 - swim and tread water
 - dodge roll
 - air dash
-- 15 slashes: three combo strikes aimed in five directions (up, up-forward, forward, down-forward and down)
-- throw
+- 15 slashes (the blade-bearers): three combo strikes aimed in five directions (up, up-forward,
+  forward, down-forward and down)
+- the Warden's shield bash (the dash); the Vitalist's cast, hex and heal
 - hurt
 - death
 
@@ -440,10 +468,13 @@ The finisher gets one more frame of wind-up and follow-through. The speeds are
 - fast movement stretches along the motion.
 
 **Game feel**. Hits have several layers:
-- Freeze-frames scaled to the hit: 0.16 s, 0.22 s on kills, 0.28 s on finishers. Only the hero and the
-  creature trading the blow freeze (with a small shudder); the rest of the cave carries on.
-  Mini-boss and boss kills still get a moment of whole-game slow motion.
-- A white flash, an elastic squash on the creature that was hit, and an impact spark.
+- Freeze-frames scaled to the hit: 0.17 s, 0.23 s on kills, 0.3 s on finishers, 0.32 s for a
+  Charged Strike. Only the hero and the creature trading the blow freeze, on the very pose of the
+  impact (with a small shudder); the rest of the cave carries on. A press made during the freeze
+  isn't lost: the next swing of a combo starts the instant it ends. Mini-boss and boss kills still
+  get a moment of whole-game slow motion.
+- A quick flash (brief enough that the frozen pose stays readable), an elastic squash on the
+  creature that was hit, and an impact spark.
 - A camera kick in the direction of the blow, plus controller rumble.
 - Damage numbers that pop in.
 - A swing smear that is brightest at the blade's leading edge, with a golden echo on finishers.
@@ -470,14 +501,22 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   collision is. It is meshed with surface nets in parallel chunks and shaded with a triplanar PBR
   rock shader: textures recoloured per biome, moss on walkable floors, masonry in the Ruins, snow
   and ice in the Frost Caverns, magma veins, crystal flecks, glowing fungus, wet rock and caustics
-  under water. Stalactites, boulders, crystals, mushrooms, grass, roots, icicles and glow threads
-  decorate it (`Render3D/Decor/`), and their glows light the cave through a pool of real lights.
+  under water, root mats, and sediment layers with bones caught in them. Stalactites, boulders,
+  crystals, mushrooms, grass, roots, icicles and glow threads decorate it (`Render3D/Decor/`),
+  and their glows light the cave through a pool of real lights. The root-choked tunnels get massive
+  bark-fluted roots coming down through the ceilings; the fossil graveyards a leviathan's ribcage
+  across each great chamber, skulls sunk in the walls and old bones underfoot.
 - **Water and lava** (`Render3D/Liquid3D.cs`): a refracting, depth-absorbing water surface with
   an animated waterline and volumetric fog under water; emissive lava that lights the cave, with a
   heat haze above it.
-- **Lighting**: AgX tonemapping, SSAO, glow, volumetric fog, a light per biome, the hero's
-  lantern, and a key and rim light of their own for every creature, so they read against the
-  rock however dark the cave gets.
+- **Lighting**: AgX tonemapping with a contrast curve on top, SSAO, glow, thin volumetric fog, a
+  light per biome, the hero's lantern, back walls kept darker than the play layer, and a key and
+  rim light of their own for every creature, so they read against the rock however dark the cave
+  gets.
+- **Ink outlines**: every creature and hero is drawn a second time as a slightly swollen hull
+  whose pixels run a Sobel filter over the scene's depth and normals (`creature_ink.gdshader`),
+  inking wherever either jumps: its silhouette and its strongest creases, about two pixels wide at
+  any distance.
 - **Creatures** (`Render3D/Creatures/`): each creature type is sculpted once from code
   (`Designs/`): signed-distance primitives (limbs, eggs, blocks, carved sockets) are
   smooth-unioned on a skeleton and meshed, then teeth, claws, horns, eyes, membranes and weapons
@@ -491,10 +530,13 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   lit smoke and dust, tumbling rock debris, glassy bubbles, and brief real lights at every flash.
   The blade smear is a glowing ribbon with a light at its edge; dodges leave glowing afterimages of
   the pose. Damage numbers, elite health bars and screen washes are drawn over the 3D view.
-- **Props** (`Render3D/Props/`): every projectile, pickup, chest, portal and hazard gets a 3D body
+- **Props** (`Render3D/Props/`): every projectile, pickup, chest, exit and hazard gets a 3D body
   that follows its gameplay node and reads its state (the chest's lid, the vent's eruption, the
-  ice's cracks).
-- **Menus**: the hero cards on the title and death screens show the heroes' 3D models idling
+  ice's cracks, grasping roots writhing as they close, loose stones shaking before a cave-in). An
+  exit is a dressed-stone doorway in a knuckle of rock; its opening is one quad whose shader traces
+  each view ray into a passage behind it (`fx_stairwell.gdshader`): stone ribs, each set lower than
+  the last, stepping down into the dark, and past them a faint glow of the biome below.
+- **Menus**: the three hero cards on the title and death screens show the heroes' 3D models idling
   under studio lights, each in a small viewport of its own (`UI/HeroPortrait.cs`).
 
 Quitting (closing the window, or a test finishing) goes through `Core/SafeQuit.cs`, which first
@@ -521,7 +563,8 @@ xvfb-run godot --path godot --rendering-driver vulkan -- --autotest --seed=1013 
 xvfb-run godot --path godot --rendering-driver vulkan -- --seed=1013 --bestiary --shots=/tmp/shots
 
 # One screenshot after N frames (with --fixed-fps for a steady clock); --fxtest=K lays out one of
-# every effect K frames before the shot, --proptest one of every prop
+# every effect K frames before the shot, --proptest one of every prop, --exittest the two exits
+# a guardian leaves (one right where you stand)
 xvfb-run godot --path godot --rendering-driver vulkan --fixed-fps 12 -- --biome=entrance --lookshot=/tmp/look.png --frames=60 --proptest
 ```
 
@@ -532,7 +575,8 @@ the shader thinks it is, and `--terraindebug=weights` by its texture projections
 green top-down, blue front-on).
 
 `--start=boss` and `--start=water` change where the player spawns, `--seed=N` fixes the cave, and
-`--biome=NAME` (entrance, den, nest, ruins, fungal, tunnels, slime, frost, crystal, magma, lair)
+`--biome=NAME` (entrance, den, roots, nest, ruins, fungal, tunnels, slime, frost, fossils, crystal,
+magma, lair)
 starts in that biome at its depth. `--fullrun` with `--autotest` gives the bot a very sturdy hero
 and has it head for each guardian and then the steep exit, all the way to the dragon; it prints
 `[fullrun] VICTORY` and quits when the dragon dies.
@@ -555,24 +599,33 @@ godot --headless --path godot -- --nntest
 To have the autopilot bot train the brains, add `--train` to an `--autotest` run. Add
 `--braindir=DIR` to keep those brains out of the project.
 
-`--herotest` (add `--hero=warden` for the Warden) scripts checks of each hero's mechanics and
-prints ok / FAIL for each:
-- the sword's reach and lunge;
-- the shield blocking from the front but not from behind;
-- the shield breaking, staying down and recovering;
-- a perfect block reflecting a shot;
-- the barrier absorbing a hit;
-- the game clock never slowing for a hit-stop.
+`--herotest` (add `--hero=warden` or `--hero=vitalist`) scripts checks of each hero's mechanics
+and prints ok / FAIL for each:
+- Swordsman: the sword's reach and lunge; a combo pressed during a hit-stop starting as it ends;
+  the Charged Strike (harder, and weakening what it cuts); a swing out of a dodge; the crescent
+  wave; air bubbles.
+- Warden: the shield stopping 70% from the front (and losing half of that) but nothing from
+  behind; breaking, staying down, and mending at once when healed; perfect blocks reflecting a
+  shot and breaking off a melee attack while ordinary blocks don't; swinging behind the shield;
+  the right stick raising it by itself; the shield dash swallowing a projectile, breaking off an
+  attack it meets, and passing a creature that isn't attacking.
+- Vitalist: the drain bolt landing and paying back a tenth as alimus; the hex, and hexed
+  creatures taking more damage; the heal's cost and amount; no heal when no one is hurt.
+- For all: the game clock never slowing for a hit-stop.
+
+`--hitstoptest --shots=DIR` has the hero strike a golem twice and logs every frame of it (who is
+frozen, for how long, the clip and frame), saving a screenshot of each.
 
 The checks are timed in game seconds, so on a slow software renderer run them with
 `--fixed-fps 60` (and a small window, `--resolution 640x360`, to save time): otherwise frames of a
 third of a second let the game's timers run ahead of the script.
 
-`--hero=warden` also works with `--autotest` and the other modes.
+`--hero=warden` and `--hero=vitalist` also work with `--autotest` and the other modes.
 
 Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,
-  turn, stop, jump, land, slashes, dodge, throw, hurt) and saves a frame every 1/20 s.
-- `--padtest` drives the game with synthetic controller events: start, move, swing, throw, dodge,
-  pick an upgrade from the level-up cards, pause and unpause. It prints what happened at each
+  turn, stop, jump, land, slashes, dodge, ability, hurt) and saves a frame every 1/20 s.
+- `--padtest` drives the game with synthetic controller events: start, move, swing, Charged
+  Strike, dodge, pick an upgrade from the level-up cards, pause and unpause. Its presses are a
+  twentieth of a second long, so on a slow software renderer run it with `--fixed-fps 60` too. It prints what happened at each
   step.

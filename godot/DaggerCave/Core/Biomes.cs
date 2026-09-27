@@ -22,7 +22,7 @@ public enum GenStyle
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -77,7 +77,19 @@ public sealed class BiomeDef
 
     // ---- hazards and terrain features
     public bool Slippery, IceSheet, IcePlatforms, Webs, Spores, CrystalSpikes, FireVents;
+    /// <summary>Grasping roots that hold you and snag your weapon (the root-choked tunnels).</summary>
+    public bool RootSnares;
+    /// <summary>Unstable ceilings that shed dust, then rock, on whoever walks beneath (the fossil graveyards).</summary>
+    public bool CaveIns;
+    /// <summary>Thick, rotting water: you run out of breath sooner and swim slower in it.</summary>
+    public bool Murky;
     public int HazardCount = 12;
+
+    // ---- set dressing in 3D
+    /// <summary>Massive tree roots come down through the ceilings.</summary>
+    public bool GiantRoots;
+    /// <summary>The bones of leviathans: ribcages spanning the chambers, skulls half-buried in the walls.</summary>
+    public bool Leviathans;
 
     // ---- life
     public readonly Dictionary<SpawnKind, List<SpawnEntry>> Residents = new();
@@ -156,6 +168,28 @@ public static class Biomes
         den.MiniBosses = new() { () => new Bear(), () => new Goblin(), () => new Rat() };
         den.Guardian = r => Guard(new Bear(), "THE DEN MOTHER", 1.2f);
         All.Add(den);
+
+        // ------------------------------------------------------------------ 1-3: root-choked tunnels (the deep canopy)
+        var roots = new BiomeDef
+        {
+            Id = BiomeId.Roots, Name = "Root-Choked Tunnels", MinDepth = 1, MaxDepth = 3,
+            W = 230, H = 110, TunnelBudget = 1350, AirRMin = 2.7f, AirRMax = 3.9f, HorizontalBias = 0.018f, BranchPitchMult = 0.6f, LiquidFraction = 0.32f,
+            Edge = C("40362a"), Deep = C("110d08"), Moss = C("4f6e2c"), Rim = C("6e5c40"), Glow = C("c8e06a"),
+            LiquidTop = new Color(0.2f, 0.22f, 0.08f, 0.72f), LiquidBottom = new Color(0.09f, 0.1f, 0.03f, 0.92f), LiquidLine = new Color(0.62f, 0.66f, 0.3f, 0.75f),
+            BackBottom = C("0a0905"), Grass = 0.3f, Mushrooms = 0.08f, Stalactites = 0.08f, Darkness = 0.62f,
+            Murky = true, RootSnares = true, GiantRoots = true, HazardCount = 13, WaterCaches = 3, HighCaches = 2,
+        };
+        roots.Residents[SpawnKind.Ground] = L(E(3, () => new Rat(), 2, 3), E(2, () => new Spider { Grounded = true }), E(2, () => Var(new Frog(), "Rot ", "9aa84e"), 1, 2));
+        roots.Residents[SpawnKind.Ceiling] = L(E(3, () => new Spider(), 1, 2), E(2, () => new Bat(), 1, 3));
+        roots.Residents[SpawnKind.Water] = L(E(1, () => Var(new Fish(), "Mire ", "8a9a50"), 1, 3));
+        roots.Residents[SpawnKind.WaterWall] = L(E(1, () => Var(new Eel(), "Root ", "8a6a40")));
+        roots.GroundEntrants = L(E(3, () => new Rat()), E(2, () => Var(new Frog(), "Rot ", "9aa84e")), E(1, () => new Spider { Grounded = true }));
+        roots.AirEntrants = L(E(1, () => new Bat()));
+        roots.WaterEntrants = L(E(1, () => Var(new Fish(), "Mire ", "8a9a50")));
+        roots.MiniBosses = new() { () => Var(new Bear(), "Rotback ", "8a9a5a"), () => Var(new Frog(), "Rot ", "9aa84e"), () => new Spider { Grounded = true } };
+        roots.WaterMiniBosses = new() { () => Var(new Eel(), "Root ", "8a6a40") };
+        roots.Guardian = r => Guard(Var(new Bear(), "", "7e8e4c"), "THE ROTBACK", 1.35f);
+        All.Add(roots);
 
         // ------------------------------------------------------------------ 1-3: nest
         var nest = new BiomeDef
@@ -272,6 +306,24 @@ public static class Biomes
         frost.WaterMiniBosses = new() { () => new Eel() };
         frost.Guardian = r => { var c = new CavernColossus(); c.Init(r); c.Tint = C("b8e0ff"); c.Title = "THE RIME COLOSSUS"; return c; };
         All.Add(frost);
+
+        // ------------------------------------------------------------------ 5-7: fossil graveyards
+        var fossils = new BiomeDef
+        {
+            Id = BiomeId.Fossils, Name = "Fossil Graveyards", MinDepth = 5, MaxDepth = 7,
+            Style = GenStyle.Rooms, W = 260, H = 120, Liquid = Liquid.None, RoomCount = 6, RoomRMin = 14, RoomRMax = 19, CorridorR = 3.2f, RoomYSpread = 0.3f,
+            Edge = C("5c5448"), Deep = C("17140f"), Moss = C("8a8266"), Rim = C("a39a86"), Glow = C("eadcb4"),
+            BackBottom = C("0b0a08"), Grass = 0.04f, Mushrooms = 0.0f, Stalactites = 0.14f, Crystals = 0.0f, Darkness = 0.8f,
+            CaveIns = true, Leviathans = true, HazardCount = 10, EliteChance = 0.12f, MiniBossesMin = 2, MiniBossesMax = 3,
+        };
+        fossils.Residents[SpawnKind.Ground] = L(E(3, () => Var(new Skeleton(), "Fossil ", "e8dcc0"), 1, 3), E(2, () => Var(new Scorpion(), "Bone ", "d8ccb0"), 1, 2),
+            E(1, () => Var(new Golem(), "Ossuary ", "e0d4b8", 1.2f)), E(1, () => Var(new Rat(), "Marrow ", "d0c4a8"), 2, 3));
+        fossils.Residents[SpawnKind.Ceiling] = L(E(2, () => new Bat(), 2, 3), E(1, () => new Spider()));
+        fossils.GroundEntrants = L(E(3, () => Var(new Skeleton(), "Fossil ", "e8dcc0")), E(1, () => Var(new Scorpion(), "Bone ", "d8ccb0")));
+        fossils.AirEntrants = L(E(1, () => new Bat()));
+        fossils.MiniBosses = new() { () => Var(new Golem(), "Ossuary ", "e0d4b8"), () => Var(new Skeleton(), "Fossil ", "e8dcc0"), () => Var(new Scorpion(), "Bone ", "d8ccb0") };
+        fossils.Guardian = r => { var c = new CavernColossus(); c.Init(r); c.Tint = C("e8dcc0"); c.Title = "THE OSSUARY COLOSSUS"; return c; };
+        All.Add(fossils);
 
         // ------------------------------------------------------------------ 6-8: crystal caves
         var crystal = new BiomeDef

@@ -235,8 +235,8 @@ public partial class Main : Node
         _overlay.Show("DAGGER DEEP", 0.55f,
             "A rogue-lite descent from the cave mouth to the dragon at the bottom of the world.  Choose your hero:",
             "@",
-            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK attack   RIGHT CLICK ability   SHIFT dodge / shield / hex   E enter   Q potion",
-            "CONTROLLER:  stick move   A jump   X attack   RB / RT ability   B / LB dodge / shield / hex   UP enter   Y potion   right stick aims (and raises the shield)",
+            "KEYBOARD + MOUSE:  A / D move   SPACE jump   W / S swim   LEFT CLICK attack   RIGHT CLICK ability   SHIFT dodge / shield / hex   E descend   Q potion",
+            "CONTROLLER:  stick move   A jump   X attack   RB / RT ability   B / LB dodge / shield / hex   UP descend   Y potion   right stick aims (and raises the shield)",
             CampLine(),
             "!LEFT / RIGHT to choose  -  ENTER / A to begin");
     }
@@ -331,6 +331,8 @@ public partial class Main : Node
         Add(new WebPatch { Radius = 26 }, p + new Vector2(170, -60));
         Add(new SporeCloud { Radius = 30, Life = 99 }, p + new Vector2(-160, -70));
         Add(new SwordWave { Dir = Vector2.Right, Damage = 0, Range = 9999, Speed = 1 }, p + new Vector2(0, -80));
+        Add(new GraspingRoots { Radius = 26 }, Floor(-60) + new Vector2(0, 2));
+        if (cave.FindCeiling(p + new Vector2(90, -20), 400, out var ce)) Add(new CaveIn { Drop = 200 }, ce + new Vector2(0, 3));
     }
 
     /// <summary>Test aid: one of every effect in a grid around the player (for tuning their 3D look).</summary>
@@ -626,6 +628,23 @@ public partial class Main : Node
         if (b.CrystalSpikes) Floors(count, fl => new CrystalSpikes { Position = fl });
         if (b.FireVents) Floors(count, fl => new FireVent { Position = fl });
         if (b.Webs) Floors(count, fl => new WebPatch { Position = fl + new Vector2(0, -26), Radius = 28 + rng.Next(8) });
+        if (b.RootSnares) Floors(count, fl => new GraspingRoots { Position = fl + new Vector2(0, 2), Radius = 22 + rng.Next(10) });
+        if (b.CaveIns)
+        {
+            // unstable ceilings over open floor, high enough for their dust to warn you
+            int made = 0;
+            for (int tries = 0; tries < 3000 && made < count; tries++)
+            {
+                var at = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
+                if (cave.IsSolid(at) || !cave.FindCeiling(at, 400, out var ce) || !cave.FindFloor(at, 400, out var fl)) continue;
+                float drop = fl.Y - ce.Y;
+                if (drop < 90 || drop > 360 || cave.IsWater(fl + new Vector2(0, -6))) continue;
+                if (!Clear(fl)) continue;
+                placed.Add(fl);
+                _world.AddChild(new CaveIn { Position = ce + new Vector2(0, 3), Drop = drop });
+                made++;
+            }
+        }
         if (b.IceSheet && cave.Liquid == Liquid.Water)
         {
             // the frozen surface: tiles wherever the water meets open air

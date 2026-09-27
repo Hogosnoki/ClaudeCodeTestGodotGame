@@ -31,6 +31,8 @@ public static class PropViews
             SporeCloud => new SporeCloudView(),
             SporePod => new SporePodView(),
             WebPatch => new WebView(),
+            GraspingRoots => new GraspingRootsView(),
+            CaveIn => new CaveInView(),
             CrystalSpikes => new CrystalSpikesView(),
             FireVent => new FireVentView(),
             IceSheet => new IceSheetView(),
@@ -711,6 +713,110 @@ public partial class PortalView : PropView
             float pa = p.Near * (0.8f + 0.2f * MathF.Sin(Time * 5f));
             _prompt.Modulate = _prompt.Modulate with { A = pa };
             _prompt.OutlineModulate = _prompt.OutlineModulate with { A = 0.92f * p.Near };
+        }
+    }
+}
+
+/// <summary>Grasping roots: a knot of bark-dark tendrils that sway, and writhe as they close on someone.</summary>
+public partial class GraspingRootsView : PropView
+{
+    private readonly List<(Node3D pivot, float phase, float lean)> _tendrils = new();
+
+    protected override void Build()
+    {
+        var gr = (GraspingRoots)Owner2D;
+        var rng = new Random((int)(GetInstanceId() % 100000));
+        float R() => (float)rng.NextDouble();
+        var bark = new Color(0.26f, 0.18f, 0.11f);
+        var noise = new Noise3(rng.Next(1000));
+        // a gnarled mound where they come up through the floor
+        var mound = new MeshBuilder();
+        mound.Blob(Vector3.Zero, new Vector3(W3.M(gr.Radius) * 0.9f, 0.18f, 0.6f), 5, bark.Darkened(0.2f), noise, 0.35f, 3f, 1f);
+        AddChild(PropViews.Mesh(mound, PropViews.VertexColored));
+        int n = 9 + rng.Next(4);
+        for (int k = 0; k < n; k++)
+        {
+            float x = (R() * 2f - 1f) * W3.M(gr.Radius) * 0.85f;
+            float z = (R() * 2f - 1f) * 0.45f;
+            float len = 0.7f + R() * 0.75f;
+            var path = new List<Vector3>();
+            var radii = new List<float>();
+            float bend = (R() - 0.5f) * 0.6f, curl = 0.15f + R() * 0.25f;
+            for (int i = 0; i <= 8; i++)
+            {
+                float t = i / 8f;
+                // up, leaning, and curling over at the tip like a grasping finger
+                path.Add(new Vector3(bend * t * len + curl * t * t * t, len * t, 0.1f * MathF.Sin(t * 3f + k)));
+                radii.Add(0.08f * (1f - 0.85f * t) + 0.01f);
+            }
+            var mb = new MeshBuilder();
+            mb.Tube(path, radii, 6, bark.Lightened(0.1f * R()), capStart: false);
+            mb.SmoothNormals();
+            var pivot = new Node3D { Position = new Vector3(x, 0.05f, z) };
+            pivot.AddChild(PropViews.Mesh(mb, PropViews.VertexColored));
+            AddChild(pivot);
+            _tendrils.Add((pivot, R() * 6f, R() * 2f - 1f));
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var gr = (GraspingRoots)Owner2D;
+        Follow(default, 0f);
+        float grip = gr.Grip;
+        float sag = gr.Wounded ? 0.65f : 1f;
+        foreach (var (pivot, phase, lean) in _tendrils)
+        {
+            // idle: a slow sway; closing: a quick writhe, bending in toward the middle
+            float sway = 0.12f * MathF.Sin(Time * 1.3f + phase) + grip * 0.35f * MathF.Sin(Time * 11f + phase * 2f);
+            pivot.Rotation = new Vector3(0.1f * MathF.Sin(Time * 0.9f + phase), 0, sway - lean * 0.2f - Math.Sign(pivot.Position.X) * grip * 0.4f);
+            pivot.Scale = new Vector3(1f, sag * (1f + 0.1f * grip), 1f);
+        }
+    }
+}
+
+/// <summary>An unstable ceiling: a web of cracks and a few loose stones that shake before it gives way.</summary>
+public partial class CaveInView : PropView
+{
+    private readonly List<(MeshInstance3D rock, Vector3 at)> _loose = new();
+
+    protected override void Build()
+    {
+        var rng = new Random((int)(GetInstanceId() % 100000));
+        float R() => (float)rng.NextDouble();
+        var rock = (G.Biome?.Edge ?? new Color(0.36f, 0.33f, 0.3f)).Darkened(0.1f);
+        float reach = W3.M(Tune.CaveIn.Reach);
+        // cracks: dark slivers pressed into the ceiling
+        var cracks = new MeshBuilder();
+        for (int k = 0; k < 6; k++)
+        {
+            var at = new Vector3((R() * 2f - 1f) * reach, -0.02f, (R() * 2f - 1f) * 0.9f);
+            cracks.Box(new Transform3D(new Basis(Vector3.Up, R() * 3f), at), new Vector3(0.35f + R() * 0.5f, 0.03f, 0.025f), new Color(0.05f, 0.04f, 0.035f));
+        }
+        AddChild(PropViews.Mesh(cracks, PropViews.VertexColored, false));
+        for (int k = 0; k < 4; k++)
+        {
+            var mb = new MeshBuilder();
+            mb.Blob(Vector3.Zero, new Vector3(0.18f, 0.14f, 0.16f) * (0.8f + 0.6f * R()), 4, rock.Lerp(new Color(0.5f, 0.46f, 0.4f), R() * 0.3f), new Noise3(rng.Next(1000)), 0.35f, 4f);
+            var mi = PropViews.Mesh(mb, PropViews.VertexColored);
+            var at = new Vector3((R() * 2f - 1f) * reach * 0.8f, -0.12f - R() * 0.08f, (R() * 2f - 1f) * 0.7f);
+            mi.Position = at;
+            AddChild(mi);
+            _loose.Add((mi, at));
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var c = (CaveIn)Owner2D;
+        Follow(default, 0f);
+        float r = c.Rumbling;
+        int k = 0;
+        foreach (var (rock, at) in _loose)
+        {
+            float j = r * 0.035f;
+            rock.Position = at + new Vector3(j * MathF.Sin(Time * 47f + k), -r * 0.06f + j * MathF.Sin(Time * 53f + k * 2f), 0);
+            k++;
         }
     }
 }

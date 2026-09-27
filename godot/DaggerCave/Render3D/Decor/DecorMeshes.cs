@@ -238,6 +238,183 @@ public static class DecorMeshes
         return mb;
     }
 
+    /// <summary>
+    /// A massive root come down through the ceiling from the world above: flared where it enters
+    /// the rock, fluted like bark, knotted, meandering along +Y from the origin and thinning to a
+    /// point, with a few side roots splitting away.
+    /// </summary>
+    public static MeshBuilder GiantRoot(Random rng, Noise3 noise, float length, float radius, Color col)
+    {
+        var mb = new MeshBuilder();
+        float seed = (float)rng.NextDouble() * 50f;
+        var path = new List<Vector3>();
+        var radii = new List<float>();
+        const int n = 18;
+        for (int i = 0; i <= n; i++)
+        {
+            float t = i / (float)n;
+            var wig = new Vector3(noise.Sample(seed, t * 2.2f, 0f), 0f, noise.Sample(seed + 7f, t * 2.2f, 5f) * 0.6f) * length * 0.2f * t;
+            path.Add(new Vector3(0f, length * t, 0f) + wig);
+            float flare = 1f + 0.9f * MathF.Max(0f, 1f - t * 5f);
+            float knot = 1f + 0.14f * MathF.Max(0f, MathF.Sin(t * 21f + seed));
+            radii.Add(radius * flare * knot * (1f - 0.9f * t) + 0.01f);
+        }
+        path[0] -= Vector3.Up * radius * 0.9f; // the flare sinks into the rock
+        mb.Tube(path, radii, 10, col, capStart: true, bump: (i, k) => (k % 2 == 0 ? 0.07f : -0.05f));
+        int branches = 2 + rng.Next(3);
+        for (int b = 0; b < branches; b++)
+        {
+            int i0 = (int)((0.12f + (float)rng.NextDouble() * 0.5f) * n);
+            var o = path[i0];
+            var dir = new Vector3(((float)rng.NextDouble() - 0.5f) * 2f, 0.5f + (float)rng.NextDouble(), ((float)rng.NextDouble() - 0.5f) * 1.2f).Normalized();
+            float bl = length * (0.22f + (float)rng.NextDouble() * 0.3f), br = radii[i0] * 0.42f;
+            var bp = new List<Vector3>();
+            var brr = new List<float>();
+            for (int i = 0; i <= 9; i++)
+            {
+                float t = i / 9f;
+                bp.Add(o + dir * bl * t + new Vector3(0f, bl * 0.35f * t * t, 0f)
+                       + new Vector3(noise.Sample(seed + b * 3f, t * 3f, 1f), 0f, noise.Sample(seed + b * 5f, t * 3f, 2f)) * bl * 0.15f);
+                brr.Add(br * (1f - 0.9f * t) + 0.006f);
+            }
+            mb.Tube(bp, brr, 6, col.Darkened(0.08f), capStart: false);
+        }
+        mb.SmoothNormals();
+        return mb;
+    }
+
+    /// <summary>
+    /// A leviathan's ribcage lying along Z (from the back of a chamber toward the viewer): a spine
+    /// of vertebrae along the top and pairs of ribs arching out and down to the floor on either
+    /// side, the cage widest in the middle. The spine starts at the origin and runs to +Z; ribs
+    /// hang down (-Y) to <paramref name="height"/>, out to about <paramref name="halfWidth"/>.
+    /// </summary>
+    public static MeshBuilder Ribcage(Random rng, Noise3 noise, int ribs, float spacing, float halfWidth, float height, Color bone)
+    {
+        var mb = new MeshBuilder();
+        float len = (ribs - 1) * spacing;
+        float thick = Math.Clamp(height / 14f, 0.5f, 1.4f);
+        // the spine: vertebrae, each with a spur standing up from it
+        for (float z = -spacing; z <= len + spacing * 1.01f; z += spacing * 0.5f)
+        {
+            float r = 0.36f * thick * (1f + 0.15f * noise.Sample(z * 0.7f, 0f, 3f));
+            mb.Blob(new Vector3(0f, 0f, z), new Vector3(r * 1.25f, r, r * 0.75f), 5, bone.Darkened(0.06f), noise, 0.22f, 2.5f);
+            mb.Tube(new[] { new Vector3(0f, r * 0.5f, z), new Vector3(0f, r * 2.4f, z - 0.15f * spacing) }, new[] { r * 0.4f, r * 0.12f }, 5, bone, capStart: false);
+        }
+        for (int i = 0; i < ribs; i++)
+        {
+            float z = i * spacing;
+            float off = MathF.Abs(i - (ribs - 1) * 0.5f) / Math.Max(1f, (ribs - 1) * 0.5f);
+            float mid = 1f - off * off * 0.4f;
+            float w = halfWidth * mid, h = height * (0.78f + 0.22f * mid);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var path = new List<Vector3>();
+                var radii = new List<float>();
+                const int n = 16;
+                float warp = (float)rng.NextDouble() * 10f;
+                for (int k = 0; k <= n; k++)
+                {
+                    float t = k / (float)n;
+                    // out from the spine, bulging past the half width, curling back in at the foot
+                    float x = side * w * MathF.Sin(t * MathF.PI * 0.62f) / MathF.Sin(MathF.PI * 0.62f);
+                    float y = -h * (1f - MathF.Cos(t * MathF.PI * 0.5f));
+                    float zz = z - 0.3f * t * t * spacing + noise.Sample(warp, t * 2f, side) * 0.2f;
+                    path.Add(new Vector3(x, y, zz));
+                    radii.Add((0.22f - 0.13f * t) * thick);
+                }
+                mb.Tube(path, radii, 7, bone.Darkened(0.05f * (i % 3)), capStart: true);
+            }
+        }
+        mb.SmoothNormals();
+        return mb;
+    }
+
+    /// <summary>
+    /// A great fossil skull facing +X: a domed cranium with heavy brows over deep dark sockets, a
+    /// long snout lined with teeth, and a jaw hanging open beneath (half of it will be buried).
+    /// </summary>
+    public static MeshBuilder Skull(Random rng, Noise3 noise, float size, Color bone)
+    {
+        var mb = new MeshBuilder();
+        var dark = new Color(0.03f, 0.025f, 0.02f);
+        var tooth = bone.Lightened(0.12f);
+        Vector3 S(float x, float y, float z) => new Vector3(x, y, z) * size;
+        mb.Blob(S(0f, 0.12f, 0f), S(0.62f, 0.5f, 0.55f), 7, bone, noise, 0.12f, 2.2f);
+        foreach (float z in new[] { -1f, 1f })
+        {
+            mb.Blob(S(0.4f, 0.3f, 0.22f * z), S(0.24f, 0.1f, 0.15f), 4, bone, noise, 0.1f, 3f);
+            mb.Blob(S(0.45f, 0.13f, 0.27f * z), S(0.14f, 0.13f, 0.1f), 5, dark, noise, 0f, 1f);
+            mb.Blob(S(1.27f, -0.03f, 0.06f * z), S(0.05f, 0.04f, 0.04f), 3, dark, noise, 0f, 1f);
+            // cheekbones sweeping back to the jaw hinge
+            mb.Tube(new[] { S(0.55f, -0.05f, 0.28f * z), S(0.1f, -0.12f, 0.42f * z), S(-0.25f, -0.2f, 0.36f * z) }, new[] { 0.07f * size, 0.08f * size, 0.06f * size }, 6, bone, capStart: true);
+            // the lower jaw, hanging open
+            mb.Tube(new[] { S(-0.25f, -0.25f, 0.34f * z), S(0.35f, -0.62f, 0.22f * z), S(1.1f, -0.78f, 0.1f * z) }, new[] { 0.09f * size, 0.08f * size, 0.05f * size }, 6, bone.Darkened(0.05f), capStart: true);
+        }
+        // the snout, tapering forward, and its blunt end
+        mb.Tube(new[] { S(0.25f, 0f, 0f), S(0.75f, -0.07f, 0f), S(1.28f, -0.12f, 0f) }, new[] { 0.34f * size, 0.25f * size, 0.14f * size }, 9, bone, capStart: false);
+        mb.Blob(S(1.3f, -0.12f, 0f), S(0.14f, 0.13f, 0.14f), 5, bone, noise, 0.08f, 3f);
+        // teeth: down from the snout, up from the jaw
+        var cone = new MeshBuilder();
+        cone.Crystal(0.035f * size, 0.16f * size, 0.1f * size, tooth);
+        for (int i = 0; i < 9; i++)
+        {
+            float x = 0.45f + i * 0.095f;
+            foreach (float z in new[] { -1f, 1f })
+            {
+                float zz = (0.2f - i * 0.012f) * z;
+                mb.Append(cone, new Transform3D(new Basis(Vector3.Right, MathF.PI) * Basis.FromScale(Vector3.One * (1.1f - i * 0.05f)), S(x, -0.12f - i * 0.012f, zz)));
+                mb.Append(cone, new Transform3D(Basis.FromScale(Vector3.One * (0.9f - i * 0.04f)), S(x + 0.05f, -0.58f - i * 0.022f, zz * 0.8f)));
+            }
+        }
+        mb.SmoothNormals();
+        return mb;
+    }
+
+    /// <summary>A scatter of old bones for a floor: long bones with knobbed ends, vertebrae, a broken rib.</summary>
+    public static MeshBuilder Bones(Random rng, Noise3 noise, int count, float size, Color bone)
+    {
+        var mb = new MeshBuilder();
+        float R() => (float)rng.NextDouble();
+        for (int k = 0; k < count; k++)
+        {
+            var o = new Vector3((R() - 0.5f) * 1.6f, 0.02f, (R() - 0.5f) * 1.2f) * size;
+            float yaw = R() * Mathf.Tau;
+            var d = new Vector3(MathF.Cos(yaw), 0.05f, MathF.Sin(yaw));
+            float roll = R();
+            var col = bone.Darkened(R() * 0.25f);
+            if (roll < 0.45f)
+            {
+                float l = (0.5f + R() * 0.7f) * size, r = 0.05f * size;
+                mb.Tube(new[] { o - d * l * 0.5f, o + d * l * 0.5f }, new[] { r, r * 0.85f }, 6, col, capStart: false);
+                mb.Blob(o - d * l * 0.5f, Vector3.One * r * 1.8f, 4, col, noise, 0.2f, 4f);
+                mb.Blob(o + d * l * 0.5f, Vector3.One * r * 1.6f, 4, col, noise, 0.2f, 4f);
+            }
+            else if (roll < 0.8f)
+            {
+                float r = (0.1f + R() * 0.08f) * size;
+                mb.Blob(o, new Vector3(r, r * 0.6f, r), 5, col, noise, 0.25f, 3f);
+                mb.Tube(new[] { o + Vector3.Up * r * 0.3f, o + (Vector3.Up * 1.6f + d * 0.4f) * r * 1.4f }, new[] { r * 0.3f, r * 0.08f }, 4, col, capStart: false);
+            }
+            else
+            {
+                float l = (0.8f + R() * 0.8f) * size;
+                var side = new Vector3(-d.Z, 0f, d.X);
+                var pts = new List<Vector3>();
+                var rr = new List<float>();
+                for (int i = 0; i <= 6; i++)
+                {
+                    float t = i / 6f;
+                    pts.Add(o + d * l * (t - 0.5f) + side * MathF.Sin(t * MathF.PI) * l * 0.25f + Vector3.Up * MathF.Sin(t * MathF.PI) * l * 0.12f);
+                    rr.Add(0.045f * size * (1f - 0.5f * t));
+                }
+                mb.Tube(pts, rr, 5, col, capStart: true);
+            }
+        }
+        mb.SmoothNormals();
+        return mb;
+    }
+
     public static void AddSphere(MeshBuilder mb, Vector3 c, float r, Color col, int seg = 5)
     {
         int start = mb.Count;
