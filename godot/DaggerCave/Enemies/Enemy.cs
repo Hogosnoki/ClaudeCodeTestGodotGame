@@ -49,6 +49,8 @@ public abstract partial class Enemy : CharacterBody2D
     protected bool ManualMove;
     protected bool ContactActive = true;
     protected virtual bool UsesGravity => true;
+    /// <summary>Walks and falls (rather than flying or swimming): it can be stranded on a ledge.</summary>
+    public bool Walks => UsesGravity;
     public virtual bool CanBeHit => true;
     public virtual float HitRadius => BodyRadius * Size;
 

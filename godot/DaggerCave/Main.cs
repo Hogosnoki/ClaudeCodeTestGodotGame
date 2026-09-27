@@ -155,6 +155,7 @@ public partial class Main : Node
     {
         if (ModelSheet.Wanted) { _uiLayer.Visible = false; AddChild(new ModelSheet()); return; }
         if (gentest) { RunGenTest(); return; }
+        if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }
 
@@ -424,6 +425,8 @@ public partial class Main : Node
         Breakables.All.Clear();
         _roomElites.Clear();
         ActiveBoss = null;
+        _roomCells.Clear();
+        _bossStrandedT = 0;
         SkipBank = 0;
         _guardianDown = false;
         _victoryT = -1;
@@ -944,7 +947,7 @@ public partial class Main : Node
         {
             _sfx.SetUnderwater(player.HeadUnder);
             _spawnT -= dt;
-            if (_spawnT <= 0) { _spawnT = 0.25f; RunSpawner(0.25f); RunRooms(); }
+            if (_spawnT <= 0) { _spawnT = 0.25f; RunSpawner(0.25f); RunRooms(); WatchGuardian(0.25f); }
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;
         }
         if (_showcase) ShowcaseTick(dt);
@@ -1149,10 +1152,15 @@ public partial class Main : Node
         foreach (var room in cave.Rooms)
         {
             if (room.Triggered || room.Kind == RoomKind.Start) continue;
-            float d = room.Center.DistanceTo(p.GlobalPosition);
-            float trigger = room.Kind == RoomKind.Boss ? room.RxPx * 0.75f : Math.Max(room.RxPx, room.RyPx) + 60;
-            if (d > trigger) continue;
-            if (room.Kind == RoomKind.Boss && !cave.LineClear(room.Center, p.GlobalPosition)) continue;
+            if (room.Kind == RoomKind.Boss)
+            {
+                // the guardian wakes once you're properly inside its chamber: on one of the chamber's
+                // own open cells (flooded out from its floor, so never through a wall) and a few cells
+                // in from the doorway. (A line of sight to the chamber's centre isn't needed: slabs
+                // and ledges inside it used to block that, and the guardian never came.)
+                if (!InRoom(cave, room, p.GlobalPosition, 0.9f)) continue;
+            }
+            else if (room.Center.DistanceTo(p.GlobalPosition) > Math.Max(room.RxPx, room.RyPx) + 60) continue;
             room.Triggered = true;
             switch (room.Kind)
             {
@@ -1161,9 +1169,16 @@ public partial class Main : Node
                     var b = G.Biome;
                     var boss = b.Guardian(room);
                     float side = Math.Sign(room.Center.X - p.GlobalPosition.X);
-                    boss.Position = boss is Dragon
-                        ? new Vector2(room.Center.X, room.Center.Y - room.RyPx * 0.5f)
-                        : room.Floor + new Vector2(room.RxPx * 0.25f * side, -Math.Min(room.RyPx * 0.7f, 90));
+                    if (boss is Dragon) boss.Position = new Vector2(room.Center.X, room.Center.Y - room.RyPx * 0.5f);
+                    else
+                    {
+                        // on floor you can reach (never a ledge or slab you can't get up to), a little
+                        // past the middle of the chamber from where you came in, dropping in from above
+                        var floor = GuardianFloor(cave, room, room.Floor.X + room.RxPx * 0.25f * side, boss);
+                        float half = boss.BodyRadius * boss.Size;
+                        float drop = cave.IsSolid(floor + new Vector2(0, -half * 2 - 48)) ? 0 : 40;
+                        boss.Position = floor + new Vector2(0, -half - 4 - drop);
+                    }
                     if (cave.IsSolid(boss.Position)) boss.Position = room.Center;
                     boss.OnDeath = e => OnGuardianKilled(room, e);
                     boss.Wake();
@@ -1242,6 +1257,112 @@ public partial class Main : Node
     private float _victoryT = -1;
     /// <summary>Where the exits are (for the autopilot).</summary>
     public readonly List<Vector2> ExitSpots = new();
+
+    // ---- guardians: where they stand, and never out of reach
+
+    private readonly Dictionary<Room, HashSet<int>> _roomCells = new();
+    private float _bossStrandedT;
+
+    /// <summary>
+    /// The open cells that belong to a room: flooded out from its floor through open space, kept
+    /// within the room's own ellipse (a little enlarged), so a tunnel passing near it is never "in".
+    /// </summary>
+    private HashSet<int> RoomCells(CaveData cave, Room room)
+    {
+        if (_roomCells.TryGetValue(room, out var set)) return set;
+        set = new HashSet<int>();
+        float ci = room.Center.X / CaveData.Cell, cj = room.Center.Y / CaveData.Cell;
+        float rx = room.RxPx / CaveData.Cell + 1.5f, ry = room.RyPx / CaveData.Cell + 2f;
+        bool Inside(int i, int j) { float u = (i + 0.5f - ci) / rx, v = (j + 0.5f - cj) / ry; return u * u + v * v <= 1f; }
+        int si = (int)(room.Floor.X / CaveData.Cell), sj = (int)(room.Floor.Y / CaveData.Cell) - 1;
+        // start from an open cell at the floor (search up a little if the floor point sits in rock)
+        for (int k = 0; k < 4 && !cave.CellOpen(si, sj); k++) sj--;
+        if (!cave.CellOpen(si, sj)) { si = (int)ci; sj = (int)cj; }
+        var q = new Queue<(int, int)>();
+        if (cave.CellOpen(si, sj)) { set.Add(sj * cave.W + si); q.Enqueue((si, sj)); }
+        while (q.Count > 0)
+        {
+            var (i, j) = q.Dequeue();
+            foreach (var (di, dj) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+            {
+                int a = i + di, c = j + dj;
+                if (a < 0 || c < 0 || a >= cave.W || c >= cave.H || !cave.CellOpen(a, c) || !Inside(a, c)) continue;
+                if (set.Add(c * cave.W + a)) q.Enqueue((a, c));
+            }
+        }
+        _roomCells[room] = set;
+        return set;
+    }
+
+    /// <summary>Is a point inside a room (one of its cells), at most <paramref name="depth"/> of the way out to its rim?</summary>
+    private bool InRoom(CaveData cave, Room room, Vector2 at, float depth)
+    {
+        var cells = RoomCells(cave, room);
+        int i = (int)(at.X / CaveData.Cell), j = (int)(at.Y / CaveData.Cell);
+        if (cells.Count == 0)
+            return room.Center.DistanceTo(at) < room.RxPx * 0.75f; // (no cells found: the old test)
+        if (!cells.Contains(j * cave.W + i) && !cells.Contains((j - 1) * cave.W + i)) return false;
+        float u = (at.X - room.Center.X) / (room.RxPx + 1.5f * CaveData.Cell), v = (at.Y - room.Center.Y) / (room.RyPx + 2f * CaveData.Cell);
+        return u * u + v * v <= depth * depth;
+    }
+
+    private static bool Reach(CaveData cave, int i, int j)
+        => cave.ReachMask != null && i >= 0 && j >= 0 && i < cave.W && j < cave.H && cave.ReachMask[j * cave.W + i];
+
+    /// <summary>
+    /// A floor spot in the room the hero can reach (the traversal check's map), with headroom for
+    /// the guardian, as close as possible to <paramref name="wantX"/> on the room's lowest floor.
+    /// </summary>
+    private Vector2 GuardianFloor(CaveData cave, Room room, float wantX, Enemy boss)
+    {
+        int head = Math.Max(2, (int)MathF.Ceiling(boss.BodyRadius * boss.Size * 2f / CaveData.Cell));
+        float floorRow = room.Floor.Y / CaveData.Cell;
+        float best = float.MaxValue;
+        Vector2 spot = room.Floor;
+        foreach (int k in RoomCells(cave, room))
+        {
+            int i = k % cave.W, j = k / cave.W;
+            if (cave.CellOpen(i, j + 1)) continue; // must stand on rock
+            bool reachable = Reach(cave, i, j) || Reach(cave, i, j - 1);
+            if (!reachable) continue;
+            bool room2 = true;
+            for (int h = 1; h <= head && room2; h++) room2 = cave.CellOpen(i, j - h);
+            if (!room2) continue;
+            float x = (i + 0.5f) * CaveData.Cell;
+            float score = Math.Abs(x - wantX) + Math.Abs(j + 1 - floorRow) * CaveData.Cell * 3f;
+            if (score < best) { best = score; spot = new Vector2(x, (j + 1) * CaveData.Cell); }
+        }
+        return spot;
+    }
+
+    /// <summary>
+    /// A guardian that walks, stranded where the hero can't get at it (up on a ledge it was
+    /// knocked or charged onto) for a few seconds, leaps back down to reachable floor near the hero.
+    /// </summary>
+    private void WatchGuardian(float dt)
+    {
+        var boss = ActiveBoss;
+        var cave = G.Cave;
+        if (boss == null || !IsInstanceValid(boss) || boss.Dead || boss is Dragon || !boss.Walks || cave?.ReachMask == null) { _bossStrandedT = 0; return; }
+        if (!boss.IsOnFloor()) return;
+        var feet = boss.GlobalPosition + new Vector2(0, boss.BodyRadius * boss.Size);
+        int i = (int)(feet.X / CaveData.Cell), j = (int)(feet.Y / CaveData.Cell) - 1;
+        bool ok = false;
+        for (int dj = -2; dj <= 0 && !ok; dj++) for (int di = -1; di <= 1 && !ok; di++) ok = Reach(cave, i + di, j + dj);
+        _bossStrandedT = ok ? 0 : _bossStrandedT + dt;
+        if (_bossStrandedT < 3f) return;
+        _bossStrandedT = 0;
+        var room = cave.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Boss) ?? cave.Boss;
+        if (room == null) return;
+        var floor = GuardianFloor(cave, room, G.Player.GlobalPosition.X + Math.Sign(boss.GlobalPosition.X - G.Player.GlobalPosition.X) * 80, boss);
+        G.Fx.Dust(boss.GlobalPosition, 10, 2f);
+        boss.GlobalPosition = floor + new Vector2(0, -boss.BodyRadius * boss.Size - 4);
+        boss.Velocity = Vector2.Zero;
+        G.Fx.Dust(boss.GlobalPosition + new Vector2(0, boss.BodyRadius * boss.Size), 14, 2.5f);
+        G.Fx.AddShake(5);
+        G.Sfx.Play("slam", boss.GlobalPosition, -2);
+        GD.Print($"[guardian] stranded out of reach: brought back down to {floor}");
+    }
 
     /// <summary>
     /// The level's guardian is dead: pay out the embers (its own, plus one per reward skipped on
@@ -2085,6 +2206,56 @@ public partial class Main : Node
         Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
         GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
         SafeQuit.Request(this, ok ? 0 : 1);
+    }
+
+    /// <summary>
+    /// --bosstest: for every biome and 24 seeds, the guardian's chamber must have a spot the hero
+    /// can reach that wakes it, and the guardian must be placed on floor the hero can reach.
+    /// </summary>
+    private void RunBossTest()
+    {
+        int bad = 0, total = 0;
+        foreach (var b in Biomes.All)
+        {
+            if (b.Id == BiomeId.Lair || (_biomeArg != null && !b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase))) continue;
+            G.Biome = b;
+            int ok = 0;
+            for (int s = 1; s <= 24; s++)
+            {
+                var c = CaveGenerator.Generate(b, s * 7919);
+                G.Cave = c;
+                _roomCells.Clear();
+                total++;
+                var room = c.Boss;
+                bool trigger = false;
+                foreach (int k in RoomCells(c, room))
+                {
+                    int i = k % c.W, j = k / c.W;
+                    if (!c.CellOpen(i, j + 1) && Reach(c, i, j) && InRoom(c, room, new Vector2((i + 0.5f) * CaveData.Cell, (j + 0.9f) * CaveData.Cell), 0.9f)) { trigger = true; break; }
+                }
+                var guardian = b.Guardian(room);
+                var floor = GuardianFloor(c, room, room.Floor.X + room.RxPx * 0.25f, guardian);
+                guardian.Free();
+                int fi = (int)(floor.X / CaveData.Cell), fj = (int)(floor.Y / CaveData.Cell) - 1;
+                bool reach = Reach(c, fi, fj) || Reach(c, fi, fj - 1);
+                // most of the chamber's own floor (where you walk in) must wake it, not a lucky corner
+                int floorSpots = 0, floorWakes = 0;
+                foreach (int k in RoomCells(c, room))
+                {
+                    int i = k % c.W, j = k / c.W;
+                    var at = new Vector2((i + 0.5f) * CaveData.Cell, (j + 0.9f) * CaveData.Cell);
+                    if (c.CellOpen(i, j + 1) || !Reach(c, i, j) || Math.Abs(at.Y - room.Floor.Y) > 2.5f * CaveData.Cell) continue;
+                    floorSpots++;
+                    if (InRoom(c, room, at, 0.9f)) floorWakes++;
+                }
+                bool floorOk = floorSpots == 0 || floorWakes * 2 >= floorSpots;
+                if (trigger && reach && floorOk) ok++;
+                else { bad++; GD.Print($"[bosstest] {b.Id} seed {s * 7919}: trigger spot {trigger}, floor that wakes it {floorWakes}/{floorSpots}, guardian floor reachable {reach} at {floor}"); }
+            }
+            GD.Print($"[bosstest] {b.Id}: {ok}/24");
+        }
+        GD.Print(bad == 0 ? $"[bosstest] PASS ({total} caves)" : $"[bosstest] FAIL: {bad} of {total}");
+        SafeQuit.Request(this, bad == 0 ? 0 : 1);
     }
 
     private static bool BossReachable(CaveData c)
