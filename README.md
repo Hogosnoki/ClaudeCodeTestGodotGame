@@ -9,7 +9,9 @@ real tile art, and visually debug it.
 **Dagger Deep**, a playable side-view rogue-lite built on top of this project, lives in
 [`godot/DaggerCave/`](godot/DaggerCave/README.md). Its scene (`godot/Scenes/DaggerDeep.tscn`) is
 now the Godot project's main scene. The milestone-1, visual-debug and map-editor scenes are
-unchanged and can still be run from `godot/Scenes/`.
+unchanged and can still be run from `godot/Scenes/`. Every push builds the game for Windows and
+Linux (download the zips from the Actions tab), and it can be played online with up to two
+friends: see the game's README, "Getting a copy to play" and "Playing with friends online".
 
 ## Layout
 

@@ -8,7 +8,8 @@ creatures, and effects with real light (see **3D presentation** below). Each lev
 cave generator, creatures and hazards. Slay the guardian of each level's exit, then choose one of
 two ways down: a gentle one (one depth deeper) or a steep one (two deeper), each into a
 different biome. Depth 10 is the dragon's lair. Between runs, embers and rare resources buy
-permanent ranks in the upgrade trees.
+permanent ranks in the upgrade trees. Up to three friends can play together online, one of each
+hero (see **Playing with friends online**).
 
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
 the project's main scene; the older map-editor and demo scenes are still in `Scenes/`.
@@ -33,6 +34,75 @@ The game uses Godot's Forward+ renderer, so it needs a graphics card with Vulkan
 desktop GPU from the last several years). The first level takes a few seconds longer to load
 while its creatures are sculpted; later levels reuse them.
 
+## Getting a copy to play (and to send a friend)
+
+You don't need Godot to play: every push to GitHub builds the game for Windows and Linux
+(`.github/workflows/build-game.yml`).
+
+1. On the repository's GitHub page, open the **Actions** tab and click the latest
+   **Build the game** run (a green tick means it worked).
+2. At the bottom, under **Artifacts**, download **DaggerDeep-Windows** (or **DaggerDeep-Linux**).
+   It's a zip of the whole game folder.
+3. Unzip it anywhere and run `DaggerDeep.exe` (Windows may warn that it "protected your PC",
+   because the game isn't signed: click More info, then Run anyway).
+4. To play together, send your friend the same zip. `HOW-TO-PLAY.txt` inside it explains
+   hosting and joining.
+
+Artifacts are kept for 30 days. For a permanent download link, push a version tag
+(`git tag v1.0 && git push origin v1.0`): the same build then appears as a GitHub release with
+both zips attached. Both players need the same build: the game refuses to connect two
+different versions of its network protocol (`Net.Version`).
+
+To build it yourself instead: in Godot, install the export templates (Editor, Manage Export
+Templates, Download and Install), then Project, Export, pick **Windows** or **Linux**, and
+Export Project. From a command line:
+`godot --headless --path godot --export-release "Windows" ../build/DaggerDeep-Windows/DaggerDeep.exe`.
+Keep the exported files together: the executable, `DaggerDeep.pck` and the `data_` folder.
+
+## Playing with friends online
+
+Up to three players, one of each hero. One player hosts; the others join with the host's code.
+
+1. On the title screen, click **Play online with friends** (or press O, or Y on a controller).
+2. The host clicks **Host a game**. The lobby shows a join code like `7K3QD-M2XP9`, with a
+   Copy button: send it to your friend. (If your computer is on a home network, a second code
+   for players on the same Wi-Fi shows too.)
+3. The friend pastes (or types) the code and clicks **Join**. A plain address works too
+   (`192.168.1.20`, `100.101.102.103`, `my.host.name`, with `:port` if needed).
+4. In the lobby, each player takes a different hero (the one you had picked on the title
+   screen, if it's free). The host clicks **Start the descent** and everyone begins together.
+
+In the cave:
+- **Going down**: when a guardian falls, everyone still standing has to walk into the same exit
+  (E or up at the doorway). The first to arrive waits there ("Waiting at the exit: 1 of 2
+  here"); walking away cancels.
+- **Falling and reviving**: a fallen hero stays down. A friend brings them back by standing
+  beside them and holding interact (E, or up on the stick) for two seconds; they get up with a
+  third of their health. If everyone is down at once, the run is over for the whole party. A
+  fallen hero who is still down when the others go down an exit comes along, back on their feet.
+- **Sharing**: experience is shared (everyone gains what anyone collects), each player levels
+  up and picks their own upgrades, and a chest's pick goes to whoever reaches it first. Hearts
+  and potions go to whoever touches them. Kills count for whoever landed the blow.
+- **Harder caves**: creatures have 50% more health for each extra player, and the cave holds
+  35% more of them.
+- **Pausing** opens the menu but doesn't stop the game (the others are still playing), and
+  picking an upgrade keeps you safe while you choose. Leaving from the pause menu takes you
+  back to the title; if the host leaves, the game ends for everyone.
+- After a run the camp screen shows how it went, and Enter (A) goes back to the lobby, still
+  together, for the next descent.
+
+The HUD shows your friends' names and health under your own bars, their names over their heroes,
+and their dots on the minimap.
+
+**If the friend can't connect.** The join code is the host's internet address and port
+(24890, UDP) in ten letters. The host's game asks the router to let players in (UPnP), and the
+lobby says whether it worked. If it didn't:
+- Players on the same network can use the second (local network) code.
+- Otherwise, forward UDP port 24890 to the host's computer in the router's settings, or have
+  everyone install a free virtual LAN such as Tailscale or ZeroTier and type the host's address
+  from it in place of the code.
+- Windows asks the host, the first time, whether to let the game through the firewall: allow it.
+
 ## Tuning
 
 Almost every gameplay number is in **`Core/Tuning.cs`**, grouped by topic (`Tune.Hero`,
@@ -48,7 +118,7 @@ Handy starting points:
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
-| The three heroes | `Swordsman.*` (sword, dodge, Charged Strike), `Warden.*` (shortsword, shield, shield dash), `Vitalist.*` (drain bolt, alimus, heal, hex) |
+| The three heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, shield dash, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the stat list is `Upgrades.LevelUp` |
@@ -169,20 +239,35 @@ The panel's columns:
 | Move | A / D (or arrows) | Left stick or D-pad |
 | Swim up / down | W / S (Space also swims up) | Left stick up / down (A also swims up) |
 | Jump | Space | A |
-| Attack: swing (swordsman, warden) / drain bolt (vitalist) | Left click, toward the mouse (J attacks toward your held direction) | X, toward the right stick if held, otherwise the left stick |
-| Ability: Charged Strike / shield dash / heal | Right click (or K) | RB or RT |
+| Attack: swing (swordsman, warden) / drain (vitalist) | Left click, toward the mouse (J attacks toward your held direction) | X, toward the right stick if held, otherwise the left stick |
+| Ability: Charged Strike / shield dash / heal | Right click (or K) | RB |
+| Second ability: heaving swing / shield bash / rupture | F (or middle click, or I) | RT |
 | Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B, LB or LT; the shield points along the right stick, or the way you face |
 | Raise the Warden's shield without a button | - | Push the right stick: the shield rises by itself and points along it, even behind you while you run the other way |
 | Go down an exit | E, or W / up, at the doorway | Left stick or D-pad up at the doorway |
+| Bring a fallen friend back (online) | Hold E (or W / up) beside them | Hold the stick up beside them |
 | Drink a potion | Q | Y |
 | Choose hero | Left / right on the title or death screen, or click a card | D-pad or stick left / right |
-| Pause | Esc | Start |
+| Play online | O on the title or camp screen, or click Play online with friends | Y |
+| Pause (and settings) | Esc | Start |
 | Pick upgrade | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
-| Start / restart | Enter or click / R | A / Y |
+| Start / restart | Enter or click / R | A |
 | Enemy training (debug) | F9 on/off, F10 save now, F8 move labels | - |
+
+Every action except the debug keys can be rebound, for keyboard and mouse and for the controller
+separately (up to three inputs each): pause, then **Settings**, **Controls**.
 
 Resizing or maximizing the window scales the whole picture up, keeping its 16:9 shape
 (letterboxed if the window's shape differs).
+
+**Settings** (pause, then Settings; also Esc / Start on the title screen). Everything takes
+effect at once and is kept in `user://settings.cfg`:
+- **Graphics**: window mode (windowed, borderless, fullscreen), vsync, a frame-rate cap, render
+  scale (with FSR upscaling), shadows, volumetric fog, bloom, ambient occlusion, ink outlines,
+  anti-aliasing, brightness and screen shake.
+- **Sound**: master, music and effects volumes.
+- **Controls**: how keyboard presses aim (at the mouse, where you move, or automatically),
+  vibration, and rebinding every action.
 
 You can switch between the two at any time. The game follows whichever device you used last: it
 hides the mouse cursor, changes the on-screen button prompts, and turns rumble on for hits, kills
@@ -238,16 +323,17 @@ Dead ends become treasure rooms, a few become elite mini-boss lairs, and the dea
 the start becomes the exit chamber.
 
 **The heroes** (`Player/`: `Player.cs` for what they share, `Player.Blade.cs` for the sword and
-shortsword, and one file per hero). Pick one on the title screen, or switch on the death screen,
-with left / right. They're meant to complement each other in a party (the game is single-player
-for now, but the heal and the shield dash already work on every hero present): the Swordsman
-deals the damage, the Warden takes it for others, the Vitalist keeps everyone alive.
+shortsword, `Player.Abilities.cs` for ability charges, `Player.Net.cs` for online play, and one
+file per hero). Pick one on the title screen, or switch on the death screen, with left / right.
+They complement each other in a party (online, one of each): the Swordsman deals the damage, the
+Warden takes it for others, the Vitalist keeps everyone going.
 
 | | Swordsman | Warden | Vitalist |
 | --- | --- | --- | --- |
-| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep | Drain bolt: a single-target spell at medium range (175 px) that seeks the creature you aim at, 15 damage, every 0.5 s; a tenth of the damage comes back as alimus |
+| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage the instant you cast, every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives |
 | Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown |
-| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Shield dash: a guarded charge that stops at the first projectile or attacking creature it meets, swallowing the projectile and breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 12 alimus to restore 22 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 22 x their share of missing health / the sum of those shares); 3 s cooldown |
+| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Shield dash: a guarded charge that stops at the first projectile or attacking creature it meets, swallowing the projectile and breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink |
+| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; the first creature in front takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown |
 | Movement | Full speed and jump | 92% speed, 90% jump height (80% speed while shielding) | 97% speed and jump |
 | Toughness | 60 HP, 15 s of breath | 75 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath |
 
@@ -265,8 +351,10 @@ Warden's shield:
 - **Perfect block**: raising it at most 0.18 s before a hit stops all of the blow and breaks the
   attack off (the attacker reels). The shield dash does the same to whatever it meets.
 
-The Vitalist's alimus is like mana: earned by dealing damage (a tenth of it), held up to 100, and
-spent on heals. You start each level with at least 40.
+The Vitalist's alimus is like mana: earned by draining (a tenth of the damage), held up to 30
+(more with upgrades and levels), and spent on heals (15) and ruptures (30). You start a run with 15
+and each level with at least 7.5. Healing is deliberately scarce: every hero is meant to pull
+their weight and dodge, not lean on the Vitalist.
 
 All of these numbers are in `Tune.Swordsman`, `Tune.Warden` and `Tune.Vitalist`.
 
@@ -299,7 +387,7 @@ launching you upward.
 **Growth during a run** (`Player/Upgrades.cs`):
 - **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
   level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
-  max HP, +2% damage and +3 alimus capacity.
+  max HP, +2% damage and +1 alimus capacity.
 - **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three +15% boosts:
   damage, attack speed, max health, damage reduction, run and swim speed, reach, and per hero
   faster dodges and Charged Strike (Wind Runner), a stronger shield (Aegis) and faster dash
@@ -323,12 +411,15 @@ launching you upward.
 | Blade (swordsman, warden) | reach, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback, life steal |
 | Sword techniques (swordsman) | Rending Edge (hits bleed for 40% more over 3 s, stacks twice), Crescent Wave (swings loose a flying slash, half damage, every 1.2 s), Executioner (+60% damage to enemies under 35% health) |
 | Charged Strike (swordsman) | Focus (recharges 20% faster), Twin Charge (empowers two swings), Crippling Strike (what it cuts deals 35% less instead of 20%), Storm Edge (a charged swing looses a full-strength crescent wave) |
+| Heaving swing (swordsman) | Broad Shoulders (recharges 20% faster) |
 | Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
 | Shield (warden) | Tempered Shield (stops 10% more), Stalwart (full speed while shielding, no knockback), Quick Mend (regenerates almost at once after a block, 50% faster), Spiked Shield (melee attackers take 40% of the blow back), Last Stand (once per depth, survive a killing blow at 1 HP with a whole shield), Riposte Guard (perfect blocks, and the dash, reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc) |
-| Shield dash (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Shield Bash (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
-| Spells (vitalist) | Splitting Bolt (bolts leap to a second creature), Far Reach (+25% bolt range), Hungering Spirit (+50% alimus from damage), Deep Well (+40 alimus capacity), Deep Mending (+30% heal), Frugal Rites (heals cost 25% less), Spreading Blight (+30% hex radius), Lingering Hex (+2 s), Withering Hex (hexed creatures rot for 6 health a second) |
+| Shield dash (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Battering Charge (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
+| Shield bash (warden) | Hard Shoulder (recharges 20% faster) |
+| Spells (vitalist) | Many Mouths (the drain also takes life from one more creature near its target, at 60%; twice), Far Reach (+25% drain and rupture reach), Hungering Spirit (+50% alimus from damage), Deep Well (+15 alimus capacity), Burst Veins (the rupture's burst reaches 40% farther and splashes for 50% more), Thin Blood (ruptures cost 20% less), Deep Mending (+30% heal), Frugal Rites (heals cost 25% less), Spreading Blight (+30% hex radius), Lingering Hex (+2 s), Withering Hex (hexed creatures rot for 6 health a second) |
 | Movement (everyone) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
 | Everyone | attack speed, damage; max HP, longer invulnerability after being struck (Resilience), damage reduction, heal on kill, XP magnet |
+| Risk and reward (everyone, marked in violet) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, but each use takes twice as long to come back) |
 
 **Enemies** (`Enemies/`). They follow some etiquette (`Tune.Combat`):
 - The first time a creature wants to attack, it waits 1 s (`FirstAttackDelay`), so nothing
@@ -418,8 +509,8 @@ to, so every attack's wind-up, strike and hitbox lines up exactly as before. The
 | Boss | the Cavern Colossus |
 | Passive critters | glow moths and cave crabs (new ambient wildlife) |
 
-The game has no allies yet. Each character has separate right-facing and left-facing clips, plus
-turn-around clips that rotate it through a front-facing view.
+Each character has separate right-facing and left-facing clips, plus turn-around clips that
+rotate it through a front-facing view.
 
 The left-facing sprites are real renders, not mirrored copies. That means the blade stays in the
 hero's right hand (the far hand when facing right, the near hand when facing left), and the light
@@ -441,7 +532,8 @@ They share every clip:
 - air dash
 - 15 slashes (the blade-bearers): three combo strikes aimed in five directions (up, up-forward,
   forward, down-forward and down)
-- the Warden's shield bash (the dash); the Vitalist's cast, hex and heal
+- the Warden's shield dash and shield bash (a shove); the Swordsman's heaving swing; the
+  Vitalist's cast, hex, heal and rupture
 - hurt
 - death
 
@@ -547,6 +639,33 @@ To look at the models without playing, `--modelsheet=goblin,bear --shots=DIR` li
 up in its clips under studio lights and saves `DIR/sheet_NAME.png` (`--sheetclips=idle:0.3,run:0.6`
 picks the clips and moments, `--sheetyaw=DEG` the angle).
 
+## How online play works
+
+`Net/Net.cs` is the session (hosting, joining, the lobby, moving messages); `Net/NetSync.cs` is
+what the messages carry and do; `Main.Online.cs` is the flow of a run together;
+`UI/OnlineMenu.cs` is the menu and lobby. Messages travel as byte arrays through two RPCs on one
+node (reliable and unreliable), over Godot's ENet peer.
+
+- **The host's game owns the cave.** Its spawner, rooms, guardian and every creature run there.
+  The other games build the same level from the host's seed (the chests placed while building
+  come from the seed too, so they match) and show copies (puppets) of the host's creatures,
+  updated twenty times a second and shown a tenth of a second behind, smoothly interpolated,
+  with the host's animation clip and frame.
+- **Each game runs its own hero**, so it handles exactly as it does alone; the others see a
+  puppet of it (its movement, animation, shield, staff glow and blade sweep).
+- **Blows cross over.** A blow on a copy of a creature is sent to the host, which applies it
+  (its hex, freeze and other effects too). A creature's blow on another player's hero is sent
+  to that player's game, which takes it with its own dodge, shield and invulnerability deciding
+  what gets through.
+- **Things the host's creatures make** (thrown rocks, shockwaves, falling stones, lava, spore
+  clouds, dropped hearts, potions and experience, chests and exits) are sent as they appear, and
+  every game runs its own copy; a copy only ever hurts its own game's hero.
+- **Effects and sounds** made by the host's creatures and by each hero are recorded as they're
+  made (`FxLayer`, `SoundBank`) and replayed in the other games, so everyone sees and hears the
+  same fight.
+- **The host decides** who opens a chest, when everyone is at the same exit (and then sends the
+  next level's seed), and when the run is over. Experience is shared.
+
 ## Test harness
 
 The harness takes command-line user args after `--`:
@@ -602,15 +721,20 @@ To have the autopilot bot train the brains, add `--train` to an `--autotest` run
 `--herotest` (add `--hero=warden` or `--hero=vitalist`) scripts checks of each hero's mechanics
 and prints ok / FAIL for each:
 - Swordsman: the sword's reach and lunge; a combo pressed during a hit-stop starting as it ends;
-  the Charged Strike (harder, and weakening what it cuts); a swing out of a dodge; the crescent
+  the Charged Strike (harder, and weakening what it cuts); a swing out of a dodge; the heaving
+  swing (planting you, taking the waiting charge, landing for about three swings); the crescent
   wave; air bubbles.
 - Warden: the shield stopping 70% from the front (and losing half of that) but nothing from
   behind; breaking, staying down, and mending at once when healed; perfect blocks reflecting a
   shot and breaking off a melee attack while ordinary blocks don't; swinging behind the shield;
   the right stick raising it by itself; the shield dash swallowing a projectile, breaking off an
-  attack it meets, and passing a creature that isn't attacking.
-- Vitalist: the drain bolt landing and paying back a tenth as alimus; the hex, and hexed
-  creatures taking more damage; the heal's cost and amount; no heal when no one is hurt.
+  attack it meets, and passing a creature that isn't attacking; the shield bash's damage, its
+  cost to the shield, the stun, and its cooldown.
+- Vitalist: the drain striking the instant it's cast and its mote paying back a tenth as alimus
+  on arrival; the hex, and hexed creatures taking more damage; the reserve's size; the heal's
+  cost and amount; no heal when no one is hurt; the rupture seizing its target, then bursting on
+  it and splashing a creature beside it but not one far off, and refused without the alimus;
+  Many Mouths draining a second creature; Twin Reserve's two heals in a row.
 - For all: the game clock never slowing for a hit-stop.
 
 `--hitstoptest --shots=DIR` has the hero strike a golem twice and logs every frame of it (who is
@@ -622,10 +746,26 @@ third of a second let the game's timers run ahead of the script.
 
 `--hero=warden` and `--hero=vitalist` also work with `--autotest` and the other modes.
 
+**Online play**: `tools/nettest.sh` runs two copies of the game without a window on one machine,
+one hosting (`--nettest=host`) and one joining it (`--nettest=join`, `--netaddr=IP` for another
+machine), and has them check what travels between them: the lobby and each player's own hero,
+the same cave in both games, a friend's swing landing on the host's creature (and credited to
+them), a creature's blow taken in the friend's game, shared experience, a chest opened by the
+friend who reached it (the pick theirs, the host's copy open too), a fallen friend brought back,
+going down an exit together into the same next level, and the run ending for everyone. It exits
+0 only if both pass; the CI build runs it against the exported Linux build. Add
+`--ntshots=DIR` to the host (run with a window) for screenshots of the lobby, the fight, a
+revive, the exit and the camp; `--onlineshot=DIR` saves the title, the online menu and a lobby.
+
+`--menushot=DIR` saves the pause menu and each settings tab. `--bosstest` (headless) checks, for
+every biome and 24 seeds, that the guardian's chamber has reachable floor that wakes it and that
+the guardian stands where the hero can reach it.
+
 Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,
   turn, stop, jump, land, slashes, dodge, ability, hurt) and saves a frame every 1/20 s.
 - `--padtest` drives the game with synthetic controller events: start, move, swing, Charged
-  Strike, dodge, pick an upgrade from the level-up cards, pause and unpause. Its presses are a
-  twentieth of a second long, so on a slow software renderer run it with `--fixed-fps 60` too. It prints what happened at each
-  step.
+  Strike, dodge, the heaving swing, pick an upgrade from the level-up cards, pause, move through
+  the pause menu into the settings and back out, and unpause. Its presses are a twentieth of a
+  second long, so on a slow software renderer run it with `--fixed-fps 60` too. It prints ok /
+  FAIL for each step, then PASS or FAIL.

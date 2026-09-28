@@ -1,0 +1,119 @@
+# Builds Dagger Deep for Windows and Linux on every push. Each run's page (Actions tab) has the
+# two zips under "Artifacts": download one, send it to a friend, and play together (see
+# dist/HOW-TO-PLAY.txt, which goes into each zip). Pushing a tag like v1.0 also publishes the
+# zips as a GitHub release.
+name: Build the game
+
+on:
+  push:
+    paths-ignore: ['**.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GODOT_VERSION: 4.4.1
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Cache Godot and its export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-mono-win-linux
+
+      - name: Download Godot (.NET) and the Windows / Linux export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot && cd ~/godot
+          curl -sSfL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          curl -sSfL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_mono_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono
+          mkdir -p "$dest"
+          unzip -q -j templates.tpz templates/version.txt \
+            templates/windows_release_x86_64.exe templates/windows_debug_x86_64.exe \
+            templates/windows_release_x86_64_console.exe templates/windows_debug_x86_64_console.exe \
+            templates/linux_release.x86_64 templates/linux_debug.x86_64 -d "$dest"
+          rm templates.tpz
+
+      - name: Export for Windows and Linux
+        run: |
+          godot=$(ls ~/godot/Godot_v*_mono_linux_x86_64/Godot_v*_mono_linux.x86_64)
+          cd godot
+          # which copy this is (the lobby warns when friends' copies differ)
+          echo "${GITHUB_SHA::7}" > build_id.txt
+          # first the import (textures, sounds), then the exports
+          "$godot" --headless --path . --import || echo "(the import reported problems; the export below will tell)"
+          mkdir -p ../build/DaggerDeep-Windows ../build/DaggerDeep-Linux
+          "$godot" --headless --path . --export-release "Windows" ../build/DaggerDeep-Windows/DaggerDeep.exe
+          "$godot" --headless --path . --export-release "Linux" ../build/DaggerDeep-Linux/DaggerDeep.x86_64
+          # an export that made nothing fails the build
+          for f in ../build/DaggerDeep-Windows/DaggerDeep.exe ../build/DaggerDeep-Windows/DaggerDeep.pck \
+                   ../build/DaggerDeep-Linux/DaggerDeep.x86_64 ../build/DaggerDeep-Linux/DaggerDeep.pck; do
+            test -s "$f" || { echo "missing $f"; exit 1; }
+          done
+          ls ../build/DaggerDeep-Windows/data_*/*.dll > /dev/null
+          cp ../dist/HOW-TO-PLAY.txt ../build/DaggerDeep-Windows/
+          cp ../dist/HOW-TO-PLAY.txt ../build/DaggerDeep-Linux/
+
+      - name: Check the Linux build runs (two copies play the online test against each other)
+        run: |
+          cd build/DaggerDeep-Linux
+          ./DaggerDeep.x86_64 --headless -- --nettest=host --hero=warden > host.log 2>&1 &
+          host=$!
+          sleep 3
+          join_code=0; host_code=0
+          timeout 300 ./DaggerDeep.x86_64 --headless -- --nettest=join --hero=swordsman > join.log 2>&1 || join_code=$?
+          wait $host || host_code=$?
+          grep -h "\[nettest\]" host.log join.log || true
+          rm -f host.log join.log
+          test $host_code -eq 0 && test $join_code -eq 0
+
+      - name: Upload the Windows build
+        uses: actions/upload-artifact@v4
+        with:
+          name: DaggerDeep-Windows
+          path: build/DaggerDeep-Windows/
+          retention-days: 30
+
+      - name: Upload the Linux build
+        uses: actions/upload-artifact@v4
+        with:
+          name: DaggerDeep-Linux
+          path: build/DaggerDeep-Linux/
+          retention-days: 30
+
+      - name: Zip for a release
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          cd build
+          zip -qr DaggerDeep-Windows.zip DaggerDeep-Windows
+          zip -qr DaggerDeep-Linux.zip DaggerDeep-Linux
+
+      - name: Publish the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            build/DaggerDeep-Windows.zip
+            build/DaggerDeep-Linux.zip
+          body_path: dist/HOW-TO-PLAY.txt

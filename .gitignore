@@ -6,7 +6,10 @@ obj/
 .godot/
 .import/
 export.cfg
-export_presets.cfg
+
+# exported game builds (made with godot/export_presets.cfg; CI zips them), and the build stamp CI writes
+build/
+godot/build_id.txt
 
 # Editor / OS
 .vs/

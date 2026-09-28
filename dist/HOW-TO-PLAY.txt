@@ -1,0 +1,63 @@
+DAGGER DEEP
+===========
+
+A rogue-lite descent from the cave mouth to the dragon at the bottom of the world,
+alone or with up to two friends online.
+
+
+STARTING THE GAME
+-----------------
+Windows:  unzip the whole folder anywhere, then double-click DaggerDeep.exe.
+          Windows may say it "protected your PC" (the game isn't signed):
+          click "More info", then "Run anyway".
+Linux:    unzip, then run ./DaggerDeep.x86_64
+          (if it won't start: chmod +x DaggerDeep.x86_64).
+
+Keep the files together: the .exe (or .x86_64), DaggerDeep.pck and the data_ folder.
+It needs a graphics card with Vulkan (almost any from the last ten years).
+
+
+PLAYING WITH A FRIEND
+---------------------
+Both of you need this same copy of the game (send your friend the zip you got).
+
+1. On the title screen, click "Play online with friends" (or press O, or Y on a controller).
+
+2. The HOST clicks "Host a game". A join code appears, like 7K3QD-M2XP9.
+   Click Copy and send it to your friend (a chat message is fine).
+
+3. Your FRIEND clicks Paste (or types the code) and then Join.
+
+4. You're both in the lobby. Each of you takes a different hero
+   (Swordsman, Warden or Vitalist). When everyone's ready, the host clicks
+   "Start the descent". A third friend can join the same way.
+
+In the cave:
+  * Go down together: when an exit opens, everyone still standing walks into it
+    (press E or up there). The first to arrive waits for the others.
+  * A fallen friend can be brought back: stand beside them and hold E
+    (or hold up on the stick).
+    If everyone falls, the run is over.
+  * Experience is shared. A chest's pick goes to whoever reaches it first.
+  * Pausing doesn't stop the game online (the others keep playing).
+
+If your friend can't connect:
+  * On the same Wi-Fi / network: use the second code the host's lobby shows.
+  * Over the internet, the host's router has to let your friend in. Most routers
+    do this by themselves (the lobby says so). If the host's lobby says the router
+    didn't, either
+      - forward UDP port 24890 to the host's computer in the router's settings, or
+      - both install a free "virtual LAN" such as Tailscale or ZeroTier, and have
+        the friend type the host's Tailscale/ZeroTier address (like 100.101.102.103)
+        in the code box instead of the code.
+  * Windows may ask the host to allow the game through the firewall the first
+    time: allow it (private networks is enough for the same Wi-Fi; allow public
+    networks too for friends over the internet).
+
+
+CONTROLS (change them in Settings: ESC / START)
+-----------------------------------------------
+Keyboard + mouse: A / D move, SPACE jump, LEFT CLICK attack, RIGHT CLICK ability,
+F second ability, SHIFT dodge / shield / hex, E exits and reviving, Q potion.
+Controller: left stick move, A jump, X attack, RB ability, RT second ability,
+B dodge / shield / hex, Y potion, right stick aims.
