@@ -106,20 +106,40 @@ public static partial class CaveGenerator
                     Min(j * Stride + i, Math.Clamp(0.5f - (j - floorY) * 0.5f, 0f, 1f));
         }
 
-        /// <summary>A walkable tunnel between two points: straight when gentle, zig-zagging when steep.</summary>
-        public void Walkable(Vector2 from, Vector2 to, float r, int kind = 0)
+        /// <summary>
+        /// A walkable tunnel between two points: straight when gentle, zig-zagging when steep. A leg
+        /// that would run into one of the `keepOut` circles (x, y, radius) turns back instead: a
+        /// zig-zag cut through a room is only air there, and its climb would start out of reach.
+        /// </summary>
+        public void Walkable(Vector2 from, Vector2 to, float r, int kind = 0, IReadOnlyList<Vector3> keepOut = null, float firstDir = 0)
         {
             float dx = Math.Abs(to.X - from.X), dy = Math.Abs(to.Y - from.Y);
             if (dy <= Mathf.Tan(MaxPitch * 0.85f) * dx) { Line(from, to, r, kind); return; }
+            // (heading deeper into a kept-out circle; leaving one is always fine)
+            bool Into(Vector2 a, Vector2 b)
+            {
+                if (keepOut == null) return false;
+                foreach (var c in keepOut)
+                {
+                    var o = new Vector2(c.X, c.Y);
+                    float db = o.DistanceTo(b);
+                    if (db < c.Z + r + 1 && db < o.DistanceTo(a)) return true;
+                }
+                return false;
+            }
             var pos = from;
-            float hs = to.X >= from.X ? 1 : -1, leg = 0;
+            // (the first leg heads out, away from the room it leaves: doubling back over the flat
+            // doorway tunnel would leave its climb floating over that tunnel's air)
+            float hs = firstDir != 0 ? Math.Sign(firstDir) : to.X >= from.X ? 1 : -1, leg = 0;
             for (int k = 0; k < 1400 && pos.DistanceTo(to) > 1.5f; k++)
             {
                 float ddx = to.X - pos.X, ddy = to.Y - pos.Y;
                 if (leg > 20 && Math.Sign(ddx) != hs && Math.Abs(ddx) > 1) { hs = -hs; leg = 0; }
                 if ((pos.X < 9 && hs < 0) || (pos.X > W - 9 && hs > 0)) { hs = -hs; leg = 0; }
                 float pitch = Mathf.Clamp(Mathf.Atan2(ddy, Math.Max(Math.Abs(ddx), 0.001f)), -MaxPitch * 0.85f, MaxPitch * 0.85f);
-                pos += new Vector2(hs * Mathf.Cos(pitch), Mathf.Sin(pitch)) * 0.9f;
+                var step = new Vector2(hs * Mathf.Cos(pitch), Mathf.Sin(pitch)) * 0.9f;
+                if (Into(pos, pos + step) && !Into(pos, pos + new Vector2(-step.X, step.Y))) { hs = -hs; leg = 0; step.X = -step.X; }
+                pos += step;
                 leg += 0.9f;
                 Circle(pos.X, pos.Y, r, true, kind);
             }
@@ -150,13 +170,7 @@ public static partial class CaveGenerator
         RemoveSpecks(cave);
         late?.Invoke();
         if (platforms) AddPlatforms(cave, rng);
-        ValidateTraversal(cave, startCell);
-        var tried = new HashSet<int>();
-        for (int rep = 0; rep < 14 && cave.TrapCells > 6; rep++)
-        {
-            if (!RepairTraps(cave, tried)) break;
-            ValidateTraversal(cave, startCell);
-        }
+        ValidateAndRepair(cave, startCell);
         BuildSpawns(cave, spawnStamps, new Vector2(startCell.X, startCell.Y), rng, spawnStride);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
@@ -345,6 +359,7 @@ public static partial class CaveGenerator
         // flat floors first: the passages may then cut through them wherever they need to
         foreach (var o in rooms) f.FloorAt(o.X - o.R - 1, o.X + o.R + 1, o.Floor, 3);
         float cr = B.CorridorR;
+        var keepOut = rooms.Select(o => new Vector3(o.X, o.Y, o.R)).ToList();
         foreach (var (a, b) in links)
         {
             // leave each room level through a side: facing each other when they're side by side,
@@ -356,7 +371,7 @@ public static partial class CaveGenerator
             var db = new Vector2(b.X + sb * (b.R + 3), b.Floor - cr);
             f.Line(new Vector2(a.X + sa * a.R * 0.6f, a.Floor - cr), da, cr, 1);
             f.Line(new Vector2(b.X + sb * b.R * 0.6f, b.Floor - cr), db, cr, 1);
-            f.Walkable(da, db, cr, 1);
+            f.Walkable(da, db, cr, 1, keepOut, sa);
         }
 
         foreach (var o in rooms)

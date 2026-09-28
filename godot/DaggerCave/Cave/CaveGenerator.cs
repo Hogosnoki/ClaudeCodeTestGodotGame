@@ -41,6 +41,10 @@ public static partial class CaveGenerator
 
     public static CaveData Generate(int seed) => Generate(Biomes.Get(BiomeId.Slime), seed);
 
+    /// <summary>--gentest --genverbose: print every attempt's score.</summary>
+    public static bool Verbose;
+    public static Action<CaveData, int> OnAttempt;
+
     public static CaveData Generate(BiomeDef biome, int seed)
     {
         // (the dragon's lair is a set piece: an antechamber and one arena, as drawn)
@@ -58,6 +62,7 @@ public static partial class CaveGenerator
                 _ => GenerateOnce(s),
             };
             c.Attempts = attempt + 1;
+            if (Verbose) { GD.Print($"    attempt {attempt + 1} (seed {s}): score {Score(c)} traps {c.TrapCells}"); OnAttempt?.Invoke(c, s); }
             if (best == null || Score(c) < Score(best)) best = c;
             if (Score(c) <= 6) break;
         }
@@ -72,15 +77,7 @@ public static partial class CaveGenerator
         else
         {
             // standing height just above the exit chamber's floor
-            int bi = (int)(c.Boss.Floor.X / CaveData.Cell), bj = (int)(c.Boss.Floor.Y / CaveData.Cell) - 2;
-            bool reachable = false;
-            for (int dj = -3; dj <= 3 && !reachable; dj++)
-                for (int di = -4; di <= 4; di++)
-                {
-                    int k = (bj + dj) * W + bi + di;
-                    if (k >= 0 && k < W * H && c.ReachMask[k]) { reachable = true; break; }
-                }
-            if (!reachable) score += 50000;
+            if (!BossFloorReached(c)) score += 50000;
             if (B.Style == GenStyle.Walkers && c.Boss.Center.DistanceTo(c.StartPos) < W * 0.33f * CaveData.Cell) score += 5000;
             int minis = 0;
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
@@ -501,13 +498,7 @@ public static partial class CaveGenerator
 
         // Reachability validation, with repairs: stepping-stone ledges up out of any pit the
         // movement model says you could fall into but not climb out of.
-        ValidateTraversal(cave, startCell);
-        var tried = new HashSet<int>();
-        for (int rep = 0; rep < 12 && cave.TrapCells > 6; rep++)
-        {
-            if (!RepairTraps(cave, tried)) break;
-            ValidateTraversal(cave, startCell);
-        }
+        ValidateAndRepair(cave, startCell);
 
         BuildSpawns(cave, stamps, new Vector2(sx, sy), rng);
         cave.RockDepth = ComputeRockDepth(cave);
@@ -793,9 +784,71 @@ public static partial class CaveGenerator
         int traps = 0, reachable = 0;
         cave.TrapMask = new bool[n];
         cave.ReachMask = reach;
-        for (int u = 0; u < n; u++) { if (reach[u]) { reachable++; if (!back[u]) { traps++; cave.TrapMask[u] = true; } } }
+        for (int u = 0; u < n; u++) { if (reach[u]) { reachable++; if (!back[u]) cave.TrapMask[u] = true; } }
+        // A cell or two on its own is a notch in a wall the coarse model can slip into but not out
+        // of, not a pit: anything you could really fall into holds a floor and headroom above it.
+        var seen = new bool[n];
+        var group = new List<int>();
+        for (int u = 0; u < n; u++)
+        {
+            if (!cave.TrapMask[u] || seen[u]) continue;
+            group.Clear();
+            seen[u] = true; q.Enqueue(u);
+            while (q.Count > 0)
+            {
+                int c = q.Dequeue(); group.Add(c);
+                int ci = c % W, cj = c / W;
+                for (int dj = -1; dj <= 1; dj++)
+                    for (int di = -1; di <= 1; di++)
+                    {
+                        int i = ci + di, j = cj + dj;
+                        if (i < 0 || j < 0 || i >= W || j >= H) continue;
+                        int v = j * W + i;
+                        if (cave.TrapMask[v] && !seen[v]) { seen[v] = true; q.Enqueue(v); }
+                    }
+            }
+            if (group.Count < 4) foreach (int c in group) cave.TrapMask[c] = false;
+            else traps += group.Count;
+        }
         cave.TrapCells = traps;
         cave.ReachableCells = reachable;
+    }
+
+    /// <summary>
+    /// The traversal check, then repairs until nothing is trapped and the guardian's floor can be
+    /// reached (or no repair is left to try): ledges up out of pits, and up to the chamber.
+    /// </summary>
+    internal static void ValidateAndRepair(CaveData cave, Vector2I startCell)
+    {
+        ValidateTraversal(cave, startCell);
+        var tried = new HashSet<int>();
+        bool reachGaveUp = false;
+        // (more room to repair on the wider maps)
+        int budget = (int)(14 * Tune.Cave.WidthScale);
+        for (int rep = 0; rep < budget; rep++)
+        {
+            var open = (float[])cave.Open.Clone();
+            var (reach, trap, traps, count) = (cave.ReachMask, cave.TrapMask, cave.TrapCells, cave.ReachableCells);
+            bool bossBefore = BossFloorReached(cave), reaching = false;
+            if (!(cave.TrapCells > 6 && RepairTraps(cave, tried)))
+            {
+                if (reachGaveUp || !RepairReach(cave)) break;
+                reaching = true;
+            }
+            ValidateTraversal(cave, startCell);
+            // A ledge that plugs a narrow tunnel cuts off everything past it: undo that repair. (A
+            // pit closed off is a fine way to fix a pit, and a few cells tucked under a new ledge
+            // don't count, but a stair up to the guardian must only ever add to where you can go.)
+            int lost = 0;
+            for (int u = 0; u < reach.Length; u++)
+                if (reach[u] && !cave.ReachMask[u] && cave.CellOpen(u % W, u / W)) lost++;
+            if ((bossBefore && !BossFloorReached(cave)) || (reaching && lost > 40))
+            {
+                cave.Open = open;
+                (cave.ReachMask, cave.TrapMask, cave.TrapCells, cave.ReachableCells) = (reach, trap, traps, count);
+                if (reaching) reachGaveUp = true;
+            }
+        }
     }
 
     /// <summary>
@@ -829,15 +882,81 @@ public static partial class CaveGenerator
         }
         if (target < 0) return false;
         tried.Add(target);
+        var path = new List<int>();
+        for (int c = target; c >= 0; c = prev[c]) path.Add(c);
+        Stair(cave, path, true);
+        return true;
+    }
 
-        int stride = W + 1;
-        int lastY = target / W, side = 1;
-        for (int c = prev[target]; c >= 0; c = prev[c])
+    /// <summary>Whether you can stand just above the guardian chamber's floor (see Score).</summary>
+    internal static bool BossFloorReached(CaveData c)
+    {
+        if (c.Boss == null || c.ReachMask == null) return false;
+        int bi = (int)(c.Boss.Floor.X / CaveData.Cell), bj = (int)(c.Boss.Floor.Y / CaveData.Cell) - 2;
+        for (int dj = -3; dj <= 3; dj++)
+            for (int di = -4; di <= 4; di++)
+            {
+                int k = (bj + dj) * W + bi + di;
+                if (k >= 0 && k < W * H && c.ReachMask[k]) return true;
+            }
+        return false;
+    }
+
+    /// <summary>
+    /// The other half of RepairTraps: when the guardian's chamber can't be reached at all (a climb
+    /// somewhere on the way is too high, so the way there is one-way down), builds a staircase of
+    /// ledges up along the shortest open route from where you can get to its floor.
+    /// </summary>
+    internal static bool RepairReach(CaveData cave)
+    {
+        if (cave.Boss == null || cave.ReachMask == null || BossFloorReached(cave)) return false;
+        int n = W * H;
+        var prev = new int[n];
+        Array.Fill(prev, -2);
+        var q = new Queue<int>();
+        // (from the floors you can stand on: the stair's first step must be one jump up from them)
+        for (int u = 0; u < n; u++)
+            if (cave.ReachMask[u] && !cave.CellOpen(u % W, u / W + 1)) { prev[u] = -1; q.Enqueue(u); }
+        int bi = (int)(cave.Boss.Floor.X / CaveData.Cell), bj = (int)(cave.Boss.Floor.Y / CaveData.Cell) - 2;
+        int goal = -1;
+        while (q.Count > 0 && goal < 0)
         {
+            int u = q.Dequeue(); int ui = u % W, uj = u / W;
+            for (int dj = -1; dj <= 1 && goal < 0; dj++)
+                for (int di = -1; di <= 1; di++)
+                {
+                    int i = ui + di, j = uj + dj;
+                    if (i < 0 || j < 0 || i >= W || j >= H) continue;
+                    int v = j * W + i;
+                    if (prev[v] != -2 || !cave.CellOpen(i, j)) continue;
+                    prev[v] = u; q.Enqueue(v);
+                    if (Math.Abs(j - bj) <= 3 && Math.Abs(i - bi) <= 4) { goal = v; break; }
+                }
+        }
+        if (goal < 0) return false;
+        // (from the goal back to where you can already get: the climb runs the other way)
+        var path = new List<int>();
+        for (int c = goal; c >= 0; c = prev[c]) path.Add(c);
+        path.Reverse();
+        Stair(cave, path, false);
+        return true;
+    }
+
+    /// <summary>
+    /// Small rock ledges along a route (listed from its low end), one every 3 cells of climb,
+    /// alternating sides. `spareBoss` keeps them out of the guardian's chamber.
+    /// </summary>
+    private static void Stair(CaveData cave, List<int> path, bool spareBoss)
+    {
+        int stride = W + 1;
+        int lastY = path[0] / W, side = 1;
+        for (int p = 1; p < path.Count; p++)
+        {
+            int c = path[p];
             int ci = c % W, cj = c / W;
             if (lastY - cj < 3) continue;
             lastY = cj;
-            if (cave.Boss != null && new Vector2(ci, cj).DistanceTo(cave.Boss.Center / CaveData.Cell) < cave.Boss.RxPx / CaveData.Cell + 2) continue;
+            if (spareBoss && cave.Boss != null && new Vector2(ci, cj).DistanceTo(cave.Boss.Center / CaveData.Cell) < cave.Boss.RxPx / CaveData.Cell + 2) continue;
             float cx = ci + 0.5f + side * 1.2f, cy = cj + 1.8f;
             side = -side;
             const float rx = 2.3f, ry = 0.8f;
@@ -852,7 +971,6 @@ public static partial class CaveGenerator
                     if (v < cave.Open[k]) cave.Open[k] = v;
                 }
         }
-        return true;
     }
 
     internal static void BuildSpawns(CaveData cave, List<Stamp> stamps, Vector2 startCells, Random rng, int stride = 8)

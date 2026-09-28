@@ -2523,6 +2523,9 @@ public partial class Main : Node
     {
         int n = 12, cleanAll = 0, totalAll = 0;
         ulong total = 0;
+        CaveGenerator.Verbose = OS.GetCmdlineUserArgs().Contains("--genverbose");
+        if (CaveGenerator.Verbose)
+            CaveGenerator.OnAttempt = (c, s) => { if (OS.GetCmdlineUserArgs().Contains($"--genimage={s}")) SaveCaveImage(c, $"user://attempt_{c.Biome?.Id}_{s}.png"); };
         foreach (var b in Biomes.All)
         {
             if (_biomeArg != null && !b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase)) continue;
@@ -2536,7 +2539,7 @@ public partial class Main : Node
                 total += ms;
                 bool ok = c.TrapCells <= 6 && c.Boss != null && BossReachable(c);
                 if (ok) clean++;
-                if (!ok || s == 1)
+                if (!ok || s == 1 || CaveGenerator.Verbose)
                     GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} spawns {c.Spawns.Count} ice {c.IceLedges.Count}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
