@@ -178,7 +178,13 @@ public partial class Main
         _ntT += dt;
         _ntPhaseT += dt;
         if (_ntT > 240) { NtFail($"everything done within four minutes (stuck in phase {_ntPhase})"); return; }
-        if (_ntPhase > 0 && !Net.Online) { NtFail($"still connected (phase {_ntPhase}: {Net.Status})"); return; }
+        // (once this game's last check is in, the other closing the connection is just the end)
+        if (_ntPhase > 0 && !Net.Online)
+        {
+            if (_ntFinished) NtEnd();
+            else NtFail($"still connected (phase {_ntPhase}: {Net.Status})");
+            return;
+        }
         // the host keeps the cave clear of anything but the test's own creature
         if (Net.IsHost && Net.InRun)
             foreach (var e in G.Enemies.ToArray())
@@ -339,17 +345,54 @@ public partial class Main
                 if (_state == State.Dead && NtGot("over", out _))
                 {
                     NtCheck("with everyone down, the run ended in both games", true);
-                    NtSay("bye");
+                    if (_ntShots != "") NtShot("nt_camp");
+                    // back to the lobby together, for one more (short) run
+                    NtSay("lobby");
+                    BackToLobby();
                     NtNext();
                 }
                 else if (_ntPhaseT > 20) NtFail($"the run ends for everyone (host state {_state})");
                 break;
             case 14:
-                if (_ntShots != "" && _ntPhaseT < 2.5f) break;
-                NtShot("nt_camp");
+                if (!NtGot("lobby-ok", out _)) { if (_ntPhaseT > 20) NtFail("the friend comes back to the lobby"); break; }
+                HostStartRun();
+                NtNext();
+                break;
+            case 15:
+            {
+                // a fresh run at the cave mouth: step out into the daylight (and wait there for the friend)
+                if (!Net.InRun || G.Cave?.Mouth is not Vector2 mouth || _ntPhaseT < 1f) { if (_ntPhaseT > 20) NtFail("a second run starts"); break; }
+                NtWalkOut(mouth);
+                NtSay("mouth");
+                NtNext();
+                break;
+            }
+            case 16:
+                if (!Net.InRun && _state == State.Title && _onlineMenu.Visible)
+                {
+                    NtCheck("walking out of the cave mouth together ends the run: everyone is back in the lobby", true);
+                    _ntFinished = true;
+                    NtSay("bye");
+                    NtNext();
+                }
+                else if (_ntPhaseT > 20) NtFail($"everyone walks out together (in run {Net.InRun}, state {_state}, lobby {_onlineMenu.Visible}, waiting {_waitingAt != null})");
+                break;
+            case 17:
                 NtEnd();
                 break;
         }
+    }
+
+    private bool _ntFinished;
+
+    /// <summary>This game's hero steps up to the cave mouth and takes the way out.</summary>
+    private void NtWalkOut(Vector2 mouth)
+    {
+        var p = G.Player;
+        p.GlobalPosition = mouth + new Vector2(0, -19);
+        p.Velocity = Vector2.Zero;
+        foreach (var n in _world.GetChildren())
+            if (n is Portal { Outside: true } way) { way.Enter(); break; }
     }
 
     private void JoinTestStep()
@@ -523,6 +566,28 @@ public partial class Main
                 else if (_ntPhaseT > 20) NtFail($"the run ends ({_state})");
                 break;
             case 20:
+                if (!NtGot("lobby", out _)) { if (_ntPhaseT > 20) NtFail("the host goes back to the lobby"); break; }
+                BackToLobby();
+                NtSay("lobby-ok");
+                NtNext();
+                break;
+            case 21:
+            {
+                if (!Net.InRun || G.Cave?.Mouth is not Vector2 mouth || !NtGot("mouth", out _)) { if (_ntPhaseT > 25) NtFail("the host starts a second run and heads for the way out"); break; }
+                NtWalkOut(mouth);
+                NtNext();
+                break;
+            }
+            case 22:
+                if (!Net.InRun && _state == State.Title && _onlineMenu.Visible)
+                {
+                    NtCheck("we walked out of the cave mouth together: back in the lobby, the run over", true);
+                    _ntFinished = true;
+                    NtNext();
+                }
+                else if (_ntPhaseT > 20) NtFail($"we walk out together (in run {Net.InRun}, state {_state}, lobby {_onlineMenu.Visible})");
+                break;
+            case 23:
                 if (NtGot("bye", out _) || _ntPhaseT > 10) NtEnd();
                 break;
         }

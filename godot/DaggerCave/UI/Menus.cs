@@ -183,6 +183,13 @@ public partial class ScreenOverlay : Control
 
     private static Color Accent(HeroKind k) => Hud.HeroColor(k);
 
+    /// <summary>A hero's name and what they do (for the choice at the camp fire).</summary>
+    public static (string name, string[] lines) HeroInfo(HeroKind k)
+    {
+        foreach (var h in Heroes) if (h.kind == k) return (h.name, h.lines);
+        return (k.ToString().ToUpperInvariant(), Array.Empty<string>());
+    }
+
     /// <summary>Which hero card (0/1) is under a screen point, or -1.</summary>
     public int CardAt(Vector2 p)
     {

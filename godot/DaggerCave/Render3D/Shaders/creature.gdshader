@@ -166,6 +166,9 @@ void fragment() {
 	if (tint.a > 0.0) alb = mix(alb, alb * tint.rgb * 1.45, tint.a);
 
 	vec3 n = bump(NORMAL, VERTEX, h * detail_strength * 0.006);
+	// (a degenerate bump, where the derivatives vanish, falls back to the plain normal: a NaN
+	// here would bloom into a blaze in bright light)
+	if (any(isnan(n)) || dot(n, n) < 0.25) n = NORMAL;
 	float ndv = clamp(dot(n, VIEW), 0.0, 1.0);
 	float fres = pow(1.0 - ndv, 4.0) * 0.6;
 
@@ -181,7 +184,8 @@ void fragment() {
 	// fleshy parts: a little light bleeds through where they are lit from behind (screen-space
 	// subsurface scattering is far too blurry at this scale, so only backlight is used)
 	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);
-	ROUGHNESS = rough;
+	// (never a perfect mirror: under the sun a zero roughness makes the highlight infinite)
+	ROUGHNESS = max(rough, 0.08);
 	METALLIC = v_mat.x;
 	SPECULAR = 0.5;
 	BACKLIGHT = alb * v_mat.y * 0.45;

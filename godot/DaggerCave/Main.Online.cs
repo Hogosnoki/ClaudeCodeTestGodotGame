@@ -42,8 +42,8 @@ public partial class Main
 
     private void UpdateTitleButton()
     {
-        bool show = (_state == State.Title || (_state == State.Dead && !Net.Online)) && _overlay.Visible
-                    && !_onlineMenu.Visible && !_settingsMenu.Visible && !_metaMenu.Visible;
+        // (the main menu has its own Multiplayer button now)
+        const bool show = false;
         if (_titleOnline.Visible != show) _titleOnline.Visible = show;
     }
 
@@ -55,6 +55,10 @@ public partial class Main
         // from the camp: a fresh cave behind the menu (and the title after it)
         if (_state == State.Dead) ResetToTitle();
         _overlay.Visible = false;
+        _mainMenu.Visible = false;
+        _heroChoice.Visible = false;
+        ShowCampScene(true);
+        _camp.Close = false;
         _onlineMenu.Open();
     }
 
@@ -125,7 +129,10 @@ public partial class Main
         _seed = _rng.Next(1, 999999);
         _pendingTreasure.Clear();
         BuildLevel(_seed, freshPlayer: true);
-        _sfx.SetMusic("ambient");
+        // (back at the camp outside)
+        ShowCampScene(true);
+        _camp.Close = false;
+        _sfx.SetMusic("camp");
     }
 
     // ---------------------------------------------------------------- starting and going down
@@ -344,7 +351,7 @@ public partial class Main
         string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
         string party = string.Join("   ·   ", Net.Peers.Values.Select(x => $"{x.Name} ({HeroName(x.Hero)})"));
         string next = Net.IsHost ? "go back to the lobby and set off again" : "go back to the lobby (the host starts the next descent)";
-        _overlay.Show(_victory ? "VICTORY" : "THE PARTY HAS FALLEN", 0.6f,
+        _overlay.Show(_victory ? "VICTORY" : "THE PARTY HAS FALLEN", 0.45f,
             _victory ? "The Elder Dragon is slain. The deep is quiet... for now." : $"Fell at depth {G.Depth} in the {G.Biome?.Name ?? "cave"}",
             party,
             $"You: level {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}",

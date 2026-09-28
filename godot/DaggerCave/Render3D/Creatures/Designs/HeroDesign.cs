@@ -485,6 +485,26 @@ public sealed class HeroDesign : CreatureDesign
         return o;
     }
 
+    /// <summary>
+    /// Sitting on a log by the camp fire: thighs level, shins down, forearms on the knees and
+    /// leaning in toward the warmth, breathing slowly (the hips drop a thigh's length so the
+    /// feet stay on the ground).
+    /// </summary>
+    private Body Sit(float time)
+    {
+        float b = MathF.Sin(time * 1.3f);
+        var o = new Body
+        {
+            Lean = 14 + b * 1.5f, HeadPitch = 8 - b * 1.2f, Root = new Vector3(-0.02f, -0.36f, 0),
+            SR = 38 + b, ER = 62, WR = 20, AR = 12,
+            SL = 34 - b, EL = 66, AL = 12,
+            HR = 84, KR = 90, HRx = 9, HL = 80, KL = 86, HLx = 9,
+        };
+        if (_warden) { o.SL = 22; o.EL = 70; o.AL = 14; o.WL = -(o.SL + o.EL) + 20; }
+        if (_vitalist) { o.SR = 30 + b; o.ER = 48; }
+        return o;
+    }
+
     private Body Run(float phase, float amount)
     {
         float sn = MathF.Sin(phase * Mathf.Tau);
@@ -667,6 +687,11 @@ public sealed class HeroDesign : CreatureDesign
         }
         else switch (c)
         {
+            case "sit":
+                // (at the camp: T blends from sitting, 0, to standing ready, 1)
+                o = Lerp(Sit(a.Time), Idle(a.Time), W3.Smooth01(t));
+                if (_vitalist) staff = Mathf.Lerp(92f, 78f, t);
+                break;
             case "jump_start":
                 o.Root.Y += Key(t, (0, 0), (0.45f, -0.12f), (1, 0.02f));
                 o.KR += Key(t, (0, 10), (0.45f, 60), (1, 0)); o.KL += Key(t, (0, 10), (0.45f, 60), (1, 0));

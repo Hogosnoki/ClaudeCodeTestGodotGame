@@ -221,6 +221,26 @@ public sealed class MeshBuilder
         }
     }
 
+    /// <summary>
+    /// A flat-shaded copy: every triangle gets corners of its own and its face's normal (turned to
+    /// agree with the smooth normals), for hewn, low-poly rock.
+    /// </summary>
+    public MeshBuilder Faceted()
+    {
+        var o = new MeshBuilder();
+        for (int k = 0; k < I.Count; k += 3)
+        {
+            int a = I[k], b = I[k + 1], c = I[k + 2];
+            var n = (V[b] - V[a]).Cross(V[c] - V[a]);
+            if (n.LengthSquared() < 1e-12f) continue;
+            n = n.Normalized();
+            if (n.Dot(N[a] + N[b] + N[c]) < 0) { n = -n; (b, c) = (c, b); }
+            int na = o.Add(V[a], n, C[a], UV[a]), nb = o.Add(V[b], n, C[b], UV[b]), nc = o.Add(V[c], n, C[c], UV[c]);
+            o.Tri(na, nb, nc);
+        }
+        return o;
+    }
+
     /// <summary>A bumpy blob (displaced UV sphere), e.g. pebbles and boulders.</summary>
     public void Blob(Vector3 center, Vector3 radii, int seg, Color col, Noise3 noise, float bump, float noiseScale, float flattenBottom = 0f)
     {

@@ -16,7 +16,7 @@ public partial class SoundBank : Node
     private readonly List<AudioStreamPlayer2D> _pool2D = new();
     private readonly List<AudioStreamPlayer> _poolUi = new();
     private AudioStreamPlayer _musicA, _musicB;
-    private AudioStreamWav _ambient, _boss;
+    private AudioStreamWav _ambient, _boss, _camp;
     private string _currentMusic = "";
     private float _fade = 1f;
     private int _lowPassIdx = -1;
@@ -28,6 +28,7 @@ public partial class SoundBank : Node
         BuildSfx();
         _ambient = BuildAmbientMusic();
         _boss = BuildBossMusic();
+        _camp = BuildCampMusic();
         GameSettings.ApplySound(); // (makes the Music and SFX buses)
         for (int k = 0; k < 28; k++) { var p = new AudioStreamPlayer2D { MaxDistance = 1100, Attenuation = 1.2f, Bus = "SFX" }; AddChild(p); _pool2D.Add(p); }
         for (int k = 0; k < 8; k++) { var p = new AudioStreamPlayer { Bus = "SFX" }; AddChild(p); _poolUi.Add(p); }
@@ -80,13 +81,21 @@ public partial class SoundBank : Node
         Play(name, at, vol, var, pitch);
     }
 
+    /// <summary>--musicdump=DIR: the music tracks as .wav files, for a listen.</summary>
+    public void DumpMusic(string dir)
+    {
+        _ambient.SaveToWav($"{dir}/ambient.wav");
+        _boss.SaveToWav($"{dir}/boss.wav");
+        _camp.SaveToWav($"{dir}/camp.wav");
+    }
+
     public void SetMusic(string which)
     {
         if (which == _currentMusic) return;
         _currentMusic = which;
         // swap roles: B becomes the new track fading in
         (_musicA, _musicB) = (_musicB, _musicA);
-        _musicA.Stream = which == "boss" ? _boss : which == "ambient" ? _ambient : null;
+        _musicA.Stream = which switch { "boss" => _boss, "ambient" => _ambient, "camp" => _camp, _ => null };
         _musicA.VolumeDb = -40;
         if (_musicA.Stream != null) _musicA.Play();
         _fade = 0f;
@@ -268,6 +277,78 @@ public partial class SoundBank : Node
         Echo(plink, 0.42f, 0.5f, 0.6f);
         for (int k = 0; k < b.Length; k++) b[k] += plink[k];
 
+        return Loop(b, len);
+    }
+
+    /// <summary>
+    /// The camp outside the cave: a 30 s loop in G major, unhurried and sunny. Warm pads through
+    /// G - D - Em - C, a soft bass, a plucked arpeggio and a few bell notes echoing, with birdsong
+    /// and the fire's crackle under it all.
+    /// </summary>
+    private static AudioStreamWav BuildCampMusic()
+    {
+        const float bpm = 64f, beat = 60f / bpm;
+        const int bars = 8;
+        float len = bars * 4 * beat, tail = 4f;
+        var b = Buf(len + tail);
+        var pluck = Buf(len + tail);
+        var rng = new Random(311);
+        static float Swell(float t) => Math.Min(1f, t / 0.18f) * (t > 0.72f ? Math.Max(0f, (1f - t) / 0.28f) : 1f);
+        int[][] chords = { new[] { 55, 59, 62 }, new[] { 50, 54, 57 }, new[] { 52, 55, 59 }, new[] { 48, 52, 55 } };
+        int[] bass = { 43, 38, 40, 36 };
+        int[] melody = { 67, 69, 71, 74, 76, 79 };
+        for (int c = 0; c < 4; c++)
+        {
+            float t0 = c * 8 * beat, dur = 8 * beat;
+            // pads: two soft voices a hair apart on each note, swelling in and out
+            foreach (int m in chords[c])
+            {
+                float f = NoteHz(m + 12);
+                Osc(b, t0, dur + 1.4f, t => f * (1f + 0.002f * MathF.Sin(t * 25f)), t => 0.05f * Swell(t), 3);
+                Osc(b, t0, dur + 1.4f, Const(f * 1.004f), t => 0.035f * Swell(t), 0);
+            }
+            // the bass: the root on each half bar
+            for (int k = 0; k < 8; k += 2)
+                Osc(b, t0 + k * beat, beat * 1.9f, Const(NoteHz(bass[c])), AD(0.05f, 3.2f), 0);
+            // the arpeggio: up and down the chord in eighths, plucked
+            int[] tones = { chords[c][0] + 12, chords[c][1] + 12, chords[c][2] + 12, chords[c][0] + 24 };
+            int[] pattern = { 0, 1, 2, 3, 2, 1, 2, 1 };
+            for (int e = 0; e < 16; e++)
+            {
+                float f = NoteHz(tones[pattern[e % 8]]);
+                float t = t0 + e * beat * 0.5f;
+                float accent = e % 4 == 0 ? 1f : 0.7f;
+                Osc(pluck, t, 1.2f, Const(f), t => accent * MathF.Exp(-t * 6f), 0);
+                Osc(pluck, t, 0.5f, Const(f * 2f), t => accent * 0.35f * MathF.Exp(-t * 11f), 0);
+            }
+            // a few bell notes on top, from the major pentatonic
+            for (int k = 0; k < 3; k++)
+            {
+                float t = t0 + (1 + rng.Next(14)) * beat * 0.5f;
+                float f = NoteHz(melody[rng.Next(melody.Length)]);
+                Osc(pluck, t, 2.4f, Const(f), t => 0.55f * MathF.Exp(-t * 3.2f), 0);
+                Osc(pluck, t, 1.4f, Const(f * 3.01f), t => 0.12f * MathF.Exp(-t * 6f), 0);
+            }
+        }
+        for (int k = 0; k < pluck.Length; k++) pluck[k] *= 0.09f;
+        Echo(pluck, beat * 0.75f, 0.38f, 0.45f);
+        for (int k = 0; k < b.Length; k++) b[k] += pluck[k];
+
+        // birdsong: now and then a little trill of rising chirps, far off
+        for (float t = 1.2f; t < len - 1f; t += 2.2f + (float)rng.NextDouble() * 3.5f)
+        {
+            int notes = 2 + rng.Next(4);
+            float f0 = 2600f + 1200f * (float)rng.NextDouble();
+            for (int k = 0; k < notes; k++)
+                Osc(b, t + k * 0.085f, 0.07f, Sweep(f0, f0 * 1.35f), t => 0.022f * MathF.Sin(t * MathF.PI), 0);
+        }
+        // the fire: a soft bed of crackle and the odd pop
+        for (float t = 0.1f; t < len; t += 0.08f + (float)rng.NextDouble() * 0.6f)
+        {
+            float amp = rng.NextDouble() < 0.12 ? 0.07f : 0.025f;
+            NoiseBurst(b, t, 0.012f + 0.02f * (float)rng.NextDouble(), Const(0.6f), t => amp * MathF.Exp(-t * 6f), true);
+        }
+        NoiseBurst(b, 0, len, Const(0.02f), Const(0.012f));
         return Loop(b, len);
     }
 

@@ -148,9 +148,10 @@ public partial class Main : Node
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
         SetupOnline();
+        SetupFrontMenus();
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -165,6 +166,9 @@ public partial class Main : Node
         if (ModelSheet.Wanted) { _uiLayer.Visible = false; AddChild(new ModelSheet()); return; }
         if (gentest) { RunGenTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
+        foreach (var arg in OS.GetCmdlineUserArgs())
+            if (arg.StartsWith("--musicdump=")) { _sfx.DumpMusic(arg[12..]); SafeQuit.Request(this); return; }
+        if (_campShot != "") { ShowCampScene(true); return; }
         if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }
         if (_netTest != "") { BeginNetTest(); return; }
@@ -183,9 +187,10 @@ public partial class Main : Node
         BuildLevel(_seed, freshPlayer: true);
         if (_padTest)
         {
-            // Starts on the title screen and drives everything with synthetic controller events.
+            // Starts on the main menu and drives everything with synthetic controller events.
             GetTree().Paused = true;
             _state = State.Title;
+            ShowTitle();
         }
         else if (_heroTest)
         {
@@ -244,21 +249,11 @@ public partial class Main : Node
             _state = State.Title;
             _hud.Visible = false;
             ShowTitle();
-            _sfx.SetMusic("ambient");
         }
     }
 
-    private void ShowTitle()
-    {
-        _overlay.HeroCards = true;
-        _overlay.Show("DAGGER DEEP", 0.55f,
-            "A rogue-lite descent from the cave mouth to the dragon at the bottom of the world.  Choose your hero:",
-            "@",
-            ControlsLine(false),
-            ControlsLine(true),
-            CampLine(),
-            UsingPad ? "!LEFT / RIGHT to choose  -  A to begin  -  Y to play online  -  START for settings" : "!LEFT / RIGHT to choose  -  ENTER to begin  -  O to play online  -  ESC for settings");
-    }
+    /// <summary>The main menu, over the camp outside the cave.</summary>
+    private void ShowTitle() => ShowMainMenu();
 
     /// <summary>The controls in one line, as bound (keyboard and mouse, or the controller).</summary>
     private static string ControlsLine(bool pad)
@@ -314,6 +309,8 @@ public partial class Main : Node
             else if (a.StartsWith("--netaddr=")) _netAddr = a[10..];
             else if (a.StartsWith("--ntshots=")) _ntShots = a[10..];
             else if (a.StartsWith("--onlineshot=")) _onlineShot = a[13..];
+            else if (a.StartsWith("--campshot=")) _campShot = a[11..];
+            else if (a.StartsWith("--fronttest=")) _frontTest = a[12..];
             else if (a.StartsWith("--scenario=")) _scenario = a[11..];
         }
     }
@@ -708,6 +705,9 @@ public partial class Main : Node
 
     private void StartPlaying()
     {
+        ShowCampScene(false);
+        _mainMenu.Visible = false;
+        _heroChoice.Visible = false;
         _overlay.Visible = false;
         _overlay.HeroCards = false;
         _hud.Visible = true;
@@ -736,7 +736,8 @@ public partial class Main : Node
         Meta.Restore(_metaAtStart);
         _metaAtStart = null;
         ResetToTitle();
-        ShowTitle();
+        ShowHeroChoice();
+        FadeFrom(new Color(1f, 0.98f, 0.92f), 1.3f);
     }
 
     private const int HeroCount = 3;
@@ -778,23 +779,19 @@ public partial class Main : Node
     /// <summary>The camp between runs: how the run went, what it earned, the heroes, and the trees.</summary>
     private void ShowCamp()
     {
-        if (Net.Online) { ShowOnlineCamp(); return; }
+        if (Net.Online) { ShowCampScene(true); ShowOnlineCamp(); return; }
         var p = G.Player;
         int secs = (int)_runTime;
-        _overlay.HeroCards = true;
         string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
-        _overlay.Show(_victory ? "VICTORY" : "YOU DIED", 0.6f,
-            _victory ? "The Elder Dragon is slain. The deep is quiet... for now." : $"Fell at depth {G.Depth} in the {G.Biome?.Name ?? "cave"}",
-            $"Level {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}",
-            earned,
-            "@",
-            CampLine(),
-            UsingPad ? "!LEFT / RIGHT to switch hero  -  A to descend again  -  Y to play online" : "!LEFT / RIGHT to switch hero  -  R or ENTER to descend again  -  O to play online");
+        ShowHeroChoice(_victory ? "VICTORY" : "YOU DIED",
+            (_victory ? "The Elder Dragon is slain. The deep is quiet... for now." : $"Fell at depth {G.Depth} in the {G.Biome?.Name ?? "cave"}")
+            + $"\nLevel {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}" + (earned != "" ? "\n" + earned : ""));
     }
 
     private void OnMetaClosed()
     {
         if (_state == State.Dead) ShowCamp();
+        else if (_state == State.Title && _front == Front.Heroes) { _heroChoice.Visible = true; _heroChoice.Refresh(); }
         else if (_state == State.Title) ShowTitle();
     }
 
@@ -954,35 +951,37 @@ public partial class Main : Node
             GetViewport().SetInputAsHandled();
             return;
         }
-        bool atTitle = _state == State.Title || (_state == State.Dead && _overlay.Visible && !Net.Online);
-        if (atTitle && !_settingsMenu.Visible && e.IsActionPressed("online"))
+        if (_settingsMenu.Visible || _departT >= 0f) return;
+        // at the camp: the main menu (its buttons take keys and the controller themselves), or
+        // choosing a hero at the fire (after a run too, once its summary has had a moment)
+        bool atMenu = _state == State.Title && _mainMenu.Visible;
+        bool choosing = _heroChoice.Visible && !Net.Online && (_state == State.Title || (_state == State.Dead && _deadT > 1.5f));
+        if ((atMenu || choosing) && e.IsActionPressed("online"))
         {
             OpenOnlineMenu();
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (atTitle && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
+        if (atMenu && e.IsActionPressed("pause"))
         {
-            int step = e.IsActionPressed("move_left") ? -1 : 1;
-            PickHero((HeroKind)(((int)G.Hero + step + HeroCount) % HeroCount));
+            OpenFrontSettings();
             GetViewport().SetInputAsHandled();
             return;
         }
-        if (_state == State.Title && !_settingsMenu.Visible && e.IsActionPressed("pause"))
+        if (!choosing) return;
+        if (e.IsActionPressed("move_left") || e.IsActionPressed("move_right") || e.IsActionPressed("ui_left") || e.IsActionPressed("ui_right"))
         {
-            _overlay.Visible = false;
-            _settingsMenu.Open();
+            StepHero(e.IsActionPressed("move_left") || e.IsActionPressed("ui_left") ? -1 : 1);
             GetViewport().SetInputAsHandled();
-            return;
         }
-        if (_settingsMenu.Visible) return;
-        if (_state == State.Title && (e.IsActionPressed("confirm") || (e is InputEventMouseButton mb && mb.Pressed)))
+        else if (e.IsActionPressed("pause") || e.IsActionPressed("ui_cancel"))
         {
-            // a click on a hero card picks that hero before starting
-            if (e is InputEventMouseButton click) { int card = _overlay.CardAt(click.Position); if (card >= 0) PickHero((HeroKind)card); }
-            // the level was built for the hero shown when the game launched: rebuild if it changed
-            if (G.Player == null || G.Player.Dead || G.Player.Stats.Hero != G.Hero) BuildLevel(_seed, freshPlayer: true);
-            StartPlaying();
+            BackToMenu();
+            GetViewport().SetInputAsHandled();
+        }
+        else if (e.IsActionPressed("confirm") || e.IsActionPressed("ui_accept") || e.IsActionPressed("restart"))
+        {
+            BeginDescent();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -1002,11 +1001,14 @@ public partial class Main : Node
         _frameScale = (float)Engine.TimeScale;
 
         if (_padTest) PadTestTick(dt);
+        if (_campShot != "") { CampShotTick(dt); return; }
+        if (_frontTest != "") FrontTestTick(dt);
         if (_menuShot != "") MenuShotTick();
         if (_netTest != "") NetTestTick(dt);
         if (_onlineShot != "") OnlineShotTick();
         if (_scenario != "") ScenarioTick(dt);
         UpdateTitleButton();
+        TickFront(dt);
         switch (_state)
         {
             case State.Title:
@@ -1026,15 +1028,17 @@ public partial class Main : Node
             case State.Dead:
                 _deadT += dt;
                 if (_metaMenu.Visible) break;
-                if (_deadT > 1.2f && !_overlay.Visible)
+                if (_deadT > 1.2f && !_overlay.Visible && !_heroChoice.Visible)
                 {
                     ShowCamp();
                     // back at camp after the first reagent: the potion tree's introduction
                     if (!_autotest && Meta.Visible(Meta.PotionTree) && !Meta.PotionTutorialDone) _metaMenu.Open(MetaMenu.Mode.PotionTutorial);
                     else if (!_autotest && Meta.Visible(Meta.PearlTree) && !Meta.PearlTutorialDone) _metaMenu.Open(MetaMenu.Mode.PearlIntro);
                 }
-                if (_deadT > 1.5f && _overlay.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
-                else if (_deadT > 1.5f && _overlay.Visible && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
+                bool summary = _overlay.Visible || _heroChoice.Visible;
+                if (_deadT > 1.5f && summary && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                // (online: on to the lobby; alone, the hero choice at the fire takes it from here)
+                else if (Net.Online && _deadT > 1.5f && _overlay.Visible && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
                 if (_autotest && _deadT > 3f) { if (_fullRun && _victory) { FinishFullRun(true); return; } Restart(); }
                 break;
             case State.Choosing:
@@ -1808,42 +1812,45 @@ public partial class Main : Node
         void Axis(JoyAxis a, float v) => Input.ParseInputEvent(new InputEventJoypadMotion { Axis = a, AxisValue = v, Device = 0 });
         var steps = new (float at, Action act, string label)[]
         {
-            (0.5f, () => { Btn(JoyButton.A, true); }, "A on title"),
-            (0.6f, () => { Btn(JoyButton.A, false); PadCheck($"A on the title starts (state {_state}, using pad {UsingPad}, mouse {Input.MouseMode})", _state == State.Playing && UsingPad); }, ""),
-            (1.0f, () => Axis(JoyAxis.LeftX, 1f), "stick right"),
-            (1.6f, () => { PadCheck($"the stick runs (vx {G.Player.Velocity.X:0})", G.Player.Velocity.X > 100); Axis(JoyAxis.LeftX, 0f); }, ""),
-            (1.8f, () => Btn(JoyButton.X, true), "X swing"),
-            (1.85f, () => { Btn(JoyButton.X, false); PadCheck($"X swings (anim {G.Player.Anim.Current})", G.Player.Anim.Current.StartsWith("slash")); }, ""),
-            (2.3f, () => Btn(JoyButton.RightShoulder, true), "RB ability"),
-            (2.35f, () => { Btn(JoyButton.RightShoulder, false); PadCheck($"RB charges the blade ({G.Player.Charged}, cooldown {G.Player.ChargeCooldownFrac:0.00})", G.Player.Charged == 1); }, ""),
-            (2.6f, () => Btn(JoyButton.B, true), "B dodge"),
-            (2.65f, () => { Btn(JoyButton.B, false); PadCheck($"B dodges ({G.Player.IsDodging})", G.Player.IsDodging); }, ""),
-            (3.0f, () => Axis(JoyAxis.TriggerRight, 1f), "RT second ability"),
-            (3.05f, () => { Axis(JoyAxis.TriggerRight, 0f); PadCheck($"RT heaves (heaving {G.Player.Heaving}, anim {G.Player.Anim.Current})", G.Player.Heaving); }, ""),
-            (3.4f, () => { G.Player.PendingMilestones = 1; }, "milestone"),
-            (4.0f, () => { PadCheck($"a milestone offers a pick ({_state})", _state == State.Choosing); Btn(JoyButton.DpadRight, true); }, "dpad right"),
-            (4.05f, () => Btn(JoyButton.DpadRight, false), ""),
-            (4.2f, () => Btn(JoyButton.A, true), "A pick"),
-            (4.25f, () => Btn(JoyButton.A, false), ""),
-            (4.4f, () => PadCheck($"A takes it (state {_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", _state == State.Playing && G.Player.Stats.Stacks.Count > 0), ""),
-            (4.6f, () => Btn(JoyButton.Start, true), "start pause"),
-            (4.65f, () => Btn(JoyButton.Start, false), ""),
-            (4.8f, () => PadCheck($"START pauses with the menu up ({_state}, menu {_pauseMenu.Visible})", _state == State.Paused && _pauseMenu.Visible), ""),
+            (0.5f, () => { Btn(JoyButton.A, true); }, "A on the main menu"),
+            (0.55f, () => { Btn(JoyButton.A, false); }, ""),
+            (0.8f, () => { PadCheck($"A on Single player goes to the hero choice at the fire (choice {_heroChoice.Visible}, using pad {UsingPad}, mouse {Input.MouseMode})", _heroChoice.Visible && UsingPad); Btn(JoyButton.A, true); }, "A at the fire"),
+            (0.85f, () => { Btn(JoyButton.A, false); }, ""),
+            (2.6f, () => PadCheck($"A at the fire sets off into the cave (state {_state})", _state == State.Playing), ""),
+            (3.0f, () => Axis(JoyAxis.LeftX, 1f), "stick right"),
+            (3.6f, () => { PadCheck($"the stick runs (vx {G.Player.Velocity.X:0})", G.Player.Velocity.X > 100); Axis(JoyAxis.LeftX, 0f); }, ""),
+            (3.8f, () => Btn(JoyButton.X, true), "X swing"),
+            (3.85f, () => { Btn(JoyButton.X, false); PadCheck($"X swings (anim {G.Player.Anim.Current})", G.Player.Anim.Current.StartsWith("slash")); }, ""),
+            (4.3f, () => Btn(JoyButton.RightShoulder, true), "RB ability"),
+            (4.35f, () => { Btn(JoyButton.RightShoulder, false); PadCheck($"RB charges the blade ({G.Player.Charged}, cooldown {G.Player.ChargeCooldownFrac:0.00})", G.Player.Charged == 1); }, ""),
+            (4.6f, () => Btn(JoyButton.B, true), "B dodge"),
+            (4.65f, () => { Btn(JoyButton.B, false); PadCheck($"B dodges ({G.Player.IsDodging})", G.Player.IsDodging); }, ""),
+            (5.0f, () => Axis(JoyAxis.TriggerRight, 1f), "RT second ability"),
+            (5.05f, () => { Axis(JoyAxis.TriggerRight, 0f); PadCheck($"RT heaves (heaving {G.Player.Heaving}, anim {G.Player.Anim.Current})", G.Player.Heaving); }, ""),
+            (5.4f, () => { G.Player.PendingMilestones = 1; }, "milestone"),
+            (6.0f, () => { PadCheck($"a milestone offers a pick ({_state})", _state == State.Choosing); Btn(JoyButton.DpadRight, true); }, "dpad right"),
+            (6.05f, () => Btn(JoyButton.DpadRight, false), ""),
+            (6.2f, () => Btn(JoyButton.A, true), "A pick"),
+            (6.25f, () => Btn(JoyButton.A, false), ""),
+            (6.4f, () => PadCheck($"A takes it (state {_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", _state == State.Playing && G.Player.Stats.Stacks.Count > 0), ""),
+            (6.6f, () => Btn(JoyButton.Start, true), "start pause"),
+            (6.65f, () => Btn(JoyButton.Start, false), ""),
+            (6.8f, () => PadCheck($"START pauses with the menu up ({_state}, menu {_pauseMenu.Visible})", _state == State.Paused && _pauseMenu.Visible), ""),
             // down to Settings, A opens it, B backs out to the pause menu, START resumes
-            (4.9f, () => Btn(JoyButton.DpadDown, true), "menu down"),
-            (4.95f, () => Btn(JoyButton.DpadDown, false), ""),
-            (5.05f, () => PadCheck($"the d-pad moves down the menu (focus: {(GetViewport().GuiGetFocusOwner() as Button)?.Text})", (GetViewport().GuiGetFocusOwner() as Button)?.Text == "Settings"), ""),
-            (5.1f, () => Btn(JoyButton.A, true), "A settings"),
-            (5.15f, () => Btn(JoyButton.A, false), ""),
-            (5.3f, () => PadCheck($"A opens the settings ({_settingsMenu.Visible})", _settingsMenu.Visible), ""),
-            (5.4f, () => Btn(JoyButton.RightShoulder, true), "RB tab"),
-            (5.45f, () => Btn(JoyButton.RightShoulder, false), ""),
-            (5.5f, () => Btn(JoyButton.B, true), "B back"),
-            (5.55f, () => Btn(JoyButton.B, false), ""),
-            (5.7f, () => PadCheck($"B backs out to the pause menu (settings {_settingsMenu.Visible}, pause menu {_pauseMenu.Visible})", !_settingsMenu.Visible && _pauseMenu.Visible), ""),
-            (5.8f, () => Btn(JoyButton.Start, true), ""),
-            (5.85f, () => Btn(JoyButton.Start, false), ""),
-            (6.0f, () =>
+            (6.9f, () => Btn(JoyButton.DpadDown, true), "menu down"),
+            (6.95f, () => Btn(JoyButton.DpadDown, false), ""),
+            (7.05f, () => PadCheck($"the d-pad moves down the menu (focus: {(GetViewport().GuiGetFocusOwner() as Button)?.Text})", (GetViewport().GuiGetFocusOwner() as Button)?.Text == "Settings"), ""),
+            (7.1f, () => Btn(JoyButton.A, true), "A settings"),
+            (7.15f, () => Btn(JoyButton.A, false), ""),
+            (7.3f, () => PadCheck($"A opens the settings ({_settingsMenu.Visible})", _settingsMenu.Visible), ""),
+            (7.4f, () => Btn(JoyButton.RightShoulder, true), "RB tab"),
+            (7.45f, () => Btn(JoyButton.RightShoulder, false), ""),
+            (7.5f, () => Btn(JoyButton.B, true), "B back"),
+            (7.55f, () => Btn(JoyButton.B, false), ""),
+            (7.7f, () => PadCheck($"B backs out to the pause menu (settings {_settingsMenu.Visible}, pause menu {_pauseMenu.Visible})", !_settingsMenu.Visible && _pauseMenu.Visible), ""),
+            (7.8f, () => Btn(JoyButton.Start, true), ""),
+            (7.85f, () => Btn(JoyButton.Start, false), ""),
+            (8.0f, () =>
             {
                 PadCheck($"START resumes ({_state}, menu {_pauseMenu.Visible})", _state == State.Playing && !_pauseMenu.Visible);
                 GD.Print(_padOk ? "[padtest] PASS" : "[padtest] FAIL");

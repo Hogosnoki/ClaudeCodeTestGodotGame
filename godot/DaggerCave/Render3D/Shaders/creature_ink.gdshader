@@ -33,7 +33,10 @@ void vertex() {
 float linear_depth(vec2 uv, mat4 inv_proj) {
 	float z = texture(depth_tex, uv).r;
 	vec4 v = inv_proj * vec4(uv * 2.0 - 1.0, z, 1.0);
-	return -v.z / v.w;
+	// (open sky at the far plane has no finite depth: keep it far off but finite, or the edge
+	// test turns to NaN there and the glow spreads it into a blaze)
+	float w = abs(v.w) < 1e-5 ? 1e-5 : v.w;
+	return clamp(-v.z / w, 0.0, 5000.0);
 }
 
 void fragment() {
@@ -57,7 +60,7 @@ void fragment() {
 	vec3 ny = -n[0] - 2.0 * n[1] - n[2] + n[6] + 2.0 * n[7] + n[8];
 	float edge_n = sqrt(dot(nx, nx) + dot(ny, ny));
 	float e = max(smoothstep(depth_edge, depth_edge * 2.2, edge_d), 0.65 * smoothstep(normal_edge, normal_edge * 1.7, edge_n));
-	if (e < 0.03) discard;
+	if (!(e >= 0.03)) discard; // (NaN-safe)
 	ALBEDO = ink.rgb;
 	ALPHA = ink.a * e * clamp((fade - 0.35) / 0.4, 0.0, 1.0);
 }
