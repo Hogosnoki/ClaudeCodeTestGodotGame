@@ -28,6 +28,8 @@ public partial class Main
     private long _ntXpMark;
     private int _ntSide = 1;
     private float _ntLobbyT;
+    /// <summary>This frame's real time (a window-less copy runs as fast as it can, far above 60 frames a second).</summary>
+    private float _ntDt;
     private bool _ntReady;
     private float _ntChooseT;
     private PlayerInput _ntInput;
@@ -151,6 +153,7 @@ public partial class Main
         if (_ntDone) return;
         // (real time: the checks wait on the other copy, which runs at its own pace)
         dt = (float)(dt / Math.Max(0.05, Engine.TimeScale));
+        _ntDt = dt;
         _ntT += dt;
         _ntPhaseT += dt;
         if (_ntT > 240) { NtFail($"everything done within four minutes (stuck in phase {_ntPhase})"); return; }
@@ -173,7 +176,7 @@ public partial class Main
                 if (_ntReady && Net.Count == 2 && Net.AllPicked && Net.Peers.Values.Select(p => p.Hero).Distinct().Count() == 2)
                 {
                     // (a moment for the lobby to show who's in, for its picture)
-                    if (_ntShots != "" && _ntShotsTaken.Count == 0) { _ntLobbyT += 1f / 60f; if (_ntLobbyT < 1.5f) break; NtShot("nt_lobby"); }
+                    if (_ntShots != "" && _ntShotsTaken.Count == 0) { _ntLobbyT += _ntDt; if (_ntLobbyT < 1.5f) break; NtShot("nt_lobby"); }
                     NtCheck($"a friend joined the lobby, each with their own hero ({string.Join(", ", Net.Peers.Values.Select(p => $"{p.Name}: {p.Hero}"))})", true);
                     HostStartRun();
                     NtNext();
@@ -406,7 +409,7 @@ public partial class Main
                 break;
             case 10:
                 // (the pick is offered a moment after the chest opens, and takes a press only after a beat)
-                _ntChooseT = _state == State.Choosing ? _ntChooseT + 1f / 60f : 0;
+                _ntChooseT = _state == State.Choosing ? _ntChooseT + _ntDt : 0;
                 if (_ntChooseT > 0.6f)
                 {
                     NtCheck($"the chest at my feet opened for me, with a pick (choosing {G.Player.Choosing}, safe {G.Player.Invulnerable})", G.Player.Choosing && G.Player.Invulnerable);
@@ -416,6 +419,8 @@ public partial class Main
                 else if (_ntPhaseT > 15) { NtCheck($"the chest opens for me ({_state})", false); NtSay("chest-bad no pick"); _ntPhase = 11; NtNext(); }
                 break;
             case 11:
+                // (a press the menu wasn't ready for is simply made again)
+                if (_state == State.Choosing && _ntPhaseT < 3f) { _upgradeMenu.Choose(0); break; }
                 NtCheck($"the pick is taken and play goes on ({_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", _state == State.Playing && G.Player.Stats.Stacks.Count > 0);
                 NtSay($"chest-ok {string.Join(",", G.Player.Stats.Stacks.Keys)}");
                 NtNext();
