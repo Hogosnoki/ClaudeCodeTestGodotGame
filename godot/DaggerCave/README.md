@@ -1,14 +1,15 @@
 # Dagger Deep
 
-A side-view rogue-lite in 3D: descend from a cave mouth to a dragon at the bottom of the world, as a
-sword-swinging, dodging Swordsman, a shield-bearing Warden, or a Vitalist who drains life from
-creatures and gives it to the living. You move on a 2D plane (left, right,
+A side-view rogue-lite in 3D: set off from a camp in a sunny meadow, down through the cave mouth to
+a dragon at the bottom of the world, as a sword-swinging, dodging Swordsman, a shield-bearing
+Warden, or a Vitalist who drains life from creatures and gives it to the living. You move on a 2D plane (left, right,
 up, down), but everything you see is 3D: sculpted rock, lit water and lava, skinned and animated
 creatures, and effects with real light (see **3D presentation** below). Each level is a biome with its own
 cave generator, creatures and hazards. Slay the guardian of each level's exit, then choose one of
 two ways down: a gentle one (one depth deeper) or a steep one (two deeper), each into a
-different biome. Depth 10 is the dragon's lair. Between runs, embers and rare resources buy
-permanent ranks in the upgrade trees. Up to three friends can play together online, one of each
+different biome. Depth 10 is the dragon's lair. Every run begins and ends at the camp outside the cave,
+where the heroes sit round a cooking fire; between runs, embers and rare resources buy permanent
+ranks in the upgrade trees. Up to three friends can play together online, one of each
 hero (see **Playing with friends online**).
 
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
@@ -63,31 +64,37 @@ Keep the exported files together: the executable, `DaggerDeep.pck` and the `data
 
 Up to three players, one of each hero. One player hosts; the others join with the host's code.
 
-1. On the title screen, click **Play online with friends** (or press O, or Y on a controller).
+1. On the main menu, choose **Multiplayer (online)** (or press O, or Y on a controller).
 2. The host clicks **Host a game**. The lobby shows a join code like `7K3QD-M2XP9`, with a
    Copy button: send it to your friend. (If your computer is on a home network, a second code
    for players on the same Wi-Fi shows too.)
 3. The friend pastes (or types) the code and clicks **Join**. A plain address works too
    (`192.168.1.20`, `100.101.102.103`, `my.host.name`, with `:port` if needed).
-4. In the lobby, each player takes a different hero (the one you had picked on the title
-   screen, if it's free). The host clicks **Start the descent** and everyone begins together.
+4. In the lobby, each player takes a different hero (the one you last chose at the camp fire,
+   if it's free). The host clicks **Start the descent** and everyone begins together.
 
 In the cave:
 - **Going down**: when a guardian falls, everyone still standing has to walk into the same exit
-  (E or up at the doorway). The first to arrive waits there ("Waiting at the exit: 1 of 2
+  (interact, E or LB, or up at the doorway). The first to arrive waits there ("Waiting at the exit: 1 of 2
   here"); walking away cancels.
 - **Falling and reviving**: a fallen hero stays down. A friend brings them back by standing
-  beside them and holding interact (E, or up on the stick) for two seconds; they get up with a
+  beside them and holding interact (E, or LB on a controller; not up, so it works while you
+  tread water beside them) for two seconds; they get up with a
   third of their health. If everyone is down at once, the run is over for the whole party. A
   fallen hero who is still down when the others go down an exit comes along, back on their feet.
 - **Sharing**: experience is shared (everyone gains what anyone collects), each player levels
-  up and picks their own upgrades, and a chest's pick goes to whoever reaches it first. Hearts
+  up and picks their own upgrades, and a chest's pick goes to whoever opens it first (interact at the chest). Hearts
   and potions go to whoever touches them. Kills count for whoever landed the blow.
 - **Harder caves**: creatures have 50% more health for each extra player, and the cave holds
   35% more of them.
 - **Pausing** opens the menu but doesn't stop the game (the others are still playing), and
   picking an upgrade keeps you safe while you choose. Leaving from the pause menu takes you
-  back to the title; if the host leaves, the game ends for everyone.
+  back to the main menu; if the host leaves, the game ends for everyone.
+- **Walking out**: at depth 0, the tunnel you came in by leads back out to the daylight. When
+  everyone still standing waits there (interact at the bright end), you all walk out together:
+  the run ends on the spot, keeping nothing from it, and you're back in the lobby.
+- **Guardians**: one woken by a friend on the far side of the cave doesn't pull your view away
+  from your own hero; a notice says so, and its chamber is marked EXIT on your map.
 - After a run the camp screen shows how it went, and Enter (A) goes back to the lobby, still
   together, for the next descent.
 
@@ -122,9 +129,9 @@ Handy starting points:
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the stat list is `Upgrades.LevelUp` |
-| How fast it gets hard | `Difficulty.DoublingMinutes`, `Difficulty.TempoCap` |
+| How fast it gets hard | `Difficulty.DepthGrowth`, `Difficulty.DoublingMinutes` (tougher creatures), `Difficulty.PacePerDepth`, `Difficulty.PaceMinutesPerStep` (more of them), `Difficulty.TempoCap` |
 | How busy it is | `Spawning.IntervalStart`, `Spawning.RateDoublingMinutes`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
-| Map size | `Cave.Width`, `Cave.Height`, `Cave.TunnelBudget` (keep these roughly in proportion) |
+| Map size | each biome's `W` and `H` in `Core/Biomes.cs`, then `Cave.WidthScale` (1.5: every level is half again as wide, the same height; the dragon's arena keeps its size) |
 | Enemy brains | `Brains.*` (rewards, learning rate, when brains take over) and the `BrainLocks` flags |
 
 ## Training the enemy brains
@@ -242,16 +249,21 @@ The panel's columns:
 | Attack: swing (swordsman, warden) / drain (vitalist) | Left click, toward the mouse (J attacks toward your held direction) | X, toward the right stick if held, otherwise the left stick |
 | Ability: Charged Strike / shield dash / heal | Right click (or K) | RB |
 | Second ability: heaving swing / shield bash / rupture | F (or middle click, or I) | RT |
-| Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B, LB or LT; the shield points along the right stick, or the way you face |
+| Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B or LT; the shield points along the right stick, or the way you face |
 | Raise the Warden's shield without a button | - | Push the right stick: the shield rises by itself and points along it, even behind you while you run the other way |
-| Go down an exit | E, or W / up, at the doorway | Left stick or D-pad up at the doorway |
-| Bring a fallen friend back (online) | Hold E (or W / up) beside them | Hold the stick up beside them |
+| Interact: open a chest, go down an exit, bring a friend back | E | LB |
+| Open a chest | E beside it (walking into it no longer opens it) | LB |
+| Go down an exit | E, or W / up, at the doorway | LB, or the stick / D-pad up, at the doorway |
+| Bring a fallen friend back (online) | Hold E beside them | Hold LB beside them |
+| Leave the cave (depth 0: ends the run, keeping nothing) | E at the daylight at the far left | LB |
 | Drink a potion | Q | Y |
-| Choose hero | Left / right on the title or death screen, or click a card | D-pad or stick left / right |
-| Play online | O on the title or camp screen, or click Play online with friends | Y |
+| Main menu | Up / down and Enter, or click | D-pad or stick up / down, then A |
+| Choose hero (at the camp fire) | Left / right, or click the arrows | D-pad or stick left / right |
+| Descend into the cave | Enter (or R), or click Descend into the cave | A |
+| Back to the main menu (from the fire) | Esc | B |
+| Play online | Multiplayer on the main menu (or O) | Y |
 | Pause (and settings) | Esc | Start |
 | Pick upgrade | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
-| Start / restart | Enter or click / R | A |
 | Enemy training (debug) | F9 on/off, F10 save now, F8 move labels | - |
 
 Every action except the debug keys can be rebound, for keyboard and mouse and for the controller
@@ -260,7 +272,7 @@ separately (up to three inputs each): pause, then **Settings**, **Controls**.
 Resizing or maximizing the window scales the whole picture up, keeping its 16:9 shape
 (letterboxed if the window's shape differs).
 
-**Settings** (pause, then Settings; also Esc / Start on the title screen). Everything takes
+**Settings** (pause, then Settings; or Settings on the main menu). Everything takes
 effect at once and is kept in `user://settings.cfg`:
 - **Graphics**: window mode (windowed, borderless, fullscreen), vsync, a frame-rate cap, render
   scale (with FSR upscaling), shadows, volumetric fog, bloom, ambient occlusion, ink outlines,
@@ -275,14 +287,24 @@ and damage taken while a controller is active.
 
 ## What's in it
 
-**The run**. You start at the Cave Entrance (depth 0). Every level ends in a guardian's chamber
+**The camp**. The game opens on the main menu, over the camp outside the cave: a green meadow
+under a blue sky, a cooking pot over the fire, and the cave's great dark mouth in a mossy cliff.
+**Single player** brings you in to the fire, where the three heroes sit on logs; choose one (the
+chosen hero stands up) and descend, and the view drifts into the cave mouth as the run begins.
+The main menu also has multiplayer, settings, a button to support the game on Ko-fi, and quit.
+
+**The run**. You start at the Cave Entrance (depth 0), with the tunnel you came in by behind you:
+at its far left end is the daylight, so bright it washes out to white. Interact there to walk
+back out (only the interact button takes you, never a stray up): the run ends on the spot and
+nothing from it is kept, not its embers, finds or even that it happened. Every level ends in a guardian's chamber
 (marked EXIT on the minimap); killing the guardian drops a chest and opens the exits: stone
 doorways onto passages that go down into the dark. Each shows which biome it leads to (a faint
 breath of that biome's colour comes up from far below) and how deep: the gentle way goes one depth
 down (one chevron on the keystone), the steep way two (two chevrons; harder, but fewer levels to
 the dragon). Nobody is taken down until they choose to go: stand at the doorway and press E or
 up, so an exit that opens under your feet can't whisk you away from the guardian's chest. The last levels lead into the Dragon's Lair at
-depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp screen.
+depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp fire, with
+how the run went.
 
 **Biomes** (`Core/Biomes.cs`, generators in `Cave/CaveGenerator.cs` and `Cave/BiomeGen.cs`).
 Each biome sets its generator and its parameters, palette, darkness, liquid, hazards, spawn tables,
@@ -290,7 +312,7 @@ mini-bosses and guardian:
 
 | Depth | Biome | Cave | Creatures | Hazards / features | Guardian |
 | --- | --- | --- | --- | --- | --- |
-| 0 | Cave Entrance | one long winding corridor with side pockets; no darkness; few enemies | spiders, bats, rats | - | The Web-Mother (a weak ground spider that calls its brood) |
+| 0 | Cave Entrance | one long winding corridor with side pockets, and the way back out to the daylight behind you; no darkness; few enemies | spiders, bats, rats | - | The Web-Mother (a weak ground spider that calls its brood) |
 | 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Den Mother (bear) |
 | 1-3 | Root-Choked Tunnels (the deep canopy) | branching tunnels through rock riven by massive tree roots coming down from the surface world; pools of murky water low down | rats, spiders, rot frogs, bats, mire fish, root eels | grasping roots that slow you and, if they hold you long enough, snag your weapon for a moment (two cuts clear them); thick, rotting water that leaves you gasping 50% sooner and swimming 20% slower | The Rotback (bear) |
 | 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, hornets, spiders | webs that slow you (cut them) | The Brood Queen (scorpion) |
@@ -304,9 +326,17 @@ mini-bosses and guardian:
 | 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out), fire vents | The Molten Colossus |
 | 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
 
+Every level is half again as wide as its biome's base size and just as tall (`Cave.WidthScale`;
+the dragon's arena keeps its shape), with more rooms and tunnels to fill it.
+
 Every generator ends with the same pass. A movement-aware reachability check (walk, jump, fall and
-swim over cells) looks for any spot you could fall into but not climb out of, fixes it with
-stepping-stone ledges, and retries the seed if needed. The exit chamber must be reachable.
+swim over cells) looks for any spot you could fall into but not climb out of and fixes it with
+stepping-stone ledges; if the guardian's chamber can't be reached at all, it builds a stair of
+ledges up to it; any repair that would wall off somewhere you could already go is undone; and the
+seed is retried if needed. The exit chamber must be reachable. (A lone cell or two the coarse
+model can slip into doesn't count as a trap.) Zig-zag passages between rooms start out away from
+the room they leave and turn back at other rooms' walls, so their climbs are never left hanging
+over a room's air.
 
 **The walker caves** (`CaveGenerator`) carve tunnels with branching "walkers" into a scalar
 field. `CaveView` then runs marching squares over that field, which makes every wall an angled
@@ -324,13 +354,13 @@ the start becomes the exit chamber.
 
 **The heroes** (`Player/`: `Player.cs` for what they share, `Player.Blade.cs` for the sword and
 shortsword, `Player.Abilities.cs` for ability charges, `Player.Net.cs` for online play, and one
-file per hero). Pick one on the title screen, or switch on the death screen, with left / right.
+file per hero). Pick one at the camp fire with left / right (the chosen hero stands up).
 They complement each other in a party (online, one of each): the Swordsman deals the damage, the
 Warden takes it for others, the Vitalist keeps everyone going.
 
 | | Swordsman | Warden | Vitalist |
 | --- | --- | --- | --- |
-| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage the instant you cast, every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives |
+| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives |
 | Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown |
 | Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Shield dash: a guarded charge that stops at the first projectile or attacking creature it meets, swallowing the projectile and breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink |
 | Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; the first creature in front takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown |
@@ -417,9 +447,9 @@ launching you upward.
 | Shield dash (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Battering Charge (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
 | Shield bash (warden) | Hard Shoulder (recharges 20% faster) |
 | Spells (vitalist) | Many Mouths (the drain also takes life from one more creature near its target, at 60%; twice), Far Reach (+25% drain and rupture reach), Hungering Spirit (+50% alimus from damage), Deep Well (+15 alimus capacity), Burst Veins (the rupture's burst reaches 40% farther and splashes for 50% more), Thin Blood (ruptures cost 20% less), Deep Mending (+30% heal), Frugal Rites (heals cost 25% less), Spreading Blight (+30% hex radius), Lingering Hex (+2 s), Withering Hex (hexed creatures rot for 6 health a second) |
-| Movement (everyone) | wall jump, double jump *or* air dash in any direction (you can only have one), move speed, jump height, swim speed, breath |
-| Everyone | attack speed, damage; max HP, longer invulnerability after being struck (Resilience), damage reduction, heal on kill, XP magnet |
-| Risk and reward (everyone, marked in violet) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, but each use takes twice as long to come back) |
+| Movement (everyone) | wall jump, double jump *or* air dash in any direction (you can only have one; both are rare, and only offered once you have a jump upgrade, for the double jump, or a speed upgrade, for the air dash), move speed, jump height, swim speed, breath |
+| Everyone | attack speed, damage; max HP, longer invulnerability after being struck (Resilience), damage reduction, heal 1 HP on every kill, XP magnet |
+| Risk and reward (everyone, marked in violet; each is taken once and never offered again) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, but each use takes twice as long to come back), Glass Edge (deal 20% more damage, take 25% more), Stoneskin (take 25% less damage, deal 20% less) |
 
 **Enemies** (`Enemies/`). They follow some etiquette (`Tune.Combat`):
 - The first time a creature wants to attack, it waits 1 s (`FirstAttackDelay`), so nothing
@@ -437,16 +467,16 @@ Each one moves differently:
 | Bat | Roosts on the ceiling, then swoops at you on a wobbling path and retreats. |
 | Frog | Hops in arcs and lashes its tongue from range. It can also swim. |
 | Goblin | Runs at you, hops gaps and clubs you. The slinger variant keeps its distance and lobs rocks. |
-| Spider | Crawls along the ceiling and drops on a silk thread when you pass underneath. If you cut the thread, it pounces along the ground. |
+| Spider | Crawls along the ceiling and drops on a silk thread when you pass underneath. If you cut the thread, it pounces along the ground. In water it swims after you, legs rowing, and darts in to bite. |
 | Magma Brute | Leaves burning puddles and lobs lava globs. Water boils it away. |
 | Golem | Slow and almost impossible to knock back. It telegraphs a ground slam that sends shockwaves along the floor, which you can jump over. |
 | Cave Fish | Darts at you in water. It also leaps out at you on shore, then flops around on land. |
 | Urchin | Stationary on the seabed and pulses its spikes outward. Common: they often sit beneath schools of fish. |
 | Eel | Hides in a wall burrow and can't be hurt there. It lunges along a line at swimmers. |
 | Rat | Runs in packs, crouches for a quarter second and lunges with a bite. |
-| Bear | Rears up for a heavy swipe, or roars and charges, stunning itself if it hits a wall. |
+| Bear | Rears up for a heavy swipe, or roars and charges, stunning itself if it hits a wall. Treading water it can't swipe or charge: it paddles after you and lunges in to bite. |
 | Scorpion | Scuttles close, arches its tail and stings forward and up. |
-| Hornet | Hovers above you, takes aim with a buzz, then dives in a straight line. |
+| Hornet | Hovers above you with a droning buzz, takes aim, then dives in a straight line. |
 | Skeleton | Plods forward and slashes. Sometimes a felled skeleton pulls itself back together at half health. |
 | Sporeling | Waddles close and puffs a choking spore cloud; bursts into one when killed. |
 | Frost Wraith | A haunting more than a hunter: it drifts at the edge of the light, now and then looms in over you with a shriek (arms flung wide, jaw open, eyes blazing, but doing no harm), and only rarely, after a long and obvious wind-up, looses a single ice shard (an elite, a fan of three). Frail once you reach it. |
@@ -473,16 +503,16 @@ Progress saved in `user://meta.json`:
 - **The Path** (Obsidian Pearls): milestones every 7, 6 then 5 levels; +5 / +7 / +8% experience;
   the same for elites.
 
-Open the trees with U (controller: BACK) on the title or camp screen.
+Open the trees at the camp fire: U (controller: BACK), or the Upgrade trees button.
 
 **Spawning and difficulty**. Enemies come from two sources:
 - **Residents** sit at points scattered through the tunnels. They are only ever created while out
   of view, so they are already there when you arrive. Early in a run most points stay empty
-  (18% filled). They fill up over 16 minutes and respawn slowly, so exploring stirs up fewer
+  (18% filled, 5% more per level of depth). They fill up over 22 minutes and respawn slowly, so exploring stirs up fewer
   enemies than time does.
 - **Entrances** arrive in waves on a timer. The first wave comes at 25 s with one enemy. The gap
-  between waves halves every 8 minutes (`Spawning.RateDoublingMinutes`), down to 5 s, and waves
-  grow with time.
+  between waves starts at 26 s and halves every 12 minutes (`Spawning.RateDoublingMinutes`), down
+  to 7 s, and waves grow slowly with the pace (below).
   - Each newcomer gets its own entry point from a different direction, in a band just outside
     the screen edges, and every entry point is reachable along the tunnels.
   - What arrives suits the spot: fish in water, bats where there's no floor, walkers on the
@@ -493,9 +523,11 @@ scales their speed, gravity and jump height together, while aimed leaps (the fis
 ambush, the Colossus's slam) still land where they aim. Magma puddles burn for 3, and blue fish
 bite softer than orange ones.
 
-Difficulty rises with depth and, more slowly, with play time: enemy health and damage are
-1.13^depth x 2^(minutes/30) (`Tune.Difficulty`). Enemy speed, attack rate and animation speed rise
-by a fifth of that, capped at 1.6x so fights stay readable. Spawn intensity grows with both too.
+Difficulty rises with depth and, more slowly, with play time, and mostly through tougher creatures
+rather than more of them: enemy health and damage are 1.15^depth x 2^(minutes/27)
+(`Tune.Difficulty`). Enemy speed, attack rate and animation speed rise by a fifth of that, capped at
+1.6x so fights stay readable. How many come (the pace) grows gently: 0.15 per level of depth plus 1
+per 20 minutes, capped at 2.4.
 
 **Sprites and the animation clock** (`Art/`, generated by `tools/sprites/`). The 2D game this grew
 from drew every character as a sprite-sheet animation played at 24 fps. The sheets are still
@@ -574,7 +606,8 @@ The finisher gets one more frame of wind-up and follow-through. The speeds are
 
 **Presentation**: see **3D presentation** below.
 
-All sound effects and both music loops (ambient exploration and boss) are synthesized at startup
+All sound effects and the three music loops (a sunny, major-key one for the camp, with birdsong and
+the fire's crackle; ambient exploration; and the boss) are synthesized at startup
 (`Audio/`). Besides the sprite sheets in `Art/`, the only asset files are the rock and ground
 textures in `Assets/` (public domain, from Poly Haven; see `Assets/CREDITS.md`). Every 3D model
 is built by code when the game runs.
@@ -628,8 +661,16 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   exit is a dressed-stone doorway in a knuckle of rock; its opening is one quad whose shader traces
   each view ray into a passage behind it (`fx_stairwell.gdshader`): stone ribs, each set lower than
   the last, stepping down into the dark, and past them a faint glow of the biome below.
-- **Menus**: the three hero cards on the title and death screens show the heroes' 3D models idling
-  under studio lights, each in a small viewport of its own (`UI/HeroPortrait.cs`).
+- **The camp** (`Render3D/Camp/CampScene.cs`): a world of its own, drawn in a viewport behind the
+  menus (so the cave's lights and fog stay out of it) and switched off while you're below: a
+  procedural sky with a warm afternoon sun and shadows, a meadow of rolling hills with thousands
+  of swaying grass tufts and drifts of wild flowers, trees and faceted boulders, fair-weather
+  clouds, blue mountains on the horizon, a fire of billboard flames with sparks, smoke and a
+  steaming pot, and the cave mouth: an arch in the cliff whose tunnel fades to black. The heroes
+  are their in-game models on logs round the fire (a sitting pose in `HeroDesign`), their
+  lanterns unlit in daylight.
+- **Menus**: the hero cards in the online lobby show the heroes' 3D models idling under studio
+  lights, each in a small viewport of its own (`UI/HeroPortrait.cs`).
 
 Quitting (closing the window, or a test finishing) goes through `Core/SafeQuit.cs`, which first
 lets the renderer's queued background shader compiles drain: Godot 4.4 can otherwise hang at exit
@@ -671,8 +712,9 @@ node (reliable and unreliable), over Godot's ENet peer.
 The harness takes command-line user args after `--`:
 
 ```
-# 12 seeds per biome: generation time, retries, trap cells (must be 0), a reachable exit;
-# saves a map image of each biome (add --biome=NAME for just one)
+# 12 seeds per biome: generation time, retries, trap cells (at most 6), a reachable exit;
+# saves a map image of each biome (add --biome=NAME for just one; --genverbose prints every
+# attempt, and --genimage=SEED saves that seed's map, or that attempt's with --genverbose)
 godot --headless --path godot -- --gentest
 
 # The autopilot bot plays for 60 s and saves a screenshot every 3 s
@@ -730,7 +772,7 @@ and prints ok / FAIL for each:
   the right stick raising it by itself; the shield dash swallowing a projectile, breaking off an
   attack it meets, and passing a creature that isn't attacking; the shield bash's damage, its
   cost to the shield, the stun, and its cooldown.
-- Vitalist: the drain striking the instant it's cast and its mote paying back a tenth as alimus
+- Vitalist: the drain striking as the staff comes forward and its mote paying back a tenth as alimus
   on arrival; the hex, and hexed creatures taking more damage; the reserve's size; the heal's
   cost and amount; no heal when no one is hurt; the rupture seizing its target, then bursting on
   it and splashing a creature beside it but not one far off, and refused without the alimus;
@@ -752,10 +794,12 @@ machine), and has them check what travels between them: the lobby and each playe
 the same cave in both games, a friend's swing landing on the host's creature (and credited to
 them), a creature's blow taken in the friend's game, shared experience, a chest opened by the
 friend who reached it (the pick theirs, the host's copy open too), a fallen friend brought back,
-going down an exit together into the same next level, and the run ending for everyone. It exits
+going down an exit together into the same next level (a Fossil Graveyard, where each game's
+camera must stay on its own hero), the run ending for everyone, and then, back in the lobby, a
+second run that everyone walks straight out of through the cave mouth, back to the lobby. It exits
 0 only if both pass; the CI build runs it against the exported Linux build. Add
 `--ntshots=DIR` to the host (run with a window) for screenshots of the lobby, the fight, a
-revive, the exit and the camp; `--onlineshot=DIR` saves the title, the online menu and a lobby.
+revive, the exit and the camp; `--onlineshot=DIR` saves the main menu, the online menu and a lobby.
 
 `--menushot=DIR` saves the pause menu and each settings tab. `--bosstest` (headless) checks, for
 every biome and 24 seeds, that the guardian's chamber has reachable floor that wakes it and that
@@ -764,7 +808,17 @@ the guardian stands where the hero can reach it.
 Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,
   turn, stop, jump, land, slashes, dodge, ability, hurt) and saves a frame every 1/20 s.
-- `--padtest` drives the game with synthetic controller events: start, move, swing, Charged
+- `--fronttest=DIR` drives the way in with the same actions keys and controllers send: the main
+  menu, choosing a hero at the fire, descending to depth 0, a death back at the camp, and back to
+  the menu, with a screenshot of each stage. `--campshot=DIR` renders the camp from the menu's
+  view, from the fire with each hero chosen, and on the way to the cave.
+- `--scenario=NAME` stages one situation and checks it: `water` (a spider and a bear swim after
+  the hero and attack in the water), `mouth` (the way out at depth 0: up doesn't take you,
+  interact does, and nothing from the run is kept), `fossilcam` (the camera keeps the hero in view
+  in the Fossil Graveyards), and `drain` with `--hero=vitalist` (a frame-by-frame picture of the
+  drain's burst). Add `--shots=DIR` for screenshots.
+- `--musicdump=DIR` saves the three music loops as `.wav` files.
+- `--padtest` drives the game with synthetic controller events: the main menu and the fire, move, swing, Charged
   Strike, dodge, the heaving swing, pick an upgrade from the level-up cards, pause, move through
   the pause menu into the settings and back out, and unpause. Its presses are a twentieth of a
   second long, so on a slow software renderer run it with `--fixed-fps 60` too. It prints ok /

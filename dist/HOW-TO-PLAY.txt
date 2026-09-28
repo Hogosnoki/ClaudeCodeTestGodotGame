@@ -1,8 +1,11 @@
 DAGGER DEEP
 ===========
 
-A rogue-lite descent from the cave mouth to the dragon at the bottom of the world,
-alone or with up to two friends online.
+A rogue-lite descent from a sunny camp, down through the cave mouth to the dragon at
+the bottom of the world, alone or with up to two friends online.
+
+The game opens on the main menu. Single player takes you to the camp fire: choose a
+hero with left / right, then descend (ENTER, or A on a controller).
 
 
 STARTING THE GAME
@@ -21,7 +24,7 @@ PLAYING WITH A FRIEND
 ---------------------
 Both of you need this same copy of the game (send your friend the zip you got).
 
-1. On the title screen, click "Play online with friends" (or press O, or Y on a controller).
+1. On the main menu, choose "Multiplayer (online)" (or press O, or Y on a controller).
 
 2. The HOST clicks "Host a game". A join code appears, like 7K3QD-M2XP9.
    Click Copy and send it to your friend (a chat message is fine).
@@ -34,11 +37,12 @@ Both of you need this same copy of the game (send your friend the zip you got).
 
 In the cave:
   * Go down together: when an exit opens, everyone still standing walks into it
-    (press E or up there). The first to arrive waits for the others.
-  * A fallen friend can be brought back: stand beside them and hold E
-    (or hold up on the stick).
+    (press E, LB on a controller, or up there). The first to arrive waits for the others.
+  * A fallen friend can be brought back: stand beside them and hold E (LB on a controller).
     If everyone falls, the run is over.
-  * Experience is shared. A chest's pick goes to whoever reaches it first.
+  * Experience is shared. Chests open with E (LB); the pick goes to whoever opens it first.
+  * At the very start, the daylight at the far left is the way back out: if everyone
+    waits there (E / LB), you all walk out and the run ends, keeping nothing.
   * Pausing doesn't stop the game online (the others keep playing).
 
 If your friend can't connect:
@@ -55,9 +59,10 @@ If your friend can't connect:
     networks too for friends over the internet).
 
 
-CONTROLS (change them in Settings: ESC / START)
------------------------------------------------
+CONTROLS (change them in Settings: on the main menu, or pause with ESC / START)
+-------------------------------------------------------------------------------
 Keyboard + mouse: A / D move, SPACE jump, LEFT CLICK attack, RIGHT CLICK ability,
-F second ability, SHIFT dodge / shield / hex, E exits and reviving, Q potion.
+F second ability, SHIFT dodge / shield / hex, E interact (chests, exits, reviving,
+the way out), Q potion.
 Controller: left stick move, A jump, X attack, RB ability, RT second ability,
-B dodge / shield / hex, Y potion, right stick aims.
+B or LT dodge / shield / hex, LB interact, Y potion, right stick aims.
