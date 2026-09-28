@@ -29,6 +29,8 @@ public sealed class PlayerStats
     public float SwimSpeed = 1f;
     public float BreathMax = Tune.Hero.BreathSeconds;         // seconds
     public float DamageReduction = 0f;   // 0..1
+    /// <summary>Everything that strikes you lands this many times as hard (the risk-reward bargains).</summary>
+    public float DamageTakenMult = 1f;
     public float LifeSteal = 0f;         // fraction of damage dealt
     public float HealOnKill = 0f;        // hp per kill
     public int KnockbackLevel = 0;
@@ -105,6 +107,8 @@ public sealed class Upgrade
     public string Icon;
     public int MaxStacks = 1;
     public string Requires;
+    /// <summary>Another condition it waits for (a rare movement ability waits for its humbler cousin).</summary>
+    public Func<PlayerStats, bool> When;
     public string[] Excludes = Array.Empty<string>();
     public float Weight = 1f;
     public Action<PlayerStats, Player> Apply;
@@ -188,8 +192,11 @@ public static class Upgrades
 
         // --- Movement (all) ---
         new() { Id = "walljump", Name = "Wall Kick", Desc = "Jump off walls. Hold toward a wall to slide down it slowly.", Icon = "move", Tier = UpgradeTier.Ability, Apply = (s, p) => s.WallJump = true },
-        new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DoubleJump = true },
-        new() { Id = "airdash", Name = "Air Dash", Desc = "Jumping in mid-air dashes in any direction you hold.", Icon = "move", Excludes = new[] { "djump" }, Tier = UpgradeTier.Ability, Apply = (s, p) => s.AirDash = true },
+        // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)
+        new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
+                When = s => s.StackOf("jump") + s.StackOf("lv_jump") + s.StackOf("rr_bones") > 0, Apply = (s, p) => s.DoubleJump = true },
+        new() { Id = "airdash", Name = "Air Dash", Desc = "Jumping in mid-air dashes in any direction you hold.", Icon = "move", Excludes = new[] { "djump" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
+                When = s => s.StackOf("speed") + s.StackOf("lv_move") + s.StackOf("m_move") > 0, Apply = (s, p) => s.AirDash = true },
         new() { Id = "speed", Name = "Light Boots", Desc = "+10% movement speed.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.MoveSpeed += 0.10f },
         new() { Id = "jump", Name = "Spring Step", Desc = "+12% jump height.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.JumpMult += 0.12f },
         new() { Id = "swim", Name = "Webbed Gloves", Desc = "+25% swim speed.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.SwimSpeed += 0.25f },
@@ -200,14 +207,17 @@ public static class Upgrades
         new() { Id = "resilience", Name = "Resilience", Desc = "Stay invulnerable 0.2 s longer after being struck.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HurtInvuln += 0.2f },
         new() { Id = "armor", Name = "Toughened Hide", Desc = "Take 10% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = Math.Min(0.6f, s.DamageReduction + 0.10f) },
         new() { Id = "leech", Name = "Thirsty Blade", Desc = "Heal 4% of damage dealt.", Icon = "life", For = Blades, MaxStacks = 3, Apply = (s, p) => s.LifeSteal += 0.04f },
-        new() { Id = "onkill", Name = "Trophy Hunter", Desc = "Heal 3 HP on every kill.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HealOnKill += 3f },
+        new() { Id = "onkill", Name = "Trophy Hunter", Desc = "Heal 1 HP on every kill.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HealOnKill += 1f },
         new() { Id = "magnet", Name = "Lodestone", Desc = "Pull experience from further away.", Icon = "life", MaxStacks = 2, Weight = 0.6f, Apply = (s, p) => s.MagnetMult += 0.6f },
 
-        // --- Risk and reward (all): something given, something taken ---
-        new() { Id = "rr_heavy", Name = "Heavy Hand", Desc = "Your attacks come 34% slower, but hit 66% harder.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.AttackSpeed *= 0.66f; s.PrimaryDamageMult *= 1.66f; } },
-        new() { Id = "rr_bones", Name = "Hollow Bones", Desc = "Jump 20% higher, but swim 40% slower.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.JumpMult *= 1.2f; s.SwimSpeed *= 0.6f; } },
-        new() { Id = "rr_gills", Name = "Gill-Touched", Desc = "Swim 50% faster, but run 20% slower.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.SwimSpeed *= 1.5f; s.MoveSpeed *= 0.8f; } },
-        new() { Id = "rr_reserve", Name = "Twin Reserve", Desc = "Your {ability} holds a second use, but each use takes twice as long to come back.", Icon = "risk", Weight = 0.7f, Apply = (s, p) => { s.AbilityCharges += 1; s.AbilityCdMult *= 2f; p.SyncCharges(); } },
+        // --- Risk and reward (all): something given, something taken. Each can be taken once:
+        // they never stack, and once you have one it isn't offered again ---
+        new() { Id = "rr_heavy", Name = "Heavy Hand", Desc = "Your attacks come 34% slower, but hit 66% harder.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.AttackSpeed *= 0.66f; s.PrimaryDamageMult *= 1.66f; } },
+        new() { Id = "rr_bones", Name = "Hollow Bones", Desc = "Jump 20% higher, but swim 40% slower.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.JumpMult *= 1.2f; s.SwimSpeed *= 0.6f; } },
+        new() { Id = "rr_gills", Name = "Gill-Touched", Desc = "Swim 50% faster, but run 20% slower.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.SwimSpeed *= 1.5f; s.MoveSpeed *= 0.8f; } },
+        new() { Id = "rr_reserve", Name = "Twin Reserve", Desc = "Your {ability} holds a second use, but each use takes twice as long to come back.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.AbilityCharges += 1; s.AbilityCdMult *= 2f; p.SyncCharges(); } },
+        new() { Id = "rr_glass", Name = "Glass Edge", Desc = "Deal 20% more damage, but take 25% more.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.DamageMult *= 1.2f; s.DamageTakenMult *= 1.25f; } },
+        new() { Id = "rr_stone", Name = "Stoneskin", Desc = "Take 25% less damage, but deal 20% less.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.DamageTakenMult *= 0.75f; s.DamageMult *= 0.8f; } },
     };
 
     /// <summary>Small, stackable stat nudges offered on level-up.</summary>
@@ -278,6 +288,7 @@ public static class Upgrades
         if (u.For != null && Array.IndexOf(u.For, s.Hero) < 0) return false;
         if (s.StackOf(u.Id) >= u.MaxStacks) return false;
         if (u.Requires != null && s.StackOf(u.Requires) == 0) return false;
+        if (u.When != null && !u.When(s)) return false;
         foreach (var ex in u.Excludes) if (s.StackOf(ex) > 0) return false;
         return true;
     }

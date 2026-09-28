@@ -144,7 +144,7 @@ public partial class Player
     private float ApplyChip(float through, Enemy source)
     {
         if (through <= 0.01f) return 0;
-        float dmg = through * (1f - Stats.DamageReduction);
+        float dmg = through * (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
         if (source != null && GodotObject.IsInstanceValid(source)) source.CreditDamage(dmg);
         TakeRawDamage(dmg, "chip");
         _invuln = Math.Max(_invuln, 0.1f);

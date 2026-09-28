@@ -43,7 +43,8 @@ public static partial class CaveGenerator
 
     public static CaveData Generate(BiomeDef biome, int seed)
     {
-        B = biome; W = biome.W; H = biome.H;
+        // (the dragon's lair is a set piece: an antechamber and one arena, as drawn)
+        B = biome; W = biome.Style == GenStyle.Arena ? biome.W : (int)MathF.Round(biome.W * Tune.Cave.WidthScale); H = biome.H;
         CaveData best = null;
         for (int attempt = 0; attempt < 12; attempt++)
         {
@@ -105,7 +106,7 @@ public static partial class CaveGenerator
         var beaches = new List<Vector2>();
         var queue = new Queue<Walker>();
         int total = 0;
-        int budget = B.TunnelBudget;
+        int budget = (int)(B.TunnelBudget * Tune.Cave.WidthScale);
 
         float sx = W * 0.5f + Rnd(-W * 0.08f, W * 0.08f);
         float sy = H * 0.15f + Rnd(-2, 3);

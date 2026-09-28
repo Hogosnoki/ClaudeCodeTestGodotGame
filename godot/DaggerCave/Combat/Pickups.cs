@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace DaggerCave;
@@ -184,28 +185,48 @@ public partial class PotionPickup : Node2D
     }
 }
 
-/// <summary>Treasure chest: opening it heals and offers a pick of three upgrades.</summary>
+/// <summary>
+/// Treasure chest: opening it (the interact button, standing at it) heals and offers a pick of
+/// three upgrades. Walking past no longer opens it by accident.
+/// </summary>
 public partial class Chest : Node2D
 {
     private bool _open;
     private float _t, _openT, _askT;
     public bool Open => _open;
     public float OpenT => _openT;
+    /// <summary>Every chest in the level (for the prompt and the interact button).</summary>
+    public static readonly List<Chest> All = new();
 
     public override void _Ready() { ZIndex = 2; }
+    public override void _EnterTree() => All.Add(this);
+    public override void _ExitTree() => All.Remove(this);
+
+    /// <summary>Is a hero standing at <paramref name="p"/> close enough to open it?</summary>
+    public bool Reaches(Vector2 p) => !_open && p.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 30;
+
+    /// <summary>The unopened chest a hero at <paramref name="p"/> can open, if any.</summary>
+    public static Chest At(Vector2 p)
+    {
+        foreach (var c in All) if (GodotObject.IsInstanceValid(c) && c.Reaches(p)) return c;
+        return null;
+    }
+
+    /// <summary>The hero pressed interact at it (online, the host says who gets it: the first to ask).</summary>
+    public void Interact()
+    {
+        if (_open) return;
+        if (!Net.Online) { OpenBy(Net.Me); return; }
+        if (_askT > 0) return;
+        _askT = 1f;
+        NetSync.AskChest(this);
+    }
 
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
         _t += dt; _askT -= dt;
         if (_open) { _openT += dt; QueueRedraw(); return; }
-        var p = G.Player;
-        if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 24)
-        {
-            // online, the host says who gets it (the first to reach it)
-            if (Net.Online) { if (_askT <= 0) { _askT = 1f; NetSync.AskChest(this); } }
-            else OpenBy(Net.Me);
-        }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);
         if (G.Chance(0.015f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-10, 10), -G.Range(4, 12)), new Color(1f, 0.95f, 0.6f), 6);
         QueueRedraw();

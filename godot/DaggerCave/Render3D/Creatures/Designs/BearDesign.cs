@@ -127,11 +127,42 @@ public sealed class BearDesign : QuadrupedDesign
             case "hurt": st.NeckUp -= 20f * Key(t, (0, 0), (0.2f, 1), (1, 0)); st.Jaw = 35f; break;
             case "death": st = Dead(st, W3.Smooth01(t), 0.35f); Apply(p, st); p.Add(hips, 75f * W3.Smooth01(t), 0, 0); return;
         }
-        if (c == "idle" && (a.Owner as Enemy)?.Dead == false && speed < 0.2f)
+        if (a.InWater && c is "walk" or "idle" or "roar") st = Swim(st, c, t, time);
+        else if (c == "idle" && (a.Owner as Enemy)?.Dead == false && speed < 0.2f)
         {
             // stunned bears sway their heads
             st.HeadYaw += 3f * MathF.Sin(time * 5f);
         }
         Apply(p, st);
+    }
+
+    /// <summary>
+    /// In water: treading, head held up out of it, forepaws paddling in turn and hind legs
+    /// kicking; its roar clip is a bite there (the head drawn back, jaws wide, then a lunge that
+    /// snaps them shut at the clip's midpoint, when the bite lands).
+    /// </summary>
+    private static Stance Swim(Stance st, string c, float t, float time)
+    {
+        float stroke = time * (c == "walk" ? 6.5f : 4f);
+        st.Pitch = 16f;
+        st.FR = 45f + 50f * MathF.Sin(stroke); st.FRb = 35f + 30f * MathF.Max(0f, MathF.Cos(stroke));
+        st.FL = 45f + 50f * MathF.Sin(stroke + MathF.PI); st.FLb = 35f + 30f * MathF.Max(0f, MathF.Cos(stroke + MathF.PI));
+        st.HR = -st.Pitch + 28f * MathF.Sin(stroke + 1.6f); st.HRb = 25f;
+        st.HL = -st.Pitch + 28f * MathF.Sin(stroke + 1.6f + MathF.PI); st.HLb = 25f;
+        st.NeckUp = 14f; st.HeadUp = 12f; st.Jaw = 10f + 5f * MathF.Sin(time * 2f);
+        st.Arch = 0f; st.TailUp = -10f;
+        st.Root += new Vector3(0, 0.035f * MathF.Sin(stroke * 2f), 0);
+        if (c == "roar")
+        {
+            // back (0..0.45), lunge and snap (0.5), hold, settle
+            float back = Key(t, (0, 0), (0.42f, 1), (0.5f, 0), (1, 0));
+            float lunge = Key(t, (0, 0), (0.45f, 0), (0.55f, 1), (0.75f, 1), (1, 0));
+            st.NeckUp += 18f * back - 22f * lunge;
+            st.HeadUp += 20f * back - 18f * lunge;
+            st.Jaw = Key(t, (0, 10), (0.4f, 60), (0.5f, 62), (0.56f, 4), (1, 8));
+            st.Root += new Vector3(-0.08f * back + 0.16f * lunge, 0, 0);
+            st.Pitch += -6f * lunge;
+        }
+        return st;
     }
 }

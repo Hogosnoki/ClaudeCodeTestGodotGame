@@ -254,7 +254,7 @@ public partial class Main
         if (_waitingAt != null) { NetSync.AtExit(_waitingAt, false); _waitingAt = null; }
         bool others = G.Players.Any(h => h != G.Player && IsInstanceValid(h) && !h.Dead);
         _hud.ShowBanner(others ? "YOU'RE DOWN" : "EVERYONE IS DOWN", 3f);
-        if (others) _hud.ShowNotice("A friend can bring you back: they stand beside you and hold interact (or up)", 7f);
+        if (others) _hud.ShowNotice("A friend can bring you back: they stand beside you and hold interact", 7f);
     }
 
     public void OnPlayerRevived() => _hud.ShowBanner("BACK ON YOUR FEET", 2f);
@@ -264,7 +264,17 @@ public partial class Main
     {
         ActiveBoss = e;
         _hud.ShowBanner(e.Title != "" ? e.Title : e.DisplayName.ToUpperInvariant(), 3f);
+        GuardianFarNotice(e.GlobalPosition, "");
         _sfx.SetMusic("boss");
+    }
+
+    /// <summary>The guardian woke somewhere else (a friend found it): where to go, without moving your view.</summary>
+    private void GuardianFarNotice(Vector2 at, string who)
+    {
+        var me = G.Player;
+        if (me == null || me.GlobalPosition.DistanceTo(at) < 700f) return;
+        string by = string.IsNullOrEmpty(who) ? "A friend" : who;
+        _hud.ShowNotice($"{by} woke the guardian: its chamber is marked EXIT on your map", 6f);
     }
 
     /// <summary>An exit opened in the host's game (for the autopilot's map).</summary>

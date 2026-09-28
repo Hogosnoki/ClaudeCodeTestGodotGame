@@ -150,7 +150,7 @@ public partial class Main : Node
         SetupOnline();
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -174,6 +174,7 @@ public partial class Main : Node
         G.Depth = 0;
         G.Biome = Biomes.Get(BiomeId.Entrance);
         if (_biomeArg == null && (_heroTest || _bestiary || _animTest || _showcase || _hitStopTest)) _biomeArg = "slime"; // these need water
+        if (_biomeArg == null && _scenario != "") _biomeArg = ScenarioBiome;
         if (_biomeArg != null)
         {
             G.Biome = Biomes.All.First(b => b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase));
@@ -229,6 +230,7 @@ public partial class Main : Node
             _hud.HintTime = 0;
             G.Player.InputOverride = () => default;
         }
+        else if (_scenario != "") BeginScenario();
         else if (_autotest)
         {
             StartPlaying();
@@ -263,8 +265,8 @@ public partial class Main : Node
     {
         string N(string a) => Controls.Name(a, pad);
         return pad
-            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("potion")} potion   right stick aims"
-            : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} descend   {N("potion")} potion";
+            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend   {N("potion")} potion   right stick aims"
+            : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend   {N("potion")} potion";
     }
 
     /// <summary>The line about embers and the upgrade trees on the title and camp screens.</summary>
@@ -312,6 +314,7 @@ public partial class Main : Node
             else if (a.StartsWith("--netaddr=")) _netAddr = a[10..];
             else if (a.StartsWith("--ntshots=")) _ntShots = a[10..];
             else if (a.StartsWith("--onlineshot=")) _onlineShot = a[13..];
+            else if (a.StartsWith("--scenario=")) _scenario = a[11..];
         }
     }
 
@@ -978,6 +981,7 @@ public partial class Main : Node
         if (_menuShot != "") MenuShotTick();
         if (_netTest != "") NetTestTick(dt);
         if (_onlineShot != "") OnlineShotTick();
+        if (_scenario != "") ScenarioTick(dt);
         UpdateTitleButton();
         switch (_state)
         {
@@ -1075,7 +1079,17 @@ public partial class Main : Node
         if (p.Dead && Net.InRun)
             foreach (var h in G.Players) if (!h.Dead) { p = h; break; }
         var target = p.GlobalPosition + new Vector2(p.Velocity.X * 0.15f, p.Velocity.Y * 0.08f - 10);
-        if (ActiveBoss != null && IsInstanceValid(ActiveBoss) && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
+        // lean toward the guardian only when it's in the fight with you: one woken far away (by a
+        // friend, online) never drags your view off your own hero
+        var boss = ActiveBoss;
+        if (boss != null && IsInstanceValid(boss) && !boss.Dead)
+        {
+            var half = ViewHalf(0);
+            var off = boss.GlobalPosition - p.GlobalPosition;
+            float reach = Math.Max(Math.Abs(off.X) / half.X, Math.Abs(off.Y) / half.Y); // 1 = at the view's edge
+            float lean = 0.25f * Math.Clamp(1.6f - reach, 0f, 1f);
+            if (lean > 0) target = target.Lerp(boss.GlobalPosition, lean);
+        }
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * Tune.Feel.CameraFollowSharpness));
         float s = (_fx?.Shake ?? 0) * GameSettings.Shake;
         _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
@@ -1136,7 +1150,7 @@ public partial class Main : Node
         // Residents: how many spawn points actually hold a group rises from ~40% to 100% over the run
         // (sooner the deeper you are); sparse biomes stay sparse.
         float fill = biome.ResidentFill >= 0 ? biome.ResidentFill
-            : Math.Min(1f, Tune.Spawning.ResidentFillStart + G.Depth * 0.08f + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart)) * Math.Min(1f, biome.Density);
+            : Math.Min(1f, Tune.Spawning.ResidentFillStart + G.Depth * Tune.Spawning.ResidentFillPerDepth + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart)) * Math.Min(1f, biome.Density);
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -1320,6 +1334,8 @@ public partial class Main : Node
                     _world.AddChild(boss);
                     ActiveBoss = boss;
                     _hud.ShowBanner(boss.Title != "" ? boss.Title : boss.DisplayName.ToUpperInvariant(), 3f);
+                    // (online, a friend may have woken it far from here)
+                    if (p != G.Player) GuardianFarNotice(room.Center, p.NetName);
                     _sfx.SetMusic("boss");
                     if (boss is Dragon) { G.Fx.ScreenFlash(new Color(1f, 0.4f, 0.1f), 0.5f); G.Fx.AddShake(10); }
                     break;
@@ -1914,7 +1930,7 @@ public partial class Main : Node
             case 18:
             {
                 // 70% stopped (costing the shield half of that), 30% through, less armour
-                float through = 6f * (1f - p.Stats.BlockShare) * (1f - p.Stats.DamageReduction);
+                float through = 6f * (1f - p.Stats.BlockShare) * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult;
                 float cost = 6f * p.Stats.BlockShare * Tune.Warden.ShieldCost;
                 Check($"the shield stops most of a shot from the front (hp {_hpMark:0.00} -> {p.Hp:0.00}, want -{through:0.00}; shield {_shieldMark:0.0} -> {p.ShieldHp:0.0}, want -{cost:0.0})",
                     Math.Abs(_hpMark - p.Hp - through) < 0.05f && Math.Abs(_shieldMark - p.ShieldHp - cost) < 0.3f);
@@ -2522,7 +2538,7 @@ public partial class Main : Node
                 if (ok) clean++;
                 if (!ok || s == 1)
                     GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} spawns {c.Spawns.Count} ice {c.IceLedges.Count}");
-                if (s == 1) SaveCaveImage(c, $"user://cave_{b.Id}.png");
+                if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: {clean}/{n} trap-free with a reachable exit  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
             cleanAll += clean; totalAll += n;

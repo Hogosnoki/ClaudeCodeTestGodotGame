@@ -272,11 +272,13 @@ public static partial class CaveGenerator
         bool line = B.RoomYSpread < 0.2f;
 
         var rooms = new List<RoomPlan>();
+        // (more rooms on a map widened by Tune.Cave.WidthScale)
+        int roomCount = (int)MathF.Round(B.RoomCount * Tune.Cave.WidthScale);
         if (line)
         {
             // along one level, left to right
             float x = 5;
-            for (int k = 0; k < B.RoomCount; k++)
+            for (int k = 0; k < roomCount; k++)
             {
                 float rr = Rnd(B.RoomRMin, B.RoomRMax);
                 float cx = x + rr + (k == 0 ? 0 : Rnd(5, 11));
@@ -288,7 +290,7 @@ public static partial class CaveGenerator
         }
         else
         {
-            for (int tries = 0; tries < 4000 && rooms.Count < B.RoomCount; tries++)
+            for (int tries = 0; tries < 4000 && rooms.Count < roomCount; tries++)
             {
                 float rr = Rnd(B.RoomRMin, B.RoomRMax);
                 float cx = Rnd(rr + 6, W - rr - 6);

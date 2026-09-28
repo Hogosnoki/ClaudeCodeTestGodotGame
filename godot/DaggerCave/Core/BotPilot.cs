@@ -58,8 +58,9 @@ public sealed class BotPilot
             _pathT = 0;
         }
         if (p.Hp < p.Stats.MaxHp * 0.35f && p.Potions > 0) _cur.Potion = true;
-        // exits wait to be taken: step in when standing at one
+        // exits wait to be taken: step in when standing at one; open any chest passed on the way
         if (exits.Count > 0 && pos.DistanceTo(_goal) < 30) _cur.Interact = true;
+        if (Chest.At(pos) != null) _cur.Interact = true;
         if (_pathT <= 0) { _pathT = 1.2f; _path = FindPath(cave, pos, _goal); }
 
         float gd = pos.DistanceTo(_goal);

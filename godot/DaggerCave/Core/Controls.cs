@@ -28,7 +28,7 @@ public static class Controls
         ("ability2", "Second ability"),
         ("dodge", "Dodge  ·  shield  ·  hex"),
         ("potion", "Drink a potion"),
-        ("interact", "Go down an exit  ·  revive"),
+        ("interact", "Open a chest  ·  go down an exit  ·  revive"),
         ("pause", "Pause"),
     };
 
@@ -48,9 +48,9 @@ public static class Controls
         ["attack"] = new InputEvent[] { M(MouseButton.Left), K(Key.J), J(JoyButton.X) },
         ["ability"] = new InputEvent[] { M(MouseButton.Right), K(Key.K), J(JoyButton.RightShoulder) },
         ["ability2"] = new InputEvent[] { K(Key.F), M(MouseButton.Middle), K(Key.I), Ax(JoyAxis.TriggerRight, 1) },
-        ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder), Ax(JoyAxis.TriggerLeft, 1) },
+        ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), Ax(JoyAxis.TriggerLeft, 1) },
         ["potion"] = new InputEvent[] { K(Key.Q), J(JoyButton.Y) },
-        ["interact"] = new InputEvent[] { K(Key.E) },
+        ["interact"] = new InputEvent[] { K(Key.E), J(JoyButton.LeftShoulder) },
         ["pause"] = new InputEvent[] { K(Key.Escape), J(JoyButton.Start) },
         // menus (not rebindable)
         ["confirm"] = new InputEvent[] { K(Key.Enter), K(Key.KpEnter), J(JoyButton.A) },
@@ -178,10 +178,14 @@ public static class Controls
         catch (Exception) { return null; }
     }
 
+    /// <summary>Bumped when the defaults change in a way saved bindings should pick up.</summary>
+    private const int BindingsVersion = 2;
+
     public static void Save(ConfigFile cfg)
     {
         foreach (var (action, _) in Rebindable)
             cfg.SetValue("bindings", action, string.Join(" ", InputMap.ActionGetEvents(action).Select(Serialize).Where(x => x != "")));
+        cfg.SetValue("bindings", "_version", BindingsVersion);
     }
 
     public static void Load(ConfigFile cfg)
@@ -193,6 +197,11 @@ public static class Controls
             InputMap.ActionEraseEvents(action);
             foreach (var e in evs) InputMap.ActionAddEvent(action, e);
         }
+        int version = cfg.HasSectionKey("bindings", "_version") ? (int)cfg.GetValue("bindings", "_version") : 1;
+        // version 2: interact (chests, exits, reviving) got a controller button of its own, LB,
+        // which the dodge button no longer needs (it keeps B and LT)
+        if (version < 2 && cfg.HasSection("bindings") && Bindings("interact", true).Count == 0)
+            Rebind("interact", 0, J(JoyButton.LeftShoulder));
     }
 
     // ---------------------------------------------------------------- names

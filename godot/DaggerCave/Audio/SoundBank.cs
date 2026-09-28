@@ -154,6 +154,20 @@ public partial class SoundBank : Node
 
         b = Buf(0.12f); Osc(b, 0, 0.06f, ExpSweep(4200, 2800), Decay(8)); Osc(b, 0.06f, 0.05f, ExpSweep(4600, 3000), Decay(8)); Add("bat", b, 0.25f);
 
+        // an insect's buzz: a rough hum near 190 Hz (and its octave) fluttering with the wing beats,
+        // wavering a little, with a breath of wing noise
+        {
+            const float len = 0.55f;
+            b = Buf(len);
+            Func<float, float> env = AD(0.12f, 3f);
+            float Beat(float t) => 0.6f + 0.4f * MathF.Sin(t * len * MathF.Tau * 38f);
+            Osc(b, 0, len, t => 190 + 14 * MathF.Sin(t * len * MathF.Tau * 9f) + 25 * t, t => Beat(t) * env(t), 2);
+            Osc(b, 0, len, t => 381 + 26 * MathF.Sin(t * len * MathF.Tau * 9f) + 50 * t, t => 0.35f * Beat(t) * env(t), 1);
+            NoiseBurst(b, 0, len, Const(0.35f), t => 0.18f * Beat(t) * env(t));
+            LowPass(b, 0.35f);
+            Add("buzz", b, 0.45f);
+        }
+
         b = Buf(0.3f); Osc(b, 0, 0.3f, t => 110 + 20 * MathF.Sin(t * 60), t => (MathF.Sin(t * 180) > 0 ? 1 : 0.3f) * MathF.Exp(-t * 3), 2); LowPass(b, 0.25f); Add("frog", b, 0.45f);
         b = Buf(0.18f); Osc(b, 0, 0.18f, ExpSweep(260, 110), Decay(4), 1); LowPass(b, 0.2f); Add("tongue", b, 0.3f);
 

@@ -260,13 +260,14 @@ public static class Tune
     public static class Difficulty
     {
         /// <summary>Enemy health and damage grow by this factor per level of depth...</summary>
-        public static float DepthGrowth = 1.13f;
-        /// <summary>...and double every this many minutes of play (continuous curve).</summary>
-        public static float DoublingMinutes = 30f;
+        public static float DepthGrowth = 1.15f;
+        /// <summary>...and double every this many minutes of play (continuous curve). (The cave gets
+        /// harder more through tougher creatures than through more of them: see the pace below.)</summary>
+        public static float DoublingMinutes = 27f;
         /// <summary>Enemy speed/attack rate: this share of the threat's growth, capped (1.6 = at most 60% faster).</summary>
         public static float TempoShare = 0.2f, TempoCap = 1.6f;
         /// <summary>Spawn intensity ("pace"): PacePerDepth per level of depth plus 1 per PaceMinutesPerStep minutes, capped at PaceMax.</summary>
-        public static float PacePerDepth = 0.22f, PaceMinutesPerStep = 14f, PaceMax = 3f;
+        public static float PacePerDepth = 0.15f, PaceMinutesPerStep = 20f, PaceMax = 2.4f;
         /// <summary>Scales how far enemies move: their speed, gravity and jump speed together
         /// (0.8 = 20% slower, same jump timing, 20% lower jumps). Aimed leaps compensate.</summary>
         public static float EnemyMoveScale = 0.8f;
@@ -275,8 +276,9 @@ public static class Tune
     // =============================================================================== SPAWNING
     public static class Spawning
     {
-        /// <summary>Share of resident spawn points that hold enemies at the start, rising to 100% by FillMinutes.</summary>
-        public static float ResidentFillStart = 0.18f, ResidentFillMinutes = 16f;
+        /// <summary>Share of resident spawn points that hold enemies at the start (plus FillPerDepth per
+        /// level of depth), rising to 100% by FillMinutes.</summary>
+        public static float ResidentFillStart = 0.18f, ResidentFillPerDepth = 0.05f, ResidentFillMinutes = 22f;
         /// <summary>Residents are created this far away at most, and only when off-camera.</summary>
         public static float ResidentMaxDistance = 720f;
         /// <summary>Base respawn delay for a used resident point (divided by 1 + pace).</summary>
@@ -285,9 +287,9 @@ public static class Tune
         /// <summary>Entrance waves: the first comes after FirstWave s. The gap between waves starts at
         /// IntervalStart and halves every RateDoublingMinutes (like the difficulty curve), never
         /// dropping below IntervalMin.</summary>
-        public static float FirstWave = 25f, IntervalStart = 26f, IntervalMin = 5f, RateDoublingMinutes = 8f;
+        public static float FirstWave = 25f, IntervalStart = 26f, IntervalMin = 7f, RateDoublingMinutes = 12f;
         /// <summary>Wave size: 1 + up to (pace x this) extra enemies, each from its own direction.</summary>
-        public static float WaveGrowthPerPace = 1.5f;
+        public static float WaveGrowthPerPace = 1.2f;
         /// <summary>Newcomers appear in a band this many px wide just outside the screen edges.</summary>
         public static float EntranceBandPx = 200f;
         /// <summary>How far along the tunnels (in 16 px cells) to look for entry points.</summary>
@@ -300,7 +302,7 @@ public static class Tune
         public static float UrchinWithFishChance = 0.6f;
 
         /// <summary>Max enemies near the player = CapBase + CapPerPace * pace (entrances get +4 headroom).</summary>
-        public static int CapBase = 6, CapPerPace = 10;
+        public static int CapBase = 6, CapPerPace = 8;
     }
 
     // =============================================================================== DROPS
@@ -353,6 +355,8 @@ public static class Tune
     public static class Spider
     {
         public static float Hp = 18, Contact = 9, CrawlSpeed = 70, DropSpeed = 330, GroundSpeed = 150, PounceCooldown = 1.9f;
+        /// <summary>In water it rows after you at SwimSpeed px/s, and darts at DartSpeed.</summary>
+        public static float SwimSpeed = 95, DartSpeed = 250;
         public static int Xp = 4;
     }
 
@@ -409,6 +413,9 @@ public static class Tune
     public static class Bear
     {
         public static float Hp = 70, Contact = 12, SwipeDamage = 16, WalkSpeed = 60, ChargeSpeed = 240, SwipeWindup = 0.45f, ChargeWindup = 0.55f, ChargeCooldown = 5f;
+        /// <summary>In water it treads toward you at SwimSpeed px/s and, since it can't rear up to
+        /// swipe, bites: BiteWindup s with the head drawn back, then a lunge for BiteDamage.</summary>
+        public static float SwimSpeed = 55, BiteDamage = 13, BiteWindup = 0.35f, BiteReach = 40, BiteCooldown = 1.4f;
         public static int Xp = 12;
     }
 
@@ -482,6 +489,9 @@ public static class Tune
     {
         /// <summary>Map size in 16 px cells. Water fills the bottom half.</summary>
         public static int Width = 460, Height = 240;
+        /// <summary>Every biome's map is this many times as wide as its own width says (the height
+        /// stays): its tunnel budget and number of rooms grow with it, so the width gets filled.</summary>
+        public static float WidthScale = 1.5f;
         /// <summary>Total tunnel-carving steps: more = more (and longer) tunnels.</summary>
         public static int TunnelBudget = 4600;
         /// <summary>Radius range (cells) of dry tunnels. Narrower leaves more ground and ledges.</summary>

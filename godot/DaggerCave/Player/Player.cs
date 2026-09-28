@@ -9,6 +9,8 @@ public struct PlayerInput
     public Vector2 Move;        // -1..1 each axis; up is negative Y
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
     public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact;
+    /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
+    public bool Up;
     /// <summary>The interact button held (reviving a fallen friend takes a moment).</summary>
     public bool InteractHeld;
     public bool GuardHeld;      // dodge button held (the warden's shield)
@@ -206,10 +208,10 @@ public partial class Player : CharacterBody2D
             Ability2 = Input.IsActionJustPressed("ability2"),
             InteractHeld = Input.IsActionPressed("interact"),
         };
-        // up works too, but only a deliberate push (running past a door on a tilted stick shouldn't take you down)
-        inp.Interact = Input.IsActionJustPressed("interact") || (Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f);
-        // (holding up counts as holding interact: a controller has no button of its own for it)
-        inp.InteractHeld |= inp.Move.Y < -0.6f && Math.Abs(inp.Move.X) < 0.5f;
+        inp.Interact = Input.IsActionJustPressed("interact");
+        // up works for exits too, but only a deliberate push (running past a door on a tilted
+        // stick shouldn't take you down); chests and reviving take the interact button itself
+        inp.Up = Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
         bool stickOn = stick.Length() > 0.35f;
         // the right stick raises the Warden's shield by itself, pointing where it's pushed
@@ -241,14 +243,19 @@ public partial class Player : CharacterBody2D
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
         if (inp.Potion) DrinkPotion();
-        if (inp.Interact) TryInteract();
+        if (inp.Interact || inp.Up) TryInteract(inp.Interact);
     }
 
-    /// <summary>Walks into an exit tunnel the hero stands at (exits no longer take you by surprise).</summary>
-    private void TryInteract()
+    /// <summary>
+    /// Opens the chest the hero stands at (the interact button), or walks into an exit (interact,
+    /// or a deliberate push up). Nothing happens by just walking past.
+    /// </summary>
+    private void TryInteract(bool button)
     {
+        if (Dead || G.Main.MenuOpen) return;
+        if (button && Chest.At(GlobalPosition) is Chest chest) { chest.Interact(); return; }
         // only standing at the door (or swimming): not mid-jump, or while an attack is under way
-        if (Dead || G.Main.MenuOpen || (!IsOnFloor() && !InWater) || IsSwinging) return;
+        if ((!IsOnFloor() && !InWater) || IsSwinging) return;
         foreach (var n in G.World.GetChildren())
             if (n is Portal portal && portal.Reaches(GlobalPosition)) { portal.Enter(); return; }
     }
@@ -464,7 +471,7 @@ public partial class Player : CharacterBody2D
         G.Sfx.Play("lava", GlobalPosition, 0, 0.1f, 0.8f);
         G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), 0.8f, new Color(1f, 0.55f, 0.15f));
         G.Fx.Smoke(GlobalPosition, 4, new Color(0.25f, 0.2f, 0.2f, 0.5f));
-        TakeRawDamage(Math.Min(Stats.MaxHp * 0.16f + 4, 30 * G.DepthDmg) * (1f - Stats.DamageReduction), "burn");
+        TakeRawDamage(Math.Min(Stats.MaxHp * 0.16f + 4, 30 * G.DepthDmg) * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "burn");
         Velocity = new Vector2(Velocity.X * 0.5f, -BaseJumpV * 1.05f);
         _coyote = 0;
         _invuln = Math.Max(_invuln, 0.3f);
@@ -700,7 +707,7 @@ public partial class Player : CharacterBody2D
             LastHitBlocked = true;
             return ApplyChip(block.Through, source);
         }
-        dmg *= 1f - Stats.DamageReduction;
+        dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
         if (source != null && GodotObject.IsInstanceValid(source))
         {
             source.CreditDamage(dmg);

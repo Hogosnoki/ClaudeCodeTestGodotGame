@@ -163,7 +163,7 @@ public partial class Hud : Control
         // --- Minimap ---
         if (_mapTex != null)
         {
-            float mw = 200, mh = mw * G.Cave.H / G.Cave.W;
+            float mw = 260, mh = mw * G.Cave.H / G.Cave.W;
             var mp = new Vector2(vs.X - mw - 16, 16);
             DrawRect(new Rect2(mp - new Vector2(4, 4), new Vector2(mw + 8, mh + 8)), new Color(0, 0, 0, 0.55f));
             DrawTextureRect(_mapTex, new Rect2(mp, new Vector2(mw, mh)), false);
@@ -185,6 +185,16 @@ public partial class Hud : Control
         }
 
         if (Net.InRun) DrawOnline(font, vs, p, xpPos + new Vector2(0, p.Breath < p.Stats.BreathMax - 0.05f || p.HeadUnder ? 44 : 24));
+
+        // --- a chest at your feet opens with the interact button ---
+        if (!p.Dead && Chest.At(p.GlobalPosition) is Chest chest)
+        {
+            var at = chest.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -46);
+            string open = $"{Controls.Name("interact")}  open";
+            var osz = font.GetStringSize(open, HorizontalAlignment.Left, -1, 14);
+            DrawRect(new Rect2(at - new Vector2(osz.X / 2 + 8, 16), new Vector2(osz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            DrawString(font, at - new Vector2(osz.X / 2, 0), open, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
+        }
         if (NoticeT > 0 && Notice != "")
         {
             var nsz = font.GetStringSize(Notice, HorizontalAlignment.Left, -1, 13);
@@ -275,8 +285,7 @@ public partial class Hud : Control
         if (fallen != null && IsInstanceValid(fallen) && !me.Dead)
         {
             string name = fallen.NetName != "" ? fallen.NetName : "your friend";
-            string hold = G.Main.UsingPad ? "Hold UP" : $"Hold {Controls.Name("interact")} (or UP)";
-            string line = me.ReviveProgress > 0 ? $"Bringing {name} back..." : $"{hold} to bring {name} back";
+            string line = me.ReviveProgress > 0 ? $"Bringing {name} back..." : $"Hold {Controls.Name("interact")} to bring {name} back";
             var lsz = font.GetStringSize(line, HorizontalAlignment.Left, -1, 16);
             var c = new Vector2(vs.X / 2, vs.Y * 0.62f);
             DrawString(font, c - new Vector2(lsz.X / 2, 0), line, HorizontalAlignment.Left, -1, 16, Player.HealColorLight);

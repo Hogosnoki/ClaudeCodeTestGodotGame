@@ -67,6 +67,27 @@ public partial class Main
 
     private void NtNext() { _ntPhase++; _ntPhaseT = 0; }
 
+    /// <summary>Where the test's exit leads (a Fossil Graveyard: big chambers, a camera to watch).</summary>
+    private const int NtDepth = 5;
+    private float _ntArriveT, _ntCamWorst, _ntCamLogT;
+
+    /// <summary>After going down: how far the view's centre strays from this game's own hero.</summary>
+    private void NtWatchCamera(float dt)
+    {
+        if (G.Depth != NtDepth || G.Player == null || _cam == null) return;
+        _ntArriveT += dt;
+        var half = ViewHalf(0);
+        var off = _cam.GetScreenCenterPosition() - G.Player.GlobalPosition;
+        float frac = Math.Max(Math.Abs(off.X) / half.X, Math.Abs(off.Y) / half.Y);
+        if (_ntArriveT > 1.2f) _ntCamWorst = Math.Max(_ntCamWorst, frac);
+        _ntCamLogT -= dt;
+        if (_ntCamLogT <= 0 && _ntArriveT < 4f)
+        {
+            _ntCamLogT = 0.5f;
+            GD.Print($"[nettest] camera t={_ntArriveT:0.0}: hero {G.Player.GlobalPosition.Round()} dead {G.Player.Dead} centre {_cam.GetScreenCenterPosition().Round()} ({frac:0.00} of the half view) current {_cam.IsCurrent()} boss {(ActiveBoss != null ? ActiveBoss.GlobalPosition.Round().ToString() : "-")}");
+        }
+    }
+
     /// <summary>A screenshot of this moment (once), with --ntshots.</summary>
     private void NtShot(string name)
     {
@@ -162,6 +183,7 @@ public partial class Main
         if (Net.IsHost && Net.InRun)
             foreach (var e in G.Enemies.ToArray())
                 if (!e.Puppet && e != _ntGolem && !e.IsQueuedForDeletion()) e.QueueFree();
+        NtWatchCamera(dt);
         if (_netTest == "host") HostTestStep();
         else JoinTestStep();
     }
@@ -275,7 +297,7 @@ public partial class Main
                     NtCheck($"holding interact beside the fallen friend brought them back ({rv})", true);
                     _ntInput = default;
                     // an exit, at the host's feet
-                    SpawnPortal(G.Player.GlobalPosition + new Vector2(0, -17), (int)BiomeId.Slime, 1, "test");
+                    SpawnPortal(G.Player.GlobalPosition + new Vector2(0, -17), (int)BiomeId.Fossils, NtDepth, "test");
                     _ntPortal = _world.GetChildren().OfType<Portal>().LastOrDefault();
                     NtSay($"portal {NetSync.IdOf(_ntPortal)}");
                     NtNext();
@@ -285,7 +307,7 @@ public partial class Main
             case 10:
                 if (_ntPhaseT > 1.2f && _waitingAt == null && G.Depth == 0) _ntPortal?.Enter();
                 if (_waitingAt != null && G.Depth == 0) NtShot("nt_exit");
-                if (G.Depth == 1)
+                if (G.Depth == NtDepth)
                 {
                     NtCheck("with both heroes in the exit, everyone went down together", true);
                     NtSay("cave " + ChestSig());
@@ -298,13 +320,22 @@ public partial class Main
                 if (NtGot("cave-ok", out var r)) NtCheck($"the next level is the same in both games ({r})", true);
                 else if (NtGot("cave-bad", out r)) NtCheck($"the next level is the same in both games ({r})", false);
                 else { if (_ntPhaseT > 30) NtFail("the friend compares the next level"); break; }
+                NtNext();
+                break;
+            }
+            case 12:
+            {
+                if (_ntArriveT < 3.5f) break;
+                if (!NtGot("cam", out var fc)) { if (_ntPhaseT > 20) NtFail("the friend checks their view"); break; }
+                NtCheck($"down there, this game's view stays on its own hero (at worst {_ntCamWorst:0.00} of the way to the edge)", _ntCamWorst < 0.6f);
+                NtCheck($"and the friend's view stays on theirs ({fc})", fc.StartsWith("ok"));
                 NtTough();
                 NtSay("all-fall");
                 G.Player.GiveUp();
                 NtNext();
                 break;
             }
-            case 12:
+            case 13:
                 if (_state == State.Dead && NtGot("over", out _))
                 {
                     NtCheck("with everyone down, the run ended in both games", true);
@@ -313,7 +344,7 @@ public partial class Main
                 }
                 else if (_ntPhaseT > 20) NtFail($"the run ends for everyone (host state {_state})");
                 break;
-            case 13:
+            case 14:
                 if (_ntShots != "" && _ntPhaseT < 2.5f) break;
                 NtShot("nt_camp");
                 NtEnd();
@@ -383,7 +414,7 @@ public partial class Main
             case 6:
                 if (NtGot("hurt", out var amount))
                 {
-                    float want = float.Parse(amount, System.Globalization.CultureInfo.InvariantCulture) * (1f - G.Player.Stats.DamageReduction);
+                    float want = float.Parse(amount, System.Globalization.CultureInfo.InvariantCulture) * (1f - G.Player.Stats.DamageReduction) * G.Player.Stats.DamageTakenMult;
                     float took = _ntMark - G.Player.Hp;
                     bool ok = Math.Abs(took - want) < 0.6f;
                     NtCheck($"the host's golem struck my hero, and my game took it ({took:0.0} of {want:0.0})", ok);
@@ -408,6 +439,8 @@ public partial class Main
                 else if (_ntPhaseT > 30) NtFail("the host makes a chest");
                 break;
             case 10:
+                // chests open with the interact button: press it standing at the one at my feet
+                if (_state != State.Choosing && Chest.At(G.Player.GlobalPosition) != null) _ntInput.Interact = true;
                 // (the pick is offered a moment after the chest opens, and takes a press only after a beat)
                 _ntChooseT = _state == State.Choosing ? _ntChooseT + _ntDt : 0;
                 if (_ntChooseT > 0.6f)
@@ -452,7 +485,7 @@ public partial class Main
             }
             case 15:
                 if (_ntPhaseT > 3f && _waitingAt == null && G.Depth == 0 && IsInstanceValid(_ntPortal)) _ntPortal.Enter();
-                if (G.Depth == 1) { NtCheck("went down the exit with the host", true); NtNext(); }
+                if (G.Depth == NtDepth) { NtCheck("went down the exit with the host", true); NtNext(); }
                 else if (_ntPhaseT > 30) NtFail("go down the exit together");
                 break;
             case 16:
@@ -468,10 +501,19 @@ public partial class Main
                 else if (_ntPhaseT > 30) NtFail("the host sends the next level");
                 break;
             case 17:
+            {
+                if (_ntArriveT < 3.5f) break;
+                bool ok = _ntCamWorst < 0.6f;
+                NtCheck($"down there, my view stays on my own hero (at worst {_ntCamWorst:0.00} of the way to the edge)", ok);
+                NtSay($"cam {(ok ? "ok" : "bad")} {_ntCamWorst:0.00}");
+                NtNext();
+                break;
+            }
+            case 18:
                 if (NtGot("all-fall", out _)) { G.Player.GiveUp(); NtNext(); }
                 else if (_ntPhaseT > 30) NtFail("the host asks everyone to fall");
                 break;
-            case 18:
+            case 19:
                 if (_state == State.Dead)
                 {
                     NtCheck("with everyone down, the host ended the run here too", true);
@@ -480,7 +522,7 @@ public partial class Main
                 }
                 else if (_ntPhaseT > 20) NtFail($"the run ends ({_state})");
                 break;
-            case 19:
+            case 20:
                 if (NtGot("bye", out _) || _ntPhaseT > 10) NtEnd();
                 break;
         }

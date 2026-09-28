@@ -412,6 +412,15 @@ public partial class Spider : Enemy
     /// <summary>Lives on the ground (hunting spiders, the web-mother) instead of the ceiling.</summary>
     public bool Grounded;
 
+    /// <summary>Off the ceiling for good: on its feet (or swimming, in water).</summary>
+    public void ForceGround()
+    {
+        _state = 4;
+        ManualMove = false;
+        Velocity = Vector2.Zero;
+        MotionMode = MotionModeEnum.Grounded;
+    }
+
     /// <summary>Where its silk thread is anchored (world y, px) while one shows, else null.</summary>
     public float? ThreadAnchorY => _state is 1 or 2 or 3 || (_state == 0 && GlobalPosition.Y - _anchorY > 9) ? _anchorY : null;
     /// <summary>0 ceiling, 1 dropping, 2 hanging, 3 climbing, 4 on the ground.</summary>
@@ -491,6 +500,7 @@ public partial class Spider : Enemy
                     }
                     G.Sfx.Play("spider", GlobalPosition, 0, 0.1f, 0.7f);
                 }
+                if (InWater) { Swim(dt); break; }
                 if (IsOnFloor())
                 {
                     int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
@@ -508,7 +518,6 @@ public partial class Spider : Enemy
                         Consume();
                     }
                 }
-                if (InWater) v = v.MoveToward(new Vector2(0, -80), 400 * dt);
                 Velocity = v;
                 ApplyGravity(dt);
                 break;
@@ -516,12 +525,41 @@ public partial class Spider : Enemy
         }
     }
 
+    /// <summary>
+    /// In water it doesn't sink: it rows after you with all eight legs, and darts at you when
+    /// close (its strike, in place of a pounce).
+    /// </summary>
+    private void Swim(float dt)
+    {
+        var to = ToP;
+        float d = to.Length();
+        var dir = d > 1 ? to / d : Vector2.Up;
+        var want = !Awake || Intent == Wait ? new Vector2(0, -12) : Intent == Away ? -dir : dir;
+        var v = Velocity.MoveToward(want * Tune.Spider.SwimSpeed * MoveScale * (Elite ? 1.15f : 1f), 520 * dt);
+        if (Math.Abs(want.X) > 0.1f) Face = Math.Sign(want.X);
+        if (Awake && Intent == Strike && _pounceCd <= 0 && d < 110)
+        {
+            _pounceCd = Tune.Spider.PounceCooldown;
+            _pounceLeft = 0.5f;
+            Face = Math.Sign(to.X) == 0 ? Face : Math.Sign(to.X);
+            v = dir * Tune.Spider.DartSpeed * MoveScale;
+            Anim.Once("pounce", 3);
+            G.Sfx.Play("spider", GlobalPosition, -4, 0.1f, 1.2f);
+            G.Fx.Bubbles(GlobalPosition, 5);
+            Consume();
+        }
+        // (a dart glides to a stop in the water's drag)
+        if (_pounceLeft > 0) v = v.MoveToward(Vector2.Zero, 120 * dt);
+        if (G.Chance(0.04f)) G.Fx.Bubbles(GlobalPosition, 1);
+        Velocity = v;
+    }
+
     // ---- brain interface: on the ceiling, Strike drops on a thread; on the ground, it pounces
     private const int Wait = 0, Toward = 1, Away = 2, Strike = 3;
     private static readonly string[] Moves = { "wait", "toward", "away", "strike" };
     protected override string BrainName => "spider";
     protected override string[] Actions => Moves;
-    protected override bool Busy => _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor());
+    protected override bool Busy => _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor() && !InWater);
     protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
 
     protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
@@ -558,8 +596,9 @@ public partial class Spider : Enemy
             0 => moving ? "crawl" : "idle",
             1 => "drop",
             2 or 3 => "hang",
-            _ => IsOnFloor() && Math.Abs(Velocity.X) > 10 ? "crawl" : "idle",
-        }, 1.3f);
+            // (in water, "crawl" is its swimming stroke: see SpiderDesign)
+            _ => InWater ? (Velocity.Length() > 12 ? "crawl" : "idle") : IsOnFloor() && Math.Abs(Velocity.X) > 10 ? "crawl" : "idle",
+        }, InWater ? 0.9f : 1.3f);
     }
 
     public override void _Draw()

@@ -116,10 +116,10 @@ public partial class Rat : Walker
 /// <summary>A hulking brute: rears up for a heavy swipe, or roars and charges, stunning itself on walls.</summary>
 public partial class Bear : Walker
 {
-    private enum S { Walk, SwipeWindup, Swipe, ChargeWindup, Charge, Stunned }
+    private enum S { Walk, SwipeWindup, Swipe, ChargeWindup, Charge, Stunned, BiteWindup, Bite }
     private S _s;
     public override void NetState(NetIO io) => io.SyncByte(ref _s);
-    private float _st, _chargeCd = 2.5f, _swipeCd;
+    private float _st, _chargeCd = 2.5f, _swipeCd, _biteCd;
 
     public Bear() { MaxHp = Tune.Bear.Hp; BodyRadius = 14; ContactDamage = Tune.Bear.Contact; XpValue = Tune.Bear.Xp; KnockResist = 0.6f; }
     /// <summary>For the 3D stage: stars circle a stunned bear's head.</summary>
@@ -132,8 +132,9 @@ public partial class Bear : Walker
 
     protected override void Think(float dt)
     {
-        _st += dt; _chargeCd -= dt; _swipeCd -= dt;
-        if (Paddle(dt)) return;
+        _st += dt; _chargeCd -= dt; _swipeCd -= dt; _biteCd -= dt;
+        if (InWater) { Tread(dt); return; }
+        if (_s is S.BiteWindup or S.Bite) Go(S.Walk);
         var v = Velocity;
         switch (_s)
         {
@@ -208,20 +209,79 @@ public partial class Bear : Walker
         ApplyGravity(dt);
     }
 
+    /// <summary>
+    /// In water a bear can't rear up or charge: it treads water toward you, head up, and when
+    /// close draws its head back and lunges with a bite.
+    /// </summary>
+    private void Tread(float dt)
+    {
+        var v = Velocity;
+        var to = ToP;
+        float d = to.Length();
+        switch (_s)
+        {
+            case S.BiteWindup:
+                // head drawn back, paddling in place
+                v = v.MoveToward(Vector2.Zero, 400 * dt);
+                if (_st > Tune.Bear.BiteWindup)
+                {
+                    Go(S.Bite);
+                    _biteCd = Tune.Bear.BiteCooldown;
+                    var dir = d > 1 ? to / d : new Vector2(Face, 0);
+                    v = dir * 210f;
+                    G.Sfx.Play("goblin", GlobalPosition, -1, 0.1f, 0.45f);
+                    G.Sfx.Play("hit", GlobalPosition, -8, 0.1f, 1.4f);
+                    G.Fx.Bubbles(GlobalPosition + new Vector2(Face * 18 * Size, -6), 6);
+                    if (d < (Tune.Bear.BiteReach + 10) * Size && to.X * Face > -10)
+                        P.Hurt(Tune.Bear.BiteDamage * DmgK * (Elite ? 1.3f : 1f), GlobalPosition, 200, this);
+                }
+                break;
+            case S.Bite:
+                v = v.MoveToward(Vector2.Zero, 500 * dt);
+                if (_st > 0.45f) Go(S.Walk);
+                break;
+            default:
+            {
+                // (a swipe or charge started on land ends when it goes in)
+                if (_s != S.Walk) Go(S.Walk);
+                float want = !Awake ? 0 : Intent switch { Advance or Swipe => 1, Retreat => -1, _ => 0 };
+                var dir = d > 1 ? to / d : Vector2.Zero;
+                // toward (or away from) you, heaviest at the surface: it swims down only after you
+                var target = new Vector2(Math.Sign(dir.X) * Math.Max(0.3f, Math.Abs(dir.X)), dir.Y) * want * Tune.Bear.SwimSpeed * (Elite ? 1.15f : 1f);
+                if (want <= 0 || dir.Y < 0.2f) target.Y -= 30f; // buoyant
+                v = v.MoveToward(target, 260 * dt);
+                if (Math.Abs(dir.X) > 0.1f && want != 0) Face = Math.Sign(dir.X) * want;
+                if (Awake && Intent == Swipe && CanAct(Swipe) && d < (Tune.Bear.BiteReach + 14) * Size)
+                {
+                    Face = Math.Sign(to.X) == 0 ? Face : Math.Sign(to.X);
+                    Go(S.BiteWindup);
+                    // (its roar clip is the bite in water: see BearDesign)
+                    Anim.Once("roar", 3, 10f / (Tune.Bear.BiteWindup * 2f * 24f));
+                    G.Sfx.Play("goblin", GlobalPosition, -5, 0.1f, 0.5f);
+                    Consume();
+                }
+                if (G.Chance(0.03f)) G.Fx.Bubbles(GlobalPosition + new Vector2(0, -BodyRadius * Size * 0.5f), 1);
+                break;
+            }
+        }
+        Velocity = v;
+    }
+
     private const int Stand = 0, Advance = 1, Retreat = 2, Swipe = 3, Charge = 4;
     private static readonly string[] Moves = { "stand", "advance", "retreat", "swipe", "charge" };
     protected override string BrainName => "bear";
     protected override string[] Actions => Moves;
-    protected override bool Busy => _s != S.Walk || InWater || !IsOnFloor();
-    protected override float AttackReady => 1 - Math.Clamp(_chargeCd / Tune.Bear.ChargeCooldown, 0, 1);
+    protected override bool Busy => _s != S.Walk || (!IsOnFloor() && !InWater);
+    protected override float AttackReady => InWater ? 1 - Math.Clamp(_biteCd / Tune.Bear.BiteCooldown, 0, 1) : 1 - Math.Clamp(_chargeCd / Tune.Bear.ChargeCooldown, 0, 1);
     protected override bool CanAct(int a) => a switch
     {
-        Swipe => _swipeCd <= 0 && IsOnFloor(),
-        Charge => _chargeCd <= 0 && IsOnFloor(),
+        // (in water the swipe is a bite, and there's no charging)
+        Swipe => InWater ? _biteCd <= 0 : _swipeCd <= 0 && IsOnFloor(),
+        Charge => _chargeCd <= 0 && IsOnFloor() && !InWater,
         _ => true,
     };
     protected override bool IsAttack(int a) => a >= Swipe;
-    public override bool Attacking => _s is S.SwipeWindup or S.ChargeWindup or S.Charge || (_s == S.Swipe && _st < 0.12f);
+    public override bool Attacking => _s is S.SwipeWindup or S.ChargeWindup or S.Charge or S.BiteWindup || (_s == S.Swipe && _st < 0.12f) || (_s == S.Bite && _st < 0.12f);
     // a charge broken off by a shield leaves it reeling, as if it had hit a wall
     protected override void OnInterrupted() => Go(_s == S.Charge ? S.Stunned : S.Walk);
     protected override bool Striking => _s == S.Charge;
@@ -229,6 +289,7 @@ public partial class Bear : Walker
     protected override int Teacher()
     {
         if (DistP > Aggro(460)) return Stand;
+        if (InWater) return _biteCd <= 0 && DistP < (Tune.Bear.BiteReach + 14) * Size ? Swipe : Advance;
         if (_swipeCd <= 0 && DistP < 50 * Size && Math.Abs(ToP.Y) < 34) return Swipe;
         if (_chargeCd <= 0 && DistP > 110 && DistP < 320 && Math.Abs(ToP.Y) < 40 && SeesP) return Charge;
         return Advance;
@@ -237,8 +298,10 @@ public partial class Bear : Walker
     protected override void Animate()
     {
         float avx = Math.Abs(Velocity.X);
-        Anim.Loop(_s == S.Charge ? "run" : _s == S.Stunned ? "idle" : avx > 10 ? "walk" : "idle", _s == S.Charge ? 1.4f : Math.Clamp(avx / 60f, 0.7f, 1.4f));
-        Anim.AllowTurns = _s == S.Walk;
+        // (in water, "walk" is its paddling: see BearDesign)
+        if (InWater) Anim.Loop(Velocity.Length() > 12 ? "walk" : "idle", 0.8f);
+        else Anim.Loop(_s == S.Charge ? "run" : _s == S.Stunned ? "idle" : avx > 10 ? "walk" : "idle", _s == S.Charge ? 1.4f : Math.Clamp(avx / 60f, 0.7f, 1.4f));
+        Anim.AllowTurns = _s is S.Walk;
     }
 
     public override void _Draw()
@@ -343,7 +406,7 @@ public partial class Scorpion : Walker
 public partial class Hornet : Enemy
 {
     private int _s; // 0 fly, 1 aim, 2 dive, 3 pull out
-    private float _st, _cd = 1.2f, _wob;
+    private float _st, _cd = 1.2f, _wob, _buzzT;
     private Vector2 _diveDir;
 
     protected override bool UsesGravity => false;
@@ -362,9 +425,11 @@ public partial class Hornet : Enemy
 
     protected override void Think(float dt)
     {
-        _st += dt; _cd -= dt;
+        _st += dt; _cd -= dt; _buzzT -= dt;
         var to = ToP;
         var dir = to.LengthSquared() > 1 ? to.Normalized() : Vector2.Up;
+        // it hums as it hovers (you hear it coming)
+        if (Awake && _s == 0 && _buzzT <= 0 && DistP < 500) { _buzzT = G.Range(0.8f, 1.5f); G.Sfx.Play("buzz", GlobalPosition, -13, 0.1f, 1f); }
         switch (_s)
         {
             case 0:
@@ -383,7 +448,8 @@ public partial class Hornet : Enemy
                 {
                     _s = 1; _st = 0;
                     Anim.Once("aim", 3, 6f / (Tune.Hornet.AimTime * 24f));
-                    G.Sfx.Play("bat", GlobalPosition, -2, 0.1f, 0.6f);
+                    // taking aim: the buzz rises to an angry whine
+                    G.Sfx.Play("buzz", GlobalPosition, -1, 0.05f, 1.3f);
                     Consume();
                 }
                 break;

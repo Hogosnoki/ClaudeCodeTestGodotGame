@@ -138,6 +138,20 @@ public sealed class SpiderDesign : CreatureDesign
                 p.Set(_body, 0, 0, 12f * t);
                 break;
         }
+        // in water: it rows with all eight legs (a long reach and a quick stroke, in a ripple from
+        // front to back), its body tilted the way it swims; a dart tucks the legs back behind it
+        bool swim = a.InWater && c is "crawl" or "idle" or "pounce";
+        if (swim)
+        {
+            gait = time * (c == "crawl" ? 2.6f : 1.2f);
+            stride = c == "crawl" ? 30f : 14f;
+            lift = c == "crawl" ? 34f : 16f;
+            crouch = -6f;
+            float tilt = Math.Clamp(a.Vel.Y * 9f, -30f, 30f);
+            p.Set(_body, 0, 0, c == "pounce" ? tilt + Key(t, (0, -6), (0.3f, 10), (1, 0)) : tilt);
+            if (c == "pounce") curl = Key(t, (0, 0.1f), (0.2f, 0.4f), (0.7f, 0.35f), (1, 0.05f));
+            p.Root = new Vector3(0, 0.02f * MathF.Sin(time * 5f), 0);
+        }
         p.Set(_abdomen, 0, MathF.Sin(time * 0.9f) * 4f, -3f + breathe * 2.5f);
         p.Set(_head, 0, 0, MathF.Sin(time * 2.7f) * 3f);
         p.Set(_fangR, 0, 0, fang);
@@ -155,7 +169,7 @@ public sealed class SpiderDesign : CreatureDesign
                 p.AddAxis(leg.Tibia, Vector3.Up.Cross(leg.Out), -tw);
             }
         }
-        if (c == "crawl") p.Root = new Vector3(0, MathF.Abs(MathF.Sin(t * MathF.PI * 4f)) * 0.015f, 0);
+        if (c == "crawl" && !swim) p.Root = new Vector3(0, MathF.Abs(MathF.Sin(t * MathF.PI * 4f)) * 0.015f, 0);
     }
 
     // ---- the silk thread up to where it hangs from
