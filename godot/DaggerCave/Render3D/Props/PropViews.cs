@@ -25,6 +25,7 @@ public static class PropViews
             HeartPickup => new HeartView(),
             PotionPickup => new PotionView(),
             Chest => new ChestView(),
+            Portal { Outside: true } => new MouthView(),
             Portal => new PortalView(),
             AirVent => new AirVentView(),
             AirBubble => new AirBubbleView(),
@@ -77,6 +78,7 @@ public static class PropViews
         foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _vcol }) r?.Dispose();
         _sprite = _cloud = _bubble = null; _quad = null;
         PortalView.ReleaseShared();
+        MouthView.ReleaseShared();
         _ice = _steel = _wood = _gold = _glass = _rock = _vcol = null;
     }
 
@@ -717,6 +719,82 @@ public partial class PortalView : PropView
             float pa = p.Near * (0.8f + 0.2f * MathF.Sin(Time * 5f));
             _prompt.Modulate = _prompt.Modulate with { A = pa };
             _prompt.OutlineModulate = _prompt.OutlineModulate with { A = 0.92f * p.Near };
+        }
+    }
+}
+
+/// <summary>
+/// The cave mouth at depth 0: the end of the tunnel you came in by, flooded with daylight so
+/// bright it washes out to white (one sheet in front of the rock at the map's edge, one lighting
+/// the back of the tunnel), a warm light spilling in through the dust, and a prompt to leave.
+/// </summary>
+public partial class MouthView : PropView
+{
+    private OmniLight3D _light;
+    private MeshInstance3D _front, _back, _bloom;
+    private Label3D _title, _prompt;
+
+    private static ShaderMaterial _dayMat;
+    private static ShaderMaterial DayMat => _dayMat ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_daylight.gdshader") };
+    public static void ReleaseShared() { _dayMat?.Dispose(); _dayMat = null; }
+
+    // (the view sits on the floor 5.5 m in from the map's left edge; the rock there ends at 3 m)
+    private const float Edge = -5.5f;
+
+    protected override void Build()
+    {
+        // solid white over the rock at the map's edge, thinning out a metre or so into the tunnel
+        // (so a hero at the door still stands clear of it)
+        _front = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(9.2f, 7.8f) }, MaterialOverride = DayMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(Edge + 0.6f, 3.3f, 3.8f) };
+        _front.SetInstanceShaderParameter("strength", 1f);
+        _front.SetInstanceShaderParameter("fade_start", 0.78f);
+        AddChild(_front);
+        // the back of the tunnel lit up by it, fading off into the cave
+        _back = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(11f, 7.4f) }, MaterialOverride = DayMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(Edge + 3.5f, 3.3f, -2.2f) };
+        _back.SetInstanceShaderParameter("strength", 0.7f);
+        _back.SetInstanceShaderParameter("fade_start", 0.3f);
+        AddChild(_back);
+        _bloom = PropViews.Sprite(new Color(1f, 0.95f, 0.85f), 0, 1.6f, 4.5f);
+        _bloom.Position = new Vector3(Edge + 1.5f, 3.4f, 2.4f);
+        AddChild(_bloom);
+        _light = PropViews.Light(new Color(1f, 0.95f, 0.86f), 2.4f, 15f);
+        _light.LightVolumetricFogEnergy = 1.4f;
+        _light.Position = new Vector3(Edge + 1.8f, 3.4f, 1.2f);
+        AddChild(_light);
+
+        var dark = new Color(0.1f, 0.08f, 0.04f, 0.85f);
+        _title = new Label3D
+        {
+            Text = "THE WAY OUT", Modulate = new Color(1f, 0.97f, 0.88f), OutlineModulate = dark,
+            FontSize = 64, PixelSize = 0.011f, OutlineSize = 22, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1,
+            Position = new Vector3(5.8f, 5.2f, 1f),
+        };
+        _prompt = new Label3D
+        {
+            Text = "", Modulate = new Color(1f, 0.96f, 0.85f), OutlineModulate = dark,
+            FontSize = 40, PixelSize = 0.011f, OutlineSize = 16, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1,
+            Position = new Vector3(5.8f, 4.45f, 1.2f), Visible = false,
+        };
+        AddChild(_title);
+        AddChild(_prompt);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var p = (Portal)Owner2D;
+        Follow(new Vector2(0, 30), 0f);
+        // the light shifts a little, like sun through moving leaves
+        float flicker = 0.92f + 0.08f * MathF.Sin(Time * 0.9f) * MathF.Sin(Time * 2.3f + 1f);
+        _light.LightEnergy = 2.4f * flicker;
+        _title.Modulate = _title.Modulate with { A = 0.55f + 0.45f * p.Near };
+        _prompt.Visible = p.Near > 0.01f && !p.Used;
+        if (_prompt.Visible)
+        {
+            string key = Controls.Name("interact", G.Main.UsingPad).ToUpperInvariant();
+            _prompt.Text = Net.Online ? $"{key}  ·  LEAVE TOGETHER (ENDS THE RUN)" : $"{key}  ·  LEAVE THE CAVE (ENDS THE RUN)";
+            float pa = p.Near * (0.8f + 0.2f * MathF.Sin(Time * 5f));
+            _prompt.Modulate = _prompt.Modulate with { A = pa };
+            _prompt.OutlineModulate = _prompt.OutlineModulate with { A = 0.85f * p.Near };
         }
     }
 }

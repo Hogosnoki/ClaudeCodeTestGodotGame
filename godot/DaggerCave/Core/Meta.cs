@@ -144,14 +144,7 @@ public static class Meta
     public static void Save()
     {
         if (G.NoSave) return;
-        var d = new Godot.Collections.Dictionary
-        {
-            ["embers"] = Embers, ["runs"] = Runs, ["victories"] = Victories, ["best_depth"] = BestDepth,
-            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone,
-            ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
-            ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
-        };
-        foreach (var t in Trees) { d["held_" + t.Id] = HeldOf(t); d["found_" + t.Id] = FoundOf(t); }
+        var d = ToDict();
         try
         {
             using var f = FileAccess.Open(Path, FileAccess.ModeFlags.Write);
@@ -163,17 +156,49 @@ public static class Meta
     public static void Load()
     {
         if (G.NoSave || !FileAccess.FileExists(Path)) return;
-        try
+        try { FromDict(Json.ParseString(FileAccess.GetFileAsString(Path)).AsGodotDictionary(), true); }
+        catch (Exception e) { GD.PrintErr($"[meta] load failed: {e.Message}"); }
+    }
+
+    /// <summary>Everything kept between runs, as it stands (taken as a run begins).</summary>
+    public static Godot.Collections.Dictionary Snapshot() => ToDict();
+
+    /// <summary>
+    /// Puts everything kept between runs back as it was in a snapshot and saves it: a run
+    /// abandoned at the cave mouth keeps nothing. (The tutorials already seen stay seen.)
+    /// </summary>
+    public static void Restore(Godot.Collections.Dictionary d)
+    {
+        if (d == null) return;
+        FromDict(d, false);
+        Save();
+    }
+
+    private static Godot.Collections.Dictionary ToDict()
+    {
+        var d = new Godot.Collections.Dictionary
         {
-            var d = Json.ParseString(FileAccess.GetFileAsString(Path)).AsGodotDictionary();
-            int I(string k) => d.ContainsKey(k) ? (int)d[k] : 0;
-            Embers = I("embers"); Runs = I("runs"); Victories = I("victories"); BestDepth = I("best_depth");
+            ["embers"] = Embers, ["runs"] = Runs, ["victories"] = Victories, ["best_depth"] = BestDepth,
+            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone,
+            ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
+            ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
+        };
+        foreach (var t in Trees) { d["held_" + t.Id] = HeldOf(t); d["found_" + t.Id] = FoundOf(t); }
+        return d;
+    }
+
+    private static void FromDict(Godot.Collections.Dictionary d, bool tutorials)
+    {
+        int I(string k) => d.ContainsKey(k) ? (int)d[k] : 0;
+        Embers = I("embers"); Runs = I("runs"); Victories = I("victories"); BestDepth = I("best_depth");
+        if (tutorials)
+        {
             PotionTutorialDone = d.ContainsKey("potion_tut") && (bool)d["potion_tut"];
             PearlTutorialDone = d.ContainsKey("pearl_tut") && (bool)d["pearl_tut"];
-            if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);
-            if (d.ContainsKey("active")) foreach (var v in d["active"].AsGodotArray()) Active.Add((string)v);
-            foreach (var t in Trees) { Held[t.Id] = I("held_" + t.Id); Found[t.Id] = I("found_" + t.Id); }
         }
-        catch (Exception e) { GD.PrintErr($"[meta] load failed: {e.Message}"); }
+        Bought.Clear(); Active.Clear();
+        if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);
+        if (d.ContainsKey("active")) foreach (var v in d["active"].AsGodotArray()) Active.Add((string)v);
+        foreach (var t in Trees) { Held[t.Id] = I("held_" + t.Id); Found[t.Id] = I("found_" + t.Id); }
     }
 }

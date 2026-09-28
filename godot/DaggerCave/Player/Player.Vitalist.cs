@@ -58,6 +58,11 @@ public partial class Player
     {
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         if (Alimus > Stats.AlimusMax) Alimus = Stats.AlimusMax;
+        if (_drainTarget != null)
+        {
+            _drainAt -= dt;
+            if (_drainAt <= 0) StrikeDrain();
+        }
         TickRupture(dt);
     }
 
@@ -84,7 +89,29 @@ public partial class Player
             return true;
         }
         _drainCd = Tune.Vitalist.DrainCooldown / Math.Max(0.2f, Stats.AttackSpeed);
-        float dmg = Tune.Vitalist.DrainDamage * Stats.DamageMult * Stats.PrimaryDamageMult * G.Range(0.92f, 1.08f);
+        // the strike lands as the staff comes forward (the cast's thrust), not while it's drawn back
+        _drainTarget = target;
+        _drainDmg = Tune.Vitalist.DrainDamage * Stats.DamageMult * Stats.PrimaryDamageMult * G.Range(0.92f, 1.08f);
+        _drainAt = Tune.Vitalist.DrainStrikeDelay;
+        _castGlow = 0.45f;
+        return true;
+    }
+
+    private Enemy _drainTarget;
+    private float _drainDmg, _drainAt;
+
+    /// <summary>
+    /// The drain's strike, on the cast's thrust: the crystal flares, a tether of life snaps out to
+    /// the creature and it bursts (and with Many Mouths, the ones beside it too).
+    /// </summary>
+    private void StrikeDrain()
+    {
+        var target = _drainTarget;
+        _drainTarget = null;
+        if (Dead || !IsInstanceValid(target) || target.Dead || !target.CanBeHit) return;
+        float dmg = _drainDmg;
+        G.Fx.Flash(CastPoint, 9, LifeColorLight, 0.1f);
+        G.Fx.Beam(CastPoint, target.GlobalPosition, new Color(LifeColor, 0.9f));
         DrainFrom(target, dmg, 1f);
         // Many Mouths: the creatures nearest the target give up their life too
         if (Stats.DrainExtra > 0)
@@ -102,12 +129,11 @@ public partial class Player
         }
         G.Sfx.Play("drain", target.GlobalPosition, -3, 0.1f);
         _castGlow = 1f;
-        return true;
     }
 
     /// <summary>
     /// Tears the life out of one creature: it's struck on the spot (tugged toward you, shuddering),
-    /// and what it lost flies back to you as a mote carrying the alimus.
+    /// bursting in a spray of crimson, and what it lost flies back to you as a mote carrying the alimus.
     /// </summary>
     private void DrainFrom(Enemy e, float dmg, float size)
     {
@@ -122,11 +148,14 @@ public partial class Player
         }
         OnDealtDamage(dealt, alimusByMote: true);
         if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
-        // the life comes out of it toward you
-        G.Fx.Flash(at, 10 * size + 4, LifeColorLight, 0.1f);
-        G.Fx.Directional(at, toMe, 0.55f, LifeColor, (int)(9 * size), 200, 2f, 0.3f, 0, 0);
-        G.Fx.Ring(at, 7 + 5 * size, new Color(LifeColor, 0.8f), 0.2f);
-        G.Main.Rumble(0.2f, 0.05f, 0.06f);
+        // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
+        // life streaming out of it toward you
+        G.Fx.Flash(at, 11 * size + 5, LifeColor, 0.12f);
+        G.Fx.Spark(at, -toMe, false, LifeColorLight);
+        G.Fx.Burst(at, LifeColor, (int)(12 * size), 170, 2.2f, 0.35f, 120f, 0, 3f);
+        G.Fx.Directional(at, toMe, 0.55f, LifeColor, (int)(14 * size), 230, 2.2f, 0.32f, 0, 0);
+        G.Fx.Ring(at, 10 + 12 * size, new Color(LifeColor, 0.9f), 0.26f);
+        G.Main.Rumble(0.25f, 0.08f, 0.08f);
         var mote = new LifeMote { Position = at, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = size };
         G.Spawn(mote);
         NetSync.HeroVisual(mote);

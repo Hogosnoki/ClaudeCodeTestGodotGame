@@ -52,6 +52,8 @@ public sealed class CaveData
     public readonly List<Vector3> IceLedges = new();
 
     public Vector2 StartPos;
+    /// <summary>The cave mouth (depth 0 only): the floor at the daylight on the far left, where you can leave.</summary>
+    public Vector2? Mouth;
     public Room Boss;
     public readonly List<Room> Rooms = new();
     public readonly List<SpawnPoint> Spawns = new();

@@ -172,14 +172,16 @@ public static class Tune
     {
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
         /// <summary>
-        /// Drain (the attack button): the life is torn out of the creature you aim at the instant
-        /// you cast, with no travel time. Damage, reach (px), time between casts, and the cone
+        /// Drain (the attack button): the life is torn out of the creature you aim at as the staff
+        /// comes forward, with no travel time. Damage, reach (px), time between casts, and the cone
         /// (degrees either side of your aim) it looks for a creature in. The stolen life flies back
         /// to you at MoteSpeed px/s and becomes alimus when it arrives.
         /// </summary>
         public static float DrainDamage = 10f, DrainRange = 175f, DrainCooldown = 0.5f, DrainConeDegrees = 38f, MoteSpeed = 640f;
         /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
         public static float DrainWhiffCooldown = 0.25f;
+        /// <summary>Seconds from the press to the strike: the cast's thrust (its clip is 6 frames at 24 fps, sped up 1.6x; the thrust is 30-45% in).</summary>
+        public static float DrainStrikeDelay = 0.06f;
         /// <summary>Many Mouths: each extra creature drained (within MultiRadius px of the target)
         /// takes this share of the damage.</summary>
         public static float MultiRadius = 120f, MultiShare = 0.6f;

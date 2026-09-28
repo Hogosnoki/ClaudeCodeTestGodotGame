@@ -330,7 +330,7 @@ public static partial class Net
         Hello = 1, Refuse, Lobby, PickHero, Start, Level,
         HeroState, HeroEvent, WorldSnap, EnemySpawn, EnemyDie, EnemyHit, EnemyEffect,
         HeroHurt, HeroHeal, PropSpawn, PropGone, Xp, Pickup, ChestOpen, ChestOpened,
-        ExitReady, Fx, Sfx, Banner, GuardianDown, RunOver, Revive, KillCredit, Music, HeroGone, Dealt,
+        ExitReady, Fx, Sfx, Banner, GuardianDown, RunOver, Revive, KillCredit, Music, HeroGone, Dealt, LeftCave,
         /// <summary>The two-game test harness (--nettest) talking to itself.</summary>
         Test,
     }

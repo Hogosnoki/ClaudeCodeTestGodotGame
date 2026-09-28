@@ -212,6 +212,10 @@ public static partial class CaveGenerator
         const float sx = 13;
         f.Dome(sx, startFloor, 9, 6.5f, true);
         cave.Rooms.Add(MakeRoom(RoomKind.Start, sx, startFloor - 3, startFloor, 9, 6.5f));
+        // behind you as you start: the way you came in, a short tunnel out to the daylight
+        const float mr = 3.4f;
+        f.Line(new Vector2(0, startFloor - mr), new Vector2(sx, startFloor - mr), mr);
+        cave.Mouth = new Vector2(5.5f, startFloor) * CaveData.Cell;
 
         float x = sx + 4, y = startFloor - r, slope = 0;
         float xEnd = W - 34;
@@ -260,7 +264,7 @@ public static partial class CaveGenerator
         f.Line(new Vector2(x, y), new Vector2(bcx - brx + 2, bfloor - r), r);
         f.Dome(bcx, bfloor, brx, Math.Min(bry, bfloor - 5), true);
         f.FloorAt(bcx - brx - 2, bcx + brx + 2, bfloor, 5);
-        f.FloorAt(sx - 9, sx + 9, startFloor, 3);
+        f.FloorAt(0, sx + 9, startFloor, 3);
         var boss = MakeRoom(RoomKind.Boss, bcx, bfloor - bry * 0.45f, bfloor, brx, bry);
         cave.Boss = boss;
         cave.Rooms.Add(boss);

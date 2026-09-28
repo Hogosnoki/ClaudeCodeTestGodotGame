@@ -510,6 +510,14 @@ public partial class Main : Node
         _cam.GlobalPosition = player.GlobalPosition;
         _cam.MakeCurrent();
 
+        // the way back out, at the cave mouth (depth 0)
+        if (cave.Mouth is Vector2 mouth)
+        {
+            var way = new Portal { Position = mouth + new Vector2(0, -30), Outside = true, Label = "the way out" };
+            NetSync.LevelId(way);
+            _world.AddChild(way);
+        }
+
         // the chests come from the seed alone (online, every game places the same ones, in the same order)
         G.Rng = new Random(seed * 31 + G.Depth * 7 + 1);
         // Treasure chests are visible from the start (a few of the treasure rooms hold one).
@@ -711,8 +719,24 @@ public partial class Main : Node
         _victory = false;
         _runEmbers = 0;
         _runFinds = "";
+        // (walk back out of the cave mouth and none of this run is kept, not even that it happened)
+        _metaAtStart = Meta.Snapshot();
         Meta.Runs++;
         _sfx.SetMusic("ambient");
+    }
+
+    private Godot.Collections.Dictionary _metaAtStart;
+
+    /// <summary>The hero walked out of the cave mouth (depth 0): the run ends on the spot and nothing from it is kept.</summary>
+    public void LeaveCave() => CallDeferred(MethodName.WalkOut);
+
+    private void WalkOut()
+    {
+        if (Net.InRun || _state is State.Title or State.Dead) return;
+        Meta.Restore(_metaAtStart);
+        _metaAtStart = null;
+        ResetToTitle();
+        ShowTitle();
     }
 
     private const int HeroCount = 3;
@@ -2273,7 +2297,7 @@ public partial class Main : Node
             {
                 _heroInput = default;
                 float dealt = _hpMark - _probeEnemy.Hp;
-                Check($"the drain strikes a golem 110 px away the instant it's cast (hp {_hpMark:0} -> {_probeEnemy.Hp:0})", dealt > 0);
+                Check($"the drain strikes a golem 110 px away as the staff comes forward (hp {_hpMark:0} -> {_probeEnemy.Hp:0})", dealt > 0);
                 Check($"and its life flies back as a mote (motes {_world.GetChildren().OfType<LifeMote>().Count()})", _world.GetChildren().OfType<LifeMote>().Any());
                 break;
             }
@@ -2373,6 +2397,8 @@ public partial class Main : Node
                 _probe2 = Dummy(new Golem(), 150);
                 break;
             case 64:
+                // (both held where they stand: the strike lands a beat after the press, as the staff comes forward)
+                _probeEnemy.Freeze(0.5f); _probe2.Freeze(0.5f);
                 _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 break;

@@ -274,6 +274,11 @@ public partial class Portal : Node2D
     public BiomeDef To;
     public int Depth;
     public string Label = "";
+    /// <summary>
+    /// The cave mouth at depth 0: the daylight you came in by. Going out ends the run on the
+    /// spot, keeping nothing from it (only the interact button takes you, never a stray "up").
+    /// </summary>
+    public bool Outside;
     private float _t, _near;
     private bool _used;
     public float Age => _t;
@@ -281,7 +286,7 @@ public partial class Portal : Node2D
     public float Near => _near;
     public bool Used => _used;
 
-    public override void _Ready() { ZIndex = -1; G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
+    public override void _Ready() { ZIndex = -1; if (!Outside) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
 
     /// <summary>Is someone standing at <paramref name="p"/> close enough to go down?</summary>
     public bool Reaches(Vector2 p) => !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
@@ -292,6 +297,7 @@ public partial class Portal : Node2D
         if (_used) return;
         if (Net.Online) { G.Main.WaitAtExit(this); return; }
         _used = true;
+        if (Outside) { G.Main.LeaveCave(); return; }
         G.Sfx.Play("portal", GlobalPosition, 0, 0.05f, 0.8f);
         G.Fx.Flash(GlobalPosition, 40, (To?.Glow ?? new Color(0.7f, 0.5f, 1f)).Darkened(0.3f), 0.25f);
         G.Main.EnterExit(To, Depth);
@@ -304,6 +310,12 @@ public partial class Portal : Node2D
         bool near = false;
         foreach (var p in G.Players) if (!p.Dead && Reaches(p.GlobalPosition)) near = true;
         _near = Math.Clamp(_near + (near ? dt * 5f : -dt * 3f), 0f, 1f);
+        if (Outside)
+        {
+            // dust turning in the daylight that spills in
+            if (G.Chance(0.1f)) G.Fx.Mote(GlobalPosition + new Vector2(G.Range(-16, 40), G.Range(-70, 0)), GlobalPosition + new Vector2(G.Range(30, 110), G.Range(-60, 10)), new Color(1f, 0.97f, 0.88f, 0.5f));
+            return;
+        }
         // a draught: faint motes of the world below, drawn down into the dark
         var glow = To?.Glow ?? new Color(0.7f, 0.5f, 1f);
         if (G.Chance(0.12f)) G.Fx.Mote(GlobalPosition + new Vector2(G.Range(-30, 30), G.Range(-40, -10)), GlobalPosition + new Vector2(G.Range(-6, 6), 24), new Color(glow, 0.55f));
@@ -312,6 +324,7 @@ public partial class Portal : Node2D
 
     public override void _Draw()
     {
+        if (Outside) return;
         float grow = Math.Min(1, _t);
         var b = To;
         var deep = b?.Deep ?? new Color(0.1f, 0.05f, 0.2f);

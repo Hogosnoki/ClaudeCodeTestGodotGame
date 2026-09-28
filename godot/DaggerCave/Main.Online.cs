@@ -210,7 +210,27 @@ public partial class Main
         var portal = NetSync.ExitEveryoneIsAt();
         if (portal == null) return;
         _descending = true;
-        CallDeferred(MethodName.HostDescend, (int)(portal.To?.Id ?? BiomeId.Slime), portal.Depth);
+        if (portal.Outside) CallDeferred(MethodName.HostLeaveCave);
+        else CallDeferred(MethodName.HostDescend, (int)(portal.To?.Id ?? BiomeId.Slime), portal.Depth);
+    }
+
+    private void HostLeaveCave()
+    {
+        _descending = false;
+        if (!Net.InRun) return;
+        NetSync.SendLeftCave();
+        OnlineLeftCave();
+    }
+
+    /// <summary>Everyone still standing walked out of the cave mouth together: back to the lobby, keeping nothing from the run.</summary>
+    public void OnlineLeftCave()
+    {
+        if (!_onlineRun || !Net.InRun) return;
+        Net.InRun = false;
+        Meta.Restore(_metaAtStart);
+        _metaAtStart = null;
+        BackToLobby();
+        _onlineMenu.Open("You all walked back out into the daylight. Nothing from that run was kept.");
     }
 
     private void HostDescend(int biome, int depth)

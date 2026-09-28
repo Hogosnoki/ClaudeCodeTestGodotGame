@@ -48,6 +48,8 @@ public partial class Main
     {
         "water" => "slime",
         "fossilcam" => "fossils",
+        "mouth" => "entrance",
+        "drain" => "entrance",
         _ => null,
     };
 
@@ -61,13 +63,114 @@ public partial class Main
 
     private void ScenarioTick(float dt)
     {
-        if (_scDone || _state != State.Playing) return;
+        // (the cave mouth's scenario carries on after the run ends, at the title)
+        if (_scDone || (_state != State.Playing && _scenario != "mouth")) return;
         _scT += dt;
         switch (_scenario)
         {
             case "water": WaterScenario(); break;
             case "fossilcam": CameraScenario(); break;
+            case "mouth": MouthScenario(); break;
+            case "drain": DrainScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
+        }
+    }
+
+    // ---------------------------------------------------------------- the drain's burst (--hero=vitalist)
+
+    private Enemy _scFoe;
+    private int _scFrame = -1;
+
+    /// <summary>One drain at a golem, a frame-by-frame record of the cast and the burst (drain_N.png).</summary>
+    private void DrainScenario()
+    {
+        var p = G.Player;
+        if (_scFoe == null)
+        {
+            if (_scT < 0.5f) return;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            _scFoe = new Golem { Position = p.GlobalPosition + new Vector2(110, -20) };
+            _scFoe.SetMeta("test", true);
+            _world.AddChild(_scFoe);
+            _scFoe.Wake();
+            _scT = 0;
+            return;
+        }
+        if (_scFrame < 0)
+        {
+            _scFoe.Freeze(0.3f);
+            if (_scT < 1.2f) return;
+            _scHp = _scFoe.Hp;
+            _scInput = new PlayerInput { Attack = true, Aim = new Vector2(1, 0.1f).Normalized() };
+            _scFrame = 0;
+            return;
+        }
+        if (_scFrame > 1) _scInput = default;
+        ScShot($"drain_{_scFrame:00}");
+        if (++_scFrame < 14) return;
+        ScCheck($"the drain struck the golem (hp {_scHp:0} -> {_scFoe.Hp:0})", _scFoe.Hp < _scHp);
+        ScEnd();
+    }
+
+    // ---------------------------------------------------------------- the cave mouth
+
+    private int _scStep, _scRuns, _scEmbers;
+
+    private void MouthScenario()
+    {
+        var p = G.Player;
+        var cave = G.Cave;
+        switch (_scStep)
+        {
+            case 0:
+            {
+                if (_scT < 0.4f) return;
+                ScCheck($"depth 0 has a way out at the far left (at {cave.Mouth?.Round().ToString() ?? "none"})", cave.Mouth is Vector2 m && m.X < 100);
+                if (cave.Mouth is not Vector2 mouth) { ScEnd(); return; }
+                int i = (int)(mouth.X / CaveData.Cell), j = (int)(mouth.Y / CaveData.Cell) - 1;
+                ScCheck("and you can walk there from the start", cave.ReachMask[j * cave.W + i]);
+                // what the run has earned so far (it must all go when you leave)
+                _scRuns = Meta.Runs - 1; // (the run just begun counted itself)
+                _scEmbers = Meta.Embers;
+                Meta.AddEmbers(7);
+                ScShot("mouth_0");
+                _scStep = 1; _scT = 0;
+                break;
+            }
+            case 1:
+            {
+                // walk left to the daylight
+                var mouth = cave.Mouth.Value;
+                bool there = p.GlobalPosition.X < mouth.X + 18;
+                _scInput = new PlayerInput { Move = new Vector2(there ? 0 : -1, 0) };
+                if (_scT > 12f) { ScCheck("the hero reaches the cave mouth", false); ScEnd(); return; }
+                if (!there || _scT < 1f) return;
+                ScShot("mouth_1");
+                // up alone never takes you out (it's a stray press so easily)
+                _scInput = new PlayerInput { Up = true };
+                _scStep = 2; _scT = 0;
+                break;
+            }
+            case 2:
+                // (each press is held a few frames, so a physics step always sees it)
+                if (_scT > 0.2f) _scInput = default;
+                if (_scT < 0.6f) return;
+                ScCheck("pressing up at the mouth doesn't leave", _state == State.Playing);
+                _scInput = new PlayerInput { Interact = true };
+                _scStep = 3; _scT = 0;
+                break;
+            case 3:
+                if (_scT > 0.2f) _scInput = default;
+                if (_state == State.Playing && _scT < 3f) return;
+                ScCheck("interact at the mouth ends the run, back to the title", _state == State.Title);
+                ScCheck($"nothing from the run is kept (embers {_scEmbers} -> {Meta.Embers}, runs {_scRuns} -> {Meta.Runs})", Meta.Embers == _scEmbers && Meta.Runs == _scRuns);
+                _scStep = 4; _scT = 0;
+                break;
+            case 4:
+                if (_scT < 1f) return;
+                ScShot("mouth_2");
+                ScEnd();
+                break;
         }
     }
 

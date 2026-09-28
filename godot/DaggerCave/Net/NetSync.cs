@@ -761,6 +761,9 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>Everyone walked out of the cave mouth: the run is over, and nothing from it is kept.</summary>
+    public static void SendLeftCave() => Net.SendAll(new NetOut(Net.Msg.LeftCave), true);
+
     // ================================================================== effects and sounds
 
     /// <summary>Starts recording one effect (the caller writes its arguments into the returned buffer).</summary>
@@ -863,6 +866,7 @@ public static class NetSync
             case Net.Msg.Music: G.Sfx?.SetMusic(r.Str()); break;
             case Net.Msg.GuardianDown: { int embers = r.Int(); bool dragon = r.Bool(); string name = r.Str(); G.Main?.OnlineGuardianDown(embers, dragon, name); break; }
             case Net.Msg.RunOver: G.Main?.OnlineRunOver(r.Bool()); break;
+            case Net.Msg.LeftCave: G.Main?.OnlineLeftCave(); break;
             case Net.Msg.KillCredit: G.Player?.OnKill(); break;
             case Net.Msg.Dealt: G.Player?.OnDealtDamage(r.Float()); break;
             case Net.Msg.Test: G.Main?.OnNetTest(from, r.Str()); break;

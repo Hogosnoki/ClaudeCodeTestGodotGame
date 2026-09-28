@@ -257,7 +257,7 @@ public partial class Player : CharacterBody2D
         // only standing at the door (or swimming): not mid-jump, or while an attack is under way
         if ((!IsOnFloor() && !InWater) || IsSwinging) return;
         foreach (var n in G.World.GetChildren())
-            if (n is Portal portal && portal.Reaches(GlobalPosition)) { portal.Enter(); return; }
+            if (n is Portal portal && portal.Reaches(GlobalPosition) && (button || !portal.Outside)) { portal.Enter(); return; }
     }
 
     public override void _PhysicsProcess(double delta)
