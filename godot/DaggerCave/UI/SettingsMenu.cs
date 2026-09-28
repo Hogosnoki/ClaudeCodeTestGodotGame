@@ -191,9 +191,10 @@ public partial class PauseMenu : Control
         col.AddChild(UiKit.Button("Quit to desktop", () => QuitGame?.Invoke()));
     }
 
-    public void Open(bool online)
+    /// <summary>Shows the menu (online, leaving is the host's end of the game for everyone).</summary>
+    public void Open(bool online, bool host = false)
     {
-        _quit.Text = online ? "Leave the online game" : "Give up this run";
+        _quit.Text = !online ? "Give up this run" : host ? "End the online game (for everyone)" : "Leave the online game";
         Visible = true;
         _first.CallDeferred(Control.MethodName.GrabFocus);
     }

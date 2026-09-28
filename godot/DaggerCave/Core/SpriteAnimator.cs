@@ -236,7 +236,9 @@ void fragment() {
         var input = new AnimInput
         {
             Clip = clip, Frame = Sprite.Frame, Frames = frames, T = t, Loop = loop, Time = _animTime, Dt = tdt,
-            Facing = Facing, Vel = new Vector2(vel.X, -vel.Y) / W3.Ppu, OnFloor = body?.IsOnFloor() ?? false,
+            Facing = Facing, Vel = new Vector2(vel.X, -vel.Y) / W3.Ppu,
+            // (online copies go by what their own game says about their footing)
+            OnFloor = owner switch { Player pl => pl.OnGround, Enemy en => en.OnGround, _ => body?.IsOnFloor() ?? false },
             InWater = G.Cave != null && G.Cave.IsWater(GlobalPosition), ClipTime = _clipTime, Owner = owner,
         };
         m.Face(Facing, clip, t, dt);
@@ -319,6 +321,34 @@ void fragment() {
         else Facing = dir;
     }
 
+    /// <summary>
+    /// Online copies: shows exactly the animation another game's animator shows (its full name,
+    /// facing included) from its frame, playing on at its speed. It only jumps when the clip
+    /// changes or the frame has drifted, so playback stays smooth between updates.
+    /// </summary>
+    public void Mirror(string anim, int frame, float speed, int facing)
+    {
+        if (string.IsNullOrEmpty(anim) || !Sheet.Frames.HasAnimation(anim)) return;
+        _manual = true;
+        _once = null;
+        Facing = facing < 0 ? -1 : 1;
+        _targetFacing = Facing;
+        int count = Sheet.Frames.GetFrameCount(anim);
+        frame = Math.Clamp(frame, 0, Math.Max(0, count - 1));
+        if (Sprite.Animation != anim)
+        {
+            Sprite.Play(anim);
+            Sprite.Frame = frame;
+        }
+        else
+        {
+            int d = Math.Abs(Sprite.Frame - frame);
+            if (d > 1 && d < count - 1) Sprite.Frame = frame;
+            if (!Sprite.IsPlaying() && Sheet.Frames.GetAnimationLoop(anim)) Sprite.Play(anim);
+        }
+        Sprite.SpeedScale = speed;
+    }
+
     /// <summary>Drive an animation's frame directly from gameplay time (e.g. the urchin's spike cycle).</summary>
     public void SetFrameManual(string name, float seconds)
     {
@@ -332,6 +362,8 @@ void fragment() {
     }
 
     public void Flash(float amount = 1f) => _flash = Math.Max(_flash, amount);
+    /// <summary>How strongly it's flashing right now (online: sent with the hero).</summary>
+    public float FlashAmount => _flash;
 
     public Color FlashColor { set { _flashColor = value; _mat.SetShaderParameter("flash_color", value); } }
 

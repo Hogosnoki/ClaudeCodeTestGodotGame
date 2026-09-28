@@ -20,6 +20,7 @@ public partial class Dragon : Enemy
     private bool _phase2;
     private float _diveX;
     private Vector2 _breathDir;
+    public override void NetState(NetIO io) { io.Sync(ref _phase2); io.SyncByte(ref _s); io.Sync(ref _breathDir); }
     /// <summary>For the 3D model: enraged, and where the fire is going.</summary>
     public bool Phase2 => _phase2;
     public Vector2 BreathDir => _breathDir;
@@ -47,10 +48,10 @@ public partial class Dragon : Enemy
     private float Speed => _phase2 ? Tune.Dragon.EnragedSpeedMult : 1f;
     private Vector2 Mouth => GlobalPosition + new Vector2(Face * 60, -26);
 
-    public override float Hurt(float dmg, Vector2 knock, Vector2 hitPos)
+    protected override float TakeHit(float dmg, Vector2 knock, Vector2 hitPos)
     {
         if (_s == S.Intro) return 0;
-        float d = base.Hurt(dmg, knock, hitPos);
+        float d = base.TakeHit(dmg, knock, hitPos);
         if (!_phase2 && Hp < MaxHp * Tune.Dragon.EnrageAt && !Dead)
         {
             _phase2 = true;

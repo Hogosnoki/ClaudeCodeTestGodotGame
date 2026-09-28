@@ -314,13 +314,13 @@ public partial class Fx3D : Node3D
     private void DrawHero()
     {
         _rmesh.ClearSurfaces();
-        var p = G.Player;
-        bool any = false;
+        bool any = false, blade = false;
         _barrier.Visible = false;
-        if (p != null && IsInstanceValid(p))
+        // every hero in the game (online, the others' too)
+        foreach (var p in G.Players)
         {
-            if (p.GetSmear(out var sm)) { SmearRibbon(sm); any = true; }
-            else _bladeLight.Visible = false;
+            if (p == null || !IsInstanceValid(p)) continue;
+            if (p.GetSmear(out var sm)) { SmearRibbon(sm); any = true; blade = true; }
             var g = p.GetGuard();
             if (g.Shield) { GuardArc(p, g); any = true; }
             if (g.Dash)
@@ -331,7 +331,7 @@ public partial class Fx3D : Node3D
                 _barrier.SetInstanceShaderParameter("ghost_color", new Color(0.45f, 0.75f, 1f, 0.55f));
             }
         }
-        else _bladeLight.Visible = false;
+        if (!blade) _bladeLight.Visible = false;
         _ribbon.Visible = any;
     }
 

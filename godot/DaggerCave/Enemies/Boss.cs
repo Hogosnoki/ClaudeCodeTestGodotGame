@@ -17,6 +17,7 @@ public partial class CavernColossus : Enemy
     private int _lastAttack = -1;
     private Room _room;
     private bool _phase2;
+    public override void NetState(NetIO io) { io.Sync(ref _phase2); io.SyncByte(ref _s); }
     /// <summary>For the 3D model: enraged (the core burns red).</summary>
     public bool Phase2 => _phase2;
 
@@ -33,11 +34,11 @@ public partial class CavernColossus : Enemy
 
     protected override Color BloodColor => new(0.65f, 0.6f, 0.55f);
 
-    public override float Hurt(float dmg, Vector2 knock, Vector2 hitPos)
+    protected override float TakeHit(float dmg, Vector2 knock, Vector2 hitPos)
     {
         if (_s == S.Stunned) dmg *= 1.5f;
         if (_s == S.Intro) return 0;
-        float d = base.Hurt(dmg, knock, hitPos);
+        float d = base.TakeHit(dmg, knock, hitPos);
         if (!_phase2 && Hp < MaxHp * Tune.Boss.EnrageAt && !Dead)
         {
             _phase2 = true;

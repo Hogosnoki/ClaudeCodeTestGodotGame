@@ -116,6 +116,8 @@ public partial class Frog : Enemy
 
     public Frog() { MaxHp = Tune.Frog.Hp; BodyRadius = 9; ContactDamage = Tune.Frog.Contact; XpValue = Tune.Frog.Xp; }
 
+    public override void NetState(NetIO io) { io.Sync(ref _tongueT); io.Sync(ref _tongueDir); }
+
     private float _hopWind = -1, _hopDir;
     private bool _wasAir;
 
@@ -255,6 +257,7 @@ public partial class Frog : Enemy
 public partial class Goblin : Enemy
 {
     public bool Slinger;
+    public override void NetState(NetIO io) => io.Sync(ref Slinger);
     private int _state; // 0 chase, 1 windup, 2 recover
     private float _stateT, _throwCd = 1.5f, _gruntT;
 
@@ -400,6 +403,7 @@ public partial class Spider : Enemy
 {
     private int _state; // 0 ceiling, 1 drop, 2 hang, 3 climb, 4 ground
     private float _stateT, _anchorY, _pounceCd, _pounceLeft;
+    public override void NetState(NetIO io) { io.Sync(ref _state); io.Sync(ref _anchorY); io.Sync(ref Grounded); }
 
     protected override bool UsesGravity => _state == 4;
 

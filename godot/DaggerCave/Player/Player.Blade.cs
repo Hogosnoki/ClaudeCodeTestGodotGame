@@ -87,6 +87,7 @@ public partial class Player
         // Play it so the wind-up frames last exactly the wind-up time; the woosh then lands with the hitbox.
         float windFrames = finisher ? 3 : 2;
         Anim.Once($"slash_{letter}_{dir}", 3, windFrames / 24f / _windup);
+        NetSync.HeroSwing(this, _swingDir, _swingArc, _swingReach, _windup, _active, _comboStep, finisher, charged, false);
     }
 
     /// <summary>The moment the blade comes around: sound, lunge, crescent wave, stretch.</summary>
@@ -102,23 +103,29 @@ public partial class Player
         if (Stats.CrescentWave && _waveCd <= 0)
         {
             _waveCd = Tune.Swordsman.WaveCooldown;
-            G.Spawn(new SwordWave
+            var wave = new SwordWave
             {
                 Position = GlobalPosition + new Vector2(0, -3) + aim * (_swingReach * 0.6f),
                 Dir = aim,
                 Damage = _swingDmg * Tune.Swordsman.WaveDamage,
                 Range = Tune.Swordsman.WaveRange,
-            });
+            };
+            G.Spawn(wave);
+            NetSync.HeroVisual(wave);
         }
         // Storm Edge: a charged swing looses a full-strength wave of its own
         if (_swingCharged && Stats.ChargeWave)
-            G.Spawn(new SwordWave
+        {
+            var wave = new SwordWave
             {
                 Position = GlobalPosition + new Vector2(0, -3) + aim * (_swingReach * 0.6f),
                 Dir = aim,
                 Damage = _swingDmg,
                 Range = Tune.Swordsman.WaveRange * 1.3f,
-            });
+            };
+            G.Spawn(wave);
+            NetSync.HeroVisual(wave);
+        }
     }
 
     /// <summary>Time into the sweep (negative during the wind-up).</summary>

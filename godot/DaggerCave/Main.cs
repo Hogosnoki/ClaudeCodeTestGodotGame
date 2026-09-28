@@ -24,8 +24,6 @@ public partial class Main : Node
     public int SkipBank;
     /// <summary>True while a menu or screen has the controls (the hero ignores input).</summary>
     public bool MenuOpen => _state != State.Playing;
-    /// <summary>A menu is open over a game that keeps running (online play): the hero ignores input.</summary>
-    public bool OverlayMenuOpen;
     private MetaMenu _metaMenu;
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
@@ -149,9 +147,10 @@ public partial class Main : Node
         _uiLayer.AddChild(_pauseMenu);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
+        SetupOnline();
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -168,6 +167,7 @@ public partial class Main : Node
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }
+        if (_netTest != "") { BeginNetTest(); return; }
 
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
@@ -255,7 +255,7 @@ public partial class Main : Node
             ControlsLine(false),
             ControlsLine(true),
             CampLine(),
-            UsingPad ? "!LEFT / RIGHT to choose  -  A to begin  -  START for settings" : "!LEFT / RIGHT to choose  -  ENTER to begin  -  ESC for settings");
+            UsingPad ? "!LEFT / RIGHT to choose  -  A to begin  -  Y to play online  -  START for settings" : "!LEFT / RIGHT to choose  -  ENTER to begin  -  O to play online  -  ESC for settings");
     }
 
     /// <summary>The controls in one line, as bound (keyboard and mouse, or the controller).</summary>
@@ -308,6 +308,10 @@ public partial class Main : Node
             else if (a == "--proptest") _propTest = true;
             else if (a == "--exittest") _exitTest = true;
             else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
+            else if (a.StartsWith("--nettest=")) _netTest = a[10..];
+            else if (a.StartsWith("--netaddr=")) _netAddr = a[10..];
+            else if (a.StartsWith("--ntshots=")) _ntShots = a[10..];
+            else if (a.StartsWith("--onlineshot=")) _onlineShot = a[13..];
         }
     }
 
@@ -438,6 +442,7 @@ public partial class Main : Node
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
+        NetSync.BeginLevel();
         EnemyProjectiles.Clear();
         Breakables.All.Clear();
         _roomElites.Clear();
@@ -502,6 +507,8 @@ public partial class Main : Node
         _cam.GlobalPosition = player.GlobalPosition;
         _cam.MakeCurrent();
 
+        // the chests come from the seed alone (online, every game places the same ones, in the same order)
+        G.Rng = new Random(seed * 31 + G.Depth * 7 + 1);
         // Treasure chests are visible from the start (a few of the treasure rooms hold one).
         int roomChests = 0;
         foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Treasure).OrderBy(_ => G.Rng.Next()))
@@ -510,7 +517,9 @@ public partial class Main : Node
             roomChests++;
             // Sit the chest on real ground (the room's floor line may have been cut by another tunnel).
             if (!cave.FindFloor(room.Center, 700, out var floor)) continue;
-            _world.AddChild(new Chest { Position = floor });
+            var chest = new Chest { Position = floor };
+            NetSync.LevelId(chest);
+            _world.AddChild(chest);
         }
 
         PlaceCaches(cave);
@@ -520,6 +529,8 @@ public partial class Main : Node
         _hud.ResetMap(cave);
         _hud.ShowBanner(G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
         _spawnT = 0;
+        _waitingAt = null;
+        NetSync.LevelBuilt();
     }
 
     /// <summary>Ambient wildlife: glow moths in dry tunnels, crabs on floors (including the sea bed).</summary>
@@ -570,7 +581,9 @@ public partial class Main : Node
                 if (!underwater && floor.Y > yMax) continue;
                 if (!Reachable(floor) || placed.Any(q => q.DistanceTo(floor) < 350)) continue;
                 placed.Add(floor);
-                _world.AddChild(new Chest { Position = floor });
+                var chest = new Chest { Position = floor };
+                NetSync.LevelId(chest);
+                _world.AddChild(chest);
                 made++;
             }
         }
@@ -597,17 +610,19 @@ public partial class Main : Node
     }
 
     /// <summary>Walks through an exit tunnel: on to that biome, that many levels deeper.</summary>
-    public void EnterExit(BiomeDef to, int depth) => CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth);
+    public void EnterExit(BiomeDef to, int depth) => CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth, 0);
 
-    private void GoDeeper(int biome, int depth)
+    private void GoDeeper(int biome, int depth, int seed)
     {
         if (Brains.Training) Brains.SaveAll();
         G.Depth = depth;
         G.Biome = Biomes.Get((BiomeId)biome);
         Meta.BestDepth = Math.Max(Meta.BestDepth, G.Depth);
-        _seed = _rng.Next(1, 999999);
+        _seed = seed != 0 ? seed : _rng.Next(1, 999999);
         BuildLevel(_seed, freshPlayer: false);
         if (_bot != null) { G.Player.InputOverride = _bot.Read; _bot.Reset(); }
+        // (online, a pick still open when the others went down carries on in the new level)
+        if (_state == State.Choosing) G.Player.Choosing = Net.InRun;
         _sfx.SetMusic("ambient");
     }
 
@@ -709,6 +724,7 @@ public partial class Main : Node
 
     private void Restart()
     {
+        if (Net.Online) { BackToLobby(); return; }
         if (Brains.Training) Brains.SaveAll();
         G.Depth = 0;
         G.Biome = Biomes.Get(BiomeId.Entrance);
@@ -723,6 +739,7 @@ public partial class Main : Node
 
     public void OnPlayerDied()
     {
+        if (Net.InRun) { OnlineHeroDown(); return; }
         if (Brains.Training) Brains.SaveAll();
         _state = State.Dead;
         _deadT = 0;
@@ -734,6 +751,7 @@ public partial class Main : Node
     /// <summary>The camp between runs: how the run went, what it earned, the heroes, and the trees.</summary>
     private void ShowCamp()
     {
+        if (Net.Online) { ShowOnlineCamp(); return; }
         var p = G.Player;
         int secs = (int)_runTime;
         _overlay.HeroCards = true;
@@ -744,7 +762,7 @@ public partial class Main : Node
             earned,
             "@",
             CampLine(),
-            UsingPad ? "!LEFT / RIGHT to switch hero  -  Y or A to descend again" : "!LEFT / RIGHT to switch hero  -  R or ENTER to descend again");
+            UsingPad ? "!LEFT / RIGHT to switch hero  -  A to descend again  -  Y to play online" : "!LEFT / RIGHT to switch hero  -  R or ENTER to descend again  -  O to play online");
     }
 
     private void OnMetaClosed()
@@ -769,7 +787,8 @@ public partial class Main : Node
         if (choices.Count == 0) { p.Heal(30); return; }
         if (!_guardianDown) choices.Add(Upgrades.Skip); // (once the guardian is down, a skip would pay nothing)
         _state = State.Choosing;
-        GetTree().Paused = true;
+        if (Net.InRun) p.Choosing = true;
+        else GetTree().Paused = true;
         _sfx.Play(treasure ? "chest" : "levelup");
         _upgradeMenu.Open(choices, treasure ? "TREASURE!" : "MILESTONE!");
         _autoPickT = 0.5f;
@@ -784,6 +803,7 @@ public partial class Main : Node
             _sfx.Play("ui");
             _hud.ShowBanner(u.Name, 1.6f);
         }
+        if (G.Player != null) G.Player.Choosing = false;
         GetTree().Paused = false;
         _state = State.Playing;
     }
@@ -793,8 +813,8 @@ public partial class Main : Node
     private void PauseGame()
     {
         _state = State.Paused;
-        GetTree().Paused = true;
-        _pauseMenu.Open(online: false);
+        if (!Net.InRun) GetTree().Paused = true;
+        _pauseMenu.Open(online: Net.InRun, host: Net.IsHost);
     }
 
     private void Unpause()
@@ -813,14 +833,15 @@ public partial class Main : Node
 
     private void OnSettingsClosed()
     {
-        if (_state == State.Paused) _pauseMenu.Open(online: false);
+        if (_state == State.Paused) _pauseMenu.Open(online: Net.InRun, host: Net.IsHost);
         else if (_state == State.Title) ShowTitle();
     }
 
-    /// <summary>Gives up the run from the pause menu: the hero falls, and it's back to camp.</summary>
+    /// <summary>Gives up the run from the pause menu: the hero falls, and it's back to camp (online: leaves the game).</summary>
     private void GiveUpRun()
     {
         Unpause();
+        if (Net.Online) { LeaveOnline(Net.IsHost ? "You ended the online game." : "You left the online game."); return; }
         G.Player?.GiveUp();
     }
 
@@ -899,14 +920,21 @@ public partial class Main : Node
                 return;
             }
         }
-        if (_metaMenu.Visible) return;
+        if (_metaMenu.Visible || _onlineMenu.Visible) return;
         if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible)
         {
             PauseGame();
             GetViewport().SetInputAsHandled();
             return;
         }
-        if ((_state == State.Title || (_state == State.Dead && _overlay.Visible)) && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
+        bool atTitle = _state == State.Title || (_state == State.Dead && _overlay.Visible && !Net.Online);
+        if (atTitle && !_settingsMenu.Visible && e.IsActionPressed("online"))
+        {
+            OpenOnlineMenu();
+            GetViewport().SetInputAsHandled();
+            return;
+        }
+        if (atTitle && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right")))
         {
             int step = e.IsActionPressed("move_left") ? -1 : 1;
             PickHero((HeroKind)(((int)G.Hero + step + HeroCount) % HeroCount));
@@ -926,7 +954,7 @@ public partial class Main : Node
             // a click on a hero card picks that hero before starting
             if (e is InputEventMouseButton click) { int card = _overlay.CardAt(click.Position); if (card >= 0) PickHero((HeroKind)card); }
             // the level was built for the hero shown when the game launched: rebuild if it changed
-            if (G.Player != null && G.Player.Stats.Hero != G.Hero) BuildLevel(_seed, freshPlayer: true);
+            if (G.Player == null || G.Player.Dead || G.Player.Stats.Hero != G.Hero) BuildLevel(_seed, freshPlayer: true);
             StartPlaying();
             GetViewport().SetInputAsHandled();
         }
@@ -948,12 +976,15 @@ public partial class Main : Node
 
         if (_padTest) PadTestTick(dt);
         if (_menuShot != "") MenuShotTick();
+        if (_netTest != "") NetTestTick(dt);
+        if (_onlineShot != "") OnlineShotTick();
+        UpdateTitleButton();
         switch (_state)
         {
             case State.Title:
                 _titleT += dt;
                 if (_metaShot != "") MetaShotTick();
-                if (!_metaMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                if (!_metaMenu.Visible && !_onlineMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
@@ -961,7 +992,9 @@ public partial class Main : Node
                 }
                 return;
             case State.Paused:
-                return;
+                // (online, the cave carries on while you're in the pause menu)
+                if (!Net.InRun) return;
+                break;
             case State.Dead:
                 _deadT += dt;
                 if (_metaMenu.Visible) break;
@@ -987,15 +1020,13 @@ public partial class Main : Node
                     }
                     if (_autoPickT <= 0) _upgradeMenu.Choose(0);
                 }
-                return;
+                // (online, the cave carries on while you pick)
+                if (!Net.InRun) return;
+                break;
             case State.Playing:
                 _runTime += dt;
-                G.RunTime = _runTime;
-                if (_victoryT > 0)
-                {
-                    _victoryT -= dt;
-                    if (_victoryT <= 0) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); }
-                }
+                // (the host's clock is the difficulty's clock: a client takes it from the host)
+                if (!Net.IsClient) G.RunTime = _runTime;
                 Brains.Tick(unscaled);
                 TryOpenUpgradeMenu();
                 break;
@@ -1003,12 +1034,30 @@ public partial class Main : Node
 
         UpdateCamera(dt);
         var player = G.Player;
-        if (player != null && _state == State.Playing)
+        bool worldRuns = _state == State.Playing || (Net.InRun && _state is State.Paused or State.Choosing);
+        if (player != null && worldRuns)
         {
             _sfx.SetUnderwater(player.HeadUnder);
             _spawnT -= dt;
-            if (_spawnT <= 0) { _spawnT = 0.25f; RunSpawner(0.25f); RunRooms(); WatchGuardian(0.25f); }
+            // the host's game (or a game alone) runs the cave: creatures, rooms, the guardian
+            if (_spawnT <= 0 && !Net.IsClient)
+            {
+                _spawnT = 0.25f;
+                NetSync.Scope++;
+                try { RunSpawner(0.25f); RunRooms(); WatchGuardian(0.25f); }
+                finally { NetSync.Scope--; }
+            }
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;
+            if (_victoryT > 0)
+            {
+                _victoryT -= dt;
+                if (_victoryT <= 0)
+                {
+                    if (Net.IsHost) { NetSync.SendRunOver(true); OnlineRunOver(true); }
+                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); }
+                }
+            }
+            if (Net.InRun) OnlineTick(dt);
         }
         if (_showcase) ShowcaseTick(dt);
         if (_lookShot != "") LookShotTick();
@@ -1023,6 +1072,8 @@ public partial class Main : Node
     {
         var p = G.Player;
         if (p == null || _cam == null) return;
+        if (p.Dead && Net.InRun)
+            foreach (var h in G.Players) if (!h.Dead) { p = h; break; }
         var target = p.GlobalPosition + new Vector2(p.Velocity.X * 0.15f, p.Velocity.Y * 0.08f - 10);
         if (ActiveBoss != null && IsInstanceValid(ActiveBoss) && !ActiveBoss.Dead) target = target.Lerp(ActiveBoss.GlobalPosition, 0.25f);
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * Tune.Feel.CameraFollowSharpness));
@@ -1038,12 +1089,32 @@ public partial class Main : Node
     private float _waveT = Tune.Spawning.FirstWave;
     private readonly List<(Enemy e, float d0, float t0)> _entrants = new();
 
-    /// <summary>True if a world point is inside the camera's view (plus a margin).</summary>
+    /// <summary>Half the view's size in the world, plus a margin.</summary>
+    private Vector2 ViewHalf(float margin) => GetViewport().GetVisibleRect().Size / _cam.Zoom * 0.5f + new Vector2(margin, margin);
+
+    private static bool InView(Vector2 p, Vector2 center, Vector2 half) => Math.Abs(p.X - center.X) < half.X && Math.Abs(p.Y - center.Y) < half.Y;
+
+    /// <summary>Where a hero's view is centred (this game's camera, or a friend's hero).</summary>
+    private Vector2 ViewCenter(Player h) => h == null || h == G.Player ? _cam.GetScreenCenterPosition() : h.GlobalPosition + new Vector2(0, -10);
+
+    /// <summary>True if a world point is inside the camera's view (plus a margin); online, anyone's view.</summary>
     private bool OnScreen(Vector2 p, float margin = 40f)
     {
-        var half = GetViewport().GetVisibleRect().Size / _cam.Zoom * 0.5f + new Vector2(margin, margin);
-        var c = _cam.GetScreenCenterPosition();
-        return Math.Abs(p.X - c.X) < half.X && Math.Abs(p.Y - c.Y) < half.Y;
+        var half = ViewHalf(margin);
+        if (InView(p, _cam.GetScreenCenterPosition(), half)) return true;
+        if (Net.InRun) foreach (var h in G.Players) if (h.IsRemote && InView(p, ViewCenter(h), half)) return true;
+        return false;
+    }
+
+    private int _anchorTurn;
+
+    /// <summary>The hero the spawner works around this time (online, each standing hero in turn).</summary>
+    private Player SpawnAnchor()
+    {
+        if (!Net.InRun) return G.Player;
+        var alive = G.Players.Where(h => !h.Dead).ToList();
+        if (alive.Count == 0) return G.Player;
+        return alive[_anchorTurn++ % alive.Count];
     }
 
     /// <summary>
@@ -1056,12 +1127,12 @@ public partial class Main : Node
     private void RunSpawner(float dt)
     {
         var cave = G.Cave;
-        var p = G.Player;
-        if (p.Dead) return;
+        var p = SpawnAnchor();
+        if (p == null || p.Dead) return;
         // only enemies in the neighbourhood count toward the cap (far-off residents are asleep)
         var biome = G.Biome;
         int alive = G.Enemies.Count(e => !e.Dead && e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) < 900 * 900);
-        int cap = (int)((Tune.Spawning.CapBase + G.Pace * Tune.Spawning.CapPerPace) * Math.Max(0.5f, biome.Density));
+        int cap = (int)((Tune.Spawning.CapBase + G.Pace * Tune.Spawning.CapPerPace) * Math.Max(0.5f, biome.Density) * NetSync.CapScale);
         // Residents: how many spawn points actually hold a group rises from ~40% to 100% over the run
         // (sooner the deeper you are); sparse biomes stay sparse.
         float fill = biome.ResidentFill >= 0 ? biome.ResidentFill
@@ -1116,7 +1187,7 @@ public partial class Main : Node
             var w = new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
             if (!OnScreen(w, 24))
             {
-                if (OnScreen(w, 24 + edge)) band.Add(w);
+                if (InView(w, ViewCenter(p), ViewHalf(24 + edge))) band.Add(w);
                 else farther.Add(w);
             }
             if (d >= Tune.Spawning.EntranceMaxCells) continue;
@@ -1133,7 +1204,7 @@ public partial class Main : Node
 
         // sort the candidates into 8 directions around the view and take each newcomer from a
         // different direction (cycling if the wave is bigger than the directions available)
-        var center = _cam.GetScreenCenterPosition();
+        var center = ViewCenter(p);
         var sectors = new List<Vector2>[8];
         for (int k = 0; k < 8; k++) sectors[k] = new List<Vector2>();
         foreach (var w in pool)
@@ -1208,19 +1279,23 @@ public partial class Main : Node
     private void RunRooms()
     {
         var cave = G.Cave;
-        var p = G.Player;
         foreach (var room in cave.Rooms)
         {
             if (room.Triggered || room.Kind == RoomKind.Start) continue;
-            if (room.Kind == RoomKind.Boss)
+            // whoever walks in first (online, any of the heroes)
+            Player p = null;
+            foreach (var h in G.Players)
             {
+                if (h.Dead) continue;
                 // the guardian wakes once you're properly inside its chamber: on one of the chamber's
                 // own open cells (flooded out from its floor, so never through a wall) and a few cells
                 // in from the doorway. (A line of sight to the chamber's centre isn't needed: slabs
                 // and ledges inside it used to block that, and the guardian never came.)
-                if (!InRoom(cave, room, p.GlobalPosition, 0.9f)) continue;
+                bool inside = room.Kind == RoomKind.Boss ? InRoom(cave, room, h.GlobalPosition, 0.9f)
+                    : room.Center.DistanceTo(h.GlobalPosition) <= Math.Max(room.RxPx, room.RyPx) + 60;
+                if (inside) { p = h; break; }
             }
-            else if (room.Center.DistanceTo(p.GlobalPosition) > Math.Max(room.RxPx, room.RyPx) + 60) continue;
+            if (p == null) continue;
             room.Triggered = true;
             switch (room.Kind)
             {
@@ -1274,6 +1349,7 @@ public partial class Main : Node
                     };
                     _world.AddChild(elite);
                     _hud.ShowBanner(elite.DisplayName.ToUpperInvariant(), 2f);
+                    NetSync.SendBanner(elite.DisplayName.ToUpperInvariant(), 2f);
                     G.Sfx.Play("roar", elite.GlobalPosition, -6, 0, 1.6f);
                     break;
                 }
@@ -1290,6 +1366,7 @@ public partial class Main : Node
                     }
                     for (int k = 0; k < 2; k++) _world.AddChild(new Bat { Position = room.Center + new Vector2(G.Range(-40, 40), -room.RyPx * 0.4f) });
                     _hud.ShowBanner("AMBUSH!", 1.5f);
+                    NetSync.SendBanner("AMBUSH!", 1.5f);
                     break;
                 }
                 case RoomKind.Treasure:
@@ -1311,7 +1388,13 @@ public partial class Main : Node
         }
     }
 
-    private void SpawnChest(Vector2 at) => _world.AddChild(new Chest { Position = at });
+    private void SpawnChest(Vector2 at)
+    {
+        // (online, a chest made mid-level goes to every game)
+        NetSync.Scope++;
+        try { G.Spawn(new Chest { Position = at }); }
+        finally { NetSync.Scope--; }
+    }
 
     private bool _guardianDown;
     private float _victoryT = -1;
@@ -1414,7 +1497,8 @@ public partial class Main : Node
         _bossStrandedT = 0;
         var room = cave.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Boss) ?? cave.Boss;
         if (room == null) return;
-        var floor = GuardianFloor(cave, room, G.Player.GlobalPosition.X + Math.Sign(boss.GlobalPosition.X - G.Player.GlobalPosition.X) * 80, boss);
+        var near = boss.Target ?? G.Player;
+        var floor = GuardianFloor(cave, room, near.GlobalPosition.X + Math.Sign(boss.GlobalPosition.X - near.GlobalPosition.X) * 80, boss);
         G.Fx.Dust(boss.GlobalPosition, 10, 2f);
         boss.GlobalPosition = floor + new Vector2(0, -boss.BodyRadius * boss.Size - 4);
         boss.Velocity = Vector2.Zero;
@@ -1430,37 +1514,16 @@ public partial class Main : Node
     /// </summary>
     private void OnGuardianKilled(Room room, Enemy boss)
     {
-        _guardianDown = true;
-        _sfx.SetMusic("ambient");
-        G.Fx.AddShake(14);
-        G.Fx.ScreenFlash(new Color(1f, 0.9f, 0.6f), 0.3f);
         bool dragon = boss is Dragon;
         int embers = dragon ? 5 : G.Depth >= 5 ? 2 : 1;
-        int skipped = SkipBank;
-        embers += skipped;
-        SkipBank = 0;
-        Meta.AddEmbers(embers);
-        _runEmbers += embers;
-        var found = Meta.RollResource(_rng);
-        if (_autotest) GD.Print($"[autotest] guardian {boss.DisplayName} killed at depth {G.Depth} ({G.Biome.Name}) after {_runTime:0}s, level {G.Player.Level}");
         string name = boss.Title != "" ? boss.Title : boss.DisplayName.ToUpperInvariant();
-        _hud.ShowBanner($"{name} SLAIN  ·  +{embers} EMBER{(embers > 1 ? "S" : "")}", 3.5f);
-        var at = boss.GlobalPosition;
-        G.Fx.Text(at + new Vector2(0, -40), $"+{embers} ember{(embers > 1 ? "s" : "")}" + (skipped > 0 ? $" ({skipped} for rewards left behind)" : ""), new Color(1f, 0.7f, 0.35f), 13, 2.5f);
-        if (found != null)
-        {
-            _runFinds += $", 1 {found.Resource}";
-            G.Fx.Text(at + new Vector2(0, -58), $"FOUND: {found.Resource.ToUpperInvariant()}", found.Color, 15, 3f);
-            for (int k = 0; k < 12; k++) G.Fx.Glint(at + G.RandDir() * G.Range(10, 40), found.Color, 9);
-            _sfx.Play("levelup", at, 0, 0, 1.3f);
-        }
+        if (_autotest) GD.Print($"[autotest] guardian {boss.DisplayName} killed at depth {G.Depth} ({G.Biome.Name}) after {_runTime:0}s, level {G.Player.Level}");
+        // (online, each player's game pays its own player: the others hear of it by message)
+        if (Net.IsHost) NetSync.SendGuardianDown(embers, dragon, name);
+        NetSync.Local(() => GuardianRewards(embers, dragon, name, boss.GlobalPosition));
         if (dragon)
         {
-            _victory = true;
-            Meta.Victories++;
-            Meta.Save();
             _victoryT = 5f;
-            _hud.ShowBanner("THE ELDER DRAGON IS SLAIN", 5f);
             return;
         }
         CallDeferred(MethodName.SpawnChest, room.Floor + new Vector2(0, 0));
@@ -1480,8 +1543,46 @@ public partial class Main : Node
         }
     }
 
+    /// <summary>
+    /// A guardian fell: this player's embers (its own, plus one per reward skipped on this level)
+    /// and a resource roll, with the fanfare. The dragon wins the run.
+    /// </summary>
+    private void GuardianRewards(int embers, bool dragon, string name, Vector2 at)
+    {
+        _guardianDown = true;
+        _sfx.SetMusic("ambient");
+        G.Fx.AddShake(14);
+        G.Fx.ScreenFlash(new Color(1f, 0.9f, 0.6f), 0.3f);
+        int skipped = SkipBank;
+        embers += skipped;
+        SkipBank = 0;
+        Meta.AddEmbers(embers);
+        _runEmbers += embers;
+        var found = Meta.RollResource(_rng);
+        _hud.ShowBanner($"{name} SLAIN  ·  +{embers} EMBER{(embers > 1 ? "S" : "")}", 3.5f);
+        G.Fx.Text(at + new Vector2(0, -40), $"+{embers} ember{(embers > 1 ? "s" : "")}" + (skipped > 0 ? $" ({skipped} for rewards left behind)" : ""), new Color(1f, 0.7f, 0.35f), 13, 2.5f);
+        if (found != null)
+        {
+            _runFinds += $", 1 {found.Resource}";
+            G.Fx.Text(at + new Vector2(0, -58), $"FOUND: {found.Resource.ToUpperInvariant()}", found.Color, 15, 3f);
+            for (int k = 0; k < 12; k++) G.Fx.Glint(at + G.RandDir() * G.Range(10, 40), found.Color, 9);
+            _sfx.Play("levelup", at, 0, 0, 1.3f);
+        }
+        if (dragon)
+        {
+            _victory = true;
+            Meta.Victories++;
+            Meta.Save();
+            _hud.ShowBanner("THE ELDER DRAGON IS SLAIN", 5f);
+        }
+    }
+
     private void SpawnPortal(Vector2 at, int biome, int depth, string label)
-        => _world.AddChild(new Portal { Position = at, To = Biomes.Get((BiomeId)biome), Depth = depth, Label = label });
+    {
+        NetSync.Scope++;
+        try { G.Spawn(new Portal { Position = at, To = Biomes.Get((BiomeId)biome), Depth = depth, Label = label }); }
+        finally { NetSync.Scope--; }
+    }
 
     private void FinishFullRun(bool ok)
     {

@@ -31,11 +31,25 @@ public partial class Hud : Control
 
     public void ShowBanner(string text, float time = 2.5f) { Banner = text; BannerT = time; }
 
+    /// <summary>A smaller line under the depth (who joined or left, a tip).</summary>
+    public string Notice = "";
+    public float NoticeT;
+    public void ShowNotice(string text, float time = 4f) { Notice = text; NoticeT = time; }
+
+    /// <summary>Each hero's colour (their card on the title, their marker online).</summary>
+    public static Color HeroColor(HeroKind k) => k switch
+    {
+        HeroKind.Warden => new Color(0.45f, 0.7f, 1f),
+        HeroKind.Vitalist => new Color(0.5f, 1f, 0.45f),
+        _ => new Color(0.95f, 0.45f, 0.35f),
+    };
+
     public override void _Process(double delta)
     {
         float dt = (float)delta;
         _t += dt;
         BannerT -= dt;
+        NoticeT -= dt;
         if (!GetTree().Paused) HintTime -= dt;
         _revealT -= dt;
         if (_revealT <= 0 && G.Player != null && G.Cave != null && _mapImg != null) { _revealT = 0.2f; Reveal(); }
@@ -156,6 +170,10 @@ public partial class Hud : Control
             float sx = mw / G.Cave.SizePx.X, sy = mh / G.Cave.SizePx.Y;
             if (G.Cave.Liquid != Liquid.None)
                 DrawLine(mp + new Vector2(0, G.Cave.WaterY * sy), mp + new Vector2(mw, G.Cave.WaterY * sy), G.Cave.Liquid == Liquid.Lava ? new Color(1f, 0.5f, 0.2f, 0.4f) : new Color(0.4f, 0.7f, 1f, 0.35f), 1f);
+            // (online, the others too, in their heroes' colours)
+            foreach (var h in G.Players)
+                if (h != p && IsInstanceValid(h))
+                    DrawCircle(mp + new Vector2(h.GlobalPosition.X * sx, h.GlobalPosition.Y * sy), 2.6f, h.Dead ? new Color(0.5f, 0.5f, 0.5f) : HeroColor(h.Hero));
             var pp = mp + new Vector2(p.GlobalPosition.X * sx, p.GlobalPosition.Y * sy);
             DrawCircle(pp, 3, new Color(1f, 0.95f, 0.4f));
             if (G.Cave.Boss != null)
@@ -164,6 +182,13 @@ public partial class Hud : Control
                 DrawArc(b, 4 + MathF.Sin(_t * 4), 0, Mathf.Tau, 12, new Color(1f, 0.25f, 0.2f), 2f);
                 DrawString(font, b + new Vector2(6, 4), "EXIT", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.4f, 0.35f));
             }
+        }
+
+        if (Net.InRun) DrawOnline(font, vs, p, xpPos + new Vector2(0, p.Breath < p.Stats.BreathMax - 0.05f || p.HeadUnder ? 44 : 24));
+        if (NoticeT > 0 && Notice != "")
+        {
+            var nsz = font.GetStringSize(Notice, HorizontalAlignment.Left, -1, 13);
+            DrawString(font, new Vector2(vs.X / 2 - nsz.X / 2, 58), Notice, HorizontalAlignment.Left, -1, 13, new Color(1f, 0.92f, 0.75f, Math.Clamp(NoticeT, 0, 1) * 0.9f));
         }
 
         // --- Brain training panel (F9) ---
@@ -210,6 +235,78 @@ public partial class Hud : Control
             var pos = new Vector2(vs.X / 2 - sz.X / 2, vs.Y * 0.3f);
             DrawString(font, pos + new Vector2(2, 2), Banner, HorizontalAlignment.Left, -1, size, new Color(0, 0, 0, a * 0.8f));
             DrawString(font, pos, Banner, HorizontalAlignment.Left, -1, size, new Color(1f, 0.9f, 0.7f, a));
+        }
+    }
+
+    /// <summary>
+    /// Online: the others' health (under your own bars), their names over their heroes, bringing a
+    /// fallen friend back, and who is waiting at an exit.
+    /// </summary>
+    private void DrawOnline(Font font, Vector2 vs, Player me, Vector2 at)
+    {
+        foreach (var peer in Net.Peers.Values)
+        {
+            if (peer.Id == Net.Me) continue;
+            var h = peer.Avatar;
+            bool here = h != null && IsInstanceValid(h);
+            var col = HeroColor(peer.Hero);
+            DrawCircle(at + new Vector2(5, 7), 4.5f, col);
+            DrawString(font, at + new Vector2(14, 12), peer.Name, HorizontalAlignment.Left, 96, 12, new Color(1, 1, 1, 0.85f));
+            var bar = at + new Vector2(114, 3);
+            DrawRect(new Rect2(bar - new Vector2(1, 1), new Vector2(92, 10)), new Color(0, 0, 0, 0.6f));
+            float f = here ? Math.Clamp(h.Hp / Math.Max(1f, h.Stats.MaxHp), 0, 1) : 0;
+            DrawRect(new Rect2(bar, new Vector2(90 * f, 8)), new Color(0.85f, 0.18f, 0.22f));
+            string state = !here ? "" : h.Dead ? "DOWN" : peer.AtExit ? "at the exit" : h.Choosing ? "choosing" : "";
+            if (state != "") DrawString(font, bar + new Vector2(98, 9), state, HorizontalAlignment.Left, -1, 11, h.Dead ? new Color(1f, 0.45f, 0.4f) : new Color(1, 1, 1, 0.6f));
+            at += new Vector2(0, 16);
+
+            // their name over their hero (dim when far off)
+            if (!here) continue;
+            var sp = h.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -44);
+            if (sp.X < -50 || sp.Y < -50 || sp.X > vs.X + 50 || sp.Y > vs.Y + 50) continue;
+            string tag = h.Dead ? $"{peer.Name}  ·  DOWN" : peer.Name;
+            var tsz = font.GetStringSize(tag, HorizontalAlignment.Left, -1, 12);
+            DrawString(font, sp - new Vector2(tsz.X / 2, 0) + new Vector2(1, 1), tag, HorizontalAlignment.Left, -1, 12, new Color(0, 0, 0, 0.7f));
+            DrawString(font, sp - new Vector2(tsz.X / 2, 0), tag, HorizontalAlignment.Left, -1, 12, h.Dead ? new Color(1f, 0.55f, 0.5f) : col.Lightened(0.35f));
+        }
+
+        // bringing a fallen friend back
+        var fallen = me.ReviveTarget;
+        if (fallen != null && IsInstanceValid(fallen) && !me.Dead)
+        {
+            string name = fallen.NetName != "" ? fallen.NetName : "your friend";
+            string hold = G.Main.UsingPad ? "Hold UP" : $"Hold {Controls.Name("interact")} (or UP)";
+            string line = me.ReviveProgress > 0 ? $"Bringing {name} back..." : $"{hold} to bring {name} back";
+            var lsz = font.GetStringSize(line, HorizontalAlignment.Left, -1, 16);
+            var c = new Vector2(vs.X / 2, vs.Y * 0.62f);
+            DrawString(font, c - new Vector2(lsz.X / 2, 0), line, HorizontalAlignment.Left, -1, 16, Player.HealColorLight);
+            DrawRect(new Rect2(c + new Vector2(-80, 8), new Vector2(160, 8)), new Color(0, 0, 0, 0.6f));
+            DrawRect(new Rect2(c + new Vector2(-79, 9), new Vector2(158 * Math.Clamp(me.ReviveProgress, 0, 1), 6)), Player.HealColor);
+        }
+
+        // going down together
+        string wait = "";
+        if (G.Main.WaitingAt != null)
+        {
+            var (here, of) = G.Main.ExitCount();
+            wait = $"Waiting at the exit  ·  {here} of {of} here  ·  walk away to cancel";
+        }
+        else
+        {
+            var waiting = new List<string>();
+            foreach (var peer in Net.Peers.Values) if (peer.Id != Net.Me && peer.AtExit) waiting.Add(peer.Name);
+            if (waiting.Count > 0) wait = $"{string.Join(" and ", waiting)} {(waiting.Count > 1 ? "are" : "is")} waiting at an exit  ·  {Controls.Name("interact")} there to go down together";
+        }
+        if (wait != "")
+        {
+            var wsz = font.GetStringSize(wait, HorizontalAlignment.Left, -1, 14);
+            DrawString(font, new Vector2(vs.X / 2 - wsz.X / 2, vs.Y - 132), wait, HorizontalAlignment.Left, -1, 14, new Color(0.85f, 0.75f, 1f, 0.75f + 0.25f * MathF.Sin(_t * 3)));
+        }
+        if (me.Dead)
+        {
+            string down = "You're down  ·  a friend can bring you back";
+            var dsz = font.GetStringSize(down, HorizontalAlignment.Left, -1, 16);
+            DrawString(font, new Vector2(vs.X / 2 - dsz.X / 2, vs.Y * 0.62f), down, HorizontalAlignment.Left, -1, 16, new Color(1f, 0.6f, 0.55f, 0.9f));
         }
     }
 
@@ -429,6 +526,9 @@ void fragment() {
     {
         var p = G.Player;
         if (p == null || !IsInstanceValid(p)) return;
+        // (online, while you're down the view follows a friend: so does the light)
+        if (p.Dead && Net.InRun)
+            foreach (var h in G.Players) if (IsInstanceValid(h) && !h.Dead) { p = h; break; }
         var vp = GetViewport();
         var size = vp.GetVisibleRect().Size;
         var sp = p.GetGlobalTransformWithCanvas().Origin;

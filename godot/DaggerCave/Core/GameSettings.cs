@@ -44,6 +44,12 @@ public static class GameSettings
     public static AimMode Aim = AimMode.Auto;
     public static bool Vibration = true;
 
+    // ---------------------------------------------------------------- online
+    /// <summary>The name the others see online ("" = this computer's user name).</summary>
+    public static string PlayerName = "";
+    /// <summary>The last join code (or address) typed, offered again next time.</summary>
+    public static string LastJoin = "";
+
     /// <summary>When the mouse last moved or clicked (ms since start).</summary>
     public static ulong MouseSeenMs;
 
@@ -71,6 +77,7 @@ public static class GameSettings
         int I(string sec, string key, int def) => cfg.HasSectionKey(sec, key) ? (int)cfg.GetValue(sec, key) : def;
         float F(string sec, string key, float def) => cfg.HasSectionKey(sec, key) ? (float)cfg.GetValue(sec, key) : def;
         bool B(string sec, string key, bool def) => cfg.HasSectionKey(sec, key) ? (bool)cfg.GetValue(sec, key) : def;
+        string S(string sec, string key, string def) => cfg.HasSectionKey(sec, key) ? (string)cfg.GetValue(sec, key) : def;
         Window = (WindowMode)I("graphics", "window", (int)Window);
         VSync = B("graphics", "vsync", VSync);
         MaxFps = I("graphics", "max_fps", MaxFps);
@@ -88,6 +95,8 @@ public static class GameSettings
         SfxVolume = F("sound", "sfx", SfxVolume);
         Aim = (AimMode)I("controls", "aim", (int)Aim);
         Vibration = B("controls", "vibration", Vibration);
+        PlayerName = S("online", "name", PlayerName);
+        LastJoin = S("online", "last_join", LastJoin);
         Controls.Load(cfg);
     }
 
@@ -112,6 +121,8 @@ public static class GameSettings
         cfg.SetValue("sound", "sfx", SfxVolume);
         cfg.SetValue("controls", "aim", (int)Aim);
         cfg.SetValue("controls", "vibration", Vibration);
+        cfg.SetValue("online", "name", PlayerName);
+        cfg.SetValue("online", "last_join", LastJoin);
         Controls.Save(cfg);
         cfg.Save(FilePath);
     }

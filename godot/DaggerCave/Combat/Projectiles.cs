@@ -91,6 +91,7 @@ public partial class EnemyProjectile : Node2D
 
     public void Reflect(Vector2 dir, float damageMult)
     {
+        NetSync.PropGone(this);
         Reflected = true;
         Vel = dir.Normalized() * Math.Max(Vel.Length(), 340f);
         Grav *= 0.3f;
@@ -113,6 +114,7 @@ public partial class EnemyProjectile : Node2D
 
     public void Deflect()
     {
+        NetSync.PropGone(this);
         G.Fx.Burst(GlobalPosition, KindColor, 8, 140, 2f, 0.3f);
         G.Fx.Flash(GlobalPosition, 10, KindColor, 0.1f);
         G.Sfx.Play("clink", GlobalPosition, -4);
@@ -160,6 +162,7 @@ public partial class EnemyProjectile : Node2D
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
         {
             p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10, source: Source);
+            NetSync.PropGone(this, quiet: true);
             Impact(GlobalPosition);
             return;
         }
@@ -398,6 +401,8 @@ public partial class SwordWave : Node2D
 {
     public Vector2 Dir;
     public float Damage, Range = 150f, Speed = 480f;
+    /// <summary>Online: another player's wave, shown here (their game deals its damage).</summary>
+    public bool Harmless;
     private float _traveled;
     public float Traveled => _traveled;
     private readonly HashSet<Enemy> _hit = new();
@@ -418,6 +423,7 @@ public partial class SwordWave : Node2D
         }
         foreach (var e in G.Enemies.ToArray())
         {
+            if (Harmless) break;
             if (e.Dead || _hit.Contains(e)) continue;
             if (Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to).DistanceTo(e.GlobalPosition) > e.HitRadius + 10) continue;
             _hit.Add(e);

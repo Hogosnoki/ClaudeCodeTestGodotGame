@@ -26,7 +26,7 @@ public partial class Player
 
     private float _dashT;
     private Vector2 _dashDir = Vector2.Right;
-    public bool IsShieldDashing => _dashT > 0;
+    public bool IsShieldDashing => IsRemote ? (_netFlags & HfDash) != 0 : _dashT > 0;
     /// <summary>0 = the shield dash is ready, 1 = just used.</summary>
     public float DashCooldownFrac => AbilityCooldownFrac;
 
@@ -221,7 +221,7 @@ public partial class Player
         }
         foreach (var e in G.Enemies.ToArray())
         {
-            if (e.Dead || !e.Attacking) continue;
+            if (e.Dead || !e.AttackingNow) continue;
             if (e.GlobalPosition.DistanceTo(front) > e.HitRadius + 10) continue;
             DashImpact(e.GlobalPosition - (e.GlobalPosition - front).Normalized() * e.HitRadius, e);
             return true;
@@ -361,9 +361,9 @@ public partial class Player
         var g = new Guard();
         if (Dead || !IsWarden || !ShieldRaised) return g;
         g.Shield = true;
-        g.Dash = _dashT > 0;
+        g.Dash = IsShieldDashing;
         g.Strength = g.Dash ? 1f : Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1);
-        bool perfectWindow = _shieldUpT <= Tune.Warden.PerfectWindow;
+        bool perfectWindow = IsRemote ? (_netFlags & HfPerfect) != 0 : _shieldUpT <= Tune.Warden.PerfectWindow;
         g.Col = g.Dash || perfectWindow || _shieldFlash > 0 ? new Color(0.85f, 0.95f, 1f) : new Color(0.35f, 0.65f, 1f);
         g.Angle = ShieldDir.Angle();
         g.Half = ShieldArc * 0.5f;

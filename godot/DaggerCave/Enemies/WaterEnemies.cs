@@ -230,6 +230,7 @@ public partial class Eel : Enemy
     /// <summary>For the 3D model: the burrow the body runs back into.</summary>
     public Vector2 Home => _home;
     private int _state; // 0 hidden, 1 lunge, 2 hold, 3 retract
+    public override void NetState(NetIO io) { io.Sync(ref _state); io.Sync(ref _home); io.Sync(ref WallNormal); }
     private float _stateT, _cd = 1f;
 
     protected override bool UsesGravity => false;

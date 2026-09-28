@@ -81,11 +81,11 @@ public partial class Player : CharacterBody2D
     private Vector2 _attackAim, _abilityAim, _ability2Aim;
     private PlayerInput _dodgeInput;
 
-    public bool Invulnerable => _invuln > 0 || _iframes > 0;
+    public bool Invulnerable => _invuln > 0 || _iframes > 0 || Choosing || (IsRemote && NetInvuln);
     /// <summary>Dodging, dashing, invulnerable, or behind a raised shield (an input for the enemy brains).</summary>
-    public bool Guarding => IsDodging || IsShieldDashing || Invulnerable || ShieldRaised;
+    public bool Guarding => IsRemote ? (_netFlags & HfGuarding) != 0 : IsDodging || IsShieldDashing || Invulnerable || ShieldRaised;
     /// <summary>The hero's ability (charged strike, shield dash, heal) is ready to use.</summary>
-    public bool SecondaryReady => Stats.Hero switch
+    public bool SecondaryReady => IsRemote ? (_netFlags & HfSecondary) != 0 : Stats.Hero switch
     {
         HeroKind.Vitalist => AbilityChargeReady && Alimus >= HealCost,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
@@ -124,6 +124,15 @@ public partial class Player : CharacterBody2D
     public void Heal(float amount)
     {
         if (Dead || amount <= 0) return;
+        // online, another player's hero is healed by their own game
+        if (IsRemote) { NetSync.HealRemote(this, amount); return; }
+        NetSync.Scope++;
+        try { HealHere(amount); }
+        finally { NetSync.Scope--; }
+    }
+
+    private void HealHere(float amount)
+    {
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
         if (Hp - before >= 1f) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + Mathf.RoundToInt(Hp - before), HealColorLight, 10);
@@ -183,7 +192,7 @@ public partial class Player : CharacterBody2D
     /// </summary>
     public static PlayerInput ReadLocalInput(Player p)
     {
-        if (G.Main.MenuOpen || G.Main.OverlayMenuOpen) return default;
+        if (G.Main.MenuOpen) return default;
         var inp = new PlayerInput
         {
             Move = new Vector2(Input.GetAxis("move_left", "move_right"), Input.GetAxis("move_up", "move_down")),
@@ -199,6 +208,8 @@ public partial class Player : CharacterBody2D
         };
         // up works too, but only a deliberate push (running past a door on a tilted stick shouldn't take you down)
         inp.Interact = Input.IsActionJustPressed("interact") || (Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f);
+        // (holding up counts as holding interact: a controller has no button of its own for it)
+        inp.InteractHeld |= inp.Move.Y < -0.6f && Math.Abs(inp.Move.X) < 0.5f;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
         bool stickOn = stick.Length() > 0.35f;
         // the right stick raises the Warden's shield by itself, pointing where it's pushed
@@ -244,12 +255,21 @@ public partial class Player : CharacterBody2D
 
     public override void _PhysicsProcess(double delta)
     {
-        float dt = (float)delta;
+        if (IsRemote) { PuppetTick((float)delta); return; }
+        // (what this hero does, the other games see: its effects and sounds are sent)
+        NetSync.Scope++;
+        try { Simulate((float)delta); }
+        finally { NetSync.Scope--; }
+    }
+
+    private void Simulate(float dt)
+    {
         _animT += dt;
         var cave = G.Cave;
         if (Dead) { Anim.TimeMult = 1; Anim.Position = Vector2.Zero; DeadPhysics(cave, dt); return; }
         var inp = ReadInput();
         BufferPresses(inp);
+        TickRevive(inp, dt);
         // hit-stop: only the hero (and whoever it traded blows with) freezes, the world carries on
         if (_freeze > 0)
         {
@@ -658,6 +678,20 @@ public partial class Player : CharacterBody2D
     {
         LastHitBlocked = false;
         if (Dead || Invulnerable) return 0;
+        if (IsRemote)
+        {
+            // another player's hero: their game takes the blow (a moment's grace here, so one
+            // strike isn't sent every frame while it overlaps)
+            _invuln = 0.3f;
+            return NetSync.HurtRemote(this, dmg, from, knock, source);
+        }
+        NetSync.Scope++;
+        try { return HurtHere(dmg, from, knock, source); }
+        finally { NetSync.Scope--; }
+    }
+
+    private float HurtHere(float dmg, Vector2 from, float knock, Enemy source)
+    {
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
         var block = TryBlock(from, dmg, melee ? source : null);
         if (block.Blocked)
@@ -739,6 +773,8 @@ public partial class Player : CharacterBody2D
     {
         if (Dead) return;
         Dead = true; Hp = 0;
+        ReviveProgress = 0;
+        NetSync.HeroDown(true);
         Anim.Once("death", 99);
         Anim.Modulate = Colors.White;
         G.Main.Rumble(1f, 1f, 0.6f);

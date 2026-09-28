@@ -21,7 +21,7 @@ public partial class Player
 
     public bool IsDodging => _dodgeT > 0;
     /// <summary>Planted for a heaving swing: no running, jumping or rolling until it's done.</summary>
-    public bool Heaving => _heaveRootT > 0;
+    public bool Heaving => IsRemote ? (_netFlags & HfHeaving) != 0 : _heaveRootT > 0;
     /// <summary>True while the current swing is a heaving swing (for the 3D smear).</summary>
     public bool SwingHeave => _swingT >= 0 && _heave;
     /// <summary>0 = the heaving swing is ready, 1 = just used.</summary>
@@ -157,6 +157,7 @@ public partial class Player
         Anim.Face((int)Facing, instant: true);
         // the clip's seven wind-up frames last exactly the wind-up
         Anim.Once("heave", 4, 7f / 24f / _windup);
+        NetSync.HeroSwing(this, _swingDir, _swingArc, _swingReach, _windup, _active, 0, false, charged, true);
         Anim.Punch(new Vector2(0.9f, 1.12f));
         G.Sfx.Play("gasp", GlobalPosition, -10, 0.05f, 0.55f);
         G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.2f);

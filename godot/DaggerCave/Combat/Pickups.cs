@@ -8,17 +8,33 @@ public partial class XpOrb : Node2D
 {
     public int Value = 1;
     public Vector2 Vel;
+    /// <summary>Online: a copy of the host's orb (it flies to whoever is nearest, but the host decides who takes it).</summary>
+    public bool Puppet;
     private float _t, _life = 45f;
     public float T => _t;
 
     public override void _Ready() { ZIndex = 2; }
+
+    /// <summary>The hero it's drawn to: the nearest one standing (there's only one, alone).</summary>
+    private static Player Nearest(Vector2 at)
+    {
+        if (G.Players.Count <= 1) return G.Player;
+        Player best = null; float bd = float.MaxValue;
+        foreach (var h in G.Players)
+        {
+            if (h.Dead) continue;
+            float d = h.GlobalPosition.DistanceSquaredTo(at);
+            if (d < bd) { bd = d; best = h; }
+        }
+        return best;
+    }
 
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
         _t += dt; _life -= dt;
         if (_life <= 0) { QueueFree(); return; }
-        var p = G.Player;
+        var p = Nearest(GlobalPosition);
         var cave = G.Cave;
         if (p != null && !p.Dead)
         {
@@ -27,7 +43,12 @@ public partial class XpOrb : Node2D
             float magnet = Tune.Hero.XpMagnetRange * p.Stats.MagnetMult;
             if (d < 14)
             {
-                p.AddXp(Value);
+                // experience is shared online: whoever takes the orb, everyone gains it
+                if (!Puppet)
+                {
+                    if (Net.Online) NetSync.XpTaken(this, Value);
+                    G.Player?.AddXp(Value);
+                }
                 G.Sfx.Play("xp", GlobalPosition, -6, 0.15f, 1f + Math.Min(Value, 10) * 0.02f);
                 G.Fx.Glint(GlobalPosition, new Color(0.45f, 1f, 0.75f), 4 + Math.Min(Value, 10) * 0.4f);
                 QueueFree();
@@ -54,6 +75,8 @@ public partial class XpOrb : Node2D
 
 public partial class HeartPickup : Node2D
 {
+    /// <summary>Online: a copy of the host's heart (the host decides who gets it).</summary>
+    public bool Puppet;
     private float _t, _life = 25f, _vy = -120f;
     public float T => _t;
     public float LifeLeft => _life;
@@ -69,13 +92,20 @@ public partial class HeartPickup : Node2D
         _vy = Math.Min(_vy + (cave.IsWater(GlobalPosition) ? 60 : 500) * dt, 200);
         var np = GlobalPosition + new Vector2(0, _vy * dt);
         if (!cave.IsSolid(np + new Vector2(0, 6))) GlobalPosition = np; else _vy = 0;
-        var p = G.Player;
-        if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < 16)
+        foreach (var p in G.Players)
         {
-            p.Heal(p.Stats.MaxHp * Tune.Drops.HeartHealFrac);
-            G.Sfx.Play("heal", GlobalPosition, -4);
-            G.Fx.Pop(GlobalPosition, Player.HealColor, 6);
-            G.Fx.Ring(p.GlobalPosition, 16, Player.HealColorLight, 0.3f);
+            if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 16) continue;
+            NetSync.Scope++;
+            try
+            {
+                float amount = p.Stats.MaxHp * Tune.Drops.HeartHealFrac;
+                if (p.IsRemote) NetSync.GivePickup(p, 1, amount); else p.Heal(amount);
+                G.Sfx.Play("heal", GlobalPosition, -4);
+                G.Fx.Pop(GlobalPosition, Player.HealColor, 6);
+                G.Fx.Ring(p.GlobalPosition, 16, Player.HealColorLight, 0.3f);
+            }
+            finally { NetSync.Scope--; }
+            NetSync.PropGone(this, quiet: true);
             QueueFree();
             return;
         }
@@ -98,6 +128,8 @@ public partial class HeartPickup : Node2D
 /// <summary>A red potion flask: picked up if you have room on your belt (drink with Q / Y).</summary>
 public partial class PotionPickup : Node2D
 {
+    /// <summary>Online: a copy of the host's potion (the host decides who gets it).</summary>
+    public bool Puppet;
     private float _t, _life = 40f, _vy = -140f;
     public float T => _t;
     public float LifeLeft => _life;
@@ -114,13 +146,20 @@ public partial class PotionPickup : Node2D
         var np = GlobalPosition + new Vector2(0, _vy * dt);
         if (!cave.IsSolid(np + new Vector2(0, 8))) GlobalPosition = np; else _vy = 0;
         if (G.Chance(0.04f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-4, 4), -6), new Color(1f, 0.6f, 0.7f), 5);
-        var p = G.Player;
-        if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < 18 && p.Potions < Meta.MaxPotions)
+        foreach (var p in G.Players)
         {
-            p.Potions++;
-            G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
-            G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);
-            G.Fx.Pop(GlobalPosition, new Color(1f, 0.4f, 0.55f), 8);
+            if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18 || p.Potions >= Meta.MaxPotions) continue;
+            NetSync.Scope++;
+            try
+            {
+                if (p.IsRemote) NetSync.GivePickup(p, 2, 1);
+                else p.Potions++;
+                G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
+                G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);
+                G.Fx.Pop(GlobalPosition, new Color(1f, 0.4f, 0.55f), 8);
+            }
+            finally { NetSync.Scope--; }
+            NetSync.PropGone(this, quiet: true);
             QueueFree();
             return;
         }
@@ -149,7 +188,7 @@ public partial class PotionPickup : Node2D
 public partial class Chest : Node2D
 {
     private bool _open;
-    private float _t, _openT;
+    private float _t, _openT, _askT;
     public bool Open => _open;
     public float OpenT => _openT;
 
@@ -158,22 +197,32 @@ public partial class Chest : Node2D
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
-        _t += dt;
+        _t += dt; _askT -= dt;
         if (_open) { _openT += dt; QueueRedraw(); return; }
         var p = G.Player;
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 24)
         {
-            _open = true;
-            G.Sfx.Play("chest", GlobalPosition);
-            G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
-            G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 30, new Color(1f, 0.9f, 0.5f));
-            for (int k = 0; k < 8; k++) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-14, 14), -G.Range(6, 30)), new Color(1f, 0.9f, 0.5f), 7);
-            p.Heal(Tune.Drops.ChestHeal);
-            G.Main.OfferChest(GlobalPosition);
+            // online, the host says who gets it (the first to reach it)
+            if (Net.Online) { if (_askT <= 0) { _askT = 1f; NetSync.AskChest(this); } }
+            else OpenBy(Net.Me);
         }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);
         if (G.Chance(0.015f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-10, 10), -G.Range(4, 12)), new Color(1f, 0.95f, 0.6f), 6);
         QueueRedraw();
+    }
+
+    /// <summary>Opens (online: for whoever the host says reached it first; the upgrade pick is theirs).</summary>
+    public void OpenBy(int opener)
+    {
+        if (_open) return;
+        _open = true;
+        G.Sfx.Play("chest", GlobalPosition);
+        G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
+        G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 30, new Color(1f, 0.9f, 0.5f));
+        for (int k = 0; k < 8; k++) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-14, 14), -G.Range(6, 30)), new Color(1f, 0.9f, 0.5f), 7);
+        if (opener != Net.Me) return;
+        G.Player?.Heal(Tune.Drops.ChestHeal);
+        G.Main.OfferChest(GlobalPosition);
     }
 
     public override void _Draw()
@@ -216,10 +265,11 @@ public partial class Portal : Node2D
     /// <summary>Is someone standing at <paramref name="p"/> close enough to go down?</summary>
     public bool Reaches(Vector2 p) => !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
 
-    /// <summary>Go down.</summary>
+    /// <summary>Go down (online: wait here until everyone still standing is at this exit).</summary>
     public void Enter()
     {
         if (_used) return;
+        if (Net.Online) { G.Main.WaitAtExit(this); return; }
         _used = true;
         G.Sfx.Play("portal", GlobalPosition, 0, 0.05f, 0.8f);
         G.Fx.Flash(GlobalPosition, 40, (To?.Glow ?? new Color(0.7f, 0.5f, 1f)).Darkened(0.3f), 0.25f);

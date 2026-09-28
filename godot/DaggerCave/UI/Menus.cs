@@ -181,12 +181,7 @@ public partial class ScreenOverlay : Control
         }),
     };
 
-    private static Color Accent(HeroKind k) => k switch
-    {
-        HeroKind.Warden => new Color(0.45f, 0.7f, 1f),
-        HeroKind.Vitalist => new Color(0.5f, 1f, 0.45f),
-        _ => new Color(0.95f, 0.45f, 0.35f),
-    };
+    private static Color Accent(HeroKind k) => Hud.HeroColor(k);
 
     /// <summary>Which hero card (0/1) is under a screen point, or -1.</summary>
     public int CardAt(Vector2 p)

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace DaggerCave;
@@ -22,6 +23,18 @@ public abstract partial class Enemy : CharacterBody2D
     public float Size = 1f;
     public bool Dead;
     public Action<Enemy> OnDeath;
+
+    // ---- online play
+    /// <summary>Online: a copy of the host's creature, shown from what the host sends. It thinks
+    /// nothing and deals nothing here; blows that land on it are sent to the host.</summary>
+    public bool Puppet;
+    /// <summary>Online: this creature's id in every game.</summary>
+    public int NetId;
+    /// <summary>Online (host): the player whose blow is landing right now (credited with a kill).</summary>
+    public int LastAttacker;
+    /// <summary>Online: its name as the host has it (variants and elites).</summary>
+    public string NetDisplayName;
+    private bool _goneSent;
 
     // ---- biome variants and guardians
     /// <summary>Put before the creature's name ("Frost ", "Ember "...).</summary>
@@ -54,7 +67,29 @@ public abstract partial class Enemy : CharacterBody2D
     public virtual bool CanBeHit => true;
     public virtual float HitRadius => BodyRadius * Size;
 
-    protected Player P => G.Player;
+    /// <summary>The hero it's after: the nearest one still standing (online, looked at again every half second).</summary>
+    protected Player P => Target;
+    private Player _target;
+    private float _targetT;
+    public Player Target
+    {
+        get
+        {
+            if (!Net.Online || G.Players.Count <= 1) return G.Player;
+            if (_target != null && IsInstanceValid(_target) && _target.IsInsideTree() && !_target.Dead && _targetT > 0) return _target;
+            _targetT = 0.5f;
+            Player best = null;
+            float bd = float.MaxValue;
+            foreach (var h in G.Players)
+            {
+                if (h == null || !IsInstanceValid(h) || h.Dead) continue;
+                float d = h.GlobalPosition.DistanceSquaredTo(GlobalPosition);
+                if (d < bd) { bd = d; best = h; }
+            }
+            _target = best ?? G.Player;
+            return _target;
+        }
+    }
     protected Vector2 ToP => P.GlobalPosition - GlobalPosition;
     protected float DistP => ToP.Length();
     protected bool SeesP => G.Cave.LineClear(GlobalPosition, P.GlobalPosition);
@@ -67,20 +102,27 @@ public abstract partial class Enemy : CharacterBody2D
         FloorMaxAngle = Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees + 2);
         FloorSnapLength = 6f;
         ZIndex = 0;
-        // Health is fixed at spawn from the difficulty curve; damage and tempo follow it live.
-        MaxHp *= G.DepthHp;
-        Hp = MaxHp;
+        // Health is fixed at spawn from the difficulty curve (and how many are playing); damage
+        // and tempo follow it live. (A copy has the host's numbers already.)
+        if (!Puppet)
+        {
+            MaxHp *= G.DepthHp * NetSync.HpScale;
+            Hp = MaxHp;
+        }
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });
         G.Enemies.Add(this);
         Face = G.Chance(0.5f) ? 1 : -1;
         Setup();
-        DisplayName = (Elite && !IsGuardian && !IsBoss ? "Elite " : "") + NamePrefix + DisplayName;
+        DisplayName = Puppet && NetDisplayName != null ? NetDisplayName : (Elite && !IsGuardian && !IsBoss ? "Elite " : "") + NamePrefix + DisplayName;
         if (Tint is Color tint && Anim != null) Anim.Sprite.SelfModulate = tint;
+        if (Net.IsHost && !Puppet) NetSync.EnemySpawned(this);
     }
 
     public override void _ExitTree()
     {
         G.Enemies.Remove(this);
+        if (!_goneSent && Net.IsHost && !Puppet) { _goneSent = true; NetSync.EnemyGone(this, false); }
+        if (Puppet) return;
         BrainFlush(terminal: false);
     }
 
@@ -128,7 +170,17 @@ public abstract partial class Enemy : CharacterBody2D
 
     public override void _PhysicsProcess(double delta)
     {
+        if (Puppet) { PuppetTick((float)delta); return; }
+        // (what it does, the other games see: its effects and sounds are sent)
+        NetSync.Scope++;
+        try { Simulate(delta); }
+        finally { NetSync.Scope--; }
+    }
+
+    private void Simulate(double delta)
+    {
         if (Dead) return;
+        _targetT -= (float)delta;
         var p = P;
         if (p == null) return;
         float dist = DistP;
@@ -202,10 +254,15 @@ public abstract partial class Enemy : CharacterBody2D
         if (striking && !_wasStriking) _strikeLanded = false;
         _wasStriking = striking;
         float touch = striking ? (_strikeLanded ? 0 : ContactDamage) : ContactDamage * Tune.Combat.PassiveContactMult;
-        if (ContactActive && touch > 0 && !p.Dead && dist < HitRadius + 7)
+        if (ContactActive && touch > 0)
         {
-            // a strike that lands, or that the shield stops, is spent
-            if ((p.Hurt(touch * DmgK, GlobalPosition, source: this) > 0 || p.LastHitBlocked) && striking) _strikeLanded = true;
+            // any hero it touches (online, the others' too: their games take the blow)
+            foreach (var h in G.Players)
+            {
+                if (h == null || h.Dead || h.GlobalPosition.DistanceTo(GlobalPosition) >= HitRadius + 7) continue;
+                // a strike that lands, or that the shield stops, is spent
+                if ((h.Hurt(touch * DmgK, GlobalPosition, source: this) > 0 || h.LastHitBlocked) && striking) { _strikeLanded = true; break; }
+            }
         }
         QueueRedraw();
     }
@@ -219,13 +276,19 @@ public abstract partial class Enemy : CharacterBody2D
     public void Bleed(float total, float seconds)
     {
         if (Dead || total <= 0) return;
+        if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Bleed, total, seconds); return; }
         float left = _bleedT > 0 ? _bleedDps * _bleedT : 0;
         _bleedT = seconds;
         _bleedDps = (left + total) / seconds;
     }
 
     /// <summary>Freezes just this creature for a hit-stop.</summary>
-    public void Freeze(float seconds) { if (!Dead) _freeze = Math.Max(_freeze, seconds); }
+    public void Freeze(float seconds)
+    {
+        if (Dead) return;
+        _freeze = Math.Max(_freeze, seconds);
+        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Freeze, seconds);
+    }
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
 
@@ -250,6 +313,7 @@ public abstract partial class Enemy : CharacterBody2D
     public void Interrupt(Vector2 push, float stagger, string label = "BROKEN")
     {
         if (Dead) return;
+        if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Interrupt, stagger, v: push, label: label); return; }
         _strikeLanded = true; // whatever blow was coming is spent
         if (!Interruptible) { Recoil(push.X); return; }
         OnInterrupted();
@@ -304,6 +368,7 @@ public abstract partial class Enemy : CharacterBody2D
     public void Weaken(float dmgMult, float seconds)
     {
         if (Dead) return;
+        if (Puppet) { _weakT = Math.Max(_weakT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Weaken, dmgMult, seconds); return; }
         _weakMult = _weakT > 0 ? Math.Min(_weakMult, dmgMult) : dmgMult;
         _weakT = Math.Max(_weakT, seconds);
     }
@@ -314,12 +379,16 @@ public abstract partial class Enemy : CharacterBody2D
     public void Hex(float vulnerability, float slow, float seconds, float rotDps = 0f)
     {
         if (Dead) return;
+        if (Puppet) { _hexT = Math.Max(_hexT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Hex, vulnerability, slow, seconds, rotDps); return; }
+        if (rotDps > 0) _hexBy = NetSync.Striker;
         _hexVuln = _hexT > 0 ? Math.Max(_hexVuln, vulnerability) : vulnerability;
         _hexSlow = _hexT > 0 ? Math.Min(_hexSlow, slow) : slow;
         _hexRot = _hexT > 0 ? Math.Max(_hexRot, rotDps) : rotDps;
         _hexT = Math.Max(_hexT, seconds);
     }
     private float _hexRot;
+    /// <summary>Online: whose hex is rotting it (their hero is credited with the damage).</summary>
+    private int _hexBy;
 
     /// <summary>Ticks the afflictions; false if it rotted to death.</summary>
     private bool TickAfflictions(float dt)
@@ -330,8 +399,8 @@ public abstract partial class Enemy : CharacterBody2D
         {
             float before = Hp;
             Hp -= _hexRot * dt;
-            G.Player?.OnDealtDamage(before - Math.Max(0, Hp));
-            if (Hp <= 0) { Die(); return false; }
+            NetSync.CreditDealt(_hexBy, before - Math.Max(0, Hp));
+            if (Hp <= 0) { LastAttacker = _hexBy; Die(); return false; }
         }
         if (_weakT <= 0 && _hexT <= 0) return true;
         // a few motes drifting off whatever ails it
@@ -361,8 +430,20 @@ public abstract partial class Enemy : CharacterBody2D
         Velocity = v;
     }
 
-    /// <summary>Returns the damage actually dealt (0 if immune).</summary>
-    public virtual float Hurt(float dmg, Vector2 knock, Vector2 hitPos)
+    /// <summary>Returns the damage actually dealt (0 if immune). Online, a blow on a copy goes to the host.</summary>
+    public float Hurt(float dmg, Vector2 knock, Vector2 hitPos)
+    {
+        if (Dead || !CanBeHit) return 0;
+        if (Puppet) return PuppetHurt(dmg, knock, hitPos);
+        // (online, the kill goes to whoever struck last: another game's hero, or this one's)
+        LastAttacker = NetSync.Striker;
+        NetSync.Scope++;
+        try { return TakeHit(dmg, knock, hitPos); }
+        finally { NetSync.Scope--; }
+    }
+
+    /// <summary>A blow lands (the host's own creature, or offline): subclasses add their own reactions.</summary>
+    protected virtual float TakeHit(float dmg, Vector2 knock, Vector2 hitPos)
     {
         if (Dead || !CanBeHit) return 0;
         Awake = true;
@@ -398,6 +479,13 @@ public abstract partial class Enemy : CharacterBody2D
     protected virtual void Die()
     {
         if (Dead) return;
+        NetSync.Scope++;
+        try { DieHere(); }
+        finally { NetSync.Scope--; }
+    }
+
+    private void DieHere()
+    {
         Dead = true;
         G.Sfx.Play("enemy_die", GlobalPosition, 0, 0.15f, Elite ? 0.7f : 1f);
         G.Fx.Burst(GlobalPosition, BloodColor, Elite ? 36 : 16, Elite ? 260 : 170, 2.8f, 0.6f);
@@ -412,14 +500,138 @@ public abstract partial class Enemy : CharacterBody2D
         if (G.Chance(Meta.PotionDropChance(P))) G.Spawn(new PotionPickup { Position = GlobalPosition + new Vector2(6, -4) });
         if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);
         else G.Fx.Pop(GlobalPosition, BloodColor, HitRadius);
-        P?.OnKill();
+        // the kill goes to whoever landed the blow (online, maybe another game's hero)
+        if (!Net.Online || LastAttacker == 0 || LastAttacker == Net.Me) G.Player?.OnKill();
         if (Elite && !IsBoss) G.Main.SlowMo(Tune.Feel.EliteKillSlowMo, Tune.Feel.EliteKillSlowMoScale);
         if (IsBoss) G.Main.SlowMo(Tune.Feel.BossKillSlowMo, Tune.Feel.BossKillSlowMoScale);
         BrainFlush(terminal: true);
+        if (Net.IsHost && !_goneSent) { _goneSent = true; NetSync.EnemyGone(this, true); }
         OnDeath?.Invoke(this);
         Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
         QueueFree();
     }
+
+    // ================================================================== online copies
+
+    private readonly NetInterp _net = new();
+    private string _netAnim = "";
+    private int _netFrame, _netFacing = 1;
+    private float _netSpeed = 1f;
+    private ushort _netFlags;
+    private const ushort NfReeling = 1, NfFrozen = 2, NfDazed = 4, NfHexed = 8, NfWeak = 16, NfFlash = 32, NfFloor = 64, NfAttacking = 128;
+
+    /// <summary>On the ground (a copy goes by what the host says).</summary>
+    public bool OnGround => Puppet ? (_netFlags & NfFloor) != 0 : IsOnFloor();
+    /// <summary>Mid-attack (a copy goes by what the host says).</summary>
+    public bool AttackingNow => Puppet ? (_netFlags & NfAttacking) != 0 : Attacking;
+    /// <summary>How much harder a blow lands on a copy right now (a hex), for the striker's own sums.</summary>
+    public float PuppetVulnerability => (_netFlags & NfHexed) != 0 || _hexT > 0 ? Tune.Vitalist.HexVulnerability : 1f;
+
+    /// <summary>The host's creature, as its copies need it.</summary>
+    public void WriteNet(NetOut w)
+    {
+        w.Vec(GlobalPosition);
+        w.HVec(Velocity);
+        w.SByte((sbyte)(Face < 0 ? -1 : 1));
+        var spr = Anim?.Sprite;
+        w.Str(spr != null ? (string)spr.Animation : "");
+        w.Byte((byte)Math.Clamp(spr?.Frame ?? 0, 0, 255));
+        w.Half(spr != null ? spr.SpeedScale * Math.Max(0f, Anim.TimeMult) : 1f);
+        w.Half(Math.Clamp(Hp / Math.Max(1f, MaxHp), 0f, 1f));
+        ushort f = 0;
+        if (Stun > 0) f |= NfReeling;
+        if (_freeze > 0) f |= NfFrozen;
+        if (_dazed && Stun > 0) f |= NfDazed;
+        if (_hexT > 0) f |= NfHexed;
+        if (_weakT > 0) f |= NfWeak;
+        if (HurtFlash > 0) f |= NfFlash;
+        if (IsOnFloor()) f |= NfFloor;
+        if (Attacking) f |= NfAttacking;
+        w.UShort(f);
+    }
+
+    /// <summary>An update for a copy (or, for one this game doesn't have, read past it).</summary>
+    public static void ReadNet(NetIn r, Enemy e, double now)
+    {
+        var pos = r.Vec();
+        var vel = r.HVec();
+        int face = r.SByte();
+        string anim = r.Str();
+        int frame = r.Byte();
+        float speed = r.Half();
+        float hp = r.Half();
+        ushort flags = r.UShort();
+        if (e == null) return;
+        e._net.Push(now, pos, vel);
+        e._netFacing = face;
+        e._netAnim = anim;
+        e._netFrame = frame;
+        e._netSpeed = speed;
+        bool flashNow = (flags & NfFlash) != 0 && (e._netFlags & NfFlash) == 0;
+        e._netFlags = flags;
+        e.Hp = hp * e.MaxHp;
+        e.Stun = (flags & NfReeling) != 0 ? 0.1f : 0f;
+        e._dazed = (flags & NfDazed) != 0;
+        e._hexT = (flags & NfHexed) != 0 ? Math.Max(e._hexT, 0.15f) : e._hexT;
+        e._weakT = (flags & NfWeak) != 0 ? Math.Max(e._weakT, 0.15f) : e._weakT;
+        if (flashNow) e.Anim?.Flash(0.8f);
+    }
+
+    /// <summary>A copy between updates: smoothed movement, the host's animation, its afflictions.</summary>
+    private void PuppetTick(float dt)
+    {
+        if (Dead) return;
+        T += dt;
+        HurtFlash -= dt;
+        if (_freeze > 0) _freeze -= dt;
+        if (_hexT > 0) _hexT -= dt;
+        if (_weakT > 0) _weakT -= dt;
+        if (_net.Sample(NetSync.Now - NetSync.InterpDelay, out var pos, out var vel))
+        {
+            GlobalPosition = pos;
+            Velocity = vel;
+        }
+        Face = _netFacing;
+        if (Anim != null)
+        {
+            bool shudder = _freeze > 0 || (_netFlags & NfFrozen) != 0;
+            Anim.TimeMult = 1f;
+            Anim.Position = shudder ? new Vector2(G.Range(-1.5f, 1.5f), G.Range(-0.8f, 0.8f)) : Vector2.Zero;
+            if (_netAnim != "") Anim.Mirror(_netAnim, _netFrame, shudder ? 0f : _netSpeed, _netFacing);
+            Anim.Motion(Velocity * MoveScale);
+        }
+        if (_dazed && Stun > 0) DazeFx(dt);
+        QueueRedraw();
+    }
+
+    /// <summary>A blow from this game's hero on a copy: shown at once, and sent to the host to apply.</summary>
+    private float PuppetHurt(float dmg, Vector2 knock, Vector2 hitPos)
+    {
+        HurtFlash = 0.12f;
+        if (Anim != null)
+        {
+            Anim.Flash(1f);
+            Anim.Scale = new Vector2(1.25f, 0.8f);
+            var tw = Anim.CreateTween();
+            tw.TweenProperty(Anim, "scale", Vector2.One, 0.18f).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        }
+        return NetSync.HitPuppet(this, dmg, knock, hitPos);
+    }
+
+    /// <summary>The host's creature died (or was put away): the copy goes too, dying the same way.</summary>
+    public void PuppetGone(bool died)
+    {
+        if (Dead) return;
+        Dead = true;
+        if (died) Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
+        QueueFree();
+    }
+
+    /// <summary>
+    /// A creature's own extra state its copies need to look right (a frog's tongue, a spider's
+    /// thread, whether a skeleton is in pieces). One method both writes and reads it.
+    /// </summary>
+    public virtual void NetState(NetIO io) { }
 
     // ---- drawing helpers ----
 
@@ -485,27 +697,26 @@ public abstract partial class Enemy : CharacterBody2D
     // (Tune.Combat.AttackerShare, rounded up) may be attacking at once, so a crowd hits harder
     // than a lone creature but never all together. Counted once per physics frame.
     private static ulong _slotFrame = ulong.MaxValue;
-    private static int _slotsAllowed = 1, _slotsTaken;
+    // per hero this frame: [slots allowed, slots taken] (online, each hero has its own crowd)
+    private static readonly Dictionary<Player, int[]> _slots = new();
 
-    private static void CountSlots()
+    private static int[] CountSlots(Player p)
     {
         ulong frame = Engine.GetPhysicsFrames();
-        if (frame == _slotFrame) return;
-        _slotFrame = frame;
+        if (frame != _slotFrame) { _slotFrame = frame; _slots.Clear(); }
+        if (p == null) return new[] { 1, 0 };
+        if (_slots.TryGetValue(p, out var c)) return c;
         int ready = 0, taken = 0;
-        var p = G.Player;
-        if (p != null)
+        float r2 = Tune.Combat.SlotRange * Tune.Combat.SlotRange;
+        foreach (var e in G.Enemies)
         {
-            float r2 = Tune.Combat.SlotRange * Tune.Combat.SlotRange;
-            foreach (var e in G.Enemies)
-            {
-                if (e.Dead || !e.Awake || e.IsBoss || e.IsGuardian || e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) > r2) continue;
-                if (e._slotT > 0) { taken++; ready++; }
-                else if (e.AttackReady >= 0.99f) ready++;
-            }
+            if (e.Dead || e.Puppet || !e.Awake || e.IsBoss || e.IsGuardian || e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) > r2) continue;
+            if (e._slotT > 0) { taken++; ready++; }
+            else if (e.AttackReady >= 0.99f) ready++;
         }
-        _slotsTaken = taken;
-        _slotsAllowed = Math.Max(1, (int)MathF.Ceiling(ready * Tune.Combat.AttackerShare - 1e-3f));
+        c = new[] { Math.Max(1, (int)MathF.Ceiling(ready * Tune.Combat.AttackerShare - 1e-3f)), taken };
+        _slots[p] = c;
+        return c;
     }
 
     /// <summary>
@@ -519,10 +730,10 @@ public abstract partial class Enemy : CharacterBody2D
         if (!_primed) { _primed = true; _primeT = Tune.Combat.FirstAttackDelay; }
         if (_primeT > 0) { Intent = 0; return; }
         if (IsBoss || IsGuardian || _slotT > 0 || DistP > Tune.Combat.SlotRange) return;
-        CountSlots();
-        if (_slotsTaken >= _slotsAllowed) { Intent = 0; return; }
+        var slots = CountSlots(P);
+        if (slots[1] >= slots[0]) { Intent = 0; return; }
         // reserve a slot now (others deciding this frame see it taken); Consume holds it longer
-        _slotsTaken++;
+        slots[1]++;
         _slotT = Tune.Combat.SlotReserve;
     }
 
@@ -674,7 +885,7 @@ public abstract partial class Enemy : CharacterBody2D
         x[i++] = IsOnFloor() ? 1 : 0;
         x[i++] = InWater ? 1 : 0;
         x[i++] = p.InWater ? 1 : 0;
-        x[i++] = p.IsOnFloor() ? 1 : 0;
+        x[i++] = p.OnGround ? 1 : 0;
         x[i++] = p.IsSwinging ? 1 : 0;                          // danger: the dagger is out
         x[i++] = p.Guarding ? 1 : 0;                           // dodging, invulnerable, or shield up
         x[i++] = p.Facing * -sx;                                // +1 = the player is facing me

@@ -50,6 +50,8 @@ public partial class SoundBank : Node
     public void Play(string name, Vector2? pos = null, float volDb = 0f, float pitchVar = 0.08f, float pitch = 1f)
     {
         if (!_sfx.TryGetValue(name, out var st)) return;
+        // online: a sound out in the world, from something the other games need to hear, goes to them too
+        if (pos is Vector2 at && NetSync.Recording) NetSync.FxBegin(FxLayer.SoundOp).Str(name).Vec(at).Half(volDb).Half(pitchVar).Half(pitch);
         float ps = pitch * (1f + ((float)_rng.NextDouble() * 2 - 1) * pitchVar);
         if (pos is Vector2 p)
         {
@@ -67,6 +69,15 @@ public partial class SoundBank : Node
             free.Stream = st; free.VolumeDb = volDb; free.PitchScale = ps;
             free.Play();
         }
+    }
+
+    /// <summary>A sound another game sent.</summary>
+    public void PlayNet(NetIn r)
+    {
+        string name = r.Str();
+        var at = r.Vec();
+        float vol = r.Half(), var = r.Half(), pitch = r.Half();
+        Play(name, at, vol, var, pitch);
     }
 
     public void SetMusic(string which)

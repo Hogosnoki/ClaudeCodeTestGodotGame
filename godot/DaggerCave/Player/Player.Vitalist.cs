@@ -127,13 +127,15 @@ public partial class Player
         G.Fx.Directional(at, toMe, 0.55f, LifeColor, (int)(9 * size), 200, 2f, 0.3f, 0, 0);
         G.Fx.Ring(at, 7 + 5 * size, new Color(LifeColor, 0.8f), 0.2f);
         G.Main.Rumble(0.2f, 0.05f, 0.06f);
-        G.Spawn(new LifeMote { Position = at, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = size });
+        var mote = new LifeMote { Position = at, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = size };
+        G.Spawn(mote);
+        NetSync.HeroVisual(mote);
     }
 
     /// <summary>Stolen life reaching the staff: it becomes alimus.</summary>
     public void AbsorbMote(float alimus, float size)
     {
-        GainAlimus(alimus);
+        if (!IsRemote) GainAlimus(alimus);
         _castGlow = Math.Max(_castGlow, 0.35f * size);
         G.Fx.Flash(CastPoint, 5 + 4 * size, LifeColorLight, 0.08f);
         if (G.Chance(0.5f)) G.Sfx.Play("bubble", CastPoint, -16, 0.2f, 0.7f);
@@ -362,7 +364,12 @@ public partial class Player
             if (dealt > 0)
             {
                 OnDealtDamage(dealt, alimusByMote: true);
-                for (int k = 0; k < 3; k++) G.Spawn(new LifeMote { Position = at + G.RandDir() * 5, Caster = this, Alimus = dealt * Stats.AlimusGain / 3f, Size = 0.8f });
+                for (int k = 0; k < 3; k++)
+                {
+                    var mote = new LifeMote { Position = at + G.RandDir() * 5, Caster = this, Alimus = dealt * Stats.AlimusGain / 3f, Size = 0.8f };
+                    G.Spawn(mote);
+                    NetSync.HeroVisual(mote);
+                }
                 if (!main.Dead) main.Freeze(Tune.Feel.HitStopCharged * 0.6f);
             }
         }
@@ -376,7 +383,9 @@ public partial class Player
             float dealt = e.Hurt(Tune.Vitalist.RuptureSplash * Stats.RuptureSplashMult * mult, away * 170f, e.GlobalPosition - away * e.HitRadius);
             if (dealt <= 0) continue;
             OnDealtDamage(dealt, alimusByMote: true);
-            G.Spawn(new LifeMote { Position = e.GlobalPosition, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = 0.55f });
+            var splash = new LifeMote { Position = e.GlobalPosition, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = 0.55f };
+            G.Spawn(splash);
+            NetSync.HeroVisual(splash);
         }
         // a burst of crimson from inside it
         G.Fx.Flash(at, 30, LifeColorLight, 0.16f);

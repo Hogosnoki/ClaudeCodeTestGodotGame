@@ -18,8 +18,8 @@ public static class G
     public static Main Main;
     public static CaveData Cave;
     public static Player Player;
-    /// <summary>Everyone playing. One hero for now, but the heroes are built to complement each
-    /// other (the vitalist's heal shares health out among all of them in range).</summary>
+    /// <summary>Every hero in the game: this game's own (<see cref="Player"/>) and, online, the
+    /// other players' (puppets showing what their games send).</summary>
     public static readonly List<Player> Players = new();
     public static Node2D World;
     public static FxLayer Fx;
@@ -63,5 +63,10 @@ public static class G
     /// <summary>Enemy damage multiplier.</summary>
     public static float DepthDmg => Threat;
 
-    public static void Spawn(Node n) => World.AddChild(n);
+    /// <summary>Adds something to the world (online, the host's game sends what its creatures make to the others).</summary>
+    public static void Spawn(Node n)
+    {
+        World.AddChild(n);
+        if (Net.Online) NetSync.Spawned(n);
+    }
 }

@@ -118,6 +118,7 @@ public partial class Bear : Walker
 {
     private enum S { Walk, SwipeWindup, Swipe, ChargeWindup, Charge, Stunned }
     private S _s;
+    public override void NetState(NetIO io) => io.SyncByte(ref _s);
     private float _st, _chargeCd = 2.5f, _swipeCd;
 
     public Bear() { MaxHp = Tune.Bear.Hp; BodyRadius = 14; ContactDamage = Tune.Bear.Contact; XpValue = Tune.Bear.Xp; KnockResist = 0.6f; }
@@ -443,6 +444,7 @@ public partial class Hornet : Enemy
 public partial class Skeleton : Walker
 {
     private int _s; // 0 walk, 1 windup, 2 recover, 3 collapsed
+    public override void NetState(NetIO io) => io.Sync(ref _s);
     private float _st, _cd = 0.6f;
     private bool _reassembled;
 
@@ -650,6 +652,7 @@ public partial class Sporeling : Walker
 public partial class FrostWraith : Enemy
 {
     private int _s; // 0 drift, 1 casting, 2 looming
+    public override void NetState(NetIO io) => io.Sync(ref _s);
     private float _st, _cd = Tune.Wraith.FirstCast, _wob, _loomCd;
     private Vector2 _loomAt;
 

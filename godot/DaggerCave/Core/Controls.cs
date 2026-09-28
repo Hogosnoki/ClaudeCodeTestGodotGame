@@ -54,7 +54,8 @@ public static class Controls
         ["pause"] = new InputEvent[] { K(Key.Escape), J(JoyButton.Start) },
         // menus (not rebindable)
         ["confirm"] = new InputEvent[] { K(Key.Enter), K(Key.KpEnter), J(JoyButton.A) },
-        ["restart"] = new InputEvent[] { K(Key.R), J(JoyButton.Y) },
+        ["restart"] = new InputEvent[] { K(Key.R) },
+        ["online"] = new InputEvent[] { K(Key.O), J(JoyButton.Y) },
         ["pick_1"] = new InputEvent[] { K(Key.Key1) },
         ["pick_2"] = new InputEvent[] { K(Key.Key2) },
         ["pick_3"] = new InputEvent[] { K(Key.Key3) },
@@ -211,7 +212,10 @@ public static class Controls
         {
             case InputEventKey k:
                 {
-                    var code = k.PhysicalKeycode != Key.None ? DisplayServer.KeyboardGetKeycodeFromPhysical(k.PhysicalKeycode) : k.Keycode;
+                    // (the key's name on this keyboard's layout; a window-less test run has no layout)
+                    var code = k.PhysicalKeycode == Key.None ? k.Keycode
+                        : DisplayServer.GetName() == "headless" ? k.PhysicalKeycode
+                        : DisplayServer.KeyboardGetKeycodeFromPhysical(k.PhysicalKeycode);
                     string n = OS.GetKeycodeString(code);
                     return string.IsNullOrEmpty(n) ? "?" : n.ToUpperInvariant();
                 }
