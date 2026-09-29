@@ -795,7 +795,12 @@ public partial class Main : Node
     }
 
     /// <summary>Walks through an exit tunnel: on to that biome, that many levels deeper.</summary>
-    public void EnterExit(BiomeDef to, int depth) => CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth, 0);
+    public void EnterExit(BiomeDef to, int depth)
+    {
+        // (--onelevel, for recordings: the run ends a moment after the way down is taken)
+        if (OS.GetCmdlineUserArgs().Contains("--onelevel")) GetTree().CreateTimer(2.5).Timeout += () => SafeQuit.Request(this);
+        CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth, 0);
+    }
 
     private void GoDeeper(int biome, int depth, int seed)
     {

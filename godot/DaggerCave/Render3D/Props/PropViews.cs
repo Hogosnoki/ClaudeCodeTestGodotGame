@@ -1117,13 +1117,12 @@ public partial class PortalView : PropView
 
 /// <summary>
 /// The cave mouth at depth 0: the end of the tunnel you came in by, flooded with daylight so
-/// bright it washes out to white (one sheet in front of the rock at the map's edge, one lighting
-/// the back of the tunnel), a warm light spilling in through the dust, and a prompt to leave.
+/// bright it washes out to white (one sheet thinning into the tunnel), a warm light spilling in through the dust, and a prompt to leave.
 /// </summary>
 public partial class MouthView : PropView
 {
     private OmniLight3D _light;
-    private MeshInstance3D _front, _back, _bloom;
+    private MeshInstance3D _front;
     private Label3D _title, _prompt;
 
     private static ShaderMaterial _dayMat;
@@ -1135,20 +1134,12 @@ public partial class MouthView : PropView
 
     protected override void Build()
     {
-        // solid white over the rock at the map's edge, thinning out a metre or so into the tunnel
-        // (so a hero at the door still stands clear of it)
-        _front = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(9.2f, 7.8f) }, MaterialOverride = DayMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(Edge + 0.6f, 3.3f, 3.8f) };
+        // one wash of white over the rock at the map's edge, thinning out gently over several metres into
+        // the tunnel: outside is simply brighter than in here (a single source, not two glows)
+        _front = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(12f, 7.8f) }, MaterialOverride = DayMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(Edge + 2.4f, 3.3f, 3.8f) };
         _front.SetInstanceShaderParameter("strength", 1f);
-        _front.SetInstanceShaderParameter("fade_start", 0.78f);
+        _front.SetInstanceShaderParameter("fade_start", 0.3f);
         AddChild(_front);
-        // the back of the tunnel lit up by it, fading off into the cave
-        _back = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(11f, 7.4f) }, MaterialOverride = DayMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(Edge + 3.5f, 3.3f, -2.2f) };
-        _back.SetInstanceShaderParameter("strength", 0.7f);
-        _back.SetInstanceShaderParameter("fade_start", 0.3f);
-        AddChild(_back);
-        _bloom = PropViews.Sprite(new Color(1f, 0.95f, 0.85f), 0, 1.6f, 4.5f);
-        _bloom.Position = new Vector3(Edge + 1.5f, 3.4f, 2.4f);
-        AddChild(_bloom);
         _light = PropViews.Light(new Color(1f, 0.95f, 0.86f), 2.4f, 15f);
         _light.LightVolumetricFogEnergy = 1.4f;
         _light.Position = new Vector3(Edge + 1.8f, 3.4f, 1.2f);
