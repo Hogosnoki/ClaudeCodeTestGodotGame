@@ -321,6 +321,7 @@ public partial class Bear : Walker
 /// <summary>Scuttles close, arches its tail over its back, and stings forward.</summary>
 public partial class Scorpion : Walker
 {
+    public override Element Element => Element.Armored;
     private int _s; // 0 walk, 1 windup, 2 recover
     private float _st, _cd = 0.8f;
 
@@ -629,6 +630,7 @@ public partial class Skeleton : Walker
 /// <summary>A waddling fungus that puffs clouds of choking spores (and bursts into one when killed).</summary>
 public partial class Sporeling : Walker
 {
+    public override Element Element => Element.Nature;
     private int _s; // 0 walk, 1 windup, 2 recover
     private float _st, _cd = 1.5f;
 
@@ -717,6 +719,7 @@ public partial class Sporeling : Walker
 /// </summary>
 public partial class FrostWraith : Enemy
 {
+    public override Element Element => Element.Frost;
     private int _s; // 0 drift, 1 casting, 2 looming
     public override void NetState(NetIO io) => io.Sync(ref _s);
     private float _st, _cd = Tune.Wraith.FirstCast, _wob, _loomCd;
@@ -844,6 +847,7 @@ public partial class FrostWraith : Enemy
 /// <summary>A crystal crawler that curls up and bursts in a spray of shards; shatters when killed.</summary>
 public partial class Shardling : Walker
 {
+    public override Element Element => Element.Armored;
     private int _s; // 0 walk, 1 curl, 2 recover
     private float _st, _cd = 1.2f;
 

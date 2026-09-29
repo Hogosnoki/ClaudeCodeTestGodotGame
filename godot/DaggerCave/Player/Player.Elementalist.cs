@@ -106,7 +106,7 @@ public partial class Player
     public void BoltStruck(ElementBolt bolt, Enemy e, Vector2 at)
     {
         if (!IsInstanceValid(e) || e.Dead) return;
-        float dealt = e.Hurt(bolt.Damage, bolt.Dir * (bolt.Frost ? 30f : 60f), at);
+        float dealt = e.Hurt(bolt.Damage, bolt.Dir * (bolt.Frost ? 30f : 60f), at, bolt.Frost ? DamageKind.Frost : DamageKind.Fire);
         if (dealt > 0)
         {
             OnDealtDamage(dealt);
@@ -238,7 +238,7 @@ public partial class Player
     {
         if (!IsInstanceValid(e) || e.Dead) return;
         var from = (e.GlobalPosition - storm.GlobalPosition).Normalized();
-        float dealt = e.Hurt(storm.Damage, from * 10f, e.GlobalPosition - from * e.HitRadius * 0.5f);
+        float dealt = e.Hurt(storm.Damage, from * 10f, e.GlobalPosition - from * e.HitRadius * 0.5f, storm.Fire ? DamageKind.Fire : DamageKind.Frost);
         if (dealt > 0) OnDealtDamage(dealt);
         if (e.Dead) return;
         if (storm.Fire) { if (G.Chance(storm.IgniteChance)) e.Ignite(storm.IgniteDps, storm.IgniteSeconds); }
@@ -305,7 +305,7 @@ public partial class Player
             burst++;
             // the ice (or the fire) goes, in a burst of shards (or cinders)
             if (cinder) e.Quench(); else e.Thaw();
-            float dealt = e.Hurt(dmg, Vector2.Up * 60f, at);
+            float dealt = e.Hurt(dmg, Vector2.Up * 60f, at, cinder ? DamageKind.Fire : DamageKind.Frost);
             if (dealt > 0) OnDealtDamage(dealt);
             G.Fx.Flash(at, e.HitRadius + 14, col, 0.14f);
             G.Fx.Burst(at, cinder ? new Color(1f, 0.6f, 0.2f) : new Color(0.85f, 0.97f, 1f), 18, 190, 2.4f, 0.45f, cinder ? -60f : 260f);
@@ -315,7 +315,7 @@ public partial class Player
             {
                 if (o == e || o.Dead || !o.CanBeHit || o.GlobalPosition.DistanceTo(at) > radius + o.HitRadius) continue;
                 if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
-                float d2 = o.Hurt(splash, (o.GlobalPosition - at).Normalized() * 80f, o.GlobalPosition);
+                float d2 = o.Hurt(splash, (o.GlobalPosition - at).Normalized() * 80f, o.GlobalPosition, cinder ? DamageKind.Fire : DamageKind.Frost);
                 if (d2 > 0) OnDealtDamage(d2);
             }
         }

@@ -96,6 +96,7 @@ public abstract partial class ElementalWalker : Walker
 /// <summary>A construct of packed earth and stone: slow, heavy, hard to knock back; it tears a boulder from itself and hurls it.</summary>
 public partial class EarthElemental : ElementalWalker
 {
+    public override Element Element => Element.Earth;
     public EarthElemental() { MaxHp = Tune.Elementals.Earth.Hp; BodyRadius = 14; ContactDamage = Tune.Elementals.Earth.Contact; XpValue = Tune.Elementals.Earth.Xp; KnockResist = 0.75f; }
     protected override void Setup() { DisplayName = "Earth Elemental"; base.Setup(); }
     protected override string Set => "elem_earth";
@@ -126,6 +127,7 @@ public partial class EarthElemental : ElementalWalker
 /// <summary>A crystalline golem: it drives its fists into the ground and a fan of ice shards leaps out toward you.</summary>
 public partial class FrostElemental : ElementalWalker
 {
+    public override Element Element => Element.Frost;
     public FrostElemental() { MaxHp = Tune.Elementals.Frost.Hp; BodyRadius = 15; ContactDamage = Tune.Elementals.Frost.Contact; XpValue = Tune.Elementals.Frost.Xp; KnockResist = 0.6f; }
     protected override void Setup() { DisplayName = "Frost Elemental"; base.Setup(); }
     protected override string Set => "elem_frost";
@@ -156,6 +158,7 @@ public partial class FrostElemental : ElementalWalker
 /// <summary>A tangle of roots in a rough shape of a man, leaves at its shoulders: it looses leaf-blades in a spread, and knits itself back together if left alone.</summary>
 public partial class NatureElemental : ElementalWalker
 {
+    public override Element Element => Element.Nature;
     private float _sinceHit = 9f;
 
     public NatureElemental() { MaxHp = Tune.Elementals.Nature.Hp; BodyRadius = 13; ContactDamage = Tune.Elementals.Nature.Contact; XpValue = Tune.Elementals.Nature.Xp; }
@@ -194,6 +197,7 @@ public partial class NatureElemental : ElementalWalker
 /// <summary>A gathering of small flames standing as one: quick on its feet, it flings fireballs, and it scorches whatever it touches.</summary>
 public partial class FireElemental : ElementalWalker
 {
+    public override Element Element => Element.Fire;
     public FireElemental() { MaxHp = Tune.Elementals.Fire.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Fire.Contact; XpValue = Tune.Elementals.Fire.Xp; }
     protected override void Setup() { DisplayName = "Fire Elemental"; base.Setup(); }
     protected override string Set => "elem_fire";

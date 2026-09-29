@@ -11,6 +11,7 @@ namespace DaggerCave;
 /// </summary>
 public partial class CavernColossus : Enemy
 {
+    public override Element Element => Element.Armored;
     private enum S { Intro, Walk, LeapCrouch, Leap, Land, Roar, ChargeWindup, Charge, Stunned }
     private S _s = S.Intro;
     private float _t, _next = 1.2f;

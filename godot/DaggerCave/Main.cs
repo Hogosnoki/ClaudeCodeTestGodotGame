@@ -333,6 +333,7 @@ public partial class Main : Node
             else if (a.StartsWith("--fronttest=")) _frontTest = a[12..];
             else if (a.StartsWith("--scenario=")) _scenario = a[11..];
         }
+        Affinity.Off = _heroTest || _hitStopTest || _altTest;
     }
 
     // --lookshot=PATH [--frames=N]: build the level, stand still for N frames, save a screenshot

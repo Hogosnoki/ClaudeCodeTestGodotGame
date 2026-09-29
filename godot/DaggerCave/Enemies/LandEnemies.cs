@@ -612,6 +612,7 @@ public partial class Spider : Enemy
 /// <summary>Slow molten blob: leaves burning puddles, lobs lava globs, and hates water.</summary>
 public partial class LavaMonster : Enemy
 {
+    public override Element Element => Element.Fire;
     private float _lobCd = 2f, _puddleT, _windup = -1;
 
     public LavaMonster() { MaxHp = Tune.Magma.Hp; BodyRadius = 12; ContactDamage = Tune.Magma.Contact; XpValue = Tune.Magma.Xp; KnockResist = 0.3f; }
@@ -702,6 +703,7 @@ public partial class LavaMonster : Enemy
 /// <summary>Stone golem: slow, heavy, nearly immovable; telegraphs a ground slam that sends shockwaves both ways.</summary>
 public partial class Golem : Enemy
 {
+    public override Element Element => Element.Armored;
     private float _slamCd = 1.5f, _windup = -1, _recover;
 
     public Golem() { MaxHp = Tune.Golem.Hp; BodyRadius = 15; ContactDamage = Tune.Golem.Contact; XpValue = Tune.Golem.Xp; KnockResist = 0.85f; }

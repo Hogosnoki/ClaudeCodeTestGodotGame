@@ -55,6 +55,7 @@ public partial class Main
         "drain" => "entrance",
         "motion" => "entrance",
         "elementals" => "slime",
+        "affinity" => "entrance",
         "magma" => "magma",
         "vault" => "den",
         _ => null,
@@ -82,6 +83,7 @@ public partial class Main
             case "drain": DrainScenario(); break;
             case "motion": MotionScenario(); break;
             case "elementals": ElementalsScenario(); break;
+            case "affinity": AffinityScenario(); break;
             case "magma": MagmaScenario(); break;
             case "vault": VaultScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
@@ -425,6 +427,35 @@ public partial class Main
         if (_scT < 12f) return;
         ScCheck($"the Water Elemental is alive, in the water ({IsInstanceValid(_scWater) && G.Cave.IsWater(_scWater.GlobalPosition)}), and wound up an attack ({_scAttacked.Contains(_scWater)})",
             IsInstanceValid(_scWater) && G.Cave.IsWater(_scWater.GlobalPosition) && _scAttacked.Contains(_scWater));
+        ScEnd();
+    }
+
+    /// <summary>--scenario=affinity: 100 damage of each kind on one of each kind of creature comes out as weakness and resistance say.</summary>
+    private void AffinityScenario()
+    {
+        if (_scT < 0.5f) return;
+        var p = G.Player;
+        (Enemy foe, string what, (DamageKind k, float want)[] cases)[] rows =
+        {
+            (new EarthElemental(), "Earth Elemental", new[] { (DamageKind.Physical, 60f), (DamageKind.Water, 150f), (DamageKind.Nature, 150f), (DamageKind.Fire, 100f), (DamageKind.Frost, 100f) }),
+            (new Golem(), "Golem (armoured)", new[] { (DamageKind.Physical, 60f), (DamageKind.Water, 100f), (DamageKind.Fire, 100f) }),
+            (new FrostElemental(), "Frost Elemental", new[] { (DamageKind.Fire, 150f), (DamageKind.Frost, 60f), (DamageKind.Water, 60f), (DamageKind.Physical, 100f) }),
+            (new FireElemental(), "Fire Elemental", new[] { (DamageKind.Water, 150f), (DamageKind.Fire, 60f), (DamageKind.Nature, 60f), (DamageKind.Frost, 100f) }),
+            (new NatureElemental(), "Nature Elemental", new[] { (DamageKind.Fire, 150f), (DamageKind.Water, 60f), (DamageKind.Nature, 60f), (DamageKind.Physical, 100f) }),
+            (new Goblin(), "Goblin", new[] { (DamageKind.Physical, 100f), (DamageKind.Fire, 100f), (DamageKind.Water, 100f) }),
+        };
+        foreach (var (foe, what, cases) in rows)
+        {
+            foe.Position = p.GlobalPosition + new Vector2(200, -10);
+            foe.SetMeta("test", true);
+            _world.AddChild(foe);
+            foe.MaxHp = foe.Hp = 100000;
+            foreach (var (k, want) in cases)
+            {
+                float dealt = foe.Hurt(100f, Vector2.Zero, foe.GlobalPosition, k);
+                ScCheck($"{what} takes {want:0} of 100 {k} ({dealt:0})", Math.Abs(dealt - want) < 0.5f);
+            }
+        }
         ScEnd();
     }
 }

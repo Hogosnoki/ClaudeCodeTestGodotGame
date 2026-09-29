@@ -9,8 +9,45 @@ namespace DaggerCave;
 /// from the player, XP/heart drops on death, elite (mini-boss) scaling, and draw helpers.
 /// Subclasses implement <see cref="Think"/> (set Velocity or move manually) and <see cref="_Draw"/>.
 /// </summary>
+/// <summary>What a blow is made of: it decides how much a creature takes from it (see <see cref="Affinity"/>).</summary>
+public enum DamageKind { Physical, Fire, Frost, Water, Nature, /// <summary>Already worked out (a blow relayed to the host): no weakness or resistance applies.</summary>
+    Raw }
+
+/// <summary>What a creature is made of, for weakness and resistance.</summary>
+public enum Element { None, Armored, Earth, Frost, Fire, Nature }
+
+/// <summary>
+/// Weaknesses and resistances. Armoured and earthen creatures take 40% less from physical blows;
+/// frost creatures take more from fire and less from frost and water; fire creatures more from
+/// water and less from fire and nature; nature creatures more from fire and less from water and
+/// nature; earth creatures more from water and nature and less from physical.
+/// </summary>
+public static class Affinity
+{
+    public const float Weak = 1.5f, Resist = 0.6f;
+    /// <summary>Test harness: the mechanics tests strike golems and expect plain numbers.</summary>
+    public static bool Off;
+
+    public static float Mult(Element e, DamageKind k) => Off ? 1f : (e, k) switch
+    {
+        (Element.Armored or Element.Earth, DamageKind.Physical) => Resist,
+        (Element.Earth, DamageKind.Water or DamageKind.Nature) => Weak,
+        (Element.Frost, DamageKind.Fire) => Weak,
+        (Element.Frost, DamageKind.Frost or DamageKind.Water) => Resist,
+        (Element.Fire, DamageKind.Water) => Weak,
+        (Element.Fire, DamageKind.Fire or DamageKind.Nature) => Resist,
+        (Element.Nature, DamageKind.Fire) => Weak,
+        (Element.Nature, DamageKind.Water or DamageKind.Nature) => Resist,
+        _ => 1f,
+    };
+}
+
 public abstract partial class Enemy : CharacterBody2D
 {
+    /// <summary>What it is made of (weaknesses and resistances).</summary>
+    public virtual Element Element => Element.None;
+    private float _affinity = 1f;
+
     public const float Grav = 1200f;
 
     public string DisplayName = "Enemy";
@@ -443,7 +480,7 @@ public abstract partial class Enemy : CharacterBody2D
             if (CanBeHit)
             {
                 float before = Hp;
-                Hp -= _burnDps * dt;
+                Hp -= _burnDps * dt * Affinity.Mult(Element, DamageKind.Fire);
                 NetSync.CreditDealt(_burnBy, before - Math.Max(0, Hp));
                 if (Hp <= 0) { LastAttacker = _burnBy; Die(); return false; }
             }
@@ -597,9 +634,12 @@ public abstract partial class Enemy : CharacterBody2D
     }
 
     /// <summary>Returns the damage actually dealt (0 if immune). Online, a blow on a copy goes to the host.</summary>
-    public float Hurt(float dmg, Vector2 knock, Vector2 hitPos)
+    public float Hurt(float dmg, Vector2 knock, Vector2 hitPos, DamageKind kind = DamageKind.Physical)
     {
         if (Dead || !CanBeHit) return 0;
+        // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is)
+        _affinity = kind == DamageKind.Raw ? 1f : Affinity.Mult(Element, kind);
+        dmg *= _affinity;
         if (Puppet) return PuppetHurt(dmg, knock, hitPos);
         // (online, the kill goes to whoever struck last: another game's hero, or this one's)
         LastAttacker = NetSync.Striker;
@@ -633,7 +673,10 @@ public abstract partial class Enemy : CharacterBody2D
         if (k.Length() > 60 && !ManualMove && !midAttack) { Stun = 0.2f; KnockVel = k; }
         else if (!ManualMove && knock.X != 0) Recoil(knock.X); // even without Heavy Pommel, a hit nudges it back
         bool big = dmg >= 15;
-        G.Fx.Text(hitPos + new Vector2(0, -10), Mathf.RoundToInt(dmg).ToString(), big ? new Color(1f, 0.85f, 0.3f) : Colors.White, big ? 13 : 11);
+        // (a weakness shows as a bigger, hotter number with a bang; a resistance as a small grey one)
+        bool weak = _affinity > 1.01f, resist = _affinity < 0.99f;
+        G.Fx.Text(hitPos + new Vector2(0, -10), Mathf.RoundToInt(dmg).ToString() + (weak ? "!" : ""),
+            weak ? new Color(1f, 0.5f, 0.2f) : resist ? new Color(0.65f, 0.68f, 0.72f) : big ? new Color(1f, 0.85f, 0.3f) : Colors.White, weak ? 14 : resist ? 9 : big ? 13 : 11);
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);
         G.Sfx.Play("hit", GlobalPosition, 0, 0.12f);
         OnHurt();

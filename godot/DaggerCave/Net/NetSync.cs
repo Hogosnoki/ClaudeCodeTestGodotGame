@@ -565,7 +565,7 @@ public static class NetSync
         if (!Enemies.TryGetValue(id, out var e) || !GodotObject.IsInstanceValid(e) || e.Dead) return;
         _striker = from;
         Scope++;
-        try { e.Hurt(dmg, knock, hitPos); }
+        try { e.Hurt(dmg, knock, hitPos, DamageKind.Raw); }
         finally { Scope--; _striker = 0; }
     }
 

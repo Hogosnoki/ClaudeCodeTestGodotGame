@@ -147,7 +147,7 @@ public partial class Player
     {
         var toMe = (CastPoint - e.GlobalPosition).Normalized();
         var at = e.GlobalPosition + toMe * e.HitRadius * 0.5f;
-        float dealt = e.Hurt(dmg, toMe * 40f, at);
+        float dealt = e.Hurt(dmg, toMe * 40f, at, DamageKind.Nature);
         if (dealt <= 0)
         {
             G.Sfx.Play("clink", at, -6);
@@ -275,7 +275,7 @@ public partial class Player
             if (Stats.BlightBurst && !e.Dead)
             {
                 var away = (e.GlobalPosition - c).LengthSquared() > 1 ? (e.GlobalPosition - c).Normalized() : Vector2.Up;
-                float dealt = e.Hurt(Tune.Vitalist.BlightDamage * Stats.DamageMult, away * 90f, e.GlobalPosition - away * e.HitRadius);
+                float dealt = e.Hurt(Tune.Vitalist.BlightDamage * Stats.DamageMult, away * 90f, e.GlobalPosition - away * e.HitRadius, DamageKind.Nature);
                 if (dealt > 0) OnDealtDamage(dealt);
                 G.Fx.Burst(e.GlobalPosition, new Color(0.35f, 0.8f, 0.2f), 8, 140, 2f, 0.4f);
             }
@@ -504,7 +504,7 @@ public partial class Player
         float mult = Stats.DamageMult;
         if (main != null)
         {
-            float dealt = main.Hurt(Tune.Vitalist.RuptureDamage * mult * G.Range(0.95f, 1.05f), _ruptureDir * 60f, at);
+            float dealt = main.Hurt(Tune.Vitalist.RuptureDamage * mult * G.Range(0.95f, 1.05f), _ruptureDir * 60f, at, DamageKind.Nature);
             if (dealt > 0)
             {
                 OnDealtDamage(dealt, alimusByMote: true);
@@ -524,7 +524,7 @@ public partial class Player
             var to = e.GlobalPosition - at;
             if (to.Length() > radius + e.HitRadius || !(InSight(at, e) || Spreads(at, e.GlobalPosition, radius + e.HitRadius))) continue;
             var away = to.LengthSquared() > 1 ? to.Normalized() : G.RandDir();
-            float dealt = e.Hurt(Tune.Vitalist.RuptureSplash * Stats.RuptureSplashMult * mult, away * 170f, e.GlobalPosition - away * e.HitRadius);
+            float dealt = e.Hurt(Tune.Vitalist.RuptureSplash * Stats.RuptureSplashMult * mult, away * 170f, e.GlobalPosition - away * e.HitRadius, DamageKind.Nature);
             if (dealt <= 0) continue;
             OnDealtDamage(dealt, alimusByMote: true);
             var splash = new LifeMote { Position = e.GlobalPosition, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = 0.55f };
