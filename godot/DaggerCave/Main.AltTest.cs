@@ -20,6 +20,7 @@ public partial class Main
             switch (drop)
             {
                 case "hex_burst": p.Stats.BlightBurst = false; break;
+                case "throw_ricochet": p.Stats.Ricochet = false; break;
             }
         }
         Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
@@ -40,6 +41,7 @@ public partial class Main
             case HeroKind.Warden: AltWarden(s, p); break;
             case HeroKind.Vitalist: AltVitalist(s, p); break;
             case HeroKind.Elementalist: AltElementalist(s, p); break;
+            case HeroKind.Rogue: AltRogue(s, p); break;
             default: AltSwordsman(s, p); break;
         }
     }
@@ -492,6 +494,168 @@ public partial class Main
                 Check($"and the goblin beside it takes {wantSplash:0} ({splash:0.0})", Math.Abs(splash - wantSplash) < 0.6f);
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 if (IsInstanceValid(_probe2)) _probe2.QueueFree();
+                Finish();
+                break;
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- Rogue
+
+    private Enemy _rgThird;
+
+    private void AltRogue(int s, Player p)
+    {
+        Enemy Held(Enemy e, float dx, float dy = -6)
+        {
+            AltDummy(p, e, dx, dy);
+            e.MaxHp = e.Hp = 3000;
+            e.Freeze(60f, hold: true);
+            return e;
+        }
+        float Hp(Enemy e) => IsInstanceValid(e) ? e.Hp : 0;
+        bool AnyStuck() => Enumerable.Range(0, 2).Any(k => p.ThrownDaggerAt(k) is ThrownDagger d && IsInstanceValid(d) && d.State == ThrownDagger.Phase.Stuck);
+        float throwDmg = Tune.Rogue.ThrowDamage * p.Stats.DamageMult;
+        switch (s)
+        {
+            // ---- Ricochet: the dagger springs on to one more creature, then comes back (never sticking)
+            case 5:
+                _rgHome = p.GlobalPosition;
+                p.Stats.MaxHp = 500; p.Hp = 500;
+                p.Stats.CritChance = 0f;
+                Take(p, "throw_ricochet");
+                // three golems in a row, each in a ricochet's reach of the one before
+                _probeEnemy = Held(new Golem(), 80);
+                _probe2 = Held(new Golem(), 80 + 70);
+                _rgThird = Held(new Golem(), 80 + 140);
+                break;
+            case 7:
+                _hpMark = _probeEnemy.Hp; _altMark = _probe2.Hp; _shieldMark = _rgThird.Hp;
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 8: _heroInput = default; break;
+            case 9:
+            case 10:
+            case 11:
+            case 12:
+                if (AnyStuck()) Check("Ricochet: (a dagger stuck)", false);
+                break;
+            case 13:
+            {
+                float a = _hpMark - Hp(_probeEnemy), b = _altMark - Hp(_probe2), c = _shieldMark - Hp(_rgThird);
+                Check($"Ricochet: the dagger strikes the first golem for {throwDmg:0} ({a:0.0}), springs on to the next for {throwDmg:0} ({b:0.0}) and no farther ({c:0.0}), and never sticks",
+                    Math.Abs(a - throwDmg) < 0.3f && Math.Abs(b - throwDmg) < 0.3f && c < 0.01f && !AnyStuck());
+                break;
+            }
+            case 20:
+                Check($"then it flies back to you ({p.DaggersInHand} in hand)", p.DaggersInHand == 2);
+                // Chain Ricochet: one creature more
+                Take(p, "ricochet_more");
+                _hpMark = _probeEnemy.Hp; _altMark = _probe2.Hp; _shieldMark = _rgThird.Hp;
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 21: _heroInput = default; break;
+            case 27:
+            {
+                float a = _hpMark - Hp(_probeEnemy), b = _altMark - Hp(_probe2), c = _shieldMark - Hp(_rgThird);
+                Check($"Chain Ricochet: it springs on to a third ({a:0.0}, {b:0.0}, {c:0.0})",
+                    Math.Abs(a - throwDmg) < 0.3f && Math.Abs(b - throwDmg) < 0.3f && Math.Abs(c - throwDmg) < 0.3f);
+                break;
+            }
+            case 34:
+                Check($"and still comes back ({p.DaggersInHand} in hand)", p.DaggersInHand == 2);
+                foreach (var e in new[] { _probeEnemy, _probe2, _rgThird }) if (IsInstanceValid(e)) e.QueueFree();
+                break;
+
+            // ---- Smoke Bomb: a cloud of smoke hides whoever is in it, and blinds whatever is
+            case 40:
+                Home(p);
+                Take(p, "vanish_smoke");
+                p.ResetAbilityCooldowns();
+                _probeEnemy = AltDummy(p, new Goblin(), 50, -4);
+                _heroInput = new PlayerInput { Dodge = true };
+                break;
+            case 41: _heroInput = default; break;
+            case 42:
+            {
+                var c = p.LastSmoke;
+                Check($"Smoke Bomb: the dodge button throws down a cloud of smoke for {Tune.Rogue.SmokeSeconds:0} s ({c?.TotalLife:0.0}), hiding you in it (hidden {p.Hidden}, vanished {p.Vanished})",
+                    c != null && Math.Abs(c.TotalLife - Tune.Rogue.SmokeSeconds) < 0.1f && p.Hidden && !p.Vanished);
+                break;
+            }
+            case 46:
+                Check($"and the goblin in it loses you (lost track {_probeEnemy.LostTrack})", _probeEnemy.LostTrack);
+                // out of the cloud (creatures don't block the way)
+                _heroInput = new PlayerInput { Move = new Vector2(_dir, 0) };
+                break;
+            case 54:
+            {
+                _heroInput = default;
+                float out_ = p.GlobalPosition.DistanceTo(p.LastSmoke.GlobalPosition);
+                Check($"out of the smoke, you're seen again ({out_:0} px from it, hidden {p.Hidden})", out_ > p.LastSmoke.Radius && !p.Hidden);
+                Check($"but the goblin still in it can't find anyone (lost track {_probeEnemy.LostTrack})", _probeEnemy.LostTrack);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                if (IsInstanceValid(p.LastSmoke)) p.LastSmoke.QueueFree();
+                // Thick Smoke: a wider cloud
+                Take(p, "smoke_wide");
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Dodge = true };
+                break;
+            }
+            case 55:
+            {
+                _heroInput = default;
+                float want = Tune.Rogue.SmokeRadius * 1.4f;
+                Check($"Thick Smoke: the cloud is 40% wider ({p.LastSmoke?.Radius:0} px round, want {want:0})", p.LastSmoke != null && Math.Abs(p.LastSmoke.Radius - want) < 0.5f);
+                if (IsInstanceValid(p.LastSmoke)) p.LastSmoke.QueueFree();
+                break;
+            }
+
+            // ---- Tether: recall pulls you to the dagger (striking as you arrive)
+            case 60:
+                Home(p);
+                // (a ricocheting dagger never sticks: Tether rules it out)
+                Take(p, "recall_tether", drop: "throw_ricochet");
+                _probeEnemy = Held(new Golem(), 110);
+                break;
+            case 62:
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 63: _heroInput = default; break;
+            case 66:
+                Check($"(the dagger sticks in the golem: {AnyStuck()})", AnyStuck());
+                _hpMark = _probeEnemy.Hp;
+                _posMark = p.GlobalPosition;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 67:
+                _heroInput = default;
+                Check($"Tether: recall pulls you along the line to the dagger (tethering {p.Tethering})", p.Tethering || p.GlobalPosition.DistanceTo(_posMark) > 20);
+                break;
+            case 72:
+            {
+                float moved = (p.GlobalPosition.X - _posMark.X) * _dir, dealt = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.RecallDamage * p.Stats.DamageMult;
+                Check($"you arrive at the golem ({moved:0} px of {110 - 10:0}) and strike it for {want:0} ({dealt:0.0})", moved > 70 && Math.Abs(dealt - want) < 0.3f);
+                break;
+            }
+            case 80:
+                Check($"and the dagger's back in hand ({p.DaggersInHand})", p.DaggersInHand == 2 && !p.Tethering);
+                // Pounce: arriving by tether is always a critical strike
+                Home(p);
+                Take(p, "pounce");
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 81: _heroInput = default; break;
+            case 84:
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 85: _heroInput = default; break;
+            case 90:
+            {
+                float dealt = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.RecallDamage * Tune.Rogue.CritMult * p.Stats.DamageMult;
+                Check($"Pounce: arriving by tether lands a critical strike ({dealt:0.0}, want {want:0.0})", Math.Abs(dealt - want) < 0.3f);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 Finish();
                 break;
             }

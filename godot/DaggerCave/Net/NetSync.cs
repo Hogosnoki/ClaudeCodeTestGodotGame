@@ -234,7 +234,7 @@ public static class NetSync
             case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Frost ? 1 : 0)); break;
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
-            case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? 1 : 0)); break;
+            case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
             default: return;
         }
@@ -323,9 +323,10 @@ public static class NetSync
             case 10:
             {
                 // a friend's dagger, thrown: it flies (and sticks) here as it does there
-                var at = r.Vec(); var dir = r.HVec(); int idx = r.Byte(); bool ricochet = r.Byte() != 0;
+                // (how many creatures it springs on to, with Ricochet; 0 without)
+                var at = r.Vec(); var dir = r.HVec(); int idx = r.Byte(); int bounces = r.Byte();
                 Applying = true;
-                G.Spawn(new ThrownDagger { Position = at, Dir = dir, Index = idx, Ricochet = ricochet, Thrower = av, Harmless = true });
+                G.Spawn(new ThrownDagger { Position = at, Dir = dir, Index = idx, Ricochet = bounces > 0, Bounces = Math.Max(1, bounces), Thrower = av, Harmless = true });
                 Applying = false;
                 break;
             }

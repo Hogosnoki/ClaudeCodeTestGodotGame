@@ -520,7 +520,7 @@ public partial class Hud : Control
         if (p.Vanished)
         {
             // the time left in the shadows, as a shrinking ring
-            DrawArc(ab + new Vector2(17, 17), 15, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (p.VanishLeft / Tune.Rogue.VanishSeconds), 24, new Color(shadow, 0.9f), 2f);
+            DrawArc(ab + new Vector2(17, 17), 15, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (p.VanishLeft / p.VanishTotal), 24, new Color(shadow, 0.9f), 2f);
         }
         DrawString(font, ab + new Vector2(0, -6), p.Stats.SmokeBomb ? "SMOKE" : "VANISH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         UsePips(ab, p, shadow);

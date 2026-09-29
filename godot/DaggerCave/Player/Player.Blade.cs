@@ -85,6 +85,8 @@ public partial class Player
         _swingHits.Clear();
         _brokeThisSwing.Clear();
         _swingHitSomething = false;
+        // (a jab brings the Rogue out of the shadows as it begins)
+        _swingSurprise = IsRogue && StrikeFromShadows();
         // coil for the wind-up
         Anim.Punch(new Vector2(1.08f, 0.9f));
         // body animation: combo letter + the nearest of five aim directions in front of the player
@@ -206,8 +208,8 @@ public partial class Player
         if (IsRogue)
         {
             // (a jab is exact: no spread) a critical strike, a stab in the back, a strike from the shadows
-            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, out crit);
-            Reveal(false);
+            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit);
+            _swingSurprise = false;
         }
         float dealt = e.Hurt(dmg, dir * kb, hitPos);
         if (dealt > 0 && Stats.BleedShare > 0 && !e.Dead) e.Bleed(dealt * Stats.BleedShare, Tune.Swordsman.BleedSeconds);

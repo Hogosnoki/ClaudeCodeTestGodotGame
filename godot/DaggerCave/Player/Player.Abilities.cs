@@ -19,7 +19,7 @@ public partial class Player
         HeroKind.Vitalist => Tune.Vitalist.HealCooldown,
         HeroKind.Elementalist => Tune.Elementalist.BlizzardCooldown * Stats.BlizzardCdMult,
         // (the Rogue's ability button throws its daggers; its vanishing takes these uses)
-        HeroKind.Rogue => Tune.Rogue.VanishCooldown,
+        HeroKind.Rogue => Tune.Rogue.VanishCooldown * Stats.VanishCdMult,
         _ => Stats.ChargeCooldown,
     };
 

@@ -116,6 +116,14 @@ public sealed class PlayerStats
     /// <summary>Alterations: Ricochet (a thrown dagger springs on to a second creature), Smoke
     /// Bomb (a cloud instead of vanishing alone), Tether (recall pulls you to the dagger).</summary>
     public bool Ricochet, SmokeBomb, Tether;
+    /// <summary>Cruel Edge: added to what a critical strike multiplies. Weighted Daggers: thrown
+    /// daggers strike this much harder. Quick Fade: vanish's cooldown, times this. Deep Shadows:
+    /// seconds more in the shadows (vanished, or the smoke). Thick Smoke: the cloud, this much
+    /// wider. Rending Recall: recall strikes this much harder.</summary>
+    public float CritMultBonus, ThrowDamageMult = 1f, VanishCdMult = 1f, VanishBonus, SmokeWideMult = 1f, RecallDamageMult = 1f;
+    /// <summary>Chain Ricochet: creatures a ricochet springs on to. Pounce: arriving by tether is always critical.</summary>
+    public int RicochetBounces = 1;
+    public bool Pounce;
 
     public readonly Dictionary<string, int> Stacks = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
@@ -333,17 +341,25 @@ public static class Upgrades
         // --- Dagger Slash (rogue) ---
         new() { Id = "keen", Name = "Keen Edge", Desc = "Your strikes are 5% likelier to be critical (twice as hard).", Icon = "blade", For = R, Ability = "dagger", MaxStacks = 2, Apply = (s, p) => s.CritChance += Tune.Rogue.KeenChance },
         new() { Id = "backstab", Name = "Backstab", Desc = "Your strikes from behind a creature land 50% harder.", Icon = "blade", For = R, Ability = "dagger", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Backstab = true },
+        new() { Id = "cruel_edge", Name = "Cruel Edge", Desc = "Your critical strikes land 2.5 times as hard instead of twice.", Icon = "blade", For = R, Ability = "dagger", Tier = UpgradeTier.Ability, Apply = (s, p) => s.CritMultBonus += 0.5f },
 
         // --- Dagger Throw (rogue) ---
         new() { Id = "twin_throw", Name = "Twin Throw", Desc = "With both daggers in hand, you throw both at once.", Icon = "throw", For = R, Ability = "throw", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinThrow = true },
-        new() { Id = "throw_ricochet", Name = "Ricochet", Desc = "A thrown dagger springs on from the creature it strikes to one more nearby, then flies back to you (it never sticks).", Icon = "throw", For = R, Ability = "throw", Alteration = true, Apply = (s, p) => s.Ricochet = true },
+        new() { Id = "weighted", Name = "Weighted Daggers", Desc = "Your thrown daggers strike 30% harder.", Icon = "throw", For = R, Ability = "throw", MaxStacks = 2, Apply = (s, p) => s.ThrowDamageMult += 0.3f },
+        new() { Id = "throw_ricochet", Name = "Ricochet", Desc = "A thrown dagger springs on from the creature it strikes to one more nearby, then flies back to you (it never sticks).", Icon = "throw", For = R, Ability = "throw", Alteration = true, Excludes = new[] { "recall_tether" }, Apply = (s, p) => s.Ricochet = true },
+        new() { Id = "ricochet_more", Name = "Chain Ricochet", Desc = "Your ricochet springs on to one more creature.", Icon = "throw", For = R, Ability = "throw", Requires = "throw_ricochet", Apply = (s, p) => s.RicochetBounces += 1 },
 
         // --- Vanish (rogue) ---
         new() { Id = "surprise", Name = "Surprise Attack", Desc = "The strike that ends your vanishing (a slash, a throw or a recall) lands four times as hard.", Icon = "dodge", For = R, Ability = "vanish", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SurpriseAttack = true },
+        new() { Id = "vanish_cd", Name = "Quick Fade", Desc = "Vanish comes back 20% sooner.", Icon = "dodge", For = R, Ability = "vanish", MaxStacks = 2, Apply = (s, p) => s.VanishCdMult *= 0.8f },
+        new() { Id = "vanish_long", Name = "Deep Shadows", Desc = "Your vanishing (or your smoke) lasts 3 s longer.", Icon = "dodge", For = R, Ability = "vanish", Apply = (s, p) => s.VanishBonus += 3f },
         new() { Id = "vanish_smoke", Name = "Smoke Bomb", Desc = "Instead of vanishing alone, you throw down a cloud of smoke for 6 s: every hero in it is hidden, and creatures in it can't find anyone.", Icon = "dodge", For = R, Ability = "vanish", Alteration = true, Apply = (s, p) => s.SmokeBomb = true },
+        new() { Id = "smoke_wide", Name = "Thick Smoke", Desc = "Your cloud of smoke is 40% wider.", Icon = "dodge", For = R, Ability = "vanish", Requires = "vanish_smoke", Apply = (s, p) => s.SmokeWideMult += 0.4f },
 
         // --- Recall (rogue) ---
-        new() { Id = "recall_tether", Name = "Tether", Desc = "Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.", Icon = "move", For = R, Ability = "recall", Alteration = true, Apply = (s, p) => s.Tether = true },
+        new() { Id = "rending", Name = "Rending Recall", Desc = "Your recall tears out of creatures twice as hard.", Icon = "blade", For = R, Ability = "recall", Tier = UpgradeTier.Ability, Apply = (s, p) => s.RecallDamageMult += 1f },
+        new() { Id = "recall_tether", Name = "Tether", Desc = "Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.", Icon = "move", For = R, Ability = "recall", Alteration = true, Excludes = new[] { "throw_ricochet" }, Apply = (s, p) => s.Tether = true },
+        new() { Id = "pounce", Name = "Pounce", Desc = "Arriving by tether is always a critical strike.", Icon = "move", For = R, Ability = "recall", Requires = "recall_tether", Apply = (s, p) => s.Pounce = true },
 
         // --- Movement (all) ---
         // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)

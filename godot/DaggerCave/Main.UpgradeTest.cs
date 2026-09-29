@@ -12,7 +12,8 @@ public partial class Main
     /// holds one class card and two others and never an alteration; a milestone holds only the
     /// hero's own cards, with an alteration on it while any are left; an ability takes one
     /// alteration; an alteration's upgrades wait for it; Magma Skin waits for the deep; Deep Lungs
-    /// and Drowned Lungs exclude each other; a party's chest may hold a friend's class card.
+    /// and Drowned Lungs exclude each other, as do Ricochet and Tether; a party's chest may hold a
+    /// friend's class card.
     /// </summary>
     private void RunUpgradeTest()
     {
@@ -53,6 +54,13 @@ public partial class Main
                 {
                     bool milestone = k % 4 == 3;
                     var cards = milestone ? Upgrades.RollMilestone(s, rng) : Upgrades.RollChest(s, rng, Vector2.Zero);
+                    // (a hero with every card of their own already: the milestone heals instead)
+                    if (cards.Count == 0)
+                    {
+                        if (!milestone) chestBad++;
+                        else if (Upgrades.Chest.Any(u => u.For != null && u.For.Contains(h) && Upgrades.Available(u, s))) mileBad++;
+                        continue;
+                    }
                     bool alterationsLeft = Upgrades.Chest.Any(u => u.Alteration && Upgrades.Available(u, s));
                     if (milestone)
                     {
@@ -100,6 +108,15 @@ public partial class Main
             Check("with an Unyielding Shield, no Quick Mend or Iron Timing", !Upgrades.Available(Upgrades.Get("quickmend"), s) && !Upgrades.Available(Upgrades.Get("perfect_soak"), s));
             Check("and Braced is offered", Upgrades.Available(Upgrades.Get("unyielding_more"), s));
         }
+        // Ricochet never sticks a dagger, so it and Tether rule each other out
+        {
+            var s = new PlayerStats(HeroKind.Rogue);
+            s.Stacks["throw_ricochet"] = 1;
+            Check("with Ricochet, no Tether", !Upgrades.Available(Upgrades.Get("recall_tether"), s));
+            s = new PlayerStats(HeroKind.Rogue);
+            s.Stacks["recall_tether"] = 1;
+            Check("with Tether, no Ricochet", !Upgrades.Available(Upgrades.Get("throw_ricochet"), s));
+        }
         // the lungs
         {
             var s = new PlayerStats(HeroKind.Swordsman);
@@ -128,10 +145,10 @@ public partial class Main
         // a party's chest: its class card may be a friend's, the other two anyone's
         {
             var s = new PlayerStats(HeroKind.Warden);
-            var party = new[] { HeroKind.Warden, HeroKind.Vitalist, HeroKind.Swordsman, HeroKind.Elementalist };
+            var party = new[] { HeroKind.Warden, HeroKind.Vitalist, HeroKind.Swordsman, HeroKind.Elementalist, HeroKind.Rogue };
             var whose = new Dictionary<HeroKind, int>();
             int bad = 0;
-            for (int k = 0; k < 300; k++)
+            for (int k = 0; k < 400; k++)
             {
                 var cards = Upgrades.RollChestCards(s, party, rng, Vector2.Zero).Select(Upgrades.Get).ToList();
                 var cls = cards.Where(u => u.Kind == UpgradeKind.Class).ToList();

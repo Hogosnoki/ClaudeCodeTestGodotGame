@@ -22,6 +22,7 @@ public partial class Player
     private bool _surpriseReady;
     private ThrownDagger _tetherTo;
     private float _tetherT;
+    private bool _tetherSurprise, _swingSurprise;
 
     /// <summary>Daggers in hand (0-2).</summary>
     public int DaggersInHand => (_thrown[0] == null ? 1 : 0) + (_thrown[1] == null ? 1 : 0);
@@ -34,6 +35,8 @@ public partial class Player
     /// <summary>Vanished (the Rogue alone, not smoke): half again as fast.</summary>
     public bool Vanished => _vanishT > 0;
     public float VanishLeft => _vanishT;
+    /// <summary>How long a vanishing lasts (Deep Shadows adds to it).</summary>
+    public float VanishTotal => Tune.Rogue.VanishSeconds + Stats.VanishBonus;
     /// <summary>Critical strikes, backstabs and surprise attacks landed (for the tests).</summary>
     public int Crits { get; private set; }
     public int Backstabs { get; private set; }
@@ -46,7 +49,8 @@ public partial class Player
     private void TickRogue(float dt)
     {
         _throwCd -= dt;
-        if (_vanishT > 0 && (_vanishT -= dt) <= 0) Reveal(false);
+        // the shadows wear off
+        if (_vanishT > 0 && (_vanishT -= dt) <= 0) Unvanish(false);
         for (int k = 0; k < 2; k++)
             if (_thrown[k] != null && !IsInstanceValid(_thrown[k])) _thrown[k] = null;
         // both out and neither still in the air: both come home by themselves
@@ -61,21 +65,33 @@ public partial class Player
     // ---------------------------------------------------------------- the strike bonuses
 
     /// <summary>
+    /// An attack begins (a jab, a throw, a recall): it brings the Rogue out of the shadows at once,
+    /// and says whether it's the first attack out of them (Surprise Attack: the blow it lands
+    /// counts four times over, however long it takes to land).
+    /// </summary>
+    private bool StrikeFromShadows()
+    {
+        bool surprise = _surpriseReady && Stats.SurpriseAttack && Hidden;
+        _surpriseReady = false;
+        Reveal(false);
+        return surprise;
+    }
+
+    /// <summary>
     /// What a Rogue's blow (a jab, a thrown dagger, a recall) is multiplied by against this
     /// creature: a critical strike, a stab from behind (Backstab), and the first strike out of the
-    /// shadows (Surprise Attack). Striking ends a vanishing.
+    /// shadows (Surprise Attack, decided as the attack began).
     /// </summary>
-    private float RogueStrikeMult(Enemy e, Vector2 from, out bool crit)
+    private float RogueStrikeMult(Enemy e, Vector2 from, bool surprise, out bool crit, bool sureCrit = false)
     {
         float mult = 1f;
-        crit = G.Chance(Stats.CritChance);
-        if (crit) { mult *= Tune.Rogue.CritMult; Crits++; }
+        crit = sureCrit || G.Chance(Stats.CritChance);
+        if (crit) { mult *= Tune.Rogue.CritMult + Stats.CritMultBonus; Crits++; }
         if (Stats.Backstab && e.FacingAwayFrom(from)) { mult *= Tune.Rogue.BackstabMult; Backstabs++; }
-        if (_surpriseReady && Stats.SurpriseAttack && Hidden)
+        if (surprise)
         {
             mult *= Tune.Rogue.SurpriseMult;
             Surprises++;
-            _surpriseReady = false;
             G.Fx.Text(e.GlobalPosition + new Vector2(0, -e.HitRadius - 16), "SURPRISE", new Color(1f, 0.85f, 0.35f), 11, 0.8f);
         }
         return mult;
@@ -88,11 +104,16 @@ public partial class Player
         G.Fx.Text(e.GlobalPosition + new Vector2(0, -e.HitRadius - 10), "CRIT", new Color(1f, 0.85f, 0.35f), 10, 0.6f);
     }
 
-    /// <summary>Striking out of the shadows (or being struck) ends a vanishing.</summary>
+    /// <summary>Attacking out of the shadows (or being struck) ends a vanishing.</summary>
     private void Reveal(bool struck)
     {
-        if (_vanishT <= 0) return;
+        if (_vanishT > 0) Unvanish(struck);
+    }
+
+    private void Unvanish(bool struck)
+    {
         _vanishT = 0;
+        _surpriseReady = false;
         G.Fx.Smoke(GlobalPosition, 3, new Color(0.25f, 0.25f, 0.3f, 0.6f), 30f);
         if (struck) G.Fx.Text(GlobalPosition + new Vector2(0, -28), "SEEN", new Color(0.9f, 0.85f, 0.8f), 9, 0.6f);
     }
@@ -107,6 +128,7 @@ public partial class Player
         var from = GlobalPosition + new Vector2(0, -6);
         var dir = target != null ? (target.GlobalPosition - from).Normalized() : aim;
         bool both = Stats.TwinThrow && DaggersInHand == 2;
+        bool surprise = StrikeFromShadows();
         _throwCd = 0.18f;
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         Anim.Face((int)Facing, instant: true);
@@ -114,22 +136,23 @@ public partial class Player
         AttacksStarted++;
         if (both)
         {
-            // a pair, fanned a little apart
-            Launch(0, dir.Rotated(-0.09f), from);
-            Launch(1, dir.Rotated(0.09f), from);
+            // a pair, fanned a little apart (the first of them to land is the surprise)
+            Launch(0, dir.Rotated(-0.09f), from, surprise);
+            Launch(1, dir.Rotated(0.09f), from, surprise);
         }
         // (the off hand throws first: its dagger is the one the throw flings)
-        else Launch(_thrown[1] == null ? 1 : 0, dir, from);
+        else Launch(_thrown[1] == null ? 1 : 0, dir, from, surprise);
         G.Sfx.Play("throw", from, -4, 0.1f, 1.3f);
         return true;
     }
 
-    private void Launch(int k, Vector2 dir, Vector2 from)
+    private void Launch(int k, Vector2 dir, Vector2 from, bool surprise)
     {
         var d = new ThrownDagger
         {
-            Position = from + dir * 6f, Dir = dir, Index = k, Thrower = this, Ricochet = Stats.Ricochet,
-            Damage = Tune.Rogue.ThrowDamage * Stats.DamageMult,
+            Position = from + dir * 6f, Dir = dir, Index = k, Thrower = this,
+            Ricochet = Stats.Ricochet, Bounces = Stats.RicochetBounces,
+            Damage = Tune.Rogue.ThrowDamage * Stats.DamageMult * Stats.ThrowDamageMult, FromShadows = surprise,
         };
         _thrown[k] = d;
         G.Spawn(d);
@@ -140,8 +163,11 @@ public partial class Player
     public void DaggerStruck(ThrownDagger d, Enemy e, Vector2 at)
     {
         if (!IsInstanceValid(e) || e.Dead) return;
-        float mult = RogueStrikeMult(e, GlobalPosition, out bool crit);
-        Reveal(false);
+        bool surprise = d.FromShadows;
+        // (one surprise per attack: a pair thrown together share it)
+        foreach (var t in _thrown) if (t != null && IsInstanceValid(t)) t.FromShadows = false;
+        d.FromShadows = false;
+        float mult = RogueStrikeMult(e, GlobalPosition, surprise, out bool crit);
         float dealt = e.Hurt(d.Damage * mult, d.Dir * Tune.Rogue.ThrowNudge, at);
         if (dealt <= 0) return;
         OnDealtDamage(dealt);
@@ -168,12 +194,13 @@ public partial class Player
         if (out_.Count == 0) { SayNo("BOTH DAGGERS IN HAND"); return true; }
         Anim.Once("throw", 3, 2.4f);
         NetSync.HeroRecall(this);
+        bool surprise = StrikeFromShadows();
         // Tether: you go to the dagger instead (the first one stuck in a creature)
         if (Stats.Tether && out_.FirstOrDefault(d => d.State == ThrownDagger.Phase.Stuck) is ThrownDagger anchor)
         {
             _tetherTo = anchor;
             _tetherT = 0;
-            Reveal(false);
+            _tetherSurprise = surprise;
             foreach (var d in out_) if (d != anchor) d.ComeBack();
             G.Fx.Beam(GlobalPosition + new Vector2(0, -6), anchor.GlobalPosition, new Color(0.85f, 0.9f, 1f, 0.8f));
             G.Sfx.Play("dodge", GlobalPosition, -4, 0.05f, 1.4f);
@@ -182,18 +209,21 @@ public partial class Player
         foreach (var d in out_)
         {
             // a dagger in a creature tears back out through it, yanking it toward you
-            if (d.State == ThrownDagger.Phase.Stuck && d.StuckIn is Enemy e && IsInstanceValid(e) && !e.Dead) RecallStrike(e, d.GlobalPosition);
+            if (d.State == ThrownDagger.Phase.Stuck && d.StuckIn is Enemy e && IsInstanceValid(e) && !e.Dead)
+            {
+                RecallStrike(e, d.GlobalPosition, surprise);
+                surprise = false;
+            }
             d.ComeBack();
         }
-        Reveal(false);
         return true;
     }
 
-    private void RecallStrike(Enemy e, Vector2 at)
+    private void RecallStrike(Enemy e, Vector2 at, bool surprise, bool sureCrit = false)
     {
         var toMe = (GlobalPosition - e.GlobalPosition).Normalized();
-        float mult = RogueStrikeMult(e, GlobalPosition, out bool crit);
-        float dealt = e.Hurt(Tune.Rogue.RecallDamage * Stats.DamageMult * mult, toMe * Tune.Rogue.RecallYank, at);
+        float mult = RogueStrikeMult(e, GlobalPosition, surprise, out bool crit, sureCrit);
+        float dealt = e.Hurt(Tune.Rogue.RecallDamage * Stats.DamageMult * Stats.RecallDamageMult * mult, toMe * Tune.Rogue.RecallYank, at);
         if (dealt > 0) OnDealtDamage(dealt);
         if (crit) CritFx(e, at);
         G.Fx.Spark(at, toMe, true, new Color(1f, 0.9f, 0.75f));
@@ -211,8 +241,9 @@ public partial class Player
         if (to.Length() < 16f)
         {
             // arrived: the dagger comes out of the creature into your hand as you land on it
-            if (d.StuckIn is Enemy e && IsInstanceValid(e) && !e.Dead) RecallStrike(e, d.GlobalPosition);
+            if (d.StuckIn is Enemy e && IsInstanceValid(e) && !e.Dead) RecallStrike(e, d.GlobalPosition, _tetherSurprise, sureCrit: Stats.Pounce);
             _tetherTo = null;
+            _tetherSurprise = false;
             d.ComeBack();
             return new Vector2(-Math.Sign(to.X == 0 ? Facing : to.X) * 60f, -120f);
         }
@@ -232,7 +263,12 @@ public partial class Player
         if (Stats.SmokeBomb)
         {
             // Smoke Bomb: a cloud for everyone in it, instead of vanishing alone
-            var cloud = new SmokeCloud { Position = foot - new Vector2(0, 14) };
+            var cloud = new SmokeCloud
+            {
+                Position = foot - new Vector2(0, 14),
+                Radius = Tune.Rogue.SmokeRadius * Stats.SmokeWideMult,
+                Life = Tune.Rogue.SmokeSeconds + Stats.VanishBonus,
+            };
             G.Spawn(cloud);
             NetSync.HeroVisual(cloud);
             LastSmoke = cloud;
@@ -241,7 +277,7 @@ public partial class Player
         }
         else
         {
-            _vanishT = Tune.Rogue.VanishSeconds;
+            _vanishT = VanishTotal;
             G.Fx.Smoke(GlobalPosition, 6, new Color(0.2f, 0.2f, 0.25f, 0.7f), 50f);
             G.Sfx.Play("dodge", GlobalPosition, -6, 0.05f, 0.5f);
         }

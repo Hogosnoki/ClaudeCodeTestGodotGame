@@ -8,7 +8,8 @@ namespace DaggerCave;
 /// One of the Rogue's two daggers, out of the hand: flying, stuck in a creature (it rides along
 /// in it until recalled, or until the creature dies and it drops out), or flying back to the
 /// hand. A throw that meets nothing (or meets rock) comes back by itself. With Ricochet it springs
-/// on from the creature it strikes to one more, then comes back, never sticking. The thrower's game
+/// on from the creature it strikes to one more (or more, with Chain Ricochet), then comes back,
+/// never sticking. The thrower's game
 /// deals its blows; the other games fly a harmless copy.
 /// </summary>
 public partial class ThrownDagger : Node2D
@@ -22,8 +23,12 @@ public partial class ThrownDagger : Node2D
     public Vector2 Dir = Vector2.Right;
     public float Damage, Speed = Tune.Rogue.ThrowSpeed, Range = Tune.Rogue.ThrowRange;
     public bool Ricochet;
+    /// <summary>With Ricochet: how many more creatures it springs on to (Chain Ricochet adds one).</summary>
+    public int Bounces = 1;
     /// <summary>Online: another player's dagger, shown here (their game deals its blows).</summary>
     public bool Harmless;
+    /// <summary>Thrown out of the shadows with Surprise Attack: its blow counts four times over.</summary>
+    public bool FromShadows;
     public Phase State = Phase.Flying;
     public Enemy StuckIn { get; private set; }
     private Vector2 _stuckOffset;
@@ -99,7 +104,7 @@ public partial class ThrownDagger : Node2D
         if (Ricochet)
         {
             // it springs on to the nearest other creature in reach, then comes back
-            if (_bounces == 0 && NextFor(e) is Enemy next)
+            if (_bounces < Bounces && NextFor(e) is Enemy next)
             {
                 _bounces++;
                 GlobalPosition = at;
