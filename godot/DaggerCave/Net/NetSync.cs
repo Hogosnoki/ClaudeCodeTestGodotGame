@@ -231,6 +231,9 @@ public static class NetSync
             case SwordWave sw: w.Byte(2).Vec(sw.GlobalPosition).HVec(sw.Dir).Half(sw.Range).Half(sw.Speed); break;
             case LifeMote m: w.Byte(3).Vec(m.GlobalPosition).Half(m.Size); break;
             case HealingPool hp: w.Byte(6).Vec(hp.GlobalPosition).Half(hp.Radius).Half(hp.Rate).Half(hp.Life); break;
+            case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Frost ? 1 : 0)); break;
+            case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life); break;
+            case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
             default: return;
         }
         Net.SendAll(w, true);
@@ -285,6 +288,33 @@ public static class NetSync
                 var at = r.Vec(); float radius = r.Half(), rate = r.Half(), life = r.Half();
                 Applying = true;
                 G.Spawn(new HealingPool { Position = at, Radius = radius, Rate = rate, Life = life });
+                Applying = false;
+                break;
+            }
+            case 7:
+            {
+                // a friend's bolt: shown flying here (their game deals its blow)
+                var at = r.Vec(); var dir = r.HVec(); float range = r.Half(), speed = r.Half(); bool frost = r.Byte() != 0;
+                Applying = true;
+                G.Spawn(new ElementBolt { Position = at, Dir = dir, Range = range, Speed = speed, Frost = frost, Harmless = true });
+                Applying = false;
+                break;
+            }
+            case 8:
+            {
+                // a friend's updraft: this game's copy lifts this game's hero
+                var at = r.Vec(); float width = r.Half(), height = r.Half(), life = r.Half();
+                Applying = true;
+                G.Spawn(new Updraft { Position = at, Width = width, Height = height, Life = life });
+                Applying = false;
+                break;
+            }
+            case 9:
+            {
+                // a friend's blizzard: shown here (their game deals its strikes)
+                var at = r.Vec(); float radius = r.Half(), seconds = r.Half(); int ticks = r.Byte(); bool fire = r.Byte() != 0;
+                Applying = true;
+                G.Spawn(new Blizzard { Position = at, Radius = radius, Seconds = seconds, Ticks = ticks, Fire = fire, Harmless = true });
                 Applying = false;
                 break;
             }
@@ -481,7 +511,7 @@ public static class NetSync
     }
 
     /// <summary>Kinds of lasting effect a hero's blow can put on a creature.</summary>
-    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed }
+    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench }
 
     public static void EffectPuppet(Enemy e, Effect kind, float a, float b = 0, float c = 0, float d = 0, Vector2 v = default, string label = "")
     {
@@ -524,6 +554,11 @@ public static class NetSync
                 case Effect.Weaken: e.Weaken(a, b); break;
                 case Effect.Hex: e.Hex(a, b, c, d); break;
                 case Effect.Bleed: e.Bleed(a, b); break;
+                case Effect.Ignite: e.Ignite(a, b); break;
+                case Effect.Chill: e.Chill(a, b); break;
+                case Effect.Frost: e.FreezeSolid(a); break;
+                case Effect.Thaw: e.Thaw(); break;
+                case Effect.Quench: e.Quench(); break;
             }
         }
         finally { Scope--; _striker = 0; }

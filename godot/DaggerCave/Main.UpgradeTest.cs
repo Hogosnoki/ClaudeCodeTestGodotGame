@@ -19,7 +19,7 @@ public partial class Main
         bool ok = true;
         void Check(string what, bool cond) { GD.Print($"[upgradetest] {(cond ? "ok  " : "FAIL")} {what}"); ok &= cond; }
         var rng = new Random(1234);
-        var heroes = new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
+        var heroes = Enum.GetValues<HeroKind>();
         G.Depth = 1;
 
         // the cards themselves
@@ -33,7 +33,9 @@ public partial class Main
             Check($"{h}: every class card grows one of its four abilities", mine.All(u => keys.Contains(u.Ability)));
             // (the first is the primary attack, which isn't altered; each of the other three is)
             var abilities = Upgrades.Abilities(h);
-            Check($"{h}: {abilities[0].name} has no alteration", !mine.Any(u => u.Alteration && u.Ability == abilities[0].key));
+            // (the Elementalist's bolts are the exception: Frostbolt alters them)
+            bool primaryAltered = h == HeroKind.Elementalist;
+            Check($"{h}: {abilities[0].name} {(primaryAltered ? "has" : "has no")} alteration", mine.Any(u => u.Alteration && u.Ability == abilities[0].key) == primaryAltered);
             foreach (var (key, name) in abilities.Skip(1))
                 Check($"{h}: {name} has an alteration", mine.Any(u => u.Alteration && u.Ability == key));
         }
@@ -126,7 +128,7 @@ public partial class Main
         // a party's chest: its class card may be a friend's, the other two anyone's
         {
             var s = new PlayerStats(HeroKind.Warden);
-            var party = new[] { HeroKind.Warden, HeroKind.Vitalist, HeroKind.Swordsman };
+            var party = new[] { HeroKind.Warden, HeroKind.Vitalist, HeroKind.Swordsman, HeroKind.Elementalist };
             var whose = new Dictionary<HeroKind, int>();
             int bad = 0;
             for (int k = 0; k < 300; k++)

@@ -39,6 +39,7 @@ public partial class Main
         {
             case HeroKind.Warden: AltWarden(s, p); break;
             case HeroKind.Vitalist: AltVitalist(s, p); break;
+            case HeroKind.Elementalist: AltElementalist(s, p); break;
             default: AltSwordsman(s, p); break;
         }
     }
@@ -376,6 +377,124 @@ public partial class Main
                 Check($"and fades after {Tune.Vitalist.PoolSeconds:0} s ({_world.GetChildren().OfType<HealingPool>().Count()} left)", !_world.GetChildren().OfType<HealingPool>().Any());
                 Finish();
                 break;
+        }
+    }
+
+    // ---------------------------------------------------------------- Elementalist
+
+    private void AltElementalist(int s, Player p)
+    {
+        switch (s)
+        {
+            // ---- Frostbolt: quicker, weaker bolts of frost that chill, and now and then freeze
+            case 5:
+                p.Stats.MaxHp = 500; p.Hp = 500;
+                Take(p, "bolt_frost");
+                p.SetAether(p.Stats.AetherMax);
+                p.Stats.FreezeBonus = -1f;
+                _probeEnemy = AltDummy(p, new Golem(), 90);
+                _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
+                _probeEnemy.Freeze(60f, hold: true);
+                break;
+            case 8:
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 9: _heroInput = default; break;
+            case 14:
+            {
+                float dealt = _hpMark - _probeEnemy.Hp, want = Tune.Elementalist.FrostDamage * p.Stats.DamageMult;
+                Check($"Frostbolt: a bolt of frost strikes for {want:0} ({dealt:0.0}) and chills (chilled {_probeEnemy.Chilled}, burning {_probeEnemy.Ignited})",
+                    Math.Abs(dealt - want) < 0.5f && _probeEnemy.Chilled && !_probeEnemy.Ignited);
+                _altSwings = p.BoltsCast;
+                _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0) };
+                break;
+            }
+            case 26:
+                Check($"quicker than fire ({p.BoltsCast - _altSwings} bolts in 1.2 s)", p.BoltsCast - _altSwings >= 4);
+                _heroInput = default;
+                // (now every bolt freezes)
+                p.Stats.FreezeBonus = 1f;
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 27: _heroInput = default; break;
+            case 32:
+                Check($"and it can freeze a regular creature solid (frozen {_probeEnemy.FrozenSolid})", _probeEnemy.FrozenSolid);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                break;
+
+            // ---- Narrow Draft: half as wide, 6 m taller, 15 s
+            case 40:
+                Take(p, "updraft_narrow");
+                p.SetAether(p.Stats.AetherMax);
+                _heroInput = new PlayerInput { Dodge = true };
+                break;
+            case 41:
+            {
+                _heroInput = default;
+                var u = p.LastUpdraft;
+                // (a ceiling can cut any column short)
+                bool roof = G.Cave.IsSolid(u.GlobalPosition - new Vector2(0, Tune.Elementalist.UpdraftHeight + Tune.Elementalist.NarrowExtra + 18f));
+                Check($"Narrow Draft: a column half as wide ({u.Width:0} px), taller ({u.Height:0} px) and lasting {Tune.Elementalist.NarrowSeconds:0} s ({u.TotalLife:0})",
+                    Math.Abs(u.Width - Tune.Elementalist.UpdraftWidth * 0.5f) < 0.1f && (roof || u.Height > Tune.Elementalist.UpdraftHeight + 1f) && Math.Abs(u.TotalLife - Tune.Elementalist.NarrowSeconds) < 0.1f);
+                if (IsInstanceValid(u)) u.QueueFree();
+                break;
+            }
+
+            // ---- Firestorm: a blizzard of fire, harder, that sets creatures alight
+            case 60:
+                Take(p, "blizzard_fire");
+                p.SetAether(p.Stats.AetherMax);
+                p.ResetAbilityCooldowns();
+                // (every strike catches)
+                p.Stats.IgniteChance = 2f;
+                _probeEnemy = AltDummy(p, new Golem(), 90);
+                _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
+                _probeEnemy.Freeze(60f, hold: true);
+                break;
+            case 62:
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 63: _heroInput = default; break;
+            case 66:
+                Check($"Firestorm: a storm of fire (fire {p.LastBlizzard?.Fire}), and what it strikes is set alight (burning {_probeEnemy.Ignited})", p.LastBlizzard != null && p.LastBlizzard.Fire && _probeEnemy.Ignited);
+                break;
+            case 97:
+            {
+                // (the storm's strikes, and the fire burning since the first of them)
+                float dealt = _hpMark - _probeEnemy.Hp, strikes = Tune.Elementalist.BlizzardTicks * Tune.Elementalist.FirestormDamage * p.Stats.DamageMult;
+                Check($"it strikes {Tune.Elementalist.BlizzardTicks} times for {Tune.Elementalist.FirestormDamage:0} ({strikes:0}), and the fire burns on top ({dealt:0.0} in all)", dealt > strikes + 6f && dealt < strikes + 16f);
+                break;
+            }
+
+            // ---- Cinder Snap: burning creatures burst instead of frozen ones
+            case 100:
+            {
+                Take(p, "snap_cinder");
+                p.SetAether(p.Stats.AetherMax);
+                var gob = AltDummy(p, new Goblin(), 90 + 30, -4);
+                gob.Freeze(60f, hold: true);
+                _probe2 = gob;
+                _probeEnemy.Ignite(4f, 10f);
+                _hpMark = _probeEnemy.Hp;
+                _altMark = gob.Hp;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            }
+            case 101: _heroInput = default; break;
+            case 105:
+            {
+                float dealt = _hpMark - _probeEnemy.Hp, splash = _altMark - (IsInstanceValid(_probe2) ? _probe2.Hp : 0);
+                float want = Tune.Elementalist.CinderDamage * p.Stats.DamageMult, wantSplash = Tune.Elementalist.CinderSplash * p.Stats.DamageMult;
+                // (the golem's fire burns a little in the moment before it bursts)
+                Check($"Cinder Snap: the burning golem bursts for {want:0} ({dealt:0.0}), its fire spent (burning {_probeEnemy.Ignited})", dealt > want - 0.5f && dealt < want + 1.5f && !_probeEnemy.Ignited);
+                Check($"and the goblin beside it takes {wantSplash:0} ({splash:0.0})", Math.Abs(splash - wantSplash) < 0.6f);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                if (IsInstanceValid(_probe2)) _probe2.QueueFree();
+                Finish();
+                break;
+            }
         }
     }
 }

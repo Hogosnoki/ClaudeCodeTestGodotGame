@@ -187,6 +187,8 @@ public abstract partial class Enemy : CharacterBody2D
         if (Hunting && !IsBoss && dist > 1700) { QueueFree(); return; } // wandered off-stage
         if (!IsBoss && dist > 1500) return; // asleep
         if (!Awake && dist < 420) Awake = true;
+        // (what ails it goes on through a hit-stop: a burning creature keeps burning)
+        if (!TickAfflictions((float)delta)) return;
         // hit-stop: this creature alone holds still for a beat (with a little shudder)
         if (_freeze > 0)
         {
@@ -199,10 +201,21 @@ public abstract partial class Enemy : CharacterBody2D
             QueueRedraw();
             return;
         }
-        if (!TickAfflictions((float)delta)) return;
+        // frozen solid (the Elementalist's frost): it holds its pose in the ice, doing nothing,
+        // until it thaws or is shattered
+        if (_iceT > 0)
+        {
+            _iceT -= (float)delta;
+            if (Anim != null) { Anim.TimeMult = 0; Anim.Position = Vector2.Zero; }
+            Velocity = new Vector2(0, UsesGravity && !InWater ? Math.Min(Velocity.Y + 700f * (float)delta, 400f) : 0);
+            MoveAndSlide();
+            if (_iceT <= 0) Thawed();
+            QueueRedraw();
+            return;
+        }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
-        // and animations all scale together (a hex slows the whole clock down).
-        float tempo = G.Tempo * (_hexT > 0 ? _hexSlow : 1f);
+        // and animations all scale together (a hex, or a chill, slows the whole clock down).
+        float tempo = G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f);
         float dt = (float)delta * tempo;
         T += dt; HurtFlash -= (float)delta;
         if (_primeT > 0) _primeT -= dt;
@@ -394,11 +407,12 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>Online: whose hex is rotting it (their hero is credited with the damage).</summary>
     private int _hexBy;
 
-    /// <summary>Ticks the afflictions; false if it rotted to death.</summary>
+    /// <summary>Ticks the afflictions; false if it rotted (or burned) to death.</summary>
     private bool TickAfflictions(float dt)
     {
         if (_weakT > 0) _weakT -= dt;
         if (_hexT > 0) _hexT -= dt;
+        if (_chillT > 0) _chillT -= dt;
         if (_hexT > 0 && _hexRot > 0 && CanBeHit)
         {
             float before = Hp;
@@ -406,19 +420,133 @@ public abstract partial class Enemy : CharacterBody2D
             NetSync.CreditDealt(_hexBy, before - Math.Max(0, Hp));
             if (Hp <= 0) { LastAttacker = _hexBy; Die(); return false; }
         }
-        if (_weakT <= 0 && _hexT <= 0) return true;
-        // a few motes drifting off whatever ails it
+        if (_burnT > 0)
+        {
+            _burnT -= dt;
+            if (CanBeHit)
+            {
+                float before = Hp;
+                Hp -= _burnDps * dt;
+                NetSync.CreditDealt(_burnBy, before - Math.Max(0, Hp));
+                if (Hp <= 0) { LastAttacker = _burnBy; Die(); return false; }
+            }
+        }
+        if (_weakT <= 0 && _hexT <= 0 && _burnT <= 0 && _chillT <= 0) return true;
+        AfflictionFx(dt);
+        return true;
+    }
+
+    /// <summary>A few motes drifting off whatever ails it (flames off a burning one, frost off a chilled one).</summary>
+    private void AfflictionFx(float dt)
+    {
         _moteT -= dt;
-        if (_moteT > 0) return true;
+        if (_moteT > 0) return;
         _moteT = G.Range(0.08f, 0.16f);
         var at = GlobalPosition + new Vector2(G.Range(-1f, 1f) * HitRadius, G.Range(-1f, 0.4f) * HitRadius);
         if (_hexT > 0) G.Fx.Burst(at, new Color(0.6f, 0.95f, 0.45f, 0.8f), 1, 22, 1.5f, 0.7f, -40);
         if (_weakT > 0) G.Fx.Burst(at, new Color(1f, 0.35f, 0.25f, 0.7f), 1, 18, 1.3f, 0.6f, -30);
-        return true;
+        if (_burnT > 0)
+        {
+            G.Fx.Ember(at, G.Chance(0.5f) ? new Color(1f, 0.55f, 0.15f) : new Color(1f, 0.82f, 0.35f));
+            if (G.Chance(0.3f)) G.Fx.Smoke(at + new Vector2(0, -4), 1, new Color(0.2f, 0.17f, 0.15f, 0.45f), 30f);
+        }
+        if (_chillT > 0) G.Fx.Burst(at, new Color(0.75f, 0.92f, 1f, 0.8f), 1, 16, 1.4f, 0.7f, 30);
     }
 
     /// <summary>The colour an affliction washes over the creature (for the 3D model), alpha = strength.</summary>
-    public Color AfflictionAura => _hexT > 0 ? new Color(0.45f, 1f, 0.35f, 0.8f) : _weakT > 0 ? new Color(1f, 0.25f, 0.15f, 0.6f) : new Color(0, 0, 0, 0);
+    public Color AfflictionAura =>
+        _iceT > 0 ? new Color(0.72f, 0.9f, 1f, 1f)
+        : _burnT > 0 ? new Color(1f, 0.48f, 0.12f, 0.75f)
+        : _chillT > 0 ? new Color(0.5f, 0.78f, 1f, 0.6f)
+        : _hexT > 0 ? new Color(0.45f, 1f, 0.35f, 0.8f)
+        : _weakT > 0 ? new Color(1f, 0.25f, 0.15f, 0.6f)
+        : new Color(0, 0, 0, 0);
+
+    // ---- the Elementalist's afflictions: burning, chilled, frozen solid
+    private float _burnT, _burnDps, _chillT, _chillSlow = 1f, _iceT;
+    /// <summary>Online: whose fire is burning it (their hero is credited with the damage).</summary>
+    private int _burnBy;
+
+    /// <summary>Set alight (a firebolt, a Firestorm).</summary>
+    public bool Ignited => _burnT > 0;
+    /// <summary>Slowed by frost (a frostbolt).</summary>
+    public bool Chilled => _chillT > 0;
+    /// <summary>Frozen solid in a block of ice: it can do nothing, and a snap shatters it.</summary>
+    public bool FrozenSolid => _iceT > 0;
+    /// <summary>Only a regular creature can be frozen solid (never a mini-boss, a guardian or a boss).</summary>
+    public bool CanFreezeSolid => !Elite && !IsGuardian && !IsBoss;
+
+    /// <summary>Sets it alight: it burns for <paramref name="dps"/> a second for <paramref name="seconds"/> (the hotter fire stays).</summary>
+    public void Ignite(float dps, float seconds)
+    {
+        if (Dead || dps <= 0) return;
+        if (Puppet) { _burnT = Math.Max(_burnT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Ignite, dps, seconds); return; }
+        bool fresh = _burnT <= 0;
+        _burnBy = NetSync.Striker;
+        _burnDps = fresh ? dps : Math.Max(_burnDps, dps);
+        _burnT = Math.Max(_burnT, seconds);
+        if (fresh)
+        {
+            G.Fx.Flash(GlobalPosition, HitRadius + 6, new Color(1f, 0.55f, 0.15f), 0.12f);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "ALIGHT", new Color(1f, 0.6f, 0.2f), 9, 0.6f);
+            G.Sfx.Play("lava", GlobalPosition, -12, 0.1f, 1.5f);
+        }
+    }
+
+    /// <summary>Chills it: it moves and acts <paramref name="slow"/> slower (0.3 = 30%) for <paramref name="seconds"/>.</summary>
+    public void Chill(float slow, float seconds)
+    {
+        if (Dead) return;
+        if (Puppet) { _chillT = Math.Max(_chillT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Chill, slow, seconds); return; }
+        float k = Math.Clamp(1f - slow, 0.1f, 1f);
+        _chillSlow = _chillT > 0 ? Math.Min(_chillSlow, k) : k;
+        _chillT = Math.Max(_chillT, seconds);
+    }
+
+    /// <summary>
+    /// Freezes a regular creature solid for <paramref name="seconds"/>. Like every blow, it never
+    /// catches a creature winding up or in the middle of an attack (the attack plays out as
+    /// telegraphed). True if it froze.
+    /// </summary>
+    public bool FreezeSolid(float seconds)
+    {
+        if (Dead || !CanFreezeSolid || AttackingNow) return false;
+        if (Puppet) { _iceT = Math.Max(_iceT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Frost, seconds); return true; }
+        bool fresh = _iceT <= 0;
+        _iceT = Math.Max(_iceT, seconds);
+        if (fresh)
+        {
+            G.Fx.Ring(GlobalPosition, HitRadius + 10, new Color(0.8f, 0.95f, 1f), 0.3f);
+            G.Fx.Burst(GlobalPosition, new Color(0.85f, 0.96f, 1f), 10, 90, 2f, 0.4f, 60);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "FROZEN", new Color(0.75f, 0.92f, 1f), 9, 0.7f);
+            G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 0.7f);
+        }
+        return true;
+    }
+
+    /// <summary>Shatters the ice (a snap): it's free again at once.</summary>
+    public void Thaw()
+    {
+        if (Dead) return;
+        if (Puppet) { _iceT = 0; NetSync.EffectPuppet(this, NetSync.Effect.Thaw, 0); return; }
+        if (_iceT > 0) { _iceT = 0; Thawed(); }
+    }
+
+    /// <summary>Puts its fire out (a cinder snap spends it).</summary>
+    public void Quench()
+    {
+        if (Dead) return;
+        if (Puppet) { _burnT = 0; NetSync.EffectPuppet(this, NetSync.Effect.Quench, 0); return; }
+        _burnT = 0;
+    }
+
+    /// <summary>The ice gives way: a spray of frost, and it moves again.</summary>
+    private void Thawed()
+    {
+        _iceT = 0;
+        G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.94f, 1f, 0.9f), 8, 110, 2f, 0.35f, 200);
+        if (Anim != null) Anim.TimeMult = 1;
+    }
 
     /// <summary>A small horizontal bounce back after landing a hit on the player.</summary>
     public void Recoil(float dirX)
@@ -525,7 +653,8 @@ public abstract partial class Enemy : CharacterBody2D
     private int _netFrame, _netFacing = 1;
     private float _netSpeed = 1f;
     private ushort _netFlags;
-    private const ushort NfReeling = 1, NfFrozen = 2, NfDazed = 4, NfHexed = 8, NfWeak = 16, NfFlash = 32, NfFloor = 64, NfAttacking = 128;
+    private const ushort NfReeling = 1, NfFrozen = 2, NfDazed = 4, NfHexed = 8, NfWeak = 16, NfFlash = 32, NfFloor = 64, NfAttacking = 128,
+                         NfIgnited = 256, NfChilled = 512, NfIced = 1024;
 
     /// <summary>On the ground (a copy goes by what the host says).</summary>
     public bool OnGround => Puppet ? (_netFlags & NfFloor) != 0 : IsOnFloor();
@@ -554,6 +683,9 @@ public abstract partial class Enemy : CharacterBody2D
         if (HurtFlash > 0) f |= NfFlash;
         if (IsOnFloor()) f |= NfFloor;
         if (Attacking) f |= NfAttacking;
+        if (_burnT > 0) f |= NfIgnited;
+        if (_chillT > 0) f |= NfChilled;
+        if (_iceT > 0) f |= NfIced;
         w.UShort(f);
     }
 
@@ -581,6 +713,11 @@ public abstract partial class Enemy : CharacterBody2D
         e._dazed = (flags & NfDazed) != 0;
         e._hexT = (flags & NfHexed) != 0 ? Math.Max(e._hexT, 0.15f) : e._hexT;
         e._weakT = (flags & NfWeak) != 0 ? Math.Max(e._weakT, 0.15f) : e._weakT;
+        // (the host's word on the Elementalist's afflictions: a copy only shows them, and a snap
+        // looks for them here)
+        e._burnT = (flags & NfIgnited) != 0 ? Math.Max(e._burnT, 0.15f) : e._burnT;
+        e._chillT = (flags & NfChilled) != 0 ? Math.Max(e._chillT, 0.15f) : e._chillT;
+        e._iceT = (flags & NfIced) != 0 ? Math.Max(e._iceT, 0.15f) : e._iceT;
         if (flashNow) e.Anim?.Flash(0.8f);
     }
 
@@ -593,6 +730,10 @@ public abstract partial class Enemy : CharacterBody2D
         if (_freeze > 0) _freeze -= dt;
         if (_hexT > 0) _hexT -= dt;
         if (_weakT > 0) _weakT -= dt;
+        if (_burnT > 0) _burnT -= dt;
+        if (_chillT > 0) _chillT -= dt;
+        if (_iceT > 0) _iceT -= dt;
+        if (_burnT > 0 || _chillT > 0) AfflictionFx(dt);
         if (_net.Sample(NetSync.Now - NetSync.InterpDelay, out var pos, out var vel))
         {
             GlobalPosition = pos;

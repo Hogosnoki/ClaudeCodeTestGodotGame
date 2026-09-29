@@ -1,7 +1,8 @@
-"""The three heroes, drawn by one rig with a style switch:
- * swordsman -- a hooded rogue with a red scarf and a medium-length sword;
- * warden    -- a blue-tabarded shield-bearer with a gold sash, a shortsword and a buckler;
- * vitalist  -- a green-robed caster in a bone mask, with a crystal-headed staff.
+"""The four heroes, drawn by one rig with a style switch:
+ * swordsman    -- a hooded rogue with a red scarf and a medium-length sword;
+ * warden       -- a blue-tabarded shield-bearer with a gold sash, a shortsword and a buckler;
+ * vitalist     -- a green-robed caster in a bone mask, with a crystal-headed staff;
+ * elementalist -- a violet-robed caster with an ember sash, a staff crowned with a burning orb.
 Right-handed (the weapon hand is the far arm when facing right, the near arm when facing left)."""
 import math
 from rig import (keys as _keys, hexc, lighten, darken, ellipse, circle, poly, limb, line, glow, rot, add, polar,
@@ -36,7 +37,12 @@ STYLES = {
                    BLADE_LEN=9.5, BLADE_W=1.25, GUARD_W=2.5, BUCKLER=True),
     'vitalist': dict(CLOAK='24503a', CLOAK_D='122a1e', SCARF='8e1f24', PANTS='2a2a26', BELT='4a3020',
                      BLADE_LEN=0.0, BLADE_W=1.0, GUARD_W=1.0, BUCKLER=False, STAFF=True),
+    'elementalist': dict(CLOAK='4b3a7c', CLOAK_D='281d48', SCARF='e0762a', PANTS='2a2634', BELT='4a3a30',
+                         BLADE_LEN=0.0, BLADE_W=1.0, GUARD_W=1.0, BUCKLER=False, STAFF=True,
+                         STAFF_WOOD='cfc6b4', STAFF_GEM='ff9a3a', MASK='c9b39a'),
 }
+# (every style starts from these, so one built after another never inherits its looks)
+STYLE_DEFAULTS = dict(BUCKLER=False, STAFF=False, STAFF_WOOD='5a3d22', STAFF_GEM='8dff7a', MASK='e2dac8')
 
 BASE = dict(sa=0.0, bx=0, by=0, lean=0.06, lfx=-2.4, lfy=13, lnx=2.6, lny=13,
             dhx=5.5, dhy=2.5, da=1.0, fhx=-2.5, fhy=3.0, ht=0.0, sw=0.0, sl=0.0, cf=0.0,
@@ -477,7 +483,7 @@ def death(u, i):
 
 def make(style='swordsman'):
     g = globals()
-    for k, v in STYLES[style].items():
+    for k, v in list(STYLE_DEFAULTS.items()) + list(STYLES[style].items()):
         g[k] = hexc(v) if isinstance(v, str) else v
     long_blade = BLADE_LEN > 12 or STAFF
     sh = Sheet(style, 72 if long_blade else 64, 66 if long_blade else 60,

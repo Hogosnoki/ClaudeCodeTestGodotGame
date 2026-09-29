@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>The playable heroes.</summary>
-public enum HeroKind { Swordsman, Warden, Vitalist }
+public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist }
 
 /// <summary>Everything upgrades can change about the hero.</summary>
 public sealed class PlayerStats
@@ -92,6 +92,22 @@ public sealed class PlayerStats
     /// Mending), Lifebloom (with its pool).</summary>
     public bool BlightBurst, EndlessHex, SlowMending, PatientMending, WardingMending, Lifebloom, BloomPool;
 
+    // elementalist: bolts, updraft, blizzard, snap
+    public float AetherMax = Tune.Elementalist.AetherMax;
+    /// <summary>Attunement: aether comes back this many times as fast.</summary>
+    public float AetherRegenMult = 1f;
+    /// <summary>A firebolt's chance of setting a creature alight (Kindling adds); Deep Chill's
+    /// extra chance of freezing, for frostbolts and the blizzard alike.</summary>
+    public float IgniteChance = Tune.Elementalist.IgniteChance, FreezeBonus;
+    public float BlizzardSecondsMult = 1f, BlizzardWideMult = 1f, BlizzardCdMult = 1f;
+    /// <summary>Shrapnel: snaps burst this much wider. Echo: each creature a snap bursts gives aether back.</summary>
+    public float SnapWideMult = 1f;
+    public bool SnapEcho;
+    /// <summary>Alterations: Frostbolt (the bolts freeze instead of burning), Narrow Draft (a
+    /// taller, narrower, longer updraft), Firestorm (a blizzard of fire), Cinder Snap (the snap
+    /// bursts burning creatures instead of frozen ones).</summary>
+    public bool Frostbolt, NarrowDraft, Firestorm, CinderSnap;
+
     public readonly Dictionary<string, int> Stacks = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
 
@@ -107,6 +123,10 @@ public sealed class PlayerStats
             case HeroKind.Vitalist:
                 MoveSpeed = Tune.Vitalist.MoveMult; JumpMult = Tune.Vitalist.JumpMult;
                 MaxHp = Tune.Vitalist.StartHp;
+                break;
+            case HeroKind.Elementalist:
+                MoveSpeed = Tune.Elementalist.MoveMult; JumpMult = Tune.Elementalist.JumpMult;
+                MaxHp = Tune.Elementalist.StartHp;
                 break;
             default:
                 MoveSpeed = Tune.Swordsman.MoveMult; JumpMult = Tune.Swordsman.JumpMult;
@@ -173,7 +193,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 /// </summary>
 public static class Upgrades
 {
-    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist };
+    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist };
     /// <summary>The two heroes who fight with a blade.</summary>
     private static readonly HeroKind[] Blades = { HeroKind.Swordsman, HeroKind.Warden };
 
@@ -272,6 +292,29 @@ public static class Upgrades
         new() { Id = "rupture_bloom", Name = "Lifebloom", Desc = "Your rupture blooms on a friend instead of a creature (alone, on you): it heals them 30, and everyone else in the burst 10.", Icon = "life", For = V, Ability = "rupture", Alteration = true, Apply = (s, p) => s.Lifebloom = true },
         new() { Id = "bloom_pool", Name = "Healing Pool", Desc = "Your bloom leaves a pool that heals everyone in it 3 a second for 5 s.", Icon = "life", For = V, Ability = "rupture", Requires = "rupture_bloom", Apply = (s, p) => s.BloomPool = true },
 
+        // --- Bolts (elementalist) ---
+        new() { Id = "kindling", Name = "Kindling", Desc = "Your fire is 10% likelier to set a creature alight (firebolts, and a Firestorm).", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
+                When = s => !s.Frostbolt || s.Firestorm, Apply = (s, p) => s.IgniteChance += Tune.Elementalist.KindlingChance },
+        new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 15 more aether.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AetherMax += 15f },
+        new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 8 damage every 0.3 s, slowing what they strike by 30% for 2 s, with an 8% chance of freezing a creature solid for 1.5 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
+
+        // --- Updraft (elementalist) ---
+        new() { Id = "attune", Name = "Attunement", Desc = "Your aether comes back 25% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AetherRegenMult += 0.25f },
+        new() { Id = "updraft_narrow", Name = "Narrow Draft", Desc = "Your updraft is half as wide, but it carries you 6 m higher and lasts 15 s.", Icon = "move", For = E, Ability = "updraft", Alteration = true, Apply = (s, p) => s.NarrowDraft = true },
+
+        // --- Blizzard (elementalist) ---
+        new() { Id = "deepchill", Name = "Deep Chill", Desc = "Your frost is 4% likelier to freeze a creature solid (frostbolts, and the blizzard).", Icon = "spell", For = E, Ability = "blizzard", MaxStacks = 2,
+                When = s => s.Frostbolt || !s.Firestorm, Apply = (s, p) => s.FreezeBonus += Tune.Elementalist.DeepChillChance },
+        new() { Id = "winter", Name = "Long Winter", Desc = "Your blizzard lasts 50% longer.", Icon = "spell", For = E, Ability = "blizzard", Apply = (s, p) => s.BlizzardSecondsMult *= 1.5f },
+        new() { Id = "whiteout", Name = "Whiteout", Desc = "Your blizzard is 30% wider.", Icon = "spell", For = E, Ability = "blizzard", Apply = (s, p) => s.BlizzardWideMult += 0.3f },
+        new() { Id = "gathering", Name = "Gathering Storm", Desc = "Your blizzard comes back 25% sooner.", Icon = "spell", For = E, Ability = "blizzard", Apply = (s, p) => s.BlizzardCdMult *= 0.75f },
+        new() { Id = "blizzard_fire", Name = "Firestorm", Desc = "Your blizzard is a storm of fire: 3 damage a strike, each with a 10% chance of setting a creature alight (but it freezes nothing).", Icon = "spell", For = E, Ability = "blizzard", Alteration = true, Apply = (s, p) => s.Firestorm = true },
+
+        // --- Snap (elementalist) ---
+        new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 40% farther.", Icon = "spell", For = E, Ability = "snap", Apply = (s, p) => s.SnapWideMult += 0.4f },
+        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 aether back.", Icon = "spell", For = E, Ability = "snap", Apply = (s, p) => s.SnapEcho = true },
+        new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Your snap bursts burning creatures instead of frozen ones: 20 damage, and 6 to everything around them.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
+
         // --- Movement (all) ---
         // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)
         new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
@@ -321,6 +364,7 @@ public static class Upgrades
     {
         HeroKind.Warden => "Guarded Charge",
         HeroKind.Vitalist => "heal",
+        HeroKind.Elementalist => "Blizzard",
         _ => "Charged Strike",
     };
 
@@ -329,6 +373,7 @@ public static class Upgrades
     {
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Shield"), ("dash", "Guarded Charge"), ("bash", "Shield Bash") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },
+        HeroKind.Elementalist => new[] { ("bolt", "Firebolt"), ("updraft", "Updraft"), ("blizzard", "Blizzard"), ("snap", "Snap") },
         _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dodge Roll") },
     };
 
@@ -453,7 +498,7 @@ public static class Upgrades
 }
 
 /// <summary>What each level gives on its own, by hero: the swordsman leans on damage, the warden
-/// on toughness, the vitalist on its reserves of alimus.</summary>
+/// on toughness, the vitalist on its reserves of alimus, the elementalist on its aether.</summary>
 public static class Progression
 {
     public static void AutoLevel(Player p)
@@ -474,6 +519,12 @@ public static class Progression
                 s.DamageMult += 0.02f;
                 s.AlimusMax += 1;
                 gain = "+2% damage  +1 alimus";
+                break;
+            case HeroKind.Elementalist:
+                s.MaxHp += 3; p.Heal(3);
+                s.DamageMult += 0.02f;
+                s.AetherMax += 1;
+                gain = "+2% damage  +1 aether";
                 break;
             default:
                 s.MaxHp += 2; p.Heal(2);

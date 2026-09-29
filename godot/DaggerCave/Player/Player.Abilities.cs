@@ -4,7 +4,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The ability button's uses (the Charged Strike, the Guarded Charge, the heal). Normally one use,
+/// The ability button's uses (the Charged Strike, the Guarded Charge, the heal, the blizzard). Normally one use,
 /// back after the ability's recharge; Twin Reserve holds a second use, each taking twice as long
 /// to come back. Each use recharges on its own clock, like the Swordsman's dodge charges.
 /// </summary>
@@ -17,6 +17,7 @@ public partial class Player
     {
         HeroKind.Warden => Stats.DashTime + Stats.DashCooldown,
         HeroKind.Vitalist => Tune.Vitalist.HealCooldown,
+        HeroKind.Elementalist => Tune.Elementalist.BlizzardCooldown * Stats.BlizzardCdMult,
         _ => Stats.ChargeCooldown,
     };
 

@@ -41,6 +41,7 @@ public partial class Hud : Control
     {
         HeroKind.Warden => new Color(0.45f, 0.7f, 1f),
         HeroKind.Vitalist => new Color(0.5f, 1f, 0.45f),
+        HeroKind.Elementalist => new Color(0.8f, 0.58f, 1f),
         _ => new Color(0.95f, 0.45f, 0.35f),
     };
 
@@ -130,6 +131,7 @@ public partial class Hud : Control
         {
             case HeroKind.Warden: DrawWardenGauges(font, p, ab); break;
             case HeroKind.Vitalist: DrawVitalistGauges(font, p, ab); break;
+            case HeroKind.Elementalist: DrawElementalistGauges(font, p, ab); break;
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
@@ -218,6 +220,12 @@ public partial class Hud : Control
                     move,
                     $"{atk} swing (hold to keep swinging) · {a1} Guarded Charge (breaks off attacks it meets) · {a2} shield bash (stuns all in front) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
                     "The shield stops every blow, and what breaks it is stunned; raise it just before the hit for a perfect block · " + pause,
+                },
+                HeroKind.Elementalist => new[]
+                {
+                    move,
+                    $"{atk} {(p.Stats.Frostbolt ? "frostbolt" : "firebolt")} (hold to keep casting{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} updraft (lifts everyone in it) · {a1} {(p.Stats.Firestorm ? "firestorm" : "blizzard")} · {a2} snap",
+                    "Spells cost aether, which comes back by itself · a snap shatters every frozen creature in view · " + pause,
                 },
                 HeroKind.Vitalist => new[]
                 {
@@ -493,6 +501,79 @@ public partial class Hud : Control
             DrawLine(bp + new Vector2(w * x / max, 0), bp + new Vector2(w * x / max, 12), new Color(0, 0, 0, 0.45f), 1f);
         if (p.RuptureCost <= max) DrawLine(bp + new Vector2(w * p.RuptureCost / max, -3), bp + new Vector2(w * p.RuptureCost / max, 15), Player.LifeColor, 2f);
         DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Mathf.FloorToInt(p.Alimus + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
+    }
+
+    /// <summary>The Elementalist's colours: its aether, and its fire and frost.</summary>
+    public static readonly Color AetherColor = new(0.72f, 0.55f, 1f);
+
+    /// <summary>The updraft (a dial), the blizzard and the snap (squares), and the aether reserve.</summary>
+    private void DrawElementalistGauges(Font font, Player p, Vector2 ab)
+    {
+        var air = new Color(0.8f, 0.94f, 1f);
+        bool canDraft = p.Aether >= p.UpdraftCost - 0.001f;
+        Dial(ab + new Vector2(17, 17), canDraft ? p.UpdraftCooldownFrac : 1f, air);
+        DrawString(font, ab + new Vector2(0, -6), $"UPDRAFT ({p.UpdraftCost:0})", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        // (three rising streaks in the dial)
+        for (int k = -1; k <= 1; k++)
+            DrawLine(ab + new Vector2(17 + k * 5, 25), ab + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), canDraft ? new Color(air, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
+        KeyHint(font, ab, "dodge");
+
+        var zb = ab + new Vector2(50, 0);
+        bool fire = p.Stats.Firestorm;
+        var stormCol = fire ? ElementBolt.FireColor : ElementBolt.FrostColor;
+        bool stormReady = p.AbilityChargeReady && p.Aether >= p.BlizzardCost - 0.001f;
+        AbilitySquare(font, zb, $"{(fire ? "FIRESTORM" : "BLIZZARD")} ({p.BlizzardCost:0})", p.AbilityCooldownFrac, stormReady, stormCol, (c, col) =>
+        {
+            if (fire)
+            {
+                // a cluster of flames
+                for (int k = -1; k <= 1; k++)
+                    DrawColoredPolygon(new[] { c + new Vector2(k * 7 - 4, 10), c + new Vector2(k * 7, -8 - (k == 0 ? 4 : 0)), c + new Vector2(k * 7 + 4, 10) }, col);
+            }
+            else
+            {
+                // a snowflake
+                for (int k = 0; k < 3; k++)
+                {
+                    var d = Vector2.Right.Rotated(k * Mathf.Pi / 3f) * 12f;
+                    DrawLine(c - d, c + d, col, 2f);
+                }
+                DrawCircle(c, 3, col);
+            }
+        });
+        UsePips(zb, p, stormCol);
+        KeyHint(font, zb, "ability");
+
+        var sb = zb + new Vector2(50, 0);
+        bool cinder = p.Stats.CinderSnap;
+        int marked = p.SnapTargets;
+        bool snapReady = p.SnapCooldownFrac <= 0 && p.Aether >= p.SnapCost - 0.001f && marked > 0;
+        var snapCol = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
+        AbilitySquare(font, sb, $"SNAP ({p.SnapCost:0}){(marked > 0 ? $"  x{marked}" : "")}", p.SnapCooldownFrac, snapReady, snapCol, (c, col) =>
+        {
+            // a crystal (or a cinder) cracking apart
+            DrawColoredPolygon(new[] { c + new Vector2(0, -12), c + new Vector2(7, 0), c + new Vector2(0, 12), c + new Vector2(-7, 0) }, col);
+            DrawLine(c + new Vector2(-3, -7), c + new Vector2(2, 1), new Color(0, 0, 0, 0.7f), 1.5f);
+            DrawLine(c + new Vector2(2, 1), c + new Vector2(-1, 8), new Color(0, 0, 0, 0.7f), 1.5f);
+            for (int k = 0; k < 4; k++)
+            {
+                var d = Vector2.Right.Rotated(k * Mathf.Tau / 4 + 0.78f);
+                DrawLine(c + d * 11, c + d * 15, col, 1.5f);
+            }
+        });
+        KeyHint(font, sb, "ability2");
+
+        // the aether reserve (tick marks at each spell's cost)
+        var bp = sb + new Vector2(52, 10);
+        const float w = 150;
+        float max = Math.Max(1f, p.Stats.AetherMax);
+        float frac = Math.Clamp(p.Aether / max, 0, 1);
+        DrawRect(new Rect2(bp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
+        DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), AetherColor);
+        DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(1, 1, 1, 0.25f));
+        foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
+            if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
+        DrawString(font, bp + new Vector2(0, -8), $"AETHER  {Mathf.FloorToInt(p.Aether + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
     }
 }
 

@@ -8,6 +8,8 @@ public struct PlayerInput
 {
     public Vector2 Move;        // -1..1 each axis; up is negative Y
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
+    /// <summary>With the mouse, how far away the pointer is (0: unknown, a controller's aim): where a blizzard lands.</summary>
+    public float AimDist;
     public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact;
     /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
     public bool AttackHeld;
@@ -26,8 +28,9 @@ public struct PlayerInput
 /// buffering and variable jump height, free swimming with a breath meter, hazards, health,
 /// potions and experience, and the buffering of presses. What each hero fights with lives in
 /// the other Player.*.cs files: the blade (Swordsman and Warden), the Swordsman's dodge, charged
-/// strike and heaving swing, the Warden's shield, Guarded Charge and shield bash, and the Vitalist's
-/// drain, hex, heal and rupture. Every tunable that upgrades touch lives in <see cref="PlayerStats"/>.
+/// strike and heaving swing, the Warden's shield, Guarded Charge and shield bash, the Vitalist's
+/// drain, hex, heal and rupture, and the Elementalist's bolts, updraft, blizzard and snap. Every
+/// tunable that upgrades touch lives in <see cref="PlayerStats"/>.
 /// </summary>
 public partial class Player : CharacterBody2D
 {
@@ -83,6 +86,7 @@ public partial class Player : CharacterBody2D
     // presses waiting to fire (see BufferPresses)
     private float _attackBuf, _abilityBuf, _ability2Buf, _dodgeBuf;
     private Vector2 _attackAim, _abilityAim, _ability2Aim;
+    private float _abilityAimDist;
     private PlayerInput _dodgeInput;
 
     public bool Invulnerable => _invuln > 0 || _iframes > 0 || Choosing || (IsRemote && NetInvuln);
@@ -92,6 +96,7 @@ public partial class Player : CharacterBody2D
     public bool SecondaryReady => IsRemote ? (_netFlags & HfSecondary) != 0 : Stats.Hero switch
     {
         HeroKind.Vitalist => AbilityChargeReady && Alimus >= HealCost,
+        HeroKind.Elementalist => AbilityChargeReady && Aether >= BlizzardCost,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
     };
@@ -106,14 +111,24 @@ public partial class Player : CharacterBody2D
         SafeMargin = 0.5f;
         AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 6.5f, Height = 26f } });
         ZIndex = 1;
-        Anim = SpriteAnimator.Create(Stats.Hero switch { HeroKind.Warden => "warden", HeroKind.Vitalist => "vitalist", _ => "swordsman" });
+        Anim = SpriteAnimator.Create(SheetName(Stats.Hero));
         Anim.FootOffset = 13f;
         AddChild(Anim);
         Hp = Stats.MaxHp;
         ShieldHp = Stats.ShieldMax;
         Breath = Stats.BreathMax;
         Alimus = Math.Min(Stats.AlimusMax, Tune.Vitalist.AlimusStart);
+        Aether = Stats.AetherMax;
     }
+
+    /// <summary>Each hero's sprite sheet and 3D design, by name.</summary>
+    public static string SheetName(HeroKind h) => h switch
+    {
+        HeroKind.Warden => "warden",
+        HeroKind.Vitalist => "vitalist",
+        HeroKind.Elementalist => "elementalist",
+        _ => "swordsman",
+    };
 
     public override void _EnterTree() { if (!G.Players.Contains(this)) G.Players.Add(this); }
     public override void _ExitTree() => G.Players.Remove(this);
@@ -233,6 +248,7 @@ public partial class Player : CharacterBody2D
         if (stickOn) inp.Aim = stick.Normalized();
         else if (!mouse) inp.Aim = inp.Move.Length() > 0.2f ? inp.Move.Normalized() : new Vector2(p.Facing, 0);
         else inp.Aim = toMouse;
+        if (mouse && !stickOn) inp.AimDist = (p.GetGlobalMousePosition() - p.GlobalPosition).Length();
         return inp;
     }
 
@@ -245,7 +261,7 @@ public partial class Player : CharacterBody2D
     {
         var aim = inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0);
         if (inp.Attack) { _attackBuf = Tune.Hero.PressBuffer; _attackAim = aim; }
-        if (inp.Ability) { _abilityBuf = Tune.Hero.PressBuffer; _abilityAim = aim; }
+        if (inp.Ability) { _abilityBuf = Tune.Hero.PressBuffer; _abilityAim = aim; _abilityAimDist = inp.AimDist; }
         if (inp.Ability2) { _ability2Buf = Tune.Hero.PressBuffer; _ability2Aim = aim; }
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
@@ -301,6 +317,7 @@ public partial class Player : CharacterBody2D
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
             case HeroKind.Vitalist: TickVitalist(dt); break;
+            case HeroKind.Elementalist: TickElementalist(dt); break;
             default: TickSwordsman(dt); break;
         }
 
@@ -334,7 +351,8 @@ public partial class Player : CharacterBody2D
         bool surfaceFloat = !onFloor && !InWater && GlobalPosition.Y > cave.WaterY - 10 && cave.IsWater(GlobalPosition + new Vector2(0, 14));
         if (onFloor || surfaceFloat) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
 
-        // the dodge button: the Swordsman rolls, the Vitalist hexes (the Warden's raises her shield)
+        // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
+        // updraft (the Warden's raises her shield)
         if (_dodgeBuf > 0 && DodgeButton(_dodgeInput)) _dodgeBuf = 0;
 
         if (_dodgeT > 0) v = DodgeMotion(v, dt);
@@ -392,36 +410,40 @@ public partial class Player : CharacterBody2D
         Anim.FlashColor = new Color(0.7f, 0.6f, 0.35f);
     }
 
-    /// <summary>The attack button: a swing, or the Vitalist's drain. True once it fires.
+    /// <summary>The attack button: a swing, the Vitalist's drain, or the Elementalist's bolt. True once it fires.
     /// <paramref name="held"/>: the button is being held down (a drain then waits for something to drain).</summary>
     private bool Primary(Vector2 aim, bool held = false) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Vitalist => CastDrain(aim, held),
+        HeroKind.Elementalist => CastBolt(aim, held),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         _ => !Heaving && TrySwing(aim, held),
     };
 
-    /// <summary>The ability button: charged strike, Guarded Charge, or heal. True once it fires.</summary>
+    /// <summary>The ability button: charged strike, Guarded Charge, heal or blizzard. True once it fires.</summary>
     private bool Ability(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => TryHeal(),
+        HeroKind.Elementalist => TryBlizzard(aim, _abilityAimDist),
         _ => TryCharge(),
     };
 
-    /// <summary>The second ability button: heaving swing, shield bash, or rupture. True once it fires.</summary>
+    /// <summary>The second ability button: heaving swing, shield bash, rupture or snap. True once it fires.</summary>
     private bool Ability2(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
         HeroKind.Vitalist => TryRupture(aim),
+        HeroKind.Elementalist => TrySnap(),
         _ => TryHeave(aim),
     };
 
-    /// <summary>The dodge button's press: a roll or a hex (the Warden's shield reads the button itself).</summary>
+    /// <summary>The dodge button's press: a roll, a hex or an updraft (the Warden's shield reads the button itself).</summary>
     private bool DodgeButton(in PlayerInput inp) => Stats.Hero switch
     {
         HeroKind.Swordsman => TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
+        HeroKind.Elementalist => TryUpdraft(),
         _ => true,
     };
 
@@ -606,6 +628,12 @@ public partial class Player : CharacterBody2D
         if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
         if (_bashT > 0) v.X = BashMotion(v.X);
         v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), MaxFall);
+        // a column of rising air (the Elementalist's updraft) carries you up it
+        if (Updraft.All.Count > 0 && Updraft.At(GlobalPosition) is Updraft draft)
+        {
+            v = RideUpdraft(draft, inp, v, dt);
+            _jumpCutDone = true;
+        }
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult) * (WebbedT > 0 ? 0.75f : 1f);
         int wallSide = WallSide();

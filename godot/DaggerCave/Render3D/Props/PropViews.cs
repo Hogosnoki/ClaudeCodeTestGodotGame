@@ -21,6 +21,9 @@ public static class PropViews
             Shockwave => new ShockwaveView(),
             FallingRock => new FallingRockView(),
             SwordWave => new SwordWaveView(),
+            ElementBolt => new ElementBoltView(),
+            Updraft => new UpdraftView(),
+            Blizzard => new BlizzardView(),
             XpOrb => new XpOrbView(),
             HeartPickup => new HeartView(),
             PotionPickup => new PotionView(),
@@ -419,6 +422,150 @@ public partial class SwordWaveView : PropView
         _core.Scale = new Vector3(0.9f, 0.18f, 1f);
         PropViews.SetSprite(_core, new Color(0.85f, 0.97f, 1f, a * 0.8f), 1, 2f);
         _light.LightEnergy = 1.2f * a;
+    }
+}
+
+/// <summary>The Elementalist's bolt: a knot of fire (a hot white core in an orange halo) or of frost
+/// (a bright star in an icy halo), with a tail streaming back along its flight, lighting its way.</summary>
+public partial class ElementBoltView : PropView
+{
+    private MeshInstance3D _core, _halo;
+    private readonly MeshInstance3D[] _tail = new MeshInstance3D[5];
+    private OmniLight3D _light;
+    private Color _col;
+
+    protected override void Build()
+    {
+        var b = (ElementBolt)Owner2D;
+        _col = b.Tint;
+        _halo = PropViews.Sprite(_col, b.Frost ? 0 : 4, 1.6f, 0.55f);
+        AddChild(_halo);
+        _core = PropViews.Sprite(b.Frost ? new Color(0.95f, 1f, 1f) : new Color(1f, 0.92f, 0.7f), b.Frost ? 3 : 0, 2.6f, 0.26f);
+        AddChild(_core);
+        for (int k = 0; k < _tail.Length; k++)
+        {
+            float f = 1f - k / (float)_tail.Length;
+            _tail[k] = PropViews.Sprite(_col, 0, 1.2f * f, 0.32f * f + 0.06f);
+            AddChild(_tail[k]);
+        }
+        _light = PropViews.Light(_col, 1.3f, 3f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var b = (ElementBolt)Owner2D;
+        Follow(default, 0.3f);
+        float flick = b.Frost ? 1f : 0.85f + 0.15f * MathF.Sin(b.Age * 47f);
+        _halo.Scale = Vector3.One * 0.55f * flick;
+        var back = new Vector3(-b.Dir.X, b.Dir.Y, 0f);
+        for (int k = 0; k < _tail.Length; k++) _tail[k].Position = back * (0.1f + 0.12f * k);
+        _light.LightEnergy = 1.3f * flick;
+    }
+}
+
+/// <summary>
+/// The Elementalist's updraft: a column of pale air, streaks racing up it and a slow swirl at its
+/// foot and its crown, all fading as it dies.
+/// </summary>
+public partial class UpdraftView : PropView
+{
+    private readonly MeshInstance3D[] _streaks = new MeshInstance3D[12];
+    private readonly float[] _phase = new float[12], _x = new float[12];
+    private MeshInstance3D _foot, _crown, _haze;
+    private OmniLight3D _light;
+    private ShaderMaterial _flat;
+
+    protected override void Build()
+    {
+        var u = (Updraft)Owner2D;
+        // (streaks stand upright in the view plane: not turned to face the camera)
+        _flat = (ShaderMaterial)PropViews.SpriteMat.Duplicate();
+        _flat.SetShaderParameter("billboard", false);
+        var rng = new Random((int)(GetInstanceId() % 10000));
+        for (int k = 0; k < _streaks.Length; k++)
+        {
+            _phase[k] = (float)rng.NextDouble();
+            _x[k] = (float)rng.NextDouble() * 2f - 1f;
+            _streaks[k] = PropViews.Sprite(new Color(0.85f, 0.95f, 1f), 1, 1.4f, 0.3f);
+            _streaks[k].MaterialOverride = _flat;
+            _streaks[k].Rotation = new Vector3(0, 0, MathF.PI / 2f);
+            AddChild(_streaks[k]);
+        }
+        _haze = PropViews.Sprite(new Color(0.7f, 0.88f, 1f), 0, 0.35f, 1f);
+        _haze.MaterialOverride = _flat;
+        AddChild(_haze);
+        _foot = PropViews.Sprite(new Color(0.8f, 0.94f, 1f), 7, 1.1f, W3.M(u.Width) * 0.8f);
+        AddChild(_foot);
+        _crown = PropViews.Sprite(new Color(0.8f, 0.94f, 1f), 7, 0.8f, W3.M(u.Width) * 0.6f);
+        AddChild(_crown);
+        _light = PropViews.Light(new Color(0.75f, 0.9f, 1f), 0.6f, 3f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var u = (Updraft)Owner2D;
+        Follow(default, 0.15f);
+        float h = W3.M(u.Height), w = W3.M(u.Width), s = u.Strength;
+        for (int k = 0; k < _streaks.Length; k++)
+        {
+            float y = (_phase[k] + u.Age * 1.1f) % 1f;
+            _streaks[k].Position = new Vector3(_x[k] * w * 0.4f, y * h, 0);
+            float edge = MathF.Min(y / 0.15f, (1f - y) / 0.2f);
+            PropViews.SetSprite(_streaks[k], new Color(0.85f, 0.95f, 1f, Math.Clamp(edge, 0f, 1f) * 0.7f * s), 1, 1.4f);
+            _streaks[k].Scale = new Vector3(Math.Min(h * 0.35f, 0.9f), w * 0.12f, 1f);
+        }
+        _haze.Position = new Vector3(0, h * 0.5f, -0.05f);
+        _haze.Scale = new Vector3(w * 0.7f, h * 0.55f, 1f);
+        PropViews.SetSprite(_haze, new Color(0.7f, 0.88f, 1f, 0.35f * s), 0, 0.5f);
+        _foot.Position = new Vector3(0, 0.05f, 0);
+        PropViews.SetSprite(_foot, new Color(0.8f, 0.94f, 1f, 0.8f * s), 7, 1.1f);
+        _crown.Position = new Vector3(0, h, 0);
+        PropViews.SetSprite(_crown, new Color(0.8f, 0.94f, 1f, 0.55f * s), 7, 0.8f);
+        _light.Position = new Vector3(0, h * 0.5f, 0.3f);
+        _light.LightEnergy = 0.6f * s;
+    }
+}
+
+/// <summary>The Elementalist's blizzard (or firestorm): a swirling storm-cloud over the spot and a
+/// cold (or burning) glow on what's under it; the snow and the sparks themselves are particles.</summary>
+public partial class BlizzardView : PropView
+{
+    private MeshInstance3D _swirl, _cloud, _glow;
+    private OmniLight3D _light;
+    private Color _col;
+    private bool _fire;
+
+    protected override void Build()
+    {
+        var z = (Blizzard)Owner2D;
+        _fire = z.Fire;
+        _col = _fire ? new Color(1f, 0.5f, 0.15f) : new Color(0.8f, 0.94f, 1f);
+        float r = W3.M(z.Radius);
+        _swirl = PropViews.Sprite(_col, 7, 1.2f, r * 1.3f);
+        AddChild(_swirl);
+        _cloud = PropViews.Sprite(_fire ? new Color(0.5f, 0.2f, 0.08f) : new Color(0.72f, 0.8f, 0.9f), 0, 0.7f, r * 1.2f);
+        AddChild(_cloud);
+        _glow = PropViews.Sprite(_col, 4, 0.8f, r * 1.1f);
+        AddChild(_glow);
+        _light = PropViews.Light(_col, 1.2f, 4f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var z = (Blizzard)Owner2D;
+        Follow(default, 0.25f);
+        float s = z.Strength, r = W3.M(z.Radius);
+        _swirl.Scale = Vector3.One * r * 1.3f * (0.9f + 0.1f * MathF.Sin(z.Age * 5f));
+        PropViews.SetSprite(_swirl, new Color(_col, 0.75f * s), 7, 1.2f);
+        _cloud.Position = new Vector3(0, r * 0.9f, -0.05f);
+        _cloud.Scale = new Vector3(r * 1.6f, r * 0.6f, 1f);
+        PropViews.SetSprite(_cloud, new Color(_fire ? new Color(0.5f, 0.2f, 0.08f) : new Color(0.72f, 0.8f, 0.9f), 0.6f * s), 0, 0.7f);
+        _glow.Position = new Vector3(0, -r * 0.5f, 0);
+        PropViews.SetSprite(_glow, new Color(_col, 0.5f * s * (_fire ? 0.8f + 0.2f * MathF.Sin(z.Age * 31f) : 1f)), 4, 0.8f);
+        _light.LightEnergy = 1.2f * s;
     }
 }
 

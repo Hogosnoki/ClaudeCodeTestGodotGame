@@ -175,11 +175,12 @@ public partial class Player
         if (G.Chance(0.5f)) G.Sfx.Play("bubble", CastPoint, -16, 0.2f, 0.7f);
     }
 
-    /// <summary>The creature a spell should seize: in the cone of your aim, in range and in sight, nearest the line of aim.</summary>
-    private Enemy FindSpellTarget(Vector2 aim, float range)
+    /// <summary>The creature a spell should seize: in the cone of your aim (<paramref name="coneDegrees"/>
+    /// either side; the drain's by default), in range and in sight, nearest the line of aim.</summary>
+    private Enemy FindSpellTarget(Vector2 aim, float range, float coneDegrees = -1f)
     {
         Enemy best = null;
-        float bestScore = float.MaxValue, cone = Mathf.DegToRad(Tune.Vitalist.DrainConeDegrees);
+        float bestScore = float.MaxValue, cone = Mathf.DegToRad(coneDegrees > 0 ? coneDegrees : Tune.Vitalist.DrainConeDegrees);
         var origin = CastPoint;
         foreach (var e in G.Enemies)
         {

@@ -241,6 +241,56 @@ public static class Tune
         public static float BloomHeal = 30f, BloomSplash = 10f, PoolRate = 3f, PoolSeconds = 5f;
     }
 
+    // =============================================================================== ELEMENTALIST
+    public static class Elementalist
+    {
+        public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
+        /// <summary>Aether: what spells cost. It comes back by itself (AetherRegen a second, its only
+        /// source) up to AetherMax; a run starts full. Bolts are free.</summary>
+        public static float AetherMax = 40f, AetherRegen = 2.5f;
+        /// <summary>
+        /// Firebolt (the attack button): a bolt of fire flying at BoltSpeed px/s up to BoltRange px,
+        /// FireDamage every FireEvery s; each has IgniteChance of setting a creature alight, burning
+        /// IgniteDps for IgniteSeconds. The cone (degrees either side of your aim) it looks for a
+        /// creature to fly at.
+        /// </summary>
+        public static float FireDamage = 14f, FireEvery = 0.45f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 14f;
+        public static float IgniteChance = 0.2f, IgniteDps = 4f, IgniteSeconds = 4f;
+        /// <summary>Frostbolt (an alteration): FrostDamage every FrostEvery s; a creature it strikes
+        /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
+        /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
+        public static float FrostDamage = 8f, FrostEvery = 0.3f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.08f, FreezeSeconds = 1.5f;
+        /// <summary>Updraft (the dodge button): costs UpdraftCost aether; a column of rising air
+        /// UpdraftWidth px wide and UpdraftHeight px tall (6 m) at your feet for UpdraftSeconds,
+        /// lifting every hero in it at UpdraftLift px/s to its top. Narrow Draft (an alteration):
+        /// half as wide, NarrowExtra px (6 m) taller, NarrowSeconds long.</summary>
+        public static float UpdraftCost = 15f, UpdraftWidth = 34f, UpdraftHeight = 96f, UpdraftSeconds = 10f, UpdraftLift = 190f;
+        public static float NarrowExtra = 96f, NarrowSeconds = 15f;
+        /// <summary>
+        /// Blizzard (the ability button): costs BlizzardCost aether, BlizzardCooldown s to come
+        /// back. A storm BlizzardRadius px round (about 50 px across) at the aim point, no further
+        /// than BlizzardRange px away: BlizzardTicks strikes of BlizzardDamage over BlizzardSeconds,
+        /// each with BlizzardFreeze chance of freezing a regular creature. Firestorm (an alteration):
+        /// FirestormDamage a strike, each with FirestormIgnite chance of setting it alight.
+        /// </summary>
+        public static float BlizzardCost = 20f, BlizzardCooldown = 20f, BlizzardRadius = 26f, BlizzardRange = 200f, BlizzardSeconds = 3f;
+        public static int BlizzardTicks = 9;
+        public static float BlizzardDamage = 2f, BlizzardFreeze = 0.06f, FirestormDamage = 3f, FirestormIgnite = 0.1f;
+        /// <summary>
+        /// Snap (the second ability): costs SnapCost aether. Every frozen creature in view
+        /// shatters for SnapDamage, and every other creature within SnapRadius px of it takes
+        /// SnapSplash. Cinder Snap (an alteration): burning creatures burst instead, for
+        /// CinderDamage and CinderSplash. SnapViewX / SnapViewY px each way is "in view" (about
+        /// half the screen, either side of you).
+        /// </summary>
+        public static float SnapCost = 15f, SnapDamage = 15f, SnapSplash = 4f, SnapRadius = 50f, SnapCooldown = 0.6f;
+        public static float CinderDamage = 20f, CinderSplash = 6f;
+        public static float SnapViewX = 500f, SnapViewY = 290f;
+        /// <summary>Upgrades: Kindling's ignite chance and Deep Chill's freeze chance, per rank;
+        /// Echo's aether back for each creature a snap bursts.</summary>
+        public static float KindlingChance = 0.1f, DeepChillChance = 0.04f, EchoAether = 5f;
+    }
+
     // =============================================================================== COMBAT
     public static class Combat
     {

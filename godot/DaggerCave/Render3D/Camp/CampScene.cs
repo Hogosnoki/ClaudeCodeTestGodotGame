@@ -37,9 +37,12 @@ public partial class CampScene : SubViewport
 
     private static readonly (HeroKind kind, string design, string name, float angle)[] Roster =
     {
+        // (round the far side of the fire, left to right as the choice goes; none straight
+        // behind the flames from where the camera looks)
         (HeroKind.Swordsman, "swordsman", "SWORDSMAN", 172f),
-        (HeroKind.Warden, "warden", "WARDEN", 122f),
-        (HeroKind.Vitalist, "vitalist", "VITALIST", 28f),
+        (HeroKind.Warden, "warden", "WARDEN", 128f),
+        (HeroKind.Vitalist, "vitalist", "VITALIST", 52f),
+        (HeroKind.Elementalist, "elementalist", "ELEMENTALIST", 8f),
     };
 
     private sealed class Seat

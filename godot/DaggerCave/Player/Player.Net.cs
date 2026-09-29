@@ -29,7 +29,7 @@ public partial class Player
     private float _netShieldStrength = 1f;
 
     private const ushort HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
-                         HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192;
+                         HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : IsOnFloor();
@@ -60,6 +60,7 @@ public partial class Player
         if (ShieldRaised && (_shieldUpT <= Tune.Warden.PerfectWindow || _shieldFlash > 0)) f |= HfPerfect;
         if (BarrierHp > 0.01f) f |= HfBarrier;
         if (_mendLeft > 0) f |= HfMending;
+        if (Stats.Frostbolt) f |= HfFrost;
         w.UShort(f);
         w.Half(Hp);
         w.Half(Stats.MaxHp);

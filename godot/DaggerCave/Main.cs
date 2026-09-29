@@ -308,6 +308,7 @@ public partial class Main : Node
             else if (a == "--hero=warden") G.Hero = HeroKind.Warden;
             else if (a == "--hero=swordsman") G.Hero = HeroKind.Swordsman;
             else if (a == "--hero=vitalist") G.Hero = HeroKind.Vitalist;
+            else if (a == "--hero=elementalist") G.Hero = HeroKind.Elementalist;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
@@ -365,6 +366,7 @@ public partial class Main : Node
                 {
                     HeroKind.Warden => new[] { "reach", "shield_wide", "aegis", "aegis", "shield_unyielding", "unyielding_more", "dash_cd", "hp", "speed", "rr_lungs" },
                     HeroKind.Vitalist => new[] { "mouths", "hex_long", "heal_slow", "heal_warding", "wellspring", "rupture_cheap", "hp", "armor", "rr_glass" },
+                    HeroKind.Elementalist => new[] { "kindling", "reservoir", "attune", "attune", "updraft_narrow", "whiteout", "gathering", "echo", "hp", "speed", "rr_reserve" },
                     _ => new[] { "combo", "reach", "charge_combo", "charge_combo_more", "windrunner", "windrunner", "iframes", "hp", "speed", "rr_heavy" },
                 };
                 foreach (var id in cards) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
@@ -474,12 +476,13 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepAlimus = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepAlimus = 0, keepAether = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
             keepMilestones = G.Player.PendingMilestones;
             keepAlimus = G.Player.Alimus;
+            keepAether = G.Player.Aether;
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
@@ -524,6 +527,8 @@ public partial class Main : Node
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.PendingMilestones = keepMilestones;
             player.SetAlimus(Math.Max(keepAlimus, Tune.Vitalist.AlimusStart * 0.5f));
+            // (aether comes back by itself anyway: at least half a reserve on a new level)
+            player.SetAether(Math.Max(keepAether, keepStats.AetherMax * 0.5f));
             player.SyncCharges();
         }
         player.GlobalPosition = cave.StartPos;
@@ -784,7 +789,7 @@ public partial class Main : Node
         FadeFrom(new Color(1f, 0.98f, 0.92f), 1.3f);
     }
 
-    private const int HeroCount = 3;
+    private const int HeroCount = 4;
 
     private void PickHero(HeroKind h)
     {
@@ -2059,7 +2064,11 @@ public partial class Main : Node
             // a slow frame just delays the steps a little rather than skipping any
             int step = ++_lastHeroStep;
             if (OS.GetCmdlineUserArgs().Contains("--herodebug")) GD.Print($"[herodebug] step {step} t={_heroT:0.00} dir {_dir} swing {p.IsSwinging} shield {p.ShieldRaised} guardIn {_heroInput.GuardHeld} atk {_heroInput.Attack} abl {_heroInput.Ability} state {_state} paused {GetTree().Paused} pos {p.GlobalPosition} | {p.DebugState} | probe {(IsInstanceValid(_probe) ? $"{_probe.GlobalPosition} v {_probe.Vel}" : "none")}");
-            if (_altTest) AltStep(step, p); else if (warden) WardenStep(step, p); else if (p.Stats.Hero == HeroKind.Vitalist) VitalistStep(step, p); else SwordStep(step, p);
+            if (_altTest) AltStep(step, p);
+            else if (warden) WardenStep(step, p);
+            else if (p.Stats.Hero == HeroKind.Vitalist) VitalistStep(step, p);
+            else if (p.Stats.Hero == HeroKind.Elementalist) ElementalistStep(step, p);
+            else SwordStep(step, p);
             if (_shotDir != "" && step % 20 == 0) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
         }
     }
