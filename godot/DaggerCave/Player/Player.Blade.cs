@@ -40,6 +40,34 @@ public partial class Player
     public int AttacksStarted { get; private set; }
     /// <summary>The current swing's aim (zero when not swinging); the 3D body sweeps the blade through it.</summary>
     public Vector2 SwingAim => _swingT >= 0 ? _swingDir : Vector2.Zero;
+    /// <summary>The swing's own beats, in seconds: how far in it is, the wind-up, the sweep (the hitbox), the follow-through.
+    /// The 3D body plays them exactly, so the blade crosses the aim as the blow lands.</summary>
+    public float SwingElapsed => Math.Max(0f, _swingT);
+    public float SwingWindupSeconds => _windup;
+    public float SwingActiveSeconds => _active;
+    public float SwingFollowSeconds => _heave ? Tune.Swordsman.HeaveRecover : _windup * 1.6f;
+
+    /// <summary>One look at the blade in the world: its guard and its point.</summary>
+    public struct BladePoint { public Vector3 Base, Tip; public float Time; }
+    /// <summary>The blade's last few hundredths of a second while it cuts (the light that trails it is drawn from these).</summary>
+    public readonly List<BladePoint> BladeTrail = new();
+    private const float TrailLife = 0.16f;
+
+    /// <summary>The colour of the light that trails the blade, and whether this cut is a heavy one (a finisher, a heave, a charged strike).</summary>
+    public Color BladeTint => _swingCharged ? new Color(1f, 0.5f, 0.28f) : _finisher ? new Color(1f, 0.82f, 0.35f) : new Color(0.8f, 0.95f, 1f);
+    public bool BladeHeavy => _finisher || _heave || _swingCharged;
+
+    /// <summary>Whether the blade is cutting now: from just before the sweep to a little after it.</summary>
+    private bool BladeCutting => !Dead && _swingT >= 0 && SweepT >= -_windup * 0.15f && SweepT <= _active + _windup * 0.75f;
+
+    /// <summary>The 3D body reports where its blade is each frame; while it cuts the hero keeps the history, otherwise it lets it go.</summary>
+    public void SampleBlade(Vector3 guard, Vector3 tip)
+    {
+        float now = Time.GetTicksMsec() / 1000f;
+        BladeTrail.RemoveAll(b => now - b.Time > TrailLife);
+        if (!BladeCutting) return;
+        BladeTrail.Add(new BladePoint { Base = guard, Tip = tip, Time = now });
+    }
     /// <summary>True while the current swing carries a charged strike.</summary>
     public bool SwingCharged => _swingT >= 0 && _swingCharged;
     public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
@@ -98,8 +126,10 @@ public partial class Player
         Anim.Face((int)Facing, instant: true);
         // clip frames: wind-up (2, or 3 for the finisher), woosh (2), follow-through (the rest).
         // Play it so the wind-up frames last exactly the wind-up time; the woosh then lands with the hitbox.
-        float windFrames = finisher ? 3 : 2;
-        Anim.Once($"slash_{letter}_{dir}", 3, windFrames / 24f / _windup);
+        // The clip's frames are only a clock: play it so it lasts exactly as long as the swing does
+        // (the 3D body reads the swing's own timers for where the blade is).
+        float frames = finisher ? 9 : 7;
+        Anim.Once($"slash_{letter}_{dir}", 3, frames / 24f / (_windup + _active + _windup * 1.6f));
         NetSync.HeroSwing(this, _swingDir, _swingArc, _swingReach, _windup, _active, _comboStep, finisher, charged, false);
     }
 
@@ -148,7 +178,8 @@ public partial class Player
     {
         _swingT += dt;
         if (!_released && SweepT >= 0) ReleaseSwing();
-        if (SweepT >= 0 && SweepT <= _active)
+        // (the blow lands as the blade crosses the aim, about halfway through its sweep, not as it starts to move: the hit-stop then holds the blade on the target)
+        if (SweepT >= _active * ContactPoint && SweepT <= _active)
         {
             var origin = GlobalPosition + new Vector2(0, -3);
             // (the Rogue's jab takes the nearest creature only)
@@ -190,6 +221,8 @@ public partial class Player
         if (SweepT > _active + follow) _swingT = -1;
     }
 
+    /// <summary>How far through the sweep the blade meets what it strikes.</summary>
+    private const float ContactPoint = 0.45f;
     private bool _heaveLanded;
 
     private void OnSwingHit(Enemy e, Vector2 to)

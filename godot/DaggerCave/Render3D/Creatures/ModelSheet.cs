@@ -16,6 +16,10 @@ public partial class ModelSheet : Node3D
     private string _dir = "/tmp";
     private (string clip, float t)[] _clips;
     private float _yaw = -22f;
+    /// <summary>Ground speed (m/s) for the clips that run ("run:PHASE" lays the gait out at exactly that phase).</summary>
+    private float _speed = 9f;
+    private int _cols;
+    private bool m_debug;
     private int _index = -1, _frame;
     private readonly List<(CreatureModel m, string clip, float t)> _row = new();
     private Camera3D _cam;
@@ -31,6 +35,9 @@ public partial class ModelSheet : Node3D
             if (a.StartsWith("--modelsheet=")) _names.AddRange(a[13..].Split(','));
             else if (a.StartsWith("--shots=")) _dir = a[8..];
             else if (a.StartsWith("--sheetyaw=")) _yaw = float.Parse(a[11..], CultureInfo.InvariantCulture);
+            else if (a.StartsWith("--sheetspeed=")) _speed = float.Parse(a[13..], CultureInfo.InvariantCulture);
+            else if (a.StartsWith("--sheetcols=")) _cols = int.Parse(a[12..]);
+            else if (a == "--sheetdebug") { m_debug = true; HeroDesign.DebugLog = true; }
             else if (a.StartsWith("--sheetclips="))
             {
                 var list = new List<(string, float)>();
@@ -96,6 +103,7 @@ public partial class ModelSheet : Node3D
         float h = bounds.Size.Y * 1.15f + 0.2f;
         float w = Math.Max(Math.Max(bounds.Size.X, bounds.Size.Z) * 1.1f + 0.2f, h * 0.9f); // poses reach wider than the rest pose
         int cols = Math.Max(1, (int)MathF.Ceiling(MathF.Sqrt(clips.Length * 2.2f * h / w)));
+        if (_cols > 0) cols = _cols;
         cols = Math.Min(cols, clips.Length);
         int rows = (clips.Length + cols - 1) / cols;
         span = w * cols;
@@ -150,12 +158,22 @@ public partial class ModelSheet : Node3D
         _time += dt;
         foreach (var (m, clip, t) in _row)
         {
-            var a = new AnimInput { Clip = clip, T = t, Frame = (int)(t * 8), Frames = 8, Time = _time, Dt = dt, Facing = 1, OnFloor = true, Vel = Moving(clip) ? new Vector2(clip == "walk" ? 2.5f : 6f, 0) : Vector2.Zero, ClipTime = 0.5f };
+            var a = new AnimInput { Clip = clip, T = t, Frame = (int)(t * 8), Frames = 8, Time = _time, Dt = dt, Facing = 1, OnFloor = true, Vel = Moving(clip) ? new Vector2(clip == "walk" ? 2.5f : clip == "run" ? _speed : 6f, 0) : Vector2.Zero, ClipTime = 0.5f };
             m.Face(1, clip, t, 1f);
-            m.Animate(a);
+            if (clip == "run") m.Animate(a with { FixedGait = true, Gait = t });
+            else m.Animate(a);
             m.UpdatePivot(Vector2.One, 0f, 0.8f, false);
             var pr = m.Pivot.RotationDegrees;
             m.Pivot.RotationDegrees = new Vector3(pr.X, _yaw, pr.Z);
+        }
+        if (_frame == 28 && m_debug)
+        {
+            foreach (var (m, clip, t) in _row)
+                if (m.Design is HeroDesign hd && hd.BladeWorld(m, 0, out var g, out var tip))
+                {
+                    var d = tip - g;
+                    GD.Print($"[sheet] {clip}:{t:0.00} blade guard ({g.X:0.00},{g.Y:0.00},{g.Z:0.00}) dir angle {Mathf.RadToDeg(MathF.Atan2(d.Y, d.X)):0}°");
+                }
         }
         if (++_frame == 30)
         {

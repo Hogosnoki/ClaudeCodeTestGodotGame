@@ -334,7 +334,8 @@ public partial class Fx3D : Node3D
         foreach (var p in G.Players)
         {
             if (p == null || !IsInstanceValid(p)) continue;
-            if (p.GetSmear(out var sm)) { SmearRibbon(sm); any = true; blade = true; }
+            // the light behind a cut is drawn from where the blade actually was (read off the hero's model)
+            if (BladeRibbon(p)) { any = true; blade = true; }
             var g = p.GetGuard();
             if (g.Shield) { GuardArc(p, g); any = true; }
             // the Guarded Charge: a shell of blue light around the charging Warden
@@ -345,6 +346,78 @@ public partial class Fx3D : Node3D
         for (int k = shells; k < _shells.Length; k++) _shells[k].Visible = false;
         if (!blade) _bladeLight.Visible = false;
         _ribbon.Visible = any;
+    }
+
+    private readonly List<(Vector3 b, Vector3 d, float age)> _trailPts = new();
+
+    /// <summary>
+    /// A cut's trailing light: a ribbon along the blade itself (from a third of the way up it to its
+    /// point) through the positions the hero's model reported over the last fraction of a second,
+    /// brightest and whitest at the point, fading with age. Between two reports the blade is turned
+    /// through the angle in small steps, so a fast cut stays a smooth arc.
+    /// </summary>
+    private bool BladeRibbon(Player p)
+    {
+        var tr = p.BladeTrail;
+        int n = tr.Count;
+        if (n < 2) return false;
+        float now = Time.GetTicksMsec() / 1000f;
+        if (now - tr[n - 1].Time > 0.1f) return false;
+        var pts = _trailPts;
+        pts.Clear();
+        for (int i = 0; i < n - 1; i++)
+        {
+            var s0 = tr[i]; var s1 = tr[i + 1];
+            var d0 = s0.Tip - s0.Base; var d1 = s1.Tip - s1.Base;
+            float a0 = MathF.Atan2(d0.Y, d0.X), a1 = MathF.Atan2(d1.Y, d1.X);
+            float da = Mathf.Wrap(a1 - a0, -MathF.PI, MathF.PI);
+            float l0 = new Vector2(d0.X, d0.Y).Length(), l1 = new Vector2(d1.X, d1.Y).Length();
+            int steps = Math.Clamp((int)MathF.Ceiling(MathF.Abs(da) / 0.09f), 1, 16);
+            for (int k = 0; k < steps; k++)
+            {
+                float f = k / (float)steps, a = a0 + da * f, l = Mathf.Lerp(l0, l1, f);
+                pts.Add((s0.Base.Lerp(s1.Base, f), new Vector3(MathF.Cos(a) * l, MathF.Sin(a) * l, Mathf.Lerp(d0.Z, d1.Z, f)), now - Mathf.Lerp(s0.Time, s1.Time, f)));
+            }
+        }
+        var last = tr[n - 1];
+        pts.Add((last.Base, last.Tip - last.Base, now - last.Time));
+
+        var tint = Lin(p.BladeTint);
+        bool heavy = p.BladeHeavy;
+        const float life = 0.16f, inner = 0.3f, mid = 0.68f;
+        float Fade(float age) { float f = Math.Clamp(1f - age / life, 0f, 1f); return f * MathF.Sqrt(f); }
+        Color C(float alpha) => new(tint.R, tint.G, tint.B, alpha);
+        void Quad(Vector3 a0, Vector3 a1, Vector3 b1, Vector3 b0, Color ca0, Color ca1, Color cb1, Color cb0)
+        {
+            _rmesh.SurfaceSetColor(ca0); _rmesh.SurfaceAddVertex(a0);
+            _rmesh.SurfaceSetColor(ca1); _rmesh.SurfaceAddVertex(a1);
+            _rmesh.SurfaceSetColor(cb1); _rmesh.SurfaceAddVertex(b1);
+            _rmesh.SurfaceSetColor(ca0); _rmesh.SurfaceAddVertex(a0);
+            _rmesh.SurfaceSetColor(cb1); _rmesh.SurfaceAddVertex(b1);
+            _rmesh.SurfaceSetColor(cb0); _rmesh.SurfaceAddVertex(b0);
+        }
+        _rmesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
+        for (int k = 0; k < pts.Count - 1; k++)
+        {
+            var (b0, d0, g0) = pts[k]; var (b1, d1, g1) = pts[k + 1];
+            float f0 = Fade(g0), f1 = Fade(g1);
+            // the bright outer band, from two thirds up the blade to its point
+            Quad(b0 + d0, b1 + d1, b1 + d1 * mid, b0 + d0 * mid, C(0.9f * f0), C(0.9f * f1), C(0.24f * f1), C(0.24f * f0));
+            // the softer sheet from the blade's lower third to there
+            Quad(b0 + d0 * mid, b1 + d1 * mid, b1 + d1 * inner, b0 + d0 * inner, C(0.24f * f0), C(0.24f * f1), C(0f), C(0f));
+            // a white-hot line along the point's path
+            float th = heavy ? 0.075f : 0.05f;
+            var w0 = new Color(1, 1, 1, f0 * 1.4f); var w1 = new Color(1, 1, 1, f1 * 1.4f);
+            Quad(b0 + d0 * (1f + th * 0.25f), b1 + d1 * (1f + th * 0.25f), b1 + d1 * (1f - th), b0 + d0 * (1f - th), w0, w1, w1, w0);
+        }
+        _rmesh.SurfaceEnd();
+        // the point lights what it passes
+        var tipNow = last.Tip;
+        _bladeLight.Visible = true;
+        _bladeLight.Position = tipNow;
+        _bladeLight.LightColor = p.BladeTint;
+        _bladeLight.LightEnergy = (heavy ? 2.2f : 1.3f) * Fade(now - last.Time);
+        return true;
     }
 
     private void SmearRibbon(Player.Smear sm)

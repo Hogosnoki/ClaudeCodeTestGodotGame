@@ -24,6 +24,9 @@ public struct AnimInput
     public float ClipTime;
     /// <summary>Anything a design wants from its gameplay node (aim, state flags...).</summary>
     public Node2D Owner;
+    /// <summary>Look development: pose the gait at exactly this phase (0..1) instead of advancing it with the ground covered.</summary>
+    public bool FixedGait;
+    public float Gait;
 }
 
 /// <summary>
@@ -151,6 +154,9 @@ public abstract class CreatureDesign
 
     /// <summary>Poses the skeleton for this frame. Bone indices come from <see cref="Sculptor"/> names via <see cref="B"/>.</summary>
     public abstract void Animate(CreaturePose p, in AnimInput a);
+
+    /// <summary>How long (seconds) the pose cross-fades when the clip changes to <paramref name="clip"/> (designs that blend their own transitions ask for less).</summary>
+    public virtual float BlendSeconds(string clip) => 0.09f;
 
     /// <summary>Attachments (weapons, lanterns) once the model exists.</summary>
     public virtual void Attach(CreatureModel m) { }

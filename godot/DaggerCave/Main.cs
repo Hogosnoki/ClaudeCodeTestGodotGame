@@ -2521,9 +2521,11 @@ public partial class Main : Node
             _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
             GD.Print($"[herotest] pressed attack during the hit-stop (freeze {p.FreezeLeft:0.00} s)");
         }
-        else if (_comboPressedAt > 0 && s == _comboPressedAt + 1) _heroInput = default;
-        else if (_comboPressedAt > 0 && s == _comboPressedAt + 4)
-            Check($"a swing pressed during the hit-stop starts as it ends (clip {p.Anim.Current})", p.Anim.Current.StartsWith("slash_b"));
+        else if (_comboPressedAt > 0 && s == _comboPressedAt + 1)
+        {
+            _heroInput = default;
+            Check($"a combo's second swing plays its own (b) stroke, the hit-stop holding the blade on the golem mid-swing (clip {p.Anim.Current}, swinging {p.IsSwinging})", p.Anim.Current.StartsWith("slash_b") && p.IsSwinging);
+        }
         switch (s)
         {
             case 42:

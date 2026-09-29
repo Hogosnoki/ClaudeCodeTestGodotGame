@@ -80,11 +80,12 @@ public static class Tune
     /// <summary>The swordsman: medium sword, a quick dodge roll, and the charged strike.</summary>
     public static class Swordsman
     {
-        /// <summary>Sword reach (px), damage per strike, time between swings, and how long the
-        /// blade takes to sweep its arc (longer = heavier, slower-looking swing).</summary>
-        public static float Reach = 45f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.12f;
-        /// <summary>Wind-up before the blade comes around (the first two animation frames).</summary>
-        public static float SwingWindup = 0.12f;
+        /// <summary>Sword reach (px), damage per strike, time between swings (from one swing's start to the
+        /// next's: shortening the swing itself leaves it alone), and how long the blade takes to sweep
+        /// its arc (longer = heavier, slower-looking swing).</summary>
+        public static float Reach = 45f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.075f;
+        /// <summary>Wind-up before the blade comes around.</summary>
+        public static float SwingWindup = 0.075f;
         /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
         public static float Lunge = 130f;
         /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
@@ -128,7 +129,7 @@ public static class Tune
     {
         /// <summary>Shortsword: dagger length, but the blade sweeps faster. (Its damage keeps the
         /// Warden's damage a little under the Swordsman's: about 31 a second to 33.)</summary>
-        public static float Reach = 30f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
+        public static float Reach = 30f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.045f, SwingWindup = 0.045f;
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>A little slower than the Swordsman, with lower jumps.</summary>
         public static float MoveMult = 0.92f, JumpMult = 0.9f;
@@ -251,7 +252,7 @@ public static class Tune
         /// A strike has CritChance of landing twice as hard (CritMult). With one dagger thrown the
         /// jabs come half as fast (OneDaggerSlow).
         /// </summary>
-        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.035f, SwingTime = 0.06f, Reach = 22f, Knockback = 70f, Lunge = 0f;
+        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 22f, Knockback = 70f, Lunge = 0f;
         public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.025f, OneDaggerSlow = 2f;
         /// <summary>Backstab (an upgrade): a strike from behind a creature lands this many times as hard.</summary>
         public static float BackstabMult = 1.5f;

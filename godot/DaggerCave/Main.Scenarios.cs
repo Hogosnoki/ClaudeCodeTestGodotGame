@@ -53,6 +53,7 @@ public partial class Main
         "fossilcam" => "fossils",
         "mouth" => "entrance",
         "drain" => "entrance",
+        "motion" => "entrance",
         "magma" => "magma",
         "vault" => "den",
         _ => null,
@@ -78,6 +79,7 @@ public partial class Main
             case "fossilcam": CameraScenario(); break;
             case "mouth": MouthScenario(); break;
             case "drain": DrainScenario(); break;
+            case "motion": MotionScenario(); break;
             case "magma": MagmaScenario(); break;
             case "vault": VaultScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;

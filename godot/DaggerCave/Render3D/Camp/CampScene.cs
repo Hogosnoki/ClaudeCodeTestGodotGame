@@ -107,8 +107,8 @@ public partial class CampScene : SubViewport
     {
         var sky = new ProceduralSkyMaterial
         {
-            SkyTopColor = new Color(0.17f, 0.42f, 0.86f), SkyHorizonColor = new Color(0.64f, 0.8f, 0.96f), SkyCurve = 0.1f,
-            GroundBottomColor = new Color(0.22f, 0.32f, 0.16f), GroundHorizonColor = new Color(0.6f, 0.74f, 0.6f),
+            SkyTopColor = new Color(0.2f, 0.4f, 0.72f), SkyHorizonColor = new Color(0.72f, 0.79f, 0.86f), SkyCurve = 0.14f,
+            GroundBottomColor = new Color(0.2f, 0.27f, 0.16f), GroundHorizonColor = new Color(0.62f, 0.7f, 0.62f),
             SunAngleMax = 22f, SunCurve = 0.1f,
         };
         var env = new Godot.Environment
@@ -119,14 +119,15 @@ public partial class CampScene : SubViewport
             TonemapMode = Godot.Environment.ToneMapper.Filmic, TonemapExposure = 1.05f, TonemapWhite = 6f,
             // (no screen glow: in sunlight the heroes' armour blooms into blazes; the fire has a halo of its own)
             GlowEnabled = false,
-            FogEnabled = true, FogLightColor = new Color(0.7f, 0.8f, 0.94f), FogDensity = 0.0028f, FogSkyAffect = 0f, FogAerialPerspective = 0.35f,
-            AdjustmentEnabled = true, AdjustmentSaturation = 1.12f, AdjustmentContrast = 1.04f,
+            FogEnabled = true, FogLightColor = new Color(0.72f, 0.78f, 0.86f), FogDensity = 0.0036f, FogSkyAffect = 0.15f, FogAerialPerspective = 0.5f,
+            SsaoEnabled = true, SsaoRadius = 1.4f, SsaoIntensity = 1.6f,
+            AdjustmentEnabled = true, AdjustmentSaturation = 0.94f, AdjustmentContrast = 1.08f,
         };
         AddChild(new WorldEnvironment { Environment = env });
         // afternoon sun from the upper left, warm
         var sun = new DirectionalLight3D
         {
-            LightColor = new Color(1f, 0.95f, 0.84f), LightEnergy = 1.45f, LightSpecular = 0.1f, ShadowEnabled = true,
+            LightColor = new Color(1f, 0.93f, 0.8f), LightEnergy = 1.5f, LightSpecular = 0.1f, ShadowEnabled = true,
             DirectionalShadowMaxDistance = 60f, DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits,
         };
         AddChild(sun);
@@ -172,7 +173,7 @@ public partial class CampScene : SubViewport
             float a = k / 7f * Mathf.Tau + (float)_rng.NextDouble() * 0.6f;
             var dir = new Vector3(MathF.Cos(a), 0, MathF.Sin(a));
             var side = new Vector3(-dir.Z, 0, dir.X);
-            float h = 0.12f + 0.12f * (float)_rng.NextDouble(), lean = 0.05f + 0.07f * (float)_rng.NextDouble(), w = 0.018f;
+            float h = 0.16f + 0.3f * (float)_rng.NextDouble(), lean = 0.06f + 0.12f * (float)_rng.NextDouble(), w = 0.013f;
             int b0 = tuft.Add(dir * 0.02f - side * w, Vector3.Up, Colors.White, new Vector2(0, 0));
             int b1 = tuft.Add(dir * 0.02f + side * w, Vector3.Up, Colors.White, new Vector2(1, 0));
             int m0 = tuft.Add(dir * (0.02f + lean * 0.45f) - side * w * 0.7f + Vector3.Up * h * 0.55f, Vector3.Up, Colors.White, new Vector2(0, 0.55f));
@@ -182,11 +183,11 @@ public partial class CampScene : SubViewport
             tuft.Tri(m0, m1, tip);
         }
         var grassMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/grass.gdshader") };
-        grassMat.SetShaderParameter("root_color", new Color(0.16f, 0.32f, 0.07f));
-        grassMat.SetShaderParameter("tip_color", new Color(0.58f, 0.84f, 0.3f));
+        grassMat.SetShaderParameter("root_color", new Color(0.07f, 0.13f, 0.045f));
+        grassMat.SetShaderParameter("tip_color", new Color(0.4f, 0.52f, 0.2f));
         grassMat.SetShaderParameter("wind", 0.1f);
         var xforms = new List<Transform3D>();
-        for (int tries = 0; tries < 30000 && xforms.Count < 5200; tries++)
+        for (int tries = 0; tries < 50000 && xforms.Count < 9000; tries++)
         {
             float r = 2.3f + 18f * MathF.Sqrt((float)_rng.NextDouble());
             float a = (float)_rng.NextDouble() * Mathf.Tau;
@@ -197,6 +198,21 @@ public partial class CampScene : SubViewport
             xforms.Add(new Transform3D(basis, new Vector3(x, Ground(x, z) - 0.02f, z)));
         }
         AddChild(Instances(tuft.ToMesh(grassMat), xforms, null, false));
+        // dry, bleached tufts among the green
+        var dryMat = (ShaderMaterial)grassMat.Duplicate();
+        dryMat.SetShaderParameter("root_color", new Color(0.16f, 0.13f, 0.06f));
+        dryMat.SetShaderParameter("tip_color", new Color(0.62f, 0.54f, 0.28f));
+        var dryX = new List<Transform3D>();
+        for (int tries = 0; tries < 20000 && dryX.Count < 1800; tries++)
+        {
+            float r = 2.6f + 19f * MathF.Sqrt((float)_rng.NextDouble());
+            float a = (float)_rng.NextDouble() * Mathf.Tau;
+            float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
+            if (NearCliff(x, z) || _noise.Sample(x * 0.09f, 4.4f, z * 0.09f) < 0f) continue;
+            float s = 0.8f + 0.9f * (float)_rng.NextDouble();
+            dryX.Add(new Transform3D(new Basis(Vector3.Up, (float)_rng.NextDouble() * Mathf.Tau).Scaled(new Vector3(s, s * 1.2f, s)), new Vector3(x, Ground(x, z) - 0.02f, z)));
+        }
+        AddChild(Instances(tuft.ToMesh(dryMat), dryX, null, false));
 
         // flowers: a stem and a little star of petals, in cheerful colours
         var flower = new MeshBuilder();
@@ -245,19 +261,60 @@ public partial class CampScene : SubViewport
 
     private void AddTree(MeshBuilder mb, Vector3 at, float height, Noise3 noise)
     {
-        var bark = new Color(0.36f, 0.26f, 0.17f);
+        bool conifer = _rng.NextDouble() < 0.28;
+        float shade = 0.85f + 0.3f * (float)_rng.NextDouble();
+        var bark = new Color(0.27f, 0.2f, 0.14f) * shade;
         float lean = ((float)_rng.NextDouble() - 0.5f) * 0.3f;
-        var path = new List<Vector3> { at + new Vector3(0, -0.3f, 0), at + new Vector3(lean * 0.3f, height * 0.35f, 0), at + new Vector3(lean, height * 0.62f, 0.1f) };
-        mb.Tube(path, new List<float> { height * 0.055f, height * 0.04f, height * 0.025f }, 7, bark, false);
-        // a crown of leafy clumps, lighter on top
-        var top = at + new Vector3(lean, height * 0.66f, 0.1f);
-        int clumps = 5 + _rng.Next(3);
+        // a trunk that flares at the root and tapers, with a bend in it
+        var path = new List<Vector3>
+        {
+            at + new Vector3(0, -0.4f, 0), at + new Vector3(lean * 0.05f, height * 0.06f, 0), at + new Vector3(lean * 0.3f, height * 0.35f, 0.04f),
+            at + new Vector3(lean * 0.8f, height * 0.62f, 0.08f), at + new Vector3(lean, height * (conifer ? 0.95f : 0.72f), 0.1f),
+        };
+        mb.Tube(path, new List<float> { height * 0.075f, height * 0.06f, height * 0.042f, height * 0.03f, height * (conifer ? 0.006f : 0.02f) }, 8, bark, false,
+            (i, k) => 0.07f * noise.Sample(i * 1.7f + at.X, k * 0.9f, at.Z));
+        // roots gripping the ground
+        for (int r = 0; r < 4; r++)
+        {
+            float a = r / 4f * Mathf.Tau + (float)_rng.NextDouble();
+            var d = new Vector3(MathF.Cos(a), 0, MathF.Sin(a));
+            mb.Tube(new List<Vector3> { at + d * height * 0.02f + Vector3.Up * height * 0.05f, at + d * height * 0.06f + Vector3.Up * height * 0.015f, at + d * height * 0.13f - Vector3.Up * 0.05f },
+                new List<float> { height * 0.032f, height * 0.02f, height * 0.008f }, 5, bark * 0.9f, false);
+        }
+        var top = at + new Vector3(lean, height * 0.7f, 0.1f);
+        if (conifer)
+        {
+            // tiers of dark, ragged boughs, wide at the bottom
+            int tiers = 7;
+            for (int k = 0; k < tiers; k++)
+            {
+                float t = k / (float)(tiers - 1);
+                float r = height * (0.25f - 0.19f * t) * (0.9f + 0.2f * (float)_rng.NextDouble());
+                var c = at + new Vector3(lean * (0.3f + 0.7f * t), height * (0.24f + 0.7f * t), 0.05f + 0.05f * t);
+                var col = new Color(0.07f, 0.17f, 0.08f).Lerp(new Color(0.15f, 0.3f, 0.12f), t * 0.7f + 0.3f * (float)_rng.NextDouble()) * shade;
+                mb.Blob(c, new Vector3(r, r * 0.42f, r), 7, col, noise, 0.4f, 2.6f);
+            }
+            return;
+        }
+        // limbs out to a crown of many small clumps (dark under, lit on top, never one round ball)
+        int limbs = 4 + _rng.Next(2);
+        for (int k = 0; k < limbs; k++)
+        {
+            float a = k / (float)limbs * Mathf.Tau + (float)_rng.NextDouble();
+            var out3 = new Vector3(MathF.Cos(a) * 0.5f, 0.55f + 0.3f * (float)_rng.NextDouble(), MathF.Sin(a) * 0.5f);
+            mb.Tube(new List<Vector3> { top - Vector3.Up * height * 0.06f, top + out3 * height * 0.14f, top + out3 * height * 0.27f },
+                new List<float> { height * 0.024f, height * 0.016f, height * 0.006f }, 5, bark, false);
+        }
+        int clumps = 13 + _rng.Next(6);
         for (int k = 0; k < clumps; k++)
         {
-            var o = new Vector3(((float)_rng.NextDouble() - 0.5f) * height * 0.45f, ((float)_rng.NextDouble() - 0.2f) * height * 0.3f, ((float)_rng.NextDouble() - 0.5f) * height * 0.45f);
-            float r = height * (0.2f + 0.1f * (float)_rng.NextDouble());
-            var green = new Color(0.2f, 0.45f, 0.14f).Lerp(new Color(0.38f, 0.62f, 0.2f), Math.Clamp(o.Y / (height * 0.25f) * 0.5f + 0.5f, 0f, 1f) * (0.6f + 0.4f * (float)_rng.NextDouble()));
-            mb.Blob(top + o, new Vector3(r, r * 0.85f, r), 6, green, noise, 0.22f, 2.2f);
+            float a = (float)_rng.NextDouble() * Mathf.Tau;
+            float rr = MathF.Sqrt((float)_rng.NextDouble());
+            var o = new Vector3(MathF.Cos(a) * rr * height * 0.3f, ((float)_rng.NextDouble() - 0.35f) * height * 0.26f + (1f - rr) * height * 0.06f, MathF.Sin(a) * rr * height * 0.3f);
+            float r = height * (0.1f + 0.075f * (float)_rng.NextDouble());
+            float lit = Math.Clamp(o.Y / (height * 0.22f) * 0.5f + 0.45f, 0f, 1f) * (0.55f + 0.45f * (float)_rng.NextDouble());
+            var green = new Color(0.1f, 0.22f, 0.07f).Lerp(new Color(0.34f, 0.48f, 0.15f), lit) * shade;
+            mb.Blob(top + o, new Vector3(r, r * 0.8f, r), 7, green, noise, 0.34f, 2.8f);
         }
     }
 
@@ -295,7 +352,7 @@ public partial class CampScene : SubViewport
             (-170f, -230f, 110f, 70f), (-60f, -260f, 130f, 95f), (60f, -250f, 120f, 80f), (180f, -220f, 110f, 65f), (-250f, -150f, 90f, 55f), (260f, -140f, 90f, 50f),
         };
         foreach (var (x, z, w, h) in peaks)
-            mb.Blob(new Vector3(x, -10f, z), new Vector3(w, h, w * 0.6f), 10, new Color(0.36f, 0.48f, 0.42f), noise, 0.25f, 1.6f, 0.5f);
+            mb.Blob(new Vector3(x, -10f, z), new Vector3(w, h, w * 0.6f), 10, new Color(0.38f, 0.46f, 0.44f), noise, 0.32f, 2.1f, 0.5f);
         mb.SmoothNormals();
         AddChild(new MeshInstance3D { Mesh = mb.ToMesh(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 1f }), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
 
@@ -321,94 +378,6 @@ public partial class CampScene : SubViewport
             AddChild(node);
             _clouds.Add((node, 0.6f + 0.8f * (float)_rng.NextDouble()));
         }
-    }
-
-    // ================================================================== the cliff and the cave mouth
-
-    private void BuildCliff()
-    {
-        var noise = new Noise3(19);
-        var rock = new MeshBuilder();
-        var right = new Vector3(MouthFacing.Z, 0, -MouthFacing.X); // along the cliff face (to the right of the mouth, seen from the camp)
-        Vector3 Face(float along, float up, float back) => MouthAt + right * along + Vector3.Up * up - MouthFacing * back;
-
-        const float halfW = 2.5f, archH = 5.2f, depth = 12f;
-        // Every stone keeps out of the tunnel (it's the dark you look into), so the hill is built
-        // round it: jambs and a lintel framing the mouth, masses stepping down to either side, and
-        // the body of the hill above and behind. (along the face, up, back into the hill; radii)
-        var stones = new (float a, float u, float b, float ra, float ru, float rb)[]
-        {
-            (-3.8f, 1.4f, 0.8f, 1.3f, 1.6f, 1.4f), (-3.9f, 4f, 0.9f, 1.4f, 1.4f, 1.5f), (-4.3f, 6.3f, 1.1f, 1.8f, 1.3f, 1.6f),
-            (3.8f, 1.5f, 0.8f, 1.3f, 1.7f, 1.4f), (4f, 4.2f, 1f, 1.5f, 1.5f, 1.5f), (4.5f, 6.6f, 1.2f, 2f, 1.4f, 1.6f),
-            (0f, 7.1f, 1f, 3.2f, 1.5f, 1.8f), (-1.5f, 9.2f, 2.2f, 3.6f, 1.8f, 2.4f), (2.2f, 9.6f, 2.6f, 3.8f, 2f, 2.6f), (0.2f, 11.4f, 4.5f, 4.5f, 1.8f, 3.5f),
-            (-7f, 2.2f, 1.8f, 2.4f, 2.4f, 2.4f), (-7.6f, 5.4f, 2.8f, 2.6f, 2f, 2.6f), (-10.5f, 1.6f, 2.8f, 2.4f, 1.8f, 2.4f), (-13f, 0.8f, 3.4f, 2.2f, 1.2f, 2.2f), (-9.5f, 7.4f, 4.5f, 3f, 1.8f, 3f),
-            (7.2f, 2.6f, 1.8f, 2.6f, 2.8f, 2.5f), (7.8f, 6.2f, 2.6f, 2.8f, 2.2f, 2.6f), (11f, 2.2f, 2.8f, 2.8f, 2.4f, 2.6f), (11.8f, 6f, 3.8f, 3f, 2.2f, 3f), (14.8f, 1.4f, 3.4f, 2.6f, 1.6f, 2.4f), (9.8f, 9.2f, 4.6f, 3.6f, 2.2f, 3.4f),
-            (0f, 3.5f, 18f, 9f, 6f, 5.2f), (-6f, 4f, 8f, 3.2f, 4.5f, 5f), (6.2f, 4.5f, 8f, 3.3f, 5f, 5f), (0f, 9f, 9.5f, 5f, 3.2f, 4.5f),
-            (-3f, 12f, 8f, 6f, 3f, 5f), (4f, 12.5f, 9f, 6.5f, 3.2f, 5.5f),
-            // tumbled in front
-            (-4.2f, 0.35f, -1.8f, 0.8f, 0.55f, 0.7f), (4.6f, 0.45f, -2.4f, 1.1f, 0.75f, 0.9f), (3f, 0.2f, -1.4f, 0.45f, 0.3f, 0.4f), (-6.5f, 0.3f, -1.2f, 0.6f, 0.4f, 0.5f),
-        };
-        foreach (var (a, u, b, ra, ru, rb) in stones)
-        {
-            bool clear = a + ra < -halfW - 0.2f || a - ra > halfW + 0.2f || u - ru * 0.7f > archH + 0.3f || b - rb > depth + 0.2f || b + rb < -0.3f;
-            if (!clear) continue;
-            float shade = 0.25f * (float)_rng.NextDouble();
-            var col = new Color(0.52f, 0.47f, 0.41f).Darkened(shade).Lerp(new Color(0.55f, 0.5f, 0.38f), 0.3f * (float)_rng.NextDouble());
-            rock.Blob(Face(a, u, b), new Vector3(ra, ru, rb), 8, col, noise, 0.34f, 1.7f, 0.3f);
-        }
-        rock = rock.Faceted();
-        var rockMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/camp_rock.gdshader") };
-        rockMat.SetShaderParameter("moss", new Color(0.32f, 0.52f, 0.17f));
-        AddChild(new MeshInstance3D { Mesh = rock.ToMesh(rockMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
-
-        // the mouth: a tunnel going back into the hill, lit only at its lip and black beyond
-        var tunnel = new MeshBuilder();
-        const int arcN = 22, depthN = 7;
-        // the arch's outline, bottom left, up, over and down to the bottom right: straight sides
-        // up to the springing, then a half circle
-        static Vector2 Arch(float u)
-        {
-            float wall = archH - halfW, round = MathF.PI * halfW;
-            float s = u * (2f * wall + round);
-            if (s < wall) return new Vector2(-halfW, s);
-            s -= wall;
-            if (s < round) { float a = MathF.PI - s / halfW; return new Vector2(MathF.Cos(a) * halfW, wall + MathF.Sin(a) * halfW); }
-            return new Vector2(halfW, wall - (s - round));
-        }
-        for (int d = 0; d <= depthN; d++)
-        {
-            float back = d / (float)depthN * depth;
-            float shrink = 1f - 0.18f * d / depthN;
-            float dark = MathF.Pow(1f - d / (float)depthN, 2.2f);
-            var col = new Color(0.16f, 0.13f, 0.11f) * dark;
-            for (int k = 0; k <= arcN; k++)
-            {
-                var s = Arch(k / (float)arcN) * shrink;
-                var p = Face(s.X, s.Y, back - 0.4f);
-                var inward = (MouthAt + Vector3.Up * (archH * 0.45f) - MouthFacing * back - p).Normalized();
-                tunnel.Add(p, inward, new Color(col.R, col.G, col.B), new Vector2(k / (float)arcN, d / (float)depthN));
-            }
-        }
-        for (int d = 0; d < depthN; d++)
-            for (int k = 0; k < arcN; k++)
-            {
-                int a = d * (arcN + 1) + k, b = a + 1, c = a + arcN + 1, e = c + 1;
-                tunnel.Tri(a, b, c); tunnel.Tri(b, e, c);
-            }
-        // a black back wall where the tunnel turns away into the dark
-        int ctr = tunnel.Add(Face(0f, archH * 0.4f, depth), MouthFacing, Colors.Black);
-        int last = depthN * (arcN + 1);
-        for (int k = 0; k < arcN; k++) { tunnel.Tri(ctr, last + k, last + k + 1); tunnel.Tri(ctr, last + k + 1, last + k); }
-        // (and across the bottom, from the arch's last corner back to its first)
-        tunnel.Tri(ctr, last + arcN, last); tunnel.Tri(ctr, last, last + arcN);
-        // the floor of the mouth, disappearing into the dark
-        int f0 = tunnel.Add(Face(-halfW, 0.02f, -0.6f), Vector3.Up, new Color(0.2f, 0.17f, 0.13f));
-        int f1 = tunnel.Add(Face(halfW, 0.02f, -0.6f), Vector3.Up, new Color(0.2f, 0.17f, 0.13f));
-        int f2 = tunnel.Add(Face(halfW * 0.8f, 0.02f, depth), Vector3.Up, Colors.Black);
-        int f3 = tunnel.Add(Face(-halfW * 0.8f, 0.02f, depth), Vector3.Up, Colors.Black);
-        tunnel.Tri(f0, f1, f2); tunnel.Tri(f0, f2, f3); tunnel.Tri(f0, f2, f1); tunnel.Tri(f0, f3, f2);
-        var dim = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 1f, CullMode = BaseMaterial3D.CullModeEnum.Disabled, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, DisableFog = true };
-        AddChild(new MeshInstance3D { Mesh = tunnel.ToMesh(dim), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
     }
 
     // ================================================================== the camp fire

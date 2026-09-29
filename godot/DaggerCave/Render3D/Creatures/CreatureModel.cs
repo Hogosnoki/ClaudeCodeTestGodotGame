@@ -262,7 +262,7 @@ public partial class CreatureModel : Node3D
         if (pose.Glow != _glow) { _glow = pose.Glow; Body.SetInstanceShaderParameter("glow_boost", _glow); }
         // cross-fade briefly whenever the clip changes so poses never snap
         if (a.Clip != _lastClip) { _lastClip = a.Clip; _blendT = 0f; }
-        _blendT = Math.Min(1f, _blendT + a.Dt / 0.09f);
+        _blendT = Math.Min(1f, _blendT + a.Dt / Math.Max(0.005f, Design.BlendSeconds(a.Clip)));
         float w = _blendT * _blendT * (3f - 2f * _blendT);
         var bones = Kit.Sculpt.Bones;
         for (int k = 0; k < bones.Length; k++)
