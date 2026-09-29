@@ -237,6 +237,7 @@ public partial class FireElemental : ElementalWalker
 /// </summary>
 public partial class WaterElemental : Enemy
 {
+    public override string HitSound => "hit_water";
     private float _atkCd = 1.5f, _wind = -1, _recover, _wanderA;
     private Vector2 _home;
 

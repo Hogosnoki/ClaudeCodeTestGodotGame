@@ -335,7 +335,8 @@ public partial class Player : CharacterBody2D
         if (InWater != wasInWater && Math.Abs(Velocity.Y) > 80)
         {
             bool lava = cave.Liquid == DaggerCave.Liquid.Lava;
-            G.Sfx.Play(lava ? "lava" : "splash", GlobalPosition, -4);
+            // in with a plunge, out with a milder sheet of water
+            G.Sfx.Play(lava ? "lava" : InWater ? "splash_in" : "splash_out", GlobalPosition, InWater ? -3 : -5, 0.06f);
             G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), Math.Clamp(Math.Abs(Velocity.Y) / 500f, 0.2f, 1f), lava ? new Color(1f, 0.55f, 0.15f) : new Color(0.65f, 0.88f, 1f, 0.9f));
             if (InWater && !lava) G.Fx.Bubbles(GlobalPosition, 8);
         }

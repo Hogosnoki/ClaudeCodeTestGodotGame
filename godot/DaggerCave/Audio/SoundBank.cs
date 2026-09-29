@@ -89,6 +89,12 @@ public partial class SoundBank : Node
         _camp.SaveToWav($"{dir}/camp.wav");
     }
 
+    /// <summary>--sfxdump=DIR: every sound effect as a .wav file, for a listen.</summary>
+    public void DumpSfx(string dir)
+    {
+        foreach (var kv in _sfx) kv.Value.SaveToWav($"{dir}/{kv.Key}.wav");
+    }
+
     public void SetMusic(string which)
     {
         if (which == _currentMusic) return;
@@ -122,44 +128,159 @@ public partial class SoundBank : Node
     {
         float[] b;
 
-        b = Buf(0.16f); NoiseBurst(b, 0, 0.16f, t => 0.05f + 0.5f * MathF.Sin(t * MathF.PI), AD(0.25f, 5f)); Add("swing", b, 0.5f);
-        b = Buf(0.22f); NoiseBurst(b, 0, 0.22f, t => 0.1f + 0.6f * MathF.Sin(t * MathF.PI), AD(0.3f, 4f)); Add("swing_heavy", b, 0.65f);
+        // sword through air: a band of wind that climbs into the pass and falls away, with a thin edge-ring at the top of it
+        b = Buf(0.2f);
+        BandNoise(b, 0, 0.2f, t => 700f + 2600f * MathF.Sin(t * MathF.PI * 0.85f), Const(2.2f), t => MathF.Pow(MathF.Sin(MathF.Min(1f, t * 1.15f) * MathF.PI), 1.4f));
+        BandNoise(b, 0, 0.2f, t => 3800f + 1500f * t, Const(9f), t => 0.35f * MathF.Pow(MathF.Sin(t * MathF.PI), 2f));
+        Modes(b, 0.07f, 2500f, MetalModes, 2.5f, 0.06f);
+        Add("swing", b, 0.5f);
+        b = Buf(0.3f);
+        BandNoise(b, 0, 0.3f, t => 260f + 1500f * MathF.Sin(t * MathF.PI * 0.8f), Const(1.6f), t => MathF.Pow(MathF.Sin(MathF.Min(1f, t * 1.2f) * MathF.PI), 1.2f));
+        BandNoise(b, 0.04f, 0.2f, t => 2400f + 800f * t, Const(7f), t => 0.3f * MathF.Sin(t * MathF.PI));
+        Osc(b, 0, 0.3f, ExpSweep(110, 55), t => 0.25f * MathF.Sin(t * MathF.PI));
+        Add("swing_heavy", b, 0.65f);
 
-        b = Buf(0.16f);
-        Osc(b, 0, 0.16f, ExpSweep(200, 55), Decay(9));
-        NoiseBurst(b, 0, 0.05f, Const(0.6f), Decay(20));
+        // flesh and hide: a dull thump with a wet slap
+        b = Buf(0.18f);
+        Osc(b, 0, 0.16f, ExpSweep(170, 58), Decay(11));
+        BandNoise(b, 0, 0.09f, t => 1400f - 700f * t, Const(1.4f), Decay(16));
+        NoiseBurst(b, 0, 0.03f, Const(0.5f), Decay(30));
         Add("hit", b, 0.85f);
+        // stone, earth and armour: a hard "chink" with a scatter of grit
+        b = Buf(0.25f);
+        NoiseBurst(b, 0, 0.012f, Const(1f), Decay(30), true);
+        Modes(b, 0, 1750f, StoneModes, 1.4f, 0.55f);
+        Modes(b, 0.004f, 620f, StoneModes, 1.2f, 0.25f);
+        for (int k = 0; k < 4; k++) NoiseBurst(b, 0.03f + k * 0.022f + 0.01f * Noise(), 0.008f, Const(0.9f), Decay(12), true);
+        Add("hit_stone", b, 0.85f);
+        // wood, roots and leaf: a crackling thud
+        b = Buf(0.3f);
+        Modes(b, 0, 150f, WoodModes, 1f, 0.7f);
+        Osc(b, 0, 0.12f, ExpSweep(130, 55), Decay(14));
+        for (int k = 0; k < 7; k++) NoiseBurst(b, 0.005f + k * 0.017f + 0.012f * MathF.Abs(Noise()), 0.007f + 0.006f * MathF.Abs(Noise()), Const(0.85f), Decay(10), true);
+        BandNoise(b, 0, 0.15f, Const(2200f), Const(1.2f), Decay(14));
+        Add("hit_wood", b, 0.85f);
+        // frost and crystal: a brittle crack with a few splinters
+        b = Buf(0.3f);
+        NoiseBurst(b, 0, 0.02f, Const(1f), Decay(25), true);
+        BandNoise(b, 0, 0.1f, t => 5200f - 2500f * t, Const(2f), Decay(18));
+        Modes(b, 0.002f, 2900f, GlassModes, 1.8f, 0.3f);
+        for (int k = 0; k < 5; k++) Modes(b, 0.03f + k * 0.03f + 0.015f * MathF.Abs(Noise()), 3400f + 900f * Noise(), GlassModes, 3f, 0.09f);
+        Osc(b, 0, 0.08f, ExpSweep(200, 80), Decay(20));
+        Add("hit_ice", b, 0.8f);
+        // fire: a soft thump, a hiss and sparks
+        b = Buf(0.35f);
+        Osc(b, 0, 0.12f, ExpSweep(140, 60), Decay(14));
+        BandNoise(b, 0, 0.3f, t => 4000f - 1800f * t, Const(0.9f), t => 0.7f * MathF.Exp(-t * 6f));
+        for (int k = 0; k < 6; k++) NoiseBurst(b, 0.02f + k * 0.04f + 0.02f * MathF.Abs(Noise()), 0.006f, Const(0.9f), Decay(10), true);
+        Add("hit_fire", b, 0.75f);
+        // water: a wet slap and a burst of droplets
+        b = Buf(0.3f);
+        BandNoise(b, 0, 0.12f, t => 900f - 500f * t, Const(1.3f), Decay(14));
+        Osc(b, 0, 0.1f, ExpSweep(240, 110), Decay(16));
+        for (int k = 0; k < 5; k++) { float f = 600f + 700f * MathF.Abs(Noise()); Osc(b, 0.04f + k * 0.03f, 0.04f, ExpSweep(f, f * 1.8f), Decay(9)); }
+        LowPass(b, 0.5f);
+        Add("hit_water", b, 0.7f);
 
-        b = Buf(0.1f); Osc(b, 0, 0.1f, Const(2400), Decay(30)); Osc(b, 0, 0.1f, Const(3700), Decay(35)); NoiseBurst(b, 0, 0.02f, Const(0.9f), Decay(10)); Add("clink", b, 0.5f);
+        // steel on steel or a shield taking a blow: a bright strike over an inharmonic ring
+        b = Buf(0.35f);
+        NoiseBurst(b, 0, 0.015f, Const(1f), Decay(25), true);
+        Modes(b, 0, 1150f, MetalModes, 1.7f, 0.5f);
+        BandNoise(b, 0, 0.06f, Const(3500f), Const(1.5f), Decay(30));
+        Add("clink", b, 0.6f);
 
-        b = Buf(0.22f); NoiseBurst(b, 0, 0.22f, t => 0.3f + 0.5f * t, AD(0.1f, 6f), true); Osc(b, 0.02f, 0.2f, Const(1800), Decay(15)); Add("throw", b, 0.6f);
+        b = Buf(0.22f); BandNoise(b, 0, 0.22f, t => 1500f + 3500f * t, Const(2.5f), t => MathF.Pow(MathF.Sin(MathF.Min(1f, t * 1.3f) * MathF.PI), 1.5f)); Add("throw", b, 0.55f);
 
-        b = Buf(0.12f); Osc(b, 0, 0.12f, ExpSweep(180, 420), AD(0.05f, 8f), 1); LowPass(b, 0.3f); Add("jump", b, 0.35f);
-        b = Buf(0.1f); NoiseBurst(b, 0, 0.1f, Const(0.08f), Decay(12)); Osc(b, 0, 0.08f, ExpSweep(120, 50), Decay(12)); Add("land", b, 0.4f);
-        b = Buf(0.22f); NoiseBurst(b, 0, 0.22f, t => 0.05f + 0.35f * (1 - t), AD(0.15f, 4f)); Add("dodge", b, 0.55f);
-        b = Buf(0.18f); NoiseBurst(b, 0, 0.18f, t => 0.2f + 0.6f * t, AD(0.2f, 5f)); Osc(b, 0, 0.18f, ExpSweep(300, 900), AD(0.1f, 6f), 3); Add("airdash", b, 0.55f);
+        // a push off the ground: cloth, a scuff of dirt and a short low thump (no pitch to it)
+        b = Buf(0.13f);
+        BandNoise(b, 0, 0.11f, t => 500f + 900f * t, Const(1.2f), t => MathF.Sin(MathF.Min(1f, t * 1.5f) * MathF.PI) * 0.7f);
+        Osc(b, 0, 0.06f, ExpSweep(110, 60), Decay(20));
+        Add("jump", b, 0.4f);
+        b = Buf(0.16f);
+        Osc(b, 0, 0.1f, ExpSweep(100, 45), Decay(20));
+        BandNoise(b, 0, 0.12f, t => 700f - 300f * t, Const(1f), Decay(20));
+        NoiseBurst(b, 0.01f, 0.06f, Const(0.5f), Decay(30), true);
+        Add("land", b, 0.45f);
+        b = Buf(0.24f); BandNoise(b, 0, 0.24f, t => 1600f * (1f - 0.7f * t) + 300f, Const(1.3f), AD(0.2f, 5f)); Add("dodge", b, 0.55f);
+        b = Buf(0.2f); BandNoise(b, 0, 0.2f, t => 500f + 3500f * t, Const(1.8f), AD(0.35f, 5f)); Add("airdash", b, 0.55f);
 
-        b = Buf(0.5f); NoiseBurst(b, 0, 0.5f, t => 0.25f * (1 - t) + 0.02f, Decay(5));
-        for (int k = 0; k < 6; k++) { float st = 0.05f + k * 0.06f; float f = 500 + k * 130; Osc(b, st, 0.05f, ExpSweep(f, f * 2.2f), Decay(8)); }
+        b = Buf(0.5f);
+        BandNoise(b, 0, 0.5f, t => 2800f - 2200f * t, Const(0.9f), t => MathF.Exp(-t * 5f));
+        for (int k = 0; k < 8; k++) { float st = 0.04f + k * 0.045f; float f = 500 + 900 * MathF.Abs(Noise()); Osc(b, st, 0.04f, ExpSweep(f, f * 1.9f), Decay(9)); }
+        LowPass(b, 0.55f);
         Add("splash", b, 0.6f);
+        // the hero plunging in: an open crash of spray, the body's thud going under, then the gulp and rush of bubbles
+        b = Buf(0.9f);
+        NoiseBurst(b, 0, 0.02f, Const(1f), Decay(30));
+        BandNoise(b, 0, 0.8f, t => 3200f - 2600f * MathF.Sqrt(t), Const(0.8f), t => 0.9f * MathF.Exp(-t * 4.2f));
+        Osc(b, 0.01f, 0.3f, ExpSweep(150, 45), t => 0.9f * MathF.Exp(-t * 6f));
+        BandNoise(b, 0.05f, 0.45f, t => 250f + 200f * MathF.Sin(t * 20f), Const(1.5f), t => 0.7f * MathF.Sin(t * MathF.PI));
+        for (int k = 0; k < 14; k++) { float st = 0.1f + k * 0.045f + 0.02f * MathF.Abs(Noise()); float f = 350 + 1200 * MathF.Abs(Noise()); float fade = 1f - st / 1.2f; Osc(b, st, 0.05f, ExpSweep(f, f * 2f), t => 0.35f * MathF.Exp(-t * 7f) * fade); }
+        LowPass(b, 0.6f);
+        Add("splash_in", b, 0.85f);
+        // climbing out: milder, water sheeting off and a few drips
+        b = Buf(0.5f);
+        BandNoise(b, 0, 0.35f, t => 1200f + 900f * t, Const(1.1f), t => 0.8f * MathF.Sin(MathF.Min(1f, t * 2f) * MathF.PI * 0.5f) * MathF.Exp(-t * 4f));
+        Osc(b, 0.02f, 0.2f, ExpSweep(120, 70), t => 0.35f * MathF.Exp(-t * 8f));
+        for (int k = 0; k < 6; k++) { float st = 0.12f + k * 0.055f + 0.03f * MathF.Abs(Noise()); float f = 700 + 800 * MathF.Abs(Noise()); Osc(b, st, 0.035f, ExpSweep(f * 1.6f, f), t => 0.3f * MathF.Exp(-t * 8f)); }
+        LowPass(b, 0.5f);
+        Add("splash_out", b, 0.5f);
 
         b = Buf(0.06f); Osc(b, 0, 0.06f, ExpSweep(700, 1600), AD(0.1f, 6f)); Add("bubble", b, 0.25f);
 
-        b = Buf(0.28f); Osc(b, 0, 0.28f, ExpSweep(320, 110), AD(0.05f, 5f), 2); NoiseBurst(b, 0, 0.1f, Const(0.4f), Decay(10)); LowPass(b, 0.4f); Add("hurt", b, 0.75f);
+        // the hero struck: a body blow, the smack of it on leather and a short breathy grunt
+        b = Buf(0.3f);
+        Osc(b, 0, 0.2f, ExpSweep(150, 48), Decay(11));
+        BandNoise(b, 0, 0.08f, Const(1800f), Const(1.2f), Decay(22));
+        BandNoise(b, 0.03f, 0.2f, t => 520f - 150f * t, Const(4f), t => MathF.Sin(MathF.Min(1f, t * 1.4f) * MathF.PI) * 0.8f);
+        Osc(b, 0.03f, 0.2f, ExpSweep(190, 120), t => 0.35f * MathF.Sin(t * MathF.PI), 2);
+        LowPass(b, 0.4f);
+        Add("hurt", b, 0.75f);
 
-        b = Buf(0.35f); NoiseBurst(b, 0, 0.3f, t => 0.3f * (1 - t) + 0.03f, Decay(6)); Osc(b, 0, 0.35f, ExpSweep(420, 70), Decay(6), 1); LowPass(b, 0.35f); Add("enemy_die", b, 0.6f);
+        b = Buf(0.4f);
+        Osc(b, 0, 0.3f, ExpSweep(160, 40), Decay(8));
+        BandNoise(b, 0, 0.38f, t => 1500f - 1100f * t, Const(1f), Decay(6));
+        for (int k = 0; k < 5; k++) NoiseBurst(b, 0.05f + k * 0.05f, 0.03f, Const(0.4f), Decay(10));
+        LowPass(b, 0.5f);
+        Add("enemy_die", b, 0.6f);
 
-        b = Buf(0.08f); Osc(b, 0, 0.08f, ExpSweep(1100, 1700), AD(0.05f, 7f)); Osc(b, 0, 0.08f, ExpSweep(2200, 3400), AD(0.05f, 9f)); Add("xp", b, 0.22f);
+        // a small bright gem-tick: a short strike, no sustained tone
+        b = Buf(0.1f);
+        NoiseBurst(b, 0, 0.008f, Const(1f), Decay(25), true);
+        Modes(b, 0, 2600f, GlassModes, 3.2f, 0.4f);
+        BandNoise(b, 0, 0.04f, Const(5000f), Const(3f), Decay(30));
+        Add("xp", b, 0.28f);
 
+        // a swell of power: sub boom, wind gathering upward, a brass-like chord blooming open, and a rolling impact with a fall of sparks
+        b = Buf(1.5f);
+        Osc(b, 0.42f, 0.9f, ExpSweep(85, 38), t => 1.0f * MathF.Exp(-t * 3.5f));
+        NoiseBurst(b, 0.42f, 0.9f, t => 0.05f + 0.1f * (1 - t), t => 0.8f * MathF.Exp(-t * 3.5f));
+        BandNoise(b, 0, 0.5f, t => 300f + 3600f * t * t, Const(1.6f), t => 0.9f * MathF.Pow(t, 1.6f));
+        var chord = Buf(1.5f);
+        foreach (int m in new[] { 45, 52, 57, 61 })
+        {
+            float f = NoteHz(m);
+            Osc(chord, 0.1f, 1.2f, t => f * (1f + 0.004f * MathF.Sin(t * 40f)), t => 0.25f * MathF.Pow(MathF.Min(1f, t * 3.5f), 2f) * MathF.Exp(-MathF.Max(0f, t - 0.35f) * 3f), 2);
+            Osc(chord, 0.1f, 1.2f, Const(f * 1.006f), t => 0.2f * MathF.Pow(MathF.Min(1f, t * 3.5f), 2f) * MathF.Exp(-MathF.Max(0f, t - 0.35f) * 3f), 2);
+        }
+        LowPass(chord, 0.14f);
+        for (int k = 0; k < b.Length; k++) b[k] += chord[k];
+        for (int k = 0; k < 16; k++) { float fade = 1f - k / 18f; NoiseBurst(b, 0.45f + k * 0.045f + 0.02f * MathF.Abs(Noise()), 0.01f, Const(0.9f), t => 0.3f * MathF.Exp(-t * 6f) * fade, true); }
+        Echo(b, 0.11f, 0.3f, 0.25f);
+        Add("levelup", b, 0.7f);
+
+        // an old wooden chest: the hinge creaking open, the lid knocking back against the wood, dust settling
         b = Buf(0.9f);
-        int[] arp = { 72, 76, 79, 84, 88 };
-        for (int k = 0; k < arp.Length; k++) { float f = NoteHz(arp[k]); Osc(b, k * 0.08f, 0.5f, Const(f), Decay(6), 1); Osc(b, k * 0.08f, 0.6f, Const(f * 2), Decay(8)); }
-        LowPass(b, 0.45f); Echo(b, 0.12f, 0.3f, 0.3f); Add("levelup", b, 0.55f);
-
-        b = Buf(0.8f);
-        NoiseBurst(b, 0, 0.15f, Const(0.15f), Decay(8));
-        for (int k = 0; k < 7; k++) { float f = NoteHz(79 + k * 3); Osc(b, 0.1f + k * 0.05f, 0.35f, Const(f), Decay(9)); }
-        Echo(b, 0.09f, 0.35f, 0.35f); Add("chest", b, 0.55f);
+        Creak(b, 0.0f, 0.42f, 300f, 55f, 0.55f, 5);
+        Creak(b, 0.05f, 0.36f, 520f, 40f, 0.3f, 9);
+        BandNoise(b, 0, 0.4f, t => 900f + 500f * t, Const(3f), t => 0.12f * MathF.Sin(t * MathF.PI));
+        Modes(b, 0.46f, 130f, WoodModes, 1f, 0.9f);
+        Osc(b, 0.46f, 0.15f, ExpSweep(110, 50), Decay(14));
+        NoiseBurst(b, 0.46f, 0.02f, Const(0.5f), Decay(30));
+        Modes(b, 0.53f, 190f, WoodModes, 1.3f, 0.3f);
+        for (int k = 0; k < 4; k++) NoiseBurst(b, 0.6f + k * 0.05f, 0.01f, Const(0.9f), Decay(12), true);
+        LowPass(b, 0.6f);
+        Add("chest", b, 0.7f);
 
         b = Buf(0.12f); Osc(b, 0, 0.06f, ExpSweep(4200, 2800), Decay(8)); Osc(b, 0.06f, 0.05f, ExpSweep(4600, 3000), Decay(8)); Add("bat", b, 0.25f);
 
@@ -204,12 +325,22 @@ public partial class SoundBank : Node
         NoiseBurst(b, 0, 1.4f, Const(0.08f), AD(0.1f, 2.5f));
         LowPass(b, 0.2f); Add("roar", b, 0.9f);
 
-        b = Buf(1.2f);
-        for (int k = 0; k < 10; k++) Osc(b, k * 0.07f, 0.5f, Const(NoteHz(60 + k * 2)), Decay(5), 3);
-        Echo(b, 0.15f, 0.4f, 0.4f); Add("portal", b, 0.6f);
+        // a rift: a rising rush of air over a wavering low drone, then it closes with a soft thud
+        b = Buf(1.3f);
+        BandNoise(b, 0, 1.2f, t => 250f + 2200f * MathF.Sin(t * MathF.PI * 0.9f), Const(2f), t => 0.9f * MathF.Sin(t * MathF.PI));
+        Osc(b, 0, 1.2f, t => 70f + 25f * MathF.Sin(t * 22f) + 40f * t, t => 0.6f * MathF.Sin(t * MathF.PI), 2);
+        Osc(b, 1.0f, 0.25f, ExpSweep(90, 40), Decay(12));
+        LowPass(b, 0.3f);
+        Add("portal", b, 0.6f);
 
-        b = Buf(0.05f); Osc(b, 0, 0.05f, Const(880), Decay(8), 1); LowPass(b, 0.3f); Add("ui", b, 0.3f);
-        b = Buf(0.3f); Osc(b, 0, 0.3f, ExpSweep(500, 900), AD(0.1f, 5f)); Osc(b, 0.05f, 0.25f, ExpSweep(700, 1200), AD(0.1f, 6f)); Add("heal", b, 0.4f);
+        b = Buf(0.06f); Modes(b, 0, 760f, WoodModes, 1.5f, 0.6f); NoiseBurst(b, 0, 0.006f, Const(0.5f), Decay(30), true); Add("ui", b, 0.35f);
+        // a soft rush of restoring air with a few motes of light, nothing sung
+        b = Buf(0.4f);
+        BandNoise(b, 0, 0.4f, t => 900f + 2600f * t, Const(2.5f), t => 0.7f * MathF.Sin(MathF.Min(1f, t * 1.2f) * MathF.PI));
+        Osc(b, 0, 0.4f, ExpSweep(170, 260), t => 0.25f * MathF.Sin(t * MathF.PI), 3);
+        for (int k = 0; k < 6; k++) { float f = 2400f + 1800f * MathF.Abs(Noise()); Modes(b, 0.05f + k * 0.045f, f, GlassModes, 5f, 0.05f); }
+        LowPass(b, 0.55f);
+        Add("heal", b, 0.4f);
         b = Buf(0.4f); NoiseBurst(b, 0, 0.4f, t => 0.1f + 0.2f * t, AD(0.4f, 3f)); Osc(b, 0, 0.4f, ExpSweep(200, 500), AD(0.5f, 4f), 3); Add("gasp", b, 0.4f);
         b = Buf(0.9f); Osc(b, 0, 0.9f, ExpSweep(400, 60), AD(0.02f, 2f), 2); NoiseBurst(b, 0, 0.9f, Const(0.1f), Decay(3)); LowPass(b, 0.3f); Add("player_die", b, 0.8f);
         b = Buf(0.3f); Osc(b, 0, 0.3f, ExpSweep(600, 200), Decay(4), 3); NoiseBurst(b, 0, 0.3f, Const(0.3f), Decay(6)); Add("web", b, 0.35f);

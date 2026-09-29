@@ -57,6 +57,77 @@ public static class Synth
     public static Func<float, float> Sweep(float a, float b) => t => a + (b - a) * t;
     public static Func<float, float> ExpSweep(float a, float b) => t => a * MathF.Pow(b / a, t);
 
+
+    /// <summary>Noise through a resonant band-pass (two-pole), the centre frequency following an envelope: whooshes, splashes, scrapes.</summary>
+    public static void BandNoise(float[] buf, float start, float dur, Func<float, float> hz, Func<float, float> q, Func<float, float> amp)
+    {
+        int s0 = (int)(start * Rate), n = (int)(dur * Rate);
+        float lo = 0, bp = 0;
+        for (int k = 0; k < n && s0 + k < buf.Length; k++)
+        {
+            float t = k / (float)n;
+            float f = 2f * MathF.Sin(MathF.PI * Math.Clamp(hz(t), 20f, Rate * 0.18f) / Rate);
+            float damp = 1f / Math.Max(0.5f, q(t));
+            lo += f * bp;
+            float hi = Noise() - lo - damp * bp;
+            bp += f * hi;
+            float a = amp(t);
+            if (float.IsNaN(a)) a = 0f; // (an envelope's pow of a hair below zero at its end)
+            if (s0 + k >= 0) buf[s0 + k] += bp * a * MathF.Sqrt(damp);
+        }
+    }
+
+    /// <summary>A struck object: a bank of decaying inharmonic partials (ratio, gain, decay-per-second) on a fundamental.</summary>
+    public static void Modes(float[] buf, float start, float fund, float[][] modes, float decayScale = 1f, float gain = 1f)
+    {
+        foreach (var m in modes)
+        {
+            float f = fund * m[0], g = gain * m[1], d = m[2] / decayScale;
+            if (f > Rate * 0.45f) continue;
+            int s0 = (int)(start * Rate), n = (int)(Math.Min(6f / d, 1.5f) * Rate);
+            double ph = 0;
+            for (int k = 0; k < n && s0 + k < buf.Length; k++)
+            {
+                ph += f / Rate;
+                buf[s0 + k] += MathF.Sin((float)(ph * Math.PI * 2)) * g * MathF.Exp(-k / (float)Rate * d);
+            }
+        }
+    }
+
+    public static readonly float[][] StoneModes = { new[] { 1f, 1f, 60f }, new[] { 1.53f, 0.7f, 75f }, new[] { 2.41f, 0.5f, 95f }, new[] { 3.87f, 0.35f, 130f } };
+    public static readonly float[][] WoodModes = { new[] { 1f, 1f, 38f }, new[] { 2.1f, 0.6f, 52f }, new[] { 3.4f, 0.4f, 75f }, new[] { 5.2f, 0.2f, 110f } };
+    public static readonly float[][] MetalModes = { new[] { 1f, 1f, 22f }, new[] { 2.76f, 0.7f, 30f }, new[] { 5.4f, 0.5f, 45f }, new[] { 8.93f, 0.3f, 70f }, new[] { 13.3f, 0.2f, 110f } };
+    public static readonly float[][] GlassModes = { new[] { 1f, 1f, 30f }, new[] { 2.32f, 0.6f, 40f }, new[] { 4.25f, 0.5f, 55f }, new[] { 6.63f, 0.3f, 80f } };
+
+    /// <summary>Wood under strain: a run of tiny stick-slip pulses, each a resonant click, the rate and pitch wandering. (a creak)</summary>
+    public static void Creak(float[] buf, float start, float dur, float pitch, float rate, float amp, int seed)
+    {
+        var r = new Random(seed);
+        float t = 0;
+        float f = pitch;
+        while (t < dur)
+        {
+            f = Math.Clamp(f * (0.9f + 0.2f * (float)r.NextDouble()), pitch * 0.6f, pitch * 1.7f);
+            float u = t / dur;
+            float env = MathF.Sin(MathF.PI * u);
+            int s0 = (int)((start + t) * Rate), n = (int)(0.012f * Rate);
+            double ph = 0;
+            for (int k = 0; k < n && s0 + k < buf.Length; k++)
+            {
+                ph += f / Rate;
+                float sq = (float)(ph % 1) * 2f - 1f;
+                buf[s0 + k] += (sq * 0.6f + Noise() * 0.4f) * MathF.Exp(-k / (float)Rate * 320f) * env * amp;
+            }
+            t += 1f / (rate * (0.6f + 0.8f * (float)r.NextDouble()));
+        }
+    }
+
+    public static void HighPass(float[] buf, float coef)
+    {
+        float lp = 0;
+        for (int k = 0; k < buf.Length; k++) { lp += (buf[k] - lp) * coef; buf[k] -= lp; }
+    }
+
     public static void LowPass(float[] buf, float coef)
     {
         float lp = 0;

@@ -510,6 +510,7 @@ public partial class Hornet : Enemy
 /// <summary>Plods forward and slashes with a rusty blade. Sometimes, felled, it pulls itself back together.</summary>
 public partial class Skeleton : Walker
 {
+    public override string HitSound => "hit_wood"; // (dry bone)
     private int _s; // 0 walk, 1 windup, 2 recover, 3 collapsed
     public override void NetState(NetIO io) => io.Sync(ref _s);
     private float _st, _cd = 0.6f;

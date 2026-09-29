@@ -46,6 +46,16 @@ public abstract partial class Enemy : CharacterBody2D
 {
     /// <summary>What it is made of (weaknesses and resistances).</summary>
     public virtual Element Element => Element.None;
+
+    /// <summary>What a blow on it sounds like: stone chinks, wood crackles, ice cracks, and so on.</summary>
+    public virtual string HitSound => Element switch
+    {
+        Element.Armored or Element.Earth => "hit_stone",
+        Element.Nature => "hit_wood",
+        Element.Frost => "hit_ice",
+        Element.Fire => "hit_fire",
+        _ => "hit",
+    };
     private float _affinity = 1f;
 
     public const float Grav = 1200f;
@@ -678,7 +688,7 @@ public abstract partial class Enemy : CharacterBody2D
         G.Fx.Text(hitPos + new Vector2(0, -10), Mathf.RoundToInt(dmg).ToString() + (weak ? "!" : ""),
             weak ? new Color(1f, 0.5f, 0.2f) : resist ? new Color(0.65f, 0.68f, 0.72f) : big ? new Color(1f, 0.85f, 0.3f) : Colors.White, weak ? 14 : resist ? 9 : big ? 13 : 11);
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);
-        G.Sfx.Play("hit", GlobalPosition, 0, 0.12f);
+        G.Sfx.Play(HitSound, GlobalPosition, 0, 0.12f);
         OnHurt();
         if (Hp <= 0) Die();
         return dmg;

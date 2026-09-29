@@ -156,6 +156,7 @@ public partial class Fish : Enemy
 /// <summary>Stationary spiny urchin on the sea floor; periodically bristles its spikes outward.</summary>
 public partial class Urchin : Enemy
 {
+    public override string HitSound => "hit_stone";
     private float _cycle;
     private bool _hitThisPulse;
 

@@ -750,6 +750,15 @@ the fire's crackle; ambient exploration; and the boss) are synthesized at startu
 textures in `Assets/` (public domain, from Poly Haven; see `Assets/CREDITS.md`). Every 3D model
 is built by code when the game runs.
 
+The effects are built from noise and struck-object models rather than notes (`Audio/Synth.cs`:
+`BandNoise` for whooshes and splashes, `Modes` for stone, wood, metal and glass being hit, `Creak`
+for stressed wood), so nothing rings like a chime. What a blow on an enemy sounds like depends on
+what it is made of (`Enemy.HitSound`): a stone or armoured one *chinks*, wood, bone and roots give a
+crackling thud, ice cracks, fire hisses and spits, water slaps, and flesh thumps. Chests creak and
+knock, the hero plunges in (`splash_in`) and climbs out more gently (`splash_out`), a level-up is a
+gathering swell and a deep impact, and swords whoosh. `--sfxdump=DIR` writes every effect as a
+.wav for a listen.
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

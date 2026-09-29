@@ -176,7 +176,10 @@ public partial class Main : Node
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--upgradetest")) { RunUpgradeTest(); return; }
         foreach (var arg in OS.GetCmdlineUserArgs())
+        {
+            if (arg.StartsWith("--sfxdump=")) { _sfx.DumpSfx(arg[10..]); SafeQuit.Request(this); return; }
             if (arg.StartsWith("--musicdump=")) { _sfx.DumpMusic(arg[12..]); SafeQuit.Request(this); return; }
+        }
         if (_campShot != "") { ShowCampScene(true); return; }
         if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }
@@ -2584,6 +2587,7 @@ public partial class Main : Node
                 _heroInput = new PlayerInput { Move = new Vector2(-_dir, 0), Jump = true, JumpHeld = true };
                 break;
             case 67: _heroInput = new PlayerInput { Move = new Vector2(-_dir, 0) }; break;
+            case 68: _posMark = p.GlobalPosition; break; // (planted by now; the golem's shove as it was set down doesn't count)
             case 73:
             {
                 float dealt = _hpMark - _probeEnemy.Hp;
