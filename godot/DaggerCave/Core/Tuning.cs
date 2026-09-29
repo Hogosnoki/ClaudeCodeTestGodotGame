@@ -355,6 +355,8 @@ public static class Tune
         public static float TreasureRoomChestChance = 0.8f;
         /// <summary>Extra chests scattered on the flooded floor and high in the dry caves.</summary>
         public static int WaterCaches = 6, HighCaches = 4;
+        /// <summary>Open cells the Magma Caverns' lava lake fills, at least (while no room floor is drowned).</summary>
+        public static int LavaLakeCells = 260;
         /// <summary>Chest odds by location: movement upgrades are this many times likelier in
         /// underwater chests, survival upgrades in chests above HighZoneFraction of the water line's
         /// height (0.5 = the upper half of the dry caves).</summary>

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using ProcGen.Engine.Noise;
 
@@ -491,8 +492,34 @@ public static partial class CaveGenerator
             int lowest = 0;
             for (int j = 0; j < H; j++) for (int i = 0; i < W; i++) if (cave.CellOpen(i, j)) lowest = Math.Max(lowest, j);
             float row = lowest - 3.5f;
+            // a biome with chests down in the lava lets it rise into a proper lake (for Magma
+            // Skin to swim in), though never over a room's floor or where the hero starts
+            float ceiling = cave.StartPos.Y / CaveData.Cell + 2;
+            foreach (var r in cave.Rooms) ceiling = Math.Max(ceiling, r.Floor.Y / CaveData.Cell + 1);
+            if (B.LavaCaches > 0)
+                for (int k = 0; k < 12 && row - 1 > ceiling && LavaCells(cave, row) < Tune.Drops.LavaLakeCells; k++) row -= 1;
             if (cave.Boss != null) row = Math.Max(row, cave.Boss.Floor.Y / CaveData.Cell + 2);
             cave.WaterY = row * CaveData.Cell;
+            // still too little lake (the guardian's chamber lies lowest): lava wells, shafts sunk
+            // from low tunnel floors down past the lava's surface, each with room for a chest
+            if (B.LavaCaches > 0)
+            {
+                var wells = new List<int>();
+                for (int tries = 0; tries < 600 && wells.Count < B.LavaCaches && LavaCells(cave, row) < Tune.Drops.LavaLakeCells; tries++)
+                {
+                    int i = rng.Next(10, W - 10);
+                    if (wells.Any(w => Math.Abs(w - i) < 28) || Math.Abs(i - cave.StartPos.X / CaveData.Cell) < 30) continue;
+                    if (cave.Boss != null && Math.Abs(i - cave.Boss.Floor.X / CaveData.Cell) < cave.Boss.RxPx / CaveData.Cell + 10) continue;
+                    if (cave.Rooms.Any(r => Math.Abs(i - r.Floor.X / CaveData.Cell) < r.RxPx / CaveData.Cell + 4 && Math.Abs(row - r.Floor.Y / CaveData.Cell) < 20)) continue;
+                    // the lowest floor in this column with headroom, not far above the lava
+                    int f = -1;
+                    for (int j = (int)row - 1; j > row - 18 && j > 4; j--)
+                        if (cave.CellOpen(i, j) && cave.CellOpen(i, j - 1) && cave.CellOpen(i, j - 2) && !cave.CellOpen(i, j + 1)) { f = j; break; }
+                    if (f < 0 || row + 6 > H - 4) continue;
+                    for (float y = f; y <= row + 5; y += 0.8f) Carve(i, y, 2.4f);
+                    wells.Add(i);
+                }
+            }
         }
         AddPlatforms(cave, rng);
 
@@ -706,6 +733,14 @@ public static partial class CaveGenerator
             }
         }
         return dist;
+    }
+
+    /// <summary>Open cells below a liquid surface at <paramref name="row"/>.</summary>
+    private static int LavaCells(CaveData cave, float row)
+    {
+        int n = 0;
+        for (int j = (int)Math.Ceiling(row); j < cave.H; j++) for (int i = 0; i < cave.W; i++) if (j + 0.5f > row && cave.CellOpen(i, j)) n++;
+        return n;
     }
 
     /// <summary>

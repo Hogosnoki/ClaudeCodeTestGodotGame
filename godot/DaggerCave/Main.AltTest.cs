@@ -1,0 +1,381 @@
+using System;
+using System.Linq;
+using Godot;
+
+namespace DaggerCave;
+
+public partial class Main
+{
+    /// <summary>--alttest (with --hero=...): the herotest's stage, checking the hero's alterations instead.</summary>
+    private bool _altTest;
+    private int _altSwings, _altCharged;
+    private float _altMark;
+
+    /// <summary>Takes a card as if picked (an alteration swapped for another first drops the old one).</summary>
+    private static void Take(Player p, string id, string drop = null)
+    {
+        if (drop != null)
+        {
+            p.Stats.Stacks.Remove(drop);
+            switch (drop)
+            {
+                case "hex_burst": p.Stats.BlightBurst = false; break;
+            }
+        }
+        Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
+    }
+
+    private Enemy AltDummy(Player p, Enemy e, float dx, float dy = -6)
+    {
+        e.Position = p.GlobalPosition + new Vector2(_dir * dx, dy);
+        e.SetMeta("test", true);
+        _world.AddChild(e);
+        return e;
+    }
+
+    private void AltStep(int s, Player p)
+    {
+        switch (p.Stats.Hero)
+        {
+            case HeroKind.Warden: AltWarden(s, p); break;
+            case HeroKind.Vitalist: AltVitalist(s, p); break;
+            default: AltSwordsman(s, p); break;
+        }
+    }
+
+    // ---------------------------------------------------------------- Swordsman
+
+    private void AltSwordsman(int s, Player p)
+    {
+        // Relentless Charge: every strike of the next combo carries the charge (at 80%)
+        if (s > 12 && s < 40 && p.AttacksStarted > _altSwings)
+        {
+            _altSwings = p.AttacksStarted;
+            if (p.SwingCharged) _altCharged++;
+        }
+        switch (s)
+        {
+            case 5:
+                p.Stats.MaxHp = 500; p.Hp = 500;
+                Take(p, "charge_combo");
+                _probeEnemy = AltDummy(p, new Golem(), 34);
+                _probeEnemy.MaxHp = _probeEnemy.Hp = 5000;
+                _probeEnemy.Freeze(8f, hold: true);
+                break;
+            case 10:
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            case 11:
+                _altSwings = p.AttacksStarted;
+                _altCharged = 0;
+                _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 40:
+                _heroInput = default;
+                Check($"Relentless Charge: the whole combo is charged ({_altCharged} charged strikes, want {p.Stats.ComboResets + 1})", _altCharged >= p.Stats.ComboResets + 1);
+                break;
+            case 56:
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 57:
+                Check($"and the next combo isn't (swinging {p.IsSwinging}, charged {p.SwingCharged})", p.IsSwinging && !p.SwingCharged);
+                _heroInput = default;
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                break;
+
+            // ---- Swift Heave: with a charge waiting, the heave is instant and works in the air
+            case 62:
+                Take(p, "heave_swift");
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            case 66:
+                _heroInput = new PlayerInput { Jump = true, JumpHeld = true };
+                break;
+            case 69:
+                _heroInput = new PlayerInput { Ability2 = true, JumpHeld = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 70:
+                Check($"Swift Heave: a heave in the air, at once (airborne {!p.IsOnFloor()}, swift {p.SwiftHeaving})", !p.IsOnFloor() && p.SwiftHeaving);
+                Check($"it spends the charge on speed, not force (charged {p.Charged}, swing charged {p.SwingCharged})", p.Charged == 0 && !p.SwingCharged);
+                _heroInput = default;
+                break;
+            case 80:
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 81:
+                Check($"without a charge it's the usual rooted heave (heaving {p.Heaving}, swift {p.SwiftHeaving})", p.Heaving && !p.SwiftHeaving);
+                _heroInput = default;
+                break;
+
+            // ---- Counter Roll: a melee blow met mid-roll is stopped and answered
+            case 100:
+            {
+                Take(p, "dodge_counter");
+                p.ResetAbilityCooldowns();
+                _probeEnemy = AltDummy(p, new Goblin(), 26, -4);
+                _probeEnemy.Freeze(8f, hold: true);
+                _heroInput = new PlayerInput { Dodge = true, Move = new Vector2(_dir, 0) };
+                break;
+            }
+            case 101:
+            {
+                _heroInput = default;
+                _hpMark = p.Hp;
+                _altMark = _probeEnemy.Hp;
+                int before = p.Counters;
+                bool dodging = p.IsDodging;
+                float took = p.Hurt(8, _probeEnemy.GlobalPosition, 230, _probeEnemy);
+                Check($"Counter Roll: a club met mid-roll does nothing (rolling {dodging}, took {took:0.0}, hp {_hpMark:0} -> {p.Hp:0})", dodging && took == 0 && p.Hp == _hpMark);
+                Check($"the roll ends in a counter swing (counters {before} -> {p.Counters}, rolling {p.IsDodging}, swinging {p.IsSwinging})", p.Counters == before + 1 && !p.IsDodging && p.IsSwinging);
+                break;
+            }
+            case 106:
+                Check($"and the counter lands (goblin hp {_altMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0})", !IsInstanceValid(_probeEnemy) || _probeEnemy.Hp < _altMark);
+                break;
+            case 112:
+            {
+                // a shot from afar isn't a melee blow: no counter
+                var shooter = AltDummy(p, new Goblin { Slinger = true }, 200, -4);
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Dodge = true, Move = new Vector2(-_dir, 0) };
+                _probe2 = shooter;
+                break;
+            }
+            case 113:
+            {
+                _heroInput = default;
+                int before = p.Counters;
+                p.Hurt(4, _probe2.GlobalPosition, 230, _probe2);
+                Check($"a blow from 200 px away isn't countered (counters {before} -> {p.Counters})", p.Counters == before);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                if (IsInstanceValid(_probe2)) _probe2.QueueFree();
+                Finish();
+                break;
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------- Warden
+
+    private void AltWarden(int s, Player p)
+    {
+        switch (s)
+        {
+            // ---- Unyielding Shield: stops 70% of each blow and never weakens or breaks
+            case 5:
+                p.Stats.MaxHp = 500; p.Hp = 500;
+                Take(p, "shield_unyielding");
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) };
+                break;
+            case 10:
+                _hpMark = p.Hp; _shieldMark = p.ShieldHp;
+                _probe = Shoot(new Vector2(_dir * 120, -4));
+                break;
+            case 18:
+            {
+                float through = 6f * (1f - p.Stats.UnyieldingShare) * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult;
+                Check($"Unyielding Shield: stops {p.Stats.UnyieldingShare:P0} of a shot (hp {_hpMark:0.00} -> {p.Hp:0.00}, want -{through:0.00})", Math.Abs(_hpMark - p.Hp - through) < 0.1f);
+                Check($"and doesn't weaken (shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", p.ShieldHp >= _shieldMark - 0.01f);
+                break;
+            }
+            case 20: case 22: case 24: case 26: case 28: case 30: case 32: case 34:
+                p.Hurt(30, p.GlobalPosition + new Vector2(_dir * 30, -4));
+                break;
+            case 36:
+                Check($"eight heavy blows later it still stands (broken {p.ShieldBroken}, shield {p.ShieldHp:0}, raised {p.ShieldRaised})", !p.ShieldBroken && p.ShieldRaised);
+                Take(p, "unyielding_more");
+                _hpMark = p.Hp;
+                p.Hurt(10, p.GlobalPosition + new Vector2(_dir * 30, -4));
+                break;
+            case 42:
+            {
+                float through = 10f * (1f - Tune.Warden.UnyieldingShare - 0.05f) * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult;
+                Check($"Braced: it stops 5% more (hp {_hpMark:0.00} -> {p.Hp:0.00}, want -{through:0.00})", Math.Abs(_hpMark - p.Hp - through) < 0.1f);
+                _heroInput = default;
+                break;
+            }
+
+            // ---- Guardian's Charge: alone, the barrier wraps you
+            case 50:
+                Take(p, "dash_guardian");
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 51:
+                _heroInput = default;
+                Check($"Guardian's Charge: alone, you're wrapped in a barrier of {Tune.Warden.BarrierAmount:0} (barrier {p.BarrierHp:0}, given {p.GuardedBy})", Math.Abs(p.BarrierHp - Tune.Warden.BarrierAmount) < 0.01f && p.GuardedBy == 1);
+                break;
+            case 56:
+                _hpMark = p.Hp;
+                p.Hurt(8, p.GlobalPosition + new Vector2(-_dir * 30, -4));
+                float soaked = 8 * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult;
+                Check($"it soaks a blow whole (hp {_hpMark:0} -> {p.Hp:0}, barrier {p.BarrierHp:0.0}, want {Tune.Warden.BarrierAmount - soaked:0.0})", p.Hp == _hpMark && Math.Abs(p.BarrierHp - (Tune.Warden.BarrierAmount - soaked)) < 0.05f);
+                break;
+            case 58:
+            {
+                _hpMark = p.Hp;
+                float left = p.BarrierHp;
+                p.Hurt(20, p.GlobalPosition + new Vector2(-_dir * 30, -4));
+                float through = (20 * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult) - left;
+                Check($"and what's left of a bigger one (hp {_hpMark:0.0} -> {p.Hp:0.0}, want -{through:0.0}; barrier {p.BarrierHp:0})", Math.Abs(_hpMark - p.Hp - through) < 0.2f && p.BarrierHp == 0);
+                break;
+            }
+            case 62:
+                p.ResetAbilityCooldowns();
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 63: _heroInput = default; break;
+            case 62 + 23:
+                Check($"the barrier is gone after {Tune.Warden.BarrierSeconds:0} s (barrier {p.BarrierHp:0})", p.BarrierHp == 0);
+                break;
+
+            // ---- Deflecting Bash: no stun, but the shots in front go back where they came from
+            case 90:
+                Take(p, "bash_deflect");
+                p.ResetAbilityCooldowns();
+                // (not frozen: a frozen creature's stun would never wear off)
+                _probeEnemy = AltDummy(p, new Goblin(), 24, -4);
+                _probe = Shoot(new Vector2(_dir * 110, -8));
+                break;
+            case 92:
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 93: _heroInput = default; break;
+            case 97:
+                Check($"Deflecting Bash: the shot goes back (sent back {p.Deflected}, reflected {IsInstanceValid(_probe) && _probe.Reflected})", p.Deflected >= 1 && (!IsInstanceValid(_probe) || _probe.Reflected));
+                Check($"and the goblin it hit isn't stunned (hp {_hpMark:0} -> {_probeEnemy.Hp:0}, reeling {_probeEnemy.Reeling})", _probeEnemy.Hp < _hpMark && !_probeEnemy.Reeling);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                Finish();
+                break;
+        }
+    }
+
+    // ---------------------------------------------------------------- Vitalist
+
+    private void AltVitalist(int s, Player p)
+    {
+        switch (s)
+        {
+            // ---- Blight Burst: the hex strikes as it spreads
+            case 5:
+                p.Stats.MaxHp = 500; p.Hp = 500;
+                Take(p, "hex_burst");
+                _probeEnemy = AltDummy(p, new Golem(), 30);
+                _probeEnemy.Freeze(8f, hold: true);
+                break;
+            case 8:
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { Dodge = true };
+                break;
+            case 9:
+            {
+                _heroInput = default;
+                float dealt = _hpMark - _probeEnemy.Hp, want = Tune.Vitalist.BlightDamage * p.Stats.DamageMult;
+                Check($"Blight Burst: the hex deals {want:0} as it spreads (hp {_hpMark:0} -> {_probeEnemy.Hp:0})", dealt >= want - 0.5f && _probeEnemy.Hexed);
+                break;
+            }
+
+            // ---- Endless Hex: no cooldown, 10 alimus a cast
+            case 12:
+                Take(p, "hex_endless", drop: "hex_burst");
+                p.ResetAbilityCooldowns();
+                p.SetAlimus(25);
+                _heroInput = new PlayerInput { Dodge = true };
+                break;
+            case 13: _heroInput = default; break;
+            case 18: _heroInput = new PlayerInput { Dodge = true }; break;
+            case 19:
+                _heroInput = default;
+                Check($"Endless Hex: two hexes half a second apart, 10 alimus each (25 -> {p.Alimus:0})", Math.Abs(p.Alimus - 5) < 0.01f);
+                break;
+            case 24: _heroInput = new PlayerInput { Dodge = true }; break;
+            case 25:
+                _heroInput = default;
+                Check($"a third, without the alimus, is refused ({p.Alimus:0} left)", Math.Abs(p.Alimus - 5) < 0.01f);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                break;
+
+            // ---- Slow Mending: half now, half over 6 s
+            case 30:
+                Take(p, "heal_slow");
+                p.ResetAbilityCooldowns();
+                p.Hp = 100;
+                p.SetAlimus(40);
+                _hpMark = p.Hp;
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            case 31:
+            {
+                _heroInput = default;
+                float half = Tune.Vitalist.HealAmount * p.Stats.HealMult * 0.5f;
+                Check($"Slow Mending: half the heal at once (hp {_hpMark:0.0} -> {p.Hp:0.0}, want +{half:0.0}), mending {p.Mended}", p.Hp - _hpMark > half - 0.5f && p.Hp - _hpMark < half + 1.5f && p.Mended);
+                break;
+            }
+            case 31 + 62:
+            {
+                float all = Tune.Vitalist.HealAmount * p.Stats.HealMult;
+                Check($"and the rest over {Tune.Vitalist.MendSeconds:0} s (hp {_hpMark:0.0} -> {p.Hp:0.0}, want +{all:0.0}), still mending {p.Mended}", Math.Abs(p.Hp - _hpMark - all) < 0.6f && !p.Mended);
+                break;
+            }
+            case 95:
+                Take(p, "heal_warding");
+                p.ResetAbilityCooldowns();
+                p.Hp = 100;
+                p.SetAlimus(40);
+                _heroInput = new PlayerInput { Ability = true };
+                break;
+            case 96:
+            {
+                _heroInput = default;
+                _hpMark = p.Hp;
+                p.Hurt(20, p.GlobalPosition + new Vector2(_dir * 30, -4));
+                float want = 20 * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult * (1f - Tune.Vitalist.WardingShare);
+                // (the mending ticks in the same frame: a hair of healing)
+                Check($"Warding Mending: 20% less damage while mending (hp {_hpMark:0.0} -> {p.Hp:0.0}, want -{want:0.0})", Math.Abs(_hpMark - p.Hp - want) < 0.5f);
+                break;
+            }
+
+            // ---- Lifebloom: alone, the rupture blooms on you
+            case 160:
+                Take(p, "rupture_bloom");
+                p.ResetAbilityCooldowns();
+                p.Hp = 100;
+                p.SetAlimus(40);
+                _hpMark = p.Hp;
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 161: _heroInput = default; break;
+            case 161 + 8:
+            {
+                float want = Tune.Vitalist.BloomHeal * p.Stats.HealMult;
+                Check($"Lifebloom: alone, it blooms on you and heals {want:0} (hp {_hpMark:0} -> {p.Hp:0}, blooms {p.Blooms})", p.Blooms == 1 && p.Hp - _hpMark > want - 0.5f && p.Hp - _hpMark < want + 1.5f);
+                break;
+            }
+            case 175:
+                Take(p, "bloom_pool");
+                p.ResetAbilityCooldowns();
+                p.Hp = 100;
+                p.SetAlimus(40);
+                _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 176: _heroInput = default; break;
+            case 176 + 8:
+                Check($"Healing Pool: the bloom leaves a pool ({_world.GetChildren().OfType<HealingPool>().Count()})", _world.GetChildren().OfType<HealingPool>().Any());
+                _hpMark = p.Hp;
+                break;
+            case 176 + 28:
+            {
+                float want = Tune.Vitalist.PoolRate * p.Stats.HealMult * 2f;
+                Check($"that heals you {Tune.Vitalist.PoolRate:0} a second as you stand in it (hp {_hpMark:0.0} -> {p.Hp:0.0} in 2 s, want +{want:0.0})", Math.Abs(p.Hp - _hpMark - want) < 1f);
+                break;
+            }
+            case 176 + 60:
+                Check($"and fades after {Tune.Vitalist.PoolSeconds:0} s ({_world.GetChildren().OfType<HealingPool>().Count()} left)", !_world.GetChildren().OfType<HealingPool>().Any());
+                Finish();
+                break;
+        }
+    }
+}

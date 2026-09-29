@@ -65,7 +65,7 @@ public partial class BuildPanel : Control
         var s = p.Stats;
         var vs = Size;
         var font = ThemeDB.FallbackFont;
-        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.02f, 0.02f, 0.03f, 0.9f));
+        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.02f, 0.02f, 0.03f, 0.97f));
         string title = $"YOUR BUILD  ·  {s.Hero.ToString().ToUpperInvariant()}  ·  LEVEL {p.Level}";
         DrawString(font, new Vector2(0, 54), title, HorizontalAlignment.Center, vs.X, 26, new Color(1f, 0.88f, 0.5f));
         string hint = G.Main.UsingPad ? "BACK or B to close" : "TAB or ESC to close";
@@ -89,10 +89,13 @@ public partial class BuildPanel : Control
             var alterations = Upgrades.Chest.Where(u => u.Ability == key && u.Alteration && HasFor(u, s.Hero)).ToList();
             var grown = Upgrades.Chest.Where(u => u.Ability == key && !u.Alteration && HasFor(u, s.Hero) && !alterations.Any(a => a.Id == u.Requires)).ToList();
             foreach (var u in grown) y = Line(font, x, y, colW, u, s, 0);
-            // the alteration branch
-            y += 8;
-            DrawString(font, new Vector2(x, y), "ALTERATION", HorizontalAlignment.Left, colW, 11, new Color(alt, 0.8f));
-            y += 16;
+            // the alteration branch (the primary attack has none)
+            if (alterations.Count > 0)
+            {
+                y += 8;
+                DrawString(font, new Vector2(x, y), "ALTERATION", HorizontalAlignment.Left, colW, 11, new Color(alt, 0.8f));
+                y += 16;
+            }
             var taken = Upgrades.AlterationOf(s, key);
             foreach (var a in alterations)
             {
@@ -122,12 +125,14 @@ public partial class BuildPanel : Control
 
     private static bool HasFor(Upgrade u, HeroKind h) => u.For != null && Array.IndexOf(u.For, h) >= 0;
 
-    /// <summary>One upgrade in a tree: bright if taken (with its ranks), dim if not.</summary>
+    /// <summary>One upgrade in a tree: bright if taken (with its ranks), dim if not, fainter still if ruled out.</summary>
     private float Line(Font font, float x, float y, float w, Upgrade u, PlayerStats s, float indent, bool dim = false)
     {
         int n = s.StackOf(u.Id);
-        var col = n > 0 ? new Color(0.95f, 0.95f, 1f) : new Color(1, 1, 1, dim ? 0.2f : 0.36f);
-        string ranks = u.MaxStacks > 1 ? $"  {n}/{u.MaxStacks}" : n > 0 ? "  ✓" : "";
+        // (one a card you have rules out: faint, and crossed)
+        bool barred = n == 0 && u.Excludes.Any(x => s.StackOf(x) > 0);
+        var col = n > 0 ? new Color(0.95f, 0.95f, 1f) : new Color(1, 1, 1, dim || barred ? 0.16f : 0.36f);
+        string ranks = barred ? "  ×" : u.MaxStacks > 1 ? $"  {n}/{u.MaxStacks}" : n > 0 ? "  ✓" : "";
         DrawString(font, new Vector2(x + 8 + indent, y), u.Name + ranks, HorizontalAlignment.Left, w - 8 - indent, 13, col);
         return y + 17;
     }

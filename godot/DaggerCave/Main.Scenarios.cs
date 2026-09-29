@@ -12,6 +12,8 @@ namespace DaggerCave;
 ///    attack there (the spider darts, the bear bites).
 ///  * fossilcam: in the Fossil Graveyards, the camera must start on the hero and keep it in view
 ///    as it walks one way, then the other.
+///  * magma: the Magma Caverns hide chests in the lava; lava throws a hero out, but with Magma
+///    Skin they swim in it (burned for 30%), swim up out of it, and open a chest down there.
 /// </summary>
 public partial class Main
 {
@@ -50,6 +52,7 @@ public partial class Main
         "fossilcam" => "fossils",
         "mouth" => "entrance",
         "drain" => "entrance",
+        "magma" => "magma",
         _ => null,
     };
 
@@ -64,7 +67,8 @@ public partial class Main
     private void ScenarioTick(float dt)
     {
         // (the cave mouth's scenario carries on after the run ends, at the title)
-        if (_scDone || (_state != State.Playing && _scenario != "mouth")) return;
+        // (the magma scenario opens a chest down in the lava and takes a card)
+        if (_scDone || (_state != State.Playing && _scenario != "mouth" && !(_scenario == "magma" && _upgradeMenu.Visible))) return;
         _scT += dt;
         switch (_scenario)
         {
@@ -72,6 +76,7 @@ public partial class Main
             case "fossilcam": CameraScenario(); break;
             case "mouth": MouthScenario(); break;
             case "drain": DrainScenario(); break;
+            case "magma": MagmaScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }
@@ -264,5 +269,97 @@ public partial class Main
         }
         ScCheck($"the hero was hurt in the water (hp {_scHp:0} -> {p.Hp:0})", p.Hp < _scHp);
         ScEnd();
+    }
+
+    // ---------------------------------------------------------------- lava and Magma Skin
+
+    private Chest _scChest;
+    private float _scY;
+
+    private void MagmaScenario()
+    {
+        var p = G.Player;
+        var cave = G.Cave;
+        float Burn() => Math.Min(p.Stats.MaxHp * 0.16f + 4, 30 * G.DepthDmg) * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult;
+        switch (_scStep)
+        {
+            case 0:
+            {
+                if (_scT < 0.4f) return;
+                int cells = 0;
+                for (int j = 0; j < cave.H; j++) for (int i = 0; i < cave.W; i++) if (cave.IsLava(new Vector2((i + 0.5f) * CaveData.Cell, (j + 0.5f) * CaveData.Cell))) cells++;
+                var sunk = _world.GetChildren().OfType<Chest>().Where(c => cave.IsLava(c.GlobalPosition + new Vector2(0, -10))).ToList();
+                // (where the guardian's chamber lies lowest the lava can only be a thin film under
+                // it: fewer chests fit then)
+                bool lake = cells >= Tune.Drops.LavaLakeCells;
+                ScCheck($"the lava ({cells} cells{(lake ? ", a lake" : ", a thin film")}) hides {(lake ? G.Biome.LavaCaches.ToString() : "some")} chests ({sunk.Count})",
+                    lake ? sunk.Count == G.Biome.LavaCaches : cells == 0 ? sunk.Count == 0 : sunk.Count > 0 && sunk.Count <= G.Biome.LavaCaches);
+                if (sunk.Count == 0) { GD.Print("[scenario] (no lava in this cave to swim in: try another --seed)"); ScEnd(); return; }
+                _scChest = sunk[0];
+                foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+                p.Stats.MaxHp = 800; p.Hp = 800;
+                // without the skin, lava burns and throws you out
+                p.GlobalPosition = _scChest.GlobalPosition + new Vector2(0, -14);
+                p.Velocity = Vector2.Zero;
+                _scHp = p.Hp;
+                _scStep = 1; _scT = 0;
+                break;
+            }
+            case 1:
+            {
+                if (_scT < 0.15f) return;
+                float took = _scHp - p.Hp;
+                ScCheck($"lava burns a hero without Magma Skin ({took:0.0}, want {Burn():0.0}) and throws them up (vy {p.Velocity.Y:0})", Math.Abs(took - Burn()) < 0.5f && p.Velocity.Y < 0);
+                ScShot("magma_0");
+                _scStep = 2; _scT = 0;
+                break;
+            }
+            case 2:
+            {
+                if (_scT < 1.2f) return;
+                foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+                Upgrades.Apply(Upgrades.Get("magma"), p.Stats, p);
+                p.Hp = 800;
+                p.GlobalPosition = _scChest.GlobalPosition + new Vector2(0, -14);
+                p.Velocity = Vector2.Zero;
+                _scHp = p.Hp;
+                _scStep = 3; _scT = 0;
+                break;
+            }
+            case 3:
+            {
+                foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+                if (_scT < 0.3f) return;
+                if (_scY == 0) ScCheck($"with Magma Skin the hero swims in lava (in it {p.InWater})", p.InWater);
+                _scY = 1;
+                if (_scT < 2.4f) return;
+                // (a tick every 0.7 s: three or four in the time)
+                float took = _scHp - p.Hp, tick = Burn() * Tune.Hero.MagmaSkinBurn;
+                ScCheck($"burned for {Tune.Hero.MagmaSkinBurn:P0} ({took:0.0} in 2.4 s, {tick:0.0} a tick), still in it ({p.InWater})", took > tick * 2.5f && took < tick * 4.5f && p.InWater);
+                ScShot("magma_1");
+                // open the chest down there
+                p.GlobalPosition = _scChest.GlobalPosition + new Vector2(0, -8);
+                _scInput = new PlayerInput { Interact = true };
+                _scStep = 4; _scT = 0;
+                break;
+            }
+            case 4:
+                _scInput = default;
+                // (the cards take a moment before they can be picked)
+                if (_scT < 0.5f) return;
+                ScCheck($"and opens a chest in the lava (cards up {_upgradeMenu.Visible})", _upgradeMenu.Visible);
+                ScShot("magma_2");
+                if (_upgradeMenu.Visible) _upgradeMenu.ChooseFirstOpen();
+                _scY = p.GlobalPosition.Y;
+                _scStep = 5; _scT = 0;
+                break;
+            case 5:
+                _scInput = new PlayerInput { Move = new Vector2(0, -1), Up = true, JumpHeld = true };
+                if (_scT < 0.8f) return;
+                ScCheck($"and swims up to its surface ({_scY:0} -> {p.GlobalPosition.Y:0}, the surface at {cave.WaterY:0})", p.GlobalPosition.Y < cave.WaterY + 10);
+                _scInput = default;
+                ScEnd();
+                break;
+        }
     }
 }

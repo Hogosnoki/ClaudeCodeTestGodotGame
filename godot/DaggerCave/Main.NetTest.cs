@@ -69,6 +69,7 @@ public partial class Main
     }
 
     private void NtNext() { _ntPhase++; _ntPhaseT = 0; }
+    private bool _ntSawBarrier;
 
     /// <summary>Where the test's exit leads (a Fossil Graveyard: big chambers, a camera to watch).</summary>
     private const int NtDepth = 5;
@@ -324,6 +325,10 @@ public partial class Main
                 {
                     NtCheck($"the friend's copy of the chest is spent too, and so is the host's ({ok}; spent here {chest?.Open}, state {_state})", chest != null && chest.Open && _state == State.Playing);
                     _ntSub = 0; _ntChest = null;
+                    // a barrier (Guardian's Charge) and a warding mending (Slow Mending) for the friend
+                    if (friend != null) { friend.GiveBarrier(20, 4); friend.GiveMending(12, 3, true); }
+                    _ntSawBarrier = false;
+                    NtSay("boons");
                     NtSay("fall");
                     NtNext();
                 }
@@ -332,8 +337,13 @@ public partial class Main
                 break;
             }
             case 8:
+                // the friend's game holds the boons; this one sees the barrier by their hero's flags
+                if (friend != null && friend.Barriered) _ntSawBarrier = true;
+                if (NtGot("boon-ok", out var boon)) NtCheck($"boons given here reach the friend's hero in their game ({boon})", true);
+                else if (NtGot("boon-bad", out boon)) NtCheck($"boons given here reach the friend's hero in their game ({boon})", false);
                 if (friend != null && friend.Dead && _ntPhaseT > 1f)
                 {
+                    NtCheck($"and their barrier shows here too (seen {_ntSawBarrier})", _ntSawBarrier);
                     NtCheck("the friend's hero fell, and shows here as down", true);
                     G.Player.GlobalPosition = friend.GlobalPosition + new Vector2(0, -4);
                     G.Player.Velocity = Vector2.Zero;
@@ -583,7 +593,15 @@ public partial class Main
                 break;
             }
             case 12:
-                if (NtGot("fall", out _)) { G.Player.GiveUp(); NtNext(); }
+                if (NtGot("boons", out _))
+                {
+                    var hero = G.Player;
+                    bool ok = hero.BarrierHp > 19.9f && hero.Mended;
+                    NtCheck($"the host's boons reached my hero (barrier {hero.BarrierHp:0}, mending {hero.Mended})", ok);
+                    NtSay($"{(ok ? "boon-ok" : "boon-bad")} barrier {hero.BarrierHp:0}, mending {hero.Mended}");
+                }
+                // (a beat for the barrier to show in the host's game before falling)
+                if (_ntPhaseT > 0.6f && NtGot("fall", out _)) { G.Player.GiveUp(); NtNext(); }
                 else if (_ntPhaseT > 30) NtFail("the host asks me to fall");
                 break;
             case 13:

@@ -69,3 +69,18 @@ E interact (chests, exits, reviving, the way out), Q potion.
 Controller: left stick move, A jump, X attack (hold it to keep attacking), RB ability,
 RT second ability, B or LB dodge / shield / hex, LT interact, Y potion. The right
 stick attacks where you push it (the Warden's raises the shield instead).
+
+
+UPGRADES
+--------
+Each card's colour and label tell you its kind:
+  * CLASS (gold): grows one of your hero's four abilities. Every chest holds one.
+  * ALTERATION (teal): changes how an ability works (one per ability). Only
+    milestones offer them, and each has upgrades of its own.
+  * GENERIC (pale blue), CONDITIONAL (green) and RISK - REWARD (violet): the other
+    two cards in a chest.
+Your stats grow by themselves at every level. To see your build (every ability's
+tree, and what you've taken), press TAB (BACK on a controller) while picking a
+card, or choose "Your build" in the pause menu.
+Deep down, Magma Skin lets you swim in lava: the Magma Caverns hide chests at the
+bottom of it.

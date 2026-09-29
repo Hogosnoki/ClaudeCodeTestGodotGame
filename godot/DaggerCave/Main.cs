@@ -182,6 +182,8 @@ public partial class Main : Node
         if (_nnTest) { RunNnTest(); return; }
         if (_netTest != "") { BeginNetTest(); return; }
 
+        // (the magma scenario wants a cave with a real lava lake unless told otherwise)
+        if (_seed == 0 && _scenario == "magma") _seed = 2;
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 0;
@@ -296,6 +298,7 @@ public partial class Main : Node
             else if (a == "--bestiary") _bestiary = true;
             else if (a == "--animtest") _animTest = true;
             else if (a == "--herotest") _heroTest = true;
+            else if (a == "--alttest") _heroTest = _altTest = true;
             else if (a == "--hitstoptest") _hitStopTest = true;
             else if (a == "--padtest") _padTest = true;
             else if (a == "--showcase") { _showcase = true; _autotest = true; }
@@ -328,7 +331,7 @@ public partial class Main : Node
     // and quit (look development for the 3D presentation)
     private string _lookShot = "";
     // --menushot=DIR: the pause menu and each settings tab, then a chest holding a friend's cards,
-    // saved as screenshots
+    // a milestone's cards and the build page, saved as screenshots
     private string _menuShot = "";
     private int _menuShotFrame;
 
@@ -351,8 +354,25 @@ public partial class Main : Node
                 chest.Look();
                 break;
             }
-            case 80: Shot("chest_cards"); break;
-            case 82: SafeQuit.Request(this); break;
+            case 80: Shot("chest_cards"); _upgradeMenu.ChooseLeave(); break;
+            case 84:
+            {
+                // a build under way, then a milestone's cards (an alteration among them) and the build page
+                var p = G.Player;
+                string[] cards = p.Stats.Hero switch
+                {
+                    HeroKind.Warden => new[] { "reach", "shield_wide", "aegis", "aegis", "shield_unyielding", "unyielding_more", "dash_cd", "hp", "speed", "rr_lungs" },
+                    HeroKind.Vitalist => new[] { "mouths", "hex_long", "heal_slow", "heal_warding", "wellspring", "rupture_cheap", "hp", "armor", "rr_glass" },
+                    _ => new[] { "combo", "reach", "charge_combo", "charge_combo_more", "windrunner", "windrunner", "iframes", "hp", "speed", "rr_heavy" },
+                };
+                foreach (var id in cards) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
+                p.PendingMilestones = 1;
+                TryOpenUpgradeMenu();
+                break;
+            }
+            case 98: Shot("milestone_cards"); _buildPanel.Open(); break;
+            case 104: Shot("build"); _buildPanel.Close(); break;
+            case 106: SafeQuit.Request(this); break;
         }
     }
     private int _lookFrames = 24, _lookFrame;
@@ -607,7 +627,8 @@ public partial class Main : Node
                 if (cave.IsSolid(at) || Sunk(at) != underwater) continue;
                 if (!cave.FindFloor(at, 300, out var floor) || Sunk(floor + new Vector2(0, -10)) != underwater) continue;
                 if (!underwater && floor.Y > yMax) continue;
-                if (!Reachable(floor) || placed.Any(q => q.DistanceTo(floor) < 350)) continue;
+                // (the lava lies low and narrow between the rooms: its chests may sit closer to them)
+                if (!Reachable(floor) || placed.Any(q => q.DistanceTo(floor) < (lava ? 96 : 350))) continue;
                 placed.Add(floor);
                 var chest = new Chest { Position = floor };
                 NetSync.LevelId(chest);
@@ -2036,7 +2057,7 @@ public partial class Main : Node
             // a slow frame just delays the steps a little rather than skipping any
             int step = ++_lastHeroStep;
             if (OS.GetCmdlineUserArgs().Contains("--herodebug")) GD.Print($"[herodebug] step {step} t={_heroT:0.00} dir {_dir} swing {p.IsSwinging} shield {p.ShieldRaised} guardIn {_heroInput.GuardHeld} atk {_heroInput.Attack} abl {_heroInput.Ability} state {_state} paused {GetTree().Paused} pos {p.GlobalPosition} | {p.DebugState} | probe {(IsInstanceValid(_probe) ? $"{_probe.GlobalPosition} v {_probe.Vel}" : "none")}");
-            if (warden) WardenStep(step, p); else if (p.Stats.Hero == HeroKind.Vitalist) VitalistStep(step, p); else SwordStep(step, p);
+            if (_altTest) AltStep(step, p); else if (warden) WardenStep(step, p); else if (p.Stats.Hero == HeroKind.Vitalist) VitalistStep(step, p); else SwordStep(step, p);
             if (_shotDir != "" && step % 20 == 0) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
         }
     }

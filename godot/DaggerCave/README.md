@@ -131,7 +131,7 @@ Handy starting points:
 | The three heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
-| Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the stat list is `Upgrades.LevelUp` |
+| Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the cards are `Upgrades.Chest`, the level-up stats `Progression.AutoLevel` |
 | How fast it gets hard | `Difficulty.DepthGrowth`, `Difficulty.DoublingMinutes` (tougher creatures), `Difficulty.PacePerDepth`, `Difficulty.PaceMinutesPerStep` (more of them), `Difficulty.TempoCap` |
 | How busy it is | `Spawning.IntervalStart`, `Spawning.RateDoublingMinutes`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
 | Map size | each biome's `W` and `H` in `Core/Biomes.cs`, then `Cave.WidthScale` (1.5: every level is half again as wide, the same height; the dragon's arena keeps its size) |
@@ -266,7 +266,8 @@ The panel's columns:
 | Descend into the cave | Enter (or R), or click Descend into the cave | A |
 | Back to the main menu (from the fire) | Esc | B |
 | Play online | Multiplayer on the main menu (or O) | Y |
-| Pause (and settings) | Esc | Start |
+| Pause (settings, your build) | Esc | Start |
+| Your build, while picking a card | Tab | Back |
 | Pick upgrade (a card marked for another hero, or one you can't take, stays put) | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
 | Enemy training (debug) | F9 on/off, F10 save now, F8 move labels | - |
 
@@ -327,7 +328,7 @@ mini-bosses and guardian:
 | 5-7 | Frost Caverns | mostly horizontal, ice everywhere | frost bears, rime skeletons, frost wraiths, ice bats | slippery ground; a frozen water surface (break it to swim, and break it again from below to get out); ice ledges that shatter after 3 landings or 2 blows and refreeze | The Rime Colossus |
 | 5-7 | Fossil Graveyards | a few vast, echoing chambers of layered sediment; in each, the ribcage of a leviathan arches from deep in the back to just in front of you, and a great skull is sunk in the wall | fossil skeletons, bone scorpions, ossuary golems, marrow rats, bats | unstable ceilings: walk beneath one and dust sifts down and the rock groans, then a few stones break loose (each one shows where it will land) | The Ossuary Colossus |
 | 6-8 | Crystal Caves | ledges in every tall space, so no long falls | shardlings, crystal golems, skeletons | crystal spikes | The Prism Golem |
-| 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out), fire vents | The Molten Colossus |
+| 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out; with Magma Skin you swim in it, and chests lie at its bottom), fire vents | The Molten Colossus |
 | 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
 
 Every level is half again as wide as its biome's base size and just as tall (`Cave.WidthScale`;
@@ -432,20 +433,34 @@ and the Vitalist's held drain waits for something within reach rather than casti
 3. Each Flurry upgrade adds one more refund to the chain, up to 3.
 4. With Finisher, the last strike of a chain of three or more hits much harder.
 
-**Growth during a run** (`Player/Upgrades.cs`):
+**Growth during a run** (`Player/Upgrades.cs`). Every card belongs to one kind, shown by its
+frame colour and the label at its top:
+
+| Kind | Colour | What it does | Where it comes from |
+| --- | --- | --- | --- |
+| Stats | | a little of everything, per hero | on their own at every level-up |
+| Class | gold | grows one of your hero's four abilities (its tree) | one in every chest; milestones |
+| Alteration | teal, glowing | changes how one ability works; an ability takes one at most, and each has upgrades of its own | milestones only (at least one on every milestone while any are left) |
+| Generic | pale blue | anyone's: damage, health, speed... | the other two cards in a chest |
+| Conditional | green | offered once something else is true (a double jump once you've a jump upgrade; Magma Skin from depth 6) | chests |
+| Risk and reward | violet | something given, something taken; each taken once | chests (vaults, later) |
+
 - **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
   level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
   max HP, +2% damage and +1 alimus capacity.
-- **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three +15% boosts:
-  damage, attack speed, max health, damage reduction, run and swim speed, reach, and per hero
-  faster dodges and Charged Strike (Wind Runner), a stronger shield (Aegis), a faster Guarded
-  Charge (Vanguard), or more alimus and stronger heals (Wellspring). Or leave it and take nothing.
-- **Chests**: interact at one (E / LT) to look inside. Its three cards are dealt the first time
-  anyone looks, and stay the same until someone takes one: leave it, and it closes again with
-  the same cards, for later or for a friend. Taking a card spends the chest (and heals you a
-  little). Online, a chest's cards are dealt for the whole party: each is generic or for one of
-  the party's heroes, everyone sees the same ones, a card for another hero is shown but only
-  they can take it, and only one player looks in a chest at a time.
+- **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three of your hero's
+  own cards (class upgrades and alterations), or leave it and take nothing.
+- **Chests**: interact at one (E / LT) to look inside. It holds one class card and two others
+  (generic, conditional or risk and reward). The cards are dealt the first time anyone looks, and
+  stay the same until someone takes one: leave it, and it closes again with the same cards, for
+  later or for a friend. Taking a card spends the chest (and heals you a little). Online, a
+  chest's class card may be for any hero in the party, everyone sees the same cards, a card for
+  another hero is shown but only they can take it, and only one player looks in a chest at a
+  time.
+- **Your build**: TAB (controller: BACK) while picking a card, or "Your build" in the pause menu,
+  shows your four ability trees side by side (every upgrade, taken or not, with its ranks; the
+  alterations beneath, the one you took and its upgrades, and cards it rules out crossed through),
+  then the generic, conditional and risk-reward cards you've taken.
 - **Potions**: you start with one and can carry one (more with the Potion tree). Q / Y drinks it:
   15% of your health at once and 15% more over 20 s. Enemies drop one 1% of the time.
 - **Hearts** heal 5% of your health and drop from 3% of kills (30% of elites).
@@ -453,25 +468,41 @@ and the Vitalist's held drain waits for something within reach rather than casti
   - 80% of treasure dead ends hold a chest (`Drops.TreasureRoomChestChance`). Mini-bosses and
     the boss always drop one.
   - Extra caches are scattered away from the dead ends: 6 on the flooded floor and 4 high in the
-    dry caves (`Drops.WaterCaches`, `Drops.HighCaches`).
+    dry caves (`Drops.WaterCaches`, `Drops.HighCaches`), and in the Magma Caverns 4 down in the
+    lava (`LavaCaches`), for a hero with Magma Skin (the lava there rises into a lake, never over
+    a room's floor, or fills wells sunk from the lowest tunnels; where the guardian's chamber lies
+    lowest it can only be a thin film, and fewer fit).
   - Where a chest is tilts its odds (`Drops.ZoneBias`). Movement upgrades are 4x likelier in
     underwater chests, which is how you gear up for the heights. Survival upgrades are 4x
     likelier in chests high in the cave.
 
-| Area | Chest upgrades |
+The trees (◆ an alteration; its upgrades are indented beneath it):
+
+| Hero · ability | Class upgrades | Alterations |
+| --- | --- | --- |
+| Swordsman · Sword | Longer Blade (reach), Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder), Downward Thrust (pogo), Heavy Pommel and Crushing Blows (knockback), Thirsty Blade (life steal), Rending Edge (bleed for 40% more over 3 s), Crescent Wave (a flying slash every 1.2 s), Executioner (+60% under 35% health) | |
+| Swordsman · Charged Strike | Focus (recharges 20% faster), Twin Charge (two swings, or with Relentless, two combos), Crippling Strike (35% weaker instead of 20%), Storm Edge (a full-strength wave) | ◆ Relentless Charge: the charge carries through your whole next combo at 80% strength · Unbroken (+1 combo strike) |
+| Swordsman · Heaving Swing | Broad Shoulders (recharges 20% faster) | ◆ Swift Heave: with a Charged Strike waiting, the heave spends it on speed: no wind-up, in the air too, no extra damage · Second Heave (3 s sooner) |
+| Swordsman · Dodge Roll | Phantom Step (invulnerable while rolling), Nimble (-20% cooldown), Second Wind (a second roll), Wind Runner (rolls and Charged Strike recharge 15% faster, four times) | ◆ Counter Roll: rolling into a melee blow stops the roll dead, stops the blow whole and swings back at the attacker · Flowing Counter (a counter can start a combo) |
+| Warden · Shortsword | as the Swordsman's blade (reach, Flurry, Finisher, pogo, knockback, life steal) | |
+| Warden · Shield | Riposte Guard (perfect blocks reflect), Iron Timing (perfect blocks cost 70% less), Tower Shield (wider), Stalwart (full speed, no knockback), Quick Mend, Spiked Shield (40% back), Last Stand, Aegis (+15% strength and regeneration, four times) | ◆ Unyielding Shield: stops 70% of each blow but never weakens or breaks (rules out Quick Mend and Iron Timing) · Braced (+5%, twice) |
+| Warden · Guarded Charge | Ready Charge (-20% cooldown), Long Charge (30% farther), Battering Charge (x4 on what it stops), Rallying Charge (breaking an attack mends 12 and heals 4), Vanguard (15% faster, four times) | ◆ Guardian's Charge: rushes to the friend nearest your aim and wraps them in a barrier that soaks 20 damage for 2 s (alone, it wraps you) · Thick Barrier (+50%), Lasting Barrier (+33% longer) |
+| Warden · Shield Bash | Hard Shoulder (recharges 20% faster) | ◆ Deflecting Bash: no stun, but every projectile in a wide arc in front goes back where it came from · Return to Sender (double damage) |
+| Vitalist · Drain | Many Mouths (one more creature at 60%, twice), Far Reach (+25%), Hungering Spirit (+50% alimus), Deep Well (+15 alimus) | |
+| Vitalist · Hex | Spreading Blight (+30% radius), Lingering Hex (+2 s), Withering Hex (rot for 6 a second) | ◆ Blight Burst: the hex also deals 12 to everything it reaches, but slows and weakens half as much · ◆ Endless Hex: no cooldown, 10 alimus a cast |
+| Vitalist · Heal | Deep Mending (+30%), Frugal Rites (25% cheaper), Wellspring (+15% alimus gained and heal strength, four times) | ◆ Slow Mending: half the heal at once, half over 6 s · Patient Mending (all of it over time, 20% more), Warding Mending (-20% damage taken while mending) |
+| Vitalist · Rupture | Burst Veins (40% farther, 50% more splash), Thin Blood (20% cheaper) | ◆ Lifebloom: the rupture blooms on the friend nearest your aim (alone, on you), healing them 30 and everyone else in the burst 10 · Healing Pool (it leaves a pool healing 3 a second for 5 s) |
+
+| Everyone | Cards |
 | --- | --- |
-| Blade (swordsman, warden) | reach, Flurry (+1 strike to your combo, up to 3), Finisher (the last strike of a full combo hits much harder, requires Flurry), aerial down-slash pogo, knockback, stronger knockback, life steal |
-| Sword techniques (swordsman) | Rending Edge (hits bleed for 40% more over 3 s, stacks twice), Crescent Wave (swings loose a flying slash, half damage, every 1.2 s), Executioner (+60% damage to enemies under 35% health) |
-| Charged Strike (swordsman) | Focus (recharges 20% faster), Twin Charge (empowers two swings), Crippling Strike (what it cuts deals 35% less instead of 20%), Storm Edge (a charged swing looses a full-strength crescent wave) |
-| Heaving swing (swordsman) | Broad Shoulders (recharges 20% faster) |
-| Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
-| Shield (warden) | Stalwart (full speed while shielding, no knockback), Quick Mend (regenerates almost at once after a block, 50% faster), Spiked Shield (melee attackers take 40% of the blow back), Last Stand (once per depth, survive a killing blow at 1 HP with a whole shield), Riposte Guard (perfect blocks, and the dash, reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc) |
-| Guarded Charge (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Battering Charge (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
-| Shield bash (warden) | Hard Shoulder (recharges 20% faster) |
-| Spells (vitalist) | Many Mouths (the drain also takes life from one more creature near its target, at 60%; twice), Far Reach (+25% drain and rupture reach), Hungering Spirit (+50% alimus from damage), Deep Well (+15 alimus capacity), Burst Veins (the rupture's burst reaches 40% farther and splashes for 50% more), Thin Blood (ruptures cost 20% less), Deep Mending (+30% heal), Frugal Rites (heals cost 25% less), Spreading Blight (+30% hex radius), Lingering Hex (+2 s), Withering Hex (hexed creatures rot for 6 health a second) |
-| Movement (everyone) | wall jump, double jump *or* air dash in any direction (you can only have one; both are rare, and only offered once you have a jump upgrade, for the double jump, or a speed upgrade, for the air dash), move speed, jump height, swim speed, breath |
-| Everyone | attack speed, damage; max HP, longer invulnerability after being struck (Resilience), damage reduction, heal 1 HP on every kill, XP magnet |
-| Risk and reward (everyone, marked in violet; each is taken once and never offered again) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, but each use takes twice as long to come back), Glass Edge (deal 20% more damage, take 25% more), Stoneskin (take 25% less damage, deal 20% less) |
+| Generic | Quick Hands (attack speed), Whetstone (damage), Vitality (max HP), Resilience, Toughened Hide (damage reduction), Trophy Hunter (heal 1 per kill), Lodestone (XP magnet), Light Boots, Spring Step, Webbed Gloves, Deep Lungs (+50% breath) |
+| Conditional | Double Jump *or* Air Dash (rare; once you've a jump upgrade or Hollow Bones, or a speed upgrade), Magma Skin (from depth 6: swim in lava, and it burns you for only 30%) |
+| Risk and reward (each taken once, never offered again) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, each takes twice as long to come back), Glass Edge (deal 20% more, take 25% more), Stoneskin (take 25% less, deal 20% less), Drowned Lungs (never run out of breath, but all healing you receive is 30% weaker; it and Deep Lungs rule each other out) |
+
+Boons: a barrier (Guardian's Charge) soaks blows before they reach your health, and shows as a
+pale shell around the hero; a mending (Slow Mending) heals over its seconds, and with Warding
+Mending softens every blow meanwhile. Online, a boon given to a friend's hero is held by their
+game (everyone else sees the barrier by that hero's flags).
 
 **Enemies** (`Enemies/`). They follow some etiquette (`Tune.Combat`):
 - The first time a creature wants to attack, it waits 1 s (`FirstAttackDelay`), so nothing
@@ -812,6 +843,22 @@ The checks are timed in game seconds, so run them with `--fixed-fps 60`. They ne
 minute, where a software renderer would take many (with a window, use a small one,
 `--resolution 480x270`).
 
+`--alttest` (with `--hero=...`) runs the same way through the hero's alterations: Relentless Charge
+carrying a whole combo, Swift Heave in the air, Counter Roll stopping a club and answering it (but
+not a blow from afar); the Unyielding Shield stopping 70% and never breaking, Braced, Guardian's
+Charge wrapping you in a barrier that soaks a blow whole and the rest of a bigger one before
+wearing off, Deflecting Bash sending a shot back without stunning; Blight Burst's damage, Endless
+Hex spending alimus instead of a cooldown, Slow Mending's half now and half later, Warding
+Mending, Lifebloom healing you and its Healing Pool.
+
+`--upgradetest` (headless, a few seconds) checks the rules of the cards over thousands of rolls
+for every hero: a chest holds one class card and two others, never an alteration; a milestone
+holds only the hero's own cards, with an alteration while any are left; an ability takes one
+alteration, and an alteration's upgrades wait for it; the primary attacks have none and every
+other ability has one; Wall Kick is gone; Unyielding Shield keeps out Quick Mend and Iron Timing;
+Deep Lungs and Drowned Lungs rule each other out; Magma Skin waits for depth 6; and a party's
+chest may hold any party hero's class card, locked to them.
+
 `--hero=warden` and `--hero=vitalist` also work with `--autotest` and the other modes.
 
 **Online play**: `tools/nettest.sh` runs two copies of the game without a window on one machine,
@@ -820,7 +867,9 @@ machine), and has them check what travels between them: the lobby and each playe
 the same cave in both games, a friend's swing landing on the host's creature (and credited to
 them), a creature's blow taken in the friend's game, shared experience, a chest the friend
 looks in and leaves (closed again in both games, with the same cards), which the host then looks
-in (offered the very same cards) and takes from (spent in both games), a fallen friend brought back,
+in (offered the very same cards) and takes from (spent in both games), a barrier and a warding
+mending given to the friend's hero (held in their game, the barrier seen in the host's), a fallen
+friend brought back,
 going down an exit together into the same next level (a Fossil Graveyard, where each game's
 camera must stay on its own hero), the run ending for everyone, and then, back in the lobby, a
 second run that everyone walks straight out of through the cave mouth, back to the lobby. It exits
@@ -828,7 +877,8 @@ second run that everyone walks straight out of through the cave mouth, back to t
 `--ntshots=DIR` to the host (run with a window) for screenshots of the lobby, the fight, a
 revive, the exit and the camp; `--onlineshot=DIR` saves the main menu, the online menu and a lobby.
 
-`--menushot=DIR` saves the pause menu and each settings tab. `--bosstest` (headless) checks, for
+`--menushot=DIR` saves the pause menu and each settings tab, a chest holding a friend's cards, a
+milestone's cards and the build page (per `--hero`). `--bosstest` (headless) checks, for
 every biome and 24 seeds, that the guardian's chamber has reachable floor that wakes it and that
 the guardian stands where the hero can reach it.
 
@@ -843,7 +893,10 @@ Two more test modes:
   the hero and attack in the water), `mouth` (the way out at depth 0: up doesn't take you,
   interact does, and nothing from the run is kept), `fossilcam` (the camera keeps the hero in view
   in the Fossil Graveyards), and `drain` with `--hero=vitalist` (a frame-by-frame picture of the
-  drain's burst). Add `--shots=DIR` for screenshots.
+  drain's burst), and `magma` (the Magma Caverns hide their chests in the lava; lava burns a hero
+  and throws them out, but with Magma Skin they swim in it for 30% of the burn, open a chest down
+  there and swim back up; seed 2 unless `--seed` says otherwise). Add `--shots=DIR` for
+  screenshots.
 - `--musicdump=DIR` saves the three music loops as `.wav` files.
 - `--padtest` drives the game with synthetic controller events: the main menu and the fire, move, swing, Charged
   Strike, dodge, the heaving swing, pick an upgrade from the level-up cards, pause, move through

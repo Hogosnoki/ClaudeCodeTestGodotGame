@@ -152,6 +152,8 @@ public partial class Player
         if (!Stats.CounterRoll || _dodgeT <= 0 || source == null || !IsInstanceValid(source) || source.Dead) return false;
         if (source.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Swordsman.CounterReach + source.HitRadius) return false;
         _dodgeT = 0;
+        // the roll stops dead: you stand your ground and answer
+        Velocity = new Vector2(0, Math.Min(Velocity.Y, 0));
         _iframes = Math.Max(_iframes, 0.3f); // (the rest of the blow passes harmlessly)
         var to = source.GlobalPosition - (GlobalPosition + new Vector2(0, -3));
         StartSwing(to.LengthSquared() > 1 ? to.Normalized() : new Vector2(Facing, 0), counter: true);
