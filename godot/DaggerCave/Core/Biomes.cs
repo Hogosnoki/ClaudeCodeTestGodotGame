@@ -375,6 +375,41 @@ public static class Biomes
         };
         lair.Guardian = r => { var d = new Dragon(); d.Init(r); return d; };
         All.Add(lair);
+        AddElementals();
+    }
+
+    /// <summary>
+    /// The Elementals live where their element is: Nature in the roots and the fungal caves, Water in
+    /// every biome with water in it, Fire in the magma caverns, Frost in the frost caverns, and Earth
+    /// wherever the walls are dirt (dens, nests, tunnels, roots and the fossil graveyards).
+    /// </summary>
+    static void AddElementals()
+    {
+        static void Ground(BiomeId id, float w, Func<Enemy> make, int min = 1, int max = 1, bool entrant = true, bool mini = true)
+        {
+            var b = Get(id);
+            if (!b.Residents.TryGetValue(SpawnKind.Ground, out var l)) b.Residents[SpawnKind.Ground] = l = new();
+            l.Add(E(w, make, min, max));
+            if (entrant) b.GroundEntrants.Add(E(Math.Max(1, w * 0.5f), make));
+            if (mini) b.MiniBosses.Add(make);
+        }
+        Ground(BiomeId.Roots, 2, () => new NatureElemental());
+        Ground(BiomeId.Fungal, 2, () => new NatureElemental());
+        Ground(BiomeId.Frost, 2, () => new FrostElemental());
+        Ground(BiomeId.Magma, 2, () => new FireElemental(), 1, 2);
+        Ground(BiomeId.Den, 1, () => new EarthElemental());
+        Ground(BiomeId.Nest, 1, () => new EarthElemental());
+        Ground(BiomeId.Tunnels, 1, () => new EarthElemental());
+        Ground(BiomeId.Roots, 1, () => new EarthElemental(), entrant: false, mini: false);
+        Ground(BiomeId.Fossils, 2, () => new EarthElemental());
+        foreach (var b in All)
+        {
+            if (b.Liquid != Liquid.Water) continue;
+            if (!b.Residents.TryGetValue(SpawnKind.Water, out var l)) b.Residents[SpawnKind.Water] = l = new();
+            l.Add(E(1, () => new WaterElemental()));
+            b.WaterEntrants.Add(E(1, () => new WaterElemental()));
+            b.WaterMiniBosses.Add(() => new WaterElemental());
+        }
     }
 
     /// <summary>A tinted, renamed variant of a creature (with optional health scaling).</summary>

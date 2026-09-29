@@ -243,6 +243,23 @@ public partial class ProjectileView : PropView
                     _light = PropViews.Light(col, 0.6f, 2.5f);
                     break;
                 }
+            case "water":
+                {
+                    var mb = new MeshBuilder();
+                    mb.Blob(Vector3.Zero, new Vector3(r * 1.1f, r * 1.3f, r * 1.1f), 5, Colors.White, new Noise3(rng.Next()), 0.12f, 3f);
+                    _body = PropViews.Mesh(mb, PropViews.Emissive(new Color(0.35f, 0.65f, 1f), 0.9f, 0.7f), false);
+                    _glow = PropViews.Sprite(new Color(0.45f, 0.75f, 1f), 0, 0.5f, r * 3f);
+                    _light = PropViews.Light(new Color(0.45f, 0.75f, 1f), 0.5f, 2.5f);
+                    break;
+                }
+            case "leaf":
+                {
+                    var mb = new MeshBuilder();
+                    mb.Blob(Vector3.Zero, new Vector3(r * 2.4f, r * 0.35f, r * 1.1f), 5, new Color(0.3f, 0.6f, 0.15f), new Noise3(rng.Next()), 0.1f, 3f);
+                    _body = PropViews.Mesh(mb, PropViews.VertexColored);
+                    _glow = PropViews.Sprite(new Color(0.45f, 1f, 0.3f), 0, 0.35f, r * 2.4f);
+                    break;
+                }
             case "spit":
                 {
                     var mb = new MeshBuilder();
@@ -274,6 +291,9 @@ public partial class ProjectileView : PropView
             case "ice":
             case "crystal":
                 _body.Rotation = new Vector3(Time * 6f, 0, MathF.Atan2(-v.Y, v.X));
+                break;
+            case "leaf":
+                _body.Rotation = new Vector3(Time * 9f, 0, MathF.Atan2(-v.Y, v.X));
                 break;
             case "fire":
                 {

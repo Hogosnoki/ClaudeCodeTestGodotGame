@@ -528,6 +528,20 @@ public static class Tune
         public static int Xp = 14;
     }
 
+    /// <summary>
+    /// The Elementals (Enemies/Elementals.cs): health, touch damage, walking (or swimming) speed, the
+    /// damage of each thing they throw, the seconds between attacks and the XP they give. Nature also
+    /// heals RegenPerSec of its health a second once it has been left alone for three seconds.
+    /// </summary>
+    public static class Elementals
+    {
+        public static class Earth { public static float Hp = 80, Contact = 11, Speed = 38, Damage = 13, Cooldown = 3.4f; public static int Xp = 12; }
+        public static class Frost { public static float Hp = 85, Contact = 10, Speed = 40, Damage = 7, Cooldown = 3.0f; public static int Xp = 13; }
+        public static class Nature { public static float Hp = 62, Contact = 9, Speed = 52, Damage = 6, Cooldown = 2.4f, RegenPerSec = 0.04f; public static int Xp = 10; }
+        public static class Fire { public static float Hp = 55, Contact = 12, Speed = 78, Damage = 7, Cooldown = 2.6f; public static int Xp = 11; }
+        public static class Water { public static float Hp = 50, Contact = 7, Speed = 70, Damage = 6, Cooldown = 2.6f; public static int Xp = 9; }
+    }
+
     public static class Fish
     {
         public static float Hp = 10, Contact = 7, DartSpeed = 210, AggroRange = 320;

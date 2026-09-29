@@ -1937,7 +1937,8 @@ public partial class Main : Node
         var p = G.Player.GlobalPosition;
         _world.AddChild(new Chest { Position = p + new Vector2(-60, 14) });
         Enemy[] land = { new Bat(), new Frog(), new Goblin(), new Goblin { Slinger = true }, new Spider(), new LavaMonster(), new Golem(),
-            new Rat(), new Bear(), new Scorpion(), new Hornet(), new Skeleton(), new Sporeling(), new FrostWraith(), new Shardling() };
+            new Rat(), new Bear(), new Scorpion(), new Hornet(), new Skeleton(), new Sporeling(), new FrostWraith(), new Shardling(),
+            new EarthElemental(), new FrostElemental(), new NatureElemental(), new FireElemental() };
         for (int k = 0; k < land.Length; k++)
         {
             var at = p + new Vector2(-190 + (k % 8) * 54, k < 8 ? -30 : -80);

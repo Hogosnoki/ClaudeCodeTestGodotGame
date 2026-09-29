@@ -54,6 +54,7 @@ public partial class Main
         "mouth" => "entrance",
         "drain" => "entrance",
         "motion" => "entrance",
+        "elementals" => "slime",
         "magma" => "magma",
         "vault" => "den",
         _ => null,
@@ -80,6 +81,7 @@ public partial class Main
             case "mouth": MouthScenario(); break;
             case "drain": DrainScenario(); break;
             case "motion": MotionScenario(); break;
+            case "elementals": ElementalsScenario(); break;
             case "magma": MagmaScenario(); break;
             case "vault": VaultScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
@@ -366,5 +368,63 @@ public partial class Main
                 ScEnd();
                 break;
         }
+    }
+
+    // ---------------------------------------------------------------- the Elementals
+
+    private readonly System.Collections.Generic.List<Enemy> _scElems = new();
+    private readonly System.Collections.Generic.HashSet<Enemy> _scAttacked = new();
+    private Enemy _scWater;
+    private int _scPhase;
+
+    /// <summary>Each walking Elemental is set on the hero on dry ground and must be seen winding up an attack; then the hero is put in the water beside a Water Elemental, which must stay in it and wind up too.</summary>
+    private void ElementalsScenario()
+    {
+        var p = G.Player;
+        if (_scPhase == 0)
+        {
+            if (_scT < 0.5f) return;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            p.Stats.MaxHp = 9000; p.Hp = 9000;
+            int n = 0;
+            for (int k = 0; k < 40 && n < 4; k++)
+            {
+                int side = k % 2 == 0 ? 1 : -1;
+                var at = p.GlobalPosition + new Vector2(side * (100 + 26 * (k / 2)), -14);
+                if (G.Cave.IsSolid(at) || G.Cave.IsWater(at) || !G.Cave.FindFloor(at, 60, out var fl) || G.Cave.IsWater(fl) || !G.Cave.LineClear(p.GlobalPosition, at)) continue;
+                Enemy e = n switch { 0 => new EarthElemental(), 1 => new FrostElemental(), 2 => new NatureElemental(), _ => new FireElemental() };
+                e.Position = fl - new Vector2(0, 16);
+                e.SetMeta("test", true);
+                _world.AddChild(e);
+                e.Engage();
+                _scElems.Add(e);
+                n++;
+            }
+            GD.Print($"[scenario] {n} walkers set on the hero");
+            _scPhase = 1; _scT = 0.6f;
+            return;
+        }
+        if (_scPhase == 1)
+        {
+            foreach (var e in _scElems) if (IsInstanceValid(e) && e.Attacking) _scAttacked.Add(e);
+            if (_scT < 14f) return;
+            foreach (var e in _scElems) ScCheck($"{e.DisplayName} wound up an attack ({_scAttacked.Contains(e)})", _scAttacked.Contains(e));
+            ScCheck($"all four found dry ground ({_scElems.Count})", _scElems.Count == 4);
+            foreach (var e in _scElems) if (IsInstanceValid(e)) e.QueueFree();
+            var wp = G.Cave.Spawns.Find(sp => sp.Kind == SpawnKind.Water);
+            if (wp == null) { ScCheck("this cave has water", false); ScEnd(); return; }
+            p.GlobalPosition = wp.Pos + new Vector2(70, 0);
+            _scWater = new WaterElemental { Position = wp.Pos };
+            _world.AddChild(_scWater);
+            _scWater.Engage();
+            _scPhase = 2; _scT = 0;
+            return;
+        }
+        if (IsInstanceValid(_scWater) && _scWater.Attacking) _scAttacked.Add(_scWater);
+        if (IsInstanceValid(_scWater) && !G.Cave.IsWater(_scWater.GlobalPosition) && _scT > 4f) { ScCheck("the Water Elemental stays in the water", false); ScEnd(); return; }
+        if (_scT < 12f) return;
+        ScCheck($"the Water Elemental is alive, in the water ({IsInstanceValid(_scWater) && G.Cave.IsWater(_scWater.GlobalPosition)}), and wound up an attack ({_scAttacked.Contains(_scWater)})",
+            IsInstanceValid(_scWater) && G.Cave.IsWater(_scWater.GlobalPosition) && _scAttacked.Contains(_scWater));
+        ScEnd();
     }
 }

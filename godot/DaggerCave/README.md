@@ -750,6 +750,10 @@ the fire's crackle; ambient exploration; and the boss) are synthesized at startu
 textures in `Assets/` (public domain, from Poly Haven; see `Assets/CREDITS.md`). Every 3D model
 is built by code when the game runs.
 
+## The Elementals
+
+Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.
+
 ## Motion
 
 Heroes' legs are solved, not keyframed (`HeroDesign.Motion.cs`): each foot stays planted while it carries the body and swings through an arc to land ahead, so runs never skate; each hero has a style of stride, lean and arm carriage, and their own way of cutting or casting. Swings play the gameplay swing's own timers (wind-up, sweep, follow-through), blows land as the blade crosses the aim, and the sword's light trail is read off the blade's bone each frame. `--scenario=motion --shots=DIR` records cropped frames of runs and cuts; `--modelsheet=NAME --sheetclips=run:0.25,...` lays out poses (`run:PHASE` fixes the gait phase).
