@@ -2,10 +2,21 @@ DAGGER DEEP
 ===========
 
 A rogue-lite descent from a sunny camp, down through the cave mouth to the dragon at
-the bottom of the world, alone or with up to two friends online.
+the bottom of the world, alone or with up to three friends online.
 
 The game opens on the main menu. Single player takes you to the camp fire: choose a
 hero with left / right, then descend (ENTER, or A on a controller).
+
+THE HEROES
+  * Swordsman: the damage dealer. A heavy sword, a dodge roll, a Charged Strike and a
+    heaving swing.
+  * Warden: the guardian. A shield that stops every blow, a Guarded Charge and a
+    shield bash.
+  * Vitalist: the healer. Drains life from creatures to heal, hexes them, ruptures them.
+  * Elementalist: the storm-caller. Firebolts that set creatures alight (free); an
+    updraft that lifts every hero in it; a blizzard that can freeze creatures solid;
+    and a snap that shatters every frozen creature in sight. Spells cost aether,
+    which comes back by itself.
 
 
 STARTING THE GAME
@@ -32,8 +43,8 @@ Both of you need this same copy of the game (send your friend the zip you got).
 3. Your FRIEND clicks Paste (or types the code) and then Join.
 
 4. You're both in the lobby. Each of you takes a different hero
-   (Swordsman, Warden or Vitalist). When everyone's ready, the host clicks
-   "Start the descent". A third friend can join the same way.
+   (Swordsman, Warden, Vitalist or Elementalist). When everyone's ready, the host
+   clicks "Start the descent". A third and a fourth friend can join the same way.
 
 In the cave:
   * Go down together: when an exit opens, everyone still standing walks into it
@@ -64,10 +75,10 @@ If your friend can't connect:
 CONTROLS (change them in Settings: on the main menu, or pause with ESC / START)
 -------------------------------------------------------------------------------
 Keyboard + mouse: A / D move, SPACE jump, LEFT CLICK attack (hold it to keep
-attacking), RIGHT CLICK ability, F second ability, SHIFT dodge / shield / hex,
+attacking), RIGHT CLICK ability, F second ability, SHIFT dodge / shield / hex / updraft,
 E interact (chests, exits, reviving, the way out), Q potion.
 Controller: left stick move, A jump, X attack (hold it to keep attacking), RB ability,
-RT second ability, B or LB dodge / shield / hex, LT interact, Y potion. The right
+RT second ability, B or LB dodge / shield / hex / updraft, LT interact, Y potion. The right
 stick attacks where you push it (the Warden's raises the shield instead).
 
 

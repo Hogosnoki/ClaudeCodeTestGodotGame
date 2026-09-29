@@ -206,6 +206,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (_iceT > 0)
         {
             _iceT -= (float)delta;
+            EnsureIceBlock();
             if (Anim != null) { Anim.TimeMult = 0; Anim.Position = Vector2.Zero; }
             Velocity = new Vector2(0, UsesGravity && !InWater ? Math.Min(Velocity.Y + 700f * (float)delta, 400f) : 0);
             MoveAndSlide();
@@ -464,6 +465,9 @@ public abstract partial class Enemy : CharacterBody2D
 
     // ---- the Elementalist's afflictions: burning, chilled, frozen solid
     private float _burnT, _burnDps, _chillT, _chillSlow = 1f, _iceT;
+    /// <summary>Online, on a copy: a moment after this game shattered its ice (or spent its fire)
+    /// in which the host's older word that it's still frozen (or burning) is ignored.</summary>
+    private float _thawGrace, _quenchGrace;
     /// <summary>Online: whose fire is burning it (their hero is credited with the damage).</summary>
     private int _burnBy;
 
@@ -528,7 +532,7 @@ public abstract partial class Enemy : CharacterBody2D
     public void Thaw()
     {
         if (Dead) return;
-        if (Puppet) { _iceT = 0; NetSync.EffectPuppet(this, NetSync.Effect.Thaw, 0); return; }
+        if (Puppet) { _iceT = 0; _thawGrace = 0.5f; NetSync.EffectPuppet(this, NetSync.Effect.Thaw, 0); return; }
         if (_iceT > 0) { _iceT = 0; Thawed(); }
     }
 
@@ -536,8 +540,18 @@ public abstract partial class Enemy : CharacterBody2D
     public void Quench()
     {
         if (Dead) return;
-        if (Puppet) { _burnT = 0; NetSync.EffectPuppet(this, NetSync.Effect.Quench, 0); return; }
+        if (Puppet) { _burnT = 0; _quenchGrace = 0.5f; NetSync.EffectPuppet(this, NetSync.Effect.Quench, 0); return; }
         _burnT = 0;
+    }
+
+    private IceBlock _iceBlock;
+
+    /// <summary>A creature frozen solid stands in a block of ice (made here, in every game; it goes when the ice does).</summary>
+    private void EnsureIceBlock()
+    {
+        if (_iceBlock != null && IsInstanceValid(_iceBlock) && !_iceBlock.IsQueuedForDeletion()) return;
+        _iceBlock = new IceBlock { Holder = this, Size = HitRadius, Position = GlobalPosition };
+        G.World.AddChild(_iceBlock);
     }
 
     /// <summary>The ice gives way: a spray of frost, and it moves again.</summary>
@@ -715,9 +729,9 @@ public abstract partial class Enemy : CharacterBody2D
         e._weakT = (flags & NfWeak) != 0 ? Math.Max(e._weakT, 0.15f) : e._weakT;
         // (the host's word on the Elementalist's afflictions: a copy only shows them, and a snap
         // looks for them here)
-        e._burnT = (flags & NfIgnited) != 0 ? Math.Max(e._burnT, 0.15f) : e._burnT;
+        e._burnT = (flags & NfIgnited) != 0 && e._quenchGrace <= 0 ? Math.Max(e._burnT, 0.15f) : e._burnT;
         e._chillT = (flags & NfChilled) != 0 ? Math.Max(e._chillT, 0.15f) : e._chillT;
-        e._iceT = (flags & NfIced) != 0 ? Math.Max(e._iceT, 0.15f) : e._iceT;
+        e._iceT = (flags & NfIced) != 0 && e._thawGrace <= 0 ? Math.Max(e._iceT, 0.15f) : e._iceT;
         if (flashNow) e.Anim?.Flash(0.8f);
     }
 
@@ -732,7 +746,8 @@ public abstract partial class Enemy : CharacterBody2D
         if (_weakT > 0) _weakT -= dt;
         if (_burnT > 0) _burnT -= dt;
         if (_chillT > 0) _chillT -= dt;
-        if (_iceT > 0) _iceT -= dt;
+        if (_iceT > 0) { _iceT -= dt; EnsureIceBlock(); }
+        _thawGrace -= dt; _quenchGrace -= dt;
         if (_burnT > 0 || _chillT > 0) AfflictionFx(dt);
         if (_net.Sample(NetSync.Now - NetSync.InterpDelay, out var pos, out var vel))
         {

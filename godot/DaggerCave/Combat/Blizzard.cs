@@ -78,7 +78,7 @@ public partial class Blizzard : Node2D
             var from = at + new Vector2(-8f, -Radius * 0.9f);
             G.Fx.Directional(from, new Vector2(0.35f, 1f).Normalized(), 0.25f, new Color(0.92f, 0.97f, 1f, 0.9f * s), 1, 150, 1.5f, 0.35f, 60, 0);
         }
-        if (G.Chance(0.06f)) G.Fx.Ring(GlobalPosition, Radius, Fire ? new Color(1f, 0.5f, 0.15f, 0.5f * s) : new Color(0.8f, 0.94f, 1f, 0.5f * s), 0.4f);
+        if (G.Chance(0.015f)) G.Fx.Ring(GlobalPosition, Radius, Fire ? new Color(1f, 0.5f, 0.15f, 0.3f * s) : new Color(0.8f, 0.94f, 1f, 0.35f * s), 0.4f);
     }
 
     public override void _Draw()

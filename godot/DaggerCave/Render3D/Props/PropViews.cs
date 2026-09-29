@@ -24,6 +24,7 @@ public static class PropViews
             ElementBolt => new ElementBoltView(),
             Updraft => new UpdraftView(),
             Blizzard => new BlizzardView(),
+            IceBlock => new IceBlockView(),
             XpOrb => new XpOrbView(),
             HeartPickup => new HeartView(),
             PotionPickup => new PotionView(),
@@ -528,13 +529,15 @@ public partial class UpdraftView : PropView
     }
 }
 
-/// <summary>The Elementalist's blizzard (or firestorm): a swirling storm-cloud over the spot and a
-/// cold (or burning) glow on what's under it; the snow and the sparks themselves are particles.</summary>
+/// <summary>The Elementalist's blizzard (or firestorm): a churning storm-cloud over the spot (grey-blue,
+/// or for a firestorm a smoky red lit from within) and a faint swirl beneath it; the snow and the
+/// sparks themselves are particles.</summary>
 public partial class BlizzardView : PropView
 {
-    private MeshInstance3D _swirl, _cloud, _glow;
+    private readonly MeshInstance3D[] _puffs = new MeshInstance3D[6];
+    private MeshInstance3D _swirl;
     private OmniLight3D _light;
-    private Color _col;
+    private Color _col, _cloud;
     private bool _fire;
 
     protected override void Build()
@@ -542,30 +545,71 @@ public partial class BlizzardView : PropView
         var z = (Blizzard)Owner2D;
         _fire = z.Fire;
         _col = _fire ? new Color(1f, 0.5f, 0.15f) : new Color(0.8f, 0.94f, 1f);
-        float r = W3.M(z.Radius);
-        _swirl = PropViews.Sprite(_col, 7, 1.2f, r * 1.3f);
+        _cloud = _fire ? new Color(0.42f, 0.16f, 0.08f) : new Color(0.62f, 0.7f, 0.82f);
+        for (int k = 0; k < _puffs.Length; k++)
+        {
+            _puffs[k] = new MeshInstance3D { Mesh = PropViews.Quad, MaterialOverride = PropViews.CloudMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            _puffs[k].SetInstanceShaderParameter("cloud_seed", k * 1.61f + 0.4f);
+            _puffs[k].SetInstanceShaderParameter("cloud_glow", _fire ? 0.6f : 0.25f);
+            AddChild(_puffs[k]);
+        }
+        _swirl = PropViews.Sprite(_col, 7, 0.45f, W3.M(z.Radius));
         AddChild(_swirl);
-        _cloud = PropViews.Sprite(_fire ? new Color(0.5f, 0.2f, 0.08f) : new Color(0.72f, 0.8f, 0.9f), 0, 0.7f, r * 1.2f);
-        AddChild(_cloud);
-        _glow = PropViews.Sprite(_col, 4, 0.8f, r * 1.1f);
-        AddChild(_glow);
-        _light = PropViews.Light(_col, 1.2f, 4f);
+        _light = PropViews.Light(_col, 0.7f, 3.5f);
         AddChild(_light);
     }
 
     protected override void Sync(float dt)
     {
         var z = (Blizzard)Owner2D;
-        Follow(default, 0.25f);
+        Follow(default, 0.2f);
         float s = z.Strength, r = W3.M(z.Radius);
-        _swirl.Scale = Vector3.One * r * 1.3f * (0.9f + 0.1f * MathF.Sin(z.Age * 5f));
-        PropViews.SetSprite(_swirl, new Color(_col, 0.75f * s), 7, 1.2f);
-        _cloud.Position = new Vector3(0, r * 0.9f, -0.05f);
-        _cloud.Scale = new Vector3(r * 1.6f, r * 0.6f, 1f);
-        PropViews.SetSprite(_cloud, new Color(_fire ? new Color(0.5f, 0.2f, 0.08f) : new Color(0.72f, 0.8f, 0.9f), 0.6f * s), 0, 0.7f);
-        _glow.Position = new Vector3(0, -r * 0.5f, 0);
-        PropViews.SetSprite(_glow, new Color(_col, 0.5f * s * (_fire ? 0.8f + 0.2f * MathF.Sin(z.Age * 31f) : 1f)), 4, 0.8f);
-        _light.LightEnergy = 1.2f * s;
+        // the cloud: puffs churning in a flat heap over the storm
+        for (int k = 0; k < _puffs.Length; k++)
+        {
+            float a = k * 1.05f + z.Age * (0.6f + 0.1f * k);
+            _puffs[k].Position = new Vector3(MathF.Cos(a) * r * 0.75f, r * 1.05f + MathF.Sin(a * 1.3f) * r * 0.15f, MathF.Sin(a) * r * 0.3f);
+            _puffs[k].Scale = Vector3.One * r * (0.75f + 0.12f * (k % 3));
+            _puffs[k].SetInstanceShaderParameter("cloud_color", new Color(_cloud, 0.6f * s));
+        }
+        _swirl.Scale = Vector3.One * r * 1.2f;
+        PropViews.SetSprite(_swirl, new Color(_col, 0.35f * s), 7, 0.45f);
+        _light.LightEnergy = (_fire ? 0.9f + 0.3f * MathF.Sin(z.Age * 29f) : 0.6f) * s;
+    }
+}
+
+/// <summary>A creature frozen solid: jagged crystals of ice around it, catching the light, that grow
+/// in as it freezes.</summary>
+public partial class IceBlockView : PropView
+{
+    private MeshInstance3D _ice, _glow;
+
+    protected override void Build()
+    {
+        var b = (IceBlock)Owner2D;
+        float r = W3.M(b.Size);
+        var rng = new Random((int)(GetInstanceId() % 10000));
+        var mb = new MeshBuilder();
+        // a ring of crystals leaning out from the creature's middle, the biggest ones low down
+        for (int k = 0; k < 9; k++)
+        {
+            float a = k * Mathf.Tau / 9f + (float)rng.NextDouble() * 0.4f;
+            var dir = new Vector3(MathF.Cos(a), MathF.Sin(a) * 0.9f, ((float)rng.NextDouble() - 0.5f) * 0.9f).Normalized();
+            float big = 1f - 0.35f * Math.Max(0f, dir.Y);
+            DesignKit.CrystalAt(mb, dir * r * 0.35f, dir, r * 0.32f * big, r * (1.05f + 0.3f * (float)rng.NextDouble()) * big, Colors.White, (float)rng.NextDouble());
+        }
+        _ice = PropViews.Mesh(mb, PropViews.Ice, false);
+        AddChild(_ice);
+        _glow = PropViews.Sprite(new Color(0.7f, 0.9f, 1f), 0, 0.5f, r * 2.6f);
+        AddChild(_glow);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var b = (IceBlock)Owner2D;
+        Follow(default, 0.12f);
+        float grow = Math.Clamp(b.Age / 0.12f, 0.2f, 1f);
+        _ice.Scale = Vector3.One * grow;
     }
 }
 

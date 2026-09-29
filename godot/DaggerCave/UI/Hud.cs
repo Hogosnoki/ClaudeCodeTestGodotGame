@@ -512,17 +512,17 @@ public partial class Hud : Control
         var air = new Color(0.8f, 0.94f, 1f);
         bool canDraft = p.Aether >= p.UpdraftCost - 0.001f;
         Dial(ab + new Vector2(17, 17), canDraft ? p.UpdraftCooldownFrac : 1f, air);
-        DrawString(font, ab + new Vector2(0, -6), $"UPDRAFT ({p.UpdraftCost:0})", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawString(font, ab + new Vector2(0, -6), $"UPDRAFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         // (three rising streaks in the dial)
         for (int k = -1; k <= 1; k++)
             DrawLine(ab + new Vector2(17 + k * 5, 25), ab + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), canDraft ? new Color(air, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
         KeyHint(font, ab, "dodge");
 
-        var zb = ab + new Vector2(50, 0);
+        var zb = ab + new Vector2(66, 0);
         bool fire = p.Stats.Firestorm;
         var stormCol = fire ? ElementBolt.FireColor : ElementBolt.FrostColor;
         bool stormReady = p.AbilityChargeReady && p.Aether >= p.BlizzardCost - 0.001f;
-        AbilitySquare(font, zb, $"{(fire ? "FIRESTORM" : "BLIZZARD")} ({p.BlizzardCost:0})", p.AbilityCooldownFrac, stormReady, stormCol, (c, col) =>
+        AbilitySquare(font, zb, $"{(fire ? "FIRE" : "STORM")} {p.BlizzardCost:0}", p.AbilityCooldownFrac, stormReady, stormCol, (c, col) =>
         {
             if (fire)
             {
@@ -544,12 +544,12 @@ public partial class Hud : Control
         UsePips(zb, p, stormCol);
         KeyHint(font, zb, "ability");
 
-        var sb = zb + new Vector2(50, 0);
+        var sb = zb + new Vector2(60, 0);
         bool cinder = p.Stats.CinderSnap;
         int marked = p.SnapTargets;
         bool snapReady = p.SnapCooldownFrac <= 0 && p.Aether >= p.SnapCost - 0.001f && marked > 0;
         var snapCol = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
-        AbilitySquare(font, sb, $"SNAP ({p.SnapCost:0}){(marked > 0 ? $"  x{marked}" : "")}", p.SnapCooldownFrac, snapReady, snapCol, (c, col) =>
+        AbilitySquare(font, sb, $"SNAP {p.SnapCost:0}{(marked > 0 ? $" x{marked}" : "")}", p.SnapCooldownFrac, snapReady, snapCol, (c, col) =>
         {
             // a crystal (or a cinder) cracking apart
             DrawColoredPolygon(new[] { c + new Vector2(0, -12), c + new Vector2(7, 0), c + new Vector2(0, 12), c + new Vector2(-7, 0) }, col);
@@ -564,7 +564,7 @@ public partial class Hud : Control
         KeyHint(font, sb, "ability2");
 
         // the aether reserve (tick marks at each spell's cost)
-        var bp = sb + new Vector2(52, 10);
+        var bp = sb + new Vector2(60, 10);
         const float w = 150;
         float max = Math.Max(1f, p.Stats.AetherMax);
         float frac = Math.Clamp(p.Aether / max, 0, 1);

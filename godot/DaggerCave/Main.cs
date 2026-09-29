@@ -318,6 +318,7 @@ public partial class Main : Node
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
+            else if (a == "--elementtest") _elementTest = true;
             else if (a == "--exittest") _exitTest = true;
             else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
             else if (a.StartsWith("--nettest=")) _netTest = a[10..];
@@ -383,7 +384,7 @@ public partial class Main : Node
     private bool _exitTest;
 
     private int _fxTest;
-    private bool _propTest;
+    private bool _propTest, _elementTest;
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
     /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
@@ -427,6 +428,34 @@ public partial class Main : Node
         if (cave.FindCeiling(p + new Vector2(90, -20), 400, out var ce)) Add(new CaveIn { Drop = 200 }, ce + new Vector2(0, 3));
     }
 
+    /// <summary>
+    /// Test aid (--elementtest, with --lookshot): the Elementalist's spells laid out around the hero
+    /// for their 3D look: a blizzard and a firestorm, an updraft, a firebolt and a frostbolt hanging
+    /// in the air, and a goblin frozen solid beside one that burns.
+    /// </summary>
+    private void SpawnElementTest()
+    {
+        var p = G.Player.GlobalPosition;
+        var cave = G.Cave;
+        Vector2 Floor(float dx) => cave.FindFloor(p + new Vector2(dx, -40), 200, out var f) ? f : p + new Vector2(dx, 12);
+        void Add(Node2D n, Vector2 at) { n.Position = at; _world.AddChild(n); }
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        Add(new Blizzard { Seconds = 999, Ticks = 0, Harmless = true }, Floor(-150) - new Vector2(0, 18));
+        Add(new Blizzard { Seconds = 999, Ticks = 0, Harmless = true, Fire = true }, Floor(150) - new Vector2(0, 18));
+        Add(new Updraft { Life = 999 }, Floor(-70));
+        Add(new ElementBolt { Dir = Vector2.Right, Speed = 0.01f, Range = 9999, Harmless = true }, p + new Vector2(40, -40));
+        Add(new ElementBolt { Dir = Vector2.Right, Speed = 0.01f, Range = 9999, Harmless = true, Frost = true }, p + new Vector2(70, -40));
+        var frozen = new Goblin();
+        frozen.SetMeta("test", true);
+        Add(frozen, Floor(55) - new Vector2(0, 8));
+        frozen.FreezeSolid(999f);
+        var burning = new Goblin();
+        burning.SetMeta("test", true);
+        Add(burning, Floor(95) - new Vector2(0, 8));
+        burning.Freeze(999f, hold: true);
+        burning.Ignite(0.001f, 999f);
+    }
+
     /// <summary>Test aid: one of every effect in a grid around the player (for tuning their 3D look).</summary>
     private void SpawnFxTest()
     {
@@ -458,6 +487,7 @@ public partial class Main : Node
         // --fxtest: lay out one of every effect around the player a moment before the shot
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
+        if (_elementTest && _lookFrame == 2) SpawnElementTest();
         if (_exitTest && _lookFrame == 2) SpawnExitTest();
         if (_lookFrame < _lookFrames) return;
         GetViewport().GetTexture().GetImage().SavePng(_lookShot);

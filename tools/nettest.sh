@@ -4,6 +4,7 @@
 # godot/DaggerCave/Main.NetTest.cs). Prints both games' checks; exits 0 only if both pass.
 #
 #   tools/nettest.sh [log dir]
+#   JOIN_HERO=elementalist tools/nettest.sh [log dir]   (the joining player's hero; swordsman by default)
 set -u
 cd "$(dirname "$0")/../godot"
 logs="${1:-$(mktemp -d)}"
@@ -13,7 +14,7 @@ godot="${GODOT:-godot}"
 "$godot" --headless --path . -- --nettest=host --hero=warden > "$logs/host.log" 2>&1 &
 host=$!
 sleep 3
-"$godot" --headless --path . -- --nettest=join --hero=swordsman > "$logs/join.log" 2>&1 &
+"$godot" --headless --path . -- --nettest=join --hero="${JOIN_HERO:-swordsman}" > "$logs/join.log" 2>&1 &
 join=$!
 
 wait "$join"; join_code=$?
