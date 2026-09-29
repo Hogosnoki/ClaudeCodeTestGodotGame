@@ -193,8 +193,19 @@ public partial class Chest : Node2D
 {
     private bool _open;
     private float _t, _openT, _askT;
+    /// <summary>Emptied: someone took a card from it.</summary>
     public bool Open => _open;
     public float OpenT => _openT;
+    /// <summary>
+    /// The cards inside (upgrade ids), dealt the first time anyone looks in. They stay the same
+    /// until someone takes one: a chest left alone can be left for a friend (online, the cards
+    /// are dealt for the whole party, each generic or for one of the party's heroes).
+    /// </summary>
+    public string[] Cards;
+    /// <summary>Online: who is looking in it right now (0 = nobody). Only they can take from it.</summary>
+    public int LookingBy;
+    /// <summary>This game's hero just asked to look in it (online, waiting for the host's answer).</summary>
+    public bool Asked => _askT > 0;
     /// <summary>Every chest in the level (for the prompt and the interact button).</summary>
     public static readonly List<Chest> All = new();
 
@@ -212,14 +223,29 @@ public partial class Chest : Node2D
         return null;
     }
 
-    /// <summary>The hero pressed interact at it (online, the host says who gets it: the first to ask).</summary>
+    /// <summary>The hero pressed interact at it (online, the host says who may look: one at a time).</summary>
     public void Interact()
     {
-        if (_open) return;
-        if (!Net.Online) { OpenBy(Net.Me); return; }
+        if (_open || G.Main.ChoosingNow) return;
+        if (!Net.Online) { Look(); return; }
         if (_askT > 0) return;
         _askT = 1f;
         NetSync.AskChest(this);
+    }
+
+    /// <summary>This game's hero looks inside: the cards are dealt the first time, then offered.</summary>
+    public void Look()
+    {
+        if (_open || G.Player == null) return;
+        _askT = 0;
+        if (Cards == null)
+        {
+            Cards = Upgrades.RollChestCards(G.Player.Stats, Net.Online ? NetSync.PartyHeroes() : null, G.Main.Rng, GlobalPosition);
+            NetSync.ChestCards(this);
+        }
+        G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.3f);
+        G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 18, new Color(1f, 0.9f, 0.5f), 0.12f);
+        G.Main.OfferChest(this);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -232,18 +258,17 @@ public partial class Chest : Node2D
         QueueRedraw();
     }
 
-    /// <summary>Opens (online: for whoever the host says reached it first; the upgrade pick is theirs).</summary>
+    /// <summary>A card was taken: the chest springs open, spent (whoever took it gets a little health too).</summary>
     public void OpenBy(int opener)
     {
         if (_open) return;
         _open = true;
+        LookingBy = 0;
         G.Sfx.Play("chest", GlobalPosition);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 30, new Color(1f, 0.9f, 0.5f));
         for (int k = 0; k < 8; k++) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-14, 14), -G.Range(6, 30)), new Color(1f, 0.9f, 0.5f), 7);
-        if (opener != Net.Me) return;
-        G.Player?.Heal(Tune.Drops.ChestHeal);
-        G.Main.OfferChest(GlobalPosition);
+        if (opener == Net.Me) G.Player?.Heal(Tune.Drops.ChestHeal);
     }
 
     public override void _Draw()

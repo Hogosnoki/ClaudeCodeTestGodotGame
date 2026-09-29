@@ -37,12 +37,14 @@ Both of you need this same copy of the game (send your friend the zip you got).
 
 In the cave:
   * Go down together: when an exit opens, everyone still standing walks into it
-    (press E, LB on a controller, or up there). The first to arrive waits for the others.
-  * A fallen friend can be brought back: stand beside them and hold E (LB on a controller).
+    (press E, LT on a controller, or up there). The first to arrive waits for the others.
+  * A fallen friend can be brought back: stand beside them and hold E (LT on a controller).
     If everyone falls, the run is over.
-  * Experience is shared. Chests open with E (LB); the pick goes to whoever opens it first.
+  * Experience is shared. Look in a chest with E (LT): its cards are the same for
+    everyone. Take one, or leave it closed for a friend and tell them what's inside.
+    A card for another hero is shown, but only they can take it.
   * At the very start, the daylight at the far left is the way back out: if everyone
-    waits there (E / LB), you all walk out and the run ends, keeping nothing.
+    waits there (E / LT), you all walk out and the run ends, keeping nothing.
   * Pausing doesn't stop the game online (the others keep playing).
 
 If your friend can't connect:
@@ -61,8 +63,9 @@ If your friend can't connect:
 
 CONTROLS (change them in Settings: on the main menu, or pause with ESC / START)
 -------------------------------------------------------------------------------
-Keyboard + mouse: A / D move, SPACE jump, LEFT CLICK attack, RIGHT CLICK ability,
-F second ability, SHIFT dodge / shield / hex, E interact (chests, exits, reviving,
-the way out), Q potion.
-Controller: left stick move, A jump, X attack, RB ability, RT second ability,
-B or LT dodge / shield / hex, LB interact, Y potion, right stick aims.
+Keyboard + mouse: A / D move, SPACE jump, LEFT CLICK attack (hold it to keep
+attacking), RIGHT CLICK ability, F second ability, SHIFT dodge / shield / hex,
+E interact (chests, exits, reviving, the way out), Q potion.
+Controller: left stick move, A jump, X attack (hold it to keep attacking), RB ability,
+RT second ability, B or LB dodge / shield / hex, LT interact, Y potion. The right
+stick attacks where you push it (the Warden's raises the shield instead).

@@ -282,12 +282,16 @@ public abstract partial class Enemy : CharacterBody2D
         _bleedDps = (left + total) / seconds;
     }
 
-    /// <summary>Freezes just this creature for a hit-stop.</summary>
-    public void Freeze(float seconds)
+    /// <summary>
+    /// Freezes just this creature for a hit-stop. A creature winding up or attacking isn't held
+    /// by a hit-stop: its attack plays out exactly as telegraphed, so it can be read and blocked.
+    /// <paramref name="hold"/> freezes it all the same (a rupture seizing it, the blow it just landed).
+    /// </summary>
+    public void Freeze(float seconds, bool hold = false)
     {
-        if (Dead) return;
+        if (Dead || (!hold && AttackingNow)) return;
         _freeze = Math.Max(_freeze, seconds);
-        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Freeze, seconds);
+        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Freeze, seconds, hold ? 1 : 0);
     }
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
@@ -299,7 +303,7 @@ public abstract partial class Enemy : CharacterBody2D
     // ================================================================== breaking attacks off
     /// <summary>
     /// True while an attack is under way: its wind-up or its blow. Only such a creature stops the
-    /// Warden's shield dash (walking up to you, however menacingly, doesn't count).
+    /// Warden's Guarded Charge (walking up to you, however menacingly, doesn't count).
     /// </summary>
     public virtual bool Attacking => Striking;
 
@@ -307,7 +311,7 @@ public abstract partial class Enemy : CharacterBody2D
     public virtual bool Interruptible => !IsBoss;
 
     /// <summary>
-    /// Breaks off the attack under way (a perfect block, the shield dash): the creature reels
+    /// Breaks off the attack under way (a perfect block, the Guarded Charge): the creature reels
     /// for <paramref name="stagger"/> seconds and its attack starts over from scratch.
     /// </summary>
     public void Interrupt(Vector2 push, float stagger, string label = "BROKEN")
@@ -450,10 +454,13 @@ public abstract partial class Enemy : CharacterBody2D
         if (_hexT > 0) dmg *= _hexVuln;
         Hp -= dmg;
         HurtFlash = 0.12f;
+        // a creature winding up or attacking keeps its pose and its timing: the blow flashes and
+        // squashes it, but only a shield bash, a guarded charge or a perfect block breaks it off
+        bool midAttack = Attacking;
         if (Anim != null)
         {
             Anim.Flash(1f);
-            if (Hp > 0) Anim.Once("hurt", 4);
+            if (Hp > 0 && !midAttack) Anim.Once("hurt", 4);
             // squash-and-stretch punch away from the blow
             var baseScale = Vector2.One;
             Anim.Scale = new Vector2(1.25f, 0.8f);
@@ -461,7 +468,7 @@ public abstract partial class Enemy : CharacterBody2D
             tw.TweenProperty(Anim, "scale", baseScale, 0.18f).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
         }
         var k = knock * (1f - KnockResist);
-        if (k.Length() > 60 && !ManualMove) { Stun = 0.2f; KnockVel = k; }
+        if (k.Length() > 60 && !ManualMove && !midAttack) { Stun = 0.2f; KnockVel = k; }
         else if (!ManualMove && knock.X != 0) Recoil(knock.X); // even without Heavy Pommel, a hit nudges it back
         bool big = dmg >= 15;
         G.Fx.Text(hitPos + new Vector2(0, -10), Mathf.RoundToInt(dmg).ToString(), big ? new Color(1f, 0.85f, 0.3f) : Colors.White, big ? 13 : 11);
@@ -889,7 +896,7 @@ public abstract partial class Enemy : CharacterBody2D
         x[i++] = p.IsSwinging ? 1 : 0;                          // danger: the dagger is out
         x[i++] = p.Guarding ? 1 : 0;                           // dodging, invulnerable, or shield up
         x[i++] = p.Facing * -sx;                                // +1 = the player is facing me
-        x[i++] = p.SecondaryReady ? 1 : 0;                      // a Charged Strike / shield dash / heal could be coming
+        x[i++] = p.SecondaryReady ? 1 : 0;                      // a Charged Strike / Guarded Charge / heal could be coming
         x[i++] = cave.IsSolid(pos + new Vector2(sx * 20, 0)) ? 1 : 0;   // wall between us
         x[i++] = !cave.IsSolid(pos + new Vector2(sx * 16, 30)) && !cave.IsSolid(pos + new Vector2(sx * 16, 60)) ? 1 : 0; // gap toward the player
         x[i++] = cave.IsSolid(pos + new Vector2(0, -40)) ? 1 : 0;     // low ceiling

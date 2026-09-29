@@ -29,7 +29,7 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 1;
+    public const int Version = 2;
     public const int MaxPlayers = 3;
 
     /// <summary>
@@ -49,6 +49,9 @@ public static partial class Net
     public static int Me { get; private set; } = 1;
     /// <summary>A run has started (the lobby is closed to newcomers).</summary>
     public static bool InRun { get; set; }
+
+    /// <summary>A player's name (for notices), or "SOMEONE".</summary>
+    public static string NameOf(int id) => Peers.TryGetValue(id, out var p) ? p.Name.ToUpperInvariant() : "SOMEONE";
 
     public sealed class PeerInfo
     {
@@ -331,6 +334,8 @@ public static partial class Net
         HeroState, HeroEvent, WorldSnap, EnemySpawn, EnemyDie, EnemyHit, EnemyEffect,
         HeroHurt, HeroHeal, PropSpawn, PropGone, Xp, Pickup, ChestOpen, ChestOpened,
         ExitReady, Fx, Sfx, Banner, GuardianDown, RunOver, Revive, KillCredit, Music, HeroGone, Dealt, LeftCave,
+        /// <summary>Chests: who is looking in one, the cards it was dealt, and a look finished (taken or left).</summary>
+        ChestLook, ChestCards, ChestDone,
         /// <summary>The two-game test harness (--nettest) talking to itself.</summary>
         Test,
     }

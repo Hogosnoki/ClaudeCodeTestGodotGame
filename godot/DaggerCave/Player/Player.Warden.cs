@@ -1,18 +1,20 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace DaggerCave;
 
 /// <summary>
 /// The Warden's kit. The shield is raised by holding the dodge button, or just by pushing the
-/// right stick (so you can run one way and guard the other). It stops most of each blow (the
-/// rest gets through as chip damage, without a flinch) and loses strength for what it stops;
-/// normal blocks don't stop an attack, but a perfect block (raised just before the hit) stops
-/// all of it and breaks the attack off. Healing also mends the shield. The ability is the
-/// shield dash: a guarded charge that stops at the first projectile or attacking creature in
-/// its way and breaks that attack off, passing straight by creatures that aren't attacking. The
-/// second ability is the shield bash: a short shove that stuns what it meets (breaking off its
-/// attack) at the cost of a dent in the shield.
+/// right stick (so you can run one way and guard the other). It stops all of each blow and
+/// loses strength for half of what it stops; once it runs out, it breaks, the rest of the blow
+/// gets through, and whatever broke it is left stunned. Normal blocks don't stop an attack, but
+/// a perfect block (raised just before the hit) breaks the attack off. Healing also mends the
+/// shield. The ability is the Guarded Charge: a charge behind the shield that swallows
+/// projectiles on its way and stops at the first attacking creature, breaking that attack off
+/// (it passes straight by creatures that aren't attacking). The second ability is the shield
+/// bash: a short shove that stuns everything close in front (breaking off their attacks) at the
+/// cost of a dent in the shield.
 /// </summary>
 public partial class Player
 {
@@ -27,7 +29,7 @@ public partial class Player
     private float _dashT;
     private Vector2 _dashDir = Vector2.Right;
     public bool IsShieldDashing => IsRemote ? (_netFlags & HfDash) != 0 : _dashT > 0;
-    /// <summary>0 = the shield dash is ready, 1 = just used.</summary>
+    /// <summary>0 = the Guarded Charge is ready, 1 = just used.</summary>
     public float DashCooldownFrac => AbilityCooldownFrac;
 
     private float _bashT, _bashCd;
@@ -85,9 +87,10 @@ public partial class Player
     /// Whether the raised shield covers a blow arriving from <paramref name="from"/>. It stops
     /// Stats.BlockShare of it (all of it on a perfect block, or mid-dash) and loses ShieldCost of
     /// what it stopped; if that's more than it has left, it gives way and the rest comes through.
-    /// A perfect block breaks off the attack of the <paramref name="melee"/> attacker.
+    /// A perfect block breaks off the attack of the <paramref name="melee"/> attacker; a blow that
+    /// breaks the shield stuns its <paramref name="striker"/> (the attacker, or the shooter).
     /// </summary>
-    public Block TryBlock(Vector2 from, float dmg, Enemy melee = null)
+    public Block TryBlock(Vector2 from, float dmg, Enemy melee = null, Enemy striker = null)
     {
         var b = new Block { Through = dmg };
         if (!IsWarden || !ShieldRaised) return b;
@@ -126,11 +129,11 @@ public partial class Player
             if (b.Perfect) melee.Interrupt(away * 200f, Tune.Warden.PerfectStagger);
             if (Stats.ShieldThorns) melee.Hurt(dmg * 0.4f * Stats.DamageMult, away * 120f, melee.GlobalPosition - away * melee.HitRadius);
         }
-        if (ShieldHp <= 0 && !dashing) BreakShield(at);
+        if (ShieldHp <= 0 && !dashing) BreakShield(at, striker ?? melee);
         return b;
     }
 
-    private void BreakShield(Vector2 at)
+    private void BreakShield(Vector2 at, Enemy striker = null)
     {
         ShieldHp = 0;
         _shieldBrokenT = Stats.ShieldBreakTime;
@@ -138,6 +141,15 @@ public partial class Player
         G.Sfx.Play("rock", at, 0, 0.1f, 1.4f);
         G.Fx.Burst(at, new Color(0.55f, 0.8f, 1f), 22, 180, 2.5f, 0.5f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -26), "SHIELD BROKEN", new Color(0.6f, 0.8f, 1f), 10, 1f);
+        // the blow that broke it jars whatever struck it: it reels, stunned (the great bosses
+        // only rock back)
+        if (striker != null && GodotObject.IsInstanceValid(striker) && !striker.Dead)
+        {
+            var away = (striker.GlobalPosition - GlobalPosition).Normalized();
+            float stun = Tune.Warden.BreakStun * (striker.Elite || striker.IsGuardian ? 0.5f : 1f);
+            striker.Interrupt(away * 160f, stun, "STUNNED");
+            G.Fx.Ring(striker.GlobalPosition, striker.HitRadius + 8, new Color(0.7f, 0.9f, 1f, 0.9f));
+        }
     }
 
     /// <summary>What gets through the shield: armour applies, but there's no flinch, knockback or hit-stop.</summary>
@@ -154,7 +166,7 @@ public partial class Player
     /// <summary>Projectiles meet the shield first; a perfect block with Riposte Guard sends them back.</summary>
     public bool TryBlockProjectile(EnemyProjectile pr)
     {
-        var b = TryBlock(pr.GlobalPosition - pr.Vel.Normalized() * 10, pr.Damage);
+        var b = TryBlock(pr.GlobalPosition - pr.Vel.Normalized() * 10, pr.Damage, striker: pr.Source);
         if (!b.Blocked) return false;
         if (b.Perfect && Stats.PerfectReflect) pr.Reflect(ShieldDir, Stats.DamageMult);
         else pr.Deflect();
@@ -163,7 +175,7 @@ public partial class Player
         return true;
     }
 
-    // ---------------------------------------------------------------- shield dash
+    // ---------------------------------------------------------------- Guarded Charge
 
     private bool TryShieldDash(Vector2 aim)
     {
@@ -199,25 +211,26 @@ public partial class Player
         return v;
     }
 
-    /// <summary>The charge meets the first projectile, shockwave or attacking creature ahead of it.</summary>
+    /// <summary>
+    /// The charge swallows the projectiles and shockwaves in its way and keeps going; it stops
+    /// at the first attacking creature ahead of it.
+    /// </summary>
     private bool DashCollide()
     {
         var front = GlobalPosition + new Vector2(0, -3) + _dashDir * 12;
         foreach (var pr in G.Main.EnemyProjectiles.ToArray())
         {
-            if (pr.GlobalPosition.DistanceTo(front) > pr.Radius + 13) continue;
+            if (pr.IsQueuedForDeletion() || pr.GlobalPosition.DistanceTo(front) > pr.Radius + 13) continue;
             var at = pr.GlobalPosition;
             if (Stats.PerfectReflect) pr.Reflect(_dashDir, Stats.DamageMult); else pr.Deflect();
-            DashImpact(at, null);
-            return true;
+            DashSwallow(at);
         }
         foreach (var n in G.World.GetChildren())
         {
-            if (n is not Shockwave sw || sw.GlobalPosition.DistanceTo(front) > 18 * sw.Size) continue;
+            if (n is not Shockwave sw || sw.IsQueuedForDeletion() || sw.GlobalPosition.DistanceTo(front) > 18 * sw.Size) continue;
             var at = sw.GlobalPosition;
             sw.Break();
-            DashImpact(at, null);
-            return true;
+            DashSwallow(at);
         }
         foreach (var e in G.Enemies.ToArray())
         {
@@ -227,6 +240,16 @@ public partial class Player
             return true;
         }
         return false;
+    }
+
+    /// <summary>Something thrown or rolling meets the charging shield: it's swallowed with a clink, and on the charge goes.</summary>
+    private void DashSwallow(Vector2 at)
+    {
+        G.Fx.Spark(at, _dashDir, false, new Color(0.7f, 0.9f, 1f));
+        G.Fx.Ring(at, 10, new Color(0.6f, 0.85f, 1f, 0.8f));
+        G.Sfx.Play("clink", at, -2, 0.1f, 0.9f);
+        G.Main.Rumble(0.25f, 0.2f, 0.06f);
+        _shieldFlash = 0.12f;
     }
 
     /// <summary>The charge stops dead against it: the attack is broken off, with a shield bash.</summary>
@@ -293,48 +316,59 @@ public partial class Player
         _bashT -= dt;
         if (_bashHit) return;
         if (InWater || !IsOnFloor()) Velocity = Velocity.Lerp(_bashDir * Tune.Warden.BashLunge * 0.6f, 0.3f);
-        var front = GlobalPosition + new Vector2(0, -3) + _bashDir * 10;
+        var origin = GlobalPosition + new Vector2(0, -3);
+        var front = origin + _bashDir * 10;
         // the shield meets projectiles on the way, as it would held up
         foreach (var pr in G.Main.EnemyProjectiles.ToArray())
         {
-            if (pr.GlobalPosition.DistanceTo(front) > pr.Radius + 14) continue;
+            if (pr.IsQueuedForDeletion() || pr.GlobalPosition.DistanceTo(front) > pr.Radius + 14) continue;
             if (Stats.PerfectReflect) pr.Reflect(_bashDir, Stats.DamageMult); else pr.Deflect();
         }
-        Enemy best = null;
-        float bestD = float.MaxValue;
+        // it lands the moment anything is close in front, and strikes everything in the
+        // half-circle ahead of the shield
+        List<Enemy> struck = null;
         foreach (var e in G.Enemies)
         {
             if (e.Dead || !e.CanBeHit) continue;
-            float d = e.GlobalPosition.DistanceTo(front) - e.HitRadius;
-            if (d > Tune.Warden.BashReach || d >= bestD) continue;
-            if (!G.Cave.LineClear(GlobalPosition + new Vector2(0, -3), e.GlobalPosition)) continue;
-            best = e; bestD = d;
+            var to = e.GlobalPosition - origin;
+            if (to.Length() - e.HitRadius > Tune.Warden.BashRadius) continue;
+            if (_bashDir.Dot(to) < -4f) continue; // behind the shield
+            if (!G.Cave.LineClear(origin, e.GlobalPosition)) continue;
+            (struck ??= new List<Enemy>()).Add(e);
         }
-        if (best != null) BashImpact(best);
+        if (struck != null) BashImpact(struck);
     }
 
-    /// <summary>The shove lands: damage, a stun that breaks off whatever it was doing, and a dent in the shield.</summary>
-    private void BashImpact(Enemy e)
+    /// <summary>The shove lands: damage and a stun (breaking off whatever each was doing) for
+    /// everything close in front, and one dent in the shield.</summary>
+    private void BashImpact(List<Enemy> struck)
     {
         _bashHit = true;
         _bashT = Math.Min(_bashT, 0.1f);
-        var at = e.GlobalPosition - (e.GlobalPosition - GlobalPosition).Normalized() * e.HitRadius;
-        // (the blow first, then the stun: a hit's own short reel mustn't cut the stun short)
-        float dealt = e.Hurt(Tune.Warden.BashDamage * Stats.DamageMult, _bashDir * Tune.Warden.BashPush, at);
-        if (dealt > 0) OnDealtDamage(dealt);
-        if (!e.Dead)
+        var at = GlobalPosition + new Vector2(0, -3) + _bashDir * 14;
+        foreach (var e in struck)
         {
-            float stun = Tune.Warden.BashStun * (e.Elite || e.IsGuardian ? 0.5f : 1f);
-            e.Interrupt(_bashDir * Tune.Warden.BashPush, stun, "STUNNED");
-            e.Freeze(Tune.Feel.HitStopDash);
+            var from = (e.GlobalPosition - GlobalPosition).Normalized();
+            var hit = e.GlobalPosition - from * e.HitRadius;
+            var push = (from + _bashDir).Normalized() * Tune.Warden.BashPush;
+            // (the blow first, then the stun: a hit's own short reel mustn't cut the stun short)
+            float dealt = e.Hurt(Tune.Warden.BashDamage * Stats.DamageMult, push, hit);
+            if (dealt > 0) OnDealtDamage(dealt);
+            if (!e.Dead)
+            {
+                float stun = Tune.Warden.BashStun * (e.Elite || e.IsGuardian ? 0.5f : 1f);
+                e.Interrupt(push, stun, "STUNNED");
+                e.Freeze(Tune.Feel.HitStopDash);
+            }
+            G.Fx.Spark(hit, from, true, new Color(1f, 0.95f, 0.75f));
+            G.Fx.Ring(hit, 12, new Color(0.7f, 0.9f, 1f, 0.9f));
         }
-        // the shield takes the blow too
+        // the shield takes the blow too (once, however many it struck)
         ShieldHp -= Tune.Warden.BashShieldCost;
         _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
         _shieldFlash = 0.25f;
-        G.Fx.Spark(at, _bashDir, true, new Color(1f, 0.95f, 0.75f));
-        G.Fx.Ring(at, 16, new Color(0.7f, 0.9f, 1f, 0.9f));
-        G.Fx.Shockwave(at, 26, new Color(1f, 1f, 1f, 0.7f), 0.25f);
+        G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f));
+        G.Fx.Shockwave(at, 26 + 10 * Math.Min(3, struck.Count - 1), new Color(1f, 1f, 1f, 0.7f), 0.25f);
         for (int k = 0; k < 5; k++) G.Fx.Glint(at + G.RandDir() * G.Range(4, 14), new Color(1f, 0.9f, 0.5f), 6);
         G.Sfx.Play("clink", at, 2, 0.05f, 0.55f);
         G.Sfx.Play("slam", at, -4, 0.05f, 1.6f);

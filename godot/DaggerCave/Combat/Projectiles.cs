@@ -314,7 +314,7 @@ public partial class Shockwave : Node2D
         QueueFree();
     }
 
-    /// <summary>Stopped dead (the Warden's shield dash): it bursts into gravel.</summary>
+    /// <summary>Stopped dead (the Warden's Guarded Charge): it bursts into gravel.</summary>
     public void Break()
     {
         if (IsQueuedForDeletion()) return;

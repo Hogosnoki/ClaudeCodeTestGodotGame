@@ -19,7 +19,7 @@ public sealed class PlayerStats
     public float AttackSpeed = 1f;       // swing / cast cooldown divisor
     /// <summary>Damage of the attack button only (a swing, the drain): Heavy Hand's side of the bargain.</summary>
     public float PrimaryDamageMult = 1f;
-    /// <summary>The ability button (charged strike, shield dash, heal): how many uses it holds, and
+    /// <summary>The ability button (charged strike, Guarded Charge, heal): how many uses it holds, and
     /// how much longer each takes to come back (Twin Reserve).</summary>
     public int AbilityCharges = 1;
     public float AbilityCdMult = 1f;
@@ -52,7 +52,7 @@ public sealed class PlayerStats
     public bool Execute, CrescentWave;
     public float HeaveCooldown = Tune.Swordsman.HeaveCooldown;
 
-    // warden: shield + shield dash
+    // warden: shield + Guarded Charge
     public float ShieldMax = Tune.Warden.ShieldHp;
     public float ShieldRegen = Tune.Warden.ShieldRegen;
     public float ShieldBreakTime = Tune.Warden.ShieldBreakTime;
@@ -162,8 +162,7 @@ public static class Upgrades
         new() { Id = "dodgecd", Name = "Nimble", Desc = "Dodge cooldown -20%.", Icon = "dodge", For = S, MaxStacks = 3, Apply = (s, p) => s.DodgeCdMult *= 0.8f },
         new() { Id = "dodge2", Name = "Second Wind", Desc = "Gain a second dodge charge.", Icon = "dodge", For = S, Tier = UpgradeTier.Ability, Apply = (s, p) => { s.DodgeCharges = 2; p.SyncCharges(); } },
 
-        // --- Shield and shield dash (warden) ---
-        new() { Id = "block", Name = "Tempered Shield", Desc = "Your shield stops 10% more of each blow.", Icon = "shield", For = W, MaxStacks = 2, Weight = 1.3f, Apply = (s, p) => s.BlockShare = Math.Min(0.95f, s.BlockShare + 0.1f) },
+        // --- Shield and Guarded Charge (warden) ---
         new() { Id = "perfect_reflect", Name = "Riposte Guard", Desc = "A perfect block (raise the shield just before the hit) reflects projectiles back at enemies.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.PerfectReflect = true },
         new() { Id = "perfect_soak", Name = "Iron Timing", Desc = "Perfect blocks cost your shield 70% less.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.PerfectSoak = true },
         new() { Id = "shield_wide", Name = "Tower Shield", Desc = "Your shield covers a 30% wider arc.", Icon = "shield", For = W, MaxStacks = 2, Apply = (s, p) => s.ShieldArcMult += 0.3f },
@@ -171,10 +170,10 @@ public static class Upgrades
         new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", For = W, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegen *= 1.5f; } },
         new() { Id = "thorns", Name = "Spiked Shield", Desc = "Melee attackers that strike your shield take 40% of the blow back.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.ShieldThorns = true },
         new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a whole shield.", Icon = "life", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
-        new() { Id = "dash_cd", Name = "Ready Charge", Desc = "Shield dash cooldown -20%.", Icon = "shield", For = W, MaxStacks = 3, Apply = (s, p) => s.DashCooldown *= 0.8f },
-        new() { Id = "dash_far", Name = "Long Charge", Desc = "Your shield dash carries you 30% farther.", Icon = "shield", For = W, MaxStacks = 2, Apply = (s, p) => s.DashTime *= 1.3f },
-        new() { Id = "dash_bash", Name = "Battering Charge", Desc = "Your shield dash hits what it stops four times as hard.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashDamageMult = 4f },
-        new() { Id = "dash_mend", Name = "Rallying Charge", Desc = "Breaking an attack with your shield dash mends your shield by 12 and heals 4.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashMend = true },
+        new() { Id = "dash_cd", Name = "Ready Charge", Desc = "Guarded Charge cooldown -20%.", Icon = "shield", For = W, MaxStacks = 3, Apply = (s, p) => s.DashCooldown *= 0.8f },
+        new() { Id = "dash_far", Name = "Long Charge", Desc = "Your Guarded Charge carries you 30% farther.", Icon = "shield", For = W, MaxStacks = 2, Apply = (s, p) => s.DashTime *= 1.3f },
+        new() { Id = "dash_bash", Name = "Battering Charge", Desc = "Your Guarded Charge hits what it stops four times as hard.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashDamageMult = 4f },
+        new() { Id = "dash_mend", Name = "Rallying Charge", Desc = "Breaking an attack with your Guarded Charge mends your shield by 12 and heals 4.", Icon = "shield", For = W, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashMend = true },
         new() { Id = "bash_cd", Name = "Hard Shoulder", Desc = "Shield bash recharges 20% faster.", Icon = "shield", For = W, MaxStacks = 2, Apply = (s, p) => s.BashCooldown *= 0.8f },
 
         // --- Spells (vitalist) ---
@@ -240,7 +239,7 @@ public static class Upgrades
         new() { Id = "lv_shield", Name = "Bulwark", Desc = "+8 shield strength.", Icon = "shield", For = W, MaxStacks = 12, Weight = 1.4f, Apply = (s, p) => s.ShieldMax += 8 },
         new() { Id = "lv_regen", Name = "Mending", Desc = "Shield regenerates 0.6 more per second.", Icon = "shield", For = W, MaxStacks = 10, Weight = 1.4f, Apply = (s, p) => s.ShieldRegen += 0.6f },
         new() { Id = "lv_break", Name = "Steadfast", Desc = "A broken shield recovers 0.6 s sooner.", Icon = "shield", For = W, MaxStacks = 6, Weight = 1.2f, Apply = (s, p) => s.ShieldBreakTime = Math.Max(1.5f, s.ShieldBreakTime - 0.6f) },
-        new() { Id = "lv_dash", Name = "Momentum", Desc = "Shield dash recharges 6% faster.", Icon = "shield", For = W, MaxStacks = 8, Apply = (s, p) => s.DashCooldown *= 0.94f },
+        new() { Id = "lv_dash", Name = "Momentum", Desc = "Guarded Charge recharges 6% faster.", Icon = "shield", For = W, MaxStacks = 8, Apply = (s, p) => s.DashCooldown *= 0.94f },
         // vitalist
         new() { Id = "lv_alimus", Name = "Reservoir", Desc = "Hold 3 more alimus.", Icon = "spell", For = V, MaxStacks = 10, Apply = (s, p) => s.AlimusMax += 3f },
         new() { Id = "lv_heal", Name = "Kindness", Desc = "Your heal restores 6% more.", Icon = "life", For = V, MaxStacks = 10, Apply = (s, p) => s.HealMult += 0.06f },
@@ -258,14 +257,19 @@ public static class Upgrades
         new() { Id = "m_reach", Name = "Long Arm", Desc = "+15% reach.", Icon = "blade", MaxStacks = 3, Apply = (s, p) => s.DaggerReach *= 1.15f },
         new() { Id = "m_dodge", Name = "Wind Runner", Desc = "Dodges and Charged Strike recharge 15% faster.", Icon = "dodge", For = S, MaxStacks = 4, Apply = (s, p) => { s.DodgeCdMult *= 0.85f; s.ChargeCooldown *= 0.85f; } },
         new() { Id = "m_shield", Name = "Aegis", Desc = "+15% shield strength and regeneration.", Icon = "shield", For = W, MaxStacks = 4, Apply = (s, p) => { s.ShieldMax *= 1.15f; s.ShieldRegen *= 1.15f; } },
-        new() { Id = "m_vanguard", Name = "Vanguard", Desc = "Shield dash recharges 15% faster, and your shield stops 5% more.", Icon = "shield", For = W, MaxStacks = 4, Apply = (s, p) => { s.DashCooldown *= 0.85f; s.BlockShare = Math.Min(0.95f, s.BlockShare + 0.05f); } },
+        new() { Id = "m_vanguard", Name = "Vanguard", Desc = "Guarded Charge recharges 15% faster.", Icon = "shield", For = W, MaxStacks = 4, Apply = (s, p) => s.DashCooldown *= 0.85f },
         new() { Id = "m_font", Name = "Wellspring", Desc = "+15% alimus gained and heal strength.", Icon = "spell", For = V, MaxStacks = 4, Apply = (s, p) => { s.AlimusGain *= 1.15f; s.HealMult *= 1.15f; } },
     };
 
-    /// <summary>The "leave it" card on reward screens: nothing now, an ember if the level's guardian falls.</summary>
-    public static readonly Upgrade Skip = new() { Id = "skip", Name = "Leave It", Desc = "Take nothing. Earn 1 ember (kept between runs) if you defeat this level's guardian.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
+    /// <summary>The "leave it" card on a milestone: nothing.</summary>
+    public static readonly Upgrade Skip = new() { Id = "skip", Name = "Leave It", Desc = "Take nothing.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
+    /// <summary>The "leave it" card in a chest: it closes again, keeping its cards.</summary>
+    public static readonly Upgrade LeaveChest = new() { Id = "leave", Name = "Leave It", Desc = "Close the chest. It keeps these cards: come back for one later, or leave it for a friend.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(LevelUp).Concat(Milestone).Append(Skip);
+    public static IEnumerable<Upgrade> All => Chest.Concat(LevelUp).Concat(Milestone).Append(Skip).Append(LeaveChest);
+
+    /// <summary>A card by id, or null if there's no such card (a chest dealt by another version).</summary>
+    public static Upgrade Find(string id) => All.FirstOrDefault(u => u.Id == id);
 
     /// <summary>Three milestone picks.</summary>
     public static List<Upgrade> RollMilestone(PlayerStats s, Random rng) => Roll(Milestone, s, 3, rng, u => u.Weight);
@@ -275,7 +279,7 @@ public static class Upgrades
     /// <summary>The hero's ability button, by name (for card texts).</summary>
     public static string AbilityName(HeroKind h) => h switch
     {
-        HeroKind.Warden => "shield dash",
+        HeroKind.Warden => "Guarded Charge",
         HeroKind.Vitalist => "heal",
         _ => "Charged Strike",
     };
@@ -314,9 +318,45 @@ public static class Upgrades
         });
     }
 
-    private static List<Upgrade> Roll(List<Upgrade> from, PlayerStats s, int count, Random rng, Func<Upgrade, float> weight)
+    /// <summary>
+    /// The three cards a chest holds (their ids). Alone, they're dealt from what
+    /// <paramref name="mine"/> can take. With a party, from everything the party can use: what the
+    /// dealer can take, plus the other heroes' own upgrades (<paramref name="party"/>), so a chest
+    /// may hold a card for a friend.
+    /// </summary>
+    public static string[] RollChestCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at)
     {
-        var pool = from.Where(u => Available(u, s)).ToList();
+        if (party == null || party.Count <= 1) return RollChest(mine, rng, at).Select(u => u.Id).ToArray();
+        var cave = G.Cave;
+        bool underwater = cave != null && at.Y > cave.WaterY;
+        bool high = cave != null && at.Y < cave.WaterY * Tune.Drops.HighZoneFraction;
+        // a friend's class card can only be judged as for a fresh hero: simple ones only
+        bool Friends(Upgrade u) => u.For != null && Array.IndexOf(u.For, mine.Hero) < 0 && u.For.Any(party.Contains)
+                                   && u.Requires == null && u.When == null && u.Excludes.Length == 0;
+        var pool = Chest.Where(u => Available(u, mine) || Friends(u)).ToList();
+        return Pick(pool, 3, rng, u =>
+        {
+            float w = u.Weight * (u.Tier == UpgradeTier.Ability ? 1.5f : 1f);
+            if (underwater && u.Icon == "move") w *= Tune.Drops.ZoneBias;
+            if (high && u.Icon == "life") w *= Tune.Drops.ZoneBias;
+            return w;
+        }).Select(u => u.Id).ToArray();
+    }
+
+    /// <summary>Why this hero can't take a card (null: they can).</summary>
+    public static string LockReason(Upgrade u, PlayerStats s)
+    {
+        if (u.Icon == "skip" || s == null) return null;
+        if (u.For != null && Array.IndexOf(u.For, s.Hero) < 0) return "FOR THE " + string.Join(" OR ", u.For.Select(h => h.ToString().ToUpperInvariant()));
+        if (s.StackOf(u.Id) >= u.MaxStacks) return "YOU HAVE IT ALREADY";
+        return Available(u, s) ? null : "NOT FOR YOU YET";
+    }
+
+    private static List<Upgrade> Roll(List<Upgrade> from, PlayerStats s, int count, Random rng, Func<Upgrade, float> weight)
+        => Pick(from.Where(u => Available(u, s)).ToList(), count, rng, weight);
+
+    private static List<Upgrade> Pick(List<Upgrade> pool, int count, Random rng, Func<Upgrade, float> weight)
+    {
         var result = new List<Upgrade>();
         while (result.Count < count && pool.Count > 0)
         {

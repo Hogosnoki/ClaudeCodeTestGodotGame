@@ -113,25 +113,30 @@ public static class Tune
         public static float HeaveKnockback = 420f, HeaveCooldown = 6f;
     }
 
-    /// <summary>The warden: shortsword, an aimable shield, and the shield dash.</summary>
+    /// <summary>The warden: shortsword, an aimable shield, the Guarded Charge and the shield bash.</summary>
     public static class Warden
     {
-        /// <summary>Shortsword: dagger length and damage, but the blade sweeps faster.</summary>
-        public static float Reach = 30f, Damage = 13f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
+        /// <summary>Shortsword: dagger length, but the blade sweeps faster. (Its damage keeps the
+        /// Warden's damage a little under the Swordsman's: about 31 a second to 33.)</summary>
+        public static float Reach = 30f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.06f, SwingWindup = 0.06f;
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>A little slower than the Swordsman, with lower jumps.</summary>
         public static float MoveMult = 0.92f, JumpMult = 0.9f;
-        /// <summary>Sturdier: a little more health, some armour, and one more second of breath.</summary>
-        public static float StartHp = 75f, Armor = 0.1f, ExtraBreath = 1f;
+        /// <summary>The sturdiest: much more health, some armour, and one more second of breath.</summary>
+        public static float StartHp = 110f, Armor = 0.1f, ExtraBreath = 1f;
 
         /// <summary>Shield: its strength, arc (degrees), regeneration per second, the pause after
         /// a block before it regenerates, and how long it stays at zero once broken.</summary>
         public static float ShieldHp = 40f, ShieldArcDegrees = 135f, ShieldRegen = 3f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
         /// <summary>
-        /// Share of a blow the raised shield stops (the rest gets through), and how much of the
-        /// stopped damage the shield itself loses. A perfect block stops everything.
+        /// Share of a blow the raised shield stops (all of it), and how much of the stopped damage
+        /// the shield itself loses (half: its 40 points soak 80). Once it runs out, the rest of
+        /// the blow gets through.
         /// </summary>
-        public static float BlockShare = 0.7f, ShieldCost = 0.5f;
+        public static float BlockShare = 1f, ShieldCost = 0.5f;
+        /// <summary>The creature whose blow breaks the shield is stunned this long (half for
+        /// mini-bosses and guardians; the great bosses shrug it off).</summary>
+        public static float BreakStun = 1.6f;
         /// <summary>A block within this many seconds of raising the shield is "perfect": nothing
         /// gets through and a melee attacker's attack is broken off (it reels for PerfectStagger s).</summary>
         public static float PerfectWindow = 0.18f, PerfectStagger = 0.6f;
@@ -147,21 +152,23 @@ public static class Tune
         public static float LastStandInvuln = 1.5f;
 
         /// <summary>
-        /// Shield dash (the ability button): a guarded charge (speed px/s, seconds) that stops at
-        /// the first projectile or attacking creature it meets, breaking the attack off (the
-        /// creature reels for DashStagger s, pushed DashPush px/s, and takes DashDamage). Walkers
-        /// that aren't attacking are passed through.
+        /// Guarded Charge (the ability button): a charge behind the shield (speed px/s, seconds).
+        /// Projectiles and shockwaves in its way are swallowed as it keeps going; it stops at the
+        /// first attacking creature it meets, breaking the attack off (the creature reels for
+        /// DashStagger s, pushed DashPush px/s, and takes DashDamage). Creatures that aren't
+        /// attacking are passed by.
         /// </summary>
         public static float DashSpeed = 520f, DashTime = 0.24f, DashCooldown = 3.2f, DashStagger = 0.8f, DashPush = 260f, DashDamage = 6f;
 
         /// <summary>
         /// Shield Bash (the second ability): a BashTime s shove behind the shield (BashLunge px/s,
-        /// fading). The first creature within BashReach px ahead takes BashDamage, is stunned for
-        /// BashStun s (half that for mini-bosses and guardians; the great bosses shrug it off) and
-        /// whatever it was doing is broken off. The shield takes BashShieldCost. Every BashCooldown s.
+        /// fading). When it meets something, every creature within BashRadius px in front (a
+        /// half-circle) takes BashDamage, is stunned for BashStun s (half that for mini-bosses and
+        /// guardians; the great bosses shrug it off) and whatever it was doing is broken off. The
+        /// shield takes BashShieldCost, once. Every BashCooldown s.
         /// </summary>
         public static float BashDamage = 20f, BashShieldCost = 20f, BashStun = 1.6f, BashCooldown = 10f;
-        public static float BashTime = 0.2f, BashReach = 24f, BashLunge = 240f, BashPush = 160f;
+        public static float BashTime = 0.2f, BashRadius = 40f, BashLunge = 240f, BashPush = 160f;
     }
 
     /// <summary>
@@ -312,6 +319,8 @@ public static class Tune
     {
         /// <summary>Heart drops (heal HeartHealFrac of max health) and potion drops.</summary>
         public static float HeartChance = 0.03f, HeartChanceElite = 0.3f, HeartHealFrac = 0.05f, ChestHeal = 12f;
+        /// <summary>Embers a guardian pays (from depth 5 on, and the dragon).</summary>
+        public static int GuardianEmbers = 2, DeepGuardianEmbers = 3, DragonEmbers = 6;
         public static float PotionChance = 0.01f;
         /// <summary>Chance each treasure dead end actually holds a chest (mini-bosses and the boss always drop one).</summary>
         public static float TreasureRoomChestChance = 0.8f;

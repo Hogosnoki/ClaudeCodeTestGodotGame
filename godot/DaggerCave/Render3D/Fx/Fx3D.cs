@@ -325,7 +325,7 @@ public partial class Fx3D : Node3D
             if (g.Shield) { GuardArc(p, g); any = true; }
             if (g.Dash)
             {
-                // the shield dash: a shell of blue light around the charging Warden
+                // the Guarded Charge: a shell of blue light around the charging Warden
                 _barrier.Visible = true;
                 _barrier.GlobalTransform = new Transform3D(Basis.FromScale(Vector3.One * 17f / W3.Ppu), W3.P(p.GlobalPosition + new Vector2(0, -2), 0f));
                 _barrier.SetInstanceShaderParameter("ghost_color", new Color(0.45f, 0.75f, 1f, 0.55f));

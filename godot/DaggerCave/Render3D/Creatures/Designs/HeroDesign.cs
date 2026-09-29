@@ -749,7 +749,7 @@ public sealed class HeroDesign : CreatureDesign
                 }
             case "bash":
                 {
-                    // the Warden's shield dash: driven low behind the shield, sword held back
+                    // the Warden's Guarded Charge: driven low behind the shield, sword held back
                     float k = Key(t, (0, 0.3f), (0.25f, 1f), (1, 1f));
                     o.Lean = Mathf.Lerp(o.Lean, 28, k); o.Twist = Mathf.Lerp(o.Twist, 12, k); o.HeadPitch = Mathf.Lerp(o.HeadPitch, -12, k);
                     o.Root.Y = Mathf.Lerp(o.Root.Y, -0.08f, k);

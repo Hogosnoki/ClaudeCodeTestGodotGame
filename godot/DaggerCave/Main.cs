@@ -20,10 +20,12 @@ public partial class Main : Node
 {
     public readonly List<EnemyProjectile> EnemyProjectiles = new();
     public Enemy ActiveBoss;
-    /// <summary>Rewards skipped on this level: each pays an ember if its guardian falls.</summary>
-    public int SkipBank;
     /// <summary>True while a menu or screen has the controls (the hero ignores input).</summary>
     public bool MenuOpen => _state != State.Playing;
+    /// <summary>An upgrade pick (a chest's cards, a milestone) is up on screen.</summary>
+    public bool ChoosingNow => _state == State.Choosing;
+    /// <summary>The run's dice (chest cards, exits).</summary>
+    public Random Rng => _rng;
     private MetaMenu _metaMenu;
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
@@ -50,7 +52,9 @@ public partial class Main : Node
     private float _spawnT, _runTime, _deadT;
     private int _seed;
     private readonly Random _rng = new();
-    private readonly Queue<Vector2> _pendingTreasure = new(); // chests opened (where), awaiting a pick
+    private readonly Queue<Chest> _pendingTreasure = new(); // chests looked into, awaiting a pick
+    /// <summary>The chest whose cards are up on screen (null for a milestone).</summary>
+    private Chest _lookingChest;
     private readonly Dictionary<Room, Enemy> _roomElites = new();
 
     // test harness
@@ -260,7 +264,7 @@ public partial class Main : Node
     {
         string N(string a) => Controls.Name(a, pad);
         return pad
-            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend   {N("potion")} potion   right stick aims"
+            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend / revive   {N("potion")} potion   right stick attacks (the Warden's raises the shield)"
             : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend   {N("potion")} potion";
     }
 
@@ -318,7 +322,8 @@ public partial class Main : Node
     // --lookshot=PATH [--frames=N]: build the level, stand still for N frames, save a screenshot
     // and quit (look development for the 3D presentation)
     private string _lookShot = "";
-    // --menushot=DIR: the pause menu and each settings tab, saved as screenshots
+    // --menushot=DIR: the pause menu and each settings tab, then a chest holding a friend's cards,
+    // saved as screenshots
     private string _menuShot = "";
     private int _menuShotFrame;
 
@@ -332,8 +337,17 @@ public partial class Main : Node
             case 30: Shot("pause"); OpenSettings(); break;
             case 40: Shot("settings_graphics"); _settingsMenu.ShowTab(1); break;
             case 50: Shot("settings_sound"); _settingsMenu.ShowTab(2); break;
-            case 60: Shot("settings_controls"); break;
-            case 62: SafeQuit.Request(this); break;
+            case 60: Shot("settings_controls"); _settingsMenu.Visible = false; Unpause(); break;
+            case 66:
+            {
+                // a chest dealt for a party: one card for this hero, two for the others
+                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(0, 13), Cards = new[] { "hp", "stalwart", "mouths" } };
+                _world.AddChild(chest);
+                chest.Look();
+                break;
+            }
+            case 80: Shot("chest_cards"); break;
+            case 82: SafeQuit.Request(this); break;
         }
     }
     private int _lookFrames = 24, _lookFrame;
@@ -449,7 +463,6 @@ public partial class Main : Node
         ActiveBoss = null;
         _roomCells.Clear();
         _bossStrandedT = 0;
-        SkipBank = 0;
         _guardianDown = false;
         _victoryT = -1;
         ExitSpots.Clear();
@@ -795,37 +808,73 @@ public partial class Main : Node
         else if (_state == State.Title) ShowTitle();
     }
 
-    /// <summary>A chest was opened at <paramref name="at"/>: offer its upgrades next.</summary>
-    public void OfferChest(Vector2 at) => _pendingTreasure.Enqueue(at);
+    /// <summary>This game's hero looked into a chest: offer its cards next.</summary>
+    public void OfferChest(Chest c) { if (!_pendingTreasure.Contains(c)) _pendingTreasure.Enqueue(c); }
 
     private void TryOpenUpgradeMenu()
     {
         var p = G.Player;
         if (p == null || p.Dead || _upgradeMenu.Visible) return;
-        // chests hand out the real upgrades; level-ups a small stat of your choice
+        // chests hand out the real upgrades (their cards stay the same until one is taken);
+        // milestones a big boost
         List<Upgrade> choices;
-        bool treasure;
-        if (_pendingTreasure.Count > 0) { treasure = true; choices = Upgrades.RollChest(p.Stats, _rng, _pendingTreasure.Dequeue()); }
-        else if (p.PendingMilestones > 0) { treasure = false; p.PendingMilestones--; choices = Upgrades.RollMilestone(p.Stats, _rng); }
+        List<string> locks = null;
+        Chest chest = null;
+        while (_pendingTreasure.Count > 0 && chest == null)
+        {
+            var c = _pendingTreasure.Dequeue();
+            if (IsInstanceValid(c) && !c.Open && c.Cards != null) chest = c;
+        }
+        if (chest != null)
+        {
+            choices = chest.Cards.Select(Upgrades.Find).Where(u => u != null).ToList();
+            // (online, a card may be a friend's: shown, but theirs to take)
+            locks = choices.Select(u => Upgrades.LockReason(u, p.Stats)).ToList();
+            choices.Add(Upgrades.LeaveChest);
+            locks.Add(null);
+        }
+        else if (p.PendingMilestones > 0)
+        {
+            p.PendingMilestones--;
+            choices = Upgrades.RollMilestone(p.Stats, _rng);
+            if (choices.Count == 0) { p.Heal(30); return; }
+            choices.Add(Upgrades.Skip);
+        }
         else return;
-        if (choices.Count == 0) { p.Heal(30); return; }
-        if (!_guardianDown) choices.Add(Upgrades.Skip); // (once the guardian is down, a skip would pay nothing)
+        _lookingChest = chest;
         _state = State.Choosing;
         if (Net.InRun) p.Choosing = true;
         else GetTree().Paused = true;
-        _sfx.Play(treasure ? "chest" : "levelup");
-        _upgradeMenu.Open(choices, treasure ? "TREASURE!" : "MILESTONE!");
+        _sfx.Play(chest != null ? "chest" : "levelup");
+        _upgradeMenu.Open(choices, chest != null ? "TREASURE!" : "MILESTONE!", locks);
         _autoPickT = 0.5f;
     }
 
     private void OnUpgradePicked(Upgrade u)
     {
-        if (u == Upgrades.Skip) { SkipBank++; _sfx.Play("ui", null, 0, 0, 0.7f); _hud.ShowBanner("LEFT BEHIND  ·  +1 ember if the guardian falls", 1.8f); }
+        var chest = _lookingChest;
+        _lookingChest = null;
+        if (u.Icon == "skip")
+        {
+            _sfx.Play("ui", null, 0, 0, 0.7f);
+            // the chest closes again with its cards (for later, or for a friend)
+            if (chest != null)
+            {
+                _hud.ShowBanner("LEFT FOR LATER", 1.4f);
+                if (IsInstanceValid(chest)) NetSync.ChestDone(chest, false);
+            }
+        }
         else
         {
             Upgrades.Apply(u, G.Player.Stats, G.Player);
             _sfx.Play("ui");
             _hud.ShowBanner(u.Name, 1.6f);
+            // a card taken: the chest is spent
+            if (chest != null && IsInstanceValid(chest))
+            {
+                if (Net.Online) NetSync.ChestDone(chest, true);
+                else chest.OpenBy(Net.Me);
+            }
         }
         if (G.Player != null) G.Player.Choosing = false;
         GetTree().Paused = false;
@@ -1050,7 +1099,7 @@ public partial class Main : Node
                         _menuShotDone = true;
                         GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/menu.png");
                     }
-                    if (_autoPickT <= 0) _upgradeMenu.Choose(0);
+                    if (_autoPickT <= 0) _upgradeMenu.ChooseFirstOpen();
                 }
                 // (online, the cave carries on while you pick)
                 if (!Net.InRun) return;
@@ -1553,13 +1602,13 @@ public partial class Main : Node
     }
 
     /// <summary>
-    /// The level's guardian is dead: pay out the embers (its own, plus one per reward skipped on
-    /// this level), roll a resource, drop a chest and open the exits. The dragon ends the run.
+    /// The level's guardian is dead: pay out its embers, roll a resource, drop a chest and open
+    /// the exits. The dragon ends the run.
     /// </summary>
     private void OnGuardianKilled(Room room, Enemy boss)
     {
         bool dragon = boss is Dragon;
-        int embers = dragon ? 5 : G.Depth >= 5 ? 2 : 1;
+        int embers = dragon ? Tune.Drops.DragonEmbers : G.Depth >= 5 ? Tune.Drops.DeepGuardianEmbers : Tune.Drops.GuardianEmbers;
         string name = boss.Title != "" ? boss.Title : boss.DisplayName.ToUpperInvariant();
         if (_autotest) GD.Print($"[autotest] guardian {boss.DisplayName} killed at depth {G.Depth} ({G.Biome.Name}) after {_runTime:0}s, level {G.Player.Level}");
         // (online, each player's game pays its own player: the others hear of it by message)
@@ -1588,8 +1637,8 @@ public partial class Main : Node
     }
 
     /// <summary>
-    /// A guardian fell: this player's embers (its own, plus one per reward skipped on this level)
-    /// and a resource roll, with the fanfare. The dragon wins the run.
+    /// A guardian fell: this player's embers and a resource roll, with the fanfare. The dragon
+    /// wins the run.
     /// </summary>
     private void GuardianRewards(int embers, bool dragon, string name, Vector2 at)
     {
@@ -1597,14 +1646,11 @@ public partial class Main : Node
         _sfx.SetMusic("ambient");
         G.Fx.AddShake(14);
         G.Fx.ScreenFlash(new Color(1f, 0.9f, 0.6f), 0.3f);
-        int skipped = SkipBank;
-        embers += skipped;
-        SkipBank = 0;
         Meta.AddEmbers(embers);
         _runEmbers += embers;
         var found = Meta.RollResource(_rng);
         _hud.ShowBanner($"{name} SLAIN  ·  +{embers} EMBER{(embers > 1 ? "S" : "")}", 3.5f);
-        G.Fx.Text(at + new Vector2(0, -40), $"+{embers} ember{(embers > 1 ? "s" : "")}" + (skipped > 0 ? $" ({skipped} for rewards left behind)" : ""), new Color(1f, 0.7f, 0.35f), 13, 2.5f);
+        G.Fx.Text(at + new Vector2(0, -40), $"+{embers} ember{(embers > 1 ? "s" : "")}", new Color(1f, 0.7f, 0.35f), 13, 2.5f);
         if (found != null)
         {
             _runFinds += $", 1 {found.Resource}";
@@ -1804,6 +1850,10 @@ public partial class Main : Node
         _padOk &= ok;
     }
 
+    private int _padMark;
+    private Chest _padChest;
+    private string _padCards = "";
+
     /// <summary>Feeds synthetic joypad events through Godot's input pipeline and checks the game reacts.</summary>
     private void PadTestTick(float dt)
     {
@@ -1850,9 +1900,33 @@ public partial class Main : Node
             (7.7f, () => PadCheck($"B backs out to the pause menu (settings {_settingsMenu.Visible}, pause menu {_pauseMenu.Visible})", !_settingsMenu.Visible && _pauseMenu.Visible), ""),
             (7.8f, () => Btn(JoyButton.Start, true), ""),
             (7.85f, () => Btn(JoyButton.Start, false), ""),
-            (8.0f, () =>
+            (8.0f, () => PadCheck($"START resumes ({_state}, menu {_pauseMenu.Visible})", _state == State.Playing && !_pauseMenu.Visible), ""),
+            // the right stick swings where it's pushed; LB is the dodge button too
+            (8.1f, () => { _padMark = G.Player.AttacksStarted; Axis(JoyAxis.RightX, 1f); }, "right stick"),
+            (8.35f, () => { PadCheck($"the right stick swings ({G.Player.AttacksStarted - _padMark} swings)", G.Player.AttacksStarted > _padMark); Axis(JoyAxis.RightX, 0f); }, ""),
+            (8.9f, () => Btn(JoyButton.LeftShoulder, true), "LB dodge"),
+            (8.95f, () => { Btn(JoyButton.LeftShoulder, false); PadCheck($"LB dodges too ({G.Player.IsDodging})", G.Player.IsDodging); }, ""),
+            // LT opens a chest; leaving it keeps its cards for later
+            (9.3f, () => { _padChest = new Chest { Position = G.Player.GlobalPosition + new Vector2(0, 13) }; _world.AddChild(_padChest); }, "chest"),
+            (9.4f, () => Axis(JoyAxis.TriggerLeft, 1f), "LT interact"),
+            (9.45f, () => Axis(JoyAxis.TriggerLeft, 0f), ""),
+            (9.8f, () =>
             {
-                PadCheck($"START resumes ({_state}, menu {_pauseMenu.Visible})", _state == State.Playing && !_pauseMenu.Visible);
+                PadCheck($"LT looks in the chest ({_state}, cards {string.Join(",", _padChest.Cards ?? Array.Empty<string>())})", _state == State.Choosing && _padChest.Cards?.Length > 0);
+                _padCards = _padChest.Cards != null ? string.Join(",", _padChest.Cards) : "";
+                Btn(JoyButton.DpadLeft, true);
+            }, "to leave it"),
+            (9.85f, () => Btn(JoyButton.DpadLeft, false), ""),
+            (9.95f, () => Btn(JoyButton.A, true), "A leave"),
+            (10.0f, () => Btn(JoyButton.A, false), ""),
+            (10.15f, () => PadCheck($"leaving it closes it again, cards and all (state {_state}, spent {_padChest.Open})", _state == State.Playing && !_padChest.Open && _padChest.Cards != null && string.Join(",", _padChest.Cards) == _padCards), ""),
+            (10.3f, () => Axis(JoyAxis.TriggerLeft, 1f), "LT again"),
+            (10.35f, () => Axis(JoyAxis.TriggerLeft, 0f), ""),
+            (10.7f, () => { PadCheck($"it offers the same cards again ({string.Join(",", _padChest.Cards ?? Array.Empty<string>())})", _state == State.Choosing && string.Join(",", _padChest.Cards ?? Array.Empty<string>()) == _padCards); Btn(JoyButton.A, true); }, "A take"),
+            (10.75f, () => Btn(JoyButton.A, false), ""),
+            (10.9f, () =>
+            {
+                PadCheck($"taking a card spends the chest (spent {_padChest.Open}, state {_state})", _padChest.Open && _state == State.Playing);
                 GD.Print(_padOk ? "[padtest] PASS" : "[padtest] FAIL");
                 SafeQuit.Request(this, _padOk ? 0 : 1);
             }, ""),
@@ -1960,10 +2034,10 @@ public partial class Main : Node
             case 10: _probe = Shoot(new Vector2(_dir * 120, -4)); break;
             case 18:
             {
-                // 70% stopped (costing the shield half of that), 30% through, less armour
+                // all of it stopped (costing the shield half of that), nothing through
                 float through = 6f * (1f - p.Stats.BlockShare) * (1f - p.Stats.DamageReduction) * p.Stats.DamageTakenMult;
                 float cost = 6f * p.Stats.BlockShare * Tune.Warden.ShieldCost;
-                Check($"the shield stops most of a shot from the front (hp {_hpMark:0.00} -> {p.Hp:0.00}, want -{through:0.00}; shield {_shieldMark:0.0} -> {p.ShieldHp:0.0}, want -{cost:0.0})",
+                Check($"the shield stops all of a shot from the front (hp {_hpMark:0.00} -> {p.Hp:0.00}, want -{through:0.00}; shield {_shieldMark:0.0} -> {p.ShieldHp:0.0}, want -{cost:0.0})",
                     Math.Abs(_hpMark - p.Hp - through) < 0.05f && Math.Abs(_shieldMark - p.ShieldHp - cost) < 0.3f);
                 _hpMark = p.Hp;
                 _probe = Shoot(new Vector2(_dir * -120, -4)); // from behind
@@ -1992,6 +2066,30 @@ public partial class Main : Node
                 Check($"healing mends a broken shield at once (broken {p.ShieldBroken}, shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", !p.ShieldBroken && Math.Abs(p.ShieldHp - _shieldMark - 5f) < 0.3f);
                 _heroInput = default;
                 p.RefillShield();
+                break;
+            case 97:
+            {
+                // a blow that breaks the shield leaves its striker stunned
+                _heroInput = new PlayerInput { GuardHeld = true, GuardAim = new Vector2(_dir, 0) };
+                var gob3 = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 20, -4) };
+                gob3.SetMeta("test", true);
+                _world.AddChild(gob3);
+                _probeEnemy = gob3;
+                break;
+            }
+            case 101:
+            {
+                // (held for a while now: an ordinary block, not a perfect one)
+                var b = p.TryBlock(_probeEnemy.GlobalPosition, 100f, _probeEnemy, _probeEnemy);
+                Check($"a blow that breaks the shield stuns whatever struck it (broken {p.ShieldBroken}, perfect {b.Perfect}, reeling {_probeEnemy.Reeling})", p.ShieldBroken && !b.Perfect && _probeEnemy.Reeling);
+                break;
+            }
+            case 112:
+                Check($"still stunned a second later (reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling})", IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                _heroInput = default;
+                p.RefillShield();
+                p.Heal(1000);
                 break;
             case 140:
                 // perfect block + reflect
@@ -2029,7 +2127,7 @@ public partial class Main : Node
                 gob2.SetMeta("test", true);
                 _world.AddChild(gob2);
                 var b = p.TryBlock(gob2.GlobalPosition, 10f, gob2);
-                Check($"an ordinary block lets 30% through and leaves the attacker be (through {b.Through:0.0}, reeling {gob2.Reeling})", !b.Perfect && Math.Abs(b.Through - 10f * (1f - p.Stats.BlockShare)) < 0.01f && !gob2.Reeling);
+                Check($"an ordinary block stops all of it too, and leaves the attacker be (through {b.Through:0.0}, reeling {gob2.Reeling})", !b.Perfect && Math.Abs(b.Through - 10f * (1f - p.Stats.BlockShare)) < 0.01f && !gob2.Reeling);
                 gob2.QueueFree();
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
@@ -2045,17 +2143,19 @@ public partial class Main : Node
                 p.RefillShield();
                 break;
 
-            // ---- the shield dash
+            // ---- the Guarded Charge
             case 180:
                 _hpMark = p.Hp;
+                _posMark = p.GlobalPosition;
                 _probe = Shoot(new Vector2(_dir * 110, -4));
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
             case 181: _heroInput = default; break;
             case 186:
                 // (with Riposte Guard, taken above, it goes back where it came from instead)
-                Check($"the shield dash swallows a projectile (gone {!IsInstanceValid(_probe)}, reflected {IsInstanceValid(_probe) && _probe.Reflected}, hp {_hpMark:0.0} -> {p.Hp:0.0}, still dashing {p.IsShieldDashing})",
+                Check($"the Guarded Charge swallows a projectile (gone {!IsInstanceValid(_probe)}, reflected {IsInstanceValid(_probe) && _probe.Reflected}, hp {_hpMark:0.0} -> {p.Hp:0.0})",
                     (!IsInstanceValid(_probe) || _probe.Reflected) && p.Hp >= _hpMark - 0.01f && !p.IsShieldDashing);
+                Check($"and keeps going ({(p.GlobalPosition.X - _posMark.X) * _dir:0} px on)", (p.GlobalPosition.X - _posMark.X) * _dir > 100);
                 var golem = new Golem { Position = p.GlobalPosition + new Vector2(_dir * 70, -6) };
                 golem.SetMeta("test", true);
                 _world.AddChild(golem);
@@ -2091,13 +2191,17 @@ public partial class Main : Node
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
 
-            // ---- the shield bash
+            // ---- the shield bash: everything close in front
             case 345:
             {
                 var gob = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 30, -4) };
                 gob.SetMeta("test", true);
                 _world.AddChild(gob);
                 _probeEnemy = gob;
+                var gob2 = new Goblin { Position = p.GlobalPosition + new Vector2(_dir * 44, -4) };
+                gob2.SetMeta("test", true);
+                _world.AddChild(gob2);
+                _probe2 = gob2;
                 p.RefillShield();
                 p.ResetAbilityCooldowns();
                 foreach (var pr in EnemyProjectiles.ToArray()) pr.QueueFree();
@@ -2105,16 +2209,19 @@ public partial class Main : Node
             }
             case 347:
                 _hpMark = _probeEnemy.Hp;
+                _hp2Mark = _probe2.Hp;
                 _shieldMark = p.ShieldHp;
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
                 break;
             case 348: _heroInput = default; break;
             case 352:
             {
-                float dealt = _hpMark - (IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0);
-                Check($"the shield bash hits for {Tune.Warden.BashDamage:0} (goblin {_hpMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0})", Math.Abs(dealt - Tune.Warden.BashDamage * p.Stats.DamageMult) < 0.5f);
-                Check($"and the shield takes {Tune.Warden.BashShieldCost:0} ({_shieldMark:0} -> {p.ShieldHp:0})", Math.Abs(_shieldMark - p.ShieldHp - Tune.Warden.BashShieldCost) < 1f);
-                Check($"the goblin is stunned (reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling})", IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling);
+                float Hp(Enemy e) => IsInstanceValid(e) ? e.Hp : 0;
+                float dealt = _hpMark - Hp(_probeEnemy), dealt2 = _hp2Mark - Hp(_probe2);
+                float want = Tune.Warden.BashDamage * p.Stats.DamageMult;
+                Check($"the shield bash hits both goblins for {want:0} ({_hpMark:0} -> {Hp(_probeEnemy):0}, {_hp2Mark:0} -> {Hp(_probe2):0})", Math.Abs(dealt - want) < 0.5f && Math.Abs(dealt2 - want) < 0.5f);
+                Check($"and the shield takes {Tune.Warden.BashShieldCost:0}, once ({_shieldMark:0} -> {p.ShieldHp:0})", Math.Abs(_shieldMark - p.ShieldHp - Tune.Warden.BashShieldCost) < 1f);
+                Check($"both are stunned (reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling}, {IsInstanceValid(_probe2) && _probe2.Reeling})", IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling && IsInstanceValid(_probe2) && _probe2.Reeling);
                 break;
             }
             case 362:
@@ -2126,8 +2233,50 @@ public partial class Main : Node
             case 368:
                 Check($"the bash waits out its cooldown (goblin hp {_hpMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0}, cooldown {p.BashCooldownFrac:0.00})",
                     IsInstanceValid(_probeEnemy) && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f && p.BashCooldownFrac > 0.8f);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                if (IsInstanceValid(_probe2)) _probe2.QueueFree();
+                break;
+
+            // ---- a creature struck while it winds up keeps its pose and its timing
+            case 370:
+            {
+                var slammer = new Golem { Position = p.GlobalPosition + new Vector2(_dir * 36, -6) };
+                slammer.SetMeta("test", true);
+                _world.AddChild(slammer);
+                slammer.Wake();
+                _probeEnemy = slammer;
+                _windupHit = -1;
+                p.Heal(1000);
+                break;
+            }
+            case 460:
+                Check("the golem wound up a slam (for the swing to meet)", _windupHit > 0);
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
+                // ---- holding the attack down swings again and again
+                _swingsMark = p.AttacksStarted;
+                _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 472:
+                Check($"holding the attack keeps swinging ({p.AttacksStarted - _swingsMark} swings in 1.2 s)", p.AttacksStarted - _swingsMark >= 3);
+                _heroInput = default;
                 Finish();
                 break;
+        }
+        if (s > 370 && s < 460 && _windupHit < 0 && IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking && _probeEnemy is Golem)
+        {
+            // swing into it the moment its slam begins
+            _windupHit = s;
+            _hpMark = _probeEnemy.Hp;
+            _clipMark = _probeEnemy.Animator?.Current ?? "";
+            _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+        }
+        else if (_windupHit > 0 && s == _windupHit + 1) _heroInput = default;
+        else if (_windupHit > 0 && s == _windupHit + 3 && IsInstanceValid(_probeEnemy))
+        {
+            var e = _probeEnemy;
+            Check($"a swing lands on the golem as it winds up (hp {_hpMark:0} -> {e.Hp:0})", e.Hp < _hpMark);
+            Check($"and its slam carries on as telegraphed (attacking {e.Attacking}, reeling {e.Reeling}, held {e.FreezeLeft:0.00} s, pose {_clipMark} -> {e.Animator?.Current})",
+                e.Attacking && !e.Reeling && e.FreezeLeft <= 0 && e.Animator?.Current != "hurt");
         }
         // between steps 188 and 289: dash into the golem the moment it starts its slam
         if (s > 187 && s < 290 && _dashedAt < 0 && IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking && _probeEnemy is Golem)
@@ -2141,7 +2290,9 @@ public partial class Main : Node
             Check($"the dash breaks off an attack it meets (golem reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling}, hp {_hpMark:0} -> {(IsInstanceValid(_probeEnemy) ? _probeEnemy.Hp : 0):0}, still attacking {IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking})",
                 IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling && !_probeEnemy.Attacking && _probeEnemy.Hp < _hpMark);
     }
-    private int _dashedAt = -1;
+    private int _dashedAt = -1, _windupHit = -1, _swingsMark;
+    private float _hp2Mark;
+    private string _clipMark = "";
 
     private void SwordStep(int s, Player p)
     {
@@ -2258,7 +2409,27 @@ public partial class Main : Node
             case 87: _heroInput = default; break;
             case 94:
                 Check($"crescent wave hits at 120 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
+                // holding the attack down swings again and again
+                _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 40, -6);
+                _probeEnemy.Freeze(4f, hold: true);
+                _swingsMark = p.AttacksStarted;
+                _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 106:
+                Check($"holding the attack keeps swinging ({p.AttacksStarted - _swingsMark} swings in 1.2 s)", p.AttacksStarted - _swingsMark >= 2);
+                _heroInput = default;
+                break;
+            case 114:
+                // a roll started with the attack still held isn't cut short by it
+                _heroInput = new PlayerInput { AttackHeld = true, Dodge = true, Move = new Vector2(_dir, 0), Aim = new Vector2(_dir, 0) };
+                break;
+            case 115:
+                Check($"holding the attack doesn't cut a roll short (dodging {p.IsDodging}, swinging {p.IsSwinging})", p.IsDodging && !p.IsSwinging);
+                _heroInput = default;
                 _probeEnemy.QueueFree();
+                break;
+            case 117:
+            {
                 // an air bubble from a vent gives back breath
                 var vent = _world.GetChildren().OfType<AirVent>().FirstOrDefault();
                 Check("the cave has air vents", vent != null);
@@ -2270,7 +2441,8 @@ public partial class Main : Node
                     _world.AddChild(new AirBubble { Position = p.GlobalPosition + new Vector2(_dir * 0, 6) });
                 }
                 break;
-            case 97:
+            }
+            case 120:
                 Check($"an air bubble refills breath ({p.Breath:0.0} s)", p.Breath > 2.2f);
                 Finish();
                 break;
@@ -2371,7 +2543,7 @@ public partial class Main : Node
                 _probe2.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(_dir * 26, 0);
                 _probe3.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(_dir * 180, 0);
                 if (G.Cave.IsSolid(_probe3.GlobalPosition)) _probe3.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(-_dir * 180, -20);
-                _probe2.Freeze(1.2f); _probe3.Freeze(1.2f);
+                _probe2.Freeze(1.2f, hold: true); _probe3.Freeze(1.2f, hold: true);
                 _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp; _hp3 = _probe3.Hp;
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 break;
@@ -2405,7 +2577,7 @@ public partial class Main : Node
                 break;
             case 64:
                 // (both held where they stand: the strike lands a beat after the press, as the staff comes forward)
-                _probeEnemy.Freeze(0.5f); _probe2.Freeze(0.5f);
+                _probeEnemy.Freeze(0.5f, hold: true); _probe2.Freeze(0.5f, hold: true);
                 _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 break;
@@ -2435,9 +2607,20 @@ public partial class Main : Node
                 float want = 2 * Tune.Vitalist.HealAmount * p.Stats.HealMult;
                 Check($"Twin Reserve: two heals in a row (hp {_hpMark:0} -> {p.Hp:0}, want +{want:0}; uses left {p.AbilityUsesReady})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && p.AbilityUsesReady == 0);
                 Check($"each use comes back in twice the time ({p.AbilityRecharge:0.0} s)", Math.Abs(p.AbilityRecharge - 2 * Tune.Vitalist.HealCooldown) < 0.01f);
-                Finish();
+                // holding the attack down drains again and again
+                _probeEnemy = Dummy(new Golem(), 100);
+                _probeEnemy.Freeze(3f, hold: true);
+                _swingsMark = p.AttacksStarted;
+                _hpMark = _probeEnemy.Hp;
+                _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 break;
             }
+            case 90:
+                Check($"holding the attack keeps draining ({p.AttacksStarted - _swingsMark} drains in 1.2 s, golem {_hpMark:0} -> {_probeEnemy.Hp:0})", p.AttacksStarted - _swingsMark >= 2 && _probeEnemy.Hp < _hpMark);
+                _heroInput = default;
+                _probeEnemy.QueueFree();
+                Finish();
+                break;
         }
     }
 

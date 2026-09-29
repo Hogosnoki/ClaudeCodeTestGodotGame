@@ -32,16 +32,19 @@ public partial class Player
     private float _swingArc, _swingReach, _swingDmg;
 
     public bool IsSwinging => _swingT >= 0;
+    /// <summary>Attacks started this run (swings, drains): for the tests.</summary>
+    public int AttacksStarted { get; private set; }
     /// <summary>The current swing's aim (zero when not swinging); the 3D body sweeps the blade through it.</summary>
     public Vector2 SwingAim => _swingT >= 0 ? _swingDir : Vector2.Zero;
     /// <summary>True while the current swing carries a charged strike.</summary>
     public bool SwingCharged => _swingT >= 0 && _swingCharged;
     public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
 
-    /// <summary>Starts a swing if the blade is ready (a dodge in progress turns into it).</summary>
-    private bool TrySwing(Vector2 aim)
+    /// <summary>Starts a swing if the blade is ready (a dodge in progress turns into it, when
+    /// the attack is pressed: holding it down doesn't cut every roll short).</summary>
+    private bool TrySwing(Vector2 aim, bool held = false)
     {
-        if (_swingCd > 0) return false;
+        if (_swingCd > 0 || (held && _dodgeT > 0)) return false;
         // swinging out of a roll: the roll ends but its speed carries into the strike
         if (_dodgeT > 0) _dodgeT = 0;
         StartSwing(aim);
@@ -52,6 +55,7 @@ public partial class Player
     {
         aim = aim.Normalized();
         _heave = false;
+        AttacksStarted++;
         // Combo: a strike that lands refunds the swing cooldown, up to ComboResets times in a row.
         // A swing made without a refund (or after a pause) starts a new chain.
         _comboStep = _chainLive && _swingSinceLast < SwingCooldownBase / Stats.AttackSpeed + ComboWindow ? _comboStep + 1 : 0;

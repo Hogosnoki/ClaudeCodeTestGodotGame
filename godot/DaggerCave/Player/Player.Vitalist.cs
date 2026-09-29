@@ -68,11 +68,13 @@ public partial class Player
 
     // ---------------------------------------------------------------- drain
 
-    private bool CastDrain(Vector2 aim)
+    private bool CastDrain(Vector2 aim, bool held = false)
     {
         if (_drainCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var target = FindSpellTarget(aim, DrainRange);
+        // held down, it drains whatever comes into reach (without casting wisps at nothing)
+        if (target == null && held) return false;
         var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         CastDir = dir;
@@ -89,6 +91,7 @@ public partial class Player
             return true;
         }
         _drainCd = Tune.Vitalist.DrainCooldown / Math.Max(0.2f, Stats.AttackSpeed);
+        AttacksStarted++;
         // the strike lands as the staff comes forward (the cast's thrust), not while it's drawn back
         _drainTarget = target;
         _drainDmg = Tune.Vitalist.DrainDamage * Stats.DamageMult * Stats.PrimaryDamageMult * G.Range(0.92f, 1.08f);
@@ -354,7 +357,7 @@ public partial class Player
         Anim.Once("rupture", 3);
         // it begins at the creature: seized where it stands, its life drawn in to a point
         float r = target.HitRadius;
-        target.Freeze(Tune.Vitalist.RuptureWindup);
+        target.Freeze(Tune.Vitalist.RuptureWindup, hold: true);
         G.Fx.Ring(target.GlobalPosition, r + 16, new Color(LifeColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f);
         G.Fx.Converge(target.GlobalPosition, r + 30, LifeColor, 14, Tune.Vitalist.RuptureWindup);
         G.Fx.Flash(target.GlobalPosition, r + 6, new Color(0.5f, 0.05f, 0.1f), Tune.Vitalist.RuptureWindup);

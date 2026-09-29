@@ -115,6 +115,7 @@ public static class NetSync
         if (p.Avatar != null && GodotObject.IsInstanceValid(p.Avatar)) p.Avatar.QueueFree();
         p.Avatar = null;
         _exitOf.Remove(p.Id);
+        FreeChestsOf(p.Id);
         G.Main?.CheckExits();
     }
 
@@ -195,7 +196,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.ChestCards;
 
     // ================================================================== heroes
 
@@ -497,7 +498,7 @@ public static class NetSync
         {
             switch (kind)
             {
-                case Effect.Freeze: e.Freeze(a); break;
+                case Effect.Freeze: e.Freeze(a, b > 0.5f); break;
                 case Effect.Interrupt: e.Interrupt(v, a, label == "" ? "BROKEN" : label); break;
                 case Effect.Weaken: e.Weaken(a, b); break;
                 case Effect.Hex: e.Hex(a, b, c, d); break;
@@ -649,30 +650,122 @@ public static class NetSync
         Net.SendTo(to.NetOwner, w, true);
     }
 
-    /// <summary>This game's hero is at a chest: ask the host (it says who gets it).</summary>
+    // Chests: one player looks in at a time (the host says who). The first to look deals the
+    // cards (for the whole party) and everyone learns them; taking one spends the chest for all,
+    // leaving it closes it again with the same cards for anyone to look at.
+
+    /// <summary>The heroes in this run (a chest's cards are dealt for all of them).</summary>
+    public static IReadOnlyCollection<HeroKind> PartyHeroes() => Net.Peers.Values.Select(p => p.Hero).Distinct().ToList();
+
+    private static Chest ChestById(int id) => Props.TryGetValue(id, out var n) && n is Chest c && GodotObject.IsInstanceValid(c) ? c : null;
+
+    /// <summary>This game's hero is at a chest: ask the host whether it may look in.</summary>
     public static void AskChest(Chest c)
     {
         int id = IdOf(c);
         if (id == 0) return;
-        if (Net.IsHost) { OpenChest(id, Net.Me); return; }
+        if (Net.IsHost) { LookInChest(id, Net.Me); return; }
         var w = new NetOut(Net.Msg.ChestOpen);
         w.Int(id);
         Net.SendTo(1, w, true);
     }
 
-    private static void OpenChest(int id, int opener)
+    /// <summary>Host: <paramref name="viewer"/> wants to look in a chest: theirs if nobody else is looking.</summary>
+    private static void LookInChest(int id, int viewer)
     {
-        if (!Props.TryGetValue(id, out var n) || n is not Chest c || !GodotObject.IsInstanceValid(c) || c.Open) return;
-        var w = new NetOut(Net.Msg.ChestOpened);
-        w.Int(id).Int(opener);
+        var c = ChestById(id);
+        if (c == null || c.Open) return;
+        if (c.LookingBy != 0 && c.LookingBy != viewer)
+        {
+            // someone else has it open: tell the one who asked
+            var busy = new NetOut(Net.Msg.ChestLook);
+            busy.Int(id).Int(c.LookingBy).Str(c.Cards != null ? string.Join(",", c.Cards) : "");
+            if (viewer == Net.Me) OnChestLook(new NetIn(busy.Bytes()), skipType: true);
+            else Net.SendTo(viewer, busy, true);
+            return;
+        }
+        SendChestLook(c, id, viewer);
+    }
+
+    /// <summary>Host: who is looking in a chest now (0 = nobody), to everyone.</summary>
+    private static void SendChestLook(Chest c, int id, int viewer)
+    {
+        var w = new NetOut(Net.Msg.ChestLook);
+        w.Int(id).Int(viewer).Str(c.Cards != null ? string.Join(",", c.Cards) : "");
         Net.SendAll(w, true);
-        c.OpenBy(opener);
+        OnChestLook(new NetIn(w.Bytes()), skipType: true);
+    }
+
+    private static void OnChestLook(NetIn r, bool skipType = false)
+    {
+        if (skipType) r.Byte();
+        int id = r.Int(), viewer = r.Int();
+        string cards = r.Str();
+        var c = ChestById(id);
+        if (c == null || c.Open) return;
+        bool asked = c.Asked;
+        c.LookingBy = viewer;
+        if (cards != "") c.Cards = cards.Split(',');
+        if (viewer == Net.Me) c.Look();
+        else if (asked && viewer != 0) G.Main?.OnlineBanner($"{Net.NameOf(viewer)} IS LOOKING IN IT", 1.4f);
+    }
+
+    /// <summary>The cards were just dealt here: everyone keeps the same ones.</summary>
+    public static void ChestCards(Chest c)
+    {
+        if (!Net.Online || c.Cards == null) return;
+        int id = IdOf(c);
+        if (id == 0) return;
+        var w = new NetOut(Net.Msg.ChestCards);
+        w.Int(id).Str(string.Join(",", c.Cards));
+        Net.SendAll(w, true);
+    }
+
+    private static void OnChestCards(NetIn r)
+    {
+        int id = r.Int();
+        string cards = r.Str();
+        var c = ChestById(id);
+        if (c != null && !c.Open && cards != "") c.Cards = cards.Split(',');
+    }
+
+    /// <summary>This game's hero took a card (the chest is spent) or left it (it closes again).</summary>
+    public static void ChestDone(Chest c, bool taken)
+    {
+        if (!Net.Online) return;
+        int id = IdOf(c);
+        if (id == 0) return;
+        if (Net.IsHost) { OnChestDone(Net.Me, id, taken); return; }
+        var w = new NetOut(Net.Msg.ChestDone);
+        w.Int(id).Bool(taken);
+        Net.SendTo(1, w, true);
+    }
+
+    /// <summary>Host: a player finished with a chest.</summary>
+    private static void OnChestDone(int from, int id, bool taken)
+    {
+        var c = ChestById(id);
+        if (c == null || c.Open || c.LookingBy != from) return;
+        if (!taken) { SendChestLook(c, id, 0); return; }
+        var w = new NetOut(Net.Msg.ChestOpened);
+        w.Int(id).Int(from);
+        Net.SendAll(w, true);
+        c.OpenBy(from);
+    }
+
+    /// <summary>Host: a player left: any chest they were looking in is free again.</summary>
+    private static void FreeChestsOf(int peer)
+    {
+        if (!Net.IsHost) return;
+        foreach (var (id, n) in Props.ToList())
+            if (n is Chest c && GodotObject.IsInstanceValid(c) && !c.Open && c.LookingBy == peer) SendChestLook(c, id, 0);
     }
 
     private static void OnChestOpened(NetIn r)
     {
         int id = r.Int(), opener = r.Int();
-        if (Props.TryGetValue(id, out var n) && n is Chest c && GodotObject.IsInstanceValid(c) && !c.Open) c.OpenBy(opener);
+        var c = ChestById(id);
+        if (c != null && !c.Open) c.OpenBy(opener);
     }
 
     /// <summary>This game's hero stepped into an exit (or out of it again).</summary>
@@ -858,7 +951,10 @@ public static class NetSync
                 finally { Scope--; }
                 break;
             }
-            case Net.Msg.ChestOpen: if (Net.IsHost) OpenChest(r.Int(), from); break;
+            case Net.Msg.ChestOpen: if (Net.IsHost) LookInChest(r.Int(), from); break;
+            case Net.Msg.ChestLook: OnChestLook(r); break;
+            case Net.Msg.ChestCards: OnChestCards(r); break;
+            case Net.Msg.ChestDone: if (Net.IsHost) { int id = r.Int(); OnChestDone(from, id, r.Bool()); } break;
             case Net.Msg.ChestOpened: OnChestOpened(r); break;
             case Net.Msg.ExitReady: SetAtExit(from, r.Int()); break;
             case Net.Msg.Fx: OnFx(r); break;

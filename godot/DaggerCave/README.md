@@ -75,15 +75,18 @@ Up to three players, one of each hero. One player hosts; the others join with th
 
 In the cave:
 - **Going down**: when a guardian falls, everyone still standing has to walk into the same exit
-  (interact, E or LB, or up at the doorway). The first to arrive waits there ("Waiting at the exit: 1 of 2
+  (interact, E or LT, or up at the doorway). The first to arrive waits there ("Waiting at the exit: 1 of 2
   here"); walking away cancels.
 - **Falling and reviving**: a fallen hero stays down. A friend brings them back by standing
-  beside them and holding interact (E, or LB on a controller; not up, so it works while you
+  beside them and holding interact (E, or LT on a controller; not up, so it works while you
   tread water beside them) for two seconds; they get up with a
   third of their health. If everyone is down at once, the run is over for the whole party. A
   fallen hero who is still down when the others go down an exit comes along, back on their feet.
 - **Sharing**: experience is shared (everyone gains what anyone collects), each player levels
-  up and picks their own upgrades, and a chest's pick goes to whoever opens it first (interact at the chest). Hearts
+  up and picks their own upgrades. A chest's cards are dealt for the whole party, and everyone
+  sees the same ones: look in (interact at the chest), and take a card or leave it closed for
+  someone else (tell them what's in it). A card for another hero is shown but only they can take
+  it, one player looks in a chest at a time, and taking a card spends it for everyone. Hearts
   and potions go to whoever touches them. Kills count for whoever landed the blow.
 - **Harder caves**: creatures have 50% more health for each extra player, and the cave holds
   35% more of them.
@@ -125,7 +128,7 @@ Handy starting points:
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
-| The three heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, shield dash, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture) |
+| The three heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the stat list is `Upgrades.LevelUp` |
@@ -176,7 +179,7 @@ There are 32 inputs, plus which move the creature made last:
 | Category | Inputs |
 | --- | --- |
 | Where the player is | direction as x/distance and y/distance (instead of an angle), distance, a "closeness" value that is sharp at close range, raw x/y offsets |
-| What the player is doing | velocity, HP share, in water, on the ground, swinging, guarding (dodging, invulnerable or shield raised), facing this creature, ability (Charged Strike, shield dash or heal) ready |
+| What the player is doing | velocity, HP share, in water, on the ground, swinging, guarding (dodging, invulnerable or shield raised), facing this creature, ability (Charged Strike, Guarded Charge or heal) ready |
 | Itself | velocity, HP share, on the ground, in water, line of sight to the player, how long it has been fighting, "recently hurt" and "recently landed a hit" traces, main attack readiness |
 | Terrain toward the player | wall, gap, low ceiling |
 | Allies | nearest ally's offset, how many allies are within 200 px |
@@ -246,16 +249,17 @@ The panel's columns:
 | Move | A / D (or arrows) | Left stick or D-pad |
 | Swim up / down | W / S (Space also swims up) | Left stick up / down (A also swims up) |
 | Jump | Space | A |
-| Attack: swing (swordsman, warden) / drain (vitalist) | Left click, toward the mouse (J attacks toward your held direction) | X, toward the right stick if held, otherwise the left stick |
-| Ability: Charged Strike / shield dash / heal | Right click (or K) | RB |
+| Attack: swing (swordsman, warden) / drain (vitalist); hold it down to keep attacking | Left click, toward the mouse (J attacks toward your held direction) | X, toward the right stick if held, otherwise the left stick |
+| Attack where you point (swordsman, vitalist) | - | Push the right stick well over: it attacks that way, again and again while it's held |
+| Ability: Charged Strike / Guarded Charge / heal | Right click (or K) | RB |
 | Second ability: heaving swing / shield bash / rupture | F (or middle click, or I) | RT |
-| Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B or LT; the shield points along the right stick, or the way you face |
+| Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B or LB; the shield points along the right stick, or the way you face |
 | Raise the Warden's shield without a button | - | Push the right stick: the shield rises by itself and points along it, even behind you while you run the other way |
-| Interact: open a chest, go down an exit, bring a friend back | E | LB |
-| Open a chest | E beside it (walking into it no longer opens it) | LB |
-| Go down an exit | E, or W / up, at the doorway | LB, or the stick / D-pad up, at the doorway |
-| Bring a fallen friend back (online) | Hold E beside them | Hold LB beside them |
-| Leave the cave (depth 0: ends the run, keeping nothing) | E at the daylight at the far left | LB |
+| Interact: open a chest, go down an exit, bring a friend back | E | LT |
+| Open a chest | E beside it (walking into it doesn't open it) | LT |
+| Go down an exit | E, or W / up, at the doorway | LT, or the stick / D-pad up, at the doorway |
+| Bring a fallen friend back (online) | Hold E beside them | Hold LT beside them (both thumbs stay free to swim) |
+| Leave the cave (depth 0: ends the run, keeping nothing) | E at the daylight at the far left | LT |
 | Drink a potion | Q | Y |
 | Main menu | Up / down and Enter, or click | D-pad or stick up / down, then A |
 | Choose hero (at the camp fire) | Left / right, or click the arrows | D-pad or stick left / right |
@@ -263,7 +267,7 @@ The panel's columns:
 | Back to the main menu (from the fire) | Esc | B |
 | Play online | Multiplayer on the main menu (or O) | Y |
 | Pause (and settings) | Esc | Start |
-| Pick upgrade | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
+| Pick upgrade (a card marked for another hero, or one you can't take, stays put) | Click, 1 / 2 / 3, or arrows + Enter | D-pad or stick left / right, then A |
 | Enemy training (debug) | F9 on/off, F10 save now, F8 move labels | - |
 
 Every action except the debug keys can be rebound, for keyboard and mouse and for the controller
@@ -360,26 +364,29 @@ Warden takes it for others, the Vitalist keeps everyone going.
 
 | | Swordsman | Warden | Vitalist |
 | --- | --- | --- | --- |
-| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 13 damage, swings every 0.36 s with a fast sweep | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives |
+| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 11 damage, swings every 0.36 s with a fast sweep (about 31 damage a second to the sword's 33) | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives |
 | Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown |
-| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Shield dash: a guarded charge that stops at the first projectile or attacking creature it meets, swallowing the projectile and breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink |
-| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; the first creature in front takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown |
+| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Guarded Charge: a charge behind the shield that swallows the projectiles and shockwaves in its way and keeps going, and stops at the first attacking creature it meets, breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink |
+| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; when it meets something, every creature within 40 px in front (a half-circle) takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20, once; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown |
 | Movement | Full speed and jump | 92% speed, 90% jump height (80% speed while shielding) | 97% speed and jump |
-| Toughness | 60 HP, 15 s of breath | 75 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath |
+| Toughness | 60 HP, 15 s of breath | 110 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath |
 
 Warden's shield:
-- **Blocking**: it's a broad arc of blue light (135°) that stops 70% of each blow arriving within
-  it, melee or projectile; the other 30% gets through as chip damage (no flinch, no knockback).
-  The shield loses half of what it stops. An ordinary block doesn't end the attack.
+- **Blocking**: it's a broad arc of blue light (135°) that stops all of each blow arriving within
+  it, melee or projectile. The shield loses half of what it stops (so its 40 points soak 80). An
+  ordinary block doesn't end the attack.
 - **Aiming**: like a swing, it aims at the right stick, else the left stick on a controller, else
   the mouse. Pushing the right stick raises it by itself, so you can run one way and guard the
   other without holding a button. You can swing while it's up, but those swings don't combo.
 - **Strength**: it holds 40 and regenerates 3 per second, starting 1 s after its last block.
-- **Breaking**: once drained it breaks, stays at zero for 6 s, then regenerates from zero again.
+- **Breaking**: once drained it breaks, the rest of that blow gets through (as chip damage: no
+  flinch, no knockback), and it stays at zero for 6 s, then regenerates from zero again. Whatever
+  struck the breaking blow, attacker or shooter, is stunned for 1.6 s (half for mini-bosses and
+  guardians; the great bosses only rock back).
 - **Healing**: whenever the Warden is healed (a heart, a potion, the Vitalist's heal), the shield
   mends by half as much, and a broken shield is usable again at once.
 - **Perfect block**: raising it at most 0.18 s before a hit stops all of the blow and breaks the
-  attack off (the attacker reels). The shield dash does the same to whatever it meets.
+  attack off (the attacker reels). The Guarded Charge does the same to whatever it meets.
 
 The Vitalist's alimus is like mana: earned by draining (a tenth of the damage), held up to 30
 (more with upgrades and levels), and spent on heals (15) and ruptures (30). You start a run with 15
@@ -408,6 +415,17 @@ Landing a hit bounces the attacker back a little, horizontally only. That applie
 and to enemies (`Combat.StrikeRecoil`). Getting struck also pushes you sideways without
 launching you upward.
 
+**Readable wind-ups**. A creature winding up or in the middle of an attack keeps its pose and its
+timing when struck: the blow flashes it, squashes it and shows the damage, but it doesn't flinch,
+freeze for the hit-stop or reel from the knockback. So an attack always lands exactly as its
+wind-up promised, and can be read and blocked. Only the shield breaks an attack off: a perfect
+block, the Guarded Charge, the shield bash, or a shield broken by the blow.
+
+**Holding the attack** down (or, on a controller, pushing the right stick well over, for everyone
+but the Warden, whose right stick raises the shield) attacks again and again as fast as the
+attack allows, wherever you aim. A held attack never cuts a dodge roll short (a press still does),
+and the Vitalist's held drain waits for something within reach rather than casting at nothing.
+
 **Combo**:
 1. When a swing lands, your swing cooldown is refunded once, so you can strike again at once.
 2. The next swing runs the full cooldown, and then a new combo can start.
@@ -420,10 +438,14 @@ launching you upward.
   max HP, +2% damage and +1 alimus capacity.
 - **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three +15% boosts:
   damage, attack speed, max health, damage reduction, run and swim speed, reach, and per hero
-  faster dodges and Charged Strike (Wind Runner), a stronger shield (Aegis) and faster dash
-  (Vanguard), or more alimus and stronger heals (Wellspring).
-- **Leave it**: every chest and milestone screen also offers to take nothing. Each reward left
-  behind pays 1 ember if you then kill that level's guardian.
+  faster dodges and Charged Strike (Wind Runner), a stronger shield (Aegis), a faster Guarded
+  Charge (Vanguard), or more alimus and stronger heals (Wellspring). Or leave it and take nothing.
+- **Chests**: interact at one (E / LT) to look inside. Its three cards are dealt the first time
+  anyone looks, and stay the same until someone takes one: leave it, and it closes again with
+  the same cards, for later or for a friend. Taking a card spends the chest (and heals you a
+  little). Online, a chest's cards are dealt for the whole party: each is generic or for one of
+  the party's heroes, everyone sees the same ones, a card for another hero is shown but only
+  they can take it, and only one player looks in a chest at a time.
 - **Potions**: you start with one and can carry one (more with the Potion tree). Q / Y drinks it:
   15% of your health at once and 15% more over 20 s. Enemies drop one 1% of the time.
 - **Hearts** heal 5% of your health and drop from 3% of kills (30% of elites).
@@ -443,8 +465,8 @@ launching you upward.
 | Charged Strike (swordsman) | Focus (recharges 20% faster), Twin Charge (empowers two swings), Crippling Strike (what it cuts deals 35% less instead of 20%), Storm Edge (a charged swing looses a full-strength crescent wave) |
 | Heaving swing (swordsman) | Broad Shoulders (recharges 20% faster) |
 | Dodge (swordsman) | invulnerability while dodging, shorter cooldown, a second dodge charge |
-| Shield (warden) | Tempered Shield (stops 10% more), Stalwart (full speed while shielding, no knockback), Quick Mend (regenerates almost at once after a block, 50% faster), Spiked Shield (melee attackers take 40% of the blow back), Last Stand (once per depth, survive a killing blow at 1 HP with a whole shield), Riposte Guard (perfect blocks, and the dash, reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc) |
-| Shield dash (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Battering Charge (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
+| Shield (warden) | Stalwart (full speed while shielding, no knockback), Quick Mend (regenerates almost at once after a block, 50% faster), Spiked Shield (melee attackers take 40% of the blow back), Last Stand (once per depth, survive a killing blow at 1 HP with a whole shield), Riposte Guard (perfect blocks, and the dash, reflect projectiles), Iron Timing (perfect blocks cost the shield 70% less), Tower Shield (wider arc) |
+| Guarded Charge (warden) | Ready Charge (shorter cooldown), Long Charge (30% farther), Battering Charge (hits what it stops four times as hard), Rallying Charge (breaking an attack mends the shield by 12 and heals 4) |
 | Shield bash (warden) | Hard Shoulder (recharges 20% faster) |
 | Spells (vitalist) | Many Mouths (the drain also takes life from one more creature near its target, at 60%; twice), Far Reach (+25% drain and rupture reach), Hungering Spirit (+50% alimus from damage), Deep Well (+15 alimus capacity), Burst Veins (the rupture's burst reaches 40% farther and splashes for 50% more), Thin Blood (ruptures cost 20% less), Deep Mending (+30% heal), Frugal Rites (heals cost 25% less), Spreading Blight (+30% hex radius), Lingering Hex (+2 s), Withering Hex (hexed creatures rot for 6 health a second) |
 | Movement (everyone) | wall jump, double jump *or* air dash in any direction (you can only have one; both are rare, and only offered once you have a jump upgrade, for the double jump, or a speed upgrade, for the air dash), move speed, jump height, swim speed, breath |
@@ -490,8 +512,8 @@ health and a title.
 
 **Between runs: embers, resources and the upgrade trees** (`Core/Meta.cs`, `UI/MetaMenu.cs`).
 Progress saved in `user://meta.json`:
-- **Embers** come from guardians (1, 2 from depth 5, 5 for the dragon) plus 1 per reward you left
-  behind on that level. Embers buy the ranks of the trees.
+- **Embers** come from guardians (2, 3 from depth 5, 6 for the dragon). Embers buy the ranks of
+  the trees.
 - **Resources**: each guardian yields one, drawn evenly from every resource not yet found (13
   Reagents and 9 Obsidian Pearls in all, so each is a 1-in-22 chance at first). A bought rank only
   takes effect once you spend a resource of its tree on it. A tree stays hidden until you find its
@@ -765,26 +787,30 @@ and prints ok / FAIL for each:
 - Swordsman: the sword's reach and lunge; a combo pressed during a hit-stop starting as it ends;
   the Charged Strike (harder, and weakening what it cuts); a swing out of a dodge; the heaving
   swing (planting you, taking the waiting charge, landing for about three swings); the crescent
-  wave; air bubbles.
-- Warden: the shield stopping 70% from the front (and losing half of that) but nothing from
-  behind; breaking, staying down, and mending at once when healed; perfect blocks reflecting a
-  shot and breaking off a melee attack while ordinary blocks don't; swinging behind the shield;
-  the right stick raising it by itself; the shield dash swallowing a projectile, breaking off an
-  attack it meets, and passing a creature that isn't attacking; the shield bash's damage, its
-  cost to the shield, the stun, and its cooldown.
+  wave; holding the attack swinging again and again, without cutting a roll short; air bubbles.
+- Warden: the shield stopping all of a shot from the front (and losing half of that) but nothing
+  from behind; breaking, staying down, and mending at once when healed; a blow that breaks it
+  leaving its striker stunned; perfect blocks reflecting a shot and breaking off a melee attack
+  while ordinary blocks don't; swinging behind the shield; the right stick raising it by itself;
+  the Guarded Charge swallowing a projectile and carrying on, breaking off an attack it meets, and
+  passing a creature that isn't attacking; the shield bash striking two creatures at once, its
+  single cost to the shield, the stuns, and its cooldown; a golem struck as it winds up a slam
+  keeping its pose and slamming on time; holding the attack.
 - Vitalist: the drain striking as the staff comes forward and its mote paying back a tenth as alimus
   on arrival; the hex, and hexed creatures taking more damage; the reserve's size; the heal's
   cost and amount; no heal when no one is hurt; the rupture seizing its target, then bursting on
   it and splashing a creature beside it but not one far off, and refused without the alimus;
-  Many Mouths draining a second creature; Twin Reserve's two heals in a row.
+  Many Mouths draining a second creature; Twin Reserve's two heals in a row; holding the attack
+  draining again and again.
 - For all: the game clock never slowing for a hit-stop.
 
 `--hitstoptest --shots=DIR` has the hero strike a golem twice and logs every frame of it (who is
 frozen, for how long, the clip and frame), saving a screenshot of each.
 
-The checks are timed in game seconds, so on a slow software renderer run them with
-`--fixed-fps 60` (and a small window, `--resolution 640x360`, to save time): otherwise frames of a
-third of a second let the game's timers run ahead of the script.
+The checks are timed in game seconds, so run them with `--fixed-fps 60`. They need no window:
+`godot --headless --path godot --fixed-fps 60 -- --herotest --hero=warden` runs in well under a
+minute, where a software renderer would take many (with a window, use a small one,
+`--resolution 480x270`).
 
 `--hero=warden` and `--hero=vitalist` also work with `--autotest` and the other modes.
 
@@ -792,8 +818,9 @@ third of a second let the game's timers run ahead of the script.
 one hosting (`--nettest=host`) and one joining it (`--nettest=join`, `--netaddr=IP` for another
 machine), and has them check what travels between them: the lobby and each player's own hero,
 the same cave in both games, a friend's swing landing on the host's creature (and credited to
-them), a creature's blow taken in the friend's game, shared experience, a chest opened by the
-friend who reached it (the pick theirs, the host's copy open too), a fallen friend brought back,
+them), a creature's blow taken in the friend's game, shared experience, a chest the friend
+looks in and leaves (closed again in both games, with the same cards), which the host then looks
+in (offered the very same cards) and takes from (spent in both games), a fallen friend brought back,
 going down an exit together into the same next level (a Fossil Graveyard, where each game's
 camera must stay on its own hero), the run ending for everyone, and then, back in the lobby, a
 second run that everyone walks straight out of through the cave mouth, back to the lobby. It exits
@@ -820,6 +847,7 @@ Two more test modes:
 - `--musicdump=DIR` saves the three music loops as `.wav` files.
 - `--padtest` drives the game with synthetic controller events: the main menu and the fire, move, swing, Charged
   Strike, dodge, the heaving swing, pick an upgrade from the level-up cards, pause, move through
-  the pause menu into the settings and back out, and unpause. Its presses are a twentieth of a
-  second long, so on a slow software renderer run it with `--fixed-fps 60` too. It prints ok /
-  FAIL for each step, then PASS or FAIL.
+  the pause menu into the settings and back out, unpause, swing with the right stick, dodge with
+  LB, and look in a chest with LT, leave it, find the same cards again, and take one. Its presses
+  are a twentieth of a second long, so run it with `--fixed-fps 60` too (it needs no window). It
+  prints ok / FAIL for each step, then PASS or FAIL.

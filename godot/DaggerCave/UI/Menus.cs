@@ -9,7 +9,11 @@ public partial class UpgradeMenu : Control
 {
     public event Action<Upgrade> Picked;
     private List<Upgrade> _choices = new();
+    /// <summary>Why each card can't be taken (null: it can): a friend's card, or one you have.</summary>
+    private List<string> _locks = new();
     private readonly List<Rect2> _cards = new();
+    private float _deniedT;
+    private int _denied = -1;
     private int _hover = -1;
     private string _title = "";
     private float _t;
@@ -35,12 +39,16 @@ public partial class UpgradeMenu : Control
         Visible = false;
     }
 
-    public void Open(List<Upgrade> choices, string title)
+    public void Open(List<Upgrade> choices, string title, List<string> locks = null)
     {
         _choices = choices;
+        _locks = locks ?? new List<string>();
+        while (_locks.Count < _choices.Count) _locks.Add(null);
         _title = title;
-        _hover = G.Main.UsingPad ? 0 : -1;
+        // (a controller starts on the first card you can take)
+        _hover = G.Main.UsingPad ? Math.Max(0, _locks.FindIndex(l => l == null)) : -1;
         _openedAt = _t;
+        _denied = -1;
         Visible = true;
         QueueRedraw();
     }
@@ -48,13 +56,33 @@ public partial class UpgradeMenu : Control
     public void Choose(int i)
     {
         if (!Visible || i < 0 || i >= _choices.Count || _t - _openedAt < 0.25f) return;
+        if (_locks[i] != null)
+        {
+            // a friend's card, or one you can't use: it stays in the chest
+            _denied = i; _deniedT = 0.5f;
+            G.Sfx.Play("clink", null, -8, 0, 0.6f);
+            return;
+        }
         Visible = false;
         Picked?.Invoke(_choices[i]);
     }
 
+    /// <summary>The test bots: take the first card that can be taken.</summary>
+    public void ChooseFirstOpen() => Choose(Math.Max(0, _locks.FindIndex(l => l == null)));
+
+    /// <summary>The test bots: whether any card (not "leave it") can be taken.</summary>
+    public bool HasOpenCard
+    {
+        get { for (int k = 0; k < _choices.Count; k++) if (_choices[k].Icon != "skip" && _locks[k] == null) return true; return false; }
+    }
+
+    /// <summary>The test bots: take nothing (the "leave it" card).</summary>
+    public void ChooseLeave() => Choose(_choices.FindIndex(u => u.Icon == "skip"));
+
     public override void _Process(double delta)
     {
         _t += (float)delta;
+        _deniedT -= (float)delta;
         if (!Visible) return;
         if (Input.IsActionJustPressed("pick_1")) Choose(0);
         else if (Input.IsActionJustPressed("pick_2")) Choose(1);
@@ -108,9 +136,13 @@ public partial class UpgradeMenu : Control
             bool hov = k == _hover;
             if (u.Icon == "skip") { ch = 230; }
             else ch = 300;
-            var r = new Rect2(x0 + k * (cw + gap), y0 - (hov ? 8 : 0), cw, ch);
+            string locked = k < _locks.Count ? _locks[k] : null;
+            // a refused card gives a little shake
+            float shake = k == _denied && _deniedT > 0 ? MathF.Sin(_deniedT * 60f) * 6f * _deniedT : 0f;
+            var r = new Rect2(x0 + k * (cw + gap) + shake, y0 - (hov && locked == null ? 8 : 0), cw, ch);
             _cards.Add(r);
             var cat = CategoryColor(u.Icon);
+            if (locked != null) cat = cat.Darkened(0.55f);
             DrawRect(r, new Color(0.08f, 0.07f, 0.1f, 0.95f));
             DrawRect(r, hov ? cat : cat.Darkened(0.4f), false, hov ? 3 : 2);
             DrawRect(new Rect2(r.Position, new Vector2(cw, 6)), cat);
@@ -133,6 +165,13 @@ public partial class UpgradeMenu : Control
                 DrawString(font, r.Position + new Vector2(0, ch - 16), $"{stats.StackOf(u.Id)} / {u.MaxStacks}", HorizontalAlignment.Center, cw, 12, new Color(1, 1, 1, 0.5f));
             if (u.Excludes.Length > 0)
                 DrawString(font, r.Position + new Vector2(0, ch - 34), "excludes " + Upgrades.Get(u.Excludes[0]).Name, HorizontalAlignment.Center, cw, 11, new Color(1f, 0.6f, 0.5f, 0.7f));
+            if (locked != null)
+            {
+                // a band across the card: whose it is, or why it isn't yours
+                var band = new Rect2(r.Position + new Vector2(0, 50), new Vector2(cw, 24));
+                DrawRect(band, new Color(0, 0, 0, 0.72f));
+                DrawString(font, band.Position + new Vector2(0, 17), locked, HorizontalAlignment.Center, cw, 12, new Color(1f, 0.85f, 0.6f, k == _denied && _deniedT > 0 ? 1f : 0.85f));
+            }
         }
     }
 }
@@ -169,9 +208,9 @@ public partial class ScreenOverlay : Control
         }),
         (HeroKind.Warden, "WARDEN", "warden", new[]
         {
-            "The guardian. Shield stops 70% of",
-            "each blow; a guarded dash breaks",
-            "attacks off; a shield bash stuns.",
+            "The guardian. The shield stops every",
+            "blow; a Guarded Charge breaks attacks",
+            "off; a shield bash stuns all in front.",
         }),
         (HeroKind.Vitalist, "VITALIST", "vitalist", new[]
         {

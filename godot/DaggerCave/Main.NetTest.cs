@@ -33,6 +33,9 @@ public partial class Main
     private bool _ntReady;
     private float _ntChooseT;
     private PlayerInput _ntInput;
+    private int _ntSub;
+    private Chest _ntChest;
+    private string _ntCards = "";
 
     private void NtCheck(string what, bool ok)
     {
@@ -231,7 +234,7 @@ public partial class Main
                 _ntGolem = new Golem { Position = friend.GlobalPosition + new Vector2(_ntSide * 44, -6) };
                 _ntGolem.SetMeta("test", true);
                 _world.AddChild(_ntGolem);
-                _ntGolem.Freeze(1000);
+                _ntGolem.Freeze(1000, hold: true);
                 NtSay($"golem {_ntGolem.NetId} {_ntSide}");
                 NtNext();
                 break;
@@ -276,13 +279,56 @@ public partial class Main
             }
             case 7:
             {
-                if (NtGot("chest-ok", out var r)) NtCheck($"the chest opened for the friend who reached it, and gave them its pick ({r})", true);
-                else if (NtGot("chest-bad", out r)) NtCheck($"the chest opened for the friend who reached it ({r})", false);
-                else { if (_ntPhaseT > 20) NtFail("the friend opens the chest"); break; }
-                var chest = _world.GetChildren().OfType<Chest>().OrderBy(c => c.GlobalPosition.DistanceTo(friend.GlobalPosition)).FirstOrDefault();
-                NtCheck($"the host's copy of that chest is open too, and the pick wasn't the host's ({_state})", chest != null && chest.Open && _state == State.Playing);
-                NtSay("fall");
-                NtNext();
+                // the friend looks in the chest and leaves it: here it's closed again, with the
+                // same cards; the host looks in, is offered the same cards, and takes one
+                _ntChest ??= _world.GetChildren().OfType<Chest>().OrderBy(c => c.GlobalPosition.DistanceTo(friend.GlobalPosition)).FirstOrDefault();
+                var chest = _ntChest;
+                string Cards() => chest?.Cards != null ? string.Join(",", chest.Cards) : "";
+                if (_ntSub == 0)
+                {
+                    if (NtGot("chest-bad", out var bad)) { NtCheck($"the friend looks in the chest ({bad})", false); NtSay("fall"); NtNext(); break; }
+                    if (!NtGot("chest-left", out var r)) { if (_ntPhaseT > 20) NtFail("the friend looks in the chest"); break; }
+                    NtCheck($"the friend left the chest: here it's closed again with the same cards (theirs {r}, mine {Cards()}, spent {chest?.Open}, looked at by {chest?.LookingBy})",
+                        chest != null && !chest.Open && r != "" && Cards() == r && chest.LookingBy == 0);
+                    _ntCards = r;
+                    if (chest != null) { G.Player.GlobalPosition = chest.GlobalPosition + new Vector2(0, -13); G.Player.Velocity = Vector2.Zero; }
+                    _ntSub = 1; _ntChooseT = 0;
+                    break;
+                }
+                if (_ntSub == 1)
+                {
+                    if (_state != State.Choosing && chest != null && chest.Reaches(G.Player.GlobalPosition)) _ntInput.Interact = true;
+                    _ntChooseT = _state == State.Choosing ? _ntChooseT + _ntDt : 0;
+                    if (_ntChooseT > 0.6f)
+                    {
+                        NtCheck($"the host looks in and is offered the very same cards ({Cards()})", Cards() == _ntCards);
+                        // take one if one is the host's to take; otherwise leave it for the friend
+                        _ntSub = _upgradeMenu.HasOpenCard ? 2 : 3;
+                        if (_ntSub == 2) _upgradeMenu.ChooseFirstOpen();
+                        else { _upgradeMenu.ChooseLeave(); NtSay("chest-yours"); }
+                    }
+                    else if (_ntPhaseT > 30) NtFail("the host looks in the chest");
+                    break;
+                }
+                if (_ntSub == 2)
+                {
+                    // (a press the menu wasn't ready for is simply made again)
+                    if (_state == State.Choosing) { if (_ntChooseT < 3f) { _ntChooseT += _ntDt; _upgradeMenu.ChooseFirstOpen(); } break; }
+                    NtCheck($"the host took a card: the chest is spent (spent {chest?.Open}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", chest != null && chest.Open && G.Player.Stats.Stacks.Count > 0);
+                    NtSay("chest-taken");
+                    _ntSub = 3;
+                    break;
+                }
+                // the friend's copy is spent as well
+                if (NtGot("chest-ok", out var ok))
+                {
+                    NtCheck($"the friend's copy of the chest is spent too, and so is the host's ({ok}; spent here {chest?.Open}, state {_state})", chest != null && chest.Open && _state == State.Playing);
+                    _ntSub = 0; _ntChest = null;
+                    NtSay("fall");
+                    NtNext();
+                }
+                else if (NtGot("chest-bad", out var bad2)) { NtCheck($"the friend's copy of the chest is spent too ({bad2})", false); _ntSub = 0; NtSay("fall"); NtNext(); }
+                else if (_ntPhaseT > 60) NtFail("the friend confirms the chest is spent");
                 break;
             }
             case 8:
@@ -484,23 +530,58 @@ public partial class Main
             case 10:
                 // chests open with the interact button: press it standing at the one at my feet
                 if (_state != State.Choosing && Chest.At(G.Player.GlobalPosition) != null) _ntInput.Interact = true;
-                // (the pick is offered a moment after the chest opens, and takes a press only after a beat)
+                // (the cards are offered a moment after, and take a press only after a beat)
                 _ntChooseT = _state == State.Choosing ? _ntChooseT + _ntDt : 0;
                 if (_ntChooseT > 0.6f)
                 {
-                    NtCheck($"the chest at my feet opened for me, with a pick (choosing {G.Player.Choosing}, safe {G.Player.Invulnerable})", G.Player.Choosing && G.Player.Invulnerable);
-                    _upgradeMenu.Choose(0);
+                    NtCheck($"the chest at my feet shows me its cards (choosing {G.Player.Choosing}, safe {G.Player.Invulnerable})", G.Player.Choosing && G.Player.Invulnerable);
+                    _ntChest = Chest.At(G.Player.GlobalPosition) ?? Chest.All.OrderBy(c => c.GlobalPosition.DistanceTo(G.Player.GlobalPosition)).FirstOrDefault();
+                    _upgradeMenu.ChooseLeave();
+                    _ntSub = 0;
                     NtNext();
                 }
                 else if (_ntPhaseT > 15) { NtCheck($"the chest opens for me ({_state})", false); NtSay("chest-bad no pick"); _ntPhase = 11; NtNext(); }
                 break;
             case 11:
-                // (a press the menu wasn't ready for is simply made again)
-                if (_state == State.Choosing && _ntPhaseT < 3f) { _upgradeMenu.Choose(0); break; }
-                NtCheck($"the pick is taken and play goes on ({_state}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", _state == State.Playing && G.Player.Stats.Stacks.Count > 0);
-                NtSay($"chest-ok {string.Join(",", G.Player.Stats.Stacks.Keys)}");
+            {
+                var chest = _ntChest;
+                string Cards() => chest?.Cards != null ? string.Join(",", chest.Cards) : "";
+                if (_ntSub == 0)
+                {
+                    // left: it closes again, keeping its cards (for the host to look at)
+                    if (_state == State.Choosing && _ntPhaseT < 3f) { _upgradeMenu.ChooseLeave(); break; }
+                    NtCheck($"leaving it closes it again (state {_state}, spent {chest?.Open}, cards {Cards()})", _state == State.Playing && chest != null && !chest.Open && Cards() != "");
+                    NtSay($"chest-left {Cards()}");
+                    _ntSub = 1;
+                    break;
+                }
+                if (_ntSub == 1)
+                {
+                    if (NtGot("chest-taken", out _))
+                    {
+                        NtCheck($"the host took a card: my copy of the chest is spent too (spent {chest?.Open})", chest != null && chest.Open);
+                        NtSay(chest != null && chest.Open ? "chest-ok spent here" : "chest-bad still closed here");
+                        NtNext();
+                    }
+                    else if (NtGot("chest-yours", out _)) { _ntSub = 2; _ntChooseT = 0; }
+                    else if (_ntPhaseT > 60) NtFail("the host takes from the chest");
+                    break;
+                }
+                if (_ntSub == 2)
+                {
+                    // none of the cards was the host's: take one myself
+                    if (_state != State.Choosing && chest != null && chest.Reaches(G.Player.GlobalPosition)) _ntInput.Interact = true;
+                    _ntChooseT = _state == State.Choosing ? _ntChooseT + _ntDt : 0;
+                    if (_ntChooseT > 0.6f) { _upgradeMenu.ChooseFirstOpen(); _ntSub = 3; }
+                    else if (_ntPhaseT > 60) NtFail("I take from the chest");
+                    break;
+                }
+                if (_state == State.Choosing) { _upgradeMenu.ChooseFirstOpen(); break; }
+                NtCheck($"I took a card and the chest is spent (spent {chest?.Open}, upgrades [{string.Join(",", G.Player.Stats.Stacks.Keys)}])", chest != null && chest.Open);
+                NtSay(chest != null && chest.Open ? "chest-ok taken here" : "chest-bad still closed here");
                 NtNext();
                 break;
+            }
             case 12:
                 if (NtGot("fall", out _)) { G.Player.GiveUp(); NtNext(); }
                 else if (_ntPhaseT > 30) NtFail("the host asks me to fall");

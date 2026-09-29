@@ -9,6 +9,8 @@ public struct PlayerInput
     public Vector2 Move;        // -1..1 each axis; up is negative Y
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
     public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact;
+    /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
+    public bool AttackHeld;
     /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
     public bool Up;
     /// <summary>The interact button held (reviving a fallen friend takes a moment).</summary>
@@ -24,7 +26,7 @@ public struct PlayerInput
 /// buffering and variable jump height, free swimming with a breath meter, hazards, health,
 /// potions and experience, and the buffering of presses. What each hero fights with lives in
 /// the other Player.*.cs files: the blade (Swordsman and Warden), the Swordsman's dodge, charged
-/// strike and heaving swing, the Warden's shield, shield dash and shield bash, and the Vitalist's
+/// strike and heaving swing, the Warden's shield, Guarded Charge and shield bash, and the Vitalist's
 /// drain, hex, heal and rupture. Every tunable that upgrades touch lives in <see cref="PlayerStats"/>.
 /// </summary>
 public partial class Player : CharacterBody2D
@@ -86,7 +88,7 @@ public partial class Player : CharacterBody2D
     public bool Invulnerable => _invuln > 0 || _iframes > 0 || Choosing || (IsRemote && NetInvuln);
     /// <summary>Dodging, dashing, invulnerable, or behind a raised shield (an input for the enemy brains).</summary>
     public bool Guarding => IsRemote ? (_netFlags & HfGuarding) != 0 : IsDodging || IsShieldDashing || Invulnerable || ShieldRaised;
-    /// <summary>The hero's ability (charged strike, shield dash, heal) is ready to use.</summary>
+    /// <summary>The hero's ability (charged strike, Guarded Charge, heal) is ready to use.</summary>
     public bool SecondaryReady => IsRemote ? (_netFlags & HfSecondary) != 0 : Stats.Hero switch
     {
         HeroKind.Vitalist => AbilityChargeReady && Alimus >= HealCost,
@@ -204,6 +206,7 @@ public partial class Player : CharacterBody2D
             GuardHeld = Input.IsActionPressed("dodge"),
             Potion = Input.IsActionJustPressed("potion"),
             Attack = Input.IsActionJustPressed("attack"),
+            AttackHeld = Input.IsActionPressed("attack"),
             Ability = Input.IsActionJustPressed("ability"),
             Ability2 = Input.IsActionJustPressed("ability2"),
             InteractHeld = Input.IsActionPressed("interact"),
@@ -214,8 +217,11 @@ public partial class Player : CharacterBody2D
         inp.Up = Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
         bool stickOn = stick.Length() > 0.35f;
-        // the right stick raises the Warden's shield by itself, pointing where it's pushed
-        inp.StickGuard = stickOn;
+        // the right stick raises the Warden's shield by itself, pointing where it's pushed; for
+        // everyone else, pushing it well over attacks that way (again and again while it's held)
+        bool warden = p.Stats.Hero == HeroKind.Warden;
+        inp.StickGuard = stickOn && warden;
+        if (!warden && stick.Length() > 0.5f) inp.AttackHeld = true;
         var toMouse = (p.GetGlobalMousePosition() - p.GlobalPosition).Normalized();
         bool mouse = !G.Main.UsingPad && GameSettings.AimFromMouse;
         // the shield points wherever a swing would go: right stick, else the left stick on a
@@ -353,8 +359,10 @@ public partial class Player : CharacterBody2D
         }
         _wasOnFloor = nowFloor;
 
-        // the attack button, then the two ability buttons (each fires once it's allowed)
+        // the attack button, then the two ability buttons (each fires once it's allowed); held
+        // down, the attack goes again as soon as it can, wherever you aim now
         if (_attackBuf > 0 && Primary(_attackAim)) _attackBuf = 0;
+        else if (inp.AttackHeld && _attackBuf <= 0) Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true);
         if (_abilityBuf > 0 && Ability(_abilityAim)) _abilityBuf = 0;
         if (_ability2Buf > 0 && Ability2(_ability2Aim)) _ability2Buf = 0;
         if (_swingT >= 0) UpdateSwing(dt);
@@ -380,15 +388,16 @@ public partial class Player : CharacterBody2D
         Anim.FlashColor = new Color(0.7f, 0.6f, 0.35f);
     }
 
-    /// <summary>The attack button: a swing, or the Vitalist's drain. True once it fires.</summary>
-    private bool Primary(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
+    /// <summary>The attack button: a swing, or the Vitalist's drain. True once it fires.
+    /// <paramref name="held"/>: the button is being held down (a drain then waits for something to drain).</summary>
+    private bool Primary(Vector2 aim, bool held = false) => _snagT <= 0 && Stats.Hero switch
     {
-        HeroKind.Vitalist => CastDrain(aim),
-        HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim),
-        _ => !Heaving && TrySwing(aim),
+        HeroKind.Vitalist => CastDrain(aim, held),
+        HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
+        _ => !Heaving && TrySwing(aim, held),
     };
 
-    /// <summary>The ability button: charged strike, shield dash, or heal. True once it fires.</summary>
+    /// <summary>The ability button: charged strike, Guarded Charge, or heal. True once it fires.</summary>
     private bool Ability(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
@@ -700,7 +709,7 @@ public partial class Player : CharacterBody2D
     private float HurtHere(float dmg, Vector2 from, float knock, Enemy source)
     {
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
-        var block = TryBlock(from, dmg, melee ? source : null);
+        var block = TryBlock(from, dmg, melee ? source : null, source);
         if (block.Blocked)
         {
             // the shield took it: at most the share it lets through, with no flinch
@@ -723,7 +732,7 @@ public partial class Player : CharacterBody2D
         Anim.Once("hurt", 4);
         Anim.Flash(1f);
         Freeze(Tune.Feel.HitStopPlayerHurt);
-        if (source != null && GodotObject.IsInstanceValid(source) && !source.Dead) source.Freeze(Tune.Feel.HitStopPlayerHurt);
+        if (source != null && GodotObject.IsInstanceValid(source) && !source.Dead) source.Freeze(Tune.Feel.HitStopPlayerHurt, hold: true);
         G.Main.Kick(away * Tune.Feel.KickPlayerHurt);
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);

@@ -146,8 +146,6 @@ public partial class Hud : Control
         string where = $"DEPTH {G.Depth}  ·  {G.Biome?.Name.ToUpperInvariant() ?? ""}  ·  {p.Kills} kills";
         var wsz = font.GetStringSize(where, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - wsz.X / 2, 22), where, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
-        if (G.Main.SkipBank > 0)
-            DrawString(font, new Vector2(vs.X / 2 - 90, 40), $"{G.Main.SkipBank} ember{(G.Main.SkipBank > 1 ? "s" : "")} riding on the guardian", HorizontalAlignment.Center, 180, 11, new Color(1f, 0.7f, 0.4f, 0.7f));
 
         // --- Boss bar ---
         var boss = G.Main.ActiveBoss;
@@ -218,19 +216,19 @@ public partial class Hud : Control
                 HeroKind.Warden => new[]
                 {
                     move,
-                    $"{atk} swing · {a1} shield dash (breaks off attacks it meets) · {a2} shield bash (stuns) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
-                    "The shield stops 70% of a blow; raise it just before the hit for a perfect block · " + pause,
+                    $"{atk} swing (hold to keep swinging) · {a1} Guarded Charge (breaks off attacks it meets) · {a2} shield bash (stuns all in front) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
+                    "The shield stops every blow, and what breaks it is stunned; raise it just before the hit for a perfect block · " + pause,
                 },
                 HeroKind.Vitalist => new[]
                 {
                     move,
-                    $"{atk} drain (aim{(pad ? " with the right stick" : " with the mouse")}) · {dg} hex · {a1} heal · {a2} rupture (a full reserve)",
+                    $"{atk} drain (hold to keep draining{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} hex · {a1} heal · {a2} rupture (a full reserve)",
                     "Draining life fills your alimus · " + pause + "    —    find and slay the exit's guardian",
                 },
                 _ => new[]
                 {
                     move,
-                    $"{atk} swing (aim{(pad ? " with the right stick" : " with the mouse")}) · {a1} charge your blade · {a2} heaving swing (on your feet) · {dg} dodge",
+                    $"{atk} swing (hold to keep swinging{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {a1} charge your blade · {a2} heaving swing (on your feet) · {dg} dodge",
                     "A charged swing hits harder and saps what it cuts · " + pause + "    —    find and slay the exit's guardian",
                 },
             };
@@ -415,7 +413,7 @@ public partial class Hud : Control
         KeyHint(font, hb, "ability2");
     }
 
-    /// <summary>The shield dash, the shield bash and the shield's strength bar.</summary>
+    /// <summary>The Guarded Charge, the shield bash and the shield's strength bar.</summary>
     private void DrawWardenGauges(Font font, Player p, Vector2 ab)
     {
         var blue = new Color(0.55f, 0.85f, 1f);
@@ -451,7 +449,7 @@ public partial class Hud : Control
         // the bash's cost: a notch where one bash would leave the shield
         float notch = Tune.Warden.BashShieldCost / Math.Max(1f, p.Stats.ShieldMax);
         if (!p.ShieldBroken && frac > notch) DrawLine(sp + new Vector2(w * (frac - notch), 0), sp + new Vector2(w * (frac - notch), 12), new Color(1f, 0.85f, 0.45f, 0.6f), 1.5f);
-        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Mathf.CeilToInt(p.ShieldHp)} / {Mathf.RoundToInt(p.Stats.ShieldMax)}   blocks {p.Stats.BlockShare * 100:0}%";
+        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Mathf.CeilToInt(p.ShieldHp)} / {Mathf.RoundToInt(p.Stats.ShieldMax)}";
         DrawString(font, sp + new Vector2(0, -8), label, HorizontalAlignment.Left, -1, 10, p.ShieldBroken ? new Color(1f, 0.6f, 0.5f) : new Color(1, 1, 1, 0.6f));
     }
 

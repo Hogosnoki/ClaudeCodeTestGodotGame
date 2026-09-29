@@ -98,7 +98,7 @@ public partial class Main
         }
         if (_scFrame < 0)
         {
-            _scFoe.Freeze(0.3f);
+            _scFoe.Freeze(0.3f, hold: true);
             if (_scT < 1.2f) return;
             _scHp = _scFoe.Hp;
             _scInput = new PlayerInput { Attack = true, Aim = new Vector2(1, 0.1f).Normalized() };

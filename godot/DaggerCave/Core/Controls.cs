@@ -48,9 +48,10 @@ public static class Controls
         ["attack"] = new InputEvent[] { M(MouseButton.Left), K(Key.J), J(JoyButton.X) },
         ["ability"] = new InputEvent[] { M(MouseButton.Right), K(Key.K), J(JoyButton.RightShoulder) },
         ["ability2"] = new InputEvent[] { K(Key.F), M(MouseButton.Middle), K(Key.I), Ax(JoyAxis.TriggerRight, 1) },
-        ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), Ax(JoyAxis.TriggerLeft, 1) },
+        ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder) },
         ["potion"] = new InputEvent[] { K(Key.Q), J(JoyButton.Y) },
-        ["interact"] = new InputEvent[] { K(Key.E), J(JoyButton.LeftShoulder) },
+        // (a trigger: held to revive a friend while both thumbs keep you swimming)
+        ["interact"] = new InputEvent[] { K(Key.E), Ax(JoyAxis.TriggerLeft, 1) },
         ["pause"] = new InputEvent[] { K(Key.Escape), J(JoyButton.Start) },
         // menus (not rebindable)
         ["confirm"] = new InputEvent[] { K(Key.Enter), K(Key.KpEnter), J(JoyButton.A) },
@@ -179,7 +180,7 @@ public static class Controls
     }
 
     /// <summary>Bumped when the defaults change in a way saved bindings should pick up.</summary>
-    private const int BindingsVersion = 2;
+    private const int BindingsVersion = 3;
 
     public static void Save(ConfigFile cfg)
     {
@@ -198,10 +199,23 @@ public static class Controls
             foreach (var e in evs) InputMap.ActionAddEvent(action, e);
         }
         int version = cfg.HasSectionKey("bindings", "_version") ? (int)cfg.GetValue("bindings", "_version") : 1;
-        // version 2: interact (chests, exits, reviving) got a controller button of its own, LB,
-        // which the dodge button no longer needs (it keeps B and LT)
-        if (version < 2 && cfg.HasSection("bindings") && Bindings("interact", true).Count == 0)
-            Rebind("interact", 0, J(JoyButton.LeftShoulder));
+        if (!cfg.HasSection("bindings")) return;
+        // version 3: interact (chests, exits, reviving) has a controller input of its own, LT,
+        // and the dodge button (the Warden's shield) is on B and LB. Version 1 had no interact
+        // on the controller and dodge on B, LB and LT; version 2 moved interact to LB and dodge
+        // to B and LT. Bindings still as those versions left them move over; changed ones stay.
+        var lb = J(JoyButton.LeftShoulder);
+        var lt = Ax(JoyAxis.TriggerLeft, 1);
+        var interact = Bindings("interact", true);
+        var dodge = Bindings("dodge", true);
+        if (version < 2 && interact.Count == 0)
+            Rebind("interact", 0, lt); // (taking LT off the dodge button, which keeps B and LB)
+        else if (version == 2 && interact.Count == 1 && Same(interact[0], lb)
+                 && dodge.Count == 2 && Same(dodge[0], J(JoyButton.B)) && Same(dodge[1], lt))
+        {
+            Rebind("interact", 0, lt);
+            Rebind("dodge", 1, lb);
+        }
     }
 
     // ---------------------------------------------------------------- names
