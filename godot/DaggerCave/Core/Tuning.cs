@@ -289,28 +289,32 @@ public static class Tune
         /// Firebolt (the attack button): a bolt of fire flying at BoltSpeed px/s up to BoltRange px,
         /// FireDamage every FireEvery s; each has IgniteChance of setting a creature alight, burning
         /// IgniteDps for IgniteSeconds. The cone (degrees either side of your aim) it looks for a
-        /// creature to fly at.
+        /// creature to fly at as it leaves the staff. In flight a bolt homes: BoltTurnDegrees a
+        /// second toward the creature nearest its heading, one within BoltSeekDegrees either side of it.
         /// </summary>
-        public static float FireDamage = 14f, FireEvery = 0.45f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 14f;
+        public static float FireDamage = 14f, FireEvery = 0.45f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
+        public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
         public static float IgniteChance = 0.2f, IgniteDps = 4f, IgniteSeconds = 4f;
         /// <summary>Frostbolt (an alteration): FrostDamage every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
         public static float FrostDamage = 8f, FrostEvery = 0.3f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.08f, FreezeSeconds = 1.5f;
-        /// <summary>Updraft (the dodge button): costs UpdraftCost aether; a column of rising air
-        /// UpdraftWidth px wide and UpdraftHeight px tall (6 m) at your feet for UpdraftSeconds,
-        /// lifting every hero in it at UpdraftLift px/s to its top. Narrow Draft (an alteration):
+        /// <summary>Updraft (the dodge button): costs UpdraftCost aether; a column of air
+        /// UpdraftWidth px wide and UpdraftHeight px tall (10 m) at your feet for UpdraftSeconds.
+        /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a
+        /// terminal velocity of UpdraftFallMult of the usual. Narrow Draft (an alteration):
         /// half as wide, NarrowExtra px (6 m) taller, NarrowSeconds long.</summary>
-        public static float UpdraftCost = 15f, UpdraftWidth = 34f, UpdraftHeight = 96f, UpdraftSeconds = 10f, UpdraftLift = 190f;
+        public static float UpdraftCost = 15f, UpdraftWidth = 72f, UpdraftHeight = 160f, UpdraftSeconds = 10f;
+        public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f;
         public static float NarrowExtra = 96f, NarrowSeconds = 15f;
         /// <summary>
         /// Blizzard (the ability button): costs BlizzardCost aether, BlizzardCooldown s to come
-        /// back. A storm BlizzardRadius px round (about 50 px across) at the aim point, no further
+        /// back. A storm BlizzardRadius px round (about 88 px, 5.5 m across) at the aim point, no further
         /// than BlizzardRange px away: BlizzardTicks strikes of BlizzardDamage over BlizzardSeconds,
         /// each with BlizzardFreeze chance of freezing a regular creature. Firestorm (an alteration):
         /// FirestormDamage a strike, each with FirestormIgnite chance of setting it alight.
         /// </summary>
-        public static float BlizzardCost = 20f, BlizzardCooldown = 20f, BlizzardRadius = 26f, BlizzardRange = 200f, BlizzardSeconds = 3f;
+        public static float BlizzardCost = 20f, BlizzardCooldown = 20f, BlizzardRadius = 44f, BlizzardRange = 200f, BlizzardSeconds = 3f;
         public static int BlizzardTicks = 9;
         public static float BlizzardDamage = 2f, BlizzardFreeze = 0.06f, FirestormDamage = 3f, FirestormIgnite = 0.1f;
         /// <summary>

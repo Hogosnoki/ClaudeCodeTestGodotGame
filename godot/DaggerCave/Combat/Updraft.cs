@@ -5,10 +5,11 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Elementalist's Updraft: a column of rising air standing on the ground where it was cast.
-/// Any hero inside it (the caster or a friend) is carried up to its top and held there, where a
-/// jump takes them on; pushing down lets them sink out of it. It stops at a ceiling. Every game
-/// keeps a copy, and each copy lifts only that game's own hero, so every hero rides every column.
+/// The Elementalist's Updraft: a tall, wide column of air standing on the ground where it was
+/// cast. It doesn't lift anyone: any hero inside it (the caster or a friend) has gravity at 0.4 of
+/// itself and a terminal velocity of 0.2 of the usual, so a jump carries far higher and a fall is a
+/// slow drift down. It stops at a ceiling. Every game keeps a copy, and each copy eases only that
+/// game's own hero, so every hero floats in every column.
 /// </summary>
 public partial class Updraft : Node2D
 {
@@ -20,7 +21,7 @@ public partial class Updraft : Node2D
     public float Age => _t;
     private float _t, _fxT;
 
-    /// <summary>The column's top (world y): where a hero rides up to.</summary>
+    /// <summary>The column's top (world y).</summary>
     public float TopY => GlobalPosition.Y - Height;
     /// <summary>0..1: how much of it is left (it fades at the end).</summary>
     public float Strength => Math.Clamp(Life / 0.6f, 0f, 1f) * Math.Clamp(_t / 0.25f, 0f, 1f);
@@ -64,8 +65,8 @@ public partial class Updraft : Node2D
             _fxT = 0.035f;
             float s = Strength;
             var at = GlobalPosition + new Vector2(G.Range(-0.45f, 0.45f) * Width, -G.Range(0f, Height));
-            G.Fx.Directional(at, Vector2.Up, 0.1f, new Color(0.82f, 0.95f, 1f, 0.55f * s), 1, 220, 1.3f, 0.3f, 0, 1);
-            if (G.Chance(0.3f)) G.Fx.Dust(GlobalPosition + new Vector2(G.Range(-0.5f, 0.5f) * Width, 0), 1, 0.8f, new Color(0.85f, 0.9f, 0.95f, 0.5f * s));
+            if (G.Chance(0.6f)) G.Fx.Directional(at, Vector2.Up, 0.1f, new Color(0.82f, 0.95f, 1f, 0.2f * s), 1, 110, 1.1f, 0.4f, 0, 1);
+            if (G.Chance(0.2f)) G.Fx.Dust(GlobalPosition + new Vector2(G.Range(-0.5f, 0.5f) * Width, 0), 1, 0.8f, new Color(0.85f, 0.9f, 0.95f, 0.22f * s));
         }
         QueueRedraw();
     }
@@ -73,7 +74,7 @@ public partial class Updraft : Node2D
     public override void _Draw()
     {
         // (the 2D view, for the debug overlay)
-        float a = 0.18f * Strength;
+        float a = 0.08f * Strength;
         DrawRect(new Rect2(-Width * 0.5f, -Height, Width, Height), new Color(0.75f, 0.92f, 1f, a));
         DrawLine(new Vector2(-Width * 0.5f, 0), new Vector2(-Width * 0.5f, -Height), new Color(0.85f, 0.95f, 1f, a * 2f), 1f);
         DrawLine(new Vector2(Width * 0.5f, 0), new Vector2(Width * 0.5f, -Height), new Color(0.85f, 0.95f, 1f, a * 2f), 1f);

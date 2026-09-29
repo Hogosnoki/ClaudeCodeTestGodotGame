@@ -471,13 +471,13 @@ public partial class ElementBoltView : PropView
 }
 
 /// <summary>
-/// The Elementalist's updraft: a column of pale air, streaks racing up it and a slow swirl at its
-/// foot and its crown, all fading as it dies.
+/// The Elementalist's updraft: a wide, tall column of faint air, pale streaks drifting up it and a
+/// slow swirl at its foot and its crown, all translucent (it's air, not a beam) and fading as it dies.
 /// </summary>
 public partial class UpdraftView : PropView
 {
-    private readonly MeshInstance3D[] _streaks = new MeshInstance3D[12];
-    private readonly float[] _phase = new float[12], _x = new float[12];
+    private readonly MeshInstance3D[] _streaks = new MeshInstance3D[20];
+    private readonly float[] _phase = new float[20], _x = new float[20], _speed = new float[20];
     private MeshInstance3D _foot, _crown, _haze;
     private OmniLight3D _light;
     private ShaderMaterial _flat;
@@ -493,19 +493,20 @@ public partial class UpdraftView : PropView
         {
             _phase[k] = (float)rng.NextDouble();
             _x[k] = (float)rng.NextDouble() * 2f - 1f;
-            _streaks[k] = PropViews.Sprite(new Color(0.85f, 0.95f, 1f), 1, 1.4f, 0.3f);
+            _speed[k] = 0.7f + 0.6f * (float)rng.NextDouble();
+            _streaks[k] = PropViews.Sprite(new Color(0.85f, 0.95f, 1f), 1, 0.5f, 0.3f);
             _streaks[k].MaterialOverride = _flat;
             _streaks[k].Rotation = new Vector3(0, 0, MathF.PI / 2f);
             AddChild(_streaks[k]);
         }
-        _haze = PropViews.Sprite(new Color(0.7f, 0.88f, 1f), 0, 0.35f, 1f);
+        _haze = PropViews.Sprite(new Color(0.7f, 0.88f, 1f), 0, 0.2f, 1f);
         _haze.MaterialOverride = _flat;
         AddChild(_haze);
-        _foot = PropViews.Sprite(new Color(0.8f, 0.94f, 1f), 7, 1.1f, W3.M(u.Width) * 0.8f);
+        _foot = PropViews.Sprite(new Color(0.8f, 0.94f, 1f), 7, 0.4f, W3.M(u.Width) * 0.9f);
         AddChild(_foot);
-        _crown = PropViews.Sprite(new Color(0.8f, 0.94f, 1f), 7, 0.8f, W3.M(u.Width) * 0.6f);
+        _crown = PropViews.Sprite(new Color(0.8f, 0.94f, 1f), 7, 0.3f, W3.M(u.Width) * 0.7f);
         AddChild(_crown);
-        _light = PropViews.Light(new Color(0.75f, 0.9f, 1f), 0.6f, 3f);
+        _light = PropViews.Light(new Color(0.75f, 0.9f, 1f), 0.15f, 4f);
         AddChild(_light);
     }
 
@@ -516,21 +517,21 @@ public partial class UpdraftView : PropView
         float h = W3.M(u.Height), w = W3.M(u.Width), s = u.Strength;
         for (int k = 0; k < _streaks.Length; k++)
         {
-            float y = (_phase[k] + u.Age * 1.1f) % 1f;
-            _streaks[k].Position = new Vector3(_x[k] * w * 0.4f, y * h, 0);
-            float edge = MathF.Min(y / 0.15f, (1f - y) / 0.2f);
-            PropViews.SetSprite(_streaks[k], new Color(0.85f, 0.95f, 1f, Math.Clamp(edge, 0f, 1f) * 0.7f * s), 1, 1.4f);
-            _streaks[k].Scale = new Vector3(Math.Min(h * 0.35f, 0.9f), w * 0.12f, 1f);
+            float y = (_phase[k] + u.Age * 0.55f * _speed[k]) % 1f;
+            _streaks[k].Position = new Vector3(_x[k] * w * 0.45f, y * h, 0);
+            float edge = MathF.Min(y / 0.2f, (1f - y) / 0.3f);
+            PropViews.SetSprite(_streaks[k], new Color(0.85f, 0.95f, 1f, Math.Clamp(edge, 0f, 1f) * 0.3f * s), 1, 0.5f);
+            _streaks[k].Scale = new Vector3(Math.Min(h * 0.22f, 1.4f), w * 0.05f, 1f);
         }
         _haze.Position = new Vector3(0, h * 0.5f, -0.05f);
-        _haze.Scale = new Vector3(w * 0.7f, h * 0.55f, 1f);
-        PropViews.SetSprite(_haze, new Color(0.7f, 0.88f, 1f, 0.35f * s), 0, 0.5f);
+        _haze.Scale = new Vector3(w * 0.95f, h * 0.98f, 1f);
+        PropViews.SetSprite(_haze, new Color(0.7f, 0.88f, 1f, 0.1f * s), 0, 0.3f);
         _foot.Position = new Vector3(0, 0.05f, 0);
-        PropViews.SetSprite(_foot, new Color(0.8f, 0.94f, 1f, 0.8f * s), 7, 1.1f);
+        PropViews.SetSprite(_foot, new Color(0.8f, 0.94f, 1f, 0.3f * s), 7, 0.4f);
         _crown.Position = new Vector3(0, h, 0);
-        PropViews.SetSprite(_crown, new Color(0.8f, 0.94f, 1f, 0.55f * s), 7, 0.8f);
+        PropViews.SetSprite(_crown, new Color(0.8f, 0.94f, 1f, 0.2f * s), 7, 0.3f);
         _light.Position = new Vector3(0, h * 0.5f, 0.3f);
-        _light.LightEnergy = 0.6f * s;
+        _light.LightEnergy = 0.15f * s;
     }
 }
 

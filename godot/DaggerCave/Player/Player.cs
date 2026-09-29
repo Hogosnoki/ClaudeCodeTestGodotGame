@@ -640,13 +640,10 @@ public partial class Player : CharacterBody2D
         v.X = Mathf.MoveToward(v.X, target, (rooted ? 4000f : accel) * dt);
         if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
         if (_bashT > 0) v.X = BashMotion(v.X);
-        v.Y = Math.Min(v.Y + Gravity * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), MaxFall);
-        // a column of rising air (the Elementalist's updraft) carries you up it
-        if (Updraft.All.Count > 0 && Updraft.At(GlobalPosition) is Updraft draft)
-        {
-            v = RideUpdraft(draft, inp, v, dt);
-            _jumpCutDone = true;
-        }
+        // a column of rising air (the Elementalist's updraft) slackens gravity and the speed you can fall at
+        float gravMult = 1f, fallCap = MaxFall;
+        if (Updraft.All.Count > 0 && Updraft.At(GlobalPosition) is Updraft draft) UpdraftEase(draft, ref gravMult, ref fallCap, ref v, dt);
+        v.Y = Math.Min(v.Y + Gravity * gravMult * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), fallCap);
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult) * (WebbedT > 0 ? 0.75f : 1f);
         int wallSide = WallSide();

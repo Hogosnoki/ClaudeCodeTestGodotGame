@@ -9,8 +9,9 @@ public partial class Main
     private float _elMark;
     private int _elCount;
     private Updraft _elUpdraft;
+    private float _elApex, _elFall;
 
-    /// <summary>--herotest --hero=elementalist: the bolts, the aether, the updraft, the blizzard and the snap.</summary>
+    /// <summary>--herotest --hero=elementalist: the bolts (and their homing), the aether, the updraft, the blizzard and the snap.</summary>
     private void ElementalistStep(int s, Player p)
     {
         Enemy Dummy(Enemy e, float dx, float dy = -6)
@@ -91,34 +92,51 @@ public partial class Main
                 break;
             }
             case 82:
-            {
-                var u = p.LastUpdraft;
-                float rose = _posMark.Y - p.GlobalPosition.Y;
-                Check($"it carries you up ({rose:0} px in 1.1 s)", rose > 40);
+                Check($"it lifts nobody: you're still on the ground ({_posMark.Y - p.GlobalPosition.Y:0} px up, on the floor {p.IsOnFloor()})",
+                    p.IsOnFloor() && Math.Abs(_posMark.Y - p.GlobalPosition.Y) < 3);
+                // a jump from inside it (held for its full height) goes far higher than a jump normally does
+                _posMark = p.GlobalPosition;
+                _elApex = _posMark.Y;
+                _elFall = 0;
+                _heroInput = new PlayerInput { Jump = true, JumpHeld = true };
                 break;
-            }
-            case 92:
-            {
-                var u = p.LastUpdraft;
-                bool held = u != null && IsInstanceValid(u) && Math.Abs(p.GlobalPosition.Y - u.TopY) < 12;
-                Check($"and holds you at its top ({(u != null ? $"{p.GlobalPosition.Y - u.TopY:0}" : "?")} px from it, falling {p.Velocity.Y:0})", held && Math.Abs(p.Velocity.Y) < 60);
-                // a push down lets you sink out of it
-                _heroInput = new PlayerInput { Move = new Vector2(0, 1) };
+            case 83:
+                _heroInput = new PlayerInput { JumpHeld = true };
                 break;
-            }
-            case 112:
+            case 90:
                 _heroInput = default;
-                Check($"a push down lets you sink back to the ground (on the floor {p.IsOnFloor()})", p.IsOnFloor());
-                // (the column goes, so it doesn't carry you up again during what follows)
-                if (IsInstanceValid(p.LastUpdraft)) p.LastUpdraft.QueueFree();
                 break;
-            case 114:
+            case 106:
+            {
+                float rose = _posMark.Y - _elApex;
+                // (a jump normally peaks at about 80 px; a ceiling can cut the column, and the jump, short)
+                Check($"a jump in it floats far higher ({rose:0} px, where one on the ground peaks near 80)", rose > 105);
+                break;
+            }
+            case 126:
+            {
+                var u = p.LastUpdraft;
+                float cap = Tune.Hero.MaxFallSpeed * Tune.Elementalist.UpdraftFallMult;
+                Check($"it drifts down at no more than {Tune.Elementalist.UpdraftFallMult:0.0} of the usual terminal speed (fastest {_elFall:0} px/s, limit {cap:0} of {Tune.Hero.MaxFallSpeed:0})", _elFall < cap + 15f);
+                Check($"and lands you gently back on the ground (on the floor {p.IsOnFloor()})", p.IsOnFloor());
+                // (the column goes, so it doesn't ease you during what follows)
+                if (IsInstanceValid(u)) u.QueueFree();
+                break;
+            }
+            default:
+                if (s > 83 && s < 126)
+                {
+                    _elApex = Math.Min(_elApex, p.GlobalPosition.Y);
+                    if (s > 100) _elFall = Math.Max(_elFall, p.Velocity.Y);
+                }
+                break;
+            case 128:
                 // no aether, no updraft
                 p.SetAether(5);
                 _elUpdraft = p.LastUpdraft;
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
-            case 115:
+            case 129:
                 _heroInput = default;
                 Check($"without the aether there's no updraft (a new one {p.LastUpdraft != _elUpdraft}, {p.Aether:0.00} aether)", p.LastUpdraft == _elUpdraft && p.Aether > 4.99f && p.Aether < 5.6f);
                 break;
@@ -196,8 +214,48 @@ public partial class Main
                 _probeEnemy.Elite = false;
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 if (IsInstanceValid(_probe2)) _probe2.QueueFree();
+                break;
+
+            // ---- homing: a bolt loosed wide still bends after a creature, and never turns back on one behind it
+            case 236:
+            {
+                var gob = Dummy(new Goblin(), 150, -6);
+                gob.Freeze(60f, hold: true);
+                gob.MaxHp = gob.Hp = 500;
+                _probe2 = gob;
+                _hp2Mark = gob.Hp;
+                p.Stats.IgniteChance = 0f;
+                // (loosed 32 degrees off the creature)
+                var wide = new Vector2(_dir, 0).Rotated(Mathf.DegToRad(-32f) * _dir);
+                G.Spawn(new ElementBolt { Position = p.GlobalPosition + new Vector2(0, -6) + wide * 6f, Dir = wide, Damage = Tune.Elementalist.FireDamage, Caster = p });
+                break;
+            }
+            case 246:
+            {
+                float dealt = _hp2Mark - (IsInstanceValid(_probe2) ? _probe2.Hp : 0);
+                Check($"a bolt loosed 32 degrees wide homes in on the creature 150 px away ({dealt:0.0} of {Tune.Elementalist.FireDamage:0} damage)", dealt > Tune.Elementalist.FireDamage - 0.5f);
+                if (IsInstanceValid(_probe2)) _probe2.QueueFree();
+                break;
+            }
+            case 248:
+            {
+                // a creature behind the caster, and none ahead
+                var gob = Dummy(new Goblin(), -90, -6);
+                gob.Freeze(60f, hold: true);
+                gob.MaxHp = gob.Hp = 500;
+                _probe2 = gob;
+                _hp2Mark = gob.Hp;
+                G.Spawn(new ElementBolt { Position = p.GlobalPosition + new Vector2(_dir * 6f, -6), Dir = new Vector2(_dir, 0), Damage = Tune.Elementalist.FireDamage, Caster = p });
+                break;
+            }
+            case 260:
+            {
+                float dealt = _hp2Mark - (IsInstanceValid(_probe2) ? _probe2.Hp : 0);
+                Check($"but it never turns back on a creature behind it ({dealt:0.0} damage)", dealt < 0.01f);
+                if (IsInstanceValid(_probe2)) _probe2.QueueFree();
                 Finish();
                 break;
+            }
         }
     }
 }

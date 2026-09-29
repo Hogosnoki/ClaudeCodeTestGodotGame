@@ -325,7 +325,7 @@ public static class Upgrades
 
         // --- Updraft (elementalist) ---
         new() { Id = "attune", Name = "Attunement", Desc = "Your aether comes back 25% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AetherRegenMult += 0.25f },
-        new() { Id = "updraft_narrow", Name = "Narrow Draft", Desc = "Your updraft is half as wide, but it carries you 6 m higher and lasts 15 s.", Icon = "move", For = E, Ability = "updraft", Alteration = true, Apply = (s, p) => s.NarrowDraft = true },
+        new() { Id = "updraft_narrow", Name = "Narrow Draft", Desc = "Your updraft is half as wide, but 6 m taller and lasts 15 s.", Icon = "move", For = E, Ability = "updraft", Alteration = true, Apply = (s, p) => s.NarrowDraft = true },
 
         // --- Blizzard (elementalist) ---
         new() { Id = "deepchill", Name = "Deep Chill", Desc = "Your frost is 4% likelier to freeze a creature solid (frostbolts, and the blizzard).", Icon = "spell", For = E, Ability = "blizzard", MaxStacks = 2,

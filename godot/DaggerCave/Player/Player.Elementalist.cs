@@ -9,8 +9,8 @@ namespace DaggerCave;
 /// The Elementalist's kit. Every spell costs aether, which comes back by itself (its only
 /// source); the bolts are free. The attack button hurls a firebolt that can set a creature
 /// alight (Frostbolt: quicker, weaker bolts of frost that slow, and now and then freeze a
-/// creature solid). The dodge button raises an Updraft, a column of rising air that carries every
-/// hero in it up to its top. The ability button calls down a Blizzard at the aim point: nine
+/// creature solid). The dodge button raises an Updraft, a column of air in which every
+/// hero has a fraction of gravity and a fraction of the fall speed (floating up on a jump, drifting down). The ability button calls down a Blizzard at the aim point: nine
 /// small strikes that can each freeze a creature (Firestorm: fire that sets them alight). The
 /// second ability snaps: every frozen creature in view shatters, hurting whatever is near it
 /// (Cinder Snap: every burning creature bursts). Alterations: Frostbolt, Narrow Draft (a taller,
@@ -145,25 +145,28 @@ public partial class Player
         Anim.Once("hex", 3, 1.5f);
         LastCast = "updraft";
         _castGlow = 1f;
-        G.Fx.Shockwave(foot, 26, new Color(0.85f, 0.95f, 1f, 0.7f), 0.35f);
-        G.Fx.Dust(foot, 6, 1.4f, new Color(0.85f, 0.9f, 0.95f, 0.7f));
+        G.Fx.Shockwave(foot, 34, new Color(0.85f, 0.95f, 1f, 0.3f), 0.4f);
+        G.Fx.Dust(foot, 6, 1.4f, new Color(0.85f, 0.9f, 0.95f, 0.35f));
         G.Sfx.Play("dodge", GlobalPosition, -4, 0.05f, 0.6f);
         G.Main.Rumble(0.25f, 0.1f, 0.12f);
         return true;
     }
 
     /// <summary>
-    /// A column of air carrying this hero: up toward its top at the lift's speed, held there; a
-    /// push down lets you sink out. You can jump from anywhere in it, as from the ground.
+    /// Inside a column of air: gravity is a fraction of itself and so is the speed you fall at, so a
+    /// jump goes far higher and a fall is a slow drift. Nothing lifts you. A fall already faster
+    /// than the column allows is slowed to it over a moment, not snapped.
     /// </summary>
-    private Vector2 RideUpdraft(Updraft draft, PlayerInput inp, Vector2 v, float dt)
+    private void UpdraftEase(Updraft draft, ref float gravMult, ref float fallCap, ref Vector2 v, float dt)
     {
-        float lift = Tune.Elementalist.UpdraftLift * draft.Strength;
-        float target = inp.Move.Y > 0.5f ? 110f : Math.Clamp((draft.TopY - GlobalPosition.Y) * 5f, -lift, 90f);
-        v.Y = Mathf.MoveToward(v.Y, target, 1500f * dt);
-        _coyote = Tune.Hero.CoyoteTime;
-        if (G.Chance(0.15f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-6, 6), 12), new Color(0.85f, 0.95f, 1f, 0.6f), 1, 40, 1.2f, 0.3f, -120);
-        return v;
+        float k = draft.Strength;
+        gravMult = Mathf.Lerp(1f, Tune.Elementalist.UpdraftGravityMult, k);
+        fallCap = MaxFall * Mathf.Lerp(1f, Tune.Elementalist.UpdraftFallMult, k);
+        if (v.Y > fallCap)
+        {
+            v.Y = Mathf.MoveToward(v.Y, fallCap, 2400f * dt);
+            fallCap = Math.Max(fallCap, v.Y);
+        }
     }
 
     // ---------------------------------------------------------------- blizzard
