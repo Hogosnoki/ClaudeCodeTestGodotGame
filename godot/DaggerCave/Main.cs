@@ -184,6 +184,8 @@ public partial class Main : Node
 
         // (the magma scenario wants a cave with a real lava lake unless told otherwise)
         if (_seed == 0 && _scenario == "magma") _seed = 2;
+        // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
+        if (_seed == 0 && _heroTest) _seed = 1013;
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 0;
@@ -2204,7 +2206,7 @@ public partial class Main : Node
                 break;
             case 187: _posMark = p.GlobalPosition; p.ResetAbilityCooldowns(); break;
             case 290:
-                Check("the golem attacked (for the dash to meet)", _dashedAt > 0);
+                Check($"the golem attacked (for the dash to meet){(_dashedAt > 0 || !IsInstanceValid(_probeEnemy) ? "" : $" (golem at {_probeEnemy.GlobalPosition - p.GlobalPosition:0})")}", _dashedAt > 0);
                 break;
             case 292:
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();

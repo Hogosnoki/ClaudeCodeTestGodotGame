@@ -838,7 +838,8 @@ and prints ok / FAIL for each:
 `--hitstoptest --shots=DIR` has the hero strike a golem twice and logs every frame of it (who is
 frozen, for how long, the clip and frame), saving a screenshot of each.
 
-The checks are timed in game seconds, so run them with `--fixed-fps 60`. They need no window:
+They stand in one known cave (seed 1013 unless `--seed` says otherwise): the lie of the land
+round a random start could tip a check. The checks are timed in game seconds, so run them with `--fixed-fps 60`. They need no window:
 `godot --headless --path godot --fixed-fps 60 -- --herotest --hero=warden` runs in well under a
 minute, where a software renderer would take many (with a window, use a small one,
 `--resolution 480x270`).
