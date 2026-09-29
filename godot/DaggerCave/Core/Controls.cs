@@ -26,7 +26,8 @@ public static class Controls
         ("attack", "Attack"),
         ("ability", "Ability"),
         ("ability2", "Second ability"),
-        ("dodge", "Dodge  ·  shield  ·  hex"),
+        // (each dot keeps to the word after it, so a wrapped name breaks before one)
+        ("dodge", "Dodge  ·\u00a0\u00a0shield  ·\u00a0\u00a0hex  ·\u00a0\u00a0updraft  ·\u00a0\u00a0vanish"),
         ("potion", "Drink a potion"),
         ("interact", "Open a chest  ·  go down an exit  ·  revive"),
         ("pause", "Pause"),

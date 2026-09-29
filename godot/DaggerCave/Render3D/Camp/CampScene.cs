@@ -37,13 +37,13 @@ public partial class CampScene : SubViewport
 
     private static readonly (HeroKind kind, string design, string name, float angle)[] Roster =
     {
-        // (round the far side of the fire, left to right as the choice goes; none straight
-        // behind the flames from where the camera looks)
-        (HeroKind.Swordsman, "swordsman", "SWORDSMAN", 176f),
-        (HeroKind.Warden, "warden", "WARDEN", 136f),
-        (HeroKind.Vitalist, "vitalist", "VITALIST", 54f),
-        (HeroKind.Elementalist, "elementalist", "ELEMENTALIST", 14f),
-        (HeroKind.Rogue, "rogue", "ROGUE", -26f),
+        // (round the fire, left to right as the choice goes; none straight behind the flames
+        // from where the camera looks, and none hiding another from it)
+        (HeroKind.Swordsman, "swordsman", "SWORDSMAN", 204f),
+        (HeroKind.Warden, "warden", "WARDEN", 148f),
+        (HeroKind.Vitalist, "vitalist", "VITALIST", 118f),
+        (HeroKind.Elementalist, "elementalist", "ELEMENTALIST", 64f),
+        (HeroKind.Rogue, "rogue", "ROGUE", 34f),
     };
 
     private sealed class Seat
@@ -65,7 +65,7 @@ public partial class CampScene : SubViewport
     private readonly Noise3 _noise = new(4242);
     private readonly Random _rng = new(7);
 
-    private const float SeatRadius = 1.95f, LogTop = 0.42f;
+    private const float SeatRadius = 2.3f, LogTop = 0.42f, LogHalf = 0.6f;
     // the cave mouth: where it stands and which way it faces (toward the camp)
     private static readonly Vector3 MouthAt = new(9.8f, 0f, -7.5f);
     private static readonly Vector3 MouthFacing = new Vector3(-0.62f, 0f, 0.78f).Normalized();
@@ -457,9 +457,9 @@ public partial class CampScene : SubViewport
             var at = new Vector3(MathF.Cos(a), 0, -MathF.Sin(a)) * (SeatRadius + 0.05f);
             var along = new Vector3(MathF.Sin(a), 0, MathF.Cos(a));
             var logC = at + Vector3.Up * (LogTop - 0.19f);
-            mb.Tube(new List<Vector3> { logC - along * 0.75f, logC, logC + along * 0.75f }, new List<float> { 0.2f, 0.21f, 0.19f }, 9, new Color(0.42f, 0.3f, 0.18f), true,
+            mb.Tube(new List<Vector3> { logC - along * LogHalf, logC, logC + along * LogHalf }, new List<float> { 0.2f, 0.21f, 0.19f }, 9, new Color(0.42f, 0.3f, 0.18f), true,
                 (i, k) => 0.05f * noise.Sample(i * 2.1f, k * 0.7f, r.angle));
-            mb.Tube(new List<Vector3> { logC + along * 0.75f, logC - along * 0.75f }, new List<float> { 0.19f, 0.2f }, 9, new Color(0.62f, 0.5f, 0.34f), true);
+            mb.Tube(new List<Vector3> { logC + along * LogHalf, logC - along * LogHalf }, new List<float> { 0.19f, 0.2f }, 9, new Color(0.62f, 0.5f, 0.34f), true);
         }
         mb.SmoothNormals();
         AddChild(new MeshInstance3D { Mesh = mb.ToMesh(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.85f }), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
@@ -631,8 +631,8 @@ public partial class CampScene : SubViewport
         // wide over the meadow (the menu), in by the fire (choosing), on toward the cave (leaving)
         var widePos = new Vector3(-6.5f, 3.3f, 12.5f);
         var wideLook = new Vector3(3.2f, 1.8f, -3.5f);
-        var closePos = new Vector3(0.1f, 1.95f, 5.1f);
-        var closeLook = new Vector3(0.5f, 0.85f, -0.9f);
+        var closePos = new Vector3(-0.25f, 1.95f, 5.1f);
+        var closeLook = new Vector3(0.1f, 0.85f, -0.9f);
         float k = W3.Smooth01(_close);
         var pos = widePos.Lerp(closePos, k);
         var look = wideLook.Lerp(closeLook, k);

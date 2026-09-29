@@ -70,6 +70,7 @@ public partial class Main
 
     private void NtNext() { _ntPhase++; _ntPhaseT = 0; }
     private bool _ntSawBarrier;
+    private int _ntRogueStep;
 
     /// <summary>Where the test's exit leads (a Fossil Graveyard: big chambers, a camera to watch).</summary>
     private const int NtDepth = 5;
@@ -249,6 +250,14 @@ public partial class Main
                 if (_ntPhaseT < 0.6f) break;
                 NtCheck($"the friend's swing lands on the host's golem (hp {_ntMark:0} -> {_ntGolem.Hp:0}), credited to them (last struck by {_ntGolem.LastAttacker})",
                     _ntGolem.Hp < _ntMark - 1 && _ntGolem.LastAttacker == friend?.NetOwner);
+                if (friend != null && friend.Hero == HeroKind.Rogue)
+                {
+                    // a Rogue's thrown dagger flies here too (a harmless copy: their game dealt its blow)
+                    var dagger = _world.GetChildren().OfType<ThrownDagger>().FirstOrDefault(d => d.Harmless && d.Thrower == friend);
+                    NtCheck($"the friend's thrown dagger shows here, stuck in the golem ({dagger?.State})", dagger != null && dagger.State == ThrownDagger.Phase.Stuck);
+                    NtCheck($"the throw's blow (dealt in their game) reached the golem here ({_ntMark - _ntGolem.Hp:0} in all)", _ntMark - _ntGolem.Hp >= Tune.Rogue.ThrowDamage - 0.5f);
+                    NtCheck($"and their vanishing shows here too (hidden {friend.Hidden})", friend.Hidden);
+                }
                 // the golem's blow lands on the friend's hero: their game takes it
                 friend?.Hurt(12f, _ntGolem.GlobalPosition, 100f, _ntGolem);
                 NtSay("hurt 12");
@@ -506,6 +515,13 @@ public partial class Main
             }
             case 5:
                 if (_ntPhaseT < 0.5f) break;
+                // (a Rogue throws a dagger into the golem too, then vanishes)
+                if (G.Player.Stats.Hero == HeroKind.Rogue)
+                {
+                    if (_ntRogueStep == 0) { _ntInput = new PlayerInput { Ability = true, Aim = new Vector2(_ntSide, 0) }; _ntRogueStep = 1; }
+                    else if (_ntRogueStep == 1 && _ntPhaseT > 0.9f) { _ntInput = new PlayerInput { Dodge = true }; _ntRogueStep = 2; }
+                    if (_ntPhaseT < 1.2f) break;
+                }
                 _ntMark = G.Player.Hp;
                 NtSay("swung");
                 NtNext();

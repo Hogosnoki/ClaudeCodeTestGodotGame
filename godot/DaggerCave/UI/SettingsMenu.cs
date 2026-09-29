@@ -408,6 +408,8 @@ public partial class SettingsMenu : Control
         {
             var l = UiKit.Label(label, 14);
             l.CustomMinimumSize = new Vector2(270, 0);
+            // (a long name wraps rather than widening the table)
+            l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             table.AddChild(l);
             foreach (bool pad in new[] { false, true })
             {

@@ -2,15 +2,16 @@
 
 A side-view rogue-lite in 3D: set off from a camp in a sunny meadow, down through the cave mouth to
 a dragon at the bottom of the world, as a sword-swinging, dodging Swordsman, a shield-bearing
-Warden, a Vitalist who drains life from creatures and gives it to the living, or an Elementalist
-who burns, freezes and shatters them. You move on a 2D plane (left, right,
+Warden, a Vitalist who drains life from creatures and gives it to the living, an Elementalist
+who burns, freezes and shatters them, or a Rogue who strikes out of the shadows with two daggers.
+You move on a 2D plane (left, right,
 up, down), but everything you see is 3D: sculpted rock, lit water and lava, skinned and animated
 creatures, and effects with real light (see **3D presentation** below). Each level is a biome with its own
 cave generator, creatures and hazards. Slay the guardian of each level's exit, then choose one of
 two ways down: a gentle one (one depth deeper) or a steep one (two deeper), each into a
 different biome. Depth 10 is the dragon's lair. Every run begins and ends at the camp outside the cave,
 where the heroes sit round a cooking fire; between runs, embers and rare resources buy permanent
-ranks in the upgrade trees. Up to four friends can play together online, one of each
+ranks in the upgrade trees. Up to five friends can play together online, one of each
 hero (see **Playing with friends online**).
 
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
@@ -63,7 +64,7 @@ Keep the exported files together: the executable, `DaggerDeep.pck` and the `data
 
 ## Playing with friends online
 
-Up to four players, one of each hero. One player hosts; the others join with the host's code.
+Up to five players, one of each hero. One player hosts; the others join with the host's code.
 
 1. On the main menu, choose **Multiplayer (online)** (or press O, or Y on a controller).
 2. The host clicks **Host a game**. The lobby shows a join code like `7K3QD-M2XP9`, with a
@@ -129,7 +130,7 @@ Handy starting points:
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
-| The four heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture), `Elementalist.*` (bolts, aether, updraft, blizzard, snap, burning and freezing) |
+| The five heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture), `Elementalist.*` (bolts, aether, updraft, blizzard, snap, burning and freezing), `Rogue.*` (jabs, critical strikes, thrown daggers, recall, vanish, smoke) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the cards are `Upgrades.Chest`, the level-up stats `Progression.AutoLevel` |
@@ -295,7 +296,7 @@ and damage taken while a controller is active.
 
 **The camp**. The game opens on the main menu, over the camp outside the cave: a green meadow
 under a blue sky, a cooking pot over the fire, and the cave's great dark mouth in a mossy cliff.
-**Single player** brings you in to the fire, where the four heroes sit on logs; choose one (the
+**Single player** brings you in to the fire, where the five heroes sit on logs; choose one (the
 chosen hero stands up) and descend, and the view drifts into the cave mouth as the run begins.
 The main menu also has multiplayer, settings, a button to support the game on Ko-fi, and quit.
 
@@ -363,16 +364,18 @@ shortsword, `Player.Abilities.cs` for ability charges, `Player.Net.cs` for onlin
 file per hero). Pick one at the camp fire with left / right (the chosen hero stands up).
 They complement each other in a party (online, one of each): the Swordsman deals the damage, the
 Warden takes it for others, the Vitalist keeps everyone going, the Elementalist controls the
-field (burning, freezing and shattering from range, and lifting everyone up out of reach).
+field (burning, freezing and shattering from range, and lifting everyone up out of reach), and
+the Rogue picks off what matters (quick jabs, daggers thrown and torn back out, and slipping out
+of sight).
 
-| | Swordsman | Warden | Vitalist | Elementalist |
-| --- | --- | --- | --- | --- |
-| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 11 damage, swings every 0.36 s with a fast sweep (about 31 damage a second to the sword's 33) | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives | Firebolt: a bolt of fire flying 520 px/s up to 260 px (a creature near your aim draws it), 14 damage every 0.45 s; each has a 20% chance of setting what it strikes alight (4 a second for 4 s). Free |
-| Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown | Updraft: 15 aether for a column of rising air 6 m (96 px) tall at your feet for 10 s; every hero in it (a friend too) is carried up to its top and held there, jumps from anywhere in it, and sinks out with a push down |
-| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Guarded Charge: a charge behind the shield that swallows the projectiles and shockwaves in its way and keeps going, and stops at the first attacking creature it meets, breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink | Blizzard: 20 aether; a storm about 50 px across on the creature nearest your aim (or where the mouse points, or ahead of you), up to 200 px away: 9 strikes of 2 over 3 s, each with a 6% chance of freezing a regular creature solid for 1.5 s; 20 s cooldown |
-| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; when it meets something, every creature within 40 px in front (a half-circle) takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20, once; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown | Snap: 15 aether; every frozen creature in view shatters for 15, and every other creature within 50 px of it takes 4 |
-| Movement | Full speed and jump | 92% speed, 90% jump height (80% speed while shielding) | 97% speed and jump | 97% speed and jump |
-| Toughness | 60 HP, 15 s of breath | 110 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath | 55 HP, 15 s of breath |
+| | Swordsman | Warden | Vitalist | Elementalist | Rogue |
+| --- | --- | --- | --- | --- | --- |
+| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 11 damage, swings every 0.36 s with a fast sweep (about 31 damage a second to the sword's 33) | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives | Firebolt: a bolt of fire flying 520 px/s up to 260 px (a creature near your aim draws it), 14 damage every 0.45 s; each has a 20% chance of setting what it strikes alight (4 a second for 4 s). Free | Dagger Slash: 22 px reach, 9 damage, five jabs a second, one creature at a time (the nearest), with barely a hit-stop and no combo; half as fast with a dagger thrown. Each of the Rogue's blows (a jab, a throw, a recall) has a 5% chance of being a critical strike, twice as hard |
+| Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown | Updraft: 15 aether for a column of rising air 6 m (96 px) tall at your feet for 10 s; every hero in it (a friend too) is carried up to its top and held there, jumps from anywhere in it, and sinks out with a push down | Vanish: 6 s in the shadows: creatures lose you, and you move half again as fast; attacking or being struck ends it; 12 s cooldown |
+| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Guarded Charge: a charge behind the shield that swallows the projectiles and shockwaves in its way and keeps going, and stops at the first attacking creature it meets, breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink | Blizzard: 20 aether; a storm about 50 px across on the creature nearest your aim (or where the mouse points, or ahead of you), up to 200 px away: 9 strikes of 2 over 3 s, each with a 6% chance of freezing a regular creature solid for 1.5 s; 20 s cooldown | Dagger Throw: one of your two daggers, at the creature nearest your aim (up to 280 px), for 18 damage; it sticks in the creature it meets and rides in it, nudging it; a miss comes back by itself, and with both stuck in creatures, both come home |
+| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; when it meets something, every creature within 40 px in front (a half-circle) takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20, once; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown | Snap: 15 aether; every frozen creature in view shatters for 15, and every other creature within 50 px of it takes 4 | Recall: every dagger out comes home, and one stuck in a creature tears back out through it for 9, yanking it toward you; no cooldown |
+| Movement | Full speed and jump | 92% speed, 90% jump height (80% speed while shielding) | 97% speed and jump | 97% speed and jump | 110% speed, full jump; slides down walls and kicks off them from the start |
+| Toughness | 60 HP, 15 s of breath | 110 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath | 55 HP, 15 s of breath | 55 HP, 15 s of breath |
 
 Warden's shield:
 - **Blocking**: it's a broad arc of blue light (135°) that stops all of each blow arriving within
@@ -407,7 +410,19 @@ creature (online, the host keeps them and every game shows them):
   never one winding up or in the middle of an attack (like every blow, frost never cuts a
   telegraphed attack short).
 
-All of these numbers are in `Tune.Swordsman`, `Tune.Warden`, `Tune.Vitalist` and `Tune.Elementalist`.
+The Rogue's two daggers are its attacks, and what isn't in its hands is out in the cave:
+- **Thrown**: a dagger rides in the creature it struck until you recall it, or until the
+  creature dies and it drops out and flies home. With one out, your jabs come half as fast; with
+  both stuck in creatures, both come home by themselves. The HUD shows which are in hand.
+- **In the shadows** (Vanish, or inside a Smoke Bomb's cloud): creatures lose you. Whatever they
+  were already swinging plays out; then they stand looking about ("?") until you show yourself.
+  Guardians and bosses aren't fooled. Any attack brings you out of the shadows as it begins, and
+  so does being struck.
+- Online, a friend's daggers and smoke show in every game (their game deals their blows), and a
+  friend in the shadows shows faintly.
+
+All of these numbers are in `Tune.Swordsman`, `Tune.Warden`, `Tune.Vitalist`, `Tune.Elementalist`
+and `Tune.Rogue`.
 
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
 (`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 560 px/s.
@@ -461,7 +476,7 @@ frame colour and the label at its top:
 - **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
   level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
   max HP, +2% damage and +1 alimus capacity; the Elementalist +3 max HP, +2% damage and +1 aether
-  capacity.
+  capacity; the Rogue +2 max HP, +2.5% damage and +0.2% critical chance.
 - **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three of your hero's
   own cards (class upgrades and alterations), or leave it and take nothing.
 - **Chests**: interact at one (E / LT) to look inside. It holds one class card and two others
@@ -510,6 +525,10 @@ The trees (◆ an alteration; its upgrades are indented beneath it):
 | Elementalist · Updraft | Attunement (aether back 25% faster, three times) | ◆ Narrow Draft: half as wide, 6 m taller, 15 s |
 | Elementalist · Blizzard | Deep Chill (frost 4% likelier to freeze, frostbolts and the blizzard, twice), Long Winter (50% longer), Whiteout (30% wider), Gathering Storm (back 25% sooner) | ◆ Firestorm: a storm of fire, 3 a strike, each with a 10% chance of setting a creature alight (it freezes nothing) |
 | Elementalist · Snap | Shrapnel (bursts 40% wider), Echo (5 aether back for each creature it bursts) | ◆ Cinder Snap: burning creatures burst instead, for 20 and 6 around |
+| Rogue · Dagger Slash | Keen Edge (+5% critical chance, twice), Backstab (+50% from behind a creature), Cruel Edge (critical strikes 2.5 times as hard) | |
+| Rogue · Dagger Throw | Twin Throw (both daggers at once), Weighted Daggers (+30%, twice) | ◆ Ricochet: the dagger springs on from its creature to one more nearby (130 px), then flies back, never sticking (so it rules out Tether) · Chain Ricochet (one creature more) |
+| Rogue · Vanish | Surprise Attack (the attack that ends your vanishing, a jab, a throw or a recall, lands four times as hard), Quick Fade (back 20% sooner, twice), Deep Shadows (3 s longer, the smoke too) | ◆ Smoke Bomb: instead of vanishing alone, a cloud of smoke 70 px round for 6 s: every hero in it is hidden, and creatures in it can't find anyone · Thick Smoke (40% wider) |
+| Rogue · Recall | Rending Recall (twice as hard) | ◆ Tether: recall pulls you along the line to your dagger stuck in a creature, striking it as you arrive (rules out Ricochet) · Pounce (arriving is always a critical strike) |
 
 | Everyone | Cards |
 | --- | --- |
@@ -607,7 +626,7 @@ to, so every attack's wind-up, strike and hitbox lines up exactly as before. The
 
 | Group | Characters |
 | --- | --- |
-| Heroes | the Swordsman, the Warden, the Vitalist and the Elementalist |
+| Heroes | the Swordsman, the Warden, the Vitalist, the Elementalist and the Rogue |
 | Enemies | every enemy type |
 | Boss | the Cavern Colossus |
 | Passive critters | glow moths and cave crabs (new ambient wildlife) |
@@ -619,11 +638,12 @@ The left-facing sprites are real renders, not mirrored copies. That means the bl
 hero's right hand (the far hand when facing right, the near hand when facing left), and the light
 always comes from the upper left.
 
-All four heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
+All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
 - The Swordsman: a teal cloak, a red scarf and a medium sword.
 - The Warden: a blue tabard, a gold sash, a shortsword and a buckler.
 - The Vitalist: a green robe, a bone mask with glowing eyes and a crystal-headed staff.
 - The Elementalist: a violet robe, an ember sash and a staff crowned with a burning orb.
+- The Rogue: a plum hood, a dark mask, dark leather, a short cape and a dagger in each hand.
 
 They share every clip:
 - idle
@@ -638,7 +658,7 @@ They share every clip:
   forward, down-forward and down)
 - the Warden's shield dash and shield bash (a shove); the Swordsman's heaving swing; the
   casters' cast, hex, heal and rupture (the Elementalist casts its bolts, updraft, blizzard and
-  snap with them)
+  snap with them); the Rogue's throw (its recall plays it too, and its jabs are its slashes)
 - hurt
 - death
 
@@ -799,7 +819,8 @@ xvfb-run godot --path godot --rendering-driver vulkan -- --seed=1013 --bestiary 
 # One screenshot after N frames (with --fixed-fps for a steady clock); --fxtest=K lays out one of
 # every effect K frames before the shot, --proptest one of every prop, --elementtest the
 # Elementalist's spells (a blizzard, a firestorm, an updraft, bolts, a frozen and a burning goblin),
-# --exittest the two exits
+# --roguetest the Rogue's (a dagger in flight, one stuck in a golem, a smoke cloud with a goblin
+# lost in it), --exittest the two exits
 # a guardian leaves (one right where you stand)
 xvfb-run godot --path godot --rendering-driver vulkan --fixed-fps 12 -- --biome=entrance --lookshot=/tmp/look.png --frames=60 --proptest
 ```
@@ -835,7 +856,7 @@ godot --headless --path godot -- --nntest
 To have the autopilot bot train the brains, add `--train` to an `--autotest` run. Add
 `--braindir=DIR` to keep those brains out of the project.
 
-`--herotest` (add `--hero=warden` or `--hero=vitalist`) scripts checks of each hero's mechanics
+`--herotest` (add `--hero=warden`, `--hero=vitalist`, `--hero=elementalist` or `--hero=rogue`) scripts checks of each hero's mechanics
 and prints ok / FAIL for each:
 - Swordsman: the sword's reach and lunge; a combo pressed during a hit-stop starting as it ends;
   the Charged Strike (harder, and weakening what it cuts); a swing out of a dodge; the heaving
@@ -863,6 +884,14 @@ and prints ok / FAIL for each:
   frost freezing a regular creature solid; a snap shattering a frozen creature and splashing the
   one beside it, for its aether; a snap with nothing frozen costing nothing; a mini-boss never
   freezing.
+- Rogue: sliding down walls and kicking off them from the start; a jab striking the nearest
+  creature only, five a second when held; a critical jab twice as hard; Backstab from behind but
+  not to the face; a thrown dagger's damage, sticking in a golem, the jabs slowing with one out,
+  both coming home by themselves once both are stuck, and a throw at nothing coming back; recall
+  tearing a dagger out of a goblin for its damage and yanking it toward you; vanishing (a goblin
+  losing you, half again the speed) and coming out of it on attacking, even at nothing, or on
+  being struck; Surprise Attack's jab and throw four times as hard, and only the first; Cruel
+  Edge, Weighted Daggers, Rending Recall, Quick Fade and Deep Shadows.
 - For all: the game clock never slowing for a hit-stop.
 
 `--hitstoptest --shots=DIR` has the hero strike a golem twice and logs every frame of it (who is
@@ -882,21 +911,27 @@ wearing off, Deflecting Bash sending a shot back without stunning; Blight Burst'
 Hex spending alimus instead of a cooldown, Slow Mending's half now and half later, Warding
 Mending, Lifebloom healing you and its Healing Pool; Frostbolt's damage, chill, quicker casting
 and freezing, Narrow Draft's narrower, taller, longer column, Firestorm setting creatures alight
-as it strikes, and Cinder Snap bursting a burning creature and splashing the one beside it.
+as it strikes, and Cinder Snap bursting a burning creature and splashing the one beside it;
+Ricochet striking two golems and never sticking, and Chain Ricochet a third; Smoke Bomb hiding you
+in its cloud (and not once you're out of it) and blinding a goblin in it, and Thick Smoke's wider
+cloud; Tether pulling you to your dagger in a golem and striking it as you arrive, and Pounce's
+sure critical.
 
 `--upgradetest` (headless, a few seconds) checks the rules of the cards over thousands of rolls
 for every hero: a chest holds one class card and two others, never an alteration; a milestone
 holds only the hero's own cards, with an alteration while any are left; an ability takes one
 alteration, and an alteration's upgrades wait for it; the primary attacks have none and every
 other ability has one; Wall Kick is gone; Unyielding Shield keeps out Quick Mend and Iron Timing;
-Deep Lungs and Drowned Lungs rule each other out; Magma Skin waits for depth 6; and a party's
-chest may hold any party hero's class card, locked to them.
+Deep Lungs and Drowned Lungs rule each other out, as do Ricochet and Tether; Magma Skin waits
+for depth 6; and a party's chest may hold any party hero's class card, locked to them. A hero
+who has every card of their own already is offered none at a milestone (it heals 30 instead).
 
-`--hero=warden`, `--hero=vitalist` and `--hero=elementalist` also work with `--autotest` and the other modes.
+`--hero=warden`, `--hero=vitalist`, `--hero=elementalist` and `--hero=rogue` also work with `--autotest` and the other modes.
 
 **Online play**: `tools/nettest.sh` runs two copies of the game without a window on one machine,
 one hosting (`--nettest=host`) and one joining it (`--nettest=join`, `--netaddr=IP` for another
-machine; `JOIN_HERO=elementalist` makes the joiner that hero, swordsman by default), and has
+machine; `JOIN_HERO=elementalist` makes the joiner that hero, swordsman by default; a Rogue
+joiner also throws a dagger into the host's golem and vanishes, and the host checks it sees both), and has
 them check what travels between them: the lobby and each player's own hero,
 the same cave in both games, a friend's swing landing on the host's creature (and credited to
 them), a creature's blow taken in the friend's game, shared experience, a chest the friend

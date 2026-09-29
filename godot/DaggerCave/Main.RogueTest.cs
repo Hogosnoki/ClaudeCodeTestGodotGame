@@ -16,6 +16,31 @@ public partial class Main
         p.Velocity = Vector2.Zero;
     }
 
+    /// <summary>
+    /// Test aid (--roguetest, with --lookshot): the Rogue's things laid out around the hero for
+    /// their 3D look: a dagger in flight, one stuck in a golem, and a cloud of smoke with a goblin
+    /// lost in it.
+    /// </summary>
+    private void SpawnRogueLook()
+    {
+        var p = G.Player.GlobalPosition;
+        var cave = G.Cave;
+        Vector2 Floor(float dx) => cave.FindFloor(p + new Vector2(dx, -40), 200, out var f) ? f : p + new Vector2(dx, 12);
+        void Add(Node2D n, Vector2 at) { n.Position = at; _world.AddChild(n); }
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        var golem = new Golem();
+        golem.SetMeta("test", true);
+        Add(golem, Floor(110) - new Vector2(0, 14));
+        golem.Freeze(999f, hold: true);
+        // (flies the last few pixels into the golem and sticks)
+        Add(new ThrownDagger { Dir = new Vector2(1, -0.1f).Normalized(), Harmless = true, Thrower = G.Player, Range = 9999 }, golem.Position - new Vector2(40, 4));
+        Add(new ThrownDagger { Dir = new Vector2(1, -0.25f).Normalized(), Speed = 0.01f, Range = 9999, Harmless = true, Thrower = G.Player }, p + new Vector2(45, -34));
+        Add(new SmokeCloud { Life = 999f }, Floor(-120) - new Vector2(0, 16));
+        var lost = new Goblin();
+        lost.SetMeta("test", true);
+        Add(lost, Floor(-120) - new Vector2(0, 8));
+    }
+
     /// <summary>--herotest --hero=rogue: the jabs, the throw, the recall, and vanishing.</summary>
     private void RogueStep(int s, Player p)
     {

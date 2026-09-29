@@ -100,8 +100,10 @@ public partial class BuildPanel : Control
             foreach (var a in alterations)
             {
                 bool mine = taken == a, other = taken != null && !mine;
-                var col = mine ? alt : other ? new Color(0.45f, 0.45f, 0.5f, 0.6f) : new Color(alt, 0.45f);
-                DrawString(font, new Vector2(x + 4, y), (mine ? "◆ " : "◇ ") + a.Name, HorizontalAlignment.Left, colW - 4, 14, col);
+                // (or ruled out by a card of another ability's: faint, and crossed)
+                bool barred = !mine && a.Excludes.Any(ex => s.StackOf(ex) > 0);
+                var col = mine ? alt : other || barred ? new Color(0.45f, 0.45f, 0.5f, 0.6f) : new Color(alt, 0.45f);
+                DrawString(font, new Vector2(x + 4, y), (mine ? "◆ " : "◇ ") + a.Name + (barred ? "  ×" : ""), HorizontalAlignment.Left, colW - 4, 14, col);
                 y += 18;
                 foreach (var u in Upgrades.Chest.Where(u => u.Requires == a.Id)) y = Line(font, x, y, colW, u, s, 16, dim: !mine);
             }

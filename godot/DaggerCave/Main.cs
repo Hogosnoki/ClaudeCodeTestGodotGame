@@ -273,8 +273,8 @@ public partial class Main : Node
     {
         string N(string a) => Controls.Name(a, pad);
         return pad
-            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend / revive   {N("potion")} potion   right stick attacks (the Warden's raises the shield)"
-            : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex   {N("interact")} open / descend   {N("potion")} potion";
+            ? $"CONTROLLER:  stick move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex / updraft / vanish   {N("interact")} open / descend / revive   {N("potion")} potion   right stick attacks (the Warden's raises the shield)"
+            : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex / updraft / vanish   {N("interact")} open / descend   {N("potion")} potion";
     }
 
     /// <summary>The line about embers and the upgrade trees on the title and camp screens.</summary>
@@ -320,6 +320,7 @@ public partial class Main : Node
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
             else if (a == "--elementtest") _elementTest = true;
+            else if (a == "--roguetest") _rogueLook = true;
             else if (a == "--exittest") _exitTest = true;
             else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
             else if (a.StartsWith("--nettest=")) _netTest = a[10..];
@@ -386,7 +387,7 @@ public partial class Main : Node
     private bool _exitTest;
 
     private int _fxTest;
-    private bool _propTest, _elementTest;
+    private bool _propTest, _elementTest, _rogueLook;
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
     /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
@@ -490,6 +491,7 @@ public partial class Main : Node
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
         if (_elementTest && _lookFrame == 2) SpawnElementTest();
+        if (_rogueLook && _lookFrame == 2) SpawnRogueLook();
         if (_exitTest && _lookFrame == 2) SpawnExitTest();
         if (_lookFrame < _lookFrames) return;
         GetViewport().GetTexture().GetImage().SavePng(_lookShot);

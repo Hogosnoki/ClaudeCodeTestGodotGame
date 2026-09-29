@@ -239,8 +239,9 @@ public partial class Main
             case 1 when _campShotT > 3f: Shot("camp_close_swordsman"); _camp.Selected = HeroKind.Warden; _campShotStep++; _campShotT = 0; break;
             case 2 when _campShotT > 1.5f: Shot("camp_close_warden"); _camp.Selected = HeroKind.Vitalist; _campShotStep++; _campShotT = 0; break;
             case 3 when _campShotT > 1.5f: Shot("camp_close_vitalist"); _camp.Selected = HeroKind.Elementalist; _campShotStep++; _campShotT = 0; break;
-            case 4 when _campShotT > 1.5f: Shot("camp_close_elementalist"); _camp.Depart = 0.6f; _campShotStep++; _campShotT = 0; break;
-            case 5 when _campShotT > 0.5f: Shot("camp_depart"); _campShotStep++; SafeQuit.Request(this); break;
+            case 4 when _campShotT > 1.5f: Shot("camp_close_elementalist"); _camp.Selected = HeroKind.Rogue; _campShotStep++; _campShotT = 0; break;
+            case 5 when _campShotT > 1.5f: Shot("camp_close_rogue"); _camp.Depart = 0.6f; _campShotStep++; _campShotT = 0; break;
+            case 6 when _campShotT > 0.5f: Shot("camp_depart"); _campShotStep++; SafeQuit.Request(this); break;
         }
     }
 }

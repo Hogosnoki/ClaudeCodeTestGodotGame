@@ -619,7 +619,9 @@ public partial class IceBlockView : PropView
 /// in), a glint on it, and a faint streak behind it while it flies.</summary>
 public partial class ThrownDaggerView : PropView
 {
-    private MeshInstance3D _blade, _glint, _streak;
+    private MeshInstance3D _blade, _glint;
+    // (a trail of fading motes behind it in flight: billboards can't turn, so no single streak)
+    private readonly MeshInstance3D[] _trail = new MeshInstance3D[3];
     private static Mesh _mesh;
 
     protected override void Build()
@@ -630,8 +632,11 @@ public partial class ThrownDaggerView : PropView
         AddChild(_blade);
         _glint = PropViews.Sprite(new Color(1f, 0.97f, 0.9f), 3, 1.2f, 0.18f);
         AddChild(_glint);
-        _streak = PropViews.Sprite(new Color(0.85f, 0.9f, 1f), 1, 0.9f, 0.5f);
-        AddChild(_streak);
+        for (int k = 0; k < _trail.Length; k++)
+        {
+            _trail[k] = PropViews.Sprite(new Color(0.8f, 0.87f, 1f), 0, 0.9f - k * 0.25f, 0.09f - k * 0.02f);
+            AddChild(_trail[k]);
+        }
     }
 
     protected override void Sync(float dt)
@@ -642,9 +647,13 @@ public partial class ThrownDaggerView : PropView
         // (the blade runs down -Y from its grip: turn -Y onto the way it points, 2D y-down flipped)
         _blade.Rotation = new Vector3(0, 0, MathF.Atan2(p.X, p.Y));
         _blade.Position = new Vector3(-p.X, p.Y, 0) * 0.2f;
-        bool flying = d.State != ThrownDagger.Phase.Stuck;
-        _streak.Visible = flying;
-        _streak.Position = new Vector3(-p.X, p.Y, 0) * 0.35f;
+        bool flying = d.State == ThrownDagger.Phase.Flying;
+        var back = new Vector3(-d.Dir.X, d.Dir.Y, 0);
+        for (int k = 0; k < _trail.Length; k++)
+        {
+            _trail[k].Visible = flying;
+            _trail[k].Position = back * (0.1f + 0.12f * k);
+        }
         _glint.Scale = Vector3.One * (0.12f + 0.08f * MathF.Abs(MathF.Sin(d.Age * 9f)));
     }
 }
