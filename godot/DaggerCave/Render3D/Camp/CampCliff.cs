@@ -15,7 +15,7 @@ namespace DaggerCave;
 /// </summary>
 public partial class CampScene
 {
-    private const float ArchHalfW = 2.5f, ArchH = 5.2f, TunnelDepth = 12f;
+    private const float ArchHalfW = 3.1f, ArchH = 6.3f, TunnelDepth = 12f;
 
     private Vector3 CliffRight => new(MouthFacing.Z, 0, -MouthFacing.X);
     /// <summary>A point on the cliff: along the face (to the right seen from the camp), up, and back into the hill.</summary>
@@ -33,8 +33,8 @@ public partial class CampScene
     // shoulder, a rounded crown and a long slope down behind (nobody sees round the back).
     private static readonly Vector2[] Profile =
     {
-        new(-3.2f, -1.6f), new(-1.8f, -0.4f), new(-0.7f, 1.4f), new(-0.2f, 3.6f), new(0.3f, 7.4f), new(0.9f, 10.6f), new(2.4f, 13.4f),
-        new(5.5f, 15.6f), new(11f, 16.6f), new(19f, 15f), new(29f, 10f), new(40f, 3f), new(48f, -2.5f),
+        new(-3.2f, -1.6f), new(-1.8f, -0.4f), new(-0.9f, 1.4f), new(-0.5f, 4.6f), new(-0.1f, 8.6f), new(0.5f, 11.4f), new(2.2f, 13.4f),
+        new(6f, 14.4f), new(12f, 14.2f), new(20f, 12f), new(30f, 7f), new(40f, 2f), new(48f, -2.5f),
     };
 
     private static Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
@@ -54,7 +54,7 @@ public partial class CampScene
         {
             var p0 = Profile[Math.Max(0, s - 1)]; var p1 = Profile[s]; var p2 = Profile[s + 1]; var p3 = Profile[Math.Min(Profile.Length - 1, s + 2)];
             float len = (p2 - p1).Length();
-            float spacing = s <= 5 ? 0.26f : s <= 7 ? 0.55f : 1.6f;
+            float spacing = s <= 5 ? 0.17f : s <= 7 ? 0.55f : 1.6f;
             int steps = Math.Max(2, (int)MathF.Ceiling(len / spacing));
             for (int k = 0; k < steps; k++)
             {
@@ -69,7 +69,7 @@ public partial class CampScene
         }
         rows.Add((Profile[^1], new Vector2(0, 1)));
 
-        const float aMax = 33f, aStep = 0.3f;
+        const float aMax = 33f, aStep = 0.17f;
         int cols = (int)(aMax * 2f / aStep) + 1;
         int nr = rows.Count;
         var mb = new MeshBuilder();
@@ -86,7 +86,7 @@ public partial class CampScene
                 float back = pt.X, up = pt.Y;
                 float u0 = up;
                 // what the rock does: buttresses and hollows, bedding ledges, fractures, crags (all strongest low on the face)
-                float faceness = 1f - W3.SmoothStep(9f, 14f, up);
+                float faceness = 1f - W3.SmoothStep(10f, 14f, up);
                 float big = noise.Fbm(a * 0.10f, up * 0.085f, back * 0.09f, 4) * 2.4f;
                 float mid = noise.Fbm(a * 0.42f, up * 0.42f, back * 0.42f + 3f, 4) * 0.6f;
                 float fine = noise.Fbm(a * 1.6f, up * 1.6f, back * 1.6f + 7f, 3) * 0.13f;
@@ -97,7 +97,7 @@ public partial class CampScene
                 float disp = (big * (0.55f + 0.45f * faceness) + mid + fine + ledge + fracture) * k;
                 // the mouth's thick rough rim, and the brow of rock over it
                 float d = ArchDist(a, u0);
-                bool onFace = back < 3f && up < 9f;
+                bool onFace = back < 3f && up < 11f;
                 if (onFace)
                 {
                     disp += 1.35f * MathF.Exp(-MathF.Pow(MathF.Max(d, 0f) / 1.5f, 2f));

@@ -7,7 +7,7 @@ render_mode diffuse_burley, specular_schlick_ggx;
 uniform sampler2D wall_tex : source_color, repeat_enable, filter_linear_mipmap;
 uniform sampler2D wall_nor : hint_normal, repeat_enable, filter_linear_mipmap;
 uniform sampler2D moss_tex : source_color, repeat_enable, filter_linear_mipmap;
-uniform vec3 tint : source_color = vec3(0.86, 0.82, 0.76);
+uniform vec3 tint : source_color = vec3(1.0, 0.97, 0.92);
 uniform vec3 moss : source_color = vec3(0.26, 0.38, 0.13);
 uniform vec3 soil : source_color = vec3(0.22, 0.17, 0.11);
 uniform float scale = 0.22;
@@ -50,7 +50,8 @@ void fragment() {
 	float big = vnoise(v_wp * 0.35);
 	float mid = vnoise(v_wp * 1.4);
 	float fine = vnoise(v_wp * 5.0);
-	vec3 c = rock * tint * (0.7 + 0.5 * big);
+	float lum = dot(rock, vec3(0.3, 0.55, 0.15));
+	vec3 c = mix(rock, vec3(lum), 0.6) * tint * (0.75 + 0.5 * big);
 	// bedding lines: pale and dark bands running level through the rock
 	float bed = sin(v_wp.y * 2.3 + vnoise(v_wp * vec3(0.3, 0.05, 0.3)) * 7.0);
 	c *= 0.88 + 0.12 * bed;
@@ -58,7 +59,7 @@ void fragment() {
 	c *= 1.0 - 0.22 * smoothstep(0.5, 0.9, vnoise(v_wp * vec3(2.0, 0.15, 2.0))) * (1.0 - abs(n.y));
 	// moss: on the upward faces, and in the hollows and cracks on the rest
 	float facing = n.y * 0.5 + 0.5;
-	float m = smoothstep(0.52, 0.78, facing + (big - 0.5) * 0.7 + (mid - 0.5) * 0.35) * moss_amount;
+	float m = smoothstep(0.78, 0.93, facing + (big - 0.5) * 0.7 + (mid - 0.5) * 0.35) * moss_amount;
 	m += smoothstep(0.62, 0.9, vnoise(v_wp * vec3(0.9, 0.6, 0.9)) + (1.0 - abs(n.y)) * 0.1) * 0.35 * moss_amount * smoothstep(1.0, 4.0, v_wp.y);
 	m = clamp(m, 0.0, 1.0);
 	vec3 mc = moss * (0.55 + 0.9 * mosstex.r) * (0.75 + 0.5 * fine);
