@@ -8,18 +8,18 @@ namespace DaggerCave;
 /// <summary>
 /// The Vitalist's kit (a vitality manipulator, with no blade). The attack button drains: the
 /// creature you aim at is struck the instant you cast (no travel time), and the life torn out of
-/// it flies back to you as a mote that becomes alimus when it arrives. The dodge button casts a
+/// it flies back to you as a mote that becomes vital force when it arrives. The dodge button casts a
 /// hex: creatures around you slow down and take more damage for a while. The ability button
-/// spends alimus on a heal, shared among everyone nearby who is hurt, by how hurt each of them
+/// spends vital force on a heal, shared among everyone nearby who is hurt, by how hurt each of them
 /// is. The second ability spends a full reserve on a rupture: the creature you aim at is seized
 /// where it stands and bursts, splashing everything around it. Its alterations: Blight Burst (the
-/// hex strikes too) or Endless Hex (alimus instead of a cooldown), Slow Mending (heals over time)
+/// hex strikes too) or Endless Hex (vital force instead of a cooldown), Slow Mending (heals over time)
 /// and Lifebloom (the rupture blooms on a friend, healing).
 /// </summary>
 public partial class Player
 {
     /// <summary>The Vitalist's reserve (like mana): earned by draining life, spent on heals and ruptures.</summary>
-    public float Alimus { get; private set; }
+    public float VitalForce { get; private set; }
     private float _drainCd, _hexCd, _healCd, _ruptureCd, _castGlow;
 
     /// <summary>Healing's colour, everywhere (the potion's pink).</summary>
@@ -34,8 +34,8 @@ public partial class Player
     public float HexCooldownFrac => Math.Clamp(_hexCd / Math.Max(0.01f, Stats.HexCooldown), 0, 1);
     public float HealCooldownFrac => AbilityCooldownFrac;
     public float RuptureCooldownFrac => Math.Clamp(_ruptureCd / Tune.Vitalist.RuptureCooldown, 0, 1);
-    /// <summary>A rupture could be cast now (alimus and cooldown allowing).</summary>
-    public bool RuptureReady => _ruptureCd <= 0 && _ruptureT < 0 && Alimus >= RuptureCost - 0.001f;
+    /// <summary>A rupture could be cast now (vital force and cooldown allowing).</summary>
+    public bool RuptureReady => _ruptureCd <= 0 && _ruptureT < 0 && VitalForce >= RuptureCost - 0.001f;
     /// <summary>For the 3D model: 1 the moment a spell leaves the hands, fading to 0.</summary>
     public float CastGlow => _castGlow;
     /// <summary>For the 3D model: the last spell cast ("drain", "hex", "heal" or "rupture").</summary>
@@ -47,19 +47,19 @@ public partial class Player
     /// <summary>Where spells leave from, and stolen life returns to: the crystal atop the staff.</summary>
     public Vector2 CastPoint => GlobalPosition + new Vector2(Facing * 7, -12);
 
-    public void GainAlimus(float amount)
+    public void GainVitalForce(float amount)
     {
         if (!IsVitalist || amount <= 0) return;
-        Alimus = Math.Min(Stats.AlimusMax, Alimus + amount);
+        VitalForce = Math.Min(Stats.VitalForceMax, VitalForce + amount);
     }
 
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
-    public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
+    public void SetVitalForce(float value) => VitalForce = Math.Clamp(value, 0, Stats.VitalForceMax);
 
     private void TickVitalist(float dt)
     {
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
-        if (Alimus > Stats.AlimusMax) Alimus = Stats.AlimusMax;
+        if (VitalForce > Stats.VitalForceMax) VitalForce = Stats.VitalForceMax;
         if (_drainTarget != null)
         {
             _drainAt -= dt;
@@ -141,7 +141,7 @@ public partial class Player
 
     /// <summary>
     /// Tears the life out of one creature: it's struck on the spot (tugged toward you, shuddering),
-    /// bursting in a spray of crimson, and what it lost flies back to you as a mote carrying the alimus.
+    /// bursting in a spray of crimson, and what it lost flies back to you as a mote carrying the vital force.
     /// </summary>
     private void DrainFrom(Enemy e, float dmg, float size)
     {
@@ -154,7 +154,7 @@ public partial class Player
             G.Fx.Spark(at, toMe, false, new Color(0.8f, 0.8f, 0.85f));
             return;
         }
-        OnDealtDamage(dealt, alimusByMote: true);
+        OnDealtDamage(dealt, vitalForceByMote: true);
         if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
         // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
         // life streaming out of it toward you
@@ -166,15 +166,15 @@ public partial class Player
         G.Fx.Directional(at, toMe, 0.6f, LifeColorLight, (int)(18 * size), 260, 2.4f, 0.36f, 0, 0);
         G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
-        var mote = new LifeMote { Position = at, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = size };
+        var mote = new LifeMote { Position = at, Caster = this, VitalForce = dealt * Stats.VitalForceGain, Size = size };
         G.Spawn(mote);
         NetSync.HeroVisual(mote);
     }
 
-    /// <summary>Stolen life reaching the staff: it becomes alimus.</summary>
-    public void AbsorbMote(float alimus, float size)
+    /// <summary>Stolen life reaching the staff: it becomes vital force.</summary>
+    public void AbsorbMote(float vitalForce, float size)
     {
-        if (!IsRemote) GainAlimus(alimus);
+        if (!IsRemote) GainVitalForce(vitalForce);
         _castGlow = Math.Max(_castGlow, 0.35f * size);
         G.Fx.Flash(CastPoint, 5 + 4 * size, LifeColorLight, 0.08f);
         if (G.Chance(0.5f)) G.Sfx.Play("bubble", CastPoint, -16, 0.2f, 0.7f);
@@ -255,9 +255,9 @@ public partial class Player
         if (!IsVitalist || _hexCd > 0) return false;
         if (Stats.EndlessHex)
         {
-            // Endless Hex: alimus instead of a cooldown (a beat between casts all the same)
-            if (Alimus < Tune.Vitalist.EndlessHexCost - 0.001f) { _hexCd = 0.4f; SayNo("NOT ENOUGH ALIMUS"); return true; }
-            Alimus = Math.Max(0, Alimus - Tune.Vitalist.EndlessHexCost);
+            // Endless Hex: vital force instead of a cooldown (a beat between casts all the same)
+            if (VitalForce < Tune.Vitalist.EndlessHexCost - 0.001f) { _hexCd = 0.4f; SayNo("NOT ENOUGH VITAL FORCE"); return true; }
+            VitalForce = Math.Max(0, VitalForce - Tune.Vitalist.EndlessHexCost);
             _hexCd = 0.35f;
         }
         else _hexCd = Stats.HexCooldown;
@@ -315,8 +315,8 @@ public partial class Player
         }
         if (hurt.Count == 0) return Refuse("NO ONE IS HURT");
         float cost = HealCost;
-        if (Alimus < cost - 0.001f) return Refuse("NOT ENOUGH ALIMUS");
-        Alimus = Math.Max(0, Alimus - cost);
+        if (VitalForce < cost - 0.001f) return Refuse("NOT ENOUGH VITAL FORCE");
+        VitalForce = Math.Max(0, VitalForce - cost);
         SpendAbilityCharge();
         _healCd = 0.4f; // (with a second charge, not both in the same instant)
         float amount = Tune.Vitalist.HealAmount * Stats.HealMult;
@@ -371,12 +371,12 @@ public partial class Player
     private bool TryRupture(Vector2 aim)
     {
         if (!IsVitalist || _ruptureCd > 0 || _ruptureT >= 0) return false;
-        if (Alimus < RuptureCost - 0.001f) { _ruptureCd = 0.5f; SayNo("NOT ENOUGH ALIMUS"); return true; }
+        if (VitalForce < RuptureCost - 0.001f) { _ruptureCd = 0.5f; SayNo("NOT ENOUGH VITAL FORCE"); return true; }
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         if (Stats.Lifebloom) return StartBloom(aim);
         var target = FindSpellTarget(aim, Tune.Vitalist.RuptureRange * Stats.DaggerReach);
         if (target == null) { _ruptureCd = 0.3f; SayNo("NOTHING TO RUPTURE"); return true; }
-        Alimus = Math.Max(0, Alimus - RuptureCost);
+        VitalForce = Math.Max(0, VitalForce - RuptureCost);
         _ruptureCd = Tune.Vitalist.RuptureCooldown;
         _ruptureTarget = target;
         _rupturePos = target.GlobalPosition;
@@ -441,7 +441,7 @@ public partial class Player
             if (score < bestScore) { bestScore = score; best = p; }
         }
         var target = best ?? this;
-        Alimus = Math.Max(0, Alimus - RuptureCost);
+        VitalForce = Math.Max(0, VitalForce - RuptureCost);
         _ruptureCd = Tune.Vitalist.RuptureCooldown;
         _bloomTarget = target;
         _ruptureTarget = null;
@@ -507,10 +507,10 @@ public partial class Player
             float dealt = main.Hurt(Tune.Vitalist.RuptureDamage * mult * G.Range(0.95f, 1.05f), _ruptureDir * 60f, at, DamageKind.Nature);
             if (dealt > 0)
             {
-                OnDealtDamage(dealt, alimusByMote: true);
+                OnDealtDamage(dealt, vitalForceByMote: true);
                 for (int k = 0; k < 3; k++)
                 {
-                    var mote = new LifeMote { Position = at + G.RandDir() * 5, Caster = this, Alimus = dealt * Stats.AlimusGain / 3f, Size = 0.8f };
+                    var mote = new LifeMote { Position = at + G.RandDir() * 5, Caster = this, VitalForce = dealt * Stats.VitalForceGain / 3f, Size = 0.8f };
                     G.Spawn(mote);
                     NetSync.HeroVisual(mote);
                 }
@@ -526,8 +526,8 @@ public partial class Player
             var away = to.LengthSquared() > 1 ? to.Normalized() : G.RandDir();
             float dealt = e.Hurt(Tune.Vitalist.RuptureSplash * Stats.RuptureSplashMult * mult, away * 170f, e.GlobalPosition - away * e.HitRadius, DamageKind.Nature);
             if (dealt <= 0) continue;
-            OnDealtDamage(dealt, alimusByMote: true);
-            var splash = new LifeMote { Position = e.GlobalPosition, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = 0.55f };
+            OnDealtDamage(dealt, vitalForceByMote: true);
+            var splash = new LifeMote { Position = e.GlobalPosition, Caster = this, VitalForce = dealt * Stats.VitalForceGain, Size = 0.55f };
             G.Spawn(splash);
             NetSync.HeroVisual(splash);
         }

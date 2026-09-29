@@ -242,7 +242,7 @@ public partial class ScreenOverlay : Control
         (HeroKind.Vitalist, "VITALIST", "vitalist", new[]
         {
             "The healer. Drained life feeds",
-            "alimus for heals and ruptures; a hex",
+            "vital force for heals and ruptures; a hex",
             "slows foes and makes them frail.",
         }),
         (HeroKind.Elementalist, "ELEMENTALIST", "elementalist", new[]

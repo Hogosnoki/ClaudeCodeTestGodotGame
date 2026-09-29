@@ -141,7 +141,7 @@ public sealed class BotPilot
                 {
                     HeroKind.Warden => bd < 50,
                     HeroKind.Vitalist => p.RuptureReady && bd < Tune.Vitalist.RuptureRange,
-                    HeroKind.Elementalist => p.SnapTargets > 0 && p.Aether >= p.SnapCost,
+                    HeroKind.Elementalist => p.SnapTargets > 0 && p.Alimus >= p.SnapCost,
                     HeroKind.Rogue => p.DaggersInHand < 2,
                     _ => bd < 60 && p.IsOnFloor(),
                 };

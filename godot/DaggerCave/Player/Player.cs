@@ -97,8 +97,8 @@ public partial class Player : CharacterBody2D
     /// <summary>The hero's ability (charged strike, Guarded Charge, heal) is ready to use.</summary>
     public bool SecondaryReady => IsRemote ? (_netFlags & HfSecondary) != 0 : Stats.Hero switch
     {
-        HeroKind.Vitalist => AbilityChargeReady && Alimus >= HealCost,
-        HeroKind.Elementalist => AbilityChargeReady && Aether >= BlizzardCost,
+        HeroKind.Vitalist => AbilityChargeReady && VitalForce >= HealCost,
+        HeroKind.Elementalist => AbilityChargeReady && Alimus >= BlizzardCost,
         HeroKind.Rogue => DaggersInHand > 0,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
@@ -120,8 +120,8 @@ public partial class Player : CharacterBody2D
         Hp = Stats.MaxHp;
         ShieldHp = Stats.ShieldMax;
         Breath = Stats.BreathMax;
-        Alimus = Math.Min(Stats.AlimusMax, Tune.Vitalist.AlimusStart);
-        Aether = Stats.AetherMax;
+        VitalForce = Math.Min(Stats.VitalForceMax, Tune.Vitalist.VitalForceStart);
+        Alimus = Stats.AlimusMax;
     }
 
     /// <summary>Each hero's sprite sheet and 3D design, by name.</summary>
@@ -732,13 +732,13 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>
-    /// Damage this hero dealt: life steal, and the Vitalist's alimus (unless the stolen life is
+    /// Damage this hero dealt: life steal, and the Vitalist's vital force (unless the stolen life is
     /// flying home as a <see cref="LifeMote"/> that pays it on arrival).
     /// </summary>
-    public void OnDealtDamage(float dealt, bool alimusByMote = false)
+    public void OnDealtDamage(float dealt, bool vitalForceByMote = false)
     {
         if (Stats.LifeSteal > 0) Hp = Math.Min(Stats.MaxHp, Hp + dealt * Stats.LifeSteal);
-        if (IsVitalist && !alimusByMote) GainAlimus(dealt * Stats.AlimusGain);
+        if (IsVitalist && !vitalForceByMote) GainVitalForce(dealt * Stats.VitalForceGain);
     }
 
     public void OnKill()

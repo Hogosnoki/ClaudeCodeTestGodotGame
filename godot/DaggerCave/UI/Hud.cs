@@ -258,13 +258,13 @@ public partial class Hud : Control
                 {
                     move,
                     $"{atk} {(p.Stats.Frostbolt ? "frostbolt" : "firebolt")} (hold to keep casting{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} updraft (lifts everyone in it) · {a1} {(p.Stats.Firestorm ? "firestorm" : "blizzard")} · {a2} snap",
-                    "Spells cost aether, which comes back by itself · a snap shatters every frozen creature in view · " + pause,
+                    "Spells cost alimus, which comes back by itself · a snap shatters every frozen creature in view · " + pause,
                 },
                 HeroKind.Vitalist => new[]
                 {
                     move,
                     $"{atk} drain (hold to keep draining{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} hex · {a1} heal · {a2} rupture (a full reserve)",
-                    "Draining life fills your alimus · " + pause + "    —    find and slay the exit's guardian",
+                    "Draining life fills your vital force · " + pause + "    —    find and slay the exit's guardian",
                 },
                 _ => new[]
                 {
@@ -494,14 +494,14 @@ public partial class Hud : Control
         DrawString(font, sp + new Vector2(0, -8), label, HorizontalAlignment.Left, -1, 10, p.ShieldBroken ? new Color(1f, 0.6f, 0.5f) : new Color(1, 1, 1, 0.6f));
     }
 
-    /// <summary>Alimus, the hex, the heal and the rupture.</summary>
+    /// <summary>Vital force, the hex, the heal and the rupture.</summary>
     private void DrawVitalistGauges(Font font, Player p, Vector2 ab)
     {
         var green = new Color(0.55f, 1f, 0.45f);
         Dial(ab + new Vector2(17, 17), p.HexCooldownFrac, green);
         DrawString(font, ab + new Vector2(0, -6), "HEX", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         var hb = ab + new Vector2(50, 0);
-        bool affordable = p.Alimus >= p.HealCost - 0.001f;
+        bool affordable = p.VitalForce >= p.HealCost - 0.001f;
         AbilitySquare(font, hb, $"HEAL ({p.HealCost:0})", p.HealCooldownFrac, affordable && p.HealCooldownFrac <= 0, Player.HealColor, (c, col) =>
         {
             DrawRect(new Rect2(c - new Vector2(3, 10), new Vector2(6, 20)), col);
@@ -521,11 +521,11 @@ public partial class Hud : Control
             }
         });
         KeyHint(font, rb, "ability2");
-        // the alimus reserve
+        // the vital force reserve
         var bp = rb + new Vector2(52, 10);
         const float w = 150;
-        float max = Math.Max(1f, p.Stats.AlimusMax);
-        float frac = Math.Clamp(p.Alimus / max, 0, 1);
+        float max = Math.Max(1f, p.Stats.VitalForceMax);
+        float frac = Math.Clamp(p.VitalForce / max, 0, 1);
         DrawRect(new Rect2(bp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
         DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), new Color(0.42f, 0.85f, 0.4f));
         DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(0.9f, 0.3f, 0.35f, 0.5f));
@@ -533,7 +533,7 @@ public partial class Hud : Control
         for (float x = p.HealCost; x < max - 0.01f; x += p.HealCost)
             DrawLine(bp + new Vector2(w * x / max, 0), bp + new Vector2(w * x / max, 12), new Color(0, 0, 0, 0.45f), 1f);
         if (p.RuptureCost <= max) DrawLine(bp + new Vector2(w * p.RuptureCost / max, -3), bp + new Vector2(w * p.RuptureCost / max, 15), Player.LifeColor, 2f);
-        DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Mathf.FloorToInt(p.Alimus + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
+        DrawString(font, bp + new Vector2(0, -8), $"VITAL FORCE  {Mathf.FloorToInt(p.VitalForce + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
     }
 
     /// <summary>The vanish (a dial, with Twin Reserve's pips), the two daggers, and the recall (a square).</summary>
@@ -576,14 +576,14 @@ public partial class Hud : Control
         KeyHint(font, rb, "ability2");
     }
 
-    /// <summary>The Elementalist's colours: its aether, and its fire and frost.</summary>
-    public static readonly Color AetherColor = new(0.72f, 0.55f, 1f);
+    /// <summary>The Elementalist's colours: its alimus, and its fire and frost.</summary>
+    public static readonly Color AlimusColor = new(0.72f, 0.55f, 1f);
 
-    /// <summary>The updraft (a dial), the blizzard and the snap (squares), and the aether reserve.</summary>
+    /// <summary>The updraft (a dial), the blizzard and the snap (squares), and the alimus reserve.</summary>
     private void DrawElementalistGauges(Font font, Player p, Vector2 ab)
     {
         var air = new Color(0.8f, 0.94f, 1f);
-        bool canDraft = p.Aether >= p.UpdraftCost - 0.001f;
+        bool canDraft = p.Alimus >= p.UpdraftCost - 0.001f;
         Dial(ab + new Vector2(17, 17), canDraft ? p.UpdraftCooldownFrac : 1f, air);
         DrawString(font, ab + new Vector2(0, -6), $"UPDRAFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         // (three rising streaks in the dial)
@@ -594,7 +594,7 @@ public partial class Hud : Control
         var zb = ab + new Vector2(66, 0);
         bool fire = p.Stats.Firestorm;
         var stormCol = fire ? ElementBolt.FireColor : ElementBolt.FrostColor;
-        bool stormReady = p.AbilityChargeReady && p.Aether >= p.BlizzardCost - 0.001f;
+        bool stormReady = p.AbilityChargeReady && p.Alimus >= p.BlizzardCost - 0.001f;
         AbilitySquare(font, zb, $"{(fire ? "FIRE" : "STORM")} {p.BlizzardCost:0}", p.AbilityCooldownFrac, stormReady, stormCol, (c, col) =>
         {
             if (fire)
@@ -620,7 +620,7 @@ public partial class Hud : Control
         var sb = zb + new Vector2(60, 0);
         bool cinder = p.Stats.CinderSnap;
         int marked = p.SnapTargets;
-        bool snapReady = p.SnapCooldownFrac <= 0 && p.Aether >= p.SnapCost - 0.001f && marked > 0;
+        bool snapReady = p.SnapCooldownFrac <= 0 && p.Alimus >= p.SnapCost - 0.001f && marked > 0;
         var snapCol = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
         AbilitySquare(font, sb, $"SNAP {p.SnapCost:0}{(marked > 0 ? $" x{marked}" : "")}", p.SnapCooldownFrac, snapReady, snapCol, (c, col) =>
         {
@@ -636,17 +636,17 @@ public partial class Hud : Control
         });
         KeyHint(font, sb, "ability2");
 
-        // the aether reserve (tick marks at each spell's cost)
+        // the alimus reserve (tick marks at each spell's cost)
         var bp = sb + new Vector2(60, 10);
         const float w = 150;
-        float max = Math.Max(1f, p.Stats.AetherMax);
-        float frac = Math.Clamp(p.Aether / max, 0, 1);
+        float max = Math.Max(1f, p.Stats.AlimusMax);
+        float frac = Math.Clamp(p.Alimus / max, 0, 1);
         DrawRect(new Rect2(bp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
-        DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), AetherColor);
+        DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), AlimusColor);
         DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(1, 1, 1, 0.25f));
         foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
             if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
-        DrawString(font, bp + new Vector2(0, -8), $"AETHER  {Mathf.FloorToInt(p.Aether + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
+        DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Mathf.FloorToInt(p.Alimus + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
     }
 }
 

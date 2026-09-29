@@ -281,23 +281,23 @@ public partial class Main
                 break;
             }
 
-            // ---- Endless Hex: no cooldown, 10 alimus a cast
+            // ---- Endless Hex: no cooldown, 10 vital force a cast
             case 12:
                 Take(p, "hex_endless", drop: "hex_burst");
                 p.ResetAbilityCooldowns();
-                p.SetAlimus(25);
+                p.SetVitalForce(25);
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
             case 13: _heroInput = default; break;
             case 18: _heroInput = new PlayerInput { Dodge = true }; break;
             case 19:
                 _heroInput = default;
-                Check($"Endless Hex: two hexes half a second apart, 10 alimus each (25 -> {p.Alimus:0})", Math.Abs(p.Alimus - 5) < 0.01f);
+                Check($"Endless Hex: two hexes half a second apart, 10 vital force each (25 -> {p.VitalForce:0})", Math.Abs(p.VitalForce - 5) < 0.01f);
                 break;
             case 24: _heroInput = new PlayerInput { Dodge = true }; break;
             case 25:
                 _heroInput = default;
-                Check($"a third, without the alimus, is refused ({p.Alimus:0} left)", Math.Abs(p.Alimus - 5) < 0.01f);
+                Check($"a third, without the vital force, is refused ({p.VitalForce:0} left)", Math.Abs(p.VitalForce - 5) < 0.01f);
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
 
@@ -306,7 +306,7 @@ public partial class Main
                 Take(p, "heal_slow");
                 p.ResetAbilityCooldowns();
                 p.Hp = 100;
-                p.SetAlimus(40);
+                p.SetVitalForce(40);
                 _hpMark = p.Hp;
                 _heroInput = new PlayerInput { Ability = true };
                 break;
@@ -327,7 +327,7 @@ public partial class Main
                 Take(p, "heal_warding");
                 p.ResetAbilityCooldowns();
                 p.Hp = 100;
-                p.SetAlimus(40);
+                p.SetVitalForce(40);
                 _heroInput = new PlayerInput { Ability = true };
                 break;
             case 96:
@@ -346,7 +346,7 @@ public partial class Main
                 Take(p, "rupture_bloom");
                 p.ResetAbilityCooldowns();
                 p.Hp = 100;
-                p.SetAlimus(40);
+                p.SetVitalForce(40);
                 _hpMark = p.Hp;
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
                 break;
@@ -361,7 +361,7 @@ public partial class Main
                 Take(p, "bloom_pool");
                 p.ResetAbilityCooldowns();
                 p.Hp = 100;
-                p.SetAlimus(40);
+                p.SetVitalForce(40);
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
                 break;
             case 176: _heroInput = default; break;
@@ -392,7 +392,7 @@ public partial class Main
             case 5:
                 p.Stats.MaxHp = 500; p.Hp = 500;
                 Take(p, "bolt_frost");
-                p.SetAether(p.Stats.AetherMax);
+                p.SetAlimus(p.Stats.AlimusMax);
                 p.Stats.FreezeBonus = -1f;
                 _probeEnemy = AltDummy(p, new Golem(), 90);
                 _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
@@ -428,7 +428,7 @@ public partial class Main
             // ---- Narrow Draft: half as wide, 6 m taller, 15 s
             case 40:
                 Take(p, "updraft_narrow");
-                p.SetAether(p.Stats.AetherMax);
+                p.SetAlimus(p.Stats.AlimusMax);
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
             case 41:
@@ -446,7 +446,7 @@ public partial class Main
             // ---- Firestorm: a blizzard of fire, harder, that sets creatures alight
             case 60:
                 Take(p, "blizzard_fire");
-                p.SetAether(p.Stats.AetherMax);
+                p.SetAlimus(p.Stats.AlimusMax);
                 p.ResetAbilityCooldowns();
                 // (every strike catches)
                 p.Stats.IgniteChance = 2f;
@@ -474,7 +474,7 @@ public partial class Main
             case 100:
             {
                 Take(p, "snap_cinder");
-                p.SetAether(p.Stats.AetherMax);
+                p.SetAlimus(p.Stats.AlimusMax);
                 var gob = AltDummy(p, new Goblin(), 90 + 30, -4);
                 gob.Freeze(60f, hold: true);
                 _probe2 = gob;

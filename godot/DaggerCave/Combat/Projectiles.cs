@@ -6,14 +6,14 @@ namespace DaggerCave;
 
 /// <summary>
 /// Life torn out of a creature by the Vitalist's drain (or rupture): a crimson mote that whips
-/// out sideways and then races back to the caster's staff, where it becomes alimus. It isn't
+/// out sideways and then races back to the caster's staff, where it becomes vital force. It isn't
 /// stopped by rock: it's life, going home.
 /// </summary>
 public partial class LifeMote : Node2D
 {
     public Player Caster;
-    /// <summary>The alimus it carries.</summary>
-    public float Alimus;
+    /// <summary>The vital force it carries.</summary>
+    public float VitalForce;
     /// <summary>1 for a full drain, less for the splash of a rupture or a Many Mouths strand.</summary>
     public float Size = 1f;
     public Vector2 Vel;
@@ -48,7 +48,7 @@ public partial class LifeMote : Node2D
         if (d < 9f || _t > 1.6f)
         {
             GlobalPosition = Caster.CastPoint;
-            Caster.AbsorbMote(Alimus, Size);
+            Caster.AbsorbMote(VitalForce, Size);
             _fade = 0.08f;
             return;
         }

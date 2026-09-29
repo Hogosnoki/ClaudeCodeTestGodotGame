@@ -132,7 +132,7 @@ Handy starting points:
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
 | Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
-| The five heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, alimus, heal, hex, rupture), `Elementalist.*` (bolts, aether, updraft, blizzard, snap, burning and freezing), `Rogue.*` (jabs, critical strikes, thrown daggers, recall, vanish, smoke) |
+| The five heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, vital force, heal, hex, rupture), `Elementalist.*` (bolts, alimus, updraft, blizzard, snap, burning and freezing), `Rogue.*` (jabs, critical strikes, thrown daggers, recall, vanish, smoke) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the cards are `Upgrades.Chest`, the level-up stats `Progression.AutoLevel` |
@@ -405,10 +405,10 @@ of sight).
 
 | | Swordsman | Warden | Vitalist | Elementalist | Rogue |
 | --- | --- | --- | --- | --- | --- |
-| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 11 damage, swings every 0.36 s with a fast sweep (about 31 damage a second to the sword's 33) | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes alimus (a tenth of the damage) when it arrives | Firebolt: a bolt of fire flying 520 px/s up to 260 px (a creature near your aim draws it), 14 damage every 0.45 s; each has a 20% chance of setting what it strikes alight (4 a second for 4 s). Free | Dagger Slash: 22 px reach, 9 damage, five jabs a second, one creature at a time (the nearest), with barely a hit-stop and no combo; half as fast with a dagger thrown. Each of the Rogue's blows (a jab, a throw, a recall) has a 5% chance of being a critical strike, twice as hard |
-| Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown | Updraft: 15 aether for a wide (4.5 m), tall (10 m) column of faint air at your feet for 10 s; it lifts nobody, but every hero in it (a friend too) has gravity at 0.4 and terminal velocity at 0.2, so jumps go far higher and falls are a slow drift | Vanish: 6 s in the shadows: creatures lose you, and you move half again as fast; attacking or being struck ends it; 12 s cooldown |
-| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Guarded Charge: a charge behind the shield that swallows the projectiles and shockwaves in its way and keeps going, and stops at the first attacking creature it meets, breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 alimus to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink | Blizzard: 20 aether; a storm about 50 px across on the creature nearest your aim (or where the mouse points, or ahead of you), up to 200 px away: 9 strikes of 2 over 3 s, each with a 6% chance of freezing a regular creature solid for 1.5 s; 20 s cooldown | Dagger Throw: one of your two daggers, at the creature nearest your aim (up to 280 px), for 18 damage; it sticks in the creature it meets and rides in it, nudging it; a miss comes back by itself, and with both stuck in creatures, both come home |
-| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; when it meets something, every creature within 40 px in front (a half-circle) takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20, once; 10 s cooldown | Rupture: spends 30 alimus (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown | Snap: 15 aether; every frozen creature in view shatters for 15, and every other creature within 50 px of it takes 4 | Recall: every dagger out comes home, and one stuck in a creature tears back out through it for 9, yanking it toward you; no cooldown |
+| Attack | Medium sword: 45 px reach, 20 damage per strike, swings 0.6 s apart with a short forward lunge, heavy knockback | Shortsword: 30 px reach, 11 damage, swings every 0.36 s with a fast sweep (about 31 damage a second to the sword's 33) | Drain: tears the life out of the creature you aim at (within 175 px), 10 damage as the staff comes forward (0.06 s after the press: the creature flashes and bursts in crimson, a tether of life snapping out to it), every 0.5 s; the stolen life flies back to you as a crimson mote and becomes vital force (a tenth of the damage) when it arrives | Firebolt: a bolt of fire flying 520 px/s up to 260 px (a creature near your aim draws it), 14 damage every 0.45 s; each has a 20% chance of setting what it strikes alight (4 a second for 4 s). Free | Dagger Slash: 22 px reach, 9 damage, five jabs a second, one creature at a time (the nearest), with barely a hit-stop and no combo; half as fast with a dagger thrown. Each of the Rogue's blows (a jab, a throw, a recall) has a 5% chance of being a critical strike, twice as hard |
+| Dodge button | Dodge roll on a short cooldown (0.55 s); a swing started mid-roll turns the roll into the strike | Hold to raise the shield (see below) | Hex: creatures around you (110 px) slow to 55% and take 20% more damage for 5 s; 6 s cooldown | Updraft: 15 alimus for a wide (4.5 m), tall (10 m) column of faint air at your feet for 10 s; it lifts nobody, but every hero in it (a friend too) has gravity at 0.4 and terminal velocity at 0.2, so jumps go far higher and falls are a slow drift | Vanish: 6 s in the shadows: creatures lose you, and you move half again as fast; attacking or being struck ends it; 12 s cooldown |
+| Ability button | Charged Strike: the next swing does 50% more damage with 25% more reach, and whatever it cuts deals 20% less damage for 5 s; 12 s cooldown; instant, so it never breaks a combo | Guarded Charge: a charge behind the shield that swallows the projectiles and shockwaves in its way and keeps going, and stops at the first attacking creature it meets, breaking the attack off; it passes by creatures that aren't attacking; 3.2 s cooldown | Heal: spends 15 vital force to restore 15 health, shared among everyone in range (420 px) who is hurt, by how hurt each is (each gets 15 x their share of missing health / the sum of those shares); 3 s cooldown. All healing is pink | Blizzard: 20 alimus; a storm about 50 px across on the creature nearest your aim (or where the mouse points, or ahead of you), up to 200 px away: 9 strikes of 2 over 3 s, each with a 6% chance of freezing a regular creature solid for 1.5 s; 20 s cooldown | Dagger Throw: one of your two daggers, at the creature nearest your aim (up to 280 px), for 18 damage; it sticks in the creature it meets and rides in it, nudging it; a miss comes back by itself, and with both stuck in creatures, both come home |
+| Second ability | Heaving swing, on your feet only: you're planted for 0.42 s as the sword goes up, then one great 190° arc with 30% more reach for twice a normal swing's damage and a heavy knockback, then planted 0.3 s more; a waiting Charged Strike is spent on it for more still; 6 s cooldown | Shield bash: a short shove behind the shield; when it meets something, every creature within 40 px in front (a half-circle) takes 20 damage, is stunned for 1.6 s (half that for mini-bosses and guardians; the great bosses shrug it off) and whatever it was doing is broken off; the shield takes 20, once; 10 s cooldown | Rupture: spends 30 vital force (a full reserve). The creature you aim at (within 200 px) is seized where it stands and a quarter second later bursts from within for 30 damage, and every other creature within 80 px of it takes 10; the effect starts at the creature, not at you; 1.5 s cooldown | Snap: 15 alimus; every frozen creature in view shatters for 15, and every other creature within 50 px of it takes 4 | Recall: every dagger out comes home, and one stuck in a creature tears back out through it for 9, yanking it toward you; no cooldown |
 | Movement | Full speed and jump | 92% speed, 90% jump height (80% speed while shielding) | 97% speed and jump | 97% speed and jump | 110% speed, full jump; slides down walls and kicks off them from the start |
 | Toughness | 60 HP, 15 s of breath | 110 HP, 10% armour, 16 s of breath | 55 HP, 15 s of breath | 55 HP, 15 s of breath | 55 HP, 15 s of breath |
 
@@ -429,12 +429,12 @@ Warden's shield:
 - **Perfect block**: raising it at most 0.18 s before a hit stops all of the blow and breaks the
   attack off (the attacker reels). The Guarded Charge does the same to whatever it meets.
 
-The Vitalist's alimus is like mana: earned by draining (a tenth of the damage), held up to 30
+The Vitalist's vital force is like mana: earned by draining (a tenth of the damage), held up to 30
 (more with upgrades and levels), and spent on heals (15) and ruptures (30). You start a run with 15
 and each level with at least 7.5. Healing is deliberately scarce: every hero is meant to pull
 their weight and dodge, not lean on the Vitalist.
 
-The Elementalist's aether pays for its spells (the bolts are free): it holds 40 (more with
+The Elementalist's alimus pays for its spells (the bolts are free): it holds 40 (more with
 upgrades and levels), comes back by itself at 2.5 a second (its only source), and a run starts
 full. Its fire and frost work on creatures in three ways, each shown by a wash of colour over the
 creature (online, the host keeps them and every game shows them):
@@ -510,7 +510,7 @@ frame colour and the label at its top:
 
 - **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
   level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
-  max HP, +2% damage and +1 alimus capacity; the Elementalist +3 max HP, +2% damage and +1 aether
+  max HP, +2% damage and +1 vital force capacity; the Elementalist +3 max HP, +2% damage and +1 alimus
   capacity; the Rogue +2 max HP, +2.5% damage and +0.2% critical chance.
 - **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three of your hero's
   own cards (class upgrades and alterations), or leave it and take nothing.
@@ -554,14 +554,14 @@ The trees (◆ an alteration; its upgrades are indented beneath it):
 | Warden · Shield | Riposte Guard (perfect blocks reflect), Iron Timing (perfect blocks cost 70% less), Tower Shield (wider), Stalwart (full speed, no knockback), Quick Mend, Spiked Shield (40% back), Last Stand, Aegis (+15% strength and regeneration, four times) | ◆ Unyielding Shield: stops 70% of each blow but never weakens or breaks (rules out Quick Mend and Iron Timing) · Braced (+5%, twice) |
 | Warden · Guarded Charge | Ready Charge (-20% cooldown), Long Charge (30% farther), Battering Charge (x4 on what it stops), Rallying Charge (breaking an attack mends 12 and heals 4), Vanguard (15% faster, four times) | ◆ Guardian's Charge: rushes to the friend nearest your aim and wraps them in a barrier that soaks 20 damage for 2 s (alone, it wraps you) · Thick Barrier (+50%), Lasting Barrier (+33% longer) |
 | Warden · Shield Bash | Hard Shoulder (recharges 20% faster) | ◆ Deflecting Bash: no stun, but every projectile in a wide arc in front goes back where it came from · Return to Sender (double damage) |
-| Vitalist · Drain | Many Mouths (one more creature at 60%, twice), Far Reach (+25%), Hungering Spirit (+50% alimus), Deep Well (+15 alimus) | |
-| Vitalist · Hex | Spreading Blight (+30% radius), Lingering Hex (+2 s), Withering Hex (rot for 6 a second) | ◆ Blight Burst: the hex also deals 12 to everything it reaches, but slows and weakens half as much · ◆ Endless Hex: no cooldown, 10 alimus a cast |
-| Vitalist · Heal | Deep Mending (+30%), Frugal Rites (25% cheaper), Wellspring (+15% alimus gained and heal strength, four times) | ◆ Slow Mending: half the heal at once, half over 6 s · Patient Mending (all of it over time, 20% more), Warding Mending (-20% damage taken while mending) |
+| Vitalist · Drain | Many Mouths (one more creature at 60%, twice), Far Reach (+25%), Hungering Spirit (+50% vital force), Deep Well (+15 vital force) | |
+| Vitalist · Hex | Spreading Blight (+30% radius), Lingering Hex (+2 s), Withering Hex (rot for 6 a second) | ◆ Blight Burst: the hex also deals 12 to everything it reaches, but slows and weakens half as much · ◆ Endless Hex: no cooldown, 10 vital force a cast |
+| Vitalist · Heal | Deep Mending (+30%), Frugal Rites (25% cheaper), Wellspring (+15% vital force gained and heal strength, four times) | ◆ Slow Mending: half the heal at once, half over 6 s · Patient Mending (all of it over time, 20% more), Warding Mending (-20% damage taken while mending) |
 | Vitalist · Rupture | Burst Veins (40% farther, 50% more splash), Thin Blood (20% cheaper) | ◆ Lifebloom: the rupture blooms on the friend nearest your aim (alone, on you), healing them 30 and everyone else in the burst 10 · Healing Pool (it leaves a pool healing 3 a second for 5 s) |
-| Elementalist · Firebolt | Kindling (fire 10% likelier to set creatures alight, bolts and a Firestorm, twice), Deep Reservoir (+15 aether, twice) | ◆ Frostbolt: bolts of frost, 8 damage every 0.3 s, chilling (30% slower for 2 s) with an 8% chance of freezing a regular creature solid for 1.5 s |
-| Elementalist · Updraft | Attunement (aether back 25% faster, three times) | ◆ Narrow Draft: half as wide, 6 m taller, 15 s |
+| Elementalist · Firebolt | Kindling (fire 10% likelier to set creatures alight, bolts and a Firestorm, twice), Deep Reservoir (+15 alimus, twice) | ◆ Frostbolt: bolts of frost, 8 damage every 0.3 s, chilling (30% slower for 2 s) with an 8% chance of freezing a regular creature solid for 1.5 s |
+| Elementalist · Updraft | Attunement (alimus back 25% faster, three times) | ◆ Narrow Draft: half as wide, 6 m taller, 15 s |
 | Elementalist · Blizzard | Deep Chill (frost 4% likelier to freeze, frostbolts and the blizzard, twice), Long Winter (50% longer), Whiteout (30% wider), Gathering Storm (back 25% sooner) | ◆ Firestorm: a storm of fire, 3 a strike, each with a 10% chance of setting a creature alight (it freezes nothing) |
-| Elementalist · Snap | Shrapnel (bursts 40% wider), Echo (5 aether back for each creature it bursts) | ◆ Cinder Snap: burning creatures burst instead, for 20 and 6 around |
+| Elementalist · Snap | Shrapnel (bursts 40% wider), Echo (5 alimus back for each creature it bursts) | ◆ Cinder Snap: burning creatures burst instead, for 20 and 6 around |
 | Rogue · Dagger Slash | Keen Edge (+5% critical chance, twice), Backstab (+50% from behind a creature), Cruel Edge (critical strikes 2.5 times as hard) | |
 | Rogue · Dagger Throw | Twin Throw (both daggers at once), Weighted Daggers (+30%, twice) | ◆ Ricochet: the dagger springs on from its creature to one more nearby (130 px), then flies back, never sticking (so it rules out Tether) · Chain Ricochet (one creature more) |
 | Rogue · Vanish | Surprise Attack (the attack that ends your vanishing, a jab, a throw or a recall, lands four times as hard), Quick Fade (back 20% sooner, twice), Deep Shadows (3 s longer, the smoke too) | ◆ Smoke Bomb: instead of vanishing alone, a cloud of smoke 70 px round for 6 s: every hero in it is hidden, and creatures in it can't find anyone · Thick Smoke (40% wider) |
@@ -937,18 +937,18 @@ and prints ok / FAIL for each:
   passing a creature that isn't attacking; the shield bash striking two creatures at once, its
   single cost to the shield, the stuns, and its cooldown; a golem struck as it winds up a slam
   keeping its pose and slamming on time; holding the attack.
-- Vitalist: the drain striking as the staff comes forward and its mote paying back a tenth as alimus
+- Vitalist: the drain striking as the staff comes forward and its mote paying back a tenth as vital force
   on arrival; the hex, and hexed creatures taking more damage; the reserve's size; the heal's
   cost and amount; no heal when no one is hurt; the rupture seizing its target, then bursting on
-  it and splashing a creature beside it but not one far off, and refused without the alimus;
+  it and splashing a creature beside it but not one far off, and refused without the vital force;
   Many Mouths draining a second creature; Twin Reserve's two heals in a row; holding the attack
   draining again and again.
 - Elementalist: a firebolt's damage and its cost (none); one that catches setting a creature
-  alight, and the burn a second; holding the attack casting again and again; aether coming back
-  by itself; the updraft rising at your feet for its aether, lifting nothing but letting a jump float far higher and a fall drift down slowly; no updraft without the aether; the blizzard landing on
+  alight, and the burn a second; holding the attack casting again and again; alimus coming back
+  by itself; the updraft rising at your feet for its alimus, lifting nothing but letting a jump float far higher and a fall drift down slowly; no updraft without the alimus; the blizzard landing on
   the creature you aim at, striking nine times for its damage, waiting out its cooldown, and its
   frost freezing a regular creature solid; a snap shattering a frozen creature and splashing the
-  one beside it, for its aether; a snap with nothing frozen costing nothing; a mini-boss never
+  one beside it, for its alimus; a snap with nothing frozen costing nothing; a mini-boss never
   freezing.
 - Rogue: sliding down walls and kicking off them from the start; a jab striking the nearest
   creature only, five a second when held; a critical jab twice as hard; Backstab from behind but
@@ -974,7 +974,7 @@ carrying a whole combo, Swift Heave in the air, Counter Roll stopping a club and
 not a blow from afar); the Unyielding Shield stopping 70% and never breaking, Braced, Guardian's
 Charge wrapping you in a barrier that soaks a blow whole and the rest of a bigger one before
 wearing off, Deflecting Bash sending a shot back without stunning; Blight Burst's damage, Endless
-Hex spending alimus instead of a cooldown, Slow Mending's half now and half later, Warding
+Hex spending vital force instead of a cooldown, Slow Mending's half now and half later, Warding
 Mending, Lifebloom healing you and its Healing Pool; Frostbolt's damage, chill, quicker casting
 and freezing, Narrow Draft's narrower, taller, longer column, Firestorm setting creatures alight
 as it strikes, and Cinder Snap bursting a burning creature and splashing the one beside it;

@@ -193,7 +193,7 @@ public static class Tune
 
     /// <summary>
     /// The vitalist (a vitality manipulator): no blade. Draining life at medium range feeds
-    /// alimus, which pays for heals and ruptures; a hex slows creatures and makes them take more damage.
+    /// vital force, which pays for heals and ruptures; a hex slows creatures and makes them take more damage.
     /// </summary>
     public static class Vitalist
     {
@@ -202,7 +202,7 @@ public static class Tune
         /// Drain (the attack button): the life is torn out of the creature you aim at as the staff
         /// comes forward, with no travel time. Damage, reach (px), time between casts, and the cone
         /// (degrees either side of your aim) it looks for a creature in. The stolen life flies back
-        /// to you at MoteSpeed px/s and becomes alimus when it arrives.
+        /// to you at MoteSpeed px/s and becomes vital force when it arrives.
         /// </summary>
         public static float DrainDamage = 10f, DrainRange = 175f, DrainCooldown = 0.5f, DrainConeDegrees = 38f, MoteSpeed = 640f;
         /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
@@ -212,11 +212,11 @@ public static class Tune
         /// <summary>Many Mouths: each extra creature drained (within MultiRadius px of the target)
         /// takes this share of the damage.</summary>
         public static float MultiRadius = 120f, MultiShare = 0.6f;
-        /// <summary>Alimus: gained as this share of damage you deal; the most you can hold; what
+        /// <summary>Vital force: gained as this share of damage you deal; the most you can hold; what
         /// you start a run with.</summary>
-        public static float AlimusGain = 0.1f, AlimusMax = 30f, AlimusStart = 15f;
+        public static float VitalForceGain = 0.1f, VitalForceMax = 30f, VitalForceStart = 15f;
         /// <summary>
-        /// Heal: costs HealCost alimus, and shares HealAmount of health among everyone in
+        /// Heal: costs HealCost vital force, and shares HealAmount of health among everyone in
         /// HealRange px who is hurt, by how hurt they are (the share of their health missing).
         /// </summary>
         public static float HealCost = 15f, HealAmount = 15f, HealRange = 420f, HealCooldown = 3f;
@@ -224,7 +224,7 @@ public static class Tune
         /// HexVulnerability x damage for HexSeconds; it recharges in HexCooldown s.</summary>
         public static float HexRadius = 110f, HexSlow = 0.55f, HexVulnerability = 1.2f, HexSeconds = 5f, HexCooldown = 6f;
         /// <summary>
-        /// Rupture (the second ability): costs RuptureCost alimus. The creature you aim at (within
+        /// Rupture (the second ability): costs RuptureCost vital force. The creature you aim at (within
         /// RuptureRange px) is seized where it stands and, RuptureWindup s later, bursts for
         /// RuptureDamage; every other creature within RuptureRadius px of it takes RuptureSplash.
         /// </summary>
@@ -232,7 +232,7 @@ public static class Tune
         public static float RuptureWindup = 0.24f, RuptureCooldown = 1.5f;
 
         /// <summary>Blight Burst (an alteration): the hex's damage, and how much weaker its slow and
-        /// its extra damage taken are. Endless Hex: its alimus cost (no cooldown).</summary>
+        /// its extra damage taken are. Endless Hex: its vital force cost (no cooldown).</summary>
         public static float BlightDamage = 12f, BlightWeaker = 0.5f, EndlessHexCost = 10f;
         /// <summary>Slow Mending (an alteration): seconds the mending part of a heal takes; Patient
         /// Mending's extra healing; Warding Mending's damage reduction while it mends you.</summary>
@@ -283,9 +283,9 @@ public static class Tune
     public static class Elementalist
     {
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
-        /// <summary>Aether: what spells cost. It comes back by itself (AetherRegen a second, its only
-        /// source) up to AetherMax; a run starts full. Bolts are free.</summary>
-        public static float AetherMax = 40f, AetherRegen = 2.5f;
+        /// <summary>Alimus: what spells cost. It comes back by itself (AlimusRegen a second, its only
+        /// source) up to AlimusMax; a run starts full. Bolts are free.</summary>
+        public static float AlimusMax = 40f, AlimusRegen = 2.5f;
         /// <summary>
         /// Firebolt (the attack button): a bolt of fire flying at BoltSpeed px/s up to BoltRange px,
         /// FireDamage every FireEvery s; each has IgniteChance of setting a creature alight, burning
@@ -300,7 +300,7 @@ public static class Tune
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
         public static float FrostDamage = 8f, FrostEvery = 0.3f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.08f, FreezeSeconds = 1.5f;
-        /// <summary>Updraft (the dodge button): costs UpdraftCost aether; a column of air
+        /// <summary>Updraft (the dodge button): costs UpdraftCost alimus; a column of air
         /// UpdraftWidth px wide and UpdraftHeight px tall (10 m) at your feet for UpdraftSeconds.
         /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a
         /// terminal velocity of UpdraftFallMult of the usual. Narrow Draft (an alteration):
@@ -309,7 +309,7 @@ public static class Tune
         public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f;
         public static float NarrowExtra = 96f, NarrowSeconds = 15f;
         /// <summary>
-        /// Blizzard (the ability button): costs BlizzardCost aether, BlizzardCooldown s to come
+        /// Blizzard (the ability button): costs BlizzardCost alimus, BlizzardCooldown s to come
         /// back. A storm BlizzardRadius px round (about 88 px, 5.5 m across) at the aim point, no further
         /// than BlizzardRange px away: BlizzardTicks strikes of BlizzardDamage over BlizzardSeconds,
         /// each with BlizzardFreeze chance of freezing a regular creature. Firestorm (an alteration):
@@ -319,7 +319,7 @@ public static class Tune
         public static int BlizzardTicks = 9;
         public static float BlizzardDamage = 2f, BlizzardFreeze = 0.06f, FirestormDamage = 3f, FirestormIgnite = 0.1f;
         /// <summary>
-        /// Snap (the second ability): costs SnapCost aether. Every frozen creature in view
+        /// Snap (the second ability): costs SnapCost alimus. Every frozen creature in view
         /// shatters for SnapDamage, and every other creature within SnapRadius px of it takes
         /// SnapSplash. Cinder Snap (an alteration): burning creatures burst instead, for
         /// CinderDamage and CinderSplash. SnapViewX / SnapViewY px each way is "in view" (about
@@ -329,8 +329,8 @@ public static class Tune
         public static float CinderDamage = 20f, CinderSplash = 6f;
         public static float SnapViewX = 500f, SnapViewY = 290f;
         /// <summary>Upgrades: Kindling's ignite chance and Deep Chill's freeze chance, per rank;
-        /// Echo's aether back for each creature a snap bursts.</summary>
-        public static float KindlingChance = 0.1f, DeepChillChance = 0.04f, EchoAether = 5f;
+        /// Echo's alimus back for each creature a snap bursts.</summary>
+        public static float KindlingChance = 0.1f, DeepChillChance = 0.04f, EchoAlimus = 5f;
     }
 
     // =============================================================================== COMBAT

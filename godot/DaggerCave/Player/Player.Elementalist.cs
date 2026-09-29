@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Elementalist's kit. Every spell costs aether, which comes back by itself (its only
+/// The Elementalist's kit. Every spell costs alimus, which comes back by itself (its only
 /// source); the bolts are free. The attack button hurls a firebolt that can set a creature
 /// alight (Frostbolt: quicker, weaker bolts of frost that slow, and now and then freeze a
 /// creature solid). The dodge button raises an Updraft, a column of air in which every
@@ -21,7 +21,7 @@ public partial class Player
     private bool IsElementalist => Stats.Hero == HeroKind.Elementalist;
 
     /// <summary>The Elementalist's reserve: spells cost it, and it comes back by itself.</summary>
-    public float Aether { get; private set; }
+    public float Alimus { get; private set; }
     private float _boltCd, _updraftCd, _snapCd, _snapAt = -1;
     private List<Enemy> _snapping;
 
@@ -32,7 +32,7 @@ public partial class Player
     /// <summary>Creatures the last snap burst.</summary>
     public int LastSnapCount { get; private set; }
 
-    public float AetherRegen => Tune.Elementalist.AetherRegen * Stats.AetherRegenMult;
+    public float AlimusRegen => Tune.Elementalist.AlimusRegen * Stats.AlimusRegenMult;
     public float UpdraftCost => Tune.Elementalist.UpdraftCost;
     public float BlizzardCost => Tune.Elementalist.BlizzardCost;
     public float SnapCost => Tune.Elementalist.SnapCost;
@@ -46,27 +46,27 @@ public partial class Player
     public bool FrostElement => IsRemote ? (_netFlags & HfFrost) != 0 : Stats.Frostbolt;
 
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
-    public void SetAether(float value) => Aether = Math.Clamp(value, 0, Stats.AetherMax);
+    public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
 
-    public void GainAether(float amount)
+    public void GainAlimus(float amount)
     {
         if (!IsElementalist || amount <= 0) return;
-        Aether = Math.Min(Stats.AetherMax, Aether + amount);
+        Alimus = Math.Min(Stats.AlimusMax, Alimus + amount);
     }
 
     private void TickElementalist(float dt)
     {
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         _boltCd -= dt; _updraftCd -= dt; _snapCd -= dt;
-        Aether = Math.Min(Stats.AetherMax, Aether + AetherRegen * dt);
+        Alimus = Math.Min(Stats.AlimusMax, Alimus + AlimusRegen * dt);
         if (_snapAt >= 0 && (_snapAt -= dt) < 0) BurstSnap();
     }
 
-    /// <summary>Spends aether for a spell, or says there isn't enough (the press is spent either way).</summary>
-    private bool PayAether(float cost)
+    /// <summary>Spends alimus for a spell, or says there isn't enough (the press is spent either way).</summary>
+    private bool PayAlimus(float cost)
     {
-        if (Aether >= cost - 0.001f) { Aether = Math.Max(0, Aether - cost); return true; }
-        SayNo("NOT ENOUGH AETHER");
+        if (Alimus >= cost - 0.001f) { Alimus = Math.Max(0, Alimus - cost); return true; }
+        SayNo("NOT ENOUGH ALIMUS");
         return false;
     }
 
@@ -127,7 +127,7 @@ public partial class Player
     {
         if (!IsElementalist || _updraftCd > 0) return false;
         _updraftCd = 0.5f;
-        if (!PayAether(UpdraftCost)) return true;
+        if (!PayAlimus(UpdraftCost)) return true;
         // it rises from the ground at your feet (or from where you hang in the air, if the ground is far)
         var foot = GlobalPosition + new Vector2(0, 13f);
         if (!IsOnFloor() && G.Cave.FindFloor(GlobalPosition, 70f, out var floor)) foot = floor;
@@ -174,7 +174,7 @@ public partial class Player
     private bool TryBlizzard(Vector2 aim, float aimDist)
     {
         if (!IsElementalist || !AbilityChargeReady) return false;
-        if (!PayAether(BlizzardCost)) return true;
+        if (!PayAlimus(BlizzardCost)) return true;
         SpendAbilityCharge();
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var at = BlizzardSpot(aim, aimDist);
@@ -271,7 +271,7 @@ public partial class Player
         var marked = Snappable().ToList();
         if (marked.Count == 0) { _snapCd = 0.3f; SayNo(Stats.CinderSnap ? "NOTHING BURNING" : "NOTHING FROZEN"); return true; }
         _snapCd = Tune.Elementalist.SnapCooldown;
-        if (!PayAether(SnapCost)) return true;
+        if (!PayAlimus(SnapCost)) return true;
         _snapping = marked;
         // the fist closes (the clip's clench), and on it everything marked bursts
         _snapAt = 0.12f;
@@ -324,7 +324,7 @@ public partial class Player
         {
             G.Fx.AddShake(2f + burst);
             G.Main.Rumble(0.4f, 0.4f, 0.15f);
-            if (Stats.SnapEcho) GainAether(Tune.Elementalist.EchoAether * burst);
+            if (Stats.SnapEcho) GainAlimus(Tune.Elementalist.EchoAlimus * burst);
         }
     }
 }

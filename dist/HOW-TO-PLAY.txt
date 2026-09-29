@@ -15,7 +15,7 @@ THE HEROES
   * Vitalist: the healer. Drains life from creatures to heal, hexes them, ruptures them.
   * Elementalist: the storm-caller. Firebolts that set creatures alight (free); an
     updraft that lifts every hero in it; a blizzard that can freeze creatures solid;
-    and a snap that shatters every frozen creature in sight. Spells cost aether,
+    and a snap that shatters every frozen creature in sight. Spells cost alimus,
     which comes back by itself.
   * Rogue: the cutthroat. Quick dagger jabs that now and then strike critically; a
     dagger thrown to stick in a creature, then recalled to tear back out through it;

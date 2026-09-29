@@ -518,14 +518,14 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepAlimus = 0, keepAether = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
             keepKeys = G.Player.Keys;
             keepMilestones = G.Player.PendingMilestones;
+            keepVitalForce = G.Player.VitalForce;
             keepAlimus = G.Player.Alimus;
-            keepAether = G.Player.Aether;
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
@@ -570,9 +570,9 @@ public partial class Main : Node
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
             player.PendingMilestones = keepMilestones;
-            player.SetAlimus(Math.Max(keepAlimus, Tune.Vitalist.AlimusStart * 0.5f));
-            // (aether comes back by itself anyway: at least half a reserve on a new level)
-            player.SetAether(Math.Max(keepAether, keepStats.AetherMax * 0.5f));
+            player.SetVitalForce(Math.Max(keepVitalForce, Tune.Vitalist.VitalForceStart * 0.5f));
+            // (alimus comes back by itself anyway: at least half a reserve on a new level)
+            player.SetAlimus(Math.Max(keepAlimus, keepStats.AlimusMax * 0.5f));
             player.SyncCharges();
         }
         player.GlobalPosition = cave.StartPos;
@@ -2667,11 +2667,11 @@ public partial class Main : Node
         {
             case 5:
                 _probeEnemy = Dummy(new Golem(), 110);
-                p.SetAlimus(10);
+                p.SetVitalForce(10);
                 break;
             case 8:
                 _hpMark = _probeEnemy.Hp;
-                _shieldMark = p.Alimus;
+                _shieldMark = p.VitalForce;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.2f).Normalized() };
                 break;
             case 9:
@@ -2685,7 +2685,7 @@ public partial class Main : Node
             case 16:
             {
                 float dealt = _hpMark - _probeEnemy.Hp;
-                Check($"the mote arrives: a tenth of the damage as alimus ({_shieldMark:0.0} -> {p.Alimus:0.0}, want +{dealt * 0.1f:0.0})", Math.Abs(p.Alimus - _shieldMark - dealt * 0.1f) < 0.05f && !_world.GetChildren().OfType<LifeMote>().Any());
+                Check($"the mote arrives: a tenth of the damage as vital force ({_shieldMark:0.0} -> {p.VitalForce:0.0}, want +{dealt * 0.1f:0.0})", Math.Abs(p.VitalForce - _shieldMark - dealt * 0.1f) < 0.05f && !_world.GetChildren().OfType<LifeMote>().Any());
                 _normalHit = dealt;
                 Check($"a drain hits for about {Tune.Vitalist.DrainDamage:0} ({dealt:0.0})", dealt > Tune.Vitalist.DrainDamage * 0.9f && dealt < Tune.Vitalist.DrainDamage * 1.1f);
                 break;
@@ -2705,10 +2705,10 @@ public partial class Main : Node
                 float most = Tune.Vitalist.DrainDamage * p.Stats.DamageMult * 1.08f;
                 Check($"a hexed creature takes more damage ({dealt:0.0}, more than an unhexed drain's best {most:0.0})", dealt > most);
                 _probeEnemy.QueueFree();
-                Check($"alimus holds {Tune.Vitalist.AlimusMax:0} at most (max {p.Stats.AlimusMax:0})", Math.Abs(p.Stats.AlimusMax - Tune.Vitalist.AlimusMax) < 0.01f);
+                Check($"vital force holds {Tune.Vitalist.VitalForceMax:0} at most (max {p.Stats.VitalForceMax:0})", Math.Abs(p.Stats.VitalForceMax - Tune.Vitalist.VitalForceMax) < 0.01f);
                 // the heal: everything to the one hurt player in range
                 p.Hp = 20;
-                p.SetAlimus(30);
+                p.SetVitalForce(30);
                 p.ResetAbilityCooldowns();
                 _hpMark = p.Hp;
                 _heroInput = new PlayerInput { Ability = true };
@@ -2718,18 +2718,18 @@ public partial class Main : Node
             case 31:
             {
                 float want = Tune.Vitalist.HealAmount * p.Stats.HealMult;
-                Check($"the heal restores {want:0} (hp {_hpMark:0} -> {p.Hp:0}) for {p.HealCost:0} alimus (30 -> {p.Alimus:0})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && Math.Abs(30 - p.Alimus - p.HealCost) < 0.01f);
+                Check($"the heal restores {want:0} (hp {_hpMark:0} -> {p.Hp:0}) for {p.HealCost:0} vital force (30 -> {p.VitalForce:0})", Math.Abs(p.Hp - _hpMark - want) < 0.5f && Math.Abs(30 - p.VitalForce - p.HealCost) < 0.01f);
                 break;
             }
             case 40:
                 p.Hp = p.Stats.MaxHp;
                 p.ResetAbilityCooldowns();
-                _shieldMark = p.Alimus;
+                _shieldMark = p.VitalForce;
                 _heroInput = new PlayerInput { Ability = true };
                 break;
             case 41: _heroInput = default; break;
             case 43:
-                Check($"no heal (and no alimus spent) when no one is hurt ({_shieldMark:0} -> {p.Alimus:0})", Math.Abs(p.Alimus - _shieldMark) < 0.01f);
+                Check($"no heal (and no vital force spent) when no one is hurt ({_shieldMark:0} -> {p.VitalForce:0})", Math.Abs(p.VitalForce - _shieldMark) < 0.01f);
                 break;
 
             // ---- the rupture
@@ -2737,7 +2737,7 @@ public partial class Main : Node
                 _probeEnemy = Dummy(new Golem(), 110);
                 _probe2 = Dummy(new Goblin(), 150);   // 40 px from the golem: in the burst
                 _probe3 = Dummy(new Goblin(), 290);   // well outside it
-                p.SetAlimus(30);
+                p.SetVitalForce(30);
                 p.ResetAbilityCooldowns();
                 break;
             case 47:
@@ -2751,24 +2751,24 @@ public partial class Main : Node
                 break;
             case 48:
                 _heroInput = default;
-                Check($"the rupture spends {p.RuptureCost:0} alimus (left {p.Alimus:0}) and seizes the golem first (frozen {_probeEnemy.FreezeLeft:0.00} s, hp {_hpMark:0} -> {_probeEnemy.Hp:0})",
-                    p.Alimus < 0.5f && _probeEnemy.FreezeLeft > 0 && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
+                Check($"the rupture spends {p.RuptureCost:0} vital force (left {p.VitalForce:0}) and seizes the golem first (frozen {_probeEnemy.FreezeLeft:0.00} s, hp {_hpMark:0} -> {_probeEnemy.Hp:0})",
+                    p.VitalForce < 0.5f && _probeEnemy.FreezeLeft > 0 && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
                 break;
             case 54:
             {
                 float main = _hpMark - _probeEnemy.Hp, near = _hp2 - (IsInstanceValid(_probe2) ? _probe2.Hp : 0), far = _hp3 - _probe3.Hp;
                 Check($"then it bursts: {main:0} to the golem, {near:0} to the goblin beside it, {far:0} to the one far off",
                     main > Tune.Vitalist.RuptureDamage * 0.9f && Math.Abs(near - Tune.Vitalist.RuptureSplash) < 0.6f && far < 0.01f);
-                // not enough alimus: refused, nothing spent
+                // not enough vital force: refused, nothing spent
                 p.ResetAbilityCooldowns();
-                p.SetAlimus(10);
+                p.SetVitalForce(10);
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 _hpMark = _probeEnemy.Hp;
                 break;
             }
             case 55: _heroInput = default; break;
             case 60:
-                Check($"no rupture without the alimus for it (alimus {p.Alimus:0}, golem {_hpMark:0} -> {_probeEnemy.Hp:0})", Math.Abs(p.Alimus - 10) < 0.5f && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
+                Check($"no rupture without the vital force for it (vital force {p.VitalForce:0}, golem {_hpMark:0} -> {_probeEnemy.Hp:0})", Math.Abs(p.VitalForce - 10) < 0.5f && Math.Abs(_probeEnemy.Hp - _hpMark) < 0.01f);
                 foreach (var e in new[] { _probe2, _probe3 }) if (IsInstanceValid(e)) e.QueueFree();
                 break;
 
@@ -2796,7 +2796,7 @@ public partial class Main : Node
             case 67:
                 Upgrades.Apply(Upgrades.Get("rr_reserve"), p.Stats, p);
                 p.ResetAbilityCooldowns();
-                p.SetAlimus(30);
+                p.SetVitalForce(30);
                 p.Hp = 10;
                 _hpMark = p.Hp;
                 _heroInput = new PlayerInput { Ability = true };

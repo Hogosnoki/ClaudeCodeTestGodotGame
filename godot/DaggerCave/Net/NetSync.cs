@@ -175,7 +175,7 @@ public static class NetSync
     private static readonly Dictionary<int, float> _dealt = new();
     private static float _dealtT;
 
-    /// <summary>Damage dealt over time (a withering hex) for a player's hero: life steal and alimus, in their game.</summary>
+    /// <summary>Damage dealt over time (a withering hex) for a player's hero: life steal and vital force, in their game.</summary>
     public static void CreditDealt(int who, float amount)
     {
         if (amount <= 0) return;
@@ -287,7 +287,7 @@ public static class NetSync
             {
                 var at = r.Vec(); float size = r.Half();
                 Applying = true;
-                G.Spawn(new LifeMote { Position = at, Caster = av, Alimus = 0, Size = size });
+                G.Spawn(new LifeMote { Position = at, Caster = av, VitalForce = 0, Size = size });
                 Applying = false;
                 break;
             }

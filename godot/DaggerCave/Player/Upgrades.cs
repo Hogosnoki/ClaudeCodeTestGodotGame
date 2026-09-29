@@ -80,8 +80,8 @@ public sealed class PlayerStats
     public float BarrierAmount = Tune.Warden.BarrierAmount, BarrierSeconds = Tune.Warden.BarrierSeconds;
 
     // vitalist: drain, hex, heal, rupture
-    public float AlimusMax = Tune.Vitalist.AlimusMax;
-    public float AlimusGain = Tune.Vitalist.AlimusGain;
+    public float VitalForceMax = Tune.Vitalist.VitalForceMax;
+    public float VitalForceGain = Tune.Vitalist.VitalForceGain;
     public float HealMult = 1f, HealCostMult = 1f;
     /// <summary>Many Mouths: how many more creatures near the target each drain also strikes.</summary>
     public int DrainExtra;
@@ -93,14 +93,14 @@ public sealed class PlayerStats
     public bool BlightBurst, EndlessHex, SlowMending, PatientMending, WardingMending, Lifebloom, BloomPool;
 
     // elementalist: bolts, updraft, blizzard, snap
-    public float AetherMax = Tune.Elementalist.AetherMax;
-    /// <summary>Attunement: aether comes back this many times as fast.</summary>
-    public float AetherRegenMult = 1f;
+    public float AlimusMax = Tune.Elementalist.AlimusMax;
+    /// <summary>Attunement: alimus comes back this many times as fast.</summary>
+    public float AlimusRegenMult = 1f;
     /// <summary>A firebolt's chance of setting a creature alight (Kindling adds); Deep Chill's
     /// extra chance of freezing, for frostbolts and the blizzard alike.</summary>
     public float IgniteChance = Tune.Elementalist.IgniteChance, FreezeBonus;
     public float BlizzardSecondsMult = 1f, BlizzardWideMult = 1f, BlizzardCdMult = 1f;
-    /// <summary>Shrapnel: snaps burst this much wider. Echo: each creature a snap bursts gives aether back.</summary>
+    /// <summary>Shrapnel: snaps burst this much wider. Echo: each creature a snap bursts gives alimus back.</summary>
     public float SnapWideMult = 1f;
     public bool SnapEcho;
     /// <summary>Alterations: Frostbolt (the bolts freeze instead of burning), Narrow Draft (a
@@ -293,38 +293,38 @@ public static class Upgrades
         // --- Drain (vitalist) ---
         new() { Id = "mouths", Name = "Many Mouths", Desc = "Your drain also tears the life out of one more creature near its target (60% damage).", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DrainExtra += 1 },
         new() { Id = "bolt_range", Name = "Far Reach", Desc = "Your drain and rupture reach 25% farther.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.DaggerReach += 0.25f },
-        new() { Id = "hunger", Name = "Hungering Spirit", Desc = "Gain half again as much alimus from the damage you deal.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.AlimusGain += Tune.Vitalist.AlimusGain * 0.5f },
-        new() { Id = "well", Name = "Deep Well", Desc = "Hold 15 more alimus.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 15f },
+        new() { Id = "hunger", Name = "Hungering Spirit", Desc = "Gain half again as much vital force from the damage you deal.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.VitalForceGain += Tune.Vitalist.VitalForceGain * 0.5f },
+        new() { Id = "well", Name = "Deep Well", Desc = "Hold 15 more vital force.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.VitalForceMax += 15f },
 
         // --- Hex (vitalist) ---
         new() { Id = "hex_wide", Name = "Spreading Blight", Desc = "Your hex reaches 30% farther.", Icon = "spell", For = V, Ability = "hex", MaxStacks = 2, Apply = (s, p) => s.HexRadiusMult += 0.3f },
         new() { Id = "hex_long", Name = "Lingering Hex", Desc = "Your hex lasts 2 s longer.", Icon = "spell", For = V, Ability = "hex", MaxStacks = 2, Apply = (s, p) => s.HexSeconds += 2f },
         new() { Id = "hex_rot", Name = "Withering Hex", Desc = "Hexed creatures rot, losing 6 health a second.", Icon = "spell", For = V, Ability = "hex", Tier = UpgradeTier.Ability, Apply = (s, p) => s.HexRot += 6f },
         new() { Id = "hex_burst", Name = "Blight Burst", Desc = "Your hex also deals 12 damage to everything it reaches, but slows and weakens half as much.", Icon = "spell", For = V, Ability = "hex", Alteration = true, Apply = (s, p) => s.BlightBurst = true },
-        new() { Id = "hex_endless", Name = "Endless Hex", Desc = "Your hex has no cooldown, but costs 10 alimus.", Icon = "spell", For = V, Ability = "hex", Alteration = true, Apply = (s, p) => s.EndlessHex = true },
+        new() { Id = "hex_endless", Name = "Endless Hex", Desc = "Your hex has no cooldown, but costs 10 vital force.", Icon = "spell", For = V, Ability = "hex", Alteration = true, Apply = (s, p) => s.EndlessHex = true },
 
         // --- Heal (vitalist) ---
         new() { Id = "heal_more", Name = "Deep Mending", Desc = "Your heal restores 30% more.", Icon = "life", For = V, Ability = "heal", MaxStacks = 2, Apply = (s, p) => s.HealMult += 0.3f },
-        new() { Id = "heal_cheap", Name = "Frugal Rites", Desc = "Your heal costs 25% less alimus.", Icon = "life", For = V, Ability = "heal", MaxStacks = 2, Apply = (s, p) => s.HealCostMult *= 0.75f },
-        new() { Id = "wellspring", Name = "Wellspring", Desc = "+15% alimus gained and heal strength.", Icon = "spell", For = V, Ability = "heal", MaxStacks = 4, Apply = (s, p) => { s.AlimusGain *= 1.15f; s.HealMult *= 1.15f; } },
+        new() { Id = "heal_cheap", Name = "Frugal Rites", Desc = "Your heal costs 25% less vital force.", Icon = "life", For = V, Ability = "heal", MaxStacks = 2, Apply = (s, p) => s.HealCostMult *= 0.75f },
+        new() { Id = "wellspring", Name = "Wellspring", Desc = "+15% vital force gained and heal strength.", Icon = "spell", For = V, Ability = "heal", MaxStacks = 4, Apply = (s, p) => { s.VitalForceGain *= 1.15f; s.HealMult *= 1.15f; } },
         new() { Id = "heal_slow", Name = "Slow Mending", Desc = "Your heal gives half at once and the other half over 6 s.", Icon = "life", For = V, Ability = "heal", Alteration = true, Apply = (s, p) => s.SlowMending = true },
         new() { Id = "heal_patient", Name = "Patient Mending", Desc = "All of your heal comes over the 6 s, and 20% more of it.", Icon = "life", For = V, Ability = "heal", Requires = "heal_slow", Apply = (s, p) => s.PatientMending = true },
         new() { Id = "heal_warding", Name = "Warding Mending", Desc = "Anyone your heal is mending takes 20% less damage.", Icon = "life", For = V, Ability = "heal", Requires = "heal_slow", Apply = (s, p) => s.WardingMending = true },
 
         // --- Rupture (vitalist) ---
         new() { Id = "rupture_wide", Name = "Burst Veins", Desc = "Your rupture's burst reaches 40% farther and splashes for half again as much.", Icon = "spell", For = V, Ability = "rupture", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.RuptureRadiusMult += 0.4f; s.RuptureSplashMult += 0.5f; } },
-        new() { Id = "rupture_cheap", Name = "Thin Blood", Desc = "Your rupture costs 20% less alimus.", Icon = "spell", For = V, Ability = "rupture", MaxStacks = 2, Apply = (s, p) => s.RuptureCostMult *= 0.8f },
+        new() { Id = "rupture_cheap", Name = "Thin Blood", Desc = "Your rupture costs 20% less vital force.", Icon = "spell", For = V, Ability = "rupture", MaxStacks = 2, Apply = (s, p) => s.RuptureCostMult *= 0.8f },
         new() { Id = "rupture_bloom", Name = "Lifebloom", Desc = "Your rupture blooms on a friend instead of a creature (alone, on you): it heals them 30, and everyone else in the burst 10.", Icon = "life", For = V, Ability = "rupture", Alteration = true, Apply = (s, p) => s.Lifebloom = true },
         new() { Id = "bloom_pool", Name = "Healing Pool", Desc = "Your bloom leaves a pool that heals everyone in it 3 a second for 5 s.", Icon = "life", For = V, Ability = "rupture", Requires = "rupture_bloom", Apply = (s, p) => s.BloomPool = true },
 
         // --- Bolts (elementalist) ---
         new() { Id = "kindling", Name = "Kindling", Desc = "Your fire is 10% likelier to set a creature alight (firebolts, and a Firestorm).", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
                 When = s => !s.Frostbolt || s.Firestorm, Apply = (s, p) => s.IgniteChance += Tune.Elementalist.KindlingChance },
-        new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 15 more aether.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AetherMax += 15f },
+        new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 15 more alimus.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 15f },
         new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 8 damage every 0.3 s, slowing what they strike by 30% for 2 s, with an 8% chance of freezing a creature solid for 1.5 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
 
         // --- Updraft (elementalist) ---
-        new() { Id = "attune", Name = "Attunement", Desc = "Your aether comes back 25% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AetherRegenMult += 0.25f },
+        new() { Id = "attune", Name = "Attunement", Desc = "Your alimus comes back 25% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AlimusRegenMult += 0.25f },
         new() { Id = "updraft_narrow", Name = "Narrow Draft", Desc = "Your updraft is half as wide, but 6 m taller and lasts 15 s.", Icon = "move", For = E, Ability = "updraft", Alteration = true, Apply = (s, p) => s.NarrowDraft = true },
 
         // --- Blizzard (elementalist) ---
@@ -337,7 +337,7 @@ public static class Upgrades
 
         // --- Snap (elementalist) ---
         new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 40% farther.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapWideMult += 0.4f },
-        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 aether back.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapEcho = true },
+        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 alimus back.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapEcho = true },
         new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Your snap bursts burning creatures instead of frozen ones: 20 damage, and 6 to everything around them.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
 
         // --- Dagger Slash (rogue) ---
@@ -576,7 +576,7 @@ public static class Upgrades
 }
 
 /// <summary>What each level gives on its own, by hero: the swordsman leans on damage, the warden
-/// on toughness, the vitalist on its reserves of alimus, the elementalist on its aether, the rogue
+/// on toughness, the vitalist on its reserves of vital force, the elementalist on its alimus, the rogue
 /// on its daggers' bite.</summary>
 public static class Progression
 {
@@ -596,14 +596,14 @@ public static class Progression
             case HeroKind.Vitalist:
                 s.MaxHp += 3; p.Heal(3);
                 s.DamageMult += 0.02f;
-                s.AlimusMax += 1;
-                gain = "+2% damage  +1 alimus";
+                s.VitalForceMax += 1;
+                gain = "+2% damage  +1 vital force";
                 break;
             case HeroKind.Elementalist:
                 s.MaxHp += 3; p.Heal(3);
                 s.DamageMult += 0.02f;
-                s.AetherMax += 1;
-                gain = "+2% damage  +1 aether";
+                s.AlimusMax += 1;
+                gain = "+2% damage  +1 alimus";
                 break;
             case HeroKind.Rogue:
                 s.MaxHp += 2; p.Heal(2);
