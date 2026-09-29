@@ -144,6 +144,9 @@ public partial class Hud : Control
                 PotionPickup.DrawFlask(this, pp + new Vector2(k * 18, 6), 1.35f, 1f, k >= p.Potions);
             DrawString(font, pp + new Vector2(-8, 28), Controls.Name("potion"), HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.5f));
             if (p.Mending) DrawString(font, pp + new Vector2(6, 28), "mending", HorizontalAlignment.Left, -1, 10, new Color(1f, 0.6f, 0.7f, 0.7f + 0.3f * MathF.Sin(_t * 6)));
+            // the keys carried, beside the potions
+            for (int k = 0; k < p.Keys; k++)
+                KeyPickup.DrawKey(this, pp + new Vector2(Meta.MaxPotions * 18 + 16 + k * 22, 6), 1.4f, 1f);
         }
 
         // --- Depth / biome / kills ---
@@ -184,6 +187,16 @@ public partial class Hud : Control
                 DrawArc(b, 4 + MathF.Sin(_t * 4), 0, Mathf.Tau, 12, new Color(1f, 0.25f, 0.2f), 2f);
                 DrawString(font, b + new Vector2(6, 4), "EXIT", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.4f, 0.35f));
             }
+            // the vault: marked from the start (a gold lock; faint once it's open)
+            if (G.Cave.Vault is VaultSpot vault)
+            {
+                bool open = G.Main.Gate != null && IsInstanceValid(G.Main.Gate) && G.Main.Gate.Opened;
+                var vp = mp + new Vector2(vault.Center.X * sx, vault.Center.Y * sy);
+                var gold = new Color(1f, 0.8f, 0.35f, open ? 0.45f : 0.95f);
+                DrawRect(new Rect2(vp - new Vector2(3.5f, 2f), new Vector2(7, 6)), gold);
+                DrawArc(vp + new Vector2(0, -2f), 2.4f, Mathf.Pi, Mathf.Tau, 8, gold, 1.4f);
+                DrawString(font, vp + new Vector2(6, 4), open ? "VAULT (OPEN)" : "VAULT", HorizontalAlignment.Left, -1, 9, gold);
+            }
         }
 
         if (Net.InRun) DrawOnline(font, vs, p, xpPos + new Vector2(0, p.Breath < p.Stats.BreathMax - 0.05f || p.HeadUnder ? 44 : 24));
@@ -196,6 +209,18 @@ public partial class Hud : Control
             var osz = font.GetStringSize(open, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(osz.X / 2 + 8, 16), new Vector2(osz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
             DrawString(font, at - new Vector2(osz.X / 2, 0), open, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
+        }
+        // --- a vault's gate: a key opens it ---
+        if (!p.Dead && VaultGate.At(p.GlobalPosition) is VaultGate gate)
+        {
+            // (over the top of the gate, on screen)
+            var at = gate.GetGlobalTransformWithCanvas() * new Vector2(0, -gate.Height) + new Vector2(0, -18);
+            bool key = p.Keys > 0;
+            string say = key ? $"{Controls.Name("interact")}  open the vault (a key)" : "LOCKED: it takes a key";
+            var gsz = font.GetStringSize(say, HorizontalAlignment.Left, -1, 14);
+            DrawRect(new Rect2(at - new Vector2(gsz.X / 2 + 8, 16), new Vector2(gsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            DrawString(font, at - new Vector2(gsz.X / 2, 0), say, HorizontalAlignment.Left, -1, 14,
+                key ? new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)) : new Color(1f, 0.7f, 0.55f, 0.85f));
         }
         if (NoticeT > 0 && Notice != "")
         {

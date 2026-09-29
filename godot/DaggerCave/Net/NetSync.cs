@@ -638,6 +638,9 @@ public static class NetSync
             case PotionPickup pp:
                 w.Byte(8).Int(id).Vec(pp.GlobalPosition);
                 break;
+            case KeyPickup kp:
+                w.Byte(11).Int(id).Vec(kp.GlobalPosition).Half(kp.Vy);
+                break;
             case Chest ch:
                 w.Byte(9).Int(id).Vec(ch.GlobalPosition);
                 break;
@@ -677,6 +680,7 @@ public static class NetSync
             case 6: { var pos = r.Vec(); var vel = r.HVec(); int value = r.Short(); n = new XpOrb { Position = pos, Vel = vel, Value = value, Puppet = true }; break; }
             case 7: n = new HeartPickup { Position = r.Vec(), Puppet = true }; break;
             case 8: n = new PotionPickup { Position = r.Vec(), Puppet = true }; break;
+            case 11: { var pos = r.Vec(); float vy = r.Half(); n = new KeyPickup { Position = pos, Vy = vy, Puppet = true }; break; }
             case 9: n = new Chest { Position = r.Vec() }; break;
             case 10:
             {
@@ -715,7 +719,7 @@ public static class NetSync
             switch (n)
             {
                 case EnemyProjectile pr when !quiet: pr.Deflect(); break;
-                case XpOrb or HeartPickup or PotionPickup when !quiet: G.Fx.Glint(n.GlobalPosition, new Color(1f, 1f, 1f), 5); n.QueueFree(); break;
+                case XpOrb or HeartPickup or PotionPickup or KeyPickup when !quiet: G.Fx.Glint(n.GlobalPosition, new Color(1f, 1f, 1f), 5); n.QueueFree(); break;
                 default: n.QueueFree(); break;
             }
         }
@@ -733,7 +737,7 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
-    /// <summary>Host: someone else's hero touched a heart or a potion.</summary>
+    /// <summary>Host: someone else's hero touched a heart (1), a potion (2) or a key (3).</summary>
     public static void GivePickup(Player to, byte kind, float amount)
     {
         var w = new NetOut(Net.Msg.Pickup);
@@ -857,6 +861,37 @@ public static class NetSync
         int id = r.Int(), opener = r.Int();
         var c = ChestById(id);
         if (c != null && !c.Open) c.OpenBy(opener);
+    }
+
+    // Vault gates: a hero with a key asks the host, and the host opens the gate in every game,
+    // saying whose key did it (that game spends it). One that's already open stays as it is.
+
+    /// <summary>This game's hero, holding a key, is at a vault's gate: ask the host to open it.</summary>
+    public static void AskGate(VaultGate g)
+    {
+        int id = IdOf(g);
+        if (id == 0) return;
+        if (Net.IsHost) { OpenGate(id, Net.Me); return; }
+        var w = new NetOut(Net.Msg.GateAsk);
+        w.Int(id);
+        Net.SendTo(1, w, true);
+    }
+
+    /// <summary>Host: <paramref name="by"/> opens a gate with one of their keys (if it's still shut).</summary>
+    private static void OpenGate(int id, int by)
+    {
+        if (!Props.TryGetValue(id, out var n) || n is not VaultGate g || !GodotObject.IsInstanceValid(g) || g.Opened) return;
+        var w = new NetOut(Net.Msg.GateOpened);
+        w.Int(id).Int(by);
+        Net.SendAll(w, true);
+        OnGateOpened(id, by);
+    }
+
+    private static void OnGateOpened(int id, int by)
+    {
+        if (!Props.TryGetValue(id, out var n) || n is not VaultGate g || !GodotObject.IsInstanceValid(g) || g.Opened) return;
+        if (by == Net.Me) G.Player?.SpendKey();
+        g.Open();
     }
 
     /// <summary>This game's hero stepped into an exit (or out of it again).</summary>
@@ -1052,6 +1087,7 @@ public static class NetSync
                 {
                     if (kind == 1) p.Heal(amount);
                     else if (kind == 2) p.GainPotion();
+                    else if (kind == 3) p.GainKey();
                 }
                 finally { Scope--; }
                 break;
@@ -1061,6 +1097,8 @@ public static class NetSync
             case Net.Msg.ChestCards: OnChestCards(r); break;
             case Net.Msg.ChestDone: if (Net.IsHost) { int id = r.Int(); OnChestDone(from, id, r.Bool()); } break;
             case Net.Msg.ChestOpened: OnChestOpened(r); break;
+            case Net.Msg.GateAsk: if (Net.IsHost) OpenGate(r.Int(), from); break;
+            case Net.Msg.GateOpened: { int id = r.Int(), by = r.Int(); OnGateOpened(id, by); break; }
             case Net.Msg.ExitReady: SetAtExit(from, r.Int()); break;
             case Net.Msg.Fx: OnFx(r); break;
             case Net.Msg.Banner: G.Main?.OnlineBanner(r.Str(), r.Half()); break;

@@ -18,6 +18,27 @@ public sealed class SpawnPoint
 
 public enum RoomKind { Start, Boss, Treasure, MiniBoss, Ambush }
 
+/// <summary>
+/// The level's vault: a passage cut straight into the rock off a tunnel, closed by an iron gate,
+/// opening into a chamber with a chest. Everything in world px.
+/// </summary>
+public sealed class VaultSpot
+{
+    /// <summary>The gate's foot (on the passage floor) and the passage's ceiling above it.</summary>
+    public Vector2 Gate;
+    public float GateTop;
+    /// <summary>Where the chest sits (the middle of the chamber floor).</summary>
+    public Vector2 Chest;
+    /// <summary>Which way the vault lies from the tunnel (+1 right, -1 left).</summary>
+    public int Side;
+    /// <summary>The tunnel floor its doorstep starts from (somewhere you can walk to).</summary>
+    public Vector2 Approach;
+    /// <summary>The cut's cells (x0..x1, y0..y1, inclusive): the passage, then the chamber.</summary>
+    public Rect2I Passage, Chamber;
+    /// <summary>Its middle (for the minimap).</summary>
+    public Vector2 Center;
+}
+
 public sealed class Room
 {
     /// <summary>Middle of the room's open space, world px.</summary>
@@ -55,6 +76,8 @@ public sealed class CaveData
     /// <summary>The cave mouth (depth 0 only): the floor at the daylight on the far left, where you can leave.</summary>
     public Vector2? Mouth;
     public Room Boss;
+    /// <summary>The level's vault (null in the dragon's lair, or where none could be cut).</summary>
+    public VaultSpot Vault;
     public readonly List<Room> Rooms = new();
     public readonly List<SpawnPoint> Spawns = new();
 

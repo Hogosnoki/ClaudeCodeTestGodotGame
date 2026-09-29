@@ -31,7 +31,7 @@ public partial class Player
     /// <summary>Daggers out of the hand now (for the tests and the HUD).</summary>
     public ThrownDagger ThrownDaggerAt(int k) => _thrown[k];
     /// <summary>Hidden from creatures: vanished, or inside a cloud of smoke (a copy goes by its game's flags).</summary>
-    public bool Hidden => IsRemote ? (_netFlags & HfHidden) != 0 : _vanishT > 0 || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition));
+    public new bool Hidden => IsRemote ? (_netFlags & HfHidden) != 0 : _vanishT > 0 || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition));
     /// <summary>Vanished (the Rogue alone, not smoke): half again as fast.</summary>
     public bool Vanished => _vanishT > 0;
     public float VanishLeft => _vanishT;

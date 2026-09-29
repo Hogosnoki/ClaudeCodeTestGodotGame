@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -30,6 +31,8 @@ public static class PropViews
             XpOrb => new XpOrbView(),
             HeartPickup => new HeartView(),
             PotionPickup => new PotionView(),
+            KeyPickup => new KeyView(),
+            VaultGate => new VaultGateView(),
             Chest => new ChestView(),
             Portal { Outside: true } => new MouthView(),
             Portal => new PortalView(),
@@ -782,17 +785,136 @@ public partial class PotionView : PropView
     }
 }
 
+/// <summary>An iron key, gold-bright: its bow, shaft and teeth, turning slowly as it bobs, with a glint and a little light.</summary>
+public partial class KeyView : PropView
+{
+    private Node3D _key;
+    private MeshInstance3D _glow;
+    private OmniLight3D _light;
+
+    protected override void Build()
+    {
+        _key = new Node3D();
+        AddChild(_key);
+        var mb = new MeshBuilder();
+        // the bow: a ring
+        var ring = new List<Vector3>();
+        for (int k = 0; k <= 16; k++) { float a = k / 16f * Mathf.Tau; ring.Add(new Vector3(-0.3f + MathF.Cos(a) * 0.14f, MathF.Sin(a) * 0.14f, 0)); }
+        mb.Tube(ring, ring.Select(_ => 0.04f).ToList(), 6, Colors.White, false);
+        // the shaft and its teeth
+        mb.Tube(new List<Vector3> { new(-0.16f, 0, 0), new(0.34f, 0, 0) }, new List<float> { 0.035f, 0.035f }, 6, Colors.White, true);
+        PropMeshes.Box(mb, new Vector3(0.24f, -0.07f, 0), new Vector3(0.03f, 0.06f, 0.025f), Colors.White);
+        PropMeshes.Box(mb, new Vector3(0.32f, -0.06f, 0), new Vector3(0.025f, 0.05f, 0.025f), Colors.White);
+        _key.AddChild(PropViews.Mesh(mb, PropViews.Gold, false));
+        _glow = PropViews.Sprite(new Color(1f, 0.82f, 0.4f), 0, 0.7f, 0.9f);
+        AddChild(_glow);
+        _light = PropViews.Light(new Color(1f, 0.8f, 0.45f), 0.6f, 2.6f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var k = (KeyPickup)Owner2D;
+        Follow(new Vector2(0, -4 + MathF.Sin(k.T * 3f) * 1.2f), 0.2f);
+        _key.Rotation = new Vector3(0.25f, k.T * 1.4f, 0);
+        _key.Scale = Vector3.One * 1.5f;
+        // (a hidden key is dimmer: it's there to be found)
+        float a = k.Stashed ? 0.55f : 1f;
+        PropViews.SetSprite(_glow, new Color(1f, 0.82f, 0.4f, a * (0.6f + 0.25f * MathF.Sin(k.T * 4f))), 0, 0.7f);
+        _light.LightEnergy = a * (0.5f + 0.15f * MathF.Sin(k.T * 4f));
+    }
+}
+
+/// <summary>
+/// A vault's gate: an iron portcullis, its face of bars toward you where the passage meets the
+/// rock's front and more bars running back through the passage's depth, a heavy gold padlock
+/// on its face and a lamp's glow on the iron. Opened, the lock falls away and the gate grinds up
+/// into the rock overhead.
+/// </summary>
+public partial class VaultGateView : PropView
+{
+    private Node3D _grate, _lock;
+    private OmniLight3D _lamp;
+
+    protected override void Build()
+    {
+        var g = (VaultGate)Owner2D;
+        float h = W3.M(g.Height);
+        _grate = new Node3D();
+        AddChild(_grate);
+        var iron = new MeshBuilder();
+        var dark = new Color(0.32f, 0.31f, 0.34f);
+        void Bar(Vector3 a, Vector3 b, float r) => iron.Tube(new List<Vector3> { a, b }, new List<float> { r, r }, 6, dark, true);
+        // the face you see: a grid of bars across the passage, spiked at the foot
+        const float fz = 0.9f;
+        for (int k = -2; k <= 2; k++)
+        {
+            float x = k * 0.19f;
+            Bar(new Vector3(x, -0.2f, fz), new Vector3(x, h + 0.4f, fz), 0.05f);
+            DesignKit.CrystalAt(iron, new Vector3(x, 0.02f, fz), Vector3.Down, 0.06f, 0.2f, dark);
+        }
+        foreach (float y in new[] { 0.35f, h * 0.5f, h - 0.25f })
+            Bar(new Vector3(-0.48f, y, fz), new Vector3(0.48f, y, fz), 0.045f);
+        // and bars back through the passage's depth to its back wall
+        for (int k = 0; k < 4; k++)
+        {
+            float z = Mathf.Lerp(-2.3f, 0.3f, k / 3f);
+            Bar(new Vector3(0, -0.2f, z), new Vector3(0, h + 0.4f, z), 0.05f);
+        }
+        foreach (float y in new[] { 0.35f, h * 0.5f, h - 0.25f })
+            Bar(new Vector3(0, y, -2.3f), new Vector3(0, y, fz), 0.04f);
+        _grate.AddChild(PropViews.Mesh(iron, PropViews.Steel));
+        // the padlock on its face
+        _lock = new Node3D { Position = new Vector3(0, h * 0.44f, fz + 0.1f) };
+        AddChild(_lock);
+        var lockBody = new MeshBuilder();
+        PropMeshes.Box(lockBody, Vector3.Zero, new Vector3(0.22f, 0.19f, 0.07f), Colors.White);
+        _lock.AddChild(PropViews.Mesh(lockBody, PropViews.Gold));
+        var shackle = new MeshBuilder();
+        var arc = new List<Vector3>();
+        for (int k = 0; k <= 10; k++) { float a = k / 10f * Mathf.Pi; arc.Add(new Vector3(MathF.Cos(a) * 0.13f, 0.19f + MathF.Sin(a) * 0.15f, 0)); }
+        shackle.Tube(arc, arc.Select(_ => 0.035f).ToList(), 6, Colors.White, true);
+        _lock.AddChild(PropViews.Mesh(shackle, PropViews.Steel));
+        var hole = new MeshBuilder();
+        PropMeshes.Box(hole, new Vector3(0, -0.03f, 0.072f), new Vector3(0.03f, 0.065f, 0.004f), new Color(0.05f, 0.04f, 0.03f));
+        _lock.AddChild(PropViews.Mesh(hole, PropViews.VertexColored, false));
+        // a lamp's glow on the iron, so it reads in the dark
+        _lamp = PropViews.Light(new Color(1f, 0.78f, 0.45f), 0.9f, 3.4f);
+        _lamp.Position = new Vector3(-0.4f, h * 0.7f, 1.8f);
+        AddChild(_lamp);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var g = (VaultGate)Owner2D;
+        Follow(default, 0f);
+        float h = W3.M(g.Height);
+        // opened, it grinds up into the rock
+        float rise = W3.Smooth01(g.Rise) * (h + 0.6f);
+        // (rattled without a key, it shudders)
+        float shake = g.Rattle > 0 ? MathF.Sin(Time * 60f) * 0.025f * g.Rattle : 0f;
+        _grate.Position = new Vector3(shake, rise, 0);
+        _lock.Visible = !g.Opened;
+        _lock.Position = new Vector3(shake, _lock.Position.Y, _lock.Position.Z);
+        _lamp.LightEnergy = g.Opened ? Math.Max(0f, 0.9f - g.OpenT * 0.5f) : 0.8f + 0.1f * MathF.Sin(Time * 2.5f);
+    }
+}
+
 public partial class ChestView : PropView
 {
     private Node3D _lid;
     private MeshInstance3D _shine;
     private OmniLight3D _light;
+    private bool _vault;
 
     protected override void Build()
     {
         const float w = 0.72f, d = 0.5f, h = 0.46f;
+        // (the vault's chest: black iron bound in gold, with a violet gleam for its side-grades)
+        _vault = ((Chest)Owner2D).Vault;
+        var wood = _vault ? new Color(0.13f, 0.12f, 0.15f) : new Color(0.38f, 0.22f, 0.11f);
         var body = new MeshBuilder();
-        PropMeshes.Box(body, new Vector3(0, h * 0.5f, 0), new Vector3(w, h * 0.5f, d), new Color(0.38f, 0.22f, 0.11f));
+        PropMeshes.Box(body, new Vector3(0, h * 0.5f, 0), new Vector3(w, h * 0.5f, d), wood);
         AddChild(PropViews.Mesh(body, PropViews.VertexColored));
         var bands = new MeshBuilder();
         foreach (float x in new[] { -w * 0.7f, w * 0.7f })
@@ -804,7 +926,7 @@ public partial class ChestView : PropView
         _lid = new Node3D { Position = new Vector3(0, h, -d) };
         AddChild(_lid);
         var lid = new MeshBuilder();
-        PropMeshes.Box(lid, new Vector3(0, 0.12f, d), new Vector3(w * 1.02f, 0.12f, d * 1.02f), new Color(0.44f, 0.26f, 0.13f));
+        PropMeshes.Box(lid, new Vector3(0, 0.12f, d), new Vector3(w * 1.02f, 0.12f, d * 1.02f), _vault ? new Color(0.16f, 0.15f, 0.19f) : new Color(0.44f, 0.26f, 0.13f));
         _lid.AddChild(PropViews.Mesh(lid, PropViews.VertexColored));
         var lidBands = new MeshBuilder();
         foreach (float x in new[] { -w * 0.7f, w * 0.7f })
@@ -834,7 +956,9 @@ public partial class ChestView : PropView
         }
         else
         {
-            PropViews.SetSprite(_shine, new Color(1f, 0.85f, 0.4f, 0.35f + 0.1f * MathF.Sin(Time * 3)), 4, 1f);
+            var tint = _vault ? new Color(0.85f, 0.6f, 1f) : new Color(1f, 0.85f, 0.4f);
+            PropViews.SetSprite(_shine, new Color(tint, 0.35f + 0.1f * MathF.Sin(Time * 3)), 4, 1f);
+            _light.LightColor = _vault ? new Color(0.85f, 0.65f, 1f) : new Color(1f, 0.8f, 0.45f);
             _light.LightEnergy = 0.7f + 0.15f * MathF.Sin(Time * 3);
         }
     }

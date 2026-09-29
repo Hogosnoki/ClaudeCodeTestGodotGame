@@ -14,6 +14,7 @@ namespace DaggerCave;
 ///    as it walks one way, then the other.
 ///  * magma: the Magma Caverns hide chests in the lava; lava throws a hero out, but with Magma
 ///    Skin they swim in it (burned for 30%), swim up out of it, and open a chest down there.
+///  * vault: keys and the vault's gate (see Main.VaultTest.cs).
 /// </summary>
 public partial class Main
 {
@@ -53,6 +54,7 @@ public partial class Main
         "mouth" => "entrance",
         "drain" => "entrance",
         "magma" => "magma",
+        "vault" => "den",
         _ => null,
     };
 
@@ -68,7 +70,7 @@ public partial class Main
     {
         // (the cave mouth's scenario carries on after the run ends, at the title)
         // (the magma scenario opens a chest down in the lava and takes a card)
-        if (_scDone || (_state != State.Playing && _scenario != "mouth" && !(_scenario == "magma" && _upgradeMenu.Visible))) return;
+        if (_scDone || (_state != State.Playing && _scenario != "mouth" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
         _scT += dt;
         switch (_scenario)
         {
@@ -77,6 +79,7 @@ public partial class Main
             case "mouth": MouthScenario(); break;
             case "drain": DrainScenario(); break;
             case "magma": MagmaScenario(); break;
+            case "vault": VaultScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }

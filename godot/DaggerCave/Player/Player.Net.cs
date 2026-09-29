@@ -70,6 +70,7 @@ public partial class Player
         w.Half(Stats.MaxHp);
         w.Byte((byte)Math.Clamp(Level, 0, 255));
         w.Byte((byte)Math.Clamp(Potions, 0, 255));
+        w.Byte((byte)Math.Clamp(Keys, 0, 255));
         w.HVec(ShieldDir);
         w.Byte((byte)(Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1) * 255));
         w.Byte((byte)(Math.Clamp(_castGlow, 0, 1) * 255));
@@ -92,6 +93,7 @@ public partial class Player
         Stats.MaxHp = Math.Max(1f, r.Half());
         Level = r.Byte();
         Potions = r.Byte();
+        Keys = r.Byte();
         ShieldDir = r.HVec();
         _netShieldStrength = r.Byte() / 255f;
         _castGlow = Math.Max(_castGlow, r.Byte() / 255f);
@@ -166,6 +168,21 @@ public partial class Player
     {
         Dead = down;
         if (!down) _net.Clear();
+    }
+
+    /// <summary>A key picked up (online, handed over by the host): one more carried.</summary>
+    public void GainKey()
+    {
+        if (Keys >= Tune.Vault.MaxKeys) return;
+        Keys++;
+        G.Sfx.Play("chest", GlobalPosition, -4, 0, 1.8f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -20), "+KEY", new Color(1f, 0.82f, 0.4f), 11, 1f);
+    }
+
+    /// <summary>A key spent on a vault's gate.</summary>
+    public void SpendKey()
+    {
+        if (Keys > 0) Keys--;
     }
 
     /// <summary>Back on your feet (a friend held on long enough), with a share of your health.</summary>

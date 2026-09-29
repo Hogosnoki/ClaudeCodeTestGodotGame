@@ -56,6 +56,8 @@ public partial class Player : CharacterBody2D
     public int PendingMilestones;
     /// <summary>Potions carried (drink with Q / Y).</summary>
     public int Potions = 1;
+    /// <summary>Keys carried: any opens any vault's gate (up to Tune.Vault.MaxKeys; they go on down with you).</summary>
+    public int Keys;
     /// <summary>Set each frame while stuck in a web.</summary>
     public float WebbedT;
     private float _hotLeft, _hotRate, _lavaTick, _xpFrac, _slideDust;
@@ -272,13 +274,14 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>
-    /// Opens the chest the hero stands at (the interact button), or walks into an exit (interact,
-    /// or a deliberate push up). Nothing happens by just walking past.
+    /// Opens the chest the hero stands at (the interact button), or a vault's gate with a key, or
+    /// walks into an exit (interact, or a deliberate push up). Nothing happens by just walking past.
     /// </summary>
     private void TryInteract(bool button)
     {
         if (Dead || G.Main.MenuOpen) return;
         if (button && Chest.At(GlobalPosition) is Chest chest) { chest.Interact(); return; }
+        if (button && VaultGate.At(GlobalPosition) is VaultGate gate) { gate.TryOpen(this); return; }
         // only standing at the door (or swimming): not mid-jump, or while an attack is under way
         if ((!IsOnFloor() && !InWater) || IsSwinging) return;
         foreach (var n in G.World.GetChildren())

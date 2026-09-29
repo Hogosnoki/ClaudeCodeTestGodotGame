@@ -204,6 +204,8 @@ public partial class Chest : Node2D
     public string[] Cards;
     /// <summary>Online: who is looking in it right now (0 = nobody). Only they can take from it.</summary>
     public int LookingBy;
+    /// <summary>The vault's chest: side-grades and a rare class card, instead of the usual deal.</summary>
+    public bool Vault;
     /// <summary>This game's hero just asked to look in it (online, waiting for the host's answer).</summary>
     public bool Asked => _askT > 0;
     /// <summary>Every chest in the level (for the prompt and the interact button).</summary>
@@ -240,7 +242,9 @@ public partial class Chest : Node2D
         _askT = 0;
         if (Cards == null)
         {
-            Cards = Upgrades.RollChestCards(G.Player.Stats, Net.Online ? NetSync.PartyHeroes() : null, G.Main.Rng, GlobalPosition);
+            var party = Net.Online ? NetSync.PartyHeroes() : null;
+            Cards = Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
+                          : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition);
             NetSync.ChestCards(this);
         }
         G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.3f);
@@ -273,7 +277,8 @@ public partial class Chest : Node2D
 
     public override void _Draw()
     {
-        var wood = new Color(0.5f, 0.3f, 0.15f);
+        // (the vault's: black iron bound in gold)
+        var wood = Vault ? new Color(0.18f, 0.17f, 0.2f) : new Color(0.5f, 0.3f, 0.15f);
         var band = new Color(0.85f, 0.7f, 0.25f);
         if (!_open) DrawCircle(new Vector2(0, -8), 20 + MathF.Sin(_t * 3) * 2, new Color(1f, 0.85f, 0.4f, 0.08f));
         DrawRect(new Rect2(-11, -12, 22, 12), wood);

@@ -157,7 +157,7 @@ public static partial class CaveGenerator
 
     /// <summary>
     /// The shared end of every style: solid border, speck cleanup, extra structures, ledges, the
-    /// traversal check with repairs, spawn points and rock depth.
+    /// traversal check with repairs, spawn points, the vault and rock depth.
     /// </summary>
     private static CaveData Finish(CaveData cave, Field f, Random rng, Vector2I startCell, List<Stamp> spawnStamps, int spawnStride,
         Action late = null, bool platforms = true)
@@ -172,6 +172,7 @@ public static partial class CaveGenerator
         if (platforms) AddPlatforms(cave, rng);
         ValidateAndRepair(cave, startCell);
         BuildSpawns(cave, spawnStamps, new Vector2(startCell.X, startCell.Y), rng, spawnStride);
+        CarveVault(cave, rng);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
     }
@@ -198,7 +199,9 @@ public static partial class CaveGenerator
 
     /// <summary>
     /// One long, gently winding tunnel from the daylight at the left to the guardian's chamber at
-    /// the right, widening into the odd cavern, with a few side pockets holding treasure.
+    /// the right, widening into the odd cavern, with a few side pockets holding treasure. The
+    /// chamber stands well in from the far edge: the vault is cut into the rock beyond its far
+    /// wall (a gently winding tunnel has no wall of its own to cut one into).
     /// </summary>
     private static CaveData GenerateCorridor(int seed)
     {
@@ -218,7 +221,9 @@ public static partial class CaveGenerator
         cave.Mouth = new Vector2(5.5f, startFloor) * CaveData.Cell;
 
         float x = sx + 4, y = startFloor - r, slope = 0;
-        float xEnd = W - 34;
+        // (room past the guardian's chamber for the vault)
+        const float vaultRoom = 22;
+        float xEnd = W - 34 - vaultRoom;
         float nextCavern = x + Rnd(30, 45);
         var pocketAt = new List<float>();
         for (int k = 0; k < 3; k++) pocketAt.Add(Mathf.Lerp(x + 25, xEnd - 20, (k + Rnd(0.2f, 0.8f)) / 3f));
@@ -260,7 +265,7 @@ public static partial class CaveGenerator
         // the guardian's chamber at the end
         float bfloor = y + r;
         const float brx = 13, bry = 7.5f;
-        float bcx = W - 20;
+        float bcx = W - 20 - vaultRoom;
         f.Line(new Vector2(x, y), new Vector2(bcx - brx + 2, bfloor - r), r);
         f.Dome(bcx, bfloor, brx, Math.Min(bry, bfloor - 5), true);
         f.FloorAt(bcx - brx - 2, bcx + brx + 2, bfloor, 5);
@@ -294,13 +299,13 @@ public static partial class CaveGenerator
         int roomCount = (int)MathF.Round(B.RoomCount * Tune.Cave.WidthScale);
         if (line)
         {
-            // along one level, left to right
+            // along one level, left to right (leaving room past the last for the vault)
             float x = 5;
             for (int k = 0; k < roomCount; k++)
             {
                 float rr = Rnd(B.RoomRMin, B.RoomRMax);
                 float cx = x + rr + (k == 0 ? 0 : Rnd(5, 11));
-                if (cx + rr > W - 5) break;
+                if (cx + rr > W - 5 - 22) break;
                 float cy = H * 0.47f + Rnd(-1, 1) * H * B.RoomYSpread;
                 rooms.Add(new RoomPlan { X = cx, Y = cy, R = rr });
                 x = cx + rr;

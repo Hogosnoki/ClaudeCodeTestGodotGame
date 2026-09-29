@@ -58,6 +58,7 @@ In the cave:
   * Experience is shared. Look in a chest with E (LT): its cards are the same for
     everyone. Take one, or leave it closed for a friend and tell them what's inside.
     A card for another hero is shown, but only they can take it.
+  * A key goes to whoever picks it up, and opens the vault's gate for everyone.
   * At the very start, the daylight at the far left is the way back out: if everyone
     waits there (E / LT), you all walk out and the run ends, keeping nothing.
   * Pausing doesn't stop the game online (the others keep playing).
@@ -80,7 +81,8 @@ CONTROLS (change them in Settings: on the main menu, or pause with ESC / START)
 -------------------------------------------------------------------------------
 Keyboard + mouse: A / D move, SPACE jump, LEFT CLICK attack (hold it to keep
 attacking), RIGHT CLICK ability, F second ability, SHIFT dodge / shield / hex /
-updraft / vanish, E interact (chests, exits, reviving, the way out), Q potion.
+updraft / vanish, E interact (chests, vault gates, exits, reviving, the way out),
+Q potion.
 Controller: left stick move, A jump, X attack (hold it to keep attacking), RB ability,
 RT second ability, B or LB dodge / shield / hex / updraft / vanish, LT interact,
 Y potion. The right stick attacks where you push it (the Warden's raises the shield
@@ -93,10 +95,21 @@ Each card's colour and label tell you its kind:
   * CLASS (gold): grows one of your hero's four abilities. Every chest holds one.
   * ALTERATION (teal): changes how an ability works (one per ability). Only
     milestones offer them, and each has upgrades of its own.
-  * GENERIC (pale blue), CONDITIONAL (green) and RISK - REWARD (violet): the other
-    two cards in a chest.
+  * GENERIC (pale blue) and CONDITIONAL (green): the other two cards in a chest.
+  * RISK - REWARD (violet): something given, something taken. Only vaults hold them.
 Your stats grow by themselves at every level. To see your build (every ability's
 tree, and what you've taken), press TAB (BACK on a controller) while picking a
 card, or choose "Your build" in the pause menu.
 Deep down, Magma Skin lets you swim in lava: the Magma Caverns hide chests at the
 bottom of it.
+
+
+KEYS AND VAULTS
+---------------
+Every level (but the dragon's) has one vault: a dead end shut by an iron gate,
+marked VAULT on the minimap. Any key opens any vault's gate (E / LT at the gate).
+Each level holds two keys: the first mini-boss you slay there drops one, and the
+other lies hidden somewhere out of the way (watch for a faint golden glint; on a
+level with no mini-boss, both are hidden). You can carry three, and keys you
+don't use come down with you to the next level.
+A vault's chest holds two RISK - REWARD cards and a rare class card.

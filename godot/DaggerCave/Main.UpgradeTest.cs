@@ -74,7 +74,8 @@ public partial class Main
                         chests++;
                         int cls = cards.Count(u => u.Kind == UpgradeKind.Class);
                         if (cards.Count != 3 || cards.Any(u => u.Alteration) || cls < 1 && Upgrades.Chest.Any(u => u.Kind == UpgradeKind.Class && Upgrades.Available(u, s))
-                            || cards.Count(u => u.For == null) < Math.Min(2, Upgrades.Chest.Count(u => u.For == null && Upgrades.Available(u, s)))
+                            || cards.Count(Upgrades.IsChestFiller) < Math.Min(2, Upgrades.Chest.Count(u => Upgrades.IsChestFiller(u) && Upgrades.Available(u, s)))
+                            || cards.Any(u => u.Kind == UpgradeKind.SideGrade)
                             || cards.Any(u => !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) chestBad++;
                     }
                     // take one (the stats only: no hero is needed to count stacks)
@@ -86,11 +87,46 @@ public partial class Main
                         if (s.StackOf(u.Requires) == 0) orphans++;
                 }
             }
-            Check($"{h}: {chests} chests each hold a class card and two others, never an alteration ({chestBad} wrong)", chestBad == 0);
+            Check($"{h}: {chests} chests each hold a class card and two others, never an alteration or a side-grade ({chestBad} wrong)", chestBad == 0);
             Check($"{h}: {milestones} milestones hold only the hero's own cards ({mileBad} wrong)", mileBad == 0);
             Check($"{h}: every milestone offers an alteration while any are left ({noAlteration} without)", noAlteration == 0);
             Check($"{h}: an ability never takes two alterations ({twoPerAbility})", twoPerAbility == 0);
             Check($"{h}: an alteration's upgrades only come after it ({orphans} early)", orphans == 0);
+        }
+
+        // a vault's chest: two side-grades while any are left, and a rare class card, never an alteration
+        foreach (var h in heroes)
+        {
+            int vaults = 0, vaultBad = 0, rareSeen = 0;
+            for (int run = 0; run < 30; run++)
+            {
+                var s = new PlayerStats(h);
+                for (int k = 0; k < 12; k++)
+                {
+                    var cards = Upgrades.RollVaultCards(s, null, rng).Select(Upgrades.Get).ToList();
+                    vaults++;
+                    int sides = cards.Count(u => u.Kind == UpgradeKind.SideGrade), rare = cards.Count(Upgrades.IsRare);
+                    int sidesLeft = Upgrades.Chest.Count(u => u.Kind == UpgradeKind.SideGrade && Upgrades.Available(u, s));
+                    bool rareLeft = Upgrades.Chest.Any(u => Upgrades.IsRare(u) && Upgrades.Available(u, s));
+                    if (cards.Count != 3 || cards.Distinct().Count() != 3 || cards.Any(u => u.Alteration || !Upgrades.Available(u, s))
+                        || sides != Math.Min(2, sidesLeft) || (rareLeft && rare < 1)) vaultBad++;
+                    rareSeen += rare;
+                    // take one (as a player would)
+                    var take = cards[rng.Next(cards.Count)];
+                    s.Stacks[take.Id] = s.StackOf(take.Id) + 1;
+                }
+            }
+            Check($"{h}: {vaults} vault chests each hold side-grades (two while any are left) and a rare class card, never an alteration ({vaultBad} wrong)", vaultBad == 0 && rareSeen > 0);
+        }
+        {
+            // (a party's vault: its rare card may be a friend's, locked to them)
+            var s = new PlayerStats(HeroKind.Rogue);
+            var party = new[] { HeroKind.Rogue, HeroKind.Warden, HeroKind.Vitalist };
+            var whose = new HashSet<HeroKind>();
+            for (int k = 0; k < 200; k++)
+                foreach (var u in Upgrades.RollVaultCards(s, party, rng).Select(Upgrades.Get))
+                    if (Upgrades.IsRare(u)) foreach (var h in u.For) whose.Add(h);
+            Check($"a party's vault may hold any of its heroes' rare cards ({string.Join(", ", whose)})", party.All(whose.Contains));
         }
 
         // one alteration per ability: the other is locked, and named

@@ -29,7 +29,7 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 5;
+    public const int Version = 6;
     public const int MaxPlayers = 5;
 
     /// <summary>
@@ -338,6 +338,8 @@ public static partial class Net
         ChestLook, ChestCards, ChestDone,
         /// <summary>A barrier or a mending for another player's hero.</summary>
         HeroBoon,
+        /// <summary>Vault gates: a hero with a key asks the host, and the host opens one (and says whose key).</summary>
+        GateAsk, GateOpened,
         /// <summary>The two-game test harness (--nettest) talking to itself.</summary>
         Test,
     }

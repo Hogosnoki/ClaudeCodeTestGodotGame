@@ -450,6 +450,26 @@ public static class Tune
         public static float ZoneBias = 4f, HighZoneFraction = 0.5f;
     }
 
+    // =============================================================================== KEYS AND VAULTS
+    public static class Vault
+    {
+        /// <summary>
+        /// One vault a level (not the dragon's lair): a dead end cut into the rock behind an iron
+        /// gate, a passage CorridorCells long and CorridorRows tall opening into a chamber
+        /// ChamberCells wide and ChamberRows tall, at least MinFromStart cells from where you
+        /// start. Its chest holds side-grades and a rare class card.
+        /// </summary>
+        public static int CorridorCells = 5, CorridorRows = 3, ChamberCells = 9, ChamberRows = 5;
+        public static float MinFromStart = 40f;
+        /// <summary>Keys a hero can carry. Any key opens any gate; unused ones carry on down.</summary>
+        public static int MaxKeys = 3;
+        /// <summary>Keys a level holds: one dropped by the first mini-boss slain there (hidden
+        /// instead where no mini-boss lairs), the rest hidden.</summary>
+        public static int KeysPerLevel = 2;
+        /// <summary>A hidden key lies at least this far (px) from the start, the vault and the chests.</summary>
+        public static float HiddenKeyFromStart = 700f, HiddenKeySpacing = 260f;
+    }
+
     // =============================================================================== ENEMIES
     // Hp and Damage are the values at minute 0 (the difficulty curve multiplies them).
     // Speeds are in px/s at minute 0 (the tempo curve multiplies them).

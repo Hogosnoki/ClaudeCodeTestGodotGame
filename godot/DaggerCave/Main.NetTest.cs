@@ -70,7 +70,8 @@ public partial class Main
 
     private void NtNext() { _ntPhase++; _ntPhaseT = 0; }
     private bool _ntSawBarrier;
-    private int _ntRogueStep;
+    private int _ntRogueStep, _ntVault;
+    private float _ntVaultT;
 
     /// <summary>Where the test's exit leads (a Fossil Graveyard: big chambers, a camera to watch).</summary>
     private const int NtDepth = 5;
@@ -136,15 +137,18 @@ public partial class Main
 
     private static Player OtherHero() => G.Players.FirstOrDefault(h => h != G.Player && GodotObject.IsInstanceValid(h) && h.IsRemote);
 
-    /// <summary>The level's own chests: which, and where (the same in every game, or the games have split).</summary>
+    /// <summary>The level's own chests, its vault's gate and its hidden keys: which, and where (the
+    /// same in every game, or the games have split).</summary>
     private string ChestSig()
     {
-        var chests = _world.GetChildren().OfType<Chest>()
-            .Select(c => (id: NetSync.IdOf(c), c.Position))
+        string Sig(IEnumerable<Node2D> nodes) => string.Join(";", nodes
+            .Select(n => (id: NetSync.IdOf(n), n.Position))
             .Where(x => x.id > 0 && x.id < 1_000_000)
             .OrderBy(x => x.id)
-            .Select(x => $"{x.id}@{(int)x.Position.X},{(int)x.Position.Y}");
-        return $"{G.Depth}/{G.Biome.Id}/{G.Cave.Seed}/{string.Join(";", chests)}";
+            .Select(x => $"{x.id}@{(int)x.Position.X},{(int)x.Position.Y}"));
+        var kids = _world.GetChildren();
+        return $"{G.Depth}/{G.Biome.Id}/{G.Cave.Seed}/{Sig(kids.OfType<Chest>())}"
+             + $"/gate {Sig(kids.OfType<VaultGate>())}/keys {Sig(kids.OfType<KeyPickup>().Where(k => k.Stashed))}";
     }
 
     /// <summary>A hero that shrugs off stray creatures for the length of the test.</summary>
@@ -228,7 +232,7 @@ public partial class Main
                 break;
             case 2:
             {
-                if (NtGot("cave-ok", out var r)) NtCheck($"the friend's game built the same cave, chests and all ({r})", true);
+                if (NtGot("cave-ok", out var r)) NtCheck($"the friend's game built the same cave, with the same chests, vault and hidden keys ({r})", true);
                 else if (NtGot("cave-bad", out r)) NtCheck($"the friend's game built the same cave ({r})", false);
                 else { if (_ntPhaseT > 20) NtFail("the friend compares caves"); break; }
                 // a golem beside the friend (held still), for them to strike
@@ -397,10 +401,35 @@ public partial class Main
             case 12:
             {
                 if (_ntArriveT < 3.5f) break;
-                if (!NtGot("cam", out var fc)) { if (_ntPhaseT > 20) NtFail("the friend checks their view"); break; }
-                NtCheck($"down there, this game's view stays on its own hero (at worst {_ntCamWorst:0.00} of the way to the edge)", _ntCamWorst < 0.6f);
-                NtCheck($"and the friend's view stays on theirs ({fc})", fc.StartsWith("ok"));
-                NtTough();
+                if (_ntVault == 0)
+                {
+                    if (!NtGot("cam", out var fc)) { if (_ntPhaseT > 20) NtFail("the friend checks their view"); break; }
+                    NtCheck($"down there, this game's view stays on its own hero (at worst {_ntCamWorst:0.00} of the way to the edge)", _ntCamWorst < 0.6f);
+                    NtCheck($"and the friend's view stays on theirs ({fc})", fc.StartsWith("ok"));
+                    NtTough();
+                    _ntVault = 3;
+                    // keys and the vault: a key at the friend's feet (the host's hero well away
+                    // from it; the host says who holds it)
+                    if (Gate != null && friend != null)
+                    {
+                        var away = G.Cave.Spawns.Where(s => s.Kind == SpawnKind.Ground && s.Pos.DistanceTo(friend.GlobalPosition) > 250).Select(s => s.Pos).FirstOrDefault();
+                        if (away != default) { G.Player.GlobalPosition = away + new Vector2(0, -16); G.Player.Velocity = Vector2.Zero; }
+                        NetSync.Scope++;
+                        try { G.Spawn(new KeyPickup { Position = friend.GlobalPosition + new Vector2(0, -6) }); }
+                        finally { NetSync.Scope--; }
+                        NtSay("vault-key");
+                        _ntVault = 1;
+                        _ntPhaseT = 0;
+                    }
+                    else NtCheck($"(this level has a vault to open: {Gate != null})", false);
+                }
+                if (_ntVault == 1)
+                {
+                    if (NtGot("vault-open", out var vr)) NtCheck($"the friend picked up the key and opened the vault's gate with it: open here too ({Gate?.Opened}; {vr})", Gate != null && Gate.Opened && vr.StartsWith("ok"));
+                    else if (NtGot("vault-bad", out vr)) NtCheck($"the friend opens the vault with the key ({vr})", false);
+                    else { if (_ntPhaseT > 30) NtFail("the friend opens the vault"); break; }
+                    _ntVault = 3;
+                }
                 NtSay("all-fall");
                 G.Player.GiveUp();
                 NtNext();
@@ -668,9 +697,41 @@ public partial class Main
                 break;
             }
             case 18:
+            {
+                // (first, the host drops a key at my feet for me to open the vault with)
+                if (_ntVault == 0 && NtGot("vault-key", out _)) { _ntVault = 1; _ntVaultT = 0; }
+                if (_ntVault == 1)
+                {
+                    _ntVaultT += _ntDt;
+                    if (G.Player.Keys >= 1 && Gate != null)
+                    {
+                        NtCheck($"the key the host dropped at my feet is mine (keys {G.Player.Keys})", true);
+                        // (on the gate's doorstep)
+                        G.Player.GlobalPosition = Gate.GlobalPosition + new Vector2(-Gate.Side * 14, -14);
+                        G.Player.Velocity = Vector2.Zero;
+                        _ntVault = 2; _ntVaultT = 0;
+                    }
+                    else if (_ntVaultT > 10) { NtCheck($"the key comes to me (keys {G.Player.Keys}, vault {Gate != null})", false); NtSay("vault-bad no key"); _ntVault = 3; }
+                    break;
+                }
+                if (_ntVault == 2)
+                {
+                    _ntVaultT += _ntDt;
+                    if (Gate != null && !Gate.Opened && _ntVaultT > 0.3f) _ntInput.Interact = true;
+                    if (Gate != null && Gate.Opened)
+                    {
+                        bool ok = G.Player.Keys == 0;
+                        NtCheck($"my key opened the vault's gate (open {Gate.Opened}), and it's spent (keys {G.Player.Keys})", ok);
+                        NtSay(ok ? "vault-open ok, keys 0" : $"vault-bad keys {G.Player.Keys}");
+                        _ntVault = 3;
+                    }
+                    else if (_ntVaultT > 10) { NtCheck("my key opens the vault's gate", false); NtSay("vault-bad still shut"); _ntVault = 3; }
+                    break;
+                }
                 if (NtGot("all-fall", out _)) { G.Player.GiveUp(); NtNext(); }
-                else if (_ntPhaseT > 30) NtFail("the host asks everyone to fall");
+                else if (_ntPhaseT > 60) NtFail("the host asks everyone to fall");
                 break;
+            }
             case 19:
                 if (_state == State.Dead)
                 {

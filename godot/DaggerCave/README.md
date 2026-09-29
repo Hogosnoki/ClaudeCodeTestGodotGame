@@ -9,7 +9,8 @@ up, down), but everything you see is 3D: sculpted rock, lit water and lava, skin
 creatures, and effects with real light (see **3D presentation** below). Each level is a biome with its own
 cave generator, creatures and hazards. Slay the guardian of each level's exit, then choose one of
 two ways down: a gentle one (one depth deeper) or a steep one (two deeper), each into a
-different biome. Depth 10 is the dragon's lair. Every run begins and ends at the camp outside the cave,
+different biome. Each level also has a vault behind an iron gate, and two keys to find (see
+**Keys and vaults**). Depth 10 is the dragon's lair. Every run begins and ends at the camp outside the cave,
 where the heroes sit round a cooking fire; between runs, embers and rare resources buy permanent
 ranks in the upgrade trees. Up to five friends can play together online, one of each
 hero (see **Playing with friends online**).
@@ -88,8 +89,9 @@ In the cave:
   up and picks their own upgrades. A chest's cards are dealt for the whole party, and everyone
   sees the same ones: look in (interact at the chest), and take a card or leave it closed for
   someone else (tell them what's in it). A card for another hero is shown but only they can take
-  it, one player looks in a chest at a time, and taking a card spends it for everyone. Hearts
-  and potions go to whoever touches them. Kills count for whoever landed the blow.
+  it, one player looks in a chest at a time, and taking a card spends it for everyone. Hearts,
+  potions and keys go to whoever touches them, and a vault's gate opened with anyone's key is
+  open for everyone. Kills count for whoever landed the blow.
 - **Harder caves**: creatures have 50% more health for each extra player, and the cave holds
   35% more of them.
 - **Pausing** opens the menu but doesn't stop the game (the others are still playing), and
@@ -134,6 +136,7 @@ Handy starting points:
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
 | Chests vs level-ups | `Drops.TreasureRoomChestChance`, `Drops.ZoneBias`; the cards are `Upgrades.Chest`, the level-up stats `Progression.AutoLevel` |
+| Keys and vaults | `Vault.*` (the vault's passage and chamber, how far from the start, keys per level and how many a hero carries, where hidden keys may lie); a vault chest's cards are `Upgrades.RollVaultCards` |
 | How fast it gets hard | `Difficulty.DepthGrowth`, `Difficulty.DoublingMinutes` (tougher creatures), `Difficulty.PacePerDepth`, `Difficulty.PaceMinutesPerStep` (more of them), `Difficulty.TempoCap` |
 | How busy it is | `Spawning.IntervalStart`, `Spawning.RateDoublingMinutes`, `Spawning.IntervalMin`, `Spawning.ResidentFillStart`, `Spawning.CapBase` |
 | Map size | each biome's `W` and `H` in `Core/Biomes.cs`, then `Cave.WidthScale` (1.5: every level is half again as wide, the same height; the dragon's arena keeps its size) |
@@ -257,8 +260,9 @@ The panel's columns:
 | Second ability: heaving swing / shield bash / rupture | F (or middle click, or I) | RT |
 | Dodge roll / hold to raise the shield / hex | Shift (or L); the shield points at the mouse | B or LB; the shield points along the right stick, or the way you face |
 | Raise the Warden's shield without a button | - | Push the right stick: the shield rises by itself and points along it, even behind you while you run the other way |
-| Interact: open a chest, go down an exit, bring a friend back | E | LT |
+| Interact: open a chest or a vault's gate, go down an exit, bring a friend back | E | LT |
 | Open a chest | E beside it (walking into it doesn't open it) | LT |
+| Open a vault's gate (it takes a key) | E at the gate | LT |
 | Go down an exit | E, or W / up, at the doorway | LT, or the stick / D-pad up, at the doorway |
 | Bring a fallen friend back (online) | Hold E beside them | Hold LT beside them (both thumbs stay free to swim) |
 | Leave the cave (depth 0: ends the run, keeping nothing) | E at the daylight at the far left | LT |
@@ -313,6 +317,23 @@ up, so an exit that opens under your feet can't whisk you away from the guardian
 depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp fire, with
 how the run went.
 
+**Keys and vaults** (`Combat/Vault.cs`, `Cave/VaultGen.cs`). Every level but the dragon's lair
+has one vault: a dead end cut square into the rock, a short passage shut by an iron gate with a
+padlock and a lamp over it, and a chamber behind it holding a dark chest. It's marked VAULT on the
+minimap (VAULT (OPEN) once it is). The gate keeps everything out, heroes and creatures alike;
+interact at it with a key (E / LT) and the lock drops and the gate grinds up into the rock for
+good. The key is spent, and any key opens any vault's gate. Without one, the gate only rattles.
+- **Keys**: a level holds two. The first mini-boss slain there drops one beside its chest; the
+  other lies hidden somewhere you'd have to go looking (a treasure dead end, the flooded floor, a
+  ledge up high, at least 700 px from the start and well clear of the guardian, the vault and the
+  chests), glinting faintly now and then. On a level with no mini-boss, both are hidden.
+- A hero carries three at most (the HUD shows them beside the potions, and a fourth stays where it
+  lies, "KEYS FULL"). Keys you don't use come down with you to the next level. Online, a key goes
+  to whoever touches it first, and a gate opened with it opens in every game.
+- **A vault's chest** holds two risk-and-reward cards (only vaults deal them) and one rare class
+  card: one of the ability tier, such as Flurry, Phantom Step, Riposte Guard, Many Mouths, Long
+  Winter or Twin Throw (online, for any hero in the party, as a chest's class card may be).
+
 **Biomes** (`Core/Biomes.cs`, generators in `Cave/CaveGenerator.cs` and `Cave/BiomeGen.cs`).
 Each biome sets its generator and its parameters, palette, darkness, liquid, hazards, spawn tables,
 mini-bosses and guardian:
@@ -358,6 +379,20 @@ Tall open spaces get ledge staircases that zig-zag upward one jump at a time. Th
 down and thin out toward the roof (per biome: the crystal caves put ledges almost everywhere).
 Dead ends become treasure rooms, a few become elite mini-boss lairs, and the dead end farthest from
 the start becomes the exit chamber.
+
+**The vault** is cut last, after the traversal check (it only adds room you can walk into and back
+out of) and after the spawn points (nothing starts inside it). `Cave/VaultGen.cs` looks for a
+floor you can walk to, dry, well away from the start and clear of the guardian's chamber, beside a
+tunnel wall that is a thick slab of rock, and runs a straight passage (5 cells long, 3 tall) into
+the rock, opening into a chamber (9 by 5), both floored level with the tunnel and with a skin of
+rock all round, so it opens only into the tunnel it starts from. The farthest such spot from the
+start wins (a little shuffled). A curving wall gets a doorstep of up to three cells before the gate.
+Where there's no such spot clear of the guardian (and always in the Cave Entrance, whose winding
+tunnel has no wall of its own to cut into), the search allows the guardian's chamber too, and the
+vault is usually a treasury beyond its far wall: the Entrance's corridor and the Den's line of
+rooms stop 22 cells short of the level's end to leave it room. An attempt that can't fit a vault anywhere
+counts as worse, so the generator tries another seed, but a cave you could get stuck in always
+counts as worse still.
 
 **The heroes** (`Player/`: `Player.cs` for what they share, `Player.Blade.cs` for the sword and
 shortsword, `Player.Abilities.cs` for ability charges, `Player.Net.cs` for online play, and one
@@ -467,11 +502,11 @@ frame colour and the label at its top:
 | Kind | Colour | What it does | Where it comes from |
 | --- | --- | --- | --- |
 | Stats | | a little of everything, per hero | on their own at every level-up |
-| Class | gold | grows one of your hero's four abilities (its tree) | one in every chest; milestones |
+| Class | gold | grows one of your hero's four abilities (its tree) | one in every chest; milestones; a rare one in every vault |
 | Alteration | teal, glowing | changes how one ability works; an ability takes one at most, and each has upgrades of its own | milestones only (at least one on every milestone while any are left) |
 | Generic | pale blue | anyone's: damage, health, speed... | the other two cards in a chest |
 | Conditional | green | offered once something else is true (a double jump once you've a jump upgrade; Magma Skin from depth 6) | chests |
-| Risk and reward | violet | something given, something taken; each taken once | chests (vaults, later) |
+| Risk and reward | violet | something given, something taken; each taken once | vaults only (two in each) |
 
 - **Level-ups** are automatic. The Swordsman gains +2 max HP, +3% damage and +1.5% swing speed per
   level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
@@ -480,7 +515,7 @@ frame colour and the label at its top:
 - **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three of your hero's
   own cards (class upgrades and alterations), or leave it and take nothing.
 - **Chests**: interact at one (E / LT) to look inside. It holds one class card and two others
-  (generic, conditional or risk and reward). The cards are dealt the first time anyone looks, and
+  (generic or conditional). The cards are dealt the first time anyone looks, and
   stay the same until someone takes one: leave it, and it closes again with the same cards, for
   later or for a friend. Taking a card spends the chest (and heals you a little). Online, a
   chest's class card may be for any hero in the party, everyone sees the same cards, a card for
@@ -504,6 +539,8 @@ frame colour and the label at its top:
   - Where a chest is tilts its odds (`Drops.ZoneBias`). Movement upgrades are 4x likelier in
     underwater chests, which is how you gear up for the heights. Survival upgrades are 4x
     likelier in chests high in the cave.
+- **Vaults** (one a level, behind a gate that takes a key: see **Keys and vaults**) hold the
+  risk-and-reward cards: a vault's chest deals two of them and one rare class card.
 
 The trees (◆ an alteration; its upgrades are indented beneath it):
 
@@ -530,11 +567,19 @@ The trees (◆ an alteration; its upgrades are indented beneath it):
 | Rogue · Vanish | Surprise Attack (the attack that ends your vanishing, a jab, a throw or a recall, lands four times as hard), Quick Fade (back 20% sooner, twice), Deep Shadows (3 s longer, the smoke too) | ◆ Smoke Bomb: instead of vanishing alone, a cloud of smoke 70 px round for 6 s: every hero in it is hidden, and creatures in it can't find anyone · Thick Smoke (40% wider) |
 | Rogue · Recall | Rending Recall (twice as hard) | ◆ Tether: recall pulls you along the line to your dagger stuck in a creature, striking it as you arrive (rules out Ricochet) · Pounce (arriving is always a critical strike) |
 
+The rare class upgrades (a vault's chest holds one while any are left; chests and milestones deal
+them too):
+Flurry, Finisher, Downward Thrust and Heavy Pommel (both blades); Rending Edge, Crescent Wave,
+Executioner, Twin Charge, Crippling Strike, Storm Edge, Phantom Step and Second Wind (Swordsman);
+Riposte Guard, Iron Timing, Stalwart, Spiked Shield, Last Stand, Battering Charge and Rallying
+Charge (Warden); Many Mouths, Withering Hex and Burst Veins (Vitalist); Long Winter, Shrapnel and
+Echo (Elementalist); Backstab, Cruel Edge, Twin Throw, Surprise Attack and Rending Recall (Rogue).
+
 | Everyone | Cards |
 | --- | --- |
 | Generic | Quick Hands (attack speed), Whetstone (damage), Vitality (max HP), Resilience, Toughened Hide (damage reduction), Trophy Hunter (heal 1 per kill), Lodestone (XP magnet), Light Boots, Spring Step, Webbed Gloves, Deep Lungs (+50% breath) |
 | Conditional | Double Jump *or* Air Dash (rare; once you've a jump upgrade or Hollow Bones, or a speed upgrade), Magma Skin (from depth 6: swim in lava, and it burns you for only 30%) |
-| Risk and reward (each taken once, never offered again) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, each takes twice as long to come back), Glass Edge (deal 20% more, take 25% more), Stoneskin (take 25% less, deal 20% less), Drowned Lungs (never run out of breath, but all healing you receive is 30% weaker; it and Deep Lungs rule each other out) |
+| Risk and reward (vaults only; each taken once, never offered again) | Heavy Hand (attacks 34% slower but 66% harder), Hollow Bones (jump 20% higher, swim 40% slower), Gill-Touched (swim 50% faster, run 20% slower), Twin Reserve (your ability holds a second use, each takes twice as long to come back), Glass Edge (deal 20% more, take 25% more), Stoneskin (take 25% less, deal 20% less), Drowned Lungs (never run out of breath, but all healing you receive is 30% weaker; it and Deep Lungs rule each other out) |
 
 Boons: a barrier (Guardian's Charge) soaks blows before they reach your health, and shows as a
 pale shell around the hero; a mending (Slow Mending) heals over its seconds, and with Warding
@@ -575,7 +620,7 @@ Each one moves differently:
 | Elder Dragon | Stalks the arena floor, sweeps a cone of fire, flies up and dives with a ground-shaking landing, lashes its tail, and roars down a rain of fire. It enrages at half health and calls fire bats. |
 
 Biomes also field tinted variants (frost bears, rime skeletons, ember scorpions, obsidian golems,
-fire bats...). Mini-bosses are elite versions and drop a chest; guardians are elites with extra
+fire bats...). Mini-bosses are elite versions and drop a chest (the first slain on a level, a key too); guardians are elites with extra
 health and a title.
 
 **Between runs: embers, resources and the upgrade trees** (`Core/Meta.cs`, `UI/MetaMenu.cs`).
@@ -781,10 +826,10 @@ what the messages carry and do; `Main.Online.cs` is the flow of a run together;
 node (reliable and unreliable), over Godot's ENet peer.
 
 - **The host's game owns the cave.** Its spawner, rooms, guardian and every creature run there.
-  The other games build the same level from the host's seed (the chests placed while building
-  come from the seed too, so they match) and show copies (puppets) of the host's creatures,
-  updated twenty times a second and shown a tenth of a second behind, smoothly interpolated,
-  with the host's animation clip and frame.
+  The other games build the same level from the host's seed (the chests, the vault's gate and
+  the hidden keys placed while building come from the seed too, so they match) and show copies
+  (puppets) of the host's creatures, updated twenty times a second and shown a tenth of a second
+  behind, smoothly interpolated, with the host's animation clip and frame.
 - **Each game runs its own hero**, so it handles exactly as it does alone; the others see a
   puppet of it (its movement, animation, shield, staff glow and blade sweep).
 - **Blows cross over.** A blow on a copy of a creature is sent to the host, which applies it
@@ -792,22 +837,26 @@ node (reliable and unreliable), over Godot's ENet peer.
   to that player's game, which takes it with its own dodge, shield and invulnerability deciding
   what gets through.
 - **Things the host's creatures make** (thrown rocks, shockwaves, falling stones, lava, spore
-  clouds, dropped hearts, potions and experience, chests and exits) are sent as they appear, and
-  every game runs its own copy; a copy only ever hurts its own game's hero.
+  clouds, dropped hearts, potions, keys and experience, chests and exits) are sent as they
+  appear, and every game runs its own copy; a copy only ever hurts its own game's hero.
 - **Effects and sounds** made by the host's creatures and by each hero are recorded as they're
   made (`FxLayer`, `SoundBank`) and replayed in the other games, so everyone sees and hears the
   same fight.
-- **The host decides** who opens a chest, when everyone is at the same exit (and then sends the
-  next level's seed), and when the run is over. Experience is shared.
+- **The host decides** who opens a chest, who picks up a key (it goes to that player's game),
+  whose key opens a vault's gate (it's spent in that player's game, and the gate opens in every
+  game), when everyone is at the same exit (and then sends the next level's seed), and when the
+  run is over. Experience is shared.
 
 ## Test harness
 
 The harness takes command-line user args after `--`:
 
 ```
-# 12 seeds per biome: generation time, retries, trap cells (at most 6), a reachable exit;
-# saves a map image of each biome (add --biome=NAME for just one; --genverbose prints every
-# attempt, and --genimage=SEED saves that seed's map, or that attempt's with --genverbose)
+# 12 seeds per biome: generation time, retries, trap cells (at most 6), a reachable exit, and a
+# sound vault (sealed but for its gate, with a walkable way up to the gate; it exits 1 if any
+# level but the dragon's lair lacks one); saves a map image of each biome (add --biome=NAME for
+# just one; --genverbose prints every attempt, and --genimage=SEED saves that seed's map, or that
+# attempt's with --genverbose)
 godot --headless --path godot -- --gentest
 
 # The autopilot bot plays for 60 s and saves a screenshot every 3 s
@@ -817,7 +866,8 @@ xvfb-run godot --path godot --rendering-driver vulkan -- --autotest --seed=1013 
 xvfb-run godot --path godot --rendering-driver vulkan -- --seed=1013 --bestiary --shots=/tmp/shots
 
 # One screenshot after N frames (with --fixed-fps for a steady clock); --fxtest=K lays out one of
-# every effect K frames before the shot, --proptest one of every prop, --elementtest the
+# every effect K frames before the shot, --proptest one of every prop (a key and a vault's chest
+# among them), --elementtest the
 # Elementalist's spells (a blizzard, a firestorm, an updraft, bolts, a frozen and a burning goblin),
 # --roguetest the Rogue's (a dagger in flight, one stuck in a golem, a smoke cloud with a goblin
 # lost in it), --exittest the two exits
@@ -918,8 +968,10 @@ cloud; Tether pulling you to your dagger in a golem and striking it as you arriv
 sure critical.
 
 `--upgradetest` (headless, a few seconds) checks the rules of the cards over thousands of rolls
-for every hero: a chest holds one class card and two others, never an alteration; a milestone
-holds only the hero's own cards, with an alteration while any are left; an ability takes one
+for every hero: a chest holds one class card and two others, never an alteration or a
+risk-and-reward card; a vault's chest holds two risk-and-reward cards (while any are left) and a
+rare class card, never an alteration, and a party's vault may hold any of its heroes' rare
+cards; a milestone holds only the hero's own cards, with an alteration while any are left; an ability takes one
 alteration, and an alteration's upgrades wait for it; the primary attacks have none and every
 other ability has one; Wall Kick is gone; Unyielding Shield keeps out Quick Mend and Iron Timing;
 Deep Lungs and Drowned Lungs rule each other out, as do Ricochet and Tether; Magma Skin waits
@@ -940,7 +992,9 @@ in (offered the very same cards) and takes from (spent in both games), a barrier
 mending given to the friend's hero (held in their game, the barrier seen in the host's), a fallen
 friend brought back,
 going down an exit together into the same next level (a Fossil Graveyard, where each game's
-camera must stay on its own hero), the run ending for everyone, and then, back in the lobby, a
+camera must stay on its own hero), a key the host drops at the friend's feet going to the friend,
+who opens the level's vault with it (open in both games, and the key spent), the run ending for
+everyone, and then, back in the lobby, a
 second run that everyone walks straight out of through the cave mouth, back to the lobby. It exits
 0 only if both pass; the CI build runs it against the exported Linux build. Add
 `--ntshots=DIR` to the host (run with a window) for screenshots of the lobby, the fight, a
@@ -959,13 +1013,17 @@ Two more test modes:
   the menu, with a screenshot of each stage. `--campshot=DIR` renders the camp from the menu's
   view, from the fire with each hero chosen, and on the way to the cave.
 - `--scenario=NAME` stages one situation and checks it: `water` (a spider and a bear swim after
-  the hero and attack in the water), `mouth` (the way out at depth 0: up doesn't take you,
+  the hero and attack in the water; seed 1013 unless `--seed` says otherwise), `mouth` (the way out at depth 0: up doesn't take you,
   interact does, and nothing from the run is kept), `fossilcam` (the camera keeps the hero in view
   in the Fossil Graveyards), and `drain` with `--hero=vitalist` (a frame-by-frame picture of the
   drain's burst), and `magma` (the Magma Caverns hide their chests in the lava; lava burns a hero
   and throws them out, but with Magma Skin they swim in it for 30% of the burn, open a chest down
-  there and swim back up; seed 2 unless `--seed` says otherwise). Add `--shots=DIR` for
-  screenshots.
+  there and swim back up; seed 2 unless `--seed` says otherwise), and `vault` (a Den level: its
+  vault, a shut gate with a chest behind it, and its hidden keys well away from the start; the
+  gate stops a hero, and interacting without a key leaves it shut; a key walked over is picked up,
+  opens the gate and is spent; the vault's chest deals two risk-and-reward cards and a rare class
+  card; a fourth key stays where it lies; keys go down to the next level; and the first mini-boss
+  slain there drops a key). Add `--shots=DIR` for screenshots.
 - `--musicdump=DIR` saves the three music loops as `.wav` files.
 - `--padtest` drives the game with synthetic controller events: the main menu and the fire, move, swing, Charged
   Strike, dodge, the heaving swing, pick an upgrade from the level-up cards, pause, move through

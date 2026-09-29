@@ -182,8 +182,10 @@ public partial class Main : Node
         if (_nnTest) { RunNnTest(); return; }
         if (_netTest != "") { BeginNetTest(); return; }
 
-        // (the magma scenario wants a cave with a real lava lake unless told otherwise)
+        // (the magma scenario wants a cave with a real lava lake unless told otherwise, and the
+        // water scenario one with wide open water: not every Slime Cavern has it where creatures swim)
         if (_seed == 0 && _scenario == "magma") _seed = 2;
+        if (_seed == 0 && _scenario == "water") _seed = 1013;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
         if (_seed == 0 && _heroTest) _seed = 1013;
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
@@ -415,6 +417,8 @@ public partial class Main : Node
         Add(new XpOrb { Value = 10 }, p + new Vector2(-95, -52));
         Add(new HeartPickup(), p + new Vector2(-70, -45));
         Add(new PotionPickup(), p + new Vector2(-45, -45));
+        Add(new KeyPickup(), p + new Vector2(-20, -45));
+        Add(new Chest { Vault = true }, Floor(-200));
         Add(new EnemyProjectile { Kind = "rock", Vel = Vector2.Zero, Grav = 0, Life = 99 }, p + new Vector2(40, -70));
         Add(new EnemyProjectile { Kind = "lava", Vel = Vector2.Zero, Grav = 0, Life = 99 }, p + new Vector2(60, -70));
         Add(new EnemyProjectile { Kind = "fire", Vel = Vector2.Zero, Grav = 0, Life = 0.6f }, p + new Vector2(80, -70));
@@ -510,10 +514,11 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepAlimus = 0, keepAether = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepAlimus = 0, keepAether = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
+            keepKeys = G.Player.Keys;
             keepMilestones = G.Player.PendingMilestones;
             keepAlimus = G.Player.Alimus;
             keepAether = G.Player.Aether;
@@ -559,6 +564,7 @@ public partial class Main : Node
         {
             player.Hp = Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
+            player.Keys = keepKeys;
             player.PendingMilestones = keepMilestones;
             player.SetAlimus(Math.Max(keepAlimus, Tune.Vitalist.AlimusStart * 0.5f));
             // (aether comes back by itself anyway: at least half a reserve on a new level)
@@ -610,6 +616,7 @@ public partial class Main : Node
         }
 
         PlaceCaches(cave);
+        PlaceVault(cave);
         SpawnCritters(cave);
         if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
         PlaceHazards(cave);
@@ -683,6 +690,93 @@ public partial class Main : Node
         float dryBottom = Math.Min(cave.WaterY, cave.SizePx.Y);
         Scatter(bd?.HighCaches ?? Tune.Drops.HighCaches, 60, dryBottom * Tune.Drops.HighZoneFraction, false);
         if (_autotest) GD.Print($"[autotest] caches placed: {placed.Count - cave.Rooms.Count}");
+    }
+
+    // ------------------------------------------------------------------ keys and the vault
+
+    /// <summary>The level's vault gate, if it has one.</summary>
+    public VaultGate Gate { get; private set; }
+    /// <summary>A mini-boss here has dropped the level's key already (the host's to track).</summary>
+    private bool _keyDropped;
+
+    /// <summary>
+    /// The vault's iron gate across its passage and its chest in the chamber, then the level's
+    /// hidden keys: one, or both where no mini-boss lairs to drop the other. They come from the
+    /// seed alone (online, every game places the same ones, with the same ids).
+    /// </summary>
+    private void PlaceVault(CaveData cave)
+    {
+        Gate = null;
+        _keyDropped = false;
+        var v = cave.Vault;
+        if (v == null) return;
+        Gate = new VaultGate { Position = v.Gate, Top = v.GateTop, Side = v.Side };
+        NetSync.LevelId(Gate);
+        _world.AddChild(Gate);
+        var chest = new Chest { Position = v.Chest, Vault = true };
+        NetSync.LevelId(chest);
+        _world.AddChild(chest);
+        int hidden = Tune.Vault.KeysPerLevel - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0);
+        PlaceHiddenKeys(cave, hidden);
+    }
+
+    /// <summary>
+    /// Keys tucked away where you'd have to go looking: a treasure dead end with no chest in it,
+    /// the flooded floor, a ledge up high, anywhere reachable well away from the start, the vault,
+    /// the guardian and the chests.
+    /// </summary>
+    private void PlaceHiddenKeys(CaveData cave, int count)
+    {
+        var taken = new List<Vector2> { cave.StartPos, cave.Vault.Chest, cave.Vault.Gate };
+        foreach (var c in Chest.All) if (IsInstanceValid(c)) taken.Add(c.GlobalPosition);
+        bool Reachable(Vector2 p)
+        {
+            int i = (int)(p.X / CaveData.Cell), j = (int)(p.Y / CaveData.Cell) - 1;
+            return cave.ReachMask != null && i >= 0 && j >= 0 && i < cave.W && j < cave.H && cave.ReachMask[j * cave.W + i];
+        }
+        var nooks = new List<Vector2>();
+        foreach (var r in cave.Rooms.Where(r => r.Kind == RoomKind.Treasure))
+            if (cave.FindFloor(r.Center, 700, out var f)) nooks.Add(f);
+        int made = 0;
+        for (int tries = 0; tries < 4000 && made < count; tries++)
+        {
+            Vector2 floor;
+            if (nooks.Count > 0 && G.Chance(0.35f)) floor = nooks[G.Rng.Next(nooks.Count)];
+            else
+            {
+                var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(48, cave.SizePx.Y - 40));
+                if (cave.IsSolid(at) || cave.IsLava(at) || !cave.FindFloor(at, 400, out floor)) continue;
+            }
+            if (cave.IsLava(floor + new Vector2(0, -8)) || !Reachable(floor)) continue;
+            if (floor.DistanceTo(cave.StartPos) < Tune.Vault.HiddenKeyFromStart) continue;
+            if (taken.Any(q => q.DistanceTo(floor) < Tune.Vault.HiddenKeySpacing)) continue;
+            if (cave.Boss != null && floor.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 60) continue;
+            taken.Add(floor);
+            var key = new KeyPickup { Position = floor + new Vector2(0, -6), Stashed = true, Puppet = Net.Online && !Net.IsHost };
+            NetSync.LevelId(key);
+            _world.AddChild(key);
+            made++;
+        }
+        if (_autotest) GD.Print($"[autotest] hidden keys placed: {made} of {count}");
+    }
+
+    /// <summary>A key dropped mid-level (a mini-boss's): online, the host's, sent to every game.</summary>
+    private void SpawnKey(Vector2 at)
+    {
+        // (beside the chest it dropped, clear of the rock)
+        var spot = at + new Vector2(0, -10);
+        foreach (float dx in new[] { 0f, -44f, 22f })
+            if (!G.Cave.IsSolid(at + new Vector2(dx, -10))) { spot = at + new Vector2(dx, -10); break; }
+        NetSync.Scope++;
+        try { G.Spawn(new KeyPickup { Position = spot, Vy = -180f }); }
+        finally { NetSync.Scope--; }
+    }
+
+    /// <summary>A vault's gate opened (in every game): a word for it.</summary>
+    public void OnVaultOpened(VaultGate g)
+    {
+        _hud.ShowBanner("THE VAULT IS OPEN", 2.2f);
+        _sfx.Play("levelup", null, -8, 0, 0.8f);
     }
 
     /// <summary>A sparse scattering of air vents on the flooded cave floor.</summary>
@@ -916,7 +1010,7 @@ public partial class Main : Node
         if (Net.InRun) p.Choosing = true;
         else GetTree().Paused = true;
         _sfx.Play(chest != null ? "chest" : "levelup");
-        _upgradeMenu.Open(choices, chest != null ? "TREASURE!" : "MILESTONE!", locks);
+        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : "TREASURE!") : "MILESTONE!", locks);
         _autoPickT = 0.5f;
     }
 
@@ -1352,6 +1446,8 @@ public partial class Main : Node
         var band = new List<Vector2>();   // just off-screen: the ideal entry points
         var farther = new List<Vector2>(); // fallback when the band is all rock
         float edge = Tune.Spawning.EntranceBandPx;
+        // (a vault's shut gate is as good as rock: nothing comes in behind it)
+        var gate = Gate != null && IsInstanceValid(Gate) && !Gate.Opened ? Gate : null;
         while (q.Count > 0)
         {
             var c = q.Dequeue();
@@ -1367,6 +1463,7 @@ public partial class Main : Node
             {
                 var n = c + o;
                 if (n.X < 0 || n.Y < 0 || n.X >= W || n.Y >= H || dist.ContainsKey(n.Y * W + n.X) || !cave.CellOpen(n.X, n.Y)) continue;
+                if (gate != null && gate.BlocksCell(n)) continue;
                 dist[n.Y * W + n.X] = d + 1;
                 q.Enqueue(n);
             }
@@ -1520,6 +1617,12 @@ public partial class Main : Node
                         var floor = e.GlobalPosition;
                         if (cave.FindFloor(e.GlobalPosition, 800, out var f)) floor = f;
                         CallDeferred(MethodName.SpawnChest, floor);
+                        // the first mini-boss down on a level with a vault drops its key too
+                        if (!_keyDropped && cave.Vault != null)
+                        {
+                            _keyDropped = true;
+                            CallDeferred(MethodName.SpawnKey, floor + new Vector2(22, 0));
+                        }
                     };
                     _world.AddChild(elite);
                     _hud.ShowBanner(elite.DisplayName.ToUpperInvariant(), 2f);
@@ -2823,7 +2926,7 @@ public partial class Main : Node
 
     private void RunGenTest()
     {
-        int n = 12, cleanAll = 0, totalAll = 0;
+        int n = 12, cleanAll = 0, totalAll = 0, vaultsAll = 0, vaultWant = 0;
         ulong total = 0;
         CaveGenerator.Verbose = OS.GetCmdlineUserArgs().Contains("--genverbose");
         if (CaveGenerator.Verbose)
@@ -2832,7 +2935,8 @@ public partial class Main : Node
         {
             if (_biomeArg != null && !b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase)) continue;
             G.Biome = b;
-            int clean = 0;
+            int clean = 0, vaults = 0;
+            bool wantVault = b.Style != GenStyle.Arena;
             for (int s = 1; s <= n; s++)
             {
                 ulong t0 = Time.GetTicksMsec();
@@ -2841,15 +2945,19 @@ public partial class Main : Node
                 total += ms;
                 bool ok = c.TrapCells <= 6 && c.Boss != null && BossReachable(c);
                 if (ok) clean++;
-                if (!ok || s == 1 || CaveGenerator.Verbose)
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} spawns {c.Spawns.Count} ice {c.IceLedges.Count}");
+                bool vault = VaultSound(c, out string why);
+                if (vault) vaults++;
+                if (!ok || s == 1 || CaveGenerator.Verbose || (wantVault && !vault))
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} spawns {c.Spawns.Count} ice {c.IceLedges.Count} vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
-            GD.Print($"[gentest] {b.Id}: {clean}/{n} trap-free with a reachable exit  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
+            GD.Print($"[gentest] {b.Id}: {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
             cleanAll += clean; totalAll += n;
+            if (wantVault) { vaultsAll += vaults; vaultWant += n; }
         }
-        GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, avg {total / (ulong)Math.Max(1, totalAll)} ms");
-        SafeQuit.Request(this);
+        GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, {vaultsAll}/{vaultWant} with a sound vault, avg {total / (ulong)Math.Max(1, totalAll)} ms");
+        // (every level but the dragon's lair has its vault)
+        SafeQuit.Request(this, vaultsAll == vaultWant ? 0 : 1);
     }
 
     /// <summary>--metatest: the resource draw, buying and activating ranks, and their effects.</summary>
@@ -2882,6 +2990,46 @@ public partial class Main : Node
         Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
         GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
         SafeQuit.Request(this, ok ? 0 : 1);
+    }
+
+    /// <summary>
+    /// A vault that works: it's there; shut its gate and the open cells round its chest never
+    /// get out of the cut (it opens only through the gate); and the tunnel at its doorstep is
+    /// somewhere you can walk to.
+    /// </summary>
+    private static bool VaultSound(CaveData c, out string why)
+    {
+        why = "";
+        var v = c.Vault;
+        if (v == null) { why = "none"; return false; }
+        const float cell = CaveData.Cell;
+        int gi = (int)(v.Gate.X / cell), fj = (int)(v.Gate.Y / cell) - 1;
+        var box = v.Passage.Merge(v.Chamber);
+        var from = new Vector2I((int)(v.Chest.X / cell), (int)(v.Chest.Y / cell) - 1);
+        if (!c.CellOpen(from.X, from.Y)) { why = "its chest sits in rock"; return false; }
+        var seen = new HashSet<Vector2I> { from };
+        var q = new Queue<Vector2I>();
+        q.Enqueue(from);
+        while (q.Count > 0)
+        {
+            var u = q.Dequeue();
+            if (!box.HasPoint(u)) { why = $"it leaks at {u}"; return false; }
+            foreach (var d in new[] { Vector2I.Left, Vector2I.Right, Vector2I.Up, Vector2I.Down })
+            {
+                var w = u + d;
+                if (w.X == gi || seen.Contains(w) || !c.CellOpen(w.X, w.Y)) continue;
+                seen.Add(w);
+                q.Enqueue(w);
+            }
+        }
+        // the tunnel floor its doorstep starts from can be walked to, and from there to the gate
+        // the way is open, a hero's height, over rock (a dip of a cell where the cut meets the
+        // tunnel is nothing; a hole is)
+        int ai = (int)(v.Approach.X / cell), aj = (int)(v.Approach.Y / cell) - 1;
+        if (c.ReachMask == null || !c.ReachMask[aj * c.W + ai]) { why = "its doorstep can't be reached"; return false; }
+        for (int i = ai; i != gi; i += v.Side)
+            if (!c.CellOpen(i, fj) || !c.CellOpen(i, fj - 1) || (c.CellOpen(i, fj + 1) && c.CellOpen(i, fj + 2))) { why = $"the way to its gate is blocked at {i}"; return false; }
+        return true;
     }
 
     /// <summary>

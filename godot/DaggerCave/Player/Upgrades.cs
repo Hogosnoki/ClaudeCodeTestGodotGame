@@ -170,7 +170,7 @@ public enum UpgradeKind
     Generic,
     /// <summary>Generic, but offered only once something else is true (chests).</summary>
     Conditional,
-    /// <summary>Something given, something taken; each taken once (chests, until vaults).</summary>
+    /// <summary>Something given, something taken; each taken once (vaults).</summary>
     SideGrade,
 }
 
@@ -210,8 +210,10 @@ public enum UpgradeTier { Common, Rare, Ability }
 ///  * Alterations change how an ability works, one per ability. Only milestones offer them (at
 ///    least one on each milestone, while any are left), and each has upgrades of its own.
 ///  * Generic upgrades (anyone) and conditional ones (offered once something else is true) fill
-///    the rest of a chest, with the risk-reward side-grades. Movement upgrades turn up more often
-///    in chests underwater, survival ones in chests up high.
+///    the rest of a chest. Movement upgrades turn up more often in chests underwater, survival
+///    ones in chests up high.
+///  * The risk-reward side-grades are the vaults': a vault's chest holds two of them and a rare
+///    class upgrade (one of the ability-tier ones).
 ///  * Stats grow on their own at every level (<see cref="Progression"/>).
 /// </summary>
 public static class Upgrades
@@ -328,14 +330,14 @@ public static class Upgrades
         // --- Blizzard (elementalist) ---
         new() { Id = "deepchill", Name = "Deep Chill", Desc = "Your frost is 4% likelier to freeze a creature solid (frostbolts, and the blizzard).", Icon = "spell", For = E, Ability = "blizzard", MaxStacks = 2,
                 When = s => s.Frostbolt || !s.Firestorm, Apply = (s, p) => s.FreezeBonus += Tune.Elementalist.DeepChillChance },
-        new() { Id = "winter", Name = "Long Winter", Desc = "Your blizzard lasts 50% longer.", Icon = "spell", For = E, Ability = "blizzard", Apply = (s, p) => s.BlizzardSecondsMult *= 1.5f },
+        new() { Id = "winter", Name = "Long Winter", Desc = "Your blizzard lasts 50% longer.", Icon = "spell", For = E, Ability = "blizzard", Tier = UpgradeTier.Ability, Apply = (s, p) => s.BlizzardSecondsMult *= 1.5f },
         new() { Id = "whiteout", Name = "Whiteout", Desc = "Your blizzard is 30% wider.", Icon = "spell", For = E, Ability = "blizzard", Apply = (s, p) => s.BlizzardWideMult += 0.3f },
         new() { Id = "gathering", Name = "Gathering Storm", Desc = "Your blizzard comes back 25% sooner.", Icon = "spell", For = E, Ability = "blizzard", Apply = (s, p) => s.BlizzardCdMult *= 0.75f },
         new() { Id = "blizzard_fire", Name = "Firestorm", Desc = "Your blizzard is a storm of fire: 3 damage a strike, each with a 10% chance of setting a creature alight (but it freezes nothing).", Icon = "spell", For = E, Ability = "blizzard", Alteration = true, Apply = (s, p) => s.Firestorm = true },
 
         // --- Snap (elementalist) ---
-        new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 40% farther.", Icon = "spell", For = E, Ability = "snap", Apply = (s, p) => s.SnapWideMult += 0.4f },
-        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 aether back.", Icon = "spell", For = E, Ability = "snap", Apply = (s, p) => s.SnapEcho = true },
+        new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 40% farther.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapWideMult += 0.4f },
+        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 aether back.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapEcho = true },
         new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Your snap bursts burning creatures instead of frozen ones: 20 damage, and 6 to everything around them.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
 
         // --- Dagger Slash (rogue) ---
@@ -482,13 +484,13 @@ public static class Upgrades
         };
     }
 
-    /// <summary>A chest's three cards, for one hero: one class upgrade and two others (generic,
-    /// conditional or a side-grade).</summary>
+    /// <summary>A chest's three cards, for one hero: one class upgrade and two others (generic or
+    /// conditional; side-grades are the vaults').</summary>
     public static List<Upgrade> RollChest(PlayerStats s, Random rng, Vector2 at)
     {
         var weight = ChestWeight(at);
         var cls = Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && Available(u, s)).ToList(), 1, rng, weight);
-        var others = Pick(Chest.Where(u => u.For == null && Available(u, s)).ToList(), 3 - cls.Count, rng, weight);
+        var others = Pick(Chest.Where(u => IsChestFiller(u) && Available(u, s)).ToList(), 3 - cls.Count, rng, weight);
         if (cls.Count + others.Count < 3) cls.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cls.Contains(u) && Available(u, s)).ToList(), 3 - cls.Count - others.Count, rng, weight));
         return cls.Concat(others).ToList();
     }
@@ -508,8 +510,36 @@ public static class Upgrades
         bool Fits(Upgrade u) => u.Kind == UpgradeKind.Class && Array.IndexOf(u.For, hero) >= 0
                                 && (hero == mine.Hero ? Available(u, mine) : u.Requires == null && u.When == null && u.Excludes.Length == 0);
         var cls = Pick(Chest.Where(Fits).ToList(), 1, rng, weight);
-        var others = Pick(Chest.Where(u => u.For == null && Available(u, mine)).ToList(), 3 - cls.Count, rng, weight);
+        var others = Pick(Chest.Where(u => IsChestFiller(u) && Available(u, mine)).ToList(), 3 - cls.Count, rng, weight);
         return cls.Concat(others).Select(u => u.Id).ToArray();
+    }
+
+    /// <summary>What fills a chest beside its class card: anyone's cards, but no side-grade.</summary>
+    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.SideGrade;
+
+    /// <summary>A rare class upgrade: one of the ability-tier ones (the vaults deal them).</summary>
+    public static bool IsRare(Upgrade u) => u.Kind == UpgradeKind.Class && u.Tier == UpgradeTier.Ability;
+
+    /// <summary>
+    /// A vault chest's three cards: two side-grades (for the dealer; each is taken once) and a
+    /// rare class upgrade (with a party, for any of its heroes, as a chest's class card is). With
+    /// the side-grades running out, more rare cards take their places, then any class card of the
+    /// dealer's, then anyone's.
+    /// </summary>
+    public static string[] RollVaultCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng)
+    {
+        float W(Upgrade u) => u.Weight;
+        var sides = Pick(Chest.Where(u => u.Kind == UpgradeKind.SideGrade && Available(u, mine)).ToList(), 2, rng, W);
+        var heroes = party != null && party.Count > 1 ? party.ToList() : new List<HeroKind> { mine.Hero };
+        var hero = heroes[rng.Next(heroes.Count)];
+        bool Fits(Upgrade u) => IsRare(u) && Array.IndexOf(u.For, hero) >= 0
+                                && (hero == mine.Hero ? Available(u, mine) : u.Requires == null && u.When == null && u.Excludes.Length == 0);
+        var cards = Pick(Chest.Where(Fits).ToList(), 1, rng, W);
+        cards.AddRange(sides);
+        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsRare(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
+        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
+        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsChestFiller(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
+        return cards.Select(u => u.Id).ToArray();
     }
 
     /// <summary>Why this hero can't take a card (null: they can).</summary>

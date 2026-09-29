@@ -84,6 +84,9 @@ public static partial class CaveGenerator
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
             if (minis < B.MiniBossesMin) score += 2000;
         }
+        // (a level without a vault, where there should be one: worse than a clean cave with one,
+        // never worse than a trapped cave)
+        if (c.Vault == null && B.Style != GenStyle.Arena) score += 7;
         return score;
     }
 
@@ -528,6 +531,7 @@ public static partial class CaveGenerator
         ValidateAndRepair(cave, startCell);
 
         BuildSpawns(cave, stamps, new Vector2(sx, sy), rng);
+        CarveVault(cave, rng);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
     }
