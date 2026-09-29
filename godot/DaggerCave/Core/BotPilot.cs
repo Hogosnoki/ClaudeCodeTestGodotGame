@@ -117,6 +117,7 @@ public sealed class BotPilot
             _cur.Aim = te.Normalized();
             // the casters fight from medium range; the blades close in
             bool elementalist = p.Stats.Hero == HeroKind.Elementalist;
+            bool rogue = p.Stats.Hero == HeroKind.Rogue;
             bool caster = p.Stats.Hero == HeroKind.Vitalist || elementalist;
             float reach = elementalist ? Tune.Elementalist.BoltRange * 0.7f : caster ? Tune.Vitalist.DrainRange * 0.8f : 44 + target.HitRadius;
             if (bd < reach && _atkCd <= 0) { _cur.Attack = true; _atkCd = 0.12f; }
@@ -128,6 +129,7 @@ public sealed class BotPilot
                     HeroKind.Warden => target.Attacking && bd < 90,
                     HeroKind.Vitalist => p.Hp < p.Stats.MaxHp * 0.6f,
                     HeroKind.Elementalist => bd < Tune.Elementalist.BlizzardRange && p.SecondaryReady,
+                    HeroKind.Rogue => bd > 50 && bd < Tune.Rogue.ThrowRange * 0.8f && p.DaggersInHand > 0,
                     _ => bd < 120,
                 };
                 if (use) { _cur.Ability = true; _throwCd = 1.0f; }
@@ -140,13 +142,14 @@ public sealed class BotPilot
                     HeroKind.Warden => bd < 50,
                     HeroKind.Vitalist => p.RuptureReady && bd < Tune.Vitalist.RuptureRange,
                     HeroKind.Elementalist => p.SnapTargets > 0 && p.Aether >= p.SnapCost,
+                    HeroKind.Rogue => p.DaggersInHand < 2,
                     _ => bd < 60 && p.IsOnFloor(),
                 };
                 if (use2) { _cur.Ability2 = true; _ability2Cd = 1.5f; }
             }
             if (bd > reach * 0.8f && !p.InWater) move.X = Math.Sign(te.X);
             else if (caster && bd < 60 && !p.InWater) move.X = -Math.Sign(te.X);
-            if (_dodgeCd <= 0 && !elementalist && (caster ? bd < 90 : p.Hp < p.Stats.MaxHp * 0.4f && bd < 60)) { _cur.Dodge = true; _dodgeCd = 1.5f; if (!caster) move.X = -Math.Sign(te.X); }
+            if (_dodgeCd <= 0 && !elementalist && (!rogue || p.AbilityChargeReady) && (caster ? bd < 90 : p.Hp < p.Stats.MaxHp * 0.4f && bd < 60)) { _cur.Dodge = true; _dodgeCd = 1.5f; if (!caster) move.X = -Math.Sign(te.X); }
         }
         _cur.Move = move;
     }

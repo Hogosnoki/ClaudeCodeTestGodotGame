@@ -1,24 +1,28 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
 
 /// <summary>
-/// The blade, shared by the Swordsman (medium sword) and the Warden (shortsword): a swing aimed
-/// anywhere around you in three beats (wind-up, sweep, follow-through), combos that chain when
-/// strikes land, a finisher, and the hit-stop that freezes both fighters on the impact.
+/// The blade, shared by the Swordsman (medium sword), the Warden (shortsword) and the Rogue (its
+/// daggers): a swing aimed anywhere around you in three beats (wind-up, sweep, follow-through),
+/// combos that chain when strikes land, a finisher, and the hit-stop that freezes both fighters on
+/// the impact. The Rogue's jabs are quick and strike one creature each, with no combo, but can be
+/// critical.
 /// </summary>
 public partial class Player
 {
     private static float ComboWindow => Tune.Hero.ComboWindow;
-    private float SwingCooldownBase => IsWarden ? Tune.Warden.SwingCooldown : Tune.Swordsman.SwingCooldown;
-    private float SwingActive => IsWarden ? Tune.Warden.SwingTime : Tune.Swordsman.SwingTime;
-    private float SwingWindup => IsWarden ? Tune.Warden.SwingWindup : Tune.Swordsman.SwingWindup;
-    private float BaseReach => IsWarden ? Tune.Warden.Reach : Tune.Swordsman.Reach;
-    private float BaseDamage => IsWarden ? Tune.Warden.Damage : Tune.Swordsman.Damage;
-    private float BaseKnock => IsWarden ? Tune.Warden.Knockback : Tune.Swordsman.Knockback;
-    private float LungeSpeed => IsWarden ? Tune.Warden.Lunge : Tune.Swordsman.Lunge;
+    // (the Rogue jabs half as fast with one of its daggers thrown)
+    private float SwingCooldownBase => IsWarden ? Tune.Warden.SwingCooldown : IsRogue ? Tune.Rogue.SwingCooldown * (DaggersInHand < 2 ? Tune.Rogue.OneDaggerSlow : 1f) : Tune.Swordsman.SwingCooldown;
+    private float SwingActive => IsWarden ? Tune.Warden.SwingTime : IsRogue ? Tune.Rogue.SwingTime : Tune.Swordsman.SwingTime;
+    private float SwingWindup => IsWarden ? Tune.Warden.SwingWindup : IsRogue ? Tune.Rogue.SwingWindup : Tune.Swordsman.SwingWindup;
+    private float BaseReach => IsWarden ? Tune.Warden.Reach : IsRogue ? Tune.Rogue.Reach : Tune.Swordsman.Reach;
+    private float BaseDamage => IsWarden ? Tune.Warden.Damage : IsRogue ? Tune.Rogue.Damage : Tune.Swordsman.Damage;
+    private float BaseKnock => IsWarden ? Tune.Warden.Knockback : IsRogue ? Tune.Rogue.Knockback : Tune.Swordsman.Knockback;
+    private float LungeSpeed => IsWarden ? Tune.Warden.Lunge : IsRogue ? Tune.Rogue.Lunge : Tune.Swordsman.Lunge;
 
     // this swing's beats (scaled by attack speed): wind-up, then the sweep (the hitbox), then follow-through
     private float _windup, _active;
@@ -69,7 +73,7 @@ public partial class Player
         // Charged Strike: this swing carries the charge (never breaking the combo; with
         // Relentless Charge, the whole combo carries it)
         bool charged = _swingCharged = ChargeForSwing();
-        _swingArc = Mathf.DegToRad(finisher ? Tune.Hero.FinisherArcDegrees : Tune.Hero.SwingArcDegrees) * (charged ? 1.15f : 1f);
+        _swingArc = Mathf.DegToRad(finisher ? Tune.Hero.FinisherArcDegrees : IsRogue ? 90f : Tune.Hero.SwingArcDegrees) * (charged ? 1.15f : 1f);
         _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f) * (charged ? ChargeReachMult : 1f);
         _swingDmg = BaseDamage * Stats.DamageMult * Stats.PrimaryDamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f) * (charged ? ChargeDmgMult : 1f);
         _swingT = 0;
@@ -87,7 +91,8 @@ public partial class Player
         var local = new Vector2(aim.X * Facing, aim.Y);
         float la = MathF.Atan2(local.Y, Math.Max(local.X, -0.2f));
         string dir = la < -1.18f ? "up" : la < -0.39f ? "upfwd" : la < 0.39f ? "fwd" : la < 1.18f ? "downfwd" : "down";
-        string letter = finisher ? "c" : _comboStep % 2 == 0 ? "a" : "b";
+        // (the Rogue's jabs alternate hands and strokes, one after another)
+        string letter = finisher ? "c" : (IsRogue ? AttacksStarted : _comboStep) % 2 == 0 ? "a" : "b";
         Anim.Face((int)Facing, instant: true);
         // clip frames: wind-up (2, or 3 for the finisher), woosh (2), follow-through (the rest).
         // Play it so the wind-up frames last exactly the wind-up time; the woosh then lands with the hitbox.
@@ -144,8 +149,11 @@ public partial class Player
         if (SweepT >= 0 && SweepT <= _active)
         {
             var origin = GlobalPosition + new Vector2(0, -3);
-            foreach (var e in G.Enemies.ToArray())
+            // (the Rogue's jab takes the nearest creature only)
+            var foes = IsRogue ? G.Enemies.OrderBy(e => e.GlobalPosition.DistanceSquaredTo(origin)).ToArray() : G.Enemies.ToArray();
+            foreach (var e in foes)
             {
+                if (IsRogue && _swingHitSomething) break;
                 if (e.Dead || _swingHits.Contains(e)) continue;
                 var to = e.GlobalPosition - origin;
                 float dist = to.Length();
@@ -194,6 +202,13 @@ public partial class Player
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
         float dmg = _swingDmg * G.Range(0.9f, 1.1f);
         if (Stats.Execute && e.Hp < e.MaxHp * Tune.Swordsman.ExecuteBelow) dmg *= 1f + Tune.Swordsman.ExecuteBonus;
+        bool crit = false;
+        if (IsRogue)
+        {
+            // (a jab is exact: no spread) a critical strike, a stab in the back, a strike from the shadows
+            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, out crit);
+            Reveal(false);
+        }
         float dealt = e.Hurt(dmg, dir * kb, hitPos);
         if (dealt > 0 && Stats.BleedShare > 0 && !e.Dead) e.Bleed(dealt * Stats.BleedShare, Tune.Swordsman.BleedSeconds);
         if (dealt <= 0)
@@ -203,11 +218,14 @@ public partial class Player
             return;
         }
         OnDealtDamage(dealt);
+        if (crit) CritFx(e, hitPos);
         // a charged strike saps whatever it cuts: it hits back softer for a while
         if (charged && !e.Dead) e.Weaken(ChargeWeaken, Tune.Swordsman.WeakenSeconds);
         bool killed = e.Dead;
         bool heavy = finisher || charged;
         float stop = charged ? Tune.Feel.HitStopCharged : finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal;
+        // (a jab barely pauses: the Rogue's rhythm is speed)
+        if (IsRogue) stop = crit ? Tune.Rogue.HitStop * 2.5f : Tune.Rogue.HitStop;
         if (!killed) e.Freeze(stop);
         // impact: sparks, freeze-frame, a camera nudge in the direction of the blow, rumble
         var sparkCol = charged ? new Color(1f, 0.55f, 0.3f) : finisher ? new Color(1f, 0.85f, 0.4f) : Colors.White;
@@ -223,9 +241,10 @@ public partial class Player
             // the combo stays live: the next swing may follow at once (a press during the
             // hit-stop is kept and fires the moment it ends). No combo from behind a raised shield,
             // nor out of a heave, nor out of a counter (unless Flowing Counter).
-            if (_comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
+            if (!IsRogue && _comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
-            if (Math.Abs(to.X) > 2) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
+            // (not the Rogue: its jabs come too fast to bounce off each one)
+            if (Math.Abs(to.X) > 2 && !IsRogue) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
             Freeze(stop);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
@@ -262,7 +281,7 @@ public partial class Player
         sm.Finisher = _finisher || _heave;
         sm.Charged = _swingCharged;
         sm.Outer = _swingReach + 3;
-        sm.Blade = _swingReach * (IsWarden ? 0.62f : 0.8f) * (_finisher || _heave ? 1.1f : 1f);
+        sm.Blade = _swingReach * (IsWarden ? 0.62f : IsRogue ? 0.5f : 0.8f) * (_finisher || _heave ? 1.1f : 1f);
         sm.Fade = fade;
         sm.Tint = _swingCharged ? new Color(1f, 0.5f, 0.28f) : _finisher ? new Color(1f, 0.82f, 0.35f) : new Color(0.8f, 0.95f, 1f);
         sm.Origin = GlobalPosition + new Vector2(0, -3);

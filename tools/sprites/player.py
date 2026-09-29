@@ -1,8 +1,9 @@
-"""The four heroes, drawn by one rig with a style switch:
+"""The five heroes, drawn by one rig with a style switch:
  * swordsman    -- a hooded rogue with a red scarf and a medium-length sword;
  * warden       -- a blue-tabarded shield-bearer with a gold sash, a shortsword and a buckler;
  * vitalist     -- a green-robed caster in a bone mask, with a crystal-headed staff;
- * elementalist -- a violet-robed caster with an ember sash, a staff crowned with a burning orb.
+ * elementalist -- a violet-robed caster with an ember sash, a staff crowned with a burning orb;
+ * rogue        -- a masked cutthroat in charcoal and plum, with a dagger in each hand to throw.
 Right-handed (the weapon hand is the far arm when facing right, the near arm when facing left)."""
 import math
 from rig import (keys as _keys, hexc, lighten, darken, ellipse, circle, poly, limb, line, glow, rot, add, polar,
@@ -26,6 +27,7 @@ BUCKLER = False
 BUCKLER_WOOD = hexc('7a5530')
 BUCKLER_RIM = hexc('b8c4cc')
 STAFF = False
+THROW = False
 STAFF_WOOD = hexc('5a3d22')
 STAFF_GEM = hexc('8dff7a')
 MASK = hexc('e2dac8')
@@ -40,9 +42,11 @@ STYLES = {
     'elementalist': dict(CLOAK='4b3a7c', CLOAK_D='281d48', SCARF='e0762a', PANTS='2a2634', BELT='4a3a30',
                          BLADE_LEN=0.0, BLADE_W=1.0, GUARD_W=1.0, BUCKLER=False, STAFF=True,
                          STAFF_WOOD='cfc6b4', STAFF_GEM='ff9a3a', MASK='c9b39a'),
+    'rogue': dict(CLOAK='3a3346', CLOAK_D='1f1b28', SCARF='2a2430', PANTS='262230', BELT='4a3322',
+                  BLADE_LEN=5.5, BLADE_W=1.0, GUARD_W=1.6, BUCKLER=False, THROW=True),
 }
 # (every style starts from these, so one built after another never inherits its looks)
-STYLE_DEFAULTS = dict(BUCKLER=False, STAFF=False, STAFF_WOOD='5a3d22', STAFF_GEM='8dff7a', MASK='e2dac8')
+STYLE_DEFAULTS = dict(BUCKLER=False, STAFF=False, THROW=False, STAFF_WOOD='5a3d22', STAFF_GEM='8dff7a', MASK='e2dac8')
 
 BASE = dict(sa=0.0, bx=0, by=0, lean=0.06, lfx=-2.4, lfy=13, lnx=2.6, lny=13,
             dhx=5.5, dhy=2.5, da=1.0, fhx=-2.5, fhy=3.0, ht=0.0, sw=0.0, sl=0.0, cf=0.0,
@@ -513,7 +517,10 @@ def make(style='swordsman'):
         for kind in ('a', 'b', 'c'):
             for dname, alpha in DIRS.items():
                 sh.add_anim(f'slash_{kind}_{dname}', 7 if kind != 'c' else 9, False, slash(kind, alpha))
-        if not BUCKLER:
+        if THROW:
+            # the Rogue throws its daggers (and recalls them) instead of heaving
+            sh.add_anim('throw', 8, False, throw)
+        elif not BUCKLER:
             sh.add_anim('heave', 16, False, heave)
     if BUCKLER:
         sh.add_anim('bash', 6, False, bash)

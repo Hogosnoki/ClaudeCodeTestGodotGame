@@ -42,6 +42,7 @@ public partial class Hud : Control
         HeroKind.Warden => new Color(0.45f, 0.7f, 1f),
         HeroKind.Vitalist => new Color(0.5f, 1f, 0.45f),
         HeroKind.Elementalist => new Color(0.8f, 0.58f, 1f),
+        HeroKind.Rogue => new Color(1f, 0.84f, 0.32f),
         _ => new Color(0.95f, 0.45f, 0.35f),
     };
 
@@ -132,6 +133,7 @@ public partial class Hud : Control
             case HeroKind.Warden: DrawWardenGauges(font, p, ab); break;
             case HeroKind.Vitalist: DrawVitalistGauges(font, p, ab); break;
             case HeroKind.Elementalist: DrawElementalistGauges(font, p, ab); break;
+            case HeroKind.Rogue: DrawRogueGauges(font, p, ab); break;
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
@@ -220,6 +222,12 @@ public partial class Hud : Control
                     move,
                     $"{atk} swing (hold to keep swinging) · {a1} Guarded Charge (breaks off attacks it meets) · {a2} shield bash (stuns all in front) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
                     "The shield stops every blow, and what breaks it is stunned; raise it just before the hit for a perfect block · " + pause,
+                },
+                HeroKind.Rogue => new[]
+                {
+                    move,
+                    $"{atk} jab (hold to keep jabbing{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {a1} throw a dagger · {a2} recall them · {dg} vanish · kick off walls",
+                    "Thrown daggers stick in what they hit; recall tears them back out · " + pause,
                 },
                 HeroKind.Elementalist => new[]
                 {
@@ -501,6 +509,46 @@ public partial class Hud : Control
             DrawLine(bp + new Vector2(w * x / max, 0), bp + new Vector2(w * x / max, 12), new Color(0, 0, 0, 0.45f), 1f);
         if (p.RuptureCost <= max) DrawLine(bp + new Vector2(w * p.RuptureCost / max, -3), bp + new Vector2(w * p.RuptureCost / max, 15), Player.LifeColor, 2f);
         DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Mathf.FloorToInt(p.Alimus + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
+    }
+
+    /// <summary>The vanish (a dial, with Twin Reserve's pips), the two daggers, and the recall (a square).</summary>
+    private void DrawRogueGauges(Font font, Player p, Vector2 ab)
+    {
+        var gold = Hud.HeroColor(HeroKind.Rogue);
+        var shadow = new Color(0.7f, 0.62f, 0.95f);
+        Dial(ab + new Vector2(17, 17), p.Vanished ? 0f : p.AbilityCooldownFrac, shadow);
+        if (p.Vanished)
+        {
+            // the time left in the shadows, as a shrinking ring
+            DrawArc(ab + new Vector2(17, 17), 15, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (p.VanishLeft / Tune.Rogue.VanishSeconds), 24, new Color(shadow, 0.9f), 2f);
+        }
+        DrawString(font, ab + new Vector2(0, -6), p.Stats.SmokeBomb ? "SMOKE" : "VANISH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        UsePips(ab, p, shadow);
+        KeyHint(font, ab, "dodge");
+        // the daggers: lit in hand, dark while thrown
+        var db = ab + new Vector2(56, 0);
+        DrawRect(new Rect2(db, new Vector2(46, 34)), new Color(0, 0, 0, 0.55f));
+        for (int k = 0; k < 2; k++)
+        {
+            bool inHand = p.DaggerInHand(k);
+            var c = db + new Vector2(14 + k * 18, 17);
+            var col = inHand ? new Color(0.9f, 0.92f, 0.96f) : new Color(0.4f, 0.42f, 0.46f);
+            DrawColoredPolygon(new[] { c + new Vector2(-2.5f, -3), c + new Vector2(0, -14), c + new Vector2(2.5f, -3) }, col);
+            DrawLine(c + new Vector2(-5, -3), c + new Vector2(5, -3), inHand ? gold : col, 2f);
+            DrawLine(c + new Vector2(0, -3), c + new Vector2(0, 8), inHand ? new Color(0.45f, 0.32f, 0.2f) : col, 2.5f);
+        }
+        DrawString(font, db + new Vector2(0, -6), "THROW", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawString(font, db + new Vector2(0, 46), Controls.Name("ability"), HorizontalAlignment.Center, 46, 9, new Color(1, 1, 1, 0.4f));
+        // recall: ready whenever a dagger is out
+        var rb = db + new Vector2(60, 0);
+        bool outs = p.DaggersInHand < 2;
+        AbilitySquare(font, rb, p.Stats.Tether ? "TETHER" : "RECALL", 0, outs, gold, (c, col) =>
+        {
+            // an arrow curving home
+            DrawArc(c, 9, Mathf.Pi * 0.2f, Mathf.Pi * 1.5f, 16, col, 2f);
+            DrawColoredPolygon(new[] { c + new Vector2(9, 0), c + new Vector2(4, 6), c + new Vector2(13, 5) }, col);
+        });
+        KeyHint(font, rb, "ability2");
     }
 
     /// <summary>The Elementalist's colours: its aether, and its fire and frost.</summary>

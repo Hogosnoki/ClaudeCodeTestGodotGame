@@ -25,11 +25,12 @@ public partial class Player
     private string _netAnim = "";
     private int _netFrame;
     private float _netSpeed = 1f, _netFlash;
-    private ushort _netFlags;
+    private uint _netFlags;
     private float _netShieldStrength = 1f;
 
-    private const ushort HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
-                         HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384;
+    private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
+                       HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
+                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : IsOnFloor();
@@ -46,7 +47,7 @@ public partial class Player
         w.Str(spr != null ? (string)spr.Animation : "");
         w.Byte((byte)Math.Clamp(spr?.Frame ?? 0, 0, 255));
         w.Half(spr != null ? spr.SpeedScale * Math.Max(0f, Anim.TimeMult) : 1f);
-        ushort f = 0;
+        uint f = 0;
         if (Dead) f |= HfDead;
         if (IsOnFloor()) f |= HfFloor;
         if (ShieldRaised) f |= HfShield;
@@ -61,7 +62,10 @@ public partial class Player
         if (BarrierHp > 0.01f) f |= HfBarrier;
         if (_mendLeft > 0) f |= HfMending;
         if (Stats.Frostbolt) f |= HfFrost;
-        w.UShort(f);
+        if (Hidden) f |= HfHidden;
+        if (_thrown[0] != null) f |= HfDagger0Out;
+        if (_thrown[1] != null) f |= HfDagger1Out;
+        w.UInt(f);
         w.Half(Hp);
         w.Half(Stats.MaxHp);
         w.Byte((byte)Math.Clamp(Level, 0, 255));
@@ -83,7 +87,7 @@ public partial class Player
         _netAnim = r.Str();
         _netFrame = r.Byte();
         _netSpeed = r.Half();
-        _netFlags = r.UShort();
+        _netFlags = r.UInt();
         Hp = r.Half();
         Stats.MaxHp = Math.Max(1f, r.Half());
         Level = r.Byte();
@@ -126,6 +130,8 @@ public partial class Player
             if (_netAnim != "") Anim.Mirror(_netAnim, _netFrame, _netSpeed, Facing < 0 ? -1 : 1);
             Anim.Motion(InWater ? Velocity * 0.3f : Velocity);
             float a = NetInvuln && !Dead && (int)(_animT * 20) % 2 == 0 ? 0.45f : 1f;
+            // (a friend hidden in the shadows shows only faintly)
+            if (Hidden && !Dead) a = 0.3f;
             Anim.Modulate = new Color(1, 1, 1, a);
         }
         // the blade's sweep plays out here from its start (sent as it began)

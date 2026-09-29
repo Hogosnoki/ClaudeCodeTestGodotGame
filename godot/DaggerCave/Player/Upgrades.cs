@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>The playable heroes.</summary>
-public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist }
+public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue }
 
 /// <summary>Everything upgrades can change about the hero.</summary>
 public sealed class PlayerStats
@@ -108,6 +108,15 @@ public sealed class PlayerStats
     /// bursts burning creatures instead of frozen ones).</summary>
     public bool Frostbolt, NarrowDraft, Firestorm, CinderSnap;
 
+    // rogue: dagger slash, dagger throw, vanish, recall
+    public float CritChance = Tune.Rogue.CritChance;
+    /// <summary>Backstab: strikes from behind land harder. Twin Throw: both daggers fly at once.
+    /// Surprise Attack: the strike out of the shadows lands far harder.</summary>
+    public bool Backstab, TwinThrow, SurpriseAttack;
+    /// <summary>Alterations: Ricochet (a thrown dagger springs on to a second creature), Smoke
+    /// Bomb (a cloud instead of vanishing alone), Tether (recall pulls you to the dagger).</summary>
+    public bool Ricochet, SmokeBomb, Tether;
+
     public readonly Dictionary<string, int> Stacks = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
 
@@ -127,6 +136,12 @@ public sealed class PlayerStats
             case HeroKind.Elementalist:
                 MoveSpeed = Tune.Elementalist.MoveMult; JumpMult = Tune.Elementalist.JumpMult;
                 MaxHp = Tune.Elementalist.StartHp;
+                break;
+            case HeroKind.Rogue:
+                MoveSpeed = Tune.Rogue.MoveMult; JumpMult = Tune.Rogue.JumpMult;
+                MaxHp = Tune.Rogue.StartHp;
+                // (born to the walls: slides down them and kicks off them)
+                WallJump = true;
                 break;
             default:
                 MoveSpeed = Tune.Swordsman.MoveMult; JumpMult = Tune.Swordsman.JumpMult;
@@ -193,7 +208,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 /// </summary>
 public static class Upgrades
 {
-    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist };
+    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue };
     /// <summary>The two heroes who fight with a blade.</summary>
     private static readonly HeroKind[] Blades = { HeroKind.Swordsman, HeroKind.Warden };
 
@@ -315,6 +330,21 @@ public static class Upgrades
         new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 aether back.", Icon = "spell", For = E, Ability = "snap", Apply = (s, p) => s.SnapEcho = true },
         new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Your snap bursts burning creatures instead of frozen ones: 20 damage, and 6 to everything around them.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
 
+        // --- Dagger Slash (rogue) ---
+        new() { Id = "keen", Name = "Keen Edge", Desc = "Your strikes are 5% likelier to be critical (twice as hard).", Icon = "blade", For = R, Ability = "dagger", MaxStacks = 2, Apply = (s, p) => s.CritChance += Tune.Rogue.KeenChance },
+        new() { Id = "backstab", Name = "Backstab", Desc = "Your strikes from behind a creature land 50% harder.", Icon = "blade", For = R, Ability = "dagger", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Backstab = true },
+
+        // --- Dagger Throw (rogue) ---
+        new() { Id = "twin_throw", Name = "Twin Throw", Desc = "With both daggers in hand, you throw both at once.", Icon = "throw", For = R, Ability = "throw", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinThrow = true },
+        new() { Id = "throw_ricochet", Name = "Ricochet", Desc = "A thrown dagger springs on from the creature it strikes to one more nearby, then flies back to you (it never sticks).", Icon = "throw", For = R, Ability = "throw", Alteration = true, Apply = (s, p) => s.Ricochet = true },
+
+        // --- Vanish (rogue) ---
+        new() { Id = "surprise", Name = "Surprise Attack", Desc = "The strike that ends your vanishing (a slash, a throw or a recall) lands four times as hard.", Icon = "dodge", For = R, Ability = "vanish", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SurpriseAttack = true },
+        new() { Id = "vanish_smoke", Name = "Smoke Bomb", Desc = "Instead of vanishing alone, you throw down a cloud of smoke for 6 s: every hero in it is hidden, and creatures in it can't find anyone.", Icon = "dodge", For = R, Ability = "vanish", Alteration = true, Apply = (s, p) => s.SmokeBomb = true },
+
+        // --- Recall (rogue) ---
+        new() { Id = "recall_tether", Name = "Tether", Desc = "Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.", Icon = "move", For = R, Ability = "recall", Alteration = true, Apply = (s, p) => s.Tether = true },
+
         // --- Movement (all) ---
         // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)
         new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
@@ -365,6 +395,7 @@ public static class Upgrades
         HeroKind.Warden => "Guarded Charge",
         HeroKind.Vitalist => "heal",
         HeroKind.Elementalist => "Blizzard",
+        HeroKind.Rogue => "Vanish",
         _ => "Charged Strike",
     };
 
@@ -374,6 +405,7 @@ public static class Upgrades
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Shield"), ("dash", "Guarded Charge"), ("bash", "Shield Bash") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },
         HeroKind.Elementalist => new[] { ("bolt", "Firebolt"), ("updraft", "Updraft"), ("blizzard", "Blizzard"), ("snap", "Snap") },
+        HeroKind.Rogue => new[] { ("dagger", "Dagger Slash"), ("throw", "Dagger Throw"), ("vanish", "Vanish"), ("recall", "Recall") },
         _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dodge Roll") },
     };
 
@@ -498,7 +530,8 @@ public static class Upgrades
 }
 
 /// <summary>What each level gives on its own, by hero: the swordsman leans on damage, the warden
-/// on toughness, the vitalist on its reserves of alimus, the elementalist on its aether.</summary>
+/// on toughness, the vitalist on its reserves of alimus, the elementalist on its aether, the rogue
+/// on its daggers' bite.</summary>
 public static class Progression
 {
     public static void AutoLevel(Player p)
@@ -525,6 +558,12 @@ public static class Progression
                 s.DamageMult += 0.02f;
                 s.AetherMax += 1;
                 gain = "+2% damage  +1 aether";
+                break;
+            case HeroKind.Rogue:
+                s.MaxHp += 2; p.Heal(2);
+                s.DamageMult += 0.025f;
+                s.CritChance += 0.002f;
+                gain = "+2.5% damage";
                 break;
             default:
                 s.MaxHp += 2; p.Heal(2);

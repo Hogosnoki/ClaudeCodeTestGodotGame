@@ -309,6 +309,7 @@ public partial class Main : Node
             else if (a == "--hero=swordsman") G.Hero = HeroKind.Swordsman;
             else if (a == "--hero=vitalist") G.Hero = HeroKind.Vitalist;
             else if (a == "--hero=elementalist") G.Hero = HeroKind.Elementalist;
+            else if (a == "--hero=rogue") G.Hero = HeroKind.Rogue;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
@@ -368,6 +369,7 @@ public partial class Main : Node
                     HeroKind.Warden => new[] { "reach", "shield_wide", "aegis", "aegis", "shield_unyielding", "unyielding_more", "dash_cd", "hp", "speed", "rr_lungs" },
                     HeroKind.Vitalist => new[] { "mouths", "hex_long", "heal_slow", "heal_warding", "wellspring", "rupture_cheap", "hp", "armor", "rr_glass" },
                     HeroKind.Elementalist => new[] { "kindling", "reservoir", "attune", "attune", "updraft_narrow", "whiteout", "gathering", "echo", "hp", "speed", "rr_reserve" },
+                    HeroKind.Rogue => new[] { "keen", "backstab", "twin_throw", "throw_ricochet", "surprise", "hp", "speed", "jump", "rr_glass" },
                     _ => new[] { "combo", "reach", "charge_combo", "charge_combo_more", "windrunner", "windrunner", "iframes", "hp", "speed", "rr_heavy" },
                 };
                 foreach (var id in cards) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
@@ -819,7 +821,7 @@ public partial class Main : Node
         FadeFrom(new Color(1f, 0.98f, 0.92f), 1.3f);
     }
 
-    private const int HeroCount = 4;
+    private const int HeroCount = 5;
 
     private void PickHero(HeroKind h)
     {
@@ -2098,6 +2100,7 @@ public partial class Main : Node
             else if (warden) WardenStep(step, p);
             else if (p.Stats.Hero == HeroKind.Vitalist) VitalistStep(step, p);
             else if (p.Stats.Hero == HeroKind.Elementalist) ElementalistStep(step, p);
+            else if (p.Stats.Hero == HeroKind.Rogue) RogueStep(step, p);
             else SwordStep(step, p);
             if (_shotDir != "" && step % 20 == 0) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/hero_{step:000}.png");
         }

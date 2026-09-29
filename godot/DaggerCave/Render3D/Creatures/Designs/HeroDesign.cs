@@ -4,13 +4,15 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The four heroes, one rig. The Swordsman: hood and teal cloak, a red scarf over the face, a
+/// The five heroes, one rig. The Swordsman: hood and teal cloak, a red scarf over the face, a
 /// long sword. The Warden: great helm, mail under a blue tabard with a gold sash, a shortsword and
 /// a kite shield. The Vitalist: a deep green robe and cowl over a bone mask with eyes that glow,
 /// a blood-red sash, and a gnarled staff whose crystal flares with every spell. The Elementalist:
 /// a violet robe and a tall pointed hood, an ember stole, and a pale staff crowned with an orb in
 /// a bronze cage, burning orange (or, with Frostbolt, glowing frost-blue) and flaring with every
-/// spell. All four carry a lantern at the hip that lights the cave around them.
+/// spell. The Rogue: a plum hood and a dark mask over the face, a charcoal jerkin and a short
+/// cape, and a dagger in each hand (each gone from the hand while it's thrown). All five carry a
+/// lantern at the hip that lights the cave around them.
 ///
 /// Animation: the legs follow real movement (a gait phase driven by ground speed, air poses by
 /// vertical speed) while the upper body plays the clip, so strikes while running look right.
@@ -20,13 +22,14 @@ namespace DaggerCave;
 public sealed class HeroDesign : CreatureDesign
 {
     private readonly HeroKind _kind;
-    private readonly bool _warden, _vitalist, _elementalist, _caster;
+    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue;
     public HeroDesign(HeroKind kind)
     {
         _kind = kind;
         _warden = kind == HeroKind.Warden;
         _vitalist = kind == HeroKind.Vitalist;
         _elementalist = kind == HeroKind.Elementalist;
+        _rogue = kind == HeroKind.Rogue;
         // (the two casters hold a staff, wear a robe, and share their poses)
         _caster = _vitalist || _elementalist;
     }
@@ -88,7 +91,8 @@ public sealed class HeroDesign : CreatureDesign
         var violet = C(0.19f, 0.11f, 0.3f);
         var ember = C(0.8f, 0.34f, 0.08f);
         if (_elementalist) robe = violet;
-        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : C(0.07f, 0.27f, 0.28f);
+        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : _rogue ? C(0.16f, 0.08f, 0.17f) : C(0.07f, 0.27f, 0.28f);
+        if (_rogue) { leather = C(0.12f, 0.1f, 0.12f); leatherDk = C(0.07f, 0.06f, 0.075f); }
         var body = _warden ? C(0.42f, 0.44f, 0.47f) : _caster ? robe : leather; // mail, robe, jerkin
         var bodyMat = _warden ? Mat.Metal : _caster ? Mat.Cloth : Mat.Leather;
         if (_vitalist) skin = C(0.6f, 0.5f, 0.45f); // pale, bloodless hands
@@ -188,6 +192,18 @@ public sealed class HeroDesign : CreatureDesign
             s.Eye(headB, new(0.106f, 0.73f, 0.035f), 0.011f, Life, 1f);
             s.Eye(headB, new(0.106f, 0.73f, -0.035f), 0.011f, Life, 1f);
         }
+        else if (_rogue)
+        {
+            // a close hood, and a dark cloth mask over the nose and mouth: only the eyes show
+            s.Egg(headB, new(0.004f, 0.738f, 0), new(0.126f, 0.14f, 0.116f), cloak, Mat.Cloth, 0.02f);
+            s.Limb(headB, new(-0.07f, 0.75f, 0), new(-0.11f, 0.55f, 0), 0.082f, 0.1f, cloak, Mat.Cloth, 0.04f);
+            s.CarveBall(headB, new(0.16f, 0.705f, 0), 0.098f, 0.02f);
+            s.Egg(headB, new(0.03f, 0.705f, 0), new(0.092f, 0.112f, 0.082f), skin, Mat.Skin, 0.015f);
+            s.Egg(headB, new(0.05f, 0.668f, 0), new(0.085f, 0.06f, 0.088f), C(0.08f, 0.07f, 0.09f), Mat.Cloth, 0.02f);
+            s.Egg(neckB, new(0.03f, 0.625f, 0), new(0.078f, 0.05f, 0.09f), C(0.08f, 0.07f, 0.09f), Mat.Cloth, 0.025f);
+            s.Eye(headB, new(0.112f, 0.73f, 0.034f), 0.0115f, C(0.85f, 0.8f, 0.6f), 0.35f);
+            s.Eye(headB, new(0.112f, 0.73f, -0.034f), 0.0115f, C(0.85f, 0.8f, 0.6f), 0.35f);
+        }
         else if (_elementalist)
         {
             // a tall hood whose point droops back, open at a weathered face with a grey beard, the
@@ -219,7 +235,7 @@ public sealed class HeroDesign : CreatureDesign
         }
         // scarf knot and tail (the others have none, but keep the bones)
         var scarfCol = C(0.55f, 0.07f, 0.05f);
-        if (!_warden && !_caster)
+        if (!_warden && !_caster && !_rogue)
         {
             s.Ball(s0, new(-0.07f, 0.595f, 0), 0.042f, scarfCol, Mat.Cloth, 0.02f);
             s.Limb(s0, new(-0.07f, 0.59f, 0.005f), new(-0.2f, 0.57f, 0.025f), 0.04f, 0.034f, scarfCol, Mat.Cloth, 0.015f);
@@ -272,7 +288,7 @@ public sealed class HeroDesign : CreatureDesign
                 (0.24f, 0.2f, -0.15f, 0.07f),
                 (-0.06f, 0.212f, -0.168f, 0.055f),
                 (-0.34f, 0.22f, -0.178f, 0.05f),
-                (_caster ? -0.64f : -0.56f, 0.215f, -0.186f, 0.045f),
+                (_caster ? -0.64f : _rogue ? -0.4f : -0.56f, 0.215f, -0.186f, 0.045f),
             };
             const int cols = 9;
             var grid = new Vector3[rowSpec.Length][];
@@ -296,6 +312,7 @@ public sealed class HeroDesign : CreatureDesign
         int handR = s["hand_r"], handL = s["hand_l"];
         if (_vitalist) SculptStaff(s, handR, blood);
         else if (_elementalist) SculptOrbStaff(s, handR, ember, gold);
+        else if (_rogue) { /* (the daggers are attachments, so they can leave the hands) */ }
         else
         {
             var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
@@ -459,6 +476,18 @@ public sealed class HeroDesign : CreatureDesign
                 ShadowEnabled = false, LightVolumetricFogEnergy = 0.4f, Position = orbAt,
             });
         }
+        else if (_rogue)
+        {
+            // a dagger in each hand (hidden while it's thrown)
+            var mat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Metallic = 0.8f, Roughness = 0.3f };
+            var dagger = PropMeshes.Sword(0.3f, 0.026f, C(0.78f, 0.8f, 0.84f), C(0.6f, 0.46f, 0.2f), C(0.1f, 0.08f, 0.07f), 0.05f).ToMesh(mat);
+            for (int k = 0; k < 2; k++)
+            {
+                var hand = m.AttachTo(k == 0 ? "hand_r" : "hand_l");
+                hand.Name = k == 0 ? "DaggerR" : "DaggerL";
+                hand.AddChild(new MeshInstance3D { Name = "Blade", Mesh = dagger, Position = new Vector3(0.016f, -0.05f, 0f) });
+            }
+        }
         else if (!_warden)
         {
             // the Charged Strike: a burning edge along the blade, shown while the blade is charged
@@ -563,6 +592,13 @@ public sealed class HeroDesign : CreatureDesign
             light.LightEnergy = dead ? 0f : (0.45f + 2.8f * glow) * live;
             light.OmniRange = 3.2f + 2.5f * glow;
         }
+        else if (_rogue)
+        {
+            var r = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/DaggerR/Blade");
+            var l = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/DaggerL/Blade");
+            if (r != null) r.Visible = player == null || player.DaggerInHand(0);
+            if (l != null) l.Visible = player == null || player.DaggerInHand(1);
+        }
         else if (!_warden)
         {
             var edge = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ChargeEdge");
@@ -616,6 +652,7 @@ public sealed class HeroDesign : CreatureDesign
         };
         if (_warden) { o.SL = 36; o.EL = 78; o.AL = 4; o.WL = -(o.SL + o.EL); o.WR = 40; o.SR = 18; }
         if (_caster) { o.SR = 20 + b * 1.5f; o.ER = 75; o.AR = 10; o.SL = -6 - b * 2; o.EL = 22; o.AL = 10; }
+        if (_rogue) { o.Lean = 12 + b; o.Root.Y -= 0.04f; o.SR = 28 + b * 2; o.ER = 78; o.WR = 70; o.SL = 34 - b * 2; o.EL = 72; o.AL = 12; o.KR += 14; o.KL += 14; o.HR += 8; o.HL += 8; }
         return o;
     }
 

@@ -9,7 +9,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// Online co-op for up to four players, one of each hero.
+/// Online co-op for up to five players, one of each hero.
 ///
 /// One player hosts. The host's game owns the cave: every creature, pickup, chest and exit lives
 /// there, and the other games show copies of them (puppets). Each player's own hero runs on their
@@ -29,8 +29,8 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 4;
-    public const int MaxPlayers = 4;
+    public const int Version = 5;
+    public const int MaxPlayers = 5;
 
     /// <summary>
     /// Which copy of the game this is: the commit a downloaded build was made from (written by
@@ -412,7 +412,7 @@ public static partial class Net
         string build = r.More ? r.Str() : "";
         string refuse = version != Version ? "Your game is a different version from the host's. You both need the same copy."
             : InRun ? "That game is already under way. Ask the host to go back to the lobby."
-            : Peers.Count >= MaxPlayers ? "That game is full (four heroes, four players)."
+            : Peers.Count >= MaxPlayers ? "That game is full (five heroes, five players)."
             : null;
         if (refuse != null)
         {

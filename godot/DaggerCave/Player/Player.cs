@@ -97,6 +97,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Vitalist => AbilityChargeReady && Alimus >= HealCost,
         HeroKind.Elementalist => AbilityChargeReady && Aether >= BlizzardCost,
+        HeroKind.Rogue => DaggersInHand > 0,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
     };
@@ -127,6 +128,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Warden => "warden",
         HeroKind.Vitalist => "vitalist",
         HeroKind.Elementalist => "elementalist",
+        HeroKind.Rogue => "rogue",
         _ => "swordsman",
     };
 
@@ -318,6 +320,7 @@ public partial class Player : CharacterBody2D
             case HeroKind.Warden: UpdateShield(inp, dt); break;
             case HeroKind.Vitalist: TickVitalist(dt); break;
             case HeroKind.Elementalist: TickElementalist(dt); break;
+            case HeroKind.Rogue: TickRogue(dt); break;
             default: TickSwordsman(dt); break;
         }
 
@@ -352,11 +355,12 @@ public partial class Player : CharacterBody2D
         if (onFloor || surfaceFloat) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
-        // updraft (the Warden's raises her shield)
+        // updraft, the Rogue vanishes (the Warden's raises her shield)
         if (_dodgeBuf > 0 && DodgeButton(_dodgeInput)) _dodgeBuf = 0;
 
         if (_dodgeT > 0) v = DodgeMotion(v, dt);
         else if (_dashT > 0) v = DashMotion(v, dt);
+        else if (_tetherTo != null) v = TetherMotion(v, dt);
         else if (_airDashT > 0)
         {
             v = _airDashDir * Tune.Hero.AirDashSpeed;
@@ -416,6 +420,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Vitalist => CastDrain(aim, held),
         HeroKind.Elementalist => CastBolt(aim, held),
+        HeroKind.Rogue => DaggersInHand > 0 && _tetherTo == null && TrySwing(aim, held),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         _ => !Heaving && TrySwing(aim, held),
     };
@@ -426,6 +431,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => TryHeal(),
         HeroKind.Elementalist => TryBlizzard(aim, _abilityAimDist),
+        HeroKind.Rogue => TryThrow(aim),
         _ => TryCharge(),
     };
 
@@ -435,6 +441,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
         HeroKind.Vitalist => TryRupture(aim),
         HeroKind.Elementalist => TrySnap(),
+        HeroKind.Rogue => TryRecall(),
         _ => TryHeave(aim),
     };
 
@@ -444,6 +451,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Swordsman => TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
         HeroKind.Elementalist => TryUpdraft(),
+        HeroKind.Rogue => TryVanish(),
         _ => true,
     };
 
@@ -493,6 +501,8 @@ public partial class Player : CharacterBody2D
 
         // i-frame shimmer and post-hit blink
         float a = _invuln > 0 && (int)(_animT * 20) % 2 == 0 ? 0.35f : 1f;
+        // (hidden in the shadows, or in smoke: only a faint shape)
+        if (Hidden) a = 0.3f;
         Anim.Modulate = _iframes > 0 ? new Color(0.75f, 0.95f, 1f, a) : new Color(1, 1, 1, a);
     }
 
@@ -610,7 +620,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
         if (WebbedT > 0) target *= 0.45f;
         // planted for a heaving swing, or braced behind a shield bash
         bool rooted = Heaving || (_bashT > 0 && onFloor);
@@ -780,6 +790,8 @@ public partial class Player : CharacterBody2D
             if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
         }
         TakeRawDamage(dmg, "hit");
+        // (a blow that lands brings a vanished Rogue out of the shadows)
+        Reveal(true);
         _invuln = Stats.HurtInvuln;
         var away = (GlobalPosition - from).Normalized();
         // turn to face what hit you, then recoil

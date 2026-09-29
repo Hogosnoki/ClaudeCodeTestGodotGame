@@ -340,7 +340,7 @@ public partial class Main
         Meta.Save();
     }
 
-    private static string HeroName(HeroKind h) => h switch { HeroKind.Warden => "Warden", HeroKind.Vitalist => "Vitalist", HeroKind.Elementalist => "Elementalist", _ => "Swordsman" };
+    private static string HeroName(HeroKind h) => h switch { HeroKind.Warden => "Warden", HeroKind.Vitalist => "Vitalist", HeroKind.Elementalist => "Elementalist", HeroKind.Rogue => "Rogue", _ => "Swordsman" };
 
     /// <summary>The camp after a run together: how it went, and back to the lobby for the next.</summary>
     private void ShowOnlineCamp()

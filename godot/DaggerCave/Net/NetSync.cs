@@ -234,8 +234,19 @@ public static class NetSync
             case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Frost ? 1 : 0)); break;
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
+            case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? 1 : 0)); break;
+            case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
             default: return;
         }
+        Net.SendAll(w, true);
+    }
+
+    /// <summary>This game's Rogue recalled its daggers: its copies of them come home too.</summary>
+    public static void HeroRecall(Player p)
+    {
+        if (!Net.Online || Applying || p.IsRemote) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(11);
         Net.SendAll(w, true);
     }
 
@@ -306,6 +317,29 @@ public static class NetSync
                 var at = r.Vec(); float width = r.Half(), height = r.Half(), life = r.Half();
                 Applying = true;
                 G.Spawn(new Updraft { Position = at, Width = width, Height = height, Life = life });
+                Applying = false;
+                break;
+            }
+            case 10:
+            {
+                // a friend's dagger, thrown: it flies (and sticks) here as it does there
+                var at = r.Vec(); var dir = r.HVec(); int idx = r.Byte(); bool ricochet = r.Byte() != 0;
+                Applying = true;
+                G.Spawn(new ThrownDagger { Position = at, Dir = dir, Index = idx, Ricochet = ricochet, Thrower = av, Harmless = true });
+                Applying = false;
+                break;
+            }
+            case 11:
+                // a friend recalled: their daggers come home here too
+                foreach (var n in G.World.GetChildren())
+                    if (n is ThrownDagger d && d.Harmless && d.Thrower == av) d.ComeBack();
+                break;
+            case 12:
+            {
+                // a friend's smoke: every game keeps one (the host's creatures lose track in it)
+                var at = r.Vec(); float radius = r.Half(), life = r.Half();
+                Applying = true;
+                G.Spawn(new SmokeCloud { Position = at, Radius = radius, Life = life });
                 Applying = false;
                 break;
             }

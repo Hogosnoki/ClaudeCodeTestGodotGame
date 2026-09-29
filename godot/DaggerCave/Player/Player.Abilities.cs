@@ -18,6 +18,8 @@ public partial class Player
         HeroKind.Warden => Stats.DashTime + Stats.DashCooldown,
         HeroKind.Vitalist => Tune.Vitalist.HealCooldown,
         HeroKind.Elementalist => Tune.Elementalist.BlizzardCooldown * Stats.BlizzardCdMult,
+        // (the Rogue's ability button throws its daggers; its vanishing takes these uses)
+        HeroKind.Rogue => Tune.Rogue.VanishCooldown,
         _ => Stats.ChargeCooldown,
     };
 

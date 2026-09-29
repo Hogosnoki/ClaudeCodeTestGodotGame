@@ -84,6 +84,8 @@ public abstract partial class Enemy : CharacterBody2D
             {
                 if (h == null || !IsInstanceValid(h) || h.Dead) continue;
                 float d = h.GlobalPosition.DistanceSquaredTo(GlobalPosition);
+                // (a hidden hero is found only when there's no one else to find)
+                if (h.Hidden) d += 1e8f;
                 if (d < bd) { bd = d; best = h; }
             }
             _target = best ?? G.Player;
@@ -230,6 +232,12 @@ public abstract partial class Enemy : CharacterBody2D
         }
         BrainAccount(dt);
 
+        // lost track: its hero is hidden (vanished, or in smoke), or it stands in smoke itself.
+        // Whatever it was already swinging plays out; then it stands there, looking about.
+        // (Guardians and bosses aren't fooled.)
+        bool lost = !IsBoss && !IsGuardian && !Attacking && (P.Hidden || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition)));
+        if (lost && !_lost) G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 14), "?", new Color(0.9f, 0.9f, 0.95f), 12, 0.7f);
+        _lost = lost;
         if (Stun > 0)
         {
             Stun -= dt;
@@ -237,6 +245,14 @@ public abstract partial class Enemy : CharacterBody2D
             var v = KnockVel;
             KnockVel *= 1f / (1f + 8f * dt);
             if (UsesGravity && !InWater) v.Y += 200;
+            Velocity = v;
+            MoveAndSlide();
+        }
+        else if (lost)
+        {
+            var v = Velocity;
+            v.X = Mathf.MoveToward(v.X, 0, 600f * dt);
+            if (UsesGravity && !InWater) v.Y = Math.Min(v.Y + 700f * dt, 400f); else v.Y = Mathf.MoveToward(v.Y, 0, 400f * dt);
             Velocity = v;
             MoveAndSlide();
         }
@@ -264,7 +280,7 @@ public abstract partial class Enemy : CharacterBody2D
 
         // Touching an enemy only hurts during a body attack (a swoop, dart, lunge, drop, charge),
         // and then only once per attack. Idle bodies do PassiveContactMult of that (0 by default).
-        bool striking = Striking;
+        bool striking = Striking && !_lost;
         if (striking && !_wasStriking) _strikeLanded = false;
         _wasStriking = striking;
         float touch = striking ? (_strikeLanded ? 0 : ContactDamage) : ContactDamage * Tune.Combat.PassiveContactMult;
@@ -562,6 +578,10 @@ public abstract partial class Enemy : CharacterBody2D
         if (Anim != null) Anim.TimeMult = 1;
     }
 
+    private bool _lost;
+    /// <summary>It has lost track of the heroes (a Rogue vanished, or smoke): for the tests.</summary>
+    public bool LostTrack => _lost;
+
     /// <summary>A small horizontal bounce back after landing a hit on the player.</summary>
     public void Recoil(float dirX)
     {
@@ -624,6 +644,12 @@ public abstract partial class Enemy : CharacterBody2D
     protected virtual void OnHurt() { }
     protected virtual Vector2 DeathDrift => Vector2.Zero;
     protected virtual Color BloodColor => new(0.75f, 0.1f, 0.12f);
+    /// <summary>The colour it bleeds (for effects made elsewhere).</summary>
+    public Color BloodTint => BloodColor;
+    /// <summary>Test harness: turns it to face one way (+1 right, -1 left).</summary>
+    public void FaceToward(float x) { if (x != 0) Face = Math.Sign(x); }
+    /// <summary>Whether it has its back to <paramref name="p"/> (a Rogue's backstab).</summary>
+    public bool FacingAwayFrom(Vector2 p) => Math.Abs(p.X - GlobalPosition.X) > 2f && Math.Sign(p.X - GlobalPosition.X) != Math.Sign(Face);
 
     protected virtual void Die()
     {

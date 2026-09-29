@@ -18,9 +18,9 @@ public partial class OnlineMenu : Control
     private Label _title, _status, _code1, _code2, _code3, _router, _players, _wait, _mismatch;
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
     private Button _host, _start, _leave;
-    private readonly Button[] _cards = new Button[4];
-    private readonly Label[] _cardNote = new Label[4];
-    private readonly HeroPortrait[] _portraits = new HeroPortrait[4];
+    private readonly Button[] _cards = new Button[5];
+    private readonly Label[] _cardNote = new Label[5];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[5];
     private string _note = "";
     private bool _wasOnline;
 
@@ -30,6 +30,7 @@ public partial class OnlineMenu : Control
         (HeroKind.Warden, "Warden", "warden"),
         (HeroKind.Vitalist, "Vitalist", "vitalist"),
         (HeroKind.Elementalist, "Elementalist", "elementalist"),
+        (HeroKind.Rogue, "Rogue", "rogue"),
     };
 
     public override void _Ready()
@@ -47,7 +48,7 @@ public partial class OnlineMenu : Control
         _choose = new VBoxContainer();
         _choose.AddThemeConstantOverride("separation", 14);
         col.AddChild(_choose);
-        _choose.AddChild(UiKit.Label("Up to four players, one of each hero. One of you hosts; the others join with the host's code.", 15, UiKit.Dim, HorizontalAlignment.Center));
+        _choose.AddChild(UiKit.Label("Up to five players, one of each hero. One of you hosts; the others join with the host's code.", 15, UiKit.Dim, HorizontalAlignment.Center));
 
         var nameRow = Row(_choose);
         nameRow.AddChild(Fixed(UiKit.Label("Your name", 16), 150));
@@ -113,14 +114,14 @@ public partial class OnlineMenu : Control
 
         var cards = Row(_lobby);
         cards.Alignment = BoxContainer.AlignmentMode.Center;
-        cards.AddThemeConstantOverride("separation", 16);
+        cards.AddThemeConstantOverride("separation", 10);
         for (int k = 0; k < Heroes.Length; k++)
         {
             var (kind, name, design) = Heroes[k];
-            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(190, 220) };
+            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(150, 200) };
             AddChild(portrait);
             _portraits[k] = portrait;
-            var card = new Button { CustomMinimumSize = new Vector2(205, 214), FocusMode = FocusModeEnum.All };
+            var card = new Button { CustomMinimumSize = new Vector2(166, 214), FocusMode = FocusModeEnum.All };
             card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); };
             var v = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             v.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -133,7 +134,7 @@ public partial class OnlineMenu : Control
                 MouseFilter = MouseFilterEnum.Ignore,
             };
             v.AddChild(pic);
-            var label = UiKit.Label(name.ToUpperInvariant(), 17, Hud.HeroColor(kind), HorizontalAlignment.Center);
+            var label = UiKit.Label(name.ToUpperInvariant(), 15, Hud.HeroColor(kind), HorizontalAlignment.Center);
             label.MouseFilter = MouseFilterEnum.Ignore;
             v.AddChild(label);
             _cardNote[k] = UiKit.Label("", 13, UiKit.Dim, HorizontalAlignment.Center);

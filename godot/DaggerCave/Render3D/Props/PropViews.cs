@@ -25,6 +25,8 @@ public static class PropViews
             Updraft => new UpdraftView(),
             Blizzard => new BlizzardView(),
             IceBlock => new IceBlockView(),
+            ThrownDagger => new ThrownDaggerView(),
+            SmokeCloud => new SmokeCloudView(),
             XpOrb => new XpOrbView(),
             HeartPickup => new HeartView(),
             PotionPickup => new PotionView(),
@@ -610,6 +612,71 @@ public partial class IceBlockView : PropView
         Follow(default, 0.12f);
         float grow = Math.Clamp(b.Age / 0.12f, 0.2f, 1f);
         _ice.Scale = Vector3.One * grow;
+    }
+}
+
+/// <summary>The Rogue's thrown dagger: the blade itself, pointing along its flight (or where it went
+/// in), a glint on it, and a faint streak behind it while it flies.</summary>
+public partial class ThrownDaggerView : PropView
+{
+    private MeshInstance3D _blade, _glint, _streak;
+    private static Mesh _mesh;
+
+    protected override void Build()
+    {
+        _mesh ??= PropMeshes.Sword(0.3f, 0.026f, new Color(0.78f, 0.8f, 0.84f), new Color(0.6f, 0.46f, 0.2f), new Color(0.1f, 0.08f, 0.07f), 0.05f)
+            .ToMesh(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Metallic = 0.8f, Roughness = 0.3f });
+        _blade = new MeshInstance3D { Mesh = _mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Scale = Vector3.One * 1.6f };
+        AddChild(_blade);
+        _glint = PropViews.Sprite(new Color(1f, 0.97f, 0.9f), 3, 1.2f, 0.18f);
+        AddChild(_glint);
+        _streak = PropViews.Sprite(new Color(0.85f, 0.9f, 1f), 1, 0.9f, 0.5f);
+        AddChild(_streak);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var d = (ThrownDagger)Owner2D;
+        Follow(default, 0.25f);
+        var p = d.Pointing;
+        // (the blade runs down -Y from its grip: turn -Y onto the way it points, 2D y-down flipped)
+        _blade.Rotation = new Vector3(0, 0, MathF.Atan2(p.X, p.Y));
+        _blade.Position = new Vector3(-p.X, p.Y, 0) * 0.2f;
+        bool flying = d.State != ThrownDagger.Phase.Stuck;
+        _streak.Visible = flying;
+        _streak.Position = new Vector3(-p.X, p.Y, 0) * 0.35f;
+        _glint.Scale = Vector3.One * (0.12f + 0.08f * MathF.Abs(MathF.Sin(d.Age * 9f)));
+    }
+}
+
+/// <summary>The Rogue's smoke bomb: a heap of thick grey smoke, churning, billowing up and thinning away.</summary>
+public partial class SmokeCloudView : PropView
+{
+    private readonly MeshInstance3D[] _puffs = new MeshInstance3D[9];
+
+    protected override void Build()
+    {
+        for (int k = 0; k < _puffs.Length; k++)
+        {
+            _puffs[k] = new MeshInstance3D { Mesh = PropViews.Quad, MaterialOverride = PropViews.CloudMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            _puffs[k].SetInstanceShaderParameter("cloud_seed", k * 1.29f + 0.7f);
+            _puffs[k].SetInstanceShaderParameter("cloud_glow", 0.05f);
+            AddChild(_puffs[k]);
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var c = (SmokeCloud)Owner2D;
+        Follow(default, 0.35f);
+        float a = c.Thickness, r = W3.M(c.Radius) * (0.6f + 0.4f * Math.Min(1f, c.Age * 3f));
+        for (int k = 0; k < _puffs.Length; k++)
+        {
+            float ang = k * 0.7f + c.Age * (0.25f + 0.05f * (k % 3));
+            _puffs[k].Position = new Vector3(MathF.Cos(ang) * r * 0.55f, MathF.Sin(ang * 1.3f) * r * 0.35f + r * 0.1f, MathF.Sin(ang) * r * 0.4f);
+            _puffs[k].Scale = Vector3.One * r * (0.8f + 0.12f * (k % 3));
+            _puffs[k].SetInstanceShaderParameter("cloud_color", new Color(0.32f, 0.32f, 0.36f, 0.75f * a));
+        }
     }
 }
 

@@ -241,6 +241,43 @@ public static class Tune
         public static float BloomHeal = 30f, BloomSplash = 10f, PoolRate = 3f, PoolSeconds = 5f;
     }
 
+    // =============================================================================== ROGUE
+    public static class Rogue
+    {
+        public static float StartHp = 55f, MoveMult = 1.1f, JumpMult = 1f;
+        /// <summary>
+        /// Dagger Slash (the attack button): quick jabs, Damage each, SwingCooldown s apart (five a
+        /// second), Reach px, striking one creature at a time with a tiny hit-stop; no combo refunds.
+        /// A strike has CritChance of landing twice as hard (CritMult). With one dagger thrown the
+        /// jabs come half as fast (OneDaggerSlow).
+        /// </summary>
+        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.035f, SwingTime = 0.06f, Reach = 22f, Knockback = 70f, Lunge = 0f;
+        public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.025f, OneDaggerSlow = 2f;
+        /// <summary>Backstab (an upgrade): a strike from behind a creature lands this many times as hard.</summary>
+        public static float BackstabMult = 1.5f;
+        /// <summary>
+        /// Dagger Throw (the ability button): your two daggers are its uses. A thrown dagger flies at
+        /// ThrowSpeed px/s up to ThrowRange px and sticks in the first creature it meets for
+        /// ThrowDamage, nudging it (ThrowNudge); a miss flies back by itself, at ReturnSpeed px/s.
+        /// With both out, both come back by themselves.
+        /// </summary>
+        public static float ThrowDamage = 18f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
+        /// <summary>Recall (the second ability, no cooldown): each dagger stuck in a creature tears
+        /// back out through it for RecallDamage, yanking it toward you (RecallYank).</summary>
+        public static float RecallDamage = 9f, RecallYank = 260f;
+        /// <summary>Vanish (the dodge button): VanishSeconds of stealth (creatures lose you) at
+        /// VanishSpeed times your speed; VanishCooldown s to come back. Attacking or being hurt ends
+        /// it. Surprise Attack (an upgrade): the strike out of the shadows lands SurpriseMult as hard.</summary>
+        public static float VanishSeconds = 6f, VanishSpeed = 1.5f, VanishCooldown = 12f, SurpriseMult = 4f;
+        /// <summary>Alterations: Ricochet (a thrown dagger springs on to one more creature within
+        /// RicochetRange px, then comes back), Smoke Bomb (a cloud SmokeRadius px round for
+        /// SmokeSeconds: every hero in it is hidden, and creatures in it can't find anyone), Tether
+        /// (Recall pulls you to a stuck dagger at TetherSpeed px/s instead).</summary>
+        public static float RicochetRange = 130f, SmokeRadius = 70f, SmokeSeconds = 6f, TetherSpeed = 720f;
+        /// <summary>Keen Edge (an upgrade): the crit chance each rank adds.</summary>
+        public static float KeenChance = 0.05f;
+    }
+
     // =============================================================================== ELEMENTALIST
     public static class Elementalist
     {
