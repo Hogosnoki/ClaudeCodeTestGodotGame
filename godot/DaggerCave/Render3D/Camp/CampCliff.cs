@@ -84,6 +84,19 @@ public partial class CampScene
             {
                 var (pt, nrm) = rows[j];
                 float back = pt.X, up = pt.Y;
+                // the mouth's edge: vertices just inside it are drawn out onto its outline, so the cut is smooth, not stair-stepped
+                bool wasHole = false;
+                if (back < 3f && up < 11f && up > -0.3f)
+                {
+                    float d0 = ArchDist(a, up) + noise.Sample(a * 1.3f, up * 1.3f, 2f) * 0.22f;
+                    wasHole = d0 < 0f;
+                    if (wasHole && d0 > -0.4f)
+                    {
+                        float dy = up - (ArchH - ArchHalfW), gl = MathF.Sqrt(a * a + dy * dy) + 1e-4f;
+                        float gx = dy <= 0f ? MathF.Sign(a) : a / gl, gy = dy <= 0f ? 0f : dy / gl;
+                        a -= gx * d0; up -= gy * d0;
+                    }
+                }
                 float u0 = up;
                 // what the rock does: buttresses and hollows, bedding ledges, fractures, crags (all strongest low on the face)
                 float faceness = 1f - W3.SmoothStep(10f, 14f, up);
@@ -111,7 +124,7 @@ public partial class CampScene
                 var warm = new Color(shade * 1.02f, shade * 0.98f, shade * 0.92f);
                 var n3 = (Vector3.Up * nrm.Y - MouthFacing * nrm.X).Normalized();
                 grid[i * nr + j] = mb.Add(p, n3, warm);
-                hole[i * nr + j] = onFace && up > -0.3f && d + noise.Sample(a * 1.3f, up * 1.3f, 2f) * 0.22f < 0f;
+                hole[i * nr + j] = wasHole;
             }
         }
         for (int i = 0; i < cols - 1; i++)
@@ -316,7 +329,7 @@ public partial class CampScene
             {
                 if (rng.NextDouble() < 0.35) continue;
                 var p = path[i];
-                float r = 0.09f + 0.09f * (float)rng.NextDouble();
+                float r = 0.035f + 0.035f * (float)rng.NextDouble();
                 var side = CliffRight * ((float)rng.NextDouble() - 0.5f) * 0.25f;
                 DecorMeshes.AddSphere(vine, p + side, r, leaf * (0.8f + 0.5f * (float)rng.NextDouble()), 4);
             }

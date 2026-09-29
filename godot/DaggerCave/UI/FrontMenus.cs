@@ -44,7 +44,7 @@ public partial class MainMenu : Control
         AddChild(col);
         var title = UiKit.Label("DAGGER DEEP", 66, UiKit.Gold);
         title.AddThemeColorOverride("font_outline_color", new Color(0.12f, 0.07f, 0.02f));
-        title.AddThemeConstantOverride("outline_size", 12);
+        title.AddThemeConstantOverride("outline_size", 7);
         col.AddChild(title);
         var tag = UiKit.Label("A rogue-lite descent from this sunny meadow to the dragon at the bottom of the world.", 16, new Color(0.95f, 0.95f, 0.9f));
         tag.AutowrapMode = TextServer.AutowrapMode.WordSmart;

@@ -535,7 +535,7 @@ public partial class CampScene : SubViewport
             var label = new Label3D
             {
                 Text = name, Modulate = accent.Lightened(0.35f), OutlineModulate = new Color(0.05f, 0.04f, 0.03f, 0.9f),
-                FontSize = 48, PixelSize = 0.005f, OutlineSize = 16, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true,
+                FontSize = 48, PixelSize = 0.005f, OutlineSize = 10, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true,
                 Position = at + new Vector3(0, 2.35f, 0), Visible = false, RenderPriority = 2, OutlineRenderPriority = 1,
             };
             AddChild(label);
