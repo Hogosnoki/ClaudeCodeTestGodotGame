@@ -166,15 +166,15 @@ public partial class LifeMoteView : PropView
         _size = ((LifeMote)Owner2D).Size;
         _halo = PropViews.Sprite(Player.LifeColor, 0, 1.7f, 0.6f);
         AddChild(_halo);
-        _core = PropViews.Sprite(new Color(1f, 0.82f, 0.8f), 3, 2.4f, 0.28f);
+        _core = PropViews.Sprite(new Color(0.85f, 1f, 0.82f), 3, 2.4f, 0.28f);
         AddChild(_core);
         for (int k = 0; k < _tail.Length; k++)
         {
             float f = 1f - k / (float)_tail.Length;
-            _tail[k] = PropViews.Sprite(new Color(0.85f, 0.08f, 0.16f), 0, 1.3f * f, (0.36f * f + 0.08f) * _size);
+            _tail[k] = PropViews.Sprite(new Color(0.15f, 0.85f, 0.22f), 0, 1.3f * f, (0.36f * f + 0.08f) * _size);
             AddChild(_tail[k]);
         }
-        _light = PropViews.Light(new Color(1f, 0.3f, 0.35f), 1.2f * _size, 2.8f);
+        _light = PropViews.Light(new Color(0.3f, 1f, 0.4f), 1.2f * _size, 2.8f);
         AddChild(_light);
     }
 

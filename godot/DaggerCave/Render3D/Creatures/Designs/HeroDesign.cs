@@ -551,7 +551,7 @@ public sealed partial class HeroDesign : CreatureDesign
             var spell = player?.LastCast switch
             {
                 "heal" => Player.HealColor,
-                "drain" or "rupture" => new Color(1f, 0.22f, 0.3f),
+                "drain" or "rupture" => new Color(0.6f, 1f, 0.55f),
                 _ => Life,
             };
             var col = Life.Lerp(spell, Math.Clamp(glow * 1.6f, 0f, 1f));

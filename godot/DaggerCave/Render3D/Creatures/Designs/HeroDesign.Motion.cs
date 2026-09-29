@@ -529,10 +529,10 @@ public sealed partial class HeroDesign
         o.EL = Mathf.Lerp(Mathf.Lerp(o.EL, 112f, draw), 6f, thrust);
         o.AL = Mathf.Lerp(o.AL, 18f, thrust);
         o.WL = Mathf.Lerp(-10f, -34f, thrust);
-        // the staff arm braces and levels the orb at the mark
-        o.SR = Mathf.Lerp(o.SR, 52f + aim * 0.3f, Math.Max(draw, thrust) * 0.8f);
-        o.ER = Mathf.Lerp(o.ER, 68f, Math.Max(draw, thrust) * 0.8f);
-        staff = Mathf.Lerp(Mathf.Lerp(staff, 96f, draw), aim + 32f, thrust);
+        // the staff hand snaps the orb up behind the shoulder, then flicks it out at arm's length, level with the mark
+        o.SR = Mathf.Lerp(Mathf.Lerp(o.SR, 150f, draw), 92f + aim * 0.7f, thrust);
+        o.ER = Mathf.Lerp(Mathf.Lerp(o.ER, 50f, draw), 16f, thrust);
+        staff = Mathf.Lerp(Mathf.Lerp(staff, 128f, draw), aim + 6f, thrust);
         o.Twist += 16f * draw - 22f * thrust; o.HipTwist -= 7f * draw - 10f * thrust;
         o.Lean += -6f * draw + 12f * thrust - aim * 0.05f * thrust;
         o.HeadPitch += -aim * 0.2f * thrust;

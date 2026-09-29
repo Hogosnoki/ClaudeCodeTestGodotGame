@@ -25,7 +25,7 @@ public partial class Player
     /// <summary>Healing's colour, everywhere (the potion's pink).</summary>
     public static readonly Color HealColor = new(1f, 0.5f, 0.66f), HealColorLight = new(1f, 0.75f, 0.84f);
     /// <summary>Life torn out of a creature (the drain, the rupture).</summary>
-    public static readonly Color LifeColor = new(0.95f, 0.16f, 0.24f), LifeColorLight = new(1f, 0.55f, 0.55f);
+    public static readonly Color LifeColor = new(0.25f, 0.95f, 0.32f), LifeColorLight = new(0.78f, 1f, 0.7f);
 
     /// <summary>What a heal costs now.</summary>
     public float HealCost => Tune.Vitalist.HealCost * Stats.HealCostMult;
@@ -115,7 +115,10 @@ public partial class Player
         _drainTarget = null;
         if (Dead || !IsInstanceValid(target) || target.Dead || !target.CanBeHit) return;
         float dmg = _drainDmg;
-        G.Fx.Flash(CastPoint, 9, LifeColorLight, 0.1f);
+        // a green glint on the staff, at the very moment the creature bursts
+        G.Fx.Flash(CastPoint, 12, LifeColorLight, 0.14f);
+        G.Fx.Spark(CastPoint, Vector2.Right, false, LifeColorLight);
+        G.Fx.Burst(CastPoint, LifeColorLight, 7, 70, 1.6f, 0.3f, -30f);
         G.Fx.Beam(CastPoint, target.GlobalPosition, new Color(LifeColor, 0.9f));
         DrainFrom(target, dmg, 1f);
         // Many Mouths: the creatures nearest the target give up their life too
@@ -155,11 +158,13 @@ public partial class Player
         if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
         // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
         // life streaming out of it toward you
-        G.Fx.Flash(at, 11 * size + 5, LifeColor, 0.12f);
-        G.Fx.Spark(at, -toMe, false, LifeColorLight);
-        G.Fx.Burst(at, LifeColor, (int)(12 * size), 170, 2.2f, 0.35f, 120f, 0, 3f);
-        G.Fx.Directional(at, toMe, 0.55f, LifeColor, (int)(14 * size), 230, 2.2f, 0.32f, 0, 0);
-        G.Fx.Ring(at, 10 + 12 * size, new Color(LifeColor, 0.9f), 0.26f);
+        // (bright and big: a green flare, a burst of it, a ring racing out, and the life torn out toward you)
+        G.Fx.Flash(at, 20 * size + 8, LifeColorLight, 0.16f);
+        G.Fx.Flash(at, 12 * size + 5, LifeColor, 0.22f);
+        G.Fx.Spark(at, -toMe, true, LifeColorLight);
+        G.Fx.Burst(at, LifeColor, (int)(20 * size), 190, 2.6f, 0.4f, 60f, 0, 3f);
+        G.Fx.Directional(at, toMe, 0.6f, LifeColorLight, (int)(18 * size), 260, 2.4f, 0.36f, 0, 0);
+        G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
         var mote = new LifeMote { Position = at, Caster = this, Alimus = dealt * Stats.AlimusGain, Size = size };
         G.Spawn(mote);
