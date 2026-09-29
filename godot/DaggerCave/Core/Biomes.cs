@@ -62,6 +62,8 @@ public sealed class BiomeDef
     public int TallThreshold = 10;
     public int MiniBossesMin = 1, MiniBossesMax = 2;
     public int WaterCaches = 2, HighCaches = 2;
+    /// <summary>Chests sunk in the lava pools (only Magma Skin reaches them).</summary>
+    public int LavaCaches;
     /// <summary>At most this many treasure rooms hold a chest.</summary>
     public int RoomChests = 4;
 
@@ -351,7 +353,7 @@ public static class Biomes
             Edge = C("4a2a22"), Deep = C("140806"), Moss = C("8a3a1a"), Rim = C("7a4636"), Glow = C("ff9040"),
             LiquidTop = new Color(1f, 0.42f, 0.08f, 0.85f), LiquidBottom = new Color(0.6f, 0.12f, 0.02f, 0.95f), LiquidLine = new Color(1f, 0.85f, 0.4f, 1f),
             BackBottom = C("200604"), Grass = 0.0f, Stalactites = 0.25f, Mushrooms = 0.0f, FireVents = true, HazardCount = 12, Darkness = 0.6f,
-            MiniBossesMin = 2, MiniBossesMax = 2,
+            MiniBossesMin = 2, MiniBossesMax = 2, LavaCaches = 4,
         };
         magma.Residents[SpawnKind.Ground] = L(E(3, () => new LavaMonster()), E(2, () => Var(new Golem(), "Obsidian ", "6a5a7a", 1.3f)), E(1, () => Var(new Scorpion(), "Ember ", "ff9060"), 1, 2));
         magma.Residents[SpawnKind.Ceiling] = L(E(2, () => Var(new Bat(), "Fire ", "ff9050"), 2, 3), E(1, () => Var(new Hornet(), "Ember ", "ff8040")));

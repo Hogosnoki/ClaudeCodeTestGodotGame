@@ -29,7 +29,7 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 2;
+    public const int Version = 3;
     public const int MaxPlayers = 3;
 
     /// <summary>
@@ -336,6 +336,8 @@ public static partial class Net
         ExitReady, Fx, Sfx, Banner, GuardianDown, RunOver, Revive, KillCredit, Music, HeroGone, Dealt, LeftCave,
         /// <summary>Chests: who is looking in one, the cards it was dealt, and a look finished (taken or left).</summary>
         ChestLook, ChestCards, ChestDone,
+        /// <summary>A barrier or a mending for another player's hero.</summary>
+        HeroBoon,
         /// <summary>The two-game test harness (--nettest) talking to itself.</summary>
         Test,
     }

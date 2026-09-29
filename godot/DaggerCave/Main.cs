@@ -29,6 +29,7 @@ public partial class Main : Node
     private MetaMenu _metaMenu;
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
+    private BuildPanel _buildPanel;
     private bool _victory;
     private int _runEmbers;
     private string _runFinds = "";
@@ -140,6 +141,7 @@ public partial class Main : Node
         _uiLayer.AddChild(_hud);
         _upgradeMenu = new UpgradeMenu();
         _upgradeMenu.Picked += OnUpgradePicked;
+        _upgradeMenu.ShowBuild = () => _buildPanel.Open();
         _uiLayer.AddChild(_upgradeMenu);
         _overlay = new ScreenOverlay();
         _uiLayer.AddChild(_overlay);
@@ -147,15 +149,17 @@ public partial class Main : Node
         _metaMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_metaMenu);
         UiKit.EnsureMenuControls();
-        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
+        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_pauseMenu);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
+        _buildPanel = new BuildPanel { Closed = OnBuildClosed };
+        _uiLayer.AddChild(_buildPanel);
         SetupOnline();
         SetupFrontMenus();
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -170,6 +174,7 @@ public partial class Main : Node
         if (ModelSheet.Wanted) { _uiLayer.Visible = false; AddChild(new ModelSheet()); return; }
         if (gentest) { RunGenTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
+        if (OS.GetCmdlineUserArgs().Contains("--upgradetest")) { RunUpgradeTest(); return; }
         foreach (var arg in OS.GetCmdlineUserArgs())
             if (arg.StartsWith("--musicdump=")) { _sfx.DumpMusic(arg[12..]); SafeQuit.Request(this); return; }
         if (_campShot != "") { ShowCampScene(true); return; }
@@ -580,7 +585,8 @@ public partial class Main : Node
 
     /// <summary>
     /// Extra chests away from the dead ends: some on the flooded floor (where movement upgrades are
-    /// likeliest) and some high in the dry caves (survival upgrades), spread apart and reachable.
+    /// likeliest), some high in the dry caves (survival upgrades), and in the Magma Caverns a few
+    /// sunk in the lava (for Magma Skin to reach), spread apart and reachable.
     /// </summary>
     private void PlaceCaches(CaveData cave)
     {
@@ -591,14 +597,15 @@ public partial class Main : Node
             int i = (int)(p.X / CaveData.Cell), j = (int)(p.Y / CaveData.Cell) - 1;
             return cave.ReachMask != null && i >= 0 && j >= 0 && i < cave.W && j < cave.H && cave.ReachMask[j * cave.W + i];
         }
-        void Scatter(int count, float yMin, float yMax, bool underwater)
+        void Scatter(int count, float yMin, float yMax, bool underwater, bool lava = false)
         {
+            bool Sunk(Vector2 p) => lava ? cave.IsLava(p) : cave.IsWater(p);
             int made = 0;
             for (int tries = 0; tries < 2000 && made < count; tries++)
             {
                 var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(yMin, yMax));
-                if (cave.IsSolid(at) || cave.IsWater(at) != underwater) continue;
-                if (!cave.FindFloor(at, 300, out var floor) || cave.IsWater(floor + new Vector2(0, -10)) != underwater) continue;
+                if (cave.IsSolid(at) || Sunk(at) != underwater) continue;
+                if (!cave.FindFloor(at, 300, out var floor) || Sunk(floor + new Vector2(0, -10)) != underwater) continue;
                 if (!underwater && floor.Y > yMax) continue;
                 if (!Reachable(floor) || placed.Any(q => q.DistanceTo(floor) < 350)) continue;
                 placed.Add(floor);
@@ -610,6 +617,7 @@ public partial class Main : Node
         }
         var bd = cave.Biome;
         if (cave.Liquid == Liquid.Water) Scatter(bd?.WaterCaches ?? Tune.Drops.WaterCaches, cave.WaterY + 40, cave.SizePx.Y - 40, true);
+        if (cave.Liquid == Liquid.Lava && bd?.LavaCaches > 0) Scatter(bd.LavaCaches, cave.WaterY + 8, cave.SizePx.Y - 20, true, lava: true);
         float dryBottom = Math.Min(cave.WaterY, cave.SizePx.Y);
         Scatter(bd?.HighCaches ?? Tune.Drops.HighCaches, 60, dryBottom * Tune.Drops.HighZoneFraction, false);
         if (_autotest) GD.Print($"[autotest] caches placed: {placed.Count - cave.Rooms.Count}");
@@ -904,6 +912,17 @@ public partial class Main : Node
         _settingsMenu.Open();
     }
 
+    private void OpenBuild()
+    {
+        _pauseMenu.Visible = false;
+        _buildPanel.Open();
+    }
+
+    private void OnBuildClosed()
+    {
+        if (_state == State.Paused) _pauseMenu.Open(online: Net.InRun, host: Net.IsHost);
+    }
+
     private void OnSettingsClosed()
     {
         if (_state == State.Paused) _pauseMenu.Open(online: Net.InRun, host: Net.IsHost);
@@ -994,7 +1013,7 @@ public partial class Main : Node
             }
         }
         if (_metaMenu.Visible || _onlineMenu.Visible) return;
-        if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible)
+        if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible && !BuildPanel.Showing)
         {
             PauseGame();
             GetViewport().SetInputAsHandled();
@@ -2249,20 +2268,20 @@ public partial class Main : Node
                 p.Heal(1000);
                 break;
             }
-            case 460:
+            case 580:
                 Check("the golem wound up a slam (for the swing to meet)", _windupHit > 0);
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 // ---- holding the attack down swings again and again
                 _swingsMark = p.AttacksStarted;
                 _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 472:
+            case 592:
                 Check($"holding the attack keeps swinging ({p.AttacksStarted - _swingsMark} swings in 1.2 s)", p.AttacksStarted - _swingsMark >= 3);
                 _heroInput = default;
                 Finish();
                 break;
         }
-        if (s > 370 && s < 460 && _windupHit < 0 && IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking && _probeEnemy is Golem)
+        if (s > 370 && s < 580 && _windupHit < 0 && IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking && _probeEnemy is Golem)
         {
             // swing into it the moment its slam begins
             _windupHit = s;
@@ -2426,7 +2445,7 @@ public partial class Main : Node
             case 115:
                 Check($"holding the attack doesn't cut a roll short (dodging {p.IsDodging}, swinging {p.IsSwinging})", p.IsDodging && !p.IsSwinging);
                 _heroInput = default;
-                _probeEnemy.QueueFree();
+                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
             case 117:
             {

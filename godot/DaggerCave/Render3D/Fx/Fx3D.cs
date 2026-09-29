@@ -53,7 +53,9 @@ public partial class Fx3D : Node3D
     private Batch _glow, _smoke, _debris, _bubbles;
     private readonly OmniLight3D[] _lights = new OmniLight3D[10];
     private readonly float[] _lt = new float[10], _lmax = new float[10], _le = new float[10];
-    private MeshInstance3D _ribbon, _barrier;
+    private MeshInstance3D _ribbon;
+    /// <summary>Shells of light: the Guarded Charge's, and the barriers it gives (one per hero at most, each).</summary>
+    private readonly MeshInstance3D[] _shells = new MeshInstance3D[6];
     private ImmediateMesh _rmesh;
     private OmniLight3D _bladeLight;
     private ShaderMaterial _barrierMat;
@@ -113,12 +115,16 @@ public partial class Fx3D : Node3D
         AddChild(_bladeLight);
 
         _barrierMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_ghost.gdshader") };
-        _barrier = new MeshInstance3D
+        var shell = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 24, Rings = 12 };
+        for (int k = 0; k < _shells.Length; k++)
         {
-            Name = "Barrier", Mesh = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 24, Rings = 12 }, MaterialOverride = _barrierMat,
-            Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-        };
-        AddChild(_barrier);
+            _shells[k] = new MeshInstance3D
+            {
+                Name = "Shell" + k, Mesh = shell, MaterialOverride = _barrierMat,
+                Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            };
+            AddChild(_shells[k]);
+        }
     }
 
     private static Color Lin(Color c) => new Color(c.R, c.G, c.B).SrgbToLinear() with { A = c.A };
@@ -315,7 +321,15 @@ public partial class Fx3D : Node3D
     {
         _rmesh.ClearSurfaces();
         bool any = false, blade = false;
-        _barrier.Visible = false;
+        int shells = 0;
+        void Shell(Player p, float r, Color c)
+        {
+            if (shells >= _shells.Length) return;
+            var m = _shells[shells++];
+            m.Visible = true;
+            m.GlobalTransform = new Transform3D(Basis.FromScale(Vector3.One * r / W3.Ppu), W3.P(p.GlobalPosition + new Vector2(0, -2), 0f));
+            m.SetInstanceShaderParameter("ghost_color", c);
+        }
         // every hero in the game (online, the others' too)
         foreach (var p in G.Players)
         {
@@ -323,14 +337,12 @@ public partial class Fx3D : Node3D
             if (p.GetSmear(out var sm)) { SmearRibbon(sm); any = true; blade = true; }
             var g = p.GetGuard();
             if (g.Shield) { GuardArc(p, g); any = true; }
-            if (g.Dash)
-            {
-                // the Guarded Charge: a shell of blue light around the charging Warden
-                _barrier.Visible = true;
-                _barrier.GlobalTransform = new Transform3D(Basis.FromScale(Vector3.One * 17f / W3.Ppu), W3.P(p.GlobalPosition + new Vector2(0, -2), 0f));
-                _barrier.SetInstanceShaderParameter("ghost_color", new Color(0.45f, 0.75f, 1f, 0.55f));
-            }
+            // the Guarded Charge: a shell of blue light around the charging Warden
+            if (g.Dash) Shell(p, 17f, new Color(0.45f, 0.75f, 1f, 0.55f));
+            // a barrier (Guardian's Charge): a paler, larger shell that breathes
+            if (p.Barriered && !p.Dead) Shell(p, 20f + MathF.Sin(_time * 5f) * 0.8f, new Color(0.75f, 0.9f, 1f, 0.42f));
         }
+        for (int k = shells; k < _shells.Length; k++) _shells[k].Visible = false;
         if (!blade) _bladeLight.Visible = false;
         _ribbon.Visible = any;
     }

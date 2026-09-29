@@ -12,7 +12,9 @@ namespace DaggerCave;
 /// hex: creatures around you slow down and take more damage for a while. The ability button
 /// spends alimus on a heal, shared among everyone nearby who is hurt, by how hurt each of them
 /// is. The second ability spends a full reserve on a rupture: the creature you aim at is seized
-/// where it stands and bursts, splashing everything around it.
+/// where it stands and bursts, splashing everything around it. Its alterations: Blight Burst (the
+/// hex strikes too) or Endless Hex (alimus instead of a cooldown), Slow Mending (heals over time)
+/// and Lifebloom (the rupture blooms on a friend, healing).
 /// </summary>
 public partial class Player
 {
@@ -245,14 +247,32 @@ public partial class Player
     private bool TryHex()
     {
         if (!IsVitalist || _hexCd > 0) return false;
-        _hexCd = Stats.HexCooldown;
+        if (Stats.EndlessHex)
+        {
+            // Endless Hex: alimus instead of a cooldown (a beat between casts all the same)
+            if (Alimus < Tune.Vitalist.EndlessHexCost - 0.001f) { _hexCd = 0.4f; SayNo("NOT ENOUGH ALIMUS"); return true; }
+            Alimus = Math.Max(0, Alimus - Tune.Vitalist.EndlessHexCost);
+            _hexCd = 0.35f;
+        }
+        else _hexCd = Stats.HexCooldown;
         float r = Tune.Vitalist.HexRadius * Stats.HexRadiusMult;
         var c = GlobalPosition + new Vector2(0, -6);
-        foreach (var e in G.Enemies)
+        // Blight Burst: it strikes as it spreads, but slows and weakens half as much
+        float weaker = Stats.BlightBurst ? Tune.Vitalist.BlightWeaker : 0f;
+        float vuln = 1f + (Tune.Vitalist.HexVulnerability - 1f) * (1f - weaker);
+        float slow = 1f - (1f - Tune.Vitalist.HexSlow) * (1f - weaker);
+        foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || e.GlobalPosition.DistanceTo(c) > r + e.HitRadius) continue;
-            e.Hex(Tune.Vitalist.HexVulnerability, Tune.Vitalist.HexSlow, Stats.HexSeconds, Stats.HexRot * Stats.DamageMult);
+            e.Hex(vuln, slow, Stats.HexSeconds, Stats.HexRot * Stats.DamageMult);
             G.Fx.Burst(e.GlobalPosition, new Color(0.55f, 1f, 0.4f, 0.9f), 6, 60, 1.8f, 0.6f, -60);
+            if (Stats.BlightBurst && !e.Dead)
+            {
+                var away = (e.GlobalPosition - c).LengthSquared() > 1 ? (e.GlobalPosition - c).Normalized() : Vector2.Up;
+                float dealt = e.Hurt(Tune.Vitalist.BlightDamage * Stats.DamageMult, away * 90f, e.GlobalPosition - away * e.HitRadius);
+                if (dealt > 0) OnDealtDamage(dealt);
+                G.Fx.Burst(e.GlobalPosition, new Color(0.35f, 0.8f, 0.2f), 8, 140, 2f, 0.4f);
+            }
         }
         var col = new Color(0.5f, 1f, 0.4f);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, 12), r, new Color(col, 0.8f), 0.45f);
@@ -305,7 +325,12 @@ public partial class Player
             for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
             p.Anim.Flash(0.4f);
             p.Anim.FlashColor = HealColorLight;
-            p.Heal(share);
+            if (!Stats.SlowMending) { p.Heal(share); continue; }
+            // Slow Mending: half now, half over the next seconds (Patient: all of it, and more)
+            float later = Stats.PatientMending ? share * (1f + Tune.Vitalist.PatientBonus) : share * 0.5f;
+            float now = Stats.PatientMending ? 0f : share * 0.5f;
+            if (now > 0) p.Heal(now);
+            p.GiveMending(later, Tune.Vitalist.MendSeconds, Stats.WardingMending);
         }
         G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
         Anim.Once("heal", 3);
@@ -342,6 +367,7 @@ public partial class Player
         if (!IsVitalist || _ruptureCd > 0 || _ruptureT >= 0) return false;
         if (Alimus < RuptureCost - 0.001f) { _ruptureCd = 0.5f; SayNo("NOT ENOUGH ALIMUS"); return true; }
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        if (Stats.Lifebloom) return StartBloom(aim);
         var target = FindSpellTarget(aim, Tune.Vitalist.RuptureRange * Stats.DaggerReach);
         if (target == null) { _ruptureCd = 0.3f; SayNo("NOTHING TO RUPTURE"); return true; }
         Alimus = Math.Max(0, Alimus - RuptureCost);
@@ -371,6 +397,7 @@ public partial class Player
     private void TickRupture(float dt)
     {
         if (_ruptureT < 0) return;
+        if (_bloomTarget != null && IsInstanceValid(_bloomTarget) && !_bloomTarget.Dead) _rupturePos = _bloomTarget.GlobalPosition;
         if (_ruptureTarget != null && IsInstanceValid(_ruptureTarget) && !_ruptureTarget.Dead) _rupturePos = _ruptureTarget.GlobalPosition;
         _ruptureGatherT -= dt;
         if (_ruptureGatherT <= 0)
@@ -379,7 +406,86 @@ public partial class Player
             G.Fx.Converge(_rupturePos, 26, LifeColorLight, 3, 0.15f);
         }
         _ruptureT -= dt;
-        if (_ruptureT < 0) RuptureBurst();
+        if (_ruptureT < 0) { if (_bloomTarget != null) BloomBurst(); else RuptureBurst(); }
+    }
+
+    // ---------------------------------------------------------------- Lifebloom
+
+    private Player _bloomTarget;
+    /// <summary>Blooms cast this run (for the tests).</summary>
+    public int Blooms { get; private set; }
+
+    /// <summary>
+    /// Lifebloom: the rupture gathers on the friend nearest your aim (within its reach; alone,
+    /// on you) and, a beat later, bursts into healing: the friend gets the most, everyone else
+    /// in the burst a share.
+    /// </summary>
+    private bool StartBloom(Vector2 aim)
+    {
+        float range = Tune.Vitalist.RuptureRange * Stats.DaggerReach;
+        Player best = null;
+        float bestScore = float.MaxValue;
+        foreach (var p in G.Players)
+        {
+            if (p == this || p.Dead || !IsInstanceValid(p)) continue;
+            var to = p.GlobalPosition - GlobalPosition;
+            float d = to.Length();
+            if (d > range) continue;
+            float score = d * (1f + Math.Abs(aim.AngleTo(to)) * 1.5f);
+            if (score < bestScore) { bestScore = score; best = p; }
+        }
+        var target = best ?? this;
+        Alimus = Math.Max(0, Alimus - RuptureCost);
+        _ruptureCd = Tune.Vitalist.RuptureCooldown;
+        _bloomTarget = target;
+        _ruptureTarget = null;
+        _rupturePos = target.GlobalPosition;
+        _ruptureDir = target == this ? new Vector2(Facing, 0) : (target.GlobalPosition - CastPoint).Normalized();
+        _ruptureT = Tune.Vitalist.RuptureWindup;
+        _ruptureGatherT = 0;
+        if (Math.Abs(_ruptureDir.X) > 0.15f) Facing = Math.Sign(_ruptureDir.X);
+        CastDir = _ruptureDir;
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("rupture", 3);
+        G.Fx.Ring(target.GlobalPosition, 26, new Color(HealColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f);
+        G.Fx.Converge(target.GlobalPosition, 40, HealColorLight, 14, Tune.Vitalist.RuptureWindup);
+        if (target != this) G.Fx.Beam(CastPoint, target.GlobalPosition + new Vector2(0, -6), new Color(HealColor, 0.8f));
+        G.Sfx.Play("heal", target.GlobalPosition, -6, 0.05f, 0.7f);
+        _castGlow = 1f;
+        LastCast = "rupture";
+        Blooms++;
+        return true;
+    }
+
+    /// <summary>The bloom bursts: the friend it gathered on is healed most, everyone else in the burst a share.</summary>
+    private void BloomBurst()
+    {
+        _ruptureT = -1;
+        var at = _rupturePos;
+        var main = _bloomTarget != null && IsInstanceValid(_bloomTarget) && !_bloomTarget.Dead ? _bloomTarget : null;
+        _bloomTarget = null;
+        float radius = Tune.Vitalist.RuptureRadius * Stats.RuptureRadiusMult;
+        if (main != null) main.Heal(Tune.Vitalist.BloomHeal * Stats.HealMult);
+        foreach (var p in G.Players)
+        {
+            if (p == main || p.Dead || !IsInstanceValid(p) || p.GlobalPosition.DistanceTo(at) > radius) continue;
+            p.Heal(Tune.Vitalist.BloomSplash * Stats.RuptureSplashMult * Stats.HealMult);
+        }
+        // Healing Pool: it lingers where it burst (every game keeps one; each heals its own hero)
+        if (Stats.BloomPool)
+        {
+            var pool = new HealingPool { Position = at, Radius = radius, Rate = Tune.Vitalist.PoolRate * Stats.HealMult, Life = Tune.Vitalist.PoolSeconds };
+            G.Spawn(pool);
+            NetSync.HeroVisual(pool);
+        }
+        G.Fx.Flash(at, 30, HealColorLight, 0.16f);
+        G.Fx.Shockwave(at, radius, new Color(HealColor, 0.85f), 0.4f);
+        G.Fx.Ring(at, radius * 0.85f, new Color(HealColorLight, 0.8f), 0.35f);
+        G.Fx.Burst(at, HealColor, 24, 240, 2.4f, 0.55f, -60);
+        for (int k = 0; k < 14; k++) G.Fx.Ember(at + G.RandDir() * G.Range(6, radius * 0.8f), HealColorLight);
+        G.Main.Rumble(0.4f, 0.3f, 0.15f);
+        G.Sfx.Play("heal", at, 0, 0.05f, 1.2f);
+        _castGlow = 1f;
     }
 
     /// <summary>The seized creature bursts: full damage to it, a splash to everything around it.</summary>

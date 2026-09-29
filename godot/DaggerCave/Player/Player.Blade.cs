@@ -51,10 +51,11 @@ public partial class Player
         return true;
     }
 
-    private void StartSwing(Vector2 aim)
+    private void StartSwing(Vector2 aim, bool counter = false)
     {
         aim = aim.Normalized();
         _heave = false;
+        _counter = counter;
         AttacksStarted++;
         // Combo: a strike that lands refunds the swing cooldown, up to ComboResets times in a row.
         // A swing made without a refund (or after a pause) starts a new chain.
@@ -65,11 +66,12 @@ public partial class Player
         if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
         // Finisher: the last strike of a full chain of three or more hits much harder
         bool finisher = _finisher = Stats.ThirdCombo && _comboStep >= 2 && _comboStep == Stats.ComboResets;
-        // Charged Strike: this swing carries the charge (never breaking the combo)
-        bool charged = _swingCharged = ConsumeCharge();
+        // Charged Strike: this swing carries the charge (never breaking the combo; with
+        // Relentless Charge, the whole combo carries it)
+        bool charged = _swingCharged = ChargeForSwing();
         _swingArc = Mathf.DegToRad(finisher ? Tune.Hero.FinisherArcDegrees : Tune.Hero.SwingArcDegrees) * (charged ? 1.15f : 1f);
-        _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f) * (charged ? Tune.Swordsman.ChargeReach : 1f);
-        _swingDmg = BaseDamage * Stats.DamageMult * Stats.PrimaryDamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f) * (charged ? Tune.Swordsman.ChargeDamage : 1f);
+        _swingReach = BaseReach * Stats.DaggerReach * (finisher ? Tune.Hero.FinisherReachMult : 1f) * (charged ? ChargeReachMult : 1f);
+        _swingDmg = BaseDamage * Stats.DamageMult * Stats.PrimaryDamageMult * (finisher ? Tune.Hero.FinisherDamageMult : 1f) * (charged ? ChargeDmgMult : 1f);
         _swingT = 0;
         _released = false;
         float speed = Math.Max(1f, Stats.AttackSpeed);
@@ -202,7 +204,7 @@ public partial class Player
         }
         OnDealtDamage(dealt);
         // a charged strike saps whatever it cuts: it hits back softer for a while
-        if (charged && !e.Dead) e.Weaken(Stats.WeakenMult, Tune.Swordsman.WeakenSeconds);
+        if (charged && !e.Dead) e.Weaken(ChargeWeaken, Tune.Swordsman.WeakenSeconds);
         bool killed = e.Dead;
         bool heavy = finisher || charged;
         float stop = charged ? Tune.Feel.HitStopCharged : finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal;
@@ -220,8 +222,8 @@ public partial class Player
             _swingHitSomething = true;
             // the combo stays live: the next swing may follow at once (a press during the
             // hit-stop is kept and fires the moment it ends). No combo from behind a raised shield,
-            // nor out of a heave.
-            if (_comboStep < Stats.ComboResets && !ShieldRaised && !_heave) { _swingCd = 0f; _chainLive = true; }
+            // nor out of a heave, nor out of a counter (unless Flowing Counter).
+            if (_comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             if (Math.Abs(to.X) > 2) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
             Freeze(stop);

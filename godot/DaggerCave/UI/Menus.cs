@@ -8,6 +8,8 @@ namespace DaggerCave;
 public partial class UpgradeMenu : Control
 {
     public event Action<Upgrade> Picked;
+    /// <summary>Opens your build over the cards (TAB / BACK).</summary>
+    public Action ShowBuild;
     private List<Upgrade> _choices = new();
     /// <summary>Why each card can't be taken (null: it can): a friend's card, or one you have.</summary>
     private List<string> _locks = new();
@@ -18,6 +20,26 @@ public partial class UpgradeMenu : Control
     private string _title = "";
     private float _t;
     private float _openedAt;
+
+    /// <summary>The colour of each kind of card (its top stripe, frame and label).</summary>
+    public static Color KindColor(UpgradeKind k) => k switch
+    {
+        UpgradeKind.Class => new Color(1f, 0.8f, 0.38f),
+        UpgradeKind.Alteration => new Color(0.35f, 0.95f, 0.88f),
+        UpgradeKind.Conditional => new Color(0.55f, 1f, 0.6f),
+        UpgradeKind.SideGrade => new Color(0.86f, 0.42f, 1f),
+        _ => new Color(0.74f, 0.8f, 0.94f),
+    };
+
+    /// <summary>A card's label: its kind, and for a hero's card, the ability it grows.</summary>
+    public static string KindLabel(Upgrade u, HeroKind hero) => u.Kind switch
+    {
+        UpgradeKind.Class => "CLASS · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
+        UpgradeKind.Alteration => "ALTERATION · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
+        UpgradeKind.Conditional => "CONDITIONAL",
+        UpgradeKind.SideGrade => "RISK · REWARD",
+        _ => "GENERIC",
+    };
 
     public static Color CategoryColor(string cat) => cat switch
     {
@@ -84,6 +106,9 @@ public partial class UpgradeMenu : Control
         _t += (float)delta;
         _deniedT -= (float)delta;
         if (!Visible) return;
+        // your build over the cards: the keys are its own until it closes
+        if (BuildPanel.Showing) { QueueRedraw(); return; }
+        if (Input.IsActionJustPressed("build") && BuildPanel.ClosedFrame != Engine.GetProcessFrames()) { ShowBuild?.Invoke(); return; }
         if (Input.IsActionJustPressed("pick_1")) Choose(0);
         else if (Input.IsActionJustPressed("pick_2")) Choose(1);
         else if (Input.IsActionJustPressed("pick_3")) Choose(2);
@@ -120,7 +145,7 @@ public partial class UpgradeMenu : Control
         var tsz = font.GetStringSize(_title, HorizontalAlignment.Left, -1, 34);
         float pop = 1 + 0.05f * MathF.Sin(_t * 5);
         DrawString(font, new Vector2(vs.X / 2 - tsz.X * pop / 2, vs.Y * 0.2f), _title, HorizontalAlignment.Left, -1, (int)(34 * pop), new Color(1f, 0.9f, 0.5f));
-        string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)";
+        string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)  ·  BACK: your build" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)  ·  TAB: your build";
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.7f));
 
@@ -141,11 +166,16 @@ public partial class UpgradeMenu : Control
             float shake = k == _denied && _deniedT > 0 ? MathF.Sin(_deniedT * 60f) * 6f * _deniedT : 0f;
             var r = new Rect2(x0 + k * (cw + gap) + shake, y0 - (hov && locked == null ? 8 : 0), cw, ch);
             _cards.Add(r);
+            // the gem shows what it's about; the frame, stripe and label what kind of card it is
             var cat = CategoryColor(u.Icon);
-            if (locked != null) cat = cat.Darkened(0.55f);
+            bool skip = u.Icon == "skip";
+            var kind = skip ? cat : KindColor(u.Kind);
+            if (locked != null) { cat = cat.Darkened(0.55f); kind = kind.Darkened(0.55f); }
             DrawRect(r, new Color(0.08f, 0.07f, 0.1f, 0.95f));
-            DrawRect(r, hov ? cat : cat.Darkened(0.4f), false, hov ? 3 : 2);
-            DrawRect(new Rect2(r.Position, new Vector2(cw, 6)), cat);
+            DrawRect(r, hov ? kind : kind.Darkened(0.4f), false, hov ? 3 : 2);
+            DrawRect(new Rect2(r.Position, new Vector2(cw, 6)), kind);
+            // an alteration's card glows a little, all round
+            if (u.Kind == UpgradeKind.Alteration && !skip) DrawRect(r.Grow(3), new Color(kind, 0.25f + 0.1f * MathF.Sin(_t * 3f)), false, 2);
             // gem
             var gc = r.Position + new Vector2(cw / 2, 62);
             float spin = _t * 1.5f + k;
@@ -155,10 +185,7 @@ public partial class UpgradeMenu : Control
             DrawColoredPolygon(gem, cat.Darkened(0.2f));
             DrawCircle(gc, 12, cat.Lightened(0.3f));
             DrawString(font, r.Position + new Vector2(12, 22), $"[{k + 1}]", HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, 0.5f));
-            if (u.Icon == "risk")
-                DrawString(font, r.Position + new Vector2(cw - 112, 22), "RISK · REWARD", HorizontalAlignment.Left, -1, 11, cat);
-            else if (u.Tier == UpgradeTier.Ability)
-                DrawString(font, r.Position + new Vector2(cw - 70, 22), "ABILITY", HorizontalAlignment.Left, -1, 11, cat);
+            if (!skip) DrawString(font, r.Position + new Vector2(40, 22), KindLabel(u, stats?.Hero ?? G.Hero), HorizontalAlignment.Right, cw - 52, 11, kind);
             DrawString(font, r.Position + new Vector2(0, 130), u.Name, HorizontalAlignment.Center, cw, 20, Colors.White);
             DrawMultilineString(font, r.Position + new Vector2(16, 162), Upgrades.DescFor(u, stats), HorizontalAlignment.Center, cw - 32, 14, -1, new Color(0.85f, 0.85f, 0.9f));
             if (stats != null && u.MaxStacks > 1 && u.Icon != "skip")

@@ -165,12 +165,12 @@ public partial class Cycler : Button
 }
 
 /// <summary>
-/// The pause menu: resume, settings, and leaving (the run, or the online game). In a game on your
+/// The pause menu: resume, settings, your build, and leaving (the run, or the online game). In a game on your
 /// own the world stands still behind it; online it carries on.
 /// </summary>
 public partial class PauseMenu : Control
 {
-    public Action Resume, Settings, Quit, QuitGame;
+    public Action Resume, Settings, Build, Quit, QuitGame;
     private Button _first, _quit;
 
     public override void _Ready()
@@ -186,6 +186,7 @@ public partial class PauseMenu : Control
         _first = UiKit.Button("Resume", () => Resume?.Invoke());
         col.AddChild(_first);
         col.AddChild(UiKit.Button("Settings", () => Settings?.Invoke()));
+        col.AddChild(UiKit.Button("Your build", () => Build?.Invoke()));
         _quit = UiKit.Button("Give up this run", () => Quit?.Invoke());
         col.AddChild(_quit);
         col.AddChild(UiKit.Button("Quit to desktop", () => QuitGame?.Invoke()));

@@ -137,6 +137,7 @@ public partial class Player : CharacterBody2D
 
     private void HealHere(float amount)
     {
+        amount *= Stats.HealingTakenMult;
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
         if (Hp - before >= 1f) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + Mathf.RoundToInt(Hp - before), HealColorLight, 10);
@@ -304,13 +305,16 @@ public partial class Player : CharacterBody2D
         }
 
         bool wasInWater = InWater;
-        InWater = cave.IsWater(GlobalPosition + new Vector2(0, 2));
-        HeadUnder = cave.IsWater(GlobalPosition + new Vector2(0, -9));
+        // (with Magma Skin, lava is swum in like water)
+        bool Liquid(Vector2 at) => cave.IsWater(at) || (Stats.MagmaSkin && cave.IsLava(at));
+        InWater = Liquid(GlobalPosition + new Vector2(0, 2));
+        HeadUnder = Liquid(GlobalPosition + new Vector2(0, -9));
         if (InWater != wasInWater && Math.Abs(Velocity.Y) > 80)
         {
-            G.Sfx.Play("splash", GlobalPosition, -4);
-            G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), Math.Clamp(Math.Abs(Velocity.Y) / 500f, 0.2f, 1f), new Color(0.65f, 0.88f, 1f, 0.9f));
-            if (InWater) G.Fx.Bubbles(GlobalPosition, 8);
+            bool lava = cave.Liquid == DaggerCave.Liquid.Lava;
+            G.Sfx.Play(lava ? "lava" : "splash", GlobalPosition, -4);
+            G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), Math.Clamp(Math.Abs(Velocity.Y) / 500f, 0.2f, 1f), lava ? new Color(1f, 0.55f, 0.15f) : new Color(0.65f, 0.88f, 1f, 0.9f));
+            if (InWater && !lava) G.Fx.Bubbles(GlobalPosition, 8);
         }
         Hazards(cave, dt);
         // hitting the water soaks up most of the speed you carried in
@@ -470,17 +474,27 @@ public partial class Player : CharacterBody2D
         Anim.Modulate = _iframes > 0 ? new Color(0.75f, 0.95f, 1f, a) : new Color(1, 1, 1, a);
     }
 
-    /// <summary>Lava: it burns (a big share of your health) and throws you back up out of it.</summary>
+    /// <summary>
+    /// Lava: it burns (a big share of your health) and throws you back up out of it. With Magma
+    /// Skin you swim in it instead, and it burns for a third as much.
+    /// </summary>
     private void Hazards(CaveData cave, float dt)
     {
         if (!cave.IsLava(GlobalPosition + new Vector2(0, 8))) return;
         if (G.Chance(0.5f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-8, 8), 8), new Color(1f, 0.6f, 0.2f));
         if (_lavaTick > 0) return;
         _lavaTick = 0.7f;
-        G.Sfx.Play("lava", GlobalPosition, 0, 0.1f, 0.8f);
+        bool skin = Stats.MagmaSkin;
+        G.Sfx.Play("lava", GlobalPosition, skin ? -8 : 0, 0.1f, 0.8f);
+        G.Fx.Smoke(GlobalPosition, skin ? 2 : 4, new Color(0.25f, 0.2f, 0.2f, 0.5f));
+        float burn = Math.Min(Stats.MaxHp * 0.16f + 4, 30 * G.DepthDmg) * (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        if (skin)
+        {
+            TakeRawDamage(burn * Tune.Hero.MagmaSkinBurn, "chip");
+            return;
+        }
         G.Fx.Splash(new Vector2(GlobalPosition.X, cave.WaterY), 0.8f, new Color(1f, 0.55f, 0.15f));
-        G.Fx.Smoke(GlobalPosition, 4, new Color(0.25f, 0.2f, 0.2f, 0.5f));
-        TakeRawDamage(Math.Min(Stats.MaxHp * 0.16f + 4, 30 * G.DepthDmg) * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "burn");
+        TakeRawDamage(burn, "burn");
         Velocity = new Vector2(Velocity.X * 0.5f, -BaseJumpV * 1.05f);
         _coyote = 0;
         _invuln = Math.Max(_invuln, 0.3f);
@@ -531,6 +545,7 @@ public partial class Player : CharacterBody2D
         _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
         _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
         _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
+        TickBoons(dt);
         for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0) _abilityCd[k] -= dt;
         if (_hotLeft > 0)
         {
@@ -543,6 +558,13 @@ public partial class Player : CharacterBody2D
 
     private void UpdateBreath(float dt)
     {
+        if (Stats.InfiniteBreath)
+        {
+            // Drowned Lungs: the water is as good as air
+            Breath = Stats.BreathMax;
+            if (HeadUnder && (_bubbleT -= dt) <= 0) { _bubbleT = G.Range(0.8f, 1.6f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 1); }
+            return;
+        }
         if (HeadUnder)
         {
             // thick, rotting water leaves you gasping sooner
@@ -693,7 +715,10 @@ public partial class Player : CharacterBody2D
     public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null)
     {
         LastHitBlocked = false;
-        if (Dead || Invulnerable) return 0;
+        if (Dead) return 0;
+        // Counter Roll: a melee blow met mid-roll is stopped, and answered
+        if (!IsRemote && TryCounter(source)) { LastHitBlocked = true; return 0; }
+        if (Invulnerable) return 0;
         if (IsRemote)
         {
             // another player's hero: their game takes the blow (a moment's grace here, so one
@@ -717,6 +742,9 @@ public partial class Player : CharacterBody2D
             return ApplyChip(block.Through, source);
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        // a barrier soaks what it can first (a blow it soaks whole doesn't even make you flinch)
+        dmg = Soften(dmg);
+        if (dmg <= 0.01f) { LastHitBlocked = true; _invuln = Math.Max(_invuln, 0.15f); return 0; }
         if (source != null && GodotObject.IsInstanceValid(source))
         {
             source.CreditDamage(dmg);

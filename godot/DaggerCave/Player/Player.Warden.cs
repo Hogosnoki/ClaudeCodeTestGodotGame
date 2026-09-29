@@ -14,7 +14,9 @@ namespace DaggerCave;
 /// projectiles on its way and stops at the first attacking creature, breaking that attack off
 /// (it passes straight by creatures that aren't attacking). The second ability is the shield
 /// bash: a short shove that stuns everything close in front (breaking off their attacks) at the
-/// cost of a dent in the shield.
+/// cost of a dent in the shield. Its alterations: Unyielding Shield (it never weakens or breaks,
+/// but stops only 70%), Guardian's Charge (the charge wraps a friend in a barrier) and Deflecting
+/// Bash (the bash sends projectiles back instead of stunning).
 /// </summary>
 public partial class Player
 {
@@ -105,9 +107,10 @@ public partial class Player
         if (melee != null) _blockGrace = 0.2f;
         bool dashing = _dashT > 0;
         b.Perfect = dashing || _shieldUpT <= Tune.Warden.PerfectWindow;
-        float stopped = b.Perfect ? dmg : dmg * Stats.BlockShare;
+        // (Unyielding Shield: it stops less of each blow, but never weakens or breaks)
+        float stopped = b.Perfect ? dmg : dmg * (Stats.Unyielding ? Stats.UnyieldingShare : Stats.BlockShare);
         b.Through = dmg - stopped;
-        float cost = dashing ? 0f : stopped * Tune.Warden.ShieldCost * (b.Perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
+        float cost = dashing || Stats.Unyielding ? 0f : stopped * Tune.Warden.ShieldCost * (b.Perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
         if (cost > ShieldHp)
         {
             b.Through += stopped * (cost - ShieldHp) / cost;
@@ -156,7 +159,8 @@ public partial class Player
     private float ApplyChip(float through, Enemy source)
     {
         if (through <= 0.01f) return 0;
-        float dmg = through * (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        float dmg = Soften(through * (1f - Stats.DamageReduction) * Stats.DamageTakenMult);
+        if (dmg <= 0.01f) return 0;
         if (source != null && GodotObject.IsInstanceValid(source)) source.CreditDamage(dmg);
         TakeRawDamage(dmg, "chip");
         _invuln = Math.Max(_invuln, 0.1f);
@@ -181,10 +185,27 @@ public partial class Player
     {
         if (!IsWarden || !AbilityChargeReady || _dashT > 0) return false;
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        // on your feet it's a charge along the ground (unless you aim well upward)
-        if (!InWater && IsOnFloor() && d.Y > -0.5f) d = new Vector2(Math.Abs(d.X) > 0.1f ? Math.Sign(d.X) : Facing, 0);
+        float time = Stats.DashTime;
+        // Guardian's Charge: to the friend nearest your aim, wrapping them in a barrier (alone, you)
+        Player friend = Stats.GuardianCharge ? GuardTarget(d) : null;
+        if (Stats.GuardianCharge)
+        {
+            var who = friend ?? this;
+            who.GiveBarrier(Stats.BarrierAmount, Stats.BarrierSeconds);
+            GuardedBy++;
+            if (friend != null)
+            {
+                var to = friend.GlobalPosition - GlobalPosition;
+                d = to.Normalized();
+                // (the charge carries you to them, however far, up to its range)
+                time = Math.Clamp((to.Length() - 18f) / Tune.Warden.DashSpeed, 0.05f, Tune.Warden.GuardianRange / Tune.Warden.DashSpeed);
+                G.Fx.Beam(GlobalPosition + new Vector2(0, -4), friend.GlobalPosition + new Vector2(0, -4), new Color(0.6f, 0.85f, 1f, 0.8f));
+            }
+        }
+        // on your feet it's a charge along the ground (unless you aim well upward, or rush to a friend)
+        if (friend == null && !InWater && IsOnFloor() && d.Y > -0.5f) d = new Vector2(Math.Abs(d.X) > 0.1f ? Math.Sign(d.X) : Facing, 0);
         _dashDir = d;
-        _dashT = Stats.DashTime;
+        _dashT = time;
         SpendAbilityCharge();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
         _swingT = -1; // a swing still under way gives way to the charge
@@ -242,6 +263,26 @@ public partial class Player
         return false;
     }
 
+    /// <summary>Barriers given by the Guarded Charge this run (for the tests).</summary>
+    public int GuardedBy { get; private set; }
+
+    /// <summary>Guardian's Charge: the friend standing nearest the line of your aim, within range.</summary>
+    private Player GuardTarget(Vector2 aim)
+    {
+        Player best = null;
+        float bestScore = float.MaxValue;
+        foreach (var p in G.Players)
+        {
+            if (p == this || p.Dead || !IsInstanceValid(p)) continue;
+            var to = p.GlobalPosition - GlobalPosition;
+            float d = to.Length();
+            if (d > Tune.Warden.GuardianRange) continue;
+            float score = d * (1f + Math.Abs(aim.AngleTo(to)) * 1.2f);
+            if (score < bestScore) { bestScore = score; best = p; }
+        }
+        return best;
+    }
+
     /// <summary>Something thrown or rolling meets the charging shield: it's swallowed with a clink, and on the charge goes.</summary>
     private void DashSwallow(Vector2 at)
     {
@@ -290,6 +331,7 @@ public partial class Player
         _bashT = Tune.Warden.BashTime;
         _bashCd = Stats.BashCooldown;
         _bashHit = false;
+        if (Stats.DeflectingBash) Deflect();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
         _swingT = -1; // a swing still under way gives way to the shove
         _shieldUpT = 0;
@@ -318,7 +360,9 @@ public partial class Player
         if (InWater || !IsOnFloor()) Velocity = Velocity.Lerp(_bashDir * Tune.Warden.BashLunge * 0.6f, 0.3f);
         var origin = GlobalPosition + new Vector2(0, -3);
         var front = origin + _bashDir * 10;
-        // the shield meets projectiles on the way, as it would held up
+        // the shield meets projectiles on the way, as it would held up (a deflecting bash sends
+        // everything in its wide arc back)
+        if (Stats.DeflectingBash) Deflect();
         foreach (var pr in G.Main.EnemyProjectiles.ToArray())
         {
             if (pr.IsQueuedForDeletion() || pr.GlobalPosition.DistanceTo(front) > pr.Radius + 14) continue;
@@ -354,7 +398,8 @@ public partial class Player
             // (the blow first, then the stun: a hit's own short reel mustn't cut the stun short)
             float dealt = e.Hurt(Tune.Warden.BashDamage * Stats.DamageMult, push, hit);
             if (dealt > 0) OnDealtDamage(dealt);
-            if (!e.Dead)
+            // (a deflecting bash shoves, but doesn't stun)
+            if (!e.Dead && !Stats.DeflectingBash)
             {
                 float stun = Tune.Warden.BashStun * (e.Elite || e.IsGuardian ? 0.5f : 1f);
                 e.Interrupt(push, stun, "STUNNED");
@@ -363,8 +408,8 @@ public partial class Player
             G.Fx.Spark(hit, from, true, new Color(1f, 0.95f, 0.75f));
             G.Fx.Ring(hit, 12, new Color(0.7f, 0.9f, 1f, 0.9f));
         }
-        // the shield takes the blow too (once, however many it struck)
-        ShieldHp -= Tune.Warden.BashShieldCost;
+        // the shield takes the blow too (once, however many it struck; an unyielding one never weakens)
+        if (!Stats.Unyielding) ShieldHp -= Tune.Warden.BashShieldCost;
         _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
         _shieldFlash = 0.25f;
         G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f));
@@ -378,6 +423,27 @@ public partial class Player
         Freeze(Tune.Feel.HitStopDash);
         Velocity = new Vector2(-_bashDir.X * 70f, Math.Min(Velocity.Y, 0f));
         if (ShieldHp <= 0) BreakShield(at);
+    }
+
+    /// <summary>Projectiles sent back this run by a deflecting bash (for the tests).</summary>
+    public int Deflected { get; private set; }
+
+    /// <summary>Deflecting Bash: every projectile in a wide arc in front goes back where it came from.</summary>
+    private void Deflect()
+    {
+        var origin = GlobalPosition + new Vector2(0, -3);
+        float half = Mathf.DegToRad(Tune.Warden.DeflectHalfArc);
+        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
+        {
+            if (pr.IsQueuedForDeletion() || pr.Reflected) continue;
+            var to = pr.GlobalPosition - origin;
+            if (to.Length() > Tune.Warden.DeflectRange + pr.Radius || (to.Length() > 12 && Math.Abs(_bashDir.AngleTo(to)) > half)) continue;
+            var back = pr.Vel.LengthSquared() > 1 ? -pr.Vel.Normalized() : _bashDir;
+            pr.Reflect(back, Stats.DamageMult * (Stats.DeflectDouble ? 2f : 1f));
+            Deflected++;
+            G.Fx.Spark(pr.GlobalPosition, back, true, new Color(1f, 0.95f, 0.7f));
+            G.Sfx.Play("clink", pr.GlobalPosition, -2, 0.1f, 1.3f);
+        }
     }
 
     // ---------------------------------------------------------------- drawing

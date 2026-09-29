@@ -63,6 +63,8 @@ public static class Controls
         ["pick_4"] = new InputEvent[] { K(Key.Key4) },
         ["meta"] = new InputEvent[] { K(Key.U), J(JoyButton.Back) },
         ["skip"] = new InputEvent[] { K(Key.X), J(JoyButton.X) },
+        // your build, while picking a card (from the pause menu otherwise)
+        ["build"] = new InputEvent[] { K(Key.Tab), J(JoyButton.Back) },
     };
 
     /// <summary>Creates every action with its default bindings (then the saved settings may rebind them).</summary>

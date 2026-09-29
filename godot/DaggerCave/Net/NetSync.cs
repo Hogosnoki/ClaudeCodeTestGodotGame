@@ -196,7 +196,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.ChestCards;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards;
 
     // ================================================================== heroes
 
@@ -230,6 +230,7 @@ public static class NetSync
         {
             case SwordWave sw: w.Byte(2).Vec(sw.GlobalPosition).HVec(sw.Dir).Half(sw.Range).Half(sw.Speed); break;
             case LifeMote m: w.Byte(3).Vec(m.GlobalPosition).Half(m.Size); break;
+            case HealingPool hp: w.Byte(6).Vec(hp.GlobalPosition).Half(hp.Radius).Half(hp.Rate).Half(hp.Life); break;
             default: return;
         }
         Net.SendAll(w, true);
@@ -278,6 +279,15 @@ public static class NetSync
             }
             case 4: av.NetDown(true); break;
             case 5: av.NetDown(false); break;
+            case 6:
+            {
+                // a friend's healing pool: this game's copy heals this game's hero
+                var at = r.Vec(); float radius = r.Half(), rate = r.Half(), life = r.Half();
+                Applying = true;
+                G.Spawn(new HealingPool { Position = at, Radius = radius, Rate = rate, Life = life });
+                Applying = false;
+                break;
+            }
         }
     }
 
@@ -295,6 +305,17 @@ public static class NetSync
     {
         var w = new NetOut(Net.Msg.HeroHeal);
         w.Int(target.NetOwner).Float(amount);
+        Net.SendAll(w, true);
+    }
+
+    /// <summary>A gift from one hero to another: the Warden's barrier, the Vitalist's mending.</summary>
+    public enum Boon : byte { Barrier = 1, Mending }
+
+    /// <summary>A boon for someone else's hero: their game gives it (a, b, c: its amount, seconds, a flag).</summary>
+    public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0)
+    {
+        var w = new NetOut(Net.Msg.HeroBoon);
+        w.Int(target.NetOwner).Byte((byte)kind).Float(a).Float(b).Float(c);
         Net.SendAll(w, true);
     }
 
@@ -926,6 +947,20 @@ public static class NetSync
             {
                 int owner = r.Int(); float amount = r.Float();
                 if (owner == Net.Me && G.Player != null) { Scope++; try { G.Player.Heal(amount); } finally { Scope--; } }
+                break;
+            }
+            case Net.Msg.HeroBoon:
+            {
+                int owner = r.Int(); var kind = (Boon)r.Byte(); float a = r.Float(), b = r.Float(), c = r.Float();
+                var p = G.Player;
+                if (owner != Net.Me || p == null || p.Dead) break;
+                Scope++;
+                try
+                {
+                    if (kind == Boon.Barrier) p.GiveBarrier(a, b);
+                    else if (kind == Boon.Mending) p.GiveMending(a, b, c > 0.5f);
+                }
+                finally { Scope--; }
                 break;
             }
             case Net.Msg.Revive:

@@ -58,6 +58,9 @@ public static class Tune
         public static float PressBuffer = 0.22f;
         /// <summary>Murky water (the root-choked tunnels): breath runs out this much faster, swimming is this much slower.</summary>
         public static float MurkyBreathDrain = 1.5f, MurkySwimMult = 0.8f;
+        /// <summary>Magma Skin: offered from this depth on; lava's burn with it (a share).</summary>
+        public static int MagmaSkinFromDepth = 6;
+        public static float MagmaSkinBurn = 0.3f;
 
         // Swing (shared by the two sword heroes; blade length, speed and damage are per hero below)
         public static float ComboWindow = 0.55f;
@@ -111,6 +114,13 @@ public static class Tune
         /// </summary>
         public static float HeaveWindup = 0.42f, HeaveRecover = 0.3f, HeaveDamage = 2f, HeaveReach = 1.3f, HeaveArcDegrees = 190f;
         public static float HeaveKnockback = 420f, HeaveCooldown = 6f;
+
+        /// <summary>Relentless Charge (an alteration): a charge empowers the whole next combo, at
+        /// this share of its strength (its damage and reach bonus, and its weakening).</summary>
+        public static float RelentlessShare = 0.8f;
+        /// <summary>Counter Roll (an alteration): the swing back at the attacker, and how close a
+        /// blow's source must be to count as a melee blow the roll can counter.</summary>
+        public static float CounterReach = 70f;
     }
 
     /// <summary>The warden: shortsword, an aimable shield, the Guarded Charge and the shield bash.</summary>
@@ -137,6 +147,15 @@ public static class Tune
         /// <summary>The creature whose blow breaks the shield is stunned this long (half for
         /// mini-bosses and guardians; the great bosses shrug it off).</summary>
         public static float BreakStun = 1.6f;
+        /// <summary>Unyielding Shield (an alteration): the share of a blow it stops (it never
+        /// weakens or breaks). Braced adds 5% a rank.</summary>
+        public static float UnyieldingShare = 0.7f;
+        /// <summary>Guardian's Charge (an alteration): the barrier it gives a friend (damage it
+        /// soaks, seconds it lasts), and how far away a friend can be to be charged to (px).</summary>
+        public static float BarrierAmount = 20f, BarrierSeconds = 2f, GuardianRange = 320f;
+        /// <summary>Deflecting Bash (an alteration): how far in front (px) and how wide (degrees
+        /// either side) it sends projectiles back.</summary>
+        public static float DeflectRange = 130f, DeflectHalfArc = 70f;
         /// <summary>A block within this many seconds of raising the shield is "perfect": nothing
         /// gets through and a melee attacker's attack is broken off (it reels for PerfectStagger s).</summary>
         public static float PerfectWindow = 0.18f, PerfectStagger = 0.6f;
@@ -210,6 +229,16 @@ public static class Tune
         /// </summary>
         public static float RuptureCost = 30f, RuptureDamage = 30f, RuptureSplash = 10f, RuptureRadius = 80f, RuptureRange = 200f;
         public static float RuptureWindup = 0.24f, RuptureCooldown = 1.5f;
+
+        /// <summary>Blight Burst (an alteration): the hex's damage, and how much weaker its slow and
+        /// its extra damage taken are. Endless Hex: its alimus cost (no cooldown).</summary>
+        public static float BlightDamage = 12f, BlightWeaker = 0.5f, EndlessHexCost = 10f;
+        /// <summary>Slow Mending (an alteration): seconds the mending part of a heal takes; Patient
+        /// Mending's extra healing; Warding Mending's damage reduction while it mends you.</summary>
+        public static float MendSeconds = 6f, PatientBonus = 0.2f, WardingShare = 0.2f;
+        /// <summary>Lifebloom (an alteration): the heal for the friend it blooms on and for everyone
+        /// else in the burst, and the Healing Pool's heal a second and seconds.</summary>
+        public static float BloomHeal = 30f, BloomSplash = 10f, PoolRate = 3f, PoolSeconds = 5f;
     }
 
     // =============================================================================== COMBAT

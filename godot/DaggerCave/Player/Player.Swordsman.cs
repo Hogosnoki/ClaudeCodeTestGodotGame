@@ -7,7 +7,9 @@ namespace DaggerCave;
 /// The Swordsman's kit: a quick dodge roll on a short cooldown (a swing can be started out of
 /// it), the Charged Strike, which empowers the next swing without breaking a combo, and the
 /// Heaving Swing: a slow, rooted, two-handed blow on your feet that hits twice as hard (and
-/// spends a waiting Charged Strike, for more still).
+/// spends a waiting Charged Strike, for more still). Its alterations: Relentless Charge (a
+/// charge carries through a whole combo, a little weaker), Swift Heave (a charge makes the
+/// heave instant, and it works in the air) and Counter Roll (a roll into a blow answers it).
 /// </summary>
 public partial class Player
 {
@@ -18,6 +20,12 @@ public partial class Player
     private float _dodgeT, _chargeGlowT, _heaveCd, _heaveRootT;
     private Vector2 _dodgeDir;
     private bool _heave, _heaveWanted;
+    /// <summary>Relentless Charge: the combo under way carries the charge.</summary>
+    private bool _relentless;
+    /// <summary>The swing under way is a counter (Counter Roll).</summary>
+    private bool _counter;
+    /// <summary>Counters made this run (for the tests).</summary>
+    public int Counters { get; private set; }
 
     public bool IsDodging => _dodgeT > 0;
     /// <summary>Planted for a heaving swing: no running, jumping or rolling until it's done.</summary>
@@ -105,14 +113,56 @@ public partial class Player
         return true;
     }
 
+    /// <summary>
+    /// Whether the swing being started carries a charge. Normally it spends one; with Relentless
+    /// Charge, a combo that takes one carries it to its last strike.
+    /// </summary>
+    private bool ChargeForSwing()
+    {
+        if (!Stats.RelentlessCharge) return ConsumeCharge();
+        if (_comboStep == 0) _relentless = false; // a new combo: the last one's charge is spent
+        if (!_relentless) _relentless = ConsumeCharge();
+        return _relentless;
+    }
+
+    /// <summary>How much of the charge's strength a charged swing gets (Relentless Charge spreads it thinner).</summary>
+    private float ChargeShare => Stats.RelentlessCharge ? Tune.Swordsman.RelentlessShare : 1f;
+    /// <summary>A charged swing's damage and reach multipliers, and the weakening it leaves.</summary>
+    private float ChargeDmgMult => 1f + (Tune.Swordsman.ChargeDamage - 1f) * ChargeShare;
+    private float ChargeReachMult => 1f + (Tune.Swordsman.ChargeReach - 1f) * ChargeShare;
+    private float ChargeWeaken => 1f - (1f - Stats.WeakenMult) * ChargeShare;
+
     /// <summary>The charge caught a swing mid wind-up: it becomes a charged one.</summary>
     private void ChargeCurrentSwing()
     {
         if (!ConsumeCharge()) return;
+        if (Stats.RelentlessCharge) _relentless = true;
         _swingCharged = true;
         _swingArc *= 1.15f;
-        _swingReach *= Tune.Swordsman.ChargeReach;
-        _swingDmg *= Tune.Swordsman.ChargeDamage;
+        _swingReach *= ChargeReachMult;
+        _swingDmg *= ChargeDmgMult;
+    }
+
+    /// <summary>
+    /// Counter Roll: a melee blow (or a body attack) that meets you mid-roll is stopped whole, the
+    /// roll ends, and you swing back at whatever struck. True if it was countered.
+    /// </summary>
+    private bool TryCounter(Enemy source)
+    {
+        if (!Stats.CounterRoll || _dodgeT <= 0 || source == null || !IsInstanceValid(source) || source.Dead) return false;
+        if (source.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Swordsman.CounterReach + source.HitRadius) return false;
+        _dodgeT = 0;
+        _iframes = Math.Max(_iframes, 0.3f); // (the rest of the blow passes harmlessly)
+        var to = source.GlobalPosition - (GlobalPosition + new Vector2(0, -3));
+        StartSwing(to.LengthSquared() > 1 ? to.Normalized() : new Vector2(Facing, 0), counter: true);
+        Counters++;
+        var at = GlobalPosition + new Vector2(0, -4) + to.Normalized() * 10;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -28), "COUNTER", new Color(0.8f, 0.95f, 1f), 11, 0.7f);
+        G.Fx.Spark(at, to.Normalized(), true, new Color(0.85f, 0.95f, 1f));
+        G.Fx.Flash(at, 14, new Color(0.8f, 0.92f, 1f), 0.1f);
+        G.Sfx.Play("clink", at, 0, 0.05f, 1.4f);
+        G.Main.Rumble(0.4f, 0.3f, 0.1f);
+        return true;
     }
 
     // ---------------------------------------------------------------- heaving swing
@@ -120,36 +170,46 @@ public partial class Player
     private bool TryHeave(Vector2 aim)
     {
         if (!IsSwordsman || _heaveCd > 0 || Heaving) return false;
-        // it needs your feet on the ground (a press just before landing still takes)
-        if (InWater || !IsOnFloor()) { _heaveWanted = true; return false; }
+        // Swift Heave: a waiting charge makes it instant, and it works in the air or the water
+        bool swift = Stats.SwiftHeave && Charged > 0;
+        // otherwise it needs your feet on the ground (a press just before landing still takes)
+        if (!swift && (InWater || !IsOnFloor())) { _heaveWanted = true; return false; }
         _heaveWanted = false;
         _heaveCd = Stats.HeaveCooldown;
         _dodgeT = 0;
         float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
         Facing = dir;
-        StartHeave();
+        StartHeave(swift);
         return true;
     }
 
-    private void StartHeave()
+    /// <summary>The heave under way is a swift one (no wind-up, no extra force from the charge).</summary>
+    public bool SwiftHeaving => _swingT >= 0 && _heave && _swift;
+    private bool _swift;
+
+    private void StartHeave(bool swift = false)
     {
         _heave = true;
+        _swift = swift;
         _finisher = false;
         _comboStep = 0;
         _chainLive = false;
+        _relentless = false;
+        _counter = false;
         _swingSinceLast = 0;
         // one great arc over the top, from behind your head down to the floor in front
         _swingDir = new Vector2(Facing, -0.25f).Normalized();
-        bool charged = _swingCharged = ConsumeCharge();
+        // (a swift heave spends the charge on its speed, not its force)
+        bool charged = _swingCharged = ConsumeCharge() && !swift;
         float speed = Math.Max(1f, Stats.AttackSpeed);
         _swingArc = Mathf.DegToRad(Tune.Swordsman.HeaveArcDegrees);
-        _swingReach = BaseReach * Stats.DaggerReach * Tune.Swordsman.HeaveReach * (charged ? Tune.Swordsman.ChargeReach : 1f);
-        _swingDmg = BaseDamage * Stats.DamageMult * Tune.Swordsman.HeaveDamage * (charged ? Tune.Swordsman.ChargeDamage : 1f);
+        _swingReach = BaseReach * Stats.DaggerReach * Tune.Swordsman.HeaveReach * (charged ? ChargeReachMult : 1f);
+        _swingDmg = BaseDamage * Stats.DamageMult * Tune.Swordsman.HeaveDamage * (charged ? ChargeDmgMult : 1f);
         _swingT = 0;
         _released = false;
-        _windup = Tune.Swordsman.HeaveWindup / speed;
+        _windup = (swift ? 0.06f : Tune.Swordsman.HeaveWindup) / speed;
         _active = SwingActive * 1.6f / speed;
-        _heaveRootT = _windup + _active + Tune.Swordsman.HeaveRecover;
+        _heaveRootT = swift ? _active + 0.08f : _windup + _active + Tune.Swordsman.HeaveRecover;
         _swingHits.Clear();
         _brokeThisSwing.Clear();
         _swingHitSomething = false;
@@ -160,8 +220,14 @@ public partial class Player
         NetSync.HeroSwing(this, _swingDir, _swingArc, _swingReach, _windup, _active, 0, false, charged, true);
         Anim.Punch(new Vector2(0.9f, 1.12f));
         G.Sfx.Play("gasp", GlobalPosition, -10, 0.05f, 0.55f);
-        G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.2f);
+        if (IsOnFloor()) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.2f);
         if (charged) G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 16, new Color(1f, 0.6f, 0.3f));
+        if (swift)
+        {
+            // the charge goes into the speed: a flare, and the blade comes straight round
+            Afterimage.Spawn(Anim, new Color(1f, 0.6f, 0.3f), 0.2f);
+            G.Fx.Flash(GlobalPosition + new Vector2(0, -6), 16, new Color(1f, 0.6f, 0.3f), 0.1f);
+        }
     }
 
     /// <summary>The heaving swing lands on the floor in front: a crack of dust and a jolt.</summary>
@@ -180,13 +246,15 @@ public partial class Player
     private void TickSwordsman(float dt)
     {
         if (_heaveRootT > 0) _heaveRootT -= dt;
+        // a relentless combo's charge is spent once the combo can't go on
+        if (_relentless && _swingT < 0 && _swingSinceLast > SwingCooldownBase / Stats.AttackSpeed + ComboWindow) _relentless = false;
         if (_heaveWanted && _ability2Buf <= 0)
         {
             // the press ran out while you were in the air
             _heaveWanted = false;
             SayNo("FEET ON THE GROUND");
         }
-        if (Charged <= 0) return;
+        if (Charged <= 0 && !_relentless) return;
         // embers stream off the charged blade
         _chargeGlowT -= dt;
         if (_chargeGlowT > 0) return;
