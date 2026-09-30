@@ -42,7 +42,8 @@ public partial class Main
             {
                 float dealt = _hpMark - _probeEnemy.Hp, want = Tune.Elementalist.FireDamage * p.Stats.DamageMult;
                 Check($"a firebolt flies out and strikes the golem 90 px away for {want:0} ({dealt:0.0}; bolts {p.BoltsCast - _elCount})", p.BoltsCast == _elCount + 1 && Math.Abs(dealt - want) < 0.5f);
-                Check($"it costs a little alimus ({p.Alimus:0.0} of {p.Stats.AlimusMax:0}, {Tune.Elementalist.FireCost:0.0} a bolt)", p.Alimus < p.Stats.AlimusMax - 0.01f && p.Alimus > p.Stats.AlimusMax - Tune.Elementalist.FireCost * 2f);
+                Check($"it costs a little alimus, barely more than comes back ({Tune.Elementalist.FireCost / Tune.Elementalist.FireEvery:0.00} a second at the full rate of fire against {Tune.Elementalist.AlimusRegen:0.00} regenerated)",
+                    Tune.Elementalist.FireCost / Tune.Elementalist.FireEvery is var spend && spend > Tune.Elementalist.AlimusRegen && spend < Tune.Elementalist.AlimusRegen * 1.25f);
                 Check($"and with no luck, sets nothing alight (burning {_probeEnemy.Ignited})", !_probeEnemy.Ignited);
                 // (now it always catches)
                 p.Stats.IgniteChance = 1f;
@@ -147,6 +148,7 @@ public partial class Main
                 p.SetAlimus(p.Stats.AlimusMax);
                 p.ResetAbilityCooldowns();
                 p.Stats.FreezeBonus = -1f;
+                p.Stats.BlizzardSecondsMult = 0.5f; // (the test waits out half a storm: a full one lasts twice as long)
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
