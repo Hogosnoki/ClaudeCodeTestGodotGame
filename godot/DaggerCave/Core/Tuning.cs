@@ -465,6 +465,18 @@ public static class Tune
         public static float BloodPerAlimus = 2f;
     }
 
+    /// <summary>Afflictions the heroes can suffer: poison (deep frogs and spiders, the Nature Elemental), burning (Fire), freezing (Frost), drowning (Water).</summary>
+    public static class Status
+    {
+        /// <summary>From this depth, a frog's or spider's blow poisons with CreaturePoisonChance: the damage of the blow again (x share) over CreaturePoisonSeconds.</summary>
+        public static int PoisonFromDepth = 4;
+        public static float CreaturePoisonChance = 0.3f, CreaturePoisonShare = 1f, CreaturePoisonSeconds = 8f;
+        /// <summary>Elementals: the chance one of their blows inflicts its element's affliction.</summary>
+        public static float ElementalChance = 0.35f;
+        /// <summary>Burn: BurnShare x the blow over BurnSeconds (water puts it out). Nature's poison: PoisonShare x the blow over PoisonSeconds. Frost: frozen solid for FreezeSeconds (then FreezeImmune s of grace). Water: no air bubbles for DrownSeconds, and DrownBreath s less breath.</summary>
+        public static float BurnShare = 1.2f, BurnSeconds = 5f, PoisonShare = 1f, PoisonSeconds = 15f, FreezeSeconds = 2f, FreezeImmune = 3f, DrownSeconds = 10f, DrownBreath = 4f;
+    }
+
     // =============================================================================== SPAWNING
     public static class Spawning
     {

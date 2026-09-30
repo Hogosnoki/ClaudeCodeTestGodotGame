@@ -327,5 +327,13 @@ public partial class CreatureModel : Node3D
         _aura = c;
         Body.SetInstanceShaderParameter("aura", c);
     }
+    private Color _inkTint;
+    /// <summary>An affliction's colour for the ink outline (poison green, burning orange, frozen pale blue); alpha 0 = its usual dark line.</summary>
+    public void SetInkTint(Color c)
+    {
+        if (c == _inkTint) return;
+        _inkTint = c;
+        Body.SetInstanceShaderParameter("ink_tint", c);
+    }
     public void SetDissolve(float amount) => Body.SetInstanceShaderParameter("dissolve", amount);
 }

@@ -60,6 +60,7 @@ public partial class Main
         "vault" => "den",
         "relics" => "den",
         "aegis" => "den",
+        "status" => "den",
         _ => null,
     };
 
@@ -90,6 +91,7 @@ public partial class Main
             case "vault": VaultScenario(); break;
             case "relics": RelicsScenario(); break;
             case "aegis": AegisScenario(); break;
+            case "status": StatusScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }

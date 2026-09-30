@@ -121,6 +121,8 @@ public partial class Frog : Enemy
     private float _hopWind = -1, _hopDir;
     private bool _wasAir;
 
+    public override void StrikeStatus(Player p, float dmg) => MaybePoison(p, dmg);
+
     protected override void Setup() { DisplayName = "Frog"; _croakT = G.Range(1, 5); UseSprite("frog"); }
 
     protected override void Think(float dt)
@@ -559,6 +561,13 @@ public partial class Spider : Enemy
     private static readonly string[] Moves = { "wait", "toward", "away", "strike" };
     protected override string BrainName => "spider";
     protected override string[] Actions => Moves;
+    protected override void PuppetAnimate() => Anim.FlipV = _state == 0;
+
+    /// <summary>Test aid: puts the spider in a state (0 ceiling ... 4 ground).</summary>
+    public void TestSetState(int s) => _state = s;
+
+    public override void StrikeStatus(Player p, float dmg) => MaybePoison(p, dmg);
+
     protected override bool Busy => _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor() && !InWater);
     protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
 

@@ -343,6 +343,7 @@ public partial class Main : Node
             else if (a == "--proptest") _propTest = true;
             else if (a == "--chesttest") _chestTest = true;
             else if (a == "--elemrow") _elemRow = true;
+            else if (a.StartsWith("--lookstatus=")) _lookStatus = a[13..];
             else if (a == "--elementtest") _elementTest = true;
             else if (a == "--roguetest") _rogueLook = true;
             else if (a == "--exittest") _exitTest = true;
@@ -413,6 +414,7 @@ public partial class Main : Node
 
     private int _fxTest;
     private bool _propTest, _elementTest, _rogueLook, _chestTest, _elemRow;
+    private string _lookStatus = "";
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
     /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
@@ -542,6 +544,18 @@ public partial class Main : Node
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
         if (_chestTest && _lookFrame == 2) SpawnChestTest();
+        if (_lookStatus != "" && _lookFrame == 2)
+        {
+            // Test aid (--lookstatus=poison|burn|frost, with --lookshot): the hero afflicted, a burning goblin and a frozen one beside
+            var p = G.Player; var at = p.GlobalPosition;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            p.Stats.MaxHp = p.Hp = 9999;
+            if (_lookStatus == "poison") p.GivePoison(1f, 999f); else if (_lookStatus == "burn") p.GiveBurn(1f, 999f); else p.GiveFrozen(999f);
+            var burning = new Goblin(); var frozen = new Goblin();
+            burning.Position = at + new Vector2(50, -6); frozen.Position = at + new Vector2(95, -6);
+            foreach (var g in new[] { burning, frozen }) { g.SetMeta("test", true); _world.AddChild(g); g.Freeze(999f, hold: true); }
+            burning.Ignite(0.001f, 999f); frozen.FreezeSolid(999f);
+        }
         if (_elemRow && _lookFrame == 2)
         {
             // Test aid (--elemrow, with --lookshot): the five elementals side by side, held still, a goblin for scale

@@ -128,6 +128,7 @@ public partial class EarthElemental : ElementalWalker
 public partial class FrostElemental : ElementalWalker
 {
     public override Element Element => Element.Frost;
+    public override void StrikeStatus(Player p, float dmg) { if (G.Chance(Tune.Status.ElementalChance)) p.GiveFrozen(Tune.Status.FreezeSeconds); }
     public FrostElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Frost.Hp; BodyRadius = 15; ContactDamage = Tune.Elementals.Frost.Contact; XpValue = Tune.Elementals.Frost.Xp; KnockResist = 0.6f; }
     protected override void Setup() { DisplayName = "Frost Elemental"; base.Setup(); }
     protected override string Set => "elem_frost";
@@ -161,6 +162,7 @@ public partial class NatureElemental : ElementalWalker
     public override Element Element => Element.Nature;
     private float _sinceHit = 9f;
 
+    public override void StrikeStatus(Player p, float dmg) { if (G.Chance(Tune.Status.ElementalChance)) p.GivePoison(dmg * Tune.Status.PoisonShare, Tune.Status.PoisonSeconds); }
     public NatureElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Nature.Hp; BodyRadius = 13; ContactDamage = Tune.Elementals.Nature.Contact; XpValue = Tune.Elementals.Nature.Xp; }
     protected override void Setup() { DisplayName = "Nature Elemental"; base.Setup(); }
     protected override string Set => "elem_nature";
@@ -198,6 +200,7 @@ public partial class NatureElemental : ElementalWalker
 public partial class FireElemental : ElementalWalker
 {
     public override Element Element => Element.Fire;
+    public override void StrikeStatus(Player p, float dmg) { if (G.Chance(Tune.Status.ElementalChance)) p.GiveBurn(dmg * Tune.Status.BurnShare, Tune.Status.BurnSeconds); }
     public FireElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Fire.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Fire.Contact; XpValue = Tune.Elementals.Fire.Xp; }
     protected override void Setup() { DisplayName = "Fire Elemental"; base.Setup(); }
     protected override string Set => "elem_fire";
@@ -243,6 +246,7 @@ public partial class WaterElemental : Enemy
 
     protected override bool UsesGravity => false;
 
+    public override void StrikeStatus(Player p, float dmg) { if (G.Chance(Tune.Status.ElementalChance)) p.GiveDrown(Tune.Status.DrownSeconds, Tune.Status.DrownBreath); }
     public WaterElemental() { Size = Tune.Elementals.ScaleWater; MaxHp = Tune.Elementals.Water.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Water.Contact; XpValue = Tune.Elementals.Water.Xp; }
 
     protected override void Setup()

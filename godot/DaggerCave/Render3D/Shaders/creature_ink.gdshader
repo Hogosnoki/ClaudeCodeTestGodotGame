@@ -23,6 +23,8 @@ uniform float ghost_fade = 0.3;
 // shared with the creature's own pass: the same slots as in creature.gdshader
 instance uniform float fade : instance_index(3) = 1.0;
 instance uniform float dissolve : instance_index(4) = 0.0;
+// an affliction recolours the line (poison green, fire orange, frost pale blue): alpha = how much
+instance uniform vec4 ink_tint : source_color, instance_index(7) = vec4(0.0);
 
 varying vec3 v_rest;
 
@@ -70,6 +72,6 @@ void fragment() {
 	float edge_n = sqrt(dot(nx, nx) + dot(ny, ny));
 	float e = max(smoothstep(depth_edge, depth_edge * 2.2, edge_d), 0.65 * smoothstep(normal_edge, normal_edge * 1.7, edge_n));
 	if (!(e >= 0.03)) discard; // (NaN-safe)
-	ALBEDO = ink.rgb;
+	ALBEDO = mix(ink.rgb, ink_tint.rgb, ink_tint.a);
 	ALPHA = ink.a * e * clamp((fade - 0.35) / 0.4, 0.0, 1.0);
 }

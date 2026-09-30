@@ -30,7 +30,7 @@ public partial class Player
 
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
                        HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
-                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144;
+                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : IsOnFloor();
@@ -62,6 +62,10 @@ public partial class Player
         if (BarrierHp > 0.01f) f |= HfBarrier;
         if (_mendLeft > 0) f |= HfMending;
         if (BubbleHp > 0.01f) f |= HfBubble;
+        if (_poisonLeft > 0) f |= HfPoison;
+        if (_burnLeft > 0) f |= HfBurn;
+        if (_frozenT > 0) f |= HfFrozen;
+        if (_drownT > 0) f |= HfDrown;
         if (Stats.Frostbolt) f |= HfFrost;
         if (Hidden) f |= HfHidden;
         if (_thrown[0] != null) f |= HfDagger0Out;
@@ -191,6 +195,7 @@ public partial class Player
     {
         if (!Dead || IsRemote) return;
         Dead = false;
+        ClearStatus();
         Hp = Math.Max(1f, Stats.MaxHp * 0.35f);
         _invuln = 2f;
         Anim.CancelOnce();

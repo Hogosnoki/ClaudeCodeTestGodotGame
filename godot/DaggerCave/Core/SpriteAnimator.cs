@@ -254,7 +254,8 @@ void fragment() {
 
         m.Design.Frame(m, input);
         m.SetFlash(Math.Min(1f, _flash), _flashColor);
-        if (owner is Enemy foe) m.SetAura(foe.AfflictionAura);
+        if (owner is Enemy foe) { m.SetAura(foe.AfflictionAura); m.SetInkTint(foe.StatusInk); }
+        else if (owner is Player hero) { m.SetAura(hero.StatusAura); m.SetInkTint(hero.StatusInk); }
         var tint = Sprite.SelfModulate;
         m.SetTint(tint, tint.R > 0.99f && tint.G > 0.99f && tint.B > 0.99f ? 0f : 1f);
         float alpha = Modulate.A;

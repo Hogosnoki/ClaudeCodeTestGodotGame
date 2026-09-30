@@ -184,7 +184,7 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>A gulp of air (the vents' bubbles).</summary>
-    public void AddBreath(float seconds) => Breath = Math.Min(Stats.BreathMax, Breath + seconds);
+    public void AddBreath(float seconds) { if (_drownT <= 0) Breath = Math.Min(Stats.BreathMax, Breath + seconds); }
 
     public void AddXp(int amount)
     {
@@ -239,6 +239,8 @@ public partial class Player : CharacterBody2D
 
     private PlayerInput ReadInput()
     {
+        // (frozen solid: nothing gets through)
+        if (_frozenT > 0) return default;
         if (InputOverride != null) return InputOverride();
         return ReadLocalInput(this);
     }
@@ -622,6 +624,7 @@ public partial class Player : CharacterBody2D
         _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
         _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
         TickBoons(dt);
+        TickStatus(dt);
         TickIndignation(dt);
         for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0) _abilityCd[k] -= dt;
         if (_hotLeft > 0)
@@ -838,6 +841,8 @@ public partial class Player : CharacterBody2D
             if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
         }
         TakeRawDamage(dmg, "hit");
+        // (what else the blow does: a poison, a burn, a freeze...)
+        if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
         if (Stats.Indignation) StartIndignation();
         // (a blow that lands brings a vanished Rogue out of the shadows)
         Reveal(true);
@@ -906,6 +911,7 @@ public partial class Player : CharacterBody2D
     {
         if (Dead) return;
         Dead = true; Hp = 0;
+        ClearStatus();
         ReviveProgress = 0;
         NetSync.HeroDown(true);
         Anim.Once("death", 99);

@@ -146,6 +146,21 @@ public partial class Hud : Control
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
+        // --- Afflictions (beside the health bar): poison, fire, frost, drowning, each in its colour ---
+        {
+            var sp = hpPos + new Vector2(hpW + 14, 13);
+            void Chip(string text, Color col)
+            {
+                DrawString(font, sp + new Vector2(1, 1), text, HorizontalAlignment.Left, -1, 13, new Color(0, 0, 0, 0.7f));
+                DrawString(font, sp, text, HorizontalAlignment.Left, -1, 13, col);
+                sp += new Vector2(0, 16);
+            }
+            if (p.Frozen) Chip($"FROZEN {p.FrozenLeft:0.0}s", StatusColors.Frost);
+            if (p.Burning) Chip($"BURNING {Mathf.CeilToInt(p.BurnLeft)}s", StatusColors.Fire);
+            if (p.Poisoned) Chip($"POISONED {Mathf.CeilToInt(p.PoisonLeft)}s", StatusColors.Poison);
+            if (p.Drowning) Chip($"NO AIR FROM BUBBLES {Mathf.CeilToInt(p.DrownLeft)}s", StatusColors.Drown);
+        }
+
         // --- Potions (under the bars) ---
         {
             var pp = xpPos + new Vector2(xpW + 60, -18);

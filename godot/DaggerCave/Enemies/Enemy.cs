@@ -590,6 +590,21 @@ public abstract partial class Enemy : CharacterBody2D
         : _weakT > 0 ? new Color(1f, 0.25f, 0.15f, 0.6f)
         : new Color(0, 0, 0, 0);
 
+    /// <summary>The colour of its ink outline while afflicted: frost pale blue, fire orange (alpha 0 = its usual line).</summary>
+    public Color StatusInk =>
+        _iceT > 0 || _chillT > 0 ? StatusColors.Frost
+        : _burnT > 0 ? StatusColors.Fire
+        : new Color(0, 0, 0, 0);
+
+    /// <summary>A blow from this creature just hurt <paramref name="p"/> for <paramref name="dmg"/>: what else it does (a poison, a burn...). Nothing by default.</summary>
+    public virtual void StrikeStatus(Player p, float dmg) { }
+
+    /// <summary>A poisonous creature's bite: from depth <see cref="Tune.Status.PoisonFromDepth"/> on, now and then the damage lingers as poison.</summary>
+    protected static void MaybePoison(Player p, float dmg)
+    {
+        if (G.Depth >= Tune.Status.PoisonFromDepth && G.Chance(Tune.Status.CreaturePoisonChance)) p.GivePoison(dmg * Tune.Status.CreaturePoisonShare, Tune.Status.CreaturePoisonSeconds);
+    }
+
     // ---- the Elementalist's afflictions: burning, chilled, frozen solid
     private float _burnT, _burnDps, _chillT, _chillSlow = 1f, _iceT;
     /// <summary>Online, on a copy: a moment after this game shattered its ice (or spent its fire)
@@ -924,10 +939,14 @@ public abstract partial class Enemy : CharacterBody2D
             Anim.Position = shudder ? new Vector2(G.Range(-1.5f, 1.5f), G.Range(-0.8f, 0.8f)) : Vector2.Zero;
             if (_netAnim != "") Anim.Mirror(_netAnim, _netFrame, shudder ? 0f : _netSpeed, _netFacing);
             Anim.Motion(Velocity * MoveScale);
+            PuppetAnimate();
         }
         if (_dazed && Stun > 0) DazeFx(dt);
         QueueRedraw();
     }
+
+    /// <summary>On a copy, after the host's animation is shown: what this creature adds from its synced state (a spider's ceiling flip).</summary>
+    protected virtual void PuppetAnimate() { }
 
     /// <summary>A blow from this game's hero on a copy: shown at once, and sent to the host to apply.</summary>
     private float PuppetHurt(float dmg, Vector2 knock, Vector2 hitPos)
