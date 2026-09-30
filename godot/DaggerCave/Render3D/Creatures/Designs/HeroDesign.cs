@@ -4,8 +4,9 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The five heroes, one rig. The Swordsman: hood and teal cloak, a red scarf over the face, a
-/// long sword. The Warden: great helm, mail under a blue tabard with a gold sash, a shortsword and
+/// The five heroes, one rig. The Swordsman (Bran, see HeroDesign.Bran.cs): a broad, bare-armed warrior with short dark hair and
+/// stubble, a slate cowl and torn cloak, a fur mantle on one shoulder, leather straps over a dark tunic,
+/// a ragged tabard, and a longsword. The Warden: great helm, mail under a blue tabard with a gold sash, a shortsword and
 /// a kite shield. The Vitalist: a deep green robe and cowl over a bone mask with eyes that glow,
 /// a blood-red sash, and a gnarled staff whose crystal flares with every spell. The Elementalist:
 /// a violet robe and a tall pointed hood, an ember stole, and a pale staff crowned with an orb in
@@ -22,7 +23,7 @@ namespace DaggerCave;
 public sealed partial class HeroDesign : CreatureDesign
 {
     private readonly HeroKind _kind;
-    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue;
+    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman;
     public HeroDesign(HeroKind kind)
     {
         _kind = kind;
@@ -30,6 +31,7 @@ public sealed partial class HeroDesign : CreatureDesign
         _vitalist = kind == HeroKind.Vitalist;
         _elementalist = kind == HeroKind.Elementalist;
         _rogue = kind == HeroKind.Rogue;
+        _swordsman = kind == HeroKind.Swordsman;
         // (the two casters hold a staff, wear a robe, and share their poses)
         _caster = _vitalist || _elementalist;
         _st = StyleFor(kind);
@@ -122,6 +124,13 @@ public sealed partial class HeroDesign : CreatureDesign
         int s0 = s.Bone("scarf0", neckB, new(-0.05f, 0.57f, 0));
         int s1 = s.Bone("scarf1", s0, new(-0.2f, 0.56f, 0.02f));
         int s2 = s.Bone("scarf2", s1, new(-0.35f, 0.53f, 0.03f));
+
+        if (_swordsman)
+        {
+            SculptBran(s);
+            SculptLantern(s, hipsB);
+            return;
+        }
 
         // ---- torso
         s.Egg(hipsB, new(0, 0.03f, 0), new(0.125f, 0.1f, 0.145f), dark, Mat.Cloth, 0.04f);
@@ -331,7 +340,12 @@ public sealed partial class HeroDesign : CreatureDesign
             sh.Append(shield, new Transform3D(Basis.Identity, new Vector3(0.05f, -0.12f, -0.2f)));
             s.Rigid(handL, sh, Mat.Metal);
         }
-        // the lantern at the left hip (its glass glows in the look's glow colour)
+        SculptLantern(s, hipsB);
+    }
+
+    /// <summary>The lantern at the left hip: its glass glows in the look's glow colour.</summary>
+    private static void SculptLantern(Sculptor s, int hipsB)
+    {
         var lantern = PropMeshes.Lantern(C(0.2f, 0.18f, 0.16f), C(1f, 0.8f, 0.5f));
         var frame = new MeshBuilder();
         var glass = new MeshBuilder();

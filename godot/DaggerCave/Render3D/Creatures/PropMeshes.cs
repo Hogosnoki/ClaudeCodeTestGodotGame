@@ -72,6 +72,59 @@ public static class PropMeshes
         return mb;
     }
 
+    /// <summary>
+    /// A longsword in the same frame as <see cref="Sword"/> (grip at the origin, blade running down -Y,
+    /// the guard at y -0.015): a faceted pommel, a wrapped grip, a plain straight crossguard with
+    /// squared ends, and a broad blade with a fuller down each face.
+    /// </summary>
+    public static MeshBuilder Longsword(float blade, float width, Color steel, Color guard, Color grip)
+    {
+        var mb = new MeshBuilder();
+        // a faceted pommel (few sides, so it catches the light in planes)
+        DecorMeshes.AddSphere(mb, new Vector3(0, 0.122f, 0), 0.028f, guard, 3);
+        Box(mb, new Vector3(0, 0.104f, 0), new Vector3(0.02f, 0.006f, 0.02f), guard);
+        // the grip, wrapped in leather: bands over a shaft
+        mb.Tube(new[] { new Vector3(0, 0.1f, 0), new Vector3(0, -0.01f, 0) }, new[] { 0.016f, 0.017f }, 8, grip, capStart: true);
+        for (int k = 0; k < 6; k++)
+        {
+            float y = 0.09f - k * 0.018f;
+            mb.Tube(new[] { new Vector3(0, y + 0.004f, 0), new Vector3(0, y - 0.004f, 0) }, new[] { 0.0195f, 0.0195f }, 8, grip.Darkened(0.35f), capStart: true);
+        }
+        // the crossguard: a plain bar, squared at its ends, a little collar under it
+        Box(mb, new Vector3(0, -0.015f, 0), new Vector3(0.115f, 0.012f, 0.014f), guard);
+        Box(mb, new Vector3(0.115f, -0.02f, 0), new Vector3(0.008f, 0.02f, 0.017f), guard);
+        Box(mb, new Vector3(-0.115f, -0.02f, 0), new Vector3(0.008f, 0.02f, 0.017f), guard);
+        Box(mb, new Vector3(0, -0.03f, 0), new Vector3(0.026f, 0.012f, 0.02f), guard);
+        // the blade: broad, tapering to a point
+        int rows = 14;
+        float thick = width * 0.2f;
+        int start = mb.Count;
+        for (int i = 0; i <= rows; i++)
+        {
+            float t = i / (float)rows;
+            float y = -0.04f - blade * t;
+            float w = width * (t < 0.82f ? 1f - 0.2f * t : (1f - 0.164f) * (1f - (t - 0.82f) / 0.18f));
+            float th = thick * (1f - 0.55f * t) + 0.001f;
+            var col = new Color(steel, 1f);
+            mb.Add(new Vector3(w, y, 0), Vector3.Right, col);
+            mb.Add(new Vector3(0, y, th), Vector3.Back, col);
+            mb.Add(new Vector3(-w, y, 0), Vector3.Left, col);
+            mb.Add(new Vector3(0, y, -th), Vector3.Forward, col);
+        }
+        for (int i = 0; i < rows; i++)
+            for (int k = 0; k < 4; k++)
+            {
+                int a = start + i * 4 + k, b = start + i * 4 + (k + 1) % 4, c = a + 4, d = b + 4;
+                mb.Tri(a, b, c); mb.Tri(b, d, c);
+            }
+        mb.SmoothNormals();
+        // a fuller down each face (a darker groove)
+        var groove = steel.Darkened(0.35f);
+        for (int side = -1; side <= 1; side += 2)
+            Box(mb, new Vector3(0, -0.04f - blade * 0.38f, side * (thick * 0.72f)), new Vector3(width * 0.16f, blade * 0.33f, 0.0016f), groove);
+        return mb;
+    }
+
     /// <summary>A kite shield facing +X, centred on the origin: rim, boss and a painted field.</summary>
     public static MeshBuilder KiteShield(float height, float width, Color field, Color rim, Color emblem)
     {

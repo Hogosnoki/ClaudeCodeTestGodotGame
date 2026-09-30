@@ -684,7 +684,7 @@ hero's right hand (the far hand when facing right, the near hand when facing lef
 always comes from the upper left.
 
 All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
-- The Swordsman: a teal cloak, a red scarf and a medium sword.
+- The Swordsman (Bran): a broad, bare-armed warrior in a dark tunic crossed by leather straps, with short dark hair and stubble, a slate cowl and torn cloak, a fur mantle on one shoulder, a ragged tabard, tall fur-cuffed boots and a longsword (`Designs/HeroDesign.Bran.cs`, on the shared hero skeleton).
 - The Warden: a blue tabard, a gold sash, a shortsword and a buckler.
 - The Vitalist: a green robe, a bone mask with glowing eyes and a crystal-headed staff.
 - The Elementalist: a violet robe, an ember sash and a staff crowned with a burning orb.
