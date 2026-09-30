@@ -211,6 +211,7 @@ public partial class Player
         if (friend == null && !InWater && IsOnFloor() && d.Y > -0.5f) d = new Vector2(Math.Abs(d.X) > 0.1f ? Math.Sign(d.X) : Facing, 0);
         _dashDir = d;
         _dashT = time;
+        _dashStruck.Clear();
         SpendAbilityCharge();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
         _swingT = -1; // a swing still under way gives way to the charge
@@ -260,8 +261,15 @@ public partial class Player
         }
         foreach (var e in G.Enemies.ToArray())
         {
-            if (e.Dead || !e.AttackingNow) continue;
+            if (e.Dead || (!e.AttackingNow && !Stats.Juggernaut)) continue;
             if (e.GlobalPosition.DistanceTo(front) > e.HitRadius + 10) continue;
+            if (Stats.Juggernaut)
+            {
+                // Juggernaut's Charge: everything in the way is struck once, and the charge runs on
+                if (!_dashStruck.Add(e)) continue;
+                DashPlough(e, front);
+                continue;
+            }
             DashImpact(e.GlobalPosition - (e.GlobalPosition - front).Normalized() * e.HitRadius, e);
             return true;
         }
@@ -296,6 +304,20 @@ public partial class Player
         G.Sfx.Play("clink", at, -2, 0.1f, 0.9f);
         G.Main.Rumble(0.25f, 0.2f, 0.06f);
         _shieldFlash = 0.12f;
+    }
+
+    private readonly System.Collections.Generic.HashSet<Enemy> _dashStruck = new();
+
+    /// <summary>Juggernaut's Charge meets a creature: it's struck and thrown aside, and the charge goes on.</summary>
+    private void DashPlough(Enemy e, Vector2 at)
+    {
+        e.Interrupt(_dashDir * Tune.Warden.DashPush, Tune.Warden.DashStagger);
+        float dealt = e.Hurt(Tune.Warden.DashDamage * Stats.DamageMult * Stats.DashDamageMult, _dashDir * 160f, at);
+        if (dealt > 0) OnDealtDamage(dealt);
+        if (Stats.DashMend) { MendShield(12f); Heal(4f); }
+        G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));
+        G.Sfx.Play("clink", at, -4, 0.1f, 0.8f);
+        G.Main.Rumble(0.3f, 0.3f, 0.08f);
     }
 
     /// <summary>The charge stops dead against it: the attack is broken off, with a shield bash.</summary>

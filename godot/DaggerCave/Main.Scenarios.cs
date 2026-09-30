@@ -58,6 +58,7 @@ public partial class Main
         "affinity" => "entrance",
         "magma" => "magma",
         "vault" => "den",
+        "relics" => "den",
         _ => null,
     };
 
@@ -86,6 +87,7 @@ public partial class Main
             case "affinity": AffinityScenario(); break;
             case "magma": MagmaScenario(); break;
             case "vault": VaultScenario(); break;
+            case "relics": RelicsScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }

@@ -193,11 +193,26 @@ public partial class Player : CharacterBody2D
         while (Xp >= XpToNext)
         {
             Xp -= XpToNext;
-            Level++;
-            Progression.AutoLevel(this);
-            if (Level % Meta.MilestoneEvery == 0) PendingMilestones++;
+            LevelUpOnce();
         }
     }
+
+    private void LevelUpOnce()
+    {
+        Level++;
+        Progression.AutoLevel(this);
+        if (Level % Meta.MilestoneEvery == 0) PendingMilestones++;
+        if (Stats.LevelHeal) HealHere(Stats.MaxHp);
+    }
+
+    /// <summary>Levels gained at once (a relic's gift), each with its usual rewards.</summary>
+    public void GainLevels(int n)
+    {
+        for (int k = 0; k < n; k++) { Xp = 0; LevelUpOnce(); }
+    }
+
+    /// <summary>Potions this hero can carry (the ember trees' and a relic's).</summary>
+    public int MaxPotions => Meta.MaxPotions + Stats.ExtraPotions;
 
     /// <summary>Drinks a potion: part of the heal at once, the rest over the next seconds.</summary>
     public bool DrinkPotion()
@@ -643,7 +658,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
         if (WebbedT > 0) target *= 0.45f;
         // planted for a heaving swing, or braced behind a shield bash
         bool rooted = Heaving || (_bashT > 0 && onFloor);
@@ -757,6 +772,7 @@ public partial class Player : CharacterBody2D
     public void OnDealtDamage(float dealt, bool vitalForceByMote = false)
     {
         if (Stats.LifeSteal > 0) Hp = Math.Min(Stats.MaxHp, Hp + dealt * Stats.LifeSteal);
+        if (Stats.ShieldSiphon > 0 && IsWarden) MendShield(dealt * Stats.ShieldSiphon);
         if (IsVitalist && !vitalForceByMote) GainVitalForce(dealt * Stats.VitalForceGain);
     }
 
@@ -800,6 +816,8 @@ public partial class Player : CharacterBody2D
             return ApplyChip(block.Through, source);
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        // (Assassin's Edge: a blow at your back lands harder)
+        if (Stats.BackTakenMult != 1f && Math.Abs(from.X - GlobalPosition.X) > 2f && Math.Sign(from.X - GlobalPosition.X) != Math.Sign(Facing)) dmg *= Stats.BackTakenMult;
         if (Stats.HeaveGuard && Heaving) dmg *= 0.5f; // (Braced)
         // a barrier soaks what it can first (a blow it soaks whole doesn't even make you flinch)
         dmg = Soften(dmg);

@@ -340,6 +340,7 @@ public partial class Main : Node
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
+            else if (a == "--chesttest") _chestTest = true;
             else if (a == "--elementtest") _elementTest = true;
             else if (a == "--roguetest") _rogueLook = true;
             else if (a == "--exittest") _exitTest = true;
@@ -409,7 +410,7 @@ public partial class Main : Node
     private bool _exitTest;
 
     private int _fxTest;
-    private bool _propTest, _elementTest, _rogueLook;
+    private bool _propTest, _elementTest, _rogueLook, _chestTest;
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
     /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
@@ -426,6 +427,24 @@ public partial class Main : Node
         }
     }
 
+    /// <summary>Test aid (--chesttest, with --lookshot): every kind of chest in a row beside the hero: wood, silver (relic), gold (a guardian's), the vault's, and a silver one hung in a web.</summary>
+    private void SpawnChestTest()
+    {
+        var p = G.Player.GlobalPosition;
+        var cave = G.Cave;
+        Vector2 Floor(float dx) => cave.FindFloor(p + new Vector2(dx, -40), 200, out var f) ? f : p + new Vector2(dx, 12);
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        void Add(Node2D n, Vector2 at) { n.Position = at; _world.AddChild(n); }
+        Add(new Chest(), Floor(-150));
+        Add(new Chest { Tier = ChestTier.Relic }, Floor(-95));
+        Add(new Chest { Tier = ChestTier.Boss }, Floor(-40));
+        Add(new Chest { Vault = true }, Floor(25));
+        var fl = Floor(90);
+        Add(new Chest { Hung = true, LandY = fl.Y, Tier = ChestTier.Relic }, fl - new Vector2(0, Tune.Relics.WebHangHeight));
+        var fl2 = Floor(150);
+        Add(new Chest { Tier = ChestTier.Boss, Owner = Net.Me + 5 }, fl2);
+    }
+
     private void SpawnPropTest()
     {
         var p = G.Player.GlobalPosition;
@@ -433,6 +452,12 @@ public partial class Main : Node
         Vector2 Floor(float dx) => cave.FindFloor(p + new Vector2(dx, -40), 200, out var f) ? f : p + new Vector2(dx, 12);
         void Add(Node2D n, Vector2 at) { n.Position = at; _world.AddChild(n); }
         Add(new Chest(), Floor(-150));
+        Add(new Chest { Tier = ChestTier.Relic }, Floor(-190));
+        Add(new Chest { Tier = ChestTier.Boss }, Floor(-235));
+        {
+            var fl = Floor(-280);
+            Add(new Chest { Hung = true, LandY = fl.Y, Tier = ChestTier.Relic }, fl - new Vector2(0, Tune.Relics.WebHangHeight));
+        }
         Add(new XpOrb { Value = 3 }, p + new Vector2(-110, -40));
         Add(new XpOrb { Value = 10 }, p + new Vector2(-95, -52));
         Add(new HeartPickup(), p + new Vector2(-70, -45));
@@ -514,6 +539,7 @@ public partial class Main : Node
         // --fxtest: lay out one of every effect around the player a moment before the shot
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
+        if (_chestTest && _lookFrame == 2) SpawnChestTest();
         if (_elementTest && _lookFrame == 2) SpawnElementTest();
         if (_rogueLook && _lookFrame == 2) SpawnRogueLook();
         if (_exitTest && _lookFrame == 2) SpawnExitTest();
@@ -558,6 +584,8 @@ public partial class Main : Node
 
         ulong t0 = Time.GetTicksMsec();
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
+        // (a new run starts with no relics carried)
+        if (keepStats == null) RunRelics.Reset();
         var cave = CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
@@ -583,7 +611,8 @@ public partial class Main : Node
         _world.AddChild(player);
         if (keepStats != null)
         {
-            player.Hp = Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
+            // (Spring Water: going deeper heals you to full)
+            player.Hp = keepStats.DepthHeal ? keepStats.MaxHp : Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
             player.PendingMilestones = keepMilestones;
@@ -631,12 +660,13 @@ public partial class Main : Node
             roomChests++;
             // Sit the chest on real ground (the room's floor line may have been cut by another tunnel).
             if (!cave.FindFloor(room.Center, 700, out var floor)) continue;
-            var chest = new Chest { Position = floor };
+            var chest = MakeLevelChest(floor);
             NetSync.LevelId(chest);
             _world.AddChild(chest);
         }
 
         PlaceCaches(cave);
+        PlaceBonusChests(cave);
         PlaceVault(cave);
         SpawnCritters(cave);
         if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
@@ -673,6 +703,57 @@ public partial class Main : Node
     }
 
     /// <summary>
+    /// A chest of the level's own: wood, or (now and then) silver with a relic in it, and on the odd
+    /// occasion strung up in a web from a tall ceiling. All from the seed, so every game makes the same.
+    /// </summary>
+    private Chest MakeLevelChest(Vector2 floor)
+    {
+        var chest = new Chest { Position = floor, Tier = G.Chance(Tune.Relics.RelicChestChance) ? ChestTier.Relic : ChestTier.Wood };
+        var cave = G.Cave;
+        if (cave != null && G.Chance(Tune.Relics.WebChestChance) && !cave.IsWater(floor + new Vector2(0, -10)))
+        {
+            float hang = Tune.Relics.WebHangHeight;
+            // (a tall ceiling: room for the thread above the chest)
+            if (cave.FindCeiling(floor + new Vector2(0, -hang - 20), 700, out var ce) && ce.Y <= floor.Y - hang - Tune.Relics.WebMinThread)
+            {
+                chest.Hung = true;
+                chest.LandY = floor.Y;
+                chest.Position = floor - new Vector2(0, hang);
+            }
+        }
+        return chest;
+    }
+
+    /// <summary>A Hunter's Map: more chests, scattered like the caches (dry or flooded), on top of the level's own.</summary>
+    private void PlaceBonusChests(CaveData cave)
+    {
+        float bonus = RunRelics.ChestBonus;
+        if (bonus <= 0 || cave.ReachMask == null) return;
+        float want = Chest.All.Count * bonus;
+        int n = (int)want + (G.Chance(want - (int)want) ? 1 : 0);
+        var placed = new List<Vector2>();
+        foreach (var c in Chest.All) if (IsInstanceValid(c)) placed.Add(c.GlobalPosition);
+        foreach (var r in cave.Rooms) placed.Add(r.Floor);
+        int made = 0;
+        for (int tries = 0; tries < 2500 && made < n; tries++)
+        {
+            var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(60, cave.SizePx.Y - 40));
+            if (cave.IsSolid(at) || cave.IsLava(at) || !cave.FindFloor(at, 300, out var floor)) continue;
+            int i = (int)(floor.X / CaveData.Cell), j = (int)(floor.Y / CaveData.Cell) - 1;
+            if (i < 0 || j < 0 || i >= cave.W || j >= cave.H || !cave.ReachMask[j * cave.W + i]) continue;
+            if (cave.IsLava(floor + new Vector2(0, -8)) || floor.DistanceTo(cave.StartPos) < 160) continue;
+            if (cave.Boss != null && floor.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 60) continue;
+            if (placed.Any(q => q.DistanceTo(floor) < 240)) continue;
+            placed.Add(floor);
+            var chest = MakeLevelChest(floor);
+            NetSync.LevelId(chest);
+            _world.AddChild(chest);
+            made++;
+        }
+        if (_autotest) GD.Print($"[autotest] bonus chests placed: {made} of {n}");
+    }
+
+    /// <summary>
     /// Extra chests away from the dead ends: some on the flooded floor (where movement upgrades are
     /// likeliest), some high in the dry caves (survival upgrades), and in the Magma Caverns a few
     /// sunk in the lava (for Magma Skin to reach), spread apart and reachable.
@@ -699,7 +780,7 @@ public partial class Main : Node
                 // (the lava lies low and narrow between the rooms: its chests may sit closer to them)
                 if (!Reachable(floor) || placed.Any(q => q.DistanceTo(floor) < (lava ? 96 : 350))) continue;
                 placed.Add(floor);
-                var chest = new Chest { Position = floor };
+                var chest = MakeLevelChest(floor);
                 NetSync.LevelId(chest);
                 _world.AddChild(chest);
                 made++;
@@ -717,6 +798,8 @@ public partial class Main : Node
 
     /// <summary>The level's vault gate, if it has one.</summary>
     public VaultGate Gate { get; private set; }
+    /// <summary>The second vault's gate (a Locksmith's Ring).</summary>
+    public VaultGate Gate2 { get; private set; }
     /// <summary>A mini-boss here has dropped the level's key already (the host's to track).</summary>
     private bool _keyDropped;
 
@@ -737,7 +820,18 @@ public partial class Main : Node
         var chest = new Chest { Position = v.Chest, Vault = true };
         NetSync.LevelId(chest);
         _world.AddChild(chest);
-        int hidden = Tune.Vault.KeysPerLevel - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0);
+        // a Locksmith's Ring: a second vault, and a key more to open it
+        Gate2 = null;
+        if (cave.ExtraVault is VaultSpot v2)
+        {
+            Gate2 = new VaultGate { Position = v2.Gate, Top = v2.GateTop, Side = v2.Side };
+            NetSync.LevelId(Gate2);
+            _world.AddChild(Gate2);
+            var chest2 = new Chest { Position = v2.Chest, Vault = true };
+            NetSync.LevelId(chest2);
+            _world.AddChild(chest2);
+        }
+        int hidden = Tune.Vault.KeysPerLevel + (Gate2 != null ? 1 : 0) - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0);
         PlaceHiddenKeys(cave, hidden);
     }
 
@@ -749,6 +843,7 @@ public partial class Main : Node
     private void PlaceHiddenKeys(CaveData cave, int count)
     {
         var taken = new List<Vector2> { cave.StartPos, cave.Vault.Chest, cave.Vault.Gate };
+        if (cave.ExtraVault != null) { taken.Add(cave.ExtraVault.Chest); taken.Add(cave.ExtraVault.Gate); }
         foreach (var c in Chest.All) if (IsInstanceValid(c)) taken.Add(c.GlobalPosition);
         bool Reachable(Vector2 p)
         {
@@ -1050,7 +1145,7 @@ public partial class Main : Node
         if (Net.InRun) p.Choosing = true;
         else GetTree().Paused = true;
         _sfx.Play(chest != null ? "chest" : "levelup");
-        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : "TREASURE!") : "MILESTONE!", locks);
+        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!", locks);
         _autoPickT = 0.5f;
     }
 
@@ -1711,7 +1806,30 @@ public partial class Main : Node
     {
         // (online, a chest made mid-level goes to every game)
         NetSync.Scope++;
-        try { G.Spawn(new Chest { Position = at }); }
+        try { G.Spawn(new Chest { Position = at, Tier = G.Chance(Tune.Relics.RelicChestChance) ? ChestTier.Relic : ChestTier.Wood }); }
+        finally { NetSync.Scope--; }
+    }
+
+    /// <summary>
+    /// A guardian fell: a gold chest for each player, side by side, each theirs to look in first
+    /// (their class's upgrade and two more). A Hunter's Map or a Prodigy's Brand gives up its bearer's.
+    /// </summary>
+    private void SpawnBossChests(Vector2 at)
+    {
+        var owners = new List<int>();
+        bool Wants(int id, Player p) => !RunRelics.Has(id, "relic_treasure") && !RunRelics.Has(id, "relic_prodigy") && p?.Stats.NoChests != true;
+        if (Net.Online) { foreach (var id in Net.Peers.Keys) if (Wants(id, id == Net.Me ? G.Player : null)) owners.Add(id); }
+        else if (Wants(Net.Me, G.Player)) owners.Add(0);
+        NetSync.Scope++;
+        try
+        {
+            for (int k = 0; k < owners.Count; k++)
+            {
+                float x = at.X + (k - (owners.Count - 1) * 0.5f) * 36f;
+                var spot = G.Cave.FindFloor(new Vector2(x, at.Y - 30), 240, out var f) ? f : at;
+                G.Spawn(new Chest { Position = spot, Tier = ChestTier.Boss, Owner = owners[k] });
+            }
+        }
         finally { NetSync.Scope--; }
     }
 
@@ -1845,7 +1963,7 @@ public partial class Main : Node
             _victoryT = 5f;
             return;
         }
-        CallDeferred(MethodName.SpawnChest, room.Floor + new Vector2(0, 0));
+        CallDeferred(MethodName.SpawnBossChests, room.Floor);
         // the way on: one or two tunnels into what lies below
         var exits = Biomes.ChooseExits(G.Depth, _rng);
         ExitSpots.Clear();

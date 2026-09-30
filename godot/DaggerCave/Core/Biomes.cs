@@ -114,7 +114,8 @@ public sealed class BiomeDef
 /// <summary>The biome registry, the run's depth track, and exit choices.</summary>
 public static class Biomes
 {
-    public const int FinalDepth = 10;
+    /// <summary>The dragon's level (relics can move it).</summary>
+    public static int FinalDepth => 10 + RunRelics.DepthDelta;
     public static readonly List<BiomeDef> All = new();
     public static BiomeDef Get(BiomeId id) => All.First(b => b.Id == id);
 
@@ -441,7 +442,13 @@ public static class Biomes
     {
         var pool = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair) && depth >= b.MinDepth && depth <= b.MaxDepth).ToList();
         if (pool.Count > 1 && avoid != null) pool.Remove(avoid);
-        if (pool.Count == 0) pool = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair)).ToList();
+        if (pool.Count == 0)
+        {
+            // (below the last biome, or above the first: the nearest one)
+            var real = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair)).ToList();
+            int best = real.Min(b => depth > b.MaxDepth ? depth - b.MaxDepth : b.MinDepth - depth);
+            pool = real.Where(b => (depth > b.MaxDepth ? depth - b.MaxDepth : b.MinDepth - depth) == best).ToList();
+        }
         float total = pool.Sum(b => b.Weight);
         double r = rng.NextDouble() * total;
         foreach (var b in pool) { r -= b.Weight; if (r <= 0) return b; }

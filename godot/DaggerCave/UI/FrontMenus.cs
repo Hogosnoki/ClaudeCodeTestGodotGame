@@ -98,6 +98,7 @@ public partial class HeroChoice : Control
     private Label _name, _desc, _hint, _embers;
     private Button _trees, _perks;
     private Label _brought;
+    private CheckBox _hard;
     private PanelContainer _summary;
     private Label _sumTitle, _sumLines;
     private StyleBoxFlat _nameBox;
@@ -162,6 +163,9 @@ public partial class HeroChoice : Control
         var back = UiKit.Button("Back to the menu", () => Back?.Invoke(), 250);
         back.FocusMode = FocusModeEnum.None;
         side.AddChild(back);
+        _hard = new CheckBox { Text = "Hard Mode", FocusMode = FocusModeEnum.None, TooltipText = "Enemies have double the health and deal half as much again: far tougher." };
+        _hard.Toggled += on => { RunSettings.Hard = on; Refresh(); };
+        side.AddChild(_hard);
         _embers = UiKit.Label("", 13, new Color(1f, 0.72f, 0.4f), HorizontalAlignment.Center);
         side.AddChild(_embers);
 
@@ -199,6 +203,7 @@ public partial class HeroChoice : Control
         bool trees = Meta.Trees.Any(Meta.Visible);
         _trees.Visible = trees;
         _embers.Text = Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "";
+        _hard.SetPressedNoSignal(RunSettings.Hard);
         string brought = ClassPerks.EquippedNames(G.Hero);
         _brought.Text = brought != "" ? "Perks: " + brought : "No class perks brought (P)";
         bool pad = G.Main?.UsingPad ?? false;

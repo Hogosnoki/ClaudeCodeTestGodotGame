@@ -93,6 +93,8 @@ public partial class Player
         if (!IsSwordsman || !AbilityChargeReady || Charged > 0) return false;
         SpendAbilityCharge();
         Charged = Stats.ChargeSwings;
+        // (Lingering Fire: the charge burns for a time, every swing in it charged)
+        if (Stats.ChargeDuration > 0) { _chargeLeft = Stats.ChargeDuration; Charged = 1; }
         // a swing still coiling takes the charge at once
         if (_swingT >= 0 && !_released && !_swingCharged) ChargeCurrentSwing();
         G.Sfx.Play("levelup", GlobalPosition, -8, 0.05f, 0.7f);
@@ -109,7 +111,7 @@ public partial class Player
     private bool ConsumeCharge()
     {
         if (Charged <= 0) return false;
-        Charged--;
+        if (_chargeLeft <= 0) Charged--; // (a timed charge isn't spent by swinging)
         return true;
     }
 
@@ -206,7 +208,7 @@ public partial class Player
         float speed = Math.Max(1f, Stats.AttackSpeed);
         _swingArc = Mathf.DegToRad(Tune.Swordsman.HeaveArcDegrees);
         _swingReach = BaseReach * Stats.DaggerReach * Tune.Swordsman.HeaveReach * (charged ? ChargeReachMult : 1f);
-        _swingDmg = BaseDamage * Stats.DamageMult * Tune.Swordsman.HeaveDamage * (charged ? ChargeDmgMult : 1f);
+        _swingDmg = BaseDamage * Stats.DamageMult * Tune.Swordsman.HeaveDamage * Stats.HeaveDamageMult * (charged ? ChargeDmgMult : 1f);
         _swingT = 0;
         _released = false;
         _windup = (swift ? 0.06f : Tune.Swordsman.HeaveWindup) / speed;
@@ -245,8 +247,12 @@ public partial class Player
         G.Main.Rumble(0.4f, 0.6f, 0.15f);
     }
 
+    /// <summary>Lingering Fire: seconds of a timed charge left.</summary>
+    private float _chargeLeft;
+
     private void TickSwordsman(float dt)
     {
+        if (_chargeLeft > 0 && (_chargeLeft -= dt) <= 0) { _chargeLeft = 0; Charged = 0; }
         if (_heaveRootT > 0) _heaveRootT -= dt;
         // a relentless combo's charge is spent once the combo can't go on
         if (_relentless && _swingT < 0 && _swingSinceLast > SwingCooldownBase / Stats.AttackSpeed + ComboWindow) _relentless = false;

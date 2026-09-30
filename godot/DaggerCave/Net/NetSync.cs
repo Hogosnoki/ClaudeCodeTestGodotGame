@@ -47,7 +47,7 @@ public static class NetSync
     private static int _fxCount;
 
     /// <summary>Enemy health for this many players (the host scales what it spawns).</summary>
-    public static float HpScale => Net.Online ? 1f + 0.5f * Math.Max(0, Net.Count - 1) : 1f;
+    public static float HpScale => RunSettings.HpMult;
     /// <summary>How many more creatures the cave holds with company.</summary>
     public static float CapScale => Net.Online ? 1f + 0.35f * Math.Max(0, Net.Count - 1) : 1f;
 
@@ -196,7 +196,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.ChestCut;
 
     // ================================================================== heroes
 
@@ -642,7 +642,7 @@ public static class NetSync
                 w.Byte(11).Int(id).Vec(kp.GlobalPosition).Half(kp.Vy);
                 break;
             case Chest ch:
-                w.Byte(9).Int(id).Vec(ch.GlobalPosition);
+                w.Byte(9).Int(id).Vec(ch.GlobalPosition).Byte((byte)ch.Tier).Int(ch.Owner).Bool(ch.Vault);
                 break;
             case Portal po:
                 w.Byte(10).Int(id).Vec(po.GlobalPosition).Byte((byte)(po.To?.Id ?? BiomeId.Slime)).Int(po.Depth).Str(po.Label);
@@ -681,7 +681,7 @@ public static class NetSync
             case 7: n = new HeartPickup { Position = r.Vec(), Puppet = true }; break;
             case 8: n = new PotionPickup { Position = r.Vec(), Puppet = true }; break;
             case 11: { var pos = r.Vec(); float vy = r.Half(); n = new KeyPickup { Position = pos, Vy = vy, Puppet = true }; break; }
-            case 9: n = new Chest { Position = r.Vec() }; break;
+            case 9: { var pos = r.Vec(); var tier = (ChestTier)r.Byte(); int owner = r.Int(); bool vault = r.Bool(); n = new Chest { Position = pos, Tier = tier, Owner = owner, Vault = vault }; break; }
             case 10:
             {
                 var pos = r.Vec(); var biome = Biomes.Get((BiomeId)r.Byte()); int depth = r.Int(); string label = r.Str();
@@ -749,10 +749,30 @@ public static class NetSync
     // cards (for the whole party) and everyone learns them; taking one spends the chest for all,
     // leaving it closes it again with the same cards for anyone to look at.
 
+    /// <summary>This game's hero took a relic: the others keep the party's list too (some relics change the world).</summary>
+    public static void SendRelic(string id)
+    {
+        if (!Net.Online) return;
+        var w = new NetOut(Net.Msg.Relic);
+        w.Int(Net.Me).Str(id);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>The heroes in this run (a chest's cards are dealt for all of them).</summary>
     public static IReadOnlyCollection<HeroKind> PartyHeroes() => Net.Peers.Values.Select(p => p.Hero).Distinct().ToList();
 
     private static Chest ChestById(int id) => Props.TryGetValue(id, out var n) && n is Chest c && GodotObject.IsInstanceValid(c) ? c : null;
+
+    /// <summary>A hung chest's web was cut here: every game drops it.</summary>
+    public static void ChestCut(Chest c)
+    {
+        if (!Net.Online) return;
+        int id = IdOf(c);
+        if (id == 0) return;
+        var w = new NetOut(Net.Msg.ChestCut);
+        w.Int(id);
+        Net.SendAll(w, true);
+    }
 
     /// <summary>This game's hero is at a chest: ask the host whether it may look in.</summary>
     public static void AskChest(Chest c)
@@ -769,12 +789,21 @@ public static class NetSync
     private static void LookInChest(int id, int viewer)
     {
         var c = ChestById(id);
-        if (c == null || c.Open) return;
+        if (c == null || c.Open || c.Hung) return;
+        if (c.Owner != 0 && c.Owner != viewer)
+        {
+            // someone else's chest, until they've looked and left it
+            var no = new NetOut(Net.Msg.Banner);
+            no.Str($"THAT CHEST IS {Net.NameOf(c.Owner).ToUpperInvariant()}'S").Half(1.6f);
+            if (viewer == Net.Me) G.Main?.OnlineBanner($"THAT CHEST IS {Net.NameOf(c.Owner).ToUpperInvariant()}'S", 1.6f);
+            else Net.SendTo(viewer, no, true);
+            return;
+        }
         if (c.LookingBy != 0 && c.LookingBy != viewer)
         {
             // someone else has it open: tell the one who asked
             var busy = new NetOut(Net.Msg.ChestLook);
-            busy.Int(id).Int(c.LookingBy).Str(c.Cards != null ? string.Join(",", c.Cards) : "");
+            busy.Int(id).Int(c.LookingBy).Str(c.Cards != null ? string.Join(",", c.Cards) : "").Int(c.Owner);
             if (viewer == Net.Me) OnChestLook(new NetIn(busy.Bytes()), skipType: true);
             else Net.SendTo(viewer, busy, true);
             return;
@@ -786,7 +815,7 @@ public static class NetSync
     private static void SendChestLook(Chest c, int id, int viewer)
     {
         var w = new NetOut(Net.Msg.ChestLook);
-        w.Int(id).Int(viewer).Str(c.Cards != null ? string.Join(",", c.Cards) : "");
+        w.Int(id).Int(viewer).Str(c.Cards != null ? string.Join(",", c.Cards) : "").Int(c.Owner);
         Net.SendAll(w, true);
         OnChestLook(new NetIn(w.Bytes()), skipType: true);
     }
@@ -796,8 +825,10 @@ public static class NetSync
         if (skipType) r.Byte();
         int id = r.Int(), viewer = r.Int();
         string cards = r.Str();
+        int owner = r.Int();
         var c = ChestById(id);
         if (c == null || c.Open) return;
+        c.Owner = owner;
         bool asked = c.Asked;
         c.LookingBy = viewer;
         if (cards != "") c.Cards = cards.Split(',');
@@ -841,7 +872,8 @@ public static class NetSync
     {
         var c = ChestById(id);
         if (c == null || c.Open || c.LookingBy != from) return;
-        if (!taken) { SendChestLook(c, id, 0); return; }
+        // (leaving a chest that was yours after looking in it gives it to the party)
+        if (!taken) { if (c.Owner == from) c.Owner = 0; SendChestLook(c, id, 0); return; }
         var w = new NetOut(Net.Msg.ChestOpened);
         w.Int(id).Int(from);
         Net.SendAll(w, true);
@@ -853,7 +885,11 @@ public static class NetSync
     {
         if (!Net.IsHost) return;
         foreach (var (id, n) in Props.ToList())
-            if (n is Chest c && GodotObject.IsInstanceValid(c) && !c.Open && c.LookingBy == peer) SendChestLook(c, id, 0);
+            if (n is Chest c && GodotObject.IsInstanceValid(c) && !c.Open && (c.LookingBy == peer || c.Owner == peer))
+            {
+                if (c.Owner == peer) c.Owner = 0; // (a player who's gone leaves their chest to the others)
+                SendChestLook(c, id, c.LookingBy == peer ? 0 : c.LookingBy);
+            }
     }
 
     private static void OnChestOpened(NetIn r)
@@ -1097,6 +1133,8 @@ public static class NetSync
             case Net.Msg.ChestCards: OnChestCards(r); break;
             case Net.Msg.ChestDone: if (Net.IsHost) { int id = r.Int(); OnChestDone(from, id, r.Bool()); } break;
             case Net.Msg.ChestOpened: OnChestOpened(r); break;
+            case Net.Msg.Relic: { int who = r.Int(); RunRelics.Note(who, r.Str()); break; }
+            case Net.Msg.ChestCut: ChestById(r.Int())?.Cut(remote: true); break;
             case Net.Msg.GateAsk: if (Net.IsHost) OpenGate(r.Int(), from); break;
             case Net.Msg.GateOpened: { int id = r.Int(), by = r.Int(); OnGateOpened(id, by); break; }
             case Net.Msg.ExitReady: SetAtExit(from, r.Int()); break;

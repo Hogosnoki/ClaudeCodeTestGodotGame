@@ -16,6 +16,17 @@ public interface IBreakable
 public static class Breakables
 {
     public static readonly List<IBreakable> All = new();
+
+    /// <summary>Something flies from <paramref name="a"/> to <paramref name="b"/>: a web-hung chest's web in its way parts (only those: bolts and daggers leave ice and brush alone).</summary>
+    public static void Shoot(Vector2 a, Vector2 b, float pad = 4f)
+    {
+        foreach (var br in All.ToArray())
+        {
+            if (br is not Chest c || !c.Hung || c.CutT >= 0) continue;
+            var at = Geometry2D.GetClosestPointToSegment(br.HitCenter, a, b);
+            if (at.DistanceTo(br.HitCenter) <= br.HitSize + pad) { c.Cut(); }
+        }
+    }
 }
 
 /// <summary>A choking cloud of spores: hurts a little every half second while you're inside.</summary>

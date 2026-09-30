@@ -74,6 +74,8 @@ public partial class Player
     {
         if (_drainCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        // (the staff's wisp reaches a hung web too)
+        Breakables.Shoot(CastPoint, CastPoint + aim * DrainRange, 6f);
         var target = FindSpellTarget(aim, DrainRange);
         // held down, it drains whatever comes into reach (without casting wisps at nothing)
         if (target == null && held) return false;

@@ -119,11 +119,13 @@ public partial class Player
     private bool TryThrow(Vector2 aim)
     {
         if (!IsRogue || _throwCd > 0 || DaggersInHand == 0 || _tetherTo != null) return false;
+        // (Lone Blade: one dagger flies, and only with both home)
+        if (Stats.LoneThrow && DaggersInHand < 2) { SayNo("DAGGER STILL OUT"); _throwCd = 0.3f; _throwCdTotal = 0.3f; return true; }
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var target = FindSpellTarget(aim, Tune.Rogue.ThrowRange, Tune.Rogue.ThrowConeDegrees);
         var from = GlobalPosition + new Vector2(0, -6);
         var dir = target != null ? (target.GlobalPosition - from).Normalized() : aim;
-        bool both = Stats.TwinThrow && DaggersInHand == 2;
+        bool both = Stats.TwinThrow && !Stats.LoneThrow && DaggersInHand == 2;
         bool surprise = StrikeFromShadows();
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         Anim.Face((int)Facing, instant: true);
@@ -232,8 +234,12 @@ public partial class Player
         float mult = RogueStrikeMult(e, GlobalPosition, surprise, out bool crit, sureCrit);
         float dealt = e.Hurt(Tune.Rogue.RecallDamage * Stats.DamageMult * Stats.RecallDamageMult * mult, toMe * Tune.Rogue.RecallYank, at);
         if (dealt > 0) OnDealtDamage(dealt);
-        if (dealt > 0 && Stats.RecallBleed && !e.Dead && G.Chance(Tune.Rogue.RecallBleedChance))
-            e.Bleed(dealt * Tune.Rogue.RecallBleedMult, Tune.Rogue.RecallBleedSeconds);
+        if (dealt > 0 && Stats.RecallBleed && !e.Dead && G.Chance(Stats.RecallBleedChance))
+        {
+            // (Undying Wound: the same bleed, at the same pace, for as long as the creature lives)
+            float seconds = Stats.BleedForever ? 9999f : Tune.Rogue.RecallBleedSeconds;
+            e.Bleed(dealt * Tune.Rogue.RecallBleedMult * seconds / Tune.Rogue.RecallBleedSeconds, seconds);
+        }
         if (crit) CritFx(e, at);
         G.Fx.Spark(at, toMe, true, new Color(1f, 0.9f, 0.75f));
         G.Fx.Burst(at, e.BloodTint, 8, 150, 2f, 0.35f, 200);

@@ -131,6 +131,34 @@ public sealed class PlayerStats
     public int RicochetBounces = 1;
     public bool Pounce;
 
+    /// <summary>How far away a hero seems to enemies choosing whom to attack (x the real distance): below 1 draws their attention, above 1 turns it away.</summary>
+    public float ThreatDist = 1f;
+
+    // relics (see Relics.cs)
+    /// <summary>Relic: horizontal speed in the air (x).</summary>
+    public float AirSpeedMult = 1f;
+    /// <summary>Relic: potions carried beyond the usual, and the added chance an enemy drops one.</summary>
+    public int ExtraPotions;
+    public float PotionChanceBonus;
+    /// <summary>Relic: chests can't be opened; a level-up heals to full; arriving on a new level heals to full.</summary>
+    public bool NoChests, LevelHeal, DepthHeal;
+    /// <summary>Relic: blows on a creature's back (x), and blows from behind on you (x).</summary>
+    public float BackDealMult = 1f, BackTakenMult = 1f;
+    /// <summary>Relic: damage by distance. Positive: up to that much more against far creatures and as much less against near ones. Negative: the other way round.</summary>
+    public float DistanceBias;
+    /// <summary>Relic: spells that lack alimus are paid for in health.</summary>
+    public bool BloodCast;
+    /// <summary>Relic: the Charged Strike lasts this many seconds (every swing is charged) instead of one swing (0 = off).</summary>
+    public float ChargeDuration;
+    /// <summary>Relic: the heaving swing's damage (x).</summary>
+    public float HeaveDamageMult = 1f;
+    /// <summary>Relic: the share of damage dealt that recharges the Warden's shield; a Guarded Charge that ploughs through everything it meets.</summary>
+    public float ShieldSiphon;
+    public bool Juggernaut;
+    /// <summary>Relic: one dagger is thrown, and only when both are home; a recall's bleed chance, and a bleed that never stops.</summary>
+    public bool LoneThrow, BleedForever;
+    public float RecallBleedChance = Tune.Rogue.RecallBleedChance;
+
     public readonly Dictionary<string, int> Stacks = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
 
@@ -141,7 +169,7 @@ public sealed class PlayerStats
         {
             case HeroKind.Warden:
                 MoveSpeed = Tune.Warden.MoveMult; JumpMult = Tune.Warden.JumpMult;
-                MaxHp = Tune.Warden.StartHp; DamageReduction = Tune.Warden.Armor; BreathMax += Tune.Warden.ExtraBreath;
+                ThreatDist = Tune.Warden.ThreatDist; MaxHp = Tune.Warden.StartHp; DamageReduction = Tune.Warden.Armor; BreathMax += Tune.Warden.ExtraBreath;
                 break;
             case HeroKind.Vitalist:
                 MoveSpeed = Tune.Vitalist.MoveMult; JumpMult = Tune.Vitalist.JumpMult;
@@ -153,7 +181,7 @@ public sealed class PlayerStats
                 break;
             case HeroKind.Rogue:
                 MoveSpeed = Tune.Rogue.MoveMult; JumpMult = Tune.Rogue.JumpMult;
-                MaxHp = Tune.Rogue.StartHp;
+                MaxHp = Tune.Rogue.StartHp; ThreatDist = Tune.Rogue.ThreatDist;
                 // (born to the walls: slides down them and kicks off them)
                 WallJump = true;
                 break;
@@ -168,6 +196,8 @@ public sealed class PlayerStats
 /// <summary>What kind of card an upgrade is (each has its own colour and label, and its own source).</summary>
 public enum UpgradeKind
 {
+    /// <summary>A relic: a bargain or a twist on how the run works (found in chests; generic, or for one hero).</summary>
+    Relic,
     /// <summary>Improves one of a hero's abilities (chests' class card, and milestones).</summary>
     Class,
     /// <summary>Changes how an ability works; one per ability (milestones only).</summary>
@@ -199,8 +229,10 @@ public sealed class Upgrade
     public string Ability;
     /// <summary>It changes how its ability works (an ability takes one at most).</summary>
     public bool Alteration;
+    /// <summary>A relic (in <see cref="Upgrades.Relics"/>).</summary>
+    public bool Relic;
 
-    public UpgradeKind Kind => Alteration ? UpgradeKind.Alteration
+    public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration ? UpgradeKind.Alteration
         : Icon == "risk" ? UpgradeKind.SideGrade
         : For != null ? UpgradeKind.Class
         : Requires != null || When != null ? UpgradeKind.Conditional
@@ -222,7 +254,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 ///    class upgrade (one of the ability-tier ones).
 ///  * Stats grow on their own at every level (<see cref="Progression"/>).
 /// </summary>
-public static class Upgrades
+public static partial class Upgrades
 {
     private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue };
     /// <summary>The two heroes who fight with a blade.</summary>
@@ -407,7 +439,7 @@ public static class Upgrades
     /// <summary>The "leave it" card in a chest: it closes again, keeping its cards.</summary>
     public static readonly Upgrade LeaveChest = new() { Id = "leave", Name = "Leave It", Desc = "Close the chest. It keeps these cards: come back for one later, or leave it for a friend.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
 
-    public static IEnumerable<Upgrade> All => Chest.Append(Skip).Append(LeaveChest);
+    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Append(Skip).Append(LeaveChest);
 
     /// <summary>A card by id, or null if there's no such card (a chest dealt by another version).</summary>
     public static Upgrade Find(string id) => All.FirstOrDefault(u => u.Id == id);
@@ -507,7 +539,15 @@ public static class Upgrades
     /// With a party, the class card is for one of the party's heroes (any of them), so a chest may
     /// hold a card for a friend; the other two are what the dealer can take.
     /// </summary>
-    public static string[] RollChestCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at)
+    public static string[] RollChestCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at, bool relic = false)
+    {
+        var ids = RollChestCardsBase(mine, party, rng, at);
+        // a silver chest: a relic takes the place of the last generic card
+        if (relic && ids.Length == 3 && RollRelic(mine, rng) is Upgrade r) ids[2] = r.Id;
+        return ids;
+    }
+
+    private static string[] RollChestCardsBase(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at)
     {
         if (party == null || party.Count <= 1) return RollChest(mine, rng, at).Select(u => u.Id).ToArray();
         var weight = ChestWeight(at);
@@ -522,7 +562,7 @@ public static class Upgrades
     }
 
     /// <summary>What fills a chest beside its class card: anyone's cards, but no side-grade.</summary>
-    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.SideGrade;
+    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.SideGrade && u.Kind != UpgradeKind.Relic;
 
     /// <summary>A rare class upgrade: one of the ability-tier ones (the vaults deal them).</summary>
     public static bool IsRare(Upgrade u) => u.Kind == UpgradeKind.Class && u.Tier == UpgradeTier.Ability;
@@ -579,6 +619,7 @@ public static class Upgrades
     {
         s.Stacks[u.Id] = s.StackOf(u.Id) + 1;
         u.Apply(s, p);
+        if (u.Relic && p != null && !p.IsRemote) RunRelics.Take(u.Id);
     }
 }
 

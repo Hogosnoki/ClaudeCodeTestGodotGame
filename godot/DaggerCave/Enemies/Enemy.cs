@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -96,7 +97,7 @@ public abstract partial class Enemy : CharacterBody2D
     public float DmgMult = 1f;
     /// <summary>What every hit this creature deals is multiplied by: difficulty curve times its own
     /// multiplier (and less while weakened by a charged strike).</summary>
-    protected float DmgK => G.DepthDmg * DmgMult * (_weakT > 0 ? _weakMult : 1f);
+    protected float DmgK => G.DepthDmg * RunSettings.DmgMult * (this is Dragon ? RunRelics.DragonMult : 1f) * DmgMult * (_weakT > 0 ? _weakMult : 1f);
 
     protected float T, HurtFlash, Stun;
     protected SpriteAnimator Anim;
@@ -143,20 +144,31 @@ public abstract partial class Enemy : CharacterBody2D
             if (!Net.Online || G.Players.Count <= 1) return G.Player;
             if (_target != null && IsInstanceValid(_target) && _target.IsInsideTree() && !_target.Dead && _targetT > 0) return _target;
             _targetT = 0.5f;
-            Player best = null;
-            float bd = float.MaxValue;
-            foreach (var h in G.Players)
-            {
-                if (h == null || !IsInstanceValid(h) || h.Dead) continue;
-                float d = h.GlobalPosition.DistanceSquaredTo(GlobalPosition);
-                // (a hidden hero is found only when there's no one else to find)
-                if (h.Hidden) d += 1e8f;
-                if (d < bd) { bd = d; best = h; }
-            }
-            _target = best ?? G.Player;
+            var heroes = G.Players.Where(h => h != null && IsInstanceValid(h) && !h.Dead).ToList();
+            int pick = ChooseHero(GlobalPosition, heroes.Select(h => (h.GlobalPosition, h.Stats?.ThreatDist ?? 1f, h.Hidden)).ToList());
+            _target = pick >= 0 ? heroes[pick] : G.Player;
             return _target;
         }
     }
+    /// <summary>
+    /// Whom an enemy at <paramref name="from"/> goes for: the nearest hero, where each one's threat
+    /// bends how far away it seems (x the real distance: below 1 draws enemies, above 1 turns them away).
+    /// A hidden hero is found only when there's no one else. -1 when there are none.
+    /// </summary>
+    public static int ChooseHero(Vector2 from, IReadOnlyList<(Vector2 pos, float threat, bool hidden)> heroes)
+    {
+        int best = -1;
+        float bd = float.MaxValue;
+        for (int k = 0; k < heroes.Count; k++)
+        {
+            var (pos, threat, hidden) = heroes[k];
+            float d = pos.DistanceSquaredTo(from) * threat * threat;
+            if (hidden) d += 1e8f;
+            if (d < bd) { bd = d; best = k; }
+        }
+        return best;
+    }
+
     protected Vector2 ToP => P.GlobalPosition - GlobalPosition;
     protected float DistP => ToP.Length();
     protected bool SeesP => G.Cave.LineClear(GlobalPosition, P.GlobalPosition);
@@ -173,7 +185,7 @@ public abstract partial class Enemy : CharacterBody2D
         // and tempo follow it live. (A copy has the host's numbers already.)
         if (!Puppet)
         {
-            MaxHp *= G.DepthHp * NetSync.HpScale;
+            MaxHp *= G.DepthHp * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f);
             Hp = MaxHp;
         }
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });
@@ -668,12 +680,29 @@ public abstract partial class Enemy : CharacterBody2D
         // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is)
         _affinity = kind == DamageKind.Raw ? 1f : Affinity.Mult(Element, kind);
         dmg *= _affinity;
+        if (kind != DamageKind.Raw) dmg *= RelicBlowMult();
         if (Puppet) return PuppetHurt(dmg, knock, hitPos);
         // (online, the kill goes to whoever struck last: another game's hero, or this one's)
         LastAttacker = NetSync.Striker;
         NetSync.Scope++;
         try { return TakeHit(dmg, knock, hitPos); }
         finally { NetSync.Scope--; }
+    }
+
+    /// <summary>What this game's hero's relics do to a blow on this creature: Assassin's Edge (its back), Far Sight and Close Quarters (how far off it is).</summary>
+    private float RelicBlowMult()
+    {
+        var hero = G.Player;
+        if (hero?.Stats == null || hero.Dead) return 1f;
+        var st = hero.Stats;
+        float m = 1f;
+        if (st.BackDealMult != 1f && FacingAwayFrom(hero.GlobalPosition)) m *= st.BackDealMult;
+        if (st.DistanceBias != 0f)
+        {
+            float t = Math.Clamp(hero.GlobalPosition.DistanceTo(GlobalPosition) / Tune.Relics.FarDistance, 0f, 1f);
+            m *= 1f + st.DistanceBias * (2f * t - 1f);
+        }
+        return m;
     }
 
     /// <summary>A blow lands (the host's own creature, or offline): subclasses add their own reactions.</summary>

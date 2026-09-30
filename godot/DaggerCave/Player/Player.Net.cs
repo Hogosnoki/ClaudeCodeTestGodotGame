@@ -206,7 +206,7 @@ public partial class Player
     /// <summary>A potion handed over by the host (online): one more on the belt.</summary>
     public void GainPotion()
     {
-        if (Potions >= Meta.MaxPotions) return;
+        if (Potions >= MaxPotions) return;
         Potions++;
         G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);

@@ -65,9 +65,22 @@ public partial class Player
     /// <summary>Spends alimus for a spell, or says there isn't enough (the press is spent either way).</summary>
     private bool PayAlimus(float cost)
     {
-        if (Alimus >= cost - 0.001f) { Alimus = Math.Max(0, Alimus - cost); return true; }
+        if (SpendAlimus(cost)) return true;
         SayNo("NOT ENOUGH ALIMUS");
         return false;
+    }
+
+    /// <summary>Takes the cost from the alimus held; with Blood Channeling, what's lacking is paid in health (never the last of it).</summary>
+    private bool SpendAlimus(float cost)
+    {
+        if (Alimus >= cost - 0.001f) { Alimus = Math.Max(0, Alimus - cost); return true; }
+        if (!Stats.BloodCast) return false;
+        float blood = (cost - Alimus) * Tune.Relics.BloodPerAlimus;
+        if (Hp <= blood + 1f) return false;
+        Alimus = 0;
+        Hp -= blood;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -22), "-" + Mathf.RoundToInt(blood), new Color(0.85f, 0.15f, 0.2f), 9, 0.7f);
+        return true;
     }
 
     // ---------------------------------------------------------------- bolts
@@ -80,8 +93,7 @@ public partial class Player
         float range = Tune.Elementalist.BoltRange;
         // (a creature near the line of aim draws the bolt to it)
         float cost = frost ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost;
-        if (Alimus < cost - 0.001f) { _boltCd = 0.3f; if (!held) SayNo("NOT ENOUGH ALIMUS"); return true; }
-        Alimus -= cost;
+        if (!SpendAlimus(cost)) { _boltCd = 0.3f; if (!held) SayNo("NOT ENOUGH ALIMUS"); return true; }
         var target = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
         var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
         _boltCd = (frost ? Tune.Elementalist.FrostEvery : Tune.Elementalist.FireEvery) / Math.Max(0.2f, Stats.AttackSpeed);

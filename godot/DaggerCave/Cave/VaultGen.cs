@@ -18,8 +18,15 @@ public static partial class CaveGenerator
     /// </summary>
     internal static void CarveVault(CaveData cave, Random rng)
     {
-        cave.Vault = null;
-        if (B == null || B.Style == GenStyle.Arena || cave.ReachMask == null) return;
+        cave.Vault = CarveOneVault(cave, rng, null);
+        cave.ExtraVault = null;
+        // (a Locksmith's Ring: a second vault, well away from the first)
+        if (cave.Vault != null && RunRelics.ExtraVault) cave.ExtraVault = CarveOneVault(cave, rng, cave.Vault.Center);
+    }
+
+    private static VaultSpot CarveOneVault(CaveData cave, Random rng, Vector2? avoid)
+    {
+        if (B == null || B.Style == GenStyle.Arena || cave.ReachMask == null) return null;
         int corridor = Tune.Vault.CorridorCells, chamber = Tune.Vault.ChamberCells, len = corridor + chamber;
         int cRows = Tune.Vault.CorridorRows, rRows = Tune.Vault.ChamberRows;
         var start = cave.StartPos / CaveData.Cell;
@@ -53,6 +60,7 @@ public static partial class CaveGenerator
                     // (on solid ground, not a thin ledge the cut's rim could notch)
                     if (!Reach(i, j) || !Open(i, j) || Open(i, j + 1) || Open(i, j + 2) || !Open(i, j - 1)) continue;
                     if (new Vector2(i, j).DistanceTo(start) < Tune.Vault.MinFromStart) continue;
+                    if (avoid is Vector2 av && new Vector2(i, j).DistanceTo(av / CaveData.Cell) < 40) continue;
                     if (pass == 0 && cave.Boss != null && new Vector2(i, j).DistanceTo(cave.Boss.Center / CaveData.Cell) < cave.Boss.RxPx / CaveData.Cell + 12) continue;
                     floors.Add(new Vector2I(i, j));
                 }
@@ -101,7 +109,7 @@ public static partial class CaveGenerator
                 }
             }
             if (best >= 0) break;
-            if (pass == 1) return;
+            if (pass == 1) return null;
         }
 
         // the cells cut: the doorstep and the passage (the gate across its cell bg), then the chamber
@@ -134,7 +142,7 @@ public static partial class CaveGenerator
         // the gate stands across the passage, past its doorstep
         int gx = bi + bs * (bk + bg);
         float chestX = (room.Position.X + room.Size.X * 0.5f) * cell;
-        cave.Vault = new VaultSpot
+        return new VaultSpot
         {
             Side = bs,
             Approach = new Vector2((bi + 0.5f) * cell, (bj + 1) * cell),

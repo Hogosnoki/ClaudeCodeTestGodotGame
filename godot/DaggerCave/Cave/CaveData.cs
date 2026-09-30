@@ -22,6 +22,7 @@ public enum RoomKind { Start, Boss, Treasure, MiniBoss, Ambush }
 /// The level's vault: a passage cut straight into the rock off a tunnel, closed by an iron gate,
 /// opening into a chamber with a chest. Everything in world px.
 /// </summary>
+/// <summary>(a second vault, with a Locksmith's Ring, is <see cref="CaveData.ExtraVault"/>)</summary>
 public sealed class VaultSpot
 {
     /// <summary>The gate's foot (on the passage floor) and the passage's ceiling above it.</summary>
@@ -78,6 +79,8 @@ public sealed class CaveData
     public Room Boss;
     /// <summary>The level's vault (null in the dragon's lair, or where none could be cut).</summary>
     public VaultSpot Vault;
+    /// <summary>A second vault (a Locksmith's Ring).</summary>
+    public VaultSpot ExtraVault;
     public readonly List<Room> Rooms = new();
     public readonly List<SpawnPoint> Spawns = new();
 

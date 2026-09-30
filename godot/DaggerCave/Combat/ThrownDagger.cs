@@ -70,6 +70,7 @@ public partial class ThrownDagger : Node2D
         var from = GlobalPosition;
         var step = Dir * Speed * dt;
         var to = from + step;
+        Breakables.Shoot(from, to, 3f);
         Enemy hit = null;
         float best = float.MaxValue;
         foreach (var e in G.Enemies)

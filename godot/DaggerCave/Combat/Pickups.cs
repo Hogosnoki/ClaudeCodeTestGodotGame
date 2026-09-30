@@ -149,7 +149,7 @@ public partial class PotionPickup : Node2D
         if (G.Chance(0.04f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-4, 4), -6), new Color(1f, 0.6f, 0.7f), 5);
         foreach (var p in G.Players)
         {
-            if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18 || p.Potions >= Meta.MaxPotions) continue;
+            if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18 || p.Potions >= p.MaxPotions) continue;
             NetSync.Scope++;
             try
             {
@@ -189,8 +189,41 @@ public partial class PotionPickup : Node2D
 /// Treasure chest: opening it (the interact button, standing at it) heals and offers a pick of
 /// three upgrades. Walking past no longer opens it by accident.
 /// </summary>
-public partial class Chest : Node2D
+public enum ChestTier { Wood, Relic, Boss }
+
+public partial class Chest : Node2D, IBreakable
 {
+    /// <summary>What it holds, and so how it looks: wood (an upgrade for your class and two for anyone), silver (a relic among them), gold (a guardian's: your class's upgrade and two more, yours alone to look in first).</summary>
+    public ChestTier Tier;
+    /// <summary>Online: the player whose chest this is (0 = anyone's). They alone may look in it, until they look and leave it: then it's the party's.</summary>
+    public int Owner;
+    /// <summary>Strung up in a web from the ceiling until something cuts it; then it falls and tumbles.</summary>
+    public bool Hung;
+    /// <summary>Where it lands (set when hung), and how it's falling.</summary>
+    public float LandY, Tilt, TopY;
+    private float _fallV, _tiltV, _landT;
+    private bool _landed;
+    /// <summary>Seconds since it was cut (for the web's fall).</summary>
+    public float CutT { get; private set; } = -1f;
+    public bool Falling => CutT >= 0 && !_landed;
+    Vector2 IBreakable.HitCenter => GlobalPosition + new Vector2(0, -10);
+    float IBreakable.HitSize => 16f;
+
+    /// <summary>Something struck the web: it parts, and the chest falls (in every game).</summary>
+    public void Strike(Vector2 from) => Cut();
+
+    /// <summary>The web parts and the chest drops. Online, the others' games are told.</summary>
+    public void Cut(bool remote = false)
+    {
+        if (!Hung || CutT >= 0) return;
+        CutT = 0;
+        _fallV = 0;
+        _tiltV = G.Range(-3f, 3f);
+        G.Sfx.Play("web", GlobalPosition, -2);
+        G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(0.92f, 0.92f, 0.96f, 0.8f), 16, 130, 1.4f, 0.6f, 80, 1);
+        if (!remote) NetSync.ChestCut(this);
+    }
+
     private bool _open;
     private float _t, _openT, _askT;
     /// <summary>Emptied: someone took a card from it.</summary>
@@ -211,16 +244,31 @@ public partial class Chest : Node2D
     /// <summary>Every chest in the level (for the prompt and the interact button).</summary>
     public static readonly List<Chest> All = new();
 
-    public override void _Ready() { ZIndex = 2; }
+    public override void _Ready()
+    {
+        ZIndex = 2;
+        if (Hung)
+        {
+            if (LandY == 0) LandY = GlobalPosition.Y;
+            // (hung at a height above where it lands; the ceiling its thread comes from)
+            var at = GlobalPosition;
+            TopY = G.Cave != null && G.Cave.FindCeiling(at + new Vector2(0, -20), 600, out var ce) ? ce.Y : at.Y - 160;
+            Breakables.All.Add(this);
+        }
+    }
     public override void _EnterTree() => All.Add(this);
-    public override void _ExitTree() => All.Remove(this);
+    public override void _ExitTree() { All.Remove(this); Breakables.All.Remove(this); }
+
+    /// <summary>The chest's place in this game: it may be looked in by this game's hero (not someone else's chest).</summary>
+    public bool Mine => Owner == 0 || Owner == Net.Me;
 
     /// <summary>Is a hero standing at <paramref name="p"/> close enough to open it?</summary>
-    public bool Reaches(Vector2 p) => !_open && p.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 30;
+    public bool Reaches(Vector2 p) => !_open && !Hung && Mine && p.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 30;
 
     /// <summary>The unopened chest a hero at <paramref name="p"/> can open, if any.</summary>
     public static Chest At(Vector2 p)
     {
+        if (G.Player?.Stats.NoChests == true) return null;
         foreach (var c in All) if (GodotObject.IsInstanceValid(c) && c.Reaches(p)) return c;
         return null;
     }
@@ -242,9 +290,10 @@ public partial class Chest : Node2D
         _askT = 0;
         if (Cards == null)
         {
-            var party = Net.Online ? NetSync.PartyHeroes() : null;
+            // (a chest that's someone's is dealt for them alone: their class's upgrade, not a friend's)
+            var party = Net.Online && Owner == 0 ? NetSync.PartyHeroes() : null;
             Cards = Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
-                          : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition);
+                          : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition, relic: Tier == ChestTier.Relic);
             NetSync.ChestCards(this);
         }
         G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.3f);
@@ -256,10 +305,39 @@ public partial class Chest : Node2D
     {
         float dt = (float)delta;
         _t += dt; _askT -= dt;
+        if (Hung && CutT >= 0) FallStep(dt);
         if (_open) { _openT += dt; QueueRedraw(); return; }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);
         if (G.Chance(0.015f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-10, 10), -G.Range(4, 12)), new Color(1f, 0.95f, 0.6f), 6);
         QueueRedraw();
+    }
+
+    /// <summary>Falling after the web parts: down to where it lands, a bounce or two, tumbling.</summary>
+    private void FallStep(float dt)
+    {
+        CutT += dt;
+        if (_landed)
+        {
+            // settling: the tumble winds down to upright
+            Tilt = Mathf.Lerp(Tilt, 0f, 1f - MathF.Exp(-8f * dt));
+            _tiltV *= MathF.Exp(-6f * dt);
+            if (Hung && Math.Abs(Tilt) < 0.02f) { Hung = false; Tilt = 0; Breakables.All.Remove(this); }
+            return;
+        }
+        _fallV += 900f * dt;
+        var pos = GlobalPosition;
+        pos.Y += _fallV * dt;
+        Tilt += _tiltV * dt;
+        if (pos.Y >= LandY)
+        {
+            pos.Y = LandY;
+            G.Sfx.Play("slam", GlobalPosition, -6, 0.1f, 1.3f);
+            G.Fx.Dust(pos, 8, 1.5f);
+            G.Fx.AddShake(1.5f);
+            if (_fallV > 160f && _landT < 2) { _landT++; _fallV *= -0.3f; _tiltV *= 0.6f; }
+            else { _landed = true; _fallV = 0; }
+        }
+        GlobalPosition = pos;
     }
 
     /// <summary>A card was taken: the chest springs open, spent (whoever took it gets a little health too).</summary>

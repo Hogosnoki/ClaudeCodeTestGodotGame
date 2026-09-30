@@ -319,8 +319,13 @@ public static partial class Net
             w.Bool(p.AtExit);
             w.Str(p.Build);
         }
+        // (the run's difficulty setup: the host's)
+        w.Bool(RunSettings.ScaleWithPlayers).Float(RunSettings.Scale).Bool(RunSettings.Hard);
         SendAll(w, true);
     }
+
+    /// <summary>The host changed the difficulty setup: everyone's lobby shows it.</summary>
+    public static void SettingsChanged() { if (IsHost) { SendLobby(); Notify(); } }
 
     /// <summary>Tells everyone who is waiting at an exit (host).</summary>
     public static void SendExitState() => SendLobby();
@@ -340,6 +345,8 @@ public static partial class Net
         HeroBoon,
         /// <summary>Vault gates: a hero with a key asks the host, and the host opens one (and says whose key).</summary>
         GateAsk, GateOpened,
+        /// <summary>A hero took a relic (everyone keeps the party's list), and a chest's owner gave theirs up to the others.</summary>
+        Relic, ChestCut,
         /// <summary>The two-game test harness (--nettest) talking to itself.</summary>
         Test,
     }
@@ -450,6 +457,7 @@ public static partial class Net
             if (keep.TryGetValue(p.Id, out var av)) p.Avatar = av;
             Peers[p.Id] = p;
         }
+        RunSettings.ScaleWithPlayers = r.Bool(); RunSettings.Scale = Math.Clamp(r.Float(), 1f, 3f); RunSettings.Hard = r.Bool();
         if (IsClient && Status.StartsWith("Connect")) Status = "In the lobby.";
         // in: ask for the hero picked on the title, if nobody has it
         if (IsClient && !_askedHero && Mine != null)

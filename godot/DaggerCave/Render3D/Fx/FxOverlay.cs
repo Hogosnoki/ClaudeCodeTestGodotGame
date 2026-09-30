@@ -42,10 +42,10 @@ public partial class FxOverlay : Control
 
         foreach (var e in G.Enemies)
         {
-            if (!IsInstanceValid(e) || e.Dead || !e.Elite || e.IsBoss || e.IsGuardian || e.Hp >= e.MaxHp) continue;
+            if (!IsInstanceValid(e) || e.Dead || e.IsBoss || e.IsGuardian || e.Hp >= e.MaxHp - 0.001f) continue;
             var at = Screen(cam, e.HeadPoint(10f), 0.05f);
             if (at == null) continue;
-            float w = 30 * e.Size * 0.6f * zoom;
+            float w = (e.Elite ? 30 : 22) * e.Size * 0.6f * zoom;
             var pos = at.Value - new Vector2(w / 2, 0);
             DrawRect(new Rect2(pos - new Vector2(1, 1), new Vector2(w + 2, 4 * zoom * 0.5f + 2)), new Color(0, 0, 0, 0.75f));
             DrawRect(new Rect2(pos, new Vector2(w * Math.Max(0, e.Hp / e.MaxHp), 4 * zoom * 0.5f)), new Color(0.95f, 0.22f, 0.25f));

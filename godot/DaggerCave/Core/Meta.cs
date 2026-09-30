@@ -112,6 +112,7 @@ public static class Meta
         float c = Tune.Drops.PotionChance;
         if (Active.Contains("drop1")) c += 0.01f;
         if (Active.Contains("drop2") && p != null && p.Potions == 0) c += 0.01f;
+        if (p != null) c += p.Stats.PotionChanceBonus;
         return c;
     }
 

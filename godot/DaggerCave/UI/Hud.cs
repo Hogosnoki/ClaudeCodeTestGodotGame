@@ -194,9 +194,10 @@ public partial class Hud : Control
                 DrawString(font, b + new Vector2(6, 4), "EXIT", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.4f, 0.35f));
             }
             // the vault: marked from the start (a gold lock; faint once it's open)
-            if (G.Cave.Vault is VaultSpot vault)
+            foreach (var (vault, vgate) in new[] { (G.Cave.Vault, G.Main.Gate), (G.Cave.ExtraVault, G.Main.Gate2) })
             {
-                bool open = G.Main.Gate != null && IsInstanceValid(G.Main.Gate) && G.Main.Gate.Opened;
+                if (vault == null) continue;
+                bool open = vgate != null && IsInstanceValid(vgate) && vgate.Opened;
                 var vp = mp + new Vector2(vault.Center.X * sx, vault.Center.Y * sy);
                 var gold = new Color(1f, 0.8f, 0.35f, open ? 0.45f : 0.95f);
                 DrawRect(new Rect2(vp - new Vector2(3.5f, 2f), new Vector2(7, 6)), gold);

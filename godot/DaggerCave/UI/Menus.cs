@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -28,6 +29,7 @@ public partial class UpgradeMenu : Control
         UpgradeKind.Alteration => new Color(0.35f, 0.95f, 0.88f),
         UpgradeKind.Conditional => new Color(0.55f, 1f, 0.6f),
         UpgradeKind.SideGrade => new Color(0.86f, 0.42f, 1f),
+        UpgradeKind.Relic => new Color(1f, 0.45f, 0.58f),
         _ => new Color(0.74f, 0.8f, 0.94f),
     };
 
@@ -38,11 +40,13 @@ public partial class UpgradeMenu : Control
         UpgradeKind.Alteration => "ALTERATION · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
         UpgradeKind.Conditional => "CONDITIONAL",
         UpgradeKind.SideGrade => "RISK · REWARD",
+        UpgradeKind.Relic => u.For != null ? "RELIC · " + string.Join(" / ", u.For.Select(h => h.ToString().ToUpperInvariant())) : "RELIC",
         _ => "GENERIC",
     };
 
     public static Color CategoryColor(string cat) => cat switch
     {
+        "relic" => new Color(1f, 0.5f, 0.62f),
         "blade" => new Color(0.95f, 0.75f, 0.35f),
         "throw" => new Color(0.55f, 0.85f, 1f),
         "move" => new Color(0.5f, 1f, 0.6f),

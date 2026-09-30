@@ -127,6 +127,8 @@ public static class Tune
     /// <summary>The warden: shortsword, an aimable shield, the Guarded Charge and the shield bash.</summary>
     public static class Warden
     {
+        /// <summary>Enemies see the Warden as this much closer than he is (x the distance), so he draws the fight.</summary>
+        public static float ThreatDist = 0.85f;
         /// <summary>Shortsword: dagger length, but the blade sweeps faster. (Its damage keeps the
         /// Warden's damage a little under the Swordsman's: about 31 a second to 33.)</summary>
         public static float Reach = 38f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.045f, SwingWindup = 0.045f;
@@ -268,6 +270,7 @@ public static class Tune
         /// </summary>
         public static float ThrowDamage = 10.8f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
         /// <summary>The wait before the next throw: ThrowCooldownOne s after a throw leaves one dagger out, ThrowCooldownBoth s after one that leaves both out (a recall doesn't shorten it).</summary>
+        public static float ThreatDist = 1.15f; // the rogue seems farther off to enemies: they pick others first
         public static float ThrowCooldownOne = 0.5f, ThrowCooldownBoth = 1f;
         /// <summary>Recall (the second ability, no cooldown): each dagger stuck in a creature tears
         /// back out through it for RecallDamage, yanking it toward you (RecallYank).</summary>
@@ -416,6 +419,27 @@ public static class Tune
         /// <summary>Scales how far enemies move: their speed, gravity and jump speed together
         /// (0.8 = 20% slower, same jump timing, 20% lower jumps). Aimed leaps compensate.</summary>
         public static float EnemyMoveScale = 0.8f;
+        /// <summary>Party scaling (the lobby's 1.0-3.0 meter; its default is 2.0): each extra player, per meter step above 1, adds this much enemy health and damage.</summary>
+        public static float PartyScaleDefault = 2f, PartyHpPerStep = 1f, PartyDamagePerStep = 0.2f;
+        /// <summary>Hard Mode: enemy health and damage multipliers on top of everything else.</summary>
+        public static float HardHp = 2f, HardDamage = 1.5f;
+    }
+
+    /// <summary>Relics and the chests that hold them.</summary>
+    public static class Relics
+    {
+        /// <summary>A Hunter's Map: this share more chests in every cave.</summary>
+        public static float ChestBonus = 0.2f;
+        /// <summary>A Hasty Descent: the dragon is this much tougher.</summary>
+        public static float ShortcutDragon = 0.1f;
+        /// <summary>Share of ordinary chests that hold a relic (a silver chest), and of chests hung in a web.</summary>
+        public static float RelicChestChance = 0.3f, WebChestChance = 0.12f;
+        /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
+        public static float FarDistance = 220f;
+        /// <summary>A web chest hangs this high (px) over where it lands, under a ceiling at least WebMinThread px higher still.</summary>
+        public static float WebHangHeight = 52f, WebMinThread = 90f;
+        /// <summary>Blood Channeling: health paid for each alimus a spell lacks.</summary>
+        public static float BloodPerAlimus = 2f;
     }
 
     // =============================================================================== SPAWNING
