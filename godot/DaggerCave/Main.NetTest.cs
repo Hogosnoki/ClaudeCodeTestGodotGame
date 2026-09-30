@@ -339,7 +339,7 @@ public partial class Main
                     NtCheck($"the friend's copy of the chest is spent too, and so is the host's ({ok}; spent here {chest?.Open}, state {_state})", chest != null && chest.Open && _state == State.Playing);
                     _ntSub = 0; _ntChest = null;
                     // a barrier (Guardian's Charge) and a warding mending (Slow Mending) for the friend
-                    if (friend != null) { friend.GiveBarrier(20, 4); friend.GiveMending(12, 3, true); }
+                    if (friend != null) { friend.GiveBarrier(20, 4); friend.GiveMending(12, 3, Tune.Vitalist.WardingShare); }
                     _ntSawBarrier = false;
                     NtSay("boons");
                     NtSay("fall");

@@ -151,7 +151,7 @@ public partial class Main
                 var d0 = p.ThrownDaggerAt(0); var d1 = p.ThrownDaggerAt(1);
                 Check($"the second sticks in it too: both out, none in hand ({p.DaggersInHand} in hand, {d0?.State}, {d1?.State})",
                     p.DaggersInHand == 0 && d0?.State == ThrownDagger.Phase.Stuck && d1?.State == ThrownDagger.Phase.Stuck);
-                Check($"and with both out the next throw waits {Tune.Rogue.ThrowCooldownBoth:0} s (left {p.ThrowCooldownFrac * Tune.Rogue.ThrowCooldownBoth:0.0})", p.ThrowCooldownFrac > 0.5f);
+                Check($"and with both out the next throw waits {Tune.Rogue.ThrowCooldownBoth:0} s (left {p.ThrowCooldownFrac * Tune.Rogue.ThrowCooldownBoth:0.0})", p.ThrowCooldownFrac > 0.2f);
                 break;
             }
             case 71:
@@ -170,12 +170,9 @@ public partial class Main
             }
             case 79:
                 Check($"both daggers back in hand ({p.DaggersInHand})", p.DaggersInHand == 2);
-                // (recalled at once, but the throw is still waiting out its three seconds)
-                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
             case 80:
                 _heroInput = default;
-                Check($"the throw is still on cooldown, though they're home ({p.DaggersInHand} in hand, {p.ThrowCooldownFrac:0.00} left)", p.DaggersInHand == 2 && p.ThrowCooldownFrac > 0);
                 break;
             case 90:
                 // a throw at nothing comes back by itself

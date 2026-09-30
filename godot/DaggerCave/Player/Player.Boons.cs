@@ -14,7 +14,7 @@ public partial class Player
     /// <summary>Damage the barrier still soaks (0 = none).</summary>
     public float BarrierHp { get; private set; }
     private float _barrierT, _mendRate, _mendLeft;
-    private bool _mendWard;
+    private float _mendWard;
 
     /// <summary>Wrapped in a barrier (a puppet goes by its game's flags).</summary>
     public bool Barriered => IsRemote ? (_netFlags & HfBarrier) != 0 : BarrierHp > 0.01f;
@@ -34,15 +34,15 @@ public partial class Player
     }
 
     /// <summary>A heal given over <paramref name="seconds"/> (and, warded, 20% less damage taken meanwhile).</summary>
-    public void GiveMending(float amount, float seconds, bool ward)
+    public void GiveMending(float amount, float seconds, float wardShare)
     {
         if (Dead || amount <= 0) return;
-        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Mending, amount, seconds, ward ? 1 : 0); return; }
+        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Mending, amount, seconds, wardShare); return; }
         // a new mending tops up whatever is still to come of the last one
         float left = _mendLeft > 0 ? _mendRate * _mendLeft : 0;
         _mendLeft = seconds;
         _mendRate = (left + amount) / seconds;
-        _mendWard |= ward;
+        _mendWard = Math.Max(_mendWard, wardShare);
     }
 
     /// <summary>The boons wearing off, and the mending doing its work.</summary>
@@ -55,7 +55,7 @@ public partial class Player
             _mendLeft -= dt;
             Heal(_mendRate * step);
             if (G.Chance(0.12f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-8, 8), G.Range(-12, 10)), HealColor);
-            if (_mendLeft <= 0) _mendWard = false;
+            if (_mendLeft <= 0) _mendWard = 0f;
         }
     }
 
@@ -65,7 +65,7 @@ public partial class Player
     /// </summary>
     private float Soften(float dmg)
     {
-        if (_mendLeft > 0 && _mendWard) dmg *= 1f - Tune.Vitalist.WardingShare;
+        if (_mendLeft > 0 && _mendWard > 0f) dmg *= 1f - _mendWard;
         if (BarrierHp <= 0 || dmg <= 0) return dmg;
         float soaked = Math.Min(BarrierHp, dmg);
         BarrierHp -= soaked;

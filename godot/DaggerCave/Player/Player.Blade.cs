@@ -218,7 +218,12 @@ public partial class Player
         if (SweepT < 0) _heaveLanded = false;
         // follow-through: the rest of the clip (3-4 frames at the clip's speed), a held beat
         float follow = _heave ? Tune.Swordsman.HeaveRecover : _windup * 1.6f;
-        if (SweepT > _active + follow) _swingT = -1;
+        if (SweepT > _active + follow)
+        {
+            // (Shake it Off: a heave that struck nothing is ready again in half the time)
+            if (_heave && Stats.HeaveRefund && !_swingHitSomething && _heaveCd > 0) _heaveCd *= 0.5f;
+            _swingT = -1;
+        }
     }
 
     /// <summary>How far through the sweep the blade meets what it strikes.</summary>

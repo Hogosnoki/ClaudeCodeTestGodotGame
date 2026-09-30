@@ -93,10 +93,11 @@ public partial class MainMenu : Control
 /// </summary>
 public partial class HeroChoice : Control
 {
-    public Action Prev, Next, Descend, Back, Trees;
+    public Action Prev, Next, Descend, Back, Trees, Perks;
 
     private Label _name, _desc, _hint, _embers;
-    private Button _trees;
+    private Button _trees, _perks;
+    private Label _brought;
     private PanelContainer _summary;
     private Label _sumTitle, _sumLines;
     private StyleBoxFlat _nameBox;
@@ -137,6 +138,8 @@ public partial class HeroChoice : Control
         _desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _desc.CustomMinimumSize = new Vector2(520, 0);
         mid.AddChild(_desc);
+        _brought = UiKit.Label("", 13, new Color(1f, 0.85f, 0.55f));
+        mid.AddChild(_brought);
         _hint = UiKit.Label("", 13, UiKit.Dim);
         mid.AddChild(_hint);
         row.AddChild(Arrow(">", () => Next?.Invoke()));
@@ -150,6 +153,9 @@ public partial class HeroChoice : Control
         go.AddThemeFontSizeOverride("font_size", 18);
         go.AddThemeColorOverride("font_color", UiKit.Gold);
         side.AddChild(go);
+        _perks = UiKit.Button("Class perks", () => Perks?.Invoke(), 250);
+        _perks.FocusMode = FocusModeEnum.None;
+        side.AddChild(_perks);
         _trees = UiKit.Button("Upgrade trees", () => Trees?.Invoke(), 250);
         _trees.FocusMode = FocusModeEnum.None;
         side.AddChild(_trees);
@@ -193,9 +199,11 @@ public partial class HeroChoice : Control
         bool trees = Meta.Trees.Any(Meta.Visible);
         _trees.Visible = trees;
         _embers.Text = Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "";
+        string brought = ClassPerks.EquippedNames(G.Hero);
+        _brought.Text = brought != "" ? "Perks: " + brought : "No class perks brought (P)";
         bool pad = G.Main?.UsingPad ?? false;
         _hint.Text = pad
-            ? "LEFT / RIGHT to choose  ·  A to descend  ·  B back" + (trees ? "  ·  BACK upgrade trees" : "")
-            : "LEFT / RIGHT to choose  ·  ENTER to descend  ·  ESC back" + (trees ? "  ·  U upgrade trees" : "");
+            ? "LEFT / RIGHT to choose  ·  A to descend  ·  B back" + (trees ? "  ·  BACK upgrade trees" : "") + "  ·  ask for perks with the button"
+            : "LEFT / RIGHT to choose  ·  ENTER to descend  ·  ESC back  ·  P class perks" + (trees ? "  ·  U upgrade trees" : "");
     }
 }

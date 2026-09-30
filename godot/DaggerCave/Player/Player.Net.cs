@@ -58,7 +58,7 @@ public partial class Player
         if (Guarding) f |= HfGuarding;
         if (SecondaryReady) f |= HfSecondary;
         if (IsShieldDashing) f |= HfDash;
-        if (ShieldRaised && (_shieldUpT <= Tune.Warden.PerfectWindow || _shieldFlash > 0)) f |= HfPerfect;
+        if (ShieldRaised && (_shieldUpT <= PerfectWindowNow || _shieldFlash > 0)) f |= HfPerfect;
         if (BarrierHp > 0.01f) f |= HfBarrier;
         if (_mendLeft > 0) f |= HfMending;
         if (Stats.Frostbolt) f |= HfFrost;

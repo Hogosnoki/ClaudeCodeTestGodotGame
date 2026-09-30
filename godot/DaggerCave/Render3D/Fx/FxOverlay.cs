@@ -43,7 +43,7 @@ public partial class FxOverlay : Control
         foreach (var e in G.Enemies)
         {
             if (!IsInstanceValid(e) || e.Dead || !e.Elite || e.IsBoss || e.IsGuardian || e.Hp >= e.MaxHp) continue;
-            var at = Screen(cam, e.GlobalPosition + new Vector2(0, -e.HitRadius - 12));
+            var at = Screen(cam, e.HeadPoint(10f), 0.05f);
             if (at == null) continue;
             float w = 30 * e.Size * 0.6f * zoom;
             var pos = at.Value - new Vector2(w / 2, 0);
@@ -54,7 +54,7 @@ public partial class FxOverlay : Control
         var font = ThemeDB.FallbackFont;
         foreach (var t in fx.Texts)
         {
-            var at = Screen(cam, t.Pos, 0.6f);
+            var at = Screen(cam, t.Pos, 0.1f);
             if (at == null) continue;
             float a = Math.Clamp(t.Life / t.Max * 2f, 0, 1);
             float age = t.Max - t.Life;

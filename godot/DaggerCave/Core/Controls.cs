@@ -29,6 +29,7 @@ public static class Controls
         // (each dot keeps to the word after it, so a wrapped name breaks before one)
         ("dodge", "Dodge  ·\u00a0\u00a0shield  ·\u00a0\u00a0hex  ·\u00a0\u00a0updraft  ·\u00a0\u00a0vanish"),
         ("potion", "Drink a potion"),
+        ("milestone", "Spend a milestone point"),
         ("interact", "Open a chest  ·  go down an exit  ·  revive"),
         ("pause", "Pause"),
     };
@@ -51,6 +52,7 @@ public static class Controls
         ["ability2"] = new InputEvent[] { K(Key.F), M(MouseButton.Middle), K(Key.I), Ax(JoyAxis.TriggerRight, 1) },
         ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder) },
         ["potion"] = new InputEvent[] { K(Key.Q), J(JoyButton.Y) },
+        ["milestone"] = new InputEvent[] { K(Key.M), J(JoyButton.RightStick) },
         // (a trigger: held to revive a friend while both thumbs keep you swimming)
         ["interact"] = new InputEvent[] { K(Key.E), Ax(JoyAxis.TriggerLeft, 1) },
         ["pause"] = new InputEvent[] { K(Key.Escape), J(JoyButton.Start) },
@@ -63,6 +65,7 @@ public static class Controls
         ["pick_3"] = new InputEvent[] { K(Key.Key3) },
         ["pick_4"] = new InputEvent[] { K(Key.Key4) },
         ["meta"] = new InputEvent[] { K(Key.U), J(JoyButton.Back) },
+        ["perks"] = new InputEvent[] { K(Key.P) },
         ["skip"] = new InputEvent[] { K(Key.X), J(JoyButton.X) },
         // your build, while picking a card (from the pause menu otherwise)
         ["build"] = new InputEvent[] { K(Key.Tab), J(JoyButton.Back) },

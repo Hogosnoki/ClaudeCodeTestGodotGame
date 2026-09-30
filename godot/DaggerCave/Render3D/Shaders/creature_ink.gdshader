@@ -10,8 +10,9 @@ render_mode unshaded, blend_mix, depth_draw_never, cull_back, shadows_disabled, 
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
 uniform sampler2D normal_tex : hint_normal_roughness_texture, filter_nearest, repeat_disable;
 uniform vec4 ink : source_color = vec4(0.015, 0.012, 0.02, 0.92);
-/// How far the hull is pushed out along the normals (model metres).
-uniform float width = 0.05;
+/// How far the hull is pushed out along the normals, in screen pixels (at 720 lines; it scales with the
+/// resolution, not with the camera's zoom or the creature's size): the line has one fixed width.
+uniform float edge_px = 1.5;
 /// Depth jump (as a share of the distance) that starts a line, and the normal jump that does.
 uniform float depth_edge = 0.035;
 uniform float normal_edge = 1.3;
@@ -27,7 +28,15 @@ varying vec3 v_rest;
 
 void vertex() {
 	v_rest = vec3(UV.x, UV.y, UV2.x);
-	VERTEX += NORMAL * width;
+	// push the hull out in clip space by a fixed number of pixels
+	vec4 clip = PROJECTION_MATRIX * (MODELVIEW_MATRIX * vec4(VERTEX, 1.0));
+	vec3 nv = MODELVIEW_NORMAL_MATRIX * NORMAL;
+	vec2 dir = nv.xy;
+	float l = length(dir);
+	dir = l > 1e-4 ? dir / l : vec2(0.0);
+	float px = max(1.0, VIEWPORT_SIZE.y / 720.0) * edge_px;
+	clip.xy += dir * (px * 2.0 / VIEWPORT_SIZE) * clip.w;
+	POSITION = clip;
 }
 
 float linear_depth(vec2 uv, mat4 inv_proj) {

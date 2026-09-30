@@ -888,7 +888,7 @@ public sealed partial class HeroDesign
     // ================================================================== the blade's trail
 
     /// <summary>Blade length by hero (metres): the sword, the shortsword, a dagger.</summary>
-    private float BladeLength => _rogue ? 0.3f : _warden ? 0.58f : 1.05f;
+    private float BladeLength => _rogue ? 0.3f : _warden ? 0.74f : 1.05f;
 
     /// <summary>
     /// Reads where the blade actually is (the guard and the point, in the world) off the hand's bone and

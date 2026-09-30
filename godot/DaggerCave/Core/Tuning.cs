@@ -83,9 +83,9 @@ public static class Tune
         /// <summary>Sword reach (px), damage per strike, time between swings (from one swing's start to the
         /// next's: shortening the swing itself leaves it alone), and how long the blade takes to sweep
         /// its arc (longer = heavier, slower-looking swing).</summary>
-        public static float Reach = 45f, Damage = 20f, SwingCooldown = 0.6f, SwingTime = 0.075f;
+        public static float Reach = 45f, Damage = 18f, SwingCooldown = 0.6f, SwingTime = 0.0825f;
         /// <summary>Wind-up before the blade comes around.</summary>
-        public static float SwingWindup = 0.075f;
+        public static float SwingWindup = 0.09f;
         /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
         public static float Lunge = 130f;
         /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
@@ -129,7 +129,7 @@ public static class Tune
     {
         /// <summary>Shortsword: dagger length, but the blade sweeps faster. (Its damage keeps the
         /// Warden's damage a little under the Swordsman's: about 31 a second to 33.)</summary>
-        public static float Reach = 30f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.045f, SwingWindup = 0.045f;
+        public static float Reach = 38f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.045f, SwingWindup = 0.045f;
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>A little slower than the Swordsman, with lower jumps.</summary>
         public static float MoveMult = 0.92f, JumpMult = 0.9f;
@@ -138,7 +138,11 @@ public static class Tune
 
         /// <summary>Shield: its strength, arc (degrees), regeneration per second, the pause after
         /// a block before it regenerates, and how long it stays at zero once broken.</summary>
-        public static float ShieldHp = 40f, ShieldArcDegrees = 135f, ShieldRegen = 3f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
+        public static float ShieldArcDegrees = 135f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
+        /// <summary>The shield's strength and regeneration scale with the Warden's health: its strength is ShieldHpShare of his
+        /// maximum health (the shield soaks twice that), it regenerates ShieldRegenShare of it a second, and a bash costs
+        /// BashShieldShare of it.</summary>
+        public static float ShieldHpShare = 0.22f, ShieldRegenShare = 0.016f, BashShieldShare = 0.5f;
         /// <summary>
         /// Share of a blow the raised shield stops (all of it), and how much of the stopped damage
         /// the shield itself loses (half: its 40 points soak 80). Once it runs out, the rest of
@@ -166,7 +170,7 @@ public static class Tune
         public static float ShieldMoveMult = 0.8f;
         /// <summary>Healing the Warden receives also mends the shield by this share (and a broken
         /// shield is usable again at once).</summary>
-        public static float HealToShield = 0.5f;
+        public static float HealToShield = 0.25f;
 
         /// <summary>Last Stand upgrade: invulnerability after surviving a killing blow (once per depth).</summary>
         public static float LastStandInvuln = 1.5f;
@@ -187,7 +191,7 @@ public static class Tune
         /// guardians; the great bosses shrug it off) and whatever it was doing is broken off. The
         /// shield takes BashShieldCost, once. Every BashCooldown s.
         /// </summary>
-        public static float BashDamage = 20f, BashShieldCost = 20f, BashStun = 1.6f, BashCooldown = 10f;
+        public static float BashDamage = 20f, BashStun = 1.6f, BashCooldown = 10f;
         public static float BashTime = 0.2f, BashRadius = 40f, BashLunge = 240f, BashPush = 160f;
     }
 
@@ -247,12 +251,12 @@ public static class Tune
     {
         public static float StartHp = 55f, MoveMult = 1.1f, JumpMult = 1f;
         /// <summary>
-        /// Dagger Slash (the attack button): quick jabs, Damage each, SwingCooldown s apart (five a
+        /// Dagger Slash (the attack button): quick jabs, Damage each (the baseline: a thrown dagger strikes for 1.2 x that, a recall for 1.5 x), SwingCooldown s apart (five a
         /// second), Reach px, striking one creature at a time with a tiny hit-stop; no combo refunds.
         /// A strike has CritChance of landing twice as hard (CritMult). With one dagger thrown the
         /// jabs come half as fast (OneDaggerSlow).
         /// </summary>
-        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 22f, Knockback = 70f, Lunge = 0f;
+        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 30f, Knockback = 70f, Lunge = 0f;
         public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.025f, OneDaggerSlow = 2f;
         /// <summary>Backstab (an upgrade): a strike from behind a creature lands this many times as hard.</summary>
         public static float BackstabMult = 1.5f;
@@ -262,12 +266,14 @@ public static class Tune
         /// ThrowDamage, nudging it (ThrowNudge); a miss flies back by itself, at ReturnSpeed px/s.
         /// Daggers stuck in creatures stay there until recalled (the recall button, or the attack button with none in hand); each tears back out for RecallDamage.
         /// </summary>
-        public static float ThrowDamage = 18f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
+        public static float ThrowDamage = 10.8f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
         /// <summary>The wait before the next throw: ThrowCooldownOne s after a throw leaves one dagger out, ThrowCooldownBoth s after one that leaves both out (a recall doesn't shorten it).</summary>
-        public static float ThrowCooldownOne = 1f, ThrowCooldownBoth = 3f;
+        public static float ThrowCooldownOne = 0.5f, ThrowCooldownBoth = 1f;
         /// <summary>Recall (the second ability, no cooldown): each dagger stuck in a creature tears
         /// back out through it for RecallDamage, yanking it toward you (RecallYank).</summary>
-        public static float RecallDamage = 9f, RecallYank = 260f;
+        public static float RecallDamage = 13.5f, RecallYank = 1040f;
+        /// <summary>Serrated Recall (an upgrade): a recall's blow makes the creature bleed, RecallBleedChance of the time, for RecallBleedMult x the blow over RecallBleedSeconds.</summary>
+        public static float RecallBleedChance = 0.6f, RecallBleedMult = 2f, RecallBleedSeconds = 5f;
         /// <summary>Vanish (the dodge button): VanishSeconds of stealth (creatures lose you) at
         /// VanishSpeed times your speed; VanishCooldown s to come back. Attacking or being hurt ends
         /// it. Surprise Attack (an upgrade): the strike out of the shadows lands SurpriseMult as hard.</summary>
@@ -282,6 +288,12 @@ public static class Tune
     }
 
     // =============================================================================== ELEMENTALIST
+    /// <summary>Class perks (bought with embers): how many of a hero's perks it can bring on a run.</summary>
+    public static class Perks
+    {
+        public static int Slots = 3;
+    }
+
     public static class Elementalist
     {
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
@@ -302,7 +314,7 @@ public static class Tune
         /// <summary>Frostbolt (an alteration): FrostDamage every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
-        public static float FrostDamage = 8f, FrostEvery = 0.3f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.08f, FreezeSeconds = 1.5f;
+        public static float FrostDamage = 8f, FrostEvery = 0.3f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
         /// <summary>Updraft (the dodge button): costs UpdraftCost alimus; a column of air
         /// UpdraftWidth px wide and UpdraftHeight px tall (10 m) at your feet for UpdraftSeconds.
         /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a
@@ -425,6 +437,8 @@ public static class Tune
         public static float WaveGrowthPerPace = 1.2f;
         /// <summary>Newcomers appear in a band this many px wide just outside the screen edges.</summary>
         public static float EntranceBandPx = 200f;
+        /// <summary>Newcomers appear at least OffscreenMargin px beyond the edge of the view (any hero's) and MinSpawnDistance px from the hero.</summary>
+        public static float OffscreenMargin = 140f, MinSpawnDistance = 340f;
         /// <summary>How far along the tunnels (in 16 px cells) to look for entry points.</summary>
         public static int EntranceMaxCells = 48;
         /// <summary>Dead-end ambush rooms (a pack springs out when you arrive). Off for now.</summary>

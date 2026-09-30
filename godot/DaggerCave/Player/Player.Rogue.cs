@@ -138,7 +138,7 @@ public partial class Player
         // (the off hand throws first: its dagger is the one the throw flings)
         else Launch(_thrown[1] == null ? 1 : 0, dir, from, surprise);
         // (a second's wait with one out, three with both, whatever is recalled meanwhile)
-        _throwCd = _throwCdTotal = DaggersInHand == 0 ? Tune.Rogue.ThrowCooldownBoth : Tune.Rogue.ThrowCooldownOne;
+        _throwCd = _throwCdTotal = (DaggersInHand == 0 ? Tune.Rogue.ThrowCooldownBoth : Tune.Rogue.ThrowCooldownOne) * Stats.ThrowCdMult;
         G.Sfx.Play("throw", from, -4, 0.1f, 1.3f);
         return true;
     }
@@ -232,6 +232,8 @@ public partial class Player
         float mult = RogueStrikeMult(e, GlobalPosition, surprise, out bool crit, sureCrit);
         float dealt = e.Hurt(Tune.Rogue.RecallDamage * Stats.DamageMult * Stats.RecallDamageMult * mult, toMe * Tune.Rogue.RecallYank, at);
         if (dealt > 0) OnDealtDamage(dealt);
+        if (dealt > 0 && Stats.RecallBleed && !e.Dead && G.Chance(Tune.Rogue.RecallBleedChance))
+            e.Bleed(dealt * Tune.Rogue.RecallBleedMult, Tune.Rogue.RecallBleedSeconds);
         if (crit) CritFx(e, at);
         G.Fx.Spark(at, toMe, true, new Color(1f, 0.9f, 0.75f));
         G.Fx.Burst(at, e.BloodTint, 8, 150, 2f, 0.35f, 200);

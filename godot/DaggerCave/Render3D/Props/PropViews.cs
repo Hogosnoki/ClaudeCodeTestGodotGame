@@ -667,9 +667,20 @@ public partial class ThrownDaggerView : PropView
         Follow(default, 0.25f);
         var p = d.Pointing;
         // (the blade runs down -Y from its grip: turn -Y onto the way it points, 2D y-down flipped)
-        _blade.Rotation = new Vector3(0, 0, MathF.Atan2(p.X, p.Y));
-        _blade.Position = new Vector3(-p.X, p.Y, 0) * 0.2f;
         bool flying = d.State == ThrownDagger.Phase.Flying;
+        if (flying)
+        {
+            // end over end, fast: a spinning knife, turning about its middle
+            float ang = MathF.Atan2(d.Dir.X, d.Dir.Y) + d.Age * 34f;
+            _blade.Rotation = new Vector3(0, 0, ang);
+            var mid = new Vector3(0f, -0.11f * 1.6f, 0f);
+            _blade.Position = -(new Basis(Vector3.Back, ang) * mid);
+        }
+        else
+        {
+            _blade.Rotation = new Vector3(0, 0, MathF.Atan2(p.X, p.Y));
+            _blade.Position = new Vector3(-p.X, p.Y, 0) * 0.2f;
+        }
         var back = new Vector3(-d.Dir.X, d.Dir.Y, 0);
         for (int k = 0; k < _trail.Length; k++)
         {

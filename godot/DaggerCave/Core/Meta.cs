@@ -41,6 +41,34 @@ public static class Meta
     public static readonly Dictionary<string, int> Found = new();  // resources found per tree
     public static readonly HashSet<string> Bought = new(), Active = new();
     public static bool PotionTutorialDone, PearlTutorialDone;
+    /// <summary>Class perks: the rank bought of each (kept for good), and which are brought on a run.</summary>
+    public static readonly Dictionary<string, int> PerkRanks = new();
+    public static readonly HashSet<string> PerksEquipped = new();
+    public static int PerkRank(string id) => PerkRanks.TryGetValue(id, out var n) ? n : 0;
+    public static bool PerkEquipped(string id) => PerksEquipped.Contains(id);
+
+    /// <summary>Buys the next rank of a class perk with embers (and brings it along if there's a free slot). False if it can't be afforded or is complete.</summary>
+    public static bool PerkBuy(ClassPerk perk)
+    {
+        int rank = PerkRank(perk.Id);
+        if (rank >= perk.MaxRank || Embers < perk.Costs[rank]) return false;
+        Embers -= perk.Costs[rank];
+        PerkRanks[perk.Id] = rank + 1;
+        if (rank == 0 && ClassPerks.EquippedCount(perk.Hero) < Tune.Perks.Slots) PerksEquipped.Add(perk.Id);
+        Save();
+        return true;
+    }
+
+    /// <summary>Brings a bought perk on runs, or leaves it at the camp. False if the slots are full.</summary>
+    public static bool PerkToggle(ClassPerk perk)
+    {
+        if (PerkRank(perk.Id) <= 0) return false;
+        if (PerksEquipped.Remove(perk.Id)) { Save(); return true; }
+        if (ClassPerks.EquippedCount(perk.Hero) >= Tune.Perks.Slots) return false;
+        PerksEquipped.Add(perk.Id);
+        Save();
+        return true;
+    }
 
     public static readonly MetaTree PotionTree = new() { Id = "potion", Name = "THE POTION", Resource = "Reagent", ResourcePlural = "Reagents", Color = new Color(1f, 0.4f, 0.55f) };
     public static readonly MetaTree PearlTree = new() { Id = "pearl", Name = "THE PATH", Resource = "Obsidian Pearl", ResourcePlural = "Obsidian Pearls", Color = new Color(0.7f, 0.6f, 1f) };
@@ -182,7 +210,11 @@ public static class Meta
             ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone,
             ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
             ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
+            ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
         };
+        var pr = new Godot.Collections.Dictionary();
+        foreach (var kv in PerkRanks) pr[kv.Key] = kv.Value;
+        d["perk_ranks"] = pr;
         foreach (var t in Trees) { d["held_" + t.Id] = HeldOf(t); d["found_" + t.Id] = FoundOf(t); }
         return d;
     }
@@ -200,5 +232,8 @@ public static class Meta
         if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);
         if (d.ContainsKey("active")) foreach (var v in d["active"].AsGodotArray()) Active.Add((string)v);
         foreach (var t in Trees) { Held[t.Id] = I("held_" + t.Id); Found[t.Id] = I("found_" + t.Id); }
+        PerkRanks.Clear(); PerksEquipped.Clear();
+        if (d.ContainsKey("perk_ranks")) foreach (var kv in d["perk_ranks"].AsGodotDictionary()) PerkRanks[(string)kv.Key] = (int)kv.Value;
+        if (d.ContainsKey("perk_equipped")) foreach (var v in d["perk_equipped"].AsGodotArray()) PerksEquipped.Add((string)v);
     }
 }

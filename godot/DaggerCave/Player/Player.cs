@@ -60,6 +60,24 @@ public partial class Player : CharacterBody2D
     public int Keys;
     /// <summary>Set each frame while stuck in a web.</summary>
     public float WebbedT;
+    private float _indignT;
+    private bool _indignOn;
+    private const float IndignationBonus = 0.3f, IndignationSeconds = 4f;
+    private void StartIndignation()
+    {
+        _indignT = IndignationSeconds;
+        if (_indignOn) return;
+        _indignOn = true;
+        Stats.DamageMult += IndignationBonus;
+        G.Fx?.Text(GlobalPosition + new Vector2(0, -28), "INDIGNANT", new Color(1f, 0.6f, 0.3f), 9, 0.7f);
+    }
+    private void TickIndignation(float dt)
+    {
+        if (!_indignOn) return;
+        if ((_indignT -= dt) > 0) return;
+        _indignOn = false;
+        Stats.DamageMult -= IndignationBonus;
+    }
     private float _hotLeft, _hotRate, _lavaTick, _xpFrac, _slideDust;
     public int Kills;
     public bool Dead;
@@ -582,6 +600,7 @@ public partial class Player : CharacterBody2D
         _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
         _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
         TickBoons(dt);
+        TickIndignation(dt);
         for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0) _abilityCd[k] -= dt;
         if (_hotLeft > 0)
         {
@@ -781,6 +800,7 @@ public partial class Player : CharacterBody2D
             return ApplyChip(block.Through, source);
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        if (Stats.HeaveGuard && Heaving) dmg *= 0.5f; // (Braced)
         // a barrier soaks what it can first (a blow it soaks whole doesn't even make you flinch)
         dmg = Soften(dmg);
         if (dmg <= 0.01f) { LastHitBlocked = true; _invuln = Math.Max(_invuln, 0.15f); return 0; }
@@ -791,6 +811,7 @@ public partial class Player : CharacterBody2D
             if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
         }
         TakeRawDamage(dmg, "hit");
+        if (Stats.Indignation) StartIndignation();
         // (a blow that lands brings a vanished Rogue out of the shadows)
         Reveal(true);
         _invuln = Stats.HurtInvuln;

@@ -105,7 +105,7 @@ public partial class Stage3D : Node3D
         // a cool rim from behind that draws the silhouette.
         _actorKey = new DirectionalLight3D
         {
-            LightColor = new Color(1f, 0.92f, 0.82f), LightEnergy = 0.9f, ShadowEnabled = false,
+            LightColor = new Color(1f, 0.92f, 0.82f), LightEnergy = 1.4f, ShadowEnabled = false,
             LightVolumetricFogEnergy = 0f, LightCullMask = ActorLayer, LightSpecular = 0.6f,
         };
         AddChild(_actorKey);

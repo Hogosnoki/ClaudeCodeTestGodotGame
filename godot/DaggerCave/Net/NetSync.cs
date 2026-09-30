@@ -1063,7 +1063,7 @@ public static class NetSync
                 try
                 {
                     if (kind == Boon.Barrier) p.GiveBarrier(a, b);
-                    else if (kind == Boon.Mending) p.GiveMending(a, b, c > 0.5f);
+                    else if (kind == Boon.Mending) p.GiveMending(a, b, c);
                 }
                 finally { Scope--; }
                 break;

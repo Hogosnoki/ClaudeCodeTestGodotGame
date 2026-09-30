@@ -20,13 +20,15 @@ namespace DaggerCave;
 /// </summary>
 public partial class Player
 {
-    public float ShieldHp { get; private set; } = Tune.Warden.ShieldHp;
+    public float ShieldHp { get; private set; } = 1f; // (filled to Stats.ShieldMax once the hero is made)
     public bool ShieldRaised { get; private set; }
     public bool ShieldBroken => _shieldBrokenT > 0;
     public float ShieldBrokenLeft => _shieldBrokenT;
     public Vector2 ShieldDir { get; private set; } = Vector2.Right;
     public float ShieldArc => Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
-    private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _blockGrace;
+    private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _blockGrace, _coyoteShieldT;
+    /// <summary>How long after the shield goes up a block still counts as perfect.</summary>
+    private float PerfectWindowNow => Tune.Warden.PerfectWindow * Stats.PerfectWindowMult;
 
     private float _dashT;
     private Vector2 _dashDir = Vector2.Right;
@@ -62,13 +64,14 @@ public partial class Player
         if (_shieldBrokenT > 0) _shieldBrokenT -= dt;
         else if (_shieldRegenWait > 0) _shieldRegenWait -= dt * (Stats.QuickMend ? 4f : 1f);
         else ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt);
-        _shieldFlash -= dt; _blockGrace -= dt;
+        _shieldFlash -= dt; _blockGrace -= dt; _coyoteShieldT -= dt;
 
         bool dashing = _dashT > 0, bashing = _bashT > 0;
         bool want = inp.GuardHeld || inp.Dodge || inp.StickGuard;
         bool was = ShieldRaised;
         ShieldRaised = dashing || (bashing && !ShieldBroken) || (want && !ShieldBroken && ShieldHp > 0);
         if (ShieldRaised && !was) _shieldUpT = 0;
+        if (was && !ShieldRaised) _coyoteShieldT = 0.18f;
         _shieldUpT += dt;
         // aim: right stick / mouse when given, otherwise the way you face
         var aim = dashing ? _dashDir : bashing ? _bashDir : inp.GuardAim.LengthSquared() > 0.01f ? inp.GuardAim.Normalized() : new Vector2(Facing, 0);
@@ -95,18 +98,20 @@ public partial class Player
     public Block TryBlock(Vector2 from, float dmg, Enemy melee = null, Enemy striker = null)
     {
         var b = new Block { Through = dmg };
-        if (!IsWarden || !ShieldRaised) return b;
+        // (Coyote Shield: a blow just after the shield drops is still caught, and a near miss still counts)
+        bool coyote = !ShieldRaised && Stats.CoyoteShield && _coyoteShieldT > 0 && !ShieldBroken && ShieldHp > 0;
+        if (!IsWarden || (!ShieldRaised && !coyote)) return b;
         var to = from - GlobalPosition;
         // an attacker pressed right up against you is judged by which side it's on
         if (to.Length() < 14) to = new Vector2(to.X == 0 ? ShieldDir.X : Math.Sign(to.X), 0);
         if (to.LengthSquared() < 0.01f) to = ShieldDir;
-        if (Math.Abs(ShieldDir.AngleTo(to)) > ShieldArc * 0.5f + 0.2f) return b;
+        if (Math.Abs(ShieldDir.AngleTo(to)) > ShieldArc * 0.5f + 0.2f + (Stats.CoyoteShield ? 0.5f : 0f)) return b;
         b.Blocked = true;
         // melee blows landing on the shield in the same instant count once
         if (melee != null && _blockGrace > 0) { b.Through = 0; return b; }
         if (melee != null) _blockGrace = 0.2f;
         bool dashing = _dashT > 0;
-        b.Perfect = dashing || _shieldUpT <= Tune.Warden.PerfectWindow;
+        b.Perfect = dashing || _shieldUpT <= PerfectWindowNow;
         // (Unyielding Shield: it stops less of each blow, but never weakens or breaks)
         float stopped = b.Perfect ? dmg : dmg * (Stats.Unyielding ? Stats.UnyieldingShare : Stats.BlockShare);
         b.Through = dmg - stopped;
@@ -409,7 +414,7 @@ public partial class Player
             G.Fx.Ring(hit, 12, new Color(0.7f, 0.9f, 1f, 0.9f));
         }
         // the shield takes the blow too (once, however many it struck; an unyielding one never weakens)
-        if (!Stats.Unyielding) ShieldHp -= Tune.Warden.BashShieldCost;
+        if (!Stats.Unyielding) ShieldHp -= Stats.ShieldMax * Tune.Warden.BashShieldShare;
         _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
         _shieldFlash = 0.25f;
         G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f));
@@ -463,7 +468,7 @@ public partial class Player
         g.Shield = true;
         g.Dash = IsShieldDashing;
         g.Strength = g.Dash ? 1f : Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1);
-        bool perfectWindow = IsRemote ? (_netFlags & HfPerfect) != 0 : _shieldUpT <= Tune.Warden.PerfectWindow;
+        bool perfectWindow = IsRemote ? (_netFlags & HfPerfect) != 0 : _shieldUpT <= PerfectWindowNow;
         g.Col = g.Dash || perfectWindow || _shieldFlash > 0 ? new Color(0.85f, 0.95f, 1f) : new Color(0.35f, 0.65f, 1f);
         g.Angle = ShieldDir.Angle();
         g.Half = ShieldArc * 0.5f;

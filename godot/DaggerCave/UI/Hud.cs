@@ -109,6 +109,12 @@ public partial class Hud : Control
         DrawRect(new Rect2(xpPos - new Vector2(3, 3), new Vector2(xpW + 6, 12)), new Color(0, 0, 0, 0.6f));
         DrawRect(new Rect2(xpPos, new Vector2(xpW * Math.Clamp(p.Xp / (float)p.XpToNext, 0, 1), 6)), new Color(0.4f, 1f, 0.7f));
         DrawString(font, xpPos + new Vector2(xpW + 10, 8), $"Lv {p.Level}", HorizontalAlignment.Left, -1, 14, new Color(0.6f, 1f, 0.8f));
+        if (p.PendingMilestones > 0)
+        {
+            // (a milestone waits for a quiet moment: it never opens by itself)
+            float pulse = 0.7f + 0.3f * MathF.Sin(Time.GetTicksMsec() / 1000f * 4f);
+            DrawString(font, xpPos + new Vector2(xpW + 10, 26), $"MILESTONE READY{(p.PendingMilestones > 1 ? $" x{p.PendingMilestones}" : "")}  ·  press {Controls.Name("milestone")}", HorizontalAlignment.Left, -1, 12, new Color(1f, 0.85f, 0.35f, pulse));
+        }
 
         // --- Breath ---
         if (p.Breath < p.Stats.BreathMax - 0.05f || p.HeadUnder)
@@ -488,7 +494,7 @@ public partial class Hud : Control
         var bar = p.ShieldBroken ? new Color(0.45f, 0.45f, 0.5f) : p.ShieldRaised ? new Color(0.6f, 0.85f, 1f) : new Color(0.35f, 0.6f, 0.95f);
         DrawRect(new Rect2(sp, new Vector2(w * frac, 12)), bar);
         // the bash's cost: a notch where one bash would leave the shield
-        float notch = Tune.Warden.BashShieldCost / Math.Max(1f, p.Stats.ShieldMax);
+        float notch = Tune.Warden.BashShieldShare;
         if (!p.ShieldBroken && frac > notch) DrawLine(sp + new Vector2(w * (frac - notch), 0), sp + new Vector2(w * (frac - notch), 12), new Color(1f, 0.85f, 0.45f, 0.6f), 1.5f);
         string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Mathf.CeilToInt(p.ShieldHp)} / {Mathf.RoundToInt(p.Stats.ShieldMax)}";
         DrawString(font, sp + new Vector2(0, -8), label, HorizontalAlignment.Left, -1, 10, p.ShieldBroken ? new Color(1f, 0.6f, 0.5f) : new Color(1, 1, 1, 0.6f));

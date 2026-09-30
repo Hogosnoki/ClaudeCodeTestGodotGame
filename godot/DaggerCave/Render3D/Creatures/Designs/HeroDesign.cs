@@ -327,7 +327,7 @@ public sealed partial class HeroDesign : CreatureDesign
         {
             var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
             var sword = _warden
-                ? PropMeshes.Sword(0.58f, 0.03f, C(0.82f, 0.84f, 0.88f), gold, leatherDk, 0.075f)
+                ? PropMeshes.Sword(0.74f, 0.03f, C(0.82f, 0.84f, 0.88f), gold, leatherDk, 0.075f)
                 : PropMeshes.Sword(1.05f, 0.032f, C(0.8f, 0.82f, 0.86f), steel, leatherDk, 0.11f);
             var sw = new MeshBuilder();
             sw.Append(sword, grip);

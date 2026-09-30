@@ -155,6 +155,7 @@ public partial class Player
             return;
         }
         OnDealtDamage(dealt, vitalForceByMote: true);
+        if (Stats.DrainHealChance > 0 && G.Chance(Stats.DrainHealChance)) Heal(1f); // (Sip of Life)
         if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
         // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
         // life streaming out of it toward you
@@ -331,12 +332,18 @@ public partial class Player
             for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
             p.Anim.Flash(0.4f);
             p.Anim.FlashColor = HealColorLight;
-            if (!Stats.SlowMending) { p.Heal(share); continue; }
+            if (!Stats.SlowMending)
+            {
+                p.Heal(share);
+                // (Mending Ward: those you've healed are warded for a while, even by an instant heal)
+                if (Stats.HotWard > 0) p.GiveMending(0.01f, Tune.Vitalist.MendSeconds, Stats.HotWard);
+                continue;
+            }
             // Slow Mending: half now, half over the next seconds (Patient: all of it, and more)
             float later = Stats.PatientMending ? share * (1f + Tune.Vitalist.PatientBonus) : share * 0.5f;
             float now = Stats.PatientMending ? 0f : share * 0.5f;
             if (now > 0) p.Heal(now);
-            p.GiveMending(later, Tune.Vitalist.MendSeconds, Stats.WardingMending);
+            p.GiveMending(later, Tune.Vitalist.MendSeconds, Math.Max(Stats.WardingMending ? Tune.Vitalist.WardingShare : 0f, Stats.HotWard));
         }
         G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
         Anim.Once("heal", 3);

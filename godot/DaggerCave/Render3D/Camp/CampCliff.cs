@@ -88,9 +88,9 @@ public partial class CampScene
                 bool wasHole = false;
                 if (back < 3f && up < 11f && up > -0.3f)
                 {
-                    float d0 = ArchDist(a, up) + noise.Sample(a * 1.3f, up * 1.3f, 2f) * 0.22f;
+                    float d0 = ArchDist(a, up) + noise.Sample(a * 1.3f, up * 1.3f, 2f) * 0.1f;
                     wasHole = d0 < 0f;
-                    if (wasHole && d0 > -0.4f)
+                    if (wasHole && d0 > -0.75f)
                     {
                         float dy = up - (ArchH - ArchHalfW), gl = MathF.Sqrt(a * a + dy * dy) + 1e-4f;
                         float gx = dy <= 0f ? MathF.Sign(a) : a / gl, gy = dy <= 0f ? 0f : dy / gl;
@@ -113,7 +113,7 @@ public partial class CampScene
                 bool onFace = back < 3f && up < 11f;
                 if (onFace)
                 {
-                    disp += 1.35f * MathF.Exp(-MathF.Pow(MathF.Max(d, 0f) / 1.5f, 2f));
+                    disp += 0.6f * MathF.Exp(-MathF.Pow(MathF.Max(d, 0f) / 1.5f, 2f));
                     disp += 0.9f * MathF.Exp(-MathF.Pow((u0 - ArchH - 1.1f) / 1.2f, 2f)) * MathF.Exp(-MathF.Pow(a / (ArchHalfW + 2.8f), 2f));
                 }
                 var pos2 = pt + nrm * disp;
@@ -132,7 +132,7 @@ public partial class CampScene
             {
                 int a0 = i * nr + j, b0 = (i + 1) * nr + j, c0 = a0 + 1, d0 = b0 + 1;
                 // a cell is cut away where the mouth is
-                if (hole[a0] && hole[b0] && hole[c0] && hole[d0]) continue;
+                if (hole[a0] || hole[b0] || hole[c0] || hole[d0]) continue;
                 // (winding: counter-clockwise seen from the camp; along = right, profile = up the face)
                 mb.Tri(grid[a0], grid[b0], grid[c0]); mb.Tri(grid[b0], grid[d0], grid[c0]);
             }
@@ -142,6 +142,8 @@ public partial class CampScene
 
         BuildBoulders(noise, mat);
         BuildTunnel(noise);
+        BuildRim(noise, mat);
+        BuildPlug();
         BuildFoliageOnRock(noise);
     }
 
@@ -274,7 +276,7 @@ public partial class CampScene
                 var p = Face(s.X * rough, s.Y * rough, back);
                 var inward = (Face(0f, ArchH * 0.45f, back) - p).Normalized();
                 // damp grey stone near the light, warmer earth floor, going to black
-                var col = new Color(0.20f, 0.17f, 0.14f) * dark * (0.75f + 0.5f * noise.Fbm(k * 0.5f, d * 0.7f, 8f, 2) * 0.5f + 0.25f);
+                var col = new Color(0.13f, 0.11f, 0.09f) * dark * dark * (0.75f + 0.5f * noise.Fbm(k * 0.5f, d * 0.7f, 8f, 2) * 0.5f + 0.25f);
                 tunnel.Add(p, inward, new Color(col.R, col.G, col.B), new Vector2(k / (float)arcN, d / (float)depthN));
             }
         }
@@ -289,14 +291,82 @@ public partial class CampScene
         for (int k = 0; k < arcN; k++) { tunnel.Tri(ctr, last + k, last + k + 1); tunnel.Tri(ctr, last + k + 1, last + k); }
         tunnel.Tri(ctr, last + arcN, last); tunnel.Tri(ctr, last, last + arcN);
         // the floor, trodden earth going into the dark
-        var floorCol = new Color(0.22f, 0.18f, 0.13f);
-        int f0 = tunnel.Add(Face(-ArchHalfW * 1.1f, 0.02f, -1.4f), Vector3.Up, floorCol);
-        int f1 = tunnel.Add(Face(ArchHalfW * 1.1f, 0.02f, -1.4f), Vector3.Up, floorCol);
-        int f2 = tunnel.Add(Face(ArchHalfW * 0.8f, 0.02f, TunnelDepth), Vector3.Up, Colors.Black);
-        int f3 = tunnel.Add(Face(-ArchHalfW * 0.8f, 0.02f, TunnelDepth), Vector3.Up, Colors.Black);
+        var floorCol = new Color(0.02f, 0.017f, 0.014f);
+        int f0 = tunnel.Add(Face(-ArchHalfW * 1.05f, 0.3f, -0.3f), Vector3.Up, floorCol);
+        int f1 = tunnel.Add(Face(ArchHalfW * 1.05f, 0.3f, -0.3f), Vector3.Up, floorCol);
+        int f2 = tunnel.Add(Face(ArchHalfW * 0.8f, 0.3f, TunnelDepth), Vector3.Up, Colors.Black);
+        int f3 = tunnel.Add(Face(-ArchHalfW * 0.8f, 0.3f, TunnelDepth), Vector3.Up, Colors.Black);
         tunnel.Tri(f0, f1, f2); tunnel.Tri(f0, f2, f3); tunnel.Tri(f0, f2, f1); tunnel.Tri(f0, f3, f2);
         var dim = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 1f, CullMode = BaseMaterial3D.CullModeEnum.Disabled, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, DisableFog = true };
         AddChild(new MeshInstance3D { Name = "Tunnel", Mesh = tunnel.ToMesh(dim), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+    }
+
+    // ================================================================== the plug
+
+    /// <summary>A dark slab just inside the hill behind the mouth, so anywhere the cut in the rock is ragged you see the inside of the hill, never the sky behind it.</summary>
+    private void BuildPlug()
+    {
+        static Vector2 Outline(float u)
+        {
+            float wall = ArchH - ArchHalfW, round = MathF.PI * ArchHalfW;
+            float s = u * (2f * wall + round);
+            if (s < wall) return new Vector2(-ArchHalfW, s);
+            s -= wall;
+            if (s < round) { float a = MathF.PI - s / ArchHalfW; return new Vector2(MathF.Cos(a) * ArchHalfW, wall + MathF.Sin(a) * ArchHalfW); }
+            return new Vector2(ArchHalfW, wall - (s - round));
+        }
+        var mb = new MeshBuilder();
+        var dark = Colors.Black;
+        var mid = new Vector2(0f, ArchH * 0.45f);
+        int ctr = mb.Add(Face(mid.X, mid.Y, 1.3f), MouthFacing, dark);
+        const int n = 48;
+        for (int k = 0; k <= n; k++)
+        {
+            var o = mid + (Outline(k / (float)n) - mid) * 1.2f;
+            mb.Add(Face(o.X, Math.Max(o.Y, -0.2f), 1.3f), MouthFacing, dark);
+        }
+        for (int k = 0; k < n; k++) { mb.Tri(ctr, 1 + k, 2 + k); mb.Tri(ctr, 2 + k, 1 + k); }
+        var m = new StandardMaterial3D { VertexColorUseAsAlbedo = true, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled, DisableFog = true };
+        AddChild(new MeshInstance3D { Name = "MouthPlug", Mesh = mb.ToMesh(m), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+    }
+
+    // ================================================================== the mouth's rim
+
+    /// <summary>
+    /// A thick, lumpy roll of rock round the mouth's outline, so the cut in the hill and the lip of the
+    /// tunnel meet under it: the way in reads as one doorway, with the inside staying inside.
+    /// </summary>
+    private void BuildRim(Noise3 noise, ShaderMaterial mat)
+    {
+        static Vector2 Outline(float u)
+        {
+            float wall = ArchH - ArchHalfW, round = MathF.PI * ArchHalfW;
+            float s = u * (2f * wall + round);
+            if (s < wall) return new Vector2(-ArchHalfW, s);
+            s -= wall;
+            if (s < round) { float a = MathF.PI - s / ArchHalfW; return new Vector2(MathF.Cos(a) * ArchHalfW, wall + MathF.Sin(a) * ArchHalfW); }
+            return new Vector2(ArchHalfW, wall - (s - round));
+        }
+        var mb = new MeshBuilder();
+        var path = new List<Vector3>();
+        var radii = new List<float>();
+        const int n = 72;
+        for (int k = 0; k <= n; k++)
+        {
+            float u = k / (float)n;
+            var o = Outline(u);
+            // (out from the middle of the doorway by a hair, and forward of the face)
+            var mid = new Vector2(0f, ArchH * 0.45f);
+            var dir = (o - mid).Normalized();
+            var at = o + dir * 0.55f;
+            float lump = noise.Fbm(k * 0.35f, 2.5f, 6f, 3);
+            path.Add(Face(at.X, Math.Max(at.Y, 0.15f), -1.5f + lump * 0.5f));
+            radii.Add(0.95f + lump * 0.6f);
+        }
+        float shade = 0.72f;
+        mb.Tube(path, radii, 10, new Color(shade * 1.02f, shade * 0.98f, shade * 0.92f), capStart: true);
+        mb.SmoothNormals();
+        AddChild(new MeshInstance3D { Name = "MouthRim", Mesh = mb.ToMesh(mat), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
     }
 
     // ================================================================== ferns and vines

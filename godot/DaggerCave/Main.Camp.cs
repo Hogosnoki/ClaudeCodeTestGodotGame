@@ -54,6 +54,7 @@ public partial class Main
         _heroChoice = new HeroChoice
         {
             Prev = () => StepHero(-1), Next = () => StepHero(1), Descend = BeginDescent, Back = BackToMenu,
+            Perks = () => _perkMenu.Open(G.Hero),
             Trees = () => { if (Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse); },
         };
         _uiLayer.AddChild(_heroChoice);

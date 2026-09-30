@@ -27,6 +27,7 @@ public partial class Main : Node
     /// <summary>The run's dice (chest cards, exits).</summary>
     public Random Rng => _rng;
     private MetaMenu _metaMenu;
+    private PerkMenu _perkMenu;
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
     private BuildPanel _buildPanel;
@@ -81,9 +82,20 @@ public partial class Main : Node
     private int _metaShotStep;
 
     /// <summary>--metashot=DIR: screenshots of the potion tree's introduction and the tree screen.</summary>
+    private bool _perkShot;
     private void MetaShotTick()
     {
-        var steps = new (float at, Action act)[]
+        var steps = _perkShot ? new (float at, Action act)[]
+        {
+            (0.5f, () => { Meta.Embers = 9; G.Hero = HeroKind.Warden; foreach (var id in new[] { "warden_dr", "warden_window" }) Meta.PerkBuy(ClassPerks.Find(id)); _perkMenu.Open(G.Hero); }),
+            (1.2f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/perks_1.png")),
+            (1.3f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = true })),
+            (1.35f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = false })),
+            (1.4f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = true })),
+            (1.45f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
+            (1.9f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/perks_2.png")),
+            (2.1f, () => { GD.Print($"[perkshot] {ClassPerks.EquippedNames(G.Hero)} | embers {Meta.Embers}"); SafeQuit.Request(this); }),
+        } : new (float at, Action act)[]
         {
             (0.5f, () => { Meta.Embers = 4; Meta.RollResource(new Random(1)); Meta.Found["potion"] = 1; Meta.Held["potion"] = 1; _metaMenu.Open(MetaMenu.Mode.PotionTutorial); }),
             (1.2f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_1.png")),
@@ -148,6 +160,9 @@ public partial class Main : Node
         _metaMenu = new MetaMenu();
         _metaMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_metaMenu);
+        _perkMenu = new PerkMenu();
+        _perkMenu.Closed += OnMetaClosed;
+        _uiLayer.AddChild(_perkMenu);
         UiKit.EnsureMenuControls();
         _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_pauseMenu);
@@ -320,6 +335,7 @@ public partial class Main : Node
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
             else if (a == "--fullrun") _fullRun = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
+            else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
@@ -381,7 +397,7 @@ public partial class Main : Node
                 };
                 foreach (var id in cards) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
                 p.PendingMilestones = 1;
-                TryOpenUpgradeMenu();
+                TryOpenUpgradeMenu(true);
                 break;
             }
             case 98: Shot("milestone_cards"); _buildPanel.Open(); break;
@@ -563,6 +579,7 @@ public partial class Main : Node
 
         var player = new Player();
         if (keepStats != null) { player.Stats = keepStats; }
+        else ClassPerks.Apply(player.Stats); // (a new run: the perks this hero brings)
         _world.AddChild(player);
         if (keepStats != null)
         {
@@ -997,7 +1014,8 @@ public partial class Main : Node
     /// <summary>This game's hero looked into a chest: offer its cards next.</summary>
     public void OfferChest(Chest c) { if (!_pendingTreasure.Contains(c)) _pendingTreasure.Enqueue(c); }
 
-    private void TryOpenUpgradeMenu()
+    /// <summary>Chests open their cards at once; a milestone waits until the player asks for it (the milestone key), so it never interrupts a fight.</summary>
+    private void TryOpenUpgradeMenu(bool milestoneAsked = false)
     {
         var p = G.Player;
         if (p == null || p.Dead || _upgradeMenu.Visible) return;
@@ -1019,7 +1037,7 @@ public partial class Main : Node
             choices.Add(Upgrades.LeaveChest);
             locks.Add(null);
         }
-        else if (p.PendingMilestones > 0)
+        else if (p.PendingMilestones > 0 && milestoneAsked)
         {
             p.PendingMilestones--;
             choices = Upgrades.RollMilestone(p.Stats, _rng);
@@ -1190,7 +1208,7 @@ public partial class Main : Node
                 return;
             }
         }
-        if (_metaMenu.Visible || _onlineMenu.Visible) return;
+        if (_metaMenu.Visible || _perkMenu.Visible || _onlineMenu.Visible) return;
         if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible && !BuildPanel.Showing)
         {
             PauseGame();
@@ -1260,7 +1278,8 @@ public partial class Main : Node
             case State.Title:
                 _titleT += dt;
                 if (_metaShot != "") MetaShotTick();
-                if (!_metaMenu.Visible && !_onlineMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                if (!_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                if (_front == Front.Heroes && _heroChoice.Visible && !_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
@@ -1273,7 +1292,7 @@ public partial class Main : Node
                 break;
             case State.Dead:
                 _deadT += dt;
-                if (_metaMenu.Visible) break;
+                if (_metaMenu.Visible || _perkMenu.Visible) break;
                 if (_deadT > 1.2f && !_overlay.Visible && !_heroChoice.Visible)
                 {
                     ShowCamp();
@@ -1282,7 +1301,8 @@ public partial class Main : Node
                     else if (!_autotest && Meta.Visible(Meta.PearlTree) && !Meta.PearlTutorialDone) _metaMenu.Open(MetaMenu.Mode.PearlIntro);
                 }
                 bool summary = _overlay.Visible || _heroChoice.Visible;
-                if (_deadT > 1.5f && summary && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                if (_deadT > 1.5f && summary && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
+                else if (_deadT > 1.5f && summary && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
                 // (online: on to the lobby; alone, the hero choice at the fire takes it from here)
                 else if (Net.Online && _deadT > 1.5f && _overlay.Visible && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
                 if (_autotest && _deadT > 3f) { if (_fullRun && _victory) { FinishFullRun(true); return; } Restart(); }
@@ -1306,7 +1326,7 @@ public partial class Main : Node
                 // (the host's clock is the difficulty's clock: a client takes it from the host)
                 if (!Net.IsClient) G.RunTime = _runTime;
                 Brains.Tick(unscaled);
-                TryOpenUpgradeMenu();
+                TryOpenUpgradeMenu(!MenuOpen && Input.IsActionJustPressed("milestone"));
                 break;
         }
 
@@ -1434,7 +1454,7 @@ public partial class Main : Node
                 if (sp.Cooldown <= 0 && d > 1000) sp.Used = false;
                 continue;
             }
-            if (d > Tune.Spawning.ResidentMaxDistance || alive >= cap || OnScreen(sp.Pos)) continue;
+            if (d > Tune.Spawning.ResidentMaxDistance || alive >= cap || d < Tune.Spawning.MinSpawnDistance || OnScreen(sp.Pos, Tune.Spawning.OffscreenMargin)) continue;
             sp.Used = true;
             if (!G.Chance(fill)) { sp.Cooldown = G.Range(40, 80); continue; }
             sp.Cooldown = G.Range(Tune.Spawning.ResidentRespawnMin, Tune.Spawning.ResidentRespawnMax) / (1f + G.Pace);
@@ -1475,9 +1495,9 @@ public partial class Main : Node
             var c = q.Dequeue();
             int d = dist[c.Y * W + c.X];
             var w = new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
-            if (!OnScreen(w, 24))
+            if (!OnScreen(w, Tune.Spawning.OffscreenMargin) && w.DistanceTo(p.GlobalPosition) >= Tune.Spawning.MinSpawnDistance)
             {
-                if (InView(w, ViewCenter(p), ViewHalf(24 + edge))) band.Add(w);
+                if (InView(w, ViewCenter(p), ViewHalf(Tune.Spawning.OffscreenMargin + edge))) band.Add(w);
                 else farther.Add(w);
             }
             if (d >= Tune.Spawning.EntranceMaxCells) continue;
@@ -2275,7 +2295,7 @@ public partial class Main : Node
                 p.Heal(10);
                 break;
             case 96:
-                Check($"healing mends a broken shield at once (broken {p.ShieldBroken}, shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", !p.ShieldBroken && Math.Abs(p.ShieldHp - _shieldMark - 5f) < 0.3f);
+                Check($"healing mends a broken shield at once (broken {p.ShieldBroken}, shield {_shieldMark:0.0} -> {p.ShieldHp:0.0})", !p.ShieldBroken && Math.Abs(p.ShieldHp - _shieldMark - 10f * Tune.Warden.HealToShield) < 0.3f);
                 _heroInput = default;
                 p.RefillShield();
                 break;
@@ -2292,7 +2312,7 @@ public partial class Main : Node
             case 101:
             {
                 // (held for a while now: an ordinary block, not a perfect one)
-                var b = p.TryBlock(_probeEnemy.GlobalPosition, 100f, _probeEnemy, _probeEnemy);
+                var b = p.TryBlock(_probeEnemy.GlobalPosition, 400f, _probeEnemy, _probeEnemy);
                 Check($"a blow that breaks the shield stuns whatever struck it (broken {p.ShieldBroken}, perfect {b.Perfect}, reeling {_probeEnemy.Reeling})", p.ShieldBroken && !b.Perfect && _probeEnemy.Reeling);
                 break;
             }
@@ -2432,7 +2452,7 @@ public partial class Main : Node
                 float dealt = _hpMark - Hp(_probeEnemy), dealt2 = _hp2Mark - Hp(_probe2);
                 float want = Tune.Warden.BashDamage * p.Stats.DamageMult;
                 Check($"the shield bash hits both goblins for {want:0} ({_hpMark:0} -> {Hp(_probeEnemy):0}, {_hp2Mark:0} -> {Hp(_probe2):0})", Math.Abs(dealt - want) < 0.5f && Math.Abs(dealt2 - want) < 0.5f);
-                Check($"and the shield takes {Tune.Warden.BashShieldCost:0}, once ({_shieldMark:0} -> {p.ShieldHp:0})", Math.Abs(_shieldMark - p.ShieldHp - Tune.Warden.BashShieldCost) < 1f);
+                Check($"and the shield takes {p.Stats.ShieldMax * Tune.Warden.BashShieldShare:0}, once ({_shieldMark:0} -> {p.ShieldHp:0})", Math.Abs(_shieldMark - p.ShieldHp - p.Stats.ShieldMax * Tune.Warden.BashShieldShare) < 1f);
                 Check($"both are stunned (reeling {IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling}, {IsInstanceValid(_probe2) && _probe2.Reeling})", IsInstanceValid(_probeEnemy) && _probeEnemy.Reeling && IsInstanceValid(_probe2) && _probe2.Reeling);
                 break;
             }

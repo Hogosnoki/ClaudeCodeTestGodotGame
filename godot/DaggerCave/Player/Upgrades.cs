@@ -61,8 +61,10 @@ public sealed class PlayerStats
     public bool RelentlessCharge, SwiftHeave, CounterRoll, CounterCombo;
 
     // warden: shield + Guarded Charge + shield bash
-    public float ShieldMax = Tune.Warden.ShieldHp;
-    public float ShieldRegen = Tune.Warden.ShieldRegen;
+    /// <summary>The shield's strength and regeneration follow the Warden's maximum health (upgrades scale them).</summary>
+    public float ShieldMult = 1f, ShieldRegenMult = 1f;
+    public float ShieldMax => ShieldMult * MaxHp * Tune.Warden.ShieldHpShare;
+    public float ShieldRegen => ShieldRegenMult * MaxHp * Tune.Warden.ShieldRegenShare;
     public float ShieldBreakTime = Tune.Warden.ShieldBreakTime;
     public float ShieldArcMult = 1f;
     public float BlockShare = Tune.Warden.BlockShare;
@@ -120,6 +122,10 @@ public sealed class PlayerStats
     /// daggers strike this much harder. Quick Fade: vanish's cooldown, times this. Deep Shadows:
     /// seconds more in the shadows (vanished, or the smoke). Thick Smoke: the cloud, this much
     /// wider. Rending Recall: recall strikes this much harder.</summary>
+    public bool RecallBleed;
+    /// <summary>Class perks: the Warden's perfect-block window (x), coyote shield and indignation; the Swordsman's heave refund and guard; the Vitalist's drain-heal chance and mending ward; the Rogue's throw cooldown (x).</summary>
+    public float PerfectWindowMult = 1f, DrainHealChance, HotWard, ThrowCdMult = 1f;
+    public bool CoyoteShield, Indignation, HeaveRefund, HeaveGuard;
     public float CritMultBonus, ThrowDamageMult = 1f, VanishCdMult = 1f, VanishBonus, SmokeWideMult = 1f, RecallDamageMult = 1f;
     /// <summary>Chain Ricochet: creatures a ricochet springs on to. Pounce: arriving by tether is always critical.</summary>
     public int RicochetBounces = 1;
@@ -268,10 +274,10 @@ public static class Upgrades
         new() { Id = "perfect_soak", Name = "Iron Timing", Desc = "Perfect blocks cost your shield 70% less.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Tier = UpgradeTier.Ability, Apply = (s, p) => s.PerfectSoak = true },
         new() { Id = "shield_wide", Name = "Tower Shield", Desc = "Your shield covers a 30% wider arc.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 2, Apply = (s, p) => s.ShieldArcMult += 0.3f },
         new() { Id = "stalwart", Name = "Stalwart", Desc = "Full speed with the shield raised, and hits never knock you back.", Icon = "shield", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Stalwart = true },
-        new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegen *= 1.5f; } },
+        new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegenMult *= 1.5f; } },
         new() { Id = "thorns", Name = "Spiked Shield", Desc = "Melee attackers that strike your shield take 40% of the blow back.", Icon = "shield", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ShieldThorns = true },
         new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a whole shield.", Icon = "life", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
-        new() { Id = "aegis", Name = "Aegis", Desc = "+15% shield strength and regeneration.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 4, Apply = (s, p) => { s.ShieldMax *= 1.15f; s.ShieldRegen *= 1.15f; } },
+        new() { Id = "aegis", Name = "Aegis", Desc = "+15% shield strength and regeneration.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 4, Apply = (s, p) => { s.ShieldMult *= 1.15f; s.ShieldRegenMult *= 1.15f; } },
         new() { Id = "shield_unyielding", Name = "Unyielding Shield", Desc = "Your shield never weakens or breaks, but stops only 70% of each blow (a perfect block still stops it all).", Icon = "shield", For = W, Ability = "shield", Alteration = true, Apply = (s, p) => s.Unyielding = true },
         new() { Id = "unyielding_more", Name = "Braced", Desc = "Your unyielding shield stops 5% more of each blow.", Icon = "shield", For = W, Ability = "shield", Requires = "shield_unyielding", MaxStacks = 2, Apply = (s, p) => s.UnyieldingShare += 0.05f },
 
@@ -360,6 +366,7 @@ public static class Upgrades
 
         // --- Recall (rogue) ---
         new() { Id = "rending", Name = "Rending Recall", Desc = "Your recall tears out of creatures twice as hard.", Icon = "blade", For = R, Ability = "recall", Tier = UpgradeTier.Ability, Apply = (s, p) => s.RecallDamageMult += 1f },
+        new() { Id = "recall_bleed", Name = "Serrated Recall", Desc = "A recall has a 60% chance to make the creature bleed for double the blow's damage over 5 s.", Icon = "blade", For = R, Ability = "recall", Apply = (s, p) => s.RecallBleed = true },
         new() { Id = "recall_tether", Name = "Tether", Desc = "Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.", Icon = "move", For = R, Ability = "recall", Alteration = true, Excludes = new[] { "throw_ricochet" }, Apply = (s, p) => s.Tether = true },
         new() { Id = "pounce", Name = "Pounce", Desc = "Arriving by tether is always a critical strike.", Icon = "move", For = R, Ability = "recall", Requires = "recall_tether", Apply = (s, p) => s.Pounce = true },
 
@@ -590,7 +597,6 @@ public static class Progression
                 s.MaxHp += 4; p.Heal(4);
                 s.DamageMult += 0.015f;
                 s.DamageReduction = Math.Min(0.75f, s.DamageReduction + 0.01f);
-                s.ShieldMax += 2;
                 gain = "+4 HP  +1% guard";
                 break;
             case HeroKind.Vitalist:

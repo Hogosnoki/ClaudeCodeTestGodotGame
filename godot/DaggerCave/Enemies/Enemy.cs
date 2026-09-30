@@ -114,6 +114,24 @@ public abstract partial class Enemy : CharacterBody2D
     public virtual bool CanBeHit => true;
     public virtual float HitRadius => BodyRadius * Size;
 
+    private float _topPx = -1f;
+    /// <summary>How far above its centre (px) the top of its 3D body reaches: where its health bar and damage numbers belong (an elite is scaled up, and tall creatures stand well above their hit circle).</summary>
+    public float TopPx
+    {
+        get
+        {
+            if (_topPx < 0f)
+            {
+                var body = Anim?.Model3D?.Body;
+                if (body?.Mesh == null) return HitRadius;
+                _topPx = Math.Max(HitRadius, body.Mesh.GetAabb().End.Y * Size * W3.Ppu);
+            }
+            return _topPx;
+        }
+    }
+    /// <summary>A point just over its head, for things that float above it.</summary>
+    public Vector2 HeadPoint(float above = 8f) => GlobalPosition + new Vector2(0, -TopPx - above);
+
     /// <summary>The hero it's after: the nearest one still standing (online, looked at again every half second).</summary>
     protected Player P => Target;
     private Player _target;
@@ -685,7 +703,7 @@ public abstract partial class Enemy : CharacterBody2D
         bool big = dmg >= 15;
         // (a weakness shows as a bigger, hotter number with a bang; a resistance as a small grey one)
         bool weak = _affinity > 1.01f, resist = _affinity < 0.99f;
-        G.Fx.Text(hitPos + new Vector2(0, -10), Mathf.RoundToInt(dmg).ToString() + (weak ? "!" : ""),
+        G.Fx.Text(HeadPoint(2f), Mathf.RoundToInt(dmg).ToString() + (weak ? "!" : ""),
             weak ? new Color(1f, 0.5f, 0.2f) : resist ? new Color(0.65f, 0.68f, 0.72f) : big ? new Color(1f, 0.85f, 0.3f) : Colors.White, weak ? 14 : resist ? 9 : big ? 13 : 11);
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);
         G.Sfx.Play(HitSound, GlobalPosition, 0, 0.12f);
