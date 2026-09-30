@@ -304,6 +304,14 @@ public sealed class Sculptor
         mb.FixWinding(start, mb.I.Count);
     }
 
+    /// <summary>Ready-made skinned geometry (model space): each vertex follows up to two bones (binds[k] = first bone, second bone, weight of the first).</summary>
+    public void Skinned(MeshBuilder geo, (int a, int b, float wa)[] binds, Mat mat, float emit = -1f)
+    {
+        var p = NewPart(mat, emit);
+        p.Mesh.Append(geo, Transform3D.Identity);
+        p.Binds.AddRange(binds);
+    }
+
     /// <summary>Any MeshBuilder geometry (already in model space) bound rigidly to one bone.</summary>
     public void Rigid(int bone, MeshBuilder geo, Mat mat, float emit = -1f)
     {
