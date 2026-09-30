@@ -455,6 +455,7 @@ public partial class Main
                 _probeEnemy.Freeze(60f, hold: true);
                 break;
             case 62:
+                p.Stats.BlizzardSecondsMult = 0.5f; // (the test waits out half a storm)
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
@@ -465,8 +466,8 @@ public partial class Main
             case 97:
             {
                 // (the storm's strikes, and the fire burning since the first of them)
-                float dealt = _hpMark - _probeEnemy.Hp, strikes = Tune.Elementalist.BlizzardTicks * Tune.Elementalist.FirestormDamage * p.Stats.DamageMult;
-                Check($"it strikes {Tune.Elementalist.BlizzardTicks} times for {Tune.Elementalist.FirestormDamage:0} ({strikes:0}), and the fire burns on top ({dealt:0.0} in all)", dealt > strikes + 6f && dealt < strikes + 16f);
+                float dealt = _hpMark - _probeEnemy.Hp, strikes = Tune.Elementalist.BlizzardTicks / 2 * Tune.Elementalist.FirestormDamage * p.Stats.DamageMult;
+                Check($"it strikes {Tune.Elementalist.BlizzardTicks / 2} times for {Tune.Elementalist.FirestormDamage:0} ({strikes:0}), and the fire burns on top ({dealt:0.0} in all)", dealt > strikes + 6f && dealt < strikes + 16f);
                 break;
             }
 

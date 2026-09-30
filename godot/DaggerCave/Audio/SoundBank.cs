@@ -42,6 +42,14 @@ public partial class SoundBank : Node
         AudioServer.SetBusEffectEnabled(0, _lowPassIdx, false);
     }
 
+    /// <summary>Cuts every sound effect still playing (between runs).</summary>
+    public void StopAll()
+    {
+        foreach (var p in _pool2D) p.Stop();
+        foreach (var p in _poolUi) p.Stop();
+        SetUnderwater(false);
+    }
+
     public void SetUnderwater(bool on)
     {
         if (_lowPassIdx >= 0 && AudioServer.IsBusEffectEnabled(0, _lowPassIdx) != on)

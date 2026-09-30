@@ -424,7 +424,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Vitalist => CastDrain(aim, held),
         HeroKind.Elementalist => CastBolt(aim, held),
-        HeroKind.Rogue => DaggersInHand > 0 && _tetherTo == null && TrySwing(aim, held),
+        HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         _ => !Heaving && TrySwing(aim, held),
     };

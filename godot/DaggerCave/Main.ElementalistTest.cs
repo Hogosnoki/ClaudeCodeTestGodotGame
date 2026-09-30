@@ -42,7 +42,7 @@ public partial class Main
             {
                 float dealt = _hpMark - _probeEnemy.Hp, want = Tune.Elementalist.FireDamage * p.Stats.DamageMult;
                 Check($"a firebolt flies out and strikes the golem 90 px away for {want:0} ({dealt:0.0}; bolts {p.BoltsCast - _elCount})", p.BoltsCast == _elCount + 1 && Math.Abs(dealt - want) < 0.5f);
-                Check($"it costs no alimus ({p.Alimus:0} of {p.Stats.AlimusMax:0})", p.Alimus >= p.Stats.AlimusMax - 0.01f);
+                Check($"it costs a little alimus ({p.Alimus:0.0} of {p.Stats.AlimusMax:0}, {Tune.Elementalist.FireCost:0.0} a bolt)", p.Alimus < p.Stats.AlimusMax - 0.01f && p.Alimus > p.Stats.AlimusMax - Tune.Elementalist.FireCost * 2f);
                 Check($"and with no luck, sets nothing alight (burning {_probeEnemy.Ignited})", !_probeEnemy.Ignited);
                 // (now it always catches)
                 p.Stats.IgniteChance = 1f;
@@ -160,8 +160,9 @@ public partial class Main
             }
             case 186:
             {
-                float dealt = _hpMark - _probeEnemy.Hp, want = Tune.Elementalist.BlizzardTicks * Tune.Elementalist.BlizzardDamage * p.Stats.DamageMult;
-                Check($"it strikes {Tune.Elementalist.BlizzardTicks} times for {Tune.Elementalist.BlizzardDamage:0} over {Tune.Elementalist.BlizzardSeconds:0} s ({dealt:0.0}, want {want:0.0})", Math.Abs(dealt - want) < 0.6f);
+                int ticks = Tune.Elementalist.BlizzardTicks / 2;
+                float dealt = _hpMark - _probeEnemy.Hp, want = ticks * Tune.Elementalist.BlizzardDamage * p.Stats.DamageMult;
+                Check($"it strikes {ticks} times for {Tune.Elementalist.BlizzardDamage:0} over {Tune.Elementalist.BlizzardSeconds / 2:0} s ({dealt:0.0}, want {want:0.0})", Math.Abs(dealt - want) < 0.6f);
                 Check($"and waits out its cooldown (ready {p.AbilityChargeReady}, {p.AbilityCooldownFrac:0.00})", !p.AbilityChargeReady);
                 // (now every strike freezes)
                 p.Stats.FreezeBonus = 1f;

@@ -147,34 +147,61 @@ public partial class Main
                 break;
             case 59: _heroInput = default; break;
             case 64:
-                Check($"the second sticks in it too, and with both out both come home by themselves ({p.DaggersInHand} in hand)", true);
+            {
+                var d0 = p.ThrownDaggerAt(0); var d1 = p.ThrownDaggerAt(1);
+                Check($"the second sticks in it too: both out, none in hand ({p.DaggersInHand} in hand, {d0?.State}, {d1?.State})",
+                    p.DaggersInHand == 0 && d0?.State == ThrownDagger.Phase.Stuck && d1?.State == ThrownDagger.Phase.Stuck);
+                Check($"and with both out the next throw waits {Tune.Rogue.ThrowCooldownBoth:0} s (left {p.ThrowCooldownFrac * Tune.Rogue.ThrowCooldownBoth:0.0})", p.ThrowCooldownFrac > 0.5f);
                 break;
-            case 72:
+            }
+            case 71:
+                Check($"neither comes home by itself ({p.DaggersInHand} in hand, stuck {p.ThrownDaggerAt(0)?.State}/{p.ThrownDaggerAt(1)?.State})",
+                    p.DaggersInHand == 0 && p.ThrownDaggerAt(0)?.State == ThrownDagger.Phase.Stuck && p.ThrownDaggerAt(1)?.State == ThrownDagger.Phase.Stuck);
+                _hpMark = _probeEnemy.Hp;
+                // (the attack button, with nothing in hand, recalls them)
+                _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 72: _heroInput = default; break;
+            case 75:
+            {
+                float a = _hpMark - Hp(_probeEnemy), want = 2f * Tune.Rogue.RecallDamage * p.Stats.DamageMult;
+                Check($"the attack button recalls both, and each cuts the golem coming out ({a:0.0}, want {want:0.0})", Math.Abs(a - want) < 0.6f);
+                break;
+            }
+            case 79:
                 Check($"both daggers back in hand ({p.DaggersInHand})", p.DaggersInHand == 2);
+                // (recalled at once, but the throw is still waiting out its three seconds)
+                _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
+                break;
+            case 80:
+                _heroInput = default;
+                Check($"the throw is still on cooldown, though they're home ({p.DaggersInHand} in hand, {p.ThrowCooldownFrac:0.00} left)", p.DaggersInHand == 2 && p.ThrowCooldownFrac > 0);
+                break;
+            case 90:
                 // a throw at nothing comes back by itself
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(-_dir, -0.4f).Normalized() };
                 break;
-            case 73:
+            case 91:
                 _heroInput = default;
-                Check($"a throw at nothing is out ({p.DaggersInHand} in hand)", p.DaggersInHand == 1);
+                Check($"a throw at nothing is out ({p.DaggersInHand} in hand), and only a second's wait for the next", p.DaggersInHand == 1 && p.ThrowCooldownFrac > 0 && p.ThrowCooldownFrac <= 1f);
                 break;
-            case 90:
+            case 103:
                 Check($"and comes back by itself ({p.DaggersInHand} in hand)", p.DaggersInHand == 2);
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
 
             // ---- recall: the dagger tears back out through its creature, yanking it toward you
-            case 95:
+            case 110:
                 Home(p);
                 // (held just long enough for the throw to go in)
                 _probeEnemy = Dummy(new Goblin(), 90, hold: false);
                 _probeEnemy.Freeze(0.5f, hold: true);
                 break;
-            case 97:
+            case 112:
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 98: _heroInput = default; break;
-            case 101:
+            case 113: _heroInput = default; break;
+            case 116:
             {
                 var d = p.ThrownDaggerAt(1) ?? p.ThrownDaggerAt(0);
                 Check($"a thrown dagger sticks in the goblin ({d?.State})", d != null && d.State == ThrownDagger.Phase.Stuck && d.StuckIn == _probeEnemy);
@@ -182,7 +209,7 @@ public partial class Main
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
                 break;
             }
-            case 102:
+            case 117:
             {
                 _heroInput = default;
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.RecallDamage * p.Stats.DamageMult;
@@ -191,30 +218,30 @@ public partial class Main
                 Check($"yanking the goblin toward you (reeling {_probeEnemy.Reeling}, {toward:0} px/s your way)", _probeEnemy.Reeling && toward > 60);
                 break;
             }
-            case 108:
+            case 123:
                 Check($"and the dagger comes home ({p.DaggersInHand} in hand)", p.DaggersInHand == 2);
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
 
             // ---- vanish: the creatures lose you, and you're quick
-            case 115:
+            case 130:
                 Home(p);
                 _probeEnemy = Dummy(new Goblin(), 110, hold: false);
                 break;
-            case 120:
+            case 135:
                 p.ResetAbilityCooldowns();
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
-            case 121:
+            case 136:
                 _heroInput = default;
                 Check($"the dodge button vanishes (hidden {p.Hidden}, {p.VanishLeft:0.0} s)", p.Hidden && p.Vanished);
                 break;
-            case 124:
+            case 139:
                 Check($"and the goblin loses you (lost track {_probeEnemy.LostTrack})", _probeEnemy.LostTrack);
                 // (toward the open side: creatures don't block the way)
                 _heroInput = new PlayerInput { Move = new Vector2(_dir, 0) };
                 break;
-            case 129:
+            case 144:
             {
                 float want = Tune.Hero.RunSpeed * p.Stats.MoveSpeed;
                 Check($"half again as fast in the shadows ({Math.Abs(p.Velocity.X):0} px/s, running {want:0})", Math.Abs(p.Velocity.X) > want * 1.35f);
@@ -222,14 +249,14 @@ public partial class Main
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(-_dir, 0) };
                 break;
             }
-            case 130:
+            case 145:
                 _heroInput = default;
                 Check($"attacking brings you out of the shadows (hidden {p.Hidden})", !p.Hidden);
                 // being struck does too
                 p.ResetAbilityCooldowns();
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
-            case 131:
+            case 146:
                 _heroInput = default;
                 p.Hurt(5, p.GlobalPosition + new Vector2(_dir * 20, 0));
                 Check($"and so does being struck (hidden {p.Hidden})", !p.Hidden);
@@ -237,23 +264,23 @@ public partial class Main
                 break;
 
             // ---- Surprise Attack: the strike out of the shadows lands four times as hard
-            case 140:
+            case 155:
                 Home(p);
                 Take(p, "surprise");
                 _probeEnemy = Dummy(new Goblin(), 14);
                 p.ResetAbilityCooldowns();
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
-            case 141: _heroInput = default; break;
-            case 144:
+            case 156: _heroInput = default; break;
+            case 159:
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 145:
+            case 160:
                 _heroInput = default;
                 Check($"(out of the shadows the moment the jab begins: hidden {p.Hidden})", !p.Hidden);
                 break;
-            case 148:
+            case 163:
             {
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.Damage * Tune.Rogue.SurpriseMult * p.Stats.DamageMult;
                 Check($"Surprise Attack: the jab out of the shadows lands four times as hard ({a:0.0}, want {want:0.0})", Math.Abs(a - want) < 0.5f && p.Surprises == 1);
@@ -261,8 +288,8 @@ public partial class Main
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
             }
-            case 149: _heroInput = default; break;
-            case 152:
+            case 164: _heroInput = default; break;
+            case 167:
             {
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.Damage * p.Stats.DamageMult;
                 Check($"and only that one ({a:0.0})", Math.Abs(a - want) < 0.5f);
@@ -273,13 +300,13 @@ public partial class Main
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
             }
-            case 153: _heroInput = default; break;
-            case 156:
+            case 168: _heroInput = default; break;
+            case 171:
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 157: _heroInput = default; break;
-            case 162:
+            case 172: _heroInput = default; break;
+            case 177:
             {
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.ThrowDamage * Tune.Rogue.SurpriseMult * p.Stats.DamageMult;
                 Check($"and so is a dagger thrown out of them ({a:0.0}, want {want:0.0})", Math.Abs(a - want) < 0.5f && p.Surprises == 2);
@@ -288,18 +315,18 @@ public partial class Main
             }
 
             // ---- the class cards: Cruel Edge, Weighted Daggers, Rending Recall, Quick Fade, Deep Shadows
-            case 166:
+            case 181:
                 Home(p);
                 foreach (var id in new[] { "cruel_edge", "weighted", "rending", "vanish_cd", "vanish_long" }) Take(p, id);
                 p.Stats.CritChance = 1f;
                 _probeEnemy = Dummy(new Golem(), 16, dy: -6);
                 break;
-            case 168:
+            case 183:
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
-            case 169: _heroInput = default; break;
-            case 172:
+            case 184: _heroInput = default; break;
+            case 187:
             {
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.Damage * (Tune.Rogue.CritMult + 0.5f) * p.Stats.DamageMult;
                 Check($"Cruel Edge: a critical jab lands 2.5 times as hard ({a:0.0}, want {want:0.0})", Math.Abs(a - want) < 0.3f);
@@ -308,8 +335,8 @@ public partial class Main
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };
                 break;
             }
-            case 173: _heroInput = default; break;
-            case 176:
+            case 188: _heroInput = default; break;
+            case 191:
             {
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.ThrowDamage * 1.3f * p.Stats.DamageMult;
                 Check($"Weighted Daggers: a thrown dagger strikes 30% harder ({a:0.0}, want {want:0.0})", Math.Abs(a - want) < 0.3f);
@@ -317,7 +344,7 @@ public partial class Main
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0) };
                 break;
             }
-            case 177:
+            case 192:
             {
                 _heroInput = default;
                 float a = _hpMark - Hp(_probeEnemy), want = Tune.Rogue.RecallDamage * 2f * p.Stats.DamageMult;
@@ -328,7 +355,7 @@ public partial class Main
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
             }
-            case 178:
+            case 193:
             {
                 _heroInput = default;
                 float want = Tune.Rogue.VanishSeconds + 3f;

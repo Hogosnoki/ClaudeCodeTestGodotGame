@@ -966,12 +966,25 @@ public partial class Main : Node
     private void ShowCamp()
     {
         if (Net.Online) { ShowCampScene(true); ShowOnlineCamp(); return; }
+        ClearRunActors();
         var p = G.Player;
         int secs = (int)_runTime;
         string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
         ShowHeroChoice(_victory ? "VICTORY" : "YOU DIED",
             (_victory ? "The Elder Dragon is slain. The deep is quiet... for now." : $"Fell at depth {G.Depth} in the {G.Biome?.Name ?? "cave"}")
             + $"\nLevel {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}" + (earned != "" ? "\n" + earned : ""));
+    }
+
+    /// <summary>The run is over: its creatures and their projectiles leave the world (and the air), so nothing of the cave carries on behind the camp.</summary>
+    private void ClearRunActors()
+    {
+        foreach (var e in G.Enemies.ToArray()) if (IsInstanceValid(e)) { e.GetParent()?.RemoveChild(e); e.QueueFree(); }
+        G.Enemies.Clear();
+        foreach (var pr in EnemyProjectiles.ToArray()) if (IsInstanceValid(pr)) pr.QueueFree();
+        EnemyProjectiles.Clear();
+        ActiveBoss = null;
+        _roomElites.Clear();
+        _sfx.StopAll();
     }
 
     private void OnMetaClosed()

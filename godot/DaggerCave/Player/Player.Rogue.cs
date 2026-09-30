@@ -18,7 +18,7 @@ public partial class Player
     private bool IsRogue => Stats.Hero == HeroKind.Rogue;
 
     private readonly ThrownDagger[] _thrown = new ThrownDagger[2];
-    private float _vanishT, _throwCd;
+    private float _vanishT, _throwCd, _throwCdTotal = 1f;
     private bool _surpriseReady;
     private ThrownDagger _tetherTo;
     private float _tetherT;
@@ -30,6 +30,8 @@ public partial class Player
     public bool DaggerInHand(int k) => IsRemote ? (_netFlags & (k == 0 ? HfDagger0Out : HfDagger1Out)) == 0 : _thrown[k] == null;
     /// <summary>Daggers out of the hand now (for the tests and the HUD).</summary>
     public ThrownDagger ThrownDaggerAt(int k) => _thrown[k];
+    /// <summary>How much of the throw's cooldown is left (0-1), for the HUD.</summary>
+    public float ThrowCooldownFrac => _throwCd > 0 ? Math.Clamp(_throwCd / _throwCdTotal, 0f, 1f) : 0f;
     /// <summary>Hidden from creatures: vanished, or inside a cloud of smoke (a copy goes by its game's flags).</summary>
     public new bool Hidden => IsRemote ? (_netFlags & HfHidden) != 0 : _vanishT > 0 || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition));
     /// <summary>Vanished (the Rogue alone, not smoke): half again as fast.</summary>
@@ -53,13 +55,7 @@ public partial class Player
         if (_vanishT > 0 && (_vanishT -= dt) <= 0) Unvanish(false);
         for (int k = 0; k < 2; k++)
             if (_thrown[k] != null && !IsInstanceValid(_thrown[k])) _thrown[k] = null;
-        // both out and neither still in the air: both come home by themselves
-        if (_thrown[0] != null && _thrown[1] != null && _tetherTo == null
-            && _thrown[0].State == ThrownDagger.Phase.Stuck && _thrown[1].State == ThrownDagger.Phase.Stuck)
-        {
-            _thrown[0].ComeBack();
-            _thrown[1].ComeBack();
-        }
+        // (daggers in creatures stay there until recalled: by the attack button with none left in hand, or the recall button)
     }
 
     // ---------------------------------------------------------------- the strike bonuses
@@ -129,7 +125,6 @@ public partial class Player
         var dir = target != null ? (target.GlobalPosition - from).Normalized() : aim;
         bool both = Stats.TwinThrow && DaggersInHand == 2;
         bool surprise = StrikeFromShadows();
-        _throwCd = 0.18f;
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         Anim.Face((int)Facing, instant: true);
         Anim.Once("throw", 3, 1.8f);
@@ -142,6 +137,8 @@ public partial class Player
         }
         // (the off hand throws first: its dagger is the one the throw flings)
         else Launch(_thrown[1] == null ? 1 : 0, dir, from, surprise);
+        // (a second's wait with one out, three with both, whatever is recalled meanwhile)
+        _throwCd = _throwCdTotal = DaggersInHand == 0 ? Tune.Rogue.ThrowCooldownBoth : Tune.Rogue.ThrowCooldownOne;
         G.Sfx.Play("throw", from, -4, 0.1f, 1.3f);
         return true;
     }
@@ -187,16 +184,26 @@ public partial class Player
 
     // ---------------------------------------------------------------- recall
 
-    private bool TryRecall()
+    /// <summary>
+    /// The recall button (one dagger or both), or the attack button with none left in hand
+    /// (<paramref name="fromAttack"/>: a plain recall, no tether, quiet when there's nothing to bring home).
+    /// Each dagger in a creature tears back out through it for a blow.
+    /// </summary>
+    private bool TryRecall(bool fromAttack = false)
     {
         if (!IsRogue || _tetherTo != null) return false;
         var out_ = _thrown.Where(d => d != null && IsInstanceValid(d) && d.State != ThrownDagger.Phase.Returning).ToList();
-        if (out_.Count == 0) { SayNo("BOTH DAGGERS IN HAND"); return true; }
+        if (out_.Count == 0)
+        {
+            if (fromAttack) return false;
+            SayNo("BOTH DAGGERS IN HAND");
+            return true;
+        }
         Anim.Once("throw", 3, 2.4f);
         NetSync.HeroRecall(this);
         bool surprise = StrikeFromShadows();
         // Tether: you go to the dagger instead (the first one stuck in a creature)
-        if (Stats.Tether && out_.FirstOrDefault(d => d.State == ThrownDagger.Phase.Stuck) is ThrownDagger anchor)
+        if (!fromAttack && Stats.Tether && out_.FirstOrDefault(d => d.State == ThrownDagger.Phase.Stuck) is ThrownDagger anchor)
         {
             _tetherTo = anchor;
             _tetherT = 0;

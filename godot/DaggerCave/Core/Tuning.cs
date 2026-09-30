@@ -260,9 +260,11 @@ public static class Tune
         /// Dagger Throw (the ability button): your two daggers are its uses. A thrown dagger flies at
         /// ThrowSpeed px/s up to ThrowRange px and sticks in the first creature it meets for
         /// ThrowDamage, nudging it (ThrowNudge); a miss flies back by itself, at ReturnSpeed px/s.
-        /// With both out, both come back by themselves.
+        /// Daggers stuck in creatures stay there until recalled (the recall button, or the attack button with none in hand); each tears back out for RecallDamage.
         /// </summary>
         public static float ThrowDamage = 18f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
+        /// <summary>The wait before the next throw: ThrowCooldownOne s after a throw leaves one dagger out, ThrowCooldownBoth s after one that leaves both out (a recall doesn't shorten it).</summary>
+        public static float ThrowCooldownOne = 1f, ThrowCooldownBoth = 3f;
         /// <summary>Recall (the second ability, no cooldown): each dagger stuck in a creature tears
         /// back out through it for RecallDamage, yanking it toward you (RecallYank).</summary>
         public static float RecallDamage = 9f, RecallYank = 260f;
@@ -284,8 +286,9 @@ public static class Tune
     {
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
         /// <summary>Alimus: what spells cost. It comes back by itself (AlimusRegen a second, its only
-        /// source) up to AlimusMax; a run starts full. Bolts are free.</summary>
-        public static float AlimusMax = 40f, AlimusRegen = 2.5f;
+        /// source) up to AlimusMax; a run starts full. A bolt costs FireCost or FrostCost, a little
+        /// more than the regeneration gives back at the usual rate of fire: only barely outpacing it.</summary>
+        public static float AlimusMax = 40f, AlimusRegen = 1.8f;
         /// <summary>
         /// Firebolt (the attack button): a bolt of fire flying at BoltSpeed px/s up to BoltRange px,
         /// FireDamage every FireEvery s; each has IgniteChance of setting a creature alight, burning
@@ -293,7 +296,7 @@ public static class Tune
         /// creature to fly at as it leaves the staff. In flight a bolt homes: BoltTurnDegrees a
         /// second toward the creature nearest its heading, one within BoltSeekDegrees either side of it.
         /// </summary>
-        public static float FireDamage = 14f, FireEvery = 0.45f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
+        public static float FireDamage = 14f, FireEvery = 0.55f, FireCost = 1.1f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
         public static float IgniteChance = 0.2f, IgniteDps = 4f, IgniteSeconds = 4f;
         /// <summary>Frostbolt (an alteration): FrostDamage every FrostEvery s; a creature it strikes
@@ -305,18 +308,18 @@ public static class Tune
         /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a
         /// terminal velocity of UpdraftFallMult of the usual. Narrow Draft (an alteration):
         /// half as wide, NarrowExtra px (6 m) taller, NarrowSeconds long.</summary>
-        public static float UpdraftCost = 15f, UpdraftWidth = 72f, UpdraftHeight = 160f, UpdraftSeconds = 10f;
+        public static float UpdraftCost = 15f, UpdraftWidth = 110f, UpdraftHeight = 200f, UpdraftSeconds = 10f;
         public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f;
         public static float NarrowExtra = 96f, NarrowSeconds = 15f;
         /// <summary>
         /// Blizzard (the ability button): costs BlizzardCost alimus, BlizzardCooldown s to come
-        /// back. A storm BlizzardRadius px round (about 88 px, 5.5 m across) at the aim point, no further
+        /// back. A storm BlizzardRadius px round (about 176 px, 11 m across) at the aim point, no further
         /// than BlizzardRange px away: BlizzardTicks strikes of BlizzardDamage over BlizzardSeconds,
         /// each with BlizzardFreeze chance of freezing a regular creature. Firestorm (an alteration):
         /// FirestormDamage a strike, each with FirestormIgnite chance of setting it alight.
         /// </summary>
-        public static float BlizzardCost = 20f, BlizzardCooldown = 20f, BlizzardRadius = 44f, BlizzardRange = 200f, BlizzardSeconds = 3f;
-        public static int BlizzardTicks = 9;
+        public static float BlizzardCost = 20f, BlizzardCooldown = 20f, BlizzardRadius = 88f, BlizzardRange = 200f, BlizzardSeconds = 6f;
+        public static int BlizzardTicks = 18;
         public static float BlizzardDamage = 2f, BlizzardFreeze = 0.06f, FirestormDamage = 3f, FirestormIgnite = 0.1f;
         /// <summary>
         /// Snap (the second ability): costs SnapCost alimus. Every frozen creature in view

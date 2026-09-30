@@ -252,7 +252,7 @@ public partial class Hud : Control
                 {
                     move,
                     $"{atk} jab (hold to keep jabbing{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {a1} throw a dagger · {a2} recall them · {dg} vanish · kick off walls",
-                    "Thrown daggers stick in what they hit; recall tears them back out · " + pause,
+                    "Thrown daggers stick in what they hit and stay until recalled (or jab with none left); coming out, they cut again · " + pause,
                 },
                 HeroKind.Elementalist => new[]
                 {
@@ -562,6 +562,8 @@ public partial class Hud : Control
             DrawLine(c + new Vector2(-5, -3), c + new Vector2(5, -3), inHand ? gold : col, 2f);
             DrawLine(c + new Vector2(0, -3), c + new Vector2(0, 8), inHand ? new Color(0.45f, 0.32f, 0.2f) : col, 2.5f);
         }
+        float tcd = p.ThrowCooldownFrac;
+        if (tcd > 0) DrawRect(new Rect2(db + new Vector2(0, 34 * (1 - tcd)), new Vector2(46, 34 * tcd)), new Color(0, 0, 0, 0.55f));
         DrawString(font, db + new Vector2(0, -6), "THROW", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         DrawString(font, db + new Vector2(0, 46), Controls.Name("ability"), HorizontalAlignment.Center, 46, 9, new Color(1, 1, 1, 0.4f));
         // recall: ready whenever a dagger is out

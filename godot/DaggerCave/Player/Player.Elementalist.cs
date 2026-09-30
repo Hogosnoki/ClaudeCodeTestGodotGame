@@ -79,6 +79,9 @@ public partial class Player
         bool frost = Stats.Frostbolt;
         float range = Tune.Elementalist.BoltRange;
         // (a creature near the line of aim draws the bolt to it)
+        float cost = frost ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost;
+        if (Alimus < cost - 0.001f) { _boltCd = 0.3f; if (!held) SayNo("NOT ENOUGH ALIMUS"); return true; }
+        Alimus -= cost;
         var target = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
         var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
         _boltCd = (frost ? Tune.Elementalist.FrostEvery : Tune.Elementalist.FireEvery) / Math.Max(0.2f, Stats.AttackSpeed);
