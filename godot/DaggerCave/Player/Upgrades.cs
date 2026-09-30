@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>The playable heroes.</summary>
-public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue }
+public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue, Aegis }
 
 /// <summary>Everything upgrades can change about the hero.</summary>
 public sealed class PlayerStats
@@ -134,6 +134,18 @@ public sealed class PlayerStats
     /// <summary>How far away a hero seems to enemies choosing whom to attack (x the real distance): below 1 draws their attention, above 1 turns it away.</summary>
     public float ThreatDist = 1f;
 
+    // aegis: ward bolt, barrier, shared burden, bubble
+    /// <summary>Everything the Aegis gives (barriers, bubbles, the ward on an enemy) is this much stronger: grows with level and cards.</summary>
+    public float WardMult = 1f;
+    /// <summary>The bolt: how much less damage its creatures deal (x), for how long; the share of damage dealt it heals the Aegis; its burst's reach (x) and the share of the blow the burst's others take.</summary>
+    public float DebuffMult = Tune.Aegis.DebuffMult, DebuffSeconds = Tune.Aegis.DebuffSeconds, AegisLifesteal = Tune.Aegis.Lifesteal, BurstMult = 1f, BurstShare = Tune.Aegis.BurstShare;
+    /// <summary>Barrier: strength (x) and recharge (x). Shared Burden: the share of damage taken and how long it lasts. Bubble: strength (x) and recharge (x).</summary>
+    public float BarrierMult = 1f, BarrierCdMult = 1f, BurdenShare = Tune.Aegis.BurdenShare, BurdenSeconds = Tune.Aegis.BurdenSeconds, BubbleMult = 1f, BubbleCdMult = 1f;
+    /// <summary>Bubble bursts healing the allies round it; the Bubble goes on a creature instead (alteration); the Barrier also goes on a second ally.</summary>
+    public bool BubbleHeal, HostileBubble, TwinBarrier, WideBarrier, BurdenAll;
+    /// <summary>Shared Burden: the Aegis takes this much less of what it carries (0..1). Bubble: the share of each blow it absorbs. Hostile Bubble: its burst's strength (x).</summary>
+    public float BurdenSoak, BubbleAbsorb = Tune.Aegis.BubbleAbsorb, WardBlastMult = 1f;
+
     // relics (see Relics.cs)
     /// <summary>Relic: horizontal speed in the air (x).</summary>
     public float AirSpeedMult = 1f;
@@ -178,6 +190,10 @@ public sealed class PlayerStats
             case HeroKind.Elementalist:
                 MoveSpeed = Tune.Elementalist.MoveMult; JumpMult = Tune.Elementalist.JumpMult;
                 MaxHp = Tune.Elementalist.StartHp;
+                break;
+            case HeroKind.Aegis:
+                MoveSpeed = Tune.Aegis.MoveMult; JumpMult = Tune.Aegis.JumpMult;
+                MaxHp = Tune.Aegis.StartHp; ThreatDist = Tune.Aegis.ThreatDist;
                 break;
             case HeroKind.Rogue:
                 MoveSpeed = Tune.Rogue.MoveMult; JumpMult = Tune.Rogue.JumpMult;
@@ -256,7 +272,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 /// </summary>
 public static partial class Upgrades
 {
-    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue };
+    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue }, A = { HeroKind.Aegis };
     /// <summary>The two heroes who fight with a blade.</summary>
     private static readonly HeroKind[] Blades = { HeroKind.Swordsman, HeroKind.Warden };
 
@@ -309,7 +325,7 @@ public static partial class Upgrades
         new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegenMult *= 1.5f; } },
         new() { Id = "thorns", Name = "Spiked Shield", Desc = "Melee attackers that strike your shield take 40% of the blow back.", Icon = "shield", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ShieldThorns = true },
         new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a whole shield.", Icon = "life", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
-        new() { Id = "aegis", Name = "Aegis", Desc = "+15% shield strength and regeneration.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 4, Apply = (s, p) => { s.ShieldMult *= 1.15f; s.ShieldRegenMult *= 1.15f; } },
+        new() { Id = "aegis", Name = "Bastion", Desc = "+15% shield strength and regeneration.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 4, Apply = (s, p) => { s.ShieldMult *= 1.15f; s.ShieldRegenMult *= 1.15f; } },
         new() { Id = "shield_unyielding", Name = "Unyielding Shield", Desc = "Your shield never weakens or breaks, but stops only 70% of each blow (a perfect block still stops it all).", Icon = "shield", For = W, Ability = "shield", Alteration = true, Apply = (s, p) => s.Unyielding = true },
         new() { Id = "unyielding_more", Name = "Braced", Desc = "Your unyielding shield stops 5% more of each blow.", Icon = "shield", For = W, Ability = "shield", Requires = "shield_unyielding", MaxStacks = 2, Apply = (s, p) => s.UnyieldingShare += 0.05f },
 
@@ -402,6 +418,33 @@ public static partial class Upgrades
         new() { Id = "recall_tether", Name = "Tether", Desc = "Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.", Icon = "move", For = R, Ability = "recall", Alteration = true, Excludes = new[] { "throw_ricochet" }, Apply = (s, p) => s.Tether = true },
         new() { Id = "pounce", Name = "Pounce", Desc = "Arriving by tether is always a critical strike.", Icon = "move", For = R, Ability = "recall", Requires = "recall_tether", Apply = (s, p) => s.Pounce = true },
 
+        // --- Ward Bolt (aegis) ---
+        new() { Id = "ward_dmg", Name = "Brighter Bolt", Desc = "Your ward bolt hits 18% harder.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult += 0.18f },
+        new() { Id = "ward_burst", Name = "Wider Burst", Desc = "Your bolt's burst reaches 40% farther.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstMult += 0.4f },
+        new() { Id = "ward_scatter", Name = "Scatter Light", Desc = "The creatures beside the one your bolt strikes take 20% more of the blow (60%, then 80%, then all of it).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstShare = Math.Min(1f, s.BurstShare + 0.2f) },
+        new() { Id = "ward_sap", Name = "Sapping Light", Desc = "Creatures your bolt bursts on deal 5% less still (15%, then 20% less).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.DebuffMult -= 0.05f },
+        new() { Id = "ward_mend", Name = "Mending Light", Desc = "Your bolt mends you for 4% more of the damage it deals.", Icon = "life", For = A, Ability = "ward", MaxStacks = 3, Apply = (s, p) => s.AegisLifesteal += 0.04f },
+        new() { Id = "ward_linger", Name = "Lingering Weakness", Desc = "What your bolt weakens stays weakened 3 s longer.", Icon = "spell", For = A, Ability = "ward", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DebuffSeconds += 3f },
+
+        // --- Barrier (aegis) ---
+        new() { Id = "barrier_strong", Name = "Reinforced Barrier", Desc = "Your barrier absorbs 25% more.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 3, Apply = (s, p) => s.BarrierMult += 0.25f },
+        new() { Id = "barrier_cd", Name = "Quick Ward", Desc = "Your barrier comes back 20% sooner.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 2, Apply = (s, p) => s.BarrierCdMult *= 0.8f },
+        new() { Id = "barrier_twin", Name = "Twin Barrier", Desc = "A barrier for a friend wraps you in one as well.", Icon = "shield", For = A, Ability = "barrier", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinBarrier = true },
+
+        new() { Id = "barrier_wide", Name = "Wide Barrier", Desc = "Your barrier falls on every friend near you, and on you, each at 60% of its strength.", Icon = "shield", For = A, Ability = "barrier", Alteration = true, Apply = (s, p) => s.WideBarrier = true },
+
+        // --- Shared Burden (aegis) ---
+        new() { Id = "burden_all", Name = "Burden of Many", Desc = "Your burden falls on every friend near you at once, each sharing half as much of their blows with you.", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.BurdenAll = true },
+        new() { Id = "burden_share", Name = "Heavier Burden", Desc = "You carry 5% more of the blows your friend takes (25%, 30%, then 35%).", Icon = "life", For = A, Ability = "burden", MaxStacks = 3, Apply = (s, p) => s.BurdenShare += 0.05f },
+        new() { Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 25% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.25f },
+
+        // --- Bubble (aegis) ---
+        new() { Id = "bubble_strong", Name = "Tougher Bubble", Desc = "Your bubble bursts only after absorbing 30% more.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 3, Apply = (s, p) => s.BubbleMult += 0.3f },
+        new() { Id = "bubble_cd", Name = "Quick Bubble", Desc = "Your bubble comes back 20% sooner.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 2, Apply = (s, p) => s.BubbleCdMult *= 0.8f },
+        new() { Id = "bubble_heal", Name = "Soothing Burst", Desc = "When your bubble bursts, it heals the friends around it.", Icon = "life", For = A, Ability = "bubble", Tier = UpgradeTier.Ability, Apply = (s, p) => s.BubbleHeal = true },
+        new() { Id = "bubble_hostile", Name = "Hostile Bubble", Desc = "Your bubble goes on a creature instead: it takes half of every blow, the other half building up; once enough has, the bubble bursts for 30, and 10 to the creatures round it.", Icon = "spell", For = A, Ability = "bubble", Alteration = true, Apply = (s, p) => s.HostileBubble = true },
+        new() { Id = "bubble_volatile", Name = "Volatile Ward", Desc = "Your hostile bubble bursts 30% harder.", Icon = "spell", For = A, Ability = "bubble", Requires = "bubble_hostile", MaxStacks = 3, Apply = (s, p) => s.WardBlastMult += 0.3f },
+
         // --- Movement (all) ---
         // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)
         new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
@@ -453,6 +496,7 @@ public static partial class Upgrades
         HeroKind.Vitalist => "heal",
         HeroKind.Elementalist => "Blizzard",
         HeroKind.Rogue => "Vanish",
+        HeroKind.Aegis => "Barrier",
         _ => "Charged Strike",
     };
 
@@ -463,6 +507,7 @@ public static partial class Upgrades
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },
         HeroKind.Elementalist => new[] { ("bolt", "Firebolt"), ("updraft", "Updraft"), ("blizzard", "Blizzard"), ("snap", "Snap") },
         HeroKind.Rogue => new[] { ("dagger", "Dagger Slash"), ("throw", "Dagger Throw"), ("vanish", "Vanish"), ("recall", "Recall") },
+        HeroKind.Aegis => new[] { ("ward", "Ward Bolt"), ("barrier", "Barrier"), ("burden", "Shared Burden"), ("bubble", "Bubble") },
         _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dodge Roll") },
     };
 
@@ -651,6 +696,12 @@ public static class Progression
                 s.DamageMult += 0.02f;
                 s.AlimusMax += 1;
                 gain = "+2% damage  +1 alimus";
+                break;
+            case HeroKind.Aegis:
+                s.MaxHp += 3; p.Heal(3);
+                s.DamageMult += 0.02f;
+                s.WardMult += 0.04f;
+                gain = "+2% damage  +4% wards";
                 break;
             case HeroKind.Rogue:
                 s.MaxHp += 2; p.Heal(2);

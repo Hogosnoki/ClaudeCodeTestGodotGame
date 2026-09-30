@@ -261,6 +261,12 @@ public partial class ScreenOverlay : Control
             "can strike twice as hard; daggers thrown",
             "and torn back; vanishing into shadow.",
         }),
+        (HeroKind.Aegis, "AEGIS", "aegis", new[]
+        {
+            "The ward. A bolt that hurts, weakens and mends;",
+            "a barrier, a burden shared and a bubble for a",
+            "friend (or yourself): it keeps the others alive.",
+        }),
     };
 
     private static Color Accent(HeroKind k) => Hud.HeroColor(k);

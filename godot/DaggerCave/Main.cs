@@ -330,6 +330,7 @@ public partial class Main : Node
             else if (a == "--hero=vitalist") G.Hero = HeroKind.Vitalist;
             else if (a == "--hero=elementalist") G.Hero = HeroKind.Elementalist;
             else if (a == "--hero=rogue") G.Hero = HeroKind.Rogue;
+            else if (a == "--hero=aegis") G.Hero = HeroKind.Aegis;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
@@ -1054,7 +1055,7 @@ public partial class Main : Node
         FadeFrom(new Color(1f, 0.98f, 0.92f), 1.3f);
     }
 
-    private const int HeroCount = 5;
+    private const int HeroCount = 6;
 
     private void PickHero(HeroKind h)
     {

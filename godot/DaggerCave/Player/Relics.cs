@@ -51,7 +51,7 @@ public static partial class Upgrades
 {
     private const string Ic = "relic";
     // (own copies: the order partial parts of a class initialise in isn't guaranteed)
-    private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue };
+    private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue }, HA = { HeroKind.Aegis };
 
     private static Upgrade Rl(string id, string name, string desc, Action<PlayerStats, Player> apply, HeroKind[] only = null, float weight = 1f)
         => new() { Id = id, Name = name, Desc = desc, Icon = Ic, Relic = true, For = only, Weight = weight, Apply = apply, Tier = UpgradeTier.Rare };
@@ -99,6 +99,12 @@ public static partial class Upgrades
         Rl("relic_w_ram", "Juggernaut's Charge", "Your Guarded Charge no longer stops for what it meets: it runs its whole length and strikes everything in its way.", (s, p) => s.Juggernaut = true, HW, 1.5f),
         Rl("relic_w_plate", "Tower Plate", "Your shield is 30% stronger, but you move 10% slower.", (s, p) => { s.ShieldMult *= 1.3f; s.MoveSpeed *= 0.9f; }, HW, 1.5f),
         Rl("relic_w_banner", "Warbanner", "Creatures see you 20% closer than you are, and you hit 10% harder.", (s, p) => { s.ThreatDist *= 0.8f; s.DamageMult *= 1.1f; }, HW, 1.5f),
+
+        // --- Aegis ---
+        Rl("relic_a_crest", "Solar Crest", "Your ward bolt mends you for 10% more of its damage, but hits 15% softer.", (s, p) => { s.AegisLifesteal += 0.10f; s.DamageMult *= 0.85f; }, HA, 1.5f),
+        Rl("relic_a_mantle", "Martyr's Mantle", "You carry 35% of the blows of a friend under your Shared Burden, and take 10% more damage yourself.", (s, p) => { s.BurdenShare = Math.Max(s.BurdenShare, 0.35f); s.DamageTakenMult *= 1.1f; }, HA, 1.5f),
+        Rl("relic_a_prism", "Prism", "Your bolt's burst reaches 50% farther and the creatures in it take the whole blow.", (s, p) => { s.BurstMult *= 1.5f; s.BurstShare = 1f; }, HA, 1.5f),
+        Rl("relic_a_sea", "Bottled Sea", "Your bubble absorbs three quarters of every blow, but bursts after absorbing 30% less.", (s, p) => { s.BubbleAbsorb = 0.75f; s.BubbleMult *= 0.7f; }, HA, 1.5f),
 
         // --- Rogue ---
         Rl("relic_r_lone", "Lone Blade", "Only one dagger flies, and only with both home: the throw hits twice as hard, and the recall half again as hard.", (s, p) => { s.LoneThrow = true; s.ThrowDamageMult *= 2f; s.RecallDamageMult *= 1.5f; }, HR, 1.5f),

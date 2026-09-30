@@ -23,7 +23,7 @@ namespace DaggerCave;
 public sealed partial class HeroDesign : CreatureDesign
 {
     private readonly HeroKind _kind;
-    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman;
+    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman, _aegis;
     public HeroDesign(HeroKind kind)
     {
         _kind = kind;
@@ -32,8 +32,9 @@ public sealed partial class HeroDesign : CreatureDesign
         _elementalist = kind == HeroKind.Elementalist;
         _rogue = kind == HeroKind.Rogue;
         _swordsman = kind == HeroKind.Swordsman;
-        // (the two casters hold a staff, wear a robe, and share their poses)
-        _caster = _vitalist || _elementalist;
+        _aegis = kind == HeroKind.Aegis;
+        // (the casters hold a staff, wear a robe, and share their poses)
+        _caster = _vitalist || _elementalist || _aegis;
         _st = StyleFor(kind);
     }
     public override string Name => Player.SheetName(_kind);
@@ -43,8 +44,8 @@ public sealed partial class HeroDesign : CreatureDesign
 
     public override CreatureLook Look => new()
     {
-        Eye = _vitalist ? new Color(0.5f, 1f, 0.42f) : _elementalist ? new Color(1f, 0.72f, 0.4f) : new Color(1f, 0.9f, 0.75f),
-        EyeEnergy = _vitalist ? 2.4f : _elementalist ? 1.2f : 0.5f,
+        Eye = _vitalist ? new Color(0.5f, 1f, 0.42f) : _elementalist ? new Color(1f, 0.72f, 0.4f) : _aegis ? new Color(0.6f, 1f, 0.92f) : new Color(1f, 0.9f, 0.75f),
+        EyeEnergy = _vitalist ? 2.4f : _elementalist ? 1.2f : _aegis ? 1.0f : 0.5f,
         Glow = new Color(1f, 0.68f, 0.32f), GlowEnergy = 6f,
         Rim = new Color(0.55f, 0.68f, 0.95f), RimEnergy = 0.28f,
         DetailScale = 34f, DetailStrength = 0.6f,
@@ -57,6 +58,8 @@ public sealed partial class HeroDesign : CreatureDesign
     private const float StaffUp = 0.6f, StaffDown = 0.98f, GemAt = 0.72f;
     private static readonly Color Life = new(0.45f, 1f, 0.4f);
     /// <summary>The Elementalist's orb: its fire, and its frost.</summary>
+    /// <summary>The Aegis's staff disc: a pale teal light.</summary>
+    private static readonly Color AegisGlow = new(0.55f, 1f, 0.9f);
     private static readonly Color OrbFire = new(1f, 0.55f, 0.16f), OrbFrost = new(0.62f, 0.88f, 1f);
 
     private int hips, spine, chest, neck, head, cape0, cape1, cape2, cape3, scarf0, scarf1, scarf2;
@@ -94,7 +97,8 @@ public sealed partial class HeroDesign : CreatureDesign
         var violet = C(0.19f, 0.11f, 0.3f);
         var ember = C(0.8f, 0.34f, 0.08f);
         if (_elementalist) robe = violet;
-        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : _rogue ? C(0.16f, 0.08f, 0.17f) : C(0.07f, 0.27f, 0.28f);
+        if (_aegis) robe = C(0.5f, 0.47f, 0.4f);
+        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : _aegis ? C(0.05f, 0.27f, 0.27f) : _rogue ? C(0.16f, 0.08f, 0.17f) : C(0.07f, 0.27f, 0.28f);
         if (_rogue) { leather = C(0.12f, 0.1f, 0.12f); leatherDk = C(0.07f, 0.06f, 0.075f); }
         var body = _warden ? C(0.42f, 0.44f, 0.47f) : _caster ? robe : leather; // mail, robe, jerkin
         var bodyMat = _warden ? Mat.Metal : _caster ? Mat.Cloth : Mat.Leather;
@@ -163,6 +167,16 @@ public sealed partial class HeroDesign : CreatureDesign
             // runes stitched in gold down the robe's front
             s.Limb(hipsB, new(0.16f, 0.02f, 0f), new(0.155f, -0.3f, 0f), 0.006f, 0.005f, gold, Mat.Gold, 0.002f);
         }
+        else if (_aegis)
+        {
+            // a teal mantle over the shoulders, an ivory robe to mid-thigh, a gold sash and an emblem on the breast
+            s.Egg(chestB, new(0f, 0.44f, 0), new(0.15f, 0.065f, 0.205f), cloak, Mat.Cloth, 0.03f);
+            s.Egg(hipsB, new(0.012f, -0.15f, 0), new(0.15f, 0.21f, 0.168f), robe, Mat.Cloth, 0.03f);
+            s.Limb(chestB, new(0.1f, 0.43f, -0.15f), new(0.11f, 0.1f, 0.15f), 0.024f, 0.022f, gold, Mat.Gold, 0.008f);
+            s.Limb(hipsB, new(0.14f, 0.07f, 0.1f), new(0.15f, -0.22f, 0.12f), 0.018f, 0.012f, cloak, Mat.Cloth, 0.006f);
+            s.Ball(chestB, new(0.126f, 0.3f, 0f), 0.032f, gold, Mat.Gold, 0.006f);
+            s.Ball(chestB, new(0.14f, 0.3f, 0f), 0.014f, C(0.5f, 0.95f, 0.88f), Mat.Crystal, 0.004f);
+        }
         else
         {
             // leather flaps over the hips
@@ -230,6 +244,21 @@ public sealed partial class HeroDesign : CreatureDesign
             s.Eye(headB, new(0.11f, 0.728f, -0.034f), 0.011f, C(1f, 0.72f, 0.4f), 0.6f);
             // an ember collar at the throat
             s.Egg(neckB, new(0.02f, 0.625f, 0), new(0.08f, 0.048f, 0.095f), ember, Mat.Cloth, 0.025f);
+        }
+        else if (_aegis)
+        {
+            // a pale hood thrown back from a calm face, a gold circlet across the brow with a teal stone
+            s.Egg(headB, new(0.0f, 0.74f, 0), new(0.13f, 0.142f, 0.12f), robe, Mat.Cloth, 0.02f);
+            s.Limb(headB, new(-0.07f, 0.75f, 0), new(-0.115f, 0.53f, 0), 0.085f, 0.115f, robe, Mat.Cloth, 0.04f);
+            s.CarveBall(headB, new(0.16f, 0.705f, 0), 0.098f, 0.02f);
+            s.Egg(headB, new(0.03f, 0.705f, 0), new(0.092f, 0.112f, 0.082f), skin, Mat.Skin, 0.015f);
+            s.Limb(headB, new(0.105f, 0.712f, 0), new(0.116f, 0.695f, 0), 0.013f, 0.009f, skin, Mat.Skin, 0.012f);
+            s.Limb(headB, new(0.085f, 0.795f, -0.085f), new(0.115f, 0.79f, 0), 0.011f, 0.011f, gold, Mat.Gold, 0.004f);
+            s.Limb(headB, new(0.115f, 0.79f, 0), new(0.085f, 0.795f, 0.085f), 0.011f, 0.011f, gold, Mat.Gold, 0.004f);
+            s.Ball(headB, new(0.12f, 0.79f, 0), 0.016f, C(0.5f, 0.95f, 0.88f), Mat.Crystal, 0.004f);
+            s.Egg(neckB, new(0.03f, 0.625f, 0), new(0.078f, 0.05f, 0.09f), cloak, Mat.Cloth, 0.025f);
+            s.Eye(headB, new(0.112f, 0.728f, 0.034f), 0.0115f, C(0.4f, 0.85f, 0.8f), 0.6f);
+            s.Eye(headB, new(0.112f, 0.728f, -0.034f), 0.0115f, C(0.4f, 0.85f, 0.8f), 0.6f);
         }
         else
         {
@@ -322,6 +351,7 @@ public sealed partial class HeroDesign : CreatureDesign
         int handR = s["hand_r"], handL = s["hand_l"];
         if (_vitalist) SculptStaff(s, handR, blood);
         else if (_elementalist) SculptOrbStaff(s, handR, ember, gold);
+        else if (_aegis) SculptWardStaff(s, handR, gold);
         else if (_rogue) { /* (the daggers are attachments, so they can leave the hands) */ }
         else
         {
@@ -439,9 +469,69 @@ public sealed partial class HeroDesign : CreatureDesign
         s.Rigid(handR, wrap, Mat.Cloth);
     }
 
+    /// <summary>
+    /// The Aegis's staff, through the fist along +X: a straight shaft of pale wood with a gold collar, and above it a gold ring
+    /// standing in the view plane, holding a glowing disc (the disc is a lit attachment, so it flares with each ward).
+    /// </summary>
+    private static void SculptWardStaff(Sculptor s, int handR, Color gold)
+    {
+        var pale = new Color(0.55f, 0.5f, 0.42f);
+        var path = new System.Collections.Generic.List<Vector3>();
+        var radii = new System.Collections.Generic.List<float>();
+        const int n = 6;
+        for (int k = 0; k <= n; k++)
+        {
+            float t = k / (float)n;
+            path.Add(Grip + new Vector3(-StaffDown + (StaffDown + StaffUp) * t, 0, 0));
+            radii.Add(0.016f + 0.004f * t);
+        }
+        var mb = new MeshBuilder();
+        mb.Tube(path, radii, 7, pale);
+        s.Rigid(handR, mb, Mat.Wood);
+        var metal = new MeshBuilder();
+        metal.Tube(new[] { Grip + new Vector3(StaffUp - 0.05f, 0, 0), Grip + new Vector3(StaffUp, 0, 0) }, new[] { 0.026f, 0.026f }, 8, gold);
+        // the ring: a circle in the view (X-Y) plane, centred on the disc
+        var ring = new System.Collections.Generic.List<Vector3>();
+        var rr = new System.Collections.Generic.List<float>();
+        const int seg = 20;
+        var centre = Grip + new Vector3(GemAt + 0.03f, 0.0f, 0);
+        for (int k = 0; k <= seg; k++)
+        {
+            float a = k / (float)seg * Mathf.Tau;
+            ring.Add(centre + new Vector3(MathF.Cos(a) * 0.092f, MathF.Sin(a) * 0.092f, 0));
+            rr.Add(0.011f);
+        }
+        metal.Tube(ring, rr, 6, gold, false);
+        // two small spokes joining the ring to the shaft
+        metal.Tube(new[] { Grip + new Vector3(StaffUp, 0, 0), centre + new Vector3(-0.092f, 0, 0) }, new[] { 0.012f, 0.011f }, 5, gold);
+        s.Rigid(handR, metal, Mat.Gold);
+    }
+
     public override void Attach(CreatureModel m)
     {
-        if (_vitalist)
+        if (_aegis)
+        {
+            // the staff's disc: a flattened, glowing sphere inside the ring, and its light
+            var hand = m.AttachTo("hand_r");
+            hand.Name = "StaffHand";
+            var discAt = Grip + new Vector3(GemAt + 0.03f, 0f, 0f) - new Vector3(0f, -0.05f, 0.2f);
+            var discMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.7f, 1f, 0.95f, 0.85f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.2f,
+                EmissionEnabled = true, Emission = AegisGlow, EmissionEnergyMultiplier = 2.6f, RimEnabled = true, Rim = 0.7f,
+            };
+            hand.AddChild(new MeshInstance3D
+            {
+                Name = "Disc", Mesh = new SphereMesh { Radius = 0.08f, Height = 0.16f, RadialSegments = 16, Rings = 8, Material = discMat },
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = discAt, Scale = new Vector3(1f, 1f, 0.3f),
+            });
+            hand.AddChild(new OmniLight3D
+            {
+                Name = "DiscLight", LightColor = AegisGlow, LightEnergy = 0.5f, OmniRange = 3.4f, OmniAttenuation = 1.4f,
+                ShadowEnabled = false, LightVolumetricFogEnergy = 0.4f, Position = discAt,
+            });
+        }
+        else if (_vitalist)
         {
             // the staff's crystal: its own glowing mesh and a small light, both flaring with spells
             var hand = m.AttachTo("hand_r");
@@ -577,6 +667,33 @@ public sealed partial class HeroDesign : CreatureDesign
             light.LightColor = col;
             light.LightEnergy = dead ? 0f : (0.35f + 2.6f * glow) * pulse;
             light.OmniRange = 3.2f + 2.5f * glow;
+        }
+        else if (_aegis)
+        {
+            var disc = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/StaffHand/Disc");
+            var light = m.GetNodeOrNull<OmniLight3D>("Pivot/Skeleton/StaffHand/DiscLight");
+            if (disc == null || light == null) return;
+            float glow = player?.CastGlow ?? 0f;
+            bool dead = player == null || player.Dead;
+            float pulse = 0.85f + 0.15f * MathF.Sin(a.Time * 2.2f);
+            // teal at rest; gold for the burden, the ward bolt's warm white when it flings one
+            var spell = player?.LastCast switch
+            {
+                "burden" => new Color(1f, 0.85f, 0.45f),
+                "ward" => new Color(1f, 0.93f, 0.6f),
+                "barrier" => new Color(0.75f, 0.92f, 1f),
+                _ => AegisGlow,
+            };
+            var col = AegisGlow.Lerp(spell, Math.Clamp(glow * 1.6f, 0f, 1f));
+            if (disc.Mesh is SphereMesh sm && sm.Material is StandardMaterial3D mat)
+            {
+                mat.Emission = col;
+                mat.EmissionEnergyMultiplier = dead ? 0.3f : (2.2f + 7f * glow) * pulse;
+            }
+            disc.Scale = new Vector3(1f + 0.3f * glow, 1f + 0.3f * glow, 0.3f);
+            light.LightColor = col;
+            light.LightEnergy = dead ? 0f : (0.45f + 2.8f * glow) * pulse;
+            light.OmniRange = 3.4f + 2.5f * glow;
         }
         else if (_elementalist)
         {

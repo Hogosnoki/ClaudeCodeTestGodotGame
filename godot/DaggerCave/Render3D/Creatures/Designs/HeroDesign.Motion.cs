@@ -106,6 +106,13 @@ public sealed partial class HeroDesign
             FreeAmp = 42f, FreeMid = 8f, FreeElbow = 62f, FreeElbowAmp = 22f,
             HoldAmp = 10f, HoldMid = 20f, HoldElbow = 76f, HoldElbowAmp = 5f, HoldAbs = 46f, HeadUp = 6f, Weight = 0.004f,
         },
+        // the Aegis: calm and upright, measured steps, the staff carried close and the free hand open
+        HeroKind.Aegis => new Style
+        {
+            Stance = 0.7f, Stride = 3.9f, Hip = 0.78f, Bounce = 0.04f, Clear = 0.2f, Lean = 12f, HipTwist = 7f, Counter = 12f,
+            FreeAmp = 40f, FreeMid = 4f, FreeElbow = 66f, FreeElbowAmp = 16f,
+            HoldAmp = 11f, HoldMid = 22f, HoldElbow = 74f, HoldElbowAmp = 5f, HoldAbs = 44f, HeadUp = 2f, Weight = 0.007f,
+        },
         // the Rogue: a sprinter's crouch, the longest strides, heels flicking up, both fists pumping
         _ => new Style
         {

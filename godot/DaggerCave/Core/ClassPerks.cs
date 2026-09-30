@@ -67,6 +67,13 @@ public static class ClassPerks
         P(HeroKind.Rogue, "rogue_throw", "Quick Draw", Three, new[] { "Daggers can be thrown again 10% sooner.", "Daggers can be thrown again 20% sooner.", "Daggers can be thrown again 30% sooner." }, (s, r) => s.ThrowCdMult *= 1f - 0.1f * r);
         P(HeroKind.Rogue, "rogue_bleed", "Serrated Edges", One, new[] { "A recall has a chance to make what it cuts bleed." }, (s, r) => s.RecallBleed = true);
         P(HeroKind.Rogue, "rogue_shadows", "Long Shadows", Three, new[] { "Vanish lasts 1 s longer.", "Vanish lasts 2 s longer.", "Vanish lasts 3 s longer." }, (s, r) => s.VanishBonus += r);
+
+        // ---- Aegis
+        P(HeroKind.Aegis, "aegis_bolt", "Brilliant Bolt", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => s.DamageMult += 0.05f * r);
+        P(HeroKind.Aegis, "aegis_ward", "Stronger Wards", Three, new[] { "Barriers and bubbles are 8% stronger.", "Barriers and bubbles are 16% stronger.", "Barriers and bubbles are 24% stronger." }, (s, r) => s.WardMult += 0.08f * r);
+        P(HeroKind.Aegis, "aegis_quick", "Ready Hands", Three, new[] { "Barrier and bubble come back 10% sooner.", "Barrier and bubble come back 20% sooner.", "Barrier and bubble come back 30% sooner." }, (s, r) => { s.BarrierCdMult *= 1f - 0.1f * r; s.BubbleCdMult *= 1f - 0.1f * r; });
+        P(HeroKind.Aegis, "aegis_heart", "Stout Heart", Three, new[] { "What you carry for a friend weighs 15% less on you.", "What you carry for a friend weighs 30% less on you.", "What you carry for a friend weighs 45% less on you." }, (s, r) => s.BurdenSoak += 0.15f * r);
+        P(HeroKind.Aegis, "aegis_hp", "Steadfast", Three, new[] { "+10% health.", "+20% health.", "+30% health." }, (s, r) => s.MaxHp *= 1f + 0.1f * r);
     }
 
     public static IEnumerable<ClassPerk> For(HeroKind hero) => All.Where(p => p.Hero == hero);

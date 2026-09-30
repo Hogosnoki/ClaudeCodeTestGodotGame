@@ -342,6 +342,7 @@ public partial class Fx3D : Node3D
             if (g.Dash) Shell(p, 17f, new Color(0.45f, 0.75f, 1f, 0.55f));
             // a barrier (Guardian's Charge): a paler, larger shell that breathes
             if (p.Barriered && !p.Dead) Shell(p, 20f + MathF.Sin(_time * 5f) * 0.8f, new Color(0.75f, 0.9f, 1f, 0.42f));
+            if (p.Bubbled && !p.Dead) Shell(p, 26f + MathF.Sin(_time * 3f) * 1.2f, new Color(0.55f, 0.95f, 0.9f, 0.3f));
         }
         for (int k = shells; k < _shells.Length; k++) _shells[k].Visible = false;
         if (!blade) _bladeLight.Visible = false;

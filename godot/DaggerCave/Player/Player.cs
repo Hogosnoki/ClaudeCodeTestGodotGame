@@ -118,6 +118,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Vitalist => AbilityChargeReady && VitalForce >= HealCost,
         HeroKind.Elementalist => AbilityChargeReady && Alimus >= BlizzardCost,
         HeroKind.Rogue => DaggersInHand > 0,
+        HeroKind.Aegis => AbilityChargeReady,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
     };
@@ -149,6 +150,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Vitalist => "vitalist",
         HeroKind.Elementalist => "elementalist",
         HeroKind.Rogue => "rogue",
+        HeroKind.Aegis => "aegis",
         _ => "swordsman",
     };
 
@@ -357,6 +359,7 @@ public partial class Player : CharacterBody2D
             case HeroKind.Vitalist: TickVitalist(dt); break;
             case HeroKind.Elementalist: TickElementalist(dt); break;
             case HeroKind.Rogue: TickRogue(dt); break;
+            case HeroKind.Aegis: TickAegis(dt); break;
             default: TickSwordsman(dt); break;
         }
 
@@ -459,6 +462,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => CastBolt(aim, held),
         HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
+        HeroKind.Aegis => CastWardBolt(aim, held),
         _ => !Heaving && TrySwing(aim, held),
     };
 
@@ -469,6 +473,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Vitalist => TryHeal(),
         HeroKind.Elementalist => TryBlizzard(aim, _abilityAimDist),
         HeroKind.Rogue => TryThrow(aim),
+        HeroKind.Aegis => TryBarrier(aim),
         _ => TryCharge(),
     };
 
@@ -479,6 +484,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Vitalist => TryRupture(aim),
         HeroKind.Elementalist => TrySnap(),
         HeroKind.Rogue => TryRecall(),
+        HeroKind.Aegis => TryBurden(aim),
         _ => TryHeave(aim),
     };
 
@@ -489,6 +495,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Vitalist => TryHex(),
         HeroKind.Elementalist => TryUpdraft(),
         HeroKind.Rogue => TryVanish(),
+        HeroKind.Aegis => TryBubble(),
         _ => true,
     };
 
@@ -628,9 +635,9 @@ public partial class Player : CharacterBody2D
 
     private void UpdateBreath(float dt)
     {
-        if (Stats.InfiniteBreath)
+        if (Stats.InfiniteBreath || Bubbled)
         {
-            // Drowned Lungs: the water is as good as air
+            // Drowned Lungs (or a bubble round you): the water is as good as air
             Breath = Stats.BreathMax;
             if (HeadUnder && (_bubbleT -= dt) <= 0) { _bubbleT = G.Range(0.8f, 1.6f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 1); }
             return;
@@ -821,6 +828,8 @@ public partial class Player : CharacterBody2D
         if (Stats.HeaveGuard && Heaving) dmg *= 0.5f; // (Braced)
         // a barrier soaks what it can first (a blow it soaks whole doesn't even make you flinch)
         dmg = Soften(dmg);
+        // (Shared Burden: the Aegis takes its share of what gets through)
+        dmg = ShareBurden(dmg);
         if (dmg <= 0.01f) { LastHitBlocked = true; _invuln = Math.Max(_invuln, 0.15f); return 0; }
         if (source != null && GodotObject.IsInstanceValid(source))
         {

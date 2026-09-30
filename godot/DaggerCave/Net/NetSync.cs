@@ -196,7 +196,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.ChestCut;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.ChestCut or Net.Msg.HeroBurden;
 
     // ================================================================== heroes
 
@@ -231,7 +231,7 @@ public static class NetSync
             case SwordWave sw: w.Byte(2).Vec(sw.GlobalPosition).HVec(sw.Dir).Half(sw.Range).Half(sw.Speed); break;
             case LifeMote m: w.Byte(3).Vec(m.GlobalPosition).Half(m.Size); break;
             case HealingPool hp: w.Byte(6).Vec(hp.GlobalPosition).Half(hp.Radius).Half(hp.Rate).Half(hp.Life); break;
-            case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Frost ? 1 : 0)); break;
+            case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Ward ? 2 : b.Frost ? 1 : 0)); break;
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
@@ -305,9 +305,9 @@ public static class NetSync
             case 7:
             {
                 // a friend's bolt: shown flying here (their game deals its blow)
-                var at = r.Vec(); var dir = r.HVec(); float range = r.Half(), speed = r.Half(); bool frost = r.Byte() != 0;
+                var at = r.Vec(); var dir = r.HVec(); float range = r.Half(), speed = r.Half(); byte bk = r.Byte(); bool frost = bk == 1, ward = bk == 2;
                 Applying = true;
-                G.Spawn(new ElementBolt { Position = at, Dir = dir, Range = range, Speed = speed, Frost = frost, Harmless = true });
+                G.Spawn(new ElementBolt { Position = at, Dir = dir, Range = range, Speed = speed, Frost = frost, Ward = ward, Harmless = true });
                 Applying = false;
                 break;
             }
@@ -373,8 +373,16 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>A hero carrying a Shared Burden took a blow: the Aegis's game takes its share.</summary>
+    public static void SendBurden(int aegis, float amount)
+    {
+        var w = new NetOut(Net.Msg.HeroBurden);
+        w.Int(aegis).Float(amount);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>A gift from one hero to another: the Warden's barrier, the Vitalist's mending.</summary>
-    public enum Boon : byte { Barrier = 1, Mending }
+    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden }
 
     /// <summary>A boon for someone else's hero: their game gives it (a, b, c: its amount, seconds, a flag).</summary>
     public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0)
@@ -546,7 +554,7 @@ public static class NetSync
     }
 
     /// <summary>Kinds of lasting effect a hero's blow can put on a creature.</summary>
-    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench }
+    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward }
 
     public static void EffectPuppet(Enemy e, Effect kind, float a, float b = 0, float c = 0, float d = 0, Vector2 v = default, string label = "")
     {
@@ -594,6 +602,7 @@ public static class NetSync
                 case Effect.Frost: e.FreezeSolid(a); break;
                 case Effect.Thaw: e.Thaw(); break;
                 case Effect.Quench: e.Quench(); break;
+                case Effect.Ward: e.GiveWard(a, b, c, d); break;
             }
         }
         finally { Scope--; _striker = 0; }
@@ -1101,6 +1110,8 @@ public static class NetSync
                 {
                     if (kind == Boon.Barrier) p.GiveBarrier(a, b);
                     else if (kind == Boon.Mending) p.GiveMending(a, b, c);
+                    else if (kind == Boon.Bubble) p.GiveBubble(a, b, c > 0.5f);
+                    else if (kind == Boon.Burden) p.GiveBurden((int)c, a, b);
                 }
                 finally { Scope--; }
                 break;
@@ -1134,6 +1145,7 @@ public static class NetSync
             case Net.Msg.ChestCards: OnChestCards(r); break;
             case Net.Msg.ChestDone: if (Net.IsHost) { int id = r.Int(); OnChestDone(from, id, r.Bool()); } break;
             case Net.Msg.ChestOpened: OnChestOpened(r); break;
+            case Net.Msg.HeroBurden: { int to = r.Int(); float amount = r.Float(); if (to == Net.Me) G.Player?.TakeShared(amount); break; }
             case Net.Msg.Relic: { int who = r.Int(); RunRelics.Note(who, r.Str()); break; }
             case Net.Msg.ChestCut: ChestById(r.Int())?.Cut(remote: true); break;
             case Net.Msg.GateAsk: if (Net.IsHost) OpenGate(r.Int(), from); break;

@@ -18,6 +18,8 @@ public partial class ElementBolt : Node2D
     public float Damage, Range = Tune.Elementalist.BoltRange, Speed = Tune.Elementalist.BoltSpeed;
     /// <summary>Frost instead of fire.</summary>
     public bool Frost;
+    /// <summary>The Aegis's ward bolt (light, bursting on contact, weakening what it strikes).</summary>
+    public bool Ward;
     /// <summary>Online: another player's bolt, shown here (their game deals its damage).</summary>
     public bool Harmless;
     public Player Caster;
@@ -30,7 +32,8 @@ public partial class ElementBolt : Node2D
     public float Age => _t;
     public static Color FireColor => new(1f, 0.55f, 0.16f);
     public static Color FrostColor => new(0.62f, 0.88f, 1f);
-    public Color Tint => Frost ? FrostColor : FireColor;
+    public static Color WardColor => new(1f, 0.9f, 0.5f);
+    public Color Tint => Ward ? WardColor : Frost ? FrostColor : FireColor;
 
     public override void _Ready() => ZIndex = 2;
 
@@ -112,7 +115,7 @@ public partial class ElementBolt : Node2D
     private void Strike(Enemy e)
     {
         var at = e.GlobalPosition - Dir * e.HitRadius * 0.6f;
-        if (!Harmless && Caster != null && IsInstanceValid(Caster)) Caster.BoltStruck(this, e, at);
+        if (!Harmless && Caster != null && IsInstanceValid(Caster)) { if (Ward) Caster.WardBoltStruck(this, e, at); else Caster.BoltStruck(this, e, at); }
         Burst(at, 1f);
         QueueFree();
     }
@@ -128,7 +131,13 @@ public partial class ElementBolt : Node2D
     {
         var col = Tint;
         G.Fx.Flash(at, 8 + 6 * size, col, 0.1f);
-        if (Frost)
+        if (Ward)
+        {
+            G.Fx.Ring(at, (Tune.Aegis.BurstRadius * 0.6f) * (0.5f + 0.5f * size), new Color(1f, 0.92f, 0.6f, 0.85f), 0.25f);
+            G.Fx.Burst(at, col, (int)(8 * size) + 2, 110, 1.8f, 0.3f, -20);
+            G.Sfx.Play("clink", at, -10, 0.1f, 1.3f);
+        }
+        else if (Frost)
         {
             G.Fx.Burst(at, new Color(0.85f, 0.96f, 1f), (int)(8 * size) + 2, 110, 1.8f, 0.3f, 120);
             G.Fx.Ring(at, 6 + 6 * size, new Color(0.75f, 0.92f, 1f, 0.8f), 0.2f);

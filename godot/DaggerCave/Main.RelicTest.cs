@@ -101,6 +101,7 @@ public partial class Main
 
         // ---- chests dealt by tier
         var rng = new Random(11);
+        int total = Enum.GetValues<HeroKind>().Length * 60;
         int relicCards = 0, bossRelics = 0, bad = 0;
         foreach (var hero in Enum.GetValues<HeroKind>())
             for (int k = 0; k < 60; k++)
@@ -113,7 +114,7 @@ public partial class Main
                 if (silver.Count != 3 || gold.Count != 3 || gold.Count(u => u.Kind == UpgradeKind.Class) != 1 || gold.Count(u => u.Kind == UpgradeKind.Generic || u.Kind == UpgradeKind.Conditional) != 2) bad++;
                 if (silver.Count(u => u.Kind == UpgradeKind.Class) != 1) bad++;
             }
-        ScCheck($"silver chests hold exactly one relic each ({relicCards} in 300), other chests none ({bossRelics}); every deal is a class card and two more ({bad} odd)", relicCards == 300 && bossRelics == 0 && bad == 0);
+        ScCheck($"silver chests hold exactly one relic each ({relicCards} in {total}), other chests none ({bossRelics}); every deal is a class card and two more ({bad} odd)", relicCards == total && bossRelics == 0 && bad == 0);
     }
 
     private void RelicsScenario()

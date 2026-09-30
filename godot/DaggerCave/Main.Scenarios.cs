@@ -59,6 +59,7 @@ public partial class Main
         "magma" => "magma",
         "vault" => "den",
         "relics" => "den",
+        "aegis" => "den",
         _ => null,
     };
 
@@ -88,6 +89,7 @@ public partial class Main
             case "magma": MagmaScenario(); break;
             case "vault": VaultScenario(); break;
             case "relics": RelicsScenario(); break;
+            case "aegis": AegisScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }

@@ -30,7 +30,7 @@ public partial class Player
 
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
                        HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
-                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072;
+                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : IsOnFloor();
@@ -61,6 +61,7 @@ public partial class Player
         if (ShieldRaised && (_shieldUpT <= PerfectWindowNow || _shieldFlash > 0)) f |= HfPerfect;
         if (BarrierHp > 0.01f) f |= HfBarrier;
         if (_mendLeft > 0) f |= HfMending;
+        if (BubbleHp > 0.01f) f |= HfBubble;
         if (Stats.Frostbolt) f |= HfFrost;
         if (Hidden) f |= HfHidden;
         if (_thrown[0] != null) f |= HfDagger0Out;
@@ -74,7 +75,7 @@ public partial class Player
         w.HVec(ShieldDir);
         w.Byte((byte)(Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1) * 255));
         w.Byte((byte)(Math.Clamp(_castGlow, 0, 1) * 255));
-        w.Byte(LastCast switch { "drain" => 1, "hex" => 2, "heal" => 3, "rupture" => 4, _ => 0 });
+        w.Byte(LastCast switch { "drain" => 1, "hex" => 2, "heal" => 3, "rupture" => 4, "barrier" => 5, "burden" => 6, "bubble" => 7, "ward" => 8, _ => 0 });
         w.HVec(CastDir);
         w.Byte((byte)(Math.Clamp(Anim?.FlashAmount ?? 0, 0, 1) * 255));
     }
@@ -97,7 +98,7 @@ public partial class Player
         ShieldDir = r.HVec();
         _netShieldStrength = r.Byte() / 255f;
         _castGlow = Math.Max(_castGlow, r.Byte() / 255f);
-        LastCast = r.Byte() switch { 1 => "drain", 2 => "hex", 3 => "heal", 4 => "rupture", _ => LastCast };
+        LastCast = r.Byte() switch { 1 => "drain", 2 => "hex", 3 => "heal", 4 => "rupture", 5 => "barrier", 6 => "burden", 7 => "bubble", 8 => "ward", _ => LastCast };
         CastDir = r.HVec();
         float flash = r.Byte() / 255f;
         if (flash > _netFlash + 0.3f) Anim?.Flash(flash);

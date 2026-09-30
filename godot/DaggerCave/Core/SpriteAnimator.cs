@@ -20,7 +20,8 @@ public sealed class SpriteSet
     public static SpriteSet Get(string name)
     {
         if (Cache.TryGetValue(name, out var s)) return s;
-        s = Load(name);
+        // (the Aegis shares the Vitalist's clip timings: its body is the 3D model, the sheet only says how long each clip runs)
+        s = Load(name == "aegis" ? "vitalist" : name);
         Cache[name] = s;
         return s;
     }

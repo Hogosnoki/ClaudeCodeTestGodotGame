@@ -125,6 +125,29 @@ public static class Tune
     }
 
     /// <summary>The warden: shortsword, an aimable shield, the Guarded Charge and the shield bash.</summary>
+    /// <summary>
+    /// The Aegis, the support: a ward bolt that hurts, weakens what it strikes (so they hit softer) and mends its caster; a
+    /// barrier, a burden shared, and a bubble for an ally (or, with no ally, for itself). Amounts are shares of the
+    /// receiver's maximum health, scaled by WardMult, so they keep up with the depths.
+    /// </summary>
+    public static class Aegis
+    {
+        public static float StartHp = 70f, MoveMult = 0.98f, JumpMult = 1f;
+        /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
+        public static float ThreatDist = 1.25f;
+        /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal of the damage dealt mends the Aegis.</summary>
+        public static float BoltDamage = 9f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
+        public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0.05f;
+        /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
+        public static float BarrierShare = 0.28f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
+        /// <summary>Shared Burden (the second ability): the ally takes (1 - share) of every blow, the Aegis the rest, for BurdenSeconds. No cooldown beyond a blink.</summary>
+        public static float BurdenShare = 0.2f, BurdenSeconds = 60f, BurdenBlink = 0.4f;
+        /// <summary>Bubble (the dodge button): absorbs BubbleAbsorb of each blow until BubbleShare of the receiver's max health (x WardMult) is absorbed, when it bursts; lasts BubbleSeconds, recharges BubbleCooldown s; the receiver breathes under water meanwhile. With Soothing Burst, the burst heals allies within BurstHealRadius px for BurstHealShare of their max health.</summary>
+        public static float BubbleShare = 0.28f, BubbleAbsorb = 0.5f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.07f, BurstHealRadius = 80f;
+        /// <summary>Hostile Bubble (an alteration): on a creature instead, it takes (1 - WardAbsorb) of every blow while the rest builds; once WardCap has built it bursts for WardBlast, and WardSplash to the creatures round it (all x the Aegis's damage and the depth's threat).</summary>
+        public static float WardAbsorb = 0.5f, WardCap = 10f, WardBlast = 30f, WardSplash = 10f, WardRadius = 64f, WardSeconds = 20f;
+    }
+
     public static class Warden
     {
         /// <summary>Enemies see the Warden as this much closer than he is (x the distance), so he draws the fight.</summary>

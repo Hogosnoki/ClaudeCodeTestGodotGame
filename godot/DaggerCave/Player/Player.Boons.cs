@@ -49,6 +49,7 @@ public partial class Player
     private void TickBoons(float dt)
     {
         if (_barrierT > 0 && (_barrierT -= dt) <= 0) BarrierHp = 0;
+        TickBubble(dt);
         if (_mendLeft > 0)
         {
             float step = Math.Min(dt, _mendLeft);
@@ -65,6 +66,7 @@ public partial class Player
     /// </summary>
     private float Soften(float dmg)
     {
+        dmg = BubbleSoak(dmg);
         if (_mendLeft > 0 && _mendWard > 0f) dmg *= 1f - _mendWard;
         if (BarrierHp <= 0 || dmg <= 0) return dmg;
         float soaked = Math.Min(BarrierHp, dmg);

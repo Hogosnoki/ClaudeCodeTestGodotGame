@@ -484,6 +484,39 @@ public abstract partial class Enemy : CharacterBody2D
         _weakT = Math.Max(_weakT, seconds);
     }
 
+    // ---- the Aegis's hostile bubble: it softens every blow while the rest builds, then bursts
+    private float _wardT, _wardCap, _wardBlast, _wardSplash, _wardSoaked;
+    public bool Warded => _wardT > 0;
+
+    /// <summary>A bubble round it for <paramref name="seconds"/>: it takes half of every blow, the other half building up; once <paramref name="cap"/> has built, the bubble bursts for <paramref name="blast"/> to it and <paramref name="splash"/> to the creatures round it.</summary>
+    public void GiveWard(float cap, float blast, float splash, float seconds)
+    {
+        if (Dead) return;
+        if (Puppet) { _wardT = Math.Max(_wardT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Ward, cap, blast, splash, seconds); return; }
+        _wardT = seconds; _wardCap = cap; _wardBlast = blast; _wardSplash = splash; _wardSoaked = 0;
+        G.Fx.Ring(GlobalPosition, HitRadius * 1.3f, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f);
+        G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 1.4f);
+    }
+
+    /// <summary>The built-up energy lets go.</summary>
+    private void WardBurst()
+    {
+        _wardT = 0;
+        var at = GlobalPosition;
+        HurtFlash = 0.2f;
+        Hp -= _wardBlast;
+        G.Fx.Text(HeadPoint(10f), Mathf.RoundToInt(_wardBlast).ToString() + "!", new Color(0.7f, 1f, 0.92f), 14, 1f);
+        G.Fx.Flash(at, 30, new Color(0.7f, 1f, 0.9f), 0.2f);
+        G.Fx.Ring(at, Tune.Aegis.WardRadius, new Color(0.65f, 1f, 0.92f, 0.9f), 0.35f);
+        G.Fx.Burst(at, new Color(0.7f, 1f, 0.92f), 18, 170, 2.2f, 0.4f, 0);
+        G.Sfx.Play("slam", at, -2, 0.1f, 1.3f);
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e == this || e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(at) > Tune.Aegis.WardRadius + e.HitRadius) continue;
+            e.Hurt(_wardSplash, (e.GlobalPosition - at).Normalized() * 80f, e.GlobalPosition, DamageKind.Raw);
+        }
+    }
+
     /// <summary>For <paramref name="seconds"/>, it moves and acts at <paramref name="slow"/> speed,
     /// takes <paramref name="vulnerability"/> times the damage, and (Withering Hex) rots away
     /// <paramref name="rotDps"/> health a second.</summary>
@@ -505,6 +538,7 @@ public abstract partial class Enemy : CharacterBody2D
     private bool TickAfflictions(float dt)
     {
         if (_weakT > 0) _weakT -= dt;
+        if (_wardT > 0) { _wardT -= dt; if (G.Chance(dt * 3f)) G.Fx.Ring(GlobalPosition, HitRadius * 1.25f, new Color(0.6f, 0.95f, 0.9f, 0.6f), 0.3f); }
         if (_hexT > 0) _hexT -= dt;
         if (_chillT > 0) _chillT -= dt;
         if (_hexT > 0 && _hexRot > 0 && CanBeHit)
@@ -711,6 +745,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Dead || !CanBeHit) return 0;
         Awake = true;
         if (_hexT > 0) dmg *= _hexVuln;
+        if (_wardT > 0) { float soak = dmg * Tune.Aegis.WardAbsorb; dmg -= soak; _wardSoaked += soak; }
         Hp -= dmg;
         HurtFlash = 0.12f;
         // a creature winding up or attacking keeps its pose and its timing: the blow flashes and
@@ -737,6 +772,7 @@ public abstract partial class Enemy : CharacterBody2D
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);
         G.Sfx.Play(HitSound, GlobalPosition, 0, 0.12f);
         OnHurt();
+        if (_wardT > 0 && _wardSoaked >= _wardCap && Hp > 0) WardBurst();
         if (Hp <= 0) Die();
         return dmg;
     }

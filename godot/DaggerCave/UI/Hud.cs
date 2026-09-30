@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -43,6 +44,7 @@ public partial class Hud : Control
         HeroKind.Vitalist => new Color(0.5f, 1f, 0.45f),
         HeroKind.Elementalist => new Color(0.8f, 0.58f, 1f),
         HeroKind.Rogue => new Color(1f, 0.84f, 0.32f),
+        HeroKind.Aegis => new Color(0.4f, 0.95f, 0.85f),
         _ => new Color(0.95f, 0.45f, 0.35f),
     };
 
@@ -140,6 +142,7 @@ public partial class Hud : Control
             case HeroKind.Vitalist: DrawVitalistGauges(font, p, ab); break;
             case HeroKind.Elementalist: DrawElementalistGauges(font, p, ab); break;
             case HeroKind.Rogue: DrawRogueGauges(font, p, ab); break;
+            case HeroKind.Aegis: DrawAegisGauges(font, p, ab); break;
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
@@ -254,6 +257,12 @@ public partial class Hud : Control
                     move,
                     $"{atk} swing (hold to keep swinging) · {a1} Guarded Charge (breaks off attacks it meets) · {a2} shield bash (stuns all in front) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
                     "The shield stops every blow, and what breaks it is stunned; raise it just before the hit for a perfect block · " + pause,
+                },
+                HeroKind.Aegis => new[]
+                {
+                    move,
+                    $"{atk} ward bolt (hold to keep casting{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {a1} barrier · {a2} share a burden · {dg} bubble · barrier, burden and bubble go to the friend you aim at (or to you)",
+                    "The bolt hurts, weakens what it bursts on, and mends you · the bubble lets its wearer breathe under water · " + pause,
                 },
                 HeroKind.Rogue => new[]
                 {
@@ -589,6 +598,44 @@ public partial class Hud : Control
     public static readonly Color AlimusColor = new(0.72f, 0.55f, 1f);
 
     /// <summary>The updraft (a dial), the blizzard and the snap (squares), and the alimus reserve.</summary>
+    private void DrawAegisGauges(Font font, Player p, Vector2 ab)
+    {
+        var teal = HeroColor(HeroKind.Aegis);
+        var gold = new Color(1f, 0.88f, 0.5f);
+        // the bubble (dodge button): a ring with a glint
+        Dial(ab + new Vector2(17, 17), p.BubbleCooldownFrac, teal);
+        DrawString(font, ab + new Vector2(0, -6), p.Stats.HostileBubble ? "WARD" : "BUBBLE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawArc(ab + new Vector2(17, 17), 8, 0, Mathf.Tau, 16, p.BubbleCooldownFrac <= 0 ? new Color(teal, 0.9f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
+        DrawArc(ab + new Vector2(17, 17), 5, 3.6f, 4.8f, 6, p.BubbleCooldownFrac <= 0 ? new Color(1, 1, 1, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.2f);
+        KeyHint(font, ab, "dodge");
+
+        var bb = ab + new Vector2(62, 0);
+        AbilitySquare(font, bb, "BARRIER", p.AbilityCooldownFrac, p.AbilityChargeReady, new Color(0.75f, 0.92f, 1f), (c, col) =>
+        {
+            // a shield-shaped ward
+            DrawColoredPolygon(new[] { c + new Vector2(-9, -9), c + new Vector2(9, -9), c + new Vector2(9, 1), c + new Vector2(0, 11), c + new Vector2(-9, 1) }, col);
+            DrawColoredPolygon(new[] { c + new Vector2(-5, -5), c + new Vector2(5, -5), c + new Vector2(5, 0), c + new Vector2(0, 6), c + new Vector2(-5, 0) }, new Color(0, 0, 0, 0.35f));
+        });
+        UsePips(bb, p, new Color(0.75f, 0.92f, 1f));
+        KeyHint(font, bb, "ability");
+
+        var sb = bb + new Vector2(60, 0);
+        var carried = p.BurdenTarget;
+        string lab = carried != null ? $"BURDEN {Mathf.CeilToInt(p.BurdenLeft)}s" : "BURDEN";
+        AbilitySquare(font, sb, lab, carried != null ? Math.Clamp(1f - p.BurdenLeft / Math.Max(1f, p.Stats.BurdenSeconds), 0f, 1f) : 0f, true, gold, (c, col) =>
+        {
+            // two links of a chain
+            DrawArc(c + new Vector2(-4, 0), 6, 0, Mathf.Tau, 14, col, 2.2f);
+            DrawArc(c + new Vector2(4, 0), 6, 0, Mathf.Tau, 14, col, 2.2f);
+        });
+        KeyHint(font, sb, "ability2");
+        if (carried != null)
+        {
+            string who = Net.Peers.Values.FirstOrDefault(pr => pr.Avatar == carried)?.Name ?? "an ally";
+            DrawString(font, sb + new Vector2(56, 20), "carrying " + (p.BurdenCount > 1 ? $"{p.BurdenCount} friends" : who), HorizontalAlignment.Left, -1, 11, new Color(gold, 0.85f));
+        }
+    }
+
     private void DrawElementalistGauges(Font font, Player p, Vector2 ab)
     {
         var air = new Color(0.8f, 0.94f, 1f);

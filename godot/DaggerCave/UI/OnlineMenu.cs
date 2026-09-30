@@ -18,9 +18,9 @@ public partial class OnlineMenu : Control
     private Label _title, _status, _code1, _code2, _code3, _router, _players, _wait, _mismatch;
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
     private Button _host, _start, _leave;
-    private readonly Button[] _cards = new Button[5];
-    private readonly Label[] _cardNote = new Label[5];
-    private readonly HeroPortrait[] _portraits = new HeroPortrait[5];
+    private readonly Button[] _cards = new Button[6];
+    private readonly Label[] _cardNote = new Label[6];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[6];
     private string _note = "";
     private bool _wasOnline;
     private CheckBox _scaleOn, _hard;
@@ -34,6 +34,7 @@ public partial class OnlineMenu : Control
         (HeroKind.Vitalist, "Vitalist", "vitalist"),
         (HeroKind.Elementalist, "Elementalist", "elementalist"),
         (HeroKind.Rogue, "Rogue", "rogue"),
+        (HeroKind.Aegis, "Aegis", "aegis"),
     };
 
     public override void _Ready()
@@ -51,7 +52,7 @@ public partial class OnlineMenu : Control
         _choose = new VBoxContainer();
         _choose.AddThemeConstantOverride("separation", 14);
         col.AddChild(_choose);
-        _choose.AddChild(UiKit.Label("Up to five players, one of each hero. One of you hosts; the others join with the host's code.", 15, UiKit.Dim, HorizontalAlignment.Center));
+        _choose.AddChild(UiKit.Label("Up to six players, one of each hero. One of you hosts; the others join with the host's code.", 15, UiKit.Dim, HorizontalAlignment.Center));
 
         var nameRow = Row(_choose);
         nameRow.AddChild(Fixed(UiKit.Label("Your name", 16), 150));
@@ -136,10 +137,10 @@ public partial class OnlineMenu : Control
         for (int k = 0; k < Heroes.Length; k++)
         {
             var (kind, name, design) = Heroes[k];
-            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(150, 200) };
+            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(126, 200) };
             AddChild(portrait);
             _portraits[k] = portrait;
-            var card = new Button { CustomMinimumSize = new Vector2(166, 214), FocusMode = FocusModeEnum.All };
+            var card = new Button { CustomMinimumSize = new Vector2(140, 214), FocusMode = FocusModeEnum.All };
             card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); };
             var v = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             v.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
