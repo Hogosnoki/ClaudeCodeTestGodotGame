@@ -341,6 +341,7 @@ public partial class Main : Node
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
             else if (a == "--chesttest") _chestTest = true;
+            else if (a == "--elemrow") _elemRow = true;
             else if (a == "--elementtest") _elementTest = true;
             else if (a == "--roguetest") _rogueLook = true;
             else if (a == "--exittest") _exitTest = true;
@@ -410,7 +411,7 @@ public partial class Main : Node
     private bool _exitTest;
 
     private int _fxTest;
-    private bool _propTest, _elementTest, _rogueLook, _chestTest;
+    private bool _propTest, _elementTest, _rogueLook, _chestTest, _elemRow;
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
     /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
@@ -540,6 +541,21 @@ public partial class Main : Node
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
         if (_chestTest && _lookFrame == 2) SpawnChestTest();
+        if (_elemRow && _lookFrame == 2)
+        {
+            // Test aid (--elemrow, with --lookshot): the five elementals side by side, held still, a goblin for scale
+            var at = G.Player.GlobalPosition;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            var row = new Enemy[] { new Goblin(), new WaterElemental(), new EarthElemental(), new FrostElemental(), new NatureElemental(), new FireElemental() };
+            for (int k = 0; k < row.Length; k++)
+            {
+                var fl = G.Cave.FindFloor(at + new Vector2(-130 + k * 42, -40), 200, out var f) ? f : at;
+                row[k].Position = fl + new Vector2(0, -20);
+                row[k].SetMeta("test", true);
+                _world.AddChild(row[k]);
+                row[k].Freeze(99f, hold: true);
+            }
+        }
         if (_elementTest && _lookFrame == 2) SpawnElementTest();
         if (_rogueLook && _lookFrame == 2) SpawnRogueLook();
         if (_exitTest && _lookFrame == 2) SpawnExitTest();
@@ -1129,6 +1145,10 @@ public partial class Main : Node
             choices = chest.Cards.Select(Upgrades.Find).Where(u => u != null).ToList();
             // (online, a card may be a friend's: shown, but theirs to take)
             locks = choices.Select(u => Upgrades.LockReason(u, p.Stats)).ToList();
+            // a relic is its finder's alone: the others may see it, never take it
+            if (chest.RelicFor != 0 && chest.RelicFor != Net.Me)
+                for (int k = 0; k < choices.Count; k++)
+                    if (choices[k].Relic && locks[k] == null) locks[k] = "MEANT FOR " + Net.NameOf(chest.RelicFor);
             choices.Add(Upgrades.LeaveChest);
             locks.Add(null);
         }

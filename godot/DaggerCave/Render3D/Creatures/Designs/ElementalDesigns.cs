@@ -537,10 +537,10 @@ public sealed class FireElementalDesign : ElementalBiped
 // ============================================================================ water
 
 /// <summary>
-/// The Water Elemental: a great drop of water for a body with a smaller drop above it and a
-/// smaller one still for a head, blobs of water for arms, and droplets of every size circling it.
-/// It floats; the drops orbit on bones of their own, tightening in as it gathers to spit and
-/// scattering outward as it lets go.
+/// The Water Elemental: one great drop of water, round at the bottom and drawn up to a soft point,
+/// with two bright eyes pressed into its face. No arms, no orbiting drops: the plain outline is what
+/// reads. It floats, swells and settles; it gathers itself (squashing down, swelling wide) to spit,
+/// and springs tall as it lets go.
 /// </summary>
 public sealed class WaterElementalDesign : CreatureDesign
 {
@@ -548,68 +548,37 @@ public sealed class WaterElementalDesign : CreatureDesign
     public override float Cell => 0.014f;
     public override float ThreeQuarter => 22f;
     public override float FloorY => -0.75f;
-    private const int Drops = 7;
 
     public override CreatureLook Look => new()
     {
         Eye = new Color(0.9f, 1f, 1f), EyeEnergy = 3f,
         Glow = new Color(0.3f, 0.6f, 1f), GlowEnergy = 0.5f,
-        Rim = new Color(0.6f, 0.85f, 1f), RimEnergy = 0.4f,
-        DetailScale = 10f, DetailStrength = 0.3f, Wet = 1f,
+        Rim = new Color(0.6f, 0.85f, 1f), RimEnergy = 0.55f,
+        DetailScale = 10f, DetailStrength = 0.25f, Wet = 1f,
         LightColor = new Color(0.45f, 0.75f, 1f), LightEnergy = 0.4f, LightRange = 2.8f, LightOffset = new Vector3(0.1f, 0.1f, 0),
     };
 
-    private int _hips, _body, _head;
-    private readonly int[] _arm = new int[2], _drop = new int[Drops];
+    private int _hips, _body;
 
     protected override void OnBonesBound()
     {
-        _hips = B("hips"); _body = B("body"); _head = B("head");
-        _arm[0] = B("arm_r"); _arm[1] = B("arm_l");
-        for (int k = 0; k < Drops; k++) _drop[k] = B("drop" + k);
+        _hips = B("hips"); _body = B("body");
     }
 
     public override void Sculpt(Sculptor s)
     {
-        var water = new Color(0.16f, 0.42f, 0.8f);
-        var deep = new Color(0.08f, 0.26f, 0.6f);
-        var pale = new Color(0.4f, 0.7f, 0.95f);
+        var water = new Color(0.18f, 0.46f, 0.85f);
+        var deep = new Color(0.1f, 0.3f, 0.66f);
+        var pale = new Color(0.45f, 0.75f, 0.97f);
         int hips = s.Bone("hips", -1, new(0, -0.3f, 0));
         int body = s.Bone("body", hips, new(0, -0.05f, 0));
-        int head = s.Bone("head", body, new(0.02f, 0.3f, 0));
-        int ar = s.Bone("arm_r", body, new(0, 0.12f, 0.28f));
-        int al = s.Bone("arm_l", body, new(0, 0.12f, -0.28f));
-        var rng = s.Rng;
-
-        // the great drop at the bottom, a smaller one above, a head-drop on that
-        s.Egg(hips, new(0, -0.3f, 0), new(0.34f, 0.3f, 0.34f), deep, Mat.Slime, 0.06f).Emit = 0.2f;
-        s.Egg(body, new(0.0f, 0.05f, 0), new(0.28f, 0.26f, 0.28f), water, Mat.Slime, 0.07f).Emit = 0.25f;
-        s.Ball(head, new(0.03f, 0.3f, 0), 0.16f, pale, Mat.Slime, 0.06f).Emit = 0.25f;
-        // a face pressed into it: two bright eyes
+        // the drop: a full round belly, blended up into a soft tip (paler toward the top, where the light comes through)
+        s.Egg(hips, new(0, -0.22f, 0), new(0.5f, 0.46f, 0.5f), deep, Mat.Slime, 0.1f).Emit = 0.1f;
+        s.Egg(body, new(0, 0.22f, 0), new(0.38f, 0.36f, 0.38f), water, Mat.Slime, 0.2f).Emit = 0.06f;
+        s.Egg(body, new(0, 0.5f, 0), new(0.14f, 0.24f, 0.14f), pale, Mat.Slime, 0.22f).Emit = 0.05f;
+        // a face pressed into its front: two bright eyes
         foreach (int sd in new[] { 1, -1 })
-            s.Eye(head, new(0.16f, 0.33f, 0.06f * sd), 0.03f, new Color(0.95f, 1f, 1f), 1f);
-        // arms: swollen blobs of water on a thread of it
-        for (int k = 0; k < 2; k++)
-        {
-            float z = k == 0 ? 1 : -1;
-            int a = k == 0 ? ar : al;
-            s.Egg(a, new(0, 0.05f, 0.34f * z), new(0.1f, 0.15f, 0.1f), water, Mat.Slime, 0.05f).Emit = 0.25f;
-            s.Limb(a, new(0, 0.02f, 0.36f * z), new(0.05f, -0.16f, 0.42f * z), 0.06f, 0.05f, water, Mat.Slime, 0.05f).Emit = 0.25f;
-            s.Ball(a, new(0.06f, -0.24f, 0.44f * z), 0.1f, pale, Mat.Slime, 0.05f).Emit = 0.25f;
-        }
-        // droplets circling it, each on a bone at the middle of it so it can orbit
-        for (int k = 0; k < Drops; k++)
-        {
-            float r = 0.5f + 0.1f * (float)rng.NextDouble();
-            float y = -0.15f + 0.6f * k / (Drops - 1f);
-            int d = s.Bone("drop" + k, body, new(0, y, 0));
-            float size = 0.04f + 0.05f * (float)rng.NextDouble();
-            // (rigid: skinned to its own bone alone, so it can orbit without smearing into the body)
-            var mb = new MeshBuilder();
-            DecorMeshes.AddSphere(mb, new(r, y, 0), size, k % 2 == 0 ? pale : water, 8);
-            if (k % 3 == 0) DecorMeshes.AddSphere(mb, new(r * 0.9f, y + 0.09f, 0.05f), size * 0.5f, pale, 6);
-            s.Rigid(d, mb, Mat.Slime, 0.35f);
-        }
+            s.Eye(body, new(0.39f, -0.02f, 0.17f * sd), 0.075f, new Color(0.95f, 1f, 1f), 1f);
     }
 
     public override void Animate(CreaturePose p, in AnimInput a)
@@ -619,33 +588,23 @@ public sealed class WaterElementalDesign : CreatureDesign
         float speed = MathF.Sqrt(a.Vel.X * a.Vel.X + a.Vel.Y * a.Vel.Y);
         float move = W3.SmoothStep(0.2f, 3f, speed);
         // it floats and swells and settles, leaning into its way
-        float bob = MathF.Sin(time * 2.2f) * 0.03f;
+        float bob = MathF.Sin(time * 2.2f) * 0.04f;
+        float swell = 0.05f * MathF.Sin(time * 3f);
         p.Move(_hips, new Vector3(0, bob, 0));
-        p.Grow(_body, new Vector3(1f + 0.05f * MathF.Sin(time * 3f), 1f - 0.05f * MathF.Sin(time * 3f), 1f + 0.05f * MathF.Sin(time * 3f)));
-        p.Set(_body, 0, 0, -10f * move);
-        p.Set(_head, 0, 0, 6f * move - 4f * MathF.Sin(time * 1.8f));
+        p.Set(_body, 0, 0, -8f * move);
         p.Glow = 1f;
-        float orbit = 1f, spin = 1f, spread = 1f, squash = 1f;
+        // squash: below 1 is squat and wide, above 1 tall and narrow
+        float squash = 1f;
         switch (c)
         {
-            case "slam_windup": { float k = W3.Smooth01(t); spin = 1f + 2.5f * k; spread = 1f - 0.4f * k; squash = 1f - 0.15f * k; p.Glow = 1f + 1.2f * k; break; }
-            case "slam": { float k = W3.Smooth01(Math.Min(1f, t * 3f)); spin = 3.5f - 2.5f * t; spread = 0.6f + 0.9f * k; squash = 0.85f + 0.2f * k; p.Glow = 2f - t; break; }
-            case "recover": spread = 1.4f - 0.4f * W3.Smooth01(t); break;
-            case "hurt": { float k = Key(t, (0, 0), (0.2f, 1), (1, 0)); squash = 1f - 0.2f * k; spread = 1f + 0.5f * k; p.Glow = 2f; break; }
-            case "death": { float k = W3.Smooth01(t); spread = 1f + 1.5f * k; squash = 1f - 0.7f * k; orbit = 1f - k; p.Glow = 1f - 0.8f * k; p.Move(_hips, new Vector3(0, -0.2f * k, 0)); break; }
+            case "slam_windup": { float k = W3.Smooth01(t); squash = 1f - 0.22f * k; p.Glow = 1f + 1.2f * k; break; }
+            case "slam": { float k = W3.Smooth01(Math.Min(1f, t * 3f)); squash = 0.78f + 0.45f * k - 0.2f * t; p.Glow = 2f - t; break; }
+            case "recover": squash = 1.1f - 0.1f * W3.Smooth01(t); break;
+            case "hurt": { float k = Key(t, (0, 0), (0.2f, 1), (1, 0)); squash = 1f - 0.2f * k; p.Glow = 2f; break; }
+            case "death": { float k = W3.Smooth01(t); squash = 1f - 0.75f * k; p.Glow = 1f - 0.8f * k; p.Move(_hips, new Vector3(0, -0.2f * k, 0)); break; }
         }
-        p.Grow(_hips, new Vector3(1f + (1f - squash) * 0.6f, squash, 1f + (1f - squash) * 0.6f));
-        for (int k = 0; k < Drops; k++)
-        {
-            float ang = time * spin * (1.1f + 0.18f * k) * (k % 2 == 0 ? 1f : -0.8f) + k * 2.4f;
-            p.Set(_drop[k], 8f * MathF.Sin(time * 1.3f + k), Mathf.RadToDeg(ang), 0);
-            p.Grow(_drop[k], Math.Max(0.02f, spread * orbit));
-        }
-        for (int k = 0; k < 2; k++)
-        {
-            float z = k == 0 ? 1f : -1f;
-            p.Set(_arm[k], 0, 0, 12f * MathF.Sin(time * 2f + k * 1.7f) + (c == "slam_windup" ? 50f * W3.Smooth01(t) : 0f) - (c == "slam" ? 45f * W3.Smooth01(t) : 0f));
-            p.Add(_arm[k], 6f * z * MathF.Sin(time * 1.5f), 0, 0);
-        }
+        float wide = 1f + (1f - squash) * 0.7f;
+        p.Grow(_body, new Vector3(wide * (1f + swell), squash * (1f - swell), wide * (1f + swell)));
+        p.Grow(_hips, new Vector3(wide, squash, wide));
     }
 }

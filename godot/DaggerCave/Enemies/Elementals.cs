@@ -97,7 +97,7 @@ public abstract partial class ElementalWalker : Walker
 public partial class EarthElemental : ElementalWalker
 {
     public override Element Element => Element.Earth;
-    public EarthElemental() { MaxHp = Tune.Elementals.Earth.Hp; BodyRadius = 14; ContactDamage = Tune.Elementals.Earth.Contact; XpValue = Tune.Elementals.Earth.Xp; KnockResist = 0.75f; }
+    public EarthElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Earth.Hp; BodyRadius = 14; ContactDamage = Tune.Elementals.Earth.Contact; XpValue = Tune.Elementals.Earth.Xp; KnockResist = 0.75f; }
     protected override void Setup() { DisplayName = "Earth Elemental"; base.Setup(); }
     protected override string Set => "elem_earth";
     protected override float WalkSpeed => Tune.Elementals.Earth.Speed;
@@ -128,7 +128,7 @@ public partial class EarthElemental : ElementalWalker
 public partial class FrostElemental : ElementalWalker
 {
     public override Element Element => Element.Frost;
-    public FrostElemental() { MaxHp = Tune.Elementals.Frost.Hp; BodyRadius = 15; ContactDamage = Tune.Elementals.Frost.Contact; XpValue = Tune.Elementals.Frost.Xp; KnockResist = 0.6f; }
+    public FrostElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Frost.Hp; BodyRadius = 15; ContactDamage = Tune.Elementals.Frost.Contact; XpValue = Tune.Elementals.Frost.Xp; KnockResist = 0.6f; }
     protected override void Setup() { DisplayName = "Frost Elemental"; base.Setup(); }
     protected override string Set => "elem_frost";
     protected override float WalkSpeed => Tune.Elementals.Frost.Speed;
@@ -161,7 +161,7 @@ public partial class NatureElemental : ElementalWalker
     public override Element Element => Element.Nature;
     private float _sinceHit = 9f;
 
-    public NatureElemental() { MaxHp = Tune.Elementals.Nature.Hp; BodyRadius = 13; ContactDamage = Tune.Elementals.Nature.Contact; XpValue = Tune.Elementals.Nature.Xp; }
+    public NatureElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Nature.Hp; BodyRadius = 13; ContactDamage = Tune.Elementals.Nature.Contact; XpValue = Tune.Elementals.Nature.Xp; }
     protected override void Setup() { DisplayName = "Nature Elemental"; base.Setup(); }
     protected override string Set => "elem_nature";
     protected override float WalkSpeed => Tune.Elementals.Nature.Speed;
@@ -198,7 +198,7 @@ public partial class NatureElemental : ElementalWalker
 public partial class FireElemental : ElementalWalker
 {
     public override Element Element => Element.Fire;
-    public FireElemental() { MaxHp = Tune.Elementals.Fire.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Fire.Contact; XpValue = Tune.Elementals.Fire.Xp; }
+    public FireElemental() { Size = Tune.Elementals.Scale; MaxHp = Tune.Elementals.Fire.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Fire.Contact; XpValue = Tune.Elementals.Fire.Xp; }
     protected override void Setup() { DisplayName = "Fire Elemental"; base.Setup(); }
     protected override string Set => "elem_fire";
     protected override float WalkSpeed => Tune.Elementals.Fire.Speed;
@@ -243,7 +243,7 @@ public partial class WaterElemental : Enemy
 
     protected override bool UsesGravity => false;
 
-    public WaterElemental() { MaxHp = Tune.Elementals.Water.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Water.Contact; XpValue = Tune.Elementals.Water.Xp; }
+    public WaterElemental() { Size = Tune.Elementals.ScaleWater; MaxHp = Tune.Elementals.Water.Hp; BodyRadius = 12; ContactDamage = Tune.Elementals.Water.Contact; XpValue = Tune.Elementals.Water.Xp; }
 
     protected override void Setup()
     {

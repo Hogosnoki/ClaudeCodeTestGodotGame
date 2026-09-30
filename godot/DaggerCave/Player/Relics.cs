@@ -20,8 +20,12 @@ public static class RunRelics
     public static void Take(string id)
     {
         Note(Net.Me, id);
-        NetSync.SendRelic(id);
+        // (a relic is its bearer's alone: only the few that change the world, or the chests, are told to the others)
+        if (Worldly.Contains(id)) NetSync.SendRelic(id);
     }
+
+    /// <summary>The relics whose effect reaches everyone (how the caves are built, the road to the dragon) or decides the party's chests.</summary>
+    private static readonly HashSet<string> Worldly = new() { "relic_deeper", "relic_shortcut", "relic_locksmith", "relic_treasure", "relic_prodigy" };
 
     public static void Note(int peer, string id)
     {

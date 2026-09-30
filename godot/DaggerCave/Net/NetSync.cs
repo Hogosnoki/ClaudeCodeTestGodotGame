@@ -843,7 +843,7 @@ public static class NetSync
         int id = IdOf(c);
         if (id == 0) return;
         var w = new NetOut(Net.Msg.ChestCards);
-        w.Int(id).Str(string.Join(",", c.Cards));
+        w.Int(id).Str(string.Join(",", c.Cards)).Int(c.RelicFor);
         Net.SendAll(w, true);
     }
 
@@ -851,8 +851,9 @@ public static class NetSync
     {
         int id = r.Int();
         string cards = r.Str();
+        int relicFor = r.Int();
         var c = ChestById(id);
-        if (c != null && !c.Open && cards != "") c.Cards = cards.Split(',');
+        if (c != null && !c.Open && cards != "") { c.Cards = cards.Split(','); c.RelicFor = relicFor; }
     }
 
     /// <summary>This game's hero took a card (the chest is spent) or left it (it closes again).</summary>

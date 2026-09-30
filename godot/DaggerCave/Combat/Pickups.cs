@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -197,6 +198,8 @@ public partial class Chest : Node2D, IBreakable
     public ChestTier Tier;
     /// <summary>Online: the player whose chest this is (0 = anyone's). They alone may look in it, until they look and leave it: then it's the party's.</summary>
     public int Owner;
+    /// <summary>Online: whose relic the chest holds (a relic is its finder's alone; the others can look, not take). 0 = none.</summary>
+    public int RelicFor;
     /// <summary>Strung up in a web from the ceiling until something cuts it; then it falls and tumbles.</summary>
     public bool Hung;
     /// <summary>Where it lands (set when hung), and how it's falling.</summary>
@@ -294,6 +297,7 @@ public partial class Chest : Node2D, IBreakable
             var party = Net.Online && Owner == 0 ? NetSync.PartyHeroes() : null;
             Cards = Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
                           : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition, relic: Tier == ChestTier.Relic);
+            if (Cards.Any(id => Upgrades.Find(id)?.Relic == true)) RelicFor = Net.Me;
             NetSync.ChestCards(this);
         }
         G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.3f);

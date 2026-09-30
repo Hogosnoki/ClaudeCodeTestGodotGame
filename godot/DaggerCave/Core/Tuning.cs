@@ -576,6 +576,8 @@ public static class Tune
     /// </summary>
     public static class Elementals
     {
+        /// <summary>How big the elementals stand (x; the water drop a little more).</summary>
+        public static float Scale = 1.3f, ScaleWater = 1.4f;
         public static class Earth { public static float Hp = 80, Contact = 11, Speed = 38, Damage = 13, Cooldown = 3.4f; public static int Xp = 12; }
         public static class Frost { public static float Hp = 85, Contact = 10, Speed = 40, Damage = 7, Cooldown = 3.0f; public static int Xp = 13; }
         public static class Nature { public static float Hp = 62, Contact = 9, Speed = 52, Damage = 6, Cooldown = 2.4f, RegenPerSec = 0.04f; public static int Xp = 10; }
