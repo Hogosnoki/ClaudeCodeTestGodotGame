@@ -167,7 +167,7 @@ public static class Tune
         /// <summary>The shield's strength and regeneration scale with the Warden's health: its strength is ShieldHpShare of his
         /// maximum health (the shield soaks twice that), it regenerates ShieldRegenShare of it a second, and a bash costs
         /// BashShieldShare of it.</summary>
-        public static float ShieldHpShare = 0.22f, ShieldRegenShare = 0.016f, BashShieldShare = 0.5f;
+        public static float ShieldHpShare = 0.22f, ShieldRegenShare = 0.009f, BashShieldShare = 0.5f;
         /// <summary>
         /// Share of a blow the raised shield stops (all of it), and how much of the stopped damage
         /// the shield itself loses (half: its 40 points soak 80). Once it runs out, the rest of
@@ -334,9 +334,9 @@ public static class Tune
         /// creature to fly at as it leaves the staff. In flight a bolt homes: BoltTurnDegrees a
         /// second toward the creature nearest its heading, one within BoltSeekDegrees either side of it.
         /// </summary>
-        public static float FireDamage = 14f, FireEvery = 0.55f, FireCost = 1.1f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
+        public static float FireDamage = 28f, FireEvery = 1.1f, FireCost = 2.2f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
-        public static float IgniteChance = 0.2f, IgniteDps = 4f, IgniteSeconds = 4f;
+        public static float IgniteChance = 0.4f, IgniteDps = 4f, IgniteSeconds = 4f;
         /// <summary>Frostbolt (an alteration): FrostDamage every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
@@ -442,8 +442,8 @@ public static class Tune
         /// <summary>Scales how far enemies move: their speed, gravity and jump speed together
         /// (0.8 = 20% slower, same jump timing, 20% lower jumps). Aimed leaps compensate.</summary>
         public static float EnemyMoveScale = 0.8f;
-        /// <summary>Party scaling (the lobby's 1.0-3.0 meter; its default is 2.0): each extra player, per meter step above 1, adds this much enemy health and damage.</summary>
-        public static float PartyScaleDefault = 2f, PartyHpPerStep = 1f, PartyDamagePerStep = 0.2f;
+        /// <summary>How much of the difficulty strength enemy damage takes (health takes all of it).</summary>
+        public static float DamageShare = 0.2f;
         /// <summary>Hard Mode: enemy health and damage multipliers on top of everything else.</summary>
         public static float HardHp = 2f, HardDamage = 1.5f;
     }
@@ -482,6 +482,8 @@ public static class Tune
     {
         /// <summary>Share of resident spawn points that hold enemies at the start (plus FillPerDepth per
         /// level of depth), rising to 100% by FillMinutes.</summary>
+        /// <summary>How much of the old crowd there is: residents, the cap and the entrance waves (the caves are for exploring).</summary>
+        public static float SpawnShare = 0.3f, WaveGapMult = 2.5f;
         public static float ResidentFillStart = 0.18f, ResidentFillPerDepth = 0.05f, ResidentFillMinutes = 22f;
         /// <summary>Residents are created this far away at most, and only when off-camera.</summary>
         public static float ResidentMaxDistance = 720f;
@@ -558,7 +560,11 @@ public static class Tune
     /// <summary>Every creature's health at spawn is its own Hp times this (before depth and party scaling).</summary>
     public static class Enemy
     {
-        public static float BaseHpMult = 2f;
+        public static float BaseHpMult = 3f;
+        /// <summary>Experience per kill (there are far fewer creatures about now).</summary>
+        public static float XpMult = 3f;
+        /// <summary>Bosses and guardians grow with depth and time by this power of the usual curve (deep ones took too long to fight).</summary>
+        public static float BossGrowthPower = 0.7f;
     }
 
     public static class Elite

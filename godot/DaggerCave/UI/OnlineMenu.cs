@@ -23,9 +23,9 @@ public partial class OnlineMenu : Control
     private readonly HeroPortrait[] _portraits = new HeroPortrait[6];
     private string _note = "";
     private bool _wasOnline;
-    private CheckBox _scaleOn, _hard;
-    private HSlider _scale;
-    private Label _scaleLabel;
+    private CheckBox _hard;
+    private HSlider _diff, _perPlayer;
+    private Label _diffLabel, _perLabel, _strengthLabel;
 
     private static readonly (HeroKind kind, string name, string design)[] Heroes =
     {
@@ -117,15 +117,22 @@ public partial class OnlineMenu : Control
         _lobby.AddChild(_mismatch);
 
         // the run's difficulty (the host's to set; everyone sees it)
-        var scaleRow = Row(_lobby);
-        _scaleOn = new CheckBox { Text = "Scale difficulty with players", TooltipText = "Enemies get tougher with each extra player: health and damage grow by the meter's amount." };
-        _scaleOn.Toggled += on => { RunSettings.ScaleWithPlayers = on; Net.SettingsChanged(); Refresh(); };
-        scaleRow.AddChild(Fixed(_scaleOn, 300));
-        _scale = new HSlider { MinValue = 1, MaxValue = 3, Step = 0.05, CustomMinimumSize = new Vector2(260, 28), SizeFlagsVertical = SizeFlags.ShrinkCenter };
-        _scale.ValueChanged += v => { RunSettings.Scale = (float)v; Net.SettingsChanged(); Refresh(); };
-        scaleRow.AddChild(_scale);
-        _scaleLabel = UiKit.Label("", 14, UiKit.Dim);
-        scaleRow.AddChild(_scaleLabel);
+        var diffRow = Row(_lobby);
+        diffRow.AddChild(Fixed(UiKit.Label("Difficulty", 16), 300));
+        _diff = new HSlider { MinValue = RunSettings.DifficultyMin, MaxValue = RunSettings.DifficultyMax, Step = 0.05, CustomMinimumSize = new Vector2(260, 28), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        _diff.ValueChanged += v => { RunSettings.Difficulty = (float)v; Net.SettingsChanged(); Refresh(); };
+        diffRow.AddChild(_diff);
+        _diffLabel = UiKit.Label("", 14, UiKit.Dim);
+        diffRow.AddChild(_diffLabel);
+        var perRow = Row(_lobby);
+        perRow.AddChild(Fixed(UiKit.Label("Per-player difficulty", 16), 300));
+        _perPlayer = new HSlider { MinValue = RunSettings.PerPlayerMin, MaxValue = RunSettings.PerPlayerMax, Step = 0.05, CustomMinimumSize = new Vector2(260, 28), SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        _perPlayer.ValueChanged += v => { RunSettings.PerPlayer = (float)v; Net.SettingsChanged(); Refresh(); };
+        perRow.AddChild(_perPlayer);
+        _perLabel = UiKit.Label("", 14, UiKit.Dim);
+        perRow.AddChild(_perLabel);
+        _strengthLabel = UiKit.Label("", 14, UiKit.Gold);
+        _lobby.AddChild(_strengthLabel);
         var hardRow = Row(_lobby);
         _hard = new CheckBox { Text = "Hard Mode: enemies far tougher", TooltipText = "Doubles enemy health and raises their damage by half, on top of everything else." };
         _hard.Toggled += on => { RunSettings.Hard = on; Net.SettingsChanged(); Refresh(); };
@@ -325,15 +332,14 @@ public partial class OnlineMenu : Control
             _cardNote[k].AddThemeColorOverride("font_color", mine ? UiKit.Gold : UiKit.Dim);
             _portraits[k].Playing = mine;
         }
-        _scaleOn.SetPressedNoSignal(RunSettings.ScaleWithPlayers);
-        _scale.SetValueNoSignal(RunSettings.Scale);
+        _diff.SetValueNoSignal(RunSettings.Difficulty);
+        _perPlayer.SetValueNoSignal(RunSettings.PerPlayer);
         _hard.SetPressedNoSignal(RunSettings.Hard);
-        _scaleOn.Disabled = !Net.IsHost;
-        _scale.Editable = Net.IsHost && RunSettings.ScaleWithPlayers;
+        _diff.Editable = _perPlayer.Editable = Net.IsHost;
         _hard.Disabled = !Net.IsHost;
-        int extra = Math.Max(0, Net.Count - 1);
-        _scaleLabel.Text = !RunSettings.ScaleWithPlayers ? "no scaling"
-            : $"x{RunSettings.Scale:0.00}   ·   +{(RunSettings.Scale - 1) * 100:0}% health, +{(RunSettings.Scale - 1) * 20:0}% damage per extra player" + (extra > 0 ? $"  (now x{RunSettings.HpMult / (RunSettings.Hard ? Tune.Difficulty.HardHp : 1f):0.0#} / x{RunSettings.DmgMult / (RunSettings.Hard ? Tune.Difficulty.HardDamage : 1f):0.0#})" : "");
+        _diffLabel.Text = $"x{RunSettings.Difficulty:0.00}";
+        _perLabel.Text = $"x{RunSettings.PerPlayer:0.00}  each";
+        _strengthLabel.Text = $"{RunSettings.Difficulty:0.##} x ({Math.Max(1, Net.Count)} players x {RunSettings.PerPlayer:0.##})  =  enemies x{RunSettings.HpMult:0.0#} health, x{RunSettings.DmgMult:0.0#} damage";
         _start.Visible = Net.IsHost;
         _start.Disabled = !Net.AllPicked;
         _start.Text = Net.Count > 1 ? "Start the descent" : "Start (on your own for now)";

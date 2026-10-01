@@ -47,6 +47,7 @@ public partial class Main
                 Check($"and with no luck, sets nothing alight (burning {_probeEnemy.Ignited})", !_probeEnemy.Ignited);
                 // (now it always catches)
                 p.Stats.IgniteChance = 1f;
+                p.TestResetBolt();
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
             }

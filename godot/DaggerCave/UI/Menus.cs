@@ -188,6 +188,11 @@ public partial class UpgradeMenu : Control
                 DrawTextureRect(relicTex, new Rect2(gc - new Vector2(40, 40), new Vector2(80, 80)), false, locked != null ? new Color(0.5f, 0.5f, 0.5f) : Colors.White);
             else if (Icons.Get(Icons.CategoryFor(u)) is Texture2D sym)
                 DrawTextureRect(sym, new Rect2(gc - new Vector2(30, 30), new Vector2(60, 60)), false, kind);
+            if (u.Multi && Icons.Get("cat_multi") is Texture2D mt)
+            {
+                DrawTextureRect(mt, new Rect2(r.Position + new Vector2(10, 32), new Vector2(22, 22)), false, new Color(1f, 0.85f, 0.45f));
+                DrawString(font, r.Position + new Vector2(36, 48), "PARTY", HorizontalAlignment.Left, -1, 10, new Color(1f, 0.85f, 0.45f, 0.85f));
+            }
             DrawString(font, r.Position + new Vector2(12, 22), $"[{k + 1}]", HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, 0.5f));
             if (!skip) DrawString(font, r.Position + new Vector2(40, 22), KindLabel(u, stats?.Hero ?? G.Hero), HorizontalAlignment.Right, cw - 52, 11, kind);
             DrawString(font, r.Position + new Vector2(0, 130), u.Name, HorizontalAlignment.Center, cw, 20, Colors.White);

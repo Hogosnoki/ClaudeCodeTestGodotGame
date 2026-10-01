@@ -712,10 +712,9 @@ public partial class Hud : Control
         KeyHint(font, zb, "ability");
 
         var sb = zb + new Vector2(60, 0);
-        bool cinder = p.Stats.CinderSnap;
         int marked = p.SnapTargets;
         bool snapReady = p.SnapCooldownFrac <= 0 && p.Alimus >= p.SnapCost - 0.001f && marked > 0;
-        var snapCol = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
+        var snapCol = new Color(0.8f, 0.7f, 1f);
         AbilitySquare(font, sb, $"SNAP {p.SnapCost:0}{(marked > 0 ? $" x{marked}" : "")}", p.SnapCooldownFrac, snapReady, snapCol, (c, col) =>
         {
             // a crystal (or a cinder) cracking apart

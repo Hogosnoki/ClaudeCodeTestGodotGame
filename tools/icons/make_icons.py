@@ -563,6 +563,13 @@ def s_relic(d):  # a faceted gem
         d.line([P(*a), P(*b)], fill=(0, 0, 0, 0), width=int(0.03 * S))
 
 
+def s_multi(d):  # two heads and shoulders: for a party
+    for cx, scale in ((0.36, 1.0), (0.66, 0.9)):
+        r = 0.16 * scale
+        d.ellipse([P(cx - r, 0.2), P(cx + r, 0.2 + 2 * r)], fill=W)
+        d.pieslice([P(cx - 0.24 * scale, 0.56), P(cx + 0.24 * scale, 1.1)], 180, 360, fill=W)
+
+
 def s_skip(d):  # leave it: an arrow out
     line(d, (0.16, 0.5), (0.74, 0.5), 0.08, W)
     poly(d, [(0.6, 0.22), (0.92, 0.5), (0.6, 0.78)], W)
@@ -640,7 +647,7 @@ RELICS = {
 
 SYMBOLS = {
     "cat_generic": s_generic, "cat_class": s_class, "cat_alteration": s_alteration, "cat_conditional": s_conditional,
-    "cat_sidegrade": s_sidegrade, "cat_relic": s_relic, "cat_skip": s_skip,
+    "cat_sidegrade": s_sidegrade, "cat_relic": s_relic, "cat_skip": s_skip, "cat_multi": s_multi,
 }
 
 

@@ -185,7 +185,7 @@ public abstract partial class Enemy : CharacterBody2D
         // and tempo follow it live. (A copy has the host's numbers already.)
         if (!Puppet)
         {
-            MaxHp *= Tune.Enemy.BaseHpMult * G.DepthHp * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f);
+            MaxHp *= Tune.Enemy.BaseHpMult * ((IsBoss || IsGuardian || this is Dragon) ? MathF.Pow(G.DepthHp, Tune.Enemy.BossGrowthPower) : G.DepthHp) * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f);
             Hp = MaxHp;
         }
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });
@@ -819,7 +819,7 @@ public abstract partial class Enemy : CharacterBody2D
         G.Sfx.Play("enemy_die", GlobalPosition, 0, 0.15f, Elite ? 0.7f : 1f);
         G.Fx.Burst(GlobalPosition, BloodColor, Elite ? 36 : 16, Elite ? 260 : 170, 2.8f, 0.6f);
         G.Fx.Ring(GlobalPosition, HitRadius + 6, new Color(1, 1, 1, 0.6f));
-        int xp = (int)MathF.Round(XpValue * (Elite ? Meta.EliteXpMult : 1f));
+        int xp = (int)MathF.Round(XpValue * Tune.Enemy.XpMult * (Elite ? Meta.EliteXpMult : 1f));
         int orbs = Math.Clamp(xp / 2, 1, 12);
         int per = Math.Max(1, xp / orbs);
         for (int k = 0; k < orbs; k++)

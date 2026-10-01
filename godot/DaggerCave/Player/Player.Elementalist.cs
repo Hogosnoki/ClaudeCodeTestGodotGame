@@ -46,6 +46,9 @@ public partial class Player
     public bool FrostElement => IsRemote ? (_netFlags & HfFrost) != 0 : Stats.Frostbolt;
 
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
+    /// <summary>Test aid: the staff is ready again.</summary>
+    public void TestResetBolt() => _boltCd = 0;
+
     public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
 
     public void GainAlimus(float amount)
@@ -267,17 +270,16 @@ public partial class Player
 
     // ---------------------------------------------------------------- snap
 
-    /// <summary>What a snap bursts: every frozen creature in view (with Cinder Snap, every burning one).</summary>
+    /// <summary>What a snap bursts: every frozen creature in view, and every burning one.</summary>
     private IEnumerable<Enemy> Snappable()
     {
         var me = GlobalPosition;
-        bool cinder = Stats.CinderSnap;
         foreach (var e in G.Enemies)
         {
             if (e.Dead || !e.CanBeHit) continue;
             var d = e.GlobalPosition - me;
             if (Math.Abs(d.X) > Tune.Elementalist.SnapViewX || Math.Abs(d.Y) > Tune.Elementalist.SnapViewY) continue;
-            if (cinder ? e.Ignited : e.FrozenSolid) yield return e;
+            if (e.FrozenSolid || e.Ignited) yield return e;
         }
     }
 
@@ -285,7 +287,7 @@ public partial class Player
     {
         if (!IsElementalist || _snapCd > 0 || _snapAt >= 0) return false;
         var marked = Snappable().ToList();
-        if (marked.Count == 0) { _snapCd = 0.3f; SayNo(Stats.CinderSnap ? "NOTHING BURNING" : "NOTHING FROZEN"); return true; }
+        if (marked.Count == 0) { _snapCd = 0.3f; SayNo("NOTHING FROZEN OR BURNING"); return true; }
         _snapCd = Tune.Elementalist.SnapCooldown;
         if (!PayAlimus(SnapCost)) return true;
         _snapping = marked;
@@ -296,9 +298,9 @@ public partial class Player
         CastDir = dir;
         Anim.Face((int)Facing, instant: true);
         Anim.Once("rupture", 3, 2.2f);
-        LastCast = Stats.CinderSnap ? "cinder" : "snap";
+        LastCast = marked.Any(e => !e.FrozenSolid) ? "cinder" : "snap";
         _castGlow = 1f;
-        foreach (var e in marked) G.Fx.Converge(e.GlobalPosition, e.HitRadius + 14, Stats.CinderSnap ? ElementBolt.FireColor : ElementBolt.FrostColor, 6, 0.12f);
+        foreach (var e in marked) G.Fx.Converge(e.GlobalPosition, e.HitRadius + 14, e.FrozenSolid ? ElementBolt.FrostColor : ElementBolt.FireColor, 6, 0.12f);
         return true;
     }
 
@@ -308,17 +310,18 @@ public partial class Player
         _snapAt = -1;
         var marked = _snapping ?? new List<Enemy>();
         _snapping = null;
-        bool cinder = Stats.CinderSnap;
-        float dmg = (cinder ? Tune.Elementalist.CinderDamage : Tune.Elementalist.SnapDamage) * Stats.DamageMult;
-        float splash = (cinder ? Tune.Elementalist.CinderSplash : Tune.Elementalist.SnapSplash) * Stats.DamageMult;
         float radius = Tune.Elementalist.SnapRadius * Stats.SnapWideMult;
-        var col = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
         int burst = 0;
         foreach (var e in marked)
         {
             if (!IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
             var at = e.GlobalPosition;
             burst++;
+            // (ice shatters; a creature burning but not frozen bursts in cinders)
+            bool cinder = !e.FrozenSolid;
+            float dmg = (cinder ? Tune.Elementalist.CinderDamage : Tune.Elementalist.SnapDamage) * Stats.DamageMult;
+            float splash = (cinder ? Tune.Elementalist.CinderSplash : Tune.Elementalist.SnapSplash) * Stats.DamageMult;
+            var col = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
             // the ice (or the fire) goes, in a burst of shards (or cinders)
             if (cinder) e.Quench(); else e.Thaw();
             float dealt = e.Hurt(dmg, Vector2.Up * 60f, at, cinder ? DamageKind.Fire : DamageKind.Frost);
@@ -333,6 +336,8 @@ public partial class Player
                 if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
                 float d2 = o.Hurt(splash, (o.GlobalPosition - at).Normalized() * 80f, o.GlobalPosition, cinder ? DamageKind.Fire : DamageKind.Frost);
                 if (d2 > 0) OnDealtDamage(d2);
+                // Cinder Snap: what the burst splashes on is set alight
+                if (Stats.CinderSnap && !o.Dead) o.Ignite(Tune.Elementalist.IgniteDps, Tune.Elementalist.IgniteSeconds);
             }
         }
         LastSnapCount = burst;

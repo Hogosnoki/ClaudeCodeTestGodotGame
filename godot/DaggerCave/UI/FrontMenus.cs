@@ -99,6 +99,8 @@ public partial class HeroChoice : Control
     private Button _trees, _perks;
     private Label _brought;
     private CheckBox _hard;
+    private HSlider _diff, _perPlayer;
+    private Label _diffText;
     private PanelContainer _summary;
     private Label _sumTitle, _sumLines;
     private StyleBoxFlat _nameBox;
@@ -112,7 +114,8 @@ public partial class HeroChoice : Control
         Visible = false;
 
         // the strip along the bottom
-        var strip = new PanelContainer { AnchorTop = 1f, AnchorBottom = 1f, AnchorRight = 1f, OffsetTop = -178, OffsetBottom = -14, OffsetLeft = 60, OffsetRight = -60 };
+        // (it grows upward if it needs more room: it must never run off the bottom of the screen)
+        var strip = new PanelContainer { AnchorTop = 1f, AnchorBottom = 1f, AnchorRight = 1f, OffsetTop = -178, OffsetBottom = -14, OffsetLeft = 60, OffsetRight = -60, GrowVertical = GrowDirection.Begin };
         _nameBox = new StyleBoxFlat { BgColor = new Color(0.03f, 0.03f, 0.05f, 0.82f), BorderColor = UiKit.Gold, BorderWidthTop = 2, CornerRadiusTopLeft = 8, CornerRadiusTopRight = 8, CornerRadiusBottomLeft = 8, CornerRadiusBottomRight = 8, ContentMarginLeft = 18, ContentMarginRight = 18, ContentMarginTop = 12, ContentMarginBottom = 10 };
         strip.AddThemeStyleboxOverride("panel", _nameBox);
         AddChild(strip);
@@ -143,6 +146,20 @@ public partial class HeroChoice : Control
         mid.AddChild(_brought);
         _hint = UiKit.Label("", 13, UiKit.Dim);
         mid.AddChild(_hint);
+        // the difficulty: two sliders (on your own the per-player one still counts, once)
+        var dr = new HBoxContainer();
+        dr.AddThemeConstantOverride("separation", 8);
+        dr.AddChild(UiKit.Label("Difficulty", 13, UiKit.Dim));
+        _diff = new HSlider { MinValue = RunSettings.DifficultyMin, MaxValue = RunSettings.DifficultyMax, Step = 0.05, CustomMinimumSize = new Vector2(150, 18), SizeFlagsVertical = SizeFlags.ShrinkCenter, FocusMode = FocusModeEnum.None };
+        _diff.ValueChanged += v => { RunSettings.Difficulty = (float)v; Refresh(); };
+        dr.AddChild(_diff);
+        dr.AddChild(UiKit.Label("Per player", 13, UiKit.Dim));
+        _perPlayer = new HSlider { MinValue = RunSettings.PerPlayerMin, MaxValue = RunSettings.PerPlayerMax, Step = 0.05, CustomMinimumSize = new Vector2(150, 18), SizeFlagsVertical = SizeFlags.ShrinkCenter, FocusMode = FocusModeEnum.None };
+        _perPlayer.ValueChanged += v => { RunSettings.PerPlayer = (float)v; Refresh(); };
+        dr.AddChild(_perPlayer);
+        _diffText = UiKit.Label("", 13, UiKit.Gold);
+        dr.AddChild(_diffText);
+        mid.AddChild(dr);
         row.AddChild(Arrow(">", () => Next?.Invoke()));
 
         var side = new VBoxContainer { SizeFlagsVertical = SizeFlags.ShrinkCenter };
@@ -204,6 +221,9 @@ public partial class HeroChoice : Control
         _trees.Visible = trees;
         _embers.Text = Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "";
         _hard.SetPressedNoSignal(RunSettings.Hard);
+        _diff.SetValueNoSignal(RunSettings.Difficulty);
+        _perPlayer.SetValueNoSignal(RunSettings.PerPlayer);
+        _diffText.Text = $"enemies x{RunSettings.HpMult:0.0#} health, x{RunSettings.DmgMult:0.0#} damage";
         string brought = ClassPerks.EquippedNames(G.Hero);
         _brought.Text = brought != "" ? "Perks: " + brought : "No class perks brought (P)";
         bool pad = G.Main?.UsingPad ?? false;

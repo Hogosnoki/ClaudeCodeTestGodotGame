@@ -56,7 +56,10 @@ public static partial class Upgrades
     private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue }, HA = { HeroKind.Aegis };
 
     private static Upgrade Rl(string id, string name, string desc, Action<PlayerStats, Player> apply, HeroKind[] only = null, float weight = 1f)
-        => new() { Id = id, Name = name, Desc = desc, Icon = Ic, Relic = true, For = only, Weight = weight, Apply = apply, Tier = UpgradeTier.Rare };
+        => new() { Id = id, Name = name, Desc = desc, Icon = Ic, Relic = true, For = only, Weight = weight, Apply = apply, Tier = UpgradeTier.Rare, Multi = MultiOnly.Contains(id) };
+
+    /// <summary>Relics that only matter with others about: they pull or turn away the creatures' eyes, or carry a friend's blows.</summary>
+    private static readonly HashSet<string> MultiOnly = new() { "relic_bait", "relic_shroud", "relic_w_banner", "relic_a_mantle" };
 
     /// <summary>Relics: bargains and twists, found in some chests. Each can be carried once.</summary>
     public static readonly List<Upgrade> Relics = new()

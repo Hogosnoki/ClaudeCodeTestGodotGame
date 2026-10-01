@@ -1575,11 +1575,12 @@ public partial class Main : Node
         // only enemies in the neighbourhood count toward the cap (far-off residents are asleep)
         var biome = G.Biome;
         int alive = G.Enemies.Count(e => !e.Dead && e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) < 900 * 900);
-        int cap = (int)((Tune.Spawning.CapBase + G.Pace * Tune.Spawning.CapPerPace) * Math.Max(0.5f, biome.Density) * NetSync.CapScale);
+        int cap = Math.Max(2, (int)((Tune.Spawning.CapBase + G.Pace * Tune.Spawning.CapPerPace) * Math.Max(0.5f, biome.Density) * NetSync.CapScale * Tune.Spawning.SpawnShare));
         // Residents: how many spawn points actually hold a group rises from ~40% to 100% over the run
         // (sooner the deeper you are); sparse biomes stay sparse.
         float fill = biome.ResidentFill >= 0 ? biome.ResidentFill
             : Math.Min(1f, Tune.Spawning.ResidentFillStart + G.Depth * Tune.Spawning.ResidentFillPerDepth + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart)) * Math.Min(1f, biome.Density);
+        fill *= Tune.Spawning.SpawnShare;
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -1601,7 +1602,7 @@ public partial class Main : Node
         if (biome.Waves && _waveT <= 0 && alive < cap + 4)
         {
             float rate = MathF.Pow(2f, G.RunTime / (Tune.Spawning.RateDoublingMinutes * 60f));
-            _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / rate) * G.Range(0.8f, 1.2f);
+            _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / rate) * Tune.Spawning.WaveGapMult * G.Range(0.8f, 1.2f);
             SpawnEntrance(p);
         }
     }

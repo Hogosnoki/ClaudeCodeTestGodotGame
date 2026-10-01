@@ -247,6 +247,8 @@ public sealed class Upgrade
     public bool Alteration;
     /// <summary>A relic (in <see cref="Upgrades.Relics"/>).</summary>
     public bool Relic;
+    /// <summary>For a party only: it does nothing alone (threat, a friend's burden), so a solo run never offers it.</summary>
+    public bool Multi;
 
     public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration ? UpgradeKind.Alteration
         : Icon == "risk" ? UpgradeKind.SideGrade
@@ -289,7 +291,7 @@ public static partial class Upgrades
         new() { Id = "pogo", Name = "Downward Thrust", Desc = "Aerial down-slashes bounce you off enemies and refresh air jumps.", Icon = "blade", For = Blades, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Pogo = true },
         new() { Id = "knock", Name = "Heavy Pommel", Desc = "Your strikes knock enemies back much harder.", Icon = "blade", For = Blades, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.KnockbackLevel = Math.Max(1, s.KnockbackLevel) },
         new() { Id = "knock2", Name = "Crushing Blows", Desc = "Knockback strength increased.", Icon = "blade", For = Blades, Ability = "sword", MaxStacks = 2, Requires = "knock", Apply = (s, p) => s.KnockbackLevel += 1 },
-        new() { Id = "leech", Name = "Thirsty Blade", Desc = "Heal 4% of damage dealt.", Icon = "life", For = Blades, Ability = "sword", MaxStacks = 3, Apply = (s, p) => s.LifeSteal += 0.04f },
+        new() { Id = "leech", Name = "Thirsty Blade", Desc = "Heal 1% of damage dealt.", Icon = "life", For = Blades, Ability = "sword", MaxStacks = 3, Apply = (s, p) => s.LifeSteal += 0.01f },
 
         // --- Sword techniques (swordsman) ---
         new() { Id = "rend", Name = "Rending Edge", Desc = "Sword hits make enemies bleed for 40% more damage over 3 s.", Icon = "blade", For = S, Ability = "sword", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BleedShare += Tune.Swordsman.BleedShare },
@@ -392,7 +394,7 @@ public static partial class Upgrades
         // --- Snap (elementalist) ---
         new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 40% farther.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapWideMult += 0.4f },
         new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 alimus back.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapEcho = true },
-        new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Your snap bursts burning creatures instead of frozen ones: 20 damage, and 6 to everything around them.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
+        new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Every burst of your snap sets the creatures it splashes on alight.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
 
         // --- Dagger Slash (rogue) ---
         new() { Id = "keen", Name = "Keen Edge", Desc = "Your strikes are 5% likelier to be critical (twice as hard).", Icon = "blade", For = R, Ability = "dagger", MaxStacks = 2, Apply = (s, p) => s.CritChance += Tune.Rogue.KeenChance },
@@ -434,9 +436,9 @@ public static partial class Upgrades
         new() { Id = "barrier_wide", Name = "Wide Barrier", Desc = "Your barrier falls on every friend near you, and on you, each at 60% of its strength.", Icon = "shield", For = A, Ability = "barrier", Alteration = true, Apply = (s, p) => s.WideBarrier = true },
 
         // --- Shared Burden (aegis) ---
-        new() { Id = "burden_all", Name = "Burden of Many", Desc = "Your burden falls on every friend near you at once, each sharing half as much of their blows with you.", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.BurdenAll = true },
-        new() { Id = "burden_share", Name = "Heavier Burden", Desc = "You carry 5% more of the blows your friend takes (25%, 30%, then 35%).", Icon = "life", For = A, Ability = "burden", MaxStacks = 3, Apply = (s, p) => s.BurdenShare += 0.05f },
-        new() { Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 25% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.25f },
+        new() { Multi = true, Id = "burden_all", Name = "Burden of Many", Desc = "Your burden falls on every friend near you at once, each sharing half as much of their blows with you.", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.BurdenAll = true },
+        new() { Multi = true, Id = "burden_share", Name = "Heavier Burden", Desc = "You carry 5% more of the blows your friend takes (25%, 30%, then 35%).", Icon = "life", For = A, Ability = "burden", MaxStacks = 3, Apply = (s, p) => s.BurdenShare += 0.05f },
+        new() { Multi = true, Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 25% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.25f },
 
         // --- Bubble (aegis) ---
         new() { Id = "bubble_strong", Name = "Tougher Bubble", Desc = "Your bubble bursts only after absorbing 30% more.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 3, Apply = (s, p) => s.BubbleMult += 0.3f },
@@ -528,6 +530,7 @@ public static partial class Upgrades
     public static bool Available(Upgrade u, PlayerStats s)
     {
         if (u.For != null && Array.IndexOf(u.For, s.Hero) < 0) return false;
+        if (u.Multi && !(Net.Online && Net.Count > 1)) return false;
         if (s.StackOf(u.Id) >= u.MaxStacks) return false;
         if (u.Requires != null && s.StackOf(u.Requires) == 0) return false;
         if (u.When != null && !u.When(s)) return false;

@@ -15,16 +15,15 @@ public partial class Main
     /// <summary>Checks that need no staging: the numbers.</summary>
     private void RelicNumbersCheck()
     {
-        // ---- difficulty by party size: +100% health and +20% damage per extra player at the default meter
-        ScCheck("one player: no scaling", Near(RunSettings.HpFor(1, true, 2f, false), 1f) && Near(RunSettings.DmgFor(1, true, 2f, false), 1f));
-        ScCheck("two players at 2.0: double health, +20% damage", Near(RunSettings.HpFor(2, true, 2f, false), 2f) && Near(RunSettings.DmgFor(2, true, 2f, false), 1.2f));
-        ScCheck("four players at 2.0: x4 health, +60% damage", Near(RunSettings.HpFor(4, true, 2f, false), 4f) && Near(RunSettings.DmgFor(4, true, 2f, false), 1.6f));
-        ScCheck("the meter at 1.0 is no scaling", Near(RunSettings.HpFor(5, true, 1f, false), 1f) && Near(RunSettings.DmgFor(5, true, 1f, false), 1f));
-        ScCheck("the meter at 3.0 doubles the steps", Near(RunSettings.HpFor(2, true, 3f, false), 3f) && Near(RunSettings.DmgFor(2, true, 3f, false), 1.4f));
-        ScCheck("scaling off: none", Near(RunSettings.HpFor(3, false, 3f, false), 1f));
+        // ---- difficulty: difficulty x (players x per-player); health takes all of it, damage a fifth of the way
+        ScCheck("one player at the defaults: no scaling", Near(RunSettings.HpFor(1, 1f, 1f, false), 1f) && Near(RunSettings.DmgFor(1, 1f, 1f, false), 1f));
+        ScCheck("the difficulty slider alone: half and double", Near(RunSettings.HpFor(1, 0.5f, 1f, false), 0.5f) && Near(RunSettings.HpFor(1, 2f, 1f, false), 2f));
+        ScCheck("two players, 1.0 each: double health, +20% damage", Near(RunSettings.HpFor(2, 1f, 1f, false), 2f) && Near(RunSettings.DmgFor(2, 1f, 1f, false), 1.2f));
+        ScCheck("six players at the top of both sliders: 2 x (6 x 2) = 24", Near(RunSettings.HpFor(6, 2f, 2f, false), 24f) && Near(RunSettings.DmgFor(6, 2f, 2f, false), 1f + 23f * Tune.Difficulty.DamageShare));
+        ScCheck("half difficulty softens damage a little", Near(RunSettings.DmgFor(1, 0.5f, 1f, false), 0.9f));
         ScCheck($"Hard Mode alone: x{Tune.Difficulty.HardHp} health, x{Tune.Difficulty.HardDamage} damage",
-            Near(RunSettings.HpFor(1, true, 2f, true), Tune.Difficulty.HardHp) && Near(RunSettings.DmgFor(1, true, 2f, true), Tune.Difficulty.HardDamage));
-        ScCheck("Hard Mode with two players multiplies on top", Near(RunSettings.HpFor(2, true, 2f, true), 2f * Tune.Difficulty.HardHp));
+            Near(RunSettings.HpFor(1, 1f, 1f, true), Tune.Difficulty.HardHp) && Near(RunSettings.DmgFor(1, 1f, 1f, true), Tune.Difficulty.HardDamage));
+        ScCheck("Hard Mode multiplies on top of the party", Near(RunSettings.HpFor(2, 1f, 1f, true), 2f * Tune.Difficulty.HardHp));
 
         // ---- threat: the warden draws enemies, the rogue turns them away, relics move it too
         ScCheck($"warden threat {new PlayerStats(HeroKind.Warden).ThreatDist}, rogue {new PlayerStats(HeroKind.Rogue).ThreatDist}, others 1",

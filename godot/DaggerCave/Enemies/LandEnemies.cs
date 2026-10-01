@@ -263,7 +263,7 @@ public partial class Goblin : Enemy
     private int _state; // 0 chase, 1 windup, 2 recover
     private float _stateT, _throwCd = 1.5f, _gruntT;
 
-    public Goblin() { MaxHp = Tune.Goblin.Hp; BodyRadius = 9; ContactDamage = Tune.Goblin.Contact; XpValue = Tune.Goblin.Xp; }
+    public Goblin() { MaxHp = Tune.Goblin.Hp; BodyRadius = 9; Size = 1.3f; ContactDamage = Tune.Goblin.Contact; XpValue = Tune.Goblin.Xp; }
 
     private float _throwDelay = -1;
     private bool _wasAir;
@@ -394,7 +394,7 @@ public partial class Goblin : Enemy
         if (!air && _wasAir) Anim.Once("land", 1);
         _wasAir = air;
         float avx = Math.Abs(Velocity.X);
-        Anim.Loop(air ? "fall" : avx > 15 ? "run" : "idle", Math.Clamp(avx / 110f, 0.6f, 1.4f));
+        Anim.Loop(air ? "fall" : avx > 15 ? "run" : "idle", Math.Clamp(avx / 190f, 0.4f, 0.85f)); // (bigger, so its legs go slower)
     }
 
     public override void _Draw() => DrawHealthBar();

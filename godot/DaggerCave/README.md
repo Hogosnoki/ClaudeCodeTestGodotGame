@@ -1059,3 +1059,14 @@ slopes, falling, and swimming, flooded over a 6 px grid. Where it can't get from
 guardian it repairs the first break in the way (opening out a neck, putting stepping stones across
 a gap or up a climb; ice ledges in frozen caverns) and tries again, then starts over with another
 seed if a few repairs don't do it. `--gentest` reports how many caves pass (`fine n/12`).
+
+## Difficulty
+
+Two sliders, set where heroes are chosen (the host's rule online): **Difficulty** (0.5 to 2.0) and
+**Per-player difficulty** (1.0 to 2.0). Enemy strength is `difficulty x (players x per-player)`: 1 on
+your own at the defaults, and 2 x (6 x 2) = 24 at the top of both with six players. Health takes all of
+it; damage a fifth of the way (`Tune.Difficulty.DamageShare`). Bosses and guardians grow with depth by
+the 0.7 power of the usual curve, so deep ones don't drag. The caves hold about 30% of the old crowd
+(`Tune.Spawning.SpawnShare`), each creature has +50% health on top of the doubling, and kills give
+3x experience. Upgrades and relics marked PARTY (threat, a friend's burden) are only ever offered in a
+party. A party is at most six heroes.

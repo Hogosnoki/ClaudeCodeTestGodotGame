@@ -471,13 +471,12 @@ public partial class Main
                 break;
             }
 
-            // ---- Cinder Snap: burning creatures burst instead of frozen ones
+            // ---- Snap: burning creatures burst, and frozen ones, each its own way
             case 100:
             {
-                Take(p, "snap_cinder");
                 p.SetAlimus(p.Stats.AlimusMax);
-                var gob = AltDummy(p, new Goblin(), 90 + 30, -4);
-                gob.Freeze(60f, hold: true);
+                var gob = AltDummy(p, new Goblin(), 90 + 170, -4);
+                gob.FreezeSolid(60f);
                 _probe2 = gob;
                 _probeEnemy.Ignite(4f, 10f);
                 _hpMark = _probeEnemy.Hp;
@@ -491,8 +490,8 @@ public partial class Main
                 float dealt = _hpMark - _probeEnemy.Hp, splash = _altMark - (IsInstanceValid(_probe2) ? _probe2.Hp : 0);
                 float want = Tune.Elementalist.CinderDamage * p.Stats.DamageMult, wantSplash = Tune.Elementalist.CinderSplash * p.Stats.DamageMult;
                 // (the golem's fire burns a little in the moment before it bursts)
-                Check($"Cinder Snap: the burning golem bursts for {want:0} ({dealt:0.0}), its fire spent (burning {_probeEnemy.Ignited})", dealt > want - 0.5f && dealt < want + 1.5f && !_probeEnemy.Ignited);
-                Check($"and the goblin beside it takes {wantSplash:0} ({splash:0.0})", Math.Abs(splash - wantSplash) < 0.6f);
+                Check($"Snap: the burning golem bursts for {want:0} ({dealt:0.0}), its fire spent (burning {_probeEnemy.Ignited})", dealt > want - 0.5f && dealt < want + 1.5f && !_probeEnemy.Ignited);
+                Check($"and the frozen goblin shatters for {Tune.Elementalist.SnapDamage * p.Stats.DamageMult:0} ({splash:0.0}), both in one snap", Math.Abs(splash - Tune.Elementalist.SnapDamage * p.Stats.DamageMult) < 1.5f);
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 if (IsInstanceValid(_probe2)) _probe2.QueueFree();
                 Finish();

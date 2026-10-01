@@ -320,7 +320,7 @@ public static partial class Net
             w.Str(p.Build);
         }
         // (the run's difficulty setup: the host's)
-        w.Bool(RunSettings.ScaleWithPlayers).Float(RunSettings.Scale).Bool(RunSettings.Hard);
+        w.Float(RunSettings.Difficulty).Float(RunSettings.PerPlayer).Bool(RunSettings.Hard);
         SendAll(w, true);
     }
 
@@ -459,7 +459,7 @@ public static partial class Net
             if (keep.TryGetValue(p.Id, out var av)) p.Avatar = av;
             Peers[p.Id] = p;
         }
-        RunSettings.ScaleWithPlayers = r.Bool(); RunSettings.Scale = Math.Clamp(r.Float(), 1f, 3f); RunSettings.Hard = r.Bool();
+        RunSettings.Difficulty = Math.Clamp(r.Float(), RunSettings.DifficultyMin, RunSettings.DifficultyMax); RunSettings.PerPlayer = Math.Clamp(r.Float(), RunSettings.PerPlayerMin, RunSettings.PerPlayerMax); RunSettings.Hard = r.Bool();
         if (IsClient && Status.StartsWith("Connect")) Status = "In the lobby.";
         // in: ask for the hero picked on the title, if nobody has it
         if (IsClient && !_askedHero && Mine != null)
