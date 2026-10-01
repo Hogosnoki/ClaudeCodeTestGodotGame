@@ -345,3 +345,106 @@ public partial class Eel : Enemy
         DrawHealthBar();
     }
 }
+
+// ============================================================================ crab
+
+/// <summary>
+/// A reef crab: scuttles along the shore and the bottom alike, walks down the slab into the water
+/// after you (and back out of it), and snaps its great claws shut on anything within reach.
+/// </summary>
+public partial class Crab : Walker
+{
+    private int _s; // 0 scuttle, 1 claws wide, 2 recover
+    private float _st, _cd = 1f;
+    private bool _wasWater;
+
+    public Crab() { MaxHp = Tune.Crab.Hp; BodyRadius = 7; Size = Tune.Crab.Size; ContactDamage = Tune.Crab.Contact; XpValue = Tune.Crab.Xp; KnockResist = 0.25f; }
+
+    protected override void Setup() { DisplayName = "Reef Crab"; UseSprite("crab_foe"); }
+    protected override Color BloodColor => new(0.75f, 0.5f, 0.3f);
+
+    protected override void Think(float dt)
+    {
+        _st += dt; _cd -= dt;
+        bool water = InWater;
+        var v = Velocity;
+        if (water != _wasWater) { _wasWater = water; if (water) G.Sfx.Play("splash", GlobalPosition, -12, 0.2f, 1.2f); }
+        switch (_s)
+        {
+            case 0:
+            {
+                if (!Awake) { Brake(ref v, dt, 600); break; }
+                float want = Intent switch { Advance => DirP, Retreat => -DirP, _ => 0 };
+                if (want != 0) Face = want;
+                if (water)
+                {
+                    // walks the bottom, and swims where it must: up after a player overhead, up a ledge in its way
+                    v.X = Mathf.MoveToward(v.X, want * Tune.Crab.SwimSpeed * (Elite ? 1.15f : 1f), 500 * dt);
+                    float wantY = ToP.Y < -26 && DistP < 280 ? -45f : 38f;
+                    if (want != 0 && IsOnWall()) wantY = -70f;
+                    v.Y = Mathf.MoveToward(v.Y, wantY, 320 * dt);
+                    if (GlobalPosition.Y < G.Cave.WaterY + 5 && v.Y < 0) v.Y = Math.Max(v.Y, -10f);
+                }
+                else v = Stride(v, want, Tune.Crab.WalkSpeed * (Elite ? 1.15f : 1f), dt, 300);
+                if (Intent == Pinch && CanAct(Pinch))
+                {
+                    _s = 1; _st = 0; Face = DirP;
+                    Anim.Once("pinch_windup", 3, 1f / (Tune.Crab.PinchWindup * 24f) * 4f);
+                    G.Sfx.Play("clink", GlobalPosition, -8, 0.1f, 0.7f);
+                    Consume();
+                }
+                break;
+            }
+            case 1:
+                v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
+                if (water) v.Y = Mathf.MoveToward(v.Y, 20, 300 * dt);
+                if (_st > Tune.Crab.PinchWindup)
+                {
+                    _s = 2; _st = 0; _cd = Tune.Crab.PinchCooldown * (Elite ? 0.7f : 1f);
+                    Anim.Once("pinch", 3);
+                    G.Sfx.Play("clink", GlobalPosition, -2, 0.1f, 1.1f);
+                    var rel = ToP;
+                    float reach = Tune.Crab.PinchReach * Size;
+                    if (rel.X * Face > -8 && Math.Abs(rel.X) < reach + 8 && Math.Abs(rel.Y) < 22 * Size)
+                        P.Hurt(Tune.Crab.PinchDamage * DmgK * (Elite ? 1.35f : 1f), GlobalPosition, 200, this);
+                    G.Fx.Spark(GlobalPosition + new Vector2(Face * reach * 0.8f, -4 * Size), new Color(1f, 0.85f, 0.7f));
+                }
+                break;
+            default:
+                v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
+                if (water) v.Y = Mathf.MoveToward(v.Y, 30, 300 * dt);
+                if (_st > 0.4f) _s = 0;
+                break;
+        }
+        Velocity = v;
+        if (!water) ApplyGravity(dt);
+    }
+
+    private const int Stand = 0, Advance = 1, Retreat = 2, Pinch = 3;
+    private static readonly string[] Moves = { "stand", "advance", "retreat", "pinch" };
+    protected override string BrainName => "crab";
+    protected override string[] Actions => Moves;
+    protected override bool Busy => _s != 0;
+    protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Crab.PinchCooldown, 0, 1);
+    protected override bool CanAct(int a) => a != Pinch || _cd <= 0;
+    protected override bool IsAttack(int a) => a == Pinch;
+    public override bool Attacking => _s == 1;
+    protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
+
+    protected override int Teacher()
+    {
+        if (DistP > Aggro(380)) return Stand;
+        float reach = Tune.Crab.PinchReach * Size;
+        if (_cd <= 0 && Math.Abs(ToP.X) < reach && Math.Abs(ToP.Y) < 20 * Size) return Pinch;
+        return Math.Abs(ToP.X) > 14 || Math.Abs(ToP.Y) > 30 ? Advance : Stand;
+    }
+
+    protected override void Animate()
+    {
+        float sp = Math.Abs(Velocity.X);
+        Anim.Loop(sp > 8 ? "scuttle" : "idle", Math.Clamp(sp / 50f, 0.7f, 1.4f));
+        Anim.AllowTurns = _s == 0;
+    }
+
+    public override void _Draw() => DrawHealthBar();
+}

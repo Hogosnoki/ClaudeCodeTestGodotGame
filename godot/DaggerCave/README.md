@@ -611,6 +611,7 @@ Each one moves differently:
 | Rat | Runs in packs, crouches for a quarter second and lunges with a bite. |
 | Bear | Rears up for a heavy swipe, or roars and charges, stunning itself if it hits a wall. Treading water it can't swipe or charge: it paddles after you and lunges in to bite. |
 | Scorpion | Scuttles close, arches its tail and stings forward and up. |
+| Reef Crab | Lives on shore slabs (ground that runs down into the water at a walkable angle) in the watery caves: scuttles along the shore and walks the bottom after you, swims up for a hero overhead, and snaps both claws shut at close range. |
 | Hornet | Hovers above you with a droning buzz, takes aim, then dives in a straight line. |
 | Skeleton | Plods forward and slashes. Sometimes a felled skeleton pulls itself back together at half health. |
 | Sporeling | Waddles close and puffs a choking spore cloud; bursts into one when killed. |
@@ -659,7 +660,7 @@ ambush, the Colossus's slam) still land where they aim. Magma puddles burn for 3
 bite softer than orange ones.
 
 Difficulty rises with depth and, more slowly, with play time, and mostly through tougher creatures
-rather than more of them: enemy health and damage are 1.15^depth x 2^(minutes/27)
+rather than more of them: every creature's own health is doubled at spawn (Tune.Enemy.BaseHpMult), then enemy health and damage are 1.15^depth x 2^(minutes/27)
 (`Tune.Difficulty`). Enemy speed, attack rate and animation speed rise by a fifth of that, capped at
 1.6x so fights stay readable. How many come (the pace) grows gently: 0.15 per level of depth plus 1
 per 20 minutes, capped at 2.4.
@@ -1047,3 +1048,14 @@ Two more test modes:
   LB, and look in a chest with LT, leave it, find the same cards again, and take one. Its presses
   are a twentieth of a second long, so run it with `--fixed-fps 60` too (it needs no window). It
   prints ok / FAIL for each step, then PASS or FAIL.
+
+
+## Can the guardian be reached? (generation)
+
+After carving, a cave is checked twice. The first check works in 16 px cells and is kind to narrow
+necks and tall climbs. The second, `Cave/FineReach.cs`, is strict: a 13 x 26 px body (a little
+over, to be safe), the slowest hero's jump (no double jump, wall jump or updraft), walking up
+slopes, falling, and swimming, flooded over a 6 px grid. Where it can't get from the start to the
+guardian it repairs the first break in the way (opening out a neck, putting stepping stones across
+a gap or up a climb; ice ledges in frozen caverns) and tries again, then starts over with another
+seed if a few repairs don't do it. `--gentest` reports how many caves pass (`fine n/12`).

@@ -192,7 +192,7 @@ public partial class Player
     public void GiveBurden(int aegisId, float share, float seconds)
     {
         if (Dead && seconds > 0) return;
-        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Burden, share, seconds, aegisId); return; }
+        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Burden, share, seconds, 0, aegisId); return; }
         _burdenBy = aegisId; _burdenShare = share; _burdenLeft = seconds;
         if (seconds > 0)
         {

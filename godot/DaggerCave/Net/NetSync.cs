@@ -385,10 +385,10 @@ public static class NetSync
     public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden }
 
     /// <summary>A boon for someone else's hero: their game gives it (a, b, c: its amount, seconds, a flag).</summary>
-    public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0)
+    public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0, int id = 0)
     {
         var w = new NetOut(Net.Msg.HeroBoon);
-        w.Int(target.NetOwner).Byte((byte)kind).Float(a).Float(b).Float(c);
+        w.Int(target.NetOwner).Byte((byte)kind).Float(a).Float(b).Float(c).Int(id);
         Net.SendAll(w, true);
     }
 
@@ -1102,7 +1102,7 @@ public static class NetSync
             }
             case Net.Msg.HeroBoon:
             {
-                int owner = r.Int(); var kind = (Boon)r.Byte(); float a = r.Float(), b = r.Float(), c = r.Float();
+                int owner = r.Int(); var kind = (Boon)r.Byte(); float a = r.Float(), b = r.Float(), c = r.Float(); int id = r.Int();
                 var p = G.Player;
                 if (owner != Net.Me || p == null || p.Dead) break;
                 Scope++;
@@ -1111,7 +1111,7 @@ public static class NetSync
                     if (kind == Boon.Barrier) p.GiveBarrier(a, b);
                     else if (kind == Boon.Mending) p.GiveMending(a, b, c);
                     else if (kind == Boon.Bubble) p.GiveBubble(a, b, c > 0.5f);
-                    else if (kind == Boon.Burden) p.GiveBurden((int)c, a, b);
+                    else if (kind == Boon.Burden) p.GiveBurden(id, a, b);
                 }
                 finally { Scope--; }
                 break;

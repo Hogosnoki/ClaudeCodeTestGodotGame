@@ -17,11 +17,30 @@ public sealed class SpriteSet
 
     private static readonly Dictionary<string, SpriteSet> Cache = new();
 
+    /// <summary>Adds a clip (both facings) of <paramref name="frames"/> frames, borrowing the first frame of another.</summary>
+    public SpriteSet AddClip(string name, int frames, string like)
+    {
+        foreach (var side in new[] { "_r", "_l" })
+        {
+            string src = like + side;
+            if (!Frames.HasAnimation(src)) continue;
+            Frames.AddAnimation(name + side);
+            Frames.SetAnimationSpeed(name + side, 24);
+            Frames.SetAnimationLoop(name + side, false);
+            var tex = Frames.GetFrameTexture(src, 0);
+            for (int k = 0; k < frames; k++) Frames.AddFrame(name + side, tex);
+            Names.Add(name + side);
+        }
+        return this;
+    }
+
     public static SpriteSet Get(string name)
     {
         if (Cache.TryGetValue(name, out var s)) return s;
         // (the Aegis shares the Vitalist's clip timings: its body is the 3D model, the sheet only says how long each clip runs)
-        s = Load(name == "aegis" ? "vitalist" : name);
+        s = Load(name == "aegis" ? "vitalist" : name == "crab_foe" ? "crab" : name);
+        // (the reef crab shares the little crab's sheet, and adds the clips of its claws: the sheet only says how long each runs)
+        if (name == "crab_foe") s.AddClip("pinch_windup", 10, "idle").AddClip("pinch", 6, "idle");
         Cache[name] = s;
         return s;
     }

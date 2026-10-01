@@ -206,7 +206,7 @@ public partial class Main : Node
         if (_seed == 0 && _scenario == "magma") _seed = 2;
         if (_seed == 0 && _scenario == "water") _seed = 1013;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
-        if (_seed == 0 && _heroTest) _seed = 1013;
+        if (_seed == 0 && _heroTest) _seed = 2026; // (a cave whose start chamber has room for every hero's test)
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 0;
@@ -1707,6 +1707,7 @@ public partial class Main : Node
             Vector2 pos = sp.Kind switch
             {
                 SpawnKind.Ground => sp.Pos + new Vector2(G.Range(-30, 30), -4 - e.BodyRadius * e.Size * 0.5f),
+                SpawnKind.Shore => sp.Pos + new Vector2(G.Range(-6, 6), -2 - e.BodyRadius * e.Size * 0.5f),
                 SpawnKind.Ceiling => sp.Pos + new Vector2(G.Range(-40, 40), 0),
                 SpawnKind.Water => sp.Pos + G.RandDir() * G.Range(0, 30),
                 _ => sp.Pos,
@@ -2131,7 +2132,7 @@ public partial class Main : Node
         var p = G.Player.GlobalPosition;
         _world.AddChild(new Chest { Position = p + new Vector2(-60, 14) });
         Enemy[] land = { new Bat(), new Frog(), new Goblin(), new Goblin { Slinger = true }, new Spider(), new LavaMonster(), new Golem(),
-            new Rat(), new Bear(), new Scorpion(), new Hornet(), new Skeleton(), new Sporeling(), new FrostWraith(), new Shardling(),
+            new Rat(), new Bear(), new Scorpion(), new Crab(), new Hornet(), new Skeleton(), new Sporeling(), new FrostWraith(), new Shardling(),
             new EarthElemental(), new FrostElemental(), new NatureElemental(), new FireElemental() };
         for (int k = 0; k < land.Length; k++)
         {
@@ -3129,7 +3130,7 @@ public partial class Main : Node
 
     private void RunGenTest()
     {
-        int n = 12, cleanAll = 0, totalAll = 0, vaultsAll = 0, vaultWant = 0;
+        int fineOk = 0; int n = 12, cleanAll = 0, totalAll = 0, vaultsAll = 0, vaultWant = 0;
         ulong total = 0;
         CaveGenerator.Verbose = OS.GetCmdlineUserArgs().Contains("--genverbose");
         if (CaveGenerator.Verbose)
@@ -3138,7 +3139,7 @@ public partial class Main : Node
         {
             if (_biomeArg != null && !b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase)) continue;
             G.Biome = b;
-            int clean = 0, vaults = 0;
+            int clean = 0, vaults = 0, fineB = 0;
             bool wantVault = b.Style != GenStyle.Arena;
             for (int s = 1; s <= n; s++)
             {
@@ -3146,18 +3147,21 @@ public partial class Main : Node
                 var c = CaveGenerator.Generate(b, s * 1013);
                 ulong ms = Time.GetTicksMsec() - t0;
                 total += ms;
+                bool fine = FineBossReachable(c, OS.GetCmdlineUserArgs().Contains("--finedump") ? $"/tmp/claude-0/fine/{b.Id}_{s * 1013}_{(OS.GetCmdlineUserArgs().Contains("--finedump") ? "x" : "")}.png" : null);
+                if (fine) { fineOk++; fineB++; }
                 bool ok = c.TrapCells <= 6 && c.Boss != null && BossReachable(c);
                 if (ok) clean++;
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
-                if (!ok || s == 1 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} spawns {c.Spawns.Count} ice {c.IceLedges.Count} vault {(vault ? "ok" : why)}");
+                if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
-            GD.Print($"[gentest] {b.Id}: {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
+            GD.Print($"[gentest] {b.Id}: fine {fineB}/{n}; {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
             cleanAll += clean; totalAll += n;
             if (wantVault) { vaultsAll += vaults; vaultWant += n; }
         }
+        GD.Print($"[gentest] {fineOk}/{totalAll} caves whose guardian a real hero can reach (pixel-true jumps, a body-sized fit)");
         GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, {vaultsAll}/{vaultWant} with a sound vault, avg {total / (ulong)Math.Max(1, totalAll)} ms");
         // (every level but the dragon's lair has its vault)
         SafeQuit.Request(this, vaultsAll == vaultWant ? 0 : 1);
@@ -3283,6 +3287,16 @@ public partial class Main : Node
         }
         GD.Print(bad == 0 ? $"[bosstest] PASS ({total} caves)" : $"[bosstest] FAIL: {bad} of {total}");
         SafeQuit.Request(this, bad == 0 ? 0 : 1);
+    }
+
+    /// <summary>Whether the guardian's chamber can really be reached by the slowest jumper (see FineReach).</summary>
+    private static bool FineBossReachable(CaveData c, string dump = null)
+    {
+        if (c.Boss == null) return false;
+        var f = new FineReach(c);
+        bool ok = f.Run(c.StartPos, c.Boss.Floor);
+        if (dump != null) f.SavePng(dump, c.StartPos, c.Boss.Floor);
+        return ok;
     }
 
     private static bool BossReachable(CaveData c)

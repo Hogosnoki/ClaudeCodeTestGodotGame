@@ -87,7 +87,7 @@ public static class GameSettings
         Bloom = B("graphics", "bloom", Bloom);
         AmbientOcclusion = B("graphics", "ao", AmbientOcclusion);
         InkOutlines = B("graphics", "ink", InkOutlines);
-        Aa = (AntiAlias)I("graphics", "aa", (int)Aa);
+        Aa = (AntiAlias)Math.Min(1, I("graphics", "aa", (int)Aa)); // (MSAA flickered against the ink outlines: any old choice of it is FXAA now)
         Brightness = F("graphics", "brightness", Brightness);
         Shake = F("graphics", "shake", Shake);
         MasterVolume = F("sound", "master", MasterVolume);
@@ -159,7 +159,7 @@ public static class GameSettings
         vp.PositionalShadowAtlasSize = Shadows switch { Quality.Off => 0, Quality.Low => 2048, _ => 4096 };
         RenderingServer.PositionalSoftShadowFilterSetQuality(Shadows == Quality.High ? RenderingServer.ShadowQuality.SoftLow : RenderingServer.ShadowQuality.Hard);
         vp.ScreenSpaceAA = Aa == AntiAlias.Fxaa ? Viewport.ScreenSpaceAAEnum.Fxaa : Viewport.ScreenSpaceAAEnum.Disabled;
-        vp.Msaa3D = Aa switch { AntiAlias.Msaa2 => Viewport.Msaa.Msaa2X, AntiAlias.Msaa4 => Viewport.Msaa.Msaa4X, _ => Viewport.Msaa.Disabled };
+        vp.Msaa3D = Viewport.Msaa.Disabled;
         Stage3D.I?.ApplySettings();
         CreatureLibrary.SetInk(InkOutlines);
     }

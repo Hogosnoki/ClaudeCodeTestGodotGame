@@ -36,6 +36,7 @@ public static class CreatureRegistry
         CreatureLibrary.Register("shardling", () => new ShardlingDesign());
         CreatureLibrary.Register("moth", () => new MothDesign());
         CreatureLibrary.Register("crab", () => new CrabDesign());
+        CreatureLibrary.Register("crab_foe", () => new ReefCrabDesign());
         CreatureLibrary.Register("colossus", () => new ColossusDesign());
         CreatureLibrary.Register("dragon", () => new DragonDesign());
         CreatureLibrary.Register("elem_earth", () => new EarthElementalDesign());
@@ -52,7 +53,7 @@ public static class CreatureRegistry
         ["LavaMonster"] = new[] { "magma" }, ["Golem"] = new[] { "golem" }, ["Rat"] = new[] { "rat" }, ["Bear"] = new[] { "bear" },
         ["Scorpion"] = new[] { "scorpion" }, ["Hornet"] = new[] { "hornet" }, ["Skeleton"] = new[] { "skeleton" }, ["Sporeling"] = new[] { "sporeling" },
         ["FrostWraith"] = new[] { "wraith" }, ["Shardling"] = new[] { "shardling" }, ["Fish"] = new[] { "fish", "fish2" }, ["Urchin"] = new[] { "urchin" },
-        ["Eel"] = new[] { "eel" }, ["EarthElemental"] = new[] { "elem_earth" }, ["FrostElemental"] = new[] { "elem_frost" }, ["NatureElemental"] = new[] { "elem_nature" },
+        ["Eel"] = new[] { "eel" }, ["Crab"] = new[] { "crab_foe" }, ["EarthElemental"] = new[] { "elem_earth" }, ["FrostElemental"] = new[] { "elem_frost" }, ["NatureElemental"] = new[] { "elem_nature" },
         ["FireElemental"] = new[] { "elem_fire" }, ["WaterElemental"] = new[] { "elem_water" }, ["CavernColossus"] = new[] { "colossus" }, ["Dragon"] = new[] { "dragon" },
     };
 

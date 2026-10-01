@@ -172,6 +172,7 @@ public static partial class CaveGenerator
         if (platforms) AddPlatforms(cave, rng);
         ValidateAndRepair(cave, startCell);
         BuildSpawns(cave, spawnStamps, new Vector2(startCell.X, startCell.Y), rng, spawnStride);
+        BuildShores(cave, spawnStamps);
         CarveVault(cave, rng);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
@@ -549,7 +550,8 @@ public static partial class CaveGenerator
         {
             // the middle of the arena stays solid ground
             float px = cx + off * rx + Rnd(-2, 2);
-            pits.Add((px - Rnd(3, 4.5f), px + Rnd(3, 4.5f)));
+            // (no wider than a hero can jump, with room to spare: 5 cells is 80 px, the slowest jump clears about 110)
+            pits.Add((px - Rnd(2, 2.5f), px + Rnd(2, 2.5f)));
         }
         float x0 = sx - 9, x1 = cx + rx + 2;
         float xs = x0;

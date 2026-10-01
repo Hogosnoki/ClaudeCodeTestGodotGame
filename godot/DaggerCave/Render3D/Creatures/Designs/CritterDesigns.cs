@@ -72,7 +72,7 @@ public sealed class MothDesign : CreatureDesign
 }
 
 /// <summary>A little cave crab with a lumpy rust-coloured shell, stalked eyes and one big claw.</summary>
-public sealed class CrabDesign : CreatureDesign
+public class CrabDesign : CreatureDesign
 {
     public override string Name => "crab";
     public override float Cell => 0.007f;
@@ -143,5 +143,31 @@ public sealed class CrabDesign : CreatureDesign
         p.Set(_clawR, 0, -20f * hide, 10f * MathF.Sin(time * 1.7f) - 30f * hide);
         p.Set(_clawL, 0, 20f * hide, snip * 0.5f - 30f * hide);
         p.Set(_eyes, 0, 0, -60f * hide + 5f * MathF.Sin(time * 3f));
+    }
+}
+
+/// <summary>The reef crab, a foe: the little crab's body at full size, claws that open wide and snap shut.</summary>
+public sealed class ReefCrabDesign : CrabDesign
+{
+    public override string Name => "crab_foe";
+    public override float Cell => 0.0055f;
+
+    private int _cr, _cl;
+    protected override void OnBonesBound() { base.OnBonesBound(); _cr = B("claw_r"); _cl = B("claw_l"); }
+
+    public override void Animate(CreaturePose p, in AnimInput a)
+    {
+        base.Animate(p, a);
+        string c = a.Clip ?? "idle";
+        if (c == "pinch_windup")
+        {
+            float k = W3.Smooth01(a.T * 1.4f);
+            p.Set(_cr, 0, 0, 38f * k); p.Set(_cl, 0, 0, 38f * k);
+        }
+        else if (c == "pinch")
+        {
+            float k = MathF.Sin(a.T * MathF.PI * 2f);
+            p.Set(_cr, 0, 0, 38f * Math.Max(0, 1f - a.T * 4f) - 20f * Math.Max(0, k)); p.Set(_cl, 0, 0, 38f * Math.Max(0, 1f - a.T * 4f) - 20f * Math.Max(0, k));
+        }
     }
 }

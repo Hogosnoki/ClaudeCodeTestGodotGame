@@ -4,7 +4,7 @@ using Godot;
 
 namespace DaggerCave;
 
-public enum SpawnKind { Ground, Ceiling, Water, WaterFloor, WaterWall }
+public enum SpawnKind { Ground, Ceiling, Water, WaterFloor, WaterWall, Shore }
 
 public sealed class SpawnPoint
 {
@@ -86,6 +86,9 @@ public sealed class CaveData
 
     // Diagnostics from generation.
     public int TrapCells;
+    /// <summary>Whether the strict check (FineReach) found the guardian reachable, and how many repairs it took.</summary>
+    public bool FineOk;
+    public int FineRepairs;
     public int Attempts;
     public int ReachableCells;
     public bool[] TrapMask;

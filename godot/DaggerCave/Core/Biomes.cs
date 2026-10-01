@@ -185,6 +185,7 @@ public static class Biomes
         roots.Residents[SpawnKind.Ground] = L(E(3, () => new Rat(), 2, 3), E(2, () => new Spider { Grounded = true }), E(2, () => Var(new Frog(), "Rot ", "9aa84e"), 1, 2));
         roots.Residents[SpawnKind.Ceiling] = L(E(3, () => new Spider(), 1, 2), E(2, () => new Bat(), 1, 3));
         roots.Residents[SpawnKind.Water] = L(E(1, () => Var(new Fish(), "Mire ", "8a9a50"), 1, 3));
+        roots.Residents[SpawnKind.Shore] = L(E(1, () => new Crab(), 1, 2));
         roots.Residents[SpawnKind.WaterWall] = L(E(1, () => Var(new Eel(), "Root ", "8a6a40")));
         roots.GroundEntrants = L(E(3, () => new Rat()), E(2, () => Var(new Frog(), "Rot ", "9aa84e")), E(1, () => new Spider { Grounded = true }));
         roots.AirEntrants = L(E(1, () => new Bat()));
@@ -258,6 +259,7 @@ public static class Biomes
         tunnels.Residents[SpawnKind.Ceiling] = L(E(3, () => new Bat(), 2, 3));
         tunnels.Residents[SpawnKind.Water] = L(E(1, () => new Fish(), 2, 3));
         tunnels.Residents[SpawnKind.WaterFloor] = L(E(1, () => new Urchin(), 1, 2));
+        tunnels.Residents[SpawnKind.Shore] = L(E(1, () => new Crab(), 1, 2));
         tunnels.Residents[SpawnKind.WaterWall] = L(E(1, () => new Eel()));
         tunnels.GroundEntrants = L(E(3, () => new Rat()), E(1, () => new Bear()));
         tunnels.AirEntrants = L(E(1, () => new Bat()));
@@ -279,6 +281,7 @@ public static class Biomes
         slime.Residents[SpawnKind.Ceiling] = L(E(3, () => new Bat(), 2, 4), E(2, () => new Spider(), 1, 2));
         slime.Residents[SpawnKind.Water] = L(E(1, () => new Fish(), 2, 4));
         slime.Residents[SpawnKind.WaterFloor] = L(E(1, () => new Urchin(), 1, 2));
+        slime.Residents[SpawnKind.Shore] = L(E(1, () => new Crab(), 1, 2));
         slime.Residents[SpawnKind.WaterWall] = L(E(1, () => new Eel()));
         slime.GroundEntrants = L(E(4, () => new Frog()), E(4, () => new Goblin()), E(2, () => new Goblin { Slinger = true }), E(1, () => new Golem()), E(1, () => new LavaMonster()));
         slime.AirEntrants = L(E(1, () => new Bat()));
@@ -301,6 +304,7 @@ public static class Biomes
         frost.Residents[SpawnKind.Ground] = L(E(2, () => Var(new Bear(), "Frost ", "c0e0ff", 1.1f)), E(2, () => Var(new Skeleton(), "Rime ", "b0e8ff"), 1, 2));
         frost.Residents[SpawnKind.Ceiling] = L(E(3, () => new FrostWraith()), E(1, () => Var(new Bat(), "Ice ", "a8e0ff"), 2, 3));
         frost.Residents[SpawnKind.Water] = L(E(1, () => new Fish(), 2, 3));
+        frost.Residents[SpawnKind.Shore] = L(E(1, () => new Crab(), 1, 2));
         frost.Residents[SpawnKind.WaterWall] = L(E(1, () => new Eel()));
         frost.GroundEntrants = L(E(2, () => Var(new Skeleton(), "Rime ", "b0e8ff")), E(1, () => Var(new Bear(), "Frost ", "c0e0ff", 1.1f)));
         frost.AirEntrants = L(E(2, () => new FrostWraith()), E(1, () => Var(new Bat(), "Ice ", "a8e0ff")));

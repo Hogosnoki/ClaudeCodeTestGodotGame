@@ -555,9 +555,21 @@ public static class Tune
     // Hp and Damage are the values at minute 0 (the difficulty curve multiplies them).
     // Speeds are in px/s at minute 0 (the tempo curve multiplies them).
 
+    /// <summary>Every creature's health at spawn is its own Hp times this (before depth and party scaling).</summary>
+    public static class Enemy
+    {
+        public static float BaseHpMult = 2f;
+    }
+
     public static class Elite
     {
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
+    }
+
+    public static class Crab
+    {
+        public static float Hp = 34, Contact = 6, PinchDamage = 11, WalkSpeed = 52, SwimSpeed = 46, PinchWindup = 0.4f, PinchCooldown = 1.7f, PinchReach = 26, Size = 2.2f;
+        public static int Xp = 6;
     }
 
     public static class Bat

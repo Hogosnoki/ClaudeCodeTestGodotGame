@@ -79,6 +79,8 @@ public static partial class CaveGenerator
         {
             // standing height just above the exit chamber's floor
             if (!BossFloorReached(c)) score += 50000;
+            // (a guardian a real hero can't reach, though the coarse check says it can be: nearly as bad)
+            if (!c.FineOk && c.Attempts <= 6) score += 20000;
             if (B.Style == GenStyle.Walkers && c.Boss.Center.DistanceTo(c.StartPos) < W * 0.33f * CaveData.Cell) score += 5000;
             int minis = 0;
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
@@ -86,7 +88,7 @@ public static partial class CaveGenerator
         }
         // (a level without a vault, where there should be one: worse than a clean cave with one,
         // never worse than a trapped cave)
-        if (c.Vault == null && B.Style != GenStyle.Arena) score += 7;
+        if (c.Vault == null && B.Style != GenStyle.Arena) score += c.Attempts <= 8 ? 30000 : 7;
         return score;
     }
 
@@ -531,6 +533,7 @@ public static partial class CaveGenerator
         ValidateAndRepair(cave, startCell);
 
         BuildSpawns(cave, stamps, new Vector2(sx, sy), rng);
+        BuildShores(cave, stamps);
         CarveVault(cave, rng);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
@@ -888,6 +891,167 @@ public static partial class CaveGenerator
                 if (reaching) reachGaveUp = true;
             }
         }
+        // then the strict check: a real body, real jumps (see FineReach), repaired where it fails
+        if (cave.Boss != null)
+        {
+            var start = cave.StartPos != Vector2.Zero ? cave.StartPos : new Vector2((startCell.X + 0.5f) * CaveData.Cell, (startCell.Y + 0.5f) * CaveData.Cell);
+            cave.FineRepairs = 0;
+            float[] openBefore = null; Vector3[] iceBefore = null;
+            var triedGoals = new HashSet<int>();
+            int before = 0;
+            for (int it = 0; it < 5; it++)
+            {
+                var fine = new FineReach(cave);
+                bool ok = fine.Run(start, cave.Boss.Floor);
+                if (Verbose) GD.Print($"      fine it {it}: ok {ok} reached {fine.ReachedCount} start {start} boss {cave.Boss.Floor}");
+                var probe = System.Environment.GetEnvironmentVariable("FR_PROBE");
+                if (probe != null && it == int.Parse(System.Environment.GetEnvironmentVariable("FR_IT") ?? "0") && probe.Split(',') is var pp && int.Parse(pp[0]) == cave.Seed) fine.Probe(int.Parse(pp[1]), int.Parse(pp[2]), int.Parse(pp[3]), int.Parse(pp[4]));
+                if (it > 0 && !ok && fine.ReachedCount < before * 0.97f)
+                {
+                    // the last repair walled off more than it opened: take it back
+                    cave.Open = openBefore; cave.IceLedges.Clear(); cave.IceLedges.AddRange(iceBefore);
+                    break;
+                }
+                if (ok) { cave.FineOk = true; break; }
+                cave.FineOk = false;
+                before = fine.ReachedCount;
+                openBefore = (float[])cave.Open.Clone(); iceBefore = cave.IceLedges.ToArray();
+                if (!FineRepairStep(cave, fine, triedGoals)) break;
+                cave.FineRepairs++;
+            }
+            ValidateTraversal(cave, startCell);
+        }
+    }
+
+    /// <summary>
+    /// The way on to the guardian, by the cheapest route (digging costs, open space doesn't) from
+    /// anywhere a body can get to: the rock on it is cut away to a passage four cells wide, and
+    /// ledges stand every three cells of climb.
+    /// </summary>
+    internal static bool FineRepairStep(CaveData cave, FineReach fine, HashSet<int> tried)
+    {
+        int n = W * H;
+        var dist = new float[n];
+        var prev = new int[n];
+        Array.Fill(dist, float.MaxValue); Array.Fill(prev, -2);
+        var pq = new PriorityQueue<int, float>();
+        for (int j = 0; j < H; j++)
+            for (int i = 0; i < W; i++)
+                if (fine.CellReached(i, j)) { dist[j * W + i] = 0; prev[j * W + i] = -1; pq.Enqueue(j * W + i, 0); }
+        if (pq.Count == 0) return false;
+        int bi = (int)(cave.Boss.Floor.X / CaveData.Cell), bj = (int)(cave.Boss.Floor.Y / CaveData.Cell) - 2;
+        while (pq.Count > 0)
+        {
+            pq.TryDequeue(out int u, out float du);
+            if (du > dist[u]) continue;
+            int ui = u % W, uj = u / W;
+            for (int dj = -1; dj <= 1; dj++)
+                for (int di = -1; di <= 1; di++)
+                {
+                    if (di == 0 && dj == 0) continue;
+                    int i = ui + di, j = uj + dj;
+                    if (i < 2 || j < 2 || i >= W - 2 || j >= H - 2) continue;
+                    int v = j * W + i;
+                    // (open cells are cheap; climbing is dearer than going along; rock costs to dig)
+                    float cost = (cave.CellOpen(i, j) ? 1f : 12f) + (dj < 0 ? 0.6f : 0f) + (di != 0 && dj != 0 ? 0.4f : 0f);
+                    if (du + cost < dist[v]) { dist[v] = du + cost; prev[v] = u; pq.Enqueue(v, dist[v]); }
+                }
+        }
+        // where to build: the nearest standing place the coarse check can reach and a body can't (mending
+        // the first break in the way, the rest of the way on beyond it), leaning toward the guardian
+        int goal = -1; float best = float.MaxValue;
+        for (int u = 0; u < n; u++)
+        {
+            int ui = u % W, uj = u / W;
+            if (dist[u] >= float.MaxValue || dist[u] < 5f || tried.Contains(u) || !cave.ReachMask[u] || !cave.CellOpen(ui, uj) || cave.CellOpen(ui, uj + 1) || fine.CellReached(ui, uj)) continue;
+            float score = dist[u] + 0.35f * (Math.Abs(ui - bi) + Math.Abs(uj - bj));
+            if (score < best) { best = score; goal = u; }
+        }
+        if (goal < 0 && dist[bj * W + bi] < float.MaxValue) goal = bj * W + bi;
+        if (goal < 0) return false;
+        tried.Add(goal);
+        for (int dj = -2; dj <= 2; dj++) for (int di = -2; di <= 2; di++) tried.Add(goal + dj * W + di);
+        var path = new List<int>();
+        for (int c = goal; c >= 0; c = prev[c]) path.Add(c);
+        path.Reverse();
+        if (System.Environment.GetEnvironmentVariable("FR_DEBUG") != null) fine.SavePng($"/tmp/claude-0/fine/path_{cave.Seed}_{cave.FineRepairs}.png", cave.StartPos, cave.Boss.Floor, path);
+        int cut = 0;
+        // cut rock (and any neck a body doesn't fit through) along the way
+        foreach (int c in path)
+        {
+            int ci = c % W, cj = c / W;
+            var centre = new Vector2(ci + 0.5f, cj + 0.5f) * CaveData.Cell;
+            if (!cave.CellOpen(ci, cj) || !fine.FitsAt(centre)) { CarveDisc(cave, ci + 0.5f, cj + 0.5f, 2.3f); cut++; }
+        }
+        int steps = FineStair(cave, path);
+        if (Verbose) GD.Print($"      repair: goal cell {goal % W},{goal / W} cost {dist[goal]:0.0} path {path.Count} cells from {path[0] % W},{path[0] / W}: cut {cut}, ledges {steps}");
+        // (nothing to build and nothing to cut: this route can't be mended)
+        return steps > 0 || cut > 0;
+    }
+
+    /// <summary>
+    /// Stepping stones along a route (from its low end): one wherever the way leaves the ground for
+    /// open air and has climbed three cells or crossed four since the last footing, never across the
+    /// whole of a narrow passage (rock ledges; ice ones in frozen caverns).
+    /// </summary>
+    private static int FineStair(CaveData cave, List<int> path)
+    {
+        bool Standing(int i, int j) => cave.CellOpen(i, j) && !cave.CellOpen(i, j + 1);
+        int lastI = path[0] % W, lastJ = path[0] / W, placed = 0, side = 1;
+        foreach (int c in path)
+        {
+            int ci = c % W, cj = c / W;
+            if (Standing(ci, cj)) { lastI = ci; lastJ = cj; continue; }
+            int rise = lastJ - cj, dx = Math.Abs(ci - lastI);
+            if (!(rise >= 3 || dx >= 4 || (rise >= 2 && dx >= 3))) continue;
+            // (not in the start chamber, or the guardian's: they are laid out as they are)
+            var here = new Vector2(ci + 0.5f, cj + 1f) * CaveData.Cell;
+            bool keep = false;
+            foreach (var room in cave.Rooms)
+                if (room.Kind is RoomKind.Start or RoomKind.Boss && Math.Abs(here.X - room.Center.X) < room.RxPx + 48 && Math.Abs(here.Y - room.Center.Y) < room.RyPx + 64) keep = true;
+            if (keep) { lastI = ci; lastJ = cj; continue; }
+            int row = cj + 2, l = ci, r = ci;
+            void Measure()
+            {
+                l = ci; r = ci;
+                while (l > 0 && cave.CellOpen(l - 1, row) && ci - l < 14) l--;
+                while (r < W - 1 && cave.CellOpen(r + 1, row) && r - ci < 14) r++;
+            }
+            Measure();
+            // a passage too narrow for a stone and a way past it is opened out first
+            if (r - l + 1 < 6) { CarveDisc(cave, ci + 0.5f, cj + 1f, 3.6f); Measure(); }
+            int run = r - l + 1;
+            float cx, half;
+            if (run >= 10) { half = 2.2f; cx = ci + 0.5f; }
+            else if (run >= 6)
+            {
+                // a shelf on one wall, a three-cell gap left to pass it by
+                half = (run - 3) * 0.5f + 0.8f;
+                cx = side > 0 ? l - 0.8f + half : r + 1.8f - half;
+                side = -side;
+            }
+            else { lastI = ci; lastJ = cj; continue; }
+            if (B.IcePlatforms) cave.IceLedges.Add(new Vector3(cx, cj + 1.0f, half));
+            else StampLedge(cave, cx, cj + 1.8f, half);
+            placed++;
+            lastI = ci; lastJ = cj;
+        }
+        return placed;
+    }
+
+    /// <summary>Opens a round hole (radius in cells) in the rock.</summary>
+    private static void CarveDisc(CaveData cave, float cx, float cy, float r)
+    {
+        int stride = W + 1;
+        for (int j = (int)(cy - r - 1); j <= (int)(cy + r + 1); j++)
+            for (int i = (int)(cx - r - 1); i <= (int)(cx + r + 1); i++)
+            {
+                if (i < 1 || j < 1 || i >= W || j >= H) continue;
+                float d = MathF.Sqrt((i - cx) * (i - cx) + (j - cy) * (j - cy));
+                float v = Math.Clamp(0.5f + (r - d) * 0.7f, 0f, 1f);
+                int k = j * stride + i;
+                if (v > cave.Open[k]) cave.Open[k] = v;
+            }
     }
 
     /// <summary>
@@ -998,6 +1162,8 @@ public static partial class CaveGenerator
             if (spareBoss && cave.Boss != null && new Vector2(ci, cj).DistanceTo(cave.Boss.Center / CaveData.Cell) < cave.Boss.RxPx / CaveData.Cell + 2) continue;
             float cx = ci + 0.5f + side * 1.2f, cy = cj + 1.8f;
             side = -side;
+            // (frozen caverns: the steps are ice, as everywhere else in them)
+            if (B.IcePlatforms) { cave.IceLedges.Add(new Vector3(cx, cj + 1.0f, 2.3f)); continue; }
             const float rx = 2.3f, ry = 0.8f;
             for (int j = (int)(cy - 2); j <= (int)(cy + 2); j++)
                 for (int i = (int)(cx - 3); i <= (int)(cx + 3); i++)
@@ -1047,6 +1213,47 @@ public static partial class CaveGenerator
                     cave.Spawns.Add(new SpawnPoint { Pos = ce + new Vector2(0, 8), Kind = SpawnKind.Ceiling, Normal = Vector2.Down });
                 else if (hasFloor && fl.Y < cave.WaterY - 4)
                     cave.Spawns.Add(new SpawnPoint { Pos = fl + new Vector2(0, -14), Kind = SpawnKind.Ground });
+            }
+        }
+    }
+
+    /// <summary>
+    /// Shores: a slab of ground that runs on down into the water at an angle a creature can walk,
+    /// found by walking the floor away from a point just above the waterline (the crab's home).
+    /// </summary>
+    internal static void BuildShores(CaveData cave, List<Stamp> stamps)
+    {
+        if (cave.Liquid != Liquid.Water) return;
+        float cell = CaveData.Cell, step = 12f;
+        float maxDy = step * MathF.Tan(Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees - 4f));
+        for (int k = 0; k < stamps.Count; k++)
+        {
+            var s = stamps[k];
+            var p = new Vector2(s.X, s.Y) * cell;
+            if (MathF.Abs(p.Y - cave.WaterY) > 8 * cell || cave.IsSolid(p)) continue;
+            if (!cave.FindFloor(p + new Vector2(0, -cell), 9 * cell, out var f0)) continue;
+            // the slab starts at the waterline or a little above it
+            if (f0.Y > cave.WaterY - 2f || f0.Y < cave.WaterY - 5 * cell) continue;
+            bool near = false;
+            foreach (var sp in cave.Spawns) if (sp.Kind == SpawnKind.Shore && sp.Pos.DistanceTo(f0) < 6 * cell) { near = true; break; }
+            if (near) continue;
+            foreach (int dir in new[] { 1, -1 })
+            {
+                var prev = f0; bool ok = true; float deepest = f0.Y;
+                for (int i = 1; i <= 12 && ok; i++)
+                {
+                    var from = new Vector2(f0.X + dir * i * step, prev.Y - 18);
+                    if (cave.IsSolid(from) || !cave.FindFloor(from, 60, out var f)) { ok = false; break; }
+                    if (MathF.Abs(f.Y - prev.Y) > maxDy || cave.IsSolid(f + new Vector2(0, -10))) { ok = false; break; }
+                    deepest = MathF.Max(deepest, f.Y);
+                    prev = f;
+                }
+                // (it must carry on well under the surface, not just dip in)
+                if (ok && deepest > cave.WaterY + 3 * cell)
+                {
+                    cave.Spawns.Add(new SpawnPoint { Pos = f0 + new Vector2(0, -8), Kind = SpawnKind.Shore, Normal = new Vector2(dir, 0) });
+                    break;
+                }
             }
         }
     }

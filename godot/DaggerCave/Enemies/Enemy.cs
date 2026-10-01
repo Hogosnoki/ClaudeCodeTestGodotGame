@@ -185,7 +185,7 @@ public abstract partial class Enemy : CharacterBody2D
         // and tempo follow it live. (A copy has the host's numbers already.)
         if (!Puppet)
         {
-            MaxHp *= G.DepthHp * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f);
+            MaxHp *= Tune.Enemy.BaseHpMult * G.DepthHp * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f);
             Hp = MaxHp;
         }
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });

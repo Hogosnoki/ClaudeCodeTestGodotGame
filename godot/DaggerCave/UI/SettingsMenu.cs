@@ -350,7 +350,21 @@ public partial class SettingsMenu : Control
 
     // ---------------------------------------------------------------- graphics
 
-    private static readonly int[] FpsCaps = { 0, 30, 60, 90, 120, 144, 165, 240 };
+    private static readonly int[] FpsCaps = BuildFpsCaps();
+
+    /// <summary>The usual caps, and this display's own refresh rate among them.</summary>
+    private static int[] BuildFpsCaps()
+    {
+        var l = new System.Collections.Generic.List<int> { 0, 30, 60, 90, 120, 144, 165, 240 };
+        try
+        {
+            int hz = (int)Math.Round(DisplayServer.ScreenGetRefreshRate());
+            if (hz >= 20 && hz <= 480 && !l.Contains(hz)) l.Add(hz);
+        }
+        catch { }
+        l.Sort();
+        return l.ToArray();
+    }
     private static readonly float[] Scales = { 0.5f, 0.67f, 0.75f, 0.85f, 1f };
 
     private void BuildGraphics()
@@ -360,7 +374,7 @@ public partial class SettingsMenu : Control
         void Display() => GameSettings.ApplyDisplay(this);
         Row(g, "Window", Choice(new[] { "Windowed", "Borderless fullscreen", "Fullscreen" }, (int)GameSettings.Window, i => { GameSettings.Window = (GameSettings.WindowMode)i; Display(); }));
         Row(g, "Vertical sync", Toggle(GameSettings.VSync, v => { GameSettings.VSync = v; Display(); }));
-        Row(g, "Frame rate limit", Choice(Array.ConvertAll(FpsCaps, f => f == 0 ? "Unlimited" : $"{f} fps"), Math.Max(0, Array.IndexOf(FpsCaps, GameSettings.MaxFps)), i => { GameSettings.MaxFps = FpsCaps[i]; Display(); }));
+        Row(g, "Frame rate limit", Choice(Array.ConvertAll(FpsCaps, f => f == 0 ? "Unlimited" : $"{f} fps"), Math.Max(0, Array.IndexOf(FpsCaps, GameSettings.MaxFps)), i => { GameSettings.MaxFps = FpsCaps[i]; Display(); }), "with V-sync on, your display's own rate is the ceiling");
         int si = 0;
         for (int k = 0; k < Scales.Length; k++) if (Math.Abs(Scales[k] - GameSettings.RenderScale) < 0.02f) si = k;
         Row(g, "Resolution scale", Choice(Array.ConvertAll(Scales, f => Pct(f)), si, i => { GameSettings.RenderScale = Scales[i]; Render(); }), "lower is faster");
@@ -368,7 +382,7 @@ public partial class SettingsMenu : Control
         Row(g, "Cave haze (volumetric fog)", Toggle(GameSettings.Fog, v => { GameSettings.Fog = v; Render(); }), "the heaviest effect");
         Row(g, "Bloom", Toggle(GameSettings.Bloom, v => { GameSettings.Bloom = v; Render(); }));
         Row(g, "Ambient occlusion", Toggle(GameSettings.AmbientOcclusion, v => { GameSettings.AmbientOcclusion = v; Render(); }));
-        Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA", "MSAA 2x", "MSAA 4x" }, (int)GameSettings.Aa, i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }));
+        Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA" }, Math.Min(1, (int)GameSettings.Aa), i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }), "MSAA is gone: it flickered against the ink outlines");
         Row(g, "Ink outlines on creatures", Toggle(GameSettings.InkOutlines, v => { GameSettings.InkOutlines = v; Render(); }));
         Row(g, "Brightness", SliderRow(0.6f, 1.6f, GameSettings.Brightness, v => { GameSettings.Brightness = v; Render(); }, Pct));
         Row(g, "Screen shake", SliderRow(0f, 1f, GameSettings.Shake, v => GameSettings.Shake = v, Pct));

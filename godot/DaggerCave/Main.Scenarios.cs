@@ -92,6 +92,7 @@ public partial class Main
             case "relics": RelicsScenario(); break;
             case "aegis": AegisScenario(); break;
             case "status": StatusScenario(); break;
+            case "crab": CrabScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }
@@ -462,6 +463,48 @@ public partial class Main
                 ScCheck($"{what} takes {want:0} of 100 {k} ({dealt:0})", Math.Abs(dealt - want) < 0.5f);
             }
         }
+        ScEnd();
+    }
+
+    private Enemy _scCrab;
+    private int _scDbg;
+    private bool _scCrabWet, _scCrabPinched;
+
+    /// <summary>--scenario=crab: a reef crab on a shore slab goes down into the water after a hero who waits there, snaps at them, and a level has shore slabs to find it on.</summary>
+    private void CrabScenario()
+    {
+        var p = G.Player;
+        if (_scPhase == 0)
+        {
+            if (_scT < 0.5f) return;
+            var shores = G.Cave.Spawns.FindAll(sp => sp.Kind == SpawnKind.Shore);
+            ScCheck($"this cave has shore slabs ({shores.Count})", shores.Count > 0);
+            if (shores.Count == 0) { ScEnd(); return; }
+            var sh = shores[0];
+            int dir = Math.Sign(sh.Normal.X);
+            // the hero waits in the water, down the slab
+            var at = sh.Pos + new Vector2(dir * 140, 0);
+            if (G.Cave.FindFloor(at + new Vector2(0, -20), 400, out var fl)) at = fl - new Vector2(0, 30);
+            p.GlobalPosition = at;
+            p.Stats.MaxHp = 5000; p.Hp = 5000;
+            _scCrab = new Crab { Position = sh.Pos + new Vector2(0, -12) };
+            _scCrab.SetMeta("test", true);
+            _world.AddChild(_scCrab);
+            _scCrab.Engage();
+            GD.Print($"[scenario] crab at {sh.Pos}, hero at {p.GlobalPosition} (water at {G.Cave.WaterY})");
+            _scPhase = 1; _scT = 0; _scAegisHp = p.Hp;
+            return;
+        }
+        if (!IsInstanceValid(_scCrab)) { ScCheck("the crab lives", false); ScEnd(); return; }
+        // (the crab on its own: nothing else near holds its attack slot)
+        foreach (var e in G.Enemies.ToArray()) if (e != _scCrab && !e.IsQueuedForDeletion()) e.QueueFree();
+        if (G.Cave.IsWater(_scCrab.GlobalPosition)) _scCrabWet = true;
+        if (_scCrab.Attacking) _scCrabPinched = true;
+        p.Hp = Math.Max(p.Hp, 4000);
+        if ((int)(_scT * 2) != _scDbg) { _scDbg = (int)(_scT * 2); if (_scDbg % 4 == 0) GD.Print($"[scenario]   t {_scT:0.0}: crab {_scCrab.GlobalPosition.Round()} hero {p.GlobalPosition.Round()} wet {G.Cave.IsWater(_scCrab.GlobalPosition)} intent {_scCrab.IntentName} vel {_scCrab.Velocity.Round()} floor {_scCrab.IsOnFloor()} wall {_scCrab.IsOnWall()}"); }
+        if (_scT < 16f) return;
+        ScCheck($"the crab walked down into the water after the hero ({_scCrabWet}) and snapped its claws ({_scCrabPinched})", _scCrabWet && _scCrabPinched);
+        ScCheck($"it still stands (at {_scCrab.GlobalPosition.Round()}, hp {_scCrab.Hp:0})", _scCrab.Hp > 0);
         ScEnd();
     }
 }
