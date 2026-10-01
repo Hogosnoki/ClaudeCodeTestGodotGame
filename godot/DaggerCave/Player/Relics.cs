@@ -35,6 +35,8 @@ public static class RunRelics
 
     /// <summary>How many of the party carry it.</summary>
     public static int Count(string id) => By.Values.Count(s => s.Contains(id));
+    /// <summary>The relics this game's hero carries, in the order taken.</summary>
+    public static IEnumerable<string> Mine => By.TryGetValue(Net.Me, out var s) ? s : System.Linq.Enumerable.Empty<string>();
     public static bool Has(int peer, string id) => By.TryGetValue(peer, out var s) && s.Contains(id);
 
     /// <summary>Levels added to (or taken from) the way down to the dragon.</summary>

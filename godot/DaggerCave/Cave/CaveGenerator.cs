@@ -42,6 +42,11 @@ public static partial class CaveGenerator
 
     public static CaveData Generate(int seed) => Generate(Biomes.Get(BiomeId.Slime), seed);
 
+    /// <summary>Dev switches (--gentest with FR_RAW=1): leave the strict check's repairs and retries off, to see what the generator makes on its own.</summary>
+    private static readonly bool LooseAir = System.Environment.GetEnvironmentVariable("FR_LOOSEAIR") != null;
+    private static readonly string RawJump = System.Environment.GetEnvironmentVariable("FR_JUMPH");
+    public static readonly bool RawMode = System.Environment.GetEnvironmentVariable("FR_RAW") != null;
+
     /// <summary>--gentest --genverbose: print every attempt's score.</summary>
     public static bool Verbose;
     public static Action<CaveData, int> OnAttempt;
@@ -80,7 +85,7 @@ public static partial class CaveGenerator
             // standing height just above the exit chamber's floor
             if (!BossFloorReached(c)) score += 50000;
             // (a guardian a real hero can't reach, though the coarse check says it can be: nearly as bad)
-            if (!c.FineOk && c.Attempts <= 6) score += 20000;
+            if (!c.FineOk && c.Attempts <= 6 && !RawMode) score += 20000;
             if (B.Style == GenStyle.Walkers && c.Boss.Center.DistanceTo(c.StartPos) < W * 0.33f * CaveData.Cell) score += 5000;
             int minis = 0;
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
@@ -760,12 +765,18 @@ public static partial class CaveGenerator
         int n = W * H;
         var oc = new bool[n];
         for (int j = 0; j < H; j++) for (int i = 0; i < W; i++) oc[j * W + i] = cave.CellOpen(i, j);
+        // (frozen caverns' ledges are objects, not rock: a cell above one is stood on all the same)
+        var plat = new bool[n];
+        foreach (var l in cave.IceLedges)
+            for (int i = (int)MathF.Floor(l.X - l.Z); i <= (int)MathF.Ceiling(l.X + l.Z); i++)
+                if (i >= 0 && i < W && (int)l.Y >= 0 && (int)l.Y < H) plat[(int)l.Y * W + i] = true;
         float wrow = cave.WaterY / CaveData.Cell;
         bool O(int i, int j) => i >= 0 && j >= 0 && i < W && j < H && oc[j * W + i];
         bool Wt(int i, int j) => O(i, j) && j + 0.5f > wrow;
 
         var fwd = new List<int>[n];
-        const int jumpH = 4;
+        // (what the slowest hero clears: about 66 px at full height, four cells with nothing to spare)
+        int jumpH = RawJump != null ? int.Parse(RawJump) : 4;
         for (int j = 0; j < H; j++)
             for (int i = 0; i < W; i++)
             {
@@ -780,7 +791,7 @@ public static partial class CaveGenerator
                 }
                 else
                 {
-                    bool standing = !O(i, j + 1);
+                    bool standing = !O(i, j + 1) || (j + 1 < H && plat[(j + 1) * W + i]);
                     if (standing)
                     {
                         // walking needs headroom: the hero is two cells tall
@@ -796,8 +807,13 @@ public static partial class CaveGenerator
                         Add(i, j + 1);
                         if (O(i - 1, j)) Add(i - 1, j + 1);
                         if (O(i + 1, j)) Add(i + 1, j + 1);
-                        if (O(i - 1, j)) Add(i - 1, j);
-                        if (O(i + 1, j)) Add(i + 1, j);
+                        // (no sideways steps level with the air one is in: a body that falls drifts about as far as it falls,
+                        // not any distance at all)
+                        if (LooseAir)
+                        {
+                            if (O(i - 1, j)) Add(i - 1, j);
+                            if (O(i + 1, j)) Add(i + 1, j);
+                        }
                     }
                 }
                 if (jumpFrom)
@@ -866,7 +882,7 @@ public static partial class CaveGenerator
         var tried = new HashSet<int>();
         bool reachGaveUp = false;
         // (more room to repair on the wider maps)
-        int budget = (int)(14 * Tune.Cave.WidthScale);
+        int budget = (int)(Tune.Cave.RepairBudget * Tune.Cave.WidthScale);
         for (int rep = 0; rep < budget; rep++)
         {
             var open = (float[])cave.Open.Clone();
@@ -975,6 +991,14 @@ public static partial class CaveGenerator
         for (int c = goal; c >= 0; c = prev[c]) path.Add(c);
         path.Reverse();
         if (System.Environment.GetEnvironmentVariable("FR_DEBUG") != null) fine.SavePng($"/tmp/claude-0/fine/path_{cave.Seed}_{cave.FineRepairs}.png", cave.StartPos, cave.Boss.Floor, path);
+        if (RawMode)
+        {
+            // (a diagnosis: what the first break looks like, in cells)
+            int g = path[^1], s0 = path[0];
+            int open = 0, rock = 0; foreach (int c in path) if (cave.CellOpen(c % W, c / W)) open++; else rock++;
+            GD.Print($"      BREAK {cave.Biome?.Id} seed {cave.Seed}: from {s0 % W},{s0 / W} to {g % W},{g / W}: across {Math.Abs(g % W - s0 % W)} up {s0 / W - g / W} (path {path.Count}, rock {rock})");
+            return false;
+        }
         int cut = 0;
         // cut rock (and any neck a body doesn't fit through) along the way
         foreach (int c in path)

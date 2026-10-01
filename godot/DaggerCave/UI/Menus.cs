@@ -180,14 +180,14 @@ public partial class UpgradeMenu : Control
             DrawRect(new Rect2(r.Position, new Vector2(cw, 6)), kind);
             // an alteration's card glows a little, all round
             if (u.Kind == UpgradeKind.Alteration && !skip) DrawRect(r.Grow(3), new Color(kind, 0.25f + 0.1f * MathF.Sin(_t * 3f)), false, 2);
-            // gem
+            // the top of the card: a relic's own painted icon, or the minimalist symbol of this kind of reward
             var gc = r.Position + new Vector2(cw / 2, 62);
-            float spin = _t * 1.5f + k;
-            var gem = new Vector2[6];
-            for (int g = 0; g < 6; g++) gem[g] = gc + Vector2.Right.Rotated(spin + g * Mathf.Tau / 6) * new Vector2(26, 26);
-            DrawCircle(gc, 36, new Color(cat, 0.12f));
-            DrawColoredPolygon(gem, cat.Darkened(0.2f));
-            DrawCircle(gc, 12, cat.Lightened(0.3f));
+            DrawCircle(gc, 38, new Color(cat, 0.12f));
+            var relicTex = u.Kind == UpgradeKind.Relic ? Icons.Get(u.Id) : null;
+            if (relicTex != null)
+                DrawTextureRect(relicTex, new Rect2(gc - new Vector2(40, 40), new Vector2(80, 80)), false, locked != null ? new Color(0.5f, 0.5f, 0.5f) : Colors.White);
+            else if (Icons.Get(Icons.CategoryFor(u)) is Texture2D sym)
+                DrawTextureRect(sym, new Rect2(gc - new Vector2(30, 30), new Vector2(60, 60)), false, kind);
             DrawString(font, r.Position + new Vector2(12, 22), $"[{k + 1}]", HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, 0.5f));
             if (!skip) DrawString(font, r.Position + new Vector2(40, 22), KindLabel(u, stats?.Hero ?? G.Hero), HorizontalAlignment.Right, cw - 52, 11, kind);
             DrawString(font, r.Position + new Vector2(0, 130), u.Name, HorizontalAlignment.Center, cw, 20, Colors.White);

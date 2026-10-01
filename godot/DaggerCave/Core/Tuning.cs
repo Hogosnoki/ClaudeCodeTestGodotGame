@@ -763,6 +763,8 @@ public static class Tune
         public static int Moths = 80, Crabs = 60;
         /// <summary>Steepest walkable slope (degrees). Moss and grass grow on exactly these slopes.</summary>
         public static float WalkableSlopeDegrees = 56f;
+        /// <summary>How many repairs (a staircase of ledges out of a pit or up to the guardian) a cave gets.</summary>
+        public static int RepairBudget = 40;
         /// <summary>Ledge staircases through tall open spaces: the chance each next ledge up is
         /// placed, at the water line and at the roof (in between it blends). High at the bottom,
         /// sparse at the top, so the heights are harder (not impossible) to reach.</summary>

@@ -105,6 +105,18 @@ public partial class Hud : Control
         DrawRect(new Rect2(hpPos, new Vector2(hpW * hf, 5)), new Color(1, 1, 1, 0.15f));
         DrawString(font, hpPos + new Vector2(6, 13), $"{Num.Shown(p.Hp)} / {Num.Shown(p.Stats.MaxHp)}", HorizontalAlignment.Left, -1, 13, Colors.White);
 
+        // --- relics: small painted icons along the top ---
+        {
+            var mine = RunRelics.Mine.ToList();
+            const float rs = 30, rg = 5;
+            float rx = vs.X / 2 - (mine.Count * (rs + rg) - rg) / 2;
+            for (int k = 0; k < mine.Count; k++)
+            {
+                var tex = Icons.Get(mine[k]);
+                if (tex != null) DrawTextureRect(tex, new Rect2(rx + k * (rs + rg), 40, rs, rs), false);
+            }
+        }
+
         // --- XP ---
         var xpPos = hpPos + new Vector2(0, 26);
         float xpW = hpW;
@@ -419,6 +431,17 @@ public partial class Hud : Control
     /// <summary>A square ability icon with its cooldown filling it from the top, and a label.</summary>
     private void AbilitySquare(Font font, Vector2 at, string label, float cooldownFrac, bool ready, Color col, Action<Vector2, Color> icon)
     {
+        var painted = Icons.Get(Icons.AbilityFor(label));
+        if (painted != null)
+        {
+            // the painted icon, full colour while the ability is ready, greyed while it recharges
+            var box = new Rect2(at - new Vector2(5, 5), new Vector2(44, 44));
+            DrawTextureRect(painted, box, false, ready ? Colors.White : new Color(0.5f, 0.52f, 0.58f));
+            if (cooldownFrac > 0) DrawRect(new Rect2(box.Position + new Vector2(2, 44 * (1 - cooldownFrac)), new Vector2(40, 44 * cooldownFrac - 2)), new Color(0, 0, 0, 0.55f));
+            if (ready) DrawRect(box.Grow(1), new Color(col, 0.3f + 0.25f * MathF.Sin(_t * 5)), false, 1.5f);
+            DrawString(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+            return;
+        }
         DrawRect(new Rect2(at, new Vector2(34, 34)), new Color(0, 0, 0, 0.55f));
         icon(at + new Vector2(17, 17), ready ? col : new Color(0.45f, 0.47f, 0.52f));
         if (cooldownFrac > 0) DrawRect(new Rect2(at + new Vector2(0, 34 * (1 - cooldownFrac)), new Vector2(34, 34 * cooldownFrac)), new Color(0, 0, 0, 0.55f));

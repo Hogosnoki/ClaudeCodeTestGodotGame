@@ -206,7 +206,7 @@ public partial class Main : Node
         if (_seed == 0 && _scenario == "magma") _seed = 2;
         if (_seed == 0 && _scenario == "water") _seed = 1013;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
-        if (_seed == 0 && _heroTest) _seed = 2026; // (a cave whose start chamber has room for every hero's test)
+        if (_seed == 0 && _heroTest) _seed = 5065; // (a cave whose start chamber has room for every hero's test)
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 0;
@@ -383,7 +383,8 @@ public partial class Main : Node
             case 66:
             {
                 // a chest dealt for a party: one card for this hero, two for the others
-                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(0, 13), Cards = new[] { "hp", "stalwart", "mouths" } };
+                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(0, 13), Cards = new[] { "hp", "relic_leap", "stalwart" } };
+                foreach (var rid in new[] { "relic_anvil", "relic_flask", "relic_fount", "relic_sniper", "relic_a_prism", "relic_r_hemo" }) RunRelics.Note(Net.Me, rid);
                 _world.AddChild(chest);
                 chest.Look();
                 break;
@@ -3139,13 +3140,14 @@ public partial class Main : Node
         {
             if (_biomeArg != null && !b.Id.ToString().Equals(_biomeArg, StringComparison.OrdinalIgnoreCase)) continue;
             G.Biome = b;
-            int clean = 0, vaults = 0, fineB = 0;
+            int clean = 0, vaults = 0, fineB = 0, attemptsB = 0;
             bool wantVault = b.Style != GenStyle.Arena;
             for (int s = 1; s <= n; s++)
             {
                 ulong t0 = Time.GetTicksMsec();
                 var c = CaveGenerator.Generate(b, s * 1013);
                 ulong ms = Time.GetTicksMsec() - t0;
+                attemptsB += c.Attempts;
                 total += ms;
                 bool fine = FineBossReachable(c, OS.GetCmdlineUserArgs().Contains("--finedump") ? $"/tmp/claude-0/fine/{b.Id}_{s * 1013}_{(OS.GetCmdlineUserArgs().Contains("--finedump") ? "x" : "")}.png" : null);
                 if (fine) { fineOk++; fineB++; }
@@ -3157,7 +3159,7 @@ public partial class Main : Node
                     GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
-            GD.Print($"[gentest] {b.Id}: fine {fineB}/{n}; {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
+            GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
             cleanAll += clean; totalAll += n;
             if (wantVault) { vaultsAll += vaults; vaultWant += n; }
         }
