@@ -108,15 +108,18 @@ public partial class Player
         if (dot > 0 && !Dead)
         {
             // (through the usual armour, but not the barrier: it's not a blow)
-            TakeRawDamage(dot * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "chip");
-            _dotAccum += dot;
-            if (_dotText <= 0 && _dotAccum >= 1f)
+            if (_dotBase < 0) _dotBase = Hp;
+            TakeRawDamage(dot * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "dot");
+            // (a number only when the health shown has dropped, and the drop is what it says: see Num)
+            int shown = Num.Delta(_dotBase, Math.Max(0f, Hp));
+            if (_dotText <= 0 && shown > 0)
             {
-                _dotText = 0.7f;
-                G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + Mathf.RoundToInt(_dotAccum), Burning ? StatusColors.Fire : StatusColors.Poison, 8, 0.5f);
-                _dotAccum = 0;
+                _dotText = 0.8f;
+                G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 8, 0.5f);
+                _dotBase = Hp;
             }
         }
+        else _dotBase = -1f;
         if (_statusFx <= 0 && (Poisoned || Burning))
         {
             _statusFx = 0.12f;
@@ -125,5 +128,5 @@ public partial class Player
             else G.Fx.Burst(at, new Color(StatusColors.Poison, 0.8f), 1, 20, 1.4f, 0.6f, -30);
         }
     }
-    private float _dotAccum;
+    private float _dotBase = -1f;
 }

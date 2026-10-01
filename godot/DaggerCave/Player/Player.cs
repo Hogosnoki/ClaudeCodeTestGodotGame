@@ -179,7 +179,8 @@ public partial class Player : CharacterBody2D
         amount *= Stats.HealingTakenMult;
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
-        if (Hp - before >= 1f) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + Mathf.RoundToInt(Hp - before), HealColorLight, 10);
+        int healed = Num.Delta(before, Hp);
+        if (healed > 0) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + healed, HealColorLight, 10);
         if (IsWarden) MendShield(amount * Tune.Warden.HealToShield);
     }
 
@@ -878,6 +879,7 @@ public partial class Player : CharacterBody2D
 
     private void TakeRawDamage(float dmg, string kind)
     {
+        float hp0 = Hp;
         Hp -= dmg;
         if (Hp <= 0 && Stats.LastStand && _lastStandDepth != G.Depth)
         {
@@ -890,9 +892,13 @@ public partial class Player : CharacterBody2D
             G.Fx.Ring(GlobalPosition, 24, new Color(1f, 0.85f, 0.4f));
             G.Sfx.Play("roar", GlobalPosition, -8, 0, 1.8f);
         }
+        // (damage over time, poison and burning, is quiet: no shake, flash or number of its own; its numbers are told in TickStatus)
+        if (kind == "dot") { if (Hp <= 0) Die(); return; }
         bool chip = kind == "chip";
         _hurtFlash = chip ? 0.06f : 0.15f;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -24), Mathf.RoundToInt(Math.Max(1f, dmg)).ToString(), chip ? new Color(1f, 0.7f, 0.55f) : new Color(1f, 0.35f, 0.3f), chip ? 10 : 12);
+        // (the number floated is the change in the health shown, which counts a fraction up: see Num)
+        int shown = Num.Delta(hp0, Math.Max(0f, Hp));
+        if (shown > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -24), shown.ToString(), chip ? new Color(1f, 0.7f, 0.55f) : new Color(1f, 0.35f, 0.3f), chip ? 10 : 12);
         if (!chip) G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.1f, 0.1f), 8, 120, 2.2f, 0.45f);
         G.Fx.AddShake(kind == "drown" ? 2 : chip ? 1.5f : 6);
         if (!chip) G.Sfx.Play(kind == "drown" ? "bubble" : "hurt", GlobalPosition, -2);

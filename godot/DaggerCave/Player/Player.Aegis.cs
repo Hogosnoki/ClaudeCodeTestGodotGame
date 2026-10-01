@@ -211,7 +211,7 @@ public partial class Player
             // (in this game: the Aegis is the local hero; in another: their game is told)
             if (_burdenBy == Net.Me) G.Player?.TakeShared(shared);
             else NetSync.SendBurden(_burdenBy, shared);
-            G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + Mathf.RoundToInt(shared), new Color(1f, 0.88f, 0.55f), 8, 0.5f);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -24), "SHARED", new Color(1f, 0.88f, 0.55f), 8, 0.5f);
         }
         return dmg - shared;
     }
@@ -222,8 +222,7 @@ public partial class Player
         if (Dead || IsRemote || !IsAegis) return;
         amount = Soften(amount * (1f - Stats.BurdenSoak) * (1f - Stats.DamageReduction) * Stats.DamageTakenMult);
         if (amount <= 0.01f) return;
-        TakeRawDamage(amount, "hit");
-        G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + Mathf.RoundToInt(amount), new Color(1f, 0.6f, 0.45f), 9, 0.6f);
+        TakeRawDamage(amount, "chip");
         Anim.Flash(0.4f);
     }
 
@@ -282,8 +281,9 @@ public partial class Player
     {
         if (BubbleHp <= 0.01f || dmg <= 0) return dmg;
         float soaked = Math.Min(BubbleHp, dmg * Stats.BubbleAbsorb);
+        float bubble0 = BubbleHp;
         BubbleHp -= soaked;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"{Mathf.RoundToInt(soaked)} ABSORBED", new Color(0.65f, 1f, 0.92f), 9, 0.6f);
+        if (Num.Delta(bubble0, BubbleHp) > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"{Num.Delta(bubble0, BubbleHp)} ABSORBED", new Color(0.65f, 1f, 0.92f), 9, 0.6f);
         if (BubbleHp <= 0.01f) BurstBubble();
         return dmg - soaked;
     }

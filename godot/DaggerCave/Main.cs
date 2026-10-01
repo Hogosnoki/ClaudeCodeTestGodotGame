@@ -190,6 +190,7 @@ public partial class Main : Node
         if (gentest) { RunGenTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--upgradetest")) { RunUpgradeTest(); return; }
+        if (OS.GetCmdlineUserArgs().Contains("--webaudit")) { int bad = CreatureLibrary.WebAudit(); GD.Print(bad == 0 ? "[webaudit] PASS" : $"[webaudit] {bad} designs still have welds"); SafeQuit.Request(this, bad == 0 ? 0 : 1); return; }
         foreach (var arg in OS.GetCmdlineUserArgs())
         {
             if (arg.StartsWith("--sfxdump=")) { _sfx.DumpSfx(arg[10..]); SafeQuit.Request(this); return; }
@@ -343,6 +344,7 @@ public partial class Main : Node
             else if (a == "--proptest") _propTest = true;
             else if (a == "--chesttest") _chestTest = true;
             else if (a == "--elemrow") _elemRow = true;
+            else if (a == "--webaudit") _webAudit = true;
             else if (a.StartsWith("--lookstatus=")) _lookStatus = a[13..];
             else if (a == "--elementtest") _elementTest = true;
             else if (a == "--roguetest") _rogueLook = true;
@@ -415,6 +417,7 @@ public partial class Main : Node
     private int _fxTest;
     private bool _propTest, _elementTest, _rogueLook, _chestTest, _elemRow;
     private string _lookStatus = "";
+    private bool _webAudit;
 
     /// <summary>Test aid: one of every prop laid out around the player (for their 3D look).</summary>
     /// <summary>Test aid (--exittest): the two exits a guardian leaves, one right where the hero stands.</summary>
@@ -569,6 +572,7 @@ public partial class Main : Node
                 row[k].SetMeta("test", true);
                 _world.AddChild(row[k]);
                 row[k].Freeze(99f, hold: true);
+                row[k].Hp = row[k].MaxHp * 0.6f; // (hurt, so its health bar shows)
             }
         }
         if (_elementTest && _lookFrame == 2) SpawnElementTest();

@@ -103,7 +103,7 @@ public partial class Hud : Control
         float hf = Math.Clamp(p.Hp / p.Stats.MaxHp, 0, 1);
         DrawRect(new Rect2(hpPos, new Vector2(hpW * hf, 16)), hf < 0.3f && (int)(_t * 4) % 2 == 0 ? new Color(1f, 0.4f, 0.4f) : new Color(0.85f, 0.18f, 0.22f));
         DrawRect(new Rect2(hpPos, new Vector2(hpW * hf, 5)), new Color(1, 1, 1, 0.15f));
-        DrawString(font, hpPos + new Vector2(6, 13), $"{Mathf.CeilToInt(p.Hp)} / {Mathf.RoundToInt(p.Stats.MaxHp)}", HorizontalAlignment.Left, -1, 13, Colors.White);
+        DrawString(font, hpPos + new Vector2(6, 13), $"{Num.Shown(p.Hp)} / {Num.Shown(p.Stats.MaxHp)}", HorizontalAlignment.Left, -1, 13, Colors.White);
 
         // --- XP ---
         var xpPos = hpPos + new Vector2(0, 26);
@@ -135,7 +135,7 @@ public partial class Hud : Control
         }
 
         // --- Ability gauges (bottom-left) ---
-        var ab = new Vector2(24, vs.Y - 44);
+        var ab = new Vector2(24, vs.Y - 80);
         switch (p.Stats.Hero)
         {
             case HeroKind.Warden: DrawWardenGauges(font, p, ab); break;
@@ -521,7 +521,7 @@ public partial class Hud : Control
         // the bash's cost: a notch where one bash would leave the shield
         float notch = Tune.Warden.BashShieldShare;
         if (!p.ShieldBroken && frac > notch) DrawLine(sp + new Vector2(w * (frac - notch), 0), sp + new Vector2(w * (frac - notch), 12), new Color(1f, 0.85f, 0.45f, 0.6f), 1.5f);
-        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Mathf.CeilToInt(p.ShieldHp)} / {Mathf.RoundToInt(p.Stats.ShieldMax)}";
+        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Num.Shown(p.ShieldHp)} / {Num.Shown(p.Stats.ShieldMax)}";
         DrawString(font, sp + new Vector2(0, -8), label, HorizontalAlignment.Left, -1, 10, p.ShieldBroken ? new Color(1f, 0.6f, 0.5f) : new Color(1, 1, 1, 0.6f));
     }
 
@@ -564,7 +564,7 @@ public partial class Hud : Control
         for (float x = p.HealCost; x < max - 0.01f; x += p.HealCost)
             DrawLine(bp + new Vector2(w * x / max, 0), bp + new Vector2(w * x / max, 12), new Color(0, 0, 0, 0.45f), 1f);
         if (p.RuptureCost <= max) DrawLine(bp + new Vector2(w * p.RuptureCost / max, -3), bp + new Vector2(w * p.RuptureCost / max, 15), Player.LifeColor, 2f);
-        DrawString(font, bp + new Vector2(0, -8), $"VITAL FORCE  {Mathf.FloorToInt(p.VitalForce + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
+        DrawString(font, bp + new Vector2(0, -8), $"VITAL FORCE  {Num.Shown(p.VitalForce)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, affordable ? new Color(0.75f, 1f, 0.7f, 0.8f) : new Color(1, 1, 1, 0.5f));
     }
 
     /// <summary>The vanish (a dial, with Twin Reserve's pips), the two daggers, and the recall (a square).</summary>
@@ -717,7 +717,7 @@ public partial class Hud : Control
         DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(1, 1, 1, 0.25f));
         foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
             if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
-        DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Mathf.FloorToInt(p.Alimus + 0.001f)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
+        DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Num.Shown(p.Alimus)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
     }
 }
 

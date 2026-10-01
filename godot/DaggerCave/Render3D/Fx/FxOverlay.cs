@@ -24,9 +24,8 @@ public partial class FxOverlay : Control
     {
         var p3 = W3.P(world, z);
         if (cam.IsPositionBehind(p3)) return null;
-        var sp = cam.UnprojectPosition(p3);
-        // viewport pixels -> this canvas (the window may be stretched from the 1280x720 base)
-        return GetViewport().GetFinalTransform().AffineInverse() * sp;
+        // (the viewport's own coordinates, which with the window stretched from the 1280x720 base are this canvas's)
+        return cam.UnprojectPosition(p3);
     }
 
     public override void _Draw()

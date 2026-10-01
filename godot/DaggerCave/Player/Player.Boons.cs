@@ -70,9 +70,10 @@ public partial class Player
         if (_mendLeft > 0 && _mendWard > 0f) dmg *= 1f - _mendWard;
         if (BarrierHp <= 0 || dmg <= 0) return dmg;
         float soaked = Math.Min(BarrierHp, dmg);
+        float barrier0 = BarrierHp;
         BarrierHp -= soaked;
         G.Fx.Spark(GlobalPosition + new Vector2(0, -4), new Vector2(Facing, 0), false, new Color(0.75f, 0.9f, 1f));
-        G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"{Mathf.RoundToInt(soaked)} SOAKED", new Color(0.75f, 0.9f, 1f), 9, 0.6f);
+        if (Num.Delta(barrier0, BarrierHp) > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"{Num.Delta(barrier0, BarrierHp)} SOAKED", new Color(0.75f, 0.9f, 1f), 9, 0.6f);
         if (BarrierHp <= 0.01f)
         {
             BarrierHp = 0;

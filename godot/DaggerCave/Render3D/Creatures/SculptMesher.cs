@@ -25,6 +25,8 @@ public sealed class SculptData
     public int[] BoneIdx;
     public float[] Weights;
     public BoneDef[] Bones;
+    /// <summary>Triangles of the skin whose corners follow bones far apart in the skeleton (a weld between limbs: it stretches when they part).</summary>
+    public int Bridges;
 }
 
 /// <summary>
@@ -58,6 +60,50 @@ public static class SculptMesher
         return new SculptResult { Mesh = mesh, Skin = skin, Bones = d.Bones, Bounds = body.Bounds(), Triangles = body.I.Count / 3 };
     }
 
+    /// <summary>How many steps apart in the skeleton two bones may be and still blend (the same bone, its parent, its child, a sibling...).</summary>
+    private const int BlendHops = 1;
+
+    /// <summary>Test aid: false bakes the old way (every primitive blends with every other), to compare with the audit's count.</summary>
+    public static bool Isolate = true;
+    /// <summary>Test aid: which bones the audit's welds join.</summary>
+    public static bool AuditDetail;
+    public static readonly Dictionary<string, int> AuditPairs = new();
+
+    private static bool[,] AllRelated(int n)
+    {
+        var r = new bool[n, n];
+        for (int a = 0; a < n; a++) for (int b = 0; b < n; b++) r[a, b] = true;
+        return r;
+    }
+
+    /// <summary>Whether primitives on bones i and j may smooth-union and share a vertex's weights: bones within BlendHops of each other in the skeleton tree.</summary>
+    /// <summary>The audit counts a triangle as a weld when its corners follow bones more than this many steps apart.</summary>
+    private const int AuditHops = 2;
+
+    private static bool[,] Related(Sculptor s, int maxHops)
+    {
+        int n = s.Bones.Count;
+        var depth = new int[n];
+        for (int k = 0; k < n; k++) { int d = 0; for (int b = s.Bones[k].Parent; b >= 0; b = s.Bones[b].Parent) d++; depth[k] = d; }
+        var rel = new bool[n, n];
+        for (int a = 0; a < n; a++)
+            for (int b = 0; b < n; b++)
+            {
+                // tree distance: climb the deeper one until they meet
+                int x = a, y = b, hops = 0;
+                while (x != y && hops <= maxHops + 2)
+                {
+                    if (x < 0 || (y >= 0 && depth[y] > depth[x])) { y = s.Bones[y].Parent; }
+                    else if (y < 0 || depth[x] > depth[y]) { x = s.Bones[x].Parent; }
+                    else { x = s.Bones[x].Parent; y = s.Bones[y].Parent; hops++; }
+                    hops++;
+                    if (x < 0 && y < 0) break;
+                }
+                rel[a, b] = x == y && hops <= maxHops;
+            }
+        return rel;
+    }
+
     /// <summary>Voxelizes, meshes and weights the sculpt (pure computation; any thread).</summary>
     public static SculptData Bake(Sculptor s)
     {
@@ -77,6 +123,12 @@ public static class SculptMesher
         var org = box.Position;
         var v = new float[nx * ny * nz];
         Array.Fill(v, 1e3f);
+        // which primitive (by bone) is nearest in each voxel: primitives only blend into those of bones close to theirs in the
+        // skeleton, so an arm resting against a leg is not welded to it by the smooth union (webbing that stretches as they move)
+        var own = new short[nx * ny * nz];
+        Array.Fill(own, (short)-1);
+        var relTrue = Related(s, AuditHops);
+        var rel = Isolate ? Related(s, BlendHops) : AllRelated(s.Bones.Count);
         var noise = s.Noise;
 
         float PrimDist(Prim p, Vector3 q)
@@ -100,19 +152,54 @@ public static class SculptMesher
                         int i = (z * ny + y) * nx + x;
                         var q = org + new Vector3(x, y, z) * cell;
                         float d = PrimDist(p, q);
-                        v[i] = p.Subtract ? W3.SMax(v[i], -d, p.Blend) : W3.SMin(v[i], d, p.Blend);
+                        if (p.Subtract) { v[i] = W3.SMax(v[i], -d, p.Blend); continue; }
+                        int o = own[i];
+                        bool near = o < 0 || rel[o, p.Bone];
+                        float nv = near ? W3.SMin(v[i], d, p.Blend) : Math.Min(v[i], d);
+                        if (d < v[i]) own[i] = (short)p.Bone;
+                        v[i] = nv;
                     }
+        }
+
+        // where parts of far-apart bones touch or all but touch (a hand on a thigh), the skin of each is pulled back from the
+        // other by a voxel or two, so there are two surfaces with a hairline between, not one welded web that stretches when
+        // they part (a surface-net cell spanning the hairline would still join them: hence the margin)
+        {
+            var cut = new List<int>();
+            for (int z = 2; z < nz - 2; z++)
+                for (int y = 2; y < ny - 2; y++)
+                    for (int x = 2; x < nx - 2; x++)
+                    {
+                        int i = (z * ny + y) * nx + x;
+                        if (v[i] >= 0f || own[i] < 0) continue;
+                        int o = own[i];
+                        bool carve = false;
+                        for (int dz = -2; dz <= 2 && !carve; dz++)
+                            for (int dy = -2; dy <= 2 && !carve; dy++)
+                                for (int dx = -2; dx <= 2; dx++)
+                                {
+                                    int j = i + (dz * ny + dy) * nx + dx;
+                                    if (v[j] < 0f && own[j] >= 0 && !rel[o, own[j]]) { carve = true; break; }
+                                }
+                        if (carve) cut.Add(i);
+                    }
+            foreach (int i in cut) v[i] = cell * 0.6f;
         }
 
         // the same union, anywhere (for normals and vertex attributes)
         float Field(Vector3 q)
         {
             float f = 1e3f;
+            int o = -1;
             foreach (var p in prims)
             {
                 if (!p.Bounds.HasPoint(q)) continue;
                 float d = PrimDist(p, q);
-                f = p.Subtract ? W3.SMax(f, -d, p.Blend) : W3.SMin(f, d, p.Blend);
+                if (p.Subtract) { f = W3.SMax(f, -d, p.Blend); continue; }
+                bool near = o < 0 || rel[o, p.Bone];
+                float nf = near ? W3.SMin(f, d, p.Blend) : Math.Min(f, d);
+                if (d < f) o = p.Bone;
+                f = nf;
             }
             return f;
         }
@@ -179,6 +266,7 @@ public static class SculptMesher
         var weights = new List<float>(pos.Count * 4);
         var custom = new List<float>(pos.Count * 4);
         var boneW = new float[nb];
+        var dominant = new int[pos.Count];
         float h = cell * 0.5f;
         for (int k = 0; k < pos.Count; k++)
         {
@@ -189,10 +277,12 @@ public static class SculptMesher
             body.N[k] = g.LengthSquared() > 1e-12f ? g.Normalized() : Vector3.Up;
             // blend weights: primitives within their blend width of the closest one
             float dmin = float.MaxValue;
+            int nearest = -1;
             foreach (var p in prims)
             {
                 if (p.Subtract || !p.Bounds.HasPoint(q)) continue;
-                dmin = Math.Min(dmin, p.Dist(q));
+                float dp = p.Dist(q);
+                if (dp < dmin) { dmin = dp; nearest = p.Bone; }
             }
             Array.Clear(boneW);
             float wsum = 0f;
@@ -201,6 +291,8 @@ public static class SculptMesher
             foreach (var p in prims)
             {
                 if (p.Subtract || !p.Bounds.HasPoint(q)) continue;
+                // (only the bones near the nearest one's share the vertex: no weight from the far limb it merely touches)
+                if (nearest >= 0 && !rel[nearest, p.Bone]) continue;
                 float d = p.Dist(q) - dmin;
                 float sigma = Math.Max(p.Blend, cell) * 0.6f;
                 float w = MathF.Exp(-d / sigma);
@@ -217,6 +309,18 @@ public static class SculptMesher
             body.C[k] = new Color(col.X, col.Y, col.Z, rough / wsum);
             custom.Add(metal / wsum); custom.Add(sss / wsum); custom.Add(emit / wsum); custom.Add(DominantDetail(prims, q, dmin) / 8f);
             AddTop4(boneW, bones, weights);
+            dominant[k] = bones[bones.Count - 4];
+        }
+        // (how many triangles of the skin join bones that are far apart: a weld)
+        int bridges = 0;
+        for (int t = 0; t + 2 < body.I.Count; t += 3)
+        {
+            int a = dominant[body.I[t]], b = dominant[body.I[t + 1]], c2 = dominant[body.I[t + 2]];
+            if (!relTrue[a, b] || !relTrue[b, c2] || !relTrue[a, c2])
+            {
+                bridges++;
+                if (AuditDetail) { string key = $"{s.Bones[a].Name}/{s.Bones[b].Name}/{s.Bones[c2].Name}"; AuditPairs[key] = AuditPairs.GetValueOrDefault(key) + 1; }
+            }
         }
 
         // ---- explicit parts
@@ -244,7 +348,7 @@ public static class SculptMesher
             body.UV2[k] = new Vector2(body.V[k].Z, 0f);
         }
 
-        return new SculptData { Body = body, Custom = custom.ToArray(), BoneIdx = bones.ToArray(), Weights = weights.ToArray(), Bones = s.Bones.ToArray() };
+        return new SculptData { Body = body, Custom = custom.ToArray(), BoneIdx = bones.ToArray(), Weights = weights.ToArray(), Bones = s.Bones.ToArray(), Bridges = bridges };
     }
 
     /// <summary>The surface-detail kind of the primitive closest to q (kinds don't blend).</summary>

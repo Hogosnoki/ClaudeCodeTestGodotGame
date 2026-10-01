@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -48,6 +49,33 @@ public static class CreatureLibrary
     }
 
     public static bool Has(string name) { EnsureRegistered(); return Designs.ContainsKey(name); }
+
+    /// <summary>
+    /// Test aid (--webaudit): every design baked, with and without the isolation of far-apart limbs, and how many triangles of its
+    /// skin join bones that are far apart in the skeleton (a weld, which stretches into webbing when the limbs part).
+    /// </summary>
+    public static int WebAudit()
+    {
+        EnsureRegistered();
+        int bad = 0;
+        foreach (var (name, make) in Designs.OrderBy(kv => kv.Key))
+        {
+            int[] counts = new int[2];
+            for (int pass = 0; pass < 2; pass++)
+            {
+                SculptMesher.Isolate = pass == 1;
+                var design = make();
+                var s = new Sculptor(design.Seed) { Cell = design.Cell * (design.Cell >= 0.014f ? CellScale : 1f) };
+                design.Sculpt(s);
+                counts[pass] = SculptMesher.Bake(s).Bridges;
+            }
+            SculptMesher.Isolate = true;
+            if (counts[1] > 0) bad++;
+            if (counts[1] > 0) { SculptMesher.AuditDetail = true; SculptMesher.AuditPairs.Clear(); var d2 = make(); var s2 = new Sculptor(d2.Seed) { Cell = d2.Cell * (d2.Cell >= 0.014f ? CellScale : 1f) }; d2.Sculpt(s2); SculptMesher.Bake(s2); SculptMesher.AuditDetail = false; GD.Print("            " + string.Join("  ", SculptMesher.AuditPairs.OrderByDescending(kv => kv.Value).Take(4).Select(kv => $"{kv.Key}:{kv.Value}"))); }
+            GD.Print($"[webaudit] {name,-14} welds before {counts[0],5}  after {counts[1],5}{(counts[1] > 0 ? "   <--" : "")}");
+        }
+        return bad;
+    }
 
     private static bool _registered;
     private static void EnsureRegistered()

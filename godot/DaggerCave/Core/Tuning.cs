@@ -83,7 +83,7 @@ public static class Tune
         /// <summary>Sword reach (px), damage per strike, time between swings (from one swing's start to the
         /// next's: shortening the swing itself leaves it alone), and how long the blade takes to sweep
         /// its arc (longer = heavier, slower-looking swing).</summary>
-        public static float Reach = 45f, Damage = 18f, SwingCooldown = 0.6f, SwingTime = 0.0825f;
+        public static float Reach = 58f, Damage = 18f, SwingCooldown = 0.6f, SwingTime = 0.0825f;
         /// <summary>Wind-up before the blade comes around.</summary>
         public static float SwingWindup = 0.09f;
         /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
@@ -154,7 +154,7 @@ public static class Tune
         public static float ThreatDist = 0.85f;
         /// <summary>Shortsword: dagger length, but the blade sweeps faster. (Its damage keeps the
         /// Warden's damage a little under the Swordsman's: about 31 a second to 33.)</summary>
-        public static float Reach = 38f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.045f, SwingWindup = 0.045f;
+        public static float Reach = 50f, Damage = 11f, SwingCooldown = 0.36f, SwingTime = 0.045f, SwingWindup = 0.045f;
         public static float Lunge = 0f, Knockback = 60f;
         /// <summary>A little slower than the Swordsman, with lower jumps.</summary>
         public static float MoveMult = 0.92f, JumpMult = 0.9f;
@@ -281,7 +281,7 @@ public static class Tune
         /// A strike has CritChance of landing twice as hard (CritMult). With one dagger thrown the
         /// jabs come half as fast (OneDaggerSlow).
         /// </summary>
-        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 30f, Knockback = 70f, Lunge = 0f;
+        public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 40f, Knockback = 70f, Lunge = 0f;
         public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.025f, OneDaggerSlow = 2f;
         /// <summary>Backstab (an upgrade): a strike from behind a creature lands this many times as hard.</summary>
         public static float BackstabMult = 1.5f;

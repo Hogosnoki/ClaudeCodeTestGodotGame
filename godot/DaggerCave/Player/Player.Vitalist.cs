@@ -109,7 +109,8 @@ public partial class Player
 
     /// <summary>
     /// The drain's strike, on the cast's thrust: the crystal flares, a tether of life snaps out to
-    /// the creature and it bursts (and with Many Mouths, the ones beside it too).
+    /// the creature and it bursts (and with Many Mouths, the ones beside it too). (No tether is drawn:
+    /// just the flare at the staff and the burst at the creature.)
     /// </summary>
     private void StrikeDrain()
     {
@@ -121,7 +122,6 @@ public partial class Player
         G.Fx.Flash(CastPoint, 12, LifeColorLight, 0.14f);
         G.Fx.Spark(CastPoint, Vector2.Right, false, LifeColorLight);
         G.Fx.Burst(CastPoint, LifeColorLight, 7, 70, 1.6f, 0.3f, -30f);
-        G.Fx.Beam(CastPoint, target.GlobalPosition, new Color(LifeColor, 0.9f));
         DrainFrom(target, dmg, 1f);
         // Many Mouths: the creatures nearest the target give up their life too
         if (Stats.DrainExtra > 0)
@@ -166,7 +166,6 @@ public partial class Player
         G.Fx.Flash(at, 12 * size + 5, LifeColor, 0.22f);
         G.Fx.Spark(at, -toMe, true, LifeColorLight);
         G.Fx.Burst(at, LifeColor, (int)(20 * size), 190, 2.6f, 0.4f, 60f, 0, 3f);
-        G.Fx.Directional(at, toMe, 0.6f, LifeColorLight, (int)(18 * size), 260, 2.4f, 0.36f, 0, 0);
         G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
         var mote = new LifeMote { Position = at, Caster = this, VitalForce = dealt * Stats.VitalForceGain, Size = size };

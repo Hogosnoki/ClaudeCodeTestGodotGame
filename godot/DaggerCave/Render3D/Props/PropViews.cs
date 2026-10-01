@@ -180,22 +180,10 @@ public partial class LifeMoteView : PropView
 
     protected override void Sync(float dt)
     {
-        var m = (LifeMote)Owner2D;
         Follow(default, 0.3f);
-        float a = m.Alpha, grow = (0.4f + 0.6f * a) * _size;
-        float pulse = 1f + 0.18f * MathF.Sin(m.Age * 38f);
-        _halo.Scale = Vector3.One * 0.6f * pulse * grow;
-        _core.Scale = Vector3.One * 0.28f * grow;
-        // the tail streams back along its flight (2D y-down mirrored to y-up), longer the faster it goes
-        var v = m.Vel;
-        float stretch = Math.Clamp(v.Length() / 600f, 0.3f, 1.3f);
-        var back = v.LengthSquared() > 1 ? new Vector3(-v.X, v.Y, 0f).Normalized() : Vector3.Zero;
-        for (int k = 0; k < _tail.Length; k++)
-        {
-            _tail[k].Position = back * (0.12f + 0.13f * k) * stretch * _size;
-            _tail[k].Visible = a > 0.4f;
-        }
-        _light.LightEnergy = 1.2f * a * _size;
+        // the stolen life travels unseen: the flare at the staff and the burst at the creature are all there is to see
+        Visible = false;
+        _light.LightEnergy = 0f;
     }
 }
 
