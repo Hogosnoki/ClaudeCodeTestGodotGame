@@ -779,6 +779,8 @@ public static class Tune
         /// <summary>Every biome's map is this many times as wide as its own width says (the height
         /// stays): its tunnel budget and number of rooms grow with it, so the width gets filled.</summary>
         public static float WidthScale = 1.5f;
+        /// <summary>Walker-carved caves (and the room caves) are this much taller than drawn, with more tunnels to fill it.</summary>
+        public static float HeightScale = 1.3f;
         /// <summary>Total tunnel-carving steps: more = more (and longer) tunnels.</summary>
         public static int TunnelBudget = 4600;
         /// <summary>Radius range (cells) of dry tunnels. Narrower leaves more ground and ledges.</summary>

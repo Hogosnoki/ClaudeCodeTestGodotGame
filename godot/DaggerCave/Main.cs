@@ -207,6 +207,7 @@ public partial class Main : Node
         if (_seed == 0 && _scenario == "magma") _seed = 2;
         if (_seed == 0 && _scenario == "water") _seed = 1013;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
+        if (_heroTest) Tune.Cave.HeightScale = 1f; // (the tests were laid out for the original cave height)
         if (_seed == 0 && _heroTest) _seed = 5065; // (a cave whose start chamber has room for every hero's test)
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
