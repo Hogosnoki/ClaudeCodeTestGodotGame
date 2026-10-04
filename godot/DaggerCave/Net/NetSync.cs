@@ -242,6 +242,15 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>This game's hero chipped at a rubble plug (the other games take the same blow).</summary>
+    public static void RubbleHit(Rubble r)
+    {
+        if (!Net.Online || Applying) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(14).Int(r.Index);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's Rogue recalled its daggers: its copies of them come home too.</summary>
     public static void HeroRecall(Player p)
     {
@@ -342,6 +351,14 @@ public static class NetSync
                 var at = r.Vec(); float radius = r.Half(), life = r.Half();
                 Applying = true;
                 G.Spawn(new SmokeCloud { Position = at, Radius = radius, Life = life });
+                Applying = false;
+                break;
+            }
+            case 14:
+            {
+                int ri = r.Int();
+                Applying = true;
+                foreach (var rb in Rubble.All) if (GodotObject.IsInstanceValid(rb) && rb.Index == ri) rb.NetHit();
                 Applying = false;
                 break;
             }

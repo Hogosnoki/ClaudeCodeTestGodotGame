@@ -94,6 +94,7 @@ public partial class Main
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;
+            case "rubble": RubbleScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }
@@ -550,6 +551,51 @@ public partial class Main
         {
             _scRopeJump = false;
             ScCheck("jump lets go", !p.OnRope);
+            ScEnd();
+        }
+    }
+
+    // ---------------------------------------------------------------- boulders in a passage
+    private Rubble _scPlug;
+    private int _scHeaves;
+
+    private void RubbleScenario()
+    {
+        var p = G.Player;
+        if (_scPhase == 0)
+        {
+            if (_scT < 0.5f) return;
+            ScCheck($"this cave has boulder plugs ({Rubble.All.Count})", Rubble.All.Count > 0);
+            if (Rubble.All.Count == 0) { ScEnd(); return; }
+            _scPlug = Rubble.All[0];
+            // the hero stands at the plug's foot, on its left
+            var at = _scPlug.GlobalPosition + new Vector2(-_scPlug.Size.X * 0.5f - 14, _scPlug.Size.Y * 0.5f - 12);
+            p.GlobalPosition = at; p.Velocity = Vector2.Zero;
+            ScCheck("the plug is solid", _scPlug.CollisionLayer != 0 && !_scPlug.GetChild<CollisionShape2D>(0).Disabled);
+            _scPhase = 1; _scT = 0;
+            return;
+        }
+        p.Hp = Math.Max(p.Hp, 1000);
+        p.GlobalPosition = new Vector2(_scPlug.GlobalPosition.X - _scPlug.Size.X * 0.5f - 14, p.GlobalPosition.Y);
+        if (_scPhase == 1)
+        {
+            ScCheck("the hero is within reach of it", _scPlug.Reaches(p.GlobalPosition));
+            _scPhase = 2; _scT = 0;
+            return;
+        }
+        if (_scPhase == 2)
+        {
+            if (_scT > 0.25f) { _scT = 0; if (!_scPlug.Cleared) { _scPlug.Heave(); _scHeaves++; } }
+            if (_scPlug.Cleared)
+            {
+                ScCheck($"{_scHeaves} heaves clear it (it takes {Tune.Rubble.Hits})", _scHeaves == Tune.Rubble.Hits);
+                _scPhase = 3; _scT = 0;
+            }
+            return;
+        }
+        if (_scT > 0.3f)
+        {
+            ScCheck("the way is open: no collision left", _scPlug.GetChild<CollisionShape2D>(0).Disabled);
             ScEnd();
         }
     }

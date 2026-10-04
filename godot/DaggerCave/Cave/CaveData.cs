@@ -72,6 +72,8 @@ public sealed class CaveData
     public BiomeDef Biome;
     /// <summary>Breakable ice ledges (frozen caverns): centre x, top y (cells), half width.</summary>
     public readonly List<Vector3> IceLedges = new();
+    /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>
+    public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
 
     public Vector2 StartPos;
     /// <summary>The cave mouth (depth 0 only): the floor at the daylight on the far left, where you can leave.</summary>

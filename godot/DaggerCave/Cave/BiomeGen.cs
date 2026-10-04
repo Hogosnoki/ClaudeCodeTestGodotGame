@@ -174,6 +174,7 @@ public static partial class CaveGenerator
         BuildSpawns(cave, spawnStamps, new Vector2(startCell.X, startCell.Y), rng, spawnStride);
         BuildShores(cave, spawnStamps);
         CarveVault(cave, rng);
+        RubbleGen.Build(cave);
         cave.RockDepth = ComputeRockDepth(cave);
         return cave;
     }

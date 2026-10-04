@@ -581,6 +581,14 @@ public static class Tune
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
     }
 
+    /// <summary>Boulders plugging narrow passages.</summary>
+    public static class Rubble
+    {
+        public static int Hits = 4;
+        /// <summary>Plugs per cave (rolled between the two) and how far from the start the nearest may be (cells).</summary>
+        public static int Min = 2, Max = 5, KeepFromStart = 30;
+    }
+
     /// <summary>The party's rope (lowered by anyone, climbed by anyone).</summary>
     public static class Rope
     {

@@ -247,6 +247,15 @@ public partial class Hud : Control
             DrawRect(new Rect2(at - new Vector2(osz.X / 2 + 8, 16), new Vector2(osz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
             DrawString(font, at - new Vector2(osz.X / 2, 0), open, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
+        // --- a plug of boulders ---
+        if (!p.Dead && Rubble.At(p.GlobalPosition) is Rubble plug)
+        {
+            var at = plug.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -plug.Size.Y * 0.5f - 18);
+            string clear = $"{Controls.Name("interact")}  heave the rocks  ({plug.Left})";
+            var csz = font.GetStringSize(clear, HorizontalAlignment.Left, -1, 14);
+            DrawRect(new Rect2(at - new Vector2(csz.X / 2 + 8, 16), new Vector2(csz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            DrawString(font, at - new Vector2(csz.X / 2, 0), clear, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
+        }
         // --- a caged hero ---
         if (!p.Dead && HeroCage.At(p.GlobalPosition) is HeroCage cage)
         {

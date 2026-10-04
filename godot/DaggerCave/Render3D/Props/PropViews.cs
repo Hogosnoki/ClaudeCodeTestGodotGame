@@ -25,6 +25,7 @@ public static class PropViews
             ElementBolt => new ElementBoltView(),
             Updraft => new UpdraftView(),
             Rope => new RopeView(),
+            Rubble => new RubbleView(),
             Blizzard => new BlizzardView(),
             IceBlock => new IceBlockView(),
             ThrownDagger => new ThrownDaggerView(),
@@ -1847,5 +1848,77 @@ public partial class IcePlatformView : PropView
         Visible = !p.Broken;
         for (int k = 0; k < _cracks.Count; k++) _cracks[k].Visible = k < p.Cracks;
         _mat.EmissionEnergyMultiplier = p.FlashT > 0 ? 2.5f : 0.25f;
+    }
+}
+
+/// <summary>A plug of fallen boulders: a heap of rough rocks filling the passage, jolting when struck, a few
+/// rolling off with each blow, and when it is cleared the rest tumble away and settle.</summary>
+public partial class RubbleView : PropView
+{
+    private const int Rocks = 16;
+    private readonly MeshInstance3D[] _rock = new MeshInstance3D[Rocks];
+    private readonly Vector3[] _home = new Vector3[Rocks], _vel = new Vector3[Rocks], _off = new Vector3[Rocks], _spin = new Vector3[Rocks];
+    private readonly float[] _size = new float[Rocks];
+    private readonly bool[] _loose = new bool[Rocks];
+    private int _shown = Rocks;
+
+    protected override void Build()
+    {
+        var r = (Rubble)Owner2D;
+        var rng = new Random(r.Index * 131 + 7);
+        float w = W3.M(r.Size.X), h = W3.M(r.Size.Y);
+        for (int k = 0; k < Rocks; k++)
+        {
+            // (the rocks fill the passage from its floor up)
+            float y = -h * 0.5f + (k + 0.5f) / Rocks * h;
+            _home[k] = new Vector3((float)(rng.NextDouble() - 0.5) * w * 0.9f, y, (float)(rng.NextDouble() - 0.5) * 0.5f);
+            _size[k] = (0.35f + (float)rng.NextDouble() * 0.4f) * Math.Max(w, 0.7f) * 0.55f;
+            var col = 0.32f + (float)rng.NextDouble() * 0.16f;
+            var mat = new StandardMaterial3D { AlbedoColor = new Color(col, col * 0.93f, col * 0.85f), Roughness = 0.95f };
+            _rock[k] = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.5f, Height = 1f, RadialSegments = 7, Rings = 4 }, MaterialOverride = mat };
+            _rock[k].Scale = new Vector3(_size[k] * (0.9f + (float)rng.NextDouble() * 0.5f), _size[k] * (0.7f + (float)rng.NextDouble() * 0.4f), _size[k]);
+            _rock[k].Rotation = new Vector3((float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f);
+            _rock[k].Position = _home[k];
+            AddChild(_rock[k]);
+            _spin[k] = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 8f;
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var r = (Rubble)Owner2D;
+        Follow(default, 0.1f);
+        float h = W3.M(r.Size.Y);
+        // each blow sends a few of the rocks (from the top) rolling off
+        int keep = r.Cleared ? 0 : (int)Math.Ceiling(Rocks * (r.Left / (float)Tune.Rubble.Hits));
+        for (int k = Rocks - 1; k >= keep && k < _shown; k--)
+        {
+            _loose[k] = true;
+            _vel[k] = new Vector3((k % 2 == 0 ? 1 : -1) * (1.2f + (k % 3) * 0.6f), 1.6f + (k % 4) * 0.4f, 0.4f);
+        }
+        _shown = Math.Min(_shown, keep);
+        float shake = r.ShakeT > 0 ? (MathF.Sin(r.ShakeT * 90f) * 0.03f) : 0f;
+        for (int k = 0; k < Rocks; k++)
+        {
+            if (!_loose[k]) { _rock[k].Position = _home[k] + new Vector3(shake, 0, 0); continue; }
+            // tumbling: gravity, a bounce off the passage floor, then it rests and fades
+            _vel[k].Y -= 9.8f * dt * 1.6f;
+            _off[k] += _vel[k] * dt;
+            if (_home[k].Y + _off[k].Y < -h * 0.5f + _size[k] * 0.3f)
+            {
+                _off[k].Y = -h * 0.5f + _size[k] * 0.3f - _home[k].Y;
+                _vel[k].Y = Math.Abs(_vel[k].Y) > 0.8f ? -_vel[k].Y * 0.4f : 0f;
+                _vel[k].X *= 0.8f;
+                if (_vel[k].Y == 0f) _spin[k] *= 0.9f;
+            }
+            _rock[k].Position = _home[k] + _off[k];
+            _rock[k].RotateX(_spin[k].X * dt); _rock[k].RotateZ(_spin[k].Z * dt);
+        }
+        if (r.Cleared && r.ClearedT > 3f)
+        {
+            float a = Math.Clamp(1f - (r.ClearedT - 3f) / 1.5f, 0f, 1f);
+            Scale = Vector3.One * Math.Max(a, 0.001f);
+            if (a <= 0f) Visible = false;
+        }
     }
 }
