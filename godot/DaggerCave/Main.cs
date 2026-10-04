@@ -207,6 +207,7 @@ public partial class Main : Node
         if (_seed == 0 && _scenario == "magma") _seed = 2;
         if (_seed == 0 && _scenario == "water") _seed = 1013;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
+        if (_heroTest) { Player.KnockLock = false; Tune.Combat.HurtKnockbackMult = 0.8f; }
         if (_heroTest) Tune.Cave.HeightScale = 1f; // (the tests were laid out for the original cave height)
         if (_seed == 0 && _heroTest) _seed = 5065; // (a cave whose start chamber has room for every hero's test)
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
@@ -1546,12 +1547,31 @@ public partial class Main : Node
         if (_hitStopTest) HitStopTestTick();
     }
 
+    private Player _spectate;
+
     private void UpdateCamera(float dt)
     {
         var p = G.Player;
         if (p == null || _cam == null) return;
         if (p.Dead && Net.InRun)
-            foreach (var h in G.Players) if (!h.Dead) { p = h; break; }
+        {
+            // watching a friend: attack or ability steps to the next, or back to the one before
+            var alive = new List<Player>();
+            foreach (var h in G.Players) if (IsInstanceValid(h) && !h.Dead) alive.Add(h);
+            if (alive.Count > 0)
+            {
+                int step = Input.IsActionJustPressed("attack") ? 1 : Input.IsActionJustPressed("ability") ? -1 : 0;
+                if (step != 0 && !MenuOpen)
+                {
+                    int cur = _spectate != null ? alive.IndexOf(_spectate) : -1;
+                    _spectate = alive[((cur + step) % alive.Count + alive.Count) % alive.Count];
+                    _hud?.ShowBanner($"WATCHING {(_spectate.Stats.Hero).ToString().ToUpperInvariant()}  ·  attack: next  ·  ability: back", 1.6f);
+                }
+                if (_spectate == null || !alive.Contains(_spectate)) _spectate = alive[0];
+                p = _spectate;
+            }
+        }
+        else _spectate = null;
         var target = p.GlobalPosition + new Vector2(p.Velocity.X * 0.15f, p.Velocity.Y * 0.08f - 10);
         // lean toward the guardian only when it's in the fight with you: one woken far away (by a
         // friend, online) never drags your view off your own hero

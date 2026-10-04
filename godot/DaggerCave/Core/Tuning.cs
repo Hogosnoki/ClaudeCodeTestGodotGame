@@ -26,6 +26,8 @@ public static class Tune
 
         public static float RunSpeed = 170f;
         public static float GroundAccel = 1900f, AirAccel = 1200f;
+        /// <summary>Crouched, you walk at this share of your speed.</summary>
+        public static float CrouchSpeed = 0.4f;
 
         /// <summary>
         /// Jump shape. Height stays constant while you change Floatiness: gravity is multiplied by
@@ -388,7 +390,7 @@ public static class Tune
         /// you and enemies. Never vertical.</summary>
         public static float StrikeRecoil = 110f;
         /// <summary>Scales how far you are pushed back when struck (horizontal only).</summary>
-        public static float HurtKnockbackMult = 0.8f;
+        public static float HurtKnockbackMult = 1.1f;
         /// <summary>Free swing-cooldown resets per combo before any Flurry upgrades: hit something
         /// and you can swing again at once, this many times, then the full cooldown runs.</summary>
         public static int ComboResetsBase = 1;

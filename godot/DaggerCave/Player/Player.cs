@@ -86,6 +86,25 @@ public partial class Player : CharacterBody2D
 
     public Func<PlayerInput> InputOverride;
     private bool _swallow;
+    private CapsuleShape2D _bodyShape;
+    private CollisionShape2D _bodyNode;
+    private float _knockT;
+    /// <summary>A blow's shove carries (the tests, laid out for the old short shove, turn it off).</summary>
+    public static bool KnockLock = true;
+    /// <summary>Ducking: hold down on the ground. The body is half as tall (to squeeze through low gaps), and you move slowly.</summary>
+    public bool Crouching { get; private set; }
+
+    private void UpdateCrouch(PlayerInput inp, bool onFloor)
+    {
+        bool want = onFloor && inp.Move.Y > 0.6f && !InWater && _rope == null && _dodgeT <= 0 && !Heaving;
+        // (no standing up under a low roof)
+        if (!want && Crouching && G.Cave.IsSolid(GlobalPosition + new Vector2(0, -17))) want = true;
+        if (want == Crouching) return;
+        Crouching = want;
+        // (the feet stay where they are: the capsule shrinks from the top)
+        _bodyShape.Height = want ? 14f : 26f;
+        _bodyNode.Position = new Vector2(0, want ? 6f : 0f);
+    }
     public SpriteAnimator Anim;
     /// <summary>Another player's hero in an online game: a puppet shown from what their machine
     /// sends (it doesn't simulate or take damage here).</summary>
@@ -132,7 +151,9 @@ public partial class Player : CharacterBody2D
         FloorMaxAngle = Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees);
         FloorSnapLength = 7f;
         SafeMargin = 0.5f;
-        AddChild(new CollisionShape2D { Shape = new CapsuleShape2D { Radius = 6.5f, Height = 26f } });
+        _bodyShape = new CapsuleShape2D { Radius = 6.5f, Height = 26f };
+        _bodyNode = new CollisionShape2D { Shape = _bodyShape };
+        AddChild(_bodyNode);
         ZIndex = 1;
         Anim = SpriteAnimator.Create(SheetName(Stats.Hero));
         Anim.FootOffset = 13f;
@@ -409,6 +430,7 @@ public partial class Player : CharacterBody2D
         bool onFloor = IsOnFloor();
         _wallSliding = false;
         _jumpedFromGround = false;
+        UpdateCrouch(inp, onFloor);
         bool surfaceFloat = !onFloor && !InWater && GlobalPosition.Y > cave.WaterY - 10 && cave.IsWater(GlobalPosition + new Vector2(0, 14));
         if (onFloor || surfaceFloat) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
 
@@ -659,7 +681,7 @@ public partial class Player : CharacterBody2D
     private void TickTimers(float dt)
     {
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
-        _wallJumpLock -= dt; _hurtFlash -= dt; _lungeT -= dt;
+        _wallJumpLock -= dt; _knockT -= dt; _hurtFlash -= dt; _lungeT -= dt;
         _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
         _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
         _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
@@ -710,10 +732,13 @@ public partial class Player : CharacterBody2D
     {
         float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
         if (WebbedT > 0) target *= 0.45f;
+        if (Crouching) target *= Tune.Hero.CrouchSpeed;
         // planted for a heaving swing, or braced behind a shield bash
         bool rooted = Heaving || (_bashT > 0 && onFloor);
         if (rooted) target = 0;
         float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
+        // (a blow's shove isn't cancelled the moment it lands)
+        if (_knockT > 0) accel *= 0.1f;
         // frozen ground: slow to get going and slower to stop
         if (onFloor && G.Biome != null && G.Biome.Slippery)
         {
@@ -902,6 +927,7 @@ public partial class Player : CharacterBody2D
         float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f);
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         _dodgeT = 0; _airDashT = 0; _dashT = 0;
+        _knockT = KnockLock ? 0.25f : 0f;
         return dmg;
     }
 
