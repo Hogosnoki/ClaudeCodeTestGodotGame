@@ -581,6 +581,12 @@ public static class Tune
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
     }
 
+    /// <summary>The party's rope (lowered by anyone, climbed by anyone).</summary>
+    public static class Rope
+    {
+        public static float Length = 260, MinLength = 40, Seconds = 25, Cooldown = 4, ClimbSpeed = 120, GrabWidth = 11;
+    }
+
     public static class Crab
     {
         public static float Hp = 34, Contact = 6, PinchDamage = 11, WalkSpeed = 52, SwimSpeed = 46, PinchWindup = 0.4f, PinchCooldown = 1.7f, PinchReach = 26, Size = 2.2f;

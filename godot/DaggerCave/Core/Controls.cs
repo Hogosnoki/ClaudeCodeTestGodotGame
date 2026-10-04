@@ -30,6 +30,7 @@ public static class Controls
         ("dodge", "Dodge  ·\u00a0\u00a0shield  ·\u00a0\u00a0hex  ·\u00a0\u00a0updraft  ·\u00a0\u00a0vanish"),
         ("potion", "Drink a potion"),
         ("milestone", "Spend a milestone point"),
+        ("rope", "Lower a rope  ·  party only"),
         ("interact", "Open a chest  ·  go down an exit  ·  revive"),
         ("pause", "Pause"),
     };
@@ -53,6 +54,7 @@ public static class Controls
         ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder) },
         ["potion"] = new InputEvent[] { K(Key.Q), J(JoyButton.Y) },
         ["milestone"] = new InputEvent[] { K(Key.M), J(JoyButton.RightStick) },
+        ["rope"] = new InputEvent[] { K(Key.C), J(JoyButton.LeftStick) },
         // (a trigger: held to revive a friend while both thumbs keep you swimming)
         ["interact"] = new InputEvent[] { K(Key.E), Ax(JoyAxis.TriggerLeft, 1) },
         ["pause"] = new InputEvent[] { K(Key.Escape), J(JoyButton.Start) },

@@ -10,7 +10,7 @@ public struct PlayerInput
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
     /// <summary>With the mouse, how far away the pointer is (0: unknown, a controller's aim): where a blizzard lands.</summary>
     public float AimDist;
-    public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact;
+    public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact, Rope;
     /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
     public bool AttackHeld;
     /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
@@ -267,6 +267,7 @@ public partial class Player : CharacterBody2D
             AttackHeld = Input.IsActionPressed("attack"),
             Ability = Input.IsActionJustPressed("ability"),
             Ability2 = Input.IsActionJustPressed("ability2"),
+            Rope = Input.IsActionJustPressed("rope"),
             InteractHeld = Input.IsActionPressed("interact"),
         };
         inp.Interact = Input.IsActionJustPressed("interact");
@@ -357,6 +358,7 @@ public partial class Player : CharacterBody2D
         Anim.Position = Vector2.Zero;
 
         TickTimers(dt);
+        TickRope(inp, dt);
         switch (Stats.Hero)
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
@@ -410,6 +412,11 @@ public partial class Player : CharacterBody2D
             v = _airDashDir * Tune.Hero.AirDashSpeed;
             if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.55f, 0.9f, 1f), 0.2f);
             if (_airDashT - dt <= 0) v *= 0.5f;
+        }
+        else if (_rope != null || WantsRope(inp) && GrabRope())
+        {
+            v = RopeMotion(inp, v, dt);
+            if (_rope != null) _airDashT = 0;
         }
         else if (InWater) v = Swim(inp, v, dt, cave);
         else v = Platform(inp, v, dt, onFloor);

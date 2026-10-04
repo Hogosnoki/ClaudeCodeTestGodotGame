@@ -235,6 +235,7 @@ public static class NetSync
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life).Half(u.Angle); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
+            case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
             default: return;
         }
@@ -341,6 +342,15 @@ public static class NetSync
                 var at = r.Vec(); float radius = r.Half(), life = r.Half();
                 Applying = true;
                 G.Spawn(new SmokeCloud { Position = at, Radius = radius, Life = life });
+                Applying = false;
+                break;
+            }
+            case 13:
+            {
+                // a friend's rope: this game's copy can be climbed by this game's hero
+                var at = r.Vec(); float length = r.Half(), life = r.Half();
+                Applying = true;
+                G.Spawn(new Rope { Position = at, Length = length, Life = life });
                 Applying = false;
                 break;
             }

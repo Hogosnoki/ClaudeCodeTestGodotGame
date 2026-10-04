@@ -24,6 +24,7 @@ public static class PropViews
             SwordWave => new SwordWaveView(),
             ElementBolt => new ElementBoltView(),
             Updraft => new UpdraftView(),
+            Rope => new RopeView(),
             Blizzard => new BlizzardView(),
             IceBlock => new IceBlockView(),
             ThrownDagger => new ThrownDaggerView(),
@@ -540,6 +541,48 @@ public partial class UpdraftView : PropView
         PropViews.SetSprite(_foot, new Color(0.8f, 0.94f, 1f, 0.1f * s), 0, 0.2f);
         _light.Position = new Vector3(0, h * 0.5f, 0.3f);
         _light.LightEnergy = 0.08f * s;
+    }
+}
+
+/// <summary>A party rope: a twisted hemp line with a knot every so often, unrolling when cast and
+/// swaying a little, hanging from a small iron peg.</summary>
+public partial class RopeView : PropView
+{
+    private MeshInstance3D _line, _peg;
+    private readonly MeshInstance3D[] _knots = new MeshInstance3D[12];
+    private StandardMaterial3D _hemp;
+
+    protected override void Build()
+    {
+        _hemp = new StandardMaterial3D { AlbedoColor = new Color(0.62f, 0.5f, 0.3f), Roughness = 0.95f };
+        _line = new MeshInstance3D { Mesh = new CylinderMesh { TopRadius = 0.035f, BottomRadius = 0.03f, Height = 1f, RadialSegments = 6, Rings = 1 }, MaterialOverride = _hemp };
+        AddChild(_line);
+        for (int k = 0; k < _knots.Length; k++)
+        {
+            _knots[k] = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.06f, Height = 0.12f, RadialSegments = 8, Rings = 4 }, MaterialOverride = _hemp };
+            AddChild(_knots[k]);
+        }
+        _peg = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.22f, 0.07f, 0.1f) }, MaterialOverride = PropViews.Steel };
+        AddChild(_peg);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var r = (Rope)Owner2D;
+        Follow(default, 0.1f);
+        float len = W3.M(r.Unrolled), s = r.Strength;
+        Visible = s > 0.02f;
+        var sway = new Vector3(MathF.Sin(r.Age * 1.7f) * 0.012f * len, 0, 0);
+        _line.Scale = new Vector3(1, Math.Max(0.01f, len), 1);
+        _line.Position = new Vector3(0, -len * 0.5f, 0) + sway * 0.5f;
+        float step = 0.55f;
+        for (int k = 0; k < _knots.Length; k++)
+        {
+            float y = step * (k + 1);
+            _knots[k].Visible = y < len;
+            _knots[k].Position = new Vector3(0, -y, 0) + sway * (y / Math.Max(len, 0.1f));
+        }
+        _peg.Position = new Vector3(0, 0.02f, 0);
     }
 }
 
