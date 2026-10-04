@@ -325,11 +325,12 @@ public partial class OnlineMenu : Control
                            + "If things go strange (creatures in the rock, chests that won't open), everyone should use the same download.";
         for (int k = 0; k < Heroes.Length; k++)
         {
-            var owner = Net.TakenBy(Heroes[k].kind);
-            bool mine = owner != null && owner.Id == Net.Me;
+            var owners = Net.Peers.Values.Where(pp => pp.Picked && pp.Hero == Heroes[k].kind).ToList();
+            bool mine = owners.Any(pp => pp.Id == Net.Me);
             bool have = Meta.IsUnlocked(Heroes[k].kind);
-            _cards[k].Disabled = (owner != null && !mine) || (!have && !mine);
-            _cardNote[k].Text = mine ? "YOU" : owner != null ? $"taken by {owner.Name}" : !have ? "not found yet" : "free: click to take";
+            _cards[k].Disabled = !have && !mine;
+            var others = owners.Where(pp => pp.Id != Net.Me).Select(pp => pp.Name).ToList();
+            _cardNote[k].Text = mine ? (others.Count > 0 ? "YOU  +  " + string.Join(", ", others) : "YOU") : others.Count > 0 ? string.Join(", ", others) : !have ? "not found yet" : "click to take";
             _cardNote[k].AddThemeColorOverride("font_color", mine ? UiKit.Gold : UiKit.Dim);
             _portraits[k].Playing = mine;
         }

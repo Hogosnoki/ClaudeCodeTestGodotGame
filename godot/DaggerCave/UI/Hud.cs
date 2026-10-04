@@ -343,14 +343,34 @@ public partial class Hud : Control
     /// Online: the others' health (under your own bars), their names over their heroes, bringing a
     /// fallen friend back, and who is waiting at an exit.
     /// </summary>
+    private static readonly Color[] PartyColors =
+    {
+        new(1f, 0.85f, 0.4f), new(0.45f, 0.85f, 1f), new(1f, 0.55f, 0.72f), new(0.62f, 1f, 0.5f), new(1f, 0.65f, 0.3f), new(0.78f, 0.62f, 1f),
+    };
+
+    /// <summary>A player's own colour in the party (by their place in it), so two of the same hero can be told apart.</summary>
+    public static Color PartyColor(int peer)
+    {
+        int k = 0;
+        foreach (var id in Net.Peers.Keys.OrderBy(i => i)) { if (id == peer) break; k++; }
+        return PartyColors[k % PartyColors.Length];
+    }
+
     private void DrawOnline(Font font, Vector2 vs, Player me, Vector2 at)
     {
+        // your own mark over your head, in your colour
+        if (!me.Dead && Net.Count > 1)
+        {
+            var mine = PartyColor(Net.Me);
+            var mp = me.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -44);
+            DrawColoredPolygon(new[] { mp + new Vector2(-5, -2), mp + new Vector2(5, -2), mp + new Vector2(0, 6) }, mine);
+        }
         foreach (var peer in Net.Peers.Values)
         {
             if (peer.Id == Net.Me) continue;
             var h = peer.Avatar;
             bool here = h != null && IsInstanceValid(h);
-            var col = HeroColor(peer.Hero);
+            var col = PartyColor(peer.Id);
             DrawCircle(at + new Vector2(5, 7), 4.5f, col);
             DrawString(font, at + new Vector2(14, 12), peer.Name, HorizontalAlignment.Left, 96, 12, new Color(1, 1, 1, 0.85f));
             var bar = at + new Vector2(114, 3);

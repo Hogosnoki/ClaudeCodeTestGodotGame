@@ -295,7 +295,7 @@ public static partial class Net
     {
         if (!Peers.TryGetValue(who, out var p) || InRun) return;
         var owner = TakenBy(h);
-        if (owner != null && owner.Id != who) return; // someone else has that hero
+        // (heroes may be shared: a party can field the same hero twice)
         p.Hero = h;
         p.Picked = true;
         SendLobby();
@@ -465,7 +465,7 @@ public static partial class Net
         if (IsClient && !_askedHero && Mine != null)
         {
             _askedHero = true;
-            if (Mine.Hero != G.Hero && TakenBy(G.Hero) == null) PickHero(G.Hero);
+            if (Mine.Hero != G.Hero) PickHero(G.Hero);
         }
         Notify();
     }
