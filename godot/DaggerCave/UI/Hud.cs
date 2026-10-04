@@ -45,6 +45,7 @@ public partial class Hud : Control
         HeroKind.Elementalist => new Color(0.8f, 0.58f, 1f),
         HeroKind.Rogue => new Color(1f, 0.84f, 0.32f),
         HeroKind.Aegis => new Color(0.4f, 0.95f, 0.85f),
+        HeroKind.ShapeShifter => new Color(0.82f, 0.86f, 0.95f),
         _ => new Color(0.95f, 0.45f, 0.35f),
     };
 
@@ -155,6 +156,7 @@ public partial class Hud : Control
             case HeroKind.Elementalist: DrawElementalistGauges(font, p, ab); break;
             case HeroKind.Rogue: DrawRogueGauges(font, p, ab); break;
             case HeroKind.Aegis: DrawAegisGauges(font, p, ab); break;
+            case HeroKind.ShapeShifter: DrawShifterGauges(font, p, ab); break;
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
@@ -302,6 +304,12 @@ public partial class Hud : Control
                     move,
                     $"{atk} swing (hold to keep swinging) · {a1} Guarded Charge (breaks off attacks it meets) · {a2} shield bash (stuns all in front) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
                     "The shield stops every blow, and what breaks it is stunned; raise it just before the hit for a perfect block · " + pause,
+                },
+                HeroKind.ShapeShifter => new[]
+                {
+                    move,
+                    $"{atk} staff (or the form's own attack) · {a1} shift into the nearest creature (again to drop the form) · {a2} the form's special · {dg} dodge",
+                    "Each creature moves and fights its own way; your health and strength stay yours · " + pause,
                 },
                 HeroKind.Aegis => new[]
                 {
@@ -513,6 +521,25 @@ public partial class Hud : Control
     }
 
     /// <summary>Dodge charges, the Charged Strike and the heaving swing.</summary>
+    /// <summary>The Shape Shifter: the dodge, then Shift (showing the creature it is), then that creature's special.</summary>
+    private void DrawShifterGauges(Font font, Player p, Vector2 ab)
+    {
+        var dc = p.DodgeCooldowns;
+        for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(0.5f, 0.9f, 1f));
+        DrawString(font, ab + new Vector2(0, -6), "DODGE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        var white = HeroColor(HeroKind.ShapeShifter);
+        var cb = ab + new Vector2(dc.Length * 40 + 16, 0);
+        var f = p.Form;
+        // Shift: the creature's own icon and name while it is one (press to drop it)
+        string label = f != null ? f.Name.ToUpperInvariant() : "SHIFT";
+        AbilitySquare(font, cb, label, f != null ? 0f : p.AbilityCooldownFrac, f != null || p.AbilityChargeReady, white, (c, col) => DrawArc(c, 8, 0, Mathf.Tau, 16, col, 2f));
+        KeyHint(font, cb, "ability");
+        var sb = cb + new Vector2(56, 0);
+        string spec = f != null ? f.SpecialName.ToUpperInvariant() : "SPECIAL";
+        AbilitySquare(font, sb, spec, f != null ? p.FormSpecialFrac : 1f, f != null && p.FormSpecialReady, white, (c, col) => DrawArc(c, 6, 0, Mathf.Tau, 12, col, 2f));
+        KeyHint(font, sb, "ability2");
+    }
+
     private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)
     {
         var dc = p.DodgeCooldowns;

@@ -38,7 +38,7 @@ public sealed class SpriteSet
     {
         if (Cache.TryGetValue(name, out var s)) return s;
         // (the Aegis shares the Vitalist's clip timings: its body is the 3D model, the sheet only says how long each clip runs)
-        s = Load(name == "aegis" ? "vitalist" : name == "crab_foe" ? "crab" : name);
+        s = Load(name == "aegis" ? "vitalist" : name == "shapeshifter" ? "swordsman" : name == "crab_foe" ? "crab" : name);
         // (the reef crab shares the little crab's sheet, and adds the clips of its claws: the sheet only says how long each runs)
         if (name == "crab_foe") s.AddClip("pinch_windup", 10, "idle").AddClip("pinch", 6, "idle");
         Cache[name] = s;
@@ -210,6 +210,27 @@ void fragment() {
 
     /// <summary>The 3D model this animator drives (null for sets without one yet).</summary>
     public CreatureModel Model3D { get; private set; }
+    private CreatureModel _formModel;
+    private string _formSet;
+    private float _formSize = 1f;
+    /// <summary>A Shape Shifter's attack clip on the form's model (the creature's own wind-up and strike), and how far along it is; null otherwise.</summary>
+    public string FormClip;
+    public float FormClipT;
+
+    /// <summary>The Shape Shifter becomes a creature (its model replaces the hero's, scaled) or is itself again (null).</summary>
+    public void SetForm(string set, float size = 1f)
+    {
+        if (set == _formSet) { _formSize = size; return; }
+        _formSet = set;
+        _formSize = size;
+        if (_formModel != null) { _formModel.QueueFree(); _formModel = null; }
+        if (set != null)
+        {
+            _formModel = CreatureModel.Create(set);
+            if (_formModel != null) AddChild(_formModel);
+        }
+        if (Model3D != null) Model3D.Visible = _formModel == null;
+    }
     private float _size = 1f;
     private float _animTime, _clipTime;
     private string _clipKey = "";
@@ -232,8 +253,9 @@ void fragment() {
     /// </summary>
     private void Sync3D(float dt)
     {
-        var m = Model3D;
+        var m = _formModel ?? Model3D;
         if (m == null) return;
+        if (_formModel != null && Model3D != null) Model3D.Visible = false;
         bool shown = Visible;
         for (Node n = GetParent(); shown && n != null && n != G.World; n = n.GetParent())
             if (n is CanvasItem ci && !ci.Visible) shown = false;
@@ -253,22 +275,24 @@ void fragment() {
         var owner = GetParent() as Node2D;
         var body = owner as CharacterBody2D;
         var vel = body?.Velocity ?? Vector2.Zero;
+        float formT = t;
+        if (_formModel != null && FormClip != null) { clip = FormClip; formT = FormClipT; }
         var input = new AnimInput
         {
-            Clip = clip, Frame = Sprite.Frame, Frames = frames, T = t, Loop = loop, Time = _animTime, Dt = tdt,
+            Clip = clip, Frame = Sprite.Frame, Frames = frames, T = formT, Loop = loop, Time = _animTime, Dt = tdt,
             Facing = Facing, Vel = new Vector2(vel.X, -vel.Y) / W3.Ppu,
             // (online copies go by what their own game says about their footing)
             OnFloor = owner switch { Player pl => pl.OnGround, Enemy en => en.OnGround, _ => body?.IsOnFloor() ?? false },
             InWater = G.Cave != null && G.Cave.IsWater(GlobalPosition), ClipTime = _clipTime, Owner = owner,
         };
-        m.Face(Facing, clip, t, dt);
+        m.Face(Facing, clip, formT, dt);
         m.Animate(input);
 
         // squash and stretch (the sprite's springy scale) times the node's hit punch
         var ss = Sprite.Scale;
         var squash = new Vector2(MathF.Abs(ss.X) / Math.Max(1e-4f, _baseMag.X) * MathF.Abs(Scale.X), MathF.Abs(ss.Y) / Math.Max(1e-4f, _baseMag.Y) * MathF.Abs(Scale.Y));
         m.Position = W3.P(GlobalPosition);
-        m.Scale = Vector3.One * _size;
+        m.Scale = Vector3.One * (_size * (_formModel != null ? _formSize : 1f));
         m.UpdatePivot(squash, -GlobalRotation, FootOffset / W3.Ppu / Math.Max(0.01f, _size), ss.Y < 0);
 
         m.Design.Frame(m, input);

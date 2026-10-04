@@ -60,6 +60,7 @@ public partial class Main
         "vault" => "den",
         "relics" => "den",
         "aegis" => "den",
+        "shifter" => "den",
         "status" => "den",
         _ => null,
     };
@@ -91,6 +92,7 @@ public partial class Main
             case "vault": VaultScenario(); break;
             case "relics": RelicsScenario(); break;
             case "aegis": AegisScenario(); break;
+            case "shifter": ShifterScenario(); break;
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;

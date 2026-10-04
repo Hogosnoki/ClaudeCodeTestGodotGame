@@ -23,7 +23,7 @@ namespace DaggerCave;
 public sealed partial class HeroDesign : CreatureDesign
 {
     private readonly HeroKind _kind;
-    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman, _aegis;
+    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman, _aegis, _shifter;
     public HeroDesign(HeroKind kind)
     {
         _kind = kind;
@@ -33,6 +33,7 @@ public sealed partial class HeroDesign : CreatureDesign
         _rogue = kind == HeroKind.Rogue;
         _swordsman = kind == HeroKind.Swordsman;
         _aegis = kind == HeroKind.Aegis;
+        _shifter = kind == HeroKind.ShapeShifter;
         // (the casters hold a staff, wear a robe, and share their poses)
         _caster = _vitalist || _elementalist || _aegis;
         _st = StyleFor(kind);
@@ -44,8 +45,8 @@ public sealed partial class HeroDesign : CreatureDesign
 
     public override CreatureLook Look => new()
     {
-        Eye = _vitalist ? new Color(0.5f, 1f, 0.42f) : _elementalist ? new Color(1f, 0.72f, 0.4f) : _aegis ? new Color(0.6f, 1f, 0.92f) : new Color(1f, 0.9f, 0.75f),
-        EyeEnergy = _vitalist ? 2.4f : _elementalist ? 1.2f : _aegis ? 1.0f : 0.5f,
+        Eye = _shifter ? new Color(0.92f, 0.95f, 1f) : _vitalist ? new Color(0.5f, 1f, 0.42f) : _elementalist ? new Color(1f, 0.72f, 0.4f) : _aegis ? new Color(0.6f, 1f, 0.92f) : new Color(1f, 0.9f, 0.75f),
+        EyeEnergy = _shifter ? 1.6f : _vitalist ? 2.4f : _elementalist ? 1.2f : _aegis ? 1.0f : 0.5f,
         Glow = new Color(1f, 0.68f, 0.32f), GlowEnergy = 6f,
         Rim = new Color(0.55f, 0.68f, 0.95f), RimEnergy = 0.28f,
         DetailScale = 34f, DetailStrength = 0.6f,
@@ -98,10 +99,11 @@ public sealed partial class HeroDesign : CreatureDesign
         var ember = C(0.8f, 0.34f, 0.08f);
         if (_elementalist) robe = violet;
         if (_aegis) robe = C(0.5f, 0.47f, 0.4f);
-        var cloak = _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : _aegis ? C(0.05f, 0.27f, 0.27f) : _rogue ? C(0.16f, 0.08f, 0.17f) : C(0.07f, 0.27f, 0.28f);
+        if (_shifter) robe = C(0.36f, 0.38f, 0.42f);
+        var cloak = _shifter ? C(0.2f, 0.22f, 0.27f) : _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : _aegis ? C(0.05f, 0.27f, 0.27f) : _rogue ? C(0.16f, 0.08f, 0.17f) : C(0.07f, 0.27f, 0.28f);
         if (_rogue) { leather = C(0.12f, 0.1f, 0.12f); leatherDk = C(0.07f, 0.06f, 0.075f); }
-        var body = _warden ? C(0.42f, 0.44f, 0.47f) : _caster ? robe : leather; // mail, robe, jerkin
-        var bodyMat = _warden ? Mat.Metal : _caster ? Mat.Cloth : Mat.Leather;
+        var body = _warden ? C(0.42f, 0.44f, 0.47f) : _caster || _shifter ? robe : leather; // mail, robe, jerkin
+        var bodyMat = _warden ? Mat.Metal : _caster || _shifter ? Mat.Cloth : Mat.Leather;
         if (_vitalist) skin = C(0.6f, 0.5f, 0.45f); // pale, bloodless hands
 
         int hipsB = s.Bone("hips", -1, new(0, 0.02f, 0));
@@ -352,6 +354,15 @@ public sealed partial class HeroDesign : CreatureDesign
         if (_vitalist) SculptStaff(s, handR, blood);
         else if (_elementalist) SculptOrbStaff(s, handR, ember, gold);
         else if (_aegis) SculptWardStaff(s, handR, gold);
+        else if (_shifter)
+        {
+            // a plain, pale staff carried like a blade (the cuts are a sword's)
+            var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
+            var staff = PropMeshes.Sword(1.05f, 0.05f, C(0.62f, 0.55f, 0.44f), C(0.78f, 0.8f, 0.86f), leatherDk, 0.04f);
+            var sw = new MeshBuilder();
+            sw.Append(staff, grip);
+            s.Rigid(handR, sw, Mat.Leather);
+        }
         else if (_rogue) { /* (the daggers are attachments, so they can leave the hands) */ }
         else
         {

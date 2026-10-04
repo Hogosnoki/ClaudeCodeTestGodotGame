@@ -113,6 +113,13 @@ public sealed partial class HeroDesign
             FreeAmp = 40f, FreeMid = 4f, FreeElbow = 66f, FreeElbowAmp = 16f,
             HoldAmp = 11f, HoldMid = 22f, HoldElbow = 74f, HoldElbowAmp = 5f, HoldAbs = 44f, HeadUp = 2f, Weight = 0.007f,
         },
+        // the Shape Shifter: light, quick, never quite settled, the staff swung like a blade
+        HeroKind.ShapeShifter => new Style
+        {
+            Stance = 0.74f, Stride = 4.3f, Hip = 0.77f, Bounce = 0.045f, Clear = 0.26f, Lean = 16f, HipTwist = 8f, Counter = 14f,
+            FreeAmp = 46f, FreeMid = 6f, FreeElbow = 84f, FreeElbowAmp = 16f,
+            HoldAmp = 22f, HoldMid = 18f, HoldElbow = 84f, HoldElbowAmp = 10f, HoldAbs = 110f, HeadUp = 0f, Weight = 0.01f,
+        },
         // the Rogue: a sprinter's crouch, the longest strides, heels flicking up, both fists pumping
         _ => new Style
         {
@@ -361,7 +368,7 @@ public sealed partial class HeroDesign
     private CutStyle CutFor() => _kind switch
     {
         // wide, committed cuts from the shoulder with the whole body behind them
-        HeroKind.Swordsman => new CutStyle { CockA = 112f, OverA = -56f, CockB = -78f, OverB = 74f, CockC = 158f, OverC = -74f, BendCock = 74f, BendEnd = 6f, Wind = 30f, Through = 34f, LeanWind = -10f, LeanThrough = 20f, Lunge = 1f, Counter = 0.45f },
+        HeroKind.Swordsman or HeroKind.ShapeShifter => new CutStyle { CockA = 112f, OverA = -56f, CockB = -78f, OverB = 74f, CockC = 158f, OverC = -74f, BendCock = 74f, BendEnd = 6f, Wind = 30f, Through = 34f, LeanWind = -10f, LeanThrough = 20f, Lunge = 1f, Counter = 0.45f },
         // short, hard chops behind the shield, feet planted, the weight thrown into the blow
         HeroKind.Warden => new CutStyle { CockA = 90f, OverA = -42f, CockB = -56f, OverB = 58f, CockC = 128f, OverC = -62f, BendCock = 84f, BendEnd = 26f, Wind = 18f, Through = 22f, LeanWind = -5f, LeanThrough = 16f, Lunge = 0.7f, Counter = 0.15f },
         // quick, close cuts from a crouch, one dagger then the other, the body whipping behind them

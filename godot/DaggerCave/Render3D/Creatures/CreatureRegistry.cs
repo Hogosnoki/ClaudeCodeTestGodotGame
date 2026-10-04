@@ -15,6 +15,7 @@ public static class CreatureRegistry
         CreatureLibrary.Register("elementalist", () => new HeroDesign(HeroKind.Elementalist));
         CreatureLibrary.Register("rogue", () => new HeroDesign(HeroKind.Rogue));
         CreatureLibrary.Register("aegis", () => new HeroDesign(HeroKind.Aegis));
+        CreatureLibrary.Register("shapeshifter", () => new HeroDesign(HeroKind.ShapeShifter));
         CreatureLibrary.Register("spider", () => new SpiderDesign());
         CreatureLibrary.Register("goblin", () => new GoblinDesign(false));
         CreatureLibrary.Register("slinger", () => new GoblinDesign(true));

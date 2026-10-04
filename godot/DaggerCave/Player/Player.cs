@@ -139,6 +139,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => AbilityChargeReady && Alimus >= BlizzardCost,
         HeroKind.Rogue => DaggersInHand > 0,
         HeroKind.Aegis => AbilityChargeReady,
+        HeroKind.ShapeShifter => Shifted ? FormSpecialReady : AbilityChargeReady,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
     };
@@ -173,6 +174,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => "elementalist",
         HeroKind.Rogue => "rogue",
         HeroKind.Aegis => "aegis",
+        HeroKind.ShapeShifter => "shapeshifter",
         _ => "swordsman",
     };
 
@@ -399,6 +401,7 @@ public partial class Player : CharacterBody2D
             case HeroKind.Elementalist: TickElementalist(dt); break;
             case HeroKind.Rogue: TickRogue(dt); break;
             case HeroKind.Aegis: TickAegis(dt); break;
+            case HeroKind.ShapeShifter: TickShifter(dt); break;
             default: TickSwordsman(dt); break;
         }
 
@@ -508,6 +511,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         HeroKind.Aegis => CastWardBolt(aim, held),
+        HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
         _ => !Heaving && TrySwing(aim, held),
     };
 
@@ -519,6 +523,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => TryBlizzard(aim, _abilityAimDist),
         HeroKind.Rogue => TryThrow(aim),
         HeroKind.Aegis => TryBarrier(aim),
+        HeroKind.ShapeShifter => TryShift(),
         _ => TryCharge(),
     };
 
@@ -530,6 +535,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => TrySnap(),
         HeroKind.Rogue => TryRecall(),
         HeroKind.Aegis => TryBurden(aim),
+        HeroKind.ShapeShifter => TrySpecial(aim),
         _ => TryHeave(aim),
     };
 
@@ -541,6 +547,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => TryUpdraft(inp.Aim),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
+        HeroKind.ShapeShifter => TryDodge(inp),
         _ => true,
     };
 
@@ -730,7 +737,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
         if (WebbedT > 0) target *= 0.45f;
         if (Crouching) target *= Tune.Hero.CrouchSpeed;
         // planted for a heaving swing, or braced behind a shield bash
@@ -753,9 +760,15 @@ public partial class Player : CharacterBody2D
         // a column of rising air (the Elementalist's updraft) slackens gravity and the speed you can fall at
         float gravMult = 1f, fallCap = MaxFall;
         if (Updraft.All.Count > 0 && Updraft.At(GlobalPosition) is Updraft draft) UpdraftEase(draft, ref gravMult, ref fallCap, ref v, dt);
+        // a flier's form (a bat, a hornet): light, and a held jump beats its wings
+        if (FormFlier)
+        {
+            gravMult *= 0.3f; fallCap = Math.Min(fallCap, 150f);
+            if (inp.JumpHeld) v.Y = Math.Max(v.Y - 1500f * dt, -190f);
+        }
         v.Y = Math.Min(v.Y + Gravity * gravMult * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), fallCap);
 
-        float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult) * (WebbedT > 0 ? 0.75f : 1f);
+        float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult * FormJump) * (WebbedT > 0 ? 0.75f : 1f);
         int wallSide = WallSide();
         bool onWall = !onFloor && wallSide != 0;
 
@@ -913,6 +926,7 @@ public partial class Player : CharacterBody2D
             return ApplyChip(block.Through, source);
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        if (Form != null) dmg *= 1f - Math.Min(0.8f, FormArmor + Stats.FormArmorAdd);
         // (Assassin's Edge: a blow at your back lands harder)
         if (Stats.BackTakenMult != 1f && Math.Abs(from.X - GlobalPosition.X) > 2f && Math.Sign(from.X - GlobalPosition.X) != Math.Sign(Facing)) dmg *= Stats.BackTakenMult;
         if (Stats.HeaveGuard && Heaving) dmg *= 0.5f; // (Braced)

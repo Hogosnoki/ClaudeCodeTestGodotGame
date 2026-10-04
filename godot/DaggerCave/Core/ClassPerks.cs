@@ -68,6 +68,13 @@ public static class ClassPerks
         P(HeroKind.Rogue, "rogue_bleed", "Serrated Edges", One, new[] { "A recall has a chance to make what it cuts bleed." }, (s, r) => s.RecallBleed = true);
         P(HeroKind.Rogue, "rogue_shadows", "Long Shadows", Three, new[] { "Vanish lasts 1 s longer.", "Vanish lasts 2 s longer.", "Vanish lasts 3 s longer." }, (s, r) => s.VanishBonus += r);
 
+        // ---- Shape Shifter
+        P(HeroKind.ShapeShifter, "shift_dmg", "Borrowed Strength", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => { s.DamageMult += 0.05f * r; });
+        P(HeroKind.ShapeShifter, "shift_hp", "Adaptable", Three, new[] { "+10% health.", "+20% health.", "+30% health." }, (s, r) => s.MaxHp *= 1f + 0.1f * r);
+        P(HeroKind.ShapeShifter, "shift_quick", "Quick Study", Three, new[] { "Shift comes back 10% sooner.", "Shift comes back 20% sooner.", "Shift comes back 30% sooner." }, (s, r) => s.AbilityCdMult *= 1f - 0.1f * r);
+        P(HeroKind.ShapeShifter, "shift_hide", "Layered Hide", Three, new[] { "Forms shrug off 4% more.", "Forms shrug off 8% more.", "Forms shrug off 12% more." }, (s, r) => s.FormArmorAdd += 0.04f * r);
+        P(HeroKind.ShapeShifter, "shift_sight", "Long Sight", Three, new[] { "Copy creatures 15% farther away.", "Copy creatures 30% farther away.", "Copy creatures 45% farther away." }, (s, r) => s.ShiftRangeMult += 0.15f * r);
+
         // ---- Aegis
         P(HeroKind.Aegis, "aegis_oath", "Bulwark Oath", One, new[] { "In a party, your second ability is Shared Burden (alone you smite). It comes with her, equipped." }, (s, r) => s.AegisSupport = true);
         P(HeroKind.Aegis, "aegis_bolt", "Brilliant Bolt", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => s.DamageMult += 0.05f * r);

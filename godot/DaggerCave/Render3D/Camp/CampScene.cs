@@ -45,6 +45,7 @@ public partial class CampScene : SubViewport
         (HeroKind.Elementalist, "elementalist", "ELEMENTALIST", 64f),
         (HeroKind.Rogue, "rogue", "ROGUE", 34f),
         (HeroKind.Aegis, "aegis", "AEGIS", 6f),
+        (HeroKind.ShapeShifter, "shapeshifter", "SHAPE SHIFTER", -24f),
     };
 
     private sealed class Seat

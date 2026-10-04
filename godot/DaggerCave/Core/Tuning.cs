@@ -585,6 +585,18 @@ public static class Tune
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
     }
 
+    /// <summary>The Shape Shifter: a weak staff fighter whose strength is the creatures it copies.</summary>
+    public static class Shifter
+    {
+        public static float StartHp = 70f, MoveMult = 1.0f, JumpMult = 1.0f;
+        /// <summary>The staff: damage, reach (px), seconds between swings.</summary>
+        public static float StaffDamage = 5f, StaffReach = 60f, StaffCooldown = 0.55f;
+        /// <summary>A form's damage (x the form's own multiplier), how far a Shift can reach, how fast a charge runs.</summary>
+        public static float FormDamage = 15f, CopyRange = 110f, ChargeSpeed = 360f;
+        /// <summary>Seconds Shift takes to come back once a form is dropped.</summary>
+        public static float ShiftCooldown = 3f;
+    }
+
     /// <summary>Blows from creatures are area blows: heroes close together split them.</summary>
     public static class Share
     {

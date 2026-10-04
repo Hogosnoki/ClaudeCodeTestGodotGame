@@ -83,6 +83,10 @@ public partial class Player
         w.HVec(CastDir);
         w.Byte((byte)(Math.Clamp(Anim?.FlashAmount ?? 0, 0, 1) * 255));
         w.Byte((byte)(BubbleFrac * 255));
+        // (a Shape Shifter: which creature it is, and which of that creature's attack clips is playing, how far along)
+        w.Byte(Form?.Id ?? 0);
+        w.Byte((byte)(FormClip == null ? 0 : FormClip == Form?.WindClip ? 1 : 2));
+        w.Byte((byte)(Math.Clamp(FormClipT, 0f, 1f) * 255));
     }
 
     /// <summary>A puppet: the latest from its game.</summary>
@@ -109,6 +113,14 @@ public partial class Player
         if (flash > _netFlash + 0.3f) Anim?.Flash(flash);
         _netFlash = flash;
         if (r.More) _netBubbleFrac = r.Byte() / 255f;
+        if (r.More)
+        {
+            byte fid = r.Byte(), phase = r.Byte(); float ft = r.Byte() / 255f;
+            if (fid != (Form?.Id ?? 0)) { Form = ShiftForm.ById(fid); ApplyFormLook(); }
+            FormClip = Form == null || phase == 0 ? null : phase == 1 ? Form.WindClip : Form.StrikeClip;
+            FormClipT = ft;
+            if (Anim != null) { Anim.FormClip = FormClip; Anim.FormClipT = FormClipT; }
+        }
         _net.Push(now, pos, vel);
         Dead = (_netFlags & HfDead) != 0;
         ShieldRaised = (_netFlags & HfShield) != 0;

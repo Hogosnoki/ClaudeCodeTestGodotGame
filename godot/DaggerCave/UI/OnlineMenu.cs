@@ -18,9 +18,9 @@ public partial class OnlineMenu : Control
     private Label _title, _status, _code1, _code2, _code3, _router, _players, _wait, _mismatch;
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
     private Button _host, _start, _leave;
-    private readonly Button[] _cards = new Button[6];
-    private readonly Label[] _cardNote = new Label[6];
-    private readonly HeroPortrait[] _portraits = new HeroPortrait[6];
+    private readonly Button[] _cards = new Button[7];
+    private readonly Label[] _cardNote = new Label[7];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[7];
     private string _note = "";
     private bool _wasOnline;
     private CheckBox _hard;
@@ -35,6 +35,7 @@ public partial class OnlineMenu : Control
         (HeroKind.Elementalist, "Elementalist", "elementalist"),
         (HeroKind.Rogue, "Rogue", "rogue"),
         (HeroKind.Aegis, "Aegis", "aegis"),
+        (HeroKind.ShapeShifter, "Shifter", "shapeshifter"),
     };
 
     public override void _Ready()

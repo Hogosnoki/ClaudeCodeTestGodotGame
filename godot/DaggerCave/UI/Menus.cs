@@ -221,8 +221,8 @@ public partial class ScreenOverlay : Control
     /// <summary>Show the hero cards where a line reads "@" (title and death screens).</summary>
     public bool HeroCards;
     private float _t;
-    private readonly Rect2[] _cardRects = new Rect2[5];
-    private readonly HeroPortrait[] _portraits = new HeroPortrait[5];
+    private readonly Rect2[] _cardRects = new Rect2[8];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[8];
 
     private const float CardW = 372, CardH = 170;
     private static readonly Vector2 PortraitSize = new(126, CardH - 4);
@@ -271,6 +271,12 @@ public partial class ScreenOverlay : Control
             "The ward. A bolt that hurts, weakens and mends;",
             "a barrier, a burden shared and a bubble for a",
             "friend (or yourself): it keeps the others alive.",
+        }),
+        (HeroKind.ShapeShifter, "SHAPE SHIFTER", "shapeshifter", new[]
+        {
+            "The mimic. A feeble staff, until it becomes the",
+            "creature beside it: that one's gait, bite and",
+            "special trick, for as long as it likes.",
         }),
     };
 

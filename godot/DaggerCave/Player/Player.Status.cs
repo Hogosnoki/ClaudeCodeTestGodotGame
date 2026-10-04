@@ -30,7 +30,7 @@ public partial class Player
     public float DrownLeft => _drownT;
 
     /// <summary>The ink outline's colour while afflicted (alpha 0 = its usual dark line).</summary>
-    public Color StatusInk => Dead ? new Color(0, 0, 0, 0) : Frozen ? Opaque(StatusColors.Frost) : Burning ? Opaque(StatusColors.Fire) : Poisoned ? Opaque(StatusColors.Poison) : Drowning ? Opaque(StatusColors.Drown) : new Color(0, 0, 0, 0);
+    public Color StatusInk => Dead ? new Color(0, 0, 0, 0) : Frozen ? Opaque(StatusColors.Frost) : Burning ? Opaque(StatusColors.Fire) : Poisoned ? Opaque(StatusColors.Poison) : Drowning ? Opaque(StatusColors.Drown) : Form != null ? new Color(0.9f, 0.92f, 0.97f, 1f) : new Color(0, 0, 0, 0);
     /// <summary>A faint wash of the same colour over the body.</summary>
     public Color StatusAura => Dead ? new Color(0, 0, 0, 0) : Frozen ? new Color(StatusColors.Frost, 0.8f) : Burning ? new Color(StatusColors.Fire, 0.45f) : Poisoned ? new Color(StatusColors.Poison, 0.3f) : new Color(0, 0, 0, 0);
     private static Color Opaque(Color c) => new(c, 1f);

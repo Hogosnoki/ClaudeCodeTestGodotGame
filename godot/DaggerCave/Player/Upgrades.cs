@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>The playable heroes.</summary>
-public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue, Aegis }
+public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue, Aegis, ShapeShifter }
 
 /// <summary>Everything upgrades can change about the hero.</summary>
 public sealed class PlayerStats
@@ -23,6 +23,9 @@ public sealed class PlayerStats
     /// how much longer each takes to come back (Twin Reserve).</summary>
     public int AbilityCharges = 1;
     public float AbilityCdMult = 1f;
+    /// <summary>Shape Shifter: form damage and special damage multipliers, special recharge, armour and speed added to every form, and how far a Shift reaches.</summary>
+    public float FormDmgMult = 1f, FormSpecDmgMult = 1f, FormSpecCdMult = 1f, FormArmorAdd, FormSpeedAdd, ShiftRangeMult = 1f;
+    public bool ShiftHeals;
     public float DaggerReach = 1f;       // swing reach (and bolt range) multiplier
     public float MoveSpeed = 1f;
     public float JumpMult = 1f;
@@ -197,6 +200,10 @@ public sealed class PlayerStats
                 MoveSpeed = Tune.Aegis.MoveMult; JumpMult = Tune.Aegis.JumpMult;
                 MaxHp = Tune.Aegis.StartHp; ThreatDist = Tune.Aegis.ThreatDist;
                 break;
+            case HeroKind.ShapeShifter:
+                MoveSpeed = Tune.Shifter.MoveMult; JumpMult = Tune.Shifter.JumpMult;
+                MaxHp = Tune.Shifter.StartHp;
+                break;
             case HeroKind.Rogue:
                 MoveSpeed = Tune.Rogue.MoveMult; JumpMult = Tune.Rogue.JumpMult;
                 MaxHp = Tune.Rogue.StartHp; ThreatDist = Tune.Rogue.ThreatDist;
@@ -276,7 +283,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 /// </summary>
 public static partial class Upgrades
 {
-    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue }, A = { HeroKind.Aegis };
+    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue }, A = { HeroKind.Aegis }, SH = { HeroKind.ShapeShifter };
     /// <summary>The two heroes who fight with a blade.</summary>
     private static readonly HeroKind[] Blades = { HeroKind.Swordsman, HeroKind.Warden };
 
@@ -422,6 +429,18 @@ public static partial class Upgrades
         new() { Id = "recall_tether", Name = "Tether", Desc = "Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.", Icon = "move", For = R, Ability = "recall", Alteration = true, Excludes = new[] { "throw_ricochet" }, Apply = (s, p) => s.Tether = true },
         new() { Id = "pounce", Name = "Pounce", Desc = "Arriving by tether is always a critical strike.", Icon = "move", For = R, Ability = "recall", Requires = "recall_tether", Apply = (s, p) => s.Pounce = true },
 
+        // --- the Shape Shifter ---
+        new() { Id = "staff_dmg", Name = "Weighted Staff", Desc = "Your staff hits 30% harder.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult += 0.3f },
+        new() { Id = "staff_reach", Name = "Long Grip", Desc = "Your staff reaches 18% farther.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 2, Apply = (s, p) => s.DaggerReach += 0.18f },
+        new() { Id = "shift_cd", Name = "Quick Change", Desc = "Shift comes back 20% sooner.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.AbilityCdMult *= 0.8f },
+        new() { Id = "shift_range", Name = "Keen Eye", Desc = "You can copy creatures 40% farther away.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.ShiftRangeMult += 0.4f },
+        new() { Id = "shift_heal", Name = "Mending Change", Desc = "Taking a form heals you for 10% of your health.", Icon = "life", For = SH, Ability = "shift", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ShiftHeals = true },
+        new() { Id = "form_dmg", Name = "Honed Fangs", Desc = "Every form's attacks hit 15% harder.", Icon = "blade", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormDmgMult += 0.15f },
+        new() { Id = "form_armor", Name = "Thick Hide", Desc = "Every form shrugs off 8% more of the blows it takes.", Icon = "shield", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormArmorAdd += 0.08f },
+        new() { Id = "form_speed", Name = "Fleet Form", Desc = "Every form moves 10% faster.", Icon = "move", For = SH, Ability = "form", MaxStacks = 2, Apply = (s, p) => s.FormSpeedAdd += 0.1f },
+        new() { Id = "spec_cd", Name = "Practised Tricks", Desc = "Form specials come back 15% sooner.", Icon = "move", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecCdMult *= 0.85f },
+        new() { Id = "spec_dmg", Name = "Savage Tricks", Desc = "Form specials hit 20% harder.", Icon = "blade", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecDmgMult += 0.2f },
+
         // --- Ward Bolt (aegis) ---
         new() { Id = "ward_dmg", Name = "Brighter Bolt", Desc = "Your ward bolt hits 18% harder.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult += 0.18f },
         new() { Id = "ward_burst", Name = "Wider Burst", Desc = "Your bolt's burst reaches 40% farther.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstMult += 0.4f },
@@ -501,6 +520,7 @@ public static partial class Upgrades
         HeroKind.Elementalist => "Blizzard",
         HeroKind.Rogue => "Vanish",
         HeroKind.Aegis => "Barrier",
+        HeroKind.ShapeShifter => "Shift",
         _ => "Charged Strike",
     };
 
@@ -512,6 +532,7 @@ public static partial class Upgrades
         HeroKind.Elementalist => new[] { ("bolt", "Firebolt"), ("updraft", "Updraft"), ("blizzard", "Blizzard"), ("snap", "Snap") },
         HeroKind.Rogue => new[] { ("dagger", "Dagger Slash"), ("throw", "Dagger Throw"), ("vanish", "Vanish"), ("recall", "Recall") },
         HeroKind.Aegis => new[] { ("ward", "Ward Bolt"), ("barrier", "Barrier"), ("burden", "Shared Burden"), ("bubble", "Bubble") },
+        HeroKind.ShapeShifter => new[] { ("staff", "Staff"), ("shift", "Shift"), ("form", "Forms"), ("special", "Form Specials") },
         _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dodge Roll") },
     };
 
@@ -720,6 +741,12 @@ public static class Progression
                 s.DamageMult += 0.02f;
                 s.WardMult += 0.04f;
                 gain = "+2% damage  +4% wards";
+                break;
+            case HeroKind.ShapeShifter:
+                s.MaxHp += 3; p.Heal(3);
+                s.DamageMult += 0.02f;
+                s.FormDmgMult += 0.02f;
+                gain = "+2% damage";
                 break;
             case HeroKind.Rogue:
                 s.MaxHp += 2; p.Heal(2);

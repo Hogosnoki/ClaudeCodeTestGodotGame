@@ -16,11 +16,11 @@ public partial class Player
 {
     private static float ComboWindow => Tune.Hero.ComboWindow;
     // (the Rogue jabs half as fast with one of its daggers thrown)
-    private float SwingCooldownBase => IsWarden ? Tune.Warden.SwingCooldown : IsRogue ? Tune.Rogue.SwingCooldown * (DaggersInHand < 2 ? Tune.Rogue.OneDaggerSlow : 1f) : Tune.Swordsman.SwingCooldown;
+    private float SwingCooldownBase => IsShifter ? Tune.Shifter.StaffCooldown : IsWarden ? Tune.Warden.SwingCooldown : IsRogue ? Tune.Rogue.SwingCooldown * (DaggersInHand < 2 ? Tune.Rogue.OneDaggerSlow : 1f) : Tune.Swordsman.SwingCooldown;
     private float SwingActive => IsWarden ? Tune.Warden.SwingTime : IsRogue ? Tune.Rogue.SwingTime : Tune.Swordsman.SwingTime;
     private float SwingWindup => IsWarden ? Tune.Warden.SwingWindup : IsRogue ? Tune.Rogue.SwingWindup : Tune.Swordsman.SwingWindup;
-    private float BaseReach => IsWarden ? Tune.Warden.Reach : IsRogue ? Tune.Rogue.Reach : Tune.Swordsman.Reach;
-    private float BaseDamage => IsWarden ? Tune.Warden.Damage : IsRogue ? Tune.Rogue.Damage : Tune.Swordsman.Damage;
+    private float BaseReach => IsShifter ? Tune.Shifter.StaffReach : IsWarden ? Tune.Warden.Reach : IsRogue ? Tune.Rogue.Reach : Tune.Swordsman.Reach;
+    private float BaseDamage => IsShifter ? Tune.Shifter.StaffDamage : IsWarden ? Tune.Warden.Damage : IsRogue ? Tune.Rogue.Damage : Tune.Swordsman.Damage;
     private float BaseKnock => IsWarden ? Tune.Warden.Knockback : IsRogue ? Tune.Rogue.Knockback : Tune.Swordsman.Knockback;
     private float LungeSpeed => IsWarden ? Tune.Warden.Lunge : IsRogue ? Tune.Rogue.Lunge : Tune.Swordsman.Lunge;
 
