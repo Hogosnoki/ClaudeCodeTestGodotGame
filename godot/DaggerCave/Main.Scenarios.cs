@@ -95,6 +95,7 @@ public partial class Main
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;
             case "rubble": RubbleScenario(); break;
+            case "share": ShareScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }
@@ -598,5 +599,33 @@ public partial class Main
             ScCheck("the way is open: no collision left", _scPlug.GetChild<CollisionShape2D>(0).Disabled);
             ScEnd();
         }
+    }
+
+    // ---------------------------------------------------------------- blows are shared by those near
+    private void ShareScenario()
+    {
+        var p = G.Player;
+        if (_scT < 0.5f) return;
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        var friend = new Player { Stats = new PlayerStats(HeroKind.Swordsman), Position = p.GlobalPosition + new Vector2(40, 0) };
+        friend.InputOverride = () => default;
+        friend.Stats.HurtInvuln = 0f;
+        _world.AddChild(friend);
+        var foe = new Golem { Position = p.GlobalPosition + new Vector2(-60, -10) };
+        foe.SetMeta("test", true);
+        _world.AddChild(foe);
+        foe.Freeze(99f, hold: true);
+        p.Stats.MaxHp = 500; p.Hp = 500; friend.Stats.MaxHp = 500; friend.Hp = 500;
+        p.Stats.HurtInvuln = 0f;
+        float a0 = p.Hp, b0 = friend.Hp;
+        p.Hurt(20f, foe.GlobalPosition, 0f, foe);
+        float a = a0 - p.Hp, b = b0 - friend.Hp;
+        ScCheck($"a blow of 20 near a friend: each takes half ({a:0.0}, {b:0.0})", Math.Abs(a - 10f) < 1.5f && Math.Abs(b - 10f) < 1.5f);
+        // far apart: the whole of it
+        friend.GlobalPosition = p.GlobalPosition + new Vector2(400, 0);
+        p.Hp = 500; friend.Hp = 500;
+        p.Hurt(20f, foe.GlobalPosition, 0f, foe);
+        ScCheck($"a friend far off takes none, the one struck all ({500 - p.Hp:0.0}, {500 - friend.Hp:0.0})", Math.Abs(500 - p.Hp - 20f) < 1.5f && friend.Hp >= 499.9f);
+        ScEnd();
     }
 }

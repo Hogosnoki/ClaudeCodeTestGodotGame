@@ -861,23 +861,45 @@ public partial class Player : CharacterBody2D
     public bool LastHitBlocked { get; private set; }
 
     /// <summary>Returns the damage taken. <paramref name="source"/> is credited with it (enemy learning).</summary>
-    public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null)
+    public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null, bool pooled = false)
     {
         LastHitBlocked = false;
         if (Dead) return 0;
         // Counter Roll: a melee blow met mid-roll is stopped, and answered
         if (!IsRemote && TryCounter(source)) { LastHitBlocked = true; return 0; }
         if (Invulnerable) return 0;
+        // every blow from a creature is an area one: whoever is close enough shares it out evenly
+        if (!pooled && source != null && Tune.Share.On) dmg = PoolBlow(dmg, from, knock, source);
         if (IsRemote)
         {
             // another player's hero: their game takes the blow (a moment's grace here, so one
             // strike isn't sent every frame while it overlaps)
             _invuln = 0.3f;
-            return NetSync.HurtRemote(this, dmg, from, knock, source);
+            return NetSync.HurtRemote(this, dmg, from, knock, source, pooled: true);
         }
         NetSync.Scope++;
         try { return HurtHere(dmg, from, knock, source); }
         finally { NetSync.Scope--; }
+    }
+
+    /// <summary>
+    /// A creature's blow lands on this hero: every living hero within Tune.Share.Radius of them takes
+    /// an equal share of it (each through their own shield, barrier and armour), so a friend's shield
+    /// takes its part of the blow and everyone near gets off lighter. Returns this hero's share.
+    /// </summary>
+    private float PoolBlow(float dmg, Vector2 from, float knock, Enemy source)
+    {
+        List<Player> others = null;
+        foreach (var h in G.Players)
+        {
+            if (h == this || !GodotObject.IsInstanceValid(h) || h.Dead) continue;
+            if (h.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Share.Radius) continue;
+            (others ??= new()).Add(h);
+        }
+        if (others == null) return dmg;
+        float share = dmg / (others.Count + 1);
+        foreach (var h in others) h.Hurt(share, from, knock, source, pooled: true);
+        return share;
     }
 
     private float HurtHere(float dmg, Vector2 from, float knock, Enemy source)

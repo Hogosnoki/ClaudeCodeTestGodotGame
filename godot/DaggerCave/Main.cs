@@ -200,7 +200,7 @@ public partial class Main : Node
         if (_campShot != "") { ShowCampScene(true); return; }
         if (OS.GetCmdlineUserArgs().Contains("--metatest")) { RunMetaTest(); return; }
         if (_nnTest) { RunNnTest(); return; }
-        if (_netTest != "") { BeginNetTest(); return; }
+        if (_netTest != "") { Tune.Share.On = false; BeginNetTest(); return; } // (the transport checks use whole blows)
 
         // (the magma scenario wants a cave with a real lava lake unless told otherwise, and the
         // water scenario one with wide open water: not every Slime Cavern has it where creatures swim)

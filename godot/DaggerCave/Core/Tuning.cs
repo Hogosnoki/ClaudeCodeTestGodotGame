@@ -585,6 +585,14 @@ public static class Tune
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
     }
 
+    /// <summary>Blows from creatures are area blows: heroes close together split them.</summary>
+    public static class Share
+    {
+        public static bool On = true;
+        /// <summary>How close (px) a friend must stand to the one struck to take a share.</summary>
+        public static float Radius = 110f;
+    }
+
     /// <summary>Boulders plugging narrow passages.</summary>
     public static class Rubble
     {

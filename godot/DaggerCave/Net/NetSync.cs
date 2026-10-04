@@ -422,10 +422,10 @@ public static class NetSync
     }
 
     /// <summary>A creature (the host's) struck someone else's hero: that game takes it.</summary>
-    public static float HurtRemote(Player target, float dmg, Vector2 from, float knock, Enemy source)
+    public static float HurtRemote(Player target, float dmg, Vector2 from, float knock, Enemy source, bool pooled = false)
     {
         var w = new NetOut(Net.Msg.HeroHurt);
-        w.Float(dmg).Vec(from).Half(knock).Int(source?.NetId ?? 0);
+        w.Float(dmg).Vec(from).Half(knock).Int(source?.NetId ?? 0).Byte((byte)(pooled ? 1 : 0));
         Net.SendTo(target.NetOwner, w, true);
         return dmg;
     }
@@ -1152,11 +1152,11 @@ public static class NetSync
             case Net.Msg.EnemyEffect: OnEnemyEffect(from, r); break;
             case Net.Msg.HeroHurt:
             {
-                float dmg = r.Float(); var at = r.Vec(); float knock = r.Half(); int src = r.Int();
+                float dmg = r.Float(); var at = r.Vec(); float knock = r.Half(); int src = r.Int(); bool pooled = r.More && r.Byte() != 0;
                 Enemies.TryGetValue(src, out var e);
                 if (e != null && !GodotObject.IsInstanceValid(e)) e = null;
                 var p = G.Player;
-                if (p != null && !p.Dead) { Scope++; try { p.Hurt(dmg, at, knock, e); } finally { Scope--; } }
+                if (p != null && !p.Dead) { Scope++; try { p.Hurt(dmg, at, knock, e, pooled); } finally { Scope--; } }
                 break;
             }
             case Net.Msg.HeroHeal:
