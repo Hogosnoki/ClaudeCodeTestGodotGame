@@ -4,9 +4,9 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// A cave bear gone wrong: a mountain of matted fur with a hump of bone plates breaking through
-/// its back, a skull-like muzzle full of fangs, small ember eyes, and claws like sickles. It
-/// rears up to swipe, and roars before it charges.
+/// A big brown black bear: a broad, heavy body in thick fur with a small shoulder hump, a
+/// shortish tan muzzle, small round ears, and claws like sickles. It rears up to swipe, and
+/// roars before it charges.
 /// </summary>
 public sealed class BearDesign : QuadrupedDesign
 {
@@ -25,16 +25,16 @@ public sealed class BearDesign : QuadrupedDesign
 
     public override CreatureLook Look => new()
     {
-        Eye = new Color(1f, 0.55f, 0.08f), EyeEnergy = 4.5f,
+        Eye = new Color(0.55f, 0.32f, 0.1f), EyeEnergy = 1.2f,
         Rim = new Color(0.6f, 0.55f, 0.5f), RimEnergy = 0.2f,
         DetailScale = 16f, DetailStrength = 1.1f, Wet = 0.4f,
     };
 
     public override void Sculpt(Sculptor s)
     {
-        var fur = new Color(0.19f, 0.13f, 0.09f);
+        var fur = new Color(0.27f, 0.18f, 0.11f);
         var furDk = fur.Darkened(0.4f);
-        var muzzle = new Color(0.34f, 0.26f, 0.2f);
+        var muzzle = new Color(0.56f, 0.43f, 0.31f);
         var bone = new Color(0.72f, 0.66f, 0.54f);
         var gum = new Color(0.45f, 0.12f, 0.12f);
         BuildSkeleton(s);
@@ -45,44 +45,24 @@ public sealed class BearDesign : QuadrupedDesign
         s.Egg(sp, Spine + new Vector3(0, 0.08f, 0), new(0.5f, 0.42f, 0.44f), fur, Mat.Fur, 0.08f, bump: 0.02f);
         s.Egg(ch, Chest + new Vector3(-0.05f, 0.02f, 0), new(0.46f, 0.5f, 0.46f), fur, Mat.Fur, 0.08f, bump: 0.02f);
         s.Egg(ch, Chest + new Vector3(-0.12f, 0.4f, 0), new(0.36f, 0.26f, 0.32f), furDk, Mat.Fur, 0.1f, bump: 0.02f);
-        // bone plates breaking through the shoulder hump and down the spine, stained and chipped
-        var rng = s.Rng;
-        var plate = new Color(0.58f, 0.52f, 0.42f);
-        for (int k = 0; k < 7; k++)
-        {
-            float t = k / 6f;                       // 0 = over the shoulders, 1 = mid-back
-            var at = Chest.Lerp(Spine, t) + new Vector3(-0.12f, 0.5f - 0.18f * t, 0);
-            float len = 0.36f - 0.16f * t + 0.05f * (float)rng.NextDouble();
-            int bone2 = t < 0.5f ? ch : sp;
-            s.Horn(bone2, at + new Vector3(0.02f, -0.1f, 0), at + new Vector3(-0.12f - 0.05f * t, len, 0), 0.065f - 0.02f * t, plate, Mat.Bone, Vector3.Left, 0.045f);
-            if (k % 2 == 0 && k < 5)
-                foreach (int sd in new[] { 1, -1 })
-                    s.Horn(bone2, at + new Vector3(0.02f, -0.15f, 0.2f * sd), at + new Vector3(-0.06f, len * 0.45f - 0.05f, 0.33f * sd), 0.035f, plate, Mat.Bone, Vector3.Left, 0.02f);
-        }
-        // scars: raw gouges across the flank
-        s.Limb(sp, Spine + new Vector3(0.1f, 0.2f, 0.4f), Spine + new Vector3(-0.2f, -0.05f, 0.42f), 0.03f, 0.02f, new Color(0.5f, 0.2f, 0.18f), Mat.Flesh, 0.02f);
-        s.Limb(hp, Hips + new Vector3(0.1f, 0.25f, 0.38f), Hips + new Vector3(-0.1f, 0.05f, 0.42f), 0.025f, 0.018f, new Color(0.5f, 0.2f, 0.18f), Mat.Flesh, 0.02f);
-
-        // head: a heavy skull, a long muzzle, a gaping jaw of fangs
+        // head: a broad skull, a shortish tan muzzle, small round ears (a big brown black bear)
         s.Limb(nk, Neck + new Vector3(-0.1f, 0, 0), Head, 0.3f, 0.24f, fur, Mat.Fur, 0.08f, bump: 0.015f);
         s.Egg(hd, Head + new Vector3(0.05f, 0.06f, 0), new(0.24f, 0.2f, 0.21f), fur, Mat.Fur, 0.06f, bump: 0.012f);
-        s.Limb(hd, Head + new Vector3(0.12f, 0.02f, 0), Head + new Vector3(0.38f, -0.03f, 0), 0.14f, 0.085f, muzzle, Mat.Skin, 0.04f);
-        s.Egg(hd, Head + new Vector3(0.41f, -0.01f, 0), new(0.05f, 0.04f, 0.055f), new Color(0.06f, 0.05f, 0.05f), Mat.Skin, 0.02f);
+        s.Limb(hd, Head + new Vector3(0.12f, 0.02f, 0), Head + new Vector3(0.31f, -0.03f, 0), 0.14f, 0.095f, muzzle, Mat.Skin, 0.04f);
+        s.Egg(hd, Head + new Vector3(0.335f, -0.005f, 0), new(0.055f, 0.045f, 0.06f), new Color(0.06f, 0.05f, 0.05f), Mat.Skin, 0.02f);
         s.Limb(hd, Head + new Vector3(0.15f, 0.14f, -0.12f), Head + new Vector3(0.15f, 0.14f, 0.12f), 0.05f, 0.05f, furDk, Mat.Fur, 0.04f);
-        s.Egg(jw, Head + new Vector3(0.24f, -0.12f, 0), new(0.16f, 0.05f, 0.09f), muzzle, Mat.Skin, 0.03f);
-        s.Egg(jw, Head + new Vector3(0.24f, -0.1f, 0), new(0.14f, 0.025f, 0.075f), gum, Mat.Flesh, 0.02f);
+        s.Egg(jw, Head + new Vector3(0.2f, -0.12f, 0), new(0.13f, 0.05f, 0.09f), muzzle, Mat.Skin, 0.03f);
+        s.Egg(jw, Head + new Vector3(0.2f, -0.1f, 0), new(0.11f, 0.025f, 0.075f), gum, Mat.Flesh, 0.02f);
         foreach (int sd in new[] { 1, -1 })
         {
-            s.Egg(hd, Head + new Vector3(-0.05f, 0.2f, 0.12f * sd), new(0.05f, 0.06f, 0.025f), furDk, Mat.Fur, 0.03f);
-            s.Eye(hd, Head + new Vector3(0.2f, 0.085f, 0.112f * sd), 0.027f, new Color(0.4f, 0.1f, 0.02f), 1f);
-            // fangs: great upper canines, lower tusks
-            s.Horn(hd, Head + new Vector3(0.33f, -0.07f, 0.055f * sd), Head + new Vector3(0.35f, -0.2f, 0.06f * sd), 0.02f, bone, Mat.Bone, Vector3.Back, 0.01f);
-            s.Horn(jw, Head + new Vector3(0.3f, -0.1f, 0.05f * sd), Head + new Vector3(0.33f, -0.01f, 0.055f * sd), 0.016f, bone, Mat.Bone);
+            s.Egg(hd, Head + new Vector3(-0.04f, 0.22f, 0.13f * sd), new(0.075f, 0.075f, 0.04f), fur, Mat.Fur, 0.04f);
+            s.Egg(hd, Head + new Vector3(-0.03f, 0.22f, 0.14f * sd), new(0.045f, 0.045f, 0.03f), muzzle, Mat.Skin, 0.02f);
+            s.Eye(hd, Head + new Vector3(0.2f, 0.085f, 0.112f * sd), 0.027f, new Color(0.14f, 0.07f, 0.03f), 1f);
         }
-        DesignKit.Teeth(s, hd, Head + new Vector3(0.15f, -0.07f, 0.07f), Head + new Vector3(0.3f, -0.08f, 0.06f), Vector3.Down, 5, 0.035f, 0.009f, bone, 0.3f);
-        DesignKit.Teeth(s, hd, Head + new Vector3(0.15f, -0.07f, -0.07f), Head + new Vector3(0.3f, -0.08f, -0.06f), Vector3.Down, 5, 0.035f, 0.009f, bone, 0.3f);
-        DesignKit.Teeth(s, jw, Head + new Vector3(0.14f, -0.1f, 0.06f), Head + new Vector3(0.28f, -0.1f, 0.05f), Vector3.Up, 5, 0.03f, 0.008f, bone, 0.3f);
-        DesignKit.Teeth(s, jw, Head + new Vector3(0.14f, -0.1f, -0.06f), Head + new Vector3(0.28f, -0.1f, -0.05f), Vector3.Up, 5, 0.03f, 0.008f, bone, 0.3f);
+        DesignKit.Teeth(s, hd, Head + new Vector3(0.15f, -0.07f, 0.07f), Head + new Vector3(0.25f, -0.08f, 0.06f), Vector3.Down, 4, 0.02f, 0.007f, bone, 0.3f);
+        DesignKit.Teeth(s, hd, Head + new Vector3(0.15f, -0.07f, -0.07f), Head + new Vector3(0.25f, -0.08f, -0.06f), Vector3.Down, 4, 0.02f, 0.007f, bone, 0.3f);
+        DesignKit.Teeth(s, jw, Head + new Vector3(0.14f, -0.1f, 0.06f), Head + new Vector3(0.23f, -0.1f, 0.05f), Vector3.Up, 4, 0.018f, 0.007f, bone, 0.3f);
+        DesignKit.Teeth(s, jw, Head + new Vector3(0.14f, -0.1f, -0.06f), Head + new Vector3(0.23f, -0.1f, -0.05f), Vector3.Up, 4, 0.018f, 0.007f, bone, 0.3f);
 
         Legs(s, 0.13f, 0.16f, fur, Mat.Fur, furDk, 0.01f);
         Claws(s, 4, 0.14f, 0.022f, new Color(0.12f, 0.1f, 0.08f));

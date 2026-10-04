@@ -78,12 +78,12 @@ public sealed partial class HeroDesign
 
     private static Style StyleFor(HeroKind kind) => kind switch
     {
-        // the Swordsman: a long, driving stride, the sword carried low and forward in a loose fist
+        // the Swordsman: a long, driving stride, the sword held out ahead, point forward and a little up, in a loose fist
         HeroKind.Swordsman => new Style
         {
             Stance = 0.76f, Stride = 4.4f, Hip = 0.78f, Bounce = 0.045f, Clear = 0.28f, Lean = 21f, HipTwist = 9f, Counter = 15f,
             FreeAmp = 50f, FreeMid = 6f, FreeElbow = 92f, FreeElbowAmp = 16f,
-            HoldAmp = 24f, HoldMid = 18f, HoldElbow = 84f, HoldElbowAmp = 10f, HoldAbs = 40f, HeadUp = 0f, Weight = 0.012f,
+            HoldAmp = 24f, HoldMid = 18f, HoldElbow = 84f, HoldElbowAmp = 10f, HoldAbs = 125f, HeadUp = 0f, Weight = 0.012f,
         },
         // the Warden: short, heavy strides, shield tucked in front, every footfall felt
         HeroKind.Warden => new Style
