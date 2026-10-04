@@ -118,7 +118,7 @@ public partial class Player
                 TakeRawDamage(_dotAcc * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "dot");
                 _dotAcc = 0;
                 int shown = Num.Delta(hp0, Math.Max(0f, Hp));
-                if (shown > 0) G.Fx.TickText(GlobalPosition + new Vector2(G.Range(-4, 4), -22), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 9);
+                G.Fx.TickText(GlobalPosition + new Vector2(G.Range(-4, 4), -22), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 9);
             }
         }
         else
@@ -129,7 +129,7 @@ public partial class Player
                 float hp0 = Hp;
                 TakeRawDamage(_dotAcc * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "dot");
                 int shown = Num.Delta(hp0, Math.Max(0f, Hp));
-                if (shown > 0) G.Fx.TickText(GlobalPosition + new Vector2(G.Range(-4, 4), -22), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 9);
+                G.Fx.TickText(GlobalPosition + new Vector2(G.Range(-4, 4), -22), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 9);
             }
             _dotBase = -1f; _dotAcc = 0; _dotClock = 0;
         }

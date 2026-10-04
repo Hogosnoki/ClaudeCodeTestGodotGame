@@ -168,9 +168,19 @@ public partial class Player
         G.Fx.Burst(at, LifeColor, (int)(20 * size), 190, 2.6f, 0.4f, 60f, 0, 3f);
         G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
-        var mote = new LifeMote { Position = at, Caster = this, VitalForce = dealt * Stats.VitalForceGain, Size = size };
-        G.Spawn(mote);
-        NetSync.HeroVisual(mote);
+        LifeCluster(at, dealt * Stats.VitalForceGain, size, (int)Math.Round(5 + 4 * size));
+    }
+
+    /// <summary>The life torn out of a creature: a cluster of small green orbs leaves it, scattering, and flies to the staff, the vital force split between them.</summary>
+    private void LifeCluster(Vector2 at, float vitalForce, float size, int count)
+    {
+        count = Math.Max(1, count);
+        for (int k = 0; k < count; k++)
+        {
+            var mote = new LifeMote { Position = at + G.RandDir() * G.Range(0f, 7f), Caster = this, VitalForce = vitalForce / count, Size = 0.5f * (0.7f + 0.3f * size) };
+            G.Spawn(mote);
+            NetSync.HeroVisual(mote);
+        }
     }
 
     /// <summary>Stolen life reaching the staff: it becomes vital force.</summary>
@@ -179,7 +189,7 @@ public partial class Player
         if (!IsRemote) GainVitalForce(vitalForce);
         _castGlow = Math.Max(_castGlow, 0.35f * size);
         G.Fx.Flash(CastPoint, 5 + 4 * size, LifeColorLight, 0.08f);
-        if (G.Chance(0.5f)) G.Sfx.Play("bubble", CastPoint, -16, 0.2f, 0.7f);
+        if (G.Chance(0.2f)) G.Sfx.Play("bubble", CastPoint, -18, 0.2f, 0.7f);
     }
 
     /// <summary>The creature a spell should seize: in the cone of your aim (<paramref name="coneDegrees"/>
@@ -516,12 +526,7 @@ public partial class Player
             if (dealt > 0)
             {
                 OnDealtDamage(dealt, vitalForceByMote: true);
-                for (int k = 0; k < 3; k++)
-                {
-                    var mote = new LifeMote { Position = at + G.RandDir() * 5, Caster = this, VitalForce = dealt * Stats.VitalForceGain / 3f, Size = 0.8f };
-                    G.Spawn(mote);
-                    NetSync.HeroVisual(mote);
-                }
+                LifeCluster(at, dealt * Stats.VitalForceGain, 0.8f, 8);
                 if (!main.Dead) main.Freeze(Tune.Feel.HitStopCharged * 0.6f);
             }
         }
@@ -535,9 +540,7 @@ public partial class Player
             float dealt = e.Hurt(Tune.Vitalist.RuptureSplash * Stats.RuptureSplashMult * mult, away * 170f, e.GlobalPosition - away * e.HitRadius, DamageKind.Nature);
             if (dealt <= 0) continue;
             OnDealtDamage(dealt, vitalForceByMote: true);
-            var splash = new LifeMote { Position = e.GlobalPosition, Caster = this, VitalForce = dealt * Stats.VitalForceGain, Size = 0.55f };
-            G.Spawn(splash);
-            NetSync.HeroVisual(splash);
+            LifeCluster(e.GlobalPosition, dealt * Stats.VitalForceGain, 0.55f, 4);
         }
         // a burst of crimson from inside it
         G.Fx.Flash(at, 30, LifeColorLight, 0.16f);

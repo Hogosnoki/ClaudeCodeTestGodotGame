@@ -177,16 +177,23 @@ public partial class LifeMoteView : PropView
             _tail[k] = PropViews.Sprite(new Color(0.15f, 0.85f, 0.22f), 0, 1.3f * f, (0.36f * f + 0.08f) * _size);
             AddChild(_tail[k]);
         }
-        _light = PropViews.Light(new Color(0.3f, 1f, 0.4f), 1.2f * _size, 2.8f);
+        _light = PropViews.Light(new Color(0.3f, 1f, 0.4f), 0.5f * _size, 1.6f);
         AddChild(_light);
+        // (the stolen life is a cluster of small green orbs: no tails, just the glow)
+        foreach (var t in _tail) t.Visible = false;
     }
 
     protected override void Sync(float dt)
     {
+        var m = (LifeMote)Owner2D;
         Follow(default, 0.3f);
-        // the stolen life travels unseen: the flare at the staff and the burst at the creature are all there is to see
-        Visible = false;
-        _light.LightEnergy = 0f;
+        float a = m.Alpha;
+        Visible = a > 0.02f;
+        _halo.Scale = Vector3.One * (0.14f + 0.2f * _size);
+        _core.Scale = Vector3.One * (0.06f + 0.09f * _size);
+        PropViews.SetSprite(_halo, new Color(Player.LifeColor, 0.55f * a), 0, 1.2f);
+        PropViews.SetSprite(_core, new Color(0.85f, 1f, 0.82f, a), 3, 2.0f);
+        _light.LightEnergy = 0.5f * _size * a;
     }
 }
 

@@ -264,10 +264,11 @@ public abstract partial class Enemy : CharacterBody2D
         if (_dotAcc <= 0f) { _dotClock = 0; return; }
         if ((_dotClock += dt) < 0.25f) return;
         _dotClock = 0;
+        // (the change in the health shown over this tick: ceil(now) - ceil(before), so a tick that doesn't cross a whole point reads -0)
         float now = Math.Max(0f, Hp);
         int shown = Num.Delta(now + _dotAcc, now);
         _dotAcc = 0;
-        if (shown > 0) G.Fx.TickText(HeadPoint(0f) + new Vector2(0, 4), shown.ToString(), _burnT > 0 ? new Color(1f, 0.6f, 0.25f) : new Color(0.85f, 0.35f, 0.4f), 9);
+        G.Fx.TickText(HeadPoint(0f) + new Vector2(0, 4), shown.ToString(), _burnT > 0 ? new Color(1f, 0.6f, 0.25f) : new Color(0.85f, 0.35f, 0.4f), 9);
     }
 
     /// <summary>
@@ -805,6 +806,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (_wardT > 0) { float soak = dmg * Tune.Aegis.WardAbsorb; dmg -= soak; _wardSoaked += soak; }
         float hp0 = Hp;
         Hp -= dmg;
+        _dotAcc = 0; // (a blow shows its own number; the tick that follows measures only what the affliction took)
         HurtFlash = 0.12f;
         // a creature winding up or attacking keeps its pose and its timing: the blow flashes and
         // squashes it, but only a shield bash, a guarded charge or a perfect block breaks it off
