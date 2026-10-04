@@ -83,7 +83,7 @@ public partial class Player
         Alimus = 0;
         float hp0 = Hp;
         Hp -= blood;
-        if (Num.Delta(hp0, Hp) > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -22), "-" + Num.Delta(hp0, Hp), new Color(0.85f, 0.15f, 0.2f), 9, 0.7f);
+        if (Num.Delta(hp0, Hp) > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -22), "-" + Num.Delta(hp0, Hp), new Color(0.85f, 0.15f, 0.2f), 12, 0.7f);
         return true;
     }
 

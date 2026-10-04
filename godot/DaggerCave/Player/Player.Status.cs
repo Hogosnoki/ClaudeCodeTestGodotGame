@@ -115,7 +115,7 @@ public partial class Player
             if (_dotText <= 0 && shown > 0)
             {
                 _dotText = 0.8f;
-                G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 8, 0.5f);
+                G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 11, 0.5f);
                 _dotBase = Hp;
             }
         }

@@ -531,7 +531,7 @@ public abstract partial class Enemy : CharacterBody2D
         var at = GlobalPosition;
         HurtFlash = 0.2f;
         Hp -= _wardBlast;
-        G.Fx.Text(HeadPoint(10f), Math.Max(1, Num.Delta(Hp + _wardBlast, Math.Max(0f, Hp))).ToString() + "!", new Color(0.7f, 1f, 0.92f), 14, 1f);
+        G.Fx.Text(HeadPoint(10f), Math.Max(1, Num.Delta(Hp + _wardBlast, Math.Max(0f, Hp))).ToString() + "!", new Color(0.7f, 1f, 0.92f), 18, 1f);
         G.Fx.Flash(at, 30, new Color(0.7f, 1f, 0.9f), 0.2f);
         G.Fx.Ring(at, Tune.Aegis.WardRadius, new Color(0.65f, 1f, 0.92f, 0.9f), 0.35f);
         G.Fx.Burst(at, new Color(0.7f, 1f, 0.92f), 18, 170, 2.2f, 0.4f, 0);
@@ -812,7 +812,7 @@ public abstract partial class Enemy : CharacterBody2D
         // (the number is the change in the health a creature would show: a fraction counts up, and a killing blow is whatever was left)
         int shownDmg = Num.Delta(hp0, Math.Max(0f, Hp));
         if (shownDmg > 0) G.Fx.Text(HeadPoint(2f), shownDmg.ToString() + (weak ? "!" : ""),
-            weak ? new Color(1f, 0.5f, 0.2f) : resist ? new Color(0.65f, 0.68f, 0.72f) : big ? new Color(1f, 0.85f, 0.3f) : Colors.White, weak ? 14 : resist ? 9 : big ? 13 : 11);
+            weak ? new Color(1f, 0.5f, 0.2f) : resist ? new Color(0.65f, 0.68f, 0.72f) : big ? new Color(1f, 0.85f, 0.3f) : Colors.White, weak ? 18 : resist ? 12 : big ? 17 : 14);
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);
         G.Sfx.Play(HitSound, GlobalPosition, 0, 0.12f);
         OnHurt();

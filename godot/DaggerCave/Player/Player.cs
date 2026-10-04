@@ -204,7 +204,7 @@ public partial class Player : CharacterBody2D
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
         int healed = Num.Delta(before, Hp);
-        if (healed > 0) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + healed, HealColorLight, 10);
+        if (healed > 0) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + healed, HealColorLight, 14);
         if (IsWarden) MendShield(amount * Tune.Warden.HealToShield);
     }
 
@@ -1006,7 +1006,7 @@ public partial class Player : CharacterBody2D
         _hurtFlash = chip ? 0.06f : 0.15f;
         // (the number floated is the change in the health shown, which counts a fraction up: see Num)
         int shown = Num.Delta(hp0, Math.Max(0f, Hp));
-        if (shown > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -24), shown.ToString(), chip ? new Color(1f, 0.7f, 0.55f) : new Color(1f, 0.35f, 0.3f), chip ? 10 : 12);
+        if (shown > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -24), shown.ToString(), chip ? new Color(1f, 0.7f, 0.55f) : new Color(1f, 0.35f, 0.3f), chip ? 13 : 16);
         if (!chip) G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.1f, 0.1f), 8, 120, 2.2f, 0.45f);
         G.Fx.AddShake(kind == "drown" ? 2 : chip ? 1.5f : 6);
         if (!chip) G.Sfx.Play(kind == "drown" ? "bubble" : "hurt", GlobalPosition, -2);
