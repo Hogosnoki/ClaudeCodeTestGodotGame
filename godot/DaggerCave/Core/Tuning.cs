@@ -587,6 +587,25 @@ public static class Tune
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
     }
 
+    /// <summary>Support abilities (the support button), one per hero, each for the others' sake.</summary>
+    public static class Support
+    {
+        /// <summary>Swordsman Battle Shout: allies within range deal this much more damage for some seconds.</summary>
+        public static float ShoutDamage = 1.10f, ShoutSeconds = 10f, ShoutRange = 280f, ShoutCooldown = 30f;
+        /// <summary>Shape Shifter Pack Howl: allies near move and strike faster.</summary>
+        public static float HowlMove = 1.2f, HowlAttack = 1.15f, HowlSeconds = 8f, HowlRange = 280f, HowlCooldown = 25f;
+        /// <summary>Warden Taunt: every creature counts her as next to nothing away for this long.</summary>
+        public static float TauntSeconds = 3f, TauntCooldown = 20f;
+        /// <summary>Vitalist Health Tap: this share of max health spent for this share of the vital force reserve.</summary>
+        public static float TapCost = 0.15f, TapGain = 0.6f, TapCooldown = 15f;
+        /// <summary>Elementalist Stalag-Might: damage, seconds rooted, reach, cooldown.</summary>
+        public static float StalagDamage = 30f, StalagSeconds = 2f, StalagRange = 260f, StalagCooldown = 15f;
+        /// <summary>Rogue Expose: the marked creature takes this much more from everyone.</summary>
+        public static float ExposeVuln = 1.2f, ExposeSeconds = 8f, ExposeRange = 260f, ExposeCooldown = 20f;
+        /// <summary>Aegis Mending Mark: the next hero to strike the marked creature is healed this much.</summary>
+        public static float MarkHeal = 10f, MarkSeconds = 20f, MarkRange = 260f, MarkCooldown = 30f;
+    }
+
     /// <summary>The Shape Shifter: a weak staff fighter whose strength is the creatures it copies.</summary>
     public static class Shifter
     {

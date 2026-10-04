@@ -1095,3 +1095,13 @@ Charge, Quake, Dive Sting, Spore Cloud, Vice Grip), each with its own icon (`too
 Health and damage stay the Shape Shifter's own (`Tune.Shifter.FormDamage` x the form's multiplier x the
 hero's damage). Shift again drops the form, then Shift recharges. `--scenario=shifter --hero=shifter`
 checks it (add `--shots=DIR` under xvfb for a picture of every form).
+
+## Support abilities (the support button, V)
+
+Every hero has a fourth ability that does something for the others (`Player.Support.cs`, `Tune.Support`):
+Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to recharge), Warden **Taunt**
+(every creature counts her as next to nothing away for 3 s), Vitalist **Health Tap** (15% of max health for
+60% of the vital force reserve), Elementalist **Stalag-Might** (30 damage and the creature is rooted for
+2 s, 15 s), Rogue **Expose** (the creature takes 20% more from everyone for 8 s), Aegis **Mending Mark**
+(whoever next strikes the marked creature is healed 10, 30 s), Shape Shifter **Pack Howl** (allies near run
+20% and strike 15% faster for 8 s). `--scenario=support --hero=vitalist` checks all seven.

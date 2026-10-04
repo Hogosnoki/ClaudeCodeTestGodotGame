@@ -645,6 +645,13 @@ RELICS = {
     "relic_r_wound": ("#c84a6a", [one("heart", "#c84a6a", "#ffc0c8", 0.84), one("cross", "#e8d8b0", "#ffffff", 0.34, 0.02, 0.02)]),
     "relic_r_quick": ("#ffd23a", [one("hand", "#f0c898", "#8a5a30", 0.88), one("bolt", "#ffd23a", "#ffffff", 0.28, 0.24, -0.24)]),
     # shape shifter: the shift itself, then a form and its special for each creature it can copy
+    "sup_shout": ("#ff9a3a", [one("banner", "#e0405a", "#c9a24a", 0.9, -0.04, 0), one("burst", "#fff0b0", "#ffd23a", 0.4, 0.22, -0.2)]),
+    "sup_taunt": ("#ff7a3a", [one("shield", "#5f9bff", "#2f5cc4", 0.8), one("eye", "#ff5a3a", "#ffffff", 0.36, 0, 0.0)]),
+    "sup_tap": ("#e0405a", [one("heart", "#e0405a", "#ffb0b8", 0.8, -0.06, 0.04), one("crystal", "#48d67a", "#c8ffd0", 0.46, 0.22, -0.16)]),
+    "sup_stalag": ("#c8a06a", [one("mountain", "#9a7a4a", "#2a1a10", 0.9), one("chevrons", "#ffd23a", "#ffffff", 0.34, 0.0, -0.28, 180)]),
+    "sup_expose": ("#ffd23a", [one("eye", "#ffd23a", "#ffffff", 0.9), one("cross", "#e0405a", "#ffffff", 0.34, 0.0, 0.0)]),
+    "sup_mark": ("#6fe0c8", [one("heart", "#6fe0c8", "#c8fff0", 0.8), one("eye", "#ffffff", "#6fe0c8", 0.34, 0.0, 0.0)]),
+    "sup_howl": ("#c8d8ff", [one("swirl", "#c8d8ff", "#ffffff", 0.9), one("chevrons", "#ffffff", "#c8d8ff", 0.4, 0.0, 0.0, -90)]),
     "relic_sh_hide": ("#c8d0dc", [one("cloak", "#9aa6b8", "#e8eef8", 0.9), one("shield", "#c8d0dc", "#6a7a98", 0.42, 0.0, 0.1)]),
     "relic_sh_fang": ("#e8e0cc", [one("skull", "#e8e0cc", "#8a8470", 0.8), one("blooddrops", "#e0405a", "#ffb0b8", 0.4, 0.22, 0.2)]),
     "relic_sh_echo": ("#b8a0ff", [one("swirl", "#b8a0ff", "#ffffff", 0.9), one("burst", "#e8e0ff", "#ffffff", 0.36, 0.0, 0.0)]),

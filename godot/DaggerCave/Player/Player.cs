@@ -10,7 +10,7 @@ public struct PlayerInput
     public Vector2 Aim;         // normalized aim direction (zero = use facing)
     /// <summary>With the mouse, how far away the pointer is (0: unknown, a controller's aim): where a blizzard lands.</summary>
     public float AimDist;
-    public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact, Rope;
+    public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact, Rope, Support;
     /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
     public bool AttackHeld;
     /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
@@ -294,6 +294,7 @@ public partial class Player : CharacterBody2D
             Ability = Input.IsActionJustPressed("ability"),
             Ability2 = Input.IsActionJustPressed("ability2"),
             Rope = Input.IsActionJustPressed("rope"),
+            Support = Input.IsActionJustPressed("support"),
             InteractHeld = Input.IsActionPressed("interact"),
         };
         inp.Interact = Input.IsActionJustPressed("interact");
@@ -301,7 +302,7 @@ public partial class Player : CharacterBody2D
         {
             if (Input.IsActionPressed("attack") || Input.IsActionPressed("ability") || Input.IsActionPressed("ability2"))
             {
-                inp.Attack = inp.AttackHeld = inp.Ability = inp.Ability2 = false;
+                inp.Attack = inp.AttackHeld = inp.Ability = inp.Ability2 = inp.Support = false;
             }
             else p._swallow = false;
         }
@@ -340,6 +341,7 @@ public partial class Player : CharacterBody2D
         if (inp.Attack) { _attackBuf = Tune.Hero.PressBuffer; _attackAim = aim; }
         if (inp.Ability) { _abilityBuf = Tune.Hero.PressBuffer; _abilityAim = aim; _abilityAimDist = inp.AimDist; }
         if (inp.Ability2) { _ability2Buf = Tune.Hero.PressBuffer; _ability2Aim = aim; }
+        if (inp.Support) { _supportBuf = Tune.Hero.PressBuffer; _supportAim = aim; }
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
         if (inp.Potion) DrinkPotion();
@@ -394,6 +396,7 @@ public partial class Player : CharacterBody2D
 
         TickTimers(dt);
         TickRope(inp, dt);
+        TickSupport(dt);
         switch (Stats.Hero)
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
@@ -479,6 +482,7 @@ public partial class Player : CharacterBody2D
         else if (inp.AttackHeld && _attackBuf <= 0) Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true);
         if (_abilityBuf > 0 && Ability(_abilityAim)) _abilityBuf = 0;
         if (_ability2Buf > 0 && Ability2(_ability2Aim)) _ability2Buf = 0;
+        if (_supportBuf > 0 && Support(_supportAim)) _supportBuf = 0;
         if (_swingT >= 0) UpdateSwing(dt);
         TickBash(dt);
 

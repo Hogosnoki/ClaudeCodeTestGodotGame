@@ -137,6 +137,9 @@ public abstract partial class Enemy : CharacterBody2D
     protected Player P => Target;
     private Player _target;
     private float _targetT;
+    /// <summary>Looks for a hero to go for again at once (a taunt).</summary>
+    public void ForgetTarget() { _targetT = 0f; }
+
     public Player Target
     {
         get
@@ -145,7 +148,7 @@ public abstract partial class Enemy : CharacterBody2D
             if (_target != null && IsInstanceValid(_target) && _target.IsInsideTree() && !_target.Dead && _targetT > 0) return _target;
             _targetT = 0.5f;
             var heroes = G.Players.Where(h => h != null && IsInstanceValid(h) && !h.Dead).ToList();
-            int pick = ChooseHero(GlobalPosition, heroes.Select(h => (h.GlobalPosition, h.Stats?.ThreatDist ?? 1f, h.Hidden)).ToList());
+            int pick = ChooseHero(GlobalPosition, heroes.Select(h => (h.GlobalPosition, h.EffectiveThreat, h.Hidden)).ToList());
             _target = pick >= 0 ? heroes[pick] : G.Player;
             return _target;
         }
@@ -299,6 +302,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Dead) return;
         Telegraph((float)delta);
         TickDotText((float)delta);
+        TickMark((float)delta);
         _targetT -= (float)delta;
         var p = P;
         if (p == null) return;
@@ -572,6 +576,26 @@ public abstract partial class Enemy : CharacterBody2D
         _hexT = Math.Max(_hexT, seconds);
     }
     private float _hexRot;
+
+    // the Aegis's Mending Mark: the next hero to strike it is healed
+    private float _markHeal, _markT, _markFx;
+    public bool HealMarked => _markT > 0 && _markHeal > 0;
+
+    public void GiveHealMark(float heal, float seconds)
+    {
+        if (Dead) return;
+        if (Puppet) { _markT = Math.Max(_markT, 0.3f); _markHeal = Math.Max(_markHeal, heal); NetSync.EffectPuppet(this, NetSync.Effect.HealMark, heal, seconds); return; }
+        _markHeal = Math.Max(_markHeal, heal);
+        _markT = Math.Max(_markT, seconds);
+    }
+
+    private void TickMark(float dt)
+    {
+        if (_markT <= 0) return;
+        _markT -= dt;
+        if (_markT <= 0) { _markHeal = 0; return; }
+        if ((_markFx -= dt) <= 0) { _markFx = 0.35f; G.Fx.Ring(HeadPoint(6f), 7, new Color(0.6f, 0.95f, 0.9f, 0.8f), 0.4f); }
+    }
     /// <summary>Online: whose hex is rotting it (their hero is credited with the damage).</summary>
     private int _hexBy;
 
@@ -805,6 +829,16 @@ public abstract partial class Enemy : CharacterBody2D
         if (_hexT > 0) dmg *= _hexVuln;
         if (_wardT > 0) { float soak = dmg * Tune.Aegis.WardAbsorb; dmg -= soak; _wardSoaked += soak; }
         float hp0 = Hp;
+        // a Mending Mark: whoever struck this blow is healed, once
+        if (_markT > 0 && _markHeal > 0 && dmg > 0)
+        {
+            int peer = NetSync.Striker;
+            var who = peer == Net.Me ? G.Player : G.Players.FirstOrDefault(h => h != null && IsInstanceValid(h) && !h.Dead && h.IsRemote && h.NetOwner == peer) ?? G.Player;
+            if (who != null && who.Dead) who = null;
+            who?.Heal(_markHeal);
+            G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f);
+            _markHeal = 0; _markT = 0;
+        }
         Hp -= dmg;
         _dotAcc = 0; // (a blow shows its own number; the tick that follows measures only what the affliction took)
         HurtFlash = 0.12f;

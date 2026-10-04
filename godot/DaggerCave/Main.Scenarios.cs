@@ -99,6 +99,7 @@ public partial class Main
             case "rubble": RubbleScenario(); break;
             case "share": ShareScenario(); break;
             case "crouch": CrouchScenario(); break;
+            case "support": SupportScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }
@@ -668,6 +669,80 @@ public partial class Main
         p.Hurt(20f, p.GlobalPosition + new Vector2(-20, 4), 0f, foe);
         ScCheck($"a blow at the body still lands ({hp0 - p.Hp:0.0} lost)", hp0 - p.Hp > 5f);
         _scInput = default;
+        ScEnd();
+    }
+
+    // ---------------------------------------------------------------- every hero's support ability
+    private void SupportScenario()
+    {
+        var p = G.Player;
+        if (_scT < 0.5f) return;
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        p.Stats.MaxHp = 500; p.Hp = 500;
+        var friend = new Player { Stats = new PlayerStats(HeroKind.Swordsman), Position = p.GlobalPosition + new Vector2(60, 0) };
+        friend.InputOverride = () => default;
+        _world.AddChild(friend);
+        Enemy Foe(float dx)
+        {
+            var g = new Golem { Position = p.GlobalPosition + new Vector2(dx, -10) };
+            g.SetMeta("test", true);
+            _world.AddChild(g);
+            g.MaxHp = g.Hp = 900; g.Freeze(99f, hold: true);
+            return g;
+        }
+        var aim = new Vector2(1, 0);
+
+        p.TestHero = HeroKind.Swordsman;
+        float dm = friend.Stats.DamageMult, dmMe = p.Stats.DamageMult;
+        bool ok = p.TestSupport(aim);
+        ScCheck($"Battle Shout: allies near (and you) hit {Tune.Support.ShoutDamage - 1:0%} harder ({friend.Stats.DamageMult / dm:0.00}, {p.Stats.DamageMult / dmMe:0.00})",
+            ok && Math.Abs(friend.Stats.DamageMult / dm - Tune.Support.ShoutDamage) < 0.001f && Math.Abs(p.Stats.DamageMult / dmMe - Tune.Support.ShoutDamage) < 0.001f);
+        friend.TestExpire(); p.TestExpire();
+        ScCheck($"...and it wears off ({friend.Stats.DamageMult / dm:0.000})", Math.Abs(friend.Stats.DamageMult / dm - 1f) < 0.001f && !friend.HasBuff(Player.BuffShout));
+
+        p.TestHero = HeroKind.ShapeShifter;
+        float mv = friend.Stats.MoveSpeed;
+        ok = p.TestSupport(aim);
+        ScCheck($"Pack Howl: allies near run faster ({friend.Stats.MoveSpeed / mv:0.00})", ok && Math.Abs(friend.Stats.MoveSpeed / mv - Tune.Support.HowlMove) < 0.001f);
+        friend.TestExpire(); p.TestExpire();
+        ScCheck($"...and it wears off ({friend.Stats.MoveSpeed / mv:0.000})", Math.Abs(friend.Stats.MoveSpeed / mv - 1f) < 0.001f);
+
+        p.TestHero = HeroKind.Warden;
+        ok = p.TestSupport(aim);
+        ScCheck($"Taunt: she counts as next to nothing away ({p.EffectiveThreat:0.000})", ok && p.Taunting && p.EffectiveThreat < 0.01f);
+        p.TestExpire();
+        ScCheck($"...and it ends ({p.EffectiveThreat:0.00})", !p.Taunting && p.EffectiveThreat > 0.5f);
+
+        p.TestHero = HeroKind.Vitalist;
+        p.SetVitalForce(0); p.Hp = 500; float vf0 = p.VitalForce;
+        ok = p.TestSupport(aim);
+        float cost = 500 - p.Hp, gain = p.VitalForce - vf0;
+        ScCheck($"Health Tap: {cost:0} health for {gain:0.0} vital force", ok && Math.Abs(cost - 500 * Tune.Support.TapCost) < 0.5f && gain > 0);
+        p.Hp = 500;
+
+        p.TestHero = HeroKind.Elementalist;
+        var f1 = Foe(120); float h1 = f1.Hp;
+        ok = p.TestSupport(aim);
+        ScCheck($"Stalag-Might: {h1 - f1.Hp:0.0} damage and the creature is held ({f1.Reeling})", ok && Math.Abs(h1 - f1.Hp - Tune.Support.StalagDamage * p.Stats.DamageMult * Affinity.Mult(f1.Element, DamageKind.Physical)) < 3f && f1.Reeling);
+
+        p.TestHero = HeroKind.Rogue;
+        var f2 = Foe(-120); f2.FaceToward(1);
+        p.Facing = -1;
+        float h2 = f2.Hp;
+        ok = p.TestSupport(new Vector2(-1, 0));
+        f2.Hurt(100f, Vector2.Zero, f2.GlobalPosition, DamageKind.Raw);
+        ScCheck($"Expose: a blow of 100 does {h2 - f2.Hp:0.0} to the marked creature", ok && Math.Abs(h2 - f2.Hp - 100f * Tune.Support.ExposeVuln) < 2f);
+
+        p.TestHero = HeroKind.Aegis;
+        p.Facing = 1;
+        f1.QueueFree();
+        var f3 = Foe(60);
+        ok = p.TestSupport(aim);
+        p.Hp = 480;
+        f3.Hurt(10f, Vector2.Zero, f3.GlobalPosition, DamageKind.Raw);
+        ScCheck($"Mending Mark: marked ({ok}), and the one who strikes it is healed ({p.Hp - 480:0.0})", ok && Math.Abs(p.Hp - 480 - Tune.Support.MarkHeal * p.Stats.WardMult) < 0.6f);
+        f3.Hurt(10f, Vector2.Zero, f3.GlobalPosition, DamageKind.Raw);
+        ScCheck($"...once ({p.Hp - 480:0.0})", Math.Abs(p.Hp - 480 - Tune.Support.MarkHeal * p.Stats.WardMult) < 0.6f);
         ScEnd();
     }
 }

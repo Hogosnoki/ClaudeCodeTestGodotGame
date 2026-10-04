@@ -160,6 +160,14 @@ public partial class Hud : Control
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
+        // --- the support ability: every hero's fourth button ---
+        {
+            var sb = ab + new Vector2(280, 0);
+            var col = HeroColor(p.Stats.Hero);
+            AbilitySquare(font, sb, p.SupportName, p.SupportCooldownFrac, p.SupportReady, col, (c, cc) => DrawArc(c, 7, 0, Mathf.Tau, 12, cc, 2f));
+            KeyHint(font, sb, "support");
+        }
+
         // --- Afflictions (beside the health bar): poison, fire, frost, drowning, each in its colour ---
         {
             var sp = hpPos + new Vector2(hpW + 14, 13);
@@ -169,6 +177,9 @@ public partial class Hud : Control
                 DrawString(font, sp, text, HorizontalAlignment.Left, -1, 13, col);
                 sp += new Vector2(0, 16);
             }
+            if (p.HasBuff(Player.BuffShout)) Chip($"BATTLE SHOUT {Mathf.CeilToInt(p.BuffLeft(Player.BuffShout))}s", new Color(1f, 0.75f, 0.4f));
+            if (p.HasBuff(Player.BuffHowl)) Chip($"PACK HOWL {Mathf.CeilToInt(p.BuffLeft(Player.BuffHowl))}s", new Color(0.85f, 0.93f, 1f));
+            if (p.TauntLeft > 0) Chip($"TAUNTING {p.TauntLeft:0.0}s", new Color(1f, 0.6f, 0.35f));
             if (p.Frozen) Chip($"FROZEN {p.FrozenLeft:0.0}s", StatusColors.Frost);
             if (p.Burning) Chip($"BURNING {Mathf.CeilToInt(p.BurnLeft)}s", StatusColors.Fire);
             if (p.Poisoned) Chip($"POISONED {Mathf.CeilToInt(p.PoisonLeft)}s", StatusColors.Poison);

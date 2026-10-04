@@ -447,7 +447,7 @@ public static class NetSync
     }
 
     /// <summary>A gift from one hero to another: the Warden's barrier, the Vitalist's mending.</summary>
-    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden, BubbleDrain }
+    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden, BubbleDrain, Buff }
 
     /// <summary>A boon for someone else's hero: their game gives it (a, b, c: its amount, seconds, a flag).</summary>
     public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0, int id = 0)
@@ -619,7 +619,7 @@ public static class NetSync
     }
 
     /// <summary>Kinds of lasting effect a hero's blow can put on a creature.</summary>
-    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward }
+    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark }
 
     public static void EffectPuppet(Enemy e, Effect kind, float a, float b = 0, float c = 0, float d = 0, Vector2 v = default, string label = "")
     {
@@ -668,6 +668,7 @@ public static class NetSync
                 case Effect.Thaw: e.Thaw(); break;
                 case Effect.Quench: e.Quench(); break;
                 case Effect.Ward: e.GiveWard(a, b, c, d); break;
+                case Effect.HealMark: e.GiveHealMark(a, b); break;
             }
         }
         finally { Scope--; _striker = 0; }
@@ -1178,6 +1179,7 @@ public static class NetSync
                     else if (kind == Boon.Bubble) p.GiveBubble(a, b, c > 0.5f);
                     else if (kind == Boon.Burden) p.GiveBurden(id, a, b);
                     else if (kind == Boon.BubbleDrain) p.DrainBubble(a);
+                    else if (kind == Boon.Buff) p.GiveBuff(id, a);
                 }
                 finally { Scope--; }
                 break;
