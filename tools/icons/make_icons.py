@@ -645,6 +645,9 @@ RELICS = {
     "relic_r_wound": ("#c84a6a", [one("heart", "#c84a6a", "#ffc0c8", 0.84), one("cross", "#e8d8b0", "#ffffff", 0.34, 0.02, 0.02)]),
     "relic_r_quick": ("#ffd23a", [one("hand", "#f0c898", "#8a5a30", 0.88), one("bolt", "#ffd23a", "#ffffff", 0.28, 0.24, -0.24)]),
     # shape shifter: the shift itself, then a form and its special for each creature it can copy
+    "relic_sh_hide": ("#c8d0dc", [one("cloak", "#9aa6b8", "#e8eef8", 0.9), one("shield", "#c8d0dc", "#6a7a98", 0.42, 0.0, 0.1)]),
+    "relic_sh_fang": ("#e8e0cc", [one("skull", "#e8e0cc", "#8a8470", 0.8), one("blooddrops", "#e0405a", "#ffb0b8", 0.4, 0.22, 0.2)]),
+    "relic_sh_echo": ("#b8a0ff", [one("swirl", "#b8a0ff", "#ffffff", 0.9), one("burst", "#e8e0ff", "#ffffff", 0.36, 0.0, 0.0)]),
     "shift": ("#c8d0dc", [one("cloak", "#9aa6b8", "#e8eef8", 0.9), one("swirl", "#ffffff", "#c8d0dc", 0.5, 0.18, -0.12), one("eye", "#ffffff", "#c8d0dc", 0.26, -0.06, -0.02)]),
     "form_goblin": ("#8ac04a", [one("fist", "#8ac04a", "#4a6a24", 0.9), one("hammer", "#8a5a30", "#c8a06a", 0.5, 0.2, -0.2, 30)]),
     "form_skeleton": ("#e8e0cc", [one("skull", "#e8e0cc", "#8a8470", 0.9), one("sword", "#cfd6e0", "#8a8470", 0.45, 0.22, 0.2, 40)]),

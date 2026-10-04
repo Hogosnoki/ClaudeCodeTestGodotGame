@@ -106,6 +106,9 @@ public static partial class Upgrades
         Rl("relic_w_banner", "Warbanner", "Creatures see you 20% closer than you are, and you hit 10% harder.", (s, p) => { s.ThreatDist *= 0.8f; s.DamageMult *= 1.1f; }, HW, 1.5f),
 
         // --- Aegis ---
+        Rl("relic_sh_hide", "Second Skin", "Every form shrugs off 12% more of the blows it takes, but your staff hits 20% softer.", (s, p) => { s.FormArmorAdd += 0.12f; s.PrimaryDamageMult *= 0.8f; }, HSH, 1.5f),
+        Rl("relic_sh_fang", "Borrowed Fangs", "Every form's attacks hit 20% harder, but Shift comes back 30% slower.", (s, p) => { s.FormDmgMult += 0.2f; s.AbilityCdMult *= 1.3f; }, HSH, 1.5f),
+        Rl("relic_sh_echo", "Echoing Voice", "Form specials come back 30% sooner, but you take 10% more damage.", (s, p) => { s.FormSpecCdMult *= 0.7f; s.DamageTakenMult *= 1.1f; }, HSH, 1.5f),
         Rl("relic_a_crest", "Solar Crest", "Your ward bolt mends you for 10% more of its damage, but hits 15% softer.", (s, p) => { s.AegisLifesteal += 0.10f; s.DamageMult *= 0.85f; }, HA, 1.5f),
         Rl("relic_a_mantle", "Martyr's Mantle", "You carry 35% of the blows of a friend under your Shared Burden, and take 10% more damage yourself.", (s, p) => { s.BurdenShare = Math.Max(s.BurdenShare, 0.35f); s.DamageTakenMult *= 1.1f; }, HA, 1.5f),
         Rl("relic_a_prism", "Prism", "Your bolt's burst reaches 50% farther and the creatures in it take the whole blow.", (s, p) => { s.BurstMult *= 1.5f; s.BurstShare = 1f; }, HA, 1.5f),
