@@ -265,17 +265,19 @@ public abstract partial class Enemy : CharacterBody2D
     /// </summary>
     private void Telegraph(float dt)
     {
-        bool winding = Attacking && !Striking && Stun <= 0 && Anim != null && !IsBoss;
-        if (!winding) { if (_windT > 0 && Anim != null) Anim.Scale = Vector2.One; _windT = 0; return; }
+        bool big = IsBoss || IsGuardian;
+        bool winding = Attacking && !Striking && Stun <= 0 && Anim != null;
+        if (!winding) { if (_windT > 0 && Anim != null && !big) Anim.Scale = Vector2.One; _windT = 0; return; }
         if (_windT == 0)
         {
-            G.Fx.Ring(HeadPoint(4f), 9, new Color(1f, 0.55f, 0.2f, 0.9f), 0.3f);
-            G.Fx.Text(HeadPoint(10f), "!", new Color(1f, 0.6f, 0.25f), 13, 0.45f);
+            G.Fx.Ring(HeadPoint(4f), big ? 22 : 9, new Color(1f, 0.55f, 0.2f, 0.9f), big ? 0.5f : 0.3f);
+            G.Fx.Text(HeadPoint(10f), big ? "!!" : "!", new Color(1f, 0.6f, 0.25f), big ? 18 : 13, big ? 0.7f : 0.45f);
         }
         _windT += dt;
         float s = Math.Min(1f, _windT / 0.35f);
         float pulse = 0.5f + 0.5f * MathF.Sin(_windT * 28f);
-        Anim.Scale = new Vector2(1f + 0.12f * s, 1f - 0.16f * s);
+        // (a boss keeps its own pose: only the flash and the mark warn of it)
+        if (!big) Anim.Scale = new Vector2(1f + 0.12f * s, 1f - 0.16f * s);
         Anim.Flash(0.2f + 0.3f * pulse * s);
     }
 

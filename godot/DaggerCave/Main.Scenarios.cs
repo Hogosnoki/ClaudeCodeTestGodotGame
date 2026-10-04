@@ -98,6 +98,7 @@ public partial class Main
             case "rope": RopeScenario(); break;
             case "rubble": RubbleScenario(); break;
             case "share": ShareScenario(); break;
+            case "crouch": CrouchScenario(); break;
             default: ScCheck($"a scenario called '{_scenario}'", false); ScEnd(); break;
         }
     }
@@ -638,6 +639,35 @@ public partial class Main
             float mine = 100f - p.BubbleHp, theirs = 100f - friend.BubbleHp;
             ScCheck($"bubbles {d:0} px apart soak 10 of a blow of 20: this one pays {mine:0.0}, the friend's {theirs:0.0}", d > 100f ? Math.Abs(mine - 10f) < 0.6f && theirs < 0.1f : Math.Abs(mine - 5f) < 1f && Math.Abs(theirs - 5f) < 1f);
         }
+        ScEnd();
+    }
+
+    // ---------------------------------------------------------------- ducking
+    private void CrouchScenario()
+    {
+        var p = G.Player;
+        if (_scPhase == 0)
+        {
+            if (_scT < 0.5f) return;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            p.Stats.MaxHp = 500; p.Hp = 500; p.Stats.HurtInvuln = 0f;
+            _scInput = new PlayerInput { Move = new Vector2(0, 1) };
+            _scPhase = 1; _scT = 0;
+            return;
+        }
+        if (_scT < 0.6f) return;
+        ScCheck($"holding down on the ground crouches ({p.Crouching})", p.Crouching);
+        if (_shotDir != "") GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/crouch.png");
+        var foe = new Golem { Position = p.GlobalPosition + new Vector2(-60, -10) };
+        foe.SetMeta("test", true);
+        _world.AddChild(foe); foe.Freeze(99f, hold: true);
+        float hp0 = p.Hp;
+        p.Hurt(20f, p.GlobalPosition + new Vector2(-20, -30), 0f, foe);
+        ScCheck($"a blow from above the head misses a crouching hero ({hp0 - p.Hp:0.0} lost)", p.Hp >= hp0 - 0.01f);
+        hp0 = p.Hp;
+        p.Hurt(20f, p.GlobalPosition + new Vector2(-20, 4), 0f, foe);
+        ScCheck($"a blow at the body still lands ({hp0 - p.Hp:0.0} lost)", hp0 - p.Hp > 5f);
+        _scInput = default;
         ScEnd();
     }
 }

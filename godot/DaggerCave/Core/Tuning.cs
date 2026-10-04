@@ -28,6 +28,8 @@ public static class Tune
         public static float GroundAccel = 1900f, AirAccel = 1200f;
         /// <summary>Crouched, you walk at this share of your speed.</summary>
         public static float CrouchSpeed = 0.4f;
+        /// <summary>A blow from more than this many px above your middle misses you while you crouch.</summary>
+        public static float DuckHeight = 6f;
 
         /// <summary>
         /// Jump shape. Height stays constant while you change Floatiness: gravity is multiplied by

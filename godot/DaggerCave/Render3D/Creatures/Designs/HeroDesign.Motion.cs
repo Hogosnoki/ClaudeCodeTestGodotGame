@@ -840,6 +840,15 @@ public sealed partial class HeroDesign
                 break;
         }
 
+        // ---- ducking: hips down, knees folded, the body hunched forward (the feet stay where they were)
+        if (player != null && player.Crouching && !c.StartsWith("slash_") && c != "death" && !c.StartsWith("dodge"))
+        {
+            o.Root.Y -= 0.27f;
+            o.HR = 78; o.KR = 112; o.HL = 66; o.KL = 104; o.FR = 8; o.FL = 8;
+            o.Lean += 20; o.HeadPitch += 10;
+            o.SR = Math.Max(o.SR, 30); o.SL = Math.Max(o.SL, 20);
+        }
+
         // ---- a caster's hand holds the staff at its angle, whatever the arm is doing
         if (_caster && c != "death") o.WR = staff + o.Lean - o.SR - o.ER;
 

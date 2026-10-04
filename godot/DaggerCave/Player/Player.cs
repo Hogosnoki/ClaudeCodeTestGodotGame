@@ -881,6 +881,13 @@ public partial class Player : CharacterBody2D
         // Counter Roll: a melee blow met mid-roll is stopped, and answered
         if (!IsRemote && TryCounter(source)) { LastHitBlocked = true; return 0; }
         if (Invulnerable) return 0;
+        // ducking under a blow that comes from above your head
+        if (Crouching && source != null && from.Y < GlobalPosition.Y - Tune.Hero.DuckHeight)
+        {
+            LastHitBlocked = true;
+            G.Fx.Text(GlobalPosition + new Vector2(0, -22), "DUCKED", new Color(0.85f, 0.95f, 1f), 9, 0.6f);
+            return 0;
+        }
         // every blow from a creature is an area one: whoever is close enough shares it out evenly
         if (!pooled && source != null && Tune.Share.On) dmg = PoolBlow(dmg, from, knock, source);
         if (IsRemote)

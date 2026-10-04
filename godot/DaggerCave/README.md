@@ -1070,3 +1070,28 @@ the 0.7 power of the usual curve, so deep ones don't drag. The caves hold about 
 (`Tune.Spawning.SpawnShare`), each creature has +50% health on top of the doubling, and kills give
 3x experience. Upgrades and relics marked PARTY (threat, a friend's burden) are only ever offered in a
 party. A party is at most six heroes.
+
+## Shared blows, ropes, rubble, crouching
+
+A creature's blow is an area one: every living hero within `Tune.Share.Radius` (110 px) of the one struck
+takes an equal share of it, each through their own shield, barrier, bubble and armour (`Player.PoolBlow`;
+online the host's game does the sharing, and tells the others' games to take theirs). The Aegis's Bubble
+wraps every hero near her; each bubble shrinks as it soaks, the Fx layer draws them as one metaball blob
+(`Shaders/fx_shieldfield.gdshader`) and bubbles that touch share a blow by how far they overlap
+(`Player.BubbleLink`). **Rope** (C, party only) lowers a rope any hero can climb (up to take hold, jump to
+let go). **Rubble** plugs narrow passages (`Cave/RubbleGen.cs`): blades or the interact button clear it, a
+few rocks at a time. **Crouch**: hold down on the ground; the body is half as tall, and a blow from above
+your head misses you. Caged heroes are chosen by what the party still has locked and unlock for everyone.
+
+## The Shape Shifter
+
+A feeble staff fighter whose strength is borrowed. The ability button (Shift) copies the nearest creature
+in range (`Tune.Shifter.CopyRange`): the hero's body becomes that creature's own 3D model, outlined in white.
+Twelve forms (`Core/ShiftForms.cs`): goblin, skeleton, rat, bat, spider, frog, scorpion, bear, golem,
+hornet, sporeling, crab. Each moves its own way (speed, jump, flight for bat and hornet, armour), has its own
+attack on the attack button (reach, wind-up, strike, using the creature's own clips) and a special on the
+second ability button (Club Smash, Bone Spin, Gnaw Frenzy, Screech, Venom Spit, Pounce, Tail Lash, Maul
+Charge, Quake, Dive Sting, Spore Cloud, Vice Grip), each with its own icon (`tools/icons/make_icons.py`).
+Health and damage stay the Shape Shifter's own (`Tune.Shifter.FormDamage` x the form's multiplier x the
+hero's damage). Shift again drops the form, then Shift recharges. `--scenario=shifter --hero=shifter`
+checks it (add `--shots=DIR` under xvfb for a picture of every form).
