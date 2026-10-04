@@ -18,11 +18,13 @@ public enum GenStyle
     Rooms,
     /// <summary>Right-angled chambers and corridors on several floors with stone platforms.</summary>
     Ruins,
+    /// <summary>Timbered galleries stepping along several levels, joined by scaffolded shafts, with stopes cut off them.</summary>
+    Mine,
     /// <summary>An antechamber and one great arena over lava (the dragon's lair).</summary>
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -229,6 +231,25 @@ public static class Biomes
         ruins.MiniBosses = new() { () => new Skeleton(), () => new Goblin(), () => new Goblin { Slinger = true } };
         ruins.Guardian = r => Guard(new Skeleton(), "THE BONE KNIGHT", 2.2f);
         All.Add(ruins);
+
+        // ------------------------------------------------------------------ 2-5: the abandoned mineshaft
+        var mine = new BiomeDef
+        {
+            Id = BiomeId.Mine, Name = "Mineshaft", MinDepth = 2, MaxDepth = 5, Weight = 1.1f,
+            Style = GenStyle.Mine, W = 220, H = 120, Liquid = Liquid.None,
+            Edge = C("6b5a48"), Deep = C("1c1612"), Moss = C("6a6a3a"), Rim = C("9a8466"), Glow = C("ffb84a"),
+            BackBottom = C("0e0b09"), Grass = 0.03f, Stalactites = 0.08f, Crystals = 0.04f, Darkness = 0.88f,
+            CaveIns = true, HazardCount = 10, MiniBossesMin = 1, MiniBossesMax = 2, RoomChests = 4,
+        };
+        mine.Residents[SpawnKind.Ground] = L(E(3, () => Var(new Skeleton(), "Dead Miner ", "b09a6a"), 1, 2), E(3, () => Var(new Goblin(), "Pit ", "a8782e"), 1, 3),
+            E(2, () => Var(new Goblin { Slinger = true }, "Blasting ", "c8553a")), E(2, () => new Rat(), 2, 4), E(1, () => new Scorpion()),
+            E(1, () => Var(new Golem(), "Ore ", "b87a3a", 0.9f)));
+        mine.Residents[SpawnKind.Ceiling] = L(E(2, () => new Bat(), 1, 3), E(1, () => new Spider()));
+        mine.GroundEntrants = L(E(3, () => Var(new Goblin(), "Pit ", "a8782e")), E(2, () => Var(new Skeleton(), "Dead Miner ", "b09a6a")), E(1, () => new Rat()));
+        mine.AirEntrants = L(E(1, () => new Bat()));
+        mine.MiniBosses = new() { () => Var(new Goblin { Slinger = true }, "Blasting ", "c8553a"), () => Var(new Skeleton(), "Foreman ", "b09a6a"), () => Var(new Golem(), "Ore ", "b87a3a") };
+        mine.Guardian = r => Guard(Var(new Golem(), "", "b87a3a"), "THE ORE GOLEM", 1.3f);
+        All.Add(mine);
 
         // ------------------------------------------------------------------ 3-4: fungal cavern
         var fungal = new BiomeDef

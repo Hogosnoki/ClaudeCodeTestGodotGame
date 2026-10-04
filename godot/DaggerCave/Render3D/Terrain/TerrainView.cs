@@ -119,6 +119,7 @@ public static class TerrainLook
             case BiomeId.Crystal: special = 4; tintStrength = 0.85f; break;
             case BiomeId.Magma: case BiomeId.Lair: special = 3; Set(m, "s", "dark_rock"); tintStrength = 0.55f; break;
             case BiomeId.Roots: special = 6; tintStrength = 0.7f; break;
+            case BiomeId.Mine: tintStrength = 0.7f; brightness = 1.05f; break;
             case BiomeId.Fossils: special = 7; tintStrength = 0.6f; brightness = 1.05f; break;
         }
         m.SetShaderParameter("tint_strength", tintStrength);

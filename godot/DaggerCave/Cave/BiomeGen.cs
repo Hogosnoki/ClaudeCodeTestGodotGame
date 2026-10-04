@@ -523,6 +523,129 @@ public static partial class CaveGenerator
         return Finish(cave, f, rng, new Vector2I((int)scx, first.Floor - 2), spawnStamps, 1, Slabs, platforms: false);
     }
 
+    // ================================================================== mineshaft
+
+    /// <summary>
+    /// Four levels of long galleries whose floors step up and down as they run, joined by braced
+    /// shafts with timber scaffolds to climb, and stopes (wide cut-out chambers) opening off them.
+    /// The way in is top left; the guardian's hall is at the bottom right.
+    /// </summary>
+    private static CaveData GenerateMine(int seed)
+    {
+        var rng = new Random(seed);
+        int RndI(int a, int bIncl) => rng.Next(a, bIncl + 1);
+        var f = new Field(seed, 0.7f);
+        var cave = new CaveData { W = W, H = H, Seed = seed, WaterY = (H + 200) * CaveData.Cell, Liquid = Liquid.None, Biome = B };
+        const int levels = 4;
+        var baseRow = new int[levels];
+        for (int l = 0; l < levels; l++) baseRow[l] = (int)(H * (0.2f + 0.2f * l)) + RndI(-2, 2);
+        int hallW = 30, hallX0 = W - 5 - hallW;
+        // each gallery's floor, per column (it steps one or two cells now and then)
+        var floor = new int[levels][];
+        var chambers = new List<Chamber>();
+        for (int l = 0; l < levels; l++)
+        {
+            floor[l] = new int[W + 1];
+            int F = baseRow[l], x = 5, end = l == levels - 1 ? hallX0 + 1 : W - 5;
+            while (x < end)
+            {
+                int run = RndI(5, 14), hgt = RndI(4, 6);
+                int x1 = Math.Min(end, x + run);
+                for (int i = x; i <= x1; i++) floor[l][i] = F;
+                f.Rect(x, F - hgt, x1, F);
+                // a step: the next stretch is a cell or two higher or lower (always one a hero can jump)
+                int step = RndI(-2, 2);
+                if (rng.NextDouble() < 0.4) step = 0;
+                F = Math.Clamp(F + step, baseRow[l] - 4, baseRow[l] + 4);
+                // the join: open the whole height of both sides at the step
+                f.Rect(x1, Math.Min(F, floor[l][x1]) - hgt, x1 + 1, Math.Max(F, floor[l][x1]));
+                x = x1;
+            }
+        }
+        // stopes: wide chambers cut off the galleries
+        for (int l = 0; l < levels; l++)
+        {
+            int made = 0, tries = 0;
+            int lo = l == 0 ? 24 : 8;
+            while (made < (l == levels - 1 ? 2 : 3) && tries++ < 30)
+            {
+                int w = RndI(14, 22), h = RndI(8, 13);
+                int x0 = RndI(lo, (l == levels - 1 ? hallX0 - 12 : W - 8) - w);
+                if (x0 + w > (l == levels - 1 ? hallX0 - 6 : W - 6) || chambers.Any(c => c.Level == l && x0 < c.X1 + 6 && x0 + w > c.X0 - 6)) continue;
+                int F = floor[l][x0 + w / 2];
+                if (F == 0 || F - h < 6) continue;
+                var c = new Chamber { X0 = x0, X1 = x0 + w, Top = F - h, Floor = F, Level = l };
+                f.Rect(c.X0, c.Top, c.X1, c.Floor);
+                chambers.Add(c);
+                made++;
+            }
+        }
+        // shafts between the levels: braced, with a timber scaffold up one wall then the other
+        var shafts = new List<(int x, int l)>();
+        for (int l = 0; l < levels - 1; l++)
+        {
+            int count = RndI(2, 3), tries = 0;
+            while (count > 0 && tries++ < 40)
+            {
+                int sx = RndI(10, (l + 1 == levels - 1 ? hallX0 - 14 : W - 18));
+                if (shafts.Any(sh => sh.l == l && Math.Abs(sh.x - sx) < 32)) continue;
+                if (floor[l][sx] == 0 || floor[l + 1][sx + 8] == 0 || floor[l][sx + 8] == 0) continue;
+                shafts.Add((sx, l));
+                f.Rect(sx, floor[l][sx] - 2, sx + 8, floor[l + 1][sx + 4] - 2);
+                count--;
+            }
+        }
+        // rooms and spawn points
+        int sc = 12;
+        var startFloor = floor[0][sc];
+        f.Rect(5, startFloor - 9, 20, startFloor);
+        cave.Rooms.Add(MakeRoom(RoomKind.Start, 12, startFloor - 3, startFloor, 7, 8));
+        var hallF = floor[levels - 1][hallX0 - 1] != 0 ? floor[levels - 1][hallX0 - 1] : baseRow[levels - 1];
+        var hall = new Chamber { X0 = hallX0, X1 = W - 5, Top = hallF - 13, Floor = hallF, Level = levels - 1 };
+        f.Rect(hall.X0, hall.Top, hall.X1, hall.Floor);
+        foreach (var c in chambers)
+            cave.Rooms.Add(MakeRoom(RoomKind.Treasure, (c.X0 + c.X1) * 0.5f, (c.Top + c.Floor) * 0.5f, c.Floor, (c.X1 - c.X0) * 0.5f, (c.Floor - c.Top) * 0.5f));
+        var boss = MakeRoom(RoomKind.Boss, (hall.X0 + hall.X1) * 0.5f, hall.Floor - 5.5f, hall.Floor, 15, 6.5f);
+        cave.Boss = boss;
+        cave.Rooms.Add(boss);
+        cave.StartPos = new Vector2(12, startFloor - 1.2f) * CaveData.Cell;
+        AssignMiniBosses(cave, rng, 40);
+        var spawnStamps = new List<Stamp>();
+        for (int l = 0; l < levels; l++)
+            for (int x = (l == 0 ? 26 : 8); x < (l == levels - 1 ? hallX0 - 4 : W - 8); x += 9)
+                if (floor[l][x] != 0) spawnStamps.Add(new Stamp { X = x, Y = floor[l][x] - 2.5f, R = 3, Main = true, Mode = ModeAir, Kind = 7 });
+        foreach (var c in chambers)
+            spawnStamps.Add(new Stamp { X = (c.X0 + c.X1) * 0.5f, Y = c.Floor - 2.5f, R = 3, Main = true, Mode = ModeAir, Kind = 7 });
+
+        void Scaffolds()
+        {
+            foreach (var (sx, l) in shafts)
+            {
+                bool left = rng.Next(2) == 0;
+                int bottom = floor[l + 1][sx + 4] - 4, top = floor[l][sx] + 1;
+                for (int t = bottom; t > top; t -= 3)
+                {
+                    if (left) f.Solid(sx - 1, t, sx + 3, t + 2); else f.Solid(sx + 5, t, sx + 9, t + 2);
+                    left = !left;
+                }
+            }
+            // tall stopes get a stair of timber too
+            foreach (var c in chambers.Where(c => c.Floor - c.Top >= 11))
+            {
+                int x = c.X0 + 3, dir = 1;
+                for (int t = c.Floor - 4; t >= c.Top + 3; t -= 4)
+                {
+                    if (x + 6 > c.X1 - 3) { dir = -1; x = c.X1 - 3 - 6; }
+                    else if (x < c.X0 + 3) { dir = 1; x = c.X0 + 3; }
+                    f.Solid(x, t, x + 6, t + 1);
+                    x += dir * 4;
+                }
+            }
+        }
+        cave.Open = f.Open;
+        return Finish(cave, f, rng, new Vector2I(12, startFloor - 2), spawnStamps, 1, Scaffolds, platforms: false);
+    }
+
     // ================================================================== the dragon's arena
 
     /// <summary>

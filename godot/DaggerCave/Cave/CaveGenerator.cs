@@ -64,6 +64,7 @@ public static partial class CaveGenerator
                 GenStyle.Corridor => GenerateCorridor(s),
                 GenStyle.Rooms => GenerateRooms(s),
                 GenStyle.Ruins => GenerateRuins(s),
+                GenStyle.Mine => GenerateMine(s),
                 GenStyle.Arena => GenerateArena(s),
                 _ => GenerateOnce(s),
             };
