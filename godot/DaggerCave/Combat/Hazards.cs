@@ -128,6 +128,14 @@ public partial class WebPatch : Node2D, IBreakable
     public void Strike(Vector2 from)
     {
         if (--_hp > 0) return;
+        NetSync.WebGone(GlobalPosition);
+        Pop();
+    }
+
+    /// <summary>The web tears (here, or a friend's blade tore it in their game).</summary>
+    public void Pop()
+    {
+        if (IsQueuedForDeletion()) return;
         G.Sfx.Play("web", GlobalPosition, -2);
         G.Fx.Burst(GlobalPosition, new Color(0.9f, 0.9f, 0.95f, 0.8f), 14, 120, 1.4f, 0.6f, 80, 1);
         QueueFree();

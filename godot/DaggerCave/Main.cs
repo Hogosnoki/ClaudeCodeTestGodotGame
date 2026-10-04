@@ -165,7 +165,7 @@ public partial class Main : Node
         _perkMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_perkMenu);
         UiKit.EnsureMenuControls();
-        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
+        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_pauseMenu);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
@@ -782,8 +782,7 @@ public partial class Main : Node
         if (G.Biome?.Id == BiomeId.Lair || cave.ReachMask == null) return;
         // (every game rolls the same dice whichever heroes it has, so the levels stay alike)
         bool wanted = G.Chance(Tune.Heroes.CageChance);
-        var locked = Enum.GetValues<HeroKind>().Where(h => !Meta.IsUnlocked(h)).ToList();
-        int which = G.RangeI(0, 5);
+        var caged = Meta.PickCageHero(G.Range(0f, 1f));
         Vector2? best = null; float bestScore = float.MinValue;
         for (int tries = 0; tries < 1800; tries++)
         {
@@ -798,8 +797,8 @@ public partial class Main : Node
             float score = (cave.WaterY - floor.Y) * 0.6f + floor.DistanceTo(cave.StartPos) * 0.4f + G.Range(0, 120);
             if (score > bestScore) { bestScore = score; best = floor; }
         }
-        if (!wanted || locked.Count == 0 || best is not Vector2 spot) return;
-        var cage = new HeroCage { Position = spot, Hero = locked[which % locked.Count] };
+        if (!wanted || caged is not HeroKind heroInCage || best is not Vector2 spot) return;
+        var cage = new HeroCage { Position = spot, Hero = heroInCage };
         NetSync.LevelId(cage);
         _world.AddChild(cage);
         if (_autotest) GD.Print($"[autotest] a caged {cage.Hero} at {spot}");

@@ -242,6 +242,24 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>A web was torn here: it tears in every game.</summary>
+    public static void WebGone(Vector2 at)
+    {
+        if (!Net.Online || Applying) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(16).Vec(at);
+        Net.SendAll(w, true);
+    }
+
+    /// <summary>This game's hero freed a caged hero: everyone in the party gets them.</summary>
+    public static void CageFreed(HeroKind h)
+    {
+        if (!Net.Online || Applying) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(15).Byte((byte)h);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's hero chipped at a rubble plug (the other games take the same blow).</summary>
     public static void RubbleHit(Rubble r)
     {
@@ -351,6 +369,26 @@ public static class NetSync
                 var at = r.Vec(); float radius = r.Half(), life = r.Half();
                 Applying = true;
                 G.Spawn(new SmokeCloud { Position = at, Radius = radius, Life = life });
+                Applying = false;
+                break;
+            }
+            case 16:
+            {
+                var at = r.Vec();
+                Applying = true;
+                foreach (var n in G.World.GetChildren())
+                    if (n is WebPatch web && web.GlobalPosition.DistanceTo(at) < 10f) web.Pop();
+                Applying = false;
+                break;
+            }
+            case 15:
+            {
+                var hero = (HeroKind)r.Byte();
+                Applying = true;
+                HeroCage cage = null;
+                foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && c.Hero == hero) cage = c;
+                if (cage != null) cage.Free(false);
+                else { Meta.Unlock(hero); Net.EveryoneUnlocked(hero); }
                 Applying = false;
                 break;
             }

@@ -85,6 +85,7 @@ public partial class Player : CharacterBody2D
     public float Facing = 1;
 
     public Func<PlayerInput> InputOverride;
+    private bool _swallow;
     public SpriteAnimator Anim;
     /// <summary>Another player's hero in an online game: a puppet shown from what their machine
     /// sends (it doesn't simulate or take damage here).</summary>
@@ -254,7 +255,9 @@ public partial class Player : CharacterBody2D
     /// </summary>
     public static PlayerInput ReadLocalInput(Player p)
     {
-        if (G.Main.MenuOpen) return default;
+        // (a click that picked a card or pressed a button belongs to the menu: the buttons it
+        // pressed stay silent until they are let go)
+        if (G.Main.MenuOpen) { p._swallow = true; return default; }
         var inp = new PlayerInput
         {
             Move = new Vector2(Input.GetAxis("move_left", "move_right"), Input.GetAxis("move_up", "move_down")),
@@ -271,6 +274,14 @@ public partial class Player : CharacterBody2D
             InteractHeld = Input.IsActionPressed("interact"),
         };
         inp.Interact = Input.IsActionJustPressed("interact");
+        if (p._swallow)
+        {
+            if (Input.IsActionPressed("attack") || Input.IsActionPressed("ability") || Input.IsActionPressed("ability2"))
+            {
+                inp.Attack = inp.AttackHeld = inp.Ability = inp.Ability2 = false;
+            }
+            else p._swallow = false;
+        }
         // up works for exits too, but only a deliberate push (running past a door on a tilted
         // stick shouldn't take you down); chests and reviving take the interact button itself
         inp.Up = Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f;
@@ -609,6 +620,25 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>Safety net: if the player ever ends up embedded in rock, nudge them out to open space.</summary>
+    /// <summary>The pause menu's Unstick: moves the hero to the nearest open ground with room to stand, if they are in rock or wedged in a gap.</summary>
+    public bool ForceUnstick()
+    {
+        var cave = G.Cave;
+        if (cave == null || Dead) return false;
+        bool Fits(Vector2 p) => !cave.IsSolid(p) && !cave.IsSolid(p + new Vector2(0, -14)) && !cave.IsSolid(p + new Vector2(0, 10))
+            && !cave.IsSolid(p + new Vector2(-7, 0)) && !cave.IsSolid(p + new Vector2(7, 0));
+        for (float r = 0; r < 500; r += 8)
+            for (int k = 0; k < (r == 0 ? 1 : 24); k++)
+            {
+                var p = GlobalPosition + Vector2.Right.Rotated(k * Mathf.Tau / 24) * r;
+                if (!Fits(p)) continue;
+                GlobalPosition = p; Velocity = Vector2.Zero; _stuckInRock = 0;
+                G.Fx.Ring(p, 14, new Color(0.9f, 0.95f, 1f, 0.8f));
+                return true;
+            }
+        return false;
+    }
+
     private void Unstick(CaveData cave, float dt)
     {
         if (!cave.IsSolid(GlobalPosition)) { _stuckInRock = 0; return; }

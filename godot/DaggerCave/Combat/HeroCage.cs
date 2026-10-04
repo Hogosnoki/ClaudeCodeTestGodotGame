@@ -29,8 +29,17 @@ public partial class HeroCage : Node2D
     public void Interact()
     {
         if (Freed) return;
+        Free(local: true);
+    }
+
+    /// <summary>Opens the cage: the hero joins everyone's roster (a friend freeing them frees them here too).</summary>
+    public void Free(bool local)
+    {
+        if (Freed && !local) return;
         Freed = true;
         bool fresh = Meta.Unlock(Hero);
+        Net.EveryoneUnlocked(Hero);
+        if (local) NetSync.CageFreed(Hero);
         G.Sfx.Play("chest", GlobalPosition, -2, 0, 0.8f);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -12), Hud.HeroColor(Hero), 30, 200, 2.6f, 0.7f);
         G.Fx.Ring(GlobalPosition + new Vector2(0, -12), 30, Hud.HeroColor(Hero));

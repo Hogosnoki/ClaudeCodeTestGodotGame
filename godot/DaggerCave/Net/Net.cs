@@ -61,6 +61,8 @@ public static partial class Net
         public string Build = "";
         public HeroKind Hero;
         public bool Picked;
+        /// <summary>Which heroes this player has not unlocked yet (bit per <see cref="HeroKind"/>).</summary>
+        public int Locked;
         /// <summary>Their hero in this game (a puppet, unless it's this machine's own).</summary>
         public Player Avatar;
         /// <summary>Waiting at an exit to go down.</summary>
@@ -130,7 +132,7 @@ public static partial class Net
         Me = 1;
         Peers.Clear();
         // (the host keeps the hero picked on the title)
-        Peers[1] = new PeerInfo { Id = 1, Name = MyName, Hero = G.Hero, Picked = true, Build = Build };
+        Peers[1] = new PeerInfo { Id = 1, Name = MyName, Hero = G.Hero, Picked = true, Build = Build, Locked = MyLockedMask() };
         InRun = false;
         LanIp = FindLanIp();
         LanCode = LanIp != "" ? MakeCode(LanIp, Port) : "";
@@ -250,6 +252,7 @@ public static partial class Net
         w.Int(Version);
         w.Str(MyName);
         w.Str(Build);
+        w.Int(MyLockedMask());
         SendTo(1, w, true);
         Notify();
     }
@@ -289,6 +292,20 @@ public static partial class Net
     }
 
     /// <summary>Who has a hero, by hero.</summary>
+    /// <summary>This machine's locked heroes, as a mask.</summary>
+    public static int MyLockedMask()
+    {
+        int m = 0;
+        foreach (var h in Enum.GetValues<HeroKind>()) if (!Meta.IsUnlocked(h)) m |= 1 << (int)h;
+        return m;
+    }
+
+    /// <summary>A hero was freed from a cage: nobody in the party has them locked any more.</summary>
+    public static void EveryoneUnlocked(HeroKind h)
+    {
+        foreach (var p in Peers.Values) p.Locked &= ~(1 << (int)h);
+    }
+
     public static PeerInfo TakenBy(HeroKind h) => Peers.Values.FirstOrDefault(p => p.Picked && p.Hero == h);
 
     private static void TryPick(int who, HeroKind h)
@@ -318,6 +335,7 @@ public static partial class Net
             w.Bool(p.Picked);
             w.Bool(p.AtExit);
             w.Str(p.Build);
+            w.Int(p.Locked);
         }
         // (the run's difficulty setup: the host's)
         w.Float(RunSettings.Difficulty).Float(RunSettings.PerPlayer).Bool(RunSettings.Hard);
@@ -421,6 +439,7 @@ public static partial class Net
         int version = r.Int();
         string name = Clean(r.Str());
         string build = r.More ? r.Str() : "";
+        int locked = r.More ? r.Int() : 0;
         string refuse = version != Version ? "Your game is a different version from the host's. You both need the same copy."
             : InRun ? "That game is already under way. Ask the host to go back to the lobby."
             : Peers.Count >= MaxPlayers ? "That game is full (six heroes, six players)."
@@ -437,7 +456,7 @@ public static partial class Net
         // two players can't share a name on screen
         string unique = name;
         for (int k = 2; Peers.Values.Any(p => p.Name == unique); k++) unique = $"{name} {k}";
-        var info = new PeerInfo { Id = from, Name = unique, Build = build };
+        var info = new PeerInfo { Id = from, Name = unique, Build = build, Locked = locked };
         // hand them the first hero nobody has (they can switch to another free one)
         foreach (HeroKind h in Enum.GetValues(typeof(HeroKind)))
             if (TakenBy(h) == null) { info.Hero = h; info.Picked = true; break; }
@@ -455,7 +474,7 @@ public static partial class Net
         Peers.Clear();
         for (int k = 0; k < n; k++)
         {
-            var p = new PeerInfo { Id = r.Int(), Name = r.Str(), Hero = (HeroKind)r.Byte(), Picked = r.Bool(), AtExit = r.Bool(), Build = r.Str() };
+            var p = new PeerInfo { Id = r.Int(), Name = r.Str(), Hero = (HeroKind)r.Byte(), Picked = r.Bool(), AtExit = r.Bool(), Build = r.Str(), Locked = r.Int() };
             if (keep.TryGetValue(p.Id, out var av)) p.Avatar = av;
             Peers[p.Id] = p;
         }

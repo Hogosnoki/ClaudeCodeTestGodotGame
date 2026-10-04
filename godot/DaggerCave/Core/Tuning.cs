@@ -83,9 +83,11 @@ public static class Tune
         /// <summary>Sword reach (px), damage per strike, time between swings (from one swing's start to the
         /// next's: shortening the swing itself leaves it alone), and how long the blade takes to sweep
         /// its arc (longer = heavier, slower-looking swing).</summary>
-        public static float Reach = 58f, Damage = 18f, SwingCooldown = 0.6f, SwingTime = 0.0825f;
+        public static float Reach = 68f, Damage = 18f, SwingCooldown = 0.6f, SwingTime = 0.0825f;
         /// <summary>Wind-up before the blade comes around.</summary>
         public static float SwingWindup = 0.09f;
+        /// <summary>A charged (empowered) strike heals the Swordsman for this share of the damage it deals.</summary>
+        public static float ChargeLifesteal = 0.03f;
         /// <summary>Forward burst (px/s) when swinging on the ground.</summary>
         public static float Lunge = 130f;
         /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
@@ -368,7 +370,7 @@ public static class Tune
         /// CinderDamage and CinderSplash. SnapViewX / SnapViewY px each way is "in view" (about
         /// half the screen, either side of you).
         /// </summary>
-        public static float SnapCost = 15f, SnapDamage = 15f, SnapSplash = 4f, SnapRadius = 50f, SnapCooldown = 0.6f;
+        public static float SnapCost = 6f, SnapDamage = 15f, SnapSplash = 4f, SnapRadius = 50f, SnapCooldown = 0.6f;
         public static float CinderDamage = 20f, CinderSplash = 6f;
         public static float SnapViewX = 500f, SnapViewY = 290f;
         /// <summary>Upgrades: Kindling's ignite chance and Deep Chill's freeze chance, per rank;
@@ -433,7 +435,7 @@ public static class Tune
     public static class Difficulty
     {
         /// <summary>Enemy health and damage grow by this factor per level of depth...</summary>
-        public static float DepthGrowth = 1.15f;
+        public static float DepthGrowth = 1.09f;
         /// <summary>...and double every this many minutes of play (continuous curve). (The cave gets
         /// harder more through tougher creatures than through more of them: see the pace below.)</summary>
         public static float DoublingMinutes = 27f;

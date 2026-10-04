@@ -109,6 +109,28 @@ public static class Meta
     /// <summary>Heroes unlocked in the run now under way (the dragon's award only goes to a run that found none).</summary>
     public static int RunUnlocks;
     public static bool IsUnlocked(HeroKind h) => Unlocked.Contains(h);
+
+    /// <summary>
+    /// Which hero a cage holds: every locked hero counts once for each player (this one included)
+    /// who still has them locked, and a roll over the total picks one, so a hero most of the party
+    /// is missing is the likeliest. Null if nobody lacks anyone. (<paramref name="roll"/> is 0..1.)
+    /// </summary>
+    public static HeroKind? PickCageHero(float roll)
+    {
+        var kinds = Enum.GetValues<HeroKind>();
+        var count = new int[kinds.Length];
+        int sum = 0;
+        if (Net.Online && Net.Count > 1)
+        {
+            foreach (var p in Net.Peers.Values)
+                foreach (var h in kinds) if ((p.Locked & (1 << (int)h)) != 0) { count[(int)h]++; sum++; }
+        }
+        else foreach (var h in kinds) if (!IsUnlocked(h)) { count[(int)h]++; sum++; }
+        if (sum == 0) return null;
+        float v = roll * sum;
+        for (int i = 0; i < kinds.Length; i++) { v -= count[i]; if (count[i] > 0 && v <= 0) return kinds[i]; }
+        return kinds.Last(h => count[(int)h] > 0);
+    }
     public static bool Unlock(HeroKind h)
     {
         if (!Unlocked.Add(h)) return false;

@@ -261,6 +261,7 @@ public partial class Player
         if (crit) CritFx(e, hitPos);
         // a charged strike saps whatever it cuts: it hits back softer for a while
         if (charged && !e.Dead) e.Weaken(ChargeWeaken, Tune.Swordsman.WeakenSeconds);
+        if (charged && IsSwordsman) Heal(dealt * Tune.Swordsman.ChargeLifesteal);
         bool killed = e.Dead;
         bool heavy = finisher || charged;
         float stop = charged ? Tune.Feel.HitStopCharged : finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal;
