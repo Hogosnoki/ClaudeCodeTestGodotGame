@@ -568,6 +568,10 @@ public partial class CampScene : SubViewport
 
         foreach (var s in _seats)
         {
+            // (a hero not yet found isn't at the fire)
+            bool here = Meta.IsUnlocked(s.Kind);
+            s.Model.Visible = here;
+            if (!here) { s.Label.Visible = false; continue; }
             bool up = s.Kind == Selected;
             s.Stand = Mathf.MoveToward(s.Stand, up ? 1f : 0f, dt * 2.2f);
             var a = new AnimInput

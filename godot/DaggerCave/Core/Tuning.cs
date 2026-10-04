@@ -557,6 +557,13 @@ public static class Tune
     // Hp and Damage are the values at minute 0 (the difficulty curve multiplies them).
     // Speeds are in px/s at minute 0 (the tempo curve multiplies them).
 
+    /// <summary>Heroes found in the caves.</summary>
+    public static class Heroes
+    {
+        /// <summary>The chance a level holds a caged hero (while any are still to be found).</summary>
+        public static float CageChance = 0.3f;
+    }
+
     /// <summary>Every creature's health at spawn is its own Hp times this (before depth and party scaling).</summary>
     public static class Enemy
     {

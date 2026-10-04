@@ -327,8 +327,9 @@ public partial class OnlineMenu : Control
         {
             var owner = Net.TakenBy(Heroes[k].kind);
             bool mine = owner != null && owner.Id == Net.Me;
-            _cards[k].Disabled = owner != null && !mine;
-            _cardNote[k].Text = mine ? "YOU" : owner != null ? $"taken by {owner.Name}" : "free: click to take";
+            bool have = Meta.IsUnlocked(Heroes[k].kind);
+            _cards[k].Disabled = (owner != null && !mine) || (!have && !mine);
+            _cardNote[k].Text = mine ? "YOU" : owner != null ? $"taken by {owner.Name}" : !have ? "not found yet" : "free: click to take";
             _cardNote[k].AddThemeColorOverride("font_color", mine ? UiKit.Gold : UiKit.Dim);
             _portraits[k].Playing = mine;
         }

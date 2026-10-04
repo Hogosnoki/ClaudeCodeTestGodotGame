@@ -247,6 +247,15 @@ public partial class Hud : Control
             DrawRect(new Rect2(at - new Vector2(osz.X / 2 + 8, 16), new Vector2(osz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
             DrawString(font, at - new Vector2(osz.X / 2, 0), open, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
+        // --- a caged hero ---
+        if (!p.Dead && HeroCage.At(p.GlobalPosition) is HeroCage cage)
+        {
+            var at = cage.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -50);
+            string free = $"{Controls.Name("interact")}  free the {cage.Hero}";
+            var fsz = font.GetStringSize(free, HorizontalAlignment.Left, -1, 14);
+            DrawRect(new Rect2(at - new Vector2(fsz.X / 2 + 8, 16), new Vector2(fsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            DrawString(font, at - new Vector2(fsz.X / 2, 0), free, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
+        }
         // --- a vault's gate: a key opens it ---
         if (!p.Dead && VaultGate.At(p.GlobalPosition) is VaultGate gate)
         {

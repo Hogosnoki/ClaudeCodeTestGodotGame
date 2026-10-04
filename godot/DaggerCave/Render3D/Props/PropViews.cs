@@ -34,6 +34,7 @@ public static class PropViews
             KeyPickup => new KeyView(),
             VaultGate => new VaultGateView(),
             Chest => new ChestView(),
+            HeroCage => new HeroCageView(),
             Portal { Outside: true } => new MouthView(),
             Portal => new PortalView(),
             AirVent => new AirVentView(),
@@ -1096,6 +1097,63 @@ public partial class ChestView : PropView
             _light.LightColor = _tint.Lerp(Colors.White, 0.2f);
             _light.LightEnergy = (_float != null ? (boss ? 0.8f : 0.45f) : (boss ? 1.2f : 0.7f)) + 0.15f * MathF.Sin(Time * 3);
         }
+    }
+}
+
+/// <summary>A hero in an iron cage: bars round a glow in the hero's colour, their name overhead, the door swinging open when freed.</summary>
+public partial class HeroCageView : PropView
+{
+    private Node3D _door;
+    private OmniLight3D _light;
+    private MeshInstance3D _glow;
+    private Color _col;
+
+    protected override void Build()
+    {
+        var c = (HeroCage)Owner2D;
+        _col = Hud.HeroColor(c.Hero);
+        var iron = new Color(0.12f, 0.12f, 0.15f);
+        var mb = new MeshBuilder();
+        const float w = 0.5f, h = 0.95f, d = 0.34f;
+        PropMeshes.Box(mb, new Vector3(0, 0.03f, 0), new Vector3(w + 0.05f, 0.03f, d + 0.05f), iron);
+        PropMeshes.Box(mb, new Vector3(0, h, 0), new Vector3(w + 0.05f, 0.03f, d + 0.05f), iron);
+        foreach (float x in new[] { -w, -w / 3f, w / 3f, w })
+            foreach (float z in new[] { -d, d })
+                PropMeshes.Box(mb, new Vector3(x, h * 0.5f, z), new Vector3(0.022f, h * 0.5f, 0.022f), iron);
+        foreach (float z in new[] { -d, d })
+            foreach (float y in new[] { 0.3f, 0.62f })
+                PropMeshes.Box(mb, new Vector3(0, y, z), new Vector3(w, 0.018f, 0.018f), iron);
+        foreach (float x in new[] { -w, w })
+            PropMeshes.Box(mb, new Vector3(x, h * 0.5f, 0), new Vector3(0.02f, h * 0.5f, d), iron);
+        AddChild(PropViews.Mesh(mb, PropViews.VertexColored));
+        // the door in the front bars: it swings open when the hero is freed
+        _door = new Node3D { Position = new Vector3(-w, 0, d) };
+        AddChild(_door);
+        var db = new MeshBuilder();
+        PropMeshes.Box(db, new Vector3(w, h * 0.5f, 0), new Vector3(w, h * 0.5f, 0.02f), iron.Lightened(0.08f));
+        _door.AddChild(PropViews.Mesh(db, PropViews.VertexColored));
+        var gm = new MeshBuilder();
+        PropMeshes.Box(gm, new Vector3(0, 0.38f, 0), new Vector3(0.12f, 0.22f, 0.1f), Colors.White);
+        PropMeshes.Box(gm, new Vector3(0, 0.66f, 0), new Vector3(0.09f, 0.09f, 0.09f), Colors.White);
+        _glow = PropViews.Mesh(gm, PropViews.Emissive(_col, 1.3f), false);
+        AddChild(_glow);
+        _light = PropViews.Light(_col.Lerp(Colors.White, 0.2f), 0.7f, 3.5f);
+        _light.Position = new Vector3(0, 0.5f, 0.5f);
+        AddChild(_light);
+        AddChild(new Label3D
+        {
+            Text = c.Hero.ToString().ToUpperInvariant(), Modulate = _col.Lightened(0.35f), OutlineModulate = new Color(0.05f, 0.04f, 0.03f, 0.9f), FontSize = 40, PixelSize = 0.008f,
+            OutlineSize = 12, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1, Position = new Vector3(0, h + 0.35f, 0),
+        });
+    }
+
+    protected override void Sync(float dt)
+    {
+        var c = (HeroCage)Owner2D;
+        Follow(default, 0f);
+        _door.Rotation = new Vector3(0, -Math.Min(1f, c.FreedT * 3f) * 1.8f, 0);
+        _glow.Visible = !c.Freed || c.FreedT < 0.6f;
+        _light.LightEnergy = (c.Freed ? Math.Max(0f, 1.6f - c.FreedT * 2f) : 0.7f + 0.15f * MathF.Sin(Time * 3f));
     }
 }
 

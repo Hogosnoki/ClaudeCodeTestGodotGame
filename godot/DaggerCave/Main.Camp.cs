@@ -104,7 +104,13 @@ public partial class Main
     private void StepHero(int step)
     {
         if (_departT >= 0f) return;
-        PickHero((HeroKind)(((int)G.Hero + step + HeroCount) % HeroCount));
+        var next = G.Hero;
+        for (int k = 0; k < HeroCount; k++)
+        {
+            next = (HeroKind)(((int)next + step + HeroCount) % HeroCount);
+            if (Meta.IsUnlocked(next)) break;
+        }
+        PickHero(next);
         _camp.Selected = G.Hero;
         _heroChoice.Refresh();
     }

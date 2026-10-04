@@ -104,6 +104,33 @@ public static class Meta
     public static float PotionHealOverTime => 0.15f + 0.05f * Rank("hot");
     public static float PotionHotSeconds => 20f - new[] { 0f, 3f, 6f, 10f }[Rank("speed")];
     public static int MaxPotions => 1 + Rank("max");
+    // ---- heroes: three at the start; the others are found (caged in the caves) or won
+    public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
+    /// <summary>Heroes unlocked in the run now under way (the dragon's award only goes to a run that found none).</summary>
+    public static int RunUnlocks;
+    public static bool IsUnlocked(HeroKind h) => Unlocked.Contains(h);
+    public static bool Unlock(HeroKind h)
+    {
+        if (!Unlocked.Add(h)) return false;
+        RunUnlocks++;
+        Save();
+        return true;
+    }
+
+    /// <summary>
+    /// The Elder Dragon fell: if the run found no hero, one a party member played that you hadn't
+    /// unlocked (they could not have been met in the caves) is yours now (one at random if several).
+    /// </summary>
+    public static HeroKind? AwardAfterDragon(System.Collections.Generic.IEnumerable<HeroKind> party, Random rng)
+    {
+        if (RunUnlocks > 0) return null;
+        var locked = party.Distinct().Where(h => !IsUnlocked(h)).ToList();
+        if (locked.Count == 0) return null;
+        var h = locked[rng.Next(locked.Count)];
+        Unlock(h);
+        return h;
+    }
+
     public static int MilestoneEvery => Math.Max(2, 5 - Rank("mile"));
     public static float XpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("xp")];
     public static float EliteXpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("exp")];
@@ -212,6 +239,7 @@ public static class Meta
             ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
             ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
             ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
+            ["unlocked"] = new Godot.Collections.Array(Unlocked.Select(x => (Variant)(int)x)),
         };
         var pr = new Godot.Collections.Dictionary();
         foreach (var kv in PerkRanks) pr[kv.Key] = kv.Value;
@@ -233,6 +261,10 @@ public static class Meta
         if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);
         if (d.ContainsKey("active")) foreach (var v in d["active"].AsGodotArray()) Active.Add((string)v);
         foreach (var t in Trees) { Held[t.Id] = I("held_" + t.Id); Found[t.Id] = I("found_" + t.Id); }
+        // (a save from before heroes were unlocked keeps every hero it was playing)
+        Unlocked.Clear();
+        if (d.ContainsKey("unlocked")) foreach (var v in d["unlocked"].AsGodotArray()) Unlocked.Add((HeroKind)(int)v);
+        else foreach (var h in Enum.GetValues<HeroKind>()) Unlocked.Add(h);
         PerkRanks.Clear(); PerksEquipped.Clear();
         if (d.ContainsKey("perk_ranks")) foreach (var kv in d["perk_ranks"].AsGodotDictionary()) PerkRanks[(string)kv.Key] = (int)kv.Value;
         if (d.ContainsKey("perk_equipped")) foreach (var v in d["perk_equipped"].AsGodotArray()) PerksEquipped.Add((string)v);

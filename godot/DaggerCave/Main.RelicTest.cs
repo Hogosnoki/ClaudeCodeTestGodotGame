@@ -25,6 +25,21 @@ public partial class Main
             Near(RunSettings.HpFor(1, 1f, 1f, true), Tune.Difficulty.HardHp) && Near(RunSettings.DmgFor(1, 1f, 1f, true), Tune.Difficulty.HardDamage));
         ScCheck("Hard Mode multiplies on top of the party", Near(RunSettings.HpFor(2, 1f, 1f, true), 2f * Tune.Difficulty.HardHp));
 
+        // ---- heroes: three to begin with; the dragon awards one a party member played, only to a run that found none
+        {
+            var kept = Meta.Unlocked.ToList(); int keptRun = Meta.RunUnlocks;
+            Meta.Unlocked.Clear(); foreach (var h0 in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist }) Meta.Unlocked.Add(h0);
+            Meta.RunUnlocks = 0;
+            var r0 = new Random(5);
+            ScCheck("three heroes to start: the Swordsman, Warden and Vitalist", Meta.IsUnlocked(HeroKind.Swordsman) && Meta.IsUnlocked(HeroKind.Warden) && Meta.IsUnlocked(HeroKind.Vitalist) && !Meta.IsUnlocked(HeroKind.Elementalist) && !Meta.IsUnlocked(HeroKind.Rogue) && !Meta.IsUnlocked(HeroKind.Aegis));
+            ScCheck("the dragon awards nobody when the party played only heroes you have", Meta.AwardAfterDragon(new[] { HeroKind.Swordsman, HeroKind.Warden }, r0) == null);
+            var won = Meta.AwardAfterDragon(new[] { HeroKind.Swordsman, HeroKind.Rogue, HeroKind.Aegis }, r0);
+            ScCheck($"a party that played the Rogue and the Aegis brings one home ({won})", won is HeroKind w1 && (w1 == HeroKind.Rogue || w1 == HeroKind.Aegis) && Meta.IsUnlocked(w1) && Meta.RunUnlocks == 1);
+            ScCheck("and only one: a run that has found a hero gets no award", Meta.AwardAfterDragon(new[] { HeroKind.Elementalist }, r0) == null);
+            Meta.Unlocked.Clear(); foreach (var h0 in kept) Meta.Unlocked.Add(h0);
+            Meta.RunUnlocks = keptRun;
+        }
+
         // ---- threat: the warden draws enemies, the rogue turns them away, relics move it too
         ScCheck($"warden threat {new PlayerStats(HeroKind.Warden).ThreatDist}, rogue {new PlayerStats(HeroKind.Rogue).ThreatDist}, others 1",
             Near(new PlayerStats(HeroKind.Warden).ThreatDist, 0.85f) && Near(new PlayerStats(HeroKind.Rogue).ThreatDist, 1.15f) && Near(new PlayerStats(HeroKind.Swordsman).ThreatDist, 1f));

@@ -42,6 +42,7 @@ public partial class Main : Node
     public Camera2D Cam2D => _cam;
     private CanvasLayer _uiLayer, _darkLayer;
     private Hud _hud;
+    public Hud Hud => _hud;
     private UpgradeMenu _upgradeMenu;
     private ScreenOverlay _overlay;
     private SoundBank _sfx;
@@ -705,6 +706,7 @@ public partial class Main : Node
 
         PlaceCaches(cave);
         PlaceBonusChests(cave);
+        PlaceHeroCage(cave);
         PlaceVault(cave);
         SpawnCritters(cave);
         if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
@@ -760,6 +762,38 @@ public partial class Main : Node
             }
         }
         return chest;
+    }
+
+    /// <summary>
+    /// Now and then a hero not yet unlocked sits caged somewhere hard to reach: high up, far from the
+    /// start, off the beaten path.
+    /// </summary>
+    private void PlaceHeroCage(CaveData cave)
+    {
+        if (G.Biome?.Id == BiomeId.Lair || cave.ReachMask == null) return;
+        // (every game rolls the same dice whichever heroes it has, so the levels stay alike)
+        bool wanted = G.Chance(Tune.Heroes.CageChance);
+        var locked = Enum.GetValues<HeroKind>().Where(h => !Meta.IsUnlocked(h)).ToList();
+        int which = G.RangeI(0, 5);
+        Vector2? best = null; float bestScore = float.MinValue;
+        for (int tries = 0; tries < 1800; tries++)
+        {
+            var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(60, cave.SizePx.Y - 40));
+            if (cave.IsSolid(at) || cave.IsLava(at) || !cave.FindFloor(at, 300, out var floor)) continue;
+            int i = (int)(floor.X / CaveData.Cell), j = (int)(floor.Y / CaveData.Cell) - 1;
+            if (i < 0 || j < 0 || i >= cave.W || j >= cave.H || !cave.ReachMask[j * cave.W + i]) continue;
+            if (cave.IsWater(floor + new Vector2(0, -10)) || cave.IsLava(floor + new Vector2(0, -8)) || floor.DistanceTo(cave.StartPos) < 500) continue;
+            if (cave.Boss != null && floor.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 80) continue;
+            if (Chest.All.Any(c => IsInstanceValid(c) && c.GlobalPosition.DistanceTo(floor) < 160)) continue;
+            // (higher and farther is better: a hero worth the climb)
+            float score = (cave.WaterY - floor.Y) * 0.6f + floor.DistanceTo(cave.StartPos) * 0.4f + G.Range(0, 120);
+            if (score > bestScore) { bestScore = score; best = floor; }
+        }
+        if (!wanted || locked.Count == 0 || best is not Vector2 spot) return;
+        var cage = new HeroCage { Position = spot, Hero = locked[which % locked.Count] };
+        NetSync.LevelId(cage);
+        _world.AddChild(cage);
+        if (_autotest) GD.Print($"[autotest] a caged {cage.Hero} at {spot}");
     }
 
     /// <summary>A Hunter's Map: more chests, scattered like the caches (dry or flooded), on top of the level's own.</summary>
@@ -1055,6 +1089,7 @@ public partial class Main : Node
         _victory = false;
         _runEmbers = 0;
         _runFinds = "";
+        Meta.RunUnlocks = 0;
         // (walk back out of the cave mouth and none of this run is kept, not even that it happened)
         _metaAtStart = Meta.Snapshot();
         Meta.Runs++;
@@ -2055,6 +2090,13 @@ public partial class Main : Node
             Meta.Victories++;
             Meta.Save();
             _hud.ShowBanner("THE ELDER DRAGON IS SLAIN", 5f);
+            // (a run that found no hero in the caves: the dragon's slayers bring one home, one the party played that you hadn't got)
+            var party = Net.Online ? Net.Peers.Values.Select(pp => pp.Hero).ToList() : new List<HeroKind> { G.Hero };
+            if (Meta.AwardAfterDragon(party, _rng) is HeroKind won)
+            {
+                _runFinds += $", the {won} joins your camp";
+                _hud.ShowBanner($"THE ELDER DRAGON IS SLAIN  ·  THE {won.ToString().ToUpperInvariant()} JOINS YOUR CAMP", 6f);
+            }
         }
     }
 

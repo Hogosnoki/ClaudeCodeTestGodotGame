@@ -319,6 +319,7 @@ public partial class Player : CharacterBody2D
     {
         if (Dead || G.Main.MenuOpen) return;
         if (button && Chest.At(GlobalPosition) is Chest chest) { chest.Interact(); return; }
+        if (button && HeroCage.At(GlobalPosition) is HeroCage cage) { cage.Interact(); return; }
         if (button && VaultGate.At(GlobalPosition) is VaultGate gate) { gate.TryOpen(this); return; }
         // only standing at the door (or swimming): not mid-jump, or while an attack is under way
         if ((!IsOnFloor() && !InWater) || IsSwinging) return;
