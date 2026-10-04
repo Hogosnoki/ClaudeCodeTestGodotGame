@@ -142,7 +142,7 @@ public partial class Player
 
     // ---------------------------------------------------------------- updraft
 
-    private bool TryUpdraft()
+    private bool TryUpdraft(Vector2 aim)
     {
         if (!IsElementalist || _updraftCd > 0) return false;
         _updraftCd = 0.5f;
@@ -157,6 +157,8 @@ public partial class Player
             Width = Tune.Elementalist.UpdraftWidth * (narrow ? 0.5f : 1f),
             Height = Tune.Elementalist.UpdraftHeight + (narrow ? Tune.Elementalist.NarrowExtra : 0f),
             Life = narrow ? Tune.Elementalist.NarrowSeconds : Tune.Elementalist.UpdraftSeconds,
+            // (a Narrow Draft can be angled where you aim, anywhere above the horizontal; aimed nowhere, it stands straight up)
+            Angle = narrow && aim.LengthSquared() > 0.09f ? Math.Clamp(MathF.Atan2(aim.X, -aim.Y), -1.5f, 1.5f) : 0f,
         };
         G.Spawn(draft);
         NetSync.HeroVisual(draft);

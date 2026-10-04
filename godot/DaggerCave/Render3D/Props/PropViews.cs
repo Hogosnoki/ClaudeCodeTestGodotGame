@@ -522,6 +522,7 @@ public partial class UpdraftView : PropView
     {
         var u = (Updraft)Owner2D;
         Follow(default, 0.15f);
+        Rotation = new Vector3(0, 0, -u.Angle);
         float h = W3.M(u.Height), w = W3.M(u.Width), s = u.Strength;
         for (int k = 0; k < _streaks.Length; k++)
         {

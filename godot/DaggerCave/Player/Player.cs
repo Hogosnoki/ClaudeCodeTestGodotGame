@@ -497,7 +497,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Swordsman => TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
-        HeroKind.Elementalist => TryUpdraft(),
+        HeroKind.Elementalist => TryUpdraft(inp.Aim),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
         _ => true,

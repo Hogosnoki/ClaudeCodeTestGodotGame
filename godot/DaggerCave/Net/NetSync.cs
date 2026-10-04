@@ -232,7 +232,7 @@ public static class NetSync
             case LifeMote m: w.Byte(3).Vec(m.GlobalPosition).Half(m.Size); break;
             case HealingPool hp: w.Byte(6).Vec(hp.GlobalPosition).Half(hp.Radius).Half(hp.Rate).Half(hp.Life); break;
             case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Ward ? 2 : b.Frost ? 1 : 0)); break;
-            case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life); break;
+            case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life).Half(u.Angle); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
@@ -314,9 +314,9 @@ public static class NetSync
             case 8:
             {
                 // a friend's updraft: this game's copy lifts this game's hero
-                var at = r.Vec(); float width = r.Half(), height = r.Half(), life = r.Half();
+                var at = r.Vec(); float width = r.Half(), height = r.Half(), life = r.Half(), angle = r.Half();
                 Applying = true;
-                G.Spawn(new Updraft { Position = at, Width = width, Height = height, Life = life });
+                G.Spawn(new Updraft { Position = at, Width = width, Height = height, Life = life, Angle = angle });
                 Applying = false;
                 break;
             }
