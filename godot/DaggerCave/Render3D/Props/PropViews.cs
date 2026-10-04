@@ -920,7 +920,8 @@ public partial class VaultGateView : PropView
 
 public partial class ChestView : PropView
 {
-    private Node3D _lid, _web;
+    private Node3D _lid, _web, _float;
+    private float _floatY;
     private MeshInstance3D _shine;
     private OmniLight3D _light;
     private Label3D _owner;
@@ -945,38 +946,50 @@ public partial class ChestView : PropView
         else if (_tier == ChestTier.Relic) { wood = new Color(0.2f, 0.12f, 0.3f); lidCol = new Color(0.26f, 0.16f, 0.38f); bandMat = PropViews.Steel; _tint = new Color(1f, 0.45f, 0.62f); }
         else if (boss) { wood = new Color(0.72f, 0.5f, 0.14f); lidCol = new Color(0.82f, 0.6f, 0.18f); _tint = new Color(1f, 0.9f, 0.45f); }
         else { wood = new Color(0.38f, 0.22f, 0.11f); lidCol = new Color(0.44f, 0.26f, 0.13f); _tint = new Color(1f, 0.85f, 0.4f); }
-        var body = new MeshBuilder();
-        PropMeshes.Box(body, new Vector3(0, h * 0.5f, 0), new Vector3(w, h * 0.5f, d), wood);
-        AddChild(PropViews.Mesh(body, PropViews.VertexColored));
-        var bands = new MeshBuilder();
-        foreach (float x in new[] { -w * 0.7f, w * 0.7f })
-            PropMeshes.Box(bands, new Vector3(x, h * 0.5f, 0), new Vector3(0.05f, h * 0.52f, d * 1.02f), Colors.White);
-        PropMeshes.Box(bands, new Vector3(0, h * 0.15f, 0), new Vector3(w * 1.02f, 0.04f, d * 1.02f), Colors.White);
-        PropMeshes.Box(bands, new Vector3(0, h * 0.62f, d * 1.03f), new Vector3(0.09f, 0.1f, 0.02f), Colors.White);
-        if (boss)
+        // upgrades don't come in chests: a shrine, three prongs hovering over a stone (for the three choices)
+        if (!_vault && (_tier == ChestTier.Wood || boss))
         {
-            // studs along the corners, a heavy lock plate
-            foreach (float sx in new[] { -1f, 1f }) foreach (float sy in new[] { 0.2f, 0.85f })
-                PropMeshes.Box(bands, new Vector3(sx * w * 0.93f, h * sy, d * 1.04f), new Vector3(0.045f, 0.045f, 0.03f), Colors.White);
-            PropMeshes.Box(bands, new Vector3(0, h * 0.62f, d * 1.05f), new Vector3(0.15f, 0.15f, 0.025f), Colors.White);
+            _tint = boss ? new Color(1f, 0.9f, 0.45f) : new Color(0.5f, 0.92f, 1f);
+            BuildShrine(boss, _tint);
+            _lid = new Node3D();
+            AddChild(_lid);
         }
-        AddChild(PropViews.Mesh(bands, bandMat));
-        // the lid, hinged at the back edge
-        _lid = new Node3D { Position = new Vector3(0, h, -d) };
-        AddChild(_lid);
-        var lid = new MeshBuilder();
-        PropMeshes.Box(lid, new Vector3(0, 0.12f, d), new Vector3(w * 1.02f, 0.12f, d * 1.02f), lidCol);
-        _lid.AddChild(PropViews.Mesh(lid, PropViews.VertexColored));
-        var lidBands = new MeshBuilder();
-        foreach (float x in new[] { -w * 0.7f, w * 0.7f })
-            PropMeshes.Box(lidBands, new Vector3(x, 0.13f, d), new Vector3(0.05f, 0.13f, d * 1.04f), Colors.White);
-        _lid.AddChild(PropViews.Mesh(lidBands, bandMat));
-        if (_tier == ChestTier.Relic)
+        else
         {
-            // a rose gem set in the lid's front
-            var gem = new MeshBuilder();
-            PropMeshes.Box(gem, new Vector3(0, 0.15f, d * 2.05f), new Vector3(0.07f, 0.07f, 0.03f), new Color(1f, 0.4f, 0.6f), new Basis(Vector3.Back, Mathf.Pi / 4));
-            _lid.AddChild(PropViews.Mesh(gem, PropViews.Emissive(new Color(1f, 0.4f, 0.6f), 1.6f), false));
+            var body = new MeshBuilder();
+            PropMeshes.Box(body, new Vector3(0, h * 0.5f, 0), new Vector3(w, h * 0.5f, d), wood);
+            AddChild(PropViews.Mesh(body, PropViews.VertexColored));
+            var bands = new MeshBuilder();
+            foreach (float x in new[] { -w * 0.7f, w * 0.7f })
+                PropMeshes.Box(bands, new Vector3(x, h * 0.5f, 0), new Vector3(0.05f, h * 0.52f, d * 1.02f), Colors.White);
+            PropMeshes.Box(bands, new Vector3(0, h * 0.15f, 0), new Vector3(w * 1.02f, 0.04f, d * 1.02f), Colors.White);
+            PropMeshes.Box(bands, new Vector3(0, h * 0.62f, d * 1.03f), new Vector3(0.09f, 0.1f, 0.02f), Colors.White);
+            if (boss)
+            {
+                // studs along the corners, a heavy lock plate
+                foreach (float sx in new[] { -1f, 1f }) foreach (float sy in new[] { 0.2f, 0.85f })
+                    PropMeshes.Box(bands, new Vector3(sx * w * 0.93f, h * sy, d * 1.04f), new Vector3(0.045f, 0.045f, 0.03f), Colors.White);
+                PropMeshes.Box(bands, new Vector3(0, h * 0.62f, d * 1.05f), new Vector3(0.15f, 0.15f, 0.025f), Colors.White);
+            }
+            AddChild(PropViews.Mesh(bands, bandMat));
+            // the lid, hinged at the back edge
+            _lid = new Node3D { Position = new Vector3(0, h, -d) };
+            AddChild(_lid);
+            var lid = new MeshBuilder();
+            PropMeshes.Box(lid, new Vector3(0, 0.12f, d), new Vector3(w * 1.02f, 0.12f, d * 1.02f), lidCol);
+            _lid.AddChild(PropViews.Mesh(lid, PropViews.VertexColored));
+            var lidBands = new MeshBuilder();
+            foreach (float x in new[] { -w * 0.7f, w * 0.7f })
+                PropMeshes.Box(lidBands, new Vector3(x, 0.13f, d), new Vector3(0.05f, 0.13f, d * 1.04f), Colors.White);
+            _lid.AddChild(PropViews.Mesh(lidBands, bandMat));
+            if (_tier == ChestTier.Relic)
+            {
+                // a rose gem set in the lid's front
+                var gem = new MeshBuilder();
+                PropMeshes.Box(gem, new Vector3(0, 0.15f, d * 2.05f), new Vector3(0.07f, 0.07f, 0.03f), new Color(1f, 0.4f, 0.6f), new Basis(Vector3.Back, Mathf.Pi / 4));
+                _lid.AddChild(PropViews.Mesh(gem, PropViews.Emissive(new Color(1f, 0.4f, 0.6f), 1.6f), false));
+            }
+
         }
         _shine = PropViews.Sprite(_tint, 4, boss ? 1.6f : 1.2f, boss ? 1.9f : 1.4f);
         _shine.Position = new Vector3(0, h + 0.2f, 0);
@@ -993,6 +1006,31 @@ public partial class ChestView : PropView
             Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1, Position = new Vector3(0, h + 0.95f, 0.3f), Visible = false,
         };
         AddChild(_owner);
+    }
+
+    /// <summary>A shrine of upgrades: a low stone, and over it a three-pronged trident turning in the air.</summary>
+    private void BuildShrine(bool boss, Color glow)
+    {
+        float k = boss ? 1.35f : 1f;
+        var stone = new MeshBuilder();
+        PropMeshes.Box(stone, new Vector3(0, 0.05f, 0), new Vector3(0.34f * k, 0.05f, 0.3f * k), new Color(0.2f, 0.2f, 0.25f));
+        PropMeshes.Box(stone, new Vector3(0, 0.13f, 0), new Vector3(0.22f * k, 0.035f, 0.2f * k), new Color(0.3f, 0.3f, 0.37f));
+        PropMeshes.Box(stone, new Vector3(0, 0.2f, 0), new Vector3(0.05f * k, 0.04f, 0.05f * k), glow.Darkened(0.2f));
+        AddChild(PropViews.Mesh(stone, PropViews.VertexColored));
+        _floatY = 0.62f * k;
+        _float = new Node3D { Position = new Vector3(0, _floatY, 0) };
+        AddChild(_float);
+        var prongs = new MeshBuilder();
+        var c = Colors.White;
+        PropMeshes.Box(prongs, new Vector3(0, -0.12f * k, 0), new Vector3(0.022f * k, 0.2f * k, 0.022f * k), c);
+        PropMeshes.Box(prongs, new Vector3(0, 0.07f * k, 0), new Vector3(0.17f * k, 0.022f * k, 0.022f * k), c);
+        foreach (float x in new[] { -0.15f, 0f, 0.15f })
+        {
+            float len = x == 0 ? 0.26f : 0.18f;
+            PropMeshes.Box(prongs, new Vector3(x * k, (0.07f + len * 0.5f) * k, 0), new Vector3(0.016f * k, len * 0.5f * k, 0.016f * k), c);
+            PropMeshes.Box(prongs, new Vector3(x * k, (0.07f + len + 0.02f) * k, 0), new Vector3(0.03f * k, 0.03f * k, 0.016f * k), c, new Basis(Vector3.Back, Mathf.Pi / 4));
+        }
+        _float.AddChild(PropViews.Mesh(prongs, PropViews.Emissive(glow, 1.6f), false));
     }
 
     /// <summary>A chest strung up in a web: a thread to the ceiling and a pale cocoon of silk round it.</summary>
@@ -1028,6 +1066,13 @@ public partial class ChestView : PropView
         var c = (Chest)Owner2D;
         Follow(default, 0f);
         Rotation = new Vector3(0, 0, -c.Tilt);
+        if (_float != null)
+        {
+            // (the shrine's trident turns and bobs; taken, it shrinks away)
+            _float.Position = new Vector3(0, _floatY + 0.05f * MathF.Sin(Time * 2f), 0);
+            _float.Rotation = new Vector3(0, Time * 1.3f, 0);
+            _float.Scale = Vector3.One * (c.Open ? Math.Max(0.001f, 1f - c.OpenT * 3f) : 1f);
+        }
         // the web holds until it's cut (then it parts: the thread goes, and the silk)
         if (_web != null) _web.Visible = c.Hung && c.CutT < 0;
         bool owned = c.Owner != 0 && Net.Online && !c.Open;
@@ -1046,9 +1091,10 @@ public partial class ChestView : PropView
         }
         else
         {
-            PropViews.SetSprite(_shine, new Color(_tint, 0.35f + 0.1f * MathF.Sin(Time * 3)), 4, boss ? 1.4f : 1f);
+            if (_float != null) { _shine.Position = new Vector3(0, _floatY, 0); PropViews.SetSprite(_shine, new Color(_tint, 0.1f + 0.04f * MathF.Sin(Time * 3)), 4, 0.55f); }
+            else PropViews.SetSprite(_shine, new Color(_tint, 0.35f + 0.1f * MathF.Sin(Time * 3)), 4, boss ? 1.4f : 1f);
             _light.LightColor = _tint.Lerp(Colors.White, 0.2f);
-            _light.LightEnergy = (boss ? 1.2f : 0.7f) + 0.15f * MathF.Sin(Time * 3);
+            _light.LightEnergy = (_float != null ? (boss ? 0.8f : 0.45f) : (boss ? 1.2f : 0.7f)) + 0.15f * MathF.Sin(Time * 3);
         }
     }
 }

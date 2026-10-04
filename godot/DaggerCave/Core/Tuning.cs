@@ -456,7 +456,7 @@ public static class Tune
         /// <summary>A Hasty Descent: the dragon is this much tougher.</summary>
         public static float ShortcutDragon = 0.1f;
         /// <summary>Share of ordinary chests that hold a relic (a silver chest), and of chests hung in a web.</summary>
-        public static float RelicChestChance = 0.3f, WebChestChance = 0.12f;
+        public static float RelicChestChance = 0.2f, WebChestChance = 0.12f;
         /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
         public static float FarDistance = 220f;
         /// <summary>A web chest hangs this high (px) over where it lands, under a ceiling at least WebMinThread px higher still.</summary>

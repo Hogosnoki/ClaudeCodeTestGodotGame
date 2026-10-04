@@ -65,8 +65,8 @@ public partial class Main
                     if (milestone)
                     {
                         milestones++;
-                        if (cards.Count != 3 && cards.Count != Upgrades.Chest.Count(u => u.For != null && Upgrades.Available(u, s))) mileBad++;
-                        else if (cards.Any(u => u.For == null || !u.For.Contains(h) || !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) mileBad++;
+                        if (cards.Count < 1 || cards.Count > 3) mileBad++;
+                        else if (cards.Any(u => (u.For == null ? !(u.Icon == "move" && u.Tier == UpgradeTier.Ability) : !u.For.Contains(h)) || !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) mileBad++;
                         if (alterationsLeft && !cards.Any(u => u.Alteration)) noAlteration++;
                     }
                     else
@@ -88,7 +88,7 @@ public partial class Main
                 }
             }
             Check($"{h}: {chests} chests each hold a class card and two others, never an alteration or a side-grade ({chestBad} wrong)", chestBad == 0);
-            Check($"{h}: {milestones} milestones hold only the hero's own cards ({mileBad} wrong)", mileBad == 0);
+            Check($"{h}: {milestones} milestones hold only the hero's own cards and ways of getting about ({mileBad} wrong)", mileBad == 0);
             Check($"{h}: every milestone offers an alteration while any are left ({noAlteration} without)", noAlteration == 0);
             Check($"{h}: an ability never takes two alterations ({twoPerAbility})", twoPerAbility == 0);
             Check($"{h}: an alteration's upgrades only come after it ({orphans} early)", orphans == 0);

@@ -87,7 +87,7 @@ public static class Meta
         B(PotionTree, "speed", "Heal speed", ("Strong Brew I", "The heal over time takes 3 s less (17 s)."), ("Strong Brew II", "The heal over time takes 3 s less (14 s)."), ("Strong Brew III", "The heal over time takes 4 s less (10 s)."));
         B(PotionTree, "drop", "Drop rate", ("Forager", "Enemies drop potions 1% more often (2%)."), ("Desperate Forager", "Another +1% while you carry no potion."));
         B(PotionTree, "max", "Potion belt", ("Second Flask", "Carry up to 2 potions."), ("Third Flask", "Carry up to 3 potions."));
-        B(PearlTree, "mile", "Milestones", ("Waypoints I", "A milestone pick every 7 levels."), ("Waypoints II", "A milestone pick every 6 levels."), ("Waypoints III", "A milestone pick every 5 levels."));
+        B(PearlTree, "mile", "Milestones", ("Waypoints I", "A milestone pick every 4 levels."), ("Waypoints II", "A milestone pick every 3 levels."), ("Waypoints III", "A milestone pick every 2 levels."));
         B(PearlTree, "xp", "Experience", ("Studious I", "+5% experience."), ("Studious II", "+7% more experience (12%)."), ("Studious III", "+8% more experience (20%)."));
         B(PearlTree, "exp", "Elite experience", ("Trophies I", "+5% experience from elites."), ("Trophies II", "+7% more from elites (12%)."), ("Trophies III", "+8% more from elites (20%)."));
         Load();
@@ -104,7 +104,7 @@ public static class Meta
     public static float PotionHealOverTime => 0.15f + 0.05f * Rank("hot");
     public static float PotionHotSeconds => 20f - new[] { 0f, 3f, 6f, 10f }[Rank("speed")];
     public static int MaxPotions => 1 + Rank("max");
-    public static int MilestoneEvery => 8 - Rank("mile");
+    public static int MilestoneEvery => Math.Max(2, 5 - Rank("mile"));
     public static float XpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("xp")];
     public static float EliteXpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("exp")];
     public static float PotionDropChance(Player p)

@@ -548,11 +548,16 @@ public static partial class Upgrades
     {
         var alterations = Chest.Where(u => u.Alteration && Available(u, s)).ToList();
         var result = Pick(alterations, 1, rng, u => u.Weight);
-        var rest = Chest.Where(u => u.For != null && !result.Contains(u) && Available(u, s)).ToList();
+        // milestones are for what changes how you play: a way of getting about (a double jump, an air dash, wall jumps), and with a party, something for the others
+        var mobility = Chest.Where(u => u.For == null && u.Icon == "move" && u.Tier == UpgradeTier.Ability && Available(u, s)).ToList();
+        result.AddRange(Pick(mobility, 1, rng, u => u.Weight));
+        var party = Chest.Where(u => u.Multi && !result.Contains(u) && Available(u, s)).ToList();
+        result.AddRange(Pick(party, 1, rng, u => u.Weight));
+        var rest = Chest.Where(u => u.For != null && !u.Multi && !result.Contains(u) && Available(u, s)).ToList();
         // (two alterations for the same ability can't both be offered as if both could be taken:
         // they can, one or the other, so that's fine to show)
-        result.AddRange(Pick(rest, 3 - result.Count, rng, u => u.Weight * (u.Alteration ? 1.5f : 1f)));
-        return result;
+        result.AddRange(Pick(rest, Math.Max(0, 3 - result.Count), rng, u => u.Weight * (u.Alteration ? 1.5f : 1f)));
+        return result.Take(3).ToList();
     }
 
     /// <summary>Weights for a chest's cards: where it was found tilts the odds (movement upgrades are
@@ -589,10 +594,18 @@ public static partial class Upgrades
     /// </summary>
     public static string[] RollChestCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at, bool relic = false)
     {
-        var ids = RollChestCardsBase(mine, party, rng, at);
-        // a silver chest: a relic takes the place of the last generic card
-        if (relic && ids.Length == 3 && RollRelic(mine, rng) is Upgrade r) ids[2] = r.Id;
-        return ids;
+        // a relic chest: three relics to choose from (upgrades come from shrines)
+        if (relic)
+        {
+            var picked = new List<string>();
+            for (int k = 0; k < 3; k++)
+                if (RollRelic(mine, rng, picked) is Upgrade r) picked.Add(r.Id);
+            if (picked.Count == 3) return picked.ToArray();
+            var ids = RollChestCardsBase(mine, party, rng, at);
+            for (int k = 0; k < picked.Count && k < ids.Length; k++) ids[ids.Length - 1 - k] = picked[k];
+            return ids;
+        }
+        return RollChestCardsBase(mine, party, rng, at);
     }
 
     private static string[] RollChestCardsBase(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at)

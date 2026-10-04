@@ -111,9 +111,9 @@ public partial class Main
                 relicCards += silver.Count(u => u.Kind == UpgradeKind.Relic);
                 bossRelics += gold.Count(u => u.Kind == UpgradeKind.Relic);
                 if (silver.Count != 3 || gold.Count != 3 || gold.Count(u => u.Kind == UpgradeKind.Class) != 1 || gold.Count(u => u.Kind == UpgradeKind.Generic || u.Kind == UpgradeKind.Conditional) != 2) bad++;
-                if (silver.Count(u => u.Kind == UpgradeKind.Class) != 1) bad++;
+                if (silver.Any(u => u.Kind != UpgradeKind.Relic) || silver.Select(u => u.Id).Distinct().Count() != 3) bad++;
             }
-        ScCheck($"silver chests hold exactly one relic each ({relicCards} in {total}), other chests none ({bossRelics}); every deal is a class card and two more ({bad} odd)", relicCards == total && bossRelics == 0 && bad == 0);
+        ScCheck($"relic chests hold three different relics each ({relicCards} in {total} chests), shrines none ({bossRelics}); a shrine deals a class card and two more ({bad} odd)", relicCards == total * 3 && bossRelics == 0 && bad == 0);
     }
 
     private void RelicsScenario()

@@ -368,6 +368,7 @@ public partial class Main : Node
     // a milestone's cards and the build page, saved as screenshots
     private string _menuShot = "";
     private int _menuShotFrame;
+    private Chest _msChest;
 
     private void MenuShotTick()
     {
@@ -383,12 +384,13 @@ public partial class Main : Node
             case 66:
             {
                 // a chest dealt for a party: one card for this hero, two for the others
-                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(0, 13), Cards = new[] { "hp", "relic_leap", "stalwart" } };
+                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(60, 13), Cards = new[] { "hp", "relic_leap", "stalwart" } };
                 foreach (var rid in new[] { "relic_anvil", "relic_flask", "relic_fount", "relic_sniper", "relic_a_prism", "relic_r_hemo" }) RunRelics.Note(Net.Me, rid);
                 _world.AddChild(chest);
-                chest.Look();
+                _msChest = chest;
                 break;
             }
+            case 72: Shot("shrine"); _msChest?.Look(); break;
             case 80: Shot("chest_cards"); _upgradeMenu.ChooseLeave(); break;
             case 84:
             {
@@ -1871,6 +1873,9 @@ public partial class Main : Node
                 var spot = G.Cave.FindFloor(new Vector2(x, at.Y - 30), 240, out var f) ? f : at;
                 G.Spawn(new Chest { Position = spot, Tier = ChestTier.Boss, Owner = owners[k] });
             }
+            // and one chest of relics for the whole party, to talk over or to scramble for
+            var relicSpot = G.Cave.FindFloor(new Vector2(at.X + (owners.Count * 0.5f + 1.2f) * 36f, at.Y - 30), 240, out var rf) ? rf : at;
+            G.Spawn(new Chest { Position = relicSpot, Tier = ChestTier.Relic, Owner = 0 });
         }
         finally { NetSync.Scope--; }
     }
@@ -3196,7 +3201,7 @@ public partial class Main : Node
         }
         Check($"heal over time takes 10 s after three ranks ({Meta.PotionHotSeconds})", Math.Abs(Meta.PotionHotSeconds - 10f) < 1e-4f);
         Check($"two potions with one flask rank ({Meta.MaxPotions})", Meta.MaxPotions == 2);
-        Check($"milestones every 5 levels ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 5);
+        Check($"milestones every 2 levels after three ranks ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 2);
         Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
         GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
         SafeQuit.Request(this, ok ? 0 : 1);
