@@ -24,6 +24,7 @@ public partial class Main
             case 0:
             {
                 if (_scT < 0.5f) return;
+                Player.TestParty = true; p.Stats.AegisSupport = true;
                 ScCheck($"the Aegis stands at {p.Stats.MaxHp:0} health, threat x{p.Stats.ThreatDist}, three abilities and a bolt", p.Stats.Hero == HeroKind.Aegis && Math.Abs(p.Stats.ThreatDist - 1.25f) < 0.001f);
                 foreach (var e in G.Enemies.ToArray()) e.QueueFree();
                 Vector2 Floor(float dx) => G.Cave.FindFloor(p.GlobalPosition + new Vector2(dx, -40), 200, out var f) ? f : p.GlobalPosition + new Vector2(dx, 12);
@@ -159,6 +160,22 @@ public partial class Main
                 ScCheck($"the ward bursts after the blows build to {cap:0.0} ({n + 1} blows; it lost {lost:0}, want about {expect:0})", !warded.Warded && Math.Abs(lost - expect) < 8f);
                 float splash = beforeOther - other.Hp;
                 ScCheck($"the creature beside it takes the splash ({splash:0.0}, want about {Tune.Aegis.WardSplash * p.Stats.DamageMult * G.DepthHp:0.0})", splash > Tune.Aegis.WardSplash * 0.8f);
+                // ---- alone (no party), the second ability is a smite: everything near is struck and weakened
+                Player.TestParty = false;
+                p.TestResetCooldowns();
+                _scFoe.Hp = _scFoe.MaxHp; _scFoe2.Hp = _scFoe2.MaxHp;
+                _scFoe.Position = p.GlobalPosition + new Vector2(60, 0); _scFoe2.Position = p.GlobalPosition + new Vector2(600, 0);
+                _scAllyHp = _scFoe.Hp; _scAegisHp = _scFoe2.Hp;
+                Pulse(new PlayerInput { Ability2 = true, Aim = new Vector2(1, 0) });
+                _scStep = 11; _scT = 0;
+                break;
+            }
+            case 11:
+            {
+                if (_scT < 0.4f) return;
+                float near = _scAllyHp - _scFoe.Hp, far = _scAegisHp - _scFoe2.Hp;
+                float want = Tune.Aegis.SmiteDamage * p.Stats.DamageMult;
+                ScCheck($"alone, her second ability smites: the creature beside her takes {near:0.0} (want about {want:0}), the far one {far:0.0}, and it is weakened ({_scFoe.Weakened})", near > want * 0.5f && far < 0.5f && _scFoe.Weakened);
                 ScEnd();
                 break;
             }

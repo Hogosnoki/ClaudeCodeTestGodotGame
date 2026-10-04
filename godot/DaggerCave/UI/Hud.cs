@@ -668,8 +668,8 @@ public partial class Hud : Control
 
         var sb = bb + new Vector2(60, 0);
         var carried = p.BurdenTarget;
-        string lab = carried != null ? $"BURDEN {Mathf.CeilToInt(p.BurdenLeft)}s" : "BURDEN";
-        AbilitySquare(font, sb, lab, carried != null ? Math.Clamp(1f - p.BurdenLeft / Math.Max(1f, p.Stats.BurdenSeconds), 0f, 1f) : 0f, true, gold, (c, col) =>
+        string lab = !p.Supporting ? "SMITE" : carried != null ? $"BURDEN {Mathf.CeilToInt(p.BurdenLeft)}s" : "BURDEN";
+        AbilitySquare(font, sb, lab, !p.Supporting ? p.SmiteCooldownFrac : carried != null ? Math.Clamp(1f - p.BurdenLeft / Math.Max(1f, p.Stats.BurdenSeconds), 0f, 1f) : 0f, !p.Supporting ? p.SmiteCooldownFrac <= 0 : true, gold, (c, col) =>
         {
             // two links of a chain
             DrawArc(c + new Vector2(-4, 0), 6, 0, Mathf.Tau, 14, col, 2.2f);

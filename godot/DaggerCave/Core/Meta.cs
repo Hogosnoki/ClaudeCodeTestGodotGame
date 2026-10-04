@@ -112,9 +112,18 @@ public static class Meta
     public static bool Unlock(HeroKind h)
     {
         if (!Unlocked.Add(h)) return false;
+        GrantStarterPerks(h);
         RunUnlocks++;
         Save();
         return true;
+    }
+
+    /// <summary>A hero comes with the loadout that makes them what their name says: the Aegis with her Bulwark Oath (equipped).</summary>
+    private static void GrantStarterPerks(HeroKind h)
+    {
+        if (h != HeroKind.Aegis) return;
+        PerkRanks["aegis_oath"] = 1;
+        PerksEquipped.Add("aegis_oath");
     }
 
     /// <summary>
@@ -264,7 +273,7 @@ public static class Meta
         // (a save from before heroes were unlocked keeps every hero it was playing)
         Unlocked.Clear();
         if (d.ContainsKey("unlocked")) foreach (var v in d["unlocked"].AsGodotArray()) Unlocked.Add((HeroKind)(int)v);
-        else foreach (var h in Enum.GetValues<HeroKind>()) Unlocked.Add(h);
+        else foreach (var h in Enum.GetValues<HeroKind>()) { Unlocked.Add(h); if (h == HeroKind.Aegis && !PerkRanks.ContainsKey("aegis_oath")) { PerkRanks["aegis_oath"] = 1; PerksEquipped.Add("aegis_oath"); } }
         PerkRanks.Clear(); PerksEquipped.Clear();
         if (d.ContainsKey("perk_ranks")) foreach (var kv in d["perk_ranks"].AsGodotDictionary()) PerkRanks[(string)kv.Key] = (int)kv.Value;
         if (d.ContainsKey("perk_equipped")) foreach (var v in d["perk_equipped"].AsGodotArray()) PerksEquipped.Add((string)v);

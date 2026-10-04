@@ -166,6 +166,8 @@ public sealed class PlayerStats
     public float HeaveDamageMult = 1f;
     /// <summary>Relic: the share of damage dealt that recharges the Warden's shield; a Guarded Charge that ploughs through everything it meets.</summary>
     public float ShieldSiphon;
+    /// <summary>The Aegis's Bulwark Oath (a class perk, given with her): in a party, her second ability is Shared Burden; alone, or without it, a Smite.</summary>
+    public bool AegisSupport;
     public bool Juggernaut;
     /// <summary>Relic: one dagger is thrown, and only when both are home; a recall's bleed chance, and a bleed that never stops.</summary>
     public bool LoneThrow, BleedForever;

@@ -161,8 +161,41 @@ public partial class Player
 
     // ---------------------------------------------------------------- shared burden
 
+    /// <summary>Test aid: count as being in a party.</summary>
+    public static bool TestParty;
+    /// <summary>The Aegis carries friends (Shared Burden) rather than smiting: in a party, with her Bulwark Oath.</summary>
+    public bool Supporting => Stats.AegisSupport && ((Net.Online && Net.Count > 1) || TestParty);
+    public float SmiteCooldownFrac => Math.Clamp(_burdenCd / Tune.Aegis.SmiteCooldown, 0f, 1f);
+
+    /// <summary>A burst of light round the Aegis: it strikes and weakens everything near.</summary>
+    private bool TrySmite()
+    {
+        if (!IsAegis || _burdenCd > 0) return false;
+        _burdenCd = Tune.Aegis.SmiteCooldown;
+        float dmg = Tune.Aegis.SmiteDamage * Stats.DamageMult;
+        float total = 0;
+        var at = CastPoint;
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(at) > Tune.Aegis.SmiteRadius + e.HitRadius || !G.Cave.LineClear(at, e.GlobalPosition)) continue;
+            float dealt = e.Hurt(dmg, (e.GlobalPosition - at).Normalized() * 160f, e.GlobalPosition);
+            if (dealt > 0) { total += dealt; OnDealtDamage(dealt); }
+            if (!e.Dead) e.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);
+        }
+        if (total > 0 && Stats.AegisLifesteal > 0) Heal(total * Stats.AegisLifesteal);
+        var col = new Color(1f, 0.9f, 0.55f);
+        G.Fx.Ring(at, Tune.Aegis.SmiteRadius, col, 0.4f);
+        G.Fx.Flash(at, 50, col, 0.2f);
+        G.Fx.Burst(at, col, 26, 240, 2.6f, 0.5f);
+        G.Fx.AddShake(3f);
+        G.Sfx.Play("heal", at, -4, 0.05f, 1.5f);
+        CastPose("rupture", "smite", 1f);
+        return true;
+    }
+
     private bool TryBurden(Vector2 aim)
     {
+        if (!Supporting) return TrySmite();
         if (!IsAegis || _burdenCd > 0) return false;
         _burdenCd = Tune.Aegis.BurdenBlink;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);

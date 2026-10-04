@@ -69,6 +69,7 @@ public static class ClassPerks
         P(HeroKind.Rogue, "rogue_shadows", "Long Shadows", Three, new[] { "Vanish lasts 1 s longer.", "Vanish lasts 2 s longer.", "Vanish lasts 3 s longer." }, (s, r) => s.VanishBonus += r);
 
         // ---- Aegis
+        P(HeroKind.Aegis, "aegis_oath", "Bulwark Oath", One, new[] { "In a party, your second ability is Shared Burden (alone you smite). It comes with her, equipped." }, (s, r) => s.AegisSupport = true);
         P(HeroKind.Aegis, "aegis_bolt", "Brilliant Bolt", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => s.DamageMult += 0.05f * r);
         P(HeroKind.Aegis, "aegis_ward", "Stronger Wards", Three, new[] { "Barriers and bubbles are 8% stronger.", "Barriers and bubbles are 16% stronger.", "Barriers and bubbles are 24% stronger." }, (s, r) => s.WardMult += 0.08f * r);
         P(HeroKind.Aegis, "aegis_quick", "Ready Hands", Three, new[] { "Barrier and bubble come back 10% sooner.", "Barrier and bubble come back 20% sooner.", "Barrier and bubble come back 30% sooner." }, (s, r) => { s.BarrierCdMult *= 1f - 0.1f * r; s.BubbleCdMult *= 1f - 0.1f * r; });

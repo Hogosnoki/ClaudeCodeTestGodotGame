@@ -596,6 +596,7 @@ ABILITIES = {
     "tether": ("#e8c050", [one("dagger", "#d8e0ea", "#c9922e", 0.7, 0.08, -0.08, 35), one("chain", "#ffe08a", "#c9922e", 0.62, -0.14, 0.18)]),
     # aegis
     "barrier": ("#8fd6ff", [one("dome", "#9fdcff", "#4aa0e0", 0.95), one("star", "#ffffff", "#d6f1ff", 0.3, 0, 0.06)]),
+    "smite": ("#ffd24a", [one("sun", "#ffb02a", "#fff0a0", 0.95), one("shield", "#9fdcff", "#4aa0e0", 0.38, 0, 0.02)]),
     "burden": ("#f0b64a", [one("chain", "#ffd36a", "#e8923a", 0.9), one("heart", "#ff6a7a", "#ffc0c8", 0.3, 0, 0.0)]),
     # elementalist
     "blizzard": ("#6fd0ff", [one("snow", "#d8f4ff", "#7fd8ff", 0.95), one("swirl", "#6fd0ff", "#b8ecff", 0.5)]),

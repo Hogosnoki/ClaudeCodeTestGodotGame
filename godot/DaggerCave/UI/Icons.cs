@@ -43,6 +43,7 @@ public static class Icons
             "TETHER" => "ability_tether",
             "BARRIER" => "ability_barrier",
             "BURDEN" => "ability_burden",
+            "SMITE" => "ability_smite",
             "STORM" => "ability_blizzard",
             "FIRE" => "ability_firestorm",
             "SNAP" => "ability_snap",
