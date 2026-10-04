@@ -44,7 +44,8 @@ public partial class OnlineMenu : Control
         Theme = UiKit.Theme;
         Visible = false;
         AddChild(UiKit.Dimmer(0.8f));
-        var (_, col) = UiKit.Panel(this, new Vector2(920, 0));
+        var (panel, col) = UiKit.Panel(this, new Vector2(920, 0));
+        _panel = panel;
         _title = UiKit.Label("PLAY ONLINE", 28, UiKit.Gold, HorizontalAlignment.Center);
         col.AddChild(_title);
 
@@ -86,7 +87,7 @@ public partial class OnlineMenu : Control
 
         // ---- the lobby
         _lobby = new VBoxContainer();
-        _lobby.AddThemeConstantOverride("separation", 10);
+        _lobby.AddThemeConstantOverride("separation", 5);
         col.AddChild(_lobby);
         _codeRow = Row(_lobby);
         _codeRow.AddChild(Fixed(UiKit.Label("Send your friend this code:", 16), 290));
@@ -108,7 +109,7 @@ public partial class OnlineMenu : Control
         _router.CustomMinimumSize = new Vector2(860, 0);
         _lobby.AddChild(_router);
         _lobby.AddChild(new HSeparator());
-        _players = UiKit.Label("", 16);
+        _players = UiKit.Label("", 14);
         _lobby.AddChild(_players);
         _mismatch = UiKit.Label("", 13, new Color(1f, 0.65f, 0.45f));
         _mismatch.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -144,10 +145,10 @@ public partial class OnlineMenu : Control
         for (int k = 0; k < Heroes.Length; k++)
         {
             var (kind, name, design) = Heroes[k];
-            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(126, 200) };
+            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(92, 140) };
             AddChild(portrait);
             _portraits[k] = portrait;
-            var card = new Button { CustomMinimumSize = new Vector2(140, 214), FocusMode = FocusModeEnum.All };
+            var card = new Button { CustomMinimumSize = new Vector2(124, 172), FocusMode = FocusModeEnum.All };
             card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); };
             var v = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             v.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
@@ -351,8 +352,17 @@ public partial class OnlineMenu : Control
         if (pageChanged) (Net.IsHost ? _start : _cards.FirstOrDefault(c => !c.Disabled) ?? _leave).CallDeferred(Control.MethodName.GrabFocus);
     }
 
+    private PanelContainer _panel;
+
     public override void _Process(double delta)
     {
+        // (the lobby with six heroes is tall: shrink the whole panel to sit inside the screen)
+        if (Visible && _panel != null)
+        {
+            float vh = GetViewportRect().Size.Y, h = Math.Max(1f, _panel.Size.Y);
+            _panel.PivotOffset = _panel.Size * 0.5f;
+            _panel.Scale = Vector2.One * Math.Min(1f, (vh - 24f) / h);
+        }
         bool show = Visible && _lobby.Visible;
         foreach (var p in _portraits)
             if (p != null) p.RenderTargetUpdateMode = show ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
