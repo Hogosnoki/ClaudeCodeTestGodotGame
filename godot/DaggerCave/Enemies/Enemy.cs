@@ -256,7 +256,19 @@ public abstract partial class Enemy : CharacterBody2D
         finally { NetSync.Scope--; }
     }
 
-    private float _windT;
+    private float _windT, _dotAcc, _dotClock;
+
+    /// <summary>Bleeding, burning and rotting show a small falling number every quarter second (what those alone took, as the health shown).</summary>
+    private void TickDotText(float dt)
+    {
+        if (_dotAcc <= 0f) { _dotClock = 0; return; }
+        if ((_dotClock += dt) < 0.25f) return;
+        _dotClock = 0;
+        float now = Math.Max(0f, Hp);
+        int shown = Num.Delta(now + _dotAcc, now);
+        _dotAcc = 0;
+        if (shown > 0) G.Fx.TickText(HeadPoint(0f) + new Vector2(0, 4), shown.ToString(), _burnT > 0 ? new Color(1f, 0.6f, 0.25f) : new Color(0.85f, 0.35f, 0.4f), 9);
+    }
 
     /// <summary>
     /// The warning before a blow: from the moment an attack winds up, the creature rears (squashing down
@@ -285,6 +297,7 @@ public abstract partial class Enemy : CharacterBody2D
     {
         if (Dead) return;
         Telegraph((float)delta);
+        TickDotText((float)delta);
         _targetT -= (float)delta;
         var p = P;
         if (p == null) return;
@@ -330,6 +343,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             _bleedT -= dt;
             Hp -= _bleedDps * dt;
+            _dotAcc += _bleedDps * dt;
             if (G.Chance(0.15f)) G.Fx.Burst(GlobalPosition, BloodColor, 1, 30, 1.8f, 0.4f, 200);
             if (Hp <= 0) { Die(); return; }
         }
@@ -571,6 +585,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             float before = Hp;
             Hp -= _hexRot * dt;
+            _dotAcc += _hexRot * dt;
             NetSync.CreditDealt(_hexBy, before - Math.Max(0, Hp));
             if (Hp <= 0) { LastAttacker = _hexBy; Die(); return false; }
         }
@@ -581,6 +596,7 @@ public abstract partial class Enemy : CharacterBody2D
             {
                 float before = Hp;
                 Hp -= _burnDps * dt * Affinity.Mult(Element, DamageKind.Fire);
+                _dotAcc += _burnDps * dt * Affinity.Mult(Element, DamageKind.Fire);
                 NetSync.CreditDealt(_burnBy, before - Math.Max(0, Hp));
                 if (Hp <= 0) { LastAttacker = _burnBy; Die(); return false; }
             }

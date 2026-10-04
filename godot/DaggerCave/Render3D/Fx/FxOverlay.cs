@@ -57,7 +57,7 @@ public partial class FxOverlay : Control
             if (at == null) continue;
             float a = Math.Clamp(t.Life / t.Max * 2f, 0, 1);
             float age = t.Max - t.Life;
-            float pop = age < 0.1f ? 1.7f - age * 7f : 1f;
+            float pop = age < 0.1f && !t.Tick ? 1.7f - age * 7f : 1f;
             int size = Math.Max(8, (int)(t.Size * pop * zoom * 0.62f));
             var pos = at.Value - new Vector2(t.Text.Length * size * 0.28f, 0);
             // a dark outline, then the colour, then a hot core for big numbers

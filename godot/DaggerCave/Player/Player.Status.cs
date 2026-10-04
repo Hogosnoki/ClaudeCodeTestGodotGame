@@ -105,21 +105,34 @@ public partial class Player
         float dot = 0;
         if (_poisonLeft > 0) { float s = Math.Min(dt, _poisonLeft); _poisonLeft -= dt; dot += _poisonRate * s; }
         if (_burnLeft > 0) { float s = Math.Min(dt, _burnLeft); _burnLeft -= dt; dot += _burnRate * s; }
+        // damage over time lands in ticks, a quarter of a second apart, each with its own small, falling number
         if (dot > 0 && !Dead)
         {
-            // (through the usual armour, but not the barrier: it's not a blow)
+            _dotAcc += dot;
             if (_dotBase < 0) _dotBase = Hp;
-            TakeRawDamage(dot * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "dot");
-            // (a number only when the health shown has dropped, and the drop is what it says: see Num)
-            int shown = Num.Delta(_dotBase, Math.Max(0f, Hp));
-            if (_dotText <= 0 && shown > 0)
+            if ((_dotClock += dt) >= 0.25f)
             {
-                _dotText = 0.8f;
-                G.Fx.Text(GlobalPosition + new Vector2(0, -24), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 11, 0.5f);
-                _dotBase = Hp;
+                _dotClock = 0;
+                float hp0 = Hp;
+                // (through the usual armour, but not the barrier: it's not a blow)
+                TakeRawDamage(_dotAcc * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "dot");
+                _dotAcc = 0;
+                int shown = Num.Delta(hp0, Math.Max(0f, Hp));
+                if (shown > 0) G.Fx.TickText(GlobalPosition + new Vector2(G.Range(-4, 4), -22), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 9);
             }
         }
-        else _dotBase = -1f;
+        else
+        {
+            // (what was owed when the affliction ended is paid at once)
+            if (_dotAcc > 0 && !Dead)
+            {
+                float hp0 = Hp;
+                TakeRawDamage(_dotAcc * (1f - Stats.DamageReduction) * Stats.DamageTakenMult, "dot");
+                int shown = Num.Delta(hp0, Math.Max(0f, Hp));
+                if (shown > 0) G.Fx.TickText(GlobalPosition + new Vector2(G.Range(-4, 4), -22), "-" + shown, Burning ? StatusColors.Fire : StatusColors.Poison, 9);
+            }
+            _dotBase = -1f; _dotAcc = 0; _dotClock = 0;
+        }
         if (_statusFx <= 0 && (Poisoned || Burning))
         {
             _statusFx = 0.12f;
@@ -128,5 +141,5 @@ public partial class Player
             else G.Fx.Burst(at, new Color(StatusColors.Poison, 0.8f), 1, 20, 1.4f, 0.6f, -30);
         }
     }
-    private float _dotBase = -1f;
+    private float _dotBase = -1f, _dotAcc, _dotClock;
 }

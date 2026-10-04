@@ -31,6 +31,9 @@ public partial class FxLayer : Node2D
         public Color Col;
         public float Life, Max;
         public int Size;
+        /// <summary>Vertical drift, px/s (negative rises); a tick number falls, small, with no pop.</summary>
+        public float Drift;
+        public bool Tick;
     }
 
     /// <summary>A brief light where something flashes (the 3D stage lights the scene with it).</summary>
@@ -86,7 +89,7 @@ public partial class FxLayer : Node2D
             case 3: Bubbles(r.Vec(), r.Byte()); break;
             case 4: Spark(r.Vec(), r.HVec(), r.Bool(), r.Col()); break;
             case 5: Ring(r.Vec(), r.Half(), r.Col(), r.Half()); break;
-            case 6: Text(r.Vec(), r.Str(), r.Col(), r.Byte(), r.Half()); break;
+            case 6: { var at = r.Vec(); var s = r.Str(); var c = r.Col(); int b = r.Byte(); float l = r.Half(); if ((b & 128) != 0) TickText(at, s, c, b & 127, l); else Text(at, s, c, b, l); break; }
             case 7: Flash(r.Vec(), r.Half(), r.Col(), r.Half()); break;
             case 8: Shockwave(r.Vec(), r.Half(), r.Col(), r.Half()); break;
             case 9: { var at = r.Vec(); int n = r.Byte(); float sp = r.Half(); bool has = r.Bool(); Color? c = has ? r.Col() : null; Dust(at, n, sp, c); break; }
@@ -160,8 +163,15 @@ public partial class FxLayer : Node2D
 
     public void Text(Vector2 pos, string text, Color col, int size = 11, float life = 0.8f)
     {
-        Rec(6)?.Vec(pos).Str(text).Col(col).Byte((byte)Math.Clamp(size, 0, 255)).Half(life);
-        _texts.Add(new FloatText { Pos = pos + new Vector2(G.Range(-6, 6), 0), Text = text, Col = col, Life = life, Max = life, Size = size });
+        Rec(6)?.Vec(pos).Str(text).Col(col).Byte((byte)Math.Clamp(size, 0, 127)).Half(life);
+        _texts.Add(new FloatText { Pos = pos + new Vector2(G.Range(-6, 6), 0), Text = text, Col = col, Life = life, Max = life, Size = size, Drift = -28f });
+    }
+
+    /// <summary>A number for one tick of damage over time: small, no pop, and it falls instead of rising.</summary>
+    public void TickText(Vector2 pos, string text, Color col, int size = 9, float life = 0.55f)
+    {
+        Rec(6)?.Vec(pos).Str(text).Col(col).Byte((byte)(Math.Clamp(size, 0, 127) | 128)).Half(life);
+        _texts.Add(new FloatText { Pos = pos + new Vector2(G.Range(-8, 8), 0), Text = text, Col = col, Life = life, Max = life, Size = size, Drift = 34f, Tick = true });
     }
 
     public void AddShake(float amount) => Shake = Math.Min(14f, Shake + amount);
@@ -359,7 +369,7 @@ public partial class FxLayer : Node2D
         {
             var t = _texts[k];
             t.Life -= dt;
-            t.Pos.Y -= 28 * dt;
+            t.Pos.Y += t.Drift * dt;
             if (t.Life <= 0) _texts.RemoveAt(k); else _texts[k] = t;
         }
         Shake = Math.Max(0, Shake - dt * 30f);
@@ -452,7 +462,7 @@ public partial class FxLayer : Node2D
         {
             float a = Math.Clamp(t.Life / t.Max * 2f, 0, 1);
             float age = t.Max - t.Life;
-            float pop = age < 0.1f ? 1.7f - age * 7f : 1f;
+            float pop = age < 0.1f && !t.Tick ? 1.7f - age * 7f : 1f;
             int size = Math.Max(6, (int)(t.Size * pop));
             var pos = t.Pos - new Vector2(t.Text.Length * size * 0.28f, 0);
             DrawString(font, pos + new Vector2(1, 1), t.Text, HorizontalAlignment.Left, -1, size, new Color(0, 0, 0, a * 0.8f));
