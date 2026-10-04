@@ -256,9 +256,33 @@ public abstract partial class Enemy : CharacterBody2D
         finally { NetSync.Scope--; }
     }
 
+    private float _windT;
+
+    /// <summary>
+    /// The warning before a blow: from the moment an attack winds up, the creature rears (squashing down
+    /// and swelling), pulses with light, and a ring and a mark flash over its head, so every attack is
+    /// seen coming.
+    /// </summary>
+    private void Telegraph(float dt)
+    {
+        bool winding = Attacking && !Striking && Stun <= 0 && Anim != null && !IsBoss;
+        if (!winding) { if (_windT > 0 && Anim != null) Anim.Scale = Vector2.One; _windT = 0; return; }
+        if (_windT == 0)
+        {
+            G.Fx.Ring(HeadPoint(4f), 9, new Color(1f, 0.55f, 0.2f, 0.9f), 0.3f);
+            G.Fx.Text(HeadPoint(10f), "!", new Color(1f, 0.6f, 0.25f), 13, 0.45f);
+        }
+        _windT += dt;
+        float s = Math.Min(1f, _windT / 0.35f);
+        float pulse = 0.5f + 0.5f * MathF.Sin(_windT * 28f);
+        Anim.Scale = new Vector2(1f + 0.12f * s, 1f - 0.16f * s);
+        Anim.Flash(0.2f + 0.3f * pulse * s);
+    }
+
     private void Simulate(double delta)
     {
         if (Dead) return;
+        Telegraph((float)delta);
         _targetT -= (float)delta;
         var p = P;
         if (p == null) return;
@@ -778,7 +802,7 @@ public abstract partial class Enemy : CharacterBody2D
             tw.TweenProperty(Anim, "scale", baseScale, 0.18f).SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
         }
         var k = knock * (1f - KnockResist);
-        if (k.Length() > 60 && !ManualMove && !midAttack) { Stun = 0.2f; KnockVel = k; }
+        if (k.Length() > 60 && !ManualMove && !midAttack) { Stun = 0.32f; KnockVel = k; }
         else if (!ManualMove && knock.X != 0) Recoil(knock.X); // even without Heavy Pommel, a hit nudges it back
         bool big = dmg >= 15;
         // (a weakness shows as a bigger, hotter number with a bang; a resistance as a small grey one)
