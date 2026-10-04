@@ -405,12 +405,14 @@ public static partial class CaveGenerator
 
     // ================================================================== ruins
 
-    private sealed class Chamber { public int X0, X1, Top, Floor; public int Level; public bool Tall; }
+    private sealed class Chamber { public int X0, X1, Top, Floor; public int Level; public bool Tall; public int Style; }
 
     /// <summary>
-    /// Three floors of right-angled chambers and corridors, joined by shafts with alternating
-    /// stone slabs to climb (or drop) between them. Some halls are tall, with a stair of floating
-    /// slabs. The way in is top left; the guardian's hall is at the bottom right.
+    /// Two to four floors of right-angled chambers and corridors, joined by shafts with alternating
+    /// stone slabs to climb (or drop) between them. Each ruin is its own: the floors are spread
+    /// differently, the halls differ in length and height, and a hall may be pillared, collapsed
+    /// (a breach in its roof, rubble heaped on its floor) or sunken. Some halls are tall, with a
+    /// stair of floating slabs. The way in is top left; the guardian's hall is at the bottom right.
     /// </summary>
     private static CaveData GenerateRuins(int seed)
     {
@@ -418,55 +420,65 @@ public static partial class CaveGenerator
         int RndI(int a, int bIncl) => rng.Next(a, bIncl + 1);
         var f = new Field(seed, 0.6f);
         var cave = new CaveData { W = W, H = H, Seed = seed, WaterY = (H + 200) * CaveData.Cell, Liquid = Liquid.None, Biome = B };
-        int[] floors = { (int)(H * 0.3f), (int)(H * 0.58f), (int)(H * 0.86f) };
+        int levels = RndI(2, 4);
+        // (the floors: evenly spread, then nudged; the last one is low)
+        var floors = new int[levels];
+        float lo = 0.3f, hi = 0.86f;
+        for (int l = 0; l < levels; l++)
+            floors[l] = (int)(H * (levels == 1 ? hi : lo + (hi - lo) * l / (levels - 1))) + (l == 0 || l == levels - 1 ? 0 : RndI(-3, 3));
         var chambers = new List<Chamber>();
         Chamber hall = null;
+        // the width of the gaps between halls and of the corridors joining them differ from ruin to ruin
+        int gapMin = RndI(2, 6), gapMax = gapMin + RndI(4, 10), corridorH = RndI(4, 6);
+        int wMin = RndI(10, 16), wMax = wMin + RndI(6, 12);
 
-        for (int l = 0; l < 3; l++)
+        for (int l = 0; l < levels; l++)
         {
             int F = floors[l];
             int x = 5;
-            bool last = l == 2;
+            bool last = l == levels - 1;
             int limit = last ? W - 5 - 30 - 5 : W - 5;
             var level = new List<Chamber>();
             while (true)
             {
-                int w = RndI(14, 24);
+                int w = RndI(wMin, wMax);
                 if (x + w > limit) break;
                 bool tall = l > 0 && rng.NextDouble() < 0.3;
                 int h = tall ? RndI(15, 17) : RndI(7, 11);
-                var c = new Chamber { X0 = x, X1 = x + w, Top = F - h, Floor = F, Level = l, Tall = tall };
+                int style = rng.NextDouble() < 0.55 ? 0 : RndI(1, 3);
+                if (tall || w < 14) style = 0;
+                var c = new Chamber { X0 = x, X1 = x + w, Top = F - h, Floor = F, Level = l, Tall = tall, Style = style };
                 f.Rect(c.X0, c.Top, c.X1, c.Floor);
                 level.Add(c);
-                int gap = RndI(4, 12);
+                int gap = RndI(gapMin, gapMax);
                 if (x + w + gap + 14 > limit) { x += w; break; }
-                f.Rect(x + w - 1, F - 5, x + w + gap + 1, F); // corridor
+                f.Rect(x + w - 1, F - corridorH, x + w + gap + 1, F); // corridor
                 x += w + gap;
             }
             if (last)
             {
                 int hx0 = W - 5 - 30;
-                f.Rect(x - 1, F - 5, hx0 + 1, F);
+                f.Rect(x - 1, F - corridorH, hx0 + 1, F);
                 hall = new Chamber { X0 = hx0, X1 = W - 5, Top = F - 13, Floor = F, Level = l };
                 f.Rect(hall.X0, hall.Top, hall.X1, hall.Floor);
             }
             chambers.AddRange(level);
         }
 
-        // shafts: two between each pair of floors, far apart
+        // shafts: one to three between each pair of floors, far apart
         var shafts = new List<(int x, int l)>();
-        for (int l = 0; l < 2; l++)
+        for (int l = 0; l < levels - 1; l++)
         {
             var upper = chambers.Where(c => c.Level == l && c.X1 - c.X0 >= 12).ToList();
-            int lowerEnd = l + 1 == 2 ? W - 6 : chambers.Where(c => c.Level == l + 1).Max(c => c.X1);
-            int made = 0;
+            int lowerEnd = l + 1 == levels - 1 ? W - 6 : chambers.Where(c => c.Level == l + 1).Max(c => c.X1);
+            int made = 0, want = RndI(1, 3);
             foreach (var c in upper.OrderBy(_ => rng.Next()))
             {
                 int sx = RndI(c.X0 + 2, c.X1 - 10);
                 if (sx + 8 > lowerEnd - 1 || shafts.Any(s => s.l == l && Math.Abs(s.x - sx) < 40)) continue;
                 shafts.Add((sx, l));
                 f.Rect(sx, floors[l] - 2, sx + 8, floors[l + 1] - 2);
-                if (++made >= 2) break;
+                if (++made >= want) break;
             }
         }
 
@@ -516,6 +528,24 @@ public static partial class CaveGenerator
                     else if (x < c.X0 + 3) { dir = 1; x = c.X0 + 3; }
                     f.Solid(x, t, x + 6, t + 2);
                     x += dir * 4;
+                }
+            }
+            // the halls' own character
+            foreach (var c in chambers)
+            {
+                int mid = (c.X0 + c.X1) / 2;
+                switch (c.Style)
+                {
+                    case 1: // pillared: slender columns from floor to roof, a hero's width apart
+                        for (int x = c.X0 + 4; x < c.X1 - 3; x += 6) f.Solid(x, c.Top - 1, x + 1, c.Floor - 4);
+                        break;
+                    case 2: // collapsed: a breach up through the roof and a heap of rubble below it
+                        f.Circle(mid, c.Top - 1, 3.2f, false);
+                        for (int k = 0; k < 4; k++) f.Solid(mid - 3 + k, c.Floor - 1 - Math.Min(k, 3 - k), mid - 2 + k, c.Floor);
+                        break;
+                    case 3: // sunken: the middle of the floor drops a few cells, with a step to climb out
+                        f.Rect(c.X0 + 4, c.Floor, c.X1 - 4, c.Floor + 2);
+                        break;
                 }
             }
         }
