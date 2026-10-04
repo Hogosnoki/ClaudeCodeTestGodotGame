@@ -82,6 +82,7 @@ public partial class Player
         w.Byte(LastCast switch { "drain" => 1, "hex" => 2, "heal" => 3, "rupture" => 4, "barrier" => 5, "burden" => 6, "bubble" => 7, "ward" => 8, _ => 0 });
         w.HVec(CastDir);
         w.Byte((byte)(Math.Clamp(Anim?.FlashAmount ?? 0, 0, 1) * 255));
+        w.Byte((byte)(BubbleFrac * 255));
     }
 
     /// <summary>A puppet: the latest from its game.</summary>
@@ -107,6 +108,7 @@ public partial class Player
         float flash = r.Byte() / 255f;
         if (flash > _netFlash + 0.3f) Anim?.Flash(flash);
         _netFlash = flash;
+        if (r.More) _netBubbleFrac = r.Byte() / 255f;
         _net.Push(now, pos, vel);
         Dead = (_netFlags & HfDead) != 0;
         ShieldRaised = (_netFlags & HfShield) != 0;

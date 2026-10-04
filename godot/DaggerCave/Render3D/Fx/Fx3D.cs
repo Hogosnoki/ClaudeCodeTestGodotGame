@@ -56,6 +56,8 @@ public partial class Fx3D : Node3D
     private MeshInstance3D _ribbon;
     /// <summary>Shells of light: the Guarded Charge's, and the barriers it gives (one per hero at most, each).</summary>
     private readonly MeshInstance3D[] _shells = new MeshInstance3D[6];
+    private MeshInstance3D _field;
+    private ShaderMaterial _fieldMat;
     private ImmediateMesh _rmesh;
     private OmniLight3D _bladeLight;
     private ShaderMaterial _barrierMat;
@@ -125,6 +127,10 @@ public partial class Fx3D : Node3D
             };
             AddChild(_shells[k]);
         }
+        // the Aegis's field: one flat sheet over the bubbles, shaded where they run together
+        _fieldMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_shieldfield.gdshader") };
+        _field = new MeshInstance3D { Name = "ShieldField", Mesh = new QuadMesh { Size = Vector2.One }, MaterialOverride = _fieldMat, Visible = false, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        AddChild(_field);
     }
 
     private static Color Lin(Color c) => new Color(c.R, c.G, c.B).SrgbToLinear() with { A = c.A };
@@ -321,7 +327,8 @@ public partial class Fx3D : Node3D
     {
         _rmesh.ClearSurfaces();
         bool any = false, blade = false;
-        int shells = 0;
+        int shells = 0, bubbles = 0;
+        var circles = new Vector4[6];
         void Shell(Player p, float r, Color c)
         {
             if (shells >= _shells.Length) return;
@@ -342,7 +349,28 @@ public partial class Fx3D : Node3D
             if (g.Dash) Shell(p, 17f, new Color(0.45f, 0.75f, 1f, 0.55f));
             // a barrier (Guardian's Charge): a paler, larger shell that breathes
             if (p.Barriered && !p.Dead) Shell(p, 20f + MathF.Sin(_time * 5f) * 0.8f, new Color(0.75f, 0.9f, 1f, 0.42f));
-            if (p.Bubbled && !p.Dead) Shell(p, 26f + MathF.Sin(_time * 3f) * 1.2f, new Color(0.55f, 0.95f, 0.9f, 0.3f));
+            if (p.Bubbled && !p.Dead && bubbles < 6)
+            {
+                var c = W3.P(p.GlobalPosition + new Vector2(0, -2), 0f);
+                float rad = W3.M(p.BubbleRadius) * (1f + MathF.Sin(_time * 3f + bubbles) * 0.03f);
+                circles[bubbles++] = new Vector4(c.X, c.Y, rad, 1f);
+            }
+        }
+        if (bubbles == 0) _field.Visible = false;
+        else
+        {
+            // a sheet big enough to hold every bubble and the glow round it
+            Vector2 lo = new(float.MaxValue, float.MaxValue), hi = new(float.MinValue, float.MinValue);
+            for (int k = 0; k < bubbles; k++)
+            {
+                var c = circles[k];
+                lo = new Vector2(Math.Min(lo.X, c.X - c.Z * 1.6f), Math.Min(lo.Y, c.Y - c.Z * 1.6f));
+                hi = new Vector2(Math.Max(hi.X, c.X + c.Z * 1.6f), Math.Max(hi.Y, c.Y + c.Z * 1.6f));
+            }
+            _field.Visible = true;
+            _field.GlobalTransform = new Transform3D(Basis.FromScale(new Vector3(hi.X - lo.X, hi.Y - lo.Y, 1f)), new Vector3((lo.X + hi.X) * 0.5f, (lo.Y + hi.Y) * 0.5f, 0.4f));
+            for (int k = 0; k < 6; k++) _fieldMat.SetShaderParameter("c" + k, k < bubbles ? circles[k] : Vector4.Zero);
+            _fieldMat.SetShaderParameter("time", _time);
         }
         for (int k = shells; k < _shells.Length; k++) _shells[k].Visible = false;
         if (!blade) _bladeLight.Visible = false;

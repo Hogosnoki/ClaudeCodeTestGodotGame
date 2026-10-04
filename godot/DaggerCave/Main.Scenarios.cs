@@ -626,6 +626,16 @@ public partial class Main
         p.Hp = 500; friend.Hp = 500;
         p.Hurt(20f, foe.GlobalPosition, 0f, foe);
         ScCheck($"a friend far off takes none, the one struck all ({500 - p.Hp:0.0}, {500 - friend.Hp:0.0})", Math.Abs(500 - p.Hp - 20f) < 1.5f && friend.Hp >= 499.9f);
+        // bubbles: far apart, one pays it all; side by side they split it
+        foreach (var d in new[] { 200f, 4f })
+        {
+            friend.GlobalPosition = p.GlobalPosition + new Vector2(d, 0);
+            p.TestClearBubble(); friend.TestClearBubble();
+            p.GiveBubble(100f, 30f, false); friend.GiveBubble(100f, 30f, false);
+            p.Hurt(20f, foe.GlobalPosition, 0f, null);
+            float mine = 100f - p.BubbleHp, theirs = 100f - friend.BubbleHp;
+            ScCheck($"bubbles {d:0} px apart soak 10 of a blow of 20: this one pays {mine:0.0}, the friend's {theirs:0.0}", d > 100f ? Math.Abs(mine - 10f) < 0.6f && theirs < 0.1f : Math.Abs(mine - 5f) < 1f && Math.Abs(theirs - 5f) < 1f);
+        }
         ScEnd();
     }
 }

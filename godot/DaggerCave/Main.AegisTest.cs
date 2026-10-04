@@ -122,6 +122,7 @@ public partial class Main
             {
                 if (_scT < 0.4f) return;
                 ScCheck($"the friend carries a burden ({_scAlly.Burdened}) and the Aegis knows whose ({p.BurdenTarget == _scAlly})", _scAlly.Burdened && p.BurdenTarget == _scAlly);
+                p.TestClearBubble(); _scAlly.TestClearBubble();
                 _scAllyHp = _scAlly.Hp; _scAegisHp = p.Hp;
                 _scAlly.Hurt(20f, p.GlobalPosition, 0, null);
                 float friendLost = _scAllyHp - _scAlly.Hp, aegisLost = _scAegisHp - p.Hp, share = Tune.Aegis.BurdenShare;

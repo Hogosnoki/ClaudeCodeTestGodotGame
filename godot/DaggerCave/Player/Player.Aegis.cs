@@ -25,6 +25,11 @@ public partial class Player
     private float _bubbleLeft;
     private bool _bubbleHeal;
     /// <summary>Wrapped in a bubble (a puppet goes by its game's flags).</summary>
+    private float _bubbleCap, _netBubbleFrac;
+    /// <summary>How much of its bubble is left (0..1): the bubble shrinks as it soaks.</summary>
+    public float BubbleFrac => IsRemote ? ((_netFlags & HfBubble) != 0 ? Math.Max(0.05f, _netBubbleFrac) : 0f) : _bubbleCap > 0 ? Math.Clamp(BubbleHp / _bubbleCap, 0f, 1f) : 0f;
+    /// <summary>The bubble's radius (px): from a snug shell when nearly spent to a roomy one when full.</summary>
+    public float BubbleRadius => Tune.Aegis.BubbleRadiusMin + (Tune.Aegis.BubbleRadiusMax - Tune.Aegis.BubbleRadiusMin) * MathF.Sqrt(BubbleFrac);
     public bool Bubbled => IsRemote ? (_netFlags & HfBubble) != 0 : BubbleHp > 0.01f;
 
     // ---- a Shared Burden on this hero (the Aegis who took it, how much of each blow, for how long)
@@ -277,11 +282,16 @@ public partial class Player
         }
         else
         {
-            var ally = PickAlly(aim);
-            var who = ally ?? this;
-            float cap = Tune.Aegis.BubbleShare * who.Stats.MaxHp * Stats.WardMult * Stats.BubbleMult;
-            who.GiveBubble(cap, Tune.Aegis.BubbleSeconds, Stats.BubbleHeal);
-            if (who != this) G.Fx.Beam(CastPoint, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 0.95f, 0.9f, 0.9f));
+            // a field: every hero near the Aegis (herself too) is wrapped, each in a bubble the size of their own
+            // health's share; where the bubbles touch they act as one
+            foreach (var who in G.Players.ToArray())
+            {
+                if (who == null || !IsInstanceValid(who) || who.Dead) continue;
+                if (who != this && who.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Aegis.BubbleCastRadius) continue;
+                float cap = Tune.Aegis.BubbleShare * who.Stats.MaxHp * Stats.WardMult * Stats.BubbleMult;
+                who.GiveBubble(cap, Tune.Aegis.BubbleSeconds, Stats.BubbleHeal);
+                if (who != this) G.Fx.Beam(CastPoint, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 0.95f, 0.9f, 0.9f));
+            }
         }
         _bubbleCd = Tune.Aegis.BubbleCooldown * Stats.BubbleCdMult;
         G.Sfx.Play("bubble", CastPoint, -4, 0.05f, 1.0f);
@@ -295,6 +305,7 @@ public partial class Player
         if (Dead) return;
         if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Bubble, cap, seconds, healBurst ? 1f : 0f); return; }
         BubbleHp = Math.Max(BubbleHp, cap);
+        _bubbleCap = Math.Max(_bubbleCap, BubbleHp);
         _bubbleLeft = Math.Max(_bubbleLeft, seconds);
         _bubbleHeal |= healBurst;
         G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 26, new Color(0.6f, 0.95f, 0.9f), 0.4f);
@@ -304,26 +315,76 @@ public partial class Player
 
     private void TickBubble(float dt)
     {
-        if (BubbleHp > 0 && (_bubbleLeft -= dt) <= 0) { BubbleHp = 0; _bubbleHeal = false; G.Fx.Bubbles(GlobalPosition + new Vector2(0, -8), 5); }
+        if (BubbleHp > 0 && (_bubbleLeft -= dt) <= 0) { BubbleHp = 0; _bubbleCap = 0; _bubbleHeal = false; G.Fx.Bubbles(GlobalPosition + new Vector2(0, -8), 5); }
         if (BubbleHp > 0 && G.Chance(dt * 2f)) G.Fx.Bubbles(GlobalPosition + new Vector2(G.Range(-8, 8), -4), 1);
         if (_burdenLeft > 0 && (_burdenLeft -= dt) <= 0) _burdenLeft = 0;
     }
 
-    /// <summary>The bubble takes its share of a blow, and bursts once it has taken all it can.</summary>
+    /// <summary>How much two bubbles run together, 0 (apart or just kissing) to 1 (one inside the other): the lens where they overlap, over the smaller one's area.</summary>
+    public static float BubbleLink(Player a, Player b)
+    {
+        float r1 = a.BubbleRadius, r2 = b.BubbleRadius, d = a.GlobalPosition.DistanceTo(b.GlobalPosition);
+        if (d >= r1 + r2) return 0f;
+        float lo = Math.Min(r1, r2);
+        if (d <= Math.Abs(r1 - r2)) return 1f;
+        float a1 = Mathf.Clamp((d * d + r1 * r1 - r2 * r2) / (2 * d * r1), -1f, 1f), a2 = Mathf.Clamp((d * d + r2 * r2 - r1 * r1) / (2 * d * r2), -1f, 1f);
+        float lens = r1 * r1 * MathF.Acos(a1) + r2 * r2 * MathF.Acos(a2) - 0.5f * MathF.Sqrt(Math.Max(0f, (-d + r1 + r2) * (d + r1 - r2) * (d - r1 + r2) * (d + r1 + r2)));
+        return Math.Clamp(lens / (MathF.PI * lo * lo), 0f, 1f);
+    }
+
+    /// <summary>
+    /// The bubble takes its share of a blow, and bursts once it has taken all it can. Bubbles that
+    /// touch share the load by how far they run together: alone, it all falls on this one; two
+    /// barely joined, a sliver goes to the other; a clustered party splits it nearly evenly.
+    /// </summary>
     private float BubbleSoak(float dmg)
     {
         if (BubbleHp <= 0.01f || dmg <= 0) return dmg;
-        float soaked = Math.Min(BubbleHp, dmg * Stats.BubbleAbsorb);
+        float want = dmg * Stats.BubbleAbsorb;
+        List<(Player p, float w)> links = null;
+        float sum = 1f;
+        foreach (var h in G.Players)
+        {
+            if (h == this || h.Dead || !IsInstanceValid(h) || !h.Bubbled) continue;
+            float w = BubbleLink(this, h);
+            if (w < 0.03f) continue;
+            (links ??= new()).Add((h, w));
+            sum += w;
+        }
+        // (this bubble pays 1/sum of the soak: never more than it has)
+        float total = Math.Min(want, BubbleHp * sum);
+        float own = total / sum;
         float bubble0 = BubbleHp;
-        BubbleHp -= soaked;
+        BubbleHp -= own;
+        if (links != null)
+            foreach (var (h, w) in links)
+            {
+                float amt = total * w / sum;
+                if (h.IsRemote) NetSync.BoonRemote(h, NetSync.Boon.BubbleDrain, amt, 0);
+                else h.DrainBubble(amt);
+            }
         if (Num.Delta(bubble0, BubbleHp) > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"{Num.Delta(bubble0, BubbleHp)} ABSORBED", new Color(0.65f, 1f, 0.92f), 9, 0.6f);
         if (BubbleHp <= 0.01f) BurstBubble();
-        return dmg - soaked;
+        return dmg - total;
+    }
+
+    /// <summary>Test aid: no bubble.</summary>
+    public void TestClearBubble() { BubbleHp = 0; _bubbleCap = 0; _bubbleLeft = 0; }
+
+    /// <summary>A neighbouring bubble paid its share through this one.</summary>
+    public void DrainBubble(float amount)
+    {
+        if (BubbleHp <= 0.01f || Dead) return;
+        float b0 = BubbleHp;
+        BubbleHp = Math.Max(0f, BubbleHp - amount);
+        if (Num.Delta(b0, BubbleHp) > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"{Num.Delta(b0, BubbleHp)} SHARED", new Color(0.65f, 1f, 0.92f), 8, 0.5f);
+        if (BubbleHp <= 0.01f) BurstBubble();
     }
 
     private void BurstBubble()
     {
         BubbleHp = 0;
+        _bubbleCap = 0;
         _bubbleLeft = 0;
         var at = GlobalPosition + new Vector2(0, -4);
         G.Fx.Burst(at, new Color(0.65f, 1f, 0.92f), 16, 160, 2f, 0.4f);
