@@ -562,6 +562,7 @@ public partial class Main
 
     // ---------------------------------------------------------------- boulders in a passage
     private Rubble _scPlug;
+    private bool _scShrineShot0;
     private int _scHeaves;
 
     private void RubbleScenario()
@@ -580,17 +581,29 @@ public partial class Main
             _scPhase = 1; _scT = 0;
             return;
         }
+        if (_scPhase == 4)
+        {
+            // (with --shots=DIR: the nearest shrine, as it starts and after it has sunk to the floor)
+            Chest shrine = null;
+            foreach (var c in Chest.All) if (GodotObject.IsInstanceValid(c) && c.IsShrine) { shrine = c; break; }
+            if (shrine == null) { ScEnd(); return; }
+            p.GlobalPosition = shrine.GlobalPosition + new Vector2(-50, -10);
+            if (_scT > 0.4f && !_scShrineShot0) { _scShrineShot0 = true; GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/shrine_0.png"); }
+            if (_scT > 8f) { GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/shrine_1.png"); ScEnd(); }
+            return;
+        }
         p.Hp = Math.Max(p.Hp, 1000);
         p.GlobalPosition = new Vector2(_scPlug.GlobalPosition.X - _scPlug.Size.X * 0.5f - 14, p.GlobalPosition.Y);
         if (_scPhase == 1)
         {
             ScCheck("the hero is within reach of it", _scPlug.Reaches(p.GlobalPosition));
+            if (_shotDir != "") GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/rubble_0.png");
             _scPhase = 2; _scT = 0;
             return;
         }
         if (_scPhase == 2)
         {
-            if (_scT > 0.25f) { _scT = 0; if (!_scPlug.Cleared) { _scPlug.Heave(); _scHeaves++; } }
+            if (_scT > 0.25f) { _scT = 0; if (!_scPlug.Cleared) { _scPlug.Heave(); _scHeaves++; if (_shotDir != "" && _scHeaves == 2) GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/rubble_1.png"); } }
             if (_scPlug.Cleared)
             {
                 ScCheck($"{_scHeaves} heaves clear it (it takes {Tune.Rubble.Hits})", _scHeaves == Tune.Rubble.Hits);
@@ -601,6 +614,7 @@ public partial class Main
         if (_scT > 0.3f)
         {
             ScCheck("the way is open: no collision left", _scPlug.GetChild<CollisionShape2D>(0).Disabled);
+            if (_shotDir != "") { GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/rubble_2.png"); _scPhase = 4; _scT = 0; return; }
             ScEnd();
         }
     }

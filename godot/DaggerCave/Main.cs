@@ -207,7 +207,7 @@ public partial class Main : Node
         if (_seed == 0 && _scenario == "magma") _seed = 2;
         if (_seed == 0 && _scenario == "water") _seed = 1013;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
-        if (_heroTest) { Player.KnockLock = false; Tune.Combat.HurtKnockbackMult = 0.8f; }
+        if (_heroTest) { Player.KnockLock = false; Tune.Combat.HurtKnockbackMult = 0.8f; Tune.Feel.HitStopPlayerHurt = 0.18f; }
         if (_heroTest) Tune.Cave.HeightScale = 1f; // (the tests were laid out for the original cave height)
         if (_seed == 0 && _heroTest) _seed = 5065; // (a cave whose start chamber has room for every hero's test)
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
@@ -1121,7 +1121,7 @@ public partial class Main : Node
         FadeFrom(new Color(1f, 0.98f, 0.92f), 1.3f);
     }
 
-    private const int HeroCount = 6;
+    private static readonly int HeroCount = Enum.GetValues<HeroKind>().Length;
 
     private void PickHero(HeroKind h)
     {

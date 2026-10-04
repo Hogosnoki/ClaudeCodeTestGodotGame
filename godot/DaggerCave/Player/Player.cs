@@ -902,7 +902,7 @@ public partial class Player : CharacterBody2D
             return NetSync.HurtRemote(this, dmg, from, knock, source, pooled: true);
         }
         NetSync.Scope++;
-        try { return HurtHere(dmg, from, knock, source); }
+        try { return HurtHere(dmg, from, knock, source, pooled); }
         finally { NetSync.Scope--; }
     }
 
@@ -926,7 +926,7 @@ public partial class Player : CharacterBody2D
         return share;
     }
 
-    private float HurtHere(float dmg, Vector2 from, float knock, Enemy source)
+    private float HurtHere(float dmg, Vector2 from, float knock, Enemy source, bool shared = false)
     {
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
         var block = TryBlock(from, dmg, melee ? source : null, source);
@@ -959,6 +959,8 @@ public partial class Player : CharacterBody2D
         // (a blow that lands brings a vanished Rogue out of the shadows)
         Reveal(true);
         _invuln = Stats.HurtInvuln;
+        // a share of a friend's blow: the damage only. No flinch, no hit-stop and no shove: only the hero struck is thrown back
+        if (shared) { Anim.Flash(0.5f); return dmg; }
         var away = (GlobalPosition - from).Normalized();
         // turn to face what hit you, then recoil
         if (Math.Abs(from.X - GlobalPosition.X) > 2) Facing = Math.Sign(from.X - GlobalPosition.X);
@@ -974,7 +976,7 @@ public partial class Player : CharacterBody2D
         float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f);
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         _dodgeT = 0; _airDashT = 0; _dashT = 0;
-        _knockT = KnockLock ? 0.25f : 0f;
+        _knockT = KnockLock ? 0.12f : 0f;
         return dmg;
     }
 

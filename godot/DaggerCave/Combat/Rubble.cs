@@ -62,7 +62,7 @@ public partial class Rubble : StaticBody2D, IBreakable
     {
         if (Cleared || _cool > 0) return;
         _cool = 0.18f;
-        ShakeT = 0.25f;
+        ShakeT = 0.45f;
         Left--;
         G.Sfx.Play("rock", GlobalPosition, -4, 0.1f, heave ? 0.8f : 1f);
         G.Fx.Debris(GlobalPosition, new Color(0.5f, 0.45f, 0.4f), 6, 120);

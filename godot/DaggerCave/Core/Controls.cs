@@ -54,9 +54,9 @@ public static class Controls
         ["ability2"] = new InputEvent[] { K(Key.F), M(MouseButton.Middle), K(Key.I), Ax(JoyAxis.TriggerRight, 1) },
         ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder) },
         ["potion"] = new InputEvent[] { K(Key.Q), J(JoyButton.Y) },
-        ["milestone"] = new InputEvent[] { K(Key.M), J(JoyButton.RightStick) },
-        ["rope"] = new InputEvent[] { K(Key.C), J(JoyButton.LeftStick) },
-        ["support"] = new InputEvent[] { K(Key.V), M(MouseButton.Xbutton1), J(JoyButton.Misc1) },
+        ["milestone"] = new InputEvent[] { K(Key.M), J(JoyButton.Back) },
+        ["rope"] = new InputEvent[] { K(Key.C), J(JoyButton.RightStick) },
+        ["support"] = new InputEvent[] { K(Key.V), M(MouseButton.Xbutton1), J(JoyButton.LeftStick) },
         // (a trigger: held to revive a friend while both thumbs keep you swimming)
         ["interact"] = new InputEvent[] { K(Key.E), Ax(JoyAxis.TriggerLeft, 1) },
         ["pause"] = new InputEvent[] { K(Key.Escape), J(JoyButton.Start) },
@@ -190,7 +190,7 @@ public static class Controls
     }
 
     /// <summary>Bumped when the defaults change in a way saved bindings should pick up.</summary>
-    private const int BindingsVersion = 3;
+    private const int BindingsVersion = 4;
 
     public static void Save(ConfigFile cfg)
     {
@@ -225,6 +225,22 @@ public static class Controls
         {
             Rebind("interact", 0, lt);
             Rebind("dodge", 1, lb);
+        }
+        // version 4: the support ability is on L3, the rope on R3 and the milestone on BACK (a saved set
+        // that still has the old controller buttons, or none, moves over)
+        if (version < 4)
+        {
+            void SetPad(string action, JoyButton from, JoyButton to, bool onlyIfPlain)
+            {
+                var pad = Bindings(action, true);
+                bool plain = pad.Count == 0 || (pad.Count == 1 && pad[0] is InputEventJoypadButton jb && jb.ButtonIndex == from);
+                if (onlyIfPlain && !plain) return;
+                foreach (var e in pad) InputMap.ActionEraseEvent(action, e);
+                InputMap.ActionAddEvent(action, J(to));
+            }
+            SetPad("support", JoyButton.Misc1, JoyButton.LeftStick, true);
+            SetPad("rope", JoyButton.LeftStick, JoyButton.RightStick, true);
+            SetPad("milestone", JoyButton.RightStick, JoyButton.Back, true);
         }
     }
 

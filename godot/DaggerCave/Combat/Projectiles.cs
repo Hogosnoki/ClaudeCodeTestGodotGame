@@ -26,10 +26,10 @@ public partial class LifeMote : Node2D
     {
         ZIndex = 2;
         if (Caster == null || !IsInstanceValid(Caster)) return;
-        // flung out to one side first, so the way home is a whip-crack of an arc
+        // an explosion out of the creature, a different one every time (any direction), but with speed toward
+        // the one it is flying to from the first instant
         var home = (Caster.CastPoint - GlobalPosition).Normalized();
-        var side = new Vector2(-home.Y, home.X) * (G.Chance(0.5f) ? 1 : -1);
-        Vel = side * G.Range(150, 260) - home * G.Range(40, 110);
+        Vel = G.RandDir() * G.Range(90f, 230f) + home * G.Range(120f, 230f);
     }
 
     public override void _PhysicsProcess(double delta)

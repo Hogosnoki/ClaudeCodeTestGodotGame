@@ -1044,11 +1044,13 @@ public partial class ChestView : PropView
             }
 
         }
-        _shine = PropViews.Sprite(_tint, 4, boss ? 1.6f : 1.2f, boss ? 1.9f : 1.4f);
-        _shine.Position = new Vector3(0, h + 0.2f, 0);
+        bool shrine = _float != null;
+        // (a shrine's own shape glows: the wash of light round it is kept faint so the shape reads)
+        _shine = PropViews.Sprite(_tint, 4, shrine ? 0.35f : boss ? 1.6f : 1.2f, shrine ? 0.9f : boss ? 1.9f : 1.4f);
+        _shine.Position = new Vector3(0, shrine ? _floatY + 0.1f : h + 0.2f, 0);
         AddChild(_shine);
-        _light = PropViews.Light(_tint.Lerp(Colors.White, 0.2f), boss ? 1.3f : 0.8f, boss ? 5.5f : 4f);
-        _light.Position = new Vector3(0, h + 0.4f, 0.4f);
+        _light = PropViews.Light(_tint.Lerp(Colors.White, 0.2f), shrine ? 0.45f : boss ? 1.3f : 0.8f, boss ? 5.5f : 4f);
+        _light.Position = new Vector3(0, shrine ? _floatY + 0.3f : h + 0.4f, 0.4f);
         AddChild(_light);
 
         if (c0.Hung) BuildWeb(c0, w, h, d);
@@ -1061,29 +1063,55 @@ public partial class ChestView : PropView
         AddChild(_owner);
     }
 
-    /// <summary>A shrine of upgrades: a low stone, and over it a three-pronged trident turning in the air.</summary>
+    /// <summary>
+    /// A shrine of upgrades: nothing set on the ground. A glowing, flat, three-pronged shape floats loose in
+    /// the dungeon (a triangular body, wide at the top and tapering to a heavy point beneath, and three
+    /// spikes rising from it), sinking slowly to the floor, swinging on its heavy point like a pendulum, and
+    /// settling upright.
+    /// </summary>
     private void BuildShrine(bool boss, Color glow)
     {
-        float k = boss ? 1.35f : 1f;
-        var stone = new MeshBuilder();
-        PropMeshes.Box(stone, new Vector3(0, 0.05f, 0), new Vector3(0.34f * k, 0.05f, 0.3f * k), new Color(0.2f, 0.2f, 0.25f));
-        PropMeshes.Box(stone, new Vector3(0, 0.13f, 0), new Vector3(0.22f * k, 0.035f, 0.2f * k), new Color(0.3f, 0.3f, 0.37f));
-        PropMeshes.Box(stone, new Vector3(0, 0.2f, 0), new Vector3(0.05f * k, 0.04f, 0.05f * k), glow.Darkened(0.2f));
-        AddChild(PropViews.Mesh(stone, PropViews.VertexColored));
-        _floatY = 0.62f * k;
+        float k = boss ? 2.0f : 1.45f;
+        _floatY = 0.34f * k;
         _float = new Node3D { Position = new Vector3(0, _floatY, 0) };
         AddChild(_float);
-        var prongs = new MeshBuilder();
-        var c = Colors.White;
-        PropMeshes.Box(prongs, new Vector3(0, -0.12f * k, 0), new Vector3(0.022f * k, 0.2f * k, 0.022f * k), c);
-        PropMeshes.Box(prongs, new Vector3(0, 0.07f * k, 0), new Vector3(0.17f * k, 0.022f * k, 0.022f * k), c);
-        foreach (float x in new[] { -0.15f, 0f, 0.15f })
+        float t = 0.035f * k;     // half thickness
+        void Poly(MeshBuilder mb, Color c, params Vector2[] p)
         {
-            float len = x == 0 ? 0.26f : 0.18f;
-            PropMeshes.Box(prongs, new Vector3(x * k, (0.07f + len * 0.5f) * k, 0), new Vector3(0.016f * k, len * 0.5f * k, 0.016f * k), c);
-            PropMeshes.Box(prongs, new Vector3(x * k, (0.07f + len + 0.02f) * k, 0), new Vector3(0.03f * k, 0.03f * k, 0.016f * k), c, new Basis(Vector3.Back, Mathf.Pi / 4));
+            // (a flat convex polygon, a front and a back; the rim is bevelled by a smaller one in front)
+            var front = new int[p.Length]; var back = new int[p.Length];
+            for (int i = 0; i < p.Length; i++)
+            {
+                front[i] = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, t), Vector3.Back, c);
+                back[i] = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, -t), Vector3.Forward, c);
+            }
+            for (int i = 1; i < p.Length - 1; i++) { mb.Tri(front[0], front[i], front[i + 1]); mb.Tri(back[0], back[i + 1], back[i]); }
+            for (int i = 0; i < p.Length; i++)
+            {
+                int j = (i + 1) % p.Length;
+                var edge = new Vector3((p[j].Y - p[i].Y), -(p[j].X - p[i].X), 0).Normalized();
+                int a0 = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, t), edge, c), a1 = mb.Add(new Vector3(p[j].X * k, p[j].Y * k, t), edge, c);
+                int b0 = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, -t), edge, c), b1 = mb.Add(new Vector3(p[j].X * k, p[j].Y * k, -t), edge, c);
+                mb.Quad(a0, b0, b1, a1); mb.Quad(a0, a1, b1, b0);
+            }
         }
-        _float.AddChild(PropViews.Mesh(prongs, PropViews.Emissive(glow, 1.6f), false));
+        var body = new MeshBuilder();
+        // the triangular body: wide across the top, a heavy point beneath
+        Poly(body, Colors.White, new Vector2(-0.2f, 0.12f), new Vector2(0.2f, 0.12f), new Vector2(0f, -0.22f));
+        // the three prongs: a long centre one and two shorter, leaning outward, each a narrow kite
+        Poly(body, Colors.White, new Vector2(-0.05f, 0.12f), new Vector2(0f, 0.2f), new Vector2(0.05f, 0.12f), new Vector2(0f, 0.5f));
+        Poly(body, Colors.White, new Vector2(-0.2f, 0.12f), new Vector2(-0.13f, 0.12f), new Vector2(-0.25f, 0.38f));
+        Poly(body, Colors.White, new Vector2(0.13f, 0.12f), new Vector2(0.2f, 0.12f), new Vector2(0.25f, 0.38f));
+        _float.AddChild(PropViews.Mesh(body, PropViews.Emissive(glow, 1.1f), false));
+        // a brighter core in the triangle (the weight of it), and a halo
+        var core = new MeshBuilder();
+        Poly(core, Colors.White, new Vector2(-0.1f, 0.06f), new Vector2(0.1f, 0.06f), new Vector2(0f, -0.12f));
+        var coreNode = PropViews.Mesh(core, PropViews.Emissive(glow.Lerp(Colors.White, 0.6f), 2.0f), false);
+        coreNode.Position = new Vector3(0, 0, t * 0.6f);
+        _float.AddChild(coreNode);
+        var halo = PropViews.Sprite(glow, 0, 0.3f, 0.8f * k);
+        halo.Position = new Vector3(0, 0.1f * k, 0);
+        _float.AddChild(halo);
     }
 
     /// <summary>A chest strung up in a web: a thread to the ceiling and a pale cocoon of silk round it.</summary>
@@ -1121,9 +1149,12 @@ public partial class ChestView : PropView
         Rotation = new Vector3(0, 0, -c.Tilt);
         if (_float != null)
         {
-            // (the shrine's trident turns and bobs; taken, it shrinks away)
-            _float.Position = new Vector3(0, _floatY + 0.05f * MathF.Sin(Time * 2f), 0);
-            _float.Rotation = new Vector3(0, Time * 1.3f, 0);
+            // (the shrine's shape sinks loose from the air, swinging on its heavy point as a pendulum would,
+            // then settles upright and hangs a hand above the floor, turning a little; taken, it shrinks away)
+            float lift = W3.M(c.ShrineLift);
+            float sway = 0.32f * MathF.Sin(Time * 1.9f) * Math.Clamp(lift / 2f, 0.12f, 1f);
+            _float.Position = new Vector3(0, _floatY + lift + 0.03f * MathF.Sin(Time * 2f), 0);
+            _float.Rotation = new Vector3(0, 0.55f * MathF.Sin(Time * 0.9f), sway);
             _float.Scale = Vector3.One * (c.Open ? Math.Max(0.001f, 1f - c.OpenT * 3f) : 1f);
         }
         // the web holds until it's cut (then it parts: the thread goes, and the silk)
@@ -1858,68 +1889,119 @@ public partial class IcePlatformView : PropView
     }
 }
 
-/// <summary>A plug of fallen boulders: a heap of rough rocks filling the passage, jolting when struck, a few
-/// rolling off with each blow, and when it is cleared the rest tumble away and settle.</summary>
+/// <summary>
+/// A plug of fallen boulders: an unstable stack of rough rocks jammed into the passage, big ones at the
+/// bottom, smaller wedged on top, each turned and leaning its own way. It creaks and sways when struck or
+/// heaved at, sagging a little more with each blow; rocks work loose from the top and tumble off, and when it
+/// is cleared the rest slide and roll away and settle.
+/// </summary>
 public partial class RubbleView : PropView
 {
-    private const int Rocks = 16;
-    private readonly MeshInstance3D[] _rock = new MeshInstance3D[Rocks];
-    private readonly Vector3[] _home = new Vector3[Rocks], _vel = new Vector3[Rocks], _off = new Vector3[Rocks], _spin = new Vector3[Rocks];
-    private readonly float[] _size = new float[Rocks];
-    private readonly bool[] _loose = new bool[Rocks];
-    private int _shown = Rocks;
+    private const int MaxRocks = 24;
+    private readonly MeshInstance3D[] _rock = new MeshInstance3D[MaxRocks];
+    private readonly Vector3[] _home = new Vector3[MaxRocks], _vel = new Vector3[MaxRocks], _off = new Vector3[MaxRocks], _spin = new Vector3[MaxRocks];
+    private readonly Basis[] _rest = new Basis[MaxRocks];
+    private readonly float[] _size = new float[MaxRocks], _row = new float[MaxRocks];
+    private readonly bool[] _loose = new bool[MaxRocks];
+    private int _count, _shown;
+    private Node3D _stack;
+    private float _h, _sway, _swayV;
 
     protected override void Build()
     {
         var r = (Rubble)Owner2D;
         var rng = new Random(r.Index * 131 + 7);
+        var noise = new Noise3(r.Index * 17 + 3);
         float w = W3.M(r.Size.X), h = W3.M(r.Size.Y);
-        for (int k = 0; k < Rocks; k++)
+        _h = h;
+        // (everything hangs from the base so the whole stack can lean over together)
+        _stack = new Node3D { Position = new Vector3(0, -h * 0.5f, 0) };
+        AddChild(_stack);
+        float y = 0f; int row = 0;
+        while (y < h - 0.25f && _count < MaxRocks - 3)
         {
-            // (the rocks fill the passage from its floor up)
-            float y = -h * 0.5f + (k + 0.5f) / Rocks * h;
-            _home[k] = new Vector3((float)(rng.NextDouble() - 0.5) * w * 0.9f, y, (float)(rng.NextDouble() - 0.5) * 0.5f);
-            _size[k] = (0.35f + (float)rng.NextDouble() * 0.4f) * Math.Max(w, 0.7f) * 0.55f;
-            var col = 0.32f + (float)rng.NextDouble() * 0.16f;
-            var mat = new StandardMaterial3D { AlbedoColor = new Color(col, col * 0.93f, col * 0.85f), Roughness = 0.95f };
-            _rock[k] = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.5f, Height = 1f, RadialSegments = 7, Rings = 4 }, MaterialOverride = mat };
-            _rock[k].Scale = new Vector3(_size[k] * (0.9f + (float)rng.NextDouble() * 0.5f), _size[k] * (0.7f + (float)rng.NextDouble() * 0.4f), _size[k]);
-            _rock[k].Rotation = new Vector3((float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f);
-            _rock[k].Position = _home[k];
-            AddChild(_rock[k]);
-            _spin[k] = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 8f;
+            // big rocks below, smaller wedged in above; a row holds two or three, shifted from the one beneath
+            float big = Mathf.Lerp(0.78f, 0.5f, Math.Clamp(y / Math.Max(0.5f, h), 0f, 1f));
+            int n = row % 2 == 0 ? 2 : 3;
+            if (w < 1.4f) n = 2;
+            float rowH = 0f;
+            for (int k = 0; k < n && _count < MaxRocks; k++)
+            {
+                float size = big * (0.8f + 0.4f * (float)rng.NextDouble());
+                float span = Math.Max(0.1f, w - size * 1.2f);
+                float x = n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * span + ((float)rng.NextDouble() - 0.5f) * 0.18f;
+                if (row % 2 == 1) x += 0.12f * (rng.Next(2) == 0 ? -1 : 1);
+                var mb = DecorMeshes.Boulder(rng, noise, size);
+                // (plain grey-brown stone, each rock its own shade, paler on top, darker where it is crowded)
+                float tone = 0.34f + 0.16f * (float)rng.NextDouble();
+                for (int c = 0; c < mb.Count; c++)
+                {
+                    float up = Math.Clamp(mb.V[c].Y / size + 0.3f, 0f, 1f);
+                    float t = tone * (0.7f + 0.4f * up);
+                    mb.C[c] = new Color(t * 1.02f, t * 0.96f, t * 0.88f);
+                }
+                var mat = PropViews.Rock;
+                var node = PropViews.Mesh(mb, mat);
+                // jammed in at its own angle, a little sunk into its neighbours
+                var basis = new Basis(Vector3.Up, (float)rng.NextDouble() * Mathf.Tau) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 0.7f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.5f);
+                node.Basis = basis;
+                _rest[_count] = basis;
+                _home[_count] = new Vector3(x, y - 0.06f, ((float)rng.NextDouble() - 0.5f) * 0.4f);
+                _size[_count] = size; _row[_count] = y / Math.Max(0.5f, h);
+                _spin[_count] = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 7f;
+                node.Position = _home[_count];
+                _stack.AddChild(node);
+                _rock[_count++] = node;
+                rowH = Math.Max(rowH, size * 0.72f);
+            }
+            y += rowH * 0.9f;
+            row++;
         }
+        _shown = _count;
     }
 
     protected override void Sync(float dt)
     {
         var r = (Rubble)Owner2D;
         Follow(default, 0.1f);
-        float h = W3.M(r.Size.Y);
-        // each blow sends a few of the rocks (from the top) rolling off
-        int keep = r.Cleared ? 0 : (int)Math.Ceiling(Rocks * (r.Left / (float)Tune.Rubble.Hits));
-        for (int k = Rocks - 1; k >= keep && k < _shown; k--)
+        // (each blow jolts the stack: it rocks on its base like a loose pile, then settles slowly at a worse lean)
+        if (r.ShakeT > 0 && _swayV == 0f) _swayV = (G.Chance(0.5f) ? 1f : -1f) * 3.2f;
+        if (r.ShakeT <= 0) _swayV = 0f;
+        else { _sway += _swayV * dt; _swayV -= (_sway * 80f + _swayV * 4f) * dt; }
+        _sway *= MathF.Exp(-3f * dt);
+        float sag = r.Cleared ? 0f : (1f - r.Left / (float)Tune.Rubble.Hits) * 0.05f;
+        _stack.Rotation = new Vector3(0, 0, _sway * 0.09f + sag);
+        // each blow sends a few of the top rocks rolling off
+        int keep = r.Cleared ? 0 : (int)Math.Ceiling(_count * (r.Left / (float)Tune.Rubble.Hits));
+        for (int k = _count - 1; k >= keep && k < _shown; k--)
         {
             _loose[k] = true;
-            _vel[k] = new Vector3((k % 2 == 0 ? 1 : -1) * (1.2f + (k % 3) * 0.6f), 1.6f + (k % 4) * 0.4f, 0.4f);
+            _vel[k] = new Vector3((k % 2 == 0 ? 1 : -1) * (0.9f + (k % 3) * 0.5f), 1.2f + (k % 4) * 0.35f, 0.6f);
         }
         _shown = Math.Min(_shown, keep);
-        float shake = r.ShakeT > 0 ? (MathF.Sin(r.ShakeT * 90f) * 0.03f) : 0f;
-        for (int k = 0; k < Rocks; k++)
+        for (int k = 0; k < _count; k++)
         {
-            if (!_loose[k]) { _rock[k].Position = _home[k] + new Vector3(shake, 0, 0); continue; }
-            // tumbling: gravity, a bounce off the passage floor, then it rests and fades
-            _vel[k].Y -= 9.8f * dt * 1.6f;
-            _off[k] += _vel[k] * dt;
-            if (_home[k].Y + _off[k].Y < -h * 0.5f + _size[k] * 0.3f)
+            if (!_loose[k])
             {
-                _off[k].Y = -h * 0.5f + _size[k] * 0.3f - _home[k].Y;
-                _vel[k].Y = Math.Abs(_vel[k].Y) > 0.8f ? -_vel[k].Y * 0.4f : 0f;
-                _vel[k].X *= 0.8f;
-                if (_vel[k].Y == 0f) _spin[k] *= 0.9f;
+                // (the higher a rock sits, the more it shifts in a jolt)
+                float lean = _sway * 0.12f * _row[k];
+                _rock[k].Position = _home[k] + new Vector3(lean, 0, 0);
+                _rock[k].Basis = _rest[k] * new Basis(Vector3.Back, _sway * 0.15f * _row[k]);
+                continue;
+            }
+            // tumbling: gravity, bounces off the passage floor, then it rests
+            _vel[k].Y -= 9.8f * dt * 1.5f;
+            _off[k] += _vel[k] * dt;
+            float floorY = _size[k] * 0.02f;
+            if (_home[k].Y + _off[k].Y < floorY)
+            {
+                _off[k].Y = floorY - _home[k].Y;
+                _vel[k].Y = Math.Abs(_vel[k].Y) > 0.9f ? -_vel[k].Y * 0.35f : 0f;
+                _vel[k].X *= 0.8f; _vel[k].Z *= 0.8f;
+                if (_vel[k].Y == 0f) _spin[k] *= 0.88f;
             }
             _rock[k].Position = _home[k] + _off[k];
-            _rock[k].RotateX(_spin[k].X * dt); _rock[k].RotateZ(_spin[k].Z * dt);
+            _rock[k].Basis = (_rock[k].Basis * new Basis(Vector3.Right, _spin[k].X * dt) * new Basis(Vector3.Back, _spin[k].Z * dt)).Orthonormalized();
         }
         if (r.Cleared && r.ClearedT > 3f)
         {

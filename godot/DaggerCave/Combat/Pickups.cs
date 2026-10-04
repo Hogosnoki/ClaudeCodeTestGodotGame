@@ -204,6 +204,11 @@ public partial class Chest : Node2D, IBreakable
     public bool Hung;
     /// <summary>Where it lands (set when hung), and how it's falling.</summary>
     public float LandY, Tilt, TopY;
+    /// <summary>A shrine (a level's ordinary or a guardian's chest: not a vault's, not a relic chest).</summary>
+    public bool IsShrine => !Vault && (Tier == ChestTier.Wood || Tier == ChestTier.Boss);
+    /// <summary>How high (px) a shrine's shape still floats above where it will rest: it sinks slowly from the air.</summary>
+    public float ShrineLift { get; private set; } = Tune.Shrine.StartLift;
+    private float _liftV;
     private float _fallV, _tiltV, _landT;
     private bool _landed;
     /// <summary>Seconds since it was cut (for the web's fall).</summary>
@@ -266,7 +271,7 @@ public partial class Chest : Node2D, IBreakable
     public bool Mine => Owner == 0 || Owner == Net.Me;
 
     /// <summary>Is a hero standing at <paramref name="p"/> close enough to open it?</summary>
-    public bool Reaches(Vector2 p) => !_open && !Hung && Mine && p.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 30;
+    public bool Reaches(Vector2 p) => !_open && !Hung && Mine && p.DistanceTo(GlobalPosition + new Vector2(0, -8 - (IsShrine ? ShrineLift : 0f))) < 30;
 
     /// <summary>The unopened chest a hero at <paramref name="p"/> can open, if any.</summary>
     public static Chest At(Vector2 p)
@@ -309,6 +314,12 @@ public partial class Chest : Node2D, IBreakable
     {
         float dt = (float)delta;
         _t += dt; _askT -= dt;
+        if (IsShrine && ShrineLift > 0)
+        {
+            // loose in the air: it sinks at an unhurried pace, a little faster the longer it has been falling
+            _liftV = Math.Min(Tune.Shrine.SinkSpeed, _liftV + 6f * dt);
+            ShrineLift = Math.Max(0f, ShrineLift - _liftV * dt);
+        }
         if (Hung && CutT >= 0) FallStep(dt);
         if (_open) { _openT += dt; QueueRedraw(); return; }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);

@@ -392,7 +392,7 @@ public static class Tune
         /// you and enemies. Never vertical.</summary>
         public static float StrikeRecoil = 110f;
         /// <summary>Scales how far you are pushed back when struck (horizontal only).</summary>
-        public static float HurtKnockbackMult = 1.1f;
+        public static float HurtKnockbackMult = 0.55f;
         /// <summary>Free swing-cooldown resets per combo before any Flurry upgrades: hit something
         /// and you can swing again at once, this many times, then the full cooldown runs.</summary>
         public static int ComboResetsBase = 1;
@@ -419,7 +419,7 @@ public static class Tune
         /// kept (Tune.Hero.PressBuffer), so the next strike of a combo follows the instant it ends.
         /// </summary>
         public static float HitStopNormal = 0.17f, HitStopKill = 0.23f, HitStopFinisher = 0.3f, HitStopCharged = 0.32f;
-        public static float HitStopWave = 0.12f, HitStopBolt = 0.07f, HitStopDash = 0.14f, HitStopPlayerHurt = 0.18f;
+        public static float HitStopWave = 0.12f, HitStopBolt = 0.07f, HitStopDash = 0.14f, HitStopPlayerHurt = 0.05f;
         /// <summary>Game speed during SlowMo (the only thing that slows the whole game: elite and boss kills).</summary>
         public static float HitStopTimeScale = 0.02f;
         /// <summary>Slow motion on mini-boss / boss kills: (seconds, time scale).</summary>
@@ -585,6 +585,12 @@ public static class Tune
     public static class Elite
     {
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
+    }
+
+    /// <summary>The shrines: loose shapes that sink slowly to the floor from this height (px) at this speed (px/s).</summary>
+    public static class Shrine
+    {
+        public static float StartLift = 56f, SinkSpeed = 14f;
     }
 
     /// <summary>Support abilities (the support button), one per hero, each for the others' sake.</summary>
