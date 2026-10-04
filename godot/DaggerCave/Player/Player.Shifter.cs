@@ -110,7 +110,7 @@ public partial class Player
         G.Fx.Ring(at, 18, new Color(0.9f, 0.93f, 1f, 0.7f), 0.3f);
         G.Sfx.Play("bubble", GlobalPosition, -5, 0.05f, 1.4f);
         _shiftLock = 0.3f;
-        if (cooldown && !IsRemote) SpendAbilityCharge();
+        if (cooldown && !IsRemote && !Stats.FluidShift) SpendAbilityCharge();
     }
 
     /// <summary>Shows the form's model (or the hero's own again): the creature's size, in white ink.</summary>
@@ -186,6 +186,7 @@ public partial class Player
         float dealt = e.Hurt(FormDamage(mult), knock, e.GlobalPosition);
         if (dealt <= 0) { G.Sfx.Play("clink", GlobalPosition, -6); return; }
         OnDealtDamage(dealt);
+        if (Stats.FormBleed && !e.Dead) e.Bleed(dealt * 0.5f, 3f);
         e.Freeze(Tune.Feel.HitStopNormal);
         G.Fx.Spark(e.GlobalPosition, knock.Normalized(), mult > 1.5f, new Color(0.95f, 0.97f, 1f));
         G.Main.Kick(knock.Normalized() * Tune.Feel.KickNormal);
@@ -255,6 +256,7 @@ public partial class Player
         var f = Form;
         _formSpecCd = f.SpecCd * Stats.FormSpecCdMult;
         float spec = Stats.FormSpecDmgMult;
+        if (Stats.SpecEcho && G.Chance(0.35f)) { _formSpecCd = 0; G.Fx.Text(GlobalPosition + new Vector2(0, -46), "ECHO", new Color(0.85f, 0.9f, 1f), 9, 0.6f); }
         _formSpecT = 0f;
         var dir = new Vector2(aim.X != 0 ? Math.Sign(aim.X) : Facing, 0);
         if (dir.X != 0) { Facing = (int)dir.X; Anim.Face((int)Facing, instant: true); }

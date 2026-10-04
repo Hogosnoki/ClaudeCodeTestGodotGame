@@ -25,7 +25,7 @@ public sealed class PlayerStats
     public float AbilityCdMult = 1f;
     /// <summary>Shape Shifter: form damage and special damage multipliers, special recharge, armour and speed added to every form, and how far a Shift reaches.</summary>
     public float FormDmgMult = 1f, FormSpecDmgMult = 1f, FormSpecCdMult = 1f, FormArmorAdd, FormSpeedAdd, ShiftRangeMult = 1f;
-    public bool ShiftHeals;
+    public bool ShiftHeals, FluidShift, FormBleed, SpecEcho;
     public float DaggerReach = 1f;       // swing reach (and bolt range) multiplier
     public float MoveSpeed = 1f;
     public float JumpMult = 1f;
@@ -430,6 +430,9 @@ public static partial class Upgrades
         new() { Id = "pounce", Name = "Pounce", Desc = "Arriving by tether is always a critical strike.", Icon = "move", For = R, Ability = "recall", Requires = "recall_tether", Apply = (s, p) => s.Pounce = true },
 
         // --- the Shape Shifter ---
+        new() { Id = "shift_fluid", Name = "Fluid Form", Desc = "Dropping a form doesn't start Shift's recharge: change shape as often as you like.", Icon = "move", For = SH, Ability = "shift", Alteration = true, Apply = (s, p) => s.FluidShift = true },
+        new() { Id = "form_bleed", Name = "Rending Forms", Desc = "What a form's attacks hit bleeds for half the damage over 3 s.", Icon = "blade", For = SH, Ability = "form", Alteration = true, Apply = (s, p) => s.FormBleed = true },
+        new() { Id = "spec_echo", Name = "Echoing Trick", Desc = "A form's special has a 35% chance to be ready again at once.", Icon = "move", For = SH, Ability = "special", Alteration = true, Apply = (s, p) => s.SpecEcho = true },
         new() { Id = "staff_dmg", Name = "Weighted Staff", Desc = "Your staff hits 30% harder.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult += 0.3f },
         new() { Id = "staff_reach", Name = "Long Grip", Desc = "Your staff reaches 18% farther.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 2, Apply = (s, p) => s.DaggerReach += 0.18f },
         new() { Id = "shift_cd", Name = "Quick Change", Desc = "Shift comes back 20% sooner.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.AbilityCdMult *= 0.8f },
