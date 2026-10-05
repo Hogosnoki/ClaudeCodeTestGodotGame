@@ -145,7 +145,7 @@ public sealed class PlayerStats
     /// <summary>Barrier: strength (x) and recharge (x). Shared Burden: the share of damage taken and how long it lasts. Bubble: strength (x) and recharge (x).</summary>
     public float BarrierMult = 1f, BarrierCdMult = 1f, BurdenShare = Tune.Aegis.BurdenShare, BurdenSeconds = Tune.Aegis.BurdenSeconds, BubbleMult = 1f, BubbleCdMult = 1f;
     /// <summary>Bubble bursts healing the allies round it; the Bubble goes on a creature instead (alteration); the Barrier also goes on a second ally.</summary>
-    public bool BubbleHeal, HostileBubble, TwinBarrier, WideBarrier, BurdenAll;
+    public bool BubbleHeal, HostileBubble, TwinBarrier, WideBarrier, BurdenAll, HealingWard;
     /// <summary>Shared Burden: the Aegis takes this much less of what it carries (0..1). Bubble: the share of each blow it absorbs. Hostile Bubble: its burst's strength (x).</summary>
     public float BurdenSoak, BubbleAbsorb = Tune.Aegis.BubbleAbsorb, WardBlastMult = 1f;
 
@@ -232,7 +232,7 @@ public enum UpgradeKind
     /// <summary>Generic, but offered only once something else is true (chests).</summary>
     Conditional,
     /// <summary>Something given, something taken; each taken once (vaults).</summary>
-    SideGrade,
+    RiskReward,
 }
 
 public sealed class Upgrade
@@ -260,7 +260,7 @@ public sealed class Upgrade
     public bool Multi;
 
     public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration ? UpgradeKind.Alteration
-        : Icon == "risk" ? UpgradeKind.SideGrade
+        : Icon == "risk" ? UpgradeKind.RiskReward
         : For != null ? UpgradeKind.Class
         : Requires != null || When != null ? UpgradeKind.Conditional
         : UpgradeKind.Generic;
@@ -277,7 +277,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 ///  * Generic upgrades (anyone) and conditional ones (offered once something else is true) fill
 ///    the rest of a chest. Movement upgrades turn up more often in chests underwater, survival
 ///    ones in chests up high.
-///  * The risk-reward side-grades are the vaults': a vault's chest holds two of them and a rare
+///  * The risk-rewards are the vaults': a vault's chest holds two of them and a rare
 ///    class upgrade (one of the ability-tier ones).
 ///  * Stats grow on their own at every level (<see cref="Progression"/>).
 /// </summary>
@@ -457,6 +457,9 @@ public static partial class Upgrades
         new() { Id = "barrier_cd", Name = "Quick Ward", Desc = "Your barrier comes back 20% sooner.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 2, Apply = (s, p) => s.BarrierCdMult *= 0.8f },
         new() { Id = "barrier_twin", Name = "Twin Barrier", Desc = "A barrier for a friend wraps you in one as well.", Icon = "shield", For = A, Ability = "barrier", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinBarrier = true },
 
+        // (Healing Ward: the ward bolt's alteration, a light that mends instead of strikes: what makes the Aegis a sound hero to play alone)
+        new() { Id = "ward_heal", Name = "Healing Ward", Desc = "Your ward bolt no longer hurts (only a glancing 25%), and weakens what it strikes as before. Instead its burst mends you, and every friend in it, for the blow it would have dealt.", Icon = "life", For = A, Ability = "ward", Alteration = true, Apply = (s, p) => s.HealingWard = true },
+
         new() { Id = "barrier_wide", Name = "Wide Barrier", Desc = "Your barrier falls on every friend near you, and on you, each at 60% of its strength.", Icon = "shield", For = A, Ability = "barrier", Alteration = true, Apply = (s, p) => s.WideBarrier = true },
 
         // --- Shared Burden (aegis) ---
@@ -603,7 +606,7 @@ public static partial class Upgrades
     }
 
     /// <summary>A chest's three cards, for one hero: one class upgrade and two others (generic or
-    /// conditional; side-grades are the vaults').</summary>
+    /// conditional; risk-rewards are the vaults').</summary>
     public static List<Upgrade> RollChest(PlayerStats s, Random rng, Vector2 at)
     {
         var weight = ChestWeight(at);
@@ -648,22 +651,22 @@ public static partial class Upgrades
         return cls.Concat(others).Select(u => u.Id).ToArray();
     }
 
-    /// <summary>What fills a chest beside its class card: anyone's cards, but no side-grade.</summary>
-    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.SideGrade && u.Kind != UpgradeKind.Relic;
+    /// <summary>What fills a chest beside its class card: anyone's cards, but no risk-reward.</summary>
+    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.RiskReward && u.Kind != UpgradeKind.Relic;
 
     /// <summary>A rare class upgrade: one of the ability-tier ones (the vaults deal them).</summary>
     public static bool IsRare(Upgrade u) => u.Kind == UpgradeKind.Class && u.Tier == UpgradeTier.Ability;
 
     /// <summary>
-    /// A vault chest's three cards: two side-grades (for the dealer; each is taken once) and a
+    /// A vault chest's three cards: two risk-rewards (for the dealer; each is taken once) and a
     /// rare class upgrade (with a party, for any of its heroes, as a chest's class card is). With
-    /// the side-grades running out, more rare cards take their places, then any class card of the
+    /// the risk-rewards running out, more rare cards take their places, then any class card of the
     /// dealer's, then anyone's.
     /// </summary>
     public static string[] RollVaultCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng)
     {
         float W(Upgrade u) => u.Weight;
-        var sides = Pick(Chest.Where(u => u.Kind == UpgradeKind.SideGrade && Available(u, mine)).ToList(), 2, rng, W);
+        var sides = Pick(Chest.Where(u => u.Kind == UpgradeKind.RiskReward && Available(u, mine)).ToList(), 2, rng, W);
         var heroes = party != null && party.Count > 1 ? party.ToList() : new List<HeroKind> { mine.Hero };
         var hero = heroes[rng.Next(heroes.Count)];
         bool Fits(Upgrade u) => IsRare(u) && Array.IndexOf(u.For, hero) >= 0

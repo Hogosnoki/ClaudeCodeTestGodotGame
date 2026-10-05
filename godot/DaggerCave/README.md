@@ -1108,7 +1108,8 @@ Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to 
 
 ### Loadout, Prodigy's Brand, rubble
 
-- **Loadout** (button on the hero select, or `L`): pick up to three of the hero's side-grades before a run. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes.
+- **Loadout** (button on the hero select, or `L`): pick up to three of the hero's **side-grades** (the alterations: alternate abilities such as Frostbolt for Firebolt, one to an ability) to start the run with. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes. The give-and-take upgrades are called **risk-rewards**.
+- **Healing Ward** (Aegis side-grade): the ward bolt hits for only 25% but its burst mends the Aegis and every friend in it for the full blow, which is what makes the Aegis playable alone.
 - **Prodigy's Brand** levels you up twenty times at once; you can no longer pick up relics (upgrades and shrines still open).
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.
 

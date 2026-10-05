@@ -784,7 +784,7 @@ public partial class Main : Node
         foreach (var id in Meta.LoadoutFor(s.Hero).ToList())
         {
             var u = Upgrades.Get(id);
-            if (u == null || !Meta.SideGradeUnlocked(id) || !Upgrades.Available(u, s)) continue;
+            if (u == null || !u.Alteration || !Meta.SideGradeUnlocked(id) || !Upgrades.Available(u, s)) continue;
             u.Apply?.Invoke(s, player);
             s.Stacks[id] = s.StackOf(id) + 1;
         }

@@ -142,7 +142,7 @@ public static class Tune
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
         /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal of the damage dealt mends the Aegis.</summary>
-        public static float BoltDamage = 9f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
+        public static float HealingWardGlance = 0.25f, BoltDamage = 9f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
         public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0.05f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
         public static float BarrierShare = 0.28f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
@@ -548,7 +548,7 @@ public static class Tune
         /// One vault a level (not the dragon's lair): a dead end cut into the rock behind an iron
         /// gate, a passage CorridorCells long and CorridorRows tall opening into a chamber
         /// ChamberCells wide and ChamberRows tall, at least MinFromStart cells from where you
-        /// start. Its chest holds side-grades and a rare class card.
+        /// start. Its chest holds risk-rewards and a rare class card.
         /// </summary>
         public static int CorridorCells = 5, CorridorRows = 3, ChamberCells = 9, ChamberRows = 5;
         public static float MinFromStart = 40f;

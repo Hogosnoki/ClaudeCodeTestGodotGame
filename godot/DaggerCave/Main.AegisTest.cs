@@ -63,6 +63,16 @@ public partial class Main
                 ScCheck($"its burst strikes the one beside it for {Tune.Aegis.BurstShare:0%} ({hit2:0.0})", Math.Abs(hit2 - want * Tune.Aegis.BurstShare) < want * 0.25f);
                 ScCheck($"both deal less damage now ({_scFoe.Weakened}, {_scFoe2.Weakened})", _scFoe.Weakened && _scFoe2.Weakened);
                 ScCheck($"the Aegis is mended by a share of the damage (hp {_scAegisHp:0.00} -> {p.Hp:0.00})", p.Hp > _scAegisHp + 0.3f && p.Hp < _scAegisHp + 3f);
+                // ---- the Healing Ward side-grade: a glancing blow, and the burst mends the Aegis for the whole blow
+                p.Stats.HealingWard = true;
+                p.Hp = p.Stats.MaxHp - 30f;
+                float h0 = p.Hp, f0 = _scFoe.Hp;
+                var blob = new ElementBolt { Damage = 9f, Dir = new Vector2(1, 0) };
+                p.WardBoltStruck(blob, _scFoe, _scFoe.GlobalPosition);
+                blob.Free();
+                ScCheck($"Healing Ward: the bolt only grazes ({f0 - _scFoe.Hp:0.0})", f0 - _scFoe.Hp < 9f * 0.5f);
+                ScCheck($"...and mends the Aegis ({p.Hp - h0:0.0}, want about {9f * (1 + Tune.Aegis.BurstShare):0.0})", p.Hp - h0 > 9f * 0.9f);
+                p.Stats.HealingWard = false;
                 _scStep = 3; _scT = 0;
                 break;
             }

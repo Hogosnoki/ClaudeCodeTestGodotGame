@@ -95,14 +95,31 @@ public partial class Player
         foreach (var o in G.Enemies)
             if (o != e && !o.Dead && o.CanBeHit && o.GlobalPosition.DistanceTo(at) <= reach + o.HitRadius) struck.Add(o);
         float total = 0;
+        float healed = 0;
         foreach (var t in struck)
         {
             float share = t == e ? 1f : Stats.BurstShare;
-            float dealt = t.Hurt(bolt.Damage * share, bolt.Dir * 40f, t == e ? at : t.GlobalPosition);
+            if (Stats.HealingWard) healed += bolt.Damage * share;
+            float dealt = t.Hurt(bolt.Damage * share * (Stats.HealingWard ? Tune.Aegis.HealingWardGlance : 1f), bolt.Dir * 40f, t == e ? at : t.GlobalPosition);
             if (dealt > 0) { total += dealt; OnDealtDamage(dealt); }
             if (!t.Dead) t.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);
         }
         if (total > 0 && Stats.AegisLifesteal > 0) Heal(total * Stats.AegisLifesteal);
+        if (healed > 0) HealingWardBurst(at, reach, healed);
+    }
+
+    /// <summary>Healing Ward: the burst mends the Aegis, and each friend in it, for <paramref name="amount"/>.</summary>
+    private void HealingWardBurst(Vector2 at, float reach, float amount)
+    {
+        Heal(amount);
+        foreach (var who in G.Players.ToArray())
+        {
+            if (who == this || who == null || !IsInstanceValid(who) || who.Dead) continue;
+            if (who.GlobalPosition.DistanceTo(at) > reach + 16f) continue;
+            who.Heal(amount);
+            G.Fx.Beam(at, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 1f, 0.7f, 0.9f));
+        }
+        G.Fx.Ring(at, reach, new Color(0.6f, 1f, 0.7f, 0.8f), 0.3f);
     }
 
     // ---------------------------------------------------------------- allies

@@ -112,7 +112,7 @@ public partial class BuildPanel : Control
 
         // everything else taken: generic, conditional and risk-reward cards
         float yy = bottom + 26;
-        foreach (var kind in new[] { UpgradeKind.Generic, UpgradeKind.Conditional, UpgradeKind.SideGrade, UpgradeKind.Relic })
+        foreach (var kind in new[] { UpgradeKind.Generic, UpgradeKind.Conditional, UpgradeKind.RiskReward, UpgradeKind.Relic })
         {
             var cards = Upgrades.Chest.Concat(Upgrades.Relics).Where(u => u.Kind == kind && s.StackOf(u.Id) > 0)
                 .Select(u => u.MaxStacks > 1 ? $"{u.Name} {s.StackOf(u.Id)}/{u.MaxStacks}" : u.Name).ToList();

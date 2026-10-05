@@ -6,9 +6,10 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The loadout, chosen where the hero is: the side-grades (risk-and-reward upgrades) this hero brings into the
-/// run, up to <see cref="Tune.Loadout.Slots"/> of them, applied as the run begins. (For now every side-grade is
-/// unlocked, for testing; they will be locked away as the heroes are.)
+/// The loadout, chosen where the hero is: the side-grades (alterations: alternate abilities, like Frostbolt for
+/// Firebolt) this hero starts the run with, up to <see cref="Tune.Loadout.Slots"/> of them (one to an ability),
+/// applied as the run begins. (For now every side-grade is unlocked, for testing; they will be locked away as the
+/// heroes are.) The give-and-take upgrades are the risk-rewards, found in vaults.
 /// </summary>
 public partial class LoadoutMenu : Control
 {
@@ -29,7 +30,7 @@ public partial class LoadoutMenu : Control
         col.AddChild(_title);
         _slots = UiKit.Label("", 16, UiKit.Text, HorizontalAlignment.Center);
         col.AddChild(_slots);
-        _note = UiKit.Label("Side-grades give and take: each is a bargain you carry into the run from its first step.", 13, UiKit.Dim, HorizontalAlignment.Center);
+        _note = UiKit.Label("Side-grades change how an ability works. Start the run with the ones you like, one to an ability.", 13, UiKit.Dim, HorizontalAlignment.Center);
         _note.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _note.CustomMinimumSize = new Vector2(740, 0);
         col.AddChild(_note);
@@ -57,7 +58,7 @@ public partial class LoadoutMenu : Control
 
     /// <summary>The side-grades this hero can bring.</summary>
     public static List<Upgrade> Available(HeroKind hero)
-        => Upgrades.Chest.Where(u => u.Kind == UpgradeKind.SideGrade && (u.For == null || Array.IndexOf(u.For, hero) >= 0) && Meta.SideGradeUnlocked(u.Id)).ToList();
+        => Upgrades.Chest.Where(u => u.Alteration && (u.For == null || Array.IndexOf(u.For, hero) >= 0) && Meta.SideGradeUnlocked(u.Id)).ToList();
 
     private void Rebuild()
     {
@@ -69,10 +70,11 @@ public partial class LoadoutMenu : Control
         foreach (var u in all)
         {
             bool on = mine.Contains(u.Id);
-            bool blocked = !on && (mine.Count >= Tune.Loadout.Slots || mine.Any(o => Conflicts(u, Upgrades.Get(o))));
+            bool blocked = !on && (mine.Count >= Tune.Loadout.Slots || mine.Any(o => Conflicts(u, Upgrades.Get(o)))
+                || (!on && mine.Any(o => Upgrades.Get(o)?.Ability == u.Ability)));
             var b = new Button
             {
-                Text = $"{(on ? "[x]" : "[  ]")}  {u.Name}   —   {Upgrades.DescFor(u, new PlayerStats(_hero))}",
+                Text = $"{(on ? "[x]" : "[  ]")}  {Upgrades.AbilityTitle(u.Ability, _hero)}: {u.Name}   —   {Upgrades.DescFor(u, new PlayerStats(_hero))}",
                 Alignment = HorizontalAlignment.Left, CustomMinimumSize = new Vector2(730, 44), Disabled = blocked,
                 AutowrapMode = TextServer.AutowrapMode.WordSmart, FocusMode = FocusModeEnum.All,
             };

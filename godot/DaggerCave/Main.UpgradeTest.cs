@@ -35,7 +35,7 @@ public partial class Main
             // (the first is the primary attack, which isn't altered; each of the other three is)
             var abilities = Upgrades.Abilities(h);
             // (the Elementalist's bolts are the exception: Frostbolt alters them)
-            bool primaryAltered = h == HeroKind.Elementalist;
+            bool primaryAltered = h == HeroKind.Elementalist || h == HeroKind.Aegis;
             Check($"{h}: {abilities[0].name} {(primaryAltered ? "has" : "has no")} alteration", mine.Any(u => u.Alteration && u.Ability == abilities[0].key) == primaryAltered);
             foreach (var (key, name) in abilities.Skip(1))
                 Check($"{h}: {name} has an alteration", mine.Any(u => u.Alteration && u.Ability == key));
@@ -75,7 +75,7 @@ public partial class Main
                         int cls = cards.Count(u => u.Kind == UpgradeKind.Class);
                         if (cards.Count != 3 || cards.Any(u => u.Alteration) || cls < 1 && Upgrades.Chest.Any(u => u.Kind == UpgradeKind.Class && Upgrades.Available(u, s))
                             || cards.Count(Upgrades.IsChestFiller) < Math.Min(2, Upgrades.Chest.Count(u => Upgrades.IsChestFiller(u) && Upgrades.Available(u, s)))
-                            || cards.Any(u => u.Kind == UpgradeKind.SideGrade)
+                            || cards.Any(u => u.Kind == UpgradeKind.RiskReward)
                             || cards.Any(u => !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) chestBad++;
                     }
                     // take one (the stats only: no hero is needed to count stacks)
@@ -87,14 +87,14 @@ public partial class Main
                         if (s.StackOf(u.Requires) == 0) orphans++;
                 }
             }
-            Check($"{h}: {chests} chests each hold a class card and two others, never an alteration or a side-grade ({chestBad} wrong)", chestBad == 0);
+            Check($"{h}: {chests} chests each hold a class card and two others, never an alteration or a risk-reward ({chestBad} wrong)", chestBad == 0);
             Check($"{h}: {milestones} milestones hold only the hero's own cards and ways of getting about ({mileBad} wrong)", mileBad == 0);
             Check($"{h}: every milestone offers an alteration while any are left ({noAlteration} without)", noAlteration == 0);
             Check($"{h}: an ability never takes two alterations ({twoPerAbility})", twoPerAbility == 0);
             Check($"{h}: an alteration's upgrades only come after it ({orphans} early)", orphans == 0);
         }
 
-        // a vault's chest: two side-grades while any are left, and a rare class card, never an alteration
+        // a vault's chest: two risk-rewards while any are left, and a rare class card, never an alteration
         foreach (var h in heroes)
         {
             int vaults = 0, vaultBad = 0, rareSeen = 0;
@@ -105,8 +105,8 @@ public partial class Main
                 {
                     var cards = Upgrades.RollVaultCards(s, null, rng).Select(Upgrades.Get).ToList();
                     vaults++;
-                    int sides = cards.Count(u => u.Kind == UpgradeKind.SideGrade), rare = cards.Count(Upgrades.IsRare);
-                    int sidesLeft = Upgrades.Chest.Count(u => u.Kind == UpgradeKind.SideGrade && Upgrades.Available(u, s));
+                    int sides = cards.Count(u => u.Kind == UpgradeKind.RiskReward), rare = cards.Count(Upgrades.IsRare);
+                    int sidesLeft = Upgrades.Chest.Count(u => u.Kind == UpgradeKind.RiskReward && Upgrades.Available(u, s));
                     bool rareLeft = Upgrades.Chest.Any(u => Upgrades.IsRare(u) && Upgrades.Available(u, s));
                     if (cards.Count != 3 || cards.Distinct().Count() != 3 || cards.Any(u => u.Alteration || !Upgrades.Available(u, s))
                         || sides != Math.Min(2, sidesLeft) || (rareLeft && rare < 1)) vaultBad++;
@@ -116,7 +116,7 @@ public partial class Main
                     s.Stacks[take.Id] = s.StackOf(take.Id) + 1;
                 }
             }
-            Check($"{h}: {vaults} vault chests each hold side-grades (two while any are left) and a rare class card, never an alteration ({vaultBad} wrong)", vaultBad == 0 && rareSeen > 0);
+            Check($"{h}: {vaults} vault chests each hold risk-rewards (two while any are left) and a rare class card, never an alteration ({vaultBad} wrong)", vaultBad == 0 && rareSeen > 0);
         }
         {
             // (a party's vault: its rare card may be a friend's, locked to them)
@@ -161,7 +161,7 @@ public partial class Main
             s = new PlayerStats(HeroKind.Swordsman);
             s.Stacks["breath"] = 1;
             Check("with Deep Lungs, no Drowned Lungs", !Upgrades.Available(Upgrades.Get("rr_lungs"), s));
-            Check("Drowned Lungs is a side-grade", Upgrades.Get("rr_lungs").Kind == UpgradeKind.SideGrade);
+            Check("Drowned Lungs is a risk-reward", Upgrades.Get("rr_lungs").Kind == UpgradeKind.RiskReward);
         }
         // Magma Skin waits for the deep
         {

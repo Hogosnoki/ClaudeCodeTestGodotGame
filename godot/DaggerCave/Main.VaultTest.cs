@@ -97,8 +97,8 @@ public partial class Main
                 _scInput = default;
                 if (_scT < 0.6f) return;
                 var cards = (_scVaultChest.Cards ?? Array.Empty<string>()).Select(Upgrades.Get).ToList();
-                int sides = cards.Count(u => u.Kind == UpgradeKind.SideGrade), rare = cards.Count(Upgrades.IsRare);
-                ScCheck($"the vault's chest holds side-grades and a rare class card ({string.Join(", ", cards.Select(u => $"{u.Name} ({u.Kind})"))}), never an alteration",
+                int sides = cards.Count(u => u.Kind == UpgradeKind.RiskReward), rare = cards.Count(Upgrades.IsRare);
+                ScCheck($"the vault's chest holds risk-rewards and a rare class card ({string.Join(", ", cards.Select(u => $"{u.Name} ({u.Kind})"))}), never an alteration",
                     _upgradeMenu.Visible && cards.Count == 3 && sides == 2 && rare == 1 && !cards.Any(u => u.Alteration));
                 ScShot("vault_2_chest");
                 if (_upgradeMenu.Visible) _upgradeMenu.ChooseFirstOpen();

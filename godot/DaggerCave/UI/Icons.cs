@@ -63,7 +63,7 @@ public static class Icons
         UpgradeKind.Class => "cat_class",
         UpgradeKind.Alteration => "cat_alteration",
         UpgradeKind.Conditional => "cat_conditional",
-        UpgradeKind.SideGrade => "cat_sidegrade",
+        UpgradeKind.RiskReward => "cat_sidegrade",
         UpgradeKind.Relic => "cat_relic",
         _ => "cat_generic",
     };
