@@ -468,7 +468,7 @@ public static partial class Upgrades
         new() { Multi = true, Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 25% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.25f },
 
         // --- Bubble (aegis) ---
-        new() { Id = "bubble_strong", Name = "Tougher Bubble", Desc = "Your bubble bursts only after absorbing 30% more.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 3, Apply = (s, p) => s.BubbleMult += 0.3f },
+        new() { Id = "bubble_strong", Name = "Tougher Bubble", Desc = "Your bubble bursts only after absorbing 10% more.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 3, Apply = (s, p) => s.BubbleMult += 0.1f },
         new() { Id = "bubble_cd", Name = "Quick Bubble", Desc = "Your bubble comes back 20% sooner.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 2, Apply = (s, p) => s.BubbleCdMult *= 0.8f },
         new() { Id = "bubble_heal", Name = "Soothing Burst", Desc = "When your bubble bursts, it heals the friends around it.", Icon = "life", For = A, Ability = "bubble", Tier = UpgradeTier.Ability, Apply = (s, p) => s.BubbleHeal = true },
         new() { Id = "bubble_hostile", Name = "Hostile Bubble", Desc = "Your bubble goes on a creature instead: it takes half of every blow, the other half building up; once enough has, the bubble bursts for 30, and 10 to the creatures round it.", Icon = "spell", For = A, Ability = "bubble", Alteration = true, Apply = (s, p) => s.HostileBubble = true },
