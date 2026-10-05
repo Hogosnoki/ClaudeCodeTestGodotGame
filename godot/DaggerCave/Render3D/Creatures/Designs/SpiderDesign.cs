@@ -126,6 +126,14 @@ public sealed class SpiderDesign : CreatureDesign
                 p.Root = new Vector3(0, 0, 0);
                 p.Set(_body, MathF.Sin(time * 1.4f) * 8f, 0, MathF.Sin(time * 1.1f) * 6f);
                 break;
+            case "pounce_windup":
+                {
+                    // flattened low, the front legs drawn up, fangs spread and the whole body quivering
+                    float k = W3.Smooth01(t);
+                    crouch = 14f * k; curl = 0.2f * k; fang = 32f * k;
+                    p.Set(_body, 0, 0, -9f * k + 1.5f * k * MathF.Sin(time * 60f));
+                    break;
+                }
             case "pounce":
                 crouch = Key(t, (0, 12), (0.3f, -8), (1, 0));
                 fang = Key(t, (0, 5), (0.25f, 30), (1, 10));

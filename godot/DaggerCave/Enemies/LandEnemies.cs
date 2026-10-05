@@ -44,7 +44,14 @@ public partial class Bat : Enemy
                 // The script's rhythm (swoop until close or 2.6 s, retreat 0.9 s) keeps ticking as
                 // the teacher's suggestion; Intent decides what the bat actually does.
                 if (_state == 1 && (DistP < 18 || _stateT > 2.6f)) { _state = 2; _stateT = 0; }
-                else if (_state == 2 && _stateT > 0.9f) { _state = 1; _stateT = 0; if (G.Chance(0.4f)) G.Sfx.Play("bat", GlobalPosition, -8); }
+                else if (_state == 2 && _stateT > 0.9f)
+                {
+                    _state = 1; _stateT = 0;
+                    if (G.Chance(0.4f)) G.Sfx.Play("bat", GlobalPosition, -8);
+                    // it flares its wings wide, hanging there a moment, before it swoops
+                    _flare = FlareTime; Anim.Once("flare", 3, 8f / (FlareTime * 24f));
+                }
+                if (_flare > 0) _flare -= dt;
                 Fly(dt);
                 break;
         }
@@ -52,8 +59,16 @@ public partial class Bat : Enemy
         if (Velocity.X != 0) Face = Math.Sign(Velocity.X);
     }
 
+    private float _flare;
+    private const float FlareTime = 0.32f;
+
     private void Fly(float dt)
     {
+        if (_flare > 0)
+        {
+            Velocity = Velocity.MoveToward(new Vector2(0, -25f), 700f * dt);
+            return;
+        }
         var to = ToP + new Vector2(0, -6);
         var dir = to.LengthSquared() > 1 ? to.Normalized() : Vector2.Up;
         var perp = new Vector2(-dir.Y, dir.X);
@@ -108,11 +123,13 @@ public partial class Bat : Enemy
 /// <summary>Hops toward the player in arcs and lashes its tongue at close range. Swims too.</summary>
 public partial class Frog : Enemy
 {
-    private float _hopCd = 1f, _tongueCd = 1.5f, _tongueT = -1, _croakT;
+    private float _hopCd = 1f, _tongueCd = 1.5f, _tongueT = -1, _croakT, _tongueWind = -1;
     private Vector2 _tongueDir;
     private bool _tongueHit;
     private static float TongueLen => Tune.Frog.TongueRange;
     private const float TongueTime = 0.38f;
+    /// <summary>The throat swells this long before the tongue lashes.</summary>
+    private const float TongueWind = 0.3f;
 
     public Frog() { MaxHp = Tune.Frog.Hp; BodyRadius = 9; ContactDamage = Tune.Frog.Contact; XpValue = Tune.Frog.Xp; }
 
@@ -131,6 +148,7 @@ public partial class Frog : Enemy
         // the tongue is only for a frog with its feet planted: settled a moment, and never mid-air
         _groundT = IsOnFloor() && !InWater ? _groundT + dt : 0;
         if (_tongueT >= 0 && _groundT <= 0) _tongueT = -1;
+        if (_tongueWind >= 0 && _groundT <= 0) _tongueWind = -1;
         var v = Velocity;
         if (InWater)
         {
@@ -158,6 +176,22 @@ public partial class Frog : Enemy
             return;
         }
 
+        if (_tongueWind >= 0)
+        {
+            // the throat swells (the model's tell) and it holds still; then the tongue lashes at where you are now
+            _tongueWind -= dt;
+            v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
+            if (Awake) Face = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+            if (_tongueWind < 0)
+            {
+                _tongueT = 0; _tongueHit = false; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
+                G.Sfx.Play("tongue", GlobalPosition, -4);
+                Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
+            }
+            Velocity = v;
+            ApplyGravity(dt);
+            return;
+        }
         if (_tongueT >= 0)
         {
             _tongueT += dt;
@@ -176,9 +210,9 @@ public partial class Frog : Enemy
                 Face = dirP;
                 if (Intent == Tongue && CanAct(Tongue) && _groundT > 0.25f)
                 {
-                    _tongueT = 0; _tongueHit = false; _tongueCd = Tune.Frog.TongueCooldown; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
-                    G.Sfx.Play("tongue", GlobalPosition, -4);
-                    Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
+                    _tongueWind = TongueWind; _tongueCd = Tune.Frog.TongueCooldown;
+                    G.Sfx.Play("frog", GlobalPosition, -10, 0.1f, 1.4f);
+                    Anim.Once("tongue_windup", 3, 8f / (TongueWind * 24f));
                     Consume();
                 }
                 else if ((Intent == HopToward || Intent == HopAway) && _hopCd <= 0)
@@ -201,7 +235,7 @@ public partial class Frog : Enemy
     private static readonly string[] Moves = { "sit", "hop to", "hop away", "tongue" };
     protected override string BrainName => "frog";
     protected override string[] Actions => Moves;
-    protected override bool Busy => _hopWind >= 0 || _tongueT >= 0 || InWater || !IsOnFloor();
+    protected override bool Busy => _hopWind >= 0 || _tongueT >= 0 || _tongueWind >= 0 || InWater || !IsOnFloor();
     protected override float AttackReady => 1 - Math.Clamp(_tongueCd / Tune.Frog.TongueCooldown, 0, 1);
 
     protected override bool CanAct(int a) => a switch
@@ -212,7 +246,7 @@ public partial class Frog : Enemy
     };
     protected override bool IsAttack(int a) => a == Tongue;
     public override bool Attacking => _tongueT >= 0;
-    protected override void OnInterrupted() { _tongueT = -1; _hopWind = -1; _tongueCd = Math.Max(_tongueCd, 1.5f); }
+    protected override void OnInterrupted() { _tongueT = -1; _tongueWind = -1; _hopWind = -1; _tongueCd = Math.Max(_tongueCd, 1.5f); }
     private float _groundT;
 
     protected override int Teacher()
@@ -404,7 +438,10 @@ public partial class Goblin : Enemy
 public partial class Spider : Enemy
 {
     private int _state; // 0 ceiling, 1 drop, 2 hang, 3 climb, 4 ground
-    private float _stateT, _anchorY, _pounceCd, _pounceLeft;
+    private float _stateT, _anchorY, _pounceCd, _pounceLeft, _pounceWind = -1;
+    private int _pounceDir;
+    /// <summary>A hunting spider crouches this long before it pounces.</summary>
+    private const float PounceWind = 0.3f;
     public override void NetState(NetIO io) { io.Sync(ref _state); io.Sync(ref _anchorY); io.Sync(ref Grounded); }
 
     protected override bool UsesGravity => _state == 4;
@@ -503,7 +540,20 @@ public partial class Spider : Enemy
                     G.Sfx.Play("spider", GlobalPosition, 0, 0.1f, 0.7f);
                 }
                 if (InWater) { Swim(dt); break; }
-                if (IsOnFloor())
+                if (_pounceWind >= 0)
+                {
+                    // crouched, fangs spread: then the spring
+                    _pounceWind -= dt;
+                    v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
+                    if (_pounceWind < 0)
+                    {
+                        _pounceLeft = 0.7f;
+                        v = new Vector2(_pounceDir * 230, -300);
+                        Anim.Once("pounce", 3);
+                        G.Sfx.Play("spider", GlobalPosition, -4);
+                    }
+                }
+                else if (IsOnFloor())
                 {
                     int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
                     int run = Intent == Away ? -dirP : Intent == Wait ? 0 : dirP;
@@ -512,11 +562,10 @@ public partial class Spider : Enemy
                     if (Intent == Strike && _pounceCd <= 0)
                     {
                         _pounceCd = Tune.Spider.PounceCooldown;
-                        _pounceLeft = 0.7f;
+                        _pounceWind = PounceWind; _pounceDir = dirP;
                         Face = dirP;
-                        v = new Vector2(dirP * 230, -300);
-                        Anim.Once("pounce", 3);
-                        G.Sfx.Play("spider", GlobalPosition, -4);
+                        Anim.Once("pounce_windup", 3, 8f / (PounceWind * 24f));
+                        G.Sfx.Play("spider", GlobalPosition, -10, 0.1f, 1.5f);
                         Consume();
                     }
                 }
@@ -568,12 +617,12 @@ public partial class Spider : Enemy
 
     public override void StrikeStatus(Player p, float dmg) => MaybePoison(p, dmg);
 
-    protected override bool Busy => _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor() && !InWater);
+    protected override bool Busy => _pounceWind >= 0 || _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor() && !InWater);
     protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
 
     protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
     protected override bool IsAttack(int a) => a == Strike;
-    protected override void OnInterrupted() { if (_state is 1 or 2) { _state = 3; _stateT = 0; } _pounceLeft = 0; }
+    protected override void OnInterrupted() { if (_state is 1 or 2) { _state = 3; _stateT = 0; } _pounceLeft = 0; _pounceWind = -1; }
     protected override bool Striking => _state == 1 || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
 
     protected override int Teacher()

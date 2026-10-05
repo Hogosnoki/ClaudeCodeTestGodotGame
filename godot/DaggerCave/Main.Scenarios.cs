@@ -98,6 +98,7 @@ public partial class Main
             case "rope": RopeScenario(); break;
             case "rubble": RubbleScenario(); break;
             case "ice": IceScenario(); break;
+            case "telegraph": TelegraphScenario(); break;
             case "share": ShareScenario(); break;
             case "crouch": CrouchScenario(); break;
             case "support": SupportScenario(); break;
@@ -565,6 +566,42 @@ public partial class Main
     private Rubble _scPlug;
     private bool _scShrineShot0;
     private int _scHeaves;
+
+    private readonly System.Collections.Generic.List<Enemy> _scTele = new();
+    private readonly System.Collections.Generic.HashSet<string> _scTeleSeen = new();
+
+    /// <summary>A frog and a hunting spider face the hero: each must act out its telegraph (the throat swells, the spider crouches) before it strikes.</summary>
+    private void TelegraphScenario()
+    {
+        var p = G.Player;
+        if (_scPhase == 0)
+        {
+            if (_scT < 0.5f) return;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            p.Stats.MaxHp = 9000; p.Hp = 9000;
+            for (int k = 0; k < 2; k++)
+            {
+                var at = p.GlobalPosition + new Vector2(60 + 30 * k, -14);
+                if (!G.Cave.FindFloor(at, 80, out var fl)) fl = at;
+                Enemy e = k == 0 ? new Frog() : new Spider { Grounded = true };
+                e.Position = fl - new Vector2(0, 14);
+                e.SetMeta("test", true);
+                _world.AddChild(e);
+                e.Engage();
+                _scTele.Add(e);
+            }
+            _scPhase = 1; _scT = 0;
+            return;
+        }
+        p.Hp = 9000;
+        foreach (var e in _scTele)
+            if (IsInstanceValid(e) && e.Animator?.Sprite != null) _scTeleSeen.Add(e.Animator.Sprite.Animation.ToString());
+        if (_scT < 10f) return;
+        bool Saw(string n) => _scTeleSeen.Contains(n + "_r") || _scTeleSeen.Contains(n + "_l");
+        ScCheck($"the frog swells its throat before the tongue ({Saw("tongue_windup")}, then {Saw("tongue")})", Saw("tongue_windup") && Saw("tongue"));
+        ScCheck($"the spider crouches before it pounces ({Saw("pounce_windup")}, then {Saw("pounce")})", Saw("pounce_windup") && Saw("pounce"));
+        ScEnd();
+    }
 
     private void IceScenario()
     {

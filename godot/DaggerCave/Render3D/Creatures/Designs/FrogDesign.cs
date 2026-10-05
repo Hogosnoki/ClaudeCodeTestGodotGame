@@ -142,7 +142,9 @@ public sealed class FrogDesign : CreatureDesign
         string c = a.Clip ?? "idle";
         float t = a.T, time = a.Time;
         float breathe = MathF.Sin(time * 3.1f);
-        float sac = 1f + 0.08f * Math.Max(0, breathe), jaw = 0f, pitch = 0f, crouch = 0f, roll = 0f;
+        // (it pants faster once it has noticed someone)
+        if (a.Owner is Enemy { Alerted: true } && c is "idle") breathe = MathF.Sin(time * 6.2f);
+        float sac = 1f + (a.Owner is Enemy { Alerted: true } && c is "idle" ? 0.16f : 0.08f) * Math.Max(0, breathe), jaw = 0f, pitch = 0f, crouch = 0f, roll = 0f;
         float legExt = 0f, armFwd = 0f, kick = 0f;
         switch (c)
         {
@@ -152,6 +154,15 @@ public sealed class FrogDesign : CreatureDesign
                     float env = Key(t, (0, 0), (0.15f, 1), (0.85f, 1), (1, 0));
                     sac = 1f + env * (1.1f + 0.4f * MathF.Sin(t * MathF.PI * 6f));
                     pitch = 6f * env; jaw = 3f * env;
+                    break;
+                }
+            case "tongue_windup":
+                {
+                    // the throat balloons and shudders, the mouth cracks, the body sits back on its haunches
+                    float k = W3.Smooth01(t);
+                    sac = 1f + k * (1.6f + 0.2f * MathF.Sin(time * 45f));
+                    jaw = 6f * k; pitch = -9f * k; crouch = 0.55f * k;
+                    p.Glow = 1f + 0.8f * k;
                     break;
                 }
             case "crouch": crouch = W3.Smooth01(t); pitch = -8f * crouch; break;

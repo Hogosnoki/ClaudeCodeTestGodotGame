@@ -26,7 +26,7 @@ public partial class CreatureModel
             case "hurt": case "stunned": return Kind.Hurt;
             case "death": case "turn_r2l": case "turn_l2r": return Kind.None;
             case "recover": case "land": case "run_stop": case "drop": return Kind.Settle;
-            case "aim": case "rear": case "crouch": case "curl": case "roar": return Kind.Wind;
+            case "aim": case "flare": case "rear": case "crouch": case "curl": case "roar": return Kind.Wind;
             case "slam": case "bite": case "swipe": case "strike": case "sting": case "slash": case "pounce": case "dive": case "charge":
             case "tongue": case "tail": case "shove": case "lob": case "puff": case "breath": case "throw": case "burst": case "leap":
             case "heave": case "bash": case "dart": case "rupture": case "hex": case "cast": case "heal": case "flop":

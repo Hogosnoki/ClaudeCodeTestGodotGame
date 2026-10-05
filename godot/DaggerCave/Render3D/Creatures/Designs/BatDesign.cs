@@ -104,13 +104,27 @@ public sealed class BatDesign : CreatureDesign
         float bob = 0f;
         switch (c)
         {
+            case "flare":
+                {
+                    // wings thrown wide and up, shuddering, mouth open: it hangs there, about to swoop
+                    float k = W3.Smooth01(Math.Min(1f, t * 2.5f));
+                    flap = Mathf.Lerp(-14f, -62f, k) + 10f * MathF.Sin(time * 38f) * k;
+                    fold = 0f; pitch = 18f * k; jaw = 12f + 38f * k; bob = 0.05f * k;
+                    p.Glow = 1f + 1.2f * k;
+                    break;
+                }
             case "fly":
-                // (positive flap = wings down) an upward-biased beat so the wings read from the side
-                flap = -14f + 66f * MathF.Sin(t * Mathf.Tau);
-                fold = 30f * Math.Max(0, -MathF.Cos(t * Mathf.Tau)); // folds a little on the upstroke
-                bob = 0.03f * MathF.Sin(t * Mathf.Tau - 0.6f);        // the downstroke lifts the body
-                pitch = 5f;
-                break;
+                {
+                    // (positive flap = wings down) an upward-biased beat so the wings read from the side:
+                    // deep, driving beats to climb; shallow and short on the way down, a glide
+                    float climb = Math.Clamp(a.Vel.Y * 0.35f, -1f, 1f);
+                    float amp = 66f * (1f + 0.3f * Math.Max(0f, climb) - 0.35f * Math.Max(0f, -climb));
+                    flap = -14f - 10f * Math.Max(0f, -climb) + amp * MathF.Sin(t * Mathf.Tau);
+                    fold = (30f + 25f * Math.Max(0f, -climb)) * Math.Max(0, -MathF.Cos(t * Mathf.Tau)); // folds a little on the upstroke
+                    bob = 0.03f * MathF.Sin(t * Mathf.Tau - 0.6f);        // the downstroke lifts the body
+                    pitch = 5f + 10f * Math.Clamp(a.Vel.Y * 0.2f, -1f, 1f);
+                    break;
+                }
             case "dive":
                 flap = 12f * MathF.Sin(t * Mathf.Tau * 2f) - 25f;
                 fold = 45f; pitch = -25f; jaw = 40f;
@@ -121,6 +135,9 @@ public sealed class BatDesign : CreatureDesign
                     roll = 180f;
                     flap = 80f; fold = 70f;
                     jaw = 4f + 3f * MathF.Sin(time * 2f);
+                    // (a shiver now and then, and the wrap loosening with each breath)
+                    float shiver = Math.Max(0f, MathF.Sin(time * 0.7f) - 0.8f) * 5f;
+                    flap += 4f * MathF.Sin(time * 1.4f) + shiver * MathF.Sin(time * 50f);
                     bob = 0.12f;
                     break;
                 }

@@ -41,6 +41,10 @@ public sealed class SpriteSet
         s = Load(name == "aegis" ? "vitalist" : name == "shapeshifter" ? "swordsman" : name == "crab_foe" ? "crab" : name);
         // (the reef crab shares the little crab's sheet, and adds the clips of its claws: the sheet only says how long each runs)
         if (name == "crab_foe") s.AddClip("pinch_windup", 10, "idle").AddClip("pinch", 6, "idle");
+        // (the clips of the telegraphs the 3D models act out: the sheet only says how long each runs)
+        if (name == "frog") s.AddClip("tongue_windup", 8, "idle");
+        if (name == "spider") s.AddClip("pounce_windup", 8, "idle");
+        if (name == "bat") s.AddClip("flare", 8, "fly");
         Cache[name] = s;
         return s;
     }

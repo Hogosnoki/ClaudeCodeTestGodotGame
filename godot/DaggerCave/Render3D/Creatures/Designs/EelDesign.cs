@@ -73,7 +73,11 @@ public sealed class EelDesign : CreatureDesign
         float jaw = 16f + 6f * MathF.Sin(time * 1.3f), sway = 3f * MathF.Sin(time * 1.1f);
         switch (c)
         {
-            case "bite": jaw = Key(t, (0, 20), (0.35f, 60), (0.6f, 5), (1, 25)); break;
+            case "bite":
+                // it draws its head back in an S, mouth wide, and then strikes
+                jaw = Key(t, (0, 20), (0.3f, 62), (0.5f, 70), (0.62f, 5), (1, 25));
+                sway = Key(t, (0, 0), (0.28f, -24f), (0.5f, -24f), (0.62f, 16f), (1, 0));
+                break;
             case "hold": jaw = 20f + 10f * MathF.Sin(time * 9f); sway = 6f * MathF.Sin(time * 7f); break;
             case "hurt": jaw = 40f; sway = 15f * Key(t, (0, 0), (0.25f, 1), (1, 0)); break;
             case "death": jaw = 45f * W3.Smooth01(t); sway = 20f * MathF.Sin(t * 12f) * (1 - t); break;
