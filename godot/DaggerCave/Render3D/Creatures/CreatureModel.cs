@@ -287,6 +287,7 @@ public partial class CreatureModel : Node3D
         var pose = Pose;
         pose.Clear();
         Design.Animate(pose, a);
+        if (Design.LifeScale > 0f && a.Dt > 0f) ApplyLife(a);
         if (pose.Glow != _glow) { _glow = pose.Glow; Body.SetInstanceShaderParameter("glow_boost", _glow); }
         // cross-fade briefly whenever the clip changes so poses never snap
         if (a.Clip != _lastClip) { _lastClip = a.Clip; _blendT = 0f; }
@@ -326,13 +327,18 @@ public partial class CreatureModel : Node3D
     /// </summary>
     public void UpdatePivot(Vector2 squash, float roll, float footY, bool flipV)
     {
-        float sz = MathF.Sqrt(Math.Max(0.01f, squash.X * squash.Y));
+        squash = new Vector2(squash.X * Pose.Stretch.X, squash.Y * Pose.Stretch.Y);
+        float sz = MathF.Sqrt(Math.Max(0.01f, squash.X * squash.Y)) * Pose.Stretch.Z;
         var yaw = new Basis(Vector3.Up, Mathf.DegToRad(_yaw + Pose.Yaw));
         if (flipV) yaw = yaw * new Basis(Vector3.Right, MathF.PI);
-        var b = new Basis(Vector3.Back, roll) * Basis.FromScale(new Vector3(squash.X, squash.Y, sz)) * yaw;
-        // keep the feet planted while squashing
+        // the lean tips the body forward about its feet (toward whichever way it faces)
+        float lean = flipV ? 0f : Mathf.DegToRad(Pose.Lean) * (MathF.Cos(Mathf.DegToRad(_yaw)) >= 0f ? -1f : 1f);
+        var tip = new Basis(Vector3.Back, lean);
+        var b = new Basis(Vector3.Back, roll) * tip * Basis.FromScale(new Vector3(squash.X, squash.Y, sz)) * yaw;
+        // keep the feet planted while squashing and leaning
         var anchor = new Vector3(0, footY * (squash.Y - 1f), 0);
-        Pivot.Transform = new Transform3D(b, anchor + Pose.Root);
+        var foot = new Vector3(0, -footY, 0);
+        Pivot.Transform = new Transform3D(b, foot + tip * (anchor - foot) + Pose.Root);
     }
 
     private static float Ease(float t) { t = Math.Clamp(t, 0f, 1f); return t * t * (3f - 2f * t); }

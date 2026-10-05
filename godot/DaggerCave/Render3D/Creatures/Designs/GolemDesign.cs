@@ -22,6 +22,7 @@ public sealed class GolemDesign : BipedDesign
     }
 
     public override string Name => "golem";
+    public override float LifeScale => 0.6f;
     public override float Cell => 0.024f;
     public override float ThreeQuarter => 24f;
 

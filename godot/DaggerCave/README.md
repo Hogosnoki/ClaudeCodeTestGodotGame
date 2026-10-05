@@ -1114,3 +1114,7 @@ Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to 
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.
 
 - **Breaking ice with spells:** an ice sheet over water breaks on the third spell touch (a bolt, a Blizzard/Firestorm strike, or a Vitalist drain wisp); blades still break it in two blows. A bolt that meets ice stops there.
+
+### Livelier creatures
+
+`Render3D/Creatures/CreatureLife.cs` is a layer over every creature's own animation (heroes excepted; heavy creatures show less, `CreatureDesign.LifeScale`): it breathes, shifts and glances about while idle, with a shrug and a hop now and then; leans into its stride; rocks back before it sets off and forward as it stops (all on springs, so changes overshoot like weight); rears up with a flare of its glow when it notices a hero; coils back and quivers before an attack, with its glow building; lunges forward and stretches as the blow lands; and flinches when struck. Enemies also wait only half as long before their first attack (`Tune.Combat.FirstAttackDelay` 0.5 s) and hold their attack slot half as long (`SlotHold` 0.18, `SlotReserve` 0.15).

@@ -106,6 +106,8 @@ public abstract partial class Enemy : CharacterBody2D
     protected Vector2 KnockVel;
     protected float Face = 1;
     protected bool Awake;
+    /// <summary>Whether it has noticed a hero (for its model's rear-up).</summary>
+    public bool Alerted => Awake;
     /// <summary>When true, the subclass positions itself in Think and the base skips MoveAndSlide.</summary>
     protected bool ManualMove;
     protected bool ContactActive = true;

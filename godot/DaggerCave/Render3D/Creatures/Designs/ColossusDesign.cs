@@ -13,6 +13,7 @@ namespace DaggerCave;
 public sealed class ColossusDesign : CreatureDesign
 {
     public override string Name => "colossus";
+    public override float LifeScale => 0.5f;
     public override float Cell => 0.042f;
     public override float ThreeQuarter => 20f;
     public override float FloorY => Floor;

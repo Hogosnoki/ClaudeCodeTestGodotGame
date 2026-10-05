@@ -13,6 +13,7 @@ namespace DaggerCave;
 public sealed class DragonDesign : CreatureDesign
 {
     public override string Name => "dragon";
+    public override float LifeScale => 0.4f;
     public override float Cell => 0.045f;
     public override float ThreeQuarter => 18f;
     public override float FloorY => Floor;

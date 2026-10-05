@@ -23,6 +23,7 @@ namespace DaggerCave;
 public sealed partial class HeroDesign : CreatureDesign
 {
     private readonly HeroKind _kind;
+    public override float LifeScale => 0f;
     private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman, _aegis, _shifter;
     public HeroDesign(HeroKind kind)
     {

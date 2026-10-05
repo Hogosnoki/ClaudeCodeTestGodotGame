@@ -50,6 +50,9 @@ public sealed class CreaturePose
     public Vector3 Root;
     /// <summary>Multiplier on the glowing parts this frame (tells: a spell charging, a puff gathering).</summary>
     public float Glow = 1f;
+    /// <summary>Whole-body lean about the feet (degrees, positive = forward) and stretch (1 = rest): the liveliness layer's gestures.</summary>
+    public float Lean;
+    public Vector3 Stretch = Vector3.One;
 
     public CreaturePose(int bones)
     {
@@ -62,7 +65,7 @@ public sealed class CreaturePose
     public void Clear()
     {
         for (int k = 0; k < Rot.Length; k++) { Rot[k] = Quaternion.Identity; Offset[k] = Vector3.Zero; Scale[k] = Vector3.One; }
-        Yaw = 0; Root = Vector3.Zero; Glow = 1f;
+        Yaw = 0; Root = Vector3.Zero; Glow = 1f; Lean = 0; Stretch = Vector3.One;
     }
 
     public static Quaternion Q(float xDeg, float yDeg, float zDeg) =>
@@ -148,6 +151,8 @@ public abstract class CreatureDesign
     public virtual float ThreeQuarter => 22f;
     /// <summary>Where the ground is in model space (the sole of the feet), for previews; NaN = the mesh's lowest point.</summary>
     public virtual float FloorY => float.NaN;
+    /// <summary>How much the liveliness layer (breathing, anticipation, lunges, flinches) shows on this creature: 1 normally, less for heavy ones, 0 for none.</summary>
+    public virtual float LifeScale => 1f;
     public virtual int Seed => Name.GetHashCode();
 
     public abstract void Sculpt(Sculptor s);

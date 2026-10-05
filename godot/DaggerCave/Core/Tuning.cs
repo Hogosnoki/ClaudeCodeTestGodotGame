@@ -398,14 +398,14 @@ public static class Tune
         public static int ComboResetsBase = 1;
         /// <summary>The first time a creature wants to attack, it waits this long first (so nothing
         /// strikes the instant it drops into view).</summary>
-        public static float FirstAttackDelay = 1f;
+        public static float FirstAttackDelay = 0.5f;
         /// <summary>
         /// Attack slots: of the creatures within SlotRange px that are ready to attack, this share
         /// (rounded up, at least one) may be attacking at the same time. A creature holds its slot
         /// through its attack and SlotHold s after; SlotReserve s covers the gap between deciding
         /// to attack and starting. Bosses and guardians ignore the slots.
         /// </summary>
-        public static float AttackerShare = 0.33f, SlotRange = 560f, SlotHold = 0.35f, SlotReserve = 0.3f;
+        public static float AttackerShare = 0.33f, SlotRange = 560f, SlotHold = 0.18f, SlotReserve = 0.15f;
         /// <summary>A creature busy this long with something that isn't an attack gives its slot up.</summary>
         public static float SlotMaxBusy = 1.5f;
     }
