@@ -1454,6 +1454,9 @@ public partial class Main : Node
         }
         else if (e.IsActionPressed("confirm") || e.IsActionPressed("ui_accept") || e.IsActionPressed("restart"))
         {
+            // (a button with the cursor on it takes its own accept: this is only for when nothing does)
+            var focus = GetViewport().GuiGetFocusOwner();
+            if (e.IsActionPressed("ui_accept") && focus is BaseButton && _heroChoice.IsAncestorOf(focus)) return;
             // on a stage (the last goes down into the cave)
             _heroChoice.Advance();
             GetViewport().SetInputAsHandled();
@@ -2358,11 +2361,11 @@ public partial class Main : Node
             (0.55f, () => { Btn(JoyButton.A, false); }, ""),
             (0.8f, () => { PadCheck($"A on Single player goes to the hero choice at the fire (choice {_heroChoice.Visible}, using pad {UsingPad}, mouse {Input.MouseMode})", _heroChoice.Visible && UsingPad); Btn(JoyButton.A, true); }, "A at the fire"),
             (0.85f, () => { Btn(JoyButton.A, false); }, ""),
-            (1.0f, () => { PadCheck($"A on the hero moves on to the loadout and perks (stage {_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Btn(JoyButton.A, true); }, "A on the loadout stage"),
-            (1.05f, () => { Btn(JoyButton.A, false); }, ""),
-            (1.25f, () => { PadCheck($"A on Next moves on to the difficulty (stage {_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Btn(JoyButton.A, true); }, "A on the difficulty stage"),
-            (1.3f, () => { Btn(JoyButton.A, false); }, ""),
-            (2.6f, () => PadCheck($"A on the last stage sets off into the cave (state {_state})", _state == State.Playing), ""),
+            (1.15f, () => { PadCheck($"A on the hero moves on to the loadout and perks (stage {_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Btn(JoyButton.A, true); }, "A on the loadout stage"),
+            (1.2f, () => { Btn(JoyButton.A, false); }, ""),
+            (1.5f, () => { PadCheck($"A on Next moves on to the difficulty (stage {_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Btn(JoyButton.A, true); }, "A on the difficulty stage"),
+            (1.55f, () => { Btn(JoyButton.A, false); }, ""),
+            (2.95f, () => PadCheck($"A on the last stage sets off into the cave (state {_state})", _state == State.Playing), ""),
             (3.0f, () => Axis(JoyAxis.LeftX, 1f), "stick right"),
             (3.6f, () => { PadCheck($"the stick runs (vx {G.Player.Velocity.X:0})", G.Player.Velocity.X > 100); Axis(JoyAxis.LeftX, 0f); }, ""),
             (3.8f, () => Btn(JoyButton.X, true), "X swing"),

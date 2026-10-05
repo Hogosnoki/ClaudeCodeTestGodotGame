@@ -116,6 +116,10 @@ public partial class HeroChoice : Control
     private readonly VBoxContainer[] _pages = new VBoxContainer[3];
     private Button _arrowL, _arrowR;
     private Control _lastFocus;
+    /// <summary>When the stage last changed (ms): one press never carries on through two stages.</summary>
+    private ulong _stageAtMs;
+    private const ulong StageSettleMs = 300;
+    private bool Settling => Time.GetTicksMsec() - _stageAtMs < StageSettleMs;
 
     public override void _Ready()
     {
@@ -256,6 +260,7 @@ public partial class HeroChoice : Control
     public void Open(string summaryTitle = "", string summary = "")
     {
         Visible = true;
+        _stageAtMs = Time.GetTicksMsec();
         _summary.Visible = summaryTitle != "";
         _sumTitle.Text = summaryTitle;
         _sumLines.Text = summary;
@@ -266,6 +271,8 @@ public partial class HeroChoice : Control
     /// <summary>On to the next stage; from the last, down into the cave.</summary>
     public void Advance()
     {
+        // (the key or button that brought this stage up is still down or just released: it must not also press its way through the next)
+        if (Settling) return;
         switch (Stage)
         {
             case StageKind.Hero: SetStage(StageKind.Prep); break;
@@ -277,6 +284,7 @@ public partial class HeroChoice : Control
     /// <summary>Back a stage; from the first, back to the menu.</summary>
     public void Retreat()
     {
+        if (Settling) return;
         switch (Stage)
         {
             case StageKind.Difficulty: SetStage(StageKind.Prep); break;
@@ -288,6 +296,7 @@ public partial class HeroChoice : Control
     private void SetStage(StageKind stage)
     {
         Stage = stage;
+        _stageAtMs = Time.GetTicksMsec();
         _lastFocus = null;
         Refresh();
         if (!IsInsideTree()) return;
