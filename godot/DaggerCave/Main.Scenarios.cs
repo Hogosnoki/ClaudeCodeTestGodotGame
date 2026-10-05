@@ -97,6 +97,7 @@ public partial class Main
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;
             case "rubble": RubbleScenario(); break;
+            case "ice": IceScenario(); break;
             case "share": ShareScenario(); break;
             case "crouch": CrouchScenario(); break;
             case "support": SupportScenario(); break;
@@ -564,6 +565,22 @@ public partial class Main
     private Rubble _scPlug;
     private bool _scShrineShot0;
     private int _scHeaves;
+
+    private void IceScenario()
+    {
+        if (_scT < 0.5f) return;
+        var at = G.Player.GlobalPosition + new Vector2(60, -20);
+        var a = new IceSheet { Position = at, HalfW = 24 }; _world.AddChild(a);
+        var b = new IceSheet { Position = at + new Vector2(0, 80), HalfW = 24 }; _world.AddChild(b);
+        for (int i = 1; i <= 3; i++)
+        {
+            Breakables.Spell(at + new Vector2(-40, 0), at + new Vector2(40, 0));
+            System.Threading.Thread.Sleep(150);
+            ScCheck($"touch {i}: the ice {(i < 3 ? "holds" : "breaks")}", i < 3 ? GodotObject.IsInstanceValid(a) && !a.IsQueuedForDeletion() : a.IsQueuedForDeletion());
+        }
+        ScCheck("a spell that misses it does nothing", GodotObject.IsInstanceValid(b) && !b.Cracked);
+        ScEnd();
+    }
 
     private void RubbleScenario()
     {

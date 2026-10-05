@@ -57,7 +57,11 @@ public partial class ElementBolt : Node2D
             if (d < best) { best = d; hit = e; }
         }
         if (hit != null) { Strike(hit); return; }
-        if (!Harmless) Breakables.Shoot(from, to);
+        if (!Harmless)
+        {
+            Breakables.Shoot(from, to);
+            if (Breakables.Spell(from, to)) { Fizzle(to, false); return; }
+        }
         _traveled += step.Length();
         if (G.Cave.IsSolid(to)) { Fizzle(from, true); return; }
         if (_traveled >= Range) { Fizzle(to, false); return; }

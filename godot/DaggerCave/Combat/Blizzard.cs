@@ -50,6 +50,7 @@ public partial class Blizzard : Node2D
     private void StrikeAll()
     {
         var c = GlobalPosition;
+        Breakables.SpellBurst(c, Radius);
         foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || !e.CanBeHit) continue;

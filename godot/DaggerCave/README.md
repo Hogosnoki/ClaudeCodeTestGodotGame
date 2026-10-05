@@ -1111,3 +1111,5 @@ Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to 
 - **Loadout** (button on the hero select, or `L`): pick up to three of the hero's side-grades before a run. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes.
 - **Prodigy's Brand** levels you up twenty times at once; you can no longer pick up relics (upgrades and shrines still open).
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.
+
+- **Breaking ice with spells:** an ice sheet over water breaks on the third spell touch (a bolt, a Blizzard/Firestorm strike, or a Vitalist drain wisp); blades still break it in two blows. A bolt that meets ice stops there.

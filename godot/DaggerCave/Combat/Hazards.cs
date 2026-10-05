@@ -17,6 +17,26 @@ public static class Breakables
 {
     public static readonly List<IBreakable> All = new();
 
+    /// <summary>A spell sweeps from <paramref name="a"/> to <paramref name="b"/>: any ice sheet it crosses takes a touch. True if it touched one.</summary>
+    public static bool Spell(Vector2 a, Vector2 b, float pad = 6f)
+    {
+        bool any = false;
+        foreach (var br in All.ToArray())
+        {
+            if (br is not IceSheet ice) continue;
+            var at = Geometry2D.GetClosestPointToSegment(br.HitCenter, a, b);
+            if (Math.Abs(at.X - br.HitCenter.X) <= ice.HitSize && Math.Abs(at.Y - br.HitCenter.Y) <= pad + 4f) any |= ice.Touch();
+        }
+        return any;
+    }
+
+    /// <summary>A spell lands around <paramref name="at"/>: ice sheets within <paramref name="radius"/> take a touch.</summary>
+    public static void SpellBurst(Vector2 at, float radius)
+    {
+        foreach (var br in All.ToArray())
+            if (br is IceSheet ice && Math.Abs(at.X - ice.HitCenter.X) <= ice.HitSize + radius && Math.Abs(at.Y - ice.HitCenter.Y) <= radius + 6f) ice.Touch();
+    }
+
     /// <summary>Something flies from <paramref name="a"/> to <paramref name="b"/>: a web-hung chest's web in its way parts (only those: bolts and daggers leave ice and brush alone).</summary>
     public static void Shoot(Vector2 a, Vector2 b, float pad = 4f)
     {
@@ -282,7 +302,11 @@ public partial class IceSheet : StaticBody2D, IBreakable
     public float HalfW = 24f;
     private int _hp = 2;
     private float _flash;
-    public bool Cracked => _hp < 2;
+    private int _touches;
+    private double _touchAt = -1;
+    /// <summary>Spells that touch it (a bolt, a storm's strike, a drain) before it gives way.</summary>
+    public const int TouchesToBreak = 3;
+    public bool Cracked => _hp < 2 || _touches > 0;
     public float FlashT => _flash;
     public Vector2 HitCenter => GlobalPosition;
     public float HitSize => HalfW;
@@ -298,13 +322,25 @@ public partial class IceSheet : StaticBody2D, IBreakable
 
     public override void _ExitTree() => Breakables.All.Remove(this);
 
-    public void Strike(Vector2 from)
+    public void Strike(Vector2 from) => Hit(--_hp);
+
+    /// <summary>A spell touches the ice: the third touch breaks it (the same blast can't count twice).</summary>
+    public bool Touch()
     {
-        _hp--;
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (now - _touchAt < 0.12) return false;
+        _touchAt = now;
+        _touches++;
+        Hit(TouchesToBreak - _touches);
+        return true;
+    }
+
+    private void Hit(int left)
+    {
         _flash = 0.15f;
         G.Sfx.Play("clink", GlobalPosition, -2, 0.1f, 0.6f);
         G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-HalfW, HalfW) * 0.6f, 0), new Color(0.8f, 0.95f, 1f));
-        if (_hp > 0) { QueueRedraw(); return; }
+        if (left > 0) { QueueRedraw(); return; }
         G.Sfx.Play("rock", GlobalPosition, 0, 0.1f, 1.6f);
         G.Fx.Debris(GlobalPosition, new Color(0.8f, 0.93f, 1f), 12, 200);
         G.Fx.Splash(GlobalPosition, 0.6f, new Color(0.7f, 0.9f, 1f, 0.9f));
@@ -318,7 +354,7 @@ public partial class IceSheet : StaticBody2D, IBreakable
         var body = _flash > 0 ? new Color(1, 1, 1, 0.95f) : new Color(0.72f, 0.88f, 0.98f, 0.85f);
         DrawRect(new Rect2(-HalfW, -2, HalfW * 2, 8), body);
         DrawRect(new Rect2(-HalfW, -2, HalfW * 2, 2), new Color(0.95f, 1f, 1f, 0.9f));
-        if (_hp < 2)
+        if (Cracked)
         {
             DrawLine(new Vector2(-6, -2), new Vector2(2, 3), new Color(0.35f, 0.55f, 0.7f), 1.2f);
             DrawLine(new Vector2(2, 3), new Vector2(9, 0), new Color(0.35f, 0.55f, 0.7f), 1.2f);
