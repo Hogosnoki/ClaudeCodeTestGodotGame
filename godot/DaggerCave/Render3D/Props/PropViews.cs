@@ -1071,8 +1071,8 @@ public partial class ChestView : PropView
     /// </summary>
     private void BuildShrine(bool boss, Color glow)
     {
-        float k = boss ? 2.0f : 1.45f;
-        _floatY = 0.34f * k;
+        float k = boss ? 2.6f : 1.9f;
+        _floatY = 0.1f * k;
         _float = new Node3D { Position = new Vector3(0, _floatY, 0) };
         AddChild(_float);
         float t = 0.035f * k;     // half thickness
@@ -1095,22 +1095,27 @@ public partial class ChestView : PropView
                 mb.Quad(a0, b0, b1, a1); mb.Quad(a0, a1, b1, b0);
             }
         }
+        // three leaf-blades fanning from one point at the bottom (the heavy end): a tall one upright and a shorter one
+        // either side leaning out, each a long diamond, widest a little below its middle
+        void Blade(MeshBuilder mb, Vector2 baseP, Vector2 tip, float halfWidth, float widest = 0.45f)
+        {
+            var d = tip - baseP; var dir = d.Normalized(); var perp = new Vector2(-dir.Y, dir.X);
+            var mid = baseP + d * widest;
+            Poly(mb, Colors.White, baseP, mid + perp * halfWidth * -1f, tip, mid + perp * halfWidth);
+        }
         var body = new MeshBuilder();
-        // the triangular body: wide across the top, a heavy point beneath
-        Poly(body, Colors.White, new Vector2(-0.2f, 0.12f), new Vector2(0.2f, 0.12f), new Vector2(0f, -0.22f));
-        // the three prongs: a long centre one and two shorter, leaning outward, each a narrow kite
-        Poly(body, Colors.White, new Vector2(-0.05f, 0.12f), new Vector2(0f, 0.2f), new Vector2(0.05f, 0.12f), new Vector2(0f, 0.5f));
-        Poly(body, Colors.White, new Vector2(-0.2f, 0.12f), new Vector2(-0.13f, 0.12f), new Vector2(-0.25f, 0.38f));
-        Poly(body, Colors.White, new Vector2(0.13f, 0.12f), new Vector2(0.2f, 0.12f), new Vector2(0.25f, 0.38f));
+        Blade(body, new Vector2(0f, 0f), new Vector2(0f, 0.47f), 0.085f, 0.46f);
+        Blade(body, new Vector2(-0.045f, 0f), new Vector2(-0.36f, 0.34f), 0.07f);
+        Blade(body, new Vector2(0.045f, 0f), new Vector2(0.36f, 0.34f), 0.07f);
         _float.AddChild(PropViews.Mesh(body, PropViews.Emissive(glow, 1.1f), false));
-        // a brighter core in the triangle (the weight of it), and a halo
+        // a brighter heart in the middle blade, and a halo
         var core = new MeshBuilder();
-        Poly(core, Colors.White, new Vector2(-0.1f, 0.06f), new Vector2(0.1f, 0.06f), new Vector2(0f, -0.12f));
+        Blade(core, new Vector2(0f, 0.05f), new Vector2(0f, 0.34f), 0.04f, 0.46f);
         var coreNode = PropViews.Mesh(core, PropViews.Emissive(glow.Lerp(Colors.White, 0.6f), 2.0f), false);
         coreNode.Position = new Vector3(0, 0, t * 0.6f);
         _float.AddChild(coreNode);
         var halo = PropViews.Sprite(glow, 0, 0.3f, 0.8f * k);
-        halo.Position = new Vector3(0, 0.1f * k, 0);
+        halo.Position = new Vector3(0, 0.2f * k, 0);
         _float.AddChild(halo);
     }
 
