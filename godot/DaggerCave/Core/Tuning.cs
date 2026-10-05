@@ -290,7 +290,7 @@ public static class Tune
         /// jabs come half as fast (OneDaggerSlow).
         /// </summary>
         public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 40f, Knockback = 70f, Lunge = 0f;
-        public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.025f, OneDaggerSlow = 2f;
+        public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.04f, OneDaggerSlow = 2f;
         /// <summary>Backstab (an upgrade): a strike from behind a creature lands this many times as hard.</summary>
         public static float BackstabMult = 1.5f;
         /// <summary>
@@ -422,10 +422,10 @@ public static class Tune
         /// (with a shudder) while the rest of the world carries on. Presses made meanwhile are
         /// kept (Tune.Hero.PressBuffer), so the next strike of a combo follows the instant it ends.
         /// </summary>
-        public static float HitStopNormal = 0.085f, HitStopFinisher = 0.15f, HitStopCharged = 0.16f;
+        public static float HitStopNormal = 0.15f, HitStopFinisher = 0.26f, HitStopCharged = 0.28f;
         /// <summary>A blow that kills holds this many times as long (the hero, and the dying creature's last pose).</summary>
         public static float HitStopKillMult = 1.25f;
-        public static float HitStopWave = 0.06f, HitStopBolt = 0.04f, HitStopDash = 0.07f, HitStopPlayerHurt = 0.04f;
+        public static float HitStopWave = 0.1f, HitStopBolt = 0.06f, HitStopDash = 0.12f, HitStopPlayerHurt = 0.04f;
         /// <summary>Game speed during SlowMo (the only thing that slows the whole game: elite and boss kills).</summary>
         public static float HitStopTimeScale = 0.02f;
         /// <summary>Slow motion on mini-boss / boss kills: (seconds, time scale).</summary>
