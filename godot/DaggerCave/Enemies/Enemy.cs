@@ -444,7 +444,8 @@ public abstract partial class Enemy : CharacterBody2D
     /// </summary>
     public void Freeze(float seconds, bool hold = false)
     {
-        if (Dead || (!hold && AttackingNow)) return;
+        // (a creature mid-attack freezes too: the wind-up holds for a beat and then carries on as telegraphed, a moment for the player to ready themselves)
+        if (Dead) return;
         _freeze = Math.Max(_freeze, seconds);
         if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Freeze, seconds, hold ? 1 : 0);
     }

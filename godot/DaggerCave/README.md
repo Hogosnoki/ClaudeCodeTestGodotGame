@@ -486,9 +486,10 @@ and to enemies (`Combat.StrikeRecoil`). Getting struck also pushes you sideways 
 launching you upward.
 
 **Readable wind-ups**. A creature winding up or in the middle of an attack keeps its pose and its
-timing when struck: the blow flashes it, squashes it and shows the damage, but it doesn't flinch,
-freeze for the hit-stop or reel from the knockback. So an attack always lands exactly as its
-wind-up promised, and can be read and blocked. Only the shield breaks an attack off: a perfect
+timing when struck: the blow flashes it, squashes it and shows the damage, but it doesn't flinch or
+reel from the knockback. It does freeze for the hit-stop, the wind-up holding for a beat (a moment
+to get ready) before carrying on. So an attack always lands as its wind-up promised, and can be
+read and blocked. Only the shield breaks an attack off: a perfect
 block, the Guarded Charge, the shield bash, or a shield broken by the blow.
 
 **Holding the attack** down (or, on a controller, pushing the right stick well over, for everyone

@@ -2776,8 +2776,8 @@ public partial class Main : Node
         {
             var e = _probeEnemy;
             Check($"a swing lands on the golem as it winds up (hp {_hpMark:0} -> {e.Hp:0})", e.Hp < _hpMark);
-            Check($"and its slam carries on as telegraphed (attacking {e.Attacking}, reeling {e.Reeling}, held {e.FreezeLeft:0.00} s, pose {_clipMark} -> {e.Animator?.Current})",
-                e.Attacking && !e.Reeling && e.FreezeLeft <= 0 && e.Animator?.Current != "hurt");
+            Check($"and its slam holds for the hit-stop, then carries on as telegraphed (attacking {e.Attacking}, reeling {e.Reeling}, held {e.FreezeLeft:0.00} s, pose {_clipMark} -> {e.Animator?.Current})",
+                e.Attacking && !e.Reeling && e.Animator?.Current != "hurt");
         }
         // between steps 188 and 289: dash into the golem the moment it starts its slam
         if (s > 187 && s < 290 && _dashedAt < 0 && IsInstanceValid(_probeEnemy) && _probeEnemy.Attacking && _probeEnemy is Golem)
