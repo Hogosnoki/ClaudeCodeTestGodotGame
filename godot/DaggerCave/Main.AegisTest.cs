@@ -95,7 +95,7 @@ public partial class Main
             }
             case 5:
             {
-                // ---- a bubble on the friend: half of every blow until it bursts (the barrier first spent: test the bubble alone)
+                // ---- a bubble on the friend: a tenth of every blow until it has taken a tenth of their health, then it bursts (the barrier first spent: test the bubble alone)
                 if (_scT < 0.2f) return;
                 _scAlly.GiveBarrier(0.0001f, 0.01f); // (nothing: the barrier soaks what's left of the first blow)
                 _scAlly.Hurt(_scAlly.BarrierHp + 1f, p.GlobalPosition, 0, null);
@@ -110,11 +110,11 @@ public partial class Main
                 ScCheck($"the friend is in a bubble ({_scAlly.Bubbled}, absorbing {_scAlly.BubbleHp:0}; cooldown {p.BubbleCooldownFrac:0.00}, ally dead {_scAlly.Dead})", _scAlly.Bubbled && Math.Abs(_scAlly.BubbleHp - Tune.Aegis.BubbleShare * _scAlly.Stats.MaxHp) < 0.5f);
                 _scAllyHp = _scAlly.Hp;
                 _scAlly.Hurt(10f, p.GlobalPosition, 0, null);
-                ScCheck($"a blow of 10 costs them half: {_scAllyHp - _scAlly.Hp:0.0} (bubble left {_scAlly.BubbleHp:0.0})", Math.Abs(_scAllyHp - _scAlly.Hp - 5f) < 0.6f);
+                ScCheck($"a blow of 10 costs them nine tenths: {_scAllyHp - _scAlly.Hp:0.0} (bubble left {_scAlly.BubbleHp:0.0})", Math.Abs(_scAllyHp - _scAlly.Hp - 10f * (1f - Tune.Aegis.BubbleAbsorb)) < 0.6f);
                 // blows until it bursts
                 int n = 0;
-                while (_scAlly.Bubbled && n++ < 40) { _scAlly.Hurt(20f, p.GlobalPosition, 0, null); }
-                ScCheck($"after enough blows it bursts ({_scAlly.Bubbled}, {n} blows)", !_scAlly.Bubbled && n < 40);
+                while (_scAlly.Bubbled && n++ < 80) { _scAlly.Hp = _scAlly.MaxHp; _scAlly.Hurt(20f, p.GlobalPosition, 0, null); }
+                ScCheck($"after enough blows it bursts ({_scAlly.Bubbled}, {n} blows)", !_scAlly.Bubbled && n < 80);
                 _scAlly.Hp = _scAlly.Stats.MaxHp;
                 _scStep = 7; _scT = 0;
                 break;

@@ -151,7 +151,7 @@ public static class Tune
         /// <summary>Smite (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a burst of light SmiteRadius px round her for SmiteDamage, weakening everything it strikes; SmiteCooldown s.</summary>
         public static float SmiteDamage = 22f, SmiteRadius = 120f, SmiteCooldown = 6f;
         /// <summary>Bubble (the dodge button): absorbs BubbleAbsorb of each blow until BubbleShare of the receiver's max health (x WardMult) is absorbed, when it bursts; lasts BubbleSeconds, recharges BubbleCooldown s; the receiver breathes under water meanwhile. With Soothing Burst, the burst heals allies within BurstHealRadius px for BurstHealShare of their max health.</summary>
-        public static float BubbleRadiusMin = 12f, BubbleRadiusMax = 34f, BubbleCastRadius = 220f, BubbleShare = 0.28f, BubbleAbsorb = 0.5f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.07f, BurstHealRadius = 80f;
+        public static float BubbleRadiusMin = 12f, BubbleRadiusMax = 34f, BubbleCastRadius = 220f, BubbleShare = 0.1f, BubbleAbsorb = 0.1f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.07f, BurstHealRadius = 80f;
         /// <summary>Hostile Bubble (an alteration): on a creature instead, it takes (1 - WardAbsorb) of every blow while the rest builds; once WardCap has built it bursts for WardBlast, and WardSplash to the creatures round it (all x the Aegis's damage and the depth's threat).</summary>
         public static float WardAbsorb = 0.5f, WardCap = 10f, WardBlast = 30f, WardSplash = 10f, WardRadius = 64f, WardSeconds = 20f;
     }
