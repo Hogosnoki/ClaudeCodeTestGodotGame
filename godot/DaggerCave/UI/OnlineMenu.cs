@@ -17,7 +17,7 @@ public partial class OnlineMenu : Control
     private LineEdit _name, _code;
     private Label _title, _status, _code1, _code2, _code3, _router, _players, _wait, _mismatch;
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
-    private Button _host, _start, _leave;
+    private Button _host, _start, _leave, _paste, _joinBtn, _backBtn, _copy1, _copy2, _copy3;
     private readonly Button[] _cards = new Button[7];
     private readonly Label[] _cardNote = new Label[7];
     private readonly HeroPortrait[] _portraits = new HeroPortrait[7];
@@ -75,8 +75,10 @@ public partial class OnlineMenu : Control
         _code = new LineEdit { PlaceholderText = "their code, like 7K3QD-M2XP9", CustomMinimumSize = new Vector2(330, 38) };
         _code.TextSubmitted += _ => DoJoin();
         joinRow.AddChild(_code);
-        joinRow.AddChild(UiKit.Button("Paste", () => { _code.Text = DisplayServer.ClipboardGet().Trim(); }, 100));
-        joinRow.AddChild(UiKit.Button("Join", DoJoin, 120));
+        _paste = UiKit.Button("Paste", () => { _code.Text = DisplayServer.ClipboardGet().Trim(); }, 100);
+        joinRow.AddChild(_paste);
+        _joinBtn = UiKit.Button("Join", DoJoin, 120);
+        joinRow.AddChild(_joinBtn);
 
         _status = UiKit.Label("", 15, UiKit.Gold, HorizontalAlignment.Center);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -84,7 +86,8 @@ public partial class OnlineMenu : Control
         _choose.AddChild(_status);
         var backRow = Row(_choose);
         backRow.Alignment = BoxContainer.AlignmentMode.Center;
-        backRow.AddChild(UiKit.Button("Back", () => Back?.Invoke(), 200));
+        _backBtn = UiKit.Button("Back", () => Back?.Invoke(), 200);
+        backRow.AddChild(_backBtn);
 
         // ---- the lobby
         _lobby = new VBoxContainer();
@@ -94,17 +97,20 @@ public partial class OnlineMenu : Control
         _codeRow.AddChild(Fixed(UiKit.Label("Send your friend this code:", 16), 290));
         _code1 = UiKit.Label("", 26, UiKit.Gold);
         _codeRow.AddChild(Fixed(_code1, 230));
-        _codeRow.AddChild(UiKit.Button("Copy", () => Copy(Net.JoinCode), 100));
+        _copy1 = UiKit.Button("Copy", () => Copy(Net.JoinCode), 100);
+        _codeRow.AddChild(_copy1);
         _lanRow = Row(_lobby);
         _lanRow.AddChild(Fixed(UiKit.Label("Same Wi-Fi or network:", 15, UiKit.Dim), 290));
         _code2 = UiKit.Label("", 20, UiKit.Text);
         _lanRow.AddChild(Fixed(_code2, 230));
-        _lanRow.AddChild(UiKit.Button("Copy", () => Copy(Net.LanCode), 100));
+        _copy2 = UiKit.Button("Copy", () => Copy(Net.LanCode), 100);
+        _lanRow.AddChild(_copy2);
         _vpnRow = Row(_lobby);
         _vpnRow.AddChild(Fixed(UiKit.Label("Your Tailscale (virtual LAN) address:", 15, UiKit.Dim), 290));
         _code3 = UiKit.Label("", 20, UiKit.Text);
         _vpnRow.AddChild(Fixed(_code3, 230));
-        _vpnRow.AddChild(UiKit.Button("Copy", () => Copy(Net.VpnIp), 100));
+        _copy3 = UiKit.Button("Copy", () => Copy(Net.VpnIp), 100);
+        _vpnRow.AddChild(_copy3);
         _router = UiKit.Label("", 13, UiKit.Dim);
         _router.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         _router.CustomMinimumSize = new Vector2(860, 0);
@@ -350,7 +356,13 @@ public partial class OnlineMenu : Control
         _wait.Text = Net.IsHost
             ? (!Net.AllPicked ? "Waiting for everyone to have a hero..." : Net.Count > 1 ? "Everyone has a hero. Start when you're ready." : "Waiting for friends to join (they'll show up here).")
             : "Waiting for the host to start...";
-        if (pageChanged) (Net.IsHost ? _start : _cards.FirstOrDefault(c => !c.Disabled) ?? _leave).CallDeferred(Control.MethodName.GrabFocus);
+        // (the cursor starts on your own hero's card: left and right from there reach the others)
+        if (pageChanged)
+        {
+            int mineAt = Array.FindIndex(Heroes, h => Net.Mine != null && Net.Mine.Picked && Net.Mine.Hero == h.kind);
+            var first = mineAt >= 0 && !_cards[mineAt].Disabled ? _cards[mineAt] : _cards.FirstOrDefault(c => !c.Disabled);
+            (first ?? (Net.IsHost ? _start : _leave)).CallDeferred(Control.MethodName.GrabFocus);
+        }
     }
 
     private PanelContainer _panel;
@@ -367,6 +379,82 @@ public partial class OnlineMenu : Control
         bool show = Visible && _lobby.Visible;
         foreach (var p in _portraits)
             if (p != null) p.RenderTargetUpdateMode = show ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
+    }
+
+
+    // ---------------------------------------------------------------- the cursor
+    // Left and right walk along a row (so from the Warden, left is always the Swordsman), up and
+    // down step between rows: the order the page is laid out in. (The engine's own guess goes by
+    // where things sit on screen, and skips about.)
+
+    private static bool CanFocus(Control c) =>
+        c != null && c.IsVisibleInTree() && c.FocusMode != FocusModeEnum.None
+        && !(c is BaseButton b && b.Disabled) && !(c is Slider sl && !sl.Editable) && !(c is LineEdit le && !le.Editable);
+
+    /// <summary>The rows of controls the cursor can reach on the page shown, top to bottom.</summary>
+    private System.Collections.Generic.List<System.Collections.Generic.List<Control>> NavRows()
+    {
+        var rows = new System.Collections.Generic.List<System.Collections.Generic.List<Control>>();
+        void Row(params Control[] cs)
+        {
+            var r = cs.Where(CanFocus).ToList();
+            if (r.Count > 0) rows.Add(r);
+        }
+        if (_lobby.Visible)
+        {
+            Row(_copy1); Row(_copy2); Row(_copy3);
+            Row(_diff); Row(_perPlayer); Row(_hard);
+            Row(_cards);
+            Row(_start, _leave);
+        }
+        else
+        {
+            Row(_name); Row(_host); Row(_code, _paste, _joinBtn); Row(_backBtn);
+        }
+        return rows;
+    }
+
+    private void MoveCursor(int dx, int dy)
+    {
+        var rows = NavRows();
+        if (rows.Count == 0) return;
+        var f = GetViewport().GuiGetFocusOwner();
+        int r = rows.FindIndex(row => row.Contains(f)), c = r >= 0 ? rows[r].IndexOf(f) : -1;
+        if (r < 0)
+        {
+            // nothing here has the cursor: start on your hero's card (or the first thing)
+            int mineAt = Array.FindIndex(Heroes, h => Net.Mine != null && Net.Mine.Picked && Net.Mine.Hero == h.kind);
+            var start = _lobby.Visible && mineAt >= 0 && CanFocus(_cards[mineAt]) ? _cards[mineAt] : rows[0][0];
+            start.GrabFocus();
+            G.Sfx?.Play("ui", null, -8);
+            return;
+        }
+        Control to = f;
+        if (dx != 0) to = rows[r][Math.Clamp(c + dx, 0, rows[r].Count - 1)];
+        else
+        {
+            int nr = Math.Clamp(r + dy, 0, rows.Count - 1);
+            if (nr != r)
+            {
+                // the control in the next row nearest across
+                float x = f.GetGlobalRect().GetCenter().X;
+                to = rows[nr].OrderBy(o => Math.Abs(o.GetGlobalRect().GetCenter().X - x)).First();
+            }
+        }
+        if (to != f) { to.GrabFocus(); G.Sfx?.Play("ui", null, -8); }
+    }
+
+    public override void _Input(InputEvent e)
+    {
+        if (!Visible) return;
+        int dx = e.IsActionPressed("ui_left", true) ? -1 : e.IsActionPressed("ui_right", true) ? 1 : 0;
+        int dy = e.IsActionPressed("ui_up", true) ? -1 : e.IsActionPressed("ui_down", true) ? 1 : 0;
+        if (dx == 0 && dy == 0) return;
+        var f = GetViewport().GuiGetFocusOwner();
+        // a slider or a text box keeps left and right for itself (a slider with no cursor yet doesn't)
+        if (dx != 0 && f is HSlider or LineEdit) return;
+        MoveCursor(dx, dy);
+        GetViewport().SetInputAsHandled();
     }
 
     public override void _UnhandledInput(InputEvent e)

@@ -976,7 +976,7 @@ public partial class Player : CharacterBody2D
         float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f);
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         _dodgeT = 0; _airDashT = 0; _dashT = 0;
-        _knockT = KnockLock ? 0.12f : 0f;
+        _knockT = KnockLock ? Tune.Combat.HurtKnockLock : 0f;
         return dmg;
     }
 

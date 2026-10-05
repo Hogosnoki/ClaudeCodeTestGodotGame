@@ -285,7 +285,7 @@ public partial class Player
             if (!IsRogue && _comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             // (not the Rogue: its jabs come too fast to bounce off each one)
-            if (Math.Abs(to.X) > 2 && !IsRogue) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.StrikeRecoil, Velocity.Y);
+            if (Math.Abs(to.X) > 2 && !IsRogue) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.HeroStrikeRecoil, Velocity.Y);
             Freeze(stop);
             // Pogo: downward aerial strikes bounce the player up.
             if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)

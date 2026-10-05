@@ -131,7 +131,7 @@ Handy starting points:
 | --- | --- |
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
-| Hit weight | `Feel.HitStop*`, `Feel.Kick*` |
+| Hit weight (hit-stop is only a few frames; being struck shoves you very little: `Combat.HurtKnockbackMult`, `HurtKnockLock`, `HeroStrikeRecoil`) | `Feel.HitStop*`, `Feel.Kick*` |
 | The five heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, vital force, heal, hex, rupture), `Elementalist.*` (bolts, alimus, updraft, blizzard, snap, burning and freezing), `Rogue.*` (jabs, critical strikes, thrown daggers, recall, vanish, smoke) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
@@ -268,9 +268,11 @@ The panel's columns:
 | Leave the cave (depth 0: ends the run, keeping nothing) | E at the daylight at the far left | LT |
 | Drink a potion | Q | Y |
 | Main menu | Up / down and Enter, or click | D-pad or stick up / down, then A |
-| Choose hero (at the camp fire) | Left / right, or click the arrows | D-pad or stick left / right |
-| Descend into the cave | Enter (or R), or click Descend into the cave | A |
-| Back to the main menu (from the fire) | Esc | B |
+| Choose hero (stage 1 at the camp fire) | Left / right, or click the arrows | D-pad or stick left / right |
+| On to the next stage (hero, then loadout & perks, then difficulty) | Enter (or R), or click the button | A |
+| Loadout & perks stage: class perks, loadout, upgrade trees | P, L, U, or the buttons | The buttons (D-pad to move, A to open); BACK opens the trees |
+| Descend into the cave (the last stage, difficulty) | Enter (or R), or click Descend into the cave | A |
+| Back a stage (from the first: to the main menu) | Esc | B |
 | Play online | Multiplayer on the main menu (or O) | Y |
 | Pause (settings, your build) | Esc | Start |
 | Your build, while picking a card | Tab | Back |
@@ -300,8 +302,12 @@ and damage taken while a controller is active.
 
 **The camp**. The game opens on the main menu, over the camp outside the cave: a green meadow
 under a blue sky, a cooking pot over the fire, and the cave's great dark mouth in a mossy cliff.
-**Single player** brings you in to the fire, where the five heroes sit on logs; choose one (the
-chosen hero stands up) and descend, and the view drifts into the cave mouth as the run begins.
+**Single player** brings you in to the fire, where the heroes sit on logs, and getting ready goes in
+three stages (Enter / A on to the next, Esc / B back): **1 Character** (choose one; the chosen hero
+stands up), **2 Loadout & perks** (class perks, side-grade loadout and upgrade trees) and **3
+Difficulty** (the two difficulty sliders and Hard Mode, and the Descend button), and the view drifts
+into the cave mouth as the run begins. In the online lobby the cursor (arrow keys, D-pad, stick) walks
+the controls in the order they are laid out: left and right along the hero cards, up and down between rows.
 The main menu also has multiplayer, settings, a button to support the game on Ko-fi, and quit.
 
 **The run**. You start at the Cave Entrance (depth 0), with the tunnel you came in by behind you:
@@ -314,7 +320,7 @@ breath of that biome's colour comes up from far below) and how deep: the gentle 
 down (one chevron on the keystone), the steep way two (two chevrons; harder, but fewer levels to
 the dragon). Nobody is taken down until they choose to go: stand at the doorway and press E or
 up, so an exit that opens under your feet can't whisk you away from the guardian's chest. The last levels lead into the Dragon's Lair at
-depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp fire, with
+depth 10; slaying the Elder Dragon wins the run. Dying (or winning) sends every creature and projectile of the run away at once (nothing growls on behind the camp) and returns you to the camp fire, with
 how the run went.
 
 **Keys and vaults** (`Combat/Vault.cs`, `Cave/VaultGen.cs`). Every level but the dragon's lair
@@ -1026,8 +1032,9 @@ Two more test modes:
 - `--animtest --shots=DIR` scripts the player through every movement and attack transition (run,
   turn, stop, jump, land, slashes, dodge, ability, hurt) and saves a frame every 1/20 s.
 - `--fronttest=DIR` drives the way in with the same actions keys and controllers send: the main
-  menu, choosing a hero at the fire, descending to depth 0, a death back at the camp, and back to
-  the menu, with a screenshot of each stage. `--campshot=DIR` renders the camp from the menu's
+  menu, the three stages of the choice at the fire (hero, loadout & perks, difficulty), descending to
+  depth 0, a death back at the camp (no creature left behind), and back to the menu, with a
+  screenshot of each stage. `--campshot=DIR` renders the camp from the menu's
   view, from the fire with each hero chosen, and on the way to the cave.
 - `--scenario=NAME` stages one situation and checks it: `water` (a spider and a bear swim after
   the hero and attack in the water; seed 1013 unless `--seed` says otherwise), `mouth` (the way out at depth 0: up doesn't take you,
@@ -1108,7 +1115,7 @@ Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to 
 
 ### Loadout, Prodigy's Brand, rubble
 
-- **Loadout** (button on the hero select, or `L`): pick up to three of the hero's **side-grades** (the alterations: alternate abilities such as Frostbolt for Firebolt, one to an ability) to start the run with. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes. The give-and-take upgrades are called **risk-rewards**.
+- **Loadout** (button on the loadout & perks stage of the hero select, or `L` there): pick up to three of the hero's **side-grades** (the alterations: alternate abilities such as Frostbolt for Firebolt, one to an ability) to start the run with. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes. The give-and-take upgrades are called **risk-rewards**.
 - **Healing Ward** (Aegis side-grade): the ward bolt hits for only 25% but its burst mends the Aegis and every friend in it for the full blow, which is what makes the Aegis playable alone.
 - **Prodigy's Brand** levels you up twenty times at once; you can no longer pick up relics (upgrades and shrines still open).
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.

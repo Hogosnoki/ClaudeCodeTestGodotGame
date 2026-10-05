@@ -166,7 +166,7 @@ public partial class Main : Node
         _perkMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_perkMenu);
         _loadoutMenu = new LoadoutMenu();
-        _loadoutMenu.Closed += () => _heroChoice?.Refresh();
+        _loadoutMenu.Closed += () => { _heroChoice?.Refresh(); _heroChoice?.RestoreFocus(); };
         _uiLayer.AddChild(_loadoutMenu);
         UiKit.EnsureMenuControls();
         _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
@@ -1173,6 +1173,8 @@ public partial class Main : Node
         _state = State.Dead;
         _deadT = 0;
         _deaths++;
+        // (the run is over: its creatures leave at once, so nothing carries on growling behind the death screen)
+        CallDeferred(MethodName.DespawnRunActors);
         _sfx.SetMusic("");
         Meta.Save();
     }
@@ -1190,22 +1192,26 @@ public partial class Main : Node
             + $"\nLevel {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}" + (earned != "" ? "\n" + earned : ""));
     }
 
+    /// <summary>The run is over: its creatures and their projectiles leave the world (the hero's own last sound plays on).</summary>
+    private void DespawnRunActors() => ClearRunActors(silence: false);
+
     /// <summary>The run is over: its creatures and their projectiles leave the world (and the air), so nothing of the cave carries on behind the camp.</summary>
-    private void ClearRunActors()
+    private void ClearRunActors(bool silence = true)
     {
         foreach (var e in G.Enemies.ToArray()) if (IsInstanceValid(e)) { e.GetParent()?.RemoveChild(e); e.QueueFree(); }
         G.Enemies.Clear();
+        NetSync.Enemies.Clear();
         foreach (var pr in EnemyProjectiles.ToArray()) if (IsInstanceValid(pr)) pr.QueueFree();
         EnemyProjectiles.Clear();
         ActiveBoss = null;
         _roomElites.Clear();
-        _sfx.StopAll();
+        if (silence) _sfx.StopAll();
     }
 
     private void OnMetaClosed()
     {
         if (_state == State.Dead) ShowCamp();
-        else if (_state == State.Title && _front == Front.Heroes) { _heroChoice.Visible = true; _heroChoice.Refresh(); }
+        else if (_state == State.Title && _front == Front.Heroes) { _heroChoice.Visible = true; _heroChoice.Refresh(); _heroChoice.RestoreFocus(); }
         else if (_state == State.Title) ShowTitle();
     }
 
@@ -1435,19 +1441,21 @@ public partial class Main : Node
             return;
         }
         if (!choosing) return;
-        if (e.IsActionPressed("move_left") || e.IsActionPressed("move_right") || e.IsActionPressed("ui_left") || e.IsActionPressed("ui_right"))
+        if (_heroChoice.Stage == HeroChoice.StageKind.Hero && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right") || e.IsActionPressed("ui_left") || e.IsActionPressed("ui_right")))
         {
             StepHero(e.IsActionPressed("move_left") || e.IsActionPressed("ui_left") ? -1 : 1);
             GetViewport().SetInputAsHandled();
         }
         else if (e.IsActionPressed("pause") || e.IsActionPressed("ui_cancel"))
         {
-            BackToMenu();
+            // back a stage (from the first, to the main menu)
+            _heroChoice.Retreat();
             GetViewport().SetInputAsHandled();
         }
         else if (e.IsActionPressed("confirm") || e.IsActionPressed("ui_accept") || e.IsActionPressed("restart"))
         {
-            BeginDescent();
+            // on a stage (the last goes down into the cave)
+            _heroChoice.Advance();
             GetViewport().SetInputAsHandled();
         }
     }
@@ -1480,9 +1488,9 @@ public partial class Main : Node
             case State.Title:
                 _titleT += dt;
                 if (_metaShot != "") MetaShotTick();
-                if (!_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
-                if (_front == Front.Heroes && _heroChoice.Visible && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
-                if (_front == Front.Heroes && _heroChoice.Visible && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("loadout")) _loadoutMenu.Open(G.Hero);
+                if (!_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && (_front != Front.Heroes || _heroChoice.InPrep) && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                if (_front == Front.Heroes && _heroChoice.InPrep && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
+                if (_front == Front.Heroes && _heroChoice.InPrep && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("loadout")) _loadoutMenu.Open(G.Hero);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
@@ -1503,7 +1511,7 @@ public partial class Main : Node
                     if (!_autotest && Meta.Visible(Meta.PotionTree) && !Meta.PotionTutorialDone) _metaMenu.Open(MetaMenu.Mode.PotionTutorial);
                     else if (!_autotest && Meta.Visible(Meta.PearlTree) && !Meta.PearlTutorialDone) _metaMenu.Open(MetaMenu.Mode.PearlIntro);
                 }
-                bool summary = _overlay.Visible || _heroChoice.Visible;
+                bool summary = _overlay.Visible || _heroChoice.InPrep;
                 if (_deadT > 1.5f && summary && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
                 else if (_deadT > 1.5f && summary && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
                 // (online: on to the lobby; alone, the hero choice at the fire takes it from here)
@@ -1555,7 +1563,7 @@ public partial class Main : Node
                 if (_victoryT <= 0)
                 {
                     if (Net.IsHost) { NetSync.SendRunOver(true); OnlineRunOver(true); }
-                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); }
+                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); ClearRunActors(); }
                 }
             }
             if (Net.InRun) OnlineTick(dt);
@@ -2350,7 +2358,11 @@ public partial class Main : Node
             (0.55f, () => { Btn(JoyButton.A, false); }, ""),
             (0.8f, () => { PadCheck($"A on Single player goes to the hero choice at the fire (choice {_heroChoice.Visible}, using pad {UsingPad}, mouse {Input.MouseMode})", _heroChoice.Visible && UsingPad); Btn(JoyButton.A, true); }, "A at the fire"),
             (0.85f, () => { Btn(JoyButton.A, false); }, ""),
-            (2.6f, () => PadCheck($"A at the fire sets off into the cave (state {_state})", _state == State.Playing), ""),
+            (1.0f, () => { PadCheck($"A on the hero moves on to the loadout and perks (stage {_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Btn(JoyButton.A, true); }, "A on the loadout stage"),
+            (1.05f, () => { Btn(JoyButton.A, false); }, ""),
+            (1.25f, () => { PadCheck($"A on Next moves on to the difficulty (stage {_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Btn(JoyButton.A, true); }, "A on the difficulty stage"),
+            (1.3f, () => { Btn(JoyButton.A, false); }, ""),
+            (2.6f, () => PadCheck($"A on the last stage sets off into the cave (state {_state})", _state == State.Playing), ""),
             (3.0f, () => Axis(JoyAxis.LeftX, 1f), "stick right"),
             (3.6f, () => { PadCheck($"the stick runs (vx {G.Player.Velocity.X:0})", G.Player.Velocity.X > 100); Axis(JoyAxis.LeftX, 0f); }, ""),
             (3.8f, () => Btn(JoyButton.X, true), "X swing"),

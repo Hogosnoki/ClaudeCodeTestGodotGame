@@ -391,8 +391,12 @@ public static class Tune
         /// <summary>Horizontal bounce (px/s) the attacker gets when it lands a melee hit, both
         /// you and enemies. Never vertical.</summary>
         public static float StrikeRecoil = 110f;
+        /// <summary>The same bounce for the hero when its own blow lands (a small share of the enemies').</summary>
+        public static float HeroStrikeRecoil = 25f;
         /// <summary>Scales how far you are pushed back when struck (horizontal only).</summary>
-        public static float HurtKnockbackMult = 0.55f;
+        public static float HurtKnockbackMult = 0.12f;
+        /// <summary>Seconds after being struck that steering is dulled (the shove itself is slight).</summary>
+        public static float HurtKnockLock = 0.04f;
         /// <summary>Free swing-cooldown resets per combo before any Flurry upgrades: hit something
         /// and you can swing again at once, this many times, then the full cooldown runs.</summary>
         public static int ComboResetsBase = 1;
@@ -418,8 +422,8 @@ public static class Tune
         /// (with a shudder) while the rest of the world carries on. Presses made meanwhile are
         /// kept (Tune.Hero.PressBuffer), so the next strike of a combo follows the instant it ends.
         /// </summary>
-        public static float HitStopNormal = 0.17f, HitStopKill = 0.23f, HitStopFinisher = 0.3f, HitStopCharged = 0.32f;
-        public static float HitStopWave = 0.12f, HitStopBolt = 0.07f, HitStopDash = 0.14f, HitStopPlayerHurt = 0.05f;
+        public static float HitStopNormal = 0.025f, HitStopKill = 0.035f, HitStopFinisher = 0.045f, HitStopCharged = 0.05f;
+        public static float HitStopWave = 0.02f, HitStopBolt = 0.012f, HitStopDash = 0.03f, HitStopPlayerHurt = 0.012f;
         /// <summary>Game speed during SlowMo (the only thing that slows the whole game: elite and boss kills).</summary>
         public static float HitStopTimeScale = 0.02f;
         /// <summary>Slow motion on mini-boss / boss kills: (seconds, time scale).</summary>
