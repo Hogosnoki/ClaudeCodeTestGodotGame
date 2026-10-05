@@ -422,7 +422,9 @@ public static class Tune
         /// (with a shudder) while the rest of the world carries on. Presses made meanwhile are
         /// kept (Tune.Hero.PressBuffer), so the next strike of a combo follows the instant it ends.
         /// </summary>
-        public static float HitStopNormal = 0.085f, HitStopKill = 0.11f, HitStopFinisher = 0.15f, HitStopCharged = 0.16f;
+        public static float HitStopNormal = 0.085f, HitStopFinisher = 0.15f, HitStopCharged = 0.16f;
+        /// <summary>A blow that kills holds this many times as long (the hero, and the dying creature's last pose).</summary>
+        public static float HitStopKillMult = 1.25f;
         public static float HitStopWave = 0.06f, HitStopBolt = 0.04f, HitStopDash = 0.07f, HitStopPlayerHurt = 0.04f;
         /// <summary>Game speed during SlowMo (the only thing that slows the whole game: elite and boss kills).</summary>
         public static float HitStopTimeScale = 0.02f;

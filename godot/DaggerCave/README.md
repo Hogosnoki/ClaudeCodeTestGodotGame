@@ -131,7 +131,7 @@ Handy starting points:
 | --- | --- |
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
-| Hit weight (a landed blow freezes both the striker and the struck for a moment, about half what it once was; being struck shoves you very little: `Combat.HurtKnockbackMult`, `HurtKnockLock`, `HeroStrikeRecoil`) | `Feel.HitStop*`, `Feel.Kick*` |
+| Hit weight (a landed blow freezes both the striker and the struck for a moment, about half what it once was, and a killing blow holds 1.25 times as long (the hero and the dying creature's last pose; `Feel.HitStopKillMult`); being struck shoves you very little: `Combat.HurtKnockbackMult`, `HurtKnockLock`, `HeroStrikeRecoil`) | `Feel.HitStop*`, `Feel.Kick*` |
 | The five heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, vital force, heal, hex, rupture), `Elementalist.*` (bolts, alimus, updraft, blizzard, snap, burning and freezing), `Rogue.*` (jabs, critical strikes, thrown daggers, recall, vanish, smoke) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |

@@ -328,7 +328,7 @@ public partial class Player
             e.Interrupt(_dashDir * Tune.Warden.DashPush, Tune.Warden.DashStagger);
             float dealt = e.Hurt(Tune.Warden.DashDamage * Stats.DamageMult * Stats.DashDamageMult, _dashDir * 160f, at);
             if (dealt > 0) OnDealtDamage(dealt);
-            if (!e.Dead) e.Freeze(Tune.Feel.HitStopDash);
+            e.HitStop(Tune.Feel.HitStopDash);
             if (Stats.DashMend) { MendShield(12f); Heal(4f); }
         }
         G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));

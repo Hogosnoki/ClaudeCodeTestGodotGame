@@ -171,7 +171,7 @@ public partial class Player
         if (dealt <= 0) return;
         OnDealtDamage(dealt);
         if (crit) CritFx(e, at);
-        if (!e.Dead) e.Freeze(Tune.Rogue.HitStop * 2f);
+        e.HitStop(Tune.Rogue.HitStop * 2f);
         G.Sfx.Play("hit", at, -4, 0.1f, 1.3f);
     }
 

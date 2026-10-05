@@ -187,7 +187,7 @@ public partial class Player
         if (dealt <= 0) { G.Sfx.Play("clink", GlobalPosition, -6); return; }
         OnDealtDamage(dealt);
         if (Stats.FormBleed && !e.Dead) e.Bleed(dealt * 0.5f, 3f);
-        e.Freeze(Tune.Feel.HitStopNormal);
+        e.HitStop(Tune.Feel.HitStopNormal);
         G.Fx.Spark(e.GlobalPosition, knock.Normalized(), mult > 1.5f, new Color(0.95f, 0.97f, 1f));
         G.Main.Kick(knock.Normalized() * Tune.Feel.KickNormal);
     }

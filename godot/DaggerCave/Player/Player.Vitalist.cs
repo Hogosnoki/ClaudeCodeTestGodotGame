@@ -159,7 +159,7 @@ public partial class Player
         }
         OnDealtDamage(dealt, vitalForceByMote: true);
         if (Stats.DrainHealChance > 0 && G.Chance(Stats.DrainHealChance)) Heal(1f); // (Sip of Life)
-        if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
+        e.HitStop(Tune.Feel.HitStopBolt);
         // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
         // life streaming out of it toward you
         // (bright and big: a green flare, a burst of it, a ring racing out, and the life torn out toward you)

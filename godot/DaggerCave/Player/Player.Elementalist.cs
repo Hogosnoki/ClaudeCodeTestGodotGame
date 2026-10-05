@@ -129,7 +129,7 @@ public partial class Player
         if (dealt > 0)
         {
             OnDealtDamage(dealt);
-            if (!e.Dead) e.Freeze(Tune.Feel.HitStopBolt);
+            e.HitStop(Tune.Feel.HitStopBolt);
         }
         if (e.Dead) return;
         if (bolt.Frost)

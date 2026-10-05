@@ -264,10 +264,12 @@ public partial class Player
         if (charged && IsSwordsman) Heal(dealt * Tune.Swordsman.ChargeLifesteal);
         bool killed = e.Dead;
         bool heavy = finisher || charged;
-        float stop = charged ? Tune.Feel.HitStopCharged : finisher ? Tune.Feel.HitStopFinisher : killed ? Tune.Feel.HitStopKill : Tune.Feel.HitStopNormal;
+        float stop = charged ? Tune.Feel.HitStopCharged : finisher ? Tune.Feel.HitStopFinisher : Tune.Feel.HitStopNormal;
         // (a jab barely pauses: the Rogue's rhythm is speed)
         if (IsRogue) stop = crit ? Tune.Rogue.HitStop * 2.5f : Tune.Rogue.HitStop;
-        if (!killed) e.Freeze(stop);
+        // (a killing blow holds longer, for the satisfaction of it: the hero and the dying creature's last pose both wait)
+        if (killed) stop *= Tune.Feel.HitStopKillMult;
+        e.HitStop(stop);
         // impact: sparks, freeze-frame, a camera nudge in the direction of the blow, rumble
         var sparkCol = charged ? new Color(1f, 0.55f, 0.3f) : finisher ? new Color(1f, 0.85f, 0.4f) : Colors.White;
         G.Fx.Spark(hitPos, dir, heavy || killed, sparkCol);

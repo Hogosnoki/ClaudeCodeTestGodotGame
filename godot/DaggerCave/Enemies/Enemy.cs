@@ -452,6 +452,16 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
 
+    /// <summary>
+    /// The hit-stop of a blow that landed: a creature still standing freezes for it; one the blow
+    /// killed holds its dying pose for it (<see cref="Tune.Feel.HitStopKillMult"/> times as long).
+    /// </summary>
+    public void HitStop(float seconds, bool hold = false)
+    {
+        if (Dead) Anim?.HoldDeath(seconds);
+        else Freeze(seconds, hold);
+    }
+
     /// <summary>True while a body attack is under way: touching the player then hurts (once).</summary>
     protected virtual bool Striking => false;
     private bool _wasStriking, _strikeLanded;

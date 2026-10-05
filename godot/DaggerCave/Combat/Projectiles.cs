@@ -431,7 +431,7 @@ public partial class SwordWave : Node2D
             if (dealt > 0)
             {
                 G.Player?.OnDealtDamage(dealt);
-                if (!e.Dead) e.Freeze(Tune.Feel.HitStopWave);
+                e.HitStop(Tune.Feel.HitStopWave);
                 G.Fx.Spark(e.GlobalPosition, Dir, false, new Color(0.8f, 0.95f, 1f));
             }
         }

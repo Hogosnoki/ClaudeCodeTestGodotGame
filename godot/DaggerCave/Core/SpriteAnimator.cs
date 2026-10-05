@@ -471,6 +471,22 @@ void fragment() {
         Sync3D((float)delta);
     }
 
+    private Tween _deathTween;
+
+    /// <summary>A dying creature's last pose holds still for the hit-stop (its fall, drift and fade wait), then carries on.</summary>
+    public void HoldDeath(float seconds)
+    {
+        if (_deathTween == null || !_deathTween.IsValid() || seconds <= 0f || !IsInsideTree()) return;
+        _deathTween.Pause();
+        TimeMult = 0f;
+        GetTree().CreateTimer(seconds).Timeout += () =>
+        {
+            if (!IsInstanceValid(this)) return;
+            TimeMult = 1f;
+            if (_deathTween != null && _deathTween.IsValid()) _deathTween.Play();
+        };
+    }
+
     /// <summary>
     /// Hands this sprite over to the world so its death animation can finish after the gameplay
     /// node is freed, then fades it out.
@@ -487,9 +503,11 @@ void fragment() {
         ZIndex = 0;
         _manual = false;
         _once = null;
+        TimeMult = 1f; // (struck while frozen, it still plays its death)
         CancelOnce();
         Once(anim, 99);
         var tw = CreateTween();
+        _deathTween = tw;
         float dur = Has(anim) ? Sheet.Frames.GetFrameCount(Resolve(anim)) / 24f : 0.3f;
         if (drift != Vector2.Zero) tw.Parallel().TweenProperty(this, "position", Position + drift, dur);
         tw.TweenInterval(Math.Max(0.05f, dur + linger - (drift != Vector2.Zero ? dur : 0)));
