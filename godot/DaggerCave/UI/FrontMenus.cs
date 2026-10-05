@@ -93,10 +93,10 @@ public partial class MainMenu : Control
 /// </summary>
 public partial class HeroChoice : Control
 {
-    public Action Prev, Next, Descend, Back, Trees, Perks;
+    public Action Prev, Next, Descend, Back, Trees, Perks, Loadout;
 
     private Label _name, _desc, _hint, _embers;
-    private Button _trees, _perks;
+    private Button _trees, _perks, _loadout;
     private Label _brought;
     private CheckBox _hard;
     private HSlider _diff, _perPlayer;
@@ -174,6 +174,9 @@ public partial class HeroChoice : Control
         _perks = UiKit.Button("Class perks", () => Perks?.Invoke(), 250);
         _perks.FocusMode = FocusModeEnum.None;
         side.AddChild(_perks);
+        _loadout = UiKit.Button("Loadout (side-grades)", () => Loadout?.Invoke(), 250);
+        _loadout.FocusMode = FocusModeEnum.None;
+        side.AddChild(_loadout);
         _trees = UiKit.Button("Upgrade trees", () => Trees?.Invoke(), 250);
         _trees.FocusMode = FocusModeEnum.None;
         side.AddChild(_trees);
@@ -225,10 +228,10 @@ public partial class HeroChoice : Control
         _perPlayer.SetValueNoSignal(RunSettings.PerPlayer);
         _diffText.Text = $"enemies x{RunSettings.HpMult:0.0#} health, x{RunSettings.DmgMult:0.0#} damage";
         string brought = ClassPerks.EquippedNames(G.Hero);
-        _brought.Text = brought != "" ? "Perks: " + brought : "No class perks brought (P)";
+        _brought.Text = (brought != "" ? "Perks: " + brought : "No class perks brought (P)") + $"   ·   Loadout: {Meta.LoadoutFor(G.Hero).Count}/{Tune.Loadout.Slots} (L)";
         bool pad = G.Main?.UsingPad ?? false;
         _hint.Text = pad
             ? "LEFT / RIGHT to choose  ·  A to descend  ·  B back" + (trees ? "  ·  BACK upgrade trees" : "") + "  ·  ask for perks with the button"
-            : "LEFT / RIGHT to choose  ·  ENTER to descend  ·  ESC back  ·  P class perks" + (trees ? "  ·  U upgrade trees" : "");
+            : "LEFT / RIGHT to choose  ·  ENTER to descend  ·  ESC back  ·  P class perks  ·  L loadout" + (trees ? "  ·  U upgrade trees" : "");
     }
 }

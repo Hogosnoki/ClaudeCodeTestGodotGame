@@ -207,7 +207,7 @@ public partial class Player
     {
         var foe = FindSpellTarget(aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0), Tune.Support.ExposeRange, 40f);
         if (foe == null) { SayNo("NOTHING TO MARK"); _supportCd = 0.5f; return false; }
-        foe.Hex(Tune.Support.ExposeVuln, 1f, Tune.Support.ExposeSeconds);
+        foe.Expose(Tune.Support.ExposeVuln, Tune.Support.ExposeSeconds);
         G.Fx.Ring(foe.GlobalPosition, foe.HitRadius + 10, new Color(1f, 0.85f, 0.3f, 0.9f), 0.4f);
         G.Fx.Text(foe.HeadPoint(10f), "EXPOSED", new Color(1f, 0.85f, 0.35f), 11, 0.9f);
         G.Sfx.Play("throw", GlobalPosition, -6, 0.1f, 1.3f);

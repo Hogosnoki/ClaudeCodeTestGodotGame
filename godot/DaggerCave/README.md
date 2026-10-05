@@ -1102,6 +1102,12 @@ Every hero has a fourth ability that does something for the others (`Player.Supp
 Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to recharge), Warden **Taunt**
 (every creature counts her as next to nothing away for 3 s), Vitalist **Health Tap** (15% of max health for
 60% of the vital force reserve), Elementalist **Stalag-Might** (30 damage and the creature is rooted for
-2 s, 15 s), Rogue **Expose** (the creature takes 20% more from everyone for 8 s), Aegis **Mending Mark**
+2 s, 15 s), Rogue **Expose** (the creature takes 20% more from everyone, and everyone crits it 10% more often, for 8 s), Aegis **Mending Mark**
 (whoever next strikes the marked creature is healed 10, 30 s), Shape Shifter **Pack Howl** (allies near run
 20% and strike 15% faster for 8 s). `--scenario=support --hero=vitalist` checks all seven.
+
+### Loadout, Prodigy's Brand, rubble
+
+- **Loadout** (button on the hero select, or `L`): pick up to three of the hero's side-grades before a run. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes.
+- **Prodigy's Brand** levels you up twenty times at once; you can no longer pick up relics (upgrades and shrines still open).
+- A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.

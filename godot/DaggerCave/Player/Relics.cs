@@ -70,7 +70,7 @@ public static partial class Upgrades
         Rl("relic_quicksilver", "Quicksilver Grip", "Attack 20% faster, but hit 20% softer.", (s, p) => { s.AttackSpeed *= 1.2f; s.DamageMult *= 0.8f; }),
         Rl("relic_amphibian", "Amphibian Charm", "Move 30% faster in water, but 15% slower on land.", (s, p) => { s.SwimSpeed *= 1.3f; s.MoveSpeed *= 0.85f; }),
         Rl("relic_flask", "Deep Flask", "Carry one more potion, and creatures are 1% likelier to drop one.", (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.01f; }),
-        Rl("relic_prodigy", "Prodigy's Brand", "You level up five times at once, but can never open a chest again.", (s, p) => { s.NoChests = true; p?.GainLevels(5); }),
+        Rl("relic_prodigy", "Prodigy's Brand", "You level up twenty times at once, but can no longer pick up relics.", (s, p) => { s.NoRelics = true; p?.GainLevels(20); }),
         Rl("relic_treasure", "Hunter's Map", "20% more chests in every cave, but no chest of your own when a guardian falls.", (s, p) => { }, weight: 0.8f),
         Rl("relic_fount", "Fount of Vigor", "Every level you gain heals you to full.", (s, p) => s.LevelHeal = true),
         Rl("relic_spring", "Spring Water", "Going deeper heals you to full.", (s, p) => s.DepthHeal = true),

@@ -587,6 +587,19 @@ public static class Tune
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;
     }
 
+    /// <summary>Switches for testing.</summary>
+    public static class Testing
+    {
+        /// <summary>Every hero (and every side-grade) can be chosen, whatever the save says.</summary>
+        public static bool UnlockEverything = true;
+    }
+
+    /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>
+    public static class Loadout
+    {
+        public static int Slots = 3;
+    }
+
     /// <summary>The shrines: loose shapes that sink slowly to the floor from this height (px) at this speed (px/s).</summary>
     public static class Shrine
     {
@@ -607,7 +620,7 @@ public static class Tune
         /// <summary>Elementalist Stalag-Might: damage, seconds rooted, reach, cooldown.</summary>
         public static float StalagDamage = 30f, StalagSeconds = 2f, StalagRange = 260f, StalagCooldown = 15f;
         /// <summary>Rogue Expose: the marked creature takes this much more from everyone.</summary>
-        public static float ExposeVuln = 1.2f, ExposeSeconds = 8f, ExposeRange = 260f, ExposeCooldown = 20f;
+        public static float ExposeCrit = 0.10f, ExposeVuln = 1.2f, ExposeSeconds = 8f, ExposeRange = 260f, ExposeCooldown = 20f;
         /// <summary>Aegis Mending Mark: the next hero to strike the marked creature is healed this much.</summary>
         public static float MarkHeal = 10f, MarkSeconds = 20f, MarkRange = 260f, MarkCooldown = 30f;
     }

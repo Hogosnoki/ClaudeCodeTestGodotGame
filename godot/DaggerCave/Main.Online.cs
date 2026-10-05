@@ -120,6 +120,7 @@ public partial class Main
         if (_settingsMenu.Visible) { _settingsMenu.Visible = false; GameSettings.Save(); }
         _metaMenu.Visible = false;
         _perkMenu.Visible = false;
+        if (_loadoutMenu != null) _loadoutMenu.Visible = false;
         Engine.TimeScale = 1;
         _hitStopLeft = 0;
         _state = State.Title;

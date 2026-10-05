@@ -70,6 +70,7 @@ public static class Controls
         ["pick_4"] = new InputEvent[] { K(Key.Key4) },
         ["meta"] = new InputEvent[] { K(Key.U), J(JoyButton.Back) },
         ["perks"] = new InputEvent[] { K(Key.P) },
+        ["loadout"] = new InputEvent[] { K(Key.L) },
         ["skip"] = new InputEvent[] { K(Key.X), J(JoyButton.X) },
         // your build, while picking a card (from the pause menu otherwise)
         ["build"] = new InputEvent[] { K(Key.Tab), J(JoyButton.Back) },

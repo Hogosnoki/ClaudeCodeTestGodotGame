@@ -81,7 +81,7 @@ public partial class Player
     private float RogueStrikeMult(Enemy e, Vector2 from, bool surprise, out bool crit, bool sureCrit = false)
     {
         float mult = 1f;
-        crit = sureCrit || G.Chance(Stats.CritChance);
+        crit = sureCrit || G.Chance(Stats.CritChance + e.CritBonus);
         if (crit) { mult *= Tune.Rogue.CritMult + Stats.CritMultBonus; Crits++; }
         if (Stats.Backstab && e.FacingAwayFrom(from)) { mult *= Tune.Rogue.BackstabMult; Backstabs++; }
         if (surprise)

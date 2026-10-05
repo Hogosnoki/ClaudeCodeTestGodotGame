@@ -108,7 +108,22 @@ public static class Meta
     public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
     /// <summary>Heroes unlocked in the run now under way (the dragon's award only goes to a run that found none).</summary>
     public static int RunUnlocks;
-    public static bool IsUnlocked(HeroKind h) => Unlocked.Contains(h);
+    /// <summary>Whether a hero can be chosen (everything is, while testing).</summary>
+    public static bool IsUnlocked(HeroKind h) => Tune.Testing.UnlockEverything || Unlocked.Contains(h);
+    /// <summary>Whether a hero really is unlocked (cages and the lobby's lists go by this, not by the testing switch).</summary>
+    public static bool IsReallyUnlocked(HeroKind h) => Unlocked.Contains(h);
+
+    /// <summary>The side-grades each hero brings on a run (up to Tune.Loadout.Slots), by upgrade id.</summary>
+    public static readonly Dictionary<HeroKind, HashSet<string>> Loadouts = new();
+    public static HashSet<string> LoadoutFor(HeroKind h) => Loadouts.TryGetValue(h, out var s) ? s : Loadouts[h] = new HashSet<string>();
+    /// <summary>Side-grades are all unlocked for now (they will be locked away like the heroes).</summary>
+    public static bool SideGradeUnlocked(string id) => true;
+    public static void LoadoutToggle(HeroKind h, string id)
+    {
+        var set = LoadoutFor(h);
+        if (!set.Remove(id) && set.Count < Tune.Loadout.Slots) set.Add(id);
+        Save();
+    }
 
     /// <summary>
     /// Which hero a cage holds: every locked hero counts once for each player (this one included)
@@ -125,7 +140,7 @@ public static class Meta
             foreach (var p in Net.Peers.Values)
                 foreach (var h in kinds) if ((p.Locked & (1 << (int)h)) != 0) { count[(int)h]++; sum++; }
         }
-        else foreach (var h in kinds) if (!IsUnlocked(h)) { count[(int)h]++; sum++; }
+        else foreach (var h in kinds) if (!IsReallyUnlocked(h)) { count[(int)h]++; sum++; }
         if (sum == 0) return null;
         float v = roll * sum;
         for (int i = 0; i < kinds.Length; i++) { v -= count[i]; if (count[i] > 0 && v <= 0) return kinds[i]; }
@@ -155,7 +170,7 @@ public static class Meta
     public static HeroKind? AwardAfterDragon(System.Collections.Generic.IEnumerable<HeroKind> party, Random rng)
     {
         if (RunUnlocks > 0) return null;
-        var locked = party.Distinct().Where(h => !IsUnlocked(h)).ToList();
+        var locked = party.Distinct().Where(h => !IsReallyUnlocked(h)).ToList();
         if (locked.Count == 0) return null;
         var h = locked[rng.Next(locked.Count)];
         Unlock(h);
@@ -261,6 +276,13 @@ public static class Meta
         Save();
     }
 
+    private static Godot.Collections.Array LoadoutsToArray()
+    {
+        var a = new Godot.Collections.Array();
+        foreach (var kv in Loadouts) foreach (var id in kv.Value) a.Add($"{(int)kv.Key}:{id}");
+        return a;
+    }
+
     private static Godot.Collections.Dictionary ToDict()
     {
         var d = new Godot.Collections.Dictionary
@@ -271,6 +293,7 @@ public static class Meta
             ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
             ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
             ["unlocked"] = new Godot.Collections.Array(Unlocked.Select(x => (Variant)(int)x)),
+            ["loadouts"] = LoadoutsToArray(),
         };
         var pr = new Godot.Collections.Dictionary();
         foreach (var kv in PerkRanks) pr[kv.Key] = kv.Value;
@@ -296,6 +319,13 @@ public static class Meta
         Unlocked.Clear();
         if (d.ContainsKey("unlocked")) foreach (var v in d["unlocked"].AsGodotArray()) Unlocked.Add((HeroKind)(int)v);
         else foreach (var h in Enum.GetValues<HeroKind>()) { Unlocked.Add(h); if (h == HeroKind.Aegis && !PerkRanks.ContainsKey("aegis_oath")) { PerkRanks["aegis_oath"] = 1; PerksEquipped.Add("aegis_oath"); } }
+        Loadouts.Clear();
+        if (d.ContainsKey("loadouts"))
+            foreach (var v in d["loadouts"].AsGodotArray())
+            {
+                var parts = ((string)v).Split(':', 2);
+                if (parts.Length == 2 && int.TryParse(parts[0], out int hk)) LoadoutFor((HeroKind)hk).Add(parts[1]);
+            }
         PerkRanks.Clear(); PerksEquipped.Clear();
         if (d.ContainsKey("perk_ranks")) foreach (var kv in d["perk_ranks"].AsGodotDictionary()) PerkRanks[(string)kv.Key] = (int)kv.Value;
         if (d.ContainsKey("perk_equipped")) foreach (var v in d["perk_equipped"].AsGodotArray()) PerksEquipped.Add((string)v);

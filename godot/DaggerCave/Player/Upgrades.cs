@@ -156,7 +156,7 @@ public sealed class PlayerStats
     public int ExtraPotions;
     public float PotionChanceBonus;
     /// <summary>Relic: chests can't be opened; a level-up heals to full; arriving on a new level heals to full.</summary>
-    public bool NoChests, LevelHeal, DepthHeal;
+    public bool NoRelics, LevelHeal, DepthHeal;
     /// <summary>Relic: blows on a creature's back (x), and blows from behind on you (x).</summary>
     public float BackDealMult = 1f, BackTakenMult = 1f;
     /// <summary>Relic: damage by distance. Positive: up to that much more against far creatures and as much less against near ones. Negative: the other way round.</summary>

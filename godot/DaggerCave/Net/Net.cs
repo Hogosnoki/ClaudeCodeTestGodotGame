@@ -296,7 +296,7 @@ public static partial class Net
     public static int MyLockedMask()
     {
         int m = 0;
-        foreach (var h in Enum.GetValues<HeroKind>()) if (!Meta.IsUnlocked(h)) m |= 1 << (int)h;
+        foreach (var h in Enum.GetValues<HeroKind>()) if (!Meta.IsReallyUnlocked(h)) m |= 1 << (int)h;
         return m;
     }
 

@@ -303,6 +303,7 @@ public abstract partial class Enemy : CharacterBody2D
         Telegraph((float)delta);
         TickDotText((float)delta);
         TickMark((float)delta);
+        if (_exposeT > 0) _exposeT -= (float)delta;
         _targetT -= (float)delta;
         var p = P;
         if (p == null) return;
@@ -577,6 +578,26 @@ public abstract partial class Enemy : CharacterBody2D
     }
     private float _hexRot;
 
+    // the Rogue's Expose: more damage from everyone, and more critical blows
+    private float _exposeT;
+    /// <summary>The extra chance, for every hero, that a blow on this creature is critical (while it is exposed).</summary>
+    public float CritBonus => _exposeT > 0 ? Tune.Support.ExposeCrit : 0f;
+
+    public void Expose(float vulnerability, float seconds)
+    {
+        if (Dead) return;
+        if (Puppet) { _exposeT = Math.Max(_exposeT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Expose, vulnerability, seconds); return; }
+        Hex(vulnerability, 1f, seconds);
+        _exposeT = Math.Max(_exposeT, seconds);
+    }
+
+    /// <summary>The hero whose blow this is (the one struck by it, offline; online, by the peer that struck).</summary>
+    private Player StrikerHero()
+    {
+        int peer = NetSync.Striker;
+        return peer == Net.Me ? G.Player : G.Players.FirstOrDefault(h => h != null && IsInstanceValid(h) && !h.Dead && h.IsRemote && h.NetOwner == peer) ?? G.Player;
+    }
+
     // the Aegis's Mending Mark: the next hero to strike it is healed
     private float _markHeal, _markT, _markFx;
     public bool HealMarked => _markT > 0 && _markHeal > 0;
@@ -827,13 +848,18 @@ public abstract partial class Enemy : CharacterBody2D
         if (Dead || !CanBeHit) return 0;
         Awake = true;
         if (_hexT > 0) dmg *= _hexVuln;
+        // an exposed creature: every hero's blows may land as critical ones (a Rogue's own roll counts it already)
+        if (_exposeT > 0 && dmg > 0 && StrikerHero()?.Stats.Hero != HeroKind.Rogue && G.Chance(Tune.Support.ExposeCrit))
+        {
+            dmg *= Tune.Rogue.CritMult;
+            G.Fx.Text(HeadPoint(14f), "CRIT", new Color(1f, 0.85f, 0.3f), 10, 0.7f);
+        }
         if (_wardT > 0) { float soak = dmg * Tune.Aegis.WardAbsorb; dmg -= soak; _wardSoaked += soak; }
         float hp0 = Hp;
         // a Mending Mark: whoever struck this blow is healed, once
         if (_markT > 0 && _markHeal > 0 && dmg > 0)
         {
-            int peer = NetSync.Striker;
-            var who = peer == Net.Me ? G.Player : G.Players.FirstOrDefault(h => h != null && IsInstanceValid(h) && !h.Dead && h.IsRemote && h.NetOwner == peer) ?? G.Player;
+            var who = StrikerHero();
             if (who != null && who.Dead) who = null;
             who?.Heal(_markHeal);
             G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f);

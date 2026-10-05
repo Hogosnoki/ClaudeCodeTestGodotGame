@@ -28,6 +28,7 @@ public partial class Main : Node
     public Random Rng => _rng;
     private MetaMenu _metaMenu;
     private PerkMenu _perkMenu;
+    private LoadoutMenu _loadoutMenu;
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
     private BuildPanel _buildPanel;
@@ -164,6 +165,9 @@ public partial class Main : Node
         _perkMenu = new PerkMenu();
         _perkMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_perkMenu);
+        _loadoutMenu = new LoadoutMenu();
+        _loadoutMenu.Closed += () => _heroChoice?.Refresh();
+        _uiLayer.AddChild(_loadoutMenu);
         UiKit.EnsureMenuControls();
         _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_pauseMenu);
@@ -651,6 +655,7 @@ public partial class Main : Node
         if (keepStats != null) { player.Stats = keepStats; }
         else ClassPerks.Apply(player.Stats); // (a new run: the perks this hero brings)
         _world.AddChild(player);
+        if (keepStats == null) ApplyLoadout(player);
         if (keepStats != null)
         {
             // (Spring Water: going deeper heals you to full)
@@ -772,6 +777,21 @@ public partial class Main : Node
     /// Now and then a hero not yet unlocked sits caged somewhere hard to reach: high up, far from the
     /// start, off the beaten path.
     /// </summary>
+    /// <summary>A new run: the side-grades this hero brought, applied before the first step.</summary>
+    private static void ApplyLoadout(Player player)
+    {
+        var s = player.Stats;
+        foreach (var id in Meta.LoadoutFor(s.Hero).ToList())
+        {
+            var u = Upgrades.Get(id);
+            if (u == null || !Meta.SideGradeUnlocked(id) || !Upgrades.Available(u, s)) continue;
+            u.Apply?.Invoke(s, player);
+            s.Stacks[id] = s.StackOf(id) + 1;
+        }
+        player.SyncCharges();
+        player.Hp = s.MaxHp;
+    }
+
     private void PlaceRubble(CaveData cave)
     {
         int k = 0;
@@ -1390,7 +1410,7 @@ public partial class Main : Node
                 return;
             }
         }
-        if (_metaMenu.Visible || _perkMenu.Visible || _onlineMenu.Visible) return;
+        if (_metaMenu.Visible || _perkMenu.Visible || _loadoutMenu.Visible || _onlineMenu.Visible) return;
         if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible && !BuildPanel.Showing)
         {
             PauseGame();
@@ -1461,7 +1481,8 @@ public partial class Main : Node
                 _titleT += dt;
                 if (_metaShot != "") MetaShotTick();
                 if (!_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
-                if (_front == Front.Heroes && _heroChoice.Visible && !_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
+                if (_front == Front.Heroes && _heroChoice.Visible && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
+                if (_front == Front.Heroes && _heroChoice.Visible && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("loadout")) _loadoutMenu.Open(G.Hero);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
@@ -1925,7 +1946,7 @@ public partial class Main : Node
     private void SpawnBossChests(Vector2 at)
     {
         var owners = new List<int>();
-        bool Wants(int id, Player p) => !RunRelics.Has(id, "relic_treasure") && !RunRelics.Has(id, "relic_prodigy") && p?.Stats.NoChests != true;
+        bool Wants(int id, Player p) => !RunRelics.Has(id, "relic_treasure");
         if (Net.Online) { foreach (var id in Net.Peers.Keys) if (Wants(id, id == Net.Me ? G.Player : null)) owners.Add(id); }
         else if (Wants(Net.Me, G.Player)) owners.Add(0);
         NetSync.Scope++;

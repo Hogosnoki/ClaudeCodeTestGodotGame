@@ -31,10 +31,10 @@ public partial class Main
             Meta.Unlocked.Clear(); foreach (var h0 in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist }) Meta.Unlocked.Add(h0);
             Meta.RunUnlocks = 0;
             var r0 = new Random(5);
-            ScCheck("three heroes to start: the Swordsman, Warden and Vitalist", Meta.IsUnlocked(HeroKind.Swordsman) && Meta.IsUnlocked(HeroKind.Warden) && Meta.IsUnlocked(HeroKind.Vitalist) && !Meta.IsUnlocked(HeroKind.Elementalist) && !Meta.IsUnlocked(HeroKind.Rogue) && !Meta.IsUnlocked(HeroKind.Aegis));
+            ScCheck("three heroes to start: the Swordsman, Warden and Vitalist", Meta.IsReallyUnlocked(HeroKind.Swordsman) && Meta.IsReallyUnlocked(HeroKind.Warden) && Meta.IsReallyUnlocked(HeroKind.Vitalist) && !Meta.IsReallyUnlocked(HeroKind.Elementalist) && !Meta.IsReallyUnlocked(HeroKind.Rogue) && !Meta.IsReallyUnlocked(HeroKind.Aegis));
             ScCheck("the dragon awards nobody when the party played only heroes you have", Meta.AwardAfterDragon(new[] { HeroKind.Swordsman, HeroKind.Warden }, r0) == null);
             var won = Meta.AwardAfterDragon(new[] { HeroKind.Swordsman, HeroKind.Rogue, HeroKind.Aegis }, r0);
-            ScCheck($"a party that played the Rogue and the Aegis brings one home ({won})", won is HeroKind w1 && (w1 == HeroKind.Rogue || w1 == HeroKind.Aegis) && Meta.IsUnlocked(w1) && Meta.RunUnlocks == 1);
+            ScCheck($"a party that played the Rogue and the Aegis brings one home ({won})", won is HeroKind w1 && (w1 == HeroKind.Rogue || w1 == HeroKind.Aegis) && Meta.IsReallyUnlocked(w1) && Meta.RunUnlocks == 1);
             ScCheck("and only one: a run that has found a hero gets no award", Meta.AwardAfterDragon(new[] { HeroKind.Elementalist }, r0) == null);
             Meta.Unlocked.Clear(); foreach (var h0 in kept) Meta.Unlocked.Add(h0);
             Meta.RunUnlocks = keptRun;
@@ -152,10 +152,10 @@ public partial class Main
                 _scTheirs = new Chest { Position = Floor(-160), Tier = ChestTier.Boss, Owner = Net.Me + 77 };
                 _world.AddChild(_scTheirs);
                 ScCheck($"a web chest hangs {Tune.Relics.WebHangHeight} px up and can't be opened ({_scWeb.Hung}, {Chest.At(_scWeb.GlobalPosition) == null})", _scWeb.Hung && Chest.At(_scWeb.GlobalPosition) == null);
-                ScCheck("your own guardian chest opens for you", Chest.At(_scMine.GlobalPosition) == _scMine);
-                ScCheck("someone else's doesn't, until they've left it", Chest.At(_scTheirs.GlobalPosition) == null);
+                ScCheck("your own guardian chest opens for you", Chest.At(_scMine.GlobalPosition + new Vector2(0, -_scMine.ShrineLift)) == _scMine);
+                ScCheck("someone else's doesn't, until they've left it", Chest.At(_scTheirs.GlobalPosition + new Vector2(0, -_scTheirs.ShrineLift)) == null);
                 _scTheirs.Owner = 0;
-                ScCheck("(gone to the party, it does)", Chest.At(_scTheirs.GlobalPosition) == _scTheirs);
+                ScCheck("(gone to the party, it does)", Chest.At(_scTheirs.GlobalPosition + new Vector2(0, -_scTheirs.ShrineLift)) == _scTheirs);
                 // the hero stands under the web and swings up at it
                 p.GlobalPosition = f0 + new Vector2(-12, -13);
                 p.Velocity = Vector2.Zero;
@@ -177,7 +177,7 @@ public partial class Main
             case 3:
                 if (_scT < 2.2f) return;
                 ScCheck($"the chest fell to the floor ({_scWeb.GlobalPosition.Y:0.0} vs {_scFloorY:0.0})", Math.Abs(_scWeb.GlobalPosition.Y - _scFloorY) < 1.5f);
-                ScCheck($"it settled upright and is openable ({_scWeb.Tilt:0.00}, hung {_scWeb.Hung})", Math.Abs(_scWeb.Tilt) < 0.05f && !_scWeb.Hung && Chest.At(_scWeb.GlobalPosition + new Vector2(-10, 0)) == _scWeb);
+                ScCheck($"it settled upright and is openable ({_scWeb.Tilt:0.00}, hung {_scWeb.Hung})", Math.Abs(_scWeb.Tilt) < 0.05f && !_scWeb.Hung && Chest.At(_scWeb.GlobalPosition + new Vector2(-10, -_scWeb.ShrineLift)) == _scWeb);
                 ScEnd();
                 break;
         }

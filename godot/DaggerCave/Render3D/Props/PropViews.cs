@@ -1978,10 +1978,14 @@ public partial class RubbleView : PropView
         _stack.Rotation = new Vector3(0, 0, _sway * 0.09f + sag);
         // each blow sends a few of the top rocks rolling off
         int keep = r.Cleared ? 0 : (int)Math.Ceiling(_count * (r.Left / (float)Tune.Rubble.Hits));
-        for (int k = _count - 1; k >= keep && k < _shown; k--)
+        for (int k = _count - 1; k >= keep && k < _count; k--)
         {
+            if (_loose[k]) continue;
+            // (cleared: the whole stack gives way, the top rocks first, so it slumps into a low heap across the passage)
+            if (r.Cleared && r.ClearedT < (1f - _row[k]) * 0.55f) continue;
             _loose[k] = true;
-            _vel[k] = new Vector3((k % 2 == 0 ? 1 : -1) * (0.9f + (k % 3) * 0.5f), 1.2f + (k % 4) * 0.35f, 0.6f);
+            float spread = r.Cleared ? 0.7f + 0.9f * (float)((k * 37) % 11) / 10f : 0.9f + (k % 3) * 0.5f;
+            _vel[k] = new Vector3((k % 2 == 0 ? 1 : -1) * spread * (r.Cleared ? 1.1f : 1f), r.Cleared ? 0.3f + (k % 3) * 0.2f : 1.2f + (k % 4) * 0.35f, 0.6f * ((k % 3) - 1));
         }
         _shown = Math.Min(_shown, keep);
         for (int k = 0; k < _count; k++)
@@ -2008,9 +2012,10 @@ public partial class RubbleView : PropView
             _rock[k].Position = _home[k] + _off[k];
             _rock[k].Basis = (_rock[k].Basis * new Basis(Vector3.Right, _spin[k].X * dt) * new Basis(Vector3.Back, _spin[k].Z * dt)).Orthonormalized();
         }
-        if (r.Cleared && r.ClearedT > 3f)
+        // (the flat heap lies there a few seconds, so it is plain the way is open, then sinks away)
+        if (r.Cleared && r.ClearedT > 6f)
         {
-            float a = Math.Clamp(1f - (r.ClearedT - 3f) / 1.5f, 0f, 1f);
+            float a = Math.Clamp(1f - (r.ClearedT - 6f) / 1.5f, 0f, 1f);
             Scale = Vector3.One * Math.Max(a, 0.001f);
             if (a <= 0f) Visible = false;
         }
