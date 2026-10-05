@@ -793,13 +793,20 @@ public partial class Main
         ok = p.TestSupport(aim);
         ScCheck($"Stalag-Might: {h1 - f1.Hp:0.0} damage and the creature is held ({f1.Reeling})", ok && Math.Abs(h1 - f1.Hp - Tune.Support.StalagDamage * p.Stats.DamageMult * Affinity.Mult(f1.Element, DamageKind.Physical)) < 3f && f1.Reeling);
 
+        ScCheck($"...a bulge of rock holds it ({System.Linq.Enumerable.Count(_world.GetChildren(), n => n is StalagGrip)})", System.Linq.Enumerable.Any(_world.GetChildren(), n => n is StalagGrip));
+        f1.GlobalPosition += new Vector2(0, -600);
+        var hi = Foe(100); hi.GlobalPosition += new Vector2(0, -150);
+        ok = p.TestSupport(aim);
+        ScCheck($"Stalag-Might can't seize a creature that isn't near the ground ({ok})", !ok && !hi.Reeling);
+        hi.QueueFree();
+
         p.TestHero = HeroKind.Rogue;
         var f2 = Foe(-120); f2.FaceToward(1);
         p.Facing = -1;
         float h2 = f2.Hp;
         ok = p.TestSupport(new Vector2(-1, 0));
         f2.Hurt(100f, Vector2.Zero, f2.GlobalPosition, DamageKind.Raw);
-        ScCheck($"Expose: a blow of 100 does {h2 - f2.Hp:0.0} to the marked creature", ok && Math.Abs(h2 - f2.Hp - 100f * Tune.Support.ExposeVuln) < 2f);
+        ScCheck($"Expose: a blow of 100 does {h2 - f2.Hp:0.0} to the marked creature", ok && (Math.Abs(h2 - f2.Hp - 100f * Tune.Support.ExposeVuln) < 2f || Math.Abs(h2 - f2.Hp - 200f * Tune.Support.ExposeVuln) < 2f)); // (a crit doubles it: Expose makes them likelier)
 
         p.TestHero = HeroKind.Aegis;
         p.Facing = 1;

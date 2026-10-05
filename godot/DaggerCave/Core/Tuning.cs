@@ -171,11 +171,11 @@ public static class Tune
 
         /// <summary>Shield: its strength, arc (degrees), regeneration per second, the pause after
         /// a block before it regenerates, and how long it stays at zero once broken.</summary>
-        public static float ShieldArcDegrees = 135f, ShieldRegenDelay = 1f, ShieldBreakTime = 6f;
+        public static float ShieldArcDegrees = 135f, ShieldRegenDelay = 0.8f, ShieldBreakTime = 5f;
         /// <summary>The shield's strength and regeneration scale with the Warden's health: its strength is ShieldHpShare of his
         /// maximum health (the shield soaks twice that), it regenerates ShieldRegenShare of it a second, and a bash costs
         /// BashShieldShare of it.</summary>
-        public static float ShieldHpShare = 0.22f, ShieldRegenShare = 0.009f, BashShieldShare = 0.5f;
+        public static float ShieldHpShare = 0.33f, ShieldRegenShare = 0.0135f, BashShieldShare = 0.5f;
         /// <summary>
         /// Share of a blow the raised shield stops (all of it), and how much of the stopped damage
         /// the shield itself loses (half: its 40 points soak 80). Once it runs out, the rest of
@@ -618,7 +618,7 @@ public static class Tune
         /// <summary>Vitalist Health Tap: this share of max health spent for this share of the vital force reserve.</summary>
         public static float TapCost = 0.15f, TapGain = 0.6f, TapCooldown = 15f;
         /// <summary>Elementalist Stalag-Might: damage, seconds rooted, reach, cooldown.</summary>
-        public static float StalagDamage = 30f, StalagSeconds = 2f, StalagRange = 260f, StalagCooldown = 15f;
+        public static float StalagDamage = 30f, StalagSeconds = 2f, StalagRange = 260f, StalagCooldown = 15f, StalagGroundReach = 22f;
         /// <summary>Rogue Expose: the marked creature takes this much more from everyone.</summary>
         public static float ExposeCrit = 0.10f, ExposeVuln = 1.2f, ExposeSeconds = 8f, ExposeRange = 260f, ExposeCooldown = 20f;
         /// <summary>Aegis Mending Mark: the next hero to strike the marked creature is healed this much.</summary>

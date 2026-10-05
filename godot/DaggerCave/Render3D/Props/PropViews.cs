@@ -49,6 +49,7 @@ public static class PropViews
             CrystalSpikes => new CrystalSpikesView(),
             FireVent => new FireVentView(),
             IceSheet => new IceSheetView(),
+            StalagGrip => new StalagGripView(),
             IcePlatform => new IcePlatformView(),
             _ => null,
         };
@@ -2018,6 +2019,70 @@ public partial class RubbleView : PropView
             float a = Math.Clamp(1f - (r.ClearedT - 6f) / 1.5f, 0f, 1f);
             Scale = Vector3.One * Math.Max(a, 0.001f);
             if (a <= 0f) Visible = false;
+        }
+    }
+}
+
+/// <summary>Stalag-Might's grip: rocks heave up from the ground round a creature's feet, leaning in over it like a fist, then sink away.</summary>
+public partial class StalagGripView : PropView
+{
+    private const int Rocks = 9;
+    private readonly MeshInstance3D[] _rock = new MeshInstance3D[Rocks];
+    private readonly Vector3[] _home = new Vector3[Rocks];
+    private readonly Basis[] _rest = new Basis[Rocks];
+    private readonly float[] _lag = new float[Rocks];
+    private Node3D _mound;
+
+    protected override void Build()
+    {
+        var g = (StalagGrip)Owner2D;
+        var rng = new Random(((int)(g.GetInstanceId() % 9973)) + 11);
+        var noise = new Noise3((int)(g.GetInstanceId() % 997));
+        float r = Math.Max(0.25f, W3.M(g.Radius));
+        _mound = new Node3D();
+        AddChild(_mound);
+        for (int k = 0; k < Rocks; k++)
+        {
+            // a ring of rocks about the feet: low ones in front, tall ones leaning in at the sides and behind
+            float ang = (k / (float)Rocks) * Mathf.Tau + 0.3f * (float)rng.NextDouble();
+            bool tall = k % 3 == 0;
+            float size = r * (tall ? 0.95f : 0.62f) * (0.85f + 0.3f * (float)rng.NextDouble());
+            var mb = DecorMeshes.Boulder(rng, noise, size);
+            float tone = 0.36f + 0.14f * (float)rng.NextDouble();
+            for (int c = 0; c < mb.Count; c++)
+            {
+                float up = Math.Clamp(mb.V[c].Y / size + 0.3f, 0f, 1f);
+                float t = tone * (0.7f + 0.4f * up);
+                mb.C[c] = new Color(t * 1.02f, t * 0.96f, t * 0.88f);
+            }
+            var node = PropViews.Mesh(mb, PropViews.Rock);
+            float rad = r * (0.75f + 0.3f * (float)rng.NextDouble());
+            _home[k] = new Vector3(MathF.Cos(ang) * rad * 1.15f, size * (tall ? 0.55f : 0.2f), MathF.Sin(ang) * rad * 0.5f);
+            // the tall ones lean in toward the middle
+            float lean = tall ? -MathF.Sign(MathF.Cos(ang)) * 0.45f : ((float)rng.NextDouble() - 0.5f) * 0.4f;
+            _rest[k] = new Basis(Vector3.Up, (float)rng.NextDouble() * Mathf.Tau) * new Basis(Vector3.Back, lean) * (tall ? Basis.FromScale(new Vector3(0.8f, 1.5f, 0.8f)) : Basis.Identity);
+            _lag[k] = 0.25f * (float)rng.NextDouble();
+            node.Basis = _rest[k];
+            _mound.AddChild(node);
+            _rock[k] = node;
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var g = (StalagGrip)Owner2D;
+        Follow(new Vector2(0, 2), 0.12f);
+        float rise = g.Rise;
+        for (int k = 0; k < Rocks; k++)
+        {
+            // each rock bursts up and out from the middle a beat apart; they sink back down together
+            float u = Math.Clamp(rise, 0f, 1.25f);
+            var home = _home[k];
+            var p = new Vector3(home.X * Mathf.Lerp(0.2f, 1f, Math.Min(1f, u)), home.Y * u - (1f - Math.Min(1f, u)) * 0.5f, home.Z);
+            _rock[k].Position = p;
+            float s = Math.Clamp(u * 1.1f, 0.01f, 1.3f);
+            _rock[k].Basis = _rest[k] * Basis.FromScale(Vector3.One * s);
+            _rock[k].Visible = rise > 0.02f;
         }
     }
 }

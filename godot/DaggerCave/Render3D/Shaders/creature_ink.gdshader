@@ -13,7 +13,7 @@ uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable
 uniform vec4 ink : source_color = vec4(0.015, 0.012, 0.02, 0.92);
 /// How far the hull is pushed out along the normals, in screen pixels (at 720 lines; it scales with the
 /// resolution, not with the camera's zoom or the creature's size): the line has one fixed width.
-uniform float edge_px = 1.5;
+uniform float edge_px = 2.5;
 /// How much farther (in world units) the scene must lie behind the creature to be inked against:
 /// more than any gap between the creature's own limbs.
 uniform float gap_min = 0.6;

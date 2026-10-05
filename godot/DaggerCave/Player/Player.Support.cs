@@ -184,11 +184,20 @@ public partial class Player
 
     private bool TryStalag(Vector2 aim)
     {
-        var foe = FindSpellTarget(aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0), Tune.Support.StalagRange, 40f);
-        if (foe == null) { SayNo("NOTHING TO SEIZE"); _supportCd = 0.5f; return false; }
+        var dir = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        // the earth can only seize what stands (or crouches, or lies) near the ground
+        var foe = FindSpellTarget(dir, Tune.Support.StalagRange, 40f, e => StalagFloor(e, out _));
+        if (foe == null)
+        {
+            SayNo(FindSpellTarget(dir, Tune.Support.StalagRange, 40f) != null ? "NOT NEAR THE GROUND" : "NOTHING TO SEIZE");
+            _supportCd = 0.5f; return false;
+        }
+        StalagFloor(foe, out var floor);
         var at = foe.GlobalPosition + new Vector2(0, foe.HitRadius * 0.6f);
         foe.Hurt(Tune.Support.StalagDamage * Stats.DamageMult, Vector2.Zero, at, DamageKind.Physical);
         if (!foe.Dead) foe.Interrupt(Vector2.Zero, Tune.Support.StalagSeconds, "ROOTED");
+        // a bulge of rock bursts up round its feet, holds it, and sinks away when the hold is over
+        if (!foe.Dead) G.World.AddChild(new StalagGrip { Position = floor, Foe = foe, Seconds = Tune.Support.StalagSeconds, Radius = Math.Max(10f, foe.HitRadius) });
         // spikes of rock thrust up under it
         for (int k = -2; k <= 2; k++)
         {
@@ -201,6 +210,14 @@ public partial class Player
         G.Sfx.Play("rock", at, -1, 0.1f, 0.8f);
         CastPose("hex", "stalag");
         return true;
+    }
+
+    /// <summary>Where the ground is under a creature, if it is near enough to it (within a body's height of its feet).</summary>
+    private static bool StalagFloor(Enemy e, out Vector2 floor)
+    {
+        floor = default;
+        if (!G.Cave.FindFloor(e.GlobalPosition, e.HitRadius + Tune.Support.StalagGroundReach, out floor)) return false;
+        return !G.Cave.IsWater(e.GlobalPosition);
     }
 
     private bool TryExpose(Vector2 aim)

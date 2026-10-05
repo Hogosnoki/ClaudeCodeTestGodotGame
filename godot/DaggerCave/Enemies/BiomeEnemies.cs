@@ -38,7 +38,7 @@ public partial class Rat : Walker
     private int _s; // 0 run, 1 windup, 2 lunge, 3 recover
     private float _st, _cd = 0.5f;
 
-    public Rat() { MaxHp = Tune.Rat.Hp; BodyRadius = 6; ContactDamage = Tune.Rat.BiteDamage; XpValue = Tune.Rat.Xp; }
+    public Rat() { MaxHp = Tune.Rat.Hp; BodyRadius = 6; Size = 1.3f; ContactDamage = Tune.Rat.BiteDamage; XpValue = Tune.Rat.Xp; }
 
     protected override void Setup() { DisplayName = "Rat"; UseSprite("rat"); }
 

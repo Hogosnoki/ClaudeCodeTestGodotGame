@@ -31,7 +31,7 @@ public sealed class RatDesign : QuadrupedDesign
 
     public override void Sculpt(Sculptor s)
     {
-        var fur = new Color(0.24f, 0.2f, 0.17f);
+        var fur = new Color(0.34f, 0.29f, 0.24f);
         var furDk = fur.Darkened(0.35f);
         var skin = new Color(0.62f, 0.45f, 0.42f);
         var sore = new Color(0.32f, 0.07f, 0.06f);

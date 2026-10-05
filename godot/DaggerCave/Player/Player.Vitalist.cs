@@ -195,14 +195,14 @@ public partial class Player
 
     /// <summary>The creature a spell should seize: in the cone of your aim (<paramref name="coneDegrees"/>
     /// either side; the drain's by default), in range and in sight, nearest the line of aim.</summary>
-    private Enemy FindSpellTarget(Vector2 aim, float range, float coneDegrees = -1f)
+    private Enemy FindSpellTarget(Vector2 aim, float range, float coneDegrees = -1f, Func<Enemy, bool> accept = null)
     {
         Enemy best = null;
         float bestScore = float.MaxValue, cone = Mathf.DegToRad(coneDegrees > 0 ? coneDegrees : Tune.Vitalist.DrainConeDegrees);
         var origin = CastPoint;
         foreach (var e in G.Enemies)
         {
-            if (e.Dead || !e.CanBeHit) continue;
+            if (e.Dead || !e.CanBeHit || (accept != null && !accept(e))) continue;
             var to = e.GlobalPosition - origin;
             float d = to.Length();
             if (d > range + e.HitRadius) continue;
