@@ -60,6 +60,7 @@ public partial class HeroPortrait : SubViewport
         float h = b.End.Y - _footY;
         var cam = new Camera3D { Fov = 26f, Current = true };
         AddChild(cam);
+        AddChild(new InkOutline(cam));
         float dist = h * 0.62f / MathF.Tan(Mathf.DegToRad(cam.Fov * 0.5f));
         var look = new Vector3(0, _footY + h * 0.5f, 0);
         cam.Position = look + new Vector3(0, h * 0.06f, dist);

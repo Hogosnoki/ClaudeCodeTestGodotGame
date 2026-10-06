@@ -31,6 +31,7 @@ public partial class CampScene : SubViewport
             _active = value;
             RenderTargetUpdateMode = value ? UpdateMode.Always : UpdateMode.Disabled;
             ProcessMode = value ? ProcessModeEnum.Always : ProcessModeEnum.Disabled;
+            if (_ink != null) _ink.Active = value;
         }
     }
     private bool _active = true;
@@ -60,6 +61,7 @@ public partial class CampScene : SubViewport
 
     private readonly List<Seat> _seats = new();
     private Camera3D _cam;
+    private InkOutline _ink;
     private OmniLight3D _fireLight;
     private readonly List<MeshInstance3D> _flames = new();
     private readonly List<(Node3D node, float speed)> _clouds = new();
@@ -91,6 +93,8 @@ public partial class CampScene : SubViewport
 
         _cam = new Camera3D { Current = true, Fov = 50f, Far = 900f };
         AddChild(_cam);
+        _ink = new InkOutline(_cam);
+        AddChild(_ink);
         PlaceCamera(0f);
     }
 

@@ -11,8 +11,6 @@ public sealed class CreatureKit
     public CreatureDesign Design;
     public SculptResult Sculpt;
     public ShaderMaterial Material;
-    /// <summary>The ink outline pass (the material's next pass while outlines are on).</summary>
-    public ShaderMaterial Ink;
     public float BuildMs;
 }
 
@@ -25,15 +23,11 @@ public static class CreatureLibrary
 {
     private static readonly Dictionary<string, CreatureKit> Kits = new();
 
-    /// <summary>Turns the ink outlines (the Sobel pass) on or off for every creature, built or to come.</summary>
-    public static void SetInk(bool on)
-    {
-        foreach (var k in Kits.Values)
-            if (k.Material != null) k.Material.NextPass = on ? k.Ink : null;
-    }
+    /// <summary>Turns the ink outlines (the screen-space edge pass, see InkOutline) on or off in every view.</summary>
+    public static void SetInk(bool on) => InkOutline.SetAll(on);
     private static readonly Dictionary<string, Func<CreatureDesign>> Designs = new();
     private static readonly Dictionary<string, Lazy<Baked>> Bakes = new();
-    private static Shader _shader, _inkShader;
+    private static Shader _shader;
 
     private sealed class Baked
     {
@@ -153,7 +147,6 @@ public static class CreatureLibrary
         }
         Kits.Clear();
         _shader = null;
-        _inkShader = null;
     }
 
     public static CreatureKit Get(string name)
@@ -181,13 +174,8 @@ public static class CreatureLibrary
         mat.SetShaderParameter("vein_color", look.VeinColor);
         mat.SetShaderParameter("wet", look.Wet);
         if (!float.IsNaN(look.GhostBelow)) { mat.SetShaderParameter("ghost_below", look.GhostBelow); mat.SetShaderParameter("ghost_fade", look.GhostFade); }
-        // ink outlines: a Sobel pass over each creature's own pixels (see creature_ink.gdshader)
-        _inkShader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/creature_ink.gdshader");
-        var ink = new ShaderMaterial { Shader = _inkShader };
-        if (!float.IsNaN(look.GhostBelow)) { ink.SetShaderParameter("ghost_below", look.GhostBelow); ink.SetShaderParameter("ghost_fade", look.GhostFade); }
-        mat.NextPass = GameSettings.InkOutlines ? ink : null;
         res.Mesh.SurfaceSetMaterial(0, mat);
-        kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, Ink = ink, BuildMs = baked.Ms };
+        kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, BuildMs = baked.Ms };
         Kits[name] = kit;
         GD.Print($"[3D] creature '{name}': {res.Triangles / 1000f:0.0}k triangles, {res.Bones.Length} bones, baked in {baked.Ms:0} ms" +
                  (ready ? " (ahead of time)" : "") + $", finished in {sw.ElapsedMilliseconds} ms");
@@ -242,7 +230,8 @@ public partial class CreatureModel : Node3D
             Skel.SetBoneRest(k, new Transform3D(Basis.Identity, local));
         }
         Skel.ResetBonePoses();
-        Body = new MeshInstance3D { Name = "Body", Mesh = kit.Sculpt.Mesh, Skin = kit.Sculpt.Skin };
+        // (the body is what the ink line goes round: it is also on the ink layer, for the camera that makes the mask)
+        Body = new MeshInstance3D { Name = "Body", Mesh = kit.Sculpt.Mesh, Skin = kit.Sculpt.Skin, Layers = 1 | InkOutline.Layer };
         Skel.AddChild(Body);
         Body.Skeleton = new NodePath("..");
         // per-instance shader state starts neutral (never rely on uniform defaults here)

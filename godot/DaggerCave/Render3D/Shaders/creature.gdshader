@@ -29,6 +29,8 @@ instance uniform float dissolve : instance_index(4) = 0.0;
 instance uniform float glow_boost : instance_index(5) = 1.0;
 // an affliction washing over the creature (weakened, hexed): colour, alpha = strength
 instance uniform vec4 aura : source_color, instance_index(6) = vec4(0.0);
+// an affliction recolours the ink line (poison green, fire orange, frost pale blue): alpha = how much
+instance uniform vec4 ink_tint : source_color, instance_index(7) = vec4(0.0);
 
 varying vec3 v_rest;
 varying vec4 v_mat;
@@ -120,6 +122,22 @@ void fragment() {
 		burn = 1.0 - smoothstep(0.0, 0.07, n - (dissolve * 1.1 - 0.05));
 	}
 
+	// The ink mask camera (ink_edge.gdshader) sees only the creatures, and only wants where they are:
+	// each pixel holds the creature's distance and the colour of its line, and nothing else.
+	if ((CAMERA_VISIBLE_LAYERS & 1u) == 0u) {
+		float kind = 0.0;
+		if (ink_tint.a > 0.5) {
+			vec3 q = floor(sqrt(clamp(ink_tint.rgb, 0.0, 1.0)) * 7.0 + 0.5);
+			kind = 1.0 + q.r + 8.0 * q.g + 64.0 * q.b;
+		}
+		ALBEDO = vec3(0.0);
+		ROUGHNESS = 1.0;
+		METALLIC = 0.0;
+		SPECULAR = 0.0;
+		BACKLIGHT = vec3(0.0);
+		EMISSION = vec3(-VERTEX.z, kind, 0.0);
+	} else {
+
 	// part colours are authored in sRGB
 	vec3 alb = pow(COLOR.rgb, vec3(2.2));
 	float rough = COLOR.a;
@@ -191,4 +209,5 @@ void fragment() {
 	BACKLIGHT = alb * v_mat.y * 0.45;
 	NORMAL = n;
 	EMISSION = emit;
+	}
 }

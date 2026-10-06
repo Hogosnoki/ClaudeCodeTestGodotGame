@@ -805,10 +805,15 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   light per biome, the hero's lantern, back walls kept darker than the play layer, and a key and
   rim light of their own for every creature, so they read against the rock however dark the cave
   gets.
-- **Ink outlines**: every creature and hero is drawn a second time as a slightly swollen hull
-  whose pixels run a Sobel filter over the scene's depth and normals (`creature_ink.gdshader`),
-  inking wherever either jumps: its silhouette and its strongest creases, about two pixels wide at
-  any distance.
+- **Ink outlines** (`Render3D/InkOutline.cs`, `Shaders/ink_edge.gdshader`): a screen-space edge pass, with no
+  second body or hull. A small viewport beside each 3D view has a camera that follows the view's camera and
+  sees only the creatures' bodies (their own visual layer); the creature shader answers that camera with a
+  flat mask (how far off the creature is there, and the colour of its line) instead of its usual look.
+  One full-screen pass in the view finds the pixels just outside that mask and inks them, two pixels wide
+  at any distance, in the afflicted colour (poison, fire, frost) when there is one. Nothing is drawn over
+  a creature itself, so there are no lines along its own limbs and folds; a creature behind rock gets
+  none where it is hidden, and the line never lies over rock in front of it. (The camp and the title
+  portraits have their own.)
 - **Creatures** (`Render3D/Creatures/`): each creature type is sculpted once from code
   (`Designs/`): signed-distance primitives (limbs, eggs, blocks, carved sockets) are
   smooth-unioned on a skeleton and meshed, then teeth, claws, horns, eyes, membranes and weapons
@@ -1135,4 +1140,4 @@ Creature-specific telegraphs (on top of that layer; `--scenario=telegraph` check
 
 - **Stalag-Might** now bursts a bulge of rock up out of the ground round the creature's feet (`StalagGrip`), which holds it for the 2 s and sinks away when the hold ends (or the creature is freed or dies). Only a creature near the ground can be seized (`Tune.Support.StalagGroundReach`); aimed at a flier or a leaper high in the air it says "NOT NEAR THE GROUND" and costs nothing.
 - The **Warden's shield** is 1.5 times as strong (`ShieldHpShare` 0.33) and regenerates 1.5 times as fast (`ShieldRegenShare` 0.0135), with a shorter pause before regeneration (0.8 s) and a shorter break (5 s).
-- Rats are 30% bigger and paler; the ink outline's line is a pixel wider (`edge_px` 2.5).
+- Rats are 30% bigger and paler; the ink outline's line is a pixel wider (`edge_px` 2.5, now in `ink_edge.gdshader`).
