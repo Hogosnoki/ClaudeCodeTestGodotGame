@@ -92,6 +92,8 @@ public partial class Rat : Walker
     protected override bool CanAct(int a) => a != Bite || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Bite;
     public override bool Attacking => _s is 1 or 2;
+    protected override float JumpSpeed => 300f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Bite) ? Bite : moving ? Approach : Idle;
     protected override void OnInterrupted() { _s = 3; _st = 0; }
     protected override bool Striking => _s == 2;
 
@@ -169,9 +171,14 @@ public partial class Bear : Walker
                     Anim.Once("swipe", 3);
                     G.Sfx.Play("swing_heavy", GlobalPosition, -2, 0.1f, 0.6f);
                     v.X = Face * 90;
-                    var rel = ToP;
-                    if (rel.X * Face > -8 && Math.Abs(rel.X) < 46 * Size && Math.Abs(rel.Y) < 34 * Size)
-                        P.Hurt(Tune.Bear.SwipeDamage * DmgK * (Elite ? 1.3f : 1f), GlobalPosition, 260, this);
+                    if (Master != null)
+                        StrikeFoes((rel, r) => rel.X * Face > -8 - r && Math.Abs(rel.X) < 46 * Size + r && Math.Abs(rel.Y) < 34 * Size + r, Tune.Bear.SwipeDamage, 260f);
+                    else
+                    {
+                        var rel = ToP;
+                        if (rel.X * Face > -8 && Math.Abs(rel.X) < 46 * Size && Math.Abs(rel.Y) < 34 * Size)
+                            P.Hurt(Tune.Bear.SwipeDamage * DmgK * (Elite ? 1.3f : 1f), GlobalPosition, 260, this);
+                    }
                     G.Fx.Swoosh(GlobalPosition + new Vector2(Face * 22 * Size, -6), Face, 30 * Size, new Color(1f, 0.9f, 0.8f, 0.8f));
                 }
                 break;
@@ -232,7 +239,9 @@ public partial class Bear : Walker
                     G.Sfx.Play("goblin", GlobalPosition, -1, 0.1f, 0.45f);
                     G.Sfx.Play("hit", GlobalPosition, -8, 0.1f, 1.4f);
                     G.Fx.Bubbles(GlobalPosition + new Vector2(Face * 18 * Size, -6), 6);
-                    if (d < (Tune.Bear.BiteReach + 10) * Size && to.X * Face > -10)
+                    if (Master != null)
+                        StrikeFoes((rel, r) => rel.Length() < (Tune.Bear.BiteReach + 10) * Size + r && rel.X * Face > -10 - r, Tune.Bear.BiteDamage, 200f);
+                    else if (d < (Tune.Bear.BiteReach + 10) * Size && to.X * Face > -10)
                         P.Hurt(Tune.Bear.BiteDamage * DmgK * (Elite ? 1.3f : 1f), GlobalPosition, 200, this);
                 }
                 break;
@@ -281,6 +290,11 @@ public partial class Bear : Walker
         _ => true,
     };
     protected override bool IsAttack(int a) => a >= Swipe;
+    protected override float JumpSpeed => 340f;
+    // the attack button swipes; the special button is the bear's own charge
+    protected override int MasterSpecialIntent => Charge;
+    public override float MasterSpecialFrac => Math.Clamp(_chargeCd / Tune.Bear.ChargeCooldown, 0f, 1f);
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Swipe) ? Swipe : moving ? Advance : Stand;
     public override bool Attacking => _s is S.SwipeWindup or S.ChargeWindup or S.Charge or S.BiteWindup || (_s == S.Swipe && _st < 0.12f) || (_s == S.Bite && _st < 0.12f);
     // a charge broken off by a shield leaves it reeling, as if it had hit a wall
     protected override void OnInterrupted() => Go(_s == S.Charge ? S.Stunned : S.Walk);
@@ -358,10 +372,15 @@ public partial class Scorpion : Walker
                     Anim.Once("sting", 3);
                     G.Sfx.Play("spike", GlobalPosition, -4);
                     v.X = Face * 60;
-                    var rel = ToP;
                     float reach = Tune.Scorpion.StingReach * Size;
-                    if (rel.X * Face > -6 && Math.Abs(rel.X) < reach + 6 && rel.Y > -reach && rel.Y < 24 * Size)
-                        P.Hurt(Tune.Scorpion.StingDamage * DmgK * (Elite ? 1.35f : 1f), GlobalPosition, 180, this);
+                    if (Master != null)
+                        StrikeFoes((rel, r) => rel.X * Face > -6 - r && Math.Abs(rel.X) < reach + 6 + r && rel.Y > -reach - r && rel.Y < 24 * Size + r, Tune.Scorpion.StingDamage, 180f);
+                    else
+                    {
+                        var rel = ToP;
+                        if (rel.X * Face > -6 && Math.Abs(rel.X) < reach + 6 && rel.Y > -reach && rel.Y < 24 * Size)
+                            P.Hurt(Tune.Scorpion.StingDamage * DmgK * (Elite ? 1.35f : 1f), GlobalPosition, 180, this);
+                    }
                     G.Fx.Spark(GlobalPosition + new Vector2(Face * reach, -8 * Size), new Color(0.9f, 1f, 0.5f));
                 }
                 break;
@@ -383,6 +402,8 @@ public partial class Scorpion : Walker
     protected override bool CanAct(int a) => a != Sting || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Sting;
     public override bool Attacking => _s == 1;
+    protected override float JumpSpeed => 310f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Sting) ? Sting : moving ? Advance : Stand;
     protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
@@ -437,7 +458,8 @@ public partial class Hornet : Enemy
             {
                 if (!Awake) { Velocity = Velocity.MoveToward(new Vector2(MathF.Sin(T * 2 + _wob) * 20, MathF.Sin(T * 3 + _wob) * 12), 300 * dt); break; }
                 // hold a perch above and to the side of the player
-                var perch = P.GlobalPosition + new Vector2(-Math.Sign(to.X == 0 ? 1 : to.X) * 70, -90) + new Vector2(MathF.Sin(T * 2.3f + _wob) * 30, MathF.Sin(T * 3.1f + _wob) * 16);
+                // (driven, it flies to the point the controller points to, not to a perch over the hero)
+                var perch = Master != null ? MasterPoint : P.GlobalPosition + new Vector2(-Math.Sign(to.X == 0 ? 1 : to.X) * 70, -90) + new Vector2(MathF.Sin(T * 2.3f + _wob) * 30, MathF.Sin(T * 3.1f + _wob) * 16);
                 var desired = Intent switch
                 {
                     Approach => (perch - GlobalPosition).LimitLength(Tune.Hornet.FlySpeed * 1.4f),
@@ -457,7 +479,7 @@ public partial class Hornet : Enemy
             }
             case 1:
                 Velocity = Velocity.MoveToward(-dir * 40, 800 * dt); // draws back
-                _diveDir = (to + P.Velocity * 0.15f).Normalized();
+                _diveDir = Master != null ? MasterDir : (to + P.Velocity * 0.15f).Normalized();
                 if (_st > Tune.Hornet.AimTime) { _s = 2; _st = 0; _cd = Tune.Hornet.DiveCooldown; }
                 break;
             case 2:
@@ -484,6 +506,7 @@ public partial class Hornet : Enemy
     protected override bool CanAct(int a) => a != Dive || _cd <= 0;
     protected override bool IsAttack(int a) => a == Dive;
     public override bool Attacking => _s is 1 or 2;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Dive) ? Dive : moving ? Approach : Hover;
     protected override void OnInterrupted() { if (_s is 1 or 2) { _s = 3; _st = 0; } }
     protected override bool Striking => _s == 2;
 
@@ -568,9 +591,14 @@ public partial class Skeleton : Walker
                     Anim.Once("slash", 3);
                     G.Sfx.Play("swing", GlobalPosition, -4, 0.1f, 0.8f);
                     v.X = Face * 70;
-                    var rel = ToP;
-                    if (rel.X * Face > -8 && Math.Abs(rel.X) < 40 * Size && Math.Abs(rel.Y) < 30 * Size)
-                        P.Hurt(Tune.Skeleton.SlashDamage * DmgK * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
+                    if (Master != null)
+                        StrikeFoes((rel, r) => rel.X * Face > -8 - r && Math.Abs(rel.X) < 40 * Size + r && Math.Abs(rel.Y) < 30 * Size + r, Tune.Skeleton.SlashDamage, 200f);
+                    else
+                    {
+                        var rel = ToP;
+                        if (rel.X * Face > -8 && Math.Abs(rel.X) < 40 * Size && Math.Abs(rel.Y) < 30 * Size)
+                            P.Hurt(Tune.Skeleton.SlashDamage * DmgK * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
+                    }
                     G.Fx.Swoosh(GlobalPosition + new Vector2(Face * 18 * Size, -8), Face, 24 * Size, new Color(0.9f, 0.95f, 1f, 0.7f));
                 }
                 break;
@@ -607,6 +635,8 @@ public partial class Skeleton : Walker
     protected override bool CanAct(int a) => a != Slash || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Slash;
     public override bool Attacking => _s == 1;
+    protected override float JumpSpeed => 320f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Slash) ? Slash : moving ? Advance : Stand;
     protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
@@ -672,6 +702,7 @@ public partial class Sporeling : Walker
                     _s = 2; _st = 0; _cd = Tune.Sporeling.PuffCooldown * (Elite ? 0.7f : 1f);
                     Anim.Once("puff", 3);
                     G.Sfx.Play("dodge", GlobalPosition, -4, 0.2f, 0.6f);
+                    // (driven, the cloud is the hero's: it chokes the creatures of the cave, never the hero)
                     G.Spawn(new SporeCloud { Position = GlobalPosition + new Vector2(Face * 14, -6), Radius = Tune.Sporeling.CloudRadius * (Elite ? 1.5f : 1f), Life = Tune.Sporeling.CloudTime, Source = this });
                 }
                 break;
@@ -693,6 +724,8 @@ public partial class Sporeling : Walker
     protected override bool CanAct(int a) => a != Puff || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Puff;
     public override bool Attacking => _s == 1;
+    protected override float JumpSpeed => 300f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Puff) ? Puff : moving ? Advance : Stand;
     protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()

@@ -6,10 +6,15 @@ namespace DaggerCave;
 
 /// <summary>
 /// The Shape Shifter. Unshifted it is a poor fighter with a staff. The ability button (Shift) copies
-/// the nearest creature in range: the body becomes that creature (its own model, outlined in white),
-/// moving as it moves and fighting with its attacks, each its own: an ordinary attack on the attack
-/// button and a special on the second ability button. Health and damage stay the Shape Shifter's own.
-/// Shift again to drop the form at any time (the ability then recharges).
+/// the nearest creature in range, and then the Shape Shifter IS that creature: a real one of its kind
+/// (see <see cref="Ghost"/>) runs its own behaviour, with the controller in place of its hunger. The
+/// stick sets where it heads (as a point out in that direction, where it would have sought a hero),
+/// the attack button sets its intent to attack, and it goes through all of that creature's wind-up,
+/// strike and recovery, with its own animations, speed, jump and blow. Its blows land on the
+/// creatures of the cave. Health stays the Shape Shifter's own, and strength (upgrades) applies to the
+/// damage the creature's blow deals. The second button is the creature's own second move where it has
+/// one (the bear's charge); otherwise a trick of the Shape Shifter's own. Shift again to drop the form
+/// (the ability then recharges).
 /// </summary>
 public partial class Player
 {
@@ -22,9 +27,14 @@ public partial class Player
     public bool FormFlier => Form?.Flier ?? false;
     public float FormArmor => Form?.Armor ?? 0f;
 
+    /// <summary>
+    /// The creature that is the body of this hero while shifted: a real creature of that kind (not one of the
+    /// cave's), driven by the controller. This hero's own body follows it, and its model is the one you see.
+    /// Null when not shifted (and on online copies, which show the form by what their game sends).
+    /// </summary>
+    public Enemy Ghost { get; private set; }
+
     private float _formAtkCd, _formSpecCd, _formAtkT = -1f, _shiftLock;
-    private Vector2 _formAtkAim;
-    private bool _formAtkDone;
     private float _formDashT, _formDashDmg;
     private Vector2 _formDashDir;
     private readonly HashSet<Enemy> _formDashHit = new();
@@ -33,18 +43,19 @@ public partial class Player
     private float _frenzyT;
     private float _formSpecT = -1f;
 
-    /// <summary>For the model: the clip of the form's attack under way (null when none) and how far along it is.</summary>
+    /// <summary>For the model of an online copy: the clip of the form's attack under way (null when none) and how far along it is.</summary>
     public string FormClip { get; private set; }
     public float FormClipT { get; private set; }
 
-    public float FormSpecialFrac => Form == null ? 0f : Math.Clamp(_formSpecCd / Math.Max(0.01f, Form.SpecCd), 0f, 1f);
-    public bool FormSpecialReady => Form != null && _formSpecCd <= 0;
-    public float FormAttackFrac => Form == null ? 0f : Math.Clamp(_formAtkCd / Math.Max(0.01f, Form.Cooldown), 0f, 1f);
+    private bool NativeSpecial => Ghost != null && GodotObject.IsInstanceValid(Ghost) && Ghost.MasterSpecialIntentIndex >= 0;
+    public float FormSpecialFrac => Form == null ? 0f : NativeSpecial ? Ghost.MasterSpecialFrac : Math.Clamp(_formSpecCd / Math.Max(0.01f, Form.SpecCd), 0f, 1f);
+    public bool FormSpecialReady => Form != null && (NativeSpecial ? Ghost.MasterSpecialReady : _formSpecCd <= 0);
+    public float FormAttackFrac => 0f;
 
     /// <summary>Test aids: press Shift, or the special, once.</summary>
     public bool TestShift() => TryShift();
     public bool TestSpecial(Vector2 aim) => TrySpecial(aim);
-    public bool TestAttack() { _formAtkCd = 0; _formAtkT = -1f; return FormPrimary(new Vector2(Facing, 0), false); }
+    public bool TestAttack() { Ghost?.MasterAttack(new Vector2(Facing, 0)); return Ghost != null; }
 
     // ---------------------------------------------------------------- shifting
 
@@ -86,8 +97,10 @@ public partial class Player
     {
         if (f == null) return;
         Form = f;
-        _formAtkCd = 0.25f; _formSpecCd = Math.Min(_formSpecCd, 1.5f); _formAtkT = -1f; _shiftLock = 0.3f;
+        _formAtkCd = 0f; _formSpecCd = Math.Min(_formSpecCd, 1.5f); _formAtkT = -1f; _shiftLock = 0.3f;
         _swingT = -1f;
+        // (this game's hero becomes a creature of its kind; a copy of a friend's hero just shows the model)
+        if (!IsRemote) SpawnGhost(f);
         ApplyFormLook();
         var at = GlobalPosition + new Vector2(0, -8);
         G.Fx.Burst(at, new Color(0.9f, 0.93f, 1f, 0.9f), 22, 190, 2.4f, 0.5f);
@@ -104,6 +117,7 @@ public partial class Player
         Form = null;
         _formAtkT = -1f; _formDashT = 0; _frenzyLeft = 0; _formSpecT = -1f; _formLeapLand = false;
         FormClip = null;
+        DropGhost();
         ApplyFormLook();
         var at = GlobalPosition + new Vector2(0, -8);
         G.Fx.Burst(at, new Color(0.9f, 0.93f, 1f, 0.8f), 14, 150, 2f, 0.4f);
@@ -113,12 +127,79 @@ public partial class Player
         if (cooldown && !IsRemote && !Stats.FluidShift) SpendAbilityCharge();
     }
 
-    /// <summary>Shows the form's model (or the hero's own again): the creature's size, in white ink.</summary>
+    /// <summary>The creature a form is, made fresh (as it would stand in the cave).</summary>
+    private static Enemy MakeCreature(ShiftForm f) => f.Key switch
+    {
+        "goblin" => new Goblin(),
+        "skeleton" => new Skeleton(),
+        "rat" => new Rat(),
+        "bat" => new Bat(),
+        // (a spider walks the ground, rather than hanging from the ceiling)
+        "spider" => new Spider { Grounded = true },
+        "frog" => new Frog(),
+        "scorpion" => new Scorpion(),
+        "bear" => new Bear(),
+        "golem" => new Golem(),
+        "hornet" => new Hornet(),
+        "sporeling" => new Sporeling(),
+        "crab" => new Crab(),
+        _ => null,
+    };
+
+    private void SpawnGhost(ShiftForm f)
+    {
+        DropGhost();
+        var g = MakeCreature(f);
+        if (g == null) return;
+        g.Master = this;
+        g.Position = GlobalPosition;
+        // (it takes its turn before the hero does each frame, so the hero follows where it is now)
+        g.ProcessPriority = -5;
+        G.World.AddChild(g);
+        g.Wake();
+        g.FaceToward(Facing);
+        Ghost = g;
+    }
+
+    /// <summary>The creature goes (the form dropped, or the hero fell): the hero stands where it stood.</summary>
+    private void DropGhost()
+    {
+        var g = Ghost;
+        Ghost = null;
+        if (g == null || !GodotObject.IsInstanceValid(g)) return;
+        GlobalPosition = g.GlobalPosition;
+        Velocity = Vector2.Zero;
+        // (its model goes with it, at once: the hero's own is shown again)
+        g.Visible = false;
+        g.QueueFree();
+    }
+
+    /// <summary>Shows the form: the hero's own model gives way to the creature (this game: the driven creature's; a copy: the model on its own animator).</summary>
     private void ApplyFormLook()
     {
         if (Anim == null) return;
-        Anim.SetForm(Form?.Set, Form?.Size ?? 1f);
+        if (IsRemote) { Anim.SetForm(Form?.Set, Form?.Size ?? 1f); return; }
+        Anim.SetForm(null);
+        Anim.Visible = Form == null;
     }
+
+    // ---------------------------------------------------------------- the creature's body
+
+    /// <summary>
+    /// Each frame while shifted: the controller's push, jump and attack go to the creature as intents, and the
+    /// hero's own body is wherever the creature is (its speed is the creature's).
+    /// </summary>
+    private Vector2 PossessedStep(PlayerInput inp)
+    {
+        var g = Ghost;
+        g.MasterAim = inp.Move;
+        if (inp.Jump) g.MasterJump();
+        if (Math.Abs(inp.Move.X) > 0.2f) Facing = Math.Sign(inp.Move.X);
+        return g.Velocity * Tune.Difficulty.EnemyMoveScale;
+    }
+
+    /// <summary>Whether this hero is a creature this very frame (the creature stands in the world).</summary>
+    private bool Possessed => Ghost != null && GodotObject.IsInstanceValid(Ghost);
 
     // ---------------------------------------------------------------- each frame
 
@@ -130,30 +211,21 @@ public partial class Player
 
     private void TickShifterCore(float dt)
     {
-        if (_formAtkCd > 0) _formAtkCd -= dt;
         if (_formSpecCd > 0) _formSpecCd -= dt;
         if (_shiftLock > 0) _shiftLock -= dt;
-        if (Form == null) { FormClip = null; return; }
-        var f = Form;
-        // the ordinary attack: wind up, strike once, recover
         FormClip = null;
-        if (_formAtkT >= 0)
+        if (Form == null) return;
+        var f = Form;
+        // (what the other games see of the creature's attack: its wind-up, and its blow)
+        if (Possessed)
         {
-            _formAtkT += dt;
-            if (_formAtkT < f.Wind) { FormClip = f.WindClip; FormClipT = _formAtkT / f.Wind; }
-            else
-            {
-                if (!_formAtkDone) { _formAtkDone = true; FormStrike(); }
-                float k = (_formAtkT - f.Wind) / Math.Max(0.05f, f.Strike);
-                if (k < 1f) { FormClip = f.StrikeClip; FormClipT = k; }
-                else _formAtkT = -1f;
-            }
+            if (Ghost.Attacking) { FormClip = f.WindClip; FormClipT = 0.5f; }
+            else if (Ghost.Animator != null && Ghost.Animator.OnceActive && Ghost.Animator.OnceName == f.StrikeClip) { FormClip = f.StrikeClip; FormClipT = 0.5f; }
         }
         // a special in progress (a charge or a leap), or its repeated blows
         if (_formDashT > 0)
         {
             _formDashT -= dt;
-            Velocity = new Vector2(_formDashDir.X * Tune.Shifter.ChargeSpeed, Velocity.Y);
             foreach (var e in G.Enemies.ToArray())
             {
                 if (!GodotObject.IsInstanceValid(e) || e.Dead || _formDashHit.Contains(e)) continue;
@@ -168,8 +240,9 @@ public partial class Player
             _frenzyT = 0.1f; _frenzyLeft--;
             Burst(Form.SpecRange, Form.SpecDmg, 90f, stun: 0f);
             FormClip = f.StrikeClip; FormClipT = (_frenzyLeft % 2) * 0.4f + 0.2f;
+            if (Possessed && _frenzyLeft % 2 == 0) Ghost.Animator?.Once(f.StrikeClip, 3);
         }
-        if (_formLeapLand && IsOnFloor() && Velocity.Y >= 0 && _formSpecT > 0.1f)
+        if (_formLeapLand && Possessed && Ghost.OnGround && Ghost.Velocity.Y >= 0 && _formSpecT > 0.1f)
         {
             _formLeapLand = false;
             Burst(Form.SpecRange, Form.SpecDmg, 220f, stun: 0.4f);
@@ -178,18 +251,30 @@ public partial class Player
         if (_formSpecT >= 0) { _formSpecT += dt; if (_formSpecT > 1.6f) _formSpecT = -1f; }
     }
 
-    /// <summary>Damage the form deals, from a base the Shape Shifter's own strength sets.</summary>
+    /// <summary>Damage the form's tricks deal, from a base the Shape Shifter's own strength sets.</summary>
     private float FormDamage(float mult) => Tune.Shifter.FormDamage * mult * Stats.DamageMult * Stats.FormDmgMult * G.Range(0.92f, 1.08f);
 
-    private void Blow(Enemy e, float mult, Vector2 knock)
+    /// <summary>A blow of the Shape Shifter's own trick (a special).</summary>
+    private void Blow(Enemy e, float mult, Vector2 knock) => Strike(e, FormDamage(mult), knock, mult > 1.5f);
+
+    /// <summary>
+    /// A blow of the creature's own: the damage that kind of creature's blow deals (<paramref name="baseDamage"/>, as in its
+    /// tuning), through the Shape Shifter's own strength. Called by the creature, when its attack lands.
+    /// </summary>
+    public void FormBlow(Enemy e, float baseDamage, Vector2 knock) =>
+        Strike(e, baseDamage * Stats.DamageMult * Stats.FormDmgMult * G.Range(0.92f, 1.08f), knock, baseDamage > Tune.Shifter.FormDamage * 1.5f);
+
+    private void Strike(Enemy e, float dmg, Vector2 knock, bool heavy)
     {
-        float dealt = e.Hurt(FormDamage(mult), knock, e.GlobalPosition);
+        float dealt = e.Hurt(dmg, knock, e.GlobalPosition);
         if (dealt <= 0) { G.Sfx.Play("clink", GlobalPosition, -6); return; }
         OnDealtDamage(dealt);
         if (Stats.FormBleed && !e.Dead) e.Bleed(dealt * 0.5f, 3f);
         e.HitStop(Tune.Feel.HitStopNormal);
-        G.Fx.Spark(e.GlobalPosition, knock.Normalized(), mult > 1.5f, new Color(0.95f, 0.97f, 1f));
-        G.Main.Kick(knock.Normalized() * Tune.Feel.KickNormal);
+        // (the creature that struck holds still for the same beat)
+        if (Possessed) Ghost.Freeze(e.Dead ? Tune.Feel.HitStopNormal * Tune.Feel.HitStopKillMult : Tune.Feel.HitStopNormal, hold: true);
+        G.Fx.Spark(e.GlobalPosition, knock.LengthSquared() > 1 ? knock.Normalized() : new Vector2(Facing, 0), heavy, new Color(0.95f, 0.97f, 1f));
+        G.Main.Kick((knock.LengthSquared() > 1 ? knock.Normalized() : new Vector2(Facing, 0)) * Tune.Feel.KickNormal);
     }
 
     /// <summary>A burst round the hero: every creature within range takes the damage, knocked outward (and stunned, if asked).</summary>
@@ -209,49 +294,32 @@ public partial class Player
             if (br.HitSize > 0 && br.HitCenter.DistanceTo(at) < range + br.HitSize) br.Strike(at);
     }
 
-    // ---------------------------------------------------------------- the ordinary attack
+    // ---------------------------------------------------------------- the attack button
 
+    /// <summary>
+    /// The attack button while shifted: it is the creature's intent to attack, nothing more. The creature
+    /// attacks the moment it can (its own cooldown), through its own wind-up, strike and recovery.
+    /// </summary>
     private bool FormPrimary(Vector2 aim, bool held)
     {
-        if (Form == null || _formAtkCd > 0 || _formAtkT >= 0 || _formDashT > 0) return false;
-        _formAtkAim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        if (Math.Abs(_formAtkAim.X) > 0.15f) Facing = Math.Sign(_formAtkAim.X);
-        Anim.Face((int)Facing, instant: true);
-        _formAtkT = 0f; _formAtkDone = false;
-        _formAtkCd = Form.Cooldown / Stats.AttackSpeed;
-        AttacksStarted++;
-        G.Sfx.Play(Form.Dmg > 1.4f ? "swing_heavy" : "swing", GlobalPosition, -3, 0.12f, 1.2f - Form.Size * 0.1f);
+        if (!Possessed) return false;
+        Ghost.MasterAttack(aim);
         return true;
     }
 
-    private void FormStrike()
-    {
-        var f = Form;
-        var dir = new Vector2(Facing, _formAtkAim.Y * 0.6f).Normalized();
-        var origin = GlobalPosition + new Vector2(0, -4);
-        bool any = false;
-        foreach (var e in G.Enemies.ToArray())
-        {
-            if (!GodotObject.IsInstanceValid(e) || e.Dead) continue;
-            var to = e.GlobalPosition - origin;
-            float dist = to.Length();
-            if (dist > f.Reach + e.HitRadius) continue;
-            if (to.Normalized().Dot(dir) < -0.1f && dist > e.HitRadius + 6f) continue;
-            Blow(e, f.Dmg, dir * f.Knock);
-            any = true;
-        }
-        foreach (var br in Breakables.All.ToArray())
-            if (br.HitSize > 0 && br.HitCenter.DistanceTo(origin + dir * f.Reach * 0.5f) < f.Reach * 0.6f + br.HitSize) br.Strike(origin);
-        G.Fx.Directional(origin + dir * f.Reach * 0.6f, dir, 0.6f, new Color(0.95f, 0.97f, 1f, 0.8f), 5, 160, 1.6f, 0.2f, 0, 1);
-        if (any) G.Main.Rumble(0.3f, 0.3f, 0.08f);
-    }
-
-    // ---------------------------------------------------------------- the special
+    // ---------------------------------------------------------------- the second button
 
     private bool TrySpecial(Vector2 aim)
     {
         if (!IsShifter) return false;
         if (Form == null) { SayNo("SHIFT FIRST"); return true; }
+        // a creature with a second move of its own does that one, through its own wind-up
+        if (NativeSpecial)
+        {
+            if (!Ghost.MasterSpecialReady) return false;
+            Ghost.MasterSpecial(aim);
+            return true;
+        }
         if (_formSpecCd > 0 || _formDashT > 0) return false;
         var f = Form;
         _formSpecCd = f.SpecCd * Stats.FormSpecCdMult;
@@ -259,7 +327,9 @@ public partial class Player
         if (Stats.SpecEcho && G.Chance(0.35f)) { _formSpecCd = 0; G.Fx.Text(GlobalPosition + new Vector2(0, -46), "ECHO", new Color(0.85f, 0.9f, 1f), 9, 0.6f); }
         _formSpecT = 0f;
         var dir = new Vector2(aim.X != 0 ? Math.Sign(aim.X) : Facing, 0);
-        if (dir.X != 0) { Facing = (int)dir.X; Anim.Face((int)Facing, instant: true); }
+        if (dir.X != 0) { Facing = (int)dir.X; Ghost?.FaceToward(dir.X); }
+        // (the creature's own blow animation, for a trick that has none of its own)
+        Ghost?.Animator?.Once(f.StrikeClip, 3);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), f.SpecialName.ToUpperInvariant(), new Color(0.95f, 0.96f, 1f), 10, 0.8f);
         switch (f.Special)
         {
@@ -269,7 +339,6 @@ public partial class Player
                 G.Fx.Shockwave(GlobalPosition + new Vector2(0, 12), f.SpecRange * 0.5f, new Color(1, 1, 1, 0.5f), 0.35f);
                 G.Fx.AddShake(f.Special == FormSpecial.Quake ? 3f : 1.5f);
                 G.Sfx.Play("rock", GlobalPosition, -1, 0.1f, 0.8f);
-                _formAtkCd = Math.Max(_formAtkCd, 0.4f);
                 break;
             case FormSpecial.Spin:
                 Burst(f.SpecRange, f.SpecDmg * spec, 200f, stun: 0.2f);
@@ -290,7 +359,8 @@ public partial class Player
                 G.Sfx.Play("swing", GlobalPosition, -2, 0.1f, 1.5f);
                 break;
             case FormSpecial.Leap:
-                Velocity = new Vector2(dir.X * 300f, -BaseJumpV * 1.35f);
+                // (flung up and forward by the creature's own body, then it lands on the creatures below)
+                Ghost?.MasterOverride(new Vector2(dir.X * 300f, -BaseJumpV * 1.35f), 1.2f, gravity: true);
                 _formLeapLand = true;
                 G.Sfx.Play("jump", GlobalPosition, -3, 0.1f, 0.7f);
                 break;
@@ -304,6 +374,7 @@ public partial class Player
                 _formDashT = f.Special == FormSpecial.Charge ? f.SpecRange / Tune.Shifter.ChargeSpeed : f.SpecRange / Tune.Shifter.ChargeSpeed * 0.8f;
                 _formDashDir = dir; _formDashDmg = f.SpecDmg * spec; _formDashHit.Clear();
                 _iframes = Math.Max(_iframes, _formDashT);
+                Ghost?.MasterOverride(new Vector2(dir.X * Tune.Shifter.ChargeSpeed / Tune.Difficulty.EnemyMoveScale, 0f), _formDashT, gravity: !f.Flier);
                 G.Sfx.Play("swing_heavy", GlobalPosition, -1, 0.1f, 0.7f);
                 break;
             case FormSpecial.Spores:

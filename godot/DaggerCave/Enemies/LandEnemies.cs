@@ -43,7 +43,14 @@ public partial class Bat : Enemy
             default:
                 // The script's rhythm (swoop until close or 2.6 s, retreat 0.9 s) keeps ticking as
                 // the teacher's suggestion; Intent decides what the bat actually does.
-                if (_state == 1 && (DistP < 18 || _stateT > 2.6f)) { _state = 2; _stateT = 0; }
+                if (Master != null)
+                {
+                    // driven: no script. It cruises where it is pointed, and an attack flares the wings, then swoops
+                    _swoopCd -= dt;
+                    if (_swoopT > 0) _swoopT -= dt;
+                    else if (_swoopNext && _flare <= 0) { _swoopT = 0.7f; _swoopCd = 1.3f; _swoopNext = false; }
+                }
+                else if (_state == 1 && (DistP < 18 || _stateT > 2.6f)) { _state = 2; _stateT = 0; }
                 else if (_state == 2 && _stateT > 0.9f)
                 {
                     _state = 1; _stateT = 0;
@@ -61,6 +68,9 @@ public partial class Bat : Enemy
 
     private float _flare;
     private const float FlareTime = 0.32f;
+    private float _swoopT, _swoopCd;
+    private bool _swoopNext, _cruise;
+    private Vector2 _swoopDir = new(1, 0);
 
     private void Fly(float dt)
     {
@@ -69,7 +79,14 @@ public partial class Bat : Enemy
             Velocity = Velocity.MoveToward(new Vector2(0, -25f), 700f * dt);
             return;
         }
-        var to = ToP + new Vector2(0, -6);
+        // (driven, and not swooping: an easy cruise toward where the controller points, or a hover)
+        if (Master != null && Intent != Swoop)
+        {
+            var want = _cruise ? ToP.Normalized() * Tune.Bat.FlySpeed * 0.8f : new Vector2(0, MathF.Sin(T * 4 + _wob) * 25);
+            Velocity = Velocity.MoveToward(want, 520f * dt);
+            return;
+        }
+        var to = (Master != null ? _swoopDir * 100f : ToP) + new Vector2(0, -6);
         var dir = to.LengthSquared() > 1 ? to.Normalized() : Vector2.Up;
         var perp = new Vector2(-dir.Y, dir.X);
         switch (Intent)
@@ -109,11 +126,29 @@ public partial class Bat : Enemy
     protected override int Teacher() => _state == 2 ? Retreat : Swoop;
     protected override bool Striking => _state != 0 && Intent == Swoop;
     protected override bool IsAttack(int a) => a == Swoop;
+    // (driven: the wings flaring before the swoop is its wind-up)
+    public override bool Attacking => Striking || (Master != null && (_flare > 0 || _swoopNext));
+    protected override int MasterIntent(bool moving, bool attack)
+    {
+        _cruise = false;
+        if (_state == 0) _state = 1; // (on the wing from the start)
+        if (_swoopT > 0) return Swoop;
+        if (attack && _swoopCd <= 0 && !_swoopNext && _flare <= 0)
+        {
+            _swoopDir = MasterDir;
+            _flare = FlareTime; _swoopNext = true;
+            Anim.Once("flare", 3, 8f / (FlareTime * 24f));
+            G.Sfx.Play("bat", GlobalPosition, -6);
+            return Hover;
+        }
+        _cruise = moving && _flare <= 0 && !_swoopNext;
+        return Hover;
+    }
     protected override void OnInterrupted() { if (_state != 0) { _state = 2; _stateT = 0; } }
 
     protected override void Animate()
     {
-        Anim.Loop(_state == 0 ? "roost" : Intent == Swoop && DistP < 70 ? "dive" : "fly");
+        Anim.Loop(_state == 0 ? "roost" : Intent == Swoop && (Master != null || DistP < 70) ? "dive" : "fly");
         Anim.AllowTurns = _state != 0;
     }
 
@@ -184,7 +219,7 @@ public partial class Frog : Enemy
             if (Awake) Face = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
             if (_tongueWind < 0)
             {
-                _tongueT = 0; _tongueHit = false; _tongueDir = (ToP + new Vector2(0, -4)).Normalized();
+                _tongueT = 0; _tongueHit = false; _tongueDir = Master != null ? (MasterDir + new Vector2(0, -0.05f)).Normalized() : (ToP + new Vector2(0, -4)).Normalized();
                 G.Sfx.Play("tongue", GlobalPosition, -4);
                 Anim.Once("tongue", 3, 9f / (TongueTime * 24f));
             }
@@ -198,13 +233,17 @@ public partial class Frog : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             float ext = TongueExtent();
             var tip = GlobalPosition + new Vector2(0, -2) + _tongueDir * ext;
-            if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && (P.Hurt(Tune.Frog.TongueDamage * DmgK * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0 || P.LastHitBlocked)) _tongueHit = true;
+            if (Master != null)
+            {
+                if (!_tongueHit && StrikeFoes((rel, r) => tip.DistanceTo(GlobalPosition + rel) < 12 + r, Tune.Frog.TongueDamage, 150f) > 0) _tongueHit = true;
+            }
+            else if (!P.Dead && !_tongueHit && tip.DistanceTo(P.GlobalPosition) < 12 && (P.Hurt(Tune.Frog.TongueDamage * DmgK * (Elite ? 1.5f : 1f), GlobalPosition, source: this) > 0 || P.LastHitBlocked)) _tongueHit = true;
             if (_tongueT > TongueTime) _tongueT = -1;
         }
         else if (floor)
         {
             v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
-            if (Awake && (BrainDriven || DistP < Aggro(Tune.Frog.AggroRange)))
+            if (Awake && (BrainDriven || Master != null || DistP < Aggro(Tune.Frog.AggroRange)))
             {
                 int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
                 Face = dirP;
@@ -246,6 +285,9 @@ public partial class Frog : Enemy
     };
     protected override bool IsAttack(int a) => a == Tongue;
     public override bool Attacking => _tongueT >= 0;
+    // (its jump is its hop: crouch, then spring)
+    protected override bool OwnJump => true;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Tongue) ? Tongue : moving || JumpWanted ? HopToward : Sit;
     protected override void OnInterrupted() { _tongueT = -1; _tongueWind = -1; _hopWind = -1; _tongueCd = Math.Max(_tongueCd, 1.5f); }
     private float _groundT;
 
@@ -359,9 +401,14 @@ public partial class Goblin : Enemy
                 _state = 2; _stateT = 0;
                 G.Sfx.Play("swing_heavy", GlobalPosition, -4, 0.1f, 0.7f);
                 Anim.Once("strike", 3);
-                var rel = ToP;
-                if (Math.Abs(rel.X) < 40 * Size && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size)
-                    P.Hurt(Tune.Goblin.ClubDamage * DmgK * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
+                if (Master != null)
+                    StrikeFoes((rel, r) => Math.Abs(rel.X) < 40 * Size + r && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size + r, Tune.Goblin.ClubDamage, 200f);
+                else
+                {
+                    var rel = ToP;
+                    if (Math.Abs(rel.X) < 40 * Size && Math.Sign(rel.X) != -Face && Math.Abs(rel.Y) < 30 * Size)
+                        P.Hurt(Tune.Goblin.ClubDamage * DmgK * (Elite ? 1.4f : 1f), GlobalPosition, source: this);
+                }
             }
         }
         else
@@ -405,6 +452,8 @@ public partial class Goblin : Enemy
     };
     protected override bool IsAttack(int a) => a == Attack;
     public override bool Attacking => _state == 1 || _throwDelay >= 0;
+    protected override float JumpSpeed => 390f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Attack) ? Attack : moving ? MoveToward : Idle;
     protected override void OnInterrupted() { _throwDelay = -1; if (_state == 1) { _state = 2; _stateT = 0; } }
 
     protected override int Teacher()
@@ -623,6 +672,8 @@ public partial class Spider : Enemy
     protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
     protected override bool IsAttack(int a) => a == Strike;
     protected override void OnInterrupted() { if (_state is 1 or 2) { _state = 3; _stateT = 0; } _pounceLeft = 0; _pounceWind = -1; }
+    protected override bool OwnJump => true; // (its leap is its pounce)
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Strike) ? Strike : moving ? Toward : Wait;
     protected override bool Striking => _state == 1 || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
 
     protected override int Teacher()
@@ -785,7 +836,7 @@ public partial class Golem : Enemy
             v.X = Mathf.MoveToward(v.X, 0, 800 * dt);
             if (_recover < 0.75f && _recover + dt >= 0.75f) Anim.Once("recover", 2, 10f / (0.75f * 24f));
         }
-        else if (Awake && (BrainDriven || DistP < Aggro(460)))
+        else if (Awake && (BrainDriven || Master != null || DistP < Aggro(460)))
         {
             int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
             int walk = Intent == Advance ? dirP : Intent == Retreat ? -dirP : 0;
@@ -809,6 +860,8 @@ public partial class Golem : Enemy
     protected override bool CanAct(int a) => a != Slam_ || (_slamCd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Slam_;
     public override bool Attacking => _windup >= 0;
+    protected override float JumpSpeed => 330f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Slam_) ? Slam_ : moving ? Advance : Stand;
     protected override void OnInterrupted() { _windup = -1; _recover = 0.5f; _slamCd = Math.Max(_slamCd, 1.5f); }
 
     protected override int Teacher()
@@ -826,6 +879,7 @@ public partial class Golem : Enemy
         G.Fx.Burst(foot, new Color(0.6f, 0.55f, 0.5f), 20, 200, 3f, 0.5f);
         for (int s = -1; s <= 1; s += 2)
             G.Spawn(new Shockwave { Position = foot + new Vector2(s * 16 * Size, 0), Dir = s, Damage = Tune.Golem.ShockwaveDamage * DmgK * (Elite ? 1.3f : 1), Size = Elite ? 1.5f : 1f, Speed = Tune.Golem.ShockwaveSpeed * (Elite ? 1.2f : 1f), Source = this });
+        if (Master != null) { StrikeFoes((rel, r) => Math.Abs(rel.X) < 30 * Size + r && Math.Abs(rel.Y) < 30 * Size + r, Tune.Golem.SlamDamage, 320f); return; }
         var rel = ToP;
         if (Math.Abs(rel.X) < 30 * Size && Math.Abs(rel.Y) < 30 * Size) P.Hurt(Tune.Golem.SlamDamage * DmgK, GlobalPosition, 320, this);
     }

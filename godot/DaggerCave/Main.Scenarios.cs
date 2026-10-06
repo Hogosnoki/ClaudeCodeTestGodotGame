@@ -61,6 +61,7 @@ public partial class Main
         "relics" => "den",
         "aegis" => "den",
         "shifter" => "den",
+        "shifterforms" => "entrance",
         "status" => "den",
         _ => null,
     };
@@ -93,6 +94,7 @@ public partial class Main
             case "relics": RelicsScenario(); break;
             case "aegis": AegisScenario(); break;
             case "shifter": ShifterScenario(); break;
+            case "shifterforms": ShifterFormsScenario(); break;
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;

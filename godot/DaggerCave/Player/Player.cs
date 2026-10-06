@@ -444,7 +444,9 @@ public partial class Player : CharacterBody2D
         // updraft, the Rogue vanishes (the Warden's raises her shield)
         if (_dodgeBuf > 0 && DodgeButton(_dodgeInput)) _dodgeBuf = 0;
 
-        if (_dodgeT > 0) v = DodgeMotion(v, dt);
+        // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
+        if (Possessed) v = PossessedStep(inp);
+        else if (_dodgeT > 0) v = DodgeMotion(v, dt);
         else if (_dashT > 0) v = DashMotion(v, dt);
         else if (_tetherTo != null) v = TetherMotion(v, dt);
         else if (_airDashT > 0)
@@ -464,9 +466,20 @@ public partial class Player : CharacterBody2D
         if (_airDashT > 0) _airDashT -= dt;
 
         _lastFallSpeed = v.Y;
-        Velocity = v;
-        MoveAndSlide();
-        bool nowFloor = IsOnFloor();
+        bool nowFloor;
+        if (Possessed)
+        {
+            // the hero stands where the creature does
+            GlobalPosition = Ghost.GlobalPosition;
+            Velocity = v;
+            nowFloor = Ghost.OnGround;
+        }
+        else
+        {
+            Velocity = v;
+            MoveAndSlide();
+            nowFloor = IsOnFloor();
+        }
         if (nowFloor && !_wasOnFloor && _lastFallSpeed > 260)
         {
             G.Sfx.Play("land", GlobalPosition, -6);
@@ -551,7 +564,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => TryUpdraft(inp.Aim),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
-        HeroKind.ShapeShifter => TryDodge(inp),
+        HeroKind.ShapeShifter => Possessed || TryDodge(inp), // (a creature has no dodge roll)
         _ => true,
     };
 
@@ -970,6 +983,7 @@ public partial class Player : CharacterBody2D
         Anim.Face((int)Facing, instant: true);
         Anim.Once("hurt", 4);
         Anim.Flash(1f);
+        if (Possessed) { Ghost.Animator?.Once("hurt", 4); Ghost.Animator?.Flash(1f); }
         Freeze(Tune.Feel.HitStopPlayerHurt);
         if (source != null && GodotObject.IsInstanceValid(source) && !source.Dead) source.Freeze(Tune.Feel.HitStopPlayerHurt, hold: true);
         G.Main.Kick(away * Tune.Feel.KickPlayerHurt);
@@ -978,6 +992,7 @@ public partial class Player : CharacterBody2D
         // horizontal only (plus a gentle push in water) so nothing can juggle you upward
         float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f);
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
+        if (Possessed) Ghost.Velocity = new Vector2(kx / Tune.Difficulty.EnemyMoveScale, Ghost.Velocity.Y);
         _dodgeT = 0; _airDashT = 0; _dashT = 0;
         _knockT = KnockLock ? Tune.Combat.HurtKnockLock : 0f;
         return dmg;
@@ -988,6 +1003,7 @@ public partial class Player : CharacterBody2D
     {
         _freeze = Math.Max(_freeze, seconds);
         if (Anim != null) Anim.TimeMult = 0;
+        if (Possessed) Ghost.Freeze(seconds, hold: true);
     }
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
@@ -1034,6 +1050,8 @@ public partial class Player : CharacterBody2D
     {
         if (Dead) return;
         Dead = true; Hp = 0;
+        // (a hero that falls in a creature's form falls as itself)
+        if (Possessed) { Form = null; DropGhost(); ApplyFormLook(); }
         ClearStatus();
         ReviveProgress = 0;
         NetSync.HeroDown(true);

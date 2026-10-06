@@ -283,6 +283,7 @@ public partial class Shockwave : Node2D
     public float Dir = 1, Speed = 260f, Damage = 14f, Life = 1.4f, Size = 1f;
     public Enemy Source;
     private bool _hitPlayer;
+    private readonly System.Collections.Generic.HashSet<Enemy> _struck = new();
     private float _t;
     public float T => _t;
 
@@ -298,8 +299,22 @@ public partial class Shockwave : Node2D
         { Fizzle(); return; }
         if (!cave.FindFloor(next + new Vector2(0, -18), 44, out var fl)) { Fizzle(); return; }
         GlobalPosition = fl;
+        // (a driven creature's wave is the hero's: it strikes the creatures of the cave, once each, and never the hero)
+        if (Source != null && GodotObject.IsInstanceValid(Source) && Source.Master != null)
+        {
+            foreach (var e in G.Enemies.ToArray())
+            {
+                if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit || _struck.Contains(e)) continue;
+                var d = e.GlobalPosition - GlobalPosition;
+                if (Math.Abs(d.X) < 12 * Size + e.HitRadius && d.Y > -22 * Size - 8 - e.HitRadius && d.Y < 6 + e.HitRadius)
+                {
+                    _struck.Add(e);
+                    Source.Master.FormBlow(e, Source.Master.Form != null ? Tune.Golem.ShockwaveDamage : 0f, new Vector2(Dir * 260f, -60f));
+                }
+            }
+        }
         var p = G.Player;
-        if (!_hitPlayer && p != null && !p.Dead)
+        if (!_hitPlayer && p != null && !p.Dead && !(Source != null && GodotObject.IsInstanceValid(Source) && Source.Master != null))
         {
             var d = p.GlobalPosition - GlobalPosition;
             if (Math.Abs(d.X) < 12 * Size && d.Y > -22 * Size - 8 && d.Y < 6) { p.Hurt(Damage, GlobalPosition + new Vector2(-Dir * 10, 10), 260, Source); _hitPlayer = true; }

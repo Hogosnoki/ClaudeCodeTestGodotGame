@@ -1107,13 +1107,24 @@ your head misses you. Caged heroes are chosen by what the party still has locked
 A feeble staff fighter whose strength is borrowed. The ability button (Shift) copies the nearest creature
 in range (`Tune.Shifter.CopyRange`): the hero's body becomes that creature's own 3D model, outlined in white.
 Twelve forms (`Core/ShiftForms.cs`): goblin, skeleton, rat, bat, spider, frog, scorpion, bear, golem,
-hornet, sporeling, crab. Each moves its own way (speed, jump, flight for bat and hornet, armour), has its own
-attack on the attack button (reach, wind-up, strike, using the creature's own clips) and a special on the
-second ability button (Club Smash, Bone Spin, Gnaw Frenzy, Screech, Venom Spit, Pounce, Tail Lash, Maul
-Charge, Quake, Dive Sting, Spore Cloud, Vice Grip), each with its own icon (`tools/icons/make_icons.py`).
-Health and damage stay the Shape Shifter's own (`Tune.Shifter.FormDamage` x the form's multiplier x the
-hero's damage). Shift again drops the form, then Shift recharges. `--scenario=shifter --hero=shifter`
-checks it (add `--shots=DIR` under xvfb for a picture of every form).
+hornet, sporeling, crab.
+
+The hero **is** that creature, not an imitation of it. Shifting spawns a real instance of the enemy class
+(`Player.Shifter.cs`, `MakeCreature`) with `Enemy.Master` set to the player (`Enemies/Enemy.Driven.cs`); the
+hero's body is hidden and the player simply rides the creature's position. The creature runs its own action
+engine (`Think`, wind-ups, strikes, recoveries, clips, gait, jump, flight, swim, speed, armour) with one change:
+instead of a brain or script choosing its `Intent`, the controller does. The stick makes the creature *advance
+toward a point* 320 px in the stick's direction (its target is that point instead of the hero), the attack
+button sets its attack intent and the creature attacks the moment it can, through its own wind-up, and the jump
+button is the creature's own jump (the frog hops, the bat flaps up, the spider lunges). Enemies never read
+these, so they behave as before. Blows land on creatures and breakables through the creature's own hit tests
+(`StrikeFoes`), never on the hero or allies; damage is the creature's own base number x the hero's damage
+multipliers. The bear's second button is its real Charge; the other forms keep a Shape Shifter trick on it (Club
+Smash, Bone Spin, Gnaw Frenzy, Screech, Venom Spit, Pounce, Tail Lash, Quake, Dive Sting, Spore Cloud, Vice
+Grip), each with its own icon (`tools/icons/make_icons.py`). Health stays the Shape Shifter's own. Shift again
+drops the form, then Shift recharges. `--scenario=shifter --hero=shifter` checks the staff and the shift,
+`--scenario=shifterforms --hero=shifter` checks that each of the twelve walks with its own gait and winds up
+before its blow lands (add `--shots=DIR` under xvfb for pictures).
 
 ## Support abilities (the support button, V)
 

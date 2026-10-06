@@ -33,7 +33,7 @@ public partial class Player
                        HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
-    public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : IsOnFloor();
+    public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : Possessed ? Ghost.OnGround : IsOnFloor();
 
     private bool NetInvuln => (_netFlags & HfInvuln) != 0;
 

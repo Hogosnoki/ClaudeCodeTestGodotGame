@@ -147,6 +147,8 @@ public abstract partial class Enemy : CharacterBody2D
     {
         get
         {
+            // (a creature a Shape Shifter drives has no one to hunt: it answers to its master)
+            if (Master != null) return Master;
             if (!Net.Online || G.Players.Count <= 1) return G.Player;
             if (_target != null && IsInstanceValid(_target) && _target.IsInsideTree() && !_target.Dead && _targetT > 0) return _target;
             _targetT = 0.5f;
@@ -175,9 +177,10 @@ public abstract partial class Enemy : CharacterBody2D
         return best;
     }
 
-    protected Vector2 ToP => P.GlobalPosition - GlobalPosition;
+    // (a driven creature seeks the point its master's controller points to, in place of the hero)
+    protected Vector2 ToP => Master != null ? MasterPoint - GlobalPosition : P.GlobalPosition - GlobalPosition;
     protected float DistP => ToP.Length();
-    protected bool SeesP => G.Cave.LineClear(GlobalPosition, P.GlobalPosition);
+    protected bool SeesP => Master != null || G.Cave.LineClear(GlobalPosition, P.GlobalPosition);
     protected bool InWater => G.Cave.IsWater(GlobalPosition);
 
     public override void _Ready()
@@ -195,18 +198,19 @@ public abstract partial class Enemy : CharacterBody2D
             Hp = MaxHp;
         }
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });
-        G.Enemies.Add(this);
+        // (a creature driven by a Shape Shifter is no creature of the cave: no one fights it or counts it)
+        if (Master == null) G.Enemies.Add(this);
         Face = G.Chance(0.5f) ? 1 : -1;
         Setup();
         DisplayName = Puppet && NetDisplayName != null ? NetDisplayName : (Elite && !IsGuardian && !IsBoss ? "Elite " : "") + NamePrefix + DisplayName;
         if (Tint is Color tint && Anim != null) Anim.Sprite.SelfModulate = tint;
-        if (Net.IsHost && !Puppet) NetSync.EnemySpawned(this);
+        if (Net.IsHost && !Puppet && Master == null) NetSync.EnemySpawned(this);
     }
 
     public override void _ExitTree()
     {
         G.Enemies.Remove(this);
-        if (!_goneSent && Net.IsHost && !Puppet) { _goneSent = true; NetSync.EnemyGone(this, false); }
+        if (!_goneSent && Net.IsHost && !Puppet && Master == null) { _goneSent = true; NetSync.EnemyGone(this, false); }
         if (Puppet) return;
         BrainFlush(terminal: false);
     }
@@ -343,7 +347,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
         // and animations all scale together (a hex, or a chill, slows the whole clock down).
-        float tempo = G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f);
+        float tempo = Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f);
         float dt = (float)delta * tempo;
         T += dt; HurtFlash -= (float)delta;
         if (_primeT > 0) _primeT -= dt;
@@ -361,7 +365,7 @@ public abstract partial class Enemy : CharacterBody2D
         // lost track: its hero is hidden (vanished, or in smoke), or it stands in smoke itself.
         // Whatever it was already swinging plays out; then it stands there, looking about.
         // (Guardians and bosses aren't fooled.)
-        bool lost = !IsBoss && !IsGuardian && !Attacking && (P.Hidden || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition)));
+        bool lost = Master == null && !IsBoss && !IsGuardian && !Attacking && (P.Hidden || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition)));
         if (lost && !_lost) G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 14), "?", new Color(0.9f, 0.9f, 0.95f), 12, 0.7f);
         _lost = lost;
         if (Stun > 0)
@@ -386,6 +390,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             BrainDecide(dt);
             Think(dt);
+            if (Master != null) DrivenAfterThink(dt);
             if (!ManualMove)
             {
                 // tempo speeds the creature up; MoveScale shrinks every move it makes (speed,
@@ -407,6 +412,8 @@ public abstract partial class Enemy : CharacterBody2D
         // Touching an enemy only hurts during a body attack (a swoop, dart, lunge, drop, charge),
         // and then only once per attack. Idle bodies do PassiveContactMult of that (0 by default).
         bool striking = Striking && !_lost;
+        // (driven by a Shape Shifter: the blow lands on the creatures of the cave, once each)
+        if (Master != null) { DrivenContact(striking); QueueRedraw(); return; }
         if (striking && !_wasStriking) _strikeLanded = false;
         _wasStriking = striking;
         float touch = striking ? (_strikeLanded ? 0 : ContactDamage) : ContactDamage * Tune.Combat.PassiveContactMult;
@@ -694,7 +701,8 @@ public abstract partial class Enemy : CharacterBody2D
 
     /// <summary>The colour of its ink outline while afflicted: frost pale blue, fire orange (alpha 0 = its usual line).</summary>
     public Color StatusInk =>
-        _iceT > 0 || _chillT > 0 ? StatusColors.Frost
+        Master != null ? new Color(0.95f, 0.97f, 1f, 1f) // (a Shape Shifter's form: white ink)
+        : _iceT > 0 || _chillT > 0 ? StatusColors.Frost
         : _burnT > 0 ? StatusColors.Fire
         : new Color(0, 0, 0, 0);
 
@@ -1252,7 +1260,7 @@ public abstract partial class Enemy : CharacterBody2D
     private Brain.Transition _pendingT;
     private float _pendingReward, _pendingTime, _pendingDealt, _pendingTaken;
 
-    private bool HasBrain => Actions != null && BrainName != null && Tune.Brains.Enabled;
+    private bool HasBrain => Master == null && Actions != null && BrainName != null && Tune.Brains.Enabled;
 
     /// <summary>Called by Player.Hurt (directly or through this creature's projectiles).</summary>
     public void CreditDamage(float dmg)
@@ -1286,6 +1294,8 @@ public abstract partial class Enemy : CharacterBody2D
 
     private void BrainDecide(float dt)
     {
+        // a driven creature does what its master's controller asks (no etiquette, no first-attack wait)
+        if (Master != null) { BrainDriven = false; Intent = MasterIntentNow(); return; }
         if (!HasBrain) { BrainDriven = false; return; }
         _brain ??= Brains.Get(BrainName, BaseInputs + Actions.Length, Actions.Length);
         if (!Brains.Drives(_brain) || !Awake)

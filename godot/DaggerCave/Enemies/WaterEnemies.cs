@@ -403,10 +403,15 @@ public partial class Crab : Walker
                     _s = 2; _st = 0; _cd = Tune.Crab.PinchCooldown * (Elite ? 0.7f : 1f);
                     Anim.Once("pinch", 3);
                     G.Sfx.Play("clink", GlobalPosition, -2, 0.1f, 1.1f);
-                    var rel = ToP;
                     float reach = Tune.Crab.PinchReach * Size;
-                    if (rel.X * Face > -8 && Math.Abs(rel.X) < reach + 8 && Math.Abs(rel.Y) < 22 * Size)
-                        P.Hurt(Tune.Crab.PinchDamage * DmgK * (Elite ? 1.35f : 1f), GlobalPosition, 200, this);
+                    if (Master != null)
+                        StrikeFoes((rel, r) => rel.X * Face > -8 - r && Math.Abs(rel.X) < reach + 8 + r && Math.Abs(rel.Y) < 22 * Size + r, Tune.Crab.PinchDamage, 200f);
+                    else
+                    {
+                        var rel = ToP;
+                        if (rel.X * Face > -8 && Math.Abs(rel.X) < reach + 8 && Math.Abs(rel.Y) < 22 * Size)
+                            P.Hurt(Tune.Crab.PinchDamage * DmgK * (Elite ? 1.35f : 1f), GlobalPosition, 200, this);
+                    }
                     G.Fx.Spark(GlobalPosition + new Vector2(Face * reach * 0.8f, -4 * Size), new Color(1f, 0.85f, 0.7f));
                 }
                 break;
@@ -429,6 +434,8 @@ public partial class Crab : Walker
     protected override bool CanAct(int a) => a != Pinch || _cd <= 0;
     protected override bool IsAttack(int a) => a == Pinch;
     public override bool Attacking => _s == 1;
+    protected override float JumpSpeed => 300f;
+    protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Pinch) ? Pinch : moving ? Advance : Stand;
     protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
 
     protected override int Teacher()

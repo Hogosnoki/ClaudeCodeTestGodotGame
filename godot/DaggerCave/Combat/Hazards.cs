@@ -65,11 +65,28 @@ public partial class SporeCloud : Node2D
         _t += dt; _tick -= dt;
         if (_t > Life) { QueueFree(); return; }
         float r = Radius * Math.Min(1f, _t * 4f);
-        var p = G.Player;
-        if (p != null && !p.Dead && _tick <= 0 && p.GlobalPosition.DistanceTo(GlobalPosition) < r + 6)
+        // (a driven creature's cloud is the hero's: it chokes the creatures of the cave, not the hero)
+        if (GodotObject.IsInstanceValid(Source) && Source.Master != null)
         {
-            _tick = 0.5f;
-            p.Hurt(Tune.Sporeling.CloudDamage * G.DepthDmg, GlobalPosition, 40, GodotObject.IsInstanceValid(Source) ? Source : null);
+            if (_tick <= 0)
+            {
+                _tick = 0.5f;
+                foreach (var e in G.Enemies.ToArray())
+                {
+                    if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(GlobalPosition) >= r + 6 + e.HitRadius) continue;
+                    Source.Master.FormBlow(e, Tune.Sporeling.CloudDamage, Vector2.Zero);
+                    if (!e.Dead) e.Weaken(0.6f, 3f);
+                }
+            }
+        }
+        else
+        {
+            var p = G.Player;
+            if (p != null && !p.Dead && _tick <= 0 && p.GlobalPosition.DistanceTo(GlobalPosition) < r + 6)
+            {
+                _tick = 0.5f;
+                p.Hurt(Tune.Sporeling.CloudDamage * G.DepthDmg, GlobalPosition, 40, GodotObject.IsInstanceValid(Source) ? Source : null);
+            }
         }
         if (G.Chance(0.3f)) G.Fx.Burst(GlobalPosition + G.RandDir() * r * 0.7f, new Color(0.75f, 0.55f, 0.95f, 0.6f), 1, 12, 2f, 0.8f, -10);
         GlobalPosition += new Vector2(0, -6 * dt);
