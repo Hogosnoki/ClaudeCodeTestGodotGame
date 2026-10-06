@@ -51,29 +51,96 @@ public static partial class CaveGenerator
     public static bool Verbose;
     public static Action<CaveData, int> OnAttempt;
 
+    /// <summary>Set, for an attempt running beside others: true once its result is no longer wanted (an earlier attempt made a sound cave).</summary>
+    [ThreadStatic] private static Func<bool> _unwanted;
+    /// <summary>Called through the long loops: abandons an attempt whose result is no longer wanted.</summary>
+    internal static void CheckCancel() { if (_unwanted != null && _unwanted()) throw new OperationCanceledException(); }
+
+    /// <summary>--gentest --genprof: where the generation time goes (milliseconds and calls by phase).</summary>
+    public static readonly Dictionary<string, (long ticks, int calls)> Prof = new();
+    internal static T Timed<T>(string what, Func<T> f)
+    {
+        long t0 = System.Diagnostics.Stopwatch.GetTimestamp();
+        var r = f();
+        long dt = System.Diagnostics.Stopwatch.GetTimestamp() - t0;
+        lock (Prof) { Prof.TryGetValue(what, out var cur); Prof[what] = (cur.ticks + dt, cur.calls + 1); }
+        return r;
+    }
+    internal static void Timed(string what, Action f) => Timed<int>(what, () => { f(); return 0; });
+
     public static CaveData Generate(BiomeDef biome, int seed)
     {
         // (the dragon's lair is a set piece: an antechamber and one arena, as drawn)
-        B = biome; W = biome.Style == GenStyle.Arena ? biome.W : (int)MathF.Round(biome.W * Tune.Cave.WidthScale); H = biome.Style is GenStyle.Walkers or GenStyle.Rooms ? (int)MathF.Round(biome.H * Tune.Cave.HeightScale) : biome.H;
-        CaveData best = null;
-        for (int attempt = 0; attempt < 12; attempt++)
+        int w = biome.Style == GenStyle.Arena ? biome.W : (int)MathF.Round(biome.W * Tune.Cave.WidthScale);
+        int h = biome.Style is GenStyle.Walkers or GenStyle.Rooms or GenStyle.LavaTube ? (int)MathF.Round(biome.H * Tune.Cave.HeightScale) : biome.H;
+        B = biome; W = w; H = h;
+        const int MaxAttempts = 12;
+        int lanes = Verbose || RawMode || OnAttempt != null ? 1 : int.TryParse(System.Environment.GetEnvironmentVariable("GEN_LANES"), out var gl) ? gl : Math.Clamp(System.Environment.ProcessorCount, 1, 8);
+        int next = 0, firstGood = int.MaxValue;
+        CaveData Attempt(int attempt)
         {
+            // (these belong to the thread making the cave: attempts run side by side)
+            B = biome; W = w; H = h;
+            _unwanted = lanes > 1 ? () => System.Threading.Volatile.Read(ref firstGood) < attempt : null;
             int s = seed + attempt * 7919;
-            var c = biome.Style switch
+            var c = Timed("generate once", () => biome.Style switch
             {
                 GenStyle.Corridor => GenerateCorridor(s),
                 GenStyle.Rooms => GenerateRooms(s),
                 GenStyle.Ruins => GenerateRuins(s),
+                GenStyle.Crypt => GenerateCrypt(s),
                 GenStyle.Mine => GenerateMine(s),
                 GenStyle.Arena => GenerateArena(s),
                 _ => GenerateOnce(s),
-            };
+            });
             c.Attempts = attempt + 1;
-            if (Verbose) { GD.Print($"    attempt {attempt + 1} (seed {s}): score {Score(c)} traps {c.TrapCells}"); OnAttempt?.Invoke(c, s); }
-            if (best == null || Score(c) < Score(best)) best = c;
-            if (Score(c) <= 6) break;
+            return c;
         }
-        return best;
+        // Attempts are independent of one another (each is made from its own seed), so they run side by side, and are judged in
+        // order: the cave is the one the one-at-a-time loop would have chosen, only sooner. A worker takes the next attempt
+        // as it finishes one, and stops once an earlier attempt than the one it would take has already made a sound cave.
+        var results = new CaveData[MaxAttempts];
+        var scores = new int[MaxAttempts];
+        var finished = new bool[MaxAttempts];
+        var gate = new object();
+        void Work()
+        {
+            while (true)
+            {
+                int a = System.Threading.Interlocked.Increment(ref next) - 1;
+                if (a >= MaxAttempts || a > System.Threading.Volatile.Read(ref firstGood)) return;
+                CaveData c;
+                try { c = Attempt(a); }
+                catch (OperationCanceledException) { continue; }
+                catch (Exception e)
+                {
+                    // (a generator bug must cost one attempt, not hang the one waiting on it)
+                    GD.PushError($"cave attempt {a} failed: {e}");
+                    lock (gate) { finished[a] = true; scores[a] = int.MaxValue; System.Threading.Monitor.PulseAll(gate); }
+                    continue;
+                }
+                int sc = Score(c);
+                lock (gate)
+                {
+                    results[a] = c; scores[a] = sc; finished[a] = true;
+                    if (sc <= 6 && a < firstGood) firstGood = a;
+                    System.Threading.Monitor.PulseAll(gate);
+                }
+            }
+        }
+        if (lanes == 1) Work();
+        else for (int k = 0; k < lanes; k++) System.Threading.Tasks.Task.Run(Work);
+        CaveData best = null; int bestScore = int.MaxValue;
+        for (int a = 0; a < MaxAttempts; a++)
+        {
+            lock (gate) { while (!finished[a]) System.Threading.Monitor.Wait(gate); }
+            var c = results[a];
+            if (c == null) continue;
+            if (Verbose) { GD.Print($"    attempt {a + 1} (seed {seed + a * 7919}): score {scores[a]} traps {c.TrapCells}"); OnAttempt?.Invoke(c, seed + a * 7919); }
+            if (best == null || scores[a] < bestScore) { best = c; bestScore = scores[a]; }
+            if (scores[a] <= 6) break;
+        }
+        return best ?? throw new InvalidOperationException("every cave attempt failed");
     }
 
     /// <summary>Lower is better: trapped cells, plus a big penalty for a missing or nearby boss room.</summary>
@@ -139,6 +206,7 @@ public static partial class CaveGenerator
 
         while (queue.Count > 0)
         {
+            CheckCancel();
             var w = queue.Dequeue();
             while (true)
             {
@@ -220,7 +288,7 @@ public static partial class CaveGenerator
                 stamps.Add(new Stamp { X = w.X, Y = w.Y, R = w.R, Main = w.Main && w.Mode != ModeShaft, Mode = w.Mode, Kind = w.Descender ? 6 : w.Mode });
                 w.Len -= 1; total++;
 
-                if (w.Mode != ModeShaft && total < budget && w.Gen < 6 && rng.NextDouble() < 0.017)
+                if (w.Mode != ModeShaft && total < budget && w.Gen < B.MaxBranchGen && rng.NextDouble() < B.BranchChance)
                 {
                     var c = new Walker
                     {
@@ -307,7 +375,7 @@ public static partial class CaveGenerator
         var rough = new float[stride * (H + 1)];
         for (int j = 0; j <= H; j++)
             for (int i = 0; i <= W; i++)
-                rough[j * stride + i] = (float)LatticeNoise3D.SampleFbm(i, j, 0.5, 11.3, 7.7, 0, seed, 3, 0.11, 0.55, 2.0) * 1.9f;
+                rough[j * stride + i] = (float)LatticeNoise3D.SampleFbm(i, j, 0.5, 11.3, 7.7, 0, seed, 3, 0.11, 0.55, 2.0) * B.RoughAmp;
 
         void Carve(float cx, float cy, float r)
         {
@@ -436,7 +504,7 @@ public static partial class CaveGenerator
             bool under = e.Y > waterRow + 2;
             if (under)
             {
-                float rx = Rnd(5, 6.5f), ry = Rnd(3.8f, 4.8f);
+                float rx = Rnd(5, 6.5f) * B.RoomScale, ry = Rnd(3.8f, 4.8f) * B.RoomScale;
                 float hs = Mathf.Cos(e.A) >= 0 ? 1 : -1;
                 float cx = Mathf.Clamp(e.X + hs * 2, rx + 3, W - rx - 3);
                 float cy = Mathf.Clamp(e.Y, waterRow + ry + 1, H - ry - 3);
@@ -452,7 +520,7 @@ public static partial class CaveGenerator
             }
             else
             {
-                float rx = Rnd(6, 8.5f), ry = Rnd(4.5f, 6.2f);
+                float rx = Rnd(6, 8.5f) * B.RoomScale, ry = Rnd(4.5f, 6.2f) * B.RoomScale;
                 float floorY = e.Y + e.R;
                 if (floorY - ry < 4) ry = floorY - 4;
                 float hs = Mathf.Cos(e.A) >= 0 ? 1 : -1;
@@ -532,17 +600,70 @@ public static partial class CaveGenerator
                 }
             }
         }
-        AddPlatforms(cave, rng);
+        Timed("platforms", () => AddPlatforms(cave, rng));
+
+        // hidden chimneys up out of the tunnels' roofs (after the ledges, so none of them gets a stair up it)
+        if (B.SecretChimneys > 0)
+        {
+            open = cave.Open;
+            int made = 0;
+            for (int tries = 0; tries < 500 && made < B.SecretChimneys; tries++)
+            {
+                if (stamps.Count == 0) break;
+                var st = stamps[rng.Next(stamps.Count)];
+                if (!st.Main || st.Mode != ModeAir) continue;
+                int ci = (int)st.X;
+                if (ci < 20 || ci > W - 20 || cave.Rooms.Any(r => Math.Abs(ci - r.Center.X / CaveData.Cell) < 14 + r.RxPx / CaveData.Cell && r.Kind is RoomKind.Boss or RoomKind.Start)) continue;
+                if (cave.Rooms.Any(r => r.Kind == RoomKind.Secret && Math.Abs(ci - r.Center.X / CaveData.Cell) < 40)) continue;
+                // the tube's roof above this column (the first rock over open ground)
+                int j = (int)st.Y;
+                if (!cave.CellOpen(ci, j)) continue;
+                while (j > 4 && cave.CellOpen(ci, j - 1)) j--;
+                int roof = j;
+                int len = rng.Next(20, 29), topRow = roof - len;
+                if (topRow < 10) continue;
+                float drift = Rnd(-7, 7);
+                float cxs = Math.Clamp(ci + drift, 12, W - 12), floorRow = topRow + 5.5f;
+                // rock all the way up: the shaft, the chamber and a margin round them
+                bool solid = true;
+                for (int jj = topRow - 7; jj <= roof - 2 && solid; jj++)
+                    for (int ii = (int)(Math.Min(ci, cxs) - 10); ii <= (int)(Math.Max(ci, cxs) + 10) && solid; ii++)
+                        if (ii < 3 || ii > W - 3 || cave.CellOpen(ii, jj)) solid = false;
+                if (!solid) continue;
+                // the shaft, leaning toward the chamber
+                float holeX = cxs - 2.4f;
+                for (float y = roof + 1; y >= floorRow - 0.5f; y -= 0.8f)
+                {
+                    float t = Mathf.Clamp((roof - y) / Math.Max(1f, roof - floorRow), 0f, 1f);
+                    Carve(Mathf.Lerp(ci, holeX, t * t * (3 - 2 * t)), y, 1.9f);
+                }
+                Dome(cxs, floorRow, 6f, 4.4f, true);
+                // (the hole's rim: the floor stays solid under the chest's side)
+                for (int jj = (int)floorRow; jj <= (int)floorRow + 2; jj++)
+                    for (int ii = (int)(cxs + 0.6f); ii <= (int)(cxs + 8); ii++)
+                    {
+                        int k = jj * stride + ii;
+                        if (ii <= W) open[k] = Math.Min(open[k], Math.Clamp(0.5f - (jj - floorRow) * 0.5f, 0f, 1f));
+                    }
+                cave.Rooms.Add(new Room
+                {
+                    Kind = RoomKind.Secret,
+                    Center = new Vector2(cxs + 1.5f, floorRow - 2.2f) * CaveData.Cell,
+                    Floor = new Vector2(cxs + 1.5f, floorRow) * CaveData.Cell,
+                    RxPx = 5f * CaveData.Cell, RyPx = 3.5f * CaveData.Cell,
+                });
+                made++;
+            }
+        }
 
         // Reachability validation, with repairs: stepping-stone ledges up out of any pit the
         // movement model says you could fall into but not climb out of.
-        ValidateAndRepair(cave, startCell);
+        Timed("validate+repair", () => ValidateAndRepair(cave, startCell));
 
-        BuildSpawns(cave, stamps, new Vector2(sx, sy), rng);
-        BuildShores(cave, stamps);
-        CarveVault(cave, rng);
-        RubbleGen.Build(cave);
-        cave.RockDepth = ComputeRockDepth(cave);
+        Timed("spawns", () => { BuildSpawns(cave, stamps, new Vector2(sx, sy), rng); BuildShores(cave, stamps); });
+        Timed("vault", () => CarveVault(cave, rng));
+        Timed("rubble", () => RubbleGen.Build(cave));
+        cave.RockDepth = Timed("rockdepth", () => ComputeRockDepth(cave));
         return cave;
     }
 
@@ -762,59 +883,103 @@ public static partial class CaveGenerator
     /// control, falling with sideways drift, and free swimming in water (plus jumping out at the
     /// surface). Counts cells reachable from the start that cannot get back to it.
     /// </summary>
-    public static void ValidateTraversal(CaveData cave, Vector2I start)
+    public static void ValidateTraversal(CaveData cave, Vector2I start) => Timed("traversal", () => ValidateTraversalImpl(cave, start));
+
+    /// <summary>The traversal check's working arrays, kept per thread between calls (it runs hundreds of times to a cave, and they run to megabytes).</summary>
+    private sealed class TravBuffers
+    {
+        public bool[] Op, Plat, Seen;
+        public int[] First, Edge, Queue, RFirst, REdge;
+    }
+    [ThreadStatic] private static TravBuffers _trav;
+
+    private static void ValidateTraversalImpl(CaveData cave, Vector2I start)
     {
         int n = W * H;
+        const int Pad = 4;
+        int pw = W + 2 * Pad;
+        var tb = _trav ??= new TravBuffers();
+        if (tb.First == null || tb.First.Length != n + 1 || tb.Op.Length != pw * (H + 2 * Pad))
+        {
+            tb.Op = new bool[pw * (H + 2 * Pad)]; tb.Plat = new bool[n]; tb.Seen = new bool[n];
+            tb.First = new int[n + 1]; tb.Edge = new int[n * 6]; tb.Queue = new int[n]; tb.RFirst = new int[n + 2]; tb.REdge = new int[n * 6];
+        }
+        else { Array.Clear(tb.Plat); Array.Clear(tb.Seen); Array.Clear(tb.RFirst); }
+        // which cells are open, in a grid with a margin of rock round it (so no move needs a bounds check): CellOpen's own sum
+        var op = tb.Op;
         var oc = new bool[n];
-        for (int j = 0; j < H; j++) for (int i = 0; i < W; i++) oc[j * W + i] = cave.CellOpen(i, j);
+        {
+            var o = cave.Open;
+            int stride = W + 1;
+            for (int j = 0; j < H; j++)
+                for (int i = 0; i < W; i++)
+                {
+                    int k = j * stride + i;
+                    float a = o[k], b = o[k + 1], c = o[k + stride], d = o[k + stride + 1];
+                    float top = a + (b - a) * 0.5f, bot = c + (d - c) * 0.5f;
+                    bool open = top + (bot - top) * 0.5f >= 0.5f;
+                    oc[j * W + i] = open;
+                    op[(j + Pad) * pw + i + Pad] = open;
+                }
+        }
         // (frozen caverns' ledges are objects, not rock: a cell above one is stood on all the same)
-        var plat = new bool[n];
+        var plat = tb.Plat;
         foreach (var l in cave.IceLedges)
             for (int i = (int)MathF.Floor(l.X - l.Z); i <= (int)MathF.Ceiling(l.X + l.Z); i++)
                 if (i >= 0 && i < W && (int)l.Y >= 0 && (int)l.Y < H) plat[(int)l.Y * W + i] = true;
         float wrow = cave.WaterY / CaveData.Cell;
-        bool O(int i, int j) => i >= 0 && j >= 0 && i < W && j < H && oc[j * W + i];
-        bool Wt(int i, int j) => O(i, j) && j + 0.5f > wrow;
 
-        var fwd = new List<int>[n];
+        // the moves between cells, as flat arrays (edges of cell u are edge[first[u] .. first[u + 1]]): no lists to allocate, and
+        // the same edges in the same order as ever
+        var first = tb.First;
+        var edge = tb.Edge;
+        int ne = 0;
         // (what the slowest hero clears: about 66 px at full height, four cells with nothing to spare)
         int jumpH = RawJump != null ? int.Parse(RawJump) : 4;
         for (int j = 0; j < H; j++)
+        {
+            bool wetRow = j + 0.5f > wrow, wetAbove = j - 1 + 0.5f > wrow;
             for (int i = 0; i < W; i++)
             {
-                if (!oc[j * W + i]) continue;
-                var list = fwd[j * W + i] = new List<int>(8);
-                void Add(int a, int b) { if (O(a, b)) list.Add(b * W + a); }
+                int u = j * W + i;
+                first[u] = ne;
+                if (!oc[u]) continue;
+                if (ne + 64 > edge.Length) { Array.Resize(ref edge, edge.Length * 2); tb.Edge = edge; }
+                int p = (j + Pad) * pw + i + Pad;
+                // (the cell at an offset, as the margined grid has it, and its index among the cells)
                 bool jumpFrom = false;
-                if (Wt(i, j))
+                if (wetRow)
                 {
-                    for (int dj = -1; dj <= 1; dj++) for (int di = -1; di <= 1; di++) if (di != 0 || dj != 0) Add(i + di, j + dj);
-                    if (!Wt(i, j - 1)) jumpFrom = true; // at the surface
+                    for (int dj = -1; dj <= 1; dj++)
+                        for (int di = -1; di <= 1; di++)
+                            if ((di != 0 || dj != 0) && op[p + dj * pw + di]) edge[ne++] = u + dj * W + di;
+                    // at the surface
+                    if (!(op[p - pw] && wetAbove)) jumpFrom = true;
                 }
                 else
                 {
-                    bool standing = !O(i, j + 1) || (j + 1 < H && plat[(j + 1) * W + i]);
+                    bool standing = !op[p + pw] || (j + 1 < H && plat[u + W]);
                     if (standing)
                     {
                         // walking needs headroom: the hero is two cells tall
-                        for (int s = -1; s <= 1; s += 2)
+                        for (int sd = -1; sd <= 1; sd += 2)
                         {
-                            if (O(i + s, j - 1)) Add(i + s, j);
-                            if (O(i, j - 1) && O(i + s, j - 2)) Add(i + s, j - 1);
+                            if (op[p - pw + sd]) { if (op[p + sd]) edge[ne++] = u + sd; }
+                            if (op[p - pw] && op[p - 2 * pw + sd] && op[p - pw + sd]) edge[ne++] = u - W + sd;
                         }
                         jumpFrom = true;
                     }
                     else
                     {
-                        Add(i, j + 1);
-                        if (O(i - 1, j)) Add(i - 1, j + 1);
-                        if (O(i + 1, j)) Add(i + 1, j + 1);
+                        if (op[p + pw]) edge[ne++] = u + W;
+                        if (op[p - 1] && op[p + pw - 1]) edge[ne++] = u + W - 1;
+                        if (op[p + 1] && op[p + pw + 1]) edge[ne++] = u + W + 1;
                         // (no sideways steps level with the air one is in: a body that falls drifts about as far as it falls,
                         // not any distance at all)
                         if (LooseAir)
                         {
-                            if (O(i - 1, j)) Add(i - 1, j);
-                            if (O(i + 1, j)) Add(i + 1, j);
+                            if (op[p - 1]) edge[ne++] = u - 1;
+                            if (op[p + 1]) edge[ne++] = u + 1;
                         }
                     }
                 }
@@ -822,24 +987,45 @@ public static partial class CaveGenerator
                 {
                     for (int up = 1; up <= jumpH; up++)
                     {
-                        if (!O(i, j - up)) break;
-                        Add(i, j - up);
-                        for (int s = -1; s <= 1; s += 2)
-                            for (int dx = 1; dx <= 3; dx++) { if (!O(i + s * dx, j - up)) break; Add(i + s * dx, j - up); }
+                        int pu = p - up * pw;
+                        if (!op[pu]) break;
+                        edge[ne++] = u - up * W;
+                        for (int sd = -1; sd <= 1; sd += 2)
+                            for (int dx = 1; dx <= 3; dx++)
+                            {
+                                if (!op[pu + sd * dx]) break;
+                                edge[ne++] = u - up * W + sd * dx;
+                            }
                     }
                 }
             }
+        }
+        first[n] = ne;
 
+        cave.OpenCells = oc;
         int s0 = start.Y * W + start.X;
         if (!oc[s0]) { cave.TrapCells = int.MaxValue / 2; cave.ReachMask = new bool[n]; cave.TrapMask = new bool[n]; return; }
         var reach = new bool[n];
-        var q = new Queue<int>(); reach[s0] = true; q.Enqueue(s0);
-        while (q.Count > 0) { int u = q.Dequeue(); foreach (int v in fwd[u]) if (!reach[v]) { reach[v] = true; q.Enqueue(v); } }
+        var q = tb.Queue;
+        int qh = 0, qt = 0;
+        reach[s0] = true; q[qt++] = s0;
+        while (qh < qt) { int u = q[qh++]; for (int e = first[u]; e < first[u + 1]; e++) { int v = edge[e]; if (!reach[v]) { reach[v] = true; q[qt++] = v; } } }
 
-        var rev = new List<int>[n];
-        for (int u = 0; u < n; u++) if (fwd[u] != null) foreach (int v in fwd[u]) (rev[v] ??= new List<int>(4)).Add(u);
-        var back = new bool[n]; back[s0] = true; q.Enqueue(s0);
-        while (q.Count > 0) { int u = q.Dequeue(); if (rev[u] == null) continue; foreach (int v in rev[u]) if (!back[v]) { back[v] = true; q.Enqueue(v); } }
+        // the same moves reversed (a counting sort of the edges by where they end), only those from cells the start reaches: a cell
+        // that can get back to the start is one of them, and so is every cell on its way
+        var rfirst = tb.RFirst;
+        for (int u = 0; u < n; u++)
+            if (reach[u]) for (int e = first[u]; e < first[u + 1]; e++) rfirst[edge[e] + 2]++;
+        for (int u = 0; u < n; u++) rfirst[u + 2] += rfirst[u + 1];
+        if (tb.REdge.Length < rfirst[n + 1]) tb.REdge = new int[rfirst[n + 1] * 2];
+        var redge = tb.REdge;
+        for (int u = 0; u < n; u++)
+            if (reach[u]) for (int e = first[u]; e < first[u + 1]; e++) redge[rfirst[edge[e] + 1]++] = u;
+        // (rfirst[v + 1] is now the end of v's edges, and rfirst[v] their start)
+        var back = new bool[n];
+        qh = qt = 0;
+        back[s0] = true; q[qt++] = s0;
+        while (qh < qt) { int u = q[qh++]; for (int e = rfirst[u]; e < rfirst[u + 1]; e++) { int v = redge[e]; if (!back[v]) { back[v] = true; q[qt++] = v; } } }
 
         int traps = 0, reachable = 0;
         cave.TrapMask = new bool[n];
@@ -847,16 +1033,16 @@ public static partial class CaveGenerator
         for (int u = 0; u < n; u++) { if (reach[u]) { reachable++; if (!back[u]) cave.TrapMask[u] = true; } }
         // A cell or two on its own is a notch in a wall the coarse model can slip into but not out
         // of, not a pit: anything you could really fall into holds a floor and headroom above it.
-        var seen = new bool[n];
+        var seen = tb.Seen;
         var group = new List<int>();
         for (int u = 0; u < n; u++)
         {
             if (!cave.TrapMask[u] || seen[u]) continue;
             group.Clear();
-            seen[u] = true; q.Enqueue(u);
-            while (q.Count > 0)
+            seen[u] = true; qh = qt = 0; q[qt++] = u;
+            while (qh < qt)
             {
-                int c = q.Dequeue(); group.Add(c);
+                int c = q[qh++]; group.Add(c);
                 int ci = c % W, cj = c / W;
                 for (int dj = -1; dj <= 1; dj++)
                     for (int di = -1; di <= 1; di++)
@@ -864,7 +1050,7 @@ public static partial class CaveGenerator
                         int i = ci + di, j = cj + dj;
                         if (i < 0 || j < 0 || i >= W || j >= H) continue;
                         int v = j * W + i;
-                        if (cave.TrapMask[v] && !seen[v]) { seen[v] = true; q.Enqueue(v); }
+                        if (cave.TrapMask[v] && !seen[v]) { seen[v] = true; q[qt++] = v; }
                     }
             }
             if (group.Count < 4) foreach (int c in group) cave.TrapMask[c] = false;
@@ -887,12 +1073,13 @@ public static partial class CaveGenerator
         int budget = (int)(Tune.Cave.RepairBudget * Tune.Cave.WidthScale);
         for (int rep = 0; rep < budget; rep++)
         {
+            CheckCancel();
             var open = (float[])cave.Open.Clone();
             var (reach, trap, traps, count) = (cave.ReachMask, cave.TrapMask, cave.TrapCells, cave.ReachableCells);
             bool bossBefore = BossFloorReached(cave), reaching = false;
-            if (!(cave.TrapCells > 6 && RepairTraps(cave, tried)))
+            if (!(cave.TrapCells > 6 && Timed("repair traps", () => RepairTraps(cave, tried))))
             {
-                if (reachGaveUp || !RepairReach(cave)) break;
+                if (reachGaveUp || !Timed("repair reach", () => RepairReach(cave))) break;
                 reaching = true;
             }
             ValidateTraversal(cave, startCell);
@@ -919,8 +1106,9 @@ public static partial class CaveGenerator
             int before = 0;
             for (int it = 0; it < 5; it++)
             {
-                var fine = new FineReach(cave);
-                bool ok = fine.Run(start, cave.Boss.Floor);
+                CheckCancel();
+                var fine = Timed("fine build", () => new FineReach(cave));
+                bool ok = Timed("fine reach", () => fine.Run(start, cave.Boss.Floor));
                 if (Verbose) GD.Print($"      fine it {it}: ok {ok} reached {fine.ReachedCount} start {start} boss {cave.Boss.Floor}");
                 var probe = System.Environment.GetEnvironmentVariable("FR_PROBE");
                 if (probe != null && it == int.Parse(System.Environment.GetEnvironmentVariable("FR_IT") ?? "0") && probe.Split(',') is var pp && int.Parse(pp[0]) == cave.Seed) fine.Probe(int.Parse(pp[1]), int.Parse(pp[2]), int.Parse(pp[3]), int.Parse(pp[4]));
@@ -934,7 +1122,7 @@ public static partial class CaveGenerator
                 cave.FineOk = false;
                 before = fine.ReachedCount;
                 openBefore = (float[])cave.Open.Clone(); iceBefore = cave.IceLedges.ToArray();
-                if (!FineRepairStep(cave, fine, triedGoals)) break;
+                if (!Timed("fine repair", () => FineRepairStep(cave, fine, triedGoals))) break;
                 cave.FineRepairs++;
             }
             ValidateTraversal(cave, startCell);
@@ -1087,6 +1275,7 @@ public static partial class CaveGenerator
     internal static bool RepairTraps(CaveData cave, HashSet<int> tried)
     {
         int n = W * H;
+        var oc = cave.OpenCells;
         var prev = new int[n];
         Array.Fill(prev, -2);
         var q = new Queue<int>();
@@ -1103,9 +1292,9 @@ public static partial class CaveGenerator
                     int i = ui + di, j = uj + dj;
                     if (i < 0 || j < 0 || i >= W || j >= H) continue;
                     int v = j * W + i;
-                    if (prev[v] != -2 || !cave.CellOpen(i, j)) continue;
+                    if (prev[v] != -2 || !oc[v]) continue;
                     prev[v] = u; q.Enqueue(v);
-                    bool standing = !cave.CellOpen(i, j + 1);
+                    bool standing = j + 1 >= H || !oc[v + W];
                     if (cave.TrapMask[v] && standing && j + 0.5f < wrow && !tried.Contains(v)) { target = v; break; }
                 }
         }
@@ -1140,12 +1329,13 @@ public static partial class CaveGenerator
     {
         if (cave.Boss == null || cave.ReachMask == null || BossFloorReached(cave)) return false;
         int n = W * H;
+        var oc = cave.OpenCells;
         var prev = new int[n];
         Array.Fill(prev, -2);
         var q = new Queue<int>();
         // (from the floors you can stand on: the stair's first step must be one jump up from them)
         for (int u = 0; u < n; u++)
-            if (cave.ReachMask[u] && !cave.CellOpen(u % W, u / W + 1)) { prev[u] = -1; q.Enqueue(u); }
+            if (cave.ReachMask[u] && (u + W >= n || !oc[u + W])) { prev[u] = -1; q.Enqueue(u); }
         int bi = (int)(cave.Boss.Floor.X / CaveData.Cell), bj = (int)(cave.Boss.Floor.Y / CaveData.Cell) - 2;
         int goal = -1;
         while (q.Count > 0 && goal < 0)
@@ -1157,7 +1347,7 @@ public static partial class CaveGenerator
                     int i = ui + di, j = uj + dj;
                     if (i < 0 || j < 0 || i >= W || j >= H) continue;
                     int v = j * W + i;
-                    if (prev[v] != -2 || !cave.CellOpen(i, j)) continue;
+                    if (prev[v] != -2 || !oc[v]) continue;
                     prev[v] = u; q.Enqueue(v);
                     if (Math.Abs(j - bj) <= 3 && Math.Abs(i - bi) <= 4) { goal = v; break; }
                 }
@@ -1215,7 +1405,7 @@ public static partial class CaveGenerator
             var p = pc * cell;
             if (cave.IsSolid(p)) continue;
             bool spaced = true;
-            foreach (var sp in cave.Spawns) if (sp.Pos.DistanceTo(p) < 11 * cell) { spaced = false; break; }
+            foreach (var sp in cave.Spawns) if (sp.Pos.DistanceTo(p) < (B?.SpawnSpacing ?? 11f) * cell) { spaced = false; break; }
             if (!spaced) continue;
             bool inBossRoom = cave.Boss != null && p.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 3 * cell;
             if (inBossRoom) continue;

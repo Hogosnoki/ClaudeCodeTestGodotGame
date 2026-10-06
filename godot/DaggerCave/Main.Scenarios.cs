@@ -62,6 +62,7 @@ public partial class Main
         "aegis" => "den",
         "shifter" => "den",
         "shifterforms" => "entrance",
+        "loading" => "entrance",
         "shifterbehaviors" => "slime",
         "status" => "den",
         _ => null,
@@ -96,6 +97,7 @@ public partial class Main
             case "aegis": AegisScenario(); break;
             case "shifter": ShifterScenario(); break;
             case "shifterforms": ShifterFormsScenario(); break;
+            case "loading": LoadingScenario(); break;
             case "shifterbehaviors": ShifterBehaviorsScenario(); break;
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;
@@ -638,6 +640,9 @@ public partial class Main
         if (_scPhase == 0)
         {
             if (_scT < 0.5f) return;
+            // (a cave with no passage narrow enough for a plug gets one set down beside the hero, to look at)
+            if (Rubble.All.Count == 0 && G.Cave.FindFloor(p.GlobalPosition + new Vector2(120, -40), 200, out var pf))
+                _world.AddChild(new Rubble { Position = pf + new Vector2(0, -32), Size = new Vector2(32, 64), Index = 1 });
             ScCheck($"this cave has boulder plugs ({Rubble.All.Count})", Rubble.All.Count > 0);
             if (Rubble.All.Count == 0) { ScEnd(); return; }
             _scPlug = Rubble.All[0];

@@ -18,6 +18,9 @@ public partial class Rubble : StaticBody2D, IBreakable
     public Vector2 Size = new(32, 64);
     public int Left = Tune.Rubble.Hits;
     public bool Cleared => Left <= 0;
+    /// <summary>A bank of skulls (the catacombs), not a fall of boulders.</summary>
+    private static bool Bones => G.Cave?.Biome?.Ossuary == true;
+    private static Color Dust => Bones ? new Color(0.78f, 0.74f, 0.64f) : new Color(0.5f, 0.45f, 0.4f);
     public float ClearedT { get; private set; }
     public float ShakeT { get; private set; }
     private float _cool;
@@ -64,8 +67,8 @@ public partial class Rubble : StaticBody2D, IBreakable
         _cool = 0.18f;
         ShakeT = 0.45f;
         Left--;
-        G.Sfx.Play("rock", GlobalPosition, -4, 0.1f, heave ? 0.8f : 1f);
-        G.Fx.Debris(GlobalPosition, new Color(0.5f, 0.45f, 0.4f), 6, 120);
+        G.Sfx.Play(Bones ? "clink" : "rock", GlobalPosition, -4, 0.1f, (heave ? 0.8f : 1f) * (Bones ? 1.3f : 1f));
+        G.Fx.Debris(GlobalPosition, Dust, 6, 120);
         if (!remote) NetSync.RubbleHit(this);
         if (Left <= 0) Clear();
     }
@@ -76,8 +79,8 @@ public partial class Rubble : StaticBody2D, IBreakable
     private void Clear()
     {
         _shape.SetDeferred(CollisionShape2D.PropertyName.Disabled, true);
-        G.Sfx.Play("rock", GlobalPosition, 0, 0.1f, 0.6f);
-        G.Fx.Debris(GlobalPosition, new Color(0.5f, 0.45f, 0.4f), 22, 200);
+        G.Sfx.Play(Bones ? "clink" : "rock", GlobalPosition, 0, 0.1f, Bones ? 0.9f : 0.6f);
+        G.Fx.Debris(GlobalPosition, Dust, 22, 200);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, Size.Y * 0.5f), 24, new Color(1, 1, 1, 0.3f), 0.25f);
     }
 

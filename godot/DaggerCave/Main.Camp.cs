@@ -48,7 +48,7 @@ public partial class Main
     /// <summary>The menus over the camp (drawn under every other menu), and the fade used going down.</summary>
     private void SetupFrontMenus()
     {
-        _mainMenu = new MainMenu { SinglePlayer = () => ShowHeroChoice(), MultiPlayer = OpenOnlineMenu, Settings = OpenFrontSettings, Quit = () => SafeQuit.Request(this) };
+        _mainMenu = new MainMenu { SinglePlayer = StartSinglePlayer, MultiPlayer = OpenOnlineMenu, Story = () => OpenStory(false), Settings = OpenFrontSettings, Quit = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_mainMenu);
         _uiLayer.MoveChild(_mainMenu, 1);
         _heroChoice = new HeroChoice
@@ -60,9 +60,34 @@ public partial class Main
         };
         _uiLayer.AddChild(_heroChoice);
         _uiLayer.MoveChild(_heroChoice, 2);
+        _storyCard = new StoryCard { Closed = OnStoryClosed };
+        _uiLayer.AddChild(_storyCard);
         _fade = new ColorRect { Color = new Color(0, 0, 0, 0), MouseFilter = Control.MouseFilterEnum.Ignore };
         _fade.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.FullRect);
         _uiLayer.AddChild(_fade);
+    }
+
+    private StoryCard _storyCard;
+    private bool _storyThenHeroes;
+
+    /// <summary>Single player: the first time, the story card first; after that, straight to the fire.</summary>
+    private void StartSinglePlayer()
+    {
+        if (Meta.StorySeen) ShowHeroChoice();
+        else OpenStory(true);
+    }
+
+    private void OpenStory(bool thenHeroes)
+    {
+        _storyThenHeroes = thenHeroes;
+        _mainMenu.Visible = false;
+        _storyCard.Open(thenHeroes ? "Go to the fire" : "Back");
+    }
+
+    private void OnStoryClosed()
+    {
+        if (!Meta.StorySeen) { Meta.StorySeen = true; Meta.Save(); }
+        if (_storyThenHeroes) ShowHeroChoice(); else ShowMainMenu();
     }
 
     /// <summary>The main menu over the wide view of the camp.</summary>
@@ -220,9 +245,11 @@ public partial class Main
         void Shot(string name) => GetViewport().GetTexture().GetImage()?.SavePng($"{_frontTest}/{name}.png");
         var steps = new (float at, Action act)[]
         {
-            (1.5f, () => { Shot("front_menu"); FtCheck($"the game opens on the main menu over the camp ({_state}, menu {_mainMenu.Visible}, camp {_campLayer?.Visible})", _state == State.Title && _mainMenu.Visible && _campLayer.Visible); Act("ui_accept"); }),
+            (1.5f, () => { Shot("front_menu"); FtCheck($"the game opens on the main menu over the camp ({_state}, menu {_mainMenu.Visible}, camp {_campLayer?.Visible})", _state == State.Title && _mainMenu.Visible && _campLayer.Visible); Meta.StorySeen = false; Act("ui_accept"); }),
             (1.55f, () => Act("ui_accept", false)),
-            (1.8f, () => FtCheck($"Single player: choosing a hero at the fire (choice {_heroChoice.Visible}, menu {_mainMenu.Visible})", _heroChoice.Visible && !_mainMenu.Visible && _front == Front.Heroes)),
+            (1.8f, () => { Shot("front_story"); FtCheck($"Single player, the first time: the story card comes first (card {_storyCard.Visible}, menu {_mainMenu.Visible})", _storyCard.Visible && !_mainMenu.Visible); Act("ui_accept"); }),
+            (1.85f, () => Act("ui_accept", false)),
+            (2.3f, () => FtCheck($"and then the fire: choosing a hero (choice {_heroChoice.Visible}, card {_storyCard.Visible}, seen {Meta.StorySeen})", _heroChoice.Visible && !_mainMenu.Visible && !_storyCard.Visible && Meta.StorySeen && _front == Front.Heroes)),
             (3.6f, () => { Shot("front_choice"); Act("move_right"); }),
             (3.65f, () => Act("move_right", false)),
             (5f, () => { Shot("front_choice_next"); FtCheck($"right chooses the next hero ({G.Hero}, standing at the fire: {_camp.Selected})", G.Hero == HeroKind.Warden && _camp.Selected == HeroKind.Warden); }),

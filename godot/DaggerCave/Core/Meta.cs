@@ -41,6 +41,8 @@ public static class Meta
     public static readonly Dictionary<string, int> Found = new();  // resources found per tree
     public static readonly HashSet<string> Bought = new(), Active = new();
     public static bool PotionTutorialDone, PearlTutorialDone;
+    /// <summary>The story card has been shown (the first time a run is begun).</summary>
+    public static bool StorySeen;
     /// <summary>Class perks: the rank bought of each (kept for good), and which are brought on a run.</summary>
     public static readonly Dictionary<string, int> PerkRanks = new();
     public static readonly HashSet<string> PerksEquipped = new();
@@ -288,7 +290,7 @@ public static class Meta
         var d = new Godot.Collections.Dictionary
         {
             ["embers"] = Embers, ["runs"] = Runs, ["victories"] = Victories, ["best_depth"] = BestDepth,
-            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone,
+            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone, ["story_seen"] = StorySeen,
             ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
             ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
             ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
@@ -310,6 +312,7 @@ public static class Meta
         {
             PotionTutorialDone = d.ContainsKey("potion_tut") && (bool)d["potion_tut"];
             PearlTutorialDone = d.ContainsKey("pearl_tut") && (bool)d["pearl_tut"];
+            StorySeen = d.ContainsKey("story_seen") && (bool)d["story_seen"];
         }
         Bought.Clear(); Active.Clear();
         if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);

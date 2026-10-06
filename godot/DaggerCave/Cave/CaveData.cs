@@ -16,7 +16,8 @@ public sealed class SpawnPoint
     public float Cooldown;
 }
 
-public enum RoomKind { Start, Boss, Treasure, MiniBoss, Ambush }
+/// <summary>(a Secret room is a hidden chamber out of reach: a chimney up from a tunnel's roof, a relic chest at the top)</summary>
+public enum RoomKind { Start, Boss, Treasure, MiniBoss, Ambush, Secret }
 
 /// <summary>
 /// The level's vault: a passage cut straight into the rock off a tunnel, closed by an iron gate,
@@ -75,6 +76,8 @@ public sealed class CaveData
     /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>
     public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
 
+    /// <summary>The 3D rock worked out ahead of the level being built (see TerrainView.Precompute), or null.</summary>
+    public object TerrainPre;
     public Vector2 StartPos;
     /// <summary>The cave mouth (depth 0 only): the floor at the daylight on the far left, where you can leave.</summary>
     public Vector2? Mouth;
@@ -118,6 +121,8 @@ public sealed class CaveData
     public bool IsSolid(Vector2 p) => Sample(p) < 0.5f;
     public bool IsWater(Vector2 p) => Liquid == Liquid.Water && p.Y > WaterY && !IsSolid(p);
     public bool IsLava(Vector2 p) => Liquid == Liquid.Lava && p.Y > WaterY && !IsSolid(p);
+    /// <summary>Which cells were open when the traversal check last ran (CellOpen over the whole grid, taken once): only good until the rock next changes.</summary>
+    public bool[] OpenCells;
     public bool CellOpen(int i, int j) => SampleCells(i + 0.5f, j + 0.5f) >= 0.5f;
 
     /// <summary>True when no rock lies on the straight segment a-b.</summary>

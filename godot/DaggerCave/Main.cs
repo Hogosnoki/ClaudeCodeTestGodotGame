@@ -12,7 +12,7 @@ namespace DaggerCave;
 ///
 /// Command-line user args (after `--`): `--seed=N`, `--autotest` (bot plays, screenshots are
 /// written to `--shots=DIR` every few seconds for `--duration=S`), `--gentest` (prints
-/// generator statistics for a batch of seeds and quits), `--start=boss|water` (spawn position
+/// generator statistics for a batch of seeds and quits), `--start=boss|water|secret` (spawn position
 /// for testing), `--train` (enemy brain training on from the start), `--braindir=DIR` and
 /// `--nntest` (checks the neural-net maths and quits).
 /// </summary>
@@ -114,7 +114,7 @@ public partial class Main : Node
         };
         while (_metaShotStep < steps.Length && _titleT >= steps[_metaShotStep].at) steps[_metaShotStep++].act();
     }
-    private string _biomeArg;
+    private string _biomeArg, _loadShots = "";
 
     public override void _Ready()
     {
@@ -151,6 +151,10 @@ public partial class Main : Node
 
         _uiLayer = new CanvasLayer { Layer = 10 };
         AddChild(_uiLayer);
+        var loadLayer = new CanvasLayer { Layer = 20, ProcessMode = ProcessModeEnum.Always };
+        AddChild(loadLayer);
+        _loadScreen = new LoadingScreen();
+        loadLayer.AddChild(_loadScreen);
         _hud = new Hud();
         _uiLayer.AddChild(_hud);
         _upgradeMenu = new UpgradeMenu();
@@ -197,6 +201,7 @@ public partial class Main : Node
     {
         if (ModelSheet.Wanted) { _uiLayer.Visible = false; AddChild(new ModelSheet()); return; }
         if (gentest) { RunGenTest(); return; }
+        if (_loadShots != "") { RunLoadShots(_loadShots); return; }
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--upgradetest")) { RunUpgradeTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--webaudit")) { int bad = CreatureLibrary.WebAudit(); GD.Print(bad == 0 ? "[webaudit] PASS" : $"[webaudit] {bad} designs still have welds"); SafeQuit.Request(this, bad == 0 ? 0 : 1); return; }
@@ -325,6 +330,8 @@ public partial class Main : Node
             if (a == "--autotest") _autotest = true;
             else if (a == "--gentest") gentest = true;
             else if (a.StartsWith("--seed=")) _seed = int.Parse(a[7..]);
+            else if (a == "--loadscreen") _forceLoadScreen = true;
+            else if (a.StartsWith("--loadshots=")) _loadShots = a[12..];
             else if (a.StartsWith("--shots=")) _shotDir = a[8..];
             else if (a.StartsWith("--duration=")) _duration = float.Parse(a[11..], System.Globalization.CultureInfo.InvariantCulture);
             else if (a.StartsWith("--start=")) _startAt = a[8..];
@@ -608,7 +615,70 @@ public partial class Main : Node
 
     // ------------------------------------------------------------------ level
 
-    private void BuildLevel(int seed, bool freshPlayer)
+    // ---- the loading screen: the way down takes up the screen at once, and the cave is made behind it
+
+    private LoadingScreen _loadScreen;
+    private bool _loading, _forceLoadScreen, _loadWasPaused;
+    private int _loadFrames, _loadSeed;
+    private float _loadT;
+    private bool _loadFresh;
+    private System.Threading.Tasks.Task<CaveData> _loadTask;
+    private Action _loadDone;
+    /// <summary>The least time the screen stays up, so that its line can be read.</summary>
+    private const float MinLoadTime = 0.9f;
+
+    /// <summary>The loading screen is for the real game; the checks that drive the game from code keep their levels coming at once (--loadscreen puts it back).</summary>
+    private bool LoadScreenWanted => !G.NoSave || _forceLoadScreen;
+
+    /// <summary>
+    /// Makes the level for the biome and depth now set, behind the loading screen: the screen is up before anything else happens, the cave is
+    /// generated on other threads while it animates, and once it is ready the level is built and <paramref name="done"/> runs.
+    /// </summary>
+    private void BuildLevelAsync(int seed, bool freshPlayer, Action done)
+    {
+        if (!LoadScreenWanted || _loading) { BuildLevel(seed, freshPlayer); done?.Invoke(); return; }
+        var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
+        _loading = true; _loadT = 0; _loadFrames = 0; _loadSeed = seed; _loadFresh = freshPlayer; _loadDone = done; _loadTask = null;
+        _loadScreen.Open(biome, G.Depth);
+        // (the level left behind holds still under the screen; what the others in a party send for the new one waits until it is built)
+        _loadWasPaused = GetTree().Paused;
+        GetTree().Paused = true;
+        if (Net.Online) { GetTree().MultiplayerPoll = false; NetSync.BeginLevel(); }
+    }
+
+    private void TickLoading(float dt)
+    {
+        _loadT += dt; _loadFrames++;
+        var biome = G.Biome;
+        // (a few frames of the screen on its own first, so it is really there before the threads take the machine)
+        if (_loadTask == null && _loadFrames >= 3)
+        {
+            int seed = _loadSeed;
+            _loadTask = System.Threading.Tasks.Task.Run(() =>
+            {
+                var c = CaveGenerator.Generate(biome, seed);
+                // (the rock's 3D meshes too: they take as long as the cave itself)
+                c.TerrainPre = TerrainView.Precompute(c);
+                return c;
+            });
+        }
+        if (_loadTask == null || !_loadTask.IsCompleted || _loadT < MinLoadTime) return;
+        CaveData cave = null;
+        if (_loadTask.IsFaulted) GD.PrintErr(_loadTask.Exception?.ToString());
+        else cave = _loadTask.Result;
+        _loadTask = null;
+        _loading = false;
+        ulong buildFrom = Time.GetTicksMsec();
+        if (Net.Online) GetTree().MultiplayerPoll = true;
+        GetTree().Paused = _loadWasPaused;
+        BuildLevel(_loadSeed, _loadFresh, cave);
+        GD.Print($"[DaggerDeep] loading screen: the cave was ready after {(int)(_loadT * 1000)} ms, the level built in {Time.GetTicksMsec() - buildFrom} ms");
+        var done = _loadDone; _loadDone = null;
+        done?.Invoke();
+        _loadScreen.Close();
+    }
+
+    private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
         PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
         if (!freshPlayer && G.Player != null)
@@ -636,7 +706,7 @@ public partial class Main : Node
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
         // (a new run starts with no relics carried)
         if (keepStats == null) RunRelics.Reset();
-        var cave = CaveGenerator.Generate(biome, seed);
+        var cave = pregenerated ?? CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
         _stage.BuildLevel(cave);
@@ -679,6 +749,8 @@ public partial class Main : Node
             if (cave.IsSolid(at)) at = cave.Boss.Center;
             player.GlobalPosition = at;
         }
+        if (_startAt == "secret" && cave.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Secret) is Room hidden && cave.FindFloor(hidden.Center + new Vector2(-30, 0), 300, out var hf))
+            player.GlobalPosition = hf + new Vector2(0, -14);
         if (_startAt == "water")
         {
             var sp = cave.Spawns.FirstOrDefault(s => s.Kind == SpawnKind.Water);
@@ -714,6 +786,15 @@ public partial class Main : Node
             var chest = MakeLevelChest(floor);
             NetSync.LevelId(chest);
             _world.AddChild(chest);
+        }
+
+        // the hidden chambers (a chimney up out of a tunnel's roof, out of reach of anyone without a way up): a silver chest in each
+        foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Secret))
+        {
+            if (!cave.FindFloor(room.Center, 300, out var sf)) continue;
+            var secret = new Chest { Position = sf, Tier = ChestTier.Relic };
+            NetSync.LevelId(secret);
+            _world.AddChild(secret);
         }
 
         PlaceCaches(cave);
@@ -1031,11 +1112,13 @@ public partial class Main : Node
         G.Biome = Biomes.Get((BiomeId)biome);
         Meta.BestDepth = Math.Max(Meta.BestDepth, G.Depth);
         _seed = seed != 0 ? seed : _rng.Next(1, 999999);
-        BuildLevel(_seed, freshPlayer: false);
-        if (_bot != null) { G.Player.InputOverride = _bot.Read; _bot.Reset(); }
-        // (online, a pick still open when the others went down carries on in the new level)
-        if (_state == State.Choosing) G.Player.Choosing = Net.InRun;
-        _sfx.SetMusic("ambient");
+        BuildLevelAsync(_seed, false, () =>
+        {
+            if (_bot != null) { G.Player.InputOverride = _bot.Read; _bot.Reset(); }
+            // (online, a pick still open when the others went down carries on in the new level)
+            if (_state == State.Choosing) G.Player.Choosing = Net.InRun;
+            _sfx.SetMusic("ambient");
+        });
     }
 
     /// <summary>
@@ -1480,6 +1563,7 @@ public partial class Main : Node
         _frameScale = (float)Engine.TimeScale;
 
         if (_padTest) PadTestTick(dt);
+        if (_loading) { TickLoading(dt); if (_scenario == "loading") LoadingScenario(); return; }
         if (_campShot != "") { CampShotTick(dt); return; }
         if (_frontTest != "") FrontTestTick(dt);
         if (_menuShot != "") MenuShotTick();
@@ -3247,7 +3331,7 @@ public partial class Main : Node
 
     private void RunGenTest()
     {
-        int fineOk = 0; int n = 12, cleanAll = 0, totalAll = 0, vaultsAll = 0, vaultWant = 0;
+        int fineOk = 0; int n = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--gencount=")) is string gc ? int.Parse(gc[11..]) : 12, cleanAll = 0, totalAll = 0, vaultsAll = 0, vaultWant = 0;
         ulong total = 0;
         CaveGenerator.Verbose = OS.GetCmdlineUserArgs().Contains("--genverbose");
         if (CaveGenerator.Verbose)
@@ -3272,13 +3356,14 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} vault {(vault ? "ok" : why)}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
             cleanAll += clean; totalAll += n;
             if (wantVault) { vaultsAll += vaults; vaultWant += n; }
         }
+        if (OS.GetCmdlineUserArgs().Contains("--genprof")) foreach (var kv in CaveGenerator.Prof.OrderByDescending(k => k.Value.ticks)) GD.Print($"[genprof] {kv.Key,-16} {kv.Value.ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, totalAll),9:0.0} ms per cave  ({kv.Value.calls} calls)");
         GD.Print($"[gentest] {fineOk}/{totalAll} caves whose guardian a real hero can reach (pixel-true jumps, a body-sized fit)");
         GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, {vaultsAll}/{vaultWant} with a sound vault, avg {total / (ulong)Math.Max(1, totalAll)} ms");
         // (every level but the dragon's lair has its vault)

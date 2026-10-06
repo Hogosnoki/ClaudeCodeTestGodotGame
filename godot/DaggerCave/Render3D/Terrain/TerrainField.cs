@@ -35,6 +35,8 @@ public sealed class TerrainStyle
             case BiomeId.Frost: s.NoiseAmp = 0.45f; s.DetailAmp = 0.1f; s.StrataAmp = 0.04f; s.KFillet = 2f; break;
             case BiomeId.Crystal: s.RidgeAmp = 0.35f; s.DetailAmp = 0.12f; s.StrataAmp = 0.02f; break;
             case BiomeId.Magma: s.RidgeAmp = 0.3f; s.DetailAmp = 0.28f; s.StrataAmp = 0.05f; break;
+            // smooth, rounded bores with a faint banding where each flow cooled
+            case BiomeId.LavaTubes: s.NoiseAmp = 0.35f; s.DetailAmp = 0.1f; s.RidgeAmp = 0.12f; s.StrataAmp = 0.12f; s.StrataFreq = 2.2f; s.KFillet = 1.4f; break;
             // fibrous, root-riven rock; and old sediment, laid down in thick layers
             case BiomeId.Roots: s.NoiseAmp = 0.7f; s.DetailAmp = 0.24f; s.RidgeAmp = 0.18f; s.RidgeFreq = 0.9f; s.StrataAmp = 0.04f; break;
             case BiomeId.Fossils: s.NoiseAmp = 0.5f; s.Bk = 6f; s.StrataAmp = 0.2f; s.StrataFreq = 1.6f; s.DetailAmp = 0.14f; break;

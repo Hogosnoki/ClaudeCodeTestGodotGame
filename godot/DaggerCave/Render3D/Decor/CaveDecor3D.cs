@@ -173,7 +173,34 @@ public partial class CaveDecor3D : Node3D
         // the fossil graveyards: old bones everywhere underfoot (and ribcages and skulls, below)
         var boneMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.78f, RimEnabled = true, Rim = 0.2f };
         var boneCol = b.Glow.Lerp(new Color(0.78f, 0.72f, 0.6f), 0.7f).Darkened(0.12f);
-        var bonePiles = b.Leviathans ? new[] { NewKind(DecorMeshes.Bones(_rng, noise, 5, 1f, boneCol), boneMat, true), NewKind(DecorMeshes.Bones(_rng, noise, 9, 1.3f, boneCol), boneMat, true) } : null;
+        var bonePiles = b.Leviathans || b.Ossuary ? new[] { NewKind(DecorMeshes.Bones(_rng, noise, 5, 1f, boneCol), boneMat, true), NewKind(DecorMeshes.Bones(_rng, noise, 9, 1.3f, boneCol), boneMat, true) } : null;
+        // the catacombs: loose skulls and heaps of them, long bones, burial urns, and skulls to rack up on the walls
+        Kind[] skulls = null, skullHeaps = null, longBones = null, urns = null;
+        if (b.Ossuary)
+        {
+            var ivory = new Color(0.76f, 0.72f, 0.62f);
+            skulls = new Kind[3];
+            for (int k = 0; k < skulls.Length; k++) skulls[k] = NewKind(OssuaryMeshes.HumanSkull(_rng, noise, 0.34f, ivory.Darkened(0.1f * k)), boneMat, true);
+            skullHeaps = new Kind[2];
+            for (int k = 0; k < skullHeaps.Length; k++)
+            {
+                var heap = new MeshBuilder();
+                int n = 4 + k * 3;
+                for (int i = 0; i < n; i++)
+                {
+                    int tier = i < n - 2 ? 0 : 1;
+                    float hx = (i % (n - 2 + 1) - 0.5f * (n - 2)) * 0.3f * (tier == 0 ? 1f : 0.5f) + R(-0.05f, 0.05f);
+                    var xf = new Transform3D(new Basis(Vector3.Up, R(0f, Mathf.Tau)) * new Basis(Vector3.Right, R(-0.4f, 0.4f)), new Vector3(hx, 0.14f + tier * 0.22f, R(-0.25f, 0.25f)));
+                    heap.Append(OssuaryMeshes.HumanSkull(_rng, noise, R(0.28f, 0.36f), ivory.Darkened(R(0f, 0.25f)), jaw: tier == 0), xf);
+                }
+                skullHeaps[k] = NewKind(heap, boneMat, true);
+            }
+            longBones = new Kind[2];
+            for (int k = 0; k < longBones.Length; k++) longBones[k] = NewKind(OssuaryMeshes.LongBone(_rng, noise, 0.9f + 0.3f * k, ivory.Darkened(0.08f * k)), boneMat, true);
+            urns = new Kind[3];
+            var clays = new[] { new Color(0.5f, 0.3f, 0.22f), new Color(0.42f, 0.33f, 0.26f), new Color(0.3f, 0.3f, 0.36f) };
+            for (int k = 0; k < urns.Length; k++) urns[k] = NewKind(OssuaryMeshes.Urn(_rng, noise, 0.55f + 0.2f * k, clays[k]), boneMat, true);
+        }
 
         // the catacombs' wall torches: an iron bracket, a stick and a cup, and a small flame (the flame glows by itself)
         Kind[] torch = null;
@@ -275,7 +302,22 @@ public partial class CaveDecor3D : Node3D
                     if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))
                         Put(pebbles[_rng.Next(pebbles.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.5f, R(0.7f, 1.4f)), pos));
                 }
-                if (bonePiles != null && floor && !wet && R() < 0.22f * len)
+                if (skulls != null && floor && !wet)
+                {
+                    // the dead underfoot: loose skulls, heaps of them, long bones, a burial urn standing in a corner
+                    float roll = R();
+                    float z = R() < 0.7f ? R(-2.6f, -0.3f) : R(0.2f, 0.9f);
+                    var at = a.Lerp(bb, R());
+                    if (roll < 0.2f * len && SurfaceAt(at, n, z, out var pos, out var nn))
+                        Put(skulls[_rng.Next(skulls.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.5f, z > 0 ? R(0.6f, 0.9f) : R(0.8f, 1.5f)), pos + nn * 0.08f));
+                    else if (roll < 0.28f * len && SurfaceAt(at, n, z, out pos, out nn))
+                        Put(skullHeaps[_rng.Next(skullHeaps.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.2f, z > 0 ? R(0.6f, 0.8f) : R(0.8f, 1.4f)), pos));
+                    else if (roll < 0.4f * len && SurfaceAt(at, n, z, out pos, out nn))
+                        Put(longBones[_rng.Next(longBones.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.9f, R(0.8f, 1.4f)), pos + nn * 0.05f));
+                    else if (roll < 0.46f * len && z < 0 && SurfaceAt(at, n, z, out pos, out nn))
+                        Put(urns[_rng.Next(urns.Length)], new Transform3D(Orient(nn, Vector3.Up, 0.1f, R(0.9f, 1.5f)), pos - nn * 0.04f));
+                }
+                if (bonePiles != null && floor && !wet && R() < (b.Ossuary ? 0.5f : 0.22f) * len)
                 {
                     float z = R() < 0.75f ? R(-2.6f, -0.3f) : R(0.2f, 0.9f);
                     if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))
@@ -385,6 +427,35 @@ public partial class CaveDecor3D : Node3D
                     var basis = new Basis(Vector3.Up, -MathF.PI / 2f + side * R(0.2f, 0.7f)) * new Basis(Vector3.Right, R(-0.35f, 0.35f));
                     AddChild(new MeshInstance3D { Mesh = skull.ToMesh(boneMat), Transform = new Transform3D(basis, wp - wn * size * 0.35f), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
                 }
+            }
+        }
+
+        // ---- the catacombs' ossuary walls: a bank of skulls racked up on the back wall of the larger rooms, and a few strays
+        if (skulls != null)
+        {
+            foreach (var room in cave.Rooms)
+            {
+                float rx = room.RxPx / CaveData.Cell;
+                if (rx < 6f || room.Kind == RoomKind.Boss) continue;
+                var c = room.Center / CaveData.Cell;
+                float floorY = room.Floor.Y / CaveData.Cell;
+                int cols = Math.Clamp((int)(rx * 1.1f), 5, 11), rows = 3 + (_rng.Next(2));
+                float px = c.X + R(-0.3f, 0.3f) * rx;
+                for (int j = 0; j < rows; j++)
+                    for (int i = 0; i < cols; i++)
+                    {
+                        // (each row a little shorter than the one below, so the bank reads as stacked)
+                        if (j > 0 && (i < j || i >= cols - j)) continue;
+                        float x = px + (i - (cols - 1) * 0.5f) * 0.58f + R(-0.04f, 0.04f), y = floorY - 1.1f - j * 0.52f;
+                        _f.Column(x, y, out float sd, out _, out _);
+                        if (sd > -1.0f || !BackWallAt(x, y, out var wp, out var wn)) continue;
+                        var zb = wn.Normalized();
+                        var xb = Vector3.Up.Cross(zb).Normalized();
+                        var basis = new Basis(xb, zb.Cross(xb), zb) * new Basis(Vector3.Back, R(-0.2f, 0.2f)) * new Basis(Vector3.Right, R(-0.15f, 0.15f));
+                        Put(skulls[_rng.Next(skulls.Length)], new Transform3D(basis.Scaled(Vector3.One * R(0.95f, 1.15f)), wp + zb * 0.02f));
+                    }
+                // a pale glimmer on the bank so it reads in the dark
+                Light(new Vector3(px, -(floorY - 2.3f), -1.4f), boneCol.Lerp(b.Glow, 0.4f), 0.55f, 4.5f, 0.5f);
             }
         }
 

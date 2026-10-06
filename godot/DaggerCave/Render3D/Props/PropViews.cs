@@ -1903,7 +1903,7 @@ public partial class IcePlatformView : PropView
 /// </summary>
 public partial class RubbleView : PropView
 {
-    private const int MaxRocks = 24;
+    private const int MaxRocks = 44;
     private readonly MeshInstance3D[] _rock = new MeshInstance3D[MaxRocks];
     private readonly Vector3[] _home = new Vector3[MaxRocks], _vel = new Vector3[MaxRocks], _off = new Vector3[MaxRocks], _spin = new Vector3[MaxRocks];
     private readonly Basis[] _rest = new Basis[MaxRocks];
@@ -1912,6 +1912,7 @@ public partial class RubbleView : PropView
     private int _count, _shown;
     private Node3D _stack;
     private float _h, _sway, _swayV;
+    private bool _skulls;
 
     protected override void Build()
     {
@@ -1923,6 +1924,7 @@ public partial class RubbleView : PropView
         // (everything hangs from the base so the whole stack can lean over together)
         _stack = new Node3D { Position = new Vector3(0, -h * 0.5f, 0) };
         AddChild(_stack);
+        if (_skulls = G.Cave?.Biome?.Ossuary == true) { BuildSkulls(rng, w, h); return; }
         float y = 0f; int row = 0;
         while (y < h - 0.25f && _count < MaxRocks - 3)
         {
@@ -1966,6 +1968,57 @@ public partial class RubbleView : PropView
         _shown = _count;
     }
 
+    // the catacombs' barriers: a bank of skulls with long bones jutting out of it (meshes shared by every pile, a few sizes and shades)
+    private static readonly Dictionary<(int, int), ArrayMesh> _skullMeshes = new();
+    private static readonly float[] SkullSizes = { 0.36f, 0.42f, 0.49f };
+    private static StandardMaterial3D _boneMat;
+    private static StandardMaterial3D BoneMat => _boneMat ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f, RimEnabled = true, Rim = 0.25f };
+    private static ArrayMesh PileMesh(int size, int tone, bool longBone)
+    {
+        var key = (size + (longBone ? 10 : 0), tone);
+        if (_skullMeshes.TryGetValue(key, out var m)) return m;
+        var rng = new Random(size * 31 + tone * 7 + (longBone ? 99 : 0));
+        var noise = new Noise3(size * 13 + tone * 5 + 1);
+        var bone = new Color(0.74f, 0.7f, 0.6f).Darkened(0.12f * tone);
+        var mb = longBone ? OssuaryMeshes.LongBone(rng, noise, SkullSizes[size] * 3.2f, bone) : OssuaryMeshes.HumanSkull(rng, noise, SkullSizes[size], bone);
+        return _skullMeshes[key] = mb.ToMesh(BoneMat);
+    }
+
+    private void BuildSkulls(Random rng, float w, float h)
+    {
+        float y = 0f; int row = 0;
+        while (y < h - 0.2f && _count < MaxRocks - 4)
+        {
+            float rowH = 0f;
+            float s0 = Mathf.Lerp(0.49f, 0.38f, Math.Clamp(y / Math.Max(0.5f, h), 0f, 1f));
+            int n = Math.Max(2, (int)Math.Round(w / (s0 * 1.05f)));
+            for (int k = 0; k < n && _count < MaxRocks; k++)
+            {
+                bool bone = rng.NextDouble() < 0.16;
+                int sz = Math.Clamp((int)Math.Round((s0 - 0.36f) / 0.065f + (rng.NextDouble() - 0.5) * 1.6), 0, 2), tone = rng.Next(3);
+                float size = SkullSizes[sz];
+                float x = (n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * Math.Max(0.1f, w - size * 0.9f)) + ((float)rng.NextDouble() - 0.5f) * 0.1f + (row % 2 == 1 ? 0.5f * size * (rng.Next(2) == 0 ? -1 : 1) * 0.5f : 0f);
+                var node = new MeshInstance3D { Mesh = PileMesh(sz, tone, bone), CastShadow = GeometryInstance3D.ShadowCastingSetting.On };
+                Basis basis;
+                if (bone) basis = new Basis(Vector3.Up, ((float)rng.NextDouble() - 0.5f) * 0.5f) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 1.2f);
+                else basis = new Basis(Vector3.Up, ((float)rng.NextDouble() - 0.5f) * 1.5f) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 0.6f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.5f);
+                node.Basis = basis;
+                _rest[_count] = basis;
+                // (skulls sit on their jaws, a bone lies across the bank: both a little sunk into what is beneath)
+                _home[_count] = new Vector3(x, y + size * (bone ? 0.1f : 0.58f), ((float)rng.NextDouble() - 0.5f) * 0.3f + (bone ? 0.25f : 0f));
+                _size[_count] = size; _row[_count] = y / Math.Max(0.5f, h);
+                _spin[_count] = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 7f;
+                node.Position = _home[_count];
+                _stack.AddChild(node);
+                _rock[_count++] = node;
+                rowH = Math.Max(rowH, size * 0.82f);
+            }
+            y += rowH * 0.92f;
+            row++;
+        }
+        _shown = _count;
+    }
+
     protected override void Sync(float dt)
     {
         var r = (Rubble)Owner2D;
@@ -2002,7 +2055,7 @@ public partial class RubbleView : PropView
             // tumbling: gravity, bounces off the passage floor, then it rests
             _vel[k].Y -= 9.8f * dt * 1.5f;
             _off[k] += _vel[k] * dt;
-            float floorY = _size[k] * 0.02f;
+            float floorY = _size[k] * (_skulls ? 0.5f : 0.02f);
             if (_home[k].Y + _off[k].Y < floorY)
             {
                 _off[k].Y = floorY - _home[k].Y;

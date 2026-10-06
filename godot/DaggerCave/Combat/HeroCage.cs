@@ -43,7 +43,8 @@ public partial class HeroCage : Node2D
         G.Sfx.Play("chest", GlobalPosition, -2, 0, 0.8f);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -12), Hud.HeroColor(Hero), 30, 200, 2.6f, 0.7f);
         G.Fx.Ring(GlobalPosition + new Vector2(0, -12), 30, Hud.HeroColor(Hero));
-        G.Main.Hud?.ShowBanner(fresh ? $"THE {Hero.ToString().ToUpperInvariant()} IS FREE  ·  waiting at the camp" : $"THE {Hero.ToString().ToUpperInvariant()} THANKS YOU", 4f);
+        G.Main.Hud?.ShowBanner(Lore.FreedBanner(Hero, fresh), 5.5f);
+        if (fresh) G.Main.Hud?.ShowNotice(Lore.Hero(Hero).backstory, 8f);
     }
 
     public override void _PhysicsProcess(double delta)

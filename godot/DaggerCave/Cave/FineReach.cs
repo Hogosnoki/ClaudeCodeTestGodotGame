@@ -193,8 +193,10 @@ public sealed class FineReach
                 }
         if (!found) return false;
         int gx = (int)(goal.X / Res), gy = (int)(goal.Y / Res);
+        int pulse = 0;
         while (_q.Count > 0)
         {
+            if ((++pulse & 4095) == 0) CaveGenerator.CheckCancel();
             int k = _q.Dequeue();
             int x = k % _w, y = k / _w;
             if (Math.Abs(x - gx) * Res <= 40 && Math.Abs(y - gy) * Res <= 48) return true;

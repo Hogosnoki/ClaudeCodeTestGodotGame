@@ -354,13 +354,14 @@ mini-bosses and guardian:
 | 1-3 | Root-Choked Tunnels (the deep canopy) | branching tunnels through rock riven by massive tree roots coming down from the surface world; pools of murky water low down | rats, spiders, rot frogs, bats, mire fish, root eels | grasping roots that slow you and, if they hold you long enough, snag your weapon for a moment (two cuts clear them); thick, rotting water that leaves you gasping 50% sooner and swimming 20% slower | The Rotback (bear) |
 | 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, hornets, spiders | webs that slow you (cut them) | The Brood Queen (scorpion) |
 | 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
-| 3-5 | Catacombs | right-angled halls and corridors on several floors in cold blue stone and brickwork; no dirt: lit only by a dim blue glow on the walls and the odd wall torch | crypt skeletons, grave rats, grave-robber slingers, crypt bats, spiders, restless wraiths | - | The Crypt Lord (skeleton) |
+| 3-5 | Catacombs | a stepped pyramid of vaulted halls: a great nave under a scalloped vault in the middle of the map (stepped tombs of stacked sarcophagi in its tallest bays), and out of each end a long stair down into a landing hall, another into a long gallery, and so on, outward and downward; one side ends in the Crypt Lord's rotunda (rock behind it for the treasury), the other in a sealed tomb. Cold blue stone and brickwork; lit only by a dim blue glow and the odd wall torch. Skulls and bones strewn underfoot, heaps of skulls, burial urns, ossuary walls racked with skulls, and the barriers across the passages are banks of skulls, not boulders | crypt skeletons, grave rats, grave-robber slingers, crypt bats, spiders, restless wraiths | - | The Crypt Lord (skeleton) |
 | 3-4 | Fungal Cavern | wide, low-lying tunnels, little vertical variation | sporelings, frogs, mossback golems, spore hornets | spore pods that burst into choking clouds | The Mossback Hulk |
 | 3-5 | Tunnels | slightly smaller map, tight flat or diagonal passages, water low down | rats, bears, bats, fish, eels, urchins | - | The Tunnel Brute (bear) |
 | 4-6 | Slime Cavern | the original half-flooded cave | goblins, frogs, magma brutes, golems, bats, spiders, fish, eels, urchins | air vents | The Cavern Colossus |
 | 5-7 | Frost Caverns | mostly horizontal, ice everywhere | frost bears, rime skeletons, frost wraiths, ice bats | slippery ground; a frozen water surface (break it to swim, and break it again from below to get out); ice ledges that shatter after 3 landings or 2 blows and refreeze | The Rime Colossus |
 | 5-7 | Fossil Graveyards | a few vast, echoing chambers of layered sediment; in each, the ribcage of a leviathan arches from deep in the back to just in front of you, and a great skull is sunk in the wall | fossil skeletons, bone scorpions, ossuary golems, marrow rats, bats | unstable ceilings: walk beneath one and dust sifts down and the rock groans, then a few stones break loose (each one shows where it will land) | The Ossuary Colossus |
 | 6-8 | Crystal Caves | ledges in every tall space, so no long falls | shardlings, crystal golems, skeletons | crystal spikes | The Prism Golem |
+| 6-8 | Old Lava Tubes | long, wide, round bores the fire cut and left (twice the usual width, a fifth of the usual branches, smooth walls) running down in great sweeps; the odd chimney carved up out of a tube's roof, too high for any jump, ends in a hidden chamber with a silver (relic) chest (the guardian is never up one); faint embers in the seams of the rock | basalt scorpions, basalt golems, magma brutes, cinder bats, ember hornets, fire elementals | - | The Basalt Warden (golem) |
 | 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out; with Magma Skin you swim in it, and chests lie at its bottom), fire vents | The Molten Colossus |
 | 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
 
@@ -894,6 +895,8 @@ The harness takes command-line user args after `--`:
 # just one; --genverbose prints every attempt, and --genimage=SEED saves that seed's map, or that
 # attempt's with --genverbose)
 godot --headless --path godot -- --gentest
+# (--gencount=N makes N seeds per biome; --genprof prints where the generator's time went; set
+# GEN_LANES=1 to make caves one attempt at a time instead of on every core)
 
 # The autopilot bot plays for 60 s and saves a screenshot every 3 s
 xvfb-run godot --path godot --rendering-driver vulkan -- --autotest --seed=1013 --duration=60 --shots=/tmp/shots
@@ -919,7 +922,7 @@ green top-down, blue front-on).
 
 `--start=boss` and `--start=water` change where the player spawns, `--seed=N` fixes the cave, and
 `--biome=NAME` (entrance, den, roots, nest, ruins, fungal, tunnels, slime, frost, fossils, crystal,
-magma, lair)
+magma, lair, catacombs, mine, lavatubes)
 starts in that biome at its depth. `--fullrun` with `--autotest` gives the bot a very sturdy hero
 and has it head for each guardian and then the steep exit, all the way to the dragon; it prints
 `[fullrun] VICTORY` and quits when the dragon dies.
@@ -1068,6 +1071,29 @@ Two more test modes:
   are a twentieth of a second long, so run it with `--fixed-fps 60` too (it needs no window). It
   prints ok / FAIL for each step, then PASS or FAIL.
 
+
+## The story, and the loading screens
+
+`Core/Lore.cs` holds the story in one place: why anyone goes down into the Dagger (the river Wend ran into
+the earth nine winters ago, and the valley above Hearthmere is dying of thirst), who went first (the
+Deepsilver Guild's delvers, then the Guild's relief party, the Spring Order's pilgrims and the Crown's last
+company, none of whom came back), why the heroes behind the cages are there (the creatures of the Deep cage the
+living as a tithe for the Elder Dragon drinking at the Mother Spring) and why you keep coming back (whoever
+dies wakes at the fire at the cave's mouth, kept alight by the embers of guardians). It is shown on **The
+story** card (the main menu's third button, and automatically the first time a run is begun), as one line over
+each biome's loading screen, and, for each caged hero, as a backstory when they are freed at the camp.
+
+Going down shows the new level's loading screen at once (`UI/LoadingScreen.cs`: a drawn picture, a line of lore
+and a tip for each biome; the old level stays frozen behind it) and builds the cave behind it on other threads:
+the generator, then the terrain mesh, are made off the main thread and only the scene's nodes and the upload are
+done on it. `--loadscreen` (with `--biome=`) holds the screen up, `--loadshots=DIR` saves one for every biome,
+and `--scenario=loading` checks the order of events (screen up first, game paused underneath, level built, screen
+gone).
+
+Making a cave used to take two to five seconds; it takes under a second on average (a cap of about four): the
+reachability checks run on flat arrays with reused buffers, the several attempts a cave may need are made side
+by side on the machine's cores (judged in order, so the result is the same as one at a time) and stragglers are
+told to stop as soon as an earlier attempt has made a sound cave.
 
 ## Can the guardian be reached? (generation)
 

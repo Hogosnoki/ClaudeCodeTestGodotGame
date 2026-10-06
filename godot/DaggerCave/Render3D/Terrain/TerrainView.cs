@@ -17,22 +17,39 @@ public partial class TerrainView : Node3D
     public ShaderMaterial Material { get; private set; }
     public int Triangles { get; private set; }
 
-    public void Build(CaveData cave)
+    /// <summary>The rock's field and its meshes' arrays, worked out apart from the engine (so they can be made on another thread while the loading screen is up).</summary>
+    public sealed class Precomputed
+    {
+        public TerrainField Field;
+        public TerrainChunkData[] Datas;
+        public ulong FieldMs, MeshMs;
+    }
+
+    public static Precomputed Precompute(CaveData cave)
     {
         ulong t0 = Time.GetTicksMsec();
         var style = TerrainStyle.For(cave.Biome);
-        Field = new TerrainField(cave, style);
+        var field = new TerrainField(cave, style);
         ulong t1 = Time.GetTicksMsec();
-        int cellsX = Field.Nx - 1, cellsY = Field.Ny - 1;
+        int cellsX = field.Nx - 1, cellsY = field.Ny - 1;
         int cw = (cellsX + ChunkCells - 1) / ChunkCells, ch = (cellsY + ChunkCells - 1) / ChunkCells;
         var datas = new TerrainChunkData[cw * ch];
         Parallel.For(0, cw * ch, k =>
         {
             int cx = k % cw, cy = k / cw;
             int i0 = cx * ChunkCells, j0 = cy * ChunkCells;
-            datas[k] = TerrainMesher.Build(Field, i0, j0, Math.Min(cellsX, i0 + ChunkCells), Math.Min(cellsY, j0 + ChunkCells));
+            datas[k] = TerrainMesher.Build(field, i0, j0, Math.Min(cellsX, i0 + ChunkCells), Math.Min(cellsY, j0 + ChunkCells));
         });
+        return new Precomputed { Field = field, Datas = datas, FieldMs = t1 - t0, MeshMs = Time.GetTicksMsec() - t1 };
+    }
+
+    public void Build(CaveData cave)
+    {
         ulong t2 = Time.GetTicksMsec();
+        var pre = cave.TerrainPre as Precomputed ?? Precompute(cave);
+        cave.TerrainPre = null;
+        Field = pre.Field;
+        var datas = pre.Datas;
         Material = TerrainLook.Make(cave);
         int tris = 0;
         foreach (var d in datas)
@@ -51,7 +68,7 @@ public partial class TerrainView : Node3D
             tris += d.Indices.Length / 3;
         }
         Triangles = tris;
-        GD.Print($"[3D] terrain {cave.W}x{cave.H}: field {t1 - t0} ms, mesh {t2 - t1} ms, upload {Time.GetTicksMsec() - t2} ms, {tris / 1000}k triangles in {GetChildCount()} chunks");
+        GD.Print($"[3D] terrain {cave.W}x{cave.H}: field {pre.FieldMs} ms, mesh {pre.MeshMs} ms, upload {Time.GetTicksMsec() - t2} ms, {tris / 1000}k triangles in {GetChildCount()} chunks");
     }
 }
 
@@ -119,6 +136,7 @@ public static class TerrainLook
             case BiomeId.Frost: special = 2; Set(m, "s", "snow_02"); tintStrength = 0.8f; brightness = 1.15f; break;
             case BiomeId.Crystal: special = 4; tintStrength = 0.85f; break;
             case BiomeId.Magma: case BiomeId.Lair: special = 3; Set(m, "s", "dark_rock"); tintStrength = 0.55f; break;
+            case BiomeId.LavaTubes: special = 3; Set(m, "s", "dark_rock"); tintStrength = 0.6f; break;
             case BiomeId.Roots: special = 6; tintStrength = 0.7f; break;
             case BiomeId.Mine: tintStrength = 0.7f; brightness = 1.05f; break;
             case BiomeId.Fossils: special = 7; tintStrength = 0.6f; brightness = 1.05f; break;

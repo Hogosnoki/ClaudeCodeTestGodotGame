@@ -20,11 +20,15 @@ public enum GenStyle
     Ruins,
     /// <summary>Timbered galleries stepping along several levels, joined by scaffolded shafts, with stopes cut off them.</summary>
     Mine,
+    /// <summary>Long galleries and a nave with burial chambers, niches and stairs (the catacombs).</summary>
+    Crypt,
+    /// <summary>Wide old lava tubes: broad, gently falling passages with few branches, and secret ways up out of reach.</summary>
+    LavaTube,
     /// <summary>An antechamber and one great arena over lava (the dragon's lair).</summary>
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -52,6 +56,15 @@ public sealed class BiomeDef
     public int W = 240, H = 140;
     public int TunnelBudget = 1500;
     public float AirRMin = 2.6f, AirRMax = 3.7f, HorizontalBias = 0.012f, BranchPitchMult = 0.8f, MaxPitch = 0.6f;
+    /// <summary>Each step of a tunnel's walk has this chance of sprouting a side branch, down to branches of this generation.</summary>
+    public float BranchChance = 0.017f;
+    public int MaxBranchGen = 6;
+    /// <summary>How rough the walls are (1.9: natural rock; less: smooth, rounded bores).</summary>
+    public float RoughAmp = 1.9f;
+    /// <summary>The size of the rooms at the tunnels' dead ends, against the usual.</summary>
+    public float RoomScale = 1f;
+    /// <summary>Hidden chambers up chimneys carved into tunnel roofs, out of reach of anyone without a way up (a relic chest each).</summary>
+    public int SecretChimneys;
     /// <summary>Snap dry tunnels to flat or ~35 degree runs (the tight tunnels).</summary>
     public bool Diagonal;
     public Liquid Liquid = Liquid.Water;
@@ -92,6 +105,10 @@ public sealed class BiomeDef
     /// <summary>Thick, rotting water: you run out of breath sooner and swim slower in it.</summary>
     public bool Murky;
     public int HazardCount = 12;
+    /// <summary>Least distance (cells) between two creature spawn points: a tighter packing in a map with little floor to spare.</summary>
+    public float SpawnSpacing = 11f;
+    /// <summary>A place of the dead: skulls and bones underfoot, ossuary walls, burial urns; its barriers are banks of skulls, not boulders.</summary>
+    public bool Ossuary;
 
     // ---- set dressing in 3D
     /// <summary>Massive tree roots come down through the ceilings.</summary>
@@ -259,7 +276,7 @@ public static class Biomes
         var cata = new BiomeDef
         {
             Id = BiomeId.Catacombs, Name = "Catacombs", MinDepth = 3, MaxDepth = 5,
-            Style = GenStyle.Ruins, W = 210, H = 100, Liquid = Liquid.None,
+            Style = GenStyle.Crypt, W = 360, H = 100, Liquid = Liquid.None, SpawnSpacing = 6.5f, Ossuary = true,
             // (no dirt here: cold blue stone, lit by a dim blue glow and the odd torch)
             Edge = C("34415f"), Deep = C("080c1a"), Moss = C("3a5578"), Rim = C("6a7ea8"), Glow = C("6a9cff"),
             BackBottom = C("040714"), Bricks = true, Grass = 0.03f, Stalactites = 0.06f, Crystals = 0.025f, Darkness = 0.86f,
@@ -393,6 +410,28 @@ public static class Biomes
         crystal.Guardian = r => Guard(Var(new Golem(), "", "b0e0ff"), "THE PRISM GOLEM", 1.3f);
         All.Add(crystal);
 
+        // ------------------------------------------------------------------ 6-8: the old lava tubes
+        // (long, wide, round bores the fire cut and left: few branches, smooth walls, hidden chimneys up into the rock)
+        var tubes = new BiomeDef
+        {
+            Id = BiomeId.LavaTubes, Name = "Old Lava Tubes", MinDepth = 6, MaxDepth = 8, Weight = 0.9f,
+            Style = GenStyle.LavaTube, W = 250, H = 120, TunnelBudget = 900, AirRMin = 4.5f, AirRMax = 5.8f, HorizontalBias = 0.02f, BranchPitchMult = 0.55f,
+            BranchChance = 0.0055f, MaxBranchGen = 2, RoughAmp = 0.8f, RoomScale = 1.45f, SecretChimneys = 3, Liquid = Liquid.None,
+            PlatformBottom = 1.0f, PlatformTop = 0.7f, TallThreshold = 16, RoomChests = 4,
+            Edge = C("3c3a46"), Deep = C("0b0a10"), Moss = C("6a4a40"), Rim = C("6c6470"), Glow = C("ff8a4c"),
+            BackBottom = C("0e0608"), Grass = 0.0f, Mushrooms = 0.0f, Crystals = 0.0f, Stalactites = 0.3f, FireVents = false, HazardCount = 9, Darkness = 0.78f,
+            MiniBossesMin = 1, MiniBossesMax = 2, WallGlow = 0.12f,
+            // (the seams in the old rock still glow, faintly: the colour the shader takes for them)
+            LiquidLine = new Color(1f, 0.42f, 0.14f, 1f),
+        };
+        tubes.Residents[SpawnKind.Ground] = L(E(3, () => Var(new Scorpion(), "Basalt ", "8a7a8a"), 1, 2), E(2, () => Var(new Golem(), "Basalt ", "6a6678", 1.2f)), E(2, () => new LavaMonster()), E(1, () => Var(new Skeleton(), "Scorched ", "a08a78")));
+        tubes.Residents[SpawnKind.Ceiling] = L(E(3, () => Var(new Bat(), "Cinder ", "b08a78"), 2, 3), E(1, () => Var(new Hornet(), "Ember ", "ff8040")), E(1, () => new Spider()));
+        tubes.GroundEntrants = L(E(3, () => Var(new Scorpion(), "Basalt ", "8a7a8a")), E(1, () => new LavaMonster()));
+        tubes.AirEntrants = L(E(2, () => Var(new Bat(), "Cinder ", "b08a78")), E(1, () => Var(new Hornet(), "Ember ", "ff8040")));
+        tubes.MiniBosses = new() { () => new LavaMonster(), () => Var(new Golem(), "Basalt ", "6a6678"), () => Var(new Scorpion(), "Basalt ", "8a7a8a", 1.6f) };
+        tubes.Guardian = r => Guard(Var(new Golem(), "", "8a7088"), "THE BASALT WARDEN", 1.5f);
+        All.Add(tubes);
+
         // ------------------------------------------------------------------ 8-9: magma caverns
         var magma = new BiomeDef
         {
@@ -446,6 +485,8 @@ public static class Biomes
         Ground(BiomeId.Fungal, 2, () => new NatureElemental());
         Ground(BiomeId.Frost, 2, () => new FrostElemental());
         Ground(BiomeId.Magma, 2, () => new FireElemental(), 1, 2);
+        Ground(BiomeId.LavaTubes, 2, () => new FireElemental());
+        Ground(BiomeId.LavaTubes, 1, () => new EarthElemental(), entrant: false);
         Ground(BiomeId.Den, 1, () => new EarthElemental());
         Ground(BiomeId.Nest, 1, () => new EarthElemental());
         Ground(BiomeId.Tunnels, 1, () => new EarthElemental());
