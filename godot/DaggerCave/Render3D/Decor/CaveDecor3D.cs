@@ -430,7 +430,8 @@ public partial class CaveDecor3D : Node3D
             }
         }
 
-        // ---- the catacombs' ossuary walls: a bank of skulls racked up on the back wall of the larger rooms, and a few strays
+        // ---- the catacombs' ossuary walls: against the back wall of the larger rooms, a mound of bones as if poured out and
+        // heaped there: skulls every way up, long bones jutting across them, scatters of small bones filling the gaps
         if (skulls != null)
         {
             foreach (var room in cave.Rooms)
@@ -439,23 +440,59 @@ public partial class CaveDecor3D : Node3D
                 if (rx < 6f || room.Kind == RoomKind.Boss) continue;
                 var c = room.Center / CaveData.Cell;
                 float floorY = room.Floor.Y / CaveData.Cell;
-                int cols = Math.Clamp((int)(rx * 1.1f), 5, 11), rows = 3 + (_rng.Next(2));
-                float px = c.X + R(-0.3f, 0.3f) * rx;
-                for (int j = 0; j < rows; j++)
-                    for (int i = 0; i < cols; i++)
+                float half = Math.Clamp(rx * R(0.55f, 0.85f), 3.5f, 9f), px = c.X + R(-0.3f, 0.3f) * rx;
+                float peak = R(3.2f, 5f), lean = R(-0.5f, 0.5f), ph = R(0f, 6.28f);
+                // the mound's outline: a slumped heap, lopsided, its top ragged
+                float Profile(float u) => peak * MathF.Pow(Math.Max(0f, 1f - MathF.Pow(MathF.Abs(u - lean * 0.4f), 1.6f)), 1.1f) * (0.85f + 0.15f * MathF.Sin(u * 9f + ph) + 0.1f * MathF.Sin(u * 21f + ph * 2f));
+                int count = (int)(half * 22f);
+                bool Wall(float x, float y, out Vector3 wp, out Vector3 wn)
+                {
+                    wp = default; wn = default;
+                    _f.Column(x, y, out float sd, out _, out _);
+                    return sd <= -1.0f && BackWallAt(x, y, out wp, out wn);
+                }
+                Basis Facing(Vector3 wn)
+                {
+                    var zb = wn.Normalized();
+                    var xb = Vector3.Up.Cross(zb).Normalized();
+                    return new Basis(xb, zb.Cross(xb), zb);
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    float u = R(-1f, 1f), prof = Profile(u);
+                    if (prof < 0.15f) continue;
+                    float yo = prof * MathF.Pow(R(), 0.6f);
+                    float x = px + u * half, y = floorY - 0.35f - yo;
+                    if (!Wall(x, y, out var wp, out var wn)) continue;
+                    var face = Facing(wn);
+                    // (lower pieces are pulled further out of the wall, so the heap has some depth to it)
+                    var at = wp + wn.Normalized() * R(-0.05f, 0.1f + (1f - yo / Math.Max(0.3f, prof)) * 0.28f);
+                    float roll = R();
+                    if (roll < 0.52f)
                     {
-                        // (each row a little shorter than the one below, so the bank reads as stacked)
-                        if (j > 0 && (i < j || i >= cols - j)) continue;
-                        float x = px + (i - (cols - 1) * 0.5f) * 0.58f + R(-0.04f, 0.04f), y = floorY - 1.1f - j * 0.52f;
-                        _f.Column(x, y, out float sd, out _, out _);
-                        if (sd > -1.0f || !BackWallAt(x, y, out var wp, out var wn)) continue;
-                        var zb = wn.Normalized();
-                        var xb = Vector3.Up.Cross(zb).Normalized();
-                        var basis = new Basis(xb, zb.Cross(xb), zb) * new Basis(Vector3.Back, R(-0.2f, 0.2f)) * new Basis(Vector3.Right, R(-0.15f, 0.15f));
-                        Put(skulls[_rng.Next(skulls.Length)], new Transform3D(basis.Scaled(Vector3.One * R(0.95f, 1.15f)), wp + zb * 0.02f));
+                        // a skull, any way up and any way round: face-on, in profile, upside down, face-down in the heap
+                        var bs = face * new Basis(Vector3.Back, R(0f, Mathf.Tau)) * new Basis(Vector3.Up, R(-1.5f, 1.5f)) * new Basis(Vector3.Right, R(-0.9f, 0.9f));
+                        Put(skulls[_rng.Next(skulls.Length)], new Transform3D(bs.Scaled(Vector3.One * R(0.8f, 1.25f)), at));
                     }
-                // a pale glimmer on the bank so it reads in the dark
-                Light(new Vector3(px, -(floorY - 2.3f), -1.4f), boneCol.Lerp(b.Glow, 0.4f), 0.55f, 4.5f, 0.5f);
+                    else if (roll < 0.74f)
+                    {
+                        var bs = face * new Basis(Vector3.Back, R(0f, Mathf.Tau)) * new Basis(Vector3.Up, R(-0.6f, 0.6f));
+                        Put(longBones[_rng.Next(longBones.Length)], new Transform3D(bs.Scaled(Vector3.One * R(0.8f, 1.5f)), at));
+                    }
+                    else if (roll < 0.96f)
+                    {
+                        // a scatter of ribs, vertebrae and small bones laid flat against the wall
+                        var bs = face * new Basis(Vector3.Right, Mathf.Pi * 0.5f) * new Basis(Vector3.Up, R(0f, Mathf.Tau));
+                        Put(bonePiles[_rng.Next(bonePiles.Length)], new Transform3D(bs.Scaled(Vector3.One * R(0.55f, 1.0f)), at));
+                    }
+                    else
+                    {
+                        // a whole heap of skulls tumbled together
+                        Put(skullHeaps[_rng.Next(skullHeaps.Length)], new Transform3D((face * new Basis(Vector3.Right, Mathf.Pi * 0.5f) * new Basis(Vector3.Up, R(0f, Mathf.Tau))).Scaled(Vector3.One * R(0.9f, 1.3f)), at));
+                    }
+                }
+                // a pale glimmer on the heap so it reads in the dark
+                Light(new Vector3(px, -(floorY - 2.2f), -1.4f), boneCol.Lerp(b.Glow, 0.4f), 0.55f, 4.5f, 0.5f);
             }
         }
 
