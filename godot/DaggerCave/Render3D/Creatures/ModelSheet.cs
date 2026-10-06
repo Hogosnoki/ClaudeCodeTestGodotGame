@@ -19,7 +19,9 @@ public partial class ModelSheet : Node3D
     /// <summary>Ground speed (m/s) for the clips that run ("run:PHASE" lays the gait out at exactly that phase).</summary>
     private float _speed = 9f;
     private int _cols;
-    private bool m_debug;
+    private bool m_debug, _soft;
+    /// <summary>--sheetfocus=Y,H: frames the first clip alone, centred at height Y (model space), H metres tall (close-ups).</summary>
+    private Vector2? _focus;
     private int _index = -1, _frame;
     private readonly List<(CreatureModel m, string clip, float t)> _row = new();
     private Camera3D _cam;
@@ -37,6 +39,8 @@ public partial class ModelSheet : Node3D
             else if (a.StartsWith("--sheetyaw=")) _yaw = float.Parse(a[11..], CultureInfo.InvariantCulture);
             else if (a.StartsWith("--sheetspeed=")) _speed = float.Parse(a[13..], CultureInfo.InvariantCulture);
             else if (a.StartsWith("--sheetcols=")) _cols = int.Parse(a[12..]);
+            else if (a.StartsWith("--sheetfocus=")) { var f = a[13..].Split(','); _focus = new Vector2(float.Parse(f[0], CultureInfo.InvariantCulture), float.Parse(f[1], CultureInfo.InvariantCulture)); }
+            else if (a == "--sheetsoft") _soft = true;
             else if (a == "--sheetdebug") { m_debug = true; HeroDesign.DebugLog = true; }
             else if (a.StartsWith("--sheetclips="))
             {
@@ -57,7 +61,7 @@ public partial class ModelSheet : Node3D
             BackgroundColor = new Color(0.17f, 0.18f, 0.2f),
             AmbientLightSource = Godot.Environment.AmbientSource.Color,
             AmbientLightColor = new Color(0.55f, 0.58f, 0.65f),
-            AmbientLightEnergy = 0.45f,
+            AmbientLightEnergy = _soft ? 0.7f : 0.45f,
             TonemapMode = Godot.Environment.ToneMapper.Agx,
             SsaoEnabled = true,
             GlowEnabled = true,
@@ -69,13 +73,13 @@ public partial class ModelSheet : Node3D
         };
         for (int k = 0; k < 7; k++) env.SetGlowLevel(k, k is >= 1 and <= 4 ? 1f : 0f);
         AddChild(new WorldEnvironment { Environment = env });
-        var key = new DirectionalLight3D { LightEnergy = 2.6f, LightColor = new Color(1f, 0.93f, 0.85f), ShadowEnabled = true };
+        var key = new DirectionalLight3D { LightEnergy = _soft ? 1.5f : 2.6f, LightColor = new Color(1f, 0.93f, 0.85f), ShadowEnabled = true };
         AddChild(key);
         key.LookAtFromPosition(new Vector3(3, 4, 5), Vector3.Zero, Vector3.Up);
         var fill = new DirectionalLight3D { LightEnergy = 0.8f, LightColor = new Color(0.75f, 0.8f, 1f) };
         AddChild(fill);
         fill.LookAtFromPosition(new Vector3(-4, 1, 3), Vector3.Zero, Vector3.Up);
-        var rim = new DirectionalLight3D { LightEnergy = 1.6f, LightColor = new Color(0.6f, 0.75f, 1f) };
+        var rim = new DirectionalLight3D { LightEnergy = _soft ? 0.5f : 1.6f, LightColor = new Color(0.6f, 0.75f, 1f) };
         AddChild(rim);
         rim.LookAtFromPosition(new Vector3(-3, 2, -4), Vector3.Zero, Vector3.Up);
         _cam = new Camera3D { Fov = 30f, Current = true };
@@ -93,6 +97,7 @@ public partial class ModelSheet : Node3D
         if (_index >= _names.Count) { SafeQuit.Request(this); return; }
         string name = _names[_index];
         var clips = _clips ?? DefaultClips(name);
+        if (_focus != null) clips = new[] { clips[0] };
         float span = 0;
         var probe = CreatureModel.Create(name);
         if (probe == null) { GD.PrintErr($"[modelsheet] no design '{name}'"); Next(); return; }
@@ -117,6 +122,14 @@ public partial class ModelSheet : Node3D
             _row.Add((m, clips[k].clip, clips[k].t));
         }
         float tanV = MathF.Tan(Mathf.DegToRad(_cam.Fov * 0.5f));
+        if (_focus is Vector2 fc)
+        {
+            _row[0].m.Position = new Vector3(0, -footY, 0);
+            float fy = fc.X - footY;
+            _cam.Position = new Vector3(0, fy, fc.Y * 0.5f / tanV);
+            _cam.LookAt(new Vector3(0, fy, 0), Vector3.Up);
+            return;
+        }
         var vp = GetViewport().GetVisibleRect().Size;
         float tanH = tanV * vp.X / vp.Y;
         float totalH = h * rows;

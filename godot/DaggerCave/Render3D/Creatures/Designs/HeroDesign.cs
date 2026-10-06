@@ -40,7 +40,7 @@ public sealed partial class HeroDesign : CreatureDesign
         _st = StyleFor(kind);
     }
     public override string Name => Player.SheetName(_kind);
-    public override float Cell => 0.013f;
+    public override float Cell => _swordsman ? 0.01f : 0.013f;
     public override float ThreeQuarter => 20f;
     public override float FloorY => Floor;
 

@@ -696,7 +696,7 @@ hero's right hand (the far hand when facing right, the near hand when facing lef
 always comes from the upper left.
 
 All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
-- The Swordsman (Bran): a broad, bare-armed warrior from the concept art, a skinned mesh (`Art/bran.mesh`, made with the scripts in `tools/bran/`) on the shared hero skeleton, with his longsword added in code (`Designs/HeroDesign.Bran.cs`).
+- The Swordsman (Bran): a broad, weathered warrior from the concept art, sculpted from the same signed-distance primitives as the others (`Designs/HeroDesign.Bran.cs`) at a finer grid (about 80k triangles): a heavy-browed, stubbled face with the brows, lids, lips and nostrils laid on the skin as explicit strands (they are finer than a voxel; `Sculptor.SurfaceX` finds where the skin stands under each), dark tousled hair, a slate cowl, a shaggy fur mantle over his left shoulder, bare arms in leather bracers and fingerless gloves, straps, a belt and buckles over a dark tunic, a split navy tabard following his thighs, baggy trousers into fur-cuffed boots, a ragged cloak and his longsword. Texture is painted over the finished skin (`Sculptor.Paints`: stubble, ruddy cheeks, hairline, scuffed leather, worn cloth, dusty hems), and each skin vertex carries how much of each detail kind it is (`CUSTOM1/2`), so a seam between two materials blends their textures smoothly in `creature.gdshader`. `--modelsheet=swordsman --sheetfocus=Y,H --sheetsoft` frames close-ups.
 - The Warden: a blue tabard, a gold sash, a shortsword and a buckler.
 - The Vitalist: a green robe, a bone mask with glowing eyes and a crystal-headed staff.
 - The Elementalist: a violet robe, an ember sash and a staff crowned with a burning orb.

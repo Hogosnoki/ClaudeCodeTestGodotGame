@@ -44,7 +44,7 @@ public readonly struct MatInfo
     };
 }
 
-public enum PrimKind { RoundCone, Ellipsoid, Box, Sphere }
+public enum PrimKind { RoundCone, Ellipsoid, Box, Sphere, Torus }
 
 /// <summary>One sculpting primitive, attached to a bone, in model space (rest pose).</summary>
 public sealed class Prim
@@ -85,8 +85,9 @@ public sealed class Prim
                 break;
             default:
             {
-                // rotated box/ellipsoid: bound by the rotated extents
+                // rotated box/ellipsoid/torus: bound by the rotated extents
                 var rot = InvRot.Inverse();
+                var Half = Kind == PrimKind.Torus ? new Vector3(this.Half.X + Ra, Ra, this.Half.Z + Ra) : this.Half;
                 var e = new Vector3(
                     MathF.Abs(rot.X.X) * Half.X + MathF.Abs(rot.Y.X) * Half.Y + MathF.Abs(rot.Z.X) * Half.Z,
                     MathF.Abs(rot.X.Y) * Half.X + MathF.Abs(rot.Y.Y) * Half.Y + MathF.Abs(rot.Z.Y) * Half.Z,
@@ -111,6 +112,14 @@ public sealed class Prim
                 float k0 = new Vector3(q.X / r.X, q.Y / r.Y, q.Z / r.Z).Length();
                 float k1 = new Vector3(q.X / (r.X * r.X), q.Y / (r.Y * r.Y), q.Z / (r.Z * r.Z)).Length();
                 return k1 > 1e-8f ? k0 * (k0 - 1f) / k1 : -Math.Min(r.X, Math.Min(r.Y, r.Z));
+            }
+            case PrimKind.Torus:
+            {
+                // a ring round the (tilted) vertical axis: major radii Half.X (front-back) and Half.Z (side to side), minor radius Ra
+                var q = InvRot * (p - A);
+                float sz = q.Z * (Half.X / Half.Z);
+                float l = MathF.Sqrt(q.X * q.X + sz * sz) - Half.X;
+                return MathF.Sqrt(l * l + q.Y * q.Y) - Ra;
             }
             default:
             {

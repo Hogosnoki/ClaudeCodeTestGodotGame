@@ -32,6 +32,12 @@ public sealed class Sculptor
     public readonly List<BoneDef> Bones = new();
     public readonly List<Prim> Prims = new();
     public readonly List<Part> Parts = new();
+    /// <summary>
+    /// Painters run over the finished skin, vertex by vertex: given the vertex's rest position, its colour and the material
+    /// there, they return the colour it ends with (stubble, scuffs, streaks: the texture of a design). They may run on a
+    /// worker thread, so they must only read.
+    /// </summary>
+    public readonly List<Func<Vector3, Color, Mat, Color>> Paints = new();
     private readonly Dictionary<string, int> _byName = new();
     public readonly Noise3 Noise;
     /// <summary>Voxel size in metres (smaller = finer skin, slower build).</summary>
@@ -72,6 +78,10 @@ public sealed class Sculptor
     public Prim Block(int bone, Vector3 c, Vector3 half, float round, Color col, Mat mat = Mat.Skin, float blend = 0.02f, Vector3 rotDeg = default, float bump = 0f)
         => Add(new Prim { Kind = PrimKind.Box, Bone = bone, A = c, Half = half, Round = round, InvRot = Rot(rotDeg).Inverse(), Col = col, Mat = mat, Blend = blend, Bump = bump });
 
+    /// <summary>A ring round a vertical axis (a belt, a collar, a cuff), <paramref name="rx"/> front to back and <paramref name="rz"/> side to side, of thickness radius <paramref name="r"/>; <paramref name="tiltDeg"/> tips it about the front-back axis.</summary>
+    public Prim Ring(int bone, Vector3 c, float rx, float rz, float r, Color col, Mat mat = Mat.Cloth, float blend = 0.01f, float tiltDeg = 0f, float bump = 0f)
+        => Add(new Prim { Kind = PrimKind.Torus, Bone = bone, A = c, Half = new Vector3(rx, r, rz), Ra = r, InvRot = Rot(new Vector3(tiltDeg, 0, 0)).Inverse(), Col = col, Mat = mat, Blend = blend, Bump = bump });
+
     /// <summary>Carves a capsule out of what is there so far (mouths, sockets, gouges).</summary>
     public Prim CarveLimb(int bone, Vector3 a, Vector3 b, float ra, float rb, float blend = 0.01f)
         => Add(new Prim { Kind = PrimKind.RoundCone, Bone = bone, A = a, B = b, Ra = ra, Rb = rb, Blend = blend, Subtract = true });
@@ -87,6 +97,28 @@ public sealed class Sculptor
     {
         for (int k = 0; k < pts.Length - 1; k++)
             Limb(bones[Math.Min(k, bones.Length - 1)], pts[k], pts[k + 1], radii[k], radii[k + 1], col, mat, blend, bump);
+    }
+
+    /// <summary>
+    /// Where the skin built so far stands in the +X direction at height <paramref name="y"/> and side <paramref name="z"/>: the first
+    /// point, coming in from <paramref name="x1"/> toward <paramref name="x0"/>, that is inside it (so that fine features, which are
+    /// finer than the voxels, can be laid on it as explicit parts). The smooth unions round the surface a little, so this is the
+    /// hard union's: within a millimetre or two.
+    /// </summary>
+    public float SurfaceX(float y, float z, float x0 = -0.1f, float x1 = 0.25f)
+    {
+        for (float x = x1; x >= x0; x -= 0.0005f)
+        {
+            var q = new Vector3(x, y, z);
+            float f = 1e3f;
+            foreach (var p in Prims)
+            {
+                float d = p.Dist(q);
+                f = p.Subtract ? Math.Max(f, -d) : Math.Min(f, d);
+            }
+            if (f < 0f) return x;
+        }
+        return x0;
     }
 
     // ------------------------------------------------------------------ explicit parts

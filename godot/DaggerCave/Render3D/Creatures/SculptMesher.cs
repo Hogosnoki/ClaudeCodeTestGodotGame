@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -22,6 +23,8 @@ public sealed class SculptData
 {
     public MeshBuilder Body;
     public float[] Custom;
+    /// <summary>Per vertex, how much of each detail kind (0-3 in Custom1, 4-7 in Custom2) the skin there is: they blend smoothly across a triangle that joins two materials.</summary>
+    public float[] Kinds0, Kinds1;
     public int[] BoneIdx;
     public float[] Weights;
     public BoneDef[] Bones;
@@ -50,9 +53,13 @@ public static class SculptMesher
         var body = d.Body;
         var arrays = body.Arrays(withUv2: true);
         arrays[(int)Mesh.ArrayType.Custom0] = d.Custom;
+        arrays[(int)Mesh.ArrayType.Custom1] = d.Kinds0;
+        arrays[(int)Mesh.ArrayType.Custom2] = d.Kinds1;
         arrays[(int)Mesh.ArrayType.Bones] = d.BoneIdx;
         arrays[(int)Mesh.ArrayType.Weights] = d.Weights;
-        var fmt = (Mesh.ArrayFormat)((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom0Shift);
+        var fmt = (Mesh.ArrayFormat)(((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom0Shift)
+            | ((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom1Shift)
+            | ((long)Mesh.ArrayCustomFormat.RgbaFloat << (int)Mesh.ArrayFormat.FormatCustom2Shift));
         var mesh = new ArrayMesh();
         mesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays, null, null, fmt);
         var skin = new Skin();
@@ -131,6 +138,31 @@ public static class SculptMesher
         var rel = Isolate ? Related(s, BlendHops) : AllRelated(s.Bones.Count);
         var noise = s.Noise;
 
+        // (a coarse grid of which primitives reach each place, so the per-vertex passes below do not test them all)
+        const float GridCell = 0.06f;
+        const float GridPad = 0.02f;
+        var gridOrg = box.Position - Vector3.One * GridPad;
+        int gx = (int)MathF.Ceiling((box.Size.X + 2 * GridPad) / GridCell) + 1, gy = (int)MathF.Ceiling((box.Size.Y + 2 * GridPad) / GridCell) + 1, gz = (int)MathF.Ceiling((box.Size.Z + 2 * GridPad) / GridCell) + 1;
+        var gridCells = new List<Prim>[gx * gy * gz];
+        foreach (var p in prims)
+        {
+            var b = p.Bounds;
+            int ax = Math.Max(0, (int)((b.Position.X - GridPad - gridOrg.X) / GridCell)), bx = Math.Min(gx - 1, (int)((b.End.X + GridPad - gridOrg.X) / GridCell));
+            int ay = Math.Max(0, (int)((b.Position.Y - GridPad - gridOrg.Y) / GridCell)), by = Math.Min(gy - 1, (int)((b.End.Y + GridPad - gridOrg.Y) / GridCell));
+            int az = Math.Max(0, (int)((b.Position.Z - GridPad - gridOrg.Z) / GridCell)), bz = Math.Min(gz - 1, (int)((b.End.Z + GridPad - gridOrg.Z) / GridCell));
+            for (int z = az; z <= bz; z++)
+                for (int y = ay; y <= by; y++)
+                    for (int x = ax; x <= bx; x++)
+                        (gridCells[(z * gy + y) * gx + x] ??= new List<Prim>()).Add(p);
+        }
+        var noPrims = new List<Prim>();
+        List<Prim> Near(Vector3 q)
+        {
+            int x = (int)((q.X - gridOrg.X) / GridCell), y = (int)((q.Y - gridOrg.Y) / GridCell), z = (int)((q.Z - gridOrg.Z) / GridCell);
+            if (x < 0 || y < 0 || z < 0 || x >= gx || y >= gy || z >= gz) return noPrims;
+            return gridCells[(z * gy + y) * gx + x] ?? noPrims;
+        }
+
         float PrimDist(Prim p, Vector3 q)
         {
             float d = p.Dist(q);
@@ -191,7 +223,7 @@ public static class SculptMesher
         {
             float f = 1e3f;
             int o = -1;
-            foreach (var p in prims)
+            foreach (var p in Near(q))
             {
                 if (!p.Bounds.HasPoint(q)) continue;
                 float d = PrimDist(p, q);
@@ -265,6 +297,9 @@ public static class SculptMesher
         var bones = new List<int>(pos.Count * 4);
         var weights = new List<float>(pos.Count * 4);
         var custom = new List<float>(pos.Count * 4);
+        var kinds0 = new List<float>(pos.Count * 4);
+        var kinds1 = new List<float>(pos.Count * 4);
+        var kw = new float[8];
         var boneW = new float[nb];
         var dominant = new int[pos.Count];
         float h = cell * 0.5f;
@@ -278,17 +313,20 @@ public static class SculptMesher
             // blend weights: primitives within their blend width of the closest one
             float dmin = float.MaxValue;
             int nearest = -1;
-            foreach (var p in prims)
+            var nearMat = Mat.Skin;
+            var near = Near(q);
+            foreach (var p in near)
             {
                 if (p.Subtract || !p.Bounds.HasPoint(q)) continue;
                 float dp = p.Dist(q);
-                if (dp < dmin) { dmin = dp; nearest = p.Bone; }
+                if (dp < dmin) { dmin = dp; nearest = p.Bone; nearMat = p.Mat; }
             }
             Array.Clear(boneW);
+            Array.Clear(kw);
             float wsum = 0f;
             Vector3 col = Vector3.Zero;
             float rough = 0, metal = 0, sss = 0, emit = 0, detail = 0;
-            foreach (var p in prims)
+            foreach (var p in near)
             {
                 if (p.Subtract || !p.Bounds.HasPoint(q)) continue;
                 // (only the bones near the nearest one's share the vertex: no weight from the far limb it merely touches)
@@ -303,11 +341,16 @@ public static class SculptMesher
                 var mi = MatInfo.Of(p.Mat);
                 rough += mi.Rough * w; metal += mi.Metal * w; sss += mi.Sss * w;
                 emit += (p.Emit >= 0 ? p.Emit : mi.Emit) * w; detail += mi.Detail * w;
+                kw[Math.Clamp((int)mi.Detail, 0, 7)] += w;
             }
             if (wsum <= 0f) { wsum = 1f; boneW[0] = 1f; col = Vector3.One * 0.5f; rough = 0.6f; }
             col /= wsum;
-            body.C[k] = new Color(col.X, col.Y, col.Z, rough / wsum);
-            custom.Add(metal / wsum); custom.Add(sss / wsum); custom.Add(emit / wsum); custom.Add(DominantDetail(prims, q, dmin) / 8f);
+            var painted = new Color(col.X, col.Y, col.Z);
+            foreach (var paint in s.Paints) painted = paint(q, painted, nearMat);
+            body.C[k] = new Color(painted.R, painted.G, painted.B, rough / wsum);
+            custom.Add(metal / wsum); custom.Add(sss / wsum); custom.Add(emit / wsum); custom.Add(DominantDetail(near, q, dmin) / 8f);
+            for (int j = 0; j < 4; j++) kinds0.Add(kw[j] / wsum);
+            for (int j = 0; j < 4; j++) kinds1.Add(kw[4 + j] / wsum);
             AddTop4(boneW, bones, weights);
             dominant[k] = bones[bones.Count - 4];
         }
@@ -335,6 +378,7 @@ public static class SculptMesher
                 var col = part.Mesh.C[k];
                 body.C[b0 + k] = new Color(col.R, col.G, col.B, mi.Rough);
                 custom.Add(mi.Metal); custom.Add(mi.Sss); custom.Add(emit); custom.Add(mi.Detail / 8f);
+                for (int j = 0; j < 8; j++) (j < 4 ? kinds0 : kinds1).Add(j == (int)mi.Detail ? 1f : 0f);
                 var (ba, bb, wa) = part.Binds[k];
                 bones.Add(ba); bones.Add(bb); bones.Add(0); bones.Add(0);
                 weights.Add(ba == bb ? 1f : wa); weights.Add(ba == bb ? 0f : 1f - wa); weights.Add(0); weights.Add(0);
@@ -348,11 +392,11 @@ public static class SculptMesher
             body.UV2[k] = new Vector2(body.V[k].Z, 0f);
         }
 
-        return new SculptData { Body = body, Custom = custom.ToArray(), BoneIdx = bones.ToArray(), Weights = weights.ToArray(), Bones = s.Bones.ToArray(), Bridges = bridges };
+        return new SculptData { Body = body, Custom = custom.ToArray(), Kinds0 = kinds0.ToArray(), Kinds1 = kinds1.ToArray(), BoneIdx = bones.ToArray(), Weights = weights.ToArray(), Bones = s.Bones.ToArray(), Bridges = bridges };
     }
 
     /// <summary>The surface-detail kind of the primitive closest to q (kinds don't blend).</summary>
-    private static float DominantDetail(List<Prim> prims, Vector3 q, float dmin)
+    private static float DominantDetail(IEnumerable<Prim> prims, Vector3 q, float dmin)
     {
         foreach (var p in prims)
         {

@@ -34,10 +34,14 @@ instance uniform vec4 ink_tint : source_color, instance_index(7) = vec4(0.0);
 
 varying vec3 v_rest;
 varying vec4 v_mat;
+varying vec4 v_kinds0;
+varying vec4 v_kinds1;
 
 void vertex() {
 	v_rest = vec3(UV.x, UV.y, UV2.x);
 	v_mat = CUSTOM0;
+	v_kinds0 = CUSTOM1;
+	v_kinds1 = CUSTOM2;
 }
 
 float hash3(vec3 p) {
@@ -103,11 +107,42 @@ float bayer4(vec2 p) {
 	return (float(m[i.y * 4 + i.x]) + 0.5) / 16.0;
 }
 
+// the look of one detail kind: x = surface height (for the bump), y = albedo multiplier, z = glow multiplier
+// 0 smooth, 1 skin pores, 2 scales, 3 pitted stone and bone, 4 fibres (cloth, fur, wood), 6 ember cracks
+vec3 detail_of(int k, vec3 p, float sc) {
+	float h = 0.0;
+	float am = 1.0;
+	float gm = 1.0;
+	if (k == 0) {
+		h = vnoise(p * sc * 0.6) * 0.15;
+	} else if (k == 1) {
+		float w = 1.0 - abs(vnoise(p * sc * 0.35) * 2.0 - 1.0);
+		h = fbm(p * sc) * 0.6 + w * w * w * 0.5;
+	} else if (k == 2) {
+		float c = cells(p * sc * 0.55);
+		h = smoothstep(0.0, 0.3, c);
+		am = 0.8 + 0.25 * h;
+	} else if (k == 3) {
+		h = fbm(p * sc * 0.7) + fbm(p * sc * 2.3) * 0.3;
+		am = 0.75 + 0.35 * fbm(p * sc * 0.25);
+	} else if (k == 4) {
+		h = vnoise(vec3(p.x * sc * 2.5, p.y * sc * 0.35, p.z * sc * 2.5));
+		am = 0.85 + 0.25 * h;
+	} else if (k == 6) {
+		float c = cells(p * sc * 0.3);
+		float crack = 1.0 - smoothstep(0.0, 0.08, c);
+		h = smoothstep(0.0, 0.3, c);
+		gm = crack * (0.7 + 0.3 * sin(TIME * 3.0 + p.y * 9.0));
+		am = mix(1.0, 0.3, crack);
+	}
+	return vec3(h, am, gm);
+}
+
 void fragment() {
 	// fading out (dithered, stays in the opaque pass)
 	if (fade < 0.999 && fade < bayer4(FRAGCOORD.xy)) discard;
 	vec3 p = v_rest;
-	float kind = floor(v_mat.w * 8.0 + 0.5);
+	float kind_f = v_mat.w * 8.0;
 	float glow = v_mat.z;
 	if (p.y < ghost_below + ghost_fade) {
 		float g = (p.y - (ghost_below - ghost_fade * 0.2)) / ghost_fade + (vnoise(p * 9.0 + vec3(0.0, TIME * 0.6, 0.0)) - 0.5) * 0.9;
@@ -142,44 +177,32 @@ void fragment() {
 	vec3 alb = pow(COLOR.rgb, vec3(2.2));
 	float rough = COLOR.a;
 	float sc = detail_scale;
-	float h = 0.0;
-	if (kind < 0.5) {
-		h = vnoise(p * sc * 0.6) * 0.15;
-	} else if (kind < 1.5) {
-		// skin: pores and wrinkles
-		float w = 1.0 - abs(vnoise(p * sc * 0.35) * 2.0 - 1.0);
-		h = fbm(p * sc) * 0.6 + w * w * w * 0.5;
-	} else if (kind < 2.5) {
-		// scales
-		float c = cells(p * sc * 0.55);
-		h = smoothstep(0.0, 0.3, c);
-		alb *= 0.8 + 0.25 * h;
-	} else if (kind < 3.5) {
-		// stone and bone: pitted
-		h = fbm(p * sc * 0.7) + fbm(p * sc * 2.3) * 0.3;
-		alb *= 0.75 + 0.35 * fbm(p * sc * 0.25);
-	} else if (kind < 4.5) {
-		// fibres: cloth weave, fur, wood grain
-		h = vnoise(vec3(p.x * sc * 2.5, p.y * sc * 0.35, p.z * sc * 2.5));
-		alb *= 0.85 + 0.25 * h;
-	} else if (kind > 5.5 && kind < 6.5) {
-		// embers: bright cracks through a charred crust
-		float c = cells(p * sc * 0.3);
-		float crack = 1.0 - smoothstep(0.0, 0.08, c);
-		h = smoothstep(0.0, 0.3, c);
-		glow *= crack * (0.7 + 0.3 * sin(TIME * 3.0 + p.y * 9.0));
-		alb *= mix(1.0, 0.3, crack);
+	// (the detail kinds the skin here is made of, and how much of each: these blend smoothly across a seam; a mesh that
+	// carries none falls back on its one kind per vertex)
+	float kw[8] = float[](v_kinds0.x, v_kinds0.y, v_kinds0.z, v_kinds0.w, v_kinds1.x, v_kinds1.y, v_kinds1.z, v_kinds1.w);
+	float ksum = v_kinds0.x + v_kinds0.y + v_kinds0.z + v_kinds0.w + v_kinds1.x + v_kinds1.y + v_kinds1.z + v_kinds1.w;
+	if (ksum < 0.01) {
+		for (int i = 0; i < 8; i++) kw[i] = abs(kind_f - float(i)) < 0.5 ? 1.0 : 0.0;
+		ksum = 1.0;
 	}
+	vec3 d = vec3(0.0);
+	for (int i = 0; i < 8; i++) {
+		if (kw[i] > 0.004) d += detail_of(i, p, sc) * (kw[i] / ksum);
+	}
+	float h = d.x;
+	alb *= d.y;
+	glow *= d.z;
 
 	// mottling and veins make skin look alive (or not)
-	if (kind > 0.5 && kind < 1.5) {
-		alb *= 0.82 + 0.32 * fbm(p * 3.1);
+	float skin_w = kw[1] / ksum;
+	if (skin_w > 0.001) {
+		alb *= mix(1.0, 0.82 + 0.32 * fbm(p * 3.1), skin_w);
 		if (veins > 0.0) {
 			float v = 1.0 - abs(vnoise(p * 9.0) * 2.0 - 1.0);
 			v = pow(v, 14.0) + pow(1.0 - abs(vnoise(p * 23.0 + 5.0) * 2.0 - 1.0), 20.0) * 0.6;
-			alb = mix(alb, vein_color, clamp(v * veins, 0.0, 1.0));
+			alb = mix(alb, vein_color, clamp(v * veins, 0.0, 1.0) * skin_w);
 		}
-		rough = mix(rough, rough * 0.35, wet);
+		rough = mix(rough, mix(rough, rough * 0.35, wet), skin_w);
 	}
 	if (tint.a > 0.0) alb = mix(alb, alb * tint.rgb * 1.45, tint.a);
 
@@ -191,8 +214,9 @@ void fragment() {
 	float fres = pow(1.0 - ndv, 4.0) * 0.6;
 
 	vec3 emit = vec3(0.0);
-	if (kind > 4.5 && kind < 5.5) emit += eye_color * eye_energy * glow * (0.85 + 0.15 * sin(TIME * 2.0));
-	else emit += glow_color * glow_energy * glow * glow_boost;
+	float eye_w = kw[5] / ksum;
+	emit += eye_color * eye_energy * glow * (0.85 + 0.15 * sin(TIME * 2.0)) * eye_w;
+	emit += glow_color * glow_energy * glow * glow_boost * (1.0 - eye_w);
 	emit += rim_color * rim_energy * fres * (1.0 - v_mat.x * 0.6);
 	emit += burn_color * burn * 8.0;
 	// the hit flash is a quick pop, not a white-out: the frozen pose must stay readable
