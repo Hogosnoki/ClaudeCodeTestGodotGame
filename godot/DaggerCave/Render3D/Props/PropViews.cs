@@ -1929,16 +1929,19 @@ public partial class RubbleView : PropView
         while (y < h - 0.25f && _count < MaxRocks - 3)
         {
             // big rocks below, smaller wedged in above; a row holds two or three, shifted from the one beneath
-            float big = Mathf.Lerp(0.78f, 0.5f, Math.Clamp(y / Math.Max(0.5f, h), 0f, 1f));
+            float yf = Math.Clamp(y / Math.Max(0.5f, h), 0f, 1f);
+            float big = Mathf.Lerp(0.78f, 0.5f, yf);
             int n = row % 2 == 0 ? 2 : 3;
             if (w < 1.4f) n = 2;
+            // (barely narrower at the bottom than the top: it stands, but only just, and wants knocking over)
+            float width = w * Mathf.Lerp(0.8f, 1.05f, yf);
             float rowH = 0f;
             for (int k = 0; k < n && _count < MaxRocks; k++)
             {
-                float size = big * (0.8f + 0.4f * (float)rng.NextDouble());
-                float span = Math.Max(0.1f, w - size * 1.2f);
-                float x = n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * span + ((float)rng.NextDouble() - 0.5f) * 0.18f;
-                if (row % 2 == 1) x += 0.12f * (rng.Next(2) == 0 ? -1 : 1);
+                float size = big * (0.62f + 0.75f * (float)rng.NextDouble());
+                float span = Math.Max(0.1f, width - size * 1.2f);
+                float x = n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * span + ((float)rng.NextDouble() - 0.5f) * 0.4f;
+                if (row % 2 == 1) x += 0.2f * (rng.Next(2) == 0 ? -1 : 1) * (float)rng.NextDouble();
                 var mb = DecorMeshes.Boulder(rng, noise, size);
                 // (plain grey-brown stone, each rock its own shade, paler on top, darker where it is crowded)
                 float tone = 0.34f + 0.16f * (float)rng.NextDouble();
@@ -1951,10 +1954,10 @@ public partial class RubbleView : PropView
                 var mat = PropViews.Rock;
                 var node = PropViews.Mesh(mb, mat);
                 // jammed in at its own angle, a little sunk into its neighbours
-                var basis = new Basis(Vector3.Up, (float)rng.NextDouble() * Mathf.Tau) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 0.7f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.5f);
+                var basis = new Basis(Vector3.Up, (float)rng.NextDouble() * Mathf.Tau) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 1.1f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.8f);
                 node.Basis = basis;
                 _rest[_count] = basis;
-                _home[_count] = new Vector3(x, y - 0.06f, ((float)rng.NextDouble() - 0.5f) * 0.4f);
+                _home[_count] = new Vector3(x, y - 0.06f + ((float)rng.NextDouble() - 0.5f) * 0.22f, ((float)rng.NextDouble() - 0.5f) * 0.6f);
                 _size[_count] = size; _row[_count] = y / Math.Max(0.5f, h);
                 _spin[_count] = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 7f;
                 node.Position = _home[_count];
@@ -1990,22 +1993,25 @@ public partial class RubbleView : PropView
         while (y < h - 0.2f && _count < MaxRocks - 4)
         {
             float rowH = 0f;
-            float s0 = Mathf.Lerp(0.49f, 0.38f, Math.Clamp(y / Math.Max(0.5f, h), 0f, 1f));
-            int n = Math.Max(2, (int)Math.Round(w / (s0 * 1.05f)));
+            float yf = Math.Clamp(y / Math.Max(0.5f, h), 0f, 1f);
+            float s0 = Mathf.Lerp(0.49f, 0.38f, yf);
+            // (barely narrower at the bottom than the top: it stands, but only just, and wants knocking over)
+            float width = w * Mathf.Lerp(0.8f, 1.05f, yf);
+            int n = Math.Max(2, (int)Math.Round(width / (s0 * 1.1f)));
             for (int k = 0; k < n && _count < MaxRocks; k++)
             {
                 bool bone = rng.NextDouble() < 0.16;
                 int sz = Math.Clamp((int)Math.Round((s0 - 0.36f) / 0.065f + (rng.NextDouble() - 0.5) * 1.6), 0, 2), tone = rng.Next(3);
                 float size = SkullSizes[sz];
-                float x = (n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * Math.Max(0.1f, w - size * 0.9f)) + ((float)rng.NextDouble() - 0.5f) * 0.1f + (row % 2 == 1 ? 0.5f * size * (rng.Next(2) == 0 ? -1 : 1) * 0.5f : 0f);
+                float x = (n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * Math.Max(0.1f, width - size * 0.9f)) + ((float)rng.NextDouble() - 0.5f) * 0.3f + (row % 2 == 1 ? 0.5f * size * (rng.Next(2) == 0 ? -1 : 1) * 0.6f : 0f);
                 var node = new MeshInstance3D { Mesh = PileMesh(sz, tone, bone), CastShadow = GeometryInstance3D.ShadowCastingSetting.On };
                 Basis basis;
                 if (bone) basis = new Basis(Vector3.Up, ((float)rng.NextDouble() - 0.5f) * 0.5f) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 1.2f);
-                else basis = new Basis(Vector3.Up, ((float)rng.NextDouble() - 0.5f) * 1.5f) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 0.6f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.5f);
+                else basis = new Basis(Vector3.Up, ((float)rng.NextDouble() - 0.5f) * 2.4f) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 1.2f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.9f);
                 node.Basis = basis;
                 _rest[_count] = basis;
                 // (skulls sit on their jaws, a bone lies across the bank: both a little sunk into what is beneath)
-                _home[_count] = new Vector3(x, y + size * (bone ? 0.1f : 0.58f), ((float)rng.NextDouble() - 0.5f) * 0.3f + (bone ? 0.25f : 0f));
+                _home[_count] = new Vector3(x, y + size * (bone ? 0.1f : 0.58f) + ((float)rng.NextDouble() - 0.5f) * 0.14f, ((float)rng.NextDouble() - 0.5f) * 0.5f + (bone ? 0.25f : 0f));
                 _size[_count] = size; _row[_count] = y / Math.Max(0.5f, h);
                 _spin[_count] = new Vector3((float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f, (float)rng.NextDouble() - 0.5f) * 7f;
                 node.Position = _home[_count];

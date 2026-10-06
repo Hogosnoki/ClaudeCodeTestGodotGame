@@ -75,6 +75,8 @@ public sealed class CaveData
     public readonly List<Vector3> IceLedges = new();
     /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>
     public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
+    /// <summary>How many of those plug the mouth of a dead end (test statistic).</summary>
+    public int RubbleAtDeadEnds;
 
     /// <summary>The 3D rock worked out ahead of the level being built (see TerrainView.Precompute), or null.</summary>
     public object TerrainPre;

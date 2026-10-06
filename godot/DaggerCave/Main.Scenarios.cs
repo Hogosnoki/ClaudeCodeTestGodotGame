@@ -641,11 +641,13 @@ public partial class Main
         {
             if (_scT < 0.5f) return;
             // (a cave with no passage narrow enough for a plug gets one set down beside the hero, to look at)
-            if (Rubble.All.Count == 0 && G.Cave.FindFloor(p.GlobalPosition + new Vector2(120, -40), 200, out var pf))
-                _world.AddChild(new Rubble { Position = pf + new Vector2(0, -32), Size = new Vector2(32, 64), Index = 1 });
+            // (and with --shots, a fresh one on the flat in front of the hero, so the pictures are of a plug on level ground)
+            Rubble test = null;
+            if ((Rubble.All.Count == 0 || _shotDir != "") && G.Cave.FindFloor(p.GlobalPosition + new Vector2(120, -40), 200, out var pf))
+                _world.AddChild(test = new Rubble { Position = pf + new Vector2(0, -32), Size = new Vector2(32, 64), Index = 1 });
             ScCheck($"this cave has boulder plugs ({Rubble.All.Count})", Rubble.All.Count > 0);
             if (Rubble.All.Count == 0) { ScEnd(); return; }
-            _scPlug = Rubble.All[0];
+            _scPlug = test ?? Rubble.All[0];
             // the hero stands at the plug's foot, on its left
             var at = _scPlug.GlobalPosition + new Vector2(-_scPlug.Size.X * 0.5f - 14, _scPlug.Size.Y * 0.5f - 12);
             p.GlobalPosition = at; p.Velocity = Vector2.Zero;

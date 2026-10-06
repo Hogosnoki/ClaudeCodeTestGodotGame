@@ -1195,3 +1195,13 @@ Creature-specific telegraphs (on top of that layer; `--scenario=telegraph` check
 - **Stalag-Might** now bursts a bulge of rock up out of the ground round the creature's feet (`StalagGrip`), which holds it for the 2 s and sinks away when the hold ends (or the creature is freed or dies). Only a creature near the ground can be seized (`Tune.Support.StalagGroundReach`); aimed at a flier or a leaper high in the air it says "NOT NEAR THE GROUND" and costs nothing.
 - The **Warden's shield** is 1.5 times as strong (`ShieldHpShare` 0.33) and regenerates 1.5 times as fast (`ShieldRegenShare` 0.0135), with a shorter pause before regeneration (0.8 s) and a shorter break (5 s).
 - Rats are 30% bigger and paler; the ink outline's line is a pixel wider (`edge_px` 2.5, now in `ink_edge.gdshader`).
+
+### Where the plugs go, and how they stand
+
+Plugs (boulders; banks of skulls in the Catacombs) never appear in the first level. They go preferentially at the
+mouth of a dead end (a side passage that goes nowhere but to what is hidden in it): `Cave/RubbleGen.cs` walls off a
+candidate plug's cells, counts what can be reached on each side, and a side that runs out without the start or the
+guardian in it is a pocket (the bigger it is, the nearer the plug to its mouth); plugs go to those first and to any
+level passage after that (`--gentest` prints `rubble n (dead ends m)`). A plug is barely narrower at its foot than at
+its top, and its pieces are scattered at all angles and depths, so it stands, but only just.
+
