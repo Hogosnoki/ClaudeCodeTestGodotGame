@@ -413,7 +413,7 @@ public partial class Main
                 break;
             }
             case 26:
-                Check($"quicker than fire ({p.BoltsCast - _altSwings} bolts in 1.2 s)", p.BoltsCast - _altSwings >= 4);
+                Check($"holding the attack throws what the staff holds, then one bolt a second ({p.BoltsCast - _altSwings} bolts in 1.2 s, {p.BoltCharges} of {p.BoltChargesMax} left)", p.BoltsCast - _altSwings >= 2 && p.BoltsCast - _altSwings <= 4 && p.BoltChargesMax == Tune.Elementalist.FrostCharges);
                 _heroInput = default;
                 // (now every bolt freezes)
                 p.Stats.FreezeBonus = 1f;

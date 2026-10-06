@@ -337,18 +337,22 @@ public static class Tune
         public static float AlimusMax = 40f, AlimusRegen = 1.8f;
         /// <summary>
         /// Firebolt (the attack button): a bolt of fire flying at BoltSpeed px/s up to BoltRange px,
-        /// FireDamage every FireEvery s; each has IgniteChance of setting a creature alight, burning
+        /// FireDamage a bolt, one coming back every FireEvery s (see FireCharges); each has IgniteChance of setting a creature alight, burning
         /// IgniteDps for IgniteSeconds. The cone (degrees either side of your aim) it looks for a
         /// creature to fly at as it leaves the staff. In flight a bolt homes: BoltTurnDegrees a
         /// second toward the creature nearest its heading, one within BoltSeekDegrees either side of it.
         /// </summary>
-        public static float FireDamage = 28f, FireEvery = 1.1f, FireCost = 2.2f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
+        public static float FireDamage = 28f, FireEvery = 1.5f, FireCost = 2.9f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
+        /// <summary>The staff holds FireCharges bolts (FrostCharges with Frostbolt); a spent one comes back
+        /// every FireEvery (FrostEvery) seconds, one at a time; BoltGap seconds must pass between throws.</summary>
+        public static int FireCharges = 2, FrostCharges = 3;
+        public static float BoltGap = 0.25f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
         public static float IgniteChance = 0.4f, IgniteDps = 4f, IgniteSeconds = 4f;
-        /// <summary>Frostbolt (an alteration): FrostDamage every FrostEvery s; a creature it strikes
+        /// <summary>Frostbolt (an alteration): FrostDamage a bolt, one coming back every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
-        public static float FrostDamage = 8f, FrostEvery = 0.3f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
+        public static float FrostDamage = 12f, FrostEvery = 1f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
         /// <summary>Updraft (the dodge button): costs UpdraftCost alimus; a column of air
         /// UpdraftWidth px wide and UpdraftHeight px tall (10 m) at your feet for UpdraftSeconds.
         /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a

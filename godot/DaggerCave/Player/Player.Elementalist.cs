@@ -13,7 +13,9 @@ namespace DaggerCave;
 /// hero has a fraction of gravity and a fraction of the fall speed (floating up on a jump, drifting down). The ability button calls down a Blizzard at the aim point: nine
 /// small strikes that can each freeze a creature (Firestorm: fire that sets them alight). The
 /// second ability snaps: every frozen creature in view shatters, hurting whatever is near it
-/// (Cinder Snap: every burning creature bursts). Alterations: Frostbolt, Narrow Draft (a taller,
+/// (Cinder Snap: every burning creature bursts). The staff holds two bolts (Frostbolt: three) and
+/// gets them back one at a time; each spell's readiness shows as an orb about the hero, which
+/// vanishes while that spell recharges. Alterations: Frostbolt, Narrow Draft (a taller,
 /// narrower, longer updraft), Firestorm and Cinder Snap.
 /// </summary>
 public partial class Player
@@ -23,6 +25,9 @@ public partial class Player
     /// <summary>The Elementalist's reserve: spells cost it, and it comes back by itself.</summary>
     public float Alimus { get; private set; }
     private float _boltCd, _updraftCd, _snapCd, _snapAt = -1;
+    /// <summary>Bolts in the staff (-1 = not yet filled for this run), and how far the next one has recharged (seconds).</summary>
+    private int _boltCharges = -1;
+    private float _boltRecharge;
     private List<Enemy> _snapping;
 
     /// <summary>Bolts cast, blizzards called, snaps made (for the tests).</summary>
@@ -42,12 +47,25 @@ public partial class Player
     /// <summary>What a snap would burst right now (for the HUD): the frozen creatures in view, or with Cinder Snap the burning ones.</summary>
     public int SnapTargets => Snappable().Count();
 
+    /// <summary>Bolts the Elementalist can hold: two of fire, three of frost.</summary>
+    public int BoltChargesMax => (IsRemote ? (_netFlags & HfFrost) != 0 : Stats.Frostbolt) ? Tune.Elementalist.FrostCharges : Tune.Elementalist.FireCharges;
+    /// <summary>Bolts ready to throw (a copy goes by its game's flags).</summary>
+    public int BoltCharges => IsRemote ? (int)((_netFlags >> HfChargeShift) & 3u) : Math.Clamp(_boltCharges < 0 ? BoltChargesMax : _boltCharges, 0, BoltChargesMax);
+    /// <summary>Seconds one bolt takes to come back.</summary>
+    private float BoltRechargeSeconds => Stats.Frostbolt ? Tune.Elementalist.FrostEvery : Tune.Elementalist.FireEvery;
+    /// <summary>For the orbs and the HUD: the ready state of the updraft, the snap and the storm (a copy goes by its game's flags).</summary>
+    public bool UpdraftOrb => IsRemote ? (_netFlags & HfOrbWind) != 0 : _updraftCd <= 0;
+    public bool SnapOrb => IsRemote ? (_netFlags & HfOrbSnap) != 0 : _snapCd <= 0 && _snapAt < 0;
+    public bool StormOrb => IsRemote ? (_netFlags & HfOrbStorm) != 0 : AbilityChargeReady;
+    /// <summary>The storm is fire (Firestorm).</summary>
+    public bool FireStorm => IsRemote ? (_netFlags & HfFire) != 0 : Stats.Firestorm;
+
     /// <summary>The Elementalist's bolts are frost (Frostbolt); a copy goes by its game's flags (for the staff's orb).</summary>
     public bool FrostElement => IsRemote ? (_netFlags & HfFrost) != 0 : Stats.Frostbolt;
 
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
     /// <summary>Test aid: the staff is ready again.</summary>
-    public void TestResetBolt() => _boltCd = 0;
+    public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; }
 
     public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
 
@@ -61,6 +79,16 @@ public partial class Player
     {
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         _boltCd -= dt; _updraftCd -= dt; _snapCd -= dt;
+        // the staff holds a couple of bolts and gains them back one at a time
+        int max = BoltChargesMax;
+        if (_boltCharges < 0) _boltCharges = max;
+        if (_boltCharges > max) _boltCharges = max;
+        if (_boltCharges < max)
+        {
+            _boltRecharge += dt * Math.Max(0.2f, Stats.AttackSpeed);
+            if (_boltRecharge >= BoltRechargeSeconds) { _boltCharges++; _boltRecharge = 0; }
+        }
+        else _boltRecharge = 0;
         Alimus = Math.Min(Stats.AlimusMax, Alimus + AlimusRegen * dt);
         if (_snapAt >= 0 && (_snapAt -= dt) < 0) BurstSnap();
     }
@@ -92,6 +120,8 @@ public partial class Player
     private bool CastBolt(Vector2 aim, bool held = false)
     {
         if (_boltCd > 0) return false;
+        if (_boltCharges < 0) _boltCharges = BoltChargesMax;
+        if (_boltCharges <= 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         bool frost = Stats.Frostbolt;
         float range = Tune.Elementalist.BoltRange;
@@ -100,7 +130,9 @@ public partial class Player
         if (!SpendAlimus(cost)) { _boltCd = 0.3f; if (!held) SayNo("NOT ENOUGH ALIMUS"); return true; }
         var target = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
         var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
-        _boltCd = (frost ? Tune.Elementalist.FrostEvery : Tune.Elementalist.FireEvery) / Math.Max(0.2f, Stats.AttackSpeed);
+        // (the next waits a moment; the one spent starts coming back, unless another is already on its way)
+        _boltCd = Tune.Elementalist.BoltGap / Math.Max(0.2f, Stats.AttackSpeed);
+        _boltCharges--;
         AttacksStarted++;
         BoltsCast++;
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);

@@ -842,6 +842,14 @@ public partial class Hud : Control
         foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
             if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
         DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Num.Shown(p.Alimus)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
+        // the bolts in the staff (the attack button's charges), under the bar
+        var boltCol = p.Stats.Frostbolt ? new Color(0.95f, 0.98f, 1f) : new Color(1f, 0.52f, 0.12f);
+        for (int k = 0; k < p.BoltChargesMax; k++)
+        {
+            var c = bp + new Vector2(6 + k * 12, 23);
+            DrawCircle(c, 4.2f, new Color(0, 0, 0, 0.6f));
+            DrawCircle(c, 3.2f, k < p.BoltCharges ? boltCol : new Color(0.4f, 0.42f, 0.46f));
+        }
     }
 }
 

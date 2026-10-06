@@ -66,6 +66,7 @@ public partial class Main
         "abyss" => "slime",
         "nooks" => "slime",
         "lamp" => "ruins",
+        "orbs" => "entrance",
         "ledges" => "slime",
         "shifterbehaviors" => "slime",
         "status" => "den",
@@ -105,6 +106,7 @@ public partial class Main
             case "abyss": AbyssScenario(); break;
             case "nooks": NooksScenario(); break;
             case "lamp": LampScenario(); break;
+            case "orbs": OrbsScenario(); break;
             case "ledges": LedgesScenario(); break;
             case "shifterbehaviors": ShifterBehaviorsScenario(); break;
             case "status": StatusScenario(); break;

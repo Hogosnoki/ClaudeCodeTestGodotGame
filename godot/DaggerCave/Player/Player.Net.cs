@@ -28,9 +28,11 @@ public partial class Player
     private uint _netFlags;
     private float _netShieldStrength = 1f;
 
+    private const int HfChargeShift = 28;
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
                        HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
-                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608;
+                       HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608,
+                       HfFire = 16777216, HfOrbWind = 33554432, HfOrbSnap = 67108864, HfOrbStorm = 134217728;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : Possessed ? Ghost.OnGround : IsOnFloor();
@@ -68,6 +70,14 @@ public partial class Player
         if (_drownT > 0) f |= HfDrown;
         if (_tauntLeft > 0) f |= HfTaunt;
         if (Stats.Frostbolt) f |= HfFrost;
+        if (IsElementalist)
+        {
+            if (Stats.Firestorm) f |= HfFire;
+            if (UpdraftOrb) f |= HfOrbWind;
+            if (SnapOrb) f |= HfOrbSnap;
+            if (StormOrb) f |= HfOrbStorm;
+            f |= (uint)BoltCharges << HfChargeShift;
+        }
         if (Hidden) f |= HfHidden;
         if (_thrown[0] != null) f |= HfDagger0Out;
         if (_thrown[1] != null) f |= HfDagger1Out;
