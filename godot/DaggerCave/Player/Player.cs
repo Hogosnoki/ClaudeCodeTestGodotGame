@@ -724,7 +724,7 @@ public partial class Player : CharacterBody2D
 
     private void UpdateBreath(float dt)
     {
-        if (Stats.InfiniteBreath || Bubbled)
+        if (Stats.InfiniteBreath || Bubbled || Form?.Key == "fish")
         {
             // Drowned Lungs (or a bubble round you): the water is as good as air
             Breath = Stats.BreathMax;

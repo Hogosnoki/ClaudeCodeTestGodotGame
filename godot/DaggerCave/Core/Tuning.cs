@@ -647,6 +647,10 @@ public static class Tune
         public static float FormDamage = 15f, CopyRange = 110f, ChargeSpeed = 360f;
         /// <summary>Seconds Shift takes to come back once a form is dropped.</summary>
         public static float ShiftCooldown = 3f;
+        /// <summary>How far away a hero in a form seems to the cave's creatures (x the real distance), and to creatures of its own kind: when they are looking (alone), and when they are choosing between several heroes (they then come last).</summary>
+        public static float NoticeFactor = 2f, KinNoticeFactor = 5f, KinChoosingFactor = 1000f;
+        /// <summary>A Shape Shifter fish out of water loses this share of its health a second (a real fish dies of it in about eight).</summary>
+        public static float FishDrownPerSec = 0.1f;
     }
 
     /// <summary>Blows from creatures are area blows: heroes close together split them.</summary>

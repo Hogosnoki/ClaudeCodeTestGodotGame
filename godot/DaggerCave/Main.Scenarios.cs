@@ -62,6 +62,7 @@ public partial class Main
         "aegis" => "den",
         "shifter" => "den",
         "shifterforms" => "entrance",
+        "shifterbehaviors" => "slime",
         "status" => "den",
         _ => null,
     };
@@ -95,6 +96,7 @@ public partial class Main
             case "aegis": AegisScenario(); break;
             case "shifter": ShifterScenario(); break;
             case "shifterforms": ShifterFormsScenario(); break;
+            case "shifterbehaviors": ShifterBehaviorsScenario(); break;
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;

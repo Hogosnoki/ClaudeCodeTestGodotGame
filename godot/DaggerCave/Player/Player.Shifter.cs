@@ -143,6 +143,7 @@ public partial class Player
         "hornet" => new Hornet(),
         "sporeling" => new Sporeling(),
         "crab" => new Crab(),
+        "fish" => new Fish(),
         _ => null,
     };
 
@@ -196,6 +197,15 @@ public partial class Player
         if (inp.Jump) g.MasterJump();
         if (Math.Abs(inp.Move.X) > 0.2f) Facing = Math.Sign(inp.Move.X);
         return g.Velocity * Tune.Difficulty.EnemyMoveScale;
+    }
+
+    private float _suffT;
+    /// <summary>A fish out of water: drowning in the air. <paramref name="share"/> of the hero's health a second (taken every half second).</summary>
+    public void Suffocate(float share, float dt)
+    {
+        if (Dead || (_suffT -= dt) > 0) return;
+        _suffT = 0.5f;
+        TakeRawDamage(Stats.MaxHp * share * 0.5f, "drown");
     }
 
     /// <summary>Whether this hero is a creature this very frame (the creature stands in the world).</summary>
@@ -334,6 +344,7 @@ public partial class Player
         switch (f.Special)
         {
             case FormSpecial.Slam:
+            case FormSpecial.Splash:
             case FormSpecial.Quake:
                 Burst(f.SpecRange, f.SpecDmg * spec, 260f, stun: f.Special == FormSpecial.Quake ? 0.8f : 0.4f);
                 G.Fx.Shockwave(GlobalPosition + new Vector2(0, 12), f.SpecRange * 0.5f, new Color(1, 1, 1, 0.5f), 0.35f);

@@ -668,6 +668,7 @@ RELICS = {
     "form_hornet": ("#e8b830", [one("dagger", "#e8b830", "#6a4a10", 0.85, 0, 0, 160), one("bolt", "#ffe08a", "#ffffff", 0.32, 0.22, -0.2)]),
     "form_sporeling": ("#a870e0", [one("leaf", "#a870e0", "#d8b8ff", 0.9), one("swirl", "#80ffa0", "#ffffff", 0.4, 0.2, 0.2)]),
     "form_crab": ("#e0603a", [one("hammer", "#e0603a", "#8a2a10", 0.85, 0, 0, 70), one("burst", "#ffd0a0", "#ffffff", 0.34, -0.2, 0.2)]),
+    "form_fish": ("#38b0d0", [one("drop", "#38b0d0", "#c8f4ff", 0.9, 0, 0, 90), one("bolt", "#ffe08a", "#ffffff", 0.3, 0.22, -0.2)]),
     "spec_goblin": ("#ffd24a", [one("hammer", "#aab6c8", "#8a5a30", 0.95, 0, 0, -28), one("burst", "#fff3b0", "#ffd23a", 0.5, 0.18, 0.2)]),
     "spec_skeleton": ("#e8e0cc", [one("swirl", "#e8e0cc", "#ffffff", 0.95), one("sword", "#cfd6e0", "#8a8470", 0.5, 0, 0, 60)]),
     "spec_rat": ("#ffb070", [one("burst", "#ffb070", "#ffe0b0", 0.95), one("dagger", "#d8d0c8", "#8a7058", 0.4, 0, 0, 80)]),
@@ -679,6 +680,7 @@ RELICS = {
     "spec_golem": ("#c8a06a", [one("mountain", "#9a7a4a", "#2a1a10", 0.9), one("burst", "#ffe0a0", "#ffffff", 0.55, 0, 0.22)]),
     "spec_hornet": ("#e8b830", [one("dagger", "#e8b830", "#6a4a10", 0.9, 0, 0, 200), one("chevrons", "#ffe08a", "#ffffff", 0.4, 0.2, -0.24, 180)]),
     "spec_sporeling": ("#80ffa0", [one("swirl", "#80ffa0", "#e8ffe0", 0.9), one("leaf", "#a870e0", "#d8b8ff", 0.45)]),
+    "spec_fish": ("#38b0d0", [one("burst", "#38b0d0", "#c8f4ff", 0.95), one("drop", "#ffffff", "#c8f4ff", 0.4, 0, 0.04)]),
     "spec_crab": ("#e0603a", [one("burst", "#e0603a", "#ffd0a0", 0.9), one("cross", "#ffffff", "#ffd0a0", 0.34)]),
 }
 

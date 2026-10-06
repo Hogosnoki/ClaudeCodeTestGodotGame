@@ -37,6 +37,8 @@ public partial class Main
         {
             case 0: // become the creature
             {
+                // (a fish on dry land can only flop: see --scenario=shifterbehaviors)
+                if (f.Key == "fish") { _sfForm++; _scT = 0; break; }
                 foreach (var e in G.Enemies.ToArray()) e.QueueFree();
                 if (p.Shifted) p.LeaveForm(false);
                 p.GlobalPosition = _sfHome; p.Velocity = Vector2.Zero;

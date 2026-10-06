@@ -17,6 +17,7 @@ public partial class Bat : Enemy
         _wob = G.Range(0, 10);
         MotionMode = MotionModeEnum.Floating;
         UseSprite("bat");
+        if (Master != null) { _state = 1; ContactActive = true; } // (driven: on the wing from the start)
     }
 
     public Bat() { MaxHp = Tune.Bat.Hp; BodyRadius = 7; ContactDamage = Tune.Bat.Contact; XpValue = Tune.Bat.Xp; }
@@ -38,6 +39,8 @@ public partial class Bat : Enemy
             case 0:
                 Velocity = Vector2.Zero;
                 ContactActive = false;
+                // (driven: it hangs there until the controller asks for something, see MasterIntent)
+                if (Master != null) return;
                 if (DistP < Tune.Bat.WakeRange && SeesP || HurtFlash > 0) { _state = 1; _stateT = 0; G.Sfx.Play("bat", GlobalPosition, -4); ContactActive = true; Anim.Once("wake", 3); }
                 return;
             default:
@@ -60,12 +63,32 @@ public partial class Bat : Enemy
                 }
                 if (_flare > 0) _flare -= dt;
                 Fly(dt);
+                if (Master != null) CatchCeiling(dt);
                 break;
         }
         if (GlobalPosition.Y > cave.WaterY - 14) Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y, -80));
         if (Velocity.X != 0) Face = Math.Sign(Velocity.X);
     }
 
+    // ---- driven: it has the air to itself and can't land, except to hang from a ceiling as a roosting bat does
+    private float _idleT;
+    /// <summary>Idle (or pressing up) with a ceiling right overhead: it takes hold and hangs there, as it roosts.</summary>
+    private void CatchCeiling(float dt)
+    {
+        bool idle = !_cruise && _flare <= 0 && !_swoopNext && _swoopT <= 0 && !MasterPushed;
+        bool up = MasterAim.Y < -0.6f && Math.Abs(MasterAim.X) < 0.5f && _flare <= 0 && !_swoopNext && _swoopT <= 0;
+        _idleT = idle ? _idleT + dt : 0f;
+        if (!(up || _idleT > 0.4f)) return;
+        if (!G.Cave.FindCeiling(GlobalPosition + new Vector2(0, -2), 20f, out var ce)) return;
+        _state = 0; // (roosting)
+        GlobalPosition = ce + new Vector2(0, 10);
+        Velocity = Vector2.Zero;
+        ContactActive = false;
+        _idleT = 0;
+    }
+
+    /// <summary>Hanging from a ceiling.</summary>
+    public bool Roosting => _state == 0;
     private float _flare;
     private const float FlareTime = 0.32f;
     private float _swoopT, _swoopCd;
@@ -131,7 +154,15 @@ public partial class Bat : Enemy
     protected override int MasterIntent(bool moving, bool attack)
     {
         _cruise = false;
-        if (_state == 0) _state = 1; // (on the wing from the start)
+        if (_state == 0)
+        {
+            // (hanging from the ceiling: it lets go for any push but straight up, or an attack, or a blow)
+            bool hold = !attack && HurtFlash <= 0 && (!moving || (MasterAim.Y < -0.6f && Math.Abs(MasterAim.X) < 0.5f));
+            if (hold) return Hover;
+            _state = 1; _stateT = 0; ContactActive = true;
+            G.Sfx.Play("bat", GlobalPosition, -4);
+            Anim.Once("wake", 3);
+        }
         if (_swoopT > 0) return Swoop;
         if (attack && _swoopCd <= 0 && !_swoopNext && _flare <= 0)
         {
@@ -529,6 +560,9 @@ public partial class Spider : Enemy
         _stateT += dt; _pounceCd -= dt; _pounceLeft -= dt;
         var cave = G.Cave;
         ManualMove = _state != 4;
+        // (driven: it walks the walls and the ceiling, drops on its web and climbs back up it)
+        if (Master != null && _state is 1 or 2 or 3) { DrivenWeb(dt); return; }
+        if (Master != null && _state == 5) { DrivenCling(dt); return; }
         switch (_state)
         {
             case 0:
@@ -589,6 +623,16 @@ public partial class Spider : Enemy
                     G.Sfx.Play("spider", GlobalPosition, 0, 0.1f, 0.7f);
                 }
                 if (InWater) { Swim(dt); break; }
+                // driven: pushing into a wall, or up into the ceiling, it takes hold of it
+                if (Master != null && _pounceWind < 0 && MasterPushed)
+                {
+                    if (IsOnWall())
+                    {
+                        var wn = GetWallNormal();
+                        if (Math.Abs(wn.Y) < 0.6f && (MasterAim).Dot(wn) < -0.5f) { Attach(wn); break; }
+                    }
+                    if (IsOnCeiling() && MasterAim.Y < -0.5f) { Attach(new Vector2(0, 1)); break; }
+                }
                 if (_pounceWind >= 0)
                 {
                     // crouched, fangs spread: then the spring
@@ -604,15 +648,17 @@ public partial class Spider : Enemy
                 }
                 else if (IsOnFloor())
                 {
-                    int dirP = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+                    // (driven: pushed straight up or down it stands, rather than running the way it faces)
+                    int dirP = Master != null ? (Math.Abs(ToP.X) > 24f ? Math.Sign(ToP.X) : 0) : Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
                     int run = Intent == Away ? -dirP : Intent == Wait ? 0 : dirP;
                     if (run != 0) Face = run;
                     v.X = Mathf.MoveToward(v.X, run * Tune.Spider.GroundSpeed, 900 * dt);
                     if (Intent == Strike && _pounceCd <= 0)
                     {
                         _pounceCd = Tune.Spider.PounceCooldown;
-                        _pounceWind = PounceWind; _pounceDir = dirP;
-                        Face = dirP;
+                        int pd = dirP != 0 ? dirP : (int)Face;
+                        _pounceWind = PounceWind; _pounceDir = pd;
+                        Face = pd;
                         Anim.Once("pounce_windup", 3, 8f / (PounceWind * 24f));
                         G.Sfx.Play("spider", GlobalPosition, -10, 0.1f, 1.5f);
                         Consume();
@@ -661,20 +707,189 @@ public partial class Spider : Enemy
     protected override string[] Actions => Moves;
     protected override void PuppetAnimate() => Anim.FlipV = _state == 0;
 
+    // ================================================================= driven: walls, ceiling and web
+    // (state 5: clinging to a surface, whose outward normal is _n; the web states 1-3 are the thread's own)
+    private Vector2 _n = Vector2.Up, _anchor, _anchorN = new(0, 1), _pounceAim;
+    private bool _dropStrike;
+    private float ClingR => BodyRadius * Size * 0.9f + 0.5f;
+    private bool Solid(Vector2 q) => G.Cave.IsSolid(q);
+
+    private void Attach(Vector2 n)
+    {
+        _n = n.Normalized(); _state = 5; _stateT = 0; _pounceWind = -1; _pounceLeft = 0;
+        ManualMove = true; Velocity = Vector2.Zero;
+        G.Sfx.Play("spider", GlobalPosition, -10, 0.1f, 1.4f);
+    }
+
+    /// <summary>Lets go of whatever it held: it is on its own feet (and falling, at <paramref name="v"/>).</summary>
+    private void Release(Vector2 v)
+    {
+        _state = 4; _stateT = 0; ManualMove = false; MotionMode = MotionModeEnum.Grounded;
+        Velocity = v; _dropStrike = false;
+    }
+
+    private void StartWeb(bool strike)
+    {
+        _anchor = GlobalPosition - _n * ClingR;
+        _anchorN = _n;
+        _anchorY = _anchor.Y;
+        _state = strike ? 1 : 2; _stateT = 0; _dropStrike = strike;
+        G.Sfx.Play("spider", GlobalPosition, -4);
+    }
+
+    private void DrivenCling(float dt)
+    {
+        if (InWater) { Release(Vector2.Zero); return; }
+        var n = _n;
+        var aim = MasterAim;
+        bool pushed = MasterPushed;
+        if (_pounceWind >= 0)
+        {
+            // crouched against the rock; then it springs off it, the way it was told
+            Velocity = Vector2.Zero;
+            if ((_pounceWind -= dt) < 0)
+            {
+                var d = _pounceAim.LengthSquared() > 0.01f ? _pounceAim.Normalized() : n;
+                if ((d).Dot(n) < 0.1f) d = (d + n * 0.6f).Normalized(); // (not into the rock)
+                Release(d * 300f);
+                _pounceLeft = 0.7f;
+                Anim.Once("pounce", 3);
+                G.Sfx.Play("spider", GlobalPosition, -4);
+            }
+            return;
+        }
+        // the jump button: it kicks off the surface
+        if (JumpWanted)
+        {
+            ClearJump();
+            var d = (n + (pushed ? aim.Normalized() * 0.6f : Vector2.Zero)).Normalized();
+            Release(d * JumpSpeed);
+            G.Sfx.Play("jump", GlobalPosition, -8, 0.1f, 0.8f);
+            return;
+        }
+        // pushing straight away from what it holds: it steps off on its silk
+        if (pushed && (aim.Normalized()).Dot(n) > 0.7f) { StartWeb(false); return; }
+        // the attack: on the ceiling, a drop on its thread; on a wall, a pounce (after its crouch)
+        if (Intent == Strike && CanAct(Strike))
+        {
+            _pounceCd = Tune.Spider.PounceCooldown;
+            if (n.Y > 0.5f) { StartWeb(true); G.Sfx.Play("spider", GlobalPosition, -4); Consume(); return; }
+            _pounceWind = PounceWind;
+            _pounceAim = MasterDir;
+            Anim.Once("pounce_windup", 3, 8f / (PounceWind * 24f));
+            G.Sfx.Play("spider", GlobalPosition, -10, 0.1f, 1.5f);
+            Consume();
+            return;
+        }
+        // along the surface
+        var t1 = new Vector2(-n.Y, n.X);
+        float m = pushed ? (aim).Dot(t1) : 0f;
+        var before = GlobalPosition;
+        if (Math.Abs(m) > 0.3f)
+        {
+            var md = t1 * Math.Sign(m);
+            Face = n.Y > 0.5f ? Math.Sign(md.X) : Math.Sign(m);
+            float left = Tune.Spider.CrawlSpeed * MoveScale * (Elite ? 1.15f : 1f) * dt;
+            while (left > 0.001f && _state == 5)
+            {
+                float step = Math.Min(left, 2f);
+                left -= step;
+                if (!ClingStep(md, step)) break;
+            }
+        }
+        if (_state == 5 && _n.Y < -0.9f) Release(Vector2.Zero); // (back on a floor: on its feet)
+        Velocity = (GlobalPosition - before) / Math.Max(dt, 1e-4f);
+    }
+
+    /// <summary>One small step along the surface it holds: over a slope, round an edge (outward) or up into a corner (inward). False when it turned a corner or has nothing to step on.</summary>
+    private bool ClingStep(Vector2 md, float len)
+    {
+        float r = ClingR;
+        var n = _n;
+        var q = GlobalPosition + md * len;
+        if (Solid(q) || Solid(q + md * (r + 1f)))
+        {
+            // a slope rising ahead: climb over it
+            bool over = false;
+            for (int k = 1; k <= 4; k++)
+            {
+                var up = q + n * k;
+                if (!Solid(up) && !Solid(up + md * (r + 1f))) { q = up; over = true; break; }
+            }
+            if (!over) { _n = -md; return false; } // a wall ahead: up it
+        }
+        if (!Solid(q - n * (r + 2.5f)))
+        {
+            // a slope falling away: follow it down
+            bool found = false;
+            for (int k = 1; k <= 5; k++)
+                if (Solid(q - n * (r + 2.5f + k))) { q -= n * k; found = true; break; }
+            if (!found)
+            {
+                // the edge: round it onto the face beyond
+                var w = q - n * (r + 2.5f) + md * (r - 1f);
+                if (!Solid(w) && Solid(w - md * (r + 2.5f))) { GlobalPosition = w; _n = md; }
+                return false;
+            }
+        }
+        else
+        {
+            for (int k = 0; k < 3 && Solid(q - n * (r - 1.5f)); k++) q += n;
+        }
+        GlobalPosition = q;
+        return true;
+    }
+
+    /// <summary>On its thread: down (a drop; with the attack, a strike), up (climbs back, and takes hold again where it left), or hangs. The jump button cuts it.</summary>
+    private void DrivenWeb(float dt)
+    {
+        if (InWater || JumpWanted)
+        {
+            ClearJump();
+            Release(Vector2.Zero);
+            return;
+        }
+        var aim = MasterAim;
+        bool down = MasterPushed && aim.Y > 0.5f, up = MasterPushed && aim.Y < -0.5f;
+        var p = GlobalPosition;
+        if (down)
+        {
+            _dropStrike = Intent == Strike;
+            _state = 1;
+            var np = p + new Vector2(0, Tune.Spider.DropSpeed * MoveScale * dt);
+            bool floor = Solid(np + new Vector2(0, BodyRadius * Size + 2)) || G.Cave.IsWater(np);
+            if (floor) { _state = 2; _dropStrike = false; } else GlobalPosition = np;
+        }
+        else if (up)
+        {
+            _state = 3; _dropStrike = false;
+            var np = p + new Vector2(0, -120 * MoveScale * dt);
+            var home = _anchor + _anchorN * ClingR;
+            if (np.Y <= home.Y + 1f) { GlobalPosition = home; Attach(_anchorN); return; }
+            GlobalPosition = np;
+        }
+        else { _state = 2; _dropStrike = false; }
+        Velocity = Vector2.Zero;
+    }
+
+    /// <summary>Test aid: takes hold of a surface (its outward normal).</summary>
+    public void TestCling(Vector2 n) => Attach(n);
+    public Vector2 TestN => _n;
+
     /// <summary>Test aid: puts the spider in a state (0 ceiling ... 4 ground).</summary>
     public void TestSetState(int s) => _state = s;
 
     public override void StrikeStatus(Player p, float dmg) => MaybePoison(p, dmg);
 
     protected override bool Busy => _pounceWind >= 0 || _state is 1 or 2 or 3 || (_state == 4 && !IsOnFloor() && !InWater);
-    protected override float AttackReady => _state == 4 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
+    protected override float AttackReady => _state is 4 or 5 ? 1 - Math.Clamp(_pounceCd / Tune.Spider.PounceCooldown, 0, 1) : 1;
 
-    protected override bool CanAct(int a) => a != Strike || _state != 4 || _pounceCd <= 0;
+    protected override bool CanAct(int a) => a != Strike || _state is not (4 or 5) || _pounceCd <= 0;
     protected override bool IsAttack(int a) => a == Strike;
     protected override void OnInterrupted() { if (_state is 1 or 2) { _state = 3; _stateT = 0; } _pounceLeft = 0; _pounceWind = -1; }
-    protected override bool OwnJump => true; // (its leap is its pounce)
+    protected override float JumpSpeed => 330f;
     protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Strike) ? Strike : moving ? Toward : Wait;
-    protected override bool Striking => _state == 1 || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
+    protected override bool Striking => (_state == 1 && (Master == null || _dropStrike)) || (_pounceLeft > 0 && !(IsOnFloor() && _pounceLeft < 0.55f));
 
     protected override int Teacher()
     {
@@ -687,7 +902,7 @@ public partial class Spider : Enemy
 
     protected override void OnHurt()
     {
-        if ((_state == 1 || _state == 2 || _state == 3) && G.Chance(0.45f))
+        if ((_state == 1 || _state == 2 || _state == 3 || _state == 5) && G.Chance(0.45f))
         {
             _state = 4; ManualMove = false; Velocity = Vector2.Zero; MotionMode = MotionModeEnum.Grounded;
         }
@@ -699,10 +914,13 @@ public partial class Spider : Enemy
     {
         bool moving = Math.Abs(GlobalPosition.X - _lastX) > 0.2f || Math.Abs(Velocity.X) > 10;
         _lastX = GlobalPosition.X;
-        Anim.FlipV = _state == 0;
+        Anim.FlipV = _state == 0 || (_state == 5 && _n.Y > 0.5f);
+        // (on a wall it lies along it, feet to the rock)
+        float lean = _state == 5 && Math.Abs(_n.Y) < 0.5f ? _n.Angle() + Mathf.Pi / 2f : 0f;
+        Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, lean, 0.35f);
         Anim.Loop(_state switch
         {
-            0 => moving ? "crawl" : "idle",
+            0 or 5 => moving ? "crawl" : "idle",
             1 => "drop",
             2 or 3 => "hang",
             // (in water, "crawl" is its swimming stroke: see SpiderDesign)

@@ -1106,8 +1106,8 @@ your head misses you. Caged heroes are chosen by what the party still has locked
 
 A feeble staff fighter whose strength is borrowed. The ability button (Shift) copies the nearest creature
 in range (`Tune.Shifter.CopyRange`): the hero's body becomes that creature's own 3D model, outlined in white.
-Twelve forms (`Core/ShiftForms.cs`): goblin, skeleton, rat, bat, spider, frog, scorpion, bear, golem,
-hornet, sporeling, crab.
+Thirteen forms (`Core/ShiftForms.cs`): goblin, skeleton, rat, bat, spider, frog, scorpion, bear, golem,
+hornet, sporeling, crab, fish.
 
 The hero **is** that creature, not an imitation of it. Shifting spawns a real instance of the enemy class
 (`Player.Shifter.cs`, `MakeCreature`) with `Enemy.Master` set to the player (`Enemies/Enemy.Driven.cs`); the
@@ -1121,10 +1121,25 @@ these, so they behave as before. Blows land on creatures and breakables through 
 (`StrikeFoes`), never on the hero or allies; damage is the creature's own base number x the hero's damage
 multipliers. The bear's second button is its real Charge; the other forms keep a Shape Shifter trick on it (Club
 Smash, Bone Spin, Gnaw Frenzy, Screech, Venom Spit, Pounce, Tail Lash, Quake, Dive Sting, Spore Cloud, Vice
-Grip), each with its own icon (`tools/icons/make_icons.py`). Health stays the Shape Shifter's own. Shift again
+Grip, Splash), each with its own icon (`tools/icons/make_icons.py`). Each form keeps what makes the creature itself:
+- **Fish**: swims where it is pushed (it cannot drown in water), the jump button leaps it out of the water, on land it
+  flops about goofily instead of walking, and it drowns in the air (`Tune.Shifter.FishDrownPerSec` of the hero's health a
+  second) until it flops back in.
+- **Spider** (`Enemy`'s driven mode in `LandEnemies.cs`): pushed into a wall, or up into a ceiling, it takes hold and walks
+  along it (the model lies along the wall); pushed straight away from what it holds, it steps off on its web and drops
+  (the attack makes the drop a strike), up climbs the thread back and takes hold again where it left, the jump button cuts
+  the thread, and on a ceiling the attack is its drop, on a wall a pounce.
+- **Bat**: has the air to itself and can't land; idle (or pushed up) at a ceiling it hangs there as a roosting bat does,
+  and lets go for any other push or the attack. The hornet likewise flies free, and never hangs.
+- To the cave's creatures a shifted hero seems **twice as far** away (`Tune.Shifter.NoticeFactor`), and to creatures of its
+  own kind far further (`KinNoticeFactor`; among several heroes `KinChoosingFactor` puts the kin last of all, though still a
+  valid target when alone).
+
+Health stays the Shape Shifter's own. Shift again
 drops the form, then Shift recharges. `--scenario=shifter --hero=shifter` checks the staff and the shift,
-`--scenario=shifterforms --hero=shifter` checks that each of the twelve walks with its own gait and winds up
-before its blow lands (add `--shots=DIR` under xvfb for pictures).
+`--scenario=shifterforms --hero=shifter` checks that each walks with its own gait and winds up before its blow
+lands, and `--scenario=shifterbehaviors --hero=shifter` the fish, spider, bat and noticing above (add `--shots=DIR` under
+xvfb for pictures; it looks for a clean wall and ceiling, so try another `--seed` if it notes none).
 
 ## Support abilities (the support button, V)
 

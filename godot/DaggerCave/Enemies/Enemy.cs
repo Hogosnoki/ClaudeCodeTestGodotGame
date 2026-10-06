@@ -153,7 +153,7 @@ public abstract partial class Enemy : CharacterBody2D
             if (_target != null && IsInstanceValid(_target) && _target.IsInsideTree() && !_target.Dead && _targetT > 0) return _target;
             _targetT = 0.5f;
             var heroes = G.Players.Where(h => h != null && IsInstanceValid(h) && !h.Dead).ToList();
-            int pick = ChooseHero(GlobalPosition, heroes.Select(h => (h.GlobalPosition, h.EffectiveThreat, h.Hidden)).ToList());
+            int pick = ChooseHero(GlobalPosition, heroes.Select(h => (h.GlobalPosition, h.EffectiveThreat * NoticeFactor(h, true), h.Hidden)).ToList());
             _target = pick >= 0 ? heroes[pick] : G.Player;
             return _target;
         }
@@ -179,7 +179,23 @@ public abstract partial class Enemy : CharacterBody2D
 
     // (a driven creature seeks the point its master's controller points to, in place of the hero)
     protected Vector2 ToP => Master != null ? MasterPoint - GlobalPosition : P.GlobalPosition - GlobalPosition;
-    protected float DistP => ToP.Length();
+    /// <summary>
+    /// How far away it takes a hero to be: the real distance, but a Shape Shifter in a form seems twice as far (it looks like
+    /// one of the cave's own), and to its own kind it seems far further still (the least interesting thing in the cave, though
+    /// still something to fight when it is right there).
+    /// </summary>
+    protected float DistP => ToP.Length() * (Master != null ? 1f : NoticeFactor(P, false));
+    /// <summary>How far a hero seems from here, as a multiple of the real distance (test aid).</summary>
+    public float NoticeOf(Player h) => NoticeFactor(h, false);
+    /// <summary>The real distance to the hero it is after.</summary>
+    protected float TrueDistP => ToP.Length();
+    /// <summary>The seeming of a hero's distance (x the real one): 1 for anyone but a Shape Shifter in a form. <paramref name="choosing"/>: picking among several heroes (kin then come last of all).</summary>
+    private float NoticeFactor(Player h, bool choosing)
+    {
+        if (h == null || !h.Shifted || Master != null) return 1f;
+        if (ShiftForm.For(this) == h.Form) return choosing ? Tune.Shifter.KinChoosingFactor : Tune.Shifter.KinNoticeFactor;
+        return Tune.Shifter.NoticeFactor;
+    }
     protected bool SeesP => Master != null || G.Cave.LineClear(GlobalPosition, P.GlobalPosition);
     protected bool InWater => G.Cave.IsWater(GlobalPosition);
 
@@ -314,7 +330,7 @@ public abstract partial class Enemy : CharacterBody2D
         _targetT -= (float)delta;
         var p = P;
         if (p == null) return;
-        float dist = DistP;
+        float dist = TrueDistP;
         if (Hunting && !IsBoss && dist > 1700) { QueueFree(); return; } // wandered off-stage
         if (!IsBoss && dist > 1500) return; // asleep
         if (!Awake && dist < 420) Awake = true;

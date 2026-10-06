@@ -55,15 +55,20 @@ public partial class Fish : Enemy
                 else if (Intent == Leap && CanAct(Leap))
                 {
                     // Shore ambush: leap at a player standing near the water.
-                    _leapCd = G.Range(3f, 5f);
+                    // (driven: it leaps up and out the way it is pushed)
+                    _leapCd = Master != null ? 1.2f : G.Range(3f, 5f);
                     float t = 0.75f;
-                    var target = P.GlobalPosition;
+                    var target = Master != null ? GlobalPosition + new Vector2(MasterAim.X * 150f, -110f + Math.Min(MasterAim.Y, 0f) * 60f) : P.GlobalPosition;
                     // aimed so it lands on you once MoveScale shrinks the arc
                     v = new Vector2((target.X - GlobalPosition.X) / MoveScale / t, (target.Y - GlobalPosition.Y) / MoveScale / t - 0.5f * Grav * t);
                     v.Y = Math.Max(v.Y, -720);
                     G.Sfx.Play("splash", GlobalPosition, -8, 0.2f, 1.3f);
                     Consume();
                 }
+                else if (Master != null && Intent == Approach)
+                    v = v.MoveToward(ToP.Normalized() * DrivenSwimSpeed, 500 * dt); // (driven: it swims where it is pushed)
+                else if (Master != null && Intent == Drift)
+                    v = v.MoveToward(new Vector2(0, MathF.Sin(T * 3) * 12), 300 * dt);
                 else if (Intent == Approach && playerIn)
                     v = v.MoveToward(ToP.Normalized() * 30 + new Vector2(0, MathF.Sin(T * 5) * 20), 400 * dt);
                 else if (Intent == Flee)
@@ -71,6 +76,7 @@ public partial class Fish : Enemy
                 else
                 {
                     _wanderA += G.Range(-2, 2) * dt;
+                    if (Master != null) _home = GlobalPosition;
                     var wander = Vector2.Right.Rotated(_wanderA) * 50;
                     if (GlobalPosition.DistanceTo(_home) > 120) wander = (_home - GlobalPosition).Normalized() * 60;
                     v = v.MoveToward(wander, 200 * dt);
@@ -89,14 +95,16 @@ public partial class Fish : Enemy
                 break;
             default:
             {
-                Hp -= 1.2f * dt; // suffocating
-                if (Hp <= 0) { Die(); return; }
+                // suffocating (a Shape Shifter fish drowns the hero in the time it would take the fish)
+                if (Master != null) Master.Suffocate(Tune.Shifter.FishDrownPerSec, dt);
+                else { Hp -= 1.2f * dt; if (Hp <= 0) { Die(); return; } }
                 v.X = Mathf.MoveToward(v.X, 0, 300 * dt);
                 if (IsOnFloor() && _flopCd <= 0)
                 {
                     _flopCd = G.Range(0.35f, 0.6f);
                     // Flop toward the player if close, otherwise toward the water.
-                    float dir = DistP < 160 ? Math.Sign(ToP.X) : (G.Chance(0.5f) ? 1 : -1);
+                    // (driven: it flops where it is pushed, and any which way when it is not)
+                    float dir = Master != null ? (Math.Abs(MasterAim.X) > 0.3f ? Math.Sign(MasterAim.X) : (G.Chance(0.5f) ? 1 : -1)) : DistP < 160 ? Math.Sign(ToP.X) : (G.Chance(0.5f) ? 1 : -1);
                     v = new Vector2(dir * G.Range(60, 130), -G.Range(140, 230));
                     Face = dir;
                     G.Sfx.Play("flop", GlobalPosition, -10);
@@ -116,13 +124,23 @@ public partial class Fish : Enemy
     protected override bool Busy => _state != 0 || _dartT > 0;
     protected override bool Striking => _dartT > 0 || _state == 1;
     protected override bool IsAttack(int a) => a is Dart or Leap;
+    // (driven: the attack button is a dart, the jump button a leap out of the water; flopping on land, it has no say)
+    protected override bool OwnJump => true;
+    private const float DrivenSwimSpeed = 90f;
+    protected override int MasterIntent(bool moving, bool attack)
+    {
+        if (_state != 0) return Drift;
+        if (JumpWanted && CanAct(Leap)) return Leap;
+        if (attack && CanAct(Dart)) return Dart;
+        return moving ? Approach : Drift;
+    }
     protected override void OnInterrupted() => _dartT = 0;
     protected override float AttackReady => _dartCd <= 0 ? 1 : 0;
 
     protected override bool CanAct(int a) => a switch
     {
         Dart => _dartCd <= 0,
-        Leap => _leapCd <= 0 && GlobalPosition.Y < G.Cave.WaterY + 90 && ToP.Y < 0,
+        Leap => _leapCd <= 0 && GlobalPosition.Y < G.Cave.WaterY + 90 && (Master != null || ToP.Y < 0),
         _ => true,
     };
 

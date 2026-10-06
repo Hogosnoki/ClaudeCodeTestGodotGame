@@ -44,6 +44,9 @@ public abstract partial class Enemy
         }
     }
 
+    /// <summary>The controller is pushed some way.</summary>
+    protected bool MasterPushed => MasterAim.LengthSquared() > 0.0625f;
+
     /// <summary>The attack button: it will attack the moment it can (asked again each frame while held). <paramref name="aim"/>: the way to strike (zero: the way it faces).</summary>
     public void MasterAttack(Vector2 aim)
     {
@@ -77,6 +80,8 @@ public abstract partial class Enemy
     protected bool SpecialWanted => _specialWantT > 0;
     /// <summary>The jump button is down (a creature with a jump of its own, such as a frog's hop, answers it itself).</summary>
     protected bool JumpWanted => _jumpWantT > 0;
+    /// <summary>The jump asked for is taken.</summary>
+    protected void ClearJump() => _jumpWantT = 0;
     /// <summary>How fast this kind of creature leaves the ground in a jump (px/s, before the creatures' move scale).</summary>
     protected virtual float JumpSpeed => 360f;
     /// <summary>The creature answers the jump button itself (its own kind of leap) instead of the plain spring.</summary>

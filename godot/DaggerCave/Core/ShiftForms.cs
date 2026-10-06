@@ -5,7 +5,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>What a Shape Shifter's special attack does.</summary>
-public enum FormSpecial { Slam, Spin, Frenzy, Screech, Spit, Leap, Lash, Charge, Quake, Dive, Spores, Grip }
+public enum FormSpecial { Slam, Spin, Frenzy, Screech, Spit, Leap, Lash, Charge, Quake, Dive, Spores, Grip, Splash }
 
 /// <summary>
 /// One creature the Shape Shifter can become: its look (the creature's own 3D model), how it moves,
@@ -57,6 +57,8 @@ public sealed class ShiftForm
             Special = FormSpecial.Spores, SpecialName = "Spore Cloud", SpecDmg = 1.0f, SpecRange = 86f, SpecCd = 6f },
         new() { Id = 12, Key = "crab", Name = "Crab", Set = "crab_foe", Size = 1.6f, Move = 0.9f, Jump = 0.8f, Armor = 0.3f, Reach = 46f, Dmg = 1.3f, Cooldown = 0.85f, Wind = 0.25f, Strike = 0.2f, WindClip = "pinch_windup", StrikeClip = "pinch",
             Special = FormSpecial.Grip, SpecialName = "Vice Grip", SpecDmg = 2.0f, SpecRange = 54f, SpecCd = 6f },
+        new() { Id = 13, Key = "fish", Name = "Fish", Set = "fish", Size = 1.5f, Move = 1f, Jump = 1f, Reach = 28f, Dmg = 0.5f, Cooldown = 0.8f, Wind = 0.1f, Strike = 0.25f, WindClip = "swim", StrikeClip = "dart", Knock = 60f,
+            Special = FormSpecial.Splash, SpecialName = "Splash", SpecDmg = 1.4f, SpecRange = 64f, SpecCd = 5f },
     };
 
     public static ShiftForm ById(int id) { foreach (var f in All) if (f.Id == id) return f; return null; }
@@ -68,7 +70,7 @@ public sealed class ShiftForm
         string key = e switch
         {
             Goblin => "goblin", Skeleton => "skeleton", Rat => "rat", Bat => "bat", Spider => "spider", Frog => "frog",
-            Scorpion => "scorpion", Bear => "bear", Golem => "golem", Hornet => "hornet", Sporeling => "sporeling", Crab => "crab",
+            Scorpion => "scorpion", Bear => "bear", Golem => "golem", Hornet => "hornet", Sporeling => "sporeling", Crab => "crab", Fish => "fish",
             _ => null,
         };
         if (key == null) return null;

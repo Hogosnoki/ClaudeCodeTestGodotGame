@@ -50,9 +50,9 @@ public static class Icons
             "SHIFT" => "shift",
             "SHOUT" => "sup_shout", "TAUNT" => "sup_taunt", "TAP" => "sup_tap", "STALAG" => "sup_stalag", "EXPOSE" => "sup_expose", "MARK" => "sup_mark", "HOWL" => "sup_howl",
             "GOBLIN" => "form_goblin", "SKELETON" => "form_skeleton", "RAT" => "form_rat", "BAT" => "form_bat", "SPIDER" => "form_spider", "FROG" => "form_frog",
-            "SCORPION" => "form_scorpion", "BEAR" => "form_bear", "GOLEM" => "form_golem", "HORNET" => "form_hornet", "SPORELING" => "form_sporeling", "CRAB" => "form_crab",
+            "SCORPION" => "form_scorpion", "BEAR" => "form_bear", "GOLEM" => "form_golem", "HORNET" => "form_hornet", "SPORELING" => "form_sporeling", "CRAB" => "form_crab", "FISH" => "form_fish",
             "CLUB" => "spec_goblin", "BONE" => "spec_skeleton", "GNAW" => "spec_rat", "SCREECH" => "spec_bat", "VENOM" => "spec_spider", "POUNCE" => "spec_frog",
-            "TAIL" => "spec_scorpion", "MAUL" => "spec_bear", "QUAKE" => "spec_golem", "DIVE" => "spec_hornet", "SPORE" => "spec_sporeling", "VICE" => "spec_crab",
+            "TAIL" => "spec_scorpion", "MAUL" => "spec_bear", "QUAKE" => "spec_golem", "DIVE" => "spec_hornet", "SPORE" => "spec_sporeling", "VICE" => "spec_crab", "SPLASH" => "spec_fish",
             _ => null,
         };
     }
