@@ -18,7 +18,8 @@ public enum DamageKind { Physical, Fire, Frost, Water, Nature, /// <summary>Alre
 public enum Element { None, Armored, Earth, Frost, Fire, Nature }
 
 /// <summary>
-/// Weaknesses and resistances. Armoured and earthen creatures take 40% less from physical blows;
+/// Weaknesses and resistances. Armoured and earthen creatures take 40% less from physical blows (an armoured
+/// one only until its armour falls off, after a tenth of its health is gone);
 /// frost creatures take more from fire and less from frost and water; fire creatures more from
 /// water and less from fire and nature; nature creatures more from fire and less from water and
 /// nature; earth creatures more from water and nature and less from physical.
@@ -827,16 +828,41 @@ public abstract partial class Enemy : CharacterBody2D
     public float Hurt(float dmg, Vector2 knock, Vector2 hitPos, DamageKind kind = DamageKind.Physical)
     {
         if (Dead || !CanBeHit) return 0;
-        // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is)
-        _affinity = kind == DamageKind.Raw ? 1f : Affinity.Mult(Element, kind);
+        // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is);
+        // armour that has come off no longer turns a blow
+        _affinity = kind == DamageKind.Raw ? 1f : Element == Element.Armored && ArmorBroken ? 1f : Affinity.Mult(Element, kind);
         dmg *= _affinity;
         if (kind != DamageKind.Raw) dmg *= RelicBlowMult();
         if (Puppet) return PuppetHurt(dmg, knock, hitPos);
         // (online, the kill goes to whoever struck last: another game's hero, or this one's)
         LastAttacker = NetSync.Striker;
         NetSync.Scope++;
-        try { return TakeHit(dmg, knock, hitPos); }
+        try
+        {
+            float dealt = TakeHit(dmg, knock, hitPos);
+            // armour falls off once blows have taken a tenth of the creature's health
+            if (Element == Element.Armored && !_armorBroken && dealt > 0 && !Dead)
+            {
+                _armorTaken += dealt;
+                if (_armorTaken >= MaxHp * Tune.Combat.ArmorBreakShare) BreakArmor();
+            }
+            return dealt;
+        }
         finally { NetSync.Scope--; }
+    }
+
+    private float _armorTaken;
+    private bool _armorBroken;
+    /// <summary>An armoured creature whose armour has fallen off (a copy goes by what the host says).</summary>
+    public bool ArmorBroken => _armorBroken || (Puppet && (_netFlags & NfUnarmored) != 0);
+
+    private void BreakArmor()
+    {
+        _armorBroken = true;
+        G.Fx.Text(HeadPoint(16f), "ARMOUR BROKEN", new Color(1f, 0.82f, 0.45f), 11, 1.1f);
+        G.Fx.Debris(GlobalPosition + new Vector2(0, -4), BloodColor.Lightened(0.15f), 8, 170);
+        G.Fx.Burst(GlobalPosition, new Color(0.85f, 0.8f, 0.7f), 10, 150, 2.4f, 0.45f);
+        G.Sfx.Play("rock", GlobalPosition, -2, 0.1f, 1.3f);
     }
 
     /// <summary>What this game's hero's relics do to a blow on this creature: Assassin's Edge (its back), Far Sight and Close Quarters (how far off it is).</summary>
@@ -965,7 +991,7 @@ public abstract partial class Enemy : CharacterBody2D
     private float _netSpeed = 1f;
     private ushort _netFlags;
     private const ushort NfReeling = 1, NfFrozen = 2, NfDazed = 4, NfHexed = 8, NfWeak = 16, NfFlash = 32, NfFloor = 64, NfAttacking = 128,
-                         NfIgnited = 256, NfChilled = 512, NfIced = 1024;
+                         NfIgnited = 256, NfChilled = 512, NfIced = 1024, NfUnarmored = 2048;
 
     /// <summary>On the ground (a copy goes by what the host says).</summary>
     public bool OnGround => Puppet ? (_netFlags & NfFloor) != 0 : IsOnFloor();
@@ -997,6 +1023,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (_burnT > 0) f |= NfIgnited;
         if (_chillT > 0) f |= NfChilled;
         if (_iceT > 0) f |= NfIced;
+        if (_armorBroken) f |= NfUnarmored;
         w.UShort(f);
     }
 

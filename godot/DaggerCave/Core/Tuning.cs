@@ -391,6 +391,9 @@ public static class Tune
         /// <summary>Touch damage from an enemy that isn't attacking, as a share of its attack
         /// damage. 0 = bumping into enemies is harmless; only their actual attacks hurt.</summary>
         public static float PassiveContactMult = 0f;
+        /// <summary>An armoured creature (golem, scorpion, shardling, the colossi) takes 40% less from physical blows
+        /// until blows have taken this share of its health: then its armour falls off.</summary>
+        public static float ArmorBreakShare = 0.1f;
         /// <summary>Horizontal bounce (px/s) the attacker gets when it lands a melee hit, both
         /// you and enemies. Never vertical.</summary>
         public static float StrikeRecoil = 110f;

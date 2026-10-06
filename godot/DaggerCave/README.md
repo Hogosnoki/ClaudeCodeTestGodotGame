@@ -323,7 +323,7 @@ breath of that biome's colour comes up from far below) and how deep: the gentle 
 down (one chevron on the keystone), the steep way two (two chevrons; harder, but fewer levels to
 the dragon). Nobody is taken down until they choose to go: stand at the doorway and press E or
 up, so an exit that opens under your feet can't whisk you away from the guardian's chest. The last levels lead into the Dragon's Lair at
-depth 10; slaying the Elder Dragon wins the run. Dying (or winning) sends every creature and projectile of the run away at once (nothing growls on behind the camp) and returns you to the camp fire, with
+depth 10; slaying the Elder Dragon wins the run. Dying (or winning) returns you to the camp fire: when the death screen comes up, every creature and projectile of the run is sent away (nothing growls on behind the camp), with
 how the run went.
 
 **Keys and vaults** (`Combat/Vault.cs`, `Cave/VaultGen.cs`). Every level but the dragon's lair
@@ -774,6 +774,8 @@ gathering swell and a deep impact, and swords whoosh. `--sfxdump=DIR` writes eve
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.
+
+Armoured creatures (golems, scorpions, shardlings and the colossi) take 40% less from physical blows, but only until blows have taken a tenth of their health (`Combat.ArmorBreakShare`): then their armour falls off ("ARMOUR BROKEN") and every blow lands in full. Earthen creatures keep their resistance.
 
 ## Motion
 

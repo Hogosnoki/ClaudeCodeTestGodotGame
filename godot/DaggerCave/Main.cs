@@ -1177,8 +1177,6 @@ public partial class Main : Node
         _state = State.Dead;
         _deadT = 0;
         _deaths++;
-        // (the run is over: its creatures leave at once, so nothing carries on growling behind the death screen)
-        CallDeferred(MethodName.DespawnRunActors);
         _sfx.SetMusic("");
         Meta.Save();
     }
@@ -1186,8 +1184,9 @@ public partial class Main : Node
     /// <summary>The camp between runs: how the run went, what it earned, the heroes, and the trees.</summary>
     private void ShowCamp()
     {
-        if (Net.Online) { ShowCampScene(true); ShowOnlineCamp(); return; }
+        // (the creatures of the run wait until the death screen comes up: then they go, and their sounds with them)
         ClearRunActors();
+        if (Net.Online) { ShowCampScene(true); ShowOnlineCamp(); return; }
         var p = G.Player;
         int secs = (int)_runTime;
         string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
@@ -1196,11 +1195,8 @@ public partial class Main : Node
             + $"\nLevel {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}" + (earned != "" ? "\n" + earned : ""));
     }
 
-    /// <summary>The run is over: its creatures and their projectiles leave the world (the hero's own last sound plays on).</summary>
-    private void DespawnRunActors() => ClearRunActors(silence: false);
-
     /// <summary>The run is over: its creatures and their projectiles leave the world (and the air), so nothing of the cave carries on behind the camp.</summary>
-    private void ClearRunActors(bool silence = true)
+    private void ClearRunActors()
     {
         foreach (var e in G.Enemies.ToArray()) if (IsInstanceValid(e)) { e.GetParent()?.RemoveChild(e); e.QueueFree(); }
         G.Enemies.Clear();
@@ -1209,7 +1205,7 @@ public partial class Main : Node
         EnemyProjectiles.Clear();
         ActiveBoss = null;
         _roomElites.Clear();
-        if (silence) _sfx.StopAll();
+        _sfx.StopAll();
     }
 
     private void OnMetaClosed()
@@ -1572,7 +1568,7 @@ public partial class Main : Node
                 if (_victoryT <= 0)
                 {
                     if (Net.IsHost) { NetSync.SendRunOver(true); OnlineRunOver(true); }
-                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); ClearRunActors(); }
+                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); }
                 }
             }
             if (Net.InRun) OnlineTick(dt);

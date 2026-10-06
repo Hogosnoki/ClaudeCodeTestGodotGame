@@ -472,6 +472,15 @@ public partial class Main
                 ScCheck($"{what} takes {want:0} of 100 {k} ({dealt:0})", Math.Abs(dealt - want) < 0.5f);
             }
         }
+        // armour falls off once blows have taken a tenth of the creature's health: two blows of 60 (120 of 1000 > 100) and then it is bare
+        var armoured = new Golem { Position = p.GlobalPosition + new Vector2(200, -10) };
+        armoured.SetMeta("test", true);
+        _world.AddChild(armoured);
+        armoured.MaxHp = armoured.Hp = 1000;
+        float a1 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition), a2 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
+        ScCheck($"an armoured golem takes 60 of 100 while its armour holds ({a1:0}, {a2:0}), and the armour is off after a tenth of its health ({armoured.ArmorBroken})", Math.Abs(a1 - 60f) < 0.5f && Math.Abs(a2 - 60f) < 0.5f && armoured.ArmorBroken);
+        float a3 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
+        ScCheck($"and then it takes the whole of a blow ({a3:0})", Math.Abs(a3 - 100f) < 0.5f);
         ScEnd();
     }
 

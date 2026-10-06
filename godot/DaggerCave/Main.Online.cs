@@ -349,8 +349,6 @@ public partial class Main
         _deadT = 0;
         _sfx.SetMusic("");
         Meta.Save();
-        // (the run is over: the creatures leave with it, so none of them carries on behind the camp)
-        CallDeferred(MethodName.DespawnRunActors);
     }
 
     private static string HeroName(HeroKind h) => h switch { HeroKind.Warden => "Warden", HeroKind.Vitalist => "Vitalist", HeroKind.Elementalist => "Elementalist", HeroKind.Rogue => "Rogue", HeroKind.Aegis => "Aegis", HeroKind.ShapeShifter => "Shape Shifter", _ => "Swordsman" };
