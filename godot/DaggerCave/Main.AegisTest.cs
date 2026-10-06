@@ -113,7 +113,7 @@ public partial class Main
                 ScCheck($"a blow of 10 costs them nine tenths: {_scAllyHp - _scAlly.Hp:0.0} (bubble left {_scAlly.BubbleHp:0.0})", Math.Abs(_scAllyHp - _scAlly.Hp - 10f * (1f - Tune.Aegis.BubbleAbsorb)) < 0.6f);
                 // blows until it bursts
                 int n = 0;
-                while (_scAlly.Bubbled && n++ < 80) { _scAlly.Hp = _scAlly.MaxHp; _scAlly.Hurt(20f, p.GlobalPosition, 0, null); }
+                while (_scAlly.Bubbled && n++ < 80) { _scAlly.Hp = _scAlly.Stats.MaxHp; _scAlly.Hurt(20f, p.GlobalPosition, 0, null); }
                 ScCheck($"after enough blows it bursts ({_scAlly.Bubbled}, {n} blows)", !_scAlly.Bubbled && n < 80);
                 _scAlly.Hp = _scAlly.Stats.MaxHp;
                 _scStep = 7; _scT = 0;
