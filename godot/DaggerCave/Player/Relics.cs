@@ -65,7 +65,7 @@ public static partial class Upgrades
     public static readonly List<Upgrade> Relics = new()
     {
         // --- for anyone ---
-        Rl("relic_leap", "Long Stride", "Jump 20% lower, but move 20% faster through the air.", (s, p) => { s.JumpMult *= 0.8f; s.AirSpeedMult *= 1.2f; }),
+        Rl("relic_leap", "Long Stride", "Jump 20% lower, but move 40% faster through the air.", (s, p) => { s.JumpMult *= 0.8f; s.AirSpeedMult *= 1.4f; }),
         Rl("relic_anvil", "Anvil Grip", "Attack 20% slower, but hit 20% harder.", (s, p) => { s.AttackSpeed *= 0.8f; s.DamageMult *= 1.2f; }),
         Rl("relic_quicksilver", "Quicksilver Grip", "Attack 20% faster, but hit 20% softer.", (s, p) => { s.AttackSpeed *= 1.2f; s.DamageMult *= 0.8f; }),
         Rl("relic_amphibian", "Amphibian Charm", "Move 30% faster in water, but 15% slower on land.", (s, p) => { s.SwimSpeed *= 1.3f; s.MoveSpeed *= 0.85f; }),
