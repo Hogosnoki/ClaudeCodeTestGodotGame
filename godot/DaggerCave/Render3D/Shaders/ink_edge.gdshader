@@ -15,7 +15,7 @@ uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable
 uniform sampler2D mask_tex : filter_nearest, repeat_disable;
 uniform vec4 ink : source_color = vec4(0.015, 0.012, 0.02, 0.92);
 /// The line's width in screen pixels (at 720 lines: it scales with the resolution).
-uniform float edge_px = 2.5;
+uniform float edge_px = 3.5;
 /// How much nearer than the creature the scene may be before it counts as covering it.
 uniform float depth_tol = 0.12;
 

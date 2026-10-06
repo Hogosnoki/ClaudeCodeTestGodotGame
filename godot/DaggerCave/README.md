@@ -811,7 +811,7 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   second body or hull. A small viewport beside each 3D view has a camera that follows the view's camera and
   sees only the creatures' bodies (their own visual layer); the creature shader answers that camera with a
   flat mask (how far off the creature is there, and the colour of its line) instead of its usual look.
-  One full-screen pass in the view finds the pixels just outside that mask and inks them, two pixels wide
+  One full-screen pass in the view finds the pixels just outside that mask and inks them, three and a half pixels (`edge_px`) wide
   at any distance, in the afflicted colour (poison, fire, frost) when there is one. Nothing is drawn over
   a creature itself, so there are no lines along its own limbs and folds; a creature behind rock gets
   none where it is hidden, and the line never lies over rock in front of it. (The camp and the title
@@ -1129,7 +1129,7 @@ Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to 
 
 - **Loadout** (button on the loadout & perks stage of the hero select, or `L` there): pick up to three of the hero's **side-grades** (the alterations: alternate abilities such as Frostbolt for Firebolt, one to an ability) to start the run with. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes. The give-and-take upgrades are called **risk-rewards**.
 - **Healing Ward** (Aegis side-grade): the ward bolt hits for only 25% but its burst mends the Aegis and every friend in it for the full blow, which is what makes the Aegis playable alone.
-- **Prodigy's Brand** levels you up twenty times at once; you can no longer pick up relics (upgrades and shrines still open).
+- **Prodigy's Brand** levels you up twenty times at once; you can no longer pick up relics or open the chests in vaults (upgrades and shrines still open).
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.
 
 - **Breaking ice with spells:** an ice sheet over water breaks on the third spell touch (a bolt, a Blizzard/Firestorm strike, or a Vitalist drain wisp); blades still break it in two blows. A bolt that meets ice stops there.
