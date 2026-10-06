@@ -141,15 +141,15 @@ public static class Tune
         public static float StartHp = 70f, MoveMult = 0.98f, JumpMult = 1f;
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
-        /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal (none by default; Mending Light and Solar Crest add some) of the damage dealt mends the Aegis.</summary>
+        /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal (a quarter of a percent; Mending Light and Solar Crest add more) of the damage dealt mends the Aegis.</summary>
         public static float HealingWardGlance = 0.25f, BoltDamage = 10.8f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
-        public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0f;
+        public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0.0025f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
         public static float BarrierShare = 0.28f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
         /// <summary>Shared Burden (the second ability): the ally takes (1 - share) of every blow, the Aegis the rest, for BurdenSeconds. No cooldown beyond a blink.</summary>
         public static float BurdenShare = 0.2f, BurdenSeconds = 60f, BurdenBlink = 0.4f;
         /// <summary>Smite (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a burst of light SmiteRadius px round her for SmiteDamage, weakening everything it strikes; SmiteCooldown s.</summary>
-        public static float SmiteDamage = 1.5f, SmiteRadius = 120f, SmiteCooldown = 6f;
+        public static float SmiteDamage = 16.5f, SmiteRadius = 120f, SmiteCooldown = 9f;
         /// <summary>Bubble (the dodge button): absorbs BubbleAbsorb of each blow until BubbleShare of the receiver's max health (x WardMult) is absorbed, when it bursts; lasts BubbleSeconds, recharges BubbleCooldown s; the receiver breathes under water meanwhile. With Soothing Burst, the burst heals allies within BurstHealRadius px for BurstHealShare of their max health.</summary>
         public static float BubbleRadiusMin = 12f, BubbleRadiusMax = 34f, BubbleCastRadius = 220f, BubbleShare = 0.1f, BubbleAbsorb = 0.1f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.07f, BurstHealRadius = 80f;
         /// <summary>Hostile Bubble (an alteration): on a creature instead, it takes (1 - WardAbsorb) of every blow while the rest builds; once WardCap has built it bursts for WardBlast, and WardSplash to the creatures round it (all x the Aegis's damage and the depth's threat).</summary>

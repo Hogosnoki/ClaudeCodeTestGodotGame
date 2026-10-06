@@ -46,7 +46,7 @@ public partial class Main
             }
             case 1:
             {
-                // ---- the ward bolt: one blow on the first creature, its burst on the second, both weakened, the Aegis not mended
+                // ---- the ward bolt: one blow on the first creature, its burst on the second, both weakened, the Aegis mended a little
                 if (_scT < 0.4f) return;
                 p.Hp = p.Stats.MaxHp - 20f;
                 _scAegisHp = p.Hp; _scHp = _scFoe.Hp; _scFoeHp2 = _scFoe2.Hp;
@@ -62,7 +62,7 @@ public partial class Main
                 ScCheck($"the bolt strikes the first creature ({hit:0.0}, want about {want:0.0})", Math.Abs(hit - want) < want * 0.25f);
                 ScCheck($"its burst strikes the one beside it for {Tune.Aegis.BurstShare:0%} ({hit2:0.0})", Math.Abs(hit2 - want * Tune.Aegis.BurstShare) < want * 0.25f);
                 ScCheck($"both deal less damage now ({_scFoe.Weakened}, {_scFoe2.Weakened})", _scFoe.Weakened && _scFoe2.Weakened);
-                ScCheck($"the bolt does not mend the Aegis (hp {_scAegisHp:0.00} -> {p.Hp:0.00})", p.Hp <= _scAegisHp + 0.01f);
+                ScCheck($"the bolt mends the Aegis by a sliver of the damage (hp {_scAegisHp:0.000} -> {p.Hp:0.000})", p.Hp > _scAegisHp && p.Hp < _scAegisHp + 0.3f);
                 // ---- the Healing Ward side-grade: a glancing blow, and the burst mends the Aegis for the whole blow
                 p.Stats.HealingWard = true;
                 p.Hp = p.Stats.MaxHp - 30f;
