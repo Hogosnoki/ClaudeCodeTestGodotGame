@@ -1959,7 +1959,7 @@ public partial class Main : Node
     private void SpawnBossChests(Vector2 at)
     {
         var owners = new List<int>();
-        bool Wants(int id, Player p) => !RunRelics.Has(id, "relic_treasure");
+        bool Wants(int id, Player p) => !RunRelics.Has(id, "relic_treasure") && !RunRelics.Has(id, "relic_prodigy") && p?.Stats.NoChests != true;
         if (Net.Online) { foreach (var id in Net.Peers.Keys) if (Wants(id, id == Net.Me ? G.Player : null)) owners.Add(id); }
         else if (Wants(Net.Me, G.Player)) owners.Add(0);
         NetSync.Scope++;
