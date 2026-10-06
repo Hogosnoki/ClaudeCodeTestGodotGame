@@ -60,6 +60,37 @@ public static class DecorMeshes
         return mb;
     }
 
+    /// <summary>
+    /// A broken chunk of rock for a rubble pile: a low, lumpy, uneven polyhedron (never a smooth ball), flat-shaded face by face,
+    /// each face its own tone, lighter on top and darker underneath. The pile's material gives it the grain of real stone.
+    /// </summary>
+    public static MeshBuilder RubbleChunk(Random rng, Noise3 noise, float size)
+    {
+        float R() => (float)rng.NextDouble();
+        var raw = new MeshBuilder();
+        var radii = new Vector3(size * (0.75f + 0.5f * R()), size * (0.42f + 0.4f * R()), size * (0.6f + 0.45f * R()));
+        raw.Blob(new Vector3(0, radii.Y * 0.8f, 0), radii, 3, Colors.White, noise, 0.5f, 1.7f + R(), 0.35f);
+        // (knock the corners about further, so the outline is angular and different from every other)
+        for (int k = 0; k < raw.V.Count; k++)
+        {
+            var v = raw.V[k];
+            float j = 1f + (R() - 0.5f) * 0.42f;
+            raw.V[k] = new Vector3(v.X * j, v.Y * (1f + (R() - 0.5f) * 0.3f), v.Z * j);
+        }
+        var mb = raw.Faceted();
+        float baseTone = 0.78f + 0.3f * R();
+        var warm = new Color(1.0f, 0.97f, 0.93f);
+        for (int k = 0; k < mb.Count; k += 3)
+        {
+            // (one tone per face)
+            float up = Math.Clamp(mb.N[k].Y * 0.5f + 0.5f, 0f, 1f);
+            float t = baseTone * (0.62f + 0.5f * up) * (0.8f + 0.4f * R());
+            var c = new Color(t * warm.R, t * warm.G, t * warm.B);
+            mb.C[k] = c; mb.C[k + 1] = c; mb.C[k + 2] = c;
+        }
+        return mb;
+    }
+
     /// <summary>A spray of pointed crystals from one root.</summary>
     public static MeshBuilder CrystalCluster(Random rng, int count, float scale, Color body)
     {

@@ -830,6 +830,12 @@ public partial class Main : Node
         }
         if (!biome.NoGuardian || cave.Boss == null) return;
         _guardianDown = true;
+        // the lake above comes down to meet you: a waterfall from a crack in the roof to the beach, a little way along from where you arrive
+        {
+            var near = cave.StartPos + new Vector2(8 * CaveData.Cell, -40);
+            if (cave.FindFloor(near, 300, out var foot) && cave.FindCeiling(foot + new Vector2(0, -24), 1200, out var roof) && foot.Y - roof.Y > 120)
+                _world.AddChild(new Waterfall { Position = foot + new Vector2(0, 1), Height = foot.Y - roof.Y, Width = 40 });
+        }
         var room = cave.Boss;
         var rng = new Random(seed * 31 + 7);
         var exits = Biomes.ChooseExits(G.Depth, rng);

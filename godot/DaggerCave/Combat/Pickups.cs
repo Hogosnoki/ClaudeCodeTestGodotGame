@@ -568,3 +568,32 @@ public partial class AirBubble : Node2D
         DrawCircle(new Vector2(-r * 0.35f, -r * 0.4f), r * 0.25f, new Color(1, 1, 1, 0.8f));
     }
 }
+
+
+/// <summary>
+/// A waterfall pouring from a crack in the roof of the cave to the floor below it (the sunken sea's, where the lake above comes
+/// down to meet you). It is only to look at and listen to: spray and splashes at its foot, a soft rush of sound.
+/// </summary>
+public partial class Waterfall : Node2D
+{
+    /// <summary>From the foot (this node's position) up to the roof, px.</summary>
+    public float Height = 300;
+    public float Width = 40;
+    private float _t, _splash, _sound;
+
+    public override void _PhysicsProcess(double delta)
+    {
+        float dt = (float)delta;
+        _t += dt;
+        var p = G.Player;
+        if (p == null || p.GlobalPosition.DistanceSquaredTo(GlobalPosition) > 900 * 900) return;
+        _splash -= dt; _sound -= dt;
+        if (_splash <= 0)
+        {
+            _splash = G.Range(0.08f, 0.2f);
+            G.Fx.Splash(GlobalPosition + new Vector2(G.Range(-Width * 0.5f, Width * 0.5f), -2), 1.2f, new Color(0.75f, 0.9f, 1f, 0.7f));
+            if (G.Chance(0.4f)) G.Fx.Dust(GlobalPosition + new Vector2(G.Range(-Width * 0.4f, Width * 0.4f), -4), 1, 1f, new Color(0.8f, 0.92f, 1f, 0.5f));
+        }
+        if (_sound <= 0) { _sound = 1.1f; G.Sfx.Play("splash", GlobalPosition, -16, 0.2f, 0.5f); }
+    }
+}

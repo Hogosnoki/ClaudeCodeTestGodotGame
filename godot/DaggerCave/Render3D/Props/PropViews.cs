@@ -38,6 +38,7 @@ public static class PropViews
             Chest => new ChestView(),
             HeroCage => new HeroCageView(),
             Portal { Outside: true } => new MouthView(),
+            Waterfall => new WaterfallView(),
             Portal { Drain: true } => new DrainView(),
             Portal => new PortalView(),
             AirVent => new AirVentView(),
@@ -67,7 +68,7 @@ public static class PropViews
     private static QuadMesh _quad;
     public static QuadMesh Quad => _quad ??= new QuadMesh { Size = new Vector2(2, 2) };
 
-    private static StandardMaterial3D _ice, _steel, _wood, _gold, _glass, _rock, _vcol;
+    private static StandardMaterial3D _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _vcol;
     public static StandardMaterial3D Ice => _ice ??= new StandardMaterial3D
     {
         AlbedoColor = new Color(0.62f, 0.85f, 1f, 0.72f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.08f,
@@ -81,6 +82,12 @@ public static class PropViews
         AlbedoColor = new Color(0.85f, 0.92f, 1f, 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f, RimEnabled = true, Rim = 1f,
     };
     public static StandardMaterial3D Rock => _rock ??= new StandardMaterial3D { AlbedoColor = new Color(0.42f, 0.38f, 0.34f), Roughness = 0.9f, VertexColorUseAsAlbedo = true };
+    /// <summary>Rubble stone: real rock grain, projected from all three sides, over the chunks' own face tones.</summary>
+    public static StandardMaterial3D RubbleRock => _rubble ??= new StandardMaterial3D
+    {
+        AlbedoTexture = TerrainLook.Tex("rock_face", "diff"), NormalEnabled = true, NormalTexture = TerrainLook.Tex("rock_face", "nor"), NormalScale = 1.3f,
+        Uv1Triplanar = true, Uv1Scale = new Vector3(0.9f, 0.9f, 0.9f), VertexColorUseAsAlbedo = true, Roughness = 1f,
+    };
     public static StandardMaterial3D VertexColored => _vcol ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.6f };
 
     /// <summary>
@@ -89,9 +96,11 @@ public static class PropViews
     /// </summary>
     public static void ReleaseShared()
     {
-        foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _vcol }) r?.Dispose();
+        foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _vcol }) r?.Dispose();
         _sprite = _cloud = _bubble = null; _quad = null;
         PortalView.ReleaseShared();
+        WaterfallView.ReleaseShared();
+        DrainView.ReleaseShared();
         MouthView.ReleaseShared();
         _ice = _steel = _wood = _gold = _glass = _rock = _vcol = null;
     }
@@ -1569,38 +1578,108 @@ public partial class CaveInView : PropView
 }
 
 /// <summary>
-/// The drain at the foot of a lake: a round black mouth in the bed with a pale glow rising out of it and rings that sink into it.
+/// The drain at the foot of a lake: a round black mouth in the bed, and above it a column of darkness that thickens toward it, black
+/// water with nothing to be seen in it (a negative light takes the colour out of the water round it). Nothing to invite anyone in.
 /// </summary>
 public partial class DrainView : PropView
 {
-    private MeshInstance3D _halo, _core;
-    private OmniLight3D _light;
+    private MeshInstance3D _column, _mist;
+    private OmniLight3D _void;
+    private static StandardMaterial3D _darkMat;
+    private static StandardMaterial3D DarkMat => _darkMat ??= new StandardMaterial3D
+    {
+        AlbedoTexture = new GradientTexture2D
+        {
+            Gradient = new Gradient { Colors = new[] { new Color(0, 0, 0, 0.97f), new Color(0, 0, 0, 0.6f), new Color(0, 0, 0, 0f) }, Offsets = new[] { 0f, 0.45f, 1f } },
+            Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.75f), FillTo = new Vector2(1f, 0.75f), Width = 128, Height = 128,
+        },
+        Transparency = BaseMaterial3D.TransparencyEnum.Alpha, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        DisableReceiveShadows = true,
+    };
+
+    public static void ReleaseShared() { _darkMat?.Dispose(); _darkMat = null; }
 
     protected override void Build()
     {
         var mb = new MeshBuilder();
-        mb.Blob(Vector3.Zero, new Vector3(1.5f, 0.12f, 1.1f), 6, new Color(0.01f, 0.02f, 0.03f), new Noise3(9), 0.25f, 2f, 1f);
+        mb.Blob(Vector3.Zero, new Vector3(1.5f, 0.12f, 1.1f), 6, new Color(0.0f, 0.0f, 0.0f), new Noise3(9), 0.25f, 2f, 1f);
         var mouth = PropViews.Mesh(mb, PropViews.VertexColored, false);
         mouth.Position = new Vector3(0, -0.9f, 0.1f);
         AddChild(mouth);
-        _halo = PropViews.Sprite(new Color(0.55f, 0.95f, 1f), 0, 0.5f, 4.2f);
-        _halo.Position = new Vector3(0, 0, 0.3f);
-        AddChild(_halo);
-        _core = PropViews.Sprite(new Color(0.9f, 1f, 1f), 0, 0.8f, 1.5f);
-        _core.Position = new Vector3(0, -0.3f, 0.4f);
-        AddChild(_core);
-        _light = PropViews.Light(new Color(0.55f, 0.95f, 1f), 2.4f, 11f);
-        _light.Position = new Vector3(0, 0.3f, 0.8f);
-        AddChild(_light);
+        // the column: darkest at the mouth, fading out above it (two of them, a wide soft one behind a narrow dense one)
+        _column = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(3.4f, 7.5f) }, MaterialOverride = DarkMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 2.6f, 0.45f) };
+        AddChild(_column);
+        _mist = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(6.5f, 6f) }, MaterialOverride = DarkMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 2f, 0.8f) };
+        AddChild(_mist);
+        _void = PropViews.Light(Colors.White, 2.2f, 8f);
+        _void.LightNegative = true;
+        _void.LightVolumetricFogEnergy = 1f;
+        _void.Position = new Vector3(0, 0.6f, 0.9f);
+        AddChild(_void);
     }
 
     protected override void Sync(float dt)
     {
         Follow(default, 0f);
-        float pulse = 0.7f + 0.3f * MathF.Sin(Time * 1.7f);
-        PropViews.SetSprite(_halo, new Color(0.55f, 0.95f, 1f, 0.35f * pulse), 0, 0.5f);
-        PropViews.SetSprite(_core, new Color(0.9f, 1f, 1f, 0.55f + 0.2f * pulse), 0, 0.8f);
-        _light.LightEnergy = 1.8f + 0.9f * pulse;
+        float breathe = 0.5f + 0.5f * MathF.Sin(Time * 0.9f);
+        _void.LightEnergy = 1.9f + 0.6f * breathe;
+        _mist.Scale = new Vector3(1f + 0.06f * breathe, 1f, 1f);
+    }
+}
+
+/// <summary>A waterfall: two sheets of falling water (one wider and fainter behind), spray at the foot, a faint pale light on what it lands on.</summary>
+public partial class WaterfallView : PropView
+{
+    private MeshInstance3D _spray1, _spray2;
+    private OmniLight3D _glow;
+    private static ShaderMaterial _mat, _matBack;
+    private static Shader _shader;
+
+    private static ShaderMaterial Mat(bool back)
+    {
+        _shader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/waterfall.gdshader");
+        var m = new ShaderMaterial { Shader = _shader };
+        m.SetShaderParameter("water_color", back ? new Color(0.22f, 0.38f, 0.5f, 0.42f) : new Color(0.3f, 0.5f, 0.64f, 0.7f));
+        m.SetShaderParameter("speed", back ? 1.7f : 2.6f);
+        m.SetShaderParameter("seed", back ? 11f : 0f);
+        return m;
+    }
+    public static void ReleaseShared() { _mat?.Dispose(); _matBack?.Dispose(); _mat = _matBack = null; _shader = null; }
+
+    protected override void Build()
+    {
+        var f = (Waterfall)Owner2D;
+        float h = W3.M(f.Height), w = W3.M(f.Width);
+        foreach (bool back in new[] { true, false })
+        {
+            var mat = back ? (_matBack ??= Mat(true)) : (_mat ??= Mat(false));
+            var q = new MeshInstance3D
+            {
+                Mesh = new QuadMesh { Size = new Vector2(w * (back ? 1.5f : 1f), h) }, MaterialOverride = mat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, h * 0.5f, back ? -0.35f : 0.1f),
+            };
+            // (the height tells the shader how fast to run the streaks down it)
+            q.SetInstanceShaderParameter("height_m", h);
+            AddChild(q);
+        }
+        _spray1 = PropViews.Sprite(new Color(0.8f, 0.92f, 1f), 0, 0.14f, 3.2f);
+        _spray1.Position = new Vector3(0, 0.5f, 0.5f);
+        AddChild(_spray1);
+        _spray2 = PropViews.Sprite(new Color(0.8f, 0.92f, 1f), 0, 0.09f, 5f);
+        _spray2.Position = new Vector3(0, 0.9f, 0.7f);
+        AddChild(_spray2);
+        _glow = PropViews.Light(new Color(0.6f, 0.82f, 1f), 0.5f, 8f);
+        _glow.Position = new Vector3(0, 1.2f, 1.2f);
+        AddChild(_glow);
+    }
+
+    protected override void Sync(float dt)
+    {
+        Follow(default, 0f);
+        float s = 0.5f + 0.5f * MathF.Sin(Time * 2.3f);
+        PropViews.SetSprite(_spray1, new Color(0.8f, 0.92f, 1f, 0.3f + 0.12f * s), 0, 0.14f);
+        PropViews.SetSprite(_spray2, new Color(0.8f, 0.92f, 1f, 0.2f + 0.08f * (1f - s)), 0, 0.09f);
+        _glow.LightEnergy = 0.45f + 0.15f * s;
     }
 }
 
@@ -1980,16 +2059,8 @@ public partial class RubbleView : PropView
                 float span = Math.Max(0.1f, width - size * 1.2f);
                 float x = n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * span + ((float)rng.NextDouble() - 0.5f) * 0.4f;
                 if (row % 2 == 1) x += 0.2f * (rng.Next(2) == 0 ? -1 : 1) * (float)rng.NextDouble();
-                var mb = DecorMeshes.Boulder(rng, noise, size);
-                // (plain grey-brown stone, each rock its own shade, paler on top, darker where it is crowded)
-                float tone = 0.34f + 0.16f * (float)rng.NextDouble();
-                for (int c = 0; c < mb.Count; c++)
-                {
-                    float up = Math.Clamp(mb.V[c].Y / size + 0.3f, 0f, 1f);
-                    float t = tone * (0.7f + 0.4f * up);
-                    mb.C[c] = new Color(t * 1.02f, t * 0.96f, t * 0.88f);
-                }
-                var mat = PropViews.Rock;
+                var mb = DecorMeshes.RubbleChunk(rng, noise, size * 1.05f);
+                var mat = PropViews.RubbleRock;
                 var node = PropViews.Mesh(mb, mat);
                 // jammed in at its own angle, a little sunk into its neighbours
                 var basis = new Basis(Vector3.Up, (float)rng.NextDouble() * Mathf.Tau) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 1.1f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.8f);
