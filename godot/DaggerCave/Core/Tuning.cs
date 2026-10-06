@@ -356,6 +356,9 @@ public static class Tune
         /// half as wide, NarrowExtra px (6 m) taller, NarrowSeconds long.</summary>
         public static float UpdraftCost = 15f, UpdraftWidth = 110f, UpdraftHeight = 200f, UpdraftSeconds = 10f;
         public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f;
+        /// <summary>A leaning (Narrow Draft) column also carries a hero along its lean: this speed (px/s) times how far it leans sideways.
+        /// Its relief from gravity scales with how upright it is; lying flat it only blows.</summary>
+        public static float UpdraftPushSpeed = 240f;
         public static float NarrowExtra = 96f, NarrowSeconds = 15f;
         /// <summary>
         /// Blizzard (the ability button): costs BlizzardCost alimus, BlizzardCooldown s to come

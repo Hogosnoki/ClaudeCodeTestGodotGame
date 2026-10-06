@@ -176,11 +176,14 @@ public partial class Player
     /// <summary>
     /// Inside a column of air: gravity is a fraction of itself and so is the speed you fall at, so a
     /// jump goes far higher and a fall is a slow drift. Nothing lifts you. A fall already faster
-    /// than the column allows is slowed to it over a moment, not snapped.
+    /// than the column allows is slowed to it over a moment, not snapped. A leaning column's relief
+    /// scales with how upright it is.
     /// </summary>
     private void UpdraftEase(Updraft draft, ref float gravMult, ref float fallCap, ref Vector2 v, float dt)
     {
-        float k = draft.Strength;
+        // (the relief from gravity is the column's upward share: all of it standing straight up, none lying flat;
+        // its sideways share is the push, in Platform)
+        float k = draft.Strength * Math.Max(0f, -draft.Up.Y);
         gravMult = Mathf.Lerp(1f, Tune.Elementalist.UpdraftGravityMult, k);
         fallCap = MaxFall * Mathf.Lerp(1f, Tune.Elementalist.UpdraftFallMult, k);
         if (v.Y > fallCap)
