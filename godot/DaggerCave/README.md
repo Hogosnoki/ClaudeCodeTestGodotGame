@@ -1222,3 +1222,17 @@ drains the colour from the water round it. Where you arrive in the Sunken Sea a 
 lake above, coming down). Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
 sides), not smooth balls.
 
+### The Guild's lamps, and ways in only a creature can use
+
+- **A Guild lamp** (`GuildLamp`): in about seven levels in ten (never the entrance or the lair) a lantern is still burning at the side of a treasure room
+  out of the way, over what is left of whoever kept it. Press interact to read the page left there: a line from a lost Delver, Spring Order pilgrim
+  or Crown soldier about this kind of level (`Lore.Journal`, fifteen pages, one per biome), and, the first time, an ember. Pages found are kept
+  (`Meta.JournalFound`) and listed under the story on **The story** card. Test: `--scenario=lamp`.
+- **A fish's slit** (water levels): out of the side of the deep water, a crack under a cell tall (14 px: a fish form is 11 across, a spider 14.4, a
+  hero's capsule 13 by 26) running into the rock to a small underwater chamber with a silver relic chest. Only the Shape Shifter's fish can
+  swim it. A thread of bubbles escapes from its mouth.
+- **A spider's crack** (any dry roof): a vertical crack 22 px wide up out of a high roof, too high to jump to from anything you can walk to,
+  with a small chamber and a chest at its top. A spider form crawls along the roof to it and up its walls; a little dust sifts out of its mouth.
+- Both are carved last (`Cave/Nooks.cs`), from the seed alone, in about two levels in five. Test: `--scenario=nooks --forcenooks` (the fish in
+  a water level, add `--biome=mine` for the spider), `--gentest --forcenooks` for how often a biome can hold them.
+

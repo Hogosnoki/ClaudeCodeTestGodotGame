@@ -39,6 +39,7 @@ public static class PropViews
             HeroCage => new HeroCageView(),
             Portal { Outside: true } => new MouthView(),
             Waterfall => new WaterfallView(),
+            GuildLamp => new GuildLampView(),
             Portal { Drain: true } => new DrainView(),
             Portal => new PortalView(),
             AirVent => new AirVentView(),
@@ -1617,6 +1618,70 @@ public partial class DrainView : PropView
     {
         Follow(default, 0f);
         _void.LightEnergy = 1.9f + 0.6f * (0.5f + 0.5f * MathF.Sin(Time * 0.9f));
+    }
+}
+
+/// <summary>
+/// A Guild lamp: an iron-shod pole with a hanging lantern still burning, and at its foot the remains of whoever kept it, slumped
+/// against a pack in a tattered coat, a skull on their chest.
+/// </summary>
+public partial class GuildLampView : PropView
+{
+    private OmniLight3D _light;
+    private MeshInstance3D _flame, _halo;
+    private float _seed;
+
+    protected override void Build()
+    {
+        var l = (GuildLamp)Owner2D;
+        Scale = Vector3.One * 1.4f;
+        var rng = new Random((int)(l.GlobalPosition.X * 7 + l.GlobalPosition.Y));
+        _seed = (float)rng.NextDouble() * 6f;
+        var noise = new Noise3(rng.Next());
+        var iron = new Color(0.14f, 0.13f, 0.15f);
+        var wood = new Color(0.3f, 0.2f, 0.12f);
+        var bone = new Color(0.72f, 0.68f, 0.58f);
+        var mb = new MeshBuilder();
+        // the pole, its crook, the lantern's cage
+        PropMeshes.Box(mb, new Vector3(0.45f, 0.62f, -0.1f), new Vector3(0.03f, 0.62f, 0.03f), wood);
+        PropMeshes.Box(mb, new Vector3(0.3f, 1.22f, -0.1f), new Vector3(0.18f, 0.025f, 0.025f), iron);
+        PropMeshes.Box(mb, new Vector3(0.14f, 1.1f, -0.1f), new Vector3(0.012f, 0.1f, 0.012f), iron);
+        PropMeshes.Box(mb, new Vector3(0.14f, 0.97f, -0.1f), new Vector3(0.07f, 0.02f, 0.07f), iron);
+        PropMeshes.Box(mb, new Vector3(0.14f, 0.77f, -0.1f), new Vector3(0.07f, 0.015f, 0.07f), iron);
+        foreach (float dx in new[] { -0.06f, 0.06f })
+            foreach (float dz in new[] { -0.06f, 0.06f })
+                PropMeshes.Box(mb, new Vector3(0.14f + dx, 0.87f, -0.1f + dz), new Vector3(0.008f, 0.1f, 0.008f), iron);
+        // the one who kept it: a pack, a coat slumped over it, a skull, scattered bones
+        PropMeshes.Box(mb, new Vector3(-0.05f, 0.17f, -0.05f), new Vector3(0.2f, 0.17f, 0.14f), wood.Darkened(0.2f));
+        PropMeshes.Box(mb, new Vector3(-0.12f, 0.2f, 0.12f), new Vector3(0.22f, 0.14f, 0.05f), new Color(0.32f, 0.12f, 0.1f));
+        mb.Append(OssuaryMeshes.HumanSkull(rng, noise, 0.3f, bone), new Transform3D(new Basis(Vector3.Up, 0.5f) * new Basis(Vector3.Right, -0.3f), new Vector3(-0.1f, 0.44f, 0.05f)));
+        mb.Append(DecorMeshes.Bones(rng, noise, 5, 0.55f, bone), new Transform3D(Basis.Identity, new Vector3(-0.35f, 0.01f, 0.2f)));
+        AddChild(PropViews.Mesh(mb, PropViews.VertexColored));
+        // the flame: it glows by itself, and lights the corner
+        var fm = new StandardMaterial3D
+        {
+            AlbedoColor = new Color(1f, 0.78f, 0.4f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, EmissionEnabled = true,
+            Emission = new Color(1f, 0.65f, 0.25f), EmissionEnergyMultiplier = 2.6f,
+        };
+        var flame = new MeshBuilder();
+        PropMeshes.Box(flame, Vector3.Zero, new Vector3(0.035f, 0.08f, 0.035f), Colors.White);
+        _flame = new MeshInstance3D { Mesh = flame.ToMesh(fm), Position = new Vector3(0.14f, 0.88f, -0.1f), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        AddChild(_flame);
+        _halo = PropViews.Sprite(new Color(1f, 0.75f, 0.4f), 0, 0.3f, 1.4f);
+        _halo.Position = new Vector3(0.14f, 0.88f, 0.1f);
+        AddChild(_halo);
+        _light = PropViews.Light(new Color(1f, 0.7f, 0.35f), 1.6f, 8f);
+        _light.Position = new Vector3(0.14f, 0.95f, 0.4f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        Follow(new Vector2(0, 1), 0f);
+        float fl = 0.8f + 0.2f * MathF.Sin(Time * 9f + _seed) * MathF.Sin(Time * 5.3f + _seed * 2f);
+        _light.LightEnergy = 1.5f * fl;
+        _flame.Scale = new Vector3(1f, 0.85f + 0.3f * fl, 1f);
+        PropViews.SetSprite(_halo, new Color(1f, 0.75f, 0.4f, 0.4f * fl), 0, 0.3f);
     }
 }
 

@@ -356,6 +356,7 @@ public partial class Main : Node
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
             else if (a == "--fullrun") _fullRun = true;
             else if (a == "--forcedrain") CaveGenerator.ForceDrain = true;
+            else if (a == "--forcenooks") CaveGenerator.ForceNooks = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
@@ -808,6 +809,7 @@ public partial class Main : Node
         if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
         PlaceHazards(cave);
         PlaceSecretWays(cave, seed);
+        PlaceLampsAndHints(cave, seed);
         _hud.ResetMap(cave);
         _hud.ShowBanner(G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
         _spawnT = 0;
@@ -854,6 +856,39 @@ public partial class Main : Node
             _world.AddChild(portal);
         }
     }
+
+    /// <summary>
+    /// The Guild's lamps and the hidden ways in: now and then a lamp still burning in a dead end where one of the lost expeditions
+    /// camped (with a page of the journal by it), and a mark at the mouth of each hidden crack or slit. From the seed alone.
+    /// </summary>
+    private void PlaceLampsAndHints(CaveData cave, int seed)
+    {
+        foreach (var (pos, kind) in cave.Hints) _world.AddChild(new SecretMouth { Position = pos, Kind = kind });
+        var biome = cave.Biome;
+        if (biome == null || G.Depth <= 0 || biome.Id is BiomeId.Entrance or BiomeId.Lair || JournalPageOf(biome.Id) == false) return;
+        var rng = new Random(seed * 17 + 3);
+        if (rng.NextDouble() > 0.7) return;
+        bool Reach(Vector2 p)
+        {
+            int i = (int)(p.X / CaveData.Cell), j = (int)(p.Y / CaveData.Cell) - 1;
+            return cave.ReachMask != null && i >= 0 && j >= 0 && i < cave.W && j < cave.H && cave.ReachMask[j * cave.W + i];
+        }
+        // a dead-end room (one of the treasure rooms, out of the way), on the far side from its chest
+        var rooms = cave.Rooms.Where(r => r.Kind == RoomKind.Treasure && !r.Underwater && r.Center.DistanceTo(cave.StartPos) > 40 * CaveData.Cell).OrderBy(_ => rng.Next()).ToList();
+        foreach (var room in rooms)
+        {
+            float side = rng.Next(2) == 0 ? -1f : 1f;
+            foreach (float s in new[] { side, -side })
+            {
+                var probe = room.Center + new Vector2(s * room.RxPx * 0.55f, -10);
+                if (cave.IsSolid(probe) || !cave.FindFloor(probe, 300, out var floor) || cave.IsWater(floor + new Vector2(0, -8)) || !Reach(floor)) continue;
+                _world.AddChild(new GuildLamp { Position = floor, Biome = biome.Id });
+                return;
+            }
+        }
+    }
+
+    private static bool JournalPageOf(BiomeId id) => Lore.Journal.Any(p => p.biome == id);
 
     /// <summary>Ambient wildlife: glow moths in dry tunnels, crabs on floors (including the sea bed).</summary>
     private void SpawnCritters(CaveData cave)
@@ -3400,7 +3435,7 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} vault {(vault ? "ok" : why)}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");

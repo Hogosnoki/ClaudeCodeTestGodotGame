@@ -43,6 +43,16 @@ public static class Meta
     public static bool PotionTutorialDone, PearlTutorialDone;
     /// <summary>The story card has been shown (the first time a run is begun).</summary>
     public static bool StorySeen;
+    /// <summary>The Delvers' journal pages found at lamps (by the kind of level: BiomeId names).</summary>
+    public static readonly HashSet<string> JournalFound = new();
+    /// <summary>A page read at a lamp: true the first time (it is kept, and paid in an ember).</summary>
+    public static bool FindPage(BiomeId id)
+    {
+        if (!JournalFound.Add(id.ToString())) return false;
+        Embers += 1;
+        Save();
+        return true;
+    }
     /// <summary>Class perks: the rank bought of each (kept for good), and which are brought on a run.</summary>
     public static readonly Dictionary<string, int> PerkRanks = new();
     public static readonly HashSet<string> PerksEquipped = new();
@@ -290,7 +300,7 @@ public static class Meta
         var d = new Godot.Collections.Dictionary
         {
             ["embers"] = Embers, ["runs"] = Runs, ["victories"] = Victories, ["best_depth"] = BestDepth,
-            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone, ["story_seen"] = StorySeen,
+            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone, ["story_seen"] = StorySeen, ["journal"] = new Godot.Collections.Array(JournalFound.Select(x => (Variant)x)),
             ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
             ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
             ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
@@ -313,6 +323,8 @@ public static class Meta
             PotionTutorialDone = d.ContainsKey("potion_tut") && (bool)d["potion_tut"];
             PearlTutorialDone = d.ContainsKey("pearl_tut") && (bool)d["pearl_tut"];
             StorySeen = d.ContainsKey("story_seen") && (bool)d["story_seen"];
+            JournalFound.Clear();
+            if (d.ContainsKey("journal")) foreach (var v in d["journal"].AsGodotArray()) JournalFound.Add((string)v);
         }
         Bought.Clear(); Active.Clear();
         if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);

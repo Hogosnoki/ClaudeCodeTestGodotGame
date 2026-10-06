@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace DaggerCave;
@@ -20,6 +21,51 @@ public static class Lore
         "So you go down. Whoever dies in the Dagger wakes at the fire at its mouth, cold, thirsty and a little less themselves. The old Delvers say the fire is a Guild lamp that never went out, kept alight by what the dying leave behind: embers. Every guardian's ember feeds it, and the stronger it burns the further down it lets you go before it calls you back.",
         "Free the ones in the cages: they know the way. Find the Mother Spring. Let the river go home.",
     };
+
+
+    /// <summary>
+    /// The Delvers' journal: a page left by the lamp of a lost expedition in each kind of level (the lamps in the dead ends of the
+    /// caves). Who wrote it, and what they saw.
+    /// </summary>
+    public static readonly (BiomeId biome, string author, string text)[] Journal =
+    {
+        (BiomeId.Den, "Marta Quill, Delver", "The bears have been gathering bones into piles. Not eating them. Arranging them. I do not like being watched by something that tidy."),
+        (BiomeId.Roots, "Hob Tarrow, rope-hand", "The roots go down further than the rope does. They are drinking, same as us. They are winning."),
+        (BiomeId.Nest, "Ines Vell, Delver", "Webs on the roof and a hum in the walls. If you hear the hum stop, run. Do not look up first."),
+        (BiomeId.Ruins, "Master Orrin, Guild surveyor", "These halls are older than the Guild charter by a thousand years. Someone dug down here before the river ever ran. I think they were running from something too."),
+        (BiomeId.Mine, "Foreman Dask", "Lamps lit on every gallery. I never lit them. The timbers are new and I cut none of them. Whoever works the Deep works it better than we did."),
+        (BiomeId.Catacombs, "Sister Aveline, Spring Order", "We came to sing the dead to rest. The dead were not resting. They were queuing."),
+        (BiomeId.Fungal, "Tam Greaves, Delver", "The river's last breath. You can taste it in the spores, cold and sweet. I stayed a day too long. Tell my sister the garden was beautiful."),
+        (BiomeId.Tunnels, "Corporal Hale, the Crown's company", "The bore is as straight as a spear and wide enough for a cart. Nothing natural makes a road like that. Nothing natural needs one."),
+        (BiomeId.Slime, "Ines Vell, Delver", "The river came this way and never left. It is down there still, only it is not water now."),
+        (BiomeId.Frost, "Brother Cael, Spring Order", "The cold comes up from below. Something down there is drinking the warmth out of the water, as well as the water."),
+        (BiomeId.Fossils, "Master Orrin, Guild surveyor", "Leviathans, bigger than any whale in the books, lying in rows. They died drinking. Make of that what you will."),
+        (BiomeId.Crystal, "Hob Tarrow, rope-hand", "The silver's cousin. It sings when you walk past, and half the company would not stop listening. We carried them out. Some of them."),
+        (BiomeId.LavaTubes, "Foreman Dask", "Bores cut by fire, then left. The walls are warm if you lay a hand on them. The chimneys go up where no one can follow. I left a lamp for whoever can."),
+        (BiomeId.Magma, "Captain Brandt, the Crown's company", "The river reached the fire here. What is left is steam and ash. If you are reading this, turn back. I did not."),
+        (BiomeId.Abyss, "Sister Aveline, Spring Order", "We did not know the lakes were roofs. There is a sea under them, old as the world, and the river is still running in it."),
+    };
+
+    /// <summary>The page for a kind of level (the first not yet read if that one is: a lamp always has something to say).</summary>
+    public static (BiomeId biome, string author, string text) PageFor(BiomeId id, Func<BiomeId, bool> found)
+    {
+        foreach (var pg in Journal) if (pg.biome == id) return pg;
+        return Journal[0];
+    }
+
+    /// <summary>A page's words broken into lines to fit across the screen.</summary>
+    public static string Wrap(string text, int width = 92)
+    {
+        var lines = new List<string>();
+        var cur = "";
+        foreach (var w in text.Split(' '))
+        {
+            if (cur.Length + w.Length + 1 > width && cur.Length > 0) { lines.Add(cur); cur = w; }
+            else cur = cur.Length == 0 ? w : cur + " " + w;
+        }
+        if (cur.Length > 0) lines.Add(cur);
+        return string.Join("\n", lines);
+    }
 
     /// <summary>One line over each biome, for its loading screen.</summary>
     public static string Line(BiomeId id) => id switch

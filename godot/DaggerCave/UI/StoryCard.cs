@@ -12,6 +12,7 @@ public partial class StoryCard : Control
     public Action Closed;
     private Button _close;
     private ScrollContainer _scroll;
+    private VBoxContainer _journal;
 
     public override void _Ready()
     {
@@ -42,6 +43,9 @@ public partial class StoryCard : Control
             p.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             text.AddChild(p);
         }
+        _journal = new VBoxContainer { CustomMinimumSize = new Vector2(670, 0) };
+        _journal.AddThemeConstantOverride("separation", 8);
+        text.AddChild(_journal);
         _close = UiKit.Button("Go down", Close, 220);
         _close.SizeFlagsHorizontal = SizeFlags.ShrinkCenter;
         col.AddChild(_close);
@@ -50,9 +54,27 @@ public partial class StoryCard : Control
     public void Open(string closeText = "Close")
     {
         _close.Text = closeText;
+        RefreshJournal();
         _scroll.ScrollVertical = 0;
         Visible = true;
         _close.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    /// <summary>The Delvers' journal: the pages found at lamps so far, under the story.</summary>
+    private void RefreshJournal()
+    {
+        foreach (var c in _journal.GetChildren()) c.QueueFree();
+        if (Meta.JournalFound.Count == 0) return;
+        _journal.AddChild(UiKit.Label($"THE DELVERS' JOURNAL  ·  {Meta.JournalFound.Count} of {Lore.Journal.Length - 1} pages", 15, UiKit.Gold));
+        foreach (var pg in Lore.Journal)
+        {
+            if (!Meta.JournalFound.Contains(pg.biome.ToString())) continue;
+            var l = UiKit.Label($"{pg.author}:  \"{pg.text}\"", 15, new Color(0.85f, 0.86f, 0.9f));
+            l.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            l.CustomMinimumSize = new Vector2(670, 0);
+            l.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+            _journal.AddChild(l);
+        }
     }
 
     public void Close()

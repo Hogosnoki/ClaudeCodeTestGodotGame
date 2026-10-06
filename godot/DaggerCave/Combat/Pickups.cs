@@ -597,3 +597,78 @@ public partial class Waterfall : Node2D
         if (_sound <= 0) { _sound = 1.1f; G.Sfx.Play("splash", GlobalPosition, -16, 0.2f, 0.5f); }
     }
 }
+
+
+/// <summary>
+/// A Guild lamp: a lantern still burning at the foot of a dead end where one of the lost expeditions made its last camp, with what is
+/// left of whoever kept it. Read the page they left (the interact button) for a line of the story and, the first time, an ember;
+/// every page found is kept in the journal on the story card. Placed from the level's seed alone; reading is each player's own.
+/// </summary>
+public partial class GuildLamp : Node2D
+{
+    public BiomeId Biome;
+    public bool Read_ { get; private set; }
+    public float ReadT { get; private set; }
+
+    public static readonly System.Collections.Generic.List<GuildLamp> All = new();
+    public override void _EnterTree() => All.Add(this);
+    public override void _ExitTree() => All.Remove(this);
+
+    public bool Reaches(Vector2 p) => p.DistanceTo(GlobalPosition + new Vector2(0, -8)) < 36;
+
+    public static GuildLamp At(Vector2 p)
+    {
+        foreach (var l in All) if (GodotObject.IsInstanceValid(l) && l.Reaches(p)) return l;
+        return null;
+    }
+
+    /// <summary>The interact button at the lamp.</summary>
+    public void Read()
+    {
+        var (_, author, text) = Lore.PageFor(Biome, null);
+        bool fresh = Meta.FindPage(Biome);
+        Read_ = true; ReadT = 0;
+        G.Sfx.Play("ui", GlobalPosition, -2, 0.05f, 0.7f);
+        G.Fx.Burst(GlobalPosition + new Vector2(0, -22), new Color(1f, 0.82f, 0.5f), 12, 90, 1.8f, 0.6f);
+        G.Main.Hud?.ShowBanner(fresh ? $"A PAGE FROM THE DELVERS' JOURNAL  ·  {author.ToUpperInvariant()}" : author.ToUpperInvariant(), 3.5f);
+        G.Main.Hud?.ShowNotice(Lore.Wrap("\"" + text + "\""), 14f);
+        if (fresh) G.Fx.Text(GlobalPosition + new Vector2(0, -50), "+1 ember", new Color(1f, 0.7f, 0.35f), 13, 2.2f);
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        if (Read_) ReadT += (float)delta;
+        // a thread of warm smoke from the flame
+        if (G.Chance(0.03f) && G.Player != null && G.Player.GlobalPosition.DistanceSquaredTo(GlobalPosition) < 600 * 600)
+            G.Fx.Mote(GlobalPosition + new Vector2(0, -28), GlobalPosition + new Vector2(G.Range(-6, 6), -48), new Color(1f, 0.8f, 0.5f, 0.35f));
+    }
+}
+
+
+/// <summary>
+/// The mouth of a hidden way in (a crack too narrow for anyone but a creature to use): the faintest sign of it, a thread of bubbles
+/// escaping from a fish's slit, a little dust sifting out of a spider's crack. Nothing else; only to be noticed by someone looking.
+/// </summary>
+public partial class SecretMouth : Node2D
+{
+    /// <summary>0: bubbles (a slit under water); 1: dust (a crack in the roof).</summary>
+    public int Kind;
+    private float _t;
+
+    public override void _PhysicsProcess(double delta)
+    {
+        _t -= (float)delta;
+        var p = G.Player;
+        if (_t > 0 || p == null || p.GlobalPosition.DistanceSquaredTo(GlobalPosition) > 700 * 700) return;
+        if (Kind == 0)
+        {
+            _t = G.Range(0.6f, 1.6f);
+            G.Fx.Bubbles(GlobalPosition + new Vector2(G.Range(-2, 2), G.Range(-3, 3)), 1);
+        }
+        else
+        {
+            _t = G.Range(0.8f, 2.2f);
+            G.Fx.Dust(GlobalPosition + new Vector2(G.Range(-3, 3), 4), 1, 0.6f, new Color(0.7f, 0.68f, 0.62f, 0.45f));
+        }
+    }
+}

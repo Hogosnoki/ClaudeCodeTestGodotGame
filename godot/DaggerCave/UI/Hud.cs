@@ -290,10 +290,24 @@ public partial class Hud : Control
             DrawString(font, at - new Vector2(gsz.X / 2, 0), say, HorizontalAlignment.Left, -1, 14,
                 key ? new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)) : new Color(1f, 0.7f, 0.55f, 0.85f));
         }
+        // --- a Guild lamp: read the page left by it ---
+        if (!p.Dead && GuildLamp.At(p.GlobalPosition) is GuildLamp lamp)
+        {
+            var at = lamp.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -56);
+            string read = $"{Controls.Name("interact")}  read the Delver's page";
+            var rsz = font.GetStringSize(read, HorizontalAlignment.Left, -1, 14);
+            DrawRect(new Rect2(at - new Vector2(rsz.X / 2 + 8, 16), new Vector2(rsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            DrawString(font, at - new Vector2(rsz.X / 2, 0), read, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
+        }
         if (NoticeT > 0 && Notice != "")
         {
-            var nsz = font.GetStringSize(Notice, HorizontalAlignment.Left, -1, 13);
-            DrawString(font, new Vector2(vs.X / 2 - nsz.X / 2, 58), Notice, HorizontalAlignment.Left, -1, 13, new Color(1f, 0.92f, 0.75f, Math.Clamp(NoticeT, 0, 1) * 0.9f));
+            // (a notice may run to several lines)
+            var lines = Notice.Split('\n');
+            for (int k = 0; k < lines.Length; k++)
+            {
+                var nsz = font.GetStringSize(lines[k], HorizontalAlignment.Left, -1, 13);
+                DrawString(font, new Vector2(vs.X / 2 - nsz.X / 2, 58 + k * 17), lines[k], HorizontalAlignment.Left, -1, 13, new Color(1f, 0.92f, 0.75f, Math.Clamp(NoticeT, 0, 1) * 0.9f));
+            }
         }
 
         // --- Brain training panel (F9) ---

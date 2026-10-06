@@ -144,6 +144,7 @@ public static partial class CaveGenerator
         if (best == null) throw new InvalidOperationException("every cave attempt failed");
         B = biome; W = w; H = h;
         AddDrain(best, seed);
+        AddHiddenNooks(best, seed);
         return best;
     }
 
