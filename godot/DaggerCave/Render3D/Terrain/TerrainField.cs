@@ -28,6 +28,7 @@ public sealed class TerrainStyle
             case BiomeId.Entrance: s.StrataAmp = 0.16f; s.NoiseAmp = 0.7f; break;
             case BiomeId.Den: s.NoiseAmp = 0.75f; s.Bk = 5.5f; break;
             case BiomeId.Nest: s.NoiseAmp = 0.65f; s.DetailAmp = 0.26f; break;
+            case BiomeId.Catacombs:
             case BiomeId.Ruins: s.NoiseAmp = 0.22f; s.DetailAmp = 0.06f; s.StrataAmp = 0.02f; s.KFillet = 0.5f; s.KLip = 0.35f; s.CapNoiseAmp = 0.35f; break;
             case BiomeId.Fungal: s.NoiseAmp = 0.8f; s.Bk = 5.5f; s.DetailAmp = 0.16f; break;
             case BiomeId.Tunnels: s.B0 = 2.2f; s.Bk = 3.5f; s.StrataAmp = 0.18f; break;

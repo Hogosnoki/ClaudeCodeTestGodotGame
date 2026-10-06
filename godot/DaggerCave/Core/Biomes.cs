@@ -24,7 +24,7 @@ public enum GenStyle
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -78,6 +78,10 @@ public sealed class BiomeDef
     /// <summary>Decoration chances on rims: grass tufts, glowing mushrooms, stalactites, crystals.</summary>
     public float Grass = 0.35f, Mushrooms = 0.04f, Stalactites = 0.22f, Crystals = 0.03f;
     public bool Bricks;
+    /// <summary>Wall torches (warm, flickering): about this many per metre of floor (the catacombs).</summary>
+    public float Torches;
+    /// <summary>Dim lights in the palette's glow colour hung on the back walls: the share of tries that place one (the catacombs' blue light).</summary>
+    public float WallGlow;
 
     // ---- hazards and terrain features
     public bool Slippery, IceSheet, IcePlatforms, Webs, Spores, CrystalSpikes, FireVents;
@@ -250,6 +254,25 @@ public static class Biomes
         mine.MiniBosses = new() { () => Var(new Goblin { Slinger = true }, "Blasting ", "c8553a"), () => Var(new Skeleton(), "Foreman ", "b09a6a"), () => Var(new Golem(), "Ore ", "b87a3a") };
         mine.Guardian = r => Guard(Var(new Golem(), "", "b87a3a"), "THE ORE GOLEM", 1.3f);
         All.Add(mine);
+
+        // ------------------------------------------------------------------ 3-5: the catacombs
+        var cata = new BiomeDef
+        {
+            Id = BiomeId.Catacombs, Name = "Catacombs", MinDepth = 3, MaxDepth = 5,
+            Style = GenStyle.Ruins, W = 210, H = 100, Liquid = Liquid.None,
+            // (no dirt here: cold blue stone, lit by a dim blue glow and the odd torch)
+            Edge = C("34415f"), Deep = C("080c1a"), Moss = C("3a5578"), Rim = C("6a7ea8"), Glow = C("6a9cff"),
+            BackBottom = C("040714"), Bricks = true, Grass = 0.03f, Stalactites = 0.06f, Crystals = 0.025f, Darkness = 0.86f,
+            Torches = 0.05f, WallGlow = 0.4f, HazardCount = 8, EliteChance = 0.08f, MiniBossesMin = 1, MiniBossesMax = 2, RoomChests = 4,
+        };
+        cata.Residents[SpawnKind.Ground] = L(E(4, () => Var(new Skeleton(), "Crypt ", "b8c8f0"), 1, 3), E(2, () => Var(new Skeleton(), "Tomb ", "8aa0d8"), 1, 2),
+            E(2, () => Var(new Rat(), "Grave ", "8a96b8"), 2, 3), E(1, () => Var(new Goblin { Slinger = true }, "Grave-robber ", "7a8fb8")));
+        cata.Residents[SpawnKind.Ceiling] = L(E(3, () => Var(new Bat(), "Crypt ", "9ab0e8"), 1, 3), E(1, () => new Spider()), E(1, () => Var(new FrostWraith(), "Restless ", "a8c0ff")));
+        cata.GroundEntrants = L(E(4, () => Var(new Skeleton(), "Crypt ", "b8c8f0")), E(2, () => Var(new Rat(), "Grave ", "8a96b8")), E(1, () => Var(new Goblin { Slinger = true }, "Grave-robber ", "7a8fb8")));
+        cata.AirEntrants = L(E(2, () => Var(new Bat(), "Crypt ", "9ab0e8")), E(1, () => Var(new FrostWraith(), "Restless ", "a8c0ff")));
+        cata.MiniBosses = new() { () => Var(new Skeleton(), "Crypt Knight ", "a8b8e8"), () => Var(new Goblin { Slinger = true }, "Grave-robber ", "7a8fb8"), () => Var(new FrostWraith(), "Restless ", "a8c0ff") };
+        cata.Guardian = r => Guard(Var(new Skeleton(), "", "9ab0e8"), "THE CRYPT LORD", 2.4f);
+        All.Add(cata);
 
         // ------------------------------------------------------------------ 3-4: fungal cavern
         var fungal = new BiomeDef

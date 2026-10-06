@@ -97,7 +97,7 @@ public static class TerrainLook
         var b = cave.Biome ?? Biomes.Get(BiomeId.Slime);
         var m = new ShaderMaterial { Shader = _shader };
         string a = "cliff_side", bb = "rock_face";
-        if (b.Id is BiomeId.Den or BiomeId.Ruins) (a, bb) = (bb, a);
+        if (b.Id is BiomeId.Den or BiomeId.Ruins or BiomeId.Catacombs) (a, bb) = (bb, a);
         Set(m, "a", a);
         Set(m, "b", bb);
         Set(m, "g", "rock_ground");
@@ -114,6 +114,7 @@ public static class TerrainLook
         {
             case BiomeId.Entrance: tintStrength = 0.45f; brightness = 1.05f; break;
             case BiomeId.Ruins: special = 1; Set(m, "s", "rock_wall_08"); tintStrength = 0.5f; break;
+            case BiomeId.Catacombs: special = 1; Set(m, "s", "rock_wall_08"); tintStrength = 0.8f; break;
             case BiomeId.Fungal: special = 5; tintStrength = 0.75f; break;
             case BiomeId.Frost: special = 2; Set(m, "s", "snow_02"); tintStrength = 0.8f; brightness = 1.15f; break;
             case BiomeId.Crystal: special = 4; tintStrength = 0.85f; break;

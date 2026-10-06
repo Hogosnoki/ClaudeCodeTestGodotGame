@@ -175,6 +175,30 @@ public partial class CaveDecor3D : Node3D
         var boneCol = b.Glow.Lerp(new Color(0.78f, 0.72f, 0.6f), 0.7f).Darkened(0.12f);
         var bonePiles = b.Leviathans ? new[] { NewKind(DecorMeshes.Bones(_rng, noise, 5, 1f, boneCol), boneMat, true), NewKind(DecorMeshes.Bones(_rng, noise, 9, 1.3f, boneCol), boneMat, true) } : null;
 
+        // the catacombs' wall torches: an iron bracket, a stick and a cup, and a small flame (the flame glows by itself)
+        Kind[] torch = null;
+        var torchSpots = new List<Vector2>();
+        if (b.Torches > 0)
+        {
+            var iron = new Color(0.16f, 0.15f, 0.17f);
+            var wood = new Color(0.3f, 0.2f, 0.12f);
+            var holder = new MeshBuilder();
+            holder.Box(new Transform3D(Basis.Identity, new Vector3(0f, 0.3f, 0f)), new Vector3(0.035f, 0.3f, 0.035f), wood);
+            holder.Box(new Transform3D(Basis.Identity, new Vector3(0f, 0.62f, 0f)), new Vector3(0.075f, 0.05f, 0.075f), iron);
+            holder.Box(new Transform3D(Basis.Identity, new Vector3(0f, 0.2f, -0.16f)), new Vector3(0.022f, 0.022f, 0.16f), iron);
+            var flame = new MeshBuilder();
+            var fcol = new Color(1f, 0.72f, 0.3f);
+            flame.Box(new Transform3D(Basis.Identity, new Vector3(0f, 0.78f, 0f)), new Vector3(0.045f, 0.13f, 0.045f), fcol);
+            flame.Box(new Transform3D(new Basis(Vector3.Up, 0.785f), new Vector3(0f, 0.78f, 0f)), new Vector3(0.045f, 0.13f, 0.045f), fcol);
+            var holderMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.85f };
+            var flameMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1f, 0.75f, 0.35f), ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                EmissionEnabled = true, Emission = new Color(1f, 0.6f, 0.2f), EmissionEnergyMultiplier = 3f,
+            };
+            torch = new[] { NewKind(holder, holderMat, false), NewKind(flame, flameMat, false) };
+        }
+
         float walkable = MathF.Cos(Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees)) - 0.01f;
         float waterY = cave.WaterY / CaveData.Cell; // cave metres
         var segs = f.Segs;
@@ -190,6 +214,28 @@ public partial class CaveDecor3D : Node3D
             bool wet = m.Y > waterY && cave.Liquid != Liquid.None;
             bool floor = up > walkable, ceiling = up < -0.55f;
 
+            if (torch != null && floor && !wet && R() < b.Torches * len)
+            {
+                // a torch on the back wall, a couple of metres above the floor and well apart from the last
+                var tp = a.Lerp(bb, R());
+                float ty = tp.Y + n.Y * R(2.4f, 3.2f);
+                bool apart = true;
+                foreach (var o in torchSpots) if (o.DistanceTo(new Vector2(tp.X, ty)) < 9f) { apart = false; break; }
+                if (apart)
+                {
+                    f.Column(tp.X, ty, out float sOpen, out _, out _);
+                    if (sOpen <= -1.5f && BackWallAt(tp.X, ty, out var wp, out var wn))
+                    {
+                        torchSpots.Add(new Vector2(tp.X, ty));
+                        var at = wp + wn * 0.3f;
+                        var xf = new Transform3D(Basis.Identity.Scaled(Vector3.One * R(1.1f, 1.4f)), at);
+                        Put(torch[0], xf);
+                        Put(torch[1], xf);
+                        // (a warm, flickering light that reaches into the blue)
+                        Light(at + new Vector3(0f, 1.0f, 0.35f), new Color(1f, 0.62f, 0.28f), 2.1f, 9f, 1.0f, 1f);
+                    }
+                }
+            }
             if (floor && !wet)
             {
                 // grass: denser at the back, short in front of the play plane
@@ -351,6 +397,9 @@ public partial class CaveDecor3D : Node3D
             if (sDist > -1.2f) continue;
             bool wet = y > waterY && cave.Liquid != Liquid.None;
             if (wet && lava) continue;
+            // (the catacombs' dim blue light, hung on the back walls)
+            if (b.WallGlow > 0 && !wet && R() < b.WallGlow && BackWallAt(x, y, out var gp, out var gn))
+                Light(gp + gn * 1.2f, b.Glow, 0.8f, 6.5f, 0.9f);
             float roll = R();
             if (roll < b.Crystals * 0.8f + (crystalCave ? 0.1f : 0f))
             {
