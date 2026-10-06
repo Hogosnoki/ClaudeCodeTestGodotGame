@@ -1247,3 +1247,15 @@ sides), not smooth balls.
   with each, then it collapses in blocks and is gone for good, so a ledge can never trap anyone or cut the guardian off. Ice ledges
   (frost caverns) and the dragon's tiers are as before. Online, each blow is sent to the other games. `--scenario=ledges` checks it.
 
+### Ledges in the cave's own rock, textured doorways, and the Delvers' feelings
+
+- A breakable ledge is meshed by the terrain's own mesher over a tiny field holding just that ledge (`Render3D/Terrain/LedgeMesh.cs`), with the
+  terrain's own material, so it is the same stone as the cave and looks like part of it (the same size and shape as before). Struck, it shudders;
+  broken, pieces of the same stone fall and it is gone.
+- The rocks round the entry and exit doorways are broken, angular chunks with a stone grain (the same grain as the rubble and ledges), not smooth
+  lumps.
+- **The Delvers' feelings** (`Core/Buffs.cs`): reading a lamp's page now also leaves a feeling in the reader, an *inspiration* or a *sorrow that
+  steadies*: a little higher jump, further jumps (speed), swim speed, more breath, more damage, ten per cent shorter ability and dodge cooldowns,
+  less damage taken, more healing given or received (each page its own). It lasts until the hero leaves the cave, over every level between,
+  is listed under "FELT" at the top left, and a page's feeling is taken once. `--scenario=lamp` checks it.
+

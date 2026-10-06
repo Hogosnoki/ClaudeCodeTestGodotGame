@@ -1309,12 +1309,17 @@ public partial class PortalView : PropView
         var rng = new Random(p.Depth * 31 + (int)(p.To?.Id ?? 0));
         float R() => (float)rng.NextDouble();
         var mb = new MeshBuilder();
-        // the rock the stair is cut into
+        // the rock the stair is cut into: broken, angular chunks (stone grain comes from the material)
+        var boost = 2.4f;
+        Color Tint(Color c) => new Color(c.R * boost, c.G * boost, c.B * boost);
         for (int k = 0; k < 9; k++)
         {
             float a = MathF.PI * (0.08f + 0.84f * k / 8f);
             var at = new Vector3(MathF.Cos(a) * 2.6f, 0.2f + MathF.Sin(a) * 3.1f, -1.4f - 0.6f * R());
-            mb.Blob(at, new Vector3(1.3f, 1.2f, 1.2f) * (0.8f + 0.35f * R()), 5, rockCol.Darkened(0.15f + 0.15f * R()), new Noise3(40 + k), 0.35f, 1.4f, 0.3f);
+            var chunk = DecorMeshes.RubbleChunk(rng, new Noise3(40 + k), 1.55f * (0.8f + 0.35f * R()));
+            var tone = Tint(rockCol.Darkened(0.05f + 0.15f * R()));
+            for (int c = 0; c < chunk.Count; c++) chunk.C[c] = new Color(chunk.C[c].R * tone.R, chunk.C[c].G * tone.G, chunk.C[c].B * tone.B);
+            mb.Append(chunk, new Transform3D(new Basis(Vector3.Up, R() * MathF.Tau) * new Basis(Vector3.Back, (R() - 0.5f) * 0.6f), at - new Vector3(0, 0.45f, 0)));
         }
         // jambs: coursed blocks up to the springing of the arch
         foreach (float side in new[] { -1f, 1f })
@@ -1326,7 +1331,7 @@ public partial class PortalView : PropView
                 float w = 0.34f + 0.1f * R();
                 var at = new Vector3(side * (HalfW + w), y + h * 0.5f, -0.25f + 0.05f * R());
                 var xf = new Transform3D(new Basis(Vector3.Up, (R() - 0.5f) * 0.06f), at);
-                mb.Box(xf, new Vector3(w - 0.02f, h * 0.5f - 0.02f, 0.38f), stone.Darkened(0.05f + 0.2f * R()));
+                mb.Box(xf, new Vector3(w - 0.02f, h * 0.5f - 0.02f, 0.38f), Tint(stone.Darkened(0.05f + 0.2f * R())));
                 y += h;
             }
         }
@@ -1340,16 +1345,19 @@ public partial class PortalView : PropView
             var at = new Vector3(MathF.Cos(a) * r, DoorH - HalfW + MathF.Sin(a) * r, key ? -0.12f : -0.24f);
             var basis = new Basis(Vector3.Back, a - MathF.PI / 2);
             var half = new Vector3(MathF.PI * r / n * 0.5f - 0.02f, key ? 0.4f : 0.31f, key ? 0.5f : 0.38f);
-            mb.Box(new Transform3D(basis, at), half, stone.Darkened(key ? 0.02f : 0.08f + 0.15f * R()));
+            mb.Box(new Transform3D(basis, at), half, Tint(stone.Darkened(key ? 0.02f : 0.08f + 0.15f * R())));
         }
         // a worn threshold slab and some fallen stones
-        mb.Box(new Transform3D(Basis.Identity, new Vector3(0, -0.04f, 0.05f)), new Vector3(HalfW + 0.2f, 0.08f, 0.35f), stone.Darkened(0.2f));
+        mb.Box(new Transform3D(Basis.Identity, new Vector3(0, -0.04f, 0.05f)), new Vector3(HalfW + 0.2f, 0.08f, 0.35f), Tint(stone.Darkened(0.2f)));
         for (int k = 0; k < 4; k++)
         {
             float x = (k % 2 == 0 ? -1 : 1) * (HalfW + 0.9f + 0.9f * R());
-            mb.Blob(new Vector3(x, 0.12f, 0.2f + 0.5f * R()), new Vector3(0.3f, 0.2f, 0.26f) * (0.7f + 0.6f * R()), 4, rockCol.Darkened(0.2f), new Noise3(60 + k), 0.3f, 2f, 0.5f);
+            var chunk = DecorMeshes.RubbleChunk(rng, new Noise3(60 + k), 0.3f * (0.7f + 0.6f * R()));
+            var tone = Tint(rockCol.Darkened(0.1f));
+            for (int c = 0; c < chunk.Count; c++) chunk.C[c] = new Color(chunk.C[c].R * tone.R, chunk.C[c].G * tone.G, chunk.C[c].B * tone.B);
+            mb.Append(chunk, new Transform3D(new Basis(Vector3.Up, R() * MathF.Tau), new Vector3(x, 0.0f, 0.2f + 0.5f * R())));
         }
-        AddChild(PropViews.Mesh(mb, PropViews.VertexColored));
+        AddChild(PropViews.Mesh(mb, PropViews.LedgeRock));
 
         // the stair going down, behind the opening
         _stairs = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(HalfW * 2f, DoorH) }, MaterialOverride = entry ? EntryStairMat : StairMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, DoorH * 0.5f, -0.2f) };
@@ -2103,40 +2111,51 @@ public partial class IcePlatformView : PropView
 }
 
 /// <summary>
-/// A generated ledge: a row of broken-stone blocks laid side by side (flat across the top). Struck, it shudders; broken, the blocks
-/// drop away one after another, tumbling, and are gone.
+/// A generated ledge, made of the cave's own rock (the terrain's mesher, field and material on a field holding just this ledge). Struck,
+/// it shudders; broken, it is gone in a burst of dirt and falling pieces.
 /// </summary>
 public partial class RockLedgeView : PropView
 {
-    private readonly System.Collections.Generic.List<MeshInstance3D> _blocks = new();
-    private readonly System.Collections.Generic.List<Vector3> _home = new(), _vel = new(), _spin = new(), _off = new();
-    private float _fall;
-    private Vector3 _shake;
+    private MeshInstance3D _body;
+    private Vector3 _bodyHome;
+    private readonly System.Collections.Generic.List<MeshInstance3D> _bits = new();
+    private readonly System.Collections.Generic.List<Vector3> _vel = new(), _spin = new();
+    private float _fall = -1f;
 
     protected override void Build()
     {
         var l = (RockLedge)Owner2D;
+        var cave = G.Cave;
+        var mat = (Material)G.Main.Stage?.Terrain?.Material ?? TerrainLook.Make(cave);
+        Vector3 off = default;
+        var mesh = l.Rec != null ? LedgeMesh.Build(cave, l.Rec, mat, out off) : null;
+        if (mesh == null) { _bodyHome = default; return; }
+        _body = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.On, Position = off };
+        _bodyHome = off;
+        AddChild(_body);
+    }
+
+    private void Crumble(RockLedge l)
+    {
+        // the pieces that fall: broken blocks of the same stone, flung out and down
         var rng = new Random((int)(l.GlobalPosition.X * 13 + l.GlobalPosition.Y * 7));
         var noise = new Noise3(rng.Next());
-        float half = W3.M(l.Half), thick = W3.M(RockLedge.Thick);
-        int n = Math.Max(2, (int)Math.Ceiling(half * 2f / 1.6f));
-        float bw = half * 2f / n;
+        float half = W3.M(l.Half);
         var e0 = (G.Biome?.Edge ?? new Color(0.4f, 0.35f, 0.3f)).Lerp(new Color(0.5f, 0.5f, 0.5f), 0.35f);
-        var edge = new Color(Math.Min(1.4f, e0.R * 2.6f), Math.Min(1.4f, e0.G * 2.6f), Math.Min(1.4f, e0.B * 2.6f));
+        var tint = new Color(Math.Min(1.4f, e0.R * 2.6f), Math.Min(1.4f, e0.G * 2.6f), Math.Min(1.4f, e0.B * 2.6f));
+        int n = Math.Max(6, (int)(half * 2.2f));
         for (int i = 0; i < n; i++)
         {
-            float jx = ((float)rng.NextDouble() - 0.5f) * 0.12f;
-            var mb = DecorMeshes.SlabChunk(rng, noise, bw * 1.18f, thick * 0.9f, 2.1f + (float)rng.NextDouble() * 0.5f, edge);
+            var mb = DecorMeshes.SlabChunk(rng, noise, 0.5f + (float)rng.NextDouble() * 0.7f, 0.4f + (float)rng.NextDouble() * 0.4f, 0.7f + (float)rng.NextDouble() * 0.6f, tint);
             var node = PropViews.Mesh(mb, PropViews.LedgeRock);
-            var home = new Vector3(-half + bw * (i + 0.5f) + jx, 0f, -0.2f + ((float)rng.NextDouble() - 0.5f) * 0.3f);
-            node.Position = home;
-            node.Rotation = new Vector3(0, ((float)rng.NextDouble() - 0.5f) * 0.9f, ((float)rng.NextDouble() - 0.5f) * 0.08f);
+            node.Position = new Vector3(((float)rng.NextDouble() * 2f - 1f) * half, ((float)rng.NextDouble() - 0.5f) * 0.5f, ((float)rng.NextDouble() - 0.5f) * 1.2f);
+            node.Rotation = new Vector3((float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f);
             AddChild(node);
-            _blocks.Add(node); _home.Add(home);
-            _off.Add(Vector3.Zero);
-            _vel.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 2.4f, 0.4f + (float)rng.NextDouble() * 1.4f, ((float)rng.NextDouble() - 0.5f) * 2f));
-            _spin.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 5f, ((float)rng.NextDouble() - 0.5f) * 4f, ((float)rng.NextDouble() - 0.5f) * 6f));
+            _bits.Add(node);
+            _vel.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 3f + (node.Position.X / Math.Max(1f, half)) * 1.2f, 0.5f + (float)rng.NextDouble() * 2f, ((float)rng.NextDouble() - 0.5f) * 2f));
+            _spin.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 8f, ((float)rng.NextDouble() - 0.5f) * 8f, ((float)rng.NextDouble() - 0.5f) * 8f));
         }
+        if (_body != null) _body.Visible = false;
     }
 
     protected override void Sync(float dt)
@@ -2145,27 +2164,22 @@ public partial class RockLedgeView : PropView
         Follow(default, 0f);
         if (!l.Broken)
         {
+            if (_body == null) return;
             // it shudders when struck: a quick tremor that settles
             float k = Math.Clamp(l.ShakeT / 0.45f, 0f, 1f);
-            Position += new Vector3(MathF.Sin(Time * 95f) * 0.045f * k, MathF.Sin(Time * 71f + 1f) * 0.03f * k, 0f);
-            // (the more it has taken, the looser it sits)
-            float worn = 1f - l.Left / (float)Tune.Ledge.Hits;
-            for (int i = 0; i < _blocks.Count; i++)
-                _blocks[i].Position = _home[i] + new Vector3(0, -0.04f * worn * ((i * 7) % 5) / 4f, 0);
+            _body.Position = _bodyHome + new Vector3(MathF.Sin(Time * 95f) * 0.05f * k, MathF.Sin(Time * 71f + 1f) * 0.035f * k, 0f);
+            _body.Rotation = new Vector3(0, 0, MathF.Sin(Time * 83f) * 0.012f * k);
             return;
         }
-        // the blocks drop away, each a little after the one before, tumbling and shrinking to nothing
+        if (_fall < 0) { _fall = 0; Crumble(l); }
         _fall += dt;
-        for (int i = 0; i < _blocks.Count; i++)
+        for (int i = 0; i < _bits.Count; i++)
         {
-            float t = _fall - i * 0.03f;
-            if (t <= 0) continue;
             _vel[i] = _vel[i] with { Y = _vel[i].Y - 9.8f * 1.6f * dt };
-            _off[i] += _vel[i] * dt;
-            _blocks[i].Position = _home[i] + _off[i];
-            _blocks[i].Rotation += _spin[i] * dt;
-            float s = Math.Clamp(1f - (t - 1.6f) / 0.9f, 0f, 1f);
-            _blocks[i].Scale = Vector3.One * Math.Max(0.001f, s);
+            _bits[i].Position += _vel[i] * dt;
+            _bits[i].Rotation += _spin[i] * dt;
+            float s = Math.Clamp(1f - (_fall - 1.4f) / 1.0f, 0f, 1f);
+            _bits[i].Scale = Vector3.One * Math.Max(0.001f, s);
         }
     }
 }

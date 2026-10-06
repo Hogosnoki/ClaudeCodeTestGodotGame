@@ -39,6 +39,8 @@ public partial class Main : Node
     private Node2D _world;
     private Camera2D _cam;
     private Stage3D _stage;
+    /// <summary>The 3D stage (its terrain and the material of its rock).</summary>
+    public Stage3D Stage => _stage;
     /// <summary>The gameplay camera (2D): it decides what counts as on screen; the 3D camera follows it.</summary>
     public Camera2D Cam2D => _cam;
     private CanvasLayer _uiLayer, _darkLayer;
@@ -965,7 +967,7 @@ public partial class Main : Node
     {
         int k = 0;
         foreach (var l in cave.Ledges)
-            _world.AddChild(new RockLedge { Position = new Vector2(l.Cx, l.Cy) * CaveData.Cell, Half = l.Half * CaveData.Cell, Index = k++ });
+            _world.AddChild(new RockLedge { Position = new Vector2(l.Cx, l.Cy) * CaveData.Cell, Half = l.Half * CaveData.Cell, Index = k++, Rec = l });
     }
 
     private void PlaceRubble(CaveData cave)

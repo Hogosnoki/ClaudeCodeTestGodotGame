@@ -290,6 +290,18 @@ public partial class Hud : Control
             DrawString(font, at - new Vector2(gsz.X / 2, 0), say, HorizontalAlignment.Left, -1, 14,
                 key ? new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)) : new Color(1f, 0.7f, 0.55f, 0.85f));
         }
+        // --- the feelings the Delvers' pages have left you with this run ---
+        if (p.Buffs.Count > 0)
+        {
+            float by = 104;
+            DrawString(font, new Vector2(18, by), "FELT", HorizontalAlignment.Left, -1, 10, new Color(0.7f, 0.68f, 0.6f, 0.8f));
+            foreach (var b in p.Buffs)
+            {
+                by += 15;
+                var bc = b.Inspired ? new Color(1f, 0.9f, 0.55f, 0.9f) : new Color(0.65f, 0.75f, 1f, 0.9f);
+                DrawString(font, new Vector2(18, by), (b.Inspired ? "+ " : "- ") + b.Name + "  " + b.Text, HorizontalAlignment.Left, -1, 12, bc);
+            }
+        }
         // --- a Guild lamp: read the page left by it ---
         if (!p.Dead && GuildLamp.At(p.GlobalPosition) is GuildLamp lamp)
         {

@@ -104,14 +104,17 @@ public partial class Main
         p.GlobalPosition = lamp.GlobalPosition + new Vector2(-14, -14); p.Velocity = Vector2.Zero;
         Meta.JournalFound.Remove(G.Biome.Id.ToString());
         int embers = Meta.Embers;
+        float cd0 = p.Stats.AbilityCdMult; p.Buffs.Clear();
         foreach (var _ in SbSleep(1.2f)) { p.GlobalPosition = lamp.GlobalPosition + new Vector2(-14, -14); yield return null; }
         ScShot("lamp_0");
         ScCheck($"the hero is within reach of it ({GuildLamp.At(p.GlobalPosition) == lamp})", GuildLamp.At(p.GlobalPosition) == lamp);
         lamp.Read();
         ScCheck($"the page is kept in the journal ({string.Join(",", Meta.JournalFound)}) and paid an ember ({embers} -> {Meta.Embers})", Meta.JournalFound.Contains(G.Biome.Id.ToString()) && Meta.Embers == embers + 1);
+        ScCheck($"and leaves a feeling that lasts the run ({string.Join(",", p.Buffs.Select(b => b.Name))}: ability cooldown x{cd0:0.00} -> x{p.Stats.AbilityCdMult:0.00})", p.Buffs.Count == 1 && p.Stats.AbilityCdMult < cd0 - 0.05f);
         foreach (var _ in SbSleep(0.8f)) yield return null;
         ScShot("lamp_1");
         lamp.Read();
+        ScCheck($"and a second reading adds no more of it ({p.Buffs.Count} feeling, x{p.Stats.AbilityCdMult:0.00})", p.Buffs.Count == 1);
         ScCheck($"reading it again pays nothing more ({Meta.Embers})", Meta.Embers == embers + 1);
     }
 

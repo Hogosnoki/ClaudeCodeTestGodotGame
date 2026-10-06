@@ -14,6 +14,8 @@ public partial class RockLedge : StaticBody2D, IBreakable
     public static readonly System.Collections.Generic.List<RockLedge> All = new();
 
     public int Index;
+    /// <summary>What the generator recorded of it (its corners), for the 3D view to mesh.</summary>
+    public LedgeRec Rec;
     /// <summary>Half the slab's width, px.</summary>
     public float Half = 40f;
     public int Left = Tune.Ledge.Hits;

@@ -86,6 +86,8 @@ public partial class Player : CharacterBody2D
 
     public Func<PlayerInput> InputOverride;
     private bool _swallow;
+    /// <summary>The feelings the Delvers' pages have left in this hero this run (until the cave is left).</summary>
+    public readonly System.Collections.Generic.List<RunBuff> Buffs = new();
     private CapsuleShape2D _bodyShape;
     private CollisionShape2D _bodyNode;
     private float _knockT;

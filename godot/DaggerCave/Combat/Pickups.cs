@@ -637,7 +637,10 @@ public partial class GuildLamp : Node2D
         G.Sfx.Play("ui", GlobalPosition, -2, 0.05f, 0.7f);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -22), new Color(1f, 0.82f, 0.5f), 12, 90, 1.8f, 0.6f);
         G.Main.Hud?.ShowBanner(fresh ? $"A PAGE FROM THE DELVERS' JOURNAL  ·  {author.ToUpperInvariant()}" : author.ToUpperInvariant(), 3.5f);
-        G.Main.Hud?.ShowNotice(Lore.Wrap("\"" + text + "\""), 14f);
+        var feel = RunBuffs.Grant(G.Player, Biome);
+        string mood = feel == null ? "" : "\n" + (feel.Inspired ? "You are inspired" : "You are saddened, and steadied") + $":  {feel.Name}  ({feel.Text}, until you leave the cave)";
+        G.Main.Hud?.ShowNotice(Lore.Wrap("\"" + text + "\"") + mood, 16f);
+        if (feel != null) G.Fx.Burst(G.Player.GlobalPosition + new Vector2(0, -14), feel.Inspired ? new Color(1f, 0.9f, 0.5f) : new Color(0.6f, 0.7f, 1f), 16, 100, 2f, 0.9f);
         if (fresh) G.Fx.Text(GlobalPosition + new Vector2(0, -50), "+1 ember", new Color(1f, 0.7f, 0.35f), 13, 2.2f);
     }
 
