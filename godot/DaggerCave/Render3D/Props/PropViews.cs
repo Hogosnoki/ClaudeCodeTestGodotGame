@@ -38,6 +38,7 @@ public static class PropViews
             Chest => new ChestView(),
             HeroCage => new HeroCageView(),
             Portal { Outside: true } => new MouthView(),
+            Portal { Drain: true } => new DrainView(),
             Portal => new PortalView(),
             AirVent => new AirVentView(),
             AirBubble => new AirBubbleView(),
@@ -1566,6 +1567,43 @@ public partial class CaveInView : PropView
         }
     }
 }
+
+/// <summary>
+/// The drain at the foot of a lake: a round black mouth in the bed with a pale glow rising out of it and rings that sink into it.
+/// </summary>
+public partial class DrainView : PropView
+{
+    private MeshInstance3D _halo, _core;
+    private OmniLight3D _light;
+
+    protected override void Build()
+    {
+        var mb = new MeshBuilder();
+        mb.Blob(Vector3.Zero, new Vector3(1.5f, 0.12f, 1.1f), 6, new Color(0.01f, 0.02f, 0.03f), new Noise3(9), 0.25f, 2f, 1f);
+        var mouth = PropViews.Mesh(mb, PropViews.VertexColored, false);
+        mouth.Position = new Vector3(0, -0.9f, 0.1f);
+        AddChild(mouth);
+        _halo = PropViews.Sprite(new Color(0.55f, 0.95f, 1f), 0, 0.5f, 4.2f);
+        _halo.Position = new Vector3(0, 0, 0.3f);
+        AddChild(_halo);
+        _core = PropViews.Sprite(new Color(0.9f, 1f, 1f), 0, 0.8f, 1.5f);
+        _core.Position = new Vector3(0, -0.3f, 0.4f);
+        AddChild(_core);
+        _light = PropViews.Light(new Color(0.55f, 0.95f, 1f), 2.4f, 11f);
+        _light.Position = new Vector3(0, 0.3f, 0.8f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        Follow(default, 0f);
+        float pulse = 0.7f + 0.3f * MathF.Sin(Time * 1.7f);
+        PropViews.SetSprite(_halo, new Color(0.55f, 0.95f, 1f, 0.35f * pulse), 0, 0.5f);
+        PropViews.SetSprite(_core, new Color(0.9f, 1f, 1f, 0.55f + 0.2f * pulse), 0, 0.8f);
+        _light.LightEnergy = 1.8f + 0.9f * pulse;
+    }
+}
+
 
 public partial class AirVentView : PropView
 {

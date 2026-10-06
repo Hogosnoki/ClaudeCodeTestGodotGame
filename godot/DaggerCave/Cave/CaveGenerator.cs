@@ -89,6 +89,7 @@ public static partial class CaveGenerator
                 GenStyle.Rooms => GenerateRooms(s),
                 GenStyle.Ruins => GenerateRuins(s),
                 GenStyle.Crypt => GenerateCrypt(s),
+                GenStyle.Lake => GenerateLake(s),
                 GenStyle.Mine => GenerateMine(s),
                 GenStyle.Arena => GenerateArena(s),
                 _ => GenerateOnce(s),
@@ -140,7 +141,10 @@ public static partial class CaveGenerator
             if (best == null || scores[a] < bestScore) { best = c; bestScore = scores[a]; }
             if (scores[a] <= 6) break;
         }
-        return best ?? throw new InvalidOperationException("every cave attempt failed");
+        if (best == null) throw new InvalidOperationException("every cave attempt failed");
+        B = biome; W = w; H = h;
+        AddDrain(best, seed);
+        return best;
     }
 
     /// <summary>Lower is better: trapped cells, plus a big penalty for a missing or nearby boss room.</summary>
@@ -1516,4 +1520,49 @@ public static partial class CaveGenerator
         }
         return depth;
     }
+}
+
+public static partial class CaveGenerator
+{
+    /// <summary>
+    /// Now and then (<see cref="Tune.Abyss.DrainChance"/>) the lowest point of a level with water is a way out through the bottom
+    /// of the map: the lowest swimmable cell gets a shaft sunk below it, and a drain at its foot. It comes from the seed alone
+    /// (online, every game makes the same one).
+    /// </summary>
+    internal static void AddDrain(CaveData cave, int seed)
+    {
+        cave.Drain = null;
+        if (cave.Biome == null || cave.Liquid != Liquid.Water || cave.Biome.Id is BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss || cave.Biome.MinDepth < 1) return;
+        if (!(new Random(seed * 31 + 17).NextDouble() < Tune.Abyss.DrainChance) && !ForceDrain) return;
+        if (cave.ReachMask == null) return;
+        int W = cave.W, H = cave.H;
+        int waterRow = (int)(cave.WaterY / CaveData.Cell);
+        // the lowest cell you can swim to, well in from the edges
+        int bi = -1, bj = -1;
+        for (int j = H - 12; j > waterRow + 8 && bi < 0; j--)
+            for (int i = 14; i < W - 14; i++)
+                if (cave.ReachMask[j * W + i] && cave.CellOpen(i, j) && cave.CellOpen(i, j - 1) && cave.CellOpen(i, j - 2) && cave.CellOpen(i - 1, j - 1) && cave.CellOpen(i + 1, j - 1)) { bi = i; bj = j; break; }
+        if (bi < 0) return;
+        // the shaft: a few rows more, a round chamber at its foot
+        int end = Math.Min(H - 8, bj + 7);
+        var rng = new Random(seed ^ 0x5eed1);
+        void Carve(float cx, float cy, float r)
+        {
+            int stride = W + 1;
+            for (int j = Math.Max(0, (int)(cy - r - 2)); j <= Math.Min(H, (int)(cy + r + 2)); j++)
+                for (int i = Math.Max(0, (int)(cx - r - 2)); i <= Math.Min(W, (int)(cx + r + 2)); i++)
+                {
+                    float d = MathF.Sqrt((i - cx) * (i - cx) + (j - cy) * (j - cy));
+                    int k = j * stride + i;
+                    float v = Math.Clamp(0.5f + (r - d) * 0.5f, 0f, 1f);
+                    if (v > cave.Open[k]) cave.Open[k] = v;
+                }
+        }
+        for (float y = bj - 1; y <= end; y += 0.8f) Carve(bi + 0.5f, y, 2.6f);
+        Carve(bi + 0.5f, end, 3.6f);
+        cave.Drain = new Vector2(bi + 0.5f, end - 0.5f) * CaveData.Cell;
+    }
+
+    /// <summary>Test aid (<c>--gentest --forcedrain</c>): every level with water gets its drain.</summary>
+    public static bool ForceDrain;
 }

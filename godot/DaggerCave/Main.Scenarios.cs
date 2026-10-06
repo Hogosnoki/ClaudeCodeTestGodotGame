@@ -63,6 +63,7 @@ public partial class Main
         "shifter" => "den",
         "shifterforms" => "entrance",
         "loading" => "entrance",
+        "abyss" => "slime",
         "shifterbehaviors" => "slime",
         "status" => "den",
         _ => null,
@@ -98,6 +99,7 @@ public partial class Main
             case "shifter": ShifterScenario(); break;
             case "shifterforms": ShifterFormsScenario(); break;
             case "loading": LoadingScenario(); break;
+            case "abyss": AbyssScenario(); break;
             case "shifterbehaviors": ShifterBehaviorsScenario(); break;
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;

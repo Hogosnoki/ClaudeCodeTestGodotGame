@@ -403,6 +403,10 @@ public partial class Portal : Node2D
     /// spot, keeping nothing from it (only the interact button takes you, never a stray "up").
     /// </summary>
     public bool Outside;
+    /// <summary>
+    /// A drain at the lowest point of a lake bed: swim into it and you are taken down at once (no button), to the secret depth.
+    /// </summary>
+    public bool Drain;
     private float _t, _near;
     private bool _used;
     public float Age => _t;
@@ -410,10 +414,12 @@ public partial class Portal : Node2D
     public float Near => _near;
     public bool Used => _used;
 
-    public override void _Ready() { ZIndex = -1; if (!Outside) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
+    public override void _Ready() { ZIndex = -1; if (!Outside && !Drain) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
 
     /// <summary>Is someone standing at <paramref name="p"/> close enough to go down?</summary>
-    public bool Reaches(Vector2 p) => !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
+    public bool Reaches(Vector2 p) => Drain
+        ? !_used && _t > 0.5f && Math.Abs(p.X - GlobalPosition.X) < 22 && Math.Abs(p.Y - GlobalPosition.Y) < 30
+        : !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
 
     /// <summary>Go down (online: wait here until everyone still standing is at this exit).</summary>
     public void Enter()
@@ -422,7 +428,7 @@ public partial class Portal : Node2D
         if (Net.Online) { G.Main.WaitAtExit(this); return; }
         _used = true;
         if (Outside) { G.Main.LeaveCave(); return; }
-        G.Sfx.Play("portal", GlobalPosition, 0, 0.05f, 0.8f);
+        G.Sfx.Play(Drain ? "splash" : "portal", GlobalPosition, 0, 0.05f, Drain ? 0.6f : 0.8f);
         G.Fx.Flash(GlobalPosition, 40, (To?.Glow ?? new Color(0.7f, 0.5f, 1f)).Darkened(0.3f), 0.25f);
         G.Main.EnterExit(To, Depth);
     }
@@ -431,6 +437,14 @@ public partial class Portal : Node2D
     {
         float dt = (float)delta;
         _t += dt;
+        if (Drain)
+        {
+            // a slow stream of bubbles drawn down into it, and whoever swims in is taken
+            if (G.Chance(0.18f)) G.Fx.Bubbles(GlobalPosition + new Vector2(G.Range(-16, 16), G.Range(-40, -10)), 1);
+            var me = G.Player;
+            if (me != null && !me.Dead && Reaches(me.GlobalPosition)) Enter();
+            return;
+        }
         bool near = false;
         foreach (var p in G.Players) if (!p.Dead && Reaches(p.GlobalPosition)) near = true;
         _near = Math.Clamp(_near + (near ? dt * 5f : -dt * 3f), 0f, 1f);
@@ -448,7 +462,7 @@ public partial class Portal : Node2D
 
     public override void _Draw()
     {
-        if (Outside) return;
+        if (Outside || Drain) return;
         float grow = Math.Min(1, _t);
         var b = To;
         var deep = b?.Deep ?? new Color(0.1f, 0.05f, 0.2f);

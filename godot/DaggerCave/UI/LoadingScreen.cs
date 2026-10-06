@@ -220,6 +220,24 @@ public partial class LoadingScreen : Control
                     DrawRect(new Rect2(x, 720 - h, 36, h), new Color(1f, 0.4f + 0.2f * MathF.Sin(k + _t), 0.08f, 0.55f * a));
                 }
                 break;
+            case BiomeId.Abyss:
+                // black water over the lower half, a few pale shafts of light falling into it, and a whirl of bubbles at the bottom
+                for (int k = 0; k < 7; k++)
+                {
+                    float x = 130 + k * 170 + MathF.Sin(_t * 0.4f + k) * 20;
+                    DrawColoredPolygon(new[] { new Vector2(x - 8, 300), new Vector2(x + 8, 300), new Vector2(x + 60, 720), new Vector2(x - 60, 720) }, new Color(glow.R, glow.G, glow.B, 0.05f * a));
+                }
+                var surf = new List<Vector2>();
+                for (int k = 0; k <= 64; k++) surf.Add(new Vector2(k * 20f, 330 + 7 * MathF.Sin(_t * 1.1f + k * 0.45f) + 4 * MathF.Sin(_t * 2.3f + k * 0.9f)));
+                var water = new List<Vector2>(surf) { new Vector2(1280, 720), new Vector2(0, 720) };
+                DrawColoredPolygon(water.ToArray(), new Color(0.02f, 0.1f, 0.2f, 0.7f * a));
+                for (int k = 0; k + 1 < surf.Count; k++) DrawLine(surf[k], surf[k + 1], new Color(glow.R, glow.G, glow.B, 0.5f * a), 2);
+                for (int k = 0; k < 14; k++)
+                {
+                    float ph = (_t * 0.25f + k * 0.37f) % 1f;
+                    DrawArc(new Vector2(640 + MathF.Sin(k * 2.1f + _t) * 30 * (1f - ph), 690 - ph * 280), 4 + 8 * ph, 0, Mathf.Tau, 14, new Color(0.7f, 0.95f, 1f, 0.45f * (1f - ph) * a), 1.5f);
+                }
+                break;
             case BiomeId.Mine:
                 // a timbered gallery: two posts and a beam, a lamp swinging from it
                 DrawRect(new Rect2(240, 190, 22, 560), new Color(0.28f, 0.19f, 0.11f, a));

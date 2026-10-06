@@ -661,6 +661,13 @@ public static class Tune
         public static float Radius = 110f;
     }
 
+    /// <summary>The secret depth under the lakes.</summary>
+    public static class Abyss
+    {
+        /// <summary>The chance that a level with water has a drain at the bottom of its lowest lake (about one level in three: roughly once a run).</summary>
+        public static float DrainChance = 0.3f;
+    }
+
     /// <summary>Boulders plugging narrow passages.</summary>
     public static class Rubble
     {

@@ -60,4 +60,62 @@ public partial class Main
                 break;
         }
     }
+
+    private int _abPhase, _abDepth;
+    private float _abT;
+
+    /// <summary>
+    /// `--scenario=abyss --forcedrain`: a lake level with its drain; the hero swims down into it and comes up in the sunken sea (the
+    /// next depth, no guardian, two exits open from the start), whose exits lead on from there.
+    /// </summary>
+    private void AbyssScenario()
+    {
+        var p = G.Player;
+        _abT += (float)GetProcessDeltaTime();
+        switch (_abPhase)
+        {
+            case 0:
+                if (_abT < 0.6f) return;
+                var drain = G.Cave.Drain;
+                ScCheck($"this lake has a drain ({drain != null})", drain != null);
+                var portal = _world.GetChildren().OfType<Portal>().FirstOrDefault(x => x.Drain);
+                ScCheck("and it is there to be swum into", portal != null && portal.Depth == G.Depth + 1 && portal.To.Id == BiomeId.Abyss);
+                if (drain == null || portal == null) { ScEnd(); return; }
+                _abDepth = G.Depth;
+                p.GlobalPosition = drain.Value + new Vector2(0, -90);
+                p.Velocity = Vector2.Zero;
+                ScShot("drain");
+                _abPhase = 1; _abT = 0;
+                break;
+            case 1:
+                // (sinking: nothing to do but wait for the loading screen)
+                if (_loading || G.Biome.Id == BiomeId.Abyss) { _abPhase = 2; _abT = 0; }
+                else if (_abT > 20f) { ScCheck("swimming into the drain takes you down", false); ScEnd(); }
+                else if (G.Cave.Drain is Vector2 d0) p.GlobalPosition = p.GlobalPosition.MoveToward(d0, 3f);
+                break;
+            case 2:
+                if (_loading && _abT < 90f) return;
+                ScCheck($"the sunken sea: {G.Biome.Name} at depth {G.Depth} (from {_abDepth})", G.Biome.Id == BiomeId.Abyss && G.Depth == _abDepth + 1 && !_loading);
+                ScCheck($"it has no drain of its own ({G.Cave.Drain == null})", G.Cave.Drain == null);
+                var exits = _world.GetChildren().OfType<Portal>().Where(x => !x.Drain && !x.Outside).ToList();
+                ScCheck($"and its way on is open from the start: {exits.Count} exits ({string.Join(", ", exits.Select(x => x.Depth))})", exits.Count == 2 && exits.Any(x => x.Depth == G.Depth + 1) && exits.Any(x => x.Depth == G.Depth + 2));
+                ScCheck($"no guardian ({ActiveBoss == null})", ActiveBoss == null);
+                ScCheck($"water-dwellers about ({G.Cave.Spawns.Count(s => s.Kind is SpawnKind.Water or SpawnKind.WaterFloor or SpawnKind.WaterWall)} spawn points)", G.Cave.Spawns.Count(s => s.Kind is SpawnKind.Water or SpawnKind.WaterFloor or SpawnKind.WaterWall) > 10);
+                ScCheck($"chests: {Chest.All.Count}", Chest.All.Count >= 8);
+                _abPhase = 3; _abT = 0;
+                break;
+            case 3:
+                if (_abT < 1.5f) return;
+                ScShot("sea_start");
+                var way = _world.GetChildren().OfType<Portal>().First(x => !x.Drain && !x.Outside);
+                p.GlobalPosition = way.GlobalPosition + new Vector2(0, 17);
+                _abPhase = 4; _abT = 0;
+                break;
+            case 4:
+                if (_abT < 1.5f) return;
+                ScShot("sea_exit");
+                ScEnd();
+                break;
+        }
+    }
 }

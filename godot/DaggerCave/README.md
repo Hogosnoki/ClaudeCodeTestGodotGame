@@ -362,6 +362,7 @@ mini-bosses and guardian:
 | 5-7 | Fossil Graveyards | a few vast, echoing chambers of layered sediment; in each, the ribcage of a leviathan arches from deep in the back to just in front of you, and a great skull is sunk in the wall | fossil skeletons, bone scorpions, ossuary golems, marrow rats, bats | unstable ceilings: walk beneath one and dust sifts down and the rock groans, then a few stones break loose (each one shows where it will land) | The Ossuary Colossus |
 | 6-8 | Crystal Caves | ledges in every tall space, so no long falls | shardlings, crystal golems, skeletons | crystal spikes | The Prism Golem |
 | 6-8 | Old Lava Tubes | long, wide, round bores the fire cut and left (twice the usual width, a fifth of the usual branches, smooth walls) running down in great sweeps; the odd chimney carved up out of a tube's roof, too high for any jump, ends in a hidden chamber with a silver (relic) chest (the guardian is never up one); faint embers in the seams of the rock | basalt scorpions, basalt golems, magma brutes, cinder bats, ember hornets, fire elementals | - | The Basalt Warden (golem) |
+| secret | The Sunken Sea | one vast, deep, wide-open underground lake: a beach where you arrive, a shelf at the far side with the way on, and between them black water over trenches and shoals, rock islands, pillars rising from the deep and treasure pits sunk into the lake bed | fish, eels, urchins, crabs, water elementals; frogs, drowned skeletons and bats on the shores | - | none: the two exits (gentle and steep, as ever) are open from the start |
 | 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out; with Magma Skin you swim in it, and chests lie at its bottom), fire vents | The Molten Colossus |
 | 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
 
@@ -1204,4 +1205,15 @@ candidate plug's cells, counts what can be reached on each side, and a side that
 guardian in it is a pocket (the bigger it is, the nearer the plug to its mouth); plugs go to those first and to any
 level passage after that (`--gentest` prints `rubble n (dead ends m)`). A plug is barely narrower at its foot than at
 its top, and its pieces are scattered at all angles and depths, so it stands, but only just.
+
+### The secret depth: the Sunken Sea
+
+About one level in three that has water (not the first level, and not so deep that it would pass the dragon's, `Tune.Abyss.DrainChance`)
+has a **drain**: the lowest swimmable point of its lakes has a shaft sunk below it and a glowing mouth at its foot
+(`CaveGenerator.AddDrain`, from the seed alone, so online every game makes the same one). Swim into it, with no button to press, and
+you go down at once to the Sunken Sea, one depth deeper (so its exits lead to depth + 1 and depth + 2: a shortcut). It is only reachable this
+way: it never comes up among the ordinary exits (`Weight` 0, left out of `Biomes.PickFor`). It has no guardian and its two exits stand
+open from the start; it holds more chests (relic-tier ones as ever now and then), underwater treasure pits and water creatures. Test it with
+`--scenario=abyss --forcedrain` (a drain in every watery level; the scenario swims into it and checks the sea), `--start=drain` to look at the
+drain, and `--biome=abyss --start=water` for the lake.
 

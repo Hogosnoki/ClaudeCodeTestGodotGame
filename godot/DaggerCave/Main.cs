@@ -12,7 +12,7 @@ namespace DaggerCave;
 ///
 /// Command-line user args (after `--`): `--seed=N`, `--autotest` (bot plays, screenshots are
 /// written to `--shots=DIR` every few seconds for `--duration=S`), `--gentest` (prints
-/// generator statistics for a batch of seeds and quits), `--start=boss|water|secret` (spawn position
+/// generator statistics for a batch of seeds and quits), `--start=boss|water|secret|drain` (spawn position
 /// for testing), `--train` (enemy brain training on from the start), `--braindir=DIR` and
 /// `--nntest` (checks the neural-net maths and quits).
 /// </summary>
@@ -355,6 +355,7 @@ public partial class Main : Node
             else if (a == "--nntest") _nnTest = true;
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
             else if (a == "--fullrun") _fullRun = true;
+            else if (a == "--forcedrain") CaveGenerator.ForceDrain = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
@@ -751,6 +752,7 @@ public partial class Main : Node
         }
         if (_startAt == "secret" && cave.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Secret) is Room hidden && cave.FindFloor(hidden.Center + new Vector2(-30, 0), 300, out var hf))
             player.GlobalPosition = hf + new Vector2(0, -14);
+        if (_startAt == "drain" && cave.Drain is Vector2 dpos) player.GlobalPosition = dpos + new Vector2(0, -150);
         if (_startAt == "water")
         {
             var sp = cave.Spawns.FirstOrDefault(s => s.Kind == SpawnKind.Water);
@@ -805,11 +807,46 @@ public partial class Main : Node
         SpawnCritters(cave);
         if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
         PlaceHazards(cave);
+        PlaceSecretWays(cave, seed);
         _hud.ResetMap(cave);
         _hud.ShowBanner(G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
         _spawnT = 0;
         _waitingAt = null;
         NetSync.LevelBuilt();
+    }
+
+    /// <summary>
+    /// The drain at the bottom of a lake (to the secret depth), and, in the secret depth itself (which has no guardian), the way on:
+    /// two exits at the far shelf, open from the start. Both from the seed alone, so every game makes the same.
+    /// </summary>
+    private void PlaceSecretWays(CaveData cave, int seed)
+    {
+        var biome = G.Biome;
+        if (cave.Drain is Vector2 dr && G.Depth > 0 && G.Depth + 1 < Biomes.FinalDepth && biome.Id != BiomeId.Abyss)
+        {
+            var drain = new Portal { Position = dr, To = Biomes.Get(BiomeId.Abyss), Depth = G.Depth + 1, Label = "the drain", Drain = true };
+            NetSync.LevelId(drain);
+            _world.AddChild(drain);
+        }
+        if (!biome.NoGuardian || cave.Boss == null) return;
+        _guardianDown = true;
+        var room = cave.Boss;
+        var rng = new Random(seed * 31 + 7);
+        var exits = Biomes.ChooseExits(G.Depth, rng);
+        ExitSpots.Clear();
+        for (int k = 0; k < exits.Count; k++)
+        {
+            float off = exits.Count == 1 ? 0 : (k == 0 ? -1 : 1) * room.RxPx * 0.4f;
+            var probe = new Vector2(room.Floor.X + off, room.Floor.Y - 40);
+            if (cave.IsSolid(probe)) probe = room.Center;
+            var floor = cave.FindFloor(probe, 400, out var f) ? f : room.Floor;
+            var (bd, depth) = exits[k];
+            string label = exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way";
+            ExitSpots.Add(floor + new Vector2(0, -16));
+            var portal = new Portal { Position = floor + new Vector2(0, -30), To = bd, Depth = depth, Label = label };
+            NetSync.LevelId(portal);
+            _world.AddChild(portal);
+        }
     }
 
     /// <summary>Ambient wildlife: glow moths in dry tunnels, crabs on floors (including the sea bed).</summary>
@@ -1934,6 +1971,7 @@ public partial class Main : Node
                 case RoomKind.Boss:
                 {
                     var b = G.Biome;
+                    if (b.NoGuardian) break;
                     var boss = b.Guardian(room);
                     float side = Math.Sign(room.Center.X - p.GlobalPosition.X);
                     if (boss is Dragon) boss.Position = new Vector2(room.Center.X, room.Center.Y - room.RyPx * 0.5f);
@@ -3356,7 +3394,7 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} vault {(vault ? "ok" : why)}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");

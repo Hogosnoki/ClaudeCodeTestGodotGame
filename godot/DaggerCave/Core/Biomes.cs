@@ -24,11 +24,13 @@ public enum GenStyle
     Crypt,
     /// <summary>Wide old lava tubes: broad, gently falling passages with few branches, and secret ways up out of reach.</summary>
     LavaTube,
+    /// <summary>One vast, deep, open underground lake (the secret depth under the lakes).</summary>
+    Lake,
     /// <summary>An antechamber and one great arena over lava (the dragon's lair).</summary>
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -109,6 +111,8 @@ public sealed class BiomeDef
     public float SpawnSpacing = 11f;
     /// <summary>A place of the dead: skulls and bones underfoot, ossuary walls, burial urns; its barriers are banks of skulls, not boulders.</summary>
     public bool Ossuary;
+    /// <summary>No guardian: the way on is open from the start (the secret lake).</summary>
+    public bool NoGuardian;
 
     // ---- set dressing in 3D
     /// <summary>Massive tree roots come down through the ceilings.</summary>
@@ -432,6 +436,31 @@ public static class Biomes
         tubes.Guardian = r => Guard(Var(new Golem(), "", "8a7088"), "THE BASALT WARDEN", 1.5f);
         All.Add(tubes);
 
+        // ------------------------------------------------------------------ the secret depth under the lakes
+        // (not on the depth track: it is only reached by swimming down to the bottom of a lake, see CaveGenerator.AddDrain)
+        var abyss = new BiomeDef
+        {
+            Id = BiomeId.Abyss, Name = "The Sunken Sea", MinDepth = 99, MaxDepth = 99, Weight = 0f, NoGuardian = true,
+            Style = GenStyle.Lake, W = 290, H = 160, Liquid = Liquid.Water,
+            Edge = C("27495c"), Deep = C("040b14"), Moss = C("2f7a72"), Rim = C("4d7f93"), Glow = C("68ffe0"),
+            LiquidTop = new Color(0.04f, 0.28f, 0.42f, 0.38f), LiquidBottom = new Color(0.02f, 0.1f, 0.22f, 0.62f), LiquidLine = new Color(0.6f, 0.95f, 1f, 0.75f),
+            BackBottom = C("020812"), Grass = 0.02f, Mushrooms = 0f, Crystals = 0.06f, Stalactites = 0.18f, Darkness = 0.8f, HazardCount = 0, Critters = 40,
+            WaterCaches = 9, HighCaches = 3, RoomChests = 8, MiniBossesMin = 2, MiniBossesMax = 3, SpawnSpacing = 17f,
+        };
+        abyss.Residents[SpawnKind.Water] = L(E(3, () => Var(new Fish(), "Abyssal ", "5a9ab8"), 2, 4), E(1, () => Var(new Fish(), "Lantern ", "8affd8"), 1, 2));
+        abyss.Residents[SpawnKind.WaterFloor] = L(E(1, () => Var(new Urchin(), "Abyssal ", "5a7a98"), 1, 3));
+        abyss.Residents[SpawnKind.WaterWall] = L(E(1, () => Var(new Eel(), "Abyssal ", "4a8aa8")));
+        abyss.Residents[SpawnKind.Shore] = L(E(1, () => new Crab(), 1, 2));
+        abyss.Residents[SpawnKind.Ground] = L(E(1, () => new Frog(), 1, 2), E(1, () => Var(new Skeleton(), "Drowned ", "7aa0a8")));
+        abyss.Residents[SpawnKind.Ceiling] = L(E(1, () => Var(new Bat(), "Cave ", "8aa8c8"), 1, 3));
+        abyss.GroundEntrants = L(E(1, () => new Frog()));
+        abyss.AirEntrants = L(E(1, () => Var(new Bat(), "Cave ", "8aa8c8")));
+        abyss.WaterEntrants = L(E(1, () => Var(new Fish(), "Abyssal ", "5a9ab8")));
+        abyss.MiniBosses = new() { () => new Frog(), () => Var(new Skeleton(), "Drowned ", "7aa0a8") };
+        abyss.WaterMiniBosses = new() { () => Var(new Eel(), "Abyssal ", "4a8aa8"), () => Var(new Fish(), "Abyssal ", "5a9ab8") };
+        abyss.Guardian = r => new Golem(); // (never woken: there is no guardian; the exit test only wants a body to measure)
+        All.Add(abyss);
+
         // ------------------------------------------------------------------ 8-9: magma caverns
         var magma = new BiomeDef
         {
@@ -529,12 +558,12 @@ public static class Biomes
 
     private static BiomeDef PickFor(int depth, BiomeDef avoid, Random rng)
     {
-        var pool = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair) && depth >= b.MinDepth && depth <= b.MaxDepth).ToList();
+        var pool = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss) && depth >= b.MinDepth && depth <= b.MaxDepth).ToList();
         if (pool.Count > 1 && avoid != null) pool.Remove(avoid);
         if (pool.Count == 0)
         {
             // (below the last biome, or above the first: the nearest one)
-            var real = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair)).ToList();
+            var real = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss)).ToList();
             int best = real.Min(b => depth > b.MaxDepth ? depth - b.MaxDepth : b.MinDepth - depth);
             pool = real.Where(b => (depth > b.MaxDepth ? depth - b.MaxDepth : b.MinDepth - depth) == best).ToList();
         }

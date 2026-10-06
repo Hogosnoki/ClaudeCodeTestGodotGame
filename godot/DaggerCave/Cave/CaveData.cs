@@ -75,6 +75,8 @@ public sealed class CaveData
     public readonly List<Vector3> IceLedges = new();
     /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>
     public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
+    /// <summary>The drain at the lowest point of a lake's bed (world px), if this level has one: swim down it to the secret depth.</summary>
+    public Vector2? Drain;
     /// <summary>How many of those plug the mouth of a dead end (test statistic).</summary>
     public int RubbleAtDeadEnds;
 
