@@ -568,7 +568,7 @@ public static partial class CaveGenerator
         var cave = new CaveData { W = W, H = H, Seed = seed, WaterY = (H + 200) * CaveData.Cell, Liquid = Liquid.None, Biome = B };
         const int levels = 4;
         var baseRow = new int[levels];
-        for (int l = 0; l < levels; l++) baseRow[l] = (int)(H * (0.2f + 0.2f * l)) + RndI(-2, 2);
+        for (int l = 0; l < levels; l++) baseRow[l] = (int)(H * (0.3f + 0.18f * l)) + RndI(-2, 2);
         int hallW = 30, hallX0 = W - 5 - hallW;
         // each gallery's floor, per column (it steps one or two cells now and then)
         var floor = new int[levels][];

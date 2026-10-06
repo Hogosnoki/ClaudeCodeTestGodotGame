@@ -661,6 +661,12 @@ public static class Tune
         public static float Radius = 110f;
     }
 
+    /// <summary>The rock ledges the generator lays in: how many blows to bring one down.</summary>
+    public static class Ledge
+    {
+        public static int Hits = 10;
+    }
+
     /// <summary>The secret depth under the lakes.</summary>
     public static class Abyss
     {

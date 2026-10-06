@@ -269,6 +269,15 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>This game's hero struck a ledge (the other games take the same blow).</summary>
+    public static void LedgeHit(RockLedge l)
+    {
+        if (!Net.Online || Applying) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(17).Int(l.Index);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's Rogue recalled its daggers: its copies of them come home too.</summary>
     public static void HeroRecall(Player p)
     {
@@ -389,6 +398,14 @@ public static class NetSync
                 foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && c.Hero == hero) cage = c;
                 if (cage != null) cage.Free(false);
                 else { Meta.Unlock(hero); Net.EveryoneUnlocked(hero); }
+                Applying = false;
+                break;
+            }
+            case 17:
+            {
+                int li = r.Int();
+                Applying = true;
+                foreach (var lg in RockLedge.All) if (GodotObject.IsInstanceValid(lg) && lg.Index == li) lg.NetHit();
                 Applying = false;
                 break;
             }

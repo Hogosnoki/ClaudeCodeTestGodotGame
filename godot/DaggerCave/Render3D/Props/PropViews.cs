@@ -26,6 +26,7 @@ public static class PropViews
             Updraft => new UpdraftView(),
             Rope => new RopeView(),
             Rubble => new RubbleView(),
+            RockLedge => new RockLedgeView(),
             Blizzard => new BlizzardView(),
             IceBlock => new IceBlockView(),
             ThrownDagger => new ThrownDaggerView(),
@@ -69,7 +70,7 @@ public static class PropViews
     private static QuadMesh _quad;
     public static QuadMesh Quad => _quad ??= new QuadMesh { Size = new Vector2(2, 2) };
 
-    private static StandardMaterial3D _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _vcol;
+    private static StandardMaterial3D _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _ledgeRock, _vcol;
     public static StandardMaterial3D Ice => _ice ??= new StandardMaterial3D
     {
         AlbedoColor = new Color(0.62f, 0.85f, 1f, 0.72f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.08f,
@@ -89,6 +90,12 @@ public static class PropViews
         AlbedoTexture = TerrainLook.Tex("rock_face", "diff"), NormalEnabled = true, NormalTexture = TerrainLook.Tex("rock_face", "nor"), NormalScale = 1.3f,
         Uv1Triplanar = true, Uv1Scale = new Vector3(0.9f, 0.9f, 0.9f), VertexColorUseAsAlbedo = true, Roughness = 1f,
     };
+    /// <summary>The ledges' stone: a grey basalt grain (so the biome's own tint reads true), from three sides, over the blocks' own tones.</summary>
+    public static StandardMaterial3D LedgeRock => _ledgeRock ??= new StandardMaterial3D
+    {
+        AlbedoTexture = TerrainLook.Tex("dark_rock", "diff"), NormalEnabled = true, NormalTexture = TerrainLook.Tex("dark_rock", "nor"), NormalScale = 1.2f,
+        Uv1Triplanar = true, Uv1Scale = new Vector3(0.3f, 0.3f, 0.3f), VertexColorUseAsAlbedo = true, Roughness = 1f,
+    };
     public static StandardMaterial3D VertexColored => _vcol ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.6f };
 
     /// <summary>
@@ -97,7 +104,7 @@ public static class PropViews
     /// </summary>
     public static void ReleaseShared()
     {
-        foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _vcol }) r?.Dispose();
+        foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _ledgeRock, _vcol }) r?.Dispose();
         _sprite = _cloud = _bubble = null; _quad = null;
         PortalView.ReleaseShared();
         WaterfallView.ReleaseShared();
@@ -1273,17 +1280,32 @@ public partial class PortalView : PropView
     private StandardMaterial3D _glyphMat;
     private Color _glow;
 
+    private static ShaderMaterial _entryMat;
+    /// <summary>The same stairwell, but going up (each rib set higher than the last), for the way in.</summary>
+    private static ShaderMaterial EntryStairMat
+    {
+        get
+        {
+            if (_entryMat != null) return _entryMat;
+            _entryMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_stairwell.gdshader") };
+            _entryMat.SetShaderParameter("drop", -0.3f);
+            _entryMat.SetShaderParameter("ribs", 9);
+            return _entryMat;
+        }
+    }
     private static ShaderMaterial _stairMat;
     private static ShaderMaterial StairMat => _stairMat ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_stairwell.gdshader") };
     public static ShaderMaterial StairMatOrNull => _stairMat;
-    public static void ReleaseShared() => _stairMat = null;
+    public static void ReleaseShared() { _stairMat = null; _entryMat = null; }
 
     protected override void Build()
     {
         var p = (Portal)Owner2D;
-        _glow = p.To?.Glow ?? new Color(0.7f, 0.5f, 1f);
+        bool entry = p.Entry;
+        _glow = entry ? new Color(0.42f, 0.46f, 0.55f) : p.To?.Glow ?? new Color(0.7f, 0.5f, 1f);
         var rockCol = (G.Biome?.Edge ?? new Color(0.35f, 0.32f, 0.3f)).Lerp(new Color(0.24f, 0.22f, 0.2f), 0.5f);
         var stone = rockCol.Lerp(new Color(0.33f, 0.31f, 0.29f), 0.5f);
+        if (entry) { stone = stone.Darkened(0.35f); rockCol = rockCol.Darkened(0.2f); }
         var rng = new Random(p.Depth * 31 + (int)(p.To?.Id ?? 0));
         float R() => (float)rng.NextDouble();
         var mb = new MeshBuilder();
@@ -1330,11 +1352,20 @@ public partial class PortalView : PropView
         AddChild(PropViews.Mesh(mb, PropViews.VertexColored));
 
         // the stair going down, behind the opening
-        _stairs = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(HalfW * 2f, DoorH) }, MaterialOverride = StairMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, DoorH * 0.5f, -0.2f) };
+        _stairs = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(HalfW * 2f, DoorH) }, MaterialOverride = entry ? EntryStairMat : StairMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, DoorH * 0.5f, -0.2f) };
         _stairs.SetInstanceShaderParameter("below_color", _glow);
         _stairs.SetInstanceShaderParameter("stone_color", stone);
         AddChild(_stairs);
 
+        if (entry)
+        {
+            // (the way in: only the doorway and its stair, barely lit; no name, no chevron, no prompt)
+            _breath = PropViews.Light(_glow, 0.12f, 2.6f);
+            _breath.LightVolumetricFogEnergy = 0f;
+            _breath.Position = new Vector3(0, 0.5f, 0.35f);
+            AddChild(_breath);
+            return;
+        }
         // the chevron cut into the keystone (two for the steep way), holding a little of the light below
         var gb = new MeshBuilder();
         int chevrons = p.Depth - G.Depth >= 2 ? 2 : 1;
@@ -1385,6 +1416,7 @@ public partial class PortalView : PropView
     {
         var p = (Portal)Owner2D;
         Follow(new Vector2(0, 30), 0f);
+        if (p.Entry) { _breath.LightEnergy = 0.12f + 0.03f * MathF.Sin(Time * 1.1f); return; }
         // it rises out of the floor rather than popping into being
         float grow = W3.Smooth01(p.Age / 0.9f);
         Scale = new Vector3(1f, Math.Max(0.01f, grow), 1f);
@@ -2067,6 +2099,74 @@ public partial class IcePlatformView : PropView
         Visible = !p.Broken;
         for (int k = 0; k < _cracks.Count; k++) _cracks[k].Visible = k < p.Cracks;
         _mat.EmissionEnergyMultiplier = p.FlashT > 0 ? 2.5f : 0.25f;
+    }
+}
+
+/// <summary>
+/// A generated ledge: a row of broken-stone blocks laid side by side (flat across the top). Struck, it shudders; broken, the blocks
+/// drop away one after another, tumbling, and are gone.
+/// </summary>
+public partial class RockLedgeView : PropView
+{
+    private readonly System.Collections.Generic.List<MeshInstance3D> _blocks = new();
+    private readonly System.Collections.Generic.List<Vector3> _home = new(), _vel = new(), _spin = new(), _off = new();
+    private float _fall;
+    private Vector3 _shake;
+
+    protected override void Build()
+    {
+        var l = (RockLedge)Owner2D;
+        var rng = new Random((int)(l.GlobalPosition.X * 13 + l.GlobalPosition.Y * 7));
+        var noise = new Noise3(rng.Next());
+        float half = W3.M(l.Half), thick = W3.M(RockLedge.Thick);
+        int n = Math.Max(2, (int)Math.Ceiling(half * 2f / 1.6f));
+        float bw = half * 2f / n;
+        var e0 = (G.Biome?.Edge ?? new Color(0.4f, 0.35f, 0.3f)).Lerp(new Color(0.5f, 0.5f, 0.5f), 0.35f);
+        var edge = new Color(Math.Min(1.4f, e0.R * 2.6f), Math.Min(1.4f, e0.G * 2.6f), Math.Min(1.4f, e0.B * 2.6f));
+        for (int i = 0; i < n; i++)
+        {
+            float jx = ((float)rng.NextDouble() - 0.5f) * 0.12f;
+            var mb = DecorMeshes.SlabChunk(rng, noise, bw * 1.18f, thick * 0.9f, 2.1f + (float)rng.NextDouble() * 0.5f, edge);
+            var node = PropViews.Mesh(mb, PropViews.LedgeRock);
+            var home = new Vector3(-half + bw * (i + 0.5f) + jx, 0f, -0.2f + ((float)rng.NextDouble() - 0.5f) * 0.3f);
+            node.Position = home;
+            node.Rotation = new Vector3(0, ((float)rng.NextDouble() - 0.5f) * 0.9f, ((float)rng.NextDouble() - 0.5f) * 0.08f);
+            AddChild(node);
+            _blocks.Add(node); _home.Add(home);
+            _off.Add(Vector3.Zero);
+            _vel.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 2.4f, 0.4f + (float)rng.NextDouble() * 1.4f, ((float)rng.NextDouble() - 0.5f) * 2f));
+            _spin.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 5f, ((float)rng.NextDouble() - 0.5f) * 4f, ((float)rng.NextDouble() - 0.5f) * 6f));
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var l = (RockLedge)Owner2D;
+        Follow(default, 0f);
+        if (!l.Broken)
+        {
+            // it shudders when struck: a quick tremor that settles
+            float k = Math.Clamp(l.ShakeT / 0.45f, 0f, 1f);
+            Position += new Vector3(MathF.Sin(Time * 95f) * 0.045f * k, MathF.Sin(Time * 71f + 1f) * 0.03f * k, 0f);
+            // (the more it has taken, the looser it sits)
+            float worn = 1f - l.Left / (float)Tune.Ledge.Hits;
+            for (int i = 0; i < _blocks.Count; i++)
+                _blocks[i].Position = _home[i] + new Vector3(0, -0.04f * worn * ((i * 7) % 5) / 4f, 0);
+            return;
+        }
+        // the blocks drop away, each a little after the one before, tumbling and shrinking to nothing
+        _fall += dt;
+        for (int i = 0; i < _blocks.Count; i++)
+        {
+            float t = _fall - i * 0.03f;
+            if (t <= 0) continue;
+            _vel[i] = _vel[i] with { Y = _vel[i].Y - 9.8f * 1.6f * dt };
+            _off[i] += _vel[i] * dt;
+            _blocks[i].Position = _home[i] + _off[i];
+            _blocks[i].Rotation += _spin[i] * dt;
+            float s = Math.Clamp(1f - (t - 1.6f) / 0.9f, 0f, 1f);
+            _blocks[i].Scale = Vector3.One * Math.Max(0.001f, s);
+        }
     }
 }
 

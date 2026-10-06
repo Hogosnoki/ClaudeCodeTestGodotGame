@@ -18,7 +18,7 @@ public static partial class CaveGenerator
         var rng = new Random(seed);
         float Rf(float a, float b) => a + (b - a) * (float)rng.NextDouble();
         var f = new Field(seed, 0.6f);
-        int waterRow = (int)(H * 0.2f);
+        int waterRow = (int)(H * 0.27f);
         var cave = new CaveData { W = W, H = H, Seed = seed, WaterY = waterRow * CaveData.Cell, Liquid = Liquid.Water, Biome = B };
 
         const int marginL = 12;

@@ -1236,3 +1236,14 @@ sides), not smooth balls.
 - Both are carved last (`Cave/Nooks.cs`), from the seed alone, in about two levels in five. Test: `--scenario=nooks --forcenooks` (the fish in
   a water level, add `--biome=mine` for the spider), `--gentest --forcenooks` for how often a biome can hold them.
 
+### Where you arrive, and the ledges that can be broken
+
+- **The way in.** Below the first level you arrive in front of the stair you came down by: a dim stone doorway, bordered with rock like the exits but
+  going up, barely lit, with no name or prompt (`Portal.Entry`). The first level has none (you walked in from outside). Walker caves now put the
+  way in a quarter of the way down the map (`BiomeDef.StartRow`), the mine and the crypt lower than before.
+- **Breakable ledges.** The rock ledges and stepping stones the generator lays in (`StampLedge`: in tall spaces, as repairs and as the stairs to
+  the guardian) are checked for traversal as rock, then lifted out of the terrain (`CaveGenerator.LiftLedges`) and put back as slabs
+  (`RockLedge`) that stand and carry weight until they are broken: ten blows (`Tune.Ledge.Hits`) to bring one down, a shudder and a spray of dirt
+  with each, then it collapses in blocks and is gone for good, so a ledge can never trap anyone or cut the guardian off. Ice ledges
+  (frost caverns) and the dragon's tiers are as before. Online, each blow is sent to the other games. `--scenario=ledges` checks it.
+

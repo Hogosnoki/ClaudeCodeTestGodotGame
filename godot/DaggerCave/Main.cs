@@ -696,6 +696,7 @@ public partial class Main : Node
         NetSync.BeginLevel();
         EnemyProjectiles.Clear();
         Breakables.All.Clear();
+        RockLedge.All.Clear();
         _roomElites.Clear();
         ActiveBoss = null;
         _roomCells.Clear();
@@ -804,6 +805,7 @@ public partial class Main : Node
         PlaceBonusChests(cave);
         PlaceHeroCage(cave);
         PlaceRubble(cave);
+        PlaceLedges(cave);
         PlaceVault(cave);
         SpawnCritters(cave);
         if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
@@ -824,6 +826,9 @@ public partial class Main : Node
     private void PlaceSecretWays(CaveData cave, int seed)
     {
         var biome = G.Biome;
+        // the stair you came down by, in the rock behind where you arrive (the first level you walked in from outside)
+        if (G.Depth > 0 && biome.Id != BiomeId.Lair)
+            _world.AddChild(new Portal { Position = cave.StartPos + new Vector2(0, -11), Entry = true, Label = "", To = biome });
         if (cave.Drain is Vector2 dr && G.Depth > 0 && G.Depth + 1 < Biomes.FinalDepth && biome.Id != BiomeId.Abyss)
         {
             var drain = new Portal { Position = dr, To = Biomes.Get(BiomeId.Abyss), Depth = G.Depth + 1, Label = "the drain", Drain = true };
@@ -953,6 +958,14 @@ public partial class Main : Node
         }
         player.SyncCharges();
         player.Hp = s.MaxHp;
+    }
+
+    /// <summary>The generated ledges and stepping stones, as slabs that can be broken (in the order the generator laid them: the same in every game).</summary>
+    private void PlaceLedges(CaveData cave)
+    {
+        int k = 0;
+        foreach (var l in cave.Ledges)
+            _world.AddChild(new RockLedge { Position = new Vector2(l.Cx, l.Cy) * CaveData.Cell, Half = l.Half * CaveData.Cell, Index = k++ });
     }
 
     private void PlaceRubble(CaveData cave)
@@ -3426,6 +3439,7 @@ public partial class Main : Node
                 ulong t0 = Time.GetTicksMsec();
                 var c = CaveGenerator.Generate(b, s * 1013);
                 ulong ms = Time.GetTicksMsec() - t0;
+                CaveGenerator.PutLedgesBack(c);
                 attemptsB += c.Attempts;
                 total += ms;
                 bool fine = FineBossReachable(c, OS.GetCmdlineUserArgs().Contains("--finedump") ? $"/tmp/claude-0/fine/{b.Id}_{s * 1013}_{(OS.GetCmdlineUserArgs().Contains("--finedump") ? "x" : "")}.png" : null);
@@ -3435,7 +3449,7 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");

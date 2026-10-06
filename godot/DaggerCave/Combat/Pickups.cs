@@ -407,6 +407,11 @@ public partial class Portal : Node2D
     /// A drain at the lowest point of a lake bed: swim into it and you are taken down at once (no button), to the secret depth.
     /// </summary>
     public bool Drain;
+    /// <summary>
+    /// The way you came in by, a dim stair going up in the rock behind where you arrive (any level below the first: you came down an exit,
+    /// not in from outside). Only there to be seen: nothing is taken up it.
+    /// </summary>
+    public bool Entry;
     private float _t, _near;
     private bool _used;
     public float Age => _t;
@@ -414,17 +419,17 @@ public partial class Portal : Node2D
     public float Near => _near;
     public bool Used => _used;
 
-    public override void _Ready() { ZIndex = -1; if (!Outside && !Drain) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
+    public override void _Ready() { ZIndex = -1; if (!Outside && !Drain && !Entry) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
 
     /// <summary>Is someone standing at <paramref name="p"/> close enough to go down?</summary>
-    public bool Reaches(Vector2 p) => Drain
+    public bool Reaches(Vector2 p) => Entry ? false : Drain
         ? !_used && _t > 0.5f && Math.Abs(p.X - GlobalPosition.X) < 22 && Math.Abs(p.Y - GlobalPosition.Y) < 30
         : !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
 
     /// <summary>Go down (online: wait here until everyone still standing is at this exit).</summary>
     public void Enter()
     {
-        if (_used) return;
+        if (_used || Entry) return;
         if (Net.Online) { G.Main.WaitAtExit(this); return; }
         _used = true;
         if (Outside) { G.Main.LeaveCave(); return; }
@@ -437,6 +442,7 @@ public partial class Portal : Node2D
     {
         float dt = (float)delta;
         _t += dt;
+        if (Entry) return;
         if (Drain)
         {
             // a slow stream of bubbles drawn down into it, and whoever swims in is taken
@@ -462,7 +468,7 @@ public partial class Portal : Node2D
 
     public override void _Draw()
     {
-        if (Outside || Drain) return;
+        if (Outside || Drain || Entry) return;
         float grow = Math.Min(1, _t);
         var b = To;
         var deep = b?.Deep ?? new Color(0.1f, 0.05f, 0.2f);

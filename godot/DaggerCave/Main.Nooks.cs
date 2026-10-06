@@ -114,4 +114,44 @@ public partial class Main
         lamp.Read();
         ScCheck($"reading it again pays nothing more ({Meta.Embers})", Meta.Embers == embers + 1);
     }
+
+    private IEnumerator<object> _ldgSteps;
+
+    /// <summary>`--scenario=ledges`: a generated ledge is solid, takes ten blows (shuddering and spraying dirt), then collapses and is gone.</summary>
+    private void LedgesScenario()
+    {
+        if (_ldgSteps == null) { if (_scT < 0.6f) return; _ldgSteps = LdgRun().GetEnumerator(); }
+        if (!_ldgSteps.MoveNext()) ScEnd();
+    }
+
+    private IEnumerable<object> LdgRun()
+    {
+        var p = G.Player; var cave = G.Cave;
+        p.Stats.MaxHp = 2000; p.Hp = 2000;
+        ScCheck($"this cave has generated ledges ({RockLedge.All.Count}, {cave.Ledges.Count} in the field's record)", RockLedge.All.Count > 0);
+        if (RockLedge.All.Count == 0) yield break;
+        var l = RockLedge.All.OrderBy(x => x.GlobalPosition.DistanceTo(cave.StartPos)).Last();
+        // the field no longer holds it: only the slab does
+        var top = l.GlobalPosition + new Vector2(0, -RockLedge.Thick * 0.5f - 6);
+        ScCheck($"the terrain has none of it (open at its middle: {!cave.IsSolid(l.GlobalPosition)})", !cave.IsSolid(l.GlobalPosition));
+        p.GlobalPosition = top + new Vector2(0, -14); p.Velocity = Vector2.Zero;
+        foreach (var _ in SbSleep(1.0f)) { yield return null; }
+        ScCheck($"a hero stands on it ({p.GlobalPosition.Y - top.Y:0} px from its top, on floor {p.IsOnFloor()})", p.IsOnFloor() && Math.Abs(p.GlobalPosition.Y + 13 - l.GlobalPosition.Y + RockLedge.Thick * 0.5f) < 30);
+        ScShot("ledge_0");
+        float yStood = p.GlobalPosition.Y;
+        for (int k = 1; k <= Tune.Ledge.Hits; k++)
+        {
+            l.Strike(p.GlobalPosition);
+            if (k == 3) { foreach (var _ in SbSleep(0.08f)) yield return null; ScShot("ledge_shake"); }
+            if (k < Tune.Ledge.Hits) ScCheck($"blow {k}: {l.Left} to go, and it still stands ({!l.Broken})", !l.Broken && l.Left == Tune.Ledge.Hits - k);
+            foreach (var _ in SbSleep(0.2f)) yield return null;
+        }
+        ScCheck($"the tenth brings it down ({l.Broken})", l.Broken);
+        foreach (var _ in SbSleep(0.35f)) yield return null;
+        ScShot("ledge_fall");
+        foreach (var _ in SbSleep(1.0f)) yield return null;
+        ScCheck($"and the hero who stood on it falls through ({p.GlobalPosition.Y - yStood:0} px lower)", p.GlobalPosition.Y > yStood + 12f);
+        foreach (var _ in SbSleep(3f)) yield return null;
+        ScCheck($"then it is gone altogether ({!GodotObject.IsInstanceValid(l)})", !GodotObject.IsInstanceValid(l));
+    }
 }

@@ -57,6 +57,8 @@ public sealed class BiomeDef
     public GenStyle Style = GenStyle.Walkers;
     public int W = 240, H = 140;
     public int TunnelBudget = 1500;
+    /// <summary>How far down the map (share of its height) the walker caves put the way in.</summary>
+    public float StartRow = 0.25f;
     public float AirRMin = 2.6f, AirRMax = 3.7f, HorizontalBias = 0.012f, BranchPitchMult = 0.8f, MaxPitch = 0.6f;
     /// <summary>Each step of a tunnel's walk has this chance of sprouting a side branch, down to branches of this generation.</summary>
     public float BranchChance = 0.017f;
@@ -338,7 +340,7 @@ public static class Biomes
         var slime = new BiomeDef
         {
             Id = BiomeId.Slime, Name = "Slime Cavern", MinDepth = 4, MaxDepth = 6,
-            W = 250, H = 150, TunnelBudget = 1650,
+            W = 250, H = 150, TunnelBudget = 1650, StartRow = 0.2f,
             Edge = C("4a3d38"), Deep = C("120f11"), Moss = C("52853f"), Rim = C("75645a"), Glow = C("73e6ff"),
             WaterCaches = 5, HighCaches = 3, MiniBossesMin = 2, MiniBossesMax = 3,
         };

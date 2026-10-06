@@ -91,6 +91,40 @@ public static class DecorMeshes
         return mb;
     }
 
+    /// <summary>
+    /// One block of a broken-stone ledge: a lumpy faceted chunk w wide, h thick and d deep, flat across the top (where you stand), each
+    /// face its own tone (lighter up, darker under) over <paramref name="tint"/>.
+    /// </summary>
+    public static MeshBuilder SlabChunk(Random rng, Noise3 noise, float w, float h, float d, Color tint)
+    {
+        float R() => (float)rng.NextDouble();
+        // a block hewn roughly: eight corners knocked about (the top kept flat), flat faces each its own tone
+        var c = new Vector3[8];
+        for (int i = 0; i < 8; i++)
+        {
+            float sx = (i & 1) == 0 ? -1 : 1, sy = (i & 2) == 0 ? -1 : 1, sz = (i & 4) == 0 ? -1 : 1;
+            float y = sy > 0 ? h * 0.5f : -h * (0.5f + 0.18f * R());
+            c[i] = new Vector3(sx * w * 0.5f * (1f + (R() - 0.5f) * 0.22f), y, sz * d * 0.5f * (1f + (R() - 0.5f) * 0.22f));
+        }
+        var mb = new MeshBuilder();
+        void Face(int a, int b2, int c2, int d2, float shade)
+        {
+            var n = (c[b2] - c[a]).Cross(c[d2] - c[a]).Normalized();
+            float t = shade * (0.82f + 0.36f * R());
+            var col = new Color(t * tint.R, t * tint.G, t * tint.B);
+            int i0 = mb.Add(c[a], n, col, new Vector2(0, 0)), i1 = mb.Add(c[b2], n, col, new Vector2(1, 0)), i2 = mb.Add(c[c2], n, col, new Vector2(1, 1)), i3 = mb.Add(c[d2], n, col, new Vector2(0, 1));
+            mb.Quad(i0, i1, i2, i3);
+        }
+        // (corner bits: x = 1, y = 2, z = 4; wound so each face looks out)
+        Face(2, 6, 7, 3, 1.1f);   // top
+        Face(0, 1, 5, 4, 0.55f);  // underside
+        Face(4, 5, 7, 6, 0.85f);  // front (+z)
+        Face(0, 2, 3, 1, 0.8f);   // back
+        Face(0, 4, 6, 2, 0.9f);   // left
+        Face(1, 3, 7, 5, 0.9f);   // right
+        return mb;
+    }
+
     /// <summary>A spray of pointed crystals from one root.</summary>
     public static MeshBuilder CrystalCluster(Random rng, int count, float scale, Color body)
     {

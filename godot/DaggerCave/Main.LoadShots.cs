@@ -97,7 +97,7 @@ public partial class Main
                 if (_loading && _abT < 90f) return;
                 ScCheck($"the sunken sea: {G.Biome.Name} at depth {G.Depth} (from {_abDepth})", G.Biome.Id == BiomeId.Abyss && G.Depth == _abDepth + 1 && !_loading);
                 ScCheck($"it has no drain of its own ({G.Cave.Drain == null})", G.Cave.Drain == null);
-                var exits = _world.GetChildren().OfType<Portal>().Where(x => !x.Drain && !x.Outside).ToList();
+                var exits = _world.GetChildren().OfType<Portal>().Where(x => !x.Drain && !x.Outside && !x.Entry).ToList();
                 ScCheck($"and its way on is open from the start: {exits.Count} exits ({string.Join(", ", exits.Select(x => x.Depth))})", exits.Count == 2 && exits.Any(x => x.Depth == G.Depth + 1) && exits.Any(x => x.Depth == G.Depth + 2));
                 ScCheck($"no guardian ({ActiveBoss == null})", ActiveBoss == null);
                 ScCheck($"water-dwellers about ({G.Cave.Spawns.Count(s => s.Kind is SpawnKind.Water or SpawnKind.WaterFloor or SpawnKind.WaterWall)} spawn points)", G.Cave.Spawns.Count(s => s.Kind is SpawnKind.Water or SpawnKind.WaterFloor or SpawnKind.WaterWall) > 10);
@@ -107,7 +107,7 @@ public partial class Main
             case 3:
                 if (_abT < 1.5f) return;
                 ScShot("sea_start");
-                var way = _world.GetChildren().OfType<Portal>().First(x => !x.Drain && !x.Outside);
+                var way = _world.GetChildren().OfType<Portal>().First(x => !x.Drain && !x.Outside && !x.Entry);
                 p.GlobalPosition = way.GlobalPosition + new Vector2(0, 17);
                 _abPhase = 4; _abT = 0;
                 break;

@@ -31,7 +31,7 @@ public static partial class CaveGenerator
             for (float x = x0; x < x1; x += 5) spawnStamps.Add(new Stamp { X = x, Y = floorY - 2.5f, R = 3, Main = true, Mode = ModeAir, Kind = 7 });
         }
 
-        int fN = (int)(H * Rf(0.22f, 0.27f)), fBoss = (int)(H * Rf(0.78f, 0.84f));
+        int fN = (int)(H * Rf(0.32f, 0.37f)), fBoss = (int)(H * Rf(0.8f, 0.85f));
         int fTomb = fN + (int)((fBoss - fN) * Rf(0.55f, 0.7f));
         int bossDir = rng.Next(2) == 0 ? -1 : 1;
 

@@ -17,6 +17,13 @@ public sealed class SpawnPoint
 }
 
 /// <summary>(a Secret room is a hidden chamber out of reach: a chimney up from a tunnel's roof, a relic chest at the top)</summary>
+/// <summary>A generated rock ledge: its centre and half width in cells, and (corner index, value before, value now) for each corner it changed.</summary>
+public sealed class LedgeRec
+{
+    public float Cx, Cy, Half;
+    public readonly List<(int idx, float old, float now)> Cells = new();
+}
+
 public enum RoomKind { Start, Boss, Treasure, MiniBoss, Ambush, Secret }
 
 /// <summary>
@@ -73,6 +80,11 @@ public sealed class CaveData
     public BiomeDef Biome;
     /// <summary>Breakable ice ledges (frozen caverns): centre x, top y (cells), half width.</summary>
     public readonly List<Vector3> IceLedges = new();
+    /// <summary>
+    /// The rock ledges and stepping stones the generator laid in (not part of the cave's own rock): where each stands (cells), and the
+    /// field it replaced. They are checked for traversal as rock, then lifted out of the field and put back as breakable slabs.
+    /// </summary>
+    public readonly List<LedgeRec> Ledges = new();
     /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>
     public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
     /// <summary>Marks at the mouths of the hidden ways in (world px; kind 0 a fish's slit, bubbles escaping; 1 a spider's crack, dust sifting down).</summary>

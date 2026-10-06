@@ -145,6 +145,7 @@ public static partial class CaveGenerator
         B = biome; W = w; H = h;
         AddDrain(best, seed);
         AddHiddenNooks(best, seed);
+        LiftLedges(best);
         return best;
     }
 
@@ -190,7 +191,8 @@ public static partial class CaveGenerator
         int budget = (int)(B.TunnelBudget * Tune.Cave.WidthScale * (H / (float)B.H));
 
         float sx = W * 0.5f + Rnd(-W * 0.08f, W * 0.08f);
-        float sy = H * 0.15f + Rnd(-2, 3);
+        // (well down from the top of the map: the way in you came by is behind you, up the stairs)
+        float sy = H * B.StartRow + Rnd(-2, 3);
 
         // Initial walkers leave from either side of the start room: one level, one descending gently
         // all the way to the water so the flooded half is always reachable (and escapable) on foot.
@@ -786,6 +788,8 @@ public static partial class CaveGenerator
     {
         int stride = W + 1;
         const float ry = 0.8f;
+        // (the dragon's tiers are laid out as drawn: they stay in the rock; every other ledge is lifted out later, to be broken)
+        var rec = B != null && B.Style != GenStyle.Arena ? new LedgeRec { Cx = cx, Cy = cy, Half = halfWidth } : null;
         for (int j = (int)(cy - 2); j <= (int)(cy + 2); j++)
             for (int i = (int)(cx - halfWidth - 2); i <= (int)(cx + halfWidth + 2); i++)
             {
@@ -794,8 +798,36 @@ public static partial class CaveGenerator
                 float e = MathF.Pow(ex * ex * ex * ex + ey * ey * ey * ey, 0.25f); // squarish: flat top
                 float v = Math.Clamp(0.5f - (1 - e) * 0.9f, 0f, 1f);
                 int k = j * stride + i;
-                if (v < cave.Open[k]) cave.Open[k] = v;
+                if (v < cave.Open[k]) { rec?.Cells.Add((k, cave.Open[k], v)); cave.Open[k] = v; }
             }
+        if (rec != null) cave.Ledges.Add(rec);
+    }
+
+    /// <summary>
+    /// The ledges go out of the field (the corners they changed go back to what they were, unless something has opened them wider
+    /// since) once the level is checked: the level puts them back as slabs that can be broken, so none can trap anyone or wall off the
+    /// guardian for good.
+    /// </summary>
+    internal static void LiftLedges(CaveData cave)
+    {
+        // (a ledge a repair has since cut through, or taken back, is not lifted: whatever of it is left stays in the rock as it was left)
+        cave.Ledges.RemoveAll(l =>
+        {
+            int still = 0;
+            foreach (var (idx, _, now) in l.Cells) if (cave.Open[idx] <= now + 0.001f) still++;
+            return l.Cells.Count == 0 || still < l.Cells.Count;
+        });
+        foreach (var l in cave.Ledges)
+            foreach (var (idx, old, _) in l.Cells)
+                cave.Open[idx] = Math.Max(cave.Open[idx], old);
+    }
+
+    /// <summary>The ledges back into the field (the generator test checks the level as it stands before anything is broken).</summary>
+    internal static void PutLedgesBack(CaveData cave)
+    {
+        foreach (var l in cave.Ledges)
+            foreach (var (idx, _, now) in l.Cells)
+                cave.Open[idx] = Math.Min(cave.Open[idx], now);
     }
 
     /// <summary>
