@@ -217,7 +217,7 @@ public partial class Main
     {
         _ftT += dt;
         void Act(string action, bool down = true) => Input.ParseInputEvent(new InputEventAction { Action = action, Pressed = down });
-        void Shot(string name) => GetViewport().GetTexture().GetImage().SavePng($"{_frontTest}/{name}.png");
+        void Shot(string name) => GetViewport().GetTexture().GetImage()?.SavePng($"{_frontTest}/{name}.png");
         var steps = new (float at, Action act)[]
         {
             (1.5f, () => { Shot("front_menu"); FtCheck($"the game opens on the main menu over the camp ({_state}, menu {_mainMenu.Visible}, camp {_campLayer?.Visible})", _state == State.Title && _mainMenu.Visible && _campLayer.Visible); Act("ui_accept"); }),
@@ -235,6 +235,8 @@ public partial class Main
             (5.9f, () => Act("move_right")),
             (5.95f, () => Act("move_right", false)),
             (6.2f, () => FtCheck($"and right twice comes back to the Warden ({G.Hero})", G.Hero == HeroKind.Warden)),
+            (6.3f, () => Act("confirm")),
+            (6.35f, () => Act("confirm", false)),
             (6.70f, () => { Shot("front_prep"); FtCheck($"confirm moves on to the loadout and perks ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Act("confirm"); }),
             (6.75f, () => Act("confirm", false)),
             (7.2f, () => { Shot("front_difficulty"); FtCheck($"confirm moves on to the difficulty, where Descend waits ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Act("pause"); }),
