@@ -72,7 +72,7 @@ public partial class Main
         // ---- a few relics' numbers
         PlayerStats Take(HeroKind h, string id) { var s = new PlayerStats(h); Upgrades.Apply(Upgrades.Get(id), s, null); return s; }
         var leap = Take(HeroKind.Swordsman, "relic_leap");
-        ScCheck($"Long Stride: jump x{leap.JumpMult / new PlayerStats(HeroKind.Swordsman).JumpMult:0.00}, air speed x{leap.AirSpeedMult}", Near(leap.AirSpeedMult, 1.2f) && Near(leap.JumpMult / new PlayerStats(HeroKind.Swordsman).JumpMult, 0.8f));
+        ScCheck($"Long Stride: jump x{leap.JumpMult / new PlayerStats(HeroKind.Swordsman).JumpMult:0.00}, air speed x{leap.AirSpeedMult}", Near(leap.AirSpeedMult, 1.4f) && Near(leap.JumpMult / new PlayerStats(HeroKind.Swordsman).JumpMult, 0.8f));
         var anvil = Take(HeroKind.Swordsman, "relic_anvil");
         ScCheck($"Anvil Grip: attack speed x0.8, damage x1.2 ({anvil.AttackSpeed}, {anvil.DamageMult})", Near(anvil.AttackSpeed, 0.8f) && Near(anvil.DamageMult, 1.2f));
         var quick = Take(HeroKind.Swordsman, "relic_quicksilver");
