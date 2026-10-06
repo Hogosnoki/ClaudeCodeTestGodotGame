@@ -236,12 +236,12 @@ void fragment() {
 		// magma veins: a few thin glowing seams in patches of the rock, hotter near the lava
 		float v = texture(mask_noise, p.xy * 0.04 + p.z * 0.025).r;
 		float seam = 1.0 - smoothstep(0.0, 0.01, abs(v - 0.5));
-		float patch = smoothstep(0.56, 0.7, texture(mask_noise, p.xy * 0.017 + vec2(0.31, 0.77)).r);
+		float patch = smoothstep(0.6, 0.74, texture(mask_noise, p.xy * 0.017 + vec2(0.31, 0.77)).r);
 		seam *= patch * (1.0 - capness * 0.7);
 		float heat = liquid_mode == 2 ? exp(-max(p.y - liquid_y, 0.0) / 9.0) : 0.3;
 		float pulse = 0.75 + 0.25 * sin(TIME * 1.3 + p.x * 0.7 + p.y * 0.4);
-		emit += liquid_glow * seam * pulse * 3.0 * (0.3 + heat) * special_amount;
-		alb *= mix(1.0, 0.5, seam);
+		emit += liquid_glow * seam * pulse * 0.85 * (0.3 + heat) * special_amount;
+		alb *= mix(1.0, 0.7, seam);
 	} else if (special_mode == 4) {
 		// crystal flecks: tiny mirror-like facets that catch the light
 		float fleck = smoothstep(0.82, 0.95, texture(mask_noise, p.xy * 1.7 + p.z * 0.9).r);
