@@ -166,7 +166,11 @@ public partial class Main : Node
         _perkMenu.Closed += OnMetaClosed;
         _uiLayer.AddChild(_perkMenu);
         _loadoutMenu = new LoadoutMenu();
-        _loadoutMenu.Closed += () => { _heroChoice?.Refresh(); _heroChoice?.RestoreFocus(); };
+        _loadoutMenu.Closed += () =>
+        {
+            if (_onlineMenu != null && _onlineMenu.Visible) { _onlineMenu.AfterSubmenu(); return; }
+            _heroChoice?.Refresh(); _heroChoice?.RestoreFocus();
+        };
         _uiLayer.AddChild(_loadoutMenu);
         UiKit.EnsureMenuControls();
         _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
@@ -1210,6 +1214,8 @@ public partial class Main : Node
 
     private void OnMetaClosed()
     {
+        // (opened from the online lobby: back to it)
+        if (_onlineMenu != null && _onlineMenu.Visible) { _onlineMenu.AfterSubmenu(); return; }
         if (_state == State.Dead) ShowCamp();
         else if (_state == State.Title && _front == Front.Heroes) { _heroChoice.Visible = true; _heroChoice.Refresh(); _heroChoice.RestoreFocus(); }
         else if (_state == State.Title) ShowTitle();

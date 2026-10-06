@@ -25,8 +25,17 @@ public partial class Main
     private void SetupOnline()
     {
         AddChild(new NetNode());
-        _onlineMenu = new OnlineMenu { Back = CloseOnlineMenu, StartRun = HostStartRun };
+        _onlineMenu = new OnlineMenu
+        {
+            Back = CloseOnlineMenu, StartRun = HostStartRun,
+            Perks = h => _perkMenu.Open(h),
+            Loadout = h => _loadoutMenu.Open(h),
+            Trees = () => { if (Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse); },
+            Covered = () => _perkMenu.Visible || _loadoutMenu.Visible || _metaMenu.Visible,
+        };
         _uiLayer.AddChild(_onlineMenu);
+        // (under the perks, loadout and trees menus, which open over it)
+        _uiLayer.MoveChild(_onlineMenu, _metaMenu.GetIndex());
         // a button on the title (and camp) screens for the mouse; keys and the controller use O / Y
         _titleOnline = UiKit.Button("Play online with friends", OpenOnlineMenu, 300);
         _titleOnline.Theme = UiKit.Theme;

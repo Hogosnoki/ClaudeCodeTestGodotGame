@@ -11,12 +11,23 @@ namespace DaggerCave;
 /// </summary>
 public partial class OnlineMenu : Control
 {
-    public Action Back, StartRun;
+    public Action Back, StartRun, Trees;
+    /// <summary>Opens the class perks / the loadout of a hero (the menus themselves live in Main).</summary>
+    public Action<HeroKind> Perks, Loadout;
+    /// <summary>True while one of those menus is up over this one (it has the keys then).</summary>
+    public Func<bool> Covered;
 
     private VBoxContainer _choose, _lobby;
     private LineEdit _name, _code;
     private Label _title, _status, _code1, _code2, _code3, _router, _players, _wait, _mismatch;
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
+    private VBoxContainer _prep;
+    private Label _prepTitle, _prepDesc, _prepBrought;
+    private Button _prepPerks, _prepLoadout, _prepTrees, _prepBack, _prepBtn;
+    /// <summary>The lobby's second stage: after taking a hero, their loadout, perks and the upgrade trees.</summary>
+    private bool _inPrep;
+    private HeroKind _prepHero;
+    private Control _prepFocus;
     private Button _host, _start, _leave, _paste, _joinBtn, _backBtn, _copy1, _copy2, _copy3;
     private readonly Button[] _cards = new Button[7];
     private readonly Label[] _cardNote = new Label[7];
@@ -156,7 +167,7 @@ public partial class OnlineMenu : Control
             AddChild(portrait);
             _portraits[k] = portrait;
             var card = new Button { CustomMinimumSize = new Vector2(124, 172), FocusMode = FocusModeEnum.All };
-            card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); };
+            card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); EnterPrep(kind); };
             var v = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             v.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             v.OffsetTop = 6; v.OffsetBottom = -6;
@@ -181,12 +192,75 @@ public partial class OnlineMenu : Control
         _lobby.AddChild(_wait);
         var buttons = Row(_lobby);
         buttons.Alignment = BoxContainer.AlignmentMode.Center;
+        _prepBtn = UiKit.Button("Loadout & perks", () => EnterPrep(Net.Mine != null && Net.Mine.Picked ? Net.Mine.Hero : G.Hero), 220);
+        buttons.AddChild(_prepBtn);
         _start = UiKit.Button("Start the descent", () => StartRun?.Invoke(), 280);
         buttons.AddChild(_start);
         _leave = UiKit.Button("Leave", DoLeave, 180);
         buttons.AddChild(_leave);
 
+        // ---- the second stage: the hero taken, their loadout, perks and the upgrade trees
+        _prep = new VBoxContainer { Visible = false };
+        _prep.AddThemeConstantOverride("separation", 12);
+        col.AddChild(_prep);
+        _prepTitle = UiKit.Label("", 26, UiKit.Gold, HorizontalAlignment.Center);
+        _prep.AddChild(_prepTitle);
+        _prepDesc = UiKit.Label("", 15, UiKit.Text, HorizontalAlignment.Center);
+        _prepDesc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _prepDesc.CustomMinimumSize = new Vector2(760, 0);
+        _prep.AddChild(_prepDesc);
+        _prepBrought = UiKit.Label("", 15, new Color(1f, 0.85f, 0.55f), HorizontalAlignment.Center);
+        _prepBrought.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _prepBrought.CustomMinimumSize = new Vector2(760, 0);
+        _prep.AddChild(_prepBrought);
+        var prow = Row(_prep);
+        prow.Alignment = BoxContainer.AlignmentMode.Center;
+        _prepPerks = UiKit.Button("Class perks", () => Perks?.Invoke(_prepHero), 220);
+        prow.AddChild(_prepPerks);
+        _prepLoadout = UiKit.Button("Loadout (side-grades)", () => Loadout?.Invoke(_prepHero), 220);
+        prow.AddChild(_prepLoadout);
+        _prepTrees = UiKit.Button("Upgrade trees", () => Trees?.Invoke(), 220);
+        prow.AddChild(_prepTrees);
+        var brow = Row(_prep);
+        brow.Alignment = BoxContainer.AlignmentMode.Center;
+        _prepBack = UiKit.Button("Done: back to the lobby", BackToLobby, 300);
+        _prepBack.AddThemeColorOverride("font_color", UiKit.Gold);
+        brow.AddChild(_prepBack);
+
         Net.Changed += OnNetChanged;
+    }
+
+    /// <summary>A hero taken (or "Loadout & perks"): on to their perks, loadout and the trees.</summary>
+    private void EnterPrep(HeroKind hero)
+    {
+        _prepHero = hero;
+        G.Hero = hero;
+        _inPrep = true;
+        _prepFocus = null;
+        Refresh();
+        _prepPerks.CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    /// <summary>Back from the second stage to the lobby proper (the cursor on your hero's card).</summary>
+    private void BackToLobby()
+    {
+        _inPrep = false;
+        _prepFocus = null;
+        Refresh();
+        int at = Array.FindIndex(Heroes, h => h.kind == _prepHero);
+        (at >= 0 && !_cards[at].Disabled ? _cards[at] : _start.Visible ? _start : _leave).CallDeferred(Control.MethodName.GrabFocus);
+    }
+
+    /// <summary>The perks, loadout or trees menu closed: the second stage again, with what changed.</summary>
+    public void AfterSubmenu()
+    {
+        if (!Visible) return;
+        Refresh();
+        if (_inPrep)
+        {
+            var target = _prepFocus != null && IsInstanceValid(_prepFocus) && _prepFocus.IsVisibleInTree() ? _prepFocus : _prepPerks;
+            target.CallDeferred(Control.MethodName.GrabFocus);
+        }
     }
 
     public override void _ExitTree() => Net.Changed -= OnNetChanged;
@@ -209,6 +283,7 @@ public partial class OnlineMenu : Control
     public void Open(string note = "")
     {
         _note = note ?? "";
+        _inPrep = false;
         Visible = true;
         _name.Text = GameSettings.PlayerName;
         _name.PlaceholderText = Net.MyName;
@@ -281,8 +356,10 @@ public partial class OnlineMenu : Control
     {
         bool online = Net.Online;
         bool joined = online && Net.Mine != null;
+        if (!joined) _inPrep = false;
         _choose.Visible = !joined;
-        _lobby.Visible = joined;
+        _lobby.Visible = joined && !_inPrep;
+        _prep.Visible = joined && _inPrep;
         bool pageChanged = _wasOnline != joined;
         _wasOnline = joined;
         if (!joined)
@@ -291,6 +368,20 @@ public partial class OnlineMenu : Control
             _status.Text = _note != "" ? _note : Net.Status;
             _host.Disabled = online;
             if (pageChanged) _host.CallDeferred(Control.MethodName.GrabFocus);
+            return;
+        }
+
+        // ---- the second stage
+        if (_inPrep)
+        {
+            var (hname, hlines) = ScreenOverlay.HeroInfo(_prepHero);
+            _title.Text = "GET READY";
+            _prepTitle.Text = hname;
+            _prepTitle.AddThemeColorOverride("font_color", Hud.HeroColor(_prepHero).Lightened(0.3f));
+            _prepDesc.Text = string.Join(" ", hlines);
+            string perks = ClassPerks.EquippedNames(_prepHero);
+            _prepBrought.Text = (perks != "" ? "Perks: " + perks : "No class perks brought") + $"\nLoadout: {Meta.LoadoutFor(_prepHero).Count}/{Tune.Loadout.Slots} side-grades";
+            _prepTrees.Visible = Meta.Trees.Any(Meta.Visible);
             return;
         }
 
@@ -376,6 +467,7 @@ public partial class OnlineMenu : Control
             _panel.PivotOffset = _panel.Size * 0.5f;
             _panel.Scale = Vector2.One * Math.Min(1f, (vh - 24f) / h);
         }
+        if (_inPrep && Visible && GetViewport()?.GuiGetFocusOwner() is Control fo && _prep.IsAncestorOf(fo)) _prepFocus = fo;
         bool show = Visible && _lobby.Visible;
         foreach (var p in _portraits)
             if (p != null) p.RenderTargetUpdateMode = show ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
@@ -400,12 +492,16 @@ public partial class OnlineMenu : Control
             var r = cs.Where(CanFocus).ToList();
             if (r.Count > 0) rows.Add(r);
         }
-        if (_lobby.Visible)
+        if (_prep.Visible)
+        {
+            Row(_prepPerks, _prepLoadout, _prepTrees); Row(_prepBack);
+        }
+        else if (_lobby.Visible)
         {
             Row(_copy1); Row(_copy2); Row(_copy3);
             Row(_diff); Row(_perPlayer); Row(_hard);
             Row(_cards);
-            Row(_start, _leave);
+            Row(_prepBtn, _start, _leave);
         }
         else
         {
@@ -446,7 +542,7 @@ public partial class OnlineMenu : Control
 
     public override void _Input(InputEvent e)
     {
-        if (!Visible) return;
+        if (!Visible || (Covered?.Invoke() ?? false)) return;
         int dx = e.IsActionPressed("ui_left", true) ? -1 : e.IsActionPressed("ui_right", true) ? 1 : 0;
         int dy = e.IsActionPressed("ui_up", true) ? -1 : e.IsActionPressed("ui_down", true) ? 1 : 0;
         if (dx == 0 && dy == 0) return;
@@ -459,9 +555,10 @@ public partial class OnlineMenu : Control
 
     public override void _UnhandledInput(InputEvent e)
     {
-        if (!Visible || !e.IsActionPressed("ui_cancel")) return;
+        if (!Visible || !e.IsActionPressed("ui_cancel") || (Covered?.Invoke() ?? false)) return;
         GetViewport().SetInputAsHandled();
-        if (_lobby.Visible) DoLeave();
+        if (_inPrep) BackToLobby();
+        else if (_lobby.Visible) DoLeave();
         else Back?.Invoke();
     }
 }

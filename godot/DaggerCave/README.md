@@ -73,8 +73,11 @@ Up to five players, one of each hero. One player hosts; the others join with the
    for players on the same Wi-Fi shows too.)
 3. The friend pastes (or types) the code and clicks **Join**. A plain address works too
    (`192.168.1.20`, `100.101.102.103`, `my.host.name`, with `:port` if needed).
-4. In the lobby, each player takes a different hero (the one you last chose at the camp fire,
-   if it's free). The host clicks **Start the descent** and everyone begins together.
+4. In the lobby, each player takes a hero (the one you last chose at the camp fire). Taking one
+   moves you on to a second stage, as in single player: your hero's **class perks**, **loadout**
+   (side-grades) and the **upgrade trees**; "Done: back to the lobby" (or Esc / B) returns to the
+   lobby, and the **Loadout & perks** button there brings it back. What you set is what you start the
+   run with. The host clicks **Start the descent** and everyone begins together.
 
 In the cave:
 - **Going down**: when a guardian falls, everyone still standing has to walk into the same exit
