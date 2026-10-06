@@ -752,7 +752,7 @@ public partial class Main : Node
         }
         if (_startAt == "secret" && cave.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Secret) is Room hidden && cave.FindFloor(hidden.Center + new Vector2(-30, 0), 300, out var hf))
             player.GlobalPosition = hf + new Vector2(0, -14);
-        if (_startAt == "drain" && cave.Drain is Vector2 dpos) player.GlobalPosition = dpos + new Vector2(0, -150);
+        if (_startAt == "drain" && cave.Drain is Vector2 dpos) player.GlobalPosition = dpos + new Vector2(0, -110);
         if (_startAt == "water")
         {
             var sp = cave.Spawns.FirstOrDefault(s => s.Kind == SpawnKind.Water);

@@ -1543,9 +1543,8 @@ public static partial class CaveGenerator
             for (int i = 14; i < W - 14; i++)
                 if (cave.ReachMask[j * W + i] && cave.CellOpen(i, j) && cave.CellOpen(i, j - 1) && cave.CellOpen(i, j - 2) && cave.CellOpen(i - 1, j - 1) && cave.CellOpen(i + 1, j - 1)) { bi = i; bj = j; break; }
         if (bi < 0) return;
-        // the shaft: a few rows more, a round chamber at its foot
-        int end = Math.Min(H - 8, bj + 7);
-        var rng = new Random(seed ^ 0x5eed1);
+        // the drain is at the lowest point of the water; below it a shaft runs on down to the bottom of the map (the view blacks it out)
+        int end = H - 6;
         void Carve(float cx, float cy, float r)
         {
             int stride = W + 1;
@@ -1559,8 +1558,7 @@ public static partial class CaveGenerator
                 }
         }
         for (float y = bj - 1; y <= end; y += 0.8f) Carve(bi + 0.5f, y, 2.6f);
-        Carve(bi + 0.5f, end, 3.6f);
-        cave.Drain = new Vector2(bi + 0.5f, end - 0.5f) * CaveData.Cell;
+        cave.Drain = new Vector2(bi + 0.5f, bj + 0.5f) * CaveData.Cell;
     }
 
     /// <summary>Test aid (<c>--gentest --forcedrain</c>): every level with water gets its drain.</summary>

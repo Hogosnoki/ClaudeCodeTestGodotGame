@@ -1209,7 +1209,7 @@ its top, and its pieces are scattered at all angles and depths, so it stands, bu
 ### The secret depth: the Sunken Sea
 
 About one level in three that has water (not the first level, and not so deep that it would pass the dragon's, `Tune.Abyss.DrainChance`)
-has a **drain**: the lowest swimmable point of its lakes has a shaft sunk below it and a glowing mouth at its foot
+has a **drain**: the lowest swimmable point of its lakes has a drain, with a shaft sunk from it to the bottom of the map
 (`CaveGenerator.AddDrain`, from the seed alone, so online every game makes the same one). Swim into it, with no button to press, and
 you go down at once to the Sunken Sea, one depth deeper (so its exits lead to depth + 1 and depth + 2: a shortcut). It is only reachable this
 way: it never comes up among the ordinary exits (`Weight` 0, left out of `Biomes.PickFor`). It has no guardian and its two exits stand
@@ -1217,7 +1217,7 @@ open from the start; it holds more chests (relic-tier ones as ever now and then)
 `--scenario=abyss --forcedrain` (a drain in every watery level; the scenario swims into it and checks the sea), `--start=drain` to look at the
 drain, and `--biome=abyss --start=water` for the lake.
 
-The drain looks like nothing you would swim into: no light, only a black gradient that thickens toward a black mouth, with a negative light that
+The drain looks like nothing you would swim into: no light, only a curtain of black that thickens from nothing at the lowest point of the water to solid black, running down to the bottom of the map so that nothing below can be seen, with a negative light that
 drains the colour from the water round it. Where you arrive in the Sunken Sea a waterfall pours from a crack in the roof to the beach beside you (the
 lake above, coming down). Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
 sides), not smooth balls.

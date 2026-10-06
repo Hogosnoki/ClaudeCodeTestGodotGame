@@ -1578,26 +1578,18 @@ public partial class CaveInView : PropView
 }
 
 /// <summary>
-/// The drain at the foot of a lake: a round black mouth in the bed, and above it a column of darkness that thickens toward it, black
-/// water with nothing to be seen in it (a negative light takes the colour out of the water round it). Nothing to invite anyone in.
+/// The drain at the lowest point of a lake: a round black mouth in the bed, and from just above it all the way down to the bottom of the
+/// map a curtain of black that thickens from nothing to solid, so nothing below it can be seen (black water, and a negative light that
+/// takes the colour out of the water round it). Nothing to invite anyone in.
 /// </summary>
 public partial class DrainView : PropView
 {
-    private MeshInstance3D _column, _mist;
     private OmniLight3D _void;
-    private static StandardMaterial3D _darkMat;
-    private static StandardMaterial3D DarkMat => _darkMat ??= new StandardMaterial3D
-    {
-        AlbedoTexture = new GradientTexture2D
-        {
-            Gradient = new Gradient { Colors = new[] { new Color(0, 0, 0, 0.97f), new Color(0, 0, 0, 0.6f), new Color(0, 0, 0, 0f) }, Offsets = new[] { 0f, 0.45f, 1f } },
-            Fill = GradientTexture2D.FillEnum.Radial, FillFrom = new Vector2(0.5f, 0.75f), FillTo = new Vector2(1f, 0.75f), Width = 128, Height = 128,
-        },
-        Transparency = BaseMaterial3D.TransparencyEnum.Alpha, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
-        DisableReceiveShadows = true,
-    };
+    private MeshInstance3D _dark;
+    private static Shader _shader;
+    private static ShaderMaterial _darkMat;
 
-    public static void ReleaseShared() { _darkMat?.Dispose(); _darkMat = null; }
+    public static void ReleaseShared() { _darkMat?.Dispose(); _darkMat = null; _shader = null; }
 
     protected override void Build()
     {
@@ -1606,11 +1598,14 @@ public partial class DrainView : PropView
         var mouth = PropViews.Mesh(mb, PropViews.VertexColored, false);
         mouth.Position = new Vector3(0, -0.9f, 0.1f);
         AddChild(mouth);
-        // the column: darkest at the mouth, fading out above it (two of them, a wide soft one behind a narrow dense one)
-        _column = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(3.4f, 7.5f) }, MaterialOverride = DarkMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 2.6f, 0.45f) };
-        AddChild(_column);
-        _mist = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(6.5f, 6f) }, MaterialOverride = DarkMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 2f, 0.8f) };
-        AddChild(_mist);
+        // the curtain: from a few metres over the mouth down past the map's floor
+        float above = 4.5f, below = W3.M(Math.Max(0f, (G.Cave?.SizePx.Y ?? Owner2D.GlobalPosition.Y) - Owner2D.GlobalPosition.Y)) + 2f;
+        float h = above + below;
+        _shader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/drain_dark.gdshader");
+        _darkMat ??= new ShaderMaterial { Shader = _shader };
+        _dark = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(13f, h) }, MaterialOverride = _darkMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, above - h * 0.5f, 1.2f) };
+        _dark.SetInstanceShaderParameter("fade_frac", Math.Min(0.9f, 5f / h));
+        AddChild(_dark);
         _void = PropViews.Light(Colors.White, 2.2f, 8f);
         _void.LightNegative = true;
         _void.LightVolumetricFogEnergy = 1f;
@@ -1621,9 +1616,7 @@ public partial class DrainView : PropView
     protected override void Sync(float dt)
     {
         Follow(default, 0f);
-        float breathe = 0.5f + 0.5f * MathF.Sin(Time * 0.9f);
-        _void.LightEnergy = 1.9f + 0.6f * breathe;
-        _mist.Scale = new Vector3(1f + 0.06f * breathe, 1f, 1f);
+        _void.LightEnergy = 1.9f + 0.6f * (0.5f + 0.5f * MathF.Sin(Time * 0.9f));
     }
 }
 
