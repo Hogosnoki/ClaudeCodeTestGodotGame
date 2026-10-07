@@ -24,6 +24,8 @@ public partial class RockLedge : StaticBody2D, IBreakable
     public float ShakeT { get; private set; }
     /// <summary>The slab is this thick (px).</summary>
     public const float Thick = 25.6f;
+    /// <summary>This slab's own thickness, px (a natural platform is as thick as it grew).</summary>
+    public float ThickPx => Rec != null && Rec.Thick > 0 ? Rec.Thick * CaveData.Cell : Thick;
     private float _cool;
     private CollisionShape2D _shape;
 
@@ -43,7 +45,7 @@ public partial class RockLedge : StaticBody2D, IBreakable
     {
         CollisionLayer = G.LayerTerrain;
         CollisionMask = 0;
-        _shape = new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(Half * 2f - 2f, Thick) } };
+        _shape = new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(Half * 2f - 2f, ThickPx) } };
         AddChild(_shape);
         Breakables.All.Add(this);
     }
@@ -68,7 +70,7 @@ public partial class RockLedge : StaticBody2D, IBreakable
         // dirt flung everywhere, out of the slab and down off it
         G.Fx.Debris(at, dirt, 14, 150);
         G.Fx.Dust(at + new Vector2(0, 4), 5, 1.6f, new Color(0.55f, 0.46f, 0.36f, 0.6f));
-        G.Fx.Debris(GlobalPosition + new Vector2(G.Range(-Half, Half) * 0.8f, Thick * 0.5f), dirt.Darkened(0.15f), 5, 90);
+        G.Fx.Debris(GlobalPosition + new Vector2(G.Range(-Half, Half) * 0.8f, ThickPx * 0.5f), dirt.Darkened(0.15f), 5, 90);
         if (!remote) NetSync.LedgeHit(this);
         if (Left <= 0) Collapse();
     }

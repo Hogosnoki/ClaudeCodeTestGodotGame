@@ -21,6 +21,10 @@ public sealed class SpawnPoint
 public sealed class LedgeRec
 {
     public float Cx, Cy, Half;
+    /// <summary>The slab's thickness in cells for its collider (a stamped ledge is 1.6; a natural platform taken for a ledge is as thick as it was).</summary>
+    public float Thick = 1.6f;
+    /// <summary>A platform the cave grew by itself, replaced by a slab that can be broken.</summary>
+    public bool Natural;
     public readonly List<(int idx, float old, float now)> Cells = new();
 }
 
@@ -85,6 +89,8 @@ public sealed class CaveData
     /// field it replaced. They are checked for traversal as rock, then lifted out of the field and put back as breakable slabs.
     /// </summary>
     public readonly List<LedgeRec> Ledges = new();
+    /// <summary>How many of <see cref="Ledges"/> were platforms the cave grew itself.</summary>
+    public int NaturalPlatforms;
     /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>
     public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
     /// <summary>Marks at the mouths of the hidden ways in (world px; kind 0 a fish's slit, bubbles escaping; 1 a spider's crack, dust sifting down).</summary>

@@ -156,5 +156,18 @@ public partial class Main
         ScCheck($"and the hero who stood on it falls through ({p.GlobalPosition.Y - yStood:0} px lower)", p.GlobalPosition.Y > yStood + 12f);
         foreach (var _ in SbSleep(3f)) yield return null;
         ScCheck($"then it is gone altogether ({!GodotObject.IsInstanceValid(l)})", !GodotObject.IsInstanceValid(l));
+
+        // a platform the cave grew by itself, taken for a ledge that can be broken
+        var nat = RockLedge.All.Where(x => GodotObject.IsInstanceValid(x) && x.Rec != null && x.Rec.Natural && !x.Broken).OrderBy(x => x.GlobalPosition.DistanceTo(p.GlobalPosition)).FirstOrDefault();
+        ScCheck($"the cave's own small platforms are slabs too ({cave.NaturalPlatforms} of {cave.Ledges.Count} ledges)", cave.NaturalPlatforms > 0 && nat != null);
+        if (nat == null) yield break;
+        var ntop = nat.GlobalPosition + new Vector2(0, -nat.ThickPx * 0.5f - 6);
+        ScCheck($"the terrain has none of it (open at its middle: {!cave.IsSolid(nat.GlobalPosition)})", !cave.IsSolid(nat.GlobalPosition));
+        p.GlobalPosition = ntop + new Vector2(0, -14); p.Velocity = Vector2.Zero;
+        foreach (var _ in SbSleep(1.0f)) { yield return null; }
+        ScCheck($"a hero stands on it ({p.GlobalPosition.Y - ntop.Y:0} px from its top, on floor {p.IsOnFloor()})", p.IsOnFloor());
+        ScShot("natural_0");
+        for (int k = 1; k <= Tune.Ledge.Hits; k++) { nat.Strike(p.GlobalPosition); foreach (var _ in SbSleep(0.1f)) yield return null; }
+        ScCheck($"ten blows break it ({nat.Broken})", nat.Broken);
     }
 }

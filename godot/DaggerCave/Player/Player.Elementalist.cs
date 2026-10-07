@@ -132,7 +132,7 @@ public partial class Player
         var target = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
         var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
         // (the next waits a moment; the one spent starts coming back, unless another is already on its way)
-        _boltCd = Tune.Elementalist.BoltGap / Math.Max(0.2f, Stats.AttackSpeed);
+        _boltCd = (frost ? Tune.Elementalist.FrostGap : Tune.Elementalist.BoltGap) / Math.Max(0.2f, Stats.AttackSpeed);
         _boltCharges--;
         AttacksStarted++;
         BoltsCast++;

@@ -1281,6 +1281,8 @@ public partial class HeroCageView : PropView
 public partial class PortalView : PropView
 {
     private const float HalfW = 1.05f, DoorH = 3f;
+    /// <summary>The doorway stands this far back from the plane the heroes walk in, so none walks through its stones.</summary>
+    private const float Back = 0.85f;
     private MeshInstance3D _stairs, _glyph;
     private OmniLight3D _breath;
     private Label3D _title, _sub, _prompt;
@@ -1362,12 +1364,14 @@ public partial class PortalView : PropView
             var chunk = DecorMeshes.RubbleChunk(rng, new Noise3(60 + k), 0.3f * (0.7f + 0.6f * R()));
             var tone = Tint(rockCol.Darkened(0.1f));
             for (int c = 0; c < chunk.Count; c++) chunk.C[c] = new Color(chunk.C[c].R * tone.R, chunk.C[c].G * tone.G, chunk.C[c].B * tone.B);
-            mb.Append(chunk, new Transform3D(new Basis(Vector3.Up, R() * MathF.Tau), new Vector3(x, 0.0f, 0.2f + 0.5f * R())));
+            mb.Append(chunk, new Transform3D(new Basis(Vector3.Up, R() * MathF.Tau), new Vector3(x, 0.0f, 0.05f + 0.25f * R())));
         }
-        AddChild(PropViews.Mesh(mb, PropViews.LedgeRock));
+        var masonry = PropViews.Mesh(mb, PropViews.LedgeRock);
+        masonry.Position = new Vector3(0, 0, -Back);
+        AddChild(masonry);
 
         // the stair going down, behind the opening
-        _stairs = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(HalfW * 2f, DoorH) }, MaterialOverride = entry ? EntryStairMat : StairMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, DoorH * 0.5f, -0.2f) };
+        _stairs = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(HalfW * 2f, DoorH) }, MaterialOverride = entry ? EntryStairMat : StairMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, DoorH * 0.5f, -0.2f - Back) };
         _stairs.SetInstanceShaderParameter("below_color", _glow);
         _stairs.SetInstanceShaderParameter("stone_color", stone);
         AddChild(_stairs);
@@ -1394,7 +1398,7 @@ public partial class PortalView : PropView
             }
         }
         _glyphMat = new StandardMaterial3D { AlbedoColor = new Color(0.05f, 0.05f, 0.05f), EmissionEnabled = true, Emission = _glow, EmissionEnergyMultiplier = 0.9f, Roughness = 0.8f };
-        _glyph = new MeshInstance3D { Mesh = gb.ToMesh(_glyphMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+        _glyph = new MeshInstance3D { Mesh = gb.ToMesh(_glyphMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 0, -Back) };
         AddChild(_glyph);
 
         // barely a light: enough to tint the threshold and the inner faces of the jambs
@@ -2084,13 +2088,59 @@ public partial class IcePlatformView : PropView
     {
         var p = (IcePlatform)Owner2D;
         float hw = p.HalfW / W3.Ppu;
-        var mb = new MeshBuilder();
-        PropMeshes.Box(mb, new Vector3(0, -0.35f, 0), new Vector3(hw, 0.35f, 1.1f), Colors.White);
-        for (int k = 0; k < 5; k++)
+        var rng = new Random((int)(p.GlobalPosition.X * 7 + p.GlobalPosition.Y * 13));
+        float R() => (float)rng.NextDouble();
+        var noise = new Noise3(rng.Next(1000));
+        // a lump of old ice, not a plank: the top lies flat to stand on, but its outline wanders front to back, it is thick in the
+        // middle and thins to a ragged lip at the ends, and its underside is a keeled, faceted jumble
+        int stations = Math.Max(5, (int)MathF.Round(hw * 2f / 0.42f) + 1);
+        var raw = new MeshBuilder();
+        var top = new List<(int f, int b)>(); var under = new List<(int f, int m, int b)>();
+        Color Tone(float k) => new Color(0.82f + 0.18f * k, 0.9f + 0.1f * k, 1f);
+        for (int i = 0; i < stations; i++)
         {
-            // icicles under the ledge
-            float x = -hw * 0.8f + k * hw * 0.4f;
-            mb.Tube(new[] { new Vector3(x, -0.68f, 0.2f), new Vector3(x, -1.1f - 0.2f * (k % 2), 0.2f) }, new[] { 0.12f, 0f }, 6, Colors.White, capStart: true);
+            float t = i / (float)(stations - 1);
+            float x = -hw + t * hw * 2f + (i == 0 || i == stations - 1 ? 0f : (R() - 0.5f) * 0.22f);
+            float edge = MathF.Pow(MathF.Sin(MathF.PI * Math.Clamp(t, 0.02f, 0.98f)), 0.55f);
+            float n1 = noise.Sample(t * 5f, 1.3f, 2f), n2 = noise.Sample(t * 5f, 7.1f, 3f);
+            float zf = (0.45f + 0.35f * (0.5f + n1)) * (0.4f + 0.6f * edge), zb = -(0.4f + 0.35f * (0.5f + n2)) * (0.4f + 0.6f * edge);
+            float thick = (0.14f + 0.4f * (0.5f + noise.Sample(t * 4f, 4.4f, 5f))) * edge + 0.05f;
+            float keel = thick + 0.12f * edge * R();
+            float yTop = (R() - 0.5f) * 0.03f;
+            top.Add((raw.Add(new Vector3(x, yTop, zf), new Vector3(0, 0.6f, 0.8f), Tone(1f)), raw.Add(new Vector3(x, yTop, zb), new Vector3(0, 0.6f, -0.8f), Tone(1f))));
+            under.Add((raw.Add(new Vector3(x + (R() - 0.5f) * 0.1f, -thick * 0.85f, zf * 0.92f), new Vector3(0, -0.5f, 0.85f), Tone(0.4f)),
+                       raw.Add(new Vector3(x, -keel, (zf + zb) * 0.5f), Vector3.Down, Tone(0f)),
+                       raw.Add(new Vector3(x + (R() - 0.5f) * 0.1f, -thick * 0.8f, zb * 0.92f), new Vector3(0, -0.5f, -0.85f), Tone(0.4f))));
+        }
+        for (int i = 0; i + 1 < stations; i++)
+        {
+            var (tf0, tb0) = top[i]; var (tf1, tb1) = top[i + 1];
+            var (f0, m0, b0) = under[i]; var (f1, m1, b1) = under[i + 1];
+            raw.Quad(tb0, tb1, tf1, tf0);                  // the top
+            raw.Quad(tf0, tf1, f1, f0);                    // the front face, down to the underside
+            raw.Quad(f0, f1, m1, m0); raw.Quad(m0, m1, b1, b0); // the keeled underside
+            raw.Quad(b0, b1, tb1, tb0);                    // the back face
+        }
+        // (the ends: the lip closing up)
+        raw.Tri(top[0].f, top[0].b, under[0].m); raw.Tri(top[0].f, under[0].m, under[0].f); raw.Tri(top[0].b, under[0].b, under[0].m);
+        int le = stations - 1;
+        raw.Tri(top[le].b, top[le].f, under[le].m); raw.Tri(top[le].f, under[le].f, under[le].m); raw.Tri(top[le].b, under[le].m, under[le].b);
+        var mb = raw.Faceted();
+        // icicles hang from the underside in clumps, of every length; a few shards of rime stand on the top near the ends
+        int icicles = 3 + rng.Next(4);
+        for (int k = 0; k < icicles; k++)
+        {
+            float x = (R() * 2f - 1f) * hw * 0.85f;
+            float len = 0.25f + 0.85f * R() * R() + 0.15f, rad = 0.05f + 0.08f * R();
+            float lean = (R() - 0.5f) * 0.25f;
+            mb.Tube(new[] { new Vector3(x, -0.3f, (R() - 0.5f) * 0.8f), new Vector3(x + lean * 0.5f, -0.3f - len * 0.5f, 0.1f), new Vector3(x + lean, -0.3f - len, 0.1f) }, new[] { rad, rad * 0.6f, 0f }, 5, Tone(0.6f), capStart: true);
+        }
+        for (int k = 0; k < 2 + rng.Next(3); k++)
+        {
+            var shard = new MeshBuilder();
+            shard.Crystal(0.05f + 0.05f * R(), 0.18f + 0.22f * R(), 0.03f, Tone(1f), R());
+            float x = (R() > 0.5f ? 1f : -1f) * hw * (0.5f + 0.45f * R());
+            mb.Append(shard, new Transform3D(new Basis(Vector3.Back, (R() - 0.5f) * 0.9f), new Vector3(x, 0.02f, (R() - 0.5f) * 0.7f)));
         }
         _mat = (StandardMaterial3D)PropViews.Ice.Duplicate();
         _block = PropViews.Mesh(mb, _mat, false);
@@ -2098,7 +2148,7 @@ public partial class IcePlatformView : PropView
         for (int k = 0; k < 5; k++)
         {
             var cr = new MeshBuilder();
-            PropMeshes.Box(cr, new Vector3(-hw * 0.6f + k * 0.88f, -0.3f, 1.12f), new Vector3(0.02f, 0.3f, 0.01f), new Color(0.3f, 0.5f, 0.7f), new Basis(Vector3.Back, 0.4f));
+            PropMeshes.Box(cr, new Vector3(-hw * 0.6f + k * 0.88f, -0.25f, 0.78f), new Vector3(0.02f, 0.3f, 0.01f), new Color(0.3f, 0.5f, 0.7f), new Basis(Vector3.Back, 0.4f));
             var mi = PropViews.Mesh(cr, PropViews.VertexColored, false);
             mi.Visible = false;
             _cracks.Add(mi);
@@ -2239,8 +2289,15 @@ public partial class RubbleView : PropView
                 float x = n == 1 ? 0f : (k / (float)(n - 1) - 0.5f) * span + ((float)rng.NextDouble() - 0.5f) * 0.4f;
                 if (row % 2 == 1) x += 0.2f * (rng.Next(2) == 0 ? -1 : 1) * (float)rng.NextDouble();
                 var mb = DecorMeshes.RubbleChunk(rng, noise, size * 1.05f);
-                var mat = PropViews.RubbleRock;
-                var node = PropViews.Mesh(mb, mat);
+                // (the terrain's own rock and tint, so a barrier is made of the stone of the cave it blocks: the chunk's face tones become
+                // the shader's inputs: a little depth, the occlusion, and a variation of its own)
+                float vary = (float)rng.NextDouble();
+                for (int c = 0; c < mb.Count; c++)
+                {
+                    float t = (mb.C[c].R + mb.C[c].G + mb.C[c].B) / 3f;
+                    mb.C[c] = new Color(0.18f, Math.Clamp(0.3f + 0.55f * t, 0.45f, 0.92f), vary);
+                }
+                var node = PropViews.Mesh(mb, (Material)G.Main.Stage?.Terrain?.Material ?? TerrainLook.Make(G.Cave));
                 // jammed in at its own angle, a little sunk into its neighbours
                 var basis = new Basis(Vector3.Up, (float)rng.NextDouble() * Mathf.Tau) * new Basis(Vector3.Back, ((float)rng.NextDouble() - 0.5f) * 1.1f) * new Basis(Vector3.Right, ((float)rng.NextDouble() - 0.5f) * 0.8f);
                 node.Basis = basis;

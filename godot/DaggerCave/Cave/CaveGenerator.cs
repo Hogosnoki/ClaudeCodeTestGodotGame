@@ -145,6 +145,7 @@ public static partial class CaveGenerator
         B = biome; W = w; H = h;
         AddDrain(best, seed);
         AddHiddenNooks(best, seed);
+        ConvertSmallPlatforms(best);
         LiftLedges(best);
         return best;
     }
@@ -782,6 +783,96 @@ public static partial class CaveGenerator
             }
         }
     }
+
+    /// <summary>
+    /// Any platform the cave grew by itself that is small enough (a free-floating island of rock, thin and wider than it is deep) is taken
+    /// out of the field and made one of the slabs that can be broken, like the ledges the generator lays: it is the same stone, but it can
+    /// be brought down, so none of them can trap anyone or wall the way off. Counted in <see cref="CaveData.NaturalPlatforms"/>.
+    /// </summary>
+    internal static void ConvertSmallPlatforms(CaveData cave)
+    {
+        if (B == null || B.Style == GenStyle.Arena) return;
+        int stride = W + 1, n = stride * (H + 1);
+        var stamped = new HashSet<int>();
+        foreach (var l in cave.Ledges) foreach (var (idx, _, _) in l.Cells) stamped.Add(idx);
+        var seen = new bool[n];
+        var comp = new List<int>();
+        var stack = new Stack<int>();
+        for (int start = 0; start < n; start++)
+        {
+            if (seen[start] || cave.Open[start] >= 0.5f) continue;
+            comp.Clear();
+            stack.Push(start); seen[start] = true;
+            bool border = false, ours = false;
+            int imin = int.MaxValue, imax = int.MinValue, jmin = int.MaxValue, jmax = int.MinValue;
+            while (stack.Count > 0)
+            {
+                int u = stack.Pop(); comp.Add(u);
+                int ui = u % stride, uj = u / stride;
+                if (ui == 0 || uj == 0 || ui == W || uj == H) border = true;
+                if (stamped.Contains(u)) ours = true;
+                imin = Math.Min(imin, ui); imax = Math.Max(imax, ui); jmin = Math.Min(jmin, uj); jmax = Math.Max(jmax, uj);
+                for (int dj = -1; dj <= 1; dj++)
+                    for (int di = -1; di <= 1; di++)
+                    {
+                        int vi = ui + di, vj = uj + dj;
+                        if (vi < 0 || vj < 0 || vi > W || vj > H) continue;
+                        int v = vj * stride + vi;
+                        if (seen[v] || cave.Open[v] >= 0.5f) continue;
+                        seen[v] = true; stack.Push(v);
+                    }
+            }
+            int w = imax - imin + 1, hgt = jmax - jmin + 1;
+            if (border || ours || comp.Count > MaxPlatformVertices || hgt > 6 || w < 4 || w < hgt * 1.5f) continue;
+            // (the surface of its middle: where the field crosses a half, top and bottom, in the columns away from its rounded ends)
+            var tops = new List<float>(); var bots = new List<float>();
+            for (int i = imin; i <= imax; i++)
+            {
+                int jt = -1, jb = -1;
+                for (int j = jmin; j <= jmax; j++) if (cave.Open[j * stride + i] < 0.5f) { if (jt < 0) jt = j; jb = j; }
+                if (jt < 0) continue;
+                float vt = cave.Open[jt * stride + i], vb = cave.Open[jb * stride + i];
+                float up = jt > 0 ? cave.Open[(jt - 1) * stride + i] : 1f, dn = jb < H ? cave.Open[(jb + 1) * stride + i] : 1f;
+                tops.Add(jt - 1 + (up > vt ? Math.Clamp((up - 0.5f) / (up - vt), 0f, 1f) : 1f));
+                bots.Add(jb + (dn > vb ? Math.Clamp((0.5f - vb) / (dn - vb), 0f, 1f) : 0f));
+            }
+            if (tops.Count == 0) continue;
+            tops.Sort(); bots.Sort();
+            float top = tops[tops.Count / 2], bot = bots[bots.Count / 2];
+            if (bot - top < 0.8f) continue;
+            var rec = new LedgeRec { Cx = (imin + imax) * 0.5f, Cy = (top + bot) * 0.5f, Half = (w - 1) * 0.5f + 0.2f, Thick = bot - top, Natural = true };
+            // the corners it holds: its own solid ones, and the half-closed ring about them (but not one a neighbouring rock shares)
+            var own = new HashSet<int>(comp);
+            foreach (int u in comp)
+            {
+                int ui = u % stride, uj = u / stride;
+                for (int dj = -1; dj <= 1; dj++)
+                    for (int di = -1; di <= 1; di++)
+                    {
+                        int vi = ui + di, vj = uj + dj;
+                        if (vi < 0 || vj < 0 || vi > W || vj > H) continue;
+                        int v = vj * stride + vi;
+                        if (own.Contains(v) || cave.Open[v] >= 0.999f) continue;
+                        bool shared = false;
+                        for (int ej = -1; ej <= 1 && !shared; ej++)
+                            for (int ei = -1; ei <= 1 && !shared; ei++)
+                            {
+                                int wi = vi + ei, wj = vj + ej;
+                                if (wi < 0 || wj < 0 || wi > W || wj > H) continue;
+                                int x = wj * stride + wi;
+                                if (!own.Contains(x) && cave.Open[x] < 0.5f) shared = true;
+                            }
+                        if (!shared) own.Add(v);
+                    }
+            }
+            foreach (int idx in own) rec.Cells.Add((idx, 1f, cave.Open[idx]));
+            cave.Ledges.Add(rec);
+            cave.NaturalPlatforms++;
+        }
+    }
+
+    /// <summary>The largest island (in field corners) taken for a platform.</summary>
+    private const int MaxPlatformVertices = 150;
 
     /// <summary>A flat-topped rock slab centred at (cx, cy) in cells, 1.6 cells thick.</summary>
     internal static void StampLedge(CaveData cave, float cx, float cy, float halfWidth)

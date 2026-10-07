@@ -345,9 +345,9 @@ public static class Tune
         /// </summary>
         public static float FireDamage = 28f, FireEvery = 1.5f, FireCost = 2.9f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
         /// <summary>The staff holds FireCharges bolts (FrostCharges with Frostbolt); a spent one comes back
-        /// every FireEvery (FrostEvery) seconds, one at a time; BoltGap seconds must pass between throws.</summary>
+        /// every FireEvery (FrostEvery) seconds, one at a time; BoltGap (FrostGap with Frostbolt) seconds must pass between throws.</summary>
         public static int FireCharges = 2, FrostCharges = 4;
-        public static float BoltGap = 0.25f;
+        public static float BoltGap = 0.25f, FrostGap = 0.2f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
         public static float IgniteChance = 0.4f, IgniteDps = 4f, IgniteSeconds = 4f;
         /// <summary>Frostbolt (an alteration): FrostDamage a bolt, one coming back every FrostEvery s; a creature it strikes
