@@ -1278,6 +1278,9 @@ sides), not smooth balls.
   blows to break, dirt and shudder), with its own thickness for the collider. `cave.NaturalPlatforms` counts them (the gentest line shows
   `platforms n/total`); `--scenario=ledges` checks one. Frost's breakable ice platforms are lumps of ice now: a wandering outline, thick in the
   middle and ragged at the ends, a keeled faceted underside, clumps of icicles of every length and shards of rime.
+- **Ledge slabs** (`LedgeMesh`) no longer carry the little field's back wall: it had shown as a lit rectangle, with shadows of its own, in front
+  of the cave's real back wall. A slab is cut where the real wall stands behind it (`TerrainField.Column`), and keeps its darker, occluded shading.
+  `LEDGE_DEBUG=1` prints the triangle counts of each slab.
 - **Rubble barriers** are made with the terrain's own material, so each takes its biome's rock and tint (they were one brown photo everywhere).
 - **The doorways** (the stair you came in by, and the exits) stand 0.85 m back from where the heroes walk, so no one walks through their stones.
 - **Frostbolt**: 0.2 s between throws while charged (`Tune.Elementalist.FrostGap`); firebolts 0.25 s.
