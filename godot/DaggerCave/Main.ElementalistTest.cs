@@ -112,7 +112,7 @@ public partial class Main
             {
                 float rose = _posMark.Y - _elApex;
                 // (a jump normally peaks at about 80 px; a ceiling can cut the column, and the jump, short)
-                Check($"a jump in it floats far higher ({rose:0} px, where one on the ground peaks near 80)", rose > 105);
+                Check($"a jump in it floats far higher ({rose:0} px, where one on the ground peaks near 65)", rose > 90);
                 break;
             }
             case 126:

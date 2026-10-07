@@ -571,7 +571,7 @@ The trees (◆ an alteration; its upgrades are indented beneath it):
 | Vitalist · Hex | Spreading Blight (+30% radius), Lingering Hex (+2 s), Withering Hex (rot for 6 a second) | ◆ Blight Burst: the hex also deals 12 to everything it reaches, but slows and weakens half as much · ◆ Endless Hex: no cooldown, 10 vital force a cast |
 | Vitalist · Heal | Deep Mending (+30%), Frugal Rites (25% cheaper), Wellspring (+15% vital force gained and heal strength, four times) | ◆ Slow Mending: half the heal at once, half over 6 s · Patient Mending (all of it over time, 20% more), Warding Mending (-20% damage taken while mending) |
 | Vitalist · Rupture | Burst Veins (40% farther, 50% more splash), Thin Blood (20% cheaper) | ◆ Lifebloom: the rupture blooms on the friend nearest your aim (alone, on you), healing them 30 and everyone else in the burst 10 · Healing Pool (it leaves a pool healing 3 a second for 5 s) |
-| Elementalist · Firebolt | Kindling (fire 10% likelier to set creatures alight, bolts and a Firestorm, twice), Deep Reservoir (+15 alimus, twice) | ◆ Frostbolt: bolts of frost, 12 damage; the staff holds three, one back every second; chilling (30% slower for 2 s) with a chance of freezing a regular creature solid |
+| Elementalist · Firebolt | Kindling (fire 10% likelier to set creatures alight, bolts and a Firestorm, twice), Deep Reservoir (+15 alimus, twice), Spare Bolt (the staff holds one more firebolt, twice; not with Frostbolt), Frozen Quiver (two more frostbolts, twice; only with Frostbolt) | ◆ Frostbolt: bolts of frost, 12 damage; the staff holds four, one back every second; chilling (30% slower for 2 s) with a chance of freezing a regular creature solid |
 | Elementalist · Updraft | Attunement (alimus back 25% faster, three times) | ◆ Narrow Draft: half as wide, 6 m taller, 15 s, and it can be angled where you aim: gravity eases in proportion to how upright it stands, and it always pushes along its lean (flat, it is a sideways wind) |
 | Elementalist · Blizzard | Deep Chill (frost 4% likelier to freeze, frostbolts and the blizzard, twice), Long Winter (50% longer), Whiteout (30% wider), Gathering Storm (back 25% sooner) | ◆ Firestorm: a storm of fire, 3 a strike, each with a 10% chance of setting a creature alight (it freezes nothing) |
 | Elementalist · Snap | Shrapnel (bursts 40% wider), Echo (5 alimus back for each creature it bursts) | ◆ Cinder Snap: burning creatures burst instead, for 20 and 6 around |
@@ -1264,10 +1264,19 @@ sides), not smooth balls.
   steadies*: a little higher jump, further jumps (speed), swim speed, more breath, more damage, ten per cent shorter ability and dodge cooldowns,
   less damage taken, more healing given or received (each page its own). It lasts until the hero leaves the cave, over every level between,
   is listed under "FELT" at the top left, and a page's feeling is taken once. `--scenario=lamp` checks it.
+- **A slower pace** (`Tune.Hero`): run speed 136 px/s (was 170), swim speed 96 (was 120) and jump velocity 420 (was 470: jumps 20% lower), for every
+  hero and shape. The run animation plays 20% slower to match (it is paced to the old 170 px/s). The generator's reachability check follows
+  these numbers (`FineReach`, with the slowest hero's jump at 0.95 of the base).
+- **Caged heroes** (`Main.PlaceHeroCage`): never at depth 0 (or the lair), only somewhere hard to reach: most of the time in a level's hidden
+  chamber (a chimney, a fish slit or a spider crack) when it has one, else the dry spot farthest and highest from the start. About one a run
+  (`Tune.Heroes.CageChance` 12% a level over the nine or so below the mouth; 30% in the Sunken Sea).
+- **Falling rocks** (cave-ins, the guardians' stalactites) are painted in dirt brown, no longer the terrain shader's green inputs; the generated
+  ledges are shaded as a rock face (darker, more occluded) so they sit in the cave's rock instead of glowing against it.
+- **Elementalist upgrades** (`Player/Upgrades.cs`): *Spare Bolt* (+1 firebolt held, twice) and *Frozen Quiver* (+2 frostbolts held, twice).
 - **The Elementalist's orbs and charges** (`Player/Player.Elementalist.cs`, `HeroDesign.AttachOrbs/SyncOrbs`): lore from the world of Alima: an
   Elementalist absorbs elemental essence (fire, ice, water, wind, earth, nature) and moves it about his body by will alone. His staff now holds
   **two bolts** (`Tune.Elementalist.FireCharges`), thrown at least 0.25 s apart (`BoltGap`) and regained one at a time, a bolt every 1.5 s
-  (`FireEvery`); **Frostbolt** holds **three**, one back every second (`FrostEvery`), and now hits for 12 (it no longer rapid-fires). Fire bolts cost
+  (`FireEvery`); **Frostbolt** holds **four** (`FrostCharges`), one back every second (`FrostEvery`), and now hits for 12 (it no longer rapid-fires). Fire bolts cost
   a little more alimus (2.9) since they come less often. Each spell shows as a glowing orb: two orange in his hands (the bolts; white under
   Frostbolt, with a third circling his left hand), and three circling his chest: gray (updraft), yellow (snap), white (storm; orange under
   Firestorm). An orb shrinks out while its spell is spent or recharging and swells back when ready. The bolt charges also show as pips under

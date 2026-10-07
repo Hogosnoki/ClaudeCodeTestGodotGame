@@ -16,7 +16,7 @@ public sealed class FineReach
     public const int Res = 6;
     // the hero's body and the slowest hero's jump (see Tune.Hero and the per-hero JumpMult / MoveMult)
     private static readonly float HalfW = Env("FR_HALFW", 6f), HalfH = Env("FR_HALFH", 12f);
-    private static readonly float JumpV = Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness) * Env("FR_JUMP", 0.9f), Grav = Tune.Hero.Gravity * Tune.Hero.Floatiness, FallMult = Tune.Hero.FallGravityMult, RunV = Tune.Hero.RunSpeed * 0.9f * Env("FR_RUN", 1f), SwimV = Tune.Hero.SwimSpeed * 0.83f;
+    private static readonly float JumpV = Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness) * Env("FR_JUMP", 0.95f), Grav = Tune.Hero.Gravity * Tune.Hero.Floatiness, FallMult = Tune.Hero.FallGravityMult, RunV = Tune.Hero.RunSpeed * 0.9f * Env("FR_RUN", 1f), SwimV = Tune.Hero.SwimSpeed * 0.83f;
     private static float Env(string k, float d) => float.TryParse(System.Environment.GetEnvironmentVariable(k), out var v) ? v : d;
 
     private readonly CaveData _c;

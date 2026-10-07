@@ -52,10 +52,12 @@ public static class LedgeMesh
                     if (!remap.TryGetValue(vi, out int ni))
                     {
                         ni = verts.Count; remap[vi] = ni;
-                        // (alone in its own field a slab has nothing near it to shade it: it would glow against the cave's rock, so
-                        // it gets the dimmer, occluded values the same surface has in the cave: more baked occlusion, a little depth)
+                        // (alone in its own field a slab has nothing near it to shade it, and its face looks thin: it would glow against the
+                        // cave's rock. The camera-facing side is given the depth of a rock mass's face (it recedes into darkness as the cave's
+                        // own walls do) and every surface the occlusion the same rock has beside others)
                         var c0 = d.Colors[vi];
-                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(new Color(Math.Max(c0.R, 0.3f), c0.G * 0.55f, c0.B, c0.A));
+                        float face = Math.Clamp((d.Normals[vi].Z - 0.2f) / 0.4f, 0f, 1f);
+                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(new Color(Math.Max(c0.R, 0.15f + 0.4f * face), c0.G * 0.6f, c0.B, c0.A));
                     }
                     idxs.Add(ni);
                 }
