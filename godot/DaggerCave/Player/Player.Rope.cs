@@ -49,16 +49,17 @@ public partial class Player
     {
         if (!RopesAllowed || _ropeCd > 0 || Dead || _heldRope != null || !IsOnFloor()) return false;
         // the side with a drop just by you (the way you face first): the rope goes over it
-        int side = 0; Vector2 over = default;
+        // (the column within reach, the way you face first, that drops farthest: the coil is let go of over it)
+        int side = 0; Vector2 over = default; float best = 0f;
         foreach (int s in new[] { (int)Facing, -(int)Facing })
         {
-            for (float dx = 8f; dx <= 30f && side == 0; dx += 3f)
+            for (float dx = 8f; dx <= 34f; dx += 3f)
             {
                 var at = GlobalPosition + new Vector2(s * dx, 4f);
-                if (G.Cave.IsSolid(at + new Vector2(0, -12f))) break;
+                if (G.Cave.IsSolid(at) || G.Cave.IsSolid(at + new Vector2(0, -12f))) break;
                 float h = 0;
-                while (h < Tune.Rope.MinLength + 8f && !G.Cave.IsSolid(at + new Vector2(0, h + 4f))) h += 4f;
-                if (h >= Tune.Rope.MinLength) { side = s; over = at + new Vector2(s * 3f, 0f); }
+                while (h < Tune.Rope.Length && !G.Cave.IsSolid(at + new Vector2(0, h + 4f))) h += 4f;
+                if (h >= Tune.Rope.MinLength && h > best + 8f) { best = h; side = s; over = at + new Vector2(s * 2f, 0f); }
             }
             if (side != 0) break;
         }

@@ -104,7 +104,9 @@ public partial class Main
         var at = rope.P[^1] + new Vector2(0, -20);
         _scInput = new PlayerInput { Rope = true }; yield return null; _scInput = default;
         for (float t = 0; t < 4f && GodotObject.IsInstanceValid(rope); t += (float)GetProcessDeltaTime()) yield return null;
-        var top = stand + new Vector2(side * 22, 0);
+        // (out over the drop, clear of the cliff, so it can swing)
+        var top = stand + new Vector2(side * 70, 0);
+        for (int k = 0; k < 6 && G.Cave.IsSolid(top + new Vector2(0, 40)); k++) top += new Vector2(side * 16, 0);
         var tied = new Rope { Position = top, Length = Tune.Rope.Length };
         _world.AddChild(tied);
         foreach (var _ in SbSleep(0.5f)) yield return null;

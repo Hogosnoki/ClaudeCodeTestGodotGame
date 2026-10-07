@@ -42,7 +42,7 @@ public partial class Rope : Node2D
     /// <summary>The chain: points from the anchor (index 0, at the holder's hands) down to the end, and where each was a step ago.</summary>
     public readonly List<Vector2> P = new(), Prev = new();
     private readonly List<float> _rest = new();
-    private float _t;
+    private float _t, _restT;
 
     // the one hero of this game who is on it (each game carries only its own): where along it (px from the anchor) and how hard they pump
     private Player _climber;
@@ -298,7 +298,9 @@ public partial class Rope : Node2D
             e = P.Count - 1;
         }
         // (the coil sits on the ground: nothing more comes off; or there is none left)
-        bool resting = G.Cave.IsSolid(P[e] + new Vector2(0, 5f)) && (P[e] - Prev[e]).Length() < 0.4f && _t > 0.35f;
+        bool still = G.Cave.IsSolid(P[e] + new Vector2(0, 5f)) && (P[e] - Prev[e]).Length() < 0.4f;
+        _restT = still ? _restT + dt : 0f;
+        bool resting = _restT > 0.3f;
         if (Unrolled >= Length - 0.5f || resting)
         {
             if (Holder != null && !Holder.IsRemote) Stop();
@@ -395,8 +397,13 @@ public partial class Rope : Node2D
             nrm = nrm.Normalized();
             var q = P[i];
             for (int k = 0; k < 10 && cave.IsSolid(q); k++) q += nrm * 1.5f;
+            // (it stops going into the rock, and slides along it with a little friction: a coil on a slope rolls off it)
+            var vel = P[i] - Prev[i];
+            float into = vel.Dot(nrm);
+            if (into < 0f) vel -= nrm * into;
+            vel *= 0.85f;
             P[i] = q;
-            Prev[i] = Prev[i].Lerp(q, 0.6f);
+            Prev[i] = q - vel;
         }
     }
 }
