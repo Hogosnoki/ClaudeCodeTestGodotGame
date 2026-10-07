@@ -12,7 +12,7 @@ namespace DaggerCave;
 public static class LedgeMesh
 {
     /// <summary>The ledge's mesh, and where its origin lies relative to the ledge's centre (cave metres, 3D: x right, y up).</summary>
-    public static ArrayMesh Build(CaveData cave, LedgeRec rec, Material mat, out Vector3 offset)
+    public static ArrayMesh Build(CaveData cave, LedgeRec rec, Material mat, out Vector3 offset, float backZ = -3f)
     {
         offset = default;
         if (rec.Cells.Count == 0) return null;
@@ -46,6 +46,11 @@ public static class LedgeMesh
                 var a = d.Verts[d.Indices[t]]; var b = d.Verts[d.Indices[t + 1]]; var c = d.Verts[d.Indices[t + 2]];
                 var m = (a + b + c) / 3f;
                 if (Math.Abs(m.X - cx) > half || Math.Abs(m.Y - cyUp) > 2.6f) continue;
+                // (alone in its own field the slab stands before a back wall of its own: that wall, and anything behind where the cave's
+                // real back wall is, is left out, or it would show as a patch of wall in front of the real one, lit and shadowed on its own)
+                if (m.Z < backZ + 0.1f) continue;
+                float faceZ = d.Normals[d.Indices[t]].Z + d.Normals[d.Indices[t + 1]].Z + d.Normals[d.Indices[t + 2]].Z;
+                if (faceZ > 1.5f && m.Z < -0.9f) continue;
                 for (int e = 0; e < 3; e++)
                 {
                     int vi = d.Indices[t + e];
