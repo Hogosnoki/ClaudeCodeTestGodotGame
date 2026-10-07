@@ -23,6 +23,8 @@ public partial class CaveDecor3D : Node3D
     }
 
     private readonly List<Kind> _kinds = new();
+    /// <summary>This level's tufts of grass (with the biome's grass material), for what carries the ground's grass on it (the ledges).</summary>
+    public static Mesh[] GrassMeshes;
     private TerrainField _f;
     private CaveData _cave;
     private Random _rng;
@@ -151,6 +153,7 @@ public partial class CaveDecor3D : Node3D
         for (int k = 0; k < boulders.Length; k++) boulders[k] = NewKind(DecorMeshes.Boulder(_rng, noise, 1f), rockMat, true);
         var grass = new Kind[3];
         for (int k = 0; k < grass.Length; k++) grass[k] = NewKind(DecorMeshes.GrassTuft(_rng, 9 + k * 4, 0.3f), grassMat, false);
+        GrassMeshes = new[] { grass[0].Mesh, grass[1].Mesh, grass[2].Mesh };
         var mush = new Kind[3];
         for (int k = 0; k < mush.Length; k++) mush[k] = NewKind(DecorMeshes.MushroomCluster(_rng, 2 + k * 2, 0.22f, b.Glow), mushMat, true);
         var giant = fungal ? new[] { NewKind(DecorMeshes.MushroomCluster(_rng, 3, 2.2f, b.Glow, giant: true), mushMat, true), NewKind(DecorMeshes.MushroomCluster(_rng, 1, 3f, b.Glow, giant: true), mushMat, true) } : null;

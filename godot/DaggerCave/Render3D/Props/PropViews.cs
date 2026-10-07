@@ -152,11 +152,17 @@ public abstract partial class PropView : Node3D
     public Node2D Owner2D;
     protected float Time;
 
+    /// <summary>
+    /// The view is lit like a creature: the actor key and rim lights (lighting only the actor layer) make it read against the rock. Off
+    /// for what is part of the cave (ledges, rubble, the doorways, ice platforms): it must be lit exactly as the terrain is, or it glows.
+    /// </summary>
+    protected virtual bool ActorLit => true;
+
     public override void _Ready()
     {
         Build();
         Sync(0f);
-        CreatureModel.SetActorLayer(this);
+        if (ActorLit) CreatureModel.SetActorLayer(this);
     }
 
     public override void _Process(double delta)
@@ -1280,6 +1286,7 @@ public partial class HeroCageView : PropView
 /// </summary>
 public partial class PortalView : PropView
 {
+    protected override bool ActorLit => false;
     private const float HalfW = 1.05f, DoorH = 3f;
     /// <summary>The doorway stands this far back from the plane the heroes walk in, so none walks through its stones.</summary>
     private const float Back = 0.85f;
@@ -2080,6 +2087,7 @@ public partial class IceSheetView : PropView
 
 public partial class IcePlatformView : PropView
 {
+    protected override bool ActorLit => false;
     private MeshInstance3D _block;
     private StandardMaterial3D _mat;
     private readonly List<MeshInstance3D> _cracks = new();
@@ -2173,6 +2181,7 @@ public partial class IcePlatformView : PropView
 /// </summary>
 public partial class RockLedgeView : PropView
 {
+    protected override bool ActorLit => false;
     private MeshInstance3D _body;
     private Vector3 _bodyHome;
     private readonly System.Collections.Generic.List<MeshInstance3D> _bits = new();
@@ -2185,11 +2194,22 @@ public partial class RockLedgeView : PropView
         var cave = G.Cave;
         var mat = (Material)G.Main.Stage?.Terrain?.Material ?? TerrainLook.Make(cave);
         Vector3 off = default;
-        var mesh = l.Rec != null ? LedgeMesh.Build(cave, l.Rec, mat, out off) : null;
+        List<(int kind, Transform3D xf)> grass = null;
+        var mesh = l.Rec != null ? LedgeMesh.Build(cave, l.Rec, mat, out off, out grass) : null;
         if (mesh == null) { _bodyHome = default; return; }
         _body = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.On, Position = off };
         _bodyHome = off;
         AddChild(_body);
+        // the ground's grass on it, the same tufts as everywhere else (it goes with the ledge)
+        if (grass != null && grass.Count > 0 && CaveDecor3D.GrassMeshes is Mesh[] gm)
+            for (int k = 0; k < gm.Length; k++)
+            {
+                int n = 0; foreach (var g in grass) if (g.kind == k) n++;
+                if (n == 0 || gm[k] == null) continue;
+                var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, Mesh = gm[k], InstanceCount = n };
+                int i = 0; foreach (var g in grass) if (g.kind == k) mm.SetInstanceTransform(i++, g.xf);
+                _body.AddChild(new MultiMeshInstance3D { Multimesh = mm, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+            }
     }
 
     private void Crumble(RockLedge l)
@@ -2249,6 +2269,7 @@ public partial class RockLedgeView : PropView
 /// </summary>
 public partial class RubbleView : PropView
 {
+    protected override bool ActorLit => false;
     private const int MaxRocks = 44;
     private readonly MeshInstance3D[] _rock = new MeshInstance3D[MaxRocks];
     private readonly Vector3[] _home = new Vector3[MaxRocks], _vel = new Vector3[MaxRocks], _off = new Vector3[MaxRocks], _spin = new Vector3[MaxRocks];
