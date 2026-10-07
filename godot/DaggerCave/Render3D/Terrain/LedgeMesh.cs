@@ -45,7 +45,7 @@ public static class LedgeMesh
             {
                 var a = d.Verts[d.Indices[t]]; var b = d.Verts[d.Indices[t + 1]]; var c = d.Verts[d.Indices[t + 2]];
                 var m = (a + b + c) / 3f;
-                if (Math.Abs(m.X - cx) > half || Math.Abs(m.Y - cyUp) > 2.6f) continue;
+                if (Math.Abs(m.X - cx) > half || Math.Abs(m.Y - cyUp) > rec.Thick * 0.5f + 2.4f) continue;
                 // (alone in its own field the slab stands before a back wall of its own: that wall, and anything behind where the cave's
                 // real back wall is, is left out, or it would show as a patch of wall in front of the real one, lit and shadowed on its own)
                 if (m.Z < backZ + 0.1f) continue;
@@ -62,7 +62,7 @@ public static class LedgeMesh
                         // own walls do) and every surface the occlusion the same rock has beside others)
                         var c0 = d.Colors[vi];
                         float face = Math.Clamp((d.Normals[vi].Z - 0.2f) / 0.4f, 0f, 1f);
-                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(new Color(Math.Max(c0.R, 0.15f + 0.4f * face), c0.G * 0.6f, c0.B, c0.A));
+                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(new Color(Math.Max(c0.R, 0.25f + 0.4f * face), c0.G * 0.5f, c0.B, c0.A));
                     }
                     idxs.Add(ni);
                 }

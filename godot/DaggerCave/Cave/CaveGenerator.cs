@@ -823,7 +823,8 @@ public static partial class CaveGenerator
                     }
             }
             int w = imax - imin + 1, hgt = jmax - jmin + 1;
-            if (border || ours || comp.Count > MaxPlatformVertices || hgt > 6 || w < 4 || w < hgt * 1.5f) continue;
+            // (small ones only: about the size of a ledge the generator lays; anything bigger is the cave's ground, and stays)
+            if (border || ours || comp.Count > MaxPlatformVertices || hgt > 4 || w < 4 || w > 10 || w < hgt * 2f) continue;
             // (the surface of its middle: where the field crosses a half, top and bottom, in the columns away from its rounded ends)
             var tops = new List<float>(); var bots = new List<float>();
             for (int i = imin; i <= imax; i++)
@@ -872,7 +873,7 @@ public static partial class CaveGenerator
     }
 
     /// <summary>The largest island (in field corners) taken for a platform.</summary>
-    private const int MaxPlatformVertices = 150;
+    private const int MaxPlatformVertices = 64;
 
     /// <summary>A flat-topped rock slab centred at (cx, cy) in cells, 1.6 cells thick.</summary>
     internal static void StampLedge(CaveData cave, float cx, float cy, float halfWidth)

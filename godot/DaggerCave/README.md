@@ -1274,7 +1274,7 @@ sides), not smooth balls.
   ledges are shaded as a rock face (darker, more occluded) so they sit in the cave's rock instead of glowing against it.
 - **Elementalist upgrades** (`Player/Upgrades.cs`): *Spare Bolt* (+1 firebolt held, twice) and *Frozen Quiver* (+2 frostbolts held, twice).
 - **More breakable platforms** (`CaveGenerator.ConvertSmallPlatforms`): any small platform the cave grew by itself (a free-floating island of
-  rock, thin and wider than deep, up to 150 field corners) is lifted out of the field and made a ledge slab like the generated ones (ten
+  rock, thin and wider than deep, up to 64 corners and 10 cells wide) is lifted out of the field and made a ledge slab like the generated ones (ten
   blows to break, dirt and shudder), with its own thickness for the collider. `cave.NaturalPlatforms` counts them (the gentest line shows
   `platforms n/total`); `--scenario=ledges` checks one. Frost's breakable ice platforms are lumps of ice now: a wandering outline, thick in the
   middle and ragged at the ends, a keeled faceted underside, clumps of icicles of every length and shards of rime.
