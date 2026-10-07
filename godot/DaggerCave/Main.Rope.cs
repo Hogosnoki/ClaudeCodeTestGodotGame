@@ -20,16 +20,18 @@ public partial class Main
         if (!_ropeSteps.MoveNext()) ScEnd();
     }
 
-    /// <summary>The floor nearest <paramref name="near"/> with the deepest sheer drop just beside it (up to <paramref name="drop"/> px; side +1: to the right).</summary>
-    private bool FindEdge(Vector2 near, float drop, out Vector2 stand, out int side, out float depth)
+    /// <summary>Floors with a sheer drop just beside them, deepest first (side +1: the drop is to the right).</summary>
+    private List<(Vector2 stand, int side, float depth)> FindEdges(float drop)
     {
-        var cave = G.Cave; stand = default; side = 0; depth = 0f;
-        float best = float.MinValue;
+        var cave = G.Cave;
+        var found = new List<(Vector2 stand, int side, float depth)>();
         for (float x = 40; x < cave.SizePx.X - 40; x += 8)
             for (float y = 40; y < cave.SizePx.Y - 40; y += 24)
             {
                 var p = new Vector2(x, y);
                 if (cave.IsSolid(p) || !cave.FindFloor(p, 30, out var f)) continue;
+                // (real ground: solid well down under the feet, and to either side of them)
+                if (!cave.IsSolid(f + new Vector2(0, 10)) || !cave.IsSolid(f + new Vector2(-6, 6)) || !cave.IsSolid(f + new Vector2(6, 6))) continue;
                 if (cave.IsWater(f + new Vector2(0, -6)) || cave.IsSolid(f + new Vector2(0, -30))) continue;
                 foreach (int s in new[] { 1, -1 })
                 {
@@ -37,12 +39,10 @@ public partial class Main
                     if (cave.IsSolid(over) || cave.IsSolid(over + new Vector2(0, -20))) continue;
                     float h = 0; while (h < drop && !cave.IsSolid(over + new Vector2(0, h + 4))) h += 4;
                     if (h < 60 || cave.IsWater(over + new Vector2(0, h))) continue;
-                    // (the deepest drop first, then the nearest)
-                    float score = Math.Min(h, drop) * 10f - f.DistanceTo(near) * 0.01f;
-                    if (score > best) { best = score; stand = f + new Vector2(0, -14); side = s; depth = h; }
+                    found.Add((f + new Vector2(0, -14), s, h));
                 }
             }
-        return side != 0;
+        return found.OrderByDescending(e => Math.Min(e.depth, drop)).ToList();
     }
 
     private IEnumerable<object> RopeRun()
@@ -50,11 +50,16 @@ public partial class Main
         var p = G.Player; var cave = G.Cave;
         p.Stats.MaxHp = 5000; p.Hp = 5000;
         foreach (var e in G.Enemies.ToArray()) e.QueueFree();
-        bool found = FindEdge(p.GlobalPosition, Tune.Rope.Length + 20, out var stand, out int side, out float depth);
+        // (an edge the hero really stands at: tried in turn until one holds them)
+        Vector2 stand = default; int side = 0; float depth = 0; bool found = false;
+        foreach (var (st, sd, dp) in FindEdges(Tune.Rope.Length + 20).Take(12))
+        {
+            p.GlobalPosition = st; p.Velocity = Vector2.Zero;
+            foreach (var _ in SbSleep(0.8f)) yield return null;
+            if (p.IsOnFloor() && p.GlobalPosition.DistanceTo(st) < 8f) { stand = p.GlobalPosition; side = sd; depth = dp; found = true; break; }
+        }
         ScCheck($"an edge with a drop beside it ({stand.Round()}, side {side}, {depth:0} px deep)", found);
         if (!found) yield break;
-        p.GlobalPosition = stand; p.Velocity = Vector2.Zero;
-        foreach (var _ in SbSleep(0.8f)) yield return null;
 
         // ---- hold the button: it pays out; the hero can't walk off meanwhile
         float x0 = p.GlobalPosition.X;
