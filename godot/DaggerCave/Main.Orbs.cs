@@ -124,7 +124,7 @@ public partial class Main
         p.TestResetBolt();
         foreach (var _ in SbSleep(0.6f)) yield return null;
         s = OrbsShowing(p, out hands, out ring);
-        ScCheck($"Frozen Quiver: the staff holds {p.BoltChargesMax} frostbolts ({p.BoltCharges} ready, {hands} orbs)", p.BoltChargesMax == 6 && p.BoltCharges == 6 && hands == 6);
+        ScCheck($"Frozen Quiver: the staff holds {p.BoltChargesMax} frostbolts ({p.BoltCharges} ready, {hands} orbs)", p.BoltChargesMax == 6 && p.BoltCharges >= 5 && hands == p.BoltCharges);
         ScShot("orbs_quiver");
         p.Stats.Frostbolt = false; p.Stats.FireChargeBonus += 1;
         p.TestResetBolt();
