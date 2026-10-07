@@ -56,10 +56,11 @@ public static class LedgeMesh
                     int vi = d.Indices[t + e];
                     // (alone in its own field a slab has nothing near it to shade it, and its face looks thin: it would glow against the
                     // cave's rock. The camera-facing side is given the depth of a rock mass's face (it recedes into darkness as the cave's
-                    // own walls do) and every surface the occlusion the same rock has beside others)
+                    // own walls do), and every surface some occlusion. The tops are left at no depth at all: depth washes the moss and the
+                    // gravel out toward the rock's colour (a pale green), where the cave's own floors carry them full)
                     var c0 = d.Colors[vi];
                     float face = Math.Clamp((d.Normals[vi].Z - 0.2f) / 0.4f, 0f, 1f);
-                    poly.Add((d.Verts[vi], d.Normals[vi], new Color(Math.Max(c0.R, 0.25f + 0.4f * face), c0.G * 0.5f, c0.B, c0.A)));
+                    poly.Add((d.Verts[vi], d.Normals[vi], new Color(Math.Max(c0.R, 0.55f * face), c0.G * 0.6f, c0.B, c0.A)));
                 }
                 // Sutherland-Hodgman against z >= zc
                 clipped.Clear();
