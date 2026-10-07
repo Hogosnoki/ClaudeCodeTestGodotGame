@@ -352,6 +352,8 @@ public partial class SoundBank : Node
         b = Buf(0.4f); NoiseBurst(b, 0, 0.4f, t => 0.1f + 0.2f * t, AD(0.4f, 3f)); Osc(b, 0, 0.4f, ExpSweep(200, 500), AD(0.5f, 4f), 3); Add("gasp", b, 0.4f);
         b = Buf(0.9f); Osc(b, 0, 0.9f, ExpSweep(400, 60), AD(0.02f, 2f), 2); NoiseBurst(b, 0, 0.9f, Const(0.1f), Decay(3)); LowPass(b, 0.3f); Add("player_die", b, 0.8f);
         b = Buf(0.3f); Osc(b, 0, 0.3f, ExpSweep(600, 200), Decay(4), 3); NoiseBurst(b, 0, 0.3f, Const(0.3f), Decay(6)); Add("web", b, 0.35f);
+        // a rope: a soft hemp swish with a little creak in it
+        b = Buf(0.28f); NoiseBurst(b, 0, 0.28f, Const(0.22f), Decay(8)); Osc(b, 0.02f, 0.18f, ExpSweep(240, 150), Decay(12), 3); Add("rope", b, 0.3f);
 
         // the drain: a wet rip, then a rising, sucking rush (life pulled out and away)
         b = Buf(0.34f);

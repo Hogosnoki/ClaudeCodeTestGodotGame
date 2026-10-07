@@ -69,6 +69,7 @@ public partial class Main
         "orbs" => "entrance",
         "ledges" => "slime",
         "ledgeab" => "roots",
+        "rope" => "den",
         "shifterbehaviors" => "slime",
         "status" => "den",
         _ => null,
@@ -542,51 +543,6 @@ public partial class Main
         ScCheck($"the crab walked down into the water after the hero ({_scCrabWet}) and snapped its claws ({_scCrabPinched})", _scCrabWet && _scCrabPinched);
         ScCheck($"it still stands (at {_scCrab.GlobalPosition.Round()}, hp {_scCrab.Hp:0})", _scCrab.Hp > 0);
         ScEnd();
-    }
-
-    // ---------------------------------------------------------------- the party's rope
-    private Rope _scRope;
-    private float _scRopeY0, _scRopeMin;
-    private bool _scRopeJump;
-
-    private void RopeScenario()
-    {
-        var p = G.Player;
-        if (_scPhase == 0)
-        {
-            if (_scT < 0.5f) return;
-            // alone, the rope button does nothing
-            Player.RopesAlone = false;
-            ScCheck("no rope without a party", !p.TryRope());
-            Player.RopesAlone = true;
-            // the hero stands under a column of open air: a rope hangs there
-            var at = p.GlobalPosition;
-            float up = 0;
-            while (up < 140 && !G.Cave.IsSolid(at + new Vector2(0, -up - 20))) up += 4;
-            ScCheck($"there is room above the hero ({up:0})", up >= 60);
-            _scRope = new Rope { Position = at + new Vector2(0, -up - 8), Length = up + 8, Life = 60 };
-            _world.AddChild(_scRope);
-            _scRopeY0 = p.GlobalPosition.Y; _scRopeMin = _scRopeY0;
-            p.GlobalPosition = new Vector2(_scRope.GlobalPosition.X + 4, p.GlobalPosition.Y);
-            p.Stats.MaxHp = 5000; p.Hp = 5000;
-            p.InputOverride = () => new PlayerInput { Move = _scT < 3.5f ? new Vector2(0, -1) : Vector2.Zero, Jump = _scRopeJump, JumpHeld = _scRopeJump };
-            _scPhase = 1; _scT = 0;
-            return;
-        }
-        p.Hp = Math.Max(p.Hp, 4000);
-        _scRopeMin = Math.Min(_scRopeMin, p.GlobalPosition.Y);
-        if (_scPhase == 1 && _scT > 3.5f)
-        {
-            ScCheck($"pushing up climbs the rope ({_scRopeY0 - _scRopeMin:0}px, holding: {p.OnRope})", _scRopeY0 - _scRopeMin > 40 && p.OnRope);
-            _scRopeJump = true; _scPhase = 2; _scT = 0;
-            return;
-        }
-        if (_scPhase == 2 && _scT > 0.3f)
-        {
-            _scRopeJump = false;
-            ScCheck("jump lets go", !p.OnRope);
-            ScEnd();
-        }
     }
 
     // ---------------------------------------------------------------- boulders in a passage

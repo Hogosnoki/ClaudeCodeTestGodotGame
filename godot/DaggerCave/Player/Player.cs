@@ -11,6 +11,8 @@ public struct PlayerInput
     /// <summary>With the mouse, how far away the pointer is (0: unknown, a controller's aim): where a blizzard lands.</summary>
     public float AimDist;
     public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact, Rope, Support;
+    /// <summary>The rope button held down (a rope pays out while it is).</summary>
+    public bool RopeHeld;
     /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
     public bool AttackHeld;
     /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
@@ -298,6 +300,7 @@ public partial class Player : CharacterBody2D
             Ability = Input.IsActionJustPressed("ability"),
             Ability2 = Input.IsActionJustPressed("ability2"),
             Rope = Input.IsActionJustPressed("rope"),
+            RopeHeld = Input.IsActionPressed("rope"),
             Support = Input.IsActionJustPressed("support"),
             InteractHeld = Input.IsActionPressed("interact"),
         };
@@ -447,7 +450,7 @@ public partial class Player : CharacterBody2D
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
-        if (_dodgeBuf > 0 && DodgeButton(_dodgeInput)) _dodgeBuf = 0;
+        if (_dodgeBuf > 0 && _heldRope == null && DodgeButton(_dodgeInput)) _dodgeBuf = 0;
 
         // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
         if (Possessed) v = PossessedStep(inp);
@@ -460,6 +463,8 @@ public partial class Player : CharacterBody2D
             if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.55f, 0.9f, 1f), 0.2f);
             if (_airDashT - dt <= 0) v *= 0.5f;
         }
+        // (holding a rope for the others: you can't move, only stand)
+        else if (_heldRope != null) v = Platform(new PlayerInput { Aim = inp.Aim }, v, dt, onFloor);
         else if (_rope != null || WantsRope(inp) && GrabRope())
         {
             v = RopeMotion(inp, v, dt);

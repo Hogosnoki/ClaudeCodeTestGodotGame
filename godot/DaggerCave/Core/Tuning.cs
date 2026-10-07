@@ -689,9 +689,18 @@ public static class Tune
     }
 
     /// <summary>The party's rope (lowered by anyone, climbed by anyone).</summary>
+    /// <summary>
+    /// The rope every hero carries: Length px of it (about five times a hero's height), let down while the button is held; MinLength px of
+    /// drop is needed beside you to lower it at all. A tied-off rope (no holder) lasts Seconds. Segment: the chain's step (px). The coil falls
+    /// at most CoilFallMax px/s and pays out up to PayOutSpeed px/s; reeled in at ReelSpeed. Gravity (px/s/s) and Damping (kept per step) for
+    /// the swing; a climber weighs ClimberMass rope points and pumps at PumpAccel px/s/s. Climbing at ClimbSpeed px/s; GrabWidth px either side
+    /// of the rope takes hold.
+    /// </summary>
     public static class Rope
     {
-        public static float Length = 260, MinLength = 40, Seconds = 25, Cooldown = 4, ClimbSpeed = 120, GrabWidth = 11;
+        public const float Segment = 6f;
+        public static float Length = 130, MinLength = 24, Seconds = 25, Cooldown = 0.8f, ClimbSpeed = 80, GrabWidth = 11;
+        public static float CoilFallMax = 230, PayOutSpeed = 170, ReelSpeed = 120, Gravity = 900, Damping = 0.996f, ClimberMass = 30, PumpAccel = 240;
     }
 
     public static class Crab

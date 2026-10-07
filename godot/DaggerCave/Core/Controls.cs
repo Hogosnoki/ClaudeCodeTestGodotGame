@@ -31,7 +31,7 @@ public static class Controls
         ("potion", "Drink a potion"),
         ("milestone", "Spend a milestone point"),
         ("support", "Support ability  ·  shout · taunt · tap · stalag · expose · mark · howl"),
-        ("rope", "Lower a rope  ·  party only"),
+        ("rope", "Rope  ·  hold to lower, let go to stop, press again to reel in"),
         ("interact", "Open a chest  ·  go down an exit  ·  revive"),
         ("pause", "Pause"),
     };

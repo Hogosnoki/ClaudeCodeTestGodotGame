@@ -588,41 +588,68 @@ public partial class UpdraftView : PropView
 /// swaying a little, hanging from a small iron peg.</summary>
 public partial class RopeView : PropView
 {
-    private MeshInstance3D _line, _peg;
-    private readonly MeshInstance3D[] _knots = new MeshInstance3D[12];
+    // the chain drawn as hemp segments from point to point, the coil at the bottom while it is lowered, a knot at the end once it hangs
+    private const int MaxSegs = 48;
+    private readonly MeshInstance3D[] _segs = new MeshInstance3D[MaxSegs];
+    private MeshInstance3D _coil, _coil2, _knot;
     private StandardMaterial3D _hemp;
 
     protected override void Build()
     {
-        _hemp = new StandardMaterial3D { AlbedoColor = new Color(0.62f, 0.5f, 0.3f), Roughness = 0.95f };
-        _line = new MeshInstance3D { Mesh = new CylinderMesh { TopRadius = 0.035f, BottomRadius = 0.03f, Height = 1f, RadialSegments = 6, Rings = 1 }, MaterialOverride = _hemp };
-        AddChild(_line);
-        for (int k = 0; k < _knots.Length; k++)
+        _hemp = new StandardMaterial3D { AlbedoColor = new Color(0.6f, 0.47f, 0.28f), Roughness = 0.95f };
+        var cyl = new CylinderMesh { TopRadius = 0.032f, BottomRadius = 0.032f, Height = 1f, RadialSegments = 6, Rings = 1 };
+        for (int k = 0; k < MaxSegs; k++)
         {
-            _knots[k] = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.06f, Height = 0.12f, RadialSegments = 8, Rings = 4 }, MaterialOverride = _hemp };
-            AddChild(_knots[k]);
+            _segs[k] = new MeshInstance3D { Mesh = cyl, MaterialOverride = _hemp, Visible = false };
+            AddChild(_segs[k]);
         }
-        _peg = new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.22f, 0.07f, 0.1f) }, MaterialOverride = PropViews.Steel };
-        AddChild(_peg);
+        // the coil: wound turns of rope, seen side on (a ring facing the camera), a second turn a little behind and askew
+        var torus = new TorusMesh { InnerRadius = 0.13f, OuterRadius = 0.2f, Rings = 16, RingSegments = 6 };
+        _coil = new MeshInstance3D { Mesh = torus, MaterialOverride = _hemp };
+        _coil2 = new MeshInstance3D { Mesh = torus, MaterialOverride = _hemp };
+        AddChild(_coil); AddChild(_coil2);
+        _knot = new MeshInstance3D { Mesh = new SphereMesh { Radius = 0.06f, Height = 0.12f, RadialSegments = 8, Rings = 4 }, MaterialOverride = _hemp, Visible = false };
+        AddChild(_knot);
     }
 
     protected override void Sync(float dt)
     {
         var r = (Rope)Owner2D;
-        Follow(default, 0.1f);
-        float len = W3.M(r.Unrolled), s = r.Strength;
-        Visible = s > 0.02f;
-        var sway = new Vector3(MathF.Sin(r.Age * 1.7f) * 0.012f * len, 0, 0);
-        _line.Scale = new Vector3(1, Math.Max(0.01f, len), 1);
-        _line.Position = new Vector3(0, -len * 0.5f, 0) + sway * 0.5f;
-        float step = 0.55f;
-        for (int k = 0; k < _knots.Length; k++)
+        Position = Vector3.Zero;
+        float s = r.Strength;
+        Visible = s > 0.02f && r.P.Count >= 2;
+        if (!Visible) return;
+        const float z = 0.15f;
+        int n = Math.Min(r.P.Count - 1, MaxSegs);
+        for (int k = 0; k < MaxSegs; k++)
         {
-            float y = step * (k + 1);
-            _knots[k].Visible = y < len;
-            _knots[k].Position = new Vector3(0, -y, 0) + sway * (y / Math.Max(len, 0.1f));
+            var seg = _segs[k];
+            if (k >= n) { seg.Visible = false; continue; }
+            var a = W3.P(r.P[k], z); var b = W3.P(r.P[k + 1], z);
+            var d = b - a;
+            float len = d.Length();
+            if (len < 1e-3f) { seg.Visible = false; continue; }
+            var up = d / len;
+            var side = MathF.Abs(up.Dot(Vector3.Back)) < 0.95f ? up.Cross(Vector3.Back).Normalized() : up.Cross(Vector3.Right).Normalized();
+            seg.Visible = true;
+            // (a touch longer than the gap, so the joints close)
+            seg.Transform = new Transform3D(new Basis(side * s, up * (len + 0.03f), side.Cross(up) * s), (a + b) * 0.5f);
         }
-        _peg.Position = new Vector3(0, 0.02f, 0);
+        var end = W3.P(r.P[^1], z);
+        // the coil shrinks as the rope comes off it, and once the rope stops it opens into the end (and is gone)
+        float left = r.Length > 1f ? (r.CoilLeft / r.Length) : 0f;
+        float coil = r.CoilShow * (0.45f + 0.55f * MathF.Sqrt(Math.Clamp(left, 0f, 1f)));
+        _coil.Visible = _coil2.Visible = coil > 0.02f;
+        if (_coil.Visible)
+        {
+            // it hangs from the rope by its top, turning a little as it unwinds
+            float spin = r.Age * 6f;
+            var at = end + new Vector3(0, -0.17f * coil, 0);
+            _coil.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.Pi / 2f) * new Basis(Vector3.Up, spin).Scaled(Vector3.One * coil), at);
+            _coil2.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.Pi / 2f + 0.35f) * new Basis(Vector3.Forward, 0.25f).Scaled(Vector3.One * coil * 0.9f), at + new Vector3(0.02f, 0.01f, -0.05f));
+        }
+        _knot.Visible = !_coil.Visible || coil < 0.3f;
+        _knot.Position = end;
     }
 }
 

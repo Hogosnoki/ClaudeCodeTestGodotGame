@@ -235,10 +235,19 @@ public static class NetSync
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life).Half(u.Angle); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
-            case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life); break;
+            case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
             default: return;
         }
+        Net.SendAll(w, true);
+    }
+
+    /// <summary>This game's hero's rope stopped, began reeling in, or was let go: the others' copies follow.</summary>
+    public static void RopeState(Rope rope)
+    {
+        if (!Net.Online || Applying || rope.Holder == null || rope.Holder.IsRemote) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(18).Byte((byte)rope.State).Half(rope.Unrolled);
         Net.SendAll(w, true);
     }
 
@@ -420,9 +429,20 @@ public static class NetSync
             case 13:
             {
                 // a friend's rope: this game's copy can be climbed by this game's hero
-                var at = r.Vec(); float length = r.Half(), life = r.Half();
+                var at = r.Vec(); float length = r.Half(), life = r.Half(); bool held = r.More && r.Byte() != 0;
                 Applying = true;
-                G.Spawn(new Rope { Position = at, Length = length, Life = life });
+                var rope = new Rope { Position = at, Length = length, Life = life, Holder = held ? av : null };
+                if (held) av.NetHoldRope(rope);
+                G.Spawn(rope);
+                Applying = false;
+                break;
+            }
+            case 18:
+            {
+                // a friend's rope stopped, is being reeled in, or was let go
+                var phase = (Rope.Phase)r.Byte(); float length = r.Half();
+                Applying = true;
+                foreach (var rp in Rope.All) if (GodotObject.IsInstanceValid(rp) && rp.Holder == av) rp.NetState(phase, length);
                 Applying = false;
                 break;
             }
