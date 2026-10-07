@@ -37,35 +37,47 @@ public static class LedgeMesh
         // (the field's own frame, far out beyond the ledge, is cut away: only triangles about the ledge itself stay)
         float cx = rec.Cx - x0, cyUp = -(rec.Cy - y0), half = rec.Half + 1.6f;
         var verts = new List<Vector3>(); var norms = new List<Vector3>(); var cols = new List<Color>(); var idxs = new List<int>();
+        // (alone in its own field the slab stands before a back wall of its own, which would show as a patch of wall in front of the
+        // cave's real one, lit and shadowed on its own: everything behind a plane just behind the slab is cut away, cleanly, and the
+        // plane is no deeper than the real back wall)
+        float zc = Math.Max(backZ + 0.1f, -1.6f);
+        var poly = new List<(Vector3 p, Vector3 n, Color c)>(6);
+        var clipped = new List<(Vector3 p, Vector3 n, Color c)>(6);
         foreach (var d in pre.Datas)
         {
             if (d.Indices.Length == 0) continue;
-            var remap = new Dictionary<int, int>();
             for (int t = 0; t < d.Indices.Length; t += 3)
             {
-                var a = d.Verts[d.Indices[t]]; var b = d.Verts[d.Indices[t + 1]]; var c = d.Verts[d.Indices[t + 2]];
-                var m = (a + b + c) / 3f;
+                var m = (d.Verts[d.Indices[t]] + d.Verts[d.Indices[t + 1]] + d.Verts[d.Indices[t + 2]]) / 3f;
                 if (Math.Abs(m.X - cx) > half || Math.Abs(m.Y - cyUp) > rec.Thick * 0.5f + 2.4f) continue;
-                // (alone in its own field the slab stands before a back wall of its own: that wall, and anything behind where the cave's
-                // real back wall is, is left out, or it would show as a patch of wall in front of the real one, lit and shadowed on its own)
-                if (m.Z < backZ + 0.1f) continue;
-                float faceZ = d.Normals[d.Indices[t]].Z + d.Normals[d.Indices[t + 1]].Z + d.Normals[d.Indices[t + 2]].Z;
-                if (faceZ > 1.5f && m.Z < -0.9f) continue;
+                poly.Clear();
                 for (int e = 0; e < 3; e++)
                 {
                     int vi = d.Indices[t + e];
-                    if (!remap.TryGetValue(vi, out int ni))
-                    {
-                        ni = verts.Count; remap[vi] = ni;
-                        // (alone in its own field a slab has nothing near it to shade it, and its face looks thin: it would glow against the
-                        // cave's rock. The camera-facing side is given the depth of a rock mass's face (it recedes into darkness as the cave's
-                        // own walls do) and every surface the occlusion the same rock has beside others)
-                        var c0 = d.Colors[vi];
-                        float face = Math.Clamp((d.Normals[vi].Z - 0.2f) / 0.4f, 0f, 1f);
-                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(new Color(Math.Max(c0.R, 0.25f + 0.4f * face), c0.G * 0.5f, c0.B, c0.A));
-                    }
-                    idxs.Add(ni);
+                    // (alone in its own field a slab has nothing near it to shade it, and its face looks thin: it would glow against the
+                    // cave's rock. The camera-facing side is given the depth of a rock mass's face (it recedes into darkness as the cave's
+                    // own walls do) and every surface the occlusion the same rock has beside others)
+                    var c0 = d.Colors[vi];
+                    float face = Math.Clamp((d.Normals[vi].Z - 0.2f) / 0.4f, 0f, 1f);
+                    poly.Add((d.Verts[vi], d.Normals[vi], new Color(Math.Max(c0.R, 0.25f + 0.4f * face), c0.G * 0.5f, c0.B, c0.A)));
                 }
+                // Sutherland-Hodgman against z >= zc
+                clipped.Clear();
+                for (int e = 0; e < poly.Count; e++)
+                {
+                    var cur = poly[e]; var nxt = poly[(e + 1) % poly.Count];
+                    bool ci = cur.p.Z >= zc, ni2 = nxt.p.Z >= zc;
+                    if (ci) clipped.Add(cur);
+                    if (ci != ni2)
+                    {
+                        float k = (zc - cur.p.Z) / (nxt.p.Z - cur.p.Z);
+                        clipped.Add((cur.p.Lerp(nxt.p, k), cur.n.Lerp(nxt.n, k).Normalized(), cur.c.Lerp(nxt.c, k)));
+                    }
+                }
+                if (clipped.Count < 3) continue;
+                int first = verts.Count;
+                foreach (var v in clipped) { verts.Add(v.p); norms.Add(v.n); cols.Add(v.c); }
+                for (int e = 1; e + 1 < clipped.Count; e++) { idxs.Add(first); idxs.Add(first + e); idxs.Add(first + e + 1); }
             }
         }
         if (System.Environment.GetEnvironmentVariable("LEDGE_DEBUG") != null)
