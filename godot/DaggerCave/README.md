@@ -1130,8 +1130,14 @@ takes an equal share of it, each through their own shield, barrier, bubble and a
 online the host's game does the sharing, and tells the others' games to take theirs). The Aegis's Bubble
 wraps every hero near her; each bubble shrinks as it soaks, the Fx layer draws them as one metaball blob
 (`Shaders/fx_shieldfield.gdshader`) and bubbles that touch share a blow by how far they overlap
-(`Player.BubbleLink`). **Rope** (C, party only) lowers a rope any hero can climb (up to take hold, jump to
-let go). **Rubble** plugs narrow passages (`Cave/RubbleGen.cs`): blades or the interact button clear it, a
+(`Player.BubbleLink`). **Rope** (C): every hero carries one (`Combat/Rope.cs`). Hold the button
+at an edge and it is let down over it: the hero can't move meanwhile, and the coil falls and unrolls as it goes, so the
+wound part is always at the bottom. Let go of the button (or run out: 130 px, five heights) and it stops, the coil opening
+into the rope's end with a little swing; press again to reel it in. It is a chain of points (verlet) that hangs from the
+hands, lies against the rock it falls on and swings; a climber (up to take hold, up and down to climb, left and right to
+pump, jump to let go with the swing's speed, over the top onto the ledge) weighs 30 times a stretch of rope, so taking hold
+sets it swinging with the climber's own momentum. Online, each game keeps a copy that carries its own hero; the holder's
+game sends when it stops, reels in or is dropped. `--scenario=rope` checks it. **Rubble** plugs narrow passages (`Cave/RubbleGen.cs`): blades or the interact button clear it, a
 few rocks at a time. **Crouch**: hold down on the ground; the body is half as tall, and a blow from above
 your head misses you. Caged heroes are chosen by what the party still has locked and unlock for everyone.
 
