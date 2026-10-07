@@ -22,6 +22,8 @@ public partial class Rope : Node2D
 
     /// <summary>Who holds it (null: a rope tied off by itself, e.g. a test's, which hangs at full length for <see cref="Life"/> seconds).</summary>
     public Player Holder;
+    /// <summary>Where a held rope's coil is let go of: just out over the edge (it is lowered over it from the hands).</summary>
+    public Vector2? DropAt;
     /// <summary>The rope it carries in all (px), and for a tied-off one how long it lasts.</summary>
     public float Length = Tune.Rope.Length, Life = Tune.Rope.Seconds;
     public Phase State { get; private set; } = Phase.Lowering;
@@ -74,10 +76,11 @@ public partial class Rope : Node2D
         }
         else
         {
-            // the coil, in the hands: one short segment to begin with
-            var q = GlobalPosition + new Vector2(0, 2f);
-            P.Add(q); Prev.Add(q); _rest.Add(2f);
-            Unrolled = 2f;
+            // the coil, let go of just out over the edge: the rope from the hands to it lies over the lip
+            var q = DropAt ?? GlobalPosition + new Vector2(0, 2f);
+            float first = Math.Max(2f, q.DistanceTo(GlobalPosition));
+            P.Add(q); Prev.Add(q); _rest.Add(first);
+            Unrolled = first;
         }
     }
 
@@ -280,14 +283,7 @@ public partial class Rope : Node2D
     private void PayOut(float dt)
     {
         int e = P.Count - 1;
-        var last = P[e - 1];
-        float gap = P[e].DistanceTo(last);
-        // the coil's fall pulls rope out: the last stretch takes up what it has fallen, a segment at a time
-        float want = Math.Min(gap, _rest[^1] + Tune.Rope.PayOutSpeed * dt);
-        float grow = Math.Max(0f, want - _rest[^1]);
-        grow = Math.Min(grow, Length - Unrolled);
-        _rest[^1] += grow;
-        Unrolled += grow;
+        // (the coil's fall pulls the rope out, in Step; here the stretch it pulled out becomes segments)
         while (_rest[^1] > Seg)
         {
             // a new point comes off the coil just above it
@@ -361,6 +357,14 @@ public partial class Rope : Node2D
             P[i] = p + vel + acc * h * h;
         }
         P[0] = GlobalPosition; Prev[0] = GlobalPosition;
+
+        if (State == Phase.Lowering && n >= 2)
+        {
+            // the coil's fall pulls rope off it, as fast as it falls (up to the pay-out speed), until there is none left
+            float len = (P[n - 1] - P[n - 2]).Length();
+            float allow = Math.Min(Tune.Rope.PayOutSpeed * h, Length - Unrolled);
+            if (len > _rest[^1] && allow > 0f) { float g = Math.Min(len - _rest[^1], allow); _rest[^1] += g; Unrolled += g; }
+        }
 
         for (int it = 0; it < 14; it++)
         {

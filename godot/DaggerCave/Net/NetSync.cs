@@ -235,7 +235,7 @@ public static class NetSync
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life).Half(u.Angle); break;
             case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
-            case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)); break;
+            case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)).Vec(rp.DropAt ?? rp.GlobalPosition); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
             default: return;
         }
@@ -429,9 +429,9 @@ public static class NetSync
             case 13:
             {
                 // a friend's rope: this game's copy can be climbed by this game's hero
-                var at = r.Vec(); float length = r.Half(), life = r.Half(); bool held = r.More && r.Byte() != 0;
+                var at = r.Vec(); float length = r.Half(), life = r.Half(); bool held = r.More && r.Byte() != 0; Vector2? drop = r.More ? r.Vec() : null;
                 Applying = true;
-                var rope = new Rope { Position = at, Length = length, Life = life, Holder = held ? av : null };
+                var rope = new Rope { Position = at, Length = length, Life = life, Holder = held ? av : null, DropAt = drop };
                 if (held) av.NetHoldRope(rope);
                 G.Spawn(rope);
                 Applying = false;

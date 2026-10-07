@@ -49,23 +49,23 @@ public partial class Player
     {
         if (!RopesAllowed || _ropeCd > 0 || Dead || _heldRope != null || !IsOnFloor()) return false;
         // the side with a drop just by you (the way you face first): the rope goes over it
-        int side = 0;
+        int side = 0; Vector2 over = default;
         foreach (int s in new[] { (int)Facing, -(int)Facing })
         {
-            for (float dx = 8f; dx <= 30f && side == 0; dx += 6f)
+            for (float dx = 8f; dx <= 30f && side == 0; dx += 3f)
             {
                 var at = GlobalPosition + new Vector2(s * dx, 4f);
                 if (G.Cave.IsSolid(at + new Vector2(0, -12f))) break;
                 float h = 0;
                 while (h < Tune.Rope.MinLength + 8f && !G.Cave.IsSolid(at + new Vector2(0, h + 4f))) h += 4f;
-                if (h >= Tune.Rope.MinLength) side = s;
+                if (h >= Tune.Rope.MinLength) { side = s; over = at + new Vector2(s * 3f, 0f); }
             }
             if (side != 0) break;
         }
         if (side == 0) { SayNo("NO EDGE TO LOWER IT OVER"); return false; }
         Facing = side;
         Anim.Face(side, instant: true);
-        var rope = new Rope { Position = RopeHands, Holder = this };
+        var rope = new Rope { Position = RopeHands, Holder = this, DropAt = over };
         _heldRope = rope;
         G.Spawn(rope);
         NetSync.HeroVisual(rope);
