@@ -158,6 +158,9 @@ public partial class LoadingScreen : Control
         while (x < 1300)
         {
             float w = 30 + (float)rng.NextDouble() * 70;
+            // (the last tooth ends on the screen's edge: one that ran past it would double back across itself, and a polygon that crosses itself can't be drawn)
+            if (x + w > 1300) w = 1300 - x;
+            if (w < 6) break;
             float h = baseH + (float)rng.NextDouble() * (top ? 120 : 70) * Math.Clamp(density, 0.2f, 1.4f);
             if (rng.NextDouble() < 0.35) h *= 0.35f;
             float y = top ? h : 720 - h;
