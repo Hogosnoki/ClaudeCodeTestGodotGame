@@ -1273,6 +1273,14 @@ sides), not smooth balls.
 - **Falling rocks** (cave-ins, the guardians' stalactites) are painted in dirt brown, no longer the terrain shader's green inputs; the generated
   ledges are shaded as a rock face (darker, more occluded) so they sit in the cave's rock instead of glowing against it.
 - **Elementalist upgrades** (`Player/Upgrades.cs`): *Spare Bolt* (+1 firebolt held, twice) and *Frozen Quiver* (+2 frostbolts held, twice).
+- **More breakable platforms** (`CaveGenerator.ConvertSmallPlatforms`): any small platform the cave grew by itself (a free-floating island of
+  rock, thin and wider than deep, up to 150 field corners) is lifted out of the field and made a ledge slab like the generated ones (ten
+  blows to break, dirt and shudder), with its own thickness for the collider. `cave.NaturalPlatforms` counts them (the gentest line shows
+  `platforms n/total`); `--scenario=ledges` checks one. Frost's breakable ice platforms are lumps of ice now: a wandering outline, thick in the
+  middle and ragged at the ends, a keeled faceted underside, clumps of icicles of every length and shards of rime.
+- **Rubble barriers** are made with the terrain's own material, so each takes its biome's rock and tint (they were one brown photo everywhere).
+- **The doorways** (the stair you came in by, and the exits) stand 0.85 m back from where the heroes walk, so no one walks through their stones.
+- **Frostbolt**: 0.2 s between throws while charged (`Tune.Elementalist.FrostGap`); firebolts 0.25 s.
 - **The Elementalist's orbs and charges** (`Player/Player.Elementalist.cs`, `HeroDesign.AttachOrbs/SyncOrbs`): lore from the world of Alima: an
   Elementalist absorbs elemental essence (fire, ice, water, wind, earth, nature) and moves it about his body by will alone. His staff now holds
   **two bolts** (`Tune.Elementalist.FireCharges`), thrown at least 0.25 s apart (`BoltGap`) and regained one at a time, a bolt every 1.5 s
