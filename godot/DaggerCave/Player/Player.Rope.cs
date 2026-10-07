@@ -47,6 +47,7 @@ public partial class Player
     /// <summary>Starts letting a rope down, facing the drop nearest you (true once it is going).</summary>
     public bool TryRope()
     {
+        if (System.Environment.GetEnvironmentVariable("ROPE_DEBUG") != null) GD.Print($"[rope] try: cd {_ropeCd:0.00} dead {Dead} held {_heldRope != null} floor {IsOnFloor()} at {GlobalPosition.Round()} facing {Facing}");
         if (!RopesAllowed || _ropeCd > 0 || Dead || _heldRope != null || !IsOnFloor()) return false;
         // the side with a drop just by you (the way you face first): the rope goes over it
         // (the column within reach, the way you face first, that drops farthest: the coil is let go of over it)
@@ -65,7 +66,7 @@ public partial class Player
             }
             if (side != 0) break;
         }
-        if (side == 0) { SayNo("NO EDGE TO LOWER IT OVER"); return false; }
+        if (side == 0) { if (System.Environment.GetEnvironmentVariable("ROPE_DEBUG") != null) GD.Print("[rope] no edge"); SayNo("NO EDGE TO LOWER IT OVER"); return false; }
         Facing = side;
         Anim.Face(side, instant: true);
         var rope = new Rope { Position = RopeHands, Holder = this, DropAt = over };
