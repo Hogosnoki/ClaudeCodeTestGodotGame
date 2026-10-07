@@ -362,18 +362,13 @@ public partial class Rope : Node2D
         }
         P[0] = GlobalPosition; Prev[0] = GlobalPosition;
 
-        if (State == Phase.Lowering && n >= 2)
-        {
-            // the coil's fall pulls rope off it, as fast as it falls (up to the pay-out speed), until there is none left
-            float len = (P[n - 1] - P[n - 2]).Length();
-            float allow = Math.Min(Tune.Rope.PayOutSpeed * h, Length - Unrolled);
-            if (len > _rest[^1] && allow > 0f) { float g = Math.Min(len - _rest[^1], allow); _rest[^1] += g; Unrolled += g; }
-        }
-
+        // (while it is lowered the coil falls freely: the stretch between it and the rope is not held, it pays out, below)
+        bool paying = State == Phase.Lowering;
         for (int it = 0; it < 14; it++)
         {
             for (int i = 0; i + 1 < n; i++)
             {
+                if (paying && i + 2 == n) continue;
                 var a = P[i]; var b = P[i + 1];
                 var d = b - a;
                 float len = d.Length();
@@ -388,6 +383,20 @@ public partial class Rope : Node2D
                 P[i + 1] = b - corr * (wb / w);
             }
             P[0] = GlobalPosition;
+        }
+        if (paying)
+        {
+            // the coil's fall pulls rope off it, as fast as it falls (up to the pay-out speed) until there is none left; beyond that the
+            // rope holds it back
+            var a = P[n - 2]; var b = P[n - 1];
+            var d = b - a; float len = d.Length();
+            float allow = Math.Min(Tune.Rope.PayOutSpeed * h, Length - Unrolled);
+            if (len > _rest[^1])
+            {
+                float g = Math.Min(len - _rest[^1], Math.Max(0f, allow));
+                _rest[^1] += g; Unrolled += g;
+                if (len > _rest[^1] && len > 1e-4f) P[n - 1] = a + d * (_rest[^1] / len);
+            }
         }
 
         // it lies on the rock it falls against (pushed back out to the open side, and held by friction)
