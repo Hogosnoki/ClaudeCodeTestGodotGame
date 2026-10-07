@@ -63,6 +63,17 @@ public static class LedgeMesh
                 }
             }
         }
+        if (System.Environment.GetEnvironmentVariable("LEDGE_DEBUG") != null)
+        {
+            float zmin = 1e9f, zmax = -1e9f; int back = 0, front = 0, top = 0, other = 0;
+            for (int t = 0; t < idxs.Count; t += 3)
+            {
+                var m = (verts[idxs[t]] + verts[idxs[t + 1]] + verts[idxs[t + 2]]) / 3f; var nn = (norms[idxs[t]] + norms[idxs[t + 1]] + norms[idxs[t + 2]]).Normalized();
+                zmin = Math.Min(zmin, m.Z); zmax = Math.Max(zmax, m.Z);
+                if (nn.Z > 0.5f && m.Z < -1f) back++; else if (nn.Z > 0.5f) front++; else if (nn.Y < -0.5f) top++; else other++;
+            }
+            GD.Print($"[ledge] half {rec.Half:0.0} tris {idxs.Count / 3}: z {zmin:0.0}..{zmax:0.0}, back-facing-camera-at-depth {back}, camera-facing {front}, up {top}, other {other}");
+        }
         if (idxs.Count == 0) return null;
         var arrays = new Godot.Collections.Array();
         arrays.Resize((int)Mesh.ArrayType.Max);
