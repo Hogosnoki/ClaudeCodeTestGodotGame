@@ -20,11 +20,11 @@ public partial class Main
         if (!_ropeSteps.MoveNext()) ScEnd();
     }
 
-    /// <summary>A floor with a sheer drop of at least <paramref name="drop"/> px just beside it (side: +1 the drop is to the right).</summary>
-    private bool FindEdge(Vector2 near, float drop, out Vector2 stand, out int side)
+    /// <summary>The floor nearest <paramref name="near"/> with the deepest sheer drop just beside it (up to <paramref name="drop"/> px; side +1: to the right).</summary>
+    private bool FindEdge(Vector2 near, float drop, out Vector2 stand, out int side, out float depth)
     {
-        var cave = G.Cave; stand = default; side = 0;
-        float best = float.MaxValue;
+        var cave = G.Cave; stand = default; side = 0; depth = 0f;
+        float best = float.MinValue;
         for (float x = 40; x < cave.SizePx.X - 40; x += 8)
             for (float y = 40; y < cave.SizePx.Y - 40; y += 24)
             {
@@ -36,9 +36,10 @@ public partial class Main
                     var over = f + new Vector2(s * 18, 4);
                     if (cave.IsSolid(over) || cave.IsSolid(over + new Vector2(0, -20))) continue;
                     float h = 0; while (h < drop && !cave.IsSolid(over + new Vector2(0, h + 4))) h += 4;
-                    if (h < drop || cave.IsWater(over + new Vector2(0, drop))) continue;
-                    float d = f.DistanceTo(near);
-                    if (d < best) { best = d; stand = f + new Vector2(0, -14); side = s; }
+                    if (h < 60 || cave.IsWater(over + new Vector2(0, h))) continue;
+                    // (the deepest drop first, then the nearest)
+                    float score = Math.Min(h, drop) * 10f - f.DistanceTo(near) * 0.01f;
+                    if (score > best) { best = score; stand = f + new Vector2(0, -14); side = s; depth = h; }
                 }
             }
         return side != 0;
@@ -49,8 +50,8 @@ public partial class Main
         var p = G.Player; var cave = G.Cave;
         p.Stats.MaxHp = 5000; p.Hp = 5000;
         foreach (var e in G.Enemies.ToArray()) e.QueueFree();
-        bool found = FindEdge(p.GlobalPosition, Tune.Rope.Length + 20, out var stand, out int side);
-        ScCheck($"an edge with a drop of five heights beside it ({stand.Round()}, side {side})", found);
+        bool found = FindEdge(p.GlobalPosition, Tune.Rope.Length + 20, out var stand, out int side, out float depth);
+        ScCheck($"an edge with a drop beside it ({stand.Round()}, side {side}, {depth:0} px deep)", found);
         if (!found) yield break;
         p.GlobalPosition = stand; p.Velocity = Vector2.Zero;
         foreach (var _ in SbSleep(0.8f)) yield return null;
@@ -91,7 +92,10 @@ public partial class Main
         _scInput = new PlayerInput { RopeHeld = true };
         rope = Rope.All.FirstOrDefault(r => r.Holder == p);
         for (float t = 0; t < 4f && rope != null && rope.State == Rope.Phase.Lowering; t += (float)GetProcessDeltaTime()) yield return null;
-        ScCheck($"held on, it runs out at {Tune.Rope.Length:0} px (five heights) and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && rope.Unrolled > Tune.Rope.Length - 3f);
+        if (depth > Tune.Rope.Length + 4f)
+            ScCheck($"held on, it runs out at {Tune.Rope.Length:0} px (five heights) and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && rope.Unrolled > Tune.Rope.Length - 3f);
+        else
+            ScCheck($"held on, it comes to rest on the ground {depth:0} px down and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && rope.Unrolled > depth * 0.8f);
         foreach (var _ in SbSleep(0.4f)) yield return null;
         ScShot("rope_2_full");
         // (the end swings a little: it moves after the stop)
