@@ -2185,10 +2185,7 @@ public partial class RockLedgeView : PropView
         var cave = G.Cave;
         var mat = (Material)G.Main.Stage?.Terrain?.Material ?? TerrainLook.Make(cave);
         Vector3 off = default;
-        // (the slab ends where the cave's own back wall stands behind it)
-        float backZ = -3f;
-        if (G.Main.Stage?.Terrain?.Field is TerrainField fld && l.Rec != null) { fld.Column(l.Rec.Cx, l.Rec.Cy, out _, out float zb, out _); backZ = zb; }
-        var mesh = l.Rec != null ? LedgeMesh.Build(cave, l.Rec, mat, out off, backZ) : null;
+        var mesh = l.Rec != null ? LedgeMesh.Build(cave, l.Rec, mat, out off) : null;
         if (mesh == null) { _bodyHome = default; return; }
         _body = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.On, Position = off };
         _bodyHome = off;

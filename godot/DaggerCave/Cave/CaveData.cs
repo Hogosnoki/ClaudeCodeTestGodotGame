@@ -25,6 +25,8 @@ public sealed class LedgeRec
     public float Thick = 1.6f;
     /// <summary>A platform the cave grew by itself, replaced by a slab that can be broken.</summary>
     public bool Natural;
+    /// <summary>The 3D view's arrays for it, made on the loading thread (see LedgeMesh.Precompute); taken once used.</summary>
+    public object MeshData;
     public readonly List<(int idx, float old, float now)> Cells = new();
 }
 
@@ -102,6 +104,8 @@ public sealed class CaveData
 
     /// <summary>The 3D rock worked out ahead of the level being built (see TerrainView.Precompute), or null.</summary>
     public object TerrainPre;
+    /// <summary>The 3D rock's field with every ledge still in it, for meshing the ledges as the ground they were (LedgeMesh).</summary>
+    public object LedgeFieldPre;
     public Vector2 StartPos;
     /// <summary>The cave mouth (depth 0 only): the floor at the daylight on the far left, where you can leave.</summary>
     public Vector2? Mouth;

@@ -170,4 +170,37 @@ public partial class Main
         for (int k = 1; k <= Tune.Ledge.Hits; k++) { nat.Strike(p.GlobalPosition); foreach (var _ in SbSleep(0.1f)) yield return null; }
         ScCheck($"ten blows break it ({nat.Broken})", nat.Broken);
     }
+
+    private IEnumerator<object> _abSteps;
+
+    /// <summary>
+    /// `--scenario=ledgeab [--ledgesasground]`: the same view of the same ledges, once as slabs and once (with the flag) left in the rock as
+    /// plain ground, for comparing the two pixel by pixel (ab_N.png). Give both runs the same --seed.
+    /// </summary>
+    private void LedgeAbScenario()
+    {
+        if (_abSteps == null) { if (_scT < 0.6f) return; _abSteps = AbRun().GetEnumerator(); }
+        if (!_abSteps.MoveNext()) ScEnd();
+    }
+
+    private IEnumerable<object> AbRun()
+    {
+        var p = G.Player; var cave = G.Cave;
+        p.Stats.MaxHp = 5000; p.Hp = 5000;
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        GD.Print($"[scenario] {(CaveGenerator.KeepLedges ? "ledges left in the rock" : "ledges as slabs")}: {cave.Ledges.Count} ({cave.NaturalPlatforms} natural)");
+        // three views: the ledges nearest the start, a stamped one and a natural one if there are
+        var picks = cave.Ledges.Select((l, k) => (l, k)).OrderBy(x => new Vector2(x.l.Cx, x.l.Cy).DistanceTo(cave.StartPos / CaveData.Cell)).Take(2).ToList();
+        var nat = cave.Ledges.Select((l, k) => (l, k)).Where(x => x.l.Natural).OrderBy(x => new Vector2(x.l.Cx, x.l.Cy).DistanceTo(cave.StartPos / CaveData.Cell)).FirstOrDefault();
+        if (nat.l != null && !picks.Any(x => x.k == nat.k)) picks.Add(nat);
+        int n = 0;
+        foreach (var (l, k) in picks)
+        {
+            // stand a little to the side of it, in the air above it (held there), so the hero hides nothing of it
+            var above = new Vector2(l.Cx - l.Half - 1.5f, l.Cy - 5f) * CaveData.Cell;
+            foreach (var _ in SbSleep(1.6f)) { p.GlobalPosition = above; p.Velocity = Vector2.Zero; yield return null; }
+            GD.Print($"[scenario] view {n}: ledge {k} at {l.Cx:0.0},{l.Cy:0.0}, half {l.Half:0.0}{(l.Natural ? " (natural)" : "")}");
+            ScShot($"ab_{n++}");
+        }
+    }
 }

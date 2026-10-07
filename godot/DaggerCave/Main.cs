@@ -332,6 +332,7 @@ public partial class Main : Node
             if (a == "--autotest") _autotest = true;
             else if (a == "--gentest") gentest = true;
             else if (a.StartsWith("--seed=")) _seed = int.Parse(a[7..]);
+            else if (a == "--ledgesasground") CaveGenerator.KeepLedges = true;
             else if (a == "--loadscreen") _forceLoadScreen = true;
             else if (a.StartsWith("--loadshots=")) _loadShots = a[12..];
             else if (a.StartsWith("--shots=")) _shotDir = a[8..];
@@ -663,6 +664,8 @@ public partial class Main : Node
                 var c = CaveGenerator.Generate(biome, seed);
                 // (the rock's 3D meshes too: they take as long as the cave itself)
                 c.TerrainPre = TerrainView.Precompute(c);
+                // (and the ledges', cut out of the rock as it was with them in it)
+                LedgeMesh.Precompute(c);
                 return c;
             });
         }
@@ -965,6 +968,7 @@ public partial class Main : Node
     /// <summary>The generated ledges and stepping stones, as slabs that can be broken (in the order the generator laid them: the same in every game).</summary>
     private void PlaceLedges(CaveData cave)
     {
+        if (CaveGenerator.KeepLedges) return;
         int k = 0;
         foreach (var l in cave.Ledges)
             _world.AddChild(new RockLedge { Position = new Vector2(l.Cx, l.Cy) * CaveData.Cell, Half = l.Half * CaveData.Cell, Index = k++, Rec = l });

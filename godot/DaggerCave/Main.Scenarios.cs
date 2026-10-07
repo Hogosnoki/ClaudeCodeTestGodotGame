@@ -68,6 +68,7 @@ public partial class Main
         "lamp" => "ruins",
         "orbs" => "entrance",
         "ledges" => "slime",
+        "ledgeab" => "roots",
         "shifterbehaviors" => "slime",
         "status" => "den",
         _ => null,
@@ -108,6 +109,7 @@ public partial class Main
             case "lamp": LampScenario(); break;
             case "orbs": OrbsScenario(); break;
             case "ledges": LedgesScenario(); break;
+            case "ledgeab": LedgeAbScenario(); break;
             case "shifterbehaviors": ShifterBehaviorsScenario(); break;
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;

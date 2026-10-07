@@ -146,7 +146,7 @@ public static partial class CaveGenerator
         AddDrain(best, seed);
         AddHiddenNooks(best, seed);
         ConvertSmallPlatforms(best);
-        LiftLedges(best);
+        if (!KeepLedges) LiftLedges(best);
         return best;
     }
 
@@ -871,6 +871,9 @@ public static partial class CaveGenerator
             cave.NaturalPlatforms++;
         }
     }
+
+    /// <summary>Test aid (--ledgesasground): the ledges stay in the rock as plain ground (to compare a slab with the ground it was).</summary>
+    public static bool KeepLedges;
 
     /// <summary>The largest island (in field corners) taken for a platform.</summary>
     private const int MaxPlatformVertices = 64;
