@@ -268,6 +268,8 @@ public partial class Rope : Node2D
         if (_climber != null && (!IsInstanceValid(_climber) || !_climber.OnRopeOf(this))) _climber = null;
 
         if (State == Phase.Lowering) PayOut(dt);
+        if (State == Phase.Lowering && System.Environment.GetEnvironmentVariable("ROPE_DEBUG") != null && Engine.GetPhysicsFrames() % 4 == 0)
+            GD.Print($"[rope] t {_t:0.00} n {P.Count} out {Unrolled:0.0} anchor {P[0].Round()} coil {P[^1].Round()} step {(P[^1] - Prev[^1]).Round()} solid {G.Cave.IsSolid(P[^1])} below {G.Cave.IsSolid(P[^1] + new Vector2(0, 5))} rest {_rest[^1]:0.0}");
         else if (State == Phase.Reeling && ReelIn(dt)) return;
         CoilShow = State == Phase.Lowering ? 1f : Math.Max(0f, CoilShow - dt * 5f);
 
