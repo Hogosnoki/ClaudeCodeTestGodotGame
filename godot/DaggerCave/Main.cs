@@ -979,29 +979,47 @@ public partial class Main : Node
 
     private void PlaceHeroCage(CaveData cave)
     {
-        if (G.Biome?.Id == BiomeId.Lair || cave.ReachMask == null) return;
+        // (never at the cave's mouth: nobody is caged where you walked in from outside, and the lair has none)
+        if (G.Depth <= 0 || G.Biome?.Id is BiomeId.Lair or BiomeId.Entrance || cave.ReachMask == null) return;
         // (every game rolls the same dice whichever heroes it has, so the levels stay alike)
-        bool wanted = G.Chance(Tune.Heroes.CageChance);
+        bool wanted = G.Chance(G.Biome?.Id == BiomeId.Abyss ? Tune.Heroes.AbyssCageChance : Tune.Heroes.CageChance);
         var caged = Meta.PickCageHero(G.Range(0f, 1f));
-        Vector2? best = null; float bestScore = float.MinValue;
-        for (int tries = 0; tries < 1800; tries++)
+        float pick = G.Range(0f, 1f);
+        if (!wanted || caged is not HeroKind heroInCage) return;
+        Vector2? spot = null;
+        // a hidden chamber (a chimney up from a tunnel's roof, a fish slit, a spider crack) when the level has one, most of the time
+        var secrets = cave.Rooms.Where(r => r.Kind == RoomKind.Secret).ToList();
+        if (secrets.Count > 0 && pick < 0.7f)
         {
-            var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(60, cave.SizePx.Y - 40));
-            if (cave.IsSolid(at) || cave.IsLava(at) || !cave.FindFloor(at, 300, out var floor)) continue;
-            int i = (int)(floor.X / CaveData.Cell), j = (int)(floor.Y / CaveData.Cell) - 1;
-            if (i < 0 || j < 0 || i >= cave.W || j >= cave.H || !cave.ReachMask[j * cave.W + i]) continue;
-            if (cave.IsWater(floor + new Vector2(0, -10)) || cave.IsLava(floor + new Vector2(0, -8)) || floor.DistanceTo(cave.StartPos) < 500) continue;
-            if (cave.Boss != null && floor.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 80) continue;
-            if (Chest.All.Any(c => IsInstanceValid(c) && c.GlobalPosition.DistanceTo(floor) < 160)) continue;
-            // (higher and farther is better: a hero worth the climb)
-            float score = (cave.WaterY - floor.Y) * 0.6f + floor.DistanceTo(cave.StartPos) * 0.4f + G.Range(0, 120);
-            if (score > bestScore) { bestScore = score; best = floor; }
+            var room = secrets[Math.Min(secrets.Count - 1, (int)(pick / 0.7f * secrets.Count))];
+            // (beside the chamber's own chest, which stands at its middle)
+            foreach (float dx in new[] { -26f, 26f, -44f, 44f })
+                if (spot == null && !cave.IsSolid(room.Center + new Vector2(dx, 0)) && cave.FindFloor(room.Center + new Vector2(dx, 0), 300, out var f) && Math.Abs(f.Y - room.Center.Y) < 80f
+                    && !cave.IsSolid(f + new Vector2(0, -14)) && !cave.IsWater(f + new Vector2(0, -10)))
+                    spot = f;
         }
-        if (!wanted || caged is not HeroKind heroInCage || best is not Vector2 spot) return;
-        var cage = new HeroCage { Position = spot, Hero = heroInCage };
+        if (spot == null)
+        {
+            // otherwise somewhere out of the way: high up and a long way from the start, off the beaten path
+            float bestScore = float.MinValue;
+            for (int tries = 0; tries < 1800; tries++)
+            {
+                var at = new Vector2(G.Range(64, cave.SizePx.X - 64), G.Range(60, cave.SizePx.Y - 40));
+                if (cave.IsSolid(at) || cave.IsLava(at) || !cave.FindFloor(at, 300, out var floor)) continue;
+                int i = (int)(floor.X / CaveData.Cell), j = (int)(floor.Y / CaveData.Cell) - 1;
+                if (i < 0 || j < 0 || i >= cave.W || j >= cave.H || !cave.ReachMask[j * cave.W + i]) continue;
+                if (cave.IsWater(floor + new Vector2(0, -10)) || cave.IsLava(floor + new Vector2(0, -8)) || floor.DistanceTo(cave.StartPos) < cave.SizePx.X * 0.35f) continue;
+                if (cave.Boss != null && floor.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 80) continue;
+                if (Chest.All.Any(c => IsInstanceValid(c) && c.GlobalPosition.DistanceTo(floor) < 160)) continue;
+                float score = (cave.WaterY - floor.Y) * 0.6f + floor.DistanceTo(cave.StartPos) * 0.4f + G.Range(0, 120);
+                if (score > bestScore) { bestScore = score; spot = floor; }
+            }
+        }
+        if (spot is not Vector2 at2) return;
+        var cage = new HeroCage { Position = at2, Hero = heroInCage };
         NetSync.LevelId(cage);
         _world.AddChild(cage);
-        if (_autotest) GD.Print($"[autotest] a caged {cage.Hero} at {spot}");
+        if (_autotest) GD.Print($"[autotest] a caged {cage.Hero} at {at2}");
     }
 
     /// <summary>A Hunter's Map: more chests, scattered like the caches (dry or flooded), on top of the level's own.</summary>

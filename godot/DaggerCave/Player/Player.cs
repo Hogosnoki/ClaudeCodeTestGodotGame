@@ -39,6 +39,8 @@ public partial class Player : CharacterBody2D
     private static float Gravity => Tune.Hero.Gravity * Tune.Hero.Floatiness;
     private static float MaxFall => Tune.Hero.MaxFallSpeed;
     private static float RunSpeed => Tune.Hero.RunSpeed;
+    /// <summary>The speed a full-rate run animation was made for (the run speed before it was cut by a fifth).</summary>
+    private const float RunAnimRef = 170f;
     private static float BaseJumpV => Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness);
     private static float SwimSpeedBase => Tune.Hero.SwimSpeed;
 
@@ -599,7 +601,8 @@ public partial class Player : CharacterBody2D
         else if (avx > 25)
         {
             clip = "run";
-            speed = Math.Clamp(avx / (RunSpeed * 0.95f), 0.5f, 1.5f);
+            // (the run cycle is paced to the original 170 px/s, so with the 20% slower run it plays 20% slower too)
+            speed = Math.Clamp(avx / (RunAnimRef * 0.95f), 0.4f, 1.2f);
             if (_lastBase == "idle") Anim.Once("run_start", 1);
         }
         else

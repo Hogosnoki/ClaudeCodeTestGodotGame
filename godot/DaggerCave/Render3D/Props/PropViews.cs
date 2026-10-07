@@ -400,6 +400,13 @@ public partial class FallingRockView : PropView
     protected override void Build()
     {
         var mb = DecorMeshes.Stalactite(new Random((int)(GetInstanceId() % 1000)), 1.6f, 0.45f, new Noise3(3));
+        // (the decor mesh's vertex colours are the terrain shader's inputs, not colours: paint it in dirt, darker at the root)
+        for (int k = 0; k < mb.Count; k++)
+        {
+            float ao = mb.C[k].G, v = mb.C[k].B;
+            float t = 0.4f + 0.5f * ao - 0.08f * v;
+            mb.C[k] = new Color(t * 0.78f, t * 0.58f, t * 0.4f);
+        }
         var mi = PropViews.Mesh(mb, PropViews.Rock);
         mi.RotationDegrees = new Vector3(180, 0, 0);
         mi.Position = new Vector3(0, 0.6f, 0);

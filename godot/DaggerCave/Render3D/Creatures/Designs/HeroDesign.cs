@@ -65,7 +65,9 @@ public sealed partial class HeroDesign : CreatureDesign
     private static readonly Color OrbFire = new(1f, 0.55f, 0.16f), OrbFrost = new(0.62f, 0.88f, 1f);
     /// <summary>The Elementalist's cooldown orbs: the bolts (orange, white with Frostbolt), earth, wind and the storm (white, orange with Firestorm).</summary>
     private static readonly Color OrbBoltFire = new(1f, 0.52f, 0.12f), OrbWhite = new(0.95f, 0.98f, 1f), OrbEarth = new(1f, 0.86f, 0.18f), OrbWind = new(0.66f, 0.68f, 0.74f);
-    private static readonly string[] OrbNames = { "OrbBolt0", "OrbBolt1", "OrbBolt2", "OrbWind", "OrbEarth", "OrbStorm" };
+    /// <summary>Up to eight bolt orbs (the first in the staff hand, the rest by the other), then the updraft's, the snap's and the storm's.</summary>
+    private const int BoltOrbs = 8;
+    private static readonly string[] OrbNames = { "OrbBolt0", "OrbBolt1", "OrbBolt2", "OrbBolt3", "OrbBolt4", "OrbBolt5", "OrbBolt6", "OrbBolt7", "OrbWind", "OrbEarth", "OrbStorm" };
 
     private int hips, spine, chest, neck, head, cape0, cape1, cape2, cape3, scarf0, scarf1, scarf2;
     private readonly int[] clav = new int[2], uarm = new int[2], farm = new int[2], hand = new int[2], thigh = new int[2], shin = new int[2], foot = new int[2];
@@ -667,7 +669,7 @@ public sealed partial class HeroDesign : CreatureDesign
         chest.Name = "OrbRing";
         for (int k = 0; k < OrbNames.Length; k++)
         {
-            var parent = k == 0 ? handR : k < 3 ? handL : chest;
+            var parent = k == 0 ? handR : k < BoltOrbs ? handL : chest;
             if (parent == null) continue;
             var orb = new Node3D { Name = OrbNames[k] };
             var core = new StandardMaterial3D
@@ -690,22 +692,25 @@ public sealed partial class HeroDesign : CreatureDesign
         }
     }
 
-    /// <summary>Where each orb sits for one frame: the bolts' in the hands, the others circling the chest.</summary>
-    private static Vector3 OrbAt(int k, float time)
+    /// <summary>Where each orb sits for one frame (the bolts' relative to the hand, in the hero's own space; the others about the chest).</summary>
+    private static Vector3 OrbAt(int k, float time, int bolts)
     {
-        switch (k)
+        // (a palm's width ahead of the hand: they bob a little; SyncOrbs puts them there)
+        if (k == 0) return new Vector3(0.17f, 0.09f + 0.012f * MathF.Sin(time * 3.1f), 0.06f);
+        if (k == 1) return new Vector3(0.2f, 0.05f + 0.012f * MathF.Sin(time * 3.1f + 1.3f), 0.0f);
+        if (k < BoltOrbs)
         {
-            // (a palm's width ahead of the hand, in the hero's own space: they bob a little; SyncOrbs sets where)
-            case 0: return new Vector3(0.17f, 0.09f + 0.012f * MathF.Sin(time * 3.1f), 0.06f);
-            case 1: return new Vector3(0.2f, 0.05f + 0.012f * MathF.Sin(time * 3.1f + 1.3f), 0.0f);
-            // (the third bolt of a Frostbolt, circling the left one)
-            case 2: return new Vector3(0.2f + 0.09f * MathF.Cos(time * 4f), 0.2f + 0.02f * MathF.Sin(time * 3f), 0.09f * MathF.Sin(time * 4f));
+            // (the bolts beyond a pair circle the left hand, evenly spaced)
+            int extra = Math.Max(1, bolts - 2);
+            float ang = time * 3.2f + (k - 2) * Mathf.Tau / extra;
+            float r = 0.09f + 0.012f * extra;
+            return new Vector3(0.2f + r * MathF.Cos(ang), 0.17f + 0.02f * MathF.Sin(time * 3f + k), r * MathF.Sin(ang));
         }
         // (the updraft, the snap and the storm: one third of a turn apart, each on its own height)
-        int i = k - 3;
+        int i = k - BoltOrbs;
         float a = time * (1.5f + 0.2f * i) + i * Mathf.Tau / 3f;
-        float r = 0.62f + 0.04f * i;
-        return new Vector3(MathF.Cos(a) * r, 0.18f - 0.16f * i + 0.04f * MathF.Sin(time * 2.3f + i * 2f), MathF.Sin(a) * r);
+        float rad = 0.62f + 0.04f * i;
+        return new Vector3(MathF.Cos(a) * rad, 0.18f - 0.16f * i + 0.04f * MathF.Sin(time * 2.3f + i * 2f), MathF.Sin(a) * rad);
     }
 
     /// <summary>The orbs for this frame: each shows while its spell is ready, shrinking out as it's spent and swelling back as it returns.</summary>
@@ -717,24 +722,22 @@ public sealed partial class HeroDesign : CreatureDesign
         int charges = player?.BoltCharges ?? 2, max = player?.BoltChargesMax ?? 2;
         for (int k = 0; k < OrbNames.Length; k++)
         {
-            var orb = m.GetNodeOrNull<Node3D>(k == 0 ? "Pivot/Skeleton/StaffHand/" + OrbNames[k] : k < 3 ? "Pivot/Skeleton/OrbHandL/" + OrbNames[k] : "Pivot/Skeleton/OrbRing/" + OrbNames[k]);
+            var orb = m.GetNodeOrNull<Node3D>(k == 0 ? "Pivot/Skeleton/StaffHand/" + OrbNames[k] : k < BoltOrbs ? "Pivot/Skeleton/OrbHandL/" + OrbNames[k] : "Pivot/Skeleton/OrbRing/" + OrbNames[k]);
             if (orb == null) continue;
             bool on = !dead && k switch
             {
-                0 => charges > 0 && max >= 1,
-                1 => charges > 1 && max >= 2,
-                2 => charges > 2 && max >= 3,
-                3 => player?.UpdraftOrb ?? true,
-                4 => player?.SnapOrb ?? true,
+                < BoltOrbs => k < max && charges > k,
+                BoltOrbs => player?.UpdraftOrb ?? true,
+                BoltOrbs + 1 => player?.SnapOrb ?? true,
                 _ => player?.StormOrb ?? true,
             };
-            Color col = k < 3 ? (frost ? OrbWhite : OrbBoltFire) : k == 3 ? OrbWind : k == 4 ? OrbEarth : fire ? OrbBoltFire : OrbWhite;
+            Color col = k < BoltOrbs ? (frost ? OrbWhite : OrbBoltFire) : k == BoltOrbs ? OrbWind : k == BoltOrbs + 1 ? OrbEarth : fire ? OrbBoltFire : OrbWhite;
             float s = Mathf.MoveToward(orb.Scale.X, on ? 1f : 0f, a.Dt * (on ? 5f : 9f));
             orb.Scale = Vector3.One * Math.Max(0.001f, s);
             orb.Visible = s > 0.01f;
             if (!orb.Visible) continue;
-            var at = OrbAt(k, a.Time);
-            if (k < 3)
+            var at = OrbAt(k, a.Time, max);
+            if (k < BoltOrbs)
             {
                 // (ahead of the hand, on the side the hero faces: placed in the hero's space, not the hand's)
                 var hand = orb.GetParent<Node3D>();
@@ -742,7 +745,7 @@ public sealed partial class HeroDesign : CreatureDesign
             }
             else orb.Position = at;
             // a fire's glow flickers, frost and the rest breathe
-            float live = k < 3 && !frost || (k == 5 && fire) ? 0.8f + 0.2f * MathF.Sin(a.Time * 13f + k) * MathF.Sin(a.Time * 5.1f) : 0.9f + 0.1f * MathF.Sin(a.Time * 2.4f + k);
+            float live = k < BoltOrbs && !frost || (k == BoltOrbs + 2 && fire) ? 0.8f + 0.2f * MathF.Sin(a.Time * 13f + k) * MathF.Sin(a.Time * 5.1f) : 0.9f + 0.1f * MathF.Sin(a.Time * 2.4f + k);
             var core = orb.GetNode<MeshInstance3D>("Core");
             if (core.Mesh is SphereMesh cm && cm.Material is StandardMaterial3D cmat)
             {

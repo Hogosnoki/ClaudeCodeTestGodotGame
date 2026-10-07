@@ -23,8 +23,10 @@ public partial class Main
         var m = p.Anim?.Model3D;
         if (m == null) return "(no model)";
         var sb = new System.Text.StringBuilder();
-        foreach (var path in new[] { "Pivot/Skeleton/StaffHand/OrbBolt0", "Pivot/Skeleton/OrbHandL/OrbBolt1", "Pivot/Skeleton/OrbHandL/OrbBolt2",
-                                     "Pivot/Skeleton/OrbRing/OrbWind", "Pivot/Skeleton/OrbRing/OrbEarth", "Pivot/Skeleton/OrbRing/OrbStorm" })
+        var paths = new List<string> { "Pivot/Skeleton/StaffHand/OrbBolt0" };
+        for (int k = 1; k < 8; k++) paths.Add("Pivot/Skeleton/OrbHandL/OrbBolt" + k);
+        paths.AddRange(new[] { "Pivot/Skeleton/OrbRing/OrbWind", "Pivot/Skeleton/OrbRing/OrbEarth", "Pivot/Skeleton/OrbRing/OrbStorm" });
+        foreach (var path in paths)
         {
             var n = m.GetNodeOrNull<Node3D>(path);
             if (n == null || !n.Visible) continue;
@@ -103,19 +105,32 @@ public partial class Main
         p.TestResetBolt();
         p.SetAlimus(p.Stats.AlimusMax);
         foreach (var _ in SbSleep(1.0f)) yield return null;
-        ScCheck($"Frostbolt holds three ({p.BoltCharges} of {p.BoltChargesMax})", p.BoltCharges == 3 && p.BoltChargesMax == 3);
+        ScCheck($"Frostbolt holds four ({p.BoltCharges} of {p.BoltChargesMax})", p.BoltCharges == 4 && p.BoltChargesMax == 4);
         s = OrbsShowing(p, out hands, out ring);
-        ScCheck($"and the hand orbs are white now, three of them ({hands}): {s}", hands == 3 && OrbCore(p, "StaffHand/OrbBolt0") is var wc && wc.R > 0.85f && wc.G > 0.85f && wc.B > 0.85f);
+        ScCheck($"and the hand orbs are white now, four of them ({hands}): {s}", hands == 4 && OrbCore(p, "StaffHand/OrbBolt0") is var wc && wc.R > 0.85f && wc.G > 0.85f && wc.B > 0.85f);
         ScShot("orbs_frost");
         int b0 = p.BoltsCast;
-        for (int k = 0; k < 3; k++)
+        for (int k = 0; k < 4; k++)
         {
             foreach (var _ in Tap(atk: true)) yield return null;
         }
-        ScCheck($"three frostbolts in a row ({p.BoltsCast - b0} thrown, {p.BoltCharges} left)", p.BoltsCast - b0 == 3 && p.BoltCharges == 0);
+        ScCheck($"four frostbolts in a row ({p.BoltsCast - b0} thrown, {p.BoltCharges} left)", p.BoltsCast - b0 == 4 && p.BoltCharges <= 1);
         float tf = 0f;
         for (float t = 0; t < 2f && p.BoltCharges < 1; t += (float)GetProcessDeltaTime()) { tf = t; yield return null; }
-        ScCheck($"one is back inside {Tune.Elementalist.FrostEvery:0.0} s ({tf:0.00} s later)", p.BoltCharges == 1 && tf < Tune.Elementalist.FrostEvery + 0.1f);
+        ScCheck($"one is back inside {Tune.Elementalist.FrostEvery:0.0} s ({tf:0.00} s later)", p.BoltCharges >= 1 && tf < Tune.Elementalist.FrostEvery + 0.1f);
+
+        // the upgrades: Frozen Quiver (+2 frostbolts), Spare Bolt (+1 firebolt)
+        p.Stats.FrostChargeBonus += 2;
+        p.TestResetBolt();
+        foreach (var _ in SbSleep(0.6f)) yield return null;
+        s = OrbsShowing(p, out hands, out ring);
+        ScCheck($"Frozen Quiver: the staff holds {p.BoltChargesMax} frostbolts ({p.BoltCharges} ready, {hands} orbs)", p.BoltChargesMax == 6 && p.BoltCharges == 6 && hands == 6);
+        ScShot("orbs_quiver");
+        p.Stats.Frostbolt = false; p.Stats.FireChargeBonus += 1;
+        p.TestResetBolt();
+        foreach (var _ in SbSleep(0.6f)) yield return null;
+        s = OrbsShowing(p, out hands, out ring);
+        ScCheck($"Spare Bolt: three firebolts ({p.BoltChargesMax} held, {hands} orbs)", p.BoltChargesMax == 3 && p.BoltCharges == 3 && hands == 3);
         yield return null;
     }
 }

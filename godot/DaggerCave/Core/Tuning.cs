@@ -24,7 +24,8 @@ public static class Tune
         /// <summary>Drowning damage per tick (every 0.5 s) = flat + fraction of max HP.</summary>
         public static float DrownDamageFlat = 3f, DrownDamageFrac = 0.01f;
 
-        public static float RunSpeed = 170f;
+        /// <summary>Run speed (px/s): 20% under the original 170. The run animation is slowed the same (see Player.RunAnimRef).</summary>
+        public static float RunSpeed = 136f;
         public static float GroundAccel = 1900f, AirAccel = 1200f;
         /// <summary>Crouched, you walk at this share of your speed.</summary>
         public static float CrouchSpeed = 0.4f;
@@ -32,10 +33,10 @@ public static class Tune
         public static float DuckHeight = 6f;
 
         /// <summary>
-        /// Jump shape. Height stays constant while you change Floatiness: gravity is multiplied by
+        /// Jump shape (JumpVelocity 420, down from 470: 20% less height). Height stays constant while you change Floatiness: gravity is multiplied by
         /// it and jump speed by its square root. Lower = floatier, slower arcs.
         /// </summary>
-        public static float JumpVelocity = 470f, Gravity = 1350f, Floatiness = 0.76f;
+        public static float JumpVelocity = 420f, Gravity = 1350f, Floatiness = 0.76f;
         public static float MaxFallSpeed = 560f;
         /// <summary>Extra gravity multiplier while falling (snappier landings).</summary>
         public static float FallGravityMult = 1.2f;
@@ -47,7 +48,7 @@ public static class Tune
         public static float WallSlideSpeed = 110f, WallJumpPush = 250f, WallJumpMult = 0.92f;
         public static float AirDashSpeed = 540f, AirDashTime = 0.16f;
 
-        public static float SwimSpeed = 120f, SwimAccel = 650f;
+        public static float SwimSpeed = 96f, SwimAccel = 650f;
         /// <summary>Water resistance (per second): slows swimming and sinking. Higher = thicker water.</summary>
         public static float WaterDrag = 1.75f;
         /// <summary>Speed kept when you plunge into water (0.5 = half).</summary>
@@ -345,7 +346,7 @@ public static class Tune
         public static float FireDamage = 28f, FireEvery = 1.5f, FireCost = 2.9f, FrostCost = 0.6f, BoltRange = 260f, BoltSpeed = 520f, BoltConeDegrees = 22f;
         /// <summary>The staff holds FireCharges bolts (FrostCharges with Frostbolt); a spent one comes back
         /// every FireEvery (FrostEvery) seconds, one at a time; BoltGap seconds must pass between throws.</summary>
-        public static int FireCharges = 2, FrostCharges = 3;
+        public static int FireCharges = 2, FrostCharges = 4;
         public static float BoltGap = 0.25f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
         public static float IgniteChance = 0.4f, IgniteDps = 4f, IgniteSeconds = 4f;
@@ -584,8 +585,9 @@ public static class Tune
     /// <summary>Heroes found in the caves.</summary>
     public static class Heroes
     {
-        /// <summary>The chance a level holds a caged hero (while any are still to be found).</summary>
-        public static float CageChance = 0.3f;
+        /// <summary>The chance a level holds a caged hero (while any are still to be found): about one a run over
+        /// the nine or so levels below the cave's mouth (which has none), a little likelier in the sunken sea.</summary>
+        public static float CageChance = 0.12f, AbyssCageChance = 0.3f;
     }
 
     /// <summary>Every creature's health at spawn is its own Hp times this (before depth and party scaling).</summary>

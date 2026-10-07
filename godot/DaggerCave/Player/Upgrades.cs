@@ -112,6 +112,8 @@ public sealed class PlayerStats
     /// taller, narrower, longer updraft), Firestorm (a blizzard of fire), Cinder Snap (the snap
     /// bursts burning creatures instead of frozen ones).</summary>
     public bool Frostbolt, NarrowDraft, Firestorm, CinderSnap;
+    /// <summary>Extra bolts the staff holds: Spare Bolts' (fire) and Frozen Quiver's (frost).</summary>
+    public int FireChargeBonus, FrostChargeBonus;
 
     // rogue: dagger slash, dagger throw, vanish, recall
     public float CritChance = Tune.Rogue.CritChance;
@@ -386,7 +388,11 @@ public static partial class Upgrades
         new() { Id = "kindling", Name = "Kindling", Desc = "Your fire is 10% likelier to set a creature alight (firebolts, and a Firestorm).", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
                 When = s => !s.Frostbolt || s.Firestorm, Apply = (s, p) => s.IgniteChance += Tune.Elementalist.KindlingChance },
         new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 15 more alimus.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 15f },
-        new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 8 damage every 0.3 s, slowing what they strike by 30% for 2 s, with an 8% chance of freezing a creature solid for 1.5 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
+        new() { Id = "bolt_charges", Name = "Spare Bolt", Desc = "Your staff holds one more firebolt.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
+                When = s => !s.Frostbolt, Apply = (s, p) => s.FireChargeBonus += 1 },
+        new() { Id = "frost_charges", Name = "Frozen Quiver", Desc = "Your staff holds two more frostbolts.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
+                When = s => s.Frostbolt, Apply = (s, p) => s.FrostChargeBonus += 2 },
+        new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 12 damage a bolt, the staff holds four and gets one back every second, each slowing what it strikes by 30% for 2 s, with a 20% chance of freezing a creature solid for 3 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
 
         // --- Updraft (elementalist) ---
         new() { Id = "attune", Name = "Attunement", Desc = "Your alimus comes back 25% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AlimusRegenMult += 0.25f },

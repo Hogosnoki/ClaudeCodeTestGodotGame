@@ -47,10 +47,11 @@ public partial class Player
     /// <summary>What a snap would burst right now (for the HUD): the frozen creatures in view, or with Cinder Snap the burning ones.</summary>
     public int SnapTargets => Snappable().Count();
 
-    /// <summary>Bolts the Elementalist can hold: two of fire, three of frost.</summary>
-    public int BoltChargesMax => (IsRemote ? (_netFlags & HfFrost) != 0 : Stats.Frostbolt) ? Tune.Elementalist.FrostCharges : Tune.Elementalist.FireCharges;
-    /// <summary>Bolts ready to throw (a copy goes by its game's flags).</summary>
-    public int BoltCharges => IsRemote ? (int)((_netFlags >> HfChargeShift) & 3u) : Math.Clamp(_boltCharges < 0 ? BoltChargesMax : _boltCharges, 0, BoltChargesMax);
+    /// <summary>Bolts the Elementalist can hold: two of fire, four of frost (Spare Bolt and Frozen Quiver add more).</summary>
+    public int BoltChargesMax => IsRemote ? _netBoltMax : Stats.Frostbolt ? Tune.Elementalist.FrostCharges + Stats.FrostChargeBonus : Tune.Elementalist.FireCharges + Stats.FireChargeBonus;
+    /// <summary>Bolts ready to throw (a copy goes by what its game says).</summary>
+    public int BoltCharges => IsRemote ? _netBolts : Math.Clamp(_boltCharges < 0 ? BoltChargesMax : _boltCharges, 0, BoltChargesMax);
+    private int _netBolts, _netBoltMax;
     /// <summary>Seconds one bolt takes to come back.</summary>
     private float BoltRechargeSeconds => Stats.Frostbolt ? Tune.Elementalist.FrostEvery : Tune.Elementalist.FireEvery;
     /// <summary>For the orbs and the HUD: the ready state of the updraft, the snap and the storm (a copy goes by its game's flags).</summary>

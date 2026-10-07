@@ -28,7 +28,6 @@ public partial class Player
     private uint _netFlags;
     private float _netShieldStrength = 1f;
 
-    private const int HfChargeShift = 28;
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
                        HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
                        HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608,
@@ -76,7 +75,6 @@ public partial class Player
             if (UpdraftOrb) f |= HfOrbWind;
             if (SnapOrb) f |= HfOrbSnap;
             if (StormOrb) f |= HfOrbStorm;
-            f |= (uint)BoltCharges << HfChargeShift;
         }
         if (Hidden) f |= HfHidden;
         if (_thrown[0] != null) f |= HfDagger0Out;
@@ -98,6 +96,8 @@ public partial class Player
         w.Byte(Form?.Id ?? 0);
         w.Byte((byte)(FormClip == null ? 0 : FormClip == Form?.WindClip ? 1 : 2));
         w.Byte((byte)(Math.Clamp(FormClipT, 0f, 1f) * 255));
+        // (an Elementalist's bolts: how many ready, how many it holds)
+        w.Byte(IsElementalist ? (byte)(Math.Min(BoltCharges, 15) | Math.Min(BoltChargesMax, 15) << 4) : (byte)0);
     }
 
     /// <summary>A puppet: the latest from its game.</summary>
@@ -132,6 +132,7 @@ public partial class Player
             FormClipT = ft;
             if (Anim != null) { Anim.FormClip = FormClip; Anim.FormClipT = FormClipT; }
         }
+        if (r.More) { byte b = r.Byte(); _netBolts = b & 15; _netBoltMax = b >> 4; }
         _net.Push(now, pos, vel);
         Dead = (_netFlags & HfDead) != 0;
         ShieldRaised = (_netFlags & HfShield) != 0;

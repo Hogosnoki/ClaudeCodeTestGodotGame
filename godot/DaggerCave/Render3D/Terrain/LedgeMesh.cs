@@ -52,7 +52,10 @@ public static class LedgeMesh
                     if (!remap.TryGetValue(vi, out int ni))
                     {
                         ni = verts.Count; remap[vi] = ni;
-                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(d.Colors[vi]);
+                        // (alone in its own field a slab has nothing near it to shade it: it would glow against the cave's rock, so
+                        // it gets the dimmer, occluded values the same surface has in the cave: more baked occlusion, a little depth)
+                        var c0 = d.Colors[vi];
+                        verts.Add(d.Verts[vi]); norms.Add(d.Normals[vi]); cols.Add(new Color(Math.Max(c0.R, 0.3f), c0.G * 0.55f, c0.B, c0.A));
                     }
                     idxs.Add(ni);
                 }
