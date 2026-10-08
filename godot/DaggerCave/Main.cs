@@ -3554,7 +3554,7 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)} margins {OpenMargins(c)} wings {c.Wings.Count}{(c.Wings.Count > 0 ? (c.Wings.All(w => c.LineClear(w.Plug + new Vector2(20, 0), new Vector2(w.Chamber.Center.X, w.Plug.Y)) && c.W * CaveData.Cell >= w.Bounds.End.X - 1) ? "ok" : "BAD") : "")}{(c.Biome?.Style == GenStyle.River ? $" dry {c.DryOk} flow {c.Flow:0} tunnel {c.Tunnel.Size.X / CaveData.Cell:0}" : "")}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)} margins {OpenMargins(c)} wings {c.Wings.Count}{(c.Wings.Count > 0 ? (c.Wings.All(w => c.LineClear(w.Plug + new Vector2(20, 0), new Vector2(w.Chamber.Center.X, w.Plug.Y)) && c.W * CaveData.Cell >= w.Bounds.End.X - 1) ? "ok" : $"BAD@{string.Join(",", c.Wings.Select(w => WingBlock(c, w)))}") : "")}{(c.Biome?.Style == GenStyle.River ? $" dry {c.DryOk} flow {c.Flow:0} tunnel {c.Tunnel.Size.X / CaveData.Cell:0}" : "")}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
@@ -3688,6 +3688,20 @@ public partial class Main : Node
         }
         GD.Print(bad == 0 ? $"[bosstest] PASS ({total} caves)" : $"[bosstest] FAIL: {bad} of {total}");
         SafeQuit.Request(this, bad == 0 ? 0 : 1);
+    }
+
+    /// <summary>For the generator test: where along a wing's passage the first rock lies (px x; -1 if it runs clear to the chamber).</summary>
+    private static string WingBlock(CaveData c, SecretWing w)
+    {
+        for (float x = w.Plug.X + 20f; x < w.Chamber.Center.X; x += 4f)
+            if (c.IsSolid(new Vector2(x, w.Plug.Y)))
+            {
+                int bx = (int)(x / CaveData.Cell), by = (int)(w.Plug.Y / CaveData.Cell), st = c.W + 1;
+                string dump = "";
+                for (int yy = by - 3; yy <= by + 3; yy++) { dump += " | "; for (int xx = bx - 2; xx <= bx + 2; xx++) dump += $"{c.Open[yy * st + xx]:0.0} "; }
+                return MathF.Round(x / CaveData.Cell, 1).ToString() + " W" + c.W + " cx" + MathF.Round(w.Chamber.Center.X / CaveData.Cell, 1) + dump;
+            }
+        return "-";
     }
 
     /// <summary>For the generator test: how many cells of rock lie beyond the open space on each side (left, right, top, bottom).</summary>

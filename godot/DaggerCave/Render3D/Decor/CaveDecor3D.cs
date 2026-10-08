@@ -403,8 +403,9 @@ public partial class CaveDecor3D : Node3D
             }
         }
 
-        // ---- the fossil graveyards: a leviathan's ribcage across each great chamber, running from
-        // deep in the back to just in front of you, and a skull sunk into the back wall
+        // ---- the fossil graveyards: a leviathan's ribcage lying along each great chamber (its spine overhead, its ribs arching out toward the
+        // back wall and toward you and down to the floor, so a hero walks along the inside of it, between its spine and the ground), and a skull
+        // sunk into the back wall
         if (b.Leviathans)
         {
             foreach (var room in cave.Rooms)
@@ -412,14 +413,19 @@ public partial class CaveDecor3D : Node3D
                 float rx = room.RxPx / CaveData.Cell, ry = room.RyPx / CaveData.Cell;
                 if (rx < 9f || ry < 6f) continue;
                 var c = room.Center / CaveData.Cell;
-                float topY = c.Y - ry * 0.78f;
+                // (a shorter, stouter cage than it was: its spine a good deal above a hero's head, its ribs coming down to the floor)
+                float floorY = room.Floor.Y / CaveData.Cell;
+                float cageH = Math.Clamp(ry * 0.95f, 5.5f, 8.5f);
+                float topY = floorY - cageH;
                 f.Column(c.X, topY, out float sTop, out _, out _);
                 if (sTop > -0.6f) continue; // no open space up there for the spine
-                int ribs = Math.Clamp((int)(ry * 0.45f), 4, 8);
-                const float spacing = 1.15f;
-                float z0 = 0.6f - (ribs - 1) * spacing;
-                var cage = DecorMeshes.Ribcage(_rng, noise, ribs, spacing, rx * 0.78f, ry * 1.85f, boneCol);
-                AddChild(new MeshInstance3D { Mesh = cage.ToMesh(boneMat), Position = new Vector3(c.X, -topY, z0), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
+                int ribs = Math.Clamp((int)(rx * 0.5f), 4, 8);
+                float spacing = Tune.Fossils.RibSpacing;
+                float halfWidth = Math.Clamp(rx * 0.22f, 1.9f, 3f);
+                var cage = DecorMeshes.Ribcage(_rng, noise, ribs, spacing, halfWidth, cageH + 0.5f, boneCol);
+                // (modelled lying along Z: turned a quarter so it lies along the way a hero walks, the hero between its two rows of ribs)
+                float len = (ribs - 1) * spacing;
+                AddChild(new MeshInstance3D { Mesh = cage.ToMesh(boneMat), Transform = new Transform3D(new Basis(Vector3.Up, MathF.PI / 2f), new Vector3(c.X - len * 0.5f, -topY, 0f)), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
                 // a faint pale light in the cage, so its arches read in the dark
                 Light(new Vector3(c.X, -(c.Y - ry * 0.2f), -1.5f), boneCol.Lerp(b.Glow, 0.5f), 0.9f, rx * 1.1f, 0.5f);
                 float side = R() < 0.5f ? -1f : 1f;

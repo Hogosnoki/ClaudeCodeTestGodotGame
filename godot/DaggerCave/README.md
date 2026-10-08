@@ -821,7 +821,8 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   crystals, mushrooms, grass, roots, icicles and glow threads decorate it (`Render3D/Decor/`),
   and their glows light the cave through a pool of real lights. The root-choked tunnels get massive
   bark-fluted roots coming down through the ceilings; the fossil graveyards a leviathan's ribcage
-  across each great chamber, skulls sunk in the walls and old bones underfoot.
+  lying along each great chamber's length, short and stout (`Tune.Fossils.RibSpacing`; `--scenario=ribs`): the spine runs overhead and the ribs
+  hang to the floor either side, so a hero walks through the cage between them, skulls sunk in the walls and old bones underfoot.
 - **Water and lava** (`Render3D/Liquid3D.cs`): a refracting, depth-absorbing water surface with
   an animated waterline and volumetric fog under water; emissive lava that lights the cave, with a
   heat haze above it.
@@ -1265,8 +1266,9 @@ The camera keeps to the **main occupied area**: the bounds of all the cave's ope
 `Tune.Secrets.ViewPadCells`; the 3D view obeys the same limits), so nothing out past the cave's own edge can ever be seen.
 
 That makes room for **secret wings**. About half the levels try for one (`Tune.Secrets.WingChance`; a wing is cut only where the cave
-reaches its right-hand extreme for a floor with four rows of headroom, so roughly one level in three has one; none in the first level, the
-dragon's lair or the underground river's plateau): a four-row passage runs out past the cave's right-hand edge to a domed chamber with a
+reaches its right-hand side: a level floor with four rows of headroom within `Tune.Secrets.ApproachCells` (8) cells of the right-hand extreme and
+no more than `MaxReachCells` (90) cells from the start's side of it, clear of breakable ledges and vaults; most levels that try find one, and
+none is cut in the first level, the abyss, the dragon's lair or the underground river): a four-row passage runs out past the cave's right-hand edge to a domed chamber with a
 silver chest (and a caged hero now and then, as any hidden chamber has), shut off by a special wall. It is the cave's own rock: the terrain's
 mesher, field and material run on the field with the passage's mouth put back (`SecretWing.Wall`, meshed by `LedgeMesh` as the breakable ledges
 are; `SecretWallView`), carried along the passage as far as the camera will ever see, with a ring of the rock round it so it overlaps the
@@ -1283,7 +1285,8 @@ viewport whatever the angle. The generator makes the map `Tune.Secrets.PadCells`
 lies outside the view's limits, so it can't be seen from the cave; when its wall is down, in this game or a friend's, the limits are let
 out to take it in (`Main.OpenWing`: they ease out, and the camera slides out with them rather than jumping), a notice reads A SECRET LIES
 BEYOND, and the passage and the chamber are there to walk into. `--scenario=wing --wing` checks all of it (`--wing` gives every level a
-wing); `--gentest --wing` checks that the passage runs through to the chamber.
+wing); `--gentest --wing` checks that the passage runs through to the chamber. (Widening the map changes the field's stride, so the breakable
+ledges' cell indices are remapped as it is done.)
 
 ### The Underground River
 

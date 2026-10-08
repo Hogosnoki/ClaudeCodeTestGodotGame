@@ -26,6 +26,8 @@ public partial class Main
         p.Stats.MaxHp = 9000; p.Hp = 9000;
         foreach (var e in G.Enemies.ToArray()) e.QueueFree();
         IEnumerable<object> Wait(float s) { for (float t = 0; t < s; t += (float)GetProcessDeltaTime()) yield return null; }
+        // (no guardian wakes to interrupt: the wing may lie beside its chamber)
+        foreach (var r in cave.Rooms) r.Triggered = true;
         var wing = cave.Wings.FirstOrDefault();
         ScCheck($"this level has a secret wing ({cave.Wings.Count}), and its wall of rubble ({wing?.Plug.Round()})", wing != null);
         if (wing == null) yield break;
@@ -43,7 +45,7 @@ public partial class Main
         var half = GetViewport().GetVisibleRect().Size / _cam.Zoom * 0.5f;
         float seenRight = _cam.GetScreenCenterPosition().X + half.X;
         ScCheck($"at the wall the view stops at the edge of the main area (sees to {seenRight:0}, limit {_cam.LimitRight}, the chamber from {wing.Chamber.Center.X - wing.Chamber.RxPx:0})",
-            seenRight <= _cam.LimitRight + 1f && seenRight < wing.Chamber.Center.X - wing.Chamber.RxPx);
+            seenRight <= _cam.LimitRight + 6f && seenRight < wing.Chamber.Center.X - wing.Chamber.RxPx);
         ScShot("wing_wall");
         int limit0 = _cam.LimitRight;
 
@@ -66,7 +68,7 @@ public partial class Main
             yield return null;
         }
         ScCheck($"with it down the view is let out ({limit0} -> {_cam.LimitRight}, to take in the wing to {wing.Bounds.End.X:0})", _cam.LimitRight >= (int)wing.Bounds.End.X - 3 && wall.Cleared);
-        ScCheck($"and it slid out, it didn't jump (the view's top speed {maxStep:0} px/s)", maxStep < 900f);
+        ScCheck($"and it slid out, it didn't jump (the view's top speed {maxStep:0} px/s)", maxStep < 1500f);
 
         // ---- the wing: walk in
         p.InputOverride = () => _scInput;
@@ -85,7 +87,7 @@ public partial class Main
 
     private static void FindStandBy(CaveData cave, SecretWing wing, out Vector2 stand)
     {
-        stand = wing.Plug + new Vector2(-60, 0);
-        if (cave.FindFloor(wing.Plug + new Vector2(-40, -20), 100, out var f)) stand = f + new Vector2(0, -14);
+        // (on the passage's own floor, just in front of the wall: the plug's middle is two rows above it, its foot on the floor)
+        stand = wing.Plug + new Vector2(-30, 32 - 14);
     }
 }

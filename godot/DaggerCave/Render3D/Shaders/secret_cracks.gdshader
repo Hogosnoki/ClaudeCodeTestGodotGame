@@ -46,8 +46,11 @@ void fragment() {
 	float b = 1.0 - smoothstep(0.0, w * 0.8, edge(v_wp.xy * 1.9 + 11.0));
 	float c = (1.0 - smoothstep(0.0, w * 0.7, edge(v_wp.xy * 4.2 + 23.0))) * (0.45 + 0.55 * hurt);
 	float crack = clamp(a + b * 0.85 + c * 0.7, 0.0, 1.0) * mask;
+	// (black, with the barest pale hairline along their edges so they still read where the rock is in the dark)
+	float core = clamp(a + b * 0.85 + c * 0.7, 0.0, 1.0);
+	float rim = clamp((1.0 - smoothstep(0.0, w * 2.4, edge(v_wp.xy * 0.8))) - a, 0.0, 1.0) * 0.5 + clamp((1.0 - smoothstep(0.0, w * 2.0, edge(v_wp.xy * 1.9 + 11.0))) - b, 0.0, 1.0) * 0.3;
 	ALBEDO = vec3(0.0);
-	EMISSION = vec3(0.0);
-	ALPHA = crack * (0.92 + 0.08 * hurt);
+	EMISSION = vec3(0.34, 0.31, 0.28) * rim * mask * 0.1;
+	ALPHA = max(crack * (0.92 + 0.08 * hurt), rim * mask * 0.1);
 	ROUGHNESS = 1.0;
 }

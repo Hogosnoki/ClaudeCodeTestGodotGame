@@ -358,7 +358,8 @@ public static class DecorMeshes
     {
         var mb = new MeshBuilder();
         float len = (ribs - 1) * spacing;
-        float thick = Math.Clamp(height / 14f, 0.5f, 1.4f);
+        // (stout bones: a rib as thick as a man's arm at its root, and the vertebrae to match)
+        float thick = Math.Clamp(height / 6f, 1.0f, 1.7f);
         // the spine: vertebrae, each with a spur standing up from it
         for (float z = -spacing; z <= len + spacing * 1.01f; z += spacing * 0.5f)
         {
@@ -386,7 +387,7 @@ public static class DecorMeshes
                     float y = -h * (1f - MathF.Cos(t * MathF.PI * 0.5f));
                     float zz = z - 0.3f * t * t * spacing + noise.Sample(warp, t * 2f, side) * 0.2f;
                     path.Add(new Vector3(x, y, zz));
-                    radii.Add((0.22f - 0.13f * t) * thick);
+                    radii.Add((0.3f - 0.15f * t) * thick);
                 }
                 mb.Tube(path, radii, 7, bone.Darkened(0.05f * (i % 3)), capStart: true);
             }

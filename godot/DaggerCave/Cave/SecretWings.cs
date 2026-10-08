@@ -72,15 +72,24 @@ public static partial class CaveGenerator
             if (j + 1 >= wrow - 3) continue;
             int band = -1;
             for (int y = j - 4; y <= j + 1; y++) band = Math.Max(band, last[y]);
-            for (int i = Math.Max(6, band - 2); i <= band && i < W0 - 2; i++)
+            // (a floor within a few cells of where the cave ends on these rows, with level ground under every cell of the way out to the wall,
+            // so the passage cut through the cells between is floored)
+            for (int i = Math.Max(6, band - Tune.Secrets.ApproachCells); i <= band && i < W0 - 2; i++)
             {
                 if (!Open(i, j) || Open(i, j + 1) || !Open(i, j - 1) || !Open(i, j - 2) || !Open(i, j - 3)) continue;
+                bool floored = true;
+                for (int x = i + 1; x <= band + 1 && floored; x++) if (Open(x, j + 1) || Open(x, j + 2)) floored = false;
+                if (!floored) continue;
                 if (!cave.ReachMask[j * W0 + i]) continue;
                 // (never out of a vault: its chamber's end is not the cave's edge)
                 bool inVault = false;
                 foreach (var v in new[] { cave.Vault, cave.ExtraVault })
                     if (v != null && i >= v.Passage.Position.X - 6 && i <= Math.Max(v.Chamber.End.X, v.Passage.End.X) + 6 && Math.Abs(j - v.Chamber.End.Y) < 14) inVault = true;
                 if (inVault) continue;
+                // (nor through a stepping stone or ledge: a slab in the passage would half block it)
+                bool inLedge = false;
+                foreach (var l in cave.Ledges) if (l.Cx + l.Half >= i - 1 && Math.Abs(l.Cy - j) < 8f) inLedge = true;
+                if (inLedge) continue;
                 int wx = band + 1;
                 if (W0 - wx > Tune.Secrets.MaxReachCells) continue;
                 cands.Add((i, j, wx));
@@ -99,6 +108,13 @@ public static partial class CaveGenerator
         cave.ReachMask = Relayout(cave.ReachMask, W0, W1, H0);
         cave.TrapMask = cave.TrapMask == null ? null : Relayout(cave.TrapMask, W0, W1, H0);
         cave.OpenCells = null;
+        // (everything that points into the field by index, as the breakable ledges do, points by the new row length now)
+        foreach (var l in cave.Ledges)
+            for (int c = 0; c < l.Cells.Count; c++)
+            {
+                var (idx, was, now) = l.Cells[c];
+                l.Cells[c] = (idx / (W0 + 1) * (W1 + 1) + idx % (W0 + 1), was, now);
+            }
         cave.W = W1;
         int stride = W1 + 1;
 

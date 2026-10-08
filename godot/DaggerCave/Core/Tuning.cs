@@ -705,6 +705,12 @@ public static class Tune
         public static float RegrowSeconds = 30f;
     }
 
+    /// <summary>The fossil graveyards' ribcages: the distance (m) between one pair of ribs and the next.</summary>
+    public static class Fossils
+    {
+        public static float RibSpacing = 1.7f;
+    }
+
     /// <summary>
     /// Secret wings (see <see cref="SecretWing"/>): the camera keeps to the main occupied area plus ViewPadCells of rock round it; about
     /// WingChance of levels (depth 1 on) have a hidden corridor and chamber past the right-hand edge behind a plug of rubble, cut from where
@@ -715,9 +721,11 @@ public static class Tune
         public static float WingChance = 0.5f;
         /// <summary>Blows a secret wing's wall takes (the plugs strewn about take Rubble.Hits); a heaving swing still brings it down in one.</summary>
         public static int WallHits = 8;
+        /// <summary>How far back from the cave's end (cells) the floor a passage starts from may lie, if the ground is level under all the way out.</summary>
+        public static int ApproachCells = 8;
         /// <summary>How many cells past the view's limit the wall's rock runs (the camera sees a little more of what is far from it than of what is near, at the edge).</summary>
         public static int WallPastView = 6;
-        public static int ViewPadCells = 4, PadCells = 36, MaxReachCells = 64;
+        public static int ViewPadCells = 4, PadCells = 36, MaxReachCells = 90;
         /// <summary>How fast the view is let out (per second) when a wing's wall comes down.</summary>
         public static float OpenEase = 2.2f;
     }
