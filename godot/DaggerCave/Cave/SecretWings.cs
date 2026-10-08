@@ -105,7 +105,7 @@ public static partial class CaveGenerator
         // ---- the wall's own rock, before anything is cut: the passage's four rows, from where the rock begins to a little past what the
         // camera will ever see of it (so that, to the eye, the rock goes on unbroken), and a ring of the rock round that, so the wall's mesh
         // overlaps the terrain's own and leaves no seam (the corners of the ring are as they are)
-        int span = Math.Max(2, Math.Min(W0 + 2, (int)MathF.Ceiling(cave.ViewRect.End.X / CaveData.Cell) + 2) - wallX);
+        int span = Math.Max(2, Math.Min(W0 + Tune.Secrets.WallPastView, (int)MathF.Ceiling(cave.ViewRect.End.X / CaveData.Cell) + Tune.Secrets.WallPastView) - wallX);
         var wall = new LedgeRec { Cx = wallX + 1f, Cy = fj - 1f, Half = span * 0.5f };
         int stride0 = W1 + 1;
         var orig = new Dictionary<int, float>();

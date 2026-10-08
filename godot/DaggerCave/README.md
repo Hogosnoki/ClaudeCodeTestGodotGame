@@ -1274,7 +1274,12 @@ terrain's own and leaves no seam, so it lines up with the wall round it, fills t
 more than a glance to notice (dust sifts from it now and then, the draught of the passage behind it). It is a rubble plug underneath,
 but a special one: it takes eight blows (`Tune.Secrets.WallHits`; the plugs strewn about the level take four), and a heaving swing (the
 Swordsman's) still brings it down in one. Until it has been struck at all there is no prompt and nothing to heave: it is only a wall.
-When it falls, the wall crumbles in pieces along its length. The generator makes the map `Tune.Secrets.PadCells` wider for the wing (the new rock on the right). The wing
+When it falls, the wall crumbles in pieces along its length.
+The wall is crackly, which is how it shows it can be broken: a web of fine cracks (a Voronoi of broken stone, `secret_cracks.gdshader`, laid
+over the wall's mesh as a material overlay) in dark lines with a faint pale dust in them, kept to the wall's own rectangle so the rock round
+it is unmarked; each blow it takes widens and brightens them (`hurt`). Its rock runs `Tune.Secrets.WallPastView` (6) cells past the view's
+limit, since the camera sees a little more of what lies far from it than of what lies near, at the edge, so the wall reaches the end of the
+viewport whatever the angle. The generator makes the map `Tune.Secrets.PadCells` wider for the wing (the new rock on the right). The wing
 lies outside the view's limits, so it can't be seen from the cave; when its wall is down, in this game or a friend's, the limits are let
 out to take it in (`Main.OpenWing`: they ease out, and the camera slides out with them rather than jumping), a notice reads A SECRET LIES
 BEYOND, and the passage and the chamber are there to walk into. `--scenario=wing --wing` checks all of it (`--wing` gives every level a

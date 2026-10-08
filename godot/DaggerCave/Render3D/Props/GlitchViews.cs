@@ -168,6 +168,7 @@ public partial class SecretWallView : PropView
     private readonly List<MeshInstance3D> _bits = new();
     private readonly List<Vector3> _vel = new(), _spin = new();
     private float _fall = -1f;
+    private ShaderMaterial _cracks;
 
     protected override void Build()
     {
@@ -180,6 +181,12 @@ public partial class SecretWallView : PropView
         var mesh = wing?.Wall != null ? LedgeMesh.Build(cave, wing.Wall, mat, out off, out grass) : null;
         if (mesh == null) return;
         _body = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.On, Position = off };
+        // the cracks over it: a web of fine cracks kept to the wall's own rectangle, wider with every blow it takes
+        int fj = (int)MathF.Round(wing.Plug.Y / CaveData.Cell + 1f), wx = (int)MathF.Round(wing.Plug.X / CaveData.Cell - 1f);
+        _cracks = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/secret_cracks.gdshader") };
+        _cracks.SetShaderParameter("rect", new Vector4(wx, -(fj + 1), wx + wing.WallSpan + 1, -(fj - 3)));
+        _cracks.SetShaderParameter("seed", (float)(r.Index % 7) + 0.5f);
+        _body.MaterialOverlay = _cracks;
         // (the mesh's own origin is the cave's corner: it trembles in a pivot at the wall's middle)
         _pivot = new Node3D();
         AddChild(_pivot);
@@ -218,6 +225,7 @@ public partial class SecretWallView : PropView
         if (!r.Cleared)
         {
             if (_body == null) return;
+            _cracks?.SetShaderParameter("hurt", 1f - r.Left / (float)Math.Max(1, r.MaxHits));
             // it shudders when struck: a small, quick tremor that settles
             float k = Math.Clamp(r.ShakeT / 0.45f, 0f, 1f);
             k *= k;
