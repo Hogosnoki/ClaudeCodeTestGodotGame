@@ -1313,6 +1313,8 @@ sides), not smooth balls.
   golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
 - **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
 - **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
+- **The Shape Shifter carries a real staff**: a crooked wildwood shaft with a leather wrap and bead charm, its head a knot of burl with two
+  antler tines curling back (it was a sword mesh in staff colours). She still swings it with the sword's cuts.
 - **The Swordsman's scarf tail is gone**: it stood stiffly out behind his shoulder like a spike; the cowl is knotted at the nape.
 - **Frostbolt**: 0.2 s between throws while charged (`Tune.Elementalist.FrostGap`); firebolts 0.25 s.
 - **The Elementalist's orbs and charges** (`Player/Player.Elementalist.cs`, `HeroDesign.AttachOrbs/SyncOrbs`): lore from the world of Alima: an
