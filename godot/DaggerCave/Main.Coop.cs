@@ -85,16 +85,17 @@ public partial class Main
                 p.GlobalPosition = hilt + new Vector2(-side * 8, 10); p.Velocity = Vector2.Zero;
                 foreach (var _ in SbSleep(0.8f)) yield return null;
                 float groundY = p.GlobalPosition.Y;
-                bool through = false, jumped = false;
+                bool through = false, jumped = false; float minY = 1e9f;
                 for (float t = 0; t < 1.8f; t += (float)GetProcessDeltaTime())
                 {
                     _scInput = new PlayerInput { Jump = !jumped && p.IsOnFloor(), JumpHeld = true };
                     if (!jumped && p.IsOnFloor() && _scInput.Jump) jumped = true;
                     if (jumped && p.IsOnFloor() && p.GlobalPosition.Y < groundY - 8f) { through = true; break; }
+                    if (jumped) { minY = Math.Min(minY, p.GlobalPosition.Y); }
                     yield return null;
                 }
                 _scInput = default;
-                ScCheck($"a hero jumping from below lands on top of it, through it ({through}; at {p.GlobalPosition.Y - hilt.Y:0} px from the dagger)", through);
+                ScCheck($"a hero jumping from below lands on top of it, through it ({through}; stood {groundY - p.GlobalPosition.Y:0} px above where it jumped from; the jump rose {groundY - minY:0} px, the hilt is {groundY - hilt.Y:0} px above the ground)", through);
                 // recalled, it comes home and the foothold goes
                 _scInput = new PlayerInput { Ability2 = true }; yield return null; _scInput = default;
                 foreach (var _ in SbSleep(1.2f)) yield return null;
