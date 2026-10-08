@@ -1276,7 +1276,7 @@ but a special one: it takes eight blows (`Tune.Secrets.WallHits`; the plugs stre
 Swordsman's) still brings it down in one. Until it has been struck at all there is no prompt and nothing to heave: it is only a wall.
 When it falls, the wall crumbles in pieces along its length.
 The wall is crackly, which is how it shows it can be broken: a web of fine cracks (a Voronoi of broken stone, `secret_cracks.gdshader`, laid
-over the wall's mesh as a material overlay) in dark lines with a faint pale dust in them, kept to the wall's own rectangle so the rock round
+over the wall's mesh as a material overlay) in black lines, kept to the wall's own rectangle so the rock round
 it is unmarked; each blow it takes widens and brightens them (`hurt`). Its rock runs `Tune.Secrets.WallPastView` (6) cells past the view's
 limit, since the camera sees a little more of what lies far from it than of what lies near, at the edge, so the wall reaches the end of the
 viewport whatever the angle. The generator makes the map `Tune.Secrets.PadCells` wider for the wing (the new rock on the right). The wing
