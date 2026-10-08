@@ -17,7 +17,7 @@ public partial class FxLayer : Node2D
         public float Life, Max, Size, Grav, Drag;
         public Color Col;
         public int Kind; // 0 dot, 1 streak, 2 bubble, 3 ring, 5 spark streak, 6 impact flash, 7 flash, 8 shockwave,
-                         // 9 smoke, 10 debris, 11 droplet, 12 glint, 13 ember, 14 swoosh
+                         // 9 smoke, 10 debris, 11 droplet, 12 glint, 13 ember, 14 swoosh, 15 chomp
         public float Rot, Spin;
         /// <summary>Depth (metres toward the camera from the play plane) and its speed: 3D only.</summary>
         public float Z, ZVel;
@@ -105,6 +105,7 @@ public partial class FxLayer : Node2D
             case 19: Swoosh(r.Vec(), r.Half(), r.Half(), r.Col()); break;
             case 20: Pop(r.Vec(), r.Col(), r.Half()); break;
             case 21: Explosion(r.Vec(), r.Col(), r.Half()); break;
+            case 22: Chomp(r.Vec(), r.HVec(), r.Half(), r.Col()); break;
             default: throw new InvalidOperationException($"unknown effect {op}");
         }
     }
@@ -304,6 +305,17 @@ public partial class FxLayer : Node2D
     {
         Rec(19)?.Vec(pos).Half(dir).Half(radius).Col(col);
         Add(pos, new Vector2(dir, 0), 0.18f, radius, col, 14);
+    }
+
+    /// <summary>A bite: two rows of teeth snapping shut at <paramref name="pos"/>, closing across <paramref name="dir"/> (the way the biter faces), and a fleck or two.</summary>
+    public void Chomp(Vector2 pos, Vector2 dir, float size, Color col)
+    {
+        Rec(22)?.Vec(pos).HVec(dir).Half(size).Col(col);
+        var d = dir.LengthSquared() > 0.01f ? dir.Normalized() : Vector2.Right;
+        _parts.Add(Deep(new Particle { Pos = pos, Vel = d, Life = 0.26f, Max = 0.26f, Size = size, Col = col, Kind = 15 }, 0f) with { Z = 0.5f });
+        _quiet++;
+        Directional(pos, d, 0.9f, new Color(0.85f, 0.95f, 0.85f, 0.8f), 2, 70f, 1.4f, 0.25f, 260f, 1);
+        _quiet--;
     }
 
     /// <summary>Enemy death: a pop of light, a ring and a scatter of bits.</summary>

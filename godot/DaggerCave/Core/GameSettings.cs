@@ -177,10 +177,12 @@ public static class GameSettings
             AudioServer.SetBusSend(i, "Master");
             return i;
         }
+        // (a slider follows the ear, not the waveform: its square is the amplitude, so half way is about half as loud (-12 dB) and a
+        // tenth all but silent (-40 dB); straight amplitude left the top half of every slider sounding the same)
         void Set(int bus, float v)
         {
             AudioServer.SetBusMute(bus, v <= 0.001f);
-            AudioServer.SetBusVolumeDb(bus, Mathf.LinearToDb(Math.Max(0.001f, v)));
+            AudioServer.SetBusVolumeDb(bus, Mathf.LinearToDb(Math.Max(0.0001f, v * v)));
         }
         Set(0, MasterVolume);
         Set(Bus("Music"), MusicVolume);

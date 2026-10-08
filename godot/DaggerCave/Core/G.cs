@@ -58,8 +58,8 @@ public static class G
     /// <summary>Spawn intensity 0..3: how busy the cave is (grows with depth and time).</summary>
     public static float Pace => MathF.Min(Tune.Difficulty.PaceMax, Depth * Tune.Difficulty.PacePerDepth + RunTime / (Tune.Difficulty.PaceMinutesPerStep * 60f));
 
-    /// <summary>Enemy health multiplier.</summary>
-    public static float DepthHp => Threat;
+    /// <summary>Enemy health multiplier: the time half of the threat, with half its growth per level of depth.</summary>
+    public static float DepthHp => MathF.Pow(1f + (Tune.Difficulty.DepthGrowth - 1f) * Tune.Difficulty.HpDepthShare, Depth) * MathF.Pow(2f, RunTime / (Tune.Difficulty.DoublingMinutes * 60f));
     /// <summary>Enemy damage multiplier.</summary>
     public static float DepthDmg => Threat;
 

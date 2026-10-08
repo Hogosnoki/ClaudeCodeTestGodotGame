@@ -267,6 +267,20 @@ public partial class Fx3D : Node3D
                         _glow.Add(new Transform3D(b, at), col with { A = col.A * a }, new Vector4(5, 3f, a0, a1));
                         break;
                     }
+                case 15: // chomp: an upper and a lower row of teeth snapping shut across the way it bites, then fading
+                    {
+                        float shut = Math.Min(1f, (1f - a) * 2.4f);
+                        float r = p.Size * P;
+                        float ang = MathF.Atan2(-p.Vel.Y, p.Vel.X);
+                        var up = new Vector3(-MathF.Sin(ang), MathF.Cos(ang), 0);
+                        float gap = (1f - shut) * r * 0.85f;
+                        var b = new Basis(Vector3.Back, ang) * Basis.FromScale(new Vector3(r, r, 1));
+                        var c = col with { A = col.A * Math.Min(1f, a * 2.2f) };
+                        // (the upper jaw is the top of a ring, its teeth pointing down; the lower the bottom, pointing up)
+                        _glow.Add(new Transform3D(b, at + up * gap), c, new Vector4(6, 3f, 0.45f, 2.7f));
+                        _glow.Add(new Transform3D(b, at - up * gap), c, new Vector4(6, 3f, -2.7f, -0.45f));
+                        break;
+                    }
             }
         }
     }

@@ -52,7 +52,8 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>What a blow on it sounds like: stone chinks, wood crackles, ice cracks, and so on.</summary>
     public virtual string HitSound => Element switch
     {
-        Element.Armored or Element.Earth => "hit_stone",
+        Element.Armored => ArmorBroken ? "hit" : "hit_stone",
+        Element.Earth => "hit_stone",
         Element.Nature => "hit_wood",
         Element.Frost => "hit_ice",
         Element.Fire => "hit_fire",
@@ -684,7 +685,19 @@ public abstract partial class Enemy : CharacterBody2D
                 if (Hp <= 0) { LastAttacker = _burnBy; Die(); return false; }
             }
         }
-        if (_weakT <= 0 && _hexT <= 0 && _burnT <= 0 && _chillT <= 0) return true;
+        if (_venomT > 0)
+        {
+            _venomT -= dt;
+            if (CanBeHit)
+            {
+                float before = Hp;
+                Hp -= _venomDps * dt;
+                _dotAcc += _venomDps * dt;
+                NetSync.CreditDealt(_venomBy, before - Math.Max(0, Hp));
+                if (Hp <= 0) { LastAttacker = _venomBy; Die(); return false; }
+            }
+        }
+        if (_weakT <= 0 && _hexT <= 0 && _burnT <= 0 && _chillT <= 0 && _venomT <= 0) return true;
         AfflictionFx(dt);
         return true;
     }
@@ -704,6 +717,7 @@ public abstract partial class Enemy : CharacterBody2D
             if (G.Chance(0.3f)) G.Fx.Smoke(at + new Vector2(0, -4), 1, new Color(0.2f, 0.17f, 0.15f, 0.45f), 30f);
         }
         if (_chillT > 0) G.Fx.Burst(at, new Color(0.75f, 0.92f, 1f, 0.8f), 1, 16, 1.4f, 0.7f, 30);
+        if (_venomT > 0) G.Fx.Burst(at, new Color(StatusColors.Poison, 0.85f), 1, 14, 1.6f, 0.6f, 160);
     }
 
     /// <summary>The colour an affliction washes over the creature (for the 3D model), alpha = strength.</summary>
@@ -712,6 +726,7 @@ public abstract partial class Enemy : CharacterBody2D
         : _burnT > 0 ? new Color(1f, 0.48f, 0.12f, 0.75f)
         : _chillT > 0 ? new Color(0.5f, 0.78f, 1f, 0.6f)
         : _hexT > 0 ? new Color(0.45f, 1f, 0.35f, 0.8f)
+        : _venomT > 0 ? new Color(StatusColors.Poison, 0.7f)
         : _weakT > 0 ? new Color(1f, 0.25f, 0.15f, 0.6f)
         : new Color(0, 0, 0, 0);
 
@@ -763,6 +778,26 @@ public abstract partial class Enemy : CharacterBody2D
             G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "ALIGHT", new Color(1f, 0.6f, 0.2f), 9, 0.6f);
             G.Sfx.Play("lava", GlobalPosition, -12, 0.1f, 1.5f);
         }
+    }
+
+    private float _venomT, _venomDps;
+    private int _venomBy;
+    public bool Envenomed => _venomT > 0;
+    /// <summary>For the tests: how much venom is still to work (damage).</summary>
+    public float VenomLeft => _venomT > 0 ? _venomDps * _venomT : 0f;
+
+    /// <summary>Venom in its blood (a Shape Shifter's scorpion spray, its spider's bite): <paramref name="total"/> damage over
+    /// <paramref name="seconds"/>, topping up whatever is still working.</summary>
+    public void Envenom(float total, float seconds)
+    {
+        if (Dead || total <= 0 || seconds <= 0) return;
+        if (Puppet) { _venomT = Math.Max(_venomT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Venom, total, seconds); return; }
+        bool fresh = _venomT <= 0;
+        float left = fresh ? 0f : _venomDps * _venomT;
+        _venomBy = NetSync.Striker;
+        _venomT = Math.Max(_venomT, seconds);
+        _venomDps = (left + total) / _venomT;
+        if (fresh) G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "ENVENOMED", StatusColors.Poison, 9, 0.6f);
     }
 
     /// <summary>Chills it: it moves and acts <paramref name="slow"/> slower (0.3 = 30%) for <paramref name="seconds"/>.</summary>
@@ -855,6 +890,8 @@ public abstract partial class Enemy : CharacterBody2D
         // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is);
         // armour that has come off no longer turns a blow
         _affinity = kind == DamageKind.Raw ? 1f : Element == Element.Armored && ArmorBroken ? 1f : Affinity.Mult(Element, kind);
+        // (what the armour turned aside of the blow: once that comes to a tenth of its health, the armour falls off)
+        float absorbed = _affinity < 1f && Element == Element.Armored ? dmg * (1f - _affinity) : 0f;
         dmg *= _affinity;
         if (kind != DamageKind.Raw) dmg *= RelicBlowMult();
         if (Puppet) return PuppetHurt(dmg, knock, hitPos);
@@ -864,10 +901,10 @@ public abstract partial class Enemy : CharacterBody2D
         try
         {
             float dealt = TakeHit(dmg, knock, hitPos);
-            // armour falls off once blows have taken a tenth of the creature's health
+            // armour falls off once it has turned aside a tenth of the creature's health
             if (Element == Element.Armored && !_armorBroken && dealt > 0 && !Dead)
             {
-                _armorTaken += dealt;
+                _armorTaken += absorbed;
                 if (_armorTaken >= MaxHp * Tune.Combat.ArmorBreakShare) BreakArmor();
             }
             return dealt;
@@ -965,6 +1002,8 @@ public abstract partial class Enemy : CharacterBody2D
     protected virtual void OnHurt() { }
     protected virtual Vector2 DeathDrift => Vector2.Zero;
     protected virtual Color BloodColor => new(0.75f, 0.1f, 0.12f);
+    /// <summary>The colour of what it bleeds.</summary>
+    public Color Blood => BloodColor;
     /// <summary>The colour it bleeds (for effects made elsewhere).</summary>
     public Color BloodTint => BloodColor;
     /// <summary>Test harness: turns it to face one way (+1 right, -1 left).</summary>
@@ -1015,7 +1054,7 @@ public abstract partial class Enemy : CharacterBody2D
     private float _netSpeed = 1f;
     private ushort _netFlags;
     private const ushort NfReeling = 1, NfFrozen = 2, NfDazed = 4, NfHexed = 8, NfWeak = 16, NfFlash = 32, NfFloor = 64, NfAttacking = 128,
-                         NfIgnited = 256, NfChilled = 512, NfIced = 1024, NfUnarmored = 2048;
+                         NfIgnited = 256, NfChilled = 512, NfIced = 1024, NfUnarmored = 2048, NfVenom = 4096;
 
     /// <summary>On the ground (a copy goes by what the host says).</summary>
     public bool OnGround => Puppet ? (_netFlags & NfFloor) != 0 : IsOnFloor();
@@ -1046,6 +1085,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Attacking) f |= NfAttacking;
         if (_burnT > 0) f |= NfIgnited;
         if (_chillT > 0) f |= NfChilled;
+        if (_venomT > 0) f |= NfVenom;
         if (_iceT > 0) f |= NfIced;
         if (_armorBroken) f |= NfUnarmored;
         w.UShort(f);
@@ -1079,6 +1119,7 @@ public abstract partial class Enemy : CharacterBody2D
         // looks for them here)
         e._burnT = (flags & NfIgnited) != 0 && e._quenchGrace <= 0 ? Math.Max(e._burnT, 0.15f) : e._burnT;
         e._chillT = (flags & NfChilled) != 0 ? Math.Max(e._chillT, 0.15f) : e._chillT;
+        e._venomT = (flags & NfVenom) != 0 ? Math.Max(e._venomT, 0.15f) : e._venomT;
         e._iceT = (flags & NfIced) != 0 && e._thawGrace <= 0 ? Math.Max(e._iceT, 0.15f) : e._iceT;
         if (flashNow) e.Anim?.Flash(0.8f);
     }

@@ -46,7 +46,7 @@ void fragment() {
 		float r2 = dot(uv, uv);
 		a = exp(-r2 * 2.6) * 0.65 + exp(-r2 * 9.0) * 0.6;
 		core = exp(-r2 * 30.0);
-	} else {
+	} else if (shape < 5.5) {
 		// a crescent: an arc from angle z to angle w (radians), bright at the leading end (w)
 		float r = length(uv);
 		float ang = atan(uv.y, uv.x);
@@ -60,6 +60,26 @@ void fragment() {
 			float band = exp(-pow((r - 0.8) / 0.11, 2.0));
 			a = band * t * t;
 			core = exp(-pow((r - 0.87) / 0.025, 2.0)) * t;
+		}
+	}
+	else {
+		// a jaw: an arc from angle z to angle w (radians) with a row of teeth pointing in toward the middle (a bite)
+		float r = length(uv);
+		float ang = atan(uv.y, uv.x);
+		float a0 = v_custom.z, a1 = v_custom.w;
+		float t = (ang - a0) / (a1 - a0);
+		if (t < 0.0 || t > 1.0) {
+			float ang2 = ang + (ang < a0 ? 6.2831853 : -6.2831853);
+			t = (ang2 - a0) / (a1 - a0);
+		}
+		if (t >= 0.0 && t <= 1.0) {
+			float gum = exp(-pow((r - 0.8) / 0.06, 2.0));
+			float f = fract(t * 5.0);
+			float tip = 0.8 - 0.32 * (1.0 - abs(f - 0.5) * 2.0);
+			float tooth = smoothstep(tip - 0.04, tip + 0.02, r) * (1.0 - smoothstep(0.78, 0.84, r));
+			float ends = smoothstep(0.0, 0.08, t) * (1.0 - smoothstep(0.92, 1.0, t));
+			a = max(gum, tooth) * ends;
+			core = tooth * ends * 0.9;
 		}
 	}
 	// fade to nothing before the quad's edge

@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Collections.Generic;
 using Godot;
@@ -41,6 +42,9 @@ public partial class SoundBank : Node
         _lowPassIdx = AudioServer.GetBusEffectCount(0) - 1;
         AudioServer.SetBusEffectEnabled(0, _lowPassIdx, false);
     }
+
+    /// <summary>For the tests: the bus each pooled player sends to.</summary>
+    public string TestBuses() => string.Join(",", _pool2D.Select(p => (string)p.Bus).Concat(_poolUi.Select(p => (string)p.Bus)).Distinct());
 
     /// <summary>Cuts every sound effect still playing (between runs).</summary>
     public void StopAll()

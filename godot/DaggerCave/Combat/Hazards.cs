@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -405,7 +406,7 @@ public partial class IceSheet : StaticBody2D, IBreakable
 
 /// <summary>
 /// A frozen ledge (frost caverns): stand on it, but after a few landings or two blows it
-/// shatters, and freezes back a while later.
+/// shatters, and freezes back Tune.Ledge.RegrowSeconds later (once nobody is in its way).
 /// </summary>
 public partial class IcePlatform : StaticBody2D, IBreakable
 {
@@ -445,7 +446,7 @@ public partial class IcePlatform : StaticBody2D, IBreakable
     private void Shatter()
     {
         _broken = true;
-        _respawn = 10f;
+        _respawn = Tune.Ledge.RegrowSeconds;
         _shape.SetDeferred(CollisionShape2D.PropertyName.Disabled, true);
         G.Sfx.Play("rock", GlobalPosition, -2, 0.1f, 1.7f);
         G.Fx.Debris(GlobalPosition + new Vector2(0, 6), new Color(0.8f, 0.93f, 1f), 14, 160);
@@ -460,7 +461,7 @@ public partial class IcePlatform : StaticBody2D, IBreakable
         if (_broken)
         {
             _respawn -= dt;
-            if (_respawn <= 0 && (p == null || p.GlobalPosition.DistanceTo(GlobalPosition) > HalfW + 30))
+            if (_respawn <= 0 && !G.Players.Any(h => GodotObject.IsInstanceValid(h) && h.GlobalPosition.DistanceTo(GlobalPosition) < HalfW + 30))
             {
                 _broken = false; _hits = 0; _landings = 0; _crack = 0;
                 _shape.SetDeferred(CollisionShape2D.PropertyName.Disabled, false);

@@ -131,7 +131,28 @@ public partial class Player : CharacterBody2D
     private Vector2 _airDashDir;
     private int _airJumps, _airDashes;
     private bool _jumpCutDone, _wasOnFloor;
-    private float _lastFallSpeed, _freeze, _stuckInRock;
+    private float _lastFallSpeed, _freeze, _stuckInRock, _terminalT;
+
+    /// <summary>For the tests: what the last landing took.</summary>
+    public float LastFallDamage { get; private set; }
+    /// <summary>How long it has been falling at the terminal speed.</summary>
+    public float TerminalT => _terminalT;
+
+    /// <summary>A hard landing after falling at the terminal speed for long enough: a share of the hero's current health (never the
+    /// last of it). Anything that brakes the fall on the way down (a second jump, an updraft, a dash, a rope, the water) starts it afresh.</summary>
+    private void TakeFall(float atTerminal)
+    {
+        LastFallDamage = 0f;
+        if (Dead || IsRemote || atTerminal <= Tune.Hero.FallGraceSeconds || Invulnerable) return;
+        float k = Math.Clamp((atTerminal - Tune.Hero.FallGraceSeconds) / Tune.Hero.FallRampSeconds, 0f, 1f);
+        float dmg = Hp * Mathf.Lerp(Tune.Hero.FallShareMin, Tune.Hero.FallShareMax, k);
+        if (dmg < 0.5f) return;
+        LastFallDamage = dmg;
+        TakeRawDamage(dmg, "fall");
+        G.Fx.TickText(GlobalPosition + new Vector2(0, -22), "-" + Num.Shown(dmg), new Color(1f, 0.6f, 0.45f), 10);
+        G.Sfx.Play("hit", GlobalPosition, -4, 0.05f, 0.6f);
+        G.Main.Rumble(0.3f + 0.4f * k, 0.15f, 0.2f);
+    }
 
     // presses waiting to fire (see BufferPresses)
     private float _attackBuf, _abilityBuf, _ability2Buf, _dodgeBuf;
@@ -510,9 +531,14 @@ public partial class Player : CharacterBody2D
         {
             G.Sfx.Play("land", GlobalPosition, -6);
             G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3 + (int)(_lastFallSpeed / 120f), 1.2f);
-            if (_lastFallSpeed > 450) G.Fx.Shockwave(GlobalPosition + new Vector2(0, 13), 26, new Color(1, 1, 1, 0.35f), 0.25f);
+            if (_terminalT > Tune.Hero.FallGraceSeconds) G.Fx.Shockwave(GlobalPosition + new Vector2(0, 13), 26, new Color(1, 1, 1, 0.35f), 0.25f);
             Anim.Once("land", 1);
         }
+        // fall damage: the time spent falling at the terminal speed, taken on landing; anything that slows the fall (a second jump,
+        // an updraft, a dash, a rope, the water, a creature's form) starts the clock afresh
+        if (nowFloor && !_wasOnFloor) TakeFall(_terminalT);
+        if (nowFloor || _rope != null || InWater || Possessed || _lastFallSpeed < Tune.Hero.MaxFallSpeed * Tune.Hero.FallTerminalShare) _terminalT = 0f;
+        else _terminalT += dt;
         _wasOnFloor = nowFloor;
 
         // the attack button, then the two ability buttons (each fires once it's allowed); held

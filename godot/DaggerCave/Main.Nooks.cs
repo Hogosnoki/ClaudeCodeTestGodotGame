@@ -156,8 +156,21 @@ public partial class Main
         ScShot("ledge_fall");
         foreach (var _ in SbSleep(1.0f)) yield return null;
         ScCheck($"and the hero who stood on it falls through ({p.GlobalPosition.Y - yStood:0} px lower)", p.GlobalPosition.Y > yStood + 12f);
-        foreach (var _ in SbSleep(3f)) yield return null;
-        ScCheck($"then it is gone altogether ({!GodotObject.IsInstanceValid(l)})", !GodotObject.IsInstanceValid(l));
+        // it grows back (sooner here than the game's own 30 s), but never into anyone
+        float regrow0 = Tune.Ledge.RegrowSeconds;
+        Tune.Ledge.RegrowSeconds = 4f;
+        p.GlobalPosition = l.GlobalPosition; p.Velocity = Vector2.Zero;
+        for (float t = 0; t < 5.5f; t += (float)GetProcessDeltaTime()) { p.GlobalPosition = l.GlobalPosition; p.Velocity = Vector2.Zero; yield return null; }
+        ScCheck($"past its time, it waits while a hero is where it would be (broken {l.Broken}, {l.BrokenT:0.0} s)", l.Broken && l.Regrown == 0);
+        p.GlobalPosition = top + new Vector2(0, -40); p.Velocity = Vector2.Zero;
+        for (float t = 0; t < 1f && l.Broken; t += (float)GetProcessDeltaTime()) yield return null;
+        ScCheck($"and grows back once they're clear ({!l.Broken}, {l.Left} blows to break it again)", !l.Broken && l.Regrown == 1 && l.Left == Tune.Ledge.Hits);
+        foreach (var _ in SbSleep(0.4f)) yield return null;
+        ScShot("ledge_regrowing");
+        foreach (var _ in SbSleep(1.2f)) yield return null;
+        ScCheck($"a hero lands on it again ({p.GlobalPosition.Y - top.Y:0} px from its top, on floor {p.IsOnFloor()})", p.IsOnFloor() && Math.Abs(p.GlobalPosition.Y + 13 - l.GlobalPosition.Y + RockLedge.Thick * 0.5f) < 30);
+        ScShot("ledge_regrown");
+        Tune.Ledge.RegrowSeconds = regrow0;
 
         // a platform the cave grew by itself, taken for a ledge that can be broken
         var nat = RockLedge.All.Where(x => GodotObject.IsInstanceValid(x) && x.Rec != null && x.Rec.Natural && !x.Broken).OrderBy(x => x.GlobalPosition.DistanceTo(p.GlobalPosition)).FirstOrDefault();

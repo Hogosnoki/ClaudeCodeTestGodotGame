@@ -2383,6 +2383,17 @@ public partial class RockLedgeView : PropView
         if (!l.Broken)
         {
             if (_body == null) return;
+            // grown back: the fallen pieces are long gone, and it swells up out of nothing
+            if (_fall >= 0)
+            {
+                _fall = -1f;
+                foreach (var b in _bits) b.QueueFree();
+                _bits.Clear(); _vel.Clear(); _spin.Clear();
+                _body.Visible = true;
+            }
+            float g = 1f - l.RegrowT;
+            g = 1f - (1f - g) * (1f - g);
+            _pivot.Scale = new Vector3(Mathf.Lerp(0.6f, 1f, g), Mathf.Lerp(0.05f, 1f, g), Mathf.Lerp(0.6f, 1f, g));
             // it shudders when struck: a small, quick tremor about its own middle that settles
             float k = Math.Clamp(l.ShakeT / 0.45f, 0f, 1f);
             k *= k;
@@ -2392,6 +2403,7 @@ public partial class RockLedgeView : PropView
         }
         if (_fall < 0) { _fall = 0; Crumble(l); }
         _fall += dt;
+        if (_fall > 2.6f) return;
         for (int i = 0; i < _bits.Count; i++)
         {
             _vel[i] = _vel[i] with { Y = _vel[i].Y - 9.8f * 1.6f * dt };

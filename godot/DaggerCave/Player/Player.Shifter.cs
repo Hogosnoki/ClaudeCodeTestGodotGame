@@ -40,7 +40,21 @@ public partial class Player
     private readonly HashSet<Enemy> _formDashHit = new();
     private bool _formLeapLand;
     private int _frenzyLeft;
-    private float _frenzyT;
+    private float _frenzyT, _frenzyDmg;
+    private Vector2 _frenzyDir;
+    // a special that goes for one creature (the bat's latch, the spider's bite): the creature, the time left to reach it, and hanging on
+    private Enemy _seekFoe;
+    private FormSpecial _seekKind;
+    private float _seekT, _latchT, _latchTick, _seekDmg;
+    private bool _latched;
+
+    /// <summary>For the tests: the rat's bites that found a creature; the creature the bat hangs on (null when none).</summary>
+    public int GnawBites { get; private set; }
+    public Enemy LatchedOn => _latched && _seekFoe != null && GodotObject.IsInstanceValid(_seekFoe) ? _seekFoe : null;
+    public int Envenomings { get; private set; }
+
+    /// <summary>Transformation: in a form, every blow of the form's deals this much more (x).</summary>
+    public float TransformMult => Form != null ? 1f + Tune.Shifter.TransformDamage : 1f;
     private float _formSpecT = -1f;
 
     /// <summary>For the model of an online copy: the clip of the form's attack under way (null when none) and how far along it is.</summary>
@@ -116,6 +130,7 @@ public partial class Player
         if (Form == null) return;
         Form = null;
         _formAtkT = -1f; _formDashT = 0; _frenzyLeft = 0; _formSpecT = -1f; _formLeapLand = false;
+        _seekFoe = null; _latched = false;
         FormClip = null;
         DropGhost();
         ApplyFormLook();
@@ -247,11 +262,17 @@ public partial class Player
         }
         if (_frenzyLeft > 0 && (_frenzyT -= dt) <= 0)
         {
-            _frenzyT = 0.1f; _frenzyLeft--;
-            Burst(Form.SpecRange, Form.SpecDmg, 90f, stun: 0f);
+            // the rat's gnawing: bite after bite straight ahead, darting in a little with each
+            _frenzyT = Tune.Shifter.GnawInterval; _frenzyLeft--;
+            Gnaw(_frenzyDir, Form.SpecRange, _frenzyDmg);
             FormClip = f.StrikeClip; FormClipT = (_frenzyLeft % 2) * 0.4f + 0.2f;
-            if (Possessed && _frenzyLeft % 2 == 0) Ghost.Animator?.Once(f.StrikeClip, 3);
+            if (Possessed)
+            {
+                Ghost.Animator?.Once(f.StrikeClip, 3, 2f);
+                Ghost.MasterOverride(new Vector2(_frenzyDir.X * 80f, Math.Min(0f, _frenzyDir.Y) * 80f) / Tune.Difficulty.EnemyMoveScale, 0.05f, gravity: true);
+            }
         }
+        if (_seekFoe != null) TickSeek(dt);
         if (_formLeapLand && Possessed && Ghost.OnGround && Ghost.Velocity.Y >= 0 && _formSpecT > 0.1f)
         {
             _formLeapLand = false;
@@ -261,8 +282,8 @@ public partial class Player
         if (_formSpecT >= 0) { _formSpecT += dt; if (_formSpecT > 1.6f) _formSpecT = -1f; }
     }
 
-    /// <summary>Damage the form's tricks deal, from a base the Shape Shifter's own strength sets.</summary>
-    private float FormDamage(float mult) => Tune.Shifter.FormDamage * mult * Stats.DamageMult * Stats.FormDmgMult * G.Range(0.92f, 1.08f);
+    /// <summary>Damage the form's tricks deal, from a base the Shape Shifter's own strength sets (and the Transformation's).</summary>
+    private float FormDamage(float mult) => Tune.Shifter.FormDamage * mult * Stats.DamageMult * Stats.FormDmgMult * TransformMult * G.Range(0.92f, 1.08f);
 
     /// <summary>A blow of the Shape Shifter's own trick (a special).</summary>
     private void Blow(Enemy e, float mult, Vector2 knock) => Strike(e, FormDamage(mult), knock, mult > 1.5f);
@@ -272,7 +293,7 @@ public partial class Player
     /// tuning), through the Shape Shifter's own strength. Called by the creature, when its attack lands.
     /// </summary>
     public void FormBlow(Enemy e, float baseDamage, Vector2 knock) =>
-        Strike(e, baseDamage * Stats.DamageMult * Stats.FormDmgMult * G.Range(0.92f, 1.08f), knock, baseDamage > Tune.Shifter.FormDamage * 1.5f);
+        Strike(e, baseDamage * Stats.DamageMult * Stats.FormDmgMult * TransformMult * G.Range(0.92f, 1.08f), knock, baseDamage > Tune.Shifter.FormDamage * 1.5f);
 
     private void Strike(Enemy e, float dmg, Vector2 knock, bool heavy)
     {
@@ -304,6 +325,129 @@ public partial class Player
             if (br.HitSize > 0 && br.HitCenter.DistanceTo(at) < range + br.HitSize) br.Strike(at);
     }
 
+    /// <summary>One of the rat's bites: every creature straight ahead within <paramref name="range"/> (a narrow band, not all round).</summary>
+    private void Gnaw(Vector2 dir, float range, float mult)
+    {
+        var at = GlobalPosition + new Vector2(0, -4);
+        var teeth = new Color(1f, 0.96f, 0.88f);
+        bool bit = false;
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
+            var rel = e.GlobalPosition - at;
+            float along = rel.Dot(dir), across = Math.Abs(rel.Cross(dir));
+            if (along < -e.HitRadius * 0.5f || along > range + e.HitRadius || across > 12f + e.HitRadius) continue;
+            Blow(e, mult, dir * 60f);
+            G.Fx.Chomp(e.GlobalPosition - dir * e.HitRadius * 0.3f, dir, 10f + e.HitRadius * 0.3f, teeth);
+            if (G.Chance(0.5f)) G.Fx.Burst(e.GlobalPosition, e.Blood, 2, 70, 1.6f, 0.35f, 300);
+            bit = true;
+        }
+        foreach (var br in Breakables.All.ToArray())
+        {
+            if (br.HitSize <= 0) continue;
+            var rel = br.HitCenter - at;
+            if (rel.Dot(dir) > -4f && rel.Dot(dir) < range + br.HitSize && Math.Abs(rel.Cross(dir)) < 12f + br.HitSize) br.Strike(at);
+        }
+        if (bit) GnawBites++;
+        else G.Fx.Chomp(at + dir * range * 0.75f, dir, 9f, teeth with { A = 0.7f });
+        G.Sfx.Play("swing", GlobalPosition, -10, 0.15f, 2.1f);
+    }
+
+    /// <summary>The creature a special that goes for one would go for: the nearest within <paramref name="range"/>, those the way you aim first.</summary>
+    private Enemy FormTarget(Vector2 dir, float range)
+    {
+        Enemy best = null; float bs = float.MaxValue;
+        foreach (var e in G.Enemies)
+        {
+            if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
+            var rel = e.GlobalPosition - GlobalPosition;
+            float d = rel.Length();
+            if (d > range + e.HitRadius) continue;
+            if (!G.Cave.LineClear(GlobalPosition + new Vector2(0, -6), e.GlobalPosition)) continue;
+            // (ahead counts for more than behind)
+            float score = d - (d > 1f ? rel.Dot(dir) / d : 0f) * 50f;
+            if (score < bs) { bs = score; best = e; }
+        }
+        return best;
+    }
+
+    /// <summary>The bat flying at its creature and hanging on to it, or the spider pouncing at its own.</summary>
+    private void TickSeek(float dt)
+    {
+        var e = _seekFoe;
+        if (!Possessed || !GodotObject.IsInstanceValid(e) || e.Dead) { EndSeek(); return; }
+        if (!_latched)
+        {
+            _seekT -= dt;
+            var to = e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.4f) - GlobalPosition;
+            if (Math.Abs(to.X) > 2f) { Facing = Math.Sign(to.X); Ghost.FaceToward(to.X); }
+            if (to.Length() < e.HitRadius + 12f) { Reached(e); return; }
+            if (_seekT <= 0) { EndSeek(); return; }
+            float speed = _seekKind == FormSpecial.Latch ? Tune.Shifter.LatchSpeed : Tune.Shifter.EnvenomSpeed;
+            var v = to.Normalized() * speed;
+            // (the spider leaps: a little lift, and the ground under it)
+            if (_seekKind == FormSpecial.Envenom && Ghost.OnGround) v.Y = Math.Min(v.Y, -140f);
+            Ghost.MasterOverride(v / Tune.Difficulty.EnemyMoveScale, 0.08f, gravity: _seekKind != FormSpecial.Latch);
+            FormClip = Form.StrikeClip; FormClipT = 0.3f;
+            return;
+        }
+        // hanging on: the bat rides its creature, biting, the creature held
+        _latchT -= dt;
+        Ghost.GlobalPosition = e.GlobalPosition + new Vector2(-Facing * e.HitRadius * 0.35f, -e.HitRadius * 0.7f);
+        Ghost.MasterOverride(Vector2.Zero, 0.08f, gravity: false);
+        FormClip = Form.StrikeClip; FormClipT = 0.5f + 0.4f * MathF.Sin(_latchT * 30f);
+        if ((_latchTick -= dt) <= 0)
+        {
+            _latchTick = Tune.Shifter.LatchTick;
+            int bites = Math.Max(1, (int)MathF.Round(Tune.Shifter.LatchSeconds / Tune.Shifter.LatchTick));
+            Blow(e, _seekDmg / bites, Vector2.Zero);
+            if (!e.Dead && !e.IsBoss && !e.IsGuardian) e.Freeze(Tune.Shifter.LatchTick + 0.05f, hold: true);
+            G.Fx.Chomp(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), new Vector2(Facing, 0.4f), 9f + e.HitRadius * 0.25f, new Color(1f, 0.95f, 0.9f));
+            G.Fx.Burst(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), e.Blood, 3, 80, 1.8f, 0.4f, 300);
+            Ghost.Animator?.Once(Form.StrikeClip, 3, 2f);
+        }
+        if (_latchT <= 0 || e.Dead) Release();
+    }
+
+    /// <summary>Reached the creature it went for: the bat hangs on; the spider bites and lets its venom work.</summary>
+    private void Reached(Enemy e)
+    {
+        if (_seekKind == FormSpecial.Latch)
+        {
+            _latched = true; _latchT = Tune.Shifter.LatchSeconds; _latchTick = 0f;
+            G.Fx.Text(e.GlobalPosition + new Vector2(0, -e.HitRadius - 14), "LATCHED", new Color(1f, 0.6f, 0.6f), 9, 0.7f);
+            G.Sfx.Play("hit", GlobalPosition, -4, 0.1f, 1.5f);
+            return;
+        }
+        // the spider's bite
+        var dir = (e.GlobalPosition - GlobalPosition).Normalized();
+        Blow(e, _seekDmg, dir * 80f);
+        e.Envenom(FormDamage(Tune.Shifter.EnvenomTotal * Stats.FormSpecDmgMult), Tune.Shifter.EnvenomSeconds);
+        Envenomings++;
+        G.Fx.Chomp(e.GlobalPosition, dir, 12f + e.HitRadius * 0.3f, StatusColors.Poison);
+        G.Fx.Burst(e.GlobalPosition, StatusColors.Poison, 8, 90, 2f, 0.5f, 120);
+        G.Sfx.Play("spider", GlobalPosition, -3, 0.1f, 0.8f);
+        // (and springs back off it)
+        Ghost.MasterOverride(new Vector2(-dir.X * 160f, -170f) / Tune.Difficulty.EnemyMoveScale, 0.2f, gravity: true);
+        _seekFoe = null;
+    }
+
+    /// <summary>The bat lets go, flutters back, and the blood it took mends the hero over the next few seconds.</summary>
+    private void Release()
+    {
+        _latched = false;
+        _seekFoe = null;
+        if (Possessed) Ghost.MasterOverride(new Vector2(-Facing * 150f, -150f) / Tune.Difficulty.EnemyMoveScale, 0.25f, gravity: false);
+        GiveMending(Stats.MaxHp * Tune.Shifter.LatchHealShare, Tune.Shifter.LatchHealSeconds, 0f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -34), "MENDING", HealColor, 9, 0.7f);
+    }
+
+    private void EndSeek()
+    {
+        if (_latched) { Release(); return; }
+        _seekFoe = null;
+    }
+
     // ---------------------------------------------------------------- the attack button
 
     /// <summary>
@@ -330,16 +474,24 @@ public partial class Player
             Ghost.MasterSpecial(aim);
             return true;
         }
-        if (_formSpecCd > 0 || _formDashT > 0) return false;
+        if (_formSpecCd > 0 || _formDashT > 0 || _seekFoe != null) return false;
         var f = Form;
+        var aimDir = aim.LengthSquared() > 0.04f ? aim.Normalized() : new Vector2(Facing, 0);
+        // (a special that goes for one creature needs one to go for)
+        Enemy foe = null;
+        if (f.Special is FormSpecial.Latch or FormSpecial.Envenom)
+        {
+            foe = FormTarget(aimDir, f.SpecRange);
+            if (foe == null) { SayNo("NOTHING TO GO FOR"); return true; }
+        }
         _formSpecCd = f.SpecCd * Stats.FormSpecCdMult;
         float spec = Stats.FormSpecDmgMult;
         if (Stats.SpecEcho && G.Chance(0.35f)) { _formSpecCd = 0; G.Fx.Text(GlobalPosition + new Vector2(0, -46), "ECHO", new Color(0.85f, 0.9f, 1f), 9, 0.6f); }
         _formSpecT = 0f;
         var dir = new Vector2(aim.X != 0 ? Math.Sign(aim.X) : Facing, 0);
         if (dir.X != 0) { Facing = (int)dir.X; Ghost?.FaceToward(dir.X); }
-        // (the creature's own blow animation, for a trick that has none of its own)
-        Ghost?.Animator?.Once(f.StrikeClip, 3);
+        // (the creature's own blow animation, for a trick that has none of its own; the scorpion's spray has its own)
+        Ghost?.Animator?.Once(f.Special == FormSpecial.Spray ? "spray" : f.StrikeClip, 3);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), f.SpecialName.ToUpperInvariant(), new Color(0.95f, 0.96f, 1f), 10, 0.8f);
         switch (f.Special)
         {
@@ -357,8 +509,39 @@ public partial class Player
                 G.Sfx.Play("swing_heavy", GlobalPosition, -2, 0.1f, 1.1f);
                 break;
             case FormSpecial.Frenzy:
-                _frenzyLeft = 6; _frenzyT = 0f;
+                // gnawing at what is in front, not all round
+                _frenzyLeft = Tune.Shifter.GnawBites; _frenzyT = 0f; _frenzyDmg = f.SpecDmg * spec;
+                _frenzyDir = aimDir;
+                if (Math.Abs(aimDir.X) > 0.1f) { Facing = Math.Sign(aimDir.X); Ghost?.FaceToward(aimDir.X); }
                 break;
+            case FormSpecial.Latch:
+            case FormSpecial.Envenom:
+                _seekFoe = foe; _seekKind = f.Special; _latched = false; _seekDmg = f.SpecDmg * spec;
+                _seekT = f.Special == FormSpecial.Latch ? Tune.Shifter.LatchSeekSeconds : Tune.Shifter.EnvenomSeekSeconds;
+                G.Sfx.Play(f.Special == FormSpecial.Latch ? "bat" : "jump", GlobalPosition, -4, 0.1f, 1.2f);
+                break;
+            case FormSpecial.Spray:
+            {
+                // a cone of venom ahead: a little harm, and poison that works on
+                var sd = aimDir;
+                var tip = GlobalPosition + new Vector2(sd.X * 10f, -12f);
+                G.Fx.Directional(tip, sd, Tune.Shifter.SprayHalfAngle, new Color(StatusColors.Poison, 0.9f), 26, 300f, 2.2f, 0.4f, 90f, 11);
+                G.Fx.Directional(tip, sd, Tune.Shifter.SprayHalfAngle * 0.7f, new Color(0.75f, 1f, 0.55f, 0.5f), 10, 160f, 4f, 0.55f, 20f, 0);
+                G.Sfx.Play("bubble", GlobalPosition, -2, 0.05f, 0.5f);
+                G.Sfx.Play("lava", GlobalPosition, -10, 0.05f, 1.6f);
+                foreach (var e in G.Enemies.ToArray())
+                {
+                    if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
+                    var rel = e.GlobalPosition - tip;
+                    float d = rel.Length();
+                    if (d > f.SpecRange + e.HitRadius || (d > 12f && Math.Abs(sd.AngleTo(rel)) > Tune.Shifter.SprayHalfAngle + MathF.Atan2(e.HitRadius, d))) continue;
+                    if (!G.Cave.LineClear(tip, e.GlobalPosition)) continue;
+                    Blow(e, f.SpecDmg * spec, sd * 60f);
+                    if (!e.Dead) e.Envenom(FormDamage(Tune.Shifter.SprayVenom * spec), Tune.Shifter.SprayVenomSeconds);
+                    Envenomings++;
+                }
+                break;
+            }
             case FormSpecial.Screech:
                 Burst(f.SpecRange, f.SpecDmg * spec, 60f, stun: 0.1f);
                 foreach (var e in G.Enemies.ToArray())

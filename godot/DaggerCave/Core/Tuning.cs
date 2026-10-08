@@ -19,7 +19,7 @@ public static class Tune
         public static float BreathSeconds = 15f;
         /// <summary>Air bubbles rising from vents on the sea floor: seconds of breath each, how
         /// many vents per cave, and seconds between bubbles from one vent.</summary>
-        public static float AirBubbleBreath = 2f, AirVentIntervalMin = 4f, AirVentIntervalMax = 9f;
+        public static float AirBubbleBreath = 4f, AirVentIntervalMin = 4f, AirVentIntervalMax = 9f;
         public static int AirVents = 28;
         /// <summary>Drowning damage per tick (every 0.5 s) = flat + fraction of max HP.</summary>
         public static float DrownDamageFlat = 3f, DrownDamageFrac = 0.01f;
@@ -37,7 +37,12 @@ public static class Tune
         /// it and jump speed by its square root. Lower = floatier, slower arcs.
         /// </summary>
         public static float JumpVelocity = 420f, Gravity = 1350f, Floatiness = 0.76f;
-        public static float MaxFallSpeed = 560f;
+        public static float MaxFallSpeed = 420f;
+        /// <summary>Fall damage counts the time spent falling at the terminal speed (at least FallTerminalShare of MaxFallSpeed): past
+        /// FallGraceSeconds of it a landing takes FallShareMin of the hero's current health, rising to FallShareMax after FallRampSeconds
+        /// more. Anything that slows the fall below that speed (a second jump, an updraft, a dash, a rope, the water) resets the count.
+        /// (An ordinary jump lands just short of the terminal speed; about 0.35 s of falling reaches it, then it covers MaxFallSpeed px/s.)</summary>
+        public static float FallTerminalShare = 0.97f, FallGraceSeconds = 0.3f, FallRampSeconds = 1.0f, FallShareMin = 0.01f, FallShareMax = 0.5f;
         /// <summary>Extra gravity multiplier while falling (snappier landings).</summary>
         public static float FallGravityMult = 1.2f;
         public static float CoyoteTime = 0.1f, JumpBuffer = 0.13f;
@@ -399,7 +404,7 @@ public static class Tune
         /// damage. 0 = bumping into enemies is harmless; only their actual attacks hurt.</summary>
         public static float PassiveContactMult = 0f;
         /// <summary>An armoured creature (golem, scorpion, shardling, the colossi) takes 40% less from physical blows
-        /// until blows have taken this share of its health: then its armour falls off.</summary>
+        /// until its armour has turned aside this share of its health: then its armour falls off (and blows sound as on flesh).</summary>
         public static float ArmorBreakShare = 0.1f;
         /// <summary>Horizontal bounce (px/s) the attacker gets when it lands a melee hit, both
         /// you and enemies. Never vertical.</summary>
@@ -459,6 +464,8 @@ public static class Tune
     {
         /// <summary>Enemy health and damage grow by this factor per level of depth...</summary>
         public static float DepthGrowth = 1.09f;
+        /// <summary>Enemy health grows by only this share of that per level of depth (1.045 a level, against damage's 1.09).</summary>
+        public static float HpDepthShare = 0.5f;
         /// <summary>...and double every this many minutes of play (continuous curve). (The cave gets
         /// harder more through tougher creatures than through more of them: see the pace below.)</summary>
         public static float DoublingMinutes = 27f;
@@ -661,6 +668,21 @@ public static class Tune
         public static float ShiftCooldown = 3f;
         /// <summary>How far away a hero in a form seems to the cave's creatures (x the real distance), and to creatures of its own kind: when they are looking (alone), and when they are choosing between several heroes (they then come last).</summary>
         public static float NoticeFactor = 2f, KinNoticeFactor = 5f, KinChoosingFactor = 1000f;
+        /// <summary>Transformation: the buff a Shape Shifter has while in a form, this much more damage on every blow of the form's
+        /// (its creature's own blows, and its specials), so a hero-driven creature outfights a wild one of its kind.</summary>
+        public static float TransformDamage = 0.6f;
+        /// <summary>Rat's Gnaw: this many bites, each this far apart (s), straight ahead.</summary>
+        public static int GnawBites = 6;
+        public static float GnawInterval = 0.1f;
+        /// <summary>Bat's Latch: it flies at a creature (for at most LatchSeekSeconds at LatchSpeed px/s), hangs on LatchSeconds biting
+        /// (the form's SpecDmg in all, in bites LatchTick apart), lets go, and mends LatchHealShare of the hero's health over LatchHealSeconds.</summary>
+        public static float LatchSeekSeconds = 0.7f, LatchSpeed = 420f, LatchSeconds = 1.2f, LatchTick = 0.2f, LatchHealShare = 0.15f, LatchHealSeconds = 5f;
+        /// <summary>Scorpion's Venom Spray: a cone (half-angle, radians) of venom; each creature in it is poisoned for SprayVenom x the
+        /// form damage over SprayVenomSeconds (topping up with each spray).</summary>
+        public static float SprayHalfAngle = 0.5f, SprayVenom = 2.4f, SprayVenomSeconds = 5f;
+        /// <summary>Spider's Envenomate: it pounces at one creature (at most EnvenomSeekSeconds at EnvenomSpeed px/s) and bites, leaving
+        /// a powerful venom: EnvenomTotal x the form damage over EnvenomSeconds.</summary>
+        public static float EnvenomSeekSeconds = 0.6f, EnvenomSpeed = 380f, EnvenomTotal = 6f, EnvenomSeconds = 6f;
         /// <summary>A Shape Shifter fish out of water loses this share of its health a second (a real fish dies of it in about eight).</summary>
         public static float FishDrownPerSec = 0.1f;
     }
@@ -677,6 +699,8 @@ public static class Tune
     public static class Ledge
     {
         public static int Hits = 10;
+        /// <summary>A broken slab grows back this many seconds later (once nobody is where it would be). A frozen ledge freezes back as soon.</summary>
+        public static float RegrowSeconds = 30f;
     }
 
     /// <summary>The secret depth under the lakes.</summary>

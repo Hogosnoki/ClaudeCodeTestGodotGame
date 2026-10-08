@@ -5,9 +5,9 @@ namespace DaggerCave;
 
 /// <summary>
 /// A rock ledge or stepping stone the generator laid in a cave (not part of its own rock): a slab you can stand on, and break. It
-/// takes about ten blows to bring down: it shudders when struck and sprays dirt, and on the last it collapses in pieces and is gone
-/// for good, so no ledge can trap anyone or cut off the guardian. Every game builds the same ones from the same cave and tells the
-/// others of each blow.
+/// takes about ten blows to bring down: it shudders when struck and sprays dirt, and on the last it collapses in pieces. Tune.Ledge.RegrowSeconds
+/// later it grows back (once nobody, hero or creature, is where it would be), so a climb can be broken away and come back; a spell or a
+/// blow breaks it again, so it never traps anyone for good. Every game builds the same ones from the same cave and tells the others of each blow.
 /// </summary>
 public partial class RockLedge : StaticBody2D, IBreakable
 {
@@ -22,6 +22,10 @@ public partial class RockLedge : StaticBody2D, IBreakable
     public bool Broken => Left <= 0;
     public float BrokenT { get; private set; }
     public float ShakeT { get; private set; }
+    /// <summary>Counts down from 1 while it grows back (for the 3D view).</summary>
+    public float RegrowT { get; private set; }
+    /// <summary>How many times it has grown back (for the tests).</summary>
+    public int Regrown { get; private set; }
     /// <summary>The slab is this thick (px).</summary>
     public const float Thick = 25.6f;
     /// <summary>This slab's own thickness, px (a natural platform is as thick as it grew).</summary>
@@ -84,16 +88,38 @@ public partial class RockLedge : StaticBody2D, IBreakable
         G.Fx.AddShake(3);
     }
 
+    /// <summary>Is anyone (a hero, alive or not, or a creature) where the slab would be?</summary>
+    private bool Occupied()
+    {
+        var c = GlobalPosition; float hx = Half + 12f, hy = ThickPx * 0.5f + 16f;
+        foreach (var p in G.Players)
+            if (GodotObject.IsInstanceValid(p) && Math.Abs(p.GlobalPosition.X - c.X) < hx && Math.Abs(p.GlobalPosition.Y - c.Y) < hy) return true;
+        foreach (var e in G.Enemies)
+            if (GodotObject.IsInstanceValid(e) && Math.Abs(e.GlobalPosition.X - c.X) < hx + e.BodyRadius && Math.Abs(e.GlobalPosition.Y - c.Y) < hy + e.BodyRadius) return true;
+        return false;
+    }
+
+    private void Regrow()
+    {
+        Left = Tune.Ledge.Hits;
+        BrokenT = 0f;
+        RegrowT = 1f;
+        Regrown++;
+        _shape.SetDeferred(CollisionShape2D.PropertyName.Disabled, false);
+        G.Sfx.Play("rock", GlobalPosition, -8, 0.1f, 0.55f);
+        G.Fx.Dust(GlobalPosition, 10, 1.8f, new Color(0.55f, 0.46f, 0.36f, 0.55f));
+    }
+
     public override void _PhysicsProcess(double delta)
     {
         float dt = (float)delta;
         if (_cool > 0) _cool -= dt;
         if (ShakeT > 0) ShakeT -= dt;
+        if (RegrowT > 0) RegrowT = Math.Max(0f, RegrowT - dt);
         if (Broken)
         {
             BrokenT += dt;
-            // (the pieces have fallen and gone: nothing is left of it)
-            if (BrokenT > 2.6f) QueueFree();
+            if (BrokenT > Tune.Ledge.RegrowSeconds && !Occupied()) Regrow();
         }
     }
 }

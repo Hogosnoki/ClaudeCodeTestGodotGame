@@ -293,7 +293,9 @@ effect at once and is kept in `user://settings.cfg`:
 - **Graphics**: window mode (windowed, borderless, fullscreen), vsync, a frame-rate cap, render
   scale (with FSR upscaling), shadows, volumetric fog, bloom, ambient occlusion, ink outlines,
   anti-aliasing, brightness and screen shake.
-- **Sound**: master, music and effects volumes.
+- **Sound**: master, music and effects volumes. Each slider follows the ear: its square is the amplitude, so half way is about half as loud
+  (-12 dB) and a tenth all but silent (-40 dB). Every sound effect plays on the SFX bus (`--scenario=sfxvol`, run under `--write-movie` so
+  the audio is really mixed, measures it).
 - **Controls**: how keyboard presses aim (at the mouse, where you move, or automatically),
   vibration, and rebinding every action.
 
@@ -472,10 +474,15 @@ All of these numbers are in `Tune.Swordsman`, `Tune.Warden`, `Tune.Vitalist`, `T
 and `Tune.Rogue`.
 
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
-(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 560 px/s.
+(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 420 px/s (`Hero.MaxFallSpeed`).
+**Fall damage** counts the time spent falling at that terminal speed (at least 97% of it): past 0.3 s of it (about a 180 px drop) a
+landing takes 1% of the hero's *current* health, rising to 50% after another second (`Hero.FallTerminalShare`, `FallGraceSeconds`,
+`FallRampSeconds`, `FallShareMin`, `FallShareMax`). An ordinary jump lands just short of the terminal speed and costs nothing, and anything
+that brakes the fall on the way down (a second jump, the Elementalist's updraft, a dash, grabbing a rope, water, a creature's form) starts
+the count afresh, so a long fall is easily softened. It never takes the last of anyone's health. `--scenario=fall` checks it.
 Swimming has a breath meter; you take drowning damage when it runs out and the audio is muffled
 while your head is underwater. Sparse air vents on the flooded cave floor release a big bubble
-every 4-9 s. Swim into one for 2 s of air (`Hero.AirBubbleBreath`, `Hero.AirVents`). Water soaks up a quarter of your speed when you plunge in and
+every 4-9 s. Swim into one for 4 s of air (`Hero.AirBubbleBreath`, `Hero.AirVents`). Water soaks up a quarter of your speed when you plunge in and
 drags a little on swimming and sinking (`Hero.WaterDrag`, `Hero.WaterEntryDamp`).
 
 After being struck you are invulnerable for 0.4 s. Drowning costs 3 HP plus 1% of max HP every
@@ -673,8 +680,8 @@ ambush, the Colossus's slam) still land where they aim. Magma puddles burn for 3
 bite softer than orange ones.
 
 Difficulty rises with depth and, more slowly, with play time, and mostly through tougher creatures
-rather than more of them: every creature's own health is doubled at spawn (Tune.Enemy.BaseHpMult), then enemy health and damage are 1.15^depth x 2^(minutes/27)
-(`Tune.Difficulty`). Enemy speed, attack rate and animation speed rise by a fifth of that, capped at
+rather than more of them: every creature's own health is doubled at spawn (Tune.Enemy.BaseHpMult), then enemy damage is 1.15^depth x 2^(minutes/27)
+and enemy health grows at half that rate per depth, 1.075^depth x 2^(minutes/27) (`Tune.Difficulty`, `HpDepthShare`). Enemy speed, attack rate and animation speed rise by a fifth of that, capped at
 1.6x so fights stay readable. How many come (the pace) grows gently: 0.15 per level of depth plus 1
 per 20 minutes, capped at 2.4.
 
@@ -783,7 +790,7 @@ gathering swell and a deep impact, and swords whoosh. `--sfxdump=DIR` writes eve
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.
 
-Armoured creatures (golems, scorpions, shardlings and the colossi) take 40% less from physical blows, but only until blows have taken a tenth of their health (`Combat.ArmorBreakShare`): then their armour falls off ("ARMOUR BROKEN") and every blow lands in full. Earthen creatures keep their resistance.
+Armoured creatures (golems, scorpions, shardlings and the colossi) take 40% less from physical blows, but only until the armour has turned aside a tenth of their health (`Combat.ArmorBreakShare`: what it soaks counts, not what gets through): then it falls off ("ARMOUR BROKEN"), every blow lands in full, and they sound like flesh when struck instead of stone. Earthen creatures keep their resistance.
 
 ## Motion
 
@@ -1159,8 +1166,19 @@ button is the creature's own jump (the frog hops, the bat flaps up, the spider l
 these, so they behave as before. Blows land on creatures and breakables through the creature's own hit tests
 (`StrikeFoes`), never on the hero or allies; damage is the creature's own base number x the hero's damage
 multipliers. The bear's second button is its real Charge; the other forms keep a Shape Shifter trick on it (Club
-Smash, Bone Spin, Gnaw Frenzy, Screech, Venom Spit, Pounce, Tail Lash, Quake, Dive Sting, Spore Cloud, Vice
-Grip, Splash), each with its own icon (`tools/icons/make_icons.py`). Each form keeps what makes the creature itself:
+Smash, Bone Spin, Gnaw, Latch, Envenomate, Pounce, Venom Spray, Quake, Dive Sting, Spore Cloud, Vice
+Grip, Splash), each with its own icon (`tools/icons/make_icons.py`). In a form the hero has the **Transformation** (shown beside the health
+bar): every blow of the form's, its creature's own and its special, deals 60% more (`Tune.Shifter.TransformDamage`), so a hero-driven
+creature outfights a wild one of its kind while the character sheet still shows the Shape Shifter's own numbers. Some specials:
+- **Gnaw** (rat): six quick bites straight ahead (or the way you aim), darting in a little with each, a row of teeth snapping shut on
+  whatever it bites; nothing behind or beside it is touched (`GnawBites`, `GnawInterval`; 0.4x the form damage a bite).
+- **Latch** (bat): it flies at the creature nearest your aim (within 150 px), hangs on to it for 1.2 s biting (3.6x the form damage in
+  all, the creature held still unless it is a guardian), lets go, flutters back, and mends 15% of the hero's health over 5 s (`Latch*`).
+- **Venom Spray** (scorpion): a cone of venom ahead; every creature in it takes a little and is poisoned (2.4x the form damage over 5 s,
+  topping up with each spray) (`Spray*`).
+- **Envenomate** (spider): it pounces on one creature and bites, leaving a powerful venom (6x the form damage over 6 s) (`Envenom*`).
+  Poisoned creatures drip green and wear a green aura (`Enemy.Envenom`). `--scenario=shifterspecials --hero=shifter` checks all of these.
+Each form keeps what makes the creature itself:
 - **Fish**: swims where it is pushed (it cannot drown in water), the jump button leaps it out of the water, on land it
   flops about goofily instead of walking, and it drowns in the air (`Tune.Shifter.FishDrownPerSec` of the hero's health a
   second) until it flops back in.
@@ -1256,8 +1274,9 @@ sides), not smooth balls.
 - **Breakable ledges.** The rock ledges and stepping stones the generator lays in (`StampLedge`: in tall spaces, as repairs and as the stairs to
   the guardian) are checked for traversal as rock, then lifted out of the terrain (`CaveGenerator.LiftLedges`) and put back as slabs
   (`RockLedge`) that stand and carry weight until they are broken: ten blows (`Tune.Ledge.Hits`) to bring one down, a shudder and a spray of dirt
-  with each, then it collapses in blocks and is gone for good, so a ledge can never trap anyone or cut the guardian off. Ice ledges
-  (frost caverns) and the dragon's tiers are as before. Online, each blow is sent to the other games. `--scenario=ledges` checks it.
+  with each, then it collapses in blocks. Thirty seconds later (`Tune.Ledge.RegrowSeconds`) it grows back, swelling up out of the rock, once
+  nobody (hero or creature) is where it would be; it breaks again just as easily (spells too), so it can never trap anyone for good. Ice ledges
+  (frost caverns) freeze back after the same thirty seconds; the dragon's tiers are as before. Online, each blow is sent to the other games. `--scenario=ledges` checks it.
 
 ### Ledges in the cave's own rock, textured doorways, and the Delvers' feelings
 

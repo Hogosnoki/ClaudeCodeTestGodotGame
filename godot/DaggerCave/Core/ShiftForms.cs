@@ -5,7 +5,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>What a Shape Shifter's special attack does.</summary>
-public enum FormSpecial { Slam, Spin, Frenzy, Screech, Spit, Leap, Lash, Charge, Quake, Dive, Spores, Grip, Splash }
+public enum FormSpecial { Slam, Spin, Frenzy, Screech, Spit, Leap, Lash, Charge, Quake, Dive, Spores, Grip, Splash, Latch, Spray, Envenom }
 
 /// <summary>
 /// One creature the Shape Shifter can become: its look (the creature's own 3D model), how it moves,
@@ -38,15 +38,15 @@ public sealed class ShiftForm
         new() { Id = 2, Key = "skeleton", Name = "Skeleton", Set = "skeleton", Size = 1.1f, Move = 1f, Jump = 1f, Reach = 54f, Dmg = 1.1f, Cooldown = 0.7f, Wind = 0.22f, Strike = 0.2f, WindClip = "windup", StrikeClip = "slash",
             Special = FormSpecial.Spin, SpecialName = "Bone Spin", SpecDmg = 1.8f, SpecRange = 66f, SpecCd = 6f },
         new() { Id = 3, Key = "rat", Name = "Rat", Set = "rat", Size = 1.5f, Move = 1.45f, Jump = 1.15f, Reach = 26f, Dmg = 0.6f, Cooldown = 0.32f, Wind = 0.08f, Strike = 0.12f, WindClip = "windup", StrikeClip = "bite", Knock = 70f,
-            Special = FormSpecial.Frenzy, SpecialName = "Gnaw Frenzy", SpecDmg = 0.8f, SpecRange = 38f, SpecCd = 5f },
+            Special = FormSpecial.Frenzy, SpecialName = "Gnaw", SpecDmg = 0.4f, SpecRange = 34f, SpecCd = 5f },
         new() { Id = 4, Key = "bat", Name = "Bat", Set = "bat", Size = 1.4f, Move = 1.2f, Jump = 1f, Flier = true, Reach = 30f, Dmg = 0.6f, Cooldown = 0.45f, Wind = 0.1f, Strike = 0.14f, WindClip = "fly", StrikeClip = "dive", Knock = 80f,
-            Special = FormSpecial.Screech, SpecialName = "Screech", SpecDmg = 0.8f, SpecRange = 120f, SpecCd = 7f },
+            Special = FormSpecial.Latch, SpecialName = "Latch", SpecDmg = 3.6f, SpecRange = 150f, SpecCd = 8f },
         new() { Id = 5, Key = "spider", Name = "Spider", Set = "spider", Size = 0.75f, Move = 1.25f, Jump = 1.2f, Reach = 34f, Dmg = 0.8f, Cooldown = 0.5f, Wind = 0.12f, Strike = 0.16f, WindClip = "hang", StrikeClip = "pounce", Knock = 90f,
-            Special = FormSpecial.Spit, SpecialName = "Venom Spit", SpecDmg = 1.6f, SpecRange = 190f, SpecCd = 4f },
+            Special = FormSpecial.Envenom, SpecialName = "Envenomate", SpecDmg = 0.6f, SpecRange = 140f, SpecCd = 7f },
         new() { Id = 6, Key = "frog", Name = "Frog", Set = "frog", Size = 1.4f, Move = 0.9f, Jump = 1.6f, Reach = 74f, Dmg = 0.8f, Cooldown = 0.8f, Wind = 0.16f, Strike = 0.22f, WindClip = "croak", StrikeClip = "tongue", Knock = 60f,
             Special = FormSpecial.Leap, SpecialName = "Pounce", SpecDmg = 2.0f, SpecRange = 60f, SpecCd = 5f },
         new() { Id = 7, Key = "scorpion", Name = "Scorpion", Set = "scorpion", Size = 1.2f, Move = 1f, Jump = 0.9f, Armor = 0.15f, Reach = 50f, Dmg = 1.1f, Cooldown = 0.75f, Wind = 0.22f, Strike = 0.18f, WindClip = "sting_windup", StrikeClip = "sting",
-            Special = FormSpecial.Lash, SpecialName = "Tail Lash", SpecDmg = 1.9f, SpecRange = 78f, SpecCd = 5f },
+            Special = FormSpecial.Spray, SpecialName = "Venom Spray", SpecDmg = 0.4f, SpecRange = 110f, SpecCd = 6f },
         new() { Id = 8, Key = "bear", Name = "Bear", Set = "bear", Size = 1.0f, Move = 0.95f, Jump = 0.9f, Armor = 0.2f, Reach = 52f, Dmg = 1.5f, Cooldown = 0.95f, Wind = 0.3f, Strike = 0.2f, WindClip = "rear", StrikeClip = "swipe", Knock = 280f,
             Special = FormSpecial.Charge, SpecialName = "Maul Charge", SpecDmg = 2.4f, SpecRange = 230f, SpecCd = 7f },
         new() { Id = 9, Key = "golem", Name = "Golem", Set = "golem", Size = 1.7f, Move = 0.7f, Jump = 0.8f, Armor = 0.35f, Reach = 48f, Dmg = 1.8f, Cooldown = 1.1f, Wind = 0.35f, Strike = 0.2f, WindClip = "slam_windup", StrikeClip = "slam", Knock = 320f,

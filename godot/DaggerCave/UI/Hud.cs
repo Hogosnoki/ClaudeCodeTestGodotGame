@@ -179,6 +179,7 @@ public partial class Hud : Control
             }
             if (p.HasBuff(Player.BuffShout)) Chip($"BATTLE SHOUT {Mathf.CeilToInt(p.BuffLeft(Player.BuffShout))}s", new Color(1f, 0.75f, 0.4f));
             if (p.HasBuff(Player.BuffHowl)) Chip($"PACK HOWL {Mathf.CeilToInt(p.BuffLeft(Player.BuffHowl))}s", new Color(0.85f, 0.93f, 1f));
+            if (p.Shifted) Chip($"TRANSFORMATION +{Mathf.RoundToInt(Tune.Shifter.TransformDamage * 100)}% form damage", new Color(0.92f, 0.95f, 1f));
             if (p.TauntLeft > 0) Chip($"TAUNTING {p.TauntLeft:0.0}s", new Color(1f, 0.6f, 0.35f));
             if (p.Frozen) Chip($"FROZEN {p.FrozenLeft:0.0}s", StatusColors.Frost);
             if (p.Burning) Chip($"BURNING {Mathf.CeilToInt(p.BurnLeft)}s", StatusColors.Fire);
