@@ -11,7 +11,7 @@ public partial class Main
 
     /// <summary>
     /// `--scenario=rope`: a hero at an edge holds the rope button and the rope pays out (the coil falling at its bottom, the hero held where
-    /// they stand); letting go stops it, a second press reels it in; held on, it runs out at five heights; a climber's grab sets it swinging
+    /// they stand); letting go stops it, a second press reels it in; held on, it runs out at six heights; a climber's grab sets it swinging
     /// their way, they climb, pump, and jump off with the swing (rope_N.png).
     /// </summary>
     private void RopeScenario()
@@ -37,7 +37,8 @@ public partial class Main
                 {
                     var over = f + new Vector2(s * 18, 4);
                     if (cave.IsSolid(over) || cave.IsSolid(over + new Vector2(0, -20))) continue;
-                    float h = 0; while (h < drop && !cave.IsSolid(over + new Vector2(0, h + 4))) h += 4;
+                    // (down to the rock, or to a breakable slab: a rope's coil lands on either)
+                    float h = 0; while (h < drop && !cave.IsSolid(over + new Vector2(0, h + 4)) && !Rope.OnSlab(over + new Vector2(0, h + 4))) h += 4;
                     if (h < least || cave.IsWater(over + new Vector2(0, h))) continue;
                     found.Add((f + new Vector2(0, -14), s, h));
                 }
@@ -52,7 +53,9 @@ public partial class Main
         foreach (var e in G.Enemies.ToArray()) e.QueueFree();
         // (an edge the hero really stands at: tried in turn until one holds them)
         Vector2 stand = default; int side = 0; float depth = 0; bool found = false;
-        foreach (var (st, sd, dp) in FindEdges(Tune.Rope.Length + 20).Take(12))
+        // (a clear drop: no breakable slab under the edge for the coil to land on, nor where the tied rope will hang beyond it)
+        bool SlabUnder(float x, float y0, float y1) => RockLedge.All.Any(l => GodotObject.IsInstanceValid(l) && !l.Broken && Math.Abs(l.GlobalPosition.X - x) < l.Half + 10f && l.GlobalPosition.Y > y0 + 20f && l.GlobalPosition.Y < y1 + 30f);
+        foreach (var (st, sd, dp) in FindEdges(Tune.Rope.Length + 20).Where(e => !SlabUnder(e.stand.X + e.side * 30f, e.stand.Y, e.stand.Y + e.depth)).Take(12))
         {
             p.GlobalPosition = st; p.Velocity = Vector2.Zero;
             foreach (var _ in SbSleep(0.8f)) yield return null;
@@ -90,23 +93,25 @@ public partial class Main
         for (float t = 0; t < 4f && GodotObject.IsInstanceValid(rope); t += (float)GetProcessDeltaTime()) yield return null;
         ScCheck($"it comes all the way in and is gone ({!GodotObject.IsInstanceValid(rope)}), the hero free ({!p.HoldsRope})", !GodotObject.IsInstanceValid(rope) && !p.HoldsRope);
 
-        // ---- held on: it runs out at five heights, and the coil becomes its end
+        // ---- held on: it runs out at six heights, and the coil becomes its end
         p.GlobalPosition = stand; p.Velocity = Vector2.Zero;
         foreach (var _ in SbSleep(Tune.Rope.Cooldown + 0.3f)) yield return null;
         _scInput = new PlayerInput { Rope = true, RopeHeld = true }; yield return null;
         _scInput = new PlayerInput { RopeHeld = true };
         rope = Rope.All.FirstOrDefault(r => r.Holder == p);
         for (float t = 0; t < 4f && rope != null && rope.State == Rope.Phase.Lowering; t += (float)GetProcessDeltaTime()) yield return null;
-        if (depth > Tune.Rope.Length + 4f)
-            ScCheck($"held on, it runs out at {Tune.Rope.Length:0} px (five heights) and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && rope.Unrolled > Tune.Rope.Length - 3f);
+        // (where the coil came to rest: the rock, or a breakable slab it fell onto on the way down)
+        bool onSlab = rope != null && Rope.OnSlab(rope.P[^1] + new Vector2(0, 5f));
+        if (depth > Tune.Rope.Length + 4f && !onSlab)
+            ScCheck($"held on, it runs out at {Tune.Rope.Length:0} px (six heights) and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && rope.Unrolled > Tune.Rope.Length - 3f);
         else
-            ScCheck($"held on, it comes to rest on the ground {depth:0} px down and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && rope.Unrolled > depth * 0.8f);
+            ScCheck($"held on, it comes to rest {(onSlab ? "on a slab below the edge" : $"on the ground {depth:0} px down")} and stops by itself ({rope?.State}, {rope?.Unrolled:0} px)", rope != null && rope.State == Rope.Phase.Hanging && (onSlab || rope.Unrolled > depth * 0.8f));
         foreach (var _ in SbSleep(0.4f)) yield return null;
         ScShot("rope_2_full");
-        // (the end swings a little: it moves after the stop)
+        // (the end swings a little: it moves after the stop; the last turn of the coil swings in toward the holder. Lying on a slab it can't)
         var e0 = rope.P[^1];
         foreach (var _ in SbSleep(0.3f)) yield return null;
-        ScCheck($"its end swings a little after it stops ({rope.P[^1].DistanceTo(e0):0.0} px in 0.3 s)", rope.P[^1].DistanceTo(e0) > 0.3f);
+        if (!onSlab) ScCheck($"its end swings a little after it stops ({rope.P[^1].DistanceTo(e0):0.0} px in 0.3 s)", rope.P[^1].DistanceTo(e0) > 0.3f);
         _scInput = default;
 
         // ---- a climber on a rope tied off over open air: the grab sets it swinging their way, they pump, climb, and jump off with the swing
@@ -115,16 +120,18 @@ public partial class Main
         for (float t = 0; t < 4f && GodotObject.IsInstanceValid(rope); t += (float)GetProcessDeltaTime()) yield return null;
         // (out over the drop, clear of the cliff, so it can swing)
         var top = stand + new Vector2(side * 70, 0);
-        for (int k = 0; k < 6 && G.Cave.IsSolid(top + new Vector2(0, 40)); k++) top += new Vector2(side * 16, 0);
-        var tied = new Rope { Position = top, Length = Tune.Rope.Length };
+        for (int k = 0; k < 14 && (G.Cave.IsSolid(top + new Vector2(0, 40)) || SlabUnder(top.X, top.Y, top.Y + 160f)); k++) top += new Vector2(side * 16, 0);
+        var tied = new Rope { Position = top, Length = 125f }; // (short of the floor here, so it swings free)
         _world.AddChild(tied);
         foreach (var _ in SbSleep(0.5f)) yield return null;
         var grabAt = tied.PointAt(tied.Unrolled * 0.6f);
         p.GlobalPosition = grabAt + new Vector2(-4, 8); p.Velocity = new Vector2(150, 0);
-        _scInput = new PlayerInput { Move = new Vector2(0, -1) }; yield return null; yield return null;
+        _scInput = new PlayerInput { Move = new Vector2(0, -1) };
+        // (the rope's speed where the hero holds it, the moment they take hold: frames here can hold several physics steps)
+        for (int k = 0; k < 6 && !p.OnRope; k++) yield return null;
+        var v0 = tied.VelocityAt(tied.ClimbS, 1f / 60f);
         _scInput = default;
         ScCheck($"pushing up beside it takes hold ({p.OnRope})", p.OnRope);
-        var v0 = tied.VelocityAt(tied.ClimbS, 1f / 60f);
         ScCheck($"and the rope there goes the hero's way ({v0.X:0} px/s, the hero had 150)", v0.X > 30f);
         float maxX = 0, minX = 0, cx = tied.GlobalPosition.X;
         for (float t = 0; t < 2.2f; t += (float)GetProcessDeltaTime())

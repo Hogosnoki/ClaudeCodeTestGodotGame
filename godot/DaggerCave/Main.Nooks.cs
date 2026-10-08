@@ -171,6 +171,17 @@ public partial class Main
         ScShot("natural_0");
         for (int k = 1; k <= Tune.Ledge.Hits; k++) { nat.Strike(p.GlobalPosition); foreach (var _ in SbSleep(0.1f)) yield return null; }
         ScCheck($"ten blows break it ({nat.Broken})", nat.Broken);
+
+        // a spell takes a slab as a blow does: a bolt flung at one chips it (and goes no further)
+        var target = RockLedge.All.Where(x => GodotObject.IsInstanceValid(x) && !x.Broken).OrderBy(x => x.GlobalPosition.DistanceTo(p.GlobalPosition)).FirstOrDefault();
+        if (target != null)
+        {
+            int left0 = target.Left;
+            var from = target.GlobalPosition + new Vector2(-target.Half - 50f, 0);
+            G.Spawn(new ElementBolt { Position = from, Dir = new Vector2(1, 0), Range = 120f, Damage = 5f });
+            foreach (var _ in SbSleep(0.6f)) yield return null;
+            ScCheck($"a bolt flung at a slab chips it ({left0} -> {target.Left} blows left)", target.Left < left0);
+        }
     }
 
     private IEnumerator<object> _abSteps;

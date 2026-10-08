@@ -73,6 +73,7 @@ public partial class Main
         "coop" => "den",
         "shifterbehaviors" => "slime",
         "status" => "den",
+        "guardians" => "den",
         _ => null,
     };
 
@@ -114,6 +115,7 @@ public partial class Main
             case "ledgeab": LedgeAbScenario(); break;
             case "shifterbehaviors": ShifterBehaviorsScenario(); break;
             case "status": StatusScenario(); break;
+            case "guardians": GuardiansScenario(); break;
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;
             case "coop": CoopScenario(); break;

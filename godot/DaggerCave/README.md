@@ -1313,6 +1313,25 @@ sides), not smooth balls.
   golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
 - **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
 - **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
+- **Guardians' own tricks** (`--scenario=guardians` checks each, with a picture of every wind-up), each with a wind-up clip of its own:
+  - **The Web-Mother** rears back, abdomen swung up under her (`web_windup`), and spits a ball of silk (`EnemyProjectile` kind `web`). A hero
+    it strikes is **webbed** (`Player.GiveWeb`): wrapped in white strands, unable to move or act, until they struggle free (every press
+    counts, `Tune.Status.WebStruggle`; the HUD shows how far), take enough harm (`WebHoldShare` of their health), a friend's blade passes
+    through the web (`Player.CutFree`), or it gives way (`Tune.Spider.WebSeconds`).
+  - **Guardian bears** (the Den Mother, the Rotback, the Tunnel Brute) rise and draw breath (`roar_windup`), then roar: every hero within
+    `Tune.Bear.RoarRange` is **stunned** (`Player.GiveStun`, stars round the head, `StunSeconds`, then a spell of immunity), and the bear
+    rushes the nearest for a quick swipe.
+  - **The Brood Queen** arches her tail high over her head, stinger aimed (`spray_windup`), and sprays a cone of venom (`spray`): a little
+    harm and a heavy poison (`Tune.Scorpion.VenomTotal` over `VenomSeconds`; a second soaking adds to it).
+  - **The Cavern Colossus**'s charge runs to its arena's end, where it digs in, skids and wheels round (`charge_turn`) and charges back the
+    other way; the second run ends against the wall, stunned, as before. It no longer runs out of its chamber to be put back in the middle.
+  - Online, the web, the stun and the venom reach each hero in their own game (`NetSync.Boon` Web, Stun, Venom, Unweb; flags `HfWeb`,
+    `HfStun` show them on the others' screens).
+- **Spells break platforms**: a bolt (fire, frost, the Aegis's ward), the Vitalist's drain and a storm strike the breakable slabs and ice
+  platforms as a blow does (`Breakables.Spell`, `SpellBurst`), so a caster is never shut in by one. `--scenario=ledges` checks a bolt.
+- **The rope** is six heights long now (`Tune.Rope.Length` 156). The coil hangs from its near side as it unwinds (the rope leaves it on the
+  side toward whoever lets it down); when it stops, its last turn swings in toward them, a small push on the end. A coil lands on a breakable
+  slab as on rock (and rests there), and the rope hangs past slabs rather than through them.
 - **A struck slab trembles gently** about its own middle. Its mesh's origin is the cave's corner, so the tremor's slight turn had swung it
   up and down about that far point; it now shakes inside a pivot at the ledge's centre, smaller and settling quickly.
 - **Fewer keys**: a level holds exactly as many keys as it has cells (vaults): one, or two with a Locksmith's Ring. The first mini-boss

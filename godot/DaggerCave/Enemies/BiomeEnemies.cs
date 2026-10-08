@@ -124,6 +124,8 @@ public partial class Bear : Walker
     private float _st, _chargeCd = 2.5f, _swipeCd, _biteCd, _roarCd = 4f;
     /// <summary>For the tests: roars that stunned someone.</summary>
     public int Roars { get; private set; }
+    /// <summary>Test aid: the roar is ready now.</summary>
+    public void TestReadyRoar() => _roarCd = 0f;
     private float SwipeWindupNow => _quickSwipe ? Tune.Bear.RushSwipeWindup : Tune.Bear.SwipeWindup;
     private bool _quickSwipe;
 
@@ -391,6 +393,8 @@ public partial class Scorpion : Walker
     private Vector2 _sprayDir = Vector2.Right;
     /// <summary>For the tests: venom sprays that soaked someone.</summary>
     public int Sprays { get; private set; }
+    /// <summary>Test aid: the spray is ready now.</summary>
+    public void TestReadySpray() => _sprayCd = 0f;
     public override void NetState(NetIO io) => io.Sync(ref _s);
 
     public Scorpion() { MaxHp = Tune.Scorpion.Hp; BodyRadius = 9; ContactDamage = Tune.Scorpion.Contact; XpValue = Tune.Scorpion.Xp; KnockResist = 0.2f; }

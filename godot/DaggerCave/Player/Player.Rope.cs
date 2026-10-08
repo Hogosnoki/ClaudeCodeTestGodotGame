@@ -61,7 +61,8 @@ public partial class Player
                 if (G.Cave.IsSolid(at + new Vector2(0, -12f))) break;
                 if (G.Cave.IsSolid(at)) continue;
                 float h = 0;
-                while (h < Tune.Rope.Length && !G.Cave.IsSolid(at + new Vector2(0, h + 4f))) h += 4f;
+                // (down to the rock, or to a breakable slab: the coil would land on either)
+                while (h < Tune.Rope.Length && !G.Cave.IsSolid(at + new Vector2(0, h + 4f)) && !Rope.OnSlab(at + new Vector2(0, h + 4f))) h += 4f;
                 if (h >= Tune.Rope.MinLength && h > best + 8f) { best = h; side = s; over = at + new Vector2(s * 2f, 0f); }
             }
             if (side != 0) break;

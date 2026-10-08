@@ -17,24 +17,47 @@ public static class Breakables
 {
     public static readonly List<IBreakable> All = new();
 
-    /// <summary>A spell sweeps from <paramref name="a"/> to <paramref name="b"/>: any ice sheet it crosses takes a touch. True if it touched one.</summary>
+    /// <summary>A spell sweeps from <paramref name="a"/> to <paramref name="b"/>: any ice sheet it crosses takes a touch, and a breakable
+    /// platform (rock slab or ice) a blow. True if it touched one (a bolt stops there).</summary>
     public static bool Spell(Vector2 a, Vector2 b, float pad = 6f)
     {
         bool any = false;
         foreach (var br in All.ToArray())
         {
-            if (br is not IceSheet ice) continue;
-            var at = Geometry2D.GetClosestPointToSegment(br.HitCenter, a, b);
-            if (Math.Abs(at.X - br.HitCenter.X) <= ice.HitSize && Math.Abs(at.Y - br.HitCenter.Y) <= pad + 4f) any |= ice.Touch();
+            if (br is IceSheet ice)
+            {
+                var at = Geometry2D.GetClosestPointToSegment(br.HitCenter, a, b);
+                if (Math.Abs(at.X - br.HitCenter.X) <= ice.HitSize && Math.Abs(at.Y - br.HitCenter.Y) <= pad + 4f) any |= ice.Touch();
+            }
+            // the breakable platforms take a spell as they take a blow, so a caster is never shut in by one
+            else if (br is RockLedge ledge && !ledge.Broken && Crosses(ledge.GlobalPosition, ledge.Half - 1f, ledge.ThickPx * 0.5f, a, b, pad * 0.5f)) { ledge.Strike(a); any = true; }
+            else if (br is IcePlatform plat && !plat.Broken && Crosses(plat.GlobalPosition + new Vector2(0, 7), plat.HalfW, 7f, a, b, pad * 0.5f)) { plat.Strike(a); any = true; }
         }
         return any;
+    }
+
+    /// <summary>Does the segment a-b pass within <paramref name="pad"/> of the box (centre c, half sizes hx, hy)?</summary>
+    private static bool Crosses(Vector2 c, float hx, float hy, Vector2 a, Vector2 b, float pad)
+    {
+        float len = a.DistanceTo(b);
+        int n = Math.Max(2, (int)(len / 3f));
+        for (int k = 0; k <= n; k++)
+        {
+            var q = a.Lerp(b, k / (float)n);
+            if (Math.Abs(q.X - c.X) <= hx + pad && Math.Abs(q.Y - c.Y) <= hy + pad) return true;
+        }
+        return false;
     }
 
     /// <summary>A spell lands around <paramref name="at"/>: ice sheets within <paramref name="radius"/> take a touch.</summary>
     public static void SpellBurst(Vector2 at, float radius)
     {
         foreach (var br in All.ToArray())
+        {
             if (br is IceSheet ice && Math.Abs(at.X - ice.HitCenter.X) <= ice.HitSize + radius && Math.Abs(at.Y - ice.HitCenter.Y) <= radius + 6f) ice.Touch();
+            else if (br is RockLedge ledge && !ledge.Broken && Math.Abs(at.X - ledge.GlobalPosition.X) <= ledge.Half + radius && Math.Abs(at.Y - ledge.GlobalPosition.Y) <= ledge.ThickPx * 0.5f + radius) ledge.Strike(at);
+            else if (br is IcePlatform plat && !plat.Broken && Math.Abs(at.X - plat.GlobalPosition.X) <= plat.HalfW + radius && Math.Abs(at.Y - plat.GlobalPosition.Y - 7f) <= 7f + radius) plat.Strike(at);
+        }
     }
 
     /// <summary>Something flies from <paramref name="a"/> to <paramref name="b"/>: a web-hung chest's web in its way parts (only those: bolts and daggers leave ice and brush alone).</summary>

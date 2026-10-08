@@ -550,6 +550,8 @@ public partial class Spider : Enemy
     private int _webDir = 1;
     /// <summary>For the tests: webs spat.</summary>
     public int WebsSpat { get; private set; }
+    /// <summary>Test aid: the web is ready now.</summary>
+    public void TestReadyWeb() => _webCd = 0f;
 
     protected override void Setup()
     {

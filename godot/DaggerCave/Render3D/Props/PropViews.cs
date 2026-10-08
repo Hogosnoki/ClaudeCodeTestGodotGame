@@ -744,9 +744,12 @@ public partial class RopeView : PropView
         _coil.Visible = _coil2.Visible = coil > 0.02f;
         if (_coil.Visible)
         {
-            // it hangs from the rope by its top, turning a little as it unwinds
-            float spin = r.Age * 6f;
-            var at = end + new Vector3(0, -0.17f * coil, 0);
+            // the rope leaves it from its near side (toward whoever let it down), so it hangs out beyond the rope and turns as the rope
+            // unwinds off it, like a coil paid out by hand
+            float away = Math.Sign(r.P[^1].X - r.P[0].X);
+            if (away == 0) away = 1f;
+            float spin = r.Age * 6f * away;
+            var at = end + new Vector3(away * 0.165f * coil, -0.06f * coil, 0);
             _coil.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.Pi / 2f) * new Basis(Vector3.Up, spin).Scaled(Vector3.One * coil), at);
             _coil2.Transform = new Transform3D(new Basis(Vector3.Right, Mathf.Pi / 2f + 0.35f) * new Basis(Vector3.Forward, 0.25f).Scaled(Vector3.One * coil * 0.9f), at + new Vector3(0.02f, 0.01f, -0.05f));
         }

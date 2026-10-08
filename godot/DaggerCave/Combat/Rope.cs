@@ -6,7 +6,7 @@ namespace DaggerCave;
 
 /// <summary>
 /// A rope a hero lets down for the others. Holding the rope button pays it out: the coil drops from the hero's hands and unrolls as it
-/// falls, so the wound part is always at the bottom; letting go of the button (or running out of rope, about five times a hero's height)
+/// falls, so the wound part is always at the bottom; letting go of the button (or running out of rope, about six times a hero's height)
 /// stops it, the coil becomes the rope's end and it swings. Then anyone can climb it, and a second press reels it back in. The holder can't
 /// move while it is out.
 ///
@@ -94,9 +94,12 @@ public partial class Rope : Node2D
         if (length > 0f && length > Unrolled + 0.5f) { _rest[^1] += length - Unrolled; Unrolled = length; }
         else if (length > 0f) TrimTo(length);
         State = Phase.Hanging;
-        // the coil drops open into the end: a little kick sideways sets it swinging
+        // the coil drops open into the end: it unwound from its near side, so its last turn swings round from the outside to the
+        // inside, a small push on the end toward whoever let it down (the same in every game)
         int e = P.Count - 1;
-        float kick = (GD.Randf() < 0.5f ? -1f : 1f) * 26f / 60f;
+        float toward = Math.Sign(P[0].X - P[e].X);
+        if (toward == 0) toward = Holder != null && IsInstanceValid(Holder) ? -Holder.Facing : 1f;
+        float kick = toward * 26f / 60f;
         Prev[e] = Prev[e] - new Vector2(kick, 0f);
         G.Sfx.Play("rope", P[e], -10, 0.1f, 1.1f);
         NetSync.RopeState(this);
@@ -300,7 +303,7 @@ public partial class Rope : Node2D
             e = P.Count - 1;
         }
         // (the coil sits on the ground: nothing more comes off; or there is none left)
-        bool still = G.Cave.IsSolid(P[e] + new Vector2(0, 5f)) && (P[e] - Prev[e]).Length() < 0.4f;
+        bool still = (G.Cave.IsSolid(P[e] + new Vector2(0, 5f)) || OnSlab(P[e] + new Vector2(0, 5f))) && (P[e] - Prev[e]).Length() < 0.4f;
         _restT = still ? _restT + dt : 0f;
         bool resting = _restT > 0.3f;
         if (Unrolled >= Length - 0.5f || resting)
@@ -332,6 +335,14 @@ public partial class Rope : Node2D
             QueueFree();
             return true;
         }
+        return false;
+    }
+
+    /// <summary>Is <paramref name="q"/> inside a breakable slab (not in the cave's rock, but as good as ground for a coil to rest on)?</summary>
+    public static bool OnSlab(Vector2 q)
+    {
+        foreach (var l in RockLedge.All)
+            if (IsInstanceValid(l) && !l.Broken && Math.Abs(q.X - l.GlobalPosition.X) <= l.Half && Math.Abs(q.Y - l.GlobalPosition.Y) <= l.ThickPx * 0.5f + 1f) return true;
         return false;
     }
 

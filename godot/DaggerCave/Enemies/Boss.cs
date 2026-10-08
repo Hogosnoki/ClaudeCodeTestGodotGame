@@ -6,16 +6,27 @@ namespace DaggerCave;
 /// <summary>
 /// The Cavern Colossus, guardian of every cave's far chamber. Cycles through a leaping slam
 /// (shockwaves), a roar that shakes stalactites loose over the arena, and a head-down charge
-/// that stuns it against the wall (take the opening!). Below half health it gets faster and
+/// that runs to the arena's end, digs in and wheels round for a second run back, which stuns it
+/// against the wall (take the opening!). Below half health it gets faster and
 /// calls bats to its aid.
 /// </summary>
 public partial class CavernColossus : Enemy
 {
     public override Element Element => Element.Armored;
-    private enum S { Intro, Walk, LeapCrouch, Leap, Land, Roar, ChargeWindup, Charge, Stunned }
+    private enum S { Intro, Walk, LeapCrouch, Leap, Land, Roar, ChargeWindup, Charge, Stunned, ChargeTurn }
     private S _s = S.Intro;
     private float _t, _next = 1.2f;
     private int _lastAttack = -1;
+    /// <summary>The charge it is on: 1, then 2 after it has dug in at the arena's end and turned back.</summary>
+    private int _chargeLeg;
+    private bool _turned;
+    /// <summary>For the tests: charges turned back at the arena's end (no leap back to the middle).</summary>
+    public int ChargesTurned { get; private set; }
+    /// <summary>For the tests: reeling against the wall after its second run.</summary>
+    public bool Reeling => _s == S.Stunned;
+    public bool Turning => _s == S.ChargeTurn;
+    /// <summary>Test aid: a charge, now, the way it faces.</summary>
+    public void TestCharge(int face) { Face = face; _lastAttack = 2; _teacherPick = -1; Go(S.ChargeWindup); }
     private Room _room;
     private bool _phase2;
     public override void NetState(NetIO io) { io.Sync(ref _phase2); io.SyncByte(ref _s); }
@@ -139,12 +150,27 @@ public partial class CavernColossus : Enemy
                 break;
             case S.ChargeWindup:
                 v.X = Mathf.MoveToward(v.X, -Face * 30, 600 * dt);
-                if (_t > 0.65f / Speed) { Go(S.Charge); G.Sfx.Play("roar", GlobalPosition, -4, 0, 1.4f); }
+                if (_t > 0.65f / Speed) { Go(S.Charge); _chargeLeg = 1; G.Sfx.Play("roar", GlobalPosition, -4, 0, 1.4f); }
                 break;
             case S.Charge:
+            {
                 v.X = Face * Tune.Boss.ChargeSpeed * Speed;
                 if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition + new Vector2(-Face * 20, BodyRadius), new Color(0.6f, 0.55f, 0.5f, 0.8f), 1, 80, 3f, 0.4f, 200);
-                if (IsOnWall() || _t > 2.2f)
+                // (the arena's end, before the leash would have to fetch it back: it never runs out of its chamber)
+                bool end = _room != null && (GlobalPosition.X - _room.Center.X) * Face > _room.RxPx - 34f;
+                if (_chargeLeg == 1 && (end || IsOnWall() || _t > 2.2f))
+                {
+                    // the first run ends: it digs in, skids, wheels round and runs back the other way
+                    v.X = Face * 60f;
+                    G.Sfx.Play("slam", GlobalPosition, -6, 0, 0.7f);
+                    G.Fx.AddShake(5);
+                    G.Fx.Burst(GlobalPosition + new Vector2(Face * 10, BodyRadius), new Color(0.6f, 0.55f, 0.5f), 18, 180, 3f, 0.5f, 220);
+                    Go(S.ChargeTurn);
+                    _turned = false;
+                    ChargesTurned++;
+                    break;
+                }
+                if (_chargeLeg == 2 && (end || IsOnWall() || _t > 2.2f))
                 {
                     G.Sfx.Play("slam", GlobalPosition, 2);
                     G.Fx.AddShake(14);
@@ -157,6 +183,18 @@ public partial class CavernColossus : Enemy
                     v.X = -Face * 120;
                     v.Y = -200;
                     Go(S.Stunned);
+                }
+                break;
+            }
+            case S.ChargeTurn:
+                // skidding to a stop on its heels, then wheeling round to face the way it came, lowering its head for the second run
+                v.X = Mathf.MoveToward(v.X, 0, 900 * dt);
+                if (_t > 0.35f / Speed && !_turned) { _turned = true; Face = -Face; }
+                if (G.Chance(0.3f)) G.Fx.Dust(GlobalPosition + new Vector2(0, BodyRadius), 1);
+                if (_t > 0.75f / Speed)
+                {
+                    Go(S.Charge); _chargeLeg = 2;
+                    G.Sfx.Play("roar", GlobalPosition, -4, 0, 1.3f);
                 }
                 break;
             case S.Stunned:
@@ -185,7 +223,7 @@ public partial class CavernColossus : Enemy
     protected override string[] Actions => Moves;
     protected override bool Busy => _s != S.Walk;
     protected override bool Striking => _s is S.Charge or S.Leap;
-    public override bool Attacking => _s is S.LeapCrouch or S.Leap or S.ChargeWindup or S.Charge;
+    public override bool Attacking => _s is S.LeapCrouch or S.Leap or S.ChargeWindup or S.Charge or S.ChargeTurn;
     protected override bool IsAttack(int a) => a >= LeapSlam;
     protected override float AttackReady => _next <= 0 ? 1 : 0;
     protected override bool CanAct(int a) => a < LeapSlam || _next <= 0;
@@ -228,11 +266,12 @@ public partial class CavernColossus : Enemy
             case S.Roar: Anim.Loop("roar", 20f / (0.9f * 24f)); break;
             case S.ChargeWindup: Anim.Loop("charge_windup", 10f / (0.65f / Speed * 24f)); break;
             case S.Charge: Anim.Loop("charge", 1.4f); break;
+            case S.ChargeTurn: Anim.Loop("charge_turn", 10f / (0.75f / Speed * 24f)); break;
             case S.Stunned: Anim.Loop("stunned"); break;
         }
         // the one-shot clips above are driven as "loops" of non-looping clips: restart them on state entry
         if (_s != _animState) { _animState = _s; Anim.Sprite.Frame = 0; Anim.Sprite.Play(); }
-        Anim.AllowTurns = _s == S.Walk;
+        Anim.AllowTurns = _s is S.Walk or S.ChargeTurn;
         Anim.Modulate = _phase2 ? new Color(1f, 0.78f, 0.7f) : Colors.White;
     }
 

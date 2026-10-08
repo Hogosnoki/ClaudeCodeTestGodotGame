@@ -218,6 +218,15 @@ public sealed class ColossusDesign : CreatureDesign
                     break;
                 }
             case "charge": neck = -32f; headUp = -12f; jaw = 18f; glow = 2f; break;
+            case "charge_turn":
+                {
+                    // heels dug in and leaning back against the skid, then a heave round, head swinging low, heart flaring for the next run
+                    float skid = 1f - W3.SmoothStep(0.25f, 0.55f, t), wheel = W3.SmoothStep(0.35f, 0.75f, t), low = W3.SmoothStep(0.6f, 1f, t);
+                    pitch = -10f * skid + 4f * low; legBend = 30f * skid + 18f * low; drop = 0.12f * skid + 0.18f * low;
+                    neck = 14f * skid - 30f * low; headUp = 10f * skid - 12f * low; jaw = 10f + 14f * wheel;
+                    roll = 8f * MathF.Sin(MathF.PI * wheel); armFwd = -18f * skid + 10f * wheel; glow = 1.2f + 1.3f * low;
+                    break;
+                }
             case "stunned":
                 {
                     // slumped, head lolling, the heart guttering
