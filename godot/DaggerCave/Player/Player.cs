@@ -313,6 +313,30 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>
+    /// The movement stick (or keys) as one vector, free in every direction. Reading each direction's action on its own gives the stick
+    /// a cross-shaped dead zone (a push 20 degrees off the horizontal registers as straight along it), which, with the keys, made
+    /// movement and aim fall into the eight directions 45 degrees apart. This reads the raw strengths, puts one round dead zone on the pair
+    /// (<see cref="Tune.Hero.StickDeadzone"/>, rescaled so a gentle push is a gentle move), and keeps a key's full strength on each axis
+    /// (so a keyboard diagonal still runs at full speed).
+    /// </summary>
+    public static Vector2 ReadMove()
+    {
+        var v = new Vector2(Input.GetActionRawStrength("move_right") - Input.GetActionRawStrength("move_left"),
+                            Input.GetActionRawStrength("move_down") - Input.GetActionRawStrength("move_up"));
+        return ShapeStick(v);
+    }
+
+    /// <summary>A round dead zone on a raw stick vector (see <see cref="ReadMove"/>); also what the tests use.</summary>
+    public static Vector2 ShapeStick(Vector2 v)
+    {
+        float len = v.Length();
+        float dz = Tune.Hero.StickDeadzone;
+        if (len <= dz) return Vector2.Zero;
+        v *= (len - dz) / (1f - dz) / len;
+        return new Vector2(Math.Clamp(v.X, -1f, 1f), Math.Clamp(v.Y, -1f, 1f));
+    }
+
+    /// <summary>
     /// This machine's controls, for the hero <paramref name="p"/>: keyboard and mouse or a
     /// controller, as bound in the settings. Aim: the right stick, else (on a controller) the left
     /// stick; with keyboard and mouse, the mouse pointer while the mouse is in use, else the way
@@ -325,7 +349,7 @@ public partial class Player : CharacterBody2D
         if (G.Main.MenuOpen) { p._swallow = true; return default; }
         var inp = new PlayerInput
         {
-            Move = new Vector2(Input.GetAxis("move_left", "move_right"), Input.GetAxis("move_up", "move_down")),
+            Move = ReadMove(),
             Jump = Input.IsActionJustPressed("jump"),
             JumpHeld = Input.IsActionPressed("jump"),
             Dodge = Input.IsActionJustPressed("dodge"),

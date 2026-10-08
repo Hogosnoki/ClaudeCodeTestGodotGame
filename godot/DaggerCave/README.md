@@ -473,6 +473,12 @@ The Rogue's two daggers are its attacks, and what isn't in its hands is out in t
 All of these numbers are in `Tune.Swordsman`, `Tune.Warden`, `Tune.Vitalist`, `Tune.Elementalist`
 and `Tune.Rogue`.
 
+Movement and aim are free over the whole circle. The movement stick is read as one vector with a single round dead zone (`Player.ReadMove`,
+`Hero.StickDeadzone` 0.2: a gentle push is a gentle move, rest drift is nothing), not each direction on its own: reading the four actions
+separately gave the stick a cross-shaped dead zone that bent every push toward the eight directions 45 degrees apart, and that carried into
+swimming, the Elementalist's narrow draft and every aimed throw or bolt when aiming with the left stick. The right stick and the mouse were
+always free. (Only the keyboard's move keys are eight-way, as keys must be: aim with the mouse there.) `--scenario=stick` checks it.
+
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
 (`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 420 px/s (`Hero.MaxFallSpeed`).
 **Fall damage** counts the time spent falling at that terminal speed (at least 97% of it): past 0.3 s of it (about a 180 px drop) a

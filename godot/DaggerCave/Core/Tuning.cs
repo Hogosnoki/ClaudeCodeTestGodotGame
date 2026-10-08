@@ -38,6 +38,8 @@ public static class Tune
         /// </summary>
         public static float JumpVelocity = 420f, Gravity = 1350f, Floatiness = 0.76f;
         public static float MaxFallSpeed = 420f;
+        /// <summary>The movement stick's round dead zone (a share of its throw): see Player.ReadMove.</summary>
+        public static float StickDeadzone = 0.2f;
         /// <summary>Fall damage counts the time spent falling at the terminal speed (at least FallTerminalShare of MaxFallSpeed): past
         /// FallGraceSeconds of it a landing takes FallShareMin of the hero's current health, rising to FallShareMax after FallRampSeconds
         /// more. Anything that slows the fall below that speed (a second jump, an updraft, a dash, a rope, the water) resets the count.
