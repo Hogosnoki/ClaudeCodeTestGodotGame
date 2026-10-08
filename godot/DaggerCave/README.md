@@ -1291,6 +1291,9 @@ sides), not smooth balls.
   - **The Swordsman's heaving swing breaks a rubble pile in one blow** (`Rubble.Smash`, sent to the other games) and **shatters frozen creatures**; the
     **Warden's shield bash** shatters them too. A shatter is a snap's burst (`Player.BurstCreature`): the creature takes `Tune.Elementalist.SnapDamage` on top of
     the blow, and what stands near it takes the splash.
+  - **The right stick aims the Rogue's daggers** like the mouse: pushing it over to swing never recalls the daggers (only the attack *button* with none in
+    hand does; `PlayerInput.StickAttack`). **The Elementalist aims the narrow draft with either stick** (or the move keys): taking aim holds him still,
+    with no moving, jumping, bolts or swings until the button is let go (`Player.ReadInput`).
 - **More breakable platforms** (`CaveGenerator.ConvertSmallPlatforms`): any small platform the cave grew by itself (a free-floating island of
   rock, thin and wider than deep, up to 64 corners and 10 cells wide) is lifted out of the field and made a ledge slab like the generated ones (ten
   blows to break, dirt and shudder), with its own thickness for the collider. `cave.NaturalPlatforms` counts them (the gentest line shows

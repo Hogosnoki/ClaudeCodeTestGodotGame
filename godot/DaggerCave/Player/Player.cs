@@ -17,6 +17,8 @@ public struct PlayerInput
     public bool AimGiven;
     /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
     public bool AttackHeld;
+    /// <summary>The attack is the right stick pushed over, not the button (for the Rogue it never recalls the daggers).</summary>
+    public bool StickAttack;
     /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
     public bool Up;
     /// <summary>The interact button held (reviving a fallen friend takes a moment).</summary>
@@ -274,8 +276,16 @@ public partial class Player : CharacterBody2D
     {
         // (frozen solid: nothing gets through)
         if (_frozenT > 0) return default;
-        if (InputOverride != null) return InputOverride();
-        return ReadLocalInput(this);
+        var inp = InputOverride != null ? InputOverride() : ReadLocalInput(this);
+        // (taking aim with the narrow draft holds you still: either stick, or the move keys, only point it; no bolts, jumps or swings meanwhile)
+        if (IsElementalist && _draftAiming)
+        {
+            inp.Move = Vector2.Zero;
+            inp.Jump = inp.JumpHeld = false;
+            inp.Attack = inp.AttackHeld = inp.StickAttack = false;
+            inp.Ability = inp.Ability2 = inp.Support = false;
+        }
+        return inp;
     }
 
     /// <summary>
@@ -324,7 +334,7 @@ public partial class Player : CharacterBody2D
         // everyone else, pushing it well over attacks that way (again and again while it's held)
         bool warden = p.Stats.Hero == HeroKind.Warden;
         inp.StickGuard = stickOn && warden;
-        if (!warden && stick.Length() > 0.5f) inp.AttackHeld = true;
+        if (!warden && stick.Length() > 0.5f) { inp.StickAttack = !inp.AttackHeld; inp.AttackHeld = true; }
         var toMouse = (p.GetGlobalMousePosition() - p.GlobalPosition).Normalized();
         bool mouse = !G.Main.UsingPad && GameSettings.AimFromMouse;
         // the shield points wherever a swing would go: right stick, else the left stick on a
@@ -506,7 +516,7 @@ public partial class Player : CharacterBody2D
         // the attack button, then the two ability buttons (each fires once it's allowed); held
         // down, the attack goes again as soon as it can, wherever you aim now
         if (_attackBuf > 0 && Primary(_attackAim)) _attackBuf = 0;
-        else if (inp.AttackHeld && _attackBuf <= 0) Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true);
+        else if (inp.AttackHeld && _attackBuf <= 0) Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true, stick: inp.StickAttack);
         if (_abilityBuf > 0 && Ability(_abilityAim)) _abilityBuf = 0;
         if (_ability2Buf > 0 && Ability2(_ability2Aim)) _ability2Buf = 0;
         if (_supportBuf > 0 && Support(_supportAim)) _supportBuf = 0;
@@ -534,12 +544,13 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>The attack button: a swing, the Vitalist's drain, or the Elementalist's bolt. True once it fires.
-    /// <paramref name="held"/>: the button is being held down (a drain then waits for something to drain).</summary>
-    private bool Primary(Vector2 aim, bool held = false) => _snagT <= 0 && Stats.Hero switch
+    /// <paramref name="held"/>: the button is being held down (a drain then waits for something to drain).
+    /// <paramref name="stick"/>: it is the right stick pushed over (the Rogue's aim, not a recall).</summary>
+    private bool Primary(Vector2 aim, bool held = false, bool stick = false) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Vitalist => CastDrain(aim, held),
         HeroKind.Elementalist => CastBolt(aim, held),
-        HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : TryRecall(fromAttack: true),
+        HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : !stick && TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         HeroKind.Aegis => CastWardBolt(aim, held),
         HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
