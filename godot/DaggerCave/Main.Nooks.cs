@@ -107,6 +107,8 @@ public partial class Main
         float cd0 = p.Stats.AbilityCdMult; p.Buffs.Clear();
         foreach (var _ in SbSleep(1.2f)) { p.GlobalPosition = lamp.GlobalPosition + new Vector2(-14, -14); yield return null; }
         ScShot("lamp_0");
+        // (a few relics' icons along the top, to see the page's words clear of them)
+        foreach (var id in new[] { "relic_treasure", "relic_locksmith", "relic_deeper" }) RunRelics.Note(Net.Me, id);
         ScCheck($"the hero is within reach of it ({GuildLamp.At(p.GlobalPosition) == lamp})", GuildLamp.At(p.GlobalPosition) == lamp);
         lamp.Read();
         ScCheck($"the page is kept in the journal ({string.Join(",", Meta.JournalFound)}) and paid an ember ({embers} -> {Meta.Embers})", Meta.JournalFound.Contains(G.Biome.Id.ToString()) && Meta.Embers == embers + 1);

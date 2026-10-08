@@ -313,12 +313,13 @@ public partial class Hud : Control
         }
         if (NoticeT > 0 && Notice != "")
         {
-            // (a notice may run to several lines)
+            // (a notice may run to several lines; it starts below the row of relics, when there is one)
             var lines = Notice.Split('\n');
+            float top = RunRelics.Mine.Any() ? 94 : 58;
             for (int k = 0; k < lines.Length; k++)
             {
                 var nsz = font.GetStringSize(lines[k], HorizontalAlignment.Left, -1, 13);
-                DrawString(font, new Vector2(vs.X / 2 - nsz.X / 2, 58 + k * 17), lines[k], HorizontalAlignment.Left, -1, 13, new Color(1f, 0.92f, 0.75f, Math.Clamp(NoticeT, 0, 1) * 0.9f));
+                DrawString(font, new Vector2(vs.X / 2 - nsz.X / 2, top + k * 17), lines[k], HorizontalAlignment.Left, -1, 13, new Color(1f, 0.92f, 0.75f, Math.Clamp(NoticeT, 0, 1) * 0.9f));
             }
         }
 
