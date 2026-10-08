@@ -574,6 +574,12 @@ public partial class Main : Node
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
         if (_chestTest && _lookFrame == 2) SpawnChestTest();
+        // Test aid (--lookexit, with --lookshot): an exit's doorway (and the stair you came by) beside the hero, to see how they are lit
+        if (_lookFrame == 2 && OS.GetCmdlineUserArgs().Contains("--lookexit"))
+        {
+            var at = G.Player.GlobalPosition;
+            if (G.Cave.FindFloor(at + new Vector2(150, -20), 120, out var f1)) SpawnPortal(f1 + new Vector2(0, -17), (int)BiomeId.Ruins, 2, "test");
+        }
         if (_lookStatus != "" && _lookFrame == 2)
         {
             // Test aid (--lookstatus=poison|burn|frost, with --lookshot): the hero afflicted, a burning goblin and a frozen one beside

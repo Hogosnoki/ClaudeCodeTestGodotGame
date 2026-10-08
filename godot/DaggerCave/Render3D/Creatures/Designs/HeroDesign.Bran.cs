@@ -91,7 +91,6 @@ public sealed partial class HeroDesign
         var rng = new Random(77);
         int hipsB = s["hips"], spineB = s["spine"], chestB = s["chest"], neckB = s["neck"], headB = s["head"];
         int c0 = s["cape0"], c1 = s["cape1"], c2 = s["cape2"], c3 = s["cape3"];
-        int s0 = s["scarf0"], s1 = s["scarf1"], s2 = s["scarf2"];
 
         // ================================================================ torso
         s.Egg(hipsB, new(0, 0.03f, 0), new(0.125f, 0.1f, 0.155f), BrTrouser, Mat.Cloth, 0.04f);
@@ -207,17 +206,15 @@ public sealed partial class HeroDesign
         // a little stubble's body along the chin and lip (the rest is paint)
         s.Limb(headB, new(0.094f, 0.64f, -0.018f), new(0.094f, 0.64f, 0.018f), 0.011f, 0.011f, skin, Mat.Skin, 0.012f, 0.0014f);
 
-        // ================================================================ the cowl, and the scarf's tail
+        // ================================================================ the cowl
         Ring(s, neckB, new(0.014f, 0.52f, 0), 0.1f, 0.115f, 0.036f, BrNavy, Mat.Cloth, 0.012f, 0.0025f);
         Ring(s, neckB, new(0.022f, 0.565f, 0), 0.082f, 0.092f, 0.03f, BrNavy, Mat.Cloth, 0.012f, 0.0025f);
         s.Egg(neckB, new(-0.07f, 0.51f, 0), new(0.075f, 0.065f, 0.13f), BrNavy, Mat.Cloth, 0.03f, bump: 0.002f);
         // a fold of it laid across the chest
         s.Limb(neckB, new(0.095f, 0.535f, 0.075f), new(0.16f, 0.43f, -0.02f), 0.032f, 0.026f, BrNavy, Mat.Cloth, 0.012f, 0.002f);
         s.Limb(neckB, new(0.14f, 0.43f, -0.03f), new(0.115f, 0.34f, -0.12f), 0.026f, 0.014f, BrNavy, Mat.Cloth, 0.01f, 0.002f);
-        s.Ball(s0, new(-0.075f, 0.57f, 0.02f), 0.04f, BrNavy, Mat.Cloth, 0.02f);
-        s.Limb(s0, new(-0.075f, 0.565f, 0.025f), new(-0.2f, 0.545f, 0.045f), 0.04f, 0.034f, BrNavy, Mat.Cloth, 0.015f);
-        s.Limb(s1, new(-0.2f, 0.545f, 0.045f), new(-0.36f, 0.52f, 0.055f), 0.034f, 0.02f, BrNavy, Mat.Cloth, 0.012f);
-        s.Limb(s2, new(-0.36f, 0.52f, 0.055f), new(-0.45f, 0.495f, 0.06f), 0.02f, 0.008f, BrNavy, Mat.Cloth, 0.01f);
+        // (the cowl is knotted at the nape; no tail: a stiff one stood straight out behind his shoulder like a spike)
+        s.Ball(neckB, new(-0.07f, 0.555f, 0.015f), 0.034f, BrNavy, Mat.Cloth, 0.02f);
 
         // ================================================================ arms
         for (int k = 0; k < 2; k++)

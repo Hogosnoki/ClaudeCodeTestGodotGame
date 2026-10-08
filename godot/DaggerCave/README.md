@@ -1302,12 +1302,14 @@ sides), not smooth balls.
 - **Ledge slabs** (`LedgeMesh`) are cut out of the terrain itself: the cave's field is built once more with every ledge in it (on the loading
   thread), the terrain mesher runs over a window round each ledge, and the ledge keeps its own triangles of that terrain, clipped cleanly just
   in front of where it would bend into the back wall. Same field, seed, mesher and material, so every vertex has the ground's colour,
-  occlusion, depth and grain. And **props that are part of the cave** (ledges, rubble, the doorways, ice platforms) are no longer put on the
-  creatures' light layer (`PropView.ActorLit`): the creatures' warm key and cool rim lights had made them bright with glowing edges.
+  occlusion, depth and grain. And **the platforms** (ledge slabs, ice platforms) are no longer put on the creatures' light layer
+  (`PropView.ActorLit`): the creatures' warm key and cool rim lights had made them bright with glowing edges. The doorways and rubble
+  keep those lights (without them they went nearly black; `--lookshot=PATH --lookexit` shows a doorway).
   `--scenario=ledgeab --seed=N [--ledgesasground]` renders the same views with the ledges as slabs or left in the rock as plain ground; the
   two now measure within about 1/255 of each other on the ledges' tops and faces. `LEDGE_DEBUG=1` prints each slab's triangle count.
 - **Rubble barriers** are made with the terrain's own material, so each takes its biome's rock and tint (they were one brown photo everywhere).
 - **The doorways** (the stair you came in by, and the exits) stand 0.85 m back from where the heroes walk, so no one walks through their stones.
+- **The Swordsman's scarf tail is gone**: it stood stiffly out behind his shoulder like a spike; the cowl is knotted at the nape.
 - **Frostbolt**: 0.2 s between throws while charged (`Tune.Elementalist.FrostGap`); firebolts 0.25 s.
 - **The Elementalist's orbs and charges** (`Player/Player.Elementalist.cs`, `HeroDesign.AttachOrbs/SyncOrbs`): lore from the world of Alima: an
   Elementalist absorbs elemental essence (fire, ice, water, wind, earth, nature) and moves it about his body by will alone. His staff now holds

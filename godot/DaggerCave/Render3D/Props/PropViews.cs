@@ -155,7 +155,8 @@ public abstract partial class PropView : Node3D
 
     /// <summary>
     /// The view is lit like a creature: the actor key and rim lights (lighting only the actor layer) make it read against the rock. Off
-    /// for what is part of the cave (ledges, rubble, the doorways, ice platforms): it must be lit exactly as the terrain is, or it glows.
+    /// only for the platforms (the breakable ledge slabs and ice platforms), which must be lit exactly as the ground they are cut from, or
+    /// they glow; the doorways and rubble keep it (without it they go nearly black).
     /// </summary>
     protected virtual bool ActorLit => true;
 
@@ -1369,7 +1370,6 @@ public partial class HeroCageView : PropView
 /// </summary>
 public partial class PortalView : PropView
 {
-    protected override bool ActorLit => false;
     private const float HalfW = 1.05f, DoorH = 3f;
     /// <summary>The doorway stands this far back from the plane the heroes walk in, so none walks through its stones.</summary>
     private const float Back = 0.85f;
@@ -2352,7 +2352,6 @@ public partial class RockLedgeView : PropView
 /// </summary>
 public partial class RubbleView : PropView
 {
-    protected override bool ActorLit => false;
     private const int MaxRocks = 44;
     private readonly MeshInstance3D[] _rock = new MeshInstance3D[MaxRocks];
     private readonly Vector3[] _home = new Vector3[MaxRocks], _vel = new Vector3[MaxRocks], _off = new Vector3[MaxRocks], _spin = new Vector3[MaxRocks];
