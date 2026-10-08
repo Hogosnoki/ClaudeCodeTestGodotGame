@@ -1313,6 +1313,8 @@ sides), not smooth balls.
   golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
 - **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
 - **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
+- **A struck slab trembles gently** about its own middle. Its mesh's origin is the cave's corner, so the tremor's slight turn had swung it
+  up and down about that far point; it now shakes inside a pivot at the ledge's centre, smaller and settling quickly.
 - **Fewer keys**: a level holds exactly as many keys as it has cells (vaults): one, or two with a Locksmith's Ring. The first mini-boss
   slain drops one where a mini-boss lairs; the rest are hidden. Going down, a hero keeps only as many keys as the cells they left locked
   (`Main.LockedCells`): open every cell and you leave with none. `--scenario=vault` checks both.

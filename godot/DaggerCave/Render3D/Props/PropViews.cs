@@ -2307,6 +2307,7 @@ public partial class RockLedgeView : PropView
 {
     protected override bool ActorLit => false;
     private MeshInstance3D _body;
+    private Node3D _pivot;
     private Vector3 _bodyHome;
     private readonly System.Collections.Generic.List<MeshInstance3D> _bits = new();
     private readonly System.Collections.Generic.List<Vector3> _vel = new(), _spin = new();
@@ -2323,7 +2324,11 @@ public partial class RockLedgeView : PropView
         if (mesh == null) { _bodyHome = default; return; }
         _body = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.On, Position = off };
         _bodyHome = off;
-        AddChild(_body);
+        // (the mesh's own origin is the cave's corner, far off: it trembles in a pivot at the ledge's centre, or the least turn would
+        // swing it about that far point)
+        _pivot = new Node3D();
+        AddChild(_pivot);
+        _pivot.AddChild(_body);
         // the ground's grass on it, the same tufts as everywhere else (it goes with the ledge)
         if (grass != null && grass.Count > 0 && CaveDecor3D.GrassMeshes is Mesh[] gm)
             for (int k = 0; k < gm.Length; k++)
@@ -2366,10 +2371,11 @@ public partial class RockLedgeView : PropView
         if (!l.Broken)
         {
             if (_body == null) return;
-            // it shudders when struck: a quick tremor that settles
+            // it shudders when struck: a small, quick tremor about its own middle that settles
             float k = Math.Clamp(l.ShakeT / 0.45f, 0f, 1f);
-            _body.Position = _bodyHome + new Vector3(MathF.Sin(Time * 95f) * 0.05f * k, MathF.Sin(Time * 71f + 1f) * 0.035f * k, 0f);
-            _body.Rotation = new Vector3(0, 0, MathF.Sin(Time * 83f) * 0.012f * k);
+            k *= k;
+            _pivot.Position = new Vector3(MathF.Sin(Time * 61f) * 0.022f * k, MathF.Sin(Time * 47f + 1f) * 0.012f * k, 0f);
+            _pivot.Rotation = new Vector3(0, 0, MathF.Sin(Time * 53f) * 0.005f * k);
             return;
         }
         if (_fall < 0) { _fall = 0; Crumble(l); }
