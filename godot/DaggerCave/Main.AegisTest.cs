@@ -7,6 +7,7 @@ namespace DaggerCave;
 /// <summary>--scenario=aegis --hero=aegis: the Aegis's kit against a friend and a pair of creatures (see ScenarioTick).</summary>
 public partial class Main
 {
+    private bool _scBoltShot;
     private Player _scAlly;
     private Enemy _scFoe2;
     private float _scAegisHp, _scAllyHp, _scFoeHp2;
@@ -51,11 +52,14 @@ public partial class Main
                 p.Hp = p.Stats.MaxHp - 20f;
                 _scAegisHp = p.Hp; _scHp = _scFoe.Hp; _scFoeHp2 = _scFoe2.Hp;
                 Pulse(new PlayerInput { Attack = true, Aim = new Vector2(1, 0) });
-                _scStep = 2; _scT = 0;
+                // (and one more, harmless, flying off the other way, for the picture of a ward bolt in flight)
+                G.Spawn(new ElementBolt { Ward = true, Harmless = true, Position = p.GlobalPosition + new Vector2(-14, -6), Dir = new Vector2(-1, -0.15f).Normalized(), Speed = 160f, Range = 200f });
+                _scStep = 2; _scT = 0; _scBoltShot = false;
                 break;
             }
             case 2:
             {
+                if (_scT > 0.35f && !_scBoltShot) { _scBoltShot = true; ScShot("aegis_ward_bolt"); }
                 if (_scT < 1.2f) return;
                 float hit = _scHp - _scFoe.Hp, hit2 = _scFoeHp2 - _scFoe2.Hp;
                 float want = Tune.Aegis.BoltDamage * p.Stats.DamageMult * Affinity.Mult(_scFoe.Element, DamageKind.Physical);

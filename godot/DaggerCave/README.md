@@ -1309,6 +1309,10 @@ sides), not smooth balls.
   two now measure within about 1/255 of each other on the ledges' tops and faces. `LEDGE_DEBUG=1` prints each slab's triangle count.
 - **Rubble barriers** are made with the terrain's own material, so each takes its biome's rock and tint (they were one brown photo everywhere).
 - **The doorways** (the stair you came in by, and the exits) stand 0.85 m back from where the heroes walk, so no one walks through their stones.
+- **The Aegis's Barrier** soaks half what it did (`Tune.Aegis.BarrierShare` 14% of the receiver's max health). **Her ward bolt** is a
+  golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
+- **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
+- **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
 - **The Swordsman's scarf tail is gone**: it stood stiffly out behind his shoulder like a spike; the cowl is knotted at the nape.
 - **Frostbolt**: 0.2 s between throws while charged (`Tune.Elementalist.FrostGap`); firebolts 0.25 s.
 - **The Elementalist's orbs and charges** (`Player/Player.Elementalist.cs`, `HeroDesign.AttachOrbs/SyncOrbs`): lore from the world of Alima: an

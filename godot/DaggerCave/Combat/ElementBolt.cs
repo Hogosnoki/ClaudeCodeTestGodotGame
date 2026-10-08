@@ -71,7 +71,8 @@ public partial class ElementBolt : Node2D
         if (_trailT <= 0)
         {
             _trailT = 0.03f;
-            if (Frost) G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.95f, 1f, 0.8f), 1, 20, 1.4f, 0.3f, 40);
+            if (Ward) { _trailT = 0.11f; if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition - Dir * 5f, new Color(1f, 0.95f, 0.75f, 0.5f), 1, 12, 1.1f, 0.25f, -30); }
+            else if (Frost) G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.95f, 1f, 0.8f), 1, 20, 1.4f, 0.3f, 40);
             else G.Fx.Ember(GlobalPosition - Dir * 4f, G.Chance(0.5f) ? FireColor : new Color(1f, 0.85f, 0.4f));
         }
         QueueRedraw();
@@ -138,8 +139,10 @@ public partial class ElementBolt : Node2D
         if (Ward)
         {
             G.Fx.Ring(at, (Tune.Aegis.BurstRadius * 0.6f) * (0.5f + 0.5f * size), new Color(1f, 0.92f, 0.6f, 0.85f), 0.25f);
-            G.Fx.Burst(at, col, (int)(8 * size) + 2, 110, 1.8f, 0.3f, -20);
-            G.Sfx.Play("clink", at, -10, 0.1f, 1.3f);
+            // (the bubble pops: a ring, a few droplets of light and a bubble or two)
+            G.Fx.Burst(at, new Color(1f, 0.95f, 0.75f), (int)(6 * size) + 2, 90, 1.4f, 0.25f, -20);
+            G.Fx.Bubbles(at, 2);
+            G.Sfx.Play("clink", at, -10, 0.1f, 1.7f);
         }
         else if (Frost)
         {

@@ -146,7 +146,7 @@ public static class Tune
         public static float HealingWardGlance = 0.25f, BoltDamage = 10.8f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
         public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0.0025f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
-        public static float BarrierShare = 0.28f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
+        public static float BarrierShare = 0.14f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
         /// <summary>Shared Burden (the second ability): the ally takes (1 - share) of every blow, the Aegis the rest, for BurdenSeconds. No cooldown beyond a blink.</summary>
         public static float BurdenShare = 0.2f, BurdenSeconds = 60f, BurdenBlink = 0.4f;
         /// <summary>Smite (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a burst of light SmiteRadius px round her for SmiteDamage, weakening everything it strikes; SmiteCooldown s.</summary>

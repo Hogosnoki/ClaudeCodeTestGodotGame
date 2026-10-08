@@ -484,7 +484,8 @@ public partial class SwordWaveView : PropView
 }
 
 /// <summary>The Elementalist's bolt: a knot of fire (a hot white core in an orange halo) or of frost
-/// (a bright star in an icy halo), with a tail streaming back along its flight, lighting its way.</summary>
+/// (a bright star in an icy halo), with a tail streaming back along its flight, lighting its way. The Aegis's ward bolt is a golden
+/// bubble instead.</summary>
 public partial class ElementBoltView : PropView
 {
     private MeshInstance3D _core, _halo;
@@ -492,10 +493,38 @@ public partial class ElementBoltView : PropView
     private OmniLight3D _light;
     private Color _col;
 
+    // the Aegis's ward bolt: no fire and no tail, a golden bubble that wobbles as it flies
+    private MeshInstance3D _bubble;
+    private static ArrayMesh _wardMesh;
+
+    private static ArrayMesh WardMesh()
+    {
+        if (_wardMesh != null) return _wardMesh;
+        var arrays = new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 18, Rings = 10 }.GetMeshArrays();
+        var verts = (Vector3[])arrays[(int)Mesh.ArrayType.Vertex];
+        var cols = new Color[verts.Length];
+        for (int i = 0; i < cols.Length; i++) cols[i] = new Color(1f, 0.9f, 0.55f, 1f);
+        arrays[(int)Mesh.ArrayType.Color] = cols;
+        _wardMesh = new ArrayMesh();
+        _wardMesh.AddSurfaceFromArrays(Mesh.PrimitiveType.Triangles, arrays);
+        return _wardMesh;
+    }
+
     protected override void Build()
     {
         var b = (ElementBolt)Owner2D;
         _col = b.Tint;
+        if (b.Ward)
+        {
+            _bubble = new MeshInstance3D { Mesh = WardMesh(), MaterialOverride = PropViews.BubbleMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            AddChild(_bubble);
+            // (a soft warm glow held inside it)
+            _core = PropViews.Sprite(new Color(1f, 0.92f, 0.65f), 0, 0.9f, 0.3f);
+            AddChild(_core);
+            _light = PropViews.Light(_col, 0.8f, 2.2f);
+            AddChild(_light);
+            return;
+        }
         _halo = PropViews.Sprite(_col, b.Frost ? 0 : 4, 1.6f, 0.55f);
         AddChild(_halo);
         _core = PropViews.Sprite(b.Frost ? new Color(0.95f, 1f, 1f) : new Color(1f, 0.92f, 0.7f), b.Frost ? 3 : 0, 2.6f, 0.26f);
@@ -514,6 +543,15 @@ public partial class ElementBoltView : PropView
     {
         var b = (ElementBolt)Owner2D;
         Follow(default, 0.3f);
+        if (_bubble != null)
+        {
+            // it wobbles as it goes, a little longer along its flight
+            float r = 6.5f / W3.Ppu, w = 0.08f * MathF.Sin(b.Age * 19f);
+            var along = new Vector3(b.Dir.X, -b.Dir.Y, 0f);
+            float ang = MathF.Atan2(along.Y, along.X);
+            _bubble.Basis = new Basis(Vector3.Back, ang) * Basis.FromScale(new Vector3(r * (1.12f + w), r * (0.94f - w), r));
+            return;
+        }
         float flick = b.Frost ? 1f : 0.85f + 0.15f * MathF.Sin(b.Age * 47f);
         _halo.Scale = Vector3.One * 0.55f * flick;
         var back = new Vector3(-b.Dir.X, b.Dir.Y, 0f);
@@ -1092,7 +1130,7 @@ public partial class ChestView : PropView
     private Node3D _lid, _web, _float;
     private float _floatY;
     private MeshInstance3D _shine;
-    private OmniLight3D _light;
+    private OmniLight3D _light, _fill;
     private Label3D _owner;
     private bool _vault;
     private ChestTier _tier;
@@ -1168,6 +1206,9 @@ public partial class ChestView : PropView
         _light = PropViews.Light(_tint.Lerp(Colors.White, 0.2f), shrine ? 0.45f : boss ? 1.3f : 0.8f, boss ? 5.5f : 4f);
         _light.Position = new Vector3(0, shrine ? _floatY + 0.3f : h + 0.4f, 0.4f);
         AddChild(_light);
+        // a soft white fill from in front, so the chest's own face and bands read in the dark (its glow lights mostly its top)
+        _fill = new OmniLight3D { LightCullMask = Stage3D.ActorLayer, LightColor = new Color(1f, 0.95f, 0.88f), LightEnergy = shrine ? 0.7f : 1.4f, OmniRange = shrine ? 2.2f : 2.6f, OmniAttenuation = 1.1f, ShadowEnabled = false, Position = new Vector3(0, shrine ? _floatY * 0.6f : h * 0.7f, 1.5f) };
+        AddChild(_fill);
 
         if (c0.Hung) BuildWeb(c0, w, h, d);
         // whose it is, online (until they've looked and left it)

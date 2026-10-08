@@ -276,9 +276,10 @@ public partial class Chest : Node2D, IBreakable
     /// <summary>The unopened chest a hero at <paramref name="p"/> can open, if any.</summary>
     public static Chest At(Vector2 p)
     {
-        // (a hero who has given up chests opens none: shrines, relic chests, guardians' hoards, vaults)
-        if (G.Player?.Stats.NoChests == true) return null;
-        foreach (var c in All) if (GodotObject.IsInstanceValid(c) && c.Reaches(p)) return c;
+        // (a hero who has given up chests opens no relic chest, guardian's hoard or vault; the upgrade shrines still open for them)
+        bool noChests = G.Player?.Stats.NoChests == true;
+        foreach (var c in All)
+            if (GodotObject.IsInstanceValid(c) && c.Reaches(p) && (!noChests || c.IsShrine && c.Tier == ChestTier.Wood)) return c;
         return null;
     }
 
