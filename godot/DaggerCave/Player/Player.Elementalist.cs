@@ -15,8 +15,7 @@ namespace DaggerCave;
 /// second ability snaps: every frozen creature in view shatters, hurting whatever is near it
 /// (Cinder Snap: every burning creature bursts). The staff holds two bolts (Frostbolt: three) and
 /// gets them back one at a time; each spell's readiness shows as an orb about the hero, which
-/// vanishes while that spell recharges. Alterations: Frostbolt, Narrow Draft (a taller,
-/// narrower, longer updraft), Firestorm and Cinder Snap.
+/// vanishes while that spell recharges. Alterations: Frostbolt, Firestorm and Cinder Snap.
 /// </summary>
 public partial class Player
 {
@@ -66,6 +65,8 @@ public partial class Player
 
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
     /// <summary>Test aid: the staff is ready again.</summary>
+    /// <summary>Test aid: the updraft is ready again.</summary>
+    public void TestResetUpdraft() => _updraftCd = 0;
     public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; }
 
     public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
@@ -175,35 +176,104 @@ public partial class Player
 
     // ---------------------------------------------------------------- updraft
 
-    private bool TryUpdraft(Vector2 aim)
+    // The dodge button aims the updraft: held down, a faint column shows where it would stand (it follows the mouse, the right stick, or
+    // the way you push the move keys; with none of them, it stands straight up); let go, and it is raised at that angle.
+    private bool _draftAiming;
+    private Vector2 _draftDir = Vector2.Up;
+    private DraftAim _draftPreview;
+    /// <summary>For the HUD and the tests: the updraft is being aimed.</summary>
+    public bool AimingDraft => _draftAiming;
+
+    /// <summary>Where a column aimed along <paramref name="dir"/> would start: from the ground at your feet when it points up, else from your middle.</summary>
+    private Vector2 DraftOrigin(Vector2 dir)
+    {
+        if (-dir.Y > 0.7f)
+        {
+            // (from the ground at your feet, or from where you hang in the air, if the ground is far)
+            var foot = GlobalPosition + new Vector2(0, 13f);
+            if (!IsOnFloor() && G.Cave.FindFloor(GlobalPosition, 70f, out var floor)) foot = floor;
+            return foot;
+        }
+        return GlobalPosition - dir * 4f;
+    }
+
+    /// <summary>The press: you take aim (or are told you can't).</summary>
+    private bool BeginDraftAim(in PlayerInput inp)
     {
         if (!IsElementalist || _updraftCd > 0) return false;
+        if (_draftAiming) return true;
+        if (Alimus < UpdraftCost - 0.001f && !Stats.BloodCast) { SayNo("NOT ENOUGH ALIMUS"); _updraftCd = 0.3f; return true; }
+        _draftAiming = true;
+        _draftDir = inp.AimGiven && inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : Vector2.Up;
+        _draftPreview = new DraftAim();
+        G.Spawn(_draftPreview);
+        UpdateDraftPreview();
+        G.Sfx.Play("dodge", GlobalPosition, -14, 0.05f, 1.6f);
+        return true;
+    }
+
+    private void UpdateDraftPreview()
+    {
+        if (_draftPreview == null || !IsInstanceValid(_draftPreview)) return;
+        var o = DraftOrigin(_draftDir);
+        _draftPreview.GlobalPosition = o;
+        _draftPreview.Angle = MathF.Atan2(_draftDir.X, -_draftDir.Y);
+        _draftPreview.Width = Tune.Elementalist.UpdraftWidth;
+        _draftPreview.Height = Updraft.CutHeight(o, _draftDir, Tune.Elementalist.UpdraftHeight);
+    }
+
+    private void EndDraftAim()
+    {
+        _draftAiming = false;
+        if (_draftPreview != null && IsInstanceValid(_draftPreview)) _draftPreview.QueueFree();
+        _draftPreview = null;
+    }
+
+    /// <summary>Each tick while aiming: follow the aim while the button is held; when it is let go, raise the column at the final angle.</summary>
+    private void TickDraftAim(in PlayerInput inp)
+    {
+        if (!_draftAiming) return;
+        if (Dead || _frozenT > 0 || G.Main.MenuOpen) { EndDraftAim(); return; }
+        if (inp.GuardHeld)
+        {
+            // (aimed nowhere, it stands straight up)
+            _draftDir = inp.AimGiven && inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : Vector2.Up;
+            CastDir = _draftDir;
+            UpdateDraftPreview();
+            return;
+        }
+        var dir = _draftDir;
+        EndDraftAim();
+        CastUpdraft(dir);
+    }
+
+    /// <summary>The button is let go: the column is raised at the angle aimed.</summary>
+    private void CastUpdraft(Vector2 dir)
+    {
         _updraftCd = 0.5f;
-        if (!PayAlimus(UpdraftCost)) return true;
-        // it rises from the ground at your feet (or from where you hang in the air, if the ground is far)
-        var foot = GlobalPosition + new Vector2(0, 13f);
-        if (!IsOnFloor() && G.Cave.FindFloor(GlobalPosition, 70f, out var floor)) foot = floor;
-        bool narrow = Stats.NarrowDraft;
+        if (!PayAlimus(UpdraftCost)) return;
+        var origin = DraftOrigin(dir);
         var draft = new Updraft
         {
-            Position = foot,
-            Width = Tune.Elementalist.UpdraftWidth * (narrow ? 0.5f : 1f),
-            Height = Tune.Elementalist.UpdraftHeight + (narrow ? Tune.Elementalist.NarrowExtra : 0f),
-            Life = narrow ? Tune.Elementalist.NarrowSeconds : Tune.Elementalist.UpdraftSeconds,
-            // (a Narrow Draft can be angled where you aim, anywhere above the horizontal; aimed nowhere, it stands straight up)
-            Angle = narrow && aim.LengthSquared() > 0.09f ? Math.Clamp(MathF.Atan2(aim.X, -aim.Y), -1.5f, 1.5f) : 0f,
+            Position = origin,
+            Width = Tune.Elementalist.UpdraftWidth,
+            Height = Tune.Elementalist.UpdraftHeight,
+            Life = Tune.Elementalist.UpdraftSeconds,
+            // (any angle at all: up, along, or down)
+            Angle = MathF.Atan2(dir.X, -dir.Y),
         };
         G.Spawn(draft);
         NetSync.HeroVisual(draft);
         LastUpdraft = draft;
+        if (Math.Abs(dir.X) > 0.3f) { Facing = Math.Sign(dir.X); Anim.Face((int)Facing, instant: true); }
+        CastDir = dir;
         Anim.Once("hex", 3, 1.5f);
         LastCast = "updraft";
         _castGlow = 1f;
-        G.Fx.Shockwave(foot, 34, new Color(0.85f, 0.95f, 1f, 0.3f), 0.4f);
-        G.Fx.Dust(foot, 6, 1.4f, new Color(0.85f, 0.9f, 0.95f, 0.35f));
+        G.Fx.Shockwave(origin, 34, new Color(0.85f, 0.95f, 1f, 0.3f), 0.4f);
+        G.Fx.Dust(origin, 6, 1.4f, new Color(0.85f, 0.9f, 0.95f, 0.35f));
         G.Sfx.Play("dodge", GlobalPosition, -4, 0.05f, 0.6f);
         G.Main.Rumble(0.25f, 0.1f, 0.12f);
-        return true;
     }
 
     /// <summary>
@@ -217,8 +287,10 @@ public partial class Player
         // (the relief from gravity is the column's upward share: all of it standing straight up, none lying flat;
         // its sideways share is the push, in Platform)
         float k = draft.Strength * Math.Max(0f, -draft.Up.Y);
-        gravMult = Mathf.Lerp(1f, Tune.Elementalist.UpdraftGravityMult, k);
-        fallCap = MaxFall * Mathf.Lerp(1f, Tune.Elementalist.UpdraftFallMult, k);
+        // (a column pointing down is a downdraft: it drives you down it, as the upward one eases you up)
+        float down = draft.Strength * Math.Max(0f, draft.Up.Y);
+        gravMult = Mathf.Lerp(Mathf.Lerp(1f, Tune.Elementalist.DowndraftGravityMult, down), Tune.Elementalist.UpdraftGravityMult, k);
+        fallCap = MaxFall * Mathf.Lerp(Mathf.Lerp(1f, Tune.Elementalist.DowndraftFallMult, down), Tune.Elementalist.UpdraftFallMult, k);
         if (v.Y > fallCap)
         {
             v.Y = Mathf.MoveToward(v.Y, fallCap, 2400f * dt);
@@ -353,30 +425,12 @@ public partial class Player
         foreach (var e in marked)
         {
             if (!IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
-            var at = e.GlobalPosition;
             burst++;
             // (ice shatters; a creature burning but not frozen bursts in cinders)
             bool cinder = !e.FrozenSolid;
             float dmg = (cinder ? Tune.Elementalist.CinderDamage : Tune.Elementalist.SnapDamage) * Stats.DamageMult;
             float splash = (cinder ? Tune.Elementalist.CinderSplash : Tune.Elementalist.SnapSplash) * Stats.DamageMult;
-            var col = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
-            // the ice (or the fire) goes, in a burst of shards (or cinders)
-            if (cinder) e.Quench(); else e.Thaw();
-            float dealt = e.Hurt(dmg, Vector2.Up * 60f, at, cinder ? DamageKind.Fire : DamageKind.Frost);
-            if (dealt > 0) OnDealtDamage(dealt);
-            G.Fx.Flash(at, e.HitRadius + 14, col, 0.14f);
-            G.Fx.Burst(at, cinder ? new Color(1f, 0.6f, 0.2f) : new Color(0.85f, 0.97f, 1f), 18, 190, 2.4f, 0.45f, cinder ? -60f : 260f);
-            G.Fx.Ring(at, radius, new Color(col, 0.8f), 0.3f);
-            G.Sfx.Play(cinder ? "lava" : "rock", at, -4, 0.1f, cinder ? 1.2f : 2f);
-            foreach (var o in G.Enemies.ToArray())
-            {
-                if (o == e || o.Dead || !o.CanBeHit || o.GlobalPosition.DistanceTo(at) > radius + o.HitRadius) continue;
-                if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
-                float d2 = o.Hurt(splash, (o.GlobalPosition - at).Normalized() * 80f, o.GlobalPosition, cinder ? DamageKind.Fire : DamageKind.Frost);
-                if (d2 > 0) OnDealtDamage(d2);
-                // Cinder Snap: what the burst splashes on is set alight
-                if (Stats.CinderSnap && !o.Dead) o.Ignite(Tune.Elementalist.IgniteDps, Tune.Elementalist.IgniteSeconds);
-            }
+            BurstCreature(e, dmg, splash, radius, cinder, Stats.CinderSnap);
         }
         LastSnapCount = burst;
         if (burst > 0)

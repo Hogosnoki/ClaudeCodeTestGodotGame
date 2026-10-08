@@ -70,6 +70,7 @@ public partial class Main
         "ledges" => "slime",
         "ledgeab" => "roots",
         "rope" => "den",
+        "coop" => "den",
         "shifterbehaviors" => "slime",
         "status" => "den",
         _ => null,
@@ -115,6 +116,7 @@ public partial class Main
             case "status": StatusScenario(); break;
             case "crab": CrabScenario(); break;
             case "rope": RopeScenario(); break;
+            case "coop": CoopScenario(); break;
             case "rubble": RubbleScenario(); break;
             case "ice": IceScenario(); break;
             case "telegraph": TelegraphScenario(); break;

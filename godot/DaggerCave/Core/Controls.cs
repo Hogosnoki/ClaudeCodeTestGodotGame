@@ -27,7 +27,7 @@ public static class Controls
         ("ability", "Ability"),
         ("ability2", "Second ability"),
         // (each dot keeps to the word after it, so a wrapped name breaks before one)
-        ("dodge", "Dodge  ·\u00a0\u00a0shield  ·\u00a0\u00a0hex  ·\u00a0\u00a0updraft  ·\u00a0\u00a0vanish"),
+        ("dodge", "Dodge  ·\u00a0\u00a0shield  ·\u00a0\u00a0hex  ·\u00a0\u00a0updraft (hold to aim, let go to raise)  ·\u00a0\u00a0vanish"),
         ("potion", "Drink a potion"),
         ("milestone", "Spend a milestone point"),
         ("support", "Support ability  ·  shout · taunt · tap · stalag · expose · mark · howl"),

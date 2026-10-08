@@ -270,11 +270,11 @@ public static class NetSync
     }
 
     /// <summary>This game's hero chipped at a rubble plug (the other games take the same blow).</summary>
-    public static void RubbleHit(Rubble r)
+    public static void RubbleHit(Rubble r, bool smash = false)
     {
         if (!Net.Online || Applying) return;
         var w = new NetOut(Net.Msg.HeroEvent);
-        w.Int(Net.Me).Byte(14).Int(r.Index);
+        w.Int(Net.Me).Byte(14).Int(r.Index).Byte((byte)(smash ? 1 : 0));
         Net.SendAll(w, true);
     }
 
@@ -420,9 +420,9 @@ public static class NetSync
             }
             case 14:
             {
-                int ri = r.Int();
+                int ri = r.Int(); bool smash = r.More && r.Byte() != 0;
                 Applying = true;
-                foreach (var rb in Rubble.All) if (GodotObject.IsInstanceValid(rb) && rb.Index == ri) rb.NetHit();
+                foreach (var rb in Rubble.All) if (GodotObject.IsInstanceValid(rb) && rb.Index == ri) rb.NetHit(smash);
                 Applying = false;
                 break;
             }

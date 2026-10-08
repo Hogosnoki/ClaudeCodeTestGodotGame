@@ -358,13 +358,13 @@ public partial class Hud : Control
                 {
                     move,
                     $"{atk} jab (hold to keep jabbing{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {a1} throw a dagger · {a2} recall them · {dg} vanish · kick off walls",
-                    "Thrown daggers stick in what they hit and stay until recalled (or jab with none left); coming out, they cut again · " + pause,
+                    "Thrown daggers stick in what they hit and stay until recalled (or jab with none left); coming out, they cut again · one in a wall is a foothold for everyone · " + pause,
                 },
                 HeroKind.Elementalist => new[]
                 {
                     move,
-                    $"{atk} {(p.Stats.Frostbolt ? "frostbolt" : "firebolt")} (hold to keep casting{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} updraft (lifts everyone in it) · {a1} {(p.Stats.Firestorm ? "firestorm" : "blizzard")} · {a2} snap",
-                    "Spells cost alimus, which comes back by itself · a snap shatters every frozen creature in view · " + pause,
+                    $"{atk} {(p.Stats.Frostbolt ? "frostbolt" : "firebolt")} (hold to keep casting{(pad ? ", or push the right stick" : ", aim with the mouse")}) · hold {dg} to aim an updraft, let go to raise it (a column of air anyone can float in) · {a1} {(p.Stats.Firestorm ? "firestorm" : "blizzard")} · {a2} snap",
+                    "Spells cost alimus, which comes back by itself · a snap shatters every frozen creature in view (so does a heaving swing, or a shield bash) · " + pause,
                 },
                 HeroKind.Vitalist => new[]
                 {

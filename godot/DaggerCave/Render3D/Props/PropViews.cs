@@ -55,6 +55,7 @@ public static class PropViews
             IceSheet => new IceSheetView(),
             StalagGrip => new StalagGripView(),
             IcePlatform => new IcePlatformView(),
+            DraftAim => new DraftAimView(),
             _ => null,
         };
         if (v == null) return;
@@ -581,6 +582,59 @@ public partial class UpdraftView : PropView
         PropViews.SetSprite(_foot, new Color(0.8f, 0.94f, 1f, 0.1f * s), 0, 0.2f);
         _light.Position = new Vector3(0, h * 0.5f, 0.3f);
         _light.LightEnergy = 0.08f * s;
+    }
+}
+
+/// <summary>The updraft being aimed: a faint outline of the column to come, with chevrons running up it, so it is seen where it will stand.</summary>
+public partial class DraftAimView : PropView
+{
+    protected override bool ActorLit => false;
+    private MeshInstance3D _haze, _edgeL, _edgeR;
+    private readonly MeshInstance3D[] _chevrons = new MeshInstance3D[5];
+    private ShaderMaterial _flat;
+
+    protected override void Build()
+    {
+        _flat = (ShaderMaterial)PropViews.SpriteMat.Duplicate();
+        _flat.SetShaderParameter("billboard", false);
+        _haze = PropViews.Sprite(new Color(0.7f, 0.88f, 1f), 0, 0.2f, 1f);
+        _haze.MaterialOverride = _flat;
+        AddChild(_haze);
+        _edgeL = PropViews.Sprite(new Color(0.85f, 0.95f, 1f), 0, 0.5f, 0.05f); _edgeL.MaterialOverride = _flat; AddChild(_edgeL);
+        _edgeR = PropViews.Sprite(new Color(0.85f, 0.95f, 1f), 0, 0.5f, 0.05f); _edgeR.MaterialOverride = _flat; AddChild(_edgeR);
+        for (int k = 0; k < _chevrons.Length; k++)
+        {
+            _chevrons[k] = PropViews.Sprite(new Color(0.9f, 0.97f, 1f), 3, 0.5f, 0.2f);
+            _chevrons[k].MaterialOverride = _flat;
+            AddChild(_chevrons[k]);
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var d = (DraftAim)Owner2D;
+        Follow(default, 0.2f);
+        Rotation = new Vector3(0, 0, -d.Angle);
+        float h = W3.M(d.Height), w = W3.M(d.Width);
+        float pulse = 0.75f + 0.25f * MathF.Sin(Time * 7f);
+        _haze.Position = new Vector3(0, h * 0.5f, -0.05f);
+        _haze.Scale = new Vector3(w * 0.5f, h * 0.5f, 1f);
+        PropViews.SetSprite(_haze, new Color(0.7f, 0.88f, 1f, 0.06f * pulse), 0, 0.3f);
+        foreach (var (e, side) in new[] { (_edgeL, -1f), (_edgeR, 1f) })
+        {
+            e.Position = new Vector3(side * w * 0.5f, h * 0.5f, 0);
+            e.Scale = new Vector3(0.025f, h * 0.5f, 1f);
+            PropViews.SetSprite(e, new Color(0.85f, 0.95f, 1f, 0.35f * pulse), 0, 0.5f);
+        }
+        // (chevrons run up it, so the way it points reads at once)
+        for (int k = 0; k < _chevrons.Length; k++)
+        {
+            float y = ((k / (float)_chevrons.Length) + Time * 0.6f) % 1f;
+            float fade = MathF.Min(y / 0.15f, (1f - y) / 0.25f);
+            _chevrons[k].Position = new Vector3(0, y * h, 0.02f);
+            _chevrons[k].Scale = new Vector3(w * 0.28f, w * 0.1f, 1f);
+            PropViews.SetSprite(_chevrons[k], new Color(0.9f, 0.97f, 1f, Math.Clamp(fade, 0f, 1f) * 0.5f), 3, 0.5f);
+        }
     }
 }
 

@@ -424,7 +424,7 @@ public partial class Main : Node
                 {
                     HeroKind.Warden => new[] { "reach", "shield_wide", "aegis", "aegis", "shield_unyielding", "unyielding_more", "dash_cd", "hp", "speed", "rr_lungs" },
                     HeroKind.Vitalist => new[] { "mouths", "hex_long", "heal_slow", "heal_warding", "wellspring", "rupture_cheap", "hp", "armor", "rr_glass" },
-                    HeroKind.Elementalist => new[] { "kindling", "reservoir", "attune", "attune", "updraft_narrow", "whiteout", "gathering", "echo", "hp", "speed", "rr_reserve" },
+                    HeroKind.Elementalist => new[] { "kindling", "reservoir", "attune", "attune", "whiteout", "gathering", "echo", "hp", "speed", "rr_reserve" },
                     HeroKind.Rogue => new[] { "keen", "backstab", "twin_throw", "throw_ricochet", "surprise", "hp", "speed", "jump", "rr_glass" },
                     _ => new[] { "combo", "reach", "charge_combo", "charge_combo_more", "windrunner", "windrunner", "iframes", "hp", "speed", "rr_heavy" },
                 };

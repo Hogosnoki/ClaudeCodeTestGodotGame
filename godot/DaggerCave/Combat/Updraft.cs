@@ -5,8 +5,8 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Elementalist's Updraft: a tall, wide column of air standing on the ground where it was
-/// cast. It doesn't lift anyone: any hero inside it (the caster or a friend) has gravity at 0.4 of
+/// The Elementalist's Updraft: a tall, narrow column of air, aimed in any direction (the dodge button held to aim, let go to raise it).
+/// It doesn't lift anyone: any hero inside it (the caster or a friend) has gravity at 0.4 of
 /// itself and a terminal velocity of 0.2 of the usual, so a jump carries far higher and a fall is a
 /// slow drift down. It stops at a ceiling. Every game keeps a copy, and each copy eases only that
 /// game's own hero, so every hero floats in every column.
@@ -17,7 +17,7 @@ public partial class Updraft : Node2D
     public static readonly List<Updraft> All = new();
 
     public float Width = Tune.Elementalist.UpdraftWidth, Height = Tune.Elementalist.UpdraftHeight, Life = Tune.Elementalist.UpdraftSeconds;
-    /// <summary>Radians from straight up (positive: leaning right). A Narrow Draft can be aimed.</summary>
+    /// <summary>Radians from straight up (positive: leaning right), any angle at all: the way it was aimed.</summary>
     public float Angle;
     public Vector2 Up => Vector2.Up.Rotated(Angle);
     public float TotalLife { get; private set; }
@@ -33,10 +33,16 @@ public partial class Updraft : Node2D
     {
         ZIndex = -1;
         TotalLife = Life;
-        // a ceiling cuts it short
+        // rock in the way cuts it short
+        Height = CutHeight(GlobalPosition, Up, Height);
+    }
+
+    /// <summary>How far a column of this height, set going from <paramref name="at"/> along <paramref name="up"/>, runs before rock stops it (at least 24 px).</summary>
+    public static float CutHeight(Vector2 at, Vector2 up, float height)
+    {
         float h = 0;
-        while (h < Height && !G.Cave.IsSolid(GlobalPosition + Up * (h + 18f))) h += 4f;
-        Height = Math.Max(24f, h);
+        while (h < height && !G.Cave.IsSolid(at + up * (h + 18f))) h += 4f;
+        return Math.Max(24f, h);
     }
 
     public override void _EnterTree() { if (!All.Contains(this)) All.Add(this); }
@@ -87,4 +93,13 @@ public partial class Updraft : Node2D
         DrawLine(new Vector2(-Width * 0.5f, 0), new Vector2(-Width * 0.5f, -Height), new Color(0.85f, 0.95f, 1f, a * 2f), 1f);
         DrawLine(new Vector2(Width * 0.5f, 0), new Vector2(Width * 0.5f, -Height), new Color(0.85f, 0.95f, 1f, a * 2f), 1f);
     }
+}
+
+/// <summary>The aim of an updraft not yet raised: where the column would stand (seen only by the hero aiming it).</summary>
+public partial class DraftAim : Node2D
+{
+    public float Width = Tune.Elementalist.UpdraftWidth, Height = Tune.Elementalist.UpdraftHeight;
+    /// <summary>Radians from straight up.</summary>
+    public float Angle;
+    public override void _Ready() { ZIndex = -1; }
 }

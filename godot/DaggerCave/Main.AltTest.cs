@@ -425,21 +425,41 @@ public partial class Main
                 if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
                 break;
 
-            // ---- Narrow Draft: half as wide, 6 m taller, 15 s
+            // ---- the updraft is narrow and aimed: held to aim (at any angle), raised where the button is let go
             case 40:
-                Take(p, "updraft_narrow");
                 p.SetAlimus(p.Stats.AlimusMax);
-                _heroInput = new PlayerInput { Dodge = true };
+                _elUpdraft = p.LastUpdraft;
+                // (first aimed up and to the right, the button held)
+                _heroInput = new PlayerInput { Dodge = true, GuardHeld = true, Aim = new Vector2(1, -1).Normalized(), AimGiven = true };
                 break;
-            case 41:
-            {
+            case 42:
+                Check($"the button held only aims: no column yet ({p.AimingDraft}, a new one {p.LastUpdraft != _elUpdraft}, alimus {p.Alimus:0})", p.AimingDraft && p.LastUpdraft == _elUpdraft && p.Alimus > p.Stats.AlimusMax - 0.5f);
+                // (the aim swings round to level, right: the final angle is what counts)
+                _heroInput = new PlayerInput { GuardHeld = true, Aim = new Vector2(1, 0), AimGiven = true };
+                break;
+            case 44:
                 _heroInput = default;
+                break;
+            case 46:
+            {
                 var u = p.LastUpdraft;
-                // (a ceiling can cut any column short)
-                bool roof = G.Cave.IsSolid(u.GlobalPosition - new Vector2(0, Tune.Elementalist.UpdraftHeight + Tune.Elementalist.NarrowExtra + 18f));
-                Check($"Narrow Draft: a column half as wide ({u.Width:0} px), taller ({u.Height:0} px) and lasting {Tune.Elementalist.NarrowSeconds:0} s ({u.TotalLife:0})",
-                    Math.Abs(u.Width - Tune.Elementalist.UpdraftWidth * 0.5f) < 0.1f && (roof || u.Height > Tune.Elementalist.UpdraftHeight + 1f) && Math.Abs(u.TotalLife - Tune.Elementalist.NarrowSeconds) < 0.1f);
+                Check($"let go, the column rises at the final angle ({Mathf.RadToDeg(u?.Angle ?? 0):0} degrees, aimed level: 90)", u != null && u != _elUpdraft && Math.Abs((u.Angle) - Mathf.Pi / 2f) < 0.05f);
+                Check($"it is narrow ({u.Width:0} px) and long-lived ({u.TotalLife:0} s) by default", u != null && Math.Abs(u.Width - Tune.Elementalist.UpdraftWidth) < 0.1f && Math.Abs(u.TotalLife - Tune.Elementalist.UpdraftSeconds) < 0.1f);
+                Check($"it cost the alimus ({p.Alimus:0} left of {p.Stats.AlimusMax:0})", Math.Abs(p.Alimus - (p.Stats.AlimusMax - Tune.Elementalist.UpdraftCost)) < 0.6f);
                 if (IsInstanceValid(u)) u.QueueFree();
+                // (and straight down: a downdraft)
+                p.SetAlimus(p.Stats.AlimusMax);
+                _elUpdraft = p.LastUpdraft;
+                p.TestResetUpdraft();
+                _heroInput = new PlayerInput { Dodge = true, GuardHeld = true, Aim = new Vector2(0, 1), AimGiven = true };
+                break;
+            }
+            case 48: _heroInput = default; break;
+            case 50:
+            {
+                var u = p.LastUpdraft;
+                Check($"aimed straight down it points down ({Mathf.RadToDeg(u?.Angle ?? 0):0} degrees, 180)", u != null && u != _elUpdraft && Math.Abs(Math.Abs(u.Angle) - Mathf.Pi) < 0.05f);
+                if (u != null && IsInstanceValid(u)) u.QueueFree();
                 break;
             }
 

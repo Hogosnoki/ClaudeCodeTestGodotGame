@@ -204,7 +204,8 @@ public partial class Player
                 if (to.Length() > reach || _brokeThisSwing.Contains(b)) continue;
                 if (to.Length() > 14 && Math.Abs(_swingDir.AngleTo(to)) > _swingArc * 0.5f + 0.4f) continue;
                 _brokeThisSwing.Add(b);
-                b.Strike(origin);
+                // (a heaving swing breaks a rubble pile in one blow)
+                if (_heave && b is Rubble pile) pile.Smash(); else b.Strike(origin);
             }
             foreach (var pr in G.Main.EnemyProjectiles.ToArray())
             {
@@ -249,7 +250,10 @@ public partial class Player
             dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit);
             _swingSurprise = false;
         }
+        // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst)
+        bool shatter = _heave && e.FrozenSolid;
         float dealt = e.Hurt(dmg, dir * kb, hitPos);
+        if (shatter) ShatterFrozen(e);
         if (dealt > 0 && Stats.BleedShare > 0 && !e.Dead) e.Bleed(dealt * Stats.BleedShare, Tune.Swordsman.BleedSeconds);
         if (dealt <= 0)
         {

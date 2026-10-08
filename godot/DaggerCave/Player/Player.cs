@@ -13,6 +13,8 @@ public struct PlayerInput
     public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact, Rope, Support;
     /// <summary>The rope button held down (a rope pays out while it is).</summary>
     public bool RopeHeld;
+    /// <summary>The aim is a real one (the mouse, the right stick, or the move keys pushed), not just the way you face.</summary>
+    public bool AimGiven;
     /// <summary>The attack held down (or the right stick pushed): the attack repeats as fast as it can.</summary>
     public bool AttackHeld;
     /// <summary>A deliberate push up (not while running sideways): it also takes you down an exit.</summary>
@@ -334,6 +336,7 @@ public partial class Player : CharacterBody2D
         else if (!mouse) inp.Aim = inp.Move.Length() > 0.2f ? inp.Move.Normalized() : new Vector2(p.Facing, 0);
         else inp.Aim = toMouse;
         if (mouse && !stickOn) inp.AimDist = (p.GetGlobalMousePosition() - p.GlobalPosition).Length();
+        inp.AimGiven = stickOn || mouse || inp.Move.Length() > 0.2f;
         return inp;
     }
 
@@ -404,6 +407,7 @@ public partial class Player : CharacterBody2D
 
         TickTimers(dt);
         TickRope(inp, dt);
+        if (IsElementalist) TickDraftAim(inp);
         TickSupport(dt);
         switch (Stats.Hero)
         {
@@ -571,7 +575,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Swordsman => TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
-        HeroKind.Elementalist => TryUpdraft(inp.Aim),
+        HeroKind.Elementalist => BeginDraftAim(inp),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
         HeroKind.ShapeShifter => Possessed || TryDodge(inp), // (a creature has no dodge roll)

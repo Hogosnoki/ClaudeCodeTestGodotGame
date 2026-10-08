@@ -7,8 +7,8 @@ namespace DaggerCave;
 /// <summary>
 /// The Rogue's kit. Two daggers: the attack button jabs with them (quick, one creature at a time,
 /// now and then a critical strike twice as hard; half as fast with one thrown); the ability button
-/// throws one, and it sticks in the creature it meets (a miss comes back by itself, and with both
-/// out, both come home); the second ability recalls them, each tearing back out through its
+/// throws one, and it sticks in the creature it meets, or in a wall (where its hilt is a foothold
+/// for anyone; a miss comes back by itself, and with both out, both come home); the second ability recalls them, each tearing back out through its
 /// creature and yanking it toward you. The dodge button vanishes: creatures lose you, and you move
 /// half again as fast, until you strike or are struck. Innate: sliding down walls and kicking off
 /// them. Alterations: Ricochet, Smoke Bomb and Tether.
@@ -205,7 +205,8 @@ public partial class Player
         NetSync.HeroRecall(this);
         bool surprise = StrikeFromShadows();
         // Tether: you go to the dagger instead (the first one stuck in a creature)
-        if (!fromAttack && Stats.Tether && out_.FirstOrDefault(d => d.State == ThrownDagger.Phase.Stuck) is ThrownDagger anchor)
+        // (a dagger in a creature first; else one in a wall: you pull yourself to it)
+        if (!fromAttack && Stats.Tether && (out_.FirstOrDefault(d => d.State == ThrownDagger.Phase.Stuck && !d.InWall) ?? out_.FirstOrDefault(d => d.State == ThrownDagger.Phase.Stuck)) is ThrownDagger anchor)
         {
             _tetherTo = anchor;
             _tetherT = 0;

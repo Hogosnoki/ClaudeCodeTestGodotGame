@@ -61,20 +61,23 @@ public partial class Rubble : StaticBody2D, IBreakable
     /// <summary>The interact button: heave at the rocks.</summary>
     public void Heave() => Hit(true);
 
-    private void Hit(bool heave, bool remote = false)
+    /// <summary>One great blow (a heaving swing): the whole pile comes down at once.</summary>
+    public void Smash() => Hit(false, false, true);
+
+    private void Hit(bool heave, bool remote = false, bool smash = false)
     {
-        if (Cleared || _cool > 0) return;
+        if (Cleared || (_cool > 0 && !smash)) return;
         _cool = 0.18f;
         ShakeT = 0.45f;
-        Left--;
+        if (smash) Left = 0; else Left--;
         G.Sfx.Play(Bones ? "clink" : "rock", GlobalPosition, -4, 0.1f, (heave ? 0.8f : 1f) * (Bones ? 1.3f : 1f));
         G.Fx.Debris(GlobalPosition, Dust, 6, 120);
-        if (!remote) NetSync.RubbleHit(this);
+        if (!remote) NetSync.RubbleHit(this, smash);
         if (Left <= 0) Clear();
     }
 
     /// <summary>A friend's game cleared (or chipped) this plug.</summary>
-    public void NetHit() => Hit(false, remote: true);
+    public void NetHit(bool smash = false) => Hit(false, remote: true, smash: smash);
 
     private void Clear()
     {

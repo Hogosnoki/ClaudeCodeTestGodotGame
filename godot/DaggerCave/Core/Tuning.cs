@@ -299,7 +299,10 @@ public static class Tune
         /// ThrowSpeed px/s up to ThrowRange px and sticks in the first creature it meets for
         /// ThrowDamage, nudging it (ThrowNudge); a miss flies back by itself, at ReturnSpeed px/s.
         /// Daggers stuck in creatures stay there until recalled (the recall button, or the attack button with none in hand); each tears back out for RecallDamage.
+        /// One that meets a wall (a surface steeper than FootholdMaxSlope of the floor's, as the open side's normal.Y) goes into it and stays the same way, its
+        /// hilt a one-way ledge FootholdLength px long that anyone can stand on.
         /// </summary>
+        public static float FootholdLength = 14f, FootholdMaxSlope = 0.6f;
         public static float ThrowDamage = 10.8f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
         /// <summary>The wait before the next throw: ThrowCooldownOne s after a throw leaves one dagger out, ThrowCooldownBoth s after one that leaves both out (a recall doesn't shorten it).</summary>
         public static float ThreatDist = 1.15f; // the rogue seems farther off to enemies: they pick others first
@@ -354,17 +357,16 @@ public static class Tune
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
         public static float FrostDamage = 12f, FrostEvery = 1f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
-        /// <summary>Updraft (the dodge button): costs UpdraftCost alimus; a column of air
-        /// UpdraftWidth px wide and UpdraftHeight px tall (10 m) at your feet for UpdraftSeconds.
-        /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a
-        /// terminal velocity of UpdraftFallMult of the usual. Narrow Draft (an alteration):
-        /// half as wide, NarrowExtra px (6 m) taller, NarrowSeconds long.</summary>
-        public static float UpdraftCost = 15f, UpdraftWidth = 110f, UpdraftHeight = 200f, UpdraftSeconds = 10f;
-        public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f;
-        /// <summary>A leaning (Narrow Draft) column also carries a hero along its lean: this speed (px/s) times how far it leans sideways.
+        /// <summary>Updraft (the dodge button): hold it to aim, let go to raise it. Costs UpdraftCost alimus; a narrow column of air
+        /// UpdraftWidth px wide and UpdraftHeight px tall (18 m) for UpdraftSeconds, at the angle aimed (any direction at all).
+        /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a terminal velocity of UpdraftFallMult of
+        /// the usual (scaled by how upright it stands); a column pointing down is a downdraft instead: gravity at DowndraftGravityMult and
+        /// a terminal velocity of DowndraftFallMult, scaled by how far down it points.</summary>
+        public static float UpdraftCost = 15f, UpdraftWidth = 55f, UpdraftHeight = 296f, UpdraftSeconds = 15f;
+        public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f, DowndraftGravityMult = 2.2f, DowndraftFallMult = 1.7f;
+        /// <summary>A leaning column also carries a hero along its lean: this speed (px/s) times how far it leans sideways.
         /// Its relief from gravity scales with how upright it is; lying flat it only blows.</summary>
         public static float UpdraftPushSpeed = 240f;
-        public static float NarrowExtra = 96f, NarrowSeconds = 15f;
         /// <summary>
         /// Blizzard (the ability button): costs BlizzardCost alimus, BlizzardCooldown s to come
         /// back. A storm BlizzardRadius px round (about 176 px, 11 m across) at the aim point, no further

@@ -423,8 +423,11 @@ public partial class Player
             var hit = e.GlobalPosition - from * e.HitRadius;
             var push = (from + _bashDir).Normalized() * Tune.Warden.BashPush;
             // (the blow first, then the stun: a hit's own short reel mustn't cut the stun short)
+            // (a bash shatters what is frozen solid: after the blow, the ice goes in a burst)
+            bool shatter = e.FrozenSolid;
             float dealt = e.Hurt(Tune.Warden.BashDamage * Stats.DamageMult, push, hit);
             if (dealt > 0) OnDealtDamage(dealt);
+            if (shatter) ShatterFrozen(e);
             // (a deflecting bash shoves, but doesn't stun)
             if (!e.Dead && !Stats.DeflectingBash)
             {
