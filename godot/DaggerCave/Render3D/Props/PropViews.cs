@@ -835,13 +835,15 @@ public partial class ThrownDaggerView : PropView
             _blade.Rotation = new Vector3(0, 0, MathF.Atan2(p.X, p.Y));
             _blade.Position = new Vector3(-p.X, p.Y, 0) * 0.2f;
         }
+        // (one in a wall is a foothold: a little larger, and glinting, so the party can see where to step)
+        _blade.Scale = Vector3.One * (d.InWall ? 2.1f : 1.6f);
         var back = new Vector3(-d.Dir.X, d.Dir.Y, 0);
         for (int k = 0; k < _trail.Length; k++)
         {
             _trail[k].Visible = flying;
             _trail[k].Position = back * (0.1f + 0.12f * k);
         }
-        _glint.Scale = Vector3.One * (0.12f + 0.08f * MathF.Abs(MathF.Sin(d.Age * 9f)));
+        _glint.Scale = Vector3.One * (d.InWall ? 0.16f + 0.1f * MathF.Abs(MathF.Sin(d.Age * 3f)) : 0.12f + 0.08f * MathF.Abs(MathF.Sin(d.Age * 9f)));
     }
 }
 

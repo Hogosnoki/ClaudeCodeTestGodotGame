@@ -81,12 +81,16 @@ public partial class Main
                 ScCheck($"a hero lowered onto it stands on it ({restY - hilt.Y:0} px from the dagger, on floor {p.IsOnFloor()})", p.IsOnFloor() && Math.Abs(restY - (hilt.Y - 14f)) < 9f);
                 ScShot("coop_dagger_foothold");
                 // jumping up through it from below works too: the ledge is one-way
-                p.GlobalPosition = hilt + new Vector2(-side * 8, 30); p.Velocity = Vector2.Zero;
-                bool through = false;
-                for (float t = 0; t < 1.6f; t += (float)GetProcessDeltaTime())
+                // (set down on the ground beside it, below it, to jump from)
+                p.GlobalPosition = hilt + new Vector2(-side * 8, 10); p.Velocity = Vector2.Zero;
+                foreach (var _ in SbSleep(0.8f)) yield return null;
+                float groundY = p.GlobalPosition.Y;
+                bool through = false, jumped = false;
+                for (float t = 0; t < 1.8f; t += (float)GetProcessDeltaTime())
                 {
-                    _scInput = new PlayerInput { Jump = t < 0.05f, JumpHeld = true };
-                    if (p.GlobalPosition.Y < hilt.Y - 10f && p.IsOnFloor()) { through = true; break; }
+                    _scInput = new PlayerInput { Jump = !jumped && p.IsOnFloor(), JumpHeld = true };
+                    if (!jumped && p.IsOnFloor() && _scInput.Jump) jumped = true;
+                    if (jumped && p.IsOnFloor() && p.GlobalPosition.Y < groundY - 8f) { through = true; break; }
                     yield return null;
                 }
                 _scInput = default;
