@@ -207,6 +207,14 @@ public partial class Player
                 // (a heaving swing breaks a rubble pile in one blow)
                 if (_heave && b is Rubble pile) pile.Smash(); else b.Strike(origin);
             }
+            // a friend wrapped in web, in the blade's way, is cut free (the blade does them no harm)
+            foreach (var h in G.Players)
+            {
+                if (h == this || !GodotObject.IsInstanceValid(h) || h.Dead || !h.Webbed) continue;
+                var to = h.GlobalPosition - origin;
+                if (to.Length() > _swingReach + 12 || (to.Length() > 14 && Math.Abs(_swingDir.AngleTo(to)) > _swingArc * 0.5f + 0.4f)) continue;
+                h.CutFree();
+            }
             foreach (var pr in G.Main.EnemyProjectiles.ToArray())
             {
                 var to = pr.GlobalPosition - origin;

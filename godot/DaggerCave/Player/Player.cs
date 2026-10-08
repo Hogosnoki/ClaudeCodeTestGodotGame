@@ -274,9 +274,11 @@ public partial class Player : CharacterBody2D
 
     private PlayerInput ReadInput()
     {
-        // (frozen solid: nothing gets through)
-        if (_frozenT > 0) return default;
+        // (frozen solid or stunned: nothing gets through)
+        if (_frozenT > 0 || _stunT > 0) return default;
         var inp = InputOverride != null ? InputOverride() : ReadLocalInput(this);
+        // (wrapped in web: every press is a struggle against it, and nothing else)
+        if (_webT > 0) { Struggle(inp); return default; }
         // (taking aim with the narrow draft holds you still: either stick, or the move keys, only point it; no bolts, jumps or swings meanwhile)
         if (IsElementalist && _draftAiming)
         {
@@ -995,6 +997,7 @@ public partial class Player : CharacterBody2D
             if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
         }
         TakeRawDamage(dmg, "hit");
+        WebTakesHarm(dmg);
         // (what else the blow does: a poison, a burn, a freeze...)
         if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
         if (Stats.Indignation) StartIndignation();

@@ -6,7 +6,8 @@ namespace DaggerCave;
 /// <summary>The colours of the afflictions: the ink outline takes them (see creature_ink.gdshader).</summary>
 public static class StatusColors
 {
-    public static readonly Color Poison = new(0.35f, 1f, 0.3f), Fire = new(1f, 0.55f, 0.12f), Frost = new(0.65f, 0.9f, 1f), Drown = new(0.25f, 0.5f, 1f);
+    public static readonly Color Poison = new(0.35f, 1f, 0.3f), Fire = new(1f, 0.55f, 0.12f), Frost = new(0.65f, 0.9f, 1f), Drown = new(0.25f, 0.5f, 1f),
+        Web = new(0.92f, 0.92f, 0.86f), Stun = new(1f, 0.92f, 0.45f);
 }
 
 /// <summary>
@@ -18,6 +19,87 @@ public static class StatusColors
 public partial class Player
 {
     private float _poisonLeft, _poisonRate, _burnLeft, _burnRate, _frozenT, _frozenImmune, _drownT, _dotText, _statusFx;
+    // webbed (a guardian spider's silk): held until it runs out, the hero struggles free, takes enough harm, or a friend's blade cuts it
+    private float _webT, _webHold, _webStruggle, _lastStruggleX;
+    // stunned (a guardian bear's roar): nothing gets through for a moment, then a while in which it can't happen again
+    private float _stunT, _stunImmune;
+
+    public bool Webbed => IsRemote ? (_netFlags & HfWeb) != 0 : _webT > 0;
+    public bool Stunned => IsRemote ? (_netFlags & HfStun) != 0 : _stunT > 0;
+    /// <summary>How far the hero has struggled out of the web (0..1, for the HUD).</summary>
+    public float WebStruggle => _webT > 0 ? Math.Clamp(_webStruggle / Tune.Status.WebStruggle, 0f, 1f) : 0f;
+
+    /// <summary>A guardian's trick on this hero (from the host's game, or here): webbed, stunned, envenomed; or a friend's blade cut the web.
+    /// Another game's hero: sent to their game.</summary>
+    public void Afflict(NetSync.Boon kind, float a, float b)
+    {
+        if (Dead) return;
+        if (IsRemote) { NetSync.BoonRemote(this, kind, a, b); return; }
+        switch (kind)
+        {
+            case NetSync.Boon.Web: GiveWeb(a, b); break;
+            case NetSync.Boon.Stun: GiveStun(a); break;
+            case NetSync.Boon.Venom: GivePoison(a, b); break;
+            case NetSync.Boon.Unweb: FreeFromWeb("CUT FREE"); break;
+        }
+    }
+
+    /// <summary>Wrapped in web for up to <paramref name="seconds"/>; <paramref name="hold"/> damage taken tears it.</summary>
+    public void GiveWeb(float seconds, float hold)
+    {
+        if (Dead || IsRemote || _webT > 0) return;
+        _webT = seconds; _webHold = hold; _webStruggle = 0;
+        _swingT = -1;
+        Velocity = new Vector2(0, Velocity.Y);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "WEBBED", StatusColors.Web, 11, 1f);
+        G.Fx.Burst(GlobalPosition, new Color(0.95f, 0.95f, 0.9f, 0.9f), 12, 90, 1.6f, 0.5f, 40);
+        G.Sfx.Play("web", GlobalPosition, -2, 0.05f, 0.8f);
+    }
+
+    /// <summary>Out of the web (<paramref name="how"/>: what freed it, shown; empty when it simply gave way).</summary>
+    public void FreeFromWeb(string how)
+    {
+        if (_webT <= 0) return;
+        _webT = 0; _webStruggle = 0;
+        G.Fx.Burst(GlobalPosition, new Color(0.95f, 0.95f, 0.9f, 0.9f), 16, 150, 1.8f, 0.5f, 120);
+        if (how != "") G.Fx.Text(GlobalPosition + new Vector2(0, -30), how, StatusColors.Web, 10, 0.9f);
+        G.Sfx.Play("web", GlobalPosition, -4, 0.05f, 1.3f);
+    }
+
+    /// <summary>A friend's blade passed through the web holding this hero: it is cut (in this hero's own game).</summary>
+    public void CutFree() => Afflict(NetSync.Boon.Unweb, 0, 0);
+
+    /// <summary>Stunned for <paramref name="seconds"/> (not again for a while after).</summary>
+    public void GiveStun(float seconds)
+    {
+        if (Dead || IsRemote || _stunT > 0 || _stunImmune > 0) return;
+        _stunT = seconds; _stunImmune = seconds + Tune.Status.StunImmune;
+        _swingT = -1;
+        Velocity = new Vector2(0, Velocity.Y);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "STUNNED", StatusColors.Stun, 11, 1f);
+    }
+
+    /// <summary>While webbed: each fresh press (or a change of direction) is a struggle; enough of them and the web gives.</summary>
+    private void Struggle(in PlayerInput raw)
+    {
+        int n = (raw.Jump ? 1 : 0) + (raw.Attack ? 1 : 0) + (raw.Dodge ? 1 : 0) + (raw.Ability ? 1 : 0) + (raw.Ability2 ? 1 : 0) + (raw.Support ? 1 : 0);
+        float x = Math.Abs(raw.Move.X) > 0.5f ? Math.Sign(raw.Move.X) : 0f;
+        if (x != 0 && x != _lastStruggleX) n++;
+        if (x != 0 || Math.Abs(raw.Move.X) < 0.2f) _lastStruggleX = x;
+        if (n == 0) return;
+        _webStruggle += n;
+        Anim.Flash(0.1f);
+        if (G.Chance(0.6f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-6, 6), G.Range(-10, 6)), new Color(0.95f, 0.95f, 0.9f, 0.8f), 2, 60, 1.2f, 0.3f, 60);
+        if (_webStruggle >= Tune.Status.WebStruggle) FreeFromWeb("BROKE FREE");
+    }
+
+    /// <summary>A blow taken while webbed tears at it.</summary>
+    private void WebTakesHarm(float dmg)
+    {
+        if (_webT <= 0) return;
+        _webHold -= dmg;
+        if (_webHold <= 0) FreeFromWeb("TORN FREE");
+    }
 
     public bool Poisoned => IsRemote ? (_netFlags & HfPoison) != 0 : _poisonLeft > 0;
     public bool Burning => IsRemote ? (_netFlags & HfBurn) != 0 : _burnLeft > 0;
@@ -30,9 +112,9 @@ public partial class Player
     public float DrownLeft => _drownT;
 
     /// <summary>The ink outline's colour while afflicted (alpha 0 = its usual dark line).</summary>
-    public Color StatusInk => Dead ? new Color(0, 0, 0, 0) : Frozen ? Opaque(StatusColors.Frost) : Burning ? Opaque(StatusColors.Fire) : Poisoned ? Opaque(StatusColors.Poison) : Drowning ? Opaque(StatusColors.Drown) : Form != null ? new Color(0.9f, 0.92f, 0.97f, 1f) : new Color(0, 0, 0, 0);
+    public Color StatusInk => Dead ? new Color(0, 0, 0, 0) : Webbed ? Opaque(StatusColors.Web) : Stunned ? Opaque(StatusColors.Stun) : Frozen ? Opaque(StatusColors.Frost) : Burning ? Opaque(StatusColors.Fire) : Poisoned ? Opaque(StatusColors.Poison) : Drowning ? Opaque(StatusColors.Drown) : Form != null ? new Color(0.9f, 0.92f, 0.97f, 1f) : new Color(0, 0, 0, 0);
     /// <summary>A faint wash of the same colour over the body.</summary>
-    public Color StatusAura => Dead ? new Color(0, 0, 0, 0) : Frozen ? new Color(StatusColors.Frost, 0.8f) : Burning ? new Color(StatusColors.Fire, 0.45f) : Poisoned ? new Color(StatusColors.Poison, 0.3f) : new Color(0, 0, 0, 0);
+    public Color StatusAura => Dead ? new Color(0, 0, 0, 0) : Webbed ? new Color(StatusColors.Web, 0.7f) : Frozen ? new Color(StatusColors.Frost, 0.8f) : Burning ? new Color(StatusColors.Fire, 0.45f) : Poisoned ? new Color(StatusColors.Poison, 0.3f) : new Color(0, 0, 0, 0);
     private static Color Opaque(Color c) => new(c, 1f);
 
     /// <summary>A poison: <paramref name="total"/> damage over <paramref name="seconds"/> (another tops up what's left).</summary>
@@ -89,6 +171,7 @@ public partial class Player
     {
         _poisonLeft = _burnLeft = _frozenT = _drownT = 0;
         _frozenImmune = 0;
+        _webT = _stunT = _stunImmune = 0;
     }
 
     private void TickStatus(float dt)
@@ -101,6 +184,9 @@ public partial class Player
             G.Fx.Burst(GlobalPosition, new Color(0.85f, 0.96f, 1f), 12, 140, 2f, 0.4f, 60);
         }
         if (_drownT > 0) _drownT -= dt;
+        if (_webT > 0 && (_webT -= dt) <= 0) { _webT = 0.0001f; FreeFromWeb(""); }
+        if (_stunT > 0 && (_stunT -= dt) <= 0) _stunT = 0;
+        if (_stunImmune > 0) _stunImmune -= dt;
         if (_burnLeft > 0 && InWater) { _burnLeft = 0; G.Fx.Smoke(GlobalPosition, 4, new Color(0.7f, 0.7f, 0.75f, 0.5f), 30f); }
         float dot = 0;
         if (_poisonLeft > 0) { float s = Math.Min(dt, _poisonLeft); _poisonLeft -= dt; dot += _poisonRate * s; }

@@ -95,6 +95,18 @@ public sealed class BearDesign : QuadrupedDesign
                     st.Root += new Vector3(-0.1f * up, 0.05f * up, 0);
                     break;
                 }
+            case "roar_windup":
+                {
+                    // it rises onto its hind legs and draws in a great breath: head thrown back, chest swelling, forepaws spread wide
+                    float k = W3.Smooth01(t);
+                    st.Pitch = 38f * k;
+                    st.HR = st.HL = -st.Pitch + 8f; st.HRb = st.HLb = 14f * k;
+                    st.FR = 70f * k; st.FRb = 40f * k; st.FL = 55f * k; st.FLb = 55f * k;
+                    st.NeckUp = 26f * k; st.HeadUp = 34f * k + 3f * k * MathF.Sin(time * 9f); st.Jaw = 12f * k;
+                    st.Arch -= 10f * k;
+                    st.Root += new Vector3(-0.06f * k, 0.04f * k + 0.01f * MathF.Sin(time * 4f) * k, 0);
+                    break;
+                }
             case "roar":
                 {
                     float k = Key(t, (0, 0), (0.25f, 1), (0.85f, 1), (1, 0.3f));

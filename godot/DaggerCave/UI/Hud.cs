@@ -302,6 +302,17 @@ public partial class Hud : Control
                 DrawString(font, new Vector2(18, by), (b.Inspired ? "+ " : "- ") + b.Name + "  " + b.Text, HorizontalAlignment.Left, -1, 12, bc);
             }
         }
+        // --- wrapped in web: struggle (every press counts), with how far through the silk you are ---
+        if (!p.Dead && p.Webbed)
+        {
+            var at = p.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -62);
+            string msg = "STRUGGLE!  press anything";
+            var msz = font.GetStringSize(msg, HorizontalAlignment.Left, -1, 14);
+            DrawRect(new Rect2(at - new Vector2(msz.X / 2 + 8, 16), new Vector2(msz.X + 16, 30)), new Color(0, 0, 0, 0.6f));
+            DrawString(font, at - new Vector2(msz.X / 2, 0), msg, HorizontalAlignment.Left, -1, 14, new Color(0.95f, 0.95f, 0.88f, 0.8f + 0.2f * MathF.Sin(_t * 9)));
+            DrawRect(new Rect2(at + new Vector2(-msz.X / 2, 5), new Vector2(msz.X, 4)), new Color(0.3f, 0.3f, 0.3f, 0.8f));
+            DrawRect(new Rect2(at + new Vector2(-msz.X / 2, 5), new Vector2(msz.X * p.WebStruggle, 4)), new Color(1f, 1f, 0.9f));
+        }
         // --- a Guild lamp: read the page left by it ---
         if (!p.Dead && GuildLamp.At(p.GlobalPosition) is GuildLamp lamp)
         {

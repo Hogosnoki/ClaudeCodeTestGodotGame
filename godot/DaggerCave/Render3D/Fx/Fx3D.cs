@@ -273,6 +273,34 @@ public partial class Fx3D : Node3D
 
     private void DrawStunStars()
     {
+        // heroes: stars round a stunned one's head; a webbed one wrapped in strands of silk with a pale haze about it
+        foreach (var h in G.Players)
+        {
+            if (!IsInstanceValid(h) || h.Dead) continue;
+            if (h.Stunned)
+            {
+                var head = W3.P(h.GlobalPosition + new Vector2(0, -24));
+                for (int k = 0; k < 3; k++)
+                {
+                    float a = _time * 6f + k * Mathf.Tau / 3f;
+                    var at = head + new Vector3(MathF.Cos(a) * 0.45f, MathF.Sin(a * 2f) * 0.04f, MathF.Sin(a) * 0.45f);
+                    _glow.Add(Quad(at, _time * 3f, 0.18f, 0.18f), Lin(new Color(1f, 0.95f, 0.5f)), new Vector4(3, 4f, 0, k));
+                }
+            }
+            if (h.Webbed)
+            {
+                var mid = W3.P(h.GlobalPosition + new Vector2(0, -2));
+                float shake = h.WebStruggle * 0.05f * MathF.Sin(_time * 40f);
+                _smoke.Add(Quad(mid, 0, 0.75f, 1.05f), new Color(0.9f, 0.9f, 0.85f, 0.32f), new Vector4(0, 0, 0, 7));
+                for (int k = 0; k < 9; k++)
+                {
+                    float y = -0.8f + 1.6f * (k + 0.5f) / 9f;
+                    float ang = (k % 2 == 0 ? 0.35f : -0.35f) + 0.12f * MathF.Sin(k * 2.3f);
+                    var at = mid + new Vector3(shake + 0.04f * MathF.Sin(k * 1.7f), y, 0.25f);
+                    _smoke.Add(Quad(at, ang, 0.42f, 0.035f), new Color(0.95f, 0.95f, 0.92f, 0.85f), new Vector4(1, 0, 0, k));
+                }
+            }
+        }
         foreach (var e in G.Enemies)
         {
             if (e is not Bear bear || !IsInstanceValid(bear) || !bear.Stunned) continue;

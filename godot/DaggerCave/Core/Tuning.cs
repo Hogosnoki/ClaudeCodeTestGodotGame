@@ -495,6 +495,11 @@ public static class Tune
     /// <summary>Afflictions the heroes can suffer: poison (deep frogs and spiders, the Nature Elemental), burning (Fire), freezing (Frost), drowning (Water).</summary>
     public static class Status
     {
+        /// <summary>Webbed (a guardian spider's silk): presses it takes to struggle free; a hero also tears free after taking WebHold of
+        /// their max health in blows, or when a friend's blade cuts the web.</summary>
+        public static float WebStruggle = 9f, WebHoldShare = 0.18f;
+        /// <summary>After a stun, this long before another can take hold.</summary>
+        public static float StunImmune = 3f;
         /// <summary>From this depth, a frog's or spider's blow poisons with CreaturePoisonChance: the damage of the blow again (x share) over CreaturePoisonSeconds.</summary>
         public static int PoisonFromDepth = 4;
         public static float CreaturePoisonChance = 0.3f, CreaturePoisonShare = 1f, CreaturePoisonSeconds = 8f;
@@ -738,6 +743,9 @@ public static class Tune
         /// <summary>In water it rows after you at SwimSpeed px/s, and darts at DartSpeed.</summary>
         public static float SwimSpeed = 95, DartSpeed = 250;
         public static int Xp = 4;
+        /// <summary>A guardian spider's web: every WebCooldown s (from WebMin to WebMax px away, in sight) she rears back for WebWindup s
+        /// and spits a glob of silk at WebSpeed px/s; a hero it strikes takes WebDamage and is wrapped for up to WebSeconds.</summary>
+        public static float WebCooldown = 6.5f, WebWindup = 0.8f, WebSpeed = 330f, WebSeconds = 4.5f, WebDamage = 3f, WebMin = 50f, WebMax = 380f;
     }
 
     public static class Magma
@@ -813,12 +821,21 @@ public static class Tune
         /// swipe, bites: BiteWindup s with the head drawn back, then a lunge for BiteDamage.</summary>
         public static float SwimSpeed = 55, BiteDamage = 13, BiteWindup = 0.35f, BiteReach = 40, BiteCooldown = 1.4f;
         public static int Xp = 12;
+        /// <summary>A guardian bear's roar: every RoarCooldown s, with a hero within RoarRange px, it rears and fills its chest for
+        /// RoarWindup s, then roars: every hero within RoarRange is stunned for StunSeconds, and it rushes the nearest at RushSpeed
+        /// px/s and takes its swipe (a quicker rearing, RushSwipeWindup s).</summary>
+        public static float RoarCooldown = 9f, RoarWindup = 0.85f, RoarRange = 250f, StunSeconds = 1.7f, RushSpeed = 300f, RushSwipeWindup = 0.25f;
     }
 
     public static class Scorpion
     {
         public static float Hp = 26, Contact = 6, StingDamage = 11, WalkSpeed = 72, StingWindup = 0.45f, StingReach = 40, StingCooldown = 1.6f;
         public static int Xp = 5;
+        /// <summary>A guardian scorpion's venom spray: every SprayCooldown s, a hero within SprayRange px, it arches its tail forward
+        /// for SprayWindup s and sprays a cone (SprayHalfAngle radians either side) for SpraySeconds: each hero in it takes SprayDamage
+        /// and VenomTotal of poison over VenomSeconds (a second soaking adds to the first).</summary>
+        public static float SprayCooldown = 7f, SprayWindup = 0.9f, SprayRange = 190f, SprayHalfAngle = 0.55f, SpraySeconds = 0.5f, SprayDamage = 2f,
+            VenomTotal = 26f, VenomSeconds = 8f;
     }
 
     public static class Hornet

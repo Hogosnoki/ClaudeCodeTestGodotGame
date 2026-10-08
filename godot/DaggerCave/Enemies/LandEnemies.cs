@@ -545,6 +545,11 @@ public partial class Spider : Enemy
     /// <summary>0 ceiling, 1 dropping, 2 hanging, 3 climbing, 4 on the ground.</summary>
     public int State => _state;
     private float _broodT = 6f;
+    // the web-mother's silk: the time to the next, and how far into her rearing back to spit it (< 0: not)
+    private float _webCd = 3f, _webWind = -1f;
+    private int _webDir = 1;
+    /// <summary>For the tests: webs spat.</summary>
+    public int WebsSpat { get; private set; }
 
     protected override void Setup()
     {
@@ -623,6 +628,45 @@ public partial class Spider : Enemy
                     G.Sfx.Play("spider", GlobalPosition, 0, 0.1f, 0.7f);
                 }
                 if (InWater) { Swim(dt); break; }
+                // the web-mother: now and then she rears back, abdomen up, and spits a glob of silk at a hero, who is wrapped in it
+                if (IsGuardian && Master == null && Awake)
+                {
+                    _webCd -= dt;
+                    if (_webWind >= 0)
+                    {
+                        _webWind += dt;
+                        v.X = Mathf.MoveToward(v.X, 0, 1400 * dt);
+                        if (_webWind >= Tune.Spider.WebWindup)
+                        {
+                            _webWind = -1f;
+                            var from = GlobalPosition + new Vector2(_webDir * 6 * Size, -6 * Size);
+                            var aim = P.GlobalPosition + new Vector2(0, -8) - from;
+                            float t = aim.Length() / Tune.Spider.WebSpeed;
+                            const float grav = 260f;
+                            // (aimed a touch high, for the drop on the way)
+                            var vel = aim / Math.Max(0.05f, t) + new Vector2(0, -0.5f * grav * t);
+                            G.Spawn(new EnemyProjectile { Position = from, Vel = vel, Grav = grav, Damage = Tune.Spider.WebDamage * DmgK, Kind = "web", Radius = 7f, Life = 2.4f, Source = this });
+                            WebsSpat++;
+                            Anim.Once("web_spit", 3);
+                            G.Sfx.Play("spider", GlobalPosition, -2, 0.1f, 0.6f);
+                            _webCd = Tune.Spider.WebCooldown * G.Range(0.85f, 1.15f);
+                        }
+                        Velocity = v;
+                        ApplyGravity(dt);
+                        break;
+                    }
+                    if (_webCd <= 0 && _pounceWind < 0 && IsOnFloor() && SeesP && DistP > Tune.Spider.WebMin && DistP < Tune.Spider.WebMax)
+                    {
+                        _webWind = 0f;
+                        _webDir = Math.Sign(ToP.X) == 0 ? (int)Face : Math.Sign(ToP.X);
+                        Face = _webDir;
+                        Anim.Once("web_windup", 3, 10f / (Tune.Spider.WebWindup * 24f));
+                        G.Sfx.Play("spider", GlobalPosition, -6, 0.1f, 0.45f);
+                        Velocity = v;
+                        ApplyGravity(dt);
+                        break;
+                    }
+                }
                 // driven: pushing into a wall, or up into the ceiling, it takes hold of it
                 if (Master != null && _pounceWind < 0 && MasterPushed)
                 {

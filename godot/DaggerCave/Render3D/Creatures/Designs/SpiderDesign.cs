@@ -115,7 +115,7 @@ public sealed class SpiderDesign : CreatureDesign
         // the gait phase runs with the crawl clip, twice per loop
         float gait = c == "crawl" ? t * 2f : time * 0.3f;
         float stride = c == "crawl" ? 16f : 0f, lift = c == "crawl" ? 22f : 0f;
-        float curl = 0f, crouch = 0f;
+        float curl = 0f, crouch = 0f, abd = 0f;
         float fang = 8f * MathF.Sin(time * 5.3f) * MathF.Sin(time * 1.7f); // restless fangs
         float breathe = MathF.Sin(time * 2.2f);
         switch (c)
@@ -139,6 +139,25 @@ public sealed class SpiderDesign : CreatureDesign
                 fang = Key(t, (0, 5), (0.25f, 30), (1, 10));
                 p.Set(_body, 0, 0, Key(t, (0, -8), (0.3f, 16), (1, 0)));
                 break;
+            case "web_windup":
+                {
+                    // she rears back on her hind legs, front legs raised and spread, the abdomen swung up under her to aim its
+                    // spinnerets forward, quivering harder as the silk gathers
+                    float k = W3.Smooth01(t);
+                    crouch = -10f * k; fang = 26f * k;
+                    p.Set(_body, 0, 0, 24f * k + 2.5f * k * k * MathF.Sin(time * 70f));
+                    abd = 38f * k;
+                    break;
+                }
+            case "web_spit":
+                {
+                    // the abdomen snaps forward as the glob leaves her, and she settles
+                    float k = Key(t, (0, 1), (0.25f, 0.6f), (1, 0));
+                    crouch = Key(t, (0, -10), (0.2f, 6), (1, 0)); fang = 20f * k;
+                    p.Set(_body, 0, 0, Key(t, (0, 24), (0.15f, 8), (1, 0)));
+                    abd = Key(t, (0, 38), (0.12f, -20), (0.5f, -6), (1, 0));
+                    break;
+                }
             case "hurt": curl = Key(t, (0, 0), (0.3f, 0.45f), (1, 0)); break;
             case "death":
                 curl = W3.SmoothStep(0f, 0.7f, t) * 1.1f;
@@ -160,7 +179,7 @@ public sealed class SpiderDesign : CreatureDesign
             if (c == "pounce") curl = Key(t, (0, 0.1f), (0.2f, 0.4f), (0.7f, 0.35f), (1, 0.05f));
             p.Root = new Vector3(0, 0.02f * MathF.Sin(time * 5f), 0);
         }
-        p.Set(_abdomen, 0, MathF.Sin(time * 0.9f) * 4f, -3f + breathe * 2.5f);
+        p.Set(_abdomen, 0, MathF.Sin(time * 0.9f) * 4f, -3f + breathe * 2.5f + abd);
         p.Set(_head, 0, 0, MathF.Sin(time * 2.7f) * 3f);
         p.Set(_fangR, 0, 0, fang);
         p.Set(_fangL, 0, 0, fang * 0.9f);

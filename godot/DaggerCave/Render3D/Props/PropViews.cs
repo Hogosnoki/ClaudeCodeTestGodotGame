@@ -285,6 +285,15 @@ public partial class ProjectileView : PropView
                     _glow = PropViews.Sprite(new Color(0.45f, 1f, 0.3f), 0, 0.35f, r * 2.4f);
                     break;
                 }
+            case "web":
+                {
+                    // a tangled ball of silk, wisps of it trailing
+                    var mb = new MeshBuilder();
+                    mb.Blob(Vector3.Zero, Vector3.One * r * 1.1f, 5, new Color(0.92f, 0.92f, 0.88f), new Noise3(rng.Next()), 0.45f, 4f);
+                    _body = PropViews.Mesh(mb, PropViews.VertexColored);
+                    _glow = PropViews.Sprite(new Color(0.95f, 0.95f, 0.9f), 0, 0.45f, r * 3.2f);
+                    break;
+                }
             case "spit":
                 {
                     var mb = new MeshBuilder();

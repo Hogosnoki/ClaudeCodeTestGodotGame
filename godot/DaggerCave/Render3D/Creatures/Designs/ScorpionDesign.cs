@@ -184,6 +184,25 @@ public sealed class ScorpionDesign : CreatureDesign
                     sway = 0f;
                     break;
                 }
+            case "spray_windup":
+                {
+                    // the tail swung high and right over its head, the stinger aimed forward and down at you, the body braced low and
+                    // the claws spread wide, the tail trembling as the venom gathers
+                    float k = W3.Smooth01(t);
+                    raise = 48f * k; bend = 18f * k + 3f * k * MathF.Sin(time * 40f); sting = 55f * k;
+                    armUp = 16f * k; open = 45f * k; crouch = 12f * k; pitch = -8f * k; reach = -6f * k;
+                    sway = 0f;
+                    break;
+                }
+            case "spray":
+                {
+                    // the tail pumps as it sprays, sweeping a little from side to side
+                    float k = 1f - W3.SmoothStep(0.7f, 1f, t);
+                    raise = 48f * k + 5f * MathF.Sin(time * 30f) * k; bend = 18f * k; sting = 55f * k + 10f * MathF.Sin(time * 30f) * k;
+                    armUp = 16f * k; open = 45f * k; crouch = 12f * k; pitch = -8f * k;
+                    sway = 10f * MathF.Sin(t * 12f) * k;
+                    break;
+                }
             case "hurt":
                 {
                     float k = Key(t, (0, 0), (0.2f, 1), (1, 0));

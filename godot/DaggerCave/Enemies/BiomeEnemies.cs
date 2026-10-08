@@ -118,10 +118,14 @@ public partial class Rat : Walker
 /// <summary>A hulking brute: rears up for a heavy swipe, or roars and charges, stunning itself on walls.</summary>
 public partial class Bear : Walker
 {
-    private enum S { Walk, SwipeWindup, Swipe, ChargeWindup, Charge, Stunned, BiteWindup, Bite }
+    private enum S { Walk, SwipeWindup, Swipe, ChargeWindup, Charge, Stunned, BiteWindup, Bite, RoarWindup, Roar, Rush }
     private S _s;
     public override void NetState(NetIO io) => io.SyncByte(ref _s);
-    private float _st, _chargeCd = 2.5f, _swipeCd, _biteCd;
+    private float _st, _chargeCd = 2.5f, _swipeCd, _biteCd, _roarCd = 4f;
+    /// <summary>For the tests: roars that stunned someone.</summary>
+    public int Roars { get; private set; }
+    private float SwipeWindupNow => _quickSwipe ? Tune.Bear.RushSwipeWindup : Tune.Bear.SwipeWindup;
+    private bool _quickSwipe;
 
     public Bear() { MaxHp = Tune.Bear.Hp; BodyRadius = 14; ContactDamage = Tune.Bear.Contact; XpValue = Tune.Bear.Xp; KnockResist = 0.6f; }
     /// <summary>For the 3D stage: stars circle a stunned bear's head.</summary>
@@ -134,7 +138,7 @@ public partial class Bear : Walker
 
     protected override void Think(float dt)
     {
-        _st += dt; _chargeCd -= dt; _swipeCd -= dt; _biteCd -= dt;
+        _st += dt; _chargeCd -= dt; _swipeCd -= dt; _biteCd -= dt; _roarCd -= dt;
         if (InWater) { Tread(dt); return; }
         if (_s is S.BiteWindup or S.Bite) Go(S.Walk);
         var v = Velocity;
@@ -146,6 +150,14 @@ public partial class Bear : Walker
                 float want = Intent switch { Advance => DirP, Retreat => -DirP, _ => 0 };
                 if (want != 0) Face = want;
                 v = Stride(v, want, Tune.Bear.WalkSpeed * (Elite ? 1.15f : 1f), dt, 340);
+                // a guardian bear's roar: rearing, its chest filling, then a roar that stuns every hero near, and a rush for a free swipe
+                if (IsGuardian && Master == null && Awake && _roarCd <= 0 && IsOnFloor() && DistP < Tune.Bear.RoarRange * 0.9f)
+                {
+                    Face = DirP; Go(S.RoarWindup);
+                    Anim.Once("roar_windup", 3, 12f / (Tune.Bear.RoarWindup * 24f));
+                    G.Sfx.Play("goblin", GlobalPosition, -4, 0.05f, 0.4f);
+                    break;
+                }
                 if (Intent == Swipe && CanAct(Swipe))
                 {
                     Face = DirP; Go(S.SwipeWindup);
@@ -162,10 +174,48 @@ public partial class Bear : Walker
                 }
                 break;
             }
+            case S.RoarWindup:
+                Brake(ref v, dt, 800);
+                if (_st > Tune.Bear.RoarWindup)
+                {
+                    Go(S.Roar);
+                    _roarCd = Tune.Bear.RoarCooldown * G.Range(0.9f, 1.15f);
+                    Anim.Once("roar", 3, 10f / (0.7f * 24f));
+                    G.Sfx.Play("roar", GlobalPosition, 4, 0.05f, 0.8f);
+                    G.Fx.AddShake(10);
+                    G.Fx.Ring(GlobalPosition + new Vector2(Face * 14 * Size, -12 * Size), Tune.Bear.RoarRange, new Color(1f, 0.9f, 0.7f, 0.5f), 0.45f);
+                    G.Fx.Ring(GlobalPosition + new Vector2(Face * 14 * Size, -12 * Size), Tune.Bear.RoarRange * 0.6f, new Color(1f, 0.9f, 0.7f, 0.35f), 0.35f);
+                    int stunned = 0;
+                    foreach (var h in G.Players)
+                    {
+                        if (!GodotObject.IsInstanceValid(h) || h.Dead || h.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Bear.RoarRange) continue;
+                        h.Afflict(NetSync.Boon.Stun, Tune.Bear.StunSeconds, 0);
+                        stunned++;
+                    }
+                    if (stunned > 0) Roars++;
+                }
+                break;
+            case S.Roar:
+                Brake(ref v, dt, 800);
+                if (_st > 0.55f) { Go(S.Rush); Face = DirP; }
+                break;
+            case S.Rush:
+                // straight at the nearest hero, while they reel, for the swipe
+                Face = DirP;
+                v.X = Mathf.MoveToward(v.X, Face * Tune.Bear.RushSpeed, 1600 * dt);
+                if (G.Chance(0.4f)) G.Fx.Dust(GlobalPosition + new Vector2(-Face * 12, BodyRadius * Size), 1);
+                if (Math.Abs(ToP.X) < 40 * Size || _st > 1.3f || IsOnWall())
+                {
+                    Face = DirP; Go(S.SwipeWindup); _quickSwipe = true;
+                    Anim.Once("rear", 3, 8f / (Tune.Bear.RushSwipeWindup * 24f));
+                    G.Sfx.Play("goblin", GlobalPosition, -2, 0.1f, 0.55f);
+                }
+                break;
             case S.SwipeWindup:
                 Brake(ref v, dt);
-                if (_st > Tune.Bear.SwipeWindup)
+                if (_st > SwipeWindupNow)
                 {
+                    _quickSwipe = false;
                     Go(S.Swipe);
                     _swipeCd = 1.2f;
                     Anim.Once("swipe", 3);
@@ -295,7 +345,7 @@ public partial class Bear : Walker
     protected override int MasterSpecialIntent => Charge;
     public override float MasterSpecialFrac => Math.Clamp(_chargeCd / Tune.Bear.ChargeCooldown, 0f, 1f);
     protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Swipe) ? Swipe : moving ? Advance : Stand;
-    public override bool Attacking => _s is S.SwipeWindup or S.ChargeWindup or S.Charge or S.BiteWindup || (_s == S.Swipe && _st < 0.12f) || (_s == S.Bite && _st < 0.12f);
+    public override bool Attacking => _s is S.SwipeWindup or S.ChargeWindup or S.Charge or S.BiteWindup or S.RoarWindup or S.Rush || (_s == S.Swipe && _st < 0.12f) || (_s == S.Bite && _st < 0.12f);
     // a charge broken off by a shield leaves it reeling, as if it had hit a wall
     protected override void OnInterrupted() => Go(_s == S.Charge ? S.Stunned : S.Walk);
     protected override bool Striking => _s == S.Charge;
@@ -314,7 +364,7 @@ public partial class Bear : Walker
         float avx = Math.Abs(Velocity.X);
         // (in water, "walk" is its paddling: see BearDesign)
         if (InWater) Anim.Loop(Velocity.Length() > 12 ? "walk" : "idle", 0.8f);
-        else Anim.Loop(_s == S.Charge ? "run" : _s == S.Stunned ? "idle" : avx > 10 ? "walk" : "idle", _s == S.Charge ? 1.4f : Math.Clamp(avx / 60f, 0.7f, 1.4f));
+        else Anim.Loop(_s is S.Charge or S.Rush ? "run" : _s == S.Stunned ? "idle" : avx > 10 ? "walk" : "idle", _s is S.Charge or S.Rush ? 1.4f : Math.Clamp(avx / 60f, 0.7f, 1.4f));
         Anim.AllowTurns = _s is S.Walk;
     }
 
@@ -336,8 +386,12 @@ public partial class Bear : Walker
 public partial class Scorpion : Walker
 {
     public override Element Element => Element.Armored;
-    private int _s; // 0 walk, 1 windup, 2 recover
-    private float _st, _cd = 0.8f;
+    private int _s; // 0 walk, 1 windup, 2 recover, 3 venom windup (a guardian's), 4 spraying
+    private float _st, _cd = 0.8f, _sprayCd = 3.5f;
+    private Vector2 _sprayDir = Vector2.Right;
+    /// <summary>For the tests: venom sprays that soaked someone.</summary>
+    public int Sprays { get; private set; }
+    public override void NetState(NetIO io) => io.Sync(ref _s);
 
     public Scorpion() { MaxHp = Tune.Scorpion.Hp; BodyRadius = 9; ContactDamage = Tune.Scorpion.Contact; XpValue = Tune.Scorpion.Xp; KnockResist = 0.2f; }
 
@@ -346,13 +400,21 @@ public partial class Scorpion : Walker
 
     protected override void Think(float dt)
     {
-        _st += dt; _cd -= dt;
+        _st += dt; _cd -= dt; _sprayCd -= dt;
         if (Paddle(dt)) return;
         var v = Velocity;
         switch (_s)
         {
             case 0:
                 if (!Awake) { Brake(ref v, dt, 600); break; }
+                // a guardian: the tail arched forward over its head, then a spray of venom across the party
+                if (IsGuardian && Master == null && _sprayCd <= 0 && IsOnFloor() && SeesP && DistP < Tune.Scorpion.SprayRange * 0.95f)
+                {
+                    _s = 3; _st = 0; Face = DirP;
+                    Anim.Once("spray_windup", 3, 10f / (Tune.Scorpion.SprayWindup * 24f));
+                    G.Sfx.Play("spider", GlobalPosition, -4, 0.1f, 0.5f);
+                    break;
+                }
                 float want = Intent switch { Advance => DirP, Retreat => -DirP, _ => 0 };
                 if (want != 0) Face = want;
                 v = Stride(v, want, Tune.Scorpion.WalkSpeed * (Elite ? 1.15f : 1f), dt, 310);
@@ -384,6 +446,52 @@ public partial class Scorpion : Walker
                     G.Fx.Spark(GlobalPosition + new Vector2(Face * reach, -8 * Size), new Color(0.9f, 1f, 0.5f));
                 }
                 break;
+            case 3:
+            {
+                Brake(ref v, dt, 800);
+                // (it tracks the nearest hero as it draws back)
+                var tip = SprayFrom;
+                var to = P.GlobalPosition + new Vector2(0, -6) - tip;
+                if (to.LengthSquared() > 1) _sprayDir = to.Normalized();
+                if (Math.Abs(_sprayDir.X) > 0.1f) Face = Math.Sign(_sprayDir.X);
+                if (_st > Tune.Scorpion.SprayWindup)
+                {
+                    _s = 4; _st = 0;
+                    _sprayCd = Tune.Scorpion.SprayCooldown * G.Range(0.85f, 1.15f);
+                    Anim.Once("spray", 3, 10f / (Tune.Scorpion.SpraySeconds * 24f));
+                    G.Sfx.Play("bubble", GlobalPosition, 0, 0.05f, 0.5f);
+                    G.Sfx.Play("lava", GlobalPosition, -8, 0.05f, 1.6f);
+                    int soaked = 0;
+                    foreach (var h in G.Players)
+                    {
+                        if (!GodotObject.IsInstanceValid(h) || h.Dead) continue;
+                        var rel = h.GlobalPosition + new Vector2(0, -6) - tip;
+                        float d = rel.Length();
+                        if (d > Tune.Scorpion.SprayRange + 10 || (d > 16 && Math.Abs(_sprayDir.AngleTo(rel)) > Tune.Scorpion.SprayHalfAngle + MathF.Atan2(10f, d))) continue;
+                        if (!G.Cave.LineClear(tip, h.GlobalPosition)) continue;
+                        h.Hurt(Tune.Scorpion.SprayDamage * DmgK, tip, 60f, this, pooled: true);
+                        h.Afflict(NetSync.Boon.Venom, Tune.Scorpion.VenomTotal * DmgK, Tune.Scorpion.VenomSeconds);
+                        soaked++;
+                    }
+                    if (soaked > 0) Sprays++;
+                }
+                break;
+            }
+            case 4:
+            {
+                Brake(ref v, dt, 800);
+                // the spray: a cone of venom droplets and mist
+                var tip = SprayFrom;
+                for (int k = 0; k < 3; k++)
+                {
+                    float f = G.Range(0.15f, 1f);
+                    var dir = _sprayDir.Rotated(G.Range(-Tune.Scorpion.SprayHalfAngle, Tune.Scorpion.SprayHalfAngle) * f);
+                    G.Fx.Burst(tip + dir * Tune.Scorpion.SprayRange * f * G.Range(0.6f, 1f), new Color(0.45f, 1f, 0.3f, 0.75f), 1, 40, 2.2f, 0.45f, 160);
+                }
+                G.Fx.Burst(tip + _sprayDir * 10, new Color(0.6f, 1f, 0.4f, 0.8f), 2, 260, 1.6f, 0.35f, 120);
+                if (_st > Tune.Scorpion.SpraySeconds) { _s = 2; _st = 0; }
+                break;
+            }
             default:
                 Brake(ref v, dt);
                 if (_st > 0.45f) _s = 0;
@@ -393,6 +501,9 @@ public partial class Scorpion : Walker
         ApplyGravity(dt);
     }
 
+    /// <summary>Where the spray leaves it: the stinger, arched forward over its head.</summary>
+    private Vector2 SprayFrom => GlobalPosition + new Vector2(Face * 6 * Size, -16 * Size);
+
     private const int Stand = 0, Advance = 1, Retreat = 2, Sting = 3;
     private static readonly string[] Moves = { "stand", "advance", "retreat", "sting" };
     protected override string BrainName => "scorpion";
@@ -401,10 +512,10 @@ public partial class Scorpion : Walker
     protected override float AttackReady => 1 - Math.Clamp(_cd / Tune.Scorpion.StingCooldown, 0, 1);
     protected override bool CanAct(int a) => a != Sting || (_cd <= 0 && IsOnFloor());
     protected override bool IsAttack(int a) => a == Sting;
-    public override bool Attacking => _s == 1;
+    public override bool Attacking => _s is 1 or 3 or 4;
     protected override float JumpSpeed => 310f;
     protected override int MasterIntent(bool moving, bool attack) => attack && CanAct(Sting) ? Sting : moving ? Advance : Stand;
-    protected override void OnInterrupted() { if (_s == 1) { _s = 2; _st = 0; } }
+    protected override void OnInterrupted() { if (_s is 1 or 3) { _s = 2; _st = 0; } }
 
     protected override int Teacher()
     {

@@ -109,6 +109,7 @@ public partial class EnemyProjectile : Node2D
         "ice" => new Color(0.75f, 0.95f, 1f),
         "crystal" => new Color(0.65f, 0.85f, 1f),
         "spit" => new Color(0.5f, 0.9f, 0.3f),
+        "web" => new Color(0.95f, 0.95f, 0.9f),
         _ => new Color(0.8f, 0.75f, 0.7f),
     };
 
@@ -162,6 +163,8 @@ public partial class EnemyProjectile : Node2D
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
         {
             p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10, source: Source);
+            // (a guardian spider's silk: it wraps the hero up)
+            if (Kind == "web" && !p.Dead) p.GiveWeb(Tune.Spider.WebSeconds, Tune.Status.WebHoldShare * p.Stats.MaxHp);
             NetSync.PropGone(this, quiet: true);
             Impact(GlobalPosition);
             return;
@@ -185,6 +188,11 @@ public partial class EnemyProjectile : Node2D
         {
             G.Fx.Smoke(at, 2, new Color(0.3f, 0.25f, 0.22f, 0.4f), 20);
             G.Fx.Ember(at, new Color(1f, 0.6f, 0.2f));
+        }
+        else if (Kind == "web")
+        {
+            G.Sfx.Play("web", at, -8, 0.1f, 1.1f);
+            G.Fx.Burst(at, new Color(0.95f, 0.95f, 0.9f, 0.9f), 10, 90, 1.6f, 0.5f, 60);
         }
         else if (Kind == "ice" || Kind == "crystal")
         {
