@@ -362,6 +362,8 @@ public partial class Main : Node
             else if (a == "--forcenooks") CaveGenerator.ForceNooks = true;
             else if (a == "--nocaverns") CaveGenerator.ForceNoCaverns = true;
             else if (a == "--glitch") ForceGlitch = true;
+            else if (a == "--wing") CaveGenerator.ForceWings = true;
+            else if (a == "--nowings") Tune.Secrets.WingChance = 0f;
             else if (a == "--slayer") Net.ForceSlayer = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
@@ -787,8 +789,8 @@ public partial class Main : Node
         G.Player = player;
 
         _cam = new Camera2D { Zoom = new Vector2(Tune.Feel.CameraZoom, Tune.Feel.CameraZoom), ProcessCallback = Camera2D.Camera2DProcessCallback.Physics };
-        _cam.LimitLeft = 0; _cam.LimitTop = 0;
-        _cam.LimitRight = (int)cave.SizePx.X; _cam.LimitBottom = (int)cave.SizePx.Y;
+        // the camera keeps to the main occupied area; a secret wing past its edge is let in once its wall is down (see OpenWing)
+        SetViewRect(cave.ViewRect.Size.X > 0 ? cave.ViewRect : new Rect2(Vector2.Zero, cave.SizePx), snap: true);
         _world.AddChild(_cam);
         _cam.GlobalPosition = player.GlobalPosition;
         _cam.MakeCurrent();
@@ -1000,7 +1002,13 @@ public partial class Main : Node
     {
         int k = 0;
         foreach (var (pos, size) in cave.Rubble)
-            _world.AddChild(new Rubble { Position = pos, Size = size, Index = k++ });
+        {
+            var rb = new Rubble { Position = pos, Size = size, Index = k };
+            var wing = cave.Wings.FirstOrDefault(w => w.RubbleIndex == k);
+            if (wing != null) { rb.Secret = true; rb.OnCleared += _ => OpenWing(wing); }
+            _world.AddChild(rb);
+            k++;
+        }
     }
 
     private void PlaceHeroCage(CaveData cave)
@@ -1816,10 +1824,46 @@ public partial class Main : Node
 
     private Player _spectate;
 
+    // ---- the camera's limits: the main occupied area, let out to take in a secret wing whose wall has come down
+    private Rect2 _viewWant;
+    private float _limL, _limT, _limR, _limB;
+
+    private void SetViewRect(Rect2 r, bool snap)
+    {
+        _viewWant = r;
+        if (snap) { _limL = r.Position.X; _limT = r.Position.Y; _limR = r.End.X; _limB = r.End.Y; ApplyLimits(); }
+    }
+
+    private void ApplyLimits()
+    {
+        if (_cam == null) return;
+        _cam.LimitLeft = (int)MathF.Round(_limL); _cam.LimitTop = (int)MathF.Round(_limT);
+        _cam.LimitRight = (int)MathF.Round(_limR); _cam.LimitBottom = (int)MathF.Round(_limB);
+    }
+
+    /// <summary>The limits drift to where they are wanted (so a wall coming down lets the view slide out, not jump).</summary>
+    private void EaseLimits(float dt)
+    {
+        float k = 1f - MathF.Exp(-dt * Tune.Secrets.OpenEase);
+        _limL = Mathf.Lerp(_limL, _viewWant.Position.X, k); _limT = Mathf.Lerp(_limT, _viewWant.Position.Y, k);
+        _limR = Mathf.Lerp(_limR, _viewWant.End.X, k); _limB = Mathf.Lerp(_limB, _viewWant.End.Y, k);
+        ApplyLimits();
+    }
+
+    /// <summary>A secret wing's wall is down (in any game: this one's blow, or a friend's): the view is let out to take in the wing.</summary>
+    private void OpenWing(SecretWing wing)
+    {
+        if (G.Cave == null || _viewWant.Encloses(wing.Bounds)) return;
+        _viewWant = _viewWant.Merge(wing.Bounds);
+        _hud?.ShowNotice("A SECRET LIES BEYOND", 3.5f);
+        _sfx.Play("levelup", wing.Plug, -8, 0.05f, 1.5f);
+    }
+
     private void UpdateCamera(float dt)
     {
         var p = G.Player;
         if (p == null || _cam == null) return;
+        EaseLimits(dt);
         if (p.Dead && Net.InRun)
         {
             // watching a friend: attack or ability steps to the next, or back to the one before
@@ -1851,6 +1895,10 @@ public partial class Main : Node
             float lean = 0.25f * Math.Clamp(1.6f - reach, 0f, 1f);
             if (lean > 0) target = target.Lerp(boss.GlobalPosition, lean);
         }
+        // (the camera itself keeps to the limits too, so that when they are let out it slides out with them, not jumping to where the hero is)
+        var vh = GetViewport().GetVisibleRect().Size / _cam.Zoom * 0.5f;
+        target.X = _limR - _limL < vh.X * 2 ? (_limL + _limR) * 0.5f : Math.Clamp(target.X, _limL + vh.X, _limR - vh.X);
+        target.Y = _limB - _limT < vh.Y * 2 ? (_limT + _limB) * 0.5f : Math.Clamp(target.Y, _limT + vh.Y, _limB - vh.Y);
         _cam.GlobalPosition = _cam.GlobalPosition.Lerp(target, 1 - MathF.Exp(-dt * Tune.Feel.CameraFollowSharpness));
         float s = (_fx?.Shake ?? 0) * GameSettings.Shake;
         _kick = _kick.Lerp(Vector2.Zero, 1 - MathF.Exp(-dt * 14));
@@ -3506,7 +3554,7 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)}{(c.Biome?.Style == GenStyle.River ? $" dry {c.DryOk} flow {c.Flow:0} tunnel {c.Tunnel.Size.X / CaveData.Cell:0}" : "")}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)} margins {OpenMargins(c)} wings {c.Wings.Count}{(c.Wings.Count > 0 ? (c.Wings.All(w => c.LineClear(w.Plug + new Vector2(20, 0), new Vector2(w.Chamber.Center.X, w.Plug.Y)) && c.W * CaveData.Cell >= w.Bounds.End.X - 1) ? "ok" : "BAD") : "")}{(c.Biome?.Style == GenStyle.River ? $" dry {c.DryOk} flow {c.Flow:0} tunnel {c.Tunnel.Size.X / CaveData.Cell:0}" : "")}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");
@@ -3640,6 +3688,16 @@ public partial class Main : Node
         }
         GD.Print(bad == 0 ? $"[bosstest] PASS ({total} caves)" : $"[bosstest] FAIL: {bad} of {total}");
         SafeQuit.Request(this, bad == 0 ? 0 : 1);
+    }
+
+    /// <summary>For the generator test: how many cells of rock lie beyond the open space on each side (left, right, top, bottom).</summary>
+    private static string OpenMargins(CaveData c)
+    {
+        int x0 = c.W, x1 = 0, y0 = c.H, y1 = 0;
+        for (int j = 0; j < c.H; j++)
+            for (int i = 0; i < c.W; i++)
+                if (c.CellOpen(i, j)) { x0 = Math.Min(x0, i); x1 = Math.Max(x1, i); y0 = Math.Min(y0, j); y1 = Math.Max(y1, j); }
+        return $"L{x0}/R{c.W - 1 - x1}/T{y0}/B{c.H - 1 - y1}";
     }
 
     /// <summary>Whether the guardian's chamber can really be reached by the slowest jumper (see FineReach).</summary>

@@ -706,6 +706,19 @@ public static class Tune
     }
 
     /// <summary>
+    /// Secret wings (see <see cref="SecretWing"/>): the camera keeps to the main occupied area plus ViewPadCells of rock round it; about
+    /// WingChance of levels (depth 1 on) have a hidden corridor and chamber past the right-hand edge behind a plug of rubble, cut from where
+    /// the cave reaches its right-hand extreme (no further than MaxReachCells from the map's edge); the map is made PadCells wider for it.
+    /// </summary>
+    public static class Secrets
+    {
+        public static float WingChance = 0.5f;
+        public static int ViewPadCells = 4, PadCells = 36, MaxReachCells = 64;
+        /// <summary>How fast the view is let out (per second) when a wing's wall comes down.</summary>
+        public static float OpenEase = 2.2f;
+    }
+
+    /// <summary>
     /// The underground river (see <see cref="CaveGenerator.GenerateRiver"/>, <see cref="CaveData.FlowAt"/>). The current runs Flow px/s from the
     /// guardian's end toward where you arrive, a little faster than an ordinary swimmer (Hero.SwimSpeed) can make way against, so a fall
     /// from the stones is carried back down it; it dies out over EddyCells cells at the beach (so you can climb out), and is Sheltered

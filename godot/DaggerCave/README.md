@@ -1259,6 +1259,22 @@ drains the colour from the water round it. Where you arrive in the Sunken Sea a 
 lake above, coming down). Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
 sides), not smooth balls.
 
+### The camera's limits, and secret wings
+
+The camera keeps to the **main occupied area**: the bounds of all the cave's open space plus four cells of rock round it (`CaveData.ViewRect`,
+`Tune.Secrets.ViewPadCells`; the 3D view obeys the same limits), so nothing out past the cave's own edge can ever be seen.
+
+That makes room for **secret wings**. About half the levels try for one (`Tune.Secrets.WingChance`; a wing is cut only where the cave
+reaches its right-hand extreme for a floor with four rows of headroom, so roughly one level in three has one; none in the first level, the
+dragon's lair or the underground river's plateau): a four-row passage runs out past the cave's right-hand edge to a domed chamber with a
+silver chest (and a caged hero now and then, as any hidden chamber has), shut off by a plug of rubble flush with the cave's wall, a wall
+of the same kind as any other plug (four blows, or one heaving swing, or the interact button; dust sifts from it now and then, the draught
+of the passage behind it). The generator makes the map `Tune.Secrets.PadCells` wider for the wing (the new rock on the right). The wing
+lies outside the view's limits, so it can't be seen from the cave; when its wall is down, in this game or a friend's, the limits are let
+out to take it in (`Main.OpenWing`: they ease out, and the camera slides out with them rather than jumping), a notice reads A SECRET LIES
+BEYOND, and the passage and the chamber are there to walk into. `--scenario=wing --wing` checks all of it (`--wing` gives every level a
+wing); `--gentest --wing` checks that the passage runs through to the chamber.
+
 ### The Underground River
 
 `BiomeId.River`, depths 4 to 7 (`GenStyle.River`, `CaveGenerator.GenerateRiver`, `Tune.River`). A long, high canyon, 300 x 1.5 cells wide:

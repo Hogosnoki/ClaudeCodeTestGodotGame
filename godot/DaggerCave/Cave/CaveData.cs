@@ -110,6 +110,12 @@ public sealed class CaveData
     public readonly List<Room> Sheltered = new();
     /// <summary>The tunnel under the guardian's plateau (world px), for the tests.</summary>
     public Rect2 Tunnel;
+    /// <summary>
+    /// The main occupied area (px): the camera keeps within it, so nothing beyond the cave's own space can be seen. A secret wing past its edge
+    /// (<see cref="Wings"/>) is let into the view once its wall is down.
+    /// </summary>
+    public Rect2 ViewRect;
+    public readonly List<SecretWing> Wings = new();
 
     /// <summary>The current at a point (zero out of the water, or where the water is still).</summary>
     public Vector2 FlowAt(Vector2 p)

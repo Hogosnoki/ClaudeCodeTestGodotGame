@@ -15,6 +15,9 @@ public partial class Rubble : StaticBody2D, IBreakable
     public static readonly List<Rubble> All = new();
 
     public int Index;
+    /// <summary>The wall of a secret wing (see SecretWing): when it is down, the camera's view is let out to take in what lies beyond.</summary>
+    public bool Secret;
+    public event Action<Rubble> OnCleared;
     public Vector2 Size = new(32, 64);
     public int Left = Tune.Rubble.Hits;
     public bool Cleared => Left <= 0;
@@ -85,6 +88,7 @@ public partial class Rubble : StaticBody2D, IBreakable
         G.Sfx.Play(Bones ? "clink" : "rock", GlobalPosition, 0, 0.1f, Bones ? 0.9f : 0.6f);
         G.Fx.Debris(GlobalPosition, Dust, 22, 200);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, Size.Y * 0.5f), 24, new Color(1, 1, 1, 0.3f), 0.25f);
+        OnCleared?.Invoke(this);
     }
 
     public override void _PhysicsProcess(double delta)
@@ -93,5 +97,7 @@ public partial class Rubble : StaticBody2D, IBreakable
         if (_cool > 0) _cool -= dt;
         if (ShakeT > 0) ShakeT -= dt;
         if (Cleared) ClearedT += dt;
+        // a secret's wall breathes: a little dust sifts out now and then, the draught of the passage behind
+        else if (Secret && G.Chance(dt * 0.9f)) G.Fx.Dust(GlobalPosition + new Vector2(G.Range(-Size.X * 0.4f, Size.X * 0.4f), G.Range(-Size.Y * 0.3f, Size.Y * 0.4f)), 1, 0.5f, new Color(0.6f, 0.55f, 0.48f, 0.4f));
     }
 }
