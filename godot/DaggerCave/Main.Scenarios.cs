@@ -75,6 +75,7 @@ public partial class Main
         "status" => "den",
         "guardians" => "den",
         "fall" => "den",
+        "river" => "river",
         "stick" => "den",
         "glitch" => "den",
         "shifterspecials" => "entrance",
@@ -122,6 +123,7 @@ public partial class Main
             case "status": StatusScenario(); break;
             case "guardians": GuardiansScenario(); break;
             case "fall": FallScenario(); break;
+            case "river": RiverScenario(); break;
             case "stick": StickScenario(); break;
             case "glitch": GlitchScenario(); break;
             case "shifterspecials": ShifterSpecialsScenario(); break;

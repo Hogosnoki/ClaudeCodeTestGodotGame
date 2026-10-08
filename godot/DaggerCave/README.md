@@ -364,6 +364,7 @@ mini-bosses and guardian:
 | 5-7 | Fossil Graveyards | a few vast, echoing chambers of layered sediment; in each, the ribcage of a leviathan arches from deep in the back to just in front of you, and a great skull is sunk in the wall | fossil skeletons, bone scorpions, ossuary golems, marrow rats, bats | unstable ceilings: walk beneath one and dust sifts down and the rock groans, then a few stones break loose (each one shows where it will land) | The Ossuary Colossus |
 | 6-8 | Crystal Caves | ledges in every tall space, so no long falls | shardlings, crystal golems, skeletons | crystal spikes | The Prism Golem |
 | 6-8 | Old Lava Tubes | long, wide, round bores the fire cut and left (twice the usual width, a fifth of the usual branches, smooth walls) running down in great sweeps; the odd chimney carved up out of a tube's roof, too high for any jump, ends in a hidden chamber with a silver (relic) chest (the guardian is never up one); faint embers in the seams of the rock | basalt scorpions, basalt golems, magma brutes, cinder bats, ember hornets, fire elementals | - | The Basalt Warden (golem) |
+| 4-7 | The Underground River | a high, long canyon with a river flowing back down it along the floor, from the guardian's end toward where you arrive, too fast to swim against; boulders hang in the river, flat on top, a jump apart: the dry way across | bats only: the roof is full of them (river, pale and blind ones), elite bats on the broad banks | the Echo Queen, a huge bat, on a high plateau at the head of the river | the river's bed holds the upgrades; the river comes from under the plateau: a tunnel to a hidden chamber with a silver chest |
 | secret | The Sunken Sea | one vast, deep, wide-open underground lake: a beach where you arrive, a shelf at the far side with the way on, and between them black water over trenches and shoals, rock islands, pillars rising from the deep and treasure pits sunk into the lake bed | fish, eels, urchins, crabs, water elementals; frogs, drowned skeletons and bats on the shores | - | none: the two exits (gentle and steep, as ever) are open from the start |
 | 8-9 | Magma Caverns | more ledges, less climbing, lava instead of water | magma brutes, obsidian golems, ember scorpions, fire bats | lava (burns hard and throws you out; with Magma Skin you swim in it, and chests lie at its bottom), fire vents | The Molten Colossus |
 | 10 | Dragon's Lair | an antechamber and one domed arena over a lava lake, with pits and tiers of ledges | - | lava | The Elder Dragon |
@@ -1257,6 +1258,35 @@ The drain looks like nothing you would swim into: no light, only a curtain of bl
 drains the colour from the water round it. Where you arrive in the Sunken Sea a waterfall pours from a crack in the roof to the beach beside you (the
 lake above, coming down). Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
 sides), not smooth balls.
+
+### The Underground River
+
+`BiomeId.River`, depths 4 to 7 (`GenStyle.River`, `CaveGenerator.GenerateRiver`, `Tune.River`). A long, high canyon, 300 x 1.5 cells wide:
+the beach where you arrive, then the river, then a high rock plateau that holds the guardian's chamber. The river runs *the wrong way*: its
+current (`CaveData.Flow`, 112 px/s, `FlowAt`) carries everything in it from the guardian's end back toward the beach, a little faster than an
+ordinary swimmer (`Hero.SwimSpeed` 96) can make way against, and it slackens only in the eddy at the beach (so you can climb out), and in the
+treasure pits and the hidden chamber (12% of itself).
+- **The way on is dry, and sparse.** Boulders hang in the river, flat on top and rounded beneath, their undersides just under the water so the
+  current runs on beneath them. They are few and small, and stand far apart (`Tune.River.GapScale` 1.3: near the edge of what a careful
+  jump clears; a climb a shorter gap, a drop a longer), so crossing without a wetting takes skill or a trick of mobility: a held run-up,
+  a double jump, a dash, a wall, the rope, a friend's draft. Two broad banks at most, where the elite bats lair.
+  The generator proves the dry route with the strict pixel-true jumper (`FineReach` in its dry mode, never touching water) and tries again
+  if it fails (`CaveData.DryOk`). Fall in and the river takes you back down it toward the start, and you have the stones to climb again.
+- **The upgrades are at the bottom of the river**: treasure pits sunk in the river bed (and chests scattered along it), out of the current.
+- **The secret under the guardian's ground.** The river comes from beneath the plateau: its mouth is a tunnel into the rock under the
+  guardian's floor (marked by bubbles escaping), 22 cells long, to a hidden chamber with a silver chest. The current is full strength
+  in it: it can be reached only by swimming faster than the water runs. A swim-speed upgrade or relic (Gill-Touched x1.5; two together
+  more), the Elementalist's narrow draft aimed along the water, a Shape Shifter's fish. Out-swimming it takes about 7 s at twice the speed
+  (the breath lasts 15).
+- **Wind and fish.** The Elementalist's narrow draft is a wind in the water here: whoever swims in its column is pushed along its
+  axis (`River.DraftPush` 200 px/s, so aimed up the river it carries a swimmer, and a friend, upstream; aimed with the stick in any direction).
+  A fish (a Shape Shifter's form, or a real one) feels only 30% of the current (`FishResist`); any other creature in the water is carried
+  along with it, and the guardian isn't.
+- **Only bats live here** (the water elementals are left out of this biome): river, pale and blind bats roosting in the roof and wheeling in
+  in waves, elite bats in the lairs, and the Echo Queen, a bat half again the size of an elite, three and a half times its health.
+- The water shows its current: surface ripples and long streaks of foam race along it (`water_surface` and `water_face` take a `flow`).
+  `--scenario=river` (also with `--hero=shifter`, for the fish) checks the whole of it, `--gentest --biome=river` the generator (dry way,
+  hidden chamber, vault).
 
 ### The Glitch, and the Null behind the wall
 

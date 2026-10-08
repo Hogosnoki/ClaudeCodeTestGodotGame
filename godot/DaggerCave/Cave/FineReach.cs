@@ -34,7 +34,8 @@ public sealed class FineReach
         (0, 0), (-1, 0), (1, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1),
     };
 
-    public FineReach(CaveData c)
+    /// <param name="dry">Keep out of the water altogether: where a hero can get to without ever being in it (the river's stepping stones).</param>
+    public FineReach(CaveData c, bool dry = false)
     {
         _c = c;
         _w = (int)(c.W * CaveData.Cell / Res);
@@ -62,6 +63,7 @@ public sealed class FineReach
                     int ox = x + dx, oy = y + dy;
                     if (ox < 0 || oy < 0 || ox >= _w || oy >= _h || solid[oy * _w + ox]) { ok = false; break; }
                 }
+                if (dry && ok && c.Liquid == Liquid.Water && y * Res > c.WaterY) ok = false;
                 _fit[y * _w + x] = ok;
                 _water[y * _w + x] = ok && c.Liquid == Liquid.Water && y * Res > c.WaterY;
             }

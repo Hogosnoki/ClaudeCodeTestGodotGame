@@ -102,6 +102,27 @@ public sealed class CaveData
     public readonly List<(Vector2 Pos, int Kind)> Hints = new();
     /// <summary>The drain at the lowest point of a lake's bed (world px), if this level has one: swim down it to the secret depth.</summary>
     public Vector2? Drain;
+    /// <summary>
+    /// The river's current, px/s along x (negative: toward the left; 0 is still water). Where the water slackens: it is nothing left of
+    /// <see cref="EddyX0"/> and full right of <see cref="EddyX1"/>; and in the rooms of <see cref="Sheltered"/> it is a fraction of itself.
+    /// </summary>
+    public float Flow, EddyX0, EddyX1;
+    public readonly List<Room> Sheltered = new();
+    /// <summary>The tunnel under the guardian's plateau (world px), for the tests.</summary>
+    public Rect2 Tunnel;
+
+    /// <summary>The current at a point (zero out of the water, or where the water is still).</summary>
+    public Vector2 FlowAt(Vector2 p)
+    {
+        if (Flow == 0f || !IsWater(p)) return Vector2.Zero;
+        float k = EddyX1 > EddyX0 ? Math.Clamp((p.X - EddyX0) / (EddyX1 - EddyX0), 0f, 1f) : 1f;
+        foreach (var r in Sheltered)
+        {
+            float ex = (p.X - r.Center.X) / (r.RxPx + 6f), ey = (p.Y - r.Center.Y) / (r.RyPx + 6f);
+            if (ex * ex + ey * ey < 1f) { k *= Tune.River.Sheltered; break; }
+        }
+        return new Vector2(Flow * k, 0f);
+    }
     /// <summary>How many of those plug the mouth of a dead end (test statistic).</summary>
     public int RubbleAtDeadEnds;
 
@@ -124,6 +145,8 @@ public sealed class CaveData
     public int TrapCells;
     /// <summary>Whether the strict check (FineReach) found the guardian reachable, and how many repairs it took.</summary>
     public bool FineOk;
+    /// <summary>The river: whether a hero can reach the guardian without once being in the water (see FineReach's dry mode).</summary>
+    public bool DryOk = true;
     public int FineRepairs;
     public int Attempts;
     public int ReachableCells;

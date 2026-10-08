@@ -223,6 +223,18 @@ public partial class LoadingScreen : Control
                     DrawRect(new Rect2(x, 720 - h, 36, h), new Color(1f, 0.4f + 0.2f * MathF.Sin(k + _t), 0.08f, 0.55f * a));
                 }
                 break;
+            case BiomeId.River:
+            {
+                // a dark river running left across the lower half, with pale threads racing along on it
+                for (int k = 0; k < 22; k++)
+                {
+                    float yy = 380 + (k * 53) % 330;
+                    float xx = (1280f - (_t * (60f + (k % 5) * 25f) + k * 173f) % 1500f) - 100f;
+                    DrawRect(new Rect2(xx, yy, 90 + (k % 4) * 60, 2.5f), new Color(glow.R, glow.G, glow.B, 0.18f * a));
+                }
+                DrawRect(new Rect2(0, 480, 1280, 240), new Color(glow.R * 0.2f, glow.G * 0.4f, glow.B * 0.5f, 0.12f * a));
+                break;
+            }
             case BiomeId.Null:
             {
                 // broken rectangles, jumping every few frames: a screen that has stopped working properly

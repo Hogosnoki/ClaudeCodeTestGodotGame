@@ -9,12 +9,14 @@ uniform sampler2D ripple : hint_normal, filter_linear_mipmap, repeat_enable;
 uniform vec3 shallow : source_color = vec3(0.1, 0.35, 0.5);
 uniform vec3 deep : source_color = vec3(0.02, 0.08, 0.16);
 uniform float absorb = 0.3;
+uniform float flow = 0.0;
 
 varying vec3 v_wp;
 
 void vertex() {
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
-	VERTEX.y += sin(v_wp.x * 0.48 + TIME * 2.0) * 0.1 + sin(v_wp.x * 1.13 - TIME * 1.3) * 0.07;
+	float fx = v_wp.x - flow * TIME;
+	VERTEX.y += sin(fx * 0.48 + TIME * 2.0) * 0.1 + sin(fx * 1.13 - TIME * 1.3) * 0.07;
 }
 
 vec3 unpack_n(vec4 t) {
@@ -23,8 +25,9 @@ vec3 unpack_n(vec4 t) {
 }
 
 void fragment() {
-	vec2 uv1 = v_wp.xz * 0.21 + vec2(TIME * 0.03, TIME * 0.017);
-	vec2 uv2 = v_wp.xz * 0.37 - vec2(TIME * 0.021, -TIME * 0.029);
+	vec2 p = v_wp.xz - vec2(flow * TIME, 0.0);
+	vec2 uv1 = p * 0.21 + vec2(TIME * 0.03, TIME * 0.017);
+	vec2 uv2 = p * 0.37 - vec2(TIME * 0.021, -TIME * 0.029);
 	vec3 n1 = unpack_n(texture(ripple, uv1));
 	vec3 n2 = unpack_n(texture(ripple, uv2));
 	vec3 wn = normalize(vec3(n1.x + n2.x, 2.2, n1.y + n2.y));

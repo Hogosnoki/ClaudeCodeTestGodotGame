@@ -47,12 +47,14 @@ public partial class Liquid3D : Node3D
             sm.SetShaderParameter("ripple", Ripple);
             sm.SetShaderParameter("shallow", shallow);
             sm.SetShaderParameter("deep", deep);
+            sm.SetShaderParameter("flow", cave.Flow * 0.6f / W3.Ppu);
             surf.Material = sm;
             var fm = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/water_face.gdshader"), RenderPriority = -10 };
             fm.SetShaderParameter("shallow", shallow);
             fm.SetShaderParameter("deep", deep);
             fm.SetShaderParameter("line_color", new Color(b.LiquidLine.R, b.LiquidLine.G, b.LiquidLine.B));
             fm.SetShaderParameter("surface_y", sy);
+            fm.SetShaderParameter("flow", cave.Flow * 0.6f / W3.Ppu);
             fm.SetShaderParameter("absorb", b.IceSheet ? 0.12f : 0.16f);
             face.Material = fm;
             // light shafts and haze in the water itself

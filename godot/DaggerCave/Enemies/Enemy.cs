@@ -413,9 +413,12 @@ public abstract partial class Enemy : CharacterBody2D
                 // tempo speeds the creature up; MoveScale shrinks every move it makes (speed,
                 // gravity and jump height together, with the same timing)
                 float k = tempo * MoveScale;
-                Velocity *= k;
+                // (a river's current carries a creature in it: not a guardian, and a fish only a little)
+                var drift = Vector2.Zero;
+                if (G.Cave.Flow != 0f && !IsBoss && InWater) drift = G.Cave.FlowAt(GlobalPosition) * (this is Fish ? Tune.River.FishResist : 1f);
+                Velocity = Velocity * k + drift;
                 MoveAndSlide();
-                Velocity /= k;
+                Velocity = (Velocity - drift) / k;
             }
         }
         if (Anim != null)

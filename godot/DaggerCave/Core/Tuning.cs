@@ -706,6 +706,25 @@ public static class Tune
     }
 
     /// <summary>
+    /// The underground river (see <see cref="CaveGenerator.GenerateRiver"/>, <see cref="CaveData.FlowAt"/>). The current runs Flow px/s from the
+    /// guardian's end toward where you arrive, a little faster than an ordinary swimmer (Hero.SwimSpeed) can make way against, so a fall
+    /// from the stones is carried back down it; it dies out over EddyCells cells at the beach (so you can climb out), and is Sheltered
+    /// (a share of itself) in the treasure pits and the hidden chamber. TunnelCells: how far the tunnel runs in under the guardian's plateau.
+    /// A fish (a Shape Shifter's, or a real one) feels only FishResist of it. The Elementalist's narrow draft is a wind in the water:
+    /// whoever swims in its column is pushed along its axis at DraftPush px/s.
+    /// </summary>
+    public static class River
+    {
+        /// <summary>How far (rows) the stepping stones hang down below the water line.</summary>
+        public static float StoneDraft = 2.5f;
+        /// <summary>How far apart the stones stand, as a multiple of what the slowest jumper clears with room to spare (1.3: near the edge of a
+        /// plain careful jump, so a pass without risk wants skill or a mobility trick: a held run-up, a double jump, a dash, a rope, a draft).</summary>
+        public static float GapScale = 1.3f;
+        public static float Flow = 112f, EddyCells = 30f, Sheltered = 0.12f, FishResist = 0.3f, DraftPush = 200f;
+        public static int TunnelCells = 22;
+    }
+
+    /// <summary>
     /// The Glitch (see <see cref="DaggerCave.Glitch"/>). It comes only to a party in which everyone has slain the Elder Dragon: Chance a
     /// level (from depth 1 to the one above the dragon's), ArriveMin..ArriveMax s into it. Its health (never grown by depth), size, and XP.
     /// It blinks beside a hero every BlinkMin..BlinkMax s (BlinkNear..BlinkFar px from them) and between blinks stutters toward them in

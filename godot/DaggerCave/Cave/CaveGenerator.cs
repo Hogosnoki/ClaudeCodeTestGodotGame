@@ -93,6 +93,7 @@ public static partial class CaveGenerator
                 GenStyle.Ruins => GenerateRuins(s),
                 GenStyle.Crypt => GenerateCrypt(s),
                 GenStyle.Lake => GenerateLake(s),
+                GenStyle.River => GenerateRiver(s),
                 GenStyle.Mine => GenerateMine(s),
                 GenStyle.Arena => GenerateArena(s),
                 _ => GenerateOnce(s),
@@ -164,6 +165,8 @@ public static partial class CaveGenerator
             if (!BossFloorReached(c)) score += 50000;
             // (a guardian a real hero can't reach, though the coarse check says it can be: nearly as bad)
             if (!c.FineOk && c.Attempts <= 6 && !RawMode) score += 20000;
+            // (a river with no dry way across, only the swimming the current forbids)
+            if (!c.DryOk && !RawMode) score += 40000;
             if (B.Style == GenStyle.Walkers && c.Boss.Center.DistanceTo(c.StartPos) < W * 0.33f * CaveData.Cell) score += 5000;
             int minis = 0;
             foreach (var r in c.Rooms) if (r.Kind == RoomKind.MiniBoss) minis++;
@@ -1780,7 +1783,7 @@ public static partial class CaveGenerator
     internal static void AddDrain(CaveData cave, int seed)
     {
         cave.Drain = null;
-        if (cave.Biome == null || cave.Liquid != Liquid.Water || cave.Biome.Id is BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss or BiomeId.Null || cave.Biome.MinDepth < 1) return;
+        if (cave.Biome == null || cave.Liquid != Liquid.Water || cave.Biome.Id is BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss or BiomeId.Null or BiomeId.River || cave.Biome.MinDepth < 1) return;
         if (!(new Random(seed * 31 + 17).NextDouble() < Tune.Abyss.DrainChance) && !ForceDrain) return;
         if (cave.ReachMask == null) return;
         int W = cave.W, H = cave.H;

@@ -12,8 +12,16 @@ uniform vec3 line_color : source_color = vec3(0.6, 0.9, 1.0);
 uniform float absorb = 0.16;
 uniform float surface_y = 0.0;
 uniform float tint = 0.45;
+uniform float flow = 0.0;
 
 varying vec3 v_wp;
+
+float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float vnoise(vec2 p) {
+	vec2 i = floor(p), f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
 
 void vertex() {
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
@@ -25,7 +33,7 @@ float wave(float x, float t) {
 
 void fragment() {
 	float t = TIME;
-	float sy = surface_y + wave(v_wp.x, t);
+	float sy = surface_y + wave(v_wp.x - flow * t, t);
 	float below = sy - v_wp.y;
 	if (below < -0.25) discard;
 	// refraction wobble
@@ -41,6 +49,14 @@ void fragment() {
 	float k = 1.0 - exp(-dist * absorb);
 	vec3 col = behind * mix(vec3(1.0), water / max(max(water.r, water.g), max(water.b, 1e-3)), tint);
 	col = mix(col, water * 0.6, k);
+	// a river: long pale streaks racing along with the current, thickest near the top and thinning with depth
+	if (abs(flow) > 0.001) {
+		float fx = v_wp.x - flow * t;
+		float streak = smoothstep(0.66, 0.92, vnoise(vec2(fx * 0.42, v_wp.y * 2.6)));
+		float streak2 = smoothstep(0.7, 0.95, vnoise(vec2(fx * 0.9 + 7.0, v_wp.y * 4.1 + 3.0)));
+		float near = exp(-max(below, 0.0) * 0.28) * smoothstep(0.0, 0.8, below);
+		col += line_color * (streak * 0.11 + streak2 * 0.06) * near;
+	}
 	// the waterline: a bright animated seam with a soft glow under it
 	float line = 1.0 - smoothstep(0.0, 0.06, abs(below));
 	float glow = exp(-max(below, 0.0) * 1.8) * 0.25;

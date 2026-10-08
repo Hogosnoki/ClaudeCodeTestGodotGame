@@ -934,6 +934,15 @@ public partial class Player : CharacterBody2D
         var dir = inp.Move;
         if (inp.JumpHeld) dir.Y = -1;
         float spd = SwimSpeedBase * Stats.SwimSpeed * (G.Biome?.Murky == true ? Tune.Hero.MurkySwimMult : 1f);
+        // a river's current carries whoever is in it (everything below is worked out in the water's own frame); the Elementalist's
+        // narrow draft is a wind in the water, pushing whoever swims in its column along its axis
+        var flow = Vector2.Zero;
+        if (cave.Flow != 0f)
+        {
+            flow = cave.FlowAt(GlobalPosition);
+            if (Updraft.At(GlobalPosition) is Updraft ud) flow += ud.Up * (Tune.River.DraftPush * ud.Strength);
+            v -= flow;
+        }
         if (dir.LengthSquared() > 0.04f)
         {
             v = v.MoveToward(dir.Normalized() * spd, Tune.Hero.SwimAccel * dt);
@@ -948,8 +957,9 @@ public partial class Player : CharacterBody2D
             v.Y = -BaseJumpV * MathF.Sqrt(Stats.JumpMult) * Tune.Hero.SurfaceLeapMult;
             _jumpBuffer = 0; _jumpCutDone = true;
             G.Sfx.Play("jump", GlobalPosition, -6, 0.05f, 0.8f);
+            if (cave.Flow != 0f) flow = Vector2.Zero; // (out of the water it is only the leap)
         }
-        return v;
+        return v + flow;
     }
 
     /// <summary>

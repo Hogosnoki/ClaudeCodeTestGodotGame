@@ -26,11 +26,13 @@ public enum GenStyle
     LavaTube,
     /// <summary>One vast, deep, open underground lake (the secret depth under the lakes).</summary>
     Lake,
+    /// <summary>A high canyon with a river flowing back down it along the floor, dry stepping stones across, and the guardian's plateau at the head (the underground river).</summary>
+    River,
     /// <summary>An antechamber and one great arena over lava (the dragon's lair).</summary>
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss, Null }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss, Null, River }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -483,6 +485,29 @@ public static class Biomes
         nul.Guardian = r => new Golem(); // (never woken: there is no guardian; the exit test only wants a body to measure)
         All.Add(nul);
 
+        // ------------------------------------------------------------------ 4-7: the underground river
+        // (a river runs the wrong way along the canyon floor: from under the guardian's plateau, back toward where you arrive; see
+        // CaveGenerator.GenerateRiver and CaveData.FlowAt. Only bats live here, in the roof and on the wing)
+        var river = new BiomeDef
+        {
+            Id = BiomeId.River, Name = "The Underground River", MinDepth = 4, MaxDepth = 7, Weight = 0.9f,
+            Style = GenStyle.River, W = 300, H = 120, Liquid = Liquid.Water,
+            Edge = C("3f5560"), Deep = C("060d12"), Moss = C("3e8a78"), Rim = C("6d93a0"), Glow = C("8affea"),
+            LiquidTop = new Color(0.05f, 0.26f, 0.36f, 0.36f), LiquidBottom = new Color(0.02f, 0.09f, 0.17f, 0.6f), LiquidLine = new Color(0.5f, 0.78f, 0.82f, 0.65f),
+            BackBottom = C("03090e"), Grass = 0.03f, Mushrooms = 0.01f, Crystals = 0.07f, Stalactites = 0.35f, Darkness = 0.8f, HazardCount = 0, Critters = 30,
+            WaterCaches = 6, HighCaches = 1, RoomChests = 5, MiniBossesMin = 1, MiniBossesMax = 2, SpawnSpacing = 15f, WallGlow = 0.1f,
+        };
+        foreach (var kind in new[] { SpawnKind.Ground, SpawnKind.Water, SpawnKind.WaterFloor, SpawnKind.WaterWall, SpawnKind.Shore })
+            river.Residents[kind] = L(E(1, () => Var(new Bat(), "River ", "7e98b0")));
+        river.Residents[SpawnKind.Ceiling] = L(E(3, () => Var(new Bat(), "River ", "7e98b0"), 2, 4), E(2, () => Var(new Bat(), "Pale ", "b8c4d4"), 1, 3), E(1, () => Var(new Bat(), "Blind ", "5a6a88"), 2, 3));
+        river.GroundEntrants = L(E(1, () => Var(new Bat(), "River ", "7e98b0")));
+        river.AirEntrants = L(E(2, () => Var(new Bat(), "River ", "7e98b0")), E(1, () => Var(new Bat(), "Pale ", "b8c4d4")));
+        river.WaterEntrants = river.AirEntrants.ToList();
+        river.MiniBosses = new() { () => Var(new Bat(), "Great ", "7c8aa8", 1f), () => Var(new Bat(), "Echo ", "a0b4d0", 1f) };
+        river.WaterMiniBosses = river.MiniBosses.ToList();
+        river.Guardian = r => { var q = Guard(Var(new Bat(), "", "8e9cc0"), "THE ECHO QUEEN", 3.4f); q.Size *= 1.5f; return q; };
+        All.Add(river);
+
         // ------------------------------------------------------------------ 8-9: magma caverns
         var magma = new BiomeDef
         {
@@ -545,7 +570,8 @@ public static class Biomes
         Ground(BiomeId.Fossils, 2, () => new EarthElemental());
         foreach (var b in All)
         {
-            if (b.Liquid != Liquid.Water) continue;
+            // (the underground river has only bats)
+            if (b.Liquid != Liquid.Water || b.Id == BiomeId.River) continue;
             if (!b.Residents.TryGetValue(SpawnKind.Water, out var l)) b.Residents[SpawnKind.Water] = l = new();
             l.Add(E(1, () => new WaterElemental()));
             b.WaterEntrants.Add(E(1, () => new WaterElemental()));
