@@ -913,6 +913,10 @@ public static class Tune
         /// <summary>Minimum sideways gap (cells) between ledges at similar heights, so you can
         /// jump between them without hitting your head.</summary>
         public static float PlatformGapCells = 2.5f;
+        /// <summary>A high cavern keeps ledges only this many steps (three cells each) up from its floor; above, open air.</summary>
+        public static int CavernSteps = 2;
+        /// <summary>In the tall caves (130 cells and more) the chance of a ledge chain carrying on near the top is the biome's times this.</summary>
+        public static float TallCaveTopPlatforms = 0.6f;
         /// <summary>Roughly how far apart (in cells) staircases start.</summary>
         public static int PlatformSpacingCells = 9;
     }

@@ -1313,6 +1313,14 @@ sides), not smooth balls.
   golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
 - **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
 - **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
+- **High caverns** (`CaveGenerator`, the tunnel-walker caves 130 cells tall or more, after the map's height scale: one hall, two in the very
+  tallest, i.e. Slime and Crystal): a broad hall carved up from a main tunnel's floor into the upper cave, 14 to 30 cells tall (far above
+  any jump), with a lobe or two so it isn't a plain arch. Ledge chains keep only their first two steps inside it (`Tune.Cave.CavernSteps`);
+  above is open air for a bat's wings, a spider's legs, an updraft or a friend's footholds. High in its walls are an *aerie* or two (a
+  pocket with a silver chest), and over its crown a crack up into a hidden *grotto* (a chamber with a silver chest; caged heroes may be
+  kept in either). Each is closed in its own shell of rock, so it holds even where the heights were a maze of old tunnels. The tall caves
+  also carry fewer ledges near their tops (`Tune.Cave.TallCaveTopPlatforms`). `cave.HighCaverns` lists the halls; the gentest line
+  counts them; `--nocaverns` leaves them out; `--lookshot=PATH --lookcavern[=N]` stands a hero in one.
 - **The Shape Shifter carries a real staff**: a crooked wildwood shaft with a leather wrap and bead charm, its head a knot of burl with two
   antler tines curling back (it was a sword mesh in staff colours). She still swings it with the sword's cuts.
 - **The Swordsman's scarf tail is gone**: it stood stiffly out behind his shoulder like a spike; the cowl is knotted at the nape.

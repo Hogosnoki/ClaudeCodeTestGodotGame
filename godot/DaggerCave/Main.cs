@@ -360,6 +360,7 @@ public partial class Main : Node
             else if (a == "--fullrun") _fullRun = true;
             else if (a == "--forcedrain") CaveGenerator.ForceDrain = true;
             else if (a == "--forcenooks") CaveGenerator.ForceNooks = true;
+            else if (a == "--nocaverns") CaveGenerator.ForceNoCaverns = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
@@ -574,6 +575,15 @@ public partial class Main : Node
         if (_fxTest > 0 && _lookFrame == Math.Max(1, _lookFrames - _fxTest)) SpawnFxTest();
         if (_propTest && _lookFrame == 2) SpawnPropTest();
         if (_chestTest && _lookFrame == 2) SpawnChestTest();
+        // Test aid (--lookcavern[=N], with --lookshot): the hero on the floor of a high cavern, the camera pulled back to see it whole
+        if (_lookFrame == 2 && OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--lookcavern")) is string lc && G.Cave.HighCaverns.Count > 0)
+        {
+            int n = lc.Contains('=') ? Math.Clamp(int.Parse(lc[(lc.IndexOf('=') + 1)..]), 0, G.Cave.HighCaverns.Count - 1) : 0;
+            var hc = G.Cave.HighCaverns[n];
+            var mid = new Vector2((hc.X + hc.Z) * 0.5f, hc.W - 3f) * CaveData.Cell;
+            if (G.Cave.FindFloor(mid, 400, out var cf)) { G.Player.GlobalPosition = cf + new Vector2(0, -14); G.Player.Velocity = Vector2.Zero; }
+            GD.Print($"[lookshot] cavern {n}: cells x {hc.X:0}-{hc.Z:0}, top {hc.Y:0}, floor {hc.W:0}; hero at {G.Player.GlobalPosition.Round()}");
+        }
         // Test aid (--lookexit, with --lookshot): an exit's doorway (and the stair you came by) beside the hero, to see how they are lit
         if (_lookFrame == 2 && OS.GetCmdlineUserArgs().Contains("--lookexit"))
         {
@@ -3479,7 +3489,7 @@ public partial class Main : Node
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)}");
+                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");

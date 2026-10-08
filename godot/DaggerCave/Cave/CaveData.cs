@@ -91,6 +91,9 @@ public sealed class CaveData
     /// field it replaced. They are checked for traversal as rock, then lifted out of the field and put back as breakable slabs.
     /// </summary>
     public readonly List<LedgeRec> Ledges = new();
+    /// <summary>The high caverns (cells: X0, Top, X1, Floor): tall open halls in the upper cave, left all but empty of ledges above their
+    /// first few steps, so only flight, climbing or a friend's help gets anyone up them (see CaveGenerator's high caverns).</summary>
+    public readonly List<Vector4> HighCaverns = new();
     /// <summary>How many of <see cref="Ledges"/> were platforms the cave grew itself.</summary>
     public int NaturalPlatforms;
     /// <summary>Boulder plugs in narrow passages: centre (px), and the size (px).</summary>

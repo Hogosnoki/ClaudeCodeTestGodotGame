@@ -54,6 +54,9 @@ public static partial class CaveGenerator
     /// <summary>Set, for an attempt running beside others: true once its result is no longer wanted (an earlier attempt made a sound cave).</summary>
     [ThreadStatic] private static Func<bool> _unwanted;
     /// <summary>Called through the long loops: abandons an attempt whose result is no longer wanted.</summary>
+    /// <summary>Test aid (<c>--nocaverns</c>): no high caverns, to compare.</summary>
+    public static bool ForceNoCaverns;
+
     internal static void CheckCancel() { if (_unwanted != null && _unwanted()) throw new OperationCanceledException(); }
 
     /// <summary>--gentest --genprof: where the generation time goes (milliseconds and calls by phase).</summary>
@@ -565,6 +568,40 @@ public static partial class CaveGenerator
             foreach (var r in chosen) r.Kind = RoomKind.MiniBoss;
         }
 
+        // The high caverns: in the taller caves, a hall or two in the upper cave far taller than any jump (see HighCaverns below)
+        Timed("caverns", () => CarveHighCaverns());
+        void CarveHighCaverns()
+        {
+            int want = H >= 160 ? 2 : H >= 130 ? 1 : 0;
+            if (want == 0 || ForceNoCaverns) return;
+            var rects = new List<Rect2>();
+            foreach (var r in cave.Rooms)
+                rects.Add(new Rect2(r.Center.X / CaveData.Cell - r.RxPx / CaveData.Cell - 8, r.Center.Y / CaveData.Cell - r.RyPx / CaveData.Cell - 8, r.RxPx / CaveData.Cell * 2 + 16, r.RyPx / CaveData.Cell * 2 + 16));
+            var main = stamps.Where(st => st.Main && st.Mode == ModeAir).ToList();
+            for (int tries = 0; tries < 400 && cave.HighCaverns.Count < want && main.Count > 0; tries++)
+            {
+                var st = main[rng.Next(main.Count)];
+                float floorY = st.Y + st.R - 0.3f;
+                if (floorY > H * 0.62f || floorY > waterRow - 4) continue;
+                float ry = Math.Min(Rnd(18, 30), floorY - 7);
+                if (ry < 14) continue;
+                float rx = Rnd(15, 23);
+                float cx = st.X;
+                if (cx - rx < 8 || cx + rx > W - 8) continue;
+                var box = new Rect2(cx - rx - 2, floorY - ry - 2, rx * 2 + 4, ry + 4);
+                if (rects.Any(r => r.Intersects(box))) continue;
+                // the hall: a broad dome on the tunnel's floor, with a lobe or two up into it so its outline isn't a plain arch
+                Dome(cx, floorY, rx, ry, true);
+                for (int k = 0; k < 2; k++)
+                {
+                    float lx = cx + (k == 0 ? -1 : 1) * rx * Rnd(0.2f, 0.5f);
+                    Dome(lx, floorY - ry * Rnd(0.25f, 0.45f), rx * Rnd(0.45f, 0.6f), ry * Rnd(0.55f, 0.7f), false);
+                }
+                cave.HighCaverns.Add(new Vector4(cx - rx, floorY - ry, cx + rx, floorY));
+                rects.Add(new Rect2(box.Position - new Vector2(18, 10), box.Size + new Vector2(36, 20)));
+            }
+        }
+
         // Solid border.
         for (int j = 0; j <= H; j++)
             for (int i = 0; i <= W; i++)
@@ -664,6 +701,85 @@ public static partial class CaveGenerator
             }
         }
 
+        Timed("aeries", () => CarveAeries());
+        // In each high cavern: a pocket or two cut into its walls high up (an aerie, with a chest), and over its crown a crack up into a
+        // hidden grotto. Nothing but wings, climbing legs, an updraft or a friend's foothold gets anyone up there. (After the ledges, so
+        // none gets a stair; the reach check leaves them be: you can't fall into them.)
+        // (rock round a chamber: an elliptical shell `t` cells thick, filled in before it is carved, so it is a closed room even where the
+        // heights were a maze of old tunnels)
+        void Shell(float cx, float cy, float rx, float ry, float t)
+        {
+            int i0 = Math.Max(3, (int)(cx - rx - t - 2)), i1 = Math.Min(W - 3, (int)(cx + rx + t + 2));
+            int j0 = Math.Max(3, (int)(cy - ry - t - 2)), j1 = Math.Min(H - 3, (int)(cy + ry + t + 2));
+            for (int j = j0; j <= j1; j++)
+                for (int i = i0; i <= i1; i++)
+                {
+                    float ex = (i - cx) / (rx + t), ey = (j - cy) / (ry + t);
+                    if (ex * ex + ey * ey <= 1f) open[j * stride + i] = 0f;
+                }
+        }
+
+        void CarveAeries()
+        {
+            open = cave.Open;
+            foreach (var hc in cave.HighCaverns)
+            {
+                float cx = (hc.X + hc.Z) * 0.5f, floorY = hc.W, ry = hc.W - hc.Y;
+                // the aeries, one each side (if the rock there holds one)
+                foreach (int side in rng.Next(2) == 0 ? new[] { -1, 1 } : new[] { 1, -1 })
+                {
+                    float row = floorY - ry * Rnd(0.5f, 0.75f);
+                    int j = (int)row, i = (int)cx;
+                    if (!cave.CellOpen(i, j)) continue;
+                    while (i > 4 && i < W - 4 && cave.CellOpen(i + side, j)) i += side;
+                    float wallX = i + side;
+                    float pcx = wallX + side * 4.5f;
+                    if (pcx < 10 || pcx > W - 10 || row < 10) continue;
+                    // (a shell of rock round the pocket, its floor solid under it)
+                    Shell(pcx, row - 1.6f, 4.2f, 2.6f, 2.2f);
+                    Dome(pcx, row, 4.2f, 3.2f, true);
+                    // its mouth, onto the hall
+                    for (float t = 0; t <= 1f; t += 0.1f) Carve(Mathf.Lerp(wallX - side * 1.5f, pcx, t), row - 1.9f, 1.8f);
+                    cave.Rooms.Add(new Room
+                    {
+                        Kind = RoomKind.Secret,
+                        Center = new Vector2(pcx, row - 2f) * CaveData.Cell,
+                        Floor = new Vector2(pcx, row) * CaveData.Cell,
+                        RxPx = 4f * CaveData.Cell, RyPx = 3f * CaveData.Cell,
+                    });
+                }
+                // the crown: the highest open cell over the hall's middle, then a crack up out of it to a grotto
+                int top = (int)(floorY - 2);
+                while (top > 4 && cave.CellOpen((int)cx, top - 1)) top--;
+                float gx = cx + Rnd(-6, 6), gFloor = top - 5f;
+                if (gFloor - 8 < 5 || gx < 14 || gx > W - 14) continue;
+                float hole = gx - 3f;
+                // (closed in rock all round, but for the crack up into it)
+                Shell(gx, gFloor - 2.3f, 8f, 2.6f, 2.5f);
+                Shell(Mathf.Lerp(cx, hole, 0.5f), (top + gFloor) * 0.5f, Math.Abs(cx - hole) * 0.5f + 1.5f, (top - gFloor) * 0.5f + 0.5f, 1.8f);
+                for (float y = top + 0.5f; y >= gFloor - 0.5f; y -= 0.6f)
+                {
+                    float t = Mathf.Clamp((top - y) / Math.Max(1f, top - gFloor), 0f, 1f);
+                    Carve(Mathf.Lerp(cx, hole, t * t * (3 - 2 * t)), y, 1.25f);
+                }
+                Dome(gx, gFloor, 8f, 4.6f, true);
+                // (the floor stays solid beside the hole, under the chest)
+                for (int jj = (int)gFloor; jj <= (int)gFloor + 2; jj++)
+                    for (int ii = (int)(hole + 1.6f); ii <= (int)(gx + 9); ii++)
+                    {
+                        int k = jj * stride + ii;
+                        if (ii <= W) open[k] = Math.Min(open[k], Math.Clamp(0.5f - (jj - gFloor) * 0.5f, 0f, 1f));
+                    }
+                cave.Rooms.Add(new Room
+                {
+                    Kind = RoomKind.Secret,
+                    Center = new Vector2(gx + 2.5f, gFloor - 2.2f) * CaveData.Cell,
+                    Floor = new Vector2(gx + 2.5f, gFloor) * CaveData.Cell,
+                    RxPx = 6.5f * CaveData.Cell, RyPx = 4f * CaveData.Cell,
+                });
+            }
+        }
+
         // Reachability validation, with repairs: stepping-stone ledges up out of any pit the
         // movement model says you could fall into but not climb out of.
         Timed("validate+repair", () => ValidateAndRepair(cave, startCell));
@@ -696,7 +812,9 @@ public static partial class CaveGenerator
         float Chance(int standRow)
         {
             float h = Math.Clamp((waterRow - standRow) / (float)Math.Max(1, waterRow - 4), 0f, 1f);
-            return Mathf.Lerp(B.PlatformBottom, B.PlatformTop, h);
+            // (the tall caves keep their heights emptier: room up there for those who can fly or climb)
+            float top = H >= 130 ? B.PlatformTop * Tune.Cave.TallCaveTopPlatforms : B.PlatformTop;
+            return Mathf.Lerp(B.PlatformBottom, top, h);
         }
 
         // Tries to put a ledge whose top you stand on in cell row s, near column x. Returns the
@@ -715,6 +833,8 @@ public static partial class CaveGenerator
                 if (Math.Abs(p.Y - s) < 6 && Math.Abs(p.X - x) < p.Z + 3.2f + gap) return null;
             var px = new Vector2(x, s) * CaveData.Cell;
             foreach (var r in keepOut) if (Math.Abs(px.X - r.Center.X) < r.RxPx + 48 && Math.Abs(px.Y - r.Center.Y) < r.RyPx + 64) return null;
+            // (a high cavern keeps only its first couple of steps: above them it is open air, for wings, climbing legs and friends)
+            foreach (var hc in cave.HighCaverns) if (x > hc.X - 2 && x < hc.Z + 2 && s < hc.W - Tune.Cave.CavernSteps * 3 && s > hc.Y - 2) return null;
             // how wide is the gap at the ledge's row?
             int row = s + 1, l = ci, rr = ci;
             while (l > 0 && Open(l - 1, row) && ci - l < 12) l--;
