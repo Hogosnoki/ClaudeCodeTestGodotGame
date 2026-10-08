@@ -64,6 +64,8 @@ public partial class Main
                 bool found = FindRun(1, 70, true, out var stand) || (side = -1) == -1 && FindRun(-1, 70, true, out stand);
                 ScCheck($"a floor with a wall to throw at ({stand.Round()}, facing {side})", found);
                 if (!found) yield break;
+                // (a press lasts one physics tick here, as a real one does, however slow the frames: a held-down edge would throw both daggers and wall-jump)
+                p.InputOverride = () => { var i = _scInput; _scInput.Jump = false; _scInput.Ability = false; _scInput.Ability2 = false; return i; };
                 p.GlobalPosition = stand; p.Velocity = Vector2.Zero;
                 foreach (var _ in SbSleep(0.8f)) yield return null;
                 _scInput = new PlayerInput { Ability = true, Aim = new Vector2(side, 0), AimGiven = true }; yield return null;
@@ -80,26 +82,46 @@ public partial class Main
                 float restY = p.GlobalPosition.Y;
                 ScCheck($"a hero lowered onto it stands on it ({restY - hilt.Y:0} px from the dagger, on floor {p.IsOnFloor()})", p.IsOnFloor() && Math.Abs(restY - (hilt.Y - 14f)) < 9f);
                 ScShot("coop_dagger_foothold");
-                // jumping up through it from below works too: the ledge is one-way
-                // (set down on the ground beside it, below it, to jump from)
-                p.GlobalPosition = hilt + new Vector2(-side * 8, 10); p.Velocity = Vector2.Zero;
-                foreach (var _ in SbSleep(0.8f)) yield return null;
-                float groundY = p.GlobalPosition.Y;
-                bool through = false, jumped = false; float minY = 1e9f;
-                for (float t = 0; t < 1.8f; t += (float)GetProcessDeltaTime())
-                {
-                    _scInput = new PlayerInput { Jump = !jumped && p.IsOnFloor(), JumpHeld = true };
-                    if (!jumped && p.IsOnFloor() && _scInput.Jump) jumped = true;
-                    if (jumped && p.IsOnFloor() && p.GlobalPosition.Y < groundY - 8f) { through = true; break; }
-                    if (jumped) { minY = Math.Min(minY, p.GlobalPosition.Y); }
-                    yield return null;
-                }
-                _scInput = default;
-                ScCheck($"a hero jumping from below lands on top of it, through it ({through}; stood {groundY - p.GlobalPosition.Y:0} px above where it jumped from; the jump rose {groundY - minY:0} px, the hilt is {groundY - hilt.Y:0} px above the ground)", through);
                 // recalled, it comes home and the foothold goes
                 _scInput = new PlayerInput { Ability2 = true }; yield return null; _scInput = default;
                 foreach (var _ in SbSleep(1.2f)) yield return null;
                 ScCheck($"recalled, the dagger leaves the wall ({!GodotObject.IsInstanceValid(d) || !d.InWall}) and is back in hand ({p.DaggersInHand} of 2)", (!GodotObject.IsInstanceValid(d) || !d.InWall) && p.DaggersInHand == 2);
+                // a second one, slanted up, so its hilt is well above the ground: a ledge a hero has to jump up through
+                p.GlobalPosition = stand; p.Velocity = Vector2.Zero; p.Facing = side;
+                foreach (var _ in SbSleep(0.8f)) yield return null;
+                float run = Math.Abs(hilt.X - stand.X);
+                _scInput = new PlayerInput { Ability = true, Aim = new Vector2(side * run, -30f).Normalized(), AimGiven = true }; yield return null;
+                _scInput = default;
+                foreach (var _ in SbSleep(0.9f)) yield return null;
+                var d2 = p.ThrownDaggerAt(0) ?? p.ThrownDaggerAt(1);
+                bool in2 = d2 != null && d2.State == ThrownDagger.Phase.Stuck && d2.InWall;
+                ScCheck($"a dagger thrown up at the wall goes in it too ({d2?.State}, in the wall: {d2?.InWall})", in2);
+                if (!in2) yield break;
+                var hilt2 = d2.GlobalPosition;
+                ScShot("coop_dagger_high");
+                // below it, beside the wall, on the ground: a jump goes up through the hilt and comes down on it
+                p.GlobalPosition = hilt2 + new Vector2(-side * 8, 70); p.Velocity = Vector2.Zero;
+                foreach (var _ in SbSleep(1.0f)) yield return null;
+                float groundY = p.GlobalPosition.Y;
+                float height = groundY - 14f - hilt2.Y;
+                ScCheck($"the hilt hangs {groundY - hilt2.Y:0} px above where a hero stands, within a jump's reach", height > 14f && height < 50f && p.IsOnFloor());
+                bool left = false, landed = false; float minY = 1e9f;
+                _scInput = new PlayerInput { Jump = true, JumpHeld = true }; yield return null;
+                for (float t = 0; t < 2.4f; t += (float)GetProcessDeltaTime())
+                {
+                    _scInput = new PlayerInput { JumpHeld = t < 0.6f };
+                    if (!p.IsOnFloor()) left = true;
+                    minY = Math.Min(minY, p.GlobalPosition.Y);
+                    if (left && p.IsOnFloor()) { landed = true; break; }
+                    yield return null;
+                }
+                _scInput = default;
+                float stoodAbove = groundY - p.GlobalPosition.Y;
+                ScCheck($"a hero jumping up from below goes through it and lands on top ({landed}; {stoodAbove:0} px above where it jumped from, hilt {groundY - hilt2.Y:0}; the jump rose {groundY - minY:0} px)", landed && Math.Abs(p.GlobalPosition.Y - (hilt2.Y - 14f)) < 9f);
+                ScShot("coop_dagger_climbed");
+                _scInput = new PlayerInput { Ability2 = true }; yield return null; _scInput = default;
+                foreach (var _ in SbSleep(1.2f)) yield return null;
+                ScCheck($"recalled again, it is back in hand ({p.DaggersInHand} of 2)", p.DaggersInHand == 2);
                 break;
             }
             case HeroKind.Swordsman:
