@@ -17,6 +17,10 @@ public partial class Rubble : StaticBody2D, IBreakable
     public int Index;
     /// <summary>The wall of a secret wing (see SecretWing): when it is down, the camera's view is let out to take in what lies beyond.</summary>
     public bool Secret;
+    /// <summary>Blows it takes: a secret's wall takes more (Tune.Secrets.WallHits) than the plugs strewn about the level; a heaving swing still brings it down at once.</summary>
+    public int MaxHits = Tune.Rubble.Hits;
+    /// <summary>Whether it has been struck at all (a secret's wall is only a wall until then: no prompt, nothing to heave).</summary>
+    public bool Touched => Left < MaxHits;
     public event Action<Rubble> OnCleared;
     public Vector2 Size = new(32, 64);
     public int Left = Tune.Rubble.Hits;
@@ -47,7 +51,7 @@ public partial class Rubble : StaticBody2D, IBreakable
     /// <summary>Whether a hero at <paramref name="p"/> is close enough to heave at it.</summary>
     public bool Reaches(Vector2 p)
     {
-        if (Cleared) return false;
+        if (Cleared || (Secret && !Touched)) return false;
         var d = (p - GlobalPosition).Abs() - Size * 0.5f;
         return Math.Max(d.X, 0) < 26f && Math.Max(d.Y, 0) < 26f;
     }

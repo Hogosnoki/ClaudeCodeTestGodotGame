@@ -25,6 +25,7 @@ public static class PropViews
             ElementBolt => new ElementBoltView(),
             Updraft => new UpdraftView(),
             Rope => new RopeView(),
+            Rubble { Secret: true } => new SecretWallView(),
             Rubble => new RubbleView(),
             RockLedge => new RockLedgeView(),
             Blizzard => new BlizzardView(),

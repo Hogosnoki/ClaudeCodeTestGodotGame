@@ -1005,7 +1005,7 @@ public partial class Main : Node
         {
             var rb = new Rubble { Position = pos, Size = size, Index = k };
             var wing = cave.Wings.FirstOrDefault(w => w.RubbleIndex == k);
-            if (wing != null) { rb.Secret = true; rb.OnCleared += _ => OpenWing(wing); }
+            if (wing != null) { rb.Secret = true; rb.MaxHits = rb.Left = Tune.Secrets.WallHits; rb.OnCleared += _ => OpenWing(wing); }
             _world.AddChild(rb);
             k++;
         }

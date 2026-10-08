@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using Godot;
 
@@ -151,5 +152,87 @@ public partial class GlitchWallView : BrokenBoxes
         var p = (Portal)Owner2D;
         Follow(new Vector2(0, -Tune.Glitch.WallHeight * 0.5f + 16f), 0f);
         Jitter(dt, p.Near, W3.M(4f));
+    }
+}
+
+/// <summary>
+/// The wall of a secret wing: the very rock the cave's wall is (the terrain's own mesher, field and material, run on the field with the
+/// passage's mouth put back as rock), so it lines up with the wall round it and there is nothing to tell it apart at a glance. Struck, it
+/// shudders; brought down, it falls in pieces and the passage stands open.
+/// </summary>
+public partial class SecretWallView : PropView
+{
+    protected override bool ActorLit => false;
+    private MeshInstance3D _body;
+    private Node3D _pivot;
+    private readonly List<MeshInstance3D> _bits = new();
+    private readonly List<Vector3> _vel = new(), _spin = new();
+    private float _fall = -1f;
+
+    protected override void Build()
+    {
+        var r = (Rubble)Owner2D;
+        var cave = G.Cave;
+        var wing = cave.Wings.FirstOrDefault(w => w.RubbleIndex == r.Index);
+        var mat = (Material)G.Main.Stage?.Terrain?.Material ?? TerrainLook.Make(cave);
+        Vector3 off = default;
+        List<(int kind, Transform3D xf)> grass = null;
+        var mesh = wing?.Wall != null ? LedgeMesh.Build(cave, wing.Wall, mat, out off, out grass) : null;
+        if (mesh == null) return;
+        _body = new MeshInstance3D { Mesh = mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.On, Position = off };
+        // (the mesh's own origin is the cave's corner: it trembles in a pivot at the wall's middle)
+        _pivot = new Node3D();
+        AddChild(_pivot);
+        _pivot.AddChild(_body);
+    }
+
+    private void Crumble(Rubble r)
+    {
+        var rng = new Random(r.Index * 29 + 5);
+        var noise = new Noise3(rng.Next());
+        var wing = G.Cave.Wings.FirstOrDefault(q => q.RubbleIndex == r.Index);
+        float span = wing?.WallSpan ?? 2f;
+        float w = span, h = W3.M(r.Size.Y);
+        float x0 = (span - 2f) * 0.5f - 0f; // (the wall runs on to the right of the plug: its middle is a little to the right of the plug's)
+        var e0 = (G.Biome?.Edge ?? new Color(0.4f, 0.35f, 0.3f)).Lerp(new Color(0.5f, 0.5f, 0.5f), 0.35f);
+        var tint = new Color(Math.Min(1.4f, e0.R * 2.6f), Math.Min(1.4f, e0.G * 2.6f), Math.Min(1.4f, e0.B * 2.6f));
+        int count = 16 + (int)(span * 1.5f);
+        for (int i = 0; i < count; i++)
+        {
+            var mb = DecorMeshes.SlabChunk(rng, noise, 0.5f + (float)rng.NextDouble() * 0.8f, 0.45f + (float)rng.NextDouble() * 0.6f, 0.7f + (float)rng.NextDouble() * 0.6f, tint);
+            var node = PropViews.Mesh(mb, PropViews.LedgeRock);
+            node.Position = new Vector3(x0 + ((float)rng.NextDouble() - 0.5f) * w, ((float)rng.NextDouble() - 0.5f) * h, ((float)rng.NextDouble() - 0.5f) * 1.2f);
+            node.Rotation = new Vector3((float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f, (float)rng.NextDouble() * 3f);
+            AddChild(node);
+            _bits.Add(node);
+            _vel.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 2.4f, 0.4f + (float)rng.NextDouble() * 2f, ((float)rng.NextDouble() - 0.2f) * 2f));
+            _spin.Add(new Vector3(((float)rng.NextDouble() - 0.5f) * 8f, ((float)rng.NextDouble() - 0.5f) * 8f, ((float)rng.NextDouble() - 0.5f) * 8f));
+        }
+        if (_body != null) _body.Visible = false;
+    }
+
+    protected override void Sync(float dt)
+    {
+        var r = (Rubble)Owner2D;
+        Follow(default, 0f);
+        if (!r.Cleared)
+        {
+            if (_body == null) return;
+            // it shudders when struck: a small, quick tremor that settles
+            float k = Math.Clamp(r.ShakeT / 0.45f, 0f, 1f);
+            k *= k;
+            _pivot.Position = new Vector3(MathF.Sin(Time * 61f) * 0.02f * k, MathF.Sin(Time * 47f + 1f) * 0.012f * k, 0f);
+            return;
+        }
+        if (_fall < 0) { _fall = 0; Crumble(r); }
+        _fall += dt;
+        for (int i = 0; i < _bits.Count; i++)
+        {
+            _vel[i] = _vel[i] with { Y = _vel[i].Y - 9.8f * 1.6f * dt };
+            _bits[i].Position += _vel[i] * dt;
+            _bits[i].Rotation += _spin[i] * dt;
+            float s = Math.Clamp(1f - (_fall - 1.2f) / 1.0f, 0f, 1f);
+            _bits[i].Scale = Vector3.One * Math.Max(0.001f, s);
+        }
     }
 }

@@ -47,7 +47,15 @@ public partial class Main
         ScShot("wing_wall");
         int limit0 = _cam.LimitRight;
 
-        // ---- the wall comes down
+        // ---- the wall: a special one (eight blows, not four), nothing to heave until it has been struck, but a heaving swing brings it down at once
+        ScCheck($"it takes {Tune.Secrets.WallHits} blows, where the plugs strewn about take {Tune.Rubble.Hits} ({wall.Left} to go), and shows no prompt untouched ({Rubble.At(p.GlobalPosition) == null})", wall.Left == Tune.Secrets.WallHits && Tune.Secrets.WallHits > Tune.Rubble.Hits && Rubble.At(p.GlobalPosition) == null);
+        wall.Strike(p.GlobalPosition);
+        foreach (var _ in Wait(0.3f)) yield return null;
+        wall.Strike(p.GlobalPosition);
+        foreach (var _ in Wait(0.3f)) yield return null;
+        ScCheck($"struck, it holds ({wall.Left} blows to go) and now it can be heaved ({Rubble.At(p.GlobalPosition) == wall})", wall.Left == Tune.Secrets.WallHits - 2 && !wall.Cleared && Rubble.At(p.GlobalPosition) == wall);
+        ScShot("wing_wall_struck");
+        // a heaving swing (the Swordsman's) is one blow for the whole of it
         wall.Smash();
         float maxStep = 0; float lastX = _cam.GetScreenCenterPosition().X;
         for (float t = 0; t < 3.5f; t += (float)GetProcessDeltaTime())

@@ -1267,9 +1267,14 @@ The camera keeps to the **main occupied area**: the bounds of all the cave's ope
 That makes room for **secret wings**. About half the levels try for one (`Tune.Secrets.WingChance`; a wing is cut only where the cave
 reaches its right-hand extreme for a floor with four rows of headroom, so roughly one level in three has one; none in the first level, the
 dragon's lair or the underground river's plateau): a four-row passage runs out past the cave's right-hand edge to a domed chamber with a
-silver chest (and a caged hero now and then, as any hidden chamber has), shut off by a plug of rubble flush with the cave's wall, a wall
-of the same kind as any other plug (four blows, or one heaving swing, or the interact button; dust sifts from it now and then, the draught
-of the passage behind it). The generator makes the map `Tune.Secrets.PadCells` wider for the wing (the new rock on the right). The wing
+silver chest (and a caged hero now and then, as any hidden chamber has), shut off by a special wall. It is the cave's own rock: the terrain's
+mesher, field and material run on the field with the passage's mouth put back (`SecretWing.Wall`, meshed by `LedgeMesh` as the breakable ledges
+are; `SecretWallView`), carried along the passage as far as the camera will ever see, with a ring of the rock round it so it overlaps the
+terrain's own and leaves no seam, so it lines up with the wall round it, fills the passage from the front to the back wall, and takes
+more than a glance to notice (dust sifts from it now and then, the draught of the passage behind it). It is a rubble plug underneath,
+but a special one: it takes eight blows (`Tune.Secrets.WallHits`; the plugs strewn about the level take four), and a heaving swing (the
+Swordsman's) still brings it down in one. Until it has been struck at all there is no prompt and nothing to heave: it is only a wall.
+When it falls, the wall crumbles in pieces along its length. The generator makes the map `Tune.Secrets.PadCells` wider for the wing (the new rock on the right). The wing
 lies outside the view's limits, so it can't be seen from the cave; when its wall is down, in this game or a friend's, the limits are let
 out to take it in (`Main.OpenWing`: they ease out, and the camera slides out with them rather than jumping), a notice reads A SECRET LIES
 BEYOND, and the passage and the chamber are there to walk into. `--scenario=wing --wing` checks all of it (`--wing` gives every level a

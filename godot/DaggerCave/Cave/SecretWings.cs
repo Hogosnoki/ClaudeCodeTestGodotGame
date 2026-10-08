@@ -18,6 +18,14 @@ public sealed class SecretWing
     /// <summary>The wing's whole extent (px): the corridor and the chamber, the view it opens up.</summary>
     public Rect2 Bounds;
     public Room Chamber;
+    /// <summary>
+    /// The wall as the rock it is: the corners the passage's mouth was cut through, with the rock's own values (the cave's field with the
+    /// passage cut has the opening; a field with these put back has the wall as it stood), so the 3D view can mesh the plug as the very wall
+    /// round it (see LedgeMesh, which does the same for the breakable ledges).
+    /// </summary>
+    public LedgeRec Wall;
+    /// <summary>How many cells long the wall's rock runs along the passage (the plug itself is two cells of it).</summary>
+    public int WallSpan = 2;
 }
 
 public static partial class CaveGenerator
@@ -94,6 +102,25 @@ public static partial class CaveGenerator
         cave.W = W1;
         int stride = W1 + 1;
 
+        // ---- the wall's own rock, before anything is cut: the passage's four rows, from where the rock begins to a little past what the
+        // camera will ever see of it (so that, to the eye, the rock goes on unbroken), and a ring of the rock round that, so the wall's mesh
+        // overlaps the terrain's own and leaves no seam (the corners of the ring are as they are)
+        int span = Math.Max(2, Math.Min(W0 + 2, (int)MathF.Ceiling(cave.ViewRect.End.X / CaveData.Cell) + 2) - wallX);
+        var wall = new LedgeRec { Cx = wallX + 1f, Cy = fj - 1f, Half = span * 0.5f };
+        int stride0 = W1 + 1;
+        var orig = new Dictionary<int, float>();
+        for (int y = fj - 3; y <= fj + 1; y++)
+            for (int x = wallX; x <= wallX + span + 1; x++)
+                orig[y * stride0 + x] = cave.Open[y * stride0 + x];
+        var ring = new List<int>();
+        for (int y = fj - 5; y <= fj + 3; y++)
+            for (int x = wallX - 2; x <= wallX + span + 3; x++)
+            {
+                if (x < 0 || x > W1 || y < 0 || y > H0) continue;
+                int k = y * stride0 + x;
+                if (!orig.ContainsKey(k)) ring.Add(k);
+            }
+
         // ---- the passage (four rows tall, floored level with the cave's floor) and the chamber at its end
         float rx = Rf(rng, 8.5f, 11f), ry = Rf(rng, 5f, 6.2f);
         float cx = W0 + 3 + rx;
@@ -133,14 +160,19 @@ public static partial class CaveGenerator
             RxPx = rx * CaveData.Cell, RyPx = ry * CaveData.Cell,
         };
         cave.Rooms.Add(chamber);
-        // ---- the wall: a plug of rubble in the passage's mouth, flush with the cave's wall
+        // (what the cut left of the wall's corners is what the field now holds)
+        foreach (var (idx, was) in orig) wall.Cells.Add((idx, cave.Open[idx], was));
+        foreach (int idx in ring) wall.Cells.Add((idx, cave.Open[idx], cave.Open[idx]));
+
+        // ---- the wall: a plug of rubble across the passage where the rock begins, flush with the cave's own wall
         var size = new Vector2(2f, 4f) * CaveData.Cell;
-        var plug = new Vector2(fi + 2f, fj - 1f) * CaveData.Cell;
+        var plug = new Vector2(wallX + 1f, fj - 1f) * CaveData.Cell;
         cave.Rubble.Add((plug, size));
         float top = (floorY - ry * 2f - 3f) * CaveData.Cell;
         cave.Wings.Add(new SecretWing
         {
-            Plug = plug, RubbleIndex = cave.Rubble.Count - 1, Chamber = chamber,
+            WallSpan = span,
+            Plug = plug, RubbleIndex = cave.Rubble.Count - 1, Chamber = chamber, Wall = wall,
             Bounds = new Rect2((fi - 2) * CaveData.Cell, top, (W1 - fi + 2) * CaveData.Cell, (floorY + 3) * CaveData.Cell - top),
         });
         // (the rock's depth is measured over the new grid)

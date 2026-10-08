@@ -39,6 +39,9 @@ public static class LedgeMesh
             foreach (var l in cave.Ledges)
                 foreach (var (idx, _, now) in l.Cells)
                     twin.Open[idx] = Math.Min(twin.Open[idx], now);
+            // (and the secret wings' walls, put back as the rock they were cut through)
+            foreach (var w in cave.Wings)
+                if (w.Wall != null) foreach (var (idx, _, now) in w.Wall.Cells) twin.Open[idx] = Math.Min(twin.Open[idx], now);
             f = new TerrainField(twin, TerrainStyle.For(cave.Biome));
             cave.LedgeFieldPre = f;
             return f;
