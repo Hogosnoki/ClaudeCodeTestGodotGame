@@ -33,7 +33,8 @@ public partial class Main
                 _scGate = Gate;
                 _scVaultChest = _world.GetChildren().OfType<Chest>().FirstOrDefault(c => c.Vault);
                 var hidden = _world.GetChildren().OfType<KeyPickup>().Where(k => k.Stashed).ToList();
-                int wantHidden = Tune.Vault.KeysPerLevel - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0);
+                // (as many keys as cells: the mini-boss's drop is one of them)
+                int wantHidden = Math.Max(0, 1 + (Gate2 != null ? 1 : 0) - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0));
                 ScCheck($"the level has its vault: a shut gate ({_scGate != null && !_scGate.Opened}) and a chest behind it ({_scVaultChest != null}), marked on the map ({cave.Vault != null})",
                     _scGate != null && !_scGate.Opened && _scVaultChest != null && cave.Vault != null);
                 ScCheck($"and {wantHidden} hidden key(s) ({hidden.Count}), well away from the start (nearest {(hidden.Count > 0 ? hidden.Min(k => k.GlobalPosition.DistanceTo(cave.StartPos)) : 0):0} px)",
@@ -118,7 +119,7 @@ public partial class Main
                 if (_scT < 0.4f) return;
                 ScCheck($"a hero carries {Tune.Vault.MaxKeys} keys at most (keys {p.Keys}, the fourth still lying there {IsInstanceValid(_scKey)})", p.Keys == Tune.Vault.MaxKeys && IsInstanceValid(_scKey));
                 if (IsInstanceValid(_scKey)) _scKey.QueueFree();
-                // keys go on down with you
+                // every cell here is open: no key goes on down
                 p.Keys = 2;
                 _scDepth = G.Depth;
                 EnterExit(G.Biome, G.Depth + 1);
@@ -126,7 +127,16 @@ public partial class Main
                 break;
             case 9:
                 if (_scT < 0.6f) return;
-                ScCheck($"keys go down to the next level (depth {_scDepth} -> {G.Depth}, keys {G.Player.Keys})", G.Depth == _scDepth + 1 && G.Player.Keys == 2);
+                ScCheck($"with every cell opened, no key goes down to the next level (depth {_scDepth} -> {G.Depth}, keys {G.Player.Keys})", G.Depth == _scDepth + 1 && G.Player.Keys == 0);
+                // here the cell is left shut: one key (for it) goes on down, not two
+                G.Player.Keys = 2;
+                _scDepth = G.Depth;
+                EnterExit(G.Biome, G.Depth + 1);
+                _scStep = 30; _scT = 0;
+                break;
+            case 30:
+                if (_scT < 0.6f) return;
+                ScCheck($"with a cell left locked, one key goes down for it (depth {_scDepth} -> {G.Depth}, keys {G.Player.Keys})", G.Depth == _scDepth + 1 && G.Player.Keys == 1);
                 _scStep = 10; _scT = 0;
                 break;
             case 10:

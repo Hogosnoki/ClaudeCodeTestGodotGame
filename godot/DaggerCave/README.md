@@ -1313,6 +1313,9 @@ sides), not smooth balls.
   golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
 - **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
 - **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
+- **Fewer keys**: a level holds exactly as many keys as it has cells (vaults): one, or two with a Locksmith's Ring. The first mini-boss
+  slain drops one where a mini-boss lairs; the rest are hidden. Going down, a hero keeps only as many keys as the cells they left locked
+  (`Main.LockedCells`): open every cell and you leave with none. `--scenario=vault` checks both.
 - **High caverns** (`CaveGenerator`, the tunnel-walker caves 130 cells tall or more, after the map's height scale: one hall, two in the very
   tallest, i.e. Slime and Crystal): a broad hall carved up from a main tunnel's floor into the upper cave, 14 to 30 cells tall (far above
   any jump), with a lobe or two so it isn't a plain arch. Ledge chains keep only their first two steps inside it (`Tune.Cave.CavernSteps`);

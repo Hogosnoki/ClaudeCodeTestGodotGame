@@ -707,7 +707,8 @@ public partial class Main : Node
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
-            keepKeys = G.Player.Keys;
+            // (a key goes on down only for a cell left locked behind: open every cell and you leave with none)
+            keepKeys = Math.Min(G.Player.Keys, LockedCells());
             keepMilestones = G.Player.PendingMilestones;
             keepVitalForce = G.Player.VitalForce;
             keepAlimus = G.Player.Alimus;
@@ -1149,8 +1150,18 @@ public partial class Main : Node
             NetSync.LevelId(chest2);
             _world.AddChild(chest2);
         }
-        int hidden = Tune.Vault.KeysPerLevel + (Gate2 != null ? 1 : 0) - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0);
+        // as many keys as cells: one the first mini-boss slain drops (if any lairs here), the rest hidden
+        int cells = 1 + (Gate2 != null ? 1 : 0);
+        int hidden = Math.Max(0, cells - (cave.Rooms.Any(r => r.Kind == RoomKind.MiniBoss) ? 1 : 0));
         PlaceHiddenKeys(cave, hidden);
+    }
+
+    /// <summary>The level's vault cells still shut (what keys a hero may take on down with them).</summary>
+    private int LockedCells()
+    {
+        int n = 0;
+        foreach (var g in new[] { Gate, Gate2 }) if (g != null && IsInstanceValid(g) && !g.Opened) n++;
+        return n;
     }
 
     /// <summary>
