@@ -21,7 +21,7 @@ public partial class Main
     }
 
     /// <summary>Floors with a sheer drop just beside them, deepest first (side +1: the drop is to the right).</summary>
-    private List<(Vector2 stand, int side, float depth)> FindEdges(float drop)
+    private List<(Vector2 stand, int side, float depth)> FindEdges(float drop, float least = 60f)
     {
         var cave = G.Cave;
         var found = new List<(Vector2 stand, int side, float depth)>();
@@ -38,7 +38,7 @@ public partial class Main
                     var over = f + new Vector2(s * 18, 4);
                     if (cave.IsSolid(over) || cave.IsSolid(over + new Vector2(0, -20))) continue;
                     float h = 0; while (h < drop && !cave.IsSolid(over + new Vector2(0, h + 4))) h += 4;
-                    if (h < 60 || cave.IsWater(over + new Vector2(0, h))) continue;
+                    if (h < least || cave.IsWater(over + new Vector2(0, h))) continue;
                     found.Add((f + new Vector2(0, -14), s, h));
                 }
             }

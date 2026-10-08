@@ -22,10 +22,10 @@ public partial class Main
     }
 
     /// <summary>A stretch of level floor with <paramref name="clear"/> px of open air before it to the <paramref name="side"/>, and (if <paramref name="wall"/>) a steep wall at the end of it.</summary>
-    private bool FindRun(int side, float clear, bool wall, out Vector2 stand)
+    private bool FindRun(int side, float clear, bool wall, out Vector2 stand, float fromX = 60f)
     {
         var cave = G.Cave; stand = default;
-        for (float x = 60; x < cave.SizePx.X - 60; x += 8)
+        for (float x = fromX; x < cave.SizePx.X - 60; x += 8)
             for (float y = 60; y < cave.SizePx.Y - 60; y += 16)
             {
                 var p = new Vector2(x, y);

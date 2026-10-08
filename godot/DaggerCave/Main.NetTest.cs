@@ -161,7 +161,7 @@ public partial class Main
         p.InputOverride = () =>
         {
             var i = _ntInput;
-            _ntInput.Attack = _ntInput.Ability = _ntInput.Ability2 = _ntInput.Dodge = _ntInput.Jump = _ntInput.Potion = _ntInput.Interact = false;
+            _ntInput.Attack = _ntInput.Ability = _ntInput.Ability2 = _ntInput.Dodge = _ntInput.Jump = _ntInput.Potion = _ntInput.Interact = _ntInput.Rope = false;
             return i;
         };
     }
@@ -430,6 +430,8 @@ public partial class Main
                     else { if (_ntPhaseT > 30) NtFail("the friend opens the vault"); break; }
                     _ntVault = 3;
                 }
+                // the friend's tools (a rope let down, a dagger in a wall, an updraft aimed, a heaving swing) as they arrive here
+                if (_ntCoop < 100) { HostCoopStep(friend); break; }
                 NtSay("all-fall");
                 G.Player.GiveUp();
                 NtNext();
@@ -728,6 +730,8 @@ public partial class Main
                     else if (_ntVaultT > 10) { NtCheck("my key opens the vault's gate", false); NtSay("vault-bad still shut"); _ntVault = 3; }
                     break;
                 }
+                // (then the host's turn to see this hero's tools used)
+                if (_ntVault == 3 && _ntCoop < 100) { JoinCoopStep(); break; }
                 if (NtGot("all-fall", out _)) { G.Player.GiveUp(); NtNext(); }
                 else if (_ntPhaseT > 60) NtFail("the host asks everyone to fall");
                 break;

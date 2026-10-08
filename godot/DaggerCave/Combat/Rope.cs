@@ -90,7 +90,9 @@ public partial class Rope : Node2D
     public void Stop(float length = -1f)
     {
         if (State != Phase.Lowering) return;
-        if (length > 0f) TrimTo(length);
+        // (a friend's rope, here: its coil may have fallen shorter, or longer, than theirs did; it comes to be the length they have)
+        if (length > 0f && length > Unrolled + 0.5f) { _rest[^1] += length - Unrolled; Unrolled = length; }
+        else if (length > 0f) TrimTo(length);
         State = Phase.Hanging;
         // the coil drops open into the end: a little kick sideways sets it swinging
         int e = P.Count - 1;
@@ -413,6 +415,28 @@ public partial class Rope : Node2D
             vel *= 0.85f;
             P[i] = q;
             Prev[i] = q - vel;
+        }
+        // (and on the breakable slabs, which are not in the cave's rock: it hangs past them, not through, so a climber can follow it)
+        foreach (var ledge in RockLedge.All)
+        {
+            if (!IsInstanceValid(ledge) || ledge.Broken) continue;
+            var c = ledge.GlobalPosition; float hx = ledge.Half - 1f, hy = ledge.ThickPx * 0.5f;
+            if (Math.Abs(P[1].X - c.X) > hx + 400f && Math.Abs(P[n - 1].X - c.X) > hx + 400f) continue;
+            for (int i = 1; i < n; i++)
+            {
+                var d = P[i] - c;
+                if (Math.Abs(d.X) >= hx + 1f || Math.Abs(d.Y) >= hy + 1f) continue;
+                // out through the nearest face
+                float px = hx + 1f - Math.Abs(d.X), py = hy + 1f - Math.Abs(d.Y);
+                var q = P[i]; var nrm = Vector2.Zero;
+                if (px < py) { nrm = new Vector2(Math.Sign(d.X == 0 ? 1 : d.X), 0); q.X = c.X + nrm.X * (hx + 1f); }
+                else { nrm = new Vector2(0, Math.Sign(d.Y == 0 ? -1 : d.Y)); q.Y = c.Y + nrm.Y * (hy + 1f); }
+                var vel = P[i] - Prev[i];
+                float into = vel.Dot(nrm);
+                if (into < 0f) vel -= nrm * into;
+                vel *= 0.85f;
+                P[i] = q; Prev[i] = q - vel;
+            }
         }
     }
 }
