@@ -703,6 +703,28 @@ public static class Tune
         public static float RegrowSeconds = 30f;
     }
 
+    /// <summary>
+    /// The Glitch (see <see cref="DaggerCave.Glitch"/>). It comes only to a party in which everyone has slain the Elder Dragon: Chance a
+    /// level (from depth 1 to the one above the dragon's), ArriveMin..ArriveMax s into it. Its health (never grown by depth), size, and XP.
+    /// It blinks beside a hero every BlinkMin..BlinkMax s (BlinkNear..BlinkFar px from them) and between blinks stutters toward them in
+    /// jumps of about StepPx every StepEvery s (faster than a hero runs). Its blow: Reach px, Windup s, Cooldown s. It is drawn within
+    /// ShowRadius px of where it is, the place re-rolled every ShowMin..ShowMax s. A blow rolls its health anew, never to nothing until it
+    /// has been struck HitsToMortal times, then ZeroChance a blow; its own blow does the same to a hero (HeroHitsToMortal,
+    /// HeroZeroChance) and DebuffChance of the time leaves an affliction too. The wall it leaves wrong: WallWidth x WallHeight px.
+    /// </summary>
+    public static class Glitch
+    {
+        public static float Chance = 0.05f, ArriveMin = 25f, ArriveMax = 70f;
+        public static float Hp = 999f, Radius = 20f;
+        public static int Xp = 400;
+        public static float BlinkMin = 1.8f, BlinkMax = 3.4f, BlinkNear = 46f, BlinkFar = 96f, StepPx = 24f, StepEvery = 0.1f;
+        public static float Reach = 40f, Windup = 0.5f, Cooldown = 1.5f;
+        public static float ShowRadius = 48f, ShowMin = 0.05f, ShowMax = 0.3f;
+        public static int HitsToMortal = 100, HeroHitsToMortal = 8;
+        public static float ZeroChance = 0.1f, HeroZeroChance = 0.15f, DebuffChance = 0.2f;
+        public static float WallWidth = 56f, WallHeight = 84f;
+    }
+
     /// <summary>The secret depth under the lakes.</summary>
     public static class Abyss
     {

@@ -933,6 +933,12 @@ public abstract partial class Enemy : CharacterBody2D
         if (hero?.Stats == null || hero.Dead) return 1f;
         var st = hero.Stats;
         float m = 1f;
+        if (st.BitFlip)
+        {
+            float roll = G.RandF();
+            if (roll < 0.125f) { m *= 6f; G.Fx.Text(HeadPoint(18f), "BIT FLIP", new Color(0f, 1f, 1f), 10, 0.6f); }
+            else if (roll < 0.25f) { G.Fx.Text(HeadPoint(18f), "0", new Color(1f, 0f, 1f), 12, 0.6f); return 0f; }
+        }
         if (st.BackDealMult != 1f && FacingAwayFrom(hero.GlobalPosition)) m *= st.BackDealMult;
         if (st.DistanceBias != 0f)
         {
@@ -1179,9 +1185,13 @@ public abstract partial class Enemy : CharacterBody2D
     {
         if (Dead) return;
         Dead = true;
+        OnPuppetGone(died);
         if (died) Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
         QueueFree();
     }
+
+    /// <summary>A copy's creature is gone (<paramref name="died"/>: killed, in the host's game).</summary>
+    protected virtual void OnPuppetGone(bool died) { }
 
     /// <summary>
     /// A creature's own extra state its copies need to look right (a frog's tongue, a spider's

@@ -223,6 +223,18 @@ public partial class LoadingScreen : Control
                     DrawRect(new Rect2(x, 720 - h, 36, h), new Color(1f, 0.4f + 0.2f * MathF.Sin(k + _t), 0.08f, 0.55f * a));
                 }
                 break;
+            case BiomeId.Null:
+            {
+                // broken rectangles, jumping every few frames: a screen that has stopped working properly
+                var rng = new Random((int)(_t * 12f));
+                for (int k = 0; k < 26; k++)
+                {
+                    var c = rng.Next(4) switch { 0 => new Color(1f, 0f, 1f), 1 => new Color(0f, 1f, 1f), 2 => new Color(0.2f, 1f, 0.2f), _ => new Color(1f, 1f, 1f) };
+                    float w = 20 + rng.Next(220), h = 3 + rng.Next(rng.Next(5) == 0 ? 90 : 16);
+                    DrawRect(new Rect2(rng.Next(1280), rng.Next(720), w, h), new Color(c, (0.12f + 0.2f * (float)rng.NextDouble()) * a));
+                }
+                break;
+            }
             case BiomeId.Abyss:
                 // black water over the lower half, a few pale shafts of light falling into it, and a whirl of bubbles at the bottom
                 for (int k = 0; k < 7; k++)

@@ -132,6 +132,7 @@ public partial class Player : CharacterBody2D
     private int _airJumps, _airDashes;
     private bool _jumpCutDone, _wasOnFloor;
     private float _lastFallSpeed, _freeze, _stuckInRock, _terminalT;
+    private int _nullDepth = -1;
 
     /// <summary>For the tests: what the last landing took.</summary>
     public float LastFallDamage { get; private set; }
@@ -1079,6 +1080,22 @@ public partial class Player : CharacterBody2D
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), "LAST STAND", new Color(1f, 0.85f, 0.4f), 13, 1.5f);
             G.Fx.Ring(GlobalPosition, 24, new Color(1f, 0.85f, 0.4f));
             G.Sfx.Play("roar", GlobalPosition, -8, 0, 1.8f);
+        }
+        if (Hp <= 0 && Stats.NullPointer && _nullDepth != G.Depth)
+        {
+            // Null Pointer: once a depth, a killing blow leaves you at 1, thrown clear (never into the rock)
+            _nullDepth = G.Depth;
+            Hp = 1;
+            _invuln = Math.Max(_invuln, 1f);
+            var cave = G.Cave;
+            for (int k = 0; k < 12; k++)
+            {
+                var to = GlobalPosition + G.RandDir() * G.Range(40f, 90f);
+                if (cave != null && !cave.IsSolid(to) && !cave.IsSolid(to + new Vector2(0, -12)) && cave.LineClear(GlobalPosition, to)) { GlobalPosition = to; break; }
+            }
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), "NULL POINTER", new Color(0f, 1f, 1f), 12, 1.4f);
+            G.Fx.Debris(GlobalPosition, new Color(1f, 0f, 1f), 8, 150);
+            G.Sfx.Play("glitch", GlobalPosition, -4, 0.2f, 1.3f);
         }
         // (damage over time, poison and burning, is quiet: no shake, flash or number of its own; its numbers are told in TickStatus)
         if (kind == "dot") { if (Hp <= 0) Die(); return; }

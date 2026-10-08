@@ -107,8 +107,23 @@ public partial class SoundBank : Node
         foreach (var kv in _sfx) kv.Value.SaveToWav($"{dir}/{kv.Key}.wav");
     }
 
+    private string _wantedMusic = "";
+    /// <summary>The music cut off (the Glitch is here): whatever is asked for meanwhile is kept, and plays once it is let go.</summary>
+    public bool Hushed { get; private set; }
+
+    public void Hush(bool on)
+    {
+        if (Hushed == on) return;
+        Hushed = on;
+        var want = _wantedMusic;
+        if (on) { _musicA.Stop(); _musicB.Stop(); _currentMusic = ""; _musicA.Stream = null; }
+        else { _currentMusic = null; SetMusic(want); }
+    }
+
     public void SetMusic(string which)
     {
+        _wantedMusic = which;
+        if (Hushed) which = "";
         if (which == _currentMusic) return;
         _currentMusic = which;
         // swap roles: B becomes the new track fading in
@@ -375,6 +390,37 @@ public partial class SoundBank : Node
         NoiseBurst(b, 0, 0.03f, Const(1f), Decay(25), true);
         for (int k = 0; k < 5; k++) NoiseBurst(b, 0.08f + k * 0.07f, 0.04f, Const(0.5f), Decay(14));
         LowPass(b, 0.45f); Add("rupture", b, 0.9f);
+
+        // the Glitch: lo-fi and wrong. A screech (a square wave leaping between random pitches, crushed to a few bits and sample-held
+        // down to a few kilohertz, with dropouts), a stutter of digital chirps, and a hum that cuts in and out
+        {
+            var rng = new Random(404);
+            float Rnd() => (float)rng.NextDouble();
+            float[] Crush(float seconds, Func<float, float> pitch, Func<float, float> env, float noise, int holdHz, float levels, int seed)
+            {
+                var buf = Buf(seconds);
+                rng = new Random(seed);
+                float ph = 0, held = 0; int hold = 0;
+                for (int i = 0; i < buf.Length; i++)
+                {
+                    float t = i / (float)Rate;
+                    ph += pitch(t) / Rate;
+                    float sq = (ph % 1f) < 0.5f ? 1f : -1f;
+                    float v = sq * (1f - noise) + (Rnd() * 2f - 1f) * noise;
+                    if (hold-- <= 0) { hold = Rate / holdHz; held = MathF.Round(v * levels) / levels; }
+                    buf[i] = held * env(t);
+                }
+                return buf;
+            }
+            float jump = 1200f;
+            b = Crush(0.6f, t => { if (Rnd() < 0.0009f) jump = 250f + 3200f * Rnd(); return jump * (1f + 0.3f * MathF.Sin(t * 60f)); },
+                t => MathF.Min(1f, t * 60f) * MathF.Exp(-t * 2.4f) * (((int)(t * 41f)) % 6 == 0 ? 0.1f : 1f), 0.35f, 5000, 2.5f, 41);
+            Add("glitch", b, 0.55f);
+            b = Crush(0.16f, t => 2600f - 9000f * t + 1800f * MathF.Sign(MathF.Sin(t * 180f)), t => MathF.Min(1f, t * 200f) * (((int)(t * 70f)) % 2 == 0 ? 1f : 0.2f) * (1f - t / 0.16f), 0.15f, 8000, 2f, 77);
+            Add("glitch_chirp", b, 0.4f);
+            b = Crush(0.9f, t => 55f + 4f * MathF.Sin(t * 13f), t => MathF.Sin(MathF.Min(1f, t * 3f) * MathF.PI * 0.5f) * (1f - t / 0.9f) * (((int)(t * 23f)) % 4 == 1 ? 0f : 1f), 0.25f, 2000, 3f, 91);
+            Add("glitch_hum", b, 0.5f);
+        }
     }
 
     /// <summary>A 32 s seamless ambient loop: filtered drone, slow pad chords, echoing pentatonic plinks and drips.</summary>

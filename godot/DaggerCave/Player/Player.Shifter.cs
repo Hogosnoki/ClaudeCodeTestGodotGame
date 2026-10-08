@@ -329,7 +329,7 @@ public partial class Player
     private void Gnaw(Vector2 dir, float range, float mult)
     {
         var at = GlobalPosition + new Vector2(0, -4);
-        var teeth = new Color(1f, 0.96f, 0.88f);
+        var teeth = new Color(1f, 0.82f, 0.7f);
         bool bit = false;
         foreach (var e in G.Enemies.ToArray())
         {
@@ -338,7 +338,8 @@ public partial class Player
             float along = rel.Dot(dir), across = Math.Abs(rel.Cross(dir));
             if (along < -e.HitRadius * 0.5f || along > range + e.HitRadius || across > 12f + e.HitRadius) continue;
             Blow(e, mult, dir * 60f);
-            G.Fx.Chomp(e.GlobalPosition - dir * e.HitRadius * 0.3f, dir, 10f + e.HitRadius * 0.3f, teeth);
+            // (big enough to close round the creature, not over it: a struck creature flashes white, and white teeth on it would vanish)
+            G.Fx.Chomp(e.GlobalPosition - dir * e.HitRadius * 0.3f + new Vector2(0, -4), dir, 12f + e.HitRadius * 1.5f, teeth);
             if (G.Chance(0.5f)) G.Fx.Burst(e.GlobalPosition, e.Blood, 2, 70, 1.6f, 0.35f, 300);
             bit = true;
         }
@@ -402,7 +403,7 @@ public partial class Player
             int bites = Math.Max(1, (int)MathF.Round(Tune.Shifter.LatchSeconds / Tune.Shifter.LatchTick));
             Blow(e, _seekDmg / bites, Vector2.Zero);
             if (!e.Dead && !e.IsBoss && !e.IsGuardian) e.Freeze(Tune.Shifter.LatchTick + 0.05f, hold: true);
-            G.Fx.Chomp(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), new Vector2(Facing, 0.4f), 9f + e.HitRadius * 0.25f, new Color(1f, 0.95f, 0.9f));
+            G.Fx.Chomp(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), new Vector2(Facing, 0.4f), 10f + e.HitRadius * 1.3f, new Color(1f, 0.75f, 0.7f));
             G.Fx.Burst(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), e.Blood, 3, 80, 1.8f, 0.4f, 300);
             Ghost.Animator?.Once(Form.StrikeClip, 3, 2f);
         }
@@ -424,7 +425,7 @@ public partial class Player
         Blow(e, _seekDmg, dir * 80f);
         e.Envenom(FormDamage(Tune.Shifter.EnvenomTotal * Stats.FormSpecDmgMult), Tune.Shifter.EnvenomSeconds);
         Envenomings++;
-        G.Fx.Chomp(e.GlobalPosition, dir, 12f + e.HitRadius * 0.3f, StatusColors.Poison);
+        G.Fx.Chomp(e.GlobalPosition, dir, 12f + e.HitRadius * 1.4f, StatusColors.Poison);
         G.Fx.Burst(e.GlobalPosition, StatusColors.Poison, 8, 90, 2f, 0.5f, 120);
         G.Sfx.Play("spider", GlobalPosition, -3, 0.1f, 0.8f);
         // (and springs back off it)

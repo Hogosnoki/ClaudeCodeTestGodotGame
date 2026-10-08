@@ -42,6 +42,8 @@ public static class PropViews
             Waterfall => new WaterfallView(),
             GuildLamp => new GuildLampView(),
             Portal { Drain: true } => new DrainView(),
+            Portal { Glitch: true } => new GlitchWallView(),
+            Glitch => new GlitchView(),
             Portal => new PortalView(),
             AirVent => new AirVentView(),
             AirBubble => new AirBubbleView(),

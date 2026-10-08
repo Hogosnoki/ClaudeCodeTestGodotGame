@@ -297,8 +297,17 @@ public static partial class Net
     {
         int m = 0;
         foreach (var h in Enum.GetValues<HeroKind>()) if (!Meta.IsReallyUnlocked(h)) m |= 1 << (int)h;
+        // (and, on a bit no hero uses, whether this player has ever slain the Elder Dragon)
+        if (Meta.Victories > 0 || ForceSlayer) m |= SlayerBit;
         return m;
     }
+
+    /// <summary>The bit of <see cref="PeerInfo.Locked"/> that says the player has slain the Elder Dragon (at least once).</summary>
+    public const int SlayerBit = 1 << 30;
+    /// <summary>--slayer: this player counts as having slain the dragon.</summary>
+    public static bool ForceSlayer;
+    /// <summary>Has everyone playing slain the Elder Dragon at least once? (The Glitch comes to no one else.)</summary>
+    public static bool PartySlayers => Online ? Peers.Count > 0 && Peers.Values.All(p => (p.Locked & SlayerBit) != 0) : Meta.Victories > 0 || ForceSlayer;
 
     /// <summary>A hero was freed from a cage: nobody in the party has them locked any more.</summary>
     public static void EveryoneUnlocked(HeroKind h)

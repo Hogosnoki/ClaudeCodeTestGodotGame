@@ -30,7 +30,7 @@ public enum GenStyle
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss, Null }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -463,6 +463,26 @@ public static class Biomes
         abyss.Guardian = r => new Golem(); // (never woken: there is no guardian; the exit test only wants a body to measure)
         All.Add(abyss);
 
+        // ------------------------------------------------------------------ the Null: behind the wall the Glitch leaves wrong
+        // (not on the depth track: only reached by beating the Glitch and walking through the end of the guardian's chamber, see
+        // Main.OpenGlitchWall. Built rooms in black and magenta, everything in it a little wrong; see Main.PlaceNullFinds)
+        var nul = new BiomeDef
+        {
+            Id = BiomeId.Null, Name = "The Null", MinDepth = 99, MaxDepth = 99, Weight = 0f, NoGuardian = true,
+            Style = GenStyle.Ruins, W = 170, H = 90, Liquid = Liquid.None,
+            Edge = C("4a1048"), Deep = C("030006"), Moss = C("00e0c0"), Rim = C("ff30ff"), Glow = C("00ffff"),
+            BackBottom = C("06000a"), Bricks = true, Grass = 0.04f, Stalactites = 0.0f, Crystals = 0.08f, Mushrooms = 0f, Darkness = 0.72f,
+            HazardCount = 0, RoomChests = 5, MiniBossesMin = 1, MiniBossesMax = 2, WallGlow = 0.2f,
+        };
+        nul.Residents[SpawnKind.Ground] = L(E(2, () => Var(new Skeleton(), "Corrupted ", "ff50ff"), 1, 2), E(2, () => Var(new Goblin(), "Corrupted ", "50ffff"), 1, 2),
+            E(1, () => Var(new Golem(), "Corrupted ", "b050ff")), E(1, () => Var(new Scorpion(), "Corrupted ", "ffff50")));
+        nul.Residents[SpawnKind.Ceiling] = L(E(2, () => Var(new Bat(), "Corrupted ", "ff50ff"), 1, 3), E(1, () => Var(new Spider(), "Corrupted ", "50ff50")));
+        nul.GroundEntrants = L(E(1, () => Var(new Skeleton(), "Corrupted ", "ff50ff")), E(1, () => Var(new Goblin(), "Corrupted ", "50ffff")));
+        nul.AirEntrants = L(E(1, () => Var(new Bat(), "Corrupted ", "ff50ff")));
+        nul.MiniBosses = new() { () => Var(new Golem(), "Corrupted ", "b050ff"), () => Var(new Skeleton(), "Corrupted ", "ff50ff") };
+        nul.Guardian = r => new Golem(); // (never woken: there is no guardian; the exit test only wants a body to measure)
+        All.Add(nul);
+
         // ------------------------------------------------------------------ 8-9: magma caverns
         var magma = new BiomeDef
         {
@@ -560,12 +580,12 @@ public static class Biomes
 
     private static BiomeDef PickFor(int depth, BiomeDef avoid, Random rng)
     {
-        var pool = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss) && depth >= b.MinDepth && depth <= b.MaxDepth).ToList();
+        var pool = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss or BiomeId.Null) && depth >= b.MinDepth && depth <= b.MaxDepth).ToList();
         if (pool.Count > 1 && avoid != null) pool.Remove(avoid);
         if (pool.Count == 0)
         {
             // (below the last biome, or above the first: the nearest one)
-            var real = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss)).ToList();
+            var real = All.Where(b => b.Id is not (BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss or BiomeId.Null)).ToList();
             int best = real.Min(b => depth > b.MaxDepth ? depth - b.MaxDepth : b.MinDepth - depth);
             pool = real.Where(b => (depth > b.MaxDepth ? depth - b.MaxDepth : b.MinDepth - depth) == best).ToList();
         }

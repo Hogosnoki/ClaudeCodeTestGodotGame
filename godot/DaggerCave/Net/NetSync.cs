@@ -128,6 +128,9 @@ public static class NetSync
         return id;
     }
 
+    /// <summary>An id every game gives the same thing it makes on its own at the same moment (the Glitch's wall), outside the level's count.</summary>
+    public static void FixedId(Node2D n, int id) { Props[id] = n; PropIds[n] = id; }
+
     public static int IdOf(Node2D n) => n != null && PropIds.TryGetValue(n, out int id) ? id : 0;
 
     private static int NewId() => _nextId++;
@@ -484,7 +487,7 @@ public static class NetSync
     }
 
     /// <summary>A gift from one hero to another: the Warden's barrier, the Vitalist's mending.</summary>
-    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden, BubbleDrain, Buff, Web, Stun, Venom, Unweb }
+    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden, BubbleDrain, Buff, Web, Stun, Venom, Unweb, Glitch, Burn }
 
     /// <summary>A boon for someone else's hero: their game gives it (a, b, c: its amount, seconds, a flag).</summary>
     public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0, int id = 0)
@@ -1220,7 +1223,7 @@ public static class NetSync
                     else if (kind == Boon.BubbleDrain) p.DrainBubble(a);
                     else if (kind == Boon.Buff) p.GiveBuff(id, a);
                     // (a guardian's tricks, from the host's game, and a friend's blade through the web)
-                    else if (kind is Boon.Web or Boon.Stun or Boon.Venom or Boon.Unweb) p.Afflict(kind, a, b);
+                    else if (kind is Boon.Web or Boon.Stun or Boon.Venom or Boon.Unweb or Boon.Glitch or Boon.Burn) p.Afflict(kind, a, b);
                 }
                 finally { Scope--; }
                 break;

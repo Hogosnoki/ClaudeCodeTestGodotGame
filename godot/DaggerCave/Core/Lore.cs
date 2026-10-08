@@ -87,6 +87,7 @@ public static class Lore
         BiomeId.LavaTubes => "Old drain-ways of the fire, wide as streets. They have been quiet for an age.",
         BiomeId.Abyss => "The river's old bed, under the lakes. The sun never saw it, and neither did the Guild.",
         BiomeId.Lair => "This is where the water went.",
+        BiomeId.Null => "There is nothing here. There was never meant to be.",
         _ => "",
     };
 

@@ -1780,7 +1780,7 @@ public static partial class CaveGenerator
     internal static void AddDrain(CaveData cave, int seed)
     {
         cave.Drain = null;
-        if (cave.Biome == null || cave.Liquid != Liquid.Water || cave.Biome.Id is BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss || cave.Biome.MinDepth < 1) return;
+        if (cave.Biome == null || cave.Liquid != Liquid.Water || cave.Biome.Id is BiomeId.Entrance or BiomeId.Lair or BiomeId.Abyss or BiomeId.Null || cave.Biome.MinDepth < 1) return;
         if (!(new Random(seed * 31 + 17).NextDouble() < Tune.Abyss.DrainChance) && !ForceDrain) return;
         if (cave.ReachMask == null) return;
         int W = cave.W, H = cave.H;

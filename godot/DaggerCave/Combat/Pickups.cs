@@ -155,7 +155,7 @@ public partial class PotionPickup : Node2D
             try
             {
                 if (p.IsRemote) NetSync.GivePickup(p, 2, 1);
-                else p.Potions++;
+                else { p.Potions++; p.DupePotion(); }
                 G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
                 G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);
                 G.Fx.Pop(GlobalPosition, new Color(1f, 0.4f, 0.55f), 8);
@@ -247,6 +247,8 @@ public partial class Chest : Node2D, IBreakable
     public int LookingBy;
     /// <summary>The vault's chest: side-grades and a rare class card, instead of the usual deal.</summary>
     public bool Vault;
+    /// <summary>One of the Null's corrupted chests (a vault's chest to look at): it deals the corrupted cards.</summary>
+    public bool Corrupt;
     /// <summary>This game's hero just asked to look in it (online, waiting for the host's answer).</summary>
     public bool Asked => _askT > 0;
     /// <summary>Every chest in the level (for the prompt and the interact button).</summary>
@@ -302,7 +304,8 @@ public partial class Chest : Node2D, IBreakable
         {
             // (a chest that's someone's is dealt for them alone: their class's upgrade, not a friend's)
             var party = Net.Online && Owner == 0 ? NetSync.PartyHeroes() : null;
-            Cards = Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
+            Cards = Corrupt ? Upgrades.RollCorruptCards(G.Player.Stats, G.Main.Rng)
+                  : Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
                           : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition, relic: Tier == ChestTier.Relic);
             if (Cards.Any(id => Upgrades.Find(id)?.Relic == true)) RelicFor = Net.Me;
             NetSync.ChestCards(this);
@@ -413,6 +416,8 @@ public partial class Portal : Node2D
     /// not in from outside). Only there to be seen: nothing is taken up it.
     /// </summary>
     public bool Entry;
+    /// <summary>The wall the Glitch left wrong: walk into it (no button) and you go through, to the Null.</summary>
+    public bool Glitch;
     private float _t, _near;
     private bool _used;
     public float Age => _t;
@@ -420,10 +425,12 @@ public partial class Portal : Node2D
     public float Near => _near;
     public bool Used => _used;
 
-    public override void _Ready() { ZIndex = -1; if (!Outside && !Drain && !Entry) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
+    public override void _Ready() { ZIndex = -1; if (!Outside && !Drain && !Entry && !Glitch) G.Sfx.Play("portal", GlobalPosition, -6, 0.05f, 0.7f); }
 
     /// <summary>Is someone standing at <paramref name="p"/> close enough to go down?</summary>
-    public bool Reaches(Vector2 p) => Entry ? false : Drain
+    public bool Reaches(Vector2 p) => Entry ? false : Glitch
+        ? !_used && _t > 0.5f && Math.Abs(p.X - GlobalPosition.X) < 20 && p.Y > GlobalPosition.Y - Tune.Glitch.WallHeight + 10 && p.Y < GlobalPosition.Y + 24
+        : Drain
         ? !_used && _t > 0.5f && Math.Abs(p.X - GlobalPosition.X) < 22 && Math.Abs(p.Y - GlobalPosition.Y) < 30
         : !_used && _t > 0.6f && Math.Abs(p.X - GlobalPosition.X) < 26 && Math.Abs(p.Y - GlobalPosition.Y) < 38;
 
@@ -434,7 +441,8 @@ public partial class Portal : Node2D
         if (Net.Online) { G.Main.WaitAtExit(this); return; }
         _used = true;
         if (Outside) { G.Main.LeaveCave(); return; }
-        G.Sfx.Play(Drain ? "splash" : "portal", GlobalPosition, 0, 0.05f, Drain ? 0.6f : 0.8f);
+        G.Sfx.Play(Glitch ? "glitch" : Drain ? "splash" : "portal", GlobalPosition, 0, 0.05f, Drain ? 0.6f : 0.8f);
+        if (Glitch) G.Fx.ScreenFlash(new Color(1f, 0f, 1f), 0.4f);
         G.Fx.Flash(GlobalPosition, 40, (To?.Glow ?? new Color(0.7f, 0.5f, 1f)).Darkened(0.3f), 0.25f);
         G.Main.EnterExit(To, Depth);
     }
@@ -444,6 +452,18 @@ public partial class Portal : Node2D
         float dt = (float)delta;
         _t += dt;
         if (Entry) return;
+        if (Glitch)
+        {
+            // it hums and spits broken pixels; whoever walks into it goes through
+            if (G.Chance(0.08f)) G.Fx.Debris(GlobalPosition + new Vector2(G.Range(-12, 12), -G.Range(0, Tune.Glitch.WallHeight)), DaggerCave.Glitch.GlitchColor(), 2, 90);
+            if (G.Chance(0.01f)) G.Sfx.Play("glitch_chirp", GlobalPosition, -10, 0.4f, G.Range(0.5f, 1.5f));
+            bool by = false;
+            foreach (var p in G.Players) if (!p.Dead && Math.Abs(p.GlobalPosition.X - GlobalPosition.X) < 90 && Math.Abs(p.GlobalPosition.Y - GlobalPosition.Y) < 90) by = true;
+            _near = Math.Clamp(_near + (by ? dt * 3f : -dt * 2f), 0f, 1f);
+            var me = G.Player;
+            if (me != null && !me.Dead && Reaches(me.GlobalPosition)) Enter();
+            return;
+        }
         if (Drain)
         {
             // a slow stream of bubbles drawn down into it, and whoever swims in is taken

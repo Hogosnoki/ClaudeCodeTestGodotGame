@@ -75,6 +75,7 @@ public partial class Main
         "status" => "den",
         "guardians" => "den",
         "fall" => "den",
+        "glitch" => "den",
         "shifterspecials" => "entrance",
         "sfxvol" => "den",
         _ => null,
@@ -120,6 +121,7 @@ public partial class Main
             case "status": StatusScenario(); break;
             case "guardians": GuardiansScenario(); break;
             case "fall": FallScenario(); break;
+            case "glitch": GlitchScenario(); break;
             case "shifterspecials": ShifterSpecialsScenario(); break;
             case "sfxvol": SfxVolScenario(); break;
             case "crab": CrabScenario(); break;

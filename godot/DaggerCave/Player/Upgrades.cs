@@ -42,6 +42,9 @@ public sealed class PlayerStats
     public bool WallJump, DoubleJump, AirDash, Pogo, ThirdCombo;
     /// <summary>Drowned Lungs: breath never runs out. Magma Skin: lava can be swum in, burning for a third as much.</summary>
     public bool InfiniteBreath, MagmaSkin;
+    /// <summary>The Null's corrupted cards: Bit Flip (a blow now and then lands six-fold, or not at all), Duplication (potions and keys come
+    /// twice), Null Pointer (once a depth, a killing blow leaves you at 1 and throws you clear).</summary>
+    public bool BitFlip, Dupe, NullPointer;
     public float MagnetMult = 1f;
     /// <summary>How many times in a row a landed strike refunds the swing cooldown.</summary>
     public int ComboResets = Tune.Combat.ComboResetsBase;
@@ -516,7 +519,30 @@ public static partial class Upgrades
     /// <summary>The "leave it" card in a chest: it closes again, keeping its cards.</summary>
     public static readonly Upgrade LeaveChest = new() { Id = "leave", Name = "Leave It", Desc = "Close the chest. It keeps these cards: come back for one later, or leave it for a friend.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Append(Skip).Append(LeaveChest);
+    /// <summary>
+    /// The Null's corrupted cards (dealt only by its corrupted chests, see <see cref="RollCorruptCards"/>): each a strong thing paid for
+    /// with a strange cost, taken once.
+    /// </summary>
+    public static readonly List<Upgrade> Corrupted = new()
+    {
+        new() { Id = "c_overflow", Name = "Overflow", Desc = "Deal three times the damage. Take three times the damage.", Icon = "risk", Apply = (s, p) => { s.DamageMult *= 3f; s.DamageTakenMult *= 3f; } },
+        new() { Id = "c_bitflip", Name = "Bit Flip", Desc = "One blow in eight you land deals six times as much; one in eight deals nothing at all.", Icon = "risk", Apply = (s, p) => s.BitFlip = true },
+        new() { Id = "c_dupe", Name = "Duplication", Desc = "Every potion and key you pick up comes twice. Your maximum health is a third lower.", Icon = "risk",
+            Apply = (s, p) => { s.Dupe = true; s.MaxHp *= 0.67f; if (p != null) p.Hp = Math.Min(p.Hp, s.MaxHp); } },
+        new() { Id = "c_nullptr", Name = "Null Pointer", Desc = "Once each depth, a blow that would kill you leaves you at 1 health and throws you clear. All healing you receive is halved.", Icon = "risk",
+            Apply = (s, p) => { s.NullPointer = true; s.HealingTakenMult *= 0.5f; } },
+    };
+
+    /// <summary>A corrupted chest's three cards: three of the Null's corrupted ones this hero hasn't taken (anything else fills in once they run out).</summary>
+    public static string[] RollCorruptCards(PlayerStats mine, Random rng)
+    {
+        var cards = Pick(Corrupted.Where(u => Available(u, mine)).ToList(), 3, rng, u => u.Weight);
+        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.RiskReward && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, u => u.Weight));
+        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsChestFiller(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, u => u.Weight));
+        return cards.Select(u => u.Id).ToArray();
+    }
+
+    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Append(Skip).Append(LeaveChest);
 
     /// <summary>A card by id, or null if there's no such card (a chest dealt by another version).</summary>
     public static Upgrade Find(string id) => All.FirstOrDefault(u => u.Id == id);

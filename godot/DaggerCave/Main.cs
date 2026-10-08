@@ -361,6 +361,8 @@ public partial class Main : Node
             else if (a == "--forcedrain") CaveGenerator.ForceDrain = true;
             else if (a == "--forcenooks") CaveGenerator.ForceNooks = true;
             else if (a == "--nocaverns") CaveGenerator.ForceNoCaverns = true;
+            else if (a == "--glitch") ForceGlitch = true;
+            else if (a == "--slayer") Net.ForceSlayer = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
@@ -838,6 +840,8 @@ public partial class Main : Node
         _hud.ShowBanner(G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
         _spawnT = 0;
         _waitingAt = null;
+        RollGlitch();
+        PlaceNullFinds(cave, seed);
         NetSync.LevelBuilt();
     }
 
@@ -851,7 +855,7 @@ public partial class Main : Node
         // the stair you came down by, in the rock behind where you arrive (the first level you walked in from outside)
         if (G.Depth > 0 && biome.Id != BiomeId.Lair)
             _world.AddChild(new Portal { Position = cave.StartPos + new Vector2(0, -11), Entry = true, Label = "", To = biome });
-        if (cave.Drain is Vector2 dr && G.Depth > 0 && G.Depth + 1 < Biomes.FinalDepth && biome.Id != BiomeId.Abyss)
+        if (cave.Drain is Vector2 dr && G.Depth > 0 && G.Depth + 1 < Biomes.FinalDepth && biome.Id is not (BiomeId.Abyss or BiomeId.Null))
         {
             var drain = new Portal { Position = dr, To = Biomes.Get(BiomeId.Abyss), Depth = G.Depth + 1, Label = "the drain", Drain = true };
             NetSync.LevelId(drain);
@@ -860,6 +864,7 @@ public partial class Main : Node
         if (!biome.NoGuardian || cave.Boss == null) return;
         _guardianDown = true;
         // the lake above comes down to meet you: a waterfall from a crack in the roof to the beach, a little way along from where you arrive
+        if (biome.Id == BiomeId.Abyss)
         {
             var near = cave.StartPos + new Vector2(8 * CaveData.Cell, -40);
             if (cave.FindFloor(near, 300, out var foot) && cave.FindCeiling(foot + new Vector2(0, -24), 1200, out var roof) && foot.Y - roof.Y > 120)
@@ -1784,7 +1789,7 @@ public partial class Main : Node
             {
                 _spawnT = 0.25f;
                 NetSync.Scope++;
-                try { RunSpawner(0.25f); RunRooms(); WatchGuardian(0.25f); }
+                try { RunSpawner(0.25f); RunRooms(); WatchGuardian(0.25f); WatchGlitch(0.25f); }
                 finally { NetSync.Scope--; }
             }
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;
@@ -1798,6 +1803,7 @@ public partial class Main : Node
                 }
             }
             if (Net.InRun) OnlineTick(dt);
+            TickNull(dt);
         }
         if (_showcase) ShowcaseTick(dt);
         if (_lookShot != "") LookShotTick();

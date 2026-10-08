@@ -1252,6 +1252,40 @@ drains the colour from the water round it. Where you arrive in the Sunken Sea a 
 lake above, coming down). Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
 sides), not smooth balls.
 
+### The Glitch, and the Null behind the wall
+
+**The Glitch** (`Enemies/Glitch.cs`, `Tune.Glitch`) comes only to a party in which *everyone* has slain the Elder Dragon at least once
+(`Meta.Victories`; online each player's game says so on a spare bit of the lobby handshake, `Net.SlayerBit`, and `Net.PartySlayers` asks
+them all), and rarely even then: 5% of levels from depth 1 to the one above the dragon's, 25 to 70 s in. When it comes the music stops
+(`SoundBank.Hush`) and the banner reads SØMETHING IS WRØNG.
+- It is a heap of broken rectangles bigger than a hero (`GlitchView`): flat unlit boxes in the colours of a broken screen and the black and
+  magenta checker of a missing texture, each jumping, changing colour and tearing into a scanline on its own beat. Each game draws it
+  somewhere within 48 px of where it really is, re-rolled several times a second (`ShowRadius`), so you never quite know where to swing.
+- It doesn't move as things move: no gliding, no jumping. It stutters toward a hero in jumps (about 24 px every 0.1 s, faster than a hero
+  runs), through rock as through air, and every 1.8 to 3.4 s it is simply somewhere else, beside another hero (`Blink*`). It screeches and
+  chirps in lo-fi, bit-crushed, sample-held tones with dropouts (`glitch`, `glitch_chirp`, `glitch_hum`).
+- Its blow (0.5 s wind-up, the heap swelling and tearing) rolls a hero's health anew, anywhere from 1 to all of it, and can't roll nothing
+  until it has struck that hero 8 times (then 15% of its blows do); one blow in five also leaves poison, a burn, a web or a stun. A dodge
+  slips it. Online, the blow is a boon sent to the struck hero's own game (`NetSync.Boon.Glitch`).
+- A blow on it rolls *its* health anew the same way (its numbers are never numbers: ERR, NaN, 0x3F2A...), and nothing brings it down until
+  it has been struck 100 times (`HitsToMortal`); after that each blow has a 10% chance of rolling nothing. Bleeding, poison and fire can't.
+- Beaten, the music comes back, and the far wall of the guardian's chamber (the end away from where the level begins) goes wrong: a patch
+  of it turns to broken boxes and missing textures (`GlitchWallView`) and isn't really there. Walk into it, no button, and you go through
+  (online, everyone gathers there first, as at any exit) to **the Null** (`Main.OpenGlitchWall`, `Portal.Glitch`), one depth deeper.
+
+**The Null** (`BiomeId.Null`) is built rooms in black, plum and magenta with cyan light, reached no other way. It has no guardian and its
+exits are open from the start (to depth + 1 and depth + 2, like the Sunken Sea). It holds:
+- **A corrupted chest for each hero** (`Main.PlaceNullFinds`; theirs to open first), dealing three **corrupted cards** (`Upgrades.Corrupted`),
+  each a strong thing with a strange cost, taken once: **Overflow** (deal three times the damage, take three times the damage), **Bit Flip**
+  (one blow in eight lands six-fold, one in eight does nothing), **Duplication** (every potion and key you pick up comes twice; a third less
+  maximum health) and **Null Pointer** (once a depth, a killing blow leaves you at 1 health and throws you clear; healing received halved).
+- Corrupted creatures (skeletons, goblins, golems, scorpions, bats and spiders in its colours) and more chests than most levels.
+- Nothing holds still: now and then a hero on the move skips a frame, a step ahead the way they're going (never into rock), with a chirp
+  and a spray of broken pixels (`Main.TickNull`).
+
+`--scenario=glitch` runs the whole of it (the silence, the stutter and blinks, both health rolls, the hundred blows, the wall, the Null and
+its chest); `--glitch` makes the Glitch come to any level a moment after it starts, and `--slayer` counts you as a dragon-slayer.
+
 ### The Guild's lamps, and ways in only a creature can use
 
 - **A Guild lamp** (`GuildLamp`): in about seven levels in ten (never the entrance or the lair) a lantern is still burning at the side of a treasure room

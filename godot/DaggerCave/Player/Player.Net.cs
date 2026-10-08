@@ -210,6 +210,8 @@ public partial class Player
         Keys++;
         G.Sfx.Play("chest", GlobalPosition, -4, 0, 1.8f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -20), "+KEY", new Color(1f, 0.82f, 0.4f), 11, 1f);
+        // (Duplication: it comes twice)
+        if (Stats.Dupe && Keys < Tune.Vault.MaxKeys) { Keys++; G.Fx.Text(GlobalPosition + new Vector2(0, -32), "DUPLICATED", new Color(0f, 1f, 1f), 9, 1f); }
     }
 
     /// <summary>A key spent on a vault's gate.</summary>
@@ -237,6 +239,14 @@ public partial class Player
         G.Main?.OnPlayerRevived();
     }
 
+    /// <summary>Duplication: a potion picked up comes twice (room on the belt allowing).</summary>
+    public void DupePotion()
+    {
+        if (!Stats.Dupe || Potions >= MaxPotions) return;
+        Potions++;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -28), "DUPLICATED", new Color(0f, 1f, 1f), 9, 1f);
+    }
+
     /// <summary>A potion handed over by the host (online): one more on the belt.</summary>
     public void GainPotion()
     {
@@ -244,6 +254,7 @@ public partial class Player
         Potions++;
         G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);
+        DupePotion();
     }
 
     /// <summary>

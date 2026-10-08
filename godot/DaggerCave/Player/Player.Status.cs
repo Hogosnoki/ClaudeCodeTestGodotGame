@@ -41,6 +41,38 @@ public partial class Player
             case NetSync.Boon.Stun: GiveStun(a); break;
             case NetSync.Boon.Venom: GivePoison(a, b); break;
             case NetSync.Boon.Unweb: FreeFromWeb("CUT FREE"); break;
+            case NetSync.Boon.Glitch: GlitchStruck(); break;
+            case NetSync.Boon.Burn: GiveBurn(a, b); break;
+        }
+    }
+
+    /// <summary>How many times the Glitch has struck this hero (it can't take them to nothing before the eighth).</summary>
+    public int GlitchHits { get; private set; }
+
+    /// <summary>
+    /// The Glitch's blow: health rolled anew, anywhere from a sliver to all of it (to nothing only from the eighth blow on, and then only
+    /// sometimes), and now and then something else wrong besides. A dodge (any invulnerability) slips it.
+    /// </summary>
+    public void GlitchStruck()
+    {
+        if (Dead || IsRemote || Invulnerable) return;
+        GlitchHits++;
+        bool mortal = GlitchHits >= Tune.Glitch.HeroHitsToMortal;
+        if (mortal && G.Chance(Tune.Glitch.HeroZeroChance)) { TakeRawDamage(Hp + Stats.MaxHp, "glitch"); }
+        else Hp = MathF.Round(G.Range(1f, Stats.MaxHp));
+        _iframes = Math.Max(_iframes, 0.4f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -26), Glitch.GlitchText(), Glitch.GlitchColor(), 15, 1f);
+        G.Fx.Debris(GlobalPosition, Glitch.GlitchColor(), 6, 150);
+        G.Fx.ScreenFlash(new Color(1f, 0f, 1f), 0.12f);
+        G.Fx.AddShake(4);
+        G.Sfx.Play("glitch", GlobalPosition, -2, 0.3f, G.Range(0.7f, 1.4f));
+        if (Dead || !G.Chance(Tune.Glitch.DebuffChance)) return;
+        switch (G.Rng.Next(4))
+        {
+            case 0: GivePoison(Stats.MaxHp * 0.15f, 5f); break;
+            case 1: GiveBurn(Stats.MaxHp * 0.12f, 4f); break;
+            case 2: GiveWeb(3f, Stats.MaxHp * 0.15f); break;
+            default: GiveStun(1.2f); break;
         }
     }
 
