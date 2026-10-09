@@ -960,6 +960,9 @@ public static class Tune
         public static float VentIdle = 5.5f, VentWarn = 1.4f, VentBlow = 2.6f, PuffEvery = 0.5f;
         public static float CloudRadius = 38f, CloudLife = 9f, CloudRise = 4f, TickEvery = 0.6f;
         public static float PoisonShare = 0.03f, PoisonFlat = 1.5f, PoisonSeconds = 5f;
+        /// <summary>The springs' water is acid: whoever is in it takes AcidShare of maximum health and AcidFlat (depth-scaled) every AcidTick seconds. The air in the lowest ToxicCells above the water is toxic: it drains breath as water does (Drowned Lungs, a bubble, or a body that doesn't breathe, are proof against it).</summary>
+        public static float AcidShare = 0.05f, AcidFlat = 2.5f, AcidTick = 0.5f;
+        public static float ToxicCells = 16f;
         public static float BlastShare = 0.12f, BlastFlat = 6f, BlastBurn = 0.06f, BlastRadiusMult = 1.2f, ChainDelay = 0.14f;
         /// <summary>The gasbag: drifts to hover over you and vents a cloud; bursts into one, and goes up in a ball of fire if lit.</summary>
         public static class Gasbag { public static float Hp = 22, Speed = 36, VentWindup = 0.9f, VentCooldown = 5f, CloudScale = 0.9f, PopScale = 1.4f; public static int Xp = 7; }

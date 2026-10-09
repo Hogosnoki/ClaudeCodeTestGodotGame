@@ -108,6 +108,10 @@ public sealed class BiomeDef
     public bool Slippery, IceSheet, IcePlatforms, Webs, Spores, CrystalSpikes, FireVents;
     /// <summary>Fissures that hiss and blow clouds of sulphurous gas, which poison, and burn (the Sulphur Springs).</summary>
     public bool GasVents;
+    /// <summary>The water burns whoever enters it (the Sulphur Springs).</summary>
+    public bool AcidWater;
+    /// <summary>Cells of toxic air above the waterline (0 = none): it drains breath as water does (the Sulphur Springs).</summary>
+    public float ToxicAir;
     /// <summary>Machinery that works against you: pistons that slam, saws on rails, belts that carry you, lifts, and steam (the clockwork deep).</summary>
     public bool Machinery;
     /// <summary>Grasping roots that hold you and snag your weapon (the root-choked tunnels).</summary>
@@ -452,11 +456,11 @@ public static class Biomes
         var sulphur = new BiomeDef
         {
             Id = BiomeId.Sulphur, Name = "The Sulphur Springs", MinDepth = 6, MaxDepth = 9, Weight = 1f,
-            W = 240, H = 120, TunnelBudget = 1450, AirRMin = 2.7f, AirRMax = 3.9f, HorizontalBias = 0.022f, BranchPitchMult = 0.5f, LiquidFraction = 0.3f,
+            W = 240, H = 120, TunnelBudget = 1450, AirRMin = 2.7f, AirRMax = 3.9f, HorizontalBias = 0.022f, BranchPitchMult = 0.5f, LiquidFraction = 0.25f,
             Edge = C("7a6a30"), Deep = C("1a1507"), Moss = C("c4bc2a"), Rim = C("b8a74e"), Glow = C("f2e84a"),
             LiquidTop = new Color(0.55f, 0.6f, 0.12f, 0.62f), LiquidBottom = new Color(0.24f, 0.26f, 0.04f, 0.9f), LiquidLine = new Color(0.9f, 0.92f, 0.4f, 0.75f),
             BackBottom = C("0e0b03"), Grass = 0f, Mushrooms = 0f, Stalactites = 0.22f, Crystals = 0.14f, Darkness = 0.68f,
-            Murky = true, GasVents = true, HazardCount = 9, WaterCaches = 3, HighCaches = 3, MiniBossesMin = 1, MiniBossesMax = 2, EliteChance = 0.1f,
+            Murky = true, GasVents = true, AcidWater = true, ToxicAir = Tune.Sulphur.ToxicCells, HazardCount = 9, WaterCaches = 3, HighCaches = 3, MiniBossesMin = 1, MiniBossesMax = 2, EliteChance = 0.1f,
         };
         sulphur.Residents[SpawnKind.Ground] = L(E(3, () => new AcidNewt(), 1, 2), E(2, () => new BrimstoneWorm()), E(2, () => Var(new Scorpion(), "Brimstone ", "d8c040"), 1, 2), E(1, () => Var(new Golem(), "Sulphur ", "c8b838", 1.1f)));
         sulphur.Residents[SpawnKind.Ceiling] = L(E(3, () => new Gasbag(), 1, 2), E(2, () => Var(new Bat(), "Sulphur ", "c8c050"), 2, 3));

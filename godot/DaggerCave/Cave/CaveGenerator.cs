@@ -100,6 +100,7 @@ public static partial class CaveGenerator
                 _ => GenerateOnce(s),
             });
             c.Attempts = attempt + 1;
+            if (biome.ToxicAir > 0f && c.Liquid == Liquid.Water) c.ToxicY = c.WaterY - biome.ToxicAir * CaveData.Cell;
             return c;
         }
         // Attempts are independent of one another (each is made from its own seed), so they run side by side, and are judged in

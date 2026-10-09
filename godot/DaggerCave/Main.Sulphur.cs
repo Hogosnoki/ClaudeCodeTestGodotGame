@@ -48,6 +48,40 @@ public partial class Main
         ScCheck($"it blows clouds that stay about it ({clouds})", clouds >= 2);
         ScShot("sulphur_vent_blow");
 
+        // ---------------------------------------------------------------- the acid, and the toxic air over it
+        ScCheck($"the water lies in the lowest quarter of the map (at {cave.WaterY / cave.SizePx.Y:0.00} of its depth)", cave.WaterY / cave.SizePx.Y > 0.7f);
+        Vector2? acidAt = null, toxicAt = null;
+        for (float x = 200; x < cave.SizePx.X - 200 && (acidAt == null || toxicAt == null); x += 24)
+        {
+            var w = new Vector2(x, cave.WaterY + 26);
+            if (acidAt == null && !cave.IsSolid(w) && !cave.IsSolid(w + new Vector2(0, -20)) && cave.IsWater(w)) acidAt = w;
+            if (toxicAt == null && cave.FindFloor(new Vector2(x, cave.WaterY - 120), 110, out var tf) && cave.IsToxic(tf + new Vector2(0, -14)) && !cave.IsWater(tf + new Vector2(0, -4))) toxicAt = tf;
+        }
+        ScCheck($"the springs have water to be burned in ({acidAt}) and air to choke on ({toxicAt})", acidAt != null && toxicAt != null);
+        if (acidAt != null)
+        {
+            p.TestClearStatus(); p.Hp = p.Stats.MaxHp;
+            Stand(acidAt.Value);
+            float hpA = p.Hp;
+            foreach (var _ in Wait(1.3f)) yield return null;
+            ScShot("sulphur_acid");
+            ScCheck($"the water is acid: a hero in it is burned ({hpA:0} -> {p.Hp:0})", p.Hp < hpA - 1f);
+            Stand(vent.GlobalPosition + new Vector2(-90, -14));
+            p.Hp = p.Stats.MaxHp;
+        }
+        if (toxicAt != null)
+        {
+            p.Hp = p.Stats.MaxHp; p.Breath = p.Stats.BreathMax;
+            Stand(toxicAt.Value + new Vector2(0, -14));
+            foreach (var _ in Wait(2.5f)) yield return null;
+            ScShot("sulphur_toxic");
+            ScCheck($"the lowest air is toxic: the hero's breath drains in it ({p.Breath:0.0} of {p.Stats.BreathMax:0})", p.Breath < p.Stats.BreathMax - 2f);
+            Stand(vent.GlobalPosition + new Vector2(-90, -14));
+            foreach (var _ in Wait(3f)) yield return null;
+            ScCheck($"and comes back out of it ({p.Breath:0.0})", p.Breath > p.Stats.BreathMax - 3f);
+            p.Breath = p.Stats.BreathMax;
+        }
+
         // ---------------------------------------------------------------- the gas poisons
         p.TestClearStatus();
         var cloud = GasCloud.All.OrderBy(c => c.GlobalPosition.DistanceTo(vent.GlobalPosition)).FirstOrDefault();

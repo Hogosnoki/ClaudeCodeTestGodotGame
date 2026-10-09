@@ -72,6 +72,18 @@ public partial class Liquid3D : Node3D
                 },
             };
             AddChild(fog);
+            // the toxic air above acid water: a yellow haze lying on it
+            if (cave.ToxicY < cave.WaterY)
+            {
+                float th = (cave.WaterY - cave.ToxicY) / W3.Ppu;
+                AddChild(new FogVolume
+                {
+                    Shape = RenderingServer.FogVolumeShape.Box,
+                    Size = new Vector3(width, th, depthZ + 0.5f),
+                    Position = new Vector3(cx, sy + th * 0.5f, (zBack + zFront) * 0.5f),
+                    Material = new FogMaterial { Density = 0.11f, Albedo = new Color(0.75f, 0.72f, 0.2f), Emission = new Color(0.3f, 0.28f, 0.05f), EdgeFade = 0.4f },
+                });
+            }
         }
         else
         {

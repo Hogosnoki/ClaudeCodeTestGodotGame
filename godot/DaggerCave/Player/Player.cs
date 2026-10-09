@@ -708,8 +708,23 @@ public partial class Player : CharacterBody2D
     /// Lava: it burns (a big share of your health) and throws you back up out of it. With Magma
     /// Skin you swim in it instead, and it burns for a third as much.
     /// </summary>
+    private float _acidTick;
+
     private void Hazards(CaveData cave, float dt)
     {
+        // acid water (the sulphur springs): it burns whoever is in it, every half second
+        if (!Dead && cave.Biome?.AcidWater == true && cave.IsWater(GlobalPosition + new Vector2(0, 6)))
+        {
+            _acidTick -= dt;
+            if (_acidTick <= 0)
+            {
+                _acidTick = Tune.Sulphur.AcidTick;
+                G.Sfx.Play("lava", GlobalPosition, -10, 0.1f, 1.7f);
+                G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-6, 6), -4), new Color(0.78f, 0.92f, 0.2f, 0.8f), 5, 60, 1.8f, 0.4f, -40);
+                TakeRawDamage(Math.Max(1f, (Stats.MaxHp * Tune.Sulphur.AcidShare + Tune.Sulphur.AcidFlat * G.DepthDmg) * (1f - Stats.DamageReduction) * Stats.DamageTakenMult), "burn");
+            }
+        }
+        else _acidTick = 0f;
         if (!cave.IsLava(GlobalPosition + new Vector2(0, 8))) return;
         if (G.Chance(0.5f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-8, 8), 8), new Color(1f, 0.6f, 0.2f));
         if (_lavaTick > 0) return;
@@ -822,12 +837,19 @@ public partial class Player : CharacterBody2D
             if (HeadUnder && (_bubbleT -= dt) <= 0) { _bubbleT = G.Range(0.8f, 1.6f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 1); }
             return;
         }
-        if (HeadUnder)
+        // (the lowest air of the sulphur springs is poison: you hold your breath in it, as under water)
+        bool toxic = !HeadUnder && G.Cave != null && G.Cave.IsToxic(GlobalPosition + new Vector2(0, -12));
+        if (HeadUnder || toxic)
         {
             // thick, rotting water leaves you gasping sooner
             Breath -= dt * (G.Biome?.Murky == true ? Tune.Hero.MurkyBreathDrain : 1f);
             _bubbleT -= dt;
-            if (_bubbleT <= 0) { _bubbleT = G.Range(0.4f, 1.0f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 2); }
+            if (_bubbleT <= 0)
+            {
+                _bubbleT = G.Range(0.4f, 1.0f);
+                if (toxic) G.Fx.Burst(GlobalPosition + new Vector2(Facing * 3, -12), new Color(0.85f, 0.85f, 0.3f, 0.6f), 2, 24, 2f, 0.6f, -10);
+                else G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 2);
+            }
             if (Breath <= 0)
             {
                 Breath = 0;

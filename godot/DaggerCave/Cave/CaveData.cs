@@ -82,6 +82,9 @@ public sealed class CaveData
     public float[] Open;       // (W+1)*(H+1) corner samples
     public float[] RockDepth;  // (W+1)*(H+1): distance (in cells) from the nearest open corner
     public float WaterY;       // world px; everything open below this is underwater (or lava)
+    /// <summary>World px: open air between this line and the water below it is toxic (the Sulphur Springs); the line is off the map when there is none.</summary>
+    public float ToxicY = float.MaxValue;
+    public bool IsToxic(Vector2 p) => ToxicY < WaterY && p.Y >= ToxicY && p.Y < WaterY && !IsSolid(p);
     public Liquid Liquid = Liquid.Water;
     public BiomeDef Biome;
     /// <summary>Breakable ice ledges (frozen caverns): centre x, top y (cells), half width.</summary>
