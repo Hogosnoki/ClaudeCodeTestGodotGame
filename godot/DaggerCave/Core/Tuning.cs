@@ -971,6 +971,29 @@ public static class Tune
         public static class Colossus { public static float ExhaleCooldown = 8f, ExhaleWindup = 1.1f, Clouds = 4; }
     }
 
+    /// <summary>
+    /// The Clockwork Deep. Pistons hang from the roof of a gallery and slam to the floor on a cycle (Rest, then Warn: the housing shudders and
+    /// steams, then the Fall, the Dwell on the floor, and the Rise), striking whoever is under the head (a share of maximum health, and a
+    /// stun). Belts carry whatever stands on them at BeltSpeed. Saws run back and forth on rails at SawSpeed. Lifts rise and fall between the
+    /// floors at LiftSpeed, resting LiftRest at each end. Steam jets (the boilers', the guardian's) scald whoever is in them.
+    /// </summary>
+    public static class Clockwork
+    {
+        public static float PistonRest = 2.8f, PistonWarn = 0.9f, PistonFall = 0.1f, PistonDwell = 0.6f, PistonRise = 1.0f, PistonShare = 0.1f, PistonFlat = 8f, PistonStun = 0.7f;
+        public static float BeltSpeed = 68f;
+        public static float SawSpeed = 70f, SawRadius = 13f, SawShare = 0.07f, SawFlat = 5f;
+        public static float LiftSpeed = 46f, LiftRest = 1.6f, LiftHalfWidth = 20f;
+        public static float SteamShare = 0.03f, SteamFlat = 2.5f, SteamTick = 0.3f, SteamPush = 70f;
+        /// <summary>The automaton: a clockwork soldier with a heavy swing. Its spring winds as it works; wound tight it stops to be rewound (taking more from blows).</summary>
+        public static class Automaton { public static float Hp = 70, Contact = 9, Speed = 46, Swing = 15, Windup = 0.8f, Cooldown = 2.4f, Reach = 46, Wind = 18f, Rewind = 1.7f, Rewound = 1.5f; public static int Xp = 11; }
+        /// <summary>The boiler: builds pressure (Charge), then vents a jet of steam at you for Jet seconds, then cools.</summary>
+        public static class Boiler { public static float Hp = 80, Charge = 3.2f, Jet = 1.4f, Cool = 2.0f, Length = 150f, Xp = 12; }
+        /// <summary>The cogwheel: a toothed iron wheel that rolls at you, revs, and drives through.</summary>
+        public static class Cogwheel { public static float Hp = 36, Contact = 10, Roll = 105, Rev = 0.55f, Dash = 300, DashTime = 0.45f, Cooldown = 2.2f; public static int Xp = 8; }
+        /// <summary>The engine-warden: the guardian. Every few seconds steam erupts in columns across its hall, each shown by a glow a moment before.</summary>
+        public static class Warden { public static float Cooldown = 7.5f, Telegraph = 1.0f, Columns = 4, ColumnLife = 1.4f; }
+    }
+
     /// <summary>Grasping roots: how long they must hold you before the weapon is snagged, for how long, and how many cuts free them.</summary>
     public static class Roots
     {

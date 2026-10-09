@@ -421,6 +421,12 @@ public abstract partial class Enemy : CharacterBody2D
                 Velocity = Velocity * k + drift;
                 MoveAndSlide();
                 Velocity = (Velocity - drift) / k;
+                // (a belt carries whatever walks on it)
+                if (Conveyor.All.Count > 0 && UsesGravity && IsOnFloor())
+                {
+                    float belt = Conveyor.DriftAt(GlobalPosition + new Vector2(0, BodyRadius * Size));
+                    if (belt != 0f) MoveAndCollide(new Vector2(belt * (float)delta, 0));
+                }
             }
         }
         if (Anim != null)

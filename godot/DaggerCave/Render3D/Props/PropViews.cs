@@ -58,6 +58,11 @@ public static class PropViews
             GasCloud => new GasCloudView(),
             GasVent => new GasVentView(),
             AcidPuddle => new AcidPuddleView(),
+            Piston => new PistonView(),
+            Conveyor => new ConveyorView(),
+            SawBlade => new SawView(),
+            Lift => new LiftView(),
+            SteamJet => new SteamJetView(),
             IceSheet => new IceSheetView(),
             StalagGrip => new StalagGripView(),
             IcePlatform => new IcePlatformView(),
@@ -114,6 +119,7 @@ public static class PropViews
         foreach (var r in new Resource[] { _sprite, _cloud, _bubble, PortalView.StairMatOrNull, _quad, _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _ledgeRock, _vcol }) r?.Dispose();
         _sprite = _cloud = _bubble = null; _quad = null;
         PortalView.ReleaseShared();
+        Machine.Release();
         WaterfallView.ReleaseShared();
         DrainView.ReleaseShared();
         MouthView.ReleaseShared();

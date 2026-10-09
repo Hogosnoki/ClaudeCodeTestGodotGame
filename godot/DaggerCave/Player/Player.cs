@@ -551,6 +551,12 @@ public partial class Player : CharacterBody2D
             Velocity = v;
             MoveAndSlide();
             nowFloor = IsOnFloor();
+            // (a belt carries whoever stands on it)
+            if (Conveyor.All.Count > 0 && nowFloor)
+            {
+                float belt = Conveyor.DriftAt(GlobalPosition + new Vector2(0, 14));
+                if (belt != 0f) MoveAndCollide(new Vector2(belt * (float)GetPhysicsProcessDeltaTime(), 0));
+            }
         }
         if (nowFloor && !_wasOnFloor && _lastFallSpeed > 260)
         {
@@ -740,6 +746,12 @@ public partial class Player : CharacterBody2D
         }
         Velocity = v;
         MoveAndSlide();
+        // (a belt carries whoever stands on it)
+        if (Conveyor.All.Count > 0 && IsOnFloor())
+        {
+            float belt = Conveyor.DriftAt(GlobalPosition + new Vector2(0, 14));
+            if (belt != 0f) MoveAndCollide(new Vector2(belt * dt, 0));
+        }
         Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, 0, 0.2f);
         QueueRedraw();
     }

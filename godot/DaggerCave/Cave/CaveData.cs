@@ -108,6 +108,8 @@ public sealed class CaveData
     /// </summary>
     public float Flow, EddyX0, EddyX1;
     public readonly List<Room> Sheltered = new();
+    /// <summary>The works' lift shafts (world px): where a lift runs up and down, the top and bottom of its travel (the centre line of the shaft).</summary>
+    public readonly List<(Vector2 Top, Vector2 Bottom)> LiftShafts = new();
     /// <summary>The tunnel under the guardian's plateau (world px), for the tests.</summary>
     public Rect2 Tunnel;
     /// <summary>

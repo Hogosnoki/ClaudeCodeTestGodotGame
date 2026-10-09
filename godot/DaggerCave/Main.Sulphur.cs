@@ -29,7 +29,7 @@ public partial class Main
         foreach (var r in cave.Rooms) r.Triggered = true;
         IEnumerable<object> Wait(float s) { for (float t = 0; t < s; t += (float)GetProcessDeltaTime()) yield return null; }
         void Stand(Vector2 at) { p.GlobalPosition = at; p.Velocity = Vector2.Zero; }
-        Vector2 FloorNear(Vector2 at) => cave.FindFloor(at, 120, out var f) ? f : at;
+        Vector2 FloorNear(Vector2 at) => cave.FindFloor(at + new Vector2(0, -24), 120, out var f) ? f : at;
 
         // ---------------------------------------------------------------- the vents
         var vents = _world.GetChildren().OfType<GasVent>().OrderBy(v => v.GlobalPosition.DistanceTo(cave.StartPos)).ToList();

@@ -38,6 +38,9 @@ public static class CreatureRegistry
         CreatureLibrary.Register("worm", () => new WormDesign());
         CreatureLibrary.Register("gasbag", () => new GasbagDesign());
         CreatureLibrary.Register("newt", () => new NewtDesign());
+        CreatureLibrary.Register("automaton", () => new AutomatonDesign());
+        CreatureLibrary.Register("boiler", () => new BoilerDesign());
+        CreatureLibrary.Register("cogwheel", () => new CogwheelDesign());
         CreatureLibrary.Register("moth", () => new MothDesign());
         CreatureLibrary.Register("crab", () => new CrabDesign());
         CreatureLibrary.Register("crab_foe", () => new ReefCrabDesign());
@@ -60,13 +63,14 @@ public static class CreatureRegistry
         ["Eel"] = new[] { "eel" }, ["Crab"] = new[] { "crab_foe" }, ["EarthElemental"] = new[] { "elem_earth" }, ["FrostElemental"] = new[] { "elem_frost" }, ["NatureElemental"] = new[] { "elem_nature" },
         ["FireElemental"] = new[] { "elem_fire" }, ["WaterElemental"] = new[] { "elem_water" }, ["CavernColossus"] = new[] { "colossus" }, ["Dragon"] = new[] { "dragon" },
         ["Gasbag"] = new[] { "gasbag" }, ["BrimstoneWorm"] = new[] { "worm" }, ["AcidNewt"] = new[] { "newt" }, ["VentColossus"] = new[] { "colossus" },
+        ["Automaton"] = new[] { "automaton" }, ["Boiler"] = new[] { "boiler" }, ["Cogwheel"] = new[] { "cogwheel" }, ["EngineWarden"] = new[] { "colossus" },
     };
 
     private static readonly Dictionary<BiomeId, string> GuardianSet = new()
     {
         [BiomeId.Entrance] = "spider", [BiomeId.Den] = "bear", [BiomeId.Nest] = "scorpion", [BiomeId.Ruins] = "skeleton", [BiomeId.Fungal] = "golem",
         [BiomeId.Tunnels] = "bear", [BiomeId.Slime] = "colossus", [BiomeId.Frost] = "colossus", [BiomeId.Crystal] = "golem", [BiomeId.Magma] = "colossus",
-        [BiomeId.Lair] = "dragon", [BiomeId.Roots] = "bear", [BiomeId.Fossils] = "colossus", [BiomeId.Mine] = "golem", [BiomeId.Catacombs] = "skeleton", [BiomeId.LavaTubes] = "golem", [BiomeId.Sulphur] = "colossus",
+        [BiomeId.Lair] = "dragon", [BiomeId.Roots] = "bear", [BiomeId.Fossils] = "colossus", [BiomeId.Mine] = "golem", [BiomeId.Catacombs] = "skeleton", [BiomeId.LavaTubes] = "golem", [BiomeId.Sulphur] = "colossus", [BiomeId.Clockwork] = "colossus",
     };
 
     /// <summary>Every creature type a level of this biome can put on screen (for loading ahead).</summary>

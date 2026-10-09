@@ -95,6 +95,7 @@ public static partial class CaveGenerator
                 GenStyle.Lake => GenerateLake(s),
                 GenStyle.River => GenerateRiver(s),
                 GenStyle.Mine => GenerateMine(s),
+                GenStyle.Works => GenerateWorks(s),
                 GenStyle.Arena => GenerateArena(s),
                 _ => GenerateOnce(s),
             });

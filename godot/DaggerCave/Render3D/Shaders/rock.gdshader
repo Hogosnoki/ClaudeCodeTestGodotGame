@@ -188,6 +188,42 @@ void fragment() {
 		float bone = smoothstep(0.86, 0.91, texture(mask_noise, vec2(p.x * 0.35, p.y * 1.1) + p.z * 0.2).r) * (1.0 - capness * 0.5);
 		alb = mix(alb, vec3(0.78, 0.72, 0.6), bone * special_amount);
 		arm.g = mix(arm.g, 0.6, bone);
+	} else if (special_mode == 8) {
+		// crusts of sulphur: patches of yellow bloom over the rock, thickest where it faces up, with the odd orange stain (the sulphur springs)
+		float patch = smoothstep(0.66, 0.8, texture(mask_noise, p.xy * 0.035 + p.z * 0.02 + vec2(0.4, 0.2)).r + fine * 0.25);
+		float crust = clamp(patch * (0.55 + 0.45 * smoothstep(-0.2, 0.6, n.y)) * (1.0 - capness * 0.45), 0.0, 1.0) * special_amount;
+		float grain = 0.7 + 0.6 * texture(mask_noise, p.xz * 0.9 + p.y * 0.5).r;
+		vec3 yel = vec3(0.85, 0.74, 0.12) * grain * 0.8;
+		float stain = smoothstep(0.7, 0.9, texture(mask_noise, p.xy * 0.09 + vec2(0.7, 0.1)).r);
+		yel = mix(yel, vec3(0.72, 0.3, 0.06), stain * 0.6);
+		alb = mix(alb, yel, crust);
+		arm.g = mix(arm.g, 0.5, crust);
+	} else if (special_mode == 9) {
+		// riveted iron plate on the walls near the open space (the clockwork deep): staggered panels with seams and bolts, iron and brass
+		// by turns, rust bleeding down from the seams
+		float walls = (1.0 - smoothstep(0.55, 0.85, abs(n.y))) * (1.0 - smoothstep(0.35, 0.8, capness)) * special_amount;
+		walls *= smoothstep(0.15, 0.35, big + 0.3);
+		if (walls > 0.001) {
+			vec2 g = vec2(p.x / 2.2, p.y / 1.5);
+			g.x += floor(g.y) * 0.5;
+			vec2 id = floor(g);
+			vec2 f = fract(g);
+			vec2 e = min(f, 1.0 - f) * vec2(2.2, 1.5);
+			float seam = 1.0 - smoothstep(0.015, 0.06, min(e.x, e.y));
+			vec2 c = (f - 0.5) * vec2(2.2, 1.5);
+			float bolt = 1.0 - smoothstep(0.028, 0.05, length(abs(c) - vec2(0.94, 0.59)));
+			float h = fract(sin(dot(id, vec2(12.9898, 78.233))) * 43758.5453);
+			vec3 iron = vec3(0.26, 0.26, 0.3) * (0.8 + 0.4 * h);
+			vec3 brass = vec3(0.52, 0.37, 0.14) * (0.8 + 0.4 * h);
+			vec3 plate = mix(iron, brass, step(0.8, h));
+			float rust = smoothstep(0.45, 0.7, texture(mask_noise, p.xy * 0.15 + id * 0.1).r) * (0.35 + 0.65 * (1.0 - f.y));
+			plate = mix(plate, vec3(0.38, 0.2, 0.1), rust * 0.65);
+			plate *= 1.0 - 0.6 * seam;
+			plate = mix(plate, vec3(0.62, 0.52, 0.32), bolt * 0.75);
+			alb = mix(alb, plate, walls);
+			arm.g = mix(arm.g, 0.4, walls);
+			dn *= 1.0 - walls * 0.8;
+		}
 	}
 
 	// ---- floors: gravel and grit on anything you could stand on

@@ -28,6 +28,8 @@ public enum GenStyle
     Lake,
     /// <summary>A high canyon with a river flowing back down it along the floor, dry stepping stones across, and the guardian's plateau at the head (the underground river).</summary>
     River,
+    /// <summary>Stacked, dead-level galleries and great machine halls joined by shafts with stairs and lifts (the clockwork deep).</summary>
+    Works,
     /// <summary>An antechamber and one great arena over lava (the dragon's lair).</summary>
     Arena,
 }
@@ -106,6 +108,8 @@ public sealed class BiomeDef
     public bool Slippery, IceSheet, IcePlatforms, Webs, Spores, CrystalSpikes, FireVents;
     /// <summary>Fissures that hiss and blow clouds of sulphurous gas, which poison, and burn (the Sulphur Springs).</summary>
     public bool GasVents;
+    /// <summary>Machinery that works against you: pistons that slam, saws on rails, belts that carry you, lifts, and steam (the clockwork deep).</summary>
+    public bool Machinery;
     /// <summary>Grasping roots that hold you and snag your weapon (the root-choked tunnels).</summary>
     public bool RootSnares;
     /// <summary>Unstable ceilings that shed dust, then rock, on whoever walks beneath (the fossil graveyards).</summary>
@@ -466,6 +470,26 @@ public static class Biomes
         sulphur.WaterMiniBosses = new() { () => Var(new Eel(), "Brine ", "9aa030") };
         sulphur.Guardian = r => { var c = new VentColossus(); c.Init(r); c.Tint = C("e0d444"); c.Title = "THE VENT COLOSSUS"; return c; };
         All.Add(sulphur);
+
+        // ------------------------------------------------------------------ 5-8: the clockwork deep
+        // (a forgotten works: stacked, dead-level galleries and great machine halls, riveted plate on the walls, gears turning behind them.
+        // Its own: pistons, belts, saws, lifts and steam, see Combat/Machines.cs; its creatures: automata, boilers, cogwheels)
+        var works = new BiomeDef
+        {
+            Id = BiomeId.Clockwork, Name = "The Clockwork Deep", MinDepth = 5, MaxDepth = 8, Weight = 1f,
+            Style = GenStyle.Works, W = 250, H = 130, Liquid = Liquid.None,
+            Edge = C("5a5660"), Deep = C("100e12"), Moss = C("a8843a"), Rim = C("8a7e66"), Glow = C("ffa850"),
+            BackBottom = C("09080a"), Grass = 0f, Mushrooms = 0f, Stalactites = 0.04f, Crystals = 0f, Darkness = 0.8f, Torches = 0.05f, WallGlow = 0.2f,
+            Machinery = true, HazardCount = 11, MiniBossesMin = 1, MiniBossesMax = 2, RoomChests = 4, EliteChance = 0.1f,
+        };
+        works.Residents[SpawnKind.Ground] = L(E(3, () => new Automaton()), E(2, () => new Cogwheel(), 1, 2), E(2, () => new Boiler()), E(1, () => Var(new Skeleton(), "Rusted ", "a89070")),
+            E(1, () => Var(new Golem(), "Iron ", "8a8a98", 1.1f)));
+        works.Residents[SpawnKind.Ceiling] = L(E(2, () => Var(new Bat(), "Soot ", "6a6068"), 2, 3));
+        works.GroundEntrants = L(E(3, () => new Automaton()), E(3, () => new Cogwheel()), E(1, () => Var(new Skeleton(), "Rusted ", "a89070")));
+        works.AirEntrants = L(E(1, () => Var(new Bat(), "Soot ", "6a6068")));
+        works.MiniBosses = new() { () => new Automaton(), () => new Boiler(), () => new Cogwheel(), () => Var(new Golem(), "Iron ", "8a8a98") };
+        works.Guardian = r => { var c = new EngineWarden(); c.Init(r); c.Tint = C("c8a060"); c.Title = "THE ENGINE-WARDEN"; return c; };
+        All.Add(works);
 
         // ------------------------------------------------------------------ the secret depth under the lakes
         // (not on the depth track: it is only reached by swimming down to the bottom of a lake, see CaveGenerator.AddDrain)

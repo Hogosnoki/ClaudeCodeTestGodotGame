@@ -265,6 +265,39 @@ public partial class LoadingScreen : Control
                     DrawArc(new Vector2(640 + MathF.Sin(k * 2.1f + _t) * 30 * (1f - ph), 690 - ph * 280), 4 + 8 * ph, 0, Mathf.Tau, 14, new Color(0.7f, 0.95f, 1f, 0.45f * (1f - ph) * a), 1.5f);
                 }
                 break;
+            case BiomeId.Clockwork:
+            {
+                // great gears turning behind one another (a toothed outline, spokes), and sparks falling off the lower one
+                void Gear(Vector2 c, float r, float spin, Color col)
+                {
+                    int teeth = Math.Max(8, (int)(r / 9f));
+                    var pts = new List<Vector2>();
+                    for (int k = 0; k < teeth * 4; k++)
+                    {
+                        float ang = spin + k / (float)(teeth * 4) * Mathf.Tau;
+                        int ph = k % 4;
+                        float rr = ph == 1 || ph == 2 ? r + r * 0.12f : r;
+                        pts.Add(c + new Vector2(MathF.Cos(ang), MathF.Sin(ang)) * rr);
+                    }
+                    DrawColoredPolygon(pts.ToArray(), col);
+                    DrawCircle(c, r * 0.62f, new Color(0f, 0f, 0f, 0.35f * a));
+                    for (int k = 0; k < 6; k++)
+                    {
+                        float ang = spin + k * Mathf.Pi / 3f;
+                        DrawLine(c, c + new Vector2(MathF.Cos(ang), MathF.Sin(ang)) * r * 0.62f, new Color(col.R * 1.4f, col.G * 1.4f, col.B * 1.4f, col.A), r * 0.07f);
+                    }
+                    DrawCircle(c, r * 0.14f, new Color(col.R * 1.6f, col.G * 1.6f, col.B * 1.6f, col.A));
+                }
+                Gear(new Vector2(420, 470), 230, _t * 0.25f, new Color(rim.R, rim.G, rim.B, 0.28f * a));
+                Gear(new Vector2(790, 560), 150, -_t * 0.25f * 230f / 150f + 0.2f, new Color(glow.R * 0.7f, glow.G * 0.55f, glow.B * 0.3f, 0.26f * a));
+                Gear(new Vector2(1010, 330), 100, _t * 0.25f * 230f / 100f, new Color(rim.R, rim.G, rim.B, 0.22f * a));
+                for (int k = 0; k < 10; k++)
+                {
+                    float ph = (_t * 0.5f + k * 0.173f) % 1f;
+                    DrawCircle(new Vector2(700 + MathF.Sin(k * 2.3f) * 80 + ph * 40, 520 + ph * 200), 2f, new Color(1f, 0.7f, 0.3f, 0.7f * (1f - ph) * a));
+                }
+                break;
+            }
             case BiomeId.Sulphur:
             {
                 // a yellow hot spring along the bottom, soft clouds of gas rising off it and a few slow bubbles breaking its surface

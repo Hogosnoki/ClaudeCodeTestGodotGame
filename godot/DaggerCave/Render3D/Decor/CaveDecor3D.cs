@@ -443,6 +443,45 @@ public partial class CaveDecor3D : Node3D
             }
         }
 
+        // ---- the clockwork deep: gears turning on the back walls, most of them in pairs that mesh (one the other way, slower or faster as their sizes say)
+        if (b.Machinery)
+        {
+            var colors = new[] { new Color(0.4f, 0.4f, 0.45f), new Color(0.62f, 0.44f, 0.15f), new Color(0.48f, 0.37f, 0.25f), new Color(0.34f, 0.34f, 0.4f) };
+            var gearMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Metallic = 0.6f, Roughness = 0.4f, EmissionEnabled = true, Emission = new Color(1f, 0.6f, 0.25f), EmissionEnergyMultiplier = 0.05f };
+            void Gear(Vector3 wp, float r, float spin)
+            {
+                int teeth = (int)(r * 4f) + 6;
+                var col = colors[_rng.Next(colors.Length)];
+                var mb = Machine.Disc(teeth, r, Math.Min(0.4f, r * 0.14f), 0.4f, col, col.Lightened(0.12f));
+                // (a hub, and a ring of spokes in a darker iron)
+                mb.Append(Machine.Disc(teeth, r * 0.8f, 0f, 0.1f, col.Darkened(0.4f)), new Transform3D(Basis.Identity, new Vector3(0, 0, 0.24f)));
+                mb.Tube(new[] { new Vector3(0, 0, 0.2f), new Vector3(0, 0, 0.55f) }, new[] { r * 0.2f, r * 0.17f }, 10, col.Lightened(0.15f), capStart: true);
+                for (int k = 0; k < 6; k++)
+                    mb.Box(new Transform3D(new Basis(Vector3.Back, k * Mathf.Pi / 3f), new Vector3(0, 0, 0.21f)), new Vector3(r * 0.62f, r * 0.07f, 0.09f), col.Lightened(0.1f));
+                AddChild(new GearSpinner { Mesh = mb.ToMesh(gearMat), Position = wp + new Vector3(0, 0, 0.3f), Speed = spin, Rotation = new Vector3(0, 0, R() * Mathf.Tau), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+            }
+            int groups = (int)(cave.W * cave.H / 1500f), madeGears = 0;
+            for (int tries = 0; tries < groups * 40 && madeGears < groups; tries++)
+            {
+                float x = R(8, cave.W - 8), y = R(8, cave.H - 8);
+                if (_f.Eval(x, y, 0f) > 0f || !BackWallAt(x, y, out var wp, out _)) continue;
+                float r1 = R(1.3f, 3.6f), spin = R(0.12f, 0.5f) * (R() < 0.5f ? -1f : 1f);
+                Gear(wp, r1, spin);
+                madeGears++;
+                if (R() < 0.7f)
+                {
+                    float r2 = R(1.0f, 3f), ang = R() * Mathf.Tau;
+                    float d = r1 + r2 + 0.3f;
+                    float x2 = x + MathF.Cos(ang) * d, y2 = y + MathF.Sin(ang) * d;
+                    if (_f.Eval(x2, y2, 0f) <= 0f && BackWallAt(x2, y2, out var wp2, out _))
+                    {
+                        Gear(new Vector3(wp2.X, wp2.Y, wp.Z), r2, -spin * r1 / r2);
+                        madeGears++;
+                    }
+                }
+            }
+        }
+
         // ---- the catacombs' ossuary walls: against the back wall of the larger rooms, a mound of bones as if poured out and
         // heaped there: skulls every way up, long bones jutting across them, scatters of small bones filling the gaps
         if (skulls != null)
