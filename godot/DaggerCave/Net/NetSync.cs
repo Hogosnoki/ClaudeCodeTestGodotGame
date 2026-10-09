@@ -746,6 +746,12 @@ public static class NetSync
             case SporeCloud sc:
                 w.Byte(5).Int(id).Vec(sc.GlobalPosition).Half(sc.Radius).Half(sc.Life).Int(sc.Source?.NetId ?? 0);
                 break;
+            case GasCloud gc:
+                w.Byte(12).Int(id).Vec(gc.GlobalPosition).Half(gc.Radius).Half(gc.Life).Int(gc.Source?.NetId ?? 0);
+                break;
+            case AcidPuddle ap:
+                w.Byte(13).Int(id).Vec(ap.GlobalPosition).Half(ap.Life).Int(ap.Source?.NetId ?? 0);
+                break;
             case XpOrb xp:
                 w.Byte(6).Int(id).Vec(xp.GlobalPosition).HVec(xp.Vel).Short((short)xp.Value);
                 break;
@@ -794,6 +800,8 @@ public static class NetSync
             case 3: { var pos = r.Vec(); float dmg = r.Float(); n = new FallingRock { Position = pos, Damage = dmg, Source = Src(r.Int()) }; break; }
             case 4: { var pos = r.Vec(); n = new LavaPuddle { Position = pos, Source = Src(r.Int()) }; break; }
             case 5: { var pos = r.Vec(); float rad = r.Half(), life = r.Half(); n = new SporeCloud { Position = pos, Radius = rad, Life = life, Source = Src(r.Int()) }; break; }
+            case 12: { var pos = r.Vec(); float rad = r.Half(), life = r.Half(); n = new GasCloud { Position = pos, Radius = rad, Life = life, Source = Src(r.Int()) }; break; }
+            case 13: { var pos = r.Vec(); float life = r.Half(); n = new AcidPuddle { Position = pos, Life = life, Source = Src(r.Int()) }; break; }
             case 6: { var pos = r.Vec(); var vel = r.HVec(); int value = r.Short(); n = new XpOrb { Position = pos, Vel = vel, Value = value, Puppet = true }; break; }
             case 7: n = new HeartPickup { Position = r.Vec(), Puppet = true }; break;
             case 8: n = new PotionPickup { Position = r.Vec(), Puppet = true }; break;

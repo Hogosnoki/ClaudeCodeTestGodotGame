@@ -32,7 +32,7 @@ public enum GenStyle
     Arena,
 }
 
-public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss, Null, River }
+public enum BiomeId { Entrance, Den, Nest, Ruins, Fungal, Tunnels, Slime, Frost, Crystal, Magma, Lair, Roots, Fossils, Mine, Catacombs, LavaTubes, Abyss, Null, River, Sulphur, Clockwork }
 
 /// <summary>One weighted entry of a spawn table: a factory and a group size.</summary>
 public sealed class SpawnEntry
@@ -104,6 +104,8 @@ public sealed class BiomeDef
 
     // ---- hazards and terrain features
     public bool Slippery, IceSheet, IcePlatforms, Webs, Spores, CrystalSpikes, FireVents;
+    /// <summary>Fissures that hiss and blow clouds of sulphurous gas, which poison, and burn (the Sulphur Springs).</summary>
+    public bool GasVents;
     /// <summary>Grasping roots that hold you and snag your weapon (the root-choked tunnels).</summary>
     public bool RootSnares;
     /// <summary>Unstable ceilings that shed dust, then rock, on whoever walks beneath (the fossil graveyards).</summary>
@@ -440,6 +442,31 @@ public static class Biomes
         tubes.Guardian = r => Guard(Var(new Golem(), "", "8a7088"), "THE BASALT WARDEN", 1.5f);
         All.Add(tubes);
 
+        // ------------------------------------------------------------------ 6-9: the sulphur springs
+        // (hot yellow pools and crusted rock, with vents that hiss and then blow a poisonous, flammable gas that hangs about; see
+        // Combat/Gas.cs. Its creatures are made of the place: gasbags, brimstone worms, acid newts)
+        var sulphur = new BiomeDef
+        {
+            Id = BiomeId.Sulphur, Name = "The Sulphur Springs", MinDepth = 6, MaxDepth = 9, Weight = 1f,
+            W = 240, H = 120, TunnelBudget = 1450, AirRMin = 2.7f, AirRMax = 3.9f, HorizontalBias = 0.022f, BranchPitchMult = 0.5f, LiquidFraction = 0.3f,
+            Edge = C("7a6a30"), Deep = C("1a1507"), Moss = C("c4bc2a"), Rim = C("b8a74e"), Glow = C("f2e84a"),
+            LiquidTop = new Color(0.55f, 0.6f, 0.12f, 0.62f), LiquidBottom = new Color(0.24f, 0.26f, 0.04f, 0.9f), LiquidLine = new Color(0.9f, 0.92f, 0.4f, 0.75f),
+            BackBottom = C("0e0b03"), Grass = 0f, Mushrooms = 0f, Stalactites = 0.22f, Crystals = 0.14f, Darkness = 0.68f,
+            Murky = true, GasVents = true, HazardCount = 9, WaterCaches = 3, HighCaches = 3, MiniBossesMin = 1, MiniBossesMax = 2, EliteChance = 0.1f,
+        };
+        sulphur.Residents[SpawnKind.Ground] = L(E(3, () => new AcidNewt(), 1, 2), E(2, () => new BrimstoneWorm()), E(2, () => Var(new Scorpion(), "Brimstone ", "d8c040"), 1, 2), E(1, () => Var(new Golem(), "Sulphur ", "c8b838", 1.1f)));
+        sulphur.Residents[SpawnKind.Ceiling] = L(E(3, () => new Gasbag(), 1, 2), E(2, () => Var(new Bat(), "Sulphur ", "c8c050"), 2, 3));
+        sulphur.Residents[SpawnKind.Water] = L(E(1, () => Var(new Fish(), "Brine ", "a8b040"), 1, 3));
+        sulphur.Residents[SpawnKind.Shore] = L(E(1, () => new Crab(), 1, 2));
+        sulphur.Residents[SpawnKind.WaterWall] = L(E(1, () => Var(new Eel(), "Brine ", "9aa030")));
+        sulphur.GroundEntrants = L(E(3, () => new AcidNewt()), E(2, () => Var(new Scorpion(), "Brimstone ", "d8c040")));
+        sulphur.AirEntrants = L(E(2, () => new Gasbag()), E(1, () => Var(new Bat(), "Sulphur ", "c8c050")));
+        sulphur.WaterEntrants = L(E(1, () => Var(new Fish(), "Brine ", "a8b040")));
+        sulphur.MiniBosses = new() { () => new AcidNewt(), () => new Gasbag(), () => new BrimstoneWorm(), () => Var(new Golem(), "Sulphur ", "c8b838") };
+        sulphur.WaterMiniBosses = new() { () => Var(new Eel(), "Brine ", "9aa030") };
+        sulphur.Guardian = r => { var c = new VentColossus(); c.Init(r); c.Tint = C("e0d444"); c.Title = "THE VENT COLOSSUS"; return c; };
+        All.Add(sulphur);
+
         // ------------------------------------------------------------------ the secret depth under the lakes
         // (not on the depth track: it is only reached by swimming down to the bottom of a lake, see CaveGenerator.AddDrain)
         var abyss = new BiomeDef
@@ -568,6 +595,8 @@ public static class Biomes
         Ground(BiomeId.Tunnels, 1, () => new EarthElemental());
         Ground(BiomeId.Roots, 1, () => new EarthElemental(), entrant: false, mini: false);
         Ground(BiomeId.Fossils, 2, () => new EarthElemental());
+        // (a fire among the gas: its fireballs light every cloud they touch)
+        Ground(BiomeId.Sulphur, 1, () => new FireElemental());
         foreach (var b in All)
         {
             // (the underground river has only bats)

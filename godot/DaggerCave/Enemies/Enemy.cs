@@ -15,7 +15,8 @@ public enum DamageKind { Physical, Fire, Frost, Water, Nature, /// <summary>Alre
     Raw }
 
 /// <summary>What a creature is made of, for weakness and resistance.</summary>
-public enum Element { None, Armored, Earth, Frost, Fire, Nature }
+public enum Element { None, Armored, Earth, Frost, Fire, Nature, /// <summary>A bag of fuel: the sulphur springs' gasbags, which go up in a ball of fire.</summary>
+    Gas }
 
 /// <summary>
 /// Weaknesses and resistances. Armoured and earthen creatures take 40% less from physical blows (an armoured
@@ -40,6 +41,7 @@ public static class Affinity
         (Element.Fire, DamageKind.Fire or DamageKind.Nature) => Resist,
         (Element.Nature, DamageKind.Fire) => Weak,
         (Element.Nature, DamageKind.Water or DamageKind.Nature) => Resist,
+        (Element.Gas, DamageKind.Fire) => Weak,
         _ => 1f,
     };
 }

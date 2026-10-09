@@ -255,15 +255,24 @@ public partial class Eel : Enemy
     protected override bool UsesGravity => false;
     public override bool CanBeHit => _state != 0;
     public override float HitRadius => 8 * Size;
+    /// <summary>How far it can reach out of its burrow (a worm's differs), and how fast the head goes.</summary>
+    protected virtual float LungeLen => Tune.Eel.LungeLength;
+    protected virtual float LungeSpd => Tune.Eel.LungeSpeed;
+    /// <summary>Where its burrow lies, against where it was put (px).</summary>
+    protected virtual Vector2 HomeOffset => Vector2.Zero;
+    /// <summary>It strikes (the head is on its way) and it draws back.</summary>
+    protected virtual void OnLunge() { }
+    protected virtual void OnRetract() { }
 
     public Eel() { MaxHp = Tune.Eel.Hp; BodyRadius = 7; ContactDamage = Tune.Eel.Contact; XpValue = Tune.Eel.Xp; KnockResist = 1f; }
 
     protected override void Setup()
     {
         DisplayName = "Eel";
+        GlobalPosition += HomeOffset;
         _home = GlobalPosition;
         _head = _home;
-        UseSprite("eel");
+        UseSprite(SetName);
         Anim.AllowTurns = false;
         Anim.ZIndex = 1;
         MotionMode = MotionModeEnum.Floating;
@@ -272,10 +281,13 @@ public partial class Eel : Enemy
         CollisionMask = 0;
     }
 
+    /// <summary>The sprite set it wears.</summary>
+    protected virtual string SetName => "eel";
+
     protected override void Think(float dt)
     {
         _stateT += dt; _cd -= dt;
-        float maxLen = Tune.Eel.LungeLength * (Elite ? 1.4f : 1f);
+        float maxLen = LungeLen * (Elite ? 1.4f : 1f);
         switch (_state)
         {
             case 0:
@@ -288,15 +300,16 @@ public partial class Eel : Enemy
                     _target = _home + d.Normalized() * Math.Min(d.Length() + 20, maxLen);
                     G.Sfx.Play("eel", _home, -2);
                     Anim.Once("bite", 3);
+                    OnLunge();
                 }
                 break;
             case 1:
                 ContactActive = true;
-                _head = _head.MoveToward(_target, Tune.Eel.LungeSpeed * dt);
+                _head = _head.MoveToward(_target, LungeSpd * dt);
                 if (_head.DistanceTo(_target) < 2 || _stateT > 0.6f) { _state = 2; _stateT = 0; }
                 break;
             case 2:
-                if (_stateT > 0.45f) { _state = 3; _stateT = 0; }
+                if (_stateT > 0.45f) { _state = 3; _stateT = 0; OnRetract(); }
                 break;
             default:
                 _head = _head.MoveToward(_home, 150 * dt);
@@ -319,10 +332,15 @@ public partial class Eel : Enemy
     protected override bool CanAct(int a) => a != Lunge || _cd <= 0;
     protected override float AttackReady => _cd <= 0 ? 1 : 0;
 
+    /// <summary>Whether the hero is somewhere it will strike at (an eel's: swimming; a worm's: anywhere).</summary>
+    protected virtual bool WantsTarget => P.InWater;
+    /// <summary>Where it looks out from (a worm's hole lies just under the floor, so it looks from just over it).</summary>
+    protected virtual Vector2 SightFrom => _home;
+
     protected override int Teacher()
     {
-        float maxLen = Tune.Eel.LungeLength * (Elite ? 1.4f : 1f);
-        return _cd <= 0 && P.InWater && P.GlobalPosition.DistanceTo(_home) < maxLen + 20 && G.Cave.LineClear(_home, P.GlobalPosition) ? Lunge : Lurk;
+        float maxLen = LungeLen * (Elite ? 1.4f : 1f);
+        return _cd <= 0 && WantsTarget && P.GlobalPosition.DistanceTo(_home) < maxLen + 20 && G.Cave.LineClear(SightFrom, P.GlobalPosition) ? Lunge : Lurk;
     }
 
     protected override void Animate()

@@ -109,6 +109,7 @@ public partial class EnemyProjectile : Node2D
         "ice" => new Color(0.75f, 0.95f, 1f),
         "crystal" => new Color(0.65f, 0.85f, 1f),
         "spit" => new Color(0.5f, 0.9f, 0.3f),
+        "acid" => new Color(0.78f, 0.92f, 0.2f),
         "web" => new Color(0.95f, 0.95f, 0.9f),
         _ => new Color(0.8f, 0.75f, 0.7f),
     };
@@ -143,6 +144,7 @@ public partial class EnemyProjectile : Node2D
             return;
         }
         GlobalPosition = np;
+        if ((Kind == "fire" || Kind == "lava") && GasCloud.All.Count > 0) GasCloud.IgniteAt(np, Radius);
         if (Reflected)
         {
             foreach (var e in G.Enemies.ToArray())
@@ -184,6 +186,13 @@ public partial class EnemyProjectile : Node2D
             if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
                 G.Spawn(new LavaPuddle { Position = fl, Source = Source });
         }
+        else if (Kind == "acid")
+        {
+            G.Sfx.Play("splash", at, -8, 0.2f, 0.8f);
+            G.Fx.Burst(at, new Color(0.78f, 0.92f, 0.2f), 9, 110, 2.2f, 0.4f);
+            if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
+                G.Spawn(new AcidPuddle { Position = fl, Source = Source });
+        }
         else if (Kind == "fire")
         {
             G.Fx.Smoke(at, 2, new Color(0.3f, 0.25f, 0.22f, 0.4f), 20);
@@ -220,6 +229,9 @@ public partial class EnemyProjectile : Node2D
                 break;
             case "spit":
                 DrawCircle(Vector2.Zero, Radius, new Color(0.5f, 0.9f, 0.3f, 0.9f));
+                break;
+            case "acid":
+                DrawCircle(Vector2.Zero, Radius, new Color(0.78f, 0.92f, 0.2f, 0.95f));
                 break;
             case "fire":
             {

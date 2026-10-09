@@ -28,6 +28,8 @@ public partial class CavernColossus : Enemy
     /// <summary>Test aid: a charge, now, the way it faces.</summary>
     public void TestCharge(int face) { Face = face; _lastAttack = 2; _teacherPick = -1; Go(S.ChargeWindup); }
     private Room _room;
+    /// <summary>The chamber it guards.</summary>
+    protected Room Room => _room;
     private bool _phase2;
     public override void NetState(NetIO io) { io.Sync(ref _phase2); io.SyncByte(ref _s); }
     /// <summary>For the 3D model: enraged (the core burns red).</summary>

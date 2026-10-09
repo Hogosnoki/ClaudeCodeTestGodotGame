@@ -10,7 +10,7 @@ namespace DaggerCave;
 /// skin under a coat of slime. The sculpted model is the head and neck; the body is a live tube
 /// from the neck back into the burrow, rebuilt every frame as it lunges and retracts.
 /// </summary>
-public sealed class EelDesign : CreatureDesign
+public class EelDesign : CreatureDesign
 {
     public override string Name => "eel";
     public override float Cell => 0.012f;
@@ -23,15 +23,17 @@ public sealed class EelDesign : CreatureDesign
         DetailScale = 30f, DetailStrength = 1f, Veins = 0.7f, VeinColor = new Color(0.08f, 0.1f, 0.05f), Wet = 1f,
     };
 
-    private static readonly Color Skin = new(0.2f, 0.26f, 0.15f);
-    private static readonly Color Belly = new(0.5f, 0.52f, 0.3f);
-    private const float NeckLen = 0.45f, R = 0.17f;
-    private int _head, _jaw, _neck;
+    /// <summary>The colour of its back and of its belly (the body tube is shaded between them).</summary>
+    protected virtual Color SkinCol => new(0.2f, 0.26f, 0.15f);
+    protected virtual Color BellyCol => new(0.5f, 0.52f, 0.3f);
+    protected const float NeckLen = 0.45f, R = 0.17f;
+    protected int _head, _jaw, _neck;
 
     protected override void OnBonesBound() { _head = B("head"); _jaw = B("jaw"); _neck = B("neck"); }
 
     public override void Sculpt(Sculptor s)
     {
+        var Skin = SkinCol; var Belly = BellyCol;
         var tooth = new Color(0.9f, 0.88f, 0.75f);
         var gum = new Color(0.4f, 0.12f, 0.12f);
         int neck = s.Bone("neck", -1, new(-NeckLen, 0, 0));
@@ -186,7 +188,7 @@ public sealed class EelDesign : CreatureDesign
                 nr[j] = dir;
                 // belly (toward -Y of the screen) paler; roughness in alpha
                 float bel = Math.Clamp(-dir.Y, 0f, 1f);
-                var c = Skin.Lerp(Belly, bel * bel);
+                var c = SkinCol.Lerp(BellyCol, bel * bel);
                 col[j] = new Color(c.R, c.G, c.B, 0.55f);
                 // pseudo rest position so the skin's detail slides along with the body
                 uv[j] = new Vector2(along, MathF.Cos(ang) * 0.17f);

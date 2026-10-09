@@ -55,6 +55,9 @@ public static class PropViews
             CaveIn => new CaveInView(),
             CrystalSpikes => new CrystalSpikesView(),
             FireVent => new FireVentView(),
+            GasCloud => new GasCloudView(),
+            GasVent => new GasVentView(),
+            AcidPuddle => new AcidPuddleView(),
             IceSheet => new IceSheetView(),
             StalagGrip => new StalagGripView(),
             IcePlatform => new IcePlatformView(),
@@ -295,6 +298,15 @@ public partial class ProjectileView : PropView
                     mb.Blob(Vector3.Zero, Vector3.One * r * 1.1f, 5, new Color(0.92f, 0.92f, 0.88f), new Noise3(rng.Next()), 0.45f, 4f);
                     _body = PropViews.Mesh(mb, PropViews.VertexColored);
                     _glow = PropViews.Sprite(new Color(0.95f, 0.95f, 0.9f), 0, 0.45f, r * 3.2f);
+                    break;
+                }
+            case "acid":
+                {
+                    var mb = new MeshBuilder();
+                    mb.Blob(Vector3.Zero, new Vector3(r * 1.05f, r * 1.25f, r * 1.05f), 5, Colors.White, new Noise3(rng.Next()), 0.18f, 3f);
+                    _body = PropViews.Mesh(mb, PropViews.Emissive(new Color(0.78f, 0.95f, 0.18f), 1.6f, 0.9f), false);
+                    _glow = PropViews.Sprite(new Color(0.8f, 0.95f, 0.2f), 0, 0.7f, r * 3.2f);
+                    _light = PropViews.Light(new Color(0.8f, 0.95f, 0.2f), 0.6f, 2.5f);
                     break;
                 }
             case "spit":

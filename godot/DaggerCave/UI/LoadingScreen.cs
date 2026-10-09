@@ -265,6 +265,25 @@ public partial class LoadingScreen : Control
                     DrawArc(new Vector2(640 + MathF.Sin(k * 2.1f + _t) * 30 * (1f - ph), 690 - ph * 280), 4 + 8 * ph, 0, Mathf.Tau, 14, new Color(0.7f, 0.95f, 1f, 0.45f * (1f - ph) * a), 1.5f);
                 }
                 break;
+            case BiomeId.Sulphur:
+            {
+                // a yellow hot spring along the bottom, soft clouds of gas rising off it and a few slow bubbles breaking its surface
+                DrawRect(new Rect2(0, 600, 1280, 120), new Color(glow.R * 0.55f, glow.G * 0.6f, glow.B * 0.12f, 0.35f * a));
+                for (int k = 0; k < 11; k++)
+                {
+                    float ph = (_t * 0.08f + k * 0.131f) % 1f;
+                    float x = 90 + k * 118 + MathF.Sin(_t * 0.5f + k) * 30;
+                    float y = 620 - ph * 420;
+                    float r = 26 + 70 * ph;
+                    DrawCircle(new Vector2(x, y), r, new Color(glow.R, glow.G, glow.B * 0.5f, 0.07f * (1f - ph) * a));
+                }
+                for (int k = 0; k < 8; k++)
+                {
+                    float ph = (_t * 0.3f + k * 0.29f) % 1f;
+                    DrawArc(new Vector2(120 + k * 150 + MathF.Sin(k * 3f) * 40, 640 - ph * 36), 3 + 9 * ph, 0, Mathf.Tau, 14, new Color(glow.R, glow.G, glow.B * 0.6f, 0.5f * (1f - ph) * a), 1.5f);
+                }
+                break;
+            }
             case BiomeId.Mine:
                 // a timbered gallery: two posts and a beam, a lamp swinging from it
                 DrawRect(new Rect2(240, 190, 22, 560), new Color(0.28f, 0.19f, 0.11f, a));

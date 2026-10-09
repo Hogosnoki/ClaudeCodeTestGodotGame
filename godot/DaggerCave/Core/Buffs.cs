@@ -37,6 +37,7 @@ public static class RunBuffs
         [BiomeId.LavaTubes] = B("lavatubes", "Dask's lamp", true, "+6% jump height, +3% speed", s => { s.JumpMult *= 1.06f; s.MoveSpeed *= 1.03f; }),
         [BiomeId.Magma] = B("magma", "Brandt's warning", false, "-10% damage taken", s => s.DamageTakenMult *= 0.9f),
         [BiomeId.River] = B("river", "Marren's stubbornness", true, "+12% swim speed", s => s.SwimSpeed *= 1.12f),
+        [BiomeId.Sulphur] = B("sulphur", "Harrow's wet cloth", false, "+20% breath", s => s.BreathMax *= 1.2f),
         [BiomeId.Abyss] = B("abyss", "Aveline's wonder", true, "+30% breath, +10% swim speed", s => { s.BreathMax *= 1.3f; s.SwimSpeed *= 1.1f; }),
     };
 

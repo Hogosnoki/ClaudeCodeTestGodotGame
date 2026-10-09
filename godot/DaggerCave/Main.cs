@@ -1312,6 +1312,7 @@ public partial class Main : Node
         if (b.Spores) Floors(count, fl => new SporePod { Position = fl });
         if (b.CrystalSpikes) Floors(count, fl => new CrystalSpikes { Position = fl });
         if (b.FireVents) Floors(count, fl => new FireVent { Position = fl });
+        if (b.GasVents) Floors(count, fl => new GasVent { Position = fl });
         if (b.Webs) Floors(count, fl => new WebPatch { Position = fl + new Vector2(0, -26), Radius = 28 + rng.Next(8) });
         if (b.RootSnares) Floors(count, fl => new GraspingRoots { Position = fl + new Vector2(0, 2), Radius = 22 + rng.Next(10) });
         if (b.CaveIns)

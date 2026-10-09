@@ -139,6 +139,7 @@ public static class TerrainLook
             case BiomeId.LavaTubes: special = 3; Set(m, "s", "dark_rock"); tintStrength = 0.6f; break;
             case BiomeId.Roots: special = 6; tintStrength = 0.7f; break;
             case BiomeId.Mine: tintStrength = 0.7f; brightness = 1.05f; break;
+            case BiomeId.Sulphur: special = 8; tintStrength = 0.75f; brightness = 1.12f; break;
             case BiomeId.Fossils: special = 7; tintStrength = 0.6f; brightness = 1.05f; break;
         }
         m.SetShaderParameter("tint_strength", tintStrength);

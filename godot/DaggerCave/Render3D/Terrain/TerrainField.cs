@@ -44,6 +44,8 @@ public sealed class TerrainStyle
             case BiomeId.Fossils: s.NoiseAmp = 0.5f; s.Bk = 6f; s.StrataAmp = 0.2f; s.StrataFreq = 1.6f; s.DetailAmp = 0.14f; break;
             // blasted, braced rock: squarer than a natural cave
             case BiomeId.Mine: s.NoiseAmp = 0.3f; s.DetailAmp = 0.1f; s.StrataAmp = 0.1f; s.KFillet = 0.8f; break;
+            // crusted, bubbling rock: rough and lumpy
+            case BiomeId.Sulphur: s.NoiseAmp = 0.6f; s.DetailAmp = 0.22f; s.RidgeAmp = 0.1f; s.StrataAmp = 0.06f; s.KFillet = 1.2f; break;
             case BiomeId.Lair: s.RidgeAmp = 0.3f; s.DetailAmp = 0.26f; s.Bk = 7f; s.StrataAmp = 0.05f; break;
         }
         return s;

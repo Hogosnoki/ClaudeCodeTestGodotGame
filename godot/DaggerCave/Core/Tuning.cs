@@ -950,6 +950,27 @@ public static class Tune
         public static int Xp = 4;
     }
 
+    /// <summary>
+    /// The Sulphur Springs: gas vents (rest, hiss, then blow a puff of gas every PuffEvery seconds for VentBlow), the clouds they leave
+    /// (poisoning whoever stands in them: PoisonShare of max health, plus a depth-scaled flat part, over PoisonSeconds, every TickEvery),
+    /// the blast when a fire touches gas (BlastShare of max health, then BlastBurn of burning), and the creatures of the place.
+    /// </summary>
+    public static class Sulphur
+    {
+        public static float VentIdle = 5.5f, VentWarn = 1.4f, VentBlow = 2.6f, PuffEvery = 0.5f;
+        public static float CloudRadius = 38f, CloudLife = 9f, CloudRise = 4f, TickEvery = 0.6f;
+        public static float PoisonShare = 0.03f, PoisonFlat = 1.5f, PoisonSeconds = 5f;
+        public static float BlastShare = 0.12f, BlastFlat = 6f, BlastBurn = 0.06f, BlastRadiusMult = 1.2f, ChainDelay = 0.14f;
+        /// <summary>The gasbag: drifts to hover over you and vents a cloud; bursts into one, and goes up in a ball of fire if lit.</summary>
+        public static class Gasbag { public static float Hp = 22, Speed = 36, VentWindup = 0.9f, VentCooldown = 5f, CloudScale = 0.9f, PopScale = 1.4f; public static int Xp = 7; }
+        /// <summary>The brimstone worm: lies hid in a vent's mouth, rises when you come near and strikes, then sinks back.</summary>
+        public static class Worm { public static float Hp = 44, Bite = 15, Trigger = 110, Reach = 92, Rise = 0.5f, Strike = 0.28f, Up = 2.8f, Sink = 0.5f, Rest = 2.2f; public static int Xp = 9; }
+        /// <summary>The acid newt: spits globs of acid that leave a pool that burns for PuddleLife seconds.</summary>
+        public static class Newt { public static float Hp = 34, Contact = 7, Speed = 58, SpitDamage = 8, SpitCooldown = 3.2f, SpitWindup = 0.55f, PuddleDamage = 3, PuddleLife = 5.5f; public static int Xp = 7; }
+        /// <summary>The vent colossus: exhales great clouds around the chamber, and when it is lit the gas goes up around it.</summary>
+        public static class Colossus { public static float ExhaleCooldown = 8f, ExhaleWindup = 1.1f, Clouds = 4; }
+    }
+
     /// <summary>Grasping roots: how long they must hold you before the weapon is snagged, for how long, and how many cuts free them.</summary>
     public static class Roots
     {

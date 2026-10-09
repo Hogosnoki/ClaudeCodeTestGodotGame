@@ -66,6 +66,7 @@ public partial class ElementBolt : Node2D
         if (G.Cave.IsSolid(to)) { Fizzle(from, true); return; }
         if (_traveled >= Range) { Fizzle(to, false); return; }
         GlobalPosition = to;
+        if (!Frost && !Ward && GasCloud.All.Count > 0) GasCloud.IgniteAt(to, 5f);
         // a trail of sparks (or frost) behind it
         _trailT -= dt;
         if (_trailT <= 0)
@@ -152,6 +153,7 @@ public partial class ElementBolt : Node2D
         }
         else
         {
+            GasCloud.IgniteAt(at, 12f + 8f * size);
             G.Fx.Burst(at, col, (int)(9 * size) + 2, 120, 2f, 0.3f, -40);
             for (int k = 0; k < 3; k++) G.Fx.Ember(at + G.RandDir() * 3f, new Color(1f, 0.8f, 0.35f));
             G.Sfx.Play("lava", at, -12, 0.1f, 1.8f);

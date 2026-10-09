@@ -44,6 +44,7 @@ public static class Lore
         (BiomeId.LavaTubes, "Foreman Dask", "Bores cut by fire, then left. The walls are warm if you lay a hand on them. The chimneys go up where no one can follow. I left a lamp for whoever can."),
         (BiomeId.Magma, "Captain Brandt, the Crown's company", "The river reached the fire here. What is left is steam and ash. If you are reading this, turn back. I did not."),
         (BiomeId.River, "Marren Holt, rope-hand", "The river runs the wrong way. It comes up from under the guardian's rock and goes out to the sun, and it will not be argued with. Keep to the stones. A friend of mine thought he could swim it. I hope he is still trying."),
+        (BiomeId.Sulphur, "Wick Harrow, Guild assayer", "The yellow is brimstone and it is worth more than the silver, if you live to weigh it. The vents breathe on a count; I counted ten, and the count changed when I stopped. Keep your flame well clear of the breath, and your hands off the rope-lights. I have only the one eyebrow left."),
         (BiomeId.Abyss, "Sister Aveline, Spring Order", "We did not know the lakes were roofs. There is a sea under them, old as the world, and the river is still running in it."),
     };
 
@@ -86,6 +87,7 @@ public static class Lore
         BiomeId.Crystal => "The silver's cousin. It sings in the dark.",
         BiomeId.Magma => "The river reached the fire here. What is left is steam and ash.",
         BiomeId.LavaTubes => "Old drain-ways of the fire, wide as streets. They have been quiet for an age.",
+        BiomeId.Sulphur => "Hot yellow pools and crusted rock. Something breathes out of the floor, and it is not quite air.",
         BiomeId.Abyss => "The river's old bed, under the lakes. The sun never saw it, and neither did the Guild.",
         BiomeId.River => "The river's source, or near it: it runs out of the dark under the rock, toward the sun it will never reach.",
         BiomeId.Lair => "This is where the water went.",

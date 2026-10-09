@@ -51,7 +51,9 @@ public sealed class SpriteSet
 
     private static SpriteSet Load(string name)
     {
-        var tex = GD.Load<Texture2D>($"res://DaggerCave/Art/{name}.png");
+        // (a set with no picture, only the clips' timings: its body is the 3D model, and the sheet is just the clock)
+        string png = $"res://DaggerCave/Art/{name}.png";
+        var tex = ResourceLoader.Exists(png) ? GD.Load<Texture2D>(png) : ImageTexture.CreateFromImage(Image.CreateEmpty(1, 1, false, Image.Format.Rgba8));
         var text = FileAccess.GetFileAsString($"res://DaggerCave/Art/{name}.json");
         var meta = Json.ParseString(text).AsGodotDictionary();
         int fw = (int)meta["frame_w"], fh = (int)meta["frame_h"], cols = (int)meta["columns"];

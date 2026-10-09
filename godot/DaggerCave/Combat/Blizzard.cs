@@ -51,6 +51,7 @@ public partial class Blizzard : Node2D
     {
         var c = GlobalPosition;
         Breakables.SpellBurst(c, Radius);
+        if (Fire) GasCloud.IgniteAt(c, Radius);
         foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || !e.CanBeHit) continue;
