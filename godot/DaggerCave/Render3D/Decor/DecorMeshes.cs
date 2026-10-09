@@ -362,7 +362,7 @@ public static class DecorMeshes
         var mb = new MeshBuilder();
         float len = (ribs - 1) * spacing;
         // (stout bones: a rib as thick as a man's arm at its root, and the vertebrae to match)
-        float thick = Math.Clamp(height / 6f, 1.0f, 1.7f);
+        float thick = Math.Clamp(height / 6f, 1.0f, 1.8f);
         // the spine: a round vertebral body between short gaps, a tall flat spine leaning back from each
         for (float z = -spacing; z <= len + spacing * 1.01f; z += spacing * 0.5f)
         {

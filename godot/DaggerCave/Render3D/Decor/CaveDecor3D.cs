@@ -413,15 +413,19 @@ public partial class CaveDecor3D : Node3D
                 float rx = room.RxPx / CaveData.Cell, ry = room.RyPx / CaveData.Cell;
                 if (rx < 9f || ry < 6f) continue;
                 var c = room.Center / CaveData.Cell;
-                // (a shorter, stouter cage than it was: its spine a good deal above a hero's head, its ribs coming down to the floor)
+                // (a great cage: its spine a good way above a hero's head, its ribs coming down to the floor; as tall as the chamber's roof lets it be)
                 float floorY = room.Floor.Y / CaveData.Cell;
-                float cageH = Math.Clamp(ry * 0.95f, 5.5f, 8.5f);
-                float topY = floorY - cageH;
-                f.Column(c.X, topY, out float sTop, out _, out _);
+                float cageH = Math.Clamp(ry * 1.1f, 7f, 10f), topY = 0f, sTop = 0f;
+                for (; cageH >= 5.5f; cageH -= 0.75f)
+                {
+                    topY = floorY - cageH;
+                    f.Column(c.X, topY, out sTop, out _, out _);
+                    if (sTop <= -0.6f) break;
+                }
                 if (sTop > -0.6f) continue; // no open space up there for the spine
-                int ribs = Math.Clamp((int)(rx * 0.5f), 4, 8);
-                float spacing = Tune.Fossils.RibSpacing;
-                float halfWidth = Math.Clamp(rx * 0.22f, 1.9f, 3f);
+                float spacing = Tune.Fossils.RibSpacing * Math.Clamp(cageH / 6f, 1f, 1.8f);
+                int ribs = Math.Clamp((int)(rx * 1.7f / spacing), 5, 12);
+                float halfWidth = Math.Clamp(rx * 0.3f, 2.6f, 4.8f);
                 var cage = DecorMeshes.Ribcage(_rng, noise, ribs, spacing, halfWidth, cageH + 0.5f, boneCol);
                 // (modelled lying along Z: turned a quarter so it lies along the way a hero walks, the hero between its two rows of ribs)
                 float len = (ribs - 1) * spacing;
