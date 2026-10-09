@@ -349,10 +349,13 @@ public static class DecorMeshes
     }
 
     /// <summary>
-    /// A leviathan's ribcage lying along Z (from the back of a chamber toward the viewer): a spine
-    /// of vertebrae along the top and pairs of ribs arching out and down to the floor on either
-    /// side, the cage widest in the middle. The spine starts at the origin and runs to +Z; ribs
-    /// hang down (-Y) to <paramref name="height"/>, out to about <paramref name="halfWidth"/>.
+    /// A leviathan's ribcage lying along Z (head end at -Z, the tail end at +Z), drawn from real whale
+    /// skeletons: a spine along the top whose vertebrae each carry a tall flat spine and a flat plate
+    /// standing out to either side, and from the end of each plate a rib that goes out, bows into a barrel
+    /// and curls back in toward its tip, swept back toward the tail. The ribs are flat, tapering blades
+    /// with a knobbed head, the longest and most bowed a third of the way along, the hindmost shorter,
+    /// straighter and thinner. Ribs hang down (-Y) to about <paramref name="height"/>, out to about
+    /// <paramref name="halfWidth"/>; the spine starts at the origin and runs to +Z.
     /// </summary>
     public static MeshBuilder Ribcage(Random rng, Noise3 noise, int ribs, float spacing, float halfWidth, float height, Color bone)
     {
@@ -360,36 +363,54 @@ public static class DecorMeshes
         float len = (ribs - 1) * spacing;
         // (stout bones: a rib as thick as a man's arm at its root, and the vertebrae to match)
         float thick = Math.Clamp(height / 6f, 1.0f, 1.7f);
-        // the spine: vertebrae, each with a spur standing up from it
+        // the spine: a round vertebral body between short gaps, a tall flat spine leaning back from each
         for (float z = -spacing; z <= len + spacing * 1.01f; z += spacing * 0.5f)
         {
             float r = 0.36f * thick * (1f + 0.15f * noise.Sample(z * 0.7f, 0f, 3f));
-            mb.Blob(new Vector3(0f, 0f, z), new Vector3(r * 1.25f, r, r * 0.75f), 5, bone.Darkened(0.06f), noise, 0.22f, 2.5f);
-            mb.Tube(new[] { new Vector3(0f, r * 0.5f, z), new Vector3(0f, r * 2.4f, z - 0.15f * spacing) }, new[] { r * 0.4f, r * 0.12f }, 5, bone, capStart: false);
+            mb.Blob(new Vector3(0f, 0f, z), new Vector3(r * 1.0f, r, r * 0.8f), 5, bone.Darkened(0.06f), noise, 0.22f, 2.5f);
+            mb.Tube(new[] { new Vector3(0f, r * 0.6f, z), new Vector3(0f, r * 2.2f, z + 0.12f * spacing), new Vector3(0f, r * 3.6f, z + 0.3f * spacing) },
+                new[] { r * 0.46f, r * 0.34f, r * 0.12f }, 5, bone, capStart: false, broad: Vector3.Forward, aspect: 1.9f);
         }
+        const float tail = 1f;
         for (int i = 0; i < ribs; i++)
         {
             float z = i * spacing;
-            float off = MathF.Abs(i - (ribs - 1) * 0.5f) / Math.Max(1f, (ribs - 1) * 0.5f);
-            float mid = 1f - off * off * 0.4f;
-            float w = halfWidth * mid, h = height * (0.78f + 0.22f * mid);
+            float u = ribs <= 1 ? 0f : i / (float)(ribs - 1);
+            // the length: rising to the longest a third of the way back, then falling away to the tail
+            float f = u < 0.3f ? 0.78f + 0.22f * (u / 0.3f) : 1f - 0.5f * MathF.Pow((u - 0.3f) / 0.7f, 1.4f);
+            f *= 0.96f + 0.08f * (float)rng.NextDouble();
+            float h = height * f;
+            float rr = thick * (0.3f - 0.07f * u);
+            // the plate the rib stands on, out from its vertebra
+            float x0 = 0.95f * thick;
+            // the barrel: an arc of an ellipse out and round, front ribs bowed further, rear ones straighter
+            float w = Math.Max(x0 + 0.6f, halfWidth * (0.6f + 0.4f * f)) - x0;
+            float psiMax = Mathf.DegToRad(145f - 38f * u);
+            float b = h / (1f - MathF.Cos(psiMax));
+            // swept back toward the tail, the rear ribs more
+            float sweep = h * (0.13f + 0.2f * u) * tail;
             foreach (float side in new[] { -1f, 1f })
             {
+                var plate = new[] { new Vector3(0f, 0f, z), new Vector3(side * x0 * 0.55f, 0.02f * thick, z + 0.03f * spacing), new Vector3(side * x0, -0.05f * thick, z + 0.06f * spacing) };
+                mb.Tube(plate, new[] { rr * 1.1f, rr * 0.95f, rr * 0.9f }, 6, bone.Darkened(0.04f), capStart: false, broad: Vector3.Forward, aspect: 1.7f);
                 var path = new List<Vector3>();
                 var radii = new List<float>();
-                const int n = 16;
+                const int n = 18;
                 float warp = (float)rng.NextDouble() * 10f;
                 for (int k = 0; k <= n; k++)
                 {
                     float t = k / (float)n;
-                    // out from the spine, bulging past the half width, curling back in at the foot
-                    float x = side * w * MathF.Sin(t * MathF.PI * 0.62f) / MathF.Sin(MathF.PI * 0.62f);
-                    float y = -h * (1f - MathF.Cos(t * MathF.PI * 0.5f));
-                    float zz = z - 0.3f * t * t * spacing + noise.Sample(warp, t * 2f, side) * 0.2f;
-                    path.Add(new Vector3(x, y, zz));
-                    radii.Add((0.3f - 0.15f * t) * thick);
+                    float psi = t * psiMax;
+                    float x = x0 + w * MathF.Sin(psi);
+                    float y = -b + b * MathF.Cos(psi);
+                    float zz = z + 0.06f * spacing + sweep * MathF.Pow(t, 1.35f) + noise.Sample(warp, t * 2f, side) * 0.12f;
+                    path.Add(new Vector3(side * x, y, zz));
+                    // thickest at the head and the angle, then thinning to the tip; a knob where it meets the plate
+                    float taper = 1f - 0.62f * MathF.Pow(t, 1.15f);
+                    float knob = 1f + 0.55f * MathF.Max(0f, 1f - t * 9f);
+                    radii.Add(rr * taper * knob + 0.01f);
                 }
-                mb.Tube(path, radii, 7, bone.Darkened(0.05f * (i % 3)), capStart: true);
+                mb.Tube(path, radii, 8, bone.Darkened(0.05f * (i % 3)), capStart: true, broad: Vector3.Forward, aspect: 1.9f - 0.5f * u);
             }
         }
         mb.SmoothNormals();

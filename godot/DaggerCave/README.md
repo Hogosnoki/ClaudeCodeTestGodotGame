@@ -821,8 +821,10 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   crystals, mushrooms, grass, roots, icicles and glow threads decorate it (`Render3D/Decor/`),
   and their glows light the cave through a pool of real lights. The root-choked tunnels get massive
   bark-fluted roots coming down through the ceilings; the fossil graveyards a leviathan's ribcage
-  lying along each great chamber's length, short and stout (`Tune.Fossils.RibSpacing`; `--scenario=ribs`): the spine runs overhead and the ribs
-  hang to the floor either side, so a hero walks through the cage between them, skulls sunk in the walls and old bones underfoot.
+  lying along each great chamber's length, short and stout (`Tune.Fossils.RibSpacing`; `--scenario=ribs`): modelled on real whale skeletons (`DecorMeshes.Ribcage`): the spine
+  runs overhead with a tall, back-leaning spine on each vertebra, each rib standing on a flat plate out from its vertebra, going out, bowing
+  into a barrel and curling in, swept back toward the tail; ribs are flat tapering blades with a knobbed head, longest and most bowed a third
+  of the way along and shorter, straighter and thinner toward the tail, so a hero walks through the cage between them, skulls sunk in the walls and old bones underfoot.
 - **Water and lava** (`Render3D/Liquid3D.cs`): a refracting, depth-absorbing water surface with
   an animated waterline and volumetric fog under water; emissive lava that lights the cave, with a
   heat haze above it.

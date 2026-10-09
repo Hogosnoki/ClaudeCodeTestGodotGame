@@ -135,7 +135,8 @@ public sealed class MeshBuilder
     /// A tube along a polyline with a radius per point (a cone when the last radius is 0),
     /// optionally capped at the start. <paramref name="radial"/> sides.
     /// </summary>
-    public void Tube(IReadOnlyList<Vector3> path, IReadOnlyList<float> radii, int radial, Color col, bool capStart = true, Func<int, int, float> bump = null)
+    public void Tube(IReadOnlyList<Vector3> path, IReadOnlyList<float> radii, int radial, Color col, bool capStart = true, Func<int, int, float> bump = null,
+        Vector3? broad = null, float aspect = 1f)
     {
         int n = path.Count;
         // a stable frame along the path
@@ -148,12 +149,20 @@ public sealed class MeshBuilder
             tan = tan.Normalized();
             side = (side - tan * side.Dot(tan)).Normalized();
             var up = tan.Cross(side);
+            // (a flat section: stretched by `aspect` along the broad axis, as far as it lies across the path)
+            var bx = side; var by = up;
+            if (broad.HasValue)
+            {
+                var b = broad.Value - tan * broad.Value.Dot(tan);
+                if (b.LengthSquared() > 1e-6f) { bx = b.Normalized(); by = tan.Cross(bx); }
+            }
             for (int k = 0; k <= radial; k++)
             {
                 float a = k / (float)radial * Mathf.Tau;
-                var dir = side * MathF.Cos(a) + up * MathF.Sin(a);
+                var dir = bx * MathF.Cos(a) + by * MathF.Sin(a);
                 float r = radii[i] * (bump != null ? 1f + bump(i, k % radial) : 1f);
-                Add(path[i] + dir * r, dir, col, new Vector2(k / (float)radial, i / (float)(n - 1)));
+                var off = bx * MathF.Cos(a) * aspect + by * MathF.Sin(a);
+                Add(path[i] + off * r, dir, col, new Vector2(k / (float)radial, i / (float)(n - 1)));
             }
         }
         for (int i = 0; i < n - 1; i++)
