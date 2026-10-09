@@ -75,6 +75,13 @@ public static class ClassPerks
         P(HeroKind.ShapeShifter, "shift_hide", "Layered Hide", Three, new[] { "Forms shrug off 4% more.", "Forms shrug off 8% more.", "Forms shrug off 12% more." }, (s, r) => s.FormArmorAdd += 0.04f * r);
         P(HeroKind.ShapeShifter, "shift_sight", "Long Sight", Three, new[] { "Copy creatures 15% farther away.", "Copy creatures 30% farther away.", "Copy creatures 45% farther away." }, (s, r) => s.ShiftRangeMult += 0.15f * r);
 
+        // ---- Automaton
+        P(HeroKind.Automaton, "auto_plate", "Thick Plating", Three, new[] { "+10% health.", "+20% health.", "+30% health." }, (s, r) => s.MaxHp *= 1f + 0.1f * r);
+        P(HeroKind.Automaton, "auto_edge", "Ground Edge", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => s.DamageMult += 0.05f * r);
+        P(HeroKind.Automaton, "auto_cell", "Capacitor", Three, new[] { "Hold 10 more energy, and start with it.", "Hold 20 more energy, and start with it.", "Hold 30 more energy, and start with it." }, (s, r) => s.EnergyMax += 10f * r);
+        P(HeroKind.Automaton, "auto_coil", "Induction Coil", Three, new[] { "Healing gives 3% more of itself as energy.", "Healing gives 6% more of itself as energy.", "Healing gives 9% more of itself as energy." }, (s, r) => s.EnergyFromHeal += 0.03f * r);
+        P(HeroKind.Automaton, "auto_valve", "Quick Valve", Three, new[] { "Steam Release comes back 10% sooner.", "Steam Release comes back 20% sooner.", "Steam Release comes back 30% sooner." }, (s, r) => s.SteamCdMult *= 1f - 0.1f * r);
+
         // ---- Aegis
         P(HeroKind.Aegis, "aegis_oath", "Bulwark Oath", One, new[] { "In a party, your second ability is Shared Burden (alone you smite). It comes with her, equipped." }, (s, r) => s.AegisSupport = true);
         P(HeroKind.Aegis, "aegis_bolt", "Brilliant Bolt", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => s.DamageMult += 0.05f * r);

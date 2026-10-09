@@ -10,7 +10,8 @@ namespace DaggerCave;
 /// Swordsman: Battle Shout (everyone near hits harder). Warden: Taunt (every engaged creature turns on
 /// her). Vitalist: Health Tap (health for vital force). Elementalist: Stalag-Might (the earth seizes a
 /// creature). Rogue: Expose (a creature takes more from everyone). Aegis: Mending Mark (whoever next
-/// strikes the marked creature is healed). Shape Shifter: Pack Howl (everyone near runs and strikes faster).
+/// strikes the marked creature is healed). Shape Shifter: Pack Howl (everyone near runs and strikes faster). Automaton: Over-Pressure
+/// (a long build-up, then it strikes, runs and jumps harder for a while).
 /// </summary>
 public partial class Player
 {
@@ -30,6 +31,7 @@ public partial class Player
         HeroKind.Elementalist => Tune.Support.StalagCooldown,
         HeroKind.Rogue => Tune.Support.ExposeCooldown,
         HeroKind.Aegis => Tune.Support.MarkCooldown,
+        HeroKind.Automaton => Tune.Support.PressureCooldown,
         _ => Tune.Support.HowlCooldown,
     } * Stats.AbilityCdMult;
 
@@ -41,6 +43,7 @@ public partial class Player
         HeroKind.Elementalist => "STALAG",
         HeroKind.Rogue => "EXPOSE",
         HeroKind.Aegis => "MARK",
+        HeroKind.Automaton => "PRESSURE",
         _ => "HOWL",
     };
 
@@ -79,6 +82,7 @@ public partial class Player
             HeroKind.Elementalist => TryStalag(aim),
             HeroKind.Rogue => TryExpose(aim),
             HeroKind.Aegis => TryMendMark(aim),
+            HeroKind.Automaton => TryOverPressure(),
             _ => TryHowl(),
         };
         if (used) _supportCd = SupportRecharge;

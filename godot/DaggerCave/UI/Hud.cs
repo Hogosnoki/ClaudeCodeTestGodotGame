@@ -46,6 +46,7 @@ public partial class Hud : Control
         HeroKind.Rogue => new Color(1f, 0.84f, 0.32f),
         HeroKind.Aegis => new Color(0.4f, 0.95f, 0.85f),
         HeroKind.ShapeShifter => new Color(0.82f, 0.86f, 0.95f),
+        HeroKind.Automaton => new Color(0.92f, 0.6f, 0.36f),
         _ => new Color(0.95f, 0.45f, 0.35f),
     };
 
@@ -157,6 +158,7 @@ public partial class Hud : Control
             case HeroKind.Rogue: DrawRogueGauges(font, p, ab); break;
             case HeroKind.Aegis: DrawAegisGauges(font, p, ab); break;
             case HeroKind.ShapeShifter: DrawShifterGauges(font, p, ab); break;
+            case HeroKind.Automaton: DrawAutomatonGauges(font, p, ab); break;
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
@@ -354,6 +356,12 @@ public partial class Hud : Control
                     move,
                     $"{atk} swing (hold to keep swinging) · {a1} Guarded Charge (breaks off attacks it meets) · {a2} shield bash (stuns all in front) · hold {dg}{(pad ? " or the right stick" : "")} to raise the shield",
                     "The shield stops every blow, and what breaks it is stunned; raise it just before the hit for a perfect block · " + pause,
+                },
+                HeroKind.Automaton => new[]
+                {
+                    move.Replace("swim up/down", "kick up (jump) / sink").Replace("hold up/down to swim", "press jump to kick up in water"),
+                    $"{atk} cleaver (the third stroke slams) · {a1} Self-Repair (spends energy) · {a2} steam release (aim down to lift yourself) · {dg} brace",
+                    "Healing you receive becomes energy, not health · no air needed; water, steam and acid can't hurt you · you sink · " + pause,
                 },
                 HeroKind.ShapeShifter => new[]
                 {
@@ -588,6 +596,53 @@ public partial class Hud : Control
         string spec = f != null ? f.SpecialName.ToUpperInvariant() : "SPECIAL";
         AbilitySquare(font, sb, spec, f != null ? p.FormSpecialFrac : 1f, f != null && p.FormSpecialReady, white, (c, col) => DrawArc(c, 6, 0, Mathf.Tau, 12, col, 2f));
         KeyHint(font, sb, "ability2");
+    }
+
+    /// <summary>The Automaton: Brace, Self-Repair with the energy it holds, and Steam Release.</summary>
+    private void DrawAutomatonGauges(Font font, Player p, Vector2 ab)
+    {
+        var copper = HeroColor(HeroKind.Automaton);
+        var amber = new Color(1f, 0.74f, 0.3f);
+        Dial(ab + new Vector2(17, 17), p.BraceCooldownFrac, copper);
+        DrawString(font, ab + new Vector2(0, -6), p.Bracing ? "BRACED" : "BRACE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        var cb = ab + new Vector2(56, 0);
+        AbilitySquare(font, cb, p.Repairing ? "MENDING" : "REPAIR", p.Repairing ? 0f : p.AbilityCooldownFrac, p.Repairing || (p.AbilityChargeReady && p.Energy >= 1f), amber, (c, col) =>
+        {
+            // a spanner
+            var d = new Vector2(1, -1).Normalized();
+            var perp = new Vector2(-d.Y, d.X);
+            DrawLine(c - d * 10, c + d * 5, col, 3f);
+            DrawArc(c + d * 8, 4.5f, 0, Mathf.Tau, 10, col, 2.5f);
+            DrawLine(c + d * 8 - perp * 1f, c + d * 13 - perp * 1f, new Color(0, 0, 0, 0.8f), 2.5f);
+        });
+        UsePips(cb, p, amber);
+        KeyHint(font, cb, "ability");
+        var sb = cb + new Vector2(50, 0);
+        AbilitySquare(font, sb, "STEAM", p.SteamCooldownFrac, p.SteamCooldownFrac <= 0, new Color(0.9f, 0.94f, 1f), (c, col) =>
+        {
+            // three wisps rising
+            for (int k = -1; k <= 1; k++)
+                DrawPolyline(new[] { c + new Vector2(k * 6, 10), c + new Vector2(k * 6 + 3, 3), c + new Vector2(k * 6 - 2, -4), c + new Vector2(k * 6 + 2, -11) }, col, 2f);
+        });
+        KeyHint(font, sb, "ability2");
+        // the energy: a gauge beside them, amber, with the number held
+        var eb = sb + new Vector2(52, 6);
+        const float ew = 108, eh = 12;
+        DrawRect(new Rect2(eb - new Vector2(2, 2), new Vector2(ew + 4, eh + 4)), new Color(0, 0, 0, 0.6f));
+        DrawRect(new Rect2(eb, new Vector2(ew, eh)), new Color(0.22f, 0.14f, 0.06f));
+        DrawRect(new Rect2(eb, new Vector2(ew * p.EnergyFrac, eh)), p.Repairing && (int)(_t * 8) % 2 == 0 ? amber.Lightened(0.3f) : amber);
+        DrawRect(new Rect2(eb, new Vector2(ew * p.EnergyFrac, 4)), new Color(1, 1, 1, 0.18f));
+        DrawString(font, eb + new Vector2(0, -6), "ENERGY", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawString(font, eb + new Vector2(4, 10), $"{Num.Shown(p.Energy)} / {Num.Shown(p.Stats.EnergyMax)}", HorizontalAlignment.Left, -1, 10, Colors.White);
+        // Over-Pressure: the build-up, then the seconds of the boost left
+        var hot = new Color(1f, 0.55f, 0.2f);
+        if (p.Pressurising)
+        {
+            DrawRect(new Rect2(eb + new Vector2(0, eh + 6), new Vector2(ew * p.PressureBuild, 4)), hot);
+            DrawString(font, eb + new Vector2(0, eh + 20), "BUILDING PRESSURE", HorizontalAlignment.Left, -1, 10, new Color(hot, 0.6f + 0.4f * MathF.Sin(_t * 14)));
+        }
+        else if (p.Overpressured)
+            DrawString(font, eb + new Vector2(0, eh + 18), $"OVER-PRESSURE  {p.PressureLeft:0}s", HorizontalAlignment.Left, -1, 11, hot);
     }
 
     private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)

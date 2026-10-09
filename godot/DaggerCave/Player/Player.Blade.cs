@@ -16,13 +16,13 @@ public partial class Player
 {
     private static float ComboWindow => Tune.Hero.ComboWindow;
     // (the Rogue jabs half as fast with one of its daggers thrown)
-    private float SwingCooldownBase => IsShifter ? Tune.Shifter.StaffCooldown : IsWarden ? Tune.Warden.SwingCooldown : IsRogue ? Tune.Rogue.SwingCooldown * (DaggersInHand < 2 ? Tune.Rogue.OneDaggerSlow : 1f) : Tune.Swordsman.SwingCooldown;
-    private float SwingActive => IsWarden ? Tune.Warden.SwingTime : IsRogue ? Tune.Rogue.SwingTime : Tune.Swordsman.SwingTime;
-    private float SwingWindup => IsWarden ? Tune.Warden.SwingWindup : IsRogue ? Tune.Rogue.SwingWindup : Tune.Swordsman.SwingWindup;
-    private float BaseReach => IsShifter ? Tune.Shifter.StaffReach : IsWarden ? Tune.Warden.Reach : IsRogue ? Tune.Rogue.Reach : Tune.Swordsman.Reach;
-    private float BaseDamage => IsShifter ? Tune.Shifter.StaffDamage : IsWarden ? Tune.Warden.Damage : IsRogue ? Tune.Rogue.Damage : Tune.Swordsman.Damage;
-    private float BaseKnock => IsWarden ? Tune.Warden.Knockback : IsRogue ? Tune.Rogue.Knockback : Tune.Swordsman.Knockback;
-    private float LungeSpeed => IsWarden ? Tune.Warden.Lunge : IsRogue ? Tune.Rogue.Lunge : Tune.Swordsman.Lunge;
+    private float SwingCooldownBase => IsAutomaton ? Tune.AutomatonHero.SwingCooldown : IsShifter ? Tune.Shifter.StaffCooldown : IsWarden ? Tune.Warden.SwingCooldown : IsRogue ? Tune.Rogue.SwingCooldown * (DaggersInHand < 2 ? Tune.Rogue.OneDaggerSlow : 1f) : Tune.Swordsman.SwingCooldown;
+    private float SwingActive => IsAutomaton ? Tune.AutomatonHero.SwingTime : IsWarden ? Tune.Warden.SwingTime : IsRogue ? Tune.Rogue.SwingTime : Tune.Swordsman.SwingTime;
+    private float SwingWindup => IsAutomaton ? Tune.AutomatonHero.SwingWindup : IsWarden ? Tune.Warden.SwingWindup : IsRogue ? Tune.Rogue.SwingWindup : Tune.Swordsman.SwingWindup;
+    private float BaseReach => IsAutomaton ? Tune.AutomatonHero.Reach : IsShifter ? Tune.Shifter.StaffReach : IsWarden ? Tune.Warden.Reach : IsRogue ? Tune.Rogue.Reach : Tune.Swordsman.Reach;
+    private float BaseDamage => IsAutomaton ? Tune.AutomatonHero.Damage : IsShifter ? Tune.Shifter.StaffDamage : IsWarden ? Tune.Warden.Damage : IsRogue ? Tune.Rogue.Damage : Tune.Swordsman.Damage;
+    private float BaseKnock => IsAutomaton ? Tune.AutomatonHero.Knockback : IsWarden ? Tune.Warden.Knockback : IsRogue ? Tune.Rogue.Knockback : Tune.Swordsman.Knockback;
+    private float LungeSpeed => IsAutomaton ? Tune.AutomatonHero.Lunge : IsWarden ? Tune.Warden.Lunge : IsRogue ? Tune.Rogue.Lunge : Tune.Swordsman.Lunge;
 
     // this swing's beats (scaled by attack speed): wind-up, then the sweep (the hitbox), then follow-through
     private float _windup, _active;
@@ -113,6 +113,7 @@ public partial class Player
         _swingHits.Clear();
         _brokeThisSwing.Clear();
         _swingHitSomething = false;
+        _slamDone = false;
         // (a jab brings the Rogue out of the shadows as it begins)
         _swingSurprise = IsRogue && StrikeFromShadows();
         // coil for the wind-up
@@ -222,6 +223,8 @@ public partial class Player
                 pr.Deflect();
             }
         }
+        // (the Automaton's last stroke is a slam: a shock through the floor where it lands)
+        if (_finisher && IsAutomaton && !_slamDone && SweepT >= _active * ContactPoint) { _slamDone = true; Slam(); }
         // a heave ends in the floor in front of you
         if (_heave && !_heaveLanded && SweepT >= _active * 0.8f) { _heaveLanded = true; HeaveImpact(); }
         if (SweepT < 0) _heaveLanded = false;
@@ -237,7 +240,7 @@ public partial class Player
 
     /// <summary>How far through the sweep the blade meets what it strikes.</summary>
     private const float ContactPoint = 0.45f;
-    private bool _heaveLanded;
+    private bool _heaveLanded, _slamDone;
 
     private void OnSwingHit(Enemy e, Vector2 to)
     {

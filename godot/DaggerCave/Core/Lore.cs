@@ -117,6 +117,7 @@ public static class Lore
         HeroKind.Rogue => ("THE ROGUE, WHO FOUND THE FIRST VEIN OF DEEPSILVER", "She was owed for it. She went back for the rest, and for the ones who followed her.", "You took your time."),
         HeroKind.Aegis => ("THE AEGIS, WARD-KEEPER OF THE SPRING ORDER", "Sent after the Warden with the Order's oldest ward-staff. The ward held for a long time.", "Stand close."),
         HeroKind.ShapeShifter => ("THE SHAPE SHIFTER, OF THE VALLEY'S OLD FOLK", "A wanderer who followed the creatures down to learn their ways, and has learned a little too well.", "I was being polite."),
+        HeroKind.Automaton => ("THE AUTOMATON, LAST WORK OF OTTOLINE BRASS", "Built in the Clockwork Deep to keep the great engine's rhythm. Its maker went quiet; it kept on, and when the rhythm faltered it came up to find someone who could still hear it.", "Rhythm restored."),
         _ => ("", "", ""),
     };
 

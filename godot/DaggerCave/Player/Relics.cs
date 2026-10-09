@@ -53,7 +53,7 @@ public static partial class Upgrades
 {
     private const string Ic = "relic";
     // (own copies: the order partial parts of a class initialise in isn't guaranteed)
-    private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue }, HA = { HeroKind.Aegis }, HSH = { HeroKind.ShapeShifter };
+    private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue }, HA = { HeroKind.Aegis }, HSH = { HeroKind.ShapeShifter }, HAU = { HeroKind.Automaton };
 
     private static Upgrade Rl(string id, string name, string desc, Action<PlayerStats, Player> apply, HeroKind[] only = null, float weight = 1f)
         => new() { Id = id, Name = name, Desc = desc, Icon = Ic, Relic = true, For = only, Weight = weight, Apply = apply, Tier = UpgradeTier.Rare, Multi = MultiOnly.Contains(id) };
@@ -113,6 +113,12 @@ public static partial class Upgrades
         Rl("relic_a_mantle", "Martyr's Mantle", "You carry 35% of the blows of a friend under your Shared Burden, and take 10% more damage yourself.", (s, p) => { s.BurdenShare = Math.Max(s.BurdenShare, 0.35f); s.DamageTakenMult *= 1.1f; }, HA, 1.5f),
         Rl("relic_a_prism", "Prism", "Your bolt's burst reaches 50% farther and the creatures in it take the whole blow.", (s, p) => { s.BurstMult *= 1.5f; s.BurstShare = 1f; }, HA, 1.5f),
         Rl("relic_a_sea", "Bottled Sea", "Your bubble absorbs three quarters of every blow, but bursts after absorbing 30% less.", (s, p) => { s.BubbleAbsorb = 0.75f; s.BubbleMult *= 0.7f; }, HA, 1.5f),
+
+        // --- Automaton ---
+        Rl("relic_au_boiler", "Overfired Boiler", "Steam Release comes back twice as fast, but you take 10% more damage.", (s, p) => { s.SteamCdMult *= 0.5f; s.DamageTakenMult *= 1.1f; }, HAU, 1.5f),
+        Rl("relic_au_dynamo", "Dynamo", "Healing gives you 15% more of itself as energy, but your cleaver hits 15% softer.", (s, p) => { s.EnergyFromHeal += 0.15f; s.PrimaryDamageMult *= 0.85f; }, HAU, 1.5f),
+        Rl("relic_au_ballast", "Ballast Tanks", "You take no shove at all, but you move 10% slower.", (s, p) => { s.KnockTakenMult = 0f; s.MoveSpeed *= 0.9f; }, HAU, 1.5f),
+        Rl("relic_au_governor", "Loose Governor", "You swing 25% faster, but Self-Repair mends 30% slower.", (s, p) => { s.AttackSpeed += 0.25f; s.RepairRateMult *= 0.7f; }, HAU, 1.5f),
 
         // --- Rogue ---
         Rl("relic_r_lone", "Lone Blade", "Only one dagger flies, and only with both home: the throw hits twice as hard, and the recall half again as hard.", (s, p) => { s.LoneThrow = true; s.ThrowDamageMult *= 2f; s.RecallDamageMult *= 1.5f; }, HR, 1.5f),

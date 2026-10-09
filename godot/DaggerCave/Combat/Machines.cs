@@ -218,8 +218,9 @@ public partial class SteamJet : Node2D
             float across = Math.Abs(to.Dot(new Vector2(-Dir.Y, Dir.X)));
             if (along > -6f && along < len && across < Width * (0.5f + 0.5f * Math.Clamp(along / Length, 0f, 1f)) + 8f)
             {
-                p.Velocity += Dir * Tune.Clockwork.SteamPush * dt * 8f;
-                if (_tick <= 0)
+                p.Velocity += Dir * Tune.Clockwork.SteamPush * dt * 8f * p.Stats.KnockTakenMult;
+                // (steam is nothing to the Automaton but a push)
+                if (_tick <= 0 && !p.Stats.Waterproof)
                 {
                     _tick = Tune.Clockwork.SteamTick;
                     p.Hurt(p.Stats.MaxHp * Tune.Clockwork.SteamShare + Tune.Clockwork.SteamFlat * G.DepthDmg, GlobalPosition, 60, Source);

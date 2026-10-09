@@ -38,7 +38,7 @@ public sealed class SpriteSet
     {
         if (Cache.TryGetValue(name, out var s)) return s;
         // (the Aegis shares the Vitalist's clip timings: its body is the 3D model, the sheet only says how long each clip runs)
-        s = Load(name == "aegis" ? "vitalist" : name == "shapeshifter" ? "swordsman" : name == "crab_foe" ? "crab" : name);
+        s = Load(name == "aegis" ? "vitalist" : name == "shapeshifter" || name == "automaton_hero" ? "swordsman" : name == "crab_foe" ? "crab" : name);
         // (the reef crab shares the little crab's sheet, and adds the clips of its claws: the sheet only says how long each runs)
         if (name == "crab_foe") s.AddClip("pinch_windup", 10, "idle").AddClip("pinch", 6, "idle");
         // (the clips of the telegraphs the 3D models act out: the sheet only says how long each runs)

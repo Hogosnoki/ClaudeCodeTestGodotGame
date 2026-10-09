@@ -278,6 +278,12 @@ public partial class ScreenOverlay : Control
             "creature beside it: that one's gait, bite and",
             "special trick, for as long as it likes.",
         }),
+        (HeroKind.Automaton, "AUTOMATON", "automaton_hero", new[]
+        {
+            "The engine. Slow, heavy and hard to stop: a cleaver,",
+            "a brace, a blast of steam. Needs no air, fears no water;",
+            "healing only fuels the Self-Repair that mends it.",
+        }),
     };
 
     private static Color Accent(HeroKind k) => Hud.HeroColor(k);

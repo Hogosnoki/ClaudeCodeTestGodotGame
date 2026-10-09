@@ -172,6 +172,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => DaggersInHand > 0,
         HeroKind.Aegis => AbilityChargeReady,
         HeroKind.ShapeShifter => Shifted ? FormSpecialReady : AbilityChargeReady,
+        HeroKind.Automaton => AbilityChargeReady && Energy >= 1f,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
     };
@@ -196,6 +197,8 @@ public partial class Player : CharacterBody2D
         Breath = Stats.BreathMax;
         VitalForce = Math.Min(Stats.VitalForceMax, Tune.Vitalist.VitalForceStart);
         Alimus = Stats.AlimusMax;
+        // (the Automaton starts half charged, plus whatever more its Capacitor holds)
+        Energy = Math.Min(Stats.EnergyMax, Tune.AutomatonHero.EnergyStart + Math.Max(0f, Stats.EnergyMax - Tune.AutomatonHero.EnergyMax));
     }
 
     /// <summary>Each hero's sprite sheet and 3D design, by name.</summary>
@@ -207,11 +210,17 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => "rogue",
         HeroKind.Aegis => "aegis",
         HeroKind.ShapeShifter => "shapeshifter",
+        HeroKind.Automaton => "automaton_hero",
         _ => "swordsman",
     };
 
     public override void _EnterTree() { if (!G.Players.Contains(this)) G.Players.Add(this); }
-    public override void _ExitTree() => G.Players.Remove(this);
+    public override void _ExitTree()
+    {
+        G.Players.Remove(this);
+        // (the stats go on to the next level: a boost under way doesn't)
+        EndOverPressure();
+    }
 
     public void SyncCharges()
     {
@@ -233,6 +242,8 @@ public partial class Player : CharacterBody2D
     private void HealHere(float amount)
     {
         amount *= Stats.HealingTakenMult;
+        // (the Automaton can't truly be healed: what it receives becomes energy for Self-Repair)
+        if (Stats.SelfRepair) { HealAsEnergy(amount); return; }
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
         int healed = Num.Delta(before, Hp);
@@ -475,6 +486,7 @@ public partial class Player : CharacterBody2D
             case HeroKind.Rogue: TickRogue(dt); break;
             case HeroKind.Aegis: TickAegis(dt); break;
             case HeroKind.ShapeShifter: TickShifter(dt); break;
+            case HeroKind.Automaton: TickAutomaton(dt); break;
             default: TickSwordsman(dt); break;
         }
 
@@ -532,7 +544,7 @@ public partial class Player : CharacterBody2D
             v = RopeMotion(inp, v, dt);
             if (_rope != null) _airDashT = 0;
         }
-        else if (InWater) v = Swim(inp, v, dt, cave);
+        else if (InWater) v = Stats.Sinks ? SinkingSwim(inp, v, dt, cave) : Swim(inp, v, dt, cave);
         else v = Platform(inp, v, dt, onFloor);
 
         if (_airDashT > 0) _airDashT -= dt;
@@ -613,6 +625,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         HeroKind.Aegis => CastWardBolt(aim, held),
         HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
+        HeroKind.Automaton => !Bracing && !Pressurising && TrySwing(aim, held),
         _ => !Heaving && TrySwing(aim, held),
     };
 
@@ -625,6 +638,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => TryThrow(aim),
         HeroKind.Aegis => TryBarrier(aim),
         HeroKind.ShapeShifter => TryShift(),
+        HeroKind.Automaton => TryRepair(),
         _ => TryCharge(),
     };
 
@@ -637,6 +651,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => TryRecall(),
         HeroKind.Aegis => TryBurden(aim),
         HeroKind.ShapeShifter => TrySpecial(aim),
+        HeroKind.Automaton => TrySteam(aim),
         _ => TryHeave(aim),
     };
 
@@ -649,6 +664,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
         HeroKind.ShapeShifter => Possessed || TryDodge(inp), // (a creature has no dodge roll)
+        HeroKind.Automaton => TryBrace(inp),
         _ => true,
     };
 
@@ -713,7 +729,8 @@ public partial class Player : CharacterBody2D
     private void Hazards(CaveData cave, float dt)
     {
         // acid water (the sulphur springs): it burns whoever is in it, every half second
-        if (!Dead && cave.Biome?.AcidWater == true && cave.IsWater(GlobalPosition + new Vector2(0, 6)))
+        // (copper and brass: the Automaton takes no harm from it)
+        if (!Dead && !Stats.Waterproof && cave.Biome?.AcidWater == true && cave.IsWater(GlobalPosition + new Vector2(0, 6)))
         {
             _acidTick -= dt;
             if (_acidTick <= 0)
@@ -834,7 +851,7 @@ public partial class Player : CharacterBody2D
         {
             // Drowned Lungs (or a bubble round you): the water is as good as air
             Breath = Stats.BreathMax;
-            if (HeadUnder && (_bubbleT -= dt) <= 0) { _bubbleT = G.Range(0.8f, 1.6f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 1); }
+            if (HeadUnder && !Stats.Breathless && (_bubbleT -= dt) <= 0) { _bubbleT = G.Range(0.8f, 1.6f); G.Fx.Bubbles(GlobalPosition + new Vector2(Facing * 3, -12), 1); }
             return;
         }
         // (the lowest air of the sulphur springs is poison: you hold your breath in it, as under water)
@@ -871,7 +888,9 @@ public partial class Player : CharacterBody2D
         if (WebbedT > 0) target *= 0.45f;
         if (Crouching) target *= Tune.Hero.CrouchSpeed;
         // planted for a heaving swing, or braced behind a shield bash
-        bool rooted = Heaving || (_bashT > 0 && onFloor);
+        bool rooted = Heaving || (_bashT > 0 && onFloor) || (Bracing && onFloor);
+        if (Repairing) target *= Tune.AutomatonHero.RepairMove;
+        if (Pressurising) target *= Tune.Support.PressureMove;
         if (rooted) target = 0;
         // a column of air (the Elementalist's updraft) pushes along its own lean: sideways as much as it leans
         var draft = Updraft.All.Count > 0 ? Updraft.At(GlobalPosition) : null;
@@ -913,7 +932,7 @@ public partial class Player : CharacterBody2D
             if (G.Chance(0.2f)) G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 6), new Color(0.6f, 0.55f, 0.5f, 0.6f), 1, 20, 1.5f, 0.3f, 30);
         }
 
-        if (_jumpBuffer > 0 && !Heaving)
+        if (_jumpBuffer > 0 && !Heaving && !(Bracing && onFloor))
         {
             if (_coyote > 0)
             {
@@ -933,10 +952,19 @@ public partial class Player : CharacterBody2D
             }
             else if (Stats.DoubleJump && _airJumps > 0)
             {
-                _airJumps--; v.Y = -jumpV * Tune.Hero.DoubleJumpMult; _jumpBuffer = 0; _jumpCutDone = false;
-                G.Sfx.Play("jump", GlobalPosition, -5, 0.05f, 1.4f);
-                Anim.Once("dodge", 2, 1.6f);
-                G.Fx.Ring(GlobalPosition + new Vector2(0, 12), 10, new Color(0.7f, 0.9f, 1f, 0.8f));
+                _airJumps--; v.Y = -jumpV * Tune.Hero.DoubleJumpMult * Stats.AirJumpMult; _jumpBuffer = 0; _jumpCutDone = false;
+                if (Stats.Sinks)
+                {
+                    // the Automaton's steam hop: a hiss and a puff from the joints, no somersault
+                    G.Sfx.Play("dodge", GlobalPosition, -8, 0.05f, 0.6f);
+                    for (int k = 0; k < 4; k++) G.Fx.Smoke(GlobalPosition + new Vector2(G.Range(-6, 6), 12), 1, new Color(0.94f, 0.95f, 0.97f, 0.55f), 7);
+                }
+                else
+                {
+                    G.Sfx.Play("jump", GlobalPosition, -5, 0.05f, 1.4f);
+                    Anim.Once("dodge", 2, 1.6f);
+                    G.Fx.Ring(GlobalPosition + new Vector2(0, 12), 10, new Color(0.7f, 0.9f, 1f, 0.8f));
+                }
             }
             else if (Stats.AirDash && _airDashes > 0)
             {
@@ -1002,7 +1030,11 @@ public partial class Player : CharacterBody2D
     /// </summary>
     public void OnDealtDamage(float dealt, bool vitalForceByMote = false)
     {
-        if (Stats.LifeSteal > 0) Hp = Math.Min(Stats.MaxHp, Hp + dealt * Stats.LifeSteal);
+        if (Stats.LifeSteal > 0)
+        {
+            if (Stats.SelfRepair) HealAsEnergy(dealt * Stats.LifeSteal);
+            else Hp = Math.Min(Stats.MaxHp, Hp + dealt * Stats.LifeSteal);
+        }
         if (Stats.ShieldSiphon > 0 && IsWarden) MendShield(dealt * Stats.ShieldSiphon);
         if (IsVitalist && !vitalForceByMote) GainVitalForce(dealt * Stats.VitalForceGain);
     }
@@ -1011,6 +1043,8 @@ public partial class Player : CharacterBody2D
     {
         Kills++;
         if (Stats.HealOnKill > 0) Heal(Stats.HealOnKill);
+        // (Scrap Reclaimer: what it destroys, it salvages)
+        if (Stats.ScrapReclaimer) GainEnergy(Tune.AutomatonHero.ScrapEnergy);
     }
 
     /// <summary>True when the last Hurt was stopped by the shield (the attacker's strike is spent).</summary>
@@ -1076,6 +1110,8 @@ public partial class Player : CharacterBody2D
             return ApplyChip(block.Through, source);
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        // (the Automaton braced: blows in front lose most of their force, and the first melee one is answered)
+        if (Bracing) dmg = BraceBlow(dmg, from, source, melee, ref knock);
         if (Form != null) dmg *= 1f - Math.Min(0.8f, FormArmor + Stats.FormArmorAdd);
         // (Assassin's Edge: a blow at your back lands harder)
         if (Stats.BackTakenMult != 1f && Math.Abs(from.X - GlobalPosition.X) > 2f && Math.Sign(from.X - GlobalPosition.X) != Math.Sign(Facing)) dmg *= Stats.BackTakenMult;
@@ -1114,7 +1150,7 @@ public partial class Player : CharacterBody2D
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         if (away.LengthSquared() < 0.01f) away = new Vector2(-Facing, 0);
         // horizontal only (plus a gentle push in water) so nothing can juggle you upward
-        float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f);
+        float kx = Math.Sign(away.X == 0 ? -Facing : away.X) * knock * Tune.Combat.HurtKnockbackMult * (Stats.Stalwart ? 0f : 1f) * Stats.KnockTakenMult;
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         if (Possessed) Ghost.Velocity = new Vector2(kx / Tune.Difficulty.EnemyMoveScale, Ghost.Velocity.Y);
         _dodgeT = 0; _airDashT = 0; _dashT = 0;

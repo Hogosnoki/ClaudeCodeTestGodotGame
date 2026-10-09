@@ -71,7 +71,8 @@ public partial class GasCloud : Node2D
         var np = GlobalPosition + new Vector2(MathF.Sin(_t * 0.7f + _sway) * 5f, -Tune.Sulphur.CloudRise) * dt;
         if (!cave.IsSolid(np + new Vector2(0, -Size * 0.5f))) GlobalPosition = np;
         var p = G.Player;
-        if (!Lit && p != null && !p.Dead && _tick <= 0 && Density > 0.4f && p.GlobalPosition.DistanceTo(GlobalPosition) < Size + 4f)
+        // (the Automaton has no lungs for it)
+        if (!Lit && p != null && !p.Dead && !p.Stats.Breathless && _tick <= 0 && Density > 0.4f && p.GlobalPosition.DistanceTo(GlobalPosition) < Size + 4f)
         {
             _tick = Tune.Sulphur.TickEvery;
             p.GivePoison(p.Stats.MaxHp * Tune.Sulphur.PoisonShare + Tune.Sulphur.PoisonFlat * G.DepthDmg, Tune.Sulphur.PoisonSeconds);

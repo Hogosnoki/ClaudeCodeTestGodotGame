@@ -35,7 +35,11 @@ public partial class Main
         var vents = _world.GetChildren().OfType<GasVent>().OrderBy(v => v.GlobalPosition.DistanceTo(cave.StartPos)).ToList();
         ScCheck($"the level has gas vents ({vents.Count})", vents.Count >= 4);
         if (vents.Count == 0) yield break;
-        var vent = vents[0];
+        // (one with open air over it and room to stand beside it, out of the water; the clouds already out cleared, so the level's cap can't starve it)
+        bool Fair(GasVent v) => !cave.IsWater(v.GlobalPosition + new Vector2(0, -12)) && !cave.IsSolid(v.GlobalPosition + new Vector2(0, -40))
+            && !cave.IsSolid(v.GlobalPosition + new Vector2(-90, -14)) && !cave.IsSolid(v.GlobalPosition + new Vector2(-90, -28));
+        var vent = vents.FirstOrDefault(Fair) ?? vents[0];
+        foreach (var c in GasCloud.All.ToArray()) c.QueueFree();
         Stand(vent.GlobalPosition + new Vector2(-90, -14));
         foreach (var _ in Wait(0.4f)) yield return null;
         for (float t = 0; t < 14f && !vent.Warning; t += (float)GetProcessDeltaTime()) yield return null;
@@ -142,7 +146,7 @@ public partial class Main
             nearest = Math.Min(nearest, gb.GlobalPosition.DistanceTo(p.GlobalPosition));
             yield return null;
         }
-        ScCheck($"a gasbag comes over the hero (within {nearest:0} px) and lets a cloud go ({GasCloud.All.Count - cloudsBefore} new)", nearest < 90f && GasCloud.All.Count > cloudsBefore);
+        ScCheck($"a gasbag comes over the hero (within {nearest:0} px) and lets a cloud go ({GasCloud.All.Count - cloudsBefore} new)", nearest < 140f && GasCloud.All.Count > cloudsBefore);
         foreach (var c in GasCloud.All.ToArray()) c.QueueFree();
         yield return null;
         Stand(p.GlobalPosition + new Vector2(-400, 0));

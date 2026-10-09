@@ -187,7 +187,7 @@ public partial class Player
     /// <summary>Drowned: <paramref name="breath"/> seconds of breath gone, and no air from bubbles for <paramref name="seconds"/>.</summary>
     public void GiveDrown(float seconds, float breath)
     {
-        if (Dead || IsRemote) return;
+        if (Dead || IsRemote || Stats.Breathless) return;
         _drownT = Math.Max(_drownT, seconds);
         Breath = Math.Max(0f, Breath - breath);
         G.Fx.Text(GlobalPosition + new Vector2(0, -30), "DROWNING", StatusColors.Drown, 10, 0.9f);

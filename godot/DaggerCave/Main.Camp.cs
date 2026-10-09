@@ -257,7 +257,7 @@ public partial class Main
             (5.25f, () => Act("move_left", false)),
             (5.4f, () => Act("move_left")),
             (5.45f, () => Act("move_left", false)),
-            (5.7f, () => { Shot("front_shifter"); FtCheck($"left twice from the Warden reaches the Shape Shifter ({G.Hero}, standing at the fire: {_camp.Selected})", G.Hero == HeroKind.ShapeShifter && _camp.Selected == HeroKind.ShapeShifter); Act("move_right"); }),
+            (5.7f, () => { Shot("front_shifter"); FtCheck($"left twice from the Warden comes round to the last of them, the Automaton ({G.Hero}, standing at the fire: {_camp.Selected})", G.Hero == HeroKind.Automaton && _camp.Selected == HeroKind.Automaton); Act("move_right"); }),
             (5.75f, () => Act("move_right", false)),
             (5.9f, () => Act("move_right")),
             (5.95f, () => Act("move_right", false)),

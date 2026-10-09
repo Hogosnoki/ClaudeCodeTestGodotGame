@@ -221,6 +221,7 @@ public partial class Main : Node
         // water scenario one with wide open water: not every Slime Cavern has it where creatures swim)
         if (_seed == 0 && _scenario == "magma") _seed = 2;
         if (_seed == 0 && _scenario == "water") _seed = 1013;
+        if (_scenario == "automaton") G.Hero = HeroKind.Automaton;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
         if (_heroTest) { Player.KnockLock = false; Tune.Combat.HurtKnockbackMult = 0.8f; Tune.Feel.HitStopPlayerHurt = 0.18f; }
         if (_heroTest) Tune.Cave.HeightScale = 1f; // (the tests were laid out for the original cave height)
@@ -354,6 +355,7 @@ public partial class Main : Node
             else if (a == "--hero=rogue") G.Hero = HeroKind.Rogue;
             else if (a == "--hero=aegis") G.Hero = HeroKind.Aegis;
             else if (a == "--hero=shifter") G.Hero = HeroKind.ShapeShifter;
+            else if (a == "--hero=automaton") G.Hero = HeroKind.Automaton;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;
             else if (a.StartsWith("--biome=")) _biomeArg = a[8..];
@@ -707,7 +709,7 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepEnergy = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
@@ -716,6 +718,7 @@ public partial class Main : Node
             keepMilestones = G.Player.PendingMilestones;
             keepVitalForce = G.Player.VitalForce;
             keepAlimus = G.Player.Alimus;
+            keepEnergy = G.Player.Energy;
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
@@ -763,6 +766,13 @@ public partial class Main : Node
         {
             // (Spring Water: going deeper heals you to full)
             player.Hp = keepStats.DepthHeal ? keepStats.MaxHp : Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
+            if (keepStats.SelfRepair)
+            {
+                // (the Automaton isn't mended by the rest: what would have healed it becomes energy)
+                float rest = keepStats.DepthHeal ? keepStats.MaxHp - keepHp : Math.Min(keepStats.MaxHp - keepHp, keepStats.MaxHp * 0.3f);
+                player.Hp = keepHp;
+                player.Energy = Math.Min(keepStats.EnergyMax, keepEnergy + (keepStats.ScrapReclaimer ? 0f : rest * keepStats.EnergyFromHeal));
+            }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
             player.PendingMilestones = keepMilestones;

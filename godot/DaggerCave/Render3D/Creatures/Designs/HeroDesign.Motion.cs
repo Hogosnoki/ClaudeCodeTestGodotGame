@@ -113,6 +113,13 @@ public sealed partial class HeroDesign
             FreeAmp = 40f, FreeMid = 4f, FreeElbow = 66f, FreeElbowAmp = 16f,
             HoldAmp = 11f, HoldMid = 22f, HoldElbow = 74f, HoldElbowAmp = 5f, HoldAbs = 44f, HeadUp = 2f, Weight = 0.007f,
         },
+        // the Automaton: wide-set, stiff and heavy, short clanking steps, every footfall a thud, the cleaver carried low
+        HeroKind.Automaton => new Style
+        {
+            Stance = 0.82f, Stride = 3.0f, Hip = 0.8f, Bounce = 0.02f, Clear = 0.14f, Lean = 6f, HipTwist = 3f, Counter = 5f,
+            FreeAmp = 22f, FreeMid = 10f, FreeElbow = 70f, FreeElbowAmp = 6f,
+            HoldAmp = 16f, HoldMid = 14f, HoldElbow = 78f, HoldElbowAmp = 6f, HoldAbs = 100f, HeadUp = 2f, Weight = 0.035f,
+        },
         // the Shape Shifter: light, quick, never quite settled, the staff swung like a blade
         HeroKind.ShapeShifter => new Style
         {
@@ -369,6 +376,8 @@ public sealed partial class HeroDesign
     {
         // wide, committed cuts from the shoulder with the whole body behind them
         HeroKind.Swordsman or HeroKind.ShapeShifter => new CutStyle { CockA = 112f, OverA = -56f, CockB = -78f, OverB = 74f, CockC = 158f, OverC = -74f, BendCock = 74f, BendEnd = 6f, Wind = 30f, Through = 34f, LeanWind = -10f, LeanThrough = 20f, Lunge = 1f, Counter = 0.45f },
+        // great hacking chops from high over the shoulder, the whole frame swung behind them, the feet barely moving
+        HeroKind.Automaton => new CutStyle { CockA = 124f, OverA = -62f, CockB = -72f, OverB = 70f, CockC = 168f, OverC = -82f, BendCock = 80f, BendEnd = 18f, Wind = 22f, Through = 30f, LeanWind = -6f, LeanThrough = 24f, Lunge = 0.55f, Counter = 0.2f },
         // short, hard chops behind the shield, feet planted, the weight thrown into the blow
         HeroKind.Warden => new CutStyle { CockA = 90f, OverA = -42f, CockB = -56f, OverB = 58f, CockC = 128f, OverC = -62f, BendCock = 84f, BendEnd = 26f, Wind = 18f, Through = 22f, LeanWind = -5f, LeanThrough = 16f, Lunge = 0.7f, Counter = 0.15f },
         // quick, close cuts from a crouch, one dagger then the other, the body whipping behind them
@@ -849,6 +858,16 @@ public sealed partial class HeroDesign
             o.SR = Math.Max(o.SR, 30); o.SL = Math.Max(o.SL, 20);
         }
 
+        // ---- the Automaton braced: sunk on its knees, leaning in, the free forearm up across the body like a shield
+        if (_automaton && player != null && player.Bracing && !c.StartsWith("slash_") && c != "death")
+        {
+            o.Root.Y -= 0.1f;
+            o.HR = 52; o.KR = 74; o.HL = 26; o.KL = 50; o.FR = 6; o.FL = 6;
+            o.Lean += 12;
+            o.SL = 78; o.EL = 96; o.AL = 0;
+            o.SR = Math.Max(o.SR, 36);
+        }
+
         // ---- a caster's hand holds the staff at its angle, whatever the arm is doing
         if (_caster && c != "death") o.WR = staff + o.Lean - o.SR - o.ER;
 
@@ -911,7 +930,7 @@ public sealed partial class HeroDesign
     // ================================================================== the blade's trail
 
     /// <summary>Blade length by hero (metres): the sword, the shortsword, a dagger.</summary>
-    private float BladeLength => _rogue ? 0.3f : _warden ? 0.74f : 1.05f;
+    private float BladeLength => _rogue ? 0.3f : _warden ? 0.74f : _automaton ? 0.8f : 1.05f;
 
     /// <summary>
     /// Reads where the blade actually is (the guard and the point, in the world) off the hand's bone and

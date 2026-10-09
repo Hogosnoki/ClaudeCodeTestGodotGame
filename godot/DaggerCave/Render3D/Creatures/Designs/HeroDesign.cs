@@ -24,7 +24,7 @@ public sealed partial class HeroDesign : CreatureDesign
 {
     private readonly HeroKind _kind;
     public override float LifeScale => 0f;
-    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman, _aegis, _shifter;
+    private readonly bool _warden, _vitalist, _elementalist, _caster, _rogue, _swordsman, _aegis, _shifter, _automaton;
     public HeroDesign(HeroKind kind)
     {
         _kind = kind;
@@ -35,19 +35,20 @@ public sealed partial class HeroDesign : CreatureDesign
         _swordsman = kind == HeroKind.Swordsman;
         _aegis = kind == HeroKind.Aegis;
         _shifter = kind == HeroKind.ShapeShifter;
+        _automaton = kind == HeroKind.Automaton;
         // (the casters hold a staff, wear a robe, and share their poses)
         _caster = _vitalist || _elementalist || _aegis;
         _st = StyleFor(kind);
     }
     public override string Name => Player.SheetName(_kind);
-    public override float Cell => _swordsman ? 0.01f : 0.013f;
+    public override float Cell => _swordsman ? 0.01f : _automaton ? 0.011f : 0.013f;
     public override float ThreeQuarter => 20f;
     public override float FloorY => Floor;
 
     public override CreatureLook Look => new()
     {
-        Eye = _shifter ? new Color(0.92f, 0.95f, 1f) : _vitalist ? new Color(0.5f, 1f, 0.42f) : _elementalist ? new Color(1f, 0.72f, 0.4f) : _aegis ? new Color(0.6f, 1f, 0.92f) : new Color(1f, 0.9f, 0.75f),
-        EyeEnergy = _shifter ? 1.6f : _vitalist ? 2.4f : _elementalist ? 1.2f : _aegis ? 1.0f : 0.5f,
+        Eye = _automaton ? new Color(1f, 0.6f, 0.2f) : _shifter ? new Color(0.92f, 0.95f, 1f) : _vitalist ? new Color(0.5f, 1f, 0.42f) : _elementalist ? new Color(1f, 0.72f, 0.4f) : _aegis ? new Color(0.6f, 1f, 0.92f) : new Color(1f, 0.9f, 0.75f),
+        EyeEnergy = _automaton ? 2.2f : _shifter ? 1.6f : _vitalist ? 2.4f : _elementalist ? 1.2f : _aegis ? 1.0f : 0.5f,
         Glow = new Color(1f, 0.68f, 0.32f), GlowEnergy = 6f,
         Rim = new Color(0.55f, 0.68f, 0.95f), RimEnergy = 0.28f,
         DetailScale = 34f, DetailStrength = 0.6f,
@@ -143,6 +144,7 @@ public sealed partial class HeroDesign : CreatureDesign
             SculptLantern(s, hipsB);
             return;
         }
+        if (_automaton) { SculptAutomaton(s); return; }
 
         // ---- torso
         s.Egg(hipsB, new(0, 0.03f, 0), new(0.125f, 0.1f, 0.145f), dark, Mat.Cloth, 0.04f);

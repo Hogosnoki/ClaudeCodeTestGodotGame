@@ -656,6 +656,53 @@ public static class Tune
         public static float ExposeCrit = 0.10f, ExposeVuln = 1.2f, ExposeSeconds = 8f, ExposeRange = 260f, ExposeCooldown = 20f;
         /// <summary>Aegis Mending Mark: the next hero to strike the marked creature is healed this much.</summary>
         public static float MarkHeal = 10f, MarkSeconds = 20f, MarkRange = 260f, MarkCooldown = 30f;
+        /// <summary>Automaton Over-Pressure: PressureSeconds building up (glowing and shaking harder and harder, slowed to
+        /// PressureMove x and unable to strike), then for PressureBuff s it strikes PressureAttack x as fast, PressureDamage x
+        /// as hard, moves PressureSpeed x as fast and jumps PressureJump x as high. Back PressureCooldown s after it starts.</summary>
+        public static float PressureSeconds = 3f, PressureMove = 0.5f, PressureBuff = 10f, PressureAttack = 1.35f, PressureDamage = 1.25f, PressureSpeed = 1.3f, PressureJump = 1.35f, PressureCooldown = 32f;
+    }
+
+    /// <summary>
+    /// The Automaton, a copper-and-brass engine of a man: slow, heavy, short in the jump and hard to knock about, with a
+    /// lot of health and some armour. It doesn't breathe (no drowning, no poisoned air), and water, steam and acid do it
+    /// no harm. In water it sinks like the lump of metal it is, and swims by kicking up with each press of jump. It can't
+    /// truly be healed: healing it receives becomes energy (EnergyFromHeal of the amount), and Self-Repair spends that
+    /// energy to mend it, one for one.
+    /// </summary>
+    public static class AutomatonHero
+    {
+        public static float StartHp = 140f, Armor = 0.15f, MoveMult = 0.72f, JumpMult = 0.72f;
+        /// <summary>How much of a blow's shove it takes (x).</summary>
+        public static float KnockTaken = 0.45f;
+        /// <summary>Its steam hop: a little air jump (x a full jump's speed), a puff from the joints.</summary>
+        public static float HopMult = 0.6f;
+        /// <summary>In water: it sinks toward SinkSpeed px/s when left alone (SinkDown with down held); each press of jump kicks it
+        /// up at StrokeSpeed px/s (no more than every StrokeEvery s); it walks the bottom at WadeMult x the swim speed.</summary>
+        public static float SinkSpeed = 190f, SinkDown = 270f, SinkAccel = 520f, StrokeSpeed = 235f, StrokeEvery = 0.16f, WadeMult = 0.8f;
+
+        /// <summary>The cleaver: reach, damage, time between swings, the sweep and wind-up, knockback and the step into it.
+        /// Its third strike is a slam: SlamShare of the strike to everything within SlamRadius px of where it lands, and the
+        /// sparks set any gas there alight.</summary>
+        public static float Reach = 74f, Damage = 25f, SwingCooldown = 0.85f, SwingTime = 0.11f, SwingWindup = 0.15f, Knockback = 240f, Lunge = 60f;
+        public static float SlamRadius = 56f, SlamShare = 0.55f;
+
+        /// <summary>Energy: the most it holds and what it starts with; the share of any healing it becomes.</summary>
+        public static float EnergyMax = 60f, EnergyStart = 30f, EnergyFromHeal = 0.2f;
+        /// <summary>Self-Repair (the ability button): mends RepairRate health a second, one energy for one health, for up to
+        /// RepairSeconds (or until the energy or the damage runs out; a press stops it), moving at RepairMove x.
+        /// Back after RepairCooldown s. Scrap Reclaimer: a kill gives ScrapEnergy.</summary>
+        public static float RepairRate = 18f, RepairSeconds = 4f, RepairMove = 0.45f, RepairCooldown = 6f, ScrapEnergy = 4f;
+
+        /// <summary>Steam Release (the second ability): a cone of steam SteamRange px long and SteamCone degrees wide: SteamDamage
+        /// to every creature in it and a SteamPush shove, gas blown away and its own burning put out. The release kicks the
+        /// Automaton the other way at SteamRecoil px/s (aimed down, it's a lift). Every SteamCooldown s.</summary>
+        public static float SteamRange = 96f, SteamCone = 70f, SteamDamage = 9f, SteamPush = 520f, SteamRecoil = 300f, SteamCooldown = 6f;
+        /// <summary>Scalding Steam: what it strikes burns (dps, seconds) and isn't shoved.</summary>
+        public static float ScaldDps = 5f, ScaldSeconds = 3f;
+
+        /// <summary>Brace (the dodge button): planted for BraceTime s, blows from in front lose BraceSoak of their damage and
+        /// don't shove it; the first melee blow is answered by a piston punch (PunchDamage, PunchKnock). Every BraceCooldown s.</summary>
+        public static float BraceTime = 0.75f, BraceSoak = 0.7f, BraceCooldown = 2.6f, PunchDamage = 22f, PunchKnock = 520f;
     }
 
     /// <summary>The Shape Shifter: a weak staff fighter whose strength is the creatures it copies.</summary>

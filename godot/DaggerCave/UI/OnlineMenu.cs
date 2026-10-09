@@ -29,9 +29,9 @@ public partial class OnlineMenu : Control
     private HeroKind _prepHero;
     private Control _prepFocus;
     private Button _host, _start, _leave, _paste, _joinBtn, _backBtn, _copy1, _copy2, _copy3;
-    private readonly Button[] _cards = new Button[7];
-    private readonly Label[] _cardNote = new Label[7];
-    private readonly HeroPortrait[] _portraits = new HeroPortrait[7];
+    private readonly Button[] _cards = new Button[Heroes.Length];
+    private readonly Label[] _cardNote = new Label[Heroes.Length];
+    private readonly HeroPortrait[] _portraits = new HeroPortrait[Heroes.Length];
     private string _note = "";
     private bool _wasOnline;
     private CheckBox _hard;
@@ -47,6 +47,7 @@ public partial class OnlineMenu : Control
         (HeroKind.Rogue, "Rogue", "rogue"),
         (HeroKind.Aegis, "Aegis", "aegis"),
         (HeroKind.ShapeShifter, "Shifter", "shapeshifter"),
+        (HeroKind.Automaton, "Automaton", "automaton_hero"),
     };
 
     public override void _Ready()
@@ -56,7 +57,7 @@ public partial class OnlineMenu : Control
         Theme = UiKit.Theme;
         Visible = false;
         AddChild(UiKit.Dimmer(0.8f));
-        var (panel, col) = UiKit.Panel(this, new Vector2(920, 0));
+        var (panel, col) = UiKit.Panel(this, new Vector2(990, 0));
         _panel = panel;
         _title = UiKit.Label("PLAY ONLINE", 28, UiKit.Gold, HorizontalAlignment.Center);
         col.AddChild(_title);
@@ -163,10 +164,10 @@ public partial class OnlineMenu : Control
         for (int k = 0; k < Heroes.Length; k++)
         {
             var (kind, name, design) = Heroes[k];
-            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(92, 140) };
+            var portrait = new HeroPortrait { Design = design, Size = new Vector2I(84, 132) };
             AddChild(portrait);
             _portraits[k] = portrait;
-            var card = new Button { CustomMinimumSize = new Vector2(124, 172), FocusMode = FocusModeEnum.All };
+            var card = new Button { CustomMinimumSize = new Vector2(110, 168), FocusMode = FocusModeEnum.All };
             card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); EnterPrep(kind); };
             var v = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             v.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);

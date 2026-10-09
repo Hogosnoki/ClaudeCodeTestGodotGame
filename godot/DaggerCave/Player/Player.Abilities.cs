@@ -22,6 +22,7 @@ public partial class Player
         HeroKind.Rogue => Tune.Rogue.VanishCooldown * Stats.VanishCdMult,
         HeroKind.Aegis => Tune.Aegis.BarrierCooldown * Stats.BarrierCdMult,
         HeroKind.ShapeShifter => Tune.Shifter.ShiftCooldown,
+        HeroKind.Automaton => Tune.AutomatonHero.RepairCooldown,
         _ => Stats.ChargeCooldown,
     };
 

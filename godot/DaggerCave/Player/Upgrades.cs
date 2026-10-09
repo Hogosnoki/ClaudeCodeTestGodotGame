@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>The playable heroes.</summary>
-public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue, Aegis, ShapeShifter }
+public enum HeroKind { Swordsman, Warden, Vitalist, Elementalist, Rogue, Aegis, ShapeShifter, Automaton }
 
 /// <summary>Everything upgrades can change about the hero.</summary>
 public sealed class PlayerStats
@@ -42,6 +42,17 @@ public sealed class PlayerStats
     public bool WallJump, DoubleJump, AirDash, Pogo, ThirdCombo;
     /// <summary>Drowned Lungs: breath never runs out. Magma Skin: lava can be swum in, burning for a third as much.</summary>
     public bool InfiniteBreath, MagmaSkin;
+    /// <summary>The Automaton: it doesn't breathe at all (no drowning, poisoned air or poison gas); water, steam and acid
+    /// do it no harm; it sinks in water and swims by kicking up; healing becomes energy (see Player.Automaton.cs).</summary>
+    public bool Breathless, Waterproof, Sinks, SelfRepair;
+    /// <summary>How much of a blow's shove you take (x); an air jump's strength (x).</summary>
+    public float KnockTakenMult = 1f, AirJumpMult = 1f;
+    /// <summary>The Automaton: energy held at most, the share of healing that becomes energy, Self-Repair's rate (x), the
+    /// slam's strength and reach (x), Steam Release's strength (x) and recharge (x), Brace's length (s added) and its punch (x).</summary>
+    public float EnergyMax = Tune.AutomatonHero.EnergyMax, EnergyFromHeal = Tune.AutomatonHero.EnergyFromHeal, RepairRateMult = 1f, SlamMult = 1f;
+    public float SteamMult = 1f, SteamCdMult = 1f, BraceBonus, PunchMult = 1f;
+    /// <summary>Scrap Reclaimer (energy from kills, none from healing), Scalding Steam (it burns, no shove), Full Plate (Brace softens blows from every side).</summary>
+    public bool ScrapReclaimer, ScaldingSteam, FullPlate;
     /// <summary>The Null's corrupted cards: Bit Flip (a blow now and then lands six-fold, or not at all), Duplication (potions and keys come
     /// twice), Null Pointer (once a depth, a killing blow leaves you at 1 and throws you clear).</summary>
     public bool BitFlip, Dupe, NullPointer;
@@ -209,6 +220,16 @@ public sealed class PlayerStats
                 MoveSpeed = Tune.Shifter.MoveMult; JumpMult = Tune.Shifter.JumpMult;
                 MaxHp = Tune.Shifter.StartHp;
                 break;
+            case HeroKind.Automaton:
+                MoveSpeed = Tune.AutomatonHero.MoveMult; JumpMult = Tune.AutomatonHero.JumpMult;
+                MaxHp = Tune.AutomatonHero.StartHp; DamageReduction = Tune.AutomatonHero.Armor;
+                KnockTakenMult = Tune.AutomatonHero.KnockTaken;
+                // (no lungs: the water, the poisoned air and the gas are nothing to it)
+                InfiniteBreath = Breathless = Waterproof = Sinks = SelfRepair = true;
+                // (a little steam hop for a second jump; a three-stroke combo ending in a slam)
+                DoubleJump = true; AirJumpMult = Tune.AutomatonHero.HopMult / Tune.Hero.DoubleJumpMult;
+                ComboResets = 2; ThirdCombo = true;
+                break;
             case HeroKind.Rogue:
                 MoveSpeed = Tune.Rogue.MoveMult; JumpMult = Tune.Rogue.JumpMult;
                 MaxHp = Tune.Rogue.StartHp; ThreatDist = Tune.Rogue.ThreatDist;
@@ -288,7 +309,7 @@ public enum UpgradeTier { Common, Rare, Ability }
 /// </summary>
 public static partial class Upgrades
 {
-    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue }, A = { HeroKind.Aegis }, SH = { HeroKind.ShapeShifter };
+    private static readonly HeroKind[] S = { HeroKind.Swordsman }, W = { HeroKind.Warden }, V = { HeroKind.Vitalist }, E = { HeroKind.Elementalist }, R = { HeroKind.Rogue }, A = { HeroKind.Aegis }, SH = { HeroKind.ShapeShifter }, AU = { HeroKind.Automaton };
     /// <summary>The two heroes who fight with a blade.</summary>
     private static readonly HeroKind[] Blades = { HeroKind.Swordsman, HeroKind.Warden };
 
@@ -452,6 +473,24 @@ public static partial class Upgrades
         new() { Id = "spec_cd", Name = "Practised Tricks", Desc = "Form specials come back 15% sooner.", Icon = "move", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecCdMult *= 0.85f },
         new() { Id = "spec_dmg", Name = "Savage Tricks", Desc = "Form specials hit 20% harder.", Icon = "blade", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecDmgMult += 0.2f },
 
+        // --- Cleaver (automaton) ---
+        new() { Id = "cleaver_dmg", Name = "Honed Cleaver", Desc = "Your cleaver hits 15% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult += 0.15f },
+        new() { Id = "cleaver_quick", Name = "Oiled Joints", Desc = "You swing 12% faster.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 3, Apply = (s, p) => s.AttackSpeed += 0.12f },
+        new() { Id = "cleaver_slam", Name = "Heavy Piston", Desc = "The slam that ends your combo reaches 25% farther and hits 25% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.SlamMult += 0.25f },
+        // --- Self-Repair (automaton) ---
+        new() { Id = "repair_rate", Name = "Fine Tools", Desc = "Self-Repair mends you 30% faster.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.RepairRateMult += 0.3f },
+        new() { Id = "repair_cap", Name = "Bigger Accumulator", Desc = "Hold 25 more energy.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 3, Apply = (s, p) => s.EnergyMax += 25f },
+        new() { Id = "repair_eff", Name = "Efficient Gearing", Desc = "Healing you receive gives 5% more of itself as energy (25%, then 30%).", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.EnergyFromHeal += 0.05f },
+        new() { Id = "repair_scrap", Name = "Scrap Reclaimer", Desc = "Every creature you destroy gives you 4 energy, but healing gives you none.", Icon = "life", For = AU, Ability = "repair", Alteration = true, Apply = (s, p) => s.ScrapReclaimer = true },
+        // --- Steam Release (automaton) ---
+        new() { Id = "steam_cd", Name = "Pressure Valve", Desc = "Steam Release comes back 20% sooner.", Icon = "spell", For = AU, Ability = "steam", MaxStacks = 2, Apply = (s, p) => s.SteamCdMult *= 0.8f },
+        new() { Id = "steam_force", Name = "High-Pressure Steam", Desc = "Steam Release hits 30% harder, shoves 30% harder and lifts you 30% higher.", Icon = "spell", For = AU, Ability = "steam", MaxStacks = 2, Apply = (s, p) => s.SteamMult += 0.3f },
+        new() { Id = "steam_scald", Name = "Scalding Steam", Desc = "Your steam no longer shoves creatures; it scalds them, and they burn for 3 s.", Icon = "spell", For = AU, Ability = "steam", Alteration = true, Apply = (s, p) => s.ScaldingSteam = true },
+        // --- Brace (automaton) ---
+        new() { Id = "brace_long", Name = "Locked Joints", Desc = "Brace holds 0.25 s longer.", Icon = "shield", For = AU, Ability = "brace", MaxStacks = 2, Apply = (s, p) => s.BraceBonus += 0.25f },
+        new() { Id = "brace_punch", Name = "Piston Fist", Desc = "Brace's counter-punch hits 40% harder.", Icon = "shield", For = AU, Ability = "brace", MaxStacks = 3, Apply = (s, p) => s.PunchMult += 0.4f },
+        new() { Id = "brace_full", Name = "Full Plate", Desc = "Braced, you soften blows from behind as well as in front.", Icon = "shield", For = AU, Ability = "brace", Alteration = true, Apply = (s, p) => s.FullPlate = true },
+
         // --- Ward Bolt (aegis) ---
         new() { Id = "ward_dmg", Name = "Brighter Bolt", Desc = "Your ward bolt hits 18% harder.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult += 0.18f },
         new() { Id = "ward_burst", Name = "Wider Burst", Desc = "Your bolt's burst reaches 40% farther.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstMult += 0.4f },
@@ -558,6 +597,7 @@ public static partial class Upgrades
         HeroKind.Rogue => "Vanish",
         HeroKind.Aegis => "Barrier",
         HeroKind.ShapeShifter => "Shift",
+        HeroKind.Automaton => "Self-Repair",
         _ => "Charged Strike",
     };
 
@@ -570,6 +610,7 @@ public static partial class Upgrades
         HeroKind.Rogue => new[] { ("dagger", "Dagger Slash"), ("throw", "Dagger Throw"), ("vanish", "Vanish"), ("recall", "Recall") },
         HeroKind.Aegis => new[] { ("ward", "Ward Bolt"), ("barrier", "Barrier"), ("burden", "Shared Burden"), ("bubble", "Bubble") },
         HeroKind.ShapeShifter => new[] { ("staff", "Staff"), ("shift", "Shift"), ("form", "Forms"), ("special", "Form Specials") },
+        HeroKind.Automaton => new[] { ("cleaver", "Cleaver"), ("repair", "Self-Repair"), ("steam", "Steam Release"), ("brace", "Brace") },
         _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dodge Roll") },
     };
 
@@ -591,6 +632,8 @@ public static partial class Upgrades
     {
         if (u.For != null && Array.IndexOf(u.For, s.Hero) < 0) return false;
         if (u.Multi && !(Net.Online && Net.Count > 1)) return false;
+        // (no lungs to deepen or drown, and a steam hop already its second jump)
+        if (s.Breathless && u.Id is "breath" or "rr_lungs" or "djump") return false;
         if (s.StackOf(u.Id) >= u.MaxStacks) return false;
         if (u.Requires != null && s.StackOf(u.Requires) == 0) return false;
         if (u.When != null && !u.When(s)) return false;
@@ -778,6 +821,13 @@ public static class Progression
                 s.DamageMult += 0.02f;
                 s.WardMult += 0.04f;
                 gain = "+2% damage  +4% wards";
+                break;
+            case HeroKind.Automaton:
+                // (its frame grows: the new health comes with it, not as healing, which it can't take)
+                s.MaxHp += 5; p.Hp += 5;
+                s.DamageMult += 0.02f;
+                s.EnergyMax += 2;
+                gain = "+5 HP  +2% damage  +2 energy";
                 break;
             case HeroKind.ShapeShifter:
                 s.MaxHp += 3; p.Heal(3);

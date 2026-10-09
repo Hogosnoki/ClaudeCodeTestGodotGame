@@ -47,6 +47,8 @@ public partial class CampScene : SubViewport
         (HeroKind.Rogue, "rogue", "ROGUE", 34f),
         (HeroKind.Aegis, "aegis", "AEGIS", 6f),
         (HeroKind.ShapeShifter, "shapeshifter", "SHAPE SHIFTER", -24f),
+        // (the Automaton, last in the choice and so next round from the Swordsman, sits at the front left)
+        (HeroKind.Automaton, "automaton_hero", "AUTOMATON", 242f),
     };
 
     private sealed class Seat

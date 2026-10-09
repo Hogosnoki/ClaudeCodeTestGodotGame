@@ -78,6 +78,7 @@ public partial class Main
         "ribs" => "fossils",
         "sulphur" => "sulphur",
         "clockwork" => "clockwork",
+        "automaton" => "sulphur",
         "wing" => "ruins",
         "river" => "river",
         "stick" => "den",
@@ -130,6 +131,7 @@ public partial class Main
             case "ribs": RibsScenario(); break;
             case "sulphur": SulphurScenario(); break;
             case "clockwork": ClockworkScenario(); break;
+            case "automaton": AutomatonScenario(); break;
             case "wing": WingScenario(); break;
             case "river": RiverScenario(); break;
             case "stick": StickScenario(); break;

@@ -1210,6 +1210,37 @@ drops the form, then Shift recharges. `--scenario=shifter --hero=shifter` checks
 lands, and `--scenario=shifterbehaviors --hero=shifter` the fish, spider, bat and noticing above (add `--shots=DIR` under
 xvfb for pictures; it looks for a clean wall and ceiling, so try another `--seed` if it notes none).
 
+## The Automaton
+
+The last work of Ottoline Brass, come up out of the Clockwork Deep: a copper-and-brass engine of a man
+(`Player/Player.Automaton.cs`, `Tune.AutomatonHero`; its model is `HeroDesign.Automaton.cs`: a barrel chest banded in brass
+with a furnace glowing behind a barred window, two stacks behind the head, porthole eyes, pistons on the forearms, a cleaver).
+- **Its make**: 140 health, 15% armour, 0.72x run speed, 0.72x jump height, and it takes only 45% of a blow's shove. Its second
+  jump is a little steam hop from the joints (0.6x a jump), which brings it up to the height the caves are built for.
+- **No lungs**: it never drowns, the toxic air of the Sulphur Springs and the gas clouds do nothing to it, and nothing can
+  drown it. **Waterproof**: water, steam (the Clockwork Deep's jets, the boilers) and acid water do it no harm.
+- **It sinks**: in water it falls toward 190 px/s when left alone (270 with down held; anyone else drifts down at 22), walks the
+  bottom, and swims only by kicking up, a press of jump at a time. At the surface a press leaps out as anyone's does.
+- **It can't truly be healed**: every heal it receives (potions, pickups, a Vitalist, life steal, the rest between depths)
+  becomes energy instead, a fifth as much (`EnergyFromHeal`; 60 energy at most, starting at 30). **Self-Repair** (the ability
+  button) spends that energy to mend it, one for one, at 18 health a second for up to 4 s, slowed to 45% while it tinkers
+  (a second press stops it; 6 s to recharge). Deferred healing, and a lot less of it.
+- **Cleaver** (attack): slow, heavy chops (25 damage, 0.85 s apart), three to a combo; the third is a **slam** that sends a shock
+  through the floor (55% of the strike to everything within 56 px of where it lands), and its sparks set any gas there alight.
+- **Steam Release** (second ability): a cone of steam ahead (9 damage and a hard shove to all in it), which blows gas clouds
+  away, puts out its own burning, and kicks it the other way at 300 px/s. Aimed at the floor it is a lift; in water, a thrust.
+- **Brace** (dodge button): planted for 0.75 s, blows from in front lose 70% of their damage and can't move it, and the first
+  melee blow is answered with a counter-chop.
+- **Over-Pressure** (support button): three seconds of building pressure, glowing hotter and shaking harder and harder,
+  slowed and unable to strike (a blow doesn't break it); then for 10 s it strikes 35% faster and 25% harder, moves 30% faster
+  and jumps 35% higher (32 s to recharge, counted from the start).
+- Cards for each ability (alterations: **Scrap Reclaimer**, energy from kills instead of from healing; **Scalding Steam**, the
+  steam burns instead of shoving; **Full Plate**, Brace softens blows from behind too), four relics and five class perks.
+- `--scenario=automaton` (in the Sulphur Springs) checks all of it: the stats, healing becoming energy and Self-Repair spending
+  it, the acid, the toxic air, the gas and the steam doing no harm, sinking and kicking up, the combo's slam reaching what the
+  chops don't, Steam Release striking and lifting, Brace in front and behind, the shove it takes, and Over-Pressure building,
+  boosting and wearing off; automaton_*.png. `--hero=automaton` plays as it.
+
 ## Support abilities (the support button, V)
 
 Every hero has a fourth ability that does something for the others (`Player.Support.cs`, `Tune.Support`):
@@ -1218,7 +1249,8 @@ Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to 
 60% of the vital force reserve), Elementalist **Stalag-Might** (30 damage and the creature is rooted for
 2 s, 15 s), Rogue **Expose** (the creature takes 20% more from everyone, and everyone crits it 10% more often, for 8 s), Aegis **Mending Mark**
 (whoever next strikes the marked creature is healed 10, 30 s), Shape Shifter **Pack Howl** (allies near run
-20% and strike 15% faster for 8 s). `--scenario=support --hero=vitalist` checks all seven.
+20% and strike 15% faster for 8 s), Automaton **Over-Pressure** (a 3 s build-up, then 10 s of faster, harder strikes,
+quicker feet and higher jumps; see above). `--scenario=support --hero=vitalist` checks all seven.
 
 ### Loadout, Prodigy's Brand, rubble
 
