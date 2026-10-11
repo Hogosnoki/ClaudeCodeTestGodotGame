@@ -19,11 +19,12 @@ public enum Element { None, Armored, Earth, Frost, Fire, Nature, /// <summary>A 
     Gas }
 
 /// <summary>
-/// Weaknesses and resistances. Armoured and earthen creatures take 40% less from physical blows (an armoured
-/// one only until its armour falls off, after a tenth of its health is gone);
+/// Weaknesses and resistances. Armoured and earthen creatures take 40% less from physical blows;
 /// frost creatures take more from fire and less from frost and water; fire creatures more from
 /// water and less from fire and nature; nature creatures more from fire and less from water and
-/// nature; earth creatures more from water and nature and less from physical.
+/// nature; earth creatures more from water and nature and less from physical. Every resistance is a ward that breaks: once a
+/// creature has taken a tenth of its health in damage, its armour (or its element's resistance) is gone for good, and blows on it
+/// land whole and sound as they do on flesh. (Weaknesses stay.)
 /// </summary>
 public static class Affinity
 {
@@ -52,9 +53,9 @@ public abstract partial class Enemy : CharacterBody2D
     public virtual Element Element => Element.None;
 
     /// <summary>What a blow on it sounds like: stone chinks, wood crackles, ice cracks, and so on.</summary>
-    public virtual string HitSound => Element switch
+    public virtual string HitSound => ArmorBroken ? "hit" : Element switch
     {
-        Element.Armored => ArmorBroken ? "hit" : "hit_stone",
+        Element.Armored => "hit_stone",
         Element.Earth => "hit_stone",
         Element.Nature => "hit_wood",
         Element.Frost => "hit_ice",
@@ -900,9 +901,9 @@ public abstract partial class Enemy : CharacterBody2D
         if (Dead || !CanBeHit) return 0;
         // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is);
         // armour that has come off no longer turns a blow
-        _affinity = kind == DamageKind.Raw ? 1f : Element == Element.Armored && ArmorBroken ? 1f : Affinity.Mult(Element, kind);
-        // (what the armour turned aside of the blow: once that comes to a tenth of its health, the armour falls off)
-        float absorbed = _affinity < 1f && Element == Element.Armored ? dmg * (1f - _affinity) : 0f;
+        _affinity = kind == DamageKind.Raw ? 1f : Affinity.Mult(Element, kind);
+        // (a broken ward turns nothing aside; a weakness stays)
+        if (ArmorBroken && _affinity < 1f) _affinity = 1f;
         dmg *= _affinity;
         if (kind != DamageKind.Raw) dmg *= RelicBlowMult();
         if (Puppet) return PuppetHurt(dmg, knock, hitPos);
@@ -912,10 +913,10 @@ public abstract partial class Enemy : CharacterBody2D
         try
         {
             float dealt = TakeHit(dmg, knock, hitPos);
-            // armour falls off once it has turned aside a tenth of the creature's health
-            if (Element == Element.Armored && !_armorBroken && dealt > 0 && !Dead)
+            // its ward (armour, or its element's resistance) breaks once it has taken a tenth of its health
+            if (HasWard && !_armorBroken && dealt > 0 && !Dead)
             {
-                _armorTaken += absorbed;
+                _armorTaken += dealt;
                 if (_armorTaken >= MaxHp * Tune.Combat.ArmorBreakShare) BreakArmor();
             }
             return dealt;
@@ -925,13 +926,17 @@ public abstract partial class Enemy : CharacterBody2D
 
     private float _armorTaken;
     private bool _armorBroken;
-    /// <summary>An armoured creature whose armour has fallen off (a copy goes by what the host says).</summary>
+    /// <summary>Its ward is broken: the armour of an armoured creature, or an elemental one's resistance (a copy goes by what the host says).</summary>
     public bool ArmorBroken => _armorBroken || (Puppet && (_netFlags & NfUnarmored) != 0);
+    /// <summary>It starts with a ward that turns some blows aside (armour, or an element with a resistance), until it breaks.</summary>
+    public bool HasWard => Element is Element.Armored or Element.Earth or Element.Frost or Element.Fire or Element.Nature;
+    /// <summary>Its ward still holds (for a status display): it turns some blows aside.</summary>
+    public bool Resisting => HasWard && !ArmorBroken;
 
     private void BreakArmor()
     {
         _armorBroken = true;
-        G.Fx.Text(HeadPoint(16f), "ARMOUR BROKEN", new Color(1f, 0.82f, 0.45f), 11, 1.1f);
+        G.Fx.Text(HeadPoint(16f), Element == Element.Armored ? "ARMOUR BROKEN" : "WARD BROKEN", new Color(1f, 0.82f, 0.45f), 11, 1.1f);
         G.Fx.Debris(GlobalPosition + new Vector2(0, -4), BloodColor.Lightened(0.15f), 8, 170);
         G.Fx.Burst(GlobalPosition, new Color(0.85f, 0.8f, 0.7f), 10, 150, 2.4f, 0.45f);
         G.Sfx.Play("rock", GlobalPosition, -2, 0.1f, 1.3f);

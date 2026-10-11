@@ -14,6 +14,8 @@ public static class Tune
     public static class Hero
     {
         public static float StartHp = 60f;
+        /// <summary>Every heal a hero receives, from anything, lands this many times as strong.</summary>
+        public static float HealingMult = 0.85f;
         /// <summary>Invulnerability after being struck (the Resilience upgrade adds to this).</summary>
         public static float HurtInvuln = 0.4f;
         public static float BreathSeconds = 15f;
@@ -150,6 +152,8 @@ public static class Tune
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
         /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal (a quarter of a percent; Mending Light and Solar Crest add more) of the damage dealt mends the Aegis.</summary>
+        /// <summary>Healing Ward: the burst mends for this share of the blow it would have dealt (it comes twice a second, so a small share).</summary>
+        public static float HealingWardHeal = 0.2f;
         public static float HealingWardGlance = 0.25f, BoltDamage = 10.8f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
         public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0.0025f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
@@ -159,7 +163,7 @@ public static class Tune
         /// <summary>Smite (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a burst of light SmiteRadius px round her for SmiteDamage, weakening everything it strikes; SmiteCooldown s.</summary>
         public static float SmiteDamage = 16.5f, SmiteRadius = 120f, SmiteCooldown = 9f;
         /// <summary>Bubble (the dodge button): absorbs BubbleAbsorb of each blow until BubbleShare of the receiver's max health (x WardMult) is absorbed, when it bursts; lasts BubbleSeconds, recharges BubbleCooldown s; the receiver breathes under water meanwhile. With Soothing Burst, the burst heals allies within BurstHealRadius px for BurstHealShare of their max health.</summary>
-        public static float BubbleRadiusMin = 12f, BubbleRadiusMax = 34f, BubbleCastRadius = 220f, BubbleShare = 0.1f, BubbleAbsorb = 0.1f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.07f, BurstHealRadius = 80f;
+        public static float BubbleRadiusMin = 12f, BubbleRadiusMax = 34f, BubbleCastRadius = 220f, BubbleShare = 0.1f, BubbleAbsorb = 0.1f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.045f, BurstHealRadius = 80f;
         /// <summary>Hostile Bubble (an alteration): on a creature instead, it takes (1 - WardAbsorb) of every blow while the rest builds; once WardCap has built it bursts for WardBlast, and WardSplash to the creatures round it (all x the Aegis's damage and the depth's threat).</summary>
         public static float WardAbsorb = 0.5f, WardCap = 10f, WardBlast = 30f, WardSplash = 10f, WardRadius = 64f, WardSeconds = 20f;
     }
@@ -249,7 +253,7 @@ public static class Tune
         /// (degrees either side of your aim) it looks for a creature in. The stolen life flies back
         /// to you at MoteSpeed px/s and becomes vital force when it arrives.
         /// </summary>
-        public static float DrainDamage = 10f, DrainRange = 175f, DrainCooldown = 0.5f, DrainConeDegrees = 38f, MoteSpeed = 640f;
+        public static float DrainDamage = 8f, DrainRange = 175f, DrainCooldown = 0.625f, DrainConeDegrees = 38f, MoteSpeed = 640f;
         /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
         public static float DrainWhiffCooldown = 0.25f;
         /// <summary>Seconds from the press to the strike: the cast's thrust (its clip is 6 frames at 24 fps, sped up 1.6x; the thrust is 30-45% in).</summary>
@@ -284,7 +288,7 @@ public static class Tune
         public static float MendSeconds = 6f, PatientBonus = 0.2f, WardingShare = 0.2f;
         /// <summary>Lifebloom (an alteration): the heal for the friend it blooms on and for everyone
         /// else in the burst, and the Healing Pool's heal a second and seconds.</summary>
-        public static float BloomHeal = 30f, BloomSplash = 10f, PoolRate = 3f, PoolSeconds = 5f;
+        public static float BloomHeal = 30f, BloomSplash = 10f, PoolRate = 2f, PoolSeconds = 5f;
     }
 
     // =============================================================================== ROGUE
@@ -466,8 +470,8 @@ public static class Tune
     {
         /// <summary>Enemy health and damage grow by this factor per level of depth...</summary>
         public static float DepthGrowth = 1.09f;
-        /// <summary>Enemy health grows by only this share of that per level of depth (1.045 a level, against damage's 1.09).</summary>
-        public static float HpDepthShare = 0.5f;
+        /// <summary>Enemy health grows by only this share of that per level of depth (1.036 a level, against damage's 1.09).</summary>
+        public static float HpDepthShare = 0.4f;
         /// <summary>...and double every this many minutes of play (continuous curve). (The cave gets
         /// harder more through tougher creatures than through more of them: see the pace below.)</summary>
         public static float DoublingMinutes = 27f;
@@ -558,7 +562,7 @@ public static class Tune
     public static class Drops
     {
         /// <summary>Heart drops (heal HeartHealFrac of max health) and potion drops.</summary>
-        public static float HeartChance = 0.03f, HeartChanceElite = 0.3f, HeartHealFrac = 0.05f, ChestHeal = 12f;
+        public static float HeartChance = 0.015f, HeartChanceElite = 0.15f, HeartHealFrac = 0.05f, ChestHeal = 12f;
         /// <summary>Embers a guardian pays (from depth 5 on, and the dragon).</summary>
         public static int GuardianEmbers = 2, DeepGuardianEmbers = 3, DragonEmbers = 6;
         public static float PotionChance = 0.01f;

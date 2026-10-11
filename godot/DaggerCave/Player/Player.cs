@@ -241,7 +241,7 @@ public partial class Player : CharacterBody2D
 
     private void HealHere(float amount)
     {
-        amount *= Stats.HealingTakenMult;
+        amount *= Stats.HealingTakenMult * Tune.Hero.HealingMult;
         // (the Automaton can't truly be healed: what it receives becomes energy for Self-Repair)
         if (Stats.SelfRepair) { HealAsEnergy(amount); return; }
         float before = Hp;

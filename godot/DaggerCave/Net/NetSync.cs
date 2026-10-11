@@ -199,7 +199,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.ChestCut or Net.Msg.HeroBurden;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.CardTaken or Net.Msg.ChestCut or Net.Msg.HeroBurden;
 
     // ================================================================== heroes
 
@@ -883,6 +883,15 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>This game's hero took a card: the others count it (see <see cref="Upgrades.PartyStacks"/>).</summary>
+    public static void SendCard(string id)
+    {
+        if (!Net.Online) return;
+        var w = new NetOut(Net.Msg.CardTaken);
+        w.Int(Net.Me).Str(id);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>The heroes in this run (a chest's cards are dealt for all of them).</summary>
     public static IReadOnlyCollection<HeroKind> PartyHeroes() => Net.Peers.Values.Select(p => p.Hero).Distinct().ToList();
 
@@ -1267,6 +1276,7 @@ public static class NetSync
             case Net.Msg.ChestOpened: OnChestOpened(r); break;
             case Net.Msg.HeroBurden: { int to = r.Int(); float amount = r.Float(); if (to == Net.Me) G.Player?.TakeShared(amount); break; }
             case Net.Msg.Relic: { int who = r.Int(); RunRelics.Note(who, r.Str()); break; }
+            case Net.Msg.CardTaken: { int who = r.Int(); Upgrades.NoteCard(who, r.Str()); break; }
             case Net.Msg.ChestCut: ChestById(r.Int())?.Cut(remote: true); break;
             case Net.Msg.GateAsk: if (Net.IsHost) OpenGate(r.Int(), from); break;
             case Net.Msg.GateOpened: { int id = r.Int(), by = r.Int(); OnGateOpened(id, by); break; }

@@ -517,16 +517,16 @@ public partial class Main
                 ScCheck($"{what} takes {want:0} of 100 {k} ({dealt:0})", Math.Abs(dealt - want) < 0.5f);
             }
         }
-        // armour falls off once it has turned aside a tenth of the creature's health: three blows of 100 (it turns 40 of each: 120 of 1000 > 100)
+        // armour falls off once the creature has taken a tenth of its health: two blows of 100 (it takes 60 of each: 120 of 1000 > 100)
         var armoured = new Golem { Position = p.GlobalPosition + new Vector2(200, -10) };
         armoured.SetMeta("test", true);
         _world.AddChild(armoured);
         armoured.MaxHp = armoured.Hp = 1000;
-        float a1 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition), a2 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
+        float a1 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
         bool held = !armoured.ArmorBroken;
-        float a2b = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
-        ScCheck($"an armoured golem takes 60 of 100 while its armour holds ({a1:0}, {a2:0}, {a2b:0}; still on after two {held}), and the armour is off once it has turned aside a tenth of its health ({armoured.ArmorBroken})",
-            Math.Abs(a1 - 60f) < 0.5f && Math.Abs(a2 - 60f) < 0.5f && Math.Abs(a2b - 60f) < 0.5f && held && armoured.ArmorBroken);
+        float a2 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
+        ScCheck($"an armoured golem takes 60 of 100 while its armour holds ({a1:0}, {a2:0}; still on after one {held}), and the armour is off once it has taken a tenth of its health ({armoured.ArmorBroken})",
+            Math.Abs(a1 - 60f) < 0.5f && Math.Abs(a2 - 60f) < 0.5f && held && armoured.ArmorBroken);
         ScCheck($"and its blows now sound as on flesh ({armoured.HitSound})", armoured.HitSound == "hit");
         float a3 = armoured.Hurt(100f, Vector2.Zero, armoured.GlobalPosition);
         ScCheck($"and then it takes the whole of a blow ({a3:0})", Math.Abs(a3 - 100f) < 0.5f);

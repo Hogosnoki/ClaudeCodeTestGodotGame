@@ -99,7 +99,7 @@ public partial class Player
         foreach (var t in struck)
         {
             float share = t == e ? 1f : Stats.BurstShare;
-            if (Stats.HealingWard) healed += bolt.Damage * share;
+            if (Stats.HealingWard) healed += bolt.Damage * share * Tune.Aegis.HealingWardHeal;
             float dealt = t.Hurt(bolt.Damage * share * (Stats.HealingWard ? Tune.Aegis.HealingWardGlance : 1f), bolt.Dir * 40f, t == e ? at : t.GlobalPosition);
             if (dealt > 0) { total += dealt; OnDealtDamage(dealt); }
             if (!t.Dead) t.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);

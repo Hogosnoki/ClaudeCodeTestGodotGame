@@ -29,7 +29,7 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 6;
+    public const int Version = 7;
     public const int MaxPlayers = 6;
 
     /// <summary>
@@ -378,6 +378,8 @@ public static partial class Net
         HeroBurden,
         /// <summary>The two-game test harness (--nettest) talking to itself.</summary>
         Test,
+        /// <summary>A hero took a card (everyone keeps count, so a chest isn't dealt a card nobody can take again).</summary>
+        CardTaken,
     }
 
     /// <summary>Sends to one peer.</summary>

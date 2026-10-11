@@ -1255,7 +1255,7 @@ quicker feet and higher jumps; see above). `--scenario=support --hero=vitalist` 
 ### Loadout, Prodigy's Brand, rubble
 
 - **Loadout** (button on the loadout & perks stage of the hero select, or `L` there): pick up to three of the hero's **side-grades** (the alterations: alternate abilities such as Frostbolt for Firebolt, one to an ability) to start the run with. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes. The give-and-take upgrades are called **risk-rewards**.
-- **Healing Ward** (Aegis side-grade): the ward bolt hits for only 25% but its burst mends the Aegis and every friend in it for the full blow, which is what makes the Aegis playable alone.
+- **Healing Ward** (Aegis side-grade): the ward bolt hits for only 25% but its burst mends the Aegis and every friend in it for a fifth of the blow (it comes twice a second), which is what makes the Aegis playable alone.
 - **Prodigy's Brand** levels you up thirty-five times at once; you can never open a chest again (shrines, relic chests, guardians' hoards and vaults alike), and guardians leave you no hoard.
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.
 

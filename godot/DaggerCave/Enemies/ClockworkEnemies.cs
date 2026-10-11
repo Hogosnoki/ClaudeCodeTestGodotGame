@@ -14,7 +14,6 @@ namespace DaggerCave;
 public partial class Automaton : Walker
 {
     public override Element Element => Element.Armored;
-    public override string HitSound => ArmorBroken ? "hit" : "hit_stone";
     private int _s; // 0 walk, 1 swing wind-up, 2 recover, 3 rewinding
     private float _st, _cd = 1.5f, _spring = 1f;
     public override void NetState(NetIO io) { io.Sync(ref _s); io.Sync(ref _spring); }
@@ -133,7 +132,6 @@ public partial class Automaton : Walker
 public partial class Boiler : Enemy
 {
     public override Element Element => Element.Armored;
-    public override string HitSound => ArmorBroken ? "hit" : "hit_stone";
     private int _s; // 0 charge, 1 jet, 2 cool
     private float _st, _wait = 0.5f;
     private Vector2 _aim = Vector2.Right;
@@ -204,7 +202,6 @@ public partial class Boiler : Enemy
 public partial class Cogwheel : Walker
 {
     public override Element Element => Element.Armored;
-    public override string HitSound => ArmorBroken ? "hit" : "hit_stone";
     private int _s; // 0 roll, 1 rev, 2 dash, 3 spent
     private float _st, _cd = 1.2f;
     private int _dashDir = 1;

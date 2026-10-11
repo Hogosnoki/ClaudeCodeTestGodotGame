@@ -122,7 +122,7 @@ public partial class Player
         G.Sfx.Play("bubble", GlobalPosition, -2, 0.05f, 0.7f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), f.Name.ToUpperInvariant(), new Color(0.92f, 0.95f, 1f), 11, 0.9f);
         Anim?.Flash(0.8f);
-        if (Stats.ShiftHeals && !IsRemote) Heal(Stats.MaxHp * 0.1f);
+        if (Stats.ShiftHeals && !IsRemote) Heal(Stats.MaxHp * 0.07f);
     }
 
     public void LeaveForm(bool cooldown)

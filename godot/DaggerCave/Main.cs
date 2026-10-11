@@ -737,7 +737,7 @@ public partial class Main : Node
         ulong t0 = Time.GetTicksMsec();
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
         // (a new run starts with no relics carried)
-        if (keepStats == null) RunRelics.Reset();
+        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); }
         var cave = pregenerated ?? CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
