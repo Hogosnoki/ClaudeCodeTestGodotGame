@@ -166,6 +166,8 @@ public partial class Stage3D : Node3D
 
     private Vector3? _debugOrbit;
     private bool _debugBright, _debugNoFog;
+    private float _ambientBase = 0.25f;
+    private Color _ambientColor = new(0.5f, 0.52f, 0.6f);
     private int _debugTerrain;
 
     /// <summary>Builds the 3D level for a freshly generated cave.</summary>
@@ -198,10 +200,12 @@ public partial class Stage3D : Node3D
         float dark = b.Darkness;
         var glow = b.Glow;
         var edge = b.Edge;
-        Env.AmbientLightColor = edge.Lerp(glow, 0.35f).Lerp(new Color(0.6f, 0.62f, 0.7f), 0.4f);
+        _ambientColor = edge.Lerp(glow, 0.35f).Lerp(new Color(0.6f, 0.62f, 0.7f), 0.4f);
+        Env.AmbientLightColor = _ambientColor;
         // thinner haze than before: distance falls away into the dark and the play layer stands
         // clear of it (contrast without murk); the fill stays, so shadows keep their detail
-        Env.AmbientLightEnergy = Mathf.Lerp(0.95f, 0.45f, dark);
+        _ambientBase = Mathf.Lerp(0.95f, 0.45f, dark);
+        Env.AmbientLightEnergy = _ambientBase;
         Env.VolumetricFogAlbedo = glow.Lerp(new Color(0.75f, 0.78f, 0.85f), 0.6f);
         Env.VolumetricFogDensity = 0.008f + dark * 0.01f;
         Env.VolumetricFogEmission = b.BackBottom.Lerp(glow, 0.15f);
@@ -221,7 +225,7 @@ public partial class Stage3D : Node3D
         }
         if (_debugBright)
         {
-            Env.AmbientLightEnergy = 1.2f;
+            _ambientBase = 1.2f;
             Env.AmbientLightColor = new Color(0.8f, 0.8f, 0.8f);
             Env.VolumetricFogEnabled = false;
             _fill.LightEnergy = 1.2f;
@@ -237,6 +241,12 @@ public partial class Stage3D : Node3D
         Env.GlowEnabled = GameSettings.Bloom;
         Env.SsaoEnabled = GameSettings.AmbientOcclusion;
         Env.TonemapExposure = 1.1f * GameSettings.Brightness;
+        // (ambient light only: the other lights are muted by AmbientOnly, the ambient raised to make up for them)
+        // (with only the ambient, it is near white and the same strength everywhere, so each thing shows its own colour: the biome's
+        // light only tints it a little)
+        Env.AmbientLightColor = GameSettings.AmbientOnly ? Colors.White.Lerp(_ambientColor, AmbientOnly.Tint) : _ambientColor;
+        Env.AmbientLightEnergy = GameSettings.AmbientOnly ? AmbientOnly.Energy : _ambientBase;
+        CampScene.I?.ApplyLighting();
     }
 
     public override void _Process(double delta)

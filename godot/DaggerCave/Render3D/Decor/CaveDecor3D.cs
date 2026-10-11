@@ -447,7 +447,7 @@ public partial class CaveDecor3D : Node3D
         if (b.Machinery)
         {
             var colors = new[] { new Color(0.4f, 0.4f, 0.45f), new Color(0.62f, 0.44f, 0.15f), new Color(0.48f, 0.37f, 0.25f), new Color(0.34f, 0.34f, 0.4f) };
-            var gearMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Metallic = 0.6f, Roughness = 0.4f, EmissionEnabled = true, Emission = new Color(1f, 0.6f, 0.25f), EmissionEnergyMultiplier = 0.05f };
+            var gearMat = AmbientOnly.Metal(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Metallic = 0.6f, Roughness = 0.4f, EmissionEnabled = true, Emission = new Color(1f, 0.6f, 0.25f), EmissionEnergyMultiplier = 0.05f });
             void Gear(Vector3 wp, float r, float spin)
             {
                 int teeth = (int)(r * 4f) + 6;

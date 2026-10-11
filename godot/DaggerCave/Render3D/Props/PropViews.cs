@@ -90,9 +90,9 @@ public static class PropViews
         AlbedoColor = new Color(0.62f, 0.85f, 1f, 0.72f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.08f,
         RimEnabled = true, Rim = 0.8f, EmissionEnabled = true, Emission = new Color(0.25f, 0.55f, 0.8f), EmissionEnergyMultiplier = 0.25f,
     };
-    public static StandardMaterial3D Steel => _steel ??= new StandardMaterial3D { AlbedoColor = new Color(0.75f, 0.78f, 0.82f), Metallic = 0.95f, Roughness = 0.28f };
+    public static StandardMaterial3D Steel => _steel ??= AmbientOnly.Metal(new StandardMaterial3D { AlbedoColor = new Color(0.75f, 0.78f, 0.82f), Metallic = 0.95f, Roughness = 0.28f });
     public static StandardMaterial3D Wood => _wood ??= new StandardMaterial3D { AlbedoColor = new Color(0.36f, 0.21f, 0.11f), Roughness = 0.8f };
-    public static StandardMaterial3D Gold => _gold ??= new StandardMaterial3D { AlbedoColor = new Color(0.95f, 0.72f, 0.3f), Metallic = 1f, Roughness = 0.3f };
+    public static StandardMaterial3D Gold => _gold ??= AmbientOnly.Metal(new StandardMaterial3D { AlbedoColor = new Color(0.95f, 0.72f, 0.3f), Metallic = 1f, Roughness = 0.3f });
     public static StandardMaterial3D Glass => _glass ??= new StandardMaterial3D
     {
         AlbedoColor = new Color(0.85f, 0.92f, 1f, 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f, RimEnabled = true, Rim = 1f,
@@ -899,7 +899,7 @@ public partial class ThrownDaggerView : PropView
     protected override void Build()
     {
         _mesh ??= PropMeshes.Sword(0.3f, 0.026f, new Color(0.78f, 0.8f, 0.84f), new Color(0.6f, 0.46f, 0.2f), new Color(0.1f, 0.08f, 0.07f), 0.05f)
-            .ToMesh(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Metallic = 0.8f, Roughness = 0.3f });
+            .ToMesh(AmbientOnly.Metal(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Metallic = 0.8f, Roughness = 0.3f }));
         _blade = new MeshInstance3D { Mesh = _mesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Scale = Vector3.One * 1.6f };
         AddChild(_blade);
         _glint = PropViews.Sprite(new Color(1f, 0.97f, 0.9f), 3, 1.2f, 0.18f);

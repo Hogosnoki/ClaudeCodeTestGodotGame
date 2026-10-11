@@ -1241,6 +1241,14 @@ The look aims at Castle Crashers and Cuphead: flat fills, simple forms, ink bord
   where the scene steps away behind something (the depth on one side farther than here by more than 6% of the distance, more than a slope
   would explain, the other side not nearer) and inks the nearer thing's side. Widths are in pixels at 720 lines, scaled with the
   resolution.
+- **Ambient light only** (Settings > Graphics, on by default while the look is being settled; `GameSettings.AmbientOnly`, `--lights` for
+  the old lighting): every light in the cave and the camp (the directional key, fill and rim lights, the sun, torches, spell, fire and
+  pickup lights) is muted, so nothing is shaded by direction and shapes read by colour, facets and borders alone (`Render3D/AmbientOnly.cs`:
+  each light's cull mask goes to 0, its shadow and fog glow off, checked every frame since the game turns lights up and down; switching
+  the setting off gives each back what it had). The ambient makes up for it: near white (the biome's light tints it 20%) and equally
+  strong in every biome, and the same at the camp instead of the sky's blue. Metal, with nothing lit to mirror, is drawn mostly as its own
+  colour (metallic down to 15%: the shader global `light_ambient_only` in the creature shader, `AmbientOnly.Metal` for the steel, gold
+  and iron materials). The menu portraits keep their lights.
 - **Character borders** (0.5 to 6 px, default 2; `ink_actor_px`): the heroes' and creatures' line (`InkOutline`), a little bolder, drawn
   over the object border.
 

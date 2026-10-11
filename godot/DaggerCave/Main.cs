@@ -144,6 +144,7 @@ public partial class Main : Node
         AddChild(_stage);
         // the lighting tones: a pass over the lit 3D picture, under every 2D layer
         AddChild(new CelPost());
+        AddChild(new AmbientOnly());
         GameSettings.Apply(this);
 
         _world = new Node2D { Name = "World", ProcessMode = ProcessModeEnum.Pausable, Visible = false };
@@ -394,6 +395,7 @@ public partial class Main : Node
                 GameSettings.ApplyCel();
             }
             else if (a == "--nocel") { GameSettings.CelShading = false; GameSettings.ApplyCel(); }
+            else if (a == "--lights") { GameSettings.AmbientOnly = false; GameSettings.ApplyCel(); }
             else if (a == "--photo") { GameSettings.SolidTerrain = false; GameSettings.ApplyCel(); }
             else if (a.StartsWith("--ink="))
             {

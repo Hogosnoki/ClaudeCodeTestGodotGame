@@ -15,6 +15,24 @@ namespace DaggerCave;
 /// </summary>
 public partial class CampScene : SubViewport
 {
+    /// <summary>The camp, while there is one.</summary>
+    public static CampScene I;
+    private Godot.Environment _env;
+    private const float AmbientBase = 0.55f;
+
+    public override void _EnterTree() => I = this;
+    public override void _ExitTree() { if (I == this) I = null; }
+
+    /// <summary>Ambient light only (the setting): the sky's light raised to make up for the muted sun (see <see cref="AmbientOnly"/>).</summary>
+    public void ApplyLighting()
+    {
+        if (_env == null) return;
+        // (with only the ambient: a near-white light, so the meadow and the stone show their own colours, not the sky's blue)
+        _env.AmbientLightSource = GameSettings.AmbientOnly ? Godot.Environment.AmbientSource.Color : Godot.Environment.AmbientSource.Sky;
+        _env.AmbientLightColor = new Color(1f, 0.98f, 0.95f);
+        _env.AmbientLightEnergy = GameSettings.AmbientOnly ? AmbientOnly.CampEnergy : AmbientBase;
+    }
+
     /// <summary>The hero standing ready (the others stay sitting).</summary>
     public HeroKind Selected = HeroKind.Swordsman;
     /// <summary>Choosing a hero: the camera comes in to the fire and the names show.</summary>
@@ -133,6 +151,8 @@ public partial class CampScene : SubViewport
             AdjustmentEnabled = true, AdjustmentSaturation = 0.94f, AdjustmentContrast = 1.08f,
         };
         AddChild(new WorldEnvironment { Environment = env });
+        _env = env;
+        ApplyLighting();
         // afternoon sun from the upper left, warm
         var sun = new DirectionalLight3D
         {

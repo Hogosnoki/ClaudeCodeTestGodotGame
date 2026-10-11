@@ -57,3 +57,7 @@ ink_actor_px={
 "type": "float",
 "value": 2.0
 }
+light_ambient_only={
+"type": "float",
+"value": 1.0
+}

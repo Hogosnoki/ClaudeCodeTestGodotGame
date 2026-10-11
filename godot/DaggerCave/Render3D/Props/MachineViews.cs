@@ -8,7 +8,7 @@ namespace DaggerCave;
 public static class Machine
 {
     private static StandardMaterial3D _iron;
-    public static StandardMaterial3D Iron => _iron ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, Metallic = 0.7f, Roughness = 0.42f };
+    public static StandardMaterial3D Iron => _iron ??= AmbientOnly.Metal(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Metallic = 0.7f, Roughness = 0.42f });
     public static void Release() { _iron?.Dispose(); _iron = null; }
     public static readonly Color Dark = new(0.2f, 0.2f, 0.23f), Mid = new(0.34f, 0.34f, 0.38f), Brass = new(0.62f, 0.45f, 0.16f), Rust = new(0.4f, 0.22f, 0.12f), Hazard = new(0.85f, 0.65f, 0.1f);
     public static Transform3D At(Vector3 p) => new(Basis.Identity, p);

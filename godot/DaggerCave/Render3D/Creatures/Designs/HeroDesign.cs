@@ -642,7 +642,7 @@ public sealed partial class HeroDesign : CreatureDesign
         else if (_rogue)
         {
             // a dagger in each hand (hidden while it's thrown)
-            var mat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Metallic = 0.8f, Roughness = 0.3f };
+            var mat = AmbientOnly.Metal(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Metallic = 0.8f, Roughness = 0.3f });
             var dagger = PropMeshes.Sword(0.3f, 0.026f, C(0.78f, 0.8f, 0.84f), C(0.6f, 0.46f, 0.2f), C(0.1f, 0.08f, 0.07f), 0.05f).ToMesh(mat);
             for (int k = 0; k < 2; k++)
             {

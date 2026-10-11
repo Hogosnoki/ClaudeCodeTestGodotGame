@@ -22,6 +22,8 @@ uniform float ghost_fade = 0.3;
 // the stylised look (Settings > Graphics): light in a few soft-edged bands rather than a smooth falloff, a crisp highlight, and
 // flatter, simpler colour (less of the skin's mottling and grain); 0 = the old smooth, detailed look
 #include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
+// ambient light only (Settings > Graphics; see AmbientOnly.cs)
+global uniform float light_ambient_only;
 
 instance uniform float flash : instance_index(0) = 0.0;
 instance uniform vec4 flash_color : source_color, instance_index(1) = vec4(1.0, 1.0, 1.0, 1.0);
@@ -238,7 +240,8 @@ void fragment() {
 	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);
 	// (never a perfect mirror: under the sun a zero roughness makes the highlight infinite)
 	ROUGHNESS = max(rough, 0.08);
-	METALLIC = v_mat.x;
+	// (with ambient light only, metal has nothing to mirror but the black of the cave: mostly its own colour instead)
+	METALLIC = v_mat.x * (1.0 - 0.85 * light_ambient_only);
 	SPECULAR = 0.5;
 	BACKLIGHT = alb * v_mat.y * 0.45;
 	NORMAL = n;

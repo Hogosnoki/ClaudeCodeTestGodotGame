@@ -31,6 +31,8 @@ public static class GameSettings
     /// <summary>The minimalist ground: two flat colours, grass on the floors and the biome's wall colour everywhere else, with the polygons
     /// lit face by face (every corner of the rock a distinct edge), instead of the photographed textures (the shader global terrain_solid).</summary>
     public static bool SolidTerrain = true;
+    /// <summary>Ambient light only: every other light muted, the ambient raised to make up for it (<see cref="AmbientOnly"/>).</summary>
+    public static bool AmbientOnly = true;
     /// <summary>The ink borders' widths, in pixels (at 720 lines; they scale with the resolution): round the outline of every 3D thing
     /// (0 = none), and round the characters, a little bolder. (Never between the colours on one surface.)</summary>
     public static float TerrainInkPx = 1f, ActorInkPx = 2f;
@@ -68,6 +70,7 @@ public static class GameSettings
         RenderingServer.GlobalShaderParameterSet("terrain_solid", SolidTerrain ? 1f : 0f);
         RenderingServer.GlobalShaderParameterSet("ink_terrain_px", TerrainInkPx);
         RenderingServer.GlobalShaderParameterSet("ink_actor_px", ActorInkPx);
+        RenderingServer.GlobalShaderParameterSet("light_ambient_only", AmbientOnly ? 1f : 0f);
         CelPost.Refresh();
         EdgeInk.Refresh();
         PropViews.RestyleRock();
@@ -137,6 +140,7 @@ public static class GameSettings
         InkOutlines = B("graphics", "ink", InkOutlines);
         CelShading = B("graphics", "cel", CelShading);
         SolidTerrain = B("graphics", "solid_terrain", SolidTerrain);
+        AmbientOnly = B("graphics", "ambient_only", AmbientOnly);
         TerrainInkPx = Math.Clamp(F("graphics", "ink_terrain_px", TerrainInkPx), 0f, 4f);
         ActorInkPx = Math.Clamp(F("graphics", "ink_actor_px", ActorInkPx), 0.5f, 6f);
         // (texture blur is saved under a new name: the old default of 2 smudged away what the textures show)
@@ -175,6 +179,7 @@ public static class GameSettings
         cfg.SetValue("graphics", "ink", InkOutlines);
         cfg.SetValue("graphics", "cel", CelShading);
         cfg.SetValue("graphics", "solid_terrain", SolidTerrain);
+        cfg.SetValue("graphics", "ambient_only", AmbientOnly);
         cfg.SetValue("graphics", "ink_terrain_px", TerrainInkPx);
         cfg.SetValue("graphics", "ink_actor_px", ActorInkPx);
         cfg.SetValue("graphics", "cel_tex_blur", CelTexBlur);

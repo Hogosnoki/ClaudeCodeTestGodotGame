@@ -400,6 +400,7 @@ public partial class SettingsMenu : Control
         Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA" }, Math.Min(1, (int)GameSettings.Aa), i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }), "MSAA is gone: it flickered against the ink outlines");
         Row(g, "Ink outlines on creatures", Toggle(GameSettings.InkOutlines, v => { GameSettings.InkOutlines = v; Render(); }));
         Row(g, "Stylised shading", Toggle(GameSettings.CelShading, v => { GameSettings.CelShading = v; Render(); }), "toned colour and light, flatter shading");
+        Row(g, "Ambient light only", Toggle(GameSettings.AmbientOnly, v => { GameSettings.AmbientOnly = v; Render(); }), "no lamps, sun or torches shading by direction: shapes read by colour and border");
         Row(g, "Minimalist ground", Toggle(GameSettings.SolidTerrain, v => { GameSettings.SolidTerrain = v; GameSettings.ApplyCel(); }), "grass on the floors, wall colour elsewhere, flat polygons; off: the photographed textures");
         Row(g, "  Object borders", SliderRow(0f, 4f, GameSettings.TerrainInkPx, v => { GameSettings.TerrainInkPx = v; GameSettings.ApplyCel(); }, v => v < 0.05f ? "None" : $"{v:0.0} px"), "the ink line round the outline of every 3D thing");
         Row(g, "  Character borders", SliderRow(0.5f, 6f, GameSettings.ActorInkPx, v => { GameSettings.ActorInkPx = v; GameSettings.ApplyCel(); }, v => $"{v:0.0} px"), "the ink line round heroes and creatures (with ink outlines on)");
