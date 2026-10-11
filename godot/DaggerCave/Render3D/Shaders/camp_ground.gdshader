@@ -16,7 +16,7 @@ uniform vec2 cliff_n = vec2(-0.62, 0.78);
 uniform float bare_radius = 2.4;
 
 varying vec3 v_wp;
-global uniform float cel_shading;
+#include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
 
 // the cave mouth: where it stands, which way it faces (toward the camp), and its size. Whatever lies in it
 // or just in front of it is shaded down into the dark of the tunnel, so the light gives out gradually.
@@ -78,6 +78,7 @@ void fragment() {
 	float toward = dot(v_wp.xz - cliff_o, cliff_n);
 	float foot = (1.0 - smoothstep(0.5, 6.5, toward + (fine - 0.5) * 2.0)) * step(-3.0, toward);
 	c = mix(c, vec3(0.28, 0.25, 0.2) * (0.7 + 0.6 * fine), foot * 0.75);
+	c = cel_tone(c);
 	float sh = mouth_shade(v_wp, false);
 	c *= 1.0 - 0.97 * sh;
 	ALBEDO = c;
@@ -90,11 +91,8 @@ void fragment() {
 // The stylised light (as on the creatures and the cave rock): soft-edged bands in a perceptual scale; off, plain Lambert.
 void light() {
 	float lit = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION;
-	float x = sqrt(lit) * 3.0;
-	float band = (floor(x) + smoothstep(0.3, 0.7, fract(x))) / 3.0;
-	band *= band;
-	DIFFUSE_LIGHT += LIGHT_COLOR * mix(lit, max(band, lit * 0.3), cel_shading) / PI;
+	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(lit) / PI;
 	vec3 hv = normalize(LIGHT + VIEW);
 	float sp = pow(clamp(dot(NORMAL, hv), 0.0, 1.0), mix(6.0, 48.0, 1.0 - ROUGHNESS)) * ATTENUATION * (1.0 - ROUGHNESS);
-	SPECULAR_LIGHT += LIGHT_COLOR * mix(sp, smoothstep(0.4, 0.5, sp) * 0.3, cel_shading) * SPECULAR_AMOUNT * 0.5 / PI;
+	SPECULAR_LIGHT += LIGHT_COLOR * cel_spec(sp, 0.3) * SPECULAR_AMOUNT * 0.5 / PI;
 }

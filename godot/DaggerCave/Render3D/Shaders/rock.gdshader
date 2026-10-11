@@ -56,8 +56,7 @@ uniform vec3 face_fill_dir = vec3(-0.35, 0.55, 0.76);
 uniform int debug_view = 0;
 // the stylised look (Settings > Graphics): the photographed rock flattened toward a few painted tones, its relief softened, and light in
 // soft-edged bands
-global uniform float cel_shading;
-uniform float cel_bands = 3.0;
+#include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
 
 varying vec3 v_wpos;
 varying vec3 v_wnrm;
@@ -89,8 +88,7 @@ Tri tri_setup(vec3 p, vec3 n) {
 	return t;
 }
 
-// (stylised: the photographs sampled softer, a few mip levels down, so the rock reads as painted shapes, not grain)
-float cel_bias() { return cel_shading * 2.0; }
+// (stylised: the photographs sampled softer, a few mip levels down, so the rock reads as painted shapes, not grain: see cel_bias)
 
 vec4 tri_col(sampler2D tex, Tri t, float sc) {
 	vec4 c = vec4(0.0);
@@ -347,12 +345,9 @@ void fragment() {
 
 	// (stylised: the photograph's detail flattened toward a few tones, a painted rock rather than a photographed one)
 	if (cel_shading > 0.0 && debug_view == 0) {
-		float L = luma(alb) + 1e-4;
-		float sL = sqrt(L);
-		float pL = (floor(sL * 6.0) + smoothstep(0.3, 0.7, fract(sL * 6.0))) / 6.0;
-		float flatL = mix(sL, pL, 0.4);
-		alb = mix(alb, alb / L * flatL * flatL, cel_shading);
-		dn *= mix(1.0, 0.45, cel_shading);
+		alb = cel_tone(alb);
+		// (the relief softens as the texture does)
+		dn *= mix(1.0, 1.0 / (1.0 + 0.35 * cel_tex_blur), cel_shading);
 	}
 	vec3 wn = normalize(n + dn * normal_strength);
 	// the viewer-side fill on the camera-facing rock (relief from the detail normal)
@@ -374,14 +369,9 @@ void fragment() {
 // The stylised light: soft-edged bands (shadow and falloff included) and almost no gloss; with cel_shading off, plain Lambert and a
 // Blinn highlight.
 void light() {
-	float ndl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
-	float lit = ndl * ATTENUATION;
-	// (banded in a perceptual scale, so a dim light keeps its brightness on average and only its steps show)
-	float x = sqrt(lit) * cel_bands;
-	float band = (floor(x) + smoothstep(0.3, 0.7, fract(x))) / cel_bands;
-	band *= band;
-	DIFFUSE_LIGHT += LIGHT_COLOR * mix(lit, band, cel_shading) / PI;
+	float lit = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION;
+	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(lit) / PI;
 	vec3 hv = normalize(LIGHT + VIEW);
 	float sp = pow(clamp(dot(NORMAL, hv), 0.0, 1.0), mix(6.0, 48.0, 1.0 - ROUGHNESS)) * ATTENUATION * (1.0 - ROUGHNESS);
-	SPECULAR_LIGHT += LIGHT_COLOR * mix(sp, smoothstep(0.4, 0.5, sp) * 0.35, cel_shading) * SPECULAR_AMOUNT * 0.5 / PI;
+	SPECULAR_LIGHT += LIGHT_COLOR * cel_spec(sp, 0.35) * SPECULAR_AMOUNT * 0.5 / PI;
 }

@@ -382,6 +382,13 @@ public partial class Main : Node
             else if (a == "--roguetest") _rogueLook = true;
             else if (a == "--exittest") _exitTest = true;
             else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
+            else if (a.StartsWith("--cel="))
+            {
+                // test aid: --cel=blur,tones,bands,softness
+                var v = a[6..].Split(',').Select(x => float.Parse(x, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                GameSettings.CelTexBlur = v[0]; GameSettings.CelTexTones = v[1]; GameSettings.CelLightBands = v[2]; GameSettings.CelBandSoft = v[3];
+                GameSettings.ApplyCel();
+            }
             else if (a == "--nocel") { GameSettings.CelShading = false; RenderingServer.GlobalShaderParameterSet("cel_shading", 0f); }
             else if (a.StartsWith("--nettest=")) _netTest = a[10..];
             else if (a.StartsWith("--netaddr=")) _netAddr = a[10..];

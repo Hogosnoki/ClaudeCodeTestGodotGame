@@ -20,3 +20,20 @@ cel_shading={
 "type": "float",
 "value": 1.0
 }
+
+cel_tex_blur={
+"type": "float",
+"value": 2.0
+}
+cel_tex_tones={
+"type": "float",
+"value": 6.0
+}
+cel_light_bands={
+"type": "float",
+"value": 3.0
+}
+cel_band_soft={
+"type": "float",
+"value": 0.4
+}

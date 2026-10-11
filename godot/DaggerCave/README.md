@@ -1201,6 +1201,20 @@ look at the old way) gives the creatures, heroes, cave rock and the camp a cel-s
 - **Painted rock**: the photographed rock textures are sampled a few mip levels softer (no grain), their brightness eased toward a
   few soft tone bands, and their relief softened, so the cave reads as shapes and colour rather than photographs.
 
+### Tuning the stylised look
+
+Under **Stylised shading** in Settings > Graphics are four dials, each live (they are shader globals, `Render3D/Shaders/cel.gdshaderinc`,
+shared by the creature, rock and camp shaders, so a change shows at once everywhere with nothing reloaded), and a preset that sets all
+four (Subtle, Painted, Bold, Poster; moving a dial by hand makes it "Custom"):
+- **Texture blur** (0 to 4): how soft textures are sampled, in mip levels down (on creatures, which have no image textures, how much of
+  their skin, scale and cloth detail is smoothed away, and their bump with it). The rock's relief softens with it.
+- **Texture tones** (not divided, or 2 to 12): a texture's brightness divided into that many soft-edged tones, in a perceptual scale,
+  the hue kept (so even three tones leave a goblin green and a bone pale).
+- **Light bands** (smooth, or 2 to 8): how many steps the light falls off in (shadows step with it); with bands, highlights are small
+  hard spots instead of a gloss.
+- **Band softness** (0 to 100%): how sharp the edge between two tones or two light bands is.
+`--cel=blur,tones,bands,softness` sets them from the command line (for screenshots).
+
 ## Run metrics
 
 **Your Build** has a second page, **Run metrics** (left / right, or click the tabs, switches between them), and the same page comes up once

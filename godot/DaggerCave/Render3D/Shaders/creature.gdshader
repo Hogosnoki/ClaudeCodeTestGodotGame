@@ -21,8 +21,7 @@ uniform float ghost_below = -100.0;
 uniform float ghost_fade = 0.3;
 // the stylised look (Settings > Graphics): light in a few soft-edged bands rather than a smooth falloff, a crisp highlight, and
 // flatter, simpler colour (less of the skin's mottling and grain); 0 = the old smooth, detailed look
-global uniform float cel_shading;
-uniform float cel_bands = 3.0;
+#include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
 
 instance uniform float flash : instance_index(0) = 0.0;
 instance uniform vec4 flash_color : source_color, instance_index(1) = vec4(1.0, 1.0, 1.0, 1.0);
@@ -195,13 +194,15 @@ void fragment() {
 	}
 	float h = d.x;
 	// (stylised: the grain of the skin is only a hint of itself)
-	alb *= mix(d.y, 1.0 + (d.y - 1.0) * 0.35, cel_shading);
+	// (how far the skin's detail is smoothed away follows the texture blur: none at 0, nearly all at 4)
+	float soft = cel_shading * clamp(cel_tex_blur / 4.0, 0.0, 1.0);
+	alb *= mix(d.y, 1.0 + (d.y - 1.0) * 0.1, soft);
 	glow *= d.z;
 
 	// mottling and veins make skin look alive (or not)
 	float skin_w = kw[1] / ksum;
 	if (skin_w > 0.001) {
-		alb *= mix(1.0, mix(0.82 + 0.32 * fbm(p * 3.1), 0.95 + 0.08 * fbm(p * 3.1), cel_shading), skin_w);
+		alb *= mix(1.0, mix(0.82 + 0.32 * fbm(p * 3.1), 0.97 + 0.04 * fbm(p * 3.1), soft), skin_w);
 		if (veins > 0.0) {
 			float v = 1.0 - abs(vnoise(p * 9.0) * 2.0 - 1.0);
 			v = pow(v, 14.0) + pow(1.0 - abs(vnoise(p * 23.0 + 5.0) * 2.0 - 1.0), 20.0) * 0.6;
@@ -212,7 +213,7 @@ void fragment() {
 	if (tint.a > 0.0) alb = mix(alb, alb * tint.rgb * 1.45, tint.a);
 
 	// (and its relief softened: the shapes read, not the pores)
-	vec3 n = bump(NORMAL, VERTEX, h * detail_strength * 0.006 * mix(1.0, 0.35, cel_shading));
+	vec3 n = bump(NORMAL, VERTEX, h * detail_strength * 0.006 * mix(1.0, 0.12, soft));
 	// (a degenerate bump, where the derivatives vanish, falls back to the plain normal: a NaN
 	// here would bloom into a blaze in bright light)
 	if (any(isnan(n)) || dot(n, n) < 0.25) n = NORMAL;
@@ -232,11 +233,8 @@ void fragment() {
 	// fleshy parts: a little light bleeds through where they are lit from behind (screen-space
 	// subsurface scattering is far too blurry at this scale, so only backlight is used)
 	// (a flatter palette: each colour drawn a little toward its band)
-	if (cel_shading > 0.0) {
-		vec3 sr = sqrt(max(alb, vec3(0.0)));
-		vec3 q = floor(sr * 7.0 + 0.5) / 7.0;
-		alb = mix(alb, q * q, 0.45 * cel_shading);
-	}
+	// (stepped in brightness only: the hue stays its own, however few the tones)
+	alb = cel_tone(alb);
 	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);
 	// (never a perfect mirror: under the sun a zero roughness makes the highlight infinite)
 	ROUGHNESS = max(rough, 0.08);
@@ -251,19 +249,10 @@ void fragment() {
 // The stylised light: a few bands with soft edges (shadow and falloff included), a crisp highlight; with cel_shading off, a plain
 // Lambert term and a Blinn highlight (near enough the smooth look it replaces).
 void light() {
-	float ndl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
-	float lit = ndl * ATTENUATION;
-	// (banded in a perceptual scale, so a dim light keeps its brightness on average and only its steps show)
-	float x = sqrt(lit) * cel_bands;
-	float band = (floor(x) + smoothstep(0.35, 0.65, fract(x))) / cel_bands;
-	band *= band;
-	// (a floor so the shadowed side keeps a little of the light's colour: a painted shadow, not a hole)
-	band = max(band, lit * 0.25);
-	float d = mix(lit, band, cel_shading);
-	DIFFUSE_LIGHT += LIGHT_COLOR * d / PI;
+	float lit = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION;
+	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(lit) / PI;
 	vec3 hv = normalize(LIGHT + VIEW);
 	float shin = mix(8.0, 64.0, 1.0 - ROUGHNESS);
 	float sp = pow(clamp(dot(NORMAL, hv), 0.0, 1.0), shin) * ATTENUATION * (1.0 - ROUGHNESS * 0.85);
-	float spc = mix(sp, smoothstep(0.35, 0.45, sp) * 0.6, cel_shading);
-	SPECULAR_LIGHT += LIGHT_COLOR * spc * SPECULAR_AMOUNT * 0.5 / PI;
+	SPECULAR_LIGHT += LIGHT_COLOR * cel_spec(sp, 0.6) * SPECULAR_AMOUNT * 0.5 / PI;
 }
