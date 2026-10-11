@@ -200,7 +200,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (ShiftForm.For(this) == h.Form) return choosing ? Tune.Shifter.KinChoosingFactor : Tune.Shifter.KinNoticeFactor;
         return Tune.Shifter.NoticeFactor;
     }
-    protected bool SeesP => Master != null || G.Cave.LineClear(GlobalPosition, P.GlobalPosition);
+    protected bool SeesP => Master != null || (G.Cave.LineClear(GlobalPosition, P.GlobalPosition) && !Breakables.Blocks(GlobalPosition, P.GlobalPosition));
     protected bool InWater => G.Cave.IsWater(GlobalPosition);
 
     public override void _Ready()

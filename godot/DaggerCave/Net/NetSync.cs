@@ -281,6 +281,15 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>A breakable built with the level (an ice platform or sheet, grasping roots) was struck here: the other games take the same blow.</summary>
+    public static void BreakableHit(int id, bool touch)
+    {
+        if (!Net.Online || Applying || id < 0) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(19).Int(id).Byte((byte)(touch ? 1 : 0));
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's hero struck a ledge (the other games take the same blow).</summary>
     public static void LedgeHit(RockLedge l)
     {
@@ -410,6 +419,19 @@ public static class NetSync
                 foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && c.Hero == hero) cage = c;
                 if (cage != null) cage.Free(false);
                 else { Meta.Unlock(hero); Net.EveryoneUnlocked(hero); }
+                Applying = false;
+                break;
+            }
+            case 19:
+            {
+                int bi = r.Int(); bool touch = r.More && r.Byte() != 0;
+                Applying = true;
+                foreach (var br in Breakables.All.ToArray())
+                {
+                    if (br is IcePlatform ip && ip.NetId == bi) ip.NetHit();
+                    else if (br is IceSheet ish && ish.NetId == bi) ish.NetHit(touch);
+                    else if (br is GraspingRoots gr && gr.NetId == bi) gr.NetHit();
+                }
                 Applying = false;
                 break;
             }

@@ -74,12 +74,19 @@ public partial class Player
     {
         if (_drainCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        // (the staff's wisp reaches a hung web too)
-        Breakables.Shoot(CastPoint, CastPoint + aim * DrainRange, 6f);
-        Breakables.Spell(CastPoint, CastPoint + aim * DrainRange);
         var target = FindSpellTarget(aim, DrainRange);
-        // held down, it drains whatever comes into reach (without casting wisps at nothing)
+        // held down, it drains whatever comes into reach (without casting wisps at nothing, or at the rock)
         if (target == null && held) return false;
+        // (the staff's wisp reaches a hung web too; a breakable in the way takes the cast, and the creature behind it is spared)
+        var end = target != null ? target.GlobalPosition : CastPoint + aim * DrainRange;
+        Breakables.Shoot(CastPoint, end, 6f);
+        if (Breakables.Spell(CastPoint, end))
+        {
+            _drainCd = Tune.Vitalist.DrainCooldown / Math.Max(0.2f, Stats.AttackSpeed);
+            Anim.Once("cast", 3, 1.6f);
+            _castGlow = 0.4f;
+            return true;
+        }
         var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         CastDir = dir;

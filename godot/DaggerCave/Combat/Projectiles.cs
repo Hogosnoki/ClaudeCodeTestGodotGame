@@ -138,7 +138,8 @@ public partial class EnemyProjectile : Node2D
         Vel.Y += Grav * dt * (water ? 0.3f : 1f);
         if (water) Vel *= 1f / (1f + 2f * dt);
         var np = GlobalPosition + Vel * dt;
-        if (cave.IsSolid(np) || Life <= 0)
+        // (a rubble wall or a rock slab stops it as the rock does)
+        if (cave.IsSolid(np) || Life <= 0 || ((Rubble.All.Count > 0 || RockLedge.All.Count > 0) && Breakables.Blocks(GlobalPosition, np)))
         {
             Impact(np);
             return;

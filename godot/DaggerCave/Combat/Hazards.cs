@@ -17,6 +17,36 @@ public interface IBreakable
 public static class Breakables
 {
     public static readonly List<IBreakable> All = new();
+    /// <summary>The next level-built breakable's number (the same in every game: they're built in the same order), for sending its blows online.</summary>
+    public static int NextId;
+
+    /// <summary>Is the way from <paramref name="a"/> to <paramref name="b"/> shut by a breakable that's still standing (a rubble wall, a rock slab)?
+    /// Creatures can't see or strike through one, and their shots stop at it.</summary>
+    public static bool Blocks(Vector2 a, Vector2 b)
+    {
+        foreach (var r in Rubble.All)
+            if (GodotObject.IsInstanceValid(r) && !r.Cleared && SegHitsBox(a, b, r.GlobalPosition, r.Size * 0.5f)) return true;
+        foreach (var l in RockLedge.All)
+            if (GodotObject.IsInstanceValid(l) && !l.Broken && SegHitsBox(a, b, l.GlobalPosition, new Vector2(l.Half - 1f, l.ThickPx * 0.5f))) return true;
+        return false;
+    }
+
+    /// <summary>Does the segment a-b pass through the box (centre c, half sizes h)? (the slab test)</summary>
+    public static bool SegHitsBox(Vector2 a, Vector2 b, Vector2 c, Vector2 h)
+    {
+        var d = b - a;
+        float t0 = 0f, t1 = 1f;
+        for (int k = 0; k < 2; k++)
+        {
+            float o = k == 0 ? a.X - c.X : a.Y - c.Y, v = k == 0 ? d.X : d.Y, e = k == 0 ? h.X : h.Y;
+            if (Math.Abs(v) < 1e-6f) { if (Math.Abs(o) > e) return false; continue; }
+            float ta = (-e - o) / v, tb = (e - o) / v;
+            if (ta > tb) (ta, tb) = (tb, ta);
+            t0 = Math.Max(t0, ta); t1 = Math.Min(t1, tb);
+            if (t0 > t1) return false;
+        }
+        return true;
+    }
 
     /// <summary>A spell sweeps from <paramref name="a"/> to <paramref name="b"/>: any ice sheet it crosses takes a touch, and a breakable
     /// platform (rock slab or ice) a blow. True if it touched one (a bolt stops there).</summary>
@@ -33,6 +63,10 @@ public static class Breakables
             // the breakable platforms take a spell as they take a blow, so a caster is never shut in by one
             else if (br is RockLedge ledge && !ledge.Broken && Crosses(ledge.GlobalPosition, ledge.Half - 1f, ledge.ThickPx * 0.5f, a, b, pad * 0.5f)) { ledge.Strike(a); any = true; }
             else if (br is IcePlatform plat && !plat.Broken && Crosses(plat.GlobalPosition + new Vector2(0, 7), plat.HalfW, 7f, a, b, pad * 0.5f)) { plat.Strike(a); any = true; }
+            // a rubble wall (a secret's too) takes a spell as it takes a blow, and stops it
+            else if (br is Rubble rb && !rb.Cleared && SegHitsBox(a, b, rb.GlobalPosition, rb.Size * 0.5f + new Vector2(pad * 0.5f, pad * 0.5f))) { rb.Strike(a); any = true; }
+            // the hazards a blade can clear (grasping roots, a web), a spell clears too
+            else if ((br is GraspingRoots || br is WebPatch) && br.HitSize > 0 && Geometry2D.GetClosestPointToSegment(br.HitCenter, a, b).DistanceTo(br.HitCenter) <= br.HitSize * 0.7f + pad) br.Strike(a);
         }
         return any;
     }
@@ -352,6 +386,9 @@ public partial class IceSheet : StaticBody2D, IBreakable
     public Vector2 HitCenter => GlobalPosition;
     public float HitSize => HalfW;
 
+    /// <summary>Its number in every game (see Breakables.NextId).</summary>
+    public int NetId = -1;
+
     public override void _Ready()
     {
         CollisionLayer = G.LayerTerrain;
@@ -359,11 +396,15 @@ public partial class IceSheet : StaticBody2D, IBreakable
         ZIndex = 2;
         AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(HalfW * 2, 8) }, Position = new Vector2(0, 2) });
         Breakables.All.Add(this);
+        NetId = Breakables.NextId++;
     }
 
     public override void _ExitTree() => Breakables.All.Remove(this);
 
-    public void Strike(Vector2 from) => Hit(--_hp);
+    public void Strike(Vector2 from) { NetSync.BreakableHit(NetId, false); Hit(--_hp); }
+
+    /// <summary>A friend's game struck (or touched) it.</summary>
+    public void NetHit(bool touch) { if (touch) { _touches++; Hit(TouchesToBreak - _touches); } else Hit(--_hp); }
 
     /// <summary>A spell touches the ice: the third touch breaks it (the same blast can't count twice).</summary>
     public bool Touch()
@@ -371,6 +412,7 @@ public partial class IceSheet : StaticBody2D, IBreakable
         double now = Time.GetTicksMsec() / 1000.0;
         if (now - _touchAt < 0.12) return false;
         _touchAt = now;
+        NetSync.BreakableHit(NetId, true);
         _touches++;
         Hit(TouchesToBreak - _touches);
         return true;
@@ -430,13 +472,23 @@ public partial class IcePlatform : StaticBody2D, IBreakable
         _shape = new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(HalfW * 2, 14) }, Position = new Vector2(0, 7), OneWayCollision = true };
         AddChild(_shape);
         Breakables.All.Add(this);
+        NetId = Breakables.NextId++;
     }
+
+    /// <summary>Its number in every game (see Breakables.NextId).</summary>
+    public int NetId = -1;
 
     public override void _ExitTree() => Breakables.All.Remove(this);
 
-    public void Strike(Vector2 from)
+    /// <summary>A friend's game struck it.</summary>
+    public void NetHit() => Hit(true);
+
+    public void Strike(Vector2 from) => Hit(false);
+
+    private void Hit(bool remote)
     {
         if (_broken) return;
+        if (!remote) NetSync.BreakableHit(NetId, false);
         _hits++;
         _flash = 0.12f;
         G.Sfx.Play("clink", GlobalPosition, -4, 0.1f, 0.7f);
@@ -513,11 +565,24 @@ public partial class GraspingRoots : Node2D, IBreakable
     /// <summary>For the 3D view: cut once (it sags).</summary>
     public bool Wounded => _cuts < Tune.Roots.CutsToClear;
 
-    public override void _Ready() { ZIndex = -1; Breakables.All.Add(this); }
+    /// <summary>Its number in every game (see Breakables.NextId).</summary>
+    public int NetId = -1;
+    private float _cutCool;
+
+    public override void _Ready() { ZIndex = -1; Breakables.All.Add(this); NetId = Breakables.NextId++; }
     public override void _ExitTree() => Breakables.All.Remove(this);
 
-    public void Strike(Vector2 from)
+    /// <summary>A friend's game cut it.</summary>
+    public void NetHit() => Cut(true);
+
+    public void Strike(Vector2 from) => Cut(false);
+
+    private void Cut(bool remote)
     {
+        // (one blow is one cut, however many ways it reaches the roots)
+        if (_cutCool > 0) return;
+        _cutCool = 0.15f;
+        if (!remote) NetSync.BreakableHit(NetId, false);
         G.Sfx.Play("web", GlobalPosition, -4, 0.1f, 0.7f);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -8), new Color(0.45f, 0.33f, 0.2f, 0.9f), 10, 130, 1.8f, 0.5f, 300, 10);
         _grip = 0;
@@ -531,6 +596,7 @@ public partial class GraspingRoots : Node2D, IBreakable
         float dt = (float)delta;
         _t += dt;
         _regrip -= dt;
+        _cutCool -= dt;
         var p = G.Player;
         bool held = p != null && !p.Dead && Math.Abs(p.GlobalPosition.X - GlobalPosition.X) < Radius && p.GlobalPosition.Y > GlobalPosition.Y - 30 && p.GlobalPosition.Y < GlobalPosition.Y + 6;
         if (held)

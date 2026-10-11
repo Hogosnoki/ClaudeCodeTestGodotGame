@@ -725,6 +725,7 @@ public partial class Main : Node
         NetSync.BeginLevel();
         EnemyProjectiles.Clear();
         Breakables.All.Clear();
+        Breakables.NextId = 0;
         RockLedge.All.Clear();
         _roomElites.Clear();
         ActiveBoss = null;

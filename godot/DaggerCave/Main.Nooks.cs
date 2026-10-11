@@ -186,7 +186,11 @@ public partial class Main
         ScCheck($"ten blows break it ({nat.Broken})", nat.Broken);
 
         // a spell takes a slab as a blow does: a bolt flung at one chips it (and goes no further)
-        var target = RockLedge.All.Where(x => GodotObject.IsInstanceValid(x) && !x.Broken).OrderBy(x => x.GlobalPosition.DistanceTo(p.GlobalPosition)).FirstOrDefault();
+        // (one with open air to its side for the bolt to fly through, and no creature about for it to home on instead)
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        bool OpenBeside(RockLedge x) { var f = x.GlobalPosition + new Vector2(-x.Half - 50f, 0); return !cave.IsSolid(f) && cave.LineClear(f, x.GlobalPosition + new Vector2(-x.Half + 2f, 0)); }
+        var target = RockLedge.All.Where(x => GodotObject.IsInstanceValid(x) && !x.Broken && OpenBeside(x)).OrderBy(x => x.GlobalPosition.DistanceTo(p.GlobalPosition)).FirstOrDefault();
+        ScCheck($"a slab with open air beside it, to fling a bolt at ({target != null})", target != null);
         if (target != null)
         {
             int left0 = target.Left;

@@ -1058,6 +1058,8 @@ public partial class Player : CharacterBody2D
         // Counter Roll: a melee blow met mid-roll is stopped, and answered
         if (!IsRemote && TryCounter(source)) { LastHitBlocked = true; return 0; }
         if (Invulnerable) return 0;
+        // (a creature can't strike through a wall of rubble or a rock slab between it and the hero)
+        if (source != null && GodotObject.IsInstanceValid(source) && Breakables.Blocks(source.GlobalPosition, GlobalPosition + new Vector2(0, -4))) return 0;
         // ducking under a blow that comes from above your head
         if (Crouching && source != null && from.Y < GlobalPosition.Y - Tune.Hero.DuckHeight)
         {
