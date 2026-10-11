@@ -128,8 +128,19 @@ public partial class Hud : Control
         if (p.PendingMilestones > 0)
         {
             // (a milestone waits for a quiet moment: it never opens by itself)
-            float pulse = 0.7f + 0.3f * MathF.Sin(Time.GetTicksMsec() / 1000f * 4f);
-            DrawString(font, xpPos + new Vector2(xpW + 10, 26), $"MILESTONE READY{(p.PendingMilestones > 1 ? $" x{p.PendingMilestones}" : "")}  ·  press {Controls.Name("milestone")}", HorizontalAlignment.Left, -1, 12, new Color(1f, 0.85f, 0.35f, pulse));
+            // it flashes hard when earned, then keeps a steady throb until it's spent
+            float now = Time.GetTicksMsec() / 1000f, since = now - p.MilestoneAt;
+            float flash = since < 1.6f ? (MathF.Sin(since * 22f) > 0 ? 1f : 0.25f) * (1f - since / 1.6f) : 0f;
+            float pulse = 0.55f + 0.45f * MathF.Sin(now * 5f);
+            float scale = 1f + 0.08f * MathF.Max(0f, MathF.Sin(now * 5f)) + 0.35f * MathF.Max(0f, 1f - since / 0.35f);
+            string text = $"MILESTONE READY{(p.PendingMilestones > 1 ? $" x{p.PendingMilestones}" : "")}  ·  press {Controls.Name("milestone")}";
+            var at = xpPos + new Vector2(xpW + 10, 26);
+            var size = font.GetStringSize(text, HorizontalAlignment.Left, -1, 12);
+            var col = new Color(1f, 0.85f + 0.15f * flash, 0.35f + 0.65f * flash, MathF.Max(pulse, flash));
+            DrawRect(new Rect2(at + new Vector2(-6, -15), new Vector2(size.X * scale + 12, 21 * scale)), new Color(1f, 0.75f, 0.2f, 0.12f * pulse + 0.4f * flash));
+            DrawSetTransform(at, 0f, new Vector2(scale, scale));
+            DrawString(font, Vector2.Zero, text, HorizontalAlignment.Left, -1, 12, col);
+            DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
         }
 
         // --- Breath ---
@@ -257,7 +268,7 @@ public partial class Hud : Control
         // --- a chest at your feet opens with the interact button ---
         if (!p.Dead && Chest.At(p.GlobalPosition) is Chest chest)
         {
-            var at = chest.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -46);
+            var at = OnScreen(chest.GlobalPosition, -46);
             string open = $"{Controls.Name("interact")}  open";
             var osz = font.GetStringSize(open, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(osz.X / 2 + 8, 16), new Vector2(osz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
@@ -266,7 +277,7 @@ public partial class Hud : Control
         // --- a plug of boulders ---
         if (!p.Dead && Rubble.At(p.GlobalPosition) is Rubble plug)
         {
-            var at = plug.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -plug.Size.Y * 0.5f - 18);
+            var at = OnScreen(plug.GlobalPosition, -plug.Size.Y * 0.5f - 18);
             string clear = $"{Controls.Name("interact")}  heave the rocks  ({plug.Left})";
             var csz = font.GetStringSize(clear, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(csz.X / 2 + 8, 16), new Vector2(csz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
@@ -275,7 +286,7 @@ public partial class Hud : Control
         // --- a caged hero ---
         if (!p.Dead && HeroCage.At(p.GlobalPosition) is HeroCage cage)
         {
-            var at = cage.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -50);
+            var at = OnScreen(cage.GlobalPosition, -50);
             string free = cage.NeedsCell ? (PowerCell.Found ? $"{Controls.Name("interact")}  revive the {cage.Hero}" : "it needs a power cell") : $"{Controls.Name("interact")}  free the {cage.Hero}";
             var fsz = font.GetStringSize(free, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(fsz.X / 2 + 8, 16), new Vector2(fsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
@@ -285,7 +296,7 @@ public partial class Hud : Control
         if (!p.Dead && VaultGate.At(p.GlobalPosition) is VaultGate gate)
         {
             // (over the top of the gate, on screen)
-            var at = gate.GetGlobalTransformWithCanvas() * new Vector2(0, -gate.Height) + new Vector2(0, -18);
+            var at = OnScreen(gate.GlobalPosition + new Vector2(0, -gate.Height), -18);
             bool key = p.Keys > 0;
             string say = key ? $"{Controls.Name("interact")}  open the vault (a key)" : "LOCKED: it takes a key";
             var gsz = font.GetStringSize(say, HorizontalAlignment.Left, -1, 14);
@@ -308,7 +319,7 @@ public partial class Hud : Control
         // --- wrapped in web: struggle (every press counts), with how far through the silk you are ---
         if (!p.Dead && p.Webbed)
         {
-            var at = p.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -62);
+            var at = OnScreen(p.GlobalPosition, -62);
             string msg = "STRUGGLE!  press anything";
             var msz = font.GetStringSize(msg, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(msz.X / 2 + 8, 16), new Vector2(msz.X + 16, 30)), new Color(0, 0, 0, 0.6f));
@@ -319,7 +330,7 @@ public partial class Hud : Control
         // --- a Guild lamp: read the page left by it ---
         if (!p.Dead && GuildLamp.At(p.GlobalPosition) is GuildLamp lamp)
         {
-            var at = lamp.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -56);
+            var at = OnScreen(lamp.GlobalPosition, -56);
             string read = $"{Controls.Name("interact")}  read the Delver's page";
             var rsz = font.GetStringSize(read, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(rsz.X / 2 + 8, 16), new Vector2(rsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
@@ -431,13 +442,29 @@ public partial class Hud : Control
         return PartyColors[k % PartyColors.Length];
     }
 
+    /// <summary>Where a point of the cave (px) shows on the screen through the 3D camera, nudged <paramref name="dy"/> screen px up or down.</summary>
+    public static Vector2 OnScreen(Vector2 worldPx, float dy)
+    {
+        var stage = G.Main?.Stage;
+        var c = stage != null ? stage.ScreenOf(worldPx) : (G.Main?.GetViewport().GetCanvasTransform() ?? Transform2D.Identity) * worldPx;
+        return c + new Vector2(0, dy);
+    }
+
+    /// <summary>A little over a hero's head on the screen, where the 3D camera shows it (not where the 2D canvas would put it).</summary>
+    private static Vector2 HeadOnScreen(Player h)
+    {
+        var stage = G.Main?.Stage;
+        if (stage == null) return h.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -44);
+        return stage.ScreenOf(h.GlobalPosition + new Vector2(0, -30)) + new Vector2(0, -8);
+    }
+
     private void DrawOnline(Font font, Vector2 vs, Player me, Vector2 at)
     {
         // your own mark over your head, in your colour
         if (!me.Dead && Net.Count > 1)
         {
             var mine = PartyColor(Net.Me);
-            var mp = me.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -44);
+            var mp = HeadOnScreen(me);
             DrawColoredPolygon(new[] { mp + new Vector2(-5, -2), mp + new Vector2(5, -2), mp + new Vector2(0, 6) }, mine);
         }
         foreach (var peer in Net.Peers.Values)
@@ -458,7 +485,7 @@ public partial class Hud : Control
 
             // their name over their hero (dim when far off)
             if (!here) continue;
-            var sp = h.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -44);
+            var sp = HeadOnScreen(h);
             if (sp.X < -50 || sp.Y < -50 || sp.X > vs.X + 50 || sp.Y > vs.Y + 50) continue;
             string tag = h.Dead ? $"{peer.Name}  ·  DOWN" : peer.Name;
             var tsz = font.GetStringSize(tag, HorizontalAlignment.Left, -1, 12);
@@ -963,7 +990,8 @@ void fragment() {
             foreach (var h in G.Players) if (IsInstanceValid(h) && !h.Dead) { p = h; break; }
         var vp = GetViewport();
         var size = vp.GetVisibleRect().Size;
-        var sp = p.GetGlobalTransformWithCanvas().Origin;
+        // (where the 3D camera shows the hero, not where the 2D canvas would: they only agree at the screen's middle)
+        var sp = Hud.OnScreen(p.GlobalPosition, 0f);
         _mat.SetShaderParameter("center", sp / size);
         _mat.SetShaderParameter("aspect", size.X / size.Y);
         float w = p.HeadUnder ? 1f : 0f;

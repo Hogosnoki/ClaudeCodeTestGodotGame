@@ -1298,6 +1298,9 @@ public abstract partial class Enemy : CharacterBody2D
         foreach (var e in G.Enemies)
         {
             if (e.Dead || e.Puppet || !e.Awake || e.IsBoss || e.IsGuardian || e.GlobalPosition.DistanceSquaredTo(p.GlobalPosition) > r2) continue;
+            // (only the creatures after this hero: one fighting a friend nearby, or one that can't see this hero for a wall, mustn't
+            // hold a slot that keeps the ones beside them waiting, following and never striking)
+            if (e.P != p || !e.SeesP) continue;
             if (e._slotT > 0) { taken++; ready++; }
             else if (e.AttackReady >= 0.99f) ready++;
         }

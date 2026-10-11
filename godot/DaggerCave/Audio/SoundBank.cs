@@ -296,6 +296,22 @@ public partial class SoundBank : Node
         Echo(b, 0.11f, 0.3f, 0.25f);
         Add("levelup", b, 0.7f);
 
+        // a milestone point earned: a quick bright arpeggio of little bells rising to a shimmer
+        b = Buf(1.1f);
+        {
+            int[] notes = { 76, 79, 84, 88, 91 };
+            for (int k = 0; k < notes.Length; k++)
+            {
+                float at = k * 0.07f;
+                Modes(b, at, NoteHz(notes[k]), GlassModes, k == notes.Length - 1 ? 0.6f : 1.6f, k == notes.Length - 1 ? 0.5f : 0.35f);
+                NoiseBurst(b, at, 0.006f, Const(1f), Decay(30), true);
+            }
+            float top = NoteHz(91);
+            Osc(b, 0.3f, 0.7f, t => top * (1f + 0.006f * MathF.Sin(t * 38f)), t => 0.12f * MathF.Exp(-t * 4f));
+        }
+        Echo(b, 0.09f, 0.3f, 0.3f);
+        Add("milestone", b, 0.55f);
+
         // an old wooden chest: the hinge creaking open, the lid knocking back against the wood, dust settling
         b = Buf(0.9f);
         Creak(b, 0.0f, 0.42f, 300f, 55f, 0.55f, 5);

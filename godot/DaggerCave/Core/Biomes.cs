@@ -552,7 +552,8 @@ public static class Biomes
             BackBottom = C("03090e"), Grass = 0.03f, Mushrooms = 0.01f, Crystals = 0.07f, Stalactites = 0.35f, Darkness = 0.8f, HazardCount = 0, Critters = 30,
             WaterCaches = 6, HighCaches = 1, RoomChests = 5, MiniBossesMin = 1, MiniBossesMax = 2, SpawnSpacing = 15f, WallGlow = 0.1f,
         };
-        foreach (var kind in new[] { SpawnKind.Ground, SpawnKind.Water, SpawnKind.WaterFloor, SpawnKind.WaterWall, SpawnKind.Shore })
+        // (dry places only: a bat in the water is a drowned bat)
+        foreach (var kind in new[] { SpawnKind.Ground, SpawnKind.Shore })
             river.Residents[kind] = L(E(1, () => Var(new Bat(), "River ", "7e98b0")));
         river.Residents[SpawnKind.Ceiling] = L(E(3, () => Var(new Bat(), "River ", "7e98b0"), 2, 4), E(2, () => Var(new Bat(), "Pale ", "b8c4d4"), 1, 3), E(1, () => Var(new Bat(), "Blind ", "5a6a88"), 2, 3));
         river.GroundEntrants = L(E(1, () => Var(new Bat(), "River ", "7e98b0")));

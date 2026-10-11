@@ -162,6 +162,65 @@ public partial class Main
             ScShot("sb_spider_wall");
         }
 
+        // a ledge: up its face, round the top edge and onto its feet on top (not flung off the edge)
+        Vector2? ledge = null; int ledgeDir = 1; float ledgeTop = 0, ledgeX = 0;
+        foreach (var sp in cave.Spawns.Where(s => s.Kind == SpawnKind.Ground))
+        {
+            if (ledge != null) break;
+            foreach (var (dir, off) in Enumerable.Range(-12, 25).SelectMany(k => new[] { (1, k * 30), (-1, k * 30) }))
+            {
+                var start = sp.Pos + new Vector2(off, -10);
+                if (cave.IsSolid(start) || cave.IsWater(start) || !cave.FindFloor(start, 40, out var f0)) continue;
+                float fy = f0.Y; bool ok = false;
+                for (int k = 1; k <= 20 && !ok; k++)
+                {
+                    float x = start.X + dir * k * 8f;
+                    if (cave.IsSolid(new Vector2(x, fy - 14)))
+                    {
+                        if (k < 4) break;
+                        float top = fy - 14;
+                        while (top > fy - 140 && cave.IsSolid(new Vector2(x + dir * 6, top))) top -= 2;
+                        float h = fy - top;
+                        if (h < 30 || h > 130) break;
+                        // (a flat top with room to stand, and open air above the face)
+                        bool flat = true;
+                        for (int dx = 12; dx <= 36 && flat; dx += 12)
+                            flat = cave.FindFloor(new Vector2(x + dir * dx, top - 24), 40, out var tf) && Math.Abs(tf.Y - top) < 14 && !cave.IsSolid(new Vector2(x + dir * dx, top - 30)) && !cave.IsWater(new Vector2(x + dir * dx, top - 6));
+                        for (float yy = fy - 20; yy > top - 24 && flat; yy -= 8) flat = !cave.IsSolid(new Vector2(x - dir * 14, yy));
+                        if (flat) { ok = true; ledgeTop = top; ledgeX = x; }
+                        break;
+                    }
+                    if (!cave.FindFloor(new Vector2(x, fy - 12), 30, out var fx) || Math.Abs(fx.Y - fy) > 10f || cave.IsWater(new Vector2(x, fy - 6))) break;
+                    fy = fx.Y;
+                }
+                if (ok) { ledge = start; ledgeDir = dir; break; }
+            }
+        }
+        if (ledge == null) GD.Print("[scenario] note: no ledge in this cave to climb over (try another --seed)");
+        else
+        {
+            SbBecome("spider", ledge.Value);
+            yield return null;
+            foreach (var _ in SbSleep(0.5f)) yield return null;
+            _scInput = new PlayerInput { Move = new Vector2(ledgeDir, 0) };
+            bool clung = false, onTop = false; float fastest = 0, past = 0;
+            for (float t = 0; t < 4.5f && !onTop; t += (float)GetProcessDeltaTime())
+            {
+                var sp = (Spider)_sbGhost;
+                if (sp.State == 5) { clung = true; _scInput = new PlayerInput { Move = new Vector2(ledgeDir * 0.3f, -1) }; }
+                if (clung) fastest = Math.Max(fastest, p.Velocity.Length());
+                if (clung && sp.State == 4 && sp.IsOnFloor() && p.GlobalPosition.Y < ledgeTop + 4) onTop = true;
+                if (_sbDebug && (int)(t * 60) % 6 == 0) GD.Print($"  [sb] t={t:0.00} pos={p.GlobalPosition} state={sp.State} n={sp.TestN} v={p.Velocity}");
+                yield return null;
+            }
+            _scInput = default;
+            foreach (var _ in SbSleep(0.4f)) yield return null;
+            past = (p.GlobalPosition.X - ledgeX) * ledgeDir;
+            ScCheck($"the spider climbs a ledge's face and stands on top ({ledgeTop:0}: at {p.GlobalPosition.Y:0}, clung {clung})", onTop);
+            ScCheck($"rounding the top edge is a crawl, not a throw (fastest {fastest:0} px/s, {past:0} px past the edge)", fastest < 200f && past < 60f);
+            ScShot("sb_spider_ledge");
+        }
+
         // the ceiling and the web
         Vector2? ceil = null;
         foreach (var (sp, off) in cave.Spawns.Where(s => s.Kind == SpawnKind.Ceiling).SelectMany(s => Enumerable.Range(-8, 17).Select(k => (s, k * 30))))

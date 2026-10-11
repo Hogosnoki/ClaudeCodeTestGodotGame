@@ -15,6 +15,10 @@ public partial class Stage3D : Node3D
     public static Stage3D I { get; private set; }
 
     public Camera3D Cam { get; private set; }
+
+    /// <summary>Where a point of the play plane (px) shows on the screen, through the 3D camera (its tilt and perspective: a 2D
+    /// canvas position only agrees with it at the middle of the screen).</summary>
+    public Vector2 ScreenOf(Vector2 px, float z = 0f) => Cam != null && Cam.IsInsideTree() ? Cam.UnprojectPosition(W3.P(px, z)) : px;
     public WorldEnvironment WorldEnv { get; private set; }
     public Godot.Environment Env { get; private set; }
     public TerrainView Terrain { get; private set; }

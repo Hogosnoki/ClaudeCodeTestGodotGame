@@ -270,11 +270,19 @@ public partial class Player : CharacterBody2D
         }
     }
 
+    /// <summary>When the latest milestone point was earned (the HUD flashes its notice).</summary>
+    public float MilestoneAt = -100f;
+
     private void LevelUpOnce()
     {
         Level++;
         Progression.AutoLevel(this);
-        if (Level % Meta.MilestoneEvery == 0) PendingMilestones++;
+        if (Level % Meta.MilestoneEvery == 0)
+        {
+            PendingMilestones++;
+            MilestoneAt = Time.GetTicksMsec() / 1000f;
+            if (this == G.Player) G.Sfx?.Play("milestone", null, -2, 0, 1f);
+        }
         if (Stats.LevelHeal) HealHere(Stats.MaxHp);
     }
 

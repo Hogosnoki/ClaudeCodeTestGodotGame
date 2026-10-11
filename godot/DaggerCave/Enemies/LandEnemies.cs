@@ -833,18 +833,43 @@ public partial class Spider : Enemy
         var before = GlobalPosition;
         if (Math.Abs(m) > 0.3f)
         {
-            var md = t1 * Math.Sign(m);
-            Face = n.Y > 0.5f ? Math.Sign(md.X) : Math.Sign(m);
+            Face = n.Y > 0.5f ? Math.Sign((t1 * Math.Sign(m)).X) : Math.Sign(m);
             float left = Tune.Spider.CrawlSpeed * MoveScale * (Elite ? 1.15f : 1f) * dt;
+            int turns = 0;
             while (left > 0.001f && _state == 5)
             {
+                // (the way along the surface is taken afresh each step: it follows the rock round curves and corners)
+                var tt = new Vector2(-_n.Y, _n.X);
+                var md = tt * Math.Sign(m);
                 float step = Math.Min(left, 2f);
                 left -= step;
-                if (!ClingStep(md, step)) break;
+                if (!ClingStep(md, step) && ++turns > 1) break;
             }
         }
-        if (_state == 5 && _n.Y < -0.9f) Release(Vector2.Zero); // (back on a floor: on its feet)
-        Velocity = (GlobalPosition - before) / Math.Max(dt, 1e-4f);
+        // (the step is a crawl's worth at most: rounding a corner is no throw)
+        float most = Tune.Spider.CrawlSpeed * MoveScale * 1.3f;
+        Velocity = ((GlobalPosition - before) / Math.Max(dt, 1e-4f)).LimitLength(most);
+        if (_state == 5 && _n.Y < -0.8f) Release(Velocity with { Y = 0 }); // (back on a floor: on its feet)
+    }
+
+    /// <summary>The way out of the rock at <paramref name="p"/>: the average of the open directions round it (zero when it can't tell).</summary>
+    private Vector2 SurfaceNormal(Vector2 p, float rad)
+    {
+        var sum = Vector2.Zero;
+        for (int k = 0; k < 16; k++)
+        {
+            var d = Vector2.Right.Rotated(k * Mathf.Tau / 16f);
+            if (!Solid(p + d * rad)) sum += d;
+        }
+        return sum.Length() > 1.5f ? sum.Normalized() : Vector2.Zero;
+    }
+
+    /// <summary>The normal it holds, eased toward the rock's own (so a curve from wall to floor brings it round).</summary>
+    private void Renormal(Vector2 p)
+    {
+        var nn = SurfaceNormal(p, ClingR + 5f);
+        if (nn == Vector2.Zero || nn.Dot(_n) < 0.2f) return;
+        _n = _n.Lerp(nn, 0.35f).Normalized();
     }
 
     /// <summary>One small step along the surface it holds: over a slope, round an edge (outward) or up into a corner (inward). False when it turned a corner or has nothing to step on.</summary>
@@ -862,7 +887,13 @@ public partial class Spider : Enemy
                 var up = q + n * k;
                 if (!Solid(up) && !Solid(up + md * (r + 1f))) { q = up; over = true; break; }
             }
-            if (!over) { _n = -md; return false; } // a wall ahead: up it
+            if (!over)
+            {
+                // a wall ahead: up it (onto the rock's own face, not just square to the way it went)
+                var wn = SurfaceNormal(GlobalPosition, r + 5f);
+                _n = wn != Vector2.Zero && wn.Dot(-md) > 0.3f ? wn : -md;
+                return false;
+            }
         }
         if (!Solid(q - n * (r + 2.5f)))
         {
@@ -870,20 +901,42 @@ public partial class Spider : Enemy
             bool found = false;
             for (int k = 1; k <= 5; k++)
                 if (Solid(q - n * (r + 2.5f + k))) { q -= n * k; found = true; break; }
-            if (!found)
-            {
-                // the edge: round it onto the face beyond
-                var w = q - n * (r + 2.5f) + md * (r - 1f);
-                if (!Solid(w) && Solid(w - md * (r + 2.5f))) { GlobalPosition = w; _n = md; }
-                return false;
-            }
+            if (!found) return RoundEdge(md);
         }
         else
         {
             for (int k = 0; k < 3 && Solid(q - n * (r - 1.5f)); k++) q += n;
         }
         GlobalPosition = q;
+        Renormal(q);
         return true;
+    }
+
+    /// <summary>
+    /// The edge: it swings round the corner it stands on, onto the face beyond. The corner is under its feet; it tries
+    /// the quarter turn first, then a little less or more (corners in rock are seldom square). False when there's no face to take.
+    /// </summary>
+    private bool RoundEdge(Vector2 md)
+    {
+        float r = ClingR, arm = r + 2f;
+        var n = _n;
+        var pivot = GlobalPosition - n * (r + 1f) + md * 2f;
+        float sign = n.Cross(md) > 0 ? 1f : -1f;
+        foreach (float deg in new[] { 90f, 70f, 110f, 50f, 130f, 150f })
+        {
+            var d = n.Rotated(sign * Mathf.DegToRad(deg));
+            var w = pivot + d * arm;
+            if (Solid(w)) continue;
+            // (the way round must be clear too: no tunnelling through a thin lip)
+            var mid = pivot + n.Rotated(sign * Mathf.DegToRad(deg * 0.5f)) * arm;
+            if (Solid(mid)) continue;
+            if (!Solid(w - d * (r + 4f))) continue;
+            GlobalPosition = w;
+            var nn = SurfaceNormal(w, r + 5f);
+            _n = nn != Vector2.Zero && nn.Dot(d) > 0.2f ? nn : d;
+            return false;
+        }
+        return false;
     }
 
     /// <summary>On its thread: down (a drop; with the attack, a strike), up (climbs back, and takes hold again where it left), or hangs. The jump button cuts it.</summary>
@@ -962,7 +1015,7 @@ public partial class Spider : Enemy
         _lastX = GlobalPosition.X;
         Anim.FlipV = _state == 0 || (_state == 5 && _n.Y > 0.5f);
         // (on a wall it lies along it, feet to the rock)
-        float lean = _state == 5 && Math.Abs(_n.Y) < 0.5f ? _n.Angle() + Mathf.Pi / 2f : 0f;
+        float lean = _state == 5 && _n.Y < 0.5f ? _n.Angle() + Mathf.Pi / 2f : 0f;
         Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, lean, 0.35f);
         Anim.Loop(_state switch
         {

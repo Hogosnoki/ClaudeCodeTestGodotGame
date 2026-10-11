@@ -2115,7 +2115,8 @@ public partial class Main : Node
         if (cave.IsWater(at)) return Biomes.Make(b.WaterEntrants);
         if (!cave.FindFloor(at, 140, out var floor) || (b.AirEntrants.Count > 0 && G.Chance(Tune.Spawning.EntranceBatChance)) || b.GroundEntrants.Count == 0)
             return Biomes.Make(b.AirEntrants);
-        if (cave.IsLava(floor + new Vector2(0, -12))) return Biomes.Make(b.AirEntrants);
+        // (a floor under the water is no place for a walker or a flier: a flier comes in the open air instead)
+        if (cave.IsLava(floor + new Vector2(0, -12)) || cave.IsWater(floor + new Vector2(0, -12))) return Biomes.Make(b.AirEntrants);
         pos = floor + new Vector2(0, -12);
         return Biomes.Make(b.GroundEntrants);
     }
@@ -2147,6 +2148,8 @@ public partial class Main : Node
             if (e is Spider { Grounded: false } && cave.FindCeiling(pos + new Vector2(0, 20), 60, out var ce)) pos = ce + new Vector2(0, 8);
             if (e is Eel eel) eel.WallNormal = sp.Normal;
             if (cave.IsSolid(pos)) pos = sp.Pos;
+            // (a creature of the air is never put in the water)
+            if ((e is Bat || e is Hornet) && cave.IsWater(pos)) { e.Free(); continue; }
             e.Position = pos;
             _world.AddChild(e);
             n++;

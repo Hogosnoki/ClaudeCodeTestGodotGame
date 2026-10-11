@@ -112,7 +112,7 @@ public partial class UpgradeMenu : Control
         if (!Visible) return;
         // your build over the cards: the keys are its own until it closes
         if (BuildPanel.Showing) { QueueRedraw(); return; }
-        if (Input.IsActionJustPressed("build") && BuildPanel.ClosedFrame != Engine.GetProcessFrames()) { ShowBuild?.Invoke(); return; }
+        if (Input.IsActionJustPressed("build") && _t - _openedAt > 0.25f && BuildPanel.ClosedFrame != Engine.GetProcessFrames()) { ShowBuild?.Invoke(); return; }
         if (Input.IsActionJustPressed("pick_1")) Choose(0);
         else if (Input.IsActionJustPressed("pick_2")) Choose(1);
         else if (Input.IsActionJustPressed("pick_3")) Choose(2);
@@ -148,7 +148,10 @@ public partial class UpgradeMenu : Control
         DrawRect(new Rect2(Vector2.Zero, vs), new Color(0, 0, 0, 0.6f));
         var tsz = font.GetStringSize(_title, HorizontalAlignment.Left, -1, 34);
         float pop = 1 + 0.05f * MathF.Sin(_t * 5);
-        DrawString(font, new Vector2(vs.X / 2 - tsz.X * pop / 2, vs.Y * 0.2f), _title, HorizontalAlignment.Left, -1, (int)(34 * pop), new Color(1f, 0.9f, 0.5f));
+        // (the title breathes by scaling the drawing, not by stepping through whole font sizes: those jump as the centring doesn't)
+        DrawSetTransform(new Vector2(vs.X / 2, vs.Y * 0.2f - 11f), 0f, new Vector2(pop, pop));
+        DrawString(font, new Vector2(-tsz.X / 2, 11f), _title, HorizontalAlignment.Left, -1, 34, new Color(1f, 0.9f, 0.5f));
+        DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
         string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)  ·  BACK: your build" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)  ·  TAB: your build";
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.7f));
