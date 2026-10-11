@@ -387,6 +387,7 @@ public partial class Main : Node
                 // test aid: --cel=blur,tones,bands,softness
                 var v = a[6..].Split(',').Select(x => float.Parse(x, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
                 GameSettings.CelTexBlur = v[0]; GameSettings.CelTexTones = v[1]; GameSettings.CelLightBands = v[2]; GameSettings.CelBandSoft = v[3];
+                if (v.Length > 4) GameSettings.CelLightFlat = v[4];
                 GameSettings.ApplyCel();
             }
             else if (a == "--nocel") { GameSettings.CelShading = false; RenderingServer.GlobalShaderParameterSet("cel_shading", 0f); }

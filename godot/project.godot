@@ -37,3 +37,7 @@ cel_band_soft={
 "type": "float",
 "value": 0.4
 }
+cel_light_flat={
+"type": "float",
+"value": 0.25
+}

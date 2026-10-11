@@ -250,7 +250,7 @@ void fragment() {
 // Lambert term and a Blinn highlight (near enough the smooth look it replaces).
 void light() {
 	float lit = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION;
-	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(lit) / PI;
+	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(dot(NORMAL, LIGHT), ATTENUATION) / PI;
 	vec3 hv = normalize(LIGHT + VIEW);
 	float shin = mix(8.0, 64.0, 1.0 - ROUGHNESS);
 	float sp = pow(clamp(dot(NORMAL, hv), 0.0, 1.0), shin) * ATTENUATION * (1.0 - ROUGHNESS * 0.85);

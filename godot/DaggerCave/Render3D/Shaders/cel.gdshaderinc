@@ -5,11 +5,13 @@
 //   cel_tex_tones   how many tones a texture's brightness is divided into (0 or 1: not divided)
 //   cel_light_bands how many bands the light falls in (0 or 1: a smooth falloff)
 //   cel_band_soft   how soft the edge between two tones or bands is (0 hard, 1 a gentle ramp)
+//   cel_light_flat  how flat the light is (0 the light's own contrast, 1 none): squeezed toward its own average, never brighter or darker
 global uniform float cel_shading;
 global uniform float cel_tex_blur;
 global uniform float cel_tex_tones;
 global uniform float cel_light_bands;
 global uniform float cel_band_soft;
+global uniform float cel_light_flat;
 
 // The mip bias textures are sampled with.
 float cel_bias() { return cel_shading * cel_tex_blur; }
@@ -31,9 +33,25 @@ vec3 cel_tone(vec3 c) {
 	return mix(c, c / L * t * t, cel_shading);
 }
 
-// The diffuse light term: banded in a perceptual scale (a dim light keeps its brightness on average, only its steps show), with a
-// floor so a shadowed side keeps a little of the light's colour.
-float cel_light(float lit) {
+// How a surface takes a light by its angle, flattened. Flat light is the lit side all one level and the dark side another: 0.65 where the
+// surface faces the light and 0 where it faces away, with a soft edge between. 0.65 is about the average cosine the lit surfaces show
+// in the game (the lights stand where they light what you see, so the surfaces in view face them more squarely than a random one
+// would: measured on the caves and the heroes), so moving toward it squeezes the light's contrast without making the picture brighter
+// or darker. (Distance and shadow are kept.)
+float cel_angle(float ndl) {
+	float f = cel_shading * clamp(cel_light_flat, 0.0, 1.0);
+	float lam = max(ndl, 0.0);
+	if (f <= 0.0) return lam;
+	float w = 0.08 + 0.3 * clamp(cel_band_soft, 0.0, 1.0);
+	float two = 0.65 * smoothstep(-w, w, ndl);
+	return mix(lam, two, f);
+}
+
+// The diffuse light term, from the surface's angle to the light (dot(NORMAL, LIGHT), unclamped) and the light's attenuation: flattened
+// (cel_angle), then banded in a perceptual scale (a dim light keeps its brightness on average, only its steps show), with a floor so a
+// shadowed side keeps a little of the light's colour.
+float cel_light(float ndl, float atten) {
+	float lit = cel_angle(ndl) * atten;
 	if (cel_shading <= 0.0 || cel_light_bands < 1.5) return lit;
 	float b = cel_steps(sqrt(lit), cel_light_bands);
 	return mix(lit, max(b * b, lit * 0.25), cel_shading);
@@ -41,6 +59,8 @@ float cel_light(float lit) {
 
 // A highlight made crisp: a hard-edged spot instead of a smooth gloss.
 float cel_spec(float sp, float gain) {
+	// (flatter light, duller highlights: a flat-lit thing has no gloss to catch)
+	sp *= 1.0 - cel_shading * clamp(cel_light_flat, 0.0, 1.0) * 0.85;
 	if (cel_shading <= 0.0 || cel_light_bands < 1.5) return sp;
 	float w = clamp(cel_band_soft, 0.02, 1.0) * 0.08;
 	return mix(sp, smoothstep(0.4 - w, 0.4 + w, sp) * gain, cel_shading);

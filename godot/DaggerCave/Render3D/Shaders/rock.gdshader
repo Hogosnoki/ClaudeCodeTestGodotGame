@@ -370,7 +370,7 @@ void fragment() {
 // Blinn highlight.
 void light() {
 	float lit = clamp(dot(NORMAL, LIGHT), 0.0, 1.0) * ATTENUATION;
-	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(lit) / PI;
+	DIFFUSE_LIGHT += LIGHT_COLOR * cel_light(dot(NORMAL, LIGHT), ATTENUATION) / PI;
 	vec3 hv = normalize(LIGHT + VIEW);
 	float sp = pow(clamp(dot(NORMAL, hv), 0.0, 1.0), mix(6.0, 48.0, 1.0 - ROUGHNESS)) * ATTENUATION * (1.0 - ROUGHNESS);
 	SPECULAR_LIGHT += LIGHT_COLOR * cel_spec(sp, 0.35) * SPECULAR_AMOUNT * 0.5 / PI;

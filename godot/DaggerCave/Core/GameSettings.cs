@@ -32,14 +32,19 @@ public static class GameSettings
     /// their brightness falls in (0 = not divided, else 2-12), how many bands the light falls in (0 = smooth, else 2-8), and how soft the
     /// edges between tones and bands are (0-1).</summary>
     public static float CelTexBlur = 2f, CelTexTones = 6f, CelLightBands = 3f, CelBandSoft = 0.4f;
+    /// <summary>How flat the light is (0-1): its contrast squeezed toward its own average, never brighter or darker overall. With light bands
+    /// it reads as a cartoon; without, as plainer, cheaper lighting.</summary>
+    public static float CelLightFlat = 0.25f;
 
     /// <summary>Ready-made settings of those dials: (name, blur, tones, bands, softness).</summary>
-    public static readonly (string name, float blur, float tones, float bands, float soft)[] CelPresets =
+    public static readonly (string name, float blur, float tones, float bands, float soft, float flat)[] CelPresets =
     {
-        ("Subtle", 1f, 0f, 4f, 0.7f),
-        ("Painted", 2f, 6f, 3f, 0.4f),
-        ("Bold", 3f, 4f, 2f, 0.15f),
-        ("Poster", 4f, 3f, 2f, 0.05f),
+        ("Subtle", 1f, 0f, 4f, 0.7f, 0f),
+        ("Painted", 2f, 6f, 3f, 0.4f, 0.25f),
+        ("Cartoon", 2.5f, 5f, 2f, 0.2f, 0.55f),
+        ("Bold", 3f, 4f, 2f, 0.15f, 0.4f),
+        ("Poster", 4f, 3f, 2f, 0.05f, 0.7f),
+        ("Flat", 1.5f, 0f, 0f, 0.5f, 0.85f),
     };
 
     /// <summary>The stylised look's settings into the shader globals (they take effect everywhere at once).</summary>
@@ -50,6 +55,7 @@ public static class GameSettings
         RenderingServer.GlobalShaderParameterSet("cel_tex_tones", CelTexTones);
         RenderingServer.GlobalShaderParameterSet("cel_light_bands", CelLightBands);
         RenderingServer.GlobalShaderParameterSet("cel_band_soft", CelBandSoft);
+        RenderingServer.GlobalShaderParameterSet("cel_light_flat", CelLightFlat);
     }
     public enum AntiAlias { Off, Fxaa, Msaa2, Msaa4 }
     public static AntiAlias Aa = AntiAlias.Off;
@@ -119,6 +125,7 @@ public static class GameSettings
         CelTexTones = Math.Clamp(F("graphics", "cel_tones", CelTexTones), 0f, 12f);
         CelLightBands = Math.Clamp(F("graphics", "cel_bands", CelLightBands), 0f, 8f);
         CelBandSoft = Math.Clamp(F("graphics", "cel_soft", CelBandSoft), 0f, 1f);
+        CelLightFlat = Math.Clamp(F("graphics", "cel_flat", CelLightFlat), 0f, 1f);
         Aa = (AntiAlias)Math.Min(1, I("graphics", "aa", (int)Aa)); // (MSAA flickered against the ink outlines: any old choice of it is FXAA now)
         Brightness = F("graphics", "brightness", Brightness);
         Shake = F("graphics", "shake", Shake);
@@ -151,6 +158,7 @@ public static class GameSettings
         cfg.SetValue("graphics", "cel_tones", CelTexTones);
         cfg.SetValue("graphics", "cel_bands", CelLightBands);
         cfg.SetValue("graphics", "cel_soft", CelBandSoft);
+        cfg.SetValue("graphics", "cel_flat", CelLightFlat);
         cfg.SetValue("graphics", "aa", (int)Aa);
         cfg.SetValue("graphics", "brightness", Brightness);
         cfg.SetValue("graphics", "shake", Shake);

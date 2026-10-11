@@ -1203,9 +1203,9 @@ look at the old way) gives the creatures, heroes, cave rock and the camp a cel-s
 
 ### Tuning the stylised look
 
-Under **Stylised shading** in Settings > Graphics are four dials, each live (they are shader globals, `Render3D/Shaders/cel.gdshaderinc`,
+Under **Stylised shading** in Settings > Graphics are five dials, each live (they are shader globals, `Render3D/Shaders/cel.gdshaderinc`,
 shared by the creature, rock and camp shaders, so a change shows at once everywhere with nothing reloaded), and a preset that sets all
-four (Subtle, Painted, Bold, Poster; moving a dial by hand makes it "Custom"):
+five (Subtle, Painted, Cartoon, Bold, Poster, Flat; moving a dial by hand makes it "Custom"):
 - **Texture blur** (0 to 4): how soft textures are sampled, in mip levels down (on creatures, which have no image textures, how much of
   their skin, scale and cloth detail is smoothed away, and their bump with it). The rock's relief softens with it.
 - **Texture tones** (not divided, or 2 to 12): a texture's brightness divided into that many soft-edged tones, in a perceptual scale,
@@ -1213,7 +1213,13 @@ four (Subtle, Painted, Bold, Poster; moving a dial by hand makes it "Custom"):
 - **Light bands** (smooth, or 2 to 8): how many steps the light falls off in (shadows step with it); with bands, highlights are small
   hard spots instead of a gloss.
 - **Band softness** (0 to 100%): how sharp the edge between two tones or two light bands is.
-`--cel=blur,tones,bands,softness` sets them from the command line (for screenshots).
+- **Light flatness** (0 to 100%): the light's contrast squeezed toward its own average. Toward 100% a surface takes a light at one
+  level on the side facing it (0.65) and none on the side away, with a soft edge (`cel_angle`), instead of shading smoothly with the
+  angle; distance falloff and shadows stay, highlights dull. The flat level is set from what the game's scenes actually show, so the
+  picture is never brighter or darker for it, only flatter (measured at 0% and 100%, bands off: the den -7%, the fungal caverns +1%,
+  the Swordsman -5%, a goblin -1%). With light bands it reads as a cartoon (the Cartoon preset); without them, as plainer, cheaper
+  lighting (the Flat preset).
+`--cel=blur,tones,bands,softness[,flatness]` sets them from the command line (for screenshots).
 
 ## Run metrics
 
