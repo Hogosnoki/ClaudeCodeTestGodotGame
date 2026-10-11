@@ -210,7 +210,16 @@ public static class UiArt
     /// <summary>The outline of a rounded rectangle, clockwise (corners of radius <paramref name="rad"/>, <paramref name="seg"/> steps each).</summary>
     public static Vector2[] Rounded(Rect2 r, float rad, int seg = 8)
     {
-        rad = MathF.Min(rad, MathF.Min(r.Size.X, r.Size.Y) * 0.5f);
+        // (a rectangle too small to round is a plain one; and the radius stays a hair under half the short side, so neighbouring corners
+        // never meet in the same point: duplicate points make the polygon fail to triangulate)
+        r = new Rect2(r.Position, new Vector2(MathF.Max(r.Size.X, 0.5f), MathF.Max(r.Size.Y, 0.5f)));
+        float half = MathF.Min(r.Size.X, r.Size.Y) * 0.5f;
+        rad = Math.Clamp(rad, 0f, half - 0.15f);
+        if (rad < 0.3f)
+        {
+            var sq = new[] { r.Position, new Vector2(r.End.X, r.Position.Y), r.End, new Vector2(r.Position.X, r.End.Y) };
+            return Pad(sq, seg * 4 + 4);
+        }
         var pts = new List<Vector2>(seg * 4 + 4);
         void Corner(Vector2 c, float a0)
         {
@@ -225,6 +234,19 @@ public static class UiArt
         Corner(r.Position + new Vector2(rad, r.Size.Y - rad), MathF.PI / 2f);
         Corner(r.Position + new Vector2(rad, rad), MathF.PI);
         return pts.ToArray();
+    }
+
+    /// <summary>A plain rectangle's four corners spread over <paramref name="n"/> points along its edges (callers that pair two outlines point by point need the same count), no two the same.</summary>
+    private static Vector2[] Pad(Vector2[] sq, int n)
+    {
+        var o = new Vector2[n];
+        for (int k = 0; k < n; k++)
+        {
+            float t = k / (float)n * 4f;
+            int e = (int)t;
+            o[k] = sq[e % 4].Lerp(sq[(e + 1) % 4], t - e);
+        }
+        return o;
     }
 
     private static Vector2[] Closed(Vector2[] p) { var q = new Vector2[p.Length + 1]; p.CopyTo(q, 0); q[^1] = p[0]; return q; }
