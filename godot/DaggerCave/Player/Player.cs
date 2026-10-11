@@ -249,6 +249,7 @@ public partial class Player : CharacterBody2D
         if (Stats.SelfRepair) { HealAsFuel(amount); return; }
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
+        RunMetrics.Healed(NetSync.Giver, Hp - before, amount - (Hp - before));
         int healed = Num.Delta(before, Hp);
         if (healed > 0) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + healed, HealColorLight, 14);
         if (IsWarden) MendShield(amount * Tune.Warden.HealToShield);
@@ -536,7 +537,7 @@ public partial class Player : CharacterBody2D
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
-        if (_dodgeBuf > 0 && _heldRope == null && DodgeButton(_dodgeInput)) _dodgeBuf = 0;
+        if (_dodgeBuf > 0 && _heldRope == null && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); }
 
         // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
         if (Possessed) v = PossessedStep(inp);
@@ -598,11 +599,11 @@ public partial class Player : CharacterBody2D
 
         // the attack button, then the two ability buttons (each fires once it's allowed); held
         // down, the attack goes again as soon as it can, wherever you aim now
-        if (_attackBuf > 0 && Primary(_attackAim)) _attackBuf = 0;
-        else if (inp.AttackHeld && _attackBuf <= 0) Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true, stick: inp.StickAttack);
-        if (_abilityBuf > 0 && Ability(_abilityAim)) _abilityBuf = 0;
-        if (_ability2Buf > 0 && Ability2(_ability2Aim)) _ability2Buf = 0;
-        if (_supportBuf > 0 && Support(_supportAim)) _supportBuf = 0;
+        if (_attackBuf > 0 && Primary(_attackAim)) { _attackBuf = 0; RunMetrics.Used(this, 0); }
+        else if (inp.AttackHeld && _attackBuf <= 0 && Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true, stick: inp.StickAttack)) RunMetrics.Used(this, 0);
+        if (_abilityBuf > 0 && Ability(_abilityAim)) { _abilityBuf = 0; RunMetrics.Used(this, 1); }
+        if (_ability2Buf > 0 && Ability2(_ability2Aim)) { _ability2Buf = 0; RunMetrics.Used(this, 2); }
+        if (_supportBuf > 0 && Support(_supportAim)) { _supportBuf = 0; RunMetrics.Used(this, 4); }
         if (_swingT >= 0) UpdateSwing(dt);
         TickBash(dt);
 
@@ -1125,13 +1126,17 @@ public partial class Player : CharacterBody2D
 
     private float HurtHere(float dmg, Vector2 from, float knock, Enemy source, bool shared = false)
     {
+        float raw = dmg;
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
         var block = TryBlock(from, dmg, melee ? source : null, source);
         if (block.Blocked)
         {
             // the shield took it: at most the share it lets through, with no flinch
             LastHitBlocked = true;
-            return ApplyChip(block.Through, source);
+            float chip = ApplyChip(block.Through, source);
+            RunMetrics.Prevented(raw - chip, Net.Me);
+            RunMetrics.Took(chip, source);
+            return chip;
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
         // (the Automaton braced: blows in front lose most of their force, and the first melee one is answered)
@@ -1140,13 +1145,22 @@ public partial class Player : CharacterBody2D
         // (Assassin's Edge: a blow at your back lands harder)
         if (Stats.BackTakenMult != 1f && Math.Abs(from.X - GlobalPosition.X) > 2f && Math.Sign(from.X - GlobalPosition.X) != Math.Sign(Facing)) dmg *= Stats.BackTakenMult;
         if (Stats.HeaveGuard && Heaving) dmg *= 0.5f; // (Braced)
+        // (what the hero's own guard took off it: armour, a brace, a form's hide)
+        RunMetrics.Prevented(raw - dmg, Net.Me);
         // a barrier soaks what it can first (a blow it soaks whole doesn't even make you flinch)
+        float preBarrier = dmg;
         dmg = Soften(dmg);
+        RunMetrics.Prevented(preBarrier - dmg, _barrierBy);
         // (Shared Burden: the Aegis takes its share of what gets through)
+        float preShare = dmg;
         dmg = ShareBurden(dmg);
+        RunMetrics.Prevented(preShare - dmg, _burdenBy);
         // (Share Pain: an Aegis takes her part of every blow)
+        preShare = dmg;
         dmg = SharePain(dmg);
+        RunMetrics.Prevented(preShare - dmg, _painBy);
         if (dmg <= 0.01f) { LastHitBlocked = true; _invuln = Math.Max(_invuln, 0.15f); return 0; }
+        RunMetrics.Took(dmg, source);
         if (source != null && GodotObject.IsInstanceValid(source))
         {
             source.CreditDamage(dmg);
@@ -1252,6 +1266,7 @@ public partial class Player : CharacterBody2D
     {
         if (Dead) return;
         Dead = true; Hp = 0;
+        if (!IsRemote) RunMetrics.Died();
         // (a hero that falls in a creature's form falls as itself)
         if (Possessed) { Form = null; DropGhost(); ApplyFormLook(); }
         ClearStatus();

@@ -335,6 +335,7 @@ public partial class Main
     public void OnlineRunOver(bool victory)
     {
         if (!_onlineRun || _state == State.Dead) return;
+        RunMetrics.Send();
         Net.InRun = false;
         if (victory) _victory = true;
         _waitingAt = null;
@@ -347,6 +348,7 @@ public partial class Main
         _hitStopLeft = 0;
         _state = State.Dead;
         _deadT = 0;
+        _metricsShown = false;
         _sfx.SetMusic("");
         Meta.Save();
     }

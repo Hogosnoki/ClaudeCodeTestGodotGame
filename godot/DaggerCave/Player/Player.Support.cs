@@ -290,6 +290,7 @@ public partial class Player
         if (Dead || IsRemote) return;
         amount = Soften(amount * (1f - Stats.DamageReduction) * Stats.DamageTakenMult);
         if (amount <= 0.01f) return;
+        RunMetrics.Took(amount, null, "Friends' blows (shared)");
         TakeRawDamage(amount, "chip");
         Anim.Flash(0.4f);
     }

@@ -28,6 +28,8 @@ public partial class Player
         if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Barrier, amount, seconds); return; }
         BarrierHp = Math.Max(BarrierHp, amount);
         _barrierT = Math.Max(_barrierT, seconds);
+        // (whose barrier it is: its soaking is put down to them)
+        _barrierBy = NetSync.Giver != 0 ? NetSync.Giver : Net.Me;
         G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 20, new Color(0.75f, 0.9f, 1f), 0.4f, FxLayer.RingStyle.Dashed);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -4), 16, new Color(0.6f, 0.85f, 1f), 0.15f);
         G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 1.5f);
@@ -64,6 +66,8 @@ public partial class Player
     /// What's left of a blow once the barrier has soaked what it can, and Warding Mending has
     /// softened it. A blow the barrier soaks whole spends it with a flash of light.
     /// </summary>
+    private int _barrierBy;
+
     private float Soften(float dmg)
     {
         dmg = BubbleSoak(dmg);

@@ -684,6 +684,7 @@ public abstract partial class Enemy : CharacterBody2D
             Hp -= _hexRot * dt;
             _dotAcc += _hexRot * dt;
             NetSync.CreditDealt(_hexBy, before - Math.Max(0, Hp));
+            if (!Net.Online || _hexBy == 0 || _hexBy == Net.Me) RunMetrics.Dealt(this, before - Math.Max(0, Hp), before, overTime: true);
             if (Hp <= 0) { LastAttacker = _hexBy; Die(); return false; }
         }
         if (_burnT > 0)
@@ -695,6 +696,7 @@ public abstract partial class Enemy : CharacterBody2D
                 Hp -= _burnDps * dt * Affinity.Mult(Element, DamageKind.Fire);
                 _dotAcc += _burnDps * dt * Affinity.Mult(Element, DamageKind.Fire);
                 NetSync.CreditDealt(_burnBy, before - Math.Max(0, Hp));
+                if (!Net.Online || _burnBy == 0 || _burnBy == Net.Me) RunMetrics.Dealt(this, before - Math.Max(0, Hp), before, overTime: true);
                 if (Hp <= 0) { LastAttacker = _burnBy; Die(); return false; }
             }
         }
@@ -707,6 +709,7 @@ public abstract partial class Enemy : CharacterBody2D
                 Hp -= _venomDps * dt;
                 _dotAcc += _venomDps * dt;
                 NetSync.CreditDealt(_venomBy, before - Math.Max(0, Hp));
+                if (!Net.Online || _venomBy == 0 || _venomBy == Net.Me) RunMetrics.Dealt(this, before - Math.Max(0, Hp), before, overTime: true);
                 if (Hp <= 0) { LastAttacker = _venomBy; Die(); return false; }
             }
         }
@@ -911,13 +914,23 @@ public abstract partial class Enemy : CharacterBody2D
         if (ArmorBroken && _affinity < 1f) _affinity = 1f;
         dmg *= _affinity;
         if (kind != DamageKind.Raw) dmg *= RelicBlowMult();
-        if (Puppet) return PuppetHurt(dmg, knock, hitPos);
+        if (Puppet)
+        {
+            // (a copy: this game's hero struck it; the kill is reckoned from the health the copy shows)
+            float hpP = Hp;
+            float d = PuppetHurt(dmg, knock, hitPos);
+            RunMetrics.Dealt(this, d, hpP);
+            if (d >= hpP && hpP > 0 && !_metricKill) { _metricKill = true; RunMetrics.Killed(this); }
+            return d;
+        }
         // (online, the kill goes to whoever struck last: another game's hero, or this one's)
         LastAttacker = NetSync.Striker;
         NetSync.Scope++;
         try
         {
+            float hpM = Hp;
             float dealt = TakeHit(dmg, knock, hitPos);
+            if (NetSync.Striker == Net.Me) RunMetrics.Dealt(this, dealt, hpM);
             // its ward (armour, or its element's resistance) breaks once it has taken a tenth of its health
             if (HasWard && !_armorBroken && dealt > 0 && !Dead)
             {
@@ -930,7 +943,7 @@ public abstract partial class Enemy : CharacterBody2D
     }
 
     private float _armorTaken;
-    private bool _armorBroken;
+    private bool _armorBroken, _metricKill;
     /// <summary>Its ward is broken: the armour of an armoured creature, or an elemental one's resistance (a copy goes by what the host says).</summary>
     public bool ArmorBroken => _armorBroken || (Puppet && (_netFlags & NfUnarmored) != 0);
     /// <summary>It starts with a ward that turns some blows aside (armour, or an element with a resistance), until it breaks.</summary>
@@ -1063,7 +1076,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);
         else G.Fx.Pop(GlobalPosition, BloodColor, HitRadius);
         // the kill goes to whoever landed the blow (online, maybe another game's hero)
-        if (!Net.Online || LastAttacker == 0 || LastAttacker == Net.Me) G.Player?.OnKill();
+        if (!Net.Online || LastAttacker == 0 || LastAttacker == Net.Me) { G.Player?.OnKill(); RunMetrics.Killed(this); }
         if (Elite && !IsBoss) G.Main.SlowMo(Tune.Feel.EliteKillSlowMo, Tune.Feel.EliteKillSlowMoScale);
         if (IsBoss) G.Main.SlowMo(Tune.Feel.BossKillSlowMo, Tune.Feel.BossKillSlowMoScale);
         BrainFlush(terminal: true);

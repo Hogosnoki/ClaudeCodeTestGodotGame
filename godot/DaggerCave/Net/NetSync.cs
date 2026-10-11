@@ -172,6 +172,8 @@ public static class NetSync
     // ---- who struck (the host applies other games' blows)
 
     private static int _striker;
+    /// <summary>The peer whose boon or heal is being applied right now (0: this game's own).</summary>
+    public static int Giver;
     /// <summary>Whose blow is landing right now: another game's hero (the host is applying it), or this game's.</summary>
     public static int Striker => _striker != 0 ? _striker : Net.Me;
 
@@ -199,7 +201,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.CardTaken or Net.Msg.ChestCut or Net.Msg.HeroBurden;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.CardTaken or Net.Msg.Metrics or Net.Msg.ChestCut or Net.Msg.HeroBurden;
 
     // ================================================================== heroes
 
@@ -513,7 +515,7 @@ public static class NetSync
     public static void HealRemote(Player target, float amount)
     {
         var w = new NetOut(Net.Msg.HeroHeal);
-        w.Int(target.NetOwner).Float(amount);
+        w.Int(target.NetOwner).Float(amount).Int(Net.Me);
         Net.SendAll(w, true);
     }
 
@@ -532,7 +534,7 @@ public static class NetSync
     public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0, int id = 0)
     {
         var w = new NetOut(Net.Msg.HeroBoon);
-        w.Int(target.NetOwner).Byte((byte)kind).Float(a).Float(b).Float(c).Int(id);
+        w.Int(target.NetOwner).Byte((byte)kind).Float(a).Float(b).Float(c).Int(id).Int(Net.Me);
         Net.SendAll(w, true);
     }
 
@@ -540,7 +542,7 @@ public static class NetSync
     public static void Revive(Player target)
     {
         var w = new NetOut(Net.Msg.Revive);
-        w.Int(target.NetOwner);
+        w.Int(target.NetOwner).Int(Net.Me);
         Net.SendAll(w, true);
     }
 
@@ -1261,15 +1263,18 @@ public static class NetSync
             case Net.Msg.HeroHeal:
             {
                 int owner = r.Int(); float amount = r.Float();
-                if (owner == Net.Me && G.Player != null) { Scope++; try { G.Player.Heal(amount); } finally { Scope--; } }
+                int giver = r.More ? r.Int() : from;
+                if (owner == Net.Me && G.Player != null) { Scope++; Giver = giver; try { G.Player.Heal(amount); } finally { Scope--; Giver = 0; } }
                 break;
             }
             case Net.Msg.HeroBoon:
             {
                 int owner = r.Int(); var kind = (Boon)r.Byte(); float a = r.Float(), b = r.Float(), c = r.Float(); int id = r.Int();
+                int giver = r.More ? r.Int() : from;
                 var p = G.Player;
                 if (owner != Net.Me || p == null || p.Dead) break;
                 Scope++;
+                Giver = giver;
                 try
                 {
                     if (kind == Boon.Barrier) p.GiveBarrier(a, b);
@@ -1282,13 +1287,14 @@ public static class NetSync
                     // (a guardian's tricks, from the host's game, and a friend's blade through the web)
                     else if (kind is Boon.Web or Boon.Stun or Boon.Venom or Boon.Unweb or Boon.Glitch or Boon.Burn) p.Afflict(kind, a, b);
                 }
-                finally { Scope--; }
+                finally { Scope--; Giver = 0; }
                 break;
             }
             case Net.Msg.Revive:
             {
                 int owner = r.Int();
-                if (owner == Net.Me) G.Player?.Revive();
+                int giver = r.More ? r.Int() : from;
+                if (owner == Net.Me && G.Player != null) { RunMetrics.Revived(giver); G.Player.Revive(); }
                 break;
             }
             case Net.Msg.PropSpawn: if (!Net.IsHost) OnProp(r); break;
@@ -1317,6 +1323,7 @@ public static class NetSync
             case Net.Msg.HeroBurden: { int to = r.Int(); float amount = r.Float(); if (to == Net.Me) G.Player?.TakeShared(amount); break; }
             case Net.Msg.Relic: { int who = r.Int(); RunRelics.Note(who, r.Str()); break; }
             case Net.Msg.CardTaken: { int who = r.Int(); Upgrades.NoteCard(who, r.Str()); break; }
+            case Net.Msg.Metrics: RunMetrics.OnNet(r); break;
             case Net.Msg.ChestCut: ChestById(r.Int())?.Cut(remote: true); break;
             case Net.Msg.GateAsk: if (Net.IsHost) OpenGate(r.Int(), from); break;
             case Net.Msg.GateOpened: { int id = r.Int(), by = r.Int(); OnGateOpened(id, by); break; }
@@ -1328,7 +1335,7 @@ public static class NetSync
             case Net.Msg.RunOver: G.Main?.OnlineRunOver(r.Bool()); break;
             case Net.Msg.LeftCave: G.Main?.OnlineLeftCave(); break;
             case Net.Msg.KillCredit: G.Player?.OnKill(); break;
-            case Net.Msg.Dealt: G.Player?.OnDealtDamage(r.Float()); break;
+            case Net.Msg.Dealt: { float amt = r.Float(); G.Player?.OnDealtDamage(amt); RunMetrics.DealtOverTime(amt); break; }
             case Net.Msg.Test: G.Main?.OnNetTest(from, r.Str()); break;
         }
     }

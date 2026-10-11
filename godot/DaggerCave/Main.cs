@@ -32,6 +32,7 @@ public partial class Main : Node
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
     private BuildPanel _buildPanel;
+    private bool _metricsShown;
     private bool _victory;
     private int _runEmbers;
     private string _runFinds = "";
@@ -738,7 +739,7 @@ public partial class Main : Node
         ulong t0 = Time.GetTicksMsec();
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
         // (a new run starts with no relics carried)
-        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); }
+        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); }
         var cave = pregenerated ?? CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
@@ -1465,6 +1466,7 @@ public partial class Main : Node
         _state = State.Dead;
         _deadT = 0;
         _deaths++;
+        _metricsShown = false;
         _sfx.SetMusic("");
         Meta.Save();
     }
@@ -1804,9 +1806,12 @@ public partial class Main : Node
                     // back at camp after the first reagent: the potion tree's introduction
                     if (!_autotest && Meta.Visible(Meta.PotionTree) && !Meta.PotionTutorialDone) _metaMenu.Open(MetaMenu.Mode.PotionTutorial);
                     else if (!_autotest && Meta.Visible(Meta.PearlTree) && !Meta.PearlTutorialDone) _metaMenu.Open(MetaMenu.Mode.PearlIntro);
+                    // (otherwise, how the run went: the metrics, once; Tab / Back brings them up again)
+                    else if (!_autotest && _scenario == "" && G.Player != null && !_metricsShown) { _metricsShown = true; _buildPanel.Open(metrics: true); }
                 }
                 bool summary = _overlay.Visible || _heroChoice.InPrep;
-                if (_deadT > 1.5f && summary && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
+                if (_deadT > 1.5f && summary && G.Player != null && !BuildPanel.Showing && BuildPanel.ClosedFrame != Engine.GetProcessFrames() && Input.IsActionJustPressed("build")) _buildPanel.Open(metrics: true);
+                else if (_deadT > 1.5f && summary && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
                 else if (_deadT > 1.5f && summary && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
                 // (online: on to the lobby; alone, the hero choice at the fire takes it from here)
                 else if (Net.Online && _deadT > 1.5f && _overlay.Visible && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
@@ -1831,6 +1836,7 @@ public partial class Main : Node
                 // (the host's clock is the difficulty's clock: a client takes it from the host)
                 if (!Net.IsClient) G.RunTime = _runTime;
                 Brains.Tick(unscaled);
+                RunMetrics.Tick(unscaled);
                 TryOpenUpgradeMenu(!MenuOpen && Input.IsActionJustPressed("milestone"));
                 break;
         }
@@ -1857,7 +1863,7 @@ public partial class Main : Node
                 if (_victoryT <= 0)
                 {
                     if (Net.IsHost) { NetSync.SendRunOver(true); OnlineRunOver(true); }
-                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _sfx.SetMusic(""); Meta.Save(); }
+                    else if (!Net.InRun) { _state = State.Dead; _deadT = 0; _metricsShown = false; _sfx.SetMusic(""); Meta.Save(); }
                 }
             }
             if (Net.InRun) OnlineTick(dt);

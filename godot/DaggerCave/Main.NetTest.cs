@@ -740,6 +740,8 @@ public partial class Main
                 if (_state == State.Dead)
                 {
                     NtCheck("with everyone down, the host ended the run here too", true);
+                    var hostRec = RunMetrics.By.Values.FirstOrDefault(m => m.Peer != Net.Me);
+                    NtCheck($"the host's record of the run reached me for the metrics page ({hostRec?.Name ?? "none"}: {hostRec?.Hero}, {hostRec?.Attacks ?? 0} attacks, {hostRec?.Taken ?? 0:0} taken)", hostRec != null);
                     NtSay("over");
                     NtNext();
                 }

@@ -1155,6 +1155,22 @@ journal pages have left you with.
   middle of the screen; any key or button closes it (back to the pause menu, if it was opened from there). Works with a controller too.
 - Test: `--scenario=hudguide --hero=vitalist` (checks the pieces are marked and shoots the guide).
 
+## Run metrics
+
+**Your Build** has a second page, **Run metrics** (left / right, or click the tabs, switches between them), and the same page comes up once
+when the party falls (Tab / Back brings it back at the camp). It sets the party's heroes side by side, the best of each row in gold:
+attacks and hits (hit rate), damage dealt, overkill, kills (elites and bosses), damage to elites and bosses, damage taken (and from elites
+and bosses), damage prevented, healing given, overheal, deaths and revives given; then each hero's damage by attack (the sword, an ability, a
+dagger throw, "over time" for burns, poison and hexes), the creatures they hurt most (with kills) and what hurt them most.
+- Each game keeps its own hero's record (`Core/RunMetrics.cs`) and sends it to the others every few seconds, on a death and when the run
+  ends (`Net.Msg.Metrics`). What one hero does for another is kept by the one it was done for, under the giver's name, and added up for the
+  giver: a barrier's soaking, a share of a blow taken by an Aegis (Shared Burden, Share Pain), a heal (and what ran past full), a revive.
+  Damage a hero's own guard takes off (a shield, armour, a brace) counts as their own.
+- A blow is put down to the last button pressed, for 1.6 s (so a bolt or a thrown dagger still counts for its button); an attack counts as
+  a hit when its damage lands in that time. On a friend's game the kill is reckoned from the health the copy of the creature shows.
+- Test: `--scenario=metrics` (attacks, hits and a miss, damage by attack and creature, kills and overkill, a blow with a barrier, a heal past
+  full, the page), and `tools/nettest.sh` checks the host's record reaches the other game.
+
 ## Effects: kinds of ring
 
 The expanding rings were all one ring; now there are five (`FxLayer.RingStyle`, drawn by the glow shader's shapes 7 to 10): **plain** (hits),

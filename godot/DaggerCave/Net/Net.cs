@@ -380,6 +380,8 @@ public static partial class Net
         Test,
         /// <summary>A hero took a card (everyone keeps count, so a chest isn't dealt a card nobody can take again).</summary>
         CardTaken,
+        /// <summary>A hero's record of the run so far (the metrics page sets the heroes side by side).</summary>
+        Metrics,
     }
 
     /// <summary>Sends to one peer.</summary>
