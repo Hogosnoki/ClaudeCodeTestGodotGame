@@ -27,6 +27,7 @@ public partial class BuildPanel : Control
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         ProcessMode = ProcessModeEnum.Always;
         MouseFilter = MouseFilterEnum.Stop;
+        TextureRepeat = TextureRepeatEnum.Enabled;
         Visible = false;
     }
 
@@ -77,7 +78,11 @@ public partial class BuildPanel : Control
         var s = p.Stats;
         var vs = Size;
         var font = ThemeDB.FallbackFont;
-        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.02f, 0.02f, 0.03f, 0.97f));
+        // a leather-bound page: the whole screen, its edges framed
+        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.01f, 0.01f, 0.015f, 0.9f));
+        var page = new Rect2(14, 10, vs.X - 28, vs.Y - 20);
+        UiArt.FillRounded(this, page, 20f, Metrics ? UiArt.Surface.Panel : UiArt.Surface.Leather, Metrics ? Colors.White : new Color(0.7f, 0.65f, 0.65f), 1.2f);
+        UiArt.Frame(this, page, 20f, UiArt.Rarity.Rare, _t);
         // the two pages, as tabs
         var gold = new Color(1f, 0.88f, 0.5f);
         DrawString(font, new Vector2(0, 30), "YOUR BUILD", HorizontalAlignment.Right, vs.X / 2 - 24, 15, Metrics ? new Color(1, 1, 1, 0.4f) : gold);
@@ -93,7 +98,7 @@ public partial class BuildPanel : Control
         var trees = Upgrades.Abilities(s.Hero);
         float margin = 40, gap = 18;
         float colW = (vs.X - margin * 2 - gap * (trees.Length - 1)) / trees.Length;
-        float top = 96;
+        float top = 128;
         var cls = UpgradeMenu.KindColor(UpgradeKind.Class);
         var alt = UpgradeMenu.KindColor(UpgradeKind.Alteration);
         float bottom = top;
@@ -101,7 +106,17 @@ public partial class BuildPanel : Control
         {
             var (key, name) = trees[t];
             float x = margin + t * (colW + gap), y = top;
-            DrawRect(new Rect2(x, y - 26, colW, 3), cls);
+            // each tree on its own rounded slate (measured first, so it lies under the words)
+            {
+                var alts = Upgrades.Chest.Where(u => u.Ability == key && u.Alteration && HasFor(u, s.Hero)).ToList();
+                int grownN = Upgrades.Chest.Count(u => u.Ability == key && !u.Alteration && HasFor(u, s.Hero) && !alts.Any(a => a.Id == u.Requires));
+                float h = 16 + 17 * grownN + (alts.Count > 0 ? 24 : 0) + alts.Sum(a => 18 + 17 * Upgrades.Chest.Count(u => u.Requires == a.Id)) + 44;
+                var slate = new Rect2(x - 10, y - 38, colW + 20, h);
+                UiArt.Shadow(this, slate, 12f, 0.35f);
+                UiArt.FillRounded(this, slate, 12f, UiArt.Surface.Stone, new Color(0.8f, 0.8f, 0.85f), 0.7f, slate.Position + new Vector2(t * 131, 0));
+                UiArt.Frame(this, slate, 12f, UiArt.Rarity.Uncommon, _t + t);
+            }
+            DrawLine(new Vector2(x + 6, y - 26), new Vector2(x + colW - 6, y - 26), cls, 2f, true);
             DrawString(font, new Vector2(x, y - 6), name.ToUpperInvariant(), HorizontalAlignment.Left, colW, 16, cls);
             y += 16;
             var alterations = Upgrades.Chest.Where(u => u.Ability == key && u.Alteration && HasFor(u, s.Hero)).ToList();
@@ -130,6 +145,10 @@ public partial class BuildPanel : Control
 
         // everything else taken: generic, conditional and risk-reward cards
         float yy = bottom + 26;
+        var listSlate = new Rect2(margin - 10, yy - 22, vs.X - margin * 2 + 20, 4 * 22 + 14);
+        UiArt.Shadow(this, listSlate, 12f, 0.35f);
+        UiArt.FillRounded(this, listSlate, 12f, UiArt.Surface.Vellum, new Color(0.85f, 0.85f, 0.85f), 0.8f);
+        UiArt.Frame(this, listSlate, 12f, UiArt.Rarity.Uncommon, _t);
         foreach (var kind in new[] { UpgradeKind.Generic, UpgradeKind.Conditional, UpgradeKind.RiskReward, UpgradeKind.Relic })
         {
             var cards = Upgrades.Chest.Concat(Upgrades.Relics).Where(u => u.Kind == kind && s.StackOf(u.Id) > 0)

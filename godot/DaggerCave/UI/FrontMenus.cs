@@ -112,7 +112,9 @@ public partial class HeroChoice : Control
     private Label _diffText;
     private PanelContainer _summary;
     private Label _sumTitle, _sumLines;
-    private StyleBoxFlat _nameBox;
+    private StyleBoxTexture _nameBox;
+    private PanelContainer _strip;
+    private readonly System.Collections.Generic.Dictionary<HeroKind, StyleBoxTexture> _heroBoxes = new();
     private readonly Label[] _steps = new Label[3];
     private readonly VBoxContainer[] _pages = new VBoxContainer[3];
     private Button _arrowL, _arrowR;
@@ -133,8 +135,9 @@ public partial class HeroChoice : Control
         // the strip along the bottom
         // (it grows upward if it needs more room: it must never run off the bottom of the screen)
         var strip = new PanelContainer { AnchorTop = 1f, AnchorBottom = 1f, AnchorRight = 1f, OffsetTop = -178, OffsetBottom = -14, OffsetLeft = 60, OffsetRight = -60, GrowVertical = GrowDirection.Begin };
-        _nameBox = new StyleBoxFlat { BgColor = new Color(0.03f, 0.03f, 0.05f, 0.82f), BorderColor = UiKit.Gold, BorderWidthTop = 2, CornerRadiusTopLeft = 8, CornerRadiusTopRight = 8, CornerRadiusBottomLeft = 8, CornerRadiusBottomRight = 8, ContentMarginLeft = 18, ContentMarginRight = 18, ContentMarginTop = 12, ContentMarginBottom = 10 };
+        _nameBox = UiArt.Box(UiArt.Surface.Leather, new Color(0.9f, 0.85f, 0.85f), UiKit.Gold, 14, 2f, true, 18, 12, 0.9f);
         strip.AddThemeStyleboxOverride("panel", _nameBox);
+        _strip = strip;
         AddChild(strip);
         var outer = new VBoxContainer();
         outer.AddThemeConstantOverride("separation", 6);
@@ -247,7 +250,7 @@ public partial class HeroChoice : Control
 
         // how the last run went (after one), at the top
         _summary = new PanelContainer { AnchorLeft = 0.5f, AnchorRight = 0.5f, OffsetLeft = -330, OffsetRight = 330, OffsetTop = 26 };
-        _summary.AddThemeStyleboxOverride("panel", new StyleBoxFlat { BgColor = new Color(0.03f, 0.03f, 0.05f, 0.78f), CornerRadiusTopLeft = 8, CornerRadiusTopRight = 8, CornerRadiusBottomLeft = 8, CornerRadiusBottomRight = 8, ContentMarginLeft = 20, ContentMarginRight = 20, ContentMarginTop = 10, ContentMarginBottom = 12 });
+        _summary.AddThemeStyleboxOverride("panel", UiArt.Box(UiArt.Surface.Panel, Colors.White, new Color(0.72f, 0.56f, 0.3f), 14, 2f, true, 20, 10, 0.85f));
         AddChild(_summary);
         var sc = new VBoxContainer();
         _summary.AddChild(sc);
@@ -336,7 +339,9 @@ public partial class HeroChoice : Control
         var accent = Hud.HeroColor(G.Hero);
         bool pad = G.Main?.UsingPad ?? false;
         bool trees = Meta.Trees.Any(Meta.Visible);
-        _nameBox.BorderColor = accent;
+        // (the strip's frame in the chosen hero's colour)
+        if (!_heroBoxes.TryGetValue(G.Hero, out var hb)) _heroBoxes[G.Hero] = hb = UiArt.Box(UiArt.Surface.Leather, new Color(0.9f, 0.85f, 0.85f), accent, 14, 2f, true, 18, 12, 0.9f);
+        _strip?.AddThemeStyleboxOverride("panel", hb);
         for (int k = 0; k < 3; k++)
         {
             _pages[k].Visible = (int)Stage == k;

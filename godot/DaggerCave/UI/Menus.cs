@@ -62,11 +62,16 @@ public partial class UpgradeMenu : Control
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         ProcessMode = ProcessModeEnum.Always;
         MouseFilter = MouseFilterEnum.Stop;
+        TextureRepeat = TextureRepeatEnum.Enabled;
         Visible = false;
     }
 
-    public void Open(List<Upgrade> choices, string title, List<string> locks = null)
+    /// <summary>What the choice is printed on: a chest's wood, a relic's velvet, a milestone's night sky, a hoard's gold, a vault's stone.</summary>
+    private UiArt.Surface _backdrop = UiArt.Surface.Wood;
+
+    public void Open(List<Upgrade> choices, string title, List<string> locks = null, UiArt.Surface backdrop = UiArt.Surface.Wood)
     {
+        _backdrop = backdrop;
         _choices = choices;
         _locks = locks ?? new List<string>();
         while (_locks.Count < _choices.Count) _locks.Add(null);
@@ -141,76 +146,172 @@ public partial class UpgradeMenu : Control
         }
     }
 
+    /// <summary>The frame round the whole choice, by what it is: iron brackets on a chest, gems on a relic, stars on a milestone.</summary>
+    private UiArt.Rarity BackdropFrame => _backdrop switch
+    {
+        UiArt.Surface.Velvet => UiArt.Rarity.Relic,
+        UiArt.Surface.Gold or UiArt.Surface.Vault or UiArt.Surface.Night => UiArt.Rarity.Rare,
+        _ => UiArt.Rarity.Uncommon,
+    };
+
     public override void _Draw()
     {
         var vs = Size;
         var font = ThemeDB.FallbackFont;
-        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0, 0, 0, 0.6f));
+        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0, 0, 0, 0.55f));
+
+        int n = _choices.Count;
+        float cw = n > 3 ? 220 : 250, gap = n > 3 ? 18 : 26;
+        float total = n * cw + (n - 1) * gap;
+        float x0 = vs.X / 2 - total / 2, y0 = vs.Y * 0.3f;
+        // the mat the cards lie on: what kind of choice this is
+        var mat = new Rect2(x0 - 40, vs.Y * 0.2f - 46, total + 80, y0 - vs.Y * 0.2f + 46 + 300 + 44);
+        UiArt.Shadow(this, mat, 22f, 0.6f);
+        UiArt.FillRounded(this, mat, 22f, _backdrop, Colors.White, 1f);
+        if (_backdrop == UiArt.Surface.Night)
+        {
+            // (a milestone: rays from behind the title)
+            var o = new Vector2(vs.X / 2, vs.Y * 0.2f);
+            for (int k = 0; k < 14; k++)
+            {
+                float a = k * MathF.Tau / 14f + _t * 0.08f;
+                DrawColoredPolygon(new[] { o, o + new Vector2(MathF.Cos(a - 0.05f), MathF.Sin(a - 0.05f)) * 260f, o + new Vector2(MathF.Cos(a + 0.05f), MathF.Sin(a + 0.05f)) * 260f },
+                    new Color(0.7f, 0.75f, 1f, 0.035f));
+            }
+        }
+        UiArt.Frame(this, mat, 22f, BackdropFrame, _t, false, _backdrop == UiArt.Surface.Velvet ? new Color(0.95f, 0.25f, 0.4f) : new Color(0.4f, 0.75f, 1f));
+
         var tsz = font.GetStringSize(_title, HorizontalAlignment.Left, -1, 34);
         float pop = 1 + 0.05f * MathF.Sin(_t * 5);
         // (the title breathes by scaling the drawing, not by stepping through whole font sizes: those jump as the centring doesn't)
         DrawSetTransform(new Vector2(vs.X / 2, vs.Y * 0.2f - 11f), 0f, new Vector2(pop, pop));
+        DrawString(font, new Vector2(-tsz.X / 2 + 2, 13f), _title, HorizontalAlignment.Left, -1, 34, new Color(0, 0, 0, 0.7f));
         DrawString(font, new Vector2(-tsz.X / 2, 11f), _title, HorizontalAlignment.Left, -1, 34, new Color(1f, 0.9f, 0.5f));
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
         string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)  ·  BACK: your build" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)  ·  TAB: your build";
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
-        DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.7f));
+        DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
 
         _cards.Clear();
-        int n = _choices.Count;
-        float cw = n > 3 ? 220 : 250, ch = 300, gap = n > 3 ? 18 : 26;
-        float total = n * cw + (n - 1) * gap;
-        float x0 = vs.X / 2 - total / 2, y0 = vs.Y * 0.3f;
         var stats = G.Player?.Stats;
         for (int k = 0; k < n; k++)
         {
             var u = _choices[k];
             bool hov = k == _hover;
-            if (u.Icon == "skip") { ch = 230; }
-            else ch = 300;
+            bool skip = u.Icon == "skip";
+            float ch = skip ? 230 : 300;
             string locked = k < _locks.Count ? _locks[k] : null;
             // a refused card gives a little shake
             float shake = k == _denied && _deniedT > 0 ? MathF.Sin(_deniedT * 60f) * 6f * _deniedT : 0f;
             var r = new Rect2(x0 + k * (cw + gap) + shake, y0 - (hov && locked == null ? 8 : 0), cw, ch);
             _cards.Add(r);
-            // the gem shows what it's about; the frame, stripe and label what kind of card it is
-            var cat = CategoryColor(u.Icon);
-            bool skip = u.Icon == "skip";
-            var kind = skip ? cat : KindColor(u.Kind);
-            if (locked != null) { cat = cat.Darkened(0.55f); kind = kind.Darkened(0.55f); }
-            DrawRect(r, new Color(0.08f, 0.07f, 0.1f, 0.95f));
-            DrawRect(r, hov ? kind : kind.Darkened(0.4f), false, hov ? 3 : 2);
-            DrawRect(new Rect2(r.Position, new Vector2(cw, 6)), kind);
-            // an alteration's card glows a little, all round
-            if (u.Kind == UpgradeKind.Alteration && !skip) DrawRect(r.Grow(3), new Color(kind, 0.25f + 0.1f * MathF.Sin(_t * 3f)), false, 2);
-            // the top of the card: a relic's own painted icon, or the minimalist symbol of this kind of reward
-            var gc = r.Position + new Vector2(cw / 2, 62);
-            DrawCircle(gc, 38, new Color(cat, 0.12f));
-            var relicTex = u.Kind == UpgradeKind.Relic ? Icons.Get(u.Id) : null;
-            if (relicTex != null)
-                DrawTextureRect(relicTex, new Rect2(gc - new Vector2(40, 40), new Vector2(80, 80)), false, locked != null ? new Color(0.5f, 0.5f, 0.5f) : Colors.White);
-            else if (Icons.Get(Icons.CategoryFor(u)) is Texture2D sym)
-                DrawTextureRect(sym, new Rect2(gc - new Vector2(30, 30), new Vector2(60, 60)), false, kind);
-            if (u.Multi && Icons.Get("cat_multi") is Texture2D mt)
+            DrawCard(font, r, u, k, hov, locked, stats);
+        }
+    }
+
+    /// <summary>
+    /// One card: printed on its kind's surface, framed by its rarity, with whose card it is (a hero's emblem in their colour, or a compass
+    /// for anyone's) at the top left, what it is for (offense, survival, mobility, a bargain) at the top right, and a chain at the foot
+    /// if it rules out another.
+    /// </summary>
+    private void DrawCard(Font font, Rect2 r, Upgrade u, int k, bool hov, string locked, PlayerStats stats)
+    {
+        const float rad = 16f;
+        float cw = r.Size.X, ch = r.Size.Y;
+        bool skip = u.Icon == "skip";
+        var rar = UiArt.RarityOf(u);
+        var role = UiArt.RoleOf(u);
+        var kind = skip ? CategoryColor(u.Icon) : KindColor(u.Kind);
+        var dim = locked != null ? new Color(0.5f, 0.5f, 0.5f) : Colors.White;
+        if (locked != null) kind = kind.Darkened(0.55f);
+        UiArt.Shadow(this, r, rad);
+        UiArt.FillRounded(this, r, rad, UiArt.CardSurface(u), dim, 0.8f, r.Position + new Vector2(k * 97, 0));
+        // a wash of the kind's colour across the top
+        var band = new Rect2(r.Position + new Vector2(3, 3), new Vector2(cw - 6, 44));
+        var bp = UiArt.Rounded(band, rad - 3);
+        DrawPolygon(bp, bp.Select(p => new Color(kind, p.Y < band.Position.Y + 22 ? 0.3f : 0f)).ToArray());
+        UiArt.Frame(this, r, rad, rar, _t + k, hov && locked == null, rar == UiArt.Rarity.Relic ? new Color(0.95f, 0.3f, 0.45f) : null);
+        // an alteration's card glows a little, all round
+        if (u.Kind == UpgradeKind.Alteration && !skip) UiArt.Outline(this, r.Grow(6), rad + 6, new Color(kind, 0.2f + 0.1f * MathF.Sin(_t * 3f)), 2f);
+
+        // whose it is: a hero's emblem in their colour, or a compass rose for any hero
+        HeroKind? owner = u.For != null && u.For.Length == 1 ? u.For[0] : null;
+        if (!skip)
+        {
+            var ec = r.Position + new Vector2(24, 24);
+            var hc = owner is HeroKind h ? Hud.HeroColor(h) : new Color(0.78f, 0.78f, 0.82f);
+            if (locked != null) hc = hc.Darkened(0.5f);
+            DrawCircle(ec, 14, new Color(0, 0, 0, 0.6f));
+            DrawArc(ec, 14, 0, Mathf.Tau, 20, new Color(hc, 0.85f), 1.5f, true);
+            UiArt.HeroEmblem(this, ec, 8f, owner, hc);
+            // what it's for: a pill at the top right
+            if (role != UiArt.Role.None)
             {
-                DrawTextureRect(mt, new Rect2(r.Position + new Vector2(10, 32), new Vector2(22, 22)), false, new Color(1f, 0.85f, 0.45f));
-                DrawString(font, r.Position + new Vector2(36, 48), "PARTY", HorizontalAlignment.Left, -1, 10, new Color(1f, 0.85f, 0.45f, 0.85f));
+                var rc = UiArt.RoleColor(role);
+                if (locked != null) rc = rc.Darkened(0.5f);
+                string rn = UiArt.RoleName(role);
+                float pw = font.GetStringSize(rn, HorizontalAlignment.Left, -1, 10).X + 30;
+                var pill = new Rect2(r.End.X - pw - 12, r.Position.Y + 14, pw, 20);
+                DrawColoredPolygon(UiArt.Rounded(pill, 10), new Color(0, 0, 0, 0.6f));
+                UiArt.Outline(this, pill, 10, new Color(rc, 0.8f), 1.2f);
+                UiArt.RoleGlyph(this, pill.Position + new Vector2(12, 10), 5f, role, rc);
+                DrawString(font, pill.Position + new Vector2(22, 14), rn, HorizontalAlignment.Left, -1, 10, rc);
             }
-            DrawString(font, r.Position + new Vector2(12, 22), $"[{k + 1}]", HorizontalAlignment.Left, -1, 13, new Color(1, 1, 1, 0.5f));
-            if (!skip) DrawString(font, r.Position + new Vector2(40, 22), KindLabel(u, stats?.Hero ?? G.Hero), HorizontalAlignment.Right, cw - 52, 11, kind);
-            DrawString(font, r.Position + new Vector2(0, 130), u.Name, HorizontalAlignment.Center, cw, 20, Colors.White);
-            DrawMultilineString(font, r.Position + new Vector2(16, 162), Upgrades.DescFor(u, stats), HorizontalAlignment.Center, cw - 32, 14, -1, new Color(0.85f, 0.85f, 0.9f));
-            if (stats != null && u.MaxStacks > 1 && u.Icon != "skip")
-                DrawString(font, r.Position + new Vector2(0, ch - 16), $"{stats.StackOf(u.Id)} / {u.MaxStacks}", HorizontalAlignment.Center, cw, 12, new Color(1, 1, 1, 0.5f));
-            if (u.Excludes.Length > 0)
-                DrawString(font, r.Position + new Vector2(0, ch - 34), "excludes " + Upgrades.Get(u.Excludes[0]).Name, HorizontalAlignment.Center, cw, 11, new Color(1f, 0.6f, 0.5f, 0.7f));
-            if (locked != null)
+        }
+        // the symbol (or a relic's painted icon) in a medallion
+        var gc = r.Position + new Vector2(cw / 2, 80);
+        var cat = CategoryColor(u.Icon);
+        DrawCircle(gc, 36, new Color(0, 0, 0, 0.45f));
+        DrawArc(gc, 36, 0, Mathf.Tau, 32, new Color(UiArt.FrameColor(rar), locked != null ? 0.3f : 0.75f), 2f, true);
+        DrawCircle(gc, 33, new Color(cat, 0.1f));
+        var relicTex = u.Kind == UpgradeKind.Relic ? Icons.Get(u.Id) : null;
+        if (relicTex != null)
+            DrawTextureRect(relicTex, new Rect2(gc - new Vector2(32, 32), new Vector2(64, 64)), false, dim);
+        else if (Icons.Get(Icons.CategoryFor(u)) is Texture2D sym)
+            DrawTextureRect(sym, new Rect2(gc - new Vector2(24, 24), new Vector2(48, 48)), false, kind);
+        if (u.Multi && Icons.Get("cat_multi") is Texture2D mt)
+        {
+            DrawTextureRect(mt, new Rect2(gc + new Vector2(24, 12), new Vector2(20, 20)), false, new Color(1f, 0.85f, 0.45f));
+            DrawString(font, gc + new Vector2(20, 42), "PARTY", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.85f, 0.45f, 0.85f));
+        }
+        // the kind and rarity, the name, the words
+        if (!skip)
+        {
+            string label = KindLabel(u, stats?.Hero ?? G.Hero) + (rar == UiArt.Rarity.Relic ? "" : "  ·  " + UiArt.RarityName(rar));
+            DrawString(font, r.Position + new Vector2(10, 132), label, HorizontalAlignment.Center, cw - 20, 10, new Color(kind, 0.95f));
+        }
+        DrawString(font, r.Position + new Vector2(1, 157), u.Name, HorizontalAlignment.Center, cw, 20, new Color(0, 0, 0, 0.7f));
+        DrawString(font, r.Position + new Vector2(0, 156), u.Name, HorizontalAlignment.Center, cw, 20, locked != null ? new Color(0.6f, 0.6f, 0.6f) : Colors.White);
+        DrawMultilineString(font, r.Position + new Vector2(16, 180), Upgrades.DescFor(u, stats), HorizontalAlignment.Center, cw - 32, 13, -1, new Color(0.88f, 0.88f, 0.92f, locked != null ? 0.5f : 1f));
+        DrawString(font, r.Position + new Vector2(12, ch - 10), $"{k + 1}", HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.35f));
+        if (stats != null && u.MaxStacks > 1 && !skip)
+        {
+            // the ranks as pips
+            int have = stats.StackOf(u.Id);
+            float px = r.Position.X + cw / 2 - (u.MaxStacks - 1) * 6f;
+            for (int s = 0; s < u.MaxStacks; s++)
             {
-                // a band across the card: whose it is, or why it isn't yours
-                var band = new Rect2(r.Position + new Vector2(0, 50), new Vector2(cw, 24));
-                DrawRect(band, new Color(0, 0, 0, 0.72f));
-                DrawString(font, band.Position + new Vector2(0, 17), locked, HorizontalAlignment.Center, cw, 12, new Color(1f, 0.85f, 0.6f, k == _denied && _deniedT > 0 ? 1f : 0.85f));
+                var pc = new Vector2(px + s * 12f, r.End.Y - 14);
+                DrawCircle(pc, 4.2f, new Color(0, 0, 0, 0.6f));
+                DrawCircle(pc, 3f, s < have ? UiArt.FrameColor(rar) : s == have ? new Color(1, 1, 1, 0.5f + 0.4f * MathF.Sin(_t * 5)) : new Color(1, 1, 1, 0.12f));
             }
+        }
+        var excl = skip ? new List<Upgrade>() : UiArt.ExclusiveWith(u).ToList();
+        if (excl.Count > 0)
+        {
+            // a chain ribbon: what it can't be had with
+            var rib = new Rect2(r.Position + new Vector2(14, ch - 48), new Vector2(cw - 28, 20));
+            DrawColoredPolygon(UiArt.Rounded(rib, 10), new Color(0.25f, 0.05f, 0.05f, 0.8f));
+            UiArt.Outline(this, rib, 10, new Color(1f, 0.5f, 0.45f, 0.6f), 1f);
+            UiArt.ChainGlyph(this, rib.Position + new Vector2(14, 10), 5f, new Color(1f, 0.75f, 0.6f));
+            DrawString(font, rib.Position + new Vector2(26, 14), "not with " + string.Join(", ", excl.Select(x => x.Name).Distinct().Take(2)), HorizontalAlignment.Left, rib.Size.X - 32, 10, new Color(1f, 0.78f, 0.7f));
+        }
+        if (locked != null)
+        {
+            // a band across the card: whose it is, or why it isn't yours
+            var lb = new Rect2(r.Position + new Vector2(8, 112), new Vector2(cw - 16, 26));
+            DrawColoredPolygon(UiArt.Rounded(lb, 12), new Color(0, 0, 0, 0.8f));
+            DrawString(font, lb.Position + new Vector2(0, 18), locked, HorizontalAlignment.Center, lb.Size.X, 12, new Color(1f, 0.85f, 0.6f, k == _denied && _deniedT > 0 ? 1f : 0.85f));
         }
     }
 }
@@ -311,6 +412,7 @@ public partial class ScreenOverlay : Control
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         ProcessMode = ProcessModeEnum.Always;
         MouseFilter = MouseFilterEnum.Ignore;
+        TextureRepeat = TextureRepeatEnum.Enabled;
     }
 
     public void Show(string title, float dim, params string[] lines)
@@ -376,8 +478,13 @@ public partial class ScreenOverlay : Control
             var r = new Rect2(x0 + k * (CardW + gap), top - (sel ? 6 : 0), CardW, CardH);
             _cardRects[k] = r;
             var accent = Accent(h.kind);
-            DrawRect(r, new Color(0.07f, 0.07f, 0.1f, sel ? 0.95f : 0.75f));
-            DrawRect(r, sel ? accent : accent.Darkened(0.55f), false, sel ? 3 : 1.5f);
+            // a card on leather, in a frame of the hero's colour (gilded when chosen), the hero's emblem at the corner
+            UiArt.Shadow(this, r, 14f, sel ? 0.55f : 0.35f);
+            UiArt.FillRounded(this, r, 14f, UiArt.Surface.Leather, sel ? new Color(1.05f, 1f, 1f) : new Color(0.6f, 0.58f, 0.6f, 0.9f), 0.9f, r.Position + new Vector2(k * 113, 0));
+            UiArt.Frame(this, r, 14f, sel ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon, _t + k, sel);
+            UiArt.Outline(this, r.Grow(-3f), 11f, new Color(accent, sel ? 0.8f : 0.35f), 1.5f);
+            DrawCircle(r.End - new Vector2(18, 18), 11, new Color(0, 0, 0, 0.55f));
+            UiArt.HeroEmblem(this, r.End - new Vector2(18, 18), 6.5f, h.kind, sel ? accent : accent.Darkened(0.4f));
             // the hero in 3D, idling (only the chosen one moves)
             var portrait = _portraits[k];
             if (portrait != null)

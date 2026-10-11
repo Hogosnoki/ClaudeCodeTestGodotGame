@@ -105,8 +105,9 @@ public partial class Hud
         if (at.X + w > vs.X - 8) at.X = vs.X - 8 - w;
         if (at.Y + h > vs.Y - 8) at.Y = vs.Y - 8 - h;
         var r = new Rect2(at, new Vector2(w, h));
-        DrawRect(r, new Color(0.06f, 0.055f, 0.07f, 0.92f * a));
-        DrawRect(r, new Color(0.85f, 0.7f, 0.35f, 0.7f * a), false, 1.5f);
+        UiArt.Shadow(this, r, 10f, 0.4f * a);
+        UiArt.FillRounded(this, r, 10f, UiArt.Surface.Panel, new Color(1, 1, 1, 0.96f * a), 0.6f);
+        UiArt.Outline(this, r, 10f, new Color(0.85f, 0.7f, 0.35f, 0.8f * a), 1.5f);
         DrawString(font, at + new Vector2(8, 18), title, HorizontalAlignment.Left, -1, 13, new Color(1f, 0.85f, 0.45f, a));
         for (int k = 0; k < lines.Count; k++)
             DrawString(font, at + new Vector2(8, 35 + k * 15), lines[k], HorizontalAlignment.Left, -1, 12, new Color(0.9f, 0.9f, 0.92f, a));
@@ -138,7 +139,7 @@ public partial class Hud
         for (int k = 0; k < list.Count; k++)
         {
             var r = list[k].R;
-            DrawRect(r, new Color(gold, 0.8f), false, 1.5f);
+            UiArt.Outline(this, r.Grow(2f), 6f, new Color(gold, 0.85f), 1.5f);
             var badge = r.Position + new Vector2(-4, -4);
             DrawCircle(badge, 8, new Color(0.08f, 0.07f, 0.09f, 0.95f));
             DrawArc(badge, 8, 0, Mathf.Tau, 16, gold, 1.2f);
@@ -155,8 +156,9 @@ public partial class Hud
             h += Math.Max(1, lines.Count) * 14 + 4;
         }
         var at = new Vector2(vs.X / 2 - w / 2, Math.Max(60, vs.Y / 2 - h / 2));
-        DrawRect(new Rect2(at, new Vector2(w, h)), new Color(0.05f, 0.045f, 0.06f, 0.94f));
-        DrawRect(new Rect2(at, new Vector2(w, h)), new Color(gold, 0.6f), false, 1.5f);
+        UiArt.Shadow(this, new Rect2(at, new Vector2(w, h)), 16f, 0.5f);
+        UiArt.FillRounded(this, new Rect2(at, new Vector2(w, h)), 16f, UiArt.Surface.Panel, Colors.White, 0.8f);
+        UiArt.Frame(this, new Rect2(at, new Vector2(w, h)), 16f, UiArt.Rarity.Rare, (float)Time.GetTicksMsec() / 1000f);
         DrawString(font, at + new Vector2(14, 24), "THE HUD", HorizontalAlignment.Left, -1, 15, gold);
         DrawString(font, at + new Vector2(14, 24), "F1 or any button closes it", HorizontalAlignment.Right, w - 28, 10, new Color(1, 1, 1, 0.5f));
         float y = at.Y + 46;

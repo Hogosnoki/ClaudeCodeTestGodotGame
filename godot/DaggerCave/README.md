@@ -1155,6 +1155,27 @@ journal pages have left you with.
   middle of the screen; any key or button closes it (back to the pause menu, if it was opened from there). Works with a controller too.
 - Test: `--scenario=hudguide --hero=vitalist` (checks the pieces are marked and shoots the guide).
 
+## The menus' look
+
+No menu is a flat box of one colour any more, and no corner is square (`UI/UiArt.cs`, all made by code):
+- **Surfaces**: tileable textures generated at start: dark linen (panels), slate, wooden planks, crimson velvet with a damask lattice,
+  hammered gold, veined vault ashlar, a night sky with stars, leather, crystal facets, green vellum, violet marble, brushed iron.
+- **What the choice is** shows in the mat the cards lie on: wood for a chest's treasure, velvet for a relic, a night sky (with slow rays)
+  for a milestone, hammered gold for a guardian's hoard, veined stone for a vault. Each card is printed on its kind's surface: leather
+  (a hero's class card), crystal (an alteration), vellum (conditional), stone (generic), marble (risk-reward), velvet (a relic).
+- **Rarity** is the frame: a plain iron band (common), bronze with studs at the corners (uncommon: a hero's ability cards), a double gold
+  band with filigree curls and a diamond crest (rare: alterations, rare cards), rose-gold with a gem in each corner, a gem crest and a
+  breathing glow (relic), violet with thorns (a bargain). The name of the rarity is printed under the symbol.
+- **Whose card** it is: a hero's emblem in their colour at the top left (a sword, a kite shield, a drop of life, a flame, a dagger, a
+  ward, a paw, a cog), or a compass rose for a card any hero can take. **What it's for**: a pill at the top right, with a glyph and a
+  colour (OFFENSE crossed blades, SURVIVAL a shield, MOBILITY a wing, BARGAIN scales). **Mutually exclusive** cards wear a red chain
+  ribbon naming what they can't be had with (either way round). Ranks are pips at the foot.
+- The theme's panels and buttons are nine-patch textures (`UiArt.Box`): linen in a rounded gilt frame with studs, buttons with a soft
+  sheen in a bronze rim (gilded when pressed). The build page, perk and meta trees, the hero cards at the fire, the camp's strip (framed
+  in the chosen hero's colour), tooltips and the HUD guide use the same frames; the HUD's bars are rounded, shaded gauges (health keeps
+  a pale ghost of what was just lost), its ability squares, icons, prompts and map are rounded.
+- Look at them: `--menushot=DIR` (pause, settings, a chest's cards, a milestone's cards, the build page) and `--fronttest=DIR`.
+
 ## Run metrics
 
 **Your Build** has a second page, **Run metrics** (left / right, or click the tabs, switches between them), and the same page comes up once

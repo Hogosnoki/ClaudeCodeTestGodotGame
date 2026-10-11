@@ -24,6 +24,7 @@ public partial class MetaMenu : Control
 
     public override void _Ready()
     {
+        TextureRepeat = TextureRepeatEnum.Enabled;
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         ProcessMode = ProcessModeEnum.Always;
         MouseFilter = MouseFilterEnum.Stop;
@@ -145,7 +146,10 @@ public partial class MetaMenu : Control
     {
         var vs = Size;
         var font = ThemeDB.FallbackFont;
-        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.03f, 0.02f, 0.04f, 0.94f));
+        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.01f, 0.01f, 0.015f, 0.9f));
+        var page = new Rect2(14, 10, vs.X - 28, vs.Y - 20);
+        UiArt.FillRounded(this, page, 20f, UiArt.Surface.Night, Colors.White, 1.2f);
+        UiArt.Frame(this, page, 20f, UiArt.Rarity.Rare, (float)Time.GetTicksMsec() / 1000f);
         void Center(string text, float y, int size, Color col)
         {
             var sz = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
@@ -199,8 +203,8 @@ public partial class MetaMenu : Control
             var r = new Rect2(x0, y, rw, 34);
             _rows.Add((tree, branch, name, r));
             bool sel = k == _sel;
-            DrawRect(r, sel ? new Color(tree.Color, 0.18f) : new Color(1, 1, 1, 0.04f));
-            if (sel) DrawRect(r, tree.Color, false, 2);
+            DrawColoredPolygon(UiArt.Rounded(r, 10f), sel ? new Color(tree.Color, 0.2f) : new Color(1, 1, 1, 0.05f));
+            UiArt.Outline(this, r, 10f, sel ? tree.Color : new Color(tree.Color, 0.25f), sel ? 2f : 1f);
             DrawString(font, r.Position + new Vector2(14, 22), name, HorizontalAlignment.Left, -1, 15, Colors.White);
             var tiers = tree.Branch(branch).ToList();
             for (int j = 0; j < tiers.Count; j++)

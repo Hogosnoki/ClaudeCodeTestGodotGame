@@ -1550,7 +1550,8 @@ public partial class Main : Node
         if (Net.InRun) p.Choosing = true;
         else GetTree().Paused = true;
         _sfx.Play(chest != null ? "chest" : "levelup");
-        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!", locks);
+        var backdrop = chest == null ? UiArt.Surface.Night : chest.Vault ? UiArt.Surface.Vault : chest.Tier == ChestTier.Boss ? UiArt.Surface.Gold : chest.Tier == ChestTier.Relic ? UiArt.Surface.Velvet : UiArt.Surface.Wood;
+        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!", locks, backdrop);
         _autoPickT = 0.5f;
     }
 

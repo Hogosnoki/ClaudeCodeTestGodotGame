@@ -20,6 +20,7 @@ public partial class Hud : Control
     {
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         MouseFilter = MouseFilterEnum.Ignore;
+        TextureRepeat = TextureRepeatEnum.Enabled;
     }
 
     public void ResetMap(CaveData cave)
@@ -33,6 +34,7 @@ public partial class Hud : Control
     public void ShowBanner(string text, float time = 2.5f) { Banner = text; BannerT = time; }
 
     /// <summary>A smaller line under the depth (who joined or left, a tip).</summary>
+    private float _hpGhost = 1f;
     public string Notice = "";
     public float NoticeT;
     public void ShowNotice(string text, float time = 4f) { Notice = text; NoticeT = time; NoticeNote = ""; }
@@ -105,11 +107,10 @@ public partial class Hud : Control
         // --- HP ---
         var hpPos = new Vector2(20, 18);
         float hpW = 200 + p.Stats.MaxHp * 0.3f;
-        DrawRect(new Rect2(hpPos - new Vector2(3, 3), new Vector2(hpW + 6, 22)), new Color(0, 0, 0, 0.6f));
-        DrawRect(new Rect2(hpPos, new Vector2(hpW, 16)), new Color(0.25f, 0.05f, 0.06f));
         float hf = Math.Clamp(p.Hp / p.Stats.MaxHp, 0, 1);
-        DrawRect(new Rect2(hpPos, new Vector2(hpW * hf, 16)), hf < 0.3f && (int)(_t * 4) % 2 == 0 ? new Color(1f, 0.4f, 0.4f) : new Color(0.85f, 0.18f, 0.22f));
-        DrawRect(new Rect2(hpPos, new Vector2(hpW * hf, 5)), new Color(1, 1, 1, 0.15f));
+        // (what was just lost lingers a moment, paler, behind the bar)
+        _hpGhost = hf > _hpGhost ? hf : Mathf.MoveToward(_hpGhost, hf, (float)GetProcessDeltaTime() * 0.35f);
+        UiArt.Bar(this, new Rect2(hpPos, new Vector2(hpW, 16)), hf, hf < 0.3f && (int)(_t * 4) % 2 == 0 ? new Color(1f, 0.4f, 0.4f) : new Color(0.85f, 0.18f, 0.22f), null, _hpGhost);
         DrawString(font, hpPos + new Vector2(6, 13), $"{Num.Shown(p.Hp)} / {Num.Shown(p.Stats.MaxHp)}", HorizontalAlignment.Left, -1, 13, Colors.White);
         Tip(new Rect2(hpPos - new Vector2(3, 3), new Vector2(hpW + 6, 22)), "Health", "Your health, now and at most (the bar grows with it). It flashes when low. At none you fall: a friend can revive you; alone, the run ends.");
 
@@ -121,7 +122,12 @@ public partial class Hud : Control
             for (int k = 0; k < mine.Count; k++)
             {
                 var tex = Icons.Get(mine[k]);
-                if (tex != null) DrawTextureRect(tex, new Rect2(rx + k * (rs + rg), 40, rs, rs), false);
+                if (tex != null)
+                {
+                    var rr = new Rect2(rx + k * (rs + rg), 40, rs, rs);
+                    UiArt.RoundedTexture(this, tex, rr, 7f, Colors.White);
+                    UiArt.Outline(this, rr.Grow(1f), 8f, new Color(1f, 0.6f, 0.62f, 0.65f), 1.2f);
+                }
                 var relic = Upgrades.Find(mine[k]);
                 Tip(new Rect2(rx + k * (rs + rg), 40, rs, rs), relic != null ? relic.Name + " (relic)" : "Relic", relic?.Desc ?? "A relic you carry this run.", true);
             }
@@ -130,8 +136,7 @@ public partial class Hud : Control
         // --- XP ---
         var xpPos = hpPos + new Vector2(0, 26);
         float xpW = hpW;
-        DrawRect(new Rect2(xpPos - new Vector2(3, 3), new Vector2(xpW + 6, 12)), new Color(0, 0, 0, 0.6f));
-        DrawRect(new Rect2(xpPos, new Vector2(xpW * Math.Clamp(p.Xp / (float)p.XpToNext, 0, 1), 6)), new Color(0.4f, 1f, 0.7f));
+        UiArt.Bar(this, new Rect2(xpPos, new Vector2(xpW, 7)), Math.Clamp(p.Xp / (float)p.XpToNext, 0, 1), new Color(0.35f, 0.9f, 0.62f), new Color(0.4f, 0.5f, 0.45f, 0.7f));
         DrawString(font, xpPos + new Vector2(xpW + 10, 8), $"Lv {p.Level}", HorizontalAlignment.Left, -1, 14, new Color(0.6f, 1f, 0.8f));
         Tip(new Rect2(xpPos - new Vector2(3, 4), new Vector2(xpW + 50, 14)), "Experience and level", $"Fills as creatures fall; each level makes you a little stronger, and every {Meta.MilestoneEvery} levels earns a milestone point to spend.");
         if (p.PendingMilestones > 0)
@@ -146,7 +151,7 @@ public partial class Hud : Control
             var at = xpPos + new Vector2(xpW + 10, 26);
             var size = font.GetStringSize(text, HorizontalAlignment.Left, -1, 12);
             var col = new Color(1f, 0.85f + 0.15f * flash, 0.35f + 0.65f * flash, MathF.Max(pulse, flash));
-            DrawRect(new Rect2(at + new Vector2(-6, -15), new Vector2(size.X * scale + 12, 21 * scale)), new Color(1f, 0.75f, 0.2f, 0.12f * pulse + 0.4f * flash));
+            DrawColoredPolygon(UiArt.Rounded(new Rect2(at + new Vector2(-8, -15), new Vector2(size.X * scale + 16, 21 * scale)), 10f * scale), new Color(1f, 0.75f, 0.2f, 0.12f * pulse + 0.4f * flash));
             DrawSetTransform(at, 0f, new Vector2(scale, scale));
             DrawString(font, Vector2.Zero, text, HorizontalAlignment.Left, -1, 12, col);
             DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
@@ -240,8 +245,7 @@ public partial class Hud : Control
             float bw = Math.Min(560, vs.X - 360);
             var bp = new Vector2(vs.X / 2 - bw / 2, vs.Y - 46);
             DrawString(font, bp + new Vector2(0, -6), (boss.Title != "" ? boss.Title : boss.DisplayName).ToUpperInvariant(), HorizontalAlignment.Left, -1, 15, new Color(1f, 0.85f, 0.7f));
-            DrawRect(new Rect2(bp - new Vector2(3, 3), new Vector2(bw + 6, 20)), new Color(0, 0, 0, 0.7f));
-            DrawRect(new Rect2(bp, new Vector2(bw * Math.Clamp(boss.Hp / boss.MaxHp, 0, 1), 14)), new Color(0.8f, 0.25f, 0.15f));
+            UiArt.Bar(this, new Rect2(bp, new Vector2(bw, 14)), Math.Clamp(boss.Hp / boss.MaxHp, 0, 1), new Color(0.8f, 0.25f, 0.15f), new Color(0.85f, 0.65f, 0.35f));
             Tip(new Rect2(bp - new Vector2(3, 22), new Vector2(bw + 6, 39)), "The guardian", "The health of the cave's guardian. Slay it to open the way on.");
         }
 
@@ -250,8 +254,9 @@ public partial class Hud : Control
         {
             float mw = 260, mh = mw * G.Cave.H / G.Cave.W;
             var mp = new Vector2(vs.X - mw - 16, 16);
-            DrawRect(new Rect2(mp - new Vector2(4, 4), new Vector2(mw + 8, mh + 8)), new Color(0, 0, 0, 0.55f));
+            DrawColoredPolygon(UiArt.Rounded(new Rect2(mp - new Vector2(6, 6), new Vector2(mw + 12, mh + 12)), 10f), new Color(0, 0, 0, 0.6f));
             DrawTextureRect(_mapTex, new Rect2(mp, new Vector2(mw, mh)), false);
+            UiArt.Outline(this, new Rect2(mp - new Vector2(6, 6), new Vector2(mw + 12, mh + 12)), 10f, new Color(0.62f, 0.52f, 0.36f, 0.85f), 1.5f);
             Tip(new Rect2(mp - new Vector2(4, 4), new Vector2(mw + 8, mh + 8)), "Map", "The cave as you have seen it: you (yellow), your friends (their colours), the exit and its guardian (red ring), the vault (gold lock) and the water line.");
             float sx = mw / G.Cave.SizePx.X, sy = mh / G.Cave.SizePx.Y;
             if (G.Cave.Liquid != Liquid.None)
@@ -289,7 +294,7 @@ public partial class Hud : Control
             var at = OnScreen(chest.GlobalPosition, -46);
             string open = $"{Controls.Name("interact")}  open";
             var osz = font.GetStringSize(open, HorizontalAlignment.Left, -1, 14);
-            DrawRect(new Rect2(at - new Vector2(osz.X / 2 + 8, 16), new Vector2(osz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            Pill(new Rect2(at - new Vector2(osz.X / 2 + 10, 16), new Vector2(osz.X + 20, 22)));
             DrawString(font, at - new Vector2(osz.X / 2, 0), open, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
         // --- a plug of boulders ---
@@ -298,7 +303,7 @@ public partial class Hud : Control
             var at = OnScreen(plug.GlobalPosition, -plug.Size.Y * 0.5f - 18);
             string clear = $"{Controls.Name("interact")}  heave the rocks  ({plug.Left})";
             var csz = font.GetStringSize(clear, HorizontalAlignment.Left, -1, 14);
-            DrawRect(new Rect2(at - new Vector2(csz.X / 2 + 8, 16), new Vector2(csz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            Pill(new Rect2(at - new Vector2(csz.X / 2 + 10, 16), new Vector2(csz.X + 20, 22)));
             DrawString(font, at - new Vector2(csz.X / 2, 0), clear, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
         // --- a caged hero ---
@@ -307,7 +312,7 @@ public partial class Hud : Control
             var at = OnScreen(cage.GlobalPosition, -50);
             string free = cage.NeedsCell ? (PowerCell.Found ? $"{Controls.Name("interact")}  revive the {cage.Hero}" : "it needs a power cell") : $"{Controls.Name("interact")}  free the {cage.Hero}";
             var fsz = font.GetStringSize(free, HorizontalAlignment.Left, -1, 14);
-            DrawRect(new Rect2(at - new Vector2(fsz.X / 2 + 8, 16), new Vector2(fsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            Pill(new Rect2(at - new Vector2(fsz.X / 2 + 10, 16), new Vector2(fsz.X + 20, 22)));
             DrawString(font, at - new Vector2(fsz.X / 2, 0), free, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
         // --- a vault's gate: a key opens it ---
@@ -318,7 +323,7 @@ public partial class Hud : Control
             bool key = p.Keys > 0;
             string say = key ? $"{Controls.Name("interact")}  open the vault (a key)" : "LOCKED: it takes a key";
             var gsz = font.GetStringSize(say, HorizontalAlignment.Left, -1, 14);
-            DrawRect(new Rect2(at - new Vector2(gsz.X / 2 + 8, 16), new Vector2(gsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            Pill(new Rect2(at - new Vector2(gsz.X / 2 + 10, 16), new Vector2(gsz.X + 20, 22)));
             DrawString(font, at - new Vector2(gsz.X / 2, 0), say, HorizontalAlignment.Left, -1, 14,
                 key ? new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)) : new Color(1f, 0.7f, 0.55f, 0.85f));
         }
@@ -341,10 +346,9 @@ public partial class Hud : Control
             var at = OnScreen(p.GlobalPosition, -62);
             string msg = "STRUGGLE!  press anything";
             var msz = font.GetStringSize(msg, HorizontalAlignment.Left, -1, 14);
-            DrawRect(new Rect2(at - new Vector2(msz.X / 2 + 8, 16), new Vector2(msz.X + 16, 30)), new Color(0, 0, 0, 0.6f));
+            Pill(new Rect2(at - new Vector2(msz.X / 2 + 10, 16), new Vector2(msz.X + 20, 30)));
             DrawString(font, at - new Vector2(msz.X / 2, 0), msg, HorizontalAlignment.Left, -1, 14, new Color(0.95f, 0.95f, 0.88f, 0.8f + 0.2f * MathF.Sin(_t * 9)));
-            DrawRect(new Rect2(at + new Vector2(-msz.X / 2, 5), new Vector2(msz.X, 4)), new Color(0.3f, 0.3f, 0.3f, 0.8f));
-            DrawRect(new Rect2(at + new Vector2(-msz.X / 2, 5), new Vector2(msz.X * p.WebStruggle, 4)), new Color(1f, 1f, 0.9f));
+            UiArt.Bar(this, new Rect2(at + new Vector2(-msz.X / 2, 5), new Vector2(msz.X, 5)), p.WebStruggle, new Color(1f, 1f, 0.9f));
         }
         // --- a Guild lamp: read the page left by it ---
         if (!p.Dead && GuildLamp.At(p.GlobalPosition) is GuildLamp lamp)
@@ -352,7 +356,7 @@ public partial class Hud : Control
             var at = OnScreen(lamp.GlobalPosition, -56);
             string read = $"{Controls.Name("interact")}  read the Delver's page";
             var rsz = font.GetStringSize(read, HorizontalAlignment.Left, -1, 14);
-            DrawRect(new Rect2(at - new Vector2(rsz.X / 2 + 8, 16), new Vector2(rsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
+            Pill(new Rect2(at - new Vector2(rsz.X / 2 + 10, 16), new Vector2(rsz.X + 20, 22)));
             DrawString(font, at - new Vector2(rsz.X / 2, 0), read, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
         if (NoticeT > 0 && Notice != "")
@@ -509,9 +513,8 @@ public partial class Hud : Control
             DrawCircle(at + new Vector2(5, 7), 4.5f, col);
             DrawString(font, at + new Vector2(14, 12), peer.Name, HorizontalAlignment.Left, 96, 12, new Color(1, 1, 1, 0.85f));
             var bar = at + new Vector2(114, 3);
-            DrawRect(new Rect2(bar - new Vector2(1, 1), new Vector2(92, 10)), new Color(0, 0, 0, 0.6f));
             float f = here ? Math.Clamp(h.Hp / Math.Max(1f, h.Stats.MaxHp), 0, 1) : 0;
-            DrawRect(new Rect2(bar, new Vector2(90 * f, 8)), new Color(0.85f, 0.18f, 0.22f));
+            UiArt.Bar(this, new Rect2(bar, new Vector2(90, 8)), f, new Color(0.85f, 0.18f, 0.22f));
             string state = !here ? "" : h.Dead ? "DOWN" : peer.AtExit ? "at the exit" : h.Choosing ? "choosing" : "";
             if (state != "") DrawString(font, bar + new Vector2(98, 9), state, HorizontalAlignment.Left, -1, 11, h.Dead ? new Color(1f, 0.45f, 0.4f) : new Color(1, 1, 1, 0.6f));
             at += new Vector2(0, 16);
@@ -535,8 +538,7 @@ public partial class Hud : Control
             var lsz = font.GetStringSize(line, HorizontalAlignment.Left, -1, 16);
             var c = new Vector2(vs.X / 2, vs.Y * 0.62f);
             DrawString(font, c - new Vector2(lsz.X / 2, 0), line, HorizontalAlignment.Left, -1, 16, Player.HealColorLight);
-            DrawRect(new Rect2(c + new Vector2(-80, 8), new Vector2(160, 8)), new Color(0, 0, 0, 0.6f));
-            DrawRect(new Rect2(c + new Vector2(-79, 9), new Vector2(158 * Math.Clamp(me.ReviveProgress, 0, 1), 6)), Player.HealColor);
+            UiArt.Bar(this, new Rect2(c + new Vector2(-80, 8), new Vector2(160, 8)), Math.Clamp(me.ReviveProgress, 0, 1), Player.HealColor);
         }
 
         // going down together
@@ -571,7 +573,7 @@ public partial class Hud : Control
         brains.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
         float w = 330, rowH = 15, h = 44 + Math.Max(1, brains.Count) * rowH;
         var o = new Vector2(vs.X - w - 12, 150);
-        DrawRect(new Rect2(o, new Vector2(w, h)), new Color(0, 0, 0, 0.6f));
+        DrawColoredPolygon(UiArt.Rounded(new Rect2(o, new Vector2(w, h)), 10f), new Color(0, 0, 0, 0.6f));
         DrawString(font, o + new Vector2(8, 16), $"TRAINING  (F9 off · F10 save)   {Brains.LastSaveText}", HorizontalAlignment.Left, w - 16, 11, new Color(1f, 0.85f, 0.35f));
         var dim = new Color(1, 1, 1, 0.55f);
         string[] heads = { "brain", "decisions", "teacher", "reward", "dealt" };
@@ -602,20 +604,41 @@ public partial class Hud : Control
         {
             // the painted icon, full colour while the ability is ready, greyed while it recharges
             var box = new Rect2(at - new Vector2(5, 5), new Vector2(44, 44));
-            DrawTextureRect(painted, box, false, ready ? Colors.White : new Color(0.5f, 0.52f, 0.58f));
-            if (cooldownFrac > 0) DrawRect(new Rect2(box.Position + new Vector2(2, 44 * (1 - cooldownFrac)), new Vector2(40, 44 * cooldownFrac - 2)), new Color(0, 0, 0, 0.55f));
-            if (ready) DrawRect(box.Grow(1), new Color(col, 0.3f + 0.25f * MathF.Sin(_t * 5)), false, 1.5f);
+            UiArt.RoundedTexture(this, painted, box, 9f, ready ? Colors.White : new Color(0.5f, 0.52f, 0.58f));
+            if (cooldownFrac > 0)
+            {
+                // the recharge: a dark sweep round the icon, like a clock's hand going back
+                var cc = box.GetCenter();
+                int segs = 24;
+                var pts = new List<Vector2> { cc };
+                for (int k = 0; k <= segs; k++)
+                {
+                    float a = -MathF.PI / 2 + k / (float)segs * MathF.Tau * cooldownFrac;
+                    var d = new Vector2(MathF.Cos(a), MathF.Sin(a));
+                    float m = 22f / MathF.Max(MathF.Abs(d.X), MathF.Abs(d.Y));
+                    pts.Add(cc + d * MathF.Min(m, 30f));
+                }
+                DrawColoredPolygon(pts.ToArray(), new Color(0, 0, 0, 0.55f));
+            }
+            UiArt.Outline(this, box.Grow(1), 9f, ready ? new Color(col, 0.45f + 0.3f * MathF.Sin(_t * 5)) : new Color(0.55f, 0.48f, 0.38f, 0.7f), ready ? 2f : 1.4f);
             DrawString(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
             return;
         }
-        DrawRect(new Rect2(at, new Vector2(34, 34)), new Color(0, 0, 0, 0.55f));
+        DrawColoredPolygon(UiArt.Rounded(new Rect2(at, new Vector2(34, 34)), 8f), new Color(0, 0, 0, 0.55f));
         icon(at + new Vector2(17, 17), ready ? col : new Color(0.45f, 0.47f, 0.52f));
-        if (cooldownFrac > 0) DrawRect(new Rect2(at + new Vector2(0, 34 * (1 - cooldownFrac)), new Vector2(34, 34 * cooldownFrac)), new Color(0, 0, 0, 0.55f));
-        if (ready) DrawRect(new Rect2(at - new Vector2(1, 1), new Vector2(36, 36)), new Color(col, 0.35f + 0.25f * MathF.Sin(_t * 5)), false, 1.5f);
+        if (cooldownFrac > 0) DrawColoredPolygon(UiArt.Rounded(new Rect2(at + new Vector2(0, 34 * (1 - cooldownFrac)), new Vector2(34, MathF.Max(1f, 34 * cooldownFrac))), MathF.Min(8f, 17 * cooldownFrac)), new Color(0, 0, 0, 0.55f));
+        UiArt.Outline(this, new Rect2(at - new Vector2(1, 1), new Vector2(36, 36)), 9f, ready ? new Color(col, 0.45f + 0.3f * MathF.Sin(_t * 5)) : new Color(0.55f, 0.48f, 0.38f, 0.7f), ready ? 2f : 1.4f);
         DrawString(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
     }
 
     /// <summary>The key or button for an action, in small print under its square.</summary>
+    /// <summary>A prompt's backing: a dark rounded pill with a thin gilt rim.</summary>
+    private void Pill(Rect2 r)
+    {
+        DrawColoredPolygon(UiArt.Rounded(r, r.Size.Y / 2f), new Color(0, 0, 0, 0.62f));
+        UiArt.Outline(this, r, r.Size.Y / 2f, new Color(0.85f, 0.7f, 0.4f, 0.55f), 1.2f);
+    }
+
     private void KeyHint(Font font, Vector2 at, string action)
         => DrawString(font, at + new Vector2(0, 46), Controls.Name(action), HorizontalAlignment.Center, 34, 9, new Color(1, 1, 1, 0.4f));
 
@@ -691,10 +714,7 @@ public partial class Hud : Control
         // the fuel: a gauge beside them, amber, with the number held
         var eb = sb + new Vector2(52, 6);
         const float ew = 108, eh = 12;
-        DrawRect(new Rect2(eb - new Vector2(2, 2), new Vector2(ew + 4, eh + 4)), new Color(0, 0, 0, 0.6f));
-        DrawRect(new Rect2(eb, new Vector2(ew, eh)), new Color(0.22f, 0.14f, 0.06f));
-        DrawRect(new Rect2(eb, new Vector2(ew * p.FuelFrac, eh)), p.Repairing && (int)(_t * 8) % 2 == 0 ? amber.Lightened(0.3f) : amber);
-        DrawRect(new Rect2(eb, new Vector2(ew * p.FuelFrac, 4)), new Color(1, 1, 1, 0.18f));
+        UiArt.Bar(this, new Rect2(eb, new Vector2(ew, eh)), p.FuelFrac, p.Repairing && (int)(_t * 8) % 2 == 0 ? amber.Lightened(0.3f) : amber);
         DrawString(font, eb + new Vector2(0, -6), "FUEL", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         Tip(new Rect2(eb - new Vector2(2, 16), new Vector2(ew + 4, eh + 36)), "Fuel", "The Automaton's fuel: it builds as you fight, and healing you receive becomes fuel. Self-Repair and Pressurize burn it.");
         DrawString(font, eb + new Vector2(4, 10), $"{Num.Shown(p.Fuel)} / {Num.Shown(p.Stats.FuelMax)}", HorizontalAlignment.Left, -1, 10, Colors.White);
@@ -702,7 +722,7 @@ public partial class Hud : Control
         var hot = new Color(1f, 0.55f, 0.2f);
         if (p.Pressurising)
         {
-            DrawRect(new Rect2(eb + new Vector2(0, eh + 6), new Vector2(ew * p.PressureBuild, 4)), hot);
+            UiArt.Bar(this, new Rect2(eb + new Vector2(0, eh + 6), new Vector2(ew, 4)), p.PressureBuild, hot);
             DrawString(font, eb + new Vector2(0, eh + 20), "BUILDING PRESSURE", HorizontalAlignment.Left, -1, 10, new Color(hot, 0.6f + 0.4f * MathF.Sin(_t * 14)));
         }
         else if (p.Overpressured)
@@ -772,9 +792,8 @@ public partial class Hud : Control
         var sp = bb + new Vector2(52, 10);
         const float w = 130;
         float frac = Math.Clamp(p.ShieldHp / Math.Max(1f, p.Stats.ShieldMax), 0, 1);
-        DrawRect(new Rect2(sp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
         var bar = p.ShieldBroken ? new Color(0.45f, 0.45f, 0.5f) : p.ShieldRaised ? new Color(0.6f, 0.85f, 1f) : new Color(0.35f, 0.6f, 0.95f);
-        DrawRect(new Rect2(sp, new Vector2(w * frac, 12)), bar);
+        UiArt.Bar(this, new Rect2(sp, new Vector2(w, 12)), frac, bar);
         // the bash's cost: a notch where one bash would leave the shield
         float notch = Tune.Warden.BashShieldShare;
         if (!p.ShieldBroken && frac > notch) DrawLine(sp + new Vector2(w * (frac - notch), 0), sp + new Vector2(w * (frac - notch), 12), new Color(1f, 0.85f, 0.45f, 0.6f), 1.5f);
@@ -815,9 +834,7 @@ public partial class Hud : Control
         const float w = 150;
         float max = Math.Max(1f, p.Stats.VitalForceMax);
         float frac = Math.Clamp(p.VitalForce / max, 0, 1);
-        DrawRect(new Rect2(bp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
-        DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), new Color(0.42f, 0.85f, 0.4f));
-        DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(0.9f, 0.3f, 0.35f, 0.5f));
+        UiArt.Bar(this, new Rect2(bp, new Vector2(w, 12)), frac, new Color(0.42f, 0.85f, 0.4f));
         // tick marks: one heal's worth each; the rupture's cost in crimson
         for (float x = p.HealCost; x < max - 0.01f; x += p.HealCost)
             DrawLine(bp + new Vector2(w * x / max, 0), bp + new Vector2(w * x / max, 12), new Color(0, 0, 0, 0.45f), 1f);
@@ -842,7 +859,8 @@ public partial class Hud : Control
         KeyHint(font, ab, "dodge");
         // the daggers: lit in hand, dark while thrown
         var db = ab + new Vector2(56, 0);
-        DrawRect(new Rect2(db, new Vector2(46, 34)), new Color(0, 0, 0, 0.55f));
+        DrawColoredPolygon(UiArt.Rounded(new Rect2(db, new Vector2(46, 34)), 8f), new Color(0, 0, 0, 0.55f));
+        UiArt.Outline(this, new Rect2(db - new Vector2(1, 1), new Vector2(48, 36)), 9f, new Color(0.55f, 0.48f, 0.38f, 0.7f), 1.4f);
         for (int k = 0; k < 2; k++)
         {
             bool inHand = p.DaggerInHand(k);
@@ -853,7 +871,7 @@ public partial class Hud : Control
             DrawLine(c + new Vector2(0, -3), c + new Vector2(0, 8), inHand ? new Color(0.45f, 0.32f, 0.2f) : col, 2.5f);
         }
         float tcd = p.ThrowCooldownFrac;
-        if (tcd > 0) DrawRect(new Rect2(db + new Vector2(0, 34 * (1 - tcd)), new Vector2(46, 34 * tcd)), new Color(0, 0, 0, 0.55f));
+        if (tcd > 0) DrawColoredPolygon(UiArt.Rounded(new Rect2(db + new Vector2(0, 34 * (1 - tcd)), new Vector2(46, MathF.Max(1f, 34 * tcd))), MathF.Min(8f, 17 * tcd)), new Color(0, 0, 0, 0.55f));
         DrawString(font, db + new Vector2(0, -6), "THROW", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         Tip(new Rect2(db - new Vector2(4, 14), new Vector2(54, 60)), "Dagger Throw", "Your daggers in hand (a dim one is out in the world). Thrown, a dagger sticks in what it hits until recalled; one in a wall is a foothold for everyone.", true);
         DrawString(font, db + new Vector2(0, 46), Controls.Name("ability"), HorizontalAlignment.Center, 46, 9, new Color(1, 1, 1, 0.4f));
@@ -971,9 +989,7 @@ public partial class Hud : Control
         const float w = 150;
         float max = Math.Max(1f, p.Stats.AlimusMax);
         float frac = Math.Clamp(p.Alimus / max, 0, 1);
-        DrawRect(new Rect2(bp - new Vector2(2, 2), new Vector2(w + 4, 16)), new Color(0, 0, 0, 0.6f));
-        DrawRect(new Rect2(bp, new Vector2(w * frac, 12)), AlimusColor);
-        DrawRect(new Rect2(bp, new Vector2(w * frac, 4)), new Color(1, 1, 1, 0.25f));
+        UiArt.Bar(this, new Rect2(bp, new Vector2(w, 12)), frac, AlimusColor);
         foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
             if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
         Tip(new Rect2(bp - new Vector2(2, 18), new Vector2(160, 34)), "Alimus", "The Elementalist's spell power. Spells spend it (their cost is the number on their square); it comes back by itself.");

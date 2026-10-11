@@ -27,11 +27,13 @@ public static class UiKit
         {
             if (_theme != null) return _theme;
             var t = new Theme { DefaultFontSize = 16 };
-            var normal = Box(new Color(0.11f, 0.1f, 0.13f, 0.95f), new Color(0.3f, 0.28f, 0.34f), 1);
-            var hover = Box(new Color(0.17f, 0.15f, 0.2f, 0.98f), new Color(0.5f, 0.46f, 0.55f), 1);
-            var pressed = Box(new Color(0.24f, 0.2f, 0.12f, 1f), Gold, 1);
-            var focus = Box(new Color(0, 0, 0, 0), Gold, 2);
-            var disabled = Box(new Color(0.08f, 0.08f, 0.09f, 0.8f), new Color(0.2f, 0.2f, 0.22f), 1);
+            // (buttons: brushed iron in a rounded bronze rim; brighter under the cursor, gilded when pressed; the focus a gold ring over it)
+            var bronze = new Color(0.55f, 0.42f, 0.26f);
+            var normal = UiArt.Box(UiArt.Surface.Panel, new Color(1.5f, 1.45f, 1.6f), bronze.Darkened(0.25f), 10, 1.6f, false, 12, 6, 0.97f, 1f);
+            var hover = UiArt.Box(UiArt.Surface.Panel, new Color(2.1f, 2f, 2.2f), bronze.Lightened(0.2f), 10, 1.8f, false, 12, 6, 1f, 1f);
+            var pressed = UiArt.Box(UiArt.Surface.Gold, new Color(1.1f, 1.05f, 1f), Gold, 10, 1.8f, false, 12, 6, 1f, 1f);
+            var focus = Box(new Color(0, 0, 0, 0), Gold, 2, 10);
+            var disabled = UiArt.Box(UiArt.Surface.Panel, new Color(0.9f, 0.9f, 0.95f), new Color(0.25f, 0.24f, 0.26f), 10, 1.4f, false, 12, 6, 0.85f, 0.5f);
             foreach (var type in new[] { "Button", "CheckButton" })
             {
                 t.SetStylebox("normal", type, normal);
@@ -48,7 +50,8 @@ public static class UiKit
                 t.SetColor("font_disabled_color", type, new Color(0.45f, 0.45f, 0.5f));
             }
             t.SetColor("font_color", "Label", Text);
-            var panel = Box(new Color(0.045f, 0.04f, 0.055f, 0.96f), new Color(0.32f, 0.28f, 0.22f), 2, 6, 24, 18);
+            // (panels: dark linen in a rounded gilt frame with studs at the corners)
+            var panel = UiArt.Box(UiArt.Surface.Panel, Colors.White, new Color(0.72f, 0.56f, 0.3f), 16, 2.4f, true, 24, 18, 0.97f);
             t.SetStylebox("panel", "PanelContainer", panel);
             t.SetStylebox("panel", "Panel", panel);
             // sliders: a thin track, a bright grabber, gold when focused

@@ -21,6 +21,7 @@ public partial class PerkMenu : Control
 
     public override void _Ready()
     {
+        TextureRepeat = TextureRepeatEnum.Enabled;
         SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
         ProcessMode = ProcessModeEnum.Always;
         MouseFilter = MouseFilterEnum.Stop;
@@ -103,7 +104,10 @@ public partial class PerkMenu : Control
     {
         var vs = Size;
         var font = ThemeDB.FallbackFont;
-        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.03f, 0.02f, 0.04f, 0.95f));
+        DrawRect(new Rect2(Vector2.Zero, vs), new Color(0.01f, 0.01f, 0.015f, 0.9f));
+        var page = new Rect2(14, 10, vs.X - 28, vs.Y - 20);
+        UiArt.FillRounded(this, page, 20f, UiArt.Surface.Leather, new Color(0.7f, 0.65f, 0.65f), 1.2f);
+        UiArt.Frame(this, page, 20f, UiArt.Rarity.Rare, (float)Time.GetTicksMsec() / 1000f);
         void Center(string text, float y, int size, Color col)
         {
             var sz = font.GetStringSize(text, HorizontalAlignment.Left, -1, size);
@@ -130,9 +134,10 @@ public partial class PerkMenu : Control
             var r = new Rect2(x0, y, rw, 52);
             _rows.Add((perk, r));
             bool sel = k == _sel;
-            DrawRect(r, sel ? new Color(accent, 0.2f) : new Color(1, 1, 1, 0.045f));
-            if (equipped) DrawRect(new Rect2(r.Position, new Vector2(4, r.Size.Y)), accent);
-            if (sel) DrawRect(r, accent, false, 2);
+            UiArt.FillRounded(this, r, 12f, UiArt.Surface.Stone, sel ? new Color(1.1f, 1.08f, 1.15f) : new Color(0.7f, 0.7f, 0.75f, 0.92f), 0.6f, r.Position + new Vector2(0, k * 61));
+            if (sel) DrawColoredPolygon(UiArt.Rounded(r, 12f), new Color(accent, 0.12f));
+            if (equipped) DrawColoredPolygon(UiArt.Rounded(new Rect2(r.Position + new Vector2(4, 6), new Vector2(5, r.Size.Y - 12)), 2.5f), accent);
+            UiArt.Frame(this, r, 12f, rank >= perk.MaxRank ? UiArt.Rarity.Rare : rank > 0 ? UiArt.Rarity.Uncommon : UiArt.Rarity.Common, (float)Time.GetTicksMsec() / 1000f, sel);
             DrawString(font, r.Position + new Vector2(16, 22), perk.Name, HorizontalAlignment.Left, -1, 17, rank > 0 ? Colors.White : new Color(1, 1, 1, 0.75f));
             // rank pips
             for (int j = 0; j < perk.MaxRank; j++)
