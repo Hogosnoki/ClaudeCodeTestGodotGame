@@ -67,11 +67,14 @@ public partial class UpgradeMenu : Control
     }
 
     /// <summary>What the choice is printed on: a chest's wood, a relic's velvet, a milestone's night sky, a hoard's gold, a vault's stone.</summary>
-    private UiArt.Surface _backdrop = UiArt.Surface.Wood;
+    private UiArt.Surface _backdrop = UiArt.Surface.Arcane;
 
-    public void Open(List<Upgrade> choices, string title, List<string> locks = null, UiArt.Surface backdrop = UiArt.Surface.Wood)
+    private UiArt.Rarity _frame = UiArt.Rarity.Uncommon;
+
+    public void Open(List<Upgrade> choices, string title, List<string> locks = null, UiArt.Surface backdrop = UiArt.Surface.Arcane, UiArt.Rarity frame = UiArt.Rarity.Uncommon)
     {
         _backdrop = backdrop;
+        _frame = frame;
         _choices = choices;
         _locks = locks ?? new List<string>();
         while (_locks.Count < _choices.Count) _locks.Add(null);
@@ -147,12 +150,7 @@ public partial class UpgradeMenu : Control
     }
 
     /// <summary>The frame round the whole choice, by what it is: iron brackets on a chest, gems on a relic, stars on a milestone.</summary>
-    private UiArt.Rarity BackdropFrame => _backdrop switch
-    {
-        UiArt.Surface.Velvet => UiArt.Rarity.Relic,
-        UiArt.Surface.Gold or UiArt.Surface.Vault or UiArt.Surface.Night => UiArt.Rarity.Rare,
-        _ => UiArt.Rarity.Uncommon,
-    };
+    private UiArt.Rarity BackdropFrame => _frame;
 
     public override void _Draw()
     {

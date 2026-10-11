@@ -15,7 +15,7 @@ public static class UiArt
 {
     // ================================================================== surfaces
 
-    public enum Surface { Panel, Stone, Wood, Velvet, Gold, Vault, Night, Leather, Crystal, Vellum, Smoke, Iron }
+    public enum Surface { Panel, Stone, Wood, Velvet, Gold, Vault, Night, Leather, Crystal, Vellum, Smoke, Iron, Arcane }
 
     private const int TexSize = 256;
     private static readonly Dictionary<Surface, ImageTexture> _tex = new();
@@ -195,6 +195,27 @@ public static class UiArt
                 float vein = 1f - Mathf.SmoothStep(0f, 0.05f, MathF.Abs(MathF.Sin((x / (float)n + warp * 1.5f) * MathF.Tau * 2f)));
                 var c = Mix(new Color(0.09f, 0.04f, 0.13f), new Color(0.17f, 0.08f, 0.22f), f);
                 return Mix(c, new Color(0.6f, 0.45f, 0.75f), vein * 0.3f) with { A = 1 };
+            }
+            case Surface.Arcane:
+            {
+                // an upgrade's slate: deep indigo stone carved with faint glowing runes (a ring, its ticks, a stroke through it) on a grid
+                const int cell = 64;
+                int cx = x / cell, cy = y / cell, cells = n / cell;
+                float lx = x % cell - cell / 2f + 0.5f, ly = y % cell - cell / 2f + 0.5f;
+                float hsh = Hash(cx % cells, cy % cells, 77);
+                var c = Mix(new Color(0.05f, 0.055f, 0.12f), new Color(0.1f, 0.09f, 0.2f), f * 0.8f + fine * 0.2f);
+                float rr = MathF.Sqrt(lx * lx + ly * ly);
+                float ringR = 13f + 6f * hsh;
+                float ring = 1f - Mathf.SmoothStep(0.6f, 1.6f, MathF.Abs(rr - ringR));
+                float ang = MathF.Atan2(ly, lx);
+                // (a gap in the ring, and ticks round it)
+                ring *= Mathf.SmoothStep(0.2f, 0.5f, MathF.Abs(MathF.Sin((ang + hsh * 6f) * 0.5f)));
+                float tick = (1f - Mathf.SmoothStep(0.5f, 1.4f, MathF.Abs(rr - ringR - 5f) * 0.6f)) * Mathf.SmoothStep(0.85f, 0.97f, MathF.Cos(ang * (3 + (int)(hsh * 4)) + hsh * 9f));
+                float sa = hsh * MathF.PI;
+                float dl = MathF.Abs(-MathF.Sin(sa) * lx + MathF.Cos(sa) * ly);
+                float stroke = (1f - Mathf.SmoothStep(0.5f, 1.3f, dl)) * (rr < ringR - 3f ? 1f : 0f);
+                float glyph = Math.Clamp(ring + tick + stroke * 0.8f, 0f, 1f) * (0.35f + 0.65f * Hash(cy, cx, 5));
+                return Mix(c, new Color(0.45f, 0.75f, 1f), glyph * 0.32f) with { A = 1 };
             }
             default: // Iron
             {

@@ -685,8 +685,8 @@ public static class Tune
         /// <summary>Its steam hop: a little air jump (x a full jump's speed), a puff from the joints.</summary>
         public static float HopMult = 0.6f;
         /// <summary>In water: it sinks toward SinkSpeed px/s when left alone (SinkDown with down held); each press of jump kicks it
-        /// up at StrokeSpeed px/s (no more than every StrokeEvery s); it walks the bottom at WadeMult x the swim speed.</summary>
-        public static float SinkSpeed = 190f, SinkDown = 270f, SinkAccel = 520f, StrokeSpeed = 120f, StrokeEvery = 0.28f, WadeMult = 0.8f;
+        /// up at StrokeSpeed px/s (no more than every StrokeEvery s; 144, a fifth more than at first, so the climb is no struggle); it walks the bottom at WadeMult x the swim speed.</summary>
+        public static float SinkSpeed = 190f, SinkDown = 270f, SinkAccel = 520f, StrokeSpeed = 144f, StrokeEvery = 0.28f, WadeMult = 0.8f;
 
         /// <summary>The cleaver: reach, damage, time between swings, the sweep and wind-up, knockback and the step into it.
         /// Its third strike is a slam: SlamShare of the strike to everything within SlamRadius px of where it lands, and the

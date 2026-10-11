@@ -156,7 +156,7 @@ public partial class PotionPickup : Node2D
             {
                 if (p.IsRemote) NetSync.GivePickup(p, 2, 1);
                 else { p.Potions++; p.DupePotion(); }
-                G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
+                G.Sfx.Play("pickup_potion", GlobalPosition, -4);
                 G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);
                 G.Fx.Pop(GlobalPosition, new Color(1f, 0.4f, 0.55f), 8);
             }

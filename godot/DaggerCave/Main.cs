@@ -1558,9 +1558,13 @@ public partial class Main : Node
         _state = State.Choosing;
         if (Net.InRun) p.Choosing = true;
         else GetTree().Paused = true;
-        _sfx.Play(chest != null ? "chest" : "levelup");
-        var backdrop = chest == null ? UiArt.Surface.Night : chest.Vault ? UiArt.Surface.Vault : chest.Tier == ChestTier.Boss ? UiArt.Surface.Gold : chest.Tier == ChestTier.Relic ? UiArt.Surface.Velvet : UiArt.Surface.Wood;
-        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!", locks, backdrop);
+        // (the choice has its own look and voice, not the chest's: a relic on velvet with a deep bell, an upgrade on the rune slate with a
+        // shimmer of cards, a milestone on the night sky; a hoard's or a vault's frame is the grander)
+        bool relicChoice = chest != null && chest.Tier == ChestTier.Relic;
+        _sfx.Play(chest == null ? "card_reveal" : relicChoice ? "relic_reveal" : "card_reveal", null, 0, 0, chest == null ? 1.15f : 1f);
+        var backdrop = chest == null ? UiArt.Surface.Night : relicChoice ? UiArt.Surface.Velvet : UiArt.Surface.Arcane;
+        var frame = chest == null ? UiArt.Rarity.Rare : relicChoice ? UiArt.Rarity.Relic : chest.Vault || chest.Tier == ChestTier.Boss ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon;
+        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!", locks, backdrop, frame);
         _autoPickT = 0.5f;
     }
 
@@ -1570,7 +1574,7 @@ public partial class Main : Node
         _lookingChest = null;
         if (u.Icon == "skip")
         {
-            _sfx.Play("ui", null, 0, 0, 0.7f);
+            _sfx.Play("card_leave", null, -2);
             // the chest closes again with its cards (for later, or for a friend)
             if (chest != null)
             {
@@ -1581,7 +1585,7 @@ public partial class Main : Node
         else
         {
             Upgrades.Apply(u, G.Player.Stats, G.Player);
-            _sfx.Play("ui");
+            _sfx.Play("card_take", null, 0, 0, u.Relic ? 0.8f : 1f);
             _hud.ShowBanner(u.Name, 1.6f);
             // a card taken: the chest is spent
             if (chest != null && IsInstanceValid(chest))

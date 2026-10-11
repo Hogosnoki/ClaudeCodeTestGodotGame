@@ -338,6 +338,45 @@ public partial class SoundBank : Node
         Echo(b, 0.09f, 0.3f, 0.3f);
         Add("milestone", b, 0.55f);
 
+        // the cards laid out (an upgrade to choose): a riffle of stiff paper, then a soft rising shimmer of bells over it
+        b = Buf(0.9f);
+        for (int k = 0; k < 9; k++)
+        {
+            float at = k * 0.018f + 0.004f * MathF.Abs(Noise());
+            BandNoise(b, at, 0.03f, Const(2600f + 900f * Noise()), Const(2.2f), t => 0.55f * MathF.Exp(-t * 7f));
+        }
+        foreach (var (m, at) in new[] { (79, 0.16f), (83, 0.22f), (86, 0.28f), (91, 0.34f) })
+            Modes(b, at, NoteHz(m), GlassModes, 1.1f, 0.22f);
+        Osc(b, 0.16f, 0.7f, t => NoteHz(86) * (1f + 0.004f * MathF.Sin(t * 30f)), t => 0.06f * MathF.Sin(MathF.Min(1f, t * 4f) * MathF.PI * 0.5f) * MathF.Exp(-t * 3f));
+        Add("card_reveal", b, 0.5f);
+        // a relic laid out: a deep bell struck once, a low swell under it, a scatter of sparkle
+        b = Buf(1.6f);
+        Modes(b, 0, NoteHz(50), MetalModes, 0.35f, 0.7f);
+        Osc(b, 0, 1.4f, Const(NoteHz(38)), t => 0.25f * MathF.Sin(MathF.Min(1f, t * 3f) * MathF.PI * 0.5f) * MathF.Exp(-t * 2.2f));
+        for (int k = 0; k < 7; k++) Modes(b, 0.25f + k * 0.07f + 0.02f * MathF.Abs(Noise()), NoteHz(88 + (k * 5) % 12), GlassModes, 2f, 0.07f);
+        Add("relic_reveal", b, 0.6f);
+        // a card taken: a firm stamp of it into the hand and a bright sealing chime
+        b = Buf(0.6f);
+        Osc(b, 0, 0.08f, ExpSweep(180, 70), Decay(18));
+        BandNoise(b, 0, 0.05f, Const(1400f), Const(1.4f), Decay(25));
+        Modes(b, 0.04f, NoteHz(84), GlassModes, 0.9f, 0.35f);
+        Modes(b, 0.07f, NoteHz(91), GlassModes, 0.9f, 0.25f);
+        Add("card_take", b, 0.55f);
+        // the cards set aside: a soft sweep of paper sliding away
+        b = Buf(0.35f);
+        BandNoise(b, 0, 0.3f, t => 2400f - 1500f * t, Const(1.3f), t => MathF.Sin(MathF.Min(1f, t * 2.5f) * MathF.PI * 0.5f) * MathF.Exp(-t * 4f) * 0.6f);
+        Add("card_leave", b, 0.35f);
+        // a potion: the clink of the glass and the slosh inside it
+        b = Buf(0.45f);
+        Modes(b, 0, 2100f, GlassModes, 1.2f, 0.4f);
+        for (int k = 0; k < 4; k++) { float f = 350f + 250f * MathF.Abs(Noise()); Osc(b, 0.05f + k * 0.04f, 0.06f, ExpSweep(f, f * 1.6f), t => 0.25f * MathF.Exp(-t * 6f)); }
+        BandNoise(b, 0.04f, 0.2f, Const(700f), Const(1.5f), t => 0.3f * MathF.Sin(t * MathF.PI));
+        Add("pickup_potion", b, 0.45f);
+        // a key: a little jangle of iron on its ring
+        b = Buf(0.4f);
+        for (int k = 0; k < 4; k++) Modes(b, k * 0.035f + 0.01f * MathF.Abs(Noise()), 2600f + 700f * Noise(), MetalModes, 2.2f, 0.25f);
+        Add("pickup_key", b, 0.45f);
+
         // an old wooden chest: the hinge creaking open, the lid knocking back against the wood, dust settling
         b = Buf(0.9f);
         Creak(b, 0.0f, 0.42f, 300f, 55f, 0.55f, 5);

@@ -208,7 +208,7 @@ public partial class Player
     {
         if (Keys >= Tune.Vault.MaxKeys) return;
         Keys++;
-        G.Sfx.Play("chest", GlobalPosition, -4, 0, 1.8f);
+        G.Sfx.Play("pickup_key", GlobalPosition, -4);
         G.Fx.Text(GlobalPosition + new Vector2(0, -20), "+KEY", new Color(1f, 0.82f, 0.4f), 11, 1f);
         // (Duplication: it comes twice)
         if (Stats.Dupe && Keys < Tune.Vault.MaxKeys) { Keys++; G.Fx.Text(GlobalPosition + new Vector2(0, -32), "DUPLICATED", new Color(0f, 1f, 1f), 9, 1f); }
@@ -252,7 +252,7 @@ public partial class Player
     {
         if (Potions >= MaxPotions) return;
         Potions++;
-        G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.4f);
+        G.Sfx.Play("pickup_potion", GlobalPosition, -4);
         G.Fx.Text(GlobalPosition + new Vector2(0, -16), "+POTION", new Color(1f, 0.55f, 0.7f), 11, 1f);
         DupePotion();
     }
