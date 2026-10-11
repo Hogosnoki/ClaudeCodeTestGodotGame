@@ -64,6 +64,8 @@ public static class Tune
         public static float WaterEntryDamp = 0.75f;
         /// <summary>How hard you leap out of the water at the surface (fraction of jump speed).</summary>
         public static float SurfaceLeapMult = 0.95f;
+        /// <summary>Swimming up, you come to rest with your middle this far under the surface (px): the head is out, to breathe.</summary>
+        public static float SurfaceRest = 5f;
 
         public static float DodgeSpeed = 450f, DodgeTime = 0.2f, DodgeCooldown = 0.55f;
 

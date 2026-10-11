@@ -50,6 +50,7 @@ public partial class Main
     private string ScenarioBiome => _scenario switch
     {
         "water" => "slime",
+        "surface" => "slime",
         "fossilcam" => "fossils",
         "mouth" => "entrance",
         "drain" => "entrance",
@@ -132,6 +133,7 @@ public partial class Main
             case "sulphur": SulphurScenario(); break;
             case "clockwork": ClockworkScenario(); break;
             case "automaton": AutomatonScenario(); break;
+            case "surface": SurfaceScenario(); break;
             case "wing": WingScenario(); break;
             case "river": RiverScenario(); break;
             case "stick": StickScenario(); break;

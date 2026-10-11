@@ -220,7 +220,7 @@ public partial class Main : Node
         // (the magma scenario wants a cave with a real lava lake unless told otherwise, and the
         // water scenario one with wide open water: not every Slime Cavern has it where creatures swim)
         if (_seed == 0 && _scenario == "magma") _seed = 2;
-        if (_seed == 0 && _scenario == "water") _seed = 1013;
+        if (_seed == 0 && (_scenario == "water" || _scenario == "surface")) _seed = 1013;
         if (_scenario == "automaton") G.Hero = HeroKind.Automaton;
         // (the hero checks stand in one known cave, so a spot's lie of the land can't tip them)
         if (_heroTest) { Player.KnockLock = false; Tune.Combat.HurtKnockbackMult = 0.8f; Tune.Feel.HitStopPlayerHurt = 0.18f; }

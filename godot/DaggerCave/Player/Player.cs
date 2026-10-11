@@ -90,6 +90,9 @@ public partial class Player : CharacterBody2D
     public int Kills;
     public bool Dead;
     public bool InWater, HeadUnder;
+    /// <summary>A leap out of the water is ready: the swimmer has gone back under (or stopped coming down) since the last one.</summary>
+    private bool _leapReady = true;
+    private float _leapT;
     public float Facing = 1;
 
     public Func<PlayerInput> InputOverride;
@@ -519,8 +522,9 @@ public partial class Player : CharacterBody2D
         _wallSliding = false;
         _jumpedFromGround = false;
         UpdateCrouch(inp, onFloor);
-        bool surfaceFloat = !onFloor && !InWater && GlobalPosition.Y > cave.WaterY - 10 && cave.IsWater(GlobalPosition + new Vector2(0, 14));
-        if (onFloor || surfaceFloat) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
+        // (the water's surface is no floor: a leap out of the water is the swimmer's own, from in it; see Swim)
+        if (InWater && _leapT <= 0f && (HeadUnder || Velocity.Y <= 0f)) _leapReady = true;
+        if (onFloor) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
@@ -994,6 +998,8 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Swim(PlayerInput inp, Vector2 v, float dt, CaveData cave)
     {
+        // (a leap out carries on through the last of the water as through the air: the water doesn't drag it back)
+        if (_leapT > 0f && v.Y < 0f) { _leapT -= dt; v.Y += Gravity * dt; return v; }
         var dir = inp.Move;
         if (inp.JumpHeld) dir.Y = -1;
         float spd = SwimSpeedBase * Stats.SwimSpeed * (G.Biome?.Murky == true ? Tune.Hero.MurkySwimMult : 1f);
@@ -1014,11 +1020,18 @@ public partial class Player : CharacterBody2D
         else v = v.MoveToward(new Vector2(0, 22), 320f * dt);
         v *= 1f / (1f + Tune.Hero.WaterDrag * dt);
 
+        // swimming up, you stop at the surface with your head out of the water, where you can breathe (no bobbing up out of it)
+        float rest = cave.WaterY + Tune.Hero.SurfaceRest;
+        _leapT -= dt;
+        if (_leapT <= 0f && v.Y < 0f && GlobalPosition.Y + v.Y * dt < rest) v.Y = Math.Min(0f, (rest - GlobalPosition.Y) / Math.Max(dt, 0.001f));
         bool nearSurface = GlobalPosition.Y < cave.WaterY + 20;
-        if (_jumpBuffer > 0 && nearSurface)
+        // the leap out: from the surface, once you've gone back under after the last one (or stopped coming down)
+        if (_jumpBuffer > 0 && nearSurface && _leapReady)
         {
             v.Y = -BaseJumpV * MathF.Sqrt(Stats.JumpMult) * Tune.Hero.SurfaceLeapMult;
             _jumpBuffer = 0; _jumpCutDone = true;
+            _leapReady = false;
+            _leapT = 0.4f; // (the leap carries it out: the surface doesn't hold it back)
             G.Sfx.Play("jump", GlobalPosition, -6, 0.05f, 0.8f);
             if (cave.Flow != 0f) flow = Vector2.Zero; // (out of the water it is only the leap)
         }

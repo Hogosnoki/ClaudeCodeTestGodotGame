@@ -285,14 +285,15 @@ public partial class Player
         if (_jumpBuffer > 0)
         {
             _jumpBuffer = 0;
-            if (nearSurface)
+            if (nearSurface && _leapReady)
             {
                 v.Y = -BaseJumpV * MathF.Sqrt(Stats.JumpMult) * Tune.Hero.SurfaceLeapMult;
                 _jumpCutDone = true;
+                _leapReady = false;
                 G.Sfx.Play("jump", GlobalPosition, -6, 0.05f, 0.7f);
                 flow = Vector2.Zero;
             }
-            else if (_strokeCd <= 0)
+            else if (!nearSurface && _strokeCd <= 0)
             {
                 // a kick of the legs and a gout of bubbles from the joints
                 _strokeCd = Tune.AutomatonHero.StrokeEvery;

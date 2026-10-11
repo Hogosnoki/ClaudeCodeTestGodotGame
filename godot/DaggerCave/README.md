@@ -1142,6 +1142,13 @@ the 0.7 power of the usual curve, so deep ones don't drag. The caves hold about 
 3x experience. Upgrades and relics marked PARTY (threat, a friend's burden) are only ever offered in a
 party. A party is at most six heroes.
 
+## The water's surface
+
+Swimming up, a hero comes to rest at the surface with their middle 5 px under (`Tune.Hero.SurfaceRest`) and their head out, breathing,
+with no bobbing up out of it. A press of jump there leaps out of the water (the last of the water doesn't drag the leap back). The
+surface is no floor: falling back in, a press of jump does nothing until the hero has gone back under, or stopped coming down. The
+Automaton, who sinks, leaps out the same way from the surface. `--scenario=surface` checks it.
+
 ## Shared blows, ropes, rubble, crouching
 
 A creature's blow is an area one: every living hero within `Tune.Share.Radius` (110 px) of the one struck
