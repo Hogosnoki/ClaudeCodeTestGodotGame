@@ -63,6 +63,7 @@ public partial class Main
 
     private int _abPhase, _abDepth;
     private float _abT;
+    private bool _abNear;
 
     /// <summary>
     /// `--scenario=abyss --forcedrain`: a lake level with its drain; the hero swims down into it and comes up in the sunken sea (the
@@ -91,6 +92,8 @@ public partial class Main
                 // (sinking: nothing to do but wait for the loading screen)
                 if (_loading || G.Biome.Id == BiomeId.Abyss) { _abPhase = 2; _abT = 0; }
                 else if (_abT > 20f) { ScCheck("swimming into the drain takes you down", false); ScEnd(); }
+                else if (_abT < 1.5f && G.Cave.Drain is Vector2 d1) { p.GlobalPosition = d1 + new Vector2(0, -90); p.Velocity = Vector2.Zero; }
+                else if (!_abNear) { _abNear = true; ScShot("drain_near"); }
                 else if (G.Cave.Drain is Vector2 d0) p.GlobalPosition = p.GlobalPosition.MoveToward(d0, 3f);
                 break;
             case 2:

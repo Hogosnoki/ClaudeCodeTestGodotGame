@@ -36,6 +36,10 @@ public partial class Main
         for (float sx = 2400f; sx < cave.Boss.Center.X - 800f && stone == null; sx += 16f)
             if (cave.FindFloor(new Vector2(sx, cave.WaterY - 200f), 400, out var fl) && fl.Y < cave.WaterY - 24f && cave.FindFloor(new Vector2(sx + 140f, cave.WaterY - 200f), 400, out var fl2) && fl2.Y < cave.WaterY - 8f) stone = fl;
         ScCheck($"a stepping stone stands out of the river ({stone?.Round()})", stone != null);
+        // slabs over the river: a low tier over the stones and a high one over the gaps
+        var over = cave.Ledges.Where(l => l.Cy * CaveData.Cell < cave.WaterY - 40 && l.Cx * CaveData.Cell > cave.StartPos.X + 300 && l.Cx * CaveData.Cell < cave.Boss.Floor.X - 200).ToList();
+        float spread = over.Count == 0 ? 0 : over.Max(l => l.Cy) - over.Min(l => l.Cy);
+        ScCheck($"rock slabs over the river at different heights ({over.Count}, {spread:0.0} rows between the highest and lowest)", over.Count >= 3 && spread >= 3f);
         if (stone != null)
         {
             p.GlobalPosition = stone.Value + new Vector2(0, -16); p.Velocity = Vector2.Zero;

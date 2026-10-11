@@ -306,7 +306,8 @@ and damage taken while a controller is active.
 ## What's in it
 
 **The camp**. The game opens on the main menu, over the camp outside the cave: a green meadow
-under a blue sky, a cooking pot over the fire, and the cave's great dark mouth in a mossy cliff.
+under a blue sky, a cooking pot over the fire, and the cave's great dark mouth in a mossy cliff (the ground and the rock
+fade into its darkness: the camp's ground and cliff shaders shade everything in and just before the mouth down to black, and the haze thins there too).
 **Single player** brings you in to the fire, where the heroes sit on logs, and getting ready goes in
 three stages (Enter / A on to the next, Esc / B back): **1 Character** (choose one; the chosen hero
 stands up), **2 Loadout & perks** (class perks, side-grade loadout and upgrade trees) and **3
@@ -355,7 +356,7 @@ mini-bosses and guardian:
 | 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Den Mother (bear) |
 | 1-3 | Root-Choked Tunnels (the deep canopy) | branching tunnels through rock riven by massive tree roots coming down from the surface world; pools of murky water low down | rats, spiders, rot frogs, bats, mire fish, root eels | grasping roots that slow you and, if they hold you long enough, snag your weapon for a moment (two cuts clear them); thick, rotting water that leaves you gasping 50% sooner and swimming 20% slower | The Rotback (bear) |
 | 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, hornets, spiders | webs that slow you (cut them) | The Brood Queen (scorpion) |
-| 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
+| 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs; over a hall or two with solid rock above it, a ladder of slabs climbs up through the roof into a hidden chamber with a silver (relic) chest | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
 | 3-5 | Catacombs | a stepped pyramid of vaulted halls: a great nave under a scalloped vault in the middle of the map (stepped tombs of stacked sarcophagi in its tallest bays), and out of each end a long stair down into a landing hall, another into a long gallery, and so on, outward and downward; one side ends in the Crypt Lord's rotunda (rock behind it for the treasury), the other in a sealed tomb. Cold blue stone and brickwork; lit only by a dim blue glow and the odd wall torch. Skulls and bones strewn underfoot, heaps of skulls, burial urns, ossuary walls of bone heaped against the back wall (skulls every way up, long bones jutting across them), and the barriers across the passages are banks of skulls, not boulders | crypt skeletons, grave rats, grave-robber slingers, crypt bats, spiders, restless wraiths | - | The Crypt Lord (skeleton) |
 | 3-4 | Fungal Cavern | wide, low-lying tunnels, little vertical variation | sporelings, frogs, mossback golems, spore hornets | spore pods that burst into choking clouds | The Mossback Hulk |
 | 3-5 | Tunnels | slightly smaller map, tight flat or diagonal passages, water low down | rats, bears, bats, fish, eels, urchins | - | The Tunnel Brute (bear) |
@@ -1301,9 +1302,9 @@ open from the start; it holds more chests (relic-tier ones as ever now and then)
 `--scenario=abyss --forcedrain` (a drain in every watery level; the scenario swims into it and checks the sea), `--start=drain` to look at the
 drain, and `--biome=abyss --start=water` for the lake.
 
-The drain looks like nothing you would swim into: no light, only a curtain of black that thickens from nothing at the lowest point of the water to solid black, running down to the bottom of the map so that nothing below can be seen, with a negative light that
+The drain looks like nothing you would swim into: no light, only a curtain of black that thickens from nothing at the lowest point of the water to solid black, running down past the bottom of the map (to the bottom of the screen, however low the view looks) so that nothing below can be seen, with a negative light that
 drains the colour from the water round it. Where you arrive in the Sunken Sea a waterfall pours from a crack in the roof to the beach beside you (the
-lake above, coming down). Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
+lake above, coming down), with a continuous low roar (a seamless looped drone, `SoundBank.WaterfallDrone`) heard from a good way off. Rubble piles are built from angular, flat-shaded chunks of broken rock with a real stone grain (projected from three
 sides), not smooth balls.
 
 ### The camera's limits, and secret wings
@@ -1374,6 +1375,9 @@ treasure pits and the hidden chamber (12% of itself).
   a double jump, a dash, a wall, the rope, a friend's draft. Two broad banks at most, where the elite bats lair.
   The generator proves the dry route with the strict pixel-true jumper (`FineReach` in its dry mode, never touching water) and tries again
   if it fails (`CaveData.DryOk`). Fall in and the river takes you back down it toward the start, and you have the stones to climb again.
+- **Slabs over the river** (`AddRiverLedges`), at two heights: a low one over the middle of a broad enough stone (a jump up from either
+  end of it), and a high one over the gap between two stones, above the reach of a stone-to-stone jump so it never gets in the way. They
+  make a second, higher way across, and like every ledge they can be broken. If they would cost the dry route anything, they all go again.
 - **The upgrades are at the bottom of the river**: treasure pits sunk in the river bed (and chests scattered along it), out of the current.
 - **The secret under the guardian's ground.** The river comes from beneath the plateau: its mouth is a tunnel into the rock under the
   guardian's floor (marked by bubbles escaping), 22 cells long, to a hidden chamber with a silver chest. The current is full strength

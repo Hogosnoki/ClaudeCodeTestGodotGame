@@ -593,6 +593,30 @@ public partial class SoundBank : Node
         return Loop(b, len);
     }
 
+    private static AudioStreamWav _drone;
+    /// <summary>
+    /// The waterfall's voice, a seamless loop: a deep steady roar (low-passed noise in two bands, slowly breathing) over a faint
+    /// sub hum. Made once, on first asking.
+    /// </summary>
+    public static AudioStreamWav WaterfallDrone
+    {
+        get
+        {
+            if (_drone != null) return _drone;
+            const float len = 6f, lap = 1f;
+            var b = Buf(len + lap);
+            BandNoise(b, 0, len + lap, t => 140f + 30f * MathF.Sin(t * 0.7f), Const(0.7f), t => 0.9f + 0.1f * MathF.Sin(t * 1.3f));
+            BandNoise(b, 0, len + lap, Const(420f), Const(0.9f), t => 0.35f + 0.08f * MathF.Sin(t * 2.1f + 1f));
+            LowPass(b, 0.12f);
+            Osc(b, 0, len + lap, Const(48f), Const(0.12f));
+            Osc(b, 0, len + lap, Const(72f), Const(0.05f));
+            // (the tail fades out as the head fades in: folded over, the seam is a crossfade)
+            int nl = (int)(lap * Rate);
+            for (int k = 0; k < nl; k++) { float w = k / (float)nl; b[k] *= w; b[b.Length - nl + k] *= 1f - w; }
+            return _drone = Loop(b, len);
+        }
+    }
+
     private static AudioStreamWav Loop(float[] b, float len)
     {
         int n = (int)(len * Rate);

@@ -599,7 +599,7 @@ public partial class AirBubble : Node2D
 
 /// <summary>
 /// A waterfall pouring from a crack in the roof of the cave to the floor below it (the sunken sea's, where the lake above comes
-/// down to meet you). It is only to look at and listen to: spray and splashes at its foot, a soft rush of sound.
+/// down to meet you). It is only to look at and listen to: spray and splashes at its foot, and a low steady roar.
 /// </summary>
 public partial class Waterfall : Node2D
 {
@@ -607,6 +607,16 @@ public partial class Waterfall : Node2D
     public float Height = 300;
     public float Width = 40;
     private float _t, _splash, _sound;
+
+    public override void _Ready()
+    {
+        // a low continuous roar, from halfway up the fall (heard from a good way off, swelling as you come close)
+        AddChild(new AudioStreamPlayer2D
+        {
+            Stream = SoundBank.WaterfallDrone, Bus = "SFX", VolumeDb = -9f, MaxDistance = 1300f, Attenuation = 1.6f,
+            Position = new Vector2(0, -Height * 0.4f), Autoplay = true,
+        });
+    }
 
     public override void _PhysicsProcess(double delta)
     {
@@ -621,7 +631,7 @@ public partial class Waterfall : Node2D
             G.Fx.Splash(GlobalPosition + new Vector2(G.Range(-Width * 0.5f, Width * 0.5f), -2), 1.2f, new Color(0.75f, 0.9f, 1f, 0.7f));
             if (G.Chance(0.4f)) G.Fx.Dust(GlobalPosition + new Vector2(G.Range(-Width * 0.4f, Width * 0.4f), -4), 1, 1f, new Color(0.8f, 0.92f, 1f, 0.5f));
         }
-        if (_sound <= 0) { _sound = 1.1f; G.Sfx.Play("splash", GlobalPosition, -16, 0.2f, 0.5f); }
+        if (_sound <= 0) { _sound = G.Range(1.4f, 2.6f); G.Sfx.Play("splash", GlobalPosition, -18, 0.2f, 0.5f); }
     }
 }
 

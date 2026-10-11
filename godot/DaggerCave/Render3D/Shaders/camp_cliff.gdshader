@@ -17,6 +17,31 @@ uniform float bump = 1.0;
 varying vec3 v_wn;
 varying vec3 v_wp;
 
+// the cave mouth: where it stands, which way it faces (toward the camp), and its size. Whatever lies in it
+// or just in front of it is shaded down into the dark of the tunnel, so the light gives out gradually.
+uniform vec3 mouth_o = vec3(9.8, 0.0, -7.5);
+uniform vec3 mouth_n = vec3(-0.6223, 0.0, 0.7828);
+uniform float mouth_hw = 3.1;
+uniform float mouth_h = 6.3;
+// the camp's own haze (as the environment's: see CampScene.BuildSkyAndLight), drawn here so it can thin out in the mouth
+uniform vec3 haze : source_color = vec3(0.72, 0.78, 0.86);
+uniform float haze_density = 0.0036;
+
+// 0 in daylight .. 1 in the dark of the mouth. (arch: whether the height counts, for the rock; the ground is all floor)
+float mouth_shade(vec3 wp, bool arch) {
+	vec3 rel = wp - mouth_o;
+	vec3 right = vec3(mouth_n.z, 0.0, -mouth_n.x);
+	float a = dot(rel, right), back = -dot(rel, mouth_n);
+	float d = abs(a) - mouth_hw;
+	if (arch) {
+		float dy = wp.y - (mouth_h - mouth_hw);
+		if (dy > 0.0) d = length(vec2(a, dy)) - mouth_hw;
+	}
+	float within = 1.0 - smoothstep(-0.6, 1.8, d);
+	float deep = smoothstep(-4.5, -0.4, back);
+	return clamp(within * deep * deep * (3.0 - 2.0 * deep), 0.0, 1.0);
+}
+
 float hash(vec3 p) { return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453); }
 float vnoise(vec3 x) {
 	vec3 i = floor(x);
@@ -70,9 +95,13 @@ void fragment() {
 	c *= mix(1.0, 0.55, foot);
 	// vertex colour tints (a stone's own shade)
 	c *= pow(COLOR.rgb, vec3(2.2)) * 1.6;
+	float sh = mouth_shade(v_wp, true);
+	c *= 1.0 - 0.96 * sh;
 	ALBEDO = c;
 	ROUGHNESS = mix(0.86, 0.96, m);
-	SPECULAR = 0.25 * (1.0 - m);
+	SPECULAR = 0.25 * (1.0 - m) * (1.0 - sh);
+	// (the haze, but none over the dark of the mouth: otherwise the black there would be lifted to a pale grey)
+	FOG = vec4(haze, (1.0 - exp(-haze_density * length(VERTEX))) * (1.0 - sh));
 
 	// normal detail from the rock's normal map, blended in world space, then into view space
 	vec3 nx = texture(wall_nor, p.zy).xyz * 2.0 - 1.0;

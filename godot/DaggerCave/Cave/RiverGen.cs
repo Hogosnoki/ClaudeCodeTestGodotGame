@@ -196,6 +196,56 @@ public static partial class CaveGenerator
         // the dry way across: stone to stone, with no swimming at all
         var dry = new FineReach(done, dry: true);
         done.DryOk = dry.Run(done.StartPos, done.Boss.Floor);
+        if (done.DryOk) AddRiverLedges(done, stones, waterRow, new Random(seed * 7 + 3));
         return done;
+    }
+
+    /// <summary>
+    /// Slabs of rock over the river at two heights, for a way across above the stones as well as on them: a low one over the middle of a
+    /// broad enough stone (a jump up from either end of it), and a high one over the gap between two stones, above the reach of a jump
+    /// from stone to stone so it never gets in the way of one. Like every ledge they can be broken. If they cost the dry way across
+    /// anything, they all go again.
+    /// </summary>
+    private static void AddRiverLedges(CaveData cave, List<(float x0, float x1, float h)> stones, int waterRow, Random rng)
+    {
+        int before = cave.Ledges.Count;
+        float roofClear(float cx) { for (int j = waterRow; j > 2; j--) if (!cave.CellOpen((int)cx, j)) return j; return 0; }
+        bool Clear(float cx, float row, float half)
+        {
+            // (open air round it, and room to stand on it and pass under it)
+            for (float i = cx - half - 1; i <= cx + half + 1; i += 1f)
+                for (float j = row - 3.5f; j <= row + 3.2f; j += 1f)
+                    if (!cave.CellOpen((int)i, (int)j)) return false;
+            return row - roofClear(cx) > 4f;
+        }
+        for (int k = 0; k < stones.Count; k++)
+        {
+            var s = stones[k];
+            float w = s.x1 - s.x0, top = waterRow - s.h;
+            // low: over a stone, a jump up from it
+            if (w >= 5.5f && w < 12f && rng.NextDouble() < 0.55)
+            {
+                float half = Math.Min(2.6f, w * 0.3f), cx = (s.x0 + s.x1) * 0.5f + (float)(rng.NextDouble() - 0.5) * (w - half * 2f) * 0.3f;
+                float row = top - (float)(4f + rng.NextDouble() * 0.8f);
+                if (Clear(cx, row + 0.8f, half)) StampLedge(cave, cx, row + 0.8f, half);
+            }
+            // high: over the gap to the next stone, out of the way of the jump across it
+            if (k + 1 < stones.Count && rng.NextDouble() < 0.5)
+            {
+                var n = stones[k + 1];
+                float hi = Math.Max(s.h, n.h);
+                float cx = (s.x1 + n.x0) * 0.5f, half = 1.8f + (float)rng.NextDouble() * 1.6f;
+                float row = waterRow - hi - (float)(8f + rng.NextDouble() * 1.5f);
+                if (Clear(cx, row + 0.8f, half)) StampLedge(cave, cx, row + 0.8f, half);
+            }
+        }
+        if (cave.Ledges.Count == before) return;
+        // (the stones must still make a dry way across)
+        if (new FineReach(cave, dry: true).Run(cave.StartPos, cave.Boss.Floor)) return;
+        for (int k = cave.Ledges.Count - 1; k >= before; k--)
+        {
+            foreach (var (idx, old, _) in cave.Ledges[k].Cells) cave.Open[idx] = old;
+            cave.Ledges.RemoveAt(k);
+        }
     }
 }

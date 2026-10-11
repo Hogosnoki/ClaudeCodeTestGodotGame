@@ -6,7 +6,7 @@ instance uniform float fade_frac = 0.2;
 
 void fragment() {
 	float down = smoothstep(0.0, fade_frac, UV.y);
-	float side = 1.0 - smoothstep(0.28, 0.5, abs(UV.x - 0.5));
+	float side = 1.0 - smoothstep(0.3, 0.5, abs(UV.x - 0.5));
 	ALBEDO = vec3(0.0);
-	ALPHA = clamp(down * down * side * 0.99, 0.0, 1.0);
+	ALPHA = clamp(down * down * side, 0.0, 1.0);
 }

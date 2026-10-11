@@ -499,6 +499,41 @@ public static partial class CaveGenerator
         cave.StartPos = new Vector2(scx, first.Floor - 1.2f) * CaveData.Cell;
         AssignMiniBosses(cave, rng, 40);
 
+        // passages up through the roof: over a hall or two with solid rock above it, a shaft climbs from the roof to a hidden chamber,
+        // with a ladder of slabs (as in the shafts between floors) from the hall's floor up into it. A silver chest waits at the top.
+        var roofWays = new List<(Chamber c, int sx, int roomFloor)>();
+        if (B.Id == BiomeId.Ruins)
+        {
+            int want = RndI(1, 2);
+            foreach (var c in chambers.Where(c => c != first && c.Style is 0 or 3 && c.X1 - c.X0 >= 14).OrderBy(_ => rng.Next()))
+            {
+                if (roofWays.Count >= want) break;
+                int mid = (c.X0 + c.X1) / 2, sx = mid - 4 + RndI(-2, 2);
+                int roomFloor = c.Top - RndI(6, 8);
+                int side = rng.Next(2) == 0 ? 1 : -1;
+                // the chamber: the shaft opens in one end of its floor, the rest of the floor is solid under the chest
+                int rx0 = side > 0 ? sx - 1 : sx - 11, rx1 = side > 0 ? sx + 19 : sx + 9;
+                if (roomFloor - 6 < 4 || rx0 < 4 || rx1 > W - 4) continue;
+                if (roofWays.Any(r => Math.Abs(r.sx - sx) < 30)) continue;
+                // (rock all round it: nothing else is carved there)
+                bool solid = true;
+                for (int j = roomFloor - 9; j <= c.Top - 1 && solid; j++)
+                    for (int i = rx0 - 3; i <= rx1 + 3 && solid; i++)
+                        if (f.Open[j * f.Stride + i] >= 0.5f) solid = false;
+                if (!solid) continue;
+                f.Rect(sx, roomFloor - 1, sx + 8, c.Top + 1);
+                f.Rect(rx0, roomFloor - 6, rx1, roomFloor);
+                float ccx = side > 0 ? (sx + 9 + rx1) * 0.5f : (rx0 + sx - 1) * 0.5f;
+                cave.Rooms.Add(new Room
+                {
+                    Kind = RoomKind.Secret,
+                    Center = new Vector2(ccx, roomFloor - 2.5f) * CaveData.Cell, Floor = new Vector2(ccx, roomFloor) * CaveData.Cell,
+                    RxPx = 4f * CaveData.Cell, RyPx = 3f * CaveData.Cell,
+                });
+                roofWays.Add((c, sx, roomFloor));
+            }
+        }
+
         // spawn points along each floor and in the halls
         var spawnStamps = new List<Stamp>();
         foreach (var c in chambers)
@@ -513,6 +548,16 @@ public static partial class CaveGenerator
             {
                 bool left = rng.Next(2) == 0;
                 for (int t = floors[l + 1] - 4; t > floors[l] + 1; t -= 3)
+                {
+                    if (left) f.Solid(sx - 1, t, sx + 3, t + 2); else f.Solid(sx + 5, t, sx + 9, t + 2);
+                    left = !left;
+                }
+            }
+            // the ladders up into the roof passages: slabs 3 rows apart, alternating sides, from a jump off the hall's floor to the chamber's
+            foreach (var (c, sx, roomFloor) in roofWays)
+            {
+                bool left = rng.Next(2) == 0;
+                for (int t = c.Floor - 4; t > roomFloor + 1; t -= 3)
                 {
                     if (left) f.Solid(sx - 1, t, sx + 3, t + 2); else f.Solid(sx + 5, t, sx + 9, t + 2);
                     left = !left;

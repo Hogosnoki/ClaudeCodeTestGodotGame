@@ -1797,7 +1797,7 @@ public partial class CaveInView : PropView
 
 /// <summary>
 /// The drain at the lowest point of a lake: a round black mouth in the bed, and from just above it all the way down to the bottom of the
-/// map a curtain of black that thickens from nothing to solid, so nothing below it can be seen (black water, and a negative light that
+/// map (and past it, to the bottom of the screen) a curtain of black that thickens from nothing to solid, so nothing below it can be seen (black water, and a negative light that
 /// takes the colour out of the water round it). Nothing to invite anyone in.
 /// </summary>
 public partial class DrainView : PropView
@@ -1817,12 +1817,14 @@ public partial class DrainView : PropView
         mouth.Position = new Vector3(0, -0.9f, 0.1f);
         AddChild(mouth);
         // the curtain: from a few metres over the mouth down past the map's floor
-        float above = 4.5f, below = W3.M(Math.Max(0f, (G.Cave?.SizePx.Y ?? Owner2D.GlobalPosition.Y) - Owner2D.GlobalPosition.Y)) + 2f;
+        // (well past the map's floor: the view can look lower than the map goes, and the black must reach the bottom of the screen)
+        float above = 4.5f, below = W3.M(Math.Max(0f, (G.Cave?.SizePx.Y ?? Owner2D.GlobalPosition.Y) - Owner2D.GlobalPosition.Y)) + 40f;
         float h = above + below;
         _shader ??= GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/drain_dark.gdshader");
         _darkMat ??= new ShaderMaterial { Shader = _shader };
         _dark = new MeshInstance3D { Mesh = new QuadMesh { Size = new Vector2(13f, h) }, MaterialOverride = _darkMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, above - h * 0.5f, 1.2f) };
-        _dark.SetInstanceShaderParameter("fade_frac", Math.Min(0.9f, 5f / h));
+        // (black from about the mouth down: the fade is the same few metres however deep the map runs)
+        _dark.SetInstanceShaderParameter("fade_frac", 5f / h);
         AddChild(_dark);
         _void = PropViews.Light(Colors.White, 2.2f, 8f);
         _void.LightNegative = true;
