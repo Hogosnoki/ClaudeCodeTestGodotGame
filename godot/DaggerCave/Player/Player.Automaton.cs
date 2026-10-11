@@ -9,23 +9,23 @@ namespace DaggerCave;
 /// the water, the poisoned air and the gas are nothing to it, and water, steam and acid do it no harm; in water it sinks
 /// like a dropped anvil, and swims only by kicking up with each press of jump.
 ///
-/// It can't truly be healed. Healing it receives becomes energy instead (a fifth of it), and Self-Repair (the ability
-/// button) spends that energy to mend it, one for one, while it slows to tinker. The attack button swings a great cleaver
+/// It can't truly be healed. Healing it receives becomes fuel instead (30% of it), and Self-Repair (the ability
+/// button) spends that fuel to mend it, one for one, while it slows to tinker. The attack button swings a great cleaver
 /// in a three-stroke combo whose last stroke is a slam: a shock through the floor that strikes everything near and whose
 /// sparks set gas alight. The second ability lets out its steam in a cone (scalding and shoving what's in it, blowing
 /// gas away, putting out its own burning and kicking it the other way: aimed down, it's a lift). The dodge button is
 /// Brace: planted, blows from in front lose most of their force and don't move it, and the first melee blow is answered
-/// with a counter-chop. Its support is Over-Pressure: a
-/// long build-up, glowing and shaking harder and harder, and then for a while it strikes faster and harder, moves faster and
-/// jumps higher.
+/// with a counter-chop. Its support is Pressurize: a long build-up, glowing and shaking harder and harder, and then (still
+/// shaking and glowing) it strikes faster and harder, moves faster and jumps higher, burning fuel until the fuel is gone or it is
+/// pressed again.
 /// </summary>
 public partial class Player
 {
     private bool IsAutomaton => Stats.Hero == HeroKind.Automaton;
 
-    /// <summary>Energy for Self-Repair (the Automaton's), in health it can mend.</summary>
-    public float Energy = Tune.AutomatonHero.EnergyStart;
-    private float _energyShown, _repairShown, _repairT, _repairFx;
+    /// <summary>Fuel for Self-Repair (the Automaton's), in health it can mend.</summary>
+    public float Fuel = Tune.AutomatonHero.FuelStart;
+    private float _fuelShown, _repairShown, _repairT, _repairFx;
     private float _braceT, _braceCd, _steamCd, _strokeCd, _puffT;
     private bool _braceAnswered;
 
@@ -33,36 +33,36 @@ public partial class Player
     public bool Repairing => _repairT > 0;
     /// <summary>Braced: planted, blows from in front softened and not moving it.</summary>
     public bool Bracing => _braceT > 0;
-    public float EnergyFrac => Math.Clamp(Energy / Math.Max(1f, Stats.EnergyMax), 0f, 1f);
+    public float FuelFrac => Math.Clamp(Fuel / Math.Max(1f, Stats.FuelMax), 0f, 1f);
     public float BraceCooldownFrac => Math.Clamp(_braceCd / Math.Max(0.01f, Tune.AutomatonHero.BraceCooldown + Tune.AutomatonHero.BraceTime + Stats.BraceBonus), 0f, 1f);
     public float SteamCooldownFrac => Math.Clamp(_steamCd / Math.Max(0.01f, SteamRecharge), 0f, 1f);
     private float SteamRecharge => Tune.AutomatonHero.SteamCooldown * Stats.SteamCdMult * Stats.AbilityCdMult;
 
-    /// <summary>Test aid: the energy set outright, and every Automaton cooldown ready.</summary>
-    public void TestSetEnergy(float e) { Energy = Math.Clamp(e, 0f, Stats.EnergyMax); _braceCd = _steamCd = 0; }
+    /// <summary>Test aid: the fuel set outright, and every Automaton cooldown ready.</summary>
+    public void TestSetFuel(float e) { Fuel = Math.Clamp(e, 0f, Stats.FuelMax); _braceCd = _steamCd = 0; }
 
-    private static readonly Color EnergyColor = new(1f, 0.74f, 0.3f);
+    private static readonly Color FuelColor = new(1f, 0.74f, 0.3f);
     private static readonly Color Copper = new(0.85f, 0.5f, 0.3f);
 
-    /// <summary>Healing it receives becomes energy: a share of it (none at all with Scrap Reclaimer).</summary>
-    private void HealAsEnergy(float amount)
+    /// <summary>Healing it receives becomes fuel: a share of it (none at all with Scrap Reclaimer).</summary>
+    private void HealAsFuel(float amount)
     {
         if (Stats.ScrapReclaimer) return;
-        GainEnergy(amount * Stats.EnergyFromHeal);
+        GainFuel(amount * Stats.FuelFromHeal);
     }
 
-    /// <summary>Energy gained (floating the change shown, as healing does).</summary>
-    public void GainEnergy(float amount)
+    /// <summary>Fuel gained (floating the change shown, as healing does).</summary>
+    public void GainFuel(float amount)
     {
         if (Dead || amount <= 0) return;
-        float before = Energy;
-        Energy = Math.Min(Stats.EnergyMax, Energy + amount);
-        _energyShown += Energy - before;
-        if (_energyShown >= 1f)
+        float before = Fuel;
+        Fuel = Math.Min(Stats.FuelMax, Fuel + amount);
+        _fuelShown += Fuel - before;
+        if (_fuelShown >= 1f)
         {
-            int n = (int)_energyShown;
-            _energyShown -= n;
-            G.Fx?.Text(GlobalPosition + new Vector2(8, -26), "+" + n + " energy", EnergyColor, 11, 0.8f);
+            int n = (int)_fuelShown;
+            _fuelShown -= n;
+            G.Fx?.Text(GlobalPosition + new Vector2(8, -26), "+" + n + " fuel", FuelColor, 11, 0.8f);
         }
     }
 
@@ -73,10 +73,10 @@ public partial class Player
         if (_repairT > 0)
         {
             _repairT -= dt;
-            float mend = Math.Min(Tune.AutomatonHero.RepairRate * Stats.RepairRateMult * dt, Math.Min(Energy, Stats.MaxHp - Hp));
+            float mend = Math.Min(Tune.AutomatonHero.RepairRate * Stats.RepairRateMult * dt, Math.Min(Fuel, Stats.MaxHp - Hp));
             if (mend > 0)
             {
-                Energy -= mend;
+                Fuel -= mend;
                 Hp += mend;
                 _repairShown += mend;
                 if (_repairShown >= 1f)
@@ -94,7 +94,7 @@ public partial class Player
                 G.Fx.Spark(at, G.RandDir(), false, new Color(0.75f, 0.9f, 1f));
                 if (G.Chance(0.25f)) G.Sfx.Play("clink", at, -14, 0.1f, 1.6f);
             }
-            if (Energy <= 0.01f || Hp >= Stats.MaxHp - 0.01f || _repairT <= 0) StopRepair();
+            if (Fuel <= 0.01f || Hp >= Stats.MaxHp - 0.01f || _repairT <= 0) StopRepair();
         }
         // steam wisps from the stack at its back, now and then (more when it's working hard)
         if ((_puffT -= dt) <= 0)
@@ -108,20 +108,20 @@ public partial class Player
 
     // ---------------------------------------------------------------- self-repair
 
-    /// <summary>Self-Repair: spends energy to mend, one for one, for a few seconds (a press stops it).</summary>
+    /// <summary>Self-Repair: spends fuel to mend, one for one, for a few seconds (a press stops it).</summary>
     private bool TryRepair()
     {
         if (!IsAutomaton || Pressurising) return false;
         // (a second press stops it: not the same press held, or bounced, in its first moments)
         if (Repairing) { if (_repairT < Tune.AutomatonHero.RepairSeconds - 0.35f) StopRepair(); return true; }
         if (!AbilityChargeReady) return false;
-        if (Energy < 1f) { SayNo("NO ENERGY"); return true; }
+        if (Fuel < 1f) { SayNo("NO ENERGY"); return true; }
         if (Hp >= Stats.MaxHp - 0.5f) { SayNo("NOTHING TO MEND"); return true; }
         SpendAbilityCharge();
         _repairT = Tune.AutomatonHero.RepairSeconds;
         _repairShown = 0;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "SELF-REPAIR", EnergyColor, 10, 0.8f);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 16, new Color(EnergyColor, 0.8f), 0.3f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "SELF-REPAIR", FuelColor, 10, 0.8f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 16, new Color(FuelColor, 0.8f), 0.3f);
         G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 0.7f);
         return true;
     }
@@ -306,28 +306,31 @@ public partial class Player
         return v + flow;
     }
 
-    // ---------------------------------------------------------------- over-pressure (its support)
+    // ---------------------------------------------------------------- pressurize (its support)
 
-    private float _pressT = -1f, _pressBuffT, _pressSfx;
+    private float _pressT = -1f, _pressSfx, _pressedFor;
     private bool _pressOn;
     /// <summary>Building up pressure: glowing and shaking harder and harder, slowed, unable to strike.</summary>
     public bool Pressurising => _pressT >= 0f;
-    /// <summary>Over-pressured: striking faster and harder, moving faster, jumping higher.</summary>
-    public bool Overpressured => _pressBuffT > 0f;
-    public float PressureLeft => _pressBuffT;
+    /// <summary>Pressurized: striking faster and harder, moving faster, jumping higher, burning fuel as it goes.</summary>
+    public bool Overpressured => _pressOn;
+    /// <summary>For the HUD: how long the fuel it holds would keep it pressurized.</summary>
+    public float PressureLeft => _pressOn ? Fuel / Math.Max(0.01f, Tune.AutomatonHero.PressureFuel) : 0f;
     /// <summary>0..1 through the build-up (0 when not building).</summary>
-    public float PressureBuild => _pressT < 0f ? 0f : Math.Clamp(_pressT / Tune.Support.PressureSeconds, 0f, 1f);
+    public float PressureBuild => _pressT < 0f ? 0f : Math.Clamp(_pressT / Tune.AutomatonHero.PressureSeconds, 0f, 1f);
     private static readonly Color PressureGlow = new(1f, 0.5f, 0.15f);
 
-    /// <summary>Over-Pressure: the build-up begins (it can't be stopped: a blow doesn't break it).</summary>
+    /// <summary>Pressurize: the build-up begins (a blow doesn't break it); pressed again, building or pressurized, it lets the pressure go.</summary>
     private bool TryOverPressure()
     {
-        if (!IsAutomaton || Pressurising || Overpressured || Possessed) return false;
+        if (!IsAutomaton || Possessed) return false;
+        if (Pressurising || Overpressured) { EndOverPressure(); return true; }
+        if (Fuel < Tune.AutomatonHero.PressureMinFuel) { SayNo("NO FUEL"); _supportCd = 0.5f; return false; }
         _pressT = 0f;
         _pressSfx = 0f;
         StopRepair();
         Anim.FlashColor = PressureGlow;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "OVER-PRESSURE", PressureGlow.Lightened(0.3f), 10, 0.9f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "PRESSURIZING", PressureGlow.Lightened(0.3f), 10, 0.9f);
         G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 0.5f);
         return true;
     }
@@ -339,11 +342,7 @@ public partial class Player
             _pressT += dt;
             float k = PressureBuild;
             // it shakes harder and harder, and glows hotter
-            Anim.Position = new Vector2(G.Range(-1f, 1f), G.Range(-0.5f, 0.5f)) * (0.3f + 3.2f * k * k);
-            Anim.FlashColor = PressureGlow;
-            Anim.Flash(0.12f + 0.6f * k);
-            if (G.Chance(dt * (4f + 26f * k))) G.Fx.Smoke(GlobalPosition + new Vector2(G.Range(-8, 8), G.Range(-16, 4)), 1, new Color(0.94f, 0.95f, 0.97f, 0.5f), 6 + 4 * k);
-            if (G.Chance(dt * 18f * k)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-8, 8), G.Range(-14, 6)), PressureGlow);
+            Shake(0.3f + 3.2f * k * k, 0.12f + 0.6f * k, 4f + 26f * k, 18f * k, dt);
             // the rattle quickens and rises
             if ((_pressSfx -= dt) <= 0f)
             {
@@ -353,40 +352,56 @@ public partial class Player
             G.Main.Rumble(0.1f + 0.4f * k, 0.05f + 0.35f * k, 0.05f);
             if (k >= 1f) { _pressT = -1f; BeginOverPressure(); }
         }
-        else if (_pressBuffT > 0f)
+        else if (_pressOn)
         {
-            _pressBuffT -= dt;
-            // a steady heat, a faint thrum, steam streaming off it
-            Anim.Position = new Vector2(G.Range(-0.3f, 0.3f), 0f);
-            Anim.FlashColor = PressureGlow;
-            Anim.Flash(0.16f + 0.05f * MathF.Sin(_animT * 9f));
-            if (G.Chance(dt * 10f)) G.Fx.Smoke(GlobalPosition + new Vector2(-Facing * 5, -16), 1, new Color(0.94f, 0.95f, 0.97f, 0.5f), 7);
-            if (_pressBuffT <= 0f) EndOverPressure();
+            _pressedFor += dt;
+            // every moment of it burns fuel; when the fuel is gone, so is the pressure
+            Fuel = Math.Max(0f, Fuel - Tune.AutomatonHero.PressureFuel * dt);
+            // still shaking and glowing, the whole while: a hard thrum, steam streaming off it
+            Shake(1.4f, 0.32f + 0.08f * MathF.Sin(_animT * 11f), 14f, 6f, dt);
+            if ((_pressSfx -= dt) <= 0f) { _pressSfx = 0.16f; G.Sfx.Play("clink", GlobalPosition, -16, 0.1f, 1.4f); }
+            if (Fuel <= 0f) { G.Fx.Text(GlobalPosition + new Vector2(0, -30), "OUT OF FUEL", PressureGlow, 10, 0.9f); EndOverPressure(); }
         }
+    }
+
+    /// <summary>The shaking and glowing of a body under pressure: a jitter of <paramref name="shake"/> px, a glow, steam and sparks.</summary>
+    private void Shake(float shake, float glow, float steamRate, float emberRate, float dt)
+    {
+        Anim.Position = new Vector2(G.Range(-1f, 1f), G.Range(-0.5f, 0.5f)) * shake;
+        Anim.FlashColor = PressureGlow;
+        Anim.Flash(glow);
+        if (G.Chance(dt * steamRate)) G.Fx.Smoke(GlobalPosition + new Vector2(G.Range(-8, 8), G.Range(-16, 4)), 1, new Color(0.94f, 0.95f, 0.97f, 0.5f), 7);
+        if (G.Chance(dt * emberRate)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-8, 8), G.Range(-14, 6)), PressureGlow);
     }
 
     private void BeginOverPressure()
     {
-        _pressBuffT = Tune.Support.PressureBuff;
+        _pressedFor = 0f;
         ApplyOverPressure(+1);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, -4), 34, new Color(PressureGlow, 0.8f), 0.3f);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -6), new Color(0.95f, 0.96f, 1f, 0.7f), 16, 220, 2.6f, 0.5f, -40);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -32), "FULL PRESSURE", PressureGlow.Lightened(0.35f), 12, 1f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -32), "PRESSURIZED", PressureGlow.Lightened(0.35f), 12, 1f);
         G.Sfx.Play("dodge", GlobalPosition, 0, 0.05f, 0.4f);
         G.Sfx.Play("slam", GlobalPosition, -6, 0.05f, 1.3f);
         G.Fx.AddShake(3f);
         G.Main.Rumble(0.6f, 0.6f, 0.2f);
     }
 
-    /// <summary>The boost runs out (or the hero leaves the level with it): the stats go back as they were.</summary>
+    /// <summary>The pressure goes (a second press, the fuel run out, or the hero leaving the level): the stats go back as they were,
+    /// and the support starts to come back.</summary>
     private void EndOverPressure()
     {
+        bool was = _pressT >= 0f || _pressOn;
         _pressT = -1f;
-        if (!_pressOn) return;
-        _pressBuffT = 0f;
-        ApplyOverPressure(-1);
-        if (Anim != null) Anim.FlashColor = Colors.White;
-        if (IsInsideTree() && G.Fx != null) G.Fx.Smoke(GlobalPosition + new Vector2(0, -8), 4, new Color(0.9f, 0.9f, 0.92f, 0.5f), 8);
+        if (_pressOn) ApplyOverPressure(-1);
+        if (!was) return;
+        _supportCd = Tune.AutomatonHero.PressureCooldown * Stats.AbilityCdMult;
+        if (Anim != null) { Anim.FlashColor = Colors.White; Anim.Position = Vector2.Zero; }
+        if (IsInsideTree() && G.Fx != null)
+        {
+            G.Fx.Smoke(GlobalPosition + new Vector2(0, -8), 4, new Color(0.9f, 0.9f, 0.92f, 0.5f), 8);
+            G.Sfx.Play("dodge", GlobalPosition, -8, 0.05f, 0.7f);
+        }
     }
 
     private void ApplyOverPressure(int dir)
@@ -394,9 +409,9 @@ public partial class Player
         if (dir > 0 == _pressOn) return;
         _pressOn = dir > 0;
         float m(float x) => dir > 0 ? x : 1f / x;
-        Stats.AttackSpeed *= m(Tune.Support.PressureAttack);
-        Stats.DamageMult *= m(Tune.Support.PressureDamage);
-        Stats.MoveSpeed *= m(Tune.Support.PressureSpeed);
-        Stats.JumpMult *= m(Tune.Support.PressureJump);
+        Stats.AttackSpeed *= m(Tune.AutomatonHero.PressureAttack);
+        Stats.DamageMult *= m(Tune.AutomatonHero.PressureDamage);
+        Stats.MoveSpeed *= m(Tune.AutomatonHero.PressureSpeed);
+        Stats.JumpMult *= m(Tune.AutomatonHero.PressureJump);
     }
 }

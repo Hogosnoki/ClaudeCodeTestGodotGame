@@ -709,7 +709,7 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepEnergy = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
@@ -718,7 +718,7 @@ public partial class Main : Node
             keepMilestones = G.Player.PendingMilestones;
             keepVitalForce = G.Player.VitalForce;
             keepAlimus = G.Player.Alimus;
-            keepEnergy = G.Player.Energy;
+            keepFuel = G.Player.Fuel;
         }
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
@@ -772,7 +772,7 @@ public partial class Main : Node
                 // (the Automaton isn't mended by the rest: what would have healed it becomes energy)
                 float rest = keepStats.DepthHeal ? keepStats.MaxHp - keepHp : Math.Min(keepStats.MaxHp - keepHp, keepStats.MaxHp * 0.3f);
                 player.Hp = keepHp;
-                player.Energy = Math.Min(keepStats.EnergyMax, keepEnergy + (keepStats.ScrapReclaimer ? 0f : rest * keepStats.EnergyFromHeal));
+                player.Fuel = Math.Min(keepStats.FuelMax, keepFuel + (keepStats.ScrapReclaimer ? 0f : rest * keepStats.FuelFromHeal));
             }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
@@ -841,6 +841,7 @@ public partial class Main : Node
         PlaceCaches(cave);
         PlaceBonusChests(cave);
         PlaceHeroCage(cave);
+        PlaceAutomatonHeap(cave);
         PlaceRubble(cave);
         PlaceLedges(cave);
         PlaceVault(cave);
@@ -1019,6 +1020,42 @@ public partial class Main : Node
             if (wing != null) { rb.Secret = true; rb.MaxHits = rb.Left = Tune.Secrets.WallHits; rb.OnCleared += _ => OpenWing(wing); }
             _world.AddChild(rb);
             k++;
+        }
+    }
+
+    /// <summary>
+    /// The Clockwork Deep, while the Automaton is still locked for someone: he lies disabled in a heap at the far end of the level's secret
+    /// wing (past the cracked wall), and a power cell to wake him is hidden somewhere in the level.
+    /// </summary>
+    private void PlaceAutomatonHeap(CaveData cave)
+    {
+        PowerCell.Found = false;
+        if (G.Biome?.Machinery != true || cave.Wings.Count == 0 || !Meta.AutomatonWanted()) return;
+        var wing = cave.Wings[0];
+        var room = wing.Chamber;
+        Vector2? spot = null;
+        // (beside the chamber's own chest, at its middle; at the far end of the passage)
+        foreach (float dx in new[] { 40f, -40f, 60f, -60f, 24f })
+            if (spot == null && !cave.IsSolid(room.Center + new Vector2(dx, 0)) && cave.FindFloor(room.Center + new Vector2(dx, 0), 300, out var f) && !cave.IsSolid(f + new Vector2(0, -14)))
+                spot = f;
+        if (spot is not Vector2 at) return;
+        var heap = new HeroCage { Position = at, Hero = HeroKind.Automaton, NeedsCell = true };
+        NetSync.LevelId(heap);
+        _world.AddChild(heap);
+        // the cell: hidden as a key is, somewhere out of the way in the main cave
+        var rng = new Random(cave.Seed ^ 0x5ce11);
+        for (int tries = 0; tries < 4000; tries++)
+        {
+            var p = new Vector2(rng.Next(64, (int)cave.ViewRect.End.X - 64), rng.Next(48, (int)cave.SizePx.Y - 40));
+            if (cave.IsSolid(p) || cave.IsLava(p) || !cave.FindFloor(p, 400, out var floor) || cave.IsWater(floor + new Vector2(0, -8))) continue;
+            int i = (int)(floor.X / CaveData.Cell), j = (int)(floor.Y / CaveData.Cell) - 1;
+            if (cave.ReachMask == null || i < 0 || j < 0 || i >= cave.W || j >= cave.H || !cave.ReachMask[j * cave.W + i]) continue;
+            if (floor.DistanceTo(cave.StartPos) < Tune.Vault.HiddenKeyFromStart || (cave.Boss != null && floor.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 60)) continue;
+            var cell = new PowerCell { Position = floor + new Vector2(0, -2) };
+            NetSync.LevelId(cell);
+            _world.AddChild(cell);
+            if (_autotest) GD.Print($"[autotest] the Automaton's heap at {at}, its power cell at {floor}");
+            break;
         }
     }
 

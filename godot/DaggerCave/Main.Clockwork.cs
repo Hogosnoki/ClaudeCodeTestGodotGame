@@ -31,6 +31,34 @@ public partial class Main
         void Stand(Vector2 at) { p.GlobalPosition = at; p.Velocity = Vector2.Zero; }
         Vector2 FloorNear(Vector2 at) => cave.FindFloor(at, 120, out var f) ? f : at;
 
+        // ---------------------------------------------------------------- the Automaton, disabled behind the cracked wall
+        {
+            var heap = HeroCage.All.FirstOrDefault(c => IsInstanceValid(c) && c.NeedsCell);
+            var cell = _world.GetChildren().OfType<PowerCell>().FirstOrDefault();
+            bool wing = cave.Wings.Count > 0;
+            ScCheck($"the works has a secret wing ({wing}); while the Automaton is locked ({Meta.AutomatonWanted()}) he lies in a heap at its end ({heap != null}) and a power cell is hidden in the level ({cell != null})",
+                !wing || !Meta.AutomatonWanted() || (heap != null && cell != null && heap.GlobalPosition.X > cave.Wings[0].Plug.X));
+            if (heap != null && cell != null)
+            {
+                // (the cracked wall down first, so the view takes in the wing)
+                foreach (var rb in Rubble.All.Where(r => IsInstanceValid(r) && r.Index == cave.Wings[0].RubbleIndex).ToList()) rb.Smash();
+                Stand(heap.GlobalPosition + new Vector2(-30, -14));
+                foreach (var _ in Wait(1.2f)) yield return null;
+                ScShot("clockwork_heap");
+                heap.Interact();
+                ScCheck($"without the cell he can't be woken ({heap.Freed})", !heap.Freed);
+                Stand(cell.GlobalPosition + new Vector2(0, -12));
+                foreach (var _ in Wait(0.4f)) yield return null;
+                ScCheck($"touching the cell takes it for the party ({PowerCell.Found})", PowerCell.Found);
+                Stand(heap.GlobalPosition + new Vector2(-10, -14));
+                foreach (var _ in Wait(0.2f)) yield return null;
+                heap.Interact();
+                foreach (var _ in Wait(1.0f)) yield return null;
+                ScShot("clockwork_heap_revived");
+                ScCheck($"with it he wakes ({heap.Freed}) and is unlocked ({Meta.IsReallyUnlocked(HeroKind.Automaton)})", heap.Freed && Meta.IsReallyUnlocked(HeroKind.Automaton));
+            }
+        }
+
         // ---------------------------------------------------------------- what the generator laid
         var pistons = _world.GetChildren().OfType<Piston>().ToList();
         var belts = _world.GetChildren().OfType<Conveyor>().ToList();

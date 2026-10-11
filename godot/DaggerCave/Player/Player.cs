@@ -172,7 +172,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => DaggersInHand > 0,
         HeroKind.Aegis => AbilityChargeReady,
         HeroKind.ShapeShifter => Shifted ? FormSpecialReady : AbilityChargeReady,
-        HeroKind.Automaton => AbilityChargeReady && Energy >= 1f,
+        HeroKind.Automaton => AbilityChargeReady && Fuel >= 1f,
         HeroKind.Swordsman => AbilityChargeReady || Charged > 0,
         _ => AbilityChargeReady,
     };
@@ -198,7 +198,7 @@ public partial class Player : CharacterBody2D
         VitalForce = Math.Min(Stats.VitalForceMax, Tune.Vitalist.VitalForceStart);
         Alimus = Stats.AlimusMax;
         // (the Automaton starts half charged, plus whatever more its Capacitor holds)
-        Energy = Math.Min(Stats.EnergyMax, Tune.AutomatonHero.EnergyStart + Math.Max(0f, Stats.EnergyMax - Tune.AutomatonHero.EnergyMax));
+        Fuel = Math.Min(Stats.FuelMax, Tune.AutomatonHero.FuelStart + Math.Max(0f, Stats.FuelMax - Tune.AutomatonHero.FuelMax));
     }
 
     /// <summary>Each hero's sprite sheet and 3D design, by name.</summary>
@@ -243,7 +243,7 @@ public partial class Player : CharacterBody2D
     {
         amount *= Stats.HealingTakenMult * Tune.Hero.HealingMult;
         // (the Automaton can't truly be healed: what it receives becomes energy for Self-Repair)
-        if (Stats.SelfRepair) { HealAsEnergy(amount); return; }
+        if (Stats.SelfRepair) { HealAsFuel(amount); return; }
         float before = Hp;
         Hp = Math.Min(Stats.MaxHp, Hp + amount);
         int healed = Num.Delta(before, Hp);
@@ -676,7 +676,8 @@ public partial class Player : CharacterBody2D
         string clip;
         float speed = 1f;
         float rot = 0f;
-        if (InWater && _dodgeT <= 0)
+        // (the Automaton doesn't swim: it walks the bottom and sinks upright, feet first, as on land)
+        if (InWater && _dodgeT <= 0 && !Stats.Sinks)
         {
             if (vel.Length() > 40)
             {
@@ -709,7 +710,7 @@ public partial class Player : CharacterBody2D
         _lastAbsVx = avx;
         Anim.Loop(clip, speed);
         Anim.Face((int)Facing);
-        Anim.Motion(InWater ? vel * 0.3f : vel);
+        Anim.Motion(InWater && !Stats.Sinks ? vel * 0.3f : vel);
         // Ease the sprite's tilt toward the swim direction.
         Anim.Rotation = Mathf.LerpAngle(Anim.Rotation, rot, 0.25f);
 
@@ -890,7 +891,7 @@ public partial class Player : CharacterBody2D
         // planted for a heaving swing, or braced behind a shield bash
         bool rooted = Heaving || (_bashT > 0 && onFloor) || (Bracing && onFloor);
         if (Repairing) target *= Tune.AutomatonHero.RepairMove;
-        if (Pressurising) target *= Tune.Support.PressureMove;
+        if (Pressurising) target *= Tune.AutomatonHero.PressureMove;
         if (rooted) target = 0;
         // a column of air (the Elementalist's updraft) pushes along its own lean: sideways as much as it leans
         var draft = Updraft.All.Count > 0 ? Updraft.At(GlobalPosition) : null;
@@ -1032,7 +1033,7 @@ public partial class Player : CharacterBody2D
     {
         if (Stats.LifeSteal > 0)
         {
-            if (Stats.SelfRepair) HealAsEnergy(dealt * Stats.LifeSteal);
+            if (Stats.SelfRepair) HealAsFuel(dealt * Stats.LifeSteal);
             else Hp = Math.Min(Stats.MaxHp, Hp + dealt * Stats.LifeSteal);
         }
         if (Stats.ShieldSiphon > 0 && IsWarden) MendShield(dealt * Stats.ShieldSiphon);
@@ -1044,7 +1045,7 @@ public partial class Player : CharacterBody2D
         Kills++;
         if (Stats.HealOnKill > 0) Heal(Stats.HealOnKill);
         // (Scrap Reclaimer: what it destroys, it salvages)
-        if (Stats.ScrapReclaimer) GainEnergy(Tune.AutomatonHero.ScrapEnergy);
+        if (Stats.ScrapReclaimer) GainFuel(Tune.AutomatonHero.ScrapFuel);
     }
 
     /// <summary>True when the last Hurt was stopped by the shield (the attacker's strike is spent).</summary>

@@ -116,7 +116,7 @@ public static partial class Upgrades
 
         // --- Automaton ---
         Rl("relic_au_boiler", "Overfired Boiler", "Steam Release comes back twice as fast, but you take 10% more damage.", (s, p) => { s.SteamCdMult *= 0.5f; s.DamageTakenMult *= 1.1f; }, HAU, 1.5f),
-        Rl("relic_au_dynamo", "Dynamo", "Healing gives you 15% more of itself as energy, but your cleaver hits 15% softer.", (s, p) => { s.EnergyFromHeal += 0.15f; s.PrimaryDamageMult *= 0.85f; }, HAU, 1.5f),
+        Rl("relic_au_dynamo", "Dynamo", "Healing gives you 15% more of itself as fuel, but your cleaver hits 15% softer.", (s, p) => { s.FuelFromHeal += 0.15f; s.PrimaryDamageMult *= 0.85f; }, HAU, 1.5f),
         Rl("relic_au_ballast", "Ballast Tanks", "You take no shove at all, but you move 10% slower.", (s, p) => { s.KnockTakenMult = 0f; s.MoveSpeed *= 0.9f; }, HAU, 1.5f),
         Rl("relic_au_governor", "Loose Governor", "You swing 25% faster, but Self-Repair mends 30% slower.", (s, p) => { s.AttackSpeed += 0.25f; s.RepairRateMult *= 0.7f; }, HAU, 1.5f),
 

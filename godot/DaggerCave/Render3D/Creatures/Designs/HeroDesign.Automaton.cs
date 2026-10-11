@@ -7,8 +7,7 @@ namespace DaggerCave;
 /// The Automaton, on the heroes' rig: a copper engine of a man, green with verdigris at the seams. A barrel chest banded in
 /// brass with a furnace glowing behind a barred window and a pressure gauge over the heart, a pair of stacks rising behind
 /// the head, great riveted pauldrons, a squared copper head under a brass dome with two porthole eyes lit amber and a
-/// grille for a mouth, pistons along the forearms, ball joints at elbow and knee, heavy iron boots, and a cleaver as long
-/// as its arm. The lantern at its hip lights the cave, as every hero's does.
+/// grille for a mouth, pistons along the forearms, ball joints at elbow and knee, heavy iron boots, and a cleaver with a long haft. The lantern at its hip lights the cave, as every hero's does.
 /// </summary>
 public sealed partial class HeroDesign
 {
@@ -128,15 +127,16 @@ public sealed partial class HeroDesign
         {
             var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
             var mb = new MeshBuilder();
-            // a wrapped haft and a brass ferrule
-            mb.Tube(new[] { new Vector3(0, 0.07f, 0), new Vector3(0, -0.13f, 0) }, new[] { 0.019f, 0.021f }, 8, new Color(0.14f, 0.09f, 0.06f));
-            mb.Tube(new[] { new Vector3(0, -0.12f, 0), new Vector3(0, -0.16f, 0) }, new[] { 0.026f, 0.026f }, 8, AuBrass);
-            // the blade: a broad slab, its spine in line with the haft and its belly out ahead, an edge ground bright
-            mb.Box(new Transform3D(Basis.Identity, new Vector3(0.05f, -0.5f, 0)), new Vector3(0.09f, 0.34f, 0.011f), new Color(0.36f, 0.37f, 0.4f));
-            mb.Box(new Transform3D(Basis.Identity, new Vector3(0.146f, -0.5f, 0)), new Vector3(0.008f, 0.335f, 0.006f), new Color(0.8f, 0.82f, 0.86f));
+            // a long wrapped haft and a brass ferrule
+            mb.Tube(new[] { new Vector3(0, 0.08f, 0), new Vector3(0, -0.24f, 0) }, new[] { 0.019f, 0.021f }, 8, new Color(0.14f, 0.09f, 0.06f));
+            mb.Tube(new[] { new Vector3(0, -0.23f, 0), new Vector3(0, -0.27f, 0) }, new[] { 0.026f, 0.026f }, 8, AuBrass);
+            // the blade: a broad slab, its spine in line with the haft and its belly out to -X (the side that leads a chop: carried
+            // forward, the hand's +X turns up, so a blade on +X would be held edge up), its edge ground bright
+            mb.Box(new Transform3D(Basis.Identity, new Vector3(-0.05f, -0.53f, 0)), new Vector3(0.09f, 0.26f, 0.011f), new Color(0.36f, 0.37f, 0.4f));
+            mb.Box(new Transform3D(Basis.Identity, new Vector3(-0.146f, -0.53f, 0)), new Vector3(0.008f, 0.255f, 0.006f), new Color(0.8f, 0.82f, 0.86f));
             // the squared tip, and the rivets that hold the haft's tang
-            mb.Box(new Transform3D(Basis.Identity, new Vector3(0.05f, -0.845f, 0)), new Vector3(0.1f, 0.012f, 0.012f), new Color(0.3f, 0.3f, 0.33f));
-            foreach (float y in new[] { -0.2f, -0.26f })
+            mb.Box(new Transform3D(Basis.Identity, new Vector3(-0.05f, -0.795f, 0)), new Vector3(0.1f, 0.012f, 0.012f), new Color(0.3f, 0.3f, 0.33f));
+            foreach (float y in new[] { -0.31f, -0.37f })
                 DecorMeshes.AddSphere(mb, new Vector3(0.0f, y, 0.012f), 0.012f, AuBrass, 4);
             var cl = new MeshBuilder();
             cl.Append(mb, grip);

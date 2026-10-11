@@ -78,8 +78,8 @@ public static class ClassPerks
         // ---- Automaton
         P(HeroKind.Automaton, "auto_plate", "Thick Plating", Three, new[] { "+10% health.", "+20% health.", "+30% health." }, (s, r) => s.MaxHp *= 1f + 0.1f * r);
         P(HeroKind.Automaton, "auto_edge", "Ground Edge", Three, new[] { "+5% damage.", "+10% damage.", "+15% damage." }, (s, r) => s.DamageMult += 0.05f * r);
-        P(HeroKind.Automaton, "auto_cell", "Capacitor", Three, new[] { "Hold 10 more energy, and start with it.", "Hold 20 more energy, and start with it.", "Hold 30 more energy, and start with it." }, (s, r) => s.EnergyMax += 10f * r);
-        P(HeroKind.Automaton, "auto_coil", "Induction Coil", Three, new[] { "Healing gives 3% more of itself as energy.", "Healing gives 6% more of itself as energy.", "Healing gives 9% more of itself as energy." }, (s, r) => s.EnergyFromHeal += 0.03f * r);
+        P(HeroKind.Automaton, "auto_cell", "Capacitor", Three, new[] { "Hold 10 more fuel, and start with it.", "Hold 20 more fuel, and start with it.", "Hold 30 more fuel, and start with it." }, (s, r) => s.FuelMax += 10f * r);
+        P(HeroKind.Automaton, "auto_coil", "Induction Coil", Three, new[] { "Healing gives 3% more of itself as fuel.", "Healing gives 6% more of itself as fuel.", "Healing gives 9% more of itself as fuel." }, (s, r) => s.FuelFromHeal += 0.03f * r);
         P(HeroKind.Automaton, "auto_valve", "Quick Valve", Three, new[] { "Steam Release comes back 10% sooner.", "Steam Release comes back 20% sooner.", "Steam Release comes back 30% sooner." }, (s, r) => s.SteamCdMult *= 1f - 0.1f * r);
 
         // ---- Aegis

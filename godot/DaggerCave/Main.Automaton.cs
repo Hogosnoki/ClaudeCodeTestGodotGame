@@ -11,9 +11,9 @@ public partial class Main
 
     /// <summary>
     /// `--scenario=automaton` (in the Sulphur Springs, as the Automaton): its make (much health, armour, slow, short in the jump, no lungs),
-    /// healing that becomes energy instead and Self-Repair that spends it, the acid water, the toxic air, the gas and the steam doing it no
+    /// healing that becomes fuel instead and Self-Repair that spends it, the acid water, the toxic air, the gas and the steam doing it no
     /// harm, sinking fast and kicking up through the water, Steam Release (a strike, and aimed down, a lift), the combo's slam, Brace (blows in
-    /// front softened and unable to move it, blows behind not) and Over-Pressure (a long shaking build-up, then a boost that wears off).
+    /// front softened and unable to move it, blows behind not) and Pressurize (a long shaking build-up, then a boost that burns fuel until pressed again or dry).
     /// automaton_*.png.
     /// </summary>
     private void AutomatonScenario()
@@ -35,19 +35,21 @@ public partial class Main
 
         // ---------------------------------------------------------------- its make
         var s = p.Stats;
-        ScCheck($"the Automaton: {s.MaxHp:0} health, {s.DamageReduction:0%} armour, x{s.MoveSpeed:0.00} speed, x{s.JumpMult:0.00} jump", s.Hero == HeroKind.Automaton && s.MaxHp >= 130 && s.DamageReduction > 0.1f && s.MoveSpeed < 0.8f && s.JumpMult < 0.8f);
+        ScCheck($"the Automaton: {s.MaxHp:0} health, {s.DamageReduction:0%} armour, x{s.MoveSpeed:0.00} speed, x{s.JumpMult:0.00} jump", s.Hero == HeroKind.Automaton && s.MaxHp >= 290 && s.DamageReduction > 0.1f && s.MoveSpeed < 0.8f && s.JumpMult < 0.8f);
         ScCheck("it has no lungs, and water can't hurt it", s.Breathless && s.InfiniteBreath && s.Waterproof && s.Sinks && s.SelfRepair);
 
-        // ---------------------------------------------------------------- healing becomes energy; Self-Repair spends it
-        p.Hp = 100f; p.TestSetEnergy(10f);
+        // ---------------------------------------------------------------- healing becomes fuel; Self-Repair spends it
+        p.Hp = 100f; p.TestSetFuel(10f);
         p.Heal(50f);
-        ScCheck($"healing doesn't mend it (hp {p.Hp:0.0}) but becomes a fifth as much energy ({p.Energy:0.0}, want 20)", Math.Abs(p.Hp - 100f) < 0.01f && Math.Abs(p.Energy - 20f) < 0.01f);
+        float fuelWant = 10f + 50f * Tune.Hero.HealingMult * s.FuelFromHeal;
+        ScCheck($"healing doesn't mend it (hp {p.Hp:0.0}) but becomes {s.FuelFromHeal:0%} as much fuel ({p.Fuel:0.00}, want {fuelWant:0.00})", Math.Abs(p.Hp - 100f) < 0.01f && Math.Abs(p.Fuel - fuelWant) < 0.01f);
+        float fuel0 = p.Fuel;
         Tap(new PlayerInput { Ability = true });
         foreach (var _ in Wait(0.6f)) yield return null;
-        ScCheck($"Self-Repair mends it as it spends energy (hp {p.Hp:0.0}, energy {p.Energy:0.0}, repairing {p.Repairing})", p.Repairing && p.Hp > 100.5f && Math.Abs(p.Hp - 100f + p.Energy - 20f) < 0.05f);
+        ScCheck($"Self-Repair mends it slowly as it spends fuel (hp {p.Hp:0.0}, fuel {p.Fuel:0.0}, repairing {p.Repairing})", p.Repairing && p.Hp > 100.5f && p.Hp < 100f + Tune.AutomatonHero.RepairRate && Math.Abs(p.Hp - 100f + p.Fuel - fuel0) < 0.05f);
         ScShot("automaton_repair");
-        for (float t = 0; t < 5f && p.Repairing; t += dt()) yield return null;
-        ScCheck($"until the energy runs out: 20 energy, 20 health (hp {p.Hp:0.0}, energy {p.Energy:0.0})", !p.Repairing && Math.Abs(p.Hp - 120f) < 0.1f && p.Energy < 0.01f);
+        for (float t = 0; t < 6f && p.Repairing; t += dt()) yield return null;
+        ScCheck($"until the fuel runs out: {fuel0:0.0} fuel, {fuel0:0.0} health (hp {p.Hp:0.0}, fuel {p.Fuel:0.0})", !p.Repairing && Math.Abs(p.Hp - 100f - fuel0) < 0.1f && p.Fuel < 0.01f);
         p.Hp = s.MaxHp;
 
         // ---------------------------------------------------------------- the acid water, the toxic air
@@ -81,9 +83,9 @@ public partial class Main
             for (int k = 0; k < 6; k++)
             {
                 Pulse(new PlayerInput { Jump = true, JumpHeld = true });
-                for (float t = 0; t < 0.22f; t += dt()) { minVy = Math.Min(minVy, p.Velocity.Y); yield return null; }
+                for (float t = 0; t < 0.32f; t += dt()) { minVy = Math.Min(minVy, p.Velocity.Y); yield return null; }
             }
-            ScCheck($"each press of jump kicks it up (up to {-minVy:0} px/s; it rose {y0 - p.GlobalPosition.Y:0} px)", minVy < -150f && p.GlobalPosition.Y < y0 - 20f);
+            ScCheck($"each press of jump kicks it up, slowly (up to {-minVy:0} px/s; it rose {y0 - p.GlobalPosition.Y:0} px in six kicks)", minVy < -40f && minVy > -170f && p.GlobalPosition.Y < y0 - 4f && p.GlobalPosition.Y > y0 - 160f);
         }
         if (toxicAt != null)
         {
@@ -157,7 +159,7 @@ public partial class Main
         ScShot("automaton_steam");
         foreach (var _ in Wait(0.3f)) yield return null;
         ScCheck($"the steam strikes what's in front ({nearHp - near.Hp:0.0})", nearHp - near.Hp > Tune.AutomatonHero.SteamDamage * 0.5f);
-        p.TestSetEnergy(p.Energy);
+        p.TestSetFuel(p.Fuel);
         Stand(stand);
         foreach (var _ in Wait(0.4f)) yield return null;
         float yS = p.GlobalPosition.Y, minY = yS;
@@ -193,25 +195,35 @@ public partial class Main
         p.Hp = s.MaxHp;
         foreach (var _ in Wait(0.6f)) yield return null;
 
-        // ---------------------------------------------------------------- Over-Pressure
+        // ---------------------------------------------------------------- Pressurize
         Stand(stand);
         foreach (var _ in Wait(0.3f)) yield return null;
+        var A = Tune.AutomatonHero.PressureAttack; var D = Tune.AutomatonHero.PressureDamage; var M = Tune.AutomatonHero.PressureSpeed; var J = Tune.AutomatonHero.PressureJump;
         float atk0 = s.AttackSpeed, dmg0 = s.DamageMult, mv0 = s.MoveSpeed, jmp0 = s.JumpMult;
-        ScCheck($"its support is Over-Pressure ({p.SupportName})", p.SupportName == "PRESSURE");
+        bool StatsBack() => Math.Abs(s.AttackSpeed - atk0) < 0.001f && Math.Abs(s.DamageMult - dmg0) < 0.001f && Math.Abs(s.MoveSpeed - mv0) < 0.001f && Math.Abs(s.JumpMult - jmp0) < 0.001f;
+        ScCheck($"its support is Pressurize ({p.SupportName})", p.SupportName == "PRESSURIZE");
+        p.TestSetFuel(40f);
         p.TestSupport(new Vector2(1, 0));
         foreach (var _ in Wait(0.5f)) yield return null;
-        ScCheck($"it begins to build pressure ({p.Pressurising}), no boost yet (x{s.AttackSpeed / atk0:0.00})", p.Pressurising && !p.Overpressured && Math.Abs(s.AttackSpeed - atk0) < 0.001f);
+        ScCheck($"it begins to build pressure ({p.Pressurising}), no boost yet (x{s.AttackSpeed / atk0:0.00})", p.Pressurising && !p.Overpressured && StatsBack());
         foreach (var _ in Wait(2.0f)) yield return null;
         ScShot("automaton_pressure_build");
         for (float t = 0; t < 1.5f && p.Pressurising; t += dt()) yield return null;
-        ScCheck($"after about three seconds it's over-pressured ({p.Overpressured}, {p.PressureLeft:0.0}s left)", p.Overpressured && p.PressureLeft > Tune.Support.PressureBuff - 1f);
+        ScCheck($"after about three seconds it's pressurized ({p.Overpressured})", p.Overpressured);
         ScCheck($"striking x{s.AttackSpeed / atk0:0.00} as fast and x{s.DamageMult / dmg0:0.00} as hard, moving x{s.MoveSpeed / mv0:0.00}, jumping x{s.JumpMult / jmp0:0.00}",
-            Math.Abs(s.AttackSpeed / atk0 - Tune.Support.PressureAttack) < 0.01f && Math.Abs(s.DamageMult / dmg0 - Tune.Support.PressureDamage) < 0.01f
-            && Math.Abs(s.MoveSpeed / mv0 - Tune.Support.PressureSpeed) < 0.01f && Math.Abs(s.JumpMult / jmp0 - Tune.Support.PressureJump) < 0.01f);
-        foreach (var _ in Wait(0.3f)) yield return null;
+            Math.Abs(s.AttackSpeed / atk0 - A) < 0.01f && Math.Abs(s.DamageMult / dmg0 - D) < 0.01f && Math.Abs(s.MoveSpeed / mv0 - M) < 0.01f && Math.Abs(s.JumpMult / jmp0 - J) < 0.01f);
+        float f1 = p.Fuel;
+        foreach (var _ in Wait(1.0f)) yield return null;
         ScShot("automaton_pressure_full");
-        for (float t = 0; t < Tune.Support.PressureBuff + 1f && p.Overpressured; t += dt()) yield return null;
-        ScCheck($"and it wears off, every stat as it was (x{s.AttackSpeed / atk0:0.000}, x{s.DamageMult / dmg0:0.000}, x{s.MoveSpeed / mv0:0.000}, x{s.JumpMult / jmp0:0.000})",
-            !p.Overpressured && Math.Abs(s.AttackSpeed - atk0) < 0.001f && Math.Abs(s.DamageMult - dmg0) < 0.001f && Math.Abs(s.MoveSpeed - mv0) < 0.001f && Math.Abs(s.JumpMult - jmp0) < 0.001f);
+        ScCheck($"it burns fuel while pressurized ({f1:0.0} -> {p.Fuel:0.0} in a second, want about {Tune.AutomatonHero.PressureFuel:0})", Math.Abs(f1 - p.Fuel - Tune.AutomatonHero.PressureFuel) < 1f);
+        p.TestSupport(new Vector2(1, 0));
+        foreach (var _ in Wait(0.1f)) yield return null;
+        ScCheck($"a second press lets the pressure go at once ({p.Overpressured}), every stat as it was ({StatsBack()}), and the button waits ({p.SupportCooldownFrac:0.00})", !p.Overpressured && StatsBack() && p.SupportCooldownFrac > 0.5f);
+        // and with only a little fuel, it runs dry
+        p.TestSetFuel(8f);
+        p.TestSupport(new Vector2(1, 0));
+        for (float t = 0; t < 4f && !p.Overpressured; t += dt()) yield return null;
+        for (float t = 0; t < 4f && p.Overpressured; t += dt()) yield return null;
+        ScCheck($"with only a little fuel it runs dry and the pressure goes (fuel {p.Fuel:0.0}, pressurized {p.Overpressured}, stats back {StatsBack()})", !p.Overpressured && p.Fuel < 0.01f && StatsBack());
     }
 }

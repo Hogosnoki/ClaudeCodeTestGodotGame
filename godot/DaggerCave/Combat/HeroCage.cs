@@ -10,6 +10,9 @@ namespace DaggerCave;
 public partial class HeroCage : Node2D
 {
     public HeroKind Hero;
+    /// <summary>Not a cage: the Automaton, disabled in a heap on the floor (the Clockwork Deep). Only a power cell wakes him.</summary>
+    public bool NeedsCell;
+    private float _sayT;
     public bool Freed { get; private set; }
     public float FreedT { get; private set; }
 
@@ -29,6 +32,14 @@ public partial class HeroCage : Node2D
     public void Interact()
     {
         if (Freed) return;
+        if (NeedsCell && !PowerCell.Found)
+        {
+            if (_sayT > 0) return;
+            _sayT = 1.5f;
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), "IT NEEDS A POWER CELL", new Color(0.6f, 0.85f, 1f), 10, 1.4f);
+            G.Sfx.Play("clink", GlobalPosition, -10, 0.05f, 0.5f);
+            return;
+        }
         Free(local: true);
     }
 
@@ -49,6 +60,9 @@ public partial class HeroCage : Node2D
 
     public override void _PhysicsProcess(double delta)
     {
+        _sayT -= (float)delta;
         if (Freed) FreedT += (float)delta;
+        // (the heap: a spark jumps from its joints now and then, the last of a charge)
+        else if (NeedsCell && G.Chance((float)delta * 0.6f)) G.Fx.Spark(GlobalPosition + new Vector2(G.Range(-12, 12), G.Range(-10, 0)), G.RandDir(), false, new Color(0.7f, 0.85f, 1f));
     }
 }

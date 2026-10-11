@@ -636,7 +636,8 @@ public sealed partial class HeroDesign
             phase = Mathf.PosMod(phase + dir * speed * a.Dt / StrideAt(speed), 1f);
         }
         Body o;
-        if (a.InWater && !c.StartsWith("dodge")) o = Swim(t, c == "swim", a.Time);
+        // (the Automaton never swims: it walks the bottom and sinks upright, feet first)
+        if (a.InWater && !_automaton && !c.StartsWith("dodge")) o = Swim(t, c == "swim", a.Time);
         else if (!a.OnFloor && c != "wall_slide") o = Air(a.Vel.Y, a.Time);
         else o = runAmount > 0.01f ? Lerp(Idle(a.Time), Run(phase, speed, p, a), runAmount) : Idle(a.Time);
 
@@ -930,7 +931,7 @@ public sealed partial class HeroDesign
     // ================================================================== the blade's trail
 
     /// <summary>Blade length by hero (metres): the sword, the shortsword, a dagger.</summary>
-    private float BladeLength => _rogue ? 0.3f : _warden ? 0.74f : _automaton ? 0.8f : 1.05f;
+    private float BladeLength => _rogue ? 0.3f : _warden ? 0.74f : _automaton ? 0.72f : 1.05f;
 
     /// <summary>
     /// Reads where the blade actually is (the guard and the point, in the world) off the hand's bone and

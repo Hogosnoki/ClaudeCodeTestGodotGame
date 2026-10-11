@@ -31,7 +31,7 @@ public partial class Player
         HeroKind.Elementalist => Tune.Support.StalagCooldown,
         HeroKind.Rogue => Tune.Support.ExposeCooldown,
         HeroKind.Aegis => Tune.Support.MarkCooldown,
-        HeroKind.Automaton => Tune.Support.PressureCooldown,
+        HeroKind.Automaton => Tune.Support.PressurePress,
         _ => Tune.Support.HowlCooldown,
     } * Stats.AbilityCdMult;
 
@@ -43,7 +43,7 @@ public partial class Player
         HeroKind.Elementalist => "STALAG",
         HeroKind.Rogue => "EXPOSE",
         HeroKind.Aegis => "MARK",
-        HeroKind.Automaton => "PRESSURE",
+        HeroKind.Automaton => "PRESSURIZE",
         _ => "HOWL",
     };
 
@@ -85,7 +85,8 @@ public partial class Player
             HeroKind.Automaton => TryOverPressure(),
             _ => TryHowl(),
         };
-        if (used) _supportCd = SupportRecharge;
+        // (an ability that starts its own wait, as Pressurize does when its pressure goes, keeps the longer one)
+        if (used) _supportCd = Math.Max(_supportCd, SupportRecharge);
         return used;
     }
 

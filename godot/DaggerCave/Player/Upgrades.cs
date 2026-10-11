@@ -43,15 +43,15 @@ public sealed class PlayerStats
     /// <summary>Drowned Lungs: breath never runs out. Magma Skin: lava can be swum in, burning for a third as much.</summary>
     public bool InfiniteBreath, MagmaSkin;
     /// <summary>The Automaton: it doesn't breathe at all (no drowning, poisoned air or poison gas); water, steam and acid
-    /// do it no harm; it sinks in water and swims by kicking up; healing becomes energy (see Player.Automaton.cs).</summary>
+    /// do it no harm; it sinks in water and swims by kicking up; healing becomes fuel (see Player.Automaton.cs).</summary>
     public bool Breathless, Waterproof, Sinks, SelfRepair;
     /// <summary>How much of a blow's shove you take (x); an air jump's strength (x).</summary>
     public float KnockTakenMult = 1f, AirJumpMult = 1f;
-    /// <summary>The Automaton: energy held at most, the share of healing that becomes energy, Self-Repair's rate (x), the
+    /// <summary>The Automaton: fuel held at most, the share of healing that becomes fuel, Self-Repair's rate (x), the
     /// slam's strength and reach (x), Steam Release's strength (x) and recharge (x), Brace's length (s added) and its punch (x).</summary>
-    public float EnergyMax = Tune.AutomatonHero.EnergyMax, EnergyFromHeal = Tune.AutomatonHero.EnergyFromHeal, RepairRateMult = 1f, SlamMult = 1f;
+    public float FuelMax = Tune.AutomatonHero.FuelMax, FuelFromHeal = Tune.AutomatonHero.FuelFromHeal, RepairRateMult = 1f, SlamMult = 1f;
     public float SteamMult = 1f, SteamCdMult = 1f, BraceBonus, PunchMult = 1f;
-    /// <summary>Scrap Reclaimer (energy from kills, none from healing), Scalding Steam (it burns, no shove), Full Plate (Brace softens blows from every side).</summary>
+    /// <summary>Scrap Reclaimer (fuel from kills, none from healing), Scalding Steam (it burns, no shove), Full Plate (Brace softens blows from every side).</summary>
     public bool ScrapReclaimer, ScaldingSteam, FullPlate;
     /// <summary>The Null's corrupted cards: Bit Flip (a blow now and then lands six-fold, or not at all), Duplication (potions and keys come
     /// twice), Null Pointer (once a depth, a killing blow leaves you at 1 and throws you clear).</summary>
@@ -479,9 +479,9 @@ public static partial class Upgrades
         new() { Id = "cleaver_slam", Name = "Heavy Piston", Desc = "The slam that ends your combo reaches 25% farther and hits 25% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.SlamMult *= 1f + 0.25f },
         // --- Self-Repair (automaton) ---
         new() { Id = "repair_rate", Name = "Fine Tools", Desc = "Self-Repair mends you 30% faster.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.RepairRateMult *= 1f + 0.3f },
-        new() { Id = "repair_cap", Name = "Bigger Accumulator", Desc = "Hold 25 more energy.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 3, Apply = (s, p) => s.EnergyMax += 25f },
-        new() { Id = "repair_eff", Name = "Efficient Gearing", Desc = "Healing you receive gives 5% more of itself as energy (25%, then 30%).", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.EnergyFromHeal += 0.05f },
-        new() { Id = "repair_scrap", Name = "Scrap Reclaimer", Desc = "Every creature you destroy gives you 4 energy, but healing gives you none.", Icon = "life", For = AU, Ability = "repair", Alteration = true, Apply = (s, p) => s.ScrapReclaimer = true },
+        new() { Id = "repair_cap", Name = "Bigger Accumulator", Desc = "Hold 25 more fuel.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 3, Apply = (s, p) => s.FuelMax += 25f },
+        new() { Id = "repair_eff", Name = "Efficient Gearing", Desc = "Healing you receive gives 5% more of itself as fuel (35%, then 40%).", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.FuelFromHeal += 0.05f },
+        new() { Id = "repair_scrap", Name = "Scrap Reclaimer", Desc = "Every creature you destroy gives you 4 fuel, but healing gives you none.", Icon = "life", For = AU, Ability = "repair", Alteration = true, Apply = (s, p) => s.ScrapReclaimer = true },
         // --- Steam Release (automaton) ---
         new() { Id = "steam_cd", Name = "Pressure Valve", Desc = "Steam Release comes back 20% sooner.", Icon = "spell", For = AU, Ability = "steam", MaxStacks = 2, Apply = (s, p) => s.SteamCdMult *= 0.8f },
         new() { Id = "steam_force", Name = "High-Pressure Steam", Desc = "Steam Release hits 30% harder, shoves 30% harder and lifts you 30% higher.", Icon = "spell", For = AU, Ability = "steam", MaxStacks = 2, Apply = (s, p) => s.SteamMult *= 1f + 0.3f },
@@ -899,8 +899,8 @@ public static class Progression
                 // (its frame grows: the new health comes with it, not as healing, which it can't take)
                 s.MaxHp += 5; p.Hp += 5;
                 s.DamageMult += 0.02f;
-                s.EnergyMax += 2;
-                gain = "+5 HP  +2% damage  +2 energy";
+                s.FuelMax += 2;
+                gain = "+5 HP  +2% damage  +2 fuel";
                 break;
             case HeroKind.ShapeShifter:
                 s.MaxHp += 3; p.Heal(3);

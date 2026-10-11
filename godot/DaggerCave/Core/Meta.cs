@@ -153,11 +153,22 @@ public static class Meta
                 foreach (var h in kinds) if ((p.Locked & (1 << (int)h)) != 0) { count[(int)h]++; sum++; }
         }
         else foreach (var h in kinds) if (!IsReallyUnlocked(h)) { count[(int)h]++; sum++; }
+        // (the Automaton is never caged: he lies disabled in the Clockwork Deep, waiting on a power cell)
+        sum -= count[(int)HeroKind.Automaton]; count[(int)HeroKind.Automaton] = 0;
         if (sum == 0) return null;
         float v = roll * sum;
         for (int i = 0; i < kinds.Length; i++) { v -= count[i]; if (count[i] > 0 && v <= 0) return kinds[i]; }
         return kinds.Last(h => count[(int)h] > 0);
     }
+    /// <summary>Is the Automaton still locked for someone in the party (so his heap and its power cell are put in the Clockwork Deep)?
+    /// Every game works it out alike (online, from what each player said they had).</summary>
+    public static bool AutomatonWanted()
+    {
+        int bit = 1 << (int)HeroKind.Automaton;
+        if (Net.Online && Net.Count > 1) { foreach (var p in Net.Peers.Values) if ((p.Locked & bit) != 0) return true; return false; }
+        return !IsReallyUnlocked(HeroKind.Automaton);
+    }
+
     public static bool Unlock(HeroKind h)
     {
         if (!Unlocked.Add(h)) return false;

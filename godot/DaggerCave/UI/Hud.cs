@@ -276,7 +276,7 @@ public partial class Hud : Control
         if (!p.Dead && HeroCage.At(p.GlobalPosition) is HeroCage cage)
         {
             var at = cage.GetGlobalTransformWithCanvas().Origin + new Vector2(0, -50);
-            string free = $"{Controls.Name("interact")}  free the {cage.Hero}";
+            string free = cage.NeedsCell ? (PowerCell.Found ? $"{Controls.Name("interact")}  revive the {cage.Hero}" : "it needs a power cell") : $"{Controls.Name("interact")}  free the {cage.Hero}";
             var fsz = font.GetStringSize(free, HorizontalAlignment.Left, -1, 14);
             DrawRect(new Rect2(at - new Vector2(fsz.X / 2 + 8, 16), new Vector2(fsz.X + 16, 22)), new Color(0, 0, 0, 0.6f));
             DrawString(font, at - new Vector2(fsz.X / 2, 0), free, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
@@ -360,8 +360,8 @@ public partial class Hud : Control
                 HeroKind.Automaton => new[]
                 {
                     move.Replace("swim up/down", "kick up (jump) / sink").Replace("hold up/down to swim", "press jump to kick up in water"),
-                    $"{atk} cleaver (the third stroke slams) · {a1} Self-Repair (spends energy) · {a2} steam release (aim down to lift yourself) · {dg} brace",
-                    "Healing you receive becomes energy, not health · no air needed; water, steam and acid can't hurt you · you sink · " + pause,
+                    $"{atk} cleaver (the third stroke slams) · {a1} Self-Repair (spends fuel) · {a2} steam release (aim down to lift yourself) · {dg} brace",
+                    "Healing you receive becomes fuel, not health · no air needed; water, steam and acid can't hurt you · you sink · " + pause,
                 },
                 HeroKind.ShapeShifter => new[]
                 {
@@ -598,7 +598,7 @@ public partial class Hud : Control
         KeyHint(font, sb, "ability2");
     }
 
-    /// <summary>The Automaton: Brace, Self-Repair with the energy it holds, and Steam Release.</summary>
+    /// <summary>The Automaton: Brace, Self-Repair with the fuel it holds, and Steam Release.</summary>
     private void DrawAutomatonGauges(Font font, Player p, Vector2 ab)
     {
         var copper = HeroColor(HeroKind.Automaton);
@@ -606,7 +606,7 @@ public partial class Hud : Control
         Dial(ab + new Vector2(17, 17), p.BraceCooldownFrac, copper);
         DrawString(font, ab + new Vector2(0, -6), p.Bracing ? "BRACED" : "BRACE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         var cb = ab + new Vector2(56, 0);
-        AbilitySquare(font, cb, p.Repairing ? "MENDING" : "REPAIR", p.Repairing ? 0f : p.AbilityCooldownFrac, p.Repairing || (p.AbilityChargeReady && p.Energy >= 1f), amber, (c, col) =>
+        AbilitySquare(font, cb, p.Repairing ? "MENDING" : "REPAIR", p.Repairing ? 0f : p.AbilityCooldownFrac, p.Repairing || (p.AbilityChargeReady && p.Fuel >= 1f), amber, (c, col) =>
         {
             // a spanner
             var d = new Vector2(1, -1).Normalized();
@@ -625,16 +625,16 @@ public partial class Hud : Control
                 DrawPolyline(new[] { c + new Vector2(k * 6, 10), c + new Vector2(k * 6 + 3, 3), c + new Vector2(k * 6 - 2, -4), c + new Vector2(k * 6 + 2, -11) }, col, 2f);
         });
         KeyHint(font, sb, "ability2");
-        // the energy: a gauge beside them, amber, with the number held
+        // the fuel: a gauge beside them, amber, with the number held
         var eb = sb + new Vector2(52, 6);
         const float ew = 108, eh = 12;
         DrawRect(new Rect2(eb - new Vector2(2, 2), new Vector2(ew + 4, eh + 4)), new Color(0, 0, 0, 0.6f));
         DrawRect(new Rect2(eb, new Vector2(ew, eh)), new Color(0.22f, 0.14f, 0.06f));
-        DrawRect(new Rect2(eb, new Vector2(ew * p.EnergyFrac, eh)), p.Repairing && (int)(_t * 8) % 2 == 0 ? amber.Lightened(0.3f) : amber);
-        DrawRect(new Rect2(eb, new Vector2(ew * p.EnergyFrac, 4)), new Color(1, 1, 1, 0.18f));
-        DrawString(font, eb + new Vector2(0, -6), "ENERGY", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
-        DrawString(font, eb + new Vector2(4, 10), $"{Num.Shown(p.Energy)} / {Num.Shown(p.Stats.EnergyMax)}", HorizontalAlignment.Left, -1, 10, Colors.White);
-        // Over-Pressure: the build-up, then the seconds of the boost left
+        DrawRect(new Rect2(eb, new Vector2(ew * p.FuelFrac, eh)), p.Repairing && (int)(_t * 8) % 2 == 0 ? amber.Lightened(0.3f) : amber);
+        DrawRect(new Rect2(eb, new Vector2(ew * p.FuelFrac, 4)), new Color(1, 1, 1, 0.18f));
+        DrawString(font, eb + new Vector2(0, -6), "FUEL", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawString(font, eb + new Vector2(4, 10), $"{Num.Shown(p.Fuel)} / {Num.Shown(p.Stats.FuelMax)}", HorizontalAlignment.Left, -1, 10, Colors.White);
+        // Pressurize: the build-up, then how long the fuel would keep the pressure up
         var hot = new Color(1f, 0.55f, 0.2f);
         if (p.Pressurising)
         {
@@ -642,7 +642,7 @@ public partial class Hud : Control
             DrawString(font, eb + new Vector2(0, eh + 20), "BUILDING PRESSURE", HorizontalAlignment.Left, -1, 10, new Color(hot, 0.6f + 0.4f * MathF.Sin(_t * 14)));
         }
         else if (p.Overpressured)
-            DrawString(font, eb + new Vector2(0, eh + 18), $"OVER-PRESSURE  {p.PressureLeft:0}s", HorizontalAlignment.Left, -1, 11, hot);
+            DrawString(font, eb + new Vector2(0, eh + 18), $"PRESSURIZED  ({p.PressureLeft:0}s of fuel)", HorizontalAlignment.Left, -1, 11, hot);
     }
 
     private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)

@@ -263,6 +263,15 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>This game's hero found the level's power cell: the party has it.</summary>
+    public static void CellFound()
+    {
+        if (!Net.Online || Applying) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(20);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's hero freed a caged hero: everyone in the party gets them.</summary>
     public static void CageFreed(HeroKind h)
     {
@@ -419,6 +428,14 @@ public static class NetSync
                 foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && c.Hero == hero) cage = c;
                 if (cage != null) cage.Free(false);
                 else { Meta.Unlock(hero); Net.EveryoneUnlocked(hero); }
+                Applying = false;
+                break;
+            }
+            case 20:
+            {
+                Applying = true;
+                PowerCell.Found = true;
+                foreach (var n in G.World.GetChildren()) if (n is PowerCell pc) pc.Take(false);
                 Applying = false;
                 break;
             }

@@ -60,7 +60,8 @@ public static partial class CaveGenerator
         cave.ViewRect = new Rect2(vx0 * CaveData.Cell, vy0 * CaveData.Cell, (vx1 - vx0) * CaveData.Cell, (vy1 - vy0) * CaveData.Cell);
         if (B == null || B.Style == GenStyle.Arena || B.MinDepth < 1 || cave.ReachMask == null) return;
         var rng = new Random(seed * 193 + 77);
-        if (!ForceWings && rng.NextDouble() > Tune.Secrets.WingChance) return;
+        // (the Clockwork Deep always tries for one: the Automaton lies at the end of it, while anyone lacks him)
+        if (!ForceWings && !B.Machinery && rng.NextDouble() > Tune.Secrets.WingChance) return;
 
         int W0 = cave.W, H0 = cave.H;
         float wrow = cave.Liquid == Liquid.None ? float.MaxValue : cave.WaterY / CaveData.Cell;
