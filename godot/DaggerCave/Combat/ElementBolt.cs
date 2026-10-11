@@ -139,7 +139,7 @@ public partial class ElementBolt : Node2D
         G.Fx.Flash(at, 8 + 6 * size, col, 0.1f);
         if (Ward)
         {
-            G.Fx.Ring(at, (Tune.Aegis.BurstRadius * 0.6f) * (0.5f + 0.5f * size), new Color(1f, 0.92f, 0.6f, 0.85f), 0.25f);
+            G.Fx.Ring(at, (Tune.Aegis.BurstRadius * 0.6f) * (0.5f + 0.5f * size), new Color(1f, 0.92f, 0.6f, 0.85f), 0.25f, FxLayer.RingStyle.Burst);
             // (the bubble pops: a ring, a few droplets of light and a bubble or two)
             G.Fx.Burst(at, new Color(1f, 0.95f, 0.75f), (int)(6 * size) + 2, 90, 1.4f, 0.25f, -20);
             G.Fx.Bubbles(at, 2);

@@ -53,7 +53,7 @@ public partial class HeroCage : Node2D
         if (local) NetSync.CageFreed(Hero);
         G.Sfx.Play("chest", GlobalPosition, -2, 0, 0.8f);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -12), Hud.HeroColor(Hero), 30, 200, 2.6f, 0.7f);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -12), 30, Hud.HeroColor(Hero));
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -12), 30, Hud.HeroColor(Hero), 0.3f, FxLayer.RingStyle.Ping);
         G.Main.Hud?.ShowBanner(Lore.FreedBanner(Hero, fresh), 5.5f);
         if (fresh) G.Main.Hud?.ShowNotice(Lore.Hero(Hero).backstory, 8f);
     }

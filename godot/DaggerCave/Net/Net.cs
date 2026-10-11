@@ -29,7 +29,7 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 7;
+    public const int Version = 8;
     public const int MaxPlayers = 6;
 
     /// <summary>

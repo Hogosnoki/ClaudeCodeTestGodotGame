@@ -20,7 +20,7 @@ public partial class Player
         if (dealt > 0) OnDealtDamage(dealt);
         G.Fx.Flash(at, e.HitRadius + 14, col, 0.14f);
         G.Fx.Burst(at, cinder ? new Color(1f, 0.6f, 0.2f) : new Color(0.85f, 0.97f, 1f), 18, 190, 2.4f, 0.45f, cinder ? -60f : 260f);
-        G.Fx.Ring(at, radius, new Color(col, 0.8f), 0.3f);
+        G.Fx.Ring(at, radius, new Color(col, 0.8f), 0.3f, FxLayer.RingStyle.Burst);
         G.Sfx.Play(cinder ? "lava" : "rock", at, -4, 0.1f, cinder ? 1.2f : 2f);
         foreach (var o in G.Enemies.ToArray())
         {

@@ -118,7 +118,7 @@ public partial class Player
         ApplyFormLook();
         var at = GlobalPosition + new Vector2(0, -8);
         G.Fx.Burst(at, new Color(0.9f, 0.93f, 1f, 0.9f), 22, 190, 2.4f, 0.5f);
-        G.Fx.Ring(at, 22, new Color(0.9f, 0.93f, 1f, 0.9f), 0.4f);
+        G.Fx.Ring(at, 22, new Color(0.9f, 0.93f, 1f, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);
         G.Sfx.Play("bubble", GlobalPosition, -2, 0.05f, 0.7f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), f.Name.ToUpperInvariant(), new Color(0.92f, 0.95f, 1f), 11, 0.9f);
         Anim?.Flash(0.8f);
@@ -136,7 +136,7 @@ public partial class Player
         ApplyFormLook();
         var at = GlobalPosition + new Vector2(0, -8);
         G.Fx.Burst(at, new Color(0.9f, 0.93f, 1f, 0.8f), 14, 150, 2f, 0.4f);
-        G.Fx.Ring(at, 18, new Color(0.9f, 0.93f, 1f, 0.7f), 0.3f);
+        G.Fx.Ring(at, 18, new Color(0.9f, 0.93f, 1f, 0.7f), 0.3f, FxLayer.RingStyle.Dashed);
         G.Sfx.Play("bubble", GlobalPosition, -5, 0.05f, 1.4f);
         _shiftLock = 0.3f;
         if (cooldown && !IsRemote && !Stats.FluidShift) SpendAbilityCharge();
@@ -312,7 +312,7 @@ public partial class Player
     private void Burst(float range, float mult, float knock, float stun)
     {
         var at = GlobalPosition;
-        G.Fx.Ring(at + new Vector2(0, -6), range, new Color(0.92f, 0.95f, 1f, 0.8f), 0.25f);
+        G.Fx.Ring(at + new Vector2(0, -6), range, new Color(0.92f, 0.95f, 1f, 0.8f), 0.25f, FxLayer.RingStyle.Burst);
         foreach (var e in G.Enemies.ToArray())
         {
             if (!GodotObject.IsInstanceValid(e) || e.Dead) continue;

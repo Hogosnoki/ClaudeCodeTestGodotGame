@@ -223,6 +223,31 @@ public partial class Fx3D : Node3D
                         _glow.Add(Quad(W3.P(p.Pos, 0.3f), 0, r, r * 0.35f), col with { A = col.A * a * 0.35f }, new Vector4(2, 2f, 0.1f, p.Seed));
                         break;
                     }
+                case 16: // ragged blast front: out fast, then slowing
+                    {
+                        float t = 1f - a;
+                        float r = p.Size * (0.35f + 1.0f * (1f - (1f - t) * (1f - t))) * P * 1.3f;
+                        _glow.Add(Quad(at, p.Rot, r, r), col with { A = col.A * a }, new Vector4(7, 2.6f, 0.05f + 0.06f * a, p.Seed * 40f));
+                        break;
+                    }
+                case 17: // a diamond closing in on its point, turning a little
+                    {
+                        float r = p.Size * (0.45f + 0.85f * a) * P * 1.3f;
+                        _glow.Add(Quad(at, p.Rot * 0.1f + (1f - a) * 0.9f, r, r), col with { A = col.A * MathF.Min(1f, a * 1.6f) }, new Vector4(8, 2.8f, 0.05f, p.Seed));
+                        break;
+                    }
+                case 18: // a broken ring, turning as it spreads
+                    {
+                        float r = p.Size * (1.4f - 0.55f * a) * P * 1.25f;
+                        _glow.Add(Quad(at, p.Rot + (1f - a) * 2.2f * (p.Spin < 0 ? -1f : 1f), r, r), col with { A = col.A * a }, new Vector4(9, 2.6f, 0.06f, 10f));
+                        break;
+                    }
+                case 19: // a soft swell of light
+                    {
+                        float r = p.Size * (1.3f - 0.45f * a) * P * 1.25f;
+                        _glow.Add(Quad(at, 0, r, r), col with { A = col.A * a * 0.8f }, new Vector4(10, 1.6f, 0, p.Seed));
+                        break;
+                    }
                 case 9: // smoke and dust
                     {
                         float r = p.Size * (1.6f - 0.6f * a) * P * 1.6f;

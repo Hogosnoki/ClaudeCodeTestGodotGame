@@ -61,7 +61,7 @@ public partial class Player
         if (_tauntLeft > 0)
         {
             _tauntLeft -= dt;
-            if (G.Chance(dt * 6f)) G.Fx.Ring(GlobalPosition + new Vector2(0, -8), 18, new Color(1f, 0.55f, 0.3f, 0.6f), 0.4f);
+            if (G.Chance(dt * 6f)) G.Fx.Ring(GlobalPosition + new Vector2(0, -8), 18, new Color(1f, 0.55f, 0.3f, 0.6f), 0.4f, FxLayer.RingStyle.Ping);
         }
         TickBuffs(dt);
     }
@@ -113,7 +113,7 @@ public partial class Player
         if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Buff, seconds, 0, 0, kind); return; }
         if (!_buffs.ContainsKey(kind)) ApplyBuff(kind, +1);
         _buffs[kind] = Math.Max(BuffLeft(kind), seconds);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, kind == BuffShout ? new Color(1f, 0.6f, 0.3f, 0.8f) : new Color(0.85f, 0.95f, 1f, 0.8f), 0.4f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, kind == BuffShout ? new Color(1f, 0.6f, 0.3f, 0.8f) : new Color(0.85f, 0.95f, 1f, 0.8f), 0.4f, FxLayer.RingStyle.Dashed);
     }
 
     private void ApplyBuff(int kind, int dir)
@@ -140,7 +140,7 @@ public partial class Player
     {
         foreach (var h in HeroesNear(Tune.Support.ShoutRange)) h.GiveBuff(BuffShout, Tune.Support.ShoutSeconds);
         var at = GlobalPosition + new Vector2(0, -8);
-        G.Fx.Ring(at, Tune.Support.ShoutRange * 0.6f, new Color(1f, 0.6f, 0.3f, 0.7f), 0.5f);
+        G.Fx.Ring(at, Tune.Support.ShoutRange * 0.6f, new Color(1f, 0.6f, 0.3f, 0.7f), 0.5f, FxLayer.RingStyle.Dashed);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, 12), 40, new Color(1f, 0.8f, 0.5f, 0.5f), 0.4f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), "BATTLE SHOUT", new Color(1f, 0.75f, 0.4f), 12, 1f);
         G.Sfx.Play("roar", GlobalPosition, -2, 0.05f, 1.2f);
@@ -152,7 +152,7 @@ public partial class Player
     {
         foreach (var h in HeroesNear(Tune.Support.HowlRange)) h.GiveBuff(BuffHowl, Tune.Support.HowlSeconds);
         var at = GlobalPosition + new Vector2(0, -8);
-        G.Fx.Ring(at, Tune.Support.HowlRange * 0.6f, new Color(0.85f, 0.95f, 1f, 0.7f), 0.5f);
+        G.Fx.Ring(at, Tune.Support.HowlRange * 0.6f, new Color(0.85f, 0.95f, 1f, 0.7f), 0.5f, FxLayer.RingStyle.Dashed);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), "PACK HOWL", new Color(0.9f, 0.95f, 1f), 12, 1f);
         G.Sfx.Play("roar", GlobalPosition, -2, 0.05f, 1.5f);
         return true;
@@ -162,7 +162,7 @@ public partial class Player
     {
         _tauntLeft = Tune.Support.TauntSeconds;
         var at = GlobalPosition + new Vector2(0, -8);
-        G.Fx.Ring(at, 60, new Color(1f, 0.5f, 0.3f, 0.8f), 0.5f);
+        G.Fx.Ring(at, 60, new Color(1f, 0.5f, 0.3f, 0.8f), 0.5f, FxLayer.RingStyle.Ping);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, 12), 50, new Color(1f, 0.6f, 0.4f, 0.5f), 0.4f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), "TAUNT", new Color(1f, 0.6f, 0.35f), 12, 1f);
         G.Sfx.Play("roar", GlobalPosition, -1, 0.05f, 0.7f);
@@ -230,7 +230,7 @@ public partial class Player
         var foe = FindSpellTarget(aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0), Tune.Support.ExposeRange, 40f);
         if (foe == null) { SayNo("NOTHING TO MARK"); _supportCd = 0.5f; return false; }
         foe.Expose(Tune.Support.ExposeVuln, Tune.Support.ExposeSeconds);
-        G.Fx.Ring(foe.GlobalPosition, foe.HitRadius + 10, new Color(1f, 0.85f, 0.3f, 0.9f), 0.4f);
+        G.Fx.Ring(foe.GlobalPosition, foe.HitRadius + 10, new Color(1f, 0.85f, 0.3f, 0.9f), 0.4f, FxLayer.RingStyle.Ping);
         G.Fx.Text(foe.HeadPoint(10f), "EXPOSED", new Color(1f, 0.85f, 0.35f), 11, 0.9f);
         G.Sfx.Play("throw", GlobalPosition, -6, 0.1f, 1.3f);
         return true;

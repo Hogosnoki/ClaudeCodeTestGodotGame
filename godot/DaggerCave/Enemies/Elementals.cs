@@ -142,7 +142,7 @@ public partial class FrostElemental : ElementalWalker
     protected override void Unleash()
     {
         G.Sfx.Play("spike", GlobalPosition, -2, 0.1f, 1.2f);
-        G.Fx.Ring(GlobalPosition + new Vector2(Face * 10, 0) * Size, 28 * Size, new Color(0.75f, 0.94f, 1f, 0.8f), 0.3f);
+        G.Fx.Ring(GlobalPosition + new Vector2(Face * 10, 0) * Size, 28 * Size, new Color(0.75f, 0.94f, 1f, 0.8f), 0.3f, FxLayer.RingStyle.Burst);
         int n = Elite ? 7 : 5;
         for (int k = 0; k < n; k++) Shot("crystal", 250f, 0f, Tune.Elementals.Frost.Damage, 4f, (k - (n - 1) / 2f) * 0.16f, 2.4f);
     }

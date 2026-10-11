@@ -185,8 +185,8 @@ public partial class Bear : Walker
                     Anim.Once("roar", 3, 10f / (0.7f * 24f));
                     G.Sfx.Play("roar", GlobalPosition, 4, 0.05f, 0.8f);
                     G.Fx.AddShake(10);
-                    G.Fx.Ring(GlobalPosition + new Vector2(Face * 14 * Size, -12 * Size), Tune.Bear.RoarRange, new Color(1f, 0.9f, 0.7f, 0.5f), 0.45f);
-                    G.Fx.Ring(GlobalPosition + new Vector2(Face * 14 * Size, -12 * Size), Tune.Bear.RoarRange * 0.6f, new Color(1f, 0.9f, 0.7f, 0.35f), 0.35f);
+                    G.Fx.Ring(GlobalPosition + new Vector2(Face * 14 * Size, -12 * Size), Tune.Bear.RoarRange, new Color(1f, 0.9f, 0.7f, 0.5f), 0.45f, FxLayer.RingStyle.Burst);
+                    G.Fx.Ring(GlobalPosition + new Vector2(Face * 14 * Size, -12 * Size), Tune.Bear.RoarRange * 0.6f, new Color(1f, 0.9f, 0.7f, 0.35f), 0.35f, FxLayer.RingStyle.Dashed);
                     int stunned = 0;
                     foreach (var h in G.Players)
                     {
@@ -1051,7 +1051,7 @@ public partial class Shardling : Walker
                     Anim.Once("burst", 3);
                     G.Sfx.Play("spike", GlobalPosition, -2);
                     Shards(Elite ? 9 : 6, 1f);
-                    G.Fx.Ring(GlobalPosition, 40 * Size, new Color(0.7f, 0.95f, 1f, 0.8f));
+                    G.Fx.Ring(GlobalPosition, 40 * Size, new Color(0.7f, 0.95f, 1f, 0.8f), 0.3f, FxLayer.RingStyle.Burst);
                     if (DistP < 40 * Size) P.Hurt(Tune.Shardling.BurstDamage * DmgK, GlobalPosition, 200, this);
                 }
                 break;

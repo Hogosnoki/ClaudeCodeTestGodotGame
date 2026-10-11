@@ -172,6 +172,13 @@ public partial class PauseMenu : Control
 {
     public Action Resume, Settings, Build, Quit, QuitGame, Unstick;
     private Button _first, _quit;
+    private bool _guide;
+
+    public override void _Process(double delta)
+    {
+        // (back from the HUD guide: the menu again, where it was)
+        if (_guide && !Hud.Guide) { _guide = false; Visible = true; _first.CallDeferred(Control.MethodName.GrabFocus); }
+    }
 
     public override void _Ready()
     {
@@ -187,6 +194,7 @@ public partial class PauseMenu : Control
         col.AddChild(_first);
         col.AddChild(UiKit.Button("Settings", () => Settings?.Invoke()));
         col.AddChild(UiKit.Button("Your build", () => Build?.Invoke()));
+        col.AddChild(UiKit.Button("HUD guide", () => { Visible = false; _guide = true; Hud.Guide = true; }));
         col.AddChild(UiKit.Button("Unstick me", () => Unstick?.Invoke()));
         _quit = UiKit.Button("Give up this run", () => Quit?.Invoke());
         col.AddChild(_quit);
@@ -409,6 +417,8 @@ public partial class SettingsMenu : Control
         Row(g, "Keyboard presses aim", Choice(new[] { "At the mouse, while you use it", "Always at the mouse", "Where you move" }, (int)GameSettings.Aim, i => GameSettings.Aim = (GameSettings.AimMode)i),
             "controllers aim with the right stick");
         Row(g, "Controller vibration", Toggle(GameSettings.Vibration, v => GameSettings.Vibration = v));
+        Row(g, "HUD tooltips", Choice(new[] { "Off", "Abilities, potions and relics", "Everything on the HUD" }, GameSettings.HudTips, i => GameSettings.HudTips = i),
+            "rest the mouse on a piece of the HUD; F1 (or HUD guide in the pause menu) explains it all at once");
 
         var table = new GridContainer { Columns = 1 + 2 * Controls.Slots, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         table.AddThemeConstantOverride("h_separation", 6);

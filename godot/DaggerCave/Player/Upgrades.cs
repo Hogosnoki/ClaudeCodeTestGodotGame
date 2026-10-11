@@ -925,7 +925,7 @@ public static class Progression
         G.Fx.Text(p.GlobalPosition + new Vector2(0, -34), $"LEVEL {p.Level}", new Color(1f, 0.9f, 0.45f), 14, 1.3f);
         G.Fx.Text(p.GlobalPosition + new Vector2(0, -20), gain, new Color(0.9f, 0.95f, 1f), 9, 1.1f);
         G.Fx.Flash(p.GlobalPosition, 30, new Color(1f, 0.9f, 0.5f));
-        G.Fx.Ring(p.GlobalPosition, 26, new Color(1f, 0.9f, 0.5f));
+        G.Fx.Ring(p.GlobalPosition, 26, new Color(1f, 0.9f, 0.5f), 0.3f, FxLayer.RingStyle.Dashed);
         G.Fx.Shockwave(p.GlobalPosition + new Vector2(0, 13), 40, new Color(1f, 0.9f, 0.5f, 0.8f));
         for (int k = 0; k < 10; k++) G.Fx.Glint(p.GlobalPosition + G.RandDir() * G.Range(8, 26), new Color(1f, 0.9f, 0.5f), 6);
         p.Anim.Flash(0.7f);

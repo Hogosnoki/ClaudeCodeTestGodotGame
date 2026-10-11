@@ -74,6 +74,15 @@ public partial class StoryCard : Control
             l.CustomMinimumSize = new Vector2(670, 0);
             l.SizeFlagsHorizontal = SizeFlags.ExpandFill;
             _journal.AddChild(l);
+            // (what the page leaves with its reader: on its own line, indented, in its own colour)
+            if (RunBuffs.ForPage.TryGetValue(pg.biome, out var feel))
+            {
+                var b = UiKit.Label($"      {(feel.Inspired ? "Inspires" : "Saddens, and steadies")}:  {feel.Name}  ·  {feel.Text}, for the rest of that cave", 13, RunBuffs.Colour(feel));
+                b.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+                b.CustomMinimumSize = new Vector2(670, 0);
+                b.SizeFlagsHorizontal = SizeFlags.ExpandFill;
+                _journal.AddChild(b);
+            }
         }
     }
 

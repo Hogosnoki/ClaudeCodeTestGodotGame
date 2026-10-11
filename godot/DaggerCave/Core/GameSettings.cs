@@ -43,6 +43,8 @@ public static class GameSettings
     /// pointer while the mouse is in use.</summary>
     public static AimMode Aim = AimMode.Auto;
     public static bool Vibration = true;
+    /// <summary>HUD tooltips on mouse hover: 0 off, 1 abilities, potions and relics, 2 everything on the HUD (see <see cref="Hud.Guide"/> too).</summary>
+    public static int HudTips = 1;
 
     // ---------------------------------------------------------------- online
     /// <summary>The name the others see online ("" = this computer's user name).</summary>
@@ -95,6 +97,7 @@ public static class GameSettings
         SfxVolume = F("sound", "sfx", SfxVolume);
         Aim = (AimMode)I("controls", "aim", (int)Aim);
         Vibration = B("controls", "vibration", Vibration);
+        HudTips = Math.Clamp(I("interface", "hud_tips", HudTips), 0, 2);
         PlayerName = S("online", "name", PlayerName);
         LastJoin = S("online", "last_join", LastJoin);
         Controls.Load(cfg);
@@ -121,6 +124,7 @@ public static class GameSettings
         cfg.SetValue("sound", "sfx", SfxVolume);
         cfg.SetValue("controls", "aim", (int)Aim);
         cfg.SetValue("controls", "vibration", Vibration);
+        cfg.SetValue("interface", "hud_tips", HudTips);
         cfg.SetValue("online", "name", PlayerName);
         cfg.SetValue("online", "last_join", LastJoin);
         Controls.Save(cfg);

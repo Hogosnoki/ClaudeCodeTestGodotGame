@@ -51,6 +51,8 @@ public partial class Main
     {
         "water" => "slime",
         "surface" => "slime",
+        "hudguide" => "entrance",
+        "ringfx" => "entrance",
         "fossilcam" => "fossils",
         "mouth" => "entrance",
         "drain" => "entrance",
@@ -134,6 +136,8 @@ public partial class Main
             case "clockwork": ClockworkScenario(); break;
             case "automaton": AutomatonScenario(); break;
             case "surface": SurfaceScenario(); break;
+            case "hudguide": HudGuideScenario(); break;
+            case "ringfx": RingFxScenario(); break;
             case "wing": WingScenario(); break;
             case "river": RiverScenario(); break;
             case "stick": StickScenario(); break;

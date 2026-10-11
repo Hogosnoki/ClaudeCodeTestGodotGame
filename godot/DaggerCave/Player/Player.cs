@@ -306,7 +306,7 @@ public partial class Player : CharacterBody2D
         G.Sfx.Play("heal", GlobalPosition, 0, 0, 0.8f);
         G.Sfx.Play("bubble", GlobalPosition, -4, 0, 0.6f);
         G.Fx.Flash(GlobalPosition, 26, HealColor);
-        G.Fx.Ring(GlobalPosition, 22, HealColorLight);
+        G.Fx.Ring(GlobalPosition, 22, HealColorLight, 0.3f, FxLayer.RingStyle.Wave);
         for (int k = 0; k < 10; k++) G.Fx.Ember(GlobalPosition + G.RandDir() * 10, HealColor);
         if (!IsRemote) G.Fx.ScreenFlash(new Color(1f, 0.35f, 0.5f), 0.25f);
         Anim.Flash(0.6f);
@@ -1208,7 +1208,7 @@ public partial class Player : CharacterBody2D
             _invuln = Tune.Warden.LastStandInvuln;
             RefillShield();
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), "LAST STAND", new Color(1f, 0.85f, 0.4f), 13, 1.5f);
-            G.Fx.Ring(GlobalPosition, 24, new Color(1f, 0.85f, 0.4f));
+            G.Fx.Ring(GlobalPosition, 24, new Color(1f, 0.85f, 0.4f), 0.3f, FxLayer.RingStyle.Dashed);
             G.Sfx.Play("roar", GlobalPosition, -8, 0, 1.8f);
         }
         if (Hp <= 0 && Stats.NullPointer && _nullDepth != G.Depth)

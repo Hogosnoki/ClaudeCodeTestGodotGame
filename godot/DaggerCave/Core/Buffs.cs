@@ -42,6 +42,9 @@ public static class RunBuffs
         [BiomeId.Abyss] = B("abyss", "Aveline's wonder", true, "+30% breath, +10% swim speed", s => { s.BreathMax *= 1.3f; s.SwimSpeed *= 1.1f; }),
     };
 
+    /// <summary>The colour a page's feeling is written in, apart from its words: warm gold for inspiration, cool blue for sorrow.</summary>
+    public static Godot.Color Colour(RunBuff b) => b != null && !b.Inspired ? new Godot.Color(0.62f, 0.78f, 1f) : new Godot.Color(1f, 0.82f, 0.38f);
+
     /// <summary>The reader takes the page's feeling (once each: a second reading of the same page adds nothing). Null if it gave nothing new.</summary>
     public static RunBuff Grant(Player p, BiomeId id)
     {

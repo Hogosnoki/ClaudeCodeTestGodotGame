@@ -62,7 +62,7 @@ void fragment() {
 			core = exp(-pow((r - 0.87) / 0.025, 2.0)) * t;
 		}
 	}
-	else {
+	else if (shape < 6.5) {
 		// a jaw: an arc from angle z to angle w (radians) with a row of teeth pointing in toward the middle (a bite)
 		float r = length(uv);
 		float ang = atan(uv.y, uv.x);
@@ -81,6 +81,34 @@ void fragment() {
 			a = max(gum, tooth) * ends;
 			core = tooth * ends * 0.9;
 		}
+	}
+	else if (shape < 7.5) {
+		// a ragged blast front (w = a seed): the ring's radius wanders with the angle, and a faint fill behind it
+		float r = length(uv);
+		float ang = atan(uv.y, uv.x);
+		float j = 0.68 + 0.055 * sin(ang * 7.0 + v_custom.w) + 0.035 * sin(ang * 13.0 - v_custom.w * 1.7);
+		float th = max(v_custom.z, 0.03);
+		a = exp(-pow((r - j) / th, 2.0)) + (1.0 - smoothstep(0.0, j, r)) * 0.16;
+		core = exp(-pow((r - j) / (th * 0.3), 2.0)) * 0.7;
+	} else if (shape < 8.5) {
+		// a diamond outline with a point of light at its middle
+		float d = abs(uv.x) + abs(uv.y);
+		float th = max(v_custom.z, 0.03);
+		a = exp(-pow((d - 0.72) / th, 2.0));
+		core = exp(-pow((d - 0.72) / (th * 0.3), 2.0)) * 0.8 + exp(-dot(uv, uv) * 70.0) * 0.6;
+	} else if (shape < 9.5) {
+		// a broken ring: w dashes round it
+		float r = length(uv);
+		float f = fract(atan(uv.y, uv.x) / 6.2831853 * max(v_custom.w, 3.0));
+		float seg = smoothstep(0.08, 0.18, f) * (1.0 - smoothstep(0.55, 0.65, f));
+		float th = max(v_custom.z, 0.03);
+		a = exp(-pow((r - 0.76) / th, 2.0)) * seg;
+		core = exp(-pow((r - 0.76) / (th * 0.3), 2.0)) * seg * 0.8;
+	} else {
+		// a soft swell: a filled disc of light, brighter toward its rim
+		float r = length(uv);
+		a = (1.0 - smoothstep(0.7, 0.84, r)) * (0.2 + 0.8 * smoothstep(0.15, 0.75, r));
+		core = exp(-pow((r - 0.74) / 0.035, 2.0)) * 0.45;
 	}
 	// fade to nothing before the quad's edge
 	float edge = 1.0 - smoothstep(0.8, 1.0, max(abs(uv.x), abs(uv.y)));

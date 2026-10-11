@@ -232,7 +232,7 @@ public partial class Player
         Anim.Modulate = Colors.White;
         Anim.Flash(0.8f);
         Anim.FlashColor = HealColorLight;
-        G.Fx.Ring(GlobalPosition, 24, HealColorLight, 0.5f);
+        G.Fx.Ring(GlobalPosition, 24, HealColorLight, 0.5f, FxLayer.RingStyle.Wave);
         for (int k = 0; k < 12; k++) G.Fx.Ember(GlobalPosition + G.RandDir() * 12, HealColor);
         G.Sfx.Play("levelup", GlobalPosition, -4, 0, 1.2f);
         NetSync.HeroDown(false);
@@ -284,6 +284,6 @@ public partial class Player
         if (ReviveProgress < 1f) return;
         ReviveProgress = 0;
         NetSync.Revive(fallen);
-        G.Fx.Ring(fallen.GlobalPosition, 24, HealColorLight, 0.5f);
+        G.Fx.Ring(fallen.GlobalPosition, 24, HealColorLight, 0.5f, FxLayer.RingStyle.Wave);
     }
 }

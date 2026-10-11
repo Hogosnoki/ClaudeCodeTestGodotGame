@@ -36,7 +36,7 @@ public partial class HealingPool : Node2D
         if (_ringT <= 0)
         {
             _ringT = 1f;
-            G.Fx.Ring(GlobalPosition, Radius * 0.9f, new Color(Player.HealColor, 0.5f * Math.Min(1f, Life)), 0.8f);
+            G.Fx.Ring(GlobalPosition, Radius * 0.9f, new Color(Player.HealColor, 0.5f * Math.Min(1f, Life)), 0.8f, FxLayer.RingStyle.Wave);
         }
         QueueRedraw();
     }

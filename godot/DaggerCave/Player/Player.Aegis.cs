@@ -119,7 +119,7 @@ public partial class Player
             who.Heal(amount);
             G.Fx.Beam(at, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 1f, 0.7f, 0.9f));
         }
-        G.Fx.Ring(at, reach, new Color(0.6f, 1f, 0.7f, 0.8f), 0.3f);
+        G.Fx.Ring(at, reach, new Color(0.6f, 1f, 0.7f, 0.8f), 0.3f, FxLayer.RingStyle.Wave);
     }
 
     // ---------------------------------------------------------------- allies
@@ -206,7 +206,7 @@ public partial class Player
         }
         if (total > 0 && Stats.AegisLifesteal > 0) Heal(total * Stats.AegisLifesteal);
         var col = new Color(1f, 0.9f, 0.55f);
-        G.Fx.Ring(at, Tune.Aegis.SmiteRadius, col, 0.4f);
+        G.Fx.Ring(at, Tune.Aegis.SmiteRadius, col, 0.4f, FxLayer.RingStyle.Burst);
         G.Fx.Flash(at, 50, col, 0.2f);
         G.Fx.Burst(at, col, 26, 240, 2.6f, 0.5f);
         G.Fx.AddShake(3f);
@@ -251,7 +251,7 @@ public partial class Player
         _burdenBy = aegisId; _burdenShare = share; _burdenLeft = seconds;
         if (seconds > 0)
         {
-            G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 18, new Color(1f, 0.85f, 0.5f), 0.4f);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 18, new Color(1f, 0.85f, 0.5f), 0.4f, FxLayer.RingStyle.Dashed);
             G.Fx.Text(GlobalPosition + new Vector2(0, -28), "SHARED", new Color(1f, 0.88f, 0.55f), 9, 0.7f);
         }
     }
@@ -325,7 +325,7 @@ public partial class Player
         _bubbleCap = Math.Max(_bubbleCap, BubbleHp);
         _bubbleLeft = Math.Max(_bubbleLeft, seconds);
         _bubbleHeal |= healBurst;
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 26, new Color(0.6f, 0.95f, 0.9f), 0.4f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 26, new Color(0.6f, 0.95f, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);
         G.Fx.Bubbles(GlobalPosition + new Vector2(0, -8), 6);
         G.Fx.Text(GlobalPosition + new Vector2(0, -30), "BUBBLE", new Color(0.65f, 1f, 0.92f), 9, 0.7f);
     }
@@ -405,7 +405,7 @@ public partial class Player
         _bubbleLeft = 0;
         var at = GlobalPosition + new Vector2(0, -4);
         G.Fx.Burst(at, new Color(0.65f, 1f, 0.92f), 16, 160, 2f, 0.4f);
-        G.Fx.Ring(at, Tune.Aegis.BurstHealRadius * (_bubbleHeal ? 0.7f : 0.35f), new Color(0.65f, 1f, 0.92f, 0.8f), 0.35f);
+        G.Fx.Ring(at, Tune.Aegis.BurstHealRadius * (_bubbleHeal ? 0.7f : 0.35f), new Color(0.65f, 1f, 0.92f, 0.8f), 0.35f, FxLayer.RingStyle.Wave);
         G.Sfx.Play("bubble", GlobalPosition, -2, 0.1f, 1.6f);
         if (_bubbleHeal)
         {

@@ -106,6 +106,7 @@ public partial class FxLayer : Node2D
             case 20: Pop(r.Vec(), r.Col(), r.Half()); break;
             case 21: Explosion(r.Vec(), r.Col(), r.Half()); break;
             case 22: Chomp(r.Vec(), r.HVec(), r.Half(), r.Col()); break;
+            case 23: { var at = r.Vec(); float rad = r.Half(); var c = r.Col(); float l = r.Half(); Ring(at, rad, c, l, (RingStyle)r.Byte()); break; }
             default: throw new InvalidOperationException($"unknown effect {op}");
         }
     }
@@ -160,6 +161,43 @@ public partial class FxLayer : Node2D
     {
         Rec(5)?.Vec(pos).Half(radius).Col(col).Half(life);
         _parts.Add(Deep(new Particle { Pos = pos, Life = life, Max = life, Size = radius, Col = col, Kind = 3 }, 0f));
+    }
+
+    /// <summary>
+    /// The kinds of ring, so they don't all look alike: <see cref="RingStyle.Burst"/> a ragged blast front with sparks thrown off it (a
+    /// blow that strikes all round), <see cref="RingStyle.Ping"/> a diamond closing in on its point with a glint (a mark, a target, a
+    /// warning), <see cref="RingStyle.Dashed"/> a broken ring turning as it spreads (a blessing or an aura), <see cref="RingStyle.Wave"/> a
+    /// soft swell of light with motes rising from it (healing).
+    /// </summary>
+    public enum RingStyle : byte { Plain, Burst, Ping, Dashed, Wave }
+
+    public void Ring(Vector2 pos, float radius, Color col, float life, RingStyle style)
+    {
+        if (style == RingStyle.Plain) { Ring(pos, radius, col, life); return; }
+        Rec(23)?.Vec(pos).Half(radius).Col(col).Half(life).Byte((byte)style);
+        _parts.Add(Deep(new Particle { Pos = pos, Life = life, Max = life, Size = radius, Col = col, Kind = 15 + (int)style, Rot = VR(0f, Mathf.Tau), Spin = VR(-1f, 1f) }, 0f));
+        _quiet++;
+        switch (style)
+        {
+            case RingStyle.Burst:
+                for (int k = 0; k < 6 + (int)(radius / 12f); k++)
+                {
+                    var d = G.RandDir();
+                    Add(pos + d * radius * 0.3f, d * G.Range(radius * 2.5f, radius * 4.5f), G.Range(0.12f, 0.22f), 1.6f, col, 5, 0, 5f);
+                }
+                break;
+            case RingStyle.Ping:
+                Add(pos, Vector2.Zero, life * 0.8f, Math.Max(6f, radius * 0.35f), new Color(1f, 1f, 1f, col.A), 12);
+                break;
+            case RingStyle.Wave:
+                for (int k = 0; k < 4 + (int)(radius / 10f); k++)
+                {
+                    var o = G.RandDir() * radius * G.Range(0.2f, 0.9f);
+                    Add(pos + o, new Vector2(G.Range(-8, 8), G.Range(-40, -20)), G.Range(0.5f, 0.9f), G.Range(1.4f, 2.2f), col, 0, -30f, 1.2f);
+                }
+                break;
+        }
+        _quiet--;
     }
 
     public void Text(Vector2 pos, string text, Color col, int size = 11, float life = 0.8f)
@@ -339,7 +377,7 @@ public partial class FxLayer : Node2D
         LightUp(pos, new Color(1f, 0.75f, 0.45f), 10f * scale, 220f * scale, 0.5f);
         Flash(pos, 34 * scale, new Color(1f, 0.95f, 0.8f), 0.18f);
         Shockwave(pos, 60 * scale, new Color(1f, 0.9f, 0.7f, 0.9f), 0.4f);
-        Ring(pos, 30 * scale, new Color(col, 0.9f), 0.35f);
+        Ring(pos, 30 * scale, new Color(col, 0.9f), 0.35f, RingStyle.Burst);
         for (int k = 0; k < 10 * scale; k++) Spark(pos, G.RandDir(), true, col);
         for (int k = 0; k < 8 * scale; k++) Ember(pos + G.RandDir() * 10, new Color(1f, 0.7f, 0.3f));
         Smoke(pos, (int)(6 * scale), new Color(0.3f, 0.28f, 0.26f, 0.5f), 70 * scale);

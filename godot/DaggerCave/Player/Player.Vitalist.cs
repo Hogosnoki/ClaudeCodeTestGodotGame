@@ -174,7 +174,7 @@ public partial class Player
         G.Fx.Flash(at, 12 * size + 5, LifeColor, 0.22f);
         G.Fx.Spark(at, -toMe, true, LifeColorLight);
         G.Fx.Burst(at, LifeColor, (int)(20 * size), 190, 2.6f, 0.4f, 60f, 0, 3f);
-        G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f);
+        G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f, FxLayer.RingStyle.Burst);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
         LifeCluster(at, dealt * Stats.VitalForceGain, size, (int)Math.Round(5 + 4 * size));
     }
@@ -302,7 +302,7 @@ public partial class Player
         }
         var col = new Color(0.5f, 1f, 0.4f);
         G.Fx.Shockwave(GlobalPosition + new Vector2(0, 12), r, new Color(col, 0.8f), 0.45f);
-        G.Fx.Ring(c, r * 0.9f, new Color(col, 0.7f), 0.5f);
+        G.Fx.Ring(c, r * 0.9f, new Color(col, 0.7f), 0.5f, FxLayer.RingStyle.Burst);
         G.Fx.Flash(c, 16, new Color(0.6f, 1f, 0.5f), 0.12f);
         for (int k = 0; k < 14; k++) G.Fx.Ember(c + G.RandDir() * G.Range(10, r), new Color(0.55f, 1f, 0.45f));
         G.Sfx.Play("gasp", c, -4, 0.1f, 0.6f);
@@ -347,7 +347,7 @@ public partial class Player
             var at = p.GlobalPosition + new Vector2(0, -6);
             if (p != this) G.Fx.Beam(from, at, HealColor);
             G.Fx.Flash(at, 20, HealColor, 0.18f);
-            G.Fx.Ring(at, 18, new Color(HealColorLight, 0.9f));
+            G.Fx.Ring(at, 18, new Color(HealColorLight, 0.9f), 0.3f, FxLayer.RingStyle.Wave);
             for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
             p.Anim.Flash(0.4f);
             p.Anim.FlashColor = HealColorLight;
@@ -416,7 +416,7 @@ public partial class Player
         // it begins at the creature: seized where it stands, its life drawn in to a point
         float r = target.HitRadius;
         target.Freeze(Tune.Vitalist.RuptureWindup, hold: true);
-        G.Fx.Ring(target.GlobalPosition, r + 16, new Color(LifeColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f);
+        G.Fx.Ring(target.GlobalPosition, r + 16, new Color(LifeColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f, FxLayer.RingStyle.Ping);
         G.Fx.Converge(target.GlobalPosition, r + 30, LifeColor, 14, Tune.Vitalist.RuptureWindup);
         G.Fx.Flash(target.GlobalPosition, r + 6, new Color(0.5f, 0.05f, 0.1f), Tune.Vitalist.RuptureWindup);
         G.Sfx.Play("gasp", target.GlobalPosition, -2, 0.05f, 0.45f);
@@ -479,7 +479,7 @@ public partial class Player
         CastDir = _ruptureDir;
         Anim.Face((int)Facing, instant: true);
         Anim.Once("rupture", 3);
-        G.Fx.Ring(target.GlobalPosition, 26, new Color(HealColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f);
+        G.Fx.Ring(target.GlobalPosition, 26, new Color(HealColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f, FxLayer.RingStyle.Wave);
         G.Fx.Converge(target.GlobalPosition, 40, HealColorLight, 14, Tune.Vitalist.RuptureWindup);
         if (target != this) G.Fx.Beam(CastPoint, target.GlobalPosition + new Vector2(0, -6), new Color(HealColor, 0.8f));
         G.Sfx.Play("heal", target.GlobalPosition, -6, 0.05f, 0.7f);
@@ -512,7 +512,7 @@ public partial class Player
         }
         G.Fx.Flash(at, 30, HealColorLight, 0.16f);
         G.Fx.Shockwave(at, radius, new Color(HealColor, 0.85f), 0.4f);
-        G.Fx.Ring(at, radius * 0.85f, new Color(HealColorLight, 0.8f), 0.35f);
+        G.Fx.Ring(at, radius * 0.85f, new Color(HealColorLight, 0.8f), 0.35f, FxLayer.RingStyle.Wave);
         G.Fx.Burst(at, HealColor, 24, 240, 2.4f, 0.55f, -60);
         for (int k = 0; k < 14; k++) G.Fx.Ember(at + G.RandDir() * G.Range(6, radius * 0.8f), HealColorLight);
         G.Main.Rumble(0.4f, 0.3f, 0.15f);
@@ -553,7 +553,7 @@ public partial class Player
         // a burst of crimson from inside it
         G.Fx.Flash(at, 30, LifeColorLight, 0.16f);
         G.Fx.Shockwave(at, radius, new Color(LifeColor, 0.85f), 0.4f);
-        G.Fx.Ring(at, radius * 0.85f, new Color(LifeColor, 0.8f), 0.35f);
+        G.Fx.Ring(at, radius * 0.85f, new Color(LifeColor, 0.8f), 0.35f, FxLayer.RingStyle.Burst);
         G.Fx.Burst(at, LifeColor, 26, 280, 2.6f, 0.55f, 250);
         G.Fx.Burst(at, new Color(0.45f, 0.03f, 0.08f), 14, 170, 3.4f, 0.7f, 400);
         G.Fx.Spark(at, _ruptureDir, true, LifeColorLight);

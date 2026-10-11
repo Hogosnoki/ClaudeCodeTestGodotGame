@@ -442,7 +442,7 @@ public partial class Player
         if (!Stats.Unyielding) ShieldHp -= Stats.ShieldMax * Tune.Warden.BashShieldShare;
         _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
         _shieldFlash = 0.25f;
-        G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f));
+        G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
         G.Fx.Shockwave(at, 26 + 10 * Math.Min(3, struck.Count - 1), new Color(1f, 1f, 1f, 0.7f), 0.25f);
         for (int k = 0; k < 5; k++) G.Fx.Glint(at + G.RandDir() * G.Range(4, 14), new Color(1f, 0.9f, 0.5f), 6);
         G.Sfx.Play("clink", at, 2, 0.05f, 0.55f);

@@ -121,7 +121,7 @@ public partial class Player
         _repairT = Tune.AutomatonHero.RepairSeconds;
         _repairShown = 0;
         G.Fx.Text(GlobalPosition + new Vector2(0, -30), "SELF-REPAIR", FuelColor, 10, 0.8f);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 16, new Color(FuelColor, 0.8f), 0.3f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 16, new Color(FuelColor, 0.8f), 0.3f, FxLayer.RingStyle.Dashed);
         G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 0.7f);
         return true;
     }

@@ -28,7 +28,7 @@ public partial class Player
         if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Barrier, amount, seconds); return; }
         BarrierHp = Math.Max(BarrierHp, amount);
         _barrierT = Math.Max(_barrierT, seconds);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 20, new Color(0.75f, 0.9f, 1f), 0.4f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 20, new Color(0.75f, 0.9f, 1f), 0.4f, FxLayer.RingStyle.Dashed);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -4), 16, new Color(0.6f, 0.85f, 1f), 0.15f);
         G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 1.5f);
     }

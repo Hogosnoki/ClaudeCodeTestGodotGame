@@ -1143,6 +1143,27 @@ the 0.7 power of the usual curve, so deep ones don't drag. The caves hold about 
 3x experience. Upgrades and relics marked PARTY (threat, a friend's burden) are only ever offered in a
 party. A party is at most six heroes.
 
+## HUD tooltips and the HUD guide
+
+Every piece of the HUD says what it is as it is drawn (`Hud.Tip`, `UI/HudTips.cs`): health, experience and level, the milestone notice,
+breath, every ability square and cooldown ring (the support too), the class's resource bar (shield, vital force, alimus, fuel, daggers), the
+effects on you, potions and keys, relics (each with its own name and description), the depth line, the guardian's bar, the map and what the
+journal pages have left you with.
+- **Tooltips**: rest the mouse on a piece for a moment and a box explains it. Settings > Controls > **HUD tooltips**: *Off*, *Abilities,
+  potions and relics* (the default) or *Everything on the HUD* (`GameSettings.HudTips`).
+- **The HUD guide** (F1, or **HUD guide** in the pause menu): every piece outlined and numbered, with a list of what each number is in the
+  middle of the screen; any key or button closes it (back to the pause menu, if it was opened from there). Works with a controller too.
+- Test: `--scenario=hudguide --hero=vitalist` (checks the pieces are marked and shoots the guide).
+
+## Effects: kinds of ring
+
+The expanding rings were all one ring; now there are five (`FxLayer.RingStyle`, drawn by the glow shader's shapes 7 to 10): **plain** (hits),
+**burst** (a ragged blast front that slows as it spreads, sparks thrown off it: blows that strike all round, ruptures, smites, shatters,
+bashes, explosions), **ping** (a diamond closing in on its point with a glint: marks, targets, warnings, a taunt, a caged hero),
+**dashed** (a broken ring turning as it spreads: blessings and auras, shouts, howls, barriers, wards, shifting) and **wave** (a soft swell of
+light with motes rising from it: healing, revives, hearts). Online they travel as one effect (op 23; `Net.Version` 8). Test:
+`--scenario=ringfx`.
+
 ## The water's surface
 
 Swimming up, a hero comes to rest at the surface with their middle 5 px under (`Tune.Hero.SurfaceRest`) and their head out, breathing,
@@ -1433,7 +1454,9 @@ its chest); `--glitch` makes the Glitch come to any level a moment after it star
 - **A Guild lamp** (`GuildLamp`): in about seven levels in ten (never the entrance or the lair) a lantern is still burning at the side of a treasure room
   out of the way, over what is left of whoever kept it. Press interact to read the page left there: a line from a lost Delver, Spring Order pilgrim
   or Crown soldier about this kind of level (`Lore.Journal`, fifteen pages, one per biome), and, the first time, an ember. Pages found are kept
-  (`Meta.JournalFound`) and listed under the story on **The story** card. Test: `--scenario=lamp`.
+  (`Meta.JournalFound`) and listed under the story on **The story** card. Test: `--scenario=lamp`. What a page leaves with its reader (the
+  feeling, a small buff for the rest of that cave, `RunBuffs.ForPage`) is shown apart from the Delver's words, under a short rule and in its own
+  colour (gold for inspiration, blue for sorrow, `RunBuffs.Colour`), both when the page is read and in the journal.
 - **A fish's slit** (water levels): out of the side of the deep water, a crack under a cell tall (14 px: a fish form is 11 across, a spider 14.4, a
   hero's capsule 13 by 26) running into the rock to a small underwater chamber with a silver relic chest. Only the Shape Shifter's fish can
   swim it. A thread of bubbles escapes from its mouth.

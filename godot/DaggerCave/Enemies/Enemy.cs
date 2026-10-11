@@ -313,7 +313,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (!winding) { if (_windT > 0 && Anim != null && !big) Anim.Scale = Vector2.One; _windT = 0; return; }
         if (_windT == 0)
         {
-            G.Fx.Ring(HeadPoint(4f), big ? 22 : 9, new Color(1f, 0.55f, 0.2f, 0.9f), big ? 0.5f : 0.3f);
+            G.Fx.Ring(HeadPoint(4f), big ? 22 : 9, new Color(1f, 0.55f, 0.2f, 0.9f), big ? 0.5f : 0.3f, FxLayer.RingStyle.Ping);
             G.Fx.Text(HeadPoint(10f), big ? "!!" : "!", new Color(1f, 0.6f, 0.25f), big ? 18 : 13, big ? 0.7f : 0.45f);
         }
         _windT += dt;
@@ -590,7 +590,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Dead) return;
         if (Puppet) { _wardT = Math.Max(_wardT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Ward, cap, blast, splash, seconds); return; }
         _wardT = seconds; _wardCap = cap; _wardBlast = blast; _wardSplash = splash; _wardSoaked = 0;
-        G.Fx.Ring(GlobalPosition, HitRadius * 1.3f, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f);
+        G.Fx.Ring(GlobalPosition, HitRadius * 1.3f, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f, FxLayer.RingStyle.Dashed);
         G.Sfx.Play("clink", GlobalPosition, -6, 0.05f, 1.4f);
     }
 
@@ -603,7 +603,7 @@ public abstract partial class Enemy : CharacterBody2D
         Hp -= _wardBlast;
         G.Fx.Text(HeadPoint(10f), Math.Max(1, Num.Delta(Hp + _wardBlast, Math.Max(0f, Hp))).ToString() + "!", new Color(0.7f, 1f, 0.92f), 18, 1f);
         G.Fx.Flash(at, 30, new Color(0.7f, 1f, 0.9f), 0.2f);
-        G.Fx.Ring(at, Tune.Aegis.WardRadius, new Color(0.65f, 1f, 0.92f, 0.9f), 0.35f);
+        G.Fx.Ring(at, Tune.Aegis.WardRadius, new Color(0.65f, 1f, 0.92f, 0.9f), 0.35f, FxLayer.RingStyle.Dashed);
         G.Fx.Burst(at, new Color(0.7f, 1f, 0.92f), 18, 170, 2.2f, 0.4f, 0);
         G.Sfx.Play("slam", at, -2, 0.1f, 1.3f);
         foreach (var e in G.Enemies.ToArray())
@@ -665,7 +665,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (_markT <= 0) return;
         _markT -= dt;
         if (_markT <= 0) { _markHeal = 0; return; }
-        if ((_markFx -= dt) <= 0) { _markFx = 0.35f; G.Fx.Ring(HeadPoint(6f), 7, new Color(0.6f, 0.95f, 0.9f, 0.8f), 0.4f); }
+        if ((_markFx -= dt) <= 0) { _markFx = 0.35f; G.Fx.Ring(HeadPoint(6f), 7, new Color(0.6f, 0.95f, 0.9f, 0.8f), 0.4f, FxLayer.RingStyle.Ping); }
     }
     /// <summary>Online: whose hex is rotting it (their hero is credited with the damage).</summary>
     private int _hexBy;
@@ -675,7 +675,7 @@ public abstract partial class Enemy : CharacterBody2D
     {
         if (_weakT > 0) _weakT -= dt;
         if (RogueMarkT > 0) { RogueMarkT -= dt; if (G.Chance(dt * 3f)) G.Fx.Glint(HeadPoint(6f), new Color(0.75f, 1f, 0.45f), 4); }
-        if (_wardT > 0) { _wardT -= dt; if (G.Chance(dt * 3f)) G.Fx.Ring(GlobalPosition, HitRadius * 1.25f, new Color(0.6f, 0.95f, 0.9f, 0.6f), 0.3f); }
+        if (_wardT > 0) { _wardT -= dt; if (G.Chance(dt * 3f)) G.Fx.Ring(GlobalPosition, HitRadius * 1.25f, new Color(0.6f, 0.95f, 0.9f, 0.6f), 0.3f, FxLayer.RingStyle.Dashed); }
         if (_hexT > 0) _hexT -= dt;
         if (_chillT > 0) _chillT -= dt;
         if (_hexT > 0 && _hexRot > 0 && CanBeHit)
@@ -989,7 +989,7 @@ public abstract partial class Enemy : CharacterBody2D
             var who = StrikerHero();
             if (who != null && who.Dead) who = null;
             who?.Heal(_markHeal);
-            G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f);
+            G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.35f, FxLayer.RingStyle.Wave);
             _markHeal = 0; _markT = 0;
         }
         Hp -= dmg;
