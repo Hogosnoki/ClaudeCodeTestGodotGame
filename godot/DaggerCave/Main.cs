@@ -142,6 +142,8 @@ public partial class Main : Node
         // draws nothing (F7 shows it on top, for checking collisions against the 3D art).
         _stage = new Stage3D();
         AddChild(_stage);
+        // the lighting tones: a pass over the lit 3D picture, under every 2D layer
+        AddChild(new CelPost());
         GameSettings.Apply(this);
 
         _world = new Node2D { Name = "World", ProcessMode = ProcessModeEnum.Pausable, Visible = false };
@@ -384,13 +386,22 @@ public partial class Main : Node
             else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
             else if (a.StartsWith("--cel="))
             {
-                // test aid: --cel=blur,tones,bands,softness
+                // test aid: --cel=blur,tones,lightblur,lighttones,softness[,flatness]
                 var v = a[6..].Split(',').Select(x => float.Parse(x, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
-                GameSettings.CelTexBlur = v[0]; GameSettings.CelTexTones = v[1]; GameSettings.CelLightBands = v[2]; GameSettings.CelBandSoft = v[3];
-                if (v.Length > 4) GameSettings.CelLightFlat = v[4];
+                GameSettings.CelTexBlur = v[0]; GameSettings.CelTexTones = v[1]; GameSettings.CelLightBlur = v[2]; GameSettings.CelLightTones = v[3];
+                GameSettings.CelBandSoft = v[4];
+                if (v.Length > 5) GameSettings.CelLightFlat = v[5];
                 GameSettings.ApplyCel();
             }
-            else if (a == "--nocel") { GameSettings.CelShading = false; RenderingServer.GlobalShaderParameterSet("cel_shading", 0f); }
+            else if (a == "--nocel") { GameSettings.CelShading = false; GameSettings.ApplyCel(); }
+            else if (a == "--photo") { GameSettings.SolidTerrain = false; GameSettings.ApplyCel(); }
+            else if (a.StartsWith("--ink="))
+            {
+                // test aid: --ink=terrain,characters (border widths in pixels)
+                var v = a[6..].Split(',').Select(x => float.Parse(x, System.Globalization.CultureInfo.InvariantCulture)).ToArray();
+                GameSettings.TerrainInkPx = v[0]; if (v.Length > 1) GameSettings.ActorInkPx = v[1];
+                GameSettings.ApplyCel();
+            }
             else if (a.StartsWith("--nettest=")) _netTest = a[10..];
             else if (a.StartsWith("--netaddr=")) _netAddr = a[10..];
             else if (a.StartsWith("--ntshots=")) _ntShots = a[10..];

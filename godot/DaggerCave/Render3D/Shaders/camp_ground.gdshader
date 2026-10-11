@@ -17,6 +17,10 @@ uniform float bare_radius = 2.4;
 
 varying vec3 v_wp;
 #include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
+// the minimalist look (Settings > Graphics, minimalist ground): all grass, one flat green
+global uniform float terrain_solid;
+uniform vec3 grass_col : source_color = vec3(0.32, 0.6, 0.2);
+
 
 // the cave mouth: where it stands, which way it faces (toward the camp), and its size. Whatever lies in it
 // or just in front of it is shaded down into the dark of the tunnel, so the light gives out gradually.
@@ -60,25 +64,47 @@ void vertex() {
 	v_wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
+// A hard edge where v crosses e (a pixel or so of softness, so it doesn't shimmer), and an ink line along it about px pixels wide.
+float edge_step(float e, float v) {
+	float w = max(fwidth(v), 1e-4);
+	return smoothstep(e - w, e + w, v);
+}
+float edge_ink(float e, float v, float px) {
+	float w = max(fwidth(v), 1e-4);
+	return 1.0 - smoothstep(px * 0.5 * w, (px * 0.5 + 1.0) * w, abs(v - e));
+}
+
 void fragment() {
+	// (painted, not photographed: flat patches with clean edges, the ground's own colours only a little mottled)
 	float n = fbm(v_wp.xz * 0.18);
 	float fine = fbm(v_wp.xz * 2.2 + 3.0);
-	vec3 c = mix(grass_a, grass_b, smoothstep(0.3, 0.7, n));
-	c = mix(c, dry, smoothstep(0.6, 0.8, fbm(v_wp.xz * 0.05 + 11.0)) * 0.55);
-	c *= 0.86 + 0.28 * fine;
+	float wob = fbm(v_wp.xz * 0.9 + 7.0) - 0.5;
+	bool solid = terrain_solid > 0.5;
+	vec3 c = mix(grass_a, grass_b, edge_step(0.5, n));
+	c = mix(c, dry, edge_step(0.7, fbm(v_wp.xz * 0.05 + 11.0)) * 0.55);
+	c *= 0.94 + 0.12 * fine;
+	float ink = 0.0;
 	float d = length(v_wp.xz);
-	c = mix(dirt * (0.8 + 0.3 * fine), c, smoothstep(bare_radius * 0.55, bare_radius, d + (fine - 0.5) * 0.9));
-	// the path: worn to earth, ragged at its edges
+	float bare_f = d + wob * 1.2 - bare_radius * 0.78;
+	c = mix(dirt * (0.9 + 0.1 * fine), c, edge_step(0.0, bare_f));
+	ink = max(ink, edge_ink(0.0, bare_f, 2.0));
+	// the path: worn to earth, its edge a clean wobbling line
 	vec2 pa = v_wp.xz - path_a, ba = path_b - path_a;
 	float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
 	float pd = length(pa - ba * h);
-	float worn = 1.0 - smoothstep(path_w * 0.45, path_w * (0.9 + 0.5 * fine), pd + (fine - 0.5) * 0.5);
-	c = mix(c, dirt * (0.75 + 0.5 * fine), worn * 0.9);
+	float path_f = pd + wob * 0.6 - path_w * 0.7;
+	float worn = 1.0 - edge_step(0.0, path_f);
+	c = mix(c, dirt * (0.85 + 0.2 * fine), worn);
+	ink = max(ink, edge_ink(0.0, path_f, 2.0) * edge_step(0.0, bare_f));
 	// stony soil toward the cliff
 	float toward = dot(v_wp.xz - cliff_o, cliff_n);
-	float foot = (1.0 - smoothstep(0.5, 6.5, toward + (fine - 0.5) * 2.0)) * step(-3.0, toward);
-	c = mix(c, vec3(0.28, 0.25, 0.2) * (0.7 + 0.6 * fine), foot * 0.75);
-	c = cel_tone(c);
+	float foot_f = toward + wob * 2.4 - 3.5;
+	float foot = (1.0 - edge_step(0.0, foot_f)) * step(-3.0, toward);
+	c = mix(c, vec3(0.28, 0.25, 0.2) * (0.85 + 0.3 * fine), foot * 0.85);
+	ink = max(ink, edge_ink(0.0, foot_f, 2.0) * step(-3.0, toward));
+	c *= 1.0 - 0.6 * ink * cel_shading;
+	if (solid) c = grass_col;
+	if (!solid) c = cel_tone(c);
 	float sh = mouth_shade(v_wp, false);
 	c *= 1.0 - 0.97 * sh;
 	ALBEDO = c;

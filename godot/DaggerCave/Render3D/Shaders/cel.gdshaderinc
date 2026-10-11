@@ -3,13 +3,14 @@
 //   cel_shading     on (1) or off (0): the master switch
 //   cel_tex_blur    how soft textures are sampled (mip levels down; on creatures, how far their skin detail is smoothed away)
 //   cel_tex_tones   how many tones a texture's brightness is divided into (0 or 1: not divided)
-//   cel_light_bands how many bands the light falls in (0 or 1: a smooth falloff)
-//   cel_band_soft   how soft the edge between two tones or bands is (0 hard, 1 a gentle ramp)
+//   cel_light_tones how many tones the lit picture is divided into (by the full-screen pass, cel_post.gdshader; here only whether
+//                   highlights are crisp)
+//   cel_band_soft   how soft the edge between two tones is (0 hard, 1 a gentle ramp)
 //   cel_light_flat  how flat the light is (0 the light's own contrast, 1 none): squeezed toward its own average, never brighter or darker
 global uniform float cel_shading;
 global uniform float cel_tex_blur;
 global uniform float cel_tex_tones;
-global uniform float cel_light_bands;
+global uniform float cel_light_tones;
 global uniform float cel_band_soft;
 global uniform float cel_light_flat;
 
@@ -47,21 +48,17 @@ float cel_angle(float ndl) {
 	return mix(lam, two, f);
 }
 
-// The diffuse light term, from the surface's angle to the light (dot(NORMAL, LIGHT), unclamped) and the light's attenuation: flattened
-// (cel_angle), then banded in a perceptual scale (a dim light keeps its brightness on average, only its steps show), with a floor so a
-// shadowed side keeps a little of the light's colour.
+// The diffuse light term, from the surface's angle to the light (dot(NORMAL, LIGHT), unclamped) and the light's attenuation, flattened
+// (cel_angle). (Its tones are made after the lighting, on the whole picture: cel_post.gdshader.)
 float cel_light(float ndl, float atten) {
-	float lit = cel_angle(ndl) * atten;
-	if (cel_shading <= 0.0 || cel_light_bands < 1.5) return lit;
-	float b = cel_steps(sqrt(lit), cel_light_bands);
-	return mix(lit, max(b * b, lit * 0.25), cel_shading);
+	return cel_angle(ndl) * atten;
 }
 
 // A highlight made crisp: a hard-edged spot instead of a smooth gloss.
 float cel_spec(float sp, float gain) {
 	// (flatter light, duller highlights: a flat-lit thing has no gloss to catch)
 	sp *= 1.0 - cel_shading * clamp(cel_light_flat, 0.0, 1.0) * 0.85;
-	if (cel_shading <= 0.0 || cel_light_bands < 1.5) return sp;
+	if (cel_shading <= 0.0 || cel_light_tones < 1.5) return sp;
 	float w = clamp(cel_band_soft, 0.02, 1.0) * 0.08;
 	return mix(sp, smoothstep(0.4 - w, 0.4 + w, sp) * gain, cel_shading);
 }

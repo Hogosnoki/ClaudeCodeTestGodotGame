@@ -852,8 +852,8 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   second body or hull. A small viewport beside each 3D view has a camera that follows the view's camera and
   sees only the creatures' bodies (their own visual layer); the creature shader answers that camera with a
   flat mask (how far off the creature is there, and the colour of its line) instead of its usual look.
-  One full-screen pass in the view finds the pixels just outside that mask and inks them, three and a half pixels (`edge_px`) wide
-  at any distance, in the afflicted colour (poison, fire, frost) when there is one. Nothing is drawn over
+  One full-screen pass in the view finds the pixels just outside that mask and inks them, two pixels wide by default at any distance
+  (the character borders setting, the shader global `ink_actor_px`), in the afflicted colour (poison, fire, frost) when there is one. Nothing is drawn over
   a creature itself, so there are no lines along its own limbs and folds; a creature behind rock gets
   none where it is hidden, and the line never lies over rock in front of it. (The camp and the title
   portraits have their own.)
@@ -1193,33 +1193,56 @@ No menu is a flat box of one colour any more, and no corner is square (`UI/UiArt
 
 Settings > Graphics > **Stylised shading** (on by default; the shader global `cel_shading`, `GameSettings.CelShading`, `--nocel` to
 look at the old way) gives the creatures, heroes, cave rock and the camp a cel-shaded look:
-- **Light in bands**: the creature, rock and camp shaders have their own `light()`: diffuse light in three soft-edged steps (measured
-  in a perceptual scale, so a dim lamp keeps its brightness and only its steps show; shadows band with it) and a crisp, small highlight
-  instead of a smooth gloss.
+- **Light in tones**: the creature, rock and camp shaders have their own `light()` (flattened light, a crisp small highlight), and the
+  lit picture is divided into a few soft-edged tones by a full-screen pass (lighting tones, below).
 - **Simpler colour** on the creatures: the grain and mottling of skin, scales and cloth turned down to a hint, the bump detail softened,
   and each colour drawn a little toward its tone band, so a hero reads as a few clear blocks (hair, scarf, leather, steel).
-- **Painted rock**: the photographed rock textures are sampled a few mip levels softer (no grain), their brightness eased toward a
+- **Painted rock** (with minimalist ground off): the photographed rock textures are sampled a few mip levels softer (no grain), their brightness eased toward a
   few soft tone bands, and their relief softened, so the cave reads as shapes and colour rather than photographs.
 
 ### Tuning the stylised look
 
-Under **Stylised shading** in Settings > Graphics are five dials, each live (they are shader globals, `Render3D/Shaders/cel.gdshaderinc`,
-shared by the creature, rock and camp shaders, so a change shows at once everywhere with nothing reloaded), and a preset that sets all
-five (Subtle, Painted, Cartoon, Bold, Poster, Flat; moving a dial by hand makes it "Custom"):
-- **Texture blur** (0 to 4): how soft textures are sampled, in mip levels down (on creatures, which have no image textures, how much of
-  their skin, scale and cloth detail is smoothed away, and their bump with it). The rock's relief softens with it.
+Under **Stylised shading** in Settings > Graphics are six dials, each live (they are shader globals, `Render3D/Shaders/cel.gdshaderinc`,
+so a change shows at once everywhere with nothing reloaded), and a preset that sets all six (Subtle, Painted, Cartoon, Bold, Poster,
+Flat; moving a dial by hand makes it "Custom"). Two pairs of the same two dials, blur then tones, one pair for the textures and one for
+the lit picture:
+- **Texture blur** (0 to 4, default 0): how soft textures are sampled, in mip levels down (on creatures, which have no image textures,
+  how much of their skin, scale and cloth detail is smoothed away, and their bump with it).
 - **Texture tones** (not divided, or 2 to 12): a texture's brightness divided into that many soft-edged tones, in a perceptual scale,
   the hue kept (so even three tones leave a goblin green and a bone pale).
-- **Light bands** (smooth, or 2 to 8): how many steps the light falls off in (shadows step with it); with bands, highlights are small
-  hard spots instead of a gloss.
-- **Band softness** (0 to 100%): how sharp the edge between two tones or two light bands is.
+- **Lighting blur** (0 to 4, default 0) and **Lighting tones** (not divided, or 2 to 12): the same, after the lighting, on the whole lit
+  3D picture (`Render3D/CelPost.cs`, `Shaders/cel_post.gdshader`: a full-screen pass under every 2D layer, hidden when neither dial does
+  anything). The picture is blurred by that many mip levels, then its brightness divided into tones the way a texture's is: hue kept,
+  each tone the middle of its range (so it is no brighter or darker on average), the darkest shades left alone (black stays black).
+  With tones, highlights are small hard spots instead of a gloss. These replace the old per-material "light bands".
+- **Band softness** (0 to 100%): how sharp the edge between two tones is (texture and lighting tones both).
 - **Light flatness** (0 to 100%): the light's contrast squeezed toward its own average. Toward 100% a surface takes a light at one
   level on the side facing it (0.65) and none on the side away, with a soft edge (`cel_angle`), instead of shading smoothly with the
   angle; distance falloff and shadows stay, highlights dull. The flat level is set from what the game's scenes actually show, so the
-  picture is never brighter or darker for it, only flatter (measured at 0% and 100%, bands off: the den -7%, the fungal caverns +1%,
-  the Swordsman -5%, a goblin -1%). With light bands it reads as a cartoon (the Cartoon preset); without them, as plainer, cheaper
+  picture is never brighter or darker for it, only flatter (measured at 0% and 100%: the den -7%, the fungal caverns +1%, the
+  Swordsman -5%, a goblin -1%). With lighting tones it reads as a cartoon (the Cartoon preset); without them, as plainer, cheaper
   lighting (the Flat preset).
-`--cel=blur,tones,bands,softness[,flatness]` sets them from the command line (for screenshots).
+`--cel=blur,tones,lightblur,lighttones,softness[,flatness]` sets them from the command line (for screenshots).
+
+### Minimalist ground and borders
+
+The look aims at Castle Crashers and Cuphead: flat fills, simple forms, ink borders round things.
+- **Minimalist ground** (Settings > Graphics, on by default; the shader global `terrain_solid`, `GameSettings.SolidTerrain`, `--photo`
+  for the photographed textures): the cave rock is two flat colours, grass on every face you could stand on (`ground_up`: its up
+  component over 0.6) and the biome's wall colour (its `Edge`, brightened by `wall_gain`) on every other; snow instead of grass in the
+  frozen caves, a darker wall under water, the lava's glow over it. The polygons are not smoothed: each face is lit by its own direction
+  (from the screen-space derivatives of its position, not the mesh's smoothed normals), so every corner of the rock shows, and each face
+  takes a slight shade of its own (`facet_shade`) so two neighbours never quite match. The grass's edge follows the polygons. The camp
+  does the same: all-grass meadow, grey cliff stone with grass on its upward faces, every face flat; the rubble and ledge stone drop their
+  photographed grain (`PropViews.RestyleRock`).
+- **No borders inside a texture**: grass meets wall with no line between them.
+- **Object borders** (Settings > Graphics, 0 to 4 px, default 1; the shader global `ink_terrain_px`, `--ink=terrain,characters`): a thin
+  ink line round the outline of every 3D thing (`Render3D/EdgeInk.cs`, `Shaders/edge_depth.gdshader`): a full-screen pass that finds
+  where the scene steps away behind something (the depth on one side farther than here by more than 6% of the distance, more than a slope
+  would explain, the other side not nearer) and inks the nearer thing's side. Widths are in pixels at 720 lines, scaled with the
+  resolution.
+- **Character borders** (0.5 to 6 px, default 2; `ink_actor_px`): the heroes' and creatures' line (`InkOutline`), a little bolder, drawn
+  over the object border.
 
 ## Run metrics
 

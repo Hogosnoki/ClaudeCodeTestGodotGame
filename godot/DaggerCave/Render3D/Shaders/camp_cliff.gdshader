@@ -17,6 +17,16 @@ uniform float bump = 1.0;
 varying vec3 v_wn;
 varying vec3 v_wp;
 #include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
+// the minimalist look (Settings > Graphics, minimalist ground): grass on the faces that look up, grey stone on the rest, each face flat
+global uniform float terrain_solid;
+uniform vec3 stone_col : source_color = vec3(0.5, 0.5, 0.52);
+uniform vec3 grass_col : source_color = vec3(0.32, 0.6, 0.2);
+
+float edge_step(float e, float v) {
+	float w = max(fwidth(v), 1e-4);
+	return smoothstep(e - w, e + w, v);
+}
+
 
 // the cave mouth: where it stands, which way it faces (toward the camp), and its size. Whatever lies in it
 // or just in front of it is shaded down into the dark of the tunnel, so the light gives out gradually.
@@ -96,7 +106,15 @@ void fragment() {
 	c *= mix(1.0, 0.55, foot);
 	// vertex colour tints (a stone's own shade)
 	c *= pow(COLOR.rgb, vec3(2.2)) * 1.6;
-	c = cel_tone(c);
+	bool solid = terrain_solid > 0.5;
+	if (!solid) c = cel_tone(c);
+	vec3 fv = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+	if (dot(fv, NORMAL) < 0.0) fv = -fv;
+	if (solid) {
+		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
+		m = step(0.6, fw.y) * step(0.01, moss_amount);
+		c = mix(stone_col, grass_col, m);
+	}
 	float sh = mouth_shade(v_wp, true);
 	c *= 1.0 - 0.96 * sh;
 	ALBEDO = c;
@@ -110,7 +128,7 @@ void fragment() {
 	vec3 ny = texture(wall_nor, p.xz).xyz * 2.0 - 1.0;
 	vec3 nz = texture(wall_nor, p.xy).xyz * 2.0 - 1.0;
 	vec3 tn = n + bump * (vec3(0.0, nx.y, nx.x) * w.x + vec3(ny.x, 0.0, ny.y) * w.y + vec3(nz.x, nz.y, 0.0) * w.z) * (1.0 - 0.5 * m);
-	NORMAL = normalize((VIEW_MATRIX * vec4(normalize(tn), 0.0)).xyz);
+	NORMAL = solid ? fv : normalize((VIEW_MATRIX * vec4(normalize(tn), 0.0)).xyz);
 }
 
 // The stylised light (as on the creatures and the cave rock): soft-edged bands in a perceptual scale; off, plain Lambert.

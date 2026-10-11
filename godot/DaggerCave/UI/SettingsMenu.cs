@@ -399,30 +399,33 @@ public partial class SettingsMenu : Control
         Row(g, "Ambient occlusion", Toggle(GameSettings.AmbientOcclusion, v => { GameSettings.AmbientOcclusion = v; Render(); }));
         Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA" }, Math.Min(1, (int)GameSettings.Aa), i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }), "MSAA is gone: it flickered against the ink outlines");
         Row(g, "Ink outlines on creatures", Toggle(GameSettings.InkOutlines, v => { GameSettings.InkOutlines = v; Render(); }));
-        Row(g, "Stylised shading", Toggle(GameSettings.CelShading, v => { GameSettings.CelShading = v; Render(); }), "light in soft bands, flatter colours, painted rock");
-        // the stylised look's dials: each shows at once (shader globals); a preset sets all four
+        Row(g, "Stylised shading", Toggle(GameSettings.CelShading, v => { GameSettings.CelShading = v; Render(); }), "toned colour and light, flatter shading");
+        Row(g, "Minimalist ground", Toggle(GameSettings.SolidTerrain, v => { GameSettings.SolidTerrain = v; GameSettings.ApplyCel(); }), "grass on the floors, wall colour elsewhere, flat polygons; off: the photographed textures");
+        Row(g, "  Object borders", SliderRow(0f, 4f, GameSettings.TerrainInkPx, v => { GameSettings.TerrainInkPx = v; GameSettings.ApplyCel(); }, v => v < 0.05f ? "None" : $"{v:0.0} px"), "the ink line round the outline of every 3D thing");
+        Row(g, "  Character borders", SliderRow(0.5f, 6f, GameSettings.ActorInkPx, v => { GameSettings.ActorInkPx = v; GameSettings.ApplyCel(); }, v => $"{v:0.0} px"), "the ink line round heroes and creatures (with ink outlines on)");
+        // the stylised look's dials: each shows at once (shader globals); a preset sets them all
         Cycler presetBox = null;
         // (a dial moved by hand: the preset reads "Custom")
         void Cel() { GameSettings.ApplyCel(); if (presetBox != null && presetBox.Index != 0) { presetBox.Index = 0; presetBox.Refresh(); } }
-        int preset = Array.FindIndex(GameSettings.CelPresets, p => Math.Abs(p.blur - GameSettings.CelTexBlur) < 0.01f && Math.Abs(p.tones - GameSettings.CelTexTones) < 0.01f && Math.Abs(p.bands - GameSettings.CelLightBands) < 0.01f && Math.Abs(p.soft - GameSettings.CelBandSoft) < 0.01f && Math.Abs(p.flat - GameSettings.CelLightFlat) < 0.01f);
+        int preset = Array.FindIndex(GameSettings.CelPresets, p => Math.Abs(p.blur - GameSettings.CelTexBlur) < 0.01f && Math.Abs(p.tones - GameSettings.CelTexTones) < 0.01f && Math.Abs(p.lblur - GameSettings.CelLightBlur) < 0.01f && Math.Abs(p.ltones - GameSettings.CelLightTones) < 0.01f && Math.Abs(p.soft - GameSettings.CelBandSoft) < 0.01f && Math.Abs(p.flat - GameSettings.CelLightFlat) < 0.01f);
         var presetNames = new[] { "Custom" }.Concat(GameSettings.CelPresets.Select(p => p.name)).ToArray();
         presetBox = Choice(presetNames, preset + 1, i =>
         {
             if (i == 0) return;
             var p = GameSettings.CelPresets[i - 1];
-            GameSettings.CelTexBlur = p.blur; GameSettings.CelTexTones = p.tones; GameSettings.CelLightBands = p.bands; GameSettings.CelBandSoft = p.soft; GameSettings.CelLightFlat = p.flat;
+            GameSettings.CelTexBlur = p.blur; GameSettings.CelTexTones = p.tones; GameSettings.CelLightBlur = p.lblur; GameSettings.CelLightTones = p.ltones; GameSettings.CelBandSoft = p.soft; GameSettings.CelLightFlat = p.flat;
             GameSettings.ApplyCel();
             // (the dials below show the preset's values)
             CallDeferred(nameof(RebuildGraphics));
         });
-        Row(g, "  Stylised preset", presetBox, "or set the five below yourself");
+        Row(g, "  Stylised preset", presetBox, "or set the six below yourself");
         Row(g, "  Texture blur", SliderRow(0f, 4f, GameSettings.CelTexBlur, v => { GameSettings.CelTexBlur = v; Cel(); }, v => $"{v:0.0}"), "how soft textures are (on creatures: how much skin detail is smoothed away)");
         string[] toneNames = { "Not divided", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" };
         Row(g, "  Texture tones", Choice(toneNames, GameSettings.CelTexTones < 1.5f ? 0 : Math.Clamp((int)GameSettings.CelTexTones - 1, 1, 11), i => { GameSettings.CelTexTones = i == 0 ? 0f : i + 1; Cel(); }), "how many tones a texture's brightness is divided into");
-        string[] bandNames = { "Smooth", "2", "3", "4", "5", "6", "7", "8" };
-        Row(g, "  Light bands", Choice(bandNames, GameSettings.CelLightBands < 1.5f ? 0 : Math.Clamp((int)GameSettings.CelLightBands - 1, 1, 7), i => { GameSettings.CelLightBands = i == 0 ? 0f : i + 1; Cel(); }), "how many steps the light falls off in");
-        Row(g, "  Band softness", SliderRow(0f, 1f, GameSettings.CelBandSoft, v => { GameSettings.CelBandSoft = v; Cel(); }, Pct), "hard edges at 0%, gentle ramps at 100%");
-        Row(g, "  Light flatness", SliderRow(0f, 1f, GameSettings.CelLightFlat, v => { GameSettings.CelLightFlat = v; Cel(); }, Pct), "flatter light, never brighter or darker: with bands a cartoon, without them plainer");
+        Row(g, "  Lighting blur", SliderRow(0f, 4f, GameSettings.CelLightBlur, v => { GameSettings.CelLightBlur = v; Cel(); }, v => $"{v:0.0}"), "how soft the lit picture is, before its tones");
+        Row(g, "  Lighting tones", Choice(toneNames, GameSettings.CelLightTones < 1.5f ? 0 : Math.Clamp((int)GameSettings.CelLightTones - 1, 1, 11), i => { GameSettings.CelLightTones = i == 0 ? 0f : i + 1; Cel(); }), "how many tones the lit picture's brightness is divided into");
+        Row(g, "  Band softness", SliderRow(0f, 1f, GameSettings.CelBandSoft, v => { GameSettings.CelBandSoft = v; Cel(); }, Pct), "between tones: hard edges at 0%, gentle ramps at 100%");
+        Row(g, "  Light flatness", SliderRow(0f, 1f, GameSettings.CelLightFlat, v => { GameSettings.CelLightFlat = v; Cel(); }, Pct), "flatter light, never brighter or darker: with lighting tones a cartoon, without them plainer");
         Row(g, "Brightness", SliderRow(0.6f, 1.6f, GameSettings.Brightness, v => { GameSettings.Brightness = v; Render(); }, Pct));
         Row(g, "Screen shake", SliderRow(0f, 1f, GameSettings.Shake, v => GameSettings.Shake = v, Pct));
     }

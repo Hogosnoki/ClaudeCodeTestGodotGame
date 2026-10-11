@@ -14,8 +14,8 @@ uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable
 // R: the creature's distance from the camera (0: no creature here); G: 0 for the usual ink, else 1 + a packed colour
 uniform sampler2D mask_tex : filter_nearest, repeat_disable;
 uniform vec4 ink : source_color = vec4(0.015, 0.012, 0.02, 0.92);
-/// The line's width in screen pixels (at 720 lines: it scales with the resolution).
-uniform float edge_px = 3.5;
+// The line's width in screen pixels (at 720 lines: it scales with the resolution): Settings > Graphics, character borders.
+global uniform float ink_actor_px;
 /// How much nearer than the creature the scene may be before it counts as covering it.
 uniform float depth_tol = 0.12;
 
@@ -47,7 +47,7 @@ void fragment() {
 	vec2 texel = 1.0 / VIEWPORT_SIZE;
 	// inside a creature: no line (the creature itself is there)
 	if (texture(mask_tex, uv).r > 0.0) discard;
-	float px = max(1.0, VIEWPORT_SIZE.y / 720.0) * edge_px;
+	float px = max(1.0, VIEWPORT_SIZE.y / 720.0) * ink_actor_px;
 	float here_d = linear_depth(uv, INV_PROJECTION_MATRIX);
 	float hit = 0.0;
 	float kind = 0.0;

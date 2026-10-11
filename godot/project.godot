@@ -23,15 +23,19 @@ cel_shading={
 
 cel_tex_blur={
 "type": "float",
-"value": 2.0
+"value": 0.0
 }
 cel_tex_tones={
 "type": "float",
 "value": 6.0
 }
-cel_light_bands={
+cel_light_blur={
 "type": "float",
-"value": 3.0
+"value": 0.0
+}
+cel_light_tones={
+"type": "float",
+"value": 5.0
 }
 cel_band_soft={
 "type": "float",
@@ -40,4 +44,16 @@ cel_band_soft={
 cel_light_flat={
 "type": "float",
 "value": 0.25
+}
+terrain_solid={
+"type": "float",
+"value": 1.0
+}
+ink_terrain_px={
+"type": "float",
+"value": 1.0
+}
+ink_actor_px={
+"type": "float",
+"value": 2.0
 }

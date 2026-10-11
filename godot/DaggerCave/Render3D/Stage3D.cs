@@ -80,8 +80,9 @@ public partial class Stage3D : Node3D
 
         Cam = new Camera3D { Fov = Tune.Feel.Camera3DFov, Near = 0.5f, Far = 400f, Current = true };
         AddChild(Cam);
-        // the ink line round every creature (a screen-space edge pass, laid over the view)
+        // the ink line round every creature (a screen-space edge pass, laid over the view), and the thin one round everything else
         AddChild(new InkOutline(Cam));
+        AddChild(new EdgeInk());
 
         // a soft light from the viewer's side, so the camera-facing rock reads as rock
         _fill = new DirectionalLight3D

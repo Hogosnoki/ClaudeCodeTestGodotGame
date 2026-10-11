@@ -97,6 +97,7 @@ public partial class CampScene : SubViewport
         AddChild(_cam);
         _ink = new InkOutline(_cam);
         AddChild(_ink);
+        AddChild(new EdgeInk());
         PlaceCamera(0f);
     }
 

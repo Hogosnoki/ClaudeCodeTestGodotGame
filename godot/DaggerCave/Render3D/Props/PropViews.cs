@@ -99,17 +99,39 @@ public static class PropViews
     };
     public static StandardMaterial3D Rock => _rock ??= new StandardMaterial3D { AlbedoColor = new Color(0.42f, 0.38f, 0.34f), Roughness = 0.9f, VertexColorUseAsAlbedo = true };
     /// <summary>Rubble stone: real rock grain, projected from all three sides, over the chunks' own face tones.</summary>
-    public static StandardMaterial3D RubbleRock => _rubble ??= new StandardMaterial3D
+    public static StandardMaterial3D RubbleRock => _rubble ??= Solidify(new StandardMaterial3D
     {
         AlbedoTexture = TerrainLook.Tex("rock_face", "diff"), NormalEnabled = true, NormalTexture = TerrainLook.Tex("rock_face", "nor"), NormalScale = 1.3f,
         Uv1Triplanar = true, Uv1Scale = new Vector3(0.9f, 0.9f, 0.9f), VertexColorUseAsAlbedo = true, Roughness = 1f,
-    };
+    });
     /// <summary>The ledges' stone: a grey basalt grain (so the biome's own tint reads true), from three sides, over the blocks' own tones.</summary>
-    public static StandardMaterial3D LedgeRock => _ledgeRock ??= new StandardMaterial3D
+    public static StandardMaterial3D LedgeRock => _ledgeRock ??= Solidify(new StandardMaterial3D
     {
         AlbedoTexture = TerrainLook.Tex("dark_rock", "diff"), NormalEnabled = true, NormalTexture = TerrainLook.Tex("dark_rock", "nor"), NormalScale = 1.2f,
         Uv1Triplanar = true, Uv1Scale = new Vector3(0.3f, 0.3f, 0.3f), VertexColorUseAsAlbedo = true, Roughness = 1f,
-    };
+    });
+
+    // the photographed grain each stone material has, for when the solid look is switched off again
+    private static readonly System.Collections.Generic.Dictionary<StandardMaterial3D, (Texture2D alb, Texture2D nor)> Grain = new();
+
+    /// <summary>The stone materials as the solid-colour setting says: flat (just the blocks' own tones) or with the photographed grain.</summary>
+    private static StandardMaterial3D Solidify(StandardMaterial3D m)
+    {
+        if (!Grain.ContainsKey(m)) Grain[m] = (m.AlbedoTexture, m.NormalTexture);
+        var (alb, nor) = Grain[m];
+        bool solid = GameSettings.SolidTerrain;
+        m.AlbedoTexture = solid ? null : alb;
+        m.NormalEnabled = !solid;
+        m.NormalTexture = solid ? null : nor;
+        return m;
+    }
+
+    /// <summary>The solid-colour setting changed: the rubble and ledge stone follow it.</summary>
+    public static void RestyleRock()
+    {
+        if (_rubble != null) Solidify(_rubble);
+        if (_ledgeRock != null) Solidify(_ledgeRock);
+    }
     public static StandardMaterial3D VertexColored => _vcol ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.6f };
 
     /// <summary>

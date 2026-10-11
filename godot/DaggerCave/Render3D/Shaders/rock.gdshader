@@ -1,4 +1,8 @@
-// Cave rock: triplanar PBR from photographed CC0 textures, recoloured per biome.
+// Cave rock. Two looks (Settings > Graphics, minimalist ground: the global terrain_solid):
+//  * minimalist: two flat colours, grass on the faces you could stand on and the biome's wall colour on every other, and the polygons
+//    left as they are (each face lit flat, so every corner of the rock shows as a distinct edge); the borders round things are drawn by
+//    edge_depth.gdshader;
+//  * photographs: triplanar PBR from photographed CC0 textures, recoloured per biome.
 // COLOR (vertex): r = how deep into the rock mass this camera-facing surface is,
 //                 g = baked occlusion from the terrain field, b = slow material variation.
 shader_type spatial;
@@ -57,6 +61,18 @@ uniform int debug_view = 0;
 // the stylised look (Settings > Graphics): the photographed rock flattened toward a few painted tones, its relief softened, and light in
 // soft-edged bands
 #include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
+
+global uniform float terrain_solid;
+// the minimalist colours: grass (leaning a little to the biome's own growth), snow instead in the frozen caves, and the walls in the
+// biome's wall colour (tint_edge) brightened by wall_gain
+uniform vec3 grass_col : source_color = vec3(0.34, 0.62, 0.2);
+uniform vec3 snow_col : source_color = vec3(0.93, 0.96, 1.0);
+uniform float grass_lean = 0.25;
+uniform float wall_gain = 1.5;
+// how steep a face may be and still count as ground (the up component of its direction)
+uniform float ground_up = 0.6;
+// how much each face's own shade varies (0 = none)
+uniform float facet_shade = 0.06;
 
 varying vec3 v_wpos;
 varying vec3 v_wnrm;
@@ -127,6 +143,18 @@ float caustic(vec2 uv, float time) {
 	return pow(abs(c), 8.0);
 }
 
+// A hard edge where v crosses e: no wider than a pixel or so at any distance (so it doesn't shimmer), never a smeared blend.
+float edge_step(float e, float v) {
+	float w = max(fwidth(v), 1e-4);
+	return smoothstep(e - w, e + w, v);
+}
+
+// An ink line along that edge, about px pixels wide.
+float edge_ink(float e, float v, float px) {
+	float w = max(fwidth(v), 1e-4);
+	return 1.0 - smoothstep(px * 0.5 * w, (px * 0.5 + 1.0) * w, abs(v - e));
+}
+
 void fragment() {
 	vec3 p = v_wpos;
 	vec3 n = normalize(v_wnrm);
@@ -137,8 +165,32 @@ void fragment() {
 	float big = texture(mask_noise, p.xy * 0.045 + p.z * 0.02).r;
 	float fine = texture(mask_noise, p.xz * 0.21 + p.y * 0.07).r;
 
+	if (terrain_solid > 0.5) {
+		// ---- minimalist: the face's own direction, not the smoothed one (every polygon flat, every corner an edge)
+		vec3 fv = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
+		if (dot(fv, NORMAL) < 0.0) fv = -fv;
+		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
+		vec3 wall = tint_edge * wall_gain;
+		vec3 ground = special_mode == 2 ? snow_col : mix(grass_col, luma(grass_col) * hue(moss_tint), grass_lean);
+		vec3 a = mix(wall, ground, step(ground_up, fw.y));
+		// (each face a shade of its own, from its direction: two neighbours never quite match, even where the light is flat)
+		float fh = fract(sin(dot(floor(fw * 64.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
+		a *= 1.0 - facet_shade * 0.5 + facet_shade * fh;
+		vec3 e = vec3(0.0);
+		// (under water a darker wall; over lava its glow)
+		if (liquid_mode == 1) a *= mix(1.0, 0.6, step(p.y, liquid_y));
+		else if (liquid_mode == 2) e += liquid_glow * exp(-max(p.y - liquid_y, 0.0) / 3.0) * 0.45;
+		ALBEDO = clamp(a * brightness, 0.0, 1.0);
+		ROUGHNESS = 0.9;
+		SPECULAR = 0.2;
+		METALLIC = 0.0;
+		EMISSION = e;
+		NORMAL = fv;
+	} else {
+
 	// ---- base rock: two photographed rocks, mixed by a slow variation mask
-	float mb = smoothstep(0.38, 0.62, variation * 0.7 + big * 0.5 - 0.1);
+	// (a clean boundary between the two, not one rock fading through the other)
+	float mb = edge_step(0.5, variation * 0.7 + big * 0.5 - 0.1);
 	vec3 alb = vec3(0.0);
 	vec3 arm = vec3(0.0);
 	vec3 dn = vec3(0.0);
@@ -231,9 +283,16 @@ void fragment() {
 		}
 	}
 
-	// ---- floors: gravel and grit on anything you could stand on
-	float up = smoothstep(0.42, 0.78, n.y);
-	float ground = up * ground_amount * (1.0 - capness * 0.7);
+	// ---- floors: gravel and grit on anything you could stand on, with a sharp, inked edge where the floor turns into wall (a little
+	//      wobble in it, so it reads as painted, not ruled). The fields are worked out up here, outside any branch, for their fwidth.
+	float ground_f = n.y + (fine - 0.5) * 0.14 - capness * 0.35;
+	float up = edge_step(0.6, ground_f);
+	float ground = up * ground_amount;
+	float ground_line = edge_ink(0.6, ground_f, 2.0) * ground_amount;
+	// moss: where the floor is flat enough and the patch noise says so; moss_amount is how much of the floor it covers (not how see-through)
+	float wet_line = liquid_mode == 1 ? smoothstep(liquid_y + 0.8, liquid_y - 0.3, p.y) : 0.0;
+	float moss_f = min(min(n.y - 0.66, (fine * 0.6 + big * 0.6) - (1.0 - moss_amount * 0.75)), 0.45 - capness - wet_line) + (fine - 0.5) * 0.04;
+	float moss_line = moss_amount > 0.001 ? edge_ink(0.0, moss_f, 2.5) : 0.0;
 	if (ground > 0.001) {
 		vec2 guv = p.xz * scale_g;
 		vec3 ga = texture(g_alb, guv, cel_bias()).rgb;
@@ -245,9 +304,7 @@ void fragment() {
 	}
 
 	// ---- moss and growth on dry walkable ground (green means you can walk it)
-	float wet_line = liquid_mode == 1 ? smoothstep(liquid_y + 0.8, liquid_y - 0.3, p.y) : 0.0;
-	float moss = smoothstep(0.55, 0.8, n.y) * moss_amount * smoothstep(0.3, 0.55, fine * 0.6 + big * 0.6) * (1.0 - wet_line);
-	moss = clamp(moss * 1.6, 0.0, 1.0) * (1.0 - capness);
+	float moss = moss_amount > 0.001 ? edge_step(0.0, moss_f) : 0.0;
 	if (moss > 0.001) {
 		vec2 muv = p.xz * scale_m;
 		vec3 ma = texture(m_alb, muv, cel_bias()).rgb;
@@ -257,6 +314,9 @@ void fragment() {
 		vec3 tn = unpack_n(texture(m_nrm, muv, cel_bias()));
 		dn = mix(dn, vec3(tn.x, 0.0, -tn.y), moss);
 	}
+	// the ink along both edges (with the stylised look): the moss's own edge, and the floor's where no moss covers it
+	float edge_ink_k = max(moss_line, ground_line * (1.0 - moss)) * cel_shading;
+	alb *= 1.0 - 0.72 * edge_ink_k;
 
 	float rough = clamp(arm.g * 1.05, 0.25, 1.0);
 	float spec = 0.45;
@@ -264,7 +324,8 @@ void fragment() {
 
 	if (special_mode == 2) {
 		// snow on the tops, a glaze of ice everywhere else
-		float snow = smoothstep(0.5, 0.75, n.y) * smoothstep(0.35, 0.55, fine + big * 0.4) * special_amount;
+		float snow_f = min(n.y - 0.62, (fine + big * 0.4) - 0.45);
+		float snow = edge_step(0.0, snow_f) * special_amount;
 		vec2 suv = p.xz * scale_s;
 		vec3 sa = texture(s_alb, suv).rgb * vec3(0.9, 0.96, 1.05) * 1.25;
 		alb = mix(alb, sa, snow);
@@ -364,6 +425,7 @@ void fragment() {
 	AO_LIGHT_AFFECT = 0.35;
 	EMISSION = emit;
 	NORMAL = normalize((VIEW_MATRIX * vec4(wn, 0.0)).xyz);
+	}
 }
 
 // The stylised light: soft-edged bands (shadow and falloff included) and almost no gloss; with cel_shading off, plain Lambert and a
