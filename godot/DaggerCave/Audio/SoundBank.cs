@@ -14,6 +14,10 @@ namespace DaggerCave;
 public partial class SoundBank : Node
 {
     private readonly Dictionary<string, AudioStreamWav> _sfx = new();
+    /// <summary>Each effect in three takes (the second and third a shade darker and brighter, each in its own room), played by turns at random.</summary>
+    private readonly Dictionary<string, AudioStreamWav[]> _takes = new();
+    /// <summary>Sounds that stay dry (the menus' own, and loops).</summary>
+    private static readonly HashSet<string> Dry = new() { "ui", "milestone", "xp" };
     private readonly List<AudioStreamPlayer2D> _pool2D = new();
     private readonly List<AudioStreamPlayer> _poolUi = new();
     private AudioStreamPlayer _musicA, _musicB;
@@ -26,12 +30,16 @@ public partial class SoundBank : Node
     public override void _Ready()
     {
         ProcessMode = ProcessModeEnum.Always;
+        Synth.Rate = 44100;
         BuildSfx();
+        // (the music at half the rate: plenty for it, and half the work at start)
+        Synth.Rate = 22050;
         _ambient = BuildAmbientMusic();
         _boss = BuildBossMusic();
         _camp = BuildCampMusic();
+        Synth.Rate = 44100;
         GameSettings.ApplySound(); // (makes the Music and SFX buses)
-        for (int k = 0; k < 28; k++) { var p = new AudioStreamPlayer2D { MaxDistance = 1100, Attenuation = 1.2f, Bus = "SFX" }; AddChild(p); _pool2D.Add(p); }
+        for (int k = 0; k < 40; k++) { var p = new AudioStreamPlayer2D { MaxDistance = 1100, Attenuation = 1.2f, Bus = "SFX" }; AddChild(p); _pool2D.Add(p); }
         for (int k = 0; k < 8; k++) { var p = new AudioStreamPlayer { Bus = "SFX" }; AddChild(p); _poolUi.Add(p); }
         _musicA = new AudioStreamPlayer { VolumeDb = -8, Bus = "Music" };
         _musicB = new AudioStreamPlayer { VolumeDb = -80, Bus = "Music" };
@@ -63,6 +71,7 @@ public partial class SoundBank : Node
     public void Play(string name, Vector2? pos = null, float volDb = 0f, float pitchVar = 0.08f, float pitch = 1f)
     {
         if (!_sfx.TryGetValue(name, out var st)) return;
+        if (_takes.TryGetValue(name, out var takes)) st = takes[_rng.Next(takes.Length)];
         // online: a sound out in the world, from something the other games need to hear, goes to them too
         if (pos is Vector2 at && NetSync.Recording) NetSync.FxBegin(FxLayer.SoundOp).Str(name).Vec(at).Half(volDb).Half(pitchVar).Half(pitch);
         float ps = pitch * (1f + ((float)_rng.NextDouble() * 2 - 1) * pitchVar);
@@ -147,8 +156,19 @@ public partial class SoundBank : Node
 
     private void Add(string name, float[] buf, float peak = 0.8f)
     {
-        Normalize(buf, peak);
-        _sfx[name] = ToStream(buf);
+        // every effect finished the same way: cleaned, warmed, in a small stone room, in three takes
+        float room = Dry.Contains(name) ? 0f : 0.16f;
+        int seed = name.GetHashCode();
+        var takes = new AudioStreamWav[3];
+        float[] tilts = { 0f, -0.35f, 0.3f };
+        for (int k = 0; k < 3; k++)
+        {
+            var b = Finish(buf, room, seed + k * 977, tilts[k]);
+            Normalize(b, peak);
+            takes[k] = ToStream(b);
+        }
+        _sfx[name] = takes[0];
+        _takes[name] = takes;
     }
 
     private void BuildSfx()
@@ -167,10 +187,13 @@ public partial class SoundBank : Node
         Osc(b, 0, 0.3f, ExpSweep(110, 55), t => 0.25f * MathF.Sin(t * MathF.PI));
         Add("swing_heavy", b, 0.65f);
 
-        // flesh and hide: a dull thump with a wet slap
-        b = Buf(0.18f);
-        Osc(b, 0, 0.16f, ExpSweep(170, 58), Decay(11));
-        BandNoise(b, 0, 0.09f, t => 1400f - 700f * t, Const(1.4f), Decay(16));
+        // flesh and hide: the crack of the contact, a wet slap, the dull thump of the body behind it, and the hide's short ring
+        b = Buf(0.22f);
+        NoiseBurst(b, 0, 0.004f, Const(1f), Decay(40), true);
+        BandNoise(b, 0, 0.05f, t => 2600f - 1200f * t, Const(1.6f), t => 0.8f * MathF.Exp(-t * 9f));
+        Osc(b, 0, 0.18f, ExpSweep(160, 52), t => MathF.Exp(-t * 9f));
+        Osc(b, 0.002f, 0.12f, ExpSweep(320, 180), t => 0.18f * MathF.Exp(-t * 14f));
+        BandNoise(b, 0.004f, 0.11f, t => 1100f - 500f * t, Const(1.2f), Decay(14));
         NoiseBurst(b, 0, 0.03f, Const(0.5f), Decay(30));
         Add("hit", b, 0.85f);
         // stone, earth and armour: a hard "chink" with a scatter of grit
@@ -219,14 +242,17 @@ public partial class SoundBank : Node
         b = Buf(0.22f); BandNoise(b, 0, 0.22f, t => 1500f + 3500f * t, Const(2.5f), t => MathF.Pow(MathF.Sin(MathF.Min(1f, t * 1.3f) * MathF.PI), 1.5f)); Add("throw", b, 0.55f);
 
         // a push off the ground: cloth, a scuff of dirt and a short low thump (no pitch to it)
-        b = Buf(0.13f);
-        BandNoise(b, 0, 0.11f, t => 500f + 900f * t, Const(1.2f), t => MathF.Sin(MathF.Min(1f, t * 1.5f) * MathF.PI) * 0.7f);
-        Osc(b, 0, 0.06f, ExpSweep(110, 60), Decay(20));
-        Add("jump", b, 0.4f);
         b = Buf(0.16f);
-        Osc(b, 0, 0.1f, ExpSweep(100, 45), Decay(20));
+        BandNoise(b, 0, 0.12f, t => 500f + 900f * t, Const(1.2f), t => MathF.Sin(MathF.Min(1f, t * 1.5f) * MathF.PI) * 0.6f);
+        Osc(b, 0, 0.06f, ExpSweep(110, 60), Decay(20));
+        Grains(b, 0.0f, 0.07f, 7, 3600f, 0.22f, 11);
+        Add("jump", b, 0.4f);
+        // landing: the weight coming down (a low thump), the boots' scuff, and grit scattering away
+        b = Buf(0.24f);
+        Osc(b, 0, 0.12f, ExpSweep(95, 42), t => MathF.Exp(-t * 7f));
         BandNoise(b, 0, 0.12f, t => 700f - 300f * t, Const(1f), Decay(20));
-        NoiseBurst(b, 0.01f, 0.06f, Const(0.5f), Decay(30), true);
+        NoiseBurst(b, 0.006f, 0.05f, Const(0.45f), Decay(30), true);
+        Grains(b, 0.012f, 0.14f, 14, 3200f, 0.3f, 23);
         Add("land", b, 0.45f);
         b = Buf(0.24f); BandNoise(b, 0, 0.24f, t => 1600f * (1f - 0.7f * t) + 300f, Const(1.3f), AD(0.2f, 5f)); Add("dodge", b, 0.55f);
         b = Buf(0.2f); BandNoise(b, 0, 0.2f, t => 500f + 3500f * t, Const(1.8f), AD(0.35f, 5f)); Add("airdash", b, 0.55f);
@@ -259,9 +285,9 @@ public partial class SoundBank : Node
         b = Buf(0.3f);
         Osc(b, 0, 0.2f, ExpSweep(150, 48), Decay(11));
         BandNoise(b, 0, 0.08f, Const(1800f), Const(1.2f), Decay(22));
-        BandNoise(b, 0.03f, 0.2f, t => 520f - 150f * t, Const(4f), t => MathF.Sin(MathF.Min(1f, t * 1.4f) * MathF.PI) * 0.8f);
-        Osc(b, 0.03f, 0.2f, ExpSweep(190, 120), t => 0.35f * MathF.Sin(t * MathF.PI), 2);
-        LowPass(b, 0.4f);
+        // (the grunt: a voice through an open "uh" throat, its pitch falling, breathy)
+        Voice(b, 0.025f, 0.22f, t => 150f - 45f * t, new[] { 640f, 1150f, 2400f }, new[] { 90f, 110f, 160f }, t => MathF.Sin(MathF.Min(1f, t * 3f) * MathF.PI * 0.5f) * MathF.Exp(-t * 3.5f) * 1.1f, 0.35f, 5);
+        LowPass(b, 0.55f);
         Add("hurt", b, 0.75f);
 
         b = Buf(0.4f);

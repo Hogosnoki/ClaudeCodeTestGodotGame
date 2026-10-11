@@ -796,6 +796,19 @@ knock, the hero plunges in (`splash_in`) and climbs out more gently (`splash_out
 gathering swell and a deep impact, and swords whoosh. `--sfxdump=DIR` writes every effect as a
 .wav for a listen.
 
+How they are finished, so they sound made of real things in a real place rather than a synthesizer:
+- **44.1 kHz** for the effects (the music stays at 22.05 kHz). Filter settings and noise levels are converted (`Synth.K`,
+  `Synth.NoiseGain`), so each sound keeps its character at the higher rate, only cleaner in the highs.
+- **The finishing pass** every effect goes through (`Synth.Finish`): rumble and offset filtered out, a 1.5 ms fade-in and a short
+  fade at the end (no clicks), the peaks rounded by a gentle saturation (warmth, not a hard digital edge), and a small stone room
+  round it (`Synth.Room`: early reflections off near walls and a short damped tail, the highest air taken out). The menus' own sounds
+  stay dry.
+- **Three takes** of each effect: the plain one, one a shade darker and one a shade brighter, each in a slightly different room,
+  played at random (with the usual small pitch wander), so a run of blows or footsteps never sounds machine-gunned.
+- New detail in the commonest sounds: a hit on flesh has the crack of contact, a wet slap, the body's thump and a short ring of hide;
+  landing and jumping scatter grit (`Synth.Grains`); the hero's grunt when struck is a voice (`Synth.Voice`: a breathy glottal pulse
+  through "uh" formants, its pitch falling) rather than a filtered tone.
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -6,7 +7,18 @@ namespace DaggerCave;
 /// <summary>Tiny offline synthesizer: every sound in the game is generated into PCM at startup.</summary>
 public static class Synth
 {
-    public const int Rate = 22050;
+    /// <summary>
+    /// The sample rate sounds are made at: 44.1 kHz for the effects (the music is made at 22.05 kHz, which is plenty for it and twice as
+    /// quick at start). Filter settings and noise levels are given as they were at 22.05 kHz and converted, so a sound is the same sound
+    /// at either rate, only cleaner.
+    /// </summary>
+    public static int Rate { get; set; } = 44100;
+    private const float BaseRate = 22050f;
+
+    /// <summary>A one-pole coefficient given at 22.05 kHz, at the current rate (the same cutoff in Hz).</summary>
+    public static float K(float c) => 1f - MathF.Pow(1f - Math.Clamp(c, 0f, 0.9999f), BaseRate / Rate);
+    /// <summary>What noise is scaled by so a band of it is as loud at the current rate as at 22.05 kHz.</summary>
+    public static float NoiseGain => MathF.Sqrt(Rate / BaseRate);
 
     public static float[] Buf(float seconds) => new float[(int)(seconds * Rate)];
 
@@ -44,10 +56,10 @@ public static class Synth
         for (int k = 0; k < n && s0 + k < buf.Length; k++)
         {
             float t = k / (float)n;
-            float c = Math.Clamp(cutoff(t), 0.001f, 1f);
+            float c = K(Math.Clamp(cutoff(t), 0.001f, 1f));
             float x = Noise();
             lp += (x - lp) * c;
-            buf[s0 + k] += (highpass ? x - lp : lp) * amp(t);
+            buf[s0 + k] += (highpass ? x - lp : lp * NoiseGain) * amp(t);
         }
     }
 
@@ -69,7 +81,7 @@ public static class Synth
             float f = 2f * MathF.Sin(MathF.PI * Math.Clamp(hz(t), 20f, Rate * 0.18f) / Rate);
             float damp = 1f / Math.Max(0.5f, q(t));
             lo += f * bp;
-            float hi = Noise() - lo - damp * bp;
+            float hi = Noise() * NoiseGain - lo - damp * bp;
             bp += f * hi;
             float a = amp(t);
             if (float.IsNaN(a)) a = 0f; // (an envelope's pow of a hair below zero at its end)
@@ -124,12 +136,14 @@ public static class Synth
 
     public static void HighPass(float[] buf, float coef)
     {
+        coef = K(coef);
         float lp = 0;
         for (int k = 0; k < buf.Length; k++) { lp += (buf[k] - lp) * coef; buf[k] -= lp; }
     }
 
     public static void LowPass(float[] buf, float coef)
     {
+        coef = K(coef);
         float lp = 0;
         for (int k = 0; k < buf.Length; k++) { lp += (buf[k] - lp) * coef; buf[k] = lp; }
     }
@@ -177,6 +191,168 @@ public static class Synth
             st.LoopEnd = buf.Length;
         }
         return st;
+    }
+
+    /// <summary>
+    /// A voice: a glottal pulse train (a soft saw with a little jitter and breath in it) at <paramref name="f0"/>, shaped by formant
+    /// resonances (centre Hz and bandwidth Hz each) as a throat and mouth shape it. For grunts, gasps and growls.
+    /// </summary>
+    public static void Voice(float[] buf, float start, float dur, Func<float, float> f0, float[] formants, float[] widths, Func<float, float> amp, float breath = 0.25f, int seed = 3)
+    {
+        var r = new Random(seed);
+        int s0 = (int)(start * Rate), n = (int)(dur * Rate);
+        var src = new float[n];
+        double ph = 0; float jit = 0;
+        for (int k = 0; k < n; k++)
+        {
+            float t = k / (float)n;
+            if (k % 64 == 0) jit = ((float)r.NextDouble() * 2f - 1f) * 0.02f;
+            ph += f0(t) * (1f + jit) / Rate;
+            float p = (float)(ph - Math.Floor(ph));
+            // (a glottal pulse: quick close, slow open; then breath noise riding on it)
+            float g = p < 0.6f ? MathF.Sin(p / 0.6f * MathF.PI * 0.5f) : MathF.Cos((p - 0.6f) / 0.4f * MathF.PI * 0.5f);
+            src[k] = (g * 2f - 1f) * (1f - breath) + ((float)r.NextDouble() * 2f - 1f) * breath;
+        }
+        var outb = new float[n];
+        for (int f = 0; f < formants.Length; f++)
+        {
+            float fc = 2f * MathF.Sin(MathF.PI * Math.Min(formants[f], Rate * 0.2f) / Rate);
+            float q = formants[f] / Math.Max(30f, widths[f]);
+            float damp = 1f / Math.Max(0.5f, q);
+            float lo = 0, bp = 0;
+            float gain = 1f / (f + 1);
+            for (int k = 0; k < n; k++)
+            {
+                lo += fc * bp;
+                float hi = src[k] - lo - damp * bp;
+                bp += fc * hi;
+                outb[k] += bp * gain;
+            }
+        }
+        for (int k = 0; k < n && s0 + k < buf.Length; k++)
+        {
+            if (s0 + k < 0) continue;
+            float a = amp(k / (float)n);
+            buf[s0 + k] += outb[k] * a * 0.6f;
+        }
+    }
+
+    /// <summary>Grit underfoot: a scatter of tiny bright grains over <paramref name="dur"/>, thinning out.</summary>
+    public static void Grains(float[] buf, float start, float dur, int count, float hz, float amp, int seed)
+    {
+        var r = new Random(seed);
+        for (int g = 0; g < count; g++)
+        {
+            float t = start + dur * MathF.Pow((float)r.NextDouble(), 1.6f);
+            float a = amp * (0.4f + 0.6f * (float)r.NextDouble()) * (1f - (t - start) / (dur * 1.3f));
+            float f = hz * (0.7f + 0.6f * (float)r.NextDouble());
+            BandNoise(buf, t, 0.006f + 0.008f * (float)r.NextDouble(), Const(f), Const(2.5f), tt => a * MathF.Exp(-tt * 6f));
+        }
+    }
+
+    // ---------------------------------------------------------------- finishing: what makes a made sound sit in a real place
+
+    /// <summary>A one-pole low-pass at <paramref name="hz"/> (true Hz, at the current rate).</summary>
+    public static void LowPassHz(float[] buf, float hz)
+    {
+        float c = 1f - MathF.Exp(-MathF.Tau * hz / Rate), lp = 0;
+        for (int k = 0; k < buf.Length; k++) { lp += (buf[k] - lp) * c; buf[k] = lp; }
+    }
+
+    /// <summary>A one-pole high-pass at <paramref name="hz"/> (true Hz): takes out rumble and any offset.</summary>
+    public static void HighPassHz(float[] buf, float hz)
+    {
+        float c = 1f - MathF.Exp(-MathF.Tau * hz / Rate), lp = 0;
+        for (int k = 0; k < buf.Length; k++) { lp += (buf[k] - lp) * c; buf[k] -= lp; }
+    }
+
+    /// <summary>
+    /// A small stone room round a sound: a few early reflections, then a short diffuse tail (four damped combs into two all-passes,
+    /// after Schroeder), mixed in at <paramref name="wet"/>. <paramref name="seed"/> nudges the delays, so two takes of a sound don't
+    /// ring alike. Returns the sound with room for its tail.
+    /// </summary>
+    public static float[] Room(float[] dry, float wet, float tail, int seed)
+    {
+        var r = new Random(seed);
+        int n = dry.Length + (int)(tail * Rate);
+        var o = new float[n];
+        Array.Copy(dry, o, dry.Length);
+        if (wet <= 0f) return o;
+        var w = new float[n];
+        // early reflections: off the near walls
+        float[] taps = { 0.0071f, 0.0119f, 0.0173f, 0.0262f, 0.0331f };
+        float[] gains = { 0.42f, 0.33f, 0.27f, 0.2f, 0.14f };
+        for (int t = 0; t < taps.Length; t++)
+        {
+            int d = (int)((taps[t] * (0.92f + 0.16f * (float)r.NextDouble())) * Rate);
+            for (int k = 0; k < dry.Length && k + d < n; k++) w[k + d] += dry[k] * gains[t];
+        }
+        // the tail: four combs with damping in their loops
+        float[] combs = { 0.0297f, 0.0371f, 0.0411f, 0.0437f };
+        var tailBuf = new float[n];
+        float fb = MathF.Pow(0.001f, combs.Average() / MathF.Max(0.05f, tail * 0.8f));
+        foreach (var cs in combs)
+        {
+            int d = Math.Max(1, (int)(cs * (0.95f + 0.1f * (float)r.NextDouble()) * Rate));
+            var line = new float[d];
+            int idx = 0; float damp = 0;
+            for (int k = 0; k < n; k++)
+            {
+                float x = k < dry.Length ? dry[k] : 0f;
+                float y = line[idx];
+                damp += (y - damp) * 0.45f;
+                line[idx] = x + damp * fb;
+                idx = (idx + 1) % d;
+                tailBuf[k] += y * 0.25f;
+            }
+        }
+        foreach (var aps in new[] { 0.005f, 0.0017f })
+        {
+            int d = Math.Max(1, (int)(aps * Rate));
+            var line = new float[d];
+            int idx = 0;
+            for (int k = 0; k < n; k++)
+            {
+                float x = tailBuf[k];
+                float y = line[idx];
+                float v = x + y * 0.6f;
+                line[idx] = v;
+                tailBuf[k] = y - v * 0.6f;
+                idx = (idx + 1) % d;
+            }
+        }
+        for (int k = 0; k < n; k++) w[k] += tailBuf[k] * 0.7f;
+        // (the room swallows the highest air: stone is not glass)
+        LowPassHz(w, 5200f);
+        for (int k = 0; k < n; k++) o[k] += w[k] * wet;
+        return o;
+    }
+
+    /// <summary>
+    /// The finishing pass every effect gets: rumble and offset out, a soft 1.5 ms fade-in and a fade at the very end (no clicks), the
+    /// peaks rounded with a gentle saturation (warmth rather than a hard edge), the room, and a spectral tilt (a take's own colour).
+    /// </summary>
+    public static float[] Finish(float[] buf, float room, int seed, float tilt = 0f)
+    {
+        var b = (float[])buf.Clone();
+        HighPassHz(b, 28f);
+        int fin = Math.Min(b.Length, (int)(0.0015f * Rate));
+        for (int k = 0; k < fin; k++) b[k] *= k / (float)fin;
+        Normalize(b, 1f);
+        const float drive = 1.6f;
+        float norm = MathF.Tanh(drive);
+        for (int k = 0; k < b.Length; k++) b[k] = MathF.Tanh(b[k] * drive) / norm;
+        if (tilt != 0f)
+        {
+            // a take a shade darker (tilt < 0) or brighter (tilt > 0)
+            var lo = (float[])b.Clone();
+            LowPassHz(lo, 2500f);
+            for (int k = 0; k < b.Length; k++) b[k] = tilt < 0 ? b[k] + (lo[k] - b[k]) * -tilt : b[k] + (b[k] - lo[k]) * tilt;
+        }
+        b = Room(b, room, room > 0 ? 0.35f : 0.02f, seed);
+        int fout = Math.Min(b.Length, (int)(0.012f * Rate));
+        for (int k = 0; k < fout; k++) b[b.Length - 1 - k] *= k / (float)fout;
+        return b;
     }
 
     public static float NoteHz(int midi) => 440f * MathF.Pow(2f, (midi - 69) / 12f);
