@@ -310,7 +310,8 @@ public partial class Chest : Node2D, IBreakable
             if (Cards.Any(id => Upgrades.Find(id)?.Relic == true)) RelicFor = Net.Me;
             NetSync.ChestCards(this);
         }
-        G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.3f);
+        // (a chest creaks; a shrine is no chest: its cards have their own sound when they are laid out)
+        if (!IsShrine) G.Sfx.Play("chest", GlobalPosition, -6, 0, 1.3f);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 18, new Color(1f, 0.9f, 0.5f), 0.12f);
         G.Main.OfferChest(this);
     }
@@ -366,7 +367,7 @@ public partial class Chest : Node2D, IBreakable
         if (_open) return;
         _open = true;
         LookingBy = 0;
-        G.Sfx.Play("chest", GlobalPosition);
+        if (!IsShrine) G.Sfx.Play("chest", GlobalPosition);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 30, new Color(1f, 0.9f, 0.5f));
         for (int k = 0; k < 8; k++) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-14, 14), -G.Range(6, 30)), new Color(1f, 0.9f, 0.5f), 7);

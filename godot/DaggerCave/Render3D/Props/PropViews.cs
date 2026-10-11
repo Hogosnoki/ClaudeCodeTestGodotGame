@@ -1171,6 +1171,98 @@ public partial class ChestView : PropView
     private ChestTier _tier;
     private Color _tint;
 
+    /// <summary>
+    /// A traditional treasure chest: a box of planks (each a shade of its own, with dark seams), a barrel-vaulted lid of planks round its
+    /// curve, metal bands round box and lid, brackets on all eight corners, rivets along the bands, and a lock plate with a keyhole and
+    /// a hasp. The lid hinges at the back (see <c>_lid</c>).
+    /// </summary>
+    private void BuildTreasureChest(float w, float d, float h, Color wood, Color lidCol, Material bandMat)
+    {
+        var rng = new Random(7);
+        var dark = wood.Darkened(0.55f);
+        // the box: four planks a side, front to back, each its own shade, a dark seam between
+        var body = new MeshBuilder();
+        PropMeshes.Box(body, new Vector3(0, h * 0.5f, 0), new Vector3(w * 0.98f, h * 0.49f, d * 0.98f), dark);
+        const int planks = 4;
+        for (int p = 0; p < planks; p++)
+        {
+            float y0 = h * (p + 0.5f) / planks;
+            var pc = wood.Darkened(-0.06f + 0.14f * (float)rng.NextDouble());
+            PropMeshes.Box(body, new Vector3(0, y0, d), new Vector3(w, h * 0.5f / planks - 0.008f, 0.015f), pc);
+            PropMeshes.Box(body, new Vector3(0, y0, -d), new Vector3(w, h * 0.5f / planks - 0.008f, 0.015f), pc);
+            PropMeshes.Box(body, new Vector3(w, y0, 0), new Vector3(0.015f, h * 0.5f / planks - 0.008f, d), pc);
+            PropMeshes.Box(body, new Vector3(-w, y0, 0), new Vector3(0.015f, h * 0.5f / planks - 0.008f, d), pc);
+        }
+        AddChild(PropViews.Mesh(body, PropViews.VertexColored));
+        // the metal: bands, corner brackets, rivets, the lock plate
+        var metal = new MeshBuilder();
+        foreach (float x in new[] { -w * 0.62f, w * 0.62f })
+        {
+            PropMeshes.Box(metal, new Vector3(x, h * 0.5f, d + 0.02f), new Vector3(0.045f, h * 0.5f, 0.012f), Colors.White);
+            PropMeshes.Box(metal, new Vector3(x, h * 0.5f, -d - 0.02f), new Vector3(0.045f, h * 0.5f, 0.012f), Colors.White);
+            for (int r = 0; r < 3; r++)
+                PropMeshes.Box(metal, new Vector3(x, h * (0.18f + r * 0.32f), d + 0.035f), new Vector3(0.014f, 0.014f, 0.01f), new Color(0.8f, 0.8f, 0.8f));
+        }
+        PropMeshes.Box(metal, new Vector3(0, 0.03f, 0), new Vector3(w + 0.02f, 0.03f, d + 0.02f), Colors.White);
+        foreach (float sx in new[] { -1f, 1f })
+            foreach (float sz in new[] { -1f, 1f })
+                foreach (float sy in new[] { 0f, 1f })
+                {
+                    // an L of metal round each corner
+                    var at = new Vector3(sx * (w + 0.02f), sy < 0.5f ? 0.07f : h - 0.06f, sz * (d + 0.02f));
+                    PropMeshes.Box(metal, at - new Vector3(sx * 0.05f, 0, 0), new Vector3(0.06f, 0.065f, 0.012f), Colors.White);
+                    PropMeshes.Box(metal, at - new Vector3(0, 0, sz * 0.05f), new Vector3(0.012f, 0.065f, 0.06f), Colors.White);
+                }
+        // the lock plate on the front, with its keyhole
+        PropMeshes.Box(metal, new Vector3(0, h * 0.72f, d + 0.03f), new Vector3(0.085f, 0.1f, 0.012f), Colors.White);
+        AddChild(PropViews.Mesh(metal, bandMat));
+        var hole = new MeshBuilder();
+        PropMeshes.Box(hole, new Vector3(0, h * 0.75f, d + 0.045f), new Vector3(0.018f, 0.018f, 0.004f), new Color(0.02f, 0.015f, 0.01f));
+        PropMeshes.Box(hole, new Vector3(0, h * 0.69f, d + 0.045f), new Vector3(0.008f, 0.035f, 0.004f), new Color(0.02f, 0.015f, 0.01f));
+        AddChild(PropViews.Mesh(hole, PropViews.VertexColored, false));
+
+        // the lid: hinged at the back edge, a barrel vault of planks round its curve
+        _lid = new Node3D { Position = new Vector3(0, h, -d) };
+        AddChild(_lid);
+        var lid = new MeshBuilder();
+        var lidMetal = new MeshBuilder();
+        const int segs = 7;
+        float rad = d * 1.02f, rise = 0.8f;
+        for (int sgi = 0; sgi < segs; sgi++)
+        {
+            float a0 = MathF.PI * sgi / segs, a1 = MathF.PI * (sgi + 1) / segs, am = (a0 + a1) * 0.5f;
+            // (a plank along the chest's width, laid on the curve; the curve is a half circle squashed to rise x the depth)
+            var c = new Vector3(0, MathF.Sin(am) * rad * rise, d - MathF.Cos(am) * rad);
+            float len = MathF.Sqrt(MathF.Pow((MathF.Cos(a1) - MathF.Cos(a0)) * rad, 2) + MathF.Pow((MathF.Sin(a1) - MathF.Sin(a0)) * rad * rise, 2));
+            var tangent = new Vector3(0, (MathF.Sin(a1) - MathF.Sin(a0)) * rise, -(MathF.Cos(a1) - MathF.Cos(a0))).Normalized();
+            // (turned about the width so the plank's length lies along the curve)
+            var basis = new Basis(Vector3.Right, MathF.Atan2(-tangent.Y, tangent.Z));
+            PropMeshes.Box(lid, c, new Vector3(w * 1.02f, 0.018f, len * 0.5f - 0.004f), lidCol.Darkened(-0.05f + 0.12f * (float)rng.NextDouble()), basis);
+            foreach (float x in new[] { -w * 0.62f, w * 0.62f })
+                PropMeshes.Box(lidMetal, c + new Vector3(x, 0, 0) + basis * new Vector3(0, 0.02f, 0), new Vector3(0.045f, 0.012f, len * 0.5f + 0.004f), Colors.White, basis);
+        }
+        // the lid's ends: flat boards closing the vault at each side
+        foreach (float sx in new[] { -1f, 1f })
+            for (int sgi = 0; sgi < segs; sgi++)
+            {
+                float am = MathF.PI * (sgi + 0.5f) / segs;
+                float y = MathF.Sin(am) * rad * rise;
+                PropMeshes.Box(lid, new Vector3(sx * w * 1.01f, y * 0.5f, d - MathF.Cos(am) * rad), new Vector3(0.016f, MathF.Max(0.01f, y * 0.5f), rad / segs * 1.05f), lidCol.Darkened(0.2f));
+            }
+        // the rim of the lid, and the hasp hanging over the lock
+        PropMeshes.Box(lidMetal, new Vector3(0, 0.01f, d * 2f + 0.01f), new Vector3(w * 1.03f, 0.022f, 0.016f), Colors.White);
+        PropMeshes.Box(lidMetal, new Vector3(0, -0.03f, d * 2f + 0.03f), new Vector3(0.035f, 0.06f, 0.01f), Colors.White);
+        _lid.AddChild(PropViews.Mesh(lid, PropViews.VertexColored));
+        _lid.AddChild(PropViews.Mesh(lidMetal, bandMat));
+        if (_tier == ChestTier.Relic)
+        {
+            // a rose gem set in the lid's crown
+            var gem = new MeshBuilder();
+            PropMeshes.Box(gem, new Vector3(0, rad * rise + 0.03f, d), new Vector3(0.06f, 0.06f, 0.03f), new Color(1f, 0.4f, 0.6f), new Basis(Vector3.Back, Mathf.Pi / 4));
+            _lid.AddChild(PropViews.Mesh(gem, PropViews.Emissive(new Color(1f, 0.4f, 0.6f), 1.6f), false));
+        }
+    }
+
     protected override void Build()
     {
         var c0 = (Chest)Owner2D;
@@ -1198,45 +1290,13 @@ public partial class ChestView : PropView
         }
         else
         {
-            var body = new MeshBuilder();
-            PropMeshes.Box(body, new Vector3(0, h * 0.5f, 0), new Vector3(w, h * 0.5f, d), wood);
-            AddChild(PropViews.Mesh(body, PropViews.VertexColored));
-            var bands = new MeshBuilder();
-            foreach (float x in new[] { -w * 0.7f, w * 0.7f })
-                PropMeshes.Box(bands, new Vector3(x, h * 0.5f, 0), new Vector3(0.05f, h * 0.52f, d * 1.02f), Colors.White);
-            PropMeshes.Box(bands, new Vector3(0, h * 0.15f, 0), new Vector3(w * 1.02f, 0.04f, d * 1.02f), Colors.White);
-            PropMeshes.Box(bands, new Vector3(0, h * 0.62f, d * 1.03f), new Vector3(0.09f, 0.1f, 0.02f), Colors.White);
-            if (boss)
-            {
-                // studs along the corners, a heavy lock plate
-                foreach (float sx in new[] { -1f, 1f }) foreach (float sy in new[] { 0.2f, 0.85f })
-                    PropMeshes.Box(bands, new Vector3(sx * w * 0.93f, h * sy, d * 1.04f), new Vector3(0.045f, 0.045f, 0.03f), Colors.White);
-                PropMeshes.Box(bands, new Vector3(0, h * 0.62f, d * 1.05f), new Vector3(0.15f, 0.15f, 0.025f), Colors.White);
-            }
-            AddChild(PropViews.Mesh(bands, bandMat));
-            // the lid, hinged at the back edge
-            _lid = new Node3D { Position = new Vector3(0, h, -d) };
-            AddChild(_lid);
-            var lid = new MeshBuilder();
-            PropMeshes.Box(lid, new Vector3(0, 0.12f, d), new Vector3(w * 1.02f, 0.12f, d * 1.02f), lidCol);
-            _lid.AddChild(PropViews.Mesh(lid, PropViews.VertexColored));
-            var lidBands = new MeshBuilder();
-            foreach (float x in new[] { -w * 0.7f, w * 0.7f })
-                PropMeshes.Box(lidBands, new Vector3(x, 0.13f, d), new Vector3(0.05f, 0.13f, d * 1.04f), Colors.White);
-            _lid.AddChild(PropViews.Mesh(lidBands, bandMat));
-            if (_tier == ChestTier.Relic)
-            {
-                // a rose gem set in the lid's front
-                var gem = new MeshBuilder();
-                PropMeshes.Box(gem, new Vector3(0, 0.15f, d * 2.05f), new Vector3(0.07f, 0.07f, 0.03f), new Color(1f, 0.4f, 0.6f), new Basis(Vector3.Back, Mathf.Pi / 4));
-                _lid.AddChild(PropViews.Mesh(gem, PropViews.Emissive(new Color(1f, 0.4f, 0.6f), 1.6f), false));
-            }
-
+            BuildTreasureChest(w, d, h, wood, lidCol, bandMat);
         }
         bool shrine = _float != null;
         // (a shrine's own shape glows: the wash of light round it is kept faint so the shape reads)
-        _shine = PropViews.Sprite(_tint, 4, shrine ? 0.35f : boss ? 1.6f : 1.2f, shrine ? 0.9f : boss ? 1.9f : 1.4f);
-        _shine.Position = new Vector3(0, shrine ? _floatY + 0.1f : h + 0.2f, 0);
+        // (a chest's glow is a faint halo behind and above it, so the lid's arch shows against it rather than under it)
+        _shine = PropViews.Sprite(_tint, 4, shrine ? 0.35f : boss ? 1.6f : 0.5f, shrine ? 0.9f : boss ? 1.9f : 1.1f);
+        _shine.Position = new Vector3(0, shrine ? _floatY + 0.1f : h + 0.55f, shrine ? 0f : -0.35f);
         AddChild(_shine);
         _light = PropViews.Light(_tint.Lerp(Colors.White, 0.2f), shrine ? 0.45f : boss ? 1.3f : 0.8f, boss ? 5.5f : 4f);
         _light.Position = new Vector3(0, shrine ? _floatY + 0.3f : h + 0.4f, 0.4f);

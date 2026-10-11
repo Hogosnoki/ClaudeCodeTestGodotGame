@@ -54,6 +54,7 @@ public partial class Main
         "hudguide" => "entrance",
         "ringfx" => "entrance",
         "metrics" => "entrance",
+        "chestlook" => "entrance",
         "fossilcam" => "fossils",
         "mouth" => "entrance",
         "drain" => "entrance",
@@ -140,6 +141,7 @@ public partial class Main
             case "hudguide": HudGuideScenario(); break;
             case "ringfx": RingFxScenario(); break;
             case "metrics": MetricsScenario(); break;
+            case "chestlook": ChestLookScenario(); break;
             case "wing": WingScenario(); break;
             case "river": RiverScenario(); break;
             case "stick": StickScenario(); break;
