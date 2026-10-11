@@ -1176,6 +1176,18 @@ No menu is a flat box of one colour any more, and no corner is square (`UI/UiArt
   a pale ghost of what was just lost), its ability squares, icons, prompts and map are rounded.
 - Look at them: `--menushot=DIR` (pause, settings, a chest's cards, a milestone's cards, the build page) and `--fronttest=DIR`.
 
+## Stylised shading
+
+Settings > Graphics > **Stylised shading** (on by default; the shader global `cel_shading`, `GameSettings.CelShading`, `--nocel` to
+look at the old way) gives the creatures, heroes, cave rock and the camp a cel-shaded look:
+- **Light in bands**: the creature, rock and camp shaders have their own `light()`: diffuse light in three soft-edged steps (measured
+  in a perceptual scale, so a dim lamp keeps its brightness and only its steps show; shadows band with it) and a crisp, small highlight
+  instead of a smooth gloss.
+- **Simpler colour** on the creatures: the grain and mottling of skin, scales and cloth turned down to a hint, the bump detail softened,
+  and each colour drawn a little toward its tone band, so a hero reads as a few clear blocks (hair, scarf, leather, steel).
+- **Painted rock**: the photographed rock textures are sampled a few mip levels softer (no grain), their brightness eased toward a
+  few soft tone bands, and their relief softened, so the cave reads as shapes and colour rather than photographs.
+
 ## Run metrics
 
 **Your Build** has a second page, **Run metrics** (left / right, or click the tabs, switches between them), and the same page comes up once

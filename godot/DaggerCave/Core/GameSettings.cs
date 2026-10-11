@@ -26,6 +26,8 @@ public static class GameSettings
     public static bool Bloom = true;
     public static bool AmbientOcclusion = true;
     public static bool InkOutlines = true;
+    /// <summary>The stylised (cel-shaded) look: light in soft bands, flatter colour, painted rock (the shader global cel_shading).</summary>
+    public static bool CelShading = true;
     public enum AntiAlias { Off, Fxaa, Msaa2, Msaa4 }
     public static AntiAlias Aa = AntiAlias.Off;
     /// <summary>Exposure multiplier (1 = as designed).</summary>
@@ -89,6 +91,7 @@ public static class GameSettings
         Bloom = B("graphics", "bloom", Bloom);
         AmbientOcclusion = B("graphics", "ao", AmbientOcclusion);
         InkOutlines = B("graphics", "ink", InkOutlines);
+        CelShading = B("graphics", "cel", CelShading);
         Aa = (AntiAlias)Math.Min(1, I("graphics", "aa", (int)Aa)); // (MSAA flickered against the ink outlines: any old choice of it is FXAA now)
         Brightness = F("graphics", "brightness", Brightness);
         Shake = F("graphics", "shake", Shake);
@@ -116,6 +119,7 @@ public static class GameSettings
         cfg.SetValue("graphics", "bloom", Bloom);
         cfg.SetValue("graphics", "ao", AmbientOcclusion);
         cfg.SetValue("graphics", "ink", InkOutlines);
+        cfg.SetValue("graphics", "cel", CelShading);
         cfg.SetValue("graphics", "aa", (int)Aa);
         cfg.SetValue("graphics", "brightness", Brightness);
         cfg.SetValue("graphics", "shake", Shake);
@@ -166,6 +170,7 @@ public static class GameSettings
         vp.Msaa3D = Viewport.Msaa.Disabled;
         Stage3D.I?.ApplySettings();
         CreatureLibrary.SetInk(InkOutlines);
+        RenderingServer.GlobalShaderParameterSet("cel_shading", CelShading ? 1f : 0f);
     }
 
     /// <summary>The Music and Effects buses (made on first use), with the volumes applied.</summary>

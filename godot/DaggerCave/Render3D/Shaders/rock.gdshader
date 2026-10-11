@@ -54,6 +54,10 @@ uniform float face_fill_energy = 0.12;
 uniform vec3 face_fill_dir = vec3(-0.35, 0.55, 0.76);
 // debug: 1 = colour by surface kind (red camera-facing rock, blue back wall, green floors, yellow walls/ceilings)
 uniform int debug_view = 0;
+// the stylised look (Settings > Graphics): the photographed rock flattened toward a few painted tones, its relief softened, and light in
+// soft-edged bands
+global uniform float cel_shading;
+uniform float cel_bands = 3.0;
 
 varying vec3 v_wpos;
 varying vec3 v_wnrm;
@@ -85,20 +89,23 @@ Tri tri_setup(vec3 p, vec3 n) {
 	return t;
 }
 
+// (stylised: the photographs sampled softer, a few mip levels down, so the rock reads as painted shapes, not grain)
+float cel_bias() { return cel_shading * 2.0; }
+
 vec4 tri_col(sampler2D tex, Tri t, float sc) {
 	vec4 c = vec4(0.0);
-	if (t.w.x > 0.0) c += texture(tex, t.ux * sc) * t.w.x;
-	if (t.w.y > 0.0) c += texture(tex, t.uy * sc) * t.w.y;
-	if (t.w.z > 0.0) c += texture(tex, t.uz * sc) * t.w.z;
+	if (t.w.x > 0.0) c += texture(tex, t.ux * sc, cel_bias()) * t.w.x;
+	if (t.w.y > 0.0) c += texture(tex, t.uy * sc, cel_bias()) * t.w.y;
+	if (t.w.z > 0.0) c += texture(tex, t.uz * sc, cel_bias()) * t.w.z;
 	return c;
 }
 
 // World-space normal offset from a tangent-space map (added to the geometric normal).
 vec3 tri_nrm(sampler2D tex, Tri t, float sc) {
 	vec3 d = vec3(0.0);
-	if (t.w.x > 0.0) { vec3 tn = unpack_n(texture(tex, t.ux * sc)); d += (vec3(0.0, 0.0, -t.s.x) * tn.x + vec3(0.0, 1.0, 0.0) * tn.y) * t.w.x; }
-	if (t.w.y > 0.0) { vec3 tn = unpack_n(texture(tex, t.uy * sc)); d += (vec3(1.0, 0.0, 0.0) * tn.x + vec3(0.0, 0.0, -t.s.y) * tn.y) * t.w.y; }
-	if (t.w.z > 0.0) { vec3 tn = unpack_n(texture(tex, t.uz * sc)); d += (vec3(t.s.z, 0.0, 0.0) * tn.x + vec3(0.0, 1.0, 0.0) * tn.y) * t.w.z; }
+	if (t.w.x > 0.0) { vec3 tn = unpack_n(texture(tex, t.ux * sc, cel_bias())); d += (vec3(0.0, 0.0, -t.s.x) * tn.x + vec3(0.0, 1.0, 0.0) * tn.y) * t.w.x; }
+	if (t.w.y > 0.0) { vec3 tn = unpack_n(texture(tex, t.uy * sc, cel_bias())); d += (vec3(1.0, 0.0, 0.0) * tn.x + vec3(0.0, 0.0, -t.s.y) * tn.y) * t.w.y; }
+	if (t.w.z > 0.0) { vec3 tn = unpack_n(texture(tex, t.uz * sc, cel_bias())); d += (vec3(t.s.z, 0.0, 0.0) * tn.x + vec3(0.0, 1.0, 0.0) * tn.y) * t.w.z; }
 	return d;
 }
 
@@ -231,11 +238,11 @@ void fragment() {
 	float ground = up * ground_amount * (1.0 - capness * 0.7);
 	if (ground > 0.001) {
 		vec2 guv = p.xz * scale_g;
-		vec3 ga = texture(g_alb, guv).rgb;
+		vec3 ga = texture(g_alb, guv, cel_bias()).rgb;
 		ga = mix(ga, luma(ga) * tint, tint_strength * 0.8);
 		alb = mix(alb, ga, ground);
-		arm = mix(arm, texture(g_arm, guv).rgb, ground);
-		vec3 tn = unpack_n(texture(g_nrm, guv));
+		arm = mix(arm, texture(g_arm, guv, cel_bias()).rgb, ground);
+		vec3 tn = unpack_n(texture(g_nrm, guv, cel_bias()));
 		dn = mix(dn, vec3(tn.x, 0.0, -tn.y), ground);
 	}
 
@@ -245,11 +252,11 @@ void fragment() {
 	moss = clamp(moss * 1.6, 0.0, 1.0) * (1.0 - capness);
 	if (moss > 0.001) {
 		vec2 muv = p.xz * scale_m;
-		vec3 ma = texture(m_alb, muv).rgb;
+		vec3 ma = texture(m_alb, muv, cel_bias()).rgb;
 		ma = luma(ma) * hue(moss_tint) * 1.25;
 		alb = mix(alb, ma, moss);
 		arm.g = mix(arm.g, 0.9, moss);
-		vec3 tn = unpack_n(texture(m_nrm, muv));
+		vec3 tn = unpack_n(texture(m_nrm, muv, cel_bias()));
 		dn = mix(dn, vec3(tn.x, 0.0, -tn.y), moss);
 	}
 
@@ -338,6 +345,15 @@ void fragment() {
 		dn = vec3(0.0);
 	}
 
+	// (stylised: the photograph's detail flattened toward a few tones, a painted rock rather than a photographed one)
+	if (cel_shading > 0.0 && debug_view == 0) {
+		float L = luma(alb) + 1e-4;
+		float sL = sqrt(L);
+		float pL = (floor(sL * 6.0) + smoothstep(0.3, 0.7, fract(sL * 6.0))) / 6.0;
+		float flatL = mix(sL, pL, 0.4);
+		alb = mix(alb, alb / L * flatL * flatL, cel_shading);
+		dn *= mix(1.0, 0.45, cel_shading);
+	}
 	vec3 wn = normalize(n + dn * normal_strength);
 	// the viewer-side fill on the camera-facing rock (relief from the detail normal)
 	float face = smoothstep(lip_z - 0.3, lip_z + 0.5, p.z) * smoothstep(0.15, 0.65, n.z);
@@ -353,4 +369,19 @@ void fragment() {
 	AO_LIGHT_AFFECT = 0.35;
 	EMISSION = emit;
 	NORMAL = normalize((VIEW_MATRIX * vec4(wn, 0.0)).xyz);
+}
+
+// The stylised light: soft-edged bands (shadow and falloff included) and almost no gloss; with cel_shading off, plain Lambert and a
+// Blinn highlight.
+void light() {
+	float ndl = clamp(dot(NORMAL, LIGHT), 0.0, 1.0);
+	float lit = ndl * ATTENUATION;
+	// (banded in a perceptual scale, so a dim light keeps its brightness on average and only its steps show)
+	float x = sqrt(lit) * cel_bands;
+	float band = (floor(x) + smoothstep(0.3, 0.7, fract(x))) / cel_bands;
+	band *= band;
+	DIFFUSE_LIGHT += LIGHT_COLOR * mix(lit, band, cel_shading) / PI;
+	vec3 hv = normalize(LIGHT + VIEW);
+	float sp = pow(clamp(dot(NORMAL, hv), 0.0, 1.0), mix(6.0, 48.0, 1.0 - ROUGHNESS)) * ATTENUATION * (1.0 - ROUGHNESS);
+	SPECULAR_LIGHT += LIGHT_COLOR * mix(sp, smoothstep(0.4, 0.5, sp) * 0.35, cel_shading) * SPECULAR_AMOUNT * 0.5 / PI;
 }

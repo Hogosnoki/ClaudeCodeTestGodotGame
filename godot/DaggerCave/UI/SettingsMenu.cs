@@ -396,6 +396,7 @@ public partial class SettingsMenu : Control
         Row(g, "Ambient occlusion", Toggle(GameSettings.AmbientOcclusion, v => { GameSettings.AmbientOcclusion = v; Render(); }));
         Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA" }, Math.Min(1, (int)GameSettings.Aa), i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }), "MSAA is gone: it flickered against the ink outlines");
         Row(g, "Ink outlines on creatures", Toggle(GameSettings.InkOutlines, v => { GameSettings.InkOutlines = v; Render(); }));
+        Row(g, "Stylised shading", Toggle(GameSettings.CelShading, v => { GameSettings.CelShading = v; Render(); }), "light in soft bands, flatter colours, painted rock");
         Row(g, "Brightness", SliderRow(0.6f, 1.6f, GameSettings.Brightness, v => { GameSettings.Brightness = v; Render(); }, Pct));
         Row(g, "Screen shake", SliderRow(0f, 1f, GameSettings.Shake, v => GameSettings.Shake = v, Pct));
     }

@@ -13,3 +13,10 @@ config/features=PackedStringArray("4.4", "C#", "Forward Plus")
 [dotnet]
 
 project/assembly_name="ProcGenGame"
+
+[shader_globals]
+
+cel_shading={
+"type": "float",
+"value": 1.0
+}

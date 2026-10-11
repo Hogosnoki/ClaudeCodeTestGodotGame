@@ -382,6 +382,7 @@ public partial class Main : Node
             else if (a == "--roguetest") _rogueLook = true;
             else if (a == "--exittest") _exitTest = true;
             else if (a.StartsWith("--menushot=")) _menuShot = a[11..];
+            else if (a == "--nocel") { GameSettings.CelShading = false; RenderingServer.GlobalShaderParameterSet("cel_shading", 0f); }
             else if (a.StartsWith("--nettest=")) _netTest = a[10..];
             else if (a.StartsWith("--netaddr=")) _netAddr = a[10..];
             else if (a.StartsWith("--ntshots=")) _ntShots = a[10..];
