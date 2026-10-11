@@ -9,8 +9,8 @@ namespace DaggerCave;
 /// in it until recalled, or until the creature dies and it drops out), or flying back to the
 /// hand. A throw that meets nothing comes back by itself; one that meets a wall goes into it and stays, its hilt a foothold anyone can
 /// stand on (one that meets a floor or ceiling comes back), until it is recalled. With Ricochet it springs
-/// on from the creature it strikes to one more (or more, with Chain Ricochet), then comes back,
-/// never sticking. The thrower's game
+/// on from the creature it strikes to one more (or more, with Chain Ricochet), marking each, then flies on (into a wall, where it
+/// sticks as any dagger does, or back once it has gone its distance), never sticking in a creature. The thrower's game
 /// deals its blows; the other games fly a harmless copy.
 /// </summary>
 public partial class ThrownDagger : Node2D
@@ -38,6 +38,8 @@ public partial class ThrownDagger : Node2D
     private Vector2 _stuckOffset;
     private float _traveled, _t, _returnT;
     private int _bounces;
+    /// <summary>A ricochet past its last creature: it flies on (into a wall, or home) and strikes no more.</summary>
+    private bool _spent;
     private readonly HashSet<Enemy> _struck = new();
 
     public float Age => _t;
@@ -86,7 +88,7 @@ public partial class ThrownDagger : Node2D
         float best = float.MaxValue;
         foreach (var e in G.Enemies)
         {
-            if (e.Dead || !e.CanBeHit || _struck.Contains(e)) continue;
+            if (_spent || e.Dead || !e.CanBeHit || _struck.Contains(e)) continue;
             var c = Geometry2D.GetClosestPointToSegment(e.GlobalPosition, from, to);
             if (c.DistanceTo(e.GlobalPosition) > e.HitRadius + 3f) continue;
             float d = c.DistanceSquaredTo(from);
@@ -105,7 +107,7 @@ public partial class ThrownDagger : Node2D
                 c = q;
             }
             var n = G.Cave.OpenGradient(c + Dir * 2f);
-            if (!Ricochet && Math.Abs(n.Y) < Tune.Rogue.FootholdMaxSlope && Math.Abs(n.X) > 0.5f) { Embed(c, n); return; }
+            if (Math.Abs(n.Y) < Tune.Rogue.FootholdMaxSlope && Math.Abs(n.X) > 0.5f) { Embed(c, n); return; }
             G.Fx.Spark(from, -Dir, false, new Color(1f, 0.9f, 0.7f));
             G.Sfx.Play("clink", from, -8, 0.1f, 1.6f);
             ComeBack();
@@ -125,18 +127,21 @@ public partial class ThrownDagger : Node2D
         G.Fx.Spark(at, Dir, false, new Color(1f, 0.95f, 0.8f));
         if (Ricochet)
         {
-            // it springs on to the nearest other creature in reach, then comes back
+            // it marks what it strikes (a recall flings a poison pin at each), and springs on to the nearest other creature in reach
+            if (!Harmless && Thrower != null && IsInstanceValid(Thrower)) Thrower.MarkFoe(e);
+            GlobalPosition = at;
+            _traveled = 0;
+            Range = Tune.Rogue.RicochetRange + 20f;
             if (_bounces < Bounces && NextFor(e) is Enemy next)
             {
                 _bounces++;
-                GlobalPosition = at;
                 Dir = (next.GlobalPosition - at).Normalized();
-                _traveled = 0;
-                Range = Tune.Rogue.RicochetRange + 20f;
                 G.Sfx.Play("clink", at, -6, 0.1f, 1.8f);
                 return;
             }
-            ComeBack();
+            // (the last one struck: it flies on the way it was going, into a wall if one is near, or back once it has gone its distance)
+            _bounces = Bounces;
+            _spent = true;
             return;
         }
         // it goes in, and stays in

@@ -9,8 +9,8 @@ namespace DaggerCave;
 /// Every hero's support ability (the support button): one that does something for the others.
 /// Swordsman: Battle Shout (everyone near hits harder). Warden: Taunt (every engaged creature turns on
 /// her). Vitalist: Health Tap (health for vital force). Elementalist: Stalag-Might (the earth seizes a
-/// creature). Rogue: Expose (a creature takes more from everyone). Aegis: Mending Mark (whoever next
-/// strikes the marked creature is healed). Shape Shifter: Pack Howl (everyone near runs and strikes faster). Automaton: Over-Pressure
+/// creature). Rogue: Expose (a creature takes more from everyone). Aegis: Share Pain (a part of every
+/// blow a friend takes falls on her). Shape Shifter: Pack Howl (everyone near runs and strikes faster). Automaton: Over-Pressure
 /// (a long build-up, then it strikes, runs and jumps harder for a while).
 /// </summary>
 public partial class Player
@@ -30,7 +30,7 @@ public partial class Player
         HeroKind.Vitalist => Tune.Support.TapCooldown,
         HeroKind.Elementalist => Tune.Support.StalagCooldown,
         HeroKind.Rogue => Tune.Support.ExposeCooldown,
-        HeroKind.Aegis => Tune.Support.MarkCooldown,
+        HeroKind.Aegis => Tune.Support.PainCooldown,
         HeroKind.Automaton => Tune.Support.PressurePress,
         _ => Tune.Support.HowlCooldown,
     } * Stats.AbilityCdMult;
@@ -42,7 +42,7 @@ public partial class Player
         HeroKind.Vitalist => "TAP",
         HeroKind.Elementalist => "STALAG",
         HeroKind.Rogue => "EXPOSE",
-        HeroKind.Aegis => "MARK",
+        HeroKind.Aegis => "SHARE",
         HeroKind.Automaton => "PRESSURIZE",
         _ => "HOWL",
     };
@@ -81,7 +81,7 @@ public partial class Player
             HeroKind.Vitalist => TryHealthTap(),
             HeroKind.Elementalist => TryStalag(aim),
             HeroKind.Rogue => TryExpose(aim),
-            HeroKind.Aegis => TryMendMark(aim),
+            HeroKind.Aegis => TrySharePain(aim),
             HeroKind.Automaton => TryOverPressure(),
             _ => TryHowl(),
         };
@@ -236,16 +236,61 @@ public partial class Player
         return true;
     }
 
-    private bool TryMendMark(Vector2 aim)
+    // ---- Share Pain (the Aegis): a friend's pain, a part of it, on her
+    /// <summary>Whom this Aegis shares the pain of (null: no one).</summary>
+    public Player PainTarget { get; private set; }
+    private int _painBy = -1;
+    private float _painShare;
+    /// <summary>An Aegis shares this hero's pain.</summary>
+    public bool PainShared => _painShare > 0f;
+
+    /// <summary>The friend aimed at: a part of each blow they take falls on her now (aimed at again, or another picked, it lifts).</summary>
+    private bool TrySharePain(Vector2 aim)
     {
-        var foe = FindSpellTarget(aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0), Tune.Support.MarkRange, 40f);
-        if (foe == null) { SayNo("NOTHING TO MARK"); _supportCd = 0.5f; return false; }
-        foe.GiveHealMark(Tune.Support.MarkHeal * Stats.WardMult, Tune.Support.MarkSeconds);
-        G.Fx.Beam(CastPoint, foe.GlobalPosition, new Color(0.6f, 0.95f, 0.9f, 0.9f));
-        G.Fx.Ring(foe.GlobalPosition, foe.HitRadius + 10, new Color(0.6f, 0.95f, 0.9f, 0.9f), 0.4f);
-        G.Fx.Text(foe.HeadPoint(10f), "MENDING MARK", new Color(0.65f, 1f, 0.92f), 10, 0.9f);
-        G.Sfx.Play("bubble", GlobalPosition, -4, 0.05f, 1.2f);
-        CastPose("hex", "ward");
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        var ally = PickAlly(aim);
+        if (ally == null) { SayNo("NO ONE TO SHARE WITH"); _supportCd = 0.5f; return false; }
+        // (one at a time: the old one's pain is theirs again)
+        var old = PainTarget;
+        if (old != null && IsInstanceValid(old)) old.GivePain(Net.Me, 0f);
+        PainTarget = null;
+        if (old == ally)
+        {
+            G.Fx.Text(ally.GlobalPosition + new Vector2(0, -28), "UNSHARED", new Color(0.85f, 0.85f, 0.8f), 9, 0.7f);
+            return true;
+        }
+        PainTarget = ally;
+        ally.GivePain(Net.Me, Tune.Support.PainShare);
+        G.Fx.Beam(CastPoint, ally.GlobalPosition + new Vector2(0, -6), new Color(1f, 0.6f, 0.55f, 0.9f));
+        G.Sfx.Play("heal", CastPoint, -8, 0.05f, 0.7f);
         return true;
+    }
+
+    /// <summary>An Aegis shares (share &gt; 0) or stops sharing (0) this hero's pain.</summary>
+    public void GivePain(int aegisId, float share)
+    {
+        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Pain, share, 0, 0, aegisId); return; }
+        _painBy = aegisId; _painShare = share;
+        if (share > 0) G.Fx.Text(GlobalPosition + new Vector2(0, -28), "PAIN SHARED", new Color(1f, 0.65f, 0.6f), 9, 0.8f);
+    }
+
+    /// <summary>The Aegis's share of a blow on this hero goes to her; what's left is this hero's.</summary>
+    private float SharePain(float dmg)
+    {
+        if (_painShare <= 0f || dmg <= 0f) return dmg;
+        float shared = dmg * _painShare;
+        if (_painBy == Net.Me) { if (G.Player == null || G.Player.Dead || G.Player == this) return dmg; G.Player.TakePain(shared); }
+        else NetSync.SendBurden(_painBy, shared);
+        return dmg - shared;
+    }
+
+    /// <summary>The Aegis takes the share of a friend's blow (through her own armour; no flinch).</summary>
+    public void TakePain(float amount)
+    {
+        if (Dead || IsRemote) return;
+        amount = Soften(amount * (1f - Stats.DamageReduction) * Stats.DamageTakenMult);
+        if (amount <= 0.01f) return;
+        TakeRawDamage(amount, "chip");
+        Anim.Flash(0.4f);
     }
 }

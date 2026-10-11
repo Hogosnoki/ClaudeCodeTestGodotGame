@@ -1123,6 +1123,8 @@ public partial class Player : CharacterBody2D
         dmg = Soften(dmg);
         // (Shared Burden: the Aegis takes its share of what gets through)
         dmg = ShareBurden(dmg);
+        // (Share Pain: an Aegis takes her part of every blow)
+        dmg = SharePain(dmg);
         if (dmg <= 0.01f) { LastHitBlocked = true; _invuln = Math.Max(_invuln, 0.15f); return 0; }
         if (source != null && GodotObject.IsInstanceValid(source))
         {

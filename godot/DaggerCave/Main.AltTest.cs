@@ -524,6 +524,8 @@ public partial class Main
 
     private Enemy _rgThird;
 
+    private Vector2 _rgOrig;
+
     private void AltRogue(int s, Player p)
     {
         Enemy Held(Enemy e, float dx, float dy = -6)
@@ -534,12 +536,16 @@ public partial class Main
             return e;
         }
         float Hp(Enemy e) => IsInstanceValid(e) ? e.Hp : 0;
-        bool AnyStuck() => Enumerable.Range(0, 2).Any(k => p.ThrownDaggerAt(k) is ThrownDagger d && IsInstanceValid(d) && d.State == ThrownDagger.Phase.Stuck);
+        bool AnyStuck() => Enumerable.Range(0, 2).Any(k => p.ThrownDaggerAt(k) is ThrownDagger d && IsInstanceValid(d) && d.State == ThrownDagger.Phase.Stuck && d.StuckIn != null);
         float throwDmg = Tune.Rogue.ThrowDamage * p.Stats.DamageMult;
         switch (s)
         {
-            // ---- Ricochet: the dagger springs on to one more creature, then comes back (never sticking)
+            // ---- Ricochet: the dagger springs on to one more creature, marking each, then flies on (never sticking in a creature);
+            // a recall flings a poison pin at each marked creature
             case 5:
+                // (a long, level stretch of floor with open air ahead, so the three golems can see one another)
+                _rgOrig = p.GlobalPosition;
+                if (FindRun((int)Math.Sign(_dir), 300, false, out var run)) { p.GlobalPosition = run + new Vector2(0, -14); p.Velocity = Vector2.Zero; }
                 _rgHome = p.GlobalPosition;
                 p.Stats.MaxHp = 500; p.Hp = 500;
                 p.Stats.CritChance = 0f;
@@ -563,10 +569,19 @@ public partial class Main
             case 13:
             {
                 float a = _hpMark - Hp(_probeEnemy), b = _altMark - Hp(_probe2), c = _shieldMark - Hp(_rgThird);
-                Check($"Ricochet: the dagger strikes the first golem for {throwDmg:0} ({a:0.0}), springs on to the next for {throwDmg:0} ({b:0.0}) and no farther ({c:0.0}), and never sticks",
+                Check($"Ricochet: the dagger strikes the first golem for {throwDmg:0} ({a:0.0}), springs on to the next for {throwDmg:0} ({b:0.0}) and no farther ({c:0.0}), and never sticks in one",
                     Math.Abs(a - throwDmg) < 0.3f && Math.Abs(b - throwDmg) < 0.3f && c < 0.01f && !AnyStuck());
+                Check($"...marking the two it struck ({_probeEnemy.RogueMarked}, {_probe2.RogueMarked}), not the third ({_rgThird.RogueMarked})", _probeEnemy.RogueMarked && _probe2.RogueMarked && !_rgThird.RogueMarked);
+                _hpMark = _probeEnemy.Hp; _altMark = _probe2.Hp;
+                // the recall: a poison pin for each marked golem (and the dagger home, from a wall if it went into one)
+                _heroInput = new PlayerInput { Ability2 = true };
                 break;
             }
+            case 14: _heroInput = default; break;
+            case 16:
+                Check($"Recall flings a poison pin at each marked golem ({_hpMark - Hp(_probeEnemy):0.0}, {_altMark - Hp(_probe2):0.0}) and their marks are spent ({_probeEnemy.RogueMarked})",
+                    _hpMark - Hp(_probeEnemy) > Tune.Rogue.PinDamage * 0.5f && _altMark - Hp(_probe2) > Tune.Rogue.PinDamage * 0.5f && !_probeEnemy.RogueMarked && !_probe2.RogueMarked);
+                break;
             case 20:
                 Check($"then it flies back to you ({p.DaggersInHand} in hand)", p.DaggersInHand == 2);
                 // Chain Ricochet: one creature more
@@ -578,13 +593,16 @@ public partial class Main
             case 27:
             {
                 float a = _hpMark - Hp(_probeEnemy), b = _altMark - Hp(_probe2), c = _shieldMark - Hp(_rgThird);
+                // (the first two still smart from the pins' poison: at least the throw on each)
                 Check($"Chain Ricochet: it springs on to a third ({a:0.0}, {b:0.0}, {c:0.0})",
-                    Math.Abs(a - throwDmg) < 0.3f && Math.Abs(b - throwDmg) < 0.3f && Math.Abs(c - throwDmg) < 0.3f);
+                    a > throwDmg - 0.3f && b > throwDmg - 0.3f && Math.Abs(c - throwDmg) < 0.3f);
                 break;
             }
             case 34:
                 Check($"and still comes back ({p.DaggersInHand} in hand)", p.DaggersInHand == 2);
                 foreach (var e in new[] { _probeEnemy, _probe2, _rgThird }) if (IsInstanceValid(e)) e.QueueFree();
+                // (back to where the rest of the checks were laid out)
+                _rgHome = _rgOrig; Home(p);
                 break;
 
             // ---- Smoke Bomb: a cloud of smoke hides whoever is in it, and blinds whatever is

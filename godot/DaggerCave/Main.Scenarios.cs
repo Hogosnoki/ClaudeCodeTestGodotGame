@@ -830,12 +830,16 @@ public partial class Main
         p.Facing = 1;
         f1.QueueFree();
         var f3 = Foe(60);
+        // Share Pain: the friend aimed at gives her a part of every blow they take
         ok = p.TestSupport(aim);
-        p.Hp = 480;
-        f3.Hurt(10f, Vector2.Zero, f3.GlobalPosition, DamageKind.Raw);
-        ScCheck($"Mending Mark: marked ({ok}), and the one who strikes it is healed ({p.Hp - 480:0.0})", ok && Math.Abs(p.Hp - 480 - Tune.Support.MarkHeal * p.Stats.WardMult) < 0.6f);
-        f3.Hurt(10f, Vector2.Zero, f3.GlobalPosition, DamageKind.Raw);
-        ScCheck($"...once ({p.Hp - 480:0.0})", Math.Abs(p.Hp - 480 - Tune.Support.MarkHeal * p.Stats.WardMult) < 0.6f);
+        p.Hp = 480; friend.Stats.MaxHp = 500; friend.Hp = 500; friend.Stats.HurtInvuln = 0f;
+        friend.GlobalPosition = p.GlobalPosition + new Vector2(300, 0);
+        friend.Hurt(20f, friend.GlobalPosition + new Vector2(20, 0), 0f);
+        float fLoss = 500 - friend.Hp, aLoss = 480 - p.Hp, sh = Tune.Support.PainShare;
+        ScCheck($"Share Pain: a blow of 20 on the friend costs them {fLoss:0.0} (want {20 * (1 - sh):0.0}) and the Aegis {aLoss:0.0} (want {20 * sh:0.0})", ok && friend.PainShared && Math.Abs(fLoss - 20 * (1 - sh)) < 0.3f && Math.Abs(aLoss - 20 * sh) < 0.3f);
+        friend.GlobalPosition = p.GlobalPosition + new Vector2(60, 0);
+        ok = p.TestSupport(aim);
+        ScCheck($"...and picked again, it lifts ({friend.PainShared})", ok && !friend.PainShared);
         ScEnd();
     }
 }

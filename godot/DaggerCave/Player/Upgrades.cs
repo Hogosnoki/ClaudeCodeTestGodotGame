@@ -442,7 +442,7 @@ public static partial class Upgrades
         // --- Dagger Throw (rogue) ---
         new() { Id = "twin_throw", Name = "Twin Throw", Desc = "With both daggers in hand, you throw both at once.", Icon = "throw", For = R, Ability = "throw", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinThrow = true },
         new() { Id = "weighted", Name = "Weighted Daggers", Desc = "Your thrown daggers strike 30% harder.", Icon = "throw", For = R, Ability = "throw", MaxStacks = 2, Apply = (s, p) => s.ThrowDamageMult *= 1f + 0.3f },
-        new() { Id = "throw_ricochet", Name = "Ricochet", Desc = "A thrown dagger springs on from the creature it strikes to one more nearby, then flies back to you (it never sticks).", Icon = "throw", For = R, Ability = "throw", Alteration = true, Excludes = new[] { "recall_tether" }, Apply = (s, p) => s.Ricochet = true },
+        new() { Id = "throw_ricochet", Name = "Ricochet", Desc = "A thrown dagger springs on from the creature it strikes to one more nearby, marking each (it still sticks in walls, never in creatures). Recall flings a poison pin at every marked creature.", Icon = "throw", For = R, Ability = "throw", Alteration = true, Excludes = new[] { "recall_tether" }, Apply = (s, p) => s.Ricochet = true },
         new() { Id = "ricochet_more", Name = "Chain Ricochet", Desc = "Your ricochet springs on to one more creature.", Icon = "throw", For = R, Ability = "throw", Requires = "throw_ricochet", Apply = (s, p) => s.RicochetBounces += 1 },
 
         // --- Vanish (rogue) ---

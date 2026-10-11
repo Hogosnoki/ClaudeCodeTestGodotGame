@@ -526,7 +526,7 @@ public static class NetSync
     }
 
     /// <summary>A gift from one hero to another: the Warden's barrier, the Vitalist's mending.</summary>
-    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden, BubbleDrain, Buff, Web, Stun, Venom, Unweb, Glitch, Burn }
+    public enum Boon : byte { Barrier = 1, Mending, Bubble, Burden, BubbleDrain, Buff, Web, Stun, Venom, Unweb, Glitch, Burn, Pain }
 
     /// <summary>A boon for someone else's hero: their game gives it (a, b, c: its amount, seconds, a flag).</summary>
     public static void BoonRemote(Player target, Boon kind, float a, float b, float c = 0, int id = 0)
@@ -1276,6 +1276,7 @@ public static class NetSync
                     else if (kind == Boon.Mending) p.GiveMending(a, b, c);
                     else if (kind == Boon.Bubble) p.GiveBubble(a, b, c > 0.5f);
                     else if (kind == Boon.Burden) p.GiveBurden(id, a, b);
+                    else if (kind == Boon.Pain) p.GivePain(id, a);
                     else if (kind == Boon.BubbleDrain) p.DrainBubble(a);
                     else if (kind == Boon.Buff) p.GiveBuff(id, a);
                     // (a guardian's tricks, from the host's game, and a friend's blade through the web)

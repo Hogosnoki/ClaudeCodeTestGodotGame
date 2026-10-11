@@ -674,6 +674,7 @@ public abstract partial class Enemy : CharacterBody2D
     private bool TickAfflictions(float dt)
     {
         if (_weakT > 0) _weakT -= dt;
+        if (RogueMarkT > 0) { RogueMarkT -= dt; if (G.Chance(dt * 3f)) G.Fx.Glint(HeadPoint(6f), new Color(0.75f, 1f, 0.45f), 4); }
         if (_wardT > 0) { _wardT -= dt; if (G.Chance(dt * 3f)) G.Fx.Ring(GlobalPosition, HitRadius * 1.25f, new Color(0.6f, 0.95f, 0.9f, 0.6f), 0.3f); }
         if (_hexT > 0) _hexT -= dt;
         if (_chillT > 0) _chillT -= dt;
@@ -800,6 +801,10 @@ public abstract partial class Enemy : CharacterBody2D
 
     /// <summary>Venom in its blood (a Shape Shifter's scorpion spray, its spider's bite): <paramref name="total"/> damage over
     /// <paramref name="seconds"/>, topping up whatever is still working.</summary>
+    /// <summary>A Rogue's ricochet marked it: her next recall flings a poison pin at it (seconds left).</summary>
+    public float RogueMarkT;
+    public bool RogueMarked => RogueMarkT > 0;
+
     public void Envenom(float total, float seconds)
     {
         if (Dead || total <= 0 || seconds <= 0) return;

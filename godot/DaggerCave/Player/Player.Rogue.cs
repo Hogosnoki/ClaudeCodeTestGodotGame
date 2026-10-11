@@ -197,6 +197,8 @@ public partial class Player
         var out_ = _thrown.Where(d => d != null && IsInstanceValid(d) && d.State != ThrownDagger.Phase.Returning).ToList();
         if (out_.Count == 0)
         {
+            // (Ricochet's daggers come home by themselves: a recall with none out still flings the pins)
+            if (!fromAttack && Stats.Ricochet && ThrowPins()) { Anim.Once("throw", 3, 2.4f); return true; }
             if (fromAttack) return false;
             SayNo("BOTH DAGGERS IN HAND");
             return true;
@@ -216,6 +218,8 @@ public partial class Player
             G.Sfx.Play("dodge", GlobalPosition, -4, 0.05f, 1.4f);
             return true;
         }
+        // Ricochet: a poison pin for every creature it marked
+        if (Stats.Ricochet) ThrowPins();
         foreach (var d in out_)
         {
             // a dagger in a creature tears back out through it, yanking it toward you
@@ -227,6 +231,38 @@ public partial class Player
             d.ComeBack();
         }
         return true;
+    }
+
+    /// <summary>Ricochet marked a creature (in the thrower's game).</summary>
+    public void MarkFoe(Enemy e)
+    {
+        if (e == null || e.Dead) return;
+        if (!e.RogueMarked) G.Fx.Text(e.HeadPoint(10f), "MARKED", new Color(0.75f, 1f, 0.45f), 9, 0.7f);
+        e.RogueMarkT = Tune.Rogue.MarkSeconds;
+    }
+
+    /// <summary>Ricochet's recall: a poison pin flung at every marked creature in reach (a blow, and a poison). True if any flew.</summary>
+    private bool ThrowPins()
+    {
+        int n = 0;
+        var from = GlobalPosition + new Vector2(0, -6);
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e.Dead || !e.CanBeHit || !e.RogueMarked || e.GlobalPosition.DistanceTo(from) > Tune.Rogue.PinRange) continue;
+            if (!G.Cave.LineClear(from, e.GlobalPosition) || Breakables.Blocks(from, e.GlobalPosition)) continue;
+            e.RogueMarkT = 0f;
+            var at = e.GlobalPosition;
+            var dir = (at - from).Normalized();
+            float dealt = e.Hurt(Tune.Rogue.PinDamage * Stats.DamageMult, dir * 40f, at);
+            if (dealt > 0) OnDealtDamage(dealt);
+            if (!e.Dead) e.Envenom(Tune.Rogue.PinPoison * Stats.DamageMult, Tune.Rogue.PinSeconds);
+            // the pin's flight: a thin green streak and a prick where it goes in
+            G.Fx.Beam(from, at, new Color(0.6f, 1f, 0.35f, 0.7f));
+            G.Fx.Spark(at, dir, false, new Color(0.7f, 1f, 0.4f));
+            n++;
+        }
+        if (n > 0) G.Sfx.Play("throw", from, -4, 0.1f, 1.9f);
+        return n > 0;
     }
 
     private void RecallStrike(Enemy e, Vector2 at, bool surprise, bool sureCrit = false)

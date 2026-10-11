@@ -592,7 +592,7 @@ The trees (◆ an alteration; its upgrades are indented beneath it):
 | Elementalist · Blizzard | Deep Chill (frost 4% likelier to freeze, frostbolts and the blizzard, twice), Long Winter (50% longer), Whiteout (30% wider), Gathering Storm (back 25% sooner) | ◆ Firestorm: a storm of fire, 3 a strike, each with a 10% chance of setting a creature alight (it freezes nothing) |
 | Elementalist · Snap | Shrapnel (bursts 40% wider), Echo (5 alimus back for each creature it bursts) | ◆ Cinder Snap: burning creatures burst instead, for 20 and 6 around |
 | Rogue · Dagger Slash | Keen Edge (+5% critical chance, twice), Backstab (+50% from behind a creature), Cruel Edge (critical strikes 2.5 times as hard) | |
-| Rogue · Dagger Throw | Twin Throw (both daggers at once), Weighted Daggers (+30%, twice) | ◆ Ricochet: the dagger springs on from its creature to one more nearby (130 px), then flies back, never sticking (so it rules out Tether) · Chain Ricochet (one creature more) |
+| Rogue · Dagger Throw | Twin Throw (both daggers at once), Weighted Daggers (+30%, twice) | ◆ Ricochet: the dagger springs on from its creature to one more nearby (130 px), marking each, then flies on (into a wall, where it sticks, or back); never sticking in a creature (so it rules out Tether). A recall flings a poison pin at every marked creature (6, and 14 more over 4 s) · Chain Ricochet (one creature more) |
 | Rogue · Vanish | Surprise Attack (the attack that ends your vanishing, a jab, a throw or a recall, lands four times as hard), Quick Fade (back 20% sooner, twice), Deep Shadows (3 s longer, the smoke too) | ◆ Smoke Bomb: instead of vanishing alone, a cloud of smoke 70 px round for 6 s: every hero in it is hidden, and creatures in it can't find anyone · Thick Smoke (40% wider) |
 | Rogue · Recall | Rending Recall (twice as hard) | ◆ Tether: recall pulls you along the line to your dagger stuck in a creature, striking it as you arrive (rules out Ricochet) · Pounce (arriving is always a critical strike) |
 
@@ -1026,7 +1026,7 @@ Hex spending vital force instead of a cooldown, Slow Mending's half now and half
 Mending, Lifebloom healing you and its Healing Pool; Frostbolt's damage, chill, quicker casting
 and freezing, the aimed updraft, Firestorm setting creatures alight
 as it strikes, and Cinder Snap bursting a burning creature and splashing the one beside it;
-Ricochet striking two golems and never sticking, and Chain Ricochet a third; Smoke Bomb hiding you
+Ricochet striking two golems and marking them, never sticking in one, the recall's poison pins, and Chain Ricochet a third; Smoke Bomb hiding you
 in its cloud (and not once you're out of it) and blinding a goblin in it, and Thick Smoke's wider
 cloud; Tether pulling you to your dagger in a golem and striking it as you arrive, and Pounce's
 sure critical.
@@ -1250,8 +1250,8 @@ Every hero has a fourth ability that does something for the others (`Player.Supp
 Swordsman **Battle Shout** (allies near and you deal 10% more for 10 s, 30 s to recharge), Warden **Taunt**
 (every creature counts her as next to nothing away for 3 s), Vitalist **Health Tap** (15% of max health for
 60% of the vital force reserve), Elementalist **Stalag-Might** (30 damage and the creature is rooted for
-2 s, 15 s), Rogue **Expose** (the creature takes 20% more from everyone, and everyone crits it 10% more often, for 8 s), Aegis **Mending Mark**
-(whoever next strikes the marked creature is healed 10, 30 s), Shape Shifter **Pack Howl** (allies near run
+2 s, 15 s), Rogue **Expose** (the creature takes 20% more from everyone, and everyone crits it 10% more often, for 8 s), Aegis **Share Pain**
+(the friend she aims at gives her 15% of every blow they take, until she picks another or them again; 4 s between picks), Shape Shifter **Pack Howl** (allies near run
 20% and strike 15% faster for 8 s), Automaton **Pressurize** (a 3 s build-up, then faster, harder strikes, quicker feet and
 higher jumps, burning fuel until pressed again; see above). `--scenario=support --hero=vitalist` checks all seven.
 

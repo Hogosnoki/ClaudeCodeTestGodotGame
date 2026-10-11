@@ -295,6 +295,9 @@ public static class Tune
     public static class Rogue
     {
         public static float StartHp = 55f, MoveMult = 1.1f, JumpMult = 1f;
+        /// <summary>Ricochet's marks: a creature a ricocheting dagger strikes is marked for MarkSeconds; a recall then flings a poison
+        /// pin at every marked creature within PinRange px (PinDamage, and PinPoison more over PinSeconds).</summary>
+        public static float MarkSeconds = 10f, PinRange = 320f, PinDamage = 6f, PinPoison = 14f, PinSeconds = 4f;
         /// <summary>
         /// Dagger Slash (the attack button): quick jabs, Damage each (the baseline: a thrown dagger strikes for 1.2 x that, a recall for 1.5 x), SwingCooldown s apart (five a
         /// second), Reach px, striking one creature at a time with a tiny hit-stop; no combo refunds.
@@ -658,8 +661,9 @@ public static class Tune
         public static float StalagDamage = 30f, StalagSeconds = 2f, StalagRange = 260f, StalagCooldown = 15f, StalagGroundReach = 22f;
         /// <summary>Rogue Expose: the marked creature takes this much more from everyone.</summary>
         public static float ExposeCrit = 0.10f, ExposeVuln = 1.2f, ExposeSeconds = 8f, ExposeRange = 260f, ExposeCooldown = 20f;
-        /// <summary>Aegis Mending Mark: the next hero to strike the marked creature is healed this much.</summary>
-        public static float MarkHeal = 10f, MarkSeconds = 20f, MarkRange = 260f, MarkCooldown = 30f;
+        /// <summary>Aegis Share Pain: the ally aimed at gives PainShare of every blow they take to the Aegis instead, until she picks
+        /// another (one at a time) or picks them again; PainCooldown s between picks.</summary>
+        public static float PainShare = 0.15f, PainCooldown = 4f;
         /// <summary>Automaton Pressurize: the button is only held back this long between presses (its real wait starts when the pressure goes; see Tune.AutomatonHero).</summary>
         public static float PressurePress = 0.4f;
     }
