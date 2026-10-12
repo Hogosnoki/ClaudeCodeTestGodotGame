@@ -29,14 +29,14 @@ public static class DebugTuning
     public static readonly List<Param> All = new()
     {
         new Param { Key = "fg_bright", Label = "Foreground brightness", Group = "Foreground (the ground at and in front of the play plane)", Note = "brightness of the ground colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "fg_contrast", Label = "Foreground contrast", Group = null, Note = "contrast of the ground colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "fg_contrast", Label = "Foreground contrast", Group = null, Note = "0 = every colour the average colour; 1 = as drawn; more spreads them from it", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "bg_bright", Label = "Background brightness", Group = "Background (the back of the tunnels, behind the play plane)", Note = "brightness of the ground colours behind the play plane", Min = 0.2f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "bg_contrast", Label = "Background contrast", Group = null, Note = "contrast of the ground colours behind the play plane", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "bg_contrast", Label = "Background contrast", Group = null, Note = "the same, for the ground behind the play plane", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "back_dirt", Label = "Background dirt darkness", Group = null, Note = "the back dirt's brightness as a share of the foreground dirt's", Min = 0.0f, Max = 1.2f, Default = 0.5f, Value = 0.5f, Shader = true },
         new Param { Key = "bg_blur", Label = "Background blur", Group = null, Note = "depth blur: everything behind the play plane softens (0 = off)", Min = 0.0f, Max = 1.0f, Default = 0.0f, Value = 0.0f, Shader = false },
         new Param { Key = "bg_blur_dist", Label = "  Blur starts behind plane", Group = null, Note = "metres behind the play plane where the blur begins", Min = 0.0f, Max = 30.0f, Default = 2.0f, Value = 2.0f, Shader = false },
         new Param { Key = "obj_bright", Label = "Characters and creatures brightness", Group = "Characters and creatures", Note = "brightness of their colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "obj_contrast", Label = "Characters and creatures contrast", Group = null, Note = "contrast of their colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "obj_contrast", Label = "Characters and creatures contrast", Group = null, Note = "the same, toward each creature's own average colour", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "wall_gain", Label = "Dirt colour gain", Group = "Dirt and grass", Note = "how bright the biome's wall colour is drawn", Min = 0.2f, Max = 2.0f, Default = 0.8f, Value = 0.8f, Shader = true },
         new Param { Key = "grain_amount", Label = "Grain", Group = null, Note = "fine variation in the dirt's brightness", Min = 0.0f, Max = 0.8f, Default = 0.3f, Value = 0.3f, Shader = true },
         new Param { Key = "lump_amount", Label = "Stone shade variation", Group = null, Note = "how much each stone's shade differs from the next", Min = 0.0f, Max = 0.8f, Default = 0.34f, Value = 0.34f, Shader = true },

@@ -1278,9 +1278,12 @@ Settings gets a **Debug** tab (`UI/SettingsMenu.cs`, `Core/DebugTuning.cs`) with
   growth colour, and the steepest face that still counts as ground;
 - the cave's **ambient light** strength and biome tint, and the **camera zoom**.
 
-Brightness and contrast are made in the display's perceptual scale (contrast about its middle grey, brightness on top; `dbg_adjust` in
-`cel.gdshaderinc`). Every tuning value is a shader global (`dbg_*`, in project.godot) except the ambient light, blur and zoom, which the code
-reads. They are saved with the settings (the `[debug]` section), so a look found in debug mode stays across launches.
+Brightness and contrast are made in the display's perceptual scale (`dbg_adjust` in `cel.gdshaderinc`). Contrast works about the **average
+colour** of what is drawn, not about grey: at 0 every colour becomes that average (a flat wash of its own colour), at 1 nothing changes, above
+1 colours spread away from it. The ground's average is its dirt and grass in the shares they take on screen (25% grass), separately for the
+foreground and the darker background dirt; a creature's is the mean of its mesh's vertex colours (`body_avg`, set in `CreatureModel`);
+the camp's is its grass, and its cliff's its stone with a little grass. Brightness multiplies on top. Every tuning value is a shader global
+(`dbg_*`, in project.godot) except the ambient light, blur and zoom, which the code reads. They are saved with the settings (the `[debug]` section), so a look found in debug mode stays across launches.
 
 The box at the bottom of the tab lists **every value** (a `*` marks one changed from its default); **Copy all values** puts it on the
 clipboard (and in the log), and **Reset everything to defaults** goes back. To make a tuned look the default: change `Default` in

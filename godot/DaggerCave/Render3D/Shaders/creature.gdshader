@@ -15,6 +15,8 @@ uniform float detail_strength = 0.5;
 uniform float veins = 0.0;
 uniform vec3 vein_color : source_color = vec3(0.25, 0.02, 0.03);
 uniform float wet = 0.0;
+// the average colour of the creature (linear), for the debug contrast to pull toward (set from its mesh: CreatureModel)
+uniform vec3 body_avg = vec3(0.3);
 uniform vec3 burn_color : source_color = vec3(1.0, 0.45, 0.1);
 // ghosts: the body thins out into nothing below this rest-pose height (metres)
 uniform float ghost_below = -100.0;
@@ -237,7 +239,7 @@ void fragment() {
 	// (a flatter palette: each colour drawn a little toward its band)
 	// (stepped in brightness only: the hue stays its own, however few the tones)
 	alb = cel_tone(alb);
-	alb = dbg_adjust(alb, dbg_obj_bright, dbg_obj_contrast);
+	alb = dbg_adjust(alb, dbg_obj_bright, dbg_obj_contrast, body_avg);
 	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);
 	// (never a perfect mirror: under the sun a zero roughness makes the highlight infinite)
 	ROUGHNESS = max(rough, 0.08);

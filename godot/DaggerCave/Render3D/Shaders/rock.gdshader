@@ -195,10 +195,13 @@ void fragment() {
 		vec3 fv = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 		if (dot(fv, NORMAL) < 0.0) fv = -fv;
 		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
-		vec3 wall = tint_edge * dbg_wall_gain;
+		vec3 wall0 = tint_edge * dbg_wall_gain;
 		// (the dirt further back is darker than the dirt at the play plane)
-		wall *= mix(1.0, dbg_back_dirt, smoothstep(-0.2, -3.0, p.z));
+		vec3 wall = wall0 * mix(1.0, dbg_back_dirt, smoothstep(-0.2, -3.0, p.z));
 		vec3 ground = special_mode == 2 ? snow_col : mix(grass_col, luma(grass_col) * hue(moss_tint), dbg_grass_lean);
+		// (the average colour of the ground, for the contrast to pull toward: dirt and grass in the shares they take on screen)
+		vec3 mean_fg = mix(wall0, ground, 0.25);
+		vec3 mean_bg = mix(wall0 * dbg_back_dirt, ground, 0.25);
 		float is_ground = step(dbg_ground_up, fw.y);
 		vec3 a = mix(wall, ground, is_ground);
 		// ---- texture: grit and grain, and lumpy stones, drawn on whichever way the face looks (still flat colour, never smooth shading)
@@ -223,7 +226,7 @@ void fragment() {
 		// (under water a darker wall; over lava its glow)
 		if (liquid_mode == 1) a *= mix(1.0, 0.6, step(p.y, liquid_y));
 		else if (liquid_mode == 2) e += liquid_glow * exp(-max(p.y - liquid_y, 0.0) / 3.0) * 0.45;
-		ALBEDO = clamp(dbg_ground(a, p.z) * brightness, 0.0, 1.0);
+		ALBEDO = clamp(dbg_ground(a, p.z, mean_fg, mean_bg) * brightness, 0.0, 1.0);
 		ROUGHNESS = 0.9;
 		SPECULAR = 0.2;
 		METALLIC = 0.0;
@@ -460,7 +463,8 @@ void fragment() {
 		float lambert = max(dot(wn, normalize(face_fill_dir)), 0.0);
 		emit += alb * face_fill * face_fill_energy * face * (0.25 + 0.75 * lambert);
 	}
-	ALBEDO = clamp(dbg_ground(alb, p.z), 0.0, 1.0);
+	vec3 photo_mean = mix(tint_edge, tint_deep, 0.3);
+	ALBEDO = clamp(dbg_ground(alb, p.z, photo_mean, photo_mean), 0.0, 1.0);
 	ROUGHNESS = rough;
 	SPECULAR = spec;
 	METALLIC = 0.0;

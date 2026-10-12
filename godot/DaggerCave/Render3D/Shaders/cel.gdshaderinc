@@ -32,18 +32,22 @@ global uniform float dbg_facet_shade;
 global uniform float dbg_grass_lean;
 global uniform float dbg_ground_up;
 
-// A colour's brightness and contrast: contrast about the middle of the perceptual scale (the display's), brightness on top.
-vec3 dbg_adjust(vec3 c, float bright, float contrast) {
+// A colour's brightness and contrast. Contrast is about the AVERAGE colour of what is being drawn (mean, linear), not about grey: at 0 every
+// colour becomes that average, a flat wash of the thing's own colour; at 1 nothing changes; above 1 the colours spread away from the average.
+// It is made in the display's perceptual scale. Brightness multiplies on top.
+vec3 dbg_adjust(vec3 c, float bright, float contrast, vec3 mean) {
 	vec3 s = pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));
-	s = clamp((s - 0.5) * contrast + 0.5, 0.0, 1.0);
+	vec3 m = pow(max(mean, vec3(0.0)), vec3(1.0 / 2.2));
+	s = clamp(m + (s - m) * contrast, 0.0, 1.0);
 	return pow(s, vec3(2.2)) * bright;
 }
 
 // The ground at depth z (metres; the play plane is 0, behind it negative): its foreground adjustment fading into its background one
 // from the play plane back to 3 m behind it (the same fade the back dirt's darkness takes).
-vec3 dbg_ground(vec3 c, float z) {
+// (each with the average colour of the ground there: mean_fg at the play plane, mean_bg behind it)
+vec3 dbg_ground(vec3 c, float z, vec3 mean_fg, vec3 mean_bg) {
 	float k = smoothstep(-0.2, -3.0, z);
-	return mix(dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast), dbg_adjust(c, dbg_bg_bright, dbg_bg_contrast), k);
+	return mix(dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, mean_fg), dbg_adjust(c, dbg_bg_bright, dbg_bg_contrast, mean_bg), k);
 }
 
 // The mip bias textures are sampled with.

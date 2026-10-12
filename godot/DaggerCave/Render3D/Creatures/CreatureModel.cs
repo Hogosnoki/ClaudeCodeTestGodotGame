@@ -149,6 +149,20 @@ public static class CreatureLibrary
         _shader = null;
     }
 
+    /// <summary>The average colour of a creature's mesh (its vertex colours, as the shader reads them: linear), for the contrast dial.</summary>
+    private static Vector3 MeanColor(ArrayMesh mesh)
+    {
+        try
+        {
+            var cols = mesh.SurfaceGetArrays(0)[(int)Mesh.ArrayType.Color].AsColorArray();
+            if (cols == null || cols.Length == 0) return new Vector3(0.3f, 0.3f, 0.3f);
+            double r = 0, g = 0, b = 0;
+            foreach (var c in cols) { r += Math.Pow(c.R, 2.2); g += Math.Pow(c.G, 2.2); b += Math.Pow(c.B, 2.2); }
+            return new Vector3((float)(r / cols.Length), (float)(g / cols.Length), (float)(b / cols.Length));
+        }
+        catch { return new Vector3(0.3f, 0.3f, 0.3f); }
+    }
+
     public static CreatureKit Get(string name)
     {
         EnsureRegistered();
@@ -175,6 +189,7 @@ public static class CreatureLibrary
         mat.SetShaderParameter("wet", look.Wet);
         if (!float.IsNaN(look.GhostBelow)) { mat.SetShaderParameter("ghost_below", look.GhostBelow); mat.SetShaderParameter("ghost_fade", look.GhostFade); }
         res.Mesh.SurfaceSetMaterial(0, mat);
+        mat.SetShaderParameter("body_avg", MeanColor(res.Mesh));
         kit = new CreatureKit { Design = design, Sculpt = res, Material = mat, BuildMs = baked.Ms };
         Kits[name] = kit;
         GD.Print($"[3D] creature '{name}': {res.Triangles / 1000f:0.0}k triangles, {res.Bones.Length} bones, baked in {baked.Ms:0} ms" +
