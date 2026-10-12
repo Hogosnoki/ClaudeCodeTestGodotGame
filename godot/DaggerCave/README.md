@@ -1277,9 +1277,19 @@ Settings gets a **Debug** tab (`UI/SettingsMenu.cs`, `Core/DebugTuning.cs`) with
   can be watched behind it (at the character select the camp shows, with the hero strip stepped aside; opened from the pause menu, the
   paused cave);
 - **Characters and creatures** brightness and contrast;
-- **Red, green and blue** gains (0 to 2, 1 = unchanged) for each of the three: the foreground ground, the background ground and the characters
-  and creatures, and for the **whole picture** (a full-screen pass over everything lit in 3D, under the HUD: `CelPost`, which now also shows
-  whenever one of these is off 1);
+- **Red, green and blue** gains (0 to 2, 1 = unchanged) for **every distinct material**: characters and creatures (with their brightness and
+  contrast), dirt, grass, stone, snow and ice, wood, metal, roots and bark, bone, the camp's trees, and for the **whole picture** (a full-screen
+  pass over everything lit in 3D, under the HUD: `CelPost`, which also shows whenever one of these is off 1). The shader-drawn materials (the
+  cave's dirt, grass and snow, the camp's meadow and cliff, the grass blades) read them as shader globals (`dbg_m_*`); standard materials are
+  registered with `MaterialGains.Tint` (wood: the chests' planks and the camp's logs; metal: steel, gold and iron; stone: the rubble, ledge
+  and boulder rock and the camp's far mountains) and have their albedo colour multiplied live. The photographed-texture ground (minimalist
+  ground off) isn't covered;
+- **3D shape and transitions**: **polygon smoothing** (0: every polygon flat; 1: smooth shading across them, and the grass test follows the
+  smoothed normal, so its edge stops following the polygons), **grass/dirt transition softness** (0: a hard edge; up to a wide gradual blend),
+  the **foreground-to-background fade** distance (0.3 to 12 m: how far behind the play plane the foreground look gives way to the
+  background look, for both the back dirt's darkness and the background adjustments) and **crevice softness** (the cracks between stones);
+- **Scene effects**: cave haze, ambient occlusion and bloom strength (times the usual), exposure, camera **field of view** (the framing stays
+  the same, only the perspective changes), **outline sensitivity** (how big a depth step makes a border; lower: more) and **border opacity**;
 - the dirt and grass: dirt colour gain, grain, stone shade variation, crevices, stone size, facet shade, how much the grass takes the biome's
   growth colour, and the steepest face that still counts as ground;
 - the cave's **ambient light** strength and biome tint, and the **camera zoom**.

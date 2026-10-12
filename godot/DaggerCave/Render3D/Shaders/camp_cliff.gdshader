@@ -113,11 +113,13 @@ void fragment() {
 	if (solid) {
 		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
 		m = step(0.6, fw.y) * step(0.01, moss_amount);
-		c = mix(stone_col, grass_col, m);
+		c = mix(stone_col * dbg_stone_rgb(), grass_col * dbg_grass_rgb(), m);
+	} else {
+		c *= mix(dbg_stone_rgb(), dbg_grass_rgb(), m);
 	}
 	float sh = mouth_shade(v_wp, true);
 	c *= 1.0 - 0.96 * sh;
-	ALBEDO = dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, mix(stone_col, grass_col, 0.2), dbg_fg_rgb());
+	ALBEDO = dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, mix(stone_col * dbg_stone_rgb(), grass_col * dbg_grass_rgb(), 0.2), vec3(1.0));
 	ROUGHNESS = mix(0.86, 0.96, m);
 	SPECULAR = 0.25 * (1.0 - m) * (1.0 - sh);
 	// (the haze, but none over the dark of the mouth: otherwise the black there would be lifted to a pale grey)

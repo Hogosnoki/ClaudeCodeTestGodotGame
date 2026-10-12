@@ -22,15 +22,25 @@ global uniform float dbg_bg_bright;
 global uniform float dbg_bg_contrast;
 global uniform float dbg_obj_bright;
 global uniform float dbg_obj_contrast;
-global uniform float dbg_fg_r;
-global uniform float dbg_fg_g;
-global uniform float dbg_fg_b;
-global uniform float dbg_bg_r;
-global uniform float dbg_bg_g;
-global uniform float dbg_bg_b;
 global uniform float dbg_obj_r;
 global uniform float dbg_obj_g;
 global uniform float dbg_obj_b;
+global uniform float dbg_m_dirt_r;
+global uniform float dbg_m_dirt_g;
+global uniform float dbg_m_dirt_b;
+global uniform float dbg_m_grass_r;
+global uniform float dbg_m_grass_g;
+global uniform float dbg_m_grass_b;
+global uniform float dbg_m_stone_r;
+global uniform float dbg_m_stone_g;
+global uniform float dbg_m_stone_b;
+global uniform float dbg_m_snow_r;
+global uniform float dbg_m_snow_g;
+global uniform float dbg_m_snow_b;
+global uniform float dbg_poly_smooth;
+global uniform float dbg_trans_soft;
+global uniform float dbg_bg_fade;
+global uniform float dbg_crevice_soft;
 global uniform float dbg_wall_gain;
 global uniform float dbg_back_dirt;
 global uniform float dbg_grain_amount;
@@ -51,16 +61,18 @@ vec3 dbg_adjust(vec3 c, float bright, float contrast, vec3 mean, vec3 rgb) {
 	return pow(s, vec3(2.2)) * bright * rgb;
 }
 
-vec3 dbg_fg_rgb() { return vec3(dbg_fg_r, dbg_fg_g, dbg_fg_b); }
-vec3 dbg_bg_rgb() { return vec3(dbg_bg_r, dbg_bg_g, dbg_bg_b); }
+vec3 dbg_dirt_rgb() { return vec3(dbg_m_dirt_r, dbg_m_dirt_g, dbg_m_dirt_b); }
+vec3 dbg_grass_rgb() { return vec3(dbg_m_grass_r, dbg_m_grass_g, dbg_m_grass_b); }
+vec3 dbg_stone_rgb() { return vec3(dbg_m_stone_r, dbg_m_stone_g, dbg_m_stone_b); }
+vec3 dbg_snow_rgb() { return vec3(dbg_m_snow_r, dbg_m_snow_g, dbg_m_snow_b); }
 vec3 dbg_obj_rgb() { return vec3(dbg_obj_r, dbg_obj_g, dbg_obj_b); }
 
 // The ground at depth z (metres; the play plane is 0, behind it negative): its foreground adjustment fading into its background one
 // from the play plane back to 3 m behind it (the same fade the back dirt's darkness takes).
 // (each with the average colour of the ground there: mean_fg at the play plane, mean_bg behind it)
 vec3 dbg_ground(vec3 c, float z, vec3 mean_fg, vec3 mean_bg) {
-	float k = smoothstep(-0.2, -3.0, z);
-	return mix(dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, mean_fg, dbg_fg_rgb()), dbg_adjust(c, dbg_bg_bright, dbg_bg_contrast, mean_bg, dbg_bg_rgb()), k);
+	float k = smoothstep(-0.2, -0.2 - dbg_bg_fade, z);
+	return mix(dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, mean_fg, vec3(1.0)), dbg_adjust(c, dbg_bg_bright, dbg_bg_contrast, mean_bg, vec3(1.0)), k);
 }
 
 // The mip bias textures are sampled with.

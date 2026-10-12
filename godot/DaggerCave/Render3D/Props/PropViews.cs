@@ -85,19 +85,19 @@ public static class PropViews
     public static QuadMesh Quad => _quad ??= new QuadMesh { Size = new Vector2(2, 2) };
 
     private static StandardMaterial3D _ice, _steel, _wood, _gold, _glass, _rock, _rubble, _ledgeRock, _vcol;
-    public static StandardMaterial3D Ice => _ice ??= new StandardMaterial3D
+    public static StandardMaterial3D Ice => _ice ??= MaterialGains.Tint(new StandardMaterial3D
     {
         AlbedoColor = new Color(0.62f, 0.85f, 1f, 0.72f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.08f,
         RimEnabled = true, Rim = 0.8f, EmissionEnabled = true, Emission = new Color(0.25f, 0.55f, 0.8f), EmissionEnergyMultiplier = 0.25f,
-    };
+    }, "snow");
     public static StandardMaterial3D Steel => _steel ??= AmbientOnly.Metal(new StandardMaterial3D { AlbedoColor = new Color(0.75f, 0.78f, 0.82f), Metallic = 0.95f, Roughness = 0.28f });
-    public static StandardMaterial3D Wood => _wood ??= new StandardMaterial3D { AlbedoColor = new Color(0.36f, 0.21f, 0.11f), Roughness = 0.8f };
+    public static StandardMaterial3D Wood => _wood ??= MaterialGains.Tint(new StandardMaterial3D { AlbedoColor = new Color(0.36f, 0.21f, 0.11f), Roughness = 0.8f }, "wood");
     public static StandardMaterial3D Gold => _gold ??= AmbientOnly.Metal(new StandardMaterial3D { AlbedoColor = new Color(0.95f, 0.72f, 0.3f), Metallic = 1f, Roughness = 0.3f });
     public static StandardMaterial3D Glass => _glass ??= new StandardMaterial3D
     {
         AlbedoColor = new Color(0.85f, 0.92f, 1f, 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f, RimEnabled = true, Rim = 1f,
     };
-    public static StandardMaterial3D Rock => _rock ??= new StandardMaterial3D { AlbedoColor = new Color(0.42f, 0.38f, 0.34f), Roughness = 0.9f, VertexColorUseAsAlbedo = true };
+    public static StandardMaterial3D Rock => _rock ??= MaterialGains.Tint(new StandardMaterial3D { AlbedoColor = new Color(0.42f, 0.38f, 0.34f), Roughness = 0.9f, VertexColorUseAsAlbedo = true }, "stone");
     /// <summary>Rubble stone: real rock grain, projected from all three sides, over the chunks' own face tones.</summary>
     public static StandardMaterial3D RubbleRock => _rubble ??= Solidify(new StandardMaterial3D
     {
@@ -117,6 +117,7 @@ public static class PropViews
     /// <summary>The stone materials as the solid-colour setting says: flat (just the blocks' own tones) or with the photographed grain.</summary>
     private static StandardMaterial3D Solidify(StandardMaterial3D m)
     {
+        MaterialGains.Tint(m, "stone");
         if (!Grain.ContainsKey(m)) Grain[m] = (m.AlbedoTexture, m.NormalTexture);
         var (alb, nor) = Grain[m];
         bool solid = GameSettings.SolidTerrain;
@@ -132,6 +133,9 @@ public static class PropViews
         if (_rubble != null) Solidify(_rubble);
         if (_ledgeRock != null) Solidify(_ledgeRock);
     }
+    /// <summary>The chests' wood: vertex colours (each plank its own shade) as the wood material, so the debug tab's wood gains reach it.</summary>
+    public static StandardMaterial3D ChestWood => _chestWood ??= MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.6f }, "wood");
+    private static StandardMaterial3D _chestWood;
     public static StandardMaterial3D VertexColored => _vcol ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.6f };
 
     /// <summary>
@@ -1215,7 +1219,7 @@ public partial class ChestView : PropView
             PropMeshes.Box(body, new Vector3(w, y0, 0), new Vector3(0.015f, h * 0.5f / planks - 0.008f, d), pc);
             PropMeshes.Box(body, new Vector3(-w, y0, 0), new Vector3(0.015f, h * 0.5f / planks - 0.008f, d), pc);
         }
-        AddChild(PropViews.Mesh(body, PropViews.VertexColored));
+        AddChild(PropViews.Mesh(body, PropViews.ChestWood));
         // the metal: bands, corner brackets, rivets, the lock plate
         var metal = new MeshBuilder();
         foreach (float x in new[] { -w * 0.62f, w * 0.62f })
@@ -1274,7 +1278,7 @@ public partial class ChestView : PropView
         // the rim of the lid, and the hasp hanging over the lock
         PropMeshes.Box(lidMetal, new Vector3(0, 0.01f, d * 2f + 0.01f), new Vector3(w * 1.03f, 0.022f, 0.016f), Colors.White);
         PropMeshes.Box(lidMetal, new Vector3(0, -0.03f, d * 2f + 0.03f), new Vector3(0.035f, 0.06f, 0.01f), Colors.White);
-        _lid.AddChild(PropViews.Mesh(lid, PropViews.VertexColored));
+        _lid.AddChild(PropViews.Mesh(lid, PropViews.ChestWood));
         _lid.AddChild(PropViews.Mesh(lidMetal, bandMat));
         if (_tier == ChestTier.Relic)
         {
@@ -2601,7 +2605,7 @@ public partial class RubbleView : PropView
     private static readonly Dictionary<(int, int), ArrayMesh> _skullMeshes = new();
     private static readonly float[] SkullSizes = { 0.36f, 0.42f, 0.49f };
     private static StandardMaterial3D _boneMat;
-    private static StandardMaterial3D BoneMat => _boneMat ??= new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f, RimEnabled = true, Rim = 0.25f };
+    private static StandardMaterial3D BoneMat => _boneMat ??= MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.8f, RimEnabled = true, Rim = 0.25f }, "bone");
     private static ArrayMesh PileMesh(int size, int tone, bool longBone)
     {
         var key = (size + (longBone ? 10 : 0), tone);

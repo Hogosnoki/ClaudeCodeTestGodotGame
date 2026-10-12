@@ -168,6 +168,7 @@ public partial class Stage3D : Node3D
     private bool _debugBright, _debugNoFog;
     private float _ambientBase = 0.25f;
     private float _camDist = 40f;
+    private float _fogBase = 0.012f;
     private CameraAttributesPractical _dof;
 
     /// <summary>Debug mode's background blur: everything behind the play plane softens (a depth-of-field blur on the far side).</summary>
@@ -220,7 +221,8 @@ public partial class Stage3D : Node3D
         _ambientBase = Mathf.Lerp(0.95f, 0.45f, dark);
         Env.AmbientLightEnergy = _ambientBase;
         Env.VolumetricFogAlbedo = glow.Lerp(new Color(0.75f, 0.78f, 0.85f), 0.6f);
-        Env.VolumetricFogDensity = 0.008f + dark * 0.01f;
+        _fogBase = 0.008f + dark * 0.01f;
+        Env.VolumetricFogDensity = _fogBase;
         Env.VolumetricFogEmission = b.BackBottom.Lerp(glow, 0.15f);
         Env.VolumetricFogEmissionEnergy = 0.5f;
         _fill.LightEnergy = Mathf.Lerp(0.3f, 0.06f, dark);
@@ -234,7 +236,8 @@ public partial class Stage3D : Node3D
         if (cave.Liquid == Liquid.Lava)
         {
             Env.VolumetricFogAlbedo = new Color(1f, 0.55f, 0.35f);
-            Env.VolumetricFogDensity += 0.006f;
+            _fogBase += 0.006f;
+            Env.VolumetricFogDensity = _fogBase;
         }
         if (_debugBright)
         {
@@ -253,7 +256,11 @@ public partial class Stage3D : Node3D
         Env.VolumetricFogEnabled = GameSettings.Fog && !_debugBright && !_debugNoFog;
         Env.GlowEnabled = GameSettings.Bloom;
         Env.SsaoEnabled = GameSettings.AmbientOcclusion;
-        Env.TonemapExposure = 1.1f * GameSettings.Brightness;
+        Env.TonemapExposure = 1.1f * GameSettings.Brightness * DebugTuning.V("exposure");
+        // (debug mode's scene effect strengths, on top of what each biome sets)
+        Env.VolumetricFogDensity = _fogBase * DebugTuning.V("fog_mult");
+        Env.SsaoIntensity = 2.2f * DebugTuning.V("ao_mult");
+        Env.GlowIntensity = 0.9f * DebugTuning.V("bloom_mult");
         // (ambient light only: the other lights are muted by AmbientOnly, the ambient raised to make up for them)
         // (with only the ambient, it is near white and the same strength everywhere, so each thing shows its own colour: the biome's
         // light only tints it a little)
@@ -338,7 +345,7 @@ public partial class Stage3D : Node3D
         c += cam2.Offset;
 
         float viewH = ViewHeightM(vp, cam2);
-        float fov = Tune.Feel.Camera3DFov;
+        float fov = DebugTuning.V("cam_fov");
         float dist = viewH * 0.5f / MathF.Tan(Mathf.DegToRad(fov) * 0.5f);
         _camDist = dist;
         ApplyDepthBlur();

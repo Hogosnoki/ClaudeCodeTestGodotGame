@@ -6,6 +6,8 @@ uniform vec3 root_color : source_color = vec3(0.10, 0.16, 0.06);
 uniform vec3 tip_color : source_color = vec3(0.35, 0.55, 0.2);
 uniform float wind = 0.06;
 uniform float tip_glow = 0.0;
+// (debug mode: the grass material's red, green and blue gains)
+#include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
 
 varying float v_h;
 varying vec3 v_wp;
@@ -22,6 +24,7 @@ void fragment() {
 	vec3 c = mix(root_color, tip_color, smoothstep(0.0, 1.0, v_h));
 	float var = fract(sin(dot(floor(v_wp.xz * 3.0), vec2(12.9898, 78.233))) * 43758.5453);
 	c *= 0.8 + 0.4 * var;
+	c *= dbg_grass_rgb();
 	ALBEDO = c;
 	ROUGHNESS = 0.8;
 	SPECULAR = 0.25;

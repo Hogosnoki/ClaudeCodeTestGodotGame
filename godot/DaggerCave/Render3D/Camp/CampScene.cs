@@ -367,7 +367,7 @@ public partial class CampScene : SubViewport
             AddTree(mb, new Vector3(x, Ground(x, z), z), 7f + 5f * (float)_rng.NextDouble(), noise);
         }
         mb.SmoothNormals();
-        var mat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.9f };
+        var mat = MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.9f }, "trees");
         AddChild(new MeshInstance3D { Mesh = mb.ToMesh(mat), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
     }
 
@@ -383,7 +383,7 @@ public partial class CampScene : SubViewport
         foreach (var (x, z, w, h) in peaks)
             mb.Blob(new Vector3(x, -10f, z), new Vector3(w, h, w * 0.6f), 10, new Color(0.38f, 0.46f, 0.44f), noise, 0.32f, 2.1f, 0.5f);
         mb.SmoothNormals();
-        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 1f }), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
+        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 1f }, "stone")), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
 
         // fair-weather clouds drifting over
         var cloudMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 1f, 1f), Roughness = 1f, EmissionEnabled = true, Emission = new Color(0.82f, 0.86f, 0.95f), EmissionEnergyMultiplier = 0.45f };
@@ -460,7 +460,7 @@ public partial class CampScene : SubViewport
             mb.Tube(new List<Vector3> { logC + along * LogHalf, logC - along * LogHalf }, new List<float> { 0.19f, 0.2f }, 9, new Color(0.62f, 0.5f, 0.34f), true);
         }
         mb.SmoothNormals();
-        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.85f }), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
+        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.85f }, "wood")), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
 
         // the flames
         var flameMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/camp_fire.gdshader") };

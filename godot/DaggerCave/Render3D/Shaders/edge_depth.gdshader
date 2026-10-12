@@ -13,7 +13,9 @@ uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable
 uniform sampler2D normal_tex : hint_normal_roughness_texture, filter_nearest, repeat_disable;
 uniform vec4 ink : source_color = vec4(0.02, 0.018, 0.022, 0.9);
 // how big a step (as a share of the distance) counts as an outline
-uniform float step_share = 0.06;
+// (debug mode: the outline sensitivity and the border's opacity)
+global uniform float dbg_edge_step;
+global uniform float dbg_edge_alpha;
 // how sharp a fold (degrees between the two sides) counts as a hard edge
 uniform float crease_deg = 50.0;
 
@@ -50,11 +52,11 @@ void fragment() {
 			// one side steps far behind, the other doesn't step nearer (so this pixel is the near side's edge, not a slope)
 			float behind = max(a, b) - d;
 			float nearer = d - min(a, b);
-			if (behind > d * step_share && nearer < behind * 0.5) {
+			if (behind > d * dbg_edge_step && nearer < behind * 0.5) {
 				cover = max(cover, clamp(px - r + 1.0, 0.0, 1.0));
 			}
 			// (a fold: looked for on one side only, so the line is drawn once, not on both faces; and only on one continuous surface)
-			if (abs(a - d) < d * step_share) {
+			if (abs(a - d) < d * dbg_edge_step) {
 				vec3 na = texture(normal_tex, uv + o).xyz * 2.0 - 1.0;
 				if (dot(normalize(na), normalize(nc)) < crease) cover = max(cover, clamp(px - r + 1.0, 0.0, 1.0));
 			}
@@ -62,5 +64,5 @@ void fragment() {
 	}
 	if (cover <= 0.0) discard;
 	ALBEDO = ink.rgb;
-	ALPHA = ink.a * cover;
+	ALPHA = dbg_edge_alpha * cover;
 }

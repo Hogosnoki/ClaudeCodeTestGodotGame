@@ -121,30 +121,6 @@ dbg_ground_up={
 "type": "float",
 "value": 0.6
 }
-dbg_fg_r={
-"type": "float",
-"value": 1.0
-}
-dbg_fg_g={
-"type": "float",
-"value": 1.0
-}
-dbg_fg_b={
-"type": "float",
-"value": 1.0
-}
-dbg_bg_r={
-"type": "float",
-"value": 1.0
-}
-dbg_bg_g={
-"type": "float",
-"value": 1.0
-}
-dbg_bg_b={
-"type": "float",
-"value": 1.0
-}
 dbg_obj_r={
 "type": "float",
 "value": 1.0
@@ -154,6 +130,78 @@ dbg_obj_g={
 "value": 1.0
 }
 dbg_obj_b={
+"type": "float",
+"value": 1.0
+}
+dbg_poly_smooth={
+"type": "float",
+"value": 0.0
+}
+dbg_trans_soft={
+"type": "float",
+"value": 0.0
+}
+dbg_bg_fade={
+"type": "float",
+"value": 3.0
+}
+dbg_crevice_soft={
+"type": "float",
+"value": 0.26
+}
+dbg_edge_step={
+"type": "float",
+"value": 0.06
+}
+dbg_edge_alpha={
+"type": "float",
+"value": 0.9
+}
+dbg_m_dirt_r={
+"type": "float",
+"value": 1.0
+}
+dbg_m_dirt_g={
+"type": "float",
+"value": 1.0
+}
+dbg_m_dirt_b={
+"type": "float",
+"value": 1.0
+}
+dbg_m_grass_r={
+"type": "float",
+"value": 1.0
+}
+dbg_m_grass_g={
+"type": "float",
+"value": 1.0
+}
+dbg_m_grass_b={
+"type": "float",
+"value": 1.0
+}
+dbg_m_stone_r={
+"type": "float",
+"value": 1.0
+}
+dbg_m_stone_g={
+"type": "float",
+"value": 1.0
+}
+dbg_m_stone_b={
+"type": "float",
+"value": 1.0
+}
+dbg_m_snow_r={
+"type": "float",
+"value": 1.0
+}
+dbg_m_snow_g={
+"type": "float",
+"value": 1.0
+}
+dbg_m_snow_b={
 "type": "float",
 "value": 1.0
 }

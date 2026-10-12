@@ -142,7 +142,7 @@ public partial class CaveDecor3D : Node3D
         iceMat.SetShaderParameter("glow_energy", 0.5f);
         iceMat.SetShaderParameter("crystal", 1f);
         iceMat.SetShaderParameter("pulse", 0f);
-        var rootMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.9f };
+        var rootMat = MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.9f }, "roots");
 
         // ---- variants
         var stal = new Kind[4];
@@ -165,7 +165,7 @@ public partial class CaveDecor3D : Node3D
         var icicles = frost ? new[] { NewKind(DecorMeshes.Icicles(_rng, 5, 0.8f), iceMat, true), NewKind(DecorMeshes.Icicles(_rng, 9, 1.3f), iceMat, true) } : null;
         var roots = entrance || b.GiantRoots ? new[] { NewKind(DecorMeshes.Roots(_rng, 3, 2.2f, noise), rootMat, true), NewKind(DecorMeshes.Roots(_rng, 5, 3.2f, noise), rootMat, true) } : null;
         // the root-choked tunnels: massive roots down through the ceilings from the world above
-        var barkMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.95f };
+        var barkMat = MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.95f }, "roots");
         var bark = b.Edge.Lerp(new Color(0.25f, 0.17f, 0.1f), 0.7f);
         Kind[] giantRoots = null;
         if (b.GiantRoots)
@@ -174,7 +174,7 @@ public partial class CaveDecor3D : Node3D
             for (int k = 0; k < giantRoots.Length; k++) giantRoots[k] = NewKind(DecorMeshes.GiantRoot(_rng, noise, 3.5f + k * 1.6f, 0.34f + k * 0.08f, bark.Lightened(0.04f * k)), barkMat, true);
         }
         // the fossil graveyards: old bones everywhere underfoot (and ribcages and skulls, below)
-        var boneMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.78f, RimEnabled = true, Rim = 0.2f };
+        var boneMat = MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.78f, RimEnabled = true, Rim = 0.2f }, "bone");
         var boneCol = b.Glow.Lerp(new Color(0.78f, 0.72f, 0.6f), 0.7f).Darkened(0.12f);
         var bonePiles = b.Leviathans || b.Ossuary ? new[] { NewKind(DecorMeshes.Bones(_rng, noise, 5, 1f, boneCol), boneMat, true), NewKind(DecorMeshes.Bones(_rng, noise, 9, 1.3f, boneCol), boneMat, true) } : null;
         // the catacombs: loose skulls and heaps of them, long bones, burial urns, and skulls to rack up on the walls

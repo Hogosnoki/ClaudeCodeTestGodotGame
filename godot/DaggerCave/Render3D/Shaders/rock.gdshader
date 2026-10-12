@@ -165,7 +165,7 @@ vec2 stones(vec2 q) {
 			else if (d < d2) d2 = d;
 		}
 	}
-	return vec2(id, 1.0 - smoothstep(0.0, 0.26, d2 - d1));
+	return vec2(id, 1.0 - smoothstep(0.0, dbg_crevice_soft, d2 - d1));
 }
 
 // A hard edge where v crosses e: no wider than a pixel or so at any distance (so it doesn't shimmer), never a smeared blend.
@@ -192,17 +192,22 @@ void fragment() {
 
 	if (terrain_solid > 0.5) {
 		// ---- minimalist: the face's own direction, not the smoothed one (every polygon flat, every corner an edge)
+		vec3 smooth_n = NORMAL;
 		vec3 fv = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 		if (dot(fv, NORMAL) < 0.0) fv = -fv;
 		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
-		vec3 wall0 = tint_edge * dbg_wall_gain;
+		vec3 wall0 = tint_edge * dbg_wall_gain * dbg_dirt_rgb();
 		// (the dirt further back is darker than the dirt at the play plane)
-		vec3 wall = wall0 * mix(1.0, dbg_back_dirt, smoothstep(-0.2, -3.0, p.z));
-		vec3 ground = special_mode == 2 ? snow_col : mix(grass_col, luma(grass_col) * hue(moss_tint), dbg_grass_lean);
+		vec3 wall = wall0 * mix(1.0, dbg_back_dirt, smoothstep(-0.2, -0.2 - dbg_bg_fade, p.z));
+		vec3 ground = special_mode == 2 ? snow_col * dbg_snow_rgb() : mix(grass_col, luma(grass_col) * hue(moss_tint), dbg_grass_lean) * dbg_grass_rgb();
 		// (the average colour of the ground, for the contrast to pull toward: dirt and grass in the shares they take on screen)
 		vec3 mean_fg = mix(wall0, ground, 0.25);
 		vec3 mean_bg = mix(wall0 * dbg_back_dirt, ground, 0.25);
-		float is_ground = step(dbg_ground_up, fw.y);
+		// (polygon smoothing: how far the grass test and the shading follow the smoothed normal instead of each face's own; the grass edge
+		// softness: how wide the blend from dirt to grass is, in the face's up component)
+		float up_v = mix(fw.y, normalize((INV_VIEW_MATRIX * vec4(smooth_n, 0.0)).xyz).y, dbg_poly_smooth);
+		float gsoft = dbg_trans_soft * 0.35;
+		float is_ground = gsoft > 0.002 ? smoothstep(dbg_ground_up - gsoft, dbg_ground_up + gsoft, up_v) : step(dbg_ground_up, up_v);
 		vec3 a = mix(wall, ground, is_ground);
 		// ---- texture: grit and grain, and lumpy stones, drawn on whichever way the face looks (still flat colour, never smooth shading)
 		vec2 tq = fw.y > 0.6 ? p.xz : abs(fw.z) > abs(fw.x) ? p.xy : p.zy;
@@ -212,13 +217,13 @@ void fragment() {
 		vec2 st = stones(tq / dbg_stone_size);
 		vec2 pb = stones(tq / (dbg_stone_size * 0.3) + 17.0);
 		float lump = (st.x - 0.5) * 2.0 + (pb.x - 0.5) * 0.7;
-		float tex = 1.0 + (grain - 0.5) * 2.0 * dbg_grain_amount + lump * dbg_lump_amount * (is_ground > 0.5 ? 0.3 : 1.0);
+		float tex = 1.0 + (grain - 0.5) * 2.0 * dbg_grain_amount + lump * dbg_lump_amount * mix(1.0, 0.3, is_ground);
 		// (bright grit on dirt, dark crevices between the stones and the small stones in them; grass gets its own mottle and a few
 		// pebbles instead of crevices)
-		tex *= 1.0 - (st.y + pb.y * 0.5) * dbg_crevice_amount * (is_ground > 0.5 ? 0.0 : 1.0);
-		tex += grit * 0.2 * (is_ground > 0.5 ? 0.4 : 1.0);
+		tex *= 1.0 - (st.y + pb.y * 0.5) * dbg_crevice_amount * (1.0 - is_ground);
+		tex += grit * 0.2 * mix(1.0, 0.4, is_ground);
 		float mottle = vnoise2(tq * 3.2);
-		a *= tex * (is_ground > 0.5 ? 0.85 + 0.3 * mottle : 0.9 + 0.2 * mottle);
+		a *= tex * mix(0.9 + 0.2 * mottle, 0.85 + 0.3 * mottle, is_ground);
 		// (each face a shade of its own, from its direction: two neighbours never quite match, even where the light is flat)
 		float fh = fract(sin(dot(floor(fw * 64.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
 		a *= 1.0 - dbg_facet_shade * 0.5 + dbg_facet_shade * fh;
@@ -231,7 +236,7 @@ void fragment() {
 		SPECULAR = 0.2;
 		METALLIC = 0.0;
 		EMISSION = e;
-		NORMAL = fv;
+		NORMAL = normalize(mix(fv, smooth_n, dbg_poly_smooth));
 	} else {
 
 	// ---- base rock: two photographed rocks, mixed by a slow variation mask

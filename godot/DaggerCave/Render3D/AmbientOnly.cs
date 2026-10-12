@@ -27,6 +27,7 @@ public partial class AmbientOnly : Node
     /// metallic turned down, and back up when the setting is off). Returns the material.</summary>
     public static StandardMaterial3D Metal(StandardMaterial3D m)
     {
+        MaterialGains.Tint(m, "metal");
         Metals.Add((GodotObject.WeakRef(m), m.Metallic));
         m.Metallic = Metallic(m.Metallic);
         return m;
