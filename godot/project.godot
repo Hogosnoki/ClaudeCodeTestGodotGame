@@ -23,7 +23,7 @@ cel_shading={
 
 cel_tex_blur={
 "type": "float",
-"value": 0.0
+"value": 0.2
 }
 cel_tex_tones={
 "type": "float",
@@ -35,7 +35,7 @@ cel_light_blur={
 }
 cel_light_tones={
 "type": "float",
-"value": 9.0
+"value": 0.0
 }
 cel_band_soft={
 "type": "float",
@@ -51,11 +51,11 @@ terrain_solid={
 }
 ink_terrain_px={
 "type": "float",
-"value": 1.2
+"value": 1.4
 }
 ink_actor_px={
 "type": "float",
-"value": 2.975
+"value": 1.6
 }
 light_ambient_only={
 "type": "float",
@@ -63,7 +63,7 @@ light_ambient_only={
 }
 dbg_fg_bright={
 "type": "float",
-"value": 0.922
+"value": 0.916
 }
 dbg_fg_contrast={
 "type": "float",
@@ -99,11 +99,11 @@ dbg_grain_amount={
 }
 dbg_lump_amount={
 "type": "float",
-"value": 0.32
+"value": 0.322
 }
 dbg_crevice_amount={
 "type": "float",
-"value": 0.273
+"value": 0.275
 }
 dbg_stone_size={
 "type": "float",
@@ -131,31 +131,31 @@ dbg_obj_g={
 }
 dbg_obj_b={
 "type": "float",
-"value": 0.995
+"value": 1.0
 }
 dbg_poly_smooth={
 "type": "float",
-"value": 0.9
+"value": 0.843
 }
 dbg_trans_soft={
 "type": "float",
-"value": 0.035
+"value": 0.025
 }
 dbg_bg_fade={
 "type": "float",
-"value": 0.3
+"value": 1.178
 }
 dbg_crevice_soft={
 "type": "float",
-"value": 0.203
+"value": 0.353
 }
 dbg_edge_step={
 "type": "float",
-"value": 0.3
+"value": 0.019
 }
 dbg_edge_alpha={
 "type": "float",
-"value": 0.64
+"value": 0.91
 }
 dbg_m_dirt_r={
 "type": "float",
@@ -163,7 +163,7 @@ dbg_m_dirt_r={
 }
 dbg_m_dirt_g={
 "type": "float",
-"value": 1.005
+"value": 1.0
 }
 dbg_m_dirt_b={
 "type": "float",
@@ -175,31 +175,31 @@ dbg_m_grass_r={
 }
 dbg_m_grass_g={
 "type": "float",
-"value": 0.995
+"value": 1.005
 }
 dbg_m_grass_b={
 "type": "float",
-"value": 0.995
+"value": 0.99
 }
 dbg_m_stone_r={
 "type": "float",
-"value": 1.005
+"value": 1.0
 }
 dbg_m_stone_g={
 "type": "float",
-"value": 1.0
+"value": 1.125
 }
 dbg_m_stone_b={
 "type": "float",
-"value": 0.99
+"value": 1.355
 }
 dbg_m_snow_r={
 "type": "float",
-"value": 0.99
+"value": 0.985
 }
 dbg_m_snow_g={
 "type": "float",
-"value": 1.0
+"value": 1.005
 }
 dbg_m_snow_b={
 "type": "float",
@@ -207,13 +207,13 @@ dbg_m_snow_b={
 }
 dbg_scr_r={
 "type": "float",
-"value": 0.995
+"value": 1.165
 }
 dbg_scr_g={
 "type": "float",
-"value": 0.995
+"value": 1.045
 }
 dbg_scr_b={
 "type": "float",
-"value": 1.0
+"value": 0.675
 }

@@ -50,8 +50,8 @@ public static class GameSettings
     public static class LookDef
     {
         public const bool Shading = true, Solid = true, Ambient = true;
-        public const float TerrainInk = 1.2f, ActorInk = 2.975f;
-        public const float TexBlur = 0f, TexTones = 0f, LightBlur = 0f, LightTones = 9f, Soft = 0.95f, Flat = 0f;
+        public const float TerrainInk = 1.4f, ActorInk = 1.6f;
+        public const float TexBlur = 0.2f, TexTones = 0f, LightBlur = 0f, LightTones = 0f, Soft = 0.95f, Flat = 0f;
     }
 
     /// <summary>The look's settings as a set, one for each of the two looks: the cave's and the title screen's (the camp: more like the

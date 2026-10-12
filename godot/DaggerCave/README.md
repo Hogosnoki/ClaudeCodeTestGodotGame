@@ -1241,7 +1241,7 @@ The look aims at Castle Crashers and Cuphead: flat fills, simple forms, ink bord
   face looks; the grass gets its own mottle and a few pebbles.
 - **Grass and roots**: the cave's tufts are bigger (taller, thicker blades, fewer per tuft) and about a fifth as many; the camp's
   meadow likewise (1,400 big tufts instead of 9,000). Dangling roots are 2.6x thicker and longer, a quarter as many.
-- **Camera** 10% closer (`Tune.Feel.CameraZoom`; since tuned to 2.012).
+- **Camera** 10% closer (`Tune.Feel.CameraZoom`; since tuned to 2.502).
 - **No borders inside a texture**: grass meets wall with no line between them.
 - **Object borders** (Settings > Graphics, 0 to 4 px, default 1; the shader global `ink_terrain_px`, `--ink=terrain,characters`): a thin
   ink line round the outline of every 3D thing (`Render3D/EdgeInk.cs`, `Shaders/edge_depth.gdshader`): a full-screen pass that finds
@@ -1316,9 +1316,10 @@ clumps (380 and 55 dry ones, from 1,400 and 260).
 The box at the bottom of the tab lists **every value** (a `*` marks one changed from its default); **Copy all values** puts it on the
 clipboard (and in the log), and **Reset everything to defaults** goes back. To make a tuned look the default: change `Default` in
 `DebugTuning.All`, the `LookDef` constants in `GameSettings`, and the matching `dbg_*` / `cel_*` entries in project.godot's shader globals.
-The defaults now in the code are the look tuned in debug mode (the values list of that session: e.g. the lighting at 9 tones with 95% softness
-and no flatness, brightness 140%, dirt gain 1.69, grass fully taking the biome colour, polygon smoothing 90%, outline sensitivity 0.3, camera
-zoom 2.012), in `DebugTuning.All`, `GameSettings.LookDef` and project.godot's shader globals.
+The cave's defaults now in the code are the look tuned in debug mode (the second round: the lighting without tones at 95% softness and no
+flatness, texture blur 0.2, brightness 140%, dirt gain 1.69, grass fully taking the biome colour, polygon smoothing 84%, outline sensitivity
+0.019, a warm whole-picture tint, field of view 61, camera zoom 2.502), in `DebugTuning.All`, `GameSettings.LookDef` and project.godot's
+shader globals. The title screen's defaults are its own (see Two looks).
 Tests: `--debug` starts with debug mode on, `--dbg=key=value,...` sets tuning values, `--scenario=debugmode` types the word and checks it.
 
 ## Run metrics
