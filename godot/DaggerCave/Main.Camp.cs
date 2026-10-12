@@ -232,6 +232,7 @@ public partial class Main
     private string _frontTest = "";
     private float _ftT;
     private int _ftStep;
+    private HeroKind _ftHero;
     private bool _ftOk = true;
 
     private void FtCheck(string what, bool ok)
@@ -264,22 +265,27 @@ public partial class Main
             (5.9f, () => Act("move_right")),
             (5.95f, () => Act("move_right", false)),
             (6.2f, () => FtCheck($"and right twice comes back to the Warden ({G.Hero})", G.Hero == HeroKind.Warden)),
-            (6.3f, () => Act("confirm")),
-            (6.35f, () => Act("confirm", false)),
-            (6.70f, () => { Shot("front_prep"); FtCheck($"confirm moves on to the loadout and perks ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Act("confirm"); }),
-            (6.75f, () => Act("confirm", false)),
-            (7.2f, () => { Shot("front_difficulty"); FtCheck($"confirm moves on to the difficulty, where Descend waits ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Act("pause"); }),
-            (7.25f, () => Act("pause", false)),
-            (7.60f, () => { FtCheck($"back returns to the loadout and perks ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Act("confirm"); }),
-            (7.65f, () => Act("confirm", false)),
-            (8.00f, () => { FtCheck($"and on again to the difficulty ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Act("confirm"); }),
-            (8.05f, () => Act("confirm", false)),
-            (8.60f, () => Shot("front_depart")),
-            (10.2f, () => { Shot("front_cave"); FtCheck($"it sets off down into the cave at depth 0 with that hero ({_state}, depth {G.Depth}, {G.Player?.Stats.Hero}, camp shown {_campLayer.Visible})", _state == State.Playing && G.Depth == 0 && G.Player?.Stats.Hero == HeroKind.Warden && !_campLayer.Visible); G.Player?.GiveUp(); }),
-            (13.00f, () => { Shot("front_dead"); FtCheck($"a death comes back to the camp: the fire, how it went, and the choice again, from the first stage ({_state}, choice {_heroChoice.Visible}, stage {_heroChoice.Stage}, camp {_campLayer.Visible})", _state == State.Dead && _heroChoice.Visible && _heroChoice.Stage == HeroChoice.StageKind.Hero && _campLayer.Visible); FtCheck($"no creature of the run is left behind ({G.Enemies.Count})", G.Enemies.Count == 0); Act("pause"); }),
-            (13.05f, () => Act("pause", false)),
-            (13.60f, () => { Shot("front_back"); FtCheck($"back goes to the main menu ({_state}, menu {_mainMenu.Visible})", _state == State.Title && _mainMenu.Visible && !_heroChoice.Visible); }),
-            (13.80f, () => { GD.Print(_ftOk ? "[fronttest] PASS" : "[fronttest] FAIL"); SafeQuit.Request(this, _ftOk ? 0 : 1); }),
+            (6.22f, () => { _ftHero = G.Hero; for (int i = 0; i < 6; i++) Input.ParseInputEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = 1f, Device = 0 }); }),
+            (6.5f, () => { FtCheck($"a stick pushed right is one step at the fire, however many times it reports ({_ftHero} -> {G.Hero})", G.Hero != _ftHero); _ftHero = G.Hero; Input.ParseInputEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = 0f, Device = 0 }); }),
+            (6.8f, () => { Input.ParseInputEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = -1f, Device = 0 }); Input.ParseInputEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = -0.9f, Device = 0 }); }),
+            (6.9f, () => Input.ParseInputEvent(new InputEventJoypadMotion { Axis = JoyAxis.LeftX, AxisValue = 0f, Device = 0 })),
+            (7.2f, () => FtCheck($"and pushed left is one step back ({G.Hero}, was {_ftHero})", G.Hero == HeroKind.Warden)),
+            (7.30f, () => Act("confirm")),
+            (7.35f, () => Act("confirm", false)),
+            (7.70f, () => { Shot("front_prep"); FtCheck($"confirm moves on to the loadout and perks ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Act("confirm"); }),
+            (7.75f, () => Act("confirm", false)),
+            (8.20f, () => { Shot("front_difficulty"); FtCheck($"confirm moves on to the difficulty, where Descend waits ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Act("pause"); }),
+            (8.25f, () => Act("pause", false)),
+            (8.60f, () => { FtCheck($"back returns to the loadout and perks ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Prep); Act("confirm"); }),
+            (8.65f, () => Act("confirm", false)),
+            (9.00f, () => { FtCheck($"and on again to the difficulty ({_heroChoice.Stage})", _heroChoice.Stage == HeroChoice.StageKind.Difficulty); Act("confirm"); }),
+            (9.05f, () => Act("confirm", false)),
+            (9.60f, () => Shot("front_depart")),
+            (11.20f, () => { Shot("front_cave"); FtCheck($"it sets off down into the cave at depth 0 with that hero ({_state}, depth {G.Depth}, {G.Player?.Stats.Hero}, camp shown {_campLayer.Visible})", _state == State.Playing && G.Depth == 0 && G.Player?.Stats.Hero == HeroKind.Warden && !_campLayer.Visible); G.Player?.GiveUp(); }),
+            (14.00f, () => { Shot("front_dead"); FtCheck($"a death comes back to the camp: the fire, how it went, and the choice again, from the first stage ({_state}, choice {_heroChoice.Visible}, stage {_heroChoice.Stage}, camp {_campLayer.Visible})", _state == State.Dead && _heroChoice.Visible && _heroChoice.Stage == HeroChoice.StageKind.Hero && _campLayer.Visible); FtCheck($"no creature of the run is left behind ({G.Enemies.Count})", G.Enemies.Count == 0); Act("pause"); }),
+            (14.05f, () => Act("pause", false)),
+            (14.60f, () => { Shot("front_back"); FtCheck($"back goes to the main menu ({_state}, menu {_mainMenu.Visible})", _state == State.Title && _mainMenu.Visible && !_heroChoice.Visible); }),
+            (14.80f, () => { GD.Print(_ftOk ? "[fronttest] PASS" : "[fronttest] FAIL"); SafeQuit.Request(this, _ftOk ? 0 : 1); }),
         };
         while (_ftStep < steps.Length && _ftT >= steps[_ftStep].at) steps[_ftStep++].act();
     }

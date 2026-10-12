@@ -56,6 +56,7 @@ public partial class Main
         "metrics" => "entrance",
         "chestlook" => "entrance",
         "holds" => "entrance",
+        "melee" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
         "fossilcam" => "fossils",
@@ -146,6 +147,7 @@ public partial class Main
             case "metrics": MetricsScenario(); break;
             case "chestlook": ChestLookScenario(); break;
             case "holds": HoldsScenario(); break;
+            case "melee": MeleeScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;
             case "wing": WingScenario(); break;

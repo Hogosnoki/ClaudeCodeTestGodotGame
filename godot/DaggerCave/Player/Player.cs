@@ -134,6 +134,7 @@ public partial class Player : CharacterBody2D
     private Vector2 _airDashDir;
     private int _airJumps, _airDashes;
     private bool _jumpCutDone, _wasOnFloor;
+    private float _pauseT, _pauseNext;
     private float _lastFallSpeed, _freeze, _stuckInRock, _terminalT;
     private int _nullDepth = -1;
 
@@ -480,6 +481,17 @@ public partial class Player : CharacterBody2D
             _freeze -= dt;
             Anim.TimeMult = 0;
             Anim.Position = new Vector2(G.Range(-1.2f, 1.2f), G.Range(-0.6f, 0.6f));
+            QueueRedraw();
+            return;
+        }
+        // melee pauses: the beat before a swing and the beat after a blow that landed (the hero holds the pose, perfectly still)
+        if (_pauseNext > 0f) { _pauseT = Math.Max(_pauseT, _pauseNext); _pauseNext = 0f; HitPausesRun++; _pausePos = GlobalPosition; PauseDrift = 0f; }
+        if (_pauseT > 0f)
+        {
+            PauseDrift = Math.Max(PauseDrift, GlobalPosition.DistanceTo(_pausePos));
+            _pauseT -= dt;
+            Anim.TimeMult = 0;
+            Anim.Position = Vector2.Zero;
             QueueRedraw();
             return;
         }
@@ -1199,6 +1211,7 @@ public partial class Player : CharacterBody2D
         Velocity = new Vector2(kx, InWater ? Velocity.Y + away.Y * knock * 0.3f : Velocity.Y);
         if (Possessed) Ghost.Velocity = new Vector2(kx / Tune.Difficulty.EnemyMoveScale, Ghost.Velocity.Y);
         _dodgeT = 0; _airDashT = 0; _dashT = 0;
+        _pauseT = 0; _pauseNext = 0;
         _knockT = KnockLock ? Tune.Combat.HurtKnockLock : 0f;
         return dmg;
     }
@@ -1212,6 +1225,14 @@ public partial class Player : CharacterBody2D
     }
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
+    /// <summary>Seconds of melee stillness left, and queued behind the hit-stop (for the tests).</summary>
+    public float PauseLeft => _pauseT + _pauseNext;
+    /// <summary>For the tests: the last opening pause begun, the last pause queued behind a landed blow, and how far the hero got from where a pause began, while it lasted.</summary>
+    public float LastOpenPause { get; private set; }
+    public float LastHitPause { get; private set; }
+    public float PauseDrift { get; private set; }
+    public int HitPausesRun { get; private set; }
+    private Vector2 _pausePos;
 
     private int _lastStandDepth = -1;
 

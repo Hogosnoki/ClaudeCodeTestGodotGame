@@ -1801,9 +1801,9 @@ public partial class Main : Node
             return;
         }
         if (!choosing) return;
-        if (_heroChoice.Stage == HeroChoice.StageKind.Hero && (e.IsActionPressed("move_left") || e.IsActionPressed("move_right") || e.IsActionPressed("ui_left") || e.IsActionPressed("ui_right")))
+        if (_heroChoice.Stage == HeroChoice.StageKind.Hero && (StepKey(e, "move_left") || StepKey(e, "move_right") || StepKey(e, "ui_left") || StepKey(e, "ui_right")))
         {
-            StepHero(e.IsActionPressed("move_left") || e.IsActionPressed("ui_left") ? -1 : 1);
+            StepHero(StepKey(e, "move_left") || StepKey(e, "ui_left") ? -1 : 1);
             GetViewport().SetInputAsHandled();
         }
         else if (e.IsActionPressed("pause") || e.IsActionPressed("ui_cancel"))
@@ -1822,6 +1822,9 @@ public partial class Main : Node
             GetViewport().SetInputAsHandled();
         }
     }
+
+    /// <summary>A menu step by this event: a key or button press, never the stick's axis (it reports every frame; MenuStick turns it into one ui_* press per push).</summary>
+    private static bool StepKey(InputEvent e, string action) => e is not InputEventJoypadMotion && e.IsActionPressed(action);
 
     public override void _Process(double delta)
     {

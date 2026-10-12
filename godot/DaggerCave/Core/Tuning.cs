@@ -462,6 +462,8 @@ public static class Tune
         public static float HitStopNormal = 0.15f, HitStopFinisher = 0.26f, HitStopCharged = 0.28f;
         /// <summary>A blow that kills holds this many times as long (the hero, and the dying creature's last pose).</summary>
         public static float HitStopKillMult = 1.25f;
+        /// <summary>A melee attack holds the hero perfectly still this long as it begins (a beat of anticipation), and, if it lands, this long again once the hit-stop is over.</summary>
+        public static float MeleePause = 0.1f, MeleeHitPause = 0.1f;
         public static float HitStopWave = 0.1f, HitStopBolt = 0.06f, HitStopDash = 0.12f, HitStopPlayerHurt = 0.04f;
         /// <summary>Game speed during SlowMo (the only thing that slows the whole game: elite and boss kills).</summary>
         public static float HitStopTimeScale = 0.02f;
