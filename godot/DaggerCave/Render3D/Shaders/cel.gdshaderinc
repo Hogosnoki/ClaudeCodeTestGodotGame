@@ -14,6 +14,38 @@ global uniform float cel_light_tones;
 global uniform float cel_band_soft;
 global uniform float cel_light_flat;
 
+// Debug-mode tuning (DebugTuning.cs; Settings > Debug after typing "debug" at the character select): brightness and contrast of the
+// foreground ground, the background ground and the characters, and the dirt's texture dials. All 1 (or the defaults) normally.
+global uniform float dbg_fg_bright;
+global uniform float dbg_fg_contrast;
+global uniform float dbg_bg_bright;
+global uniform float dbg_bg_contrast;
+global uniform float dbg_obj_bright;
+global uniform float dbg_obj_contrast;
+global uniform float dbg_wall_gain;
+global uniform float dbg_back_dirt;
+global uniform float dbg_grain_amount;
+global uniform float dbg_lump_amount;
+global uniform float dbg_crevice_amount;
+global uniform float dbg_stone_size;
+global uniform float dbg_facet_shade;
+global uniform float dbg_grass_lean;
+global uniform float dbg_ground_up;
+
+// A colour's brightness and contrast: contrast about the middle of the perceptual scale (the display's), brightness on top.
+vec3 dbg_adjust(vec3 c, float bright, float contrast) {
+	vec3 s = pow(max(c, vec3(0.0)), vec3(1.0 / 2.2));
+	s = clamp((s - 0.5) * contrast + 0.5, 0.0, 1.0);
+	return pow(s, vec3(2.2)) * bright;
+}
+
+// The ground at depth z (metres; the play plane is 0, behind it negative): its foreground adjustment fading into its background one
+// from the play plane back to 3 m behind it (the same fade the back dirt's darkness takes).
+vec3 dbg_ground(vec3 c, float z) {
+	float k = smoothstep(-0.2, -3.0, z);
+	return mix(dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast), dbg_adjust(c, dbg_bg_bright, dbg_bg_contrast), k);
+}
+
 // The mip bias textures are sampled with.
 float cel_bias() { return cel_shading * cel_tex_blur; }
 

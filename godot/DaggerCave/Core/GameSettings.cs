@@ -27,24 +27,62 @@ public static class GameSettings
     public static bool AmbientOcclusion = true;
     public static bool InkOutlines = true;
     /// <summary>The stylised (cel-shaded) look: light in soft bands, flatter colour, painted rock (the shader global cel_shading).</summary>
-    public static bool CelShading = true;
+    public static bool CelShading = LookDef.Shading;
     /// <summary>The minimalist ground: two flat colours, grass on the floors and the biome's wall colour everywhere else, with the polygons
     /// lit face by face (every corner of the rock a distinct edge), instead of the photographed textures (the shader global terrain_solid).</summary>
-    public static bool SolidTerrain = true;
+    public static bool SolidTerrain = LookDef.Solid;
     /// <summary>Ambient light only: every other light muted, the ambient raised to make up for it (<see cref="AmbientOnly"/>).</summary>
-    public static bool AmbientOnly = true;
+    public static bool AmbientOnly = LookDef.Ambient;
     /// <summary>The ink borders' widths, in pixels (at 720 lines; they scale with the resolution): round the outline of every 3D thing
     /// (0 = none), and round the characters, a little bolder. (Never between the colours on one surface.)</summary>
-    public static float TerrainInkPx = 1f, ActorInkPx = 2f;
+    public static float TerrainInkPx = LookDef.TerrainInk, ActorInkPx = LookDef.ActorInk;
     /// <summary>The stylised look's dials (shader globals, live). Two pairs, the same two dials each: how blurred, then how many tones the
     /// brightness is divided into (0 = not divided, else 2-12):
     ///  * texture blur and tones: the textures, as each material samples them (blur in mip levels down, 0-4);
     ///  * lighting blur and tones: the lit picture, after the lights are done (a full-screen pass, <see cref="CelPost"/>; blur 0-4);
     /// then how soft the edges between tones are (0-1).</summary>
-    public static float CelTexBlur = 0f, CelTexTones = 6f, CelLightBlur = 0f, CelLightTones = 5f, CelBandSoft = 0.4f;
+    public static float CelTexBlur = LookDef.TexBlur, CelTexTones = LookDef.TexTones, CelLightBlur = LookDef.LightBlur, CelLightTones = LookDef.LightTones, CelBandSoft = LookDef.Soft;
     /// <summary>How flat the light is (0-1): its contrast squeezed toward its own average, never brighter or darker overall. With lighting
     /// tones it reads as a cartoon; without, as plainer, cheaper lighting.</summary>
-    public static float CelLightFlat = 0.25f;
+    public static float CelLightFlat = LookDef.Flat;
+
+    /// <summary>The look's default settings (debug mode's defaults button goes back to these; change them once a look is settled).</summary>
+    public static class LookDef
+    {
+        public const bool Shading = true, Solid = true, Ambient = true;
+        public const float TerrainInk = 1f, ActorInk = 2f;
+        public const float TexBlur = 0f, TexTones = 6f, LightBlur = 0f, LightTones = 5f, Soft = 0.4f, Flat = 0.25f;
+    }
+
+    /// <summary>Every look setting back to its default.</summary>
+    public static void ResetLook()
+    {
+        CelShading = LookDef.Shading; SolidTerrain = LookDef.Solid; AmbientOnly = LookDef.Ambient;
+        TerrainInkPx = LookDef.TerrainInk; ActorInkPx = LookDef.ActorInk;
+        CelTexBlur = LookDef.TexBlur; CelTexTones = LookDef.TexTones; CelLightBlur = LookDef.LightBlur; CelLightTones = LookDef.LightTones;
+        CelBandSoft = LookDef.Soft; CelLightFlat = LookDef.Flat;
+        ApplyCel();
+    }
+
+    /// <summary>Every look setting as (name, value, default) text, for debug mode's dump.</summary>
+    public static System.Collections.Generic.IEnumerable<(string key, string value, string def)> LookValues()
+    {
+        string F(float v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        string Bo(bool v) => v ? "on" : "off";
+        yield return ("stylised_shading", Bo(CelShading), Bo(LookDef.Shading));
+        yield return ("minimalist_ground", Bo(SolidTerrain), Bo(LookDef.Solid));
+        yield return ("ambient_light_only", Bo(AmbientOnly), Bo(LookDef.Ambient));
+        yield return ("object_border_px", F(TerrainInkPx), F(LookDef.TerrainInk));
+        yield return ("character_border_px", F(ActorInkPx), F(LookDef.ActorInk));
+        yield return ("texture_blur", F(CelTexBlur), F(LookDef.TexBlur));
+        yield return ("texture_tones", F(CelTexTones), F(LookDef.TexTones));
+        yield return ("lighting_blur", F(CelLightBlur), F(LookDef.LightBlur));
+        yield return ("lighting_tones", F(CelLightTones), F(LookDef.LightTones));
+        yield return ("band_softness", F(CelBandSoft), F(LookDef.Soft));
+        yield return ("light_flatness", F(CelLightFlat), F(LookDef.Flat));
+        yield return ("ink_outlines_on_creatures", Bo(InkOutlines), Bo(true));
+        yield return ("brightness", F(Brightness), F(1f));
+    }
 
     /// <summary>Ready-made settings of those dials.</summary>
     public static readonly (string name, float blur, float tones, float lblur, float ltones, float soft, float flat)[] CelPresets =
@@ -73,6 +111,7 @@ public static class GameSettings
         RenderingServer.GlobalShaderParameterSet("light_ambient_only", AmbientOnly ? 1f : 0f);
         CelPost.Refresh();
         EdgeInk.Refresh();
+        DebugTuning.Apply();
         PropViews.RestyleRock();
     }
     public enum AntiAlias { Off, Fxaa, Msaa2, Msaa4 }
@@ -139,6 +178,7 @@ public static class GameSettings
         AmbientOcclusion = B("graphics", "ao", AmbientOcclusion);
         InkOutlines = B("graphics", "ink", InkOutlines);
         CelShading = B("graphics", "cel", CelShading);
+        DebugTuning.Load(cfg);
         SolidTerrain = B("graphics", "solid_terrain", SolidTerrain);
         AmbientOnly = B("graphics", "ambient_only", AmbientOnly);
         TerrainInkPx = Math.Clamp(F("graphics", "ink_terrain_px", TerrainInkPx), 0f, 4f);
@@ -178,6 +218,7 @@ public static class GameSettings
         cfg.SetValue("graphics", "ao", AmbientOcclusion);
         cfg.SetValue("graphics", "ink", InkOutlines);
         cfg.SetValue("graphics", "cel", CelShading);
+        DebugTuning.Save(cfg);
         cfg.SetValue("graphics", "solid_terrain", SolidTerrain);
         cfg.SetValue("graphics", "ambient_only", AmbientOnly);
         cfg.SetValue("graphics", "ink_terrain_px", TerrainInkPx);

@@ -395,6 +395,16 @@ public partial class Main : Node
                 GameSettings.ApplyCel();
             }
             else if (a == "--nocel") { GameSettings.CelShading = false; GameSettings.ApplyCel(); }
+            else if (a == "--debug") DebugTuning.On = true;
+            else if (a.StartsWith("--dbg="))
+            {
+                // test aid: --dbg=key=value,key=value (DebugTuning keys)
+                foreach (var kv in a[6..].Split(','))
+                {
+                    var p = kv.Split('=');
+                    DebugTuning.Set(p[0], float.Parse(p[1], System.Globalization.CultureInfo.InvariantCulture));
+                }
+            }
             else if (a == "--lights") { GameSettings.AmbientOnly = false; GameSettings.ApplyCel(); }
             else if (a == "--photo") { GameSettings.SolidTerrain = false; GameSettings.ApplyCel(); }
             else if (a.StartsWith("--ink="))
@@ -822,7 +832,7 @@ public partial class Main : Node
         }
         G.Player = player;
 
-        _cam = new Camera2D { Zoom = new Vector2(Tune.Feel.CameraZoom, Tune.Feel.CameraZoom), ProcessCallback = Camera2D.Camera2DProcessCallback.Physics };
+        _cam = new Camera2D { Zoom = new Vector2(DebugTuning.V("cam_zoom"), DebugTuning.V("cam_zoom")), ProcessCallback = Camera2D.Camera2DProcessCallback.Physics };
         // the camera keeps to the main occupied area; a secret wing past its edge is let in once its wall is down (see OpenWing)
         SetViewRect(cave.ViewRect.Size.X > 0 ? cave.ViewRect : new Rect2(Vector2.Zero, cave.SizePx), snap: true);
         _world.AddChild(_cam);
@@ -1527,6 +1537,7 @@ public partial class Main : Node
         if (_state == State.Dead) ShowCamp();
         else if (_state == State.Title && _front == Front.Heroes) { _heroChoice.Visible = true; _heroChoice.Refresh(); _heroChoice.RestoreFocus(); }
         else if (_state == State.Title) ShowTitle();
+        else if (_state == State.Dead && _dbgBackToHeroes) { _dbgBackToHeroes = false; _heroChoice.Visible = true; }
     }
 
     /// <summary>This game's hero looked into a chest: offer its cards next.</summary>
@@ -1689,6 +1700,8 @@ public partial class Main : Node
     public override void _Input(InputEvent e)
     {
         GameSettings.NoteInput(e);
+        // (typing "debug" at the character select: see Main.Debug.cs)
+        if (e is InputEventKey { Pressed: true, Echo: false } dbgKey && DebugTyping(dbgKey)) { GetViewport().SetInputAsHandled(); return; }
         bool pad = e is InputEventJoypadButton { Pressed: true } || (e is InputEventJoypadMotion jm && Math.Abs(jm.AxisValue) > 0.5f);
         bool kbm = e is InputEventKey { Pressed: true } || e is InputEventMouseButton { Pressed: true } || (e is InputEventMouseMotion mm && mm.Relative.Length() > 3);
         if (pad && !UsingPad) { UsingPad = true; Input.MouseMode = Input.MouseModeEnum.Hidden; }
@@ -1795,6 +1808,7 @@ public partial class Main : Node
             if (_hitStopLeft <= 0) Engine.TimeScale = 1;
         }
         _frameScale = (float)Engine.TimeScale;
+        DebugTypingTick();
 
         if (_padTest) PadTestTick(dt);
         if (_loading) { TickLoading(dt); if (_scenario == "loading") LoadingScenario(); return; }

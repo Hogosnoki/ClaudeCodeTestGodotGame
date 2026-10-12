@@ -64,23 +64,14 @@ uniform int debug_view = 0;
 
 global uniform float terrain_solid;
 // the minimalist colours: grass (leaning a little to the biome's own growth), snow instead in the frozen caves, and the walls in the
-// biome's wall colour (tint_edge) brightened by wall_gain
+// biome's wall colour (tint_edge) brightened by dbg_wall_gain
 uniform vec3 grass_col : source_color = vec3(0.34, 0.62, 0.2);
 uniform vec3 snow_col : source_color = vec3(0.93, 0.96, 1.0);
-uniform float grass_lean = 0.25;
-uniform float wall_gain = 0.8;
 // the dirt in the background (the back of the tunnels, behind the play plane) is this much of the foreground's brightness, from z = 0 back to z = -3
-uniform float back_dirt = 0.5;
 // the texture of the minimalist ground, as shares of its brightness: grain (fine), lumps (a stone's own shade), crevices between stones
-uniform float grain_amount = 0.3;
-uniform float lump_amount = 0.34;
-uniform float crevice_amount = 0.5;
 // the size of a stone, in metres
-uniform float stone_size = 0.9;
 // how steep a face may be and still count as ground (the up component of its direction)
-uniform float ground_up = 0.6;
 // how much each face's own shade varies (0 = none)
-uniform float facet_shade = 0.06;
 
 varying vec3 v_wpos;
 varying vec3 v_wnrm;
@@ -204,35 +195,35 @@ void fragment() {
 		vec3 fv = normalize(cross(dFdx(VERTEX), dFdy(VERTEX)));
 		if (dot(fv, NORMAL) < 0.0) fv = -fv;
 		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
-		vec3 wall = tint_edge * wall_gain;
+		vec3 wall = tint_edge * dbg_wall_gain;
 		// (the dirt further back is darker than the dirt at the play plane)
-		wall *= mix(1.0, back_dirt, smoothstep(-0.2, -3.0, p.z));
-		vec3 ground = special_mode == 2 ? snow_col : mix(grass_col, luma(grass_col) * hue(moss_tint), grass_lean);
-		float is_ground = step(ground_up, fw.y);
+		wall *= mix(1.0, dbg_back_dirt, smoothstep(-0.2, -3.0, p.z));
+		vec3 ground = special_mode == 2 ? snow_col : mix(grass_col, luma(grass_col) * hue(moss_tint), dbg_grass_lean);
+		float is_ground = step(dbg_ground_up, fw.y);
 		vec3 a = mix(wall, ground, is_ground);
 		// ---- texture: grit and grain, and lumpy stones, drawn on whichever way the face looks (still flat colour, never smooth shading)
 		vec2 tq = fw.y > 0.6 ? p.xz : abs(fw.z) > abs(fw.x) ? p.xy : p.zy;
 		// (sized to read at the play plane's scale: a hand's width for the grain, a thumb's for the grit)
 		float grain = vnoise2(tq * 9.0) * 0.5 + vnoise2(tq * 4.0) * 0.5;
 		float grit = step(0.86, hash21(floor(tq * 22.0)));
-		vec2 st = stones(tq / stone_size);
-		vec2 pb = stones(tq / (stone_size * 0.3) + 17.0);
+		vec2 st = stones(tq / dbg_stone_size);
+		vec2 pb = stones(tq / (dbg_stone_size * 0.3) + 17.0);
 		float lump = (st.x - 0.5) * 2.0 + (pb.x - 0.5) * 0.7;
-		float tex = 1.0 + (grain - 0.5) * 2.0 * grain_amount + lump * lump_amount * (is_ground > 0.5 ? 0.3 : 1.0);
+		float tex = 1.0 + (grain - 0.5) * 2.0 * dbg_grain_amount + lump * dbg_lump_amount * (is_ground > 0.5 ? 0.3 : 1.0);
 		// (bright grit on dirt, dark crevices between the stones and the small stones in them; grass gets its own mottle and a few
 		// pebbles instead of crevices)
-		tex *= 1.0 - (st.y + pb.y * 0.5) * crevice_amount * (is_ground > 0.5 ? 0.0 : 1.0);
+		tex *= 1.0 - (st.y + pb.y * 0.5) * dbg_crevice_amount * (is_ground > 0.5 ? 0.0 : 1.0);
 		tex += grit * 0.2 * (is_ground > 0.5 ? 0.4 : 1.0);
 		float mottle = vnoise2(tq * 3.2);
 		a *= tex * (is_ground > 0.5 ? 0.85 + 0.3 * mottle : 0.9 + 0.2 * mottle);
 		// (each face a shade of its own, from its direction: two neighbours never quite match, even where the light is flat)
 		float fh = fract(sin(dot(floor(fw * 64.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
-		a *= 1.0 - facet_shade * 0.5 + facet_shade * fh;
+		a *= 1.0 - dbg_facet_shade * 0.5 + dbg_facet_shade * fh;
 		vec3 e = vec3(0.0);
 		// (under water a darker wall; over lava its glow)
 		if (liquid_mode == 1) a *= mix(1.0, 0.6, step(p.y, liquid_y));
 		else if (liquid_mode == 2) e += liquid_glow * exp(-max(p.y - liquid_y, 0.0) / 3.0) * 0.45;
-		ALBEDO = clamp(a * brightness, 0.0, 1.0);
+		ALBEDO = clamp(dbg_ground(a, p.z) * brightness, 0.0, 1.0);
 		ROUGHNESS = 0.9;
 		SPECULAR = 0.2;
 		METALLIC = 0.0;
@@ -469,7 +460,7 @@ void fragment() {
 		float lambert = max(dot(wn, normalize(face_fill_dir)), 0.0);
 		emit += alb * face_fill * face_fill_energy * face * (0.25 + 0.75 * lambert);
 	}
-	ALBEDO = clamp(alb, 0.0, 1.0);
+	ALBEDO = clamp(dbg_ground(alb, p.z), 0.0, 1.0);
 	ROUGHNESS = rough;
 	SPECULAR = spec;
 	METALLIC = 0.0;

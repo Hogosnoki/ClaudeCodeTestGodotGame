@@ -117,7 +117,7 @@ void fragment() {
 	}
 	float sh = mouth_shade(v_wp, true);
 	c *= 1.0 - 0.96 * sh;
-	ALBEDO = c;
+	ALBEDO = dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast);
 	ROUGHNESS = mix(0.86, 0.96, m);
 	SPECULAR = 0.25 * (1.0 - m) * (1.0 - sh);
 	// (the haze, but none over the dark of the mouth: otherwise the black there would be lifted to a pale grey)

@@ -30,7 +30,7 @@ public partial class CampScene : SubViewport
         // (with only the ambient: a near-white light, so the meadow and the stone show their own colours, not the sky's blue)
         _env.AmbientLightSource = GameSettings.AmbientOnly ? Godot.Environment.AmbientSource.Color : Godot.Environment.AmbientSource.Sky;
         _env.AmbientLightColor = new Color(1f, 0.98f, 0.95f);
-        _env.AmbientLightEnergy = GameSettings.AmbientOnly ? AmbientOnly.CampEnergy : AmbientBase;
+        _env.AmbientLightEnergy = GameSettings.AmbientOnly ? AmbientOnly.CampEnergy * DebugTuning.V("amb_energy") : AmbientBase;
     }
 
     /// <summary>The hero standing ready (the others stay sitting).</summary>

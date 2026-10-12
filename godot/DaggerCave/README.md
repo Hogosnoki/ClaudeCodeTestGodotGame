@@ -1259,6 +1259,34 @@ The look aims at Castle Crashers and Cuphead: flat fills, simple forms, ink bord
 - **Character borders** (0.5 to 6 px, default 2; `ink_actor_px`): the heroes' and creatures' line (`InkOutline`), a little bolder, drawn
   over the object border.
 
+### Debug mode
+
+Typing `debug` at the character select screen (the Character stage) turns debug mode on, and typing it again turns it off (it isn't saved: type
+it each launch). While the letters are typed they don't do what their keys do (D would step the hero, E carry on): the first D is held back
+and, if the word turns out not to be typed (another key comes, or a second passes), its step is made after all (`Main.Debug.cs`). A badge
+at the top left shows while debug mode is on, with a **Look settings** button; the same tab is in Settings (main menu or pause menu).
+
+Settings gets a **Debug** tab (`UI/SettingsMenu.cs`, `Core/DebugTuning.cs`) with, all live:
+- the look's switches (stylised shading, ambient light only, minimalist ground, object and character borders) and the stylised dials (preset,
+  texture blur and tones, lighting blur and tones, band softness, light flatness). In normal settings only the switches and borders are
+  shown;
+- **Foreground** brightness and contrast (the ground at and in front of the play plane, and the camp's meadow and cliff), **Background**
+  brightness and contrast (the ground behind it, fading in from the play plane to 3 m back), the **background dirt's darkness**, and a
+  **background blur** (a depth blur of everything behind the play plane, with how many metres behind the plane it starts);
+- **Characters and creatures** brightness and contrast;
+- the dirt and grass: dirt colour gain, grain, stone shade variation, crevices, stone size, facet shade, how much the grass takes the biome's
+  growth colour, and the steepest face that still counts as ground;
+- the cave's **ambient light** strength and biome tint, and the **camera zoom**.
+
+Brightness and contrast are made in the display's perceptual scale (contrast about its middle grey, brightness on top; `dbg_adjust` in
+`cel.gdshaderinc`). Every tuning value is a shader global (`dbg_*`, in project.godot) except the ambient light, blur and zoom, which the code
+reads. They are saved with the settings (the `[debug]` section), so a look found in debug mode stays across launches.
+
+The box at the bottom of the tab lists **every value** (a `*` marks one changed from its default); **Copy all values** puts it on the
+clipboard (and in the log), and **Reset everything to defaults** goes back. To make a tuned look the default: change `Default` in
+`DebugTuning.All`, the `LookDef` constants in `GameSettings`, and the matching `dbg_*` / `cel_*` entries in project.godot's shader globals.
+Tests: `--debug` starts with debug mode on, `--dbg=key=value,...` sets tuning values, `--scenario=debugmode` types the word and checks it.
+
 ## Run metrics
 
 **Your Build** has a second page, **Run metrics** (left / right, or click the tabs, switches between them), and the same page comes up once

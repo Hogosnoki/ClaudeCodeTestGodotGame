@@ -167,6 +167,19 @@ public partial class Stage3D : Node3D
     private Vector3? _debugOrbit;
     private bool _debugBright, _debugNoFog;
     private float _ambientBase = 0.25f;
+    private float _camDist = 40f;
+    private CameraAttributesPractical _dof;
+
+    /// <summary>Debug mode's background blur: everything behind the play plane softens (a depth-of-field blur on the far side).</summary>
+    private void ApplyDepthBlur()
+    {
+        float blur = DebugTuning.V("bg_blur");
+        if (blur <= 0.001f) { if (Cam.Attributes != null) Cam.Attributes = null; return; }
+        _dof ??= new CameraAttributesPractical { DofBlurFarEnabled = true, DofBlurFarTransition = 10f };
+        Cam.Attributes = _dof;
+        _dof.DofBlurFarDistance = _camDist + DebugTuning.V("bg_blur_dist");
+        _dof.DofBlurAmount = blur * 0.3f;
+    }
     private Color _ambientColor = new(0.5f, 0.52f, 0.6f);
     private int _debugTerrain;
 
@@ -244,8 +257,8 @@ public partial class Stage3D : Node3D
         // (ambient light only: the other lights are muted by AmbientOnly, the ambient raised to make up for them)
         // (with only the ambient, it is near white and the same strength everywhere, so each thing shows its own colour: the biome's
         // light only tints it a little)
-        Env.AmbientLightColor = GameSettings.AmbientOnly ? Colors.White.Lerp(_ambientColor, AmbientOnly.Tint) : _ambientColor;
-        Env.AmbientLightEnergy = GameSettings.AmbientOnly ? AmbientOnly.Energy : _ambientBase;
+        Env.AmbientLightColor = GameSettings.AmbientOnly ? Colors.White.Lerp(_ambientColor, DebugTuning.V("amb_tint")) : _ambientColor;
+        Env.AmbientLightEnergy = GameSettings.AmbientOnly ? DebugTuning.V("amb_energy") : _ambientBase;
         CampScene.I?.ApplyLighting();
     }
 
@@ -327,6 +340,8 @@ public partial class Stage3D : Node3D
         float viewH = ViewHeightM(vp, cam2);
         float fov = Tune.Feel.Camera3DFov;
         float dist = viewH * 0.5f / MathF.Tan(Mathf.DegToRad(fov) * 0.5f);
+        _camDist = dist;
+        ApplyDepthBlur();
         var target = W3.P(c);
         var pos = target + new Vector3(0, Tune.Feel.Camera3DLift, dist);
         Cam.Fov = fov;

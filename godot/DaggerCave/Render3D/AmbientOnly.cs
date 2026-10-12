@@ -7,7 +7,7 @@ namespace DaggerCave;
 /// Ambient light only (Settings > Graphics, on by default while the look is being settled): every light in the game's views (the
 /// directional key, fill and rim lights, the torches, spell and fire lights, the camp's sun) is cut off from every surface, so nothing is
 /// shaded by direction and the shapes and edges read by their colours and ink borders alone. The views' ambient light makes up for
-/// it: in the caves near white and equally strong everywhere (<see cref="Tint"/>, <see cref="Energy"/>, Stage3D.ApplySettings), the same at
+/// it: in the caves near white and equally strong everywhere (DebugTuning "amb_tint" and "amb_energy", Stage3D.ApplySettings), the same at
 /// the camp (<see cref="CampEnergy"/>, CampScene). Metal, with nothing lit to mirror, mostly shows its own colour (the shader global
 /// light_ambient_only, in the creature shader). Lights are left in place, only muted: a light's cull
 /// mask goes to 0 (it reaches nothing), its shadow and its glow in the fog go off, and switching the setting off gives each back what
@@ -18,9 +18,7 @@ public partial class AmbientOnly : Node
 {
     /// <summary>The camp's ambient light while the sun is off (near white, not the sky's).</summary>
     public const float CampEnergy = 1.1f;
-    /// <summary>The cave's ambient light while the other lights are off: near white (the biome's light tints it this much), and this strong
-    /// in every biome.</summary>
-    public const float Tint = 0.2f, Energy = 1.0f;
+    // (the cave's ambient strength and biome tint while the other lights are off are debug-tunable: DebugTuning "amb_energy", "amb_tint")
 
     private readonly HashSet<Light3D> _lights = new();
     private static readonly List<(WeakRef m, float metallic)> Metals = new();

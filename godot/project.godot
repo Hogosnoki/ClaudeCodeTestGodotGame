@@ -61,3 +61,63 @@ light_ambient_only={
 "type": "float",
 "value": 1.0
 }
+dbg_fg_bright={
+"type": "float",
+"value": 1.0
+}
+dbg_fg_contrast={
+"type": "float",
+"value": 1.0
+}
+dbg_bg_bright={
+"type": "float",
+"value": 1.0
+}
+dbg_bg_contrast={
+"type": "float",
+"value": 1.0
+}
+dbg_back_dirt={
+"type": "float",
+"value": 0.5
+}
+dbg_obj_bright={
+"type": "float",
+"value": 1.0
+}
+dbg_obj_contrast={
+"type": "float",
+"value": 1.0
+}
+dbg_wall_gain={
+"type": "float",
+"value": 0.8
+}
+dbg_grain_amount={
+"type": "float",
+"value": 0.3
+}
+dbg_lump_amount={
+"type": "float",
+"value": 0.34
+}
+dbg_crevice_amount={
+"type": "float",
+"value": 0.5
+}
+dbg_stone_size={
+"type": "float",
+"value": 0.9
+}
+dbg_facet_shade={
+"type": "float",
+"value": 0.06
+}
+dbg_grass_lean={
+"type": "float",
+"value": 0.25
+}
+dbg_ground_up={
+"type": "float",
+"value": 0.6
+}

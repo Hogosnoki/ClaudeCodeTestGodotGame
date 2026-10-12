@@ -55,6 +55,7 @@ public partial class Main
         "ringfx" => "entrance",
         "metrics" => "entrance",
         "chestlook" => "entrance",
+        "debugmode" => "entrance",
         "fossilcam" => "fossils",
         "mouth" => "entrance",
         "drain" => "entrance",
@@ -105,7 +106,7 @@ public partial class Main
     {
         // (the cave mouth's scenario carries on after the run ends, at the title)
         // (the magma scenario opens a chest down in the lava and takes a card)
-        if (_scDone || (_state != State.Playing && _scenario != "mouth" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
+        if (_scDone || (_state != State.Playing && _scenario != "mouth" && _scenario != "debugmode" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
         _scT += dt;
         switch (_scenario)
         {
@@ -142,6 +143,7 @@ public partial class Main
             case "ringfx": RingFxScenario(); break;
             case "metrics": MetricsScenario(); break;
             case "chestlook": ChestLookScenario(); break;
+            case "debugmode": DebugModeScenario(); break;
             case "wing": WingScenario(); break;
             case "river": RiverScenario(); break;
             case "stick": StickScenario(); break;

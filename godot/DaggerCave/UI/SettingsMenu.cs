@@ -252,7 +252,7 @@ public partial class SettingsMenu : Control
         col.AddChild(head);
         head.AddChild(UiKit.Label("SETTINGS", 26, UiKit.Gold));
         head.AddChild(new Control { SizeFlagsHorizontal = SizeFlags.ExpandFill });
-        foreach (var (name, k) in new[] { ("Graphics", 0), ("Sound", 1), ("Controls", 2) })
+        foreach (var (name, k) in new[] { ("Graphics", 0), ("Sound", 1), ("Controls", 2), ("Debug", 3) })
         {
             int tab = k;
             var b = UiKit.Button(name, () => Show(tab), 150);
@@ -275,13 +275,25 @@ public partial class SettingsMenu : Control
     public void Open()
     {
         Visible = true;
+        if (_tab == 3 && !DebugTuning.On) _tab = 0;
         Show(_tab);
     }
+
+    /// <summary>Opens on the Debug tab (debug mode's badge).</summary>
+    public void OpenDebug()
+    {
+        _tab = 3;
+        Open();
+    }
+
+    /// <summary>The tabs on show (the Debug tab only in debug mode).</summary>
+    private int TabCount => DebugTuning.On ? 4 : 3;
 
     private void Close()
     {
         if (_capAction != null) return;
         Visible = false;
+        if (DebugTuning.On) GD.Print(DebugTuning.Dump());
         GameSettings.Save();
         Closed?.Invoke();
     }
@@ -292,14 +304,18 @@ public partial class SettingsMenu : Control
     {
         _tab = tab;
         foreach (var c in _body.GetChildren()) { _body.RemoveChild(c); c.QueueFree(); }
-        for (int k = 0; k < _tabs.Count; k++) _tabs[k].Modulate = k == tab ? UiKit.Gold : Colors.White;
+        for (int k = 0; k < _tabs.Count; k++) { _tabs[k].Modulate = k == tab ? UiKit.Gold : Colors.White; _tabs[k].Visible = k < 3 || DebugTuning.On; }
+        _dump = null;
         switch (tab)
         {
             case 0: BuildGraphics(); break;
             case 1: BuildSound(); break;
+            case 3: BuildDebug(); break;
             default: BuildControls(); break;
         }
-        _hint.Text = tab == 2
+        _hint.Text = tab == 3
+            ? "Debug mode: every look dial, live  ·  the box at the bottom lists every value (Copy all values to report them)  ·  ESC / B back"
+            : tab == 2
             ? "Pick a slot and press the key, mouse button or controller input for it  ·  DELETE / X clears a slot  ·  LB / RB switch tabs  ·  ESC / B back"
             : "LB / RB switch tabs  ·  LEFT / RIGHT change a setting  ·  ESC / B back";
         // focus the tab's first control (the controller needs somewhere to start)
@@ -380,34 +396,26 @@ public partial class SettingsMenu : Control
     private static readonly float[] Scales = { 0.5f, 0.67f, 0.75f, 0.85f, 1f };
 
     /// <summary>The graphics tab built again (a preset has moved the dials).</summary>
-    private void RebuildGraphics() => Show(0);
+    private void RebuildGraphics() => Show(_tab);
 
-    private void BuildGraphics()
+    /// <summary>The look's switches and borders (Graphics tab, and the debug tab).</summary>
+    private void LookToggles(GridContainer g)
     {
-        var g = Grid();
         void Render() => GameSettings.ApplyRendering(this);
-        void Display() => GameSettings.ApplyDisplay(this);
-        Row(g, "Window", Choice(new[] { "Windowed", "Borderless fullscreen", "Fullscreen" }, (int)GameSettings.Window, i => { GameSettings.Window = (GameSettings.WindowMode)i; Display(); }));
-        Row(g, "Vertical sync", Toggle(GameSettings.VSync, v => { GameSettings.VSync = v; Display(); }));
-        Row(g, "Frame rate limit", Choice(Array.ConvertAll(FpsCaps, f => f == 0 ? "Unlimited" : $"{f} fps"), Math.Max(0, Array.IndexOf(FpsCaps, GameSettings.MaxFps)), i => { GameSettings.MaxFps = FpsCaps[i]; Display(); }), "with V-sync on, your display's own rate is the ceiling");
-        int si = 0;
-        for (int k = 0; k < Scales.Length; k++) if (Math.Abs(Scales[k] - GameSettings.RenderScale) < 0.02f) si = k;
-        Row(g, "Resolution scale", Choice(Array.ConvertAll(Scales, f => Pct(f)), si, i => { GameSettings.RenderScale = Scales[i]; Render(); }), "lower is faster");
-        Row(g, "Shadows", Choice(new[] { "Off", "Low", "High" }, (int)GameSettings.Shadows, i => { GameSettings.Shadows = (GameSettings.Quality)i; Render(); }));
-        Row(g, "Cave haze (volumetric fog)", Toggle(GameSettings.Fog, v => { GameSettings.Fog = v; Render(); }), "the heaviest effect");
-        Row(g, "Bloom", Toggle(GameSettings.Bloom, v => { GameSettings.Bloom = v; Render(); }));
-        Row(g, "Ambient occlusion", Toggle(GameSettings.AmbientOcclusion, v => { GameSettings.AmbientOcclusion = v; Render(); }));
-        Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA" }, Math.Min(1, (int)GameSettings.Aa), i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }), "MSAA is gone: it flickered against the ink outlines");
-        Row(g, "Ink outlines on creatures", Toggle(GameSettings.InkOutlines, v => { GameSettings.InkOutlines = v; Render(); }));
         Row(g, "Stylised shading", Toggle(GameSettings.CelShading, v => { GameSettings.CelShading = v; Render(); }), "toned colour and light, flatter shading");
         Row(g, "Ambient light only", Toggle(GameSettings.AmbientOnly, v => { GameSettings.AmbientOnly = v; Render(); }), "no lamps, sun or torches shading by direction: shapes read by colour and border");
         Row(g, "Minimalist ground", Toggle(GameSettings.SolidTerrain, v => { GameSettings.SolidTerrain = v; GameSettings.ApplyCel(); }), "grass on the floors, wall colour elsewhere, flat polygons; off: the photographed textures");
         Row(g, "  Object borders", SliderRow(0f, 4f, GameSettings.TerrainInkPx, v => { GameSettings.TerrainInkPx = v; GameSettings.ApplyCel(); }, v => v < 0.05f ? "None" : $"{v:0.0} px"), "the ink line round the outline of every 3D thing");
         Row(g, "  Character borders", SliderRow(0.5f, 6f, GameSettings.ActorInkPx, v => { GameSettings.ActorInkPx = v; GameSettings.ApplyCel(); }, v => $"{v:0.0} px"), "the ink line round heroes and creatures (with ink outlines on)");
+    }
+
+    /// <summary>The stylised look's dials (the debug tab): texture and lighting blur and tones, softness and flatness, and the presets.</summary>
+    private void LookDials(GridContainer g, Action changed)
+    {
         // the stylised look's dials: each shows at once (shader globals); a preset sets them all
         Cycler presetBox = null;
         // (a dial moved by hand: the preset reads "Custom")
-        void Cel() { GameSettings.ApplyCel(); if (presetBox != null && presetBox.Index != 0) { presetBox.Index = 0; presetBox.Refresh(); } }
+        void Cel() { GameSettings.ApplyCel(); changed?.Invoke(); if (presetBox != null && presetBox.Index != 0) { presetBox.Index = 0; presetBox.Refresh(); } }
         int preset = Array.FindIndex(GameSettings.CelPresets, p => Math.Abs(p.blur - GameSettings.CelTexBlur) < 0.01f && Math.Abs(p.tones - GameSettings.CelTexTones) < 0.01f && Math.Abs(p.lblur - GameSettings.CelLightBlur) < 0.01f && Math.Abs(p.ltones - GameSettings.CelLightTones) < 0.01f && Math.Abs(p.soft - GameSettings.CelBandSoft) < 0.01f && Math.Abs(p.flat - GameSettings.CelLightFlat) < 0.01f);
         var presetNames = new[] { "Custom" }.Concat(GameSettings.CelPresets.Select(p => p.name)).ToArray();
         presetBox = Choice(presetNames, preset + 1, i =>
@@ -427,8 +435,85 @@ public partial class SettingsMenu : Control
         Row(g, "  Lighting tones", Choice(toneNames, GameSettings.CelLightTones < 1.5f ? 0 : Math.Clamp((int)GameSettings.CelLightTones - 1, 1, 11), i => { GameSettings.CelLightTones = i == 0 ? 0f : i + 1; Cel(); }), "how many tones the lit picture's brightness is divided into");
         Row(g, "  Band softness", SliderRow(0f, 1f, GameSettings.CelBandSoft, v => { GameSettings.CelBandSoft = v; Cel(); }, Pct), "between tones: hard edges at 0%, gentle ramps at 100%");
         Row(g, "  Light flatness", SliderRow(0f, 1f, GameSettings.CelLightFlat, v => { GameSettings.CelLightFlat = v; Cel(); }, Pct), "flatter light, never brighter or darker: with lighting tones a cartoon, without them plainer");
+    }
+
+    private void BuildGraphics()
+    {
+        var g = Grid();
+        void Render() => GameSettings.ApplyRendering(this);
+        void Display() => GameSettings.ApplyDisplay(this);
+        Row(g, "Window", Choice(new[] { "Windowed", "Borderless fullscreen", "Fullscreen" }, (int)GameSettings.Window, i => { GameSettings.Window = (GameSettings.WindowMode)i; Display(); }));
+        Row(g, "Vertical sync", Toggle(GameSettings.VSync, v => { GameSettings.VSync = v; Display(); }));
+        Row(g, "Frame rate limit", Choice(Array.ConvertAll(FpsCaps, f => f == 0 ? "Unlimited" : $"{f} fps"), Math.Max(0, Array.IndexOf(FpsCaps, GameSettings.MaxFps)), i => { GameSettings.MaxFps = FpsCaps[i]; Display(); }), "with V-sync on, your display's own rate is the ceiling");
+        int si = 0;
+        for (int k = 0; k < Scales.Length; k++) if (Math.Abs(Scales[k] - GameSettings.RenderScale) < 0.02f) si = k;
+        Row(g, "Resolution scale", Choice(Array.ConvertAll(Scales, f => Pct(f)), si, i => { GameSettings.RenderScale = Scales[i]; Render(); }), "lower is faster");
+        Row(g, "Shadows", Choice(new[] { "Off", "Low", "High" }, (int)GameSettings.Shadows, i => { GameSettings.Shadows = (GameSettings.Quality)i; Render(); }));
+        Row(g, "Cave haze (volumetric fog)", Toggle(GameSettings.Fog, v => { GameSettings.Fog = v; Render(); }), "the heaviest effect");
+        Row(g, "Bloom", Toggle(GameSettings.Bloom, v => { GameSettings.Bloom = v; Render(); }));
+        Row(g, "Ambient occlusion", Toggle(GameSettings.AmbientOcclusion, v => { GameSettings.AmbientOcclusion = v; Render(); }));
+        Row(g, "Anti-aliasing", Choice(new[] { "Off", "FXAA" }, Math.Min(1, (int)GameSettings.Aa), i => { GameSettings.Aa = (GameSettings.AntiAlias)i; Render(); }), "MSAA is gone: it flickered against the ink outlines");
+        Row(g, "Ink outlines on creatures", Toggle(GameSettings.InkOutlines, v => { GameSettings.InkOutlines = v; Render(); }));
+        LookToggles(g);
         Row(g, "Brightness", SliderRow(0.6f, 1.6f, GameSettings.Brightness, v => { GameSettings.Brightness = v; Render(); }, Pct));
         Row(g, "Screen shake", SliderRow(0f, 1f, GameSettings.Shake, v => GameSettings.Shake = v, Pct));
+    }
+
+    // ---------------------------------------------------------------- debug
+
+    private TextEdit _dump;
+
+    private void BuildDebug()
+    {
+        var head = UiKit.Label("Every value is live and saved; the defaults in the code are what to change once the look is settled.", 14, UiKit.Dim);
+        _body.AddChild(head);
+        var bar = new HBoxContainer();
+        bar.AddThemeConstantOverride("separation", 12);
+        _body.AddChild(bar);
+        bar.AddChild(UiKit.Button("Copy all values", () =>
+        {
+            DisplayServer.ClipboardSet(DebugTuning.Dump());
+            GD.Print(DebugTuning.Dump());
+            G.Sfx?.Play("ui", null, -8);
+        }, 220));
+        bar.AddChild(UiKit.Button("Reset everything to defaults", () => { DebugTuning.ResetAll(); CallDeferred(nameof(RebuildGraphics)); }, 300));
+        Section("Look: switches and borders");
+        var g = Grid();
+        LookToggles(g);
+        LookDials(g, null);
+        string group = null;
+        GridContainer pg = null;
+        foreach (var p in DebugTuning.All)
+        {
+            if (p.Group != null && p.Group != group) { group = p.Group; Section(group); pg = Grid(); }
+            var param = p;
+            Row(pg, p.Label, DebugSlider(p), p.Note);
+        }
+        Section("Every value (selectable; Copy all values puts it on the clipboard)");
+        _dump = new TextEdit { Editable = false, CustomMinimumSize = new Vector2(0, 330), SizeFlagsHorizontal = SizeFlags.ExpandFill, Text = DebugTuning.Dump() };
+        _body.AddChild(_dump);
+    }
+
+    private void Section(string title)
+    {
+        var l = UiKit.Label(title, 18, UiKit.Gold);
+        _body.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
+        _body.AddChild(l);
+    }
+
+    /// <summary>A fine slider for a tuning value, with its number (and the default, to go back to).</summary>
+    private static Control DebugSlider(DebugTuning.Param p)
+    {
+        var s = new HSlider { MinValue = p.Min, MaxValue = p.Max, Step = (p.Max - p.Min) / 400f, Value = p.Value, CustomMinimumSize = new Vector2(300, 30), FocusMode = FocusModeEnum.All, SizeFlagsVertical = SizeFlags.ShrinkCenter };
+        var l = UiKit.Label(p.Value.ToString("0.###"), 15, UiKit.Dim);
+        l.CustomMinimumSize = new Vector2(64, 0);
+        s.ValueChanged += v => { l.Text = ((float)v).ToString("0.###"); DebugTuning.Set(p.Key, (float)v); };
+        var h = new HBoxContainer();
+        h.AddThemeConstantOverride("separation", 12);
+        h.AddChild(s);
+        h.AddChild(l);
+        h.AddChild(UiKit.Button("default", () => s.Value = p.Default, 90));
+        return h;
     }
 
     // ---------------------------------------------------------------- sound
@@ -524,6 +609,12 @@ public partial class SettingsMenu : Control
 
     public override void _Process(double delta)
     {
+        // (debug tab: the list of values follows every change, whichever dial made it)
+        if (Visible && _tab == 3 && _dump != null)
+        {
+            string t = DebugTuning.Dump();
+            if (t != _dump.Text) _dump.Text = t;
+        }
         if (!Visible || _capAction == null) return;
         _capT -= (float)delta;
         if (_capT <= 0) EndCapture(null);
@@ -537,12 +628,12 @@ public partial class SettingsMenu : Control
             // tabs with the shoulder buttons (or Q / E... no: those may be bound; use PageUp / PageDown)
             if (e is InputEventJoypadButton { Pressed: true } jb && jb.ButtonIndex is JoyButton.LeftShoulder or JoyButton.RightShoulder)
             {
-                Show((_tab + (jb.ButtonIndex == JoyButton.RightShoulder ? 1 : 2)) % 3);
+                Show((_tab + (jb.ButtonIndex == JoyButton.RightShoulder ? 1 : TabCount - 1)) % TabCount);
                 GetViewport().SetInputAsHandled();
             }
             else if (e is InputEventKey { Pressed: true, Echo: false } kp && kp.PhysicalKeycode is Key.Pageup or Key.Pagedown)
             {
-                Show((_tab + (kp.PhysicalKeycode == Key.Pagedown ? 1 : 2)) % 3);
+                Show((_tab + (kp.PhysicalKeycode == Key.Pagedown ? 1 : TabCount - 1)) % TabCount);
                 GetViewport().SetInputAsHandled();
             }
             return;
