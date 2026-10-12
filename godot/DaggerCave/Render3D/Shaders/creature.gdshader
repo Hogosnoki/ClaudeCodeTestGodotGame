@@ -239,7 +239,7 @@ void fragment() {
 	// (a flatter palette: each colour drawn a little toward its band)
 	// (stepped in brightness only: the hue stays its own, however few the tones)
 	alb = cel_tone(alb);
-	alb = dbg_adjust(alb, dbg_obj_bright, dbg_obj_contrast, body_avg);
+	alb = dbg_adjust(alb, dbg_obj_bright, dbg_obj_contrast, body_avg, dbg_obj_rgb());
 	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);
 	// (never a perfect mirror: under the sun a zero roughness makes the highlight infinite)
 	ROUGHNESS = max(rough, 0.08);

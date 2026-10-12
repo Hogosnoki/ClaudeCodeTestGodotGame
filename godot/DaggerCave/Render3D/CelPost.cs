@@ -1,3 +1,4 @@
+using System;
 using Godot;
 
 namespace DaggerCave;
@@ -5,7 +6,7 @@ namespace DaggerCave;
 /// <summary>
 /// The lighting tones (Settings > Graphics: lighting blur and lighting tones): a full-screen pass over the lit 3D picture, under every
 /// 2D layer (HUD, menus, effects drawn in 2D), that blurs it and divides its brightness into tones (cel_post.gdshader), the same two
-/// dials the textures have, but after the lighting. It is hidden (costing nothing) when neither dial does anything or the stylised look
+/// dials the textures have, but after the lighting. It is hidden (costing nothing) when no dial (nor debug mode's red, green and blue gains) does anything or the stylised look
 /// is off.
 /// </summary>
 public partial class CelPost : CanvasLayer
@@ -34,6 +35,7 @@ public partial class CelPost : CanvasLayer
     public static void Refresh()
     {
         if (_i == null || !IsInstanceValid(_i)) return;
-        _i.Visible = GameSettings.CelShading && (GameSettings.CelLightTones >= 1.5f || GameSettings.CelLightBlur > 0.01f);
+        bool rgb = Math.Abs(DebugTuning.V("scr_r") - 1f) > 0.002f || Math.Abs(DebugTuning.V("scr_g") - 1f) > 0.002f || Math.Abs(DebugTuning.V("scr_b") - 1f) > 0.002f;
+        _i.Visible = rgb || (GameSettings.CelShading && (GameSettings.CelLightTones >= 1.5f || GameSettings.CelLightBlur > 0.01f));
     }
 }

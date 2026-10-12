@@ -121,3 +121,51 @@ dbg_ground_up={
 "type": "float",
 "value": 0.6
 }
+dbg_fg_r={
+"type": "float",
+"value": 1.0
+}
+dbg_fg_g={
+"type": "float",
+"value": 1.0
+}
+dbg_fg_b={
+"type": "float",
+"value": 1.0
+}
+dbg_bg_r={
+"type": "float",
+"value": 1.0
+}
+dbg_bg_g={
+"type": "float",
+"value": 1.0
+}
+dbg_bg_b={
+"type": "float",
+"value": 1.0
+}
+dbg_obj_r={
+"type": "float",
+"value": 1.0
+}
+dbg_obj_g={
+"type": "float",
+"value": 1.0
+}
+dbg_obj_b={
+"type": "float",
+"value": 1.0
+}
+dbg_scr_r={
+"type": "float",
+"value": 1.0
+}
+dbg_scr_g={
+"type": "float",
+"value": 1.0
+}
+dbg_scr_b={
+"type": "float",
+"value": 1.0
+}

@@ -1277,6 +1277,9 @@ Settings gets a **Debug** tab (`UI/SettingsMenu.cs`, `Core/DebugTuning.cs`) with
   can be watched behind it (at the character select the camp shows, with the hero strip stepped aside; opened from the pause menu, the
   paused cave);
 - **Characters and creatures** brightness and contrast;
+- **Red, green and blue** gains (0 to 2, 1 = unchanged) for each of the three: the foreground ground, the background ground and the characters
+  and creatures, and for the **whole picture** (a full-screen pass over everything lit in 3D, under the HUD: `CelPost`, which now also shows
+  whenever one of these is off 1);
 - the dirt and grass: dirt colour gain, grain, stone shade variation, crevices, stone size, facet shade, how much the grass takes the biome's
   growth colour, and the steepest face that still counts as ground;
 - the cave's **ambient light** strength and biome tint, and the **camera zoom**.
@@ -1285,7 +1288,7 @@ Brightness and contrast are made in the display's perceptual scale (`dbg_adjust`
 colour** of what is drawn, not about grey: at 0 every colour becomes that average (a flat wash of its own colour), at 1 nothing changes, above
 1 colours spread away from it. The ground's average is its dirt and grass in the shares they take on screen (25% grass), separately for the
 foreground and the darker background dirt; a creature's is the mean of its mesh's vertex colours (`body_avg`, set in `CreatureModel`);
-the camp's is its grass, and its cliff's its stone with a little grass. Brightness multiplies on top. Every tuning value is a shader global
+the camp's is its grass, and its cliff's its stone with a little grass. Brightness multiplies on top, then the red, green and blue gains. Every tuning value is a shader global
 (`dbg_*`, in project.godot) except the ambient light, blur and zoom, which the code reads. They are saved with the settings (the `[debug]` section), so a look found in debug mode stays across launches.
 
 The box at the bottom of the tab lists **every value** (a `*` marks one changed from its default); **Copy all values** puts it on the

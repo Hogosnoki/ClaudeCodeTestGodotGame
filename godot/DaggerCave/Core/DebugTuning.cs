@@ -31,13 +31,22 @@ public static class DebugTuning
         new Param { Key = "panel_opacity", Label = "Debug window opacity", Group = "Debug window", Note = "how solid the settings window is on the Debug tab (low: see the changes behind it)", Min = 0.05f, Max = 1f, Default = 0.4f, Value = 0.4f, Shader = false },
         new Param { Key = "fg_bright", Label = "Foreground brightness", Group = "Foreground (the ground at and in front of the play plane)", Note = "brightness of the ground colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "fg_contrast", Label = "Foreground contrast", Group = null, Note = "0 = every colour the average colour; 1 = as drawn; more spreads them from it", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "fg_r", Label = "Foreground red", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "fg_g", Label = "Foreground green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "fg_b", Label = "Foreground blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "bg_bright", Label = "Background brightness", Group = "Background (the back of the tunnels, behind the play plane)", Note = "brightness of the ground colours behind the play plane", Min = 0.2f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "bg_contrast", Label = "Background contrast", Group = null, Note = "the same, for the ground behind the play plane", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "bg_r", Label = "Background red", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "bg_g", Label = "Background green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "bg_b", Label = "Background blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "back_dirt", Label = "Background dirt darkness", Group = null, Note = "the back dirt's brightness as a share of the foreground dirt's", Min = 0.0f, Max = 1.2f, Default = 0.5f, Value = 0.5f, Shader = true },
         new Param { Key = "bg_blur", Label = "Background blur", Group = null, Note = "depth blur: everything behind the play plane softens (0 = off)", Min = 0.0f, Max = 1.0f, Default = 0.0f, Value = 0.0f, Shader = false },
         new Param { Key = "bg_blur_dist", Label = "  Blur starts behind plane", Group = null, Note = "metres behind the play plane where the blur begins", Min = 0.0f, Max = 30.0f, Default = 2.0f, Value = 2.0f, Shader = false },
         new Param { Key = "obj_bright", Label = "Characters and creatures brightness", Group = "Characters and creatures", Note = "brightness of their colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "obj_contrast", Label = "Characters and creatures contrast", Group = null, Note = "the same, toward each creature's own average colour", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "obj_r", Label = "Characters and creatures red", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "obj_g", Label = "Characters and creatures green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "obj_b", Label = "Characters and creatures blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "wall_gain", Label = "Dirt colour gain", Group = "Dirt and grass", Note = "how bright the biome's wall colour is drawn", Min = 0.2f, Max = 2.0f, Default = 0.8f, Value = 0.8f, Shader = true },
         new Param { Key = "grain_amount", Label = "Grain", Group = null, Note = "fine variation in the dirt's brightness", Min = 0.0f, Max = 0.8f, Default = 0.3f, Value = 0.3f, Shader = true },
         new Param { Key = "lump_amount", Label = "Stone shade variation", Group = null, Note = "how much each stone's shade differs from the next", Min = 0.0f, Max = 0.8f, Default = 0.34f, Value = 0.34f, Shader = true },
@@ -46,6 +55,9 @@ public static class DebugTuning
         new Param { Key = "facet_shade", Label = "Facet shade", Group = null, Note = "each polygon face's own shade", Min = 0.0f, Max = 0.4f, Default = 0.06f, Value = 0.06f, Shader = true },
         new Param { Key = "grass_lean", Label = "Grass takes biome growth colour", Group = null, Note = "0 = plain green everywhere", Min = 0.0f, Max = 1.0f, Default = 0.25f, Value = 0.25f, Shader = true },
         new Param { Key = "ground_up", Label = "Steepest ground", Group = null, Note = "how level a face must be to count as grass (its up component)", Min = 0.3f, Max = 0.95f, Default = 0.6f, Value = 0.6f, Shader = true },
+        new Param { Key = "scr_r", Label = "Whole picture red", Group = "Whole picture", Note = "the whole lit picture's red, green or blue (a full-screen pass, after everything)", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "scr_g", Label = "Whole picture green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
+        new Param { Key = "scr_b", Label = "Whole picture blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "amb_energy", Label = "Ambient light strength", Group = "Light", Note = "with ambient light only, the cave's", Min = 0.2f, Max = 3.0f, Default = 1.0f, Value = 1.0f, Shader = false },
         new Param { Key = "amb_tint", Label = "Ambient light biome tint", Group = null, Note = "how much the biome's colour tints the (near white) ambient light", Min = 0.0f, Max = 1.0f, Default = 0.2f, Value = 0.2f, Shader = false },
         new Param { Key = "cam_zoom", Label = "Camera zoom", Group = "Camera", Note = "bigger is closer to the player", Min = 1.2f, Max = 4.0f, Default = Tune.Feel.CameraZoom, Value = Tune.Feel.CameraZoom, Shader = false },
@@ -85,6 +97,7 @@ public static class DebugTuning
         if (cam != null && GodotObject.IsInstanceValid(cam)) cam.Zoom = new Vector2(V("cam_zoom"), V("cam_zoom"));
         Stage3D.I?.ApplySettings();
         CampScene.I?.ApplyLighting();
+        CelPost.Refresh();
     }
 
     public static void Save(ConfigFile cfg)

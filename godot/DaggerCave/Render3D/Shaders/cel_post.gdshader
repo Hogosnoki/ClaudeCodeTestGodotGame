@@ -9,6 +9,10 @@ global uniform float cel_shading;
 global uniform float cel_light_blur;
 global uniform float cel_light_tones;
 global uniform float cel_band_soft;
+// debug mode: the whole picture's red, green and blue gains (after the tones; 1 = unchanged)
+global uniform float dbg_scr_r;
+global uniform float dbg_scr_g;
+global uniform float dbg_scr_b;
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 
@@ -24,5 +28,6 @@ void fragment() {
 		t = s < 0.5 / n ? s : t;
 		c = mix(c, c / L * t * t, cel_shading);
 	}
+	c *= vec3(dbg_scr_r, dbg_scr_g, dbg_scr_b);
 	COLOR = vec4(c, 1.0);
 }

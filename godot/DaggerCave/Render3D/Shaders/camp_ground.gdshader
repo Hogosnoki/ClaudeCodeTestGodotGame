@@ -107,7 +107,7 @@ void fragment() {
 	if (!solid) c = cel_tone(c);
 	float sh = mouth_shade(v_wp, false);
 	c *= 1.0 - 0.97 * sh;
-	ALBEDO = dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, solid ? grass_col : (grass_a + grass_b) * 0.5);
+	ALBEDO = dbg_adjust(c, dbg_fg_bright, dbg_fg_contrast, solid ? grass_col : (grass_a + grass_b) * 0.5, dbg_fg_rgb());
 	ROUGHNESS = 0.95;
 	SPECULAR = 0.15 * (1.0 - sh);
 	// (the haze, but none over the dark of the mouth: otherwise the black there would be lifted to a pale grey)
