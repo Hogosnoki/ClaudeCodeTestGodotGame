@@ -152,7 +152,7 @@ public partial class CaveDecor3D : Node3D
         var boulders = new Kind[3];
         for (int k = 0; k < boulders.Length; k++) boulders[k] = NewKind(DecorMeshes.Boulder(_rng, noise, 1f), rockMat, true);
         var grass = new Kind[3];
-        for (int k = 0; k < grass.Length; k++) grass[k] = NewKind(DecorMeshes.GrassTuft(_rng, 9 + k * 4, 0.3f), grassMat, false);
+        for (int k = 0; k < grass.Length; k++) grass[k] = NewKind(DecorMeshes.GrassTuft(_rng, 5 + k * 2, 0.55f, 2.6f), grassMat, false);
         GrassMeshes = new[] { grass[0].Mesh, grass[1].Mesh, grass[2].Mesh };
         var mush = new Kind[3];
         for (int k = 0; k < mush.Length; k++) mush[k] = NewKind(DecorMeshes.MushroomCluster(_rng, 2 + k * 2, 0.22f, b.Glow), mushMat, true);
@@ -163,7 +163,7 @@ public partial class CaveDecor3D : Node3D
         var worms = new Kind[2];
         for (int k = 0; k < worms.Length; k++) worms[k] = NewKind(DecorMeshes.GlowThreads(_rng, 5 + k * 4, 0.9f + k * 0.5f, b.Glow), wormMat, false);
         var icicles = frost ? new[] { NewKind(DecorMeshes.Icicles(_rng, 5, 0.8f), iceMat, true), NewKind(DecorMeshes.Icicles(_rng, 9, 1.3f), iceMat, true) } : null;
-        var roots = entrance || b.GiantRoots ? new[] { NewKind(DecorMeshes.Roots(_rng, 6, 1.6f, noise), rootMat, true), NewKind(DecorMeshes.Roots(_rng, 10, 2.4f, noise), rootMat, true) } : null;
+        var roots = entrance || b.GiantRoots ? new[] { NewKind(DecorMeshes.Roots(_rng, 3, 2.2f, noise), rootMat, true), NewKind(DecorMeshes.Roots(_rng, 5, 3.2f, noise), rootMat, true) } : null;
         // the root-choked tunnels: massive roots down through the ceilings from the world above
         var barkMat = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.95f };
         var bark = b.Edge.Lerp(new Color(0.25f, 0.17f, 0.1f), 0.7f);
@@ -269,7 +269,7 @@ public partial class CaveDecor3D : Node3D
             if (floor && !wet)
             {
                 // grass: denser at the back, short in front of the play plane
-                int tufts = (int)(b.Grass * 3.2f * len + R());
+                int tufts = (int)(b.Grass * 0.7f * len + R());
                 for (int k = 0; k < tufts; k++)
                 {
                     float z = R() < 0.7f ? R(-2.4f, -0.15f) : R(0.1f, 0.9f);
@@ -384,7 +384,7 @@ public partial class CaveDecor3D : Node3D
                         }
                     }
                 }
-                if (roots != null && R() < (b.GiantRoots ? 0.45f : 0.3f) * len)
+                if (roots != null && R() < (b.GiantRoots ? 0.12f : 0.07f) * len)
                 {
                     float z = R(-2.4f, 0.6f);
                     if (SurfaceAt(a.Lerp(bb, R()), n, z, out var pos, out var nn))

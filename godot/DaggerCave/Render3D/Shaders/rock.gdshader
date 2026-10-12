@@ -68,7 +68,15 @@ global uniform float terrain_solid;
 uniform vec3 grass_col : source_color = vec3(0.34, 0.62, 0.2);
 uniform vec3 snow_col : source_color = vec3(0.93, 0.96, 1.0);
 uniform float grass_lean = 0.25;
-uniform float wall_gain = 1.5;
+uniform float wall_gain = 0.8;
+// the dirt in the background (the back of the tunnels, behind the play plane) is this much of the foreground's brightness, from z = 0 back to z = -3
+uniform float back_dirt = 0.5;
+// the texture of the minimalist ground, as shares of its brightness: grain (fine), lumps (a stone's own shade), crevices between stones
+uniform float grain_amount = 0.16;
+uniform float lump_amount = 0.2;
+uniform float crevice_amount = 0.3;
+// the size of a stone, in metres
+uniform float stone_size = 0.9;
 // how steep a face may be and still count as ground (the up component of its direction)
 uniform float ground_up = 0.6;
 // how much each face's own shade varies (0 = none)
@@ -143,6 +151,32 @@ float caustic(vec2 uv, float time) {
 	return pow(abs(c), 8.0);
 }
 
+float hash21(vec2 q) { return fract(sin(dot(q, vec2(127.1, 311.7))) * 43758.5453); }
+vec2 hash22(vec2 q) { return fract(sin(vec2(dot(q, vec2(127.1, 311.7)), dot(q, vec2(269.5, 183.3)))) * 43758.5453); }
+
+float vnoise2(vec2 q) {
+	vec2 i = floor(q), f = fract(q);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(hash21(i), hash21(i + vec2(1.0, 0.0)), f.x), mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), f.x), f.y);
+}
+
+// Lumpy stones: cells of a Voronoi diagram. Returns the stone's own shade (0..1), and in .y how close this is to a crevice between two
+// stones (0 inside a stone, 1 at the crack).
+vec2 stones(vec2 q) {
+	vec2 i = floor(q), f = fract(q);
+	float d1 = 8.0, d2 = 8.0, id = 0.0;
+	for (int y = -1; y <= 1; y++) {
+		for (int x = -1; x <= 1; x++) {
+			vec2 g = vec2(float(x), float(y));
+			vec2 o = hash22(i + g);
+			float d = length(g + o - f);
+			if (d < d1) { d2 = d1; d1 = d; id = hash21(i + g + 7.0); }
+			else if (d < d2) d2 = d;
+		}
+	}
+	return vec2(id, 1.0 - smoothstep(0.0, 0.16, d2 - d1));
+}
+
 // A hard edge where v crosses e: no wider than a pixel or so at any distance (so it doesn't shimmer), never a smeared blend.
 float edge_step(float e, float v) {
 	float w = max(fwidth(v), 1e-4);
@@ -171,8 +205,23 @@ void fragment() {
 		if (dot(fv, NORMAL) < 0.0) fv = -fv;
 		vec3 fw = normalize((INV_VIEW_MATRIX * vec4(fv, 0.0)).xyz);
 		vec3 wall = tint_edge * wall_gain;
+		// (the dirt further back is darker than the dirt at the play plane)
+		wall *= mix(1.0, back_dirt, smoothstep(-0.2, -3.0, p.z));
 		vec3 ground = special_mode == 2 ? snow_col : mix(grass_col, luma(grass_col) * hue(moss_tint), grass_lean);
-		vec3 a = mix(wall, ground, step(ground_up, fw.y));
+		float is_ground = step(ground_up, fw.y);
+		vec3 a = mix(wall, ground, is_ground);
+		// ---- texture: grit and grain, and lumpy stones, drawn on whichever way the face looks (still flat colour, never smooth shading)
+		vec2 tq = fw.y > 0.6 ? p.xz : abs(fw.z) > abs(fw.x) ? p.xy : p.zy;
+		float grain = vnoise2(tq * 38.0) * 0.5 + vnoise2(tq * 15.0) * 0.5;
+		float grit = step(0.86, hash21(floor(tq * 70.0))) - step(0.9, hash21(floor(tq * 50.0 + 13.0))) * 0.0;
+		vec2 st = stones(tq / stone_size);
+		float lump = (st.x - 0.5) * 2.0;
+		float tex = 1.0 + (grain - 0.5) * 2.0 * grain_amount + lump * lump_amount * (is_ground > 0.5 ? 0.35 : 1.0);
+		// (small bright grit on dirt, darker crevices between the stones; grass gets its own mottle and a few pebbles instead of crevices)
+		tex *= 1.0 - st.y * crevice_amount * (is_ground > 0.5 ? 0.0 : 1.0);
+		tex += grit * 0.12 * (is_ground > 0.5 ? 0.5 : 1.0);
+		float mottle = vnoise2(tq * 3.2);
+		a *= tex * (is_ground > 0.5 ? 0.85 + 0.3 * mottle : 0.9 + 0.2 * mottle);
 		// (each face a shade of its own, from its direction: two neighbours never quite match, even where the light is flat)
 		float fh = fract(sin(dot(floor(fw * 64.0), vec3(12.9898, 78.233, 37.719))) * 43758.5453);
 		a *= 1.0 - facet_shade * 0.5 + facet_shade * fh;

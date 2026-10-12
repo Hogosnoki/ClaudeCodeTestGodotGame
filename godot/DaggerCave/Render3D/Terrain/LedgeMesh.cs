@@ -188,7 +188,7 @@ public static class LedgeMesh
                 if (mid.X < imin - 2 || mid.X > imax + 2 || mid.Y < jmin - 2 || mid.Y > jmax + 2) continue;
                 if (-n.Y <= walkable || (cave.Liquid != Liquid.None && mid.Y > waterRow)) continue;
                 if (!Mine(new Vector3(mid.X, -mid.Y, 0f))) continue;
-                int tufts = (int)(biome.Grass * 3.2f * sa.DistanceTo(sb) + rng.NextDouble());
+                int tufts = (int)(biome.Grass * 0.7f * sa.DistanceTo(sb) + rng.NextDouble());
                 for (int k = 0; k < tufts; k++)
                 {
                     float z = rng.NextDouble() < 0.7 ? R(-2.4f, -0.15f) : R(0.1f, 0.9f);

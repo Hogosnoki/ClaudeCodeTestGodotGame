@@ -204,13 +204,13 @@ public static class DecorMeshes
     }
 
     /// <summary>A tuft of grass blades (UV.y = 0 at the root, 1 at the tip, for the wind).</summary>
-    public static MeshBuilder GrassTuft(Random rng, int blades, float height)
+    public static MeshBuilder GrassTuft(Random rng, int blades, float height, float thick = 1f)
     {
         var mb = new MeshBuilder();
         for (int b = 0; b < blades; b++)
         {
             float h = height * (0.5f + (float)rng.NextDouble() * 0.7f);
-            float w = 0.012f + (float)rng.NextDouble() * 0.014f;
+            float w = (0.012f + (float)rng.NextDouble() * 0.014f) * thick;
             float yaw = (float)rng.NextDouble() * Mathf.Tau;
             var dir = new Vector3(MathF.Cos(yaw), 0, MathF.Sin(yaw));
             var side = new Vector3(-dir.Z, 0, dir.X);
@@ -285,7 +285,7 @@ public static class DecorMeshes
         for (int k = 0; k < count; k++)
         {
             float len = length * (0.4f + (float)rng.NextDouble() * 0.8f);
-            float r = 0.012f + (float)rng.NextDouble() * 0.03f;
+            float r = (0.012f + (float)rng.NextDouble() * 0.03f) * 2.6f;
             var o = new Vector3(((float)rng.NextDouble() - 0.5f) * 0.9f, -0.1f, ((float)rng.NextDouble() - 0.5f) * 0.6f);
             float seed = (float)rng.NextDouble() * 50f;
             var path = new List<Vector3>();

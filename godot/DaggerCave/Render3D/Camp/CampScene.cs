@@ -197,12 +197,12 @@ public partial class CampScene : SubViewport
     {
         // a tuft: a few blades fanning out, tips curling
         var tuft = new MeshBuilder();
-        for (int k = 0; k < 7; k++)
+        for (int k = 0; k < 6; k++)
         {
-            float a = k / 7f * Mathf.Tau + (float)_rng.NextDouble() * 0.6f;
+            float a = k / 6f * Mathf.Tau + (float)_rng.NextDouble() * 0.6f;
             var dir = new Vector3(MathF.Cos(a), 0, MathF.Sin(a));
             var side = new Vector3(-dir.Z, 0, dir.X);
-            float h = 0.16f + 0.3f * (float)_rng.NextDouble(), lean = 0.06f + 0.12f * (float)_rng.NextDouble(), w = 0.013f;
+            float h = 0.16f + 0.3f * (float)_rng.NextDouble(), lean = 0.06f + 0.12f * (float)_rng.NextDouble(), w = 0.034f;
             int b0 = tuft.Add(dir * 0.02f - side * w, Vector3.Up, Colors.White, new Vector2(0, 0));
             int b1 = tuft.Add(dir * 0.02f + side * w, Vector3.Up, Colors.White, new Vector2(1, 0));
             int m0 = tuft.Add(dir * (0.02f + lean * 0.45f) - side * w * 0.7f + Vector3.Up * h * 0.55f, Vector3.Up, Colors.White, new Vector2(0, 0.55f));
@@ -216,13 +216,13 @@ public partial class CampScene : SubViewport
         grassMat.SetShaderParameter("tip_color", new Color(0.4f, 0.52f, 0.2f));
         grassMat.SetShaderParameter("wind", 0.1f);
         var xforms = new List<Transform3D>();
-        for (int tries = 0; tries < 50000 && xforms.Count < 9000; tries++)
+        for (int tries = 0; tries < 50000 && xforms.Count < 1400; tries++)
         {
             float r = 2.3f + 18f * MathF.Sqrt((float)_rng.NextDouble());
             float a = (float)_rng.NextDouble() * Mathf.Tau;
             float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
             if (NearCliff(x, z)) continue;
-            float s = 0.7f + 0.8f * (float)_rng.NextDouble();
+            float s = 1.6f + 1.4f * (float)_rng.NextDouble();
             var basis = new Basis(Vector3.Up, (float)_rng.NextDouble() * Mathf.Tau).Scaled(new Vector3(s, s * (0.8f + 0.5f * (float)_rng.NextDouble()), s));
             xforms.Add(new Transform3D(basis, new Vector3(x, Ground(x, z) - 0.02f, z)));
         }
@@ -232,13 +232,13 @@ public partial class CampScene : SubViewport
         dryMat.SetShaderParameter("root_color", new Color(0.16f, 0.13f, 0.06f));
         dryMat.SetShaderParameter("tip_color", new Color(0.62f, 0.54f, 0.28f));
         var dryX = new List<Transform3D>();
-        for (int tries = 0; tries < 20000 && dryX.Count < 1800; tries++)
+        for (int tries = 0; tries < 20000 && dryX.Count < 260; tries++)
         {
             float r = 2.6f + 19f * MathF.Sqrt((float)_rng.NextDouble());
             float a = (float)_rng.NextDouble() * Mathf.Tau;
             float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
             if (NearCliff(x, z) || _noise.Sample(x * 0.09f, 4.4f, z * 0.09f) < 0f) continue;
-            float s = 0.8f + 0.9f * (float)_rng.NextDouble();
+            float s = 1.8f + 1.6f * (float)_rng.NextDouble();
             dryX.Add(new Transform3D(new Basis(Vector3.Up, (float)_rng.NextDouble() * Mathf.Tau).Scaled(new Vector3(s, s * 1.2f, s)), new Vector3(x, Ground(x, z) - 0.02f, z)));
         }
         AddChild(Instances(tuft.ToMesh(dryMat), dryX, null, false));

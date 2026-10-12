@@ -1235,6 +1235,13 @@ The look aims at Castle Crashers and Cuphead: flat fills, simple forms, ink bord
   takes a slight shade of its own (`facet_shade`) so two neighbours never quite match. The grass's edge follows the polygons. The camp
   does the same: all-grass meadow, grey cliff stone with grass on its upward faces, every face flat; the rubble and ledge stone drop their
   photographed grain (`PropViews.RestyleRock`).
+- **Dirt**: the wall colour is darker than it was (`wall_gain` 0.8), and the dirt behind the play plane is darker still (`back_dirt`: half the
+  foreground's brightness, fading in from z = 0 back to z = -3). It has texture again, still flat colour on flat faces: fine grain and grit,
+  and lumpy stones (a Voronoi cell each, `stone_size` 0.9 m, its own shade, darker crevices between them), drawn on whichever way the
+  face looks; the grass gets its own mottle and a few pebbles.
+- **Grass and roots**: the cave's tufts are bigger (taller, thicker blades, fewer per tuft) and about a fifth as many; the camp's
+  meadow likewise (1,400 big tufts instead of 9,000). Dangling roots are 2.6x thicker and longer, a quarter as many.
+- **Camera** 10% closer (`Tune.Feel.CameraZoom` 2.31).
 - **No borders inside a texture**: grass meets wall with no line between them.
 - **Object borders** (Settings > Graphics, 0 to 4 px, default 1; the shader global `ink_terrain_px`, `--ink=terrain,characters`): a thin
   ink line round the outline of every 3D thing (`Render3D/EdgeInk.cs`, `Shaders/edge_depth.gdshader`): a full-screen pass that finds
