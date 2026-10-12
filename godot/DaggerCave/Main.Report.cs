@@ -8,6 +8,7 @@ public partial class Main
     private void OpenReport()
     {
         _pauseMenu.Visible = false;
+        SessionLog.Note("opened the problem report");
         _bugReport.Open();
     }
 

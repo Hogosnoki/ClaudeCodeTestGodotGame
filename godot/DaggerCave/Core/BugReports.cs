@@ -8,7 +8,7 @@ namespace DaggerCave;
 
 /// <summary>
 /// Problem reports from the game: everything worth knowing about where and how something went wrong, put together for the player to
-/// send. The report has the player's own words (and a category) and, automatically, the cave's seed (which makes the cave again), the
+/// send. The report has the player's own words (the only thing asked) and, automatically, the cave's seed (which makes the cave again), the
 /// depth and cave kind, the hero, where they stand, a check of whether they are shut in, the map (a crop round them, and the whole of it
 /// in the saved file), the build and machine, the look settings and the end of the game's log.
 ///
@@ -21,11 +21,6 @@ public static class BugReports
     /// <summary>The GitHub repository the reports go to.</summary>
     public const string Repo = "hogosnoki/claudecodetestgodotgame";
 
-    public static readonly string[] Categories =
-    {
-        "Stuck or shut in", "Crash or freeze", "Something looks wrong", "Gameplay or balance", "Something else",
-    };
-
     /// <summary>Tests turn this off: nothing opens a browser.</summary>
     public static bool OpenBrowser = true;
 
@@ -37,6 +32,16 @@ public static class BugReports
     private static string Safe(Func<string> f)
     {
         try { return f(); } catch (Exception e) { return $"(not available: {e.Message})"; }
+    }
+
+    private static string Clock(double s) => $"{(int)(s / 60):0}:{(int)(s % 60):00}";
+
+    /// <summary>The party in a line: how many players and who.</summary>
+    private static string PartyLine()
+    {
+        var party = G.Players.Where(q => q != null && GodotObject.IsInstanceValid(q)).ToList();
+        if (party.Count == 0) return "none";
+        return $"{party.Count} player{(party.Count == 1 ? "" : "s")}{(Net.Online ? " (online)" : "")}: " + string.Join(", ", party.Select(q => $"{q.Hero}{(q.IsRemote ? " (remote)" : "")} L{q.Level}"));
     }
 
     /// <summary>What the report says about the run, short: the seed first.</summary>
@@ -153,7 +158,7 @@ public static class BugReports
     // ---------------------------------------------------------------- the report
 
     /// <summary>Puts a report together from the player's words, saves it, copies it, and (when asked) opens the browser on the issue.</summary>
-    public static Report Make(string category, string complaint, bool send = true)
+    public static Report Make(string complaint, bool send = true)
     {
         var cave = G.Cave;
         var p = G.Player;
@@ -176,8 +181,6 @@ public static class BugReports
 
         // --- the short report (the issue's body: it has to fit in an address) ---
         var b = new StringBuilder();
-        b.AppendLine($"**{category}**");
-        b.AppendLine();
         b.AppendLine(complaint);
         b.AppendLine();
         b.AppendLine("| | |");
@@ -187,6 +190,8 @@ public static class BugReports
         b.AppendLine($"| Hero | {who} |");
         b.AppendLine($"| Where | {cell} |");
         b.AppendLine($"| Build | `{Net.Build}`{(Net.Online ? " (online)" : "")} |");
+        b.AppendLine($"| Session | `{SessionLog.Id}` · playing {Clock(SessionLog.PlaySeconds)} · run {Clock(G.RunTime)} · run {SessionLog.Runs}, {SessionLog.Deaths} deaths |");
+        b.AppendLine($"| Party | {PartyLine()} |");
         b.AppendLine();
         if (shut != "") { b.AppendLine(shut); b.AppendLine(); }
         if (map != null)
@@ -204,6 +209,16 @@ public static class BugReports
         f.AppendLine($"# Dagger Deep problem report — {stamp}");
         f.AppendLine();
         f.Append(issueBody.Replace("_Reported from the game (the whole map, the settings and the log are in the report file it saved)._\n", ""));
+        f.AppendLine();
+        f.AppendLine("## Session");
+        f.AppendLine("```");
+        f.AppendLine(SessionLog.Describe());
+        f.AppendLine("```");
+        f.AppendLine();
+        f.AppendLine("## What happened just before (the game's own trail)");
+        f.AppendLine("```");
+        f.AppendLine(SessionLog.TrailText());
+        f.AppendLine("```");
         f.AppendLine();
         f.AppendLine("## Machine");
         f.AppendLine("```");
@@ -251,7 +266,7 @@ public static class BugReports
             path = ProjectSettings.GlobalizePath(rel);
         }
         catch (Exception e) { GD.PrintErr(e); }
-        string title = $"[{category}] {firstLine}";
+        string title = $"[Report] {firstLine}";
         var rep = new Report { Title = title, IssueBody = issueBody, Full = full, Path = path, Url = IssueUrl(title, issueBody) };
         if (send)
         {

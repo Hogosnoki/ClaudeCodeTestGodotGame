@@ -1325,16 +1325,22 @@ Tests: `--debug` starts with debug mode on, `--dbg=key=value,...` sets tuning va
 ## Reporting a problem
 
 - **The seed** is on the HUD (small, under the depth line) and in the pause menu, so any cave can be named and made again.
-- **Report a problem** (the pause menu's button, or **F6** anywhere in a run; `UI/BugReportMenu.cs`, `Core/BugReports.cs`): pick a category
-  (stuck or shut in, crash or freeze, looks wrong, gameplay or balance, other), write what happened, and Send. The game adds by itself:
-  the seed, depth and cave kind, the hero (HP, kills), the cell the player stands on, a **shut-in check** (a flood fill of the open air from
-  the player: how many of the cave's open cells it reaches, and whether the start and the guardian's room are among them), the **map** (a
-  crop round the player in the issue; the whole map in the file: `X` rock, `.` air they can reach, `,` air they can't, `~` water, `^` lava,
-  `P` player, `S` start), the build, the machine (Godot, OS, GPU, window), the cave generator's own diagnostics, every look setting (both
-  looks), and the last 70 lines of the game's log.
+- **Report a problem** (the pause menu's button, or **F6** anywhere in a run; `UI/BugReportMenu.cs`, `Core/BugReports.cs`): it asks one
+  thing, **what happened**, and the player writes as much or as little as they like. Everything else is collected behind the scenes, so the
+  session is always known (`Core/SessionLog.cs` keeps it as the game goes):
+  - **the session**: an id, when it started, how long the game has been open and how long was actually spent playing, runs and deaths so
+    far, and every cave of the session (seed, depth, cave kind, hero, number of players, when, for how long);
+  - **the party now**: how many players (online or not, host or guest), which heroes, their levels, HP and kills;
+  - **the trail**: the last 90 things that happened (a run started, a cave entered, a pause, an unstick, a death, a win, the report opened);
+  - **where**: the seed, depth and cave kind, the cell the player stands on, a **shut-in check** (a flood fill of the open air from the
+    player: how many of the cave's open cells it reaches, and whether the start and the guardian's room are among them) and the **map** (a
+    crop round the player in the issue; the whole map in the file: `X` rock, `.` air they can reach, `,` air they can't, `~` water, `^`
+    lava, `P` player, `S` start);
+  - **the machine**: build, Godot, OS, GPU, window size, frame rate; the cave generator's own diagnostics; every look setting (both looks);
+    and the last 70 lines of the game's log.
 - **Where it goes**: the whole report is saved in `user://bug_reports/` (on Linux `~/.local/share/godot/app_userdata/ProcGenGame/bug_reports/`,
   on Windows `%APPDATA%\Godot\app_userdata\ProcGenGame\bug_reports\`) and copied to the clipboard, and the browser opens a **new GitHub issue
-  on `hogosnoki/claudecodetestgodotgame`** with its title, a short body (the words, seed, cave, hero, place, shut-in check and map crop) and
+  on `hogosnoki/claudecodetestgodotgame`** with its title (`[Report] <first line>`), a short body (the words; a table of the seed, cave, hero, place, build, session and party; the shut-in check; and the map crop) and
   the label `bug-report` already filled in, to post with one click. Reports are then issues, so they can be listed, read and closed from
   GitHub (or by a session with GitHub access) while the game is changed. The game carries **no GitHub token**: one inside a game anyone can
   download is one anyone can take, so the player's own account posts it. (Posting with no click would need a small server of the owner's

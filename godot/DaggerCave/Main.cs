@@ -184,7 +184,7 @@ public partial class Main : Node
         };
         _uiLayer.AddChild(_loadoutMenu);
         UiKit.EnsureMenuControls();
-        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Report = OpenReport, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
+        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { SessionLog.Note("used Unstick me"); G.Player?.ForceUnstick(); Unpause(); }, Report = OpenReport, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_pauseMenu);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
@@ -819,6 +819,8 @@ public partial class Main : Node
             player.SyncCharges();
         }
         player.GlobalPosition = cave.StartPos;
+        if (freshPlayer) SessionLog.RunStarted(G.Hero.ToString(), Math.Max(1, G.Players.Count));
+        SessionLog.LevelEntered(cave);
         // (a cave whose start is walled in says so: in the log, and on the screen, with how to report it)
         try
         {
@@ -1511,6 +1513,7 @@ public partial class Main : Node
         _state = State.Dead;
         _deadT = 0;
         _deaths++;
+        SessionLog.RunEnded("died", G.Depth, G.RunTime);
         _metricsShown = false;
         _sfx.SetMusic("");
         Meta.Save();
@@ -1640,6 +1643,7 @@ public partial class Main : Node
 
     private void PauseGame()
     {
+        SessionLog.Note("paused");
         _state = State.Paused;
         if (!Net.InRun) GetTree().Paused = true;
         _pauseMenu.Open(online: Net.InRun, host: Net.IsHost);
@@ -1830,6 +1834,7 @@ public partial class Main : Node
         }
         _frameScale = (float)Engine.TimeScale;
         DebugTypingTick();
+        if (_state == State.Playing) SessionLog.Tick(dt);
 
         if (_padTest) PadTestTick(dt);
         if (_loading) { TickLoading(dt); if (_scenario == "loading") LoadingScenario(); return; }
@@ -2552,6 +2557,7 @@ public partial class Main : Node
         if (dragon)
         {
             _victory = true;
+            SessionLog.RunEnded("won (the dragon fell)", G.Depth, G.RunTime);
             Meta.Victories++;
             Meta.Save();
             _hud.ShowBanner("THE ELDER DRAGON IS SLAIN", 5f);
