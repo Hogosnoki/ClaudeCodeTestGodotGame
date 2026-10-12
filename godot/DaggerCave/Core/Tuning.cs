@@ -463,7 +463,7 @@ public static class Tune
         /// <summary>Camera nudge (pixels) in the direction of a blow.</summary>
         public static float KickNormal = 2.5f, KickKill = 4f, KickFinisher = 6f, KickPlayerHurt = 6f;
         public static float ShakeFinisher = 5f, ShakeKill = 3f;
-        public static float CameraZoom = 2.31f, CameraFollowSharpness = 7f;
+        public static float CameraZoom = 2.012f, CameraFollowSharpness = 7f;
         /// <summary>The 3D camera: vertical field of view (degrees; its distance follows from
         /// CameraZoom so it frames the same stretch of the play plane), how far above the action
         /// it sits (metres; higher shows more of each floor) and how far above the action it aims.</summary>

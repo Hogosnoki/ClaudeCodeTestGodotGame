@@ -50,8 +50,8 @@ public static class GameSettings
     public static class LookDef
     {
         public const bool Shading = true, Solid = true, Ambient = true;
-        public const float TerrainInk = 1f, ActorInk = 2f;
-        public const float TexBlur = 0f, TexTones = 6f, LightBlur = 0f, LightTones = 5f, Soft = 0.4f, Flat = 0.25f;
+        public const float TerrainInk = 1.2f, ActorInk = 2.975f;
+        public const float TexBlur = 0f, TexTones = 0f, LightBlur = 0f, LightTones = 9f, Soft = 0.95f, Flat = 0f;
     }
 
     /// <summary>Every look setting back to its default.</summary>
@@ -81,7 +81,7 @@ public static class GameSettings
         yield return ("band_softness", F(CelBandSoft), F(LookDef.Soft));
         yield return ("light_flatness", F(CelLightFlat), F(LookDef.Flat));
         yield return ("ink_outlines_on_creatures", Bo(InkOutlines), Bo(true));
-        yield return ("brightness", F(Brightness), F(1f));
+        yield return ("brightness", F(Brightness), F(1.4f));
     }
 
     /// <summary>Ready-made settings of those dials.</summary>
@@ -117,7 +117,7 @@ public static class GameSettings
     public enum AntiAlias { Off, Fxaa, Msaa2, Msaa4 }
     public static AntiAlias Aa = AntiAlias.Off;
     /// <summary>Exposure multiplier (1 = as designed).</summary>
-    public static float Brightness = 1f;
+    public static float Brightness = 1.4f;
     /// <summary>Screen shake and camera kicks (0..1).</summary>
     public static float Shake = 1f;
 
