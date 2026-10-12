@@ -72,9 +72,9 @@ uniform float wall_gain = 0.8;
 // the dirt in the background (the back of the tunnels, behind the play plane) is this much of the foreground's brightness, from z = 0 back to z = -3
 uniform float back_dirt = 0.5;
 // the texture of the minimalist ground, as shares of its brightness: grain (fine), lumps (a stone's own shade), crevices between stones
-uniform float grain_amount = 0.16;
-uniform float lump_amount = 0.2;
-uniform float crevice_amount = 0.3;
+uniform float grain_amount = 0.3;
+uniform float lump_amount = 0.34;
+uniform float crevice_amount = 0.5;
 // the size of a stone, in metres
 uniform float stone_size = 0.9;
 // how steep a face may be and still count as ground (the up component of its direction)
@@ -174,7 +174,7 @@ vec2 stones(vec2 q) {
 			else if (d < d2) d2 = d;
 		}
 	}
-	return vec2(id, 1.0 - smoothstep(0.0, 0.16, d2 - d1));
+	return vec2(id, 1.0 - smoothstep(0.0, 0.26, d2 - d1));
 }
 
 // A hard edge where v crosses e: no wider than a pixel or so at any distance (so it doesn't shimmer), never a smeared blend.
@@ -212,14 +212,17 @@ void fragment() {
 		vec3 a = mix(wall, ground, is_ground);
 		// ---- texture: grit and grain, and lumpy stones, drawn on whichever way the face looks (still flat colour, never smooth shading)
 		vec2 tq = fw.y > 0.6 ? p.xz : abs(fw.z) > abs(fw.x) ? p.xy : p.zy;
-		float grain = vnoise2(tq * 38.0) * 0.5 + vnoise2(tq * 15.0) * 0.5;
-		float grit = step(0.86, hash21(floor(tq * 70.0))) - step(0.9, hash21(floor(tq * 50.0 + 13.0))) * 0.0;
+		// (sized to read at the play plane's scale: a hand's width for the grain, a thumb's for the grit)
+		float grain = vnoise2(tq * 9.0) * 0.5 + vnoise2(tq * 4.0) * 0.5;
+		float grit = step(0.86, hash21(floor(tq * 22.0)));
 		vec2 st = stones(tq / stone_size);
-		float lump = (st.x - 0.5) * 2.0;
-		float tex = 1.0 + (grain - 0.5) * 2.0 * grain_amount + lump * lump_amount * (is_ground > 0.5 ? 0.35 : 1.0);
-		// (small bright grit on dirt, darker crevices between the stones; grass gets its own mottle and a few pebbles instead of crevices)
-		tex *= 1.0 - st.y * crevice_amount * (is_ground > 0.5 ? 0.0 : 1.0);
-		tex += grit * 0.12 * (is_ground > 0.5 ? 0.5 : 1.0);
+		vec2 pb = stones(tq / (stone_size * 0.3) + 17.0);
+		float lump = (st.x - 0.5) * 2.0 + (pb.x - 0.5) * 0.7;
+		float tex = 1.0 + (grain - 0.5) * 2.0 * grain_amount + lump * lump_amount * (is_ground > 0.5 ? 0.3 : 1.0);
+		// (bright grit on dirt, dark crevices between the stones and the small stones in them; grass gets its own mottle and a few
+		// pebbles instead of crevices)
+		tex *= 1.0 - (st.y + pb.y * 0.5) * crevice_amount * (is_ground > 0.5 ? 0.0 : 1.0);
+		tex += grit * 0.2 * (is_ground > 0.5 ? 0.4 : 1.0);
 		float mottle = vnoise2(tq * 3.2);
 		a *= tex * (is_ground > 0.5 ? 0.85 + 0.3 * mottle : 0.9 + 0.2 * mottle);
 		// (each face a shade of its own, from its direction: two neighbours never quite match, even where the light is flat)
