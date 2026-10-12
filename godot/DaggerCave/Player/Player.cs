@@ -484,7 +484,7 @@ public partial class Player : CharacterBody2D
             QueueRedraw();
             return;
         }
-        // melee pauses: the beat before a swing and the beat after a blow that landed (the hero holds the pose, perfectly still)
+        // melee pause: the beat after a blow that landed, once its hit-stop is over (the hero holds the pose, perfectly still)
         if (_pauseNext > 0f) { _pauseT = Math.Max(_pauseT, _pauseNext); _pauseNext = 0f; HitPausesRun++; _pausePos = GlobalPosition; PauseDrift = 0f; }
         if (_pauseT > 0f)
         {
@@ -1225,13 +1225,15 @@ public partial class Player : CharacterBody2D
     }
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
-    /// <summary>Seconds of melee stillness left, and queued behind the hit-stop (for the tests).</summary>
+    /// <summary>Seconds of post-hit stillness left, and queued behind the hit-stop (for the tests).</summary>
     public float PauseLeft => _pauseT + _pauseNext;
-    /// <summary>For the tests: the last opening pause begun, the last pause queued behind a landed blow, and how far the hero got from where a pause began, while it lasted.</summary>
-    public float LastOpenPause { get; private set; }
+    /// <summary>For the tests: the last pause queued behind a landed blow, and how far the hero got from where a pause began, while it lasted.</summary>
     public float LastHitPause { get; private set; }
     public float PauseDrift { get; private set; }
     public int HitPausesRun { get; private set; }
+    /// <summary>For the tests: the vertical speed just before and just after the last landed strike.</summary>
+    public float HitVyBefore { get; private set; }
+    public float HitVyAfter { get; private set; }
     private Vector2 _pausePos;
 
     private int _lastStandDepth = -1;

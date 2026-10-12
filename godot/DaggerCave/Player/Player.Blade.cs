@@ -132,8 +132,6 @@ public partial class Player
         float frames = finisher ? 9 : 7;
         Anim.Once($"slash_{letter}_{dir}", 3, frames / 24f / (_windup + _active + _windup * 1.6f));
         NetSync.HeroSwing(this, _swingDir, _swingArc, _swingReach, _windup, _active, _comboStep, finisher, charged, false);
-        // (a beat of stillness before the blade moves; not for a counter, which answers a blow at once)
-        if (!counter) { _pauseT = Math.Max(_pauseT, Tune.Feel.MeleePause); LastOpenPause = Tune.Feel.MeleePause; _pausePos = GlobalPosition; PauseDrift = 0f; }
     }
 
     /// <summary>The moment the blade comes around: sound, lunge, crescent wave, stretch.</summary>
@@ -305,6 +303,10 @@ public partial class Player
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             // (not the Rogue: its jabs come too fast to bounce off each one)
             if (Math.Abs(to.X) > 2 && !IsRogue) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.HeroStrikeRecoil, Velocity.Y);
+            // a landed strike stops any rise or fall (a pogo, below, then bounces you up afresh)
+            HitVyBefore = Velocity.Y;
+            Velocity = new Vector2(Velocity.X, 0f);
+            HitVyAfter = Velocity.Y;
             Freeze(stop);
             // (and once the hit-stop is over, another beat of stillness)
             _pauseNext = Math.Max(_pauseNext, Tune.Feel.MeleeHitPause);

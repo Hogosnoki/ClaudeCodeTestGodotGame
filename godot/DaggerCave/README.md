@@ -1346,12 +1346,12 @@ engine's own stick bindings on `ui_*` stepped on every frame, and so did the her
 `move_left` / `move_right`: it now takes only key and button presses from those (`Main.StepKey`), and the stick's one step comes from
 MenuStick. `--fronttest` pushes a stick that reports six times and checks the hero changes by one.
 
-## Melee pauses
+## Melee blows that land
 
-A melee attack (the Swordsman's, Warden's, Rogue's and Automaton's swings; not a counter, a heave or a ranged cast) holds the hero perfectly
-still for **0.1 s as it begins** (`Tune.Feel.MeleePause`), and **if the blow lands**, for **another 0.1 s once the hit-stop is over**
-(`Tune.Feel.MeleeHitPause`). The pose is held, with no walking, jumping or gravity; being hurt cuts a pause short. `--scenario=melee --hero=NAME`
-checks both lengths, that the hero didn't move, and that the second pause ran after the hit-stop.
+A melee swing (the Swordsman's, Warden's, Rogue's and Automaton's) has **no delay as it begins**. When a blow **lands**, the hero's vertical
+speed is **reset to zero** (a rise or a fall stops dead; a Pogo strike then bounces up as before) and, once the hit-stop is over, the hero
+holds still for **0.1 s** more (`Tune.Feel.MeleeHitPause`; no walking, jumping or gravity; being hurt cuts it short).
+`--scenario=melee --hero=NAME` checks there is no opening delay, the pause length, that the hero held still, and the vertical reset.
 
 ## Reporting a problem
 
