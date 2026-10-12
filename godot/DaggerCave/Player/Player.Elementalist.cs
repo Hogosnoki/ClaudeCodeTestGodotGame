@@ -416,13 +416,14 @@ public partial class Player
         _snapCd = Tune.Elementalist.SnapCooldown;
         if (!PayAlimus(SnapCost)) return true;
         _snapping = marked;
-        // the fist closes (the clip's clench), and on it everything marked bursts
-        _snapAt = 0.12f;
+        // the fist closes (the clip's clench): for a beat the hero and everything marked are held still, and then it all bursts
+        _snapAt = Tune.Elementalist.SnapFreeze;
+        foreach (var m in marked) m.Freeze(Tune.Elementalist.SnapFreeze + 0.05f, hold: true);
         var dir = (marked[0].GlobalPosition - CastPoint).Normalized();
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         CastDir = dir;
         Anim.Face((int)Facing, instant: true);
-        Anim.Once("rupture", 3, 2.2f);
+        Hold(Tune.Elementalist.SnapFreeze, "rupture", () => { });
         LastCast = marked.Any(e => !e.FrozenSolid) ? "cinder" : "snap";
         _castGlow = 1f;
         foreach (var e in marked) G.Fx.Converge(e.GlobalPosition, e.HitRadius + 14, e.FrozenSolid ? ElementBolt.FrostColor : ElementBolt.FireColor, 6, 0.12f);
@@ -443,8 +444,8 @@ public partial class Player
             burst++;
             // (ice shatters; a creature burning but not frozen bursts in cinders)
             bool cinder = !e.FrozenSolid;
-            float dmg = (cinder ? Tune.Elementalist.CinderDamage : Tune.Elementalist.SnapDamage) * Stats.DamageMult;
-            float splash = (cinder ? Tune.Elementalist.CinderSplash : Tune.Elementalist.SnapSplash) * Stats.DamageMult;
+            float dmg = (cinder ? Tune.Elementalist.CinderDamage : Tune.Elementalist.SnapDamage) * Tune.Elementalist.SnapMult * Stats.DamageMult;
+            float splash = (cinder ? Tune.Elementalist.CinderSplash : Tune.Elementalist.SnapSplash) * Tune.Elementalist.SnapMult * Stats.DamageMult;
             BurstCreature(e, dmg, splash, radius, cinder, Stats.CinderSnap);
         }
         LastSnapCount = burst;

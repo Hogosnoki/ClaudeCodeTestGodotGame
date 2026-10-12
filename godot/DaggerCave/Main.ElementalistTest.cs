@@ -197,7 +197,8 @@ public partial class Main
             case 226:
             {
                 float dealt = _hpMark - _probeEnemy.Hp, splash = _hp2Mark - (IsInstanceValid(_probe2) ? _probe2.Hp : 0);
-                float want = Tune.Elementalist.SnapDamage * p.Stats.DamageMult, wantSplash = Tune.Elementalist.SnapSplash * p.Stats.DamageMult;
+                float want = Tune.Elementalist.SnapDamage * Tune.Elementalist.SnapMult * p.Stats.DamageMult, wantSplash = Tune.Elementalist.SnapSplash * Tune.Elementalist.SnapMult * p.Stats.DamageMult;
+                Check($"the snap held the hero still for {Tune.Elementalist.SnapFreeze:0.##} s first ({p.LastHold:0.###} s, drift {p.LastHoldDrift:0.00} px)", Math.Abs(p.LastHold - Tune.Elementalist.SnapFreeze) < 0.001f && p.LastHoldDrift < 0.01f);
                 Check($"a snap shatters the frozen golem for {want:0} ({dealt:0.0}, frozen now {_probeEnemy.FrozenSolid})", Math.Abs(dealt - want) < 0.6f && !_probeEnemy.FrozenSolid);
                 Check($"and the goblin beside it takes {wantSplash:0} ({splash:0.0})", Math.Abs(splash - wantSplash) < 0.6f);
                 // (less what came back in the moment since)

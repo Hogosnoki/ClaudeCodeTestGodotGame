@@ -410,6 +410,10 @@ public static class Tune
         /// </summary>
         public static float SnapCost = 6f, SnapDamage = 15f, SnapSplash = 4f, SnapRadius = 50f, SnapCooldown = 0.6f;
         public static float CinderDamage = 20f, CinderSplash = 6f;
+        /// <summary>A Snap hits this many times as hard (both the burst and the splash; the shatters of a heaving swing or a shield bash keep SnapDamage as it is).</summary>
+        public static float SnapMult = 2f;
+        /// <summary>The beat before a Snap bursts: the Elementalist and every creature it marks are held still for this long.</summary>
+        public static float SnapFreeze = 0.35f;
         public static float SnapViewX = 500f, SnapViewY = 290f;
         /// <summary>Upgrades: Kindling's ignite chance and Deep Chill's freeze chance, per rank;
         /// Echo's alimus back for each creature a snap bursts.</summary>
