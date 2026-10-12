@@ -28,6 +28,7 @@ public static class DebugTuning
 
     public static readonly List<Param> All = new()
     {
+        new Param { Key = "panel_opacity", Label = "Debug window opacity", Group = "Debug window", Note = "how solid the settings window is on the Debug tab (low: see the changes behind it)", Min = 0.05f, Max = 1f, Default = 0.4f, Value = 0.4f, Shader = false },
         new Param { Key = "fg_bright", Label = "Foreground brightness", Group = "Foreground (the ground at and in front of the play plane)", Note = "brightness of the ground colours and textures", Min = 0.3f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "fg_contrast", Label = "Foreground contrast", Group = null, Note = "0 = every colour the average colour; 1 = as drawn; more spreads them from it", Min = 0f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },
         new Param { Key = "bg_bright", Label = "Background brightness", Group = "Background (the back of the tunnels, behind the play plane)", Note = "brightness of the ground colours behind the play plane", Min = 0.2f, Max = 2.5f, Default = 1.0f, Value = 1.0f, Shader = true },

@@ -1273,6 +1273,9 @@ Settings gets a **Debug** tab (`UI/SettingsMenu.cs`, `Core/DebugTuning.cs`) with
 - **Foreground** brightness and contrast (the ground at and in front of the play plane, and the camp's meadow and cliff), **Background**
   brightness and contrast (the ground behind it, fading in from the play plane to 3 m back), the **background dirt's darkness**, and a
   **background blur** (a depth blur of everything behind the play plane, with how many metres behind the plane it starts);
+- **Debug window opacity** (default 40%): on the Debug tab the settings window is see-through and the screen is not dimmed, so every change
+  can be watched behind it (at the character select the camp shows, with the hero strip stepped aside; opened from the pause menu, the
+  paused cave);
 - **Characters and creatures** brightness and contrast;
 - the dirt and grass: dirt colour gain, grain, stone shade variation, crevices, stone size, facet shade, how much the grass takes the biome's
   growth colour, and the steepest face that still counts as ground;

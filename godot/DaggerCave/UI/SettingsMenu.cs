@@ -231,6 +231,18 @@ public partial class SettingsMenu : Control
     private readonly List<Button> _tabs = new();
     private VBoxContainer _body;
     private Label _hint;
+    private ColorRect _dimmer;
+    private PanelContainer _panel;
+
+    /// <summary>The backdrop: the usual dimming and solid window, or on the Debug tab a see-through window with no dimming, to watch the changes.</summary>
+    private void ApplyBackdrop()
+    {
+        bool debug = _tab == 3 && DebugTuning.On;
+        _dimmer.Color = new Color(0, 0, 0, debug ? 0f : 0.6f);
+        // (the window's own drawing only: the text and controls on it stay as they are)
+        _panel.SelfModulate = new Color(1, 1, 1, debug ? DebugTuning.V("panel_opacity") : 1f);
+        // (the dimmer stops clicks reaching what is behind: it still does, being there, only not seen)
+    }
     // rebinding
     private string _capAction;
     private int _capSlot;
@@ -245,8 +257,10 @@ public partial class SettingsMenu : Control
         ProcessMode = ProcessModeEnum.Always;
         Theme = UiKit.Theme;
         Visible = false;
-        AddChild(UiKit.Dimmer(0.6f));
-        var (_, col) = UiKit.Panel(this, new Vector2(1160, 620));
+        _dimmer = UiKit.Dimmer(0.6f);
+        AddChild(_dimmer);
+        var (panel, col) = UiKit.Panel(this, new Vector2(1160, 620));
+        _panel = panel;
         var head = new HBoxContainer();
         head.AddThemeConstantOverride("separation", 10);
         col.AddChild(head);
@@ -306,6 +320,7 @@ public partial class SettingsMenu : Control
         foreach (var c in _body.GetChildren()) { _body.RemoveChild(c); c.QueueFree(); }
         for (int k = 0; k < _tabs.Count; k++) { _tabs[k].Modulate = k == tab ? UiKit.Gold : Colors.White; _tabs[k].Visible = k < 3 || DebugTuning.On; }
         _dump = null;
+        ApplyBackdrop();
         switch (tab)
         {
             case 0: BuildGraphics(); break;
@@ -610,6 +625,7 @@ public partial class SettingsMenu : Control
     public override void _Process(double delta)
     {
         // (debug tab: the list of values follows every change, whichever dial made it)
+        if (Visible && _tab == 3) ApplyBackdrop();
         if (Visible && _tab == 3 && _dump != null)
         {
             string t = DebugTuning.Dump();

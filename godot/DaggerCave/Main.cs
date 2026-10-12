@@ -1841,7 +1841,7 @@ public partial class Main : Node
             case State.Dead:
                 _deadT += dt;
                 if (_metaMenu.Visible || _perkMenu.Visible) break;
-                if (_deadT > 1.2f && !_overlay.Visible && !_heroChoice.Visible)
+                if (_deadT > 1.2f && !_overlay.Visible && !_heroChoice.Visible && !_settingsMenu.Visible)
                 {
                     ShowCamp();
                     // back at camp after the first reagent: the potion tree's introduction
