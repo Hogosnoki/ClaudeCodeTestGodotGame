@@ -54,32 +54,83 @@ public static class GameSettings
         public const float TexBlur = 0f, TexTones = 0f, LightBlur = 0f, LightTones = 9f, Soft = 0.95f, Flat = 0f;
     }
 
-    /// <summary>Every look setting back to its default.</summary>
+    /// <summary>The look's settings as a set, one for each of the two looks: the cave's and the title screen's (the camp: more like the
+    /// original, lit by the sun and sky with the photographed rock and the old meadow, no object borders).</summary>
+    public sealed class LookSnap
+    {
+        public bool Shading, Solid, Ambient;
+        public float TerrainInk, ActorInk, TexBlur, TexTones, LightBlur, LightTones, Soft, Flat;
+
+        public static LookSnap CaveDefaults() => new()
+        {
+            Shading = LookDef.Shading, Solid = LookDef.Solid, Ambient = LookDef.Ambient, TerrainInk = LookDef.TerrainInk, ActorInk = LookDef.ActorInk,
+            TexBlur = LookDef.TexBlur, TexTones = LookDef.TexTones, LightBlur = LookDef.LightBlur, LightTones = LookDef.LightTones, Soft = LookDef.Soft, Flat = LookDef.Flat,
+        };
+
+        /// <summary>The title screen's defaults: not stylised, sky and sun, the photographed rock, a character line as it was (3.5 px), no object borders.</summary>
+        public static LookSnap TitleDefaults() => new()
+        {
+            Shading = false, Solid = false, Ambient = false, TerrainInk = 0f, ActorInk = 3.5f,
+            TexBlur = 0f, TexTones = 0f, LightBlur = 0f, LightTones = 0f, Soft = 0.4f, Flat = 0f,
+        };
+    }
+
+    /// <summary>The title screen's look is on show (the camp is up): the settings fields below hold it, and the cave's are kept aside.</summary>
+    public static bool TitleLook;
+    private static LookSnap _lookStash = LookSnap.TitleDefaults();
+
+    private static LookSnap Capture() => new()
+    {
+        Shading = CelShading, Solid = SolidTerrain, Ambient = AmbientOnly, TerrainInk = TerrainInkPx, ActorInk = ActorInkPx,
+        TexBlur = CelTexBlur, TexTones = CelTexTones, LightBlur = CelLightBlur, LightTones = CelLightTones, Soft = CelBandSoft, Flat = CelLightFlat,
+    };
+
+    private static void Restore(LookSnap s)
+    {
+        CelShading = s.Shading; SolidTerrain = s.Solid; AmbientOnly = s.Ambient; TerrainInkPx = s.TerrainInk; ActorInkPx = s.ActorInk;
+        CelTexBlur = s.TexBlur; CelTexTones = s.TexTones; CelLightBlur = s.LightBlur; CelLightTones = s.LightTones; CelBandSoft = s.Soft; CelLightFlat = s.Flat;
+    }
+
+    public static LookSnap CaveSnap => TitleLook ? _lookStash : Capture();
+    public static LookSnap TitleSnap => TitleLook ? Capture() : _lookStash;
+
+    /// <summary>Shows the title screen's look (at the camp) or the cave's (below): the settings and the debug tuning values swap, live.</summary>
+    public static void SetLookProfile(bool title)
+    {
+        if (title == TitleLook) return;
+        var current = Capture();
+        Restore(_lookStash);
+        _lookStash = current;
+        TitleLook = title;
+        DebugTuning.SwapProfile();
+        ApplyCel();
+    }
+
+    /// <summary>Every look setting of the look on show back to its default.</summary>
     public static void ResetLook()
     {
-        CelShading = LookDef.Shading; SolidTerrain = LookDef.Solid; AmbientOnly = LookDef.Ambient;
-        TerrainInkPx = LookDef.TerrainInk; ActorInkPx = LookDef.ActorInk;
-        CelTexBlur = LookDef.TexBlur; CelTexTones = LookDef.TexTones; CelLightBlur = LookDef.LightBlur; CelLightTones = LookDef.LightTones;
-        CelBandSoft = LookDef.Soft; CelLightFlat = LookDef.Flat;
+        Restore(TitleLook ? LookSnap.TitleDefaults() : LookSnap.CaveDefaults());
         ApplyCel();
     }
 
     /// <summary>Every look setting as (name, value, default) text, for debug mode's dump.</summary>
-    public static System.Collections.Generic.IEnumerable<(string key, string value, string def)> LookValues()
+    public static System.Collections.Generic.IEnumerable<(string key, string value, string def)> LookValues(bool title)
     {
         string F(float v) => v.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
         string Bo(bool v) => v ? "on" : "off";
-        yield return ("stylised_shading", Bo(CelShading), Bo(LookDef.Shading));
-        yield return ("minimalist_ground", Bo(SolidTerrain), Bo(LookDef.Solid));
-        yield return ("ambient_light_only", Bo(AmbientOnly), Bo(LookDef.Ambient));
-        yield return ("object_border_px", F(TerrainInkPx), F(LookDef.TerrainInk));
-        yield return ("character_border_px", F(ActorInkPx), F(LookDef.ActorInk));
-        yield return ("texture_blur", F(CelTexBlur), F(LookDef.TexBlur));
-        yield return ("texture_tones", F(CelTexTones), F(LookDef.TexTones));
-        yield return ("lighting_blur", F(CelLightBlur), F(LookDef.LightBlur));
-        yield return ("lighting_tones", F(CelLightTones), F(LookDef.LightTones));
-        yield return ("band_softness", F(CelBandSoft), F(LookDef.Soft));
-        yield return ("light_flatness", F(CelLightFlat), F(LookDef.Flat));
+        var s = title ? TitleSnap : CaveSnap;
+        var d = title ? LookSnap.TitleDefaults() : LookSnap.CaveDefaults();
+        yield return ("stylised_shading", Bo(s.Shading), Bo(d.Shading));
+        yield return ("minimalist_ground", Bo(s.Solid), Bo(d.Solid));
+        yield return ("ambient_light_only", Bo(s.Ambient), Bo(d.Ambient));
+        yield return ("object_border_px", F(s.TerrainInk), F(d.TerrainInk));
+        yield return ("character_border_px", F(s.ActorInk), F(d.ActorInk));
+        yield return ("texture_blur", F(s.TexBlur), F(d.TexBlur));
+        yield return ("texture_tones", F(s.TexTones), F(d.TexTones));
+        yield return ("lighting_blur", F(s.LightBlur), F(d.LightBlur));
+        yield return ("lighting_tones", F(s.LightTones), F(d.LightTones));
+        yield return ("band_softness", F(s.Soft), F(d.Soft));
+        yield return ("light_flatness", F(s.Flat), F(d.Flat));
         yield return ("ink_outlines_on_creatures", Bo(InkOutlines), Bo(true));
         yield return ("brightness", F(Brightness), F(1.4f));
     }
@@ -183,6 +234,16 @@ public static class GameSettings
         AmbientOnly = B("graphics", "ambient_only", AmbientOnly);
         TerrainInkPx = Math.Clamp(F("graphics", "ink_terrain_px", TerrainInkPx), 0f, 4f);
         ActorInkPx = Math.Clamp(F("graphics", "ink_actor_px", ActorInkPx), 0.5f, 6f);
+        // (the title screen's look, kept aside until the camp is up)
+        {
+            var t = LookSnap.TitleDefaults();
+            t.Shading = B("title_look", "cel", t.Shading); t.Solid = B("title_look", "solid_terrain", t.Solid); t.Ambient = B("title_look", "ambient_only", t.Ambient);
+            t.TerrainInk = Math.Clamp(F("title_look", "ink_terrain_px", t.TerrainInk), 0f, 4f); t.ActorInk = Math.Clamp(F("title_look", "ink_actor_px", t.ActorInk), 0.5f, 6f);
+            t.TexBlur = Math.Clamp(F("title_look", "cel_tex_blur", t.TexBlur), 0f, 4f); t.TexTones = Math.Clamp(F("title_look", "cel_tones", t.TexTones), 0f, 12f);
+            t.LightBlur = Math.Clamp(F("title_look", "cel_light_blur", t.LightBlur), 0f, 4f); t.LightTones = Math.Clamp(F("title_look", "cel_light_tones", t.LightTones), 0f, 12f);
+            t.Soft = Math.Clamp(F("title_look", "cel_soft", t.Soft), 0f, 1f); t.Flat = Math.Clamp(F("title_look", "cel_flat", t.Flat), 0f, 1f);
+            _lookStash = t;
+        }
         // (texture blur is saved under a new name: the old default of 2 smudged away what the textures show)
         CelTexBlur = Math.Clamp(F("graphics", "cel_tex_blur", CelTexBlur), 0f, 4f);
         CelTexTones = Math.Clamp(F("graphics", "cel_tones", CelTexTones), 0f, 12f);
@@ -217,18 +278,22 @@ public static class GameSettings
         cfg.SetValue("graphics", "bloom", Bloom);
         cfg.SetValue("graphics", "ao", AmbientOcclusion);
         cfg.SetValue("graphics", "ink", InkOutlines);
-        cfg.SetValue("graphics", "cel", CelShading);
         DebugTuning.Save(cfg);
-        cfg.SetValue("graphics", "solid_terrain", SolidTerrain);
-        cfg.SetValue("graphics", "ambient_only", AmbientOnly);
-        cfg.SetValue("graphics", "ink_terrain_px", TerrainInkPx);
-        cfg.SetValue("graphics", "ink_actor_px", ActorInkPx);
-        cfg.SetValue("graphics", "cel_tex_blur", CelTexBlur);
-        cfg.SetValue("graphics", "cel_tones", CelTexTones);
-        cfg.SetValue("graphics", "cel_light_blur", CelLightBlur);
-        cfg.SetValue("graphics", "cel_light_tones", CelLightTones);
-        cfg.SetValue("graphics", "cel_soft", CelBandSoft);
-        cfg.SetValue("graphics", "cel_flat", CelLightFlat);
+        // (the cave's look under the old keys, the title screen's under its own)
+        foreach (var (sec, s) in new[] { ("graphics", CaveSnap), ("title_look", TitleSnap) })
+        {
+            cfg.SetValue(sec, "cel", s.Shading);
+            cfg.SetValue(sec, "solid_terrain", s.Solid);
+            cfg.SetValue(sec, "ambient_only", s.Ambient);
+            cfg.SetValue(sec, "ink_terrain_px", s.TerrainInk);
+            cfg.SetValue(sec, "ink_actor_px", s.ActorInk);
+            cfg.SetValue(sec, "cel_tex_blur", s.TexBlur);
+            cfg.SetValue(sec, "cel_tones", s.TexTones);
+            cfg.SetValue(sec, "cel_light_blur", s.LightBlur);
+            cfg.SetValue(sec, "cel_light_tones", s.LightTones);
+            cfg.SetValue(sec, "cel_soft", s.Soft);
+            cfg.SetValue(sec, "cel_flat", s.Flat);
+        }
         cfg.SetValue("graphics", "aa", (int)Aa);
         cfg.SetValue("graphics", "brightness", Brightness);
         cfg.SetValue("graphics", "shake", Shake);

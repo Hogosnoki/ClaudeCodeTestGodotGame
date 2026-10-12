@@ -21,82 +21,106 @@ public static class DebugTuning
     public sealed class Param
     {
         public string Key, Label, Group, Note;
-        public float Min, Max, Default, Value;
+        public float Min, Max, CaveDefault, TitleDefault;
+        /// <summary>The value on show (the look being edited: the cave's, or the title screen's) and the other look's, kept aside.</summary>
+        public float Value, Stash;
+        /// <summary>The default of the look being edited.</summary>
+        public float Default => GameSettings.TitleLook ? TitleDefault : CaveDefault;
+        /// <summary>This param's value in each of the two looks, whichever is on show.</summary>
+        public float CaveValue => GameSettings.TitleLook ? Stash : Value;
+        public float TitleValue => GameSettings.TitleLook ? Value : Stash;
         /// <summary>The shader global that carries it (dbg_ + key), or null when it is read from code.</summary>
         public bool Shader;
     }
 
     public static readonly List<Param> All = new()
     {
-        new Param { Key = "panel_opacity", Label = "Debug window opacity", Group = "Debug window", Note = "how solid the settings window is on the Debug tab (low: see the changes behind it)", Min = 0.05f, Max = 1f, Default = 0.323f, Value = 0.323f, Shader = false },
-        new Param { Key = "fg_bright", Label = "Foreground brightness", Group = "Foreground (the ground at and in front of the play plane)", Note = "brightness of the ground colours and textures", Min = 0.3f, Max = 2.5f, Default = 0.922f, Value = 0.922f, Shader = true },
-        new Param { Key = "fg_contrast", Label = "Foreground contrast", Group = null, Note = "0 = every colour the average colour; 1 = as drawn; more spreads them from it", Min = 0f, Max = 2.5f, Default = 1.025f, Value = 1.025f, Shader = true },
-        new Param { Key = "bg_bright", Label = "Background brightness", Group = "Background (the back of the tunnels, behind the play plane)", Note = "brightness of the ground colours behind the play plane", Min = 0.2f, Max = 2.5f, Default = 0.919f, Value = 0.919f, Shader = true },
-        new Param { Key = "bg_contrast", Label = "Background contrast", Group = null, Note = "the same, for the ground behind the play plane", Min = 0f, Max = 2.5f, Default = 1.056f, Value = 1.056f, Shader = true },
-        new Param { Key = "back_dirt", Label = "Background dirt darkness", Group = null, Note = "the back dirt's brightness as a share of the foreground dirt's", Min = 0.0f, Max = 1.2f, Default = 0.294f, Value = 0.294f, Shader = true },
-        new Param { Key = "bg_blur", Label = "Background blur", Group = null, Note = "depth blur: everything behind the play plane softens (0 = off)", Min = 0.0f, Max = 1.0f, Default = 0.0f, Value = 0.0f, Shader = false },
-        new Param { Key = "bg_blur_dist", Label = "  Blur starts behind plane", Group = null, Note = "metres behind the play plane where the blur begins", Min = 0.0f, Max = 30.0f, Default = 30.0f, Value = 30.0f, Shader = false },
-        new Param { Key = "obj_bright", Label = "Characters and creatures brightness", Group = "Characters and creatures", Note = "brightness of their colours and textures", Min = 0.3f, Max = 2.5f, Default = 2.5f, Value = 2.5f, Shader = true },
-        new Param { Key = "obj_contrast", Label = "Characters and creatures contrast", Group = null, Note = "the same, toward each creature's own average colour", Min = 0f, Max = 2.5f, Default = 2.5f, Value = 2.5f, Shader = true },
-        new Param { Key = "obj_r", Label = "Characters and creatures red", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "obj_g", Label = "Characters and creatures green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "obj_b", Label = "Characters and creatures blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = true },
-        new Param { Key = "wall_gain", Label = "Dirt colour gain", Group = "Dirt and grass", Note = "how bright the biome's wall colour is drawn", Min = 0.2f, Max = 2.0f, Default = 1.69f, Value = 1.69f, Shader = true },
-        new Param { Key = "grain_amount", Label = "Grain", Group = null, Note = "fine variation in the dirt's brightness", Min = 0.0f, Max = 0.8f, Default = 0.338f, Value = 0.338f, Shader = true },
-        new Param { Key = "lump_amount", Label = "Stone shade variation", Group = null, Note = "how much each stone's shade differs from the next", Min = 0.0f, Max = 0.8f, Default = 0.32f, Value = 0.32f, Shader = true },
-        new Param { Key = "crevice_amount", Label = "Crevices", Group = null, Note = "how dark the cracks between stones are", Min = 0.0f, Max = 1.0f, Default = 0.273f, Value = 0.273f, Shader = true },
-        new Param { Key = "stone_size", Label = "Stone size", Group = null, Note = "metres across", Min = 0.3f, Max = 3.0f, Default = 1.326f, Value = 1.326f, Shader = true },
-        new Param { Key = "facet_shade", Label = "Facet shade", Group = null, Note = "each polygon face's own shade", Min = 0.0f, Max = 0.4f, Default = 0.0f, Value = 0.0f, Shader = true },
-        new Param { Key = "grass_lean", Label = "Grass takes biome growth colour", Group = null, Note = "0 = plain green everywhere", Min = 0.0f, Max = 1.0f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "ground_up", Label = "Steepest ground", Group = null, Note = "how level a face must be to count as grass (its up component)", Min = 0.3f, Max = 0.95f, Default = 0.836f, Value = 0.836f, Shader = true },
-        new Param { Key = "m_dirt_r", Label = "Dirt red", Group = "Materials: red, green and blue gains (1 = as it is)", Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "m_dirt_g", Label = "Dirt green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.005f, Value = 1.005f, Shader = true },
-        new Param { Key = "m_dirt_b", Label = "Dirt blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "m_grass_r", Label = "Grass red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.99f, Value = 0.99f, Shader = true },
-        new Param { Key = "m_grass_g", Label = "Grass green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = true },
-        new Param { Key = "m_grass_b", Label = "Grass blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = true },
-        new Param { Key = "m_stone_r", Label = "Stone red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.005f, Value = 1.005f, Shader = true },
-        new Param { Key = "m_stone_g", Label = "Stone green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "m_stone_b", Label = "Stone blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.99f, Value = 0.99f, Shader = true },
-        new Param { Key = "m_snow_r", Label = "Snow and ice red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.99f, Value = 0.99f, Shader = true },
-        new Param { Key = "m_snow_g", Label = "Snow and ice green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "m_snow_b", Label = "Snow and ice blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.005f, Value = 1.005f, Shader = true },
-        new Param { Key = "m_wood_r", Label = "Wood red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.005f, Value = 1.005f, Shader = false },
-        new Param { Key = "m_wood_g", Label = "Wood green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_wood_b", Label = "Wood blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_metal_r", Label = "Metal red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_metal_g", Label = "Metal green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.005f, Value = 1.005f, Shader = false },
-        new Param { Key = "m_metal_b", Label = "Metal blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = false },
-        new Param { Key = "m_roots_r", Label = "Roots and bark red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.99f, Value = 0.99f, Shader = false },
-        new Param { Key = "m_roots_g", Label = "Roots and bark green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_roots_b", Label = "Roots and bark blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = false },
-        new Param { Key = "m_bone_r", Label = "Bone red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 1.005f, Value = 1.005f, Shader = false },
-        new Param { Key = "m_bone_g", Label = "Bone green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_bone_b", Label = "Bone blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.99f, Value = 0.99f, Shader = false },
-        new Param { Key = "m_trees_r", Label = "Camp trees red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_trees_g", Label = "Camp trees green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "m_trees_b", Label = "Camp trees blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = false },
-        new Param { Key = "scr_r", Label = "Whole picture red", Group = "Whole picture", Note = "the whole lit picture's red, green or blue (a full-screen pass, after everything)", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = true },
-        new Param { Key = "scr_g", Label = "Whole picture green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 0.995f, Value = 0.995f, Shader = true },
-        new Param { Key = "scr_b", Label = "Whole picture blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, Default = 1.0f, Value = 1.0f, Shader = true },
-        new Param { Key = "poly_smooth", Label = "Polygon smoothing", Group = "3D shape and transitions", Note = "0 = every polygon flat, 1 = smooth shading across them (also smooths where grass ends)", Min = 0f, Max = 1f, Default = 0.9f, Value = 0.9f, Shader = true },
-        new Param { Key = "trans_soft", Label = "Grass/dirt transition softness", Group = null, Note = "0 = a hard edge, 1 = a wide gradual blend between grass and dirt", Min = 0f, Max = 1f, Default = 0.035f, Value = 0.035f, Shader = true },
-        new Param { Key = "bg_fade", Label = "Foreground-to-background fade", Group = null, Note = "metres behind the play plane over which the foreground look fades into the background look", Min = 0.3f, Max = 12f, Default = 0.3f, Value = 0.3f, Shader = true },
-        new Param { Key = "crevice_soft", Label = "Crevice softness", Group = null, Note = "how sharp the cracks between stones are", Min = 0.02f, Max = 0.8f, Default = 0.203f, Value = 0.203f, Shader = true },
-        new Param { Key = "fog_mult", Label = "Cave haze strength", Group = "Scene effects", Note = "times the biome's volumetric fog", Min = 0f, Max = 3f, Default = 3.0f, Value = 3.0f, Shader = false },
-        new Param { Key = "ao_mult", Label = "Ambient occlusion strength", Group = null, Note = "times the usual", Min = 0f, Max = 3f, Default = 1.275f, Value = 1.275f, Shader = false },
-        new Param { Key = "bloom_mult", Label = "Bloom strength", Group = null, Note = "times the usual", Min = 0f, Max = 3f, Default = 0.54f, Value = 0.54f, Shader = false },
-        new Param { Key = "exposure", Label = "Exposure", Group = null, Note = "on top of the Brightness setting", Min = 0.4f, Max = 2.5f, Default = 0.993f, Value = 0.993f, Shader = false },
-        new Param { Key = "cam_fov", Label = "Camera field of view", Group = null, Note = "degrees: the framing stays the same, only the perspective changes", Min = 15f, Max = 80f, Default = 50.1f, Value = 50.1f, Shader = false },
-        new Param { Key = "edge_step", Label = "Outline sensitivity", Group = null, Note = "how big a depth step makes a border (lower: more borders)", Min = 0.01f, Max = 0.3f, Default = 0.3f, Value = 0.3f, Shader = true },
-        new Param { Key = "edge_alpha", Label = "Border opacity", Group = null, Note = "object borders' ink", Min = 0.1f, Max = 1f, Default = 0.64f, Value = 0.64f, Shader = true },
-        new Param { Key = "amb_energy", Label = "Ambient light strength", Group = "Light", Note = "with ambient light only, the cave's", Min = 0.2f, Max = 3.0f, Default = 1.243f, Value = 1.243f, Shader = false },
-        new Param { Key = "amb_tint", Label = "Ambient light biome tint", Group = null, Note = "how much the biome's colour tints the (near white) ambient light", Min = 0.0f, Max = 1.0f, Default = 1.0f, Value = 1.0f, Shader = false },
-        new Param { Key = "cam_zoom", Label = "Camera zoom", Group = "Camera", Note = "bigger is closer to the player", Min = 1.2f, Max = 4.0f, Default = 2.012f, Value = 2.012f, Shader = false },
+        new Param { Key = "panel_opacity", Label = "Debug window opacity", Group = "Debug window", Note = "how solid the settings window is on the Debug tab (low: see the changes behind it)", Min = 0.05f, Max = 1f, CaveDefault = 0.323f, TitleDefault = 0.323f, Value = 0.323f, Stash = 0.323f, Shader = false },
+        new Param { Key = "fg_bright", Label = "Foreground brightness", Group = "Foreground (the ground at and in front of the play plane)", Note = "brightness of the ground colours and textures", Min = 0.3f, Max = 2.5f, CaveDefault = 0.922f, TitleDefault = 0.922f, Value = 0.922f, Stash = 0.922f, Shader = true },
+        new Param { Key = "fg_contrast", Label = "Foreground contrast", Group = null, Note = "0 = every colour the average colour; 1 = as drawn; more spreads them from it", Min = 0f, Max = 2.5f, CaveDefault = 1.025f, TitleDefault = 1.025f, Value = 1.025f, Stash = 1.025f, Shader = true },
+        new Param { Key = "bg_bright", Label = "Background brightness", Group = "Background (the back of the tunnels, behind the play plane)", Note = "brightness of the ground colours behind the play plane", Min = 0.2f, Max = 2.5f, CaveDefault = 0.919f, TitleDefault = 0.919f, Value = 0.919f, Stash = 0.919f, Shader = true },
+        new Param { Key = "bg_contrast", Label = "Background contrast", Group = null, Note = "the same, for the ground behind the play plane", Min = 0f, Max = 2.5f, CaveDefault = 1.056f, TitleDefault = 1.056f, Value = 1.056f, Stash = 1.056f, Shader = true },
+        new Param { Key = "back_dirt", Label = "Background dirt darkness", Group = null, Note = "the back dirt's brightness as a share of the foreground dirt's", Min = 0.0f, Max = 1.2f, CaveDefault = 0.294f, TitleDefault = 0.294f, Value = 0.294f, Stash = 0.294f, Shader = true },
+        new Param { Key = "bg_blur", Label = "Background blur", Group = null, Note = "depth blur: everything behind the play plane softens (0 = off)", Min = 0.0f, Max = 1.0f, CaveDefault = 0.0f, TitleDefault = 0.0f, Value = 0.0f, Stash = 0.0f, Shader = false },
+        new Param { Key = "bg_blur_dist", Label = "  Blur starts behind plane", Group = null, Note = "metres behind the play plane where the blur begins", Min = 0.0f, Max = 30.0f, CaveDefault = 30.0f, TitleDefault = 30.0f, Value = 30.0f, Stash = 30.0f, Shader = false },
+        new Param { Key = "obj_bright", Label = "Characters and creatures brightness", Group = "Characters and creatures", Note = "brightness of their colours and textures", Min = 0.3f, Max = 2.5f, CaveDefault = 2.5f, TitleDefault = 2.5f, Value = 2.5f, Stash = 2.5f, Shader = true },
+        new Param { Key = "obj_contrast", Label = "Characters and creatures contrast", Group = null, Note = "the same, toward each creature's own average colour", Min = 0f, Max = 2.5f, CaveDefault = 2.5f, TitleDefault = 2.5f, Value = 2.5f, Stash = 2.5f, Shader = true },
+        new Param { Key = "obj_r", Label = "Characters and creatures red", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "obj_g", Label = "Characters and creatures green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "obj_b", Label = "Characters and creatures blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = true },
+        new Param { Key = "wall_gain", Label = "Dirt colour gain", Group = "Dirt and grass", Note = "how bright the biome's wall colour is drawn", Min = 0.2f, Max = 2.0f, CaveDefault = 1.69f, TitleDefault = 1.69f, Value = 1.69f, Stash = 1.69f, Shader = true },
+        new Param { Key = "grain_amount", Label = "Grain", Group = null, Note = "fine variation in the dirt's brightness", Min = 0.0f, Max = 0.8f, CaveDefault = 0.338f, TitleDefault = 0.338f, Value = 0.338f, Stash = 0.338f, Shader = true },
+        new Param { Key = "lump_amount", Label = "Stone shade variation", Group = null, Note = "how much each stone's shade differs from the next", Min = 0.0f, Max = 0.8f, CaveDefault = 0.32f, TitleDefault = 0.32f, Value = 0.32f, Stash = 0.32f, Shader = true },
+        new Param { Key = "crevice_amount", Label = "Crevices", Group = null, Note = "how dark the cracks between stones are", Min = 0.0f, Max = 1.0f, CaveDefault = 0.273f, TitleDefault = 0.273f, Value = 0.273f, Stash = 0.273f, Shader = true },
+        new Param { Key = "stone_size", Label = "Stone size", Group = null, Note = "metres across", Min = 0.3f, Max = 3.0f, CaveDefault = 1.326f, TitleDefault = 1.326f, Value = 1.326f, Stash = 1.326f, Shader = true },
+        new Param { Key = "facet_shade", Label = "Facet shade", Group = null, Note = "each polygon face's own shade", Min = 0.0f, Max = 0.4f, CaveDefault = 0.0f, TitleDefault = 0.0f, Value = 0.0f, Stash = 0.0f, Shader = true },
+        new Param { Key = "grass_lean", Label = "Grass takes biome growth colour", Group = null, Note = "0 = plain green everywhere", Min = 0.0f, Max = 1.0f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "ground_up", Label = "Steepest ground", Group = null, Note = "how level a face must be to count as grass (its up component)", Min = 0.3f, Max = 0.95f, CaveDefault = 0.836f, TitleDefault = 0.836f, Value = 0.836f, Stash = 0.836f, Shader = true },
+        new Param { Key = "m_dirt_r", Label = "Dirt red", Group = "Materials: red, green and blue gains (1 = as it is)", Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "m_dirt_g", Label = "Dirt green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.005f, TitleDefault = 1.005f, Value = 1.005f, Stash = 1.005f, Shader = true },
+        new Param { Key = "m_dirt_b", Label = "Dirt blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "m_grass_r", Label = "Grass red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.99f, TitleDefault = 0.99f, Value = 0.99f, Stash = 0.99f, Shader = true },
+        new Param { Key = "m_grass_g", Label = "Grass green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = true },
+        new Param { Key = "m_grass_b", Label = "Grass blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = true },
+        new Param { Key = "m_stone_r", Label = "Stone red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.005f, TitleDefault = 1.005f, Value = 1.005f, Stash = 1.005f, Shader = true },
+        new Param { Key = "m_stone_g", Label = "Stone green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "m_stone_b", Label = "Stone blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.99f, TitleDefault = 0.99f, Value = 0.99f, Stash = 0.99f, Shader = true },
+        new Param { Key = "m_snow_r", Label = "Snow and ice red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.99f, TitleDefault = 0.99f, Value = 0.99f, Stash = 0.99f, Shader = true },
+        new Param { Key = "m_snow_g", Label = "Snow and ice green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "m_snow_b", Label = "Snow and ice blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.005f, TitleDefault = 1.005f, Value = 1.005f, Stash = 1.005f, Shader = true },
+        new Param { Key = "m_wood_r", Label = "Wood red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.005f, TitleDefault = 1.005f, Value = 1.005f, Stash = 1.005f, Shader = false },
+        new Param { Key = "m_wood_g", Label = "Wood green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_wood_b", Label = "Wood blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_metal_r", Label = "Metal red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_metal_g", Label = "Metal green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.005f, TitleDefault = 1.005f, Value = 1.005f, Stash = 1.005f, Shader = false },
+        new Param { Key = "m_metal_b", Label = "Metal blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = false },
+        new Param { Key = "m_roots_r", Label = "Roots and bark red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.99f, TitleDefault = 0.99f, Value = 0.99f, Stash = 0.99f, Shader = false },
+        new Param { Key = "m_roots_g", Label = "Roots and bark green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_roots_b", Label = "Roots and bark blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = false },
+        new Param { Key = "m_bone_r", Label = "Bone red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 1.005f, TitleDefault = 1.005f, Value = 1.005f, Stash = 1.005f, Shader = false },
+        new Param { Key = "m_bone_g", Label = "Bone green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_bone_b", Label = "Bone blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.99f, TitleDefault = 0.99f, Value = 0.99f, Stash = 0.99f, Shader = false },
+        new Param { Key = "m_trees_r", Label = "Camp trees red", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_trees_g", Label = "Camp trees green", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "m_trees_b", Label = "Camp trees blue", Group = null, Note = "0 = none of it, 2 = double", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = false },
+        new Param { Key = "scr_r", Label = "Whole picture red", Group = "Whole picture", Note = "the whole lit picture's red, green or blue (a full-screen pass, after everything)", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = true },
+        new Param { Key = "scr_g", Label = "Whole picture green", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, CaveDefault = 0.995f, TitleDefault = 0.995f, Value = 0.995f, Stash = 0.995f, Shader = true },
+        new Param { Key = "scr_b", Label = "Whole picture blue", Group = null, Note = "the colour's red, green or blue, 1 = as it is, 0 = none of it", Min = 0f, Max = 2f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = true },
+        new Param { Key = "poly_smooth", Label = "Polygon smoothing", Group = "3D shape and transitions", Note = "0 = every polygon flat, 1 = smooth shading across them (also smooths where grass ends)", Min = 0f, Max = 1f, CaveDefault = 0.9f, TitleDefault = 0.9f, Value = 0.9f, Stash = 0.9f, Shader = true },
+        new Param { Key = "trans_soft", Label = "Grass/dirt transition softness", Group = null, Note = "0 = a hard edge, 1 = a wide gradual blend between grass and dirt", Min = 0f, Max = 1f, CaveDefault = 0.035f, TitleDefault = 0.035f, Value = 0.035f, Stash = 0.035f, Shader = true },
+        new Param { Key = "bg_fade", Label = "Foreground-to-background fade", Group = null, Note = "metres behind the play plane over which the foreground look fades into the background look", Min = 0.3f, Max = 12f, CaveDefault = 0.3f, TitleDefault = 0.3f, Value = 0.3f, Stash = 0.3f, Shader = true },
+        new Param { Key = "crevice_soft", Label = "Crevice softness", Group = null, Note = "how sharp the cracks between stones are", Min = 0.02f, Max = 0.8f, CaveDefault = 0.203f, TitleDefault = 0.203f, Value = 0.203f, Stash = 0.203f, Shader = true },
+        new Param { Key = "fog_mult", Label = "Cave haze strength", Group = "Scene effects", Note = "times the biome's volumetric fog", Min = 0f, Max = 3f, CaveDefault = 3.0f, TitleDefault = 3.0f, Value = 3.0f, Stash = 3.0f, Shader = false },
+        new Param { Key = "ao_mult", Label = "Ambient occlusion strength", Group = null, Note = "times the usual", Min = 0f, Max = 3f, CaveDefault = 1.275f, TitleDefault = 1.275f, Value = 1.275f, Stash = 1.275f, Shader = false },
+        new Param { Key = "bloom_mult", Label = "Bloom strength", Group = null, Note = "times the usual", Min = 0f, Max = 3f, CaveDefault = 0.54f, TitleDefault = 0.54f, Value = 0.54f, Stash = 0.54f, Shader = false },
+        new Param { Key = "exposure", Label = "Exposure", Group = null, Note = "on top of the Brightness setting", Min = 0.4f, Max = 2.5f, CaveDefault = 0.993f, TitleDefault = 0.993f, Value = 0.993f, Stash = 0.993f, Shader = false },
+        new Param { Key = "cam_fov", Label = "Camera field of view", Group = null, Note = "degrees: the framing stays the same, only the perspective changes", Min = 15f, Max = 80f, CaveDefault = 50.1f, TitleDefault = 50.1f, Value = 50.1f, Stash = 50.1f, Shader = false },
+        new Param { Key = "edge_step", Label = "Outline sensitivity", Group = null, Note = "how big a depth step makes a border (lower: more borders)", Min = 0.01f, Max = 0.3f, CaveDefault = 0.3f, TitleDefault = 0.3f, Value = 0.3f, Stash = 0.3f, Shader = true },
+        new Param { Key = "edge_alpha", Label = "Border opacity", Group = null, Note = "object borders' ink", Min = 0.1f, Max = 1f, CaveDefault = 0.64f, TitleDefault = 0.64f, Value = 0.64f, Stash = 0.64f, Shader = true },
+        new Param { Key = "amb_energy", Label = "Ambient light strength", Group = "Light", Note = "with ambient light only, the cave's", Min = 0.2f, Max = 3.0f, CaveDefault = 1.243f, TitleDefault = 1.243f, Value = 1.243f, Stash = 1.243f, Shader = false },
+        new Param { Key = "amb_tint", Label = "Ambient light biome tint", Group = null, Note = "how much the biome's colour tints the (near white) ambient light", Min = 0.0f, Max = 1.0f, CaveDefault = 1.0f, TitleDefault = 1.0f, Value = 1.0f, Stash = 1.0f, Shader = false },
+        new Param { Key = "cam_zoom", Label = "Camera zoom", Group = "Camera", Note = "bigger is closer to the player", Min = 1.2f, Max = 4.0f, CaveDefault = 2.012f, TitleDefault = 2.012f, Value = 2.012f, Stash = 2.012f, Shader = false },
     };
 
     private static readonly Dictionary<string, Param> ByKey = BuildIndex();
-    private static Dictionary<string, Param> BuildIndex() { var d = new Dictionary<string, Param>(); foreach (var p in All) d[p.Key] = p; return d; }
+    private static Dictionary<string, Param> BuildIndex()
+    {
+        var d = new Dictionary<string, Param>();
+        foreach (var p in All)
+        {
+            d[p.Key] = p;
+            // the title screen's look: the camp as it was, so every colour and brightness dial that reaches it starts neutral
+            if (p.Key.StartsWith("m_") || p.Key.StartsWith("scr_") || p.Key.StartsWith("obj_") || p.Key is "fg_bright" or "fg_contrast")
+                p.TitleDefault = p.Stash = 1f;
+        }
+        return d;
+    }
+
+    /// <summary>The look on show changes (the camp is up: the title screen's; below: the cave's): every value swaps with the one kept aside.</summary>
+    public static void SwapProfile()
+    {
+        foreach (var p in All) (p.Value, p.Stash) = (p.Stash, p.Value);
+    }
 
     public static float V(string key) => ByKey[key].Value;
 
@@ -113,7 +137,7 @@ public static class DebugTuning
         Apply();
     }
 
-    /// <summary>Every dial back to its default (the tuning values and the stylised-look settings).</summary>
+    /// <summary>Every dial of the look on show back to its default (the tuning values and the stylised-look settings).</summary>
     public static void ResetAll()
     {
         Reset();
@@ -135,28 +159,40 @@ public static class DebugTuning
 
     public static void Save(ConfigFile cfg)
     {
-        foreach (var p in All) cfg.SetValue("debug", p.Key, p.Value);
+        foreach (var p in All) { cfg.SetValue("debug", p.Key, p.CaveValue); cfg.SetValue("debug_title", p.Key, p.TitleValue); }
     }
 
+    /// <summary>Loaded at start-up, when the cave's look is the one on show (the title's goes aside until the camp comes up).</summary>
     public static void Load(ConfigFile cfg)
     {
         foreach (var p in All)
+        {
             if (cfg.HasSectionKey("debug", p.Key)) p.Value = Math.Clamp((float)cfg.GetValue("debug", p.Key), p.Min, p.Max);
+            if (cfg.HasSectionKey("debug_title", p.Key)) p.Stash = Math.Clamp((float)cfg.GetValue("debug_title", p.Key), p.Min, p.Max);
+        }
     }
 
     private static string N(float v) => v.ToString("0.###", CultureInfo.InvariantCulture);
 
-    /// <summary>Every value, one per line (what the look is made of), with a mark where it differs from the default.</summary>
+    /// <summary>Every value of both looks, one per line, with a mark where it differs from the default.</summary>
     public static string Dump()
     {
         var sb = new StringBuilder();
         sb.AppendLine("# Dagger Deep look settings (a * marks a value changed from its default)");
-        sb.AppendLine("[settings]");
-        foreach (var (k, v, d) in GameSettings.LookValues())
-            sb.AppendLine($"{k} = {v}{(v != d ? $"   * (default {d})" : "")}");
-        sb.AppendLine("[debug tuning]");
-        foreach (var p in All)
-            sb.AppendLine($"{p.Key} = {N(p.Value)}{(Math.Abs(p.Value - p.Default) > 1e-4f ? $"   * (default {N(p.Default)})" : "")}");
+        sb.AppendLine($"# on show now, and edited here: the {(GameSettings.TitleLook ? "TITLE SCREEN" : "CAVE")} look");
+        foreach (bool title in new[] { false, true })
+        {
+            sb.AppendLine(title ? "== TITLE SCREEN LOOK ==" : "== CAVE LOOK ==");
+            sb.AppendLine("[settings]");
+            foreach (var (k, v, d) in GameSettings.LookValues(title))
+                sb.AppendLine($"{k} = {v}{(v != d ? $"   * (default {d})" : "")}");
+            sb.AppendLine("[debug tuning]");
+            foreach (var p in All)
+            {
+                float v = title ? p.TitleValue : p.CaveValue, d = title ? p.TitleDefault : p.CaveDefault;
+                sb.AppendLine($"{p.Key} = {N(v)}{(Math.Abs(v - d) > 1e-4f ? $"   * (default {N(d)})" : "")}");
+            }
+        }
         return sb.ToString();
     }
 }

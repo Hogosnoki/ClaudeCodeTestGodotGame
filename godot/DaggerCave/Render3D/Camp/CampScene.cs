@@ -216,7 +216,7 @@ public partial class CampScene : SubViewport
         grassMat.SetShaderParameter("tip_color", new Color(0.4f, 0.52f, 0.2f));
         grassMat.SetShaderParameter("wind", 0.1f);
         var xforms = new List<Transform3D>();
-        for (int tries = 0; tries < 50000 && xforms.Count < 1400; tries++)
+        for (int tries = 0; tries < 50000 && xforms.Count < 380; tries++)
         {
             float r = 2.3f + 18f * MathF.Sqrt((float)_rng.NextDouble());
             float a = (float)_rng.NextDouble() * Mathf.Tau;
@@ -232,7 +232,7 @@ public partial class CampScene : SubViewport
         dryMat.SetShaderParameter("root_color", new Color(0.16f, 0.13f, 0.06f));
         dryMat.SetShaderParameter("tip_color", new Color(0.62f, 0.54f, 0.28f));
         var dryX = new List<Transform3D>();
-        for (int tries = 0; tries < 20000 && dryX.Count < 260; tries++)
+        for (int tries = 0; tries < 20000 && dryX.Count < 55; tries++)
         {
             float r = 2.6f + 19f * MathF.Sqrt((float)_rng.NextDouble());
             float a = (float)_rng.NextDouble() * Mathf.Tau;

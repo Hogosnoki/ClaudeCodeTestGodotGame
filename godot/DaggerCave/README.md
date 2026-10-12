@@ -1301,6 +1301,18 @@ foreground and the darker background dirt; a creature's is the mean of its mesh'
 the camp's is its grass, and its cliff's its stone with a little grass. Brightness multiplies on top, then the red, green and blue gains. Every tuning value is a shader global
 (`dbg_*`, in project.godot) except the ambient light, blur and zoom, which the code reads. They are saved with the settings (the `[debug]` section), so a look found in debug mode stays across launches.
 
+**Two looks.** The title screen (the camp behind the main menu and the character select) has a look of its own, swapped in whenever the camp
+is on screen (`GameSettings.SetLookProfile`, from `Main.ShowCampScene`) and out when a run starts. Its defaults are more like the original:
+no stylised shading, no tones, the sun and sky lighting (ambient light only off), the photographed cliff rock, the soft two-green meadow, no
+object borders, the characters' line at 3.5 px, and every colour and brightness gain neutral. The cave keeps the tuned look. Each look
+keeps its own settings and debug tuning values (saved under `graphics` / `debug` for the cave and `title_look` / `debug_title` for the
+title screen): the Debug tab edits the one on show (its first line says which; open Settings from the main menu for the title screen's, from
+the pause menu in a run for the cave's), and the values list shows both. Reset puts the look on show back to its defaults
+(`LookSnap.TitleDefaults` / `CaveDefaults`, and `TitleDefault` / `CaveDefault` on each tuning value).
+
+The camp's meadow has more grass texture (a tufted mottle, fine blade strokes and pale flecks, in `camp_ground.gdshader`) and far fewer tall
+clumps (380 and 55 dry ones, from 1,400 and 260).
+
 The box at the bottom of the tab lists **every value** (a `*` marks one changed from its default); **Copy all values** puts it on the
 clipboard (and in the log), and **Reset everything to defaults** goes back. To make a tuned look the default: change `Default` in
 `DebugTuning.All`, the `LookDef` constants in `GameSettings`, and the matching `dbg_*` / `cel_*` entries in project.godot's shader globals.

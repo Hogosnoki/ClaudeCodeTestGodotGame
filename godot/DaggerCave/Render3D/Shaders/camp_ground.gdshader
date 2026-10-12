@@ -75,34 +75,32 @@ float edge_ink(float e, float v, float px) {
 }
 
 void fragment() {
-	// (painted, not photographed: flat patches with clean edges, the ground's own colours only a little mottled)
+	bool solid = terrain_solid > 0.5;
+	// (the meadow as it was: broad soft patches of two greens, sunnier dry grass here and there, trodden earth round the fire, with a
+	// close-up texture of grass added: a mottle in tufts, fine blade strokes and the odd pale fleck)
 	float n = fbm(v_wp.xz * 0.18);
 	float fine = fbm(v_wp.xz * 2.2 + 3.0);
-	float wob = fbm(v_wp.xz * 0.9 + 7.0) - 0.5;
-	bool solid = terrain_solid > 0.5;
-	vec3 c = mix(grass_a, grass_b, edge_step(0.5, n));
-	c = mix(c, dry, edge_step(0.7, fbm(v_wp.xz * 0.05 + 11.0)) * 0.55);
-	c *= 0.94 + 0.12 * fine;
-	float ink = 0.0;
+	vec3 c = mix(grass_a, grass_b, smoothstep(0.3, 0.7, n));
+	c = mix(c, dry, smoothstep(0.6, 0.8, fbm(v_wp.xz * 0.05 + 11.0)) * 0.55);
+	c *= 0.86 + 0.28 * fine;
+	float tuft = fbm(v_wp.xz * 7.0 + 19.0);
+	float blades = vnoise(vec2(v_wp.x * 62.0 + v_wp.z * 9.0, v_wp.z * 21.0 + v_wp.x * 5.0));
+	float strokes = vnoise(vec2(v_wp.x * 17.0 - v_wp.z * 29.0, v_wp.z * 41.0 + v_wp.x * 7.0));
+	float fleck = step(0.82, vnoise(v_wp.xz * 34.0 + 3.0));
+	c *= 0.78 + 0.34 * tuft + 0.22 * blades + 0.14 * strokes;
+	c = mix(c, c * vec3(1.35, 1.25, 0.8), fleck * 0.45);
 	float d = length(v_wp.xz);
-	float bare_f = d + wob * 1.2 - bare_radius * 0.78;
-	c = mix(dirt * (0.9 + 0.1 * fine), c, edge_step(0.0, bare_f));
-	ink = max(ink, edge_ink(0.0, bare_f, 2.0));
-	// the path: worn to earth, its edge a clean wobbling line
+	c = mix(dirt * (0.8 + 0.3 * fine), c, smoothstep(bare_radius * 0.55, bare_radius, d + (fine - 0.5) * 0.9));
+	// the path: worn to earth, ragged at its edges
 	vec2 pa = v_wp.xz - path_a, ba = path_b - path_a;
 	float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
 	float pd = length(pa - ba * h);
-	float path_f = pd + wob * 0.6 - path_w * 0.7;
-	float worn = 1.0 - edge_step(0.0, path_f);
-	c = mix(c, dirt * (0.85 + 0.2 * fine), worn);
-	ink = max(ink, edge_ink(0.0, path_f, 2.0) * edge_step(0.0, bare_f));
+	float worn = 1.0 - smoothstep(path_w * 0.45, path_w * (0.9 + 0.5 * fine), pd + (fine - 0.5) * 0.5);
+	c = mix(c, dirt * (0.75 + 0.5 * fine), worn * 0.9);
 	// stony soil toward the cliff
 	float toward = dot(v_wp.xz - cliff_o, cliff_n);
-	float foot_f = toward + wob * 2.4 - 3.5;
-	float foot = (1.0 - edge_step(0.0, foot_f)) * step(-3.0, toward);
-	c = mix(c, vec3(0.28, 0.25, 0.2) * (0.85 + 0.3 * fine), foot * 0.85);
-	ink = max(ink, edge_ink(0.0, foot_f, 2.0) * step(-3.0, toward));
-	c *= 1.0 - 0.6 * ink * cel_shading;
+	float foot = (1.0 - smoothstep(0.5, 6.5, toward + (fine - 0.5) * 2.0)) * step(-3.0, toward);
+	c = mix(c, vec3(0.28, 0.25, 0.2) * (0.7 + 0.6 * fine), foot * 0.75);
 	if (solid) c = grass_col;
 	c *= dbg_grass_rgb();
 	if (!solid) c = cel_tone(c);

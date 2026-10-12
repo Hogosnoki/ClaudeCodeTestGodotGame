@@ -218,6 +218,8 @@ public partial class Main
         // (made the first time it's needed: the tests that never show it never pay for it)
         if (_camp == null) { if (!on) return; SetupCamp(); }
         if (_camp.Active != on) _camp.Active = on;
+        // (the camp has a look of its own, more like the original: see GameSettings.LookSnap.TitleDefaults)
+        GameSettings.SetLookProfile(on);
         _campLayer.Visible = on;
         _stage.Visible = !on;
     }

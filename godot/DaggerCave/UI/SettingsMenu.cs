@@ -480,7 +480,9 @@ public partial class SettingsMenu : Control
 
     private void BuildDebug()
     {
-        var head = UiKit.Label("Every value is live and saved; the defaults in the code are what to change once the look is settled.", 14, UiKit.Dim);
+        var head = UiKit.Label(GameSettings.TitleLook
+            ? "EDITING THE TITLE SCREEN LOOK (the camp, when you open Settings from the main menu). The cave has its own: open Settings from the pause menu in a run."
+            : "EDITING THE CAVE LOOK (the title screen has its own: open Settings from the main menu). Every value is live and saved.", 14, new Color(1f, 0.82f, 0.45f));
         _body.AddChild(head);
         var bar = new HBoxContainer();
         bar.AddThemeConstantOverride("separation", 12);
@@ -491,7 +493,7 @@ public partial class SettingsMenu : Control
             GD.Print(DebugTuning.Dump());
             G.Sfx?.Play("ui", null, -8);
         }, 220));
-        bar.AddChild(UiKit.Button("Reset everything to defaults", () => { DebugTuning.ResetAll(); CallDeferred(nameof(RebuildGraphics)); }, 300));
+        bar.AddChild(UiKit.Button(GameSettings.TitleLook ? "Reset the title look to defaults" : "Reset the cave look to defaults", () => { DebugTuning.ResetAll(); CallDeferred(nameof(RebuildGraphics)); }, 300));
         Section("Look: switches and borders");
         var g = Grid();
         LookToggles(g);
