@@ -1322,6 +1322,28 @@ flatness, texture blur 0.2, brightness 140%, dirt gain 1.69, grass fully taking 
 shader globals. The title screen's defaults are its own (see Two looks).
 Tests: `--debug` starts with debug mode on, `--dbg=key=value,...` sets tuning values, `--scenario=debugmode` types the word and checks it.
 
+## Wind-ups (casting delays)
+
+Some casts gather for a moment before they go off, to give them weight (`Player/Player.Hold.cs`; the lengths are in `Tune`): the Vitalist's
+**heal** 0.4 s (`Vitalist.HealDelay`) and **Rupture** 0.8 s (`RuptureWindup`, its seizing), the Aegis's **shields** (barrier and bubble) 0.25 s
+(`Aegis.ShieldDelay`), the Elementalist's **firebolt** 0.2 s, **frostbolt** 0.1 s, **Blizzard** 0.5 s (`Elementalist.FireDelay` / `FrostDelay` /
+`BlizzardDelay`) and **Stalag-Might** 1 s (`Support.StalagDelay`), and the Rogue's **recall** 0.4 s (`Rogue.RecallDelay`).
+- The cost is paid and the cooldown started at the press. Then, for the wind-up, the hero is held **perfectly still**: no walking, no
+  jumping, no dodging, no new attack or ability, and not even gravity (the velocity is zero, in the air too). The hero is animated in the cast
+  (`SpriteAnimator.OnceFor` stretches the clip to the wind-up's length) with a gathering glow; then the cast goes off, aimed where the aim
+  and the nearest creature are by then.
+- A stun, freeze, web, snag or death cuts the wind-up short and the cast is lost.
+- The Rogue's dagger throw and slash have none. The **throw** now does 60% of a dagger slash (`ThrowDamage = Damage * 0.6`, was 120%) and the
+  **recall** 60% as well (was 150%), so he is no longer best at range.
+- `--scenario=holds --hero=NAME` (vitalist, elementalist, aegis, rogue) checks each wind-up's length, that walking was pushed the whole time
+  and the hero didn't move a hair, and that the cast went off after.
+
+The Automaton's clinking now sounds only while it is **building** pressure; once pressurized it stays quiet but glows as brightly as it did at
+the end of the build-up (shaking a little, with steam and sparks).
+
+In menus the left stick now steps once when pushed, then (held) pauses 0.4 s and repeats every 0.12 s, like a held key (`UI/MenuStick.cs`); the
+engine's own stick bindings on `ui_*` stepped on every frame.
+
 ## Reporting a problem
 
 - **The seed** is on the HUD (small, under the depth line) and in the pause menu, so any cave can be named and made again.

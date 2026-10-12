@@ -130,25 +130,35 @@ public partial class Player
         // (a creature near the line of aim draws the bolt to it)
         float cost = frost ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost;
         if (!SpendAlimus(cost)) { _boltCd = 0.3f; if (!held) SayNo("NOT ENOUGH ALIMUS"); return true; }
-        var target = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
-        var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
+        var target0 = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
+        var dir0 = target0 != null ? (target0.GlobalPosition - CastPoint).Normalized() : aim;
         // (the next waits a moment; the one spent starts coming back, unless another is already on its way)
         _boltCd = (frost ? Tune.Elementalist.FrostGap : Tune.Elementalist.BoltGap) / Math.Max(0.2f, Stats.AttackSpeed);
         _boltCharges--;
         AttacksStarted++;
         BoltsCast++;
-        if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
-        CastDir = dir;
+        if (Math.Abs(dir0.X) > 0.15f) Facing = Math.Sign(dir0.X);
+        CastDir = dir0;
         Anim.Face((int)Facing, instant: true);
-        Anim.Once("cast", 3, frost ? 2.2f : 1.6f);
         LastCast = frost ? "frost" : "fire";
-        _castGlow = 0.7f;
-        float dmg = (frost ? Tune.Elementalist.FrostDamage : Tune.Elementalist.FireDamage) * Stats.DamageMult * Stats.PrimaryDamageMult;
-        var bolt = new ElementBolt { Position = CastPoint + dir * 6f, Dir = dir, Frost = frost, Damage = dmg, Range = range, Caster = this };
-        G.Spawn(bolt);
-        NetSync.HeroVisual(bolt);
-        G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);
-        G.Sfx.Play(frost ? "clink" : "throw", CastPoint, frost ? -12 : -9, 0.1f, frost ? 1.9f : 1.3f);
+        // (the staff gathers the bolt first, the hero held still and animated: 0.2 s for a firebolt, 0.1 s for a frostbolt)
+        Hold(frost ? Tune.Elementalist.FrostDelay : Tune.Elementalist.FireDelay, "cast", () =>
+        {
+            if (Dead) return;
+            // (it flies where the aim and the nearest creature are now)
+            var target = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
+            var dir = target != null ? (target.GlobalPosition - CastPoint).Normalized() : aim;
+            if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
+            CastDir = dir;
+            Anim.Face((int)Facing, instant: true);
+            _castGlow = 0.7f;
+            float dmg = (frost ? Tune.Elementalist.FrostDamage : Tune.Elementalist.FireDamage) * Stats.DamageMult * Stats.PrimaryDamageMult;
+            var bolt = new ElementBolt { Position = CastPoint + dir * 6f, Dir = dir, Frost = frost, Damage = dmg, Range = range, Caster = this };
+            G.Spawn(bolt);
+            NetSync.HeroVisual(bolt);
+            G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);
+            G.Sfx.Play(frost ? "clink" : "throw", CastPoint, frost ? -12 : -9, 0.1f, frost ? 1.9f : 1.3f);
+        });
         return true;
     }
 
@@ -306,8 +316,18 @@ public partial class Player
         if (!PayAlimus(BlizzardCost)) return true;
         SpendAbilityCharge();
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        var at = BlizzardSpot(aim, aimDist);
+        var at0 = BlizzardSpot(aim, aimDist);
+        var dir0 = (at0 - CastPoint).Normalized();
+        if (Math.Abs(dir0.X) > 0.15f) Facing = Math.Sign(dir0.X);
+        CastDir = dir0;
+        Anim.Face((int)Facing, instant: true);
         bool fire = Stats.Firestorm;
+        LastCast = fire ? "firestorm" : "blizzard";
+        // (the storm is gathered first: the Elementalist holds still, the staff raised, for the half second it takes to call it down)
+        Hold(Tune.Elementalist.BlizzardDelay, "heal", () =>
+        {
+        if (Dead) return;
+        var at = BlizzardSpot(aim, aimDist);
         float secondsMult = Stats.BlizzardSecondsMult;
         var storm = new Blizzard
         {
@@ -326,15 +346,10 @@ public partial class Player
         G.Spawn(storm);
         NetSync.HeroVisual(storm);
         LastBlizzard = storm;
-        var dir = (at - CastPoint).Normalized();
-        if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
-        CastDir = dir;
-        Anim.Face((int)Facing, instant: true);
-        Anim.Once("heal", 3, 1.4f);
-        LastCast = fire ? "firestorm" : "blizzard";
         _castGlow = 1f;
         G.Fx.Beam(CastPoint, at, fire ? new Color(1f, 0.55f, 0.2f, 0.6f) : new Color(0.8f, 0.94f, 1f, 0.6f));
         G.Sfx.Play(fire ? "lava" : "gasp", at, -4, 0.1f, fire ? 0.8f : 0.5f);
+        });
         return true;
     }
 

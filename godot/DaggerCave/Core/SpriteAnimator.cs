@@ -346,6 +346,16 @@ void fragment() {
         return true;
     }
 
+    /// <summary>Plays a one-shot stretched (or squeezed) to take <paramref name="seconds"/> from start to end: a cast that holds its pose for as long as the cast takes.</summary>
+    public bool OnceFor(string name, int priority, float seconds)
+    {
+        if (!Has(name)) return false;
+        string anim = Resolve(name);
+        int count = Math.Max(1, Sheet.Frames.GetFrameCount(anim));
+        float fps = Math.Max(1f, (float)Sheet.Frames.GetAnimationSpeed(anim));
+        return Once(name, priority, Math.Clamp(count / fps / Math.Max(0.05f, seconds), 0.15f, 6f));
+    }
+
     public void CancelOnce()
     {
         _once = null;

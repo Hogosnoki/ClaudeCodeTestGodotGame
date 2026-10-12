@@ -156,28 +156,35 @@ public partial class Player
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var ally = PickAlly(aim);
         SpendAbilityCharge();
-        var from = CastPoint;
-        void Give(Player who, float k = 1f)
+        // (the ward is gathered first: the Aegis holds still, animated, for the shield's wind-up, then it goes up)
+        LastCast = "barrier";
+        Hold(Tune.Aegis.ShieldDelay, "heal", () =>
         {
-            // (a share of the receiver's health: as strong as the one it guards is tough)
-            float amount = Tune.Aegis.BarrierShare * who.Stats.MaxHp * Stats.WardMult * Stats.BarrierMult * k;
-            who.GiveBarrier(amount, Tune.Aegis.BarrierSeconds);
-            if (who != this) G.Fx.Beam(from, who.GlobalPosition + new Vector2(0, -6), new Color(0.75f, 0.92f, 1f, 0.9f));
-        }
-        if (Stats.WideBarrier)
-        {
-            // (Wide Barrier: everyone near, and the Aegis, each at 60%)
-            foreach (var p in G.Players.ToArray())
-                if (!p.Dead && IsInstanceValid(p) && (p == this || p.GlobalPosition.DistanceTo(GlobalPosition) <= Tune.Aegis.AllyRange)) Give(p, 0.6f);
-        }
-        else
-        {
-            Give(ally ?? this);
-            // (Twin Barrier: the Aegis wraps itself as well)
-            if (ally != null && Stats.TwinBarrier) Give(this);
-        }
-        G.Sfx.Play("clink", from, -4, 0.05f, 1.2f);
-        CastPose("heal", "barrier");
+            if (Dead) return;
+            var from = CastPoint;
+            if (ally != null && (!IsInstanceValid(ally) || ally.Dead)) ally = null;
+            void Give(Player who, float k = 1f)
+            {
+                // (a share of the receiver's health: as strong as the one it guards is tough)
+                float amount = Tune.Aegis.BarrierShare * who.Stats.MaxHp * Stats.WardMult * Stats.BarrierMult * k;
+                who.GiveBarrier(amount, Tune.Aegis.BarrierSeconds);
+                if (who != this) G.Fx.Beam(from, who.GlobalPosition + new Vector2(0, -6), new Color(0.75f, 0.92f, 1f, 0.9f));
+            }
+            if (Stats.WideBarrier)
+            {
+                // (Wide Barrier: everyone near, and the Aegis, each at 60%)
+                foreach (var p in G.Players.ToArray())
+                    if (!p.Dead && IsInstanceValid(p) && (p == this || p.GlobalPosition.DistanceTo(GlobalPosition) <= Tune.Aegis.AllyRange)) Give(p, 0.6f);
+            }
+            else
+            {
+                Give(ally ?? this);
+                // (Twin Barrier: the Aegis wraps itself as well)
+                if (ally != null && Stats.TwinBarrier) Give(this);
+            }
+            G.Sfx.Play("clink", from, -4, 0.05f, 1.2f);
+            _castGlow = 1f;
+        });
         return true;
     }
 
@@ -294,12 +301,27 @@ public partial class Player
             // the bubble goes on a creature: softening its blows taken while the rest builds, then bursting
             var foe = FindSpellTarget(aim, Tune.Aegis.BoltRange, 40f);
             if (foe == null) { SayNo("NOTHING TO WARD"); _bubbleCd = 0.5f; return true; }
-            float scale = Stats.DamageMult * G.DepthHp * Stats.WardMult;
-            foe.GiveWard(Tune.Aegis.WardCap * scale, Tune.Aegis.WardBlast * scale * Stats.WardBlastMult, Tune.Aegis.WardSplash * scale * Stats.WardBlastMult, Tune.Aegis.WardSeconds);
-            G.Fx.Beam(CastPoint, foe.GlobalPosition, new Color(0.6f, 0.95f, 0.9f, 0.9f));
+            _bubbleCd = Tune.Aegis.BubbleCooldown * Stats.BubbleCdMult;
+            LastCast = "bubble";
+            Hold(Tune.Aegis.ShieldDelay, "hex", () =>
+            {
+                if (Dead) return;
+                float scale = Stats.DamageMult * G.DepthHp * Stats.WardMult;
+                if (IsInstanceValid(foe) && !foe.Dead)
+                {
+                    foe.GiveWard(Tune.Aegis.WardCap * scale, Tune.Aegis.WardBlast * scale * Stats.WardBlastMult, Tune.Aegis.WardSplash * scale * Stats.WardBlastMult, Tune.Aegis.WardSeconds);
+                    G.Fx.Beam(CastPoint, foe.GlobalPosition, new Color(0.6f, 0.95f, 0.9f, 0.9f));
+                }
+                G.Sfx.Play("bubble", CastPoint, -4, 0.05f, 1.0f);
+                _castGlow = 1f;
+            });
+            return true;
         }
-        else
+        _bubbleCd = Tune.Aegis.BubbleCooldown * Stats.BubbleCdMult;
+        LastCast = "bubble";
+        Hold(Tune.Aegis.ShieldDelay, "hex", () =>
         {
+            if (Dead) return;
             // a field: every hero near the Aegis (herself too) is wrapped, each in a bubble the size of their own
             // health's share; where the bubbles touch they act as one
             foreach (var who in G.Players.ToArray())
@@ -310,10 +332,9 @@ public partial class Player
                 who.GiveBubble(cap, Tune.Aegis.BubbleSeconds, Stats.BubbleHeal);
                 if (who != this) G.Fx.Beam(CastPoint, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 0.95f, 0.9f, 0.9f));
             }
-        }
-        _bubbleCd = Tune.Aegis.BubbleCooldown * Stats.BubbleCdMult;
-        G.Sfx.Play("bubble", CastPoint, -4, 0.05f, 1.0f);
-        CastPose("hex", "bubble");
+            G.Sfx.Play("bubble", CastPoint, -4, 0.05f, 1.0f);
+            _castGlow = 1f;
+        });
         return true;
     }
 

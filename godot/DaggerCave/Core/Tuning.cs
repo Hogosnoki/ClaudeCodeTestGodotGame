@@ -150,6 +150,8 @@ public static class Tune
     /// </summary>
     public static class Aegis
     {
+        /// <summary>The wind-up before the Aegis's shields (a barrier, a bubble): she holds perfectly still, animated, for these seconds.</summary>
+        public static float ShieldDelay = 0.25f;
         public static float StartHp = 70f, MoveMult = 0.98f, JumpMult = 1f;
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
@@ -248,6 +250,8 @@ public static class Tune
     /// </summary>
     public static class Vitalist
     {
+        /// <summary>The wind-up before a heal (it is cast on the one it was begun on: the hero holds perfectly still, animated, for these seconds; Rupture's is RuptureWindup).</summary>
+        public static float HealDelay = 0.4f;
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
         /// <summary>
         /// Drain (the attack button): the life is torn out of the creature you aim at as the staff
@@ -280,7 +284,7 @@ public static class Tune
         /// RuptureDamage; every other creature within RuptureRadius px of it takes RuptureSplash.
         /// </summary>
         public static float RuptureCost = 30f, RuptureDamage = 30f, RuptureSplash = 10f, RuptureRadius = 80f, RuptureRange = 200f;
-        public static float RuptureWindup = 0.24f, RuptureCooldown = 1.5f;
+        public static float RuptureWindup = 0.8f, RuptureCooldown = 1.5f;
 
         /// <summary>Blight Burst (an alteration): the hex's damage, and how much weaker its slow and
         /// its extra damage taken are. Endless Hex: its vital force cost (no cooldown).</summary>
@@ -296,12 +300,14 @@ public static class Tune
     // =============================================================================== ROGUE
     public static class Rogue
     {
+        /// <summary>The wind-up before a recall: the Rogue holds perfectly still, animated, for these seconds before the daggers tear home.</summary>
+        public static float RecallDelay = 0.4f;
         public static float StartHp = 55f, MoveMult = 1.1f, JumpMult = 1f;
         /// <summary>Ricochet's marks: a creature a ricocheting dagger strikes is marked for MarkSeconds; a recall then flings a poison
         /// pin at every marked creature within PinRange px (PinDamage, and PinPoison more over PinSeconds).</summary>
         public static float MarkSeconds = 10f, PinRange = 320f, PinDamage = 6f, PinPoison = 14f, PinSeconds = 4f;
         /// <summary>
-        /// Dagger Slash (the attack button): quick jabs, Damage each (the baseline: a thrown dagger strikes for 1.2 x that, a recall for 1.5 x), SwingCooldown s apart (five a
+        /// Dagger Slash (the attack button): quick jabs, Damage each (the baseline: a thrown dagger strikes for 0.6 x that, a recall for 0.6 x), SwingCooldown s apart (five a
         /// second), Reach px, striking one creature at a time with a tiny hit-stop; no combo refunds.
         /// A strike has CritChance of landing twice as hard (CritMult). With one dagger thrown the
         /// jabs come half as fast (OneDaggerSlow).
@@ -319,13 +325,13 @@ public static class Tune
         /// hilt a one-way ledge FootholdLength px long that anyone can stand on.
         /// </summary>
         public static float FootholdLength = 14f, FootholdMaxSlope = 0.6f;
-        public static float ThrowDamage = 10.8f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
+        public static float ThrowDamage = Damage * 0.6f, ThrowSpeed = 620f, ThrowRange = 280f, ThrowNudge = 90f, ReturnSpeed = 760f, ThrowConeDegrees = 12f;
         /// <summary>The wait before the next throw: ThrowCooldownOne s after a throw leaves one dagger out, ThrowCooldownBoth s after one that leaves both out (a recall doesn't shorten it).</summary>
         public static float ThreatDist = 1.15f; // the rogue seems farther off to enemies: they pick others first
         public static float ThrowCooldownOne = 0.5f, ThrowCooldownBoth = 1f;
         /// <summary>Recall (the second ability, no cooldown): each dagger stuck in a creature tears
         /// back out through it for RecallDamage, yanking it toward you (RecallYank).</summary>
-        public static float RecallDamage = 13.5f, RecallYank = 1040f;
+        public static float RecallDamage = Damage * 0.6f, RecallYank = 1040f;
         /// <summary>Serrated Recall (an upgrade): a recall's blow makes the creature bleed, RecallBleedChance of the time, for RecallBleedMult x the blow over RecallBleedSeconds.</summary>
         public static float RecallBleedChance = 0.6f, RecallBleedMult = 2f, RecallBleedSeconds = 5f;
         /// <summary>Vanish (the dodge button): VanishSeconds of stealth (creatures lose you) at
@@ -350,6 +356,8 @@ public static class Tune
 
     public static class Elementalist
     {
+        /// <summary>The wind-ups before a spell (the hero holds perfectly still, animated, for these seconds, gravity too): a firebolt, a frostbolt, a Blizzard.</summary>
+        public static float FireDelay = 0.2f, FrostDelay = 0.1f, BlizzardDelay = 0.5f;
         public static float StartHp = 55f, MoveMult = 0.97f, JumpMult = 0.97f;
         /// <summary>Alimus: what spells cost. It comes back by itself (AlimusRegen a second, its only
         /// source) up to AlimusMax; a run starts full. A bolt costs FireCost or FrostCost, a little
@@ -651,6 +659,8 @@ public static class Tune
     /// <summary>Support abilities (the support button), one per hero, each for the others' sake.</summary>
     public static class Support
     {
+        /// <summary>Stalag-Might's wind-up: the Elementalist holds perfectly still, animated, for this long before the earth answers.</summary>
+        public static float StalagDelay = 1.0f;
         /// <summary>Swordsman Battle Shout: allies within range deal this much more damage for some seconds.</summary>
         public static float ShoutDamage = 1.10f, ShoutSeconds = 10f, ShoutRange = 280f, ShoutCooldown = 30f;
         /// <summary>Shape Shifter Pack Howl: allies near move and strike faster.</summary>

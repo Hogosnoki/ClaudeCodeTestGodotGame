@@ -145,6 +145,13 @@ public partial class Player
         return true;
     }
 
+    /// <summary>Test aid: a dagger out, hanging in the air where it was thrown, to be recalled.</summary>
+    public void TestDaggerOut()
+    {
+        Launch(1, new Vector2(Facing, 0), GlobalPosition + new Vector2(0, -6), false);
+        if (_thrown[1] != null) _thrown[1].Speed = 0f;
+    }
+
     private void Launch(int k, Vector2 dir, Vector2 from, bool surprise)
     {
         var d = new ThrownDagger
@@ -198,12 +205,22 @@ public partial class Player
         if (out_.Count == 0)
         {
             // (Ricochet's daggers come home by themselves: a recall with none out still flings the pins)
-            if (!fromAttack && Stats.Ricochet && ThrowPins()) { Anim.Once("throw", 3, 2.4f); return true; }
+            bool pinsReady = !fromAttack && Stats.Ricochet && G.Enemies.Any(e => !e.Dead && e.CanBeHit && e.RogueMarked && e.GlobalPosition.DistanceTo(GlobalPosition + new Vector2(0, -6)) <= Tune.Rogue.PinRange);
+            if (pinsReady) { Hold(Tune.Rogue.RecallDelay, "throw", () => { if (!Dead) ThrowPins(); }); return true; }
             if (fromAttack) return false;
             SayNo("BOTH DAGGERS IN HAND");
             return true;
         }
-        Anim.Once("throw", 3, 2.4f);
+        // (the recall is gathered first: the Rogue holds still, animated, for its wind-up, and then the daggers tear home)
+        Hold(Tune.Rogue.RecallDelay, "throw", () => { if (!Dead) RecallNow(fromAttack); });
+        return true;
+    }
+
+    /// <summary>The recall itself, once its wind-up is over: every dagger out comes home, each tearing back through a creature it is in.</summary>
+    private void RecallNow(bool fromAttack)
+    {
+        var out_ = _thrown.Where(d => d != null && IsInstanceValid(d) && d.State != ThrownDagger.Phase.Returning).ToList();
+        if (out_.Count == 0) return;
         NetSync.HeroRecall(this);
         bool surprise = StrikeFromShadows();
         // Tether: you go to the dagger instead (the first one stuck in a creature)
@@ -216,7 +233,7 @@ public partial class Player
             foreach (var d in out_) if (d != anchor) d.ComeBack();
             G.Fx.Beam(GlobalPosition + new Vector2(0, -6), anchor.GlobalPosition, new Color(0.85f, 0.9f, 1f, 0.8f));
             G.Sfx.Play("dodge", GlobalPosition, -4, 0.05f, 1.4f);
-            return true;
+            return;
         }
         // Ricochet: a poison pin for every creature it marked
         if (Stats.Ricochet) ThrowPins();
@@ -230,7 +247,6 @@ public partial class Player
             }
             d.ComeBack();
         }
-        return true;
     }
 
     /// <summary>Ricochet marked a creature (in the thrower's game).</summary>

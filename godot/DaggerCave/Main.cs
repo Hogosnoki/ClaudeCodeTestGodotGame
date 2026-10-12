@@ -146,6 +146,9 @@ public partial class Main : Node
         // the lighting tones: a pass over the lit 3D picture, under every 2D layer
         AddChild(new CelPost());
         AddChild(new AmbientOnly());
+        // (the left stick in menus: a step, a pause, then a steady repeat: not a step per frame)
+        MenuStick.Active = () => _state != State.Playing || GetTree().Paused;
+        AddChild(new MenuStick());
         GameSettings.Apply(this);
 
         _world = new Node2D { Name = "World", ProcessMode = ProcessModeEnum.Pausable, Visible = false };

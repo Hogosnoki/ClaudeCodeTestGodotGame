@@ -359,8 +359,8 @@ public partial class Player
             // every moment of it burns fuel; when the fuel is gone, so is the pressure
             Fuel = Math.Max(0f, Fuel - Tune.AutomatonHero.PressureFuel * dt);
             // still shaking and glowing, the whole while: a hard thrum, steam streaming off it
-            Shake(1.4f, 0.32f + 0.08f * MathF.Sin(_animT * 11f), 14f, 6f, dt);
-            if ((_pressSfx -= dt) <= 0f) { _pressSfx = 0.16f; G.Sfx.Play("clink", GlobalPosition, -16, 0.1f, 1.4f); }
+            // (and it glows as brightly as it did at the end of the build-up, the same way; only the clinking stops once it is pressurized)
+            Shake(1.4f, 0.72f + 0.06f * MathF.Sin(_animT * 11f), 14f, 18f, dt);
             if (Fuel <= 0f) { G.Fx.Text(GlobalPosition + new Vector2(0, -30), "OUT OF FUEL", PressureGlow, 10, 0.9f); EndOverPressure(); }
         }
     }

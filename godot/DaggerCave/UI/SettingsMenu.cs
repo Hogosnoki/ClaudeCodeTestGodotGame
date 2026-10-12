@@ -108,12 +108,12 @@ public static class UiKit
     /// </summary>
     public static void EnsureMenuControls()
     {
-        void Axis(string action, JoyAxis axis, float v)
+        // (the stick is NOT bound to the ui_* actions: they would step on every frame the stick reports; MenuStick steps once, then repeats)
+        void NoAxis(string action)
         {
             if (!InputMap.HasAction(action)) return;
-            foreach (var e in InputMap.ActionGetEvents(action))
-                if (e is InputEventJoypadMotion m && m.Axis == axis && Math.Sign(m.AxisValue) == Math.Sign(v)) return;
-            InputMap.ActionAddEvent(action, new InputEventJoypadMotion { Axis = axis, AxisValue = v });
+            foreach (var e in InputMap.ActionGetEvents(action).ToArray())
+                if (e is InputEventJoypadMotion) InputMap.ActionEraseEvent(action, e);
         }
         void Button(string action, JoyButton b)
         {
@@ -125,8 +125,7 @@ public static class UiKit
         Button("ui_accept", JoyButton.A); Button("ui_cancel", JoyButton.B);
         Button("ui_left", JoyButton.DpadLeft); Button("ui_right", JoyButton.DpadRight);
         Button("ui_up", JoyButton.DpadUp); Button("ui_down", JoyButton.DpadDown);
-        Axis("ui_left", JoyAxis.LeftX, -1); Axis("ui_right", JoyAxis.LeftX, 1);
-        Axis("ui_up", JoyAxis.LeftY, -1); Axis("ui_down", JoyAxis.LeftY, 1);
+        NoAxis("ui_left"); NoAxis("ui_right"); NoAxis("ui_up"); NoAxis("ui_down");
     }
 }
 

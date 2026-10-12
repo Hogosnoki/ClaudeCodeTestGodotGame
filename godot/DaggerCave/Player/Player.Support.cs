@@ -197,23 +197,28 @@ public partial class Player
             SayNo(FindSpellTarget(dir, Tune.Support.StalagRange, 40f) != null ? "NOT NEAR THE GROUND" : "NOTHING TO SEIZE");
             _supportCd = 0.5f; return false;
         }
-        StalagFloor(foe, out var floor);
-        var at = foe.GlobalPosition + new Vector2(0, foe.HitRadius * 0.6f);
-        foe.Hurt(Tune.Support.StalagDamage * Stats.DamageMult, Vector2.Zero, at, DamageKind.Physical);
-        if (!foe.Dead) foe.Interrupt(Vector2.Zero, Tune.Support.StalagSeconds, "ROOTED");
-        // a bulge of rock bursts up round its feet, holds it, and sinks away when the hold is over
-        if (!foe.Dead) G.World.AddChild(new StalagGrip { Position = floor, Foe = foe, Seconds = Tune.Support.StalagSeconds, Radius = Math.Max(10f, foe.HitRadius) });
-        // spikes of rock thrust up under it
-        for (int k = -2; k <= 2; k++)
+        // (the earth is called first: the Elementalist holds still, animated, for a whole second, and then it answers)
+        LastCast = "stalag";
+        Hold(Tune.Support.StalagDelay, "hex", () =>
         {
-            var p = at + new Vector2(k * 7, 0);
-            G.Fx.Directional(p, Vector2.Up, 0.2f, new Color(0.55f, 0.47f, 0.38f), 4, 200, 2.4f, 0.4f, 300, 1);
-        }
-        G.Fx.Debris(at, new Color(0.5f, 0.43f, 0.35f), 16, 220);
-        G.Fx.Shockwave(at + new Vector2(0, 6), 26, new Color(0.8f, 0.7f, 0.5f, 0.5f), 0.3f);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -34), "STALAG-MIGHT!", new Color(0.85f, 0.75f, 0.55f), 11, 0.9f);
-        G.Sfx.Play("rock", at, -1, 0.1f, 0.8f);
-        CastPose("hex", "stalag");
+            if (Dead || !IsInstanceValid(foe) || foe.Dead || !StalagFloor(foe, out var floor)) return;
+            var at = foe.GlobalPosition + new Vector2(0, foe.HitRadius * 0.6f);
+            foe.Hurt(Tune.Support.StalagDamage * Stats.DamageMult, Vector2.Zero, at, DamageKind.Physical);
+            if (!foe.Dead) foe.Interrupt(Vector2.Zero, Tune.Support.StalagSeconds, "ROOTED");
+            // a bulge of rock bursts up round its feet, holds it, and sinks away when the hold is over
+            if (!foe.Dead) G.World.AddChild(new StalagGrip { Position = floor, Foe = foe, Seconds = Tune.Support.StalagSeconds, Radius = Math.Max(10f, foe.HitRadius) });
+            // spikes of rock thrust up under it
+            for (int k = -2; k <= 2; k++)
+            {
+                var p = at + new Vector2(k * 7, 0);
+                G.Fx.Directional(p, Vector2.Up, 0.2f, new Color(0.55f, 0.47f, 0.38f), 4, 200, 2.4f, 0.4f, 300, 1);
+            }
+            G.Fx.Debris(at, new Color(0.5f, 0.43f, 0.35f), 16, 220);
+            G.Fx.Shockwave(at + new Vector2(0, 6), 26, new Color(0.8f, 0.7f, 0.5f, 0.5f), 0.3f);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -34), "STALAG-MIGHT!", new Color(0.85f, 0.75f, 0.55f), 11, 0.9f);
+            G.Sfx.Play("rock", at, -1, 0.1f, 0.8f);
+            _castGlow = 1f;
+        });
         return true;
     }
 

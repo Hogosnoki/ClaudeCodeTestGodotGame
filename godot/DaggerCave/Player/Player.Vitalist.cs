@@ -339,35 +339,39 @@ public partial class Player
         VitalForce = Math.Max(0, VitalForce - cost);
         SpendAbilityCharge();
         _healCd = 0.4f; // (with a second charge, not both in the same instant)
-        float amount = Tune.Vitalist.HealAmount * Stats.HealMult;
-        var from = CastPoint;
-        foreach (var (p, miss) in hurt)
-        {
-            float share = amount * miss / sumP;
-            var at = p.GlobalPosition + new Vector2(0, -6);
-            if (p != this) G.Fx.Beam(from, at, HealColor);
-            G.Fx.Flash(at, 20, HealColor, 0.18f);
-            G.Fx.Ring(at, 18, new Color(HealColorLight, 0.9f), 0.3f, FxLayer.RingStyle.Wave);
-            for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
-            p.Anim.Flash(0.4f);
-            p.Anim.FlashColor = HealColorLight;
-            if (!Stats.SlowMending)
-            {
-                p.Heal(share);
-                // (Mending Ward: those you've healed are warded for a while, even by an instant heal)
-                if (Stats.HotWard > 0) p.GiveMending(0.01f, Tune.Vitalist.MendSeconds, Stats.HotWard);
-                continue;
-            }
-            // Slow Mending: half now, half over the next seconds (Patient: all of it, and more)
-            float later = Stats.PatientMending ? share * (1f + Tune.Vitalist.PatientBonus) : share * 0.5f;
-            float now = Stats.PatientMending ? 0f : share * 0.5f;
-            if (now > 0) p.Heal(now);
-            p.GiveMending(later, Tune.Vitalist.MendSeconds, Math.Max(Stats.WardingMending ? Tune.Vitalist.WardingShare : 0f, Stats.HotWard));
-        }
-        G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
-        Anim.Once("heal", 3);
-        _castGlow = 1f;
+        // (the cost is paid; the hero gathers the heal, held still and animated, and then it goes out)
         LastCast = "heal";
+        Hold(Tune.Vitalist.HealDelay, "heal", () =>
+        {
+            float amount = Tune.Vitalist.HealAmount * Stats.HealMult;
+            var from = CastPoint;
+            if (Dead) return;
+            foreach (var (p, miss) in hurt)
+            {
+                if (p.Dead || !IsInstanceValid(p)) continue;
+                float share = amount * miss / sumP;
+                var at = p.GlobalPosition + new Vector2(0, -6);
+                if (p != this) G.Fx.Beam(from, at, HealColor);
+                G.Fx.Flash(at, 20, HealColor, 0.18f);
+                G.Fx.Ring(at, 18, new Color(HealColorLight, 0.9f), 0.3f, FxLayer.RingStyle.Wave);
+                for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
+                p.Anim.Flash(0.4f);
+                p.Anim.FlashColor = HealColorLight;
+                if (!Stats.SlowMending)
+                {
+                    p.Heal(share);
+                    // (Mending Ward: those you've healed are warded for a while, even by an instant heal)
+                    if (Stats.HotWard > 0) p.GiveMending(0.01f, Tune.Vitalist.MendSeconds, Stats.HotWard);
+                    continue;
+                }
+                // Slow Mending: half now, half over the next seconds (Patient: all of it, and more)
+                float later = Stats.PatientMending ? share * (1f + Tune.Vitalist.PatientBonus) : share * 0.5f;
+                float now = Stats.PatientMending ? 0f : share * 0.5f;
+                if (now > 0) p.Heal(now);
+                p.GiveMending(later, Tune.Vitalist.MendSeconds, Math.Max(Stats.WardingMending ? Tune.Vitalist.WardingShare : 0f, Stats.HotWard));
+            }
+            G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
+        });
         return true;
     }
 
@@ -412,7 +416,7 @@ public partial class Player
         if (Math.Abs(_ruptureDir.X) > 0.15f) Facing = Math.Sign(_ruptureDir.X);
         CastDir = _ruptureDir;
         Anim.Face((int)Facing, instant: true);
-        Anim.Once("rupture", 3);
+        Anim.OnceFor("rupture", 3, Tune.Vitalist.RuptureWindup);
         // it begins at the creature: seized where it stands, its life drawn in to a point
         float r = target.HitRadius;
         target.Freeze(Tune.Vitalist.RuptureWindup, hold: true);
@@ -478,7 +482,7 @@ public partial class Player
         if (Math.Abs(_ruptureDir.X) > 0.15f) Facing = Math.Sign(_ruptureDir.X);
         CastDir = _ruptureDir;
         Anim.Face((int)Facing, instant: true);
-        Anim.Once("rupture", 3);
+        Anim.OnceFor("rupture", 3, Tune.Vitalist.RuptureWindup);
         G.Fx.Ring(target.GlobalPosition, 26, new Color(HealColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f, FxLayer.RingStyle.Wave);
         G.Fx.Converge(target.GlobalPosition, 40, HealColorLight, 14, Tune.Vitalist.RuptureWindup);
         if (target != this) G.Fx.Beam(CastPoint, target.GlobalPosition + new Vector2(0, -6), new Color(HealColor, 0.8f));

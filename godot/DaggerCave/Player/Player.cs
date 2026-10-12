@@ -490,6 +490,7 @@ public partial class Player : CharacterBody2D
         TickRope(inp, dt);
         if (IsElementalist) TickDraftAim(inp);
         TickSupport(dt);
+        TickHold(dt);
         switch (Stats.Hero)
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
@@ -537,7 +538,7 @@ public partial class Player : CharacterBody2D
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
-        if (_dodgeBuf > 0 && _heldRope == null && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); }
+        if (_dodgeBuf > 0 && _heldRope == null && !Holding && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); }
 
         // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
         if (Possessed) v = PossessedStep(inp);
@@ -559,6 +560,8 @@ public partial class Player : CharacterBody2D
         }
         else if (InWater) v = Stats.Sinks ? SinkingSwim(inp, v, dt, cave) : Swim(inp, v, dt, cave);
         else v = Platform(inp, v, dt, onFloor);
+        // (a cast being gathered: held perfectly still, gravity and all)
+        if (Holding && !Possessed) v = Vector2.Zero;
 
         if (_airDashT > 0) _airDashT -= dt;
 
@@ -599,11 +602,12 @@ public partial class Player : CharacterBody2D
 
         // the attack button, then the two ability buttons (each fires once it's allowed); held
         // down, the attack goes again as soon as it can, wherever you aim now
-        if (_attackBuf > 0 && Primary(_attackAim)) { _attackBuf = 0; RunMetrics.Used(this, 0); }
+        if (Holding) { }
+        else if (_attackBuf > 0 && Primary(_attackAim)) { _attackBuf = 0; RunMetrics.Used(this, 0); }
         else if (inp.AttackHeld && _attackBuf <= 0 && Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true, stick: inp.StickAttack)) RunMetrics.Used(this, 0);
-        if (_abilityBuf > 0 && Ability(_abilityAim)) { _abilityBuf = 0; RunMetrics.Used(this, 1); }
-        if (_ability2Buf > 0 && Ability2(_ability2Aim)) { _ability2Buf = 0; RunMetrics.Used(this, 2); }
-        if (_supportBuf > 0 && Support(_supportAim)) { _supportBuf = 0; RunMetrics.Used(this, 4); }
+        if (!Holding && _abilityBuf > 0 && Ability(_abilityAim)) { _abilityBuf = 0; RunMetrics.Used(this, 1); }
+        if (!Holding && _ability2Buf > 0 && Ability2(_ability2Aim)) { _ability2Buf = 0; RunMetrics.Used(this, 2); }
+        if (!Holding && _supportBuf > 0 && Support(_supportAim)) { _supportBuf = 0; RunMetrics.Used(this, 4); }
         if (_swingT >= 0) UpdateSwing(dt);
         TickBash(dt);
 
@@ -621,6 +625,7 @@ public partial class Player : CharacterBody2D
         if (Dead) return;
         _snagT = Math.Max(_snagT, seconds);
         _swingT = -1;
+        CancelHold();
         G.Fx.Text(GlobalPosition + new Vector2(0, -30), "SNAGGED", new Color(0.8f, 0.72f, 0.45f), 10, 0.8f);
         G.Sfx.Play("web", GlobalPosition, -2, 0.1f, 0.6f);
         Anim.Flash(0.25f);

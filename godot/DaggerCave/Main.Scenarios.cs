@@ -55,6 +55,7 @@ public partial class Main
         "ringfx" => "entrance",
         "metrics" => "entrance",
         "chestlook" => "entrance",
+        "holds" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
         "fossilcam" => "fossils",
@@ -144,6 +145,7 @@ public partial class Main
             case "ringfx": RingFxScenario(); break;
             case "metrics": MetricsScenario(); break;
             case "chestlook": ChestLookScenario(); break;
+            case "holds": HoldsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;
             case "wing": WingScenario(); break;
@@ -823,6 +825,8 @@ public partial class Main
         p.TestHero = HeroKind.Elementalist;
         var f1 = Foe(120); float h1 = f1.Hp;
         ok = p.TestSupport(aim);
+        // (Stalag-Might has a wind-up: the Elementalist holds still for it, and then the earth answers)
+        for (float w = 0; w < Tune.Support.StalagDelay + 0.3f; w += 1f / 60f) { p.TestHoldTick(1f / 60f); }
         ScCheck($"Stalag-Might: {h1 - f1.Hp:0.0} damage and the creature is held ({f1.Reeling})", ok && Math.Abs(h1 - f1.Hp - Tune.Support.StalagDamage * p.Stats.DamageMult * Affinity.Mult(f1.Element, DamageKind.Physical)) < 3f && f1.Reeling);
 
         ScCheck($"...a bulge of rock holds it ({System.Linq.Enumerable.Count(_world.GetChildren(), n => n is StalagGrip)})", System.Linq.Enumerable.Any(_world.GetChildren(), n => n is StalagGrip));
