@@ -31,6 +31,7 @@ public partial class Main : Node
     private LoadoutMenu _loadoutMenu;
     private PauseMenu _pauseMenu;
     private SettingsMenu _settingsMenu;
+    private BugReportMenu _bugReport;
     private BuildPanel _buildPanel;
     private bool _metricsShown;
     private bool _victory;
@@ -183,10 +184,12 @@ public partial class Main : Node
         };
         _uiLayer.AddChild(_loadoutMenu);
         UiKit.EnsureMenuControls();
-        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
+        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { G.Player?.ForceUnstick(); Unpause(); }, Report = OpenReport, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
         _uiLayer.AddChild(_pauseMenu);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
+        _bugReport = new BugReportMenu { Closed = OnReportClosed };
+        _uiLayer.AddChild(_bugReport);
         _buildPanel = new BuildPanel { Closed = OnBuildClosed };
         _uiLayer.AddChild(_buildPanel);
         SetupOnline();
@@ -816,6 +819,16 @@ public partial class Main : Node
             player.SyncCharges();
         }
         player.GlobalPosition = cave.StartPos;
+        // (a cave whose start is walled in says so: in the log, and on the screen, with how to report it)
+        try
+        {
+            if (BugReports.StartShutIn(cave, out int sealedReach, out int sealedTotal))
+            {
+                GD.PrintErr($"[seal] seed {cave.Seed}: the start reaches {sealedReach} of {sealedTotal} open cells, or not the guardian's room");
+                GetTree().CreateTimer(3.0).Timeout += () => _hud?.ShowBanner($"THIS CAVE LOOKS SHUT IN (SEED {cave.Seed}). PRESS F6 TO REPORT IT.", 8f);
+            }
+        }
+        catch (Exception ex) { GD.PrintErr(ex); }
         if (_startAt == "boss" && cave.Boss != null)
         {
             var at = cave.Boss.Center + new Vector2(-cave.Boss.RxPx * 0.55f, 0);
@@ -1727,6 +1740,14 @@ public partial class Main : Node
                 GetViewport().SetInputAsHandled();
                 return;
             }
+            if (k.PhysicalKeycode == Key.F6 && _state is State.Playing or State.Paused && !_bugReport.Visible && !_settingsMenu.Visible)
+            {
+                // (report a problem from anywhere in a run: the game stops, the box opens)
+                if (_state == State.Playing) PauseGame();
+                OpenReport();
+                GetViewport().SetInputAsHandled();
+                return;
+            }
             if (k.PhysicalKeycode == Key.F10)
             {
                 Brains.SaveAll(force: true);
@@ -1748,7 +1769,7 @@ public partial class Main : Node
                 return;
             }
         }
-        if (_metaMenu.Visible || _perkMenu.Visible || _loadoutMenu.Visible || _onlineMenu.Visible) return;
+        if (_metaMenu.Visible || _perkMenu.Visible || _loadoutMenu.Visible || _onlineMenu.Visible || _bugReport.Visible) return;
         if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible && !BuildPanel.Showing)
         {
             PauseGame();

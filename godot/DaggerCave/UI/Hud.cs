@@ -236,6 +236,14 @@ public partial class Hud : Control
         string where = $"DEPTH {G.Depth}  ·  {G.Biome?.Name.ToUpperInvariant() ?? ""}  ·  {p.Kills} kills";
         var wsz = font.GetStringSize(where, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - wsz.X / 2, 22), where, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
+        // (the cave's seed, small, so a problem can be reported with it: Report a problem in the pause menu, or F6)
+        if (G.Cave != null)
+        {
+            string seedText = $"SEED {G.Cave.Seed}";
+            var ssz = font.GetStringSize(seedText, HorizontalAlignment.Left, -1, 11);
+            DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, 36), seedText, HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.45f));
+            Tip(new Rect2(vs.X / 2 - ssz.X / 2 - 4, 26, ssz.X + 8, 14), "Seed", "The number that makes this cave again. Include it when you report a problem (Report a problem in the pause menu, or F6).");
+        }
         Tip(new Rect2(vs.X / 2 - wsz.X / 2 - 4, 8, wsz.X + 8, 20), "Depth, cave and kills", "How deep you are, the kind of cave this is, and how many creatures you have slain this run. The guardian at the exit opens the way down.");
 
         // --- Boss bar ---

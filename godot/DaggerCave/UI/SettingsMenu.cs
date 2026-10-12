@@ -173,7 +173,8 @@ public partial class Cycler : Button
 /// </summary>
 public partial class PauseMenu : Control
 {
-    public Action Resume, Settings, Build, Quit, QuitGame, Unstick;
+    public Action Resume, Settings, Build, Quit, QuitGame, Unstick, Report;
+    private Label _seed;
     private Button _first, _quit;
     private bool _guide;
 
@@ -192,6 +193,9 @@ public partial class PauseMenu : Control
         AddChild(UiKit.Dimmer(0.55f));
         var (_, col) = UiKit.Panel(this, new Vector2(360, 0));
         col.AddChild(UiKit.Label("PAUSED", 30, UiKit.Gold, HorizontalAlignment.Center));
+        // (the cave's seed, to report with a problem)
+        _seed = UiKit.Label("", 14, UiKit.Dim, HorizontalAlignment.Center);
+        col.AddChild(_seed);
         col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 6) });
         _first = UiKit.Button("Resume", () => Resume?.Invoke());
         col.AddChild(_first);
@@ -199,6 +203,7 @@ public partial class PauseMenu : Control
         col.AddChild(UiKit.Button("Your build", () => Build?.Invoke()));
         col.AddChild(UiKit.Button("HUD guide", () => { Visible = false; _guide = true; Hud.Guide = true; }));
         col.AddChild(UiKit.Button("Unstick me", () => Unstick?.Invoke()));
+        col.AddChild(UiKit.Button("Report a problem", () => Report?.Invoke()));
         _quit = UiKit.Button("Give up this run", () => Quit?.Invoke());
         col.AddChild(_quit);
         col.AddChild(UiKit.Button("Quit to desktop", () => QuitGame?.Invoke()));
@@ -207,6 +212,7 @@ public partial class PauseMenu : Control
     /// <summary>Shows the menu (online, leaving is the host's end of the game for everyone).</summary>
     public void Open(bool online, bool host = false)
     {
+        _seed.Text = G.Cave != null ? $"Seed {G.Cave.Seed}  ·  depth {G.Depth}" : "";
         _quit.Text = !online ? "Give up this run" : host ? "End the online game (for everyone)" : "Leave the online game";
         Visible = true;
         _first.CallDeferred(Control.MethodName.GrabFocus);

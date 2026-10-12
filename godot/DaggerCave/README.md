@@ -1322,6 +1322,28 @@ flatness, texture blur 0.2, brightness 140%, dirt gain 1.69, grass fully taking 
 shader globals. The title screen's defaults are its own (see Two looks).
 Tests: `--debug` starts with debug mode on, `--dbg=key=value,...` sets tuning values, `--scenario=debugmode` types the word and checks it.
 
+## Reporting a problem
+
+- **The seed** is on the HUD (small, under the depth line) and in the pause menu, so any cave can be named and made again.
+- **Report a problem** (the pause menu's button, or **F6** anywhere in a run; `UI/BugReportMenu.cs`, `Core/BugReports.cs`): pick a category
+  (stuck or shut in, crash or freeze, looks wrong, gameplay or balance, other), write what happened, and Send. The game adds by itself:
+  the seed, depth and cave kind, the hero (HP, kills), the cell the player stands on, a **shut-in check** (a flood fill of the open air from
+  the player: how many of the cave's open cells it reaches, and whether the start and the guardian's room are among them), the **map** (a
+  crop round the player in the issue; the whole map in the file: `X` rock, `.` air they can reach, `,` air they can't, `~` water, `^` lava,
+  `P` player, `S` start), the build, the machine (Godot, OS, GPU, window), the cave generator's own diagnostics, every look setting (both
+  looks), and the last 70 lines of the game's log.
+- **Where it goes**: the whole report is saved in `user://bug_reports/` (on Linux `~/.local/share/godot/app_userdata/ProcGenGame/bug_reports/`,
+  on Windows `%APPDATA%\Godot\app_userdata\ProcGenGame\bug_reports\`) and copied to the clipboard, and the browser opens a **new GitHub issue
+  on `hogosnoki/claudecodetestgodotgame`** with its title, a short body (the words, seed, cave, hero, place, shut-in check and map crop) and
+  the label `bug-report` already filled in, to post with one click. Reports are then issues, so they can be listed, read and closed from
+  GitHub (or by a session with GitHub access) while the game is changed. The game carries **no GitHub token**: one inside a game anyone can
+  download is one anyone can take, so the player's own account posts it. (Posting with no click would need a small server of the owner's
+  holding a token, which this repository doesn't have.)
+- **A shut-in start warns by itself**: when a cave begins with the start's air joined to under 400 open cells, or to nowhere near the
+  guardian's room, the log gets a `[seal]` line with the seed and a banner offers F6 (none of the ten biomes tried gave a false alarm).
+- Tests: `--scenario=report` makes a report (not sent, no browser: `BugReports.OpenBrowser`) and checks the seed, map, shut-in check, saved file and
+  address length.
+
 ## Run metrics
 
 **Your Build** has a second page, **Run metrics** (left / right, or click the tabs, switches between them), and the same page comes up once
