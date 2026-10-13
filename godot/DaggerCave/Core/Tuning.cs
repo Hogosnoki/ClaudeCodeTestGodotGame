@@ -508,6 +508,12 @@ public static class Tune
     }
 
     /// <summary>Relics and the chests that hold them.</summary>
+    /// <summary>The wind-ups (cast delays): the hero keeps this share of its speed (walking, swimming, falling) while one gathers.</summary>
+    public static class Hold
+    {
+        public static float MoveShare = 0.1f;
+    }
+
     public static class Relics
     {
         /// <summary>A Hunter's Map: this share more chests in every cave.</summary>

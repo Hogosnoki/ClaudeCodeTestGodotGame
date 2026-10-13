@@ -40,10 +40,10 @@ public partial class Main
             int frames = 0;
             while (p.Holding && frames++ < 400) yield return null;
             // (the walking was pushed the whole time; the drift is how far it got from where the wind-up began)
-            ScCheck($"{what}: it did not move or fall while it gathered (drift {p.LastHoldDrift:0.00} px)", p.LastHoldDrift < 0.01f);
+            ScCheck($"{what}: it crept at a tenth of its speed while it gathered (drift {p.LastHoldDrift:0.00} px, at most {p.HoldDriftAllowance(expect):0.0} for a tenth)", p.LastHoldDrift <= p.HoldDriftAllowance(expect));
             ScCheck($"{what}: the wind-up ended", !p.Holding);
             foreach (var _ in Wait(0.5f)) yield return null;
-            ScCheck($"{what}: and then it walked on", p.GlobalPosition.X > at.X + 1f || p.LastHoldDrift < 0.01f);
+            ScCheck($"{what}: and then it walked on", p.GlobalPosition.X > at.X + 1f || p.LastHoldDrift < p.HoldDriftAllowance(expect));
             _scInput = default;
         }
 

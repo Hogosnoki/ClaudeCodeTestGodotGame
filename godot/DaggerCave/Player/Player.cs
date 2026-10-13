@@ -572,8 +572,13 @@ public partial class Player : CharacterBody2D
         }
         else if (InWater) v = Stats.Sinks ? SinkingSwim(inp, v, dt, cave) : Swim(inp, v, dt, cave);
         else v = Platform(inp, v, dt, onFloor);
-        // (a cast being gathered: held perfectly still, gravity and all)
-        if (Holding && !Possessed) v = Vector2.Zero;
+        // (a cast being gathered: slowed to a tenth, walking, swimming and falling alike, and no jumping)
+        if (Holding && !Possessed)
+        {
+            float cap = RunSpeed * Stats.MoveSpeed * Tune.Hold.MoveShare;
+            v = new Vector2(Math.Clamp(v.X, -cap, cap), Math.Clamp(v.Y, -cap, MaxFall * Tune.Hold.MoveShare));
+            _jumpBuffer = 0;
+        }
 
         if (_airDashT > 0) _airDashT -= dt;
 
