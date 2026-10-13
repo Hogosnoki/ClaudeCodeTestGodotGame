@@ -452,7 +452,10 @@ The Vitalist's vital force is like mana: earned by draining (a tenth of the dama
 and each level with at least 7.5. Healing is deliberately scarce: every hero is meant to pull
 their weight and dodge, not lean on the Vitalist.
 
-The Elementalist's alimus pays for its spells (the bolts are free): it holds 40 (more with
+The Elementalist's alimus pays for its spells' *recharge*, not their casting: a spell is **free to cast** (the bolt, the updraft, the storm, the snap), but a spell that
+has been cast **does not begin to recharge until there is enough alimus, and then spends it to start** (a spent bolt's next charge, the updraft, the snap, each use of the
+storm; the dearest first, so the cheap ones don't keep it from the great ones). With too little alimus a cast spell simply waits (its square stays dark; the HUD tip says so);
+Blood Channeling lets a recharge that lacks the alimus start anyway, paid for in health. `Player.TickElementalist`, `Tune.Elementalist.UpdraftRecharge`. It holds 40 (more with
 upgrades and levels), comes back by itself at 2.5 a second (its only source), and a run starts
 full. Its fire and frost work on creatures in three ways, each shown by a wash of colour over the
 creature (online, the host keeps them and every game shows them):
@@ -1009,7 +1012,7 @@ and prints ok / FAIL for each:
   draining again and again.
 - Elementalist: a firebolt's damage and its cost (none); one that catches setting a creature
   alight, and the burn a second; holding the attack casting again and again; alimus coming back
-  by itself; the updraft rising at your feet for its alimus, lifting nothing but letting a jump float far higher and a fall drift down slowly; no updraft without the alimus; the blizzard landing on
+  by itself; the updraft rising at your feet for its alimus, lifting nothing but letting a jump float far higher and a fall drift down slowly; an updraft cast with too little alimus going up for nothing and then waiting, paying and recharging once there is enough; the blizzard landing on
   the creature you aim at, striking nine times for its damage, waiting out its cooldown, and its
   frost freezing a regular creature solid; a snap shattering a frozen creature and splashing the
   one beside it, for its alimus; a snap with nothing frozen costing nothing; a mini-boss never
@@ -1356,6 +1359,21 @@ along a tunnel under the beach to a chamber with a **silver chest**; and, 40% of
 narrow shaft from the first's floor, with another (`Cave/RiverGen.cs`, from a generator of its own so the rest of the level is unchanged).
 The nooks' pass no longer wipes the river's own slit marks (`CaveData.OwnHints`). `--leftsecrets` makes every level have two;
 `--scenario=river --leftsecrets` checks the chambers, chests, marks, the swim in and the shaft.
+
+## Gold
+
+Gold lies hidden in the **dead ends** of every cave, which used to hold nothing: `CaveGenerator.AddDeadEnds` finds the tips of the level's branches (a flood of the open
+cells from the start, and the cells nothing nearby is farther along than; kept 14 cells apart, 26 cells from where you arrive, and out of the guardian's room, the vaults and
+the hidden chambers, which hold a reward already) and `Main.PlaceGold` puts **one to three coins** along the floor of each, and one time in five **a pile of four to eight**
+instead (`Tune.Gold`). A coin is worth 1; touching it puts it in the purse (`Player.Gold`, shown by a coin and a count beside the keys; it goes on down from level to level
+with the hero, and `GoldFound` counts the run). From the seed alone, so every game makes the same; online, the host decides who gets one (`NetSync.GivePickup` kind 5), as with
+a key. `--scenario=gold` checks it (every dead end holds gold, the worths, picking up). Gold is for a merchant's wares (to come).
+
+## Shields on the HUD
+
+Beneath the health bar, in a thin meter like it, **light grey (almost white)**: a **Warden's shield** (its amount of what it can still stop; the Warden's own gauge at the bottom
+left stays too) and any **barrier or bubble** over a hero (the Aegis's, or a friend's). One row when there is one of them, two thinner rows when both; the amounts sit just
+past the end of the health bar, and the tip says what each is. (`UI/Hud.cs`)
 
 ## Retaliation relics (for anyone)
 

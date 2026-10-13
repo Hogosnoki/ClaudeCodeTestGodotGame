@@ -96,7 +96,7 @@ public static partial class Upgrades
         Rl("relic_healer", "Healer's Hands", "When you get a fallen friend back on their feet, they rise with 20% more health.", (s, p) => s.ReviveGiveBonus += Tune.Relics.ReviveExtra),
 
         // --- Elementalist ---
-        Rl("relic_e_blood", "Blood Channeling", "Spells you lack the alimus for are paid for with your own health instead.", (s, p) => s.BloodCast = true, HE, 1.5f),
+        Rl("relic_e_blood", "Blood Channeling", "A spell's recharge that lacks the alimus to begin is paid for with your own health instead.", (s, p) => s.BloodCast = true, HE, 1.5f),
         Rl("relic_e_ember", "Ember Heart", "Your fire is 25% likelier to set creatures alight, but your alimus comes back 20% slower.", (s, p) => { s.IgniteChance += 0.25f; s.AlimusRegenMult *= 0.8f; }, HE, 1.5f),
         Rl("relic_e_rime", "Rime Heart", "Your frost is 12% likelier to freeze a creature solid, but your fire sets nothing alight.", (s, p) => { s.FreezeBonus += 0.12f; s.IgniteChance = 0f; }, HE, 1.5f),
         Rl("relic_e_vessel", "Overflowing Vessel", "50% more alimus to hold, but it comes back 25% slower.", (s, p) => { s.AlimusMax *= 1.5f; s.AlimusRegenMult *= 0.75f; p?.SetAlimus(s.AlimusMax); }, HE, 1.5f),

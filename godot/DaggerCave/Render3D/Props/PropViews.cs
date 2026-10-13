@@ -36,6 +36,7 @@ public static class PropViews
             HeartPickup => new HeartView(),
             PotionPickup => new PotionView(),
             KeyPickup => new KeyView(),
+            CoinPickup => new CoinView(),
             VaultGate => new VaultGateView(),
             Chest => new ChestView(),
             HeroCage { NeedsCell: true } => new AutomatonHeapView(),

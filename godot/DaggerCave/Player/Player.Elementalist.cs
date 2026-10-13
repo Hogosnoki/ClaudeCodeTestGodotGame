@@ -6,8 +6,9 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Elementalist's kit. Every spell costs alimus, which comes back by itself (its only
-/// source); the bolts are free. The attack button hurls a firebolt that can set a creature
+/// The Elementalist's kit. A spell costs nothing to cast; alimus (which comes back by itself, its only
+/// source) is what a spell's recharge costs. A spell that has been cast does not begin to recharge until there is enough alimus, and
+/// then spends it to start (the bolts one at a time, the updraft, the snap and the storm each in turn). The attack button hurls a firebolt that can set a creature
 /// alight (Frostbolt: quicker, weaker bolts of frost that slow, and now and then freeze a
 /// creature solid). The dodge button raises an Updraft, a column of air in which every
 /// hero has a fraction of gravity and a fraction of the fall speed (floating up on a jump, drifting down). The ability button calls down a Blizzard at the aim point: nine
@@ -24,6 +25,9 @@ public partial class Player
     /// <summary>The Elementalist's reserve: spells cost it, and it comes back by itself.</summary>
     public float Alimus { get; private set; }
     private float _boltCd, _updraftCd, _snapCd, _snapAt = -1;
+    // a cast spell waits to be paid for before it recharges: the bolt's next charge, the updraft, the snap, each use of the storm
+    private bool _boltPaid, _updraftOwes, _snapOwes;
+    private bool[] _stormOwes = new bool[1];
     /// <summary>Bolts in the staff (-1 = not yet filled for this run), and how far the next one has recharged (seconds).</summary>
     private int _boltCharges = -1;
     private float _boltRecharge;
@@ -41,8 +45,16 @@ public partial class Player
     public float BlizzardCost => Tune.Elementalist.BlizzardCost;
     public float SnapCost => Tune.Elementalist.SnapCost;
     /// <summary>For the HUD: the updraft's short recovery and the snap's, 0 = ready.</summary>
-    public float UpdraftCooldownFrac => Math.Clamp(_updraftCd / 0.5f, 0, 1);
-    public float SnapCooldownFrac => Math.Clamp(_snapCd / Tune.Elementalist.SnapCooldown, 0, 1);
+    public float UpdraftCooldownFrac => _updraftOwes ? 1f : Math.Clamp(_updraftCd / Tune.Elementalist.UpdraftRecharge, 0, 1);
+    public float SnapCooldownFrac => _snapOwes ? 1f : Math.Clamp(_snapCd / Tune.Elementalist.SnapCooldown, 0, 1);
+    /// <summary>The spell is ready to cast (not recharging, and not waiting for the alimus to start).</summary>
+    public bool UpdraftReady => _updraftCd <= 0 && !_updraftOwes;
+    public bool SnapReady => _snapCd <= 0 && !_snapOwes && _snapAt < 0;
+    /// <summary>For the HUD: a cast spell is waiting for enough alimus to begin recharging (the bolt's next charge, the updraft, the snap, the storm).</summary>
+    public bool BoltWaiting => _boltCharges >= 0 && _boltCharges < BoltChargesMax && !_boltPaid;
+    public bool UpdraftWaiting => _updraftOwes;
+    public bool SnapWaiting => _snapOwes;
+    public bool StormWaiting { get { foreach (bool o in _stormOwes) if (o) return true; return false; } }
     /// <summary>What a snap would burst right now (for the HUD): the frozen creatures in view, or with Cinder Snap the burning ones.</summary>
     public int SnapTargets => Snappable().Count();
 
@@ -54,8 +66,8 @@ public partial class Player
     /// <summary>Seconds one bolt takes to come back.</summary>
     private float BoltRechargeSeconds => Stats.Frostbolt ? Tune.Elementalist.FrostEvery : Tune.Elementalist.FireEvery;
     /// <summary>For the orbs and the HUD: the ready state of the updraft, the snap and the storm (a copy goes by its game's flags).</summary>
-    public bool UpdraftOrb => IsRemote ? (_netFlags & HfOrbWind) != 0 : _updraftCd <= 0;
-    public bool SnapOrb => IsRemote ? (_netFlags & HfOrbSnap) != 0 : _snapCd <= 0 && _snapAt < 0;
+    public bool UpdraftOrb => IsRemote ? (_netFlags & HfOrbWind) != 0 : UpdraftReady;
+    public bool SnapOrb => IsRemote ? (_netFlags & HfOrbSnap) != 0 : SnapReady;
     public bool StormOrb => IsRemote ? (_netFlags & HfOrbStorm) != 0 : AbilityChargeReady;
     /// <summary>The storm is fire (Firestorm).</summary>
     public bool FireStorm => IsRemote ? (_netFlags & HfFire) != 0 : Stats.Firestorm;
@@ -66,8 +78,10 @@ public partial class Player
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
     /// <summary>Test aid: the staff is ready again.</summary>
     /// <summary>Test aid: the updraft is ready again.</summary>
-    public void TestResetUpdraft() => _updraftCd = 0;
-    public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; }
+    public void TestResetUpdraft() { _updraftCd = 0; _updraftOwes = false; }
+    public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; _boltPaid = false; }
+    /// <summary>Test aid: every spell ready again, nothing owed.</summary>
+    public void TestResetSpells() { TestResetUpdraft(); TestResetBolt(); _snapCd = 0; _snapOwes = false; for (int k = 0; k < _abilityCd.Length; k++) { _abilityCd[k] = 0; if (k < _stormOwes.Length) _stormOwes[k] = false; } }
 
     public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
 
@@ -80,18 +94,31 @@ public partial class Player
     private void TickElementalist(float dt)
     {
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
-        _boltCd -= dt; _updraftCd -= dt; _snapCd -= dt;
-        // the staff holds a couple of bolts and gains them back one at a time
+        _boltCd -= dt;
+        Alimus = Math.Min(Stats.AlimusMax, Alimus + AlimusRegen * dt);
+        // a cast spell begins to recharge only once there is enough alimus, which it spends to start (the dearest first, so the cheap
+        // ones don't keep it from the great ones)
+        if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
+        for (int k = 0; k < _stormOwes.Length; k++)
+            if (_stormOwes[k] && SpendAlimus(BlizzardCost)) _stormOwes[k] = false;
+        if (_updraftOwes && SpendAlimus(UpdraftCost)) _updraftOwes = false;
+        if (_snapOwes && SpendAlimus(SnapCost)) _snapOwes = false;
+        if (!_updraftOwes) _updraftCd -= dt;
+        if (!_snapOwes) _snapCd -= dt;
+        // the staff holds a couple of bolts and gains them back one at a time (each pays its cost as it starts coming back)
         int max = BoltChargesMax;
         if (_boltCharges < 0) _boltCharges = max;
         if (_boltCharges > max) _boltCharges = max;
         if (_boltCharges < max)
         {
-            _boltRecharge += dt * Math.Max(0.2f, Stats.AttackSpeed);
-            if (_boltRecharge >= BoltRechargeSeconds) { _boltCharges++; _boltRecharge = 0; }
+            if (!_boltPaid && SpendAlimus(Stats.Frostbolt ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost)) _boltPaid = true;
+            if (_boltPaid)
+            {
+                _boltRecharge += dt * Math.Max(0.2f, Stats.AttackSpeed);
+                if (_boltRecharge >= BoltRechargeSeconds) { _boltCharges++; _boltRecharge = 0; _boltPaid = false; }
+            }
         }
-        else _boltRecharge = 0;
-        Alimus = Math.Min(Stats.AlimusMax, Alimus + AlimusRegen * dt);
+        else { _boltRecharge = 0; _boltPaid = false; }
         if (_snapAt >= 0 && (_snapAt -= dt) < 0) BurstSnap();
     }
 
@@ -128,8 +155,6 @@ public partial class Player
         bool frost = Stats.Frostbolt;
         float range = Tune.Elementalist.BoltRange;
         // (a creature near the line of aim draws the bolt to it)
-        float cost = frost ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost;
-        if (!SpendAlimus(cost)) { _boltCd = 0.3f; if (!held) SayNo("NOT ENOUGH ALIMUS"); return true; }
         var target0 = FindSpellTarget(aim, range, Tune.Elementalist.BoltConeDegrees);
         var dir0 = target0 != null ? (target0.GlobalPosition - CastPoint).Normalized() : aim;
         // (the next waits a moment; the one spent starts coming back, unless another is already on its way)
@@ -210,9 +235,8 @@ public partial class Player
     /// <summary>The press: you take aim (or are told you can't).</summary>
     private bool BeginDraftAim(in PlayerInput inp)
     {
-        if (!IsElementalist || _updraftCd > 0) return false;
+        if (!IsElementalist || !UpdraftReady) return false;
         if (_draftAiming) return true;
-        if (Alimus < UpdraftCost - 0.001f && !Stats.BloodCast) { SayNo("NOT ENOUGH ALIMUS"); _updraftCd = 0.3f; return true; }
         _draftAiming = true;
         _draftDir = inp.AimGiven && inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : Vector2.Up;
         _draftPreview = new DraftAim();
@@ -260,8 +284,9 @@ public partial class Player
     /// <summary>The button is let go: the column is raised at the angle aimed.</summary>
     private void CastUpdraft(Vector2 dir)
     {
-        _updraftCd = 0.5f;
-        if (!PayAlimus(UpdraftCost)) return;
+        // (free to raise; its recharge is what costs the alimus)
+        _updraftCd = Tune.Elementalist.UpdraftRecharge;
+        _updraftOwes = true;
         var origin = DraftOrigin(dir);
         var draft = new Updraft
         {
@@ -313,8 +338,10 @@ public partial class Player
     private bool TryBlizzard(Vector2 aim, float aimDist)
     {
         if (!IsElementalist || !AbilityChargeReady) return false;
-        if (!PayAlimus(BlizzardCost)) return true;
         SpendAbilityCharge();
+        // (free to call down; the use that was spent waits for the alimus before it begins to come back)
+        if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
+        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !_stormOwes[k] && _abilityCd[k] >= AbilityRecharge - 0.001f) { _stormOwes[k] = true; break; }
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var at0 = BlizzardSpot(aim, aimDist);
         var dir0 = (at0 - CastPoint).Normalized();
@@ -410,11 +437,11 @@ public partial class Player
 
     private bool TrySnap()
     {
-        if (!IsElementalist || _snapCd > 0 || _snapAt >= 0) return false;
+        if (!IsElementalist || !SnapReady) return false;
         var marked = Snappable().ToList();
         if (marked.Count == 0) { _snapCd = 0.3f; SayNo("NOTHING FROZEN OR BURNING"); return true; }
         _snapCd = Tune.Elementalist.SnapCooldown;
-        if (!PayAlimus(SnapCost)) return true;
+        _snapOwes = true;
         _snapping = marked;
         // the fist closes (the clip's clench): for a beat the hero and everything marked are held still, and then it all bursts
         _snapAt = Tune.Elementalist.SnapFreeze;

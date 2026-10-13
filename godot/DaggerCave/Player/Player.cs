@@ -66,6 +66,8 @@ public partial class Player : CharacterBody2D
     public int Potions = 1;
     /// <summary>Keys carried: any opens any vault's gate (up to Tune.Vault.MaxKeys; they go on down with you).</summary>
     public int Keys;
+    /// <summary>Gold carried (found in the dead ends; spent with a merchant).</summary>
+    public int Gold;
     /// <summary>Set each frame while stuck in a web.</summary>
     public float WebbedT;
     private float _indignT;
@@ -172,7 +174,7 @@ public partial class Player : CharacterBody2D
     public bool SecondaryReady => IsRemote ? (_netFlags & HfSecondary) != 0 : Stats.Hero switch
     {
         HeroKind.Vitalist => AbilityChargeReady && VitalForce >= HealCost,
-        HeroKind.Elementalist => AbilityChargeReady && Alimus >= BlizzardCost,
+        HeroKind.Elementalist => AbilityChargeReady,
         HeroKind.Rogue => DaggersInHand > 0,
         HeroKind.Aegis => AbilityChargeReady,
         HeroKind.ShapeShifter => Shifted ? FormSpecialReady : AbilityChargeReady,
@@ -872,7 +874,8 @@ public partial class Player : CharacterBody2D
         TickBoons(dt);
         TickStatus(dt);
         TickIndignation(dt);
-        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0) _abilityCd[k] -= dt;
+        // (the Elementalist's storm waits to be paid for before it recharges: see TickElementalist)
+        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !(IsElementalist && k < _stormOwes.Length && _stormOwes[k])) _abilityCd[k] -= dt;
         if (_hotLeft > 0)
         {
             _hotLeft -= dt;
@@ -1104,6 +1107,27 @@ public partial class Player : CharacterBody2D
         // (Scrap Reclaimer: what it destroys, it salvages)
         if (Stats.ScrapReclaimer) GainFuel(Tune.AutomatonHero.ScrapFuel);
     }
+
+    /// <summary>Gold picked up: it goes in the purse.</summary>
+    public void GainGold(int n)
+    {
+        if (n <= 0) return;
+        n = Math.Max(1, (int)MathF.Round(n * Stats.GoldMult));
+        Gold += n;
+        GoldFound += n;
+        G.Sfx.Play("pickup_key", GlobalPosition, -8, 0.06f, 1.7f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -24), $"+{n}", new Color(1f, 0.84f, 0.3f), 10, 0.9f);
+    }
+
+    /// <summary>Spends gold (false when there isn't enough).</summary>
+    public bool SpendGold(int n)
+    {
+        if (n < 0 || Gold < n) return false;
+        Gold -= n;
+        return true;
+    }
+    /// <summary>All the gold found this run (spent or not).</summary>
+    public int GoldFound;
 
     /// <summary>Last Rites: the hero has fallen, and every living ally is healed.</summary>
     private void FallHealing()

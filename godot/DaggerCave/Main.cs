@@ -749,10 +749,10 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0;
         if (!freshPlayer && G.Player != null)
         {
-            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions;
+            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound;
             // (a key goes on down only for a cell left locked behind: open every cell and you leave with none)
             keepKeys = Math.Min(G.Player.Keys, LockedCells());
             keepMilestones = G.Player.PendingMilestones;
@@ -816,6 +816,7 @@ public partial class Main : Node
             }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
+            player.Gold = keepGold; player.GoldFound = keepGoldFound;
             player.PendingMilestones = keepMilestones;
             player.SetVitalForce(Math.Max(keepVitalForce, Tune.Vitalist.VitalForceStart * 0.5f));
             // (alimus comes back by itself anyway: at least half a reserve on a new level)
@@ -891,6 +892,7 @@ public partial class Main : Node
         }
 
         PlaceCaches(cave);
+        PlaceGold(cave);
         PlaceBonusChests(cave);
         PlaceHeroCage(cave);
         PlaceAutomatonHeap(cave);
@@ -1224,6 +1226,32 @@ public partial class Main : Node
         float dryBottom = Math.Min(cave.WaterY, cave.SizePx.Y);
         Scatter(bd?.HighCaches ?? Tune.Drops.HighCaches, 60, dryBottom * Tune.Drops.HighZoneFraction, false);
         if (_autotest) GD.Print($"[autotest] caches placed: {placed.Count - cave.Rooms.Count}");
+    }
+
+    /// <summary>
+    /// Gold hidden in the dead ends (<see cref="CaveData.DeadEnds"/>), which had nothing in them: in each, a few coins (one to three) lying
+    /// along the floor, and now and then (one in five) a small pile of four to eight instead. From the seed alone, so every game makes the same.
+    /// </summary>
+    private void PlaceGold(CaveData cave)
+    {
+        int coins = 0, piles = 0, spots = 0;
+        foreach (var end in cave.DeadEnds)
+        {
+            spots++;
+            bool pile = G.Chance(Tune.Gold.PileChance);
+            int n = pile ? 1 : G.Rng.Next(Tune.Gold.CoinsMin, Tune.Gold.CoinsMax + 1);
+            int worth = pile ? G.Rng.Next(Tune.Gold.PileMin, Tune.Gold.PileMax + 1) : 1;
+            for (int k = 0; k < n; k++)
+            {
+                var at = end + new Vector2((k - (n - 1) * 0.5f) * 10f + G.Range(-3f, 3f), 0);
+                var floor = cave.FindFloor(at + new Vector2(0, -10), 40, out var f) && Math.Abs(f.X - at.X) < 4f ? f : end;
+                var coin = new CoinPickup { Position = floor + new Vector2(0, -1), Count = worth, Puppet = Net.Online && !Net.IsHost };
+                NetSync.LevelId(coin);
+                _world.AddChild(coin);
+                if (pile) piles++; else coins++;
+            }
+        }
+        if (_autotest) GD.Print($"[autotest] gold: {coins} coins and {piles} piles in {spots} dead ends");
     }
 
     // ------------------------------------------------------------------ keys and the vault

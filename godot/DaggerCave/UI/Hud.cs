@@ -113,6 +113,36 @@ public partial class Hud : Control
         UiArt.Bar(this, new Rect2(hpPos, new Vector2(hpW, 16)), hf, hf < 0.3f && (int)(_t * 4) % 2 == 0 ? new Color(1f, 0.4f, 0.4f) : new Color(0.85f, 0.18f, 0.22f), null, _hpGhost);
         DrawString(font, hpPos + new Vector2(6, 13), $"{Num.Shown(p.Hp)} / {Num.Shown(p.Stats.MaxHp)}", HorizontalAlignment.Left, -1, 13, Colors.White);
         Tip(new Rect2(hpPos - new Vector2(3, 3), new Vector2(hpW + 6, 22)), "Health", "Your health, now and at most (the bar grows with it). It flashes when low. At none you fall: a friend can revive you; alone, the run ends.");
+        // --- shields, beneath the health in a meter like it, light grey (almost white): a Warden's shield, and a barrier or a bubble (the Aegis's,
+        // or a friend's) while one is up. One row when there is one of them, two thinner when both. (They fit the gap above the experience bar.)
+        {
+            var rows = new List<(float frac, string label, string name, string tip, bool broken)>();
+            if (p.Stats.Hero == HeroKind.Warden)
+                rows.Add((Math.Clamp(p.ShieldHp / Math.Max(1f, p.Stats.ShieldMax), 0f, 1f), p.ShieldBroken ? "BROKEN" : Num.Shown(p.ShieldHp).ToString(), "Shield", $"Your shield: {Num.Shown(p.ShieldHp)} of {Num.Shown(p.Stats.ShieldMax)}. What it can still stop; it wears down under blows and mends while lowered. Broken, it is down for a few seconds.", p.ShieldBroken));
+            float soak = p.BarrierHp + p.BubbleHp;
+            if (p.Barriered || p.Bubbled)
+                rows.Add((Math.Clamp(soak / Math.Max(1f, p.Stats.MaxHp), 0f, 1f), Num.Shown(soak).ToString(), p.Bubbled && !p.Barriered ? "Bubble" : "Barrier", $"A {(p.Bubbled && !p.Barriered ? "bubble" : "barrier")} over you absorbs {Num.Shown(soak)} more damage before the health under it is touched.", false));
+            if (rows.Count > 0)
+            {
+                float rh = rows.Count == 1 ? 7f : 3.6f, y0 = hpPos.Y + 19f;
+                var light = new Color(0.93f, 0.94f, 0.97f);
+                for (int k = 0; k < rows.Count; k++)
+                {
+                    var (frac, label, name, tip, broken) = rows[k];
+                    var r = new Rect2(hpPos + new Vector2(0, 19f + (rh + 0.8f) * k), new Vector2(hpW, rh));
+                    DrawRect(r.Grow(1.2f), new Color(0, 0, 0, 0.65f));
+                    DrawRect(r, new Color(0.18f, 0.19f, 0.22f, 0.95f));
+                    var fill = broken ? new Color(0.5f, 0.5f, 0.55f) : light;
+                    if (frac > 0.002f) { DrawRect(new Rect2(r.Position, new Vector2(r.Size.X * frac, r.Size.Y)), fill); DrawRect(new Rect2(r.Position, new Vector2(r.Size.X * frac, r.Size.Y * 0.4f)), new Color(1, 1, 1, 0.35f)); }
+                    Tip(r.Grow(2f), name, tip);
+                }
+                // (the amounts, in the same light grey, just past the end of the health bar)
+                string amounts = string.Join(" + ", rows.Select(r => r.label));
+                var tp = hpPos + new Vector2(hpW + 7f, 21f);
+                DrawStringOutline(font, tp, amounts, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.85f));
+                DrawString(font, tp, amounts, HorizontalAlignment.Left, -1, 10, light);
+            }
+        }
 
         // --- relics: small painted icons along the top ---
         {
@@ -230,6 +260,14 @@ public partial class Hud : Control
             // the keys carried, beside the potions
             for (int k = 0; k < p.Keys; k++)
                 KeyPickup.DrawKey(this, pp + new Vector2(Meta.MaxPotions * 18 + 16 + k * 22, 6), 1.4f, 1f);
+            // the gold in the purse, after them
+            if (p.GoldFound > 0)
+            {
+                var gp = pp + new Vector2(Meta.MaxPotions * 18 + 16 + Math.Max(p.Keys, 0) * 22 + 12, 6);
+                CoinPickup.DrawCoin(this, gp, 1.5f);
+                DrawString(font, gp + new Vector2(13, 5), p.Gold.ToString(), HorizontalAlignment.Left, -1, 15, new Color(1f, 0.85f, 0.35f));
+                Tip(new Rect2(gp - new Vector2(10, 14), new Vector2(24 + p.Gold.ToString().Length * 9, 28)), "Gold", "Gold found in the dead ends of the caves (single coins, now and then a pile). It is spent with a merchant, where one is met.", true);
+            }
         }
 
         // --- Depth / biome / kills ---
@@ -940,7 +978,7 @@ public partial class Hud : Control
     private void DrawElementalistGauges(Font font, Player p, Vector2 ab)
     {
         var air = new Color(0.8f, 0.94f, 1f);
-        bool canDraft = p.Alimus >= p.UpdraftCost - 0.001f;
+        bool canDraft = p.UpdraftReady;
         Dial(ab + new Vector2(17, 17), canDraft ? p.UpdraftCooldownFrac : 1f, air, "UPDRAFT");
         DrawString(font, ab + new Vector2(0, -6), $"UPDRAFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         // (three rising streaks in the dial)
@@ -951,7 +989,7 @@ public partial class Hud : Control
         var zb = ab + new Vector2(66, 0);
         bool fire = p.Stats.Firestorm;
         var stormCol = fire ? ElementBolt.FireColor : ElementBolt.FrostColor;
-        bool stormReady = p.AbilityChargeReady && p.Alimus >= p.BlizzardCost - 0.001f;
+        bool stormReady = p.AbilityChargeReady;
         AbilitySquare(font, zb, $"{(fire ? "FIRE" : "STORM")} {p.BlizzardCost:0}", p.AbilityCooldownFrac, stormReady, stormCol, (c, col) =>
         {
             if (fire)
@@ -976,7 +1014,7 @@ public partial class Hud : Control
 
         var sb = zb + new Vector2(60, 0);
         int marked = p.SnapTargets;
-        bool snapReady = p.SnapCooldownFrac <= 0 && p.Alimus >= p.SnapCost - 0.001f && marked > 0;
+        bool snapReady = p.SnapReady && marked > 0;
         var snapCol = new Color(0.8f, 0.7f, 1f);
         AbilitySquare(font, sb, $"SNAP {p.SnapCost:0}{(marked > 0 ? $" x{marked}" : "")}", p.SnapCooldownFrac, snapReady, snapCol, (c, col) =>
         {
@@ -1000,7 +1038,7 @@ public partial class Hud : Control
         UiArt.Bar(this, new Rect2(bp, new Vector2(w, 12)), frac, AlimusColor);
         foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
             if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
-        Tip(new Rect2(bp - new Vector2(2, 18), new Vector2(160, 34)), "Alimus", "The Elementalist's spell power. Spells spend it (their cost is the number on their square); it comes back by itself.");
+        Tip(new Rect2(bp - new Vector2(2, 18), new Vector2(160, 34)), "Alimus", "The Elementalist's spell power. A spell costs nothing to cast, but a spell that has been cast does not begin to recharge until there is enough alimus (the number on its square), which it spends to start. Alimus comes back by itself.");
         DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Num.Shown(p.Alimus)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
         // the bolts in the staff (the attack button's charges), under the bar
         var boltCol = p.Stats.Frostbolt ? new Color(0.95f, 0.98f, 1f) : new Color(1f, 0.52f, 0.12f);

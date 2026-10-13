@@ -410,6 +410,8 @@ public static class Tune
         /// </summary>
         public static float SnapCost = 6f, SnapDamage = 15f, SnapSplash = 4f, SnapRadius = 50f, SnapCooldown = 0.6f;
         public static float CinderDamage = 20f, CinderSplash = 6f;
+        /// <summary>The updraft's recharge once it has been paid for (the alimus is what holds it back).</summary>
+        public static float UpdraftRecharge = 0.5f;
         /// <summary>A Snap hits this many times as hard (both the burst and the splash; the shatters of a heaving swing or a shield bash keep SnapDamage as it is).</summary>
         public static float SnapMult = 2f;
         /// <summary>The beat before a Snap bursts: the Elementalist and every creature it marks are held still for this long.</summary>
@@ -508,6 +510,13 @@ public static class Tune
     }
 
     /// <summary>Relics and the chests that hold them.</summary>
+    /// <summary>Gold hidden in the dead ends: a dead end holds CoinsMin to CoinsMax single coins, or, PileChance of the time, one pile worth PileMin to PileMax.</summary>
+    public static class Gold
+    {
+        public static int CoinsMin = 1, CoinsMax = 3, PileMin = 4, PileMax = 8;
+        public static float PileChance = 0.2f;
+    }
+
     /// <summary>The wind-ups (cast delays): the hero keeps this share of its speed (walking, swimming, falling) while one gathers.</summary>
     public static class Hold
     {

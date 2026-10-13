@@ -58,6 +58,7 @@ public partial class Main
         "holds" => "entrance",
         "melee" => "entrance",
         "struck" => "entrance",
+        "gold" => "slime",
         "report" => "entrance",
         "debugmode" => "entrance",
         "fossilcam" => "fossils",
@@ -150,6 +151,7 @@ public partial class Main
             case "holds": HoldsScenario(); break;
             case "melee": MeleeScenario(); break;
             case "struck": StruckScenario(); break;
+            case "gold": GoldScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;
             case "wing": WingScenario(); break;

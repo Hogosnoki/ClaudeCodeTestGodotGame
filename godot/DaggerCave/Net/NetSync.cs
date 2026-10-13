@@ -1312,6 +1312,7 @@ public static class NetSync
                     if (kind == 1) p.Heal(amount);
                     else if (kind == 2) p.GainPotion();
                     else if (kind == 3) p.GainKey();
+                    else if (kind == 5) p.GainGold((int)amount);
                 }
                 finally { Scope--; }
                 break;

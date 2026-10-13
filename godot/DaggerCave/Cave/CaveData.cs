@@ -103,6 +103,8 @@ public sealed class CaveData
     public readonly List<(Vector2 Pos, Vector2 Size)> Rubble = new();
     /// <summary>Marks at the mouths of the hidden ways in (world px; kind 0 a fish's slit, bubbles escaping; 1 a spider's crack, dust sifting down).</summary>
     public readonly List<(Vector2 Pos, int Kind)> Hints = new();
+    /// <summary>The level's dead ends (a floor each, world px): the tips of its branches (see CaveGenerator.AddDeadEnds). The gold is hidden in them.</summary>
+    public readonly List<Vector2> DeadEnds = new();
     /// <summary>Hints a level's own generator placed (the river's slits): the hidden nooks' pass, which clears and remakes its own, leaves these.</summary>
     public readonly HashSet<Vector2> OwnHints = new();
     /// <summary>The drain at the lowest point of a lake's bed (world px), if this level has one: swim down it to the secret depth.</summary>

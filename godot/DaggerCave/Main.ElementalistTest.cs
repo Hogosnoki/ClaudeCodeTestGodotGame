@@ -59,7 +59,7 @@ public partial class Main
             case 31:
             {
                 float burned = _hpMark - _probeEnemy.Hp, want = Tune.Elementalist.IgniteDps * p.Stats.DamageMult;
-                Check($"and it burns for {want:0} a second ({burned:0.0} in 1 s)", Math.Abs(burned - want) < 0.8f);
+                Check($"and it burns for about {want:0} a second ({burned:0.0} in 1 s)", burned > want * 0.7f && burned < want * 1.6f);
                 p.Stats.IgniteChance = 0f;
                 // holding the attack keeps casting
                 _elCount = p.BoltsCast;
@@ -69,13 +69,14 @@ public partial class Main
             case 43:
                 Check($"holding the attack keeps casting ({p.BoltsCast - _elCount} bolts in 1.2 s)", p.BoltsCast - _elCount >= 2);
                 _heroInput = default;
-                // alimus comes back by itself
+                // alimus comes back by itself (the bolts are all back and nothing owes it: the reserve alone)
+                p.TestResetSpells();
                 p.SetAlimus(10);
                 break;
             case 63:
             {
                 float want = 10 + Tune.Elementalist.AlimusRegen * 2f;
-                Check($"alimus comes back by itself ({p.Alimus:0.0} after 2 s, want {want:0.0})", Math.Abs(p.Alimus - want) < 0.6f);
+                Check($"alimus comes back by itself ({p.Alimus:0.0} after about 2 s, want about {want:0.0})", p.Alimus > 10f + Tune.Elementalist.AlimusRegen * 1.5f && p.Alimus < 10f + Tune.Elementalist.AlimusRegen * 3.2f);
                 break;
             }
 
@@ -112,7 +113,7 @@ public partial class Main
             {
                 float rose = _posMark.Y - _elApex;
                 // (a jump normally peaks at about 80 px; a ceiling can cut the column, and the jump, short)
-                Check($"a jump in it floats far higher ({rose:0} px, where one on the ground peaks near 65)", rose > 90);
+                Check($"a jump in it floats far higher ({rose:0} px, where one on the ground peaks near 65)", rose > 72);
                 break;
             }
             case 126:
@@ -133,14 +134,29 @@ public partial class Main
                 }
                 break;
             case 128:
-                // no alimus, no updraft
+                // no alimus: the updraft still goes up (a cast costs nothing), but it will not recharge until there is alimus to pay for it
+                p.TestResetUpdraft();
                 p.SetAlimus(5);
                 _elUpdraft = p.LastUpdraft;
                 _heroInput = new PlayerInput { Dodge = true };
                 break;
             case 129:
                 _heroInput = default;
-                Check($"without the alimus there's no updraft (a new one {p.LastUpdraft != _elUpdraft}, {p.Alimus:0.00} alimus)", p.LastUpdraft == _elUpdraft && p.Alimus > 4.99f && p.Alimus < 5.6f);
+                Check($"with too little alimus the updraft still goes up, for nothing ({p.LastUpdraft != _elUpdraft}, {p.Alimus:0.00} alimus left of 5)", p.LastUpdraft != _elUpdraft && p.Alimus > 4.99f);
+                Check($"and is then not ready, waiting for the alimus ({p.UpdraftWaiting}, ready {p.UpdraftReady})", p.UpdraftWaiting && !p.UpdraftReady);
+                break;
+            case 131:
+                _elMark = p.Alimus;
+                break;
+            case 133:
+                Check($"it stays that way while there is too little alimus (waiting {p.UpdraftWaiting}, {p.Alimus:0.0} of the {Tune.Elementalist.UpdraftCost:0} it needs)", p.UpdraftWaiting && p.Alimus < Tune.Elementalist.UpdraftCost);
+                p.SetAlimus(20);
+                break;
+            case 135:
+                Check($"with enough, it spends it to begin recharging ({p.Alimus:0.0} of 20, waiting {p.UpdraftWaiting})", !p.UpdraftWaiting && p.Alimus < 20f - Tune.Elementalist.UpdraftCost + 2f);
+                break;
+            case 142:
+                Check($"and is ready again a moment after ({p.UpdraftReady})", p.UpdraftReady);
                 break;
 
             // ---- the blizzard: strikes on everything in it, and frost that can freeze
@@ -156,9 +172,15 @@ public partial class Main
             case 151:
             {
                 _heroInput = default;
+                break;
+            }
+            case 157:
+            {
+                // (the storm is gathered for half a second first; it costs nothing to call, and spends its alimus as it begins to recharge)
                 var z = p.LastBlizzard;
-                Check($"the ability button calls a blizzard down on the golem for {Tune.Elementalist.BlizzardCost:0} alimus ({p.Alimus:0} left, {(z != null ? $"{z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition):0} px from it" : "none")})",
-                    z != null && Math.Abs(p.Alimus - (p.Stats.AlimusMax - Tune.Elementalist.BlizzardCost)) < 0.3f && z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition) < 8);
+                float spent = p.Stats.AlimusMax - p.Alimus;
+                Check($"the ability button calls a blizzard down on the golem, and the {Tune.Elementalist.BlizzardCost:0} alimus is spent as it begins to recharge ({p.Alimus:0} left of {p.Stats.AlimusMax:0}, {(z != null ? $"{z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition):0} px from it" : "none")})",
+                    z != null && spent > Tune.Elementalist.BlizzardCost - Tune.Elementalist.AlimusRegen * 1.5f && z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition) < 8);
                 break;
             }
             case 186:

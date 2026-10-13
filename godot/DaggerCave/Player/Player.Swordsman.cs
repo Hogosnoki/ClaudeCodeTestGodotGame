@@ -41,6 +41,8 @@ public partial class Player
         _hexCd = _healCd = _drainCd = _ruptureCd = _bashCd = _heaveCd = 0;
         for (int k = 0; k < _dodgeCd.Length; k++) _dodgeCd[k] = 0;
         for (int k = 0; k < _abilityCd.Length; k++) _abilityCd[k] = 0;
+        for (int k = 0; k < _stormOwes.Length; k++) _stormOwes[k] = false;
+        _snapOwes = false; _snapCd = 0; _updraftOwes = false; _updraftCd = 0;
     }
 
     /// <summary>Test harness: the timers that gate the buttons.</summary>

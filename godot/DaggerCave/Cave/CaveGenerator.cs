@@ -154,6 +154,7 @@ public static partial class CaveGenerator
         ConvertSmallPlatforms(best);
         if (!KeepLedges) LiftLedges(best);
         AddSecretWings(best, seed);
+        AddDeadEnds(best);
         return best;
     }
 
