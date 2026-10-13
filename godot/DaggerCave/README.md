@@ -1348,6 +1348,15 @@ engine's own stick bindings on `ui_*` stepped on every frame, and so did the her
 `move_left` / `move_right`: it now takes only key and button presses from those (`Main.StepKey`), and the stick's one step comes from
 MenuStick. `--fronttest` pushes a stick that reports six times and checks the hero changes by one.
 
+## Secrets left of the entrance (the Underground River)
+
+Under the beach where you arrive, to the left of the entrance, where nobody thinks to look, a level of the river now and then (60%,
+`Tune.River.LeftSecretChance`) hides a **slit in the face of the sunken beach**, marked by escaping bubbles: a swim in, with the current,
+along a tunnel under the beach to a chamber with a **silver chest**; and, 40% of those (`SecondSecretChance`), a **second chamber** deeper, down a
+narrow shaft from the first's floor, with another (`Cave/RiverGen.cs`, from a generator of its own so the rest of the level is unchanged).
+The nooks' pass no longer wipes the river's own slit marks (`CaveData.OwnHints`). `--leftsecrets` makes every level have two;
+`--scenario=river --leftsecrets` checks the chambers, chests, marks, the swim in and the shaft.
+
 ## Melee blows that land
 
 A melee swing (the Swordsman's, Warden's, Rogue's and Automaton's) has **no delay as it begins**. When a blow **lands**, the hero's vertical
@@ -1457,8 +1466,10 @@ bar): every blow of the form's, its creature's own and its special, deals 60% mo
 creature outfights a wild one of its kind while the character sheet still shows the Shape Shifter's own numbers. Some specials:
 - **Gnaw** (rat): six quick bites straight ahead (or the way you aim), darting in a little with each, a row of teeth snapping shut on
   whatever it bites; nothing behind or beside it is touched (`GnawBites`, `GnawInterval`; 0.4x the form damage a bite).
-- **Latch** (bat): it flies at the creature nearest your aim (within 150 px), hangs on to it for 1.2 s biting (3.6x the form damage in
-  all, the creature held still unless it is a guardian), lets go, flutters back, and mends 15% of the hero's health over 5 s (`Latch*`).
+- **Latch** (bat): it flies at the creature nearest your aim (within 150 px), hangs on to it for 1.2 s biting (0.72x the form damage in
+  all, a fifth of what it was, the creature held still unless it is a guardian), lets go, flutters back, and mends 15% of the hero's health over 5 s (`Latch*`). **With no creature in range it goes for a harmless cave critter instead** (a moth or
+  a crab, within the same 150 px, the way you aim first), flies at it and **eats** it: 2 health at once (`BatEatHeal`, through the usual healing
+  multipliers), and the Latch is ready again after 1.5 s (`BatEatCooldown`) so a bat can feed on several; `--scenario=shifterspecials` checks it.
 - **Venom Spray** (scorpion): a cone of venom ahead; every creature in it takes a little and is poisoned (2.4x the form damage over 5 s,
   topping up with each spray) (`Spray*`).
 - **Envenomate** (spider): it pounces on one creature and bites, leaving a powerful venom (6x the form damage over 6 s) (`Envenom*`).

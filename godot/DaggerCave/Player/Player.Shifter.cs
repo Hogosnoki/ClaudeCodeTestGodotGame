@@ -47,6 +47,10 @@ public partial class Player
     private FormSpecial _seekKind;
     private float _seekT, _latchT, _latchTick, _seekDmg;
     private bool _latched;
+    // (the bat going for a harmless critter to eat)
+    private Critter _seekCritter;
+    /// <summary>For the tests: the critters the bat has eaten.</summary>
+    public int CrittersEaten { get; private set; }
 
     /// <summary>For the tests: the rat's bites that found a creature; the creature the bat hangs on (null when none).</summary>
     public int GnawBites { get; private set; }
@@ -130,7 +134,7 @@ public partial class Player
         if (Form == null) return;
         Form = null;
         _formAtkT = -1f; _formDashT = 0; _frenzyLeft = 0; _formSpecT = -1f; _formLeapLand = false;
-        _seekFoe = null; _latched = false;
+        _seekFoe = null; _latched = false; _seekCritter = null;
         FormClip = null;
         DropGhost();
         ApplyFormLook();
@@ -273,6 +277,7 @@ public partial class Player
             }
         }
         if (_seekFoe != null) TickSeek(dt);
+        else if (_seekCritter != null) TickEat(dt);
         if (_formLeapLand && Possessed && Ghost.OnGround && Ghost.Velocity.Y >= 0 && _formSpecT > 0.1f)
         {
             _formLeapLand = false;
@@ -370,6 +375,45 @@ public partial class Player
             if (score < bs) { bs = score; best = e; }
         }
         return best;
+    }
+
+    /// <summary>The harmless critter a bat's Latch would go for: the nearest in <paramref name="range"/>, those the way you aim first.</summary>
+    private Critter FormCritter(Vector2 dir, float range)
+    {
+        Critter best = null; float bs = float.MaxValue;
+        foreach (var c in Critter.All)
+        {
+            if (!GodotObject.IsInstanceValid(c) || c.IsQueuedForDeletion()) continue;
+            var rel = c.GlobalPosition - GlobalPosition;
+            float d = rel.Length();
+            if (d > range || !G.Cave.LineClear(GlobalPosition + new Vector2(0, -6), c.GlobalPosition)) continue;
+            float score = d - (d > 1f ? rel.Dot(dir) / d : 0f) * 50f;
+            if (score < bs) { bs = score; best = c; }
+        }
+        return best;
+    }
+
+    /// <summary>The bat flying at a critter, and eating it: a couple of points of health at once.</summary>
+    private void TickEat(float dt)
+    {
+        var c = _seekCritter;
+        if (!Possessed || !GodotObject.IsInstanceValid(c) || c.IsQueuedForDeletion()) { _seekCritter = null; return; }
+        _seekT -= dt;
+        var to = c.GlobalPosition - GlobalPosition;
+        if (Math.Abs(to.X) > 2f) { Facing = Math.Sign(to.X); Ghost.FaceToward(to.X); }
+        if (to.Length() < c.EatRadius + 12f)
+        {
+            _seekCritter = null;
+            c.Eaten();
+            Heal(Tune.Shifter.BatEatHeal);
+            CrittersEaten++;
+            G.Fx.Text(GlobalPosition + new Vector2(0, -26), $"+{Tune.Shifter.BatEatHeal:0}", HealColor, 9, 0.7f);
+            G.Sfx.Play("hit", GlobalPosition, -8, 0.1f, 1.9f);
+            return;
+        }
+        if (_seekT <= 0) { _seekCritter = null; return; }
+        Ghost.MasterOverride(to.Normalized() * Tune.Shifter.LatchSpeed / Tune.Difficulty.EnemyMoveScale, 0.08f, gravity: false);
+        FormClip = Form.StrikeClip; FormClipT = 0.3f;
     }
 
     /// <summary>The bat flying at its creature and hanging on to it, or the spider pouncing at its own.</summary>
@@ -475,7 +519,7 @@ public partial class Player
             Ghost.MasterSpecial(aim);
             return true;
         }
-        if (_formSpecCd > 0 || _formDashT > 0 || _seekFoe != null) return false;
+        if (_formSpecCd > 0 || _formDashT > 0 || _seekFoe != null || _seekCritter != null) return false;
         var f = Form;
         var aimDir = aim.LengthSquared() > 0.04f ? aim.Normalized() : new Vector2(Facing, 0);
         // (a special that goes for one creature needs one to go for)
@@ -483,6 +527,16 @@ public partial class Player
         if (f.Special is FormSpecial.Latch or FormSpecial.Envenom)
         {
             foe = FormTarget(aimDir, f.SpecRange);
+            if (foe == null && f.Special == FormSpecial.Latch && FormCritter(aimDir, f.SpecRange) is Critter prey)
+            {
+                // (no creature to go for: the bat goes for a harmless critter, to eat it)
+                _seekCritter = prey; _seekT = Tune.Shifter.LatchSeekSeconds;
+                _formSpecCd = Tune.Shifter.BatEatCooldown * Stats.FormSpecCdMult;
+                G.Fx.Text(GlobalPosition + new Vector2(0, -34), "EAT", new Color(0.95f, 0.96f, 1f), 10, 0.8f);
+                Ghost?.Animator?.Once(f.StrikeClip, 3);
+                G.Sfx.Play("bat", GlobalPosition, -4, 0.1f, 1.2f);
+                return true;
+            }
             if (foe == null) { SayNo("NOTHING TO GO FOR"); return true; }
         }
         _formSpecCd = f.SpecCd * Stats.FormSpecCdMult;

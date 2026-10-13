@@ -376,6 +376,7 @@ public partial class Main : Node
             else if (a == "--glitch") ForceGlitch = true;
             else if (a == "--wing") CaveGenerator.ForceWings = true;
             else if (a == "--nowings") Tune.Secrets.WingChance = 0f;
+            else if (a == "--leftsecrets") Tune.River.LeftSecretChance = Tune.River.SecondSecretChance = 1f;
             else if (a == "--slayer") Net.ForceSlayer = true;
             else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
             else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }

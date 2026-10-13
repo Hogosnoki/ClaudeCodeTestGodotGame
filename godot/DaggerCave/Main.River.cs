@@ -152,6 +152,53 @@ public partial class Main
         ScShot("river_chamber");
         ScCheck($"at a swimmer's stroke (x2) the chamber is reached against the water ({inFast}, {tf:0.0} s)", inFast);
 
+        // ---- the secrets to the left of the entrance, under the beach (`--leftsecrets` makes every level have two)
+        var lefts = cave.Rooms.Where(r => r.Kind == RoomKind.Secret && r.Center.X < cave.StartPos.X + 40f).OrderBy(r => r.Center.Y).ToList();
+        if (Tune.River.LeftSecretChance >= 1f)
+        {
+            ScCheck($"two hidden chambers lie to the left of where you arrive, the second deeper than the first ({string.Join(", ", lefts.Select(r => r.Center.Round()))}; you arrive at {cave.StartPos.Round()})", lefts.Count == 2 && lefts[1].Center.Y > lefts[0].Center.Y + 60f);
+            foreach (var r in lefts)
+            {
+                var c = _world.GetChildren().OfType<Chest>().FirstOrDefault(q => q.Tier == ChestTier.Relic && q.GlobalPosition.DistanceTo(r.Center) < r.RxPx + 40f);
+                ScCheck($"each has a silver chest ({c?.GlobalPosition.Round()})", c != null);
+            }
+            // swim in from the river, an ordinary stroke, with the water: the slit is marked by bubbles
+            var mark = cave.Hints.Where(h => h.Item2 == 0 && h.Item1.X < cave.StartPos.X + 80f * CaveData.Cell && h.Item1.X > cave.StartPos.X + 20 * CaveData.Cell).Select(h => h.Item1).ToList();
+            ScCheck($"the slit's mouth is marked ({mark.Count} mouths)", mark.Count >= 1);
+            if (mark.Count >= 1 && lefts.Count >= 1)
+            {
+                var first = lefts[0];
+                p.GlobalPosition = mark[0] + new Vector2(60f, 0); p.Velocity = Vector2.Zero;
+                _scInput = new PlayerInput { Move = new Vector2(-1, 0) };
+                bool in1 = false;
+                for (float t = 0; t < 20f && !in1; t += (float)GetProcessDeltaTime())
+                {
+                    p.Breath = p.Stats.BreathMax;
+                    in1 = p.GlobalPosition.X < first.Center.X + first.RxPx * 0.6f;
+                    yield return null;
+                }
+                _scInput = default;
+                ScShot("river_left_secret");
+                ScCheck($"an ordinary swimmer gets in from the river ({in1}, at {p.GlobalPosition.Round()}, the chamber at {first.Center.Round()})", in1);
+            }
+            if (lefts.Count == 2 && cave.Hints.Count >= 2)
+            {
+                var shaft = cave.Hints.Where(h => h.Item2 == 0 && Math.Abs(h.Item1.X - lefts[0].Center.X) < lefts[0].RxPx).Select(h => h.Item1).FirstOrDefault();
+                p.GlobalPosition = shaft + new Vector2(0, -24f); p.Velocity = Vector2.Zero;
+                _scInput = new PlayerInput { Move = new Vector2(0, 1) };
+                bool in2 = false;
+                for (float t = 0; t < 12f && !in2; t += (float)GetProcessDeltaTime())
+                {
+                    p.Breath = p.Stats.BreathMax;
+                    in2 = p.GlobalPosition.Y > lefts[1].Center.Y - 20f;
+                    yield return null;
+                }
+                _scInput = default;
+                ScShot("river_left_secret2");
+                ScCheck($"and the shaft leads down to the second ({in2}, at {p.GlobalPosition.Round()}, the chamber at {lefts[1].Center.Round()})", in2);
+            }
+        }
+
         // ---- only bats
         var all = new List<Enemy>();
         foreach (var l in G.Biome.Residents.Values) foreach (var e in l) all.Add(e.Make());

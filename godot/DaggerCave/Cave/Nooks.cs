@@ -20,7 +20,7 @@ public static partial class CaveGenerator
     /// </summary>
     internal static void AddHiddenNooks(CaveData cave, int seed)
     {
-        cave.Hints.RemoveAll(h => h.Kind is 0 or 1);
+        cave.Hints.RemoveAll(h => h.Kind is 0 or 1 && !cave.OwnHints.Contains(h.Pos));
         var biome = cave.Biome;
         if (biome == null || cave.ReachMask == null || biome.Style == GenStyle.Arena || biome.Id is BiomeId.Entrance or BiomeId.Lair || biome.MinDepth < 1 && biome.Id != BiomeId.Abyss) return;
         var rng = new Random(seed * 53 + 29);

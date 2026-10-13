@@ -756,6 +756,8 @@ public static class Tune
         /// <summary>Bat's Latch: it flies at a creature (for at most LatchSeekSeconds at LatchSpeed px/s), hangs on LatchSeconds biting
         /// (the form's SpecDmg in all, in bites LatchTick apart), lets go, and mends LatchHealShare of the hero's health over LatchHealSeconds.</summary>
         public static float LatchSeekSeconds = 0.7f, LatchSpeed = 420f, LatchSeconds = 1.2f, LatchTick = 0.2f, LatchHealShare = 0.15f, LatchHealSeconds = 5f;
+        /// <summary>With no creature to go for, the bat's Latch goes for a harmless cave critter (a moth, a crab) within the Latch's range instead and eats it: it mends BatEatHeal health at once, and the Latch is ready again after BatEatCooldown s.</summary>
+        public static float BatEatHeal = 2f, BatEatCooldown = 1.5f;
         /// <summary>Scorpion's Venom Spray: a cone (half-angle, radians) of venom; each creature in it is poisoned for SprayVenom x the
         /// form damage over SprayVenomSeconds (topping up with each spray).</summary>
         public static float SprayHalfAngle = 0.5f, SprayVenom = 2.4f, SprayVenomSeconds = 5f;
@@ -824,6 +826,8 @@ public static class Tune
         public static float GapScale = 1.3f;
         public static float Flow = 112f, EddyCells = 30f, Sheltered = 0.12f, FishResist = 0.3f, DraftPush = 200f;
         public static int TunnelCells = 22;
+        /// <summary>The secrets to the left of where you arrive (under the beach): the chance a level has one, and, if so, a second one deeper.</summary>
+        public static float LeftSecretChance = 0.6f, SecondSecretChance = 0.4f;
     }
 
     /// <summary>

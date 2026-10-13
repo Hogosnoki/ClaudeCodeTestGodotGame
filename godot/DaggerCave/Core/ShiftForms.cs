@@ -40,7 +40,7 @@ public sealed class ShiftForm
         new() { Id = 3, Key = "rat", Name = "Rat", Set = "rat", Size = 1.5f, Move = 1.45f, Jump = 1.15f, Reach = 26f, Dmg = 0.6f, Cooldown = 0.32f, Wind = 0.08f, Strike = 0.12f, WindClip = "windup", StrikeClip = "bite", Knock = 70f,
             Special = FormSpecial.Frenzy, SpecialName = "Gnaw", SpecDmg = 0.4f, SpecRange = 34f, SpecCd = 5f },
         new() { Id = 4, Key = "bat", Name = "Bat", Set = "bat", Size = 1.4f, Move = 1.2f, Jump = 1f, Flier = true, Reach = 30f, Dmg = 0.6f, Cooldown = 0.45f, Wind = 0.1f, Strike = 0.14f, WindClip = "fly", StrikeClip = "dive", Knock = 80f,
-            Special = FormSpecial.Latch, SpecialName = "Latch", SpecDmg = 3.6f, SpecRange = 150f, SpecCd = 8f },
+            Special = FormSpecial.Latch, SpecialName = "Latch", SpecDmg = 0.72f, SpecRange = 150f, SpecCd = 8f },
         new() { Id = 5, Key = "spider", Name = "Spider", Set = "spider", Size = 0.75f, Move = 1.25f, Jump = 1.2f, Reach = 34f, Dmg = 0.8f, Cooldown = 0.5f, Wind = 0.12f, Strike = 0.16f, WindClip = "hang", StrikeClip = "pounce", Knock = 90f,
             Special = FormSpecial.Envenom, SpecialName = "Envenomate", SpecDmg = 0.6f, SpecRange = 140f, SpecCd = 7f },
         new() { Id = 6, Key = "frog", Name = "Frog", Set = "frog", Size = 1.4f, Move = 0.9f, Jump = 1.6f, Reach = 74f, Dmg = 0.8f, Cooldown = 0.8f, Wind = 0.16f, Strike = 0.22f, WindClip = "croak", StrikeClip = "tongue", Knock = 60f,

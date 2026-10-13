@@ -116,6 +116,23 @@ public partial class Main
         ScCheck($"and the blood mends the hero over the next seconds ({healAt:0} -> {p.Hp:0}, mending {p.Mended})", p.Hp > healAt + p.Stats.MaxHp * Tune.Shifter.LatchHealShare * 0.25f);
         Clear();
         p.Hp = p.Stats.MaxHp;
+        // ---- and with no creature about, the Latch goes for a harmless critter and eats it: a little health at once
+        float latchBite = Tune.Shifter.FormDamage * ShiftForm.All.First(f => f.Key == "bat").SpecDmg * p.Stats.DamageMult * p.Stats.FormDmgMult * p.Stats.FormSpecDmgMult * p.TransformMult;
+        ScCheck($"the Latch bites for a fifth of what it did ({latchBite:0}; 3.6 x the form's damage before)", Math.Abs(ShiftForm.All.First(f => f.Key == "bat").SpecDmg - 0.72f) < 0.001f);
+        p.Hp = p.Stats.MaxHp * 0.5f;
+        for (float t = 0; t < 10f && !p.FormSpecialReady; t += (float)GetProcessDeltaTime()) { Hold(); yield return null; }
+        var moth = new GlowMoth { Position = p.GlobalPosition + new Vector2(70, -6) };
+        _world.AddChild(moth);
+        foreach (var _ in Wait(0.2f)) yield return null;
+        float hpEat = p.Hp; int eaten0 = p.CrittersEaten;
+        _scInput = new PlayerInput { Ability2 = true, Aim = new Vector2(1, 0), AimGiven = true };
+        for (float t = 0; t < 2f && p.CrittersEaten == eaten0; t += (float)GetProcessDeltaTime()) { Hold(); yield return null; }
+        _scInput = default;
+        ScCheck($"the bat eats the moth ({p.CrittersEaten - eaten0} eaten, moth gone {!IsInstanceValid(moth) || moth.IsQueuedForDeletion()})", p.CrittersEaten == eaten0 + 1 && (!IsInstanceValid(moth) || moth.IsQueuedForDeletion()));
+        ScCheck($"and it mends the bat ({hpEat:0.0} -> {p.Hp:0.0}, 2 health a critter)", p.Hp > hpEat + 0.9f && p.Hp < hpEat + 2.5f);
+        ScCheck($"the Latch is ready again soon ({p.FormSpecialFrac * ShiftForm.All.First(f => f.Key == "bat").SpecCd:0.0} s left, not the usual {ShiftForm.All.First(f => f.Key == "bat").SpecCd:0})", p.FormSpecialFrac * ShiftForm.All.First(f => f.Key == "bat").SpecCd <= Tune.Shifter.BatEatCooldown + 0.1f);
+        Clear();
+        p.Hp = p.Stats.MaxHp;
 
         // ---------------------------------------------------------------- the scorpion's Venom Spray
         foreach (var _ in Become("scorpion")) yield return null;

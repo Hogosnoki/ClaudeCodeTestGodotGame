@@ -144,6 +144,7 @@ public static partial class CaveGenerator
         cave.Sheltered.Add(secret);
         // the river's mouth is marked for the ones who look: bubbles escaping along the cliff
         cave.Hints.Add((new Vector2(xb - 1.5f, waterRow + 11f) * CaveData.Cell, 0));
+        cave.OwnHints.Add(new Vector2(xb - 1.5f, waterRow + 11f) * CaveData.Cell);
 
         // ---- the current: from the guardian's end to the beach, and it dies out in the eddy there
         int dir = Math.Sign(bossRoom.Center.X - cave.StartPos.X);
@@ -174,6 +175,61 @@ public static partial class CaveGenerator
             cave.Rooms.Add(pit);
             cave.Sheltered.Add(pit);
             made++;
+        }
+        // ---- secrets to the left of where you arrive: under the beach, where nobody thinks to look. A slit in the face of the sunken beach,
+        // a swim in (with the current, which dies out here), and a chamber with a silver chest; now and then a second one, deeper, down a shaft
+        // from the first. (From a generator of its own: the rest of the level does not change with it.)
+        var srng = new Random(seed * 131 + 5);
+        float Sf(float a, float b) => a + (b - a) * (float)srng.NextDouble();
+        void Carve(float x0, float x1, float rowTop, float rowBot)
+        {
+            for (int j = (int)rowTop - 2; j <= (int)rowBot + 2; j++)
+                for (int i = (int)x0 - 2; i <= (int)x1 + 2; i++)
+                {
+                    if (i < marginL + 3 || i >= xb - 1 || j < 0 || j > H) continue;
+                    float st = Math.Min(Math.Min(j - rowTop, rowBot - j), Math.Min(i - x0, x1 - i));
+                    int k = j * f.Stride + i;
+                    f.Open[k] = Math.Max(f.Open[k], Math.Clamp(0.5f + st * 0.5f + f.Rough[k] * 0.3f, 0f, 1f));
+                }
+        }
+        if (srng.NextDouble() < Tune.River.LeftSecretChance)
+        {
+            // the slit's mouth is a little way out from the beach, in the sunken slope's face; the tunnel runs in under the beach
+            float mx = Sf(72f, 80f), top1 = waterRow + Sf(9f, 10.5f), bot1 = top1 + 6.5f;
+            float c1x = Sf(25f, 29f), c1y = bot1 - 4.6f, c1rx = Sf(6.5f, 8f), c1ry = 5f;
+            Carve(c1x + c1rx * 0.5f, mx, top1, bot1);
+            f.Dome(c1x, c1y + c1ry, c1rx, c1ry, false);
+            var one = new Room
+            {
+                Kind = RoomKind.Secret, Underwater = true,
+                Center = new Vector2(c1x, c1y) * CaveData.Cell, Floor = new Vector2(c1x, c1y + c1ry - 0.5f) * CaveData.Cell,
+                RxPx = c1rx * CaveData.Cell, RyPx = c1ry * CaveData.Cell,
+            };
+            cave.Rooms.Add(one);
+            cave.Sheltered.Add(one);
+            cave.Hints.Add((new Vector2(mx - 1.5f, (top1 + bot1) * 0.5f) * CaveData.Cell, 0));
+            cave.OwnHints.Add(new Vector2(mx - 1.5f, (top1 + bot1) * 0.5f) * CaveData.Cell);
+            // a second, deeper: a narrow shaft down from the first chamber's floor
+            if (srng.NextDouble() < Tune.River.SecondSecretChance)
+            {
+                float c2x = c1x + Sf(-3f, 3f), c2y = c1y + c1ry + Sf(11f, 13f), c2rx = Sf(5.5f, 7f), c2ry = 4.6f;
+                if (c2y + c2ry < H - 10)
+                {
+                    float shx = c1x + (srng.NextDouble() < 0.5 ? -1f : 1f) * c1rx * 0.55f;
+                    Carve(shx - 1.6f, shx + 1.6f, c1y + c1ry - 1f, c2y);
+                    f.Dome(c2x, c2y + c2ry, c2rx, c2ry, false);
+                    var two = new Room
+                    {
+                        Kind = RoomKind.Secret, Underwater = true,
+                        Center = new Vector2(c2x, c2y) * CaveData.Cell, Floor = new Vector2(c2x, c2y + c2ry - 0.5f) * CaveData.Cell,
+                        RxPx = c2rx * CaveData.Cell, RyPx = c2ry * CaveData.Cell,
+                    };
+                    cave.Rooms.Add(two);
+                    cave.Sheltered.Add(two);
+                    cave.Hints.Add((new Vector2(shx, c1y + c1ry) * CaveData.Cell, 0));
+                    cave.OwnHints.Add(new Vector2(shx, c1y + c1ry) * CaveData.Cell);
+                }
+            }
         }
         // ---- lairs for the elite bats: the broad banks
         int lairs = 0;

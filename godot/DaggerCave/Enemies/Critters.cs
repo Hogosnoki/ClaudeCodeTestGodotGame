@@ -15,6 +15,21 @@ public abstract partial class Critter : Node2D
     protected float T;
     protected int Face = 1;
 
+    /// <summary>Every critter in the level (a Shape Shifter's bat can eat them).</summary>
+    public static readonly System.Collections.Generic.List<Critter> All = new();
+    public override void _EnterTree() { if (!All.Contains(this)) All.Add(this); }
+    public override void _ExitTree() => All.Remove(this);
+
+    /// <summary>How big the creature is to a bat going for it (px, for reaching it).</summary>
+    public virtual float EatRadius => 6f;
+
+    /// <summary>Eaten: gone, in a puff.</summary>
+    public void Eaten()
+    {
+        G.Fx.Burst(GlobalPosition, new Color(1f, 0.85f, 0.7f, 0.9f), 6, 70, 1.8f, 0.4f, 200);
+        QueueFree();
+    }
+
     public override void _Ready()
     {
         Home = GlobalPosition;
