@@ -28,6 +28,8 @@ public static class G
 
     public static Random Rng = new();
     public static int Depth = 1;
+    /// <summary>This level is the merchant's stall: a tiny map of the biome just left, at the same depth, where nothing lives and the way down is open.</summary>
+    public static bool Shop;
 
     public static float RandF() => (float)Rng.NextDouble();
     public static float Range(float a, float b) => a + (b - a) * (float)Rng.NextDouble();

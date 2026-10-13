@@ -283,6 +283,15 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>This game's hero freed the merchant: everyone in the party has him.</summary>
+    public static void MerchantFreed()
+    {
+        if (!Net.Online || Applying) return;
+        var w = new NetOut(Net.Msg.HeroEvent);
+        w.Int(Net.Me).Byte(22);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's hero chipped at a rubble plug (the other games take the same blow).</summary>
     public static void RubbleHit(Rubble r, bool smash = false)
     {
@@ -427,9 +436,19 @@ public static class NetSync
                 var hero = (HeroKind)r.Byte();
                 Applying = true;
                 HeroCage cage = null;
-                foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && c.Hero == hero) cage = c;
+                foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && !c.Merchant && c.Hero == hero) cage = c;
                 if (cage != null) cage.Free(false);
                 else { Meta.Unlock(hero); Net.EveryoneUnlocked(hero); }
+                Applying = false;
+                break;
+            }
+            case 22:
+            {
+                Applying = true;
+                HeroCage cage = null;
+                foreach (var c in HeroCage.All) if (GodotObject.IsInstanceValid(c) && c.Merchant) cage = c;
+                if (cage != null) cage.Free(false);
+                else { Meta.UnlockMerchant(); Net.EveryoneFoundMerchant(); }
                 Applying = false;
                 break;
             }
@@ -809,7 +828,7 @@ public static class NetSync
                 w.Byte(9).Int(id).Vec(ch.GlobalPosition).Byte((byte)ch.Tier).Int(ch.Owner).Bool(ch.Vault);
                 break;
             case Portal po:
-                w.Byte(10).Int(id).Vec(po.GlobalPosition).Byte((byte)(po.To?.Id ?? BiomeId.Slime)).Int(po.Depth).Str(po.Label);
+                w.Byte(10).Int(id).Vec(po.GlobalPosition).Byte((byte)(po.To?.Id ?? BiomeId.Slime)).Int(po.Depth).Str(po.Label).Bool(po.Shop);
                 break;
             default:
                 return;
@@ -850,8 +869,8 @@ public static class NetSync
             case 9: { var pos = r.Vec(); var tier = (ChestTier)r.Byte(); int owner = r.Int(); bool vault = r.Bool(); n = new Chest { Position = pos, Tier = tier, Owner = owner, Vault = vault }; break; }
             case 10:
             {
-                var pos = r.Vec(); var biome = Biomes.Get((BiomeId)r.Byte()); int depth = r.Int(); string label = r.Str();
-                n = new Portal { Position = pos, To = biome, Depth = depth, Label = label };
+                var pos = r.Vec(); var biome = Biomes.Get((BiomeId)r.Byte()); int depth = r.Int(); string label = r.Str(); bool shop = r.Bool();
+                n = new Portal { Position = pos, To = biome, Depth = depth, Label = label, Shop = shop };
                 G.Main?.NoteExit(pos);
                 break;
             }
@@ -1155,10 +1174,10 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
-    public static void SendLevel(BiomeId biome, int depth, int seed)
+    public static void SendLevel(BiomeId biome, int depth, int seed, bool shop)
     {
         var w = new NetOut(Net.Msg.Level);
-        w.Byte((byte)biome).Int(depth).Int(seed).Float(G.RunTime);
+        w.Byte((byte)biome).Int(depth).Int(seed).Float(G.RunTime).Bool(shop);
         Net.SendAll(w, true);
     }
 
@@ -1237,7 +1256,7 @@ public static class NetSync
         switch (type)
         {
             case Net.Msg.Start: G.Main?.StartOnlineRun(r.Int()); break;
-            case Net.Msg.Level: { var b = (BiomeId)r.Byte(); int depth = r.Int(), seed = r.Int(); float rt = r.Float(); G.Main?.OnlineLevel(b, depth, seed, rt); break; }
+            case Net.Msg.Level: { var b = (BiomeId)r.Byte(); int depth = r.Int(), seed = r.Int(); float rt = r.Float(); bool shop = r.Bool(); G.Main?.OnlineLevel(b, depth, seed, rt, shop); break; }
             case Net.Msg.HeroState:
             {
                 int owner = r.Int();

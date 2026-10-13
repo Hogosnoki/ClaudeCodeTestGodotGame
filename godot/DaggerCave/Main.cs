@@ -239,7 +239,7 @@ public partial class Main : Node
         _seed = _seed != 0 ? _seed : (int)(Time.GetUnixTimeFromSystem() * 1000 % 1000000);
         if (_autotest) G.Rng = new Random(_seed);
         G.Depth = 0;
-        G.Biome = Biomes.Get(BiomeId.Entrance);
+        G.Biome = Biomes.Get(BiomeId.Entrance); G.Shop = false;
         if (_biomeArg == null && (_heroTest || _bestiary || _animTest || _showcase || _hitStopTest)) _biomeArg = "slime"; // these need water
         if (_biomeArg == null && _scenario != "") _biomeArg = ScenarioBiome;
         if (_biomeArg != null)
@@ -634,7 +634,7 @@ public partial class Main : Node
         if (_lookFrame == 2 && OS.GetCmdlineUserArgs().Contains("--lookexit"))
         {
             var at = G.Player.GlobalPosition;
-            if (G.Cave.FindFloor(at + new Vector2(150, -20), 120, out var f1)) SpawnPortal(f1 + new Vector2(0, -17), (int)BiomeId.Ruins, 2, "test");
+            if (G.Cave.FindFloor(at + new Vector2(150, -20), 120, out var f1)) SpawnPortal(f1 + new Vector2(0, -17), (int)BiomeId.Ruins, 2, "test", false);
         }
         if (_lookStatus != "" && _lookFrame == 2)
         {
@@ -749,10 +749,10 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0;
         if (!freshPlayer && G.Player != null)
         {
-            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound;
+            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound; keepGoldSpent = G.Player.GoldSpent;
             // (a key goes on down only for a cell left locked behind: open every cell and you leave with none)
             keepKeys = Math.Min(G.Player.Keys, LockedCells());
             keepMilestones = G.Player.PendingMilestones;
@@ -806,7 +806,8 @@ public partial class Main : Node
         if (keepStats != null)
         {
             // (Spring Water: going deeper heals you to full)
-            player.Hp = keepStats.DepthHeal ? keepStats.MaxHp : Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
+            // (the merchant's stall is no rest: the level below heals, not this one)
+            player.Hp = G.Shop ? keepHp : keepStats.DepthHeal ? keepStats.MaxHp : Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
             if (keepStats.SelfRepair)
             {
                 // (the Automaton isn't mended by the rest: what would have healed it becomes energy)
@@ -816,7 +817,7 @@ public partial class Main : Node
             }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
-            player.Gold = keepGold; player.GoldFound = keepGoldFound;
+            player.Gold = keepGold; player.GoldFound = keepGoldFound; player.GoldSpent = keepGoldSpent;
             player.PendingMilestones = keepMilestones;
             player.SetVitalForce(Math.Max(keepVitalForce, Tune.Vitalist.VitalForceStart * 0.5f));
             // (alimus comes back by itself anyway: at least half a reserve on a new level)
@@ -871,7 +872,7 @@ public partial class Main : Node
         G.Rng = new Random(seed * 31 + G.Depth * 7 + 1);
         // Treasure chests are visible from the start (a few of the treasure rooms hold one).
         int roomChests = 0;
-        foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Treasure).OrderBy(_ => G.Rng.Next()))
+        foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Treasure && !G.Shop).OrderBy(_ => G.Rng.Next()))
         {
             if (roomChests >= biome.RoomChests || !G.Chance(Tune.Drops.TreasureRoomChestChance)) continue;
             roomChests++;
@@ -883,7 +884,7 @@ public partial class Main : Node
         }
 
         // the hidden chambers (a chimney up out of a tunnel's roof, out of reach of anyone without a way up): a silver chest in each
-        foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Secret))
+        foreach (var room in cave.Rooms.Where(r => r.Kind == RoomKind.Secret && !G.Shop))
         {
             if (!cave.FindFloor(room.Center, 300, out var sf)) continue;
             var secret = new Chest { Position = sf, Tier = ChestTier.Relic };
@@ -891,26 +892,36 @@ public partial class Main : Node
             _world.AddChild(secret);
         }
 
-        PlaceCaches(cave);
-        PlaceGold(cave);
-        PlaceHive(cave);
-        PlaceBonusChests(cave);
-        PlaceHeroCage(cave);
-        PlaceAutomatonHeap(cave);
-        PlaceRubble(cave);
-        PlaceLedges(cave);
-        PlaceVault(cave);
-        SpawnCritters(cave);
-        if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
-        PlaceHazards(cave);
-        PlaceSecretWays(cave, seed);
-        PlaceLampsAndHints(cave, seed);
+        if (G.Shop)
+        {
+            // the merchant's stall: nothing lives here, nothing is hidden; only the way on, and the merchant
+            cave.Spawns.Clear();
+            PlaceLedges(cave);
+            PlaceSecretWays(cave, seed);
+            PlaceMerchant(cave);
+        }
+        else
+        {
+            PlaceCaches(cave);
+            PlaceGold(cave);
+            PlaceHive(cave);
+            PlaceBonusChests(cave);
+            PlaceHeroCage(cave);
+            PlaceAutomatonHeap(cave);
+            PlaceRubble(cave);
+            PlaceLedges(cave);
+            PlaceVault(cave);
+            SpawnCritters(cave);
+            if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
+            PlaceHazards(cave);
+            PlaceSecretWays(cave, seed);
+            PlaceLampsAndHints(cave, seed);
+        }
         _hud.ResetMap(cave);
-        _hud.ShowBanner(G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
+        _hud.ShowBanner(G.Shop ? "THE MERCHANT'S STALL" : G.Depth == 0 ? biome.Name.ToUpperInvariant() : $"DEPTH {G.Depth}  ·  {biome.Name.ToUpperInvariant()}", 3f);
         _spawnT = 0;
         _waitingAt = null;
-        RollGlitch();
-        PlaceNullFinds(cave, seed);
+        if (!G.Shop) { RollGlitch(); PlaceNullFinds(cave, seed); }
         NetSync.LevelBuilt();
     }
 
@@ -1122,7 +1133,10 @@ public partial class Main : Node
         bool wanted = G.Chance(G.Biome?.Id == BiomeId.Abyss ? Tune.Heroes.AbyssCageChance : Tune.Heroes.CageChance);
         var caged = Meta.PickCageHero(G.Range(0f, 1f));
         float pick = G.Range(0f, 1f);
-        if (!wanted || caged is not HeroKind heroInCage) return;
+        // (the merchant is caged too, while someone in the party hasn't met him: he takes his share of the cages, and all of them when every hero is found)
+        bool merchant = G.Chance(Tune.Merchant.CageShare) && Meta.MerchantWanted() || caged == null && Meta.MerchantWanted();
+        if (!wanted || (!merchant && caged is null)) return;
+        var heroInCage = caged ?? HeroKind.Swordsman;
         Vector2? spot = null;
         // a hidden chamber (a chimney up from a tunnel's roof, a fish slit, a spider crack) when the level has one, most of the time
         var secrets = cave.Rooms.Where(r => r.Kind == RoomKind.Secret).ToList();
@@ -1153,10 +1167,10 @@ public partial class Main : Node
             }
         }
         if (spot is not Vector2 at2) return;
-        var cage = new HeroCage { Position = at2, Hero = heroInCage };
+        var cage = new HeroCage { Position = at2, Hero = heroInCage, Merchant = merchant };
         NetSync.LevelId(cage);
         _world.AddChild(cage);
-        if (_autotest) GD.Print($"[autotest] a caged {cage.Hero} at {at2}");
+        if (_autotest) GD.Print($"[autotest] a caged {(cage.Merchant ? "merchant" : cage.Hero.ToString())} at {at2}");
     }
 
     /// <summary>A Hunter's Map: more chests, scattered like the caches (dry or flooded), on top of the level's own.</summary>
@@ -1253,6 +1267,19 @@ public partial class Main : Node
             }
         }
         if (_autotest) GD.Print($"[autotest] gold: {coins} coins and {piles} piles in {spots} dead ends");
+    }
+
+    // ------------------------------------------------------------------ the merchant's stall
+
+    /// <summary>The merchant, in the middle of the chamber where the two exits open (the stall's level only).</summary>
+    private void PlaceMerchant(CaveData cave)
+    {
+        var room = cave.Boss;
+        if (room == null) return;
+        var probe = new Vector2(room.Floor.X, room.Floor.Y - 40);
+        if (cave.IsSolid(probe)) probe = room.Center;
+        var floor = cave.FindFloor(probe, 400, out var f) ? f : room.Floor;
+        _world.AddChild(new Merchant { Position = floor });
     }
 
     // ------------------------------------------------------------------ the Nest's hornet hive
@@ -1430,18 +1457,19 @@ public partial class Main : Node
     }
 
     /// <summary>Walks through an exit tunnel: on to that biome, that many levels deeper.</summary>
-    public void EnterExit(BiomeDef to, int depth)
+    public void EnterExit(BiomeDef to, int depth, bool shop = false)
     {
         // (--onelevel, for recordings: the run ends a moment after the way down is taken)
         if (OS.GetCmdlineUserArgs().Contains("--onelevel")) GetTree().CreateTimer(2.5).Timeout += () => SafeQuit.Request(this);
-        CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth, 0);
+        CallDeferred(MethodName.GoDeeper, (int)(to?.Id ?? BiomeId.Slime), depth, 0, shop);
     }
 
-    private void GoDeeper(int biome, int depth, int seed)
+    private void GoDeeper(int biome, int depth, int seed, bool shop)
     {
         if (Brains.Training) Brains.SaveAll();
         G.Depth = depth;
-        G.Biome = Biomes.Get((BiomeId)biome);
+        G.Shop = shop;
+        G.Biome = shop ? Biomes.ShopOf(Biomes.Get((BiomeId)biome)) : Biomes.Get((BiomeId)biome);
         Meta.BestDepth = Math.Max(Meta.BestDepth, G.Depth);
         _seed = seed != 0 ? seed : _rng.Next(1, 999999);
         BuildLevelAsync(_seed, false, () =>
@@ -1577,7 +1605,7 @@ public partial class Main : Node
         if (Net.Online) { BackToLobby(); return; }
         if (Brains.Training) Brains.SaveAll();
         G.Depth = 0;
-        G.Biome = Biomes.Get(BiomeId.Entrance);
+        G.Biome = Biomes.Get(BiomeId.Entrance); G.Shop = false;
         _seed = _rng.Next(1, 999999);
         _pendingTreasure.Clear();
         BuildLevel(_seed, freshPlayer: true);
@@ -1691,6 +1719,8 @@ public partial class Main : Node
 
     private void OnUpgradePicked(Upgrade u)
     {
+        // (a card of the merchant's stall: paid for, and the table laid out again)
+        if (_shop != null) { ShopPicked(u); return; }
         var chest = _lookingChest;
         _lookingChest = null;
         if (u.Icon == "skip")
@@ -2586,6 +2616,20 @@ public partial class Main : Node
     /// The level's guardian is dead: pay out its embers, roll a resource, drop a chest and open
     /// the exits. The dragon ends the run.
     /// </summary>
+    /// <summary>
+    /// The ways on from a fallen guardian, left to right: the gentle way (a level down), the steep way (two), and, once the merchant is freed, between them his stall
+    /// (the same biome at the same depth, in a tiny map of its own, which goes down no further: its two exits are the ones above).
+    /// </summary>
+    public List<(BiomeDef biome, int depth, string label, bool shop)> PlanExits(Random rng)
+    {
+        var exits = Biomes.ChooseExits(G.Depth, rng);
+        var plan = new List<(BiomeDef, int, string, bool)>();
+        foreach (var (bd, depth) in exits)
+            plan.Add((bd, depth, exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way", false));
+        if (Meta.MerchantKnown && !G.Shop && exits.Count == 2) plan.Insert(1, (G.Biome, G.Depth, "the merchant's stall", true));
+        return plan;
+    }
+
     private void OnGuardianKilled(Room room, Enemy boss)
     {
         bool dragon = boss is Dragon;
@@ -2602,18 +2646,17 @@ public partial class Main : Node
         }
         CallDeferred(MethodName.SpawnBossChests, room.Floor);
         // the way on: one or two tunnels into what lies below
-        var exits = Biomes.ChooseExits(G.Depth, _rng);
+        var plan = PlanExits(_rng);
         ExitSpots.Clear();
-        for (int k = 0; k < exits.Count; k++)
+        for (int k = 0; k < plan.Count; k++)
         {
-            float off = exits.Count == 1 ? 0 : (k == 0 ? -1 : 1) * room.RxPx * 0.55f;
+            var e = plan[k];
+            float off = plan.Count == 1 ? 0 : plan.Count == 2 ? (k == 0 ? -1 : 1) * room.RxPx * 0.55f : (k - 1) * room.RxPx * 0.6f;
             var probe = new Vector2(room.Floor.X + off, room.Floor.Y - 40);
             if (G.Cave.IsSolid(probe)) probe = room.Center;
             var floor = G.Cave.FindFloor(probe, 400, out var f) ? f : room.Floor;
-            var (bd, depth) = exits[k];
-            string label = exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way";
             ExitSpots.Add(floor + new Vector2(0, -16));
-            CallDeferred(MethodName.SpawnPortal, floor + new Vector2(0, -30), (int)bd.Id, depth, label);
+            CallDeferred(MethodName.SpawnPortal, floor + new Vector2(0, -30), (int)e.biome.Id, e.depth, e.label, e.shop);
         }
     }
 
@@ -2656,10 +2699,10 @@ public partial class Main : Node
         }
     }
 
-    private void SpawnPortal(Vector2 at, int biome, int depth, string label)
+    private void SpawnPortal(Vector2 at, int biome, int depth, string label, bool shop)
     {
         NetSync.Scope++;
-        try { G.Spawn(new Portal { Position = at, To = Biomes.Get((BiomeId)biome), Depth = depth, Label = label }); }
+        try { G.Spawn(new Portal { Position = at, To = Biomes.Get((BiomeId)biome), Depth = depth, Label = label, Shop = shop }); }
         finally { NetSync.Scope--; }
     }
 

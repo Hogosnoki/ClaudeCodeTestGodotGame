@@ -1049,6 +1049,17 @@ public static class Tune
             VenomTotal = 26f, VenomSeconds = 8f;
     }
 
+    /// <summary>The merchant (<c>Enemies/Merchant.cs</c>, <c>Main.Shop.cs</c>): <c>CageShare</c> of the cages hold him while he is still to be found.</summary>
+    public static class Merchant
+    {
+        public static float CageShare = 0.35f;
+        /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies; each rises <c>PerDepth</c> of itself for every level down.</summary>
+        public static int PriceCommon = 8, PriceUncommon = 14, PriceRare = 24, PriceRelic = 36, PriceSupplies = 12;
+        public static float PerDepth = 0.08f;
+        /// <summary>His supplies: the belt of potions is filled, and <c>SuppliesHeal</c> of your health returns.</summary>
+        public static float SuppliesHeal = 0.4f;
+    }
+
     /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one
     /// <c>Respawn</c> s (give or take <c>Jitter</c>) after one is lost; destroying it leaves a chest of upgrades. <c>Chance</c>: of a Nest level having one.</summary>
     public static class Hive

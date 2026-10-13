@@ -12,7 +12,7 @@ internal static class RubbleGen
         cave.Rubble.Clear();
         cave.RubbleAtDeadEnds = 0;
         // (none in the first level)
-        if (cave.Biome?.Id == BiomeId.Entrance) return;
+        if (cave.Biome?.Id == BiomeId.Entrance || cave.Biome?.Shop == true) return;
         int W = cave.W, H = cave.H;
         if (cave.ReachMask == null || cave.ReachMask.Length < W * H) return;
         var rng = new Random(cave.Seed * 7919 + 13);

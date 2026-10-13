@@ -299,11 +299,17 @@ public static partial class Net
         foreach (var h in Enum.GetValues<HeroKind>()) if (!Meta.IsReallyUnlocked(h)) m |= 1 << (int)h;
         // (and, on a bit no hero uses, whether this player has ever slain the Elder Dragon)
         if (Meta.Victories > 0 || ForceSlayer) m |= SlayerBit;
+        // (and whether the merchant is still to be found)
+        if (!Meta.MerchantUnlocked) m |= MerchantBit;
         return m;
     }
 
     /// <summary>The bit of <see cref="PeerInfo.Locked"/> that says the player has slain the Elder Dragon (at least once).</summary>
     public const int SlayerBit = 1 << 30;
+    /// <summary>The bit of <see cref="PeerInfo.Locked"/> that says the player has not yet found the merchant.</summary>
+    public const int MerchantBit = 1 << 29;
+    /// <summary>The merchant was freed: nobody in the party lacks him any more.</summary>
+    public static void EveryoneFoundMerchant() { foreach (var p in Peers.Values) p.Locked &= ~MerchantBit; }
     /// <summary>--slayer: this player counts as having slain the dragon.</summary>
     public static bool ForceSlayer;
     /// <summary>Has everyone playing slain the Elder Dragon at least once? (The Glitch comes to no one else.)</summary>

@@ -356,10 +356,19 @@ public partial class Hud : Control
         if (!p.Dead && HeroCage.At(p.GlobalPosition) is HeroCage cage)
         {
             var at = OnScreen(cage.GlobalPosition, -50);
-            string free = cage.NeedsCell ? (PowerCell.Found ? $"{Controls.Name("interact")}  revive the {cage.Hero}" : "it needs a power cell") : $"{Controls.Name("interact")}  free the {cage.Hero}";
+            string free = cage.Merchant ? $"{Controls.Name("interact")}  free the merchant" : cage.NeedsCell ? (PowerCell.Found ? $"{Controls.Name("interact")}  revive the {cage.Hero}" : "it needs a power cell") : $"{Controls.Name("interact")}  free the {cage.Hero}";
             var fsz = font.GetStringSize(free, HorizontalAlignment.Left, -1, 14);
             Pill(new Rect2(at - new Vector2(fsz.X / 2 + 10, 16), new Vector2(fsz.X + 20, 22)));
             DrawString(font, at - new Vector2(fsz.X / 2, 0), free, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
+        }
+        // --- the merchant ---
+        if (!p.Dead && Merchant.At(p.GlobalPosition) is Merchant trader)
+        {
+            var at = OnScreen(trader.GlobalPosition, -60);
+            string trade = $"{Controls.Name("interact")}  trade  ({p.Gold} gold)";
+            var tsz = font.GetStringSize(trade, HorizontalAlignment.Left, -1, 14);
+            Pill(new Rect2(at - new Vector2(tsz.X / 2 + 10, 16), new Vector2(tsz.X + 20, 22)));
+            DrawString(font, at - new Vector2(tsz.X / 2, 0), trade, HorizontalAlignment.Left, -1, 14, new Color(1f, 0.88f, 0.5f, 0.8f + 0.2f * MathF.Sin(_t * 5)));
         }
         // --- a vault's gate: a key opens it ---
         if (!p.Dead && VaultGate.At(p.GlobalPosition) is VaultGate gate)

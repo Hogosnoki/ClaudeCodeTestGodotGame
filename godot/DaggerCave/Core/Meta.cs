@@ -118,6 +118,25 @@ public static class Meta
     public static int MaxPotions => 1 + Rank("max");
     // ---- heroes: three at the start; the others are found (caged in the caves) or won
     public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
+    // ---- the merchant: not a hero, but met like one (caged in the caves); once freed, a stall of his is offered after every guardian
+    /// <summary>The merchant has been freed (kept between runs).</summary>
+    public static bool MerchantUnlocked;
+    /// <summary>Whether his stall is offered (everything is, while testing).</summary>
+    public static bool MerchantKnown => Tune.Testing.UnlockEverything || MerchantUnlocked;
+    /// <summary>Still to be found by someone in the party (so a cage may hold him): every game works it out alike (online, from what each player said they had).</summary>
+    public static bool MerchantWanted()
+    {
+        if (Net.Online && Net.Count > 1) { foreach (var p in Net.Peers.Values) if ((p.Locked & Net.MerchantBit) != 0) return true; return false; }
+        return !MerchantUnlocked;
+    }
+    public static bool UnlockMerchant()
+    {
+        if (MerchantUnlocked) return false;
+        MerchantUnlocked = true;
+        Save();
+        return true;
+    }
+
     /// <summary>Heroes unlocked in the run now under way (the dragon's award only goes to a run that found none).</summary>
     public static int RunUnlocks;
     /// <summary>Whether a hero can be chosen (everything is, while testing).</summary>
@@ -316,6 +335,7 @@ public static class Meta
             ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
             ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
             ["unlocked"] = new Godot.Collections.Array(Unlocked.Select(x => (Variant)(int)x)),
+            ["merchant"] = MerchantUnlocked,
             ["loadouts"] = LoadoutsToArray(),
         };
         var pr = new Godot.Collections.Dictionary();
@@ -345,6 +365,7 @@ public static class Meta
         Unlocked.Clear();
         if (d.ContainsKey("unlocked")) foreach (var v in d["unlocked"].AsGodotArray()) Unlocked.Add((HeroKind)(int)v);
         else foreach (var h in Enum.GetValues<HeroKind>()) { Unlocked.Add(h); if (h == HeroKind.Aegis && !PerkRanks.ContainsKey("aegis_oath")) { PerkRanks["aegis_oath"] = 1; PerksEquipped.Add("aegis_oath"); } }
+        MerchantUnlocked = d.ContainsKey("merchant") && (bool)d["merchant"];
         Loadouts.Clear();
         if (d.ContainsKey("loadouts"))
             foreach (var v in d["loadouts"].AsGodotArray())

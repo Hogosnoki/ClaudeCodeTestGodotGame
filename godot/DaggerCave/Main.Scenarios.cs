@@ -61,6 +61,7 @@ public partial class Main
         "gold" => "slime",
         "dashslash" => "entrance",
         "hive" => "nest",
+        "shop" => "den",
         "cards" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
@@ -114,7 +115,7 @@ public partial class Main
     {
         // (the cave mouth's scenario carries on after the run ends, at the title)
         // (the magma scenario opens a chest down in the lava and takes a card)
-        if (_scDone || (_state != State.Playing && _scenario != "mouth" && _scenario != "debugmode" && _scenario != "report" && _scenario != "struck" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
+        if (_scDone || (_state != State.Playing && _scenario != "mouth" && _scenario != "debugmode" && _scenario != "report" && _scenario != "struck" && _scenario != "shop" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
         _scT += dt;
         switch (_scenario)
         {
@@ -157,6 +158,7 @@ public partial class Main
             case "gold": GoldScenario(); break;
             case "dashslash": DashSlashScenario(); break;
             case "hive": HiveScenario(); break;
+            case "shop": ShopScenario(); break;
             case "cards": CardsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;

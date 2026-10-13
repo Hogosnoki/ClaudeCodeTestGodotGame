@@ -136,7 +136,7 @@ public partial class Main
         GetTree().Paused = true;
         _hud.Visible = false;
         G.Depth = 0;
-        G.Biome = Biomes.Get(BiomeId.Entrance);
+        G.Biome = Biomes.Get(BiomeId.Entrance); G.Shop = false;
         _seed = _rng.Next(1, 999999);
         _pendingTreasure.Clear();
         BuildLevel(_seed, freshPlayer: true);
@@ -176,7 +176,7 @@ public partial class Main
         _hitStopLeft = 0;
         G.Hero = Net.Mine?.Hero ?? G.Hero;
         G.Depth = 0;
-        G.Biome = Biomes.Get(BiomeId.Entrance);
+        G.Biome = Biomes.Get(BiomeId.Entrance); G.Shop = false;
         _seed = seed;
         _pendingTreasure.Clear();
         BuildLevel(seed, freshPlayer: true);
@@ -187,12 +187,12 @@ public partial class Main
     }
 
     /// <summary>Everyone went down an exit (the host says where): the same level in every game.</summary>
-    public void OnlineLevel(BiomeId biome, int depth, int seed, float runTime)
+    public void OnlineLevel(BiomeId biome, int depth, int seed, float runTime, bool shop)
     {
         if (!Net.InRun) return;
         G.RunTime = runTime;
         _waitingAt = null;
-        GoDeeper((int)biome, depth, seed);
+        GoDeeper((int)biome, depth, seed, shop);
     }
 
     /// <summary>This game's hero stepped into an exit: it waits there until everyone still standing has.</summary>
@@ -229,7 +229,7 @@ public partial class Main
         if (portal == null) return;
         _descending = true;
         if (portal.Outside) CallDeferred(MethodName.HostLeaveCave);
-        else CallDeferred(MethodName.HostDescend, (int)(portal.To?.Id ?? BiomeId.Slime), portal.Depth);
+        else CallDeferred(MethodName.HostDescend, (int)(portal.To?.Id ?? BiomeId.Slime), portal.Depth, portal.Shop);
     }
 
     private void HostLeaveCave()
@@ -251,14 +251,14 @@ public partial class Main
         _onlineMenu.Open("You all walked back out into the daylight. Nothing from that run was kept.");
     }
 
-    private void HostDescend(int biome, int depth)
+    private void HostDescend(int biome, int depth, bool shop)
     {
         _descending = false;
         if (!Net.InRun) return;
         int seed = _rng.Next(1, 999999);
         // (the message first: every creature and thing made from here on belongs to the new level)
-        NetSync.SendLevel((BiomeId)biome, depth, seed);
-        GoDeeper(biome, depth, seed);
+        NetSync.SendLevel((BiomeId)biome, depth, seed, shop);
+        GoDeeper(biome, depth, seed, shop);
     }
 
     private void OnlineTick(float dt)

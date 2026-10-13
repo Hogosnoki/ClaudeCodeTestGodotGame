@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Godot;
 
 namespace DaggerCave;
 
@@ -120,6 +121,13 @@ public static class Lore
         HeroKind.Automaton => ("THE AUTOMATON, LAST WORK OF OTTOLINE BRASS", "Built in the Clockwork Deep to keep the great engine's rhythm. Its maker went quiet; it kept on, and when the rhythm faltered it came up to find someone who could still hear it.", "Rhythm restored."),
         _ => ("", "", ""),
     };
+
+    /// <summary>The merchant's colour (the lamp of his stall).</summary>
+    public static readonly Color MerchantColor = new(1f, 0.78f, 0.35f);
+    public const string MerchantName = "THE MERCHANT";
+    public const string MerchantBackstory = "A peddler who went down the Deep with a pack full of wares, and was shut in an iron cage by something that wanted his coin and not his company. He is not a fighter. But he knows the way to a quiet corner beside every guardian's chamber, and will set out his stall there, if you have gold to spend.";
+    /// <summary>The banner when the caged merchant is freed.</summary>
+    public static string MerchantFreedBanner(bool fresh) => fresh ? "THE MERCHANT  ·  \"Gold spends the same down here.\"  ·  his stall opens beside every guardian's exits" : "THE MERCHANT  ·  \"Gold spends the same down here.\"";
 
     /// <summary>The banner when a caged hero is freed.</summary>
     public static string FreedBanner(HeroKind h, bool fresh)

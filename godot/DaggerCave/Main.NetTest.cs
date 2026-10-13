@@ -372,7 +372,7 @@ public partial class Main
                     NtCheck($"holding interact beside the fallen friend brought them back ({rv})", true);
                     _ntInput = default;
                     // an exit, at the host's feet
-                    SpawnPortal(G.Player.GlobalPosition + new Vector2(0, -17), (int)BiomeId.Fossils, NtDepth, "test");
+                    SpawnPortal(G.Player.GlobalPosition + new Vector2(0, -17), (int)BiomeId.Fossils, NtDepth, "test", false);
                     _ntPortal = _world.GetChildren().OfType<Portal>().LastOrDefault();
                     NtSay($"portal {NetSync.IdOf(_ntPortal)}");
                     NtNext();

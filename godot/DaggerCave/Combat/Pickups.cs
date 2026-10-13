@@ -419,6 +419,8 @@ public partial class Portal : Node2D
     public bool Entry;
     /// <summary>The wall the Glitch left wrong: walk into it (no button) and you go through, to the Null.</summary>
     public bool Glitch;
+    /// <summary>The way to the merchant's stall: the same biome at the same depth, in a tiny map of its own.</summary>
+    public bool Shop;
     private float _t, _near;
     private bool _used;
     public float Age => _t;
@@ -445,7 +447,7 @@ public partial class Portal : Node2D
         G.Sfx.Play(Glitch ? "glitch" : Drain ? "splash" : "portal", GlobalPosition, 0, 0.05f, Drain ? 0.6f : 0.8f);
         if (Glitch) G.Fx.ScreenFlash(new Color(1f, 0f, 1f), 0.4f);
         G.Fx.Flash(GlobalPosition, 40, (To?.Glow ?? new Color(0.7f, 0.5f, 1f)).Darkened(0.3f), 0.25f);
-        G.Main.EnterExit(To, Depth);
+        G.Main.EnterExit(To, Depth, Shop);
     }
 
     public override void _PhysicsProcess(double delta)

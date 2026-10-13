@@ -27,6 +27,7 @@ public static class CreatureRegistry
         CreatureLibrary.Register("scorpion", () => new ScorpionDesign());
         CreatureLibrary.Register("hornet", () => new HornetDesign());
         CreatureLibrary.Register("hive", () => new HiveDesign());
+        CreatureLibrary.Register("merchant", () => new MerchantDesign());
         CreatureLibrary.Register("frog", () => new FrogDesign());
         CreatureLibrary.Register("fish", () => new FishDesign(false));
         CreatureLibrary.Register("fish2", () => new FishDesign(true));
@@ -86,6 +87,8 @@ public static class CreatureRegistry
             if (SetsByType.TryGetValue(e.GetType().Name, out var sets)) names.UnionWith(sets);
             e.Free();
         }
+        // (the merchant's stall: only the merchant is there)
+        if (b.Shop) { names.Add("merchant"); return names; }
         foreach (var list in b.Residents.Values) foreach (var s in list) Add(s.Make);
         foreach (var s in b.GroundEntrants) Add(s.Make);
         foreach (var s in b.AirEntrants) Add(s.Make);

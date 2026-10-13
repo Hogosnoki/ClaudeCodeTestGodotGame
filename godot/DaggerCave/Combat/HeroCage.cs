@@ -10,6 +10,8 @@ namespace DaggerCave;
 public partial class HeroCage : Node2D
 {
     public HeroKind Hero;
+    /// <summary>A peddler in the cage, not a hero: freed, he opens his stall after the guardians (see <see cref="Meta.MerchantUnlocked"/>); he is not playable.</summary>
+    public bool Merchant;
     /// <summary>Not a cage: the Automaton, disabled in a heap on the floor (the Clockwork Deep). Only a power cell wakes him.</summary>
     public bool NeedsCell;
     private float _sayT;
@@ -48,6 +50,18 @@ public partial class HeroCage : Node2D
     {
         if (Freed && !local) return;
         Freed = true;
+        if (Merchant)
+        {
+            bool met = Meta.UnlockMerchant();
+            Net.EveryoneFoundMerchant();
+            if (local) NetSync.MerchantFreed();
+            G.Sfx.Play("chest", GlobalPosition, -2, 0, 0.8f);
+            G.Fx.Burst(GlobalPosition + new Vector2(0, -12), Lore.MerchantColor, 30, 200, 2.6f, 0.7f);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -12), 30, Lore.MerchantColor, 0.3f, FxLayer.RingStyle.Ping);
+            G.Main.Hud?.ShowBanner(Lore.MerchantFreedBanner(met), 5.5f);
+            if (met) G.Main.Hud?.ShowNotice(Lore.MerchantBackstory, 8f);
+            return;
+        }
         bool fresh = Meta.Unlock(Hero);
         Net.EveryoneUnlocked(Hero);
         if (local) NetSync.CageFreed(Hero);

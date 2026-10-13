@@ -39,6 +39,7 @@ public static class PropViews
             CoinPickup => new CoinView(),
             VaultGate => new VaultGateView(),
             Chest => new ChestView(),
+            Merchant => new MerchantView(),
             HeroCage { NeedsCell: true } => new AutomatonHeapView(),
             HeroCage => new HeroCageView(),
             PowerCell => new PowerCellView(),
@@ -1478,7 +1479,7 @@ public partial class HeroCageView : PropView
     protected override void Build()
     {
         var c = (HeroCage)Owner2D;
-        _col = Hud.HeroColor(c.Hero);
+        _col = c.Merchant ? Lore.MerchantColor : Hud.HeroColor(c.Hero);
         var iron = new Color(0.12f, 0.12f, 0.15f);
         var mb = new MeshBuilder();
         const float w = 0.5f, h = 0.95f, d = 0.34f;
@@ -1509,7 +1510,7 @@ public partial class HeroCageView : PropView
         AddChild(_light);
         AddChild(new Label3D
         {
-            Text = c.Hero.ToString().ToUpperInvariant(), Modulate = _col.Lightened(0.35f), OutlineModulate = new Color(0.05f, 0.04f, 0.03f, 0.9f), FontSize = 40, PixelSize = 0.008f,
+            Text = c.Merchant ? "MERCHANT" : c.Hero.ToString().ToUpperInvariant(), Modulate = _col.Lightened(0.35f), OutlineModulate = new Color(0.05f, 0.04f, 0.03f, 0.9f), FontSize = 40, PixelSize = 0.008f,
             OutlineSize = 12, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1, Position = new Vector3(0, h + 0.35f, 0),
         });
     }

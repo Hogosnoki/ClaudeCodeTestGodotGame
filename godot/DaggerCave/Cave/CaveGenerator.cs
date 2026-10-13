@@ -149,12 +149,13 @@ public static partial class CaveGenerator
         }
         if (best == null) throw new InvalidOperationException("every cave attempt failed");
         B = biome; W = w; H = h;
-        AddDrain(best, seed);
-        AddHiddenNooks(best, seed);
+        // (the merchant's stall hides nothing: no drain, nooks, wings or dead ends with gold)
+        if (!biome.Shop) AddDrain(best, seed);
+        if (!biome.Shop) AddHiddenNooks(best, seed);
         ConvertSmallPlatforms(best);
         if (!KeepLedges) LiftLedges(best);
-        AddSecretWings(best, seed);
-        AddDeadEnds(best);
+        if (!biome.Shop) AddSecretWings(best, seed);
+        if (!biome.Shop) AddDeadEnds(best);
         return best;
     }
 
@@ -178,7 +179,7 @@ public static partial class CaveGenerator
         }
         // (a level without a vault, where there should be one: worse than a clean cave with one,
         // never worse than a trapped cave)
-        if (c.Vault == null && B.Style != GenStyle.Arena) score += c.Attempts <= 8 ? 30000 : 7;
+        if (c.Vault == null && B.Style != GenStyle.Arena && !B.Shop) score += c.Attempts <= 8 ? 30000 : 7;
         return score;
     }
 

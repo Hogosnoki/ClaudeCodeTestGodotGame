@@ -26,7 +26,7 @@ public static partial class CaveGenerator
 
     private static VaultSpot CarveOneVault(CaveData cave, Random rng, Vector2? avoid)
     {
-        if (B == null || B.Style == GenStyle.Arena || cave.ReachMask == null) return null;
+        if (B == null || B.Style == GenStyle.Arena || B.Shop || cave.ReachMask == null) return null;
         int corridor = Tune.Vault.CorridorCells, chamber = Tune.Vault.ChamberCells, len = corridor + chamber;
         int cRows = Tune.Vault.CorridorRows, rRows = Tune.Vault.ChamberRows;
         var start = cave.StartPos / CaveData.Cell;

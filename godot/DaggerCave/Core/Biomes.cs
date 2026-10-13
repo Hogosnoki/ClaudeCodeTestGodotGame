@@ -127,6 +127,8 @@ public sealed class BiomeDef
     public bool Ossuary;
     /// <summary>No guardian: the way on is open from the start (the secret lake).</summary>
     public bool NoGuardian;
+    /// <summary>The merchant's stall in this biome (see <see cref="Biomes.ShopOf"/>): a tiny, empty map in the biome's own look.</summary>
+    public bool Shop;
 
     // ---- set dressing in 3D
     /// <summary>Massive tree roots come down through the ceilings.</summary>
@@ -135,7 +137,7 @@ public sealed class BiomeDef
     public bool Leviathans;
 
     // ---- life
-    public readonly Dictionary<SpawnKind, List<SpawnEntry>> Residents = new();
+    public Dictionary<SpawnKind, List<SpawnEntry>> Residents = new();
     public List<SpawnEntry> GroundEntrants = new(), AirEntrants = new(), WaterEntrants = new();
     public List<Func<Enemy>> MiniBosses = new(), WaterMiniBosses = new();
     /// <summary>The guardian of the exit chamber (spawned when you walk in).</summary>
@@ -148,6 +150,22 @@ public sealed class BiomeDef
     public bool Waves = true;
     public int Critters = 60;
 
+    /// <summary>The merchant's stall in this biome: the same palette and dressing, but a tiny map of two chambers, nothing living in it, nothing hidden, and the way on open.</summary>
+    public BiomeDef ForShop()
+    {
+        var c = (BiomeDef)MemberwiseClone();
+        c.Shop = true; c.NoGuardian = true;
+        c.Style = GenStyle.Rooms; c.W = 70; c.H = 72;
+        c.Liquid = Liquid.None; c.RoomCount = 1; c.RoomRMin = 9; c.RoomRMax = 11; c.CorridorR = 3f; c.RoomYSpread = 0.1f;
+        c.MiniBossesMin = c.MiniBossesMax = 0; c.RoomChests = 0; c.WaterCaches = c.HighCaches = c.LavaCaches = 0; c.SecretChimneys = 0;
+        c.HazardCount = 0; c.Waves = false; c.Critters = 0; c.Density = 0f;
+        c.Slippery = c.IceSheet = c.IcePlatforms = c.Webs = c.Spores = c.CrystalSpikes = c.FireVents = c.GasVents = c.AcidWater = c.Machinery = c.RootSnares = c.CaveIns = c.Murky = false;
+        c.ToxicAir = 0f;
+        c.Residents = new(); c.GroundEntrants = new(); c.AirEntrants = new(); c.WaterEntrants = new(); c.MiniBosses = new(); c.WaterMiniBosses = new();
+        c.Guardian = null;
+        return c;
+    }
+
     public (Color edge, Color deep, Color moss, Color rim, Color glow) Palette => (Edge, Deep, Moss, Rim, Glow);
     public bool HasLiquid => Liquid != Liquid.None;
 }
@@ -158,6 +176,14 @@ public static class Biomes
     /// <summary>The dragon's level (relics can move it).</summary>
     public static int FinalDepth => 10 + RunRelics.DepthDelta;
     public static readonly List<BiomeDef> All = new();
+
+    private static readonly Dictionary<BiomeId, BiomeDef> Stalls = new();
+    /// <summary>The merchant's stall in <paramref name="b"/>'s biome (made once, then kept).</summary>
+    public static BiomeDef ShopOf(BiomeDef b)
+    {
+        if (b.Shop) return b;
+        lock (Stalls) { if (!Stalls.TryGetValue(b.Id, out var s)) Stalls[b.Id] = s = b.ForShop(); return s; }
+    }
     public static BiomeDef Get(BiomeId id) => All.First(b => b.Id == id);
 
     static Color C(string hex) => Color.FromHtml(hex);

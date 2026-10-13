@@ -14,6 +14,8 @@ public partial class UpgradeMenu : Control
     private List<Upgrade> _choices = new();
     /// <summary>Why each card can't be taken (null: it can): a friend's card, or one you have.</summary>
     private List<string> _locks = new();
+    /// <summary>A price in gold for each card, in the merchant's stall (null: no prices; 0: free).</summary>
+    private List<int> _prices;
     private readonly List<Rect2> _cards = new();
     private float _deniedT;
     private int _denied = -1;
@@ -35,7 +37,7 @@ public partial class UpgradeMenu : Control
     };
 
     /// <summary>A card's label: its kind, and for a hero's card, the ability it grows.</summary>
-    public static string KindLabel(Upgrade u, HeroKind hero) => u.Kind switch
+    public static string KindLabel(Upgrade u, HeroKind hero) => u.Id == "shop_supplies" ? "SUPPLIES" : u.Kind switch
     {
         UpgradeKind.Class => "CLASS · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
         UpgradeKind.Alteration => "ALTERATION · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
@@ -73,8 +75,9 @@ public partial class UpgradeMenu : Control
 
     private UiArt.Rarity _frame = UiArt.Rarity.Uncommon;
 
-    public void Open(List<Upgrade> choices, string title, List<string> locks = null, UiArt.Surface backdrop = UiArt.Surface.Arcane, UiArt.Rarity frame = UiArt.Rarity.Uncommon)
+    public void Open(List<Upgrade> choices, string title, List<string> locks = null, UiArt.Surface backdrop = UiArt.Surface.Arcane, UiArt.Rarity frame = UiArt.Rarity.Uncommon, List<int> prices = null)
     {
+        _prices = prices;
         _backdrop = backdrop;
         _frame = frame;
         _choices = choices;
@@ -162,6 +165,8 @@ public partial class UpgradeMenu : Control
 
         int n = _choices.Count;
         float cw = n > 3 ? 220 : 250, gap = n > 3 ? 18 : 26;
+        // (a crowded table, the stall's: the cards narrow to fit the screen)
+        if (n * cw + (n - 1) * gap > vs.X - 100) { gap = 12; cw = (vs.X - 100 - (n - 1) * gap) / n; }
         float total = n * cw + (n - 1) * gap;
         float x0 = vs.X / 2 - total / 2, y0 = vs.Y * 0.3f;
         // the mat the cards lie on: what kind of choice this is
@@ -188,7 +193,9 @@ public partial class UpgradeMenu : Control
         DrawString(font, new Vector2(-tsz.X / 2 + 2, 13f), _title, HorizontalAlignment.Left, -1, 34, new Color(0, 0, 0, 0.7f));
         DrawString(font, new Vector2(-tsz.X / 2, 11f), _title, HorizontalAlignment.Left, -1, 34, new Color(1f, 0.9f, 0.5f));
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
-        string sub = G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)  ·  BACK: your build" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)  ·  TAB: your build";
+        string sub = _prices != null
+            ? (G.Main.UsingPad ? "Buy what you like  (left / right to browse, A to buy)  ·  BACK: your build" : "Buy what you like  (click, or arrows + ENTER)  ·  TAB: your build")
+            : G.Main.UsingPad ? "Choose one  (left / right to browse, A to take)  ·  BACK: your build" : $"Choose one  (click, 1 - {_choices.Count}, or arrows + ENTER)  ·  TAB: your build";
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
 
@@ -206,7 +213,25 @@ public partial class UpgradeMenu : Control
             var r = new Rect2(x0 + k * (cw + gap) + shake, y0 - (hov && locked == null ? 8 : 0), cw, ch);
             _cards.Add(r);
             DrawCard(font, r, u, k, hov, locked, stats);
+            if (_prices != null && k < _prices.Count && !skip) DrawPrice(font, r, _prices[k], locked != null);
         }
+    }
+
+    /// <summary>A price in gold on a tag under the card, with a coin: dim when it can't be paid.</summary>
+    private void DrawPrice(Font font, Rect2 r, int price, bool cannot)
+    {
+        string txt = price.ToString();
+        var tsz = font.GetStringSize(txt, HorizontalAlignment.Left, -1, 18);
+        var tag = new Rect2(r.Position.X + r.Size.X / 2 - (tsz.X + 46) / 2, r.End.Y + 10, tsz.X + 46, 28);
+        var gold = cannot ? new Color(0.62f, 0.55f, 0.4f) : new Color(1f, 0.82f, 0.35f);
+        UiArt.Shadow(this, tag, 14f, 0.4f);
+        DrawColoredPolygon(UiArt.Rounded(tag, 14), new Color(0.08f, 0.06f, 0.04f, 0.9f));
+        UiArt.Outline(this, tag, 14, new Color(gold, 0.85f), 1.5f);
+        var cc = tag.Position + new Vector2(17, 14);
+        DrawCircle(cc, 8.5f, gold.Darkened(0.35f));
+        DrawCircle(cc, 7f, gold);
+        DrawArc(cc, 4.5f, 0.6f, 5.7f, 10, gold.Darkened(0.45f), 1.4f);
+        DrawString(font, tag.Position + new Vector2(30, 20), txt, HorizontalAlignment.Left, -1, 18, cannot ? new Color(0.75f, 0.68f, 0.55f) : new Color(1f, 0.93f, 0.7f));
     }
 
     /// <summary>

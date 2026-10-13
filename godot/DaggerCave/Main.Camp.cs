@@ -192,7 +192,7 @@ public partial class Main
     {
         if (Brains.Training) Brains.SaveAll();
         G.Depth = 0;
-        G.Biome = Biomes.Get(BiomeId.Entrance);
+        G.Biome = Biomes.Get(BiomeId.Entrance); G.Shop = false;
         // (the cave waiting behind the camp was made for the hero shown then: remake it if that changed)
         if (G.Player == null || G.Player.Dead || G.Player.Stats.Hero != G.Hero || _state == State.Dead)
         {
