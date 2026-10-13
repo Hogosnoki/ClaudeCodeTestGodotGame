@@ -70,6 +70,8 @@ public partial class Player : CharacterBody2D
     public int Gold;
     /// <summary>Gold spent with the merchant this run.</summary>
     public int GoldSpent;
+    /// <summary>Choices of cards this hero may still have dealt again this run (the Path's Second Thoughts, and tokens from the merchant).</summary>
+    public int Rerolls;
     /// <summary>Set each frame while stuck in a web.</summary>
     public float WebbedT;
     private float _indignT;
@@ -1117,10 +1119,11 @@ public partial class Player : CharacterBody2D
     }
 
     /// <summary>Gold picked up: it goes in the purse.</summary>
-    public void GainGold(int n)
+    public void GainGold(int n, bool pile = false)
     {
         if (n <= 0) return;
-        n = Math.Max(1, (int)MathF.Round(n * Stats.GoldMult));
+        if (pile) n += Stats.PileBonus;
+        n = Math.Max(1, (int)MathF.Round(n * Stats.GoldMult * Meta.GoldFoundMult));
         Gold += n;
         GoldFound += n;
         G.Sfx.Play("pickup_key", GlobalPosition, -8, 0.06f, 1.7f);

@@ -210,6 +210,10 @@ public sealed class PlayerStats
     public float XpMult = 1f, HeartChanceBonus, KeyCapBonus;
     /// <summary>How much gold a pick-up is worth (x), and how far past the usual a hero's pick-ups reach (px).</summary>
     public float GoldMult = 1f, PickupReach;
+    /// <summary>The merchant: coins more in every pile; what he asks (x); wares more on his table; rerolls free each stall; what a reroll costs (x); gold on reaching a stall; gold a guardian drops; his supplies for nothing; interest on carried gold when going down (a share).</summary>
+    public int PileBonus, ShopExtra, FreeRerolls, StallGold, GuardianGold;
+    public float ShopPriceMult = 1f, RerollMult = 1f, GoldInterest;
+    public bool FreeSupplies;
     /// <summary>The Shape Shifter's remembered form (its key; null: none yet), kept for the run.</summary>
     public string RememberedForm;
     /// <summary>The chance a melee blow that lands strikes again (the Echoing Blade relic).</summary>

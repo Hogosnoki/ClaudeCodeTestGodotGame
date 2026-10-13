@@ -29,8 +29,8 @@ public partial class CoinPickup : Node2D
             NetSync.Scope++;
             try
             {
-                if (p.IsRemote) NetSync.GivePickup(p, 5, Count);
-                else p.GainGold(Count);
+                if (p.IsRemote) NetSync.GivePickup(p, (byte)(IsPile ? 6 : 5), Count);
+                else p.GainGold(Count, IsPile);
                 G.Fx.Pop(GlobalPosition, new Color(1f, 0.82f, 0.3f), IsPile ? 10 : 5);
             }
             finally { NetSync.Scope--; }

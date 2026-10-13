@@ -86,18 +86,91 @@ public partial class Main
         _upgradeMenu.Choose(idx);
         foreach (var _ in Wait(0.3f)) yield return null;
         ScCheck($"with 1 gold a {next.Price}-gold card is refused ({p.Gold} gold left; sold {next.Sold})", p.Gold == 1 && !next.Sold && _upgradeMenu.Visible);
-        // supplies: potions to the brim and a mend
+        // supplies: a potion for the belt, and a mend
         p.Gold = 100; p.Potions = 0; p.Hp = p.Stats.MaxHp * 0.3f;
         _upgradeMenu.ChooseLeave();
         foreach (var _ in Wait(0.3f)) yield return null;
         OpenShop(merchant);
         foreach (var _ in Wait(0.6f)) yield return null;
-        var sup = merchant.Stock.First(i => i.Supplies);
-        idx = merchant.Stock.Where(i => !i.Sold).ToList().IndexOf(sup);
-        float hp0 = p.Hp; int goldB = p.Gold;
-        _upgradeMenu.Choose(idx);
+        var pot = merchant.Stock.First(i => i.Card.Id == "shop_potion");
+        int potIdx = merchant.Stock.Where(i => !i.Sold).ToList().IndexOf(pot);
+        int goldP = p.Gold;
+        _upgradeMenu.Choose(potIdx);
         foreach (var _ in Wait(0.4f)) yield return null;
-        ScCheck($"his supplies fill the potion belt ({p.Potions}/{p.MaxPotions}) and mend ({hp0:0} -> {p.Hp:0} of {p.Stats.MaxHp:0}) for {sup.Price} gold ({goldB} -> {p.Gold})", p.Potions == p.MaxPotions && p.Hp > hp0 + 1f && p.Gold == goldB - sup.Price);
+        ScCheck($"he sells a potion for the belt ({p.Potions}/{p.MaxPotions}) for {pot.Price} gold ({goldP} -> {p.Gold})", p.Potions == 1 && p.Gold == goldP - pot.Price);
+        var sup = merchant.Stock.First(i => i.Supplies);
+        int idx2 = merchant.Stock.Where(i => !i.Sold).ToList().IndexOf(sup);
+        float hp0 = p.Hp; int goldB = p.Gold;
+        _upgradeMenu.Choose(idx2);
+        foreach (var _ in Wait(0.4f)) yield return null;
+        ScCheck($"his provisions mend ({hp0:0} -> {p.Hp:0} of {p.Stats.MaxHp:0}) for {sup.Price} gold ({goldB} -> {p.Gold})", p.Hp > hp0 + 1f && p.Gold == goldB - sup.Price);
+        _upgradeMenu.ChooseLeave();
+        foreach (var _ in Wait(0.3f)) yield return null;
+
+        // ---- shop relics and the Path's ranks change what he asks
+        p.Gold = 200;
+        var cardItem = merchant.Stock.First(i => !i.Service);
+        int plain = PriceOf(cardItem.Card);
+        p.Stats.ShopPriceMult = 0.8f;
+        int haggled = PriceOf(cardItem.Card);
+        ScCheck($"Haggler's Tongue takes a fifth off ({plain} -> {haggled})", haggled == Math.Max(1, (int)MathF.Round(plain * 0.8f)) || Math.Abs(haggled - plain * 0.8f) <= 1f);
+        p.Stats.ShopPriceMult = 1f;
+        Meta.Active.Add("price1"); Meta.Active.Add("price2"); Meta.Active.Add("price3");
+        int fair = PriceOf(cardItem.Card);
+        ScCheck($"Fair Dealing III takes 15% off ({plain} -> {fair}, x{Meta.ShopPriceMult:0.00})", Math.Abs(Meta.ShopPriceMult - 0.85f) < 0.001f && Math.Abs(fair - plain * 0.85f) <= 1f);
+        Meta.Active.Remove("price1"); Meta.Active.Remove("price2"); Meta.Active.Remove("price3");
+        int rp0 = RerollPrice(merchant);
+        p.Stats.RerollMult = 0.6f;
+        int rp1 = RerollPrice(merchant);
+        ScCheck($"Fence's Ledger makes dealing again 40% cheaper ({rp0} -> {rp1})", rp1 < rp0 && Math.Abs(rp1 - rp0 * 0.6f) <= 1f);
+        p.Stats.RerollMult = 1f;
+        p.Stats.FreeRerolls = 1;
+        ScCheck($"Loaded Dice make the first deal-again free ({RerollPrice(merchant)})", RerollPrice(merchant) == 0);
+        int goldR = p.Gold; int idsBefore = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).GetHashCode();
+        var oldIds = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).ToList();
+        OpenShop(merchant);
+        foreach (var _ in Wait(0.6f)) yield return null;
+        _upgradeMenu.Choose(merchant.Stock.Count(i => !i.Sold));
+        foreach (var _ in Wait(0.4f)) yield return null;
+        var newIds = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).ToList();
+        ScCheck($"dealing again for free costs nothing ({goldR} -> {p.Gold}), the table has new cards ({string.Join(",", oldIds)} -> {string.Join(",", newIds)}) and the supplies stay ({merchant.Stock.Any(i => i.Supplies)})", p.Gold == goldR && merchant.Rerolls == 1 && merchant.Stock.Any(i => i.Supplies) && newIds.Count >= 4);
+        int paid = RerollPrice(merchant);
+        ScCheck($"the second costs gold ({paid})", paid > 0);
+        _upgradeMenu.ChooseLeave();
+        foreach (var _ in Wait(0.3f)) yield return null;
+        p.Stats.FreeRerolls = 0;
+        int baseCount = DealCards(merchant).Count;
+        p.Stats.ShopExtra = 1;
+        int extraCount = DealCards(merchant).Count;
+        ScCheck($"Overstock puts one more thing on the table ({baseCount} -> {extraCount})", extraCount == baseCount + 1);
+        p.Stats.ShopExtra = 0;
+        // piles
+        int pg = p.Gold; p.GainGold(5, true); int plainPile = p.Gold - pg;
+        p.Stats.PileBonus = 3; pg = p.Gold; p.GainGold(5, true); int fat = p.Gold - pg;
+        ScCheck($"Fat Purse: a pile of five holds three more ({plainPile} -> {fat})", fat == plainPile + 3 || Math.Abs(fat - (plainPile + 3 * Meta.GoldFoundMult * p.Stats.GoldMult)) <= 1f);
+        p.Stats.PileBonus = 0;
+        // a token for dealing a choice of cards again
+        p.Gold = 100; p.Rerolls = 0;
+        merchant.Stock.Add(new ShopItem { Card = Token, Price = PriceOf(Token) });
+        OpenShop(merchant);
+        foreach (var _ in Wait(0.6f)) yield return null;
+        _upgradeMenu.Choose(merchant.Stock.Where(i => !i.Sold).ToList().FindIndex(i => i.Card.Id == "shop_token"));
+        foreach (var _ in Wait(0.4f)) yield return null;
+        ScCheck($"the merchant sells a token for dealing a choice of cards again ({p.Rerolls} reroll, gold {p.Gold})", p.Rerolls == 1 && p.Gold < 100);
+        _upgradeMenu.ChooseLeave();
+        foreach (var _ in Wait(0.3f)) yield return null;
+        // rerolling a chest's cards
+        p.Rerolls = 2;
+        var chest = new Chest { Position = p.GlobalPosition + new Vector2(0, 0), Tier = ChestTier.Wood };
+        _world.AddChild(chest);
+        chest.Look();
+        foreach (var _ in Wait(0.8f)) yield return null;
+        var cards0 = chest.Cards.ToArray();
+        ScCheck($"a chest's choice offers dealing again, two left ({_upgradeMenu.Visible}, {_upgradeMenu.RerollsLeft})", _upgradeMenu.Visible && _upgradeMenu.Reroll != null && _upgradeMenu.RerollsLeft == 2);
+        ScShot("shop_reroll_menu");
+        _upgradeMenu.Reroll();
+        foreach (var _ in Wait(0.4f)) yield return null;
+        ScCheck($"dealing again spends one and lays out cards again ({p.Rerolls} left; {string.Join(",", cards0)} -> {string.Join(",", chest.Cards)})", p.Rerolls == 1 && _upgradeMenu.RerollsLeft == 1 && chest.Cards.Length == 3);
         _upgradeMenu.ChooseLeave();
         foreach (var _ in Wait(0.3f)) yield return null;
 

@@ -135,6 +135,16 @@ public static partial class Upgrades
         Rl("relic_highground", "High Ground", "You hit creatures below you 25% harder.", (s, p) => s.HighGroundMult = 1.25f, rarity: RelicRarity.Uncommon, tags: "offence"),
         Rl("relic_frostfire", "Frostfire", "Fire hits frozen or chilled creatures, and frost hits burning ones, 30% harder.", (s, p) => s.Frostfire = 1.3f, rarity: RelicRarity.Rare, tags: "offence status"),
         Rl("relic_lucky", "Lucky Coin", "Gold you find is worth 50% more, and creatures are 1% likelier to drop a potion.", (s, p) => { s.GoldMult *= 1.5f; s.PotionChanceBonus += 0.01f; }, rarity: RelicRarity.Common, tags: "economy"),
+        // ---- the merchant's (gold, and what it buys)
+        Rl("relic_fatpurse", "Fat Purse", "Every pile of gold holds 3 more coins.", (s, p) => s.PileBonus += 3, rarity: RelicRarity.Common, tags: "economy shop"),
+        Rl("relic_overstock", "Overstock", "The merchant has one more thing on his table.", (s, p) => s.ShopExtra += 1, rarity: RelicRarity.Uncommon, tags: "economy shop"),
+        Rl("relic_haggle", "Haggler's Tongue", "Everything the merchant sells costs 20% less.", (s, p) => s.ShopPriceMult *= 0.8f, rarity: RelicRarity.Rare, tags: "economy shop"),
+        Rl("relic_dice", "Loaded Dice", "At every stall you may have his wares dealt again once for free.", (s, p) => s.FreeRerolls += 1, rarity: RelicRarity.Uncommon, tags: "economy shop"),
+        Rl("relic_ledger", "Fence's Ledger", "Having the merchant's wares dealt again costs 40% less.", (s, p) => s.RerollMult *= 0.6f, rarity: RelicRarity.Common, tags: "economy shop"),
+        Rl("relic_regular", "Regular Customer", "Reaching a merchant's stall gives you 15 gold: he likes a familiar face.", (s, p) => s.StallGold += 15, rarity: RelicRarity.Uncommon, tags: "economy shop"),
+        Rl("relic_peddlerfriend", "Peddler's Friend", "The merchant's provisions cost you nothing.", (s, p) => s.FreeSupplies = true, rarity: RelicRarity.Rare, tags: "economy shop"),
+        Rl("relic_purse", "Guardian's Purse", "A fallen guardian leaves 20 gold.", (s, p) => s.GuardianGold += 20, rarity: RelicRarity.Uncommon, tags: "economy"),
+        Rl("relic_interest", "Compound Interest", "The gold you carry grows by 10% (at least 1) each time you go down a level.", (s, p) => s.GoldInterest += 0.1f, rarity: RelicRarity.Rare, tags: "economy"),
         Rl("relic_midas", "Midas Mark", "You hit 1% harder for every 25 gold you carry (at most 20% more).", (s, p) => s.GoldDamageStep = 0.01f, rarity: RelicRarity.Rare, tags: "offence economy"),
 
         // ---- for one hero

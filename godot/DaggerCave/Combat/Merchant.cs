@@ -12,6 +12,8 @@ public sealed class ShopItem
     public bool Sold;
     /// <summary>His supplies (a belt of potions and a bandage) rather than an upgrade.</summary>
     public bool Supplies => Card.Id == "shop_supplies";
+    /// <summary>A service or supply (not an upgrade): kept when his cards are dealt again.</summary>
+    public bool Service => Card.Id.StartsWith("shop_");
 }
 
 /// <summary>
@@ -29,6 +31,8 @@ public partial class Merchant : Node2D
     public float Facing = -1f;
     /// <summary>His wares for this game's hero (null until they first look).</summary>
     public List<ShopItem> Stock;
+    /// <summary>How many times his wares have been dealt again (each costs more), and how many of those were free.</summary>
+    public int Rerolls, FreeRerollsUsed;
     /// <summary>Seconds since he was put up.</summary>
     public float T { get; private set; }
     /// <summary>He has just sold something (for his pleased look): seconds since.</summary>

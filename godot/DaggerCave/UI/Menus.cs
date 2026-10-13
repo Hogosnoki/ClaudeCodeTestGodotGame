@@ -11,6 +11,11 @@ public partial class UpgradeMenu : Control
     public event Action<Upgrade> Picked;
     /// <summary>Opens your build over the cards (TAB / BACK).</summary>
     public Action ShowBuild;
+    /// <summary>Deal these cards again (R / Y, or the button): null where it can't be done (the merchant's table, a level-up); <see cref="RerollsLeft"/> says how many times more.</summary>
+    public Action Reroll;
+    public int RerollsLeft;
+    private Rect2 _rerollBtn;
+    private bool _rKey, _yBtn;
     private List<Upgrade> _choices = new();
     /// <summary>Why each card can't be taken (null: it can): a friend's card, or one you have.</summary>
     private List<string> _locks = new();
@@ -37,7 +42,7 @@ public partial class UpgradeMenu : Control
     };
 
     /// <summary>A card's label: its kind, and for a hero's card, the ability it grows.</summary>
-    public static string KindLabel(Upgrade u, HeroKind hero) => u.Id == "shop_supplies" ? "SUPPLIES" : u.Kind switch
+    public static string KindLabel(Upgrade u, HeroKind hero) => u.Id is "shop_supplies" or "shop_token" or "shop_potion" ? "SUPPLIES" : u.Id == "shop_reroll" ? "SERVICE" : u.Kind switch
     {
         UpgradeKind.Class => "CLASS · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
         UpgradeKind.Alteration => "ALTERATION · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
@@ -92,6 +97,12 @@ public partial class UpgradeMenu : Control
         QueueRedraw();
     }
 
+    private void DoReroll()
+    {
+        if (RerollsLeft <= 0) { G.Sfx.Play("clink", null, -8, 0, 0.6f); return; }
+        Reroll?.Invoke();
+    }
+
     public void Choose(int i)
     {
         if (!Visible || i < 0 || i >= _choices.Count || _t - _openedAt < 0.25f) return;
@@ -126,6 +137,10 @@ public partial class UpgradeMenu : Control
         // your build over the cards: the keys are its own until it closes
         if (BuildPanel.Showing) { QueueRedraw(); return; }
         if (Input.IsActionJustPressed("build") && _t - _openedAt > 0.25f && BuildPanel.ClosedFrame != Engine.GetProcessFrames()) { ShowBuild?.Invoke(); return; }
+        // (deal them again: R, a controller's Y, or the button)
+        bool rk = Input.IsPhysicalKeyPressed(Key.R), yb = Input.IsJoyButtonPressed(0, JoyButton.Y);
+        if (Reroll != null && ((rk && !_rKey) || (yb && !_yBtn)) && _t - _openedAt > 0.25f) DoReroll();
+        _rKey = rk; _yBtn = yb;
         if (Input.IsActionJustPressed("pick_1")) Choose(0);
         else if (Input.IsActionJustPressed("pick_2")) Choose(1);
         else if (Input.IsActionJustPressed("pick_3")) Choose(2);
@@ -150,6 +165,7 @@ public partial class UpgradeMenu : Control
         }
         else if (e is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
         {
+            if (Reroll != null && _rerollBtn.HasPoint(mb.Position) && _t - _openedAt > 0.25f) { DoReroll(); AcceptEvent(); return; }
             for (int k = 0; k < _cards.Count; k++) if (_cards[k].HasPoint(mb.Position)) { Choose(k); AcceptEvent(); }
         }
     }
@@ -165,9 +181,12 @@ public partial class UpgradeMenu : Control
 
         int n = _choices.Count;
         float cw = n > 3 ? 220 : 250, gap = n > 3 ? 18 : 26;
-        // (a crowded table, the stall's: the cards narrow to fit the screen)
-        if (n * cw + (n - 1) * gap > vs.X - 100) { gap = 12; cw = (vs.X - 100 - (n - 1) * gap) / n; }
-        float total = n * cw + (n - 1) * gap;
+        // (a crowded table, the stall's: the cards narrow to fit the screen, and the services and the way out are narrower than the wares)
+        var wid = new float[n];
+        for (int k = 0; k < n; k++) wid[k] = _choices[k].Icon == "skip" || _choices[k].Id.StartsWith("shop_") ? 0.62f : 1f;
+        if (n * cw + (n - 1) * gap > vs.X - 100) { gap = 12; cw = (vs.X - 100 - (n - 1) * gap) / wid.Sum(); }
+        else { for (int k = 0; k < n; k++) wid[k] = 1f; }
+        float total = wid.Sum() * cw + (n - 1) * gap;
         float x0 = vs.X / 2 - total / 2, y0 = vs.Y * 0.3f;
         // the mat the cards lie on: what kind of choice this is
         var mat = new Rect2(x0 - 40, vs.Y * 0.2f - 46, total + 80, y0 - vs.Y * 0.2f + 46 + 300 + 44);
@@ -199,6 +218,18 @@ public partial class UpgradeMenu : Control
         var ssz = font.GetStringSize(sub, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - ssz.X / 2, vs.Y * 0.2f + 28), sub, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
 
+        // the reroll button: under the mat
+        _rerollBtn = default;
+        if (Reroll != null)
+        {
+            string rt = RerollsLeft > 0 ? $"DEAL AGAIN  ({(G.Main.UsingPad ? "Y" : "R")})  ·  {RerollsLeft} left" : "NO REROLLS LEFT";
+            var rsz = font.GetStringSize(rt, HorizontalAlignment.Left, -1, 14);
+            _rerollBtn = new Rect2(vs.X / 2 - (rsz.X + 36) / 2, mat.End.Y + 10, rsz.X + 36, 30);
+            var rc = RerollsLeft > 0 ? new Color(0.55f, 0.9f, 1f) : new Color(0.55f, 0.55f, 0.6f);
+            DrawColoredPolygon(UiArt.Rounded(_rerollBtn, 15), new Color(0.05f, 0.07f, 0.1f, 0.85f));
+            UiArt.Outline(this, _rerollBtn, 15, new Color(rc, 0.85f), 1.5f);
+            DrawString(font, _rerollBtn.Position + new Vector2(18, 20), rt, HorizontalAlignment.Left, -1, 14, rc);
+        }
         _cards.Clear();
         var stats = G.Player?.Stats;
         for (int k = 0; k < n; k++)
@@ -210,7 +241,7 @@ public partial class UpgradeMenu : Control
             string locked = k < _locks.Count ? _locks[k] : null;
             // a refused card gives a little shake
             float shake = k == _denied && _deniedT > 0 ? MathF.Sin(_deniedT * 60f) * 6f * _deniedT : 0f;
-            var r = new Rect2(x0 + k * (cw + gap) + shake, y0 - (hov && locked == null ? 8 : 0), cw, ch);
+            var r = new Rect2(x0 + wid.Take(k).Sum() * cw + k * gap + shake, y0 - (hov && locked == null ? 8 : 0), cw * wid[k], ch);
             _cards.Add(r);
             DrawCard(font, r, u, k, hov, locked, stats);
             if (_prices != null && k < _prices.Count && !skip) DrawPrice(font, r, _prices[k], locked != null);
@@ -220,7 +251,7 @@ public partial class UpgradeMenu : Control
     /// <summary>A price in gold on a tag under the card, with a coin: dim when it can't be paid.</summary>
     private void DrawPrice(Font font, Rect2 r, int price, bool cannot)
     {
-        string txt = price.ToString();
+        string txt = price == 0 ? "FREE" : price.ToString();
         var tsz = font.GetStringSize(txt, HorizontalAlignment.Left, -1, 18);
         var tag = new Rect2(r.Position.X + r.Size.X / 2 - (tsz.X + 46) / 2, r.End.Y + 10, tsz.X + 46, 28);
         var gold = cannot ? new Color(0.62f, 0.55f, 0.4f) : new Color(1f, 0.82f, 0.35f);

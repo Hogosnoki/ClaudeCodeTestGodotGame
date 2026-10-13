@@ -102,6 +102,9 @@ public static class Meta
         B(PearlTree, "mile", "Milestones", ("Waypoints I", "A milestone pick every 4 levels."), ("Waypoints II", "A milestone pick every 3 levels."), ("Waypoints III", "A milestone pick every 2 levels."));
         B(PearlTree, "xp", "Experience", ("Studious I", "+5% experience."), ("Studious II", "+7% more experience (12%)."), ("Studious III", "+8% more experience (20%)."));
         B(PearlTree, "exp", "Elite experience", ("Trophies I", "+5% experience from elites."), ("Trophies II", "+7% more from elites (12%)."), ("Trophies III", "+8% more from elites (20%)."));
+        B(PearlTree, "price", "Fair dealing", ("Fair Dealing I", "The merchant's prices are 5% lower."), ("Fair Dealing II", "The merchant's prices are 10% lower."), ("Fair Dealing III", "The merchant's prices are 15% lower."));
+        B(PearlTree, "gold", "Prospecting", ("Prospecting I", "Gold you find is worth 10% more."), ("Prospecting II", "Gold you find is worth 20% more."), ("Prospecting III", "Gold you find is worth 30% more."));
+        B(PearlTree, "reroll", "Second thoughts", ("Second Thoughts I", "Once a run, deal a choice of cards again."), ("Second Thoughts II", "Twice a run, deal a choice of cards again."), ("Second Thoughts III", "Three times a run, deal a choice of cards again."));
         Load();
     }
 
@@ -116,6 +119,10 @@ public static class Meta
     public static float PotionHealOverTime => 0.15f + 0.05f * Rank("hot");
     public static float PotionHotSeconds => 20f - new[] { 0f, 3f, 6f, 10f }[Rank("speed")];
     public static int MaxPotions => 1 + Rank("max");
+    /// <summary>What the merchant asks (x), what gold found is worth (x) and the choices of cards that may be dealt again in a run: from the Path's ranks.</summary>
+    public static float ShopPriceMult => 1f - 0.05f * Rank("price");
+    public static float GoldFoundMult => 1f + 0.1f * Rank("gold");
+    public static int RerollCharges => Rank("reroll");
     // ---- heroes: three at the start; the others are found (caged in the caves) or won
     public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
     // ---- the merchant: not a hero, but met like one (caged in the caves); once freed, a stall of his is offered after every guardian

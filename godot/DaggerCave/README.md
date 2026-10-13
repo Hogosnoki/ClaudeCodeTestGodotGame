@@ -662,7 +662,7 @@ Progress saved in `user://meta.json`:
 - **Embers** come from guardians (2, 3 from depth 5, 6 for the dragon). Embers buy the ranks of
   the trees.
 - **Resources**: each guardian yields one, drawn evenly from every resource not yet found (13
-  Reagents and 9 Obsidian Pearls in all, so each is a 1-in-22 chance at first). A bought rank only
+  Reagents and 18 Obsidian Pearls in all, so each is a 1-in-31 chance at first). A bought rank only
   takes effect once you spend a resource of its tree on it. A tree stays hidden until you find its
   first resource.
 - **The Potion tree** (Reagents): immediate heal +5% x3, heal over time +5% x3, heal-over-time
@@ -1374,6 +1374,28 @@ A Shape Shifter can **remember** the form it is in and take it again **without a
   (nothing about, or only what can't be copied: a guardian or a boss). With a creature that can be copied near, Shift copies it as before. So a **bear can be had against the last boss**.
 - **Tanking**: the heavy forms now draw the creatures' eyes (`ShiftForm.Threat`: they count a hero in the form that much nearer; the bear 0.5x, the golem 0.6x, the crab 0.8x), and the bear shrugs off
   35% of blows (was 20%; the golem 40%). More for the party is yet to come. `--scenario=shifterspecials --hero=shifter` checks remembering, recalling, and Shift still copying.
+
+## The merchant and his stall
+
+**Finding him.** The merchant is another character to unlock, but not a playable one. While anyone in the party hasn't met him (`Meta.MerchantUnlocked`, a bit of `PeerInfo.Locked` online), some of the hero cages hold **him**
+(`Tune.Merchant.CageShare`, 35% of cages, all of them once every hero is found): free him (interact) and he is yours for good (`HeroCage.Merchant`, `Lore.MerchantFreedBanner`). While everything is unlocked for testing he is always known.
+
+**His stall is a third exit.** Once he is known, a fallen guardian leaves three exits, left to right: *the gentle way* (a level down), **the merchant's stall** and *the steep way* (two down) (`Main.PlanExits`). The stall does
+**not** descend: it is the *same biome at the same depth*, in a **tiny new map** (`BiomeDef.ForShop`, `Biomes.ShopOf`; the biome's palette and dressing, in a map of two chambers about 105 cells wide) in which
+nothing lives, nothing is hidden (no chests, gold, vault, rubble, secret ways) and the way on is open from the start: two exits, one level down and two (the way a guardian-less level opens them), and no second stall. In the exit chamber
+stands the merchant at his table (`Combat/Merchant.cs`, `MerchantDesign`, `MerchantView`; a lantern, a pack, a plank table with wares); arriving heals nothing (the level below does). Online, the stall rides on the same message and portal sync as any level
+(a shop flag).
+
+**Trading.** Stand at him and press interact: the cards he has are dealt for you (`Main.Shop.cs`), each with a **price in gold** on a tag under it; a card you can't pay says how much more you need. What he has: **three cards** (a class card and two others, as a chest deals), **a relic**,
+**a potion** for the belt, **provisions** (mends 40% of your health), and, now and then (60%), **a token of Second Thoughts** (one more time a choice of cards may be dealt again). Buying takes the card at once and lays the table out again without it;
+**Deal Again** shuffles the cards he hasn't sold (6 gold, a half more each time, the supplies stay); **Walk Away** closes the stall. Prices are by rarity (8, 14, 24 and 36 for a relic, rising 8% a level down).
+
+**Dealing a choice of cards again.** A chest's cards or a milestone's can be **dealt again** (R, a controller's Y, or the button under the cards) as many times as the hero has charges (`Player.Rerolls`): the Path's **Second Thoughts** I-III give 1, 2 or 3 a run,
+and the merchant sells tokens. A chest's new cards are the chest's from then on, for any friend who looks in after.
+
+**Gold relics.** Fat Purse (piles hold 3 more coins), Overstock (one more thing on his table), Haggler's Tongue (20% cheaper), Loaded Dice (the first deal-again at each stall is free), Fence's Ledger (dealing again 40% cheaper),
+Regular Customer (+15 gold on reaching a stall), Peddler's Friend (his provisions are free), Guardian's Purse (+20 gold per guardian) and Compound Interest (+10% of your gold each level you go down).
+**Unlocks** (the Path, Obsidian Pearls: now 18 in all): **Fair Dealing** I-III (his prices 5/10/15% lower), **Prospecting** I-III (gold found worth 10/20/30% more) and **Second Thoughts** I-III. `--scenario=shop --hero=swordsman` checks all of it.
 
 ## The Nest's hornet hive
 

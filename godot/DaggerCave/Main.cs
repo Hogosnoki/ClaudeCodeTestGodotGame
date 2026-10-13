@@ -749,10 +749,10 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0, keepRerolls = 0;
         if (!freshPlayer && G.Player != null)
         {
-            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound; keepGoldSpent = G.Player.GoldSpent;
+            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound; keepGoldSpent = G.Player.GoldSpent; keepRerolls = G.Player.Rerolls;
             // (a key goes on down only for a cell left locked behind: open every cell and you leave with none)
             keepKeys = Math.Min(G.Player.Keys, LockedCells());
             keepMilestones = G.Player.PendingMilestones;
@@ -802,7 +802,7 @@ public partial class Main : Node
         if (keepStats != null) { player.Stats = keepStats; }
         else ClassPerks.Apply(player.Stats); // (a new run: the perks this hero brings)
         _world.AddChild(player);
-        if (keepStats == null) ApplyLoadout(player);
+        if (keepStats == null) { ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; }
         if (keepStats != null)
         {
             // (Spring Water: going deeper heals you to full)
@@ -817,7 +817,10 @@ public partial class Main : Node
             }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
-            player.Gold = keepGold; player.GoldFound = keepGoldFound; player.GoldSpent = keepGoldSpent;
+            player.Gold = keepGold; player.GoldFound = keepGoldFound; player.GoldSpent = keepGoldSpent; player.Rerolls = keepRerolls;
+            // (interest is paid on the way down, not into the stall and out again)
+            if (keepStats.GoldInterest > 0f && !G.Shop && keepGold > 0) { int paid = Math.Max(1, (int)MathF.Round(keepGold * keepStats.GoldInterest)); player.Gold += paid; player.GoldFound += paid; }
+            if (G.Shop && keepStats.StallGold > 0) { player.Gold += keepStats.StallGold; player.GoldFound += keepStats.StallGold; }
             player.PendingMilestones = keepMilestones;
             player.SetVitalForce(Math.Max(keepVitalForce, Tune.Vitalist.VitalForceStart * 0.5f));
             // (alimus comes back by itself anyway: at least half a reserve on a new level)
@@ -1713,7 +1716,50 @@ public partial class Main : Node
         _sfx.Play(chest == null ? "card_reveal" : relicChoice ? "relic_reveal" : "card_reveal", null, 0, 0, chest == null ? 1.15f : 1f);
         var backdrop = chest == null ? UiArt.Surface.Night : relicChoice ? UiArt.Surface.Velvet : UiArt.Surface.Arcane;
         var frame = chest == null ? UiArt.Rarity.Rare : relicChoice ? UiArt.Rarity.Relic : chest.Vault || chest.Tier == ChestTier.Boss ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon;
-        _upgradeMenu.Open(choices, chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!", locks, backdrop, frame);
+        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!";
+        _rerollTitle = openTitle; _rerollBackdrop = backdrop; _rerollFrame = frame;
+        _upgradeMenu.Open(choices, openTitle, locks, backdrop, frame);
+        // (a pick from a chest or a milestone may be dealt again, as many times as the hero has earned)
+        _upgradeMenu.Reroll = RerollCards; _upgradeMenu.RerollsLeft = p.Rerolls;
+        _autoPickT = 0.5f;
+    }
+
+    private string _rerollTitle = "";
+    private UiArt.Surface _rerollBackdrop;
+    private UiArt.Rarity _rerollFrame;
+
+    /// <summary>The cards on the table are dealt again: a chest's (for whoever looks in after, too), or a milestone's.</summary>
+    private void RerollCards()
+    {
+        var p = G.Player;
+        if (p == null || p.Rerolls <= 0 || _shop != null) return;
+        p.Rerolls--;
+        var chest = _lookingChest;
+        List<Upgrade> choices;
+        List<string> locks;
+        if (chest != null && IsInstanceValid(chest))
+        {
+            var party = Net.Online && chest.Owner == 0 ? NetSync.PartyHeroes() : null;
+            chest.Cards = chest.Corrupt ? Upgrades.RollCorruptCards(p.Stats, _rng)
+                        : chest.Vault ? Upgrades.RollVaultCards(p.Stats, party, _rng)
+                        : Upgrades.RollChestCards(p.Stats, party, _rng, chest.GlobalPosition, relic: chest.Tier == ChestTier.Relic);
+            if (chest.Cards.Any(id => Upgrades.Find(id)?.Relic == true)) chest.RelicFor = Net.Me;
+            NetSync.ChestCards(chest);
+            choices = chest.Cards.Select(Upgrades.Find).Where(u => u != null).ToList();
+            locks = choices.Select(u => Upgrades.LockReason(u, p.Stats)).ToList();
+            if (chest.RelicFor != 0 && chest.RelicFor != Net.Me)
+                for (int k = 0; k < choices.Count; k++) if (choices[k].Relic && locks[k] == null) locks[k] = "MEANT FOR " + Net.NameOf(chest.RelicFor);
+            choices.Add(Upgrades.LeaveChest); locks.Add(null);
+        }
+        else
+        {
+            choices = Upgrades.RollMilestone(p.Stats, _rng);
+            if (choices.Count == 0) { p.Rerolls++; return; }
+            choices.Add(Upgrades.Skip); locks = choices.Select(_ => (string)null).ToList();
+        }
+        _sfx.Play("card_reveal", null, -2, 0, 1.2f);
+        _upgradeMenu.Open(choices, _rerollTitle, locks, _rerollBackdrop, _rerollFrame);
+        _upgradeMenu.Reroll = RerollCards; _upgradeMenu.RerollsLeft = p.Rerolls;
         _autoPickT = 0.5f;
     }
 
@@ -2667,6 +2713,7 @@ public partial class Main : Node
     private void GuardianRewards(int embers, bool dragon, string name, Vector2 at)
     {
         _guardianDown = true;
+        if (G.Player != null && G.Player.Stats.GuardianGold > 0) G.Player.GainGold(G.Player.Stats.GuardianGold);
         _sfx.SetMusic("ambient");
         G.Fx.AddShake(14);
         G.Fx.ScreenFlash(new Color(1f, 0.9f, 0.6f), 0.3f);
@@ -3832,8 +3879,8 @@ public partial class Main : Node
         Check("trees hidden before any resource", !Meta.Trees.Any(Meta.Visible));
         var rng = new Random(3);
         int reagents = 0, pearls = 0;
-        for (int k = 0; k < 22; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
-        Check($"22 draws give every resource once (13 reagents: {reagents}, 9 pearls: {pearls})", reagents == 13 && pearls == 9);
+        for (int k = 0; k < 31; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
+        Check($"31 draws give every resource once (13 reagents: {reagents}, 18 pearls: {pearls})", reagents == 13 && pearls == 18);
         Check("nothing once all are found", Meta.RollResource(rng) == null);
         var heal1 = Meta.PotionTree.Branch("heal").First();
         Check("can't buy without embers", !Meta.Buy(heal1));
