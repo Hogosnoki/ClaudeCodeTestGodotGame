@@ -519,6 +519,15 @@ public static class Tune
     {
         public static int CoinsMin = 1, CoinsMax = 3, PileMin = 4, PileMax = 8;
         public static float PileChance = 0.2f;
+        /// <summary>
+        /// Gold too wherever something ought to be and isn't (see Main.PlaceMoreGold): on high platforms with nothing under them, on ledges that lead nowhere, on the floor of
+        /// a chamber with no chest, and on the odd quiet shelf: about <c>SpotsPerMap</c> places on a map of the usual size, each kept <c>Spacing</c> px from the next and
+        /// <c>RewardGap</c> px from any chest, cage, key or other gold; a high platform holds a pile <c>HighPileChance</c> of the time.
+        /// </summary>
+        public static float SpotsPerMap = 10f, Spacing = 150f, RewardGap = 110f, HighPileChance = 0.4f, LedgePileChance = 0.25f;
+        /// <summary>Creatures drop gold now and then: a coin (or, <c>DropPileChance</c> of the time, a small pile) <c>DropChance</c> of the time, an elite <c>EliteDropChance</c>, a guardian always (a pile of <c>GuardianPile</c>).</summary>
+        public static float DropChance = 0.07f, EliteDropChance = 0.4f, DropPileChance = 0.12f;
+        public static int GuardianPile = 12;
     }
 
     /// <summary>The wind-ups (cast delays): the hero keeps this share of its speed (walking, swimming, falling) while one gathers.</summary>

@@ -1088,6 +1088,13 @@ public abstract partial class Enemy : CharacterBody2D
         G.Fx.Ring(GlobalPosition, HitRadius + 6, new Color(1, 1, 1, 0.6f));
         if (!Brood)
         {
+            // gold now and then (a guardian leaves a pile)
+            float goldChance = IsGuardian ? 1f : IsBoss ? 1f : Elite ? Tune.Gold.EliteDropChance : Tune.Gold.DropChance;
+            if (!G.Shop && G.Chance(goldChance))
+            {
+                int worth = IsGuardian || IsBoss ? Tune.Gold.GuardianPile : G.Chance(Tune.Gold.DropPileChance + (Elite ? 0.3f : 0f)) ? G.RangeI(Tune.Gold.PileMin, Tune.Gold.PileMax) : 1;
+                G.Spawn(new CoinPickup { Position = GlobalPosition, Count = worth, Dropped = true, Vel = G.RandDir() * G.Range(30, 90) + new Vector2(0, -110), Puppet = Net.Online && !Net.IsHost });
+            }
             int xp = (int)MathF.Round(XpValue * Tune.Enemy.XpMult * (Elite ? Meta.EliteXpMult : 1f));
             int orbs = Math.Clamp(xp / 2, 1, 12);
             int per = Math.Max(1, xp / orbs);

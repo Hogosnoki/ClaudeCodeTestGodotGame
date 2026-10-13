@@ -914,6 +914,7 @@ public partial class Main : Node
             PlaceRubble(cave);
             PlaceLedges(cave);
             PlaceVault(cave);
+            PlaceMoreGold(cave);
             SpawnCritters(cave);
             if (cave.Liquid == Liquid.Water) PlaceAirVents(cave);
             PlaceHazards(cave);
@@ -1332,6 +1333,92 @@ public partial class Main : Node
         _world.AddChild(hive);
         TheHive = hive;
     }
+
+    /// <summary>
+    /// Gold wherever something ought to be and isn't: on high platforms with nothing under them, on slabs and shelves that lead nowhere, on the floor of a
+    /// chamber with no chest, and on the odd far, quiet floor. Found after every other reward is down (chests, cages, keys, gold, vaults), from the seed alone.
+    /// </summary>
+    private void PlaceMoreGold(CaveData cave)
+    {
+        if (cave.ReachMask == null) return;
+        var rng = new Random(cave.Seed ^ 0x6a01d);
+        int want = (int)MathF.Round(Tune.Gold.SpotsPerMap * cave.W * cave.H / (230f * 120f));
+        if (want <= 0) return;
+        // what is already there
+        var rewards = new List<Vector2> { cave.StartPos };
+        foreach (var n in _world.GetChildren())
+            if (n is Chest or HeroCage or CoinPickup or KeyPickup or PowerCell or VaultGate or Portal or GuildLamp or Rubble) rewards.Add(((Node2D)n).GlobalPosition);
+        foreach (var v in new[] { cave.Vault, cave.ExtraVault }) if (v != null) { rewards.Add(v.Chest); rewards.Add(v.Gate); }
+        bool Reach(Vector2 f)
+        {
+            int i = (int)(f.X / CaveData.Cell), j = (int)(f.Y / CaveData.Cell) - 1;
+            return i >= 0 && j >= 0 && i < cave.W && j < cave.H && cave.ReachMask[j * cave.W + i];
+        }
+        bool Usable(Vector2 f)
+        {
+            if (cave.IsWater(f + new Vector2(0, -8)) || cave.IsLava(f + new Vector2(0, -8)) || cave.IsSolid(f + new Vector2(0, -10)) || !Reach(f)) return false;
+            if (f.DistanceTo(cave.StartPos) < 14 * CaveData.Cell) return false;
+            if (cave.Boss != null && f.DistanceTo(cave.Boss.Center) < cave.Boss.RxPx + 40) return false;
+            foreach (var r in cave.Rooms) if (r.Kind == RoomKind.Secret && f.DistanceTo(r.Center) < Math.Max(r.RxPx, r.RyPx) + 2 * CaveData.Cell) return false;
+            foreach (var q in rewards) if (q.DistanceTo(f) < Tune.Gold.RewardGap) return false;
+            return true;
+        }
+        // 0 high platform, 1 ledge or slab to nowhere, 2 chamber floor with no chest, 3 a far, quiet floor
+        var cands = new List<Vector2>[] { new(), new(), new(), new() };
+        for (int tries = 0; tries < 5000; tries++)
+        {
+            var at = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
+            if (cave.IsSolid(at) || !cave.FindFloor(at, 300, out var f) || !Usable(f)) continue;
+            // (flat enough to lie on)
+            if (!cave.IsSolid(f + new Vector2(-6, 5)) || !cave.IsSolid(f + new Vector2(6, 5))) continue;
+            bool below = cave.FindFloor(f + new Vector2(0, 14), 900, out var under);
+            float drop = below ? under.Y - f.Y : 999f;
+            bool narrow = !cave.IsSolid(f + new Vector2(-34, 8)) && !cave.IsSolid(f + new Vector2(34, 8));
+            bool edge = !cave.IsSolid(f + new Vector2(-30, 8)) || !cave.IsSolid(f + new Vector2(30, 8));
+            if (drop > 110f) cands[0].Add(f);
+            else if (narrow || (edge && drop > 50f)) cands[1].Add(f);
+            else
+            {
+                bool inRoom = false;
+                foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Treasure or RoomKind.MiniBoss && f.DistanceTo(r.Floor) < r.RxPx * 0.8f && Math.Abs(f.Y - r.Floor.Y) < 24f) inRoom = true;
+                if (inRoom) cands[2].Add(f);
+                else if (f.DistanceTo(cave.StartPos) > cave.SizePx.X * 0.3f) cands[3].Add(f);
+            }
+        }
+        // (the slabs that are alone: no coin, key or chest near their tops)
+        foreach (var l in RockLedge.All)
+        {
+            var top = l.GlobalPosition + new Vector2(0, -l.ThickPx / 2f - 1f);
+            if (IsInstanceValid(l) && Usable(top)) cands[1].Add(top);
+        }
+        for (int k = 0; k < cands.Length; k++) cands[k] = cands[k].OrderBy(_ => rng.Next()).ToList();
+        var placed = new List<Vector2>();
+        int[] made = new int[4];
+        for (int round = 0, guard = 0; placed.Count < want && guard < 2000; guard++, round++)
+        {
+            int kind = round % 4;
+            var list = cands[kind];
+            if (list.Count == 0) { if (cands.All(c => c.Count == 0)) break; continue; }
+            var f = list[^1]; list.RemoveAt(list.Count - 1);
+            if (placed.Any(q => q.DistanceTo(f) < Tune.Gold.Spacing) || rewards.Any(q => q.DistanceTo(f) < Tune.Gold.RewardGap)) continue;
+            bool pile = rng.NextDouble() < (kind == 0 ? Tune.Gold.HighPileChance : kind == 1 ? Tune.Gold.LedgePileChance : Tune.Gold.PileChance);
+            int n = pile ? 1 : rng.Next(Tune.Gold.CoinsMin, Tune.Gold.CoinsMax + 1);
+            int worth = pile ? rng.Next(Tune.Gold.PileMin, Tune.Gold.PileMax + 1) : 1;
+            for (int k = 0; k < n; k++)
+            {
+                var at = f + new Vector2((k - (n - 1) * 0.5f) * 10f, 0);
+                var floor = cave.FindFloor(at + new Vector2(0, -10), 40, out var ff) && Math.Abs(ff.X - at.X) < 4f ? ff : f;
+                var coin = new CoinPickup { Position = floor + new Vector2(0, -1), Count = worth, Puppet = Net.Online && !Net.IsHost };
+                NetSync.LevelId(coin);
+                _world.AddChild(coin);
+            }
+            placed.Add(f); rewards.Add(f); made[kind]++;
+        }
+        if (_autotest) GD.Print($"[autotest] more gold: {placed.Count} places (high {made[0]}, ledges {made[1]}, chambers {made[2]}, quiet {made[3]})");
+        MoreGoldPlaces = placed.Count;
+    }
+    /// <summary>For the tests: how many places the last level's extra gold went to.</summary>
+    public int MoreGoldPlaces { get; private set; }
 
     // ------------------------------------------------------------------ keys and the vault
 

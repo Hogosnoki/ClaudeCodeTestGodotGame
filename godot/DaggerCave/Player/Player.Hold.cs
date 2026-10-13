@@ -6,7 +6,7 @@ namespace DaggerCave;
 /// <summary>
 /// Wind-ups. Some casts take a moment to gather before they go off (a heal 0.4 s, a Rupture 0.8 s, the Aegis's shields 0.25 s, the
 /// Elementalist's firebolt 0.2 s, frostbolt 0.1 s, Blizzard 0.5 s and Stalag-Might 1 s, the Rogue's recall 0.4 s). The cost is paid and
-/// the cooldown started when the button is pressed; then, for the wind-up, the hero is slowed to a tenth (Tune.Hold.MoveShare: walking, swimming and falling alike), with no jumping,
+/// the cooldown started when the button is pressed; then, for the wind-up, the hero is slowed to a tenth sideways (Tune.Hold.MoveShare; a rise or a fall in progress is not touched), with no jumping,
 /// no dodging, animated in the cast to show it is under way (the animation lasts as long as the wind-up does);
 /// then the cast goes off. A stun, a freeze, a web, a snag or a death cuts it short and the cast is lost.
 /// </summary>
@@ -21,7 +21,7 @@ public partial class Player
     /// <summary>The length of the last wind-up begun (for the tests).</summary>
     public float LastHold { get; private set; }
     /// <summary>For the tests: the farthest a hero may get in a wind-up of <paramref name="seconds"/> while slowed to a tenth (pushing the whole time).</summary>
-    public float HoldDriftAllowance(float seconds) => Math.Max(RunSpeed * Stats.MoveSpeed, MaxFall) * Tune.Hold.MoveShare * seconds * 1.3f + 1f;
+    public float HoldDriftAllowance(float seconds) => RunSpeed * Stats.MoveSpeed * Tune.Hold.MoveShare * seconds * 1.3f + 1f;
     /// <summary>The farthest the hero got from where the last wind-up began, while it lasted (for the tests: it should be nothing).</summary>
     public float LastHoldDrift { get; private set; }
     private Vector2 _holdPos;
@@ -47,7 +47,8 @@ public partial class Player
         _holdPos = GlobalPosition;
         _holdT = _holdTotal = seconds;
         _holdFire = fire;
-        Velocity *= Tune.Hold.MoveShare;
+        // (sideways it slows at once; the rise or fall you are in carries on)
+        Velocity = new Vector2(Velocity.X * Tune.Hold.MoveShare, Velocity.Y);
         Anim.OnceFor(clip, 3, seconds);
         _castGlow = Math.Max(_castGlow, glow * 0.6f);
     }

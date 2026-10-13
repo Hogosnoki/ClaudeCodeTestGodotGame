@@ -1375,6 +1375,15 @@ A Shape Shifter can **remember** the form it is in and take it again **without a
 - **Tanking**: the heavy forms now draw the creatures' eyes (`ShiftForm.Threat`: they count a hero in the form that much nearer; the bear 0.5x, the golem 0.6x, the crab 0.8x), and the bear shrugs off
   35% of blows (was 20%; the golem 40%). More for the party is yet to come. `--scenario=shifterspecials --hero=shifter` checks remembering, recalling, and Shift still copying.
 
+## More gold, and gold from creatures
+
+**Gold where something ought to be** (`Main.PlaceMoreGold`, `Tune.Gold`): beside the dead ends, coins and piles are laid, from the seed alone and after every other reward is down, on **high platforms with nothing under them**,
+on **ledges, slabs and shelves that lead nowhere**, on the floor of a **chamber with no chest**, and on the odd **far, quiet floor**; about ten places on a map of the usual size (more on a bigger one), 150 px apart, 110 px from any chest, cage, key, door or other gold,
+and only where a hero can walk (a high platform holds a pile 40% of the time, a ledge 25%). **Creatures drop gold now and then** (7% a kill, 40% from an elite, a pile of 12 from a guardian; 12% of drops are piles, `Enemy.DieHere`): a coin that flies out and falls to the floor (`CoinPickup.Dropped`, sent to the party like any prop);
+a hive's hornets and everything in the merchant's stall leave none.
+
+**Wind-ups keep your rise and fall.** The pause of a wind-up slows you to a tenth *sideways* only: a jump or a fall in progress carries on as it was (it no longer resets or caps your vertical speed). A blow that lands still stops any rise or fall, as before.
+
 ## The merchant and his stall
 
 **Finding him.** The merchant is another character to unlock, but not a playable one. While anyone in the party hasn't met him (`Meta.MerchantUnlocked`, a bit of `PeerInfo.Locked` online), some of the hero cages hold **him**

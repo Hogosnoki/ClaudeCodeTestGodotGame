@@ -14,6 +14,10 @@ public partial class CoinPickup : Node2D
     /// <summary>How many gold pieces it is worth: 1 for a coin, 4 to 8 for a pile.</summary>
     public int Count = 1;
     public bool IsPile => Count > 1;
+    /// <summary>Dropped by a creature: it flies out and falls to the floor (placed ones just lie there).</summary>
+    public bool Dropped;
+    public Vector2 Vel;
+    private bool _landed;
     private float _t;
     public float T => _t;
 
@@ -21,7 +25,20 @@ public partial class CoinPickup : Node2D
 
     public override void _PhysicsProcess(double delta)
     {
-        _t += (float)delta;
+        float dt = (float)delta;
+        _t += dt;
+        if (Dropped && !_landed)
+        {
+            Vel.Y += 620f * dt;
+            var next = GlobalPosition + Vel * dt;
+            if (G.Cave.IsSolid(next + new Vector2(0, 2)))
+            {
+                // (it lands: on the floor under it, or where it was if there is none near)
+                if (G.Cave.FindFloor(GlobalPosition + new Vector2(0, -6), 60, out var fl)) GlobalPosition = fl + new Vector2(0, -1);
+                _landed = true;
+            }
+            else GlobalPosition = next;
+        }
         if (G.Chance(IsPile ? 0.03f : 0.012f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-5, 5), -G.Range(0, 7)), new Color(1f, 0.85f, 0.35f), 4);
         foreach (var p in G.Players)
         {
