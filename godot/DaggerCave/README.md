@@ -856,7 +856,9 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   (the character borders setting, the shader global `ink_actor_px`), in the afflicted colour (poison, fire, frost) when there is one. Nothing is drawn over
   a creature itself, so there are no lines along its own limbs and folds; a creature behind rock gets
   none where it is hidden, and the line never lies over rock in front of it. (The camp and the title
-  portraits have their own.)
+  portraits have their own.) The mask is made at the size of the view's own picture, **not the window's**: when the window isn't 16:9 the picture
+  is kept to the content's shape with bars beside it, and a mask at the window's size was a different shape, which put every outline off the creature
+  (checked with `--resolution 1600x700 --lookshot=...`).
 - **Creatures** (`Render3D/Creatures/`): each creature type is sculpted once from code
   (`Designs/`): signed-distance primitives (limbs, eggs, blocks, carved sockets) are
   smooth-unioned on a skeleton and meshed, then teeth, claws, horns, eyes, membranes and weapons

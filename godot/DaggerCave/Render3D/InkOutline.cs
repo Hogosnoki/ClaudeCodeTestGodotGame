@@ -109,7 +109,10 @@ public partial class InkOutline : Node3D
     {
         if (_main == null || !GodotObject.IsInstanceValid(_main) || _cam == null) return;
         var host = GetViewport();
-        var size = host is SubViewport sv ? sv.Size : GetWindow().Size;
+        // (the size of the view's own picture: for the game window that is NOT the window's size when the window isn't 16:9: the picture is
+        // kept to the content's shape, with bars beside it, and a mask made at the window's size would be a different shape, and off)
+        var size = host is SubViewport sv ? sv.Size : (Vector2I)host.GetTexture().GetSize();
+        if (size.X < 16 || size.Y < 16) size = GetWindow().Size;
         float scale = host.Scaling3DScale;
         var want = new Vector2I(Math.Max(16, (int)(size.X * scale)), Math.Max(16, (int)(size.Y * scale)));
         if (_vp.Size != want) _vp.Size = want;
