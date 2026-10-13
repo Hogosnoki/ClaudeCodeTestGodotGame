@@ -794,6 +794,8 @@ public static class Tune
         public static float EnvenomSeekSeconds = 0.6f, EnvenomSpeed = 380f, EnvenomTotal = 6f, EnvenomSeconds = 6f;
         /// <summary>A Shape Shifter fish out of water loses this share of its health a second (a real fish dies of it in about eight).</summary>
         public static float FishDrownPerSec = 0.1f;
+        /// <summary>The dodge button in a form commits it to memory (RememberCooldown s before it can again); the second button, or Shift with nothing to copy, takes the remembered form again.</summary>
+        public static float RememberCooldown = 1.5f;
     }
 
     /// <summary>Blows from creatures are area blows: heroes close together split them.</summary>

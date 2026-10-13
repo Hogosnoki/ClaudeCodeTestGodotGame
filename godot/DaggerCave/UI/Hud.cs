@@ -728,6 +728,10 @@ public partial class Hud : Control
         string spec = f != null ? f.SpecialName.ToUpperInvariant() : "SPECIAL";
         AbilitySquare(font, sb, spec, f != null ? p.FormSpecialFrac : 1f, f != null && p.FormSpecialReady, white, (c, col) => DrawArc(c, 6, 0, Mathf.Tau, 12, col, 2f));
         KeyHint(font, sb, "ability2");
+        // what is remembered (the dodge button, in a form, commits it; the second button, out of one, takes it again)
+        var rem = p.RememberedForm;
+        DrawString(font, cb + new Vector2(0, 52), rem != null ? $"REMEMBERS: {rem.Name.ToUpperInvariant()}" : f != null ? $"{Controls.Name("dodge")}: remember this form" : "no form remembered", HorizontalAlignment.Left, -1, 10, new Color(0.8f, 0.9f, 1f, rem != null ? 0.8f : 0.45f));
+        Tip(new Rect2(cb + new Vector2(-2, 42), new Vector2(180, 14)), "Memory", "In a form, the dodge button commits it to memory. Out of one, the second button (or Shift with nothing to copy near) takes the remembered form again, so a bear can be had against a guardian that can't be copied.");
     }
 
     /// <summary>The Automaton: Brace, Self-Repair with the fuel it holds, and Steam Release.</summary>

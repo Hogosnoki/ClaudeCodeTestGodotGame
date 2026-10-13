@@ -52,7 +52,7 @@ public partial class Player
     public bool Taunting => IsRemote ? (_netFlags & HfTaunt) != 0 : _tauntLeft > 0;
     public float TauntLeft => _tauntLeft;
     /// <summary>How far off the creatures count this hero to be: the hero's own reckoning, or next to nothing while taunting.</summary>
-    public float EffectiveThreat => Taunting ? 0.001f : (Stats?.ThreatDist ?? 1f);
+    public float EffectiveThreat => Taunting ? 0.001f : (Stats?.ThreatDist ?? 1f) * (Form?.Threat ?? 1f);
 
     private void TickSupport(float dt)
     {

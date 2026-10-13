@@ -1360,6 +1360,15 @@ narrow shaft from the first's floor, with another (`Cave/RiverGen.cs`, from a ge
 The nooks' pass no longer wipes the river's own slit marks (`CaveData.OwnHints`). `--leftsecrets` makes every level have two;
 `--scenario=river --leftsecrets` checks the chambers, chests, marks, the swim in and the shaft.
 
+## The Shape Shifter remembers a form
+
+A Shape Shifter can **remember** the form it is in and take it again **without a creature to copy** (`Player.Shifter.cs`: `TryRemember`, `TryRecall`):
+- **Remember**: in a form, the **dodge button** (a creature has no roll) commits the form to memory (`PlayerStats.RememberedForm`, kept for the run; one form at a time, 1.5 s between). The HUD under Shift says which.
+- **Recall**: out of a form, the **second button** takes the remembered form at once (it spends the Shift ability's use, as a Shift does), and so does **Shift itself when nothing can be copied near**
+  (nothing about, or only what can't be copied: a guardian or a boss). With a creature that can be copied near, Shift copies it as before. So a **bear can be had against the last boss**.
+- **Tanking**: the heavy forms now draw the creatures' eyes (`ShiftForm.Threat`: they count a hero in the form that much nearer; the bear 0.5x, the golem 0.6x, the crab 0.8x), and the bear shrugs off
+  35% of blows (was 20%; the golem 40%). More for the party is yet to come. `--scenario=shifterspecials --hero=shifter` checks remembering, recalling, and Shift still copying.
+
 ## The Swordsman's dash-slash
 
 The dodge roll is gone: the Swordsman's dodge button is a **dash-slash** (`Player.Swordsman.cs`). A dash of 560 px/s for 0.28 s, in any direction in the air or water and along the floor on the ground,

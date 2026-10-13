@@ -192,6 +192,8 @@ public sealed class PlayerStats
     public float StruckIgnite, StruckFreeze;
     /// <summary>How much gold a pick-up is worth (x), and how far past the usual a hero's pick-ups reach (px).</summary>
     public float GoldMult = 1f, PickupReach;
+    /// <summary>The Shape Shifter's remembered form (its key; null: none yet), kept for the run.</summary>
+    public string RememberedForm;
     /// <summary>The chance a melee blow that lands strikes again (the Echoing Blade relic).</summary>
     public float EchoStrike;
     /// <summary>The co-op relics: health every living ally is given when this hero falls; how much more health (a share of max) this hero rises with when a friend revives them; and how much more a friend they revive rises with.</summary>

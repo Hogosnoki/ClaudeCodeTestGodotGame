@@ -700,7 +700,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => BeginDraftAim(inp),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
-        HeroKind.ShapeShifter => Possessed || TryDodge(inp), // (a creature has no dodge roll)
+        HeroKind.ShapeShifter => Possessed ? TryRemember() : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
         HeroKind.Automaton => TryBrace(inp),
         _ => true,
     };

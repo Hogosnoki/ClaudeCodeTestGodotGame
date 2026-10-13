@@ -170,5 +170,34 @@ public partial class Main
         ScShot("form_spider_bite");
         Clear();
         if (p.Shifted) p.LeaveForm(false);
+
+        // ---------------------------------------------------------------- remembering a form
+        foreach (var _ in Become("bear")) yield return null;
+        ScCheck($"in the bear's hide it shrugs off {ShiftForm.All.First(f => f.Key == "bear").Armor:0.##} of blows, and the creatures see it {ShiftForm.All.First(f => f.Key == "bear").Threat:0.##} as far off ({p.EffectiveThreat:0.00} against {p.Stats.ThreatDist:0.00})", p.FormArmor >= 0.35f && p.EffectiveThreat < p.Stats.ThreatDist * 0.6f);
+        int rem0 = p.Remembered;
+        p.TestRemember();
+        ScCheck($"the dodge button, in a form, remembers it ({p.RememberedForm?.Name}; {p.Remembered - rem0} remembered)", p.RememberedForm?.Key == "bear" && p.Remembered == rem0 + 1);
+        p.LeaveForm(false);
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        foreach (var _ in Wait(0.8f)) yield return null;
+        ScCheck($"no longer a bear, with nothing about to copy ({p.Form == null})", p.Form == null && p.ShiftTarget() == null);
+        p.ResetAbilityCooldowns();
+        p.TestSpecial(new Vector2(1, 0));
+        ScCheck($"the second button takes the remembered form again, with no creature to copy it from ({p.Form?.Name}; {p.Recalled} recalled)", p.Form?.Key == "bear" && p.Recalled >= 1);
+        // and Shift with nothing to copy does it too
+        p.LeaveForm(false);
+        foreach (var _ in Wait(0.8f)) yield return null;
+        p.ResetAbilityCooldowns();
+        p.TestShift();
+        ScCheck($"so does Shift, with nothing near to copy ({p.Form?.Name})", p.Form?.Key == "bear");
+        // while a creature that can be copied is near, Shift copies that instead
+        p.LeaveForm(false);
+        foreach (var _ in Wait(0.8f)) yield return null;
+        p.ResetAbilityCooldowns();
+        var goblin = Foe(new Vector2(60, 0));
+        foreach (var _ in Wait(0.3f)) yield return null;
+        p.TestShift();
+        ScCheck($"with a goblin beside, Shift copies it as ever ({p.Form?.Name})", p.Form?.Key == "goblin");
+        Clear();
     }
 }

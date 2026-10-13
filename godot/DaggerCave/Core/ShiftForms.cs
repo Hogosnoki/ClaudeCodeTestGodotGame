@@ -21,6 +21,8 @@ public sealed class ShiftForm
     public bool Flier;
     /// <summary>The share of blows it shrugs off.</summary>
     public float Armor;
+    /// <summary>How near the creatures count a hero in this form to be (x its distance): under 1, they come for it first (the tanks: the bear, the golem, the crab).</summary>
+    public float Threat = 1f;
     /// <summary>Ordinary attack: reach (px), damage (x the base), seconds between, wind-up seconds, strike seconds, the model's wind-up and strike clips, knockback.</summary>
     public float Reach = 44f, Dmg = 1f, Cooldown = 0.7f, Wind = 0.18f, Strike = 0.2f, Knock = 160f;
     public string WindClip = "windup", StrikeClip = "strike";
@@ -47,15 +49,15 @@ public sealed class ShiftForm
             Special = FormSpecial.Leap, SpecialName = "Pounce", SpecDmg = 2.0f, SpecRange = 60f, SpecCd = 5f },
         new() { Id = 7, Key = "scorpion", Name = "Scorpion", Set = "scorpion", Size = 1.2f, Move = 1f, Jump = 0.9f, Armor = 0.15f, Reach = 50f, Dmg = 1.1f, Cooldown = 0.75f, Wind = 0.22f, Strike = 0.18f, WindClip = "sting_windup", StrikeClip = "sting",
             Special = FormSpecial.Spray, SpecialName = "Venom Spray", SpecDmg = 0.4f, SpecRange = 110f, SpecCd = 6f },
-        new() { Id = 8, Key = "bear", Name = "Bear", Set = "bear", Size = 1.0f, Move = 0.95f, Jump = 0.9f, Armor = 0.2f, Reach = 52f, Dmg = 1.5f, Cooldown = 0.95f, Wind = 0.3f, Strike = 0.2f, WindClip = "rear", StrikeClip = "swipe", Knock = 280f,
+        new() { Id = 8, Key = "bear", Name = "Bear", Set = "bear", Size = 1.0f, Move = 0.95f, Jump = 0.9f, Armor = 0.35f, Threat = 0.5f, Reach = 52f, Dmg = 1.5f, Cooldown = 0.95f, Wind = 0.3f, Strike = 0.2f, WindClip = "rear", StrikeClip = "swipe", Knock = 280f,
             Special = FormSpecial.Charge, SpecialName = "Maul Charge", SpecDmg = 2.4f, SpecRange = 230f, SpecCd = 7f },
-        new() { Id = 9, Key = "golem", Name = "Golem", Set = "golem", Size = 1.7f, Move = 0.7f, Jump = 0.8f, Armor = 0.35f, Reach = 48f, Dmg = 1.8f, Cooldown = 1.1f, Wind = 0.35f, Strike = 0.2f, WindClip = "slam_windup", StrikeClip = "slam", Knock = 320f,
+        new() { Id = 9, Key = "golem", Name = "Golem", Set = "golem", Size = 1.7f, Move = 0.7f, Jump = 0.8f, Armor = 0.4f, Threat = 0.6f, Reach = 48f, Dmg = 1.8f, Cooldown = 1.1f, Wind = 0.35f, Strike = 0.2f, WindClip = "slam_windup", StrikeClip = "slam", Knock = 320f,
             Special = FormSpecial.Quake, SpecialName = "Quake", SpecDmg = 2.6f, SpecRange = 120f, SpecCd = 8f },
         new() { Id = 10, Key = "hornet", Name = "Hornet", Set = "hornet", Size = 1.5f, Move = 1.25f, Jump = 1f, Flier = true, Reach = 40f, Dmg = 0.9f, Cooldown = 0.6f, Wind = 0.14f, Strike = 0.16f, WindClip = "aim", StrikeClip = "dive", Knock = 90f,
             Special = FormSpecial.Dive, SpecialName = "Dive Sting", SpecDmg = 2.0f, SpecRange = 200f, SpecCd = 6f },
         new() { Id = 11, Key = "sporeling", Name = "Sporeling", Set = "sporeling", Size = 1.5f, Move = 0.9f, Jump = 1f, Reach = 40f, Dmg = 0.7f, Cooldown = 0.7f, Wind = 0.2f, Strike = 0.2f, WindClip = "puff_windup", StrikeClip = "puff",
             Special = FormSpecial.Spores, SpecialName = "Spore Cloud", SpecDmg = 1.0f, SpecRange = 86f, SpecCd = 6f },
-        new() { Id = 12, Key = "crab", Name = "Crab", Set = "crab_foe", Size = 1.6f, Move = 0.9f, Jump = 0.8f, Armor = 0.3f, Reach = 46f, Dmg = 1.3f, Cooldown = 0.85f, Wind = 0.25f, Strike = 0.2f, WindClip = "pinch_windup", StrikeClip = "pinch",
+        new() { Id = 12, Key = "crab", Name = "Crab", Set = "crab_foe", Size = 1.6f, Move = 0.9f, Jump = 0.8f, Armor = 0.3f, Threat = 0.8f, Reach = 46f, Dmg = 1.3f, Cooldown = 0.85f, Wind = 0.25f, Strike = 0.2f, WindClip = "pinch_windup", StrikeClip = "pinch",
             Special = FormSpecial.Grip, SpecialName = "Vice Grip", SpecDmg = 2.0f, SpecRange = 54f, SpecCd = 6f },
         new() { Id = 13, Key = "fish", Name = "Fish", Set = "fish", Size = 1.5f, Move = 1f, Jump = 1f, Reach = 28f, Dmg = 0.5f, Cooldown = 0.8f, Wind = 0.1f, Strike = 0.25f, WindClip = "swim", StrikeClip = "dart", Knock = 60f,
             Special = FormSpecial.Splash, SpecialName = "Splash", SpecDmg = 1.4f, SpecRange = 64f, SpecCd = 5f },

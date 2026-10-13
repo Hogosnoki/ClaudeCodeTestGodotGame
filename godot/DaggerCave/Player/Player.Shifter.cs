@@ -72,6 +72,8 @@ public partial class Player
 
     /// <summary>Test aids: press Shift, or the special, once.</summary>
     public bool TestShift() => TryShift();
+    /// <summary>Test aid: the dodge button, in a form (remember it).</summary>
+    public bool TestRemember() => TryRemember();
     public bool TestSpecial(Vector2 aim) => TrySpecial(aim);
     public bool TestAttack() { Ghost?.MasterAttack(new Vector2(Facing, 0)); return Ghost != null; }
 
@@ -91,6 +93,43 @@ public partial class Player
         return best;
     }
 
+    // ---------------------------------------------------------------- remembering a form
+
+    /// <summary>The form this hero remembers (null: none).</summary>
+    public ShiftForm RememberedForm => Stats.RememberedForm == null ? null : Array.Find(ShiftForm.All, f => f.Key == Stats.RememberedForm);
+    private float _rememberCd;
+    /// <summary>For the tests: forms remembered and recalled.</summary>
+    public int Remembered { get; private set; }
+    public int Recalled { get; private set; }
+
+    /// <summary>The dodge button, in a form (it has no roll): commit the form to memory, to be taken again later without a creature to copy.</summary>
+    private bool TryRemember()
+    {
+        if (!IsShifter || Form == null) return false;
+        if (_rememberCd > 0) return true;
+        _rememberCd = Tune.Shifter.RememberCooldown;
+        if (Stats.RememberedForm == Form.Key) { G.Fx.Text(GlobalPosition + new Vector2(0, -34), $"ALREADY REMEMBERED", new Color(0.8f, 0.85f, 0.95f), 9, 0.6f); return true; }
+        Stats.RememberedForm = Form.Key;
+        Remembered++;
+        var at = GlobalPosition + new Vector2(0, -8);
+        G.Fx.Ring(at, 20, new Color(0.7f, 0.9f, 1f, 0.9f), 0.5f, FxLayer.RingStyle.Wave);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -34), $"REMEMBERED: {Form.Name.ToUpperInvariant()}", new Color(0.8f, 0.95f, 1f), 11, 1f);
+        G.Sfx.Play("levelup", GlobalPosition, -10, 0.05f, 1.5f);
+        return true;
+    }
+
+    /// <summary>Takes the remembered form again, with no creature to copy (false when there is none remembered).</summary>
+    private bool TryRecall()
+    {
+        var f = RememberedForm;
+        if (f == null || Form != null) return false;
+        if (!AbilityChargeReady) return false;
+        EnterForm(f);
+        Recalled++;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -46), "RECALLED", new Color(0.8f, 0.95f, 1f), 9, 0.7f);
+        return true;
+    }
+
     /// <summary>The ability button: become the nearest creature, or drop the form you have.</summary>
     private bool TryShift()
     {
@@ -98,6 +137,8 @@ public partial class Player
         if (Form != null) { LeaveForm(cooldown: true); return true; }
         if (!AbilityChargeReady) return false;
         var e = ShiftTarget();
+        // (nothing to copy, but a form remembered: that one, the way to be a bear against a guardian that can't be copied)
+        if (e == null && RememberedForm != null) return TryRecall();
         if (e == null)
         {
             // (anything near that can't be copied says so)
@@ -241,6 +282,7 @@ public partial class Player
     private void TickShifterCore(float dt)
     {
         if (_formSpecCd > 0) _formSpecCd -= dt;
+        if (_rememberCd > 0) _rememberCd -= dt;
         if (_shiftLock > 0) _shiftLock -= dt;
         FormClip = null;
         if (Form == null) return;
@@ -511,7 +553,13 @@ public partial class Player
     private bool TrySpecial(Vector2 aim)
     {
         if (!IsShifter) return false;
-        if (Form == null) { SayNo("SHIFT FIRST"); return true; }
+        if (Form == null)
+        {
+            // (the second button, with no form on: take the remembered one again)
+            if (RememberedForm != null && _shiftLock <= 0) return TryRecall();
+            SayNo(RememberedForm != null ? "NOT YET" : "SHIFT FIRST");
+            return true;
+        }
         // a creature with a second move of its own does that one, through its own wind-up
         if (NativeSpecial)
         {
