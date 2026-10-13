@@ -767,8 +767,8 @@ public static class Tune
     public static class Shifter
     {
         public static float StartHp = 70f, MoveMult = 1.0f, JumpMult = 1.0f;
-        /// <summary>The staff: damage, reach (px), seconds between swings.</summary>
-        public static float StaffDamage = 5f, StaffReach = 60f, StaffCooldown = 0.55f;
+        /// <summary>The staff: damage, reach (px: about the length of the staff ahead of the fist, 0.85 of a unit at 58 px a unit, as the sword's 68 is its blade's 1.16), seconds between swings.</summary>
+        public static float StaffDamage = 5f, StaffReach = 52f, StaffCooldown = 0.55f;
         /// <summary>A form's damage (x the form's own multiplier), how far a Shift can reach, how fast a charge runs.</summary>
         public static float FormDamage = 15f, CopyRange = 110f, ChargeSpeed = 360f;
         /// <summary>Seconds Shift takes to come back once a form is dropped.</summary>

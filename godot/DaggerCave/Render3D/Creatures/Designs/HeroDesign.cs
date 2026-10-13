@@ -364,18 +364,18 @@ public sealed partial class HeroDesign : CreatureDesign
         else if (_aegis) SculptWardStaff(s, handR, gold);
         else if (_shifter)
         {
-            // a wildwood staff, swung like a blade (the cuts are a sword's): a crooked shaft through the fist, its foot showing behind the
-            // hand, a leather wrap and a bead charm under the head, and the head a knot of burl with two antler tines curling back (along the
-            // sword's -Y, where a blade would be)
+            // a wildwood staff, held like a staff (the cuts are still a sword's): a crooked shaft gripped about its middle, the foot showing as far
+            // behind the hand as the head is ahead of it, a leather wrap and a bead charm under the head, and the head a knot of burl with two antler
+            // tines curling back (along the sword's -Y, where a blade would be). About 1.5 long, so it reaches half of that ahead of the fist
             var grip = new Transform3D(Basis.Identity, new Vector3(0.016f, -0.1f, 0.2f));
             var rng = new Random(23);
             var wood = C(0.34f, 0.25f, 0.16f);
             var path = new System.Collections.Generic.List<Vector3>();
             var radii = new System.Collections.Generic.List<float>();
-            const int n = 10;
+            const int n = 12;
             for (int k = 0; k <= n; k++)
             {
-                float t = k / (float)n, y = 0.3f - 1.18f * t;
+                float t = k / (float)n, y = 0.75f - 1.5f * t;
                 var wob = k == 0 || k == n ? Vector3.Zero : new Vector3(((float)rng.NextDouble() - 0.5f) * 0.016f, 0, ((float)rng.NextDouble() - 0.5f) * 0.012f);
                 path.Add(new Vector3(0, y, 0) + wob);
                 radii.Add(0.02f + 0.006f * t + (k % 3 == 2 ? 0.005f : 0f));
@@ -387,25 +387,25 @@ public sealed partial class HeroDesign : CreatureDesign
             s.Rigid(handR, sw, Mat.Wood);
             // the head: a knot of burl, two short antler tines curling back from it, like a stag's brow
             var knot = new MeshBuilder();
-            DecorMeshes.AddSphere(knot, new Vector3(0.004f, -0.9f, 0), 0.042f, wood.Darkened(0.1f), 6);
-            DecorMeshes.AddSphere(knot, new Vector3(-0.012f, -0.935f, 0.012f), 0.03f, wood.Darkened(0.18f), 5);
+            DecorMeshes.AddSphere(knot, new Vector3(0.004f, -0.78f, 0), 0.042f, wood.Darkened(0.1f), 6);
+            DecorMeshes.AddSphere(knot, new Vector3(-0.012f, -0.815f, 0.012f), 0.03f, wood.Darkened(0.18f), 5);
             var kn = new MeshBuilder();
             kn.Append(knot, grip);
             s.Rigid(handR, kn, Mat.Wood);
             var bone = C(0.84f, 0.8f, 0.7f);
             var antler = new MeshBuilder();
             foreach (float z in new[] { 1f, -1f })
-                antler.Tube(new[] { new Vector3(0.01f, -0.92f, 0.03f * z), new Vector3(0.05f, -0.9f, 0.07f * z), new Vector3(0.1f, -0.86f, 0.085f * z), new Vector3(0.13f, -0.8f, 0.08f * z) },
+                antler.Tube(new[] { new Vector3(0.01f, -0.8f, 0.03f * z), new Vector3(0.05f, -0.78f, 0.07f * z), new Vector3(0.1f, -0.74f, 0.085f * z), new Vector3(0.13f, -0.68f, 0.08f * z) },
                     new[] { 0.013f, 0.01f, 0.007f, 0.003f }, 6, bone);
-            antler.Tube(new[] { new Vector3(0.05f, -0.9f, 0.07f), new Vector3(0.055f, -0.95f, 0.1f), new Vector3(0.05f, -0.99f, 0.11f) }, new[] { 0.007f, 0.005f, 0.002f }, 5, bone);
+            antler.Tube(new[] { new Vector3(0.05f, -0.78f, 0.07f), new Vector3(0.055f, -0.83f, 0.1f), new Vector3(0.05f, -0.87f, 0.11f) }, new[] { 0.007f, 0.005f, 0.002f }, 5, bone);
             var an = new MeshBuilder();
             an.Append(antler, grip);
             s.Rigid(handR, an, Mat.Bone);
             // the wrap and the charm
             var wrap = new MeshBuilder();
-            wrap.Tube(new[] { new Vector3(0, -0.74f, 0), new Vector3(0, -0.82f, 0) }, new[] { 0.03f, 0.03f }, 8, leatherDk);
-            wrap.Tube(new[] { new Vector3(0, -0.78f, 0.028f), new Vector3(0.012f, -0.72f, 0.05f), new Vector3(0.016f, -0.66f, 0.055f) }, new[] { 0.004f, 0.004f, 0.003f }, 4, leatherDk);
-            DecorMeshes.AddSphere(wrap, new Vector3(0.016f, -0.65f, 0.055f), 0.015f, C(0.55f, 0.75f, 0.8f), 4);
+            wrap.Tube(new[] { new Vector3(0, -0.62f, 0), new Vector3(0, -0.7f, 0) }, new[] { 0.03f, 0.03f }, 8, leatherDk);
+            wrap.Tube(new[] { new Vector3(0, -0.66f, 0.028f), new Vector3(0.012f, -0.6f, 0.05f), new Vector3(0.016f, -0.54f, 0.055f) }, new[] { 0.004f, 0.004f, 0.003f }, 4, leatherDk);
+            DecorMeshes.AddSphere(wrap, new Vector3(0.016f, -0.53f, 0.055f), 0.015f, C(0.55f, 0.75f, 0.8f), 4);
             var wr = new MeshBuilder();
             wr.Append(wrap, grip);
             s.Rigid(handR, wr, Mat.Leather);

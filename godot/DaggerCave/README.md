@@ -1360,6 +1360,12 @@ narrow shaft from the first's floor, with another (`Cave/RiverGen.cs`, from a ge
 The nooks' pass no longer wipes the river's own slit marks (`CaveData.OwnHints`). `--leftsecrets` makes every level have two;
 `--scenario=river --leftsecrets` checks the chambers, chests, marks, the swim in and the shaft.
 
+## The Shape Shifter's staff
+
+The staff is held like a **staff**: a crooked wildwood shaft about 1.5 long, **gripped about its middle**, the foot showing behind the fist as far as the antler-tined head stands
+ahead of it (it used to be held like a sword, by its end). Its reach follows: `Tune.Shifter.StaffReach` is **52 px**, down from 60, which is the staff's length ahead of the fist
+at the sword's scale (the sword's 68 px is its blade's length). The cuts are still a sword's. (`HeroDesign.cs`.)
+
 ## The Shape Shifter remembers a form
 
 A Shape Shifter can **remember** the form it is in and take it again **without a creature to copy** (`Player.Shifter.cs`: `TryRemember`, `TryRecall`):
