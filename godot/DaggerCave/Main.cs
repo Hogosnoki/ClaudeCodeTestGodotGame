@@ -216,6 +216,7 @@ public partial class Main : Node
         if (_loadShots != "") { RunLoadShots(_loadShots); return; }
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--upgradetest")) { RunUpgradeTest(); return; }
+        foreach (var a in OS.GetCmdlineUserArgs()) if (a.StartsWith("--dumpcards=")) { RunCardDump(a.Substring("--dumpcards=".Length)); return; }
         if (OS.GetCmdlineUserArgs().Contains("--webaudit")) { int bad = CreatureLibrary.WebAudit(); GD.Print(bad == 0 ? "[webaudit] PASS" : $"[webaudit] {bad} designs still have welds"); SafeQuit.Request(this, bad == 0 ? 0 : 1); return; }
         foreach (var arg in OS.GetCmdlineUserArgs())
         {
