@@ -1383,6 +1383,9 @@ with everything a strike brings (the same swing logic runs: bleed, life, a charg
 away, so it can be used defensively; it makes no one invulnerable of itself (Phantom Step, "Dashing makes you briefly invulnerable", still does, and Counter Roll is now Counter Dash). It takes about
 **15 s** to come back (the roll took 0.55 s; Nimble, Second Wind's second charge, Wind Runner and Featherfoot Sash still apply). The Shape Shifter keeps the plain roll. `--scenario=dashslash --hero=swordsman`.
 
+**Dash Through** (Swordsman side-grade for the dodge button; `Stats.DashThrough`): the dash no longer stops at the first creature it touches: it carries him **through** it, and when he is past it (or the dash ends) he turns and
+slashes it **from behind**, for the same 1.5x strike (the swing's lunge is held back so it doesn't draw him back through). The scenario checks both forms.
+
 ## Gold
 
 Gold lies hidden in the **dead ends** of every cave, which used to hold nothing: `CaveGenerator.AddDeadEnds` finds the tips of the level's branches (a flood of the open
@@ -1615,7 +1618,8 @@ higher jumps, burning fuel until pressed again; see above). `--scenario=support 
 ### Loadout, Prodigy's Brand, rubble
 
 - **Loadout** (button on the loadout & perks stage of the hero select, or `L` there): pick up to three of the hero's **side-grades** (the alterations: alternate abilities such as Frostbolt for Firebolt, one to an ability) to start the run with. While everything is unlocked for testing (`Tune.Testing.UnlockEverything`) every side-grade is listed; they will be locked away with the heroes. The give-and-take upgrades are called **risk-rewards**.
-- **Healing Ward** (Aegis side-grade): the ward bolt hits for only 25% but its burst mends the Aegis and every friend in it for a fifth of the blow (it comes twice a second), which is what makes the Aegis playable alone.
+- **Radiant Ward** (Aegis side-grade, replacing the old Healing Ward): the ward bolt's burst strikes at full strength and reaches 40% wider. **The Aegis's auto-attack no longer heals anyone** (the ward bolt used to mend her and her friends; that made her too strong): its burst only damages and weakens.
+- **Foe's Burden** (Aegis side-grade for the second ability, `Player.Aegis.cs`, `Tune.Aegis.Foe*`): instead of carrying a friend (or smiting) it is laid on **a creature** within 260 px, best the one you aim at, for 12 s: that creature takes **25%** of every blow the Aegis takes (as raw damage, so it can't be multiplied further), and she takes the other 75%. A beam of violet light joins them, the HUD label reads `FOE n s`, and it comes back after **6 s** (the Smite takes 9 s, Share a Burden 0.4 s). It works alone or in a party. `--scenario=aegis --hero=aegis` checks it.
 - **Prodigy's Brand** levels you up thirty-five times at once; you can never open a chest again (shrines, relic chests, guardians' hoards and vaults alike), and guardians leave you no hoard.
 - A cleared rock blockage collapses top-first into a flat heap that lies there a few seconds before sinking away, so the way through is obvious.
 

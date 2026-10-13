@@ -75,7 +75,7 @@ public sealed class PlayerStats
     /// <summary>Alterations: Relentless Charge (a charge empowers the whole next combo), Swift Heave
     /// (a charged heave is instant and works in the air), Counter Roll (rolling into a blow counters
     /// it) and Flowing Counter (a counter can start a combo).</summary>
-    public bool RelentlessCharge, SwiftHeave, CounterRoll, CounterCombo;
+    public bool RelentlessCharge, SwiftHeave, CounterRoll, CounterCombo, DashThrough;
 
     // warden: shield + Guarded Charge + shield bash
     /// <summary>The shield's strength and regeneration follow the Warden's maximum health (upgrades scale them).</summary>
@@ -157,11 +157,11 @@ public sealed class PlayerStats
     /// <summary>Everything the Aegis gives (barriers, bubbles, the ward on an enemy) is this much stronger: grows with level and cards.</summary>
     public float WardMult = 1f;
     /// <summary>The bolt: how much less damage its creatures deal (x), for how long; the share of damage dealt it heals the Aegis; its burst's reach (x) and the share of the blow the burst's others take.</summary>
-    public float DebuffMult = Tune.Aegis.DebuffMult, DebuffSeconds = Tune.Aegis.DebuffSeconds, AegisLifesteal = Tune.Aegis.Lifesteal, BurstMult = 1f, BurstShare = Tune.Aegis.BurstShare;
+    public float DebuffMult = Tune.Aegis.DebuffMult, DebuffSeconds = Tune.Aegis.DebuffSeconds, BurstMult = 1f, BurstShare = Tune.Aegis.BurstShare;
     /// <summary>Barrier: strength (x) and recharge (x). Shared Burden: the share of damage taken and how long it lasts. Bubble: strength (x) and recharge (x).</summary>
     public float BarrierMult = 1f, BarrierCdMult = 1f, BurdenShare = Tune.Aegis.BurdenShare, BurdenSeconds = Tune.Aegis.BurdenSeconds, BubbleMult = 1f, BubbleCdMult = 1f;
     /// <summary>Bubble bursts healing the allies round it; the Bubble goes on a creature instead (alteration); the Barrier also goes on a second ally.</summary>
-    public bool BubbleHeal, HostileBubble, TwinBarrier, WideBarrier, BurdenAll, HealingWard;
+    public bool BubbleHeal, HostileBubble, TwinBarrier, WideBarrier, BurdenAll;
     /// <summary>Shared Burden: the Aegis takes this much less of what it carries (0..1). Bubble: the share of each blow it absorbs. Hostile Bubble: its burst's strength (x).</summary>
     public float BurdenSoak, BubbleAbsorb = Tune.Aegis.BubbleAbsorb, WardBlastMult = 1f;
 
@@ -187,6 +187,8 @@ public sealed class PlayerStats
     public float ShieldSiphon;
     /// <summary>The Aegis's Bulwark Oath (a class perk, given with her): in a party, her second ability is Shared Burden; alone, or without it, a Smite.</summary>
     public bool AegisSupport;
+    /// <summary>The Foe's Burden alteration: the Shared Burden is laid on a creature, and a quarter of every blow the Aegis takes falls on it.</summary>
+    public bool FoeBurden;
     public bool Juggernaut;
     /// <summary>The chance a creature that strikes the hero is set alight (a boss or mini-boss) or frozen solid (a regular creature): the retaliation relics.</summary>
     public float StruckIgnite, StruckFreeze;
@@ -393,6 +395,7 @@ public static partial class Upgrades
         new() { Id = "dodge2", Name = "Second Wind", Desc = "Gain a second dodge charge.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.DodgeCharges = 2; p.SyncCharges(); } },
         new() { Id = "windrunner", Name = "Wind Runner", Desc = "Dodges and Charged Strike recharge 15% faster.", Icon = "dodge", For = S, Ability = "dodge", MaxStacks = 4, Apply = (s, p) => { s.DodgeCdMult *= 0.85f; s.ChargeCooldown *= 0.85f; } },
         new() { Id = "dodge_counter", Name = "Counter Dash", Desc = "Dashing into a melee blow ends the dash, stops all of that blow and swings back at the attacker.", Icon = "dodge", For = S, Ability = "dodge", Alteration = true, Apply = (s, p) => s.CounterRoll = true },
+        new() { Id = "dodge_through", Name = "Dash Through", Desc = "Your dash-slash goes through the first creature it meets instead of stopping at it, and you turn, once clear of it, to slash it from behind (1.5 times a strike).", Icon = "dodge", For = S, Ability = "dodge", Alteration = true, Apply = (s, p) => s.DashThrough = true },
         new() { Id = "dodge_counter_combo", Name = "Flowing Counter", Desc = "A counter that lands can start a combo.", Icon = "dodge", For = S, Ability = "dodge", Requires = "dodge_counter", Apply = (s, p) => s.CounterCombo = true },
 
         // --- Shield (warden) ---
@@ -537,7 +540,6 @@ public static partial class Upgrades
         new() { Id = "ward_burst", Name = "Wider Burst", Desc = "Your bolt's burst reaches 40% farther.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstMult *= 1f + 0.4f },
         new() { Id = "ward_scatter", Name = "Scatter Light", Desc = "The creatures beside the one your bolt strikes take 20% more of the blow (60%, then 80%, then all of it).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstShare = Math.Min(1f, s.BurstShare + 0.2f) },
         new() { Id = "ward_sap", Name = "Sapping Light", Desc = "Creatures your bolt bursts on deal 5% less still (15%, then 20% less).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.DebuffMult -= 0.05f },
-        new() { Id = "ward_mend", Name = "Mending Light", Desc = "Your bolt mends you for 4% more of the damage it deals.", Icon = "life", For = A, Ability = "ward", MaxStacks = 3, Apply = (s, p) => s.AegisLifesteal += 0.04f },
         new() { Id = "ward_linger", Name = "Lingering Weakness", Desc = "What your bolt weakens stays weakened 3 s longer.", Icon = "spell", For = A, Ability = "ward", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DebuffSeconds += 3f },
 
         // --- Barrier (aegis) ---
@@ -546,11 +548,12 @@ public static partial class Upgrades
         new() { Id = "barrier_twin", Name = "Twin Barrier", Desc = "A barrier for a friend wraps you in one as well.", Icon = "shield", For = A, Ability = "barrier", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinBarrier = true },
 
         // (Healing Ward: the ward bolt's alteration, a light that mends instead of strikes: what makes the Aegis a sound hero to play alone)
-        new() { Id = "ward_heal", Name = "Healing Ward", Desc = "Your ward bolt no longer hurts (only a glancing 25%), and weakens what it strikes as before. Instead its burst mends you, and every friend in it, for a fifth of the blow it would have dealt.", Icon = "life", For = A, Ability = "ward", Alteration = true, Apply = (s, p) => s.HealingWard = true },
+        new() { Id = "ward_radiant", Name = "Radiant Ward", Desc = "Your ward bolt's burst strikes at full strength and reaches 40% wider.", Icon = "shield", For = A, Ability = "ward", Alteration = true, Apply = (s, p) => { s.BurstShare = 1f; s.BurstMult *= 1.4f; } },
 
         new() { Id = "barrier_wide", Name = "Wide Barrier", Desc = "Your barrier falls on every friend near you, and on you, each at 60% of its strength.", Icon = "shield", For = A, Ability = "barrier", Alteration = true, Apply = (s, p) => s.WideBarrier = true },
 
         // --- Shared Burden (aegis) ---
+        new() { Id = "burden_foe", Name = "Foe's Burden", Desc = "Your second ability lays its burden on a creature instead: for 12 s a quarter of every blow you take falls on it. It comes back in 6 s (a Smite takes 9).", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.FoeBurden = true },
         new() { Multi = true, Id = "burden_all", Name = "Burden of Many", Desc = "Your burden falls on every friend near you at once, each sharing half as much of their blows with you.", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.BurdenAll = true },
         new() { Multi = true, Id = "burden_share", Name = "Heavier Burden", Desc = "You carry 5% more of the blows your friend takes (25%, 30%, then 35%).", Icon = "life", For = A, Ability = "burden", MaxStacks = 3, Apply = (s, p) => s.BurdenShare += 0.05f },
         new() { Multi = true, Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 25% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.25f },

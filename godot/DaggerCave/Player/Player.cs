@@ -1222,6 +1222,8 @@ public partial class Player : CharacterBody2D
         float preShare = dmg;
         dmg = ShareBurden(dmg);
         RunMetrics.Prevented(preShare - dmg, _burdenBy);
+        // (Foe's Burden: a quarter of what gets through is the burdened creature's)
+        dmg = RedirectToFoe(dmg);
         // (Share Pain: an Aegis takes her part of every blow)
         preShare = dmg;
         dmg = SharePain(dmg);

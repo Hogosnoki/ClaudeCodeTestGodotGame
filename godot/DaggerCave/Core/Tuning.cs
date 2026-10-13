@@ -140,8 +140,8 @@ public static class Tune
         /// <summary>Counter Roll (an alteration): the swing back at the attacker, and how close a
         /// blow's source must be to count as a melee blow the roll can counter.</summary>
         public static float CounterReach = 70f;
-        /// <summary>The dash-slash (the dodge button): a dash of DashSlashSpeed px/s for DashSlashTime s, in an orange ghost-glow, that goes through the first creature it meets and, once clear of it, turns in
-        /// a slash of DashSlashMult times a normal strike (with everything a strike brings) behind him; back DashSlashCooldown s after it began (the dodge roll it replaces came
+        /// <summary>The dash-slash (the dodge button): a dash of DashSlashSpeed px/s for DashSlashTime s, in an orange ghost-glow, that stops at the first creature it meets for a slash of DashSlashMult times a normal strike (with everything a strike
+        /// brings); with the Dash Through alteration it goes through the creature and slashes it from behind; back DashSlashCooldown s after it began (the dodge roll it replaces came
         /// back in half a second). It dodges nothing of itself: it is a way across the floor, forward or away.</summary>
         public static float DashSlashSpeed = 560f, DashSlashTime = 0.28f, DashSlashCooldown = 15f, DashSlashMult = 1.5f;
     }
@@ -160,14 +160,14 @@ public static class Tune
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
         /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal (a quarter of a percent; Mending Light and Solar Crest add more) of the damage dealt mends the Aegis.</summary>
-        /// <summary>Healing Ward: the burst mends for this share of the blow it would have dealt (it comes twice a second, so a small share).</summary>
-        public static float HealingWardHeal = 0.2f;
-        public static float HealingWardGlance = 0.25f, BoltDamage = 10.8f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
-        public static float DebuffMult = 0.9f, DebuffSeconds = 5f, Lifesteal = 0.0025f;
+        public static float BoltDamage = 10.8f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
+        public static float DebuffMult = 0.9f, DebuffSeconds = 5f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
         public static float BarrierShare = 0.14f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
         /// <summary>Shared Burden (the second ability): the ally takes (1 - share) of every blow, the Aegis the rest, for BurdenSeconds. No cooldown beyond a blink.</summary>
         public static float BurdenShare = 0.2f, BurdenSeconds = 60f, BurdenBlink = 0.4f;
+        /// <summary>Foe's Burden (an alteration of the second ability): laid on a creature within FoeReach px, it takes FoeShare of every blow the Aegis takes for FoeSeconds; the ability is back after FoeCooldown s (a Smite takes SmiteCooldown).</summary>
+        public static float FoeShare = 0.25f, FoeSeconds = 12f, FoeCooldown = 6f, FoeReach = 260f;
         /// <summary>Smite (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a burst of light SmiteRadius px round her for SmiteDamage, weakening everything it strikes; SmiteCooldown s.</summary>
         public static float SmiteDamage = 16.5f, SmiteRadius = 120f, SmiteCooldown = 9f;
         /// <summary>Bubble (the dodge button): absorbs BubbleAbsorb of each blow until BubbleShare of the receiver's max health (x WardMult) is absorbed, when it bursts; lasts BubbleSeconds, recharges BubbleCooldown s; the receiver breathes under water meanwhile. With Soothing Burst, the burst heals allies within BurstHealRadius px for BurstHealShare of their max health.</summary>

@@ -209,7 +209,7 @@ public static partial class Upgrades
         Bg("rr_sh_hide", "Second Skin", "Every form shrugs off 12% more of the blows it takes, but your staff hits 20% softer.", (s, p) => { s.FormArmorAdd += 0.12f; s.PrimaryDamageMult *= 0.8f; }, HSH, 0.9f),
         Bg("rr_sh_fang", "Borrowed Fangs", "Every form's attacks hit 20% harder, but Shift comes back 30% slower.", (s, p) => { s.FormDmgMult += 0.2f; s.AbilityCdMult *= 1.3f; }, HSH, 0.9f),
         Bg("rr_sh_echo", "Echoing Voice", "Form specials come back 30% sooner, but you take 10% more damage.", (s, p) => { s.FormSpecCdMult *= 0.7f; s.DamageTakenMult *= 1.1f; }, HSH, 0.9f),
-        Bg("rr_a_crest", "Solar Crest", "Your ward bolt mends you for 10% more of its damage, but hits 15% softer.", (s, p) => { s.AegisLifesteal += 0.10f; s.DamageMult *= 0.85f; }, HA, 0.9f),
+        Bg("rr_a_crest", "Solar Crest", "What your ward bolt weakens is weakened 10% more, but your bolt hits 15% softer.", (s, p) => { s.DebuffMult *= 0.9f; s.DamageMult *= 0.85f; }, HA, 0.9f),
         Bg("rr_a_sea", "Bottled Sea", "Your bubble absorbs three quarters of every blow, but bursts after absorbing 30% less.", (s, p) => { s.BubbleAbsorb = 0.75f; s.BubbleMult *= 0.7f; }, HA, 0.9f),
         Bg("rr_au_boiler", "Overfired Boiler", "Steam Release comes back twice as fast, but you take 10% more damage.", (s, p) => { s.SteamCdMult *= 0.5f; s.DamageTakenMult *= 1.1f; }, HAU, 0.9f),
         Bg("rr_au_dynamo", "Dynamo", "Healing gives you 15% more of itself as fuel, but your cleaver hits 15% softer.", (s, p) => { s.FuelFromHeal += 0.15f; s.PrimaryDamageMult *= 0.85f; }, HAU, 0.9f),

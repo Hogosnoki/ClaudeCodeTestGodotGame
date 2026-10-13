@@ -66,17 +66,7 @@ public partial class Main
                 ScCheck($"the bolt strikes the first creature ({hit:0.0}, want about {want:0.0})", Math.Abs(hit - want) < want * 0.25f);
                 ScCheck($"its burst strikes the one beside it for {Tune.Aegis.BurstShare:0%} ({hit2:0.0})", Math.Abs(hit2 - want * Tune.Aegis.BurstShare) < want * 0.25f);
                 ScCheck($"both deal less damage now ({_scFoe.Weakened}, {_scFoe2.Weakened})", _scFoe.Weakened && _scFoe2.Weakened);
-                ScCheck($"the bolt mends the Aegis by a sliver of the damage (hp {_scAegisHp:0.000} -> {p.Hp:0.000})", p.Hp > _scAegisHp && p.Hp < _scAegisHp + 0.3f);
-                // ---- the Healing Ward side-grade: a glancing blow, and the burst mends the Aegis for a fifth of the blow
-                p.Stats.HealingWard = true;
-                p.Hp = p.Stats.MaxHp - 30f;
-                float h0 = p.Hp, f0 = _scFoe.Hp;
-                var blob = new ElementBolt { Damage = 9f, Dir = new Vector2(1, 0) };
-                p.WardBoltStruck(blob, _scFoe, _scFoe.GlobalPosition);
-                blob.Free();
-                ScCheck($"Healing Ward: the bolt only grazes ({f0 - _scFoe.Hp:0.0})", f0 - _scFoe.Hp < Tune.Aegis.BoltDamage * 0.5f);
-                ScCheck($"...and mends the Aegis ({p.Hp - h0:0.0}, want about {Tune.Aegis.BoltDamage * (1 + Tune.Aegis.BurstShare) * Tune.Aegis.HealingWardHeal * Tune.Hero.HealingMult:0.0})", p.Hp - h0 > Tune.Aegis.BoltDamage * Tune.Aegis.HealingWardHeal * Tune.Hero.HealingMult * 0.9f);
-                p.Stats.HealingWard = false;
+                ScCheck($"the bolt no longer mends the Aegis at all (hp {_scAegisHp:0.000} -> {p.Hp:0.000})", p.Hp <= _scAegisHp + 0.001f);
                 _scStep = 3; _scT = 0;
                 break;
             }
@@ -191,6 +181,26 @@ public partial class Main
                 float near = _scAllyHp - _scFoe.Hp, far = _scAegisHp - _scFoe2.Hp;
                 float want = Tune.Aegis.SmiteDamage * p.Stats.DamageMult;
                 ScCheck($"alone, her second ability smites: the creature beside her takes {near:0.0} (want about {want:0}), the far one {far:0.0}, and it is weakened ({_scFoe.Weakened})", near > want * 0.5f && far < 0.5f && _scFoe.Weakened);
+                // ---- Foe's Burden (an alteration): the second ability is laid on a creature, which takes 25% of what she takes
+                Player.TestParty = true;
+                p.Stats.FoeBurden = true;
+                p.TestResetCooldowns();
+                p.Hp = p.Stats.MaxHp;
+                _scFoe.Hp = _scFoe.MaxHp;
+                Pulse(new PlayerInput { Ability2 = true, Aim = new Vector2(1, 0) });
+                _scStep = 12; _scT = 0;
+                break;
+            }
+            case 12:
+            {
+                if (_scT < 0.4f) return;
+                ScCheck($"Foe's Burden is laid on the creature she aims at ({p.FoeBurdenTarget == _scFoe}, {p.FoeBurdenLeft:0.0} s; cooldown {p.SmiteCooldownFrac:0.00})", p.FoeBurdenTarget == _scFoe && p.SmiteCooldownFrac > 0.5f);
+                float fb = _scFoe.Hp, ab = p.Hp;
+                p.TestClearBubble();
+                p.Hurt(20f, _scFoe.GlobalPosition, 0, null);
+                float foeLost = fb - _scFoe.Hp, aegisLost = ab - p.Hp, share = Tune.Aegis.FoeShare;
+                ScCheck($"a blow of 20: the creature takes {foeLost:0.0} (want {20 * share:0.0}), the Aegis {aegisLost:0.0} (want {20 * (1 - share):0.0})", Math.Abs(foeLost - 20 * share) < 0.7f && Math.Abs(aegisLost - 20 * (1 - share)) < 0.9f);
+                ScCheck($"its cooldown is shorter than the smite's ({Tune.Aegis.FoeCooldown:0} s against {Tune.Aegis.SmiteCooldown:0} s)", Tune.Aegis.FoeCooldown < Tune.Aegis.SmiteCooldown);
                 ScEnd();
                 break;
             }

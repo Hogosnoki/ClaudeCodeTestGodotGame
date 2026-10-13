@@ -53,6 +53,12 @@ public partial class Player
     private void TickAegis(float dt)
     {
         _wardCd -= dt; _burdenCd -= dt; _bubbleCd -= dt;
+        if (_foeBurdenLeft > 0f)
+        {
+            _foeBurdenLeft -= dt;
+            if (FoeBurdenTarget == null) _foeBurdenLeft = 0f;
+            else if ((_foeBeamT -= dt) <= 0f) { _foeBeamT = 0.5f; G.Fx.Beam(CastPoint, _foeBurden.GlobalPosition + new Vector2(0, -6), new Color(0.9f, 0.5f, 1f, 0.55f)); }
+        }
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         if (_burdenTargetLeft > 0 && (_burdenTargetLeft -= dt) <= 0) _burdenTargets.Clear();
         // (a friend who's gone, or fallen, is no longer carried)
@@ -94,32 +100,13 @@ public partial class Player
         var struck = new List<Enemy> { e };
         foreach (var o in G.Enemies)
             if (o != e && !o.Dead && o.CanBeHit && o.GlobalPosition.DistanceTo(at) <= reach + o.HitRadius) struck.Add(o);
-        float total = 0;
-        float healed = 0;
         foreach (var t in struck)
         {
             float share = t == e ? 1f : Stats.BurstShare;
-            if (Stats.HealingWard) healed += bolt.Damage * share * Tune.Aegis.HealingWardHeal;
-            float dealt = t.Hurt(bolt.Damage * share * (Stats.HealingWard ? Tune.Aegis.HealingWardGlance : 1f), bolt.Dir * 40f, t == e ? at : t.GlobalPosition);
-            if (dealt > 0) { total += dealt; OnDealtDamage(dealt); }
+            float dealt = t.Hurt(bolt.Damage * share, bolt.Dir * 40f, t == e ? at : t.GlobalPosition);
+            if (dealt > 0) OnDealtDamage(dealt);
             if (!t.Dead) t.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);
         }
-        if (total > 0 && Stats.AegisLifesteal > 0) Heal(total * Stats.AegisLifesteal);
-        if (healed > 0) HealingWardBurst(at, reach, healed);
-    }
-
-    /// <summary>Healing Ward: the burst mends the Aegis, and each friend in it, for <paramref name="amount"/>.</summary>
-    private void HealingWardBurst(Vector2 at, float reach, float amount)
-    {
-        Heal(amount);
-        foreach (var who in G.Players.ToArray())
-        {
-            if (who == this || who == null || !IsInstanceValid(who) || who.Dead) continue;
-            if (who.GlobalPosition.DistanceTo(at) > reach + 16f) continue;
-            who.Heal(amount);
-            G.Fx.Beam(at, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 1f, 0.7f, 0.9f));
-        }
-        G.Fx.Ring(at, reach, new Color(0.6f, 1f, 0.7f, 0.8f), 0.3f, FxLayer.RingStyle.Wave);
     }
 
     // ---------------------------------------------------------------- allies
@@ -194,7 +181,15 @@ public partial class Player
     public static bool TestParty;
     /// <summary>The Aegis carries friends (Shared Burden) rather than smiting: in a party, with her Bulwark Oath.</summary>
     public bool Supporting => Stats.AegisSupport && ((Net.Online && Net.Count > 1) || TestParty);
-    public float SmiteCooldownFrac => Math.Clamp(_burdenCd / Tune.Aegis.SmiteCooldown, 0f, 1f);
+    public float SmiteCooldownFrac => Math.Clamp(_burdenCd / (Stats.FoeBurden ? Tune.Aegis.FoeCooldown : Tune.Aegis.SmiteCooldown), 0f, 1f);
+    // ---- Foe's Burden: the creature carrying a share of the blows this Aegis takes, and for how long
+    private Enemy _foeBurden;
+    private float _foeBurdenLeft, _foeBeamT;
+    /// <summary>The creature a Foe's Burden is laid on (null: none), and the seconds left.</summary>
+    public Enemy FoeBurdenTarget => _foeBurdenLeft > 0f && _foeBurden != null && IsInstanceValid(_foeBurden) && !_foeBurden.Dead ? _foeBurden : null;
+    public float FoeBurdenLeft => _foeBurdenLeft;
+    /// <summary>For the tests: damage the foe has taken for this Aegis.</summary>
+    public float FoeBurdenTaken { get; private set; }
 
     /// <summary>A burst of light round the Aegis: it strikes and weakens everything near.</summary>
     private bool TrySmite()
@@ -202,16 +197,14 @@ public partial class Player
         if (!IsAegis || _burdenCd > 0) return false;
         _burdenCd = Tune.Aegis.SmiteCooldown;
         float dmg = Tune.Aegis.SmiteDamage * Stats.DamageMult;
-        float total = 0;
         var at = CastPoint;
         foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(at) > Tune.Aegis.SmiteRadius + e.HitRadius || !G.Cave.LineClear(at, e.GlobalPosition)) continue;
             float dealt = e.Hurt(dmg, (e.GlobalPosition - at).Normalized() * 160f, e.GlobalPosition);
-            if (dealt > 0) { total += dealt; OnDealtDamage(dealt); }
+            if (dealt > 0) OnDealtDamage(dealt);
             if (!e.Dead) e.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);
         }
-        if (total > 0 && Stats.AegisLifesteal > 0) Heal(total * Stats.AegisLifesteal);
         var col = new Color(1f, 0.9f, 0.55f);
         G.Fx.Ring(at, Tune.Aegis.SmiteRadius, col, 0.4f, FxLayer.RingStyle.Burst);
         G.Fx.Flash(at, 50, col, 0.2f);
@@ -222,8 +215,48 @@ public partial class Player
         return true;
     }
 
+    /// <summary>Foe's Burden: the second ability is laid on a creature, which then takes a share of every blow the Aegis takes.</summary>
+    private bool TryFoeBurden(Vector2 aim)
+    {
+        if (!IsAegis || _burdenCd > 0) return false;
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        Enemy best = null; float bs = float.MaxValue;
+        var from = CastPoint;
+        foreach (var e in G.Enemies)
+        {
+            if (!IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
+            var to = e.GlobalPosition - from;
+            float d = to.Length();
+            if (d > Tune.Aegis.FoeReach + e.HitRadius || !G.Cave.LineClear(from, e.GlobalPosition)) continue;
+            float score = d - (d > 1f ? to.Dot(aim) / d : 0f) * 60f;
+            if (score < bs) { bs = score; best = e; }
+        }
+        if (best == null) { _burdenCd = 0.3f; SayNo("NO CREATURE TO BURDEN"); return true; }
+        _burdenCd = Tune.Aegis.FoeCooldown;
+        _foeBurden = best; _foeBurdenLeft = Tune.Aegis.FoeSeconds; _foeBeamT = 0f; FoeBurdenTaken = 0f;
+        G.Fx.Beam(from, best.GlobalPosition + new Vector2(0, -6), new Color(0.9f, 0.5f, 1f, 0.9f));
+        G.Fx.Text(best.GlobalPosition + new Vector2(0, -best.HitRadius - 14), "BURDENED", new Color(0.9f, 0.6f, 1f), 9, 0.8f);
+        G.Sfx.Play("heal", CastPoint, -8, 0.05f, 0.6f);
+        CastPose("rupture", "burden", 0.8f);
+        return true;
+    }
+
+    /// <summary>A share of a blow this Aegis takes falls on the creature carrying her Foe's Burden.</summary>
+    private float RedirectToFoe(float dmg)
+    {
+        var foe = FoeBurdenTarget;
+        if (foe == null || dmg <= 0f) return dmg;
+        float share = dmg * Tune.Aegis.FoeShare;
+        float dealt = foe.Hurt(share, Vector2.Zero, foe.GlobalPosition, DamageKind.Raw);
+        FoeBurdenTaken += dealt;
+        G.Fx.Beam(CastPoint, foe.GlobalPosition + new Vector2(0, -6), new Color(0.9f, 0.5f, 1f, 0.9f));
+        G.Fx.Text(GlobalPosition + new Vector2(0, -24), "BURDENED", new Color(0.9f, 0.6f, 1f), 8, 0.5f);
+        return dmg - share;
+    }
+
     private bool TryBurden(Vector2 aim)
     {
+        if (Stats.FoeBurden) return TryFoeBurden(aim);
         if (!Supporting) return TrySmite();
         if (!IsAegis || _burdenCd > 0) return false;
         _burdenCd = Tune.Aegis.BurdenBlink;

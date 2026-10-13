@@ -4,8 +4,8 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Swordsman's kit: a dash-slash on the dodge button (an orange ghost-glow dash that goes through the first creature it meets and turns, once clear of it, to slash it
-/// from behind for one and a half times a strike; 15 s to come back; it dodges nothing of itself, but can be used to get away), the Charged Strike, which empowers the next swing without breaking a combo, and the
+/// The Swordsman's kit: a dash-slash on the dodge button (an orange ghost-glow dash that stops at the first creature it meets and slashes it for one and a half times a strike (the Dash Through
+/// alteration: it goes through the creature and turns, once clear of it, to slash it from behind); 15 s to come back; it dodges nothing of itself, but can be used to get away), the Charged Strike, which empowers the next swing without breaking a combo, and the
 /// Heaving Swing: a slow, rooted, two-handed blow on your feet that hits twice as hard (and
 /// spends a waiting Charged Strike, for more still). Its alterations: Relentless Charge (a
 /// charge carries through a whole combo, a little weaker), Swift Heave (a charge makes the
@@ -107,6 +107,8 @@ public partial class Player
                 {
                     if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
                     if (e.GlobalPosition.DistanceTo(body) > e.HitRadius + 11f) continue;
+                    // (the base dash stops at it and slashes it; with Dash Through he goes through it and slashes it behind him)
+                    if (!Stats.DashThrough) { DashSlashHit(e); return Vector2.Zero; }
                     _slashFoe = e;
                     break;
                 }
@@ -134,11 +136,11 @@ public partial class Player
         _dodgeT = 0;
         Velocity = new Vector2(0, Math.Min(Velocity.Y, 0));
         var to = e.GlobalPosition - (GlobalPosition + new Vector2(0, -3));
-        // (he has gone through it: now he turns round, and the blade comes round behind him)
+        // (with Dash Through he has gone through it: now he turns round, and the blade comes round behind him)
         if (Math.Abs(to.X) > 2f) { Facing = Math.Sign(to.X); Anim.Face((int)Facing, instant: true); }
         StartSwing(to.LengthSquared() > 1 ? to.Normalized() : -_dodgeDir, counter: true);
         _swingDmg *= Tune.Swordsman.DashSlashMult;
-        _dashSlashSwing = true;
+        _dashSlashSwing = Stats.DashThrough;
         DashSlashes++;
         var at = GlobalPosition + new Vector2(0, -4) + to.Normalized() * 10;
         G.Fx.Text(GlobalPosition + new Vector2(0, -28), "DASH SLASH", new Color(1f, 0.7f, 0.3f), 11, 0.7f);

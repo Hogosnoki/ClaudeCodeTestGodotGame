@@ -43,8 +43,7 @@ public partial class Main
         yield return null; yield return null; _scInput = default;
         ScCheck($"a second press does nothing until then ({(p.IsDodging ? "dashing" : "not dashing")})", !p.IsDodging);
 
-        // ---- a dash that meets a creature: it slashes, for 1.5x a strike
-        p.ResetAbilityCooldowns();
+        // ---- a dash that meets a creature: it slashes, for 1.5x a strike (base: stopping at it; Dash Through: from behind it)
         var foe = new Spider { Position = p.GlobalPosition + new Vector2(110 * p.Facing, 0) };
         foe.SetMeta("test", true);
         _world.AddChild(foe);
@@ -52,7 +51,6 @@ public partial class Main
         foe.Hp = foe.MaxHp = 1000000f;
         foe.Freeze(60f, hold: true);
         foreach (var _ in Wait(0.4f)) yield return null;
-        foe.GlobalPosition = p.GlobalPosition + new Vector2(110 * p.Facing, 0);
         // (a plain swing at it, for what a strike does)
         float h0 = foe.Hp; int runs = p.HitPausesRun;
         p.GlobalPosition = foe.GlobalPosition - new Vector2(16 * p.Facing, 0);
@@ -60,19 +58,28 @@ public partial class Main
         for (int f = 0; f < 120 && p.HitPausesRun == runs; f++) { yield return null; _scInput = default; }
         foreach (var _ in Wait(1.0f)) yield return null;
         float strike = h0 - foe.Hp;
-        // (and the dash from further off)
-        foe.GlobalPosition = p.GlobalPosition + new Vector2(110 * p.Facing, 0);
-        foe.Freeze(60f, hold: true);
-        foreach (var _ in Wait(0.5f)) yield return null;
-        float h1 = foe.Hp; float dir0 = p.Facing; float startX0 = p.GlobalPosition.X, foeX0 = foe.GlobalPosition.X;
-        _scInput = new PlayerInput { Dodge = true, Move = new Vector2(p.Facing, 0) };
-        yield return null; _scInput = default;
-        for (int f = 0; f < 60 && p.DashSlashes == d0; f++) yield return null;
-        float faced = p.Facing;
-        foreach (var _ in Wait(1.5f)) yield return null;
-        float slash = h1 - foe.Hp;
-        float side = Math.Sign(p.GlobalPosition.X - foe.GlobalPosition.X);
-        ScCheck($"the dash went through the creature and slashed it from behind ({p.DashSlashes - d0}; he stands beyond it ({p.GlobalPosition.X - foe.GlobalPosition.X:0} px) facing back ({faced}), dash over {!p.IsDodging})", p.DashSlashes == d0 + 1 && !p.IsDodging && side == dir0 && faced == -dir0);
-        ScCheck($"for one and a half times a strike ({slash:0.0} against a strike's {strike:0.0}: x{slash / Math.Max(0.01f, strike):0.00})", slash > strike * 1.25f && slash < strike * 1.75f);
+        foreach (bool through in new[] { false, true })
+        {
+            p.Stats.DashThrough = through;
+            p.ResetAbilityCooldowns();
+            p.GlobalPosition = foe.GlobalPosition - new Vector2(110 * p.Facing, 0);
+            foe.Freeze(60f, hold: true);
+            foreach (var _ in Wait(0.5f)) yield return null;
+            int d1 = p.DashSlashes;
+            float h1 = foe.Hp; float dir0 = p.Facing;
+            _scInput = new PlayerInput { Dodge = true, Move = new Vector2(p.Facing, 0) };
+            yield return null; _scInput = default;
+            for (int f = 0; f < 60 && p.DashSlashes == d1; f++) yield return null;
+            float faced = p.Facing;
+            foreach (var _ in Wait(1.5f)) yield return null;
+            float slash = h1 - foe.Hp;
+            float side = Math.Sign(p.GlobalPosition.X - foe.GlobalPosition.X);
+            if (!through)
+                ScCheck($"the dash stopped at the creature and slashed it, still facing it ({p.DashSlashes - d1}; he stands {p.GlobalPosition.X - foe.GlobalPosition.X:0} px from it, facing {faced})", p.DashSlashes == d1 + 1 && faced == dir0);
+            else
+                ScCheck($"Dash Through: went through the creature and slashed it from behind ({p.DashSlashes - d1}; he stands beyond it ({p.GlobalPosition.X - foe.GlobalPosition.X:0} px) facing back ({faced}), dash over {!p.IsDodging})", p.DashSlashes == d1 + 1 && !p.IsDodging && side == dir0 && faced == -dir0);
+            ScCheck($"for one and a half times a strike ({slash:0.0} against a strike's {strike:0.0}: x{slash / Math.Max(0.01f, strike):0.00})", slash > strike * 1.25f && slash < strike * 1.75f);
+            p.Facing = dir0;
+        }
     }
 }
