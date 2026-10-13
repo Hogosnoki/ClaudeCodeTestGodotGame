@@ -241,7 +241,7 @@ public partial class Main
             case 144:
             {
                 float want = Tune.Hero.RunSpeed * p.Stats.MoveSpeed;
-                Check($"half again as fast in the shadows ({Math.Abs(p.Velocity.X):0} px/s, running {want:0})", Math.Abs(p.Velocity.X) > want * 1.35f);
+                Check($"half again as fast in the shadows ({Math.Abs(p.Velocity.X):0} px/s, running {want:0}; holding {p.Holding}, pos {p.GlobalPosition.X:0}, floor {p.IsOnFloor()}, pause {p.PauseLeft:0.00})", Math.Abs(p.Velocity.X) > want * 1.35f);
                 // a jab at nothing at all still gives you away
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(-_dir, 0) };
                 break;

@@ -28,9 +28,21 @@ public partial class Main
         var before = PlanExits(new Random(5));
         ScCheck($"without the merchant, a guardian leaves two exits, both going down ({before.Count}, stall {before.Any(e => e.shop)})", before.Count == 2 && !before.Any(e => e.shop) && before.All(e => e.depth > G.Depth));
         Meta.MerchantUnlocked = true;
+        // (the stall is offered twice a run, between the 3rd depth and the 9th)
+        bool okDraws = true;
+        for (int k = 0; k < 200; k++) { RollStalls(); okDraws &= _stallAt1 >= 3 && _stallAt2 > _stallAt1 && _stallAt2 <= 9; }
+        ScCheck($"his two stalls fall between the 3rd depth and the 9th, the first sooner ({okDraws}; e.g. {_stallAt1} and {_stallAt2})", okDraws);
+        _stallAt1 = G.Depth + 1; _stallsOffered = 0;
+        ScCheck($"none is offered before the first stall's depth ({PlanExits(new Random(5)).Count} exits at depth {G.Depth}, first stall at {_stallAt1})", PlanExits(new Random(5)).Count == 2);
+        _stallAt1 = G.Depth; _stallAt2 = G.Depth + 2;
         var plan = PlanExits(new Random(5));
         ScCheck($"with him freed there are three: gentle way, stall, steep way ({string.Join(" | ", plan.Select(e => e.label))})", plan.Count == 3 && plan[1].shop && !plan[0].shop && !plan[2].shop);
         ScCheck($"the stall is the same biome at the same depth ({plan[1].biome.Id}/{plan[1].depth} against {G.Biome.Id}/{G.Depth})", plan[1].biome.Id == G.Biome.Id && plan[1].depth == G.Depth);
+        _stallsOffered = 1;
+        ScCheck($"after the first, none until the second's depth ({PlanExits(new Random(5)).Count} exits)", PlanExits(new Random(5)).Count == 2);
+        _stallsOffered = 2; _stallAt2 = G.Depth;
+        ScCheck($"and never a third ({PlanExits(new Random(5)).Count} exits)", PlanExits(new Random(5)).Count == 2);
+        _stallsOffered = 0;
         Meta.MerchantUnlocked = had;
         Tune.Testing.UnlockEverything = testing;
 
@@ -72,6 +84,8 @@ public partial class Main
         p.GlobalPosition = merchant.GlobalPosition + new Vector2(-14, -2);
         foreach (var _ in Wait(0.4f)) yield return null;
         ScCheck($"standing at him, the hero is at his table ({Merchant.At(p.GlobalPosition) == merchant})", Merchant.At(p.GlobalPosition) == merchant);
+        foreach (var _ in Wait(0.8f)) yield return null;
+        ScShot("shop_stall");
         int gold0 = p.Gold = 100;
         OpenShop(merchant);
         foreach (var _ in Wait(0.6f)) yield return null;

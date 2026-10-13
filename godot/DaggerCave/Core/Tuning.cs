@@ -380,7 +380,7 @@ public static class Tune
         public static int FireCharges = 2, FrostCharges = 4;
         public static float BoltGap = 0.25f, FrostGap = 0.2f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
-        public static float IgniteChance = 0.4f, IgniteDps = 4f, IgniteSeconds = 4f;
+        public static float IgniteChance = 0.65f, IgniteDps = 4f, IgniteSeconds = 4f;
         /// <summary>Frostbolt (an alteration): FrostDamage a bolt, one coming back every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
@@ -404,7 +404,7 @@ public static class Tune
         /// </summary>
         public static float BlizzardCost = 20f, BlizzardCooldown = 20f, BlizzardRadius = 88f, BlizzardRange = 200f, BlizzardSeconds = 6f;
         public static int BlizzardTicks = 18;
-        public static float BlizzardDamage = 2f, BlizzardFreeze = 0.06f, FirestormDamage = 3f, FirestormIgnite = 0.1f;
+        public static float BlizzardDamage = 2f, BlizzardFreeze = 0.06f, FirestormDamage = 3f, FirestormIgnite = 0.25f;
         /// <summary>
         /// Snap (the second ability): costs SnapCost alimus. Every frozen creature in view
         /// shatters for SnapDamage, and every other creature within SnapRadius px of it takes
@@ -1062,6 +1062,8 @@ public static class Tune
     public static class Merchant
     {
         public static float CageShare = 0.35f;
+        /// <summary>His stall is offered twice a run, at depths drawn between these (the first no sooner than <c>FirstDepth</c>, the second no later than <c>LastDepth</c>).</summary>
+        public static int FirstDepth = 3, LastDepth = 9, Visits = 2;
         /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies; each rises <c>PerDepth</c> of itself for every level down.</summary>
         public static int PriceCommon = 8, PriceUncommon = 14, PriceRare = 24, PriceRelic = 36, PriceSupplies = 12, PriceReroll = 6, PriceToken = 14;
         /// <summary>How likely a token for dealing a choice of cards again is to be among his supplies, against the others' 1.</summary>

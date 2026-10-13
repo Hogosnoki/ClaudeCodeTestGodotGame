@@ -1374,6 +1374,14 @@ A Shape Shifter can **remember** the form it is in and take it again **without a
 - **Tanking**: the heavy forms now draw the creatures' eyes (`ShiftForm.Threat`: they count a hero in the form that much nearer; the bear 0.5x, the golem 0.6x, the crab 0.8x), and the bear shrugs off
   35% of blows (was 20%; the golem 40%). More for the party is yet to come. `--scenario=shifterspecials --hero=shifter` checks remembering, recalling, and Shift still copying.
 
+## The meters under the health
+
+The thin meters under the health bar (`Hud._Draw`) each get their own row with room between, and show only while they mean something: a **Warden's shield** while it is raised, worn, broken or mending; a **barrier or bubble** while one is up; and the **Elementalist's alimus** while it is short of full or a spell waits on it (with marks at the updraft's and the storm's costs). Each row's amount stands just past its end, and the experience bar sits under the last of them. The alimus bar that stood among the Elementalist's ability squares is gone (its bolt pips stay there).
+
+**Fire takes more readily**: a firebolt sets a creature alight 65% of the time (was 40%), each Firestorm strike 25% (was 10%).
+
+**Fixed**: the Rogue's Recall had stopped working (the Shape Shifter's new "recall a remembered form" shared its name, so the Rogue's button called the Shifter's); the merchant and his stall were drawn at a third of a hero's size (now 1.6x).
+
 ## More gold, and gold from creatures
 
 **Gold where something ought to be** (`Main.PlaceMoreGold`, `Tune.Gold`): beside the dead ends, coins and piles are laid, from the seed alone and after every other reward is down, on **high platforms with nothing under them**,
@@ -1381,14 +1389,14 @@ on **ledges, slabs and shelves that lead nowhere**, on the floor of a **chamber 
 and only where a hero can walk (a high platform holds a pile 40% of the time, a ledge 25%). **Creatures drop gold now and then** (7% a kill, 40% from an elite, a pile of 12 from a guardian; 12% of drops are piles, `Enemy.DieHere`): a coin that flies out and falls to the floor (`CoinPickup.Dropped`, sent to the party like any prop);
 a hive's hornets and everything in the merchant's stall leave none.
 
-**Wind-ups keep your rise and fall.** The pause of a wind-up slows you to a tenth *sideways* only: a jump or a fall in progress carries on as it was (it no longer resets or caps your vertical speed). A blow that lands still stops any rise or fall, as before.
+**Wind-ups pause your rise and fall, they don't reset it.** A wind-up slows you to a tenth, in the air too (you hang there while it gathers), and when it ends the rise or fall you were in carries on as it was (`Player.ResumeFromHold`). A blow that lands still stops any rise or fall, as before.
 
 ## The merchant and his stall
 
 **Finding him.** The merchant is another character to unlock, but not a playable one. While anyone in the party hasn't met him (`Meta.MerchantUnlocked`, a bit of `PeerInfo.Locked` online), some of the hero cages hold **him**
 (`Tune.Merchant.CageShare`, 35% of cages, all of them once every hero is found): free him (interact) and he is yours for good (`HeroCage.Merchant`, `Lore.MerchantFreedBanner`). While everything is unlocked for testing he is always known.
 
-**His stall is a third exit** (a door in the gold of his lamp, marked THE MERCHANT, with a coin on its keystone and "stays at depth N" under it, rather than the biome's name). Once he is known, a fallen guardian leaves three exits, left to right: *the gentle way* (a level down), **the merchant's stall** and *the steep way* (two down) (`Main.PlanExits`). The stall does
+**His stall is a third exit, twice a run** (at two depths drawn as the run begins, the first no sooner than the 3rd, the second no later than the 9th, `Main.RollStalls`, `Tune.Merchant.FirstDepth/LastDepth/Visits`; a steep way down that skips one's depth brings it at the next guardian, never past the 9th). (a door in the gold of his lamp, marked THE MERCHANT, with a coin on its keystone and "stays at depth N" under it, rather than the biome's name). Once he is known, a fallen guardian leaves three exits, left to right: *the gentle way* (a level down), **the merchant's stall** and *the steep way* (two down) (`Main.PlanExits`). The stall does
 **not** descend: it is the *same biome at the same depth*, in a **tiny new map** (`BiomeDef.ForShop`, `Biomes.ShopOf`; the biome's palette and dressing, in a map of two chambers about 105 cells wide) in which
 nothing lives, nothing is hidden (no chests, gold, vault, rubble, secret ways) and the way on is open from the start: two exits, one level down and two (the way a guardian-less level opens them), and no second stall. In the exit chamber
 stands the merchant at his table (`Combat/Merchant.cs`, `MerchantDesign`, `MerchantView`; a lantern, a pack, a plank table with wares); arriving heals nothing (the level below does). Online, the stall rides on the same message and portal sync as any level

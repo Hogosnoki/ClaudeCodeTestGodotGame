@@ -35,6 +35,15 @@ public partial class Main
         Hud.Guide = false;
         foreach (var _ in Wait(0.2f)) yield return null;
         ScShot("hudguide_closed");
+        // the meters under the health: shown only while they mean something
+        p.SetAlimus(p.Stats.AlimusMax * 0.4f);
+        p.GiveBarrier(p.Stats.MaxHp * 0.3f, 10f);
+        foreach (var _ in Wait(0.3f)) yield return null;
+        ScShot("hud_meters");
+        ScCheck($"a barrier shows a meter under the health ({_hud.TipTitles.Contains("Barrier")})", _hud.TipTitles.Contains("Barrier"));
+        if (p.Stats.Hero == HeroKind.Elementalist) ScCheck($"and the Elementalist's alimus, when it is short ({_hud.TipTitles.Contains("Alimus")})", _hud.TipTitles.Contains("Alimus"));
+        p.SetAlimus(p.Stats.AlimusMax);
+        p.GiveBarrier(0f, 0f);
     }
 
     private IEnumerator<object> _rfSteps;

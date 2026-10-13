@@ -119,7 +119,7 @@ public partial class Player
     }
 
     /// <summary>Takes the remembered form again, with no creature to copy (false when there is none remembered).</summary>
-    private bool TryRecall()
+    private bool TryRecallForm()
     {
         var f = RememberedForm;
         if (f == null || Form != null) return false;
@@ -138,7 +138,7 @@ public partial class Player
         if (!AbilityChargeReady) return false;
         var e = ShiftTarget();
         // (nothing to copy, but a form remembered: that one, the way to be a bear against a guardian that can't be copied)
-        if (e == null && RememberedForm != null) return TryRecall();
+        if (e == null && RememberedForm != null) return TryRecallForm();
         if (e == null)
         {
             // (anything near that can't be copied says so)
@@ -557,7 +557,7 @@ public partial class Player
         if (Form == null)
         {
             // (the second button, with no form on: take the remembered one again)
-            if (RememberedForm != null && _shiftLock <= 0) return TryRecall();
+            if (RememberedForm != null && _shiftLock <= 0) return TryRecallForm();
             SayNo(RememberedForm != null ? "NOT YET" : "SHIFT FIRST");
             return true;
         }

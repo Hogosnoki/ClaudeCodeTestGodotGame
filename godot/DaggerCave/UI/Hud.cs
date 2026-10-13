@@ -113,34 +113,42 @@ public partial class Hud : Control
         UiArt.Bar(this, new Rect2(hpPos, new Vector2(hpW, 16)), hf, hf < 0.3f && (int)(_t * 4) % 2 == 0 ? new Color(1f, 0.4f, 0.4f) : new Color(0.85f, 0.18f, 0.22f), null, _hpGhost);
         DrawString(font, hpPos + new Vector2(6, 13), $"{Num.Shown(p.Hp)} / {Num.Shown(p.Stats.MaxHp)}", HorizontalAlignment.Left, -1, 13, Colors.White);
         Tip(new Rect2(hpPos - new Vector2(3, 3), new Vector2(hpW + 6, 22)), "Health", "Your health, now and at most (the bar grows with it). It flashes when low. At none you fall: a friend can revive you; alone, the run ends.");
-        // --- shields, beneath the health in a meter like it, light grey (almost white): a Warden's shield, and a barrier or a bubble (the Aegis's,
-        // or a friend's) while one is up. One row when there is one of them, two thinner when both. (They fit the gap above the experience bar.)
+        // --- the meters under the health, each its own thin row with room between, shown only while it means something: a Warden's shield (while it is
+        // raised, worn, broken or mending), a barrier or a bubble (while one is up), the Elementalist's alimus (while it is short of full, or a spell waits on it).
+        // Each row's amount stands just past its end. The experience bar comes under the last of them.
+        float meterY = hpPos.Y + 16f + 6f;
         {
-            var rows = new List<(float frac, string label, string name, string tip, bool broken)>();
-            if (p.Stats.Hero == HeroKind.Warden)
-                rows.Add((Math.Clamp(p.ShieldHp / Math.Max(1f, p.Stats.ShieldMax), 0f, 1f), p.ShieldBroken ? "BROKEN" : Num.Shown(p.ShieldHp).ToString(), "Shield", $"Your shield: {Num.Shown(p.ShieldHp)} of {Num.Shown(p.Stats.ShieldMax)}. What it can still stop; it wears down under blows and mends while lowered. Broken, it is down for a few seconds.", p.ShieldBroken));
+            var rows = new List<(float frac, string label, string name, string tip, Color col, float[] ticks)>();
+            var light = new Color(0.93f, 0.94f, 0.97f);
+            if (p.Stats.Hero == HeroKind.Warden && (p.ShieldRaised || p.ShieldBroken || p.ShieldHp < p.Stats.ShieldMax - 0.05f))
+                rows.Add((Math.Clamp(p.ShieldHp / Math.Max(1f, p.Stats.ShieldMax), 0f, 1f), p.ShieldBroken ? "BROKEN" : $"{Num.Shown(p.ShieldHp)} shield", "Shield",
+                    $"Your shield: {Num.Shown(p.ShieldHp)} of {Num.Shown(p.Stats.ShieldMax)}. What it can still stop; it wears down under blows and mends while lowered. Broken, it is down for a few seconds.",
+                    p.ShieldBroken ? new Color(0.5f, 0.5f, 0.55f) : light, null));
             float soak = p.BarrierHp + p.BubbleHp;
             if (p.Barriered || p.Bubbled)
-                rows.Add((Math.Clamp(soak / Math.Max(1f, p.Stats.MaxHp), 0f, 1f), Num.Shown(soak).ToString(), p.Bubbled && !p.Barriered ? "Bubble" : "Barrier", $"A {(p.Bubbled && !p.Barriered ? "bubble" : "barrier")} over you absorbs {Num.Shown(soak)} more damage before the health under it is touched.", false));
-            if (rows.Count > 0)
+                rows.Add((Math.Clamp(soak / Math.Max(1f, p.Stats.MaxHp), 0f, 1f), $"{Num.Shown(soak)} {(p.Bubbled && !p.Barriered ? "bubble" : "barrier")}", p.Bubbled && !p.Barriered ? "Bubble" : "Barrier",
+                    $"A {(p.Bubbled && !p.Barriered ? "bubble" : "barrier")} over you absorbs {Num.Shown(soak)} more damage before the health under it is touched.", light, null));
+            if (p.Stats.Hero == HeroKind.Elementalist && (p.Alimus < p.Stats.AlimusMax - 0.05f || p.BoltWaiting || p.UpdraftWaiting || p.SnapWaiting || p.StormWaiting))
             {
-                float rh = rows.Count == 1 ? 7f : 3.6f, y0 = hpPos.Y + 19f;
-                var light = new Color(0.93f, 0.94f, 0.97f);
-                for (int k = 0; k < rows.Count; k++)
-                {
-                    var (frac, label, name, tip, broken) = rows[k];
-                    var r = new Rect2(hpPos + new Vector2(0, 19f + (rh + 0.8f) * k), new Vector2(hpW, rh));
-                    DrawRect(r.Grow(1.2f), new Color(0, 0, 0, 0.65f));
-                    DrawRect(r, new Color(0.18f, 0.19f, 0.22f, 0.95f));
-                    var fill = broken ? new Color(0.5f, 0.5f, 0.55f) : light;
-                    if (frac > 0.002f) { DrawRect(new Rect2(r.Position, new Vector2(r.Size.X * frac, r.Size.Y)), fill); DrawRect(new Rect2(r.Position, new Vector2(r.Size.X * frac, r.Size.Y * 0.4f)), new Color(1, 1, 1, 0.35f)); }
-                    Tip(r.Grow(2f), name, tip);
-                }
-                // (the amounts, in the same light grey, just past the end of the health bar)
-                string amounts = string.Join(" + ", rows.Select(r => r.label));
-                var tp = hpPos + new Vector2(hpW + 7f, 21f);
-                DrawStringOutline(font, tp, amounts, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.85f));
-                DrawString(font, tp, amounts, HorizontalAlignment.Left, -1, 10, light);
+                float amax = Math.Max(1f, p.Stats.AlimusMax);
+                rows.Add((Math.Clamp(p.Alimus / amax, 0f, 1f), $"{Num.Shown(p.Alimus)} alimus", "Alimus",
+                    "The Elementalist's spell power. A spell costs nothing to cast; it is paid for as it comes back (the number on its square), and with too little alimus it waits. Alimus comes back by itself.",
+                    AlimusColor, new[] { p.UpdraftCost / amax, p.BlizzardCost / amax }));
+            }
+            const float rh = 6f, gap = 5f;
+            for (int k = 0; k < rows.Count; k++)
+            {
+                var (frac, label, name, tip, col, ticks) = rows[k];
+                var r = new Rect2(new Vector2(hpPos.X, meterY), new Vector2(hpW, rh));
+                DrawRect(r.Grow(1.2f), new Color(0, 0, 0, 0.65f));
+                DrawRect(r, new Color(0.18f, 0.19f, 0.22f, 0.95f));
+                if (frac > 0.002f) { DrawRect(new Rect2(r.Position, new Vector2(r.Size.X * frac, r.Size.Y)), col); DrawRect(new Rect2(r.Position, new Vector2(r.Size.X * frac, r.Size.Y * 0.4f)), new Color(1, 1, 1, 0.3f)); }
+                if (ticks != null) foreach (float tk in ticks) if (tk < 1f) DrawLine(r.Position + new Vector2(r.Size.X * tk, -1), r.Position + new Vector2(r.Size.X * tk, rh + 1), new Color(0, 0, 0, 0.6f), 1.5f);
+                Tip(r.Grow(3f), name, tip);
+                var tp = new Vector2(hpPos.X + hpW + 7f, meterY + rh + 1f);
+                DrawStringOutline(font, tp, label, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.85f));
+                DrawString(font, tp, label, HorizontalAlignment.Left, -1, 10, col.Lerp(Colors.White, 0.35f));
+                meterY += rh + gap;
             }
         }
 
@@ -164,7 +172,7 @@ public partial class Hud : Control
         }
 
         // --- XP ---
-        var xpPos = hpPos + new Vector2(0, 26);
+        var xpPos = new Vector2(hpPos.X, Math.Max(hpPos.Y + 26f, meterY + 2f));
         float xpW = hpW;
         UiArt.Bar(this, new Rect2(xpPos, new Vector2(xpW, 7)), Math.Clamp(p.Xp / (float)p.XpToNext, 0, 1), new Color(0.35f, 0.9f, 0.62f), new Color(0.4f, 0.5f, 0.45f, 0.7f));
         DrawString(font, xpPos + new Vector2(xpW + 10, 8), $"Lv {p.Level}", HorizontalAlignment.Left, -1, 14, new Color(0.6f, 1f, 0.8f));
@@ -250,7 +258,8 @@ public partial class Hud : Control
 
         // --- Potions (under the bars) ---
         {
-            var pp = xpPos + new Vector2(xpW + 60, -18);
+            // (beside the health bar, where they stay put however many meters are showing)
+            var pp = hpPos + new Vector2(hpW + 60, 8);
             for (int k = 0; k < Meta.MaxPotions; k++)
                 PotionPickup.DrawFlask(this, pp + new Vector2(k * 18, 6), 1.35f, 1f, k >= p.Potions);
             DrawString(font, pp + new Vector2(-8, 28), Controls.Name("potion"), HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.5f));
@@ -1043,17 +1052,9 @@ public partial class Hud : Control
         });
         KeyHint(font, sb, "ability2");
 
-        // the alimus reserve (tick marks at each spell's cost)
+        // (the alimus reserve is up with the health, see the meters under it)
         var bp = sb + new Vector2(60, 10);
-        const float w = 150;
-        float max = Math.Max(1f, p.Stats.AlimusMax);
-        float frac = Math.Clamp(p.Alimus / max, 0, 1);
-        UiArt.Bar(this, new Rect2(bp, new Vector2(w, 12)), frac, AlimusColor);
-        foreach (float cost in new[] { p.UpdraftCost, p.BlizzardCost })
-            if (cost < max) DrawLine(bp + new Vector2(w * cost / max, -2), bp + new Vector2(w * cost / max, 14), new Color(0, 0, 0, 0.5f), 1.5f);
-        Tip(new Rect2(bp - new Vector2(2, 18), new Vector2(160, 34)), "Alimus", "The Elementalist's spell power. A spell costs nothing to cast, but a spell that has been cast does not begin to recharge until there is enough alimus (the number on its square), which it spends to start. Alimus comes back by itself.");
-        DrawString(font, bp + new Vector2(0, -8), $"ALIMUS  {Num.Shown(p.Alimus)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.85f, 0.78f, 1f, 0.8f));
-        // the bolts in the staff (the attack button's charges), under the bar
+        // the bolts in the staff (the attack button's charges)
         var boltCol = p.Stats.Frostbolt ? new Color(0.95f, 0.98f, 1f) : new Color(1f, 0.52f, 0.12f);
         for (int k = 0; k < p.BoltChargesMax; k++)
         {

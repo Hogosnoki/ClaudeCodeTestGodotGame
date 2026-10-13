@@ -11,6 +11,9 @@ public partial class MerchantView : PropView
     private float _footY;
     private Node3D _stall;
 
+    /// <summary>The whole stall (him, his table, his lantern) is drawn this much bigger than its models are made: a hero's height, the table at his waist.</summary>
+    private const float Grow = 1.6f;
+
     protected override void Build()
     {
         // (the stall: behind him, a little to the side)
@@ -54,7 +57,7 @@ public partial class MerchantView : PropView
         AddChild(_light);
         AddChild(new Label3D
         {
-            Text = "MERCHANT", Modulate = Lore.MerchantColor.Lightened(0.35f), OutlineModulate = new Color(0.05f, 0.04f, 0.03f, 0.9f), FontSize = 40, PixelSize = 0.008f,
+            Text = "MERCHANT", Modulate = Lore.MerchantColor.Lightened(0.35f), OutlineModulate = new Color(0.05f, 0.04f, 0.03f, 0.9f), FontSize = 40, PixelSize = 0.008f / Grow,
             OutlineSize = 12, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1, Position = new Vector3(0, 1.45f, 0),
         });
     }
@@ -63,6 +66,7 @@ public partial class MerchantView : PropView
     {
         var m = (Merchant)Owner2D;
         Follow(default, 0f);
+        Scale = Vector3.One * Grow;
         // the stall stands on the side he faces away from (behind him)
         _stall.Position = new Vector3(0.55f * -m.Facing, 0, -0.35f);
         _stall.Scale = new Vector3(1f, 1f, 1f);

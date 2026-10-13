@@ -6,7 +6,7 @@ namespace DaggerCave;
 /// <summary>
 /// Wind-ups. Some casts take a moment to gather before they go off (a heal 0.4 s, a Rupture 0.8 s, the Aegis's shields 0.25 s, the
 /// Elementalist's firebolt 0.2 s, frostbolt 0.1 s, Blizzard 0.5 s and Stalag-Might 1 s, the Rogue's recall 0.4 s). The cost is paid and
-/// the cooldown started when the button is pressed; then, for the wind-up, the hero is slowed to a tenth sideways (Tune.Hold.MoveShare; a rise or a fall in progress is not touched), with no jumping,
+/// the cooldown started when the button is pressed; then, for the wind-up, the hero is slowed to a tenth (Tune.Hold.MoveShare: walking, swimming and falling alike; a rise or fall in progress is paused, not reset: it carries on when the wind-up ends), with no jumping,
 /// no dodging, animated in the cast to show it is under way (the animation lasts as long as the wind-up does);
 /// then the cast goes off. A stun, a freeze, a web, a snag or a death cuts it short and the cast is lost.
 /// </summary>
@@ -21,10 +21,11 @@ public partial class Player
     /// <summary>The length of the last wind-up begun (for the tests).</summary>
     public float LastHold { get; private set; }
     /// <summary>For the tests: the farthest a hero may get in a wind-up of <paramref name="seconds"/> while slowed to a tenth (pushing the whole time).</summary>
-    public float HoldDriftAllowance(float seconds) => RunSpeed * Stats.MoveSpeed * Tune.Hold.MoveShare * seconds * 1.3f + 1f;
+    public float HoldDriftAllowance(float seconds) => Math.Max(RunSpeed * Stats.MoveSpeed, MaxFall) * Tune.Hold.MoveShare * seconds * 1.3f + 1f;
     /// <summary>The farthest the hero got from where the last wind-up began, while it lasted (for the tests: it should be nothing).</summary>
     public float LastHoldDrift { get; private set; }
     private Vector2 _holdPos;
+    private float _holdVy;
 
     /// <summary>Test aid: the resources the casts spend, full.</summary>
     public void TestFill() { VitalForce = Stats.VitalForceMax; Alimus = Stats.AlimusMax; Fuel = Tune.AutomatonHero.FuelStart; }
@@ -47,16 +48,24 @@ public partial class Player
         _holdPos = GlobalPosition;
         _holdT = _holdTotal = seconds;
         _holdFire = fire;
-        // (sideways it slows at once; the rise or fall you are in carries on)
-        Velocity = new Vector2(Velocity.X * Tune.Hold.MoveShare, Velocity.Y);
+        // (it slows at once, hanging in the air if you are in it; the rise or fall you were in is kept, and given back when the wind-up ends)
+        _holdVy = Velocity.Y;
+        Velocity *= Tune.Hold.MoveShare;
         Anim.OnceFor(clip, 3, seconds);
         _castGlow = Math.Max(_castGlow, glow * 0.6f);
     }
 
     private void CancelHold()
     {
+        if (_holdT > 0f) ResumeFromHold();
         _holdT = 0f;
         _holdFire = null;
+    }
+
+    /// <summary>The wind-up is over: the rise or fall the hero was in when it began carries on (it is paused, not reset).</summary>
+    private void ResumeFromHold()
+    {
+        if (!IsOnFloor() && !InWater) Velocity = new Vector2(Velocity.X, _holdVy);
     }
 
     private void TickHold(float dt)
@@ -68,6 +77,7 @@ public partial class Player
         // (a faint gathering glow while it builds)
         _castGlow = Math.Max(_castGlow, 0.25f + 0.35f * HoldProgress);
         if (_holdT > 0f) return;
+        ResumeFromHold();
         var fire = _holdFire;
         _holdFire = null;
         fire?.Invoke();

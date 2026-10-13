@@ -778,7 +778,7 @@ public partial class Main : Node
         ulong t0 = Time.GetTicksMsec();
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
         // (a new run starts with no relics carried)
-        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); }
+        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); RollStalls(); }
         var cave = pregenerated ?? CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
@@ -2753,13 +2753,27 @@ public partial class Main : Node
     /// The ways on from a fallen guardian, left to right: the gentle way (a level down), the steep way (two), and, once the merchant is freed, between them his stall
     /// (the same biome at the same depth, in a tiny map of its own, which goes down no further: its two exits are the ones above).
     /// </summary>
+    /// <summary>The depths this run's two stalls are offered from (drawn as the run begins; the host's), and how many have been offered so far.</summary>
+    private int _stallAt1 = 3, _stallAt2 = 9, _stallsOffered;
+
+    /// <summary>A new run: two depths for the merchant's stall, the first no sooner than the 3rd, the second no later than the 9th.</summary>
+    private void RollStalls()
+    {
+        _stallsOffered = 0;
+        _stallAt1 = _rng.Next(Tune.Merchant.FirstDepth, Tune.Merchant.LastDepth);        // 3..8
+        _stallAt2 = _rng.Next(_stallAt1 + 1, Tune.Merchant.LastDepth + 1);               // the first + 1 .. 9
+    }
+
+    /// <summary>Is a stall due at this guardian? (the first once the run has reached its depth, the second likewise, never past the last depth; a steep way down can carry you past one)</summary>
+    private bool StallDue => _stallsOffered < Tune.Merchant.Visits && G.Depth <= Tune.Merchant.LastDepth && G.Depth >= (_stallsOffered == 0 ? _stallAt1 : _stallAt2);
+
     public List<(BiomeDef biome, int depth, string label, bool shop)> PlanExits(Random rng)
     {
         var exits = Biomes.ChooseExits(G.Depth, rng);
         var plan = new List<(BiomeDef, int, string, bool)>();
         foreach (var (bd, depth) in exits)
             plan.Add((bd, depth, exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way", false));
-        if (Meta.MerchantKnown && !G.Shop && exits.Count == 2) plan.Insert(1, (G.Biome, G.Depth, $"his stall  ·  stays at depth {G.Depth}", true));
+        if (Meta.MerchantKnown && !G.Shop && exits.Count == 2 && StallDue) plan.Insert(1, (G.Biome, G.Depth, $"his stall  ·  stays at depth {G.Depth}", true));
         return plan;
     }
 
@@ -2780,6 +2794,7 @@ public partial class Main : Node
         CallDeferred(MethodName.SpawnBossChests, room.Floor);
         // the way on: one or two tunnels into what lies below
         var plan = PlanExits(_rng);
+        if (plan.Any(e => e.shop)) _stallsOffered++;
         ExitSpots.Clear();
         for (int k = 0; k < plan.Count; k++)
         {
