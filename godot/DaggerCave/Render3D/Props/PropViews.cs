@@ -1565,7 +1565,7 @@ public partial class PortalView : PropView
     {
         var p = (Portal)Owner2D;
         bool entry = p.Entry;
-        _glow = entry ? new Color(0.42f, 0.46f, 0.55f) : p.To?.Glow ?? new Color(0.7f, 0.5f, 1f);
+        _glow = entry ? new Color(0.42f, 0.46f, 0.55f) : p.Shop ? Lore.MerchantColor : p.To?.Glow ?? new Color(0.7f, 0.5f, 1f);
         var rockCol = (G.Biome?.Edge ?? new Color(0.35f, 0.32f, 0.3f)).Lerp(new Color(0.24f, 0.22f, 0.2f), 0.5f);
         var stone = rockCol.Lerp(new Color(0.33f, 0.31f, 0.29f), 0.5f);
         if (entry) { stone = stone.Darkened(0.35f); rockCol = rockCol.Darkened(0.2f); }
@@ -1641,7 +1641,12 @@ public partial class PortalView : PropView
         }
         // the chevron cut into the keystone (two for the steep way), holding a little of the light below
         var gb = new MeshBuilder();
-        int chevrons = p.Depth - G.Depth >= 2 ? 2 : 1;
+        int chevrons = p.Shop ? 0 : p.Depth - G.Depth >= 2 ? 2 : 1;
+        // (the stall has a coin cut in the keystone instead: it goes down no further)
+        if (p.Shop)
+        {
+            gb.Tube(new[] { new Vector3(0, DoorH + 0.3f, 0.4f), new Vector3(0, DoorH + 0.3f, 0.43f) }, new[] { 0.17f, 0.17f }, 14, Colors.White);
+        }
         for (int c = 0; c < chevrons; c++)
         {
             float y = DoorH + 0.36f - c * 0.2f + (chevrons - 1) * 0.1f;
@@ -1664,7 +1669,7 @@ public partial class PortalView : PropView
         var dark = new Color(0f, 0f, 0f, 0.92f);
         _title = new Label3D
         {
-            Text = p.To?.Name.ToUpperInvariant() ?? "DEEPER", Modulate = _glow.Lerp(Colors.White, 0.6f), OutlineModulate = dark,
+            Text = p.Shop ? "THE MERCHANT" : p.To?.Name.ToUpperInvariant() ?? "DEEPER", Modulate = _glow.Lerp(Colors.White, 0.6f), OutlineModulate = dark,
             FontSize = 72, PixelSize = 0.011f, OutlineSize = 24, Billboard = BaseMaterial3D.BillboardModeEnum.Enabled, NoDepthTest = true, RenderPriority = 2, OutlineRenderPriority = 1,
             Position = new Vector3(0, 5.25f, 0.6f),
         };
@@ -1704,7 +1709,7 @@ public partial class PortalView : PropView
         _prompt.Visible = p.Near > 0.01f && !p.Used;
         if (_prompt.Visible)
         {
-            _prompt.Text = G.Main.UsingPad ? "UP  ·  DESCEND" : "E  ·  DESCEND";
+            _prompt.Text = p.Shop ? (G.Main.UsingPad ? "UP  ·  TO THE STALL" : "E  ·  TO THE STALL") : G.Main.UsingPad ? "UP  ·  DESCEND" : "E  ·  DESCEND";
             float pa = p.Near * (0.8f + 0.2f * MathF.Sin(Time * 5f));
             _prompt.Modulate = _prompt.Modulate with { A = pa };
             _prompt.OutlineModulate = _prompt.OutlineModulate with { A = 0.92f * p.Near };

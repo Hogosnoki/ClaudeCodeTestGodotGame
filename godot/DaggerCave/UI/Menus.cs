@@ -340,7 +340,8 @@ public partial class UpgradeMenu : Control
         DrawString(font, r.Position + new Vector2(0, 156), u.Name, HorizontalAlignment.Center, cw, 20, locked != null ? new Color(0.6f, 0.6f, 0.6f) : Colors.White);
         DrawMultilineString(font, r.Position + new Vector2(16, 180), Upgrades.DescFor(u, stats), HorizontalAlignment.Center, cw - 32, 13, -1, new Color(0.88f, 0.88f, 0.92f, locked != null ? 0.5f : 1f));
         DrawString(font, r.Position + new Vector2(12, ch - 10), $"{k + 1}", HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.35f));
-        if (stats != null && u.MaxStacks > 1 && !skip)
+        // (the merchant's services have no ranks: their "unlimited" is not drawn as thousands of pips)
+        if (stats != null && u.MaxStacks > 1 && u.MaxStacks <= 12 && !skip)
         {
             // the ranks as pips
             int have = stats.StackOf(u.Id);

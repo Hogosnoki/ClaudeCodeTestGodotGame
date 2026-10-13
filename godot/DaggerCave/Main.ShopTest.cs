@@ -34,6 +34,17 @@ public partial class Main
         Meta.MerchantUnlocked = had;
         Tune.Testing.UnlockEverything = testing;
 
+        // ---- its door in the guardian's chamber (for the picture): beside a plain way down
+        if (G.Cave.FindFloor(p.GlobalPosition + new Vector2(120, -40), 200, out var df) && G.Cave.FindFloor(p.GlobalPosition + new Vector2(260, -40), 200, out var df2))
+        {
+            var door = new Portal { Position = df + new Vector2(0, -30), To = G.Biome, Depth = G.Depth, Label = plan[1].label, Shop = true };
+            var door2 = new Portal { Position = df2 + new Vector2(0, -30), To = Biomes.Get(BiomeId.Fungal), Depth = G.Depth + 1, Label = "depth 2  ·  the gentle way" };
+            _world.AddChild(door); _world.AddChild(door2);
+            p.GlobalPosition = df + new Vector2(0, -14);
+            foreach (var _ in Wait(2.0f)) yield return null;
+            ScShot("shop_door");
+            door.QueueFree(); door2.QueueFree();
+        }
         // ---- the stall itself
         int depth = G.Depth; var biomeId = G.Biome.Id;
         p.Gold = 100;
@@ -53,6 +64,10 @@ public partial class Main
         // (the way to him is open: the start reaches him on foot)
         ScCheck($"he can be reached from the start ({BugReports.StartShutIn(cave, out _, out _) == false})", BugReports.StartShutIn(cave, out _, out _) == false);
 
+        // ---- (frame times: the stall alone, with the stall's table up, with a chest's cards up)
+        double Frames(int n) { ulong t0 = Time.GetTicksMsec(); for (int f = 0; f < n; f++) { } return 0; }
+        IEnumerable<object> Timed(string what, int n) { ulong t0 = Time.GetTicksMsec(); for (int f = 0; f < n; f++) yield return null; GD.Print($"[frametime] {what}: {(Time.GetTicksMsec() - t0) / (float)n:0} ms/frame"); }
+        foreach (var _ in Timed("stall, no menu", 20)) yield return null;
         // ---- trade
         p.GlobalPosition = merchant.GlobalPosition + new Vector2(-14, -2);
         foreach (var _ in Wait(0.4f)) yield return null;
@@ -60,10 +75,11 @@ public partial class Main
         int gold0 = p.Gold = 100;
         OpenShop(merchant);
         foreach (var _ in Wait(0.6f)) yield return null;
+        foreach (var _ in Timed("stall with the table up", 20)) yield return null;
         ScShot("shop_0");
         var stock = merchant.Stock;
-        ScCheck($"he lays out his wares ({stock?.Count} items; the menu is up {_upgradeMenu.Visible}; priced {string.Join(", ", stock?.Select(i => i.Price) ?? Array.Empty<int>())})", stock != null && stock.Count >= 4 && _upgradeMenu.Visible && stock.All(i => i.Price > 0));
-        ScCheck($"his supplies and a relic are among them ({stock.Any(i => i.Supplies)}, {stock.Any(i => i.Card.Relic)})", stock.Any(i => i.Supplies));
+        ScCheck($"he lays out his wares ({stock?.Count} items; the menu is up {_upgradeMenu.Visible}; priced {string.Join(", ", stock?.Select(i => i.Price) ?? Array.Empty<int>())})", stock != null && stock.Count >= 4 && stock.Count <= 7 && _upgradeMenu.Visible && stock.All(i => i.Price > 0));
+        ScCheck($"a relic is among them ({stock.Any(i => i.Card.Relic)}) and there are no more than seven things on the table ({stock.Count})", stock.Any(i => i.Card.Relic) && stock.Count <= 7);
         var first = stock.First(i => !i.Supplies);
         int stacks0 = p.Stats.StackOf(first.Card.Id);
         _upgradeMenu.Choose(0);
@@ -86,7 +102,9 @@ public partial class Main
         _upgradeMenu.Choose(idx);
         foreach (var _ in Wait(0.3f)) yield return null;
         ScCheck($"with 1 gold a {next.Price}-gold card is refused ({p.Gold} gold left; sold {next.Sold})", p.Gold == 1 && !next.Sold && _upgradeMenu.Visible);
-        // supplies: a potion for the belt, and a mend
+        // supplies: a potion for the belt, and a mend (what he has is luck: make sure both are on the table)
+        if (merchant.Stock.All(i => i.Card.Id != "shop_potion")) merchant.Stock.Add(new ShopItem { Card = Potion, Price = PriceOf(Potion) });
+        if (!merchant.Stock.Any(i => i.Supplies)) merchant.Stock.Add(new ShopItem { Card = Supplies, Price = PriceOf(Supplies) });
         p.Gold = 100; p.Potions = 0; p.Hp = p.Stats.MaxHp * 0.3f;
         _upgradeMenu.ChooseLeave();
         foreach (var _ in Wait(0.3f)) yield return null;
@@ -133,7 +151,7 @@ public partial class Main
         _upgradeMenu.Choose(merchant.Stock.Count(i => !i.Sold));
         foreach (var _ in Wait(0.4f)) yield return null;
         var newIds = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).ToList();
-        ScCheck($"dealing again for free costs nothing ({goldR} -> {p.Gold}), the table has new cards ({string.Join(",", oldIds)} -> {string.Join(",", newIds)}) and the supplies stay ({merchant.Stock.Any(i => i.Supplies)})", p.Gold == goldR && merchant.Rerolls == 1 && merchant.Stock.Any(i => i.Supplies) && newIds.Count >= 4);
+        ScCheck($"dealing again for free costs nothing ({goldR} -> {p.Gold}), the table has new cards ({string.Join(",", oldIds)} -> {string.Join(",", newIds)}) and the supplies stay ({merchant.Stock.Count(i => i.Service)})", p.Gold == goldR && merchant.Rerolls == 1 && merchant.Stock.Count(i => i.Service) >= 2 && newIds.Count >= 3);
         int paid = RerollPrice(merchant);
         ScCheck($"the second costs gold ({paid})", paid > 0);
         _upgradeMenu.ChooseLeave();
@@ -167,6 +185,7 @@ public partial class Main
         foreach (var _ in Wait(0.8f)) yield return null;
         var cards0 = chest.Cards.ToArray();
         ScCheck($"a chest's choice offers dealing again, two left ({_upgradeMenu.Visible}, {_upgradeMenu.RerollsLeft})", _upgradeMenu.Visible && _upgradeMenu.Reroll != null && _upgradeMenu.RerollsLeft == 2);
+        foreach (var _ in Timed("a chest's 4 cards up", 10)) yield return null;
         ScShot("shop_reroll_menu");
         _upgradeMenu.Reroll();
         foreach (var _ in Wait(0.4f)) yield return null;

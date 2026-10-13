@@ -1055,8 +1055,10 @@ public static class Tune
         public static float CageShare = 0.35f;
         /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies; each rises <c>PerDepth</c> of itself for every level down.</summary>
         public static int PriceCommon = 8, PriceUncommon = 14, PriceRare = 24, PriceRelic = 36, PriceSupplies = 12, PriceReroll = 6, PriceToken = 14;
-        /// <summary>The chance his table also holds a token for dealing a choice of cards again.</summary>
-        public static float TokenChance = 0.6f;
+        /// <summary>How likely a token for dealing a choice of cards again is to be among his supplies, against the others' 1.</summary>
+        public static float TokenWeight = 1.2f;
+        /// <summary>How much he lays out: cards (a class card first), and supplies drawn from the potion, the provisions and the token.</summary>
+        public static int Cards = 2, Supplies = 2;
         /// <summary>Each reroll at a stall costs this much more of its base than the one before.</summary>
         public static float RerollStep = 0.5f;
         public static float PerDepth = 0.08f;

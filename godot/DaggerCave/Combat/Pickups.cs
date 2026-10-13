@@ -515,7 +515,7 @@ public partial class Portal : Node2D
         DrawSetTransform(Vector2.Zero, 0, Vector2.One);
         var font = ThemeDB.FallbackFont;
         float a2 = Math.Min(1, _t * 2);
-        DrawString(font, new Vector2(-90, -44), b?.Name.ToUpperInvariant() ?? "DEEPER", HorizontalAlignment.Center, 180, 12, new Color(glow, a2));
+        DrawString(font, new Vector2(-90, -44), Shop ? "THE MERCHANT" : b?.Name.ToUpperInvariant() ?? "DEEPER", HorizontalAlignment.Center, 180, 12, new Color(glow, a2));
         DrawString(font, new Vector2(-90, -31), Label, HorizontalAlignment.Center, 180, 9, new Color(1, 1, 1, 0.8f * a2));
     }
 }

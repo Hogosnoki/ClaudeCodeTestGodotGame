@@ -11,19 +11,19 @@ public partial class Main
     private Merchant _shop;
 
     /// <summary>The "leave" card of the stall.</summary>
-    public static readonly Upgrade LeaveShop = new() { Id = "leave_shop", Name = "Walk Away", Desc = "Close the stall. His wares stay as they are until you go down.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
+    public static readonly Upgrade LeaveShop = new() { Id = "leave_shop", Name = "Walk Away", Desc = "Close the stall. His wares stay as they are until you go down.", Icon = "skip", MaxStacks = 1, Apply = (s, p) => { } };
     /// <summary>Dealing his wares again.</summary>
-    public static readonly Upgrade RerollCard = new() { Id = "shop_reroll", Name = "Deal Again", Desc = "He shuffles the cards he has not sold and lays out new ones. Each time costs more.", Icon = "spell", MaxStacks = 9999, Apply = (s, p) => { } };
+    public static readonly Upgrade RerollCard = new() { Id = "shop_reroll", Name = "Deal Again", Desc = "He shuffles the cards he has not sold and lays out new ones. Each time costs more.", Icon = "spell", MaxStacks = 1, Apply = (s, p) => { } };
     /// <summary>A token that lets a choice of cards be dealt again (once).</summary>
-    public static readonly Upgrade Token = new() { Id = "shop_token", Name = "Second Thoughts", Icon = "spell", MaxStacks = 9999, Apply = (s, p) => { }, Desc = "One more time in this run, a choice of cards (a chest's, a milestone's) can be dealt again." };
+    public static readonly Upgrade Token = new() { Id = "shop_token", Name = "Second Thoughts", Icon = "spell", MaxStacks = 1, Apply = (s, p) => { }, Desc = "One more time in this run, a choice of cards (a chest's, a milestone's) can be dealt again." };
     /// <summary>His supplies, a stock item that is no upgrade: a full belt of potions and a bandage.</summary>
     public static readonly Upgrade Supplies = new()
     {
-        Id = "shop_supplies", Name = "Provisions", Icon = "life", MaxStacks = 9999, Apply = (s, p) => { },
+        Id = "shop_supplies", Name = "Provisions", Icon = "life", MaxStacks = 1, Apply = (s, p) => { },
         Desc = $"A meal and a bandage: mends {Tune.Merchant.SuppliesHeal:0%} of your health.",
     };
     /// <summary>A potion for the belt.</summary>
-    public static readonly Upgrade Potion = new() { Id = "shop_potion", Name = "Healing Potion", Icon = "life", MaxStacks = 9999, Apply = (s, p) => { }, Desc = "One more potion for your belt (drink it with the potion key)." };
+    public static readonly Upgrade Potion = new() { Id = "shop_potion", Name = "Healing Potion", Icon = "life", MaxStacks = 1, Apply = (s, p) => { }, Desc = "One more potion for your belt (drink it with the potion key)." };
 
     /// <summary>What a card costs here: by its rarity, a little more with every level down, and what the hero's relics make of it.</summary>
     public static int PriceOf(Upgrade u)
@@ -54,22 +54,28 @@ public partial class Main
     {
         var p = G.Player;
         var items = new List<ShopItem>();
-        foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition)) items.Add(new ShopItem { Card = c, Price = PriceOf(c) });
+        foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition).Take(Tune.Merchant.Cards)) items.Add(new ShopItem { Card = c, Price = PriceOf(c) });
         if (Upgrades.RollRelic(p.Stats, _rng, items.Select(i => i.Card.Id)) is Upgrade relic) items.Add(new ShopItem { Card = relic, Price = PriceOf(relic) });
         for (int k = 0; k < p.Stats.ShopExtra; k++)
-            foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition))
-                if (items.All(i => i.Card.Id != c.Id)) { items.Add(new ShopItem { Card = c, Price = PriceOf(c) }); break; }
+            for (int tries = 0, got = 0; tries < 8 && got == 0; tries++)
+                foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition))
+                    if (items.All(i => i.Card.Id != c.Id)) { items.Add(new ShopItem { Card = c, Price = PriceOf(c) }); got++; break; }
         return items;
     }
 
-    /// <summary>His wares for this hero: the cards, and his supplies.</summary>
+    /// <summary>His wares for this hero: the cards, and two of his supplies (a potion, provisions, or, often, a token of Second Thoughts: what he has is a matter of luck).</summary>
     private List<ShopItem> DealStock(Merchant m)
     {
         var items = DealCards(m);
-        items.Add(new ShopItem { Card = Potion, Price = PriceOf(Potion) });
-        items.Add(new ShopItem { Card = Supplies, Price = PriceOf(Supplies) });
-        // (and now and then a token that lets a choice of cards be dealt again: what he has is a matter of luck)
-        if (_rng.NextDouble() < Tune.Merchant.TokenChance) items.Add(new ShopItem { Card = Token, Price = PriceOf(Token) });
+        var pool = new List<(Upgrade card, float weight)> { (Potion, 1f), (Supplies, 1f), (Token, Tune.Merchant.TokenWeight) };
+        for (int k = 0; k < Tune.Merchant.Supplies && pool.Count > 0; k++)
+        {
+            double r = _rng.NextDouble() * pool.Sum(x => x.weight);
+            int pick = pool.Count - 1;
+            for (int j = 0; j < pool.Count; j++) { r -= pool[j].weight; if (r <= 0) { pick = j; break; } }
+            items.Add(new ShopItem { Card = pool[pick].card, Price = PriceOf(pool[pick].card) });
+            pool.RemoveAt(pick);
+        }
         return items;
     }
 

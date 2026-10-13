@@ -2672,7 +2672,7 @@ public partial class Main : Node
         var plan = new List<(BiomeDef, int, string, bool)>();
         foreach (var (bd, depth) in exits)
             plan.Add((bd, depth, exits.Count == 1 ? $"depth {depth}" : depth - G.Depth == 1 ? $"depth {depth}  ·  the gentle way" : $"depth {depth}  ·  the steep way", false));
-        if (Meta.MerchantKnown && !G.Shop && exits.Count == 2) plan.Insert(1, (G.Biome, G.Depth, "the merchant's stall", true));
+        if (Meta.MerchantKnown && !G.Shop && exits.Count == 2) plan.Insert(1, (G.Biome, G.Depth, $"his stall  ·  stays at depth {G.Depth}", true));
         return plan;
     }
 
