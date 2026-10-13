@@ -1365,6 +1365,13 @@ Two relics that answer a blow (`Player.StruckBack`, after a creature's strike ge
   It catches the very creature that just struck, even mid-attack (`Enemy.FreezeSolid(..., force: true)`), where other freezes never do.
 Each blow rolls for itself (a blow shared with friends rolls for each who takes a share). `--scenario=struck` checks both, and neither without them.
 
+## Echoing Blade (a relic for the melee heroes)
+
+When a melee blow **lands**, there is a **20%** chance (`Tune.Relics.EchoChance`) it **strikes again 0.1 s later for half the damage** (`EchoMult`), with everything a strike
+brings: the same hit path runs again (`Player.OnSwingHit(..., echo)`), so bleed, life steal, a charged strike's weakening, a Rogue's critical, a heaving swing's shatter and
+the kill all happen again. What belongs to the swing, not the strike (the combo refund, the hit-stop and the pauses), is not repeated. Weight 0.8.
+`--scenario=melee --hero=swordsman` checks it (certain echo: x1.42 of a plain blow's damage, the damage's own spread aside).
+
 ## Co-op relics (uncommon; only offered to a party)
 
 Three relics for a party, at the ordinary relic weight (the two retaliation relics above are *rare*: weight 0.6, likelier to be passed over):

@@ -88,6 +88,8 @@ public static partial class Upgrades
         Rl("relic_struck_fire", "Cinder Brand", "When a boss or mini-boss strikes you, there is a 20% chance it is set alight.", (s, p) => s.StruckIgnite = Tune.Relics.StruckIgniteChance, weight: 0.6f),
         Rl("relic_struck_frost", "Hoarfrost Mail", "When a regular creature strikes you, there is a 15% chance it is frozen solid.", (s, p) => s.StruckFreeze = Tune.Relics.StruckFreezeChance, weight: 0.6f),
 
+        Rl("relic_echo", "Echoing Blade", "When your blade lands, there is a 20% chance it strikes again for half the damage, with everything a strike brings.", (s, p) => s.EchoStrike = Tune.Relics.EchoChance, HMELEE, 0.8f),
+
         // (uncommon: the ordinary weight; the rare ones above are likelier to be passed over)
         Rl("relic_last_rites", "Last Rites", "When you fall, every living ally is healed by 10.", (s, p) => s.FallHealAllies = Tune.Relics.FallHeal),
         Rl("relic_phoenix", "Phoenix Ash", "When a friend gets you back on your feet, you rise with 20% more health.", (s, p) => s.ReviveBonus += Tune.Relics.ReviveExtra),

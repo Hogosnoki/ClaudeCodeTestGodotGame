@@ -190,6 +190,8 @@ public sealed class PlayerStats
     public bool Juggernaut;
     /// <summary>The chance a creature that strikes the hero is set alight (a boss or mini-boss) or frozen solid (a regular creature): the retaliation relics.</summary>
     public float StruckIgnite, StruckFreeze;
+    /// <summary>The chance a melee blow that lands strikes again (the Echoing Blade relic).</summary>
+    public float EchoStrike;
     /// <summary>The co-op relics: health every living ally is given when this hero falls; how much more health (a share of max) this hero rises with when a friend revives them; and how much more a friend they revive rises with.</summary>
     public float FallHealAllies, ReviveBonus, ReviveGiveBonus;
     /// <summary>Melee lunges: how many times as strong (and longer) they are, and whether a swing in the air pursues the creature and hovers (the Pursuit relic).</summary>

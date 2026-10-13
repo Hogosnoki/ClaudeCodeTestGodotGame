@@ -286,11 +286,30 @@ public partial class Player
         }
     }
 
+    /// <summary>For the tests: the echo strikes struck.</summary>
+    public int EchoStrikes { get; private set; }
+
+    /// <summary>Echoing Blade: the blow strikes again a moment later, for half the damage, with everything a strike brings (bleed, life, weakening, crits, shatter).</summary>
+    private void EchoStrike(Enemy e)
+    {
+        EchoStrikes++;
+        G.Fx.Text(e.GlobalPosition + new Vector2(0, -e.HitRadius - 16), "ECHO", new Color(0.8f, 0.9f, 1f), 9, 0.5f);
+        var timer = GetTree().CreateTimer(Tune.Relics.EchoDelay);
+        timer.Timeout += () =>
+        {
+            if (Dead || !GodotObject.IsInstanceValid(e) || e.Dead) return;
+            var origin = GlobalPosition + new Vector2(0, -3);
+            var to = e.GlobalPosition - origin;
+            G.Sfx.Play("hit", e.GlobalPosition, -4, 0.1f, 1.3f);
+            OnSwingHit(e, to, Tune.Relics.EchoMult);
+        };
+    }
+
     /// <summary>How far through the sweep the blade meets what it strikes.</summary>
     private const float ContactPoint = 0.45f;
     private bool _heaveLanded, _slamDone;
 
-    private void OnSwingHit(Enemy e, Vector2 to)
+    private void OnSwingHit(Enemy e, Vector2 to, float echo = 1f)
     {
         var dir = (_swingDir + to.Normalized()).Normalized();
         var kbTable = Tune.Hero.KnockbackByLevel;
@@ -300,13 +319,13 @@ public partial class Player
         if (charged) kb += Tune.Hero.FinisherExtraKnockback * 0.6f;
         if (_heave) kb = Math.Max(kb, Tune.Swordsman.HeaveKnockback);
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
-        float dmg = _swingDmg * G.Range(0.9f, 1.1f);
+        float dmg = _swingDmg * G.Range(0.9f, 1.1f) * echo;
         if (Stats.Execute && e.Hp < e.MaxHp * Tune.Swordsman.ExecuteBelow) dmg *= 1f + Tune.Swordsman.ExecuteBonus;
         bool crit = false;
         if (IsRogue)
         {
             // (a jab is exact: no spread) a critical strike, a stab in the back, a strike from the shadows
-            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit);
+            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit) * echo;
             _swingSurprise = false;
         }
         // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst)
@@ -321,6 +340,7 @@ public partial class Player
             return;
         }
         OnDealtDamage(dealt);
+        if (echo == 1f && Stats.EchoStrike > 0f && !e.Dead && G.Chance(Stats.EchoStrike)) EchoStrike(e);
         if (crit) CritFx(e, hitPos);
         // a charged strike saps whatever it cuts: it hits back softer for a while
         if (charged && !e.Dead) e.Weaken(ChargeWeaken, Tune.Swordsman.WeakenSeconds);

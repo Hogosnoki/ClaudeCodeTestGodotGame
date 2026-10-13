@@ -118,5 +118,35 @@ public partial class Main
         }
         ScCheck($"a swing in the air pursues the creature in its way ({(p.LastAerialLunge == 2 ? "after it" : "not")}; {d0:0} px away, closest {minD:0})", p.LastAerialLunge == 2 && minD < d0 - 30f);
         ScCheck($"and it hung there a moment, not falling (sank {p.HoverDrop:0.0} px while it hovered)", p.HoverDrop >= 0f && p.HoverDrop < 3f);
+
+        // ---- Echoing Blade: a blow that lands strikes again for half
+        if (IsInstanceValid(bat)) bat.QueueFree();
+        foreach (var _ in Wait(1.0f)) yield return null;
+        var echo = Upgrades.Relics.First(r => r.Id == "relic_echo");
+        echo.Apply(p.Stats, p);
+        ScCheck($"the relic is for the melee heroes, 20% for half ({p.Stats.EchoStrike:0.##}, x{Tune.Relics.EchoMult:0.#})", Math.Abs(p.Stats.EchoStrike - 0.2f) < 0.001f && Math.Abs(Tune.Relics.EchoMult - 0.5f) < 0.001f && echo.For.Contains(HeroKind.Warden));
+        p.Stats.EchoStrike = 0f;
+        var dummy = new Spider { Position = p.GlobalPosition + new Vector2(14 * p.Facing, 0) };
+        dummy.SetMeta("test", true);
+        _world.AddChild(dummy);
+        dummy.Wake(); dummy.ForceGround();
+        dummy.Hp = dummy.MaxHp = 1000000f;
+        foreach (var _ in Wait(0.3f)) yield return null;
+        IEnumerable<object> Swing(Action<float> got)
+        {
+            dummy.GlobalPosition = p.GlobalPosition + new Vector2(14 * p.Facing, 0);
+            float h0 = dummy.Hp; int runs = p.HitPausesRun;
+            _scInput = new PlayerInput { Attack = true, Aim = new Vector2(p.Facing, 0), AimGiven = true };
+            for (int f = 0; f < 120 && p.HitPausesRun == runs; f++) { yield return null; _scInput = default; }
+            foreach (var _ in Wait(1.2f)) yield return null;
+            got(h0 - dummy.Hp);
+        }
+        float plainCut = 0f, echoCut = 0f;
+        foreach (var s in Swing(c => plainCut = c)) yield return s;
+        p.Stats.EchoStrike = 1f;
+        int ech0 = p.EchoStrikes;
+        foreach (var s in Swing(c => echoCut = c)) yield return s;
+        ScCheck($"with the chance made certain, the blow struck again ({p.EchoStrikes - ech0} echoes)", p.EchoStrikes == ech0 + 1);
+        ScCheck($"for half as much again ({plainCut:0.0} plain, {echoCut:0.0} with the echo: x{echoCut / Math.Max(0.01f, plainCut):0.00})", echoCut > plainCut * 1.3f && echoCut < plainCut * 1.7f);
     }
 }
