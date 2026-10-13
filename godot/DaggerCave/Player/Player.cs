@@ -859,7 +859,8 @@ public partial class Player : CharacterBody2D
     private void TickTimers(float dt)
     {
         _coyote -= dt; _jumpBuffer -= dt; _invuln -= dt; _iframes -= dt; _swingCd -= dt; _swingSinceLast += dt;
-        _wallJumpLock -= dt; _knockT -= dt; _hurtFlash -= dt; _lungeT -= dt;
+        _wallJumpLock -= dt; _knockT -= dt; _hurtFlash -= dt; _lungeT -= dt; _hoverT -= dt;
+        if (_lungeAir && _lungeT <= 0 && _hoverT <= 0) _lungeAir = false;
         _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
         _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
         _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
@@ -938,7 +939,7 @@ public partial class Player : CharacterBody2D
         }
         else if (onFloor && Math.Abs(v.X) > 150 && Math.Sign(target) != Math.Sign(v.X) && G.Chance(0.3f)) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 1, 0.6f);
         v.X = Mathf.MoveToward(v.X, target, (rooted ? 4000f : accel) * dt);
-        if (_lungeT > 0) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeSpeed); // sword lunge
+        if (_lungeT > 0 && !_lungeAir) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeNow); // sword lunge
         if (_bashT > 0) v.X = BashMotion(v.X);
         // a column of rising air (the Elementalist's updraft) slackens gravity and the speed you can fall at
         float gravMult = 1f, fallCap = MaxFall;
@@ -950,6 +951,18 @@ public partial class Player : CharacterBody2D
             if (inp.JumpHeld) v.Y = Math.Max(v.Y - 1500f * dt, -190f);
         }
         v.Y = Math.Min(v.Y + Gravity * gravMult * dt * (v.Y > 0 ? Tune.Hero.FallGravityMult : 1f), fallCap);
+        // the Pursuit relic: a swing in the air carries the hero after its creature, then hangs them in place a moment (no fall, no gravity)
+        if (_lungeAir)
+        {
+            if (onFloor || InWater) { _lungeAir = false; _hoverT = 0; _lungeT = 0; }
+            else if (_lungeT > 0) v = AerialLungeVelocity();
+            else if (_hoverT > 0)
+            {
+                if (!_hoverStarted) { _hoverStarted = true; _hoverY0 = GlobalPosition.Y; HoverDrop = 0f; }
+                HoverDrop = Math.Max(HoverDrop, GlobalPosition.Y - _hoverY0);
+                v = new Vector2(v.X * 0.9f, 0f);
+            }
+        }
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult * FormJump) * (WebbedT > 0 ? 0.75f : 1f);
         int wallSide = WallSide();

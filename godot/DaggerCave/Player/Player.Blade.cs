@@ -22,12 +22,21 @@ public partial class Player
     private float BaseReach => IsAutomaton ? Tune.AutomatonHero.Reach : IsShifter ? Tune.Shifter.StaffReach : IsWarden ? Tune.Warden.Reach : IsRogue ? Tune.Rogue.Reach : Tune.Swordsman.Reach;
     private float BaseDamage => IsAutomaton ? Tune.AutomatonHero.Damage : IsShifter ? Tune.Shifter.StaffDamage : IsWarden ? Tune.Warden.Damage : IsRogue ? Tune.Rogue.Damage : Tune.Swordsman.Damage;
     private float BaseKnock => IsAutomaton ? Tune.AutomatonHero.Knockback : IsWarden ? Tune.Warden.Knockback : IsRogue ? Tune.Rogue.Knockback : Tune.Swordsman.Knockback;
+    /// <summary>The lunge as it is now: the hero's own, at least a little with the Pursuit relic, times its strength.</summary>
+    private float LungeNow => Math.Max(LungeSpeed, Stats.LungeMult > 1f ? Tune.Relics.LungeMin : 0f) * Stats.LungeMult;
     private float LungeSpeed => IsAutomaton ? Tune.AutomatonHero.Lunge : IsWarden ? Tune.Warden.Lunge : IsRogue ? Tune.Rogue.Lunge : Tune.Swordsman.Lunge;
 
     // this swing's beats (scaled by attack speed): wind-up, then the sweep (the hitbox), then follow-through
     private float _windup, _active;
     private bool _released;
-    private float _swingCd, _swingT = -1, _swingSinceLast = 9, _lungeT, _lungeDir, _waveCd;
+    private float _swingCd, _swingT = -1, _swingSinceLast = 9, _lungeT, _lungeDir, _waveCd, _hoverT;
+    // (the Pursuit relic: a swing in the air chases a creature, then hangs the hero in place)
+    private bool _lungeAir, _hoverStarted;
+    private float _hoverY0;
+    /// <summary>For the tests: how far the hero sank while hovering after the last aerial lunge.</summary>
+    public float HoverDrop { get; private set; } = -1f;
+    private Vector2 _lungeVec;
+    private Enemy _lungeFoe;
     private Vector2 _swingDir;
     private int _comboStep;
     private bool _swingHitSomething, _chainLive, _finisher, _swingCharged;
@@ -141,7 +150,31 @@ public partial class Player
         var aim = _swingDir;
         G.Sfx.Play(_finisher || _swingCharged || _heave ? "swing_heavy" : "swing", GlobalPosition, _heave ? 1 : -2, 0.12f, _heave ? 0.7f : 1f + _comboStep * 0.08f);
         // the sword carries you forward a little (horizontal strikes, on your feet; never a heave)
-        if (LungeSpeed > 0 && !InWater && !_heave && Math.Abs(aim.X) > 0.35f) { _lungeT = 0.12f; _lungeDir = Math.Sign(aim.X); }
+        if (LungeNow > 0 && !InWater && !_heave)
+        {
+            float lungeTime = 0.12f * (Stats.LungeMult > 1f ? Tune.Relics.LungeTimeMult : 1f);
+            if (Stats.AerialLunge && !IsOnFloor())
+            {
+                // in the air: after the creature nearest the aim (within a wide cone), else along the aim itself, then hovering a moment
+                Enemy foe = null; float bs = float.MaxValue;
+                var from = GlobalPosition + new Vector2(0, -3);
+                foreach (var e in G.Enemies)
+                {
+                    if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
+                    var rel = e.GlobalPosition - from;
+                    float d = rel.Length();
+                    if (d > Tune.Relics.PursuitRange + e.HitRadius || (d > 12f && Math.Abs(aim.AngleTo(rel)) > 1.4f)) continue;
+                    if (!G.Cave.LineClear(from, e.GlobalPosition)) continue;
+                    float score = d + Math.Abs(aim.AngleTo(rel)) * 40f;
+                    if (score < bs) { bs = score; foe = e; }
+                }
+                _lungeAir = true; _hoverStarted = false; HoverDrop = -1f; _lungeFoe = foe; _lungeT = lungeTime; _hoverT = Tune.Relics.HoverTail;
+                _lungeVec = foe != null ? (foe.GlobalPosition - from).Normalized() : aim;
+                if (Math.Abs(_lungeVec.X) > 0.15f) Facing = Math.Sign(_lungeVec.X);
+                LastAerialLunge = foe != null ? 2 : 1;
+            }
+            else if (Math.Abs(aim.X) > 0.35f) { _lungeAir = false; _lungeT = lungeTime; _lungeDir = Math.Sign(aim.X); }
+        }
         if (_heave) Afterimage.Spawn(Anim, _swingCharged ? new Color(1f, 0.55f, 0.3f) : new Color(0.8f, 0.9f, 1f), 0.2f);
         Anim.Punch(new Vector2(1.22f, 0.86f));
         if (Stats.CrescentWave && _waveCd <= 0)
@@ -170,6 +203,21 @@ public partial class Player
             G.Spawn(wave);
             NetSync.HeroVisual(wave);
         }
+    }
+
+    /// <summary>For the tests: the last aerial lunge (0 none, 1 along the aim, 2 after a creature).</summary>
+    public int LastAerialLunge { get; private set; }
+
+    /// <summary>The velocity of an aerial lunge now: after its creature, stopping once at it.</summary>
+    private Vector2 AerialLungeVelocity()
+    {
+        if (GodotObject.IsInstanceValid(_lungeFoe) && !_lungeFoe.Dead)
+        {
+            var to = _lungeFoe.GlobalPosition + new Vector2(0, -3) - GlobalPosition;
+            if (to.Length() < _lungeFoe.HitRadius + 8f) return Vector2.Zero;
+            _lungeVec = to.Normalized();
+        }
+        return _lungeVec * LungeNow;
     }
 
     /// <summary>Time into the sweep (negative during the wind-up).</summary>

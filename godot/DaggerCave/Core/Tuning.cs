@@ -516,6 +516,9 @@ public static class Tune
         public static float ShortcutDragon = 0.1f;
         /// <summary>Share of ordinary chests that hold a relic (a silver chest), and of chests hung in a web.</summary>
         public static float RelicChestChance = 0.2f, WebChestChance = 0.12f;
+        /// <summary>Hawk's Pursuit: a melee lunge is at least LungeMin px/s (for the heroes who never lunged), lasts LungeTimeMult times as long, and in the air a swing
+        /// chases the creature nearest its aim within PursuitRange px, then hangs the hero in place for HoverTail s.</summary>
+        public static float LungeMin = 100f, LungeTimeMult = 1.6f, PursuitRange = 170f, HoverTail = 0.25f;
         /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
         public static float FarDistance = 220f;
         /// <summary>A web chest hangs this high (px) over where it lands, under a ceiling at least WebMinThread px higher still.</summary>

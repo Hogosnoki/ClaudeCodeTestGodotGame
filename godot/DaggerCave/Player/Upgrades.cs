@@ -188,6 +188,9 @@ public sealed class PlayerStats
     /// <summary>The Aegis's Bulwark Oath (a class perk, given with her): in a party, her second ability is Shared Burden; alone, or without it, a Smite.</summary>
     public bool AegisSupport;
     public bool Juggernaut;
+    /// <summary>Melee lunges: how many times as strong (and longer) they are, and whether a swing in the air pursues the creature and hovers (the Pursuit relic).</summary>
+    public float LungeMult = 1f;
+    public bool AerialLunge;
     /// <summary>Relic: one dagger is thrown, and only when both are home; a recall's bleed chance, and a bleed that never stops.</summary>
     public bool LoneThrow, BleedForever;
     public float RecallBleedChance = Tune.Rogue.RecallBleedChance;

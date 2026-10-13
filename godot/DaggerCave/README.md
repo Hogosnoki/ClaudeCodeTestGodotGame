@@ -1357,6 +1357,15 @@ narrow shaft from the first's floor, with another (`Cave/RiverGen.cs`, from a ge
 The nooks' pass no longer wipes the river's own slit marks (`CaveData.OwnHints`). `--leftsecrets` makes every level have two;
 `--scenario=river --leftsecrets` checks the chambers, chests, marks, the swim in and the shaft.
 
+## Hawk's Pursuit (a relic for the melee heroes)
+
+A relic for the Swordsman, Warden, Rogue and Automaton (`relic_lunge` in `Player/Relics.cs`, "Hawk's Pursuit"): melee **lunges are twice as strong** and
+last 1.6 times as long, and a hero who never lunged (the Rogue, the Automaton) lunges at least 100 px/s; **in the air, a swing pulls the hero after the
+creature nearest its aim** (within 170 px and a wide cone, in the open) in any direction, and then **hangs it in place for 0.25 s** (no gravity), so
+chained swings let a hero hover and hunt a creature through the air. The bargain: **hits are 10% softer**. A hero with a creature in the air still
+lunges along its aim when none is in the way. Numbers in `Tune.Relics` (`LungeMin`, `LungeTimeMult`, `PursuitRange`, `HoverTail`),
+`PlayerStats.LungeMult` / `AerialLunge`; `--scenario=melee --hero=swordsman` checks the swing without it, with it, the pursuit and the hover.
+
 ## Melee blows that land
 
 A melee swing (the Swordsman's, Warden's, Rogue's and Automaton's) has **no delay as it begins**. When a blow **lands**, the hero's vertical

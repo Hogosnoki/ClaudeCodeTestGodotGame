@@ -53,7 +53,7 @@ public static partial class Upgrades
 {
     private const string Ic = "relic";
     // (own copies: the order partial parts of a class initialise in isn't guaranteed)
-    private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue }, HA = { HeroKind.Aegis }, HSH = { HeroKind.ShapeShifter }, HAU = { HeroKind.Automaton };
+    private static readonly HeroKind[] HS = { HeroKind.Swordsman }, HW = { HeroKind.Warden }, HV = { HeroKind.Vitalist }, HE = { HeroKind.Elementalist }, HR = { HeroKind.Rogue }, HA = { HeroKind.Aegis }, HSH = { HeroKind.ShapeShifter }, HAU = { HeroKind.Automaton }, HMELEE = { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Rogue, HeroKind.Automaton };
 
     private static Upgrade Rl(string id, string name, string desc, Action<PlayerStats, Player> apply, HeroKind[] only = null, float weight = 1f)
         => new() { Id = id, Name = name, Desc = desc, Icon = Ic, Relic = true, For = only, Weight = weight, Apply = apply, Tier = UpgradeTier.Rare, Multi = MultiOnly.Contains(id) };
@@ -82,6 +82,8 @@ public static partial class Upgrades
         Rl("relic_brawler", "Close Quarters", "Hit near creatures up to 20% harder, and far ones as much softer.", (s, p) => s.DistanceBias -= 0.2f),
         Rl("relic_bait", "Gaudy Charm", "Creatures see you 10% closer than you are: you draw their eyes.", (s, p) => s.ThreatDist *= 0.9f),
         Rl("relic_shroud", "Dim Cloak", "Creatures see you 10% farther than you are: they look to others first.", (s, p) => s.ThreatDist *= 1.1f),
+
+        Rl("relic_lunge", "Hawk's Pursuit", "Melee lunges are twice as strong and last longer (even for those who never lunged), and in the air a swing hangs you in place and pulls you after the creature in its way: you hover and hunt on the wing. But you hit 10% softer.", (s, p) => { s.LungeMult *= 2f; s.AerialLunge = true; s.DamageMult *= 0.9f; }, HMELEE),
 
         // --- Elementalist ---
         Rl("relic_e_blood", "Blood Channeling", "Spells you lack the alimus for are paid for with your own health instead.", (s, p) => s.BloodCast = true, HE, 1.5f),
