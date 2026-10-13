@@ -30,6 +30,7 @@ public partial class UpgradeMenu : Control
         UpgradeKind.Conditional => new Color(0.55f, 1f, 0.6f),
         UpgradeKind.RiskReward => new Color(0.86f, 0.42f, 1f),
         UpgradeKind.Relic => new Color(1f, 0.45f, 0.58f),
+        UpgradeKind.Technique => new Color(0.5f, 0.82f, 1f),
         _ => new Color(0.74f, 0.8f, 0.94f),
     };
 
@@ -40,7 +41,8 @@ public partial class UpgradeMenu : Control
         UpgradeKind.Alteration => "ALTERATION · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
         UpgradeKind.Conditional => "CONDITIONAL",
         UpgradeKind.RiskReward => "RISK · REWARD",
-        UpgradeKind.Relic => u.For != null ? "RELIC · " + string.Join(" / ", u.For.Select(h => h.ToString().ToUpperInvariant())) : "RELIC",
+        UpgradeKind.Relic => (u.For != null ? "RELIC · " + string.Join(" / ", u.For.Select(h => h.ToString().ToUpperInvariant())) : "RELIC") + "  ·  " + u.Rarity.ToString().ToUpperInvariant(),
+        UpgradeKind.Technique => "TECHNIQUE",
         _ => "GENERIC",
     };
 
@@ -275,7 +277,7 @@ public partial class UpgradeMenu : Control
         // the kind and rarity, the name, the words
         if (!skip)
         {
-            string label = KindLabel(u, stats?.Hero ?? G.Hero) + (rar == UiArt.Rarity.Relic ? "" : "  ·  " + UiArt.RarityName(rar));
+            string label = KindLabel(u, stats?.Hero ?? G.Hero) + (rar == UiArt.Rarity.Relic || u.Kind == UpgradeKind.Technique ? "" : "  ·  " + UiArt.RarityName(rar));
             DrawString(font, r.Position + new Vector2(10, 132), label, HorizontalAlignment.Center, cw - 20, 10, new Color(kind, 0.95f));
         }
         DrawString(font, r.Position + new Vector2(1, 157), u.Name, HorizontalAlignment.Center, cw, 20, new Color(0, 0, 0, 0.7f));

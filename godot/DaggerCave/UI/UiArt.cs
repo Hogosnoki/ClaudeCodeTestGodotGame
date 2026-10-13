@@ -357,7 +357,7 @@ public static class UiArt
         u.Kind == UpgradeKind.Relic ? Rarity.Relic :
         u.Kind == UpgradeKind.RiskReward ? Rarity.Bargain :
         u.Kind == UpgradeKind.Alteration || u.Tier == UpgradeTier.Rare ? Rarity.Rare :
-        u.Tier == UpgradeTier.Ability || u.Kind == UpgradeKind.Class ? Rarity.Uncommon : Rarity.Common;
+        u.Tier == UpgradeTier.Ability || u.Kind is UpgradeKind.Class or UpgradeKind.Technique ? Rarity.Uncommon : Rarity.Common;
 
     public static string RarityName(Rarity r) => r switch
     {
@@ -597,6 +597,7 @@ public static class UiArt
         UpgradeKind.Conditional => Surface.Vellum,
         UpgradeKind.RiskReward => Surface.Smoke,
         UpgradeKind.Relic => Surface.Velvet,
+        UpgradeKind.Technique => Surface.Night,
         _ => Surface.Stone,
     };
 

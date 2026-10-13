@@ -71,13 +71,13 @@ public partial class Main
 
         // ---- a few relics' numbers
         PlayerStats Take(HeroKind h, string id) { var s = new PlayerStats(h); Upgrades.Apply(Upgrades.Get(id), s, null); return s; }
-        var leap = Take(HeroKind.Swordsman, "relic_leap");
+        var leap = Take(HeroKind.Swordsman, "rr_leap");
         ScCheck($"Long Stride: jump x{leap.JumpMult / new PlayerStats(HeroKind.Swordsman).JumpMult:0.00}, air speed x{leap.AirSpeedMult}", Near(leap.AirSpeedMult, 1.4f) && Near(leap.JumpMult / new PlayerStats(HeroKind.Swordsman).JumpMult, 0.8f));
-        var anvil = Take(HeroKind.Swordsman, "relic_anvil");
+        var anvil = Take(HeroKind.Swordsman, "rr_anvil");
         ScCheck($"Anvil Grip: attack speed x0.8, damage x1.2 ({anvil.AttackSpeed}, {anvil.DamageMult})", Near(anvil.AttackSpeed, 0.8f) && Near(anvil.DamageMult, 1.2f));
-        var quick = Take(HeroKind.Swordsman, "relic_quicksilver");
+        var quick = Take(HeroKind.Swordsman, "rr_quicksilver");
         ScCheck($"Quicksilver Grip: attack speed x1.2, damage x0.8 ({quick.AttackSpeed}, {quick.DamageMult})", Near(quick.AttackSpeed, 1.2f) && Near(quick.DamageMult, 0.8f));
-        var amph = Take(HeroKind.Swordsman, "relic_amphibian");
+        var amph = Take(HeroKind.Swordsman, "rr_amphibian");
         ScCheck($"Amphibian Charm: swim x1.3, run x0.85 ({amph.SwimSpeed}, {amph.MoveSpeed / new PlayerStats(HeroKind.Swordsman).MoveSpeed:0.00})", Near(amph.SwimSpeed, 1.3f) && Near(amph.MoveSpeed / new PlayerStats(HeroKind.Swordsman).MoveSpeed, 0.85f));
         var lone = Take(HeroKind.Rogue, "relic_r_lone");
         ScCheck($"Lone Blade: throw x2, recall x1.5, one dagger ({lone.ThrowDamageMult}, {lone.RecallDamageMult}, {lone.LoneThrow})", Near(lone.ThrowDamageMult, 2f) && Near(lone.RecallDamageMult, 1.5f) && lone.LoneThrow);
@@ -85,7 +85,7 @@ public partial class Main
         ScCheck($"Hemorrhage: recall bleed always ({hemo.RecallBleed}, {hemo.RecallBleedChance})", hemo.RecallBleed && Near(hemo.RecallBleedChance, 1f));
         var wound = Take(HeroKind.Rogue, "relic_r_wound");
         ScCheck("Undying Wound: bleed never stops", wound.RecallBleed && wound.BleedForever);
-        var fury = Take(HeroKind.Vitalist, "relic_v_fury"); var siphon = Take(HeroKind.Vitalist, "relic_v_siphon");
+        var fury = Take(HeroKind.Vitalist, "rr_v_fury"); var siphon = Take(HeroKind.Vitalist, "rr_v_siphon");
         ScCheck($"Bloodlust/Siphon Crystal trade damage for vital force ({fury.DamageMult:0.00}/{fury.VitalForceGain / Tune.Vitalist.VitalForceGain:0.00}, {siphon.DamageMult:0.00}/{siphon.VitalForceGain / Tune.Vitalist.VitalForceGain:0.00})",
             Near(fury.DamageMult, 1.25f) && Near(fury.VitalForceGain / Tune.Vitalist.VitalForceGain, 0.7f) && Near(siphon.DamageMult, 0.75f) && Near(siphon.VitalForceGain / Tune.Vitalist.VitalForceGain, 1.3f));
         var fire = Take(HeroKind.Swordsman, "relic_s_fire");
@@ -95,8 +95,8 @@ public partial class Main
         var blood = Take(HeroKind.Elementalist, "relic_e_blood");
         ScCheck("Blood Channeling is set", blood.BloodCast);
         ScCheck("a relic is for its hero only", !Upgrades.Available(Upgrades.Get("relic_r_lone"), new PlayerStats(HeroKind.Warden)) && Upgrades.Available(Upgrades.Get("relic_r_lone"), new PlayerStats(HeroKind.Rogue)));
-        var taken = new PlayerStats(HeroKind.Swordsman); Upgrades.Apply(Upgrades.Get("relic_anvil"), taken, null);
-        ScCheck("a relic already carried isn't offered again", !Upgrades.Available(Upgrades.Get("relic_anvil"), taken));
+        var taken = new PlayerStats(HeroKind.Swordsman); Upgrades.Apply(Upgrades.Get("rr_anvil"), taken, null);
+        ScCheck("a relic already carried isn't offered again", !Upgrades.Available(Upgrades.Get("rr_anvil"), taken));
 
         // ---- party-wide relics: the depth track moves
         RunRelics.Reset();

@@ -455,8 +455,8 @@ public partial class Main : Node
             case 66:
             {
                 // a chest dealt for a party: one card for this hero, two for the others
-                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(60, 13), Cards = new[] { "hp", "relic_leap", "stalwart" } };
-                foreach (var rid in new[] { "relic_anvil", "relic_flask", "relic_fount", "relic_sniper", "relic_a_prism", "relic_r_hemo" }) RunRelics.Note(Net.Me, rid);
+                var chest = new Chest { Position = G.Player.GlobalPosition + new Vector2(60, 13), Cards = new[] { "hp", "rr_leap", "stalwart" } };
+                foreach (var rid in new[] { "relic_echo", "relic_trophy", "relic_fount", "relic_lunge", "relic_a_prism", "relic_r_hemo" }) RunRelics.Note(Net.Me, rid);
                 _world.AddChild(chest);
                 _msChest = chest;
                 break;
@@ -1662,6 +1662,7 @@ public partial class Main : Node
             // a card taken: the chest is spent
             if (chest != null && IsInstanceValid(chest))
             {
+                G.Player.Stats.On.RaiseChest(G.Player);
                 if (Net.Online) NetSync.ChestDone(chest, true);
                 else chest.OpenBy(Net.Me);
             }

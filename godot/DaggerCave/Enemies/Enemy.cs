@@ -920,6 +920,7 @@ public abstract partial class Enemy : CharacterBody2D
             float hpP = Hp;
             float d = PuppetHurt(dmg, knock, hitPos);
             RunMetrics.Dealt(this, d, hpP);
+            if (d > 0 && kind != DamageKind.Raw && G.Player is Player hero0 && !hero0.Dead) hero0.Stats.On.RaiseHit(hero0, this, d, kind);
             if (d >= hpP && hpP > 0 && !_metricKill) { _metricKill = true; RunMetrics.Killed(this); }
             return d;
         }
@@ -930,7 +931,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             float hpM = Hp;
             float dealt = TakeHit(dmg, knock, hitPos);
-            if (NetSync.Striker == Net.Me) RunMetrics.Dealt(this, dealt, hpM);
+            if (NetSync.Striker == Net.Me) { RunMetrics.Dealt(this, dealt, hpM); if (dealt > 0 && kind != DamageKind.Raw && G.Player is Player hero && !hero.Dead) hero.Stats.On.RaiseHit(hero, this, dealt, kind); }
             // its ward (armour, or its element's resistance) breaks once it has taken a tenth of its health
             if (HasWard && !_armorBroken && dealt > 0 && !Dead)
             {
@@ -1076,7 +1077,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);
         else G.Fx.Pop(GlobalPosition, BloodColor, HitRadius);
         // the kill goes to whoever landed the blow (online, maybe another game's hero)
-        if (!Net.Online || LastAttacker == 0 || LastAttacker == Net.Me) { G.Player?.OnKill(); RunMetrics.Killed(this); }
+        if (!Net.Online || LastAttacker == 0 || LastAttacker == Net.Me) { G.Player?.OnKill(this); RunMetrics.Killed(this); }
         if (Elite && !IsBoss) G.Main.SlowMo(Tune.Feel.EliteKillSlowMo, Tune.Feel.EliteKillSlowMoScale);
         if (IsBoss) G.Main.SlowMo(Tune.Feel.BossKillSlowMo, Tune.Feel.BossKillSlowMoScale);
         BrainFlush(terminal: true);

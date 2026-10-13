@@ -190,6 +190,8 @@ public sealed class PlayerStats
     public bool Juggernaut;
     /// <summary>The chance a creature that strikes the hero is set alight (a boss or mini-boss) or frozen solid (a regular creature): the retaliation relics.</summary>
     public float StruckIgnite, StruckFreeze;
+    /// <summary>What relics listen for (see Triggers.cs).</summary>
+    public readonly Triggers On = new();
     /// <summary>How much gold a pick-up is worth (x), and how far past the usual a hero's pick-ups reach (px).</summary>
     public float GoldMult = 1f, PickupReach;
     /// <summary>The Shape Shifter's remembered form (its key; null: none yet), kept for the run.</summary>
@@ -272,7 +274,12 @@ public enum UpgradeKind
     Conditional,
     /// <summary>Something given, something taken; each taken once (vaults).</summary>
     RiskReward,
+    /// <summary>A way of getting about that is unlocked once (a double jump, an air dash, a swim in lava): milestones; its upgrades wait for it.</summary>
+    Technique,
 }
+
+/// <summary>How seldom a relic turns up in a silver chest: the weight it is dealt at (x1.2, x1, x0.6, x0.3).</summary>
+public enum RelicRarity { Common, Uncommon, Rare, Legendary }
 
 public sealed class Upgrade
 {
@@ -297,9 +304,16 @@ public sealed class Upgrade
     public bool Relic;
     /// <summary>For a party only: it does nothing alone (threat, a friend's burden), so a solo run never offers it.</summary>
     public bool Multi;
+    /// <summary>A technique: a one-time unlock of a way of getting about (milestones offer it; the upgrades that build on it wait for it).</summary>
+    public bool Technique;
+    /// <summary>A relic's rarity: it sets how often it is dealt (see Upgrades.RarityWeight).</summary>
+    public RelicRarity Rarity = RelicRarity.Uncommon;
+    /// <summary>What it is about (offence, defence, mobility, utility, economy; on-hit, on-kill, on-hurt, status, party...): for the build page, tests and future filters.</summary>
+    public string[] Tags = Array.Empty<string>();
 
     public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration ? UpgradeKind.Alteration
         : Icon == "risk" ? UpgradeKind.RiskReward
+        : Technique ? UpgradeKind.Technique
         : For != null ? UpgradeKind.Class
         : Requires != null || When != null ? UpgradeKind.Conditional
         : UpgradeKind.Generic;
@@ -536,23 +550,23 @@ public static partial class Upgrades
 
         // --- Movement (all) ---
         // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)
-        new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
+        new() { Id = "djump", Technique = true, Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
                 When = s => s.StackOf("jump") + s.StackOf("rr_bones") > 0, Apply = (s, p) => s.DoubleJump = true },
-        new() { Id = "airdash", Name = "Air Dash", Desc = "Jumping in mid-air dashes in any direction you hold.", Icon = "move", Excludes = new[] { "djump" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
+        new() { Id = "airdash", Technique = true, Name = "Air Dash", Desc = "Jumping in mid-air dashes in any direction you hold.", Icon = "move", Excludes = new[] { "djump" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
                 When = s => s.StackOf("speed") > 0, Apply = (s, p) => s.AirDash = true },
         new() { Id = "speed", Name = "Light Boots", Desc = "+10% movement speed.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.MoveSpeed *= 1f + 0.10f },
         new() { Id = "jump", Name = "Spring Step", Desc = "+12% jump height.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.JumpMult *= 1f + 0.12f },
         new() { Id = "swim", Name = "Webbed Gloves", Desc = "+25% swim speed.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.SwimSpeed *= 1f + 0.25f },
         new() { Id = "breath", Name = "Deep Lungs", Desc = "+50% breath underwater.", Icon = "move", MaxStacks = 3, Excludes = new[] { "rr_lungs" }, Apply = (s, p) => { s.BreathMax += 4f; p.Breath = s.BreathMax; } },
         // (offered from depth 6, on the way down to the magma)
-        new() { Id = "magma", Name = "Magma Skin", Desc = "Swim in lava, and it burns you for only 30% as much.", Icon = "move", Tier = UpgradeTier.Ability,
+        new() { Id = "magma", Technique = true, Name = "Magma Skin", Desc = "Swim in lava, and it burns you for only 30% as much.", Icon = "move", Tier = UpgradeTier.Ability,
                 When = s => G.Depth >= Tune.Hero.MagmaSkinFromDepth, Apply = (s, p) => s.MagmaSkin = true },
 
         // --- Survival (all) ---
         new() { Id = "hp", Name = "Vitality", Desc = "+10 max HP and heal 10.", Icon = "life", MaxStacks = 5, Weight = 1.2f, Apply = (s, p) => { s.MaxHp += 10; p.Heal(10); } },
         new() { Id = "resilience", Name = "Resilience", Desc = "Stay invulnerable 0.2 s longer after being struck.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HurtInvuln += 0.2f },
         new() { Id = "armor", Name = "Toughened Hide", Desc = "Take 10% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = 1f - (1f - s.DamageReduction) * 0.9f },
-        new() { Id = "onkill", Name = "Trophy Hunter", Desc = "Heal 1 HP on every kill.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HealOnKill += 1f },
+        new() { Id = "belt", Name = "Deep Flask", Desc = "Carry one more potion, and creatures are 1% likelier to drop one.", Icon = "life", MaxStacks = 3, Apply = (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.01f; } },
         new() { Id = "magnet", Name = "Lodestone", Desc = "Pull experience from further away.", Icon = "life", MaxStacks = 2, Weight = 0.6f, Apply = (s, p) => s.MagnetMult *= 1f + 0.6f },
 
         // --- Risk and reward (all): something given, something taken. Each can be taken once:
@@ -668,7 +682,7 @@ public static partial class Upgrades
         var alterations = Chest.Where(u => u.Alteration && Available(u, s)).ToList();
         var result = Pick(alterations, 1, rng, W);
         // milestones are for what changes how you play: a way of getting about (a double jump, an air dash, wall jumps), and with a party, something for the others
-        var mobility = Chest.Where(u => u.For == null && u.Icon == "move" && u.Tier == UpgradeTier.Ability && Available(u, s)).ToList();
+        var mobility = Chest.Where(u => u.Technique && Available(u, s)).ToList();
         result.AddRange(Pick(mobility, 1, rng, W));
         var party = Chest.Where(u => u.Multi && !result.Contains(u) && Available(u, s)).ToList();
         result.AddRange(Pick(party, 1, rng, W));
@@ -744,7 +758,7 @@ public static partial class Upgrades
     }
 
     /// <summary>What fills a chest beside its class card: anyone's cards, but no risk-reward.</summary>
-    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.RiskReward && u.Kind != UpgradeKind.Relic;
+    public static bool IsChestFiller(Upgrade u) => u.For == null && u.Kind != UpgradeKind.RiskReward && u.Kind != UpgradeKind.Relic && !u.Technique;
 
     /// <summary>A rare class upgrade: one of the ability-tier ones (the vaults deal them).</summary>
     public static bool IsRare(Upgrade u) => u.Kind == UpgradeKind.Class && u.Tier == UpgradeTier.Ability;

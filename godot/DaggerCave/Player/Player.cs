@@ -255,6 +255,7 @@ public partial class Player : CharacterBody2D
         RunMetrics.Healed(NetSync.Giver, Hp - before, amount - (Hp - before));
         int healed = Num.Delta(before, Hp);
         if (healed > 0) G.Fx?.Text(GlobalPosition + new Vector2(0, -22), "+" + healed, HealColorLight, 14);
+        if (Hp > before) Stats.On.RaiseHeal(this, Hp - before);
         if (IsWarden) MendShield(amount * Tune.Warden.HealToShield);
     }
 
@@ -288,6 +289,7 @@ public partial class Player : CharacterBody2D
             if (this == G.Player) G.Sfx?.Play("milestone", null, -2, 0, 1f);
         }
         if (Stats.LevelHeal) HealHere(Stats.MaxHp);
+        Stats.On.RaiseLevel(this);
     }
 
     /// <summary>Levels gained at once (a relic's gift), each with its usual rewards.</summary>
@@ -505,6 +507,7 @@ public partial class Player : CharacterBody2D
         if (IsElementalist) TickDraftAim(inp);
         TickSupport(dt);
         TickHold(dt);
+        Stats.On.RaiseTick(this, dt);
         switch (Stats.Hero)
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
@@ -552,7 +555,7 @@ public partial class Player : CharacterBody2D
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
-        if (_dodgeBuf > 0 && _heldRope == null && !Holding && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); }
+        if (_dodgeBuf > 0 && _heldRope == null && !Holding && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); Stats.On.RaiseDodge(this); }
 
         // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
         if (Possessed) v = PossessedStep(inp);
@@ -1100,9 +1103,10 @@ public partial class Player : CharacterBody2D
         if (IsVitalist && !vitalForceByMote) GainVitalForce(dealt * Stats.VitalForceGain);
     }
 
-    public void OnKill()
+    public void OnKill(Enemy e = null)
     {
         Kills++;
+        Stats.On.RaiseKill(this, e);
         if (Stats.HealOnKill > 0) Heal(Stats.HealOnKill);
         // (Scrap Reclaimer: what it destroys, it salvages)
         if (Stats.ScrapReclaimer) GainFuel(Tune.AutomatonHero.ScrapFuel);
@@ -1128,37 +1132,6 @@ public partial class Player : CharacterBody2D
     }
     /// <summary>All the gold found this run (spent or not).</summary>
     public int GoldFound;
-
-    /// <summary>Last Rites: the hero has fallen, and every living ally is healed.</summary>
-    private void FallHealing()
-    {
-        foreach (var h in G.Players.ToArray())
-        {
-            if (h == this || !GodotObject.IsInstanceValid(h) || h.Dead) continue;
-            h.Heal(Stats.FallHealAllies);
-            G.Fx.Ring(h.GlobalPosition, 20, HealColorLight, 0.4f, FxLayer.RingStyle.Wave);
-            AlliesHealedOnFall++;
-        }
-    }
-    /// <summary>For the tests: how many allies Last Rites has healed.</summary>
-    public int AlliesHealedOnFall { get; private set; }
-
-    /// <summary>For the tests: what the retaliation relics have done (creatures set alight, creatures frozen).</summary>
-    public int StruckIgnited { get; private set; }
-    public int StruckFroze { get; private set; }
-    /// <summary>Test aid: ready to be struck again at once.</summary>
-    public void ClearInvuln() { _invuln = 0f; _iframes = 0f; }
-
-    /// <summary>The retaliation relics: a creature that has just struck the hero may be set alight (a boss, a guardian or a mini-boss) or frozen solid (a regular one).</summary>
-    private void StruckBack(Enemy e)
-    {
-        if (e.Dead) return;
-        if (e.IsBoss || e.IsGuardian || e.Elite)
-        {
-            if (Stats.StruckIgnite > 0f && G.Chance(Stats.StruckIgnite)) { e.Ignite(Tune.Relics.StruckIgniteDps * Stats.DamageMult, Tune.Relics.StruckIgniteSeconds); StruckIgnited++; }
-        }
-        else if (Stats.StruckFreeze > 0f && G.Chance(Stats.StruckFreeze) && e.FreezeSolid(Tune.Relics.StruckFreezeSeconds, force: true)) StruckFroze++;
-    }
 
     /// <summary>True when the last Hurt was stopped by the shield (the attacker's strike is spent).</summary>
     public bool LastHitBlocked { get; private set; }
@@ -1261,7 +1234,7 @@ public partial class Player : CharacterBody2D
         WebTakesHarm(dmg);
         // (what else the blow does: a poison, a burn, a freeze...)
         if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
-        if (source != null && GodotObject.IsInstanceValid(source)) StruckBack(source);
+        Stats.On.RaiseHurt(this, source != null && GodotObject.IsInstanceValid(source) ? source : null, dmg);
         if (Stats.Indignation) StartIndignation();
         // (a blow that lands brings a vanished Rogue out of the shadows)
         Reveal(true);
@@ -1374,7 +1347,7 @@ public partial class Player : CharacterBody2D
         ClearStatus();
         ReviveProgress = 0;
         NetSync.HeroDown(true);
-        if (!IsRemote && Stats.FallHealAllies > 0f) FallHealing();
+        if (!IsRemote) Stats.On.RaiseFall(this);
         Anim.Once("death", 99);
         Anim.Modulate = Colors.White;
         G.Main.Rumble(1f, 1f, 0.6f);

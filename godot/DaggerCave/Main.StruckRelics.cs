@@ -45,13 +45,13 @@ public partial class Main
         foreach (var _ in Wait(0.3f)) yield return null;
         Strike(plain);
         yield return null;
-        ScCheck($"a regular creature that strikes you is frozen solid, and not set alight (frozen {plain.FrozenSolid}, burning {plain.Ignited}, {p.StruckFroze} froze)", plain.FrozenSolid && !plain.Ignited && p.StruckFroze == 1);
+        ScCheck($"a regular creature that strikes you is frozen solid, and not set alight (frozen {plain.FrozenSolid}, burning {plain.Ignited}, {p.Tally("froze")} froze)", plain.FrozenSolid && !plain.Ignited && p.Tally("froze") == 1);
 
         var big = Make(true);
         foreach (var _ in Wait(0.3f)) yield return null;
         Strike(big);
         yield return null;
-        ScCheck($"a mini-boss that strikes you is set alight, and not frozen (burning {big.Ignited}, frozen {big.FrozenSolid}, {p.StruckIgnited} lit)", big.Ignited && !big.FrozenSolid && p.StruckIgnited == 1);
+        ScCheck($"a mini-boss that strikes you is set alight, and not frozen (burning {big.Ignited}, frozen {big.FrozenSolid}, {p.Tally("ignited")} lit)", big.Ignited && !big.FrozenSolid && p.Tally("ignited") == 1);
 
         // with the chance at nothing, neither happens
         p.Stats.StruckIgnite = p.Stats.StruckFreeze = 0f;
@@ -85,6 +85,6 @@ public partial class Main
         float hp0 = friend.Hp;
         p.GiveUp();
         yield return null;
-        ScCheck($"Last Rites: when you fall a living friend is healed by 10 ({hp0:0} -> {friend.Hp:0}; {p.AlliesHealedOnFall} healed)", p.AlliesHealedOnFall == 1 && friend.Hp > hp0 + 4f && friend.Hp < hp0 + 12f);
+        ScCheck($"Last Rites: when you fall a living friend is healed by 10 ({hp0:0} -> {friend.Hp:0}; {p.Tally("fall_healed")} healed)", p.Tally("fall_healed") == 1 && friend.Hp > hp0 + 4f && friend.Hp < hp0 + 12f);
     }
 }

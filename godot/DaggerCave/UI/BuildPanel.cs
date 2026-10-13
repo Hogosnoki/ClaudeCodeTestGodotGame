@@ -149,12 +149,12 @@ public partial class BuildPanel : Control
         UiArt.Shadow(this, listSlate, 12f, 0.35f);
         UiArt.FillRounded(this, listSlate, 12f, UiArt.Surface.Vellum, new Color(0.85f, 0.85f, 0.85f), 0.8f);
         UiArt.Frame(this, listSlate, 12f, UiArt.Rarity.Uncommon, _t);
-        foreach (var kind in new[] { UpgradeKind.Generic, UpgradeKind.Conditional, UpgradeKind.RiskReward, UpgradeKind.Relic })
+        foreach (var kind in new[] { UpgradeKind.Generic, UpgradeKind.Technique, UpgradeKind.Conditional, UpgradeKind.RiskReward, UpgradeKind.Relic })
         {
             var cards = Upgrades.Chest.Concat(Upgrades.Relics).Where(u => u.Kind == kind && s.StackOf(u.Id) > 0)
                 .Select(u => u.MaxStacks > 1 ? $"{u.Name} {s.StackOf(u.Id)}/{u.MaxStacks}" : u.Name).ToList();
             var col = UpgradeMenu.KindColor(kind);
-            string label = kind switch { UpgradeKind.Generic => "GENERIC", UpgradeKind.Conditional => "CONDITIONAL", UpgradeKind.Relic => "RELICS", _ => "RISK · REWARD" };
+            string label = kind switch { UpgradeKind.Generic => "UPGRADES", UpgradeKind.Technique => "TECHNIQUES", UpgradeKind.Conditional => "CONDITIONAL", UpgradeKind.Relic => "RELICS", _ => "BARGAINS" };
             DrawString(font, new Vector2(margin, yy), label, HorizontalAlignment.Left, 160, 13, col);
             DrawString(font, new Vector2(margin + 170, yy), cards.Count > 0 ? string.Join("   ·   ", cards) : "none yet", HorizontalAlignment.Left, vs.X - margin * 2 - 170, 13,
                 cards.Count > 0 ? new Color(0.9f, 0.9f, 0.95f) : new Color(1, 1, 1, 0.35f));
