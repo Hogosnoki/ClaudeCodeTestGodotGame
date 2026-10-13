@@ -100,7 +100,7 @@ In the cave:
 - **Pausing** opens the menu but doesn't stop the game (the others are still playing), and
   picking an upgrade keeps you safe while you choose. Leaving from the pause menu takes you
   back to the main menu; if the host leaves, the game ends for everyone.
-- **Walking out**: at depth 0, the tunnel you came in by leads back out to the daylight. When The way out is now on the tunnel's own end wall at the far left (3.5 cells in, `cave.Mouth`), the daylight spread over the rock face itself so it reads as the cave's mouth, not a glow standing in front of it.
+- **Walking out**: at depth 0, the tunnel you came in by leads back out to the daylight. When The tunnel now runs right out through the map's left edge (`BiomeGen.OpenMouth` opens the solid border there; an invisible wall at the edge keeps everyone in), and the daylight floods in from that edge and thins into the tunnel, so it reads as a passage to the outside rather than a glow in front of a blank wall. The way out is at the edge (1.6 cells in, `cave.Mouth`).
   everyone still standing waits there (interact at the bright end), you all walk out together:
   the run ends on the spot, keeping nothing from it, and you're back in the lobby.
 - **Guardians**: one woken by a friend on the far side of the cave doesn't pull your view away

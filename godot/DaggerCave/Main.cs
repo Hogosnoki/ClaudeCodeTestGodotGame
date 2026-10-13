@@ -869,6 +869,10 @@ public partial class Main : Node
             var way = new Portal { Position = mouth + new Vector2(0, -30), Outside = true, Label = "the way out" };
             NetSync.LevelId(way);
             _world.AddChild(way);
+            // (the tunnel runs on out through the map's edge, to the daylight: nobody walks out past it but by the way out itself)
+            var edge = new StaticBody2D { CollisionLayer = G.LayerTerrain, CollisionMask = 0, Position = new Vector2(-16f, mouth.Y - 80f) };
+            edge.AddChild(new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(32f, 200f) } });
+            _world.AddChild(edge);
         }
 
         // the chests come from the seed alone (online, every game places the same ones, in the same order)

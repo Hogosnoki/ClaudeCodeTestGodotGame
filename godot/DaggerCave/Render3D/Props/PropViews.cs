@@ -1731,8 +1731,8 @@ public partial class MouthView : PropView
     private static ShaderMaterial DayMat => _dayMat ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_daylight.gdshader") };
     public static void ReleaseShared() { _dayMat?.Dispose(); _dayMat = null; }
 
-    // (the view sits on the floor at the tunnel's end wall, 2.8 m in from the map's left edge, where the rock ends at 2.4 m: the wash is spread over that face)
-    private const float Edge = -4.3f;
+    // (the view sits on the floor 1.6 m in from the map's left edge, where the tunnel runs out of the map to the daylight: the wash is brightest at the edge and thins into the tunnel)
+    private const float Edge = -3.0f;
 
     protected override void Build()
     {

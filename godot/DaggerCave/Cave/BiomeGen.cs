@@ -147,6 +147,26 @@ public static partial class CaveGenerator
         }
     }
 
+    /// <summary>
+    /// The way in, at the entrance: the tunnel runs right out through the map's left edge (the solid border is opened there, as the column just
+    /// inside it is), so the rock shows a passage going on out to the daylight rather than a blank wall. An invisible wall at the edge keeps
+    /// heroes in (see Main.BuildLevel).
+    /// </summary>
+    private static void OpenMouth(CaveData cave, float floorRow, float radius)
+    {
+        int stride = cave.W + 1;
+        int j0 = Math.Max(1, (int)(floorRow - radius * 2f - 1)), j1 = Math.Min(cave.H - 1, (int)MathF.Ceiling(floorRow + 0.5f));
+        const int src = 5;
+        for (int j = j0; j <= j1; j++)
+            for (int i = 0; i < src; i++)
+                cave.Open[j * stride + i] = cave.Open[j * stride + src];
+        // (and the reach of the cells opened is the reach of the ones beside them)
+        if (cave.ReachMask != null)
+            for (int j = j0; j <= Math.Min(j1, cave.H - 1); j++)
+                for (int i = 0; i < src; i++)
+                    cave.ReachMask[j * cave.W + i] = cave.ReachMask[j * cave.W + src];
+    }
+
     private static Room MakeRoom(RoomKind kind, float cx, float cy, float floorY, float rx, float ry) => new()
     {
         Kind = kind,
@@ -220,8 +240,8 @@ public static partial class CaveGenerator
         // behind you as you start: the way you came in, a short tunnel out to the daylight
         const float mr = 3.4f;
         f.Line(new Vector2(0, startFloor - mr), new Vector2(sx, startFloor - mr), mr);
-        // (the way out is on the tunnel's own end wall, at the far left: the daylight is in the rock face itself, a mouth you walk into)
-        cave.Mouth = new Vector2(3.5f, startFloor) * CaveData.Cell;
+        // (the way out is where the tunnel runs out through the map's left edge, see OpenMouth: the daylight fills the passage there)
+        cave.Mouth = new Vector2(1.6f, startFloor) * CaveData.Cell;
 
         float x = sx + 4, y = startFloor - r, slope = 0;
         // (room past the guardian's chamber for the vault)
@@ -277,7 +297,9 @@ public static partial class CaveGenerator
         cave.Boss = boss;
         cave.Rooms.Add(boss);
         cave.StartPos = new Vector2(sx, startFloor - 1.2f) * CaveData.Cell;
-        return Finish(cave, f, rng, new Vector2I((int)sx, (int)(startFloor - 2)), f.Stamps, 8);
+        var done = Finish(cave, f, rng, new Vector2I((int)sx, (int)(startFloor - 2)), f.Stamps, 8);
+        OpenMouth(done, startFloor, mr);
+        return done;
     }
 
     // ================================================================== den and nest: rooms and passages
