@@ -220,7 +220,8 @@ public static partial class CaveGenerator
         // behind you as you start: the way you came in, a short tunnel out to the daylight
         const float mr = 3.4f;
         f.Line(new Vector2(0, startFloor - mr), new Vector2(sx, startFloor - mr), mr);
-        cave.Mouth = new Vector2(5.5f, startFloor) * CaveData.Cell;
+        // (the way out is on the tunnel's own end wall, at the far left: the daylight is in the rock face itself, a mouth you walk into)
+        cave.Mouth = new Vector2(3.5f, startFloor) * CaveData.Cell;
 
         float x = sx + 4, y = startFloor - r, slope = 0;
         // (room past the guardian's chamber for the vault)

@@ -883,8 +883,8 @@ public partial class Player : CharacterBody2D
         TickBoons(dt);
         TickStatus(dt);
         TickIndignation(dt);
-        // (the Elementalist's storm waits to be paid for before it recharges: see TickElementalist)
-        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !(IsElementalist && k < _stormOwes.Length && _stormOwes[k])) _abilityCd[k] -= dt;
+        // (the Elementalist's storm is paid for as each use comes back: see TickElementalist)
+        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0) _abilityCd[k] -= dt;
         if (_hotLeft > 0)
         {
             _hotLeft -= dt;

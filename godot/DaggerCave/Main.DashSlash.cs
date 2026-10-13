@@ -30,6 +30,7 @@ public partial class Main
         var at = p.GlobalPosition;
         _scInput = new PlayerInput { Dodge = true, Move = new Vector2(p.Facing, 0) };
         yield return null; yield return null;
+        ScShot("dash_mid");
         bool invulnerable = p.Invulnerable;
         _scInput = default;
         foreach (var _ in Wait(0.5f)) yield return null;

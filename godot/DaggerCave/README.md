@@ -100,7 +100,7 @@ In the cave:
 - **Pausing** opens the menu but doesn't stop the game (the others are still playing), and
   picking an upgrade keeps you safe while you choose. Leaving from the pause menu takes you
   back to the main menu; if the host leaves, the game ends for everyone.
-- **Walking out**: at depth 0, the tunnel you came in by leads back out to the daylight. When
+- **Walking out**: at depth 0, the tunnel you came in by leads back out to the daylight. When The way out is now on the tunnel's own end wall at the far left (3.5 cells in, `cave.Mouth`), the daylight spread over the rock face itself so it reads as the cave's mouth, not a glow standing in front of it.
   everyone still standing waits there (interact at the bright end), you all walk out together:
   the run ends on the spot, keeping nothing from it, and you're back in the lobby.
 - **Guardians**: one woken by a friend on the far side of the cave doesn't pull your view away
@@ -452,10 +452,9 @@ The Vitalist's vital force is like mana: earned by draining (a tenth of the dama
 and each level with at least 7.5. Healing is deliberately scarce: every hero is meant to pull
 their weight and dodge, not lean on the Vitalist.
 
-The Elementalist's alimus pays for its spells' *recharge*, not their casting: a spell is **free to cast** (the bolt, the updraft, the storm, the snap), but a spell that
-has been cast **does not begin to recharge until there is enough alimus, and then spends it to start** (a spent bolt's next charge, the updraft, the snap, each use of the
-storm; the dearest first, so the cheap ones don't keep it from the great ones). With too little alimus a cast spell simply waits (its square stays dark; the HUD tip says so);
-Blood Channeling lets a recharge that lacks the alimus start anyway, paid for in health. `Player.TickElementalist`, `Tune.Elementalist.UpdraftRecharge`. It holds 40 (more with
+The Elementalist's alimus pays for its spells' *recharge*, not their casting: a spell is **free to cast** (the bolt, the updraft, the storm, the snap), and nothing is taken when it goes off. Its recharge runs as usual,
+and **when it is done the alimus is taken to bring it back** (a spent bolt's next charge, the updraft, the snap, each use of the storm; the dearest first, so the cheap ones don't keep it from the great ones). With too little alimus a spell **does not return**: it
+waits, its orb dark and a hair short of ready, and comes back the moment there is enough. Blood Channeling lets a return that lacks the alimus go ahead anyway, paid for in health. `Player.TickElementalist`, `Tune.Elementalist.UpdraftRecharge`. It holds 40 (more with
 upgrades and levels), comes back by itself at 2.5 a second (its only source), and a run starts
 full. Its fire and frost work on creatures in three ways, each shown by a wash of colour over the
 creature (online, the host keeps them and every game shows them):

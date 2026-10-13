@@ -25,8 +25,10 @@ public partial class Player
     /// <summary>The Elementalist's reserve: spells cost it, and it comes back by itself.</summary>
     public float Alimus { get; private set; }
     private float _boltCd, _updraftCd, _snapCd, _snapAt = -1;
-    // a cast spell waits to be paid for before it recharges: the bolt's next charge, the updraft, the snap, each use of the storm
-    private bool _boltPaid, _updraftOwes, _snapOwes;
+    // a cast spell is free; what it costs is paid when it comes back (the orb returns): the bolt's next charge, the updraft, the snap, each use of the storm. Its recharge runs
+    // as usual, but at the end of it the alimus is taken, and with too little the spell stays out (held a hair short of ready) until there is enough
+    private bool _updraftOwes, _snapOwes;
+    private const float Hair = 0.001f;
     private bool[] _stormOwes = new bool[1];
     /// <summary>Bolts in the staff (-1 = not yet filled for this run), and how far the next one has recharged (seconds).</summary>
     private int _boltCharges = -1;
@@ -45,16 +47,16 @@ public partial class Player
     public float BlizzardCost => Tune.Elementalist.BlizzardCost;
     public float SnapCost => Tune.Elementalist.SnapCost;
     /// <summary>For the HUD: the updraft's short recovery and the snap's, 0 = ready.</summary>
-    public float UpdraftCooldownFrac => _updraftOwes ? 1f : Math.Clamp(_updraftCd / Tune.Elementalist.UpdraftRecharge, 0, 1);
-    public float SnapCooldownFrac => _snapOwes ? 1f : Math.Clamp(_snapCd / Tune.Elementalist.SnapCooldown, 0, 1);
-    /// <summary>The spell is ready to cast (not recharging, and not waiting for the alimus to start).</summary>
+    public float UpdraftCooldownFrac => Math.Clamp(_updraftCd / Tune.Elementalist.UpdraftRecharge, 0, 1);
+    public float SnapCooldownFrac => Math.Clamp(_snapCd / Tune.Elementalist.SnapCooldown, 0, 1);
+    /// <summary>The spell is ready to cast (not recharging, and not waiting for the alimus to come back).</summary>
     public bool UpdraftReady => _updraftCd <= 0 && !_updraftOwes;
     public bool SnapReady => _snapCd <= 0 && !_snapOwes && _snapAt < 0;
     /// <summary>For the HUD: a cast spell is waiting for enough alimus to begin recharging (the bolt's next charge, the updraft, the snap, the storm).</summary>
-    public bool BoltWaiting => _boltCharges >= 0 && _boltCharges < BoltChargesMax && !_boltPaid;
-    public bool UpdraftWaiting => _updraftOwes;
-    public bool SnapWaiting => _snapOwes;
-    public bool StormWaiting { get { foreach (bool o in _stormOwes) if (o) return true; return false; } }
+    public bool BoltWaiting => _boltCharges >= 0 && _boltCharges < BoltChargesMax && _boltRecharge >= BoltRechargeSeconds - Hair;
+    public bool UpdraftWaiting => _updraftOwes && _updraftCd <= Hair * 1.5f;
+    public bool SnapWaiting => _snapOwes && _snapCd <= Hair * 1.5f;
+    public bool StormWaiting { get { for (int k = 0; k < _stormOwes.Length && k < _abilityCd.Length; k++) if (_stormOwes[k] && _abilityCd[k] <= Hair * 1.5f) return true; return false; } }
     /// <summary>What a snap would burst right now (for the HUD): the frozen creatures in view, or with Cinder Snap the burning ones.</summary>
     public int SnapTargets => Snappable().Count();
 
@@ -79,7 +81,7 @@ public partial class Player
     /// <summary>Test aid: the staff is ready again.</summary>
     /// <summary>Test aid: the updraft is ready again.</summary>
     public void TestResetUpdraft() { _updraftCd = 0; _updraftOwes = false; }
-    public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; _boltPaid = false; }
+    public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; }
     /// <summary>Test aid: every spell ready again, nothing owed.</summary>
     public void TestResetSpells() { TestResetUpdraft(); TestResetBolt(); _snapCd = 0; _snapOwes = false; for (int k = 0; k < _abilityCd.Length; k++) { _abilityCd[k] = 0; if (k < _stormOwes.Length) _stormOwes[k] = false; } }
 
@@ -96,29 +98,34 @@ public partial class Player
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         _boltCd -= dt;
         Alimus = Math.Min(Stats.AlimusMax, Alimus + AlimusRegen * dt);
-        // a cast spell begins to recharge only once there is enough alimus, which it spends to start (the dearest first, so the cheap
-        // ones don't keep it from the great ones)
+        // a cast spell is free; its recharge runs, and when it is done the alimus is taken to bring it back (the dearest first, so the cheap ones don't keep it from the
+        // great ones). With too little, it waits, a hair short of ready, until there is enough.
         if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
         for (int k = 0; k < _stormOwes.Length; k++)
-            if (_stormOwes[k] && SpendAlimus(BlizzardCost)) _stormOwes[k] = false;
-        if (_updraftOwes && SpendAlimus(UpdraftCost)) _updraftOwes = false;
-        if (_snapOwes && SpendAlimus(SnapCost)) _snapOwes = false;
-        if (!_updraftOwes) _updraftCd -= dt;
-        if (!_snapOwes) _snapCd -= dt;
-        // the staff holds a couple of bolts and gains them back one at a time (each pays its cost as it starts coming back)
+        {
+            if (!_stormOwes[k] || _abilityCd[k] > Hair) continue;
+            if (SpendAlimus(BlizzardCost)) { _stormOwes[k] = false; _abilityCd[k] = 0; } else _abilityCd[k] = Hair;
+        }
+        _updraftCd -= dt; _snapCd -= dt;
+        if (_updraftOwes && _updraftCd <= Hair)
+        {
+            if (SpendAlimus(UpdraftCost)) { _updraftOwes = false; _updraftCd = 0; } else _updraftCd = Hair;
+        }
+        if (_snapOwes && _snapCd <= Hair)
+        {
+            if (SpendAlimus(SnapCost)) { _snapOwes = false; _snapCd = 0; } else _snapCd = Hair;
+        }
+        // the staff holds a couple of bolts and gains them back one at a time (each pays its cost as it comes back)
         int max = BoltChargesMax;
         if (_boltCharges < 0) _boltCharges = max;
         if (_boltCharges > max) _boltCharges = max;
         if (_boltCharges < max)
         {
-            if (!_boltPaid && SpendAlimus(Stats.Frostbolt ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost)) _boltPaid = true;
-            if (_boltPaid)
-            {
-                _boltRecharge += dt * Math.Max(0.2f, Stats.AttackSpeed);
-                if (_boltRecharge >= BoltRechargeSeconds) { _boltCharges++; _boltRecharge = 0; _boltPaid = false; }
-            }
+            float secs = BoltRechargeSeconds;
+            _boltRecharge = Math.Min(secs, _boltRecharge + dt * Math.Max(0.2f, Stats.AttackSpeed));
+            if (_boltRecharge >= secs - Hair && SpendAlimus(Stats.Frostbolt ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost)) { _boltCharges++; _boltRecharge = 0; }
         }
-        else { _boltRecharge = 0; _boltPaid = false; }
+        else _boltRecharge = 0;
         if (_snapAt >= 0 && (_snapAt -= dt) < 0) BurstSnap();
     }
 

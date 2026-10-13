@@ -696,6 +696,19 @@ public sealed partial class HeroDesign
             case "turn_l2r":
                 o.Root.Y -= 0.04f * MathF.Sin(t * MathF.PI);
                 break;
+            case "dodge" when _swordsman:
+                {
+                    // the dash-slash: no roll, no tuck: he drops into a long lean, head up and eyes on the mark, the sword arm drawn back and cocked ready to strike, the off arm thrown forward, legs in a running lunge
+                    float k = W3.SmoothStep(0f, 0.18f, t);
+                    o.Roll = 0f;
+                    o.Lean = Mathf.Lerp(o.Lean, 62f, k); o.HeadPitch = Mathf.Lerp(o.HeadPitch, -32f, k); o.Twist = Mathf.Lerp(o.Twist, -14f, k);
+                    o.Root.Y = Mathf.Lerp(o.Root.Y, -0.07f, k);
+                    o.SR = Mathf.Lerp(o.SR, -66f, k); o.ER = Mathf.Lerp(o.ER, 72f, k); o.WR = Mathf.Lerp(o.WR, 24f, k); o.AR = Mathf.Lerp(o.AR, 10f, k);
+                    o.SL = Mathf.Lerp(o.SL, 58f, k); o.EL = Mathf.Lerp(o.EL, 30f, k); o.AL = 12f;
+                    o.HR = Mathf.Lerp(o.HR, 54f, k); o.KR = Mathf.Lerp(o.KR, 40f, k); o.FR = Mathf.Lerp(o.FR, -22f, k);
+                    o.HL = Mathf.Lerp(o.HL, -46f, k); o.KL = Mathf.Lerp(o.KL, 24f, k); o.FL = Mathf.Lerp(o.FL, -12f, k);
+                    break;
+                }
             case "dodge":
                 {
                     float tuck = MathF.Sin(Math.Clamp(t * 1.15f, 0, 1) * MathF.PI);

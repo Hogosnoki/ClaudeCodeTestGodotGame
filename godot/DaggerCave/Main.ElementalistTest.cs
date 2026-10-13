@@ -6,7 +6,7 @@ namespace DaggerCave;
 
 public partial class Main
 {
-    private float _elMark;
+    private float _elMark, _elRecharge;
     private int _elCount;
     private Updraft _elUpdraft;
     private float _elApex, _elFall;
@@ -90,8 +90,8 @@ public partial class Main
             {
                 _heroInput = default;
                 var u = p.LastUpdraft;
-                Check($"the dodge button raises an updraft at your feet for {Tune.Elementalist.UpdraftCost:0} alimus ({p.Alimus:0} left, column {(u != null ? $"{u.Height:0} px tall" : "none")})",
-                    u != null && IsInstanceValid(u) && Math.Abs(p.Alimus - (p.Stats.AlimusMax - Tune.Elementalist.UpdraftCost)) < 0.3f && Math.Abs(u.GlobalPosition.X - p.GlobalPosition.X) < 4);
+                Check($"the dodge button raises an updraft at your feet, free to cast (the {Tune.Elementalist.UpdraftCost:0} alimus is paid as it comes back: {p.Alimus:0} of {p.Stats.AlimusMax:0} held, column {(u != null ? $"{u.Height:0} px tall" : "none")})",
+                    u != null && IsInstanceValid(u) && Math.Abs(p.Alimus - p.Stats.AlimusMax) < 0.3f && Math.Abs(u.GlobalPosition.X - p.GlobalPosition.X) < 4);
                 break;
             }
             case 82:
@@ -134,7 +134,8 @@ public partial class Main
                 }
                 break;
             case 128:
-                // no alimus: the updraft still goes up (a cast costs nothing), but it will not recharge until there is alimus to pay for it
+                // no alimus: the updraft still goes up (a cast costs nothing), but when its recharge is done it does not come back until there is alimus to pay for it
+                _elRecharge = Tune.Elementalist.UpdraftRecharge; Tune.Elementalist.UpdraftRecharge = 0.05f;
                 p.TestResetUpdraft();
                 p.SetAlimus(5);
                 _elUpdraft = p.LastUpdraft;
@@ -143,19 +144,20 @@ public partial class Main
             case 129:
                 _heroInput = default;
                 Check($"with too little alimus the updraft still goes up, for nothing ({p.LastUpdraft != _elUpdraft}, {p.Alimus:0.00} alimus left of 5)", p.LastUpdraft != _elUpdraft && p.Alimus > 4.99f);
-                Check($"and is then not ready, waiting for the alimus ({p.UpdraftWaiting}, ready {p.UpdraftReady})", p.UpdraftWaiting && !p.UpdraftReady);
+                Check($"and is then not ready ({p.UpdraftWaiting}, ready {p.UpdraftReady})", !p.UpdraftReady);
                 break;
             case 131:
                 _elMark = p.Alimus;
                 break;
             case 133:
-                Check($"it stays that way while there is too little alimus (waiting {p.UpdraftWaiting}, {p.Alimus:0.0} of the {Tune.Elementalist.UpdraftCost:0} it needs)", p.UpdraftWaiting && p.Alimus < Tune.Elementalist.UpdraftCost);
+                Check($"its recharge done, it stays out while there is too little alimus (waiting {p.UpdraftWaiting}, {p.Alimus:0.0} of the {Tune.Elementalist.UpdraftCost:0} it needs, ready {p.UpdraftReady})", p.UpdraftWaiting && !p.UpdraftReady && p.Alimus < Tune.Elementalist.UpdraftCost);
                 p.SetAlimus(20);
                 break;
             case 135:
-                Check($"with enough, it spends it to begin recharging ({p.Alimus:0.0} of 20, waiting {p.UpdraftWaiting})", !p.UpdraftWaiting && p.Alimus < 20f - Tune.Elementalist.UpdraftCost + 2f);
+                Check($"with enough, it spends it and comes back ({p.Alimus:0.0} of 20, waiting {p.UpdraftWaiting}, ready {p.UpdraftReady})", !p.UpdraftWaiting && p.UpdraftReady && p.Alimus < 20f - Tune.Elementalist.UpdraftCost + 2f);
                 break;
             case 142:
+                Tune.Elementalist.UpdraftRecharge = _elRecharge;
                 Check($"and is ready again a moment after ({p.UpdraftReady})", p.UpdraftReady);
                 break;
 
@@ -179,8 +181,8 @@ public partial class Main
                 // (the storm is gathered for half a second first; it costs nothing to call, and spends its alimus as it begins to recharge)
                 var z = p.LastBlizzard;
                 float spent = p.Stats.AlimusMax - p.Alimus;
-                Check($"the ability button calls a blizzard down on the golem, and the {Tune.Elementalist.BlizzardCost:0} alimus is spent as it begins to recharge ({p.Alimus:0} left of {p.Stats.AlimusMax:0}, {(z != null ? $"{z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition):0} px from it" : "none")})",
-                    z != null && spent > Tune.Elementalist.BlizzardCost - Tune.Elementalist.AlimusRegen * 1.5f && z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition) < 8);
+                Check($"the ability button calls a blizzard down on the golem, and it costs nothing to call (the {Tune.Elementalist.BlizzardCost:0} alimus is paid as the use comes back: {p.Alimus:0} held of {p.Stats.AlimusMax:0}, {(z != null ? $"{z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition):0} px from it" : "none")})",
+                    z != null && spent < 1f && z.GlobalPosition.DistanceTo(_probeEnemy.GlobalPosition) < 8);
                 break;
             }
             case 186:
@@ -254,7 +256,7 @@ public partial class Main
                 p.Stats.IgniteChance = 0f;
                 // (loosed 32 degrees off the creature)
                 var wide = new Vector2(_dir, 0).Rotated(Mathf.DegToRad(-32f) * _dir);
-                G.Spawn(new ElementBolt { Position = p.GlobalPosition + new Vector2(0, -6) + wide * 6f, Dir = wide, Damage = Tune.Elementalist.FireDamage, Caster = p });
+                G.Spawn(new ElementBolt { Position = p.GlobalPosition + new Vector2(0, -6) + wide * 6f, Dir = wide, Speed = Tune.Elementalist.BoltSpeed * 2.5f, TurnRate = Tune.Elementalist.BoltTurnDegrees * 2.5f, Range = Tune.Elementalist.BoltRange, Damage = Tune.Elementalist.FireDamage, Caster = p });
                 break;
             }
             case 246:
@@ -272,7 +274,7 @@ public partial class Main
                 gob.MaxHp = gob.Hp = 500;
                 _probe2 = gob;
                 _hp2Mark = gob.Hp;
-                G.Spawn(new ElementBolt { Position = p.GlobalPosition + new Vector2(_dir * 6f, -6), Dir = new Vector2(_dir, 0), Damage = Tune.Elementalist.FireDamage, Caster = p });
+                G.Spawn(new ElementBolt { Position = p.GlobalPosition + new Vector2(_dir * 6f, -6), Dir = new Vector2(_dir, 0), Speed = Tune.Elementalist.BoltSpeed, Range = Tune.Elementalist.BoltRange, Damage = Tune.Elementalist.FireDamage, Caster = p });
                 break;
             }
             case 260:
