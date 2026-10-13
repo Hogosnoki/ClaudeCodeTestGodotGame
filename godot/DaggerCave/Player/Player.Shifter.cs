@@ -168,6 +168,7 @@ public partial class Player
         G.Fx.Text(GlobalPosition + new Vector2(0, -34), f.Name.ToUpperInvariant(), new Color(0.92f, 0.95f, 1f), 11, 0.9f);
         Anim?.Flash(0.8f);
         if (Stats.ShiftHeals && !IsRemote) Heal(Stats.MaxHp * 0.07f);
+        if (!IsRemote) Stats.On.RaiseShift(this);
     }
 
     public void LeaveForm(bool cooldown)

@@ -64,13 +64,15 @@ public partial class Main
         foe.GlobalPosition = p.GlobalPosition + new Vector2(110 * p.Facing, 0);
         foe.Freeze(60f, hold: true);
         foreach (var _ in Wait(0.5f)) yield return null;
-        float h1 = foe.Hp;
+        float h1 = foe.Hp; float dir0 = p.Facing; float startX0 = p.GlobalPosition.X, foeX0 = foe.GlobalPosition.X;
         _scInput = new PlayerInput { Dodge = true, Move = new Vector2(p.Facing, 0) };
-        yield return null; yield return null; _scInput = default;
+        yield return null; _scInput = default;
         for (int f = 0; f < 60 && p.DashSlashes == d0; f++) yield return null;
+        float faced = p.Facing;
         foreach (var _ in Wait(1.5f)) yield return null;
         float slash = h1 - foe.Hp;
-        ScCheck($"the dash touched the creature and slashed ({p.DashSlashes - d0}), ending the dash", p.DashSlashes == d0 + 1 && !p.IsDodging);
+        float side = Math.Sign(p.GlobalPosition.X - foe.GlobalPosition.X);
+        ScCheck($"the dash went through the creature and slashed it from behind ({p.DashSlashes - d0}; he stands beyond it ({p.GlobalPosition.X - foe.GlobalPosition.X:0} px) facing back ({faced}), dash over {!p.IsDodging})", p.DashSlashes == d0 + 1 && !p.IsDodging && side == dir0 && faced == -dir0);
         ScCheck($"for one and a half times a strike ({slash:0.0} against a strike's {strike:0.0}: x{slash / Math.Max(0.01f, strike):0.00})", slash > strike * 1.25f && slash < strike * 1.75f);
     }
 }

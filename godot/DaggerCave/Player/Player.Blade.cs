@@ -96,6 +96,7 @@ public partial class Player
     {
         aim = aim.Normalized();
         _heave = false;
+        _dashSlashSwing = false;
         _counter = counter;
         AttacksStarted++;
         // Combo: a strike that lands refunds the swing cooldown, up to ComboResets times in a row.
@@ -150,7 +151,7 @@ public partial class Player
         var aim = _swingDir;
         G.Sfx.Play(_finisher || _swingCharged || _heave ? "swing_heavy" : "swing", GlobalPosition, _heave ? 1 : -2, 0.12f, _heave ? 0.7f : 1f + _comboStep * 0.08f);
         // the sword carries you forward a little (horizontal strikes, on your feet; never a heave)
-        if (LungeNow > 0 && !InWater && !_heave)
+        if (LungeNow > 0 && !InWater && !_heave && !_dashSlashSwing)
         {
             float lungeTime = 0.12f * (Stats.LungeMult > 1f ? Tune.Relics.LungeTimeMult : 1f);
             if (Stats.AerialLunge && !IsOnFloor())

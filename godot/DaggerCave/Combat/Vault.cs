@@ -37,7 +37,7 @@ public partial class KeyPickup : Node2D
         foreach (var p in G.Players)
         {
             if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18) continue;
-            if (p.Keys >= Tune.Vault.MaxKeys)
+            if (p.Keys >= p.MaxKeys)
             {
                 if (_fullT <= 0 && !p.IsRemote) { _fullT = 2f; G.Fx.Text(GlobalPosition + new Vector2(0, -18), "KEYS FULL", new Color(1f, 0.8f, 0.5f), 10, 1f); }
                 continue;

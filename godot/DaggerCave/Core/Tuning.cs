@@ -140,8 +140,8 @@ public static class Tune
         /// <summary>Counter Roll (an alteration): the swing back at the attacker, and how close a
         /// blow's source must be to count as a melee blow the roll can counter.</summary>
         public static float CounterReach = 70f;
-        /// <summary>The dash-slash (the dodge button): a dash of DashSlashSpeed px/s for DashSlashTime s, in an orange ghost-glow, that ends in a slash of DashSlashMult
-        /// times a normal strike (with everything a strike brings) on the first creature it touches; back DashSlashCooldown s after it began (the dodge roll it replaces came
+        /// <summary>The dash-slash (the dodge button): a dash of DashSlashSpeed px/s for DashSlashTime s, in an orange ghost-glow, that goes through the first creature it meets and, once clear of it, turns in
+        /// a slash of DashSlashMult times a normal strike (with everything a strike brings) behind him; back DashSlashCooldown s after it began (the dodge roll it replaces came
         /// back in half a second). It dodges nothing of itself: it is a way across the floor, forward or away.</summary>
         public static float DashSlashSpeed = 560f, DashSlashTime = 0.28f, DashSlashCooldown = 15f, DashSlashMult = 1.5f;
     }
@@ -543,6 +543,14 @@ public static class Tune
         public static float FallHeal = 10f, ReviveExtra = 0.2f, ReviveBase = 0.35f;
         /// <summary>Echoing Blade: a melee blow that lands strikes again EchoDelay s later (EchoChance of the time) for EchoMult of its damage.</summary>
         public static float EchoChance = 0.2f, EchoMult = 0.5f, EchoDelay = 0.1f;
+        /// <summary>Soul Lantern, Chain Lightning, Spillover, Wither, Rally, Level Surge, Bounty Hunter, Overflow (see RelicEffects).</summary>
+        public static float SoulShare = 0.2f, SoulRadius = 60f;
+        public static float ChainChance = 0.15f, ChainShare = 0.4f, ChainRadius = 90f; public static int ChainJumps = 2;
+        public static float SpillShare = 0.3f, SpillRadius = 80f, WitherRadius = 80f;
+        public static float RallyRadius = 260f, RallyShare = 0.03f, RallySeconds = 8f;
+        public static float SurgeBase = 40f, SurgePerLevel = 6f, SurgeRadius = 150f, SurgeHeal = 0.1f;
+        public static float BountyChance = 0.08f;
+        public static float OverflowShare = 0.08f, OverflowSeconds = 10f, OverflowEvery = 3f;
         public static float LungeMin = 100f, LungeTimeMult = 1.6f, PursuitRange = 170f, HoverTail = 0.25f;
         /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
         public static float FarDistance = 220f;

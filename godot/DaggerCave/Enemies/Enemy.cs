@@ -913,7 +913,7 @@ public abstract partial class Enemy : CharacterBody2D
         // (a broken ward turns nothing aside; a weakness stays)
         if (ArmorBroken && _affinity < 1f) _affinity = 1f;
         dmg *= _affinity;
-        if (kind != DamageKind.Raw) dmg *= RelicBlowMult();
+        if (kind != DamageKind.Raw) dmg *= RelicBlowMult(kind);
         if (Puppet)
         {
             // (a copy: this game's hero struck it; the kill is reckoned from the health the copy shows)
@@ -962,7 +962,10 @@ public abstract partial class Enemy : CharacterBody2D
     }
 
     /// <summary>What this game's hero's relics do to a blow on this creature: Assassin's Edge (its back), Far Sight and Close Quarters (how far off it is).</summary>
-    private float RelicBlowMult()
+    /// <summary>Until when (seconds on the clock) a creature is marked: it takes more from the hero who marked it (Tracking Mark).</summary>
+    public float MarkedUntil;
+
+    private float RelicBlowMult(DamageKind kind)
     {
         var hero = G.Player;
         if (hero?.Stats == null || hero.Dead) return 1f;
@@ -975,6 +978,21 @@ public abstract partial class Enemy : CharacterBody2D
             else if (roll < 0.25f) { G.Fx.Text(HeadPoint(18f), "0", new Color(1f, 0f, 1f), 12, 0.6f); return 0f; }
         }
         if (st.BackDealMult != 1f && FacingAwayFrom(hero.GlobalPosition)) m *= st.BackDealMult;
+        // the generic upgrades and the newer relics
+        if (st.GenCritChance > 0f && G.Chance(st.GenCritChance)) { m *= st.GenCritMult; G.Fx.Text(HeadPoint(18f), "CRIT", new Color(1f, 0.9f, 0.4f), 10, 0.5f); hero.Bump("crit"); }
+        if (st.VsStatusMult != 1f && (Ignited || FrozenSolid || Chilled || Envenomed)) m *= st.VsStatusMult;
+        if (st.VsBigMult != 1f && (IsBoss || IsGuardian || Elite)) m *= st.VsBigMult;
+        if (st.VsFreshMult != 1f && Hp >= MaxHp * 0.999f) m *= st.VsFreshMult;
+        if (st.StillMult != 1f && hero.StillTime >= 0.5f) m *= st.StillMult;
+        if (st.AirMult != 1f && !hero.IsOnFloor() && !hero.InWater) m *= st.AirMult;
+        if (st.WaterMult != 1f && hero.InWater) m *= st.WaterMult;
+        if (st.HighGroundMult != 1f && hero.GlobalPosition.Y < GlobalPosition.Y - 24f) m *= st.HighGroundMult;
+        if (st.LowHpDealMult != 1f && hero.Hp < st.MaxHp * 0.25f) m *= st.LowHpDealMult;
+        if (st.GoldDamageStep > 0f) m *= 1f + Math.Min(0.2f, hero.Gold / 25 * st.GoldDamageStep);
+        if (st.Frostfire != 1f && ((kind == DamageKind.Frost && Ignited) || (kind == DamageKind.Fire && (FrozenSolid || Chilled)))) m *= st.Frostfire;
+        if (st.ArcaneFlow != 1f && kind is DamageKind.Fire or DamageKind.Frost && hero.Alimus >= st.AlimusMax * 0.9f) m *= st.ArcaneFlow;
+        if (st.MarkBonus > 0f && MarkedUntil > Time.GetTicksMsec() / 1000.0) m *= 1f + st.MarkBonus;
+        if (hero.NextHitUntil > Time.GetTicksMsec() / 1000.0) { m *= hero.NextHitMult; hero.NextHitUntil = 0; hero.Bump("nexthit"); }
         if (st.DistanceBias != 0f)
         {
             float t = Math.Clamp(hero.GlobalPosition.DistanceTo(GlobalPosition) / Tune.Relics.FarDistance, 0f, 1f);
@@ -1072,7 +1090,7 @@ public abstract partial class Enemy : CharacterBody2D
         for (int k = 0; k < orbs; k++)
             G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
         // healing is scarce: rare from regular kills, likelier from mini-bosses; potions rarer still
-        if (G.Chance(IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance)) G.Spawn(new HeartPickup { Position = GlobalPosition });
+        if (G.Chance(IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance + (G.Player?.Stats.HeartChanceBonus ?? 0f))) G.Spawn(new HeartPickup { Position = GlobalPosition });
         if (G.Chance(Meta.PotionDropChance(P))) G.Spawn(new PotionPickup { Position = GlobalPosition + new Vector2(6, -4) });
         if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);
         else G.Fx.Pop(GlobalPosition, BloodColor, HitRadius);

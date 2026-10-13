@@ -192,6 +192,20 @@ public sealed class PlayerStats
     public float StruckIgnite, StruckFreeze;
     /// <summary>What relics listen for (see Triggers.cs).</summary>
     public readonly Triggers On = new();
+
+    // ---- the generic upgrades and the newer relics (all multiplicative, 1 = nothing, unless said); see Enemy.RelicBlowMult, Player.HurtHere and the movement code
+    /// <summary>Dealing: a chance of a critical blow and how hard (x); more against a creature that is burning, frozen, chilled or poisoned; against elites and bosses; against one at full health;
+    /// standing still; airborne; in water; from above a creature; at low health; for the gold carried (a step per 25, at most +20%); with fire on a frozen creature or frost on a burning one;
+    /// with the reserve nearly full (the Elementalist); and how much more a marked creature takes.</summary>
+    public float GenCritChance, GenCritMult = 1.5f, VsStatusMult = 1f, VsBigMult = 1f, VsFreshMult = 1f, StillMult = 1f, AirMult = 1f, WaterMult = 1f, HighGroundMult = 1f, LowHpDealMult = 1f, GoldDamageStep, Frostfire = 1f, ArcaneFlow = 1f, MarkBonus;
+    /// <summary>Taking: the share of damage taken that falls back on a creature that struck; health mended a second out of combat (share of max); fall damage, damage over time (x); potion healing (x); the
+    /// speed gained after a blow (a share); the most a single blow may take (a share of max health, 0 = no limit); the damage taken at low health (x); a once-a-depth save from a killing blow.</summary>
+    public float ThornsShare, RegenShare, FallDamageMult = 1f, DotMult = 1f, PotionPower = 1f, AdrenalineBonus, BlowCap, LowHpTakenMult = 1f;
+    public bool DeathWard;
+    /// <summary>Moving: extra seconds of coyote time and of jump buffer; air acceleration and the fastest fall (x); the speed gained after running a second (a share); dash and dodge speed (x); the wall slide's speed (x).</summary>
+    public float CoyoteBonus, BufferBonus, AirAccelMult = 1f, FallCapMult = 1f, SprintBonus, DashSpeedMult = 1f, WallSlideMult = 1f;
+    /// <summary>Gathering: experience (x), the chance a creature drops a heart, and keys carried beyond the usual.</summary>
+    public float XpMult = 1f, HeartChanceBonus, KeyCapBonus;
     /// <summary>How much gold a pick-up is worth (x), and how far past the usual a hero's pick-ups reach (px).</summary>
     public float GoldMult = 1f, PickupReach;
     /// <summary>The Shape Shifter's remembered form (its key; null: none yet), kept for the run.</summary>
@@ -568,6 +582,46 @@ public static partial class Upgrades
         new() { Id = "armor", Name = "Toughened Hide", Desc = "Take 10% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = 1f - (1f - s.DamageReduction) * 0.9f },
         new() { Id = "belt", Name = "Deep Flask", Desc = "Carry one more potion, and creatures are 1% likelier to drop one.", Icon = "life", MaxStacks = 3, Apply = (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.01f; } },
         new() { Id = "magnet", Name = "Lodestone", Desc = "Pull experience from further away.", Icon = "life", MaxStacks = 2, Weight = 0.6f, Apply = (s, p) => s.MagnetMult *= 1f + 0.6f },
+
+        // ================= more upgrades: always a gain, a plain number or a small rule; they stack (see also: relics, which are one-offs, and bargains, which cost something)
+        // --- Offence ---
+        new() { Id = "crit", Name = "Keen Eye", Desc = "Your hits are 5% likelier to be critical (half as hard again).", Icon = "blade", MaxStacks = 5, Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritChance += 0.05f },
+        new() { Id = "critdmg", Name = "Deadly Aim", Desc = "Your critical hits land 25% harder.", Icon = "blade", MaxStacks = 3, Requires = "crit", Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritMult += 0.25f },
+        new() { Id = "opportunist", Name = "Opportunist", Desc = "Hit creatures that are burning, chilled, frozen or poisoned 8% harder.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence", "status" }, Apply = (s, p) => s.VsStatusMult *= 1.08f },
+        new() { Id = "slayer", Name = "Giant Slayer", Desc = "Hit mini-bosses, guardians and bosses 10% harder.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.VsBigMult *= 1.10f },
+        new() { Id = "firstblood", Name = "First Blood", Desc = "Hit creatures at full health 15% harder.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence" }, Apply = (s, p) => s.VsFreshMult *= 1.15f },
+        new() { Id = "steady", Name = "Steady Hand", Desc = "Hit 10% harder after standing still for half a second.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.StillMult *= 1.10f },
+        new() { Id = "skyborne", Name = "Skyborne", Desc = "Hit 10% harder while in the air.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence", "mobility" }, Apply = (s, p) => s.AirMult *= 1.10f },
+        new() { Id = "tidal", Name = "Tidal Fury", Desc = "Hit 10% harder while in water.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence" }, Apply = (s, p) => s.WaterMult *= 1.10f },
+
+        // --- Defence ---
+        new() { Id = "barbed", Name = "Barbed Hide", Desc = "A creature that strikes you takes 10% of the blow back.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence" }, Apply = (s, p) => s.ThornsShare += 0.10f },
+        new() { Id = "regen", Name = "Recuperation", Desc = "After four seconds unhurt, mend 0.4% of your health a second.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence", "heal" }, Apply = (s, p) => s.RegenShare += 0.004f },
+        new() { Id = "footing", Name = "Steady Footing", Desc = "Blows shove you 25% less.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence" }, Apply = (s, p) => s.KnockTakenMult *= 0.75f },
+        new() { Id = "cushion", Name = "Cushioned Landing", Desc = "Take 30% less from falls.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "mobility" }, Apply = (s, p) => s.FallDamageMult *= 0.7f },
+        new() { Id = "insulate", Name = "Insulation", Desc = "Take 20% less from burning, poison and the like, working on you over time.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "status" }, Apply = (s, p) => s.DotMult *= 0.8f },
+        new() { Id = "potpower", Name = "Potion Mastery", Desc = "Potions heal 25% more.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "heal" }, Apply = (s, p) => s.PotionPower *= 1.25f },
+        new() { Id = "adrenaline", Name = "Adrenaline", Desc = "Run 15% faster for two seconds after a blow gets through.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "mobility" }, Apply = (s, p) => s.AdrenalineBonus += 0.15f },
+
+        // --- Mobility ---
+        new() { Id = "coyote", Name = "Coyote Time", Desc = "A jump still takes 0.05 s after you step off a ledge.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.CoyoteBonus += 0.05f },
+        new() { Id = "buffer", Name = "Early Bird", Desc = "A jump pressed 0.06 s before landing is still kept.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.BufferBonus += 0.06f },
+        new() { Id = "aircontrol", Name = "Air Control", Desc = "Steer 30% sharper in the air.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.AirAccelMult *= 1.3f },
+        new() { Id = "feather", Name = "Featherfall", Desc = "Fall 15% slower at the most.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.FallCapMult *= 0.85f },
+        new() { Id = "sprint", Name = "Sprinter", Desc = "After a second of running, go up to 12% faster.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.SprintBonus += 0.12f },
+        new() { Id = "longdash", Name = "Long Dash", Desc = "Dashes and dodges are 15% faster, and so go further.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.DashSpeedMult *= 1.15f },
+        new() { Id = "grip", Name = "Sure Grip", Desc = "Slide down a wall 35% slower.", Icon = "move", MaxStacks = 2, When = s => s.WallJump, Tags = new[] { "mobility" }, Apply = (s, p) => s.WallSlideMult *= 0.65f },
+
+        // --- Utility and economy ---
+        new() { Id = "scholar", Name = "Scholar", Desc = "Gain 10% more experience.", Icon = "life", MaxStacks = 4, Tags = new[] { "utility" }, Apply = (s, p) => s.XpMult *= 1.10f },
+        new() { Id = "forager", Name = "Forager", Desc = "Creatures are 1.5% likelier to drop a heart.", Icon = "life", MaxStacks = 3, Tags = new[] { "utility", "heal" }, Apply = (s, p) => s.HeartChanceBonus += 0.015f },
+        new() { Id = "alchemist", Name = "Alchemist", Desc = "Creatures are 2% likelier to drop a potion.", Icon = "life", MaxStacks = 3, Tags = new[] { "utility", "heal" }, Apply = (s, p) => s.PotionChanceBonus += 0.02f },
+        new() { Id = "keyring", Name = "Key Ring", Desc = "Carry one more key.", Icon = "life", MaxStacks = 2, Tags = new[] { "utility", "economy" }, Apply = (s, p) => s.KeyCapBonus += 1f },
+        new() { Id = "windstep", Name = "Windstep", Desc = "Move 12% faster in the air.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.AirSpeedMult *= 1.12f },
+        new() { Id = "hardy", Name = "Hardy", Desc = "+4% max health.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence" }, Apply = (s, p) => { s.MaxHp *= 1.04f; p.Heal(s.MaxHp * 0.04f); } },
+        new() { Id = "relentless", Name = "Relentless", Desc = "Attack 5% faster.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.AttackSpeed *= 1.05f },
+        new() { Id = "prospect", Name = "Prospector", Desc = "Gold you find is worth 25% more.", Icon = "life", MaxStacks = 3, Tags = new[] { "economy" }, Apply = (s, p) => s.GoldMult *= 1.25f },
+        new() { Id = "coinmag", Name = "Coin Magnet", Desc = "Gold is picked up from 24 px further away.", Icon = "life", MaxStacks = 3, Tags = new[] { "economy" }, Apply = (s, p) => s.PickupReach += 24f },
 
         // --- Risk and reward (all): something given, something taken. Each can be taken once:
         // they never stack, and once you have one it isn't offered again ---

@@ -264,7 +264,7 @@ public partial class Player : CharacterBody2D
 
     public void AddXp(int amount)
     {
-        _xpFrac += amount * Meta.XpMult;
+        _xpFrac += amount * Meta.XpMult * Stats.XpMult;
         int whole = (int)_xpFrac;
         _xpFrac -= whole;
         Xp += whole;
@@ -306,7 +306,7 @@ public partial class Player : CharacterBody2D
     {
         if (Dead || Potions <= 0 || Hp >= Stats.MaxHp - 0.5f) return false;
         Potions--;
-        Heal(Stats.MaxHp * Meta.PotionHealNow);
+        Heal(Stats.MaxHp * Meta.PotionHealNow * Stats.PotionPower);
         _hotRate = Stats.MaxHp * Meta.PotionHealOverTime / Meta.PotionHotSeconds;
         _hotLeft = Meta.PotionHotSeconds;
         G.Sfx.Play("heal", GlobalPosition, 0, 0, 0.8f);
@@ -439,7 +439,7 @@ public partial class Player : CharacterBody2D
         if (inp.Ability2) { _ability2Buf = Tune.Hero.PressBuffer; _ability2Aim = aim; }
         if (inp.Support) { _supportBuf = Tune.Hero.PressBuffer; _supportAim = aim; }
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
-        if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer;
+        if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer + Stats.BufferBonus;
         if (inp.Potion) DrinkPotion();
         if (inp.Interact || inp.Up) TryInteract(inp.Interact);
     }
@@ -508,6 +508,7 @@ public partial class Player : CharacterBody2D
         TickSupport(dt);
         TickHold(dt);
         Stats.On.RaiseTick(this, dt);
+        TickUpgrades(dt);
         switch (Stats.Hero)
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
@@ -551,7 +552,7 @@ public partial class Player : CharacterBody2D
         UpdateCrouch(inp, onFloor);
         // (the water's surface is no floor: a leap out of the water is the swimmer's own, from in it; see Swim)
         if (InWater && _leapT <= 0f && (HeadUnder || Velocity.Y <= 0f)) _leapReady = true;
-        if (onFloor) { _coyote = Tune.Hero.CoyoteTime; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
+        if (onFloor) { _coyote = Tune.Hero.CoyoteTime + Stats.CoyoteBonus; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
@@ -927,7 +928,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (1f + Stats.SprintBonus * Math.Min(1f, _runT)) * (_adrT > 0f ? 1f + Stats.AdrenalineBonus : 1f) * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
         if (WebbedT > 0) target *= 0.45f;
         if (Crouching) target *= Tune.Hero.CrouchSpeed;
         // planted for a heaving swing, or braced behind a shield bash
@@ -938,7 +939,7 @@ public partial class Player : CharacterBody2D
         // a column of air (the Elementalist's updraft) pushes along its own lean: sideways as much as it leans
         var draft = Updraft.All.Count > 0 ? Updraft.At(GlobalPosition) : null;
         if (draft != null && !rooted) target += draft.Up.X * Tune.Elementalist.UpdraftPushSpeed * draft.Strength;
-        float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel);
+        float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel * Stats.AirAccelMult);
         // (a blow's shove isn't cancelled the moment it lands)
         if (_knockT > 0) accel *= 0.1f;
         // frozen ground: slow to get going and slower to stop
@@ -953,7 +954,7 @@ public partial class Player : CharacterBody2D
         if (_lungeT > 0 && !_lungeAir) v.X = _lungeDir * Math.Max(Math.Abs(v.X) * Math.Sign(v.X) * _lungeDir, LungeNow); // sword lunge
         if (_bashT > 0) v.X = BashMotion(v.X);
         // a column of rising air (the Elementalist's updraft) slackens gravity and the speed you can fall at
-        float gravMult = 1f, fallCap = MaxFall;
+        float gravMult = 1f, fallCap = MaxFall * Stats.FallCapMult;
         if (draft != null) UpdraftEase(draft, ref gravMult, ref fallCap, ref v, dt);
         // a flier's form (a bat, a hornet): light, and a held jump beats its wings
         if (FormFlier)
@@ -981,7 +982,7 @@ public partial class Player : CharacterBody2D
 
         if (Stats.WallJump && onWall && v.Y > 0 && Math.Sign(inp.Move.X) == wallSide)
         {
-            v.Y = Math.Min(v.Y, Tune.Hero.WallSlideSpeed);
+            v.Y = Math.Min(v.Y, Tune.Hero.WallSlideSpeed * Stats.WallSlideMult);
             _wallSliding = true;
             Facing = wallSide;
             if (G.Chance(0.2f)) G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 6), new Color(0.6f, 0.55f, 0.5f, 0.6f), 1, 20, 1.5f, 0.3f, 30);
@@ -1202,6 +1203,9 @@ public partial class Player : CharacterBody2D
             return chip;
         }
         dmg *= (1f - Stats.DamageReduction) * Stats.DamageTakenMult;
+        if (Stats.LowHpTakenMult != 1f && Hp < Stats.MaxHp * 0.25f) dmg *= Stats.LowHpTakenMult;
+        // (Hard Case: no single blow takes more than a share of your health)
+        if (Stats.BlowCap > 0f) dmg = Math.Min(dmg, Stats.MaxHp * Stats.BlowCap);
         // (the Automaton braced: blows in front lose most of their force, and the first melee one is answered)
         if (Bracing) dmg = BraceBlow(dmg, from, source, melee, ref knock);
         if (Form != null) dmg *= 1f - Math.Min(0.8f, FormArmor + Stats.FormArmorAdd);
@@ -1234,7 +1238,13 @@ public partial class Player : CharacterBody2D
         WebTakesHarm(dmg);
         // (what else the blow does: a poison, a burn, a freeze...)
         if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
-        Stats.On.RaiseHurt(this, source != null && GodotObject.IsInstanceValid(source) ? source : null, dmg);
+        var striker = source != null && GodotObject.IsInstanceValid(source) ? source : null;
+        Stats.On.RaiseHurt(this, striker, dmg);
+        _sinceHurt = 0f;
+        if (Stats.AdrenalineBonus > 0f) _adrT = 2f;
+        // (Barbed Hide: part of the blow falls back on what struck)
+        if (Stats.ThornsShare > 0f && striker != null && !striker.Dead)
+            striker.Hurt(dmg * Stats.ThornsShare, (striker.GlobalPosition - GlobalPosition).Normalized() * 80f, striker.GlobalPosition, DamageKind.Raw);
         if (Stats.Indignation) StartIndignation();
         // (a blow that lands brings a vanished Rogue out of the shadows)
         Reveal(true);
@@ -1287,6 +1297,9 @@ public partial class Player : CharacterBody2D
 
     private void TakeRawDamage(float dmg, string kind)
     {
+        // (insulation softens a burn or poison working on you, a cushioned landing a fall)
+        if (kind is "dot" or "burn") dmg *= Stats.DotMult;
+        else if (kind == "fall") dmg *= Stats.FallDamageMult;
         float hp0 = Hp;
         Hp -= dmg;
         if (Hp <= 0 && Stats.LastStand && _lastStandDepth != G.Depth)
@@ -1299,6 +1312,17 @@ public partial class Player : CharacterBody2D
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), "LAST STAND", new Color(1f, 0.85f, 0.4f), 13, 1.5f);
             G.Fx.Ring(GlobalPosition, 24, new Color(1f, 0.85f, 0.4f), 0.3f, FxLayer.RingStyle.Dashed);
             G.Sfx.Play("roar", GlobalPosition, -8, 0, 1.8f);
+        }
+        if (Hp <= 0 && Stats.DeathWard && _wardDepth != G.Depth)
+        {
+            // Death Ward: once a depth, a killing blow leaves you at 1 health, untouchable for a couple of seconds
+            _wardDepth = G.Depth;
+            Hp = 1;
+            _invuln = Math.Max(_invuln, 2f);
+            Bump("deathward");
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), "DEATH WARD", new Color(1f, 0.95f, 0.6f), 13, 1.5f);
+            G.Fx.Ring(GlobalPosition, 26, new Color(1f, 0.95f, 0.6f), 0.5f, FxLayer.RingStyle.Wave);
+            G.Sfx.Play("levelup", GlobalPosition, -2, 0, 0.8f);
         }
         if (Hp <= 0 && Stats.NullPointer && _nullDepth != G.Depth)
         {
