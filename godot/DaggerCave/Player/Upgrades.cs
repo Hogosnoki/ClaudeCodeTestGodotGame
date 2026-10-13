@@ -358,11 +358,11 @@ public static partial class Upgrades
         new() { Id = "heave_swift_cd", Name = "Second Heave", Desc = "Your heaving swing recharges 3 s sooner.", Icon = "charge", For = S, Ability = "heave", Requires = "heave_swift", Apply = (s, p) => s.HeaveCooldown = Math.Max(1f, s.HeaveCooldown - 3f) },
 
         // --- Dodge (swordsman) ---
-        new() { Id = "iframes", Name = "Phantom Step", Desc = "Dodging makes you briefly invulnerable.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DodgeIFrames = true },
+        new() { Id = "iframes", Name = "Phantom Step", Desc = "Dashing makes you briefly invulnerable.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DodgeIFrames = true },
         new() { Id = "dodgecd", Name = "Nimble", Desc = "Dodge cooldown -20%.", Icon = "dodge", For = S, Ability = "dodge", MaxStacks = 3, Apply = (s, p) => s.DodgeCdMult *= 0.8f },
         new() { Id = "dodge2", Name = "Second Wind", Desc = "Gain a second dodge charge.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.DodgeCharges = 2; p.SyncCharges(); } },
         new() { Id = "windrunner", Name = "Wind Runner", Desc = "Dodges and Charged Strike recharge 15% faster.", Icon = "dodge", For = S, Ability = "dodge", MaxStacks = 4, Apply = (s, p) => { s.DodgeCdMult *= 0.85f; s.ChargeCooldown *= 0.85f; } },
-        new() { Id = "dodge_counter", Name = "Counter Roll", Desc = "Rolling into a melee blow ends the roll, stops all of that blow and swings back at the attacker.", Icon = "dodge", For = S, Ability = "dodge", Alteration = true, Apply = (s, p) => s.CounterRoll = true },
+        new() { Id = "dodge_counter", Name = "Counter Dash", Desc = "Dashing into a melee blow ends the dash, stops all of that blow and swings back at the attacker.", Icon = "dodge", For = S, Ability = "dodge", Alteration = true, Apply = (s, p) => s.CounterRoll = true },
         new() { Id = "dodge_counter_combo", Name = "Flowing Counter", Desc = "A counter that lands can start a combo.", Icon = "dodge", For = S, Ability = "dodge", Requires = "dodge_counter", Apply = (s, p) => s.CounterCombo = true },
 
         // --- Shield (warden) ---
@@ -624,7 +624,7 @@ public static partial class Upgrades
         HeroKind.Aegis => new[] { ("ward", "Ward Bolt"), ("barrier", "Barrier"), ("burden", "Shared Burden"), ("bubble", "Bubble") },
         HeroKind.ShapeShifter => new[] { ("staff", "Staff"), ("shift", "Shift"), ("form", "Forms"), ("special", "Form Specials") },
         HeroKind.Automaton => new[] { ("cleaver", "Cleaver"), ("repair", "Self-Repair"), ("steam", "Steam Release"), ("brace", "Brace") },
-        _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dodge Roll") },
+        _ => new[] { ("sword", "Sword"), ("charge", "Charged Strike"), ("heave", "Heaving Swing"), ("dodge", "Dash Slash") },
     };
 
     /// <summary>An ability's display name, by its key (for card labels).</summary>

@@ -65,6 +65,7 @@ public partial class Hud
             "SHARE" => ("Share Pain (support)", "Pick a friend: you take 15% of every blow they take, until you pick another (4 s between picks)."),
             "PRESSURIZE" => ("Pressurize (support)", "Builds pressure, then you move, jump and hit harder while it burns fuel. Press again to end it."),
             "HOWL" => ("Pack Howl (support)", "Allies near you run 20% and strike 15% faster for 8 s."),
+            "DASHSLASH" => ("Dash Slash", "A dash in an orange ghost-glow: the first creature it touches is slashed for one and a half times a strike, with everything a strike brings. It dodges nothing of itself, but you can use it to get away. About fifteen seconds to come back."),
             "DODGE" => ("Dodge", "A quick roll out of harm's way; each ring is one dodge, refilling on its own."),
             "BRACE" or "BRACED" => ("Brace", "Plant your feet: blows push you less and hurt less while braced."),
             "HEX" => ("Hex", "Curses the creature you aim at."),

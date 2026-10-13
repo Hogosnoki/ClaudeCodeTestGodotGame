@@ -93,7 +93,7 @@ public static class Tune
     }
 
     // =============================================================================== HEROES
-    /// <summary>The swordsman: medium sword, a quick dodge roll, and the charged strike.</summary>
+    /// <summary>The swordsman: medium sword, a dash-slash, and the charged strike.</summary>
     public static class Swordsman
     {
         /// <summary>Sword reach (px), damage per strike, time between swings (from one swing's start to the
@@ -140,6 +140,10 @@ public static class Tune
         /// <summary>Counter Roll (an alteration): the swing back at the attacker, and how close a
         /// blow's source must be to count as a melee blow the roll can counter.</summary>
         public static float CounterReach = 70f;
+        /// <summary>The dash-slash (the dodge button): a dash of DashSlashSpeed px/s for DashSlashTime s, in an orange ghost-glow, that ends in a slash of DashSlashMult
+        /// times a normal strike (with everything a strike brings) on the first creature it touches; back DashSlashCooldown s after it began (the dodge roll it replaces came
+        /// back in half a second). It dodges nothing of itself: it is a way across the floor, forward or away.</summary>
+        public static float DashSlashSpeed = 560f, DashSlashTime = 0.28f, DashSlashCooldown = 15f, DashSlashMult = 1.5f;
     }
 
     /// <summary>The warden: shortsword, an aimable shield, the Guarded Charge and the shield bash.</summary>

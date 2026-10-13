@@ -341,7 +341,7 @@ public partial class ScreenOverlay : Control
         (HeroKind.Swordsman, "SWORDSMAN", "swordsman", new[]
         {
             "The damage dealer. A heavy sword,",
-            "a quick dodge roll, a Charged Strike",
+            "a dash-slash, a Charged Strike",
             "and a rooted, crushing heaving swing.",
         }),
         (HeroKind.Warden, "WARDEN", "warden", new[]

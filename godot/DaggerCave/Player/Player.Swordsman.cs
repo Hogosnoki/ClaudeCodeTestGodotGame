@@ -4,8 +4,8 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Swordsman's kit: a quick dodge roll on a short cooldown (a swing can be started out of
-/// it), the Charged Strike, which empowers the next swing without breaking a combo, and the
+/// The Swordsman's kit: a dash-slash on the dodge button (an orange ghost-glow dash that ends in a slash of one and a half
+/// times a strike on the first creature it touches; 15 s to come back; it dodges nothing of itself, but can be used to get away), the Charged Strike, which empowers the next swing without breaking a combo, and the
 /// Heaving Swing: a slow, rooted, two-handed blow on your feet that hits twice as hard (and
 /// spends a waiting Charged Strike, for more still). Its alterations: Relentless Charge (a
 /// charge carries through a whole combo, a little weaker), Swift Heave (a charge makes the
@@ -20,6 +20,10 @@ public partial class Player
     private float _dodgeT, _chargeGlowT, _heaveCd, _heaveRootT;
     private Vector2 _dodgeDir;
     private bool _heave, _heaveWanted;
+    /// <summary>The dash under way is the Swordsman's dash-slash (the Shape Shifter's roll is still a roll).</summary>
+    private bool _dodgeSlash;
+    /// <summary>For the tests: dash-slashes that touched a creature and slashed.</summary>
+    public int DashSlashes { get; private set; }
     /// <summary>Relentless Charge: the combo under way carries the charge.</summary>
     private bool _relentless;
     /// <summary>The swing under way is a counter (Counter Roll).</summary>
@@ -49,7 +53,7 @@ public partial class Player
     public string DebugState => $"freeze {_freeze:0.00} swingCd {_swingCd:0.00} swingT {_swingT:0.00} dodgeT {_dodgeT:0.00} atkBuf {_attackBuf:0.00} ablBuf {_abilityBuf:0.00} abl2Buf {_ability2Buf:0.00} ability {AbilityCooldownFrac:0.00} charged {Charged} dashT {_dashT:0.00} bashT {_bashT:0.00} heave {_heaveRootT:0.00} shield {ShieldRaised}";
     public float[] DodgeCooldowns => _dodgeCd;
     /// <summary>A dodge charge's whole recharge, from the roll starting (for the HUD).</summary>
-    public float DodgeCooldownTotal => DodgeTime + Tune.Hero.DodgeCooldown * Stats.DodgeCdMult;
+    public float DodgeCooldownTotal => IsSwordsman ? Tune.Swordsman.DashSlashTime + Tune.Swordsman.DashSlashCooldown * Stats.DodgeCdMult : DodgeTime + Tune.Hero.DodgeCooldown * Stats.DodgeCdMult;
     /// <summary>Swings still empowered by the Charged Strike (0 = none).</summary>
     public int Charged { get; private set; }
     /// <summary>0 = the Charged Strike is ready, 1 = just used.</summary>
@@ -61,28 +65,68 @@ public partial class Player
         int idx = -1;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] <= 0) { idx = k; break; }
         if (idx < 0) return false;
-        _dodgeCd[idx] = DodgeTime + Tune.Hero.DodgeCooldown * Stats.DodgeCdMult;
+        bool slash = IsSwordsman;
+        _dodgeSlash = slash;
+        float dur = slash ? Tune.Swordsman.DashSlashTime : DodgeTime;
+        _dodgeCd[idx] = DodgeCooldownTotal;
         Vector2 d;
-        if (InWater) d = inp.Move.LengthSquared() > 0.04f ? inp.Move.Normalized() : new Vector2(Facing, 0);
+        if (InWater || slash && !IsOnFloor()) d = inp.Move.LengthSquared() > 0.04f ? inp.Move.Normalized() : new Vector2(Facing, 0);
         else d = new Vector2(Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing, 0);
-        _dodgeDir = d; _dodgeT = DodgeTime;
+        _dodgeDir = d; _dodgeT = dur;
         if (Math.Abs(d.X) > 0.2f) Facing = Math.Sign(d.X);
         Anim.Face((int)Facing, instant: true);
-        Anim.Once("dodge", 3, 6f / (DodgeTime * 24f));
-        if (Stats.DodgeIFrames) _iframes = DodgeTime + 0.12f;
-        G.Sfx.Play("dodge", GlobalPosition, -3);
+        Anim.Once("dodge", 3, 6f / (dur * 24f));
+        if (Stats.DodgeIFrames) _iframes = dur + 0.12f;
+        G.Sfx.Play(slash ? "swing_heavy" : "dodge", GlobalPosition, -3, 0.05f, slash ? 1.5f : 1f);
         if (!InWater && IsOnFloor()) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.4f);
-        G.Fx.Directional(GlobalPosition, -d, 0.5f, new Color(0.7f, 0.9f, 1f, 0.6f), 6, 160, 1.5f, 0.2f, 0);
+        var glow = slash ? new Color(1f, 0.55f, 0.15f, 0.7f) : new Color(0.7f, 0.9f, 1f, 0.6f);
+        G.Fx.Directional(GlobalPosition, -d, 0.5f, glow, slash ? 10 : 6, 160, 1.5f, 0.2f, 0);
+        if (slash) { Anim.Flash(0.4f); G.Fx.Flash(GlobalPosition + new Vector2(0, -6), 18, new Color(1f, 0.55f, 0.15f), 0.12f); }
         return true;
     }
 
     private Vector2 DodgeMotion(Vector2 v, float dt)
     {
+        if (_dodgeSlash)
+        {
+            // the dash-slash: an orange ghost-glow trail, and the first creature it touches is slashed (1.5x a strike), which ends the dash
+            v = _dodgeDir * Tune.Swordsman.DashSlashSpeed;
+            Afterimage.Spawn(Anim, new Color(1f, 0.55f, 0.15f), 0.32f);
+            if (Engine.GetPhysicsFrames() % 2 == 0) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-5, 5), G.Range(-12, 6)), new Color(1f, 0.6f, 0.2f));
+            var body = GlobalPosition + new Vector2(0, -3);
+            foreach (var e in G.Enemies)
+            {
+                if (!GodotObject.IsInstanceValid(e) || e.Dead || !e.CanBeHit) continue;
+                if (e.GlobalPosition.DistanceTo(body) > e.HitRadius + 11f) continue;
+                DashSlashHit(e);
+                return Vector2.Zero;
+            }
+            if (_dodgeT - dt <= 0) v *= 0.35f;
+            _dodgeT -= dt;
+            return v;
+        }
         v = _dodgeDir * DodgeSpeed;
         if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.45f, 0.8f, 1f), 0.2f);
         if (_dodgeT - dt <= 0) v *= 0.45f;
         _dodgeT -= dt;
         return v;
+    }
+
+    /// <summary>The dash-slash touches a creature: the dash stops, and the blade comes round for one and a half times a strike, with everything a strike brings.</summary>
+    private void DashSlashHit(Enemy e)
+    {
+        _dodgeT = 0;
+        Velocity = new Vector2(0, Math.Min(Velocity.Y, 0));
+        var to = e.GlobalPosition - (GlobalPosition + new Vector2(0, -3));
+        StartSwing(to.LengthSquared() > 1 ? to.Normalized() : _dodgeDir, counter: true);
+        _swingDmg *= Tune.Swordsman.DashSlashMult;
+        DashSlashes++;
+        var at = GlobalPosition + new Vector2(0, -4) + to.Normalized() * 10;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -28), "DASH SLASH", new Color(1f, 0.7f, 0.3f), 11, 0.7f);
+        G.Fx.Flash(at, 16, new Color(1f, 0.55f, 0.15f), 0.12f);
+        G.Fx.Spark(at, to.Normalized(), true, new Color(1f, 0.7f, 0.3f));
+        G.Sfx.Play("swing_heavy", at, -2, 0.05f, 1.2f);
+        G.Main.Rumble(0.4f, 0.3f, 0.1f);
     }
 
     /// <summary>

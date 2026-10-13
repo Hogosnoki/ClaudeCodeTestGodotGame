@@ -109,7 +109,7 @@ public static partial class Upgrades
         // --- Swordsman ---
         Rl("relic_s_fire", "Lingering Fire", "Charged Strike burns for 5 s (every swing is charged) instead of one swing, but takes 60% longer to come back.", (s, p) => { s.ChargeDuration = 5f; s.ChargeCooldown *= 1.6f; }, HS, 1.5f),
         Rl("relic_s_quake", "Earthshaker", "Your heaving swing hits 50% harder, but takes 40% longer to come back.", (s, p) => { s.HeaveDamageMult *= 1.5f; s.HeaveCooldown *= 1.4f; }, HS, 1.5f),
-        Rl("relic_s_sash", "Featherfoot Sash", "Your dodge roll comes back 30% sooner, but you have 10% less health.", (s, p) => { s.DodgeCdMult *= 0.7f; s.MaxHp *= 0.9f; if (p != null) p.Hp = Math.Min(p.Hp, s.MaxHp); }, HS, 1.5f),
+        Rl("relic_s_sash", "Featherfoot Sash", "Your dash-slash comes back 30% sooner, but you have 10% less health.", (s, p) => { s.DodgeCdMult *= 0.7f; s.MaxHp *= 0.9f; if (p != null) p.Hp = Math.Min(p.Hp, s.MaxHp); }, HS, 1.5f),
 
         // --- Warden ---
         Rl("relic_w_siphon", "Siphoning Bulwark", "A quarter of the damage you deal recharges your shield.", (s, p) => s.ShieldSiphon += 0.25f, HW, 1.5f),

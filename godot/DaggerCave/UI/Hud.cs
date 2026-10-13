@@ -778,8 +778,8 @@ public partial class Hud : Control
     private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)
     {
         var dc = p.DodgeCooldowns;
-        for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(0.5f, 0.9f, 1f), "DODGE");
-        DrawString(font, ab + new Vector2(0, -6), "DODGE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(1f, 0.62f, 0.25f), "DASHSLASH");
+        DrawString(font, ab + new Vector2(0, -6), "DASH SLASH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         var cb = ab + new Vector2(dc.Length * 40 + 16, 0);
         bool charged = p.Charged > 0;
         var orange = new Color(1f, 0.55f, 0.25f);
