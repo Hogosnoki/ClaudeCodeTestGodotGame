@@ -1049,6 +1049,14 @@ public static class Tune
             VenomTotal = 26f, VenomSeconds = 8f;
     }
 
+    /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one
+    /// <c>Respawn</c> s (give or take <c>Jitter</c>) after one is lost; destroying it leaves a chest of upgrades. <c>Chance</c>: of a Nest level having one.</summary>
+    public static class Hive
+    {
+        public static float Hp = 130, Respawn = 4f, Jitter = 0.4f, Chance = 0.85f;
+        public static int Keep = 3, Xp = 14;
+    }
+
     public static class Hornet
     {
         public static float Hp = 10, Contact = 8, FlySpeed = 135, AimTime = 0.38f, DiveSpeed = 330, DiveCooldown = 2.2f;

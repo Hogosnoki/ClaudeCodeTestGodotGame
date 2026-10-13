@@ -26,6 +26,7 @@ public static class CreatureRegistry
         CreatureLibrary.Register("bat", () => new BatDesign());
         CreatureLibrary.Register("scorpion", () => new ScorpionDesign());
         CreatureLibrary.Register("hornet", () => new HornetDesign());
+        CreatureLibrary.Register("hive", () => new HiveDesign());
         CreatureLibrary.Register("frog", () => new FrogDesign());
         CreatureLibrary.Register("fish", () => new FishDesign(false));
         CreatureLibrary.Register("fish2", () => new FishDesign(true));
@@ -59,7 +60,7 @@ public static class CreatureRegistry
     {
         ["Bat"] = new[] { "bat" }, ["Spider"] = new[] { "spider" }, ["Goblin"] = new[] { "goblin", "slinger" }, ["Frog"] = new[] { "frog" },
         ["LavaMonster"] = new[] { "magma" }, ["Golem"] = new[] { "golem" }, ["Rat"] = new[] { "rat" }, ["Bear"] = new[] { "bear" },
-        ["Scorpion"] = new[] { "scorpion" }, ["Hornet"] = new[] { "hornet" }, ["Skeleton"] = new[] { "skeleton" }, ["Sporeling"] = new[] { "sporeling" },
+        ["Scorpion"] = new[] { "scorpion" }, ["Hornet"] = new[] { "hornet" }, ["Hive"] = new[] { "hive" }, ["Skeleton"] = new[] { "skeleton" }, ["Sporeling"] = new[] { "sporeling" },
         ["FrostWraith"] = new[] { "wraith" }, ["Shardling"] = new[] { "shardling" }, ["Fish"] = new[] { "fish", "fish2" }, ["Urchin"] = new[] { "urchin" },
         ["Eel"] = new[] { "eel" }, ["Crab"] = new[] { "crab_foe" }, ["EarthElemental"] = new[] { "elem_earth" }, ["FrostElemental"] = new[] { "elem_frost" }, ["NatureElemental"] = new[] { "elem_nature" },
         ["FireElemental"] = new[] { "elem_fire" }, ["WaterElemental"] = new[] { "elem_water" }, ["CavernColossus"] = new[] { "colossus" }, ["Dragon"] = new[] { "dragon" },
@@ -92,6 +93,7 @@ public static class CreatureRegistry
         foreach (var m in b.MiniBosses) Add(m);
         foreach (var m in b.WaterMiniBosses) Add(m);
         if (GuardianSet.TryGetValue(b.Id, out var g)) names.Add(g);
+        if (b.Id == BiomeId.Nest) names.Add("hive");
         return names;
     }
 }

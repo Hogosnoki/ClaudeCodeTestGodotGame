@@ -60,6 +60,7 @@ public partial class Main
         "struck" => "entrance",
         "gold" => "slime",
         "dashslash" => "entrance",
+        "hive" => "nest",
         "cards" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
@@ -155,6 +156,7 @@ public partial class Main
             case "struck": StruckScenario(); break;
             case "gold": GoldScenario(); break;
             case "dashslash": DashSlashScenario(); break;
+            case "hive": HiveScenario(); break;
             case "cards": CardsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;

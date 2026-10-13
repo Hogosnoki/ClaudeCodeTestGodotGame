@@ -355,7 +355,7 @@ mini-bosses and guardian:
 | 0 | Cave Entrance | one long winding corridor with side pockets, and the way back out to the daylight behind you; no darkness; few enemies | spiders, bats, rats | - | The Web-Mother (a weak ground spider that calls its brood) |
 | 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Den Mother (bear) |
 | 1-3 | Root-Choked Tunnels (the deep canopy) | branching tunnels through rock riven by massive tree roots coming down from the surface world; pools of murky water low down | rats, spiders, rot frogs, bats, mire fish, root eels | grasping roots that slow you and, if they hold you long enough, snag your weapon for a moment (two cuts clear them); thick, rotting water that leaves you gasping 50% sooner and swimming 20% slower | The Rotback (bear) |
-| 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, hornets, spiders | webs that slow you (cut them) | The Brood Queen (scorpion) |
+| 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, spiders (on the ceiling and the floor: the commonest residents), hornets, and now and then a **hornet hive** | webs that slow you (cut them) | The Brood Queen (scorpion) |
 | 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs; over a hall or two with solid rock above it, a ladder of slabs climbs up through the roof into a hidden chamber with a silver (relic) chest | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
 | 3-5 | Catacombs | a stepped pyramid of vaulted halls: a great nave under a scalloped vault in the middle of the map (stepped tombs of stacked sarcophagi in its tallest bays), and out of each end a long stair down into a landing hall, another into a long gallery, and so on, outward and downward; one side ends in the Crypt Lord's rotunda (rock behind it for the treasury), the other in a sealed tomb. Cold blue stone and brickwork; lit only by a dim blue glow and the odd wall torch. Skulls and bones strewn underfoot, heaps of skulls, burial urns, ossuary walls of bone heaped against the back wall (skulls every way up, long bones jutting across them), and the barriers across the passages are banks of skulls, not boulders | crypt skeletons, grave rats, grave-robber slingers, crypt bats, spiders, restless wraiths | - | The Crypt Lord (skeleton) |
 | 3-4 | Fungal Cavern | wide, low-lying tunnels, little vertical variation | sporelings, frogs, mossback golems, spore hornets | spore pods that burst into choking clouds | The Mossback Hulk |
@@ -1374,6 +1374,15 @@ A Shape Shifter can **remember** the form it is in and take it again **without a
   (nothing about, or only what can't be copied: a guardian or a boss). With a creature that can be copied near, Shift copies it as before. So a **bear can be had against the last boss**.
 - **Tanking**: the heavy forms now draw the creatures' eyes (`ShiftForm.Threat`: they count a hero in the form that much nearer; the bear 0.5x, the golem 0.6x, the crab 0.8x), and the bear shrugs off
   35% of blows (was 20%; the golem 40%). More for the party is yet to come. `--scenario=shifterspecials --hero=shifter` checks remembering, recalling, and Shift still copying.
+
+## The Nest's hornet hive
+
+Most Nests (`Tune.Hive.Chance`, 85%) hold a **hornet hive** (`Enemies/Hive.cs`, `HiveDesign.cs`, `Tune.Hive`, `Main.PlaceHive/RunHive`): a paper nest the size of a boulder, hung from the ceiling of one
+of the level's treasure rooms (the place is from the seed alone; the host's game hangs it up when a hero first comes within 900 px, so online it reaches every game like any creature).
+It strikes at nothing itself, but it is **tough** (130 health before the usual scaling, 13 hornets' worth) and it **keeps three hornets about it**: all three come out when it wakes, and **about four
+seconds after one is lost** (4 s give or take 0.4, each lost hornet counting its own time) a new one crawls out of its mouth. A hornet of the hive drops no experience, hearts or potions
+(`Enemy.Brood`), or it would be a spring of them. **Destroying the hive leaves a chest of upgrades** where it fell (and the hornets already out stay, but are not replaced). The Nest's residents also
+lean harder on **spiders**: on the ceiling they are five parts in six of the table, and on the floor they share it equally with the scorpions. `--scenario=hive --hero=swordsman`.
 
 ## The Swordsman's dash-slash
 

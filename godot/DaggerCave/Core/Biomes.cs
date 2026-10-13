@@ -245,9 +245,9 @@ public static class Biomes
             BackBottom = C("0c0c06"), Grass = 0.15f, Stalactites = 0.3f, Webs = true, HazardCount = 14,
             MiniBossesMin = 1, MiniBossesMax = 2, Density = 1.1f,
         };
-        nest.Residents[SpawnKind.Ground] = L(E(3, () => new Scorpion(), 1, 2), E(1, () => new Spider { Grounded = true }));
-        nest.Residents[SpawnKind.Ceiling] = L(E(3, () => new Spider(), 1, 2), E(2, () => new Hornet(), 2, 3));
-        nest.GroundEntrants = L(E(2, () => new Scorpion()));
+        nest.Residents[SpawnKind.Ground] = L(E(3, () => new Scorpion(), 1, 2), E(3, () => new Spider { Grounded = true }, 1, 2));
+        nest.Residents[SpawnKind.Ceiling] = L(E(5, () => new Spider(), 1, 3), E(1, () => new Hornet(), 2, 3));
+        nest.GroundEntrants = L(E(2, () => new Scorpion()), E(2, () => new Spider { Grounded = true }));
         nest.AirEntrants = L(E(3, () => new Hornet()));
         nest.MiniBosses = new() { () => new Scorpion(), () => new Spider { Grounded = true }, () => new Hornet() };
         nest.Guardian = r => Guard(new Scorpion(), "THE BROOD QUEEN", 2.4f);

@@ -893,6 +893,7 @@ public partial class Main : Node
 
         PlaceCaches(cave);
         PlaceGold(cave);
+        PlaceHive(cave);
         PlaceBonusChests(cave);
         PlaceHeroCage(cave);
         PlaceAutomatonHeap(cave);
@@ -1252,6 +1253,54 @@ public partial class Main : Node
             }
         }
         if (_autotest) GD.Print($"[autotest] gold: {coins} coins and {piles} piles in {spots} dead ends");
+    }
+
+    // ------------------------------------------------------------------ the Nest's hornet hive
+
+    /// <summary>Where this level's hive hangs (the ceiling of one of its rooms), if it has one: from the seed alone, so every game agrees.</summary>
+    private Vector2? _hiveSpot;
+    private bool _hiveMade;
+    /// <summary>The level's hive, once it has been made (the host's game).</summary>
+    public Hive TheHive { get; private set; }
+
+    private void PlaceHive(CaveData cave)
+    {
+        _hiveSpot = null; _hiveMade = false; TheHive = null;
+        if (cave.Biome?.Id != BiomeId.Nest) return;
+        var rng = new Random(cave.Seed ^ 0x1b3e);
+        if (rng.NextDouble() > Tune.Hive.Chance) return;
+        var rooms = cave.Rooms.Where(r => r.Kind == RoomKind.Treasure && !r.Underwater && r.Center.DistanceTo(cave.StartPos) > 500).OrderBy(_ => rng.Next()).ToList();
+        foreach (var room in rooms)
+        {
+            if (!cave.FindCeiling(room.Center, room.RyPx * 2f + 60f, out var ce)) continue;
+            // (room enough under it for the hive and its hornets)
+            var at = ce + new Vector2(0, 30);
+            if (cave.IsSolid(at) || cave.IsSolid(at + new Vector2(0, 26)) || cave.IsSolid(at + new Vector2(-22, 0)) || cave.IsSolid(at + new Vector2(22, 0))) continue;
+            _hiveSpot = at;
+            break;
+        }
+        if (_autotest) GD.Print($"[autotest] hive: {(_hiveSpot is Vector2 v ? v.ToString() : "none")}");
+    }
+
+    /// <summary>The host's game hangs the hive up when a hero first comes near, and leaves a chest of upgrades when it falls.</summary>
+    private void RunHive()
+    {
+        if (_hiveMade || _hiveSpot is not Vector2 at) return;
+        bool near = false;
+        foreach (var h in G.Players) if (h != null && !h.Dead && h.GlobalPosition.DistanceTo(at) < 900f) { near = true; break; }
+        if (!near) return;
+        _hiveMade = true;
+        var hive = new Hive { Position = at };
+        hive.OnDeath = e =>
+        {
+            var floor = e.GlobalPosition;
+            if (G.Cave.FindFloor(e.GlobalPosition, 900, out var f)) floor = f;
+            CallDeferred(MethodName.SpawnChest, floor);
+            _hud.ShowBanner("THE HIVE IS BROKEN", 2f);
+            NetSync.SendBanner("THE HIVE IS BROKEN", 2f);
+        };
+        _world.AddChild(hive);
+        TheHive = hive;
     }
 
     // ------------------------------------------------------------------ keys and the vault
@@ -1956,7 +2005,7 @@ public partial class Main : Node
             {
                 _spawnT = 0.25f;
                 NetSync.Scope++;
-                try { RunSpawner(0.25f); RunRooms(); WatchGuardian(0.25f); WatchGlitch(0.25f); }
+                try { RunSpawner(0.25f); RunRooms(); RunHive(); WatchGuardian(0.25f); WatchGlitch(0.25f); }
                 finally { NetSync.Scope--; }
             }
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;

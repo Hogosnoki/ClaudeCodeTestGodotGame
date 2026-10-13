@@ -70,6 +70,8 @@ public abstract partial class Enemy : CharacterBody2D
     public float MaxHp = 20, Hp;
     public float BodyRadius = 9f;
     public float ContactDamage = 8f;
+    /// <summary>Sent out by a hive that replaces it: it drops no experience, hearts or potions (or the hive would be a spring of them).</summary>
+    public bool Brood;
     public int XpValue = 3;
     public float KnockResist;
     public bool Elite, IsBoss;
@@ -1084,14 +1086,17 @@ public abstract partial class Enemy : CharacterBody2D
         G.Sfx.Play("enemy_die", GlobalPosition, 0, 0.15f, Elite ? 0.7f : 1f);
         G.Fx.Burst(GlobalPosition, BloodColor, Elite ? 36 : 16, Elite ? 260 : 170, 2.8f, 0.6f);
         G.Fx.Ring(GlobalPosition, HitRadius + 6, new Color(1, 1, 1, 0.6f));
-        int xp = (int)MathF.Round(XpValue * Tune.Enemy.XpMult * (Elite ? Meta.EliteXpMult : 1f));
-        int orbs = Math.Clamp(xp / 2, 1, 12);
-        int per = Math.Max(1, xp / orbs);
-        for (int k = 0; k < orbs; k++)
-            G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
-        // healing is scarce: rare from regular kills, likelier from mini-bosses; potions rarer still
-        if (G.Chance(IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance + (G.Player?.Stats.HeartChanceBonus ?? 0f))) G.Spawn(new HeartPickup { Position = GlobalPosition });
-        if (G.Chance(Meta.PotionDropChance(P))) G.Spawn(new PotionPickup { Position = GlobalPosition + new Vector2(6, -4) });
+        if (!Brood)
+        {
+            int xp = (int)MathF.Round(XpValue * Tune.Enemy.XpMult * (Elite ? Meta.EliteXpMult : 1f));
+            int orbs = Math.Clamp(xp / 2, 1, 12);
+            int per = Math.Max(1, xp / orbs);
+            for (int k = 0; k < orbs; k++)
+                G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
+            // healing is scarce: rare from regular kills, likelier from mini-bosses; potions rarer still
+            if (G.Chance(IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance + (G.Player?.Stats.HeartChanceBonus ?? 0f))) G.Spawn(new HeartPickup { Position = GlobalPosition });
+            if (G.Chance(Meta.PotionDropChance(P))) G.Spawn(new PotionPickup { Position = GlobalPosition + new Vector2(6, -4) });
+        }
         if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);
         else G.Fx.Pop(GlobalPosition, BloodColor, HitRadius);
         // the kill goes to whoever landed the blow (online, maybe another game's hero)
