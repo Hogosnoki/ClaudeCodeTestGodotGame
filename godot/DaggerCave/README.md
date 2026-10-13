@@ -1365,6 +1365,14 @@ Two relics that answer a blow (`Player.StruckBack`, after a creature's strike ge
   It catches the very creature that just struck, even mid-attack (`Enemy.FreezeSolid(..., force: true)`), where other freezes never do.
 Each blow rolls for itself (a blow shared with friends rolls for each who takes a share). `--scenario=struck` checks both, and neither without them.
 
+## Co-op relics (uncommon; only offered to a party)
+
+Three relics for a party, at the ordinary relic weight (the two retaliation relics above are *rare*: weight 0.6, likelier to be passed over):
+- **Last Rites**: when you fall, **every living ally is healed by 10** (`Player.FallHealing`, through the usual healing multipliers, so a little under 10 with the base healing multiplier; the HUD ring shows who).
+- **Phoenix Ash**: when a friend gets you back up, **you rise with 20% more health** (35% of max health becomes 55%).
+- **Healer's Hands**: when you get a fallen friend up, **they rise with 20% more** (sent with the revive message online: `NetSync.Revive(target, bonus)`), and the two stack (75%).
+`Tune.Relics.FallHeal`, `ReviveExtra`, `ReviveBase`. `--scenario=struck` checks them (a revive can't happen alone in the real game, so the test revives by hand).
+
 ## Hawk's Pursuit (a relic for the melee heroes)
 
 A relic for the Swordsman, Warden, Rogue and Automaton (`relic_lunge` in `Player/Relics.cs`, "Hawk's Pursuit"): melee **lunges are twice as strong** and

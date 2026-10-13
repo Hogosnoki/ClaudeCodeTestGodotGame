@@ -1100,6 +1100,20 @@ public partial class Player : CharacterBody2D
         if (Stats.ScrapReclaimer) GainFuel(Tune.AutomatonHero.ScrapFuel);
     }
 
+    /// <summary>Last Rites: the hero has fallen, and every living ally is healed.</summary>
+    private void FallHealing()
+    {
+        foreach (var h in G.Players.ToArray())
+        {
+            if (h == this || !GodotObject.IsInstanceValid(h) || h.Dead) continue;
+            h.Heal(Stats.FallHealAllies);
+            G.Fx.Ring(h.GlobalPosition, 20, HealColorLight, 0.4f, FxLayer.RingStyle.Wave);
+            AlliesHealedOnFall++;
+        }
+    }
+    /// <summary>For the tests: how many allies Last Rites has healed.</summary>
+    public int AlliesHealedOnFall { get; private set; }
+
     /// <summary>For the tests: what the retaliation relics have done (creatures set alight, creatures frozen).</summary>
     public int StruckIgnited { get; private set; }
     public int StruckFroze { get; private set; }
@@ -1331,6 +1345,7 @@ public partial class Player : CharacterBody2D
         ClearStatus();
         ReviveProgress = 0;
         NetSync.HeroDown(true);
+        if (!IsRemote && Stats.FallHealAllies > 0f) FallHealing();
         Anim.Once("death", 99);
         Anim.Modulate = Colors.White;
         G.Main.Rumble(1f, 1f, 0.6f);

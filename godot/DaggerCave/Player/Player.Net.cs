@@ -221,12 +221,13 @@ public partial class Player
     }
 
     /// <summary>Back on your feet (a friend held on long enough), with a share of your health.</summary>
-    public void Revive()
+    public void Revive(float giverBonus = 0f)
     {
         if (!Dead || IsRemote) return;
         Dead = false;
         ClearStatus();
-        Hp = Math.Max(1f, Stats.MaxHp * 0.35f);
+        // (a plain revive is 35% of max health; Phoenix Ash's and Healer's Hands each add a fifth more)
+        Hp = Math.Clamp(Stats.MaxHp * (Tune.Relics.ReviveBase + Stats.ReviveBonus + giverBonus), 1f, Stats.MaxHp);
         _invuln = 2f;
         Anim.CancelOnce();
         Anim.Modulate = Colors.White;
@@ -283,7 +284,7 @@ public partial class Player
         if (G.Chance(0.3f)) G.Fx.Ember(fallen.GlobalPosition + new Vector2(G.Range(-10, 10), G.Range(-4, 8)), HealColor);
         if (ReviveProgress < 1f) return;
         ReviveProgress = 0;
-        NetSync.Revive(fallen);
+        NetSync.Revive(fallen, Stats.ReviveGiveBonus);
         G.Fx.Ring(fallen.GlobalPosition, 24, HealColorLight, 0.5f, FxLayer.RingStyle.Wave);
     }
 }

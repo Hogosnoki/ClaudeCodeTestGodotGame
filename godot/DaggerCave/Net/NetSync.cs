@@ -539,10 +539,10 @@ public static class NetSync
     }
 
     /// <summary>A fallen friend brought back (their game gets them up).</summary>
-    public static void Revive(Player target)
+    public static void Revive(Player target, float giverBonus = 0f)
     {
         var w = new NetOut(Net.Msg.Revive);
-        w.Int(target.NetOwner).Int(Net.Me);
+        w.Int(target.NetOwner).Int(Net.Me).Float(giverBonus);
         Net.SendAll(w, true);
     }
 
@@ -1294,7 +1294,8 @@ public static class NetSync
             {
                 int owner = r.Int();
                 int giver = r.More ? r.Int() : from;
-                if (owner == Net.Me && G.Player != null) { RunMetrics.Revived(giver); G.Player.Revive(); }
+                float giverBonus = r.More ? r.Float() : 0f;
+                if (owner == Net.Me && G.Player != null) { RunMetrics.Revived(giver); G.Player.Revive(giverBonus); }
                 break;
             }
             case Net.Msg.PropSpawn: if (!Net.IsHost) OnProp(r); break;

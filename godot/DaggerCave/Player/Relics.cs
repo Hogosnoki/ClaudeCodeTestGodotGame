@@ -59,7 +59,7 @@ public static partial class Upgrades
         => new() { Id = id, Name = name, Desc = desc, Icon = Ic, Relic = true, For = only, Weight = weight, Apply = apply, Tier = UpgradeTier.Rare, Multi = MultiOnly.Contains(id) };
 
     /// <summary>Relics that only matter with others about: they pull or turn away the creatures' eyes, or carry a friend's blows.</summary>
-    private static readonly HashSet<string> MultiOnly = new() { "relic_bait", "relic_shroud", "relic_w_banner", "relic_a_mantle" };
+    private static readonly HashSet<string> MultiOnly = new() { "relic_bait", "relic_shroud", "relic_w_banner", "relic_a_mantle", "relic_last_rites", "relic_phoenix", "relic_healer" };
 
     /// <summary>Relics: bargains and twists, found in some chests. Each can be carried once.</summary>
     public static readonly List<Upgrade> Relics = new()
@@ -85,8 +85,13 @@ public static partial class Upgrades
 
         Rl("relic_lunge", "Hawk's Pursuit", "Melee lunges are twice as strong and last longer (even for those who never lunged), and in the air a swing hangs you in place and pulls you after the creature in its way: you hover and hunt on the wing. But you hit 10% softer.", (s, p) => { s.LungeMult *= 2f; s.AerialLunge = true; s.DamageMult *= 0.9f; }, HMELEE),
 
-        Rl("relic_struck_fire", "Cinder Brand", "When a boss or mini-boss strikes you, there is a 20% chance it is set alight.", (s, p) => s.StruckIgnite = Tune.Relics.StruckIgniteChance),
-        Rl("relic_struck_frost", "Hoarfrost Mail", "When a regular creature strikes you, there is a 15% chance it is frozen solid.", (s, p) => s.StruckFreeze = Tune.Relics.StruckFreezeChance),
+        Rl("relic_struck_fire", "Cinder Brand", "When a boss or mini-boss strikes you, there is a 20% chance it is set alight.", (s, p) => s.StruckIgnite = Tune.Relics.StruckIgniteChance, weight: 0.6f),
+        Rl("relic_struck_frost", "Hoarfrost Mail", "When a regular creature strikes you, there is a 15% chance it is frozen solid.", (s, p) => s.StruckFreeze = Tune.Relics.StruckFreezeChance, weight: 0.6f),
+
+        // (uncommon: the ordinary weight; the rare ones above are likelier to be passed over)
+        Rl("relic_last_rites", "Last Rites", "When you fall, every living ally is healed by 10.", (s, p) => s.FallHealAllies = Tune.Relics.FallHeal),
+        Rl("relic_phoenix", "Phoenix Ash", "When a friend gets you back on your feet, you rise with 20% more health.", (s, p) => s.ReviveBonus += Tune.Relics.ReviveExtra),
+        Rl("relic_healer", "Healer's Hands", "When you get a fallen friend back on their feet, they rise with 20% more health.", (s, p) => s.ReviveGiveBonus += Tune.Relics.ReviveExtra),
 
         // --- Elementalist ---
         Rl("relic_e_blood", "Blood Channeling", "Spells you lack the alimus for are paid for with your own health instead.", (s, p) => s.BloodCast = true, HE, 1.5f),

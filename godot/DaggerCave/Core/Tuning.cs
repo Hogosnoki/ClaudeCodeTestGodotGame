@@ -520,6 +520,8 @@ public static class Tune
         /// chases the creature nearest its aim within PursuitRange px, then hangs the hero in place for HoverTail s.</summary>
         /// <summary>Retaliation relics: a boss or mini-boss that strikes you burns for StruckIgniteDps for StruckIgniteSeconds (20% of blows); a regular creature that does is frozen solid for StruckFreezeSeconds (15%).</summary>
         public static float StruckIgniteChance = 0.2f, StruckIgniteDps = 4f, StruckIgniteSeconds = 4f, StruckFreezeChance = 0.15f, StruckFreezeSeconds = 1.5f;
+        /// <summary>Co-op relics: Last Rites heals each living ally by FallHeal when you fall; Phoenix Ash and Healer's Hands add ReviveExtra (a share of max health) to a revive; a plain revive restores ReviveBase.</summary>
+        public static float FallHeal = 10f, ReviveExtra = 0.2f, ReviveBase = 0.35f;
         public static float LungeMin = 100f, LungeTimeMult = 1.6f, PursuitRange = 170f, HoverTail = 0.25f;
         /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
         public static float FarDistance = 220f;
