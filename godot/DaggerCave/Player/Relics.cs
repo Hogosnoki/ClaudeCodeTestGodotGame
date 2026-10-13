@@ -85,6 +85,9 @@ public static partial class Upgrades
 
         Rl("relic_lunge", "Hawk's Pursuit", "Melee lunges are twice as strong and last longer (even for those who never lunged), and in the air a swing hangs you in place and pulls you after the creature in its way: you hover and hunt on the wing. But you hit 10% softer.", (s, p) => { s.LungeMult *= 2f; s.AerialLunge = true; s.DamageMult *= 0.9f; }, HMELEE),
 
+        Rl("relic_struck_fire", "Cinder Brand", "When a boss or mini-boss strikes you, there is a 20% chance it is set alight.", (s, p) => s.StruckIgnite = Tune.Relics.StruckIgniteChance),
+        Rl("relic_struck_frost", "Hoarfrost Mail", "When a regular creature strikes you, there is a 15% chance it is frozen solid.", (s, p) => s.StruckFreeze = Tune.Relics.StruckFreezeChance),
+
         // --- Elementalist ---
         Rl("relic_e_blood", "Blood Channeling", "Spells you lack the alimus for are paid for with your own health instead.", (s, p) => s.BloodCast = true, HE, 1.5f),
         Rl("relic_e_ember", "Ember Heart", "Your fire is 25% likelier to set creatures alight, but your alimus comes back 20% slower.", (s, p) => { s.IgniteChance += 0.25f; s.AlimusRegenMult *= 0.8f; }, HE, 1.5f),

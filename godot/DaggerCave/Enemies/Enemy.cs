@@ -833,11 +833,11 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>
     /// Freezes a regular creature solid for <paramref name="seconds"/>. Like every blow, it never
     /// catches a creature winding up or in the middle of an attack (the attack plays out as
-    /// telegraphed). True if it froze.
+    /// telegraphed), unless <paramref name="force"/> (a relic's retaliation catches the very creature that just struck). True if it froze.
     /// </summary>
-    public bool FreezeSolid(float seconds)
+    public bool FreezeSolid(float seconds, bool force = false)
     {
-        if (Dead || !CanFreezeSolid || AttackingNow) return false;
+        if (Dead || !CanFreezeSolid || (AttackingNow && !force)) return false;
         if (Puppet) { _iceT = Math.Max(_iceT, 0.3f); NetSync.EffectPuppet(this, NetSync.Effect.Frost, seconds); return true; }
         bool fresh = _iceT <= 0;
         _iceT = Math.Max(_iceT, seconds);

@@ -1100,6 +1100,23 @@ public partial class Player : CharacterBody2D
         if (Stats.ScrapReclaimer) GainFuel(Tune.AutomatonHero.ScrapFuel);
     }
 
+    /// <summary>For the tests: what the retaliation relics have done (creatures set alight, creatures frozen).</summary>
+    public int StruckIgnited { get; private set; }
+    public int StruckFroze { get; private set; }
+    /// <summary>Test aid: ready to be struck again at once.</summary>
+    public void ClearInvuln() { _invuln = 0f; _iframes = 0f; }
+
+    /// <summary>The retaliation relics: a creature that has just struck the hero may be set alight (a boss, a guardian or a mini-boss) or frozen solid (a regular one).</summary>
+    private void StruckBack(Enemy e)
+    {
+        if (e.Dead) return;
+        if (e.IsBoss || e.IsGuardian || e.Elite)
+        {
+            if (Stats.StruckIgnite > 0f && G.Chance(Stats.StruckIgnite)) { e.Ignite(Tune.Relics.StruckIgniteDps * Stats.DamageMult, Tune.Relics.StruckIgniteSeconds); StruckIgnited++; }
+        }
+        else if (Stats.StruckFreeze > 0f && G.Chance(Stats.StruckFreeze) && e.FreezeSolid(Tune.Relics.StruckFreezeSeconds, force: true)) StruckFroze++;
+    }
+
     /// <summary>True when the last Hurt was stopped by the shield (the attacker's strike is spent).</summary>
     public bool LastHitBlocked { get; private set; }
 
@@ -1201,6 +1218,7 @@ public partial class Player : CharacterBody2D
         WebTakesHarm(dmg);
         // (what else the blow does: a poison, a burn, a freeze...)
         if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
+        if (source != null && GodotObject.IsInstanceValid(source)) StruckBack(source);
         if (Stats.Indignation) StartIndignation();
         // (a blow that lands brings a vanished Rogue out of the shadows)
         Reveal(true);

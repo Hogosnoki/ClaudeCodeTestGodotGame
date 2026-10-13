@@ -518,6 +518,8 @@ public static class Tune
         public static float RelicChestChance = 0.2f, WebChestChance = 0.12f;
         /// <summary>Hawk's Pursuit: a melee lunge is at least LungeMin px/s (for the heroes who never lunged), lasts LungeTimeMult times as long, and in the air a swing
         /// chases the creature nearest its aim within PursuitRange px, then hangs the hero in place for HoverTail s.</summary>
+        /// <summary>Retaliation relics: a boss or mini-boss that strikes you burns for StruckIgniteDps for StruckIgniteSeconds (20% of blows); a regular creature that does is frozen solid for StruckFreezeSeconds (15%).</summary>
+        public static float StruckIgniteChance = 0.2f, StruckIgniteDps = 4f, StruckIgniteSeconds = 4f, StruckFreezeChance = 0.15f, StruckFreezeSeconds = 1.5f;
         public static float LungeMin = 100f, LungeTimeMult = 1.6f, PursuitRange = 170f, HoverTail = 0.25f;
         /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
         public static float FarDistance = 220f;

@@ -188,6 +188,8 @@ public sealed class PlayerStats
     /// <summary>The Aegis's Bulwark Oath (a class perk, given with her): in a party, her second ability is Shared Burden; alone, or without it, a Smite.</summary>
     public bool AegisSupport;
     public bool Juggernaut;
+    /// <summary>The chance a creature that strikes the hero is set alight (a boss or mini-boss) or frozen solid (a regular creature): the retaliation relics.</summary>
+    public float StruckIgnite, StruckFreeze;
     /// <summary>Melee lunges: how many times as strong (and longer) they are, and whether a swing in the air pursues the creature and hovers (the Pursuit relic).</summary>
     public float LungeMult = 1f;
     public bool AerialLunge;

@@ -1357,6 +1357,14 @@ narrow shaft from the first's floor, with another (`Cave/RiverGen.cs`, from a ge
 The nooks' pass no longer wipes the river's own slit marks (`CaveData.OwnHints`). `--leftsecrets` makes every level have two;
 `--scenario=river --leftsecrets` checks the chambers, chests, marks, the swim in and the shaft.
 
+## Retaliation relics (for anyone)
+
+Two relics that answer a blow (`Player.StruckBack`, after a creature's strike gets through your shield and armour; numbers in `Tune.Relics`):
+- **Cinder Brand**: when a **boss, guardian or mini-boss** strikes you, **20%** chance it is set alight (4 a second for 4 s, times your damage).
+- **Hoarfrost Mail**: when a **regular creature** strikes you, **15%** chance it is **frozen solid** for 1.5 s (a snap or a heaving swing shatters it).
+  It catches the very creature that just struck, even mid-attack (`Enemy.FreezeSolid(..., force: true)`), where other freezes never do.
+Each blow rolls for itself (a blow shared with friends rolls for each who takes a share). `--scenario=struck` checks both, and neither without them.
+
 ## Hawk's Pursuit (a relic for the melee heroes)
 
 A relic for the Swordsman, Warden, Rogue and Automaton (`relic_lunge` in `Player/Relics.cs`, "Hawk's Pursuit"): melee **lunges are twice as strong** and
