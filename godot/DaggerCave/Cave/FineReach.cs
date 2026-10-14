@@ -34,6 +34,15 @@ public sealed class FineReach
         (0, 0), (-1, 0), (1, 0), (0, -2), (0, 2), (-1, -1), (1, -1), (-1, 1), (1, 1),
     };
 
+    // ...and the true outline, tested point by point in the world rather than on the grid (a neck between two grid points could
+    // otherwise pass for open: the 6 px grid alone lets a 13 px body through a 12 px gap), the capsule's own width, and its head; the feet are left to the grid, so a slope still reads as a slope
+    private static readonly Vector2[] Precise =
+    {
+        new(-6.5f, 0), new(6.5f, 0), new(-6.5f, -6), new(6.5f, -6), new(-4.6f, -11f), new(4.6f, -11f), new(0, -13f),
+    };
+
+    private static readonly bool UsePrecise = Env("FR_PRECISE", 1f) > 0.5f;
+
     /// <param name="dry">Keep out of the water altogether: where a hero can get to without ever being in it (the river's stepping stones).</param>
     public FineReach(CaveData c, bool dry = false)
     {
@@ -62,6 +71,11 @@ public sealed class FineReach
                 {
                     int ox = x + dx, oy = y + dy;
                     if (ox < 0 || oy < 0 || ox >= _w || oy >= _h || solid[oy * _w + ox]) { ok = false; break; }
+                }
+                if (ok && UsePrecise)
+                {
+                    var at = new Vector2(x * Res, y * Res);
+                    foreach (var d in Precise) if (c.IsSolid(at + d)) { ok = false; break; }
                 }
                 if (dry && ok && c.Liquid == Liquid.Water && y * Res > c.WaterY) ok = false;
                 _fit[y * _w + x] = ok;

@@ -27,6 +27,12 @@ public static class RunRelics
     /// <summary>The relics whose effect reaches everyone (how the caves are built, the road to the dragon) or decides the party's chests.</summary>
     private static readonly HashSet<string> Worldly = new() { "relic_deeper", "relic_shortcut", "relic_locksmith", "relic_treasure", "relic_kidding" };
 
+    /// <summary>This game's hero gave a relic up (traded it to the merchant).</summary>
+    public static void Forget(string id)
+    {
+        if (By.TryGetValue(Net.Me, out var set)) set.Remove(id);
+    }
+
     public static void Note(int peer, string id)
     {
         if (!By.TryGetValue(peer, out var set)) By[peer] = set = new HashSet<string>();

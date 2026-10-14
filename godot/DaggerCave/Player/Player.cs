@@ -72,6 +72,8 @@ public partial class Player : CharacterBody2D
     public int GoldSpent;
     /// <summary>Choices of cards this hero may still have dealt again this run (the Path's Second Thoughts, and tokens from the merchant).</summary>
     public int Rerolls;
+    /// <summary>Relic trades at the merchant's stand left this run.</summary>
+    public int Trades;
     /// <summary>Set each frame while stuck in a web.</summary>
     public float WebbedT;
     private float _indignT;

@@ -247,6 +247,10 @@ public partial class Chest : Node2D, IBreakable
     public int LookingBy;
     /// <summary>The vault's chest: side-grades and a rare class card, instead of the usual deal.</summary>
     public bool Vault;
+    /// <summary>A Relic Collection: as many relics as there are heroes, one for each to take (a relic chest otherwise holds one, to take or leave).</summary>
+    public bool Collection;
+    /// <summary>This game's hero has taken their relic from this collection (so the rest are the others').</summary>
+    public bool TookHere;
     /// <summary>One of the Null's corrupted chests (a vault's chest to look at): it deals the corrupted cards.</summary>
     public bool Corrupt;
     /// <summary>This game's hero just asked to look in it (online, waiting for the host's answer).</summary>
@@ -305,9 +309,11 @@ public partial class Chest : Node2D, IBreakable
             // (a chest that's someone's is dealt for them alone: their class's upgrade, not a friend's)
             var party = Net.Online && Owner == 0 ? NetSync.PartyHeroes() : null;
             Cards = Corrupt ? Upgrades.RollCorruptCards(G.Player.Stats, G.Main.Rng)
+                  : Collection ? Upgrades.RollCollection(G.Player.Stats, Net.Online ? Math.Max(1, Net.Count) : 1, G.Main.Rng)
                   : Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
                           : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition, relic: Tier == ChestTier.Relic);
-            if (Cards.Any(id => Upgrades.Find(id)?.Relic == true)) RelicFor = Net.Me;
+            // (a relic is its finder's alone; a collection's are anyone's, one each)
+            if (!Collection && Cards.Any(id => Upgrades.Find(id)?.Relic == true)) RelicFor = Net.Me;
             NetSync.ChestCards(this);
         }
         // (a chest creaks; a shrine is no chest: its cards have their own sound when they are laid out)

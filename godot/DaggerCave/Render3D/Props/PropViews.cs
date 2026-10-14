@@ -1284,12 +1284,17 @@ public partial class ChestView : PropView
         _lid.AddChild(PropViews.Mesh(lidMetal, bandMat));
         if (_tier == ChestTier.Relic)
         {
-            // a rose gem set in the lid's crown
+            // a rose gem set in the lid's crown (a collection: a row of three, in its own colour)
             var gem = new MeshBuilder();
-            PropMeshes.Box(gem, new Vector3(0, rad * rise + 0.03f, d), new Vector3(0.06f, 0.06f, 0.03f), new Color(1f, 0.4f, 0.6f), new Basis(Vector3.Back, Mathf.Pi / 4));
-            _lid.AddChild(PropViews.Mesh(gem, PropViews.Emissive(new Color(1f, 0.4f, 0.6f), 1.6f), false));
+            var gemCol = _collection ? new Color(0.4f, 1f, 0.85f) : new Color(1f, 0.4f, 0.6f);
+            foreach (float gx in _collection ? new[] { -0.16f, 0f, 0.16f } : new[] { 0f })
+                PropMeshes.Box(gem, new Vector3(gx, rad * rise + 0.03f, d), new Vector3(0.06f, 0.06f, 0.03f), gemCol, new Basis(Vector3.Back, Mathf.Pi / 4));
+            _lid.AddChild(PropViews.Mesh(gem, PropViews.Emissive(gemCol, 1.6f), false));
         }
     }
+
+    /// <summary>A Relic Collection: teal wood bound in gold, three gems.</summary>
+    private bool _collection;
 
     protected override void Build()
     {
@@ -1305,6 +1310,7 @@ public partial class ChestView : PropView
         Color wood, lidCol;
         Material bandMat = PropViews.Gold;
         if (_vault) { wood = new Color(0.13f, 0.12f, 0.15f); lidCol = new Color(0.16f, 0.15f, 0.19f); _tint = new Color(0.85f, 0.6f, 1f); }
+        else if (_tier == ChestTier.Relic && c0.Collection) { _collection = true; wood = new Color(0.08f, 0.24f, 0.26f); lidCol = new Color(0.1f, 0.3f, 0.32f); _tint = new Color(0.4f, 1f, 0.85f); }
         else if (_tier == ChestTier.Relic) { wood = new Color(0.2f, 0.12f, 0.3f); lidCol = new Color(0.26f, 0.16f, 0.38f); bandMat = PropViews.Steel; _tint = new Color(1f, 0.45f, 0.62f); }
         else if (boss) { wood = new Color(0.72f, 0.5f, 0.14f); lidCol = new Color(0.82f, 0.6f, 0.18f); _tint = new Color(1f, 0.9f, 0.45f); }
         else { wood = new Color(0.38f, 0.22f, 0.11f); lidCol = new Color(0.44f, 0.26f, 0.13f); _tint = new Color(1f, 0.85f, 0.4f); }

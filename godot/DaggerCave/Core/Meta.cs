@@ -105,6 +105,7 @@ public static class Meta
         B(PearlTree, "price", "Fair dealing", ("Fair Dealing I", "The merchant's prices are 5% lower."), ("Fair Dealing II", "The merchant's prices are 10% lower."), ("Fair Dealing III", "The merchant's prices are 15% lower."));
         B(PearlTree, "gold", "Prospecting", ("Prospecting I", "Gold you find is worth 10% more."), ("Prospecting II", "Gold you find is worth 20% more."), ("Prospecting III", "Gold you find is worth 30% more."));
         B(PearlTree, "reroll", "Second thoughts", ("Second Thoughts I", "Once a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts II", "Twice a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts III", "Three times a run, reroll the merchant's wares or a choice of cards."));
+        B(PearlTree, "trade", "Trading", ("Trader I", "One more relic trade at the merchant's stand each run (2)."), ("Trader II", "Two more relic trades at the merchant's stand each run (3)."));
         Load();
     }
 
@@ -124,6 +125,8 @@ public static class Meta
     public static float ShopPriceMult => 1f - 0.05f * Rank("price");
     public static float GoldFoundMult => 1f + 0.1f * Rank("gold");
     public static int RerollCharges => Rank("reroll");
+    /// <summary>Relic trades at the merchant's stand a run: one, and one or two more from the Path.</summary>
+    public static int Trades => Tune.Merchant.Trades + Rank("trade");
     // ---- heroes: three at the start; the others are found (caged in the caves) or won
     public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
     // ---- the merchant: not a hero, but met like one (caged in the caves); once freed, a stall of his is offered after every guardian

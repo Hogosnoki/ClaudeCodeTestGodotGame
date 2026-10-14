@@ -526,11 +526,13 @@ public static class Tune
         public static int CoinsMin = 1, CoinsMax = 3, PileMin = 4, PileMax = 8;
         public static float PileChance = 0.2f;
         /// <summary>
-        /// Gold too wherever something ought to be and isn't (see Main.PlaceMoreGold): on high platforms with nothing under them, on ledges that lead nowhere, on the floor of
-        /// a chamber with no chest, and on the odd quiet shelf: about <c>SpotsPerMap</c> places on a map of the usual size, each kept <c>Spacing</c> px from the next and
-        /// <c>RewardGap</c> px from any chest, cage, key or other gold; a high platform holds a pile <c>HighPileChance</c> of the time.
+        /// Gold too where it takes some getting to (see Main.PlaceMoreGold), never on the main floor: high platforms with nothing under them, ledges that lead nowhere,
+        /// alcoves and raised crevices: about <c>SpotsPerMap</c> places on a map of the usual size, each kept <c>Spacing</c> px from the next and
+        /// <c>RewardGap</c> px from any chest, cage, key or other gold.
         /// </summary>
-        public static float SpotsPerMap = 10f, Spacing = 150f, RewardGap = 110f, HighPileChance = 0.4f, LedgePileChance = 0.25f;
+        public static float SpotsPerMap = 10f, Spacing = 150f, RewardGap = 110f;
+        /// <summary>The hardest-to-reach share of those places holds a pile instead of coins; a dead end's gold is a pile only this often.</summary>
+        public static float PileShare = 0.25f, DeadEndPileChance = 0.08f;
         /// <summary>Creatures drop gold now and then: a coin (or, <c>DropPileChance</c> of the time, a small pile) <c>DropChance</c> of the time, an elite <c>EliteDropChance</c>, a guardian always (a pile of <c>GuardianPile</c>).</summary>
         public static float DropChance = 0.07f, EliteDropChance = 0.4f, DropPileChance = 0.12f;
         public static int GuardianPile = 12;
@@ -550,6 +552,8 @@ public static class Tune
         public static float ShortcutDragon = 0.1f;
         /// <summary>Share of ordinary chests that hold a relic (a silver chest), and of chests hung in a web.</summary>
         public static float RelicChestChance = 0.2f, WebChestChance = 0.12f;
+        /// <summary>A relic chest that is a Relic Collection instead (a relic for each of the party, one each); a guardian's party chest always is.</summary>
+        public static float CollectionChance = 0.15f;
         /// <summary>Hawk's Pursuit: a melee lunge is at least LungeMin px/s (for the heroes who never lunged), lasts LungeTimeMult times as long, and in the air a swing
         /// chases the creature nearest its aim within PursuitRange px, then hangs the hero in place for HoverTail s.</summary>
         /// <summary>Retaliation relics: a boss or mini-boss that strikes you burns for StruckIgniteDps for StruckIgniteSeconds (20% of blows); a regular creature that does is frozen solid for StruckFreezeSeconds (15%).</summary>
@@ -1079,6 +1083,8 @@ public static class Tune
         public static float CageShare = 0.35f;
         /// <summary>His stall is offered twice a run, at depths drawn between these (the first no sooner than <c>FirstDepth</c>, the second no later than <c>LastDepth</c>).</summary>
         public static int FirstDepth = 3, LastDepth = 9, Visits = 2;
+        /// <summary>His trading stand: a relic the hero carries for one of <c>TradeOffer</c> of his, <c>Trades</c> times a run (the Path adds more).</summary>
+        public static int Trades = 1, TradeOffer = 3;
         /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies; each rises <c>PerDepth</c> of itself for every level down.</summary>
         public static int PriceCommon = 8, PriceUncommon = 14, PriceRare = 24, PriceRelic = 36, PriceSupplies = 12, PriceReroll = 6, PriceToken = 14;
         /// <summary>How likely a token for dealing a choice of cards again is to be among his supplies, against the others' 1.</summary>

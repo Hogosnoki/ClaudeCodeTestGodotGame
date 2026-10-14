@@ -55,7 +55,7 @@ public partial class Main
         ScCheck($"...but is found then ({pick})", pick == 0);
         var bait = new PlayerStats(HeroKind.Swordsman); Upgrades.Apply(Upgrades.Get("relic_bait"), bait, null);
         var shroud = new PlayerStats(HeroKind.Swordsman); Upgrades.Apply(Upgrades.Get("relic_shroud"), shroud, null);
-        ScCheck($"the Gaudy Charm makes you seem 10% nearer ({bait.ThreatDist}), the Dim Cloak 10% farther ({shroud.ThreatDist})", Near(bait.ThreatDist, 0.9f) && Near(shroud.ThreatDist, 1.1f));
+        ScCheck($"the Gaudy Charm makes you seem 20% nearer ({bait.ThreatDist}), the Dim Cloak 20% farther ({shroud.ThreatDist})", Near(bait.ThreatDist, 0.8f) && Near(shroud.ThreatDist, 1.2f));
 
         // ---- the relics: each one is findable, unique, and a card of its own kind
         var ids = Upgrades.Relics.Select(u => u.Id).ToList();
@@ -78,7 +78,7 @@ public partial class Main
         var quick = Take(HeroKind.Swordsman, "rr_quicksilver");
         ScCheck($"Quicksilver Grip: attack speed x1.2, damage x0.8 ({quick.AttackSpeed}, {quick.DamageMult})", Near(quick.AttackSpeed, 1.2f) && Near(quick.DamageMult, 0.8f));
         var amph = Take(HeroKind.Swordsman, "rr_amphibian");
-        ScCheck($"Amphibian Charm: swim x1.3, run x0.85 ({amph.SwimSpeed}, {amph.MoveSpeed / new PlayerStats(HeroKind.Swordsman).MoveSpeed:0.00})", Near(amph.SwimSpeed, 1.3f) && Near(amph.MoveSpeed / new PlayerStats(HeroKind.Swordsman).MoveSpeed, 0.85f));
+        ScCheck($"Amphibian Charm: swim x1.35, run x0.85 ({amph.SwimSpeed}, {amph.MoveSpeed / new PlayerStats(HeroKind.Swordsman).MoveSpeed:0.00})", Near(amph.SwimSpeed, 1.35f) && Near(amph.MoveSpeed / new PlayerStats(HeroKind.Swordsman).MoveSpeed, 0.85f));
         var lone = Take(HeroKind.Rogue, "relic_r_lone");
         ScCheck($"Lone Blade: throw x2, recall x1.5, one dagger ({lone.ThrowDamageMult}, {lone.RecallDamageMult}, {lone.LoneThrow})", Near(lone.ThrowDamageMult, 2f) && Near(lone.RecallDamageMult, 1.5f) && lone.LoneThrow);
         var hemo = Take(HeroKind.Rogue, "relic_r_hemo");
@@ -125,10 +125,13 @@ public partial class Main
                 var gold = Upgrades.RollChestCards(st, null, rng, Vector2.Zero).Select(Upgrades.Find).ToList();
                 relicCards += silver.Count(u => u.Kind == UpgradeKind.Relic);
                 bossRelics += gold.Count(u => u.Kind == UpgradeKind.Relic);
-                if (silver.Count != 3 || gold.Count != 3 || gold.Count(u => u.Kind == UpgradeKind.Class) != 1 || gold.Count(u => u.Kind == UpgradeKind.Generic || u.Kind == UpgradeKind.Conditional) != 2) bad++;
-                if (silver.Any(u => u.Kind != UpgradeKind.Relic) || silver.Select(u => u.Id).Distinct().Count() != 3) bad++;
+                if (silver.Count != 1 || gold.Count != 3 || gold.Count(u => u.Kind == UpgradeKind.Class) != 1 || gold.Count(u => u.Kind == UpgradeKind.Generic || u.Kind == UpgradeKind.Conditional) != 2) bad++;
+                if (silver.Any(u => u.Kind != UpgradeKind.Relic)) bad++;
+                // (a Relic Collection for a party of three: three different relics, none a hero's own)
+                var coll = Upgrades.RollCollection(st, 3, rng).Select(Upgrades.Find).ToList();
+                if (coll.Count != 3 || coll.Any(u => !u.Relic || u.For != null) || coll.Select(u => u.Id).Distinct().Count() != 3) bad++;
             }
-        ScCheck($"relic chests hold three different relics each ({relicCards} in {total} chests), shrines none ({bossRelics}); a shrine deals a class card and two more ({bad} odd)", relicCards == total * 3 && bossRelics == 0 && bad == 0);
+        ScCheck($"relic chests hold one relic each, to take or leave ({relicCards} in {total} chests), shrines none ({bossRelics}); a collection one each for the party; a shrine deals a class card and two more ({bad} odd)", relicCards == total && bossRelics == 0 && bad == 0);
     }
 
     private void RelicsScenario()

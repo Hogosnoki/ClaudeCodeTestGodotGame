@@ -156,13 +156,15 @@ public partial class Main
         int rp1 = RerollPrice(merchant);
         ScCheck($"Fence's Ledger makes dealing again 40% cheaper ({rp0} -> {rp1})", rp1 < rp0 && Math.Abs(rp1 - rp0 * 0.6f) <= 1f);
         p.Stats.RerollMult = 1f;
+        p.Rerolls = 0; // (no Second Thoughts in hand: those would make a deal free too)
         p.Stats.FreeRerolls = 1;
         ScCheck($"Loaded Dice make the first deal-again free ({RerollPrice(merchant)})", RerollPrice(merchant) == 0);
         int goldR = p.Gold; int idsBefore = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).GetHashCode();
         var oldIds = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).ToList();
         OpenShop(merchant);
         foreach (var _ in Wait(0.6f)) yield return null;
-        _upgradeMenu.Choose(merchant.Stock.Count(i => !i.Sold));
+        // (his table, then the trading stand, then dealing again)
+        _upgradeMenu.Choose(merchant.Stock.Count(i => !i.Sold) + 1);
         foreach (var _ in Wait(0.4f)) yield return null;
         var newIds = merchant.Stock.Where(i => !i.Service).Select(i => i.Card.Id).ToList();
         ScCheck($"dealing again for free costs nothing ({goldR} -> {p.Gold}), the table has new cards ({string.Join(",", oldIds)} -> {string.Join(",", newIds)}) and the supplies stay ({merchant.Stock.Count(i => i.Service)})", p.Gold == goldR && merchant.Rerolls == 1 && merchant.Stock.Count(i => i.Service) >= 2 && newIds.Count >= 3);
@@ -189,6 +191,39 @@ public partial class Main
         _upgradeMenu.Choose(merchant.Stock.Where(i => !i.Sold).ToList().FindIndex(i => i.Card.Id == "shop_token"));
         foreach (var _ in Wait(0.4f)) yield return null;
         ScCheck($"the merchant sells a token for dealing a choice of cards again ({p.Rerolls} reroll, gold {p.Gold})", p.Rerolls == 1 && p.Gold < 100);
+        _upgradeMenu.ChooseLeave();
+        foreach (var _ in Wait(0.3f)) yield return null;
+        // the trading stand: a relic carried for one of his three, a few times a run
+        {
+            var st = new PlayerStats(HeroKind.Swordsman);
+            var killField = typeof(Triggers).GetField("Kill", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+            int Kills(PlayerStats x) => (killField.GetValue(x.On) as Delegate)?.GetInvocationList().Length ?? 0;
+            float dm0 = st.DamageMult, td0 = st.ThreatDist;
+            Upgrades.Apply(Upgrades.Get("relic_soul"), st, null); Upgrades.Apply(Upgrades.Get("relic_w_banner"), st, null);
+            int k1 = Kills(st);
+            Upgrades.RemoveRelic("relic_soul", st, null); Upgrades.RemoveRelic("relic_w_banner", st, null);
+            ScCheck($"a relic given back takes off what it did: its listener ({k1} -> {Kills(st)}) and its numbers (damage x{st.DamageMult:0.000}, threat x{st.ThreatDist:0.000})", k1 == 1 && Kills(st) == 0 && Math.Abs(st.DamageMult - dm0) < 1e-4f && Math.Abs(st.ThreatDist - td0) < 1e-4f && st.StackOf("relic_soul") == 0);
+        }
+        p.Trades = 1;
+        Upgrades.Apply(Upgrades.Get("relic_highground"), p.Stats, p);
+        float hg = p.Stats.HighGroundMult;
+        OpenShop(merchant);
+        foreach (var _ in Wait(0.6f)) yield return null;
+        _upgradeMenu.Choose(merchant.Stock.Count(i => !i.Sold));
+        foreach (var _ in Wait(0.4f)) yield return null;
+        var mineT = TradeableRelics(p);
+        ScCheck($"the trading stand asks which relic to give ({_tradeStep}; {string.Join(", ", mineT.Select(u => u.Name))})", _tradeStep == 1 && _upgradeMenu.Visible && mineT.Any(u => u.Id == "relic_highground"));
+        ScShot("shop_trade_give");
+        _upgradeMenu.Choose(mineT.FindIndex(u => u.Id == "relic_highground"));
+        foreach (var _ in Wait(0.4f)) yield return null;
+        var offer = _tradeOffer?.ToList() ?? new List<Upgrade>();
+        ScCheck($"then offers {Tune.Merchant.TradeOffer} of his, none carried ({string.Join(", ", offer.Select(u => u.Name))})", _tradeStep == 2 && offer.Count == Tune.Merchant.TradeOffer && offer.All(u => u.Relic && p.Stats.StackOf(u.Id) == 0 && u.Id != "relic_highground"));
+        ScShot("shop_trade_get");
+        var took = offer.FirstOrDefault();
+        _upgradeMenu.Choose(0);
+        foreach (var _ in Wait(0.4f)) yield return null;
+        ScCheck($"the trade: High Ground is gone (x{hg:0.00} -> x{p.Stats.HighGroundMult:0.00}), {took?.Name} is carried, a trade spent ({p.Trades} left)", took != null && Math.Abs(p.Stats.HighGroundMult - 1f) < 1e-4f && !RunRelics.Mine.Contains("relic_highground") && p.Stats.StackOf(took.Id) == 1 && RunRelics.Mine.Contains(took.Id) && p.Trades == 0);
+        ScCheck($"a run brings {Tune.Merchant.Trades} trade, and the Path's Trading ranks one or two more ({Meta.Trades} now)", Meta.Trades >= Tune.Merchant.Trades && Meta.PearlTree.Branch("trade").Count() == 2);
         _upgradeMenu.ChooseLeave();
         foreach (var _ in Wait(0.3f)) yield return null;
         // rerolling a chest's cards

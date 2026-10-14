@@ -22,6 +22,18 @@ public partial class Main
         Id = "shop_supplies", Name = "Provisions", Icon = "life", MaxStacks = 1, Apply = (s, p) => { },
         Desc = $"A meal and a bandage: mends {Tune.Merchant.SuppliesHeal:0%} of your health.",
     };
+    /// <summary>His trading stand: a relic the hero carries for one of his.</summary>
+    public static readonly Upgrade TradeCard = new() { Id = "shop_trade", Name = "Trading Stand", Icon = "relic", MaxStacks = 1, Apply = (s, p) => { }, Desc = "" };
+    /// <summary>Back from the trading stand to his table.</summary>
+    public static readonly Upgrade TradeBack = new() { Id = "trade_back", Name = "Not Now", Desc = "Back to his table.", Icon = "skip", MaxStacks = 1, Apply = (s, p) => { } };
+    /// <summary>The trading stand's step: 0 at his table, 1 choosing what to give, 2 choosing what to take; what is being given; what he offers.</summary>
+    private int _tradeStep;
+    private string _tradeGive;
+    private List<Upgrade> _tradeOffer;
+
+    /// <summary>The relics this hero could hand over (not those that change the world).</summary>
+    private static List<Upgrade> TradeableRelics(Player p) => RunRelics.Mine.Where(id => Upgrades.Tradeable(id, p.Stats)).Select(Upgrades.Find).Where(u => u != null).ToList();
+
     /// <summary>A potion for the belt.</summary>
     public static readonly Upgrade Potion = new() { Id = "shop_potion", Name = "Healing Potion", Icon = "life", MaxStacks = 1, Apply = (s, p) => { }, Desc = "One more potion for your belt (drink it with the potion key)." };
 
@@ -115,9 +127,10 @@ public partial class Main
         var m = _shop;
         var items = m.Stock.Where(i => !i.Sold).ToList();
         if (items.Count == 0) { CloseShop(); _hud.ShowBanner("SOLD OUT", 1.4f); return; }
-        var choices = items.Select(i => i.Card).Append(RerollCard).Append(LeaveShop).ToList();
+        var choices = items.Select(i => i.Card).Append(TradeCard).Append(RerollCard).Append(LeaveShop).ToList();
         var locks = new List<string>();
         var prices = new List<int>();
+        _tradeStep = 0;
         foreach (var i in items)
         {
             string why = i.Card.Id == "shop_token" ? null : i.Card.Id == "shop_potion" ? (p.Potions >= p.MaxPotions ? "YOUR BELT IS FULL" : null) : i.Supplies ? (p.Hp >= p.Stats.MaxHp - 0.5f ? "YOU ARE FULL ALREADY" : null) : Upgrades.LockReason(i.Card, p.Stats);
@@ -125,6 +138,10 @@ public partial class Main
             locks.Add(why);
             prices.Add(i.Price);
         }
+        // the trading stand: a relic for a relic, a few times a run
+        int tradeable = TradeableRelics(p).Count;
+        TradeCard.Desc = $"Give him a relic you carry for one of {Tune.Merchant.TradeOffer} of his ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Path gives more).";
+        locks.Add(p.Trades <= 0 ? "NO TRADES LEFT THIS RUN" : tradeable == 0 ? "NO RELIC TO TRADE" : null); prices.Add(0);
         int rp = RerollPrice(m);
         RerollCard.Desc = FreeDealLeft(m) ? "He shuffles the cards he has not sold and lays out new ones: this one is on the house."
             : rp == 0 ? $"He shuffles the cards he has not sold and lays out new ones, for one of your Second Thoughts ({p.Rerolls} left)."
@@ -140,9 +157,72 @@ public partial class Main
         _autoPickT = 0.5f;
     }
 
+    /// <summary>The stand, first: which of the hero's relics to give.</summary>
+    private void ShowTradeGive()
+    {
+        var p = G.Player;
+        var mine = TradeableRelics(p);
+        if (mine.Count == 0 || p.Trades <= 0) { ShowShop(); return; }
+        _tradeStep = 1;
+        var choices = mine.Append(TradeBack).ToList();
+        _sfx.Play("relic_reveal", null, -6, 0, 1.1f);
+        _upgradeMenu.Open(choices, "THE TRADING STAND  ·  WHICH RELIC WILL YOU GIVE?", choices.Select(_ => (string)null).ToList(), UiArt.Surface.Velvet, UiArt.Rarity.Relic);
+        _upgradeMenu.Reroll = null;
+        _autoPickT = 0.5f;
+    }
+
+    /// <summary>Then: which of his to take for it (relics for this hero, none already carried).</summary>
+    private void ShowTradeGet()
+    {
+        var p = G.Player;
+        _tradeStep = 2;
+        var not = RunRelics.Mine.Append(_tradeGive).ToList();
+        // (nothing that changes the world: what he hands over can be traded on again)
+        _tradeOffer = Upgrades.RelicPool(p.Stats, not).Where(u => Upgrades.TradeableKind(u.Id)).OrderBy(_ => _rng.Next()).Take(Tune.Merchant.TradeOffer).ToList();
+        if (_tradeOffer.Count == 0) { _hud.ShowBanner("HE HAS NOTHING TO OFFER", 1.4f); ShowShop(); return; }
+        var give = Upgrades.Find(_tradeGive);
+        var choices = _tradeOffer.Append(TradeBack).ToList();
+        _sfx.Play("relic_reveal", null, -4, 0, 0.95f);
+        _upgradeMenu.Open(choices, $"THE TRADING STAND  ·  FOR YOUR {give?.Name.ToUpperInvariant()}, TAKE ONE", choices.Select(_ => (string)null).ToList(), UiArt.Surface.Velvet, UiArt.Rarity.Relic);
+        _upgradeMenu.Reroll = null;
+        _autoPickT = 0.5f;
+    }
+
+    /// <summary>The stand's choices: a relic to give, then one to take (or back to his table).</summary>
+    private bool TradePicked(Upgrade u)
+    {
+        var p = G.Player;
+        if (_tradeStep == 1)
+        {
+            if (u.Id == TradeBack.Id) { ShowShop(); return true; }
+            _tradeGive = u.Id;
+            ShowTradeGet();
+            return true;
+        }
+        if (_tradeStep == 2)
+        {
+            if (u.Id == TradeBack.Id) { ShowTradeGive(); return true; }
+            var give = Upgrades.Find(_tradeGive);
+            if (_tradeOffer == null || !_tradeOffer.Contains(u) || give == null || !Upgrades.RemoveRelic(_tradeGive, p.Stats, p)) { ShowShop(); return true; }
+            Upgrades.Apply(u, p.Stats, p);
+            p.Trades--;
+            Trades++;
+            _hud.ShowBanner($"{give.Name} FOR {u.Name}", 1.8f);
+            _sfx.Play("card_take", null, 0, 0, 0.8f);
+            G.Fx.Text(_shop.GlobalPosition + new Vector2(0, -52), "a fair trade", new Color(1f, 0.82f, 0.4f), 11, 1.2f);
+            ShowShop();
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>For the tests: relics traded at the stand this session.</summary>
+    public int Trades { get; private set; }
+
     private void CloseShop()
     {
         _shop = null;
+        _tradeStep = 0;
         if (G.Player != null) G.Player.Choosing = false;
         GetTree().Paused = false;
         _state = State.Playing;
@@ -153,8 +233,10 @@ public partial class Main
     {
         var p = G.Player;
         var m = _shop;
+        if (m != null && TradePicked(u)) return;
         if (u.Icon == "skip" || m?.Stock == null) { _sfx.Play("card_leave", null, -2); CloseShop(); return; }
         if (u.Id == "shop_reroll") { Reroll(m); return; }
+        if (u.Id == TradeCard.Id) { ShowTradeGive(); return; }
         var item = m.Stock.FirstOrDefault(i => !i.Sold && i.Card.Id == u.Id);
         if (item == null || item.Price > p.Gold) { ShowShop(); return; }
         p.Gold -= item.Price;

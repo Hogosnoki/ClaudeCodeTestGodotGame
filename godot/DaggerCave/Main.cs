@@ -750,10 +750,10 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0, keepRerolls = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0, keepRerolls = 0, keepTrades = 0;
         if (!freshPlayer && G.Player != null)
         {
-            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound; keepGoldSpent = G.Player.GoldSpent; keepRerolls = G.Player.Rerolls;
+            keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound; keepGoldSpent = G.Player.GoldSpent; keepRerolls = G.Player.Rerolls; keepTrades = G.Player.Trades;
             // (a key goes on down only for a cell left locked behind: open every cell and you leave with none)
             keepKeys = Math.Min(G.Player.Keys, LockedCells());
             keepMilestones = G.Player.PendingMilestones;
@@ -803,7 +803,7 @@ public partial class Main : Node
         if (keepStats != null) { player.Stats = keepStats; }
         else ClassPerks.Apply(player.Stats); // (a new run: the perks this hero brings)
         _world.AddChild(player);
-        if (keepStats == null) { ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; }
+        if (keepStats == null) { ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; player.Trades = Meta.Trades; }
         if (keepStats != null)
         {
             // (each depth rests you a little; Spring Water: a little more)
@@ -819,7 +819,7 @@ public partial class Main : Node
             }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
-            player.Gold = keepGold; player.GoldFound = keepGoldFound; player.GoldSpent = keepGoldSpent; player.Rerolls = keepRerolls;
+            player.Gold = keepGold; player.GoldFound = keepGoldFound; player.GoldSpent = keepGoldSpent; player.Rerolls = keepRerolls; player.Trades = keepTrades;
             // (interest is paid on the way down, not into the stall and out again)
             if (keepStats.GoldInterest > 0f && !G.Shop && keepGold > 0) { int paid = Math.Max(1, (int)MathF.Round(keepGold * keepStats.GoldInterest)); player.Gold += paid; player.GoldFound += paid; }
             if (G.Shop && keepStats.StallGold > 0) { player.Gold += keepStats.StallGold; player.GoldFound += keepStats.StallGold; }
@@ -1042,7 +1042,7 @@ public partial class Main : Node
     /// </summary>
     private Chest MakeLevelChest(Vector2 floor)
     {
-        var chest = new Chest { Position = floor, Tier = G.Chance(Tune.Relics.RelicChestChance) ? ChestTier.Relic : ChestTier.Wood };
+        var chest = NewChest(floor);
         var cave = G.Cave;
         if (cave != null && G.Chance(Tune.Relics.WebChestChance) && !cave.IsWater(floor + new Vector2(0, -10)))
         {
@@ -1263,7 +1263,7 @@ public partial class Main : Node
         foreach (var end in cave.DeadEnds)
         {
             spots++;
-            bool pile = G.Chance(Tune.Gold.PileChance);
+            bool pile = G.Chance(Tune.Gold.DeadEndPileChance);
             int n = pile ? 1 : G.Rng.Next(Tune.Gold.CoinsMin, Tune.Gold.CoinsMax + 1);
             int worth = pile ? G.Rng.Next(Tune.Gold.PileMin, Tune.Gold.PileMax + 1) : 1;
             for (int k = 0; k < n; k++)
@@ -1341,11 +1341,13 @@ public partial class Main : Node
     }
 
     /// <summary>
-    /// Gold wherever something ought to be and isn't: on high platforms with nothing under them, on slabs and shelves that lead nowhere, on the floor of a
-    /// chamber with no chest, and on the odd far, quiet floor. Found after every other reward is down (chests, cages, keys, gold, vaults), from the seed alone.
+    /// Gold where it takes some getting to, never on the main floor: on high platforms with nothing under them, on slabs and shelves that lead nowhere,
+    /// in alcoves and in crevices raised out of the passage; the hardest of them hold the piles. Found after every other reward is down (chests, cages,
+    /// keys, gold, vaults), from the seed alone.
     /// </summary>
     private void PlaceMoreGold(CaveData cave)
     {
+        MoreGoldSpots.Clear();
         if (cave.ReachMask == null) return;
         var rng = new Random(cave.Seed ^ 0x6a01d);
         int want = (int)MathF.Round(Tune.Gold.SpotsPerMap * cave.W * cave.H / (230f * 120f));
@@ -1369,9 +1371,11 @@ public partial class Main : Node
             foreach (var q in rewards) if (q.DistanceTo(f) < Tune.Gold.RewardGap) return false;
             return true;
         }
-        // 0 high platform, 1 ledge or slab to nowhere, 2 chamber floor with no chest, 3 a far, quiet floor
-        var cands = new List<Vector2>[] { new(), new(), new(), new() };
-        for (int tries = 0; tries < 5000; tries++)
+        // never the main floor: 0 high platforms, 1 ledges and slabs to nowhere, 2 alcoves (a pocket with rock close on both sides and a low roof),
+        // 3 crevices (a raised notch in a wall); each scored by how hard it is to get to (the height to climb, how tucked away), piles in the hardest
+        float Dist(Vector2 from, Vector2 dir, float max) { for (float d = 4; d <= max; d += 4) if (cave.IsSolid(from + dir * d)) return d; return 999f; }
+        var cands = new List<(Vector2 f, int kind, float hard)>();
+        for (int tries = 0; tries < 6000; tries++)
         {
             var at = new Vector2(rng.Next(4, cave.W - 4) + 0.5f, rng.Next(4, cave.H - 4) + 0.5f) * CaveData.Cell;
             if (cave.IsSolid(at) || !cave.FindFloor(at, 300, out var f) || !Usable(f)) continue;
@@ -1379,52 +1383,66 @@ public partial class Main : Node
             if (!cave.IsSolid(f + new Vector2(-6, 5)) || !cave.IsSolid(f + new Vector2(6, 5))) continue;
             bool below = cave.FindFloor(f + new Vector2(0, 14), 900, out var under);
             float drop = below ? under.Y - f.Y : 999f;
+            var mid = f + new Vector2(0, -10);
+            float wl = Dist(mid, Vector2.Left, 60), wr = Dist(mid, Vector2.Right, 60);
+            float roof = cave.FindCeiling(f + new Vector2(0, -6), 120, out var ce) ? f.Y - ce.Y : 999f;
             bool narrow = !cave.IsSolid(f + new Vector2(-34, 8)) && !cave.IsSolid(f + new Vector2(34, 8));
             bool edge = !cave.IsSolid(f + new Vector2(-30, 8)) || !cave.IsSolid(f + new Vector2(30, 8));
-            if (drop > 110f) cands[0].Add(f);
-            else if (narrow || (edge && drop > 50f)) cands[1].Add(f);
-            else
-            {
-                bool inRoom = false;
-                foreach (var r in cave.Rooms) if (r.Kind is RoomKind.Treasure or RoomKind.MiniBoss && f.DistanceTo(r.Floor) < r.RxPx * 0.8f && Math.Abs(f.Y - r.Floor.Y) < 24f) inRoom = true;
-                if (inRoom) cands[2].Add(f);
-                else if (f.DistanceTo(cave.StartPos) > cave.SizePx.X * 0.3f) cands[3].Add(f);
-            }
+            // (how much lower the floor is beside it, on the open side: a notch raised out of the passage)
+            float Raised(float side) => cave.FindFloor(f + new Vector2(side * 44, -10), 220, out var nf) ? nf.Y - f.Y : 220f;
+            int kind = -1; float hard = Math.Min(drop, 320f) / 320f;
+            if (drop > 110f) { kind = 0; if (narrow) hard += 0.3f; }
+            else if ((narrow || edge) && drop > 50f) kind = 1;
+            else if (roof < 64f && wl < 40f && wr < 40f) { kind = 2; hard += 0.6f; }
+            else if (roof < 64f && Math.Min(wl, wr) < 30f && Raised(wl < wr ? 1 : -1) >= 28f) { kind = 3; hard += 0.4f + Math.Min(Raised(wl < wr ? 1 : -1), 120f) / 240f; }
+            if (kind < 0) continue;
+            // (the farther from where the heroes arrive, the more out of the way)
+            hard += Math.Min(0.25f, f.DistanceTo(cave.StartPos) / cave.SizePx.X * 0.25f);
+            cands.Add((f, kind, hard));
         }
         // (the slabs that are alone: no coin, key or chest near their tops)
         foreach (var l in RockLedge.All)
         {
             var top = l.GlobalPosition + new Vector2(0, -l.ThickPx / 2f - 1f);
-            if (IsInstanceValid(l) && Usable(top)) cands[1].Add(top);
+            if (!IsInstanceValid(l) || !Usable(top)) continue;
+            float drop = cave.FindFloor(top + new Vector2(0, 14), 900, out var u2) ? u2.Y - top.Y : 999f;
+            if (drop > 40f) cands.Add((top, 1, Math.Min(drop, 320f) / 320f + 0.1f));
         }
-        for (int k = 0; k < cands.Length; k++) cands[k] = cands[k].OrderBy(_ => rng.Next()).ToList();
+        // the kinds take turns (so it isn't all one sort of place), each giving its hardest first (a little shuffled, so it isn't always the same few),
+        // spaced apart; a pile in the hardest quarter of them all
+        float pileAbove = cands.Count == 0 ? 0f : cands.Select(c => c.hard).OrderByDescending(h => h).ElementAt(Math.Min(cands.Count - 1, Math.Max(0, (int)(cands.Count * Tune.Gold.PileShare))));
+        var byKind = Enumerable.Range(0, 4).Select(k => new Queue<(Vector2 f, int kind, float hard)>(cands.Where(c => c.kind == k).OrderByDescending(c => c.hard + (float)rng.NextDouble() * 0.15f))).ToArray();
+        var turns = new List<(Vector2 f, int kind, float hard)>();
+        while (byKind.Any(q => q.Count > 0))
+            foreach (var q in byKind) if (q.Count > 0) turns.Add(q.Dequeue());
         var placed = new List<Vector2>();
         int[] made = new int[4];
-        for (int round = 0, guard = 0; placed.Count < want && guard < 2000; guard++, round++)
+        int pilesMade = 0;
+        foreach (var (f, kind, hard) in turns)
         {
-            int kind = round % 4;
-            var list = cands[kind];
-            if (list.Count == 0) { if (cands.All(c => c.Count == 0)) break; continue; }
-            var f = list[^1]; list.RemoveAt(list.Count - 1);
+            if (placed.Count >= want) break;
             if (placed.Any(q => q.DistanceTo(f) < Tune.Gold.Spacing) || rewards.Any(q => q.DistanceTo(f) < Tune.Gold.RewardGap)) continue;
-            bool pile = rng.NextDouble() < (kind == 0 ? Tune.Gold.HighPileChance : kind == 1 ? Tune.Gold.LedgePileChance : Tune.Gold.PileChance);
+            bool pile = hard >= pileAbove;
             int n = pile ? 1 : rng.Next(Tune.Gold.CoinsMin, Tune.Gold.CoinsMax + 1);
             int worth = pile ? rng.Next(Tune.Gold.PileMin, Tune.Gold.PileMax + 1) : 1;
             for (int k = 0; k < n; k++)
             {
-                var at = f + new Vector2((k - (n - 1) * 0.5f) * 10f, 0);
+                var at = f + new Vector2((k - (n - 1) * 0.5f) * 8f, 0);
                 var floor = cave.FindFloor(at + new Vector2(0, -10), 40, out var ff) && Math.Abs(ff.X - at.X) < 4f ? ff : f;
                 var coin = new CoinPickup { Position = floor + new Vector2(0, -1), Count = worth, Puppet = Net.Online && !Net.IsHost };
                 NetSync.LevelId(coin);
                 _world.AddChild(coin);
             }
             placed.Add(f); rewards.Add(f); made[kind]++;
+            if (pile) pilesMade++;
+            MoreGoldSpots.Add((f, kind, hard, pile));
         }
-        if (_autotest) GD.Print($"[autotest] more gold: {placed.Count} places (high {made[0]}, ledges {made[1]}, chambers {made[2]}, quiet {made[3]})");
+        if (_autotest) GD.Print($"[autotest] more gold: {placed.Count} places (high {made[0]}, ledges {made[1]}, alcoves {made[2]}, crevices {made[3]}; {pilesMade} piles)");
         MoreGoldPlaces = placed.Count;
     }
-    /// <summary>For the tests: how many places the last level's extra gold went to.</summary>
+    /// <summary>For the tests: how many places the last level's extra gold went to, and each (where, its kind, how hard to reach, a pile).</summary>
     public int MoreGoldPlaces { get; private set; }
+    public readonly List<(Vector2 At, int Kind, float Hard, bool Pile)> MoreGoldSpots = new();
 
     // ------------------------------------------------------------------ keys and the vault
 
@@ -1788,6 +1806,9 @@ public partial class Main : Node
             if (chest.RelicFor != 0 && chest.RelicFor != Net.Me)
                 for (int k = 0; k < choices.Count; k++)
                     if (choices[k].Relic && locks[k] == null) locks[k] = "MEANT FOR " + Net.NameOf(chest.RelicFor);
+            // (a collection: one each; the rest are the others')
+            if (chest.Collection && chest.TookHere)
+                for (int k = 0; k < choices.Count; k++) if (locks[k] == null) locks[k] = "YOU HAVE TAKEN YOURS";
             choices.Add(Upgrades.LeaveChest);
             locks.Add(null);
         }
@@ -1809,11 +1830,11 @@ public partial class Main : Node
         _sfx.Play(chest == null ? "card_reveal" : relicChoice ? "relic_reveal" : "card_reveal", null, 0, 0, chest == null ? 1.15f : 1f);
         var backdrop = chest == null ? UiArt.Surface.Night : relicChoice ? UiArt.Surface.Velvet : UiArt.Surface.Arcane;
         var frame = chest == null ? UiArt.Rarity.Rare : relicChoice ? UiArt.Rarity.Relic : chest.Vault || chest.Tier == ChestTier.Boss ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon;
-        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!";
+        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Collection ? "A RELIC COLLECTION: ONE EACH!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!";
         _rerollTitle = openTitle; _rerollBackdrop = backdrop; _rerollFrame = frame;
         _upgradeMenu.Open(choices, openTitle, locks, backdrop, frame);
         // (a pick from a chest or a milestone may be dealt again, as many times as the hero has earned)
-        _upgradeMenu.Reroll = RerollCards; _upgradeMenu.RerollsLeft = p.Rerolls;
+        _upgradeMenu.Reroll = chest?.TookHere == true ? null : RerollCards; _upgradeMenu.RerollsLeft = p.Rerolls;
         _autoPickT = 0.5f;
     }
 
@@ -1834,9 +1855,10 @@ public partial class Main : Node
         {
             var party = Net.Online && chest.Owner == 0 ? NetSync.PartyHeroes() : null;
             chest.Cards = chest.Corrupt ? Upgrades.RollCorruptCards(p.Stats, _rng)
+                        : chest.Collection ? Upgrades.RollCollection(p.Stats, Math.Max(1, chest.Cards?.Length ?? 1), _rng)
                         : chest.Vault ? Upgrades.RollVaultCards(p.Stats, party, _rng)
                         : Upgrades.RollChestCards(p.Stats, party, _rng, chest.GlobalPosition, relic: chest.Tier == ChestTier.Relic);
-            if (chest.Cards.Any(id => Upgrades.Find(id)?.Relic == true)) chest.RelicFor = Net.Me;
+            if (!chest.Collection && chest.Cards.Any(id => Upgrades.Find(id)?.Relic == true)) chest.RelicFor = Net.Me;
             NetSync.ChestCards(chest);
             choices = chest.Cards.Select(Upgrades.Find).Where(u => u != null).ToList();
             locks = choices.Select(u => Upgrades.LockReason(u, p.Stats)).ToList();
@@ -1877,6 +1899,23 @@ public partial class Main : Node
             Upgrades.Apply(u, G.Player.Stats, G.Player);
             _sfx.Play("card_take", null, 0, 0, u.Relic ? 0.8f : 1f);
             _hud.ShowBanner(u.Name, 1.6f);
+            // a relic taken from a collection: the others' stay in it, for them
+            if (chest != null && IsInstanceValid(chest) && chest.Collection && u.Relic && chest.Cards != null)
+            {
+                G.Player.Stats.On.RaiseChest(G.Player);
+                chest.TookHere = true;
+                var left = chest.Cards.ToList(); left.Remove(u.Id); chest.Cards = left.ToArray();
+                if (left.Count > 0 && Net.Online)
+                {
+                    NetSync.ChestCards(chest);
+                    NetSync.ChestDone(chest, false);
+                    if (G.Player != null) G.Player.Choosing = false;
+                    GetTree().Paused = false;
+                    _state = State.Playing;
+                    return;
+                }
+                // (the last relic: the chest is spent, below)
+            }
             // a card taken: the chest is spent
             if (chest != null && IsInstanceValid(chest))
             {
@@ -2609,8 +2648,15 @@ public partial class Main : Node
     {
         // (online, a chest made mid-level goes to every game)
         NetSync.Scope++;
-        try { G.Spawn(new Chest { Position = at, Tier = G.Chance(Tune.Relics.RelicChestChance) ? ChestTier.Relic : ChestTier.Wood }); }
+        try { G.Spawn(NewChest(at)); }
         finally { NetSync.Scope--; }
+    }
+
+    /// <summary>A level's chest: wood mostly, now and then a relic chest, and now and then that a Relic Collection (one relic for each of the party).</summary>
+    private static Chest NewChest(Vector2 at)
+    {
+        bool relic = G.Chance(Tune.Relics.RelicChestChance);
+        return new Chest { Position = at, Tier = relic ? ChestTier.Relic : ChestTier.Wood, Collection = relic && G.Chance(Tune.Relics.CollectionChance) };
     }
 
     /// <summary>
@@ -2634,7 +2680,8 @@ public partial class Main : Node
             }
             // and one chest of relics for the whole party, to talk over or to scramble for
             var relicSpot = G.Cave.FindFloor(new Vector2(at.X + (owners.Count * 0.5f + 1.2f) * 36f, at.Y - 30), 240, out var rf) ? rf : at;
-            G.Spawn(new Chest { Position = relicSpot, Tier = ChestTier.Relic, Owner = 0 });
+            // (a Relic Collection: a relic for each of the party, one each)
+            G.Spawn(new Chest { Position = relicSpot, Tier = ChestTier.Relic, Owner = 0, Collection = true });
         }
         finally { NetSync.Scope--; }
     }
@@ -3989,8 +4036,8 @@ public partial class Main : Node
         Check("trees hidden before any resource", !Meta.Trees.Any(Meta.Visible));
         var rng = new Random(3);
         int reagents = 0, pearls = 0;
-        for (int k = 0; k < 30; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
-        Check($"30 draws give every resource once (12 reagents: {reagents}, 18 pearls: {pearls})", reagents == 12 && pearls == 18);
+        for (int k = 0; k < 32; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
+        Check($"32 draws give every resource once (12 reagents: {reagents}, 20 pearls: {pearls})", reagents == 12 && pearls == 20);
         Check("nothing once all are found", Meta.RollResource(rng) == null);
         var heal1 = Meta.PotionTree.Branch("heal").First();
         Check("can't buy without embers", !Meta.Buy(heal1));

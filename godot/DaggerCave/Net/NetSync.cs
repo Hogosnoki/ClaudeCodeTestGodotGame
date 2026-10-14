@@ -828,7 +828,7 @@ public static class NetSync
                 w.Byte(14).Int(id).Vec(cp.GlobalPosition).Short((short)cp.Count).HVec(cp.Vel);
                 break;
             case Chest ch:
-                w.Byte(9).Int(id).Vec(ch.GlobalPosition).Byte((byte)ch.Tier).Int(ch.Owner).Bool(ch.Vault);
+                w.Byte(9).Int(id).Vec(ch.GlobalPosition).Byte((byte)((byte)ch.Tier | (ch.Collection ? 0x80 : 0))).Int(ch.Owner).Bool(ch.Vault);
                 break;
             case Portal po:
                 w.Byte(10).Int(id).Vec(po.GlobalPosition).Byte((byte)(po.To?.Id ?? BiomeId.Slime)).Int(po.Depth).Str(po.Label).Bool(po.Shop);
@@ -870,7 +870,7 @@ public static class NetSync
             case 8: n = new PotionPickup { Position = r.Vec(), Puppet = true }; break;
             case 11: { var pos = r.Vec(); float vy = r.Half(); n = new KeyPickup { Position = pos, Vy = vy, Puppet = true }; break; }
             case 14: { var pos = r.Vec(); int count = r.Short(); var vel = r.HVec(); n = new CoinPickup { Position = pos, Count = count, Dropped = true, Vel = vel, Puppet = true }; break; }
-            case 9: { var pos = r.Vec(); var tier = (ChestTier)r.Byte(); int owner = r.Int(); bool vault = r.Bool(); n = new Chest { Position = pos, Tier = tier, Owner = owner, Vault = vault }; break; }
+            case 9: { var pos = r.Vec(); byte tb = r.Byte(); var tier = (ChestTier)(tb & 0x7f); int owner = r.Int(); bool vault = r.Bool(); n = new Chest { Position = pos, Tier = tier, Owner = owner, Vault = vault, Collection = (tb & 0x80) != 0 }; break; }
             case 10:
             {
                 var pos = r.Vec(); var biome = Biomes.Get((BiomeId)r.Byte()); int depth = r.Int(); string label = r.Str(); bool shop = r.Bool();

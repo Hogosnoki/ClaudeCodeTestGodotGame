@@ -243,6 +243,8 @@ public sealed class PlayerStats
     public float RecallBleedChance = Tune.Rogue.RecallBleedChance;
 
     public readonly Dictionary<string, int> Stacks = new();
+    /// <summary>What each relic changed when it was taken, so it can be given back (see RelicUndo.cs).</summary>
+    public readonly Dictionary<string, Upgrades.RelicTrace> RelicTraces = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
 
     public PlayerStats(HeroKind hero = HeroKind.Swordsman)
@@ -783,18 +785,21 @@ public static partial class Upgrades
     /// </summary>
     public static string[] RollChestCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at, bool relic = false)
     {
-        // a relic chest: three relics to choose from (upgrades come from shrines)
+        // a relic chest: one relic, no choice: take it or leave it (upgrades come from shrines)
         if (relic)
         {
-            var picked = new List<string>();
-            for (int k = 0; k < 3; k++)
-                if (RollRelic(mine, rng, picked) is Upgrade r) picked.Add(r.Id);
-            if (picked.Count == 3) return picked.ToArray();
-            var ids = RollChestCardsBase(mine, party, rng, at);
-            for (int k = 0; k < picked.Count && k < ids.Length; k++) ids[ids.Length - 1 - k] = picked[k];
-            return ids;
+            if (RollRelic(mine, rng) is Upgrade r) return new[] { r.Id };
+            return RollChestCardsBase(mine, party, rng, at);
         }
         return RollChestCardsBase(mine, party, rng, at);
+    }
+
+    /// <summary>A Relic Collection's relics: one for each hero, all of them ones anyone could carry (no hero's own, nothing the opener has).</summary>
+    public static string[] RollCollection(PlayerStats mine, int heroes, Random rng)
+    {
+        var pool = Relics.Where(u => u.For == null && Available(u, mine)).ToList();
+        var picked = Pick(pool, Math.Max(1, heroes), rng, u => u.Weight);
+        return picked.Select(u => u.Id).ToArray();
     }
 
     private static string[] RollChestCardsBase(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at)
@@ -937,7 +942,7 @@ public static partial class Upgrades
         s.Stacks[u.Id] = s.StackOf(u.Id) + 1;
         // (the others keep count of what this hero has, so their chests aren't dealt what nobody can take again)
         if (p != null && !p.IsRemote && p == G.Player) NetSync.SendCard(u.Id);
-        u.Apply(s, p);
+        if (u.Relic) ApplyTraced(u, s, p); else u.Apply(s, p);
         if (u.Relic && p != null && !p.IsRemote) RunRelics.Take(u.Id);
     }
 }

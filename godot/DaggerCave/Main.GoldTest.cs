@@ -30,11 +30,15 @@ public partial class Main
         ScCheck($"a pile is worth four to eight ({string.Join(",", coins.Where(c => c.IsPile).Select(c => c.Count))}) and a coin one", coins.Where(c => c.IsPile).All(c => c.Count >= 4 && c.Count <= 8) && coins.Where(c => !c.IsPile).All(c => c.Count == 1));
         ScCheck($"the dead ends are away from where you arrive ({cave.DeadEnds.Min(d => d.DistanceTo(cave.StartPos)):0} px at the nearest)", cave.DeadEnds.All(d => d.DistanceTo(cave.StartPos) > 20 * CaveData.Cell));
 
-        // gold elsewhere too: high platforms, ledges, chambers, quiet floors
+        // gold elsewhere too: high platforms, ledges, alcoves and crevices (never the main floor)
         var offEnds = coins.Where(c => cave.DeadEnds.All(d => d.DistanceTo(c.GlobalPosition) > 60f)).ToList();
         ScCheck($"gold lies elsewhere than the dead ends ({offEnds.Count} coins and piles in {MoreGoldPlaces} other places)", MoreGoldPlaces >= 4 && offEnds.Count >= MoreGoldPlaces);
         int high = offEnds.Count(c => cave.FindFloor(c.GlobalPosition + new Vector2(0, 8), 900, out var u) ? u.Y - c.GlobalPosition.Y > 100f : true);
         ScCheck($"some of it on high platforms with nothing under them ({high} of {offEnds.Count})", high >= 1);
+        var kinds = new[] { "high", "ledge", "alcove", "crevice" };
+        ScCheck($"none of it on the main floor: {string.Join(", ", kinds.Select((k, i) => $"{MoreGoldSpots.Count(q => q.Kind == i)} {k}"))}", MoreGoldSpots.All(q => q.Kind is >= 0 and <= 3));
+        var pileSpots = MoreGoldSpots.Where(q => q.Pile).ToList(); var coinSpots = MoreGoldSpots.Where(q => !q.Pile).ToList();
+        ScCheck($"the piles lie in the hardest places to reach ({pileSpots.Count} piles, hardest-to-reach score {(pileSpots.Count > 0 ? pileSpots.Min(q => q.Hard) : 0):0.00}+; coins at most {(coinSpots.Count > 0 ? coinSpots.Max(q => q.Hard) : 0):0.00})", pileSpots.Count >= 1 && (coinSpots.Count == 0 || pileSpots.Min(q => q.Hard) >= coinSpots.Max(q => q.Hard)));
         var chests = Chest.All.Where(IsInstanceValid).ToList();
         float nearChest = chests.Count == 0 || offEnds.Count == 0 ? 99f : chests.Min(ch => offEnds.Min(c => c.GlobalPosition.DistanceTo(ch.GlobalPosition)));
         ScCheck($"none of it on top of a chest ({chests.Count} chests; nearest coin {nearChest:0} px)", chests.All(ch => offEnds.All(c => c.GlobalPosition.DistanceTo(ch.GlobalPosition) > 60f)));

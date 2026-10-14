@@ -26,8 +26,12 @@ public partial class Main
         _cam.Zoom *= 3.2f;
         var relic = new Chest { Position = f1, Tier = ChestTier.Relic };
         var vault = new Chest { Position = f2, Tier = ChestTier.Relic, Vault = true };
+        // (a Relic Collection, a little further off: teal, three gems)
+        G.Cave.FindFloor(p.GlobalPosition + new Vector2(80, -20), 200, out var f3);
+        var coll = new Chest { Position = f3, Tier = ChestTier.Relic, Collection = true };
         _world.AddChild(relic);
         _world.AddChild(vault);
+        _world.AddChild(coll);
         foreach (var _ in Wait(1.0f)) yield return null;
         ScShot("chestlook_shut");
         ScCheck("a relic chest and a vault chest stand by the hero", IsInstanceValid(relic) && IsInstanceValid(vault));
