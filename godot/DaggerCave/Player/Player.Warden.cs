@@ -439,7 +439,7 @@ public partial class Player
             G.Fx.Ring(hit, 12, new Color(0.7f, 0.9f, 1f, 0.9f));
         }
         // the shield takes the blow too (once, however many it struck; an unyielding one never weakens)
-        if (!Stats.Unyielding) ShieldHp -= Stats.ShieldMax * Tune.Warden.BashShieldShare;
+        if (!Stats.Unyielding) ShieldHp -= Stats.ShieldMax * Tune.Warden.BashShieldShare * Stats.BashShieldMult;
         _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
         _shieldFlash = 0.25f;
         G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f), 0.3f, FxLayer.RingStyle.Burst);

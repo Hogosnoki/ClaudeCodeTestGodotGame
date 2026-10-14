@@ -41,7 +41,9 @@ public partial class Player
     /// <summary>True while the current swing is a heaving swing (for the 3D smear).</summary>
     public bool SwingHeave => _swingT >= 0 && _heave;
     /// <summary>0 = the heaving swing is ready, 1 = just used.</summary>
-    public float HeaveCooldownFrac => Math.Clamp(_heaveCd / Math.Max(0.01f, Stats.HeaveCooldown), 0, 1);
+    public float HeaveCooldownFrac => Math.Clamp((_heaveCd - HeaveSpareTime) / Math.Max(0.01f, Stats.HeaveCooldown), 0, 1);
+    /// <summary>The heave's cooldowns run one after another (Relentless Heave holds a second use): it can be swung while what is left is no more than this.</summary>
+    private float HeaveSpareTime => (Stats.HeaveCharges - 1) * Stats.HeaveCooldown;
 
     /// <summary>Test harness: every ability ready again.</summary>
     public void ResetAbilityCooldowns()
@@ -139,7 +141,7 @@ public partial class Player
         // (with Dash Through he has gone through it: now he turns round, and the blade comes round behind him)
         if (Math.Abs(to.X) > 2f) { Facing = Math.Sign(to.X); Anim.Face((int)Facing, instant: true); }
         StartSwing(to.LengthSquared() > 1 ? to.Normalized() : -_dodgeDir, counter: true);
-        _swingDmg *= Tune.Swordsman.DashSlashMult;
+        _swingDmg *= Tune.Swordsman.DashSlashMult * Stats.DashSlashMult;
         _dashSlashSwing = Stats.DashThrough;
         DashSlashes++;
         var at = GlobalPosition + new Vector2(0, -4) + to.Normalized() * 10;
@@ -240,13 +242,13 @@ public partial class Player
 
     private bool TryHeave(Vector2 aim)
     {
-        if (!IsSwordsman || _heaveCd > 0 || Heaving) return false;
+        if (!IsSwordsman || _heaveCd > HeaveSpareTime || Heaving) return false;
         // Swift Heave: a waiting charge makes it instant, and it works in the air or the water
         bool swift = Stats.SwiftHeave && Charged > 0;
         // otherwise it needs your feet on the ground (a press just before landing still takes)
         if (!swift && (InWater || !IsOnFloor())) { _heaveWanted = true; return false; }
         _heaveWanted = false;
-        _heaveCd = Stats.HeaveCooldown;
+        _heaveCd = Math.Max(0f, _heaveCd) + Stats.HeaveCooldown;
         _dodgeT = 0;
         float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
         Facing = dir;

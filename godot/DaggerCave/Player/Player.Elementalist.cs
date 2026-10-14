@@ -48,7 +48,9 @@ public partial class Player
     public float SnapCost => Tune.Elementalist.SnapCost;
     /// <summary>For the HUD: the updraft's short recovery and the snap's, 0 = ready.</summary>
     public float UpdraftCooldownFrac => Math.Clamp(_updraftCd / Tune.Elementalist.UpdraftRecharge, 0, 1);
-    public float SnapCooldownFrac => Math.Clamp(_snapCd / Tune.Elementalist.SnapCooldown, 0, 1);
+    public float SnapCooldownFrac => Math.Clamp(_snapCd / SnapCooldown, 0, 1);
+    /// <summary>The snap's recharge (Cinder Snap: it leaves the flames lit, and takes longer to come back).</summary>
+    private float SnapCooldown => Tune.Elementalist.SnapCooldown + (Stats.CinderSnap ? Tune.Elementalist.CinderSnapExtra : 0f);
     /// <summary>The spell is ready to cast (not recharging, and not waiting for the alimus to come back).</summary>
     public bool UpdraftReady => _updraftCd <= 0 && !_updraftOwes;
     public bool SnapReady => _snapCd <= 0 && !_snapOwes && _snapAt < 0;
@@ -211,9 +213,9 @@ public partial class Player
         if (bolt.Frost)
         {
             e.Chill(Tune.Elementalist.ChillSlow, Tune.Elementalist.ChillSeconds);
-            if (G.Chance(Tune.Elementalist.FreezeChance + Stats.FreezeBonus)) e.FreezeSolid(Tune.Elementalist.FreezeSeconds);
+            if (!Stats.NoFreeze && G.Chance(Tune.Elementalist.FreezeChance + Stats.FreezeBonus)) e.FreezeSolid(Tune.Elementalist.FreezeSeconds);
         }
-        else if (G.Chance(Stats.IgniteChance)) e.Ignite(Tune.Elementalist.IgniteDps * Stats.DamageMult, Tune.Elementalist.IgniteSeconds);
+        else if (G.Chance(Stats.IgniteChance)) e.Ignite(Tune.Elementalist.IgniteDps * Stats.DamageMult * Stats.BurnMult, Tune.Elementalist.IgniteSeconds);
     }
 
     // ---------------------------------------------------------------- updraft
@@ -371,10 +373,10 @@ public partial class Player
             Ticks = Mathf.RoundToInt(Tune.Elementalist.BlizzardTicks * secondsMult),
             Fire = fire,
             Damage = (fire ? Tune.Elementalist.FirestormDamage : Tune.Elementalist.BlizzardDamage) * Stats.DamageMult,
-            FreezeChance = fire ? 0f : Tune.Elementalist.BlizzardFreeze + Stats.FreezeBonus,
+            FreezeChance = fire || Stats.NoFreeze ? 0f : Tune.Elementalist.BlizzardFreeze + Stats.FreezeBonus,
             // (Kindling's extra chance lights a Firestorm too)
             IgniteChance = fire ? Tune.Elementalist.FirestormIgnite + (Stats.IgniteChance - Tune.Elementalist.IgniteChance) : 0f,
-            IgniteDps = Tune.Elementalist.IgniteDps * Stats.DamageMult, IgniteSeconds = Tune.Elementalist.IgniteSeconds,
+            IgniteDps = Tune.Elementalist.IgniteDps * Stats.DamageMult * Stats.BurnMult, IgniteSeconds = Tune.Elementalist.IgniteSeconds,
             Caster = this,
         };
         G.Spawn(storm);
@@ -447,7 +449,7 @@ public partial class Player
         if (!IsElementalist || !SnapReady) return false;
         var marked = Snappable().ToList();
         if (marked.Count == 0) { _snapCd = 0.3f; SayNo("NOTHING FROZEN OR BURNING"); return true; }
-        _snapCd = Tune.Elementalist.SnapCooldown;
+        _snapCd = SnapCooldown;
         _snapOwes = true;
         _snapping = marked;
         // the fist closes (the clip's clench): for a beat the hero and everything marked are held still, and then it all bursts
@@ -480,7 +482,7 @@ public partial class Player
             bool cinder = !e.FrozenSolid;
             float dmg = (cinder ? Tune.Elementalist.CinderDamage : Tune.Elementalist.SnapDamage) * Tune.Elementalist.SnapMult * Stats.DamageMult;
             float splash = (cinder ? Tune.Elementalist.CinderSplash : Tune.Elementalist.SnapSplash) * Tune.Elementalist.SnapMult * Stats.DamageMult;
-            BurstCreature(e, dmg, splash, radius, cinder, Stats.CinderSnap);
+            BurstCreature(e, dmg, splash, radius, cinder, false);
         }
         LastSnapCount = burst;
         if (burst > 0)

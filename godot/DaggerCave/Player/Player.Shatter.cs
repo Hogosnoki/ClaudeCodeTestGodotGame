@@ -15,7 +15,8 @@ public partial class Player
     {
         var at = e.GlobalPosition;
         var col = cinder ? ElementBolt.FireColor : ElementBolt.FrostColor;
-        if (cinder) e.Quench(); else e.Thaw();
+        // (Cinder Snap: the flames stay lit after the burst)
+        if (cinder) { if (!Stats.CinderSnap) e.Quench(); } else e.Thaw();
         float dealt = e.Hurt(dmg, Vector2.Up * 60f, at, cinder ? DamageKind.Fire : DamageKind.Frost);
         if (dealt > 0) OnDealtDamage(dealt);
         G.Fx.Flash(at, e.HitRadius + 14, col, 0.14f);
@@ -28,8 +29,6 @@ public partial class Player
             if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
             float d2 = o.Hurt(splash, (o.GlobalPosition - at).Normalized() * 80f, o.GlobalPosition, cinder ? DamageKind.Fire : DamageKind.Frost);
             if (d2 > 0) OnDealtDamage(d2);
-            // Cinder Snap: what the burst splashes on is set alight
-            if (igniteSplash && !o.Dead) o.Ignite(Tune.Elementalist.IgniteDps, Tune.Elementalist.IgniteSeconds);
         }
     }
 

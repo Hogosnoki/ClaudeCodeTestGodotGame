@@ -94,17 +94,17 @@ public static class Meta
             for (int k = 0; k < ranks.Length; k++)
                 t.Tiers.Add(new MetaTier { Id = $"{branch}{k + 1}", Branch = branch, Name = ranks[k].n, Desc = ranks[k].d, Rank = k + 1, Cost = k + 1 });
         }
-        B(PotionTree, "heal", "Immediate heal", ("Quick Draught I", "Potions heal 5% more at once (20%)."), ("Quick Draught II", "Potions heal 5% more at once (25%)."), ("Quick Draught III", "Potions heal 5% more at once (30%)."));
-        B(PotionTree, "hot", "Heal over time", ("Lingering I", "Potions heal 5% more over time (20%)."), ("Lingering II", "Potions heal 5% more over time (25%)."), ("Lingering III", "Potions heal 5% more over time (30%)."));
-        B(PotionTree, "speed", "Heal speed", ("Strong Brew I", "The heal over time takes 3 s less (17 s)."), ("Strong Brew II", "The heal over time takes 3 s less (14 s)."), ("Strong Brew III", "The heal over time takes 4 s less (10 s)."));
+        B(PotionTree, "heal", "Immediate heal", ("Quick Draught I", "Potions heal 10% more at once (+10%)."), ("Quick Draught II", "Potions heal 10% more at once (+20%)."), ("Quick Draught III", "Potions heal 10% more at once (+30%)."));
+        B(PotionTree, "hot", "Heal over time", ("Lingering I", "Potions heal 10% more over time (+10%)."), ("Lingering II", "Potions heal 10% more over time (+20%)."), ("Lingering III", "Potions heal 10% more over time (+30%)."));
+        B(PotionTree, "speed", "Heal speed", ("Strong Brew I", "The heal over time takes 2 s less (13 s)."), ("Strong Brew II", "The heal over time takes 2 s less (11 s)."), ("Strong Brew III", "The heal over time takes 3 s less (8 s)."));
         B(PotionTree, "drop", "Drop rate", ("Forager", "Enemies drop potions 1% more often (2%)."), ("Desperate Forager", "Another +1% while you carry no potion."));
-        B(PotionTree, "max", "Potion belt", ("Second Flask", "Carry up to 2 potions."), ("Third Flask", "Carry up to 3 potions."));
-        B(PearlTree, "mile", "Milestones", ("Waypoints I", "A milestone pick every 4 levels."), ("Waypoints II", "A milestone pick every 3 levels."), ("Waypoints III", "A milestone pick every 2 levels."));
+        B(PotionTree, "max", "Potion belt", ("Second Flask", "Carry up to 2 potions (a third only from a lucky find on the way: a Deep Flask)."));
+        B(PearlTree, "mile", "Milestones", ("Waypoints I", "A milestone pick every 7 levels."), ("Waypoints II", "A milestone pick every 6 levels."), ("Waypoints III", "A milestone pick every 5 levels."));
         B(PearlTree, "xp", "Experience", ("Studious I", "+5% experience."), ("Studious II", "+7% more experience (12%)."), ("Studious III", "+8% more experience (20%)."));
         B(PearlTree, "exp", "Elite experience", ("Trophies I", "+5% experience from elites."), ("Trophies II", "+7% more from elites (12%)."), ("Trophies III", "+8% more from elites (20%)."));
         B(PearlTree, "price", "Fair dealing", ("Fair Dealing I", "The merchant's prices are 5% lower."), ("Fair Dealing II", "The merchant's prices are 10% lower."), ("Fair Dealing III", "The merchant's prices are 15% lower."));
         B(PearlTree, "gold", "Prospecting", ("Prospecting I", "Gold you find is worth 10% more."), ("Prospecting II", "Gold you find is worth 20% more."), ("Prospecting III", "Gold you find is worth 30% more."));
-        B(PearlTree, "reroll", "Second thoughts", ("Second Thoughts I", "Once a run, deal a choice of cards again."), ("Second Thoughts II", "Twice a run, deal a choice of cards again."), ("Second Thoughts III", "Three times a run, deal a choice of cards again."));
+        B(PearlTree, "reroll", "Second thoughts", ("Second Thoughts I", "Once a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts II", "Twice a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts III", "Three times a run, reroll the merchant's wares or a choice of cards."));
         Load();
     }
 
@@ -115,10 +115,11 @@ public static class Meta
     public static int Rank(string branch) { int n = 0; while (Active.Contains($"{branch}{n + 1}")) n++; return n; }
 
     // ---- effects
-    public static float PotionHealNow => 0.15f + 0.05f * Rank("heal");
-    public static float PotionHealOverTime => 0.15f + 0.05f * Rank("hot");
-    public static float PotionHotSeconds => 20f - new[] { 0f, 3f, 6f, 10f }[Rank("speed")];
-    public static int MaxPotions => 1 + Rank("max");
+    public static float PotionHealNow => 0.15f * (1f + 0.1f * Rank("heal"));
+    public static float PotionHealOverTime => 0.15f * (1f + 0.1f * Rank("hot"));
+    public static float PotionHotSeconds => 15f - new[] { 0f, 2f, 4f, 7f }[Rank("speed")];
+    /// <summary>One flask, two with the belt's one rank (a third only from a Deep Flask found on the way).</summary>
+    public static int MaxPotions => 1 + Math.Min(1, Rank("max"));
     /// <summary>What the merchant asks (x), what gold found is worth (x) and the choices of cards that may be dealt again in a run: from the Path's ranks.</summary>
     public static float ShopPriceMult => 1f - 0.05f * Rank("price");
     public static float GoldFoundMult => 1f + 0.1f * Rank("gold");
@@ -226,7 +227,7 @@ public static class Meta
         return h;
     }
 
-    public static int MilestoneEvery => Math.Max(2, 5 - Rank("mile"));
+    public static int MilestoneEvery => Math.Max(5, 8 - Rank("mile"));
     public static float XpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("xp")];
     public static float EliteXpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("exp")];
     public static float PotionDropChance(Player p)

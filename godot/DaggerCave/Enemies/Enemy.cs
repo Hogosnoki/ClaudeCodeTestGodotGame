@@ -982,7 +982,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (st.BackDealMult != 1f && FacingAwayFrom(hero.GlobalPosition)) m *= st.BackDealMult;
         // the generic upgrades and the newer relics
         if (st.GenCritChance > 0f && G.Chance(st.GenCritChance)) { m *= st.GenCritMult; G.Fx.Text(HeadPoint(18f), "CRIT", new Color(1f, 0.9f, 0.4f), 10, 0.5f); hero.Bump("crit"); }
-        if (st.VsStatusMult != 1f && (Ignited || FrozenSolid || Chilled || Envenomed)) m *= st.VsStatusMult;
+        if (st.VsStatusMult != 1f && (Ignited || FrozenSolid || Chilled || Envenomed || (_dazed && Stun > 0))) m *= st.VsStatusMult;
         if (st.VsBigMult != 1f && (IsBoss || IsGuardian || Elite)) m *= st.VsBigMult;
         if (st.VsFreshMult != 1f && Hp >= MaxHp * 0.999f) m *= st.VsFreshMult;
         if (st.StillMult != 1f && hero.StillTime >= 0.5f) m *= st.StillMult;

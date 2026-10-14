@@ -23,6 +23,8 @@ public sealed class Triggers
     public event Action<Player> Fall;
     /// <summary>The hero took a form (a Shape Shifter's Shift or Recall).</summary>
     public event Action<Player> Shift;
+    /// <summary>The Shape Shifter returns to its own shape.</summary>
+    public event Action<Player> Unshift;
     /// <summary>The hero gained a level.</summary>
     public event Action<Player> Level;
     /// <summary>The hero opened a chest.</summary>
@@ -41,6 +43,7 @@ public sealed class Triggers
     public void RaiseFall(Player p) { Fall?.Invoke(p); }
     public void RaiseLevel(Player p) { Level?.Invoke(p); }
     public void RaiseShift(Player p) { Shift?.Invoke(p); }
+    public void RaiseUnshift(Player p) { Unshift?.Invoke(p); }
     public void RaiseChest(Player p) { Chest?.Invoke(p); }
     public void RaiseHeal(Player p, float amount) { Heal?.Invoke(p, amount); }
     public void RaiseTick(Player p, float dt) { Tick?.Invoke(p, dt); }

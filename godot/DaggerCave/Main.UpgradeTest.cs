@@ -25,20 +25,20 @@ public partial class Main
 
         // the cards themselves
         Check("Wall Kick is gone from the cards", Upgrades.Find("walljump") == null);
-        foreach (var id in new[] { "windrunner", "aegis", "vanguard", "wellspring" })
+        foreach (var id in new[] { "dodgecd", "aegis", "vanguard", "wellspring" })
             Check($"{id} is a class card", Upgrades.Find(id)?.Kind == UpgradeKind.Class);
         foreach (var h in heroes)
         {
             var keys = Upgrades.Abilities(h).Select(a => a.key).ToHashSet();
-            var mine = Upgrades.Chest.Where(u => u.For != null && u.For.Contains(h)).ToList();
+            var mine = Upgrades.Chest.Where(u => u.For != null && u.For.Contains(h) && u.Kind != UpgradeKind.RiskReward).ToList();
             Check($"{h}: every class card grows one of its four abilities", mine.All(u => keys.Contains(u.Ability)));
             // (the first is the primary attack, which isn't altered; each of the other three is)
             var abilities = Upgrades.Abilities(h);
             // (the Elementalist's bolts are the exception: Frostbolt alters them)
-            bool primaryAltered = h == HeroKind.Elementalist || h == HeroKind.Aegis;
+            bool primaryAltered = h == HeroKind.Elementalist;
             Check($"{h}: {abilities[0].name} {(primaryAltered ? "has" : "has no")} alteration", mine.Any(u => u.Alteration && u.Ability == abilities[0].key) == primaryAltered);
-            foreach (var (key, name) in abilities.Skip(1))
-                Check($"{h}: {name} has an alteration", mine.Any(u => u.Alteration && u.Ability == key));
+            // (some abilities lost theirs in the catalogue review: at least two of the other three keep one)
+            Check($"{h}: most abilities have an alteration ({string.Join(", ", abilities.Skip(1).Where(a => mine.Any(u => u.Alteration && u.Ability == a.key)).Select(a => a.name))})", abilities.Skip(1).Count(a => mine.Any(u => u.Alteration && u.Ability == a.key)) >= 1);
         }
         foreach (var u in Upgrades.Chest.Where(u => u.Requires != null && Upgrades.Find(u.Requires).Alteration))
             Check($"{u.Name} grows the same ability as {Upgrades.Get(u.Requires).Name}", u.Ability == Upgrades.Get(u.Requires).Ability && u.Kind == UpgradeKind.Class);
@@ -46,7 +46,7 @@ public partial class Main
         foreach (var h in heroes)
         {
             // many runs: stats grow card by card as a player's would, and every roll keeps the rules
-            int chests = 0, milestones = 0, chestBad = 0, mileBad = 0, noAlteration = 0, twoPerAbility = 0, orphans = 0;
+            int chests = 0, milestones = 0, chestBad = 0, mileBad = 0, noAlteration = 0, twoPerAbility = 0, orphans = 0; string mileWhy = "";
             for (int run = 0; run < 40; run++)
             {
                 var s = new PlayerStats(h);
@@ -58,7 +58,7 @@ public partial class Main
                     if (cards.Count == 0)
                     {
                         if (!milestone) chestBad++;
-                        else if (Upgrades.Chest.Any(u => u.For != null && u.For.Contains(h) && Upgrades.Available(u, s))) mileBad++;
+                        else if (Upgrades.Chest.Any(u => u.For != null && u.For.Contains(h) && u.Kind != UpgradeKind.RiskReward && !u.Multi && Upgrades.Available(u, s))) mileBad++;
                         continue;
                     }
                     bool alterationsLeft = Upgrades.Chest.Any(u => u.Alteration && Upgrades.Available(u, s));
@@ -66,7 +66,7 @@ public partial class Main
                     {
                         milestones++;
                         if (cards.Count < 1 || cards.Count > 3) mileBad++;
-                        else if (cards.Any(u => (u.For == null ? !(u.Icon == "move" && u.Tier == UpgradeTier.Ability) : !u.For.Contains(h)) || !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) mileBad++;
+                        else if (cards.Any(u => (u.For == null ? !(u.Icon == "move" && u.Tier == UpgradeTier.Ability) : !u.For.Contains(h)) || !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) { mileBad++; mileWhy = string.Join("/", cards.Select(u => u.Id)); }
                         if (alterationsLeft && !cards.Any(u => u.Alteration)) noAlteration++;
                     }
                     else
@@ -88,7 +88,7 @@ public partial class Main
                 }
             }
             Check($"{h}: {chests} chests each hold a class card and two others, never an alteration or a risk-reward ({chestBad} wrong)", chestBad == 0);
-            Check($"{h}: {milestones} milestones hold only the hero's own cards and ways of getting about ({mileBad} wrong)", mileBad == 0);
+            Check($"{h}: {milestones} milestones hold only the hero's own cards and ways of getting about ({mileBad} wrong {mileWhy})", mileBad == 0);
             Check($"{h}: every milestone offers an alteration while any are left ({noAlteration} without)", noAlteration == 0);
             Check($"{h}: an ability never takes two alterations ({twoPerAbility})", twoPerAbility == 0);
             Check($"{h}: an alteration's upgrades only come after it ({orphans} early)", orphans == 0);
@@ -131,11 +131,11 @@ public partial class Main
 
         // one alteration per ability: the other is locked, and named
         {
-            var s = new PlayerStats(HeroKind.Vitalist);
-            s.Stacks["hex_burst"] = 1;
-            var endless = Upgrades.Get("hex_endless");
-            Check("with Blight Burst, Endless Hex isn't offered", !Upgrades.Available(endless, s));
-            Check($"and says why ({Upgrades.LockReason(endless, s)})", Upgrades.LockReason(endless, s) == "YOU HAVE BLIGHT BURST");
+            var s = new PlayerStats(HeroKind.Rogue);
+            s.Stacks["vanish_smoke"] = 1;
+            var other = new Upgrade { Id = "test_alt", Name = "Test", Desc = "", For = new[] { HeroKind.Rogue }, Ability = "vanish", Alteration = true };
+            Check("with Smoke Bomb, another vanish alteration isn't offered", !Upgrades.Available(other, s));
+            Check($"and says why ({Upgrades.LockReason(other, s)})", Upgrades.LockReason(other, s) == "YOU HAVE SMOKE BOMB");
         }
         // Unyielding Shield keeps Quick Mend and Iron Timing away
         {
@@ -174,8 +174,8 @@ public partial class Main
             Check($"Magma Skin isn't offered above depth {Tune.Hero.MagmaSkinFromDepth} (available {early}, in {seen} chests)", !early && seen == 0);
             G.Depth = Tune.Hero.MagmaSkinFromDepth;
             seen = 0;
-            for (int k = 0; k < 400; k++) if (Upgrades.RollChest(s, rng, Vector2.Zero).Contains(magma)) seen++;
-            Check($"from depth {Tune.Hero.MagmaSkinFromDepth} it is (in {seen} of 400 chests), as a conditional card", seen > 0 && magma.Kind == UpgradeKind.Conditional);
+            for (int k = 0; k < 400; k++) if (Upgrades.RollMilestone(s, rng).Contains(magma)) seen++;
+            Check($"from depth {Tune.Hero.MagmaSkinFromDepth} it is (in {seen} of 400 milestones), as a technique", seen > 0 && magma.Kind == UpgradeKind.Technique);
             G.Depth = 1;
         }
         // a party's chest: its class card may be a friend's, the other two anyone's

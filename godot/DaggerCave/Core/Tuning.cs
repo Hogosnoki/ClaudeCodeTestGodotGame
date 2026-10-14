@@ -49,7 +49,7 @@ public static class Tune
         public static float FallTerminalShare = 0.97f, FallGraceSeconds = 0.3f, FallRampSeconds = 1.0f, FallShareMin = 0.01f, FallShareMax = 0.5f;
         /// <summary>Extra gravity multiplier while falling (snappier landings).</summary>
         public static float FallGravityMult = 1.2f;
-        public static float CoyoteTime = 0.1f, JumpBuffer = 0.13f;
+        public static float CoyoteTime = 0.15f, JumpBuffer = 0.19f;
         /// <summary>Releasing jump early multiplies upward speed by this (variable jump height).</summary>
         public static float JumpCutMult = 0.5f;
         public static float DoubleJumpMult = 0.9f;
@@ -109,9 +109,9 @@ public static class Tune
         /// <summary>Chest upgrades: Rending Edge bleed (share of each hit, dealt over BleedSeconds),
         /// Crescent Wave (damage share, range px, cooldown s), Executioner (bonus vs. enemies below
         /// the HP share).</summary>
-        public static float BleedShare = 0.4f, BleedSeconds = 3f;
+        public static float BleedShare = 0.3f, BleedSeconds = 3f;
         public static float WaveDamage = 0.5f, WaveRange = 150f, WaveCooldown = 1.2f;
-        public static float ExecuteBonus = 0.6f, ExecuteBelow = 0.35f;
+        public static float ExecuteBonus = 0.6f, ExecuteBelow = 0.25f;
         /// <summary>Knockback (px/s) on every hit, before Heavy Pommel.</summary>
         public static float Knockback = 180f;
         /// <summary>Faster and springier than the Warden.</summary>
@@ -292,10 +292,10 @@ public static class Tune
 
         /// <summary>Blight Burst (an alteration): the hex's damage, and how much weaker its slow and
         /// its extra damage taken are. Endless Hex: its vital force cost (no cooldown).</summary>
-        public static float BlightDamage = 12f, BlightWeaker = 0.5f, EndlessHexCost = 10f;
+        public static float BlightDamage = 8f, BlightWeaker = 0.5f, EndlessHexCost = 10f;
         /// <summary>Slow Mending (an alteration): seconds the mending part of a heal takes; Patient
         /// Mending's extra healing; Warding Mending's damage reduction while it mends you.</summary>
-        public static float MendSeconds = 6f, PatientBonus = 0.2f, WardingShare = 0.2f;
+        public static float MendSeconds = 6f, PatientNow = 0.6f, PatientLater = 0.6f, PatientSeconds = 4f, WardingShare = 0.2f;
         /// <summary>Lifebloom (an alteration): the heal for the friend it blooms on and for everyone
         /// else in the burst, and the Healing Pool's heal a second and seconds.</summary>
         public static float BloomHeal = 30f, BloomSplash = 10f, PoolRate = 2f, PoolSeconds = 5f;
@@ -341,14 +341,14 @@ public static class Tune
         /// <summary>Vanish (the dodge button): VanishSeconds of stealth (creatures lose you) at
         /// VanishSpeed times your speed; VanishCooldown s to come back. Attacking or being hurt ends
         /// it. Surprise Attack (an upgrade): the strike out of the shadows lands SurpriseMult as hard.</summary>
-        public static float VanishSeconds = 6f, VanishSpeed = 1.5f, VanishCooldown = 12f, SurpriseMult = 4f;
+        public static float VanishSeconds = 6f, VanishSpeed = 1.5f, VanishCooldown = 12f, SurpriseMult = 3f;
         /// <summary>Alterations: Ricochet (a thrown dagger springs on to one more creature within
         /// RicochetRange px, then comes back), Smoke Bomb (a cloud SmokeRadius px round for
         /// SmokeSeconds: every hero in it is hidden, and creatures in it can't find anyone), Tether
         /// (Recall pulls you to a stuck dagger at TetherSpeed px/s instead).</summary>
         public static float RicochetRange = 130f, SmokeRadius = 70f, SmokeSeconds = 6f, TetherSpeed = 720f;
         /// <summary>Keen Edge (an upgrade): the crit chance each rank adds.</summary>
-        public static float KeenChance = 0.05f;
+        public static float KeenChance = 0.08f;
     }
 
     // =============================================================================== ELEMENTALIST
@@ -384,7 +384,7 @@ public static class Tune
         /// <summary>Frostbolt (an alteration): FrostDamage a bolt, one coming back every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
-        public static float FrostDamage = 12f, FrostEvery = 1f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
+        public static float FrostDamage = 10f, FrostEvery = 1f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
         /// <summary>Updraft (the dodge button): hold it to aim, let go to raise it. Costs UpdraftCost alimus; a narrow column of air
         /// UpdraftWidth px wide and UpdraftHeight px tall (18 m) for UpdraftSeconds, at the angle aimed (any direction at all).
         /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a terminal velocity of UpdraftFallMult of
@@ -423,7 +423,9 @@ public static class Tune
         public static float SnapViewX = 500f, SnapViewY = 290f;
         /// <summary>Upgrades: Kindling's ignite chance and Deep Chill's freeze chance, per rank;
         /// Echo's alimus back for each creature a snap bursts.</summary>
-        public static float KindlingChance = 0.1f, DeepChillChance = 0.04f, EchoAlimus = 5f;
+        public static float KindlingChance = 0.1f, DeepChillChance = 0.04f, EchoAlimus = 3f;
+        /// <summary>Cinder Snap: the snap leaves burning creatures alight, and comes back this many seconds later.</summary>
+        public static float CinderSnapExtra = 2f;
     }
 
     // =============================================================================== COMBAT
@@ -549,16 +551,20 @@ public static class Tune
         /// <summary>Retaliation relics: a boss or mini-boss that strikes you burns for StruckIgniteDps for StruckIgniteSeconds (20% of blows); a regular creature that does is frozen solid for StruckFreezeSeconds (15%).</summary>
         public static float StruckIgniteChance = 0.2f, StruckIgniteDps = 4f, StruckIgniteSeconds = 4f, StruckFreezeChance = 0.15f, StruckFreezeSeconds = 1.5f;
         /// <summary>Co-op relics: Last Rites heals each living ally by FallHeal when you fall; Phoenix Ash and Healer's Hands add ReviveExtra (a share of max health) to a revive; a plain revive restores ReviveBase.</summary>
-        public static float FallHeal = 10f, ReviveExtra = 0.2f, ReviveBase = 0.35f;
+        public static float FallHeal = 20f, ReviveExtra = 0.2f, ReviveBase = 0.35f;
+        /// <summary>Fast Res and Just Kidding: a revive goes this much faster (each).</summary>
+        public static float ReviveFaster = 0.4f;
+        /// <summary>Fount of Vigor and Spring Water: a level gained, or a depth advanced, heals this share of max health.</summary>
+        public static float LevelHealShare = 0.2f, DepthHealShare = 0.2f;
         /// <summary>Echoing Blade: a melee blow that lands strikes again EchoDelay s later (EchoChance of the time) for EchoMult of its damage.</summary>
         public static float EchoChance = 0.2f, EchoMult = 0.5f, EchoDelay = 0.1f;
         /// <summary>Soul Lantern, Chain Lightning, Spillover, Wither, Rally, Level Surge, Bounty Hunter, Overflow (see RelicEffects).</summary>
-        public static float SoulShare = 0.2f, SoulRadius = 60f;
+        public static float SoulShare = 0.1f, SoulRadius = 60f;
         public static float ChainChance = 0.15f, ChainShare = 0.4f, ChainRadius = 90f; public static int ChainJumps = 2;
         public static float SpillShare = 0.3f, SpillRadius = 80f, WitherRadius = 80f;
         public static float RallyRadius = 260f, RallyShare = 0.03f, RallySeconds = 8f;
         public static float SurgeBase = 40f, SurgePerLevel = 6f, SurgeRadius = 150f, SurgeHeal = 0.1f;
-        public static float BountyChance = 0.08f;
+        public static float BountyChance = 0.15f;
         public static float OverflowShare = 0.08f, OverflowSeconds = 10f, OverflowEvery = 3f;
         public static float LungeMin = 100f, LungeTimeMult = 1.6f, PursuitRange = 170f, HoverTail = 0.25f;
         /// <summary>Far Sight and Close Quarters: a creature this far (px) is "far"; nearer ones are in between.</summary>
@@ -760,7 +766,7 @@ public static class Tune
         /// <summary>Self-Repair (the ability button): mends RepairRate health a second, one fuel for one health, for up to
         /// RepairSeconds (or until the fuel or the damage runs out; a press stops it), moving at RepairMove x.
         /// Back after RepairCooldown s. Scrap Reclaimer: a kill gives ScrapFuel.</summary>
-        public static float RepairRate = 10f, RepairSeconds = 4f, RepairMove = 0.45f, RepairCooldown = 6f, ScrapFuel = 4f;
+        public static float RepairRate = 10f, RepairSeconds = 4f, RepairMove = 0.45f, RepairCooldown = 6f, ScrapFuel = 10f;
 
         /// <summary>Steam Release (the second ability): a cone of steam SteamRange px long and SteamCone degrees wide: SteamDamage
         /// to every creature in it and a SteamPush shove, gas blown away and its own burning put out. The release kicks the

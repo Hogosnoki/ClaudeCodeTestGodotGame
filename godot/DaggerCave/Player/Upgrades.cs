@@ -72,6 +72,8 @@ public sealed class PlayerStats
     public float BleedShare;             // Rending Edge
     public bool Execute, CrescentWave;
     public float HeaveCooldown = Tune.Swordsman.HeaveCooldown;
+    /// <summary>Uses of the heave held (Relentless Heave: two, each recharging in turn).</summary>
+    public int HeaveCharges = 1;
     /// <summary>Alterations: Relentless Charge (a charge empowers the whole next combo), Swift Heave
     /// (a charged heave is instant and works in the air), Counter Roll (rolling into a blow counters
     /// it) and Flowing Counter (a counter can start a combo).</summary>
@@ -92,6 +94,8 @@ public sealed class PlayerStats
     public bool DashMend, ShieldThorns;
     public bool Stalwart, QuickMend, LastStand;
     public float BashCooldown = Tune.Warden.BashCooldown;
+    /// <summary>What a bash costs the shield (x): Dense Metal.</summary>
+    public float BashShieldMult = 1f;
     /// <summary>Alterations: Unyielding Shield (never weakens or breaks, stops UnyieldingShare of a
     /// blow), Guardian's Charge (a barrier for a friend), Deflecting Bash (sends projectiles back).</summary>
     public bool Unyielding, GuardianCharge, DeflectingBash, DeflectDouble;
@@ -163,6 +167,8 @@ public sealed class PlayerStats
     /// <summary>Bubble bursts healing the allies round it; the Bubble goes on a creature instead (alteration); the Barrier also goes on a second ally.</summary>
     public bool BubbleHeal, HostileBubble, TwinBarrier, WideBarrier, BurdenAll;
     /// <summary>Shared Burden: the Aegis takes this much less of what it carries (0..1). Bubble: the share of each blow it absorbs. Hostile Bubble: its burst's strength (x).</summary>
+    /// <summary>Heavier Burden: a share of a burdened friend's blows that nobody takes.</summary>
+    public float BurdenMitigate;
     public float BurdenSoak, BubbleAbsorb = Tune.Aegis.BubbleAbsorb, WardBlastMult = 1f;
 
     // relics (see Relics.cs)
@@ -220,6 +226,13 @@ public sealed class PlayerStats
     public float EchoStrike;
     /// <summary>The co-op relics: health every living ally is given when this hero falls; how much more health (a share of max) this hero rises with when a friend revives them; and how much more a friend they revive rises with.</summary>
     public float FallHealAllies, ReviveBonus, ReviveGiveBonus;
+    /// <summary>Fast Res: a revive this hero gives goes this much faster (a share).</summary>
+    public float ReviveSpeed;
+    /// <summary>Burning Heart: burns this hero lights deal this many times as much; frost freezes nothing solid.</summary>
+    public float BurnMult = 1f;
+    public bool NoFreeze;
+    /// <summary>Featherfoot Sash: the dash-slash's strike (x).</summary>
+    public float DashSlashMult = 1f;
     /// <summary>Melee lunges: how many times as strong (and longer) they are, and whether a swing in the air pursues the creature and hovers (the Pursuit relic).</summary>
     public float LungeMult = 1f;
     public bool AerialLunge;
@@ -367,91 +380,84 @@ public static partial class Upgrades
         new() { Id = "dmg", Name = "Whetstone", Desc = "+15% damage.", Icon = "blade", MaxStacks = 6, Weight = 1.2f, Apply = (s, p) => s.DamageMult *= 1f + 0.15f },
 
         // --- The blade (swordsman, warden) ---
-        new() { Id = "reach", Name = "Longer Blade", Desc = "Blade reach +22%.", Icon = "blade", For = Blades, Ability = "sword", MaxStacks = 3, Apply = (s, p) => s.DaggerReach *= 1f + 0.22f },
+        new() { Id = "reach", Name = "Longer Blade", Desc = "Blade reach +15%.", Icon = "blade", For = S, Ability = "sword", MaxStacks = 3, Apply = (s, p) => s.DaggerReach *= 1f + 0.15f },
+        new() { Id = "reach_w", Name = "Longer Blade", Desc = "Blade reach +22%.", Icon = "blade", For = W, Ability = "sword", MaxStacks = 3, Apply = (s, p) => s.DaggerReach *= 1f + 0.22f },
         new() { Id = "combo", Name = "Flurry", Desc = "Your combo chains one more strike: landing it refunds the swing cooldown again.", Icon = "blade", For = Blades, Ability = "sword", MaxStacks = 3, Tier = UpgradeTier.Ability, Apply = (s, p) => s.ComboResets += 1 },
         new() { Id = "combo3", Name = "Finisher", Desc = "The last strike of a full combo hits much harder (x2 damage, wider arc).", Icon = "blade", For = Blades, Ability = "sword", Requires = "combo", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ThirdCombo = true },
-        new() { Id = "pogo", Name = "Downward Thrust", Desc = "Aerial down-slashes bounce you off enemies and refresh air jumps.", Icon = "blade", For = Blades, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Pogo = true },
-        new() { Id = "knock", Name = "Heavy Pommel", Desc = "Your strikes knock enemies back much harder.", Icon = "blade", For = Blades, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.KnockbackLevel = Math.Max(1, s.KnockbackLevel) },
-        new() { Id = "knock2", Name = "Crushing Blows", Desc = "Knockback strength increased.", Icon = "blade", For = Blades, Ability = "sword", MaxStacks = 2, Requires = "knock", Apply = (s, p) => s.KnockbackLevel += 1 },
+        new() { Id = "pogo", Name = "Downward Thrust", Desc = "Aerial down-slashes bounce you off enemies and refresh air jumps (once: touch the ground before the next bounce).", Icon = "blade", For = Blades, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Pogo = true },
         new() { Id = "leech", Name = "Thirsty Blade", Desc = "Heal 1% of damage dealt.", Icon = "life", For = Blades, Ability = "sword", MaxStacks = 3, Apply = (s, p) => s.LifeSteal += 0.01f },
 
         // --- Sword techniques (swordsman) ---
-        new() { Id = "rend", Name = "Rending Edge", Desc = "Sword hits make enemies bleed for 40% more damage over 3 s.", Icon = "blade", For = S, Ability = "sword", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BleedShare += Tune.Swordsman.BleedShare },
-        new() { Id = "wave", Name = "Crescent Wave", Desc = "Swings loose a slicing wave that flies ahead and cuts through enemies (half damage, every 1.2 s).", Icon = "blade", For = S, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.CrescentWave = true },
-        new() { Id = "execute", Name = "Executioner", Desc = "+60% damage to enemies below 35% health.", Icon = "blade", For = S, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Execute = true },
+        new() { Id = "rend", Name = "Rending Edge", Desc = "Sword hits make enemies bleed for 30% more damage over 3 s.", Icon = "blade", For = S, Ability = "sword", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.BleedShare += Tune.Swordsman.BleedShare },
+        new() { Id = "execute", Name = "Executioner", Desc = "+60% damage to enemies below 25% health.", Icon = "blade", For = S, Ability = "sword", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Execute = true },
 
         // --- Charged Strike (swordsman) ---
         new() { Id = "charge_cd", Name = "Focus", Desc = "Charged Strike recharges 20% faster.", Icon = "charge", For = S, Ability = "charge", MaxStacks = 2, Apply = (s, p) => s.ChargeCooldown *= 0.8f },
         new() { Id = "charge2", Name = "Twin Charge", Desc = "Charged Strike empowers your next two swings (with Relentless Charge, two combos).", Icon = "charge", For = S, Ability = "charge", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ChargeSwings = 2 },
         new() { Id = "cripple", Name = "Crippling Strike", Desc = "Enemies struck by a charged swing deal 35% less damage instead of 20%.", Icon = "charge", For = S, Ability = "charge", Tier = UpgradeTier.Ability, Apply = (s, p) => s.WeakenMult = 0.65f },
-        new() { Id = "storm", Name = "Storm Edge", Desc = "A charged swing looses a full-strength crescent wave.", Icon = "charge", For = S, Ability = "charge", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ChargeWave = true },
         new() { Id = "charge_combo", Name = "Relentless Charge", Desc = "Your Charged Strike empowers your whole next combo, at 80% strength: +40% damage and +20% reach on every strike.", Icon = "charge", For = S, Ability = "charge", Alteration = true, Apply = (s, p) => s.RelentlessCharge = true },
-        new() { Id = "charge_combo_more", Name = "Unbroken", Desc = "Your combos chain one more strike.", Icon = "charge", For = S, Ability = "charge", Requires = "charge_combo", Apply = (s, p) => s.ComboResets += 1 },
 
         // --- Heaving Swing (swordsman) ---
         new() { Id = "heave_cd", Name = "Broad Shoulders", Desc = "Heaving swing recharges 20% faster.", Icon = "charge", For = S, Ability = "heave", MaxStacks = 2, Apply = (s, p) => s.HeaveCooldown *= 0.8f },
         new() { Id = "heave_swift", Name = "Swift Heave", Desc = "With a Charged Strike waiting, your heave spends it on speed instead of force: no wind-up, and you can heave in the air.", Icon = "charge", For = S, Ability = "heave", Alteration = true, Apply = (s, p) => s.SwiftHeave = true },
-        new() { Id = "heave_swift_cd", Name = "Second Heave", Desc = "Your heaving swing recharges 3 s sooner.", Icon = "charge", For = S, Ability = "heave", Requires = "heave_swift", Apply = (s, p) => s.HeaveCooldown = Math.Max(1f, s.HeaveCooldown - 3f) },
+        new() { Id = "heave_twice", Name = "Relentless Heave", Desc = "Your heaving swing has a second use, but each comes back 60% slower.", Icon = "charge", For = S, Ability = "heave", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.HeaveCharges = 2; s.HeaveCooldown *= 1.6f; } },
 
         // --- Dodge (swordsman) ---
         new() { Id = "iframes", Name = "Phantom Step", Desc = "Dashing makes you briefly invulnerable.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DodgeIFrames = true },
-        new() { Id = "dodgecd", Name = "Nimble", Desc = "Dodge cooldown -20%.", Icon = "dodge", For = S, Ability = "dodge", MaxStacks = 3, Apply = (s, p) => s.DodgeCdMult *= 0.8f },
-        new() { Id = "dodge2", Name = "Second Wind", Desc = "Gain a second dodge charge.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.DodgeCharges = 2; p.SyncCharges(); } },
-        new() { Id = "windrunner", Name = "Wind Runner", Desc = "Dodges and Charged Strike recharge 15% faster.", Icon = "dodge", For = S, Ability = "dodge", MaxStacks = 4, Apply = (s, p) => { s.DodgeCdMult *= 0.85f; s.ChargeCooldown *= 0.85f; } },
+        new() { Id = "dodgecd", Name = "Nimble", Desc = "Dodge cooldown -20%.", Icon = "dodge", For = S, Ability = "dodge", MaxStacks = 2, Apply = (s, p) => s.DodgeCdMult *= 0.8f },
+        new() { Id = "dodge2", Name = "Second Wind", Desc = "Gain a second dash-slash, but each comes back 60% slower.", Icon = "dodge", For = S, Ability = "dodge", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.DodgeCharges = 2; s.DodgeCdMult *= 1.6f; p.SyncCharges(); } },
         new() { Id = "dodge_counter", Name = "Counter Dash", Desc = "Dashing into a melee blow ends the dash, stops all of that blow and swings back at the attacker.", Icon = "dodge", For = S, Ability = "dodge", Alteration = true, Apply = (s, p) => s.CounterRoll = true },
         new() { Id = "dodge_through", Name = "Dash Through", Desc = "Your dash-slash goes through the first creature it meets instead of stopping at it, and you turn, once clear of it, to slash it from behind (1.5 times a strike).", Icon = "dodge", For = S, Ability = "dodge", Alteration = true, Apply = (s, p) => s.DashThrough = true },
         new() { Id = "dodge_counter_combo", Name = "Flowing Counter", Desc = "A counter that lands can start a combo.", Icon = "dodge", For = S, Ability = "dodge", Requires = "dodge_counter", Apply = (s, p) => s.CounterCombo = true },
 
         // --- Shield (warden) ---
         new() { Id = "perfect_reflect", Name = "Riposte Guard", Desc = "A perfect block (raise the shield just before the hit) reflects projectiles back at enemies.", Icon = "shield", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.PerfectReflect = true },
-        new() { Id = "perfect_soak", Name = "Iron Timing", Desc = "Perfect blocks cost your shield 70% less.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Tier = UpgradeTier.Ability, Apply = (s, p) => s.PerfectSoak = true },
-        new() { Id = "shield_wide", Name = "Tower Shield", Desc = "Your shield covers a 30% wider arc.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 2, Apply = (s, p) => s.ShieldArcMult *= 1f + 0.3f },
-        new() { Id = "stalwart", Name = "Stalwart", Desc = "Full speed with the shield raised, and hits never knock you back.", Icon = "shield", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Stalwart = true },
-        new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegenMult *= 1.5f; } },
+        new() { Id = "perfect_soak", Name = "Iron Timing", Desc = "Perfect blocks cost your shield 70% less.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Apply = (s, p) => s.PerfectSoak = true },
+        new() { Id = "stalwart", Name = "Stalwart", Desc = "Full speed with the shield raised, and hits never knock you back.", Icon = "shield", For = W, Ability = "shield", Apply = (s, p) => s.Stalwart = true },
+        new() { Id = "quickmend", Name = "Quick Mend", Desc = "Your shield starts regenerating almost at once after a block, and 50% faster.", Icon = "shield", For = W, Ability = "shield", Excludes = new[] { "shield_unyielding" }, Tier = UpgradeTier.Ability, Apply = (s, p) => { s.QuickMend = true; s.ShieldRegenMult *= 1.5f; } },
         new() { Id = "thorns", Name = "Spiked Shield", Desc = "Melee attackers that strike your shield take 40% of the blow back.", Icon = "shield", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ShieldThorns = true },
         new() { Id = "laststand", Name = "Last Stand", Desc = "Once per depth, a killing blow leaves you at 1 HP, briefly invulnerable, with a whole shield.", Icon = "life", For = W, Ability = "shield", Tier = UpgradeTier.Ability, Apply = (s, p) => s.LastStand = true },
-        new() { Id = "aegis", Name = "Bastion", Desc = "+15% shield strength and regeneration.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 4, Apply = (s, p) => { s.ShieldMult *= 1.15f; s.ShieldRegenMult *= 1.15f; } },
+        new() { Id = "aegis", Name = "Bastion", Desc = "+25% shield durability.", Icon = "shield", For = W, Ability = "shield", MaxStacks = 2, Apply = (s, p) => s.ShieldMult *= 1.25f },
         new() { Id = "shield_unyielding", Name = "Unyielding Shield", Desc = "Your shield never weakens or breaks, but stops only 70% of each blow (a perfect block still stops it all).", Icon = "shield", For = W, Ability = "shield", Alteration = true, Apply = (s, p) => s.Unyielding = true },
         new() { Id = "unyielding_more", Name = "Braced", Desc = "Your unyielding shield stops 5% more of each blow.", Icon = "shield", For = W, Ability = "shield", Requires = "shield_unyielding", MaxStacks = 2, Apply = (s, p) => s.UnyieldingShare += 0.05f },
 
         // --- Guarded Charge (warden) ---
-        new() { Id = "dash_cd", Name = "Ready Charge", Desc = "Guarded Charge cooldown -20%.", Icon = "shield", For = W, Ability = "dash", MaxStacks = 3, Apply = (s, p) => s.DashCooldown *= 0.8f },
+        new() { Id = "dash_cd", Name = "Ready Charge", Desc = "Guarded Charge cooldown -20%.", Icon = "shield", For = W, Ability = "dash", MaxStacks = 2, Apply = (s, p) => s.DashCooldown *= 0.8f },
         new() { Id = "dash_far", Name = "Long Charge", Desc = "Your Guarded Charge carries you 30% farther.", Icon = "shield", For = W, Ability = "dash", MaxStacks = 2, Apply = (s, p) => s.DashTime *= 1.3f },
         new() { Id = "dash_bash", Name = "Battering Charge", Desc = "Your Guarded Charge hits what it stops four times as hard.", Icon = "shield", For = W, Ability = "dash", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashDamageMult = 4f },
         new() { Id = "dash_mend", Name = "Rallying Charge", Desc = "Breaking an attack with your Guarded Charge mends your shield by 12 and heals 4.", Icon = "shield", For = W, Ability = "dash", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DashMend = true },
-        new() { Id = "vanguard", Name = "Vanguard", Desc = "Guarded Charge recharges 15% faster.", Icon = "shield", For = W, Ability = "dash", MaxStacks = 4, Apply = (s, p) => s.DashCooldown *= 0.85f },
+        new() { Id = "vanguard", Name = "Vanguard", Desc = "Guarded Charge recharges 20% faster.", Icon = "shield", For = W, Ability = "dash", MaxStacks = 2, Apply = (s, p) => s.DashCooldown *= 0.8f },
         new() { Id = "dash_guardian", Name = "Guardian's Charge", Desc = "Your Guarded Charge rushes to the friend nearest your aim and wraps them in a barrier that soaks 20 damage for 2 s (alone, it wraps you).", Icon = "shield", For = W, Ability = "dash", Alteration = true, Apply = (s, p) => s.GuardianCharge = true },
         new() { Id = "guardian_strong", Name = "Thick Barrier", Desc = "Your barrier soaks 50% more.", Icon = "shield", For = W, Ability = "dash", Requires = "dash_guardian", Apply = (s, p) => s.BarrierAmount *= 1.5f },
         new() { Id = "guardian_long", Name = "Lasting Barrier", Desc = "Your barrier lasts 33% longer.", Icon = "shield", For = W, Ability = "dash", Requires = "dash_guardian", Apply = (s, p) => s.BarrierSeconds *= 1.33f },
 
         // --- Shield bash (warden) ---
         new() { Id = "bash_cd", Name = "Hard Shoulder", Desc = "Shield bash recharges 20% faster.", Icon = "shield", For = W, Ability = "bash", MaxStacks = 2, Apply = (s, p) => s.BashCooldown *= 0.8f },
+        new() { Id = "bash_dense", Name = "Dense Metal", Desc = "Your shield bash costs your shield 30% less.", Icon = "shield", For = W, Ability = "bash", MaxStacks = 2, Apply = (s, p) => s.BashShieldMult *= 0.7f },
         new() { Id = "bash_deflect", Name = "Deflecting Bash", Desc = "Your shield bash no longer stuns: instead it sends every projectile in a wide arc in front back where it came from.", Icon = "shield", For = W, Ability = "bash", Alteration = true, Apply = (s, p) => s.DeflectingBash = true },
         new() { Id = "deflect_double", Name = "Return to Sender", Desc = "Projectiles your bash sends back deal double damage.", Icon = "shield", For = W, Ability = "bash", Requires = "bash_deflect", Apply = (s, p) => s.DeflectDouble = true },
 
         // --- Drain (vitalist) ---
         new() { Id = "mouths", Name = "Many Mouths", Desc = "Your drain also tears the life out of one more creature near its target (60% damage).", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.DrainExtra += 1 },
         new() { Id = "bolt_range", Name = "Far Reach", Desc = "Your drain and rupture reach 25% farther.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.DaggerReach *= 1f + 0.25f },
-        new() { Id = "hunger", Name = "Hungering Spirit", Desc = "Gain half again as much vital force from the damage you deal.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.VitalForceGain += Tune.Vitalist.VitalForceGain * 0.5f },
+        new() { Id = "hunger", Name = "Hungering Spirit", Desc = "Gain 1.5x as much vital force from the damage you deal.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.VitalForceGain += Tune.Vitalist.VitalForceGain * 0.5f },
         new() { Id = "well", Name = "Deep Well", Desc = "Hold 15 more vital force.", Icon = "spell", For = V, Ability = "drain", MaxStacks = 2, Apply = (s, p) => s.VitalForceMax += 15f },
 
         // --- Hex (vitalist) ---
-        new() { Id = "hex_wide", Name = "Spreading Blight", Desc = "Your hex reaches 30% farther.", Icon = "spell", For = V, Ability = "hex", MaxStacks = 2, Apply = (s, p) => s.HexRadiusMult *= 1f + 0.3f },
+        new() { Id = "hex_wide", Name = "Spreading Blight", Desc = "Your hex reaches 20% farther.", Icon = "spell", For = V, Ability = "hex", MaxStacks = 2, Apply = (s, p) => s.HexRadiusMult *= 1f + 0.2f },
         new() { Id = "hex_long", Name = "Lingering Hex", Desc = "Your hex lasts 2 s longer.", Icon = "spell", For = V, Ability = "hex", MaxStacks = 2, Apply = (s, p) => s.HexSeconds += 2f },
-        new() { Id = "hex_rot", Name = "Withering Hex", Desc = "Hexed creatures rot, losing 6 health a second.", Icon = "spell", For = V, Ability = "hex", Tier = UpgradeTier.Ability, Apply = (s, p) => s.HexRot += 6f },
-        new() { Id = "hex_burst", Name = "Blight Burst", Desc = "Your hex also deals 12 damage to everything it reaches, but slows and weakens half as much.", Icon = "spell", For = V, Ability = "hex", Alteration = true, Apply = (s, p) => s.BlightBurst = true },
-        new() { Id = "hex_endless", Name = "Endless Hex", Desc = "Your hex has no cooldown, but costs 10 vital force.", Icon = "spell", For = V, Ability = "hex", Alteration = true, Apply = (s, p) => s.EndlessHex = true },
+        new() { Id = "hex_rot", Name = "Withering Hex", Desc = "Hexed creatures rot, losing 3 health a second.", Icon = "spell", For = V, Ability = "hex", Tier = UpgradeTier.Ability, Apply = (s, p) => s.HexRot += 3f },
+        new() { Id = "hex_burst", Name = "Blight Burst", Desc = "Your hex also deals 8 damage to everything it reaches, but slows and weakens half as much.", Icon = "spell", For = V, Ability = "hex", Alteration = true, Apply = (s, p) => s.BlightBurst = true },
 
         // --- Heal (vitalist) ---
         new() { Id = "heal_more", Name = "Deep Mending", Desc = "Your heal restores 20% more.", Icon = "life", For = V, Ability = "heal", MaxStacks = 2, Apply = (s, p) => s.HealMult *= 1f + 0.2f },
         new() { Id = "heal_cheap", Name = "Frugal Rites", Desc = "Your heal costs 25% less vital force.", Icon = "life", For = V, Ability = "heal", MaxStacks = 2, Apply = (s, p) => s.HealCostMult *= 0.75f },
         new() { Id = "wellspring", Name = "Wellspring", Desc = "+15% vital force gained and +10% heal strength.", Icon = "spell", For = V, Ability = "heal", MaxStacks = 4, Apply = (s, p) => { s.VitalForceGain *= 1.15f; s.HealMult *= 1.1f; } },
-        new() { Id = "heal_slow", Name = "Slow Mending", Desc = "Your heal gives half at once and the other half over 6 s.", Icon = "life", For = V, Ability = "heal", Alteration = true, Apply = (s, p) => s.SlowMending = true },
-        new() { Id = "heal_patient", Name = "Patient Mending", Desc = "All of your heal comes over the 6 s, and 20% more of it.", Icon = "life", For = V, Ability = "heal", Requires = "heal_slow", Apply = (s, p) => s.PatientMending = true },
-        new() { Id = "heal_warding", Name = "Warding Mending", Desc = "Anyone your heal is mending takes 20% less damage.", Icon = "life", For = V, Ability = "heal", Requires = "heal_slow", Apply = (s, p) => s.WardingMending = true },
+        new() { Id = "heal_patient", Name = "Patient Mending", Desc = "Your heals heal for 60% at once, and 60% more over 4 s.", Icon = "life", For = V, Ability = "heal", Apply = (s, p) => s.PatientMending = true },
+        new() { Id = "heal_warding", Name = "Warding Mending", Desc = "Anyone your heal is mending takes 20% less damage.", Icon = "life", For = V, Ability = "heal", Requires = "heal_patient", Apply = (s, p) => s.WardingMending = true },
 
         // --- Rupture (vitalist) ---
-        new() { Id = "rupture_wide", Name = "Burst Veins", Desc = "Your rupture's burst reaches 40% farther and splashes for half again as much.", Icon = "spell", For = V, Ability = "rupture", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.RuptureRadiusMult *= 1f + 0.4f; s.RuptureSplashMult *= 1f + 0.5f; } },
+        new() { Id = "rupture_wide", Name = "Burst Veins", Desc = "Your rupture's burst reaches 30% farther and splashes 1.5x as hard.", Icon = "spell", For = V, Ability = "rupture", Tier = UpgradeTier.Ability, Apply = (s, p) => { s.RuptureRadiusMult *= 1f + 0.3f; s.RuptureSplashMult *= 1f + 0.5f; } },
         new() { Id = "rupture_cheap", Name = "Thin Blood", Desc = "Your rupture costs 20% less vital force.", Icon = "spell", For = V, Ability = "rupture", MaxStacks = 2, Apply = (s, p) => s.RuptureCostMult *= 0.8f },
         new() { Id = "rupture_bloom", Name = "Lifebloom", Desc = "Your rupture blooms on a friend instead of a creature (alone, on you): it heals them 30, and everyone else in the burst 10.", Icon = "life", For = V, Ability = "rupture", Alteration = true, Apply = (s, p) => s.Lifebloom = true },
         new() { Id = "bloom_pool", Name = "Healing Pool", Desc = "Your bloom leaves a pool that heals everyone in it 2 a second for 5 s.", Icon = "life", For = V, Ability = "rupture", Requires = "rupture_bloom", Apply = (s, p) => s.BloomPool = true },
@@ -459,15 +465,13 @@ public static partial class Upgrades
         // --- Bolts (elementalist) ---
         new() { Id = "kindling", Name = "Kindling", Desc = "Your fire is 10% likelier to set a creature alight (firebolts, and a Firestorm).", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
                 When = s => !s.Frostbolt || s.Firestorm, Apply = (s, p) => s.IgniteChance += Tune.Elementalist.KindlingChance },
-        new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 15 more alimus.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 15f },
-        new() { Id = "bolt_charges", Name = "Spare Bolt", Desc = "Your staff holds one more firebolt.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 1,
-                When = s => !s.Frostbolt, Apply = (s, p) => s.FireChargeBonus += 1 },
-        new() { Id = "frost_charges", Name = "Frozen Quiver", Desc = "Your staff holds one more frostbolt.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
-                When = s => s.Frostbolt, Apply = (s, p) => s.FrostChargeBonus += 1 },
-        new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 12 damage a bolt, the staff holds four and gets one back every second, each slowing what it strikes by 30% for 2 s, with a 20% chance of freezing a creature solid for 3 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
+        new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 20 more alimus.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 20f },
+        new() { Id = "bolt_charges", Name = "Spare Bolt", Desc = "Your staff holds one more firebolt (two more frostbolts, with Frostbolt).", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 1,
+                Apply = (s, p) => { s.FireChargeBonus += 1; s.FrostChargeBonus += 2; } },
+        new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 10 damage a bolt, the staff holds four and gets one back every second, each slowing what it strikes by 30% for 2 s, with a 20% chance of freezing a creature solid for 3 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
 
         // --- Updraft (elementalist) ---
-        new() { Id = "attune", Name = "Attunement", Desc = "Your alimus comes back 25% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AlimusRegenMult *= 1f + 0.25f },
+        new() { Id = "attune", Name = "Attunement", Desc = "Your alimus comes back 15% faster.", Icon = "spell", For = E, Ability = "updraft", MaxStacks = 3, Apply = (s, p) => s.AlimusRegenMult *= 1f + 0.15f },
 
         // --- Blizzard (elementalist) ---
         new() { Id = "deepchill", Name = "Deep Chill", Desc = "Your frost is 4% likelier to freeze a creature solid (frostbolts, and the blizzard).", Icon = "spell", For = E, Ability = "blizzard", MaxStacks = 2,
@@ -478,12 +482,12 @@ public static partial class Upgrades
         new() { Id = "blizzard_fire", Name = "Firestorm", Desc = "Your blizzard is a storm of fire: 3 damage a strike, each with a 10% chance of setting a creature alight (but it freezes nothing).", Icon = "spell", For = E, Ability = "blizzard", Alteration = true, Apply = (s, p) => s.Firestorm = true },
 
         // --- Snap (elementalist) ---
-        new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 40% farther.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapWideMult *= 1f + 0.4f },
-        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 5 alimus back.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapEcho = true },
-        new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Every burst of your snap sets the creatures it splashes on alight.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
+        new() { Id = "shrapnel", Name = "Shrapnel", Desc = "Your snap's bursts reach 30% farther.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapWideMult *= 1f + 0.3f },
+        new() { Id = "echo", Name = "Echo", Desc = "Every creature your snap bursts gives you 3 alimus back.", Icon = "spell", For = E, Ability = "snap", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SnapEcho = true },
+        new() { Id = "snap_cinder", Name = "Cinder Snap", Desc = "Your snap no longer puts out the burning creatures it bursts (they keep burning), but comes back 2 s later.", Icon = "spell", For = E, Ability = "snap", Alteration = true, Apply = (s, p) => s.CinderSnap = true },
 
         // --- Dagger Slash (rogue) ---
-        new() { Id = "keen", Name = "Keen Edge", Desc = "Your strikes are 5% likelier to be critical (twice as hard).", Icon = "blade", For = R, Ability = "dagger", MaxStacks = 2, Apply = (s, p) => s.CritChance += Tune.Rogue.KeenChance },
+        new() { Id = "keen", Name = "Keen Edge", Desc = "Your strikes are 8% likelier to be critical (twice as hard).", Icon = "blade", For = R, Ability = "dagger", MaxStacks = 2, Apply = (s, p) => s.CritChance += Tune.Rogue.KeenChance },
         new() { Id = "backstab", Name = "Backstab", Desc = "Your strikes from behind a creature land 50% harder.", Icon = "blade", For = R, Ability = "dagger", Tier = UpgradeTier.Ability, Apply = (s, p) => s.Backstab = true },
         new() { Id = "cruel_edge", Name = "Cruel Edge", Desc = "Your critical strikes land 2.5 times as hard instead of twice.", Icon = "blade", For = R, Ability = "dagger", Tier = UpgradeTier.Ability, Apply = (s, p) => s.CritMultBonus += 0.5f },
 
@@ -494,9 +498,9 @@ public static partial class Upgrades
         new() { Id = "ricochet_more", Name = "Chain Ricochet", Desc = "Your ricochet springs on to one more creature.", Icon = "throw", For = R, Ability = "throw", Requires = "throw_ricochet", Apply = (s, p) => s.RicochetBounces += 1 },
 
         // --- Vanish (rogue) ---
-        new() { Id = "surprise", Name = "Surprise Attack", Desc = "The strike that ends your vanishing (a slash, a throw or a recall) lands four times as hard.", Icon = "dodge", For = R, Ability = "vanish", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SurpriseAttack = true },
+        new() { Id = "surprise", Name = "Surprise Attack", Desc = "The strike that ends your vanishing (a slash, a throw or a recall) lands three times as hard.", Icon = "dodge", For = R, Ability = "vanish", Tier = UpgradeTier.Ability, Apply = (s, p) => s.SurpriseAttack = true },
         new() { Id = "vanish_cd", Name = "Quick Fade", Desc = "Vanish comes back 20% sooner.", Icon = "dodge", For = R, Ability = "vanish", MaxStacks = 2, Apply = (s, p) => s.VanishCdMult *= 0.8f },
-        new() { Id = "vanish_long", Name = "Deep Shadows", Desc = "Your vanishing (or your smoke) lasts 3 s longer.", Icon = "dodge", For = R, Ability = "vanish", Apply = (s, p) => s.VanishBonus += 3f },
+        new() { Id = "vanish_long", Name = "Deep Shadows", Desc = "Your vanishing (or your smoke) lasts 3 s longer.", Icon = "dodge", For = R, Ability = "vanish", MaxStacks = 2, Apply = (s, p) => s.VanishBonus += 3f },
         new() { Id = "vanish_smoke", Name = "Smoke Bomb", Desc = "Instead of vanishing alone, you throw down a cloud of smoke for 6 s: every hero in it is hidden, and creatures in it can't find anyone.", Icon = "dodge", For = R, Ability = "vanish", Alteration = true, Apply = (s, p) => s.SmokeBomb = true },
         new() { Id = "smoke_wide", Name = "Thick Smoke", Desc = "Your cloud of smoke is 40% wider.", Icon = "dodge", For = R, Ability = "vanish", Requires = "vanish_smoke", Apply = (s, p) => s.SmokeWideMult *= 1f + 0.4f },
 
@@ -507,9 +511,7 @@ public static partial class Upgrades
         new() { Id = "pounce", Name = "Pounce", Desc = "Arriving by tether is always a critical strike.", Icon = "move", For = R, Ability = "recall", Requires = "recall_tether", Apply = (s, p) => s.Pounce = true },
 
         // --- the Shape Shifter ---
-        new() { Id = "shift_fluid", Name = "Fluid Form", Desc = "Dropping a form doesn't start Shift's recharge: change shape as often as you like.", Icon = "move", For = SH, Ability = "shift", Alteration = true, Apply = (s, p) => s.FluidShift = true },
         new() { Id = "form_bleed", Name = "Rending Forms", Desc = "What a form's attacks hit bleeds for half the damage over 3 s.", Icon = "blade", For = SH, Ability = "form", Alteration = true, Apply = (s, p) => s.FormBleed = true },
-        new() { Id = "spec_echo", Name = "Echoing Trick", Desc = "A form's special has a 35% chance to be ready again at once.", Icon = "move", For = SH, Ability = "special", Alteration = true, Apply = (s, p) => s.SpecEcho = true },
         new() { Id = "staff_dmg", Name = "Weighted Staff", Desc = "Your staff hits 30% harder.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult *= 1f + 0.3f },
         new() { Id = "staff_reach", Name = "Long Grip", Desc = "Your staff reaches 18% farther.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 2, Apply = (s, p) => s.DaggerReach *= 1f + 0.18f },
         new() { Id = "shift_cd", Name = "Quick Change", Desc = "Shift comes back 20% sooner.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.AbilityCdMult *= 0.8f },
@@ -518,66 +520,61 @@ public static partial class Upgrades
         new() { Id = "form_dmg", Name = "Honed Fangs", Desc = "Every form's attacks hit 15% harder.", Icon = "blade", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormDmgMult *= 1f + 0.15f },
         new() { Id = "form_armor", Name = "Thick Hide", Desc = "Every form shrugs off 8% more of the blows it takes.", Icon = "shield", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormArmorAdd += 0.08f },
         new() { Id = "form_speed", Name = "Fleet Form", Desc = "Every form moves 10% faster.", Icon = "move", For = SH, Ability = "form", MaxStacks = 2, Apply = (s, p) => s.FormSpeedAdd += 0.1f },
-        new() { Id = "spec_cd", Name = "Practised Tricks", Desc = "Form specials come back 15% sooner.", Icon = "move", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecCdMult *= 0.85f },
-        new() { Id = "spec_dmg", Name = "Savage Tricks", Desc = "Form specials hit 20% harder.", Icon = "blade", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecDmgMult *= 1f + 0.2f },
+        new() { Id = "spec_cd", Name = "Practiced Tricks", Desc = "Form specials come back 15% sooner.", Icon = "move", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecCdMult *= 0.85f },
+        new() { Id = "spec_dmg", Name = "Savage Tricks", Desc = "Form specials hit 15% harder.", Icon = "blade", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecDmgMult *= 1f + 0.15f },
 
         // --- Cleaver (automaton) ---
-        new() { Id = "cleaver_dmg", Name = "Honed Cleaver", Desc = "Your cleaver hits 15% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult *= 1f + 0.15f },
+        new() { Id = "cleaver_dmg", Name = "Honed Cleaver", Desc = "Your cleaver hits 15% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 2, Apply = (s, p) => s.PrimaryDamageMult *= 1f + 0.15f },
         new() { Id = "cleaver_quick", Name = "Oiled Joints", Desc = "12% less time between your swings.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 3, Apply = (s, p) => s.AttackSpeed /= 1f - 0.12f },
-        new() { Id = "cleaver_slam", Name = "Heavy Piston", Desc = "The slam that ends your combo reaches 25% farther and hits 25% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 2, Tier = UpgradeTier.Ability, Apply = (s, p) => s.SlamMult *= 1f + 0.25f },
+        new() { Id = "cleaver_slam", Name = "Heavy Piston", Desc = "The slam that ends your combo reaches 25% farther and hits 25% harder.", Icon = "blade", For = AU, Ability = "cleaver", MaxStacks = 1, Tier = UpgradeTier.Ability, Apply = (s, p) => s.SlamMult *= 1f + 0.25f },
         // --- Self-Repair (automaton) ---
         new() { Id = "repair_rate", Name = "Fine Tools", Desc = "Self-Repair mends you 30% faster.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.RepairRateMult *= 1f + 0.3f },
         new() { Id = "repair_cap", Name = "Bigger Accumulator", Desc = "Hold 25 more fuel.", Icon = "life", For = AU, Ability = "repair", MaxStacks = 3, Apply = (s, p) => s.FuelMax += 25f },
         new() { Id = "repair_eff", Name = "Efficient Gearing", Desc = "Healing you receive gives 5% more of itself as fuel (35%, then 40%).", Icon = "life", For = AU, Ability = "repair", MaxStacks = 2, Apply = (s, p) => s.FuelFromHeal += 0.05f },
-        new() { Id = "repair_scrap", Name = "Scrap Reclaimer", Desc = "Every creature you destroy gives you 4 fuel, but healing gives you none.", Icon = "life", For = AU, Ability = "repair", Alteration = true, Apply = (s, p) => s.ScrapReclaimer = true },
+        new() { Id = "repair_scrap", Name = "Scrap Reclaimer", Desc = "Every creature you destroy gives you 10 fuel, but healing gives you none.", Icon = "life", For = AU, Ability = "repair", Alteration = true, Apply = (s, p) => s.ScrapReclaimer = true },
         // --- Steam Release (automaton) ---
         new() { Id = "steam_cd", Name = "Pressure Valve", Desc = "Steam Release comes back 20% sooner.", Icon = "spell", For = AU, Ability = "steam", MaxStacks = 2, Apply = (s, p) => s.SteamCdMult *= 0.8f },
         new() { Id = "steam_force", Name = "High-Pressure Steam", Desc = "Steam Release hits 30% harder, shoves 30% harder and lifts you 30% higher.", Icon = "spell", For = AU, Ability = "steam", MaxStacks = 2, Apply = (s, p) => s.SteamMult *= 1f + 0.3f },
         new() { Id = "steam_scald", Name = "Scalding Steam", Desc = "Your steam no longer shoves creatures; it scalds them, and they burn for 3 s.", Icon = "spell", For = AU, Ability = "steam", Alteration = true, Apply = (s, p) => s.ScaldingSteam = true },
         // --- Brace (automaton) ---
         new() { Id = "brace_long", Name = "Locked Joints", Desc = "Brace holds 0.25 s longer.", Icon = "shield", For = AU, Ability = "brace", MaxStacks = 2, Apply = (s, p) => s.BraceBonus += 0.25f },
-        new() { Id = "brace_punch", Name = "Piston Fist", Desc = "Brace's counter-punch hits 40% harder.", Icon = "shield", For = AU, Ability = "brace", MaxStacks = 3, Apply = (s, p) => s.PunchMult *= 1f + 0.4f },
-        new() { Id = "brace_full", Name = "Full Plate", Desc = "Braced, you soften blows from behind as well as in front.", Icon = "shield", For = AU, Ability = "brace", Alteration = true, Apply = (s, p) => s.FullPlate = true },
+        new() { Id = "brace_punch", Name = "Piston Fist", Desc = "Brace's counter-punch hits 60% harder.", Icon = "shield", For = AU, Ability = "brace", MaxStacks = 2, Apply = (s, p) => s.PunchMult *= 1f + 0.6f },
+        new() { Id = "brace_full", Name = "Full Plate", Desc = "Braced, you soften blows from behind as well as in front, but no longer counter-punch.", Icon = "shield", For = AU, Ability = "brace", Alteration = true, Apply = (s, p) => s.FullPlate = true },
 
         // --- Ward Bolt (aegis) ---
         new() { Id = "ward_dmg", Name = "Brighter Bolt", Desc = "Your ward bolt hits 18% harder.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult *= 1f + 0.18f },
-        new() { Id = "ward_burst", Name = "Wider Burst", Desc = "Your bolt's burst reaches 40% farther.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstMult *= 1f + 0.4f },
-        new() { Id = "ward_scatter", Name = "Scatter Light", Desc = "The creatures beside the one your bolt strikes take 20% more of the blow (60%, then 80%, then all of it).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstShare = Math.Min(1f, s.BurstShare + 0.2f) },
-        new() { Id = "ward_sap", Name = "Sapping Light", Desc = "Creatures your bolt bursts on deal 5% less still (15%, then 20% less).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.DebuffMult -= 0.05f },
+        new() { Id = "ward_burst", Name = "Wider Burst", Desc = "Your bolt's burst reaches 20% farther.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Apply = (s, p) => s.BurstMult *= 1f + 0.2f },
+        new() { Id = "ward_scatter", Name = "Scatter Light", Desc = "The creatures beside the one your bolt strikes take 10% more of the blow.", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Excludes = new[] { "ward_sap" }, Apply = (s, p) => s.BurstShare = Math.Min(1f, s.BurstShare + 0.1f) },
+        new() { Id = "ward_sap", Name = "Sapping Light", Desc = "Creatures your bolt bursts on deal 5% less still (15%, then 20% less).", Icon = "spell", For = A, Ability = "ward", MaxStacks = 2, Excludes = new[] { "ward_scatter" }, Apply = (s, p) => s.DebuffMult -= 0.05f },
         new() { Id = "ward_linger", Name = "Lingering Weakness", Desc = "What your bolt weakens stays weakened 3 s longer.", Icon = "spell", For = A, Ability = "ward", Tier = UpgradeTier.Ability, Apply = (s, p) => s.DebuffSeconds += 3f },
 
         // --- Barrier (aegis) ---
-        new() { Id = "barrier_strong", Name = "Reinforced Barrier", Desc = "Your barrier absorbs 25% more.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 3, Apply = (s, p) => s.BarrierMult *= 1f + 0.25f },
-        new() { Id = "barrier_cd", Name = "Quick Ward", Desc = "Your barrier comes back 20% sooner.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 2, Apply = (s, p) => s.BarrierCdMult *= 0.8f },
+        new() { Id = "barrier_strong", Name = "Reinforced Barrier", Desc = "Your barrier absorbs 20% more.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 2, Apply = (s, p) => s.BarrierMult *= 1f + 0.2f },
+        new() { Id = "barrier_cd", Name = "Quick Ward", Desc = "Your barrier comes back 15% sooner.", Icon = "shield", For = A, Ability = "barrier", MaxStacks = 2, Apply = (s, p) => s.BarrierCdMult *= 0.85f },
         new() { Id = "barrier_twin", Name = "Twin Barrier", Desc = "A barrier for a friend wraps you in one as well.", Icon = "shield", For = A, Ability = "barrier", Tier = UpgradeTier.Ability, Apply = (s, p) => s.TwinBarrier = true },
-
-        // (Healing Ward: the ward bolt's alteration, a light that mends instead of strikes: what makes the Aegis a sound hero to play alone)
-        new() { Id = "ward_radiant", Name = "Radiant Ward", Desc = "Your ward bolt's burst strikes at full strength and reaches 40% wider.", Icon = "shield", For = A, Ability = "ward", Alteration = true, Apply = (s, p) => { s.BurstShare = 1f; s.BurstMult *= 1.4f; } },
 
         new() { Id = "barrier_wide", Name = "Wide Barrier", Desc = "Your barrier falls on every friend near you, and on you, each at 60% of its strength.", Icon = "shield", For = A, Ability = "barrier", Alteration = true, Apply = (s, p) => s.WideBarrier = true },
 
         // --- Shared Burden (aegis) ---
-        new() { Id = "burden_foe", Name = "Foe's Burden", Desc = "Your second ability lays its burden on a creature instead: for 12 s a quarter of every blow you take falls on it. It comes back in 6 s (a Smite takes 9).", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.FoeBurden = true },
-        new() { Multi = true, Id = "burden_all", Name = "Burden of Many", Desc = "Your burden falls on every friend near you at once, each sharing half as much of their blows with you.", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.BurdenAll = true },
-        new() { Multi = true, Id = "burden_share", Name = "Heavier Burden", Desc = "You carry 5% more of the blows your friend takes (25%, 30%, then 35%).", Icon = "life", For = A, Ability = "burden", MaxStacks = 3, Apply = (s, p) => s.BurdenShare += 0.05f },
-        new() { Multi = true, Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 25% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.25f },
+        new() { Id = "burden_foe", Name = "Foe's Burden", Desc = "Your second ability lays its burden on a creature instead: for 12 s a quarter of every blow you take falls on it. It comes back in 6 s.", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.FoeBurden = true },
+        new() { Multi = true, Id = "burden_all", Name = "Burden of Many", Desc = "The friend you burden shares 20% of what they take with everyone near them (you among them).", Icon = "life", For = A, Ability = "burden", Alteration = true, Apply = (s, p) => s.BurdenAll = true },
+        new() { Multi = true, Id = "burden_share", Name = "Heavier Burden", Desc = "You carry 10% more of the blows your friend takes, and another 5% of each blow is simply turned aside.", Icon = "life", For = A, Ability = "burden", MaxStacks = 1, Apply = (s, p) => { s.BurdenShare += 0.1f; s.BurdenMitigate += 0.05f; } },
+        new() { Multi = true, Id = "burden_soak", Name = "Steeled Heart", Desc = "What you carry for a friend weighs 20% less on you.", Icon = "life", For = A, Ability = "burden", MaxStacks = 2, Apply = (s, p) => s.BurdenSoak += 0.2f },
 
         // --- Bubble (aegis) ---
         new() { Id = "bubble_strong", Name = "Tougher Bubble", Desc = "Your bubble bursts only after absorbing 10% more.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 3, Apply = (s, p) => s.BubbleMult *= 1f + 0.1f },
         new() { Id = "bubble_cd", Name = "Quick Bubble", Desc = "Your bubble comes back 20% sooner.", Icon = "shield", For = A, Ability = "bubble", MaxStacks = 2, Apply = (s, p) => s.BubbleCdMult *= 0.8f },
         new() { Id = "bubble_heal", Name = "Soothing Burst", Desc = "When your bubble bursts, it heals the friends around it.", Icon = "life", For = A, Ability = "bubble", Tier = UpgradeTier.Ability, Apply = (s, p) => s.BubbleHeal = true },
-        new() { Id = "bubble_hostile", Name = "Hostile Bubble", Desc = "Your bubble goes on a creature instead: it takes half of every blow, the other half building up; once enough has, the bubble bursts for 30, and 10 to the creatures round it.", Icon = "spell", For = A, Ability = "bubble", Alteration = true, Apply = (s, p) => s.HostileBubble = true },
-        new() { Id = "bubble_volatile", Name = "Volatile Ward", Desc = "Your hostile bubble bursts 30% harder.", Icon = "spell", For = A, Ability = "bubble", Requires = "bubble_hostile", MaxStacks = 3, Apply = (s, p) => s.WardBlastMult *= 1f + 0.3f },
 
         // --- Movement (all) ---
         // (rare, and only once you've a jump-height upgrade / a movement-speed upgrade)
-        new() { Id = "djump", Technique = true, Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
-                When = s => s.StackOf("jump") + s.StackOf("rr_bones") > 0, Apply = (s, p) => s.DoubleJump = true },
-        new() { Id = "airdash", Technique = true, Name = "Air Dash", Desc = "Jumping in mid-air dashes in any direction you hold.", Icon = "move", Excludes = new[] { "djump" }, Tier = UpgradeTier.Ability, Weight = 0.3f,
-                When = s => s.StackOf("speed") > 0, Apply = (s, p) => s.AirDash = true },
-        new() { Id = "speed", Name = "Light Boots", Desc = "+10% movement speed.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.MoveSpeed *= 1f + 0.10f },
-        new() { Id = "jump", Name = "Spring Step", Desc = "+12% jump height.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.JumpMult *= 1f + 0.12f },
-        new() { Id = "swim", Name = "Webbed Gloves", Desc = "+25% swim speed.", Icon = "move", MaxStacks = 3, Apply = (s, p) => s.SwimSpeed *= 1f + 0.25f },
+        new() { Id = "djump", Name = "Double Jump", Desc = "Jump once more in mid-air.", Icon = "move", Excludes = new[] { "airdash" }, Tier = UpgradeTier.Ability, Weight = 0.5f,
+                When = s => s.StackOf("jump") > 0, Apply = (s, p) => s.DoubleJump = true },
+        new() { Id = "airdash", Name = "Air Dash", Desc = "Jumping in mid-air dashes in any direction you hold.", Icon = "move", Excludes = new[] { "djump" }, Tier = UpgradeTier.Ability, Weight = 0.5f,
+                When = s => s.StackOf("windstep") > 0, Apply = (s, p) => s.AirDash = true },
+        new() { Id = "speed", Name = "Light Boots", Desc = "+10% movement speed.", Icon = "move", MaxStacks = 4, Apply = (s, p) => s.MoveSpeed *= 1f + 0.10f },
+        new() { Id = "jump", Name = "Spring Step", Desc = "+16% jump height.", Icon = "move", MaxStacks = 2, Apply = (s, p) => s.JumpMult *= 1f + 0.16f },
+        new() { Id = "swim", Name = "Webbed Gloves", Desc = "+25% swim speed.", Icon = "move", MaxStacks = 4, Apply = (s, p) => s.SwimSpeed *= 1f + 0.25f },
         new() { Id = "breath", Name = "Deep Lungs", Desc = "+50% breath underwater.", Icon = "move", MaxStacks = 3, Excludes = new[] { "rr_lungs" }, Apply = (s, p) => { s.BreathMax += 4f; p.Breath = s.BreathMax; } },
         // (offered from depth 6, on the way down to the magma)
         new() { Id = "magma", Technique = true, Name = "Magma Skin", Desc = "Swim in lava, and it burns you for only 30% as much.", Icon = "move", Tier = UpgradeTier.Ability,
@@ -587,60 +584,53 @@ public static partial class Upgrades
         new() { Id = "hp", Name = "Vitality", Desc = "+10 max HP and heal 10.", Icon = "life", MaxStacks = 5, Weight = 1.2f, Apply = (s, p) => { s.MaxHp += 10; p.Heal(10); } },
         new() { Id = "resilience", Name = "Resilience", Desc = "Stay invulnerable 0.2 s longer after being struck.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HurtInvuln += 0.2f },
         new() { Id = "armor", Name = "Toughened Hide", Desc = "Take 10% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = 1f - (1f - s.DamageReduction) * 0.9f },
-        new() { Id = "belt", Name = "Deep Flask", Desc = "Carry one more potion, and creatures are 1% likelier to drop one.", Icon = "life", MaxStacks = 3, Apply = (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.01f; } },
-        new() { Id = "magnet", Name = "Lodestone", Desc = "Pull experience from further away.", Icon = "life", MaxStacks = 2, Weight = 0.6f, Apply = (s, p) => s.MagnetMult *= 1f + 0.6f },
+        new() { Id = "belt", Name = "Deep Flask", Desc = "Carry one more potion, and creatures are 2% likelier to drop one.", Icon = "life", MaxStacks = 1, Apply = (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.02f; } },
 
         // ================= more upgrades: always a gain, a plain number or a small rule; they stack (see also: relics, which are one-offs, and bargains, which cost something)
         // --- Offence ---
-        new() { Id = "crit", Name = "Keen Eye", Desc = "Your hits are 5% likelier to be critical (half as hard again).", Icon = "blade", MaxStacks = 5, Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritChance += 0.05f },
+        new() { Id = "crit", Name = "Keen Eye", Desc = "Your hits are 5% likelier to be critical.", Icon = "blade", MaxStacks = 5, Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritChance += 0.05f },
         new() { Id = "critdmg", Name = "Deadly Aim", Desc = "Your critical hits land 25% harder.", Icon = "blade", MaxStacks = 3, Requires = "crit", Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritMult += 0.25f },
-        new() { Id = "opportunist", Name = "Opportunist", Desc = "Hit creatures that are burning, chilled, frozen or poisoned 8% harder.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence", "status" }, Apply = (s, p) => s.VsStatusMult *= 1.08f },
-        new() { Id = "slayer", Name = "Giant Slayer", Desc = "Hit mini-bosses, guardians and bosses 10% harder.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.VsBigMult *= 1.10f },
+        new() { Id = "opportunist", Name = "Opportunist", Desc = "Hit creatures that are burning, chilled, frozen, poisoned or stunned 16% harder.", Icon = "blade", MaxStacks = 2, Tags = new[] { "offence", "status" }, Apply = (s, p) => s.VsStatusMult *= 1.16f },
+        new() { Id = "slayer", Name = "Giant Slayer", Desc = "Hit mini-bosses, guardians and bosses 15% harder.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.VsBigMult *= 1.15f },
         new() { Id = "firstblood", Name = "First Blood", Desc = "Hit creatures at full health 15% harder.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence" }, Apply = (s, p) => s.VsFreshMult *= 1.15f },
-        new() { Id = "steady", Name = "Steady Hand", Desc = "Hit 10% harder after standing still for half a second.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.StillMult *= 1.10f },
-        new() { Id = "skyborne", Name = "Skyborne", Desc = "Hit 10% harder while in the air.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence", "mobility" }, Apply = (s, p) => s.AirMult *= 1.10f },
-        new() { Id = "tidal", Name = "Tidal Fury", Desc = "Hit 10% harder while in water.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence" }, Apply = (s, p) => s.WaterMult *= 1.10f },
+        new() { Id = "skyborne", Name = "Skyborne", Desc = "Hit 15% harder while in the air.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence", "mobility" }, Apply = (s, p) => s.AirMult *= 1.15f },
+        new() { Id = "tidal", Name = "Tidal Fury", Desc = "Hit 20% harder while in water.", Icon = "blade", MaxStacks = 2, Tags = new[] { "offence" }, Apply = (s, p) => s.WaterMult *= 1.20f },
 
         // --- Defence ---
-        new() { Id = "barbed", Name = "Barbed Hide", Desc = "A creature that strikes you takes 10% of the blow back.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence" }, Apply = (s, p) => s.ThornsShare += 0.10f },
-        new() { Id = "regen", Name = "Recuperation", Desc = "After four seconds unhurt, mend 0.4% of your health a second.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence", "heal" }, Apply = (s, p) => s.RegenShare += 0.004f },
+        new() { Id = "barbed", Name = "Barbed Hide", Desc = "A creature that strikes you takes 15% of the blow back.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence" }, Apply = (s, p) => s.ThornsShare += 0.15f },
+        new() { Id = "regen", Name = "Recuperation", Desc = "Healing you receive is 20% stronger.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "heal" }, Apply = (s, p) => s.HealingTakenMult *= 1.2f },
         new() { Id = "footing", Name = "Steady Footing", Desc = "Blows shove you 25% less.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence" }, Apply = (s, p) => s.KnockTakenMult *= 0.75f },
-        new() { Id = "cushion", Name = "Cushioned Landing", Desc = "Take 30% less from falls.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "mobility" }, Apply = (s, p) => s.FallDamageMult *= 0.7f },
-        new() { Id = "insulate", Name = "Insulation", Desc = "Take 20% less from burning, poison and the like, working on you over time.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "status" }, Apply = (s, p) => s.DotMult *= 0.8f },
-        new() { Id = "potpower", Name = "Potion Mastery", Desc = "Potions heal 25% more.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "heal" }, Apply = (s, p) => s.PotionPower *= 1.25f },
+        new() { Id = "cushion", Name = "Cushioned Landing", Desc = "Take 30% less from falls.", Icon = "life", MaxStacks = 2, Tags = new[] { "defence", "mobility" }, Apply = (s, p) => s.FallDamageMult *= 0.7f },
+        new() { Id = "insulate", Name = "Insulation", Desc = "Take 30% less from burning, poison and the like, working on you over time.", Icon = "life", MaxStacks = 2, Tags = new[] { "defence", "status" }, Apply = (s, p) => s.DotMult *= 0.7f },
+        new() { Id = "potpower", Name = "Potion Mastery", Desc = "Potions heal 25% more.", Icon = "life", MaxStacks = 2, Tags = new[] { "defence", "heal" }, Apply = (s, p) => s.PotionPower *= 1.25f },
         new() { Id = "adrenaline", Name = "Adrenaline", Desc = "Run 15% faster for two seconds after a blow gets through.", Icon = "life", MaxStacks = 3, Tags = new[] { "defence", "mobility" }, Apply = (s, p) => s.AdrenalineBonus += 0.15f },
 
         // --- Mobility ---
-        new() { Id = "coyote", Name = "Coyote Time", Desc = "A jump still takes 0.05 s after you step off a ledge.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.CoyoteBonus += 0.05f },
-        new() { Id = "buffer", Name = "Early Bird", Desc = "A jump pressed 0.06 s before landing is still kept.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.BufferBonus += 0.06f },
-        new() { Id = "aircontrol", Name = "Air Control", Desc = "Steer 30% sharper in the air.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.AirAccelMult *= 1.3f },
-        new() { Id = "feather", Name = "Featherfall", Desc = "Fall 15% slower at the most.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.FallCapMult *= 0.85f },
         new() { Id = "sprint", Name = "Sprinter", Desc = "After a second of running, go up to 12% faster.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.SprintBonus += 0.12f },
         new() { Id = "longdash", Name = "Long Dash", Desc = "Dashes and dodges are 15% faster, and so go further.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.DashSpeedMult *= 1.15f },
         new() { Id = "grip", Name = "Sure Grip", Desc = "Slide down a wall 35% slower.", Icon = "move", MaxStacks = 2, When = s => s.WallJump, Tags = new[] { "mobility" }, Apply = (s, p) => s.WallSlideMult *= 0.65f },
 
         // --- Utility and economy ---
-        new() { Id = "scholar", Name = "Scholar", Desc = "Gain 10% more experience.", Icon = "life", MaxStacks = 4, Tags = new[] { "utility" }, Apply = (s, p) => s.XpMult *= 1.10f },
-        new() { Id = "forager", Name = "Forager", Desc = "Creatures are 1.5% likelier to drop a heart.", Icon = "life", MaxStacks = 3, Tags = new[] { "utility", "heal" }, Apply = (s, p) => s.HeartChanceBonus += 0.015f },
-        new() { Id = "alchemist", Name = "Alchemist", Desc = "Creatures are 2% likelier to drop a potion.", Icon = "life", MaxStacks = 3, Tags = new[] { "utility", "heal" }, Apply = (s, p) => s.PotionChanceBonus += 0.02f },
+        new() { Id = "scholar", Name = "Scholar", Desc = "Gain 15% more experience.", Icon = "life", MaxStacks = 5, Tags = new[] { "utility" }, Apply = (s, p) => s.XpMult *= 1.15f },
+        new() { Id = "forager", Name = "Forager", Desc = "Creatures are 2% likelier to drop a heart.", Icon = "life", MaxStacks = 3, Tags = new[] { "utility", "heal" }, Apply = (s, p) => s.HeartChanceBonus += 0.02f },
+        new() { Id = "alchemist", Name = "Alchemist", Desc = "Creatures are 1% likelier to drop a potion.", Icon = "life", MaxStacks = 2, Tags = new[] { "utility", "heal" }, Apply = (s, p) => s.PotionChanceBonus += 0.01f },
         new() { Id = "keyring", Name = "Key Ring", Desc = "Carry one more key.", Icon = "life", MaxStacks = 2, Tags = new[] { "utility", "economy" }, Apply = (s, p) => s.KeyCapBonus += 1f },
-        new() { Id = "windstep", Name = "Windstep", Desc = "Move 12% faster in the air.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.AirSpeedMult *= 1.12f },
-        new() { Id = "hardy", Name = "Hardy", Desc = "+4% max health.", Icon = "life", MaxStacks = 4, Tags = new[] { "defence" }, Apply = (s, p) => { s.MaxHp *= 1.04f; p.Heal(s.MaxHp * 0.04f); } },
-        new() { Id = "relentless", Name = "Relentless", Desc = "Attack 5% faster.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.AttackSpeed *= 1.05f },
-        new() { Id = "prospect", Name = "Prospector", Desc = "Gold you find is worth 25% more.", Icon = "life", MaxStacks = 3, Tags = new[] { "economy" }, Apply = (s, p) => s.GoldMult *= 1.25f },
-        new() { Id = "coinmag", Name = "Coin Magnet", Desc = "Gold is picked up from 24 px further away.", Icon = "life", MaxStacks = 3, Tags = new[] { "economy" }, Apply = (s, p) => s.PickupReach += 24f },
+        new() { Id = "windstep", Name = "Windstep", Desc = "Move 16% faster in the air.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.AirSpeedMult *= 1.16f },
+        new() { Id = "hardy", Name = "Hardy", Desc = "+8% max health.", Icon = "life", MaxStacks = 5, Tags = new[] { "defence" }, Apply = (s, p) => { s.MaxHp *= 1.08f; p.Heal(s.MaxHp * 0.08f); } },
+        new() { Id = "relentless", Name = "Relentless", Desc = "Attack 12% faster.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence" }, Apply = (s, p) => s.AttackSpeed *= 1.12f },
+        new() { Id = "prospect", Name = "Prospector", Desc = "Gold you find is worth 20% more.", Icon = "life", MaxStacks = 2, Tags = new[] { "economy" }, Apply = (s, p) => s.GoldMult *= 1.2f },
+        new() { Id = "coinmag", Name = "Coin Magnet", Desc = "Gold is picked up from 32 px further away.", Icon = "life", MaxStacks = 3, Tags = new[] { "economy" }, Apply = (s, p) => s.PickupReach += 32f },
 
         // --- Risk and reward (all): something given, something taken. Each can be taken once:
         // they never stack, and once you have one it isn't offered again ---
-        new() { Id = "rr_heavy", Name = "Heavy Hand", Desc = "Your attacks come 34% slower, but hit 66% harder.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.AttackSpeed *= 0.66f; s.PrimaryDamageMult *= 1.66f; } },
-        new() { Id = "rr_bones", Name = "Hollow Bones", Desc = "Jump 20% higher, but swim 40% slower.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.JumpMult *= 1.2f; s.SwimSpeed *= 0.6f; } },
+        new() { Id = "rr_heavy", Name = "Heavy Hand", Desc = "Your attacks come 34% slower, but hit 50% harder.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.AttackSpeed *= 0.66f; s.PrimaryDamageMult *= 1.5f; } },
+        new() { Id = "rr_bones", Name = "Hollow Bones", Desc = "Jump 20% higher, but swim 30% slower.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.JumpMult *= 1.2f; s.SwimSpeed *= 0.7f; } },
         new() { Id = "rr_gills", Name = "Gill-Touched", Desc = "Swim 50% faster, but run 20% slower.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.SwimSpeed *= 1.5f; s.MoveSpeed *= 0.8f; } },
-        new() { Id = "rr_reserve", Name = "Twin Reserve", Desc = "Your {ability} holds a second use, but each use takes twice as long to come back.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.AbilityCharges += 1; s.AbilityCdMult *= 2f; p.SyncCharges(); } },
-        new() { Id = "rr_glass", Name = "Glass Edge", Desc = "Deal 20% more damage, but take 25% more.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.DamageMult *= 1.2f; s.DamageTakenMult *= 1.25f; } },
-        new() { Id = "rr_stone", Name = "Stoneskin", Desc = "Take 25% less damage, but deal 20% less.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Apply = (s, p) => { s.DamageTakenMult *= 0.75f; s.DamageMult *= 0.8f; } },
+        new() { Id = "rr_glass", Name = "Glass Edge", Desc = "Deal 20% more damage, but take 25% more.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Excludes = new[] { "rr_stone" }, Apply = (s, p) => { s.DamageMult *= 1.2f; s.DamageTakenMult *= 1.25f; } },
+        new() { Id = "rr_stone", Name = "Stoneskin", Desc = "Take 25% less damage, but deal 20% less.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Excludes = new[] { "rr_glass" }, Apply = (s, p) => { s.DamageTakenMult *= 0.75f; s.DamageMult *= 0.8f; } },
         new() { Id = "rr_overcharge", Name = "Overcharged Staff", Desc = "Your staff holds one more firebolt (two more frostbolts), but you cast 15% slower.", Icon = "risk", For = E, Ability = "bolt", MaxStacks = 1, Weight = 0.9f,
                 Apply = (s, p) => { s.FireChargeBonus += 1; s.FrostChargeBonus += 2; s.AttackSpeed /= 1.15f; } },
-        new() { Id = "rr_lungs", Name = "Drowned Lungs", Desc = "You never run out of breath, but all healing you receive is 30% weaker.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Excludes = new[] { "breath" }, Apply = (s, p) => { s.InfiniteBreath = true; s.HealingTakenMult *= 0.7f; p.Breath = s.BreathMax; } },
+        new() { Id = "rr_lungs", Name = "Drowned Lungs", Desc = "You never run out of breath, but all healing you receive is 40% weaker.", Icon = "risk", MaxStacks = 1, Weight = 0.7f, Excludes = new[] { "breath" }, Apply = (s, p) => { s.InfiniteBreath = true; s.HealingTakenMult *= 0.6f; p.Breath = s.BreathMax; } },
     };
 
     /// <summary>The "leave it" card on a milestone: nothing.</summary>
@@ -960,53 +950,53 @@ public static class Progression
         switch (s.Hero)
         {
             case HeroKind.Warden:
-                s.MaxHp += 4; p.Heal(4);
-                s.DamageMult += 0.015f;
-                s.DamageReduction = Math.Min(0.75f, s.DamageReduction + 0.01f);
-                gain = "+4 HP  +1% guard";
+                s.MaxHp += 6; p.Heal(6);
+                s.DamageMult += 0.0225f;
+                s.DamageReduction = Math.Min(0.75f, s.DamageReduction + 0.015f);
+                gain = "+6 HP  +1.5% guard";
                 break;
             case HeroKind.Vitalist:
-                s.MaxHp += 3; p.Heal(3);
-                s.DamageMult += 0.02f;
-                s.VitalForceMax += 1;
-                gain = "+2% damage  +1 vital force";
+                s.MaxHp += 4.5f; p.Heal(4.5f);
+                s.DamageMult += 0.03f;
+                s.VitalForceMax += 1.5f;
+                gain = "+3% damage  +1.5 vital force";
                 break;
             case HeroKind.Elementalist:
-                s.MaxHp += 3; p.Heal(3);
-                s.DamageMult += 0.02f;
-                s.AlimusMax += 1;
-                gain = "+2% damage  +1 alimus";
+                s.MaxHp += 4.5f; p.Heal(4.5f);
+                s.DamageMult += 0.03f;
+                s.AlimusMax += 1.5f;
+                gain = "+3% damage  +1.5 alimus";
                 break;
             case HeroKind.Aegis:
-                s.MaxHp += 3; p.Heal(3);
-                s.DamageMult += 0.02f;
-                s.WardMult += 0.04f;
-                gain = "+2% damage  +4% wards";
+                s.MaxHp += 4.5f; p.Heal(4.5f);
+                s.DamageMult += 0.03f;
+                s.WardMult += 0.06f;
+                gain = "+3% damage  +6% wards";
                 break;
             case HeroKind.Automaton:
                 // (its frame grows: the new health comes with it, not as healing, which it can't take)
-                s.MaxHp += 5; p.Hp += 5;
-                s.DamageMult += 0.02f;
-                s.FuelMax += 2;
-                gain = "+5 HP  +2% damage  +2 fuel";
+                s.MaxHp += 7.5f; p.Hp += 7.5f;
+                s.DamageMult += 0.03f;
+                s.FuelMax += 3;
+                gain = "+7.5 HP  +3% damage  +3 fuel";
                 break;
             case HeroKind.ShapeShifter:
-                s.MaxHp += 3; p.Heal(3);
-                s.DamageMult += 0.02f;
-                s.FormDmgMult += 0.02f;
-                gain = "+2% damage";
+                s.MaxHp += 4.5f; p.Heal(4.5f);
+                s.DamageMult += 0.03f;
+                s.FormDmgMult += 0.03f;
+                gain = "+3% damage";
                 break;
             case HeroKind.Rogue:
-                s.MaxHp += 2; p.Heal(2);
-                s.DamageMult += 0.025f;
-                s.CritChance += 0.002f;
-                gain = "+2.5% damage";
+                s.MaxHp += 3; p.Heal(3);
+                s.DamageMult += 0.0375f;
+                s.CritChance += 0.003f;
+                gain = "+3.75% damage";
                 break;
             default:
-                s.MaxHp += 2; p.Heal(2);
-                s.DamageMult += 0.03f;
-                s.AttackSpeed += 0.015f;
-                gain = "+3% damage";
+                s.MaxHp += 3; p.Heal(3);
+                s.DamageMult += 0.045f;
+                s.AttackSpeed += 0.0225f;
+                gain = "+4.5% damage";
                 break;
         }
         G.Sfx.Play("levelup", p.GlobalPosition, -2);

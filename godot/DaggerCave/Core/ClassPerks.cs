@@ -45,7 +45,6 @@ public static class ClassPerks
         P(HeroKind.Warden, "warden_coyote", "Coyote Shield", One, new[] { "Near misses still block: a wider arc, and a grace moment after you lower it." }, (s, r) => s.CoyoteShield = true);
         P(HeroKind.Warden, "warden_dr", "Iron Skin", Three, new[] { "10% less damage taken.", "20% less damage taken.", "30% less damage taken." }, (s, r) => s.DamageReduction = Math.Min(0.75f, s.DamageReduction + 0.1f * r));
         P(HeroKind.Warden, "warden_hp", "Stout", Three, new[] { "+10% health.", "+20% health.", "+30% health." }, (s, r) => s.MaxHp *= 1f + 0.1f * r);
-        P(HeroKind.Warden, "warden_indignation", "Indignation", One, new[] { "Being struck makes you hit 30% harder for 4 s." }, (s, r) => s.Indignation = true);
 
         // ---- Vitalist
         P(HeroKind.Vitalist, "vit_drain_heal", "Sip of Life", Three, new[] { "10% chance for your drain to heal you 1 HP.", "20% chance for your drain to heal you 1 HP.", "30% chance for your drain to heal you 1 HP." }, (s, r) => s.DrainHealChance = 0.1f * r);

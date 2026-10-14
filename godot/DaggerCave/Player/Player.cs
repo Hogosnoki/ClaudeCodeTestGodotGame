@@ -292,7 +292,7 @@ public partial class Player : CharacterBody2D
             MilestoneAt = Time.GetTicksMsec() / 1000f;
             if (this == G.Player) G.Sfx?.Play("milestone", null, -2, 0, 1f);
         }
-        if (Stats.LevelHeal) HealHere(Stats.MaxHp);
+        if (Stats.LevelHeal) HealHere(Stats.MaxHp * Tune.Relics.LevelHealShare);
         Stats.On.RaiseLevel(this);
     }
 
@@ -557,7 +557,7 @@ public partial class Player : CharacterBody2D
         UpdateCrouch(inp, onFloor);
         // (the water's surface is no floor: a leap out of the water is the swimmer's own, from in it; see Swim)
         if (InWater && _leapT <= 0f && (HeadUnder || Velocity.Y <= 0f)) _leapReady = true;
-        if (onFloor) { _coyote = Tune.Hero.CoyoteTime + Stats.CoyoteBonus; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; }
+        if (onFloor) { _coyote = Tune.Hero.CoyoteTime + Stats.CoyoteBonus; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; _pogoSpent = false; }
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)

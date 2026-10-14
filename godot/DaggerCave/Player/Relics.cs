@@ -25,7 +25,7 @@ public static class RunRelics
     }
 
     /// <summary>The relics whose effect reaches everyone (how the caves are built, the road to the dragon) or decides the party's chests.</summary>
-    private static readonly HashSet<string> Worldly = new() { "relic_deeper", "relic_shortcut", "relic_locksmith", "relic_treasure", "relic_prodigy" };
+    private static readonly HashSet<string> Worldly = new() { "relic_deeper", "relic_shortcut", "relic_locksmith", "relic_treasure", "relic_kidding" };
 
     public static void Note(int peer, string id)
     {
@@ -66,21 +66,20 @@ public static partial class Upgrades
         => new() { Id = id, Name = name, Desc = desc, Icon = "risk", For = only, Weight = weight, Apply = apply, Tags = new[] { "bargain" } };
 
     /// <summary>Relics that only matter with others about: they pull or turn away the creatures' eyes, or carry a friend's blows.</summary>
-    private static readonly HashSet<string> MultiOnly = new() { "relic_bait", "relic_shroud", "relic_w_banner", "relic_a_mantle", "relic_last_rites", "relic_phoenix", "relic_healer", "relic_rally" };
+    private static readonly HashSet<string> MultiOnly = new() { "relic_bait", "relic_shroud", "relic_w_banner", "relic_a_mantle", "relic_last_rites", "relic_phoenix", "relic_healer", "relic_fastres", "relic_kidding" };
 
     /// <summary>Relics: bargains and twists, found in some chests. Each can be carried once.</summary>
     public static readonly List<Upgrade> Relics = new()
     {
         // --- for anyone ---
-        Rl("relic_prodigy", "Prodigy's Brand", "You level up thirty-five times at once, but can never open a chest again: relic chests, hoards and vaults (upgrade shrines still open).", (s, p) => { s.NoChests = true; p?.GainLevels(35); }, rarity: RelicRarity.Rare),
         Rl("relic_treasure", "Hunter's Map", "20% more chests in every cave, but no chest of your own when a guardian falls.", (s, p) => { }, rarity: RelicRarity.Uncommon),
-        Rl("relic_fount", "Fount of Vigor", "Every level you gain heals you to full.", (s, p) => s.LevelHeal = true, rarity: RelicRarity.Rare),
-        Rl("relic_spring", "Spring Water", "Going deeper heals you to full.", (s, p) => s.DepthHeal = true, rarity: RelicRarity.Uncommon),
+        Rl("relic_fount", "Fount of Vigor", "Every level you gain heals you for 20% of your health.", (s, p) => s.LevelHeal = true, rarity: RelicRarity.Rare),
+        Rl("relic_spring", "Spring Water", "Each depth you advance heals you for 20% of your health.", (s, p) => s.DepthHeal = true, rarity: RelicRarity.Uncommon),
         Rl("relic_locksmith", "Locksmith's Ring", "Every cave holds a second vault, and one more key to open it.", (s, p) => { }, rarity: RelicRarity.Rare),
         Rl("relic_deeper", "Deeper Dark", "One more level lies between here and the dragon.", (s, p) => { }, rarity: RelicRarity.Rare),
         Rl("relic_shortcut", "Hasty Descent", "One level fewer before the dragon, which is 10% tougher for it.", (s, p) => { }, rarity: RelicRarity.Rare),
-        Rl("relic_bait", "Gaudy Charm", "Creatures see you 10% closer than you are: you draw their eyes.", (s, p) => s.ThreatDist *= 0.9f, rarity: RelicRarity.Common),
-        Rl("relic_shroud", "Dim Cloak", "Creatures see you 10% farther than you are: they look to others first.", (s, p) => s.ThreatDist *= 1.1f, rarity: RelicRarity.Common),
+        Rl("relic_bait", "Gaudy Charm", "Creatures see you 20% closer than you are: you draw their eyes.", (s, p) => s.ThreatDist *= 0.8f, rarity: RelicRarity.Common),
+        Rl("relic_shroud", "Dim Cloak", "Creatures see you 20% farther than you are: they look to others first.", (s, p) => s.ThreatDist *= 1.2f, rarity: RelicRarity.Common),
 
         Rl("relic_lunge", "Hawk's Pursuit", "Melee lunges are twice as strong and last longer (even for those who never lunged), and in the air a swing hangs you in place and pulls you after the creature in its way: you hover and hunt on the wing. But you hit 10% softer.", (s, p) => { s.LungeMult *= 2f; s.AerialLunge = true; s.DamageMult *= 0.9f; }, HMELEE, rarity: RelicRarity.Rare),
 
@@ -92,7 +91,7 @@ public static partial class Upgrades
                 if (e == null || e.Dead || !(e.IsBoss || e.IsGuardian || e.Elite)) return;
                 if (pl.Stats.StruckIgnite > 0f && G.Chance(pl.Stats.StruckIgnite)) { e.Ignite(Tune.Relics.StruckIgniteDps * pl.Stats.DamageMult, Tune.Relics.StruckIgniteSeconds); pl.Bump("ignited"); }
             };
-        }, rarity: RelicRarity.Rare, tags: "on-hurt status"),
+        }, rarity: RelicRarity.Uncommon, tags: "on-hurt status"),
         Rl("relic_struck_frost", "Hoarfrost Mail", "When a regular creature strikes you, there is a 15% chance it is frozen solid.", (s, p) =>
         {
             s.StruckFreeze = Tune.Relics.StruckFreezeChance;
@@ -102,59 +101,52 @@ public static partial class Upgrades
                 // (it catches the very creature that just struck, even mid-attack, where other freezes never do)
                 if (pl.Stats.StruckFreeze > 0f && G.Chance(pl.Stats.StruckFreeze) && e.FreezeSolid(Tune.Relics.StruckFreezeSeconds, force: true)) pl.Bump("froze");
             };
-        }, rarity: RelicRarity.Rare, tags: "on-hurt status"),
+        }, rarity: RelicRarity.Uncommon, tags: "on-hurt status"),
 
         Rl("relic_echo", "Echoing Blade", "When your blade lands, there is a 20% chance it strikes again for half the damage, with everything a strike brings.", (s, p) => s.EchoStrike = Tune.Relics.EchoChance, HMELEE, 0.8f, rarity: RelicRarity.Rare),
 
         Rl("relic_trophy", "Trophy Hunter", "Every kill heals you 2 HP.", (s, p) => s.HealOnKill += 2f, rarity: RelicRarity.Common, tags: "on-kill heal"),
 
         // ---- on a kill
-        Rl("relic_soul", "Soul Lantern", "A creature that falls bursts in a small blast, a fifth of its own health, on those about it.", (s, p) => s.On.Kill += RelicEffects.SoulBurst, rarity: RelicRarity.Uncommon, tags: "on-kill offence"),
-        Rl("relic_hunger", "Hunger", "Every kill gives your reserve a little back (vital force, alimus, fuel, shield; a little health for the rest).", (s, p) => s.On.Kill += (pl, e) => pl.GainReserve(3f), rarity: RelicRarity.Uncommon, tags: "on-kill resource"),
-        Rl("relic_bounty", "Bounty Hunter", "A kill has an 8% chance to drop two or three gold.", (s, p) => s.On.Kill += RelicEffects.Bounty, rarity: RelicRarity.Common, tags: "on-kill economy"),
-        Rl("relic_wither", "Wither", "A creature that dies burning or poisoned passes it on to those about it.", (s, p) => s.On.Kill += RelicEffects.Wither, rarity: RelicRarity.Uncommon, tags: "on-kill status"),
-        Rl("relic_rally", "Rally", "A kill shields the allies near you for 3% of their health.", (s, p) => s.On.Kill += (pl, e) => RelicEffects.Rally(pl), rarity: RelicRarity.Uncommon, tags: "on-kill party"),
+        Rl("relic_soul", "Soul Lantern", "Creatures you kill explode for 10% of their health on those about them.", (s, p) => s.On.Kill += RelicEffects.SoulBurst, rarity: RelicRarity.Rare, tags: "on-kill offence"),
+        Rl("relic_hunger", "Hunger", "Every kill gives your reserve a little back (vital force, alimus, fuel, shield; a little health for the rest).", (s, p) => s.On.Kill += (pl, e) => pl.GainReserve(3f), rarity: RelicRarity.Common, tags: "on-kill resource"),
+        Rl("relic_bounty", "Bounty Hunter", "A kill has a 15% chance to drop two or three gold.", (s, p) => s.On.Kill += RelicEffects.Bounty, rarity: RelicRarity.Common, tags: "on-kill economy"),
+        Rl("relic_wither", "Wither", "A creature that dies burning or poisoned passes it on to those about it, at its full length again.", (s, p) => s.On.Kill += RelicEffects.Wither, rarity: RelicRarity.Common, tags: "on-kill status"),
 
         // ---- on a hit
-        Rl("relic_chain", "Chain Lightning", "A hit has a 15% chance to arc to up to two creatures near it, for 40% of the blow.", (s, p) => s.On.Hit += (pl, e, dealt, k) => RelicEffects.Chain(pl, e, dealt), rarity: RelicRarity.Rare, tags: "on-hit offence"),
-        Rl("relic_overflow", "Overflow", "A hit made at full health puts up a barrier of 8% of your health for 10 s (not more than once in 3 s).", (s, p) => { double last = 0; s.On.Hit += (pl, e, dealt, k) => RelicEffects.Overflow(pl, ref last); }, rarity: RelicRarity.Uncommon, tags: "on-hit defence"),
-        Rl("relic_mark", "Tracking Mark", "A creature you hit is marked for 4 s: it takes 8% more from you.", (s, p) => { s.MarkBonus = 0.08f; s.On.Hit += (pl, e, dealt, k) => e.MarkedUntil = (float)(Time.GetTicksMsec() / 1000.0 + 4.0); }, rarity: RelicRarity.Uncommon, tags: "on-hit offence"),
-        Rl("relic_spill", "Spillover", "A blow that kills spills 30% of its damage onto the nearest other creature.", (s, p) => s.On.Hit += (pl, e, dealt, k) => { if (e.Dead) RelicEffects.Spill(pl, e, dealt); }, rarity: RelicRarity.Uncommon, tags: "on-hit offence"),
+        Rl("relic_mark", "Tracking Mark", "A creature you hit is marked for 4 s: it takes 10% more from you.", (s, p) => { s.MarkBonus = 0.1f; s.On.Hit += (pl, e, dealt, k) => e.MarkedUntil = (float)(Time.GetTicksMsec() / 1000.0 + 4.0); }, rarity: RelicRarity.Common, tags: "on-hit offence"),
+        Rl("relic_spill", "Spillover", "A blow that kills spills 30% of its damage onto the nearest other creature.", (s, p) => s.On.Hit += (pl, e, dealt, k) => { if (e.Dead) RelicEffects.Spill(pl, e, dealt); }, rarity: RelicRarity.Common, tags: "on-hit offence"),
 
         // ---- on the dodge button, on a blow taken, at a fall, a level, a chest
         Rl("relic_riposte", "Riposte", "After you use the dodge button, your next blow within 3 s hits 50% harder.", (s, p) => s.On.Dodge += pl => pl.ArmNextHit(1.5f, 3f), rarity: RelicRarity.Uncommon, tags: "on-dodge offence"),
-        Rl("relic_retribution", "Retribution", "When a blow gets through to you, your next blow within 4 s hits 40% harder.", (s, p) => s.On.Hurt += (pl, e, dmg) => pl.ArmNextHit(1.4f, 4f), rarity: RelicRarity.Uncommon, tags: "on-hurt offence"),
-        Rl("relic_scavenger", "Scavenger", "Opening a chest mends 20% of your health and gives 5 gold.", (s, p) => s.On.Chest += pl => { pl.Heal(pl.Stats.MaxHp * 0.2f); pl.GainGold(5); }, rarity: RelicRarity.Uncommon, tags: "on-chest economy heal"),
-        Rl("relic_levelsurge", "Level Surge", "Gaining a level is a blast about you (40 and 6 for every level) and mends 10% of your health.", (s, p) => s.On.Level += RelicEffects.LevelSurge, rarity: RelicRarity.Uncommon, tags: "on-level offence"),
-        Rl("relic_deepbreath", "Deep Breath", "Under water you mend 1% of your health a second.", (s, p) => s.On.Tick += (pl, dt) => { if (pl.InWater && pl.HeadUnder && pl.Hp < pl.Stats.MaxHp) pl.Heal(pl.Stats.MaxHp * 0.01f * dt); }, rarity: RelicRarity.Uncommon, tags: "heal"),
+        Rl("relic_retribution", "Retribution", "When struck, your next blow within 4 s hits 30% harder.", (s, p) => s.On.Hurt += (pl, e, dmg) => pl.ArmNextHit(1.3f, 4f), rarity: RelicRarity.Uncommon, tags: "on-hurt offence"),
+        Rl("relic_scavenger", "Scavenger", "Opening a chest mends 10% of your health and gives 5 gold.", (s, p) => s.On.Chest += pl => { pl.Heal(pl.Stats.MaxHp * 0.1f); pl.GainGold(5); }, rarity: RelicRarity.Uncommon, tags: "on-chest economy heal"),
 
         // ---- rules
         Rl("relic_hardcase", "Hard Case", "No single blow can take more than 30% of your health.", (s, p) => s.BlowCap = 0.3f, rarity: RelicRarity.Rare, tags: "defence"),
         Rl("relic_berserk", "Berserker's Pulse", "Below a quarter of your health you hit 35% harder and take 20% less.", (s, p) => { s.LowHpDealMult = 1.35f; s.LowHpTakenMult = 0.8f; }, rarity: RelicRarity.Rare, tags: "offence defence"),
         Rl("relic_deathward", "Death Ward", "Once a depth, a blow that would kill you leaves you at 1 health, untouchable for two seconds.", (s, p) => s.DeathWard = true, rarity: RelicRarity.Legendary, tags: "defence"),
-        Rl("relic_highground", "High Ground", "You hit creatures below you 25% harder.", (s, p) => s.HighGroundMult = 1.25f, rarity: RelicRarity.Uncommon, tags: "offence"),
-        Rl("relic_frostfire", "Frostfire", "Fire hits frozen or chilled creatures, and frost hits burning ones, 30% harder.", (s, p) => s.Frostfire = 1.3f, rarity: RelicRarity.Rare, tags: "offence status"),
-        Rl("relic_lucky", "Lucky Coin", "Gold you find is worth 50% more, and creatures are 1% likelier to drop a potion.", (s, p) => { s.GoldMult *= 1.5f; s.PotionChanceBonus += 0.01f; }, rarity: RelicRarity.Common, tags: "economy"),
+        Rl("relic_highground", "High Ground", "You hit creatures below you 20% harder.", (s, p) => s.HighGroundMult = 1.2f, rarity: RelicRarity.Uncommon, tags: "offence"),
+        Rl("relic_frostfire", "Frostfire", "Fire hits frozen or chilled creatures, and frost hits burning ones, 30% harder.", (s, p) => s.Frostfire = 1.3f, rarity: RelicRarity.Uncommon, tags: "offence status"),
+        Rl("relic_lucky", "Lucky Coin", "Gold you find is worth 30% more, and creatures are 1% likelier to drop a potion.", (s, p) => { s.GoldMult *= 1.3f; s.PotionChanceBonus += 0.01f; }, rarity: RelicRarity.Common, tags: "economy"),
         // ---- the merchant's (gold, and what it buys)
-        Rl("relic_fatpurse", "Fat Purse", "Every pile of gold holds 3 more coins.", (s, p) => s.PileBonus += 3, rarity: RelicRarity.Common, tags: "economy shop"),
-        Rl("relic_overstock", "Overstock", "The merchant has one more thing on his table.", (s, p) => s.ShopExtra += 1, rarity: RelicRarity.Uncommon, tags: "economy shop"),
-        Rl("relic_haggle", "Haggler's Tongue", "Everything the merchant sells costs 20% less.", (s, p) => s.ShopPriceMult *= 0.8f, rarity: RelicRarity.Rare, tags: "economy shop"),
-        Rl("relic_dice", "Loaded Dice", "At every stall you may have his wares dealt again once for free.", (s, p) => s.FreeRerolls += 1, rarity: RelicRarity.Uncommon, tags: "economy shop"),
-        Rl("relic_ledger", "Fence's Ledger", "Having the merchant's wares dealt again costs 40% less.", (s, p) => s.RerollMult *= 0.6f, rarity: RelicRarity.Common, tags: "economy shop"),
-        Rl("relic_regular", "Regular Customer", "Reaching a merchant's stall gives you 15 gold: he likes a familiar face.", (s, p) => s.StallGold += 15, rarity: RelicRarity.Uncommon, tags: "economy shop"),
-        Rl("relic_peddlerfriend", "Peddler's Friend", "The merchant's provisions cost you nothing.", (s, p) => s.FreeSupplies = true, rarity: RelicRarity.Rare, tags: "economy shop"),
-        Rl("relic_purse", "Guardian's Purse", "A fallen guardian leaves 20 gold.", (s, p) => s.GuardianGold += 20, rarity: RelicRarity.Uncommon, tags: "economy"),
-        Rl("relic_interest", "Compound Interest", "The gold you carry grows by 10% (at least 1) each time you go down a level.", (s, p) => s.GoldInterest += 0.1f, rarity: RelicRarity.Rare, tags: "economy"),
-        Rl("relic_midas", "Midas Mark", "You hit 1% harder for every 25 gold you carry (at most 20% more).", (s, p) => s.GoldDamageStep = 0.01f, rarity: RelicRarity.Rare, tags: "offence economy"),
+        Rl("relic_fatpurse", "Fat Purse", "Every pile of gold holds 4 more coins.", (s, p) => s.PileBonus += 4, rarity: RelicRarity.Common, tags: "economy shop"),
+        Rl("relic_overstock", "Overstock", "The merchant has one additional item for sale.", (s, p) => s.ShopExtra += 1, rarity: RelicRarity.Uncommon, tags: "economy shop"),
+        Rl("relic_haggle", "Haggler's Tongue", "Everything the merchant sells costs 20% less.", (s, p) => s.ShopPriceMult *= 0.8f, rarity: RelicRarity.Uncommon, tags: "economy shop"),
+        Rl("relic_dice", "Loaded Dice", "At every shop you may reroll once for free.", (s, p) => s.FreeRerolls += 1, rarity: RelicRarity.Uncommon, tags: "economy shop"),
+        Rl("relic_ledger", "Fence's Ledger", "Having the merchant's wares rerolled costs 40% less.", (s, p) => s.RerollMult *= 0.6f, rarity: RelicRarity.Common, tags: "economy shop"),
+        Rl("relic_purse", "Guardian's Purse", "A fallen guardian leaves 20 gold.", (s, p) => s.GuardianGold += 20, rarity: RelicRarity.Common, tags: "economy"),
+        Rl("relic_interest", "Compound Interest", "The gold you carry grows by 10% (at least 1) each time you advance a depth.", (s, p) => s.GoldInterest += 0.1f, rarity: RelicRarity.Rare, tags: "economy"),
+        Rl("relic_midas", "Midas Mark", "You hit 1% harder for every 25 gold you carry (at most 100% more).", (s, p) => s.GoldDamageStep = 0.01f, rarity: RelicRarity.Rare, tags: "offence economy"),
 
         // ---- for one hero
-        Rl("relic_v_gorge", "Gorge", "Every kill gives you 4 vital force.", (s, p) => s.On.Kill += (pl, e) => pl.GainVitalForce(4f), HV, 1.5f, RelicRarity.Uncommon, "on-kill resource"),
-        Rl("relic_sh_adapt", "Adaptive Hide", "Taking a form mends 15% of your health over 5 s.", (s, p) => s.On.Shift += pl => pl.GiveMending(pl.Stats.MaxHp * 0.15f, 5f, 0f), HSH, 1.5f, RelicRarity.Uncommon, "on-shift heal"),
-        Rl("relic_e_overload", "Overload", "While your alimus is nearly full, your fire and frost hit 20% harder.", (s, p) => s.ArcaneFlow = 1.2f, HE, 1.5f, RelicRarity.Uncommon, "offence"),
-        Rl("relic_au_scrap", "Scrap Heap", "Every kill gives you 3 fuel.", (s, p) => s.On.Kill += (pl, e) => pl.GainFuel(3f), HAU, 1.5f, RelicRarity.Uncommon, "on-kill resource"),
+        Rl("relic_v_gorge", "Gorge", "Every kill gives you 4 vital force.", (s, p) => s.On.Kill += (pl, e) => pl.GainVitalForce(4f), HV, 1.5f, RelicRarity.Common, "on-kill resource"),
+        Rl("relic_sh_adapt", "Adaptive Hide", "Returning to your own shape heals you for 15% of your health over 6 s.", (s, p) => s.On.Unshift += pl => pl.GiveMending(pl.Stats.MaxHp * 0.15f, 6f, 0f), HSH, 1.5f, RelicRarity.Uncommon, "on-shift heal"),
+        Rl("relic_e_overload", "Overload", "While your alimus is nearly full, your fire and frost hit 15% harder.", (s, p) => s.ArcaneFlow = 1.15f, HE, 1.5f, RelicRarity.Uncommon, "offence"),
+        Rl("relic_au_scrap", "Scrap Heap", "Every kill gives you 4 fuel.", (s, p) => s.On.Kill += (pl, e) => pl.GainFuel(4f), HAU, 1.5f, RelicRarity.Common, "on-kill resource"),
 
         // (uncommon: the ordinary weight; the rare ones above are likelier to be passed over)
-        Rl("relic_last_rites", "Last Rites", "When you fall, every living ally is healed by 10.", (s, p) =>
+        Rl("relic_last_rites", "Last Rites", "When you fall, every living ally is healed by 20.", (s, p) =>
         {
             s.FallHealAllies = Tune.Relics.FallHeal;
             s.On.Fall += pl =>
@@ -170,10 +162,13 @@ public static partial class Upgrades
         }, rarity: RelicRarity.Uncommon, tags: "on-fall party heal"),
         Rl("relic_phoenix", "Phoenix Ash", "When a friend gets you back on your feet, you rise with 20% more health.", (s, p) => s.ReviveBonus += Tune.Relics.ReviveExtra, rarity: RelicRarity.Uncommon),
         Rl("relic_healer", "Healer's Hands", "When you get a fallen friend back on their feet, they rise with 20% more health.", (s, p) => s.ReviveGiveBonus += Tune.Relics.ReviveExtra, rarity: RelicRarity.Uncommon),
+        Rl("relic_fastres", "Fast Res", "You raise a fallen friend 40% faster.", (s, p) => s.ReviveSpeed += Tune.Relics.ReviveFaster, rarity: RelicRarity.Uncommon, tags: "party"),
+        Rl("relic_kidding", "Just Kidding", "When you have fallen, friends raise you 40% faster.", (s, p) => { }, rarity: RelicRarity.Uncommon, tags: "party"),
 
         // --- Elementalist ---
         Rl("relic_e_blood", "Blood Channeling", "A spell's recharge that lacks the alimus to begin is paid for with your own health instead.", (s, p) => s.BloodCast = true, HE, 1.5f, rarity: RelicRarity.Uncommon),
-        Rl("relic_e_rime", "Rime Heart", "Your frost is 12% likelier to freeze a creature solid, but your fire sets nothing alight.", (s, p) => { s.FreezeBonus += 0.12f; s.IgniteChance = 0f; }, HE, 1.5f, rarity: RelicRarity.Uncommon),
+        Rl("relic_e_rime", "Rime Heart", "Your frost is 12% likelier to freeze a creature solid, but your fire sets nothing alight.", (s, p) => { s.FreezeBonus += 0.12f; s.IgniteChance = 0f; }, HE, 1.5f, rarity: RelicRarity.Common),
+        Rl("relic_e_burnheart", "Burning Heart", "Your fire burns for double the damage, but your frost can't freeze creatures solid.", (s, p) => { s.BurnMult *= 2f; s.NoFreeze = true; }, HE, 1.5f, rarity: RelicRarity.Common),
 
         // --- Vitalist ---
 
@@ -181,18 +176,18 @@ public static partial class Upgrades
         Rl("relic_s_fire", "Lingering Fire", "Charged Strike burns for 5 s (every swing is charged) instead of one swing, but takes 60% longer to come back.", (s, p) => { s.ChargeDuration = 5f; s.ChargeCooldown *= 1.6f; }, HS, 1.5f, rarity: RelicRarity.Uncommon),
 
         // --- Warden ---
-        Rl("relic_w_siphon", "Siphoning Bulwark", "A quarter of the damage you deal recharges your shield.", (s, p) => s.ShieldSiphon += 0.25f, HW, 1.5f, rarity: RelicRarity.Uncommon),
-        Rl("relic_w_ram", "Juggernaut's Charge", "Your Guarded Charge no longer stops for what it meets: it runs its whole length and strikes everything in its way.", (s, p) => s.Juggernaut = true, HW, 1.5f, rarity: RelicRarity.Rare),
-        Rl("relic_w_banner", "Warbanner", "Creatures see you 20% closer than you are, and you hit 10% harder.", (s, p) => { s.ThreatDist *= 0.8f; s.DamageMult *= 1.1f; }, HW, 1.5f, rarity: RelicRarity.Uncommon),
+        Rl("relic_w_siphon", "Siphoning Bulwark", "A quarter of the damage you deal recharges your shield.", (s, p) => s.ShieldSiphon += 0.25f, HW, 1.5f, rarity: RelicRarity.Common),
+        Rl("relic_w_ram", "Juggernaut's Charge", "Your Guarded Charge no longer stops for what it meets: it runs its whole length and strikes everything in its way.", (s, p) => s.Juggernaut = true, HW, 1.5f, rarity: RelicRarity.Uncommon),
+        Rl("relic_w_banner", "Warbanner", "Creatures see you 20% closer than you are, and you hit 10% harder.", (s, p) => { s.ThreatDist *= 0.8f; s.DamageMult *= 1.1f; }, HW, 1.5f, rarity: RelicRarity.Common),
 
         // --- Aegis ---
-        Rl("relic_a_mantle", "Martyr's Mantle", "You carry 35% of the blows of a friend under your Shared Burden, and take 10% more damage yourself.", (s, p) => { s.BurdenShare = Math.Max(s.BurdenShare, 0.35f); s.DamageTakenMult *= 1.1f; }, HA, 1.5f, rarity: RelicRarity.Uncommon),
-        Rl("relic_a_prism", "Prism", "Your bolt's burst reaches 50% farther and the creatures in it take the whole blow.", (s, p) => { s.BurstMult *= 1.5f; s.BurstShare = 1f; }, HA, 1.5f, rarity: RelicRarity.Uncommon),
+        Rl("relic_a_mantle", "Martyr's Mantle", "You carry 20% more of the blows of a friend under your Shared Burden.", (s, p) => s.BurdenShare += 0.2f, HA, 1.5f, rarity: RelicRarity.Uncommon),
+        Rl("relic_a_prism", "Prism", "Your bolt's burst reaches 20% farther, and the creatures in it take 20% more of the blow.", (s, p) => { s.BurstMult *= 1.2f; s.BurstShare = Math.Min(1f, s.BurstShare + 0.2f); }, HA, 1.5f, rarity: RelicRarity.Uncommon),
 
         // --- Automaton ---
 
         // --- Rogue ---
-        Rl("relic_r_lone", "Lone Blade", "Only one dagger flies, and only with both home: the throw hits twice as hard, and the recall half again as hard.", (s, p) => { s.LoneThrow = true; s.ThrowDamageMult *= 2f; s.RecallDamageMult *= 1.5f; }, HR, 1.5f, rarity: RelicRarity.Uncommon),
+        Rl("relic_r_lone", "Lone Blade", "You can only throw one dagger, but it hits twice as hard, and its recall 1.5x as hard.", (s, p) => { s.LoneThrow = true; s.ThrowDamageMult *= 2f; s.RecallDamageMult *= 1.5f; }, HR, 1.5f, rarity: RelicRarity.Uncommon),
         Rl("relic_r_hemo", "Hemorrhage", "A recall always makes its creature bleed.", (s, p) => { s.RecallBleed = true; s.RecallBleedChance = 1f; }, HR, 1.5f, rarity: RelicRarity.Common),
         Rl("relic_r_wound", "Undying Wound", "A recall's bleed never stops until the creature is dead.", (s, p) => { s.RecallBleed = true; s.BleedForever = true; }, HR, 1.5f, rarity: RelicRarity.Rare),
     };
@@ -204,8 +199,8 @@ public static partial class Upgrades
         Bg("rr_leap", "Long Stride", "Jump 20% lower, but move 40% faster through the air.", (s, p) => { s.JumpMult *= 0.8f; s.AirSpeedMult *= 1.4f; }),
         Bg("rr_anvil", "Anvil Grip", "Attack 20% slower, but hit 20% harder.", (s, p) => { s.AttackSpeed *= 0.8f; s.DamageMult *= 1.2f; }),
         Bg("rr_quicksilver", "Quicksilver Grip", "Attack 20% faster, but hit 20% softer.", (s, p) => { s.AttackSpeed *= 1.2f; s.DamageMult *= 0.8f; }),
-        Bg("rr_amphibian", "Amphibian Charm", "Move 30% faster in water, but 15% slower on land.", (s, p) => { s.SwimSpeed *= 1.3f; s.MoveSpeed *= 0.85f; }),
-        Bg("rr_assassin", "Assassin's Edge", "Hit creatures' backs 20% harder, but take 20% more from blows at yours.", (s, p) => { s.BackDealMult *= 1.2f; s.BackTakenMult *= 1.2f; }),
+        Bg("rr_amphibian", "Amphibian Charm", "Move 35% faster in water, but 15% slower on land.", (s, p) => { s.SwimSpeed *= 1.35f; s.MoveSpeed *= 0.85f; }),
+        Bg("rr_assassin", "Assassin's Edge", "Hit creatures' backs 25% harder, but take 15% more from blows at yours.", (s, p) => { s.BackDealMult *= 1.25f; s.BackTakenMult *= 1.15f; }),
         Bg("rr_sniper", "Far Sight", "Hit far-off creatures up to 20% harder, and near ones as much softer.", (s, p) => s.DistanceBias += 0.2f),
         Bg("rr_brawler", "Close Quarters", "Hit near creatures up to 20% harder, and far ones as much softer.", (s, p) => s.DistanceBias -= 0.2f),
         Bg("rr_e_ember", "Ember Heart", "Your fire is 25% likelier to set creatures alight, but your alimus comes back 20% slower.", (s, p) => { s.IgniteChance += 0.25f; s.AlimusRegenMult *= 0.8f; }, HE, 0.9f),
@@ -214,21 +209,30 @@ public static partial class Upgrades
         Bg("rr_v_siphon", "Siphon Crystal", "Gather 30% more vital force, but hit 25% softer.", (s, p) => { s.VitalForceGain *= 1.3f; s.DamageMult *= 0.75f; }, HV, 0.9f),
         Bg("rr_v_well", "Deep Well", "Hold 50% more vital force, but heals cost 25% more of it.", (s, p) => { s.VitalForceMax *= 1.5f; s.HealCostMult *= 1.25f; }, HV, 0.9f),
         Bg("rr_s_quake", "Earthshaker", "Your heaving swing hits 50% harder, but takes 40% longer to come back.", (s, p) => { s.HeaveDamageMult *= 1.5f; s.HeaveCooldown *= 1.4f; }, HS, 0.9f),
-        Bg("rr_s_sash", "Featherfoot Sash", "Your dash-slash comes back 30% sooner, but you have 10% less health.", (s, p) => { s.DodgeCdMult *= 0.7f; s.MaxHp *= 0.9f; if (p != null) p.Hp = Math.Min(p.Hp, s.MaxHp); }, HS, 0.9f),
+        Bg("rr_s_sash", "Featherfoot Sash", "Your dash-slash comes back 30% sooner, but slashes 20% softer.", (s, p) => { s.DodgeCdMult *= 0.7f; s.DashSlashMult *= 0.8f; }, HS, 0.9f),
         Bg("rr_w_plate", "Tower Plate", "Your shield is 30% stronger, but you move 10% slower.", (s, p) => { s.ShieldMult *= 1.3f; s.MoveSpeed *= 0.9f; }, HW, 0.9f),
-        Bg("rr_sh_hide", "Second Skin", "Every form shrugs off 12% more of the blows it takes, but your staff hits 20% softer.", (s, p) => { s.FormArmorAdd += 0.12f; s.PrimaryDamageMult *= 0.8f; }, HSH, 0.9f),
-        Bg("rr_sh_fang", "Borrowed Fangs", "Every form's attacks hit 20% harder, but Shift comes back 30% slower.", (s, p) => { s.FormDmgMult += 0.2f; s.AbilityCdMult *= 1.3f; }, HSH, 0.9f),
-        Bg("rr_sh_echo", "Echoing Voice", "Form specials come back 30% sooner, but you take 10% more damage.", (s, p) => { s.FormSpecCdMult *= 0.7f; s.DamageTakenMult *= 1.1f; }, HSH, 0.9f),
+        Bg("rr_sh_hide", "Second Skin", "Every form shrugs off 20% more of the blows it takes, but you take 15% more damage.", (s, p) => { s.FormArmorAdd += 0.2f; s.DamageTakenMult *= 1.15f; }, HSH, 0.9f),
+        Bg("rr_sh_fang", "Borrowed Fangs", "Every form's attacks hit 20% harder, but your staff hits 20% softer.", (s, p) => { s.FormDmgMult += 0.2f; s.PrimaryDamageMult *= 0.8f; }, HSH, 0.9f),
+        Bg("rr_sh_echo", "Echoing Voice", "Form specials come back 20% sooner, but you take 10% more damage.", (s, p) => { s.FormSpecCdMult *= 0.8f; s.DamageTakenMult *= 1.1f; }, HSH, 0.9f),
         Bg("rr_a_crest", "Solar Crest", "What your ward bolt weakens is weakened 10% more, but your bolt hits 15% softer.", (s, p) => { s.DebuffMult *= 0.9f; s.DamageMult *= 0.85f; }, HA, 0.9f),
-        Bg("rr_a_sea", "Bottled Sea", "Your bubble absorbs three quarters of every blow, but bursts after absorbing 30% less.", (s, p) => { s.BubbleAbsorb = 0.75f; s.BubbleMult *= 0.7f; }, HA, 0.9f),
+        Bg("rr_a_sea", "Bottled Sea", "Your bubble absorbs half of every blow, but bursts after absorbing 20% less.", (s, p) => { s.BubbleAbsorb = 0.5f; s.BubbleMult *= 0.8f; }, HA, 0.9f),
         Bg("rr_au_boiler", "Overfired Boiler", "Steam Release comes back twice as fast, but you take 10% more damage.", (s, p) => { s.SteamCdMult *= 0.5f; s.DamageTakenMult *= 1.1f; }, HAU, 0.9f),
-        Bg("rr_au_dynamo", "Dynamo", "Healing gives you 15% more of itself as fuel, but your cleaver hits 15% softer.", (s, p) => { s.FuelFromHeal += 0.15f; s.PrimaryDamageMult *= 0.85f; }, HAU, 0.9f),
+        Bg("rr_au_dynamo", "Dynamo", "Healing gives you 15% more of itself as fuel, but your cleaver hits 10% softer.", (s, p) => { s.FuelFromHeal += 0.15f; s.PrimaryDamageMult *= 0.9f; }, HAU, 0.9f),
         Bg("rr_au_ballast", "Ballast Tanks", "You take no shove at all, but you move 10% slower.", (s, p) => { s.KnockTakenMult = 0f; s.MoveSpeed *= 0.9f; }, HAU, 0.9f),
-        Bg("rr_au_governor", "Loose Governor", "You swing 25% faster, but Self-Repair mends 30% slower.", (s, p) => { s.AttackSpeed += 0.25f; s.RepairRateMult *= 0.7f; }, HAU, 0.9f),
+        Bg("rr_au_governor", "Loose Governor", "You swing 20% faster, but Self-Repair mends 30% slower.", (s, p) => { s.AttackSpeed += 0.2f; s.RepairRateMult *= 0.7f; }, HAU, 0.9f),
         Bg("rr_r_quick", "Quickfingers", "Daggers are ready again in 60% of the time, but thrown ones hit 15% softer.", (s, p) => { s.ThrowCdMult *= 0.6f; s.ThrowDamageMult *= 0.85f; }, HR, 0.9f),
     };
 
-    static Upgrades() { Chest.AddRange(Bargains); }
+    static Upgrades()
+    {
+        Chest.AddRange(Bargains);
+        // (the pairs that pull against each other: one of each pair, never both)
+        foreach (var (a, b) in new[] { ("rr_anvil", "rr_quicksilver"), ("rr_sniper", "rr_brawler"), ("rr_v_fury", "rr_v_siphon"), ("relic_bait", "relic_shroud"), ("relic_e_rime", "relic_e_burnheart") })
+        {
+            Find(a).Excludes = Find(a).Excludes.Append(b).ToArray();
+            Find(b).Excludes = Find(b).Excludes.Append(a).ToArray();
+        }
+    }
 
     /// <summary>A relic this hero could be offered (not carried yet; generic or theirs).</summary>
     public static List<Upgrade> RelicPool(PlayerStats s, IEnumerable<string> not = null)

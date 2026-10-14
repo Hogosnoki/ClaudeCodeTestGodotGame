@@ -470,11 +470,11 @@ public partial class Main : Node
                 var p = G.Player;
                 string[] cards = p.Stats.Hero switch
                 {
-                    HeroKind.Warden => new[] { "reach", "shield_wide", "aegis", "aegis", "shield_unyielding", "unyielding_more", "dash_cd", "hp", "speed", "rr_lungs" },
-                    HeroKind.Vitalist => new[] { "mouths", "hex_long", "heal_slow", "heal_warding", "wellspring", "rupture_cheap", "hp", "armor", "rr_glass" },
-                    HeroKind.Elementalist => new[] { "kindling", "reservoir", "attune", "attune", "whiteout", "gathering", "echo", "hp", "speed", "rr_reserve" },
+                    HeroKind.Warden => new[] { "reach_w", "bash_dense", "aegis", "aegis", "shield_unyielding", "unyielding_more", "dash_cd", "hp", "speed", "rr_lungs" },
+                    HeroKind.Vitalist => new[] { "mouths", "hex_long", "heal_patient", "heal_warding", "wellspring", "rupture_cheap", "hp", "armor", "rr_glass" },
+                    HeroKind.Elementalist => new[] { "kindling", "reservoir", "attune", "attune", "whiteout", "gathering", "echo", "hp", "speed", "rr_glass" },
                     HeroKind.Rogue => new[] { "keen", "backstab", "twin_throw", "throw_ricochet", "surprise", "hp", "speed", "jump", "rr_glass" },
-                    _ => new[] { "combo", "reach", "charge_combo", "charge_combo_more", "windrunner", "windrunner", "iframes", "hp", "speed", "rr_heavy" },
+                    _ => new[] { "combo", "reach", "charge_combo", "heave_twice", "dodgecd", "dodgecd", "iframes", "hp", "speed", "rr_heavy" },
                 };
                 foreach (var id in cards) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
                 p.PendingMilestones = 1;
@@ -806,13 +806,14 @@ public partial class Main : Node
         if (keepStats == null) { ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; }
         if (keepStats != null)
         {
-            // (Spring Water: going deeper heals you to full)
+            // (each depth rests you a little; Spring Water: a little more)
             // (the merchant's stall is no rest: the level below heals, not this one)
-            player.Hp = G.Shop ? keepHp : keepStats.DepthHeal ? keepStats.MaxHp : Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * 0.3f);
+            float restShare = 0.3f + (keepStats.DepthHeal ? Tune.Relics.DepthHealShare : 0f);
+            player.Hp = G.Shop ? keepHp : Math.Min(keepStats.MaxHp, keepHp + keepStats.MaxHp * restShare);
             if (keepStats.SelfRepair)
             {
                 // (the Automaton isn't mended by the rest: what would have healed it becomes energy)
-                float rest = keepStats.DepthHeal ? keepStats.MaxHp - keepHp : Math.Min(keepStats.MaxHp - keepHp, keepStats.MaxHp * 0.3f);
+                float rest = Math.Min(keepStats.MaxHp - keepHp, keepStats.MaxHp * restShare);
                 player.Hp = keepHp;
                 player.Fuel = Math.Min(keepStats.FuelMax, keepFuel + (keepStats.ScrapReclaimer ? 0f : rest * keepStats.FuelFromHeal));
             }
@@ -3006,7 +3007,7 @@ public partial class Main : Node
         {
             case 0:
                 // a seasoned rogue: combo + finisher + knockback + pogo, and enough health to survive the bot
-                foreach (var id in new[] { "combo", "combo3", "knock", "pogo", "charge2", "atkspd" }) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
+                foreach (var id in new[] { "combo", "combo3", "pogo", "charge2", "atkspd" }) Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
                 p.Stats.MaxHp = 600; p.Hp = 600;
                 var s0 = p.GlobalPosition;
                 Put(new Goblin(), s0 + new Vector2(90, -10));
@@ -3599,7 +3600,7 @@ public partial class Main : Node
                 break;
             case 80:
                 // Crescent Wave: a swing from well out of reach still cuts the golem
-                Upgrades.Apply(Upgrades.Get("wave"), p.Stats, p);
+                p.Stats.CrescentWave = true; // (no longer a card, but the swing still knows how)
                 _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 120, -6);
                 break;
             case 86:
@@ -3792,7 +3793,7 @@ public partial class Main : Node
 
             // ---- Twin Reserve: two heals back to back, then a long wait
             case 67:
-                Upgrades.Apply(Upgrades.Get("rr_reserve"), p.Stats, p);
+                p.Stats.AbilityCharges += 1; p.Stats.AbilityCdMult *= 2f; p.SyncCharges(); // (Twin Reserve: no longer a card)
                 p.ResetAbilityCooldowns();
                 p.SetVitalForce(30);
                 p.Hp = 10;
@@ -3986,24 +3987,24 @@ public partial class Main : Node
         Check("trees hidden before any resource", !Meta.Trees.Any(Meta.Visible));
         var rng = new Random(3);
         int reagents = 0, pearls = 0;
-        for (int k = 0; k < 31; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
-        Check($"31 draws give every resource once (13 reagents: {reagents}, 18 pearls: {pearls})", reagents == 13 && pearls == 18);
+        for (int k = 0; k < 30; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
+        Check($"30 draws give every resource once (12 reagents: {reagents}, 18 pearls: {pearls})", reagents == 12 && pearls == 18);
         Check("nothing once all are found", Meta.RollResource(rng) == null);
         var heal1 = Meta.PotionTree.Branch("heal").First();
         Check("can't buy without embers", !Meta.Buy(heal1));
         Meta.Embers = 10;
         Check("buying rank 1 costs 1 ember", Meta.Buy(heal1) && Meta.Embers == 9);
         Check("a bought rank does nothing until activated", Math.Abs(Meta.PotionHealNow - 0.15f) < 1e-4f);
-        Check("activating spends a reagent", Meta.Activate(heal1) && Meta.HeldOf(Meta.PotionTree) == 12);
-        Check($"immediate heal now 20% ({Meta.PotionHealNow:P0})", Math.Abs(Meta.PotionHealNow - 0.20f) < 1e-4f);
+        Check("activating spends a reagent", Meta.Activate(heal1) && Meta.HeldOf(Meta.PotionTree) == 11);
+        Check($"immediate heal now 10% more ({Meta.PotionHealNow:P1})", Math.Abs(Meta.PotionHealNow - 0.165f) < 1e-4f);
         foreach (var id in new[] { "speed1", "speed2", "speed3", "max1", "mile1", "mile2", "mile3", "xp1" })
         {
             var tier = Meta.Trees.SelectMany(t => t.Tiers).First(x => x.Id == id);
             Meta.Embers += tier.Cost; Meta.Buy(tier); Meta.Activate(tier);
         }
-        Check($"heal over time takes 10 s after three ranks ({Meta.PotionHotSeconds})", Math.Abs(Meta.PotionHotSeconds - 10f) < 1e-4f);
+        Check($"heal over time takes 8 s after three ranks ({Meta.PotionHotSeconds})", Math.Abs(Meta.PotionHotSeconds - 8f) < 1e-4f);
         Check($"two potions with one flask rank ({Meta.MaxPotions})", Meta.MaxPotions == 2);
-        Check($"milestones every 2 levels after three ranks ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 2);
+        Check($"milestones every 5 levels after three ranks ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 5);
         Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
         GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
         SafeQuit.Request(this, ok ? 0 : 1);

@@ -175,6 +175,7 @@ public partial class Player
     {
         if (Form == null) return;
         Form = null;
+        if (!IsRemote) Stats.On.RaiseUnshift(this);
         _formAtkT = -1f; _formDashT = 0; _frenzyLeft = 0; _formSpecT = -1f; _formLeapLand = false;
         _seekFoe = null; _latched = false; _seekCritter = null;
         FormClip = null;

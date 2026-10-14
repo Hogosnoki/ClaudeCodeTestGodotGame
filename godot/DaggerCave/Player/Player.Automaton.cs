@@ -223,7 +223,7 @@ public partial class Player
             G.Fx.Spark(GlobalPosition + new Vector2(Math.Sign(dx == 0 ? Facing : dx) * 9, -4), new Vector2(Math.Sign(dx == 0 ? Facing : dx), 0), true, Copper);
             G.Sfx.Play("clink", GlobalPosition, -2, 0.05f, 0.8f);
         }
-        if (melee && !_braceAnswered && source != null && IsInstanceValid(source) && !source.Dead)
+        if (melee && !Stats.FullPlate && !_braceAnswered && source != null && IsInstanceValid(source) && !source.Dead)
         {
             _braceAnswered = true;
             var to = source.GlobalPosition - (GlobalPosition + new Vector2(0, -3));

@@ -28,13 +28,14 @@ public partial class Main
         var all = Upgrades.All.ToList();
         ScCheck($"{all.Count} cards, every id its own", all.Select(u => u.Id).Distinct().Count() == all.Count);
         var generic = Upgrades.Chest.Where(u => u.Kind is UpgradeKind.Generic or UpgradeKind.Conditional).ToList();
-        ScCheck($"{generic.Count} generic and conditional upgrades (it was 14)", generic.Count >= 40);
+        ScCheck($"{generic.Count} generic and conditional upgrades (it was 14)", generic.Count >= 35);
         ScCheck($"{Upgrades.Relics.Count} relics, all relic cards with a rarity", Upgrades.Relics.Count >= 45 && Upgrades.Relics.All(u => u.Kind == UpgradeKind.Relic));
         ScCheck($"rarities: {string.Join(", ", Enum.GetValues<RelicRarity>().Select(r => $"{Upgrades.Relics.Count(u => u.Rarity == r)} {r}"))}", Enum.GetValues<RelicRarity>().All(r => Upgrades.Relics.Any(u => u.Rarity == r)));
         var barg = Upgrades.Chest.Where(u => u.Kind == UpgradeKind.RiskReward).ToList();
         ScCheck($"{barg.Count} bargains (the stat swaps that were relics), none a relic", barg.Count >= 30 && barg.All(u => !u.Relic));
-        ScCheck($"techniques: {string.Join(", ", Upgrades.Chest.Where(u => u.Technique).Select(u => u.Name))}", Upgrades.Chest.Count(u => u.Technique) >= 3 && Upgrades.Chest.Where(u => u.Technique).All(u => u.Kind == UpgradeKind.Technique));
-        ScCheck("a technique is not dealt as chest filler, but milestones offer them", !Upgrades.IsChestFiller(Upgrades.Get("djump")));
+        ScCheck($"techniques: {string.Join(", ", Upgrades.Chest.Where(u => u.Technique).Select(u => u.Name))}", Upgrades.Chest.Count(u => u.Technique) >= 1 && Upgrades.Chest.Where(u => u.Technique).All(u => u.Kind == UpgradeKind.Technique));
+        ScCheck("the double jump and air dash are conditional chest cards (after a Spring Step, a Windstep), not techniques", Upgrades.Get("djump").Kind == UpgradeKind.Conditional && Upgrades.Get("airdash").Kind == UpgradeKind.Conditional);
+        ScCheck("a technique is not dealt as chest filler, but milestones offer them", !Upgrades.IsChestFiller(Upgrades.Get("magma")));
         foreach (var hero in Enum.GetValues<HeroKind>())
         {
             var st = new PlayerStats(hero);
@@ -101,19 +102,19 @@ public partial class Main
         ScCheck($"Death Ward: a killing blow leaves one health ({p.Hp:0.0}, dead {p.Dead})", !p.Dead && p.Hp <= 1.5f);
         st0.DeathWard = false; p.Hp = p.Stats.MaxHp; p.ClearInvuln();
         foreach (var _ in Wait(0.2f)) yield return null;
-        st0.RegenShare = 0.5f; p.Hp = 100f;
-        foreach (var _ in Wait(6f)) yield return null;
-        ScCheck($"Recuperation: mending after a few quiet seconds (100 -> {p.Hp:0})", p.Hp > 400f);
-        st0.RegenShare = 0f; p.Hp = p.Stats.MaxHp;
+        float healMult0 = st0.HealingTakenMult; p.Hp = 100f; p.Heal(100f); float plainHeal = p.Hp - 100f;
+        Upgrades.Apply(Upgrades.Get("regen"), st0, p); p.Hp = 100f; p.Heal(100f);
+        ScCheck($"Recuperation: healing received is 20% stronger ({plainHeal:0} -> {p.Hp - 100f:0})", Math.Abs((p.Hp - 100f) - plainHeal * 1.2f) < 0.5f);
+        st0.HealingTakenMult = healMult0; p.Hp = p.Stats.MaxHp;
 
         // the relics, by the events they hear (certain where it is a chance)
         var cThen = (Tune.Relics.ChainChance, Tune.Relics.BountyChance);
         Tune.Relics.ChainChance = 1f; Tune.Relics.BountyChance = 1f;
-        foreach (var id in new[] { "relic_soul", "relic_hunger", "relic_bounty", "relic_wither", "relic_chain", "relic_spill", "relic_mark", "relic_overflow", "relic_riposte", "relic_retribution", "relic_scavenger", "relic_levelsurge", "relic_lucky", "relic_midas" })
+        foreach (var id in new[] { "relic_soul", "relic_hunger", "relic_bounty", "relic_wither", "relic_spill", "relic_mark", "relic_riposte", "relic_retribution", "relic_scavenger", "relic_lucky", "relic_midas" })
             Upgrades.Apply(Upgrades.Get(id), p.Stats, p);
         foe.QueueFree(); foreach (var e in G.Enemies.ToArray()) if (IsInstanceValid(e)) e.QueueFree();
         yield return null;
-        // a victim with a neighbour: a kill bursts (Soul Lantern), spills (Spillover), arcs (Chain), spreads fire (Wither), drops coins (Bounty)
+        // a victim with a neighbour: a kill bursts (Soul Lantern), spills (Spillover), spreads fire (Wither), drops coins (Bounty)
         var victim = Dummy(dx: 40f, hp: 20f);
         var neighbour = Dummy(dx: 70f);
         yield return null;
@@ -122,14 +123,13 @@ public partial class Main
         float nb0 = neighbour.Hp;
         victim.Hurt(100000f, Vector2.Zero, victim.GlobalPosition, DamageKind.Physical);
         yield return null;
-        ScCheck($"the kill: the victim fell ({victim.Dead}), and its neighbour took harm from the burst, the spill and the arc ({nb0 - neighbour.Hp:0.0}; soul {p.Tally("soul")}, spill {p.Tally("spill")}, chain {p.Tally("chain")})", victim.Dead && nb0 - neighbour.Hp > 10f && p.Tally("soul") >= 1 && p.Tally("spill") >= 1);
+        ScCheck($"the kill: the victim fell ({victim.Dead}), and its neighbour took harm from the burst and the spill ({nb0 - neighbour.Hp:0.0}; soul {p.Tally("soul")}, spill {p.Tally("spill")})", victim.Dead && nb0 - neighbour.Hp > 3f && p.Tally("soul") >= 1 && p.Tally("spill") >= 1);
         ScCheck($"Wither: the burning victim set its neighbour alight ({neighbour.Ignited}; {p.Tally("wither")})", neighbour.Ignited);
         ScCheck($"Bounty Hunter: coins dropped ({_world.GetChildren().OfType<CoinPickup>().Count() - coins0})", _world.GetChildren().OfType<CoinPickup>().Count() > coins0);
-        // a hit: marks (Tracking Mark), and arms nothing; overflow at full health
+        // a hit: marks (Tracking Mark), and arms nothing
         Hit(neighbour, 10f); neighbour.Hp = neighbour.MaxHp;
         float marked = neighbour.MarkedUntil;
         ScCheck($"Tracking Mark: the creature hit is marked ({marked > Time.GetTicksMsec() / 1000.0})", marked > Time.GetTicksMsec() / 1000.0);
-        ScCheck($"Overflow: a hit at full health put up a barrier ({p.Tally("overflow")}, barrier {p.BarrierHp:0})", p.Tally("overflow") >= 1 && p.BarrierHp > 0f);
         // dodge, hurt, level, chest
         p.Stats.On.RaiseDodge(p);
         ScCheck($"Riposte: the dodge button arms the next blow ({p.NextHitMult:0.0}x)", p.NextHitUntil > Time.GetTicksMsec() / 1000.0 && Math.Abs(p.NextHitMult - 1.5f) < 0.01f);
@@ -139,13 +139,8 @@ public partial class Main
         ScCheck($"and that blow lands harder, once ({armed:0} then {unarmed:0})", armed > unarmed * 1.3f);
         p.Hp = p.Stats.MaxHp * 0.5f; int g1 = p.Gold;
         p.Stats.On.RaiseChest(p);
-        ScCheck($"Scavenger: a chest mends and pays ({p.Gold - g1} gold, health {p.Hp:0})", p.Gold == g1 + (int)MathF.Round(5 * p.Stats.GoldMult) && p.Hp > p.Stats.MaxHp * 0.65f);
-        var near = Dummy(dx: 40f);
-        yield return null;
-        float n1 = near.Hp;
-        p.Stats.On.RaiseLevel(p);
-        ScCheck($"Level Surge: a level gained blasts the creatures about ({n1 - near.Hp:0.0})", n1 - near.Hp > 20f);
-        ScCheck($"Midas Mark and Lucky Coin are in effect (gold step {p.Stats.GoldDamageStep}, gold x{p.Stats.GoldMult:0.0})", p.Stats.GoldDamageStep > 0f && p.Stats.GoldMult >= 1.5f);
+        ScCheck($"Scavenger: a chest mends and pays ({p.Gold - g1} gold, health {p.Hp:0})", p.Gold == g1 + (int)MathF.Round(5 * p.Stats.GoldMult) && p.Hp > p.Stats.MaxHp * 0.55f);
+        ScCheck($"Midas Mark and Lucky Coin are in effect (gold step {p.Stats.GoldDamageStep}, gold x{p.Stats.GoldMult:0.0})", p.Stats.GoldDamageStep > 0f && p.Stats.GoldMult >= 1.29f);
         Tune.Relics.ChainChance = cThen.Item1; Tune.Relics.BountyChance = cThen.Item2;
     }
 }

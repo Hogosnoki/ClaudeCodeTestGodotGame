@@ -281,29 +281,9 @@ public partial class Main
                 break;
             }
 
-            // ---- Endless Hex: no cooldown, 10 vital force a cast
-            case 12:
-                Take(p, "hex_endless", drop: "hex_burst");
-                p.ResetAbilityCooldowns();
-                p.SetVitalForce(25);
-                _heroInput = new PlayerInput { Dodge = true };
-                break;
-            case 13: _heroInput = default; break;
-            case 18: _heroInput = new PlayerInput { Dodge = true }; break;
-            case 19:
-                _heroInput = default;
-                Check($"Endless Hex: two hexes half a second apart, 10 vital force each (25 -> {p.VitalForce:0})", Math.Abs(p.VitalForce - 5) < 0.01f);
-                break;
-            case 24: _heroInput = new PlayerInput { Dodge = true }; break;
-            case 25:
-                _heroInput = default;
-                Check($"a third, without the vital force, is refused ({p.VitalForce:0} left)", Math.Abs(p.VitalForce - 5) < 0.01f);
-                if (IsInstanceValid(_probeEnemy)) _probeEnemy.QueueFree();
-                break;
-
-            // ---- Slow Mending: half now, half over 6 s
+            // ---- Patient Mending: 60% at once, 60% more over 4 s
             case 30:
-                Take(p, "heal_slow");
+                Take(p, "heal_patient");
                 p.ResetAbilityCooldowns();
                 p.Hp = 100;
                 p.SetVitalForce(40);
@@ -313,14 +293,14 @@ public partial class Main
             case 31:
             {
                 _heroInput = default;
-                float half = Tune.Vitalist.HealAmount * p.Stats.HealMult * 0.5f;
-                Check($"Slow Mending: half the heal at once (hp {_hpMark:0.0} -> {p.Hp:0.0}, want +{half:0.0}), mending {p.Mended}", p.Hp - _hpMark > half - 0.5f && p.Hp - _hpMark < half + 1.5f && p.Mended);
+                float now = Tune.Vitalist.HealAmount * p.Stats.HealMult * Tune.Vitalist.PatientNow;
+                Check($"Patient Mending: 60% of the heal at once (hp {_hpMark:0.0} -> {p.Hp:0.0}, want +{now:0.0}), mending {p.Mended}", p.Hp - _hpMark > now - 0.5f && p.Hp - _hpMark < now + 1.5f && p.Mended);
                 break;
             }
-            case 31 + 62:
+            case 31 + 50:
             {
-                float all = Tune.Vitalist.HealAmount * p.Stats.HealMult;
-                Check($"and the rest over {Tune.Vitalist.MendSeconds:0} s (hp {_hpMark:0.0} -> {p.Hp:0.0}, want +{all:0.0}), still mending {p.Mended}", Math.Abs(p.Hp - _hpMark - all) < 0.6f && !p.Mended);
+                float all = Tune.Vitalist.HealAmount * p.Stats.HealMult * (Tune.Vitalist.PatientNow + Tune.Vitalist.PatientLater);
+                Check($"and 60% more over {Tune.Vitalist.PatientSeconds:0} s (hp {_hpMark:0.0} -> {p.Hp:0.0}, want +{all:0.0}), still mending {p.Mended}", Math.Abs(p.Hp - _hpMark - all) < 0.6f && !p.Mended);
                 break;
             }
             case 95:

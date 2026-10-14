@@ -280,7 +280,9 @@ public partial class Player
         }
         ReviveTarget = fallen;
         if (fallen == null || !inp.InteractHeld) { ReviveProgress = 0; return; }
-        ReviveProgress += dt / 2f;
+        // (Fast Res: this hero raises friends faster; Just Kidding: the fallen friend rises faster)
+        float speed = 1f + Stats.ReviveSpeed + (RunRelics.Has(fallen.NetOwner, "relic_kidding") ? Tune.Relics.ReviveFaster : 0f);
+        ReviveProgress += dt * speed / 2f;
         if (G.Chance(0.3f)) G.Fx.Ember(fallen.GlobalPosition + new Vector2(G.Range(-10, 10), G.Range(-4, 8)), HealColor);
         if (ReviveProgress < 1f) return;
         ReviveProgress = 0;

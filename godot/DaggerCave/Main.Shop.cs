@@ -40,11 +40,14 @@ public partial class Main
         return Math.Max(1, (int)MathF.Round(basePrice * (1f + Tune.Merchant.PerDepth * Math.Max(0, G.Depth)) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult));
     }
 
-    /// <summary>What dealing his wares again costs the hero now (0: free).</summary>
+    /// <summary>The stall's own free deal is still to be had (Loaded Dice).</summary>
+    public static bool FreeDealLeft(Merchant m) => G.Player?.Stats is { } st && m.FreeRerollsUsed < st.FreeRerolls;
+
+    /// <summary>What dealing his wares again costs the hero now (0: free, by Loaded Dice or a Second Thoughts charge).</summary>
     public static int RerollPrice(Merchant m)
     {
         var st = G.Player?.Stats;
-        if (st != null && m.FreeRerollsUsed < st.FreeRerolls) return 0;
+        if (FreeDealLeft(m) || (G.Player?.Rerolls ?? 0) > 0) return 0;
         float price = Tune.Merchant.PriceReroll * (1f + Tune.Merchant.PerDepth * Math.Max(0, G.Depth)) * (1f + Tune.Merchant.RerollStep * m.Rerolls) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult * (st?.RerollMult ?? 1f);
         return Math.Max(1, (int)MathF.Round(price));
     }
@@ -85,7 +88,8 @@ public partial class Main
         var p = G.Player;
         int price = RerollPrice(m);
         if (price > p.Gold) { ShowShop(); return; }
-        if (price == 0) m.FreeRerollsUsed++;
+        // (free: the stall's own free deal first, then a Second Thoughts charge)
+        if (price == 0) { if (FreeDealLeft(m)) m.FreeRerollsUsed++; else p.Rerolls--; }
         p.Gold -= price; p.GoldSpent += price;
         m.Rerolls++;
         var keep = m.Stock.Where(i => i.Service).ToList();
@@ -122,6 +126,9 @@ public partial class Main
             prices.Add(i.Price);
         }
         int rp = RerollPrice(m);
+        RerollCard.Desc = FreeDealLeft(m) ? "He shuffles the cards he has not sold and lays out new ones: this one is on the house."
+            : rp == 0 ? $"He shuffles the cards he has not sold and lays out new ones, for one of your Second Thoughts ({p.Rerolls} left)."
+            : "He shuffles the cards he has not sold and lays out new ones. Each time costs more.";
         locks.Add(rp > p.Gold ? $"NEEDS {rp - p.Gold} MORE GOLD" : null); prices.Add(rp);
         locks.Add(null); prices.Add(0);
         _state = State.Choosing;

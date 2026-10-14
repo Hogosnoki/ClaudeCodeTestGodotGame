@@ -38,6 +38,8 @@ public partial class Player
     private Vector2 _lungeVec;
     private Enemy _lungeFoe;
     private Vector2 _swingDir;
+    /// <summary>Downward Thrust has bounced since the hero last stood on the ground.</summary>
+    private bool _pogoSpent;
     private int _comboStep;
     private bool _swingHitSomething, _chainLive, _finisher, _swingCharged;
     private readonly HashSet<Enemy> _swingHits = new();
@@ -381,8 +383,10 @@ public partial class Player
             _pauseNext = Math.Max(_pauseNext, Tune.Feel.MeleeHitPause);
             LastHitPause = Tune.Feel.MeleeHitPause;
             // Pogo: downward aerial strikes bounce the player up.
-            if (Stats.Pogo && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
+            if (Stats.Pogo && !_pogoSpent && !IsOnFloor() && !InWater && _swingDir.Y > 0.55f)
             {
+                // (one bounce, then feet on the ground before the next)
+                _pogoSpent = true;
                 Velocity = new Vector2(Velocity.X, -BaseJumpV * Tune.Hero.PogoBounceMult * MathF.Sqrt(Stats.JumpMult));
                 _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; _jumpCutDone = true;
                 G.Fx.Ring(e.GlobalPosition, 14, new Color(1f, 1f, 0.7f, 0.9f));

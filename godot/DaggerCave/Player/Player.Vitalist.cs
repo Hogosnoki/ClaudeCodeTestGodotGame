@@ -357,18 +357,16 @@ public partial class Player
                 for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
                 p.Anim.Flash(0.4f);
                 p.Anim.FlashColor = HealColorLight;
-                if (!Stats.SlowMending)
+                if (!Stats.PatientMending)
                 {
                     p.Heal(share);
                     // (Mending Ward: those you've healed are warded for a while, even by an instant heal)
                     if (Stats.HotWard > 0) p.GiveMending(0.01f, Tune.Vitalist.MendSeconds, Stats.HotWard);
                     continue;
                 }
-                // Slow Mending: half now, half over the next seconds (Patient: all of it, and more)
-                float later = Stats.PatientMending ? share * (1f + Tune.Vitalist.PatientBonus) : share * 0.5f;
-                float now = Stats.PatientMending ? 0f : share * 0.5f;
-                if (now > 0) p.Heal(now);
-                p.GiveMending(later, Tune.Vitalist.MendSeconds, Math.Max(Stats.WardingMending ? Tune.Vitalist.WardingShare : 0f, Stats.HotWard));
+                // Patient Mending: most of it now, and as much again over the next few seconds
+                p.Heal(share * Tune.Vitalist.PatientNow);
+                p.GiveMending(share * Tune.Vitalist.PatientLater, Tune.Vitalist.PatientSeconds, Math.Max(Stats.WardingMending ? Tune.Vitalist.WardingShare : 0f, Stats.HotWard));
             }
             G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
         });
