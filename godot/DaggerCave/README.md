@@ -353,13 +353,13 @@ mini-bosses and guardian:
 | Depth | Biome | Cave | Creatures | Hazards / features | Guardian |
 | --- | --- | --- | --- | --- | --- |
 | 0 | Cave Entrance | one long winding corridor with side pockets, and the way back out to the daylight behind you; no darkness; few enemies | spiders, bats, rats | - | The Web-Mother (a weak ground spider that calls its brood) |
-| 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Den Mother (bear) |
+| 1-2 | Den | big round rooms in a line, almost no climbing; lots of elites; picked less often | rats, bears, goblins, bats | - | The Goblin Warchief (60%) or the Den Mother (bear) |
 | 1-3 | Root-Choked Tunnels (the deep canopy) | branching tunnels through rock riven by massive tree roots coming down from the surface world; pools of murky water low down | rats, spiders, rot frogs, bats, mire fish, root eels | grasping roots that slow you and, if they hold you long enough, snag your weapon for a moment (two cuts clear them); thick, rotting water that leaves you gasping 50% sooner and swimming 20% slower | The Rotback (bear) |
 | 1-3 | Nest | round rooms scattered up and down, joined by zig-zag tunnels that are always walkable; enemies and chests are in the rooms | scorpions, spiders (on the ceiling and the floor: the commonest residents), hornets, and now and then a **hornet hive** | webs that slow you (cut them) | The Brood Queen (scorpion) |
 | 2-3 | Ruins | right-angled halls and corridors on three floors, brickwork, shafts with stone slabs to climb, tall halls with floating slabs; over a hall or two with solid rock above it, a ladder of slabs climbs up through the roof into a hidden chamber with a silver (relic) chest | skeletons, goblins, slingers, rats, scorpions | - | The Bone Knight (skeleton) |
 | 3-5 | Catacombs | a stepped pyramid of vaulted halls: a great nave under a scalloped vault in the middle of the map (stepped tombs of stacked sarcophagi in its tallest bays), and out of each end a long stair down into a landing hall, another into a long gallery, and so on, outward and downward; one side ends in the Crypt Lord's rotunda (rock behind it for the treasury), the other in a sealed tomb. Cold blue stone and brickwork; lit only by a dim blue glow and the odd wall torch. Skulls and bones strewn underfoot, heaps of skulls, burial urns, ossuary walls of bone heaped against the back wall (skulls every way up, long bones jutting across them), and the barriers across the passages are banks of skulls, not boulders | crypt skeletons, grave rats, grave-robber slingers, crypt bats, spiders, restless wraiths | - | The Crypt Lord (skeleton) |
 | 3-4 | Fungal Cavern | wide, low-lying tunnels, little vertical variation | sporelings, frogs, mossback golems, spore hornets | spore pods that burst into choking clouds | The Mossback Hulk |
-| 3-5 | Tunnels | slightly smaller map, tight flat or diagonal passages, water low down | rats, bears, bats, fish, eels, urchins | - | The Tunnel Brute (bear) |
+| 3-5 | Tunnels | slightly smaller map, tight flat or diagonal passages, water low down | rats, bears, bats, fish, eels, urchins | - | The Barrow King (60%) or the Tunnel Brute (bear) |
 | 4-6 | Slime Cavern | the original half-flooded cave | goblins, frogs, magma brutes, golems, bats, spiders, fish, eels, urchins | air vents | The Cavern Colossus |
 | 5-7 | Frost Caverns | mostly horizontal, ice everywhere | frost bears, rime skeletons, frost wraiths, ice bats | slippery ground; a frozen water surface (break it to swim, and break it again from below to get out); ice ledges that shatter after 3 landings or 2 blows and refreeze | The Rime Colossus |
 | 5-7 | Fossil Graveyards | a few vast, echoing chambers of layered sediment; in each, the ribcage of a leviathan arches from deep in the back to just in front of you, and a great skull is sunk in the wall | fossil skeletons, bone scorpions, ossuary golems, marrow rats, bats | unstable ceilings: walk beneath one and dust sifts down and the rock groans, then a few stones break loose (each one shows where it will land) | The Ossuary Colossus |
@@ -1142,8 +1142,9 @@ told to stop as soon as an earlier attempt has made a sound cave.
 ## Can the guardian be reached? (generation)
 
 After carving, a cave is checked twice. The first check works in 16 px cells and is kind to narrow
-necks and tall climbs. The second, `Cave/FineReach.cs`, is strict: a 13 x 26 px body (a little
-over, to be safe), the slowest hero's jump (no double jump, wall jump or updraft), walking up
+necks and tall climbs. The second, `Cave/FineReach.cs`, is strict: a 13 x 26 px body (the grid's
+outline, plus the body's true width and head tested point by point in the world, so a neck between two
+grid points can't pass for open), the slowest hero's jump (no double jump, wall jump or updraft), walking up
 slopes, falling, and swimming, flooded over a 6 px grid. Where it can't get from the start to the
 guardian it repairs the first break in the way (opening out a neck, putting stepping stones across
 a gap or up a climb; ice ledges in frozen caverns) and tries again, then starts over with another
@@ -1385,8 +1386,8 @@ The thin meters under the health bar (`Hud._Draw`) each get their own row with r
 ## More gold, and gold from creatures
 
 **Gold where something ought to be** (`Main.PlaceMoreGold`, `Tune.Gold`): beside the dead ends, coins and piles are laid, from the seed alone and after every other reward is down, on **high platforms with nothing under them**,
-on **ledges, slabs and shelves that lead nowhere**, on the floor of a **chamber with no chest**, and on the odd **far, quiet floor**; about ten places on a map of the usual size (more on a bigger one), 150 px apart, 110 px from any chest, cage, key, door or other gold,
-and only where a hero can walk (a high platform holds a pile 40% of the time, a ledge 25%). **Creatures drop gold now and then** (7% a kill, 40% from an elite, a pile of 12 from a guardian; 12% of drops are piles, `Enemy.DieHere`): a coin that flies out and falls to the floor (`CoinPickup.Dropped`, sent to the party like any prop);
+on **ledges, slabs and shelves that lead nowhere**, in **alcoves** (rock close on both sides, a low roof) and in **crevices raised out of the passage**, and never on the main floor; about ten places on a map of the usual size (more on a bigger one), 150 px apart, 110 px from any chest, cage, key, door or other gold,
+and only where a hero can walk. Each place is scored by how hard it is to get to (the climb, how tucked away, how far from the start); the kinds take turns, hardest first, and the **hardest quarter hold the piles** (`Tune.Gold.PileShare`); a dead end's gold is coins (a pile only 8% of the time). **Creatures drop gold now and then** (7% a kill, 40% from an elite, a pile of 12 from a guardian; 12% of drops are piles, `Enemy.DieHere`): a coin that flies out and falls to the floor (`CoinPickup.Dropped`, sent to the party like any prop);
 a hive's hornets and everything in the merchant's stall leave none.
 
 **Wind-ups pause your rise and fall, they don't reset it.** A wind-up slows you to a tenth, in the air too (you hang there while it gathers), and when it ends the rise or fall you were in carries on as it was (`Player.ResumeFromHold`). A blow that lands still stops any rise or fall, as before.
@@ -1396,7 +1397,7 @@ a hive's hornets and everything in the merchant's stall leave none.
 **Finding him.** The merchant is another character to unlock, but not a playable one. While anyone in the party hasn't met him (`Meta.MerchantUnlocked`, a bit of `PeerInfo.Locked` online), some of the hero cages hold **him**
 (`Tune.Merchant.CageShare`, 35% of cages, all of them once every hero is found): free him (interact) and he is yours for good (`HeroCage.Merchant`, `Lore.MerchantFreedBanner`). While everything is unlocked for testing he is always known.
 
-**His stall is a third exit, twice a run** (at two depths drawn as the run begins, the first no sooner than the 3rd, the second no later than the 9th, `Main.RollStalls`, `Tune.Merchant.FirstDepth/LastDepth/Visits`; a steep way down that skips one's depth brings it at the next guardian, never past the 9th). (a door in the gold of his lamp, marked THE MERCHANT, with a coin on its keystone and "stays at depth N" under it, rather than the biome's name). Once he is known, a fallen guardian leaves three exits, left to right: *the gentle way* (a level down), **the merchant's stall** and *the steep way* (two down) (`Main.PlanExits`). The stall does
+**His stall is a third exit, twice a run** (at two depths drawn as the run begins, the first no sooner than the 1st, the second no later than the 9th, `Main.RollStalls`, `Tune.Merchant.FirstDepth/LastDepth/Visits`; a steep way down that skips one's depth brings it at the next guardian, never past the 9th). (a door in the gold of his lamp, marked THE MERCHANT, with a coin on its keystone and "stays at depth N" under it, rather than the biome's name). Once he is known, a fallen guardian leaves three exits, left to right: *the gentle way* (a level down), **the merchant's stall** and *the steep way* (two down) (`Main.PlanExits`). The stall does
 **not** descend: it is the *same biome at the same depth*, in a **tiny new map** (`BiomeDef.ForShop`, `Biomes.ShopOf`; the biome's palette and dressing, in a map of two chambers about 105 cells wide) in which
 nothing lives, nothing is hidden (no chests, gold, vault, rubble, secret ways) and the way on is open from the start: two exits, one level down and two (the way a guardian-less level opens them), and no second stall. In the exit chamber
 stands the merchant at his table (`Combat/Merchant.cs`, `MerchantDesign`, `MerchantView`; a lantern, a pack, a plank table with wares); arriving heals nothing (the level below does). Online, the stall rides on the same message and portal sync as any level
@@ -1504,8 +1505,10 @@ holds still for **0.1 s** more (`Tune.Feel.MeleeHitPause`; no walking, jumping o
     and the last 70 lines of the game's log.
 - **Where it goes**: the whole report is saved in `user://bug_reports/` (on Linux `~/.local/share/godot/app_userdata/ProcGenGame/bug_reports/`,
   on Windows `%APPDATA%\Godot\app_userdata\ProcGenGame\bug_reports\`) and copied to the clipboard, and the browser opens a **new GitHub issue
-  on `hogosnoki/claudecodetestgodotgame`** with its title (`[Report] <first line>`), a short body (the words; a table of the seed, cave, hero, place, build, session and party; the shut-in check; and the map crop) and
-  the label `bug-report` already filled in, to post with one click. Reports are then issues, so they can be listed, read and closed from
+  on `hogosnoki/claudecodetestgodotgame`** with its title (`[Report] <first line>`), the start of the body (the words; a table of the seed, cave, hero, place, build, session and party) and
+  the label `bug-report` already filled in; the player pastes the whole report from the clipboard (Ctrl+V) and posts it. The address is kept under
+  1900 characters (`BugReports.MaxUrl`): Windows hands a longer one to Edge instead of the player's default browser. Posting needs a (free) GitHub
+  account; without one, "Show the saved file" opens the reports folder, to send the file any other way. Reports are then issues, so they can be listed, read and closed from
   GitHub (or by a session with GitHub access) while the game is changed. The game carries **no GitHub token**: one inside a game anyone can
   download is one anyone can take, so the player's own account posts it. (Posting with no click would need a small server of the owner's
   holding a token, which this repository doesn't have.)
@@ -1953,4 +1956,41 @@ its chest); `--glitch` makes the Glitch come to any level a moment after it star
   Frostbolt, with a third circling his left hand), and three circling his chest: gray (updraft), yellow (snap), white (storm; orange under
   Firestorm). An orb shrinks out while its spell is spent or recharging and swells back when ready. The bolt charges also show as pips under
   the HUD's alimus bar. Online, the orbs' state travels in the hero's net flags. `--scenario=orbs --hero=elementalist` checks it.
+
+## Catalogue review (balance pass from the edited CATALOGUE.md)
+
+Every value, stack count and rarity in the reviewed catalogue is in the cards now; `CATALOGUE.md` is regenerated (`--dumpcards`).
+- **Removed** (overpowered or ill-fitting): Crescent Wave, Storm Edge, Unbroken, Wind Runner, Heavy Pommel, Crushing Blows, Tower Shield,
+  Endless Hex, Slow Mending, Radiant Ward, Hostile Bubble, Fluid Form, Echoing Trick, Lodestone, Steady Hand, Air Control, Featherfall,
+  Twin Reserve; the relics Rally, Overflow, Level Surge, Deep Breath, Regular Customer, Prodigy's Brand, Chain Lightning, Peddler's Friend;
+  the Warden's Indignation perk. (Their code stays, unused.) **Coyote time and the jump buffer** are what one card of each gave, by default.
+- **New**: Relentless Heave (a second heave, each 60% slower), Dense Metal (a bash costs the shield 30% less), Flashpoint (the firebolt's
+  burst), Burning Heart, Fast Res, Just Kidding. Patient Mending is now a plain heal card (60% at once, 60% over 4 s); Spare Bolt holds a
+  firebolt or two frostbolts (Frozen Quiver is folded in); Double Jump and Air Dash are conditional chest cards after a Spring Step / a
+  Windstep (only Magma Skin is still a technique). Pairs that pull against each other exclude one another (Glass Edge/Stoneskin,
+  Anvil/Quicksilver Grip, Far Sight/Close Quarters, Bloodlust/Siphon Crystal, Gaudy Charm/Dim Cloak, Rime Heart/Burning Heart,
+  Scatter/Sapping Light).
+- **Levels**: level-up gains are half as big again (`Progression.AutoLevel`); a milestone every 8 levels (7/6/5 with the Path's Waypoints).
+- **Potions**: one belt rank (two potions; a third only from a Deep Flask, now taken once); Quick Draught / Lingering add 10% each, Strong
+  Brew takes the heal over time from 15 s to 13/11/8.
+- **Second Thoughts** reroll the merchant's wares too (a free deal that spends one).
+- **The Elementalist's firebolt bursts** where it lands: 35% of the blow to creatures within 26 px (`Tune.Elementalist.FireBurst*`).
+- **Shared Burden** takes its share of what got through the friend's own armour, guard and barrier; and the Aegis carrying it is left out
+  of that friend's area pool (heroes close together split creatures' blows, so before she was taking half of every blow and her share of
+  the rest). Burden of Many: the friend shares 20% among everyone near them. Heavier Burden: +10% carried, and 5% turned aside.
+- **Humbling Light** replaces the Smite: creatures within 120 px deal 30% less for 3 s; 12 s.
+- **Bears** have 75% of their health. The den and the tunnels are guarded by a bear only 40% of the time: otherwise by the **Goblin
+  Warchief** (a big goblin that bellows for a club and a sling, up to three of its band at once, who leave nothing) or the **Barrow King**
+  (a skeleton that marks the floor under every hero near and bursts bone spikes there 0.9 s later; every guardian skeleton does it).
+  **Goblins** hit 0.8x as hard and at 0.65x the rate. `--scenario=guardians` checks both.
+- **Relic chests** hold one relic: take it or leave it. A **Relic Collection** (teal, three gems: the guardian's party chest and 15% of relic
+  chests) holds a relic for each of the party; each hero takes one, and the rest stay for the others (`Chest.Collection`, `TookHere`).
+- **The trading stand** at the merchant's: a hero gives a relic they carry to a friend (a hero's own relic only to a friend of that hero),
+  1 trade a run, +1/+2 from the Path's Trading ranks (`Player.Trades`, `Meta.Trades`). The friend's game carries it at once, or hands it
+  back if they already carry it, and the trade is refunded (`Net.Msg.RelicGift/RelicReturned`). Relics now record what they changed when
+  taken (`Player/RelicUndo.cs`), so a relic given away comes off cleanly; the merchant's own relic-for-relic trade is kept for later
+  behind `Tune.Merchant.NpcTrades`. `--scenario=shop` checks the stand.
+- **The merchant's first stall** can come from the 1st depth (the second still no later than the 9th).
+- **Seed 804912** (the Nest) had a neck the coarse check let through and the fine check missed between its grid points; the fine check now
+  tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
