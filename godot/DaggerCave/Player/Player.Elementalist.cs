@@ -203,6 +203,8 @@ public partial class Player
     public void BoltStruck(ElementBolt bolt, Enemy e, Vector2 at)
     {
         if (!IsInstanceValid(e) || e.Dead) return;
+        // a firebolt bursts as it lands: a little of the blow splashes the creatures pressed close about it
+        if (!bolt.Frost) FireBurst(bolt, e, at);
         float dealt = e.Hurt(bolt.Damage, bolt.Dir * (bolt.Frost ? 30f : 60f), at, bolt.Frost ? DamageKind.Frost : DamageKind.Fire);
         if (dealt > 0)
         {
@@ -217,6 +219,23 @@ public partial class Player
         }
         else if (G.Chance(Stats.IgniteChance)) e.Ignite(Tune.Elementalist.IgniteDps * Stats.DamageMult * Stats.BurnMult, Tune.Elementalist.IgniteSeconds);
     }
+
+    /// <summary>A firebolt's burst: FireBurstShare of the blow to every other creature within FireBurstRadius px (Flashpoint widens and deepens it).</summary>
+    private void FireBurst(ElementBolt bolt, Enemy e, Vector2 at)
+    {
+        float reach = Tune.Elementalist.FireBurstRadius * Stats.FireBurstMult;
+        G.Fx.Ring(at, reach, new Color(ElementBolt.FireColor, 0.75f), 0.22f, FxLayer.RingStyle.Burst);
+        foreach (var o in G.Enemies.ToArray())
+        {
+            if (o == e || o.Dead || !o.CanBeHit || o.GlobalPosition.DistanceTo(at) > reach + o.HitRadius) continue;
+            if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
+            float d = o.Hurt(bolt.Damage * Stats.FireBurstShare, (o.GlobalPosition - at).Normalized() * 40f, o.GlobalPosition, DamageKind.Fire);
+            if (d > 0) { OnDealtDamage(d); FireBursts++; }
+        }
+    }
+
+    /// <summary>Creatures a firebolt's burst has splashed (tests).</summary>
+    public int FireBursts { get; private set; }
 
     // ---------------------------------------------------------------- updraft
 

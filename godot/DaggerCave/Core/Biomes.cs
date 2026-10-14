@@ -191,10 +191,11 @@ public static class Biomes
     static Enemy Elite(Enemy e) { e.MakeElite(); return e; }
 
     /// <summary>A guardian: an elite with extra health and a title.</summary>
-    static Enemy Guard(Enemy e, string title, float hp = 1.6f)
+    static Enemy Guard(Enemy e, string title, float hp = 1.6f, float size = 0f)
     {
         e.MakeElite();
         e.MaxHp *= hp;
+        if (size > 0f) e.Size *= size;
         e.IsGuardian = true;
         e.NamePrefix = "";
         e.Title = title;
@@ -236,7 +237,8 @@ public static class Biomes
         den.GroundEntrants = L(E(3, () => new Rat()), E(1, () => new Bear()), E(1, () => new Goblin()));
         den.AirEntrants = L(E(1, () => new Bat()));
         den.MiniBosses = new() { () => new Bear(), () => new Goblin(), () => new Rat() };
-        den.Guardian = r => Guard(new Bear(), "THE DEN MOTHER", 1.2f);
+        // (fewer bears at the bottom of things: the den is as often a goblin warband's)
+        den.Guardian = r => G.Rng.NextDouble() < 0.6 ? Guard(Var(new Goblin(), "", "c07040"), "THE GOBLIN WARCHIEF", 3.2f, 1.9f) : Guard(new Bear(), "THE DEN MOTHER", 1.2f);
         All.Add(den);
 
         // ------------------------------------------------------------------ 1-3: root-choked tunnels (the deep canopy)
@@ -371,7 +373,7 @@ public static class Biomes
         tunnels.WaterEntrants = L(E(1, () => new Fish()));
         tunnels.MiniBosses = new() { () => new Bear(), () => new Rat() };
         tunnels.WaterMiniBosses = new() { () => new Eel(), () => new Fish() };
-        tunnels.Guardian = r => Guard(new Bear(), "THE TUNNEL BRUTE", 1.5f);
+        tunnels.Guardian = r => G.Rng.NextDouble() < 0.6 ? Guard(Var(new Skeleton(), "", "c8c0e0"), "THE BARROW KING", 2.6f, 1.6f) : Guard(new Bear(), "THE TUNNEL BRUTE", 1.5f);
         All.Add(tunnels);
 
         // ------------------------------------------------------------------ 4-6: slime cavern (the original cave)

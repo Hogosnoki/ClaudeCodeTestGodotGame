@@ -3952,19 +3952,21 @@ public partial class Main : Node
             for (int s = 1; s <= n; s++)
             {
                 ulong t0 = Time.GetTicksMsec();
-                var c = CaveGenerator.Generate(b, s * 1013);
+                // (--genseed=N: that one cave, as a reported seed makes it)
+                int seed = OS.GetCmdlineUserArgs().FirstOrDefault(x => x.StartsWith("--genseed=")) is string gs ? int.Parse(gs[10..]) : s * 1013;
+                var c = CaveGenerator.Generate(b, seed);
                 ulong ms = Time.GetTicksMsec() - t0;
                 CaveGenerator.PutLedgesBack(c);
                 attemptsB += c.Attempts;
                 total += ms;
-                bool fine = FineBossReachable(c, OS.GetCmdlineUserArgs().Contains("--finedump") ? $"/tmp/claude-0/fine/{b.Id}_{s * 1013}_{(OS.GetCmdlineUserArgs().Contains("--finedump") ? "x" : "")}.png" : null);
+                bool fine = FineBossReachable(c, OS.GetCmdlineUserArgs().Contains("--finedump") ? $"/tmp/claude-0/fine/{b.Id}_{seed}.png" : null);
                 if (fine) { fineOk++; fineB++; }
                 bool ok = c.TrapCells <= 6 && c.Boss != null && BossReachable(c);
                 if (ok) clean++;
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
                 if (!ok || s <= 3 || CaveGenerator.Verbose || (wantVault && !vault))
-                    GD.Print($"  {b.Id,-9} seed {s * 1013}: {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)} margins {OpenMargins(c)} wings {c.Wings.Count}{(c.Wings.Count > 0 ? (c.Wings.All(w => c.LineClear(w.Plug + new Vector2(20, 0), new Vector2(w.Chamber.Center.X, w.Plug.Y)) && c.W * CaveData.Cell >= w.Bounds.End.X - 1) ? "ok" : $"BAD@{string.Join(",", c.Wings.Select(w => WingBlock(c, w)))}") : "")}{(c.Biome?.Style == GenStyle.River ? $" dry {c.DryOk} flow {c.Flow:0} tunnel {c.Tunnel.Size.X / CaveData.Cell:0}" : "")}");
+                    GD.Print($"  {b.Id,-9} seed {seed} ({c.W}x{c.H}): {ms} ms attempts {c.Attempts} traps {c.TrapCells} reachable {c.ReachableCells} rooms {c.Rooms.Count} minis {c.Rooms.Count(r => r.Kind == RoomKind.MiniBoss)} boss {(c.Boss != null)} bossReach {BossReachable(c)} FINE {fine} reps {c.FineRepairs} spawns {c.Spawns.Count} shores {c.Spawns.Count(x => x.Kind == SpawnKind.Shore)} ice {c.IceLedges.Count} rubble {c.Rubble.Count} (dead ends {c.RubbleAtDeadEnds}) platforms {c.NaturalPlatforms}/{c.Ledges.Count} caverns {c.HighCaverns.Count} secrets {c.Rooms.Count(r => r.Kind == RoomKind.Secret)} drain {(c.Drain != null ? "yes" : "no")} start {c.StartPos.Y / CaveData.Cell / c.H:0.00} nooks {c.Hints.Count(h => h.Kind == 0)}f/{c.Hints.Count(h => h.Kind == 1)}s vault {(vault ? "ok" : why)} margins {OpenMargins(c)} wings {c.Wings.Count}{(c.Wings.Count > 0 ? (c.Wings.All(w => c.LineClear(w.Plug + new Vector2(20, 0), new Vector2(w.Chamber.Center.X, w.Plug.Y)) && c.W * CaveData.Cell >= w.Bounds.End.X - 1) ? "ok" : $"BAD@{string.Join(",", c.Wings.Select(w => WingBlock(c, w)))}") : "")}{(c.Biome?.Style == GenStyle.River ? $" dry {c.DryOk} flow {c.Flow:0} tunnel {c.Tunnel.Size.X / CaveData.Cell:0}" : "")}");
                 if (s == 1 || OS.GetCmdlineUserArgs().Contains($"--genimage={s * 1013}")) SaveCaveImage(c, s == 1 ? $"user://cave_{b.Id}.png" : $"user://cave_{b.Id}_{s * 1013}.png");
             }
             GD.Print($"[gentest] {b.Id}: fine {fineB}/{n} ({attemptsB / (float)n:0.0} attempts each); {clean}/{n} trap-free with a reachable exit, {vaults}/{(wantVault ? n : 0)} with a sound vault  ->  {ProjectSettings.GlobalizePath($"user://cave_{b.Id}.png")}");

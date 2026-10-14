@@ -42,6 +42,17 @@ public partial class Main
             e.Engage();
             return e;
         }
+        // (a biome whose guardian is one of two, by chance: deal until it's the one wanted)
+        T SpawnAs<T>(BiomeId b, float dx) where T : Enemy
+        {
+            Enemy e = null;
+            for (int k = 0; k < 40 && e is not T; k++) { e?.Free(); e = Biomes.Get(b).Guardian(null); }
+            e.Position = stand + new Vector2(dx, -12);
+            e.SetMeta("test", true);
+            _world.AddChild(e);
+            e.Engage();
+            return (T)e;
+        }
 
         // ---------------------------------------------------------------- the Web-Mother's silk
         Home();
@@ -92,7 +103,7 @@ public partial class Main
 
         // ---------------------------------------------------------------- a guardian bear's roar
         Home();
-        var bear = (Bear)Spawn(BiomeId.Den, 130);
+        var bear = SpawnAs<Bear>(BiomeId.Den, 130);
         foreach (var _ in SbSleep(0.6f)) yield return null;
         bear.TestReadyRoar();
         shot = false;
@@ -107,6 +118,51 @@ public partial class Main
         bool hit = false;
         for (float t = 0; t < 2.5f && !hit; t += (float)GetProcessDeltaTime()) { hit = p.Hp < hp0 - 1f; yield return null; }
         ScCheck($"and rushes in for its swipe while they reel (hp {hp0:0} -> {p.Hp:0})", hit);
+        Clear();
+        foreach (var _ in SbSleep(0.4f)) yield return null;
+
+        // ---------------------------------------------------------------- bears are fewer: the den and the tunnels are as often a goblin's or the dead's
+        {
+            int bears = 0, n = 200;
+            for (int k = 0; k < n; k++) foreach (var b in new[] { BiomeId.Den, BiomeId.Tunnels }) { var g = Biomes.Get(b).Guardian(null); if (g is Bear) bears++; g.Free(); }
+            ScCheck($"bear guardians in the den and the tunnels: {bears} of {2 * n} (about 40%)", bears > n * 2 * 0.25f && bears < n * 2 * 0.55f);
+            var probe = new Bear();
+            ScCheck($"a bear has three quarters of the health it had ({probe.MaxHp:0}, was 70)", Math.Abs(probe.MaxHp - 52.5f) < 0.01f);
+            probe.Free();
+        }
+
+        // ---------------------------------------------------------------- the Goblin Warchief calls its band
+        Home();
+        var chief = SpawnAs<Goblin>(BiomeId.Den, 150);
+        foreach (var _ in SbSleep(0.6f)) yield return null;
+        chief.TestReadyCall();
+        shot = false;
+        for (float t = 0; t < 3f && chief.Called == 0; t += (float)GetProcessDeltaTime())
+        {
+            if (!shot && t > 0.3f) { shot = true; ScShot("guardian_call_windup"); }
+            yield return null;
+        }
+        ScCheck($"the Goblin Warchief ({chief.Title}) bellows and two of its band come running ({chief.Called} called, {chief.BandAlive} standing)", chief.Called == 2 && chief.BandAlive == 2);
+        ScShot("guardian_band");
+        var band = G.Enemies.OfType<Goblin>().Where(g => g != chief).ToList();
+        ScCheck($"one with a club and one with a sling, leaving nothing when they fall ({string.Join(", ", band.Select(g => (g.Slinger ? "sling" : "club") + (g.Brood ? "/brood" : "")))})", band.Count == 2 && band.Any(g => g.Slinger) && band.Any(g => !g.Slinger) && band.All(g => g.Brood));
+        Clear();
+        foreach (var _ in SbSleep(0.4f)) yield return null;
+
+        // ---------------------------------------------------------------- the Barrow King's bone spikes
+        Home();
+        var king = SpawnAs<Skeleton>(BiomeId.Tunnels, 160);
+        foreach (var _ in SbSleep(0.6f)) yield return null;
+        king.TestReadySpikes();
+        hp0 = p.Hp;
+        shot = false;
+        for (float t = 0; t < 3f && king.SpikeHits == 0; t += (float)GetProcessDeltaTime())
+        {
+            if (!shot && t > 0.4f) { shot = true; ScShot("guardian_spikes_marked"); }
+            p.GlobalPosition = new Vector2(stand.X, p.GlobalPosition.Y);
+            yield return null;
+        }
+        ScCheck($"the Barrow King ({king.Title}) marks the ground under the hero and bone spikes burst up there ({king.SpikeHits} hits; hp {hp0:0} -> {p.Hp:0})", king.SpikeHits > 0 && p.Hp < hp0 - 1f);
         Clear();
         foreach (var _ in SbSleep(0.4f)) yield return null;
 

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System;
 using Godot;
 
@@ -402,6 +403,26 @@ public partial class Goblin : Enemy
         if (_gruntT <= 0) { _gruntT = G.Range(3, 8); if (Awake && DistP < 500) G.Sfx.Play("goblin", GlobalPosition, -8, 0.2f); }
 
         if (!Awake) { v.X = Mathf.MoveToward(v.X, 0, 600 * dt); Velocity = v; ApplyGravity(dt); return; }
+        // the Warchief's bellow: it plants its feet, roars, and its band comes running
+        if (IsGuardian && Master == null)
+        {
+            _callCd -= dt;
+            if (_callT >= 0)
+            {
+                _callT += dt;
+                v.X = Mathf.MoveToward(v.X, 0, 1200 * dt);
+                if (_callT > Tune.Goblin.CallWindup) { _callT = -1; CallBand(); }
+                Velocity = v; ApplyGravity(dt); return;
+            }
+            if (_state == 0 && floor && _callCd <= 0 && DistP < 420 && BandAlive < Tune.Goblin.CallMax)
+            {
+                _callT = 0; _callCd = Tune.Goblin.CallCooldown * G.Range(0.9f, 1.15f);
+                Anim.Once("windup", 3, 6f / (Tune.Goblin.CallWindup * 24f));
+                G.Sfx.Play("goblin", GlobalPosition, 2, 0.05f, 0.55f);
+                G.Fx.Text(GlobalPosition + new Vector2(0, -40 * Size), "TO ME!", new Color(1f, 0.75f, 0.4f), 11, 0.9f);
+                Velocity = v; ApplyGravity(dt); return;
+            }
+        }
 
         float dx = ToP.X;
         if (_state == 0)
@@ -450,6 +471,37 @@ public partial class Goblin : Enemy
         }
         Velocity = v;
         ApplyGravity(dt);
+    }
+
+    private float _callCd = 4f, _callT = -1;
+    private readonly List<Goblin> _band = new();
+    /// <summary>The Warchief's band still standing.</summary>
+    public int BandAlive { get { _band.RemoveAll(g => !GodotObject.IsInstanceValid(g) || g.Dead); return _band.Count; } }
+    /// <summary>For the tests: goblins the Warchief has called.</summary>
+    public int Called { get; private set; }
+    /// <summary>Test aid: the bellow is ready now.</summary>
+    public void TestReadyCall() => _callCd = 0f;
+
+    /// <summary>Two of its band (a club and a sling) come running in from either side.</summary>
+    private void CallBand()
+    {
+        G.Sfx.Play("roar", GlobalPosition, 0, 0.05f, 1.3f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -10 * Size), 90, new Color(1f, 0.7f, 0.35f, 0.6f), 0.4f, FxLayer.RingStyle.Burst);
+        G.Fx.AddShake(5);
+        for (int k = 0; k < 2 && BandAlive < Tune.Goblin.CallMax; k++)
+        {
+            float side = k == 0 ? -1 : 1;
+            var at = GlobalPosition + new Vector2(side * 70, -10);
+            // (out of the rock beside it if it must: walk the spot in until it's open)
+            for (int n = 0; n < 6 && G.Cave.IsSolid(at); n++) at.X -= side * 12;
+            if (G.Cave.IsSolid(at)) at = GlobalPosition + new Vector2(0, -16);
+            var g = new Goblin { Slinger = k == 1, Brood = true, Position = at };
+            g.Wake();
+            G.World.AddChild(g);
+            _band.Add(g);
+            Called++;
+            G.Fx.Burst(at, new Color(0.6f, 0.5f, 0.35f, 0.8f), 8, 90, 1.6f, 0.4f);
+        }
     }
 
     private void ThrowRock()

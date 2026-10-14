@@ -166,10 +166,12 @@ public static class Tune
         public static float BarrierShare = 0.14f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
         /// <summary>Shared Burden (the second ability): the ally takes (1 - share) of every blow, the Aegis the rest, for BurdenSeconds. No cooldown beyond a blink.</summary>
         public static float BurdenShare = 0.2f, BurdenSeconds = 60f, BurdenBlink = 0.4f;
-        /// <summary>Foe's Burden (an alteration of the second ability): laid on a creature within FoeReach px, it takes FoeShare of every blow the Aegis takes for FoeSeconds; the ability is back after FoeCooldown s (a Smite takes SmiteCooldown).</summary>
+        /// <summary>Foe's Burden (an alteration of the second ability): laid on a creature within FoeReach px, it takes FoeShare of every blow the Aegis takes for FoeSeconds; the ability is back after FoeCooldown s.</summary>
         public static float FoeShare = 0.25f, FoeSeconds = 12f, FoeCooldown = 6f, FoeReach = 260f;
-        /// <summary>Smite (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a burst of light SmiteRadius px round her for SmiteDamage, weakening everything it strikes; SmiteCooldown s.</summary>
-        public static float SmiteDamage = 16.5f, SmiteRadius = 120f, SmiteCooldown = 9f;
+        /// <summary>Humbling Light (the second ability, when she isn't carrying anyone: alone, or without the Bulwark Oath): a flash SmiteRadius px round her; every creature it reaches deals HumbleMult as much for HumbleSeconds. SmiteCooldown s.</summary>
+        public static float SmiteRadius = 120f, SmiteCooldown = 12f, HumbleMult = 0.7f, HumbleSeconds = 3f;
+        /// <summary>Burden of Many: the burdened friend shares ManyShare of every blow among every hero within AllyRange of them.</summary>
+        public static float ManyShare = 0.2f;
         /// <summary>Bubble (the dodge button): absorbs BubbleAbsorb of each blow until BubbleShare of the receiver's max health (x WardMult) is absorbed, when it bursts; lasts BubbleSeconds, recharges BubbleCooldown s; the receiver breathes under water meanwhile. With Soothing Burst, the burst heals allies within BurstHealRadius px for BurstHealShare of their max health.</summary>
         public static float BubbleRadiusMin = 12f, BubbleRadiusMax = 34f, BubbleCastRadius = 220f, BubbleShare = 0.1f, BubbleAbsorb = 0.1f, BubbleSeconds = 30f, BubbleCooldown = 20f, BurstHealShare = 0.045f, BurstHealRadius = 80f;
         /// <summary>Hostile Bubble (an alteration): on a creature instead, it takes (1 - WardAbsorb) of every blow while the rest builds; once WardCap has built it bursts for WardBlast, and WardSplash to the creatures round it (all x the Aegis's damage and the depth's threat).</summary>
@@ -381,6 +383,8 @@ public static class Tune
         public static float BoltGap = 0.25f, FrostGap = 0.2f;
         public static float BoltTurnDegrees = 600f, BoltSeekDegrees = 60f;
         public static float IgniteChance = 0.65f, IgniteDps = 4f, IgniteSeconds = 4f;
+        /// <summary>A firebolt bursts where it lands: the creatures within FireBurstRadius px of it take FireBurstShare of the blow.</summary>
+        public static float FireBurstRadius = 26f, FireBurstShare = 0.35f;
         /// <summary>Frostbolt (an alteration): FrostDamage a bolt, one coming back every FrostEvery s; a creature it strikes
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
@@ -956,11 +960,16 @@ public static class Tune
 
     public static class Goblin
     {
-        public static float Hp = 26, Contact = 4, ClubDamage = 12, RunSpeed = 125, SlingerSpeed = 95;
-        public static float AggroRange = 460, WindupTime = 0.38f, RockDamage = 8, ThrowCooldown = 3.0f;
+        /// <summary>(Goblins hit softer, 0.8x, and slower, at 0.65x the old rate: the wind-up, the pause after and the sling's wait are all longer.)</summary>
+        public static float Hp = 26, Contact = 3.2f, ClubDamage = 9.6f, RunSpeed = 125, SlingerSpeed = 95;
+        public static float AggroRange = 460, WindupTime = 0.58f, RockDamage = 6.4f, ThrowCooldown = 4.6f;
         /// <summary>Pause after a club swing before the goblin acts again.</summary>
-        public static float RecoverTime = 0.8f;
+        public static float RecoverTime = 1.23f;
         public static int Xp = 5;
+        /// <summary>The Goblin Warchief (a guardian goblin): every CallCooldown s, while fewer than CallMax of its band live, it bellows for
+        /// two more (a club and a sling) who come running from either side. Its band leave nothing when they fall.</summary>
+        public static float CallCooldown = 11f, CallWindup = 0.7f;
+        public static int CallMax = 3;
     }
 
     public static class Spider
@@ -1042,7 +1051,7 @@ public static class Tune
 
     public static class Bear
     {
-        public static float Hp = 70, Contact = 12, SwipeDamage = 16, WalkSpeed = 60, ChargeSpeed = 240, SwipeWindup = 0.45f, ChargeWindup = 0.55f, ChargeCooldown = 5f;
+        public static float Hp = 52.5f, Contact = 12, SwipeDamage = 16, WalkSpeed = 60, ChargeSpeed = 240, SwipeWindup = 0.45f, ChargeWindup = 0.55f, ChargeCooldown = 5f;
         /// <summary>In water it treads toward you at SwimSpeed px/s and, since it can't rear up to
         /// swipe, bites: BiteWindup s with the head drawn back, then a lunge for BiteDamage.</summary>
         public static float SwimSpeed = 55, BiteDamage = 13, BiteWindup = 0.35f, BiteReach = 40, BiteCooldown = 1.4f;
@@ -1103,6 +1112,9 @@ public static class Tune
         /// <summary>Chance a felled skeleton pulls itself back together once (at ReassembleHp of its health).</summary>
         public static float ReassembleChance = 0.4f, ReassembleHp = 0.5f, ReassembleTime = 2.5f;
         public static int Xp = 6;
+        /// <summary>A guardian skeleton (the Barrow King and its kin): every SpikeCooldown s, with a hero within SpikeRange px, it marks the
+        /// ground under every hero near; SpikeWarn s later bone spikes burst up there, SpikeDamage to anyone within SpikeRadius px.</summary>
+        public static float SpikeCooldown = 8f, SpikeWarn = 0.9f, SpikeRange = 380f, SpikeRadius = 26f, SpikeDamage = 14f;
     }
 
     public static class Sporeling

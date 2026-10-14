@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 
 namespace DaggerCave;
@@ -682,6 +683,7 @@ public partial class Skeleton : Walker
     {
         _st += dt; _cd -= dt;
         if (Paddle(dt)) return;
+        if (IsGuardian && Master == null && _s != 3) TickSpikes(dt);
         var v = Velocity;
         switch (_s)
         {
@@ -740,6 +742,57 @@ public partial class Skeleton : Walker
         }
         Velocity = v;
         ApplyGravity(dt);
+    }
+
+    // ---- a guardian skeleton's bone spikes: the ground under every hero near is marked, and then bursts
+    private float _spikeCd = 3f, _spikeT = -1;
+    private readonly List<Vector2> _spikeAt = new();
+    /// <summary>For the tests: spike bursts that struck someone.</summary>
+    public int SpikeHits { get; private set; }
+    /// <summary>Test aid: the spikes are ready now.</summary>
+    public void TestReadySpikes() => _spikeCd = 0f;
+
+    private void TickSpikes(float dt)
+    {
+        _spikeCd -= dt;
+        if (_spikeT >= 0)
+        {
+            _spikeT += dt;
+            if (_spikeT < Tune.Skeleton.SpikeWarn) return;
+            _spikeT = -1;
+            var bone = new Color(0.9f, 0.86f, 0.74f);
+            foreach (var at in _spikeAt)
+            {
+                G.Fx.Burst(at, bone, 14, 220, 2.4f, 0.45f, 300f);
+                G.Fx.Shockwave(at, Tune.Skeleton.SpikeRadius, new Color(bone, 0.6f), 0.2f);
+                foreach (var h in G.Players)
+                {
+                    if (!GodotObject.IsInstanceValid(h) || h.Dead) continue;
+                    var rel = h.GlobalPosition - at;
+                    if (Math.Abs(rel.X) > Tune.Skeleton.SpikeRadius || rel.Y < -40 || rel.Y > 20) continue;
+                    h.Hurt(Tune.Skeleton.SpikeDamage * DmgK, at + new Vector2(0, 10), 260f, this);
+                    SpikeHits++;
+                }
+            }
+            G.Sfx.Play("rock", GlobalPosition, 0, 0.1f, 1.6f);
+            G.Fx.AddShake(4);
+            _spikeAt.Clear();
+            return;
+        }
+        if (!Awake || _spikeCd > 0 || DistP > Tune.Skeleton.SpikeRange) return;
+        _spikeCd = Tune.Skeleton.SpikeCooldown * G.Range(0.9f, 1.15f);
+        _spikeT = 0;
+        foreach (var h in G.Players)
+        {
+            if (!GodotObject.IsInstanceValid(h) || h.Dead || h.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Skeleton.SpikeRange) continue;
+            // (the floor under them: a little way down, if they are in the air)
+            var at = h.GlobalPosition + new Vector2(0, 8);
+            for (int k = 0; k < 10 && !G.Cave.IsSolid(at + new Vector2(0, 6)); k++) at.Y += 8;
+            _spikeAt.Add(at);
+            G.Fx.Ring(at, Tune.Skeleton.SpikeRadius, new Color(0.9f, 0.85f, 0.7f, 0.7f), Tune.Skeleton.SpikeWarn, FxLayer.RingStyle.Dashed);
+        }
+        G.Sfx.Play("clink", GlobalPosition, -2, 0.05f, 0.45f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -34 * Size), "RISE", new Color(0.85f, 0.9f, 1f), 10, 0.7f);
     }
 
     private const int Stand = 0, Advance = 1, Retreat = 2, Slash = 3;

@@ -132,6 +132,8 @@ public sealed class PlayerStats
     public bool Frostbolt, Firestorm, CinderSnap;
     /// <summary>Extra bolts the staff holds: Spare Bolts' (fire) and Frozen Quiver's (frost).</summary>
     public int FireChargeBonus, FrostChargeBonus;
+    /// <summary>The firebolt's burst: its reach (x) and the share of the blow the creatures in it take (Flashpoint).</summary>
+    public float FireBurstMult = 1f, FireBurstShare = Tune.Elementalist.FireBurstShare;
 
     // rogue: dagger slash, dagger throw, vanish, recall
     public float CritChance = Tune.Rogue.CritChance;
@@ -191,7 +193,7 @@ public sealed class PlayerStats
     public float HeaveDamageMult = 1f;
     /// <summary>Relic: the share of damage dealt that recharges the Warden's shield; a Guarded Charge that ploughs through everything it meets.</summary>
     public float ShieldSiphon;
-    /// <summary>The Aegis's Bulwark Oath (a class perk, given with her): in a party, her second ability is Shared Burden; alone, or without it, a Smite.</summary>
+    /// <summary>The Aegis's Bulwark Oath (a class perk, given with her): in a party, her second ability is Shared Burden; alone, or without it, a Humbling Light.</summary>
     public bool AegisSupport;
     /// <summary>The Foe's Burden alteration: the Shared Burden is laid on a creature, and a quarter of every blow the Aegis takes falls on it.</summary>
     public bool FoeBurden;
@@ -468,6 +470,8 @@ public static partial class Upgrades
         new() { Id = "reservoir", Name = "Deep Reservoir", Desc = "Hold 20 more alimus.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2, Apply = (s, p) => s.AlimusMax += 20f },
         new() { Id = "bolt_charges", Name = "Spare Bolt", Desc = "Your staff holds one more firebolt (two more frostbolts, with Frostbolt).", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 1,
                 Apply = (s, p) => { s.FireChargeBonus += 1; s.FrostChargeBonus += 2; } },
+        new() { Id = "fire_burst", Name = "Flashpoint", Desc = "Your firebolt's burst reaches 40% farther and splashes 15% more of the blow.", Icon = "spell", For = E, Ability = "bolt", MaxStacks = 2,
+                When = s => !s.Frostbolt, Apply = (s, p) => { s.FireBurstMult *= 1.4f; s.FireBurstShare += 0.15f; } },
         new() { Id = "bolt_frost", Name = "Frostbolt", Desc = "Your bolts are frost instead of fire: 10 damage a bolt, the staff holds four and gets one back every second, each slowing what it strikes by 30% for 2 s, with a 20% chance of freezing a creature solid for 3 s (never a mini-boss, guardian or boss).", Icon = "spell", For = E, Ability = "bolt", Alteration = true, Apply = (s, p) => s.Frostbolt = true },
 
         // --- Updraft (elementalist) ---

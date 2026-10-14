@@ -48,6 +48,8 @@ public partial class BugReportMenu : Control
         _done = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center, Visible = false };
         col.AddChild(_done);
         _done.AddChild(UiKit.Button("Open the page again", () => { if (_last != null && BugReports.OpenBrowser) OS.ShellOpen(_last.Url); }, 240));
+        // (no GitHub account: the saved report can be sent any other way)
+        _done.AddChild(UiKit.Button("Show the saved file", () => { if (BugReports.OpenBrowser) OS.ShellOpen(ProjectSettings.GlobalizePath("user://bug_reports")); }, 220));
         _done.AddChild(UiKit.Button("Close", Close, 160));
     }
 
@@ -66,12 +68,12 @@ public partial class BugReportMenu : Control
     private void Send()
     {
         _last = BugReports.Make(_text.Text);
-        _result.Text = "Thank you! Your browser opened with the report ready on GitHub: press \"Submit new issue\" there (you need a GitHub account). "
-            + "The whole report is also on your clipboard (paste it into the issue, or into a message) and saved at:\n" + _last.Path;
+        _result.Text = "Thank you! Your browser opened a new GitHub issue with the start of the report: paste the whole report from your clipboard (Ctrl+V) and press \"Submit new issue\". "
+            + "GitHub needs a free account to post; without one, the report is saved at the path below, to send any other way:\n" + _last.Path;
         _result.Visible = true;
         _buttons.Visible = false; _text.Visible = false; _prompt.Visible = false;
         _done.Visible = true;
-        (_done.GetChild(1) as Control)?.CallDeferred(Control.MethodName.GrabFocus);
+        (_done.GetChild(2) as Control)?.CallDeferred(Control.MethodName.GrabFocus);
     }
 
     private void Close()

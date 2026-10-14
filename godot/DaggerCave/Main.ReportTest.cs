@@ -30,7 +30,7 @@ public partial class Main
         ScCheck("the report has the session, the party and the trail", rep.Full.Contains("## Session") && rep.Full.Contains("players now") && rep.Full.Contains("caves of this session") && rep.Full.Contains("entered Cave Entrance") && rep.IssueBody.Contains("| Party |") && rep.IssueBody.Contains("| Session |"));
         ScCheck("the report says whether the player is shut in", rep.Full.Contains("shut in") || rep.Full.Contains("Not shut in"));
         ScCheck("the report is saved", rep.Path != "" && Godot.FileAccess.FileExists(ProjectSettings.LocalizePath(rep.Path)) || System.IO.File.Exists(rep.Path));
-        ScCheck("the address fits", rep.Url.Length <= 8000 && rep.Url.StartsWith("https://github.com/" + BugReports.Repo + "/issues/new"));
+        ScCheck($"the address is short enough for the default browser ({rep.Url.Length} of {BugReports.MaxUrl})", rep.Url.Length <= BugReports.MaxUrl && rep.Url.StartsWith("https://github.com/" + BugReports.Repo + "/issues/new"));
         GD.Print($"[report] url length {rep.Url.Length}, full report {rep.Full.Length} characters, file {rep.Path}");
         GD.Print(rep.IssueBody);
         ScShot("report_box");

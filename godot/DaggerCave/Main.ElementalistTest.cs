@@ -31,9 +31,13 @@ public partial class Main
                 _probeEnemy = Dummy(new Golem(), 90);
                 _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
                 _probeEnemy.Freeze(60f, hold: true);
+                // (a goblin pressed against it, for the burst)
+                _probe2 = Dummy(new Goblin(), 90 + 16);
+                _probe2.MaxHp = _probe2.Hp = 3000;
+                _probe2.Freeze(60f, hold: true);
                 break;
             case 8:
-                _hpMark = _probeEnemy.Hp;
+                _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp;
                 _elCount = p.BoltsCast;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0) };
                 break;
@@ -45,6 +49,9 @@ public partial class Main
                 Check($"it costs a little alimus, barely more than comes back ({Tune.Elementalist.FireCost / Tune.Elementalist.FireEvery:0.00} a second at the full rate of fire against {Tune.Elementalist.AlimusRegen:0.00} regenerated)",
                     Tune.Elementalist.FireCost / Tune.Elementalist.FireEvery is var spend && spend > Tune.Elementalist.AlimusRegen && spend < Tune.Elementalist.AlimusRegen * 1.25f);
                 Check($"and with no luck, sets nothing alight (burning {_probeEnemy.Ignited})", !_probeEnemy.Ignited);
+                float splash = _hp2 - _probe2.Hp, wantSplash = want * p.Stats.FireBurstShare;
+                Check($"the firebolt bursts as it lands: the goblin beside the golem takes {wantSplash:0.0} ({splash:0.0})", Math.Abs(splash - wantSplash) < 0.6f);
+                _probe2.QueueFree();
                 // (now it always catches)
                 p.Stats.IgniteChance = 1f;
                 p.TestResetBolt();

@@ -13,7 +13,8 @@ namespace DaggerCave;
 /// in the saved file), the build and machine, the look settings and the end of the game's log.
 ///
 /// It goes three places: a file in user://bug_reports/ (the whole report), the clipboard (the same), and the browser, as a GitHub issue
-/// on <see cref="Repo"/> already filled in (its title and a short body: the player only presses "Submit new issue"). The game holds no
+/// on <see cref="Repo"/> already filled in (its title and a short body, kept short so the player's own default browser opens it; the
+/// whole report is pasted from the clipboard). The game holds no
 /// GitHub password or token: a token inside a game anyone can download is one anyone can take, so the player's own account sends it.
 /// </summary>
 public static class BugReports
@@ -277,19 +278,27 @@ public static class BugReports
         return rep;
     }
 
-    /// <summary>The address of a new issue on the repository with its title and body filled in (cut down to fit: browsers and GitHub take about 8000 characters).</summary>
+    /// <summary>The longest address handed to the system: Windows passes a longer one past the player's own browser to Edge, so the
+    /// address stays short and the whole report waits on the clipboard to be pasted in.</summary>
+    public const int MaxUrl = 1900;
+
+    /// <summary>The address of a new issue on the repository with its title and as much of the body as fits in <see cref="MaxUrl"/>
+    /// (the map crop goes first; then the body is cut, with a note to paste the whole report from the clipboard).</summary>
     private static string IssueUrl(string title, string body)
     {
         string Url(string bd) => $"https://github.com/{Repo}/issues/new?labels=bug-report&title={Uri.EscapeDataString(title)}&body={Uri.EscapeDataString(bd)}";
+        const string paste = "\n\n**The whole report is on your clipboard: paste it here (Ctrl+V) before submitting.**\n";
         string u = Url(body);
-        if (u.Length <= 7500) return u;
-        // (the map crop goes first)
+        if (u.Length <= MaxUrl) return u;
         int a = body.IndexOf("Map round the player", StringComparison.Ordinal);
         int z = body.IndexOf("_Reported from the game", StringComparison.Ordinal);
-        if (a >= 0 && z > a) body = body[..a] + "(The map crop was too long for the address: it is on the clipboard and in the saved report.)\n\n" + body[z..];
-        u = Url(body);
-        if (u.Length <= 7500) return u;
-        return Url(body[..Math.Min(body.Length, 2500)]);
+        if (a >= 0 && z > a) body = body[..a] + body[z..];
+        u = Url(body + paste);
+        if (u.Length <= MaxUrl) return u;
+        // (cut the body down until it fits, keeping the start: the player's words and the seed come first)
+        int keep = body.Length;
+        while (keep > 0 && Url(body[..keep] + paste).Length > MaxUrl) keep -= Math.Max(20, keep / 10);
+        return Url(body[..Math.Max(0, keep)] + paste);
     }
 
     /// <summary>The last lines of the game's own log file (Godot writes it as it runs), or a note that there is none.</summary>

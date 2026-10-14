@@ -1303,7 +1303,7 @@ public static class NetSync
                     if (kind == Boon.Barrier) p.GiveBarrier(a, b);
                     else if (kind == Boon.Mending) p.GiveMending(a, b, c);
                     else if (kind == Boon.Bubble) p.GiveBubble(a, b, c > 0.5f);
-                    else if (kind == Boon.Burden) p.GiveBurden(id, a, b);
+                    else if (kind == Boon.Burden) p.GiveBurden(id, a, b, c >= 9.5f, c >= 9.5f ? c - 10f : c);
                     else if (kind == Boon.Pain) p.GivePain(id, a);
                     else if (kind == Boon.BubbleDrain) p.DrainBubble(a);
                     else if (kind == Boon.Buff) p.GiveBuff(id, a);

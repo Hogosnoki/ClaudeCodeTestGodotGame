@@ -131,6 +131,14 @@ public partial class Main
                 _scAlly.Hurt(20f, p.GlobalPosition, 0, null);
                 float friendLost = _scAllyHp - _scAlly.Hp, aegisLost = _scAegisHp - p.Hp, share = Tune.Aegis.BurdenShare;
                 ScCheck($"a blow of 20: the friend loses {friendLost:0.0} (want {20 * (1 - share):0.0}), the Aegis {aegisLost:0.0} (want {20 * share:0.0})", Math.Abs(friendLost - 20 * (1 - share)) < 0.7f && Math.Abs(aegisLost - 20 * share) < 0.7f);
+                // (a creature's blow, through the friend's own armour first, and the Aegis beside them takes no part of the area pool as well)
+                float dr0 = _scAlly.Stats.DamageReduction;
+                _scAlly.Stats.DamageReduction = 0.5f; _scAlly.ClearInvuln(); p.ClearInvuln();
+                _scAllyHp = _scAlly.Hp; _scAegisHp = p.Hp;
+                _scAlly.Hurt(20f, _scFoe.GlobalPosition, 0, _scFoe);
+                friendLost = _scAllyHp - _scAlly.Hp; aegisLost = _scAegisHp - p.Hp;
+                ScCheck($"a creature's blow of 20 on a friend with half armour: the friend loses {friendLost:0.0} (want {10 * (1 - share):0.0}), the Aegis beside them {aegisLost:0.0} (want {10 * share:0.0}: her share of what got through, not half the blow)", Math.Abs(friendLost - 10 * (1 - share)) < 0.7f && Math.Abs(aegisLost - 10 * share) < 0.7f);
+                _scAlly.Stats.DamageReduction = dr0;
                 _scStep = 9; _scT = 0;
                 break;
             }
@@ -178,9 +186,8 @@ public partial class Main
             case 11:
             {
                 if (_scT < 0.4f) return;
-                float near = _scAllyHp - _scFoe.Hp, far = _scAegisHp - _scFoe2.Hp;
-                float want = Tune.Aegis.SmiteDamage * p.Stats.DamageMult;
-                ScCheck($"alone, her second ability smites: the creature beside her takes {near:0.0} (want about {want:0}), the far one {far:0.0}, and it is weakened ({_scFoe.Weakened})", near > want * 0.5f && far < 0.5f && _scFoe.Weakened);
+                ScCheck($"alone, her second ability is a Humbling Light: the creature beside her deals {_scFoe.WeakMult:0.00}x for a while (want {Tune.Aegis.HumbleMult:0.00}x), the far one {_scFoe2.WeakMult:0.00}x; no blow ({_scAllyHp - _scFoe.Hp:0.0})", Math.Abs(_scFoe.WeakMult - Tune.Aegis.HumbleMult) < 0.01f && _scFoe2.WeakMult > Tune.Aegis.HumbleMult + 0.05f && _scAllyHp - _scFoe.Hp < 0.5f);
+                ScCheck($"and it comes back in {Tune.Aegis.SmiteCooldown:0} s", Math.Abs(Tune.Aegis.SmiteCooldown - 12f) < 0.01f);
                 // ---- Foe's Burden (an alteration): the second ability is laid on a creature, which takes 25% of what she takes
                 Player.TestParty = true;
                 p.Stats.FoeBurden = true;
@@ -200,7 +207,7 @@ public partial class Main
                 p.Hurt(20f, _scFoe.GlobalPosition, 0, null);
                 float foeLost = fb - _scFoe.Hp, aegisLost = ab - p.Hp, share = Tune.Aegis.FoeShare;
                 ScCheck($"a blow of 20: the creature takes {foeLost:0.0} (want {20 * share:0.0}), the Aegis {aegisLost:0.0} (want {20 * (1 - share):0.0})", Math.Abs(foeLost - 20 * share) < 0.7f && Math.Abs(aegisLost - 20 * (1 - share)) < 0.9f);
-                ScCheck($"its cooldown is shorter than the smite's ({Tune.Aegis.FoeCooldown:0} s against {Tune.Aegis.SmiteCooldown:0} s)", Tune.Aegis.FoeCooldown < Tune.Aegis.SmiteCooldown);
+                ScCheck($"its cooldown is shorter than the Humbling Light's ({Tune.Aegis.FoeCooldown:0} s against {Tune.Aegis.SmiteCooldown:0} s)", Tune.Aegis.FoeCooldown < Tune.Aegis.SmiteCooldown);
                 ScEnd();
                 break;
             }

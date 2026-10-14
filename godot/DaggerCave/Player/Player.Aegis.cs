@@ -34,7 +34,9 @@ public partial class Player
 
     // ---- a Shared Burden on this hero (the Aegis who took it, how much of each blow, for how long)
     private int _burdenBy;
-    private float _burdenShare, _burdenLeft;
+    private float _burdenShare, _burdenLeft, _burdenMitigate;
+    /// <summary>Burden of Many: this hero's burden is shared among everyone about, not with the Aegis alone.</summary>
+    private bool _burdenMany;
     /// <summary>A Shared Burden is on this hero.</summary>
     public bool Burdened => _burdenLeft > 0;
     // ---- the Aegis's own: who it carries for
@@ -192,18 +194,20 @@ public partial class Player
     public float FoeBurdenTaken { get; private set; }
 
     /// <summary>A burst of light round the Aegis: it strikes and weakens everything near.</summary>
+    /// <summary>Creatures her Humbling Light has reached (tests).</summary>
+    public int Humbled { get; private set; }
+
     private bool TrySmite()
     {
         if (!IsAegis || _burdenCd > 0) return false;
         _burdenCd = Tune.Aegis.SmiteCooldown;
-        float dmg = Tune.Aegis.SmiteDamage * Stats.DamageMult;
+        // Humbling Light: no blow, but everything it reaches hits a good deal softer for a few seconds
         var at = CastPoint;
         foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(at) > Tune.Aegis.SmiteRadius + e.HitRadius || !G.Cave.LineClear(at, e.GlobalPosition)) continue;
-            float dealt = e.Hurt(dmg, (e.GlobalPosition - at).Normalized() * 160f, e.GlobalPosition);
-            if (dealt > 0) OnDealtDamage(dealt);
-            if (!e.Dead) e.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);
+            e.Weaken(Tune.Aegis.HumbleMult, Tune.Aegis.HumbleSeconds);
+            Humbled++;
         }
         var col = new Color(1f, 0.9f, 0.55f);
         G.Fx.Ring(at, Tune.Aegis.SmiteRadius, col, 0.4f, FxLayer.RingStyle.Burst);
@@ -263,20 +267,14 @@ public partial class Player
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var ally = PickAlly(aim);
         if (ally == null) { SayNo("NO ONE TO SHARE WITH"); return true; }
-        // the old burdens lift (one at a time, or with Burden of Many, all round you)
+        // the old burden lifts (one friend at a time)
         foreach (var old in _burdenTargets) if (IsInstanceValid(old)) old.GiveBurden(Net.Me, 0, 0);
         _burdenTargets.Clear();
-        var who = new List<Player> { ally };
-        if (Stats.BurdenAll)
-            foreach (var p in G.Players)
-                if (p != this && p != ally && !p.Dead && IsInstanceValid(p) && p.GlobalPosition.DistanceTo(GlobalPosition) <= Tune.Aegis.AllyRange) who.Add(p);
-        float share = Stats.BurdenAll ? Stats.BurdenShare * 0.5f : Stats.BurdenShare;
-        foreach (var p in who)
-        {
-            _burdenTargets.Add(p);
-            p.GiveBurden(Net.Me, share, Stats.BurdenSeconds);
-            G.Fx.Beam(CastPoint, p.GlobalPosition + new Vector2(0, -6), new Color(1f, 0.85f, 0.5f, 0.9f));
-        }
+        // (Burden of Many: the friend shares a fifth of their blows with everyone about them, instead of her alone)
+        float share = Stats.BurdenAll ? Tune.Aegis.ManyShare : Stats.BurdenShare;
+        _burdenTargets.Add(ally);
+        ally.GiveBurden(Net.Me, share, Stats.BurdenSeconds, Stats.BurdenAll, Stats.BurdenMitigate);
+        G.Fx.Beam(CastPoint, ally.GlobalPosition + new Vector2(0, -6), new Color(1f, 0.85f, 0.5f, 0.9f));
         _burdenTargetLeft = Stats.BurdenSeconds;
         G.Sfx.Play("heal", CastPoint, -8, 0.05f, 0.8f);
         CastPose("rupture", "burden", 0.8f);
@@ -284,11 +282,12 @@ public partial class Player
     }
 
     /// <summary>An Aegis takes (or, with no time, lifts) a share of every blow this hero takes.</summary>
-    public void GiveBurden(int aegisId, float share, float seconds)
+    public void GiveBurden(int aegisId, float share, float seconds, bool many = false, float mitigate = 0f)
     {
         if (Dead && seconds > 0) return;
-        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Burden, share, seconds, 0, aegisId); return; }
-        _burdenBy = aegisId; _burdenShare = share; _burdenLeft = seconds;
+        // (over the wire: the third number carries Burden of Many as its tens and Heavier Burden's turned-aside share below)
+        if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Burden, share, seconds, mitigate + (many ? 10f : 0f), aegisId); return; }
+        _burdenBy = aegisId; _burdenShare = share; _burdenLeft = seconds; _burdenMany = many; _burdenMitigate = mitigate;
         if (seconds > 0)
         {
             G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 18, new Color(1f, 0.85f, 0.5f), 0.4f, FxLayer.RingStyle.Dashed);
@@ -300,21 +299,42 @@ public partial class Player
     private float ShareBurden(float dmg)
     {
         if (_burdenLeft <= 0 || dmg <= 0) return dmg;
+        // (what reaches here is already this hero's own share, after their armour, guard and barrier: the burden is a share of that)
+        // Heavier Burden: a little of the blow is simply turned aside
+        dmg *= 1f - _burdenMitigate;
         float shared = dmg * _burdenShare;
-        if (shared > 0.01f)
+        if (shared <= 0.01f) return dmg;
+        if (_burdenMany)
         {
-            // (in this game: the Aegis is the local hero; in another: their game is told)
-            if (_burdenBy == Net.Me) G.Player?.TakeShared(shared);
-            else NetSync.SendBurden(_burdenBy, shared);
-            G.Fx.Text(GlobalPosition + new Vector2(0, -24), "SHARED", new Color(1f, 0.88f, 0.55f), 8, 0.5f);
+            // Burden of Many: shared out evenly among every hero about (the Aegis among them, if she's near)
+            var near = G.Players.Where(h => h != this && GodotObject.IsInstanceValid(h) && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) <= Tune.Aegis.AllyRange).ToList();
+            if (near.Count == 0) return dmg;
+            foreach (var h in near) GiveShare(h.IsRemote ? h.NetOwner : Net.Me, shared / near.Count);
         }
+        else GiveShare(_burdenBy, shared);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -24), "SHARED", new Color(1f, 0.88f, 0.55f), 8, 0.5f);
         return dmg - shared;
+    }
+
+    /// <summary>A share of this hero's blow goes to another (in this game, the local hero; in another, their game is told).</summary>
+    private static void GiveShare(int to, float amount)
+    {
+        if (to == Net.Me) G.Player?.TakeShared(amount);
+        else NetSync.SendBurden(to, amount);
+    }
+
+    /// <summary>A hero carrying part of this one's blows (by Shared Burden or Share Pain) takes no part in their area pool as well: the burden is their whole share.</summary>
+    private bool CarriesForMe(Player h)
+    {
+        int id = h.IsRemote ? h.NetOwner : Net.Me;
+        if (_burdenLeft > 0 && (_burdenMany ? h.GlobalPosition.DistanceTo(GlobalPosition) <= Tune.Aegis.AllyRange : _burdenBy == id)) return true;
+        return _painShare > 0f && _painBy == id;
     }
 
     /// <summary>The Aegis takes a share of a friend's blow (through its own softening; no flinch, no grace).</summary>
     public void TakeShared(float amount)
     {
-        if (Dead || IsRemote || !IsAegis) return;
+        if (Dead || IsRemote) return;
         amount = Soften(amount * (1f - Stats.BurdenSoak) * (1f - Stats.DamageReduction) * Stats.DamageTakenMult);
         if (amount <= 0.01f) return;
         RunMetrics.Took(amount, null, "Friends' blows (shared)");

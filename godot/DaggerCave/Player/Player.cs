@@ -1186,6 +1186,8 @@ public partial class Player : CharacterBody2D
         {
             if (h == this || !GodotObject.IsInstanceValid(h) || h.Dead) continue;
             if (h.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Share.Radius) continue;
+            // (an Aegis already carrying a share of this hero's blows takes only that share, not a part of the pool besides)
+            if (CarriesForMe(h)) continue;
             (others ??= new()).Add(h);
         }
         if (others == null) return dmg;

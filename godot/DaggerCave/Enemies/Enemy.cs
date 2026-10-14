@@ -571,6 +571,8 @@ public abstract partial class Enemy : CharacterBody2D
     private float _hexT, _hexSlow = 1f, _hexVuln = 1f;     // slowed, and hurt more (the Vitalist's hex)
     private float _moteT;
     public bool Weakened => _weakT > 0;
+    /// <summary>What its blows are multiplied by while weakened (1: not weakened).</summary>
+    public float WeakMult => _weakT > 0 ? _weakMult : 1f;
     public bool Hexed => _hexT > 0;
 
     /// <summary>For <paramref name="seconds"/>, every hit this creature deals is multiplied by <paramref name="dmgMult"/>.</summary>
