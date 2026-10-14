@@ -172,7 +172,7 @@ public partial class Cycler : Button
 /// </summary>
 public partial class PauseMenu : Control
 {
-    public Action Resume, Settings, Build, Quit, QuitGame, Unstick, Report;
+    public Action Resume, Settings, Build, Quit, QuitGame, Unstick, Report, Achievements;
     private Label _seed;
     private Button _first, _quit;
     private bool _guide;
@@ -200,6 +200,7 @@ public partial class PauseMenu : Control
         col.AddChild(_first);
         col.AddChild(UiKit.Button("Settings", () => Settings?.Invoke()));
         col.AddChild(UiKit.Button("Your build", () => Build?.Invoke()));
+        col.AddChild(UiKit.Button("Achievements", () => Achievements?.Invoke()));
         col.AddChild(UiKit.Button("HUD guide", () => { Visible = false; _guide = true; Hud.Guide = true; }));
         col.AddChild(UiKit.Button("Unstick me", () => Unstick?.Invoke()));
         col.AddChild(UiKit.Button("Report a problem", () => Report?.Invoke()));

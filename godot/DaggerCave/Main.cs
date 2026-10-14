@@ -30,6 +30,8 @@ public partial class Main : Node
     private PerkMenu _perkMenu;
     private LoadoutMenu _loadoutMenu;
     private PauseMenu _pauseMenu;
+    private AchievementToast _achToast;
+    private AchievementsMenu _achMenu;
     private SettingsMenu _settingsMenu;
     private BugReportMenu _bugReport;
     private BuildPanel _buildPanel;
@@ -187,8 +189,13 @@ public partial class Main : Node
         };
         _uiLayer.AddChild(_loadoutMenu);
         UiKit.EnsureMenuControls();
-        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { SessionLog.Note("used Unstick me"); G.Player?.ForceUnstick(); Unpause(); }, Report = OpenReport, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this) };
+        _pauseMenu = new PauseMenu { Resume = Unpause, Settings = OpenSettings, Build = OpenBuild, Unstick = () => { SessionLog.Note("used Unstick me"); G.Player?.ForceUnstick(); Unpause(); }, Report = OpenReport, Quit = GiveUpRun, QuitGame = () => SafeQuit.Request(this), Achievements = OpenAchievements };
         _uiLayer.AddChild(_pauseMenu);
+        // achievements: the page, and the notice when one is earned (over everything else)
+        _achMenu = new AchievementsMenu { Closed = OnAchievementsClosed };
+        _uiLayer.AddChild(_achMenu);
+        _achToast = new AchievementToast();
+        _uiLayer.AddChild(_achToast);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
         _uiLayer.AddChild(_settingsMenu);
         _bugReport = new BugReportMenu { Closed = OnReportClosed };
@@ -213,6 +220,9 @@ public partial class Main : Node
     {
         if (ModelSheet.Wanted) { _uiLayer.Visible = false; AddChild(new ModelSheet()); return; }
         if (gentest) { RunGenTest(); return; }
+        Achievements.Load();
+        foreach (var a in OS.GetCmdlineUserArgs())
+            if (a.StartsWith("--dumpachievements=")) { using (var f = FileAccess.Open(a["--dumpachievements=".Length..], FileAccess.ModeFlags.Write)) f?.StoreString(Achievements.Dump()); SafeQuit.Request(this); return; }
         if (_loadShots != "") { RunLoadShots(_loadShots); return; }
         if (OS.GetCmdlineUserArgs().Contains("--bosstest")) { RunBossTest(); return; }
         if (OS.GetCmdlineUserArgs().Contains("--upgradetest")) { RunUpgradeTest(); return; }
@@ -779,9 +789,10 @@ public partial class Main : Node
         ulong t0 = Time.GetTicksMsec();
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
         // (a new run starts with no relics carried)
-        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); RollStalls(); }
+        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); RollStalls(); Achievements.NewRun(); }
         var cave = pregenerated ?? CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
+        Achievements.EnteredLevel(G.Depth, biome, cave, G.Shop);
         GD.Print($"[DaggerDeep] depth {G.Depth} {biome.Name} seed {seed}: generated in {Time.GetTicksMsec() - t0} ms, attempts {cave.Attempts}, trap cells {cave.TrapCells}, reachable {cave.ReachableCells}, rooms {cave.Rooms.Count}, spawns {cave.Spawns.Count}");
         _stage.BuildLevel(cave);
 
@@ -1581,6 +1592,8 @@ public partial class Main : Node
     private void GoDeeper(int biome, int depth, int seed, bool shop)
     {
         if (Brains.Training) Brains.SaveAll();
+        // (what a whole depth earns, judged as the party goes on from it)
+        Achievements.LeavingLevel(G.Depth, G.Biome, G.Shop, _guardianDown, G.Player);
         G.Depth = depth;
         G.Shop = shop;
         G.Biome = shop ? Biomes.ShopOf(Biomes.Get((BiomeId)biome)) : Biomes.Get((BiomeId)biome);
@@ -2197,6 +2210,7 @@ public partial class Main : Node
                 if (!Net.IsClient) G.RunTime = _runTime;
                 Brains.Tick(unscaled);
                 RunMetrics.Tick(unscaled);
+                Achievements.Tick(dt, G.Player, ActiveBoss);
                 TryOpenUpgradeMenu(!MenuOpen && Input.IsActionJustPressed("milestone"));
                 break;
         }
@@ -2868,6 +2882,7 @@ public partial class Main : Node
     private void GuardianRewards(int embers, bool dragon, string name, Vector2 at)
     {
         _guardianDown = true;
+        Achievements.GuardianSlain(name, dragon, at, G.Player);
         if (G.Player != null && G.Player.Stats.GuardianGold > 0) G.Player.GainGold(G.Player.Stats.GuardianGold);
         _sfx.SetMusic("ambient");
         G.Fx.AddShake(14);

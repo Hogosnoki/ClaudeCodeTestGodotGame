@@ -207,6 +207,7 @@ public partial class Main
         p.Trades--;
         Trades++;
         NetSync.SendRelicGift(friend, id);
+        Achievements.Traded();
         return true;
     }
 
@@ -218,6 +219,7 @@ public partial class Main
         if (why != null) { NetSync.SendRelicGift(giver, id, why); return false; }
         Upgrades.Apply(u, p.Stats, p);
         GiftsReceived++;
+        Achievements.Traded();
         _hud.ShowBanner($"{Net.NameOf(giver)} GAVE YOU {u.Name.ToUpperInvariant()}", 2f);
         _sfx.Play("card_take", null, 0, 0, 0.8f);
         return true;

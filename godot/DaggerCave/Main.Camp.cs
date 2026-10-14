@@ -48,7 +48,7 @@ public partial class Main
     /// <summary>The menus over the camp (drawn under every other menu), and the fade used going down.</summary>
     private void SetupFrontMenus()
     {
-        _mainMenu = new MainMenu { SinglePlayer = StartSinglePlayer, MultiPlayer = OpenOnlineMenu, Story = () => OpenStory(false), Settings = OpenFrontSettings, Quit = () => SafeQuit.Request(this) };
+        _mainMenu = new MainMenu { SinglePlayer = StartSinglePlayer, MultiPlayer = OpenOnlineMenu, Story = () => OpenStory(false), Settings = OpenFrontSettings, Quit = () => SafeQuit.Request(this), Achievements = () => { _mainMenu.Visible = false; _achFromTitle = true; _achMenu.Open(); } };
         _uiLayer.AddChild(_mainMenu);
         _uiLayer.MoveChild(_mainMenu, 1);
         _heroChoice = new HeroChoice

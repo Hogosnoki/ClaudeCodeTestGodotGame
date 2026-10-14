@@ -941,7 +941,7 @@ public static partial class Upgrades
     {
         s.Stacks[u.Id] = s.StackOf(u.Id) + 1;
         // (the others keep count of what this hero has, so their chests aren't dealt what nobody can take again)
-        if (p != null && !p.IsRemote && p == G.Player) NetSync.SendCard(u.Id);
+        if (p != null && !p.IsRemote && p == G.Player) { NetSync.SendCard(u.Id); Achievements.CardTaken(u, s.Hero); }
         if (u.Relic) ApplyTraced(u, s, p); else u.Apply(s, p);
         if (u.Relic && p != null && !p.IsRemote) RunRelics.Take(u.Id);
     }

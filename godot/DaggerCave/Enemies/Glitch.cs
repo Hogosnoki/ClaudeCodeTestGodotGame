@@ -200,6 +200,7 @@ public partial class Glitch : Enemy
     {
         if (_defeated) return;
         _defeated = true;
+        Achievements.GlitchDefeated();
         for (int k = 0; k < 6; k++) Smear(GlobalPosition + G.RandDir() * G.Range(0, 30));
         G.Fx.ScreenFlash(new Color(1f, 0f, 1f), 0.3f);
         G.Main?.GlitchDefeated(this);

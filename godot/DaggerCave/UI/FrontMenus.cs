@@ -11,7 +11,7 @@ namespace DaggerCave;
 /// </summary>
 public partial class MainMenu : Control
 {
-    public Action SinglePlayer, MultiPlayer, Story, Settings, Quit;
+    public Action SinglePlayer, MultiPlayer, Story, Settings, Quit, Achievements;
     /// <summary>The page the support button opens.</summary>
     public const string SupportUrl = "https://ko-fi.com/hogosnoki#";
 
@@ -66,6 +66,7 @@ public partial class MainMenu : Control
         _first = Add("Single player", () => SinglePlayer?.Invoke());
         Add("Multiplayer (online)", () => MultiPlayer?.Invoke());
         Add("The story", () => Story?.Invoke());
+        Add("Achievements", () => Achievements?.Invoke());
         Add("Settings", () => Settings?.Invoke());
         var support = Add("Support the game on Ko-fi", () => OS.ShellOpen(SupportUrl));
         support.AddThemeColorOverride("font_color", new Color(1f, 0.72f, 0.62f));

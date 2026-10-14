@@ -1994,3 +1994,30 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
 - **Seed 804912** (the Nest) had a neck the coarse check let through and the fine check missed between its grid points; the fine check now
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
+
+## Achievements (progress and feats)
+
+Two kinds (`Core/Achievements.cs`; the full list, in Steamworks order, is `ACHIEVEMENTS.md`, rewritten by `--dumpachievements=PATH`):
+- **Progress achievements** (67) mark the way through the game and are **party-wide**: every game in the party sees the same event (a depth
+  reached, a guardian slain, the dragon) and earns them together. They are visible, and the game's own completion counts only these.
+  Advance to depth 1–11, Defeat each of the 21 guardians, Conqueror (all 21 of the launch's: new guardians get their own achievement, so
+  the goalposts never move), Explorer (every cave a run can take you through), Deep Sea Explorer, Into the Null, Freed each caged hero and
+  the merchant, All Accounted For, Victory, Victory as each hero, The Long Way Down (the dragon at depth 11), Competent each hero (every
+  side-grade taken), Vault Breaker, Generous (a relic traded), Fair Shares (a Relic Collection emptied), Lore Keeper, Master of the Path / Potion.
+- **Feats** (22) are deeds, **hidden** until earned and **each player's own** unless they suit the party (marked *(party)*: Power Hungry,
+  Looter, Ransacked, Indescribable Horrors, Undefeatable, Brawler). Obliterated (felled from full health by one blow; a Death Ward, Last
+  Stand or Null Pointer saving you doesn't count), Too Stubborn to Die (survive a blow past your whole health), Savior / Burden (10
+  revives given / taken in a run), Fish-Kin (2 minutes under water on the bubbles' air: not as a creature, not in an Aegis bubble, not
+  without lungs), Not Fair, Untouchable (no damage at all for a depth; chip through a shield counts), Devastating Blow (500 in one strike),
+  Fleet of Foot (double speed), Hard Landing (the most a fall can take), Chain Reaction, Glass Cannon, Hoarder, Minimalist, Tight Squeeze,
+  Spike-Dancer, and the rest.
+- **Earned** ones and the lifetime record they are judged from (guardians slain, caves entered, the deepest depth, side-grades taken) are
+  kept in `user://achievements.json`; what can be judged from what is kept is checked again at start-up (quietly), so an achievement added
+  later is granted to whoever already qualifies.
+- **In the game**: a plaque slides in at the top right when one is earned (steel-blue with a laurel for progress, gold with a star and
+  FEAT! for a feat; a crowd of them goes by quicker), and **Achievements** on the title and pause menus opens a page with two tabs, Progress
+  (with the completion) and Feats (unearned ones shown as ???).
+- **Steam** comes later: `Achievements.ToSteam` is where an unlock will be passed on (SetAchievement and StoreStats). Steam has no
+  categories: progress is listed first and visible, feats after and hidden, with their own icon frame; Steam's own completion count will
+  include the feats (it can't leave any out).
+- Tests: `--scenario=achievements` checks the list (every guardian the caves make is on it), the hooks, both notices, both tabs and the save.

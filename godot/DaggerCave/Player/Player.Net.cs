@@ -238,6 +238,7 @@ public partial class Player
         G.Sfx.Play("levelup", GlobalPosition, -4, 0, 1.2f);
         NetSync.HeroDown(false);
         G.Main?.OnPlayerRevived();
+        Achievements.WasRevived();
     }
 
     /// <summary>Duplication: a potion picked up comes twice (room on the belt allowing).</summary>
@@ -287,6 +288,7 @@ public partial class Player
         if (ReviveProgress < 1f) return;
         ReviveProgress = 0;
         NetSync.Revive(fallen, Stats.ReviveGiveBonus);
+        Achievements.RevivedAFriend();
         G.Fx.Ring(fallen.GlobalPosition, 24, HealColorLight, 0.5f, FxLayer.RingStyle.Wave);
     }
 }

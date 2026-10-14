@@ -504,6 +504,7 @@ public partial class Player
             BurstCreature(e, dmg, splash, radius, cinder, false);
         }
         LastSnapCount = burst;
+        if (this == G.Player) Achievements.Snapped(burst);
         if (burst > 0)
         {
             G.Fx.AddShake(2f + burst);

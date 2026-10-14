@@ -51,6 +51,7 @@ public static class Meta
         if (!JournalFound.Add(id.ToString())) return false;
         Embers += 1;
         Save();
+        Achievements.CheckState();
         return true;
     }
     /// <summary>Class perks: the rank bought of each (kept for good), and which are brought on a run.</summary>
@@ -145,6 +146,7 @@ public static class Meta
         if (MerchantUnlocked) return false;
         MerchantUnlocked = true;
         Save();
+        Achievements.Freed(null);
         return true;
     }
 
@@ -205,6 +207,7 @@ public static class Meta
         GrantStarterPerks(h);
         RunUnlocks++;
         Save();
+        Achievements.Freed(h);
         return true;
     }
 
@@ -254,6 +257,7 @@ public static class Meta
         if (!free) Embers -= tier.Cost;
         Bought.Add(tier.Id);
         Save();
+        Achievements.CheckState();
         return true;
     }
 

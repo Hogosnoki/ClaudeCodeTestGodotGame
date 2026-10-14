@@ -161,6 +161,7 @@ public partial class Player : CharacterBody2D
         float dmg = Hp * Mathf.Lerp(Tune.Hero.FallShareMin, Tune.Hero.FallShareMax, k);
         if (dmg < 0.5f) return;
         LastFallDamage = dmg;
+        if (k >= 1f && this == G.Player) Achievements.FellHard();
         TakeRawDamage(dmg, "fall");
         G.Fx.TickText(GlobalPosition + new Vector2(0, -22), "-" + Num.Shown(dmg), new Color(1f, 0.6f, 0.45f), 10);
         G.Sfx.Play("hit", GlobalPosition, -4, 0.05f, 0.6f);
@@ -1102,6 +1103,7 @@ public partial class Player : CharacterBody2D
     /// </summary>
     public void OnDealtDamage(float dealt, bool vitalForceByMote = false)
     {
+        if (this == G.Player) Achievements.Dealt(dealt);
         if (Stats.LifeSteal > 0)
         {
             if (Stats.SelfRepair) HealAsFuel(dealt * Stats.LifeSteal);
@@ -1247,6 +1249,7 @@ public partial class Player : CharacterBody2D
             if (melee) source.Recoil(source.GlobalPosition.X - GlobalPosition.X);
         }
         TakeRawDamage(dmg, "hit");
+        if (this == G.Player) { Achievements.StruckBy(source); if (Dead) Achievements.FellTo(source); }
         WebTakesHarm(dmg);
         // (what else the blow does: a poison, a burn, a freeze...)
         if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
@@ -1314,6 +1317,7 @@ public partial class Player : CharacterBody2D
         else if (kind == "fall") dmg *= Stats.FallDamageMult;
         float hp0 = Hp;
         Hp -= dmg;
+        bool lethal = Hp <= 0;
         if (Hp <= 0 && Stats.LastStand && _lastStandDepth != G.Depth)
         {
             // once per depth, a killing blow leaves you standing behind a whole shield
@@ -1352,6 +1356,8 @@ public partial class Player : CharacterBody2D
             G.Fx.Debris(GlobalPosition, new Color(1f, 0f, 1f), 8, 150);
             G.Sfx.Play("glitch", GlobalPosition, -4, 0.2f, 1.3f);
         }
+        // (achievements: a whole depth unhurt is lost; a blow from full that fells, or one past the whole health survived)
+        if (!IsRemote && this == G.Player) Achievements.TookDamage(dmg, hp0, Stats.MaxHp, lethal, Hp <= 0, kind);
         // (damage over time, poison and burning, is quiet: no shake, flash or number of its own; its numbers are told in TickStatus)
         if (kind == "dot") { if (Hp <= 0) Die(); return; }
         bool chip = kind == "chip";

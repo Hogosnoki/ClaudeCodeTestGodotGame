@@ -62,6 +62,7 @@ public partial class Main
         "dashslash" => "entrance",
         "hive" => "nest",
         "shop" => "den",
+        "achievements" => "den",
         "cards" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
@@ -159,6 +160,7 @@ public partial class Main
             case "dashslash": DashSlashScenario(); break;
             case "hive": HiveScenario(); break;
             case "shop": ShopScenario(); break;
+            case "achievements": AchievementsScenario(); break;
             case "cards": CardsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;

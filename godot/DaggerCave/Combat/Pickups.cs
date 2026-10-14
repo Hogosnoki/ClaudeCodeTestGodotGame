@@ -373,6 +373,7 @@ public partial class Chest : Node2D, IBreakable
         if (_open) return;
         _open = true;
         LookingBy = 0;
+        Achievements.ChestOpened(this);
         if (!IsShrine) G.Sfx.Play("chest", GlobalPosition);
         G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 30, new Color(1f, 0.9f, 0.5f));
