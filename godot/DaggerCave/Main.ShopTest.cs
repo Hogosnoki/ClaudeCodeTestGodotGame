@@ -28,10 +28,10 @@ public partial class Main
         var before = PlanExits(new Random(5));
         ScCheck($"without the merchant, a guardian leaves two exits, both going down ({before.Count}, stall {before.Any(e => e.shop)})", before.Count == 2 && !before.Any(e => e.shop) && before.All(e => e.depth > G.Depth));
         Meta.MerchantUnlocked = true;
-        // (the stall is offered twice a run, between the 3rd depth and the 9th)
+        // (the stall is offered twice a run, between the 1st depth and the 9th)
         bool okDraws = true;
-        for (int k = 0; k < 200; k++) { RollStalls(); okDraws &= _stallAt1 >= 3 && _stallAt2 > _stallAt1 && _stallAt2 <= 9; }
-        ScCheck($"his two stalls fall between the 3rd depth and the 9th, the first sooner ({okDraws}; e.g. {_stallAt1} and {_stallAt2})", okDraws);
+        for (int k = 0; k < 200; k++) { RollStalls(); okDraws &= _stallAt1 >= Tune.Merchant.FirstDepth && _stallAt2 > _stallAt1 && _stallAt2 <= 9; }
+        ScCheck($"his two stalls fall between the {Tune.Merchant.FirstDepth}st depth and the 9th, the first sooner ({okDraws}; e.g. {_stallAt1} and {_stallAt2})", okDraws);
         _stallAt1 = G.Depth + 1; _stallsOffered = 0;
         ScCheck($"none is offered before the first stall's depth ({PlanExits(new Random(5)).Count} exits at depth {G.Depth}, first stall at {_stallAt1})", PlanExits(new Random(5)).Count == 2);
         _stallAt1 = G.Depth; _stallAt2 = G.Depth + 2;
@@ -204,6 +204,23 @@ public partial class Main
             Upgrades.RemoveRelic("relic_soul", st, null); Upgrades.RemoveRelic("relic_w_banner", st, null);
             ScCheck($"a relic given back takes off what it did: its listener ({k1} -> {Kills(st)}) and its numbers (damage x{st.DamageMult:0.000}, threat x{st.ThreatDist:0.000})", k1 == 1 && Kills(st) == 0 && Math.Abs(st.DamageMult - dm0) < 1e-4f && Math.Abs(st.ThreatDist - td0) < 1e-4f && st.StackOf("relic_soul") == 0);
         }
+        // (a party's trading first: a relic from one friend to another, through the stand)
+        {
+            p.Trades = 1;
+            Upgrades.Apply(Upgrades.Get("relic_bounty"), p.Stats, p);
+            ScCheck($"alone, the stand has no friend to trade with ({TradeFriends().Count})", TradeFriends().Count == 0);
+            bool gave = GiveRelicTo(2, "relic_bounty");
+            ScCheck($"giving a relic to a friend takes it off this hero and spends a trade ({gave}; carried {p.Stats.StackOf("relic_bounty")}, {p.Trades} left)", gave && p.Stats.StackOf("relic_bounty") == 0 && !RunRelics.Mine.Contains("relic_bounty") && p.Trades == 0);
+            ScCheck("no trades left: nothing more can be given", !GiveRelicTo(2, "relic_highground"));
+            RelicGiftReturned(2, "relic_bounty", "THEY CARRY IT ALREADY");
+            ScCheck($"a gift the friend can't carry comes back, and the trade with it ({p.Stats.StackOf("relic_bounty")}, {p.Trades} left)", p.Stats.StackOf("relic_bounty") == 1 && p.Trades == 1);
+            int got0 = GiftsReceived;
+            bool tookGift = ReceiveRelicGift(2, "relic_lucky");
+            ScCheck($"a friend's gift is carried at once ({tookGift}; Lucky Coin {p.Stats.StackOf("relic_lucky")})", tookGift && p.Stats.StackOf("relic_lucky") == 1 && GiftsReceived == got0 + 1);
+            ScCheck("and one already carried is refused (it goes back to them)", !ReceiveRelicGift(2, "relic_lucky") && p.Stats.StackOf("relic_lucky") == 1);
+        }
+        // (and the merchant's own trading, kept for later behind a switch: a relic for one of his)
+        Tune.Merchant.NpcTrades = true;
         p.Trades = 1;
         Upgrades.Apply(Upgrades.Get("relic_highground"), p.Stats, p);
         float hg = p.Stats.HighGroundMult;
@@ -225,6 +242,7 @@ public partial class Main
         ScCheck($"the trade: High Ground is gone (x{hg:0.00} -> x{p.Stats.HighGroundMult:0.00}), {took?.Name} is carried, a trade spent ({p.Trades} left)", took != null && Math.Abs(p.Stats.HighGroundMult - 1f) < 1e-4f && !RunRelics.Mine.Contains("relic_highground") && p.Stats.StackOf(took.Id) == 1 && RunRelics.Mine.Contains(took.Id) && p.Trades == 0);
         ScCheck($"a run brings {Tune.Merchant.Trades} trade, and the Path's Trading ranks one or two more ({Meta.Trades} now)", Meta.Trades >= Tune.Merchant.Trades && Meta.PearlTree.Branch("trade").Count() == 2);
         _upgradeMenu.ChooseLeave();
+        Tune.Merchant.NpcTrades = false;
         foreach (var _ in Wait(0.3f)) yield return null;
         // rerolling a chest's cards
         p.Rerolls = 2;

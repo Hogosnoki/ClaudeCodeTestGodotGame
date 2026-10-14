@@ -140,8 +140,10 @@ public partial class Main
         }
         // the trading stand: a relic for a relic, a few times a run
         int tradeable = TradeableRelics(p).Count;
-        TradeCard.Desc = $"Give him a relic you carry for one of {Tune.Merchant.TradeOffer} of his ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Path gives more).";
-        locks.Add(p.Trades <= 0 ? "NO TRADES LEFT THIS RUN" : tradeable == 0 ? "NO RELIC TO TRADE" : null); prices.Add(0);
+        TradeCard.Desc = Tune.Merchant.NpcTrades
+            ? $"Give him a relic you carry for one of {Tune.Merchant.TradeOffer} of his ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Path gives more)."
+            : $"Hand a relic you carry to a friend who wants it more ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Path gives more).";
+        locks.Add(p.Trades <= 0 ? "NO TRADES LEFT THIS RUN" : tradeable == 0 ? "NO RELIC TO TRADE" : !Tune.Merchant.NpcTrades && TradeFriends().Count == 0 ? "NO FRIEND TO TRADE WITH" : null); prices.Add(0);
         int rp = RerollPrice(m);
         RerollCard.Desc = FreeDealLeft(m) ? "He shuffles the cards he has not sold and lays out new ones: this one is on the house."
             : rp == 0 ? $"He shuffles the cards he has not sold and lays out new ones, for one of your Second Thoughts ({p.Rerolls} left)."
@@ -171,6 +173,69 @@ public partial class Main
         _autoPickT = 0.5f;
     }
 
+    /// <summary>The friends a relic could go to (online, everyone else in the party).</summary>
+    private static List<Net.PeerInfo> TradeFriends() => Net.Online ? Net.Peers.Values.Where(q => q.Id != Net.Me).ToList() : new List<Net.PeerInfo>();
+
+    /// <summary>A card for a friend at the stand (its id carries who).</summary>
+    private static Upgrade FriendCard(Net.PeerInfo q, Upgrade relic) => new()
+    {
+        Id = $"trade_to_{q.Id}", Name = Net.NameOf(q.Id), Icon = "relic", MaxStacks = 1, Apply = (s, p) => { },
+        Desc = $"Give your {relic.Name} to them ({q.Hero}). If they carry it already, it comes back to you and the trade isn't spent.",
+    };
+
+    /// <summary>Player trading, then: to which friend.</summary>
+    private void ShowTradeFriend()
+    {
+        var relic = Upgrades.Find(_tradeGive);
+        var friends = TradeFriends();
+        if (relic == null || friends.Count == 0) { ShowShop(); return; }
+        _tradeStep = 3;
+        var choices = friends.Select(q => FriendCard(q, relic)).Append(TradeBack).ToList();
+        // (a hero's own relic can only go to a friend of that hero)
+        var locks = friends.Select(q => relic.For != null && !relic.For.Contains(q.Hero) ? $"ONLY A {relic.For[0].ToString().ToUpperInvariant()} CAN CARRY IT" : null).Append(null).ToList();
+        _sfx.Play("relic_reveal", null, -4, 0, 0.95f);
+        _upgradeMenu.Open(choices, $"THE TRADING STAND  ·  WHO GETS YOUR {relic.Name.ToUpperInvariant()}?", locks, UiArt.Surface.Velvet, UiArt.Rarity.Relic);
+        _upgradeMenu.Reroll = null;
+        _autoPickT = 0.5f;
+    }
+
+    /// <summary>A relic of this hero's goes to a friend: off this hero now, on theirs when their game hears of it (back here if they can't carry it).</summary>
+    public bool GiveRelicTo(int friend, string id)
+    {
+        var p = G.Player;
+        if (p == null || p.Trades <= 0 || !Upgrades.RemoveRelic(id, p.Stats, p)) return false;
+        p.Trades--;
+        Trades++;
+        NetSync.SendRelicGift(friend, id);
+        return true;
+    }
+
+    /// <summary>A friend gave this hero a relic at the stand: carried at once, or handed back (with why) if it can't be.</summary>
+    public bool ReceiveRelicGift(int giver, string id)
+    {
+        var p = G.Player; var u = Upgrades.Find(id);
+        string why = p == null || p.Dead ? "THEY HAVE FALLEN" : u == null || !u.Relic ? "NO SUCH RELIC" : p.Stats.StackOf(id) > 0 ? "THEY CARRY IT ALREADY" : !Upgrades.Available(u, p.Stats) ? "THEY CAN'T CARRY IT" : null;
+        if (why != null) { NetSync.SendRelicGift(giver, id, why); return false; }
+        Upgrades.Apply(u, p.Stats, p);
+        GiftsReceived++;
+        _hud.ShowBanner($"{Net.NameOf(giver)} GAVE YOU {u.Name.ToUpperInvariant()}", 2f);
+        _sfx.Play("card_take", null, 0, 0, 0.8f);
+        return true;
+    }
+
+    /// <summary>A gift couldn't be carried: it is this hero's again, and the trade isn't spent.</summary>
+    public void RelicGiftReturned(int friend, string id, string why)
+    {
+        var p = G.Player; var u = Upgrades.Find(id);
+        if (p == null || u == null) return;
+        if (p.Stats.StackOf(id) == 0) Upgrades.Apply(u, p.Stats, p);
+        p.Trades++;
+        _hud.ShowBanner($"{u.Name.ToUpperInvariant()} CAME BACK: {why}", 2f);
+    }
+
+    /// <summary>For the tests: relics given to this hero at the stand.</summary>
+    public int GiftsReceived { get; private set; }
+
     /// <summary>Then: which of his to take for it (relics for this hero, none already carried).</summary>
     private void ShowTradeGet()
     {
@@ -196,7 +261,20 @@ public partial class Main
         {
             if (u.Id == TradeBack.Id) { ShowShop(); return true; }
             _tradeGive = u.Id;
-            ShowTradeGet();
+            if (Tune.Merchant.NpcTrades) ShowTradeGet(); else ShowTradeFriend();
+            return true;
+        }
+        if (_tradeStep == 3)
+        {
+            if (u.Id == TradeBack.Id) { ShowTradeGive(); return true; }
+            var give = Upgrades.Find(_tradeGive);
+            if (give != null && u.Id.StartsWith("trade_to_") && int.TryParse(u.Id["trade_to_".Length..], out int friend) && GiveRelicTo(friend, _tradeGive))
+            {
+                _hud.ShowBanner($"YOUR {give.Name.ToUpperInvariant()} GOES TO {Net.NameOf(friend)}", 1.8f);
+                _sfx.Play("card_take", null, 0, 0, 0.8f);
+                G.Fx.Text(_shop.GlobalPosition + new Vector2(0, -52), "a gift between friends", new Color(1f, 0.82f, 0.4f), 11, 1.2f);
+            }
+            ShowShop();
             return true;
         }
         if (_tradeStep == 2)

@@ -2809,11 +2809,11 @@ public partial class Main : Node
     /// <summary>The depths this run's two stalls are offered from (drawn as the run begins; the host's), and how many have been offered so far.</summary>
     private int _stallAt1 = 3, _stallAt2 = 9, _stallsOffered;
 
-    /// <summary>A new run: two depths for the merchant's stall, the first no sooner than the 3rd, the second no later than the 9th.</summary>
+    /// <summary>A new run: two depths for the merchant's stall, the first no sooner than the 1st, the second no later than the 9th.</summary>
     private void RollStalls()
     {
         _stallsOffered = 0;
-        _stallAt1 = _rng.Next(Tune.Merchant.FirstDepth, Tune.Merchant.LastDepth);        // 3..8
+        _stallAt1 = _rng.Next(Tune.Merchant.FirstDepth, Tune.Merchant.LastDepth);        // 1..8
         _stallAt2 = _rng.Next(_stallAt1 + 1, Tune.Merchant.LastDepth + 1);               // the first + 1 .. 9
     }
 

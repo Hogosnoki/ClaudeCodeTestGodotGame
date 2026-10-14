@@ -388,6 +388,8 @@ public static partial class Net
         CardTaken,
         /// <summary>A hero's record of the run so far (the metrics page sets the heroes side by side).</summary>
         Metrics,
+        /// <summary>The trading stand: a relic given to a friend, and one given back because they couldn't carry it.</summary>
+        RelicGift, RelicReturned,
     }
 
     /// <summary>Sends to one peer.</summary>

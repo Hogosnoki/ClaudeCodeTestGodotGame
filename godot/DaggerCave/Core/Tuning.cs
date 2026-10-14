@@ -1082,9 +1082,11 @@ public static class Tune
     {
         public static float CageShare = 0.35f;
         /// <summary>His stall is offered twice a run, at depths drawn between these (the first no sooner than <c>FirstDepth</c>, the second no later than <c>LastDepth</c>).</summary>
-        public static int FirstDepth = 3, LastDepth = 9, Visits = 2;
-        /// <summary>His trading stand: a relic the hero carries for one of <c>TradeOffer</c> of his, <c>Trades</c> times a run (the Path adds more).</summary>
+        public static int FirstDepth = 1, LastDepth = 9, Visits = 2;
+        /// <summary>His trading stand: a relic a hero carries given to a friend, <c>Trades</c> times a run (the Path adds more). With <c>NpcTrades</c>,
+        /// the stand trades with him instead: a relic for one of <c>TradeOffer</c> of his (kept for later; off for now).</summary>
         public static int Trades = 1, TradeOffer = 3;
+        public static bool NpcTrades = false;
         /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies; each rises <c>PerDepth</c> of itself for every level down.</summary>
         public static int PriceCommon = 8, PriceUncommon = 14, PriceRare = 24, PriceRelic = 36, PriceSupplies = 12, PriceReroll = 6, PriceToken = 14;
         /// <summary>How likely a token for dealing a choice of cards again is to be among his supplies, against the others' 1.</summary>

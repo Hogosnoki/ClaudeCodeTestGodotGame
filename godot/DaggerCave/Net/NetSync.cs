@@ -201,7 +201,7 @@ public static class NetSync
     }
 
     /// <summary>Is this message, from a client, one the host should pass on to the other clients?</summary>
-    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.CardTaken or Net.Msg.Metrics or Net.Msg.ChestCut or Net.Msg.HeroBurden;
+    public static bool IsBroadcast(Net.Msg t) => t is Net.Msg.HeroState or Net.Msg.HeroEvent or Net.Msg.Fx or Net.Msg.PropGone or Net.Msg.Revive or Net.Msg.HeroHeal or Net.Msg.HeroBoon or Net.Msg.ChestCards or Net.Msg.Relic or Net.Msg.CardTaken or Net.Msg.Metrics or Net.Msg.ChestCut or Net.Msg.HeroBurden or Net.Msg.RelicGift or Net.Msg.RelicReturned;
 
     // ================================================================== heroes
 
@@ -972,6 +972,16 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>The trading stand: a relic for a friend (<paramref name="returned"/>: one handed back, with why).</summary>
+    public static void SendRelicGift(int to, string id, string returned = null)
+    {
+        if (!Net.Online) return;
+        var w = new NetOut(returned == null ? Net.Msg.RelicGift : Net.Msg.RelicReturned);
+        w.Int(to).Int(Net.Me).Str(id);
+        if (returned != null) w.Str(returned);
+        Net.SendAll(w, true);
+    }
+
     /// <summary>This game's hero is at a chest: ask the host whether it may look in.</summary>
     public static void AskChest(Chest c)
     {
@@ -1347,6 +1357,8 @@ public static class NetSync
             case Net.Msg.ChestDone: if (Net.IsHost) { int id = r.Int(); OnChestDone(from, id, r.Bool()); } break;
             case Net.Msg.ChestOpened: OnChestOpened(r); break;
             case Net.Msg.HeroBurden: { int to = r.Int(); float amount = r.Float(); if (to == Net.Me) G.Player?.TakeShared(amount); break; }
+            case Net.Msg.RelicGift: { int to = r.Int(), giver = r.Int(); string id = r.Str(); if (to == Net.Me) G.Main?.ReceiveRelicGift(giver, id); break; }
+            case Net.Msg.RelicReturned: { int to = r.Int(), back = r.Int(); string id = r.Str(); string why = r.Str(); if (to == Net.Me) G.Main?.RelicGiftReturned(back, id, why); break; }
             case Net.Msg.Relic: { int who = r.Int(); RunRelics.Note(who, r.Str()); break; }
             case Net.Msg.CardTaken: { int who = r.Int(); Upgrades.NoteCard(who, r.Str()); break; }
             case Net.Msg.Metrics: RunMetrics.OnNet(r); break;

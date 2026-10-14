@@ -105,7 +105,7 @@ public static class Meta
         B(PearlTree, "price", "Fair dealing", ("Fair Dealing I", "The merchant's prices are 5% lower."), ("Fair Dealing II", "The merchant's prices are 10% lower."), ("Fair Dealing III", "The merchant's prices are 15% lower."));
         B(PearlTree, "gold", "Prospecting", ("Prospecting I", "Gold you find is worth 10% more."), ("Prospecting II", "Gold you find is worth 20% more."), ("Prospecting III", "Gold you find is worth 30% more."));
         B(PearlTree, "reroll", "Second thoughts", ("Second Thoughts I", "Once a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts II", "Twice a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts III", "Three times a run, reroll the merchant's wares or a choice of cards."));
-        B(PearlTree, "trade", "Trading", ("Trader I", "One more relic trade at the merchant's stand each run (2)."), ("Trader II", "Two more relic trades at the merchant's stand each run (3)."));
+        B(PearlTree, "trade", "Trading", ("Trader I", "One more relic trade with a friend at the merchant's stand each run (2)."), ("Trader II", "Two more relic trades with a friend at the merchant's stand each run (3)."));
         Load();
     }
 
