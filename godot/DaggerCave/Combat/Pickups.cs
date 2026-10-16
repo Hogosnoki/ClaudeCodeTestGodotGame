@@ -100,6 +100,8 @@ public partial class HeartPickup : Node2D
             NetSync.Scope++;
             try
             {
+                // (at full health, half the time it's the hero's essence for the Ember Grid instead)
+                if (p.Hp >= p.Stats.MaxHp - 0.5f && GridFinds.Roll(Tune.Grid.Essence)) { GridFinds.Give(p, "essence", GlobalPosition); NetSync.PropGone(this, quiet: true); QueueFree(); return; }
                 float amount = p.Stats.MaxHp * Tune.Drops.HeartHealFrac;
                 if (p.IsRemote) NetSync.GivePickup(p, 1, amount); else p.Heal(amount);
                 G.Sfx.Play("heal", GlobalPosition, -4);
@@ -133,6 +135,8 @@ public partial class PotionPickup : Node2D
     /// <summary>Online: a copy of the host's potion (the host decides who gets it).</summary>
     public bool Puppet;
     private float _t, _life = 40f, _vy = -140f;
+    /// <summary>A hero with a full belt has touched it: it was rolled once for a Reagent.</summary>
+    private bool _rolled;
     public float T => _t;
     public float LifeLeft => _life;
 
@@ -150,7 +154,18 @@ public partial class PotionPickup : Node2D
         if (G.Chance(0.04f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-4, 4), -6), new Color(1f, 0.6f, 0.7f), 5);
         foreach (var p in G.Players)
         {
-            if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18 || p.Potions >= p.MaxPotions) continue;
+            if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18) continue;
+            if (p.Potions >= p.MaxPotions)
+            {
+                // (a full belt: half the time the potion is a Reagent for the Ember Grid instead; otherwise it waits for someone with room)
+                if (_rolled) continue;
+                _rolled = true;
+                if (!GridFinds.Roll(Tune.Grid.Reagent)) continue;
+                GridFinds.Give(p, "reagent", GlobalPosition);
+                NetSync.PropGone(this, quiet: true);
+                QueueFree();
+                return;
+            }
             NetSync.Scope++;
             try
             {

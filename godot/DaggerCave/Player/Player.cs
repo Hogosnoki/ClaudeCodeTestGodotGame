@@ -1128,6 +1128,7 @@ public partial class Player : CharacterBody2D
         if (n <= 0) return;
         if (pile) n += Stats.PileBonus;
         n = Math.Max(1, (int)MathF.Round(n * Stats.GoldMult * Meta.GoldFoundMult));
+        if (!IsRemote) GridFinds.GoldGained(this, Gold);
         Gold += n;
         GoldFound += n;
         G.Sfx.Play("pickup_key", GlobalPosition, -8, 0.06f, 1.7f);

@@ -26,8 +26,7 @@ public partial class Main : Node
     public bool ChoosingNow => _state == State.Choosing;
     /// <summary>The run's dice (chest cards, exits).</summary>
     public Random Rng => _rng;
-    private MetaMenu _metaMenu;
-    private PerkMenu _perkMenu;
+    private HexGridMenu _grid;
     private LoadoutMenu _loadoutMenu;
     private PauseMenu _pauseMenu;
     private AchievementToast _achToast;
@@ -89,34 +88,16 @@ public partial class Main : Node
     private string _metaShot = "";
     private int _metaShotStep;
 
-    /// <summary>--metashot=DIR: screenshots of the potion tree's introduction and the tree screen.</summary>
-    private bool _perkShot;
+    /// <summary>--gridshot=DIR: screenshots of the Ember Grid (the first look, then a hero's branch with a hex bought).</summary>
     private void MetaShotTick()
     {
-        var steps = _perkShot ? new (float at, Action act)[]
+        var steps = new (float at, Action act)[]
         {
-            (0.5f, () => { Meta.Embers = 9; G.Hero = HeroKind.Warden; foreach (var id in new[] { "warden_dr", "warden_window" }) Meta.PerkBuy(ClassPerks.Find(id)); _perkMenu.Open(G.Hero); }),
-            (1.2f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/perks_1.png")),
-            (1.3f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = true })),
-            (1.35f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = false })),
-            (1.4f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = true })),
-            (1.45f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
-            (1.9f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/perks_2.png")),
-            (2.1f, () => { GD.Print($"[perkshot] {ClassPerks.EquippedNames(G.Hero)} | embers {Meta.Embers}"); SafeQuit.Request(this); }),
-        } : new (float at, Action act)[]
-        {
-            (0.5f, () => { Meta.Embers = 4; Meta.RollResource(new Random(1)); Meta.Found["potion"] = 1; Meta.Held["potion"] = 1; _metaMenu.Open(MetaMenu.Mode.PotionTutorial); }),
-            (1.2f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_1.png")),
-            (1.3f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = true })),
-            (1.35f, () => Input.ParseInputEvent(new InputEventAction { Action = "move_down", Pressed = false })),
-            (1.4f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = true })),
-            (1.45f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
-            (1.9f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_2.png")),
-            (2.0f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = true })),
-            (2.05f, () => Input.ParseInputEvent(new InputEventAction { Action = "confirm", Pressed = false })),
-            (2.6f, () => { Meta.Found["pearl"] = 2; Meta.Held["pearl"] = 1; GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_3.png"); }),
-            (3.0f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/meta_4.png")),
-            (3.2f, () => { GD.Print($"[metashot] hot rank active: {Meta.Active.Contains("hot1")}, embers {Meta.Embers}"); SafeQuit.Request(this); }),
+            (0.5f, () => { Meta.Embers = 60; HexGrid.Mats["reagent"] = 6; HexGrid.Mats[HexGrid.EssenceKey(HeroKind.Warden)] = 4; Meta.GridTutorialDone = false; _grid.Open(); }),
+            (1.2f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/grid_1.png")),
+            (1.3f, () => { HexGrid.Buy(HexGrid.Find("pot_root")); HexGrid.Buy(HexGrid.Find("pot_quick1")); _grid.Visible = false; G.Hero = HeroKind.Warden; _grid.Open(HeroKind.Warden); }),
+            (2.0f, () => GetViewport().GetTexture().GetImage().SavePng($"{_metaShot}/grid_2.png")),
+            (2.1f, () => { GD.Print($"[gridshot] owned {HexGrid.Owned.Count}, embers {Meta.Embers}"); SafeQuit.Request(this); }),
         };
         while (_metaShotStep < steps.Length && _titleT >= steps[_metaShotStep].at) steps[_metaShotStep++].act();
     }
@@ -175,12 +156,9 @@ public partial class Main : Node
         _uiLayer.AddChild(_upgradeMenu);
         _overlay = new ScreenOverlay();
         _uiLayer.AddChild(_overlay);
-        _metaMenu = new MetaMenu();
-        _metaMenu.Closed += OnMetaClosed;
-        _uiLayer.AddChild(_metaMenu);
-        _perkMenu = new PerkMenu();
-        _perkMenu.Closed += OnMetaClosed;
-        _uiLayer.AddChild(_perkMenu);
+        _grid = new HexGridMenu();
+        _grid.Closed += OnMetaClosed;
+        _uiLayer.AddChild(_grid);
         _loadoutMenu = new LoadoutMenu();
         _loadoutMenu.Closed += () =>
         {
@@ -338,12 +316,11 @@ public partial class Main : Node
             : $"KEYBOARD + MOUSE:  {N("move_left")} / {N("move_right")} move   {N("jump")} jump   {N("attack")} attack   {N("ability")} ability   {N("ability2")} second ability   {N("dodge")} dodge / shield / hex / updraft / vanish   {N("interact")} open / descend   {N("potion")} potion";
     }
 
-    /// <summary>The line about embers and the upgrade trees on the title and camp screens.</summary>
+    /// <summary>The line about embers and the Ember Grid on the title and camp screens.</summary>
     private string CampLine()
     {
-        bool trees = Meta.Trees.Any(Meta.Visible);
         string pad = UsingPad ? "BACK" : "U";
-        return trees ? $"Embers: {Meta.Embers}   ·   press {pad} for the upgrade trees" : Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "";
+        return HexGrid.Shown ? $"Embers: {Meta.Embers}   ·   press {pad} for the Ember Grid" : "";
     }
 
     private void ParseArgs(out bool gentest)
@@ -389,8 +366,7 @@ public partial class Main : Node
             else if (a == "--nowings") Tune.Secrets.WingChance = 0f;
             else if (a == "--leftsecrets") Tune.River.LeftSecretChance = Tune.River.SecondSecretChance = 1f;
             else if (a == "--slayer") Net.ForceSlayer = true;
-            else if (a.StartsWith("--metashot=")) _metaShot = a[11..];
-            else if (a.StartsWith("--perkshot=")) { _metaShot = a[11..]; _perkShot = true; }
+            else if (a.StartsWith("--gridshot=")) _metaShot = a[11..];
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
@@ -812,7 +788,7 @@ public partial class Main : Node
 
         var player = new Player();
         if (keepStats != null) { player.Stats = keepStats; }
-        else ClassPerks.Apply(player.Stats); // (a new run: the perks this hero brings)
+        else HexGrid.ApplyRun(player.Stats); // (a new run: what the Ember Grid gives this hero)
         _world.AddChild(player);
         if (keepStats == null) { ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; player.Trades = Meta.Trades; }
         if (keepStats != null)
@@ -1695,6 +1671,7 @@ public partial class Main : Node
         _victory = false;
         _runEmbers = 0;
         _runFinds = "";
+        GridFinds.Reset();
         Meta.RunUnlocks = 0;
         // (walk back out of the cave mouth and none of this run is kept, not even that it happened)
         _metaAtStart = Meta.Snapshot();
@@ -1763,7 +1740,8 @@ public partial class Main : Node
         if (Net.Online) { ShowCampScene(true); ShowOnlineCamp(); return; }
         var p = G.Player;
         int secs = (int)_runTime;
-        string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
+        string finds = _runFinds + GridFinds.Line();
+        string earned = _runEmbers > 0 || finds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{finds}" : "";
         ShowHeroChoice(_victory ? "VICTORY" : "YOU DIED",
             (_victory ? "The Elder Dragon is slain. The deep is quiet... for now." : $"Fell at depth {G.Depth} in the {G.Biome?.Name ?? "cave"}")
             + $"\nLevel {p.Level}   ·   {p.Kills} kills   ·   {secs / 60}:{secs % 60:00}" + (earned != "" ? "\n" + earned : ""));
@@ -1781,6 +1759,9 @@ public partial class Main : Node
         _roomElites.Clear();
         _sfx.StopAll();
     }
+
+    /// <summary>The Ember Grid over the camp, looking at a hero's branch (or the fire).</summary>
+    private void OpenGrid(HeroKind? hero) => _grid.Open(hero);
 
     private void OnMetaClosed()
     {
@@ -2076,7 +2057,7 @@ public partial class Main : Node
                 return;
             }
         }
-        if (_metaMenu.Visible || _perkMenu.Visible || _loadoutMenu.Visible || _onlineMenu.Visible || _bugReport.Visible) return;
+        if (_grid.Visible || _loadoutMenu.Visible || _onlineMenu.Visible || _bugReport.Visible) return;
         if (_state == State.Playing && e.IsActionPressed("pause") && !_settingsMenu.Visible && !_pauseMenu.Visible && !BuildPanel.Showing)
         {
             PauseGame();
@@ -2157,9 +2138,8 @@ public partial class Main : Node
             case State.Title:
                 _titleT += dt;
                 if (_metaShot != "") MetaShotTick();
-                if (!_metaMenu.Visible && !_perkMenu.Visible && !_onlineMenu.Visible && (_front != Front.Heroes || _heroChoice.InPrep) && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
-                if (_front == Front.Heroes && _heroChoice.InPrep && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
-                if (_front == Front.Heroes && _heroChoice.InPrep && !_metaMenu.Visible && !_perkMenu.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("loadout")) _loadoutMenu.Open(G.Hero);
+                if (!_grid.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && (_front != Front.Heroes || _heroChoice.InPrep) && _departT < 0f && (Input.IsActionJustPressed("meta") || (_front == Front.Heroes && Input.IsActionJustPressed("perks"))) && (HexGrid.Shown || _front == Front.Heroes)) OpenGrid(_front == Front.Heroes ? G.Hero : null);
+                if (_front == Front.Heroes && _heroChoice.InPrep && !_grid.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("loadout")) _loadoutMenu.Open(G.Hero);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
                     GetViewport().GetTexture().GetImage().SavePng(_titleShot);
@@ -2172,20 +2152,18 @@ public partial class Main : Node
                 break;
             case State.Dead:
                 _deadT += dt;
-                if (_metaMenu.Visible || _perkMenu.Visible) break;
+                if (_grid.Visible) break;
                 if (_deadT > 1.2f && !_overlay.Visible && !_heroChoice.Visible && !_settingsMenu.Visible)
                 {
                     ShowCamp();
-                    // back at camp after the first reagent: the potion tree's introduction
-                    if (!_autotest && Meta.Visible(Meta.PotionTree) && !Meta.PotionTutorialDone) _metaMenu.Open(MetaMenu.Mode.PotionTutorial);
-                    else if (!_autotest && Meta.Visible(Meta.PearlTree) && !Meta.PearlTutorialDone) _metaMenu.Open(MetaMenu.Mode.PearlIntro);
+                    // back at camp after the first material: the Ember Grid's introduction
+                    if (!_autotest && _scenario == "" && HexGrid.Mats.Values.Any(v => v > 0) && !Meta.GridTutorialDone) OpenGrid(G.Hero);
                     // (otherwise, how the run went: the metrics, once; Tab / Back brings them up again)
                     else if (!_autotest && _scenario == "" && G.Player != null && !_metricsShown) { _metricsShown = true; _buildPanel.Open(metrics: true); }
                 }
                 bool summary = _overlay.Visible || _heroChoice.InPrep;
                 if (_deadT > 1.5f && summary && G.Player != null && !BuildPanel.Showing && BuildPanel.ClosedFrame != Engine.GetProcessFrames() && Input.IsActionJustPressed("build")) _buildPanel.Open(metrics: true);
-                else if (_deadT > 1.5f && summary && Input.IsActionJustPressed("perks")) _perkMenu.Open(G.Hero);
-                else if (_deadT > 1.5f && summary && Input.IsActionJustPressed("meta") && Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse);
+                else if (_deadT > 1.5f && summary && (Input.IsActionJustPressed("perks") || Input.IsActionJustPressed("meta")) && HexGrid.Shown) OpenGrid(G.Hero);
                 // (online: on to the lobby; alone, the hero choice at the fire takes it from here)
                 else if (Net.Online && _deadT > 1.5f && _overlay.Visible && (Input.IsActionJustPressed("restart") || Input.IsActionJustPressed("confirm"))) Restart();
                 if (_autotest && _deadT > 3f) { if (_fullRun && _victory) { FinishFullRun(true); return; } Restart(); }
@@ -2887,16 +2865,17 @@ public partial class Main : Node
         _sfx.SetMusic("ambient");
         G.Fx.AddShake(14);
         G.Fx.ScreenFlash(new Color(1f, 0.9f, 0.6f), 0.3f);
+        // (the Ember Pact: more embers)
+        embers = Math.Max(embers, (int)MathF.Round(embers * Meta.EmberMult));
         Meta.AddEmbers(embers);
         _runEmbers += embers;
-        var found = Meta.RollResource(_rng);
         _hud.ShowBanner($"{name} SLAIN  ·  +{embers} EMBER{(embers > 1 ? "S" : "")}", 3.5f);
         G.Fx.Text(at + new Vector2(0, -40), $"+{embers} ember{(embers > 1 ? "s" : "")}", new Color(1f, 0.7f, 0.35f), 13, 2.5f);
-        if (found != null)
+        // now and then an Obsidian Pearl for the Path's branch of the Ember Grid (each player's own)
+        if (G.Player != null && _rng.NextDouble() < Tune.Grid.Pearl)
         {
-            _runFinds += $", 1 {found.Resource}";
-            G.Fx.Text(at + new Vector2(0, -58), $"FOUND: {found.Resource.ToUpperInvariant()}", found.Color, 15, 3f);
-            for (int k = 0; k < 12; k++) G.Fx.Glint(at + G.RandDir() * G.Range(10, 40), found.Color, 9);
+            GridFinds.Found(G.Player, "pearl", at + new Vector2(0, -36));
+            for (int k = 0; k < 12; k++) G.Fx.Glint(at + G.RandDir() * G.Range(10, 40), HexGrid.MatColor("pearl"), 9);
             _sfx.Play("levelup", at, 0, 0, 1.3f);
         }
         if (dragon)
@@ -4042,36 +4021,67 @@ public partial class Main : Node
         SafeQuit.Request(this, vaultsAll == vaultWant ? 0 : 1);
     }
 
-    /// <summary>--metatest: the resource draw, buying and activating ranks, and their effects.</summary>
+    /// <summary>--metatest: the Ember Grid: buying hexes (embers, materials, reach, locked branches), their effects, and the old save's refund.</summary>
     private void RunMetaTest()
     {
         bool ok = true;
         void Check(string what, bool cond) { GD.Print($"[metatest] {(cond ? "ok  " : "FAIL")} {what}"); ok &= cond; }
-        Meta.Embers = 0; Meta.Bought.Clear(); Meta.Active.Clear(); Meta.Held.Clear(); Meta.Found.Clear();
-        Check("trees hidden before any resource", !Meta.Trees.Any(Meta.Visible));
-        var rng = new Random(3);
-        int reagents = 0, pearls = 0;
-        for (int k = 0; k < 32; k++) { var t = Meta.RollResource(rng); if (t == Meta.PotionTree) reagents++; else if (t == Meta.PearlTree) pearls++; }
-        Check($"32 draws give every resource once (12 reagents: {reagents}, 20 pearls: {pearls})", reagents == 12 && pearls == 20);
-        Check("nothing once all are found", Meta.RollResource(rng) == null);
-        var heal1 = Meta.PotionTree.Branch("heal").First();
-        Check("can't buy without embers", !Meta.Buy(heal1));
-        Meta.Embers = 10;
-        Check("buying rank 1 costs 1 ember", Meta.Buy(heal1) && Meta.Embers == 9);
-        Check("a bought rank does nothing until activated", Math.Abs(Meta.PotionHealNow - 0.15f) < 1e-4f);
-        Check("activating spends a reagent", Meta.Activate(heal1) && Meta.HeldOf(Meta.PotionTree) == 11);
-        Check($"immediate heal now 10% more ({Meta.PotionHealNow:P1})", Math.Abs(Meta.PotionHealNow - 0.165f) < 1e-4f);
-        foreach (var id in new[] { "speed1", "speed2", "speed3", "max1", "mile1", "mile2", "mile3", "xp1" })
-        {
-            var tier = Meta.Trees.SelectMany(t => t.Tiers).First(x => x.Id == id);
-            Meta.Embers += tier.Cost; Meta.Buy(tier); Meta.Activate(tier);
-        }
-        Check($"heal over time takes 8 s after three ranks ({Meta.PotionHotSeconds})", Math.Abs(Meta.PotionHotSeconds - 8f) < 1e-4f);
-        Check($"two potions with one flask rank ({Meta.MaxPotions})", Meta.MaxPotions == 2);
-        Check($"milestones every 5 levels after three ranks ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 5);
-        Check($"+5% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.05f) < 1e-4f);
+        Meta.Embers = 0; HexGrid.Owned.Clear(); HexGrid.Mats.Clear();
+        Check($"{HexGrid.Branches.Count} branches, {HexGrid.Nodes.Count} hexes", HexGrid.Branches.Count == 13 && HexGrid.Nodes.Count > 150);
+        Check("every hex has a cell of its own", HexGrid.Nodes.Select(n => n.Cell).Distinct().Count() == HexGrid.Nodes.Count);
+        Check("every hex hangs from one on its own branch (or the fire)", HexGrid.Nodes.All(n => n.Parent == HexGrid.Center ? n == n.Branch.Root : HexGrid.Find(n.Parent)?.Branch == n.Branch));
+        Check("each hero's branch has a side-grade hex for each of their side-grades", Enum.GetValues<HeroKind>().All(h =>
+            Upgrades.Chest.Where(u => u.Alteration && u.For != null && u.For.Contains(h)).All(u => HexGrid.Find("alt_" + u.Id)?.Branch.Hero == h)));
+        var root = HexGrid.Find("pot_root"); var quick = HexGrid.Find("pot_quick1");
+        Check("nothing to buy with no embers", !HexGrid.CanBuy(root, out _));
+        Meta.Embers = 100;
+        Check("nor without the branch's material", !HexGrid.CanBuy(root, out var why) && why.Contains("REAGENT"));
+        HexGrid.Mats["reagent"] = 10;
+        Check("nor a hex out of reach", !HexGrid.CanBuy(quick, out why) && why.Contains("REACH"));
+        Check($"the root costs {root.Embers} embers and {root.Mats} reagent", HexGrid.Buy(root) && Meta.Embers == 100 - root.Embers && HexGrid.Mat("reagent") == 10 - root.Mats);
+        Check($"immediate heal +5% ({Meta.PotionHealNow:P1})", Math.Abs(Meta.PotionHealNow - 0.15f * 1.05f) < 1e-3f);
+        Check("then the next hex out", HexGrid.Buy(quick));
+        Check("dearer the farther out", quick.Embers > root.Embers && HexGrid.Find("pot_quick3").Embers > quick.Embers);
+        Meta.Embers = 999; HexGrid.Mats["reagent"] = 99; HexGrid.Mats["pearl"] = 99;
+        foreach (var id in new[] { "pot_flask", "pot_linger1", "pot_brew1", "pot_brew2", "pot_brew3", "path_root", "fort_mile1", "fort_mile2", "fort_mile3", "fort_xp1" })
+            Check($"buys {id}", HexGrid.Buy(HexGrid.Find(id)));
+        Check($"the heal over time takes 8 s after Strong Brew III ({Meta.PotionHotSeconds})", Math.Abs(Meta.PotionHotSeconds - 8f) < 1e-4f);
+        Check($"two potions with the Second Flask ({Meta.MaxPotions})", Meta.MaxPotions == 2);
+        Check($"milestones every 5 levels after Waypoints III ({Meta.MilestoneEvery})", Meta.MilestoneEvery == 5);
+        Check($"+8% experience ({Meta.XpMult})", Math.Abs(Meta.XpMult - 1.08f) < 1e-3f);
+        // a hero's branch: locked until they're freed, and only for them
+        bool unlockAll = Tune.Testing.UnlockEverything;
+        var rogueRoot = HexGrid.Find("root_rogue");
+        HexGrid.Mats[HexGrid.EssenceKey(HeroKind.Rogue)] = 20;
+        if (!Meta.IsUnlocked(HeroKind.Rogue)) Check("a hero's branch is shut until they're freed", !HexGrid.CanBuy(rogueRoot, out why) && why.Contains("FREE"));
+        Tune.Testing.UnlockEverything = true;
+        Check("their essence buys their root", HexGrid.Buy(rogueRoot));
+        var rs = new PlayerStats(HeroKind.Rogue); float hp0 = rs.MaxHp; HexGrid.ApplyRun(rs);
+        var ss = new PlayerStats(HeroKind.Swordsman); float hp1 = ss.MaxHp; HexGrid.ApplyRun(ss);
+        Check($"it acts for the Rogue ({hp0:0} -> {rs.MaxHp:0}) and no one else ({hp1:0} -> {ss.MaxHp:0})", rs.MaxHp > hp0 * 1.04f && Math.Abs(ss.MaxHp - hp1) < 0.01f);
+        var perkHex = HexGrid.Nodes.First(n => n.Branch.Hero == HeroKind.Rogue && n.Perk != null && n.Parent == rogueRoot.Id);
+        Check($"a class perk's rank is a hex ({perkHex.Name})", HexGrid.Buy(perkHex));
+        var alt = HexGrid.Nodes.First(n => n.Branch.Hero == HeroKind.Rogue && n.Kind == HexKind.SideGrade);
+        Check($"side-grades are unlocked on the grid, not in a run ({alt.Name})", !Meta.SideGradeUnlocked(alt.SideGrade));
+        foreach (var n in PathTo(alt)) HexGrid.Buy(n);
+        Check($"and then the loadout may bring it", Meta.SideGradeUnlocked(alt.SideGrade));
+        Tune.Testing.UnlockEverything = unlockAll;
+        // an old save: what it spent comes back as embers, its found resources as materials
+        var old = new Godot.Collections.Dictionary { ["embers"] = 3, ["bought"] = new Godot.Collections.Array { "heal1", "heal2", "speed1" }, ["found_potion"] = 2, ["found_pearl"] = 1 };
+        Meta.Restore(old);
+        Check($"an old save's ranks become embers (3 + 1 + 2 + 1 = {Meta.Embers}) and its finds materials ({HexGrid.Mat("reagent")} reagents, {HexGrid.Mat("pearl")} pearl)", Meta.Embers == 7 && HexGrid.Mat("reagent") == 2 && HexGrid.Mat("pearl") == 1 && HexGrid.Owned.Count <= 1);
+        var back = Meta.Snapshot();
+        HexGrid.Owned.Add("pot_root"); Meta.Restore(back);
+        Check("the grid's state goes through the save", !HexGrid.Owns("pot_root") && HexGrid.Mat("reagent") == 2);
         GD.Print(ok ? "[metatest] PASS" : "[metatest] FAIL");
         SafeQuit.Request(this, ok ? 0 : 1);
+    }
+
+    private static List<HexNode> PathTo(HexNode n)
+    {
+        var path = new List<HexNode>();
+        for (; n != null; n = n.Parent == HexGrid.Center ? null : HexGrid.Find(n.Parent)) path.Insert(0, n);
+        return path;
     }
 
     /// <summary>

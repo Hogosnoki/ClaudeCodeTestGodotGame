@@ -74,13 +74,13 @@ public static class Achievements
         P("victory", "Victory!", "Complete a run: slay the dragon.");
         foreach (var h in Enum.GetValues<HeroKind>()) P($"victory_{h.ToString().ToLowerInvariant()}", $"Victory as the {HeroName(h)}!", $"Complete a run as the {HeroName(h)}.");
         P("long_way", "The Long Way Down", "Slay the dragon at depth 11.");
-        foreach (var h in Enum.GetValues<HeroKind>()) P($"competent_{h.ToString().ToLowerInvariant()}", $"Competent {HeroName(h)}!", $"Take every one of the {HeroName(h)}'s side-grades.");
+        foreach (var h in Enum.GetValues<HeroKind>()) P($"competent_{h.ToString().ToLowerInvariant()}", $"Competent {HeroName(h)}!", $"Unlock every one of the {HeroName(h)}'s side-grades on the Ember Grid.");
         P("first_vault", "Vault Breaker", "Open a vault.");
         P("first_trade", "Generous", "Give a relic to a friend at the trading stand (or be given one).");
         P("shared_collection", "Fair Shares", "Empty a Relic Collection: every relic in it taken.");
         P("full_journal", "Lore Keeper", "Find every journal page.");
-        P("master_path", "Master of the Path", "Buy every rank of the Path.");
-        P("master_potion", "Master of the Potion", "Buy every rank of the Potion.");
+        P("master_path", "Master of the Path", "Own every hex of the Path's branch of the Ember Grid.");
+        P("master_potion", "Master of the Potion", "Own every hex of the Potion's branch of the Ember Grid.");
 
         // ---------------------------------------------------------------- feats (hidden; each player's own unless marked for the party)
         F("power_hungry", "Power Hungry!", "Open every upgrade shrine in a depth (the level's, the mini-bosses', the hive's and the guardian's).", party: true);
@@ -221,17 +221,18 @@ public static class Achievements
         CheckState();
     }
 
-    /// <summary>This player took a card (Upgrades.Apply): side-grades are remembered for "Competent", and upgrades counted for "Minimalist".</summary>
+    /// <summary>This player took a card (Upgrades.Apply): side-grades taken are remembered, and upgrades counted for "Minimalist".</summary>
     public static void CardTaken(Upgrade u, HeroKind hero)
     {
         if (!u.Relic) Run.UpgradesTaken++;
-        if (u.Alteration && SideGrades.Add($"{hero}:{u.Id}")) { Save(); CheckCompetent(hero); }
+        if (u.Alteration && SideGrades.Add($"{hero}:{u.Id}")) Save();
     }
 
-    private static void CheckCompetent(HeroKind hero)
+    /// <summary>"Competent": every side-grade hex on the hero's branch of the Ember Grid owned.</summary>
+    private static void CheckCompetent(HeroKind hero, bool quiet = false)
     {
-        var alts = Upgrades.Chest.Where(u => u.Alteration && u.For != null && u.For.Contains(hero)).ToList();
-        if (alts.Count > 0 && alts.All(u => SideGrades.Contains($"{hero}:{u.Id}"))) Unlock($"competent_{hero.ToString().ToLowerInvariant()}");
+        var alts = HexGrid.Nodes.Where(n => n.Kind == HexKind.SideGrade && n.Branch.Hero == hero).ToList();
+        if (alts.Count > 0 && alts.All(n => HexGrid.Owns(n.Id))) Unlock($"competent_{hero.ToString().ToLowerInvariant()}", quiet);
     }
 
     /// <summary>A chest was emptied (Chest.OpenBy, every game).</summary>
@@ -285,23 +286,19 @@ public static class Achievements
     private static readonly Dictionary<HeroKind, float> _baseMove = new();
     private static float BaseMove(HeroKind h) => _baseMove.TryGetValue(h, out var v) ? v : _baseMove[h] = new PlayerStats(h).MoveSpeed;
 
-    /// <summary>What can be judged from what is kept (freed heroes, the journal, the trees, side-grades): at start-up, quietly, and after each change.</summary>
+    /// <summary>What can be judged from what is kept (freed heroes, the journal, the Ember Grid): at start-up, quietly, and after each change.</summary>
     public static void CheckState(bool quiet = false)
     {
         foreach (var h in Cagable) if (Meta.IsReallyUnlocked(h)) Unlock($"freed_{h.ToString().ToLowerInvariant()}", quiet);
         if (Meta.MerchantUnlocked) Unlock("freed_merchant", quiet);
         if (Cagable.All(Meta.IsReallyUnlocked) && Meta.MerchantUnlocked) Unlock("all_accounted", quiet);
         if (Lore.Journal.Select(p => p.biome.ToString()).Distinct().All(Meta.JournalFound.Contains)) Unlock("full_journal", quiet);
-        if (Meta.PearlTree.Tiers.All(t => Meta.Bought.Contains(t.Id))) Unlock("master_path", quiet);
-        if (Meta.PotionTree.Tiers.All(t => Meta.Bought.Contains(t.Id))) Unlock("master_potion", quiet);
+        if (HexGrid.Branches.First(b => b.Id == "path").Nodes.All(n => HexGrid.Owns(n.Id))) Unlock("master_path", quiet);
+        if (HexGrid.Branches.First(b => b.Id == "potion").Nodes.All(n => HexGrid.Owns(n.Id))) Unlock("master_potion", quiet);
         for (int d = 1; d <= Math.Min(11, DeepestDepth); d++) Unlock($"depth_{d}", quiet);
         foreach (var t in BossesSlain) Unlock($"boss_{Key(t)}", quiet);
         if (Guardians.All(BossesSlain.Contains)) Unlock("conqueror", quiet);
-        foreach (var h in Enum.GetValues<HeroKind>())
-        {
-            var alts = Upgrades.Chest.Where(u => u.Alteration && u.For != null && u.For.Contains(h)).ToList();
-            if (alts.Count > 0 && alts.All(u => SideGrades.Contains($"{h}:{u.Id}"))) Unlock($"competent_{h.ToString().ToLowerInvariant()}", quiet);
-        }
+        foreach (var h in Enum.GetValues<HeroKind>()) CheckCompetent(h, quiet);
     }
 
     // ================================================================== saved

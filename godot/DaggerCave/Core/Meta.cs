@@ -5,42 +5,17 @@ using Godot;
 
 namespace DaggerCave;
 
-/// <summary>One rank of a meta tree: bought with embers, then activated with the tree's resource.</summary>
-public sealed class MetaTier
-{
-    public string Id, Branch, Name, Desc;
-    public int Rank;   // 1-based within its branch
-    public int Cost;   // embers
-}
-
-/// <summary>A progression tree: its resource and its branches of ranks.</summary>
-public sealed class MetaTree
-{
-    public string Id, Name, Resource, ResourcePlural;
-    public Color Color;
-    public readonly List<(string id, string name)> Branches = new();
-    public readonly List<MetaTier> Tiers = new();
-    public int MaxResource => Tiers.Count;
-    public IEnumerable<MetaTier> Branch(string b) => Tiers.Where(t => t.Branch == b).OrderBy(t => t.Rank);
-}
-
 /// <summary>
-/// What carries over between runs, saved to user://meta.json:
-///  * Embers, the currency: from exit guardians and from rewards you skipped in levels whose
-///    guardian you then beat. Embers buy the ranks of the trees.
-///  * Resources, one per rank in the game (13 Reagents, 9 Obsidian Pearls): an exit guardian
-///    yields one, drawn evenly from everything not yet found. A bought rank only takes effect
-///    once a resource of its tree is spent on it.
-/// A tree stays hidden until its first resource is found.
+/// What carries over between runs, saved to user://meta.json: embers (the currency), the Ember Grid's hexes and materials
+/// (see <see cref="HexGrid"/>: every lasting advancement is bought there), the heroes and the merchant freed, the loadouts,
+/// the journal, and a few counts.
 /// </summary>
 public static class Meta
 {
     public static int Embers;
     public static int Runs, Victories, BestDepth;
-    public static readonly Dictionary<string, int> Held = new();   // unspent resources per tree
-    public static readonly Dictionary<string, int> Found = new();  // resources found per tree
-    public static readonly HashSet<string> Bought = new(), Active = new();
-    public static bool PotionTutorialDone, PearlTutorialDone;
+    /// <summary>The Ember Grid has been explained (the first time it opens).</summary>
+    public static bool GridTutorialDone;
     /// <summary>The story card has been shown (the first time a run is begun).</summary>
     public static bool StorySeen;
     /// <summary>The Delvers' journal pages found at lamps (by the kind of level: BiomeId names).</summary>
@@ -54,80 +29,22 @@ public static class Meta
         Achievements.CheckState();
         return true;
     }
-    /// <summary>Class perks: the rank bought of each (kept for good), and which are brought on a run.</summary>
-    public static readonly Dictionary<string, int> PerkRanks = new();
-    public static readonly HashSet<string> PerksEquipped = new();
-    public static int PerkRank(string id) => PerkRanks.TryGetValue(id, out var n) ? n : 0;
-    public static bool PerkEquipped(string id) => PerksEquipped.Contains(id);
+    static Meta() { Load(); }
 
-    /// <summary>Buys the next rank of a class perk with embers (and brings it along if there's a free slot). False if it can't be afforded or is complete.</summary>
-    public static bool PerkBuy(ClassPerk perk)
-    {
-        int rank = PerkRank(perk.Id);
-        if (rank >= perk.MaxRank || Embers < perk.Costs[rank]) return false;
-        Embers -= perk.Costs[rank];
-        PerkRanks[perk.Id] = rank + 1;
-        if (rank == 0 && ClassPerks.EquippedCount(perk.Hero) < Tune.Perks.Slots) PerksEquipped.Add(perk.Id);
-        Save();
-        return true;
-    }
-
-    /// <summary>Brings a bought perk on runs, or leaves it at the camp. False if the slots are full.</summary>
-    public static bool PerkToggle(ClassPerk perk)
-    {
-        if (PerkRank(perk.Id) <= 0) return false;
-        if (PerksEquipped.Remove(perk.Id)) { Save(); return true; }
-        if (ClassPerks.EquippedCount(perk.Hero) >= Tune.Perks.Slots) return false;
-        PerksEquipped.Add(perk.Id);
-        Save();
-        return true;
-    }
-
-    public static readonly MetaTree PotionTree = new() { Id = "potion", Name = "THE POTION", Resource = "Reagent", ResourcePlural = "Reagents", Color = new Color(1f, 0.4f, 0.55f) };
-    public static readonly MetaTree PearlTree = new() { Id = "pearl", Name = "THE PATH", Resource = "Obsidian Pearl", ResourcePlural = "Obsidian Pearls", Color = new Color(0.7f, 0.6f, 1f) };
-    public static IEnumerable<MetaTree> Trees => new[] { PotionTree, PearlTree };
-
-    static Meta()
-    {
-        void B(MetaTree t, string branch, string name, params (string n, string d)[] ranks)
-        {
-            t.Branches.Add((branch, name));
-            for (int k = 0; k < ranks.Length; k++)
-                t.Tiers.Add(new MetaTier { Id = $"{branch}{k + 1}", Branch = branch, Name = ranks[k].n, Desc = ranks[k].d, Rank = k + 1, Cost = k + 1 });
-        }
-        B(PotionTree, "heal", "Immediate heal", ("Quick Draught I", "Potions heal 10% more at once (+10%)."), ("Quick Draught II", "Potions heal 10% more at once (+20%)."), ("Quick Draught III", "Potions heal 10% more at once (+30%)."));
-        B(PotionTree, "hot", "Heal over time", ("Lingering I", "Potions heal 10% more over time (+10%)."), ("Lingering II", "Potions heal 10% more over time (+20%)."), ("Lingering III", "Potions heal 10% more over time (+30%)."));
-        B(PotionTree, "speed", "Heal speed", ("Strong Brew I", "The heal over time takes 2 s less (13 s)."), ("Strong Brew II", "The heal over time takes 2 s less (11 s)."), ("Strong Brew III", "The heal over time takes 3 s less (8 s)."));
-        B(PotionTree, "drop", "Drop rate", ("Forager", "Enemies drop potions 1% more often (2%)."), ("Desperate Forager", "Another +1% while you carry no potion."));
-        B(PotionTree, "max", "Potion belt", ("Second Flask", "Carry up to 2 potions (a third only from a lucky find on the way: a Deep Flask)."));
-        B(PearlTree, "mile", "Milestones", ("Waypoints I", "A milestone pick every 7 levels."), ("Waypoints II", "A milestone pick every 6 levels."), ("Waypoints III", "A milestone pick every 5 levels."));
-        B(PearlTree, "xp", "Experience", ("Studious I", "+5% experience."), ("Studious II", "+7% more experience (12%)."), ("Studious III", "+8% more experience (20%)."));
-        B(PearlTree, "exp", "Elite experience", ("Trophies I", "+5% experience from elites."), ("Trophies II", "+7% more from elites (12%)."), ("Trophies III", "+8% more from elites (20%)."));
-        B(PearlTree, "price", "Fair dealing", ("Fair Dealing I", "The merchant's prices are 5% lower."), ("Fair Dealing II", "The merchant's prices are 10% lower."), ("Fair Dealing III", "The merchant's prices are 15% lower."));
-        B(PearlTree, "gold", "Prospecting", ("Prospecting I", "Gold you find is worth 10% more."), ("Prospecting II", "Gold you find is worth 20% more."), ("Prospecting III", "Gold you find is worth 30% more."));
-        B(PearlTree, "reroll", "Second thoughts", ("Second Thoughts I", "Once a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts II", "Twice a run, reroll the merchant's wares or a choice of cards."), ("Second Thoughts III", "Three times a run, reroll the merchant's wares or a choice of cards."));
-        B(PearlTree, "trade", "Trading", ("Trader I", "One more relic trade with a friend at the merchant's stand each run (2)."), ("Trader II", "Two more relic trades with a friend at the merchant's stand each run (3)."));
-        Load();
-    }
-
-    public static MetaTree TreeOf(string tierId) => Trees.First(t => t.Tiers.Any(x => x.Id == tierId));
-    public static int HeldOf(MetaTree t) => Held.TryGetValue(t.Id, out var n) ? n : 0;
-    public static int FoundOf(MetaTree t) => Found.TryGetValue(t.Id, out var n) ? n : 0;
-    public static bool Visible(MetaTree t) => FoundOf(t) > 0;
-    public static int Rank(string branch) { int n = 0; while (Active.Contains($"{branch}{n + 1}")) n++; return n; }
-
-    // ---- effects
-    public static float PotionHealNow => 0.15f * (1f + 0.1f * Rank("heal"));
-    public static float PotionHealOverTime => 0.15f * (1f + 0.1f * Rank("hot"));
-    public static float PotionHotSeconds => 15f - new[] { 0f, 2f, 4f, 7f }[Rank("speed")];
-    /// <summary>One flask, two with the belt's one rank (a third only from a Deep Flask found on the way).</summary>
-    public static int MaxPotions => 1 + Math.Min(1, Rank("max"));
-    /// <summary>What the merchant asks (x), what gold found is worth (x) and the choices of cards that may be dealt again in a run: from the Path's ranks.</summary>
-    public static float ShopPriceMult => 1f - 0.05f * Rank("price");
-    public static float GoldFoundMult => 1f + 0.1f * Rank("gold");
-    public static int RerollCharges => Rank("reroll");
-    /// <summary>Relic trades at the merchant's stand a run: one, and one or two more from the Path.</summary>
-    public static int Trades => Tune.Merchant.Trades + Rank("trade");
+    // ---- effects (read from the Ember Grid's hexes)
+    public static float PotionHealNow => 0.15f * (1f + 0.1f * HexGrid.Count("pot_quick") + (HexGrid.Owns("pot_root") ? 0.05f : 0f)) * (HexGrid.Owns("pot_volatile") ? 0.85f : 1f);
+    public static float PotionHealOverTime => 0.15f * (1f + 0.1f * HexGrid.Count("pot_linger")) * (HexGrid.Owns("pot_volatile") ? 0.85f : 1f);
+    public static float PotionHotSeconds => 15f - new[] { 0f, 2f, 4f, 7f }[HexGrid.Count("pot_brew")];
+    /// <summary>One flask, two with the Second Flask hex (a third only from a Deep Flask found on the way).</summary>
+    public static int MaxPotions => 1 + (HexGrid.Owns("pot_flask") ? 1 : 0);
+    /// <summary>What the merchant asks (x), what gold found is worth (x) and the choices of cards that may be dealt again in a run.</summary>
+    public static float ShopPriceMult => 1f - 0.05f * HexGrid.Count("shop_price");
+    public static float GoldFoundMult => 1f + 0.1f * HexGrid.Count("fort_gold");
+    public static int RerollCharges => HexGrid.Count("fort_reroll");
+    /// <summary>Relic trades with friends at the merchant's stand a run: one, and one or two more from the grid.</summary>
+    public static int Trades => Tune.Merchant.Trades + HexGrid.Count("shop_trade");
+    /// <summary>Embers a guardian gives (x): the Ember Pact.</summary>
+    public static float EmberMult => HexGrid.Owns("fort_pact") ? 1.4f : 1f;
     // ---- heroes: three at the start; the others are found (caged in the caves) or won
     public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
     // ---- the merchant: not a hero, but met like one (caged in the caves); once freed, a stall of his is offered after every guardian
@@ -160,8 +77,8 @@ public static class Meta
     /// <summary>The side-grades each hero brings on a run (up to Tune.Loadout.Slots), by upgrade id.</summary>
     public static readonly Dictionary<HeroKind, HashSet<string>> Loadouts = new();
     public static HashSet<string> LoadoutFor(HeroKind h) => Loadouts.TryGetValue(h, out var s) ? s : Loadouts[h] = new HashSet<string>();
-    /// <summary>Side-grades are all unlocked for now (they will be locked away like the heroes).</summary>
-    public static bool SideGradeUnlocked(string id) => true;
+    /// <summary>A side-grade can be brought once its hex on the hero's branch is owned.</summary>
+    public static bool SideGradeUnlocked(string id) => HexGrid.SideGradeOwned(id);
     public static void LoadoutToggle(HeroKind h, string id)
     {
         var set = LoadoutFor(h);
@@ -215,8 +132,7 @@ public static class Meta
     private static void GrantStarterPerks(HeroKind h)
     {
         if (h != HeroKind.Aegis) return;
-        PerkRanks["aegis_oath"] = 1;
-        PerksEquipped.Add("aegis_oath");
+        HexGrid.Owned.Add("aegis_oath");
     }
 
     /// <summary>
@@ -233,66 +149,16 @@ public static class Meta
         return h;
     }
 
-    public static int MilestoneEvery => Math.Max(5, 8 - Rank("mile"));
-    public static float XpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("xp")];
-    public static float EliteXpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[Rank("exp")];
+    public static int MilestoneEvery => Math.Max(5, 8 - HexGrid.Count("fort_mile"));
+    public static float XpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[HexGrid.Count("fort_xp")] + (HexGrid.Owns("path_root") ? 0.03f : 0f);
+    public static float EliteXpMult => 1f + new[] { 0f, 0.05f, 0.12f, 0.2f }[HexGrid.Count("fort_elite")];
     public static float PotionDropChance(Player p)
     {
         float c = Tune.Drops.PotionChance;
-        if (Active.Contains("drop1")) c += 0.01f;
-        if (Active.Contains("drop2") && p != null && p.Potions == 0) c += 0.01f;
+        if (HexGrid.Owns("pot_forage1")) c += 0.01f;
+        if (HexGrid.Owns("pot_forage2") && p != null && p.Potions == 0) c += 0.01f;
         if (p != null) c += p.Stats.PotionChanceBonus;
         return c;
-    }
-
-    // ---- buying and activating
-    /// <summary>The next rank to buy in a branch (null when all are bought).</summary>
-    public static MetaTier NextToBuy(MetaTree t, string branch) => t.Branch(branch).FirstOrDefault(x => !Bought.Contains(x.Id));
-    /// <summary>The first bought rank still waiting for a resource.</summary>
-    public static MetaTier NextToActivate(MetaTree t, string branch) => t.Branch(branch).FirstOrDefault(x => Bought.Contains(x.Id) && !Active.Contains(x.Id));
-
-    public static bool Buy(MetaTier tier, bool free = false)
-    {
-        if (Bought.Contains(tier.Id) || (!free && Embers < tier.Cost)) return false;
-        if (!free) Embers -= tier.Cost;
-        Bought.Add(tier.Id);
-        Save();
-        Achievements.CheckState();
-        return true;
-    }
-
-    public static bool Activate(MetaTier tier)
-    {
-        var t = TreeOf(tier.Id);
-        if (!Bought.Contains(tier.Id) || Active.Contains(tier.Id) || HeldOf(t) <= 0) return false;
-        Held[t.Id] = HeldOf(t) - 1;
-        Active.Add(tier.Id);
-        Save();
-        return true;
-    }
-
-    /// <summary>
-    /// A guardian's resource: one drawn evenly from every resource not yet found (so each tree
-    /// is picked in proportion to what's left of it). Null once everything has been found.
-    /// </summary>
-    public static MetaTree RollResource(Random rng)
-    {
-        int left = Trees.Sum(t => t.MaxResource - FoundOf(t));
-        if (left <= 0) return null;
-        int r = rng.Next(left);
-        foreach (var t in Trees)
-        {
-            int n = t.MaxResource - FoundOf(t);
-            if (r < n)
-            {
-                Found[t.Id] = FoundOf(t) + 1;
-                Held[t.Id] = HeldOf(t) + 1;
-                Save();
-                return t;
-            }
-            r -= n;
-        }
-        return null;
     }
 
     public static void AddEmbers(int n) { Embers += n; Save(); }
@@ -345,18 +211,12 @@ public static class Meta
         var d = new Godot.Collections.Dictionary
         {
             ["embers"] = Embers, ["runs"] = Runs, ["victories"] = Victories, ["best_depth"] = BestDepth,
-            ["potion_tut"] = PotionTutorialDone, ["pearl_tut"] = PearlTutorialDone, ["story_seen"] = StorySeen, ["journal"] = new Godot.Collections.Array(JournalFound.Select(x => (Variant)x)),
-            ["bought"] = new Godot.Collections.Array(Bought.Select(x => (Variant)x)),
-            ["active"] = new Godot.Collections.Array(Active.Select(x => (Variant)x)),
-            ["perk_equipped"] = new Godot.Collections.Array(PerksEquipped.Select(x => (Variant)x)),
+            ["grid_tut"] = GridTutorialDone, ["story_seen"] = StorySeen, ["journal"] = new Godot.Collections.Array(JournalFound.Select(x => (Variant)x)),
+            ["grid"] = HexGrid.ToDict(),
             ["unlocked"] = new Godot.Collections.Array(Unlocked.Select(x => (Variant)(int)x)),
             ["merchant"] = MerchantUnlocked,
             ["loadouts"] = LoadoutsToArray(),
         };
-        var pr = new Godot.Collections.Dictionary();
-        foreach (var kv in PerkRanks) pr[kv.Key] = kv.Value;
-        d["perk_ranks"] = pr;
-        foreach (var t in Trees) { d["held_" + t.Id] = HeldOf(t); d["found_" + t.Id] = FoundOf(t); }
         return d;
     }
 
@@ -366,20 +226,18 @@ public static class Meta
         Embers = I("embers"); Runs = I("runs"); Victories = I("victories"); BestDepth = I("best_depth");
         if (tutorials)
         {
-            PotionTutorialDone = d.ContainsKey("potion_tut") && (bool)d["potion_tut"];
-            PearlTutorialDone = d.ContainsKey("pearl_tut") && (bool)d["pearl_tut"];
+            GridTutorialDone = d.ContainsKey("grid_tut") && (bool)d["grid_tut"];
             StorySeen = d.ContainsKey("story_seen") && (bool)d["story_seen"];
             JournalFound.Clear();
             if (d.ContainsKey("journal")) foreach (var v in d["journal"].AsGodotArray()) JournalFound.Add((string)v);
         }
-        Bought.Clear(); Active.Clear();
-        if (d.ContainsKey("bought")) foreach (var v in d["bought"].AsGodotArray()) Bought.Add((string)v);
-        if (d.ContainsKey("active")) foreach (var v in d["active"].AsGodotArray()) Active.Add((string)v);
-        foreach (var t in Trees) { Held[t.Id] = I("held_" + t.Id); Found[t.Id] = I("found_" + t.Id); }
+        HexGrid.FromDict(d.ContainsKey("grid") ? d["grid"].AsGodotDictionary() : null);
+        if (!d.ContainsKey("grid")) Migrate(d);
         // (a save from before heroes were unlocked keeps every hero it was playing)
         Unlocked.Clear();
         if (d.ContainsKey("unlocked")) foreach (var v in d["unlocked"].AsGodotArray()) Unlocked.Add((HeroKind)(int)v);
-        else foreach (var h in Enum.GetValues<HeroKind>()) { Unlocked.Add(h); if (h == HeroKind.Aegis && !PerkRanks.ContainsKey("aegis_oath")) { PerkRanks["aegis_oath"] = 1; PerksEquipped.Add("aegis_oath"); } }
+        else foreach (var h in Enum.GetValues<HeroKind>()) Unlocked.Add(h);
+        if (Unlocked.Contains(HeroKind.Aegis)) HexGrid.Owned.Add("aegis_oath");
         MerchantUnlocked = d.ContainsKey("merchant") && (bool)d["merchant"];
         Loadouts.Clear();
         if (d.ContainsKey("loadouts"))
@@ -388,8 +246,28 @@ public static class Meta
                 var parts = ((string)v).Split(':', 2);
                 if (parts.Length == 2 && int.TryParse(parts[0], out int hk)) LoadoutFor((HeroKind)hk).Add(parts[1]);
             }
-        PerkRanks.Clear(); PerksEquipped.Clear();
-        if (d.ContainsKey("perk_ranks")) foreach (var kv in d["perk_ranks"].AsGodotDictionary()) PerkRanks[(string)kv.Key] = (int)kv.Value;
-        if (d.ContainsKey("perk_equipped")) foreach (var v in d["perk_equipped"].AsGodotArray()) PerksEquipped.Add((string)v);
+    }
+
+    /// <summary>
+    /// A save from before the Ember Grid: what was spent on the old trees and class perks comes back as embers, and the old
+    /// resources (held or spent) as materials, to be laid out on the grid afresh.
+    /// </summary>
+    private static void Migrate(Godot.Collections.Dictionary d)
+    {
+        int refund = 0;
+        if (d.ContainsKey("bought"))
+            foreach (var v in d["bought"].AsGodotArray()) { var id = (string)v; if (id.Length > 0 && char.IsDigit(id[^1])) refund += id[^1] - '0'; }
+        if (d.ContainsKey("perk_ranks"))
+            foreach (var kv in d["perk_ranks"].AsGodotDictionary())
+            {
+                var perk = ClassPerks.Find((string)kv.Key);
+                if (perk == null || perk.Id == "aegis_oath") continue;
+                for (int r = 0; r < Math.Min((int)kv.Value, perk.Costs.Length); r++) refund += perk.Costs[r];
+            }
+        Embers += refund;
+        int Old(string tree) => d.ContainsKey("found_" + tree) ? (int)d["found_" + tree] : 0;
+        if (Old("potion") > 0) HexGrid.Mats["reagent"] = Old("potion");
+        if (Old("pearl") > 0) HexGrid.Mats["pearl"] = Old("pearl");
+        if (refund > 0 || Old("potion") + Old("pearl") > 0) GD.Print($"[meta] the old trees and perks became the Ember Grid: {refund} embers and {Old("potion")} Reagents, {Old("pearl")} Pearls given back");
     }
 }

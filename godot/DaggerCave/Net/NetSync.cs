@@ -1347,6 +1347,7 @@ public static class NetSync
                     else if (kind == 3) p.GainKey();
                     else if (kind == 5) p.GainGold((int)amount);
                     else if (kind == 6) p.GainGold((int)amount, true);
+                    else if (kind >= GridFinds.NetBase) GridFinds.FoundNet(p, kind);
                 }
                 finally { Scope--; }
                 break;

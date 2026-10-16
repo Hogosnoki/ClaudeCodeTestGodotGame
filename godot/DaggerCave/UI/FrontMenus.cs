@@ -90,7 +90,7 @@ public partial class MainMenu : Control
 
 /// <summary>
 /// Getting ready at the camp fire, one stage at a time: <b>1</b> choose the hero (they sit round the
-/// fire and the chosen one stands), <b>2</b> prepare them (class perks, loadout, upgrade trees), and
+/// fire and the chosen one stands), <b>2</b> prepare them (the Ember Grid, the loadout), and
 /// <b>3</b> look over the difficulty and descend. This is the strip along the bottom for each stage.
 /// After a run it also carries how the run went, at the top.
 /// </summary>
@@ -98,15 +98,15 @@ public partial class HeroChoice : Control
 {
     public enum StageKind { Hero, Prep, Difficulty }
 
-    public Action Prev, Next, Descend, Back, Trees, Perks, Loadout;
+    public Action Prev, Next, Descend, Back, Grid, Loadout;
 
     /// <summary>The stage on show (opening the choice starts again at the hero).</summary>
     public StageKind Stage { get; private set; } = StageKind.Hero;
 
-    private static readonly string[] StageNames = { "CHARACTER", "LOADOUT & PERKS", "DIFFICULTY" };
+    private static readonly string[] StageNames = { "CHARACTER", "GRID & LOADOUT", "DIFFICULTY" };
 
     private Label _name, _desc, _hint, _embers;
-    private Button _trees, _perks, _loadout, _go, _back;
+    private Button _grid, _loadout, _go, _back;
     private Label _brought, _prepTitle, _prepHint, _diffHint, _diffBrought;
     private CheckBox _hard;
     private HSlider _diff, _perPlayer;
@@ -144,7 +144,7 @@ public partial class HeroChoice : Control
         outer.AddThemeConstantOverride("separation", 6);
         strip.AddChild(outer);
 
-        // where you are: 1 CHARACTER > 2 LOADOUT & PERKS > 3 DIFFICULTY
+        // where you are: 1 CHARACTER > 2 GRID & LOADOUT > 3 DIFFICULTY
         var steps = new HBoxContainer();
         steps.AddThemeConstantOverride("separation", 10);
         outer.AddChild(steps);
@@ -191,7 +191,7 @@ public partial class HeroChoice : Control
         _hint = UiKit.Label("", 13, UiKit.Dim);
         _pages[0].AddChild(_hint);
 
-        // ---- stage 2: perks, loadout, upgrade trees
+        // ---- stage 2: the Ember Grid and the loadout
         _prepTitle = UiKit.Label("", 24, UiKit.Gold);
         _pages[1].AddChild(_prepTitle);
         _brought = UiKit.Label("", 14, new Color(1f, 0.85f, 0.55f));
@@ -201,12 +201,10 @@ public partial class HeroChoice : Control
         var prep = new HBoxContainer();
         prep.AddThemeConstantOverride("separation", 10);
         _pages[1].AddChild(prep);
-        _perks = UiKit.Button("Class perks", () => Perks?.Invoke(), 190);
-        prep.AddChild(_perks);
+        _grid = UiKit.Button("The Ember Grid", () => Grid?.Invoke(), 190);
+        prep.AddChild(_grid);
         _loadout = UiKit.Button("Loadout (side-grades)", () => Loadout?.Invoke(), 190);
         prep.AddChild(_loadout);
-        _trees = UiKit.Button("Upgrade trees", () => Trees?.Invoke(), 190);
-        prep.AddChild(_trees);
         _prepHint = UiKit.Label("", 13, UiKit.Dim);
         _pages[1].AddChild(_prepHint);
 
@@ -329,7 +327,7 @@ public partial class HeroChoice : Control
         if (f != null && IsAncestorOf(f)) _lastFocus = f;
     }
 
-    /// <summary>Whether the stage with the perks, loadout and trees is showing.</summary>
+    /// <summary>Whether the stage with the Ember Grid and the loadout is showing.</summary>
     public bool InPrep => Visible && Stage == StageKind.Prep;
 
     /// <summary>The chosen hero's name, colour and description, the stage on show and its key hints.</summary>
@@ -339,7 +337,6 @@ public partial class HeroChoice : Control
         var (name, lines) = ScreenOverlay.HeroInfo(G.Hero);
         var accent = Hud.HeroColor(G.Hero);
         bool pad = G.Main?.UsingPad ?? false;
-        bool trees = Meta.Trees.Any(Meta.Visible);
         // (the strip's frame in the chosen hero's colour)
         if (!_heroBoxes.TryGetValue(G.Hero, out var hb)) _heroBoxes[G.Hero] = hb = UiArt.Box(UiArt.Surface.Leather, new Color(0.9f, 0.85f, 0.85f), accent, 14, 2f, true, 18, 12, 0.9f);
         _strip?.AddThemeStyleboxOverride("panel", hb);
@@ -352,8 +349,7 @@ public partial class HeroChoice : Control
         _embers.Text = Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "";
 
         // what's brought, for the two stages that show it
-        string brought = ClassPerks.EquippedNames(G.Hero);
-        string perksLine = brought != "" ? "Perks: " + brought : "No class perks brought";
+        string perksLine = HexGrid.Summary(G.Hero);
         string loadoutLine = $"Loadout: {Meta.LoadoutFor(G.Hero).Count}/{Tune.Loadout.Slots} side-grades";
 
         // ---- stage 1
@@ -363,7 +359,7 @@ public partial class HeroChoice : Control
         _hint.Text = pad
             ? "LEFT / RIGHT to choose  ·  A to carry on  ·  B back to the menu"
             : "LEFT / RIGHT to choose  ·  ENTER to carry on  ·  ESC back to the menu";
-        _go.Text = Stage switch { StageKind.Hero => "Next: loadout & perks  >", StageKind.Prep => "Next: difficulty  >", _ => "Descend into the cave" };
+        _go.Text = Stage switch { StageKind.Hero => "Next: grid & loadout  >", StageKind.Prep => "Next: difficulty  >", _ => "Descend into the cave" };
         _back.Text = Stage == StageKind.Hero ? "Back to the menu" : "< Back";
         _go.AddThemeColorOverride("font_color", UiKit.Gold);
 
@@ -371,10 +367,9 @@ public partial class HeroChoice : Control
         _prepTitle.Text = $"Prepare the {name.Substring(0, 1)}{name.Substring(1).ToLowerInvariant()}";
         _prepTitle.AddThemeColorOverride("font_color", accent.Lightened(0.3f));
         _brought.Text = perksLine + "\n" + loadoutLine;
-        _trees.Visible = trees;
         _prepHint.Text = pad
             ? "A on a button to open it  ·  A on Next to carry on  ·  B back"
-            : "P class perks  ·  L loadout" + (trees ? "  ·  U upgrade trees" : "") + "  ·  ENTER to carry on  ·  ESC back";
+            : "U or P the Ember Grid  ·  L loadout  ·  ENTER to carry on  ·  ESC back";
 
         // ---- stage 3
         _diffBrought.Text = $"{name}   ·   {perksLine}   ·   {loadoutLine}";
@@ -383,7 +378,7 @@ public partial class HeroChoice : Control
         _perPlayer.SetValueNoSignal(RunSettings.PerPlayer);
         _diffText.Text = $"Enemies x{RunSettings.HpMult:0.0#} health, x{RunSettings.DmgMult:0.0#} damage";
         _diffHint.Text = pad ? "Up / down to move, left / right to change  ·  A to descend  ·  B back" : "Click or use the arrow keys to change  ·  ENTER to descend  ·  ESC back";
-        LinkFocus(trees);
+        LinkFocus();
     }
 
     /// <summary>
@@ -391,7 +386,7 @@ public partial class HeroChoice : Control
     /// where things happen to sit): left and right along a row, up and down between rows, and
     /// nowhere off the ends.
     /// </summary>
-    private void LinkFocus(bool trees)
+    private void LinkFocus()
     {
         void Set(Control c, Control left, Control right, Control up, Control down)
         {
@@ -400,10 +395,9 @@ public partial class HeroChoice : Control
             c.FocusNeighborTop = c.GetPathTo(up ?? c);
             c.FocusNeighborBottom = c.GetPathTo(down ?? c);
         }
-        // stage 2: the three buttons side by side, then Next, then Back
-        Set(_perks, null, _loadout, null, _go);
-        Set(_loadout, _perks, trees ? _trees : null, null, _go);
-        if (trees) Set(_trees, _loadout, null, null, _go);
+        // stage 2: the two buttons side by side, then Next, then Back
+        Set(_grid, null, _loadout, null, _go);
+        Set(_loadout, _grid, null, null, _go);
         // stage 3: the two sliders, Hard Mode, then Descend and Back, top to bottom
         // (the buttons in the side column are shared: up from Next is the row's middle on stage 2, the last control on stage 3)
         if (Stage == StageKind.Difficulty)

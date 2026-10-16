@@ -19,6 +19,8 @@ public partial class KeyPickup : Node2D
     /// <summary>Falling speed (a dropped key is tossed up a little first).</summary>
     public float Vy;
     private float _t, _fullT;
+    /// <summary>A hero with every key slot full has touched it: it was rolled once for a Tumbler.</summary>
+    private bool _rolled;
     public float T => _t;
 
     public override void _Ready() { ZIndex = 2; }
@@ -39,6 +41,12 @@ public partial class KeyPickup : Node2D
             if (Puppet || p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) >= 18) continue;
             if (p.Keys >= p.MaxKeys)
             {
+                // (no room: half the time the key is a Tumbler for the Ember Grid instead)
+                if (!_rolled)
+                {
+                    _rolled = true;
+                    if (GridFinds.Roll(Tune.Grid.Tumbler)) { GridFinds.Give(p, "tumbler", GlobalPosition); NetSync.PropGone(this, quiet: true); QueueFree(); return; }
+                }
                 if (_fullT <= 0 && !p.IsRemote) { _fullT = 2f; G.Fx.Text(GlobalPosition + new Vector2(0, -18), "KEYS FULL", new Color(1f, 0.8f, 0.5f), 10, 1f); }
                 continue;
             }

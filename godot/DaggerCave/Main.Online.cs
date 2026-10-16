@@ -28,14 +28,13 @@ public partial class Main
         _onlineMenu = new OnlineMenu
         {
             Back = CloseOnlineMenu, StartRun = HostStartRun,
-            Perks = h => _perkMenu.Open(h),
             Loadout = h => _loadoutMenu.Open(h),
-            Trees = () => { if (Meta.Trees.Any(Meta.Visible)) _metaMenu.Open(MetaMenu.Mode.Browse); },
-            Covered = () => _perkMenu.Visible || _loadoutMenu.Visible || _metaMenu.Visible,
+            Grid = h => OpenGrid(h),
+            Covered = () => _loadoutMenu.Visible || _grid.Visible,
         };
         _uiLayer.AddChild(_onlineMenu);
-        // (under the perks, loadout and trees menus, which open over it)
-        _uiLayer.MoveChild(_onlineMenu, _metaMenu.GetIndex());
+        // (under the Ember Grid and loadout menus, which open over it)
+        _uiLayer.MoveChild(_onlineMenu, _grid.GetIndex());
         // a button on the title (and camp) screens for the mouse; keys and the controller use O / Y
         _titleOnline = UiKit.Button("Play online with friends", OpenOnlineMenu, 300);
         _titleOnline.Theme = UiKit.Theme;
@@ -127,8 +126,7 @@ public partial class Main
         _pauseMenu.Visible = false;
         _upgradeMenu.Visible = false;
         if (_settingsMenu.Visible) { _settingsMenu.Visible = false; GameSettings.Save(); }
-        _metaMenu.Visible = false;
-        _perkMenu.Visible = false;
+        _grid.Visible = false;
         if (_loadoutMenu != null) _loadoutMenu.Visible = false;
         Engine.TimeScale = 1;
         _hitStopLeft = 0;
@@ -165,7 +163,7 @@ public partial class Main
         _pauseMenu.Visible = false;
         _upgradeMenu.Visible = false;
         if (_settingsMenu.Visible) { _settingsMenu.Visible = false; GameSettings.Save(); }
-        _metaMenu.Visible = false;
+        _grid.Visible = false;
         Net.InRun = true;
         _onlineRun = true;
         _waitingAt = null;
@@ -361,7 +359,8 @@ public partial class Main
         var p = G.Player;
         int secs = (int)_runTime;
         _overlay.HeroCards = false;
-        string earned = _runEmbers > 0 || _runFinds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{_runFinds}" : "";
+        string finds = _runFinds + GridFinds.Line();
+        string earned = _runEmbers > 0 || finds != "" ? $"Earned: {_runEmbers} ember{(_runEmbers == 1 ? "" : "s")}{finds}" : "";
         string party = string.Join("   ·   ", Net.Peers.Values.Select(x => $"{x.Name} ({HeroName(x.Hero)})"));
         string next = Net.IsHost ? "go back to the lobby and set off again" : "go back to the lobby (the host starts the next descent)";
         _overlay.Show(_victory ? "VICTORY" : "THE PARTY HAS FALLEN", 0.45f,

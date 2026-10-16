@@ -1100,6 +1100,20 @@ public static class Tune
         public static float SuppliesHeal = 0.4f;
     }
 
+    /// <summary>
+    /// The Ember Grid's materials, found in runs in place of a drop the hero couldn't use (<c>Core/HexGrid.cs</c>). <c>Reagent</c>: a potion
+    /// found with a full belt; <c>Essence</c>: a heart at full health (the hero's own essence); <c>Tumbler</c>: a key with every key slot
+    /// full; <c>Seal</c>: gold picked up while carrying at least <c>SealPurse</c>; <c>Pearl</c>: of a guardian leaving an Obsidian Pearl.
+    /// A relic chest can be salvaged for Relic Dust instead of its relic.
+    /// </summary>
+    public static class Grid
+    {
+        public static float Reagent = 0.5f, Essence = 0.5f, Tumbler = 0.5f, Seal = 0.5f, Pearl = 0.5f;
+        public static int SealPurse = 150;
+        /// <summary>A Guild Seal from gold no more than once in this many seconds (a pile is many coins).</summary>
+        public static float SealGap = 8f;
+    }
+
     /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one
     /// <c>Respawn</c> s (give or take <c>Jitter</c>) after one is lost; destroying it leaves a chest of upgrades. <c>Chance</c>: of a Nest level having one.</summary>
     public static class Hive

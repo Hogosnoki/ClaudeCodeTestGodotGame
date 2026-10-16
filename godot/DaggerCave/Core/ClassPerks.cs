@@ -6,9 +6,8 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// A permanent, class-specific upgrade bought with embers between runs. Every perk has one rank or
-/// three; once a rank is bought it is yours for good, and before a run you choose which of a hero's
-/// perks to bring (a few slots: see <see cref="Tune.Perks"/>).
+/// A permanent, class-specific upgrade: its ranks are hexes on the hero's branch of the Ember Grid (see <see cref="HexGrid"/>),
+/// and the rank owned is applied as a run begins.
 /// </summary>
 public sealed class ClassPerk
 {
@@ -92,23 +91,4 @@ public static class ClassPerks
 
     public static IEnumerable<ClassPerk> For(HeroKind hero) => All.Where(p => p.Hero == hero);
     public static ClassPerk Find(string id) => All.FirstOrDefault(p => p.Id == id);
-
-    /// <summary>The ranks this run brings: the hero's equipped perks, each at the rank owned.</summary>
-    public static void Apply(PlayerStats s)
-    {
-        foreach (var perk in For(s.Hero))
-        {
-            int rank = Math.Min(Meta.PerkRank(perk.Id), perk.MaxRank);
-            if (rank > 0 && Meta.PerkEquipped(perk.Id)) perk.Apply(s, rank);
-        }
-    }
-
-    public static int EquippedCount(HeroKind hero) => For(hero).Count(p => Meta.PerkRank(p.Id) > 0 && Meta.PerkEquipped(p.Id));
-
-    /// <summary>The names of the perks a hero brings (for the camp's strip).</summary>
-    public static string EquippedNames(HeroKind hero)
-    {
-        var names = For(hero).Where(p => Meta.PerkRank(p.Id) > 0 && Meta.PerkEquipped(p.Id)).Select(p => p.MaxRank > 1 ? $"{p.Name} {new[] { "", "I", "II", "III" }[Math.Min(3, Meta.PerkRank(p.Id))]}" : p.Name).ToList();
-        return names.Count == 0 ? "" : string.Join("  ·  ", names);
-    }
 }

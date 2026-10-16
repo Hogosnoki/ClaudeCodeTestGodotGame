@@ -11,9 +11,9 @@ namespace DaggerCave;
 /// </summary>
 public partial class OnlineMenu : Control
 {
-    public Action Back, StartRun, Trees;
-    /// <summary>Opens the class perks / the loadout of a hero (the menus themselves live in Main).</summary>
-    public Action<HeroKind> Perks, Loadout;
+    public Action Back, StartRun;
+    /// <summary>Opens the Ember Grid at a hero's branch / their loadout (the menus themselves live in Main).</summary>
+    public Action<HeroKind> Grid, Loadout;
     /// <summary>True while one of those menus is up over this one (it has the keys then).</summary>
     public Func<bool> Covered;
 
@@ -23,8 +23,8 @@ public partial class OnlineMenu : Control
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
     private VBoxContainer _prep;
     private Label _prepTitle, _prepDesc, _prepBrought;
-    private Button _prepPerks, _prepLoadout, _prepTrees, _prepBack, _prepBtn;
-    /// <summary>The lobby's second stage: after taking a hero, their loadout, perks and the upgrade trees.</summary>
+    private Button _prepGrid, _prepLoadout, _prepBack, _prepBtn;
+    /// <summary>The lobby's second stage: after taking a hero, the Ember Grid and their loadout.</summary>
     private bool _inPrep;
     private HeroKind _prepHero;
     private Control _prepFocus;
@@ -193,14 +193,14 @@ public partial class OnlineMenu : Control
         _lobby.AddChild(_wait);
         var buttons = Row(_lobby);
         buttons.Alignment = BoxContainer.AlignmentMode.Center;
-        _prepBtn = UiKit.Button("Loadout & perks", () => EnterPrep(Net.Mine != null && Net.Mine.Picked ? Net.Mine.Hero : G.Hero), 220);
+        _prepBtn = UiKit.Button("Grid & loadout", () => EnterPrep(Net.Mine != null && Net.Mine.Picked ? Net.Mine.Hero : G.Hero), 220);
         buttons.AddChild(_prepBtn);
         _start = UiKit.Button("Start the descent", () => StartRun?.Invoke(), 280);
         buttons.AddChild(_start);
         _leave = UiKit.Button("Leave", DoLeave, 180);
         buttons.AddChild(_leave);
 
-        // ---- the second stage: the hero taken, their loadout, perks and the upgrade trees
+        // ---- the second stage: the hero taken, the Ember Grid and their loadout
         _prep = new VBoxContainer { Visible = false };
         _prep.AddThemeConstantOverride("separation", 12);
         col.AddChild(_prep);
@@ -216,12 +216,10 @@ public partial class OnlineMenu : Control
         _prep.AddChild(_prepBrought);
         var prow = Row(_prep);
         prow.Alignment = BoxContainer.AlignmentMode.Center;
-        _prepPerks = UiKit.Button("Class perks", () => Perks?.Invoke(_prepHero), 220);
-        prow.AddChild(_prepPerks);
+        _prepGrid = UiKit.Button("The Ember Grid", () => Grid?.Invoke(_prepHero), 220);
+        prow.AddChild(_prepGrid);
         _prepLoadout = UiKit.Button("Loadout (side-grades)", () => Loadout?.Invoke(_prepHero), 220);
         prow.AddChild(_prepLoadout);
-        _prepTrees = UiKit.Button("Upgrade trees", () => Trees?.Invoke(), 220);
-        prow.AddChild(_prepTrees);
         var brow = Row(_prep);
         brow.Alignment = BoxContainer.AlignmentMode.Center;
         _prepBack = UiKit.Button("Done: back to the lobby", BackToLobby, 300);
@@ -231,7 +229,7 @@ public partial class OnlineMenu : Control
         Net.Changed += OnNetChanged;
     }
 
-    /// <summary>A hero taken (or "Loadout & perks"): on to their perks, loadout and the trees.</summary>
+    /// <summary>A hero taken (or "Grid & loadout"): on to the Ember Grid and their loadout.</summary>
     private void EnterPrep(HeroKind hero)
     {
         _prepHero = hero;
@@ -239,7 +237,7 @@ public partial class OnlineMenu : Control
         _inPrep = true;
         _prepFocus = null;
         Refresh();
-        _prepPerks.CallDeferred(Control.MethodName.GrabFocus);
+        _prepGrid.CallDeferred(Control.MethodName.GrabFocus);
     }
 
     /// <summary>Back from the second stage to the lobby proper (the cursor on your hero's card).</summary>
@@ -252,14 +250,14 @@ public partial class OnlineMenu : Control
         (at >= 0 && !_cards[at].Disabled ? _cards[at] : _start.Visible ? _start : _leave).CallDeferred(Control.MethodName.GrabFocus);
     }
 
-    /// <summary>The perks, loadout or trees menu closed: the second stage again, with what changed.</summary>
+    /// <summary>The Ember Grid or the loadout closed: the second stage again, with what changed.</summary>
     public void AfterSubmenu()
     {
         if (!Visible) return;
         Refresh();
         if (_inPrep)
         {
-            var target = _prepFocus != null && IsInstanceValid(_prepFocus) && _prepFocus.IsVisibleInTree() ? _prepFocus : _prepPerks;
+            var target = _prepFocus != null && IsInstanceValid(_prepFocus) && _prepFocus.IsVisibleInTree() ? _prepFocus : _prepGrid;
             target.CallDeferred(Control.MethodName.GrabFocus);
         }
     }
@@ -380,9 +378,7 @@ public partial class OnlineMenu : Control
             _prepTitle.Text = hname;
             _prepTitle.AddThemeColorOverride("font_color", Hud.HeroColor(_prepHero).Lightened(0.3f));
             _prepDesc.Text = string.Join(" ", hlines);
-            string perks = ClassPerks.EquippedNames(_prepHero);
-            _prepBrought.Text = (perks != "" ? "Perks: " + perks : "No class perks brought") + $"\nLoadout: {Meta.LoadoutFor(_prepHero).Count}/{Tune.Loadout.Slots} side-grades";
-            _prepTrees.Visible = Meta.Trees.Any(Meta.Visible);
+            _prepBrought.Text = HexGrid.Summary(_prepHero) + $"\nLoadout: {Meta.LoadoutFor(_prepHero).Count}/{Tune.Loadout.Slots} side-grades";
             return;
         }
 
@@ -495,7 +491,7 @@ public partial class OnlineMenu : Control
         }
         if (_prep.Visible)
         {
-            Row(_prepPerks, _prepLoadout, _prepTrees); Row(_prepBack);
+            Row(_prepGrid, _prepLoadout); Row(_prepBack);
         }
         else if (_lobby.Visible)
         {

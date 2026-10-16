@@ -50,27 +50,11 @@ public partial class Main
         foreach (var r in Enum.GetValues<RelicRarity>())
             Section($"Relics: {r}", r == RelicRarity.Common ? "Relic chests (three to choose from), hoards, the merchant. Rarity sets how often each is dealt (common 1.2, uncommon 1, rare 0.6, legendary 0.3)." : "", Upgrades.Relics.Where(u => u.Rarity == r && !u.Id.StartsWith("rr_")));
         Section("Corrupted cards", "The Null's corrupted chests.", Upgrades.Corrupted);
-        sb.AppendLine("## Class perks (bought with embers between runs; a few slots per hero)\n");
-        foreach (var h in heroes)
-        {
-            var ps = ClassPerks.All.Where(p => p.Hero == h).ToList();
-            if (ps.Count == 0) continue;
-            sb.AppendLine($"**{h}**");
-            foreach (var p in ps) sb.AppendLine($"- **{p.Name}** ({string.Join("/", p.Costs)} embers): {string.Join(" → ", p.Ranks)}");
-            sb.AppendLine();
-        }
-        sb.AppendLine("## Meta trees (embers buy a rank; a resource found at a guardian activates it)\n");
-        foreach (var t in Meta.Trees)
-        {
-            sb.AppendLine($"**{t.Name}** ({t.ResourcePlural})");
-            foreach (var (id, name) in t.Branches)
-                sb.AppendLine($"- **{name}**: {string.Join(" → ", t.Branch(id).Select(x => $"{x.Name} ({x.Cost}): {x.Desc}"))}");
-            sb.AppendLine();
-        }
+        sb.Append(HexGrid.Dump());
         var f = FileAccess.Open(path, FileAccess.ModeFlags.Write);
         f.StoreString(sb.ToString());
         f.Close();
-        GD.Print($"[dumpcards] wrote {path}: {Upgrades.Chest.Count} chest cards, {Upgrades.Relics.Count} relics, {ClassPerks.All.Count} perks");
+        GD.Print($"[dumpcards] wrote {path}: {Upgrades.Chest.Count} chest cards, {Upgrades.Relics.Count} relics, {HexGrid.Nodes.Count} grid hexes");
         SafeQuit.Request(this, 0);
     }
 }

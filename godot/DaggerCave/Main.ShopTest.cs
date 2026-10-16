@@ -139,7 +139,7 @@ public partial class Main
         _upgradeMenu.ChooseLeave();
         foreach (var _ in Wait(0.3f)) yield return null;
 
-        // ---- shop relics and the Path's ranks change what he asks
+        // ---- shop relics and the grid's merchant hexes change what he asks
         p.Gold = 200;
         var cardItem = merchant.Stock.First(i => !i.Service);
         int plain = PriceOf(cardItem.Card);
@@ -147,10 +147,10 @@ public partial class Main
         int haggled = PriceOf(cardItem.Card);
         ScCheck($"Haggler's Tongue takes a fifth off ({plain} -> {haggled})", haggled == Math.Max(1, (int)MathF.Round(plain * 0.8f)) || Math.Abs(haggled - plain * 0.8f) <= 1f);
         p.Stats.ShopPriceMult = 1f;
-        Meta.Active.Add("price1"); Meta.Active.Add("price2"); Meta.Active.Add("price3");
+        HexGrid.Owned.Add("shop_price1"); HexGrid.Owned.Add("shop_price2"); HexGrid.Owned.Add("shop_price3");
         int fair = PriceOf(cardItem.Card);
         ScCheck($"Fair Dealing III takes 15% off ({plain} -> {fair}, x{Meta.ShopPriceMult:0.00})", Math.Abs(Meta.ShopPriceMult - 0.85f) < 0.001f && Math.Abs(fair - plain * 0.85f) <= 1f);
-        Meta.Active.Remove("price1"); Meta.Active.Remove("price2"); Meta.Active.Remove("price3");
+        HexGrid.Owned.Remove("shop_price1"); HexGrid.Owned.Remove("shop_price2"); HexGrid.Owned.Remove("shop_price3");
         int rp0 = RerollPrice(merchant);
         p.Stats.RerollMult = 0.6f;
         int rp1 = RerollPrice(merchant);
@@ -240,7 +240,7 @@ public partial class Main
         _upgradeMenu.Choose(0);
         foreach (var _ in Wait(0.4f)) yield return null;
         ScCheck($"the trade: High Ground is gone (x{hg:0.00} -> x{p.Stats.HighGroundMult:0.00}), {took?.Name} is carried, a trade spent ({p.Trades} left)", took != null && Math.Abs(p.Stats.HighGroundMult - 1f) < 1e-4f && !RunRelics.Mine.Contains("relic_highground") && p.Stats.StackOf(took.Id) == 1 && RunRelics.Mine.Contains(took.Id) && p.Trades == 0);
-        ScCheck($"a run brings {Tune.Merchant.Trades} trade, and the Path's Trading ranks one or two more ({Meta.Trades} now)", Meta.Trades >= Tune.Merchant.Trades && Meta.PearlTree.Branch("trade").Count() == 2);
+        ScCheck($"a run brings {Tune.Merchant.Trades} trade, and the grid's Trader hexes one or two more ({Meta.Trades} now)", Meta.Trades >= Tune.Merchant.Trades && HexGrid.Find("shop_trade2") != null);
         _upgradeMenu.ChooseLeave();
         Tune.Merchant.NpcTrades = false;
         foreach (var _ in Wait(0.3f)) yield return null;
