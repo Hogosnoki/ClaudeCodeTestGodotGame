@@ -49,7 +49,9 @@ public partial class Main
             UiArt.Rarity.Uncommon => Tune.Merchant.PriceUncommon,
             _ => Tune.Merchant.PriceCommon,
         };
-        return Math.Max(1, (int)MathF.Round(basePrice * (1f + Tune.Merchant.PerDepth * Math.Max(0, G.Depth)) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult));
+        // (the Ember Grid's Merchant's Favor: his cards cost more)
+        float favor = HexGrid.Owns("shop_favor") && !u.Relic && u.Id is not ("shop_supplies" or "shop_token" or "shop_potion") ? Tune.Grid.FavorCardMult : 1f;
+        return Math.Max(1, (int)MathF.Round(basePrice * favor * (1f + Tune.Merchant.PerDepth * Math.Max(0, G.Depth)) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult));
     }
 
     /// <summary>The stall's own free deal is still to be had (Loaded Dice).</summary>
@@ -71,6 +73,8 @@ public partial class Main
         var items = new List<ShopItem>();
         foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition).Take(Tune.Merchant.Cards)) items.Add(new ShopItem { Card = c, Price = PriceOf(c) });
         if (Upgrades.RollRelic(p.Stats, _rng, items.Select(i => i.Card.Id)) is Upgrade relic) items.Add(new ShopItem { Card = relic, Price = PriceOf(relic) });
+        // (Merchant's Favor: a second relic on his table)
+        if (HexGrid.Owns("shop_favor") && Upgrades.RollRelic(p.Stats, _rng, items.Select(i => i.Card.Id)) is Upgrade relic2) items.Add(new ShopItem { Card = relic2, Price = PriceOf(relic2) });
         for (int k = 0; k < p.Stats.ShopExtra; k++)
             for (int tries = 0, got = 0; tries < 8 && got == 0; tries++)
                 foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition))
@@ -141,8 +145,8 @@ public partial class Main
         // the trading stand: a relic for a relic, a few times a run
         int tradeable = TradeableRelics(p).Count;
         TradeCard.Desc = Tune.Merchant.NpcTrades
-            ? $"Give him a relic you carry for one of {Tune.Merchant.TradeOffer} of his ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Path gives more)."
-            : $"Hand a relic you carry to a friend who wants it more ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Path gives more).";
+            ? $"Give him a relic you carry for one of {Tune.Merchant.TradeOffer} of his ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Ember Grid gives more)."
+            : $"Hand a relic you carry to a friend who wants it more ({p.Trades} trade{(p.Trades == 1 ? "" : "s")} left this run; the Ember Grid gives more).";
         locks.Add(p.Trades <= 0 ? "NO TRADES LEFT THIS RUN" : tradeable == 0 ? "NO RELIC TO TRADE" : !Tune.Merchant.NpcTrades && TradeFriends().Count == 0 ? "NO FRIEND TO TRADE WITH" : null); prices.Add(0);
         int rp = RerollPrice(m);
         RerollCard.Desc = FreeDealLeft(m) ? "He shuffles the cards he has not sold and lays out new ones: this one is on the house."

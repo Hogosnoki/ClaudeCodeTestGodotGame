@@ -11,8 +11,8 @@ cave generator, creatures and hazards. Slay the guardian of each level's exit, t
 two ways down: a gentle one (one depth deeper) or a steep one (two deeper), each into a
 different biome. Each level also has a vault behind an iron gate, and two keys to find (see
 **Keys and vaults**). Depth 10 is the dragon's lair. Every run begins and ends at the camp outside the cave,
-where the heroes sit round a cooking fire; between runs, embers and rare resources buy permanent
-ranks in the upgrade trees. Up to five friends can play together online, one of each
+where the heroes sit round a cooking fire; between runs, embers and rare materials buy permanent
+advancements on the Ember Grid (see **The Ember Grid**). Up to five friends can play together online, one of each
 hero (see **Playing with friends online**).
 
 Open `godot/project.godot` in Godot 4.4 (.NET build) and press Play. `Scenes/DaggerDeep.tscn` is
@@ -74,9 +74,9 @@ Up to five players, one of each hero. One player hosts; the others join with the
 3. The friend pastes (or types) the code and clicks **Join**. A plain address works too
    (`192.168.1.20`, `100.101.102.103`, `my.host.name`, with `:port` if needed).
 4. In the lobby, each player takes a hero (the one you last chose at the camp fire). Taking one
-   moves you on to a second stage, as in single player: your hero's **class perks**, **loadout**
-   (side-grades) and the **upgrade trees**; "Done: back to the lobby" (or Esc / B) returns to the
-   lobby, and the **Loadout & perks** button there brings it back. What you set is what you start the
+   moves you on to a second stage, as in single player: **The Ember Grid** (at your hero's branch) and
+   your **loadout** (side-grades); "Done: back to the lobby" (or Esc / B) returns to the
+   lobby, and the **Grid & loadout** button there brings it back. What you set is what you start the
    run with. The host clicks **Start the descent** and everyone begins together.
 
 In the cave:
@@ -272,8 +272,8 @@ The panel's columns:
 | Drink a potion | Q | Y |
 | Main menu | Up / down and Enter, or click | D-pad or stick up / down, then A |
 | Choose hero (stage 1 at the camp fire) | Left / right, or click the arrows | D-pad or stick left / right |
-| On to the next stage (hero, then loadout & perks, then difficulty) | Enter (or R), or click the button | A |
-| Loadout & perks stage: class perks, loadout, upgrade trees | P, L, U, or the buttons | The buttons (D-pad to move, A to open); BACK opens the trees |
+| On to the next stage (hero, then grid & loadout, then difficulty) | Enter (or R), or click the button | A |
+| Grid & loadout stage: the Ember Grid, the loadout | U or P, L, or the buttons | The buttons (D-pad to move, A to open); BACK opens the grid |
 | Descend into the cave (the last stage, difficulty) | Enter (or R), or click Descend into the cave | A |
 | Back a stage (from the first: to the main menu) | Esc | B |
 | Play online | Multiplayer on the main menu (or O) | Y |
@@ -310,7 +310,7 @@ under a blue sky, a cooking pot over the fire, and the cave's great dark mouth i
 fade into its darkness: the camp's ground and cliff shaders shade everything in and just before the mouth down to black, and the haze thins there too).
 **Single player** brings you in to the fire, where the heroes sit on logs, and getting ready goes in
 three stages (Enter / A on to the next, Esc / B back): **1 Character** (choose one; the chosen hero
-stands up), **2 Loadout & perks** (class perks, side-grade loadout and upgrade trees) and **3
+stands up), **2 Grid & loadout** (the Ember Grid and the side-grade loadout) and **3
 Difficulty** (the two difficulty sliders and Hard Mode, and the Descend button), and the view drifts
 into the cave mouth as the run begins. In the online lobby the cursor (arrow keys, D-pad, stick) walks
 the controls in the order they are laid out: left and right along the hero cards, up and down between rows.
@@ -535,7 +535,7 @@ frame colour and the label at its top:
 | --- | --- | --- | --- |
 | Stats | | a little of everything, per hero | on their own at every level-up |
 | Class | gold | grows one of your hero's four abilities (its tree) | one in every chest; milestones; a rare one in every vault |
-| Alteration | teal, glowing | changes how one ability works; an ability takes one at most, and each has upgrades of its own | milestones only (at least one on every milestone while any are left) |
+| Alteration (side-grade) | teal, glowing | changes how one ability works; an ability takes one at most, and each has upgrades of its own | never found in a run: unlocked on the Ember Grid and brought in the loadout; a milestone may offer its **Back to...** card instead (half the time while one is brought), which puts the ability back as it was |
 | Generic | pale blue | anyone's: damage, health, speed... | the other two cards in a chest |
 | Conditional | green | offered once something else is true (a double jump once you've a jump upgrade; Magma Skin from depth 6) | chests |
 | Risk and reward | violet | something given, something taken; each taken once | vaults only (two in each) |
@@ -544,8 +544,9 @@ frame colour and the label at its top:
   level; the Warden +4 max HP, +1.5% damage, 1% damage reduction and +2 shield; the Vitalist +3
   max HP, +2% damage and +1 vital force capacity; the Elementalist +3 max HP, +2% damage and +1 alimus
   capacity; the Rogue +2 max HP, +2.5% damage and +0.2% critical chance.
-- **Milestones**: every 8 levels (fewer with the Path tree) you pick one of three of your hero's
-  own cards (class upgrades and alterations), or leave it and take nothing.
+- **Milestones**: every 8 levels (fewer with the Path's Waypoints) you pick one of three of your hero's
+  own cards (class upgrades, a technique, something for the party, or a **Back to...** card for a side-grade you brought), or
+  leave it and take nothing.
 - **Chests**: interact at one (E / LT) to look inside. It holds one class card and two others
   (generic or conditional). The cards are dealt the first time anyone looks, and
   stay the same until someone takes one: leave it, and it closes again with the same cards, for
@@ -557,7 +558,7 @@ frame colour and the label at its top:
   shows your four ability trees side by side (every upgrade, taken or not, with its ranks; the
   alterations beneath, the one you took and its upgrades, and cards it rules out crossed through),
   then the generic, conditional and risk-reward cards you've taken.
-- **Potions**: you start with one and can carry one (more with the Potion tree). Q / Y drinks it:
+- **Potions**: you start with one and can carry one (two with the grid's Second Flask). Q / Y drinks it:
   15% of your health at once and 15% more over 20 s. Enemies drop one 1% of the time.
 - **Hearts** heal 5% of your health and drop from 3% of kills (30% of elites).
 - **Chests** hold the real upgrades and abilities.
@@ -656,22 +657,9 @@ Biomes also field tinted variants (frost bears, rime skeletons, ember scorpions,
 fire bats...). Mini-bosses are elite versions and drop a chest (the first slain on a level, a key too); guardians are elites with extra
 health and a title.
 
-**Between runs: embers, resources and the upgrade trees** (`Core/Meta.cs`, `UI/MetaMenu.cs`).
-Progress saved in `user://meta.json`:
-- **Embers** come from guardians (2, 3 from depth 5, 6 for the dragon). Embers buy the ranks of
-  the trees.
-- **Resources**: each guardian yields one, drawn evenly from every resource not yet found (13
-  Reagents and 18 Obsidian Pearls in all, so each is a 1-in-31 chance at first). A bought rank only
-  takes effect once you spend a resource of its tree on it. A tree stays hidden until you find its
-  first resource.
-- **The Potion tree** (Reagents): immediate heal +5% x3, heal over time +5% x3, heal-over-time
-  3 s / 3 s / 4 s faster, drop rate +1% (and +1% more while you carry none), and two more flasks.
-  Back at camp after your first Reagent, a short introduction gives one first rank free and asks
-  you to spend the Reagent on it (both skippable).
-- **The Path** (Obsidian Pearls): milestones every 7, 6 then 5 levels; +5 / +7 / +8% experience;
-  the same for elites.
-
-Open the trees at the camp fire: U (controller: BACK), or the Upgrade trees button.
+**Between runs: embers, materials and the Ember Grid** (`Core/Meta.cs`, `Core/HexGrid.cs`, `UI/HexGridMenu.cs`; see **The Ember
+Grid** below). Progress saved in `user://meta.json`: embers come from guardians (2, 3 from depth 5, 6 for the dragon) and, with the
+branches' materials found in runs, buy hexes on the grid. Open it at the camp fire: U (controller: BACK), or The Ember Grid button.
 
 **Spawning and difficulty**. Enemies come from two sources:
 - **Residents** sit at points scattered through the tunnels. They are only ever created while out
@@ -1053,7 +1041,7 @@ sure critical.
 for every hero: a chest holds one class card and two others, never an alteration or a
 risk-and-reward card; a vault's chest holds two risk-and-reward cards (while any are left) and a
 rare class card, never an alteration, and a party's vault may hold any of its heroes' rare
-cards; a milestone holds only the hero's own cards, with an alteration while any are left; an ability takes one
+cards; a milestone holds only the hero's own cards, never a side-grade (only a Back to... card for one brought); an ability takes one
 alteration, and an alteration's upgrades wait for it; the primary attacks have none and every
 other ability has one; Wall Kick is gone; Unyielding Shield keeps out Quick Mend and Iron Timing;
 Deep Lungs and Drowned Lungs rule each other out, as do Ricochet and Tether; Magma Skin waits
@@ -1411,7 +1399,7 @@ and the merchant sells tokens. A chest's new cards are the chest's from then on,
 
 **Gold relics.** Fat Purse (piles hold 3 more coins), Overstock (one more thing on his table), Haggler's Tongue (20% cheaper), Loaded Dice (the first deal-again at each stall is free), Fence's Ledger (dealing again 40% cheaper),
 Regular Customer (+15 gold on reaching a stall), Peddler's Friend (his provisions are free), Guardian's Purse (+20 gold per guardian) and Compound Interest (+10% of your gold each level you go down).
-**Unlocks** (the Path, Obsidian Pearls: now 18 in all): **Fair Dealing** I-III (his prices 5/10/15% lower), **Prospecting** I-III (gold found worth 10/20/30% more) and **Second Thoughts** I-III. `--scenario=shop --hero=swordsman` checks all of it.
+**Unlocks** (now on the Ember Grid: the merchant's branch has **Fair Dealing** I-III, his prices 5/10/15% lower; the Path's has **Prospecting** I-III, gold found worth 10/20/30% more, and **Second Thoughts** I-III). `--scenario=shop --hero=swordsman` checks all of it.
 
 ## The Nest's hornet hive
 
@@ -2003,7 +1991,7 @@ Two kinds (`Core/Achievements.cs`; the full list, in Steamworks order, is `ACHIE
   Advance to depth 1–11, Defeat each of the 21 guardians, Conqueror (all 21 of the launch's: new guardians get their own achievement, so
   the goalposts never move), Explorer (every cave a run can take you through), Deep Sea Explorer, Into the Null, Freed each caged hero and
   the merchant, All Accounted For, Victory, Victory as each hero, The Long Way Down (the dragon at depth 11), Competent each hero (every
-  side-grade taken), Vault Breaker, Generous (a relic traded), Fair Shares (a Relic Collection emptied), Lore Keeper, Master of the Path / Potion.
+  side-grade hex of theirs on the Ember Grid), Vault Breaker, Generous (a relic traded), Fair Shares (a Relic Collection emptied), Lore Keeper, Master of the Path / Potion.
 - **Feats** (22) are deeds, **hidden** until earned and **each player's own** unless they suit the party (marked *(party)*: Power Hungry,
   Looter, Ransacked, Indescribable Horrors, Undefeatable, Brawler). Obliterated (felled from full health by one blow; a Death Ward, Last
   Stand or Null Pointer saving you doesn't count), Too Stubborn to Die (survive a blow past your whole health), Savior / Burden (10
@@ -2021,3 +2009,49 @@ Two kinds (`Core/Achievements.cs`; the full list, in Steamworks order, is `ACHIE
   categories: progress is listed first and visible, feats after and hidden, with their own icon frame; Steam's own completion count will
   include the feats (it can't leave any out).
 - Tests: `--scenario=achievements` checks the list (every guardian the caves make is on it), the hooks, both notices, both tabs and the save.
+
+
+## The Ember Grid
+
+Every lasting advancement is bought on one field of hexes round the camp's ember fire (`Core/HexGrid.cs`, the screen `UI/HexGridMenu.cs`),
+replacing the old Potion and Path trees and the class-perk screen.
+- **Branches** fan out from the fire, each in a wedge of its own: **The Potion**, **The Path**, **Keys and Vaults**, **The Merchant**,
+  **Relics**, and one for **each hero**. A branch opens once its feature or hero is unlocked (the merchant's once he is freed, a hero's
+  once they are). A hex can be bought once the one before it is owned, for embers and the branch's **material**; the farther out, the
+  dearer (a root 6 embers and 1 material; a step 4 + 2 per ring; a notable feature 10 + 3 per ring and 2+; a side-grade 8 + 2 per ring;
+  a keystone 30+ and 5). Hexes come as steps (a plain dot), notable features (a diamond), side-grades (a swirl) and **keystones** (a
+  star: a build-defining trade, good with bad).
+- **Materials** turn up in runs in place of something the hero couldn't use (`Core/GridFinds.cs`, `Tune.Grid`): a potion touched with a
+  full belt is a **Reagent** half the time (otherwise it waits for someone with room); a heart at full health is the hero's own
+  **Essence** half the time; a key with every slot full a **Tumbler** half the time; gold picked up while carrying 150 or more is also
+  a **Guild Seal** half the time (once the merchant is known, at most once in 8 s); a relic chest can be **salvaged** for **Relic
+  Dust** instead of taking its relic; and each guardian leaves an **Obsidian Pearl** half the time. They're kept at once (a run that
+  ends badly keeps them), online each game keeps its own player's, and the run's summary lists them.
+- **The heroes' branches** hold their class perks (each rank a hex; the first perk is the trunk), their **side-grades** (each one's hex
+  unlocks it for the loadout: picking a side-grade in a run no longer unlocks anything), a root (+5% health; the Aegis's is her Bulwark
+  Oath, owned from the start) and a keystone (Reckless Edge, Living Wall, Blood Price, Overflowing Well, Shadow Pact, Martyr's Vow,
+  Feral Heart, Overclocked). A hero's hexes act only for that hero.
+- **Side-grades in a run** go the other way now: brought in the loadout, a milestone may offer a **Back to...** card (Back to Dash
+  Slash, Back to Firebolt...) that takes the side-grade off again, and the upgrades grown on it with it, as if never taken (the
+  side-grade and its upgrades are applied traced, like a relic, so they can be taken back: `Player/RelicUndo.cs`).
+- **The general branches**: the Potion (stronger, quicker potions, a second flask, Forager, **Shared Draught** heals friends close by
+  for 40% of what a potion heals you, keystone **Volatile Brew** bursts for 25 when you drink but heals 15% less); the Path (Waypoints
+  for milestones every 7/6/5 levels, experience, Trophies, Prospecting, Second Thoughts, keystone **Ember Pact**: guardians give 40% more
+  embers, you take 15% more damage); Keys and Vaults (**Locksmith** a vault's chest has one more class card, **Key Ring** one more key,
+  **Tumbler's Luck** a vault opened leaves a Tumbler half the time, **Rich Vaults** one more bargain, **Lockpick** a gate opens for 40
+  gold without a key, keystone **Master Key** a relic in every vault but one key fewer); the Merchant (**Regular** a free deal-again at
+  each stall, Fair Dealing, **Trader** more relic trades with friends, **Overstocked**, **Regular Route** a third stall each run,
+  keystone **Merchant's Favor** a second relic on his table but his cards cost 20% more); Relics (**Antiquarian** salvage gives 2 dust,
+  **Relic Sense** relic chests 3%/6% likelier, **Collector** Relic Collections twice as often, **Discerning** a relic chest holds a
+  choice of 2, then 3, **Heirloom** begin each run with a common relic, keystone **Covetous** relic chests 50% likelier but shrines no
+  longer heal).
+- **The screen**: drag (or the right stick) to look about, the wheel (or shoulders) to zoom, click a hex (or step with the arrows /
+  stick) to see it, the Buy button (double-click, Enter / A) to buy it. Owned hexes are lit in their branch's colour, ones you could buy
+  now pulse, locked branches are grey. The first time it opens (after your first material) it explains itself.
+- **Old saves** are given back what they spent: every bought rank and class-perk rank comes back as embers, and the Reagents and
+  Pearls found as materials, to be laid out on the grid afresh.
+- Tests: `--metatest` (the grid's shape, buying, reach, locked branches, effects, a hero's branch acting only for them, the old save's
+  refund, the save's round trip); `--scenario=grid` (materials in a run, a Back to... card taking a side-grade and its upgrades off
+  exactly, milestones never dealing side-grades, Volatile Brew, the vault's extra cards, Discerning, salvaging, Merchant's Favor;
+  `grid_revert.png`); `--gridshot=DIR` (the screen: `grid_1.png`, `grid_2.png`). `--dumpcards=PATH` writes the whole grid into
+  `CATALOGUE.md`.

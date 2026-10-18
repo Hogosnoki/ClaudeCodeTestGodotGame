@@ -46,10 +46,13 @@ public partial class Main
         foreach (var h in heroes)
         {
             // many runs: stats grow card by card as a player's would, and every roll keeps the rules
-            int chests = 0, milestones = 0, chestBad = 0, mileBad = 0, noAlteration = 0, twoPerAbility = 0, orphans = 0; string mileWhy = "";
+            int chests = 0, milestones = 0, chestBad = 0, mileBad = 0, altOffered = 0, reverts = 0, twoPerAbility = 0, orphans = 0; string mileWhy = "";
             for (int run = 0; run < 40; run++)
             {
                 var s = new PlayerStats(h);
+                // (half the runs bring a side-grade in the loadout: milestones may offer to take it back)
+                var brought = run % 2 == 0 ? Upgrades.Chest.FirstOrDefault(u => u.Alteration && u.For != null && u.For.Contains(h)) : null;
+                if (brought != null) s.Stacks[brought.Id] = 1;
                 for (int k = 0; k < 30; k++)
                 {
                     bool milestone = k % 4 == 3;
@@ -58,16 +61,17 @@ public partial class Main
                     if (cards.Count == 0)
                     {
                         if (!milestone) chestBad++;
-                        else if (Upgrades.Chest.Any(u => u.For != null && u.For.Contains(h) && u.Kind != UpgradeKind.RiskReward && !u.Multi && Upgrades.Available(u, s))) mileBad++;
+                        else if (Upgrades.Chest.Any(u => u.For != null && u.For.Contains(h) && u.Kind != UpgradeKind.RiskReward && !u.Multi && !u.Alteration && Upgrades.Available(u, s))) { mileBad++; mileWhy = "none dealt"; }
                         continue;
                     }
-                    bool alterationsLeft = Upgrades.Chest.Any(u => u.Alteration && Upgrades.Available(u, s));
                     if (milestone)
                     {
                         milestones++;
                         if (cards.Count < 1 || cards.Count > 3) mileBad++;
                         else if (cards.Any(u => (u.For == null ? !(u.Icon == "move" && u.Tier == UpgradeTier.Ability) : !u.For.Contains(h)) || !Upgrades.Available(u, s)) || cards.Distinct().Count() != cards.Count) { mileBad++; mileWhy = string.Join("/", cards.Select(u => u.Id)); }
-                        if (alterationsLeft && !cards.Any(u => u.Alteration)) noAlteration++;
+                        if (cards.Any(u => u.Alteration)) altOffered++;
+                        if (cards.Any(u => u.RevertOf != null && (u.RevertOf != brought?.Id || s.StackOf(u.Id) > 0))) { mileBad++; mileWhy = string.Join("/", cards.Select(u => u.Id)) + " brought " + brought?.Id; }
+                        reverts += cards.Count(u => u.RevertOf != null);
                     }
                     else
                     {
@@ -89,7 +93,7 @@ public partial class Main
             }
             Check($"{h}: {chests} chests each hold a class card and two others, never an alteration or a risk-reward ({chestBad} wrong)", chestBad == 0);
             Check($"{h}: {milestones} milestones hold only the hero's own cards and ways of getting about ({mileBad} wrong {mileWhy})", mileBad == 0);
-            Check($"{h}: every milestone offers an alteration while any are left ({noAlteration} without)", noAlteration == 0);
+            Check($"{h}: milestones never deal a side-grade ({altOffered} did), but offer to take back the one brought ({reverts} times)", altOffered == 0 && (Upgrades.Chest.All(u => !(u.Alteration && u.For != null && u.For.Contains(h))) || reverts > 0));
             Check($"{h}: an ability never takes two alterations ({twoPerAbility})", twoPerAbility == 0);
             Check($"{h}: an alteration's upgrades only come after it ({orphans} early)", orphans == 0);
         }

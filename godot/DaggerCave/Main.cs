@@ -790,7 +790,13 @@ public partial class Main : Node
         if (keepStats != null) { player.Stats = keepStats; }
         else HexGrid.ApplyRun(player.Stats); // (a new run: what the Ember Grid gives this hero)
         _world.AddChild(player);
-        if (keepStats == null) { ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; player.Trades = Meta.Trades; }
+        if (keepStats == null)
+        {
+            ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; player.Trades = Meta.Trades;
+            // (the Ember Grid's Heirloom: a common relic to begin with)
+            if (HexGrid.Owns("rel_heirloom") && Upgrades.Pick(Upgrades.RelicPool(player.Stats).Where(u => u.Rarity == RelicRarity.Common).ToList(), 1, _rng, u => 1f).FirstOrDefault() is Upgrade heir)
+                Upgrades.Apply(heir, player.Stats, player);
+        }
         if (keepStats != null)
         {
             // (each depth rests you a little; Spring Water: a little more)
@@ -1057,8 +1063,7 @@ public partial class Main : Node
         {
             var u = Upgrades.Get(id);
             if (u == null || !u.Alteration || !Meta.SideGradeUnlocked(id) || !Upgrades.Available(u, s)) continue;
-            u.Apply?.Invoke(s, player);
-            s.Stacks[id] = s.StackOf(id) + 1;
+            Upgrades.ApplyLoadoutCard(u, s, player);
         }
         player.SyncCharges();
         player.Hp = s.MaxHp;
@@ -1803,6 +1808,7 @@ public partial class Main : Node
             // (a collection: one each; the rest are the others')
             if (chest.Collection && chest.TookHere)
                 for (int k = 0; k < choices.Count; k++) if (locks[k] == null) locks[k] = "YOU HAVE TAKEN YOURS";
+            AddSalvage(chest, choices, locks);
             choices.Add(Upgrades.LeaveChest);
             locks.Add(null);
         }
@@ -1858,6 +1864,7 @@ public partial class Main : Node
             locks = choices.Select(u => Upgrades.LockReason(u, p.Stats)).ToList();
             if (chest.RelicFor != 0 && chest.RelicFor != Net.Me)
                 for (int k = 0; k < choices.Count; k++) if (choices[k].Relic && locks[k] == null) locks[k] = "MEANT FOR " + Net.NameOf(chest.RelicFor);
+            AddSalvage(chest, choices, locks);
             choices.Add(Upgrades.LeaveChest); locks.Add(null);
         }
         else
@@ -1870,6 +1877,14 @@ public partial class Main : Node
         _upgradeMenu.Open(choices, _rerollTitle, locks, _rerollBackdrop, _rerollFrame);
         _upgradeMenu.Reroll = RerollCards; _upgradeMenu.RerollsLeft = p.Rerolls;
         _autoPickT = 0.5f;
+    }
+
+    /// <summary>A relic chest's relic may be broken down for Relic Dust instead (by whoever it's meant for).</summary>
+    private static void AddSalvage(Chest chest, List<Upgrade> choices, List<string> locks)
+    {
+        if (chest.Tier != ChestTier.Relic || chest.Collection || !choices.Any(u => u.Relic)) return;
+        choices.Add(Upgrades.Salvage);
+        locks.Add(chest.RelicFor != 0 && chest.RelicFor != Net.Me ? "MEANT FOR " + Net.NameOf(chest.RelicFor) : null);
     }
 
     private void OnUpgradePicked(Upgrade u)
@@ -1890,9 +1905,18 @@ public partial class Main : Node
         }
         else
         {
-            Upgrades.Apply(u, G.Player.Stats, G.Player);
-            _sfx.Play("card_take", null, 0, 0, u.Relic ? 0.8f : 1f);
-            _hud.ShowBanner(u.Name, 1.6f);
+            if (u == Upgrades.Salvage)
+            {
+                // (broken down: Relic Dust, two with the grid's Antiquarian)
+                GridFinds.Found(G.Player, "dust", chest != null && IsInstanceValid(chest) ? chest.GlobalPosition : G.Player.GlobalPosition, HexGrid.Owns("rel_root") ? 2 : 1);
+                _hud.ShowBanner("SALVAGED", 1.6f);
+            }
+            else
+            {
+                Upgrades.Apply(u, G.Player.Stats, G.Player);
+                _sfx.Play("card_take", null, 0, 0, u.Relic ? 0.8f : 1f);
+                _hud.ShowBanner(u.Name, 1.6f);
+            }
             // a relic taken from a collection: the others' stay in it, for them
             if (chest != null && IsInstanceValid(chest) && chest.Collection && u.Relic && chest.Cards != null)
             {
@@ -2647,8 +2671,10 @@ public partial class Main : Node
     /// <summary>A level's chest: wood mostly, now and then a relic chest, and now and then that a Relic Collection (one relic for each of the party).</summary>
     private static Chest NewChest(Vector2 at)
     {
-        bool relic = G.Chance(Tune.Relics.RelicChestChance);
-        return new Chest { Position = at, Tier = relic ? ChestTier.Relic : ChestTier.Wood, Collection = relic && G.Chance(Tune.Relics.CollectionChance) };
+        // (the Ember Grid: Relic Sense and Covetous make relic chests likelier, Collector collections)
+        float chance = (Tune.Relics.RelicChestChance + Tune.Grid.RelicSense * HexGrid.Count("rel_sense")) * (HexGrid.Owns("rel_covet") ? Tune.Grid.Covetous : 1f);
+        bool relic = G.Chance(chance);
+        return new Chest { Position = at, Tier = relic ? ChestTier.Relic : ChestTier.Wood, Collection = relic && G.Chance(Tune.Relics.CollectionChance * (HexGrid.Owns("rel_collect") ? 2f : 1f)) };
     }
 
     /// <summary>
@@ -2798,19 +2824,26 @@ public partial class Main : Node
     /// The ways on from a fallen guardian, left to right: the gentle way (a level down), the steep way (two), and, once the merchant is freed, between them his stall
     /// (the same biome at the same depth, in a tiny map of its own, which goes down no further: its two exits are the ones above).
     /// </summary>
-    /// <summary>The depths this run's two stalls are offered from (drawn as the run begins; the host's), and how many have been offered so far.</summary>
-    private int _stallAt1 = 3, _stallAt2 = 9, _stallsOffered;
+    /// <summary>The depths this run's two stalls are offered from (drawn as the run begins; the host's), and how many have been offered so far.
+    /// The Ember Grid's Regular Route adds a third, at <c>_stallAt3</c>.</summary>
+    private int _stallAt1 = 3, _stallAt2 = 9, _stallAt3 = 99, _stallsOffered;
+    private static int StallVisits => Tune.Merchant.Visits + (HexGrid.Owns("shop_route") ? 1 : 0);
 
-    /// <summary>A new run: two depths for the merchant's stall, the first no sooner than the 1st, the second no later than the 9th.</summary>
+    /// <summary>A new run: two depths for the merchant's stall (three with Regular Route), the first no sooner than the 1st, the last no later than the 9th.</summary>
     private void RollStalls()
     {
         _stallsOffered = 0;
-        _stallAt1 = _rng.Next(Tune.Merchant.FirstDepth, Tune.Merchant.LastDepth);        // 1..8
-        _stallAt2 = _rng.Next(_stallAt1 + 1, Tune.Merchant.LastDepth + 1);               // the first + 1 .. 9
+        var at = new List<int>();
+        int want = Math.Min(StallVisits, Tune.Merchant.LastDepth - Tune.Merchant.FirstDepth + 1);
+        while (at.Count < want) { int d = _rng.Next(Tune.Merchant.FirstDepth, Tune.Merchant.LastDepth + 1); if (!at.Contains(d)) at.Add(d); }
+        at.Sort();
+        // (two stalls: the first in 1..8, the second after it, as before)
+        if (want == 2) { at[0] = _rng.Next(Tune.Merchant.FirstDepth, Tune.Merchant.LastDepth); at[1] = _rng.Next(at[0] + 1, Tune.Merchant.LastDepth + 1); }
+        _stallAt1 = at.Count > 0 ? at[0] : 99; _stallAt2 = at.Count > 1 ? at[1] : 99; _stallAt3 = at.Count > 2 ? at[2] : 99;
     }
 
-    /// <summary>Is a stall due at this guardian? (the first once the run has reached its depth, the second likewise, never past the last depth; a steep way down can carry you past one)</summary>
-    private bool StallDue => _stallsOffered < Tune.Merchant.Visits && G.Depth <= Tune.Merchant.LastDepth && G.Depth >= (_stallsOffered == 0 ? _stallAt1 : _stallAt2);
+    /// <summary>Is a stall due at this guardian? (each once the run has reached its depth, never past the last depth; a steep way down can carry you past one)</summary>
+    private bool StallDue => _stallsOffered < StallVisits && G.Depth <= Tune.Merchant.LastDepth && G.Depth >= (_stallsOffered switch { 0 => _stallAt1, 1 => _stallAt2, _ => _stallAt3 });
 
     public List<(BiomeDef biome, int depth, string label, bool shop)> PlanExits(Random rng)
     {

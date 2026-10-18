@@ -143,7 +143,9 @@ public partial class VaultGate : Node2D
     public void TryOpen(Player p)
     {
         if (Opened || _askT > 0) return;
-        if (p.Keys <= 0)
+        // (the Ember Grid's Lockpick: no key, but gold)
+        bool pick = p.Keys <= 0 && HexGrid.Owns("key_pick") && p.Gold >= Tune.Grid.LockpickGold;
+        if (p.Keys <= 0 && !pick)
         {
             if (_noT <= 0)
             {
@@ -153,9 +155,20 @@ public partial class VaultGate : Node2D
             }
             return;
         }
-        if (!Net.Online) { p.SpendKey(); Open(); return; }
+        if (pick)
+        {
+            p.SpendGold(Tune.Grid.LockpickGold);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -Height - 12), $"PICKED: -{Tune.Grid.LockpickGold} GOLD", new Color(1f, 0.84f, 0.3f), 10, 1.3f);
+        }
+        if (!Net.Online) { p.SpendKey(); Open(); OpenedByMe(p); return; }
         _askT = 1f;
         NetSync.AskGate(this);
+    }
+
+    /// <summary>This game's hero opened it: the Ember Grid's Tumbler's Luck may leave a Tumbler.</summary>
+    public void OpenedByMe(Player p)
+    {
+        if (p != null && HexGrid.Owns("key_tumbler") && G.Chance(Tune.Grid.TumblerLuck)) GridFinds.Found(p, "tumbler", GlobalPosition + new Vector2(0, -Height * 0.5f));
     }
 
     /// <summary>It opens (in every game): the lock drops and the gate grinds up into the rock.</summary>

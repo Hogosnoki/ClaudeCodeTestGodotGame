@@ -313,7 +313,9 @@ public partial class Player : CharacterBody2D
     {
         if (Dead || Potions <= 0 || Hp >= Stats.MaxHp - 0.5f) return false;
         Potions--;
-        Heal(Stats.MaxHp * Meta.PotionHealNow * Stats.PotionPower);
+        float now = Stats.MaxHp * Meta.PotionHealNow * Stats.PotionPower;
+        Heal(now);
+        PotionHexes(now);
         _hotRate = Stats.MaxHp * Meta.PotionHealOverTime / Meta.PotionHotSeconds;
         _hotLeft = Meta.PotionHotSeconds;
         G.Sfx.Play("heal", GlobalPosition, 0, 0, 0.8f);
@@ -324,6 +326,32 @@ public partial class Player : CharacterBody2D
         if (!IsRemote) G.Fx.ScreenFlash(new Color(1f, 0.35f, 0.5f), 0.25f);
         Anim.Flash(0.6f);
         return true;
+    }
+
+    /// <summary>The Ember Grid's potion hexes as a potion is drunk: Shared Draught heals friends close by, Volatile Brew bursts.</summary>
+    private void PotionHexes(float healed)
+    {
+        if (HexGrid.Owns("pot_shared"))
+            foreach (var f in G.Players)
+                if (f != this && !f.Dead && f.GlobalPosition.DistanceTo(GlobalPosition) < Tune.Grid.SharedDraughtRange)
+                {
+                    f.Heal(healed * Tune.Grid.SharedDraughtShare);
+                    G.Fx.Ring(f.GlobalPosition, 16, HealColorLight, 0.3f, FxLayer.RingStyle.Wave);
+                }
+        if (HexGrid.Owns("pot_volatile"))
+        {
+            float total = 0;
+            foreach (var e in G.Enemies.ToArray())
+            {
+                if (e.Dead || !e.CanBeHit) continue;
+                var to = e.GlobalPosition - GlobalPosition;
+                if (to.Length() > Tune.Grid.VolatileRadius + e.HitRadius || !G.Cave.LineClear(GlobalPosition, e.GlobalPosition)) continue;
+                total += Math.Max(0f, e.Hurt(Tune.Grid.VolatileDamage, to.Normalized() * 180f, e.GlobalPosition, DamageKind.Raw));
+            }
+            if (total > 0) OnDealtDamage(total);
+            G.Fx.Ring(GlobalPosition, Tune.Grid.VolatileRadius, new Color(1f, 0.45f, 0.6f), 0.35f, FxLayer.RingStyle.Wave);
+            G.Fx.AddShake(4);
+        }
     }
 
     /// <summary>True while a potion's heal over time is still running.</summary>

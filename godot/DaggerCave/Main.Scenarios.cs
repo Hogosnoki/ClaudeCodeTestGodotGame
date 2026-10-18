@@ -63,6 +63,7 @@ public partial class Main
         "hive" => "nest",
         "shop" => "den",
         "achievements" => "den",
+        "grid" => "entrance",
         "cards" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
@@ -161,6 +162,7 @@ public partial class Main
             case "hive": HiveScenario(); break;
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;
+            case "grid": GridScenario(); break;
             case "cards": CardsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;

@@ -245,6 +245,8 @@ public sealed class PlayerStats
     public readonly Dictionary<string, int> Stacks = new();
     /// <summary>What each relic changed when it was taken, so it can be given back (see RelicUndo.cs).</summary>
     public readonly Dictionary<string, Upgrades.RelicTrace> RelicTraces = new();
+    /// <summary>What each side-grade (and each card grown on one) changed, so a "Back to..." card can take it off again.</summary>
+    public readonly Dictionary<string, List<Upgrades.RelicTrace>> CardTraces = new();
     public int StackOf(string id) => Stacks.TryGetValue(id, out var n) ? n : 0;
 
     public PlayerStats(HeroKind hero = HeroKind.Swordsman)
@@ -337,6 +339,8 @@ public sealed class Upgrade
     public string Ability;
     /// <summary>It changes how its ability works (an ability takes one at most).</summary>
     public bool Alteration;
+    /// <summary>A "Back to..." card: it takes this side-grade off again.</summary>
+    public string RevertOf;
     /// <summary>A relic (in <see cref="Upgrades.Relics"/>).</summary>
     public bool Relic;
     /// <summary>For a party only: it does nothing alone (threat, a friend's burden), so a solo run never offers it.</summary>
@@ -348,7 +352,7 @@ public sealed class Upgrade
     /// <summary>What it is about (offence, defence, mobility, utility, economy; on-hit, on-kill, on-hurt, status, party...): for the build page, tests and future filters.</summary>
     public string[] Tags = Array.Empty<string>();
 
-    public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration ? UpgradeKind.Alteration
+    public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration || RevertOf != null ? UpgradeKind.Alteration
         : Icon == "risk" ? UpgradeKind.RiskReward
         : Technique ? UpgradeKind.Technique
         : For != null ? UpgradeKind.Class
@@ -642,6 +646,9 @@ public static partial class Upgrades
     /// <summary>The "leave it" card on a milestone: nothing.</summary>
     public static readonly Upgrade Skip = new() { Id = "skip", Name = "Leave It", Desc = "Take nothing.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
     /// <summary>The "leave it" card in a chest: it closes again, keeping its cards.</summary>
+    /// <summary>A relic chest's other way: break the relic down for Relic Dust (the Ember Grid's relic branch).</summary>
+    public static readonly Upgrade Salvage = new() { Id = "salvage", Name = "Salvage It", Desc = "Break the relic down for Relic Dust, for the relic branch of the Ember Grid (kept even if the run ends badly).", Icon = "relic", MaxStacks = 9999, Apply = (s, p) => { } };
+
     public static readonly Upgrade LeaveChest = new() { Id = "leave", Name = "Leave It", Desc = "Close the chest. It keeps these cards: come back for one later, or leave it for a friend.", Icon = "skip", MaxStacks = 9999, Apply = (s, p) => { } };
 
     /// <summary>
@@ -667,7 +674,7 @@ public static partial class Upgrades
         return cards.Select(u => u.Id).ToArray();
     }
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Append(Skip).Append(LeaveChest);
+    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Append(Skip).Append(LeaveChest).Append(Salvage);
 
     /// <summary>A card by id, or null if there's no such card (a chest dealt by another version).</summary>
     public static Upgrade Find(string id) => All.FirstOrDefault(u => u.Id == id);
@@ -726,27 +733,28 @@ public static partial class Upgrades
         foreach (var ex in u.Excludes) if (s.StackOf(ex) > 0) return false;
         // an ability takes one alteration at most
         if (u.Alteration && AlterationOf(s, u.Ability) != null) return false;
+        // ("Back to...": only while the hero has that side-grade)
+        if (u.RevertOf != null && s.StackOf(u.RevertOf) == 0) return false;
         return true;
     }
 
     /// <summary>
-    /// A milestone's three cards, all for this hero's abilities: at least one alteration while any
-    /// are left (they're only ever offered here), the rest class upgrades or more alterations.
+    /// A milestone's three cards, all for this hero's abilities. Side-grades aren't found in a run any more (they're unlocked on the
+    /// Ember Grid and brought in the loadout): instead, now and then, a "Back to..." card puts an ability the loadout changed back as
+    /// it first was. The rest are a technique, something for the party and class upgrades.
     /// </summary>
     public static List<Upgrade> RollMilestone(PlayerStats s, Random rng)
     {
         float W(Upgrade u) => u.Weight * Math.Max(0.05f, LeftFor(u, s));
-        var alterations = Chest.Where(u => u.Alteration && Available(u, s)).ToList();
-        var result = Pick(alterations, 1, rng, W);
+        var reverts = Reverts.Where(u => Available(u, s)).ToList();
+        var result = reverts.Count > 0 && rng.NextDouble() < Tune.Grid.RevertChance ? Pick(reverts, 1, rng, u => 1f) : new List<Upgrade>();
         // milestones are for what changes how you play: a way of getting about (a double jump, an air dash, wall jumps), and with a party, something for the others
         var mobility = Chest.Where(u => u.Technique && Available(u, s)).ToList();
         result.AddRange(Pick(mobility, 1, rng, W));
         var party = Chest.Where(u => u.Multi && !result.Contains(u) && Available(u, s)).ToList();
         result.AddRange(Pick(party, 1, rng, W));
-        var rest = Chest.Where(u => u.For != null && !u.Multi && u.Kind != UpgradeKind.RiskReward && !result.Contains(u) && Available(u, s)).ToList();
-        // (two alterations for the same ability can't both be offered as if both could be taken:
-        // they can, one or the other, so that's fine to show)
-        result.AddRange(Pick(rest, Math.Max(0, 3 - result.Count), rng, u => W(u) * (u.Alteration ? 1.5f : 1f)));
+        var rest = Chest.Where(u => u.For != null && !u.Multi && !u.Alteration && u.Kind != UpgradeKind.RiskReward && !result.Contains(u) && Available(u, s)).ToList();
+        result.AddRange(Pick(rest, Math.Max(0, 3 - result.Count), rng, W));
         return result.Take(3).ToList();
     }
 
@@ -785,10 +793,12 @@ public static partial class Upgrades
     /// </summary>
     public static string[] RollChestCards(PlayerStats mine, IReadOnlyCollection<HeroKind> party, Random rng, Vector2 at, bool relic = false)
     {
-        // a relic chest: one relic, no choice: take it or leave it (upgrades come from shrines)
+        // a relic chest: one relic, no choice: take it or leave it (upgrades come from shrines); the Ember Grid's Discerning makes it a choice of two or three
         if (relic)
         {
-            if (RollRelic(mine, rng) is Upgrade r) return new[] { r.Id };
+            var got = new List<string>();
+            for (int k = 0; k < 1 + HexGrid.Count("rel_choice"); k++) if (RollRelic(mine, rng, got) is Upgrade r) got.Add(r.Id);
+            if (got.Count > 0) return got.ToArray();
             return RollChestCardsBase(mine, party, rng, at);
         }
         return RollChestCardsBase(mine, party, rng, at);
@@ -842,6 +852,10 @@ public static partial class Upgrades
         if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsRare(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
         if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
         if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsChestFiller(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
+        // the Ember Grid's keys and vaults: Locksmith (one more class card), Rich Vaults (one more bargain), Master Key (a relic too)
+        if (HexGrid.Owns("key_root")) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cards.Contains(u) && Available(u, mine)).ToList(), 1, rng, W));
+        if (HexGrid.Owns("key_rich")) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.RiskReward && !cards.Contains(u) && Available(u, mine)).ToList(), 1, rng, W));
+        if (HexGrid.Owns("key_master") && RollRelic(mine, rng) is Upgrade relic) cards.Add(relic);
         return cards.Select(u => u.Id).ToArray();
     }
 
@@ -921,7 +935,7 @@ public static partial class Upgrades
         return Available(u, s) ? null : "NOT FOR YOU YET";
     }
 
-    private static List<Upgrade> Pick(List<Upgrade> pool, int count, Random rng, Func<Upgrade, float> weight)
+    public static List<Upgrade> Pick(List<Upgrade> pool, int count, Random rng, Func<Upgrade, float> weight)
     {
         var result = new List<Upgrade>();
         while (result.Count < count && pool.Count > 0)
@@ -942,7 +956,7 @@ public static partial class Upgrades
         s.Stacks[u.Id] = s.StackOf(u.Id) + 1;
         // (the others keep count of what this hero has, so their chests aren't dealt what nobody can take again)
         if (p != null && !p.IsRemote && p == G.Player) { NetSync.SendCard(u.Id); Achievements.CardTaken(u, s.Hero); }
-        if (u.Relic) ApplyTraced(u, s, p); else u.Apply(s, p);
+        if (u.Relic) ApplyTraced(u, s, p); else if (IsSideGradeCard(u)) ApplyCard(u, s, p); else u.Apply(s, p);
         if (u.Relic && p != null && !p.IsRemote) RunRelics.Take(u.Id);
     }
 }

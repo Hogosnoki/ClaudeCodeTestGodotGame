@@ -1137,6 +1137,7 @@ public static class NetSync
         if (!Props.TryGetValue(id, out var n) || n is not VaultGate g || !GodotObject.IsInstanceValid(g) || g.Opened) return;
         if (by == Net.Me) G.Player?.SpendKey();
         g.Open();
+        if (by == Net.Me) g.OpenedByMe(G.Player);
     }
 
     /// <summary>This game's hero stepped into an exit (or out of it again).</summary>

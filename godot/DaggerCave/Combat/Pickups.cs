@@ -393,7 +393,8 @@ public partial class Chest : Node2D, IBreakable
         G.Fx.Burst(GlobalPosition + new Vector2(0, -10), new Color(1f, 0.85f, 0.3f), 30, 220, 2.5f, 0.9f, 200);
         G.Fx.Flash(GlobalPosition + new Vector2(0, -10), 30, new Color(1f, 0.9f, 0.5f));
         for (int k = 0; k < 8; k++) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-14, 14), -G.Range(6, 30)), new Color(1f, 0.9f, 0.5f), 7);
-        if (opener == Net.Me) G.Player?.Heal(Tune.Drops.ChestHeal);
+        // (the Ember Grid's Covetous: a shrine no longer heals)
+        if (opener == Net.Me && !(IsShrine && HexGrid.Owns("rel_covet"))) G.Player?.Heal(Tune.Drops.ChestHeal);
     }
 
     public override void _Draw()

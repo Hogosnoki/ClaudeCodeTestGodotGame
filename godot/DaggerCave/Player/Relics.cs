@@ -238,6 +238,7 @@ public static partial class Upgrades
             Find(a).Excludes = Find(a).Excludes.Append(b).ToArray();
             Find(b).Excludes = Find(b).Excludes.Append(a).ToArray();
         }
+        BuildReverts();
     }
 
     /// <summary>A relic this hero could be offered (not carried yet; generic or theirs).</summary>

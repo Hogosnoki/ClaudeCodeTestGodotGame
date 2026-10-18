@@ -60,20 +60,20 @@ Steam's own completion count includes every achievement; the game's counts progr
 | `ACH_VICTORY_SHAPESHIFTER` | Victory as the Shape Shifter! | Complete a run as the Shape Shifter. |
 | `ACH_VICTORY_AUTOMATON` | Victory as the Automaton! | Complete a run as the Automaton. |
 | `ACH_LONG_WAY` | The Long Way Down | Slay the dragon at depth 11. |
-| `ACH_COMPETENT_SWORDSMAN` | Competent Swordsman! | Take every one of the Swordsman's side-grades. |
-| `ACH_COMPETENT_WARDEN` | Competent Warden! | Take every one of the Warden's side-grades. |
-| `ACH_COMPETENT_VITALIST` | Competent Vitalist! | Take every one of the Vitalist's side-grades. |
-| `ACH_COMPETENT_ELEMENTALIST` | Competent Elementalist! | Take every one of the Elementalist's side-grades. |
-| `ACH_COMPETENT_ROGUE` | Competent Rogue! | Take every one of the Rogue's side-grades. |
-| `ACH_COMPETENT_AEGIS` | Competent Aegis! | Take every one of the Aegis's side-grades. |
-| `ACH_COMPETENT_SHAPESHIFTER` | Competent Shape Shifter! | Take every one of the Shape Shifter's side-grades. |
-| `ACH_COMPETENT_AUTOMATON` | Competent Automaton! | Take every one of the Automaton's side-grades. |
+| `ACH_COMPETENT_SWORDSMAN` | Competent Swordsman! | Unlock every one of the Swordsman's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_WARDEN` | Competent Warden! | Unlock every one of the Warden's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_VITALIST` | Competent Vitalist! | Unlock every one of the Vitalist's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_ELEMENTALIST` | Competent Elementalist! | Unlock every one of the Elementalist's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_ROGUE` | Competent Rogue! | Unlock every one of the Rogue's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_AEGIS` | Competent Aegis! | Unlock every one of the Aegis's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_SHAPESHIFTER` | Competent Shape Shifter! | Unlock every one of the Shape Shifter's side-grades on the Ember Grid. |
+| `ACH_COMPETENT_AUTOMATON` | Competent Automaton! | Unlock every one of the Automaton's side-grades on the Ember Grid. |
 | `ACH_FIRST_VAULT` | Vault Breaker | Open a vault. |
 | `ACH_FIRST_TRADE` | Generous | Give a relic to a friend at the trading stand (or be given one). |
 | `ACH_SHARED_COLLECTION` | Fair Shares | Empty a Relic Collection: every relic in it taken. |
 | `ACH_FULL_JOURNAL` | Lore Keeper | Find every journal page. |
-| `ACH_MASTER_PATH` | Master of the Path | Buy every rank of the Path. |
-| `ACH_MASTER_POTION` | Master of the Potion | Buy every rank of the Potion. |
+| `ACH_MASTER_PATH` | Master of the Path | Own every hex of the Path's branch of the Ember Grid. |
+| `ACH_MASTER_POTION` | Master of the Potion | Own every hex of the Potion's branch of the Ember Grid. |
 
 ## Feats (22, hidden)
 

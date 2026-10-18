@@ -1,41 +1,3 @@
-# Dagger Deep: catalogue
-
-Every hero ability, reward, upgrade, side-grade, technique, bargain, relic, class perk and meta rank, for balance review.
-The card sections (from "Hero upgrades" on) are generated from the game's own data: `--dumpcards=PATH` rewrites them.
-"×N" = can be taken N times; *(rare)* = an ability-tier card (likelier in chests, dealt by vaults); *(party)* = only offered online with friends.
-
-## Heroes and their abilities
-
-Each hero has an attack, a dodge-button ability, two ability buttons and a support ability (the fourth button). Numbers are base values.
-
-| Hero | HP · move | Attack | Dodge button | Ability | Second ability | Support |
-| --- | --- | --- | --- | --- | --- | --- |
-| **Swordsman** | 60 · 100% | Sword: 20 dmg, 45 px, every 0.6 s, combo, heavy knockback | **Dash-slash**: 0.28 s dash, slashes the first creature for 1.5× a strike; 15 s cooldown | **Charged Strike**: next swing +50% dmg, +25% reach, target deals 20% less for 5 s; 12 s | **Heaving Swing**: planted, 190° arc, 2× dmg, shatters frozen; 6 s | **Battle Shout**: allies near deal +10% for 10 s; 30 s |
-| **Warden** | 110, 10% armour · 92% | Shortsword: 11 dmg, 30 px, every 0.36 s | **Shield** (hold): 135° arc stops whole blows; 40 points, soaks 2× (80), regen 3/s | **Guarded Charge**: shield rush that eats projectiles and breaks the first attack met; 3.2 s | **Shield Bash**: 20 dmg + 1.6 s stun in a half-circle; 10 s | **Taunt**: every creature targets you for 3 s; 20 s |
-| **Vitalist** | 55 · 97% | Drain: 10 dmg at 175 px every 0.5 s; a tenth returns as vital force | **Hex**: 110 px, slow to 55% and +20% damage taken for 5 s; 6 s | **Heal** (0.4 s wind-up): 15 vital force → 15 HP shared among the hurt nearby; 3 s | **Rupture** (0.8 s wind-up): 30 vital force, target bursts for 30, 10 to others within 80 px | **Health Tap**: 60% of vital force → 15% of health; 15 s |
-| **Elementalist** | 55 · 97% | Firebolt: 28 dmg, homing, bursts for 35% on creatures within 26 px, 2 charges (1 per 1.5 s), 65% ignite (4/s, 4 s). Frostbolt side-grade | **Updraft**: 10 s column, gravity 0.4 inside; recharge costs 15 alimus | **Blizzard** (0.5 s): 9 strikes of 2 over 3 s, 6% freeze each; recharge costs 20 alimus; 20 s | **Snap**: everything frozen shatters for 30 (8 splash); recharge costs 6 alimus | **Stalag-Might** (1 s): 30 dmg + 2 s root; 15 s |
-| **Rogue** | 55 · 110% | Dagger Slash: 9 dmg, 22 px, 5 jabs/s (half with a dagger out); 5% crit ×2 | **Vanish**: 6 s hidden, +50% speed, first blow ×4 (surprise); 12 s | **Dagger Throw**: 18 dmg, sticks in its target | **Recall** (0.4 s): daggers return, tearing out for 9 and yanking the creature | **Expose**: target takes +20% and +10% crit chance for 8 s; 20 s |
-| **Aegis** | 70 · 98% | Ward Bolt: 10.8 dmg every 0.5 s, 60% burst on neighbours, weakens (−10% dmg, 5 s); no healing | **Bubble**: on a friend or you, absorbs 10% of each blow up to 10% of their HP; 20 s | **Barrier** (0.25 s): 14% of the target's max HP as a shield for 15 s; 10 s | **Shared Burden**: take 20% of what gets through a friend's own armour, for 60 s (alone: **Humbling Light**, creatures within 120 px deal 30% less for 3 s; 12 s) | **Share Pain**: take 15% of a chosen friend's blows; 4 s between picks |
-| **Shape Shifter** | 70 · 100% | Staff: 5 dmg, 52 px, every 0.55 s; in a form, the form's attack (15 dmg, +60% Transformation buff) | Dodge roll | **Shift**: become the nearest creature (110 px); press again to drop it; 3 s. **Remember/Recall**: take a remembered form again (1.5 s) | **Form Special**: each form's own trick (bat latch, rat gnaw, spider spray…) | **Pack Howl**: allies +20% move, +15% attack speed for 8 s; 25 s |
-| **Automaton** | 300, 15% armour · 72% | Cleaver: 17.5 dmg, 64 px, every 0.85 s, slam splash 55% | **Brace**: 0.75 s, soaks 70%, punch 22; 2.6 s | **Self-Repair**: burns fuel to mend 10/s for 4 s (healing received becomes fuel); 6 s | **Steam Release**: 96 px cone, 9 dmg + scald 5/s 3 s, big push; aimed down it lifts you; 6 s | **Pressurize** (toggle): ×1.8 dmg, ×1.35 attack, ×1.45 speed, burns 4 fuel/s; 8 s |
-
-## Rewards (where the power comes from)
-
-- **Level-ups**: every level gives a small hero-specific stat gain (e.g. Warden +6 HP, +2.25% dmg, +1.5% guard). Every 8 levels (7/6/5 with the Path) a **milestone point**: a pick of 3 for your hero, always including a side-grade (and Magma Skin from depth 6) while any remain (and a party card online).
-- **Upgrade shrines / wood chests** (treasure rooms, caches high up and under water, mini-bosses): 3 cards: one class card for your hero, two generic. Heals you a little. "Leave it" keeps them for later or a friend.
-- **Relic chests** (silver; hidden chambers, ~relic-chest chance in place of a wood chest): one relic, no choice: take it or leave it.
-- **Relic Collection chests** (teal, three gems; the guardian's party chest, and 15% of relic chests): one relic for each of the party; each hero takes one.
-- **Guardian's hoard** (gold chest, one per player) + a Relic Collection for the party, embers (2, 3 from depth 5, 6 for the dragon) and one meta resource (a Reagent or an Obsidian Pearl).
-- **Vaults** (behind a key-locked gate; a key is hidden in the level or dropped by the first mini-boss): two bargains and one rare class card.
-- **Corrupted chests** (the Null): corrupted cards.
-- **Hornet hive** (Nest): destroying it leaves a wood chest.
-- **Hearts** (creature drops; elites likelier, guardians always): heal. **Potions** (rare drops, and the merchant): 15% at once + 15% over 15 s (improved by the Potion tree); belt of 1 (2 with the tree; 3 only with a Deep Flask found on the way).
-- **Gold**: never on the main floor: dead ends (coins), high platforms, ledges to nowhere, alcoves and raised crevices; piles in the hardest quarter to reach; creatures drop it (7%, elites 40%, guardians a pile of 12). Spent with the merchant.
-- **The merchant's stall** (twice a run, between depths 1 and 9, once he is freed from a cage): 2 cards, a relic, 2 supplies (potion, provisions = 40% heal, a Second Thoughts token), "deal again" for gold, and a **trading stand** where a hero gives a relic they carry to a friend (1 trade a run, +1/+2 from the Path's Trading ranks; it comes back if the friend can't carry it). Prices by rarity: 8 / 14 / 24 / relic 36, +8% per depth.
-- **Second Thoughts** (card rerolls): 1–3 a run from the Path, or a merchant token; deals a chest's or milestone's choice, or the merchant's wares, again.
-- **Hero cages**: free a locked hero (or the merchant). **Journal pages** at guild lamps: lore, a run-long "felt" buff, 1 ember the first time.
-- **Between runs**: embers buy **class perks** (permanent, a few slots per hero) and **meta ranks** (activated with that tree's resource).
-
 ## Hero upgrades and side-grades (by ability)
 
 Class upgrades come in chests (one per chest, for your hero) and milestones; side-grades (alterations) change how an ability works, one per ability, from milestones or the loadout.
@@ -424,79 +386,245 @@ The Null's corrupted chests.
 - **Duplication**: Every potion and key you pick up comes twice. Your maximum health is a third lower.
 - **Null Pointer**: Once each depth, a blow that would kill you leaves you at 1 health and throws you clear. All healing you receive is halved.
 
-## Class perks (bought with embers between runs; a few slots per hero)
+## The Ember Grid (every lasting advancement; embers plus the branch's material)
 
-**Swordsman**
-- **Honed Edge** (2/3/4 embers): +5% damage. → +10% damage. → +15% damage.
-- **Quick Wrists** (2/3/4 embers): Swings come 15% sooner. → Swings come 30% sooner. → Swings come 45% sooner.
-- **Shake it Off** (3 embers): A heaving swing that strikes nothing is ready again in half the time.
-- **Braced** (3 embers): While you heave, you take half damage.
-- **Flow** (3 embers): Your combo chains one more strike from the start.
+Materials come in place of a drop the hero couldn't use: Reagents (a potion with a full belt), Tumblers (a key with full key slots),
+Guild Seals (gold while the purse is full), Relic Dust (a relic salvaged), a hero's Essence (a heart at full health), Obsidian Pearls (guardians, now and then).
 
-**Warden**
-- **Steady Nerve** (3 embers): Perfect blocks are twice as forgiving.
-- **Coyote Shield** (3 embers): Near misses still block: a wider arc, and a grace moment after you lower it.
-- **Iron Skin** (2/3/4 embers): 10% less damage taken. → 20% less damage taken. → 30% less damage taken.
-- **Stout** (2/3/4 embers): +10% health. → +20% health. → +30% health.
+**THE POTION** (Reagent)
 
-**Vitalist**
-- **Sip of Life** (2/3/4 embers): 10% chance for your drain to heal you 1 HP. → 20% chance for your drain to heal you 1 HP. → 30% chance for your drain to heal you 1 HP.
-- **Deep Reserves** (2/3/4 embers): +5 vital force. → +10 vital force. → +15 vital force.
-- **Mending Ward** (2/3/4 embers): Those you've healed take 3% less damage for a while. → Those you've healed take 6% less damage for a while. → Those you've healed take 10% less damage for a while.
-- **Gentle Hands** (2/3/4 embers): Your heal restores 10% more. → Your heal restores 20% more. → Your heal restores 30% more.
-- **Ruinous** (2/3/4 embers): Rupture's burst hurts what's around it 25% more. → Rupture's burst hurts what's around it 50% more. → Rupture's burst hurts what's around it 75% more.
+- **Apothecary** (6 embers, 1 Reagent): Potions heal 5% more at once.
+- ◆ **Second Flask** (16 embers, 2 Reagent): Carry up to 2 potions (a third only from a Deep Flask found on the way).
+- **Quick Draught I** (8 embers, 1 Reagent): Potions heal 10% more at once.
+- **Quick Draught II** (10 embers, 2 Reagent): Potions heal 10% more at once (+20%).
+- **Quick Draught III** (12 embers, 2 Reagent): Potions heal 10% more at once (+30%).
+- **Lingering I** (8 embers, 1 Reagent): Potions heal 10% more over time.
+- **Lingering II** (10 embers, 2 Reagent): Potions heal 10% more over time (+20%).
+- **Lingering III** (12 embers, 2 Reagent): Potions heal 10% more over time (+30%).
+- **Strong Brew I** (10 embers, 2 Reagent): The heal over time takes 2 s less (13 s).
+- **Strong Brew II** (12 embers, 2 Reagent): The heal over time takes 2 s less (11 s).
+- **Strong Brew III** (14 embers, 2 Reagent): The heal over time takes 3 s less (8 s).
+- **Forager I** (10 embers, 2 Reagent): Creatures drop potions 1% more often.
+- **Forager II** (12 embers, 2 Reagent): Another +1% while you carry no potion.
+- ◆ **Shared Draught** (22 embers, 3 Reagent): Drinking a potion heals the friends close by for 40% of what it heals you.
+- ★ **Volatile Brew** (40 embers, 5 Reagent): Drinking a potion bursts about you for 25 damage, but potions heal 15% less.
 
-**Elementalist**
-- **Deep Well** (2/3/4 embers): +5 alimus. → +10 alimus. → +15 alimus.
-- **Attunement** (2/3/4 embers): Alimus comes back 10% faster. → Alimus comes back 20% faster. → Alimus comes back 30% faster.
-- **Quickened** (2/3/4 embers): Bolts fly 5% faster in succession. → Bolts fly 10% faster in succession. → Bolts fly 15% faster in succession.
-- **Kindred Elements** (2/3/4 embers): +5% chance to ignite or freeze. → +10% chance to ignite or freeze. → +15% chance to ignite or freeze.
-- **Wide Weather** (2/3/4 embers): Your storms are 10% wider. → Your storms are 20% wider. → Your storms are 30% wider.
+**THE PATH** (Obsidian Pearl)
 
-**Rogue**
-- **Sharpened Steel** (2/3/4 embers): +5% damage. → +10% damage. → +15% damage.
-- **Killer's Eye** (2/3/4 embers): +3% critical chance. → +6% critical chance. → +9% critical chance.
-- **Quick Draw** (2/3/4 embers): Daggers can be thrown again 10% sooner. → Daggers can be thrown again 20% sooner. → Daggers can be thrown again 30% sooner.
-- **Serrated Edges** (3 embers): A recall has a chance to make what it cuts bleed.
-- **Long Shadows** (2/3/4 embers): Vanish lasts 1 s longer. → Vanish lasts 2 s longer. → Vanish lasts 3 s longer.
+- **Wayfarer** (6 embers, 1 Obsidian Pearl): +3% experience.
+- **Waypoints I** (8 embers, 1 Obsidian Pearl): A milestone pick every 7 levels.
+- **Waypoints II** (10 embers, 2 Obsidian Pearl): A milestone pick every 6 levels.
+- **Waypoints III** (12 embers, 2 Obsidian Pearl): A milestone pick every 5 levels.
+- **Studious I** (8 embers, 1 Obsidian Pearl): +5% experience.
+- **Studious II** (10 embers, 2 Obsidian Pearl): +7% more experience (12%).
+- **Studious III** (12 embers, 2 Obsidian Pearl): +8% more experience (20%).
+- **Trophies I** (10 embers, 2 Obsidian Pearl): +5% experience from elites.
+- **Trophies II** (12 embers, 2 Obsidian Pearl): +7% more from elites (12%).
+- **Trophies III** (14 embers, 2 Obsidian Pearl): +8% more from elites (20%).
+- **Prospecting I** (8 embers, 1 Obsidian Pearl): Gold you find is worth 10% more.
+- **Prospecting II** (10 embers, 2 Obsidian Pearl): Gold you find is worth 20% more.
+- **Prospecting III** (12 embers, 2 Obsidian Pearl): Gold you find is worth 30% more.
+- **Second Thoughts I** (10 embers, 2 Obsidian Pearl): Once a run, reroll the merchant's wares or a choice of cards.
+- **Second Thoughts II** (12 embers, 2 Obsidian Pearl): Twice a run.
+- **Second Thoughts III** (14 embers, 2 Obsidian Pearl): Three times a run.
+- ★ **Ember Pact** (40 embers, 5 Obsidian Pearl): Guardians give 40% more embers, but you take 15% more damage.
 
-**Aegis**
-- **Bulwark Oath** (3 embers): In a party, your second ability is Shared Burden (alone, a Humbling Light). It comes with her, equipped.
-- **Brilliant Bolt** (2/3/4 embers): +5% damage. → +10% damage. → +15% damage.
-- **Stronger Wards** (2/3/4 embers): Barriers and bubbles are 8% stronger. → Barriers and bubbles are 16% stronger. → Barriers and bubbles are 24% stronger.
-- **Ready Hands** (2/3/4 embers): Barrier and bubble come back 10% sooner. → Barrier and bubble come back 20% sooner. → Barrier and bubble come back 30% sooner.
-- **Stout Heart** (2/3/4 embers): What you carry for a friend weighs 15% less on you. → What you carry for a friend weighs 30% less on you. → What you carry for a friend weighs 45% less on you.
-- **Steadfast** (2/3/4 embers): +10% health. → +20% health. → +30% health.
+**KEYS AND VAULTS** (Tumbler)
 
-**ShapeShifter**
-- **Borrowed Strength** (2/3/4 embers): +5% damage. → +10% damage. → +15% damage.
-- **Adaptable** (2/3/4 embers): +10% health. → +20% health. → +30% health.
-- **Quick Study** (2/3/4 embers): Shift comes back 10% sooner. → Shift comes back 20% sooner. → Shift comes back 30% sooner.
-- **Layered Hide** (2/3/4 embers): Forms shrug off 4% more. → Forms shrug off 8% more. → Forms shrug off 12% more.
-- **Long Sight** (2/3/4 embers): Copy creatures 15% farther away. → Copy creatures 30% farther away. → Copy creatures 45% farther away.
+- **Locksmith** (6 embers, 1 Tumbler): Vaults' chests deal their cards a little better: one more class card to choose from.
+- **Key Ring** (8 embers, 1 Tumbler): Carry one more key.
+- **Tumbler's Luck** (8 embers, 1 Tumbler): Opening a vault leaves a Tumbler, half the time.
+- ◆ **Rich Vaults** (19 embers, 3 Tumbler): A vault's chest holds one more bargain to choose from.
+- ◆ **Lockpick** (19 embers, 3 Tumbler): A vault gate you have no key for opens for 40 gold.
+- ★ **Master Key** (38 embers, 5 Tumbler): A vault's chest also holds a relic, but you carry one key fewer.
 
-**Automaton**
-- **Thick Plating** (2/3/4 embers): +10% health. → +20% health. → +30% health.
-- **Ground Edge** (2/3/4 embers): +5% damage. → +10% damage. → +15% damage.
-- **Capacitor** (2/3/4 embers): Hold 10 more fuel, and start with it. → Hold 20 more fuel, and start with it. → Hold 30 more fuel, and start with it.
-- **Induction Coil** (2/3/4 embers): Healing gives 3% more of itself as fuel. → Healing gives 6% more of itself as fuel. → Healing gives 9% more of itself as fuel.
-- **Quick Valve** (2/3/4 embers): Steam Release comes back 10% sooner. → Steam Release comes back 20% sooner. → Steam Release comes back 30% sooner.
+**THE MERCHANT** (Guild Seal; free the merchant to open this branch)
 
-## Meta trees (embers buy a rank; a resource found at a guardian activates it)
+- **Regular** (6 embers, 1 Guild Seal): The merchant's first deal-again at each stall costs nothing.
+- **Fair Dealing I** (8 embers, 1 Guild Seal): The merchant's prices are 5% lower.
+- **Fair Dealing II** (10 embers, 2 Guild Seal): The merchant's prices are 10% lower.
+- **Fair Dealing III** (12 embers, 2 Guild Seal): The merchant's prices are 15% lower.
+- **Trader I** (8 embers, 1 Guild Seal): One more relic trade with a friend at the stand each run (2).
+- **Trader II** (10 embers, 2 Guild Seal): Two more relic trades with a friend each run (3).
+- ◆ **Overstocked** (19 embers, 3 Guild Seal): The merchant has one more thing for sale.
+- ◆ **Regular Route** (19 embers, 3 Guild Seal): His stall is offered three times a run instead of twice.
+- ★ **Merchant's Favor** (40 embers, 5 Guild Seal): A second relic is always on his table, but his cards cost 20% more.
 
-**THE POTION** (Reagents)
-- **Immediate heal**: Quick Draught I (1): Potions heal 10% more at once (+10%). → Quick Draught II (2): Potions heal 10% more at once (+20%). → Quick Draught III (3): Potions heal 10% more at once (+30%).
-- **Heal over time**: Lingering I (1): Potions heal 10% more over time (+10%). → Lingering II (2): Potions heal 10% more over time (+20%). → Lingering III (3): Potions heal 10% more over time (+30%).
-- **Heal speed**: Strong Brew I (1): The heal over time takes 2 s less (13 s). → Strong Brew II (2): The heal over time takes 2 s less (11 s). → Strong Brew III (3): The heal over time takes 3 s less (8 s).
-- **Drop rate**: Forager (1): Enemies drop potions 1% more often (2%). → Desperate Forager (2): Another +1% while you carry no potion.
-- **Potion belt**: Second Flask (1): Carry up to 2 potions (a third only from a lucky find on the way: a Deep Flask).
+**RELICS** (Relic Dust)
 
-**THE PATH** (Obsidian Pearls)
-- **Milestones**: Waypoints I (1): A milestone pick every 7 levels. → Waypoints II (2): A milestone pick every 6 levels. → Waypoints III (3): A milestone pick every 5 levels.
-- **Experience**: Studious I (1): +5% experience. → Studious II (2): +7% more experience (12%). → Studious III (3): +8% more experience (20%).
-- **Elite experience**: Trophies I (1): +5% experience from elites. → Trophies II (2): +7% more from elites (12%). → Trophies III (3): +8% more from elites (20%).
-- **Fair dealing**: Fair Dealing I (1): The merchant's prices are 5% lower. → Fair Dealing II (2): The merchant's prices are 10% lower. → Fair Dealing III (3): The merchant's prices are 15% lower.
-- **Prospecting**: Prospecting I (1): Gold you find is worth 10% more. → Prospecting II (2): Gold you find is worth 20% more. → Prospecting III (3): Gold you find is worth 30% more.
-- **Second thoughts**: Second Thoughts I (1): Once a run, reroll the merchant's wares or a choice of cards. → Second Thoughts II (2): Twice a run, reroll the merchant's wares or a choice of cards. → Second Thoughts III (3): Three times a run, reroll the merchant's wares or a choice of cards.
-- **Trading**: Trader I (1): One more relic trade with a friend at the merchant's stand each run (2). → Trader II (2): Two more relic trades with a friend at the merchant's stand each run (3).
+- **Antiquarian** (6 embers, 1 Relic Dust): Salvaging a relic gives 2 Relic Dust instead of 1.
+- **Relic Sense I** (8 embers, 1 Relic Dust): Relic chests are 3% likelier in place of a shrine.
+- **Relic Sense II** (10 embers, 2 Relic Dust): Another 3% (6%).
+- **Collector** (8 embers, 1 Relic Dust): Relic Collections turn up twice as often.
+- **Discerning I** (10 embers, 2 Relic Dust): A relic chest holds a choice of 2 relics.
+- **Discerning II** (12 embers, 2 Relic Dust): A relic chest holds a choice of 3 relics.
+- ◆ **Heirloom** (19 embers, 3 Relic Dust): Begin every run carrying a random common relic.
+- ★ **Covetous** (40 embers, 5 Relic Dust): Relic chests are 50% likelier, but shrines no longer heal you.
+
+**SWORDSMAN** (Swordsman Essence; free the swordsman to open this branch)
+
+- **Swordsman's Resolve** (6 embers, 1 Swordsman Essence): +5% health.
+- **Honed Edge I** (8 embers, 1 Swordsman Essence): +5% damage.
+- **Honed Edge II** (10 embers, 2 Swordsman Essence): +10% damage.
+- **Honed Edge III** (12 embers, 2 Swordsman Essence): +15% damage.
+- **Quick Wrists I** (10 embers, 2 Swordsman Essence): Swings come 15% sooner.
+- **Quick Wrists II** (12 embers, 2 Swordsman Essence): Swings come 30% sooner.
+- **Quick Wrists III** (14 embers, 2 Swordsman Essence): Swings come 45% sooner.
+- **Shake it Off** (12 embers, 2 Swordsman Essence): A heaving swing that strikes nothing is ready again in half the time.
+- **Braced** (14 embers, 2 Swordsman Essence): While you heave, you take half damage.
+- **Flow** (16 embers, 3 Swordsman Essence): Your combo chains one more strike from the start.
+- ⇄ **Relentless Charge** (14 embers, 2 Swordsman Essence): Side-grade for your loadout (Charged Strike): Your Charged Strike empowers your whole next combo, at 80% strength: +40% damage and +20% reach on every strike.
+- ⇄ **Swift Heave** (16 embers, 3 Swordsman Essence): Side-grade for your loadout (Heaving Swing): With a Charged Strike waiting, your heave spends it on speed instead of force: no wind-up, and you can heave in the air.
+- ⇄ **Counter Dash** (18 embers, 3 Swordsman Essence): Side-grade for your loadout (Dash Slash): Dashing into a melee blow ends the dash, stops all of that blow and swings back at the attacker.
+- ⇄ **Dash Through** (20 embers, 3 Swordsman Essence): Side-grade for your loadout (Dash Slash): Your dash-slash goes through the first creature it meets instead of stopping at it, and you turn, once clear of it, to slash it from behind (1.5 times a strike).
+- ★ **Reckless Edge** (40 embers, 5 Swordsman Essence): +20% damage, but your dash-slash comes back 25% slower.
+
+**WARDEN** (Warden Essence; free the warden to open this branch)
+
+- **Warden's Resolve** (6 embers, 1 Warden Essence): +5% health.
+- **Steady Nerve** (8 embers, 1 Warden Essence): Perfect blocks are twice as forgiving.
+- **Coyote Shield** (10 embers, 2 Warden Essence): Near misses still block: a wider arc, and a grace moment after you lower it.
+- **Iron Skin I** (12 embers, 2 Warden Essence): 10% less damage taken.
+- **Iron Skin II** (14 embers, 2 Warden Essence): 20% less damage taken.
+- **Iron Skin III** (16 embers, 3 Warden Essence): 30% less damage taken.
+- **Stout I** (14 embers, 2 Warden Essence): +10% health.
+- **Stout II** (16 embers, 3 Warden Essence): +20% health.
+- **Stout III** (18 embers, 3 Warden Essence): +30% health.
+- ⇄ **Unyielding Shield** (14 embers, 2 Warden Essence): Side-grade for your loadout (Shield): Your shield never weakens or breaks, but stops only 70% of each blow (a perfect block still stops it all).
+- ⇄ **Guardian's Charge** (16 embers, 3 Warden Essence): Side-grade for your loadout (Guarded Charge): Your Guarded Charge rushes to the friend nearest your aim and wraps them in a barrier that soaks 20 damage for 2 s (alone, it wraps you).
+- ⇄ **Deflecting Bash** (18 embers, 3 Warden Essence): Side-grade for your loadout (Shield Bash): Your shield bash no longer stuns: instead it sends every projectile in a wide arc in front back where it came from.
+- ★ **Living Wall** (36 embers, 5 Warden Essence): Your shield is 25% stronger, but you move 10% slower.
+
+**VITALIST** (Vitalist Essence; free the vitalist to open this branch)
+
+- **Vitalist's Resolve** (6 embers, 1 Vitalist Essence): +5% health.
+- **Sip of Life I** (8 embers, 1 Vitalist Essence): 10% chance for your drain to heal you 1 HP.
+- **Sip of Life II** (10 embers, 2 Vitalist Essence): 20% chance for your drain to heal you 1 HP.
+- **Sip of Life III** (12 embers, 2 Vitalist Essence): 30% chance for your drain to heal you 1 HP.
+- **Deep Reserves I** (10 embers, 2 Vitalist Essence): +5 vital force.
+- **Deep Reserves II** (12 embers, 2 Vitalist Essence): +10 vital force.
+- **Deep Reserves III** (14 embers, 2 Vitalist Essence): +15 vital force.
+- **Mending Ward I** (12 embers, 2 Vitalist Essence): Those you've healed take 3% less damage for a while.
+- **Mending Ward II** (14 embers, 2 Vitalist Essence): Those you've healed take 6% less damage for a while.
+- **Mending Ward III** (16 embers, 3 Vitalist Essence): Those you've healed take 10% less damage for a while.
+- **Gentle Hands I** (14 embers, 2 Vitalist Essence): Your heal restores 10% more.
+- **Gentle Hands II** (16 embers, 3 Vitalist Essence): Your heal restores 20% more.
+- **Gentle Hands III** (18 embers, 3 Vitalist Essence): Your heal restores 30% more.
+- **Ruinous I** (16 embers, 3 Vitalist Essence): Rupture's burst hurts what's around it 25% more.
+- **Ruinous II** (18 embers, 3 Vitalist Essence): Rupture's burst hurts what's around it 50% more.
+- **Ruinous III** (20 embers, 3 Vitalist Essence): Rupture's burst hurts what's around it 75% more.
+- ⇄ **Blight Burst** (14 embers, 2 Vitalist Essence): Side-grade for your loadout (Hex): Your hex also deals 8 damage to everything it reaches, but slows and weakens half as much.
+- ⇄ **Lifebloom** (16 embers, 3 Vitalist Essence): Side-grade for your loadout (Rupture): Your rupture blooms on a friend instead of a creature (alone, on you): it heals them 30, and everyone else in the burst 10.
+- ★ **Blood Price** (40 embers, 5 Vitalist Essence): Your heals are 30% stronger, but cost 20% more vital force.
+
+**ELEMENTALIST** (Elementalist Essence; free the elementalist to open this branch)
+
+- **Elementalist's Resolve** (6 embers, 1 Elementalist Essence): +5% health.
+- **Deep Well I** (8 embers, 1 Elementalist Essence): +5 alimus.
+- **Deep Well II** (10 embers, 2 Elementalist Essence): +10 alimus.
+- **Deep Well III** (12 embers, 2 Elementalist Essence): +15 alimus.
+- **Attunement I** (10 embers, 2 Elementalist Essence): Alimus comes back 10% faster.
+- **Attunement II** (12 embers, 2 Elementalist Essence): Alimus comes back 20% faster.
+- **Attunement III** (14 embers, 2 Elementalist Essence): Alimus comes back 30% faster.
+- **Quickened I** (12 embers, 2 Elementalist Essence): Bolts fly 5% faster in succession.
+- **Quickened II** (14 embers, 2 Elementalist Essence): Bolts fly 10% faster in succession.
+- **Quickened III** (16 embers, 3 Elementalist Essence): Bolts fly 15% faster in succession.
+- **Kindred Elements I** (14 embers, 2 Elementalist Essence): +5% chance to ignite or freeze.
+- **Kindred Elements II** (16 embers, 3 Elementalist Essence): +10% chance to ignite or freeze.
+- **Kindred Elements III** (18 embers, 3 Elementalist Essence): +15% chance to ignite or freeze.
+- **Wide Weather I** (16 embers, 3 Elementalist Essence): Your storms are 10% wider.
+- **Wide Weather II** (18 embers, 3 Elementalist Essence): Your storms are 20% wider.
+- **Wide Weather III** (20 embers, 3 Elementalist Essence): Your storms are 30% wider.
+- ⇄ **Frostbolt** (14 embers, 2 Elementalist Essence): Side-grade for your loadout (Firebolt): Your bolts are frost instead of fire: 10 damage a bolt, the staff holds four and gets one back every second, each slowing what it strikes by 30% for 2 s, with a 20% chance of freezing a creature solid for 3 s (never a mini-boss, guardian or boss).
+- ⇄ **Firestorm** (16 embers, 3 Elementalist Essence): Side-grade for your loadout (Blizzard): Your blizzard is a storm of fire: 3 damage a strike, each with a 10% chance of setting a creature alight (but it freezes nothing).
+- ⇄ **Cinder Snap** (18 embers, 3 Elementalist Essence): Side-grade for your loadout (Snap): Your snap no longer puts out the burning creatures it bursts (they keep burning), but comes back 2 s later.
+- ★ **Overflowing Well** (40 embers, 5 Elementalist Essence): Hold 30 more alimus, but it comes back 15% slower.
+
+**ROGUE** (Rogue Essence; free the rogue to open this branch)
+
+- **Rogue's Resolve** (6 embers, 1 Rogue Essence): +5% health.
+- **Sharpened Steel I** (8 embers, 1 Rogue Essence): +5% damage.
+- **Sharpened Steel II** (10 embers, 2 Rogue Essence): +10% damage.
+- **Sharpened Steel III** (12 embers, 2 Rogue Essence): +15% damage.
+- **Killer's Eye I** (10 embers, 2 Rogue Essence): +3% critical chance.
+- **Killer's Eye II** (12 embers, 2 Rogue Essence): +6% critical chance.
+- **Killer's Eye III** (14 embers, 2 Rogue Essence): +9% critical chance.
+- **Quick Draw I** (12 embers, 2 Rogue Essence): Daggers can be thrown again 10% sooner.
+- **Quick Draw II** (14 embers, 2 Rogue Essence): Daggers can be thrown again 20% sooner.
+- **Quick Draw III** (16 embers, 3 Rogue Essence): Daggers can be thrown again 30% sooner.
+- **Serrated Edges** (14 embers, 2 Rogue Essence): A recall has a chance to make what it cuts bleed.
+- **Long Shadows I** (16 embers, 3 Rogue Essence): Vanish lasts 1 s longer.
+- **Long Shadows II** (18 embers, 3 Rogue Essence): Vanish lasts 2 s longer.
+- **Long Shadows III** (20 embers, 3 Rogue Essence): Vanish lasts 3 s longer.
+- ⇄ **Ricochet** (14 embers, 2 Rogue Essence): Side-grade for your loadout (Dagger Throw): A thrown dagger springs on from the creature it strikes to one more nearby, marking each (it still sticks in walls, never in creatures). Recall flings a poison pin at every marked creature.
+- ⇄ **Smoke Bomb** (16 embers, 3 Rogue Essence): Side-grade for your loadout (Vanish): Instead of vanishing alone, you throw down a cloud of smoke for 6 s: every hero in it is hidden, and creatures in it can't find anyone.
+- ⇄ **Tether** (18 embers, 3 Rogue Essence): Side-grade for your loadout (Recall): Recall pulls you to your dagger stuck in a creature (striking it as you arrive) instead of pulling the dagger to you.
+- ★ **Shadow Pact** (40 embers, 5 Rogue Essence): Vanish lasts 2 s longer, but you have 15% less health.
+
+**AEGIS** (Aegis Essence; free the aegis to open this branch)
+
+- **Bulwark Oath** (0 embers, 0 Aegis Essence): In a party, your second ability is Shared Burden (alone, a Humbling Light). Yours from the start.
+- **Brilliant Bolt I** (8 embers, 1 Aegis Essence): +5% damage.
+- **Brilliant Bolt II** (10 embers, 2 Aegis Essence): +10% damage.
+- **Brilliant Bolt III** (12 embers, 2 Aegis Essence): +15% damage.
+- **Stronger Wards I** (10 embers, 2 Aegis Essence): Barriers and bubbles are 8% stronger.
+- **Stronger Wards II** (12 embers, 2 Aegis Essence): Barriers and bubbles are 16% stronger.
+- **Stronger Wards III** (14 embers, 2 Aegis Essence): Barriers and bubbles are 24% stronger.
+- **Ready Hands I** (12 embers, 2 Aegis Essence): Barrier and bubble come back 10% sooner.
+- **Ready Hands II** (14 embers, 2 Aegis Essence): Barrier and bubble come back 20% sooner.
+- **Ready Hands III** (16 embers, 3 Aegis Essence): Barrier and bubble come back 30% sooner.
+- **Stout Heart I** (14 embers, 2 Aegis Essence): What you carry for a friend weighs 15% less on you.
+- **Stout Heart II** (16 embers, 3 Aegis Essence): What you carry for a friend weighs 30% less on you.
+- **Stout Heart III** (18 embers, 3 Aegis Essence): What you carry for a friend weighs 45% less on you.
+- **Steadfast I** (16 embers, 3 Aegis Essence): +10% health.
+- **Steadfast II** (18 embers, 3 Aegis Essence): +20% health.
+- **Steadfast III** (20 embers, 3 Aegis Essence): +30% health.
+- ⇄ **Wide Barrier** (14 embers, 2 Aegis Essence): Side-grade for your loadout (Barrier): Your barrier falls on every friend near you, and on you, each at 60% of its strength.
+- ⇄ **Foe's Burden** (16 embers, 3 Aegis Essence): Side-grade for your loadout (Shared Burden): Your second ability lays its burden on a creature instead: for 12 s a quarter of every blow you take falls on it. It comes back in 6 s.
+- ⇄ **Burden of Many** (18 embers, 3 Aegis Essence): Side-grade for your loadout (Shared Burden): The friend you burden shares 20% of what they take with everyone near them (you among them).
+- ★ **Martyr's Vow** (40 embers, 5 Aegis Essence): Your wards are 25% stronger, but you take 10% more damage.
+
+**SHAPE SHIFTER** (Shape Shifter Essence; free the shape shifter to open this branch)
+
+- **Shape Shifter's Resolve** (6 embers, 1 Shape Shifter Essence): +5% health.
+- **Borrowed Strength I** (8 embers, 1 Shape Shifter Essence): +5% damage.
+- **Borrowed Strength II** (10 embers, 2 Shape Shifter Essence): +10% damage.
+- **Borrowed Strength III** (12 embers, 2 Shape Shifter Essence): +15% damage.
+- **Adaptable I** (10 embers, 2 Shape Shifter Essence): +10% health.
+- **Adaptable II** (12 embers, 2 Shape Shifter Essence): +20% health.
+- **Adaptable III** (14 embers, 2 Shape Shifter Essence): +30% health.
+- **Quick Study I** (12 embers, 2 Shape Shifter Essence): Shift comes back 10% sooner.
+- **Quick Study II** (14 embers, 2 Shape Shifter Essence): Shift comes back 20% sooner.
+- **Quick Study III** (16 embers, 3 Shape Shifter Essence): Shift comes back 30% sooner.
+- **Layered Hide I** (14 embers, 2 Shape Shifter Essence): Forms shrug off 4% more.
+- **Layered Hide II** (16 embers, 3 Shape Shifter Essence): Forms shrug off 8% more.
+- **Layered Hide III** (18 embers, 3 Shape Shifter Essence): Forms shrug off 12% more.
+- **Long Sight I** (16 embers, 3 Shape Shifter Essence): Copy creatures 15% farther away.
+- **Long Sight II** (18 embers, 3 Shape Shifter Essence): Copy creatures 30% farther away.
+- **Long Sight III** (20 embers, 3 Shape Shifter Essence): Copy creatures 45% farther away.
+- ⇄ **Rending Forms** (14 embers, 2 Shape Shifter Essence): Side-grade for your loadout (Forms): What a form's attacks hit bleeds for half the damage over 3 s.
+- ★ **Feral Heart** (40 embers, 5 Shape Shifter Essence): Every form hits 20% harder, but your staff hits 30% softer.
+
+**AUTOMATON** (Automaton Essence; free the automaton to open this branch)
+
+- **Automaton's Resolve** (6 embers, 1 Automaton Essence): +5% health.
+- **Thick Plating I** (8 embers, 1 Automaton Essence): +10% health.
+- **Thick Plating II** (10 embers, 2 Automaton Essence): +20% health.
+- **Thick Plating III** (12 embers, 2 Automaton Essence): +30% health.
+- **Ground Edge I** (10 embers, 2 Automaton Essence): +5% damage.
+- **Ground Edge II** (12 embers, 2 Automaton Essence): +10% damage.
+- **Ground Edge III** (14 embers, 2 Automaton Essence): +15% damage.
+- **Capacitor I** (12 embers, 2 Automaton Essence): Hold 10 more fuel, and start with it.
+- **Capacitor II** (14 embers, 2 Automaton Essence): Hold 20 more fuel, and start with it.
+- **Capacitor III** (16 embers, 3 Automaton Essence): Hold 30 more fuel, and start with it.
+- **Induction Coil I** (14 embers, 2 Automaton Essence): Healing gives 3% more of itself as fuel.
+- **Induction Coil II** (16 embers, 3 Automaton Essence): Healing gives 6% more of itself as fuel.
+- **Induction Coil III** (18 embers, 3 Automaton Essence): Healing gives 9% more of itself as fuel.
+- **Quick Valve I** (16 embers, 3 Automaton Essence): Steam Release comes back 10% sooner.
+- **Quick Valve II** (18 embers, 3 Automaton Essence): Steam Release comes back 20% sooner.
+- **Quick Valve III** (20 embers, 3 Automaton Essence): Steam Release comes back 30% sooner.
+- ⇄ **Scrap Reclaimer** (14 embers, 2 Automaton Essence): Side-grade for your loadout (Self-Repair): Every creature you destroy gives you 10 fuel, but healing gives you none.
+- ⇄ **Scalding Steam** (16 embers, 3 Automaton Essence): Side-grade for your loadout (Steam Release): Your steam no longer shoves creatures; it scalds them, and they burn for 3 s.
+- ⇄ **Full Plate** (18 embers, 3 Automaton Essence): Side-grade for your loadout (Brace): Braced, you soften blows from behind as well as in front, but no longer counter-punch.
+- ★ **Overclocked** (40 embers, 5 Automaton Essence): You swing 15% faster, but hold 25 less fuel.
 

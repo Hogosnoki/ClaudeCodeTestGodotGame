@@ -83,8 +83,9 @@ public partial class Main
         p.Stats.MoveSpeed /= 2.05f; p.Gold = 0;
 
         // ---- side-grades, a hero freed, the dragon
-        foreach (var u in Upgrades.Chest.Where(u => u.Alteration && u.For != null && u.For.Contains(HeroKind.Warden))) Achievements.CardTaken(u, HeroKind.Warden);
-        ScCheck("every Warden side-grade taken: Competent Warden!", Achievements.Has("competent_warden"));
+        foreach (var n in HexGrid.Nodes.Where(n => n.Kind == HexKind.SideGrade && n.Branch.Hero == HeroKind.Warden)) HexGrid.Owned.Add(n.Id);
+        Achievements.CheckState();
+        ScCheck("every Warden side-grade hex owned on the Ember Grid: Competent Warden!", Achievements.Has("competent_warden"));
         Achievements.Freed(HeroKind.Rogue);
         ScCheck("the Rogue freed: Freed the Rogue!", Achievements.Has("freed_rogue"));
         Achievements.GuardianSlain("THE ELDER DRAGON", true, p.GlobalPosition, p);

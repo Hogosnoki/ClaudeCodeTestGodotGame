@@ -1112,6 +1112,17 @@ public static class Tune
         public static int SealPurse = 150;
         /// <summary>A Guild Seal from gold no more than once in this many seconds (a pile is many coins).</summary>
         public static float SealGap = 8f;
+        /// <summary>Of a milestone offering a "Back to..." card while the loadout has changed one of the hero's abilities.</summary>
+        public static float RevertChance = 0.5f;
+        /// <summary>Shared Draught: friends this close are healed this share of what a potion heals you at once. Volatile Brew: its burst.</summary>
+        public static float SharedDraughtRange = 120f, SharedDraughtShare = 0.4f, VolatileRadius = 80f, VolatileDamage = 25f;
+        /// <summary>Lockpick: a vault gate opens without a key for this much gold. Tumbler's Luck: of a vault opened leaving a Tumbler.</summary>
+        public static int LockpickGold = 40;
+        public static float TumblerLuck = 0.5f;
+        /// <summary>Relic Sense / Covetous: how much likelier a relic chest is (added to its chance in place of a shrine; Covetous multiplies).</summary>
+        public static float RelicSense = 0.03f, Covetous = 1.5f;
+        /// <summary>Merchant's Favor: his cards cost this much more.</summary>
+        public static float FavorCardMult = 1.2f;
     }
 
     /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one
