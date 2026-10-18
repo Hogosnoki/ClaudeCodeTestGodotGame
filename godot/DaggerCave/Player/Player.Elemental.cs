@@ -6,29 +6,33 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The elemental kits (<see cref="Elements"/>): an element is readied with its button (1, 2, 3; the d-pad), and the next attack
-/// spends it. The Swordsman (earth, fire, frost): his Swing (the attack) is a plain combo, or with an element the Heaving Swing,
-/// Pyre Strike or Razor Ice; the Hard Swing (the second ability) is a plain heavy blow, or ThunderCrush, Pyroclasm or Ice Axe; Empower
-/// Hilt (the ability) lends his blows its element for a while. The Elementalist (fire, frost, wind): Missile (the attack: plain,
-/// Firebolt, Frostbolt or Gust, an element lasting a few bolts), Extended (the ability: a storm of force, a Firestorm, a Blizzard or a
-/// Cyclone), Burst (the second ability: a pulse, Detonate, Shatter or a gusting blast) and Aid (the dodge button: the updraft, or Kindling,
-/// Frost Armor or Narrow Draft for the party). Each version rests its ability for its own time (<see cref="Tune.ElementalSword"/>,
-/// <see cref="Tune.ElementalStaff"/>).
+/// The elemental kits (<see cref="Elements"/>): an element is readied with its button (1, 2, 3; the d-pad), and the next use of a
+/// button spends it on that button's version (<see cref="Elements.SingleName"/>; two charges, the pair's, <see cref="Elements.DualName"/>).
+/// The Swordsman (earth, fire, frost): Swing (the attack: the Heaving Swing, Searing Strike, Razor Ice), the jump (Earthfall, Explosive
+/// Lunge, Glacial Vault), the Hard Swing (ThunderCrush, Pyroclasty, Ice Axe; the duals, <c>Player.Duals.cs</c>) and Empower Hilt (its
+/// element on every blow for a while). The Elementalist (fire, frost, wind): the bolt (the attack: Firebolt, Frostbolt, Gust, an element
+/// lasting a few bolts), movement (the dodge button: Lift, Fire Walk, Tundra, Updraft), the fixed-range spell (the Burst button: Force
+/// Blast, Burst, Snap, Cyclone) and Aid (the Extended button: Ward, Kindling, Frost Armor, Narrow Draft). Each version rests its button for
+/// its own time (<see cref="Tune.ElementalSword"/>, <see cref="Tune.ElementalStaff"/>).
 /// </summary>
 public partial class Player
 {
     /// <summary>This hero fights with elements (not the classic kit).</summary>
     public bool Elemental => Elements.On(Stats.Hero);
-    /// <summary>The readied charges, oldest first (up to <see cref="Tune.Dual.MaxCharges"/>): an attack spends the oldest; the Hard Swing
-    /// (the Swordsman) and Burst (the Elementalist) spend two at once for the pair's ability (<see cref="Elements.DualName"/>).</summary>
+    /// <summary>The readied charges, oldest first (up to <see cref="Tune.Dual.MaxCharges"/>): a button spends the oldest, or both for the
+    /// pair's ability where the pair has one on that button (<see cref="Elements.DualName"/>).</summary>
     private readonly List<HeroElement> _charges = new();
     public IReadOnlyList<HeroElement> Charges => _charges;
     /// <summary>The element the next attack spends (none: the attack is plain).</summary>
     public HeroElement Infused => _charges.Count > 0 ? _charges[0] : HeroElement.None;
-    /// <summary>Two charges are readied: the dual ability waits on its button.</summary>
+    /// <summary>Two charges are readied: the dual abilities wait on their buttons.</summary>
     public bool DualReady => _charges.Count >= 2;
-    /// <summary>The name of the ability the readied pair makes ("" without two).</summary>
-    public string DualReadyName => DualReady ? Elements.DualName(Stats.Hero, _charges[0], _charges[1]) : "";
+    /// <summary>The ability the readied pair makes on a button ("" without two, or where the pair has none there).</summary>
+    public string DualNameFor(ElemSlot slot) => DualReady ? Elements.DualName(Stats.Hero, slot, _charges[0], _charges[1]) : "";
+    /// <summary>What the button would do now (for the HUD): the pair's ability, or the oldest charge's version, or the plain one.</summary>
+    public string NameFor(ElemSlot slot) { var d = DualNameFor(slot); return d != "" ? d : Elements.SingleName(Stats.Hero, slot, Infused); }
+    /// <summary>Some button has an ability for the readied pair.</summary>
+    private bool AnyDual => DualReady && (DualNameFor(ElemSlot.Attack) != "" || DualNameFor(ElemSlot.Move) != "" || DualNameFor(ElemSlot.Heavy) != "");
     private float _infuseT;
     /// <summary>For the tests: elemental versions used, by name.</summary>
     public readonly List<string> ElementalUses = new();
@@ -50,9 +54,9 @@ public partial class Player
         _infuseT = Tune.Elements.InfuseSeconds;
         var col = Elements.ColorOf(el);
         G.Fx.Ring(GlobalPosition + new Vector2(0, -6), _charges.Count > 1 ? 20 : 14, new Color(col, 0.9f), 0.25f, FxLayer.RingStyle.Burst);
-        string dual = DualReadyName;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -30), dual != "" ? dual.ToUpperInvariant() : Elements.Name(el).ToUpperInvariant(),
-            dual != "" ? Elements.DualColor(_charges[0], _charges[1]) : col, dual != "" ? 11 : 10, 0.7f);
+        bool dual = AnyDual;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), dual ? $"{Elements.Name(_charges[0])}+{Elements.Name(_charges[1])}".ToUpperInvariant() : Elements.Name(el).ToUpperInvariant(),
+            dual ? Elements.DualColor(_charges[0], _charges[1]) : col, dual ? 11 : 10, 0.7f);
         G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "rock", GlobalPosition, -10, 0.05f, _charges.Count > 1 ? 1.15f : 1.5f);
         Anim.Flash(0.2f);
         Anim.FlashColor = col;
@@ -98,6 +102,9 @@ public partial class Player
         }
         TickDuals(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
+        if (_jumpElemRest > 0) _jumpElemRest -= dt;
+        if (_lungeLeapT > 0) _lungeLeapT -= dt;
+        if (_dualBoltCd > 0) _dualBoltCd -= dt;
         if (_hiltT > 0 && (_hiltT -= dt) <= 0) _hiltEl = HeroElement.None;
         if (_hiltT > 0 && Engine.GetPhysicsFrames() % 5 == 0)
         {
@@ -153,7 +160,7 @@ public partial class Player
         StartSwing(aim);
         _swingDmg *= Tune.ElementalSword.MediumDamage;
         _swingEl = el; _swingBuild = Tune.ElementalSword.MediumBuild;
-        Used(el == HeroElement.Fire ? "Pyre Strike" : "Razor Ice");
+        Used(el == HeroElement.Fire ? "Searing Strike" : "Razor Ice");
         return true;
     }
 
@@ -163,7 +170,7 @@ public partial class Player
         if (_heaveCd > HeaveSpareTime || Heaving) return false;
         if (InWater || !IsOnFloor()) { _heaveWanted = true; return false; }
         _heaveWanted = false;
-        if (DualReady) return DualSword(aim);
+        if (DualNameFor(ElemSlot.Heavy) != "") return DualSword(aim);
         var el = SpendElement();
         _lastEl = el;
         float rest, dmg, wind = 1f;
@@ -171,7 +178,7 @@ public partial class Player
         switch (el)
         {
             case HeroElement.Earth: rest = Tune.ElementalSword.CrushRest; dmg = Tune.ElementalSword.CrushDamage; wind = Tune.ElementalSword.CrushWindup; name = "ThunderCrush"; break;
-            case HeroElement.Fire: rest = Tune.ElementalSword.PyroRest; dmg = Tune.ElementalSword.PyroDamage; name = "Pyroclasm"; break;
+            case HeroElement.Fire: rest = Tune.ElementalSword.PyroRest; dmg = Tune.ElementalSword.PyroDamage; name = "Pyroclasty"; break;
             case HeroElement.Frost: rest = Tune.ElementalSword.AxeRest; dmg = Tune.ElementalSword.AxeDamage; name = "Ice Axe"; break;
             default: rest = Tune.ElementalSword.HardRest; dmg = Tune.ElementalSword.HardDamage; name = "Hard Swing"; break;
         }
@@ -241,26 +248,149 @@ public partial class Player
     /// <summary>How much harder a blade blow lands from a plain Empower Hilt.</summary>
     private float HiltDamageMult => Elemental && _hiltT > 0 && _hiltEl == HeroElement.None ? 1f + Tune.ElementalSword.HiltDamage : 1f;
 
+    // ================================================================== the Swordsman's jump
+
+    /// <summary>The jump's element rests (the next jump is plain and the charge waits), the leap's carry, and Earthfall waiting to land.</summary>
+    private float _jumpElemRest, _lungeLeapT, _lungeLeapVX;
+    private bool _earthfall;
+    private float _jumpRestTotal = 1f;
+    /// <summary>An elemental lift (Lift, Frost Tower): the speed upward the movement this frame begins from.</summary>
+    private float? _liftTo;
+    public float JumpElementRest => Math.Max(0f, _jumpElemRest);
+    public float JumpElementRestFrac => Math.Clamp(_jumpElemRest / _jumpRestTotal, 0f, 1f);
+
+    /// <summary>A jump from the ground: with an element readied (and its rest over), its version. Returns the jump's velocity.</summary>
+    private Vector2 ElementJump(Vector2 v, float jumpV, in PlayerInput inp)
+    {
+        if (!Elemental || Stats.Hero != HeroKind.Swordsman || Infused == HeroElement.None || _jumpElemRest > 0 || InWater) return v;
+        var el = SpendElement();
+        _lastEl = el;
+        float power = Stats.DamageMult, blow = BaseDamage * power;
+        var feet = GlobalPosition + new Vector2(0, 12);
+        var col = Elements.ColorOf(el);
+        switch (el)
+        {
+            case HeroElement.Fire:
+            {
+                // Explosive Lunge: the ground bursts behind you and throws you far forward
+                _jumpElemRest = _jumpRestTotal = Tune.ElementalSword.LungeRest;
+                float dir = Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing;
+                Facing = dir;
+                Anim.Face((int)Facing, instant: true);
+                _lungeLeapVX = dir * Tune.ElementalSword.LungeSpeed;
+                _lungeLeapT = Tune.ElementalSword.LungeCarry;
+                v = new Vector2(_lungeLeapVX, -jumpV * Tune.ElementalSword.LungeLift);
+                foreach (var e in G.Enemies.ToArray())
+                {
+                    if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(feet) > Tune.ElementalSword.LungeRadius + e.HitRadius) continue;
+                    var away = (e.GlobalPosition - feet).Normalized();
+                    float d = e.Hurt(blow * Tune.ElementalSword.LungeDamage, away * 160f, e.GlobalPosition, DamageKind.Fire);
+                    if (d > 0) OnDealtDamage(d);
+                    if (!e.Dead) e.Build(HeroElement.Fire, Tune.ElementalSword.LungeBuild, power, this);
+                }
+                GasCloud.IgniteAt(feet, Tune.ElementalSword.LungeRadius);
+                G.Fx.Explosion(feet + new Vector2(-dir * 8, -4), col, 0.7f);
+                G.Fx.Directional(feet, new Vector2(-dir, -0.3f).Normalized(), 0.5f, col, 14, 260, 2.6f, 0.4f, 200, 0);
+                G.Fx.AddShake(2.5f);
+                G.Sfx.Play("lava", feet, -2, 0.05f, 1.1f);
+                Afterimage.Spawn(Anim, col, 0.25f);
+                break;
+            }
+            case HeroElement.Frost:
+            {
+                // Glacial Vault: a spike of ice shoots up under you and throws you high; what stands beside you is caught by it
+                _jumpElemRest = _jumpRestTotal = Tune.ElementalSword.VaultRest;
+                v.Y = -jumpV * Tune.ElementalSword.VaultJump;
+                foreach (var e in G.Enemies.ToArray())
+                {
+                    if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(feet) > Tune.ElementalSword.VaultRadius + e.HitRadius) continue;
+                    float d = e.Hurt(blow * Tune.ElementalSword.VaultDamage, new Vector2(0, -80f), e.GlobalPosition, DamageKind.Frost);
+                    if (d > 0) OnDealtDamage(d);
+                    if (!e.Dead) e.Build(HeroElement.Frost, Tune.ElementalSword.VaultBuild, power, this);
+                }
+                G.Fx.Directional(feet, Vector2.Up, 0.15f, new Color(0.92f, 0.98f, 1f), 18, 420, 3f, 0.4f, 300, 0);
+                G.Fx.Ring(feet, Tune.ElementalSword.VaultRadius, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
+                G.Sfx.Play("clink", feet, -2, 0.05f, 0.7f);
+                break;
+            }
+            case HeroElement.Earth:
+                // Earthfall: an ordinary leap, but you come down like a rock (see ElementLanded)
+                _jumpElemRest = _jumpRestTotal = Tune.ElementalSword.FallRest;
+                _earthfall = true;
+                G.Fx.Debris(feet, col, 6, 140);
+                break;
+        }
+        Used(Elements.SingleName(Stats.Hero, ElemSlot.Move, el));
+        return v;
+    }
+
+    /// <summary>The leap's carry: for a moment after an Explosive Lunge, it keeps its speed through the air.</summary>
+    private Vector2 LeapCarry(Vector2 v, bool onFloor)
+    {
+        if (_lungeLeapT <= 0) return v;
+        if (onFloor && _lungeLeapT < Tune.ElementalSword.LungeCarry - 0.1f) { _lungeLeapT = 0; return v; }
+        // (embers streaming off the leap)
+        if (Engine.GetPhysicsFrames() % 2 == 0) G.Fx.Ember(GlobalPosition + G.RandDir() * 6, Elements.ColorOf(HeroElement.Fire));
+        return new Vector2(_lungeLeapVX, v.Y);
+    }
+
+    /// <summary>Back on the ground: an Earthfall lands, in a shockwave the harder the fall.</summary>
+    private void ElementLanded(float fallSpeed)
+    {
+        if (!_earthfall) return;
+        _earthfall = false;
+        var feet = GlobalPosition + new Vector2(0, 12);
+        float power = Stats.DamageMult;
+        float hard = 1f + Math.Clamp((fallSpeed - 300f) / 600f, 0f, 1.5f);
+        float r = Tune.ElementalSword.FallRadius * (0.85f + 0.15f * hard);
+        var col = Elements.ColorOf(HeroElement.Earth);
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(feet) > r + e.HitRadius) continue;
+            var away = new Vector2(Math.Sign(e.GlobalPosition.X - feet.X), -0.8f).Normalized();
+            float d = e.Hurt(BaseDamage * power * Tune.ElementalSword.FallDamage * hard, away * 120f, e.GlobalPosition, DamageKind.Physical);
+            if (d > 0) OnDealtDamage(d);
+            if (e.Dead) continue;
+            e.Build(HeroElement.Earth, Tune.ElementalSword.FallBuild * hard, power, this);
+            e.Shove(away * Tune.ElementalSword.FallToss);
+        }
+        Breakables.SpellBurst(feet, r * 0.5f);
+        foreach (var rb in Rubble.All.ToArray()) if (IsInstanceValid(rb) && !rb.Cleared && rb.GlobalPosition.DistanceTo(feet) < r) rb.Strike(feet);
+        G.Fx.Shockwave(feet, r, new Color(col, 0.75f), 0.35f);
+        G.Fx.Debris(feet, col.Darkened(0.2f), 16, 260);
+        G.Fx.Dust(feet, 12, 2.4f);
+        G.Fx.AddShake(3f + 2f * hard);
+        G.Main.Rumble(0.5f, 0.7f, 0.18f);
+        G.Sfx.Play("slam", feet, -2, 0.05f, 0.85f);
+        ElementalUses.Add("Earthfall!");
+    }
+
     // ================================================================== the Elementalist
 
     private HeroElement _missileEl;
     private int _missileShots;
-    private float _snapCdTotal = 1f, _updraftCdTotal = 1f;
+    private float _snapCdTotal = 1f, _updraftCdTotal = 1f, _dualBoltCd, _dualBoltTotal = 1f;
     /// <summary>For the HUD: the element on the staff's bolts, and how many are left of it.</summary>
     public HeroElement MissileElement => _missileShots > 0 ? _missileEl : HeroElement.None;
     public int MissileShots => _missileShots;
-    public float BurstCooldownFrac => Math.Clamp(_snapCd / Math.Max(0.01f, _snapCdTotal), 0, 1);
-    public float AidCooldownFrac => Math.Clamp(_updraftCd / Math.Max(0.01f, _updraftCdTotal), 0, 1);
-    /// <summary>For the HUD: the ability's rest (its own time for the version used), 0 = a use is ready.</summary>
+    /// <summary>For the HUD: the rests of the fixed-range spell, movement, a dual bolt, and Aid (0 = ready).</summary>
+    public float FixedCooldownFrac => Math.Clamp(_snapCd / Math.Max(0.01f, _snapCdTotal), 0, 1);
+    public float MoveCooldownFrac => Math.Clamp(_updraftCd / Math.Max(0.01f, _updraftCdTotal), 0, 1);
+    public void TestResetDualBolt() => _dualBoltCd = 0;
+    public float DualBoltCooldownFrac => Math.Clamp(_dualBoltCd / Math.Max(0.01f, _dualBoltTotal), 0, 1);
     public float ElementAbilityFrac => AbilityChargeReady ? 0f : Math.Clamp(AbilityCooldowns.Min() / Math.Max(0.01f, _abilityRestTotal), 0, 1);
 
-    /// <summary>The attack button: a bolt, plain or of the element on the staff (an element readied lasts a few bolts).</summary>
-    private bool ElementMissile(Vector2 aim, bool held)
+    /// <summary>The attack button: a bolt, plain or of the element on the staff (an element readied lasts a few bolts); with two charges
+    /// that make a bolt of their own (and its rest over), that.</summary>
+    private bool StaffBolt(Vector2 aim, bool held)
     {
         if (_boltCd > 0) return false;
+        if (DualNameFor(ElemSlot.Attack) != "" && _dualBoltCd <= 0) return DualBolt(aim);
         if (_boltCharges < 0) _boltCharges = BoltChargesMax;
         if (_boltCharges <= 0) return false;
-        if (Infused != HeroElement.None) { _missileEl = SpendElement(); _missileShots = Tune.ElementalStaff.MissileShots; }
+        // (two charges whose bolt is resting wait for it: the bolts stay as they are)
+        bool pairWaits = DualNameFor(ElemSlot.Attack) != "";
+        if (Infused != HeroElement.None && !pairWaits) { _missileEl = SpendElement(); _missileShots = Tune.ElementalStaff.MissileShots; }
         var el = _missileShots > 0 ? _missileEl : HeroElement.None;
         if (_missileShots > 0) _missileShots--;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
@@ -276,7 +406,7 @@ public partial class Player
         CastDir = dir0;
         Anim.Face((int)Facing, instant: true);
         LastCast = el == HeroElement.Frost ? "frost" : "fire";
-        if (el != HeroElement.None) ElementalUses.Add(el switch { HeroElement.Fire => "Firebolt", HeroElement.Frost => "Frostbolt", _ => "Gust" });
+        if (el != HeroElement.None) ElementalUses.Add(Elements.SingleName(Stats.Hero, ElemSlot.Attack, el));
         Hold(quick ? Tune.Elementalist.FrostDelay : Tune.Elementalist.FireDelay, "cast", () =>
         {
             if (Dead) return;
@@ -286,23 +416,29 @@ public partial class Player
             CastDir = dir;
             Anim.Face((int)Facing, instant: true);
             _castGlow = 0.7f;
-            float baseDmg = Tune.Elementalist.FireDamage * el switch
-            {
-                HeroElement.Fire => 1f, HeroElement.Frost => Tune.Elementalist.FrostDamage / Tune.Elementalist.FireDamage,
-                HeroElement.Wind => Tune.ElementalStaff.GustDamage, _ => Tune.ElementalStaff.PlainBolt,
-            };
-            var bolt = new ElementBolt
-            {
-                Position = CastPoint + dir * 6f, Dir = dir, Range = range, Caster = this,
-                Frost = el == HeroElement.Frost, Wind = el == HeroElement.Wind, Plain = el == HeroElement.None,
-                Damage = baseDmg * Stats.DamageMult * Stats.PrimaryDamageMult,
-            };
-            G.Spawn(bolt);
-            NetSync.HeroVisual(bolt);
-            G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);
-            G.Sfx.Play(el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "throw", CastPoint, -10, 0.1f, el == HeroElement.Frost ? 1.9f : 1.4f);
+            LooseBolt(dir, el, 1f, range);
         });
         return true;
+    }
+
+    /// <summary>One elemental bolt from the staff.</summary>
+    private void LooseBolt(Vector2 dir, HeroElement el, float damageMult, float range)
+    {
+        float baseDmg = Tune.Elementalist.FireDamage * el switch
+        {
+            HeroElement.Fire => 1f, HeroElement.Frost => Tune.Elementalist.FrostDamage / Tune.Elementalist.FireDamage,
+            HeroElement.Wind => Tune.ElementalStaff.GustDamage, _ => Tune.ElementalStaff.PlainBolt,
+        };
+        var bolt = new ElementBolt
+        {
+            Position = CastPoint + dir * 6f, Dir = dir, Range = range, Caster = this,
+            Frost = el == HeroElement.Frost, Wind = el == HeroElement.Wind, Plain = el == HeroElement.None,
+            Damage = baseDmg * damageMult * Stats.DamageMult * Stats.PrimaryDamageMult,
+        };
+        G.Spawn(bolt);
+        NetSync.HeroVisual(bolt);
+        G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);
+        G.Sfx.Play(el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "throw", CastPoint, -10, 0.1f, el == HeroElement.Frost ? 1.9f : 1.4f);
     }
 
     /// <summary>An elemental bolt met a creature: the blow, then its element's build-up (or, a gust, a shove).</summary>
@@ -315,13 +451,13 @@ public partial class Player
         if (e.Dead) return;
         switch (el)
         {
-            case HeroElement.Fire: e.Build(HeroElement.Fire, Tune.ElementalStaff.FireBuild, Stats.DamageMult, this); break;
-            case HeroElement.Frost: e.Build(HeroElement.Frost, Tune.ElementalStaff.FrostBuild, Stats.DamageMult, this); break;
+            case HeroElement.Fire: e.Build(HeroElement.Fire, Tune.ElementalStaff.FireBuild * bolt.BuildMult, Stats.DamageMult, this); break;
+            case HeroElement.Frost: e.Build(HeroElement.Frost, Tune.ElementalStaff.FrostBuild * bolt.BuildMult, Stats.DamageMult, this); break;
             case HeroElement.Wind: e.Shove(bolt.Dir * Tune.ElementalStaff.GustPush + new Vector2(0, -60f)); break;
         }
     }
 
-    /// <summary>The creatures a Burst reaches: everything in view (a gust, those near).</summary>
+    /// <summary>The creatures in view (or, given a radius, those within it).</summary>
     private IEnumerable<Enemy> InView(float radius = -1f)
     {
         var me = GlobalPosition;
@@ -334,129 +470,184 @@ public partial class Player
         }
     }
 
-    /// <summary>The second ability: Burst. A plain pulse round you, Detonate (fire), Shatter (frost) or a gusting blast (wind).</summary>
-    private bool TryBurst(Vector2 aim)
+    /// <summary>The dodge button: movement. Lift (plain), Fire Walk, Tundra, or the aimed Updraft (wind); two charges, the pair's.</summary>
+    private bool ElementMove(in PlayerInput inp)
     {
-        if (!SnapReady) return false;
-        if (DualReady) return DualStaff(aim);
-        var el = SpendElement();
-        _lastEl = el;
-        float rest = el switch
+        if (_draftAiming) return BeginDraftAim(inp);
+        if (!UpdraftReady) return false;
+        var aim = inp.AimGiven && inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0);
+        if (DualNameFor(ElemSlot.Move) != "") return DualMove(aim);
+        var el = Infused;
+        if (el == HeroElement.Wind)
         {
-            HeroElement.Fire => Tune.ElementalStaff.DetonateRest, HeroElement.Frost => Tune.ElementalStaff.ShatterRest,
-            HeroElement.Wind => Tune.ElementalStaff.GustRest, _ => Tune.ElementalStaff.BurstRest,
-        };
-        _snapCd = _snapCdTotal = rest;
-        _snapOwes = true;
-        LastCast = el == HeroElement.Fire ? "cinder" : "snap";
-        _castGlow = 1f;
-        float power = Stats.DamageMult;
+            // the Updraft: aimed while the button is held, raised when it's let go
+            if (!BeginDraftAim(inp)) return false;
+            SpendElement();
+            _lastEl = el;
+            _updraftCdTotal = Tune.ElementalStaff.UpdraftRest;
+            Used("Updraft");
+            return true;
+        }
+        SpendElement();
+        _lastEl = el;
+        float rest;
         var col = Elements.ColorOf(el);
         switch (el)
         {
             case HeroElement.Fire:
             {
-                int n = 0;
-                foreach (var e in InView()) { n++; G.Fx.Converge(e.GlobalPosition, e.HitRadius + 12, col, 5, 0.12f); e.Build(HeroElement.Fire, Tune.Elements.Full, power, this); }
-                if (Stats.SnapEcho) GainAlimus(Tune.Elementalist.EchoAlimus * n);
-                Used("Detonate");
+                // Fire Walk: a quicker step, and fire left burning where you walk
+                rest = Tune.ElementalStaff.WalkRest;
+                GiveBuff(BuffFireWalk, Tune.ElementalStaff.WalkSeconds);
+                var trail = new FireTrail { Position = GlobalPosition, Caster = this, Power = Stats.DamageMult, Seconds = Tune.ElementalStaff.WalkSeconds };
+                G.Spawn(trail);
+                LastElementSpell = trail;
                 break;
             }
             case HeroElement.Frost:
             {
-                int n = 0;
-                foreach (var e in InView()) { n++; if (!e.Shatter(power, this)) e.Build(HeroElement.Frost, Tune.Elements.Full, power, this); }
-                if (Stats.SnapEcho) GainAlimus(Tune.Elementalist.EchoAlimus * n);
-                Used("Shatter");
+                // Tundra: the ground about you freezes; heroes on it go quicker, creatures on it are chilled and filled with frost
+                rest = Tune.ElementalStaff.TundraRest;
+                if (!Ground.Below(GlobalPosition, 80, out var floor)) floor = GlobalPosition + new Vector2(0, 12);
+                var field = new TundraField { Position = floor, Caster = this, Power = Stats.DamageMult };
+                G.Spawn(field);
+                LastElementSpell = field;
                 break;
             }
-            case HeroElement.Wind:
-                foreach (var e in InView(Tune.ElementalStaff.GustRadius))
-                {
-                    var away = (e.GlobalPosition - GlobalPosition).Normalized();
-                    float d = e.Hurt(Tune.ElementalStaff.GustBurstDamage * power, away * 40f, e.GlobalPosition, DamageKind.Physical);
-                    if (d > 0) OnDealtDamage(d);
-                    e.Shove(away * Tune.ElementalStaff.GustShove + new Vector2(0, -90f));
-                }
-                foreach (var pr in G.Main.EnemyProjectiles.ToArray())
-                    if (IsInstanceValid(pr) && pr.GlobalPosition.DistanceTo(GlobalPosition) < Tune.ElementalStaff.GustRadius) pr.Deflect();
-                G.Fx.Shockwave(GlobalPosition, Tune.ElementalStaff.GustRadius, new Color(col, 0.6f), 0.35f);
-                Used("Gust");
-                break;
             default:
-                foreach (var e in InView(Tune.ElementalStaff.PulseRadius))
-                {
-                    var away = (e.GlobalPosition - GlobalPosition).Normalized();
-                    float d = e.Hurt(Tune.ElementalStaff.PulseDamage * power, away * 120f, e.GlobalPosition, DamageKind.Physical);
-                    if (d > 0) OnDealtDamage(d);
-                }
-                G.Fx.Shockwave(GlobalPosition, Tune.ElementalStaff.PulseRadius, new Color(col, 0.55f), 0.3f);
-                Used("Pulse");
+                // Lift: a push of air straight up, on the ground or in it
+                rest = Tune.ElementalStaff.LiftRest;
+                _liftTo = -BaseJumpV * Tune.ElementalStaff.LiftJump;
+                _terminalT = 0f;
+                G.Fx.Directional(GlobalPosition + new Vector2(0, 12), Vector2.Down, 0.6f, new Color(0.85f, 0.9f, 1f, 0.8f), 10, 160, 2f, 0.35f, 0, 0);
+                G.Fx.Ring(GlobalPosition + new Vector2(0, 10), 14, new Color(0.85f, 0.9f, 1f, 0.8f), 0.25f);
                 break;
         }
-        Anim.Once("rupture", 3, 1.6f);
-        G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : "dodge", GlobalPosition, -4, 0.05f, 0.8f);
-        G.Main.Rumble(0.35f, 0.3f, 0.12f);
+        _updraftCd = _updraftCdTotal = rest;
+        _updraftOwes = true;
+        Anim.Once("hex", 3, 1.5f);
+        LastCast = "updraft";
+        _castGlow = 1f;
+        G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : "dodge", GlobalPosition, -8, 0.05f, 1.2f);
+        Used(Elements.SingleName(Stats.Hero, ElemSlot.Move, el));
         return true;
     }
 
-    /// <summary>The ability: Extended, the storm at the aim (plain force, Firestorm, Blizzard or Cyclone); it rests by its element.</summary>
-    private bool TryStorm(Vector2 aim, float aimDist)
+    /// <summary>The spot a fixed-range spell lands on: <see cref="Tune.ElementalStaff.FixedRange"/> along the aim, short of rock.</summary>
+    private Vector2 FixedSpot(Vector2 aim)
     {
-        if (!AbilityChargeReady) return false;
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        G.Cave.Raycast(CastPoint, aim, Tune.ElementalStaff.FixedRange, out var hit, 4f);
+        return hit - aim * (hit.DistanceTo(CastPoint) < Tune.ElementalStaff.FixedRange - 1f ? 8f : 0f);
+    }
+
+    /// <summary>The Burst button: the fixed-range spell. Force Blast (plain), Burst, Snap or Cyclone; two charges, the pair's.</summary>
+    private bool TryFixed(Vector2 aim)
+    {
+        if (!SnapReady) return false;
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
+        CastDir = aim;
+        Anim.Face((int)Facing, instant: true);
+        if (DualNameFor(ElemSlot.Heavy) != "") return DualFixed(aim);
         var el = SpendElement();
         _lastEl = el;
-        SpendAbilityCharge();
-        if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
-        float restMult = el switch
+        var spot = FixedSpot(aim);
+        float r = Tune.ElementalStaff.FixedRadius, power = Stats.DamageMult;
+        var col = Elements.ColorOf(el);
+        float rest;
+        switch (el)
         {
-            HeroElement.Fire => Tune.ElementalStaff.StormRestFire, HeroElement.Frost => Tune.ElementalStaff.StormRestFrost,
-            HeroElement.Wind => Tune.ElementalStaff.StormRestWind, _ => Tune.ElementalStaff.StormRestPlain,
-        };
-        SetSpentAbilityRest(AbilityRecharge * restMult);
-        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !_stormOwes[k] && Math.Abs(_abilityCd[k] - _abilityRestTotal) < 0.001f) { _stormOwes[k] = true; break; }
-        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        var at0 = BlizzardSpot(aim, aimDist);
-        var dir0 = (at0 - CastPoint).Normalized();
-        if (Math.Abs(dir0.X) > 0.15f) Facing = Math.Sign(dir0.X);
-        CastDir = dir0;
-        Anim.Face((int)Facing, instant: true);
-        LastCast = el == HeroElement.Fire ? "firestorm" : "blizzard";
-        string name = el switch { HeroElement.Fire => "Firestorm", HeroElement.Frost => "Blizzard", HeroElement.Wind => "Cyclone", _ => "Tempest" };
-        Used(name);
-        Hold(Tune.Elementalist.BlizzardDelay, "heal", () =>
-        {
-            if (Dead) return;
-            var at = BlizzardSpot(aim, aimDist);
-            float secondsMult = Stats.BlizzardSecondsMult;
-            float dmg = el switch
-            {
-                HeroElement.Fire => Tune.Elementalist.FirestormDamage, HeroElement.Frost => Tune.Elementalist.BlizzardDamage,
-                HeroElement.Wind => Tune.Elementalist.BlizzardDamage * 0.5f, _ => Tune.Elementalist.BlizzardDamage * Tune.ElementalStaff.PlainStormDamage,
-            };
-            var storm = new Blizzard
-            {
-                Position = at,
-                Radius = Tune.Elementalist.BlizzardRadius * Stats.BlizzardWideMult,
-                Seconds = Tune.Elementalist.BlizzardSeconds * secondsMult,
-                Ticks = Mathf.RoundToInt(Tune.Elementalist.BlizzardTicks * secondsMult),
-                Fire = el == HeroElement.Fire, El = el, Elemental = true,
-                Damage = dmg * Stats.DamageMult, FreezeChance = 0f, IgniteChance = 0f,
-                Build = el == HeroElement.Fire ? Tune.ElementalStaff.StormFireBuild : el == HeroElement.Frost ? Tune.ElementalStaff.StormFrostBuild : 0f,
-                Pull = el == HeroElement.Wind ? Tune.ElementalStaff.CyclonePull : 0f,
-                Caster = this,
-            };
-            G.Spawn(storm);
-            NetSync.HeroVisual(storm);
-            LastBlizzard = storm;
-            _castGlow = 1f;
-            G.Fx.Beam(CastPoint, at, new Color(storm.Tint, 0.6f));
-            G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Wind ? "dodge" : "gasp", at, -4, 0.1f, el == HeroElement.Fire ? 0.8f : 0.5f);
-        });
+            case HeroElement.Fire:
+                // Burst: an explosion at the spot; what was burning already takes a full build-up (and combusts)
+                rest = Tune.ElementalStaff.BurstRest;
+                foreach (var e in FoesAt(spot, r))
+                {
+                    bool lit = e.Ignited;
+                    Strike(e, Tune.ElementalStaff.BurstDamage * power, (e.GlobalPosition - spot).Normalized() * 140f, DamageKind.Fire);
+                    if (!e.Dead) e.Build(HeroElement.Fire, lit ? Tune.Elements.Full : Tune.ElementalStaff.BurstBuild, power, this);
+                }
+                GasCloud.IgniteAt(spot, r);
+                G.Fx.Explosion(spot, col, 1.1f);
+                break;
+            case HeroElement.Frost:
+                // Snap: the cold closes like a fist; the frozen shatter, the rest are filled with frost
+                rest = Tune.ElementalStaff.SnapRest;
+                foreach (var e in FoesAt(spot, r))
+                {
+                    if (e.Shatter(power, this)) continue;
+                    Strike(e, Tune.ElementalStaff.SnapDamage * power, Vector2.Zero, DamageKind.Frost);
+                    if (!e.Dead) e.Build(HeroElement.Frost, Tune.ElementalStaff.SnapBuild, power, this);
+                }
+                G.Fx.Converge(spot, r, new Color(col, 0.9f), 10, 0.18f);
+                G.Fx.Ring(spot, r, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
+                G.Fx.Burst(spot, new Color(0.9f, 0.97f, 1f), 16, 140, 2.2f, 0.4f, 120);
+                break;
+            case HeroElement.Wind:
+                // Cyclone: the storm at the spot, dragging light creatures in and swallowing shots
+                rest = Tune.ElementalStaff.CycloneRest;
+                SpawnStorm(spot, HeroElement.Wind, Tune.Elementalist.BlizzardDamage * 0.5f, 0f, Tune.ElementalStaff.CyclonePull);
+                break;
+            default:
+                // Force Blast: a burst of force at the spot, throwing creatures out of it
+                rest = Tune.ElementalStaff.BlastRest;
+                foreach (var e in FoesAt(spot, r))
+                {
+                    var away = (e.GlobalPosition - spot).Normalized();
+                    Strike(e, Tune.ElementalStaff.BlastDamage * power, away * 160f, DamageKind.Physical);
+                    e.Shove(away * 240f + new Vector2(0, -60f));
+                }
+                G.Fx.Shockwave(spot, r, new Color(ElementBolt.PlainColor, 0.6f), 0.3f);
+                break;
+        }
+        Breakables.SpellBurst(spot, r * 0.5f);
+        _snapCd = _snapCdTotal = rest;
+        _snapOwes = true;
+        LastCast = el == HeroElement.Fire ? "cinder" : "snap";
+        _castGlow = 1f;
+        G.Fx.Beam(CastPoint, spot, new Color(col, 0.45f));
+        Anim.Once("rupture", 3, 1.6f);
+        G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : "dodge", spot, -4, 0.05f, 0.8f);
+        G.Main.Rumble(0.35f, 0.3f, 0.12f);
+        Used(Elements.SingleName(Stats.Hero, ElemSlot.Heavy, el));
         return true;
     }
 
-    /// <summary>One strike of an elemental storm: the blow, its build-up, and a Cyclone's pull toward its middle.</summary>
+    /// <summary>The creatures within <paramref name="r"/> of a spot, that a spell there can reach (not through rock).</summary>
+    private static IEnumerable<Enemy> FoesAt(Vector2 at, float r)
+    {
+        foreach (var e in G.Enemies.ToArray())
+            if (!e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(at) <= r + e.HitRadius && G.Cave.LineClear(at, e.GlobalPosition)) yield return e;
+    }
+
+    /// <summary>A spell's blow, credited to the hero.</summary>
+    private void Strike(Enemy e, float dmg, Vector2 knock, DamageKind kind)
+    {
+        float d = e.Hurt(dmg, knock, e.GlobalPosition, kind);
+        if (d > 0) OnDealtDamage(d);
+    }
+
+    /// <summary>An elemental storm at a spot (the Cyclone, the Fire Storm, the Blizzard).</summary>
+    private Blizzard SpawnStorm(Vector2 at, HeroElement el, float damage, float build, float pull)
+    {
+        float secondsMult = Stats.BlizzardSecondsMult;
+        var storm = new Blizzard
+        {
+            Position = at,
+            Radius = Tune.Elementalist.BlizzardRadius * Stats.BlizzardWideMult,
+            Seconds = Tune.Elementalist.BlizzardSeconds * secondsMult,
+            Ticks = Mathf.RoundToInt(Tune.Elementalist.BlizzardTicks * secondsMult),
+            Fire = el == HeroElement.Fire, El = el, Elemental = true,
+            Damage = damage * Stats.DamageMult, FreezeChance = 0f, IgniteChance = 0f,
+            Build = build, Pull = pull, Caster = this,
+        };
+        G.Spawn(storm);
+        NetSync.HeroVisual(storm);
+        LastBlizzard = storm;
+        return storm;
+    }
+
+    /// <summary>One strike of an elemental storm: the blow, its build-up, and the wind's pull toward its middle.</summary>
     private void ElementStormStruck(Blizzard storm, Enemy e)
     {
         var from = (e.GlobalPosition - storm.GlobalPosition).Normalized();
@@ -467,29 +658,35 @@ public partial class Player
         if (storm.Pull > 0 && e.GlobalPosition.DistanceTo(storm.GlobalPosition) > 10f) e.Shove(-from * storm.Pull * 2.2f);
     }
 
-    /// <summary>The dodge button: Aid. Plain, the updraft (aimed as ever); with an element, Kindling, Frost Armor or Narrow Draft at once.</summary>
-    private bool ElementAid(in PlayerInput inp)
+    /// <summary>The Extended button: Aid for the party. Ward (plain: a barrier), Kindling, Frost Armor or Narrow Draft (it spends one charge).</summary>
+    private bool TryAid()
     {
-        if (Infused == HeroElement.None || _draftAiming) return BeginDraftAim(inp);
-        if (!UpdraftReady) return false;
+        if (!AbilityChargeReady) return false;
         var el = SpendElement();
         _lastEl = el;
-        float rest = el switch { HeroElement.Wind => Tune.ElementalStaff.AidRestWind, HeroElement.Frost => Tune.ElementalStaff.AidRestFrost, _ => Tune.ElementalStaff.AidRestFire };
-        _updraftCd = _updraftCdTotal = rest;
-        _updraftOwes = true;
+        SpendAbilityCharge();
+        if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
+        float rest = el switch
+        {
+            HeroElement.Wind => Tune.ElementalStaff.AidRestWind, HeroElement.Frost => Tune.ElementalStaff.AidRestFrost,
+            HeroElement.Fire => Tune.ElementalStaff.AidRestFire, _ => Tune.ElementalStaff.AidRestWard,
+        } * Stats.AbilityCdMult;
+        SetSpentAbilityRest(rest);
+        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !_stormOwes[k] && Math.Abs(_abilityCd[k] - _abilityRestTotal) < 0.001f) { _stormOwes[k] = true; break; }
         float secs = Tune.ElementalStaff.AidSeconds;
-        var col = Elements.ColorOf(el);
+        var col = el == HeroElement.None ? new Color(0.75f, 0.9f, 1f) : Elements.ColorOf(el);
         switch (el)
         {
-            case HeroElement.Wind: foreach (var h in HeroesNear(Tune.ElementalStaff.AidRange)) h.GiveBuff(BuffTailwind, secs); Used("Narrow Draft"); break;
-            case HeroElement.Frost: GiveBuff(BuffFrostArmor, secs); Used("Frost Armor"); break;
-            default: foreach (var h in HeroesNear(Tune.ElementalStaff.AidRange)) h.GiveBuff(BuffKindling, secs); Used("Kindling"); break;
+            case HeroElement.Wind: foreach (var h in HeroesNear(Tune.ElementalStaff.AidRange)) h.GiveBuff(BuffTailwind, secs); break;
+            case HeroElement.Frost: GiveBuff(BuffFrostArmor, secs); break;
+            case HeroElement.Fire: foreach (var h in HeroesNear(Tune.ElementalStaff.AidRange)) h.GiveBuff(BuffKindling, secs); break;
+            default: foreach (var h in HeroesNear(Tune.ElementalStaff.AidRange)) h.GiveBarrier(Tune.ElementalStaff.WardBarrier, secs); break;
         }
         G.Fx.Ring(GlobalPosition, Tune.ElementalStaff.AidRange * 0.6f, new Color(col, 0.7f), 0.45f, FxLayer.RingStyle.Dashed);
-        Anim.Once("hex", 3, 1.5f);
-        LastCast = "updraft";
+        Anim.Once("heal", 3, 1.5f);
         _castGlow = 1f;
         G.Sfx.Play("levelup", GlobalPosition, -8, 0.05f, el == HeroElement.Wind ? 1.3f : 0.9f);
+        Used(Elements.SingleName(Stats.Hero, ElemSlot.Aid, el));
         return true;
     }
 

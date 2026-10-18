@@ -20,6 +20,8 @@ public partial class ElementBolt : Node2D
     public bool Frost;
     /// <summary>The elemental Elementalist's: a gust of wind, or a plain bolt with no element (neither fire nor frost).</summary>
     public bool Wind, Plain;
+    /// <summary>The elemental Elementalist: how much of a bolt's build-up this one carries (a barrage's bolts, less).</summary>
+    public float BuildMult = 1f;
     /// <summary>The Aegis's ward bolt (light, bursting on contact, weakening what it strikes).</summary>
     public bool Ward;
     /// <summary>Online: another player's bolt, shown here (their game deals its damage).</summary>

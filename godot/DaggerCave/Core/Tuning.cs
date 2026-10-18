@@ -1151,10 +1151,13 @@ public static class Tune
 
     /// <summary>
     /// The elemental Swordsman (<c>Player/Player.Elemental.cs</c>). Swing: plain, or Earth = the Heaving Swing (<c>HeaveDamage</c>,
-    /// <c>EarthBuild</c>), Fire = Pyre Strike, Frost = Razor Ice (<c>MediumDamage</c>, <c>MediumBuild</c>); the element waits
+    /// <c>EarthBuild</c>), Fire = Searing Strike, Frost = Razor Ice (<c>MediumDamage</c>, <c>MediumBuild</c>); the element waits
     /// <c>SwingRest</c> s (by element: earth, fire, frost) before it can be lent to a swing again. Hard Swing: plain (<c>HardDamage</c>,
-    /// <c>HardRest</c>), ThunderCrush (earth: <c>CrushDamage</c>, full earth, shatters the frozen), Pyroclasm (fire) and Ice Axe (frost),
-    /// each its own rest and a full build-up. Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
+    /// <c>HardRest</c>), ThunderCrush (earth: <c>CrushDamage</c>, full earth, shatters the frozen), Pyroclasty (fire) and Ice Axe (frost),
+    /// each its own rest and a full build-up. The jump: Explosive Lunge (fire: a blast where you leave the ground, <c>LungeDamage</c> and
+    /// <c>LungeBuild</c> within <c>LungeRadius</c>, and a long leap forward at <c>LungeSpeed</c>), Glacial Vault (frost: a spike of ice throws you
+    /// <c>VaultJump</c> x as high, <c>VaultBuild</c> frost to those beside you), Earthfall (earth: you come down like a rock, a shockwave of
+    /// <c>FallDamage</c> (more the harder you land) and <c>FallBuild</c> earth within <c>FallRadius</c>); each rests the jump's element its own time. Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
     /// frost <c>HiltFrost</c>, fire <c>HiltFire</c> build-up a blow; rests by element.
     /// </summary>
     public static class ElementalSword
@@ -1165,34 +1168,47 @@ public static class Tune
         public static float HardRest = 5f, CrushRest = 12f, PyroRest = 10f, AxeRest = 7f, CrushWindup = 1.35f;
         public static float HiltSeconds = 8f, HiltDamage = 0.2f, HiltFrost = 20f, HiltFire = 25f;
         public static float HiltRest = 12f, HiltRestEarth = 14f, HiltRestFrost = 14f, HiltRestFire = 14f;
+        public static float LungeDamage = 1.2f, LungeBuild = 50f, LungeRadius = 56f, LungeSpeed = 430f, LungeLift = 0.8f, LungeCarry = 0.42f, LungeRest = 4f;
+        public static float VaultJump = 1.45f, VaultDamage = 0.8f, VaultBuild = 50f, VaultRadius = 46f, VaultRest = 4f;
+        public static float FallDamage = 1.4f, FallBuild = 60f, FallRadius = 72f, FallToss = 220f, FallRest = 5f;
     }
 
     /// <summary>
-    /// The elemental Elementalist (<c>Player/Player.Elemental.cs</c>). Missile: an element lent to it lasts <c>MissileShots</c> bolts;
-    /// plain bolts deal <c>PlainBolt</c> of a firebolt; Firebolt <c>FireBuild</c>, Frostbolt <c>FrostBuild</c> a bolt; Gust deals
-    /// <c>GustDamage</c> of a firebolt and shoves light creatures <c>GustPush</c>. Burst (every creature in view; Gust within <c>GustRadius</c>):
-    /// plain pulse <c>PulseDamage</c> within <c>PulseRadius</c>; rests by element. Extended (the storm): build-up a strike by element; Cyclone
-    /// pulls light creatures <c>CyclonePull</c> a strike and swallows creatures' shots inside it; its rest scales by <c>StormRest</c>. Aid:
-    /// plain = the updraft; Narrow Draft (wind: everyone within <c>AidRange</c> moves <c>TailwindMove</c> x faster, jumps <c>TailwindJump</c> x),
-    /// Frost Armor (frost: melee attackers get a full frost build-up), Kindling (fire: everyone within range adds <c>KindleBuild</c> fire a blow),
-    /// for <c>AidSeconds</c>; rests by element.
+    /// The elemental Elementalist (<c>Player/Player.Elemental.cs</c>). Bolt (the attack): an element lent to it lasts <c>MissileShots</c> bolts;
+    /// plain bolts deal <c>PlainBolt</c> of a firebolt; Firebolt <c>FireBuild</c>, Frostbolt <c>FrostBuild</c> a bolt; Gust deals <c>GustDamage</c>
+    /// of a firebolt and shoves light creatures <c>GustPush</c>. Movement (the dodge button): Lift (plain: a push up, <c>LiftJump</c> x a jump,
+    /// in the air too), Fire Walk (fire: <c>WalkMove</c> x faster for <c>WalkSeconds</c>, leaving a trail of fire, <c>TrailBuild</c> a tick), Tundra
+    /// (frost: the ground about you freezes for <c>TundraSeconds</c>, <c>TundraHalf</c> px each way; heroes on it go faster, creatures are chilled and
+    /// filled with frost), Updraft (wind: the aimed column). Fixed range (the Burst button: a spot <c>FixedRange</c> px along the aim): Force Blast
+    /// (plain, <c>BlastDamage</c>), Burst (fire: an explosion, <c>BurstDamage</c> and <c>BurstBuild</c> fire; the burning take a full build-up and
+    /// combust), Snap (frost: the frozen shatter, the rest <c>SnapBuild</c> frost), Cyclone (wind: the storm that drags light creatures in,
+    /// <c>CyclonePull</c>), all within <c>FixedRadius</c>. Aid (the Extended button): Ward (plain: a barrier of <c>WardBarrier</c> for you and friends
+    /// within <c>AidRange</c>), Kindling (fire: <c>KindleBuild</c> fire a blow), Frost Armor (frost: melee attackers get a full frost build-up),
+    /// Narrow Draft (wind: <c>TailwindMove</c> x faster, <c>TailwindJump</c> x higher), for <c>AidSeconds</c>. Each version rests its own time.
     /// </summary>
     public static class ElementalStaff
     {
         public static int MissileShots = 3;
         public static float PlainBolt = 0.85f, FireBuild = 50f, FrostBuild = 25f, GustDamage = 0.4f, GustPush = 260f;
-        public static float PulseDamage = 12f, PulseRadius = 90f, GustRadius = 150f, GustShove = 420f, GustBurstDamage = 4f;
-        public static float BurstRest = 4f, DetonateRest = 9f, ShatterRest = 9f, GustRest = 5f;
-        public static float StormFrostBuild = 20f, StormFireBuild = 30f, CyclonePull = 70f, PlainStormDamage = 0.6f;
-        public static float StormRestPlain = 0.8f, StormRestFire = 1.15f, StormRestFrost = 1f, StormRestWind = 0.85f;
-        public static float AidRange = 160f, AidSeconds = 8f, TailwindMove = 1.2f, TailwindJump = 1.1f, KindleBuild = 15f;
-        public static float AidRestWind = 10f, AidRestFrost = 12f, AidRestFire = 12f;
+        public static float StormFrostBuild = 20f, StormFireBuild = 30f, CyclonePull = 70f;
+        // movement
+        public static float LiftJump = 1f, LiftRest = 2.5f;
+        public static float WalkMove = 1.3f, WalkSeconds = 4f, TrailLife = 2.5f, TrailTick = 0.3f, TrailBuild = 14f, TrailDamage = 1.5f, WalkRest = 9f;
+        public static float TundraSeconds = 6f, TundraHalf = 110f, TundraTick = 0.4f, TundraBuild = 12f, TundraSlow = 0.3f, TundraRest = 10f;
+        public static float UpdraftRest = 3f;
+        // fixed range
+        public static float FixedRange = 130f, FixedRadius = 64f;
+        public static float BlastDamage = 12f, BurstDamage = 18f, BurstBuild = 60f, SnapBuild = 60f, SnapDamage = 8f;
+        public static float BlastRest = 4f, BurstRest = 7f, SnapRest = 7f, CycloneRest = 9f;
+        // aid
+        public static float AidRange = 160f, AidSeconds = 8f, TailwindMove = 1.2f, TailwindJump = 1.1f, KindleBuild = 15f, WardBarrier = 14f;
+        public static float AidRestWard = 11f, AidRestWind = 10f, AidRestFrost = 12f, AidRestFire = 12f;
     }
 
     /// <summary>
     /// Dual charges (<c>Player/Player.Duals.cs</c>, <c>Combat/ElementalFx.cs</c>): up to <c>MaxCharges</c> elements wait readied (the oldest
-    /// goes when another is pressed past that); the Swordsman's Hard Swing and the Elementalist's Burst spend two at once for the pair's own
-    /// ability (two of one element: its great version). Damage is a multiple of the hero's blow (the Swordsman) or flat (the Elementalist),
+    /// goes when another is pressed past that); the Swordsman's Hard Swing and the Elementalist's attack, dodge and Burst buttons spend two at
+    /// once for the pair's own ability on that button (two of one element: its great version). Damage is a multiple of the hero's blow (the Swordsman) or flat (the Elementalist),
     /// both scaled by the damage multiplier; each rests its ability for its own time.
     /// </summary>
     public static class Dual
@@ -1216,24 +1232,41 @@ public static class Tune
         /// <summary>Thermal Shock (fire+frost): on a creature burning, chilled or frozen the blow deals <c>ShockBonus</c> x more and bursts into a
         /// cloud of steam (<c>SteamRadius</c>, <c>SteamSeconds</c>) that hides the heroes in it; otherwise half a build-up of each.</summary>
         public static float ShockRest = 12f, ShockDamage = 2.2f, ShockBonus = 1.5f, SteamRadius = 64f, SteamSeconds = 4f;
-        // the Elementalist (Burst)
-        /// <summary>Meteor (fire+fire): falls on the thickest knot of creatures, smashing every platform it touches; <c>MeteorDamage</c> and full fire within <c>MeteorRadius</c>.</summary>
-        public static float MeteorRest = 15f, MeteorDamage = 46f, MeteorRadius = 92f, MeteorSpeed = 560f, MeteorHeight = 340f;
-        /// <summary>Frozen Orb (frost+frost): drifts <c>OrbSpeed</c> for <c>OrbSeconds</c>, loosing a shard every <c>OrbEvery</c> s round in a spiral (every other one at a creature in reach)
-        /// (<c>ShardDamage</c>, <c>ShardBuild</c> frost, <c>ShardRange</c> px); at the end it bursts (<c>NovaBuild</c> frost, shattering the frozen).</summary>
-        public static float OrbRest = 13f, OrbSpeed = 95f, OrbSeconds = 2.8f, OrbEvery = 0.09f, ShardDamage = 3f, ShardBuild = 14f, ShardRange = 90f, NovaRadius = 84f, NovaBuild = 100f, NovaDamage = 14f;
-        /// <summary>Tornado (wind+wind): runs along the floor <c>TornadoSpeed</c> for <c>TornadoSeconds</c>, carrying light creatures in it up and
+        // the Elementalist: two charges on the attack (bolt), the dodge (movement) or the Burst button (fixed range)
+        /// <summary>Meteorite (fire+fire, bolt): falls on the thickest knot of creatures, smashing every platform it touches; <c>MeteorDamage</c> and
+        /// full fire within <c>MeteorRadius</c>. Cryometeor (frost+frost, bolt): the same fall, but it bursts in frost (two full build-ups: frozen solid)
+        /// and leaves the ground frozen.</summary>
+        public static float MeteorRest = 15f, MeteorDamage = 46f, MeteorRadius = 92f, MeteorSpeed = 560f, MeteorHeight = 340f, CryoDamage = 30f;
+        /// <summary>Fire Barrage / Frost Barrage (fire+wind / frost+wind, bolt): a volley of <c>BarrageBolts</c> bolts loosed <c>BarrageEvery</c> s apart,
+        /// fanned <c>BarrageSpread</c> degrees, each <c>BarrageDamage</c> x a bolt.</summary>
+        public static float BarrageRest = 10f, BarrageEvery = 0.07f, BarrageSpread = 14f, BarrageDamage = 0.6f;
+        public static int BarrageBolts = 7;
+        /// <summary>Flamebreath (fire+fire, movement): fire pours from the staff for <c>BreathSeconds</c> (a cone <c>BreathDegrees</c> wide, <c>BreathRange</c>
+        /// px), <c>BreathBuild</c> fire a tick; aimed down, it holds you up.</summary>
+        public static float BreathRest = 11f, BreathSeconds = 1.5f, BreathRange = 150f, BreathDegrees = 50f, BreathTick = 0.1f, BreathBuild = 10f, BreathDamage = 1.5f;
+        /// <summary>Frost Tower (frost+frost, movement): a tower of ice bursts up under you, throwing you <c>TowerJump</c> x a jump high, and stands
+        /// <c>TowerSeconds</c> loosing a shard every <c>TowerEvery</c> s at a creature within <c>TowerRange</c> px.</summary>
+        public static float TowerRest = 13f, TowerJump = 1.6f, TowerSeconds = 5f, TowerEvery = 0.3f, TowerRange = 220f, ShardDamage = 4f, ShardBuild = 18f;
+        /// <summary>Fire Barrier (fire+wind, movement): a ring of fire about you for <c>RingSeconds</c> (<c>RingRadius</c> px): creatures that touch it
+        /// burn and are thrown back, shots that cross it burn up.</summary>
+        public static float RingRest = 12f, RingSeconds = 5f, RingRadius = 48f, RingTick = 0.25f, RingBuild = 20f, RingDamage = 2f, RingPush = 260f;
+        /// <summary>Frost Barrier (frost+wind, movement): a wall of ice and wind <c>WallAhead</c> px before you for <c>BarrierSeconds</c>: creatures
+        /// can't cross it (they're driven back, chilled), and the shots that meet it are turned round.</summary>
+        public static float BarrierRest = 12f, BarrierSeconds = 6f, BarrierAhead = 48f, BarrierHeight = 96f, BarrierTick = 0.2f, BarrierBuild = 10f, BarrierPush = 300f;
+        /// <summary>Rain of Fire / Hailstorm (fire+fire / frost+frost, fixed range): for <c>RainSeconds</c> fire (or hail) falls over the spot
+        /// (<c>RainHalf</c> px each way), a drop every <c>RainEvery</c> s; each fireball bursts (<c>RainDamage</c>, <c>RainBuild</c> fire), each hailstone
+        /// strikes (<c>HailDamage</c>, <c>HailBuild</c> frost) and beats flying creatures down.</summary>
+        public static float RainRest = 14f, RainSeconds = 3f, RainHalf = 76f, RainEvery = 0.09f, RainDamage = 5f, RainBuild = 25f, RainBurst = 22f;
+        public static float HailDamage = 4f, HailBuild = 12f, HailBeat = 160f;
+        /// <summary>Fire Storm / Blizzard (fire+wind / frost+wind, fixed range): the storms, fanned by the wind: they pull light creatures in
+        /// (<c>StormPull</c>) and swallow shots.</summary>
+        public static float StormRest = 13f, StormPull = 45f;
+        /// <summary>Tornado (wind+wind, fixed range): runs along the floor <c>TornadoSpeed</c> for <c>TornadoSeconds</c>, carrying light creatures in it up and
         /// along (<c>TornadoTick</c> damage a tick), swallowing creatures' shots, and flinging what it carries at the end.</summary>
         public static float TornadoRest = 13f, TornadoSpeed = 120f, TornadoSeconds = 4f, TornadoRadius = 40f, TornadoTick = 3f, TornadoFling = 520f;
-        /// <summary>Frostfire Lance (fire+frost): a beam through every creature in a line <c>LanceRange</c> px (<c>LanceDamage</c>, half a build-up of
+        /// <summary>Frostfire Lance (fire+frost, fixed range): a beam through every creature in a line <c>LanceRange</c> px (<c>LanceDamage</c>, half a build-up of
         /// each); a creature already burning or chilled takes <c>LanceBonus</c> x.</summary>
         public static float LanceRest = 11f, LanceDamage = 22f, LanceRange = 440f, LanceBonus = 1.8f, LanceBuild = 50f;
-        /// <summary>Wildfire (fire+wind): for <c>WildSeconds</c> the wind carries fire from creature to creature: every <c>WildTick</c> s each one
-        /// alight gives <c>WildBuild</c> fire to those within <c>WildReach</c> px (nothing alight: the nearest is lit first).</summary>
-        public static float WildRest = 14f, WildSeconds = 5f, WildTick = 0.45f, WildBuild = 45f, WildReach = 100f, WildDamage = 4f;
-        /// <summary>Whiteout (frost+wind): a gale of snow from the staff for <c>GaleSeconds</c> (a cone <c>GaleDegrees</c> wide, <c>GaleRange</c> px):
-        /// creatures in it are pushed back and filled with frost, and their shots are turned around.</summary>
-        public static float GaleRest = 12f, GaleSeconds = 1.6f, GaleRange = 230f, GaleDegrees = 70f, GaleTick = 0.1f, GaleBuild = 9f, GalePush = 160f, GaleDamage = 1.5f;
     }
 
     /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one

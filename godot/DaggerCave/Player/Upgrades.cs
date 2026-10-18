@@ -701,7 +701,7 @@ public static partial class Upgrades
 
     public static (string key, string name)[] Abilities(HeroKind h) => Elements.On(h) ? h == HeroKind.Swordsman
         ? new[] { ("sword", "Swing"), ("charge", "Empower Hilt"), ("heave", "Hard Swing"), ("dodge", "Dash Slash") }
-        : new[] { ("bolt", "Missile"), ("updraft", "Aid"), ("blizzard", "Extended"), ("snap", "Burst") } : h switch
+        : new[] { ("bolt", "Bolt"), ("updraft", "Movement"), ("snap", "Fixed Range"), ("blizzard", "Storms & Aid") } : h switch
     {
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Shield"), ("dash", "Guarded Charge"), ("bash", "Shield Bash") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },

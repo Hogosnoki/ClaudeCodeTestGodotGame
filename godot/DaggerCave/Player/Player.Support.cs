@@ -101,7 +101,7 @@ public partial class Player
 
     // ---------------------------------------------------------------- timed buffs
 
-    public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5;
+    public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5, BuffFireWalk = 6;
     private readonly Dictionary<int, float> _buffs = new();
     public bool HasBuff(int kind) => _buffs.ContainsKey(kind);
     public float BuffLeft(int kind) => _buffs.TryGetValue(kind, out var t) ? t : 0f;
@@ -116,7 +116,7 @@ public partial class Player
         var ring = kind switch
         {
             BuffShout => new Color(1f, 0.6f, 0.3f, 0.8f), BuffTailwind => new Color(Elements.ColorOf(HeroElement.Wind), 0.8f),
-            BuffKindling => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
+            BuffKindling or BuffFireWalk => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
             _ => new Color(0.85f, 0.95f, 1f, 0.8f),
         };
         G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, ring, 0.4f, FxLayer.RingStyle.Dashed);
@@ -129,6 +129,7 @@ public partial class Player
         else if (kind == BuffHowl) { Stats.MoveSpeed *= m(Tune.Support.HowlMove); Stats.AttackSpeed *= m(Tune.Support.HowlAttack); }
         // (Narrow Draft: a wind at your back; Kindling and Frost Armor change no number, they are read where blows land)
         else if (kind == BuffTailwind) { Stats.MoveSpeed *= m(Tune.ElementalStaff.TailwindMove); Stats.JumpMult *= m(Tune.ElementalStaff.TailwindJump); }
+        else if (kind == BuffFireWalk) Stats.MoveSpeed *= m(Tune.ElementalStaff.WalkMove);
     }
 
     private void TickBuffs(float dt)

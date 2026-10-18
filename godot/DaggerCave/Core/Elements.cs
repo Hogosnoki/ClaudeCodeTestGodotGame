@@ -6,10 +6,14 @@ namespace DaggerCave;
 /// <summary>An element a hero can lend an attack (see <see cref="Elements"/>).</summary>
 public enum HeroElement : byte { None, Earth, Fire, Frost, Wind }
 
+/// <summary>Which of a hero's buttons an element changes: the attack, movement (the Swordsman's jump, the Elementalist's dodge), the heavy
+/// one (the Hard Swing, the fixed-range spell) and the fourth (Empower Hilt, Aid).</summary>
+public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
+
 /// <summary>
 /// The elemental heroes: a hero's attacks are plain until an element is added to one. Pressing an element's button (1, 2, 3; a
 /// controller's d-pad left, up, right) readies a charge of it; the next of the hero's attacks spends it and becomes that element's
-/// version (the Swordsman's Swing with Earth is the Heaving Swing, with Fire the Pyre Strike...), and the ability then rests for as
+/// version (the Swordsman's Swing with Earth is the Heaving Swing, with Fire the Searing Strike...), and the ability then rests for as
 /// long as that version asks. Elemental blows fill a creature's build-up of that element (<see cref="Enemy.Build"/>) rather than
 /// rolling chances: full, it takes hold (fire: alight, then it combusts; frost: chilled, then frozen solid; earth: stunned).
 /// The Swordsman and the Elementalist have them so far; <see cref="GameSettings.ClassicKits"/> brings back their old kits.
@@ -48,14 +52,37 @@ public static class Elements
     public static (HeroElement a, HeroElement b) Pair(HeroElement x, HeroElement y) => x <= y ? (x, y) : (y, x);
 
     /// <summary>
-    /// The ability two charges make (<see cref="Tune.Dual"/>): the Swordsman's Hard Swing, the Elementalist's Burst. Who has which is
-    /// by who would: the Swordsman, the earth under him and the blade in his hand; the Elementalist, the sky (fire falling, wind, ice).
+    /// What an element (or none) makes of each button. The Swordsman: Swing, the jump, the Hard Swing and Empower Hilt; the Elementalist:
+    /// the bolt, movement (the dodge button), the fixed-range spell (the Burst button) and Aid (the Extended button).
     /// </summary>
-    public static string DualName(HeroKind h, HeroElement x, HeroElement y)
+    public static string SingleName(HeroKind h, ElemSlot slot, HeroElement e)
+    {
+        if (h == HeroKind.Swordsman)
+            return slot switch
+            {
+                ElemSlot.Attack => e switch { HeroElement.Earth => "Heaving Swing", HeroElement.Fire => "Searing Strike", HeroElement.Frost => "Razor Ice", _ => "Swing" },
+                ElemSlot.Move => e switch { HeroElement.Earth => "Earthfall", HeroElement.Fire => "Explosive Lunge", HeroElement.Frost => "Glacial Vault", _ => "Jump" },
+                ElemSlot.Heavy => e switch { HeroElement.Earth => "ThunderCrush", HeroElement.Fire => "Pyroclasty", HeroElement.Frost => "Ice Axe", _ => "Hard Swing" },
+                _ => e == HeroElement.None ? "Empower Hilt" : $"{Name(e)} Hilt",
+            };
+        return slot switch
+        {
+            ElemSlot.Attack => e switch { HeroElement.Fire => "Firebolt", HeroElement.Frost => "Frostbolt", HeroElement.Wind => "Gust", _ => "Bolt" },
+            ElemSlot.Move => e switch { HeroElement.Fire => "Fire Walk", HeroElement.Frost => "Tundra", HeroElement.Wind => "Updraft", _ => "Lift" },
+            ElemSlot.Heavy => e switch { HeroElement.Fire => "Burst", HeroElement.Frost => "Snap", HeroElement.Wind => "Cyclone", _ => "Force Blast" },
+            _ => e switch { HeroElement.Fire => "Kindling", HeroElement.Frost => "Frost Armor", HeroElement.Wind => "Narrow Draft", _ => "Ward" },
+        };
+    }
+
+    /// <summary>
+    /// The ability two charges make on a button (<see cref="Tune.Dual"/>; "" where the pair has none there, and the button spends just the
+    /// oldest charge). The Swordsman's are on the Hard Swing; the Elementalist's on the bolt, movement and fixed-range buttons.
+    /// </summary>
+    public static string DualName(HeroKind h, ElemSlot slot, HeroElement x, HeroElement y)
     {
         var (a, b) = Pair(x, y);
         if (h == HeroKind.Swordsman)
-            return (a, b) switch
+            return slot != ElemSlot.Heavy ? "" : (a, b) switch
             {
                 (HeroElement.Earth, HeroElement.Earth) => "Earthsplitter",
                 (HeroElement.Fire, HeroElement.Fire) => "Inferno Cleave",
@@ -65,18 +92,37 @@ public static class Elements
                 (HeroElement.Fire, HeroElement.Frost) => "Thermal Shock",
                 _ => "",
             };
-        if (h == HeroKind.Elementalist)
-            return (a, b) switch
+        if (h != HeroKind.Elementalist) return "";
+        return slot switch
+        {
+            ElemSlot.Attack => (a, b) switch
             {
-                (HeroElement.Fire, HeroElement.Fire) => "Meteor",
-                (HeroElement.Frost, HeroElement.Frost) => "Frozen Orb",
+                (HeroElement.Fire, HeroElement.Fire) => "Meteorite",
+                (HeroElement.Frost, HeroElement.Frost) => "Cryometeor",
+                (HeroElement.Fire, HeroElement.Wind) => "Fire Barrage",
+                (HeroElement.Frost, HeroElement.Wind) => "Frost Barrage",
+                _ => "",
+            },
+            ElemSlot.Move => (a, b) switch
+            {
+                (HeroElement.Fire, HeroElement.Fire) => "Flamebreath",
+                (HeroElement.Frost, HeroElement.Frost) => "Frost Tower",
+                (HeroElement.Fire, HeroElement.Wind) => "Fire Barrier",
+                (HeroElement.Frost, HeroElement.Wind) => "Frost Barrier",
+                _ => "",
+            },
+            ElemSlot.Heavy => (a, b) switch
+            {
+                (HeroElement.Fire, HeroElement.Fire) => "Rain of Fire",
+                (HeroElement.Frost, HeroElement.Frost) => "Hailstorm",
+                (HeroElement.Fire, HeroElement.Wind) => "Fire Storm",
+                (HeroElement.Frost, HeroElement.Wind) => "Blizzard",
                 (HeroElement.Wind, HeroElement.Wind) => "Tornado",
                 (HeroElement.Fire, HeroElement.Frost) => "Frostfire Lance",
-                (HeroElement.Fire, HeroElement.Wind) => "Wildfire",
-                (HeroElement.Frost, HeroElement.Wind) => "Whiteout",
                 _ => "",
-            };
-        return "";
+            },
+            _ => "",
+        };
     }
 
     /// <summary>A pair's colour: one element's, or the two blended.</summary>

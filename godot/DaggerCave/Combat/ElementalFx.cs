@@ -45,6 +45,29 @@ public abstract partial class HeroSpell : Node2D
         if (!e.Dead) e.Build(el, amount, Power, Caster != null && IsInstanceValid(Caster) ? Caster : null);
     }
 
+    /// <summary>A shard of ice flies from <paramref name="from"/> along <paramref name="d"/>: the first creature in its path is struck.</summary>
+    protected Enemy Shard(Vector2 from, Vector2 d, float range, float dmg, float build)
+    {
+        G.Cave.Raycast(from, d, range, out var end, 4f);
+        Enemy best = null;
+        float bestT = float.MaxValue;
+        foreach (var e in Foes())
+        {
+            var to = e.GlobalPosition - from;
+            float t = to.Dot(d);
+            if (t < 0 || t > from.DistanceTo(end) + e.HitRadius) continue;
+            if ((to - d * t).Length() > e.HitRadius + 4f || t >= bestT) continue;
+            best = e; bestT = t;
+        }
+        var stop = best != null ? from + d * bestT : end;
+        G.Fx.Directional(from, d, 0.02f, new Color(0.88f, 0.97f, 1f), 1, 520, 2f, from.DistanceTo(stop) / 520f, 0, 0);
+        if (best == null) return null;
+        Hit(best, dmg, d * 30f, DamageKind.Frost);
+        Build(best, HeroElement.Frost, build);
+        G.Fx.Burst(stop, new Color(Elements.ColorOf(HeroElement.Frost), 0.9f), 3, 70, 1.6f, 0.25f, 60);
+        return best;
+    }
+
     /// <summary>The creatures that can be struck now.</summary>
     protected static IEnumerable<Enemy> Foes() => G.Enemies.ToArray().Where(e => !e.Dead && e.CanBeHit);
 }
@@ -308,12 +331,16 @@ public partial class IceEruption : HeroSpell
 
 // ====================================================================== the Elementalist
 
-/// <summary>Meteor (fire+fire): a burning rock falls out of the dark on the thickest knot of creatures. Every platform it passes through
-/// breaks (they grow back), and where it meets the rock it bursts, setting everything about it alight.</summary>
+/// <summary>Meteorite (fire+fire, the bolt): a burning rock falls out of the dark on the thickest knot of creatures. Every platform it passes
+/// through breaks (they grow back), and where it meets the rock it bursts, setting everything about it alight. Cryometeor (frost+frost): a
+/// rock of ice that falls the same way, but bursts in frost (frozen solid) and leaves the ground about it frozen.</summary>
 public partial class Meteor : HeroSpell
 {
     public Vector2 Target;
     public float Speed = Tune.Dual.MeteorSpeed, Radius = Tune.Dual.MeteorRadius, Damage;
+    /// <summary>A Cryometeor (ice, not fire).</summary>
+    public bool Frost;
+    private Color Col => Frost ? Elements.ColorOf(HeroElement.Frost) : new Color(1f, 0.5f, 0.15f);
     private Vector2 _dir;
     private float _gone, _max, _fx;
     public int Smashed { get; private set; }
@@ -327,14 +354,14 @@ public partial class Meteor : HeroSpell
         ZIndex = 4;
         _dir = (Target - GlobalPosition).Normalized();
         _max = GlobalPosition.DistanceTo(Target) * 1.8f + 120f;
-        G.Sfx.Play("lava", Target, -6, 0.05f, 0.55f);
-        G.Fx.Ring(Target, Radius * 0.5f, new Color(1f, 0.5f, 0.15f, 0.7f), 0.5f, FxLayer.RingStyle.Dashed);
+        G.Sfx.Play(Frost ? "clink" : "lava", Target, -6, 0.05f, 0.55f);
+        G.Fx.Ring(Target, Radius * 0.5f, new Color(Col, 0.7f), 0.5f, FxLayer.RingStyle.Dashed);
     }
 
     protected override void Tick(float dt)
     {
         float move = Speed * dt;
-        var col = new Color(1f, 0.5f, 0.15f);
+        var col = Col;
         while (move > 0)
         {
             float step = Math.Min(8f, move);
@@ -350,17 +377,18 @@ public partial class Meteor : HeroSpell
         }
         // the burning rock and its trail
         var at = GlobalPosition;
-        G.Fx.Burst(at, new Color(1f, 0.75f, 0.35f), 2, 40, 5.5f, 0.18f, 0, 0);
-        G.Fx.Trail(at - _dir * 6f, new Color(1f, 0.45f, 0.12f, 0.9f));
-        G.Fx.Directional(at, -_dir, 0.4f, G.Chance(0.5f) ? col : new Color(1f, 0.8f, 0.4f), 2, 140, 3f, 0.35f, -40, 0);
-        if (G.Chance(0.3f)) G.Fx.Smoke(at - _dir * 10f, 1, new Color(0.3f, 0.27f, 0.25f, 0.5f), 20f);
+        G.Fx.Burst(at, Frost ? new Color(0.9f, 0.97f, 1f) : new Color(1f, 0.75f, 0.35f), 2, 40, 5.5f, 0.18f, 0, 0);
+        G.Fx.Trail(at - _dir * 6f, new Color(col, 0.9f));
+        G.Fx.Directional(at, -_dir, 0.4f, G.Chance(0.5f) ? col : col.Lightened(0.35f), 2, 140, 3f, 0.35f, Frost ? 60 : -40, 0);
+        if (G.Chance(0.3f)) G.Fx.Smoke(at - _dir * 10f, 1, Frost ? new Color(0.85f, 0.92f, 1f, 0.4f) : new Color(0.3f, 0.27f, 0.25f, 0.5f), 20f);
         if ((_fx -= dt) <= 0) { _fx = 0.08f; G.Fx.LightUp(at, col, 2.2f, 140f, 0.12f); }
     }
 
     private void Burst(Vector2 at)
     {
         Landed = true;
-        var col = new Color(1f, 0.5f, 0.15f);
+        var col = Col;
+        if (Frost) { FrostBurst(at, col); return; }
         G.Fx.Explosion(at, col, 1.8f);
         G.Fx.Shockwave(at, Radius, new Color(1f, 0.6f, 0.25f, 0.7f), 0.4f);
         G.Fx.Ring(at, Radius, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Burst);
@@ -385,90 +413,38 @@ public partial class Meteor : HeroSpell
         for (int k = 0; k < 10; k++) G.Fx.Ember(at + G.RandDir() * G.Range(0f, Radius * 0.7f), new Color(1f, G.Range(0.45f, 0.8f), 0.2f));
         QueueFree();
     }
-}
 
-/// <summary>Frozen Orb (frost+frost): a ball of ice drifts out, loosing shards round in a spiral (and every other one at a creature in
-/// reach) that fill what they meet with frost;
-/// at the end it bursts in a ring of frost that shatters what is frozen solid.</summary>
-public partial class FrozenOrb : HeroSpell
-{
-    public Vector2 Dir;
-    public float Speed = Tune.Dual.OrbSpeed, Seconds = Tune.Dual.OrbSeconds;
-    private float _shot, _angle;
-    public int Shards { get; private set; }
-    public int ShardHits { get; private set; }
-
-    protected override void Tick(float dt)
+    /// <summary>A Cryometeor lands: everything about it is frozen solid (two full build-ups), and the ground freezes over.</summary>
+    private void FrostBurst(Vector2 at, Color col)
     {
-        var col = Elements.ColorOf(HeroElement.Frost);
-        var next = GlobalPosition + Dir * Speed * dt;
-        if (T >= Seconds || G.Cave.IsSolid(next)) { Nova(); return; }
-        GlobalPosition = next;
-        if ((_shot -= dt) <= 0)
-        {
-            _shot = Tune.Dual.OrbEvery;
-            _angle += 2.4f;
-            var d = new Vector2(MathF.Cos(_angle), MathF.Sin(_angle));
-            // (every other shard flies at a creature in reach: the spiral finds the crowd, these the one)
-            if (Shards % 2 == 1)
-            {
-                var near = Foes().Where(e => e.GlobalPosition.DistanceTo(GlobalPosition) < Tune.Dual.ShardRange + e.HitRadius && G.Cave.LineClear(GlobalPosition, e.GlobalPosition)).ToList();
-                if (near.Count > 0) d = (near[G.RangeI(0, near.Count - 1)].GlobalPosition - GlobalPosition).Normalized();
-            }
-            Shard(d, col);
-        }
-        var at = GlobalPosition;
-        G.Fx.Burst(at, new Color(0.9f, 0.97f, 1f, 0.9f), 1, 20, 6f, 0.12f, 0, 0);
-        G.Fx.Burst(at + G.RandDir() * 6f, new Color(col, 0.8f), 1, 30, 2.4f, 0.3f, 0, 0);
-        if (G.Chance(0.25f)) G.Fx.LightUp(at, col, 1.4f, 90f, 0.15f);
-    }
-
-    /// <summary>A shard flies out from the orb: the first creature in its path is struck.</summary>
-    private void Shard(Vector2 d, Color col)
-    {
-        Shards++;
-        var from = GlobalPosition;
-        G.Cave.Raycast(from, d, Tune.Dual.ShardRange, out var end, 4f);
-        Enemy best = null;
-        float bestT = float.MaxValue;
+        G.Fx.Burst(at, new Color(0.92f, 0.98f, 1f), 34, 280, 3f, 0.55f, 260);
+        G.Fx.Shockwave(at, Radius, new Color(col, 0.7f), 0.4f);
+        G.Fx.Ring(at, Radius, new Color(col, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
+        G.Fx.LightUp(at, col, 3f, Radius * 2.5f, 0.5f);
+        G.Fx.AddShake(6f);
+        G.Main.Rumble(0.7f, 0.8f, 0.25f);
+        G.Sfx.Play("slam", at, 0, 0.05f, 0.7f);
+        G.Sfx.Play("clink", at, 0, 0.05f, 0.4f);
+        Smashed += Breakables.Smash(at, Radius * 0.6f);
         foreach (var e in Foes())
         {
-            var to = e.GlobalPosition - from;
-            float t = to.Dot(d);
-            if (t < 0 || t > from.DistanceTo(end) + e.HitRadius) continue;
-            if ((to - d * t).Length() > e.HitRadius + 4f || t >= bestT) continue;
-            best = e; bestT = t;
+            if (e.GlobalPosition.DistanceTo(at) > Radius + e.HitRadius) continue;
+            if (!G.Cave.LineClear(at + (e.GlobalPosition - at).Normalized() * 4f, e.GlobalPosition)) continue;
+            Struck++;
+            Hit(e, Damage, (e.GlobalPosition - at).Normalized() * 100f, DamageKind.Frost);
+            Build(e, HeroElement.Frost, Tune.Elements.Full);
+            Build(e, HeroElement.Frost, Tune.Elements.Full);
         }
-        var stop = best != null ? from + d * bestT : end;
-        G.Fx.Directional(from, d, 0.02f, new Color(0.88f, 0.97f, 1f), 1, 520, 2f, from.DistanceTo(stop) / 520f, 0, 0);
-        if (best == null) return;
-        ShardHits++;
-        Hit(best, Tune.Dual.ShardDamage * Power, d * 30f, DamageKind.Frost);
-        Build(best, HeroElement.Frost, Tune.Dual.ShardBuild);
-        G.Fx.Burst(stop, new Color(col, 0.9f), 3, 70, 1.6f, 0.25f, 60);
-    }
-
-    private void Nova()
-    {
-        var at = GlobalPosition;
-        var col = Elements.ColorOf(HeroElement.Frost);
-        G.Fx.Ring(at, Tune.Dual.NovaRadius, new Color(col, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
-        G.Fx.Burst(at, new Color(0.9f, 0.97f, 1f), 26, 240, 2.4f, 0.45f, 120);
-        G.Fx.AddShake(3f);
-        G.Sfx.Play("clink", at, -2, 0.05f, 0.5f);
-        Breakables.SpellBurst(at, Tune.Dual.NovaRadius * 0.5f);
-        foreach (var e in Foes())
+        if (Ground.Below(at + new Vector2(0, -16), 80, out var floor))
         {
-            if (e.GlobalPosition.DistanceTo(at) > Tune.Dual.NovaRadius + e.HitRadius || !G.Cave.LineClear(at, e.GlobalPosition)) continue;
-            if (e.Shatter(Power, Caster)) continue;
-            Hit(e, Tune.Dual.NovaDamage * Power, (e.GlobalPosition - at).Normalized() * 90f, DamageKind.Frost);
-            Build(e, HeroElement.Frost, Tune.Dual.NovaBuild);
+            var field = new TundraField { Position = floor, Caster = Caster, Power = Power };
+            G.Spawn(field);
         }
         QueueFree();
     }
 }
 
-/// <summary>Tornado (wind+wind): a whirlwind runs along the floor, sweeping up the light creatures it meets and carrying them along
+/// <summary>Tornado (wind+wind, the fixed-range spell): a whirlwind runs along the floor, sweeping up the light creatures it meets and carrying them along
 /// inside it, swallowing the shots thrown at it; when it blows out, what it carried is flung away.</summary>
 public partial class Tornado : HeroSpell
 {
@@ -546,87 +522,342 @@ public partial class Tornado : HeroSpell
     }
 }
 
-/// <summary>Wildfire (fire+wind): for a while the wind carries fire from creature to creature: every one alight lends it to those near.</summary>
-public partial class Wildfire : HeroSpell
+/// <summary>Fire Walk (fire, movement): for a while fire burns where the caster walks, a trail of it fading behind; creatures in it burn.</summary>
+public partial class FireTrail : HeroSpell
 {
-    public float Seconds = Tune.Dual.WildSeconds;
-    private float _tick;
-    public int Spread { get; private set; }
+    public float Seconds = Tune.ElementalStaff.WalkSeconds;
+    private readonly List<(Vector2 at, float t)> _spots = new();
+    private float _lay, _tick;
+    public int Burned { get; private set; }
 
     protected override void Tick(float dt)
     {
-        if (Caster == null || !IsInstanceValid(Caster) || T >= Seconds) { QueueFree(); return; }
-        GlobalPosition = Caster.GlobalPosition;
-        if ((_tick -= dt) > 0) return;
-        _tick = Tune.Dual.WildTick;
-        var foes = Foes().Where(e => Math.Abs(e.GlobalPosition.X - GlobalPosition.X) <= Tune.Elementalist.SnapViewX && Math.Abs(e.GlobalPosition.Y - GlobalPosition.Y) <= Tune.Elementalist.SnapViewY).ToList();
-        var lit = foes.Where(e => e.Ignited).ToList();
-        if (lit.Count == 0)
+        bool laying = T < Seconds && Caster != null && IsInstanceValid(Caster) && !Caster.Dead;
+        // a patch of fire where the caster's feet are (on the ground)
+        if (laying && (_lay -= dt) <= 0 && Ground.Below(Caster.GlobalPosition + new Vector2(0, 6), 14, out var floor))
         {
-            // nothing alight: the wind lights the nearest
-            var first = foes.OrderBy(e => e.GlobalPosition.DistanceTo(GlobalPosition)).FirstOrDefault();
-            if (first == null) return;
-            G.Fx.Mote(Caster.CastPoint, first.GlobalPosition, new Color(1f, 0.6f, 0.2f));
-            Build(first, HeroElement.Fire, Tune.Elements.Full);
-            return;
+            _lay = 0.08f;
+            if (_spots.Count == 0 || _spots[^1].at.DistanceTo(floor) > 8f) _spots.Add((floor, T));
         }
-        foreach (var src in lit)
+        float life = Tune.ElementalStaff.TrailLife;
+        _spots.RemoveAll(p => T - p.t > life);
+        if (!laying && _spots.Count == 0) { QueueFree(); return; }
+        foreach (var (at, t) in _spots)
         {
-            Hit(src, Tune.Dual.WildDamage * Power, Vector2.Zero, DamageKind.Fire);
-            foreach (var o in foes)
-            {
-                if (o == src || o.Dead || o.GlobalPosition.DistanceTo(src.GlobalPosition) > Tune.Dual.WildReach + o.HitRadius) continue;
-                if (!G.Cave.LineClear(src.GlobalPosition, o.GlobalPosition)) continue;
-                Spread++;
-                G.Fx.Mote(src.GlobalPosition, o.GlobalPosition, new Color(1f, G.Range(0.45f, 0.75f), 0.2f));
-                Build(o, HeroElement.Fire, Tune.Dual.WildBuild);
-            }
-            G.Fx.Directional(src.GlobalPosition, new Vector2(Caster.Facing, -0.6f).Normalized(), 0.5f, new Color(1f, 0.55f, 0.15f, 0.9f), 4, 160, 2.6f, 0.4f, -60, 0);
+            if (!G.Chance(0.3f)) continue;
+            float fade = Math.Clamp((life - (T - t)) / 0.6f, 0f, 1f);
+            G.Fx.Directional(at + new Vector2(G.Range(-5f, 5f), 0), Vector2.Up, 0.25f, new Color(1f, G.Range(0.4f, 0.7f), 0.12f, 0.9f * fade), 1, G.Range(60, 120), G.Range(2f, 3f), 0.3f, -40, 0);
+        }
+        if ((_tick -= dt) > 0) return;
+        _tick = Tune.ElementalStaff.TrailTick;
+        foreach (var e in Foes())
+        {
+            if (!_spots.Any(p => Ground.Over(e, p.at.X - 8f, p.at.X + 8f, p.at.Y, 30f))) continue;
+            Burned++;
+            Hit(e, Tune.ElementalStaff.TrailDamage * Power, Vector2.Zero, DamageKind.Fire);
+            Build(e, HeroElement.Fire, Tune.ElementalStaff.TrailBuild);
         }
     }
 }
 
-/// <summary>Whiteout (frost+wind): a gale of snow pours from the staff. Creatures in it are driven back and filled with frost, and
-/// their shots are turned round on them.</summary>
-public partial class Whiteout : HeroSpell
+/// <summary>Tundra (frost, movement): the ground about where it was cast freezes over. Heroes on it slide quicker; creatures on it are chilled
+/// and slowly filled with frost.</summary>
+public partial class TundraField : HeroSpell
 {
-    public Vector2 Dir;
-    public float Seconds = Tune.Dual.GaleSeconds, Range = Tune.Dual.GaleRange;
-    private float _tick;
-    public int Turned { get; private set; }
+    public float Seconds = Tune.ElementalStaff.TundraSeconds, Half = Tune.ElementalStaff.TundraHalf;
+    private float _x0, _x1, _tick;
+    private readonly List<Vector2> _surface = new();
+    public int Chilled { get; private set; }
+
+    public override void _Ready()
+    {
+        base._Ready();
+        // the frost spreads along the floor each way until a wall or a drop stops it
+        var c = GlobalPosition;
+        _x0 = _x1 = c.X;
+        float y = c.Y;
+        for (float x = c.X; x >= c.X - Half; x -= 8f) { if (!Ground.FloorNear(x, y, 16f, 18f, out float fy)) break; y = fy; _x0 = x; _surface.Add(new Vector2(x, fy)); }
+        y = c.Y;
+        for (float x = c.X + 8f; x <= c.X + Half; x += 8f) { if (!Ground.FloorNear(x, y, 16f, 18f, out float fy)) break; y = fy; _x1 = x; _surface.Add(new Vector2(x, fy)); }
+        if (_surface.Count == 0) _surface.Add(c);
+        foreach (var p in _surface) G.Fx.Burst(p, new Color(0.9f, 0.97f, 1f, 0.9f), 2, 50, 2.4f, 0.4f, 0, 0);
+        G.Sfx.Play("clink", c, -4, 0.05f, 0.6f);
+    }
 
     protected override void Tick(float dt)
     {
-        if (Caster == null || !IsInstanceValid(Caster) || Caster.Dead || T >= Seconds) { QueueFree(); return; }
+        if (T >= Seconds) { QueueFree(); return; }
+        float fade = Math.Clamp((Seconds - T) / 0.6f, 0f, 1f);
+        var col = Elements.ColorOf(HeroElement.Frost);
+        var p = _surface[G.RangeI(0, _surface.Count - 1)];
+        G.Fx.Burst(p + new Vector2(G.Range(-4f, 4f), -1f), new Color(0.88f, 0.96f, 1f, 0.85f * fade), 1, 10, G.Range(2.5f, 4f), 0.5f, 0, 0);
+        if (G.Chance(0.12f)) G.Fx.Glint(p + new Vector2(0, -2), col, 4f);
+        if ((_tick -= dt) > 0) return;
+        _tick = Tune.ElementalStaff.TundraTick;
+        float y = GlobalPosition.Y;
+        foreach (var e in Foes())
+        {
+            if (!Ground.Over(e, _x0, _x1, y + 10f, 30f + e.HitRadius)) continue;
+            Chilled++;
+            e.Chill(Tune.ElementalStaff.TundraSlow, Tune.ElementalStaff.TundraTick + 0.3f);
+            Build(e, HeroElement.Frost, Tune.ElementalStaff.TundraBuild);
+        }
+        // (heroes on the ice slide quicker)
+        foreach (var h in G.Players)
+            if (h != null && IsInstanceValid(h) && !h.Dead && h.GlobalPosition.X >= _x0 - 6f && h.GlobalPosition.X <= _x1 + 6f && Math.Abs(h.GlobalPosition.Y + 12f - y) < 30f)
+                h.GiveBuff(Player.BuffTailwind, Tune.ElementalStaff.TundraTick + 0.2f);
+    }
+}
+
+/// <summary>Fire Barrage / Frost Barrage (fire+wind / frost+wind, the bolt): a volley of bolts from the staff, one after another.</summary>
+public partial class Barrage : HeroSpell
+{
+    public HeroElement El = HeroElement.Fire;
+    public Vector2 Aim;
+    private float _next;
+    public int Loosed { get; private set; }
+
+    protected override void Tick(float dt)
+    {
+        if (Caster == null || !IsInstanceValid(Caster) || Caster.Dead || Loosed >= Tune.Dual.BarrageBolts) { QueueFree(); return; }
+        if ((_next -= dt) > 0) return;
+        _next = Tune.Dual.BarrageEvery;
+        Loosed++;
+        Caster.BarrageBolt(El, Aim);
+    }
+}
+
+/// <summary>Flamebreath (fire+fire, movement): fire pours from the staff in a cone. Creatures in it burn; aimed down, it holds the caster up.</summary>
+public partial class FlameBreath : HeroSpell
+{
+    public Vector2 Dir;
+    private float _tick;
+    public int Burned { get; private set; }
+
+    protected override void Tick(float dt)
+    {
+        if (Caster == null || !IsInstanceValid(Caster) || Caster.Dead || T >= Tune.Dual.BreathSeconds) { QueueFree(); return; }
         var from = Caster.CastPoint;
         GlobalPosition = from;
-        float half = Mathf.DegToRad(Tune.Dual.GaleDegrees) * 0.5f;
-        var col = Elements.ColorOf(HeroElement.Frost);
-        // snow streaming out through the cone
-        for (int k = 0; k < 4; k++)
+        float half = Mathf.DegToRad(Tune.Dual.BreathDegrees) * 0.5f, range = Tune.Dual.BreathRange;
+        for (int k = 0; k < 5; k++)
         {
             var d = Dir.Rotated(G.Range(-half, half));
-            G.Fx.Directional(from + d * G.Range(4f, 20f), d, 0.05f, G.Chance(0.6f) ? new Color(0.94f, 0.98f, 1f, 0.9f) : new Color(col, 0.8f), 1, G.Range(300, 420), G.Range(1.4f, 2.4f), Range / 380f, 20, 0);
+            var tone = G.Chance(0.5f) ? new Color(1f, 0.45f, 0.1f, 0.9f) : new Color(1f, 0.8f, 0.3f, 0.9f);
+            G.Fx.Directional(from + d * 6f, d, 0.05f, tone, 1, G.Range(260, 360), G.Range(2.4f, 4f), range / 320f, -50, 0);
         }
+        // (breathed at the floor, the fire holds you up)
+        if (Dir.Y > 0.5f && Caster.Velocity.Y > -60f) Caster.Velocity = new Vector2(Caster.Velocity.X, -60f);
         foreach (var pr in G.Main.EnemyProjectiles.ToArray())
         {
             if (!IsInstanceValid(pr)) continue;
             var to = pr.GlobalPosition - from;
-            if (to.Length() > Range || Math.Abs(Dir.AngleTo(to)) > half) continue;
-            Turned++;
-            pr.Reflect(Dir, 1f);
+            if (to.Length() <= range && Math.Abs(Dir.AngleTo(to)) <= half) pr.Deflect();
         }
         if ((_tick -= dt) > 0) return;
-        _tick = Tune.Dual.GaleTick;
+        _tick = Tune.Dual.BreathTick;
+        GasCloud.IgniteAt(from + Dir * range * 0.6f, range * 0.4f);
         foreach (var e in Foes())
         {
             var to = e.GlobalPosition - from;
-            if (to.Length() > Range + e.HitRadius || (to.Length() > 14f && Math.Abs(Dir.AngleTo(to)) > half + 0.1f)) continue;
+            if (to.Length() > range + e.HitRadius || (to.Length() > 12f && Math.Abs(Dir.AngleTo(to)) > half + 0.1f)) continue;
             if (!G.Cave.LineClear(from, e.GlobalPosition)) continue;
-            Hit(e, Tune.Dual.GaleDamage * Power, Vector2.Zero, DamageKind.Frost);
-            Build(e, HeroElement.Frost, Tune.Dual.GaleBuild);
-            e.Shove(Dir * Tune.Dual.GalePush * (1f - 0.5f * to.Length() / Range));
-            if (e.Ignited) e.Quench();
+            Burned++;
+            Hit(e, Tune.Dual.BreathDamage * Power, Dir * 20f, DamageKind.Fire);
+            Build(e, HeroElement.Fire, Tune.Dual.BreathBuild);
         }
+    }
+}
+
+/// <summary>Frost Tower (frost+frost, movement): a tower of ice bursts up where the caster stood, throwing them high, and stands a while
+/// loosing shards at the creatures near it.</summary>
+public partial class FrostTower : HeroSpell
+{
+    private float _shot;
+    public int Shots { get; private set; }
+
+    public override void _Ready()
+    {
+        base._Ready();
+        var col = Elements.ColorOf(HeroElement.Frost);
+        G.Fx.Directional(GlobalPosition, Vector2.Up, 0.12f, new Color(0.92f, 0.98f, 1f), 26, 480, 3.4f, 0.45f, 300, 0);
+        G.Fx.Ring(GlobalPosition, 26, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
+        G.Fx.AddShake(3f);
+        G.Sfx.Play("clink", GlobalPosition, 0, 0.05f, 0.5f);
+    }
+
+    private Vector2 Top => GlobalPosition + new Vector2(0, -70f);
+
+    protected override void Tick(float dt)
+    {
+        var col = Elements.ColorOf(HeroElement.Frost);
+        if (T >= Tune.Dual.TowerSeconds)
+        {
+            G.Fx.Burst(GlobalPosition + new Vector2(0, -35), new Color(0.9f, 0.97f, 1f), 20, 140, 2.4f, 0.45f, 300);
+            QueueFree();
+            return;
+        }
+        // the tower: a column of glinting ice, broad at the foot, narrowing to the top
+        float melt = Math.Clamp((Tune.Dual.TowerSeconds - T) / 0.5f, 0f, 1f);
+        for (int k = 0; k < 7; k++)
+        {
+            float h = G.Range(0f, 1f);
+            float w = 11f * (1f - 0.55f * h);
+            var tone = G.Chance(0.3f) ? new Color(0.95f, 0.99f, 1f, 0.95f * melt) : new Color(0.68f, 0.88f, 1f, 0.85f * melt);
+            G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-w, w), -h * 72f), tone, 1, 4, G.Range(4f, 7f), 0.22f, 0, 0);
+        }
+        if (G.Chance(0.15f)) G.Fx.Glint(Top + new Vector2(G.Range(-6f, 6f), G.Range(-4f, 8f)), col, 5f);
+        if ((_shot -= dt) > 0) return;
+        _shot = Tune.Dual.TowerEvery;
+        var top = Top;
+        var near = Foes().Where(e => e.GlobalPosition.DistanceTo(top) < Tune.Dual.TowerRange + e.HitRadius && G.Cave.LineClear(top, e.GlobalPosition))
+            .OrderBy(e => e.GlobalPosition.DistanceTo(top)).FirstOrDefault();
+        if (near == null) return;
+        Shots++;
+        Shard(top, (near.GlobalPosition - top).Normalized(), Tune.Dual.TowerRange + 20f, Tune.Dual.ShardDamage * Power, Tune.Dual.ShardBuild);
+    }
+}
+
+/// <summary>Fire Barrier (fire+wind, movement): a ring of fire about the caster, going where they go. Creatures that touch it burn and are
+/// thrown back; shots that cross it burn up.</summary>
+public partial class FireRing : HeroSpell
+{
+    private float _tick;
+    public int Burned { get; private set; }
+
+    protected override void Tick(float dt)
+    {
+        if (Caster == null || !IsInstanceValid(Caster) || Caster.Dead || T >= Tune.Dual.RingSeconds) { QueueFree(); return; }
+        var c = Caster.GlobalPosition + new Vector2(0, -4);
+        GlobalPosition = c;
+        float r = Tune.Dual.RingRadius;
+        for (int k = 0; k < 4; k++)
+        {
+            float a = G.Range(0f, Mathf.Tau) + T * 3f;
+            var at = c + new Vector2(MathF.Cos(a), MathF.Sin(a)) * r;
+            G.Fx.Directional(at, new Vector2(-MathF.Sin(a), MathF.Cos(a)), 0.3f, G.Chance(0.5f) ? new Color(1f, 0.45f, 0.1f, 0.9f) : new Color(1f, 0.75f, 0.3f, 0.9f), 1, 80, G.Range(2.2f, 3.2f), 0.25f, -60, 0);
+        }
+        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
+            if (IsInstanceValid(pr) && Math.Abs(pr.GlobalPosition.DistanceTo(c) - r) < 12f) pr.Deflect();
+        if ((_tick -= dt) > 0) return;
+        _tick = Tune.Dual.RingTick;
+        foreach (var e in Foes())
+        {
+            float d = e.GlobalPosition.DistanceTo(c);
+            if (d > r + e.HitRadius + 6f) continue;
+            Burned++;
+            var away = (e.GlobalPosition - c).Normalized();
+            Hit(e, Tune.Dual.RingDamage * Power, away * 60f, DamageKind.Fire);
+            Build(e, HeroElement.Fire, Tune.Dual.RingBuild);
+            e.Shove(away * Tune.Dual.RingPush + new Vector2(0, -60f));
+        }
+    }
+}
+
+/// <summary>Frost Barrier (frost+wind, movement): a wall of ice and wind stands before the caster. Creatures can't cross it (they are driven
+/// back and chilled), and the shots that meet it are turned round.</summary>
+public partial class FrostBarrier : HeroSpell
+{
+    private float _tick;
+    public int Turned { get; private set; }
+    public int Held { get; private set; }
+
+    protected override void Tick(float dt)
+    {
+        if (T >= Tune.Dual.BarrierSeconds) { G.Fx.Burst(GlobalPosition + new Vector2(0, -40), new Color(0.9f, 0.97f, 1f), 18, 120, 2.2f, 0.4f, 300); QueueFree(); return; }
+        var c = GlobalPosition;
+        float h = Tune.Dual.BarrierHeight;
+        var col = Elements.ColorOf(HeroElement.Frost);
+        // the wall: snow streaming up a sheet of ice
+        for (int k = 0; k < 3; k++)
+            G.Fx.Directional(c + new Vector2(G.Range(-4f, 4f), -G.Range(0f, h * 0.3f)), Vector2.Up, 0.08f, G.Chance(0.6f) ? new Color(0.92f, 0.98f, 1f, 0.85f) : new Color(col, 0.8f), 1, G.Range(160, 240), G.Range(1.6f, 2.6f), h / 220f, 0, 0);
+        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
+        {
+            if (!IsInstanceValid(pr)) continue;
+            var p = pr.GlobalPosition;
+            if (Math.Abs(p.X - c.X) > 10f + pr.Radius || p.Y > c.Y + 4f || p.Y < c.Y - h) continue;
+            Turned++;
+            pr.Reflect(new Vector2(-Math.Sign(pr.Vel.X == 0 ? 1 : pr.Vel.X), -0.1f), 1f);
+        }
+        bool tick = (_tick -= dt) <= 0;
+        if (tick) _tick = Tune.Dual.BarrierTick;
+        foreach (var e in Foes())
+        {
+            if (!Ground.Over(e, c.X - 12f, c.X + 12f, c.Y, h)) continue;
+            // (it can't cross: it's driven back the way it came)
+            float side = Math.Sign(e.GlobalPosition.X - c.X);
+            if (side == 0) side = 1;
+            e.Shove(new Vector2(side * Tune.Dual.BarrierPush, -30f));
+            if (!tick) continue;
+            Held++;
+            Build(e, HeroElement.Frost, Tune.Dual.BarrierBuild);
+        }
+    }
+}
+
+/// <summary>Rain of Fire / Hailstorm (fire+fire / frost+frost, the fixed-range spell): fire (or hail) falls out of the dark over the spot.
+/// Each fireball bursts where it lands; each hailstone strikes what it hits, and beats flying creatures down.</summary>
+public partial class Downpour : HeroSpell
+{
+    public HeroElement El = HeroElement.Fire;
+    private float _drop;
+    private readonly List<(Vector2 at, Vector2 v)> _falling = new();
+    public int Struck { get; private set; }
+
+    protected override void Tick(float dt)
+    {
+        bool fire = El == HeroElement.Fire;
+        var col = fire ? new Color(1f, 0.5f, 0.15f) : Elements.ColorOf(HeroElement.Frost);
+        var c = GlobalPosition;
+        if (T < Tune.Dual.RainSeconds && (_drop -= dt) <= 0)
+        {
+            _drop = Tune.Dual.RainEvery;
+            // from as high over the spot as the roof allows
+            float x = c.X + G.Range(-Tune.Dual.RainHalf, Tune.Dual.RainHalf);
+            G.Cave.Raycast(new Vector2(x, c.Y), Vector2.Up, 180f, out var top, 6f);
+            _falling.Add((top + new Vector2(0, 6), new Vector2(G.Range(-30f, 30f), fire ? 380f : 460f)));
+        }
+        if (T >= Tune.Dual.RainSeconds && _falling.Count == 0) { QueueFree(); return; }
+        for (int k = _falling.Count - 1; k >= 0; k--)
+        {
+            var (at, v) = _falling[k];
+            var next = at + v * dt;
+            Enemy hit = Foes().FirstOrDefault(e => e.GlobalPosition.DistanceTo(next) < e.HitRadius + 4f);
+            bool ground = G.Cave.IsSolid(next) || Ground.Solid(next) || next.Y > c.Y + 140f;
+            if (hit == null && !ground)
+            {
+                _falling[k] = (next, v);
+                if (fire) G.Fx.Burst(next, new Color(1f, 0.7f, 0.3f, 0.95f), 1, 10, 3.2f, 0.08f, 0, 0);
+                else G.Fx.Burst(next, new Color(0.9f, 0.97f, 1f, 0.95f), 1, 8, 2.4f, 0.06f, 0, 0);
+                continue;
+            }
+            _falling.RemoveAt(k);
+            if (fire) FireLands(next, hit, col); else HailLands(next, hit, col);
+        }
+    }
+
+    private void FireLands(Vector2 at, Enemy direct, Color col)
+    {
+        G.Fx.Burst(at, col, 6, 90, 2.4f, 0.3f, 120);
+        G.Fx.Flash(at, 10, col, 0.08f);
+        GasCloud.IgniteAt(at, Tune.Dual.RainBurst);
+        foreach (var e in Foes())
+        {
+            if (e != direct && e.GlobalPosition.DistanceTo(at) > Tune.Dual.RainBurst + e.HitRadius) continue;
+            Struck++;
+            Hit(e, Tune.Dual.RainDamage * Power, (e.GlobalPosition - at).Normalized() * 30f, DamageKind.Fire);
+            Build(e, HeroElement.Fire, Tune.Dual.RainBuild);
+        }
+    }
+
+    private void HailLands(Vector2 at, Enemy direct, Color col)
+    {
+        G.Fx.Burst(at, new Color(0.9f, 0.97f, 1f), 4, 80, 1.8f, 0.25f, 300);
+        if (direct == null) { Breakables.SpellBurst(at, 6f); return; }
+        Struck++;
+        Hit(direct, Tune.Dual.HailDamage * Power, new Vector2(0, 40f), DamageKind.Frost);
+        Build(direct, HeroElement.Frost, Tune.Dual.HailBuild);
+        // (the hail beats what flies down out of the air)
+        direct.Shove(new Vector2(0, Tune.Dual.HailBeat));
     }
 }

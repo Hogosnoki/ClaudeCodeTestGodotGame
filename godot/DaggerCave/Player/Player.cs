@@ -598,6 +598,8 @@ public partial class Player : CharacterBody2D
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
         if (_dodgeBuf > 0 && _heldRope == null && !Holding && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); Stats.On.RaiseDodge(this); }
+        // (an elemental lift the button gave: at least this fast upward)
+        if (_liftTo is float up) { v.Y = Math.Min(v.Y, up); _liftTo = null; _jumpCutDone = true; }
 
         // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
         if (Possessed) v = PossessedStep(inp);
@@ -659,7 +661,7 @@ public partial class Player : CharacterBody2D
         }
         // fall damage: the time spent falling at the terminal speed, taken on landing; anything that slows the fall (a second jump,
         // an updraft, a dash, a rope, the water, a creature's form) starts the clock afresh
-        if (nowFloor && !_wasOnFloor) TakeFall(_terminalT);
+        if (nowFloor && !_wasOnFloor) { TakeFall(_terminalT); ElementLanded(_lastFallSpeed); }
         if (nowFloor || _rope != null || InWater || Possessed || _lastFallSpeed < Tune.Hero.MaxFallSpeed * Tune.Hero.FallTerminalShare) _terminalT = 0f;
         else _terminalT += dt;
         _wasOnFloor = nowFloor;
@@ -702,7 +704,7 @@ public partial class Player : CharacterBody2D
     private bool Primary(Vector2 aim, bool held = false, bool stick = false) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Vitalist => CastDrain(aim, held),
-        HeroKind.Elementalist => Elemental ? ElementMissile(aim, held) : CastBolt(aim, held),
+        HeroKind.Elementalist => Elemental ? StaffBolt(aim, held) : CastBolt(aim, held),
         HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : !stick && TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         HeroKind.Aegis => CastWardBolt(aim, held),
@@ -716,7 +718,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => TryHeal(),
-        HeroKind.Elementalist => Elemental ? TryStorm(aim, _abilityAimDist) : TryBlizzard(aim, _abilityAimDist),
+        HeroKind.Elementalist => Elemental ? TryAid() : TryBlizzard(aim, _abilityAimDist),
         HeroKind.Rogue => TryThrow(aim),
         HeroKind.Aegis => TryBarrier(aim),
         HeroKind.ShapeShifter => TryShift(),
@@ -729,7 +731,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
         HeroKind.Vitalist => TryRupture(aim),
-        HeroKind.Elementalist => Elemental ? TryBurst(aim) : TrySnap(),
+        HeroKind.Elementalist => Elemental ? TryFixed(aim) : TrySnap(),
         HeroKind.Rogue => TryRecall(),
         HeroKind.Aegis => TryBurden(aim),
         HeroKind.ShapeShifter => TrySpecial(aim),
@@ -742,7 +744,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Swordsman => TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
-        HeroKind.Elementalist => Elemental ? ElementAid(inp) : BeginDraftAim(inp),
+        HeroKind.Elementalist => Elemental ? ElementMove(inp) : BeginDraftAim(inp),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
         HeroKind.ShapeShifter => Possessed ? TryRemember() : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
@@ -1018,6 +1020,7 @@ public partial class Player : CharacterBody2D
         }
 
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult * FormJump) * (WebbedT > 0 ? 0.75f : 1f);
+        v = LeapCarry(v, onFloor);
         int wallSide = WallSide();
         bool onWall = !onFloor && wallSide != 0;
 
@@ -1035,6 +1038,7 @@ public partial class Player : CharacterBody2D
             {
                 v.Y = -jumpV; _coyote = 0; _jumpBuffer = 0; _jumpCutDone = false;
                 _jumpedFromGround = true;
+                v = ElementJump(v, jumpV, inp);
                 G.Sfx.Play("jump", GlobalPosition, -8);
                 G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3);
             }

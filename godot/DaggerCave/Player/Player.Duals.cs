@@ -6,14 +6,14 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// Dual charges (<see cref="Tune.Dual"/>): with two elements readied, the Swordsman's Hard Swing and the Elementalist's Burst spend both
-/// for the pair's own ability (<see cref="Elements.DualName"/>), each its own mechanic rather than a bigger blow. The Swordsman's are
-/// heaves that do something where the blade lands: Earthsplitter (a fissure runs along the floor), Inferno Cleave (a wall of fire),
-/// Glacier Cleaver (a vast axe of ice: it freezes what it cuts and the head shatters it), Frost Heave (ice bursts up under the nearest
-/// creature), Magma Rend (a pool of magma that mires) and Thermal Shock (on a creature burning or chilled, a great blow and a cloud of
-/// steam to hide in). The Elementalist's: Meteor (falls on a knot of creatures, smashing the platforms it passes), Frozen Orb (a spiral of
-/// shards), Tornado (carries creatures along), Frostfire Lance (a beam through a line), Wildfire (fire carried from creature to creature)
-/// and Whiteout (a gale that drives back and turns shots round). The spells that last are in <c>Combat/ElementalFx.cs</c>.
+/// Dual charges (<see cref="Tune.Dual"/>): with two elements readied, a button that has an ability for the pair spends both on it
+/// (<see cref="Elements.DualName"/>), each its own mechanic rather than a bigger blow. The Swordsman's are on the Hard Swing, heaves that do
+/// something where the blade lands: Earthsplitter (a fissure runs along the floor), Inferno Cleave (a wall of fire), Glacier Cleaver (a
+/// vast axe of ice: it freezes what it cuts and the head shatters it), Frost Heave (ice bursts up under the nearest creature), Magma Rend
+/// (a pool of magma that mires) and Thermal Shock (on a creature burning or chilled, a great blow and a cloud of steam to hide in). The
+/// Elementalist's are on three buttons: the bolt (Meteorite, Cryometeor, Fire Barrage, Frost Barrage), movement (Flamebreath, Frost Tower,
+/// Fire Barrier, Frost Barrier) and the fixed-range spell (Rain of Fire, Hailstorm, Fire Storm, Blizzard, Tornado, Frostfire Lance). The
+/// spells that last are in <c>Combat/ElementalFx.cs</c>.
 /// </summary>
 public partial class Player
 {
@@ -24,8 +24,8 @@ public partial class Player
     private Enemy _thermal;
     /// <summary>The Glacier Cleaver's vast axe of ice is in the hand (for the 3D view).</summary>
     public bool GiantBlade => IsRemote ? (_netFlags & HfGiant) != 0 : _giant && _swingT >= 0;
-    /// <summary>For the tests: the last lasting spell a dual made.</summary>
-    public HeroSpell LastDualSpell { get; private set; }
+    /// <summary>For the tests: the last lasting spell an element (or a pair) made.</summary>
+    public HeroSpell LastElementSpell { get; private set; }
 
     private bool DualIs(HeroElement a, HeroElement b) => _dualSwing && _dualA == a && _dualB == b;
 
@@ -53,7 +53,7 @@ public partial class Player
     private bool DualSword(Vector2 aim)
     {
         var (a, b) = SpendPair();
-        string name = Elements.DualName(Stats.Hero, a, b);
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Heavy, a, b);
         var col = Elements.DualColor(a, b);
         float rest, dmg, build;
         var swingEl = a;
@@ -192,86 +192,170 @@ public partial class Player
         spell.Caster = this;
         spell.Power = Stats.DamageMult;
         G.Spawn(spell);
-        LastDualSpell = spell;
+        LastElementSpell = spell;
     }
 
     // ================================================================== the Elementalist
 
-    /// <summary>Burst with two charges: the pair's spell (its rest by which).</summary>
-    private bool DualStaff(Vector2 aim)
+    /// <summary>The pair's spell is cast: its name over the hero, the staff's glow, the cast's sound and pose.</summary>
+    private void CastDual(string name, Color col, HeroElement a)
     {
-        var (a, b) = SpendPair();
-        string name = Elements.DualName(Stats.Hero, a, b);
-        var col = Elements.DualColor(a, b);
-        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        float power = Stats.DamageMult;
-        float rest = (a, b) switch
-        {
-            (HeroElement.Fire, HeroElement.Fire) => Tune.Dual.MeteorRest,
-            (HeroElement.Frost, HeroElement.Frost) => Tune.Dual.OrbRest,
-            (HeroElement.Wind, HeroElement.Wind) => Tune.Dual.TornadoRest,
-            (HeroElement.Fire, HeroElement.Frost) => Tune.Dual.LanceRest,
-            (HeroElement.Fire, HeroElement.Wind) => Tune.Dual.WildRest,
-            _ => Tune.Dual.GaleRest,
-        };
-        _snapCd = _snapCdTotal = rest;
-        _snapOwes = true;
-        LastCast = a == HeroElement.Fire ? "cinder" : "snap";
-        _castGlow = 1f;
-        if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
-        CastDir = aim;
-        Anim.Face((int)Facing, instant: true);
-        HeroSpell spell = null;
-        switch ((a, b))
-        {
-            case (HeroElement.Fire, HeroElement.Fire):
-            {
-                var target = MeteorTarget(aim);
-                // it comes down slantwise out of the dark overhead (from as high as the roof allows)
-                var from = new Vector2(-Facing * 0.45f, -1f).Normalized();
-                G.Cave.Raycast(target + new Vector2(0, -8), from, Tune.Dual.MeteorHeight, out var top, 4f);
-                var start = top - from * 8f;
-                if (start.DistanceTo(target) < 60f) start = target + from * 60f;
-                spell = new Meteor { Position = start, Target = target, Damage = Tune.Dual.MeteorDamage * power };
-                break;
-            }
-            case (HeroElement.Frost, HeroElement.Frost):
-            {
-                var t = FindSpellTarget(aim, Tune.Elementalist.BoltRange, 40f);
-                var d = t != null ? (t.GlobalPosition - CastPoint).Normalized() : aim;
-                spell = new FrozenOrb { Position = CastPoint + d * 10f, Dir = d };
-                break;
-            }
-            case (HeroElement.Wind, HeroElement.Wind):
-            {
-                if (!Ground.Below(GlobalPosition, 60, out var floor)) floor = GlobalPosition + new Vector2(0, 12);
-                spell = new Tornado { Position = floor + new Vector2(Facing * 18f, 0), Dir = Facing };
-                break;
-            }
-            case (HeroElement.Fire, HeroElement.Frost):
-                FrostfireLance(aim, power);
-                break;
-            case (HeroElement.Fire, HeroElement.Wind):
-                spell = new Wildfire { Position = GlobalPosition };
-                G.Fx.Shockwave(GlobalPosition, 120, new Color(1f, 0.6f, 0.25f, 0.5f), 0.4f);
-                break;
-            default:
-                spell = new Whiteout { Position = CastPoint, Dir = aim };
-                break;
-        }
-        if (spell != null)
-        {
-            spell.Caster = this;
-            spell.Power = power;
-            G.Spawn(spell);
-            LastDualSpell = spell;
-        }
         G.Fx.Ring(CastPoint, 18, new Color(col, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
         Anim.Once("rupture", 3, 1.6f);
         G.Sfx.Play(a == HeroElement.Fire ? "lava" : a == HeroElement.Frost ? "clink" : "dodge", GlobalPosition, -4, 0.05f, 0.7f);
         G.Main.Rumble(0.4f, 0.4f, 0.14f);
+        _castGlow = 1f;
         _lastEl = a;
         Used(name, col);
+    }
+
+    private void Launch(HeroSpell spell)
+    {
+        spell.Caster = this;
+        spell.Power = Stats.DamageMult;
+        G.Spawn(spell);
+        LastElementSpell = spell;
+    }
+
+    /// <summary>The attack with two charges: Meteorite, Cryometeor, Fire Barrage or Frost Barrage (each rests the pair's bolt a while).</summary>
+    private bool DualBolt(Vector2 aim)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Attack, a, b);
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
+        CastDir = aim;
+        Anim.Face((int)Facing, instant: true);
+        float power = Stats.DamageMult;
+        float rest = Tune.Dual.BarrageRest;
+        _boltCd = Tune.Elementalist.BoltGap;
+        AttacksStarted++;
+        if (a == b)
+        {
+            // Meteorite / Cryometeor: a rock out of the dark overhead, onto the thickest knot of creatures along the aim
+            rest = Tune.Dual.MeteorRest;
+            var target = MeteorTarget(aim);
+            var from = new Vector2(-Facing * 0.45f, -1f).Normalized();
+            G.Cave.Raycast(target + new Vector2(0, -8), from, Tune.Dual.MeteorHeight, out var top, 4f);
+            var start = top - from * 8f;
+            if (start.DistanceTo(target) < 60f) start = target + from * 60f;
+            bool frost = a == HeroElement.Frost;
+            Launch(new Meteor { Position = start, Target = target, Frost = frost, Damage = (frost ? Tune.Dual.CryoDamage : Tune.Dual.MeteorDamage) * power });
+        }
+        else
+        {
+            // Fire Barrage / Frost Barrage: the wind lends the staff a volley, fanned along the aim
+            var el = a == HeroElement.Wind ? b : a;
+            Launch(new Barrage { Position = CastPoint, El = el, Aim = aim });
+        }
+        _dualBoltCd = _dualBoltTotal = rest;
+        LastCast = a == HeroElement.Frost ? "frost" : "fire";
+        CastDual(name, Elements.DualColor(a, b), a);
+        return true;
+    }
+
+    /// <summary>A bolt of a barrage, from the Barrage spell.</summary>
+    public void BarrageBolt(HeroElement el, Vector2 aim)
+    {
+        var t = FindSpellTarget(aim, Tune.Elementalist.BoltRange, 50f);
+        var dir = (t != null ? (t.GlobalPosition - CastPoint).Normalized() : aim).Rotated(Mathf.DegToRad(G.Range(-Tune.Dual.BarrageSpread, Tune.Dual.BarrageSpread)));
+        CastDir = dir;
+        _castGlow = 0.8f;
+        var bolt = new ElementBolt
+        {
+            Position = CastPoint + dir * 6f, Dir = dir, Range = Tune.Elementalist.BoltRange, Caster = this,
+            Frost = el == HeroElement.Frost, BuildMult = 0.5f,
+            Damage = Tune.Elementalist.FireDamage * Tune.Dual.BarrageDamage * Stats.DamageMult * Stats.PrimaryDamageMult,
+        };
+        G.Spawn(bolt);
+        NetSync.HeroVisual(bolt);
+        G.Sfx.Play(el == HeroElement.Frost ? "clink" : "throw", CastPoint, -12, 0.1f, 1.7f);
+    }
+
+    /// <summary>The dodge button with two charges: Flamebreath, Frost Tower, Fire Barrier or Frost Barrier.</summary>
+    private bool DualMove(Vector2 aim)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Move, a, b);
+        float rest;
+        if (a == b && a == HeroElement.Fire)
+        {
+            // Flamebreath: fire pours from the staff (aimed down, it holds you up)
+            rest = Tune.Dual.BreathRest;
+            Launch(new FlameBreath { Position = CastPoint, Dir = aim });
+        }
+        else if (a == b)
+        {
+            // Frost Tower: ice bursts up under you, throwing you high, and stands loosing shards at creatures near
+            rest = Tune.Dual.TowerRest;
+            if (!Ground.Below(GlobalPosition, 60, out var floor)) floor = GlobalPosition + new Vector2(0, 12);
+            _liftTo = -BaseJumpV * Tune.Dual.TowerJump;
+            _terminalT = 0f;
+            Launch(new FrostTower { Position = floor });
+        }
+        else if (a == HeroElement.Fire)
+        {
+            // Fire Barrier: a ring of fire about you, going where you go
+            rest = Tune.Dual.RingRest;
+            Launch(new FireRing { Position = GlobalPosition });
+        }
+        else
+        {
+            // Frost Barrier: a wall of ice and wind before you that nothing crosses
+            rest = Tune.Dual.BarrierRest;
+            float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
+            Facing = dir;
+            var at = GlobalPosition + new Vector2(dir * Tune.Dual.BarrierAhead, 0);
+            if (!Ground.Below(at + new Vector2(0, -20), 120, out var floor)) floor = at + new Vector2(0, 12);
+            Launch(new FrostBarrier { Position = floor });
+        }
+        _updraftCd = _updraftCdTotal = rest;
+        _updraftOwes = true;
+        LastCast = "updraft";
+        CastDual(name, Elements.DualColor(a, b), a);
+        return true;
+    }
+
+    /// <summary>The Burst button with two charges: Rain of Fire, Hailstorm, Fire Storm, Blizzard, Tornado or Frostfire Lance.</summary>
+    private bool DualFixed(Vector2 aim)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Heavy, a, b);
+        var spot = FixedSpot(aim);
+        float power = Stats.DamageMult;
+        float rest;
+        switch ((a, b))
+        {
+            case (HeroElement.Fire, HeroElement.Fire):
+            case (HeroElement.Frost, HeroElement.Frost):
+                // Rain of Fire / Hailstorm: it falls out of the dark over the spot
+                rest = Tune.Dual.RainRest;
+                Launch(new Downpour { Position = spot, El = a });
+                break;
+            case (HeroElement.Fire, HeroElement.Wind):
+                rest = Tune.Dual.StormRest;
+                SpawnStorm(spot, HeroElement.Fire, Tune.Elementalist.FirestormDamage, Tune.ElementalStaff.StormFireBuild, Tune.Dual.StormPull);
+                break;
+            case (HeroElement.Frost, HeroElement.Wind):
+                rest = Tune.Dual.StormRest;
+                SpawnStorm(spot, HeroElement.Frost, Tune.Elementalist.BlizzardDamage, Tune.ElementalStaff.StormFrostBuild, Tune.Dual.StormPull);
+                break;
+            case (HeroElement.Wind, HeroElement.Wind):
+            {
+                rest = Tune.Dual.TornadoRest;
+                if (!Ground.Below(GlobalPosition, 60, out var floor)) floor = GlobalPosition + new Vector2(0, 12);
+                Launch(new Tornado { Position = floor + new Vector2(Facing * 18f, 0), Dir = Facing });
+                break;
+            }
+            default:
+                rest = Tune.Dual.LanceRest;
+                FrostfireLance(aim, power);
+                break;
+        }
+        _snapCd = _snapCdTotal = rest;
+        _snapOwes = true;
+        LastCast = a == HeroElement.Fire ? "cinder" : "snap";
+        CastDual(name, Elements.DualColor(a, b), a);
         return true;
     }
 

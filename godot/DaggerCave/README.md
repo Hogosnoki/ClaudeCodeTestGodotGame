@@ -2003,23 +2003,28 @@ blow **shatters** the frozen; **earth** stuns it (one that can't be stunned is w
 slower); wind **shoves** (light creatures far, heavy ones hardly). Elites take 70% of a build-up, guardians and bosses 40%; meters drain a
 while after the last that reached them. Online, the host keeps the meters (only the host's screen shows them, for now).
 
+Each line below is one button; an element readied changes the next use of whichever button you press (names in `Elements.SingleName`).
+
 | Swordsman (earth, fire, frost) | Plain | Earth | Fire | Frost |
 |---|---|---|---|---|
-| **Swing** (attack) | the sword combo | **Heaving Swing**: rooted, x2, 60 earth (rests 2.5 s) | **Pyre Strike**: x1.25, 50 fire (1.2 s) | **Razor Ice**: x1.25, 50 frost (1.2 s) |
-| **Hard Swing** (second ability) | heavy blow x1.6 (5 s) | **ThunderCrush**: x2.6, slower, full earth, shatters the frozen (12 s) | **Pyroclasm**: x2.2, full fire (10 s) | **Ice Axe**: x2, full frost (7 s) |
+| **Swing** (attack) | the sword combo | **Heaving Swing**: rooted, x2, 60 earth (rests 2.5 s) | **Searing Strike**: x1.25, 50 fire (1.2 s) | **Razor Ice**: x1.25, 50 frost (1.2 s) |
+| **Jump** (the jump) | a jump | **Earthfall**: you come down like a rock: a shockwave of earth, harder the harder the fall (5 s) | **Explosive Lunge**: the ground bursts behind you (fire to what's beside you) and throws you far forward (4 s) | **Glacial Vault**: a spike of ice throws you 1.45x as fast up, frost to what's beside you (4 s) |
+| **Hard Swing** (second ability) | heavy blow x1.6 (5 s) | **ThunderCrush**: x2.6, slower, full earth, shatters the frozen (12 s) | **Pyroclasty**: x2.2, full fire (10 s) | **Ice Axe**: x2, full frost (7 s) |
 | **Empower Hilt** (ability, 8 s) | blows +20% (12 s) | blows sap (14 s) | blows +25 fire (14 s) | blows +20 frost (14 s) |
 
-Dash Slash and Battle Shout are as they were. The cards for the Charged Strike and Swift Heave aren't dealt to the elemental Swordsman.
+The jump's element waits for its rest (the jump is plain meanwhile, and the charge waits). Dash Slash and Battle Shout are as they were.
+The cards for the Charged Strike and Swift Heave aren't dealt to the elemental Swordsman.
 
 | Elementalist (fire, frost, wind) | Plain | Fire | Frost | Wind |
 |---|---|---|---|---|
-| **Missile** (attack; an element lasts 3 bolts) | a plain bolt (85% of a firebolt) | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
-| **Extended** (ability: the storm) | **Tempest**: weak force | **Firestorm**: 30 fire a strike | **Blizzard**: 20 frost a strike | **Cyclone**: drags light creatures to its middle, swallows shots |
-| **Burst** (second ability) | **Pulse** round you (4 s) | **Detonate**: everything in view, full fire (9 s) | **Shatter**: the frozen shatter, the rest full frost (9 s) | **Gust**: flings creatures away, turns shots back (5 s) |
-| **Aid** (dodge button) | the updraft | **Kindling**: you and friends near add 15 fire a blow, 8 s | **Frost Armor**: melee attackers are filled with frost, 8 s | **Narrow Draft**: you and friends near move 20% faster, jump higher, 8 s |
+| **Bolt** (attack; an element lasts 3 bolts) | a plain bolt (85% of a firebolt) | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
+| **Movement** (dodge button) | **Lift**: a push straight up, in the air too (2.5 s) | **Fire Walk**: 30% faster for 4 s, fire burning where you walk (9 s) | **Tundra**: the ground freezes 110 px each way for 6 s: heroes on it go faster, creatures are chilled and filled with frost (10 s) | **Updraft**: the aimed column (3 s) |
+| **Fixed range** (Burst button: a spot 130 px along the aim) | **Force Blast**: force, throws creatures out (4 s) | **Burst**: an explosion, 60 fire; the burning take a full build-up (combust) (7 s) | **Snap**: the frozen shatter, the rest 60 frost (7 s) | **Cyclone**: drags light creatures in, swallows shots (9 s) |
+| **Aid** (Extended button, 8 s) | **Ward**: a barrier for you and friends near (11 s) | **Kindling**: you and friends near add 15 fire a blow (12 s) | **Frost Armor**: melee attackers are filled with frost (12 s) | **Narrow Draft**: you and friends near move 20% faster, jump higher (10 s) |
 
-Fire's Aid wasn't in the design notes; Kindling is a proposal. The cards for Frostbolt, Firestorm, Cinder Snap, Kindling (the old chance
-card), Deep Chill and Shrapnel aren't dealt to the elemental Elementalist; Echo works with Detonate and Shatter.
+The plain names (Lift, Force Blast, Ward) and Aid on the fourth button are my fill-ins, as are the Swordsman's frost and earth jumps;
+rename or swap them freely. The cards for Frostbolt, Firestorm, Cinder Snap, Kindling (the old chance card), Deep Chill and Shrapnel aren't
+dealt to the elemental Elementalist; the storm cards (wider, longer) work on the Cyclone, the Fire Storm and the Blizzard.
 
 ### Dual charges
 
@@ -2027,35 +2032,40 @@ Dual charges are **unlocked**, not there from the start, so a new player meets o
 as `dual_charges`); without them one charge waits and pressing it again puts it away. Where they're earned is still to be decided (likely
 the Ember Grid, when it's laid out again); for now `Tune.Testing.DualCharges` keeps them open for testing.
 
-Ready **two charges** (the same element twice, or two different) and the **Hard Swing** (the Swordsman) or **Burst** (the Elementalist)
-spends both for the pair's own ability (`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`). Every other
-attack spends only the oldest charge, so two charges can also be two elemental attacks in a row. Each dual is its own mechanic, not a
-bigger version of a single:
+Ready **two charges** (the same element twice, or two different) and a button that has an ability for the pair spends both on it
+(`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`, names in `Elements.DualName`). A button with
+nothing for the pair spends only the oldest charge, as with one. Each dual is its own mechanic, not a bigger version of a single:
 
 | Swordsman (Hard Swing) | | What it does | Rest |
 |---|---|---|---|
 | Earth + Earth | **Earthsplitter** | the blade splits the floor: a fissure runs 340 px along it (over steps, stopping at walls and drops), rock bursting up behind it; whatever it passes under is tossed up and fully stunned, and a rubble wall in its way comes down | 14 s |
 | Fire + Fire | **Inferno Cleave** | a wall of fire stands where the blade lands for 4.5 s: creatures in it burn (22 fire every 0.4 s), creatures' shots flying into it burn up, gas in it goes off | 13 s |
 | Frost + Frost | **Glacier Cleaver** | the blade grows into a vast double-bitted axe of ice (2.2x the reach, a wider arc, slow to raise): its blow is 4x a Hard Swing and two full frost build-ups (chilled, then frozen solid), and the head shatters what it froze as it lands | 16 s |
-| Earth + Frost | **Frost Heave** | the blade is driven into the ground; frost cracks the floor under the nearest creature within 280 px and a column of ice bursts up there: a great frost blow, full frost, thrown into the air (flyers in the column too) | 14 s |
-| Earth + Fire | **Magma Rend** | the floor splits and magma wells up along it (up to 70 px each way, as far as the floor goes) for 5.5 s: creatures in it are **mired** (45% slower in everything) and burn | 15 s |
-| Fire + Frost | **Thermal Shock** | on a creature already burning, chilled or frozen the blow lands 2.5x as hard, puts out its fire and ice, and bursts into a cloud of steam that hides the heroes in it (as a smoke bomb does); on anything else, half a build-up of each | 12 s |
+| Earth + Frost | **Frost Heave** | the blade is driven into the ground; frost cracks the floor under the nearest creature within 280 px and a column of ice bursts up there: a great frost blow, full frost, thrown into the air | 14 s |
+| Earth + Fire | **Magma Rend** | the floor splits and magma wells up along it for 5.5 s: creatures in it are **mired** (45% slower in everything) and burn | 15 s |
+| Fire + Frost | **Thermal Shock** | on a creature already burning, chilled or frozen the blow lands 2.5x as hard, puts out its fire and ice, and bursts into a cloud of steam that hides the heroes in it; on anything else, half a build-up of each | 12 s |
 
-| Elementalist (Burst) | | What it does | Rest |
+| Elementalist | Bolt (attack) | Movement (dodge) | Fixed range (Burst button) |
 |---|---|---|---|
-| Fire + Fire | **Meteor** | a burning rock falls slantwise out of the dark overhead onto the creature with the most others about it; every breakable platform and rubble wall it passes through breaks outright (they grow back); it bursts where it meets the rock (or the creatures): 46 fire and full fire within 92 px | 15 s |
-| Frost + Frost | **Frozen Orb** | an orb of ice drifts out for 2.8 s loosing shards round in a spiral (every other one at a creature in reach), 14 frost each; at the end it bursts, shattering the frozen and filling the rest with frost | 13 s |
-| Wind + Wind | **Tornado** | runs along the floor for 4 s (a wall turns it back), takes up the light creatures it meets and carries them along turning inside it, swallows creatures' shots, then flings what it carries away | 13 s |
-| Fire + Frost | **Frostfire Lance** | one twin beam through every creature in a line 440 px long: 22 damage and half a build-up of fire and of frost; a creature already burning or chilled takes 1.8x | 11 s |
-| Fire + Wind | **Wildfire** | for 5 s the wind carries fire from creature to creature: every 0.45 s each one alight gives 45 fire to those within 100 px (nothing alight: it lights the nearest first) | 14 s |
-| Frost + Wind | **Whiteout** | a gale of snow pours from the staff for 1.6 s (a 70° cone, 230 px): creatures in it are driven back, filled with frost and put out, and their shots are turned round on them | 12 s |
+| Fire + Fire | **Meteorite**: falls on the thickest knot of creatures, smashing every platform it passes through (they grow back); 46 fire and full fire within 92 px (15 s) | **Flamebreath**: fire pours from the staff for 1.5 s in a 50° cone, burning creatures and shots; aimed down, it holds you up (11 s) | **Rain of Fire**: fire falls over the spot for 3 s, each fireball bursting where it lands (14 s) |
+| Frost + Frost | **Cryometeor**: the same fall in ice: everything about it is frozen solid, and the ground freezes over (a Tundra) (15 s) | **Frost Tower**: a tower of ice bursts up under you, throwing you 1.6x a jump high, and stands 5 s loosing shards at creatures within 220 px (13 s) | **Hailstorm**: hail over the spot for 3 s: frost, and it beats flying creatures down (14 s) |
+| Fire + Wind | **Fire Barrage**: a volley of seven firebolts, fanned along the aim (10 s) | **Fire Barrier**: a ring of fire about you for 5 s, going where you go: creatures that touch it burn and are thrown back, shots burn up (12 s) | **Fire Storm**: the storm of fire, fanned: it pulls light creatures in and swallows shots (13 s) |
+| Frost + Wind | **Frost Barrage**: a volley of seven frostbolts (10 s) | **Frost Barrier**: a wall of ice and wind before you for 6 s: creatures can't cross it (driven back, chilled), shots are turned round (12 s) | **Blizzard**: the storm of snow, fanned: it pulls light creatures in and swallows shots (13 s) |
+| Wind + Wind | (the oldest charge: a Gust) | (the oldest charge: the Updraft) | **Tornado**: runs along the floor 4 s, carrying light creatures along inside it and swallowing shots, then flings them (13 s) |
+| Fire + Frost | (the oldest charge) | (the oldest charge) | **Frostfire Lance**: one twin beam through a line 440 px long, half a build-up of each; the burning or chilled take 1.8x (11 s) |
 
-Who has which is by who would: Frost Heave is the Swordsman's for now (the Elementalist has no earth), and the design's **Frozen Tundra**
-(frost-and-earth ground that deepens freezing and chills whoever walks on it) is kept for the Warden, the tank, when it gets its elements.
+A pair's bolt rests on its own (meanwhile the bolts are plain and the charges wait); movement and fixed-range duals rest their button.
+Aid has no duals: it spends the oldest charge. The earlier Frozen Orb, Wildfire and Whiteout are gone (their pairs' slots are now
+Hailstorm/Cryometeor, Fire Barrage/Barrier/Storm and Frost Barrage/Barrier/Blizzard).
+
+Who has which is by who would: Frost Heave is the Swordsman's (the Elementalist has no earth). The Elementalist's frost movement is now
+**Tundra** (ground that chills and fills with frost whoever walks on it); a heavier Frozen Tundra can still be the Warden's, the tank's,
+when it gets its elements.
 A **third charge** for the Elementalist (and the tri-charge abilities it would open) comes later. Online, the lasting spells live in the
 caster's game, which deals their blows; their look reaches the other games as the caster's effects (the Glacier Cleaver's axe shows on
-everyone's copy of the Swordsman). `--scenario=elements` checks every dual for both heroes (`duals_hud.png`, `duals_glacier.png`,
-`duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_orb.png`, `duals_tornado.png`).
+everyone's copy of the Swordsman). `--scenario=elements` checks every single and dual version for both heroes (`elements_hud.png`, `elements_tundra.png`,
+`duals_hud.png`, `duals_glacier.png`, `duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_breath.png`, `duals_tower.png`,
+`duals_rain.png`).
 
 **Classic kits**: *Settings > Controls > Classic Swordsman & Elementalist* brings back their old kits (from the next run). The tests of the
 classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`) tests the elemental ones (`elements_hud.png`), and
