@@ -36,7 +36,7 @@ public partial class Hud
     private void Tip(Rect2 r, string title, string body, bool basic = false) => _tips.Add(new TipSpot(r, title, body, basic));
 
     /// <summary>What an ability's square means, from its label (as the icons are found, see <see cref="Icons.AbilityFor"/>).</summary>
-    private static (string title, string body) AbilityTip(string label)
+    public static (string title, string body) AbilityTip(string label)
     {
         string w = label.Split(' ')[0].ToUpperInvariant();
         return w switch

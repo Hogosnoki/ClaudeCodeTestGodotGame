@@ -57,7 +57,7 @@ public partial class OnlineMenu : Control
         Theme = UiKit.Theme;
         Visible = false;
         AddChild(UiKit.Dimmer(0.8f));
-        var (panel, col) = UiKit.Panel(this, new Vector2(990, 0));
+        var (panel, col) = UiKit.Panel(this, new Vector2(1220, 0));
         _panel = panel;
         _title = UiKit.Label("PLAY ONLINE", 28, UiKit.Gold, HorizontalAlignment.Center);
         col.AddChild(_title);
@@ -102,9 +102,15 @@ public partial class OnlineMenu : Control
         backRow.AddChild(_backBtn);
 
         // ---- the lobby
-        _lobby = new VBoxContainer();
+        // (the lobby's settings and hero cards on the left; on the right, the hero under the cursor: a portrait, how they play, their abilities)
+        var lobbyRow = new HBoxContainer();
+        lobbyRow.AddThemeConstantOverride("separation", 18);
+        col.AddChild(lobbyRow);
+        _lobby = new VBoxContainer { CustomMinimumSize = new Vector2(850, 0) };
         _lobby.AddThemeConstantOverride("separation", 5);
-        col.AddChild(_lobby);
+        lobbyRow.AddChild(_lobby);
+        _side = BuildSide();
+        lobbyRow.AddChild(_side);
         _codeRow = Row(_lobby);
         _codeRow.AddChild(Fixed(UiKit.Label("Send your friend this code:", 16), 290));
         _code1 = UiKit.Label("", 26, UiKit.Gold);
@@ -125,14 +131,14 @@ public partial class OnlineMenu : Control
         _vpnRow.AddChild(_copy3);
         _router = UiKit.Label("", 13, UiKit.Dim);
         _router.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _router.CustomMinimumSize = new Vector2(860, 0);
+        _router.CustomMinimumSize = new Vector2(840, 0);
         _lobby.AddChild(_router);
         _lobby.AddChild(new HSeparator());
         _players = UiKit.Label("", 14);
         _lobby.AddChild(_players);
         _mismatch = UiKit.Label("", 13, new Color(1f, 0.65f, 0.45f));
         _mismatch.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        _mismatch.CustomMinimumSize = new Vector2(860, 0);
+        _mismatch.CustomMinimumSize = new Vector2(840, 0);
         _mismatch.Visible = false;
         _lobby.AddChild(_mismatch);
 
@@ -158,17 +164,25 @@ public partial class OnlineMenu : Control
         _hard.Toggled += on => { RunSettings.Hard = on; Net.SettingsChanged(); Refresh(); };
         hardRow.AddChild(_hard);
 
-        var cards = Row(_lobby);
-        cards.Alignment = BoxContainer.AlignmentMode.Center;
-        cards.AddThemeConstantOverride("separation", 10);
+        // (the heroes in two rows of four)
+        HBoxContainer cards = null;
         for (int k = 0; k < Heroes.Length; k++)
         {
+            if (k % 4 == 0)
+            {
+                cards = Row(_lobby);
+                cards.Alignment = BoxContainer.AlignmentMode.Center;
+                cards.AddThemeConstantOverride("separation", 10);
+            }
+            int at = k;
             var (kind, name, design) = Heroes[k];
             var portrait = new HeroPortrait { Design = design, Size = new Vector2I(84, 132) };
             AddChild(portrait);
             _portraits[k] = portrait;
-            var card = new Button { CustomMinimumSize = new Vector2(110, 168), FocusMode = FocusModeEnum.All };
+            var card = new Button { CustomMinimumSize = new Vector2(140, 160), FocusMode = FocusModeEnum.All };
             card.Pressed += () => { G.Sfx?.Play("ui", null, -6); Net.PickHero(kind); EnterPrep(kind); };
+            card.FocusEntered += () => ShowSide(at);
+            card.MouseEntered += () => ShowSide(at);
             var v = new VBoxContainer { MouseFilter = MouseFilterEnum.Ignore };
             v.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
             v.OffsetTop = 6; v.OffsetBottom = -6;
@@ -344,6 +358,81 @@ public partial class OnlineMenu : Control
 
     private static string HeroName(HeroKind h) => Heroes.First(x => x.kind == h).name;
 
+    // ---------------------------------------------------------------- the hero under the cursor
+
+    private VBoxContainer _side;
+    private TextureRect _sidePic;
+    private Label _sideName, _sidePlay, _sideAbilities;
+    private readonly HeroPortrait[] _bigPortraits = new HeroPortrait[Heroes.Length];
+    private int _sideAt = -1;
+    /// <summary>For the tests: the hero the side panel shows.</summary>
+    public HeroKind SideHero => _sideAt >= 0 ? Heroes[_sideAt].kind : G.Hero;
+
+    private VBoxContainer BuildSide()
+    {
+        var side = new VBoxContainer { CustomMinimumSize = new Vector2(320, 0) };
+        side.AddThemeConstantOverride("separation", 6);
+        for (int k = 0; k < Heroes.Length; k++)
+        {
+            _bigPortraits[k] = new HeroPortrait { Design = Heroes[k].design, Size = new Vector2I(220, 300), Playing = true, RenderTargetUpdateMode = SubViewport.UpdateMode.Disabled };
+            AddChild(_bigPortraits[k]);
+        }
+        _sidePic = new TextureRect { CustomMinimumSize = new Vector2(320, 250), ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize, StretchMode = TextureRect.StretchModeEnum.KeepAspectCentered };
+        side.AddChild(_sidePic);
+        _sideName = UiKit.Label("", 24, UiKit.Gold, HorizontalAlignment.Center);
+        side.AddChild(_sideName);
+        _sidePlay = UiKit.Label("", 14, UiKit.Text);
+        _sidePlay.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _sidePlay.CustomMinimumSize = new Vector2(320, 0);
+        side.AddChild(_sidePlay);
+        side.AddChild(new HSeparator());
+        _sideAbilities = UiKit.Label("", 12, UiKit.Dim);
+        _sideAbilities.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _sideAbilities.CustomMinimumSize = new Vector2(320, 0);
+        side.AddChild(_sideAbilities);
+        return side;
+    }
+
+    /// <summary>The side panel shows a hero: their portrait (moving), how they play, and what each of their abilities does.</summary>
+    private void ShowSide(int k)
+    {
+        if (k < 0 || k >= Heroes.Length) return;
+        _sideAt = k;
+        var h = Heroes[k].kind;
+        for (int j = 0; j < _bigPortraits.Length; j++) _bigPortraits[j].RenderTargetUpdateMode = j == k ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
+        _sidePic.Texture = _bigPortraits[k].GetTexture();
+        var (name, lines) = ScreenOverlay.HeroInfo(h);
+        _sideName.Text = name;
+        _sideName.AddThemeColorOverride("font_color", Hud.HeroColor(h).Lightened(0.3f));
+        _sidePlay.Text = string.Join(" ", lines) + (Meta.IsUnlocked(h) ? "" : "  (Not found yet: freed from a cage in the caves.)");
+        _sideAbilities.Text = string.Join("\n", Upgrades.Abilities(h).Select(a => $"{a.name}: {AbilityText(a.key, h)}").Append($"Support: {Hud.AbilityTip(SupportOf(h)).body}"));
+    }
+
+    private static string SupportOf(HeroKind h) => h switch
+    {
+        HeroKind.Swordsman => "SHOUT", HeroKind.Warden => "TAUNT", HeroKind.Vitalist => "TAP", HeroKind.Elementalist => "STALAG",
+        HeroKind.Rogue => "EXPOSE", HeroKind.Aegis => "SHARE", HeroKind.Automaton => "PRESSURIZE", _ => "HOWL",
+    };
+
+    /// <summary>What an ability does, in a line (the HUD's own tooltips where they say it, a line of its own where they don't).</summary>
+    private static string AbilityText(string key, HeroKind h) => key switch
+    {
+        "sword" => h == HeroKind.Warden ? "a quick shortsword combo behind the shield." : "a heavy blade swung in a combo; the last strike hits hardest.",
+        "dodge" => Hud.AbilityTip("DASHSLASH").body.Split(". ")[0] + ".",
+        "shield" => "raise it to stop blows from the front; it wears down and mends while lowered.",
+        "drain" => "a beam that draws health from a creature and fills your vital force.",
+        "bolt" => "fiery bolts from the staff that burst and set creatures alight.",
+        "blizzard" => Hud.AbilityTip("STORM").body,
+        "dagger" => "fast dagger slashes, deadlier from behind and from the shadows.",
+        "throw" => "throw your daggers; they stick in walls and wait to be recalled.",
+        "ward" => "a bolt of light that bursts on the creatures it strikes and weakens them.",
+        "staff" => "a staff swung when you wear no form.",
+        "form" => "each creature you become fights as it does, with your health and strength.",
+        "special" => "every form has a trick of its own (a bear's roar, a spider's web...).",
+        "cleaver" => "a slow, crushing cleaver; a full swing slams the ground.",
+        _ => Hud.AbilityTip(key.ToUpperInvariant()).body,
+    };
+
     /// <summary>Ten letters and digits, maybe split by a dash: a join code (and not just any text on the clipboard).</summary>
     private static bool LooksLikeCode(string s)
     {
@@ -358,6 +447,8 @@ public partial class OnlineMenu : Control
         if (!joined) _inPrep = false;
         _choose.Visible = !joined;
         _lobby.Visible = joined && !_inPrep;
+        _side.Visible = _lobby.Visible;
+        if (_side.Visible && _sideAt < 0) ShowSide(Math.Max(0, Array.FindIndex(Heroes, h => h.kind == (Net.Mine != null && Net.Mine.Picked ? Net.Mine.Hero : G.Hero))));
         _prep.Visible = joined && _inPrep;
         bool pageChanged = _wasOnline != joined;
         _wasOnline = joined;
@@ -468,6 +559,8 @@ public partial class OnlineMenu : Control
         bool show = Visible && _lobby.Visible;
         foreach (var p in _portraits)
             if (p != null) p.RenderTargetUpdateMode = show ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
+        for (int k = 0; k < _bigPortraits.Length; k++)
+            if (_bigPortraits[k] != null) _bigPortraits[k].RenderTargetUpdateMode = show && k == _sideAt ? SubViewport.UpdateMode.Always : SubViewport.UpdateMode.Disabled;
     }
 
 
@@ -497,7 +590,7 @@ public partial class OnlineMenu : Control
         {
             Row(_copy1); Row(_copy2); Row(_copy3);
             Row(_diff); Row(_perPlayer); Row(_hard);
-            Row(_cards);
+            Row(_cards.Take(4).ToArray()); Row(_cards.Skip(4).ToArray());
             Row(_prepBtn, _start, _leave);
         }
         else

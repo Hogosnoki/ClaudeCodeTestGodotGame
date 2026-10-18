@@ -73,7 +73,9 @@ Up to five players, one of each hero. One player hosts; the others join with the
    for players on the same Wi-Fi shows too.)
 3. The friend pastes (or types) the code and clicks **Join**. A plain address works too
    (`192.168.1.20`, `100.101.102.103`, `my.host.name`, with `:port` if needed).
-4. In the lobby, each player takes a hero (the one you last chose at the camp fire). Taking one
+4. In the lobby, each player takes a hero (the one you last chose at the camp fire): the heroes are in two rows of four, and
+   the panel on the right shows the hero under the cursor (a moving portrait, how they play, and what each ability and their
+   support ability does). Taking one
    moves you on to a second stage, as in single player: **The Ember Grid** (at your hero's branch) and
    your **loadout** (side-grades); "Done: back to the lobby" (or Esc / B) returns to the
    lobby, and the **Grid & loadout** button there brings it back. What you set is what you start the
@@ -1982,6 +1984,20 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
 - **Seed 804912** (the Nest) had a neck the coarse check let through and the fine check missed between its grid points; the fine check now
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
+
+## Save files
+
+**Save files** on the main menu (`Core/Profiles.cs`, `UI/SaveFilesMenu.cs`): each save keeps its own progress (embers, the Ember Grid,
+heroes and the merchant freed, loadouts, the journal) and its **own in-game achievements**, in `user://saves/<id>/`; the list and the one
+in use are in `user://saves/index.json`. Each row shows what the save holds (embers, runs, the deepest depth, heroes, achievements) and can
+be **played** (switched to), **renamed** (type in its name and press Enter), **reset** (started over from nothing) or **deleted**; Reset and
+Delete ask twice (the button turns red; press it again within a few seconds). A new save starts with the three starting heroes. A save from
+before save files becomes the first one. Settings and controls are shared by every save. Once the game is on Steam, Steam's achievements
+are the account's, whichever save earns them. `--scenario=saves` checks it all (in `user://test_saves`; `saves_menu.png`).
+
+**The merchant's table is the same for the whole party**: his cards, relic and supplies are dealt from the level's seed and the party's
+heroes (in the same order in every game), from what a hero fresh to the run could take, so every game shows the same wares (a card a hero
+already has is shown locked, as at a chest); what one hero buys is gone from their own table only.
 
 ## Achievements (progress and feats)
 
