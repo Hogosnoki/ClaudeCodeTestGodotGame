@@ -1244,15 +1244,17 @@ public static class Tune
         /// <summary>Flamebreath (fire+fire, movement): fire pours from the staff for <c>BreathSeconds</c> (a cone <c>BreathDegrees</c> wide, <c>BreathRange</c>
         /// px), <c>BreathBuild</c> fire a tick; aimed down, it holds you up.</summary>
         public static float BreathRest = 11f, BreathSeconds = 1.5f, BreathRange = 150f, BreathDegrees = 50f, BreathTick = 0.1f, BreathBuild = 10f, BreathDamage = 1.5f;
-        /// <summary>Frost Tower (frost+frost, movement): a tower of ice bursts up under you, throwing you <c>TowerJump</c> x a jump high, and stands
-        /// <c>TowerSeconds</c> loosing a shard every <c>TowerEvery</c> s at a creature within <c>TowerRange</c> px.</summary>
-        public static float TowerRest = 13f, TowerJump = 1.6f, TowerSeconds = 5f, TowerEvery = 0.3f, TowerRange = 220f, ShardDamage = 4f, ShardBuild = 18f;
+        /// <summary>Frost Tower (frost+frost, movement): the caster leaps (<c>TowerJump</c> x a jump) and a pillar of ice rises under them
+        /// (<c>TowerHeight</c> px, <c>TowerHalf</c> px each side) to stand and cast from for <c>TowerSeconds</c>. It is solid to creatures and to the
+        /// caster's feet (friends pass through it), and creatures within <c>LureRange</c> px go for it instead of a hero; it has <c>TowerHp</c>
+        /// health, x the caster's max health over their starting health, and shatters at none. It doesn't attack.</summary>
+        public static float TowerRest = 13f, TowerJump = 1.45f, TowerHeight = 72f, TowerHalf = 14f, TowerSeconds = 10f, TowerRise = 0.3f, TowerHp = 20f, LureRange = 240f;
         /// <summary>Fire Barrier (fire+wind, movement): a ring of fire about you for <c>RingSeconds</c> (<c>RingRadius</c> px): creatures that touch it
         /// burn and are thrown back, shots that cross it burn up.</summary>
         public static float RingRest = 12f, RingSeconds = 5f, RingRadius = 48f, RingTick = 0.25f, RingBuild = 20f, RingDamage = 2f, RingPush = 260f;
-        /// <summary>Frost Barrier (frost+wind, movement): a wall of ice and wind <c>WallAhead</c> px before you for <c>BarrierSeconds</c>: creatures
-        /// can't cross it (they're driven back, chilled), and the shots that meet it are turned round.</summary>
-        public static float BarrierRest = 12f, BarrierSeconds = 6f, BarrierAhead = 48f, BarrierHeight = 96f, BarrierTick = 0.2f, BarrierBuild = 10f, BarrierPush = 300f;
+        /// <summary>Frost Barrier (frost+wind, movement): frost armour on the caster: the next melee strike they take fills the attacker with
+        /// <c>WardBuild</c> frost (waiting up to <c>WardSeconds</c>).</summary>
+        public static float BarrierRest = 10f, WardSeconds = 30f, WardBuild = 100f;
         /// <summary>Rain of Fire / Hailstorm (fire+fire / frost+frost, fixed range): for <c>RainSeconds</c> fire (or hail) falls over the spot
         /// (<c>RainHalf</c> px each way), a drop every <c>RainEvery</c> s; each fireball bursts (<c>RainDamage</c>, <c>RainBuild</c> fire), each hailstone
         /// strikes (<c>HailDamage</c>, <c>HailBuild</c> frost) and beats flying creatures down.</summary>

@@ -176,6 +176,8 @@ public partial class Player : CharacterBody2D
     private float _abilityAimDist;
     private PlayerInput _dodgeInput;
 
+    /// <summary>Test aid: a blow's moment of grace is over.</summary>
+    public void TestInvulnClear() { _invuln = 0; _iframes = 0; }
     public bool Invulnerable => _invuln > 0 || _iframes > 0 || Choosing || (IsRemote && NetInvuln);
     /// <summary>Dodging, dashing, invulnerable, or behind a raised shield (an input for the enemy brains).</summary>
     public bool Guarding => IsRemote ? (_netFlags & HfGuarding) != 0 : IsDodging || IsShieldDashing || Invulnerable || ShieldRaised;
@@ -1190,6 +1192,13 @@ public partial class Player : CharacterBody2D
     {
         LastHitBlocked = false;
         if (Dead) return 0;
+        // (a creature drawn to a Frost Tower, striking from beside it: the tower takes the blow)
+        if (source != null && GodotObject.IsInstanceValid(source) && source.Lure is { } tower && tower.NearestPoint(source.GlobalPosition).DistanceTo(source.GlobalPosition) < 70f)
+        {
+            tower.Damage(dmg, source);
+            LastHitBlocked = true;
+            return 0;
+        }
         // Counter Roll: a melee blow met mid-roll is stopped, and answered
         if (!IsRemote && TryCounter(source)) { LastHitBlocked = true; return 0; }
         if (Invulnerable) return 0;

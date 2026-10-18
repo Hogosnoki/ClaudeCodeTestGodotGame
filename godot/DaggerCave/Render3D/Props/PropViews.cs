@@ -70,6 +70,7 @@ public static class PropViews
             IceSheet => new IceSheetView(),
             StalagGrip => new StalagGripView(),
             IcePlatform => new IcePlatformView(),
+            FrostTower => new FrostTowerView(),
             DraftAim => new DraftAimView(),
             _ => null,
         };
@@ -2786,5 +2787,56 @@ public partial class StalagGripView : PropView
             _rock[k].Basis = _rest[k] * Basis.FromScale(Vector3.One * s);
             _rock[k].Visible = rise > 0.02f;
         }
+    }
+}
+
+/// <summary>A Frost Tower: a faceted pillar of ice that rises out of the floor, crowned with shards; it flashes when struck and clouds as it cracks.</summary>
+public partial class FrostTowerView : PropView
+{
+    protected override bool ActorLit => false;
+    private MeshInstance3D _pillar, _crown;
+    private StandardMaterial3D _mat;
+    private OmniLight3D _light;
+
+    protected override void Build()
+    {
+        var t = (FrostTower)Owner2D;
+        float r = t.Half / W3.Ppu;
+        _mat = (StandardMaterial3D)PropViews.Ice.Duplicate();
+        // (a column of unit height, its foot at the origin: stretched as it rises)
+        _pillar = new MeshInstance3D
+        {
+            Mesh = new CylinderMesh { TopRadius = r * 0.78f, BottomRadius = r * 1.12f, Height = 1f, RadialSegments = 6, Rings = 1 },
+            MaterialOverride = _mat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        AddChild(_pillar);
+        var rng = new Random((int)(t.GlobalPosition.X * 7 + t.GlobalPosition.Y * 3));
+        var mb = new MeshBuilder();
+        for (int k = 0; k < 4; k++)
+        {
+            var shard = new MeshBuilder();
+            shard.Crystal(0.06f + 0.05f * (float)rng.NextDouble(), 0.22f + 0.25f * (float)rng.NextDouble(), 0.04f, new Color(0.9f, 0.97f, 1f), (float)rng.NextDouble());
+            float a = k * Mathf.Tau / 4f + (float)rng.NextDouble();
+            mb.Append(shard, new Transform3D(new Basis(new Vector3(MathF.Cos(a), 0, MathF.Sin(a)).Cross(Vector3.Up).Normalized(), 0.35f), new Vector3(MathF.Cos(a) * r * 0.4f, 0f, MathF.Sin(a) * r * 0.4f)));
+        }
+        _crown = PropViews.Mesh(mb, _mat, false);
+        AddChild(_crown);
+        _light = PropViews.Light(new Color(0.55f, 0.85f, 1f), 0.8f, 3f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var t = (FrostTower)Owner2D;
+        Follow(default, 0f);
+        float h = Math.Max(0.02f, t.Risen / W3.Ppu);
+        _pillar.Scale = new Vector3(1f, h, 1f);
+        _pillar.Position = new Vector3(0, h * 0.5f, 0);
+        _crown.Position = new Vector3(0, h, 0);
+        _light.Position = new Vector3(0, h * 0.6f, 0.4f);
+        // struck: a white flash; worn down: clouded, cracking ice
+        float worn = Math.Clamp(t.Hp / Math.Max(1f, t.MaxHp), 0f, 1f);
+        _mat.EmissionEnergyMultiplier = t.Flashing ? 1.6f : 0.25f;
+        _mat.AlbedoColor = new Color(0.62f + 0.25f * (1f - worn), 0.85f, 1f, 0.6f + 0.25f * (1f - worn));
     }
 }

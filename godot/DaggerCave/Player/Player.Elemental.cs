@@ -690,11 +690,23 @@ public partial class Player
         return true;
     }
 
-    /// <summary>Frost Armor: a creature that strikes this hero in melee is filled with frost.</summary>
+    /// <summary>Frost Armor: a creature that strikes this hero in melee is filled with frost. Frost Barrier: the next one, once.</summary>
     private void FrostArmorStruck(Enemy source, bool melee)
     {
-        if (!melee || source == null || !IsInstanceValid(source) || source.Dead || !HasBuff(BuffFrostArmor)) return;
+        if (!melee || source == null || !IsInstanceValid(source) || source.Dead) return;
+        var col = Elements.ColorOf(HeroElement.Frost);
+        if (HasBuff(BuffFrostWard))
+        {
+            EndBuff(BuffFrostWard);
+            source.Build(HeroElement.Frost, Tune.Dual.WardBuild, Stats.DamageMult, this);
+            G.Fx.Burst(GlobalPosition + new Vector2(0, -4), new Color(0.9f, 0.97f, 1f), 18, 160, 2.4f, 0.4f, 120);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 22, new Color(col, 0.95f), 0.3f, FxLayer.RingStyle.Burst);
+            G.Fx.Text(source.GlobalPosition + new Vector2(0, -source.HitRadius - 16), "FROST BARRIER", col, 10, 0.8f);
+            G.Sfx.Play("clink", GlobalPosition, -2, 0.05f, 0.6f);
+            ElementalUses.Add("Frost Barrier!");
+        }
+        if (source.Dead || !HasBuff(BuffFrostArmor)) return;
         source.Build(HeroElement.Frost, Tune.Elements.Full, Stats.DamageMult, this);
-        G.Fx.Burst(source.GlobalPosition, Elements.ColorOf(HeroElement.Frost), 8, 90, 1.6f, 0.3f, 60);
+        G.Fx.Burst(source.GlobalPosition, col, 8, 90, 1.6f, 0.3f, 60);
     }
 }

@@ -183,8 +183,27 @@ public abstract partial class Enemy : CharacterBody2D
         return best;
     }
 
+    /// <summary>A Frost Tower near enough to draw it: it goes for that in place of its hero (looked at again every quarter second).</summary>
+    public FrostTower Lure
+    {
+        get
+        {
+            if (Master != null || FrostTower.All.Count == 0) return null;
+            if ((_lureT -= (float)GetPhysicsProcessDeltaTime()) <= 0f || (_lure != null && !_lure.Standing))
+            {
+                _lureT = 0.25f;
+                _lure = FrostTower.LureFor(this, P);
+            }
+            return _lure != null && IsInstanceValid(_lure) && _lure.Standing ? _lure : null;
+        }
+    }
+    private FrostTower _lure;
+    private float _lureT;
+    /// <summary>Where it's going: its hero, or the near side of a Frost Tower drawing it.</summary>
+    private Vector2 Quarry => Lure is { } tower ? tower.NearestPoint(GlobalPosition) : P.GlobalPosition;
+
     // (a driven creature seeks the point its master's controller points to, in place of the hero)
-    protected Vector2 ToP => Master != null ? MasterPoint - GlobalPosition : P.GlobalPosition - GlobalPosition;
+    protected Vector2 ToP => Master != null ? MasterPoint - GlobalPosition : Quarry - GlobalPosition;
     /// <summary>
     /// How far away it takes a hero to be: the real distance, but a Shape Shifter in a form seems twice as far (it looks like
     /// one of the cave's own), and to its own kind it seems far further still (the least interesting thing in the cave, though
@@ -202,13 +221,13 @@ public abstract partial class Enemy : CharacterBody2D
         if (ShiftForm.For(this) == h.Form) return choosing ? Tune.Shifter.KinChoosingFactor : Tune.Shifter.KinNoticeFactor;
         return Tune.Shifter.NoticeFactor;
     }
-    protected bool SeesP => Master != null || (G.Cave.LineClear(GlobalPosition, P.GlobalPosition) && !Breakables.Blocks(GlobalPosition, P.GlobalPosition));
+    protected bool SeesP => Master != null || (G.Cave.LineClear(GlobalPosition, Quarry) && !Breakables.Blocks(GlobalPosition, Quarry));
     protected bool InWater => G.Cave.IsWater(GlobalPosition);
 
     public override void _Ready()
     {
         CollisionLayer = G.LayerEnemy;
-        CollisionMask = G.LayerTerrain;
+        CollisionMask = G.LayerTerrain | G.LayerTower;
         FloorMaxAngle = Mathf.DegToRad(Tune.Cave.WalkableSlopeDegrees + 2);
         FloorSnapLength = 6f;
         ZIndex = 0;

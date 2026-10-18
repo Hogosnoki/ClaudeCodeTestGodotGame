@@ -481,20 +481,39 @@ public partial class Main
         ScShot("duals_breath");
         foreach (var _ in ElWait(1f)) yield return null;
 
-        // Frost Tower: thrown high, shards at what's near
+        // Frost Tower: a leap, a pillar to stand on that creatures go for, that friends pass through
         Clear();
-        a = Add(110);
-        foreach (var _ in ElWait(0.2f)) yield return null;
         Ready();
-        float y0 = p.GlobalPosition.Y, top = y0;
+        float y0 = p.GlobalPosition.Y;
         foreach (var _ in ElPair(p, 2, 2)) yield return null;
         _scInput = Move(); yield return null; yield return null; _scInput = default;
-        for (int f = 0; f < 40; f++) { top = Math.Min(top, p.GlobalPosition.Y); yield return null; }
-        foreach (var _ in ElWait(1.2f)) yield return null;
-        var tower = p.LastElementSpell as FrostTower;
-        ScCheck($"Frost Tower throws the caster high ({y0 - top:0} px) and looses shards ({tower?.Shots}; frost {a.FrostBuild:0}, chilled {a.Chilled})", p.ElementalUses.Contains("Frost Tower") && y0 - top > 60f && tower != null && tower.Shots >= 2);
+        foreach (var _ in ElWait(1.4f)) yield return null;
+        var tower = p.LastTower;
+        ScCheck($"Frost Tower: a pillar of ice ({tower?.Risen:0} px, {tower?.MaxHp:0} health) the caster stands on ({y0 - p.GlobalPosition.Y:0} px up, on the ground {p.IsOnFloor()})",
+            p.ElementalUses.Contains("Frost Tower") && tower != null && tower.Standing && p.IsOnFloor() && y0 - p.GlobalPosition.Y > Tune.Dual.TowerHeight * 0.8f);
+        ScCheck($"its health is {Tune.Dual.TowerHp:0} x the caster's max health over their starting health ({tower?.MaxHp:0})", tower != null && Math.Abs(tower.MaxHp - Tune.Dual.TowerHp * p.Stats.MaxHp / Tune.Elementalist.StartHp) < 0.5f);
         ScShot("duals_tower");
-        foreach (var _ in ElWait(4f)) yield return null;
+        if (tower != null)
+        {
+            // a creature beside it goes for the tower, not the hero up on it, and wears it down
+            var goon = new Goblin { Position = tower.GlobalPosition + new Vector2(-p.Facing * 46f, -12f) };
+            goon.SetMeta("test", true);
+            _world.AddChild(goon);
+            goon.Wake();
+            foes.Add(goon);
+            foreach (var _ in ElWait(0.3f)) yield return null;
+            ScCheck($"a creature near it is drawn to the tower ({goon.Lure == tower})", goon.Lure == tower);
+            float hp0 = p.Hp;
+            for (float t = 0; t < 8f && tower.Standing && tower.Struck == 0; t += (float)GetProcessDeltaTime()) yield return null;
+            ScCheck($"it strikes the tower ({tower.Struck} blows, {Math.Max(0, tower.Hp):0}/{tower.MaxHp:0}), not the hero on it ({hp0:0} -> {p.Hp:0})", tower.Struck >= 1 && p.Hp >= hp0);
+            ScCheck($"a creature can't walk through it ({goon.GlobalPosition.X:0} vs the tower at {tower.GlobalPosition.X:0})", !tower.Standing || Math.Sign(goon.GlobalPosition.X - tower.GlobalPosition.X) == Math.Sign(-p.Facing));
+            // its blows bring it down
+            tower.Damage(tower.Hp + 1f, goon);
+            foreach (var _ in ElWait(0.2f)) yield return null;
+            ScCheck($"worn to nothing it shatters ({tower.Standing}), and the caster falls ({(p.CollisionMask & G.LayerTower) == 0})", !IsInstanceValid(tower) || !tower.Standing);
+        }
+        Clear();
+        foreach (var _ in ElWait(1f)) yield return null;
 
         // Fire Barrier: a ring of fire that throws back what touches it
         Clear();
@@ -507,16 +526,21 @@ public partial class Main
         ScCheck($"Fire Barrier: a ring of fire that burns what touches it ({ring?.Burned}, alight {a.Ignited})", p.ElementalUses.Contains("Fire Barrier") && ring != null && ring.Burned >= 1);
         foreach (var _ in ElWait(4.5f)) yield return null;
 
-        // Frost Barrier: a wall that turns shots round
+        // Frost Barrier: frost armour, spent on the next melee strike
         Clear();
         Ready();
         foreach (var _ in ElPair(p, 2, 3)) yield return null;
         foreach (var _ in ElPress(Move(), 0.1f)) yield return null;
-        var wall = p.LastElementSpell as FrostBarrier;
-        if (wall != null) _world.AddChild(new EnemyProjectile { Position = wall.GlobalPosition + new Vector2(p.Facing * 120f, -30f), Vel = new Vector2(-p.Facing * 260f, 0), Damage = 1f });
-        foreach (var _ in ElWait(1f)) yield return null;
-        ScCheck($"Frost Barrier turns a shot round ({wall?.Turned})", p.ElementalUses.Contains("Frost Barrier") && wall != null && wall.Turned >= 1);
-        foreach (var _ in ElWait(5.5f)) yield return null;
+        ScCheck($"Frost Barrier is frost armour on the caster ({p.HasBuff(Player.BuffFrostWard)})", p.ElementalUses.Contains("Frost Barrier") && p.HasBuff(Player.BuffFrostWard));
+        a = Add(0, hold: false);
+        a.GlobalPosition = p.GlobalPosition + new Vector2(p.Facing * 20f, -4f);
+        p.Hurt(1f, a.GlobalPosition, 0f, a);
+        ScCheck($"the next melee strike fills the attacker with frost ({a.FrostBuild:0} frost, chilled {a.Chilled}) and spends it ({p.HasBuff(Player.BuffFrostWard)})", p.ElementalUses.Contains("Frost Barrier!") && a.Chilled && !p.HasBuff(Player.BuffFrostWard));
+        float before = a.ChillLeft;
+        p.TestInvulnClear();
+        p.Hurt(1f, a.GlobalPosition, 0f, a);
+        ScCheck("once: the strike after it does nothing more", p.ElementalUses.Count(u => u == "Frost Barrier!") == 1);
+        Clear();
 
         // Rain of Fire / Hailstorm (fixed range)
         Clear();

@@ -24,6 +24,8 @@ public partial class Player
     private Enemy _thermal;
     /// <summary>The Glacier Cleaver's vast axe of ice is in the hand (for the 3D view).</summary>
     public bool GiantBlade => IsRemote ? (_netFlags & HfGiant) != 0 : _giant && _swingT >= 0;
+    /// <summary>For the tests: the last Frost Tower raised.</summary>
+    public FrostTower LastTower { get; private set; }
     /// <summary>For the tests: the last lasting spell an element (or a pair) made.</summary>
     public HeroSpell LastElementSpell { get; private set; }
 
@@ -286,12 +288,14 @@ public partial class Player
         }
         else if (a == b)
         {
-            // Frost Tower: ice bursts up under you, throwing you high, and stands loosing shards at creatures near
+            // Frost Tower: you leap, and a pillar of ice rises under you to stand and cast from
             rest = Tune.Dual.TowerRest;
-            if (!Ground.Below(GlobalPosition, 60, out var floor)) floor = GlobalPosition + new Vector2(0, 12);
+            if (!Ground.Below(GlobalPosition, 60, out var floor)) floor = GlobalPosition + new Vector2(0, 13);
             _liftTo = -BaseJumpV * Tune.Dual.TowerJump;
             _terminalT = 0f;
-            Launch(new FrostTower { Position = floor });
+            var tower = new FrostTower { Position = floor, Caster = this, MaxHp = Tune.Dual.TowerHp * Stats.MaxHp / Math.Max(1f, Tune.Elementalist.StartHp) };
+            G.Spawn(tower);
+            LastTower = tower;
         }
         else if (a == HeroElement.Fire)
         {
@@ -301,13 +305,11 @@ public partial class Player
         }
         else
         {
-            // Frost Barrier: a wall of ice and wind before you that nothing crosses
+            // Frost Barrier: frost armour, waiting for the next melee strike
             rest = Tune.Dual.BarrierRest;
-            float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
-            Facing = dir;
-            var at = GlobalPosition + new Vector2(dir * Tune.Dual.BarrierAhead, 0);
-            if (!Ground.Below(at + new Vector2(0, -20), 120, out var floor)) floor = at + new Vector2(0, 12);
-            Launch(new FrostBarrier { Position = floor });
+            GiveBuff(BuffFrostWard, Tune.Dual.WardSeconds);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 22, new Color(Elements.ColorOf(HeroElement.Frost), 0.95f), 0.4f, FxLayer.RingStyle.Burst);
+            G.Fx.Burst(GlobalPosition + new Vector2(0, -4), new Color(0.9f, 0.97f, 1f), 12, 80, 2f, 0.4f, 0);
         }
         _updraftCd = _updraftCdTotal = rest;
         _updraftOwes = true;

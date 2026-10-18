@@ -101,7 +101,7 @@ public partial class Player
 
     // ---------------------------------------------------------------- timed buffs
 
-    public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5, BuffFireWalk = 6;
+    public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5, BuffFireWalk = 6, BuffFrostWard = 7;
     private readonly Dictionary<int, float> _buffs = new();
     public bool HasBuff(int kind) => _buffs.ContainsKey(kind);
     public float BuffLeft(int kind) => _buffs.TryGetValue(kind, out var t) ? t : 0f;
@@ -116,10 +116,17 @@ public partial class Player
         var ring = kind switch
         {
             BuffShout => new Color(1f, 0.6f, 0.3f, 0.8f), BuffTailwind => new Color(Elements.ColorOf(HeroElement.Wind), 0.8f),
-            BuffKindling or BuffFireWalk => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
+            BuffKindling or BuffFireWalk => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor or BuffFrostWard => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
             _ => new Color(0.85f, 0.95f, 1f, 0.8f),
         };
         G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, ring, 0.4f, FxLayer.RingStyle.Dashed);
+    }
+
+    /// <summary>A buff ends at once (Frost Barrier, spent on the blow it answers).</summary>
+    public void EndBuff(int kind)
+    {
+        if (!_buffs.Remove(kind)) return;
+        ApplyBuff(kind, -1);
     }
 
     private void ApplyBuff(int kind, int dir)

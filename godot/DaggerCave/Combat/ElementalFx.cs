@@ -45,29 +45,6 @@ public abstract partial class HeroSpell : Node2D
         if (!e.Dead) e.Build(el, amount, Power, Caster != null && IsInstanceValid(Caster) ? Caster : null);
     }
 
-    /// <summary>A shard of ice flies from <paramref name="from"/> along <paramref name="d"/>: the first creature in its path is struck.</summary>
-    protected Enemy Shard(Vector2 from, Vector2 d, float range, float dmg, float build)
-    {
-        G.Cave.Raycast(from, d, range, out var end, 4f);
-        Enemy best = null;
-        float bestT = float.MaxValue;
-        foreach (var e in Foes())
-        {
-            var to = e.GlobalPosition - from;
-            float t = to.Dot(d);
-            if (t < 0 || t > from.DistanceTo(end) + e.HitRadius) continue;
-            if ((to - d * t).Length() > e.HitRadius + 4f || t >= bestT) continue;
-            best = e; bestT = t;
-        }
-        var stop = best != null ? from + d * bestT : end;
-        G.Fx.Directional(from, d, 0.02f, new Color(0.88f, 0.97f, 1f), 1, 520, 2f, from.DistanceTo(stop) / 520f, 0, 0);
-        if (best == null) return null;
-        Hit(best, dmg, d * 30f, DamageKind.Frost);
-        Build(best, HeroElement.Frost, build);
-        G.Fx.Burst(stop, new Color(Elements.ColorOf(HeroElement.Frost), 0.9f), 3, 70, 1.6f, 0.25f, 60);
-        return best;
-    }
-
     /// <summary>The creatures that can be struck now.</summary>
     protected static IEnumerable<Enemy> Foes() => G.Enemies.ToArray().Where(e => !e.Dead && e.CanBeHit);
 }
@@ -669,55 +646,6 @@ public partial class FlameBreath : HeroSpell
     }
 }
 
-/// <summary>Frost Tower (frost+frost, movement): a tower of ice bursts up where the caster stood, throwing them high, and stands a while
-/// loosing shards at the creatures near it.</summary>
-public partial class FrostTower : HeroSpell
-{
-    private float _shot;
-    public int Shots { get; private set; }
-
-    public override void _Ready()
-    {
-        base._Ready();
-        var col = Elements.ColorOf(HeroElement.Frost);
-        G.Fx.Directional(GlobalPosition, Vector2.Up, 0.12f, new Color(0.92f, 0.98f, 1f), 26, 480, 3.4f, 0.45f, 300, 0);
-        G.Fx.Ring(GlobalPosition, 26, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
-        G.Fx.AddShake(3f);
-        G.Sfx.Play("clink", GlobalPosition, 0, 0.05f, 0.5f);
-    }
-
-    private Vector2 Top => GlobalPosition + new Vector2(0, -70f);
-
-    protected override void Tick(float dt)
-    {
-        var col = Elements.ColorOf(HeroElement.Frost);
-        if (T >= Tune.Dual.TowerSeconds)
-        {
-            G.Fx.Burst(GlobalPosition + new Vector2(0, -35), new Color(0.9f, 0.97f, 1f), 20, 140, 2.4f, 0.45f, 300);
-            QueueFree();
-            return;
-        }
-        // the tower: a column of glinting ice, broad at the foot, narrowing to the top
-        float melt = Math.Clamp((Tune.Dual.TowerSeconds - T) / 0.5f, 0f, 1f);
-        for (int k = 0; k < 7; k++)
-        {
-            float h = G.Range(0f, 1f);
-            float w = 11f * (1f - 0.55f * h);
-            var tone = G.Chance(0.3f) ? new Color(0.95f, 0.99f, 1f, 0.95f * melt) : new Color(0.68f, 0.88f, 1f, 0.85f * melt);
-            G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-w, w), -h * 72f), tone, 1, 4, G.Range(4f, 7f), 0.22f, 0, 0);
-        }
-        if (G.Chance(0.15f)) G.Fx.Glint(Top + new Vector2(G.Range(-6f, 6f), G.Range(-4f, 8f)), col, 5f);
-        if ((_shot -= dt) > 0) return;
-        _shot = Tune.Dual.TowerEvery;
-        var top = Top;
-        var near = Foes().Where(e => e.GlobalPosition.DistanceTo(top) < Tune.Dual.TowerRange + e.HitRadius && G.Cave.LineClear(top, e.GlobalPosition))
-            .OrderBy(e => e.GlobalPosition.DistanceTo(top)).FirstOrDefault();
-        if (near == null) return;
-        Shots++;
-        Shard(top, (near.GlobalPosition - top).Normalized(), Tune.Dual.TowerRange + 20f, Tune.Dual.ShardDamage * Power, Tune.Dual.ShardBuild);
-    }
-}
-
 /// <summary>Fire Barrier (fire+wind, movement): a ring of fire about the caster, going where they go. Creatures that touch it burn and are
 /// thrown back; shots that cross it burn up.</summary>
 public partial class FireRing : HeroSpell
@@ -750,47 +678,6 @@ public partial class FireRing : HeroSpell
             Hit(e, Tune.Dual.RingDamage * Power, away * 60f, DamageKind.Fire);
             Build(e, HeroElement.Fire, Tune.Dual.RingBuild);
             e.Shove(away * Tune.Dual.RingPush + new Vector2(0, -60f));
-        }
-    }
-}
-
-/// <summary>Frost Barrier (frost+wind, movement): a wall of ice and wind stands before the caster. Creatures can't cross it (they are driven
-/// back and chilled), and the shots that meet it are turned round.</summary>
-public partial class FrostBarrier : HeroSpell
-{
-    private float _tick;
-    public int Turned { get; private set; }
-    public int Held { get; private set; }
-
-    protected override void Tick(float dt)
-    {
-        if (T >= Tune.Dual.BarrierSeconds) { G.Fx.Burst(GlobalPosition + new Vector2(0, -40), new Color(0.9f, 0.97f, 1f), 18, 120, 2.2f, 0.4f, 300); QueueFree(); return; }
-        var c = GlobalPosition;
-        float h = Tune.Dual.BarrierHeight;
-        var col = Elements.ColorOf(HeroElement.Frost);
-        // the wall: snow streaming up a sheet of ice
-        for (int k = 0; k < 3; k++)
-            G.Fx.Directional(c + new Vector2(G.Range(-4f, 4f), -G.Range(0f, h * 0.3f)), Vector2.Up, 0.08f, G.Chance(0.6f) ? new Color(0.92f, 0.98f, 1f, 0.85f) : new Color(col, 0.8f), 1, G.Range(160, 240), G.Range(1.6f, 2.6f), h / 220f, 0, 0);
-        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
-        {
-            if (!IsInstanceValid(pr)) continue;
-            var p = pr.GlobalPosition;
-            if (Math.Abs(p.X - c.X) > 10f + pr.Radius || p.Y > c.Y + 4f || p.Y < c.Y - h) continue;
-            Turned++;
-            pr.Reflect(new Vector2(-Math.Sign(pr.Vel.X == 0 ? 1 : pr.Vel.X), -0.1f), 1f);
-        }
-        bool tick = (_tick -= dt) <= 0;
-        if (tick) _tick = Tune.Dual.BarrierTick;
-        foreach (var e in Foes())
-        {
-            if (!Ground.Over(e, c.X - 12f, c.X + 12f, c.Y, h)) continue;
-            // (it can't cross: it's driven back the way it came)
-            float side = Math.Sign(e.GlobalPosition.X - c.X);
-            if (side == 0) side = 1;
-            e.Shove(new Vector2(side * Tune.Dual.BarrierPush, -30f));
-            if (!tick) continue;
-            Held++;
-            Build(e, HeroElement.Frost, Tune.Dual.BarrierBuild);
         }
     }
 }
@@ -859,5 +746,156 @@ public partial class Downpour : HeroSpell
         Build(direct, HeroElement.Frost, Tune.Dual.HailBuild);
         // (the hail beats what flies down out of the air)
         direct.Shove(new Vector2(0, Tune.Dual.HailBeat));
+    }
+}
+
+/// <summary>
+/// Frost Tower (frost+frost, movement): a pillar of ice rising under the caster as they leap, to stand on and cast from higher ground.
+/// It is solid to creatures and to its caster's feet (the other heroes pass through it); creatures near it go for it instead of a hero,
+/// their blows and shots wearing it down (<see cref="Enemy.Lure"/>); it shatters when its health is gone or its time is up. It doesn't
+/// attack. It lives in its caster's game (online, only the host's creatures can go for a host's tower).
+/// </summary>
+public partial class FrostTower : StaticBody2D
+{
+    public static readonly List<FrostTower> All = new();
+    public Player Caster;
+    public float Hp, MaxHp, Height = Tune.Dual.TowerHeight, Half = Tune.Dual.TowerHalf, Seconds = Tune.Dual.TowerSeconds;
+    private float _t, _flash;
+    private bool _gone;
+    private RectangleShape2D _rect;
+    private CollisionShape2D _shape;
+    /// <summary>For the tests: blows and shots it has taken.</summary>
+    public int Struck { get; private set; }
+
+    public bool Standing => !_gone && Hp > 0 && IsInsideTree();
+    /// <summary>Just struck (for the 3D view's flash).</summary>
+    public bool Flashing => _flash > 0;
+    /// <summary>How tall it stands now (it rises in a moment).</summary>
+    public float Risen => Height * Math.Clamp(_t / Tune.Dual.TowerRise, 0f, 1f);
+    public float Top => GlobalPosition.Y - Risen;
+
+    public override void _Ready()
+    {
+        CollisionLayer = G.LayerTower;
+        CollisionMask = 0;
+        ZIndex = 1;
+        _rect = new RectangleShape2D { Size = new Vector2(Half * 2f, 2f) };
+        _shape = new CollisionShape2D { Shape = _rect, Position = new Vector2(0, -1f) };
+        AddChild(_shape);
+        if (MaxHp <= 0) MaxHp = Tune.Dual.TowerHp;
+        Hp = MaxHp;
+        var col = Elements.ColorOf(HeroElement.Frost);
+        G.Fx.Directional(GlobalPosition, Vector2.Up, 0.12f, new Color(0.92f, 0.98f, 1f), 26, 480, 3.4f, 0.45f, 300, 0);
+        G.Fx.Ring(GlobalPosition, 26, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
+        G.Fx.AddShake(3f);
+        G.Sfx.Play("clink", GlobalPosition, 0, 0.05f, 0.5f);
+    }
+
+    public override void _EnterTree() { if (!All.Contains(this)) All.Add(this); }
+    public override void _ExitTree() { All.Remove(this); Release(); }
+
+    /// <summary>The nearest point of the pillar to <paramref name="from"/> (where a creature strikes it).</summary>
+    public Vector2 NearestPoint(Vector2 from)
+        => new(Math.Clamp(from.X, GlobalPosition.X - Half, GlobalPosition.X + Half), Math.Clamp(from.Y, Top, GlobalPosition.Y));
+
+    /// <summary>The standing tower a point is inside, or null (a shot meeting one).</summary>
+    public static FrostTower At(Vector2 p)
+    {
+        foreach (var t in All)
+            if (t.Standing && Math.Abs(p.X - t.GlobalPosition.X) <= t.Half && p.Y >= t.Top && p.Y <= t.GlobalPosition.Y) return t;
+        return null;
+    }
+
+    /// <summary>The tower that draws a creature going for <paramref name="hero"/>: the nearest standing one within reach, seen, and nearer than
+    /// the hero (or the hero stands on it).</summary>
+    public static FrostTower LureFor(Enemy e, Player hero)
+    {
+        FrostTower best = null;
+        float bd = Tune.Dual.LureRange;
+        var me = e.GlobalPosition;
+        foreach (var t in All)
+        {
+            if (!t.Standing) continue;
+            var at = t.NearestPoint(me);
+            float d = at.DistanceTo(me);
+            if (d >= bd || !G.Cave.LineClear(me, at)) continue;
+            bool onIt = hero != null && hero == t.Caster && t.Holds(hero);
+            if (!onIt && hero != null && hero.GlobalPosition.DistanceTo(me) < d) continue;
+            bd = d; best = t;
+        }
+        return best;
+    }
+
+    /// <summary>The hero is up on it (or over it).</summary>
+    public bool Holds(Player h) => Math.Abs(h.GlobalPosition.X - GlobalPosition.X) <= Half + 8f && h.GlobalPosition.Y + 13f <= Top + 4f;
+
+    /// <summary>A creature's blow or shot.</summary>
+    public void Damage(float dmg, Enemy by)
+    {
+        if (!Standing || dmg <= 0) return;
+        Struck++;
+        Hp -= dmg;
+        _flash = 0.12f;
+        var at = new Vector2(GlobalPosition.X, Top + Risen * 0.4f);
+        G.Fx.Burst(at, new Color(0.88f, 0.96f, 1f), 6, 90, 2f, 0.3f, 200);
+        G.Fx.TickText(at + new Vector2(0, -10), Mathf.CeilToInt(dmg).ToString(), Elements.ColorOf(HeroElement.Frost));
+        G.Sfx.Play("clink", at, -6, 0.1f, 1.2f);
+        if (Hp <= 0) Shatter();
+    }
+
+    private void Shatter()
+    {
+        if (_gone) return;
+        _gone = true;
+        var c = GlobalPosition + new Vector2(0, -Risen * 0.5f);
+        G.Fx.Burst(c, new Color(0.9f, 0.97f, 1f), 28, 180, 2.6f, 0.5f, 320);
+        G.Fx.Debris(c, Elements.ColorOf(HeroElement.Frost), 10, 160);
+        G.Sfx.Play("clink", c, -2, 0.05f, 0.5f);
+        Release();
+        QueueFree();
+    }
+
+    /// <summary>Its caster's feet no longer meet it.</summary>
+    private void Release()
+    {
+        if (Caster != null && IsInstanceValid(Caster)) Caster.CollisionMask &= ~G.LayerTower;
+    }
+
+    public override void _PhysicsProcess(double delta)
+    {
+        if (_gone) return;
+        float dt = (float)delta;
+        _t += dt;
+        if (_flash > 0) _flash -= dt;
+        if (_t >= Seconds) { Shatter(); return; }
+        float h = Math.Max(2f, Risen);
+        _rect.Size = new Vector2(Half * 2f, h);
+        _shape.Position = new Vector2(0, -h * 0.5f);
+        // its caster stands on it once above its top, and walks through it from beside (as the other heroes always do)
+        if (Caster != null && IsInstanceValid(Caster) && !Caster.Dead)
+        {
+            if (Caster.GlobalPosition.Y + 13f <= Top + 2f) Caster.CollisionMask |= G.LayerTower;
+            else if (Caster.GlobalPosition.Y + 13f > Top + 8f) Caster.CollisionMask &= ~G.LayerTower;
+        }
+        NetSync.Scope++;
+        try { Shimmer(h); }
+        finally { NetSync.Scope--; }
+    }
+
+    /// <summary>About the pillar (its body is the 3D view): a glint now and then, chips falling as it's worn down.</summary>
+    private void Shimmer(float h)
+    {
+        var col = Elements.ColorOf(HeroElement.Frost);
+        float worn = Math.Clamp(Hp / Math.Max(1f, MaxHp), 0f, 1f);
+        if (G.Chance(0.06f)) G.Fx.Glint(new Vector2(GlobalPosition.X + G.Range(-Half, Half), GlobalPosition.Y - G.Range(0f, h)), col, 4f);
+        // (cracked: chips falling off it)
+        if (worn < 0.5f && G.Chance(0.1f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-Half, Half), -G.Range(0f, h)), new Color(0.85f, 0.95f, 1f), 1, 40, 1.6f, 0.4f, 300);
+    }
+
+    public override void _Draw()
+    {
+        // (the 2D view, for the debug overlay)
+        float h = Risen;
+        DrawRect(new Rect2(-Half, -h, Half * 2f, h), new Color(0.7f, 0.9f, 1f, 0.35f));
     }
 }

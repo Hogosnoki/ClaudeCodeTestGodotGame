@@ -144,6 +144,13 @@ public partial class EnemyProjectile : Node2D
             Impact(np);
             return;
         }
+        // (a Frost Tower in its way takes the shot)
+        if (!Reflected && FrostTower.All.Count > 0 && FrostTower.At(np) is { } tower)
+        {
+            tower.Damage(Damage, Source);
+            Impact(np);
+            return;
+        }
         GlobalPosition = np;
         if ((Kind == "fire" || Kind == "lava") && GasCloud.All.Count > 0) GasCloud.IgniteAt(np, Radius);
         if (Reflected)

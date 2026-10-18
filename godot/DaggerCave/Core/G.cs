@@ -14,6 +14,8 @@ public static class G
     public const uint LayerTerrain = 1;
     public const uint LayerPlayer = 2;
     public const uint LayerEnemy = 4;
+    /// <summary>A Frost Tower: solid to creatures and to its caster's feet, not to the other heroes.</summary>
+    public const uint LayerTower = 8;
 
     public static Main Main;
     public static CaveData Cave;

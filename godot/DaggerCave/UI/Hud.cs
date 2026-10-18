@@ -836,7 +836,7 @@ public partial class Hud : Control
         "Earthsplitter" => "SPLITTER", "Inferno Cleave" => "INFERNO", "Glacier Cleaver" => "GLACIER", "Frost Heave" => "F.HEAVE",
         "Magma Rend" => "MAGMA", "Thermal Shock" => "THERMAL",
         "Jump" => "JUMP", "Explosive Lunge" => "LUNGE", "Glacial Vault" => "VAULT", "Earthfall" => "EARTHFALL",
-        "Fire Walk" => "FIREWALK", "Frost Tower" => "TOWER", "Fire Barrier" => "FIRE RING", "Frost Barrier" => "ICE WALL",
+        "Fire Walk" => "FIREWALK", "Frost Tower" => "TOWER", "Fire Barrier" => "FIRE RING", "Frost Barrier" => "BARRIER",
         "Force Blast" => "BLAST", "Rain of Fire" => "FIRE RAIN", "Frostfire Lance" => "LANCE", "Frost Armor" => "ARMOR", "Narrow Draft" => "DRAFT",
         "Fire Barrage" or "Frost Barrage" => "BARRAGE",
         _ => name.ToUpperInvariant(),
