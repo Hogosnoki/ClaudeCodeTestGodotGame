@@ -29,7 +29,7 @@ public partial class Player
     private float _netShieldStrength = 1f;
 
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
-                       HfGuarding = 128, HfSecondary = 256, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
+                       HfGuarding = 128, HfSecondary = 256, HfGiant = 512, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
                        HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608,
                        HfFire = 16777216, HfOrbWind = 33554432, HfOrbSnap = 67108864, HfOrbStorm = 134217728, HfWeb = 268435456, HfStun = 536870912;
 
@@ -54,6 +54,7 @@ public partial class Player
         if (ShieldRaised) f |= HfShield;
         if (Charged > 0 || SwingCharged) f |= HfCharged;
         if (Heaving) f |= HfHeaving;
+        if (GiantBlade) f |= HfGiant;
         if (Choosing) f |= HfChoosing;
         if (Invulnerable) f |= HfInvuln;
         if (Guarding) f |= HfGuarding;

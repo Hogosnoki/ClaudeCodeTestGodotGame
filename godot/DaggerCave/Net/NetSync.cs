@@ -311,11 +311,11 @@ public static class NetSync
     }
 
     /// <summary>This game's hero struck a ledge (the other games take the same blow).</summary>
-    public static void LedgeHit(RockLedge l)
+    public static void LedgeHit(RockLedge l, bool smash = false)
     {
         if (!Net.Online || Applying) return;
         var w = new NetOut(Net.Msg.HeroEvent);
-        w.Int(Net.Me).Byte(17).Int(l.Index);
+        w.Int(Net.Me).Byte(17).Int(l.Index).Byte((byte)(smash ? 1 : 0));
         Net.SendAll(w, true);
     }
 
@@ -476,8 +476,9 @@ public static class NetSync
             case 17:
             {
                 int li = r.Int();
+                bool smash = r.Byte() != 0;
                 Applying = true;
-                foreach (var lg in RockLedge.All) if (GodotObject.IsInstanceValid(lg) && lg.Index == li) lg.NetHit();
+                foreach (var lg in RockLedge.All) if (GodotObject.IsInstanceValid(lg) && lg.Index == li) { if (smash) lg.NetSmash(); else lg.NetHit(); }
                 Applying = false;
                 break;
             }
@@ -719,7 +720,7 @@ public static class NetSync
     }
 
     /// <summary>Kinds of lasting effect a hero's blow can put on a creature.</summary>
-    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark, Expose, Venom, Build, Sap, Shove }
+    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark, Expose, Venom, Build, Sap, Shove, Mire }
 
     public static void EffectPuppet(Enemy e, Effect kind, float a, float b = 0, float c = 0, float d = 0, Vector2 v = default, string label = "")
     {
@@ -766,6 +767,7 @@ public static class NetSync
                 case Effect.Build: e.Build((HeroElement)(int)a, b, c); break;
                 case Effect.Sap: e.Sap(a); break;
                 case Effect.Shove: e.Shove(v); break;
+                case Effect.Mire: e.Mire(a); break;
                 case Effect.Chill: e.Chill(a, b); break;
                 case Effect.Frost: e.FreezeSolid(a); break;
                 case Effect.Thaw: e.Thaw(); break;

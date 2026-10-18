@@ -19,37 +19,61 @@ public partial class Player
 {
     /// <summary>This hero fights with elements (not the classic kit).</summary>
     public bool Elemental => Elements.On(Stats.Hero);
-    /// <summary>The element readied for the next attack (none: the attack is plain).</summary>
-    public HeroElement Infused { get; private set; }
+    /// <summary>The readied charges, oldest first (up to <see cref="Tune.Dual.MaxCharges"/>): an attack spends the oldest; the Hard Swing
+    /// (the Swordsman) and Burst (the Elementalist) spend two at once for the pair's ability (<see cref="Elements.DualName"/>).</summary>
+    private readonly List<HeroElement> _charges = new();
+    public IReadOnlyList<HeroElement> Charges => _charges;
+    /// <summary>The element the next attack spends (none: the attack is plain).</summary>
+    public HeroElement Infused => _charges.Count > 0 ? _charges[0] : HeroElement.None;
+    /// <summary>Two charges are readied: the dual ability waits on its button.</summary>
+    public bool DualReady => _charges.Count >= 2;
+    /// <summary>The name of the ability the readied pair makes ("" without two).</summary>
+    public string DualReadyName => DualReady ? Elements.DualName(Stats.Hero, _charges[0], _charges[1]) : "";
     private float _infuseT;
     /// <summary>For the tests: elemental versions used, by name.</summary>
     public readonly List<string> ElementalUses = new();
 
-    /// <summary>An element's button: it is readied (pressed again, put away).</summary>
+    /// <summary>An element's button: a charge of it is readied (past the most that can wait, the oldest goes). The same twice is the
+    /// element's great version; two different, their mix.</summary>
     public bool TryInfuse(int slot)
     {
         var els = Elements.Of(Stats.Hero);
         if (Dead || slot < 0 || slot >= els.Length) return false;
         var el = els[slot];
-        if (Infused == el) { Infused = HeroElement.None; G.Sfx.Play("ui", null, -10, 0, 0.7f); return true; }
-        Infused = el;
+        int most = Math.Max(1, Tune.Dual.MaxCharges);
+        while (_charges.Count >= most) _charges.RemoveAt(0);
+        _charges.Add(el);
         _infuseT = Tune.Elements.InfuseSeconds;
         var col = Elements.ColorOf(el);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 14, new Color(col, 0.9f), 0.25f, FxLayer.RingStyle.Burst);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -30), Elements.Name(el).ToUpperInvariant(), col, 10, 0.6f);
-        G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "rock", GlobalPosition, -10, 0.05f, 1.5f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), _charges.Count > 1 ? 20 : 14, new Color(col, 0.9f), 0.25f, FxLayer.RingStyle.Burst);
+        string dual = DualReadyName;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), dual != "" ? dual.ToUpperInvariant() : Elements.Name(el).ToUpperInvariant(),
+            dual != "" ? Elements.DualColor(_charges[0], _charges[1]) : col, dual != "" ? 11 : 10, 0.7f);
+        G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "rock", GlobalPosition, -10, 0.05f, _charges.Count > 1 ? 1.15f : 1.5f);
         Anim.Flash(0.2f);
         Anim.FlashColor = col;
         return true;
     }
 
-    /// <summary>The readied element, spent on an attack.</summary>
+    /// <summary>The oldest readied charge, spent on an attack.</summary>
     private HeroElement SpendElement()
     {
-        var el = Infused;
-        Infused = HeroElement.None;
+        if (_charges.Count == 0) return HeroElement.None;
+        var el = _charges[0];
+        _charges.RemoveAt(0);
         return el;
     }
+
+    /// <summary>The two readied charges, spent together (in <see cref="Elements.Pair"/> order).</summary>
+    private (HeroElement a, HeroElement b) SpendPair()
+    {
+        var pair = Elements.Pair(_charges[0], _charges[1]);
+        _charges.RemoveRange(0, 2);
+        return pair;
+    }
+
+    /// <summary>Every readied charge goes (they faded, or the hero fell).</summary>
+    private void ClearCharges() => _charges.Clear();
 
     private void Used(string what)
     {
@@ -61,12 +85,14 @@ public partial class Player
     private void TickElemental(float dt)
     {
         if (!Elemental) return;
-        if (Infused != HeroElement.None)
+        if (_charges.Count > 0)
         {
-            if ((_infuseT -= dt) <= 0) Infused = HeroElement.None;
-            // (a readied element glows about the hand)
-            else if (Engine.GetPhysicsFrames() % 4 == 0) G.Fx.Ember(GlobalPosition + new Vector2(Facing * 8, -4) + G.RandDir() * 4, Elements.ColorOf(Infused));
+            if ((_infuseT -= dt) <= 0 || Dead) ClearCharges();
+            // (a readied element glows about the hand; two, both of them)
+            else if (Engine.GetPhysicsFrames() % 4 == 0)
+                G.Fx.Ember(GlobalPosition + new Vector2(Facing * 8, -4) + G.RandDir() * (_charges.Count > 1 ? 7 : 4), Elements.ColorOf(_charges[(int)(Engine.GetPhysicsFrames() / 4 % (ulong)_charges.Count)]));
         }
+        TickDuals(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
         if (_hiltT > 0 && (_hiltT -= dt) <= 0) _hiltEl = HeroElement.None;
         if (_hiltT > 0 && Engine.GetPhysicsFrames() % 5 == 0)
@@ -92,7 +118,7 @@ public partial class Player
     /// <summary>For the HUD: a readied element can't go on a swing yet (it will on the next once this is 0).</summary>
     public float SwingElementRest => Math.Max(0f, _swingElemRest);
 
-    private void ClearSwingElement() { _swingEl = HeroElement.None; _swingBuild = 0; _swingShatter = false; }
+    private void ClearSwingElement() { _swingEl = HeroElement.None; _swingBuild = 0; _swingShatter = false; ClearDualSwing(); }
 
     /// <summary>The attack button: a plain swing, or with an element its version (the element rests a moment after).</summary>
     private bool ElementSwing(Vector2 aim, bool held)
@@ -133,6 +159,7 @@ public partial class Player
         if (_heaveCd > HeaveSpareTime || Heaving) return false;
         if (InWater || !IsOnFloor()) { _heaveWanted = true; return false; }
         _heaveWanted = false;
+        if (DualReady) return DualSword(aim);
         var el = SpendElement();
         _lastEl = el;
         float rest, dmg, wind = 1f;
@@ -197,6 +224,7 @@ public partial class Player
     {
         if (!Elemental || e.Dead) return;
         if (_swingEl != HeroElement.None && _swingBuild > 0) e.Build(_swingEl, _swingBuild, Stats.DamageMult, this);
+        DualBladeHit(e);
         if (_hiltT <= 0 || e.Dead) return;
         switch (_hiltEl)
         {
@@ -303,9 +331,10 @@ public partial class Player
     }
 
     /// <summary>The second ability: Burst. A plain pulse round you, Detonate (fire), Shatter (frost) or a gusting blast (wind).</summary>
-    private bool TryBurst()
+    private bool TryBurst(Vector2 aim)
     {
         if (!SnapReady) return false;
+        if (DualReady) return DualStaff(aim);
         var el = SpendElement();
         _lastEl = el;
         float rest = el switch

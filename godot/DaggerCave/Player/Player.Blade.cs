@@ -333,7 +333,7 @@ public partial class Player
             _swingSurprise = false;
         }
         // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst; with elements, only ThunderCrush does)
-        dmg *= HiltDamageMult;
+        dmg *= HiltDamageMult * DualBladeMult(e);
         bool shatter = (Elemental ? _swingShatter : _heave) && e.FrozenSolid;
         float dealt = e.Hurt(dmg, dir * kb, hitPos, Elemental && _swingEl is HeroElement.Fire or HeroElement.Frost ? Elements.KindOf(_swingEl) : DamageKind.Physical);
         if (shatter) { if (Elemental) e.Shatter(Stats.DamageMult * 1.5f, this); else ShatterFrozen(e); }

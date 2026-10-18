@@ -62,7 +62,18 @@ public partial class RockLedge : StaticBody2D, IBreakable
     /// <summary>A friend's blow.</summary>
     public void NetHit() => Hit(true);
 
-    private void Hit(bool remote)
+    /// <summary>Broken outright, whatever was left of it (a meteor through it).</summary>
+    public void Smash() => Smash(false);
+    public void NetSmash() => Smash(true);
+    private void Smash(bool remote)
+    {
+        if (Broken) return;
+        Left = 1;
+        _cool = 0;
+        Hit(remote, true);
+    }
+
+    private void Hit(bool remote, bool smash = false)
     {
         if (Broken || _cool > 0) return;
         _cool = 0.12f;
@@ -75,7 +86,7 @@ public partial class RockLedge : StaticBody2D, IBreakable
         G.Fx.Debris(at, dirt, 14, 150);
         G.Fx.Dust(at + new Vector2(0, 4), 5, 1.6f, new Color(0.55f, 0.46f, 0.36f, 0.6f));
         G.Fx.Debris(GlobalPosition + new Vector2(G.Range(-Half, Half) * 0.8f, ThickPx * 0.5f), dirt.Darkened(0.15f), 5, 90);
-        if (!remote) NetSync.LedgeHit(this);
+        if (!remote) NetSync.LedgeHit(this, smash);
         if (Left <= 0) Collapse();
     }
 

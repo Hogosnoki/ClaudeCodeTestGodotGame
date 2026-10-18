@@ -95,6 +95,25 @@ public static class Breakables
         }
     }
 
+    /// <summary>Something great (a meteor) strikes around <paramref name="at"/>: every breakable platform and rubble wall within
+    /// <paramref name="radius"/> breaks outright, and ice sheets take a touch. How many broke.</summary>
+    public static int Smash(Vector2 at, float radius)
+    {
+        int n = 0;
+        foreach (var br in All.ToArray())
+        {
+            if (br is IceSheet ice) { if (Math.Abs(at.X - ice.HitCenter.X) <= ice.HitSize + radius && Math.Abs(at.Y - ice.HitCenter.Y) <= radius + 6f) ice.Touch(); }
+            else if (br is RockLedge ledge && !ledge.Broken && Math.Abs(at.X - ledge.GlobalPosition.X) <= ledge.Half + radius && Math.Abs(at.Y - ledge.GlobalPosition.Y) <= ledge.ThickPx * 0.5f + radius) { ledge.Smash(); n++; }
+            else if (br is IcePlatform plat && !plat.Broken && Math.Abs(at.X - plat.GlobalPosition.X) <= plat.HalfW + radius && Math.Abs(at.Y - plat.GlobalPosition.Y - 7f) <= 7f + radius)
+            {
+                for (int k = 0; k < 4 && !plat.Broken; k++) plat.Strike(at);
+                n++;
+            }
+            else if (br is Rubble rb && !rb.Cleared && Math.Abs(at.X - rb.GlobalPosition.X) <= rb.Size.X * 0.5f + radius && Math.Abs(at.Y - rb.GlobalPosition.Y) <= rb.Size.Y * 0.5f + radius) { rb.Smash(); n++; }
+        }
+        return n;
+    }
+
     /// <summary>Something flies from <paramref name="a"/> to <paramref name="b"/>: a web-hung chest's web in its way parts (only those: bolts and daggers leave ice and brush alone).</summary>
     public static void Shoot(Vector2 a, Vector2 b, float pad = 4f)
     {

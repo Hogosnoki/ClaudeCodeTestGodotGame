@@ -804,7 +804,8 @@ public partial class Hud : Control
         for (int k = 0; k < els.Length; k++)
         {
             var el = els[k];
-            bool on = p.Infused == el;
+            int held = p.Charges.Count(c => c == el);
+            bool on = held > 0;
             var c = at + new Vector2(10 + k * 44, 0);
             var col = Elements.ColorOf(el);
             float r = on ? 8f + MathF.Sin(_t * 8f) : 6f;
@@ -812,13 +813,27 @@ public partial class Hud : Control
             if (on) DrawCircle(c, r + 5, new Color(col, 0.25f));
             DrawColoredPolygon(dia, on ? col : new Color(col.Darkened(0.45f), 0.85f));
             DrawPolyline(dia.Append(dia[0]).ToArray(), new Color(0, 0, 0, 0.7f), 1.2f);
+            // (a second charge of it: a second, smaller diamond tucked behind)
+            if (held > 1) DrawColoredPolygon(new[] { c + new Vector2(r * 0.9f, -r * 1.2f), c + new Vector2(r * 1.5f, -r * 0.6f), c + new Vector2(r * 0.9f, 0), c + new Vector2(r * 0.3f, -r * 0.6f) }, col.Lightened(0.3f));
             DrawString(font, c + new Vector2(12, 4), Controls.Name(Elements.Action(k)), HorizontalAlignment.Left, -1, 9, new Color(1, 1, 1, on ? 0.85f : 0.45f));
+            string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing" : "Burst";
             Tip(new Rect2(c - new Vector2(10, 10), new Vector2(40, 20)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))})",
-                $"Readies {Elements.Name(el).ToLowerInvariant()} for your next attack, which becomes its {Elements.Name(el).ToLowerInvariant()} version. Press again to put it away.", true);
+                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: your next attack becomes its {Elements.Name(el).ToLowerInvariant()} version. Two charges wait at once (the same twice, or two different): the {dualBtn} spends both for their dual ability.", true);
         }
-        string label = p.Infused != HeroElement.None ? $"{Elements.Name(p.Infused).ToUpperInvariant()}: NEXT ATTACK" : extra;
-        if (label != "") DrawString(font, at + new Vector2(els.Length * 44 + 4, 4), label, HorizontalAlignment.Left, -1, 10, p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(1, 1, 1, 0.55f));
+        string dual = p.DualReadyName;
+        string label = dual != "" ? $"{dual.ToUpperInvariant()}: {(p.Stats.Hero == HeroKind.Swordsman ? "HARD SWING" : "BURST")}"
+            : p.Infused != HeroElement.None ? $"{Elements.Name(p.Infused).ToUpperInvariant()}: NEXT ATTACK" : extra;
+        var labelCol = dual != "" ? Elements.DualColor(p.Charges[0], p.Charges[1]) : p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(1, 1, 1, 0.55f);
+        if (label != "") DrawString(font, at + new Vector2(els.Length * 44 + 4, 4), label, HorizontalAlignment.Left, -1, 10, labelCol);
     }
+
+    /// <summary>A dual ability's name, short enough for its square.</summary>
+    private static string DualShort(string name) => name switch
+    {
+        "Earthsplitter" => "SPLITTER", "Inferno Cleave" => "INFERNO", "Glacier Cleaver" => "GLACIER", "Frost Heave" => "F.HEAVE",
+        "Magma Rend" => "MAGMA", "Thermal Shock" => "THERMAL", "Meteor" => "METEOR", "Frozen Orb" => "ORB", "Tornado" => "TORNADO",
+        "Frostfire Lance" => "LANCE", "Wildfire" => "WILDFIRE", "Whiteout" => "WHITEOUT", _ => name.ToUpperInvariant(),
+    };
 
     /// <summary>The elemental Swordsman: Dash Slash, Empower Hilt and the Hard Swing, each square named for the version the readied element makes.</summary>
     private void DrawSwordsmanElemental(Font font, Player p, Vector2 ab)
@@ -842,8 +857,9 @@ public partial class Hud : Control
         UsePips(cb, p, hiltCol);
         KeyHint(font, cb, "ability");
         var hb = cb + new Vector2(50, 0);
-        string hard = el switch { HeroElement.Earth => "CRUSH", HeroElement.Fire => "PYRO", HeroElement.Frost => "ICE AXE", _ => "HARD" };
-        AbilitySquare(font, hb, hard, p.HardSwingCooldownFrac, p.HardSwingCooldownFrac <= 0, el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.85f, 0.92f, 1f), (c, col) =>
+        string hard = p.DualReady ? DualShort(p.DualReadyName) : el switch { HeroElement.Earth => "CRUSH", HeroElement.Fire => "PYRO", HeroElement.Frost => "ICE AXE", _ => "HARD" };
+        var hardCol = p.DualReady ? Elements.DualColor(p.Charges[0], p.Charges[1]) : el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.85f, 0.92f, 1f);
+        AbilitySquare(font, hb, hard, p.HardSwingCooldownFrac, p.HardSwingCooldownFrac <= 0, hardCol, (c, col) =>
         {
             DrawArc(c + new Vector2(-2, 4), 12, -Mathf.Pi * 0.95f, -Mathf.Pi * 0.05f, 12, new Color(col, 0.5f), 2f);
             var d = new Vector2(0.55f, 0.83f);
@@ -876,8 +892,8 @@ public partial class Hud : Control
         UsePips(zb, p, stormCol);
         KeyHint(font, zb, "ability");
         var sb = zb + new Vector2(60, 0);
-        string burst = el switch { HeroElement.Fire => "DETONATE", HeroElement.Frost => "SHATTER", HeroElement.Wind => "GUST", _ => "PULSE" };
-        var burstCol = el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.8f, 0.7f, 1f);
+        string burst = p.DualReady ? DualShort(p.DualReadyName) : el switch { HeroElement.Earth => "PULSE", HeroElement.Fire => "DETONATE", HeroElement.Frost => "SHATTER", HeroElement.Wind => "GUST", _ => "PULSE" };
+        var burstCol = p.DualReady ? Elements.DualColor(p.Charges[0], p.Charges[1]) : el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.8f, 0.7f, 1f);
         AbilitySquare(font, sb, $"{burst} {p.SnapCost:0}", p.SnapReady ? 0f : p.BurstCooldownFrac, p.SnapReady, burstCol, (c, col) =>
         {
             for (int k = 0; k < 8; k++) { var d = Vector2.Right.Rotated(k * Mathf.Tau / 8); DrawLine(c + d * 4, c + d * 12, col, 2f); }

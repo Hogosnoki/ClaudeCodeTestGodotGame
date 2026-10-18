@@ -43,4 +43,42 @@ public static class Elements
 
     /// <summary>The input action of an element slot (0-2).</summary>
     public static string Action(int slot) => $"infuse_{slot + 1}";
+
+    /// <summary>Two charges in a set order (earth, fire, frost, wind), so a pair is the same whichever was readied first.</summary>
+    public static (HeroElement a, HeroElement b) Pair(HeroElement x, HeroElement y) => x <= y ? (x, y) : (y, x);
+
+    /// <summary>
+    /// The ability two charges make (<see cref="Tune.Dual"/>): the Swordsman's Hard Swing, the Elementalist's Burst. Who has which is
+    /// by who would: the Swordsman, the earth under him and the blade in his hand; the Elementalist, the sky (fire falling, wind, ice).
+    /// </summary>
+    public static string DualName(HeroKind h, HeroElement x, HeroElement y)
+    {
+        var (a, b) = Pair(x, y);
+        if (h == HeroKind.Swordsman)
+            return (a, b) switch
+            {
+                (HeroElement.Earth, HeroElement.Earth) => "Earthsplitter",
+                (HeroElement.Fire, HeroElement.Fire) => "Inferno Cleave",
+                (HeroElement.Frost, HeroElement.Frost) => "Glacier Cleaver",
+                (HeroElement.Earth, HeroElement.Frost) => "Frost Heave",
+                (HeroElement.Earth, HeroElement.Fire) => "Magma Rend",
+                (HeroElement.Fire, HeroElement.Frost) => "Thermal Shock",
+                _ => "",
+            };
+        if (h == HeroKind.Elementalist)
+            return (a, b) switch
+            {
+                (HeroElement.Fire, HeroElement.Fire) => "Meteor",
+                (HeroElement.Frost, HeroElement.Frost) => "Frozen Orb",
+                (HeroElement.Wind, HeroElement.Wind) => "Tornado",
+                (HeroElement.Fire, HeroElement.Frost) => "Frostfire Lance",
+                (HeroElement.Fire, HeroElement.Wind) => "Wildfire",
+                (HeroElement.Frost, HeroElement.Wind) => "Whiteout",
+                _ => "",
+            };
+        return "";
+    }
+
+    /// <summary>A pair's colour: one element's, or the two blended.</summary>
+    public static Color DualColor(HeroElement x, HeroElement y) => x == y ? ColorOf(x) : ColorOf(x).Lerp(ColorOf(y), 0.5f);
 }

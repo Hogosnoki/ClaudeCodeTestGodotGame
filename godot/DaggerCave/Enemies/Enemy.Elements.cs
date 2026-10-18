@@ -16,7 +16,7 @@ namespace DaggerCave;
 /// </summary>
 public abstract partial class Enemy
 {
-    private float _fireBuild, _frostBuild, _earthBuild, _buildIdle, _sapT;
+    private float _fireBuild, _frostBuild, _earthBuild, _buildIdle, _sapT, _mireT;
     /// <summary>The build-up meters (0..Full), for the meters over a creature and the tests.</summary>
     public float FireBuild => _fireBuild;
     public float FrostBuild => _frostBuild;
@@ -138,12 +138,22 @@ public abstract partial class Enemy
         Stun = Math.Max(Stun, 0.25f * light);
     }
 
-    /// <summary>The tempo its attacks play at while sapped.</summary>
-    private float SapTempo => _sapT > 0 && Attacking ? 1f - Tune.Elements.SapSlow : 1f;
+    /// <summary>Molten rock about its feet (a Magma Rend): for a while it moves and acts <see cref="Tune.Dual.PoolSlow"/> slower.</summary>
+    public void Mire(float seconds)
+    {
+        if (Dead) return;
+        if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Mire, seconds); return; }
+        _mireT = Math.Max(_mireT, seconds);
+    }
+    public bool Mired => _mireT > 0;
+
+    /// <summary>The tempo it plays at while sapped (its attacks) or mired (everything).</summary>
+    private float SapTempo => (_sapT > 0 && Attacking ? 1f - Tune.Elements.SapSlow : 1f) * (_mireT > 0 ? 1f - Tune.Dual.PoolSlow : 1f);
 
     private void TickBuild(float dt)
     {
         if (_sapT > 0) _sapT -= dt;
+        if (_mireT > 0) _mireT -= dt;
         if (_fireBuild <= 0 && _frostBuild <= 0 && _earthBuild <= 0) return;
         _buildIdle += dt;
         if (_buildIdle < Tune.Elements.DecayDelay) return;

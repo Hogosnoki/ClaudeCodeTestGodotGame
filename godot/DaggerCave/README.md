@@ -1990,9 +1990,10 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
 The Swordsman and the Elementalist fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`, `Enemies/Enemy.Elements.cs`,
 `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`). Their attacks are plain until an element is readied: **1, 2, 3** on the keyboard,
 **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*. The next attack spends
-it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). Pressing the
-same element again puts it away; a readied element fades after 6 s. The HUD shows the hero's three elements over the ability squares (the
-readied one lit), and each square is named for the version the readied element would make.
+it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). Up to
+**two charges** wait readied (see *Dual charges* below; a third press drops the oldest); the charges fade 6 s after the last press. The HUD
+shows the hero's three elements over the ability squares (the readied ones lit, a second charge of one as a small second diamond), and
+each square is named for the version the readied charges would make.
 
 **Build-up, not chances.** An elemental blow fills a creature's meter of that element (thin coloured bars over it); full, it takes hold and
 empties: **fire** sets it alight, and full again while alight it **combusts** (a burst on it and those pressed close, with what the fire had
@@ -2018,6 +2019,38 @@ Dash Slash and Battle Shout are as they were. The cards for the Charged Strike a
 
 Fire's Aid wasn't in the design notes; Kindling is a proposal. The cards for Frostbolt, Firestorm, Cinder Snap, Kindling (the old chance
 card), Deep Chill and Shrapnel aren't dealt to the elemental Elementalist; Echo works with Detonate and Shatter.
+
+### Dual charges
+
+Ready **two charges** (the same element twice, or two different) and the **Hard Swing** (the Swordsman) or **Burst** (the Elementalist)
+spends both for the pair's own ability (`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`). Every other
+attack spends only the oldest charge, so two charges can also be two elemental attacks in a row. Each dual is its own mechanic, not a
+bigger version of a single:
+
+| Swordsman (Hard Swing) | | What it does | Rest |
+|---|---|---|---|
+| Earth + Earth | **Earthsplitter** | the blade splits the floor: a fissure runs 340 px along it (over steps, stopping at walls and drops), rock bursting up behind it; whatever it passes under is tossed up and fully stunned, and a rubble wall in its way comes down | 14 s |
+| Fire + Fire | **Inferno Cleave** | a wall of fire stands where the blade lands for 4.5 s: creatures in it burn (22 fire every 0.4 s), creatures' shots flying into it burn up, gas in it goes off | 13 s |
+| Frost + Frost | **Glacier Cleaver** | the blade grows into a vast double-bitted axe of ice (2.2x the reach, a wider arc, slow to raise): its blow is 4x a Hard Swing and two full frost build-ups (chilled, then frozen solid), and the head shatters what it froze as it lands | 16 s |
+| Earth + Frost | **Frost Heave** | the blade is driven into the ground; frost cracks the floor under the nearest creature within 280 px and a column of ice bursts up there: a great frost blow, full frost, thrown into the air (flyers in the column too) | 14 s |
+| Earth + Fire | **Magma Rend** | the floor splits and magma wells up along it (up to 70 px each way, as far as the floor goes) for 5.5 s: creatures in it are **mired** (45% slower in everything) and burn | 15 s |
+| Fire + Frost | **Thermal Shock** | on a creature already burning, chilled or frozen the blow lands 2.5x as hard, puts out its fire and ice, and bursts into a cloud of steam that hides the heroes in it (as a smoke bomb does); on anything else, half a build-up of each | 12 s |
+
+| Elementalist (Burst) | | What it does | Rest |
+|---|---|---|---|
+| Fire + Fire | **Meteor** | a burning rock falls slantwise out of the dark overhead onto the creature with the most others about it; every breakable platform and rubble wall it passes through breaks outright (they grow back); it bursts where it meets the rock (or the creatures): 46 fire and full fire within 92 px | 15 s |
+| Frost + Frost | **Frozen Orb** | an orb of ice drifts out for 2.8 s loosing shards round in a spiral (every other one at a creature in reach), 14 frost each; at the end it bursts, shattering the frozen and filling the rest with frost | 13 s |
+| Wind + Wind | **Tornado** | runs along the floor for 4 s (a wall turns it back), takes up the light creatures it meets and carries them along turning inside it, swallows creatures' shots, then flings what it carries away | 13 s |
+| Fire + Frost | **Frostfire Lance** | one twin beam through every creature in a line 440 px long: 22 damage and half a build-up of fire and of frost; a creature already burning or chilled takes 1.8x | 11 s |
+| Fire + Wind | **Wildfire** | for 5 s the wind carries fire from creature to creature: every 0.45 s each one alight gives 45 fire to those within 100 px (nothing alight: it lights the nearest first) | 14 s |
+| Frost + Wind | **Whiteout** | a gale of snow pours from the staff for 1.6 s (a 70° cone, 230 px): creatures in it are driven back, filled with frost and put out, and their shots are turned round on them | 12 s |
+
+Who has which is by who would: Frost Heave is the Swordsman's for now (the Elementalist has no earth), and the design's **Frozen Tundra**
+(frost-and-earth ground that deepens freezing and chills whoever walks on it) is kept for the Warden, the tank, when it gets its elements.
+A **third charge** for the Elementalist (and the tri-charge abilities it would open) comes later. Online, the lasting spells live in the
+caster's game, which deals their blows; their look reaches the other games as the caster's effects (the Glacier Cleaver's axe shows on
+everyone's copy of the Swordsman). `--scenario=elements` checks every dual for both heroes (`duals_hud.png`, `duals_glacier.png`,
+`duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_orb.png`, `duals_tornado.png`).
 
 **Classic kits**: *Settings > Controls > Classic Swordsman & Elementalist* brings back their old kits (from the next run). The tests of the
 classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`) tests the elemental ones (`elements_hud.png`), and

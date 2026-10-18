@@ -308,6 +308,7 @@ public partial class Player
     /// <summary>The heaving swing lands on the floor in front: a crack of dust and a jolt.</summary>
     private void HeaveImpact()
     {
+        DualImpact();
         var at = GlobalPosition + new Vector2(Facing * _swingReach * 0.75f, 12);
         if (!G.Cave.IsSolid(at + new Vector2(0, 6))) return;
         G.Fx.Dust(at, 10, 2.2f);

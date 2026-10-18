@@ -669,6 +669,25 @@ public sealed partial class HeroDesign : CreatureDesign
                 Name = "ChargeEdge", Mesh = new BoxMesh { Size = new Vector3(0.1f, 1.04f, 0.03f) }, MaterialOverride = edgeMat,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = mid, Visible = false,
             });
+            // the Glacier Cleaver: a vast double-bitted axe of ice grown over the blade, shown while it swings
+            var iceMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(0.72f, 0.92f, 1f, 0.7f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.15f, Metallic = 0.1f,
+                EmissionEnabled = true, Emission = new Color(0.45f, 0.75f, 1f), EmissionEnergyMultiplier = 0.9f, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+            };
+            var axe = new Node3D { Name = "IceAxe", Visible = false };
+            hand.AddChild(axe);
+            axe.AddChild(new MeshInstance3D { Name = "Haft", Mesh = new BoxMesh { Size = new Vector3(0.24f, 4f, 0.14f) }, MaterialOverride = iceMat, Position = new Vector3(0.016f, -1.9f, 0f) });
+            foreach (int side in new[] { -1, 1 })
+            {
+                // each bit: a broad wedge flaring out from the haft's head
+                axe.AddChild(new MeshInstance3D
+                {
+                    Mesh = new PrismMesh { Size = new Vector3(2f, 1.5f, 0.14f), LeftToRight = 0.5f }, MaterialOverride = iceMat,
+                    Position = new Vector3(0.016f + side * 0.8f, -3.3f, 0f), RotationDegrees = new Vector3(0, 0, side * 90f),
+                });
+            }
+            axe.AddChild(new OmniLight3D { LightColor = new Color(0.55f, 0.85f, 1f), LightEnergy = 1.4f, OmniRange = 5f, ShadowEnabled = false, Position = new Vector3(0.016f, -3f, 0f) });
             hand.AddChild(new OmniLight3D
             {
                 Name = "ChargeLight", LightColor = new Color(1f, 0.55f, 0.25f), LightEnergy = 0f, OmniRange = 2.8f, OmniAttenuation = 1.3f,
@@ -899,6 +918,15 @@ public sealed partial class HeroDesign : CreatureDesign
         {
             var edge = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ChargeEdge");
             var light = m.GetNodeOrNull<OmniLight3D>("Pivot/Skeleton/BladeHand/ChargeLight");
+            var axe = m.GetNodeOrNull<Node3D>("Pivot/Skeleton/BladeHand/IceAxe");
+            if (axe != null)
+            {
+                bool giant = player != null && !player.Dead && player.GiantBlade;
+                // (it grows over the blade in a moment, and shimmers)
+                if (giant && !axe.Visible) axe.Scale = Vector3.One * 0.3f;
+                axe.Visible = giant;
+                if (giant) axe.Scale = axe.Scale.Lerp(Vector3.One * (1f + 0.03f * MathF.Sin(a.Time * 17f)), 0.35f);
+            }
             if (edge == null || light == null) return;
             bool on = player != null && !player.Dead && (player.Charged > 0 || player.SwingCharged);
             edge.Visible = on;

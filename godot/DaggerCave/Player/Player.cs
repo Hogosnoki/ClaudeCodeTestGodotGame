@@ -729,7 +729,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
         HeroKind.Vitalist => TryRupture(aim),
-        HeroKind.Elementalist => Elemental ? TryBurst() : TrySnap(),
+        HeroKind.Elementalist => Elemental ? TryBurst(aim) : TrySnap(),
         HeroKind.Rogue => TryRecall(),
         HeroKind.Aegis => TryBurden(aim),
         HeroKind.ShapeShifter => TrySpecial(aim),

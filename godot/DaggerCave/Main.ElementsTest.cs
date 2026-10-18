@@ -128,6 +128,108 @@ public partial class Main
         ScCheck($"an earth hilt saps what it strikes ({foe.Sapped})", foe.Sapped);
         ScCheck("the cards the elements replace aren't dealt (Twin Charge, Swift Heave, Relentless Charge)", !Upgrades.Available(Upgrades.Get("charge2"), p.Stats) && !Upgrades.Available(Upgrades.Get("heave_swift"), p.Stats) && !Upgrades.Available(Upgrades.Get("charge_combo"), p.Stats));
         foe.QueueFree();
+        foreach (var _ in SwordsmanDualsRun()) yield return null;
+    }
+
+    /// <summary>Two charges readied (oldest first; past two, the oldest goes): the pair's ability, as the Elementalist's Burst or the Swordsman's Hard Swing will cast it.</summary>
+    private IEnumerable<object> ElPair(Player p, int a, int b)
+    {
+        foreach (var _ in ElWait(0.1f)) yield return null;
+        foreach (var _ in ElPress(new PlayerInput { Infuse = a }, 0.02f)) yield return null;
+        foreach (var _ in ElPress(new PlayerInput { Infuse = b }, 0.02f)) yield return null;
+    }
+
+    /// <summary>`--scenario=elements --hero=swordsman`, the dual charges: each pair's Hard Swing does its own thing where the blade lands.</summary>
+    private IEnumerable<object> SwordsmanDualsRun()
+    {
+        var p = G.Player;
+        var aim = new Vector2(p.Facing, 0);
+        var foes = new List<Enemy>();
+        Enemy Fresh(float dx, bool hold = true) { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); var e = ElDummy(p, dx, hold); foes.Add(e); return e; }
+        PlayerInput Hard() => new() { Ability2 = true, Aim = aim, AimGiven = true };
+        float reach = Tune.Swordsman.Reach * Tune.Swordsman.HeaveReach;
+        foreach (var _ in ElWait(0.6f)) yield return null;
+
+        // the queue: two charges wait; past two, the oldest goes
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 3, 3)) yield return null;
+        ScCheck($"frost twice readies two charges: {p.DualReadyName} ({string.Join("+", p.Charges)})", p.Charges.Count == 2 && p.DualReadyName == "Glacier Cleaver");
+        foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.02f)) yield return null;
+        ScCheck($"a third press drops the oldest: frost and earth make {p.DualReadyName}", p.Charges.Count == 2 && p.DualReadyName == "Frost Heave");
+        ScShot("duals_hud");
+
+        // Glacier Cleaver: the vast axe freezes what it cuts, and the head shatters it as it lands
+        var foe = Fresh(reach * 1.15f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 3, 3)) yield return null;
+        _scInput = Hard(); yield return null; yield return null; _scInput = default;
+        foreach (var _ in ElWait(0.25f)) yield return null;
+        ScCheck($"Glacier Cleaver: the blade becomes a vast axe of ice ({p.GiantBlade})", p.ElementalUses.Contains("Glacier Cleaver") && p.GiantBlade);
+        ScShot("duals_glacier");
+        foreach (var _ in ElWait(1.4f)) yield return null;
+        float lost = foe.MaxHp - foe.Hp;
+        ScCheck($"its blow reaches {reach * 1.15f:0} px, freezes and shatters ({foe.Shattered}) for a great deal ({lost:0})", foe.Shattered >= 1 && lost > Tune.Swordsman.Damage * 6f);
+        ScCheck($"and rests long ({p.HardSwingCooldownFrac:0.00} of {Tune.Dual.AxeRest} s)", p.HardSwingCooldownFrac > 0.8f);
+
+        // Frost Heave: ice bursts up under the nearest creature, out of the blade's reach
+        foe = Fresh(reach * 2.4f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 1, 3)) yield return null;
+        foreach (var _ in ElPress(Hard(), 1.4f)) yield return null;
+        lost = foe.MaxHp - foe.Hp;
+        ScCheck($"Frost Heave strikes up under a creature {reach * 2.4f:0} px off ({lost:0} damage, chilled {foe.Chilled})", p.ElementalUses.Contains("Frost Heave") && lost > Tune.Swordsman.Damage * 2f && foe.Chilled);
+
+        // Earthsplitter: a fissure runs along the floor and stuns what it passes under
+        foe = Fresh(reach * 2.2f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 1, 1)) yield return null;
+        foreach (var _ in ElPress(Hard(), 0.9f)) yield return null;
+        lost = foe.MaxHp - foe.Hp;
+        ScCheck($"Earthsplitter's fissure reaches a creature {reach * 2.2f:0} px off and stuns it ({lost:0} damage, reeling {foe.Reeling})", p.ElementalUses.Contains("Earthsplitter") && lost > Tune.Swordsman.Damage && foe.Reeling);
+        foreach (var _ in ElWait(0.6f)) yield return null;
+
+        // Inferno Cleave: a wall of fire that burns creatures and the shots flying into it
+        foe = Fresh(reach * 0.75f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 2, 2)) yield return null;
+        foreach (var _ in ElPress(Hard(), 0.9f)) yield return null;
+        var wall = p.LastDualSpell as FireWall;
+        if (wall != null)
+        {
+            var shot = new EnemyProjectile { Position = wall.GlobalPosition + new Vector2(p.Facing * 90f, -30f), Vel = new Vector2(-p.Facing * 300f, 0), Damage = 1f };
+            _world.AddChild(shot);
+        }
+        foreach (var _ in ElWait(0.8f)) yield return null;
+        ScCheck($"Inferno Cleave leaves a wall of fire: the creature in it alight ({foe.Ignited}), a shot into it burnt up ({wall?.Burned})", p.ElementalUses.Contains("Inferno Cleave") && wall != null && foe.Ignited && wall.Burned >= 1);
+        ScShot("duals_inferno");
+        foreach (var _ in ElWait(4f)) yield return null;
+
+        // Magma Rend: a pool of magma that mires and burns
+        foe = Fresh(reach * 0.75f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 2, 1)) yield return null;
+        foreach (var _ in ElPress(Hard(), 1.4f)) yield return null;
+        ScCheck($"Magma Rend: a pool of magma mires ({foe.Mired}) and burns ({foe.FireBuild:0} fire, alight {foe.Ignited})", p.ElementalUses.Contains("Magma Rend") && foe.Mired && (foe.FireBuild > 0 || foe.Ignited));
+        ScShot("duals_magma");
+        foreach (var _ in ElWait(5f)) yield return null;
+
+        // Thermal Shock: on a creature already burning, a far harder blow and a cloud of steam
+        foe = Fresh(reach * 0.6f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foe.Ignite(1f, 5f);
+        p.ResetAbilityCooldowns();
+        int clouds = SmokeCloud.All.Count;
+        foreach (var _ in ElPair(p, 3, 2)) yield return null;
+        foreach (var _ in ElPress(Hard(), 1.2f)) yield return null;
+        lost = foe.MaxHp - foe.Hp;
+        ScCheck($"Thermal Shock on a burning creature: a far harder blow ({lost:0}), its fire out ({!foe.Ignited}) and a cloud of steam ({SmokeCloud.All.Count - clouds})",
+            p.ElementalUses.Contains("Thermal Shock!") && lost > Tune.Swordsman.Damage * Tune.Dual.ShockDamage * 1.8f && SmokeCloud.All.Count > clouds);
+        foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
     }
 
     private IEnumerable<object> ElementalistRun()
@@ -213,5 +315,101 @@ public partial class Main
         ScCheck("the cards the elements replace aren't dealt (Frostbolt, Firestorm, Cinder Snap, Kindling, Deep Chill)",
             new[] { "bolt_frost", "blizzard_fire", "snap_cinder", "kindling", "deepchill" }.All(id => !Upgrades.Available(Upgrades.Get(id), p.Stats)));
         foe.QueueFree();
+        foreach (var _ in ElementalistDualsRun()) yield return null;
+    }
+
+    /// <summary>`--scenario=elements --hero=elementalist`, the dual charges: each pair's Burst is its own spell.</summary>
+    private IEnumerable<object> ElementalistDualsRun()
+    {
+        var p = G.Player;
+        var aim = new Vector2(p.Facing, 0);
+        var foes = new List<Enemy>();
+        void Clear() { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); }
+        Enemy Add(float dx, bool hold = true) { var e = ElDummy(p, dx, hold); foes.Add(e); return e; }
+        void Ready() { p.TestResetSpells(); p.SetAlimus(9999); }
+        PlayerInput Burst() => new() { Ability2 = true, Aim = aim, AimGiven = true };
+        foreach (var _ in ElWait(0.6f)) yield return null;
+
+        // Meteor: falls on the knot of creatures, through a platform in its way
+        Clear();
+        var a = Add(130); var b = Add(160);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        var from = new Vector2(-p.Facing * 0.45f, -1f).Normalized();
+        var ledge = new RockLedge { Position = (a.GlobalPosition + b.GlobalPosition) * 0.5f + from * 70f, Half = 44f };
+        _world.AddChild(ledge);
+        Ready();
+        foreach (var _ in ElPair(p, 1, 1)) yield return null;
+        ScCheck($"fire twice readies {p.DualReadyName}", p.DualReadyName == "Meteor");
+        foreach (var _ in ElPress(Burst(), 0.15f)) yield return null;
+        ScShot("duals_meteor");
+        foreach (var _ in ElWait(1.6f)) yield return null;
+        ScCheck($"a Meteor falls on the two creatures: both struck and alight ({a.Ignited}, {b.Ignited}; {a.MaxHp - a.Hp:0}, {b.MaxHp - b.Hp:0} damage)", p.ElementalUses.Contains("Meteor") && a.Ignited && b.Ignited && a.Hp < a.MaxHp && b.Hp < b.MaxHp);
+        ScCheck($"and smashes the platform it passes through ({ledge.Broken})", ledge.Broken);
+        ledge.QueueFree();
+
+        // Frozen Orb: a spiral of shards, then a burst
+        Clear();
+        a = Add(110);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        Ready();
+        foreach (var _ in ElPair(p, 2, 2)) yield return null;
+        foreach (var _ in ElPress(Burst(), 0.6f)) yield return null;
+        var orb = p.LastDualSpell as FrozenOrb;
+        ScCheck($"Frozen Orb drifts out loosing shards ({orb?.Shards})", p.ElementalUses.Contains("Frozen Orb") && orb != null && orb.Shards > 3);
+        ScShot("duals_orb");
+        foreach (var _ in ElWait(3f)) yield return null;
+        ScCheck($"its shards and burst fill the creature with frost (chilled {a.Chilled}, frozen {a.FrozenSolid}, shattered {a.Shattered})", a.Chilled || a.FrozenSolid || a.Shattered > 0);
+
+        // Tornado: carries a creature along
+        Clear();
+        a = Add(70, hold: false);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        Ready();
+        float x0 = a.GlobalPosition.X;
+        foreach (var _ in ElPair(p, 3, 3)) yield return null;
+        foreach (var _ in ElPress(Burst(), 1.4f)) yield return null;
+        var tw = p.LastDualSpell as Tornado;
+        ScCheck($"a Tornado takes up the creature ({tw?.Caught}) and carries it along ({Math.Abs(a.GlobalPosition.X - x0):0} px)", p.ElementalUses.Contains("Tornado") && tw != null && tw.Caught >= 1 && Math.Abs(a.GlobalPosition.X - x0) > 20f);
+        ScShot("duals_tornado");
+        foreach (var _ in ElWait(3f)) yield return null;
+
+        // Frostfire Lance: one beam through a line; the burning one takes more
+        Clear();
+        a = Add(110); b = Add(190);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        b.Ignite(0.01f, 5f);
+        Ready();
+        foreach (var _ in ElPair(p, 2, 1)) yield return null;
+        foreach (var _ in ElPress(Burst(), 0.3f)) yield return null;
+        float la = a.MaxHp - a.Hp, lb = b.MaxHp - b.Hp;
+        ScCheck($"Frostfire Lance strikes both in its line ({la:0}, {lb:0}), the burning one harder", p.ElementalUses.Contains("Frostfire Lance") && la > 0 && lb > la * 1.3f);
+
+        // Wildfire: the wind carries fire from one to the next
+        Clear();
+        a = Add(100); b = Add(150);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        Ready();
+        foreach (var _ in ElPair(p, 1, 3)) yield return null;
+        foreach (var _ in ElPress(Burst(), 2.2f)) yield return null;
+        ScCheck($"Wildfire lights one and carries it to the other ({a.Ignited}, {b.Ignited})", p.ElementalUses.Contains("Wildfire") && a.Ignited && b.Ignited);
+        foreach (var _ in ElWait(3f)) yield return null;
+
+        // Whiteout: a gale that drives back, fills with frost and turns shots round
+        Clear();
+        a = Add(80, hold: false);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        Ready();
+        x0 = a.GlobalPosition.X;
+        float d0 = Math.Abs(x0 - p.GlobalPosition.X);
+        foreach (var _ in ElPair(p, 3, 2)) yield return null;
+        foreach (var _ in ElPress(Burst(), 0.2f)) yield return null;
+        var gale = p.LastDualSpell as Whiteout;
+        var shot = new EnemyProjectile { Position = p.CastPoint + aim * 120f + new Vector2(0, -20), Vel = -aim * 200f, Damage = 1f };
+        _world.AddChild(shot);
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        float d1 = Math.Abs(a.GlobalPosition.X - p.GlobalPosition.X);
+        ScCheck($"Whiteout drives the creature back ({d0:0} -> {d1:0} px), fills it with frost ({a.FrostBuild:0}, chilled {a.Chilled}) and turns a shot round ({gale?.Turned})",
+            p.ElementalUses.Contains("Whiteout") && d1 > d0 + 10f && (a.FrostBuild > 0 || a.Chilled) && gale != null && gale.Turned >= 1);
+        Clear();
     }
 }

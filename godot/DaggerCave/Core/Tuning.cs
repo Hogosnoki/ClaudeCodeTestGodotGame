@@ -1187,6 +1187,53 @@ public static class Tune
         public static float AidRestWind = 10f, AidRestFrost = 12f, AidRestFire = 12f;
     }
 
+    /// <summary>
+    /// Dual charges (<c>Player/Player.Duals.cs</c>, <c>Combat/ElementalFx.cs</c>): up to <c>MaxCharges</c> elements wait readied (the oldest
+    /// goes when another is pressed past that); the Swordsman's Hard Swing and the Elementalist's Burst spend two at once for the pair's own
+    /// ability (two of one element: its great version). Damage is a multiple of the hero's blow (the Swordsman) or flat (the Elementalist),
+    /// both scaled by the damage multiplier; each rests its ability for its own time.
+    /// </summary>
+    public static class Dual
+    {
+        public static int MaxCharges = 2;
+        // the Swordsman (Hard Swing)
+        /// <summary>Earthsplitter (earth+earth): a fissure runs along the floor <c>SplitRange</c> px at <c>SplitSpeed</c>, tossing up and stunning what it passes.</summary>
+        public static float SplitRest = 14f, SplitDamage = 2.2f, SplitRange = 340f, SplitSpeed = 380f, SplitToss = 340f;
+        /// <summary>Inferno Cleave (fire+fire): a wall of fire stands where the blade lands for <c>WallSeconds</c>, burning creatures in it
+        /// (<c>WallBuild</c> fire every <c>WallTick</c> s) and the shots that fly into it.</summary>
+        public static float WallRest = 13f, WallDamage = 2f, WallSeconds = 4.5f, WallHeight = 84f, WallHalf = 14f, WallTick = 0.4f, WallBuild = 22f, WallTickDamage = 0.18f;
+        /// <summary>Glacier Cleaver (frost+frost): the blade becomes a vast axe of ice (reach, arc, wind-up multiples), its blow <c>AxeDamage</c>
+        /// x a Hard Swing and a full frost build-up twice over; the head lands and shatters what the swing froze.</summary>
+        public static float AxeRest = 16f, AxeDamage = 4f, AxeReach = 2.2f, AxeArc = 1.25f, AxeWindup = 1.6f;
+        /// <summary>Frost Heave (earth+frost): the blade is driven into the floor and the ground bursts up in ice under the nearest creature
+        /// within <c>HeaveRange</c> px after <c>HeaveWarn</c> s: <c>HeaveDamage</c>, full frost, tossed up.</summary>
+        public static float HeaveRest = 14f, HeaveDamage = 4.5f, HeaveRange = 280f, HeaveWarn = 0.35f, HeaveHalf = 30f, HeaveHeight = 150f, HeaveToss = 420f;
+        /// <summary>Magma Rend (earth+fire): the floor splits into a pool of magma <c>PoolHalf</c> px either side, for <c>PoolSeconds</c>:
+        /// creatures in it are mired (sapped, slowed) and burn.</summary>
+        public static float PoolRest = 15f, PoolDamage = 1.6f, PoolSeconds = 5.5f, PoolHalf = 70f, PoolTick = 0.5f, PoolBuild = 20f, PoolTickDamage = 0.15f, PoolSlow = 0.45f;
+        /// <summary>Thermal Shock (fire+frost): on a creature burning, chilled or frozen the blow deals <c>ShockBonus</c> x more and bursts into a
+        /// cloud of steam (<c>SteamRadius</c>, <c>SteamSeconds</c>) that hides the heroes in it; otherwise half a build-up of each.</summary>
+        public static float ShockRest = 12f, ShockDamage = 2.2f, ShockBonus = 1.5f, SteamRadius = 64f, SteamSeconds = 4f;
+        // the Elementalist (Burst)
+        /// <summary>Meteor (fire+fire): falls on the thickest knot of creatures, smashing every platform it touches; <c>MeteorDamage</c> and full fire within <c>MeteorRadius</c>.</summary>
+        public static float MeteorRest = 15f, MeteorDamage = 46f, MeteorRadius = 92f, MeteorSpeed = 560f, MeteorHeight = 340f;
+        /// <summary>Frozen Orb (frost+frost): drifts <c>OrbSpeed</c> for <c>OrbSeconds</c>, loosing a shard every <c>OrbEvery</c> s round in a spiral (every other one at a creature in reach)
+        /// (<c>ShardDamage</c>, <c>ShardBuild</c> frost, <c>ShardRange</c> px); at the end it bursts (<c>NovaBuild</c> frost, shattering the frozen).</summary>
+        public static float OrbRest = 13f, OrbSpeed = 95f, OrbSeconds = 2.8f, OrbEvery = 0.09f, ShardDamage = 3f, ShardBuild = 14f, ShardRange = 90f, NovaRadius = 84f, NovaBuild = 100f, NovaDamage = 14f;
+        /// <summary>Tornado (wind+wind): runs along the floor <c>TornadoSpeed</c> for <c>TornadoSeconds</c>, carrying light creatures in it up and
+        /// along (<c>TornadoTick</c> damage a tick), swallowing creatures' shots, and flinging what it carries at the end.</summary>
+        public static float TornadoRest = 13f, TornadoSpeed = 120f, TornadoSeconds = 4f, TornadoRadius = 40f, TornadoTick = 3f, TornadoFling = 520f;
+        /// <summary>Frostfire Lance (fire+frost): a beam through every creature in a line <c>LanceRange</c> px (<c>LanceDamage</c>, half a build-up of
+        /// each); a creature already burning or chilled takes <c>LanceBonus</c> x.</summary>
+        public static float LanceRest = 11f, LanceDamage = 22f, LanceRange = 440f, LanceBonus = 1.8f, LanceBuild = 50f;
+        /// <summary>Wildfire (fire+wind): for <c>WildSeconds</c> the wind carries fire from creature to creature: every <c>WildTick</c> s each one
+        /// alight gives <c>WildBuild</c> fire to those within <c>WildReach</c> px (nothing alight: the nearest is lit first).</summary>
+        public static float WildRest = 14f, WildSeconds = 5f, WildTick = 0.45f, WildBuild = 45f, WildReach = 100f, WildDamage = 4f;
+        /// <summary>Whiteout (frost+wind): a gale of snow from the staff for <c>GaleSeconds</c> (a cone <c>GaleDegrees</c> wide, <c>GaleRange</c> px):
+        /// creatures in it are pushed back and filled with frost, and their shots are turned around.</summary>
+        public static float GaleRest = 12f, GaleSeconds = 1.6f, GaleRange = 230f, GaleDegrees = 70f, GaleTick = 0.1f, GaleBuild = 9f, GalePush = 160f, GaleDamage = 1.5f;
+    }
+
     /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one
     /// <c>Respawn</c> s (give or take <c>Jitter</c>) after one is lost; destroying it leaves a chest of upgrades. <c>Chance</c>: of a Nest level having one.</summary>
     public static class Hive
