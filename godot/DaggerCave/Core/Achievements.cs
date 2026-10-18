@@ -172,8 +172,9 @@ public static class Achievements
     /// <summary>The party goes on from a level (Main.GoDeeper, every game): the feats a whole depth earns.</summary>
     public static void LeavingLevel(int depth, BiomeDef biome, bool shop, bool guardianDown, Player me)
     {
-        if (shop || biome == null || depth < 1 || !guardianDown) return;
-        if (me != null && GodotObject.IsInstanceValid(me) && !me.Dead && !Level.TookDamage) Unlock("untouchable");
+        if (shop || biome == null || depth < 0 || !guardianDown) return;
+        if (depth >= 1 && me != null && GodotObject.IsInstanceValid(me) && !me.Dead && !Level.TookDamage) Unlock("untouchable");
+        // (the chest feats count at the cave entrance too)
         if (biome.Id == BiomeId.Lair) return;
         var chests = Chest.All.Where(GodotObject.IsInstanceValid).ToList();
         var shrines = chests.Where(c => c.IsShrine).ToList();
@@ -303,7 +304,8 @@ public static class Achievements
 
     // ================================================================== saved
 
-    private const string Path = "user://achievements.json";
+    /// <summary>Each save file has its own (see <see cref="Profiles"/>); Steam's, later, are the account's.</summary>
+    private static string Path => Profiles.AchPath;
 
     public static string ToJson()
     {
@@ -337,7 +339,7 @@ public static class Achievements
     public static void Save()
     {
         if (G.NoSave) return;
-        try { using var f = FileAccess.Open(Path, FileAccess.ModeFlags.Write); f?.StoreString(ToJson()); }
+        try { DirAccess.MakeDirRecursiveAbsolute(Path.GetBaseDir()); using var f = FileAccess.Open(Path, FileAccess.ModeFlags.Write); f?.StoreString(ToJson()); }
         catch (Exception e) { GD.PrintErr(e); }
     }
 

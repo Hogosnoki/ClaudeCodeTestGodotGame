@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// What carries over between runs, saved to user://meta.json: embers (the currency), the Ember Grid's hexes and materials
+/// What carries over between runs, saved in the save file in use (user://saves/&lt;id&gt;/meta.json, see <see cref="Profiles"/>): embers (the currency), the Ember Grid's hexes and materials
 /// (see <see cref="HexGrid"/>: every lasting advancement is bought there), the heroes and the merchant freed, the loadouts,
 /// the journal, and a few counts.
 /// </summary>
@@ -46,7 +46,8 @@ public static class Meta
     /// <summary>Embers a guardian gives (x): the Ember Pact.</summary>
     public static float EmberMult => HexGrid.Owns("fort_pact") ? 1.4f : 1f;
     // ---- heroes: three at the start; the others are found (caged in the caves) or won
-    public static readonly HashSet<HeroKind> Unlocked = new() { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
+    private static readonly HeroKind[] StarterHeroes = { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
+    public static readonly HashSet<HeroKind> Unlocked = new(StarterHeroes);
     // ---- the merchant: not a hero, but met like one (caged in the caves); once freed, a stall of his is offered after every guardian
     /// <summary>The merchant has been freed (kept between runs).</summary>
     public static bool MerchantUnlocked;
@@ -164,7 +165,8 @@ public static class Meta
     public static void AddEmbers(int n) { Embers += n; Save(); }
 
     // ---- persistence
-    private const string Path = "user://meta.json";
+    /// <summary>The save file in use (see <see cref="Profiles"/>).</summary>
+    private static string Path => Profiles.MetaPath;
 
     public static void Save()
     {
@@ -172,10 +174,24 @@ public static class Meta
         var d = ToDict();
         try
         {
+            DirAccess.MakeDirRecursiveAbsolute(Path.GetBaseDir());
             using var f = FileAccess.Open(Path, FileAccess.ModeFlags.Write);
             f?.StoreString(Json.Stringify(d, "  "));
         }
         catch (Exception e) { GD.PrintErr($"[meta] save failed: {e.Message}"); }
+    }
+
+    /// <summary>Another save file (or this one started again): everything back to a new game's, then what it keeps.</summary>
+    public static void Reload()
+    {
+        Embers = Runs = Victories = BestDepth = 0;
+        GridTutorialDone = StorySeen = MerchantUnlocked = false;
+        JournalFound.Clear(); Loadouts.Clear();
+        HexGrid.Owned.Clear(); HexGrid.Mats.Clear();
+        Unlocked.Clear();
+        foreach (var h in StarterHeroes) Unlocked.Add(h);
+        RunUnlocks = 0;
+        Load();
     }
 
     public static void Load()

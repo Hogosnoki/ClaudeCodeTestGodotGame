@@ -344,6 +344,8 @@ public partial class Player
         Hold(Tune.Vitalist.HealDelay, "heal", () =>
         {
             float amount = Tune.Vitalist.HealAmount * Stats.HealMult;
+            // (shared among more friends, there's more of it: half again for each one past the first)
+            amount *= 0.5f + 0.5f * hurt.Count;
             var from = CastPoint;
             if (Dead) return;
             foreach (var (p, miss) in hurt)

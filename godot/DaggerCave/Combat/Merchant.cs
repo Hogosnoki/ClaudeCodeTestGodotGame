@@ -18,8 +18,8 @@ public sealed class ShopItem
 
 /// <summary>
 /// The merchant, at his stall in the chamber where the way on opens (see <see cref="Main.PlaceMerchant"/>): stand at him and press interact to look at his wares,
-/// paid for in gold (<see cref="Player.Gold"/>). What he has is dealt for the hero who first looks (see <c>Main.Shop.cs</c>) and stays the same until they leave
-/// the level: what is sold is gone.
+/// paid for in gold (<see cref="Player.Gold"/>). What he has is dealt alike in every game of a party, from the level's seed and the party's heroes (see
+/// <c>Main.Shop.cs</c>), and stays the same until they leave the level: what a hero buys is gone from their table.
 /// </summary>
 public partial class Merchant : Node2D
 {

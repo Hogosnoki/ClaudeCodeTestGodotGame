@@ -48,12 +48,12 @@ public partial class Main
     /// <summary>The menus over the camp (drawn under every other menu), and the fade used going down.</summary>
     private void SetupFrontMenus()
     {
-        _mainMenu = new MainMenu { SinglePlayer = StartSinglePlayer, MultiPlayer = OpenOnlineMenu, Story = () => OpenStory(false), Settings = OpenFrontSettings, Quit = () => SafeQuit.Request(this), Achievements = () => { _mainMenu.Visible = false; _achFromTitle = true; _achMenu.Open(); } };
+        _mainMenu = new MainMenu { SinglePlayer = StartSinglePlayer, MultiPlayer = OpenOnlineMenu, Story = () => OpenStory(false), Settings = OpenFrontSettings, Quit = () => SafeQuit.Request(this), Achievements = () => { _mainMenu.Visible = false; _achFromTitle = true; _achMenu.Open(); }, Saves = () => { _mainMenu.Visible = false; _saveMenu.Open(); } };
         _uiLayer.AddChild(_mainMenu);
         _uiLayer.MoveChild(_mainMenu, 1);
         _heroChoice = new HeroChoice
         {
-            Prev = () => StepHero(-1), Next = () => StepHero(1), Descend = BeginDescent, Back = BackToMenu,
+            Prev = () => StepHero(-1, true), Next = () => StepHero(1, true), Descend = BeginDescent, Back = BackToMenu,
             Loadout = () => _loadoutMenu.Open(G.Hero),
             Grid = () => OpenGrid(G.Hero),
         };
@@ -99,7 +99,7 @@ public partial class Main
         _overlay.Visible = false;
         _heroChoice.Visible = false;
         _hud.Visible = false;
-        _mainMenu.Open(Meta.Embers > 0 ? $"Embers: {Meta.Embers}" : "");
+        _mainMenu.Open(MenuFooter());
         _sfx.SetMusic("camp");
     }
 
@@ -126,7 +126,8 @@ public partial class Main
         ShowMainMenu();
     }
 
-    private void StepHero(int step)
+    /// <summary>The next hero round the fire (<paramref name="quiet"/>: a button pressed, which makes its own click).</summary>
+    private void StepHero(int step, bool quiet = false)
     {
         if (_departT >= 0f) return;
         var next = G.Hero;
@@ -135,7 +136,7 @@ public partial class Main
             next = (HeroKind)(((int)next + step + HeroCount) % HeroCount);
             if (Meta.IsUnlocked(next)) break;
         }
-        PickHero(next);
+        PickHero(next, quiet);
         _camp.Selected = G.Hero;
         _heroChoice.Refresh();
     }

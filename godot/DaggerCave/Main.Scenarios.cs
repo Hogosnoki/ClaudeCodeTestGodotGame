@@ -64,6 +64,7 @@ public partial class Main
         "shop" => "den",
         "achievements" => "den",
         "grid" => "entrance",
+        "saves" => "entrance",
         "cards" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
@@ -163,6 +164,7 @@ public partial class Main
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;
             case "grid": GridScenario(); break;
+            case "saves": SavesScenario(); break;
             case "cards": CardsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;

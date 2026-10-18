@@ -5,6 +5,7 @@ render_mode diffuse_burley, specular_schlick_ggx;
 
 uniform vec3 moss : source_color = vec3(0.3, 0.5, 0.16);
 uniform float moss_amount = 1.0;
+#include "res://DaggerCave/Render3D/Shaders/cel.gdshaderinc"
 
 varying vec3 v_wn;
 varying vec3 v_wp;
@@ -24,13 +25,14 @@ void vertex() {
 }
 
 void fragment() {
-	float n = vnoise(v_wp * 1.3) * 0.6 + vnoise(v_wp * 4.1) * 0.4;
+	// (the generated grain follows the texture blur and tones, as the photographed textures do)
+	float n = vnoise(v_wp * 1.3) * 0.6 + cel_detail(vnoise(v_wp * 4.1), 0.5) * 0.4;
 	vec3 c = pow(COLOR.rgb, vec3(2.2)) * (0.78 + 0.4 * n);
 	// streaks of weathering down the faces
 	c *= 0.9 + 0.1 * sin(v_wp.y * 3.0 + vnoise(v_wp * vec3(2.0, 0.2, 2.0)) * 6.0);
 	float up = smoothstep(0.45, 0.8, v_wn.y + (n - 0.5) * 0.5) * moss_amount;
 	c = mix(c, moss * (0.75 + 0.5 * n), up);
-	ALBEDO = c;
+	ALBEDO = cel_tone(c);
 	ROUGHNESS = mix(0.9, 0.95, up);
 	SPECULAR = 0.2;
 }

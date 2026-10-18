@@ -11,7 +11,7 @@ namespace DaggerCave;
 /// </summary>
 public partial class MainMenu : Control
 {
-    public Action SinglePlayer, MultiPlayer, Story, Settings, Quit, Achievements;
+    public Action SinglePlayer, MultiPlayer, Story, Settings, Quit, Achievements, Saves;
     /// <summary>The page the support button opens.</summary>
     public const string SupportUrl = "https://ko-fi.com/hogosnoki#";
 
@@ -39,8 +39,8 @@ public partial class MainMenu : Control
         };
         AddChild(shade);
 
-        var col = new VBoxContainer { Position = new Vector2(72, 112), CustomMinimumSize = new Vector2(380, 0) };
-        col.AddThemeConstantOverride("separation", 12);
+        var col = new VBoxContainer { Position = new Vector2(72, 84), CustomMinimumSize = new Vector2(380, 0) };
+        col.AddThemeConstantOverride("separation", 9);
         AddChild(col);
         var title = UiKit.Label("DAGGER DEEP", 66, UiKit.Gold);
         title.AddThemeColorOverride("font_outline_color", new Color(0.12f, 0.07f, 0.02f));
@@ -52,12 +52,12 @@ public partial class MainMenu : Control
         tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.8f));
         tag.AddThemeConstantOverride("outline_size", 5);
         col.AddChild(tag);
-        col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 18) });
+        col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
 
         Button Add(string text, Action act)
         {
             var b = UiKit.Button(text, () => act?.Invoke(), 320);
-            b.CustomMinimumSize = new Vector2(320, 48);
+            b.CustomMinimumSize = new Vector2(320, 42);
             b.AddThemeFontSizeOverride("font_size", 19);
             b.Alignment = HorizontalAlignment.Left;
             col.AddChild(b);
@@ -67,6 +67,7 @@ public partial class MainMenu : Control
         Add("Multiplayer (online)", () => MultiPlayer?.Invoke());
         Add("The story", () => Story?.Invoke());
         Add("Achievements", () => Achievements?.Invoke());
+        Add("Save files", () => Saves?.Invoke());
         Add("Settings", () => Settings?.Invoke());
         var support = Add("Support the game on Ko-fi", () => OS.ShellOpen(SupportUrl));
         support.AddThemeColorOverride("font_color", new Color(1f, 0.72f, 0.62f));
@@ -74,7 +75,8 @@ public partial class MainMenu : Control
         Add("Quit", () => Quit?.Invoke());
 
         _footer = UiKit.Label("", 14, new Color(0.92f, 0.9f, 0.84f));
-        _footer.Position = new Vector2(74, 660);
+        _footer.AnchorTop = _footer.AnchorBottom = 1f;
+        _footer.OffsetLeft = 74; _footer.OffsetTop = -34; _footer.OffsetBottom = -12;
         _footer.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.8f));
         _footer.AddThemeConstantOverride("outline_size", 4);
         AddChild(_footer);

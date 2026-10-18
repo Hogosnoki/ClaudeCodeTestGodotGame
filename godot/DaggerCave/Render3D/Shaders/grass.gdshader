@@ -23,8 +23,9 @@ void vertex() {
 void fragment() {
 	vec3 c = mix(root_color, tip_color, smoothstep(0.0, 1.0, v_h));
 	float var = fract(sin(dot(floor(v_wp.xz * 3.0), vec2(12.9898, 78.233))) * 43758.5453);
-	c *= 0.8 + 0.4 * var;
+	c *= 0.8 + 0.4 * cel_detail(var, 0.5);
 	c *= dbg_grass_rgb();
+	c = cel_tone(c);
 	ALBEDO = c;
 	ROUGHNESS = 0.8;
 	SPECULAR = 0.25;

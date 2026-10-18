@@ -66,30 +66,54 @@ public partial class Main
         return Math.Max(1, (int)MathF.Round(price));
     }
 
-    /// <summary>His cards for this hero: a class card and two others (as a chest deals), a relic, and one more of the others for each thing a relic adds to his table.</summary>
+    /// <summary>
+    /// His dice: the same in every game of a party (the level's seed, the depth and how many times he has dealt), so everyone sees the
+    /// same wares; a separate stream for each part of his table, so what a hero's own relics add doesn't change the rest.
+    /// </summary>
+    private static Random ShopRng(Merchant m, int stream) => new(unchecked((G.Cave?.Seed ?? 1) * 7919 + G.Depth * 104729 + m.Rerolls * 7907 + stream * 1000003));
+
+    /// <summary>The party's heroes, in the same order in every game (alone, this game's hero).</summary>
+    private static List<HeroKind> ShopParty() => (Net.Online && Net.Count > 1 ? NetSync.PartyHeroes() : new[] { G.Hero }).Distinct().OrderBy(h => h).ToList();
+
+    /// <summary>
+    /// His cards: a class card for one of the party's heroes and a card anyone could take (as a chest deals), a relic, and one more for
+    /// each thing a relic or the Ember Grid adds to his table. Dealt alike in every game (see <see cref="ShopRng"/>), from what a hero
+    /// fresh to the run could take: what one already has is shown, locked, as at a chest.
+    /// </summary>
     private List<ShopItem> DealCards(Merchant m)
     {
         var p = G.Player;
+        var party = ShopParty();
+        var fresh = party.ToDictionary(h => h, h => new PlayerStats(h));
+        bool Open(Upgrade u) => party.Any(h => Upgrades.Available(u, fresh[h]));
+        float W(Upgrade u) => u.Weight;
         var items = new List<ShopItem>();
-        foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition).Take(Tune.Merchant.Cards)) items.Add(new ShopItem { Card = c, Price = PriceOf(c) });
-        if (Upgrades.RollRelic(p.Stats, _rng, items.Select(i => i.Card.Id)) is Upgrade relic) items.Add(new ShopItem { Card = relic, Price = PriceOf(relic) });
+        void Add(IEnumerable<Upgrade> cards) { foreach (var c in cards) items.Add(new ShopItem { Card = c, Price = PriceOf(c) }); }
+        bool Fresh(Upgrade u) => items.All(i => i.Card.Id != u.Id);
+        var rng = ShopRng(m, 0);
+        var hero = party[rng.Next(party.Count)];
+        Add(Upgrades.Pick(Upgrades.Chest.Where(u => u.Kind == UpgradeKind.Class && !u.Alteration && u.For.Contains(hero) && Upgrades.Available(u, fresh[hero])).ToList(), 1, rng, W));
+        Add(Upgrades.Pick(Upgrades.Chest.Where(u => Upgrades.IsChestFiller(u) && Open(u)).ToList(), Math.Max(0, Tune.Merchant.Cards - items.Count), rng, W));
+        var relics = Upgrades.Relics.Where(u => Open(u)).ToList();
+        Add(Upgrades.Pick(relics.Where(Fresh).ToList(), 1, ShopRng(m, 1), W));
         // (Merchant's Favor: a second relic on his table)
-        if (HexGrid.Owns("shop_favor") && Upgrades.RollRelic(p.Stats, _rng, items.Select(i => i.Card.Id)) is Upgrade relic2) items.Add(new ShopItem { Card = relic2, Price = PriceOf(relic2) });
+        if (HexGrid.Owns("shop_favor")) Add(Upgrades.Pick(relics.Where(Fresh).ToList(), 1, ShopRng(m, 2), W));
+        // (Overstock: one more card each, the same ones in every game)
+        var more = ShopRng(m, 3);
         for (int k = 0; k < p.Stats.ShopExtra; k++)
-            for (int tries = 0, got = 0; tries < 8 && got == 0; tries++)
-                foreach (var c in Upgrades.RollChest(p.Stats, _rng, m.GlobalPosition))
-                    if (items.All(i => i.Card.Id != c.Id)) { items.Add(new ShopItem { Card = c, Price = PriceOf(c) }); got++; break; }
+            Add(Upgrades.Pick(Upgrades.Chest.Where(u => Fresh(u) && (u.Kind == UpgradeKind.Class && !u.Alteration && party.Any(h => u.For.Contains(h)) || Upgrades.IsChestFiller(u)) && Open(u)).ToList(), 1, more, W));
         return items;
     }
 
-    /// <summary>His wares for this hero: the cards, and two of his supplies (a potion, provisions, or, often, a token of Second Thoughts: what he has is a matter of luck).</summary>
+    /// <summary>His wares: the cards, and two of his supplies (a potion, provisions, or, often, a token of Second Thoughts: what he has is a matter of luck, the same luck in every game).</summary>
     private List<ShopItem> DealStock(Merchant m)
     {
         var items = DealCards(m);
+        var rng = ShopRng(m, 4);
         var pool = new List<(Upgrade card, float weight)> { (Potion, 1f), (Supplies, 1f), (Token, Tune.Merchant.TokenWeight) };
         for (int k = 0; k < Tune.Merchant.Supplies && pool.Count > 0; k++)
         {
-            double r = _rng.NextDouble() * pool.Sum(x => x.weight);
+            double r = rng.NextDouble() * pool.Sum(x => x.weight);
             int pick = pool.Count - 1;
             for (int j = 0; j < pool.Count; j++) { r -= pool[j].weight; if (r <= 0) { pick = j; break; } }
             items.Add(new ShopItem { Card = pool[pick].card, Price = PriceOf(pool[pick].card) });

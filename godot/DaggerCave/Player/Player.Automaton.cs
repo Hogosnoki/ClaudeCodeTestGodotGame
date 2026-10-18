@@ -56,7 +56,7 @@ public partial class Player
     {
         if (Dead || amount <= 0) return;
         float before = Fuel;
-        Fuel = Math.Min(Stats.FuelMax, Fuel + amount);
+        Fuel = Math.Min(Stats.FuelMax, Fuel + amount * Tune.AutomatonHero.FuelGainMult);
         _fuelShown += Fuel - before;
         if (_fuelShown >= 1f)
         {

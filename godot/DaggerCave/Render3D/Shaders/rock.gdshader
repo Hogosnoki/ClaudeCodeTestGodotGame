@@ -22,7 +22,7 @@ uniform sampler2D m_nrm : hint_normal, filter_linear_mipmap_anisotropic, repeat_
 uniform sampler2D s_alb : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D s_nrm : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D s_arm : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
-uniform sampler2D mask_noise : filter_linear_mipmap, repeat_enable;
+uniform sampler2D mask_noise : filter_linear_mipmap_anisotropic, repeat_enable;
 
 uniform vec3 tint_edge : source_color = vec3(0.30, 0.25, 0.22);
 uniform vec3 tint_deep : source_color = vec3(0.08, 0.06, 0.06);
@@ -187,8 +187,8 @@ void fragment() {
 	float capness = COLOR.r;
 	float bake_ao = COLOR.g;
 	float variation = COLOR.b;
-	float big = texture(mask_noise, p.xy * 0.045 + p.z * 0.02).r;
-	float fine = texture(mask_noise, p.xz * 0.21 + p.y * 0.07).r;
+	float big = texture(mask_noise, p.xy * 0.045 + p.z * 0.02, cel_bias()).r;
+	float fine = texture(mask_noise, p.xz * 0.21 + p.y * 0.07, cel_bias()).r;
 
 	if (terrain_solid > 0.5) {
 		// ---- minimalist: the face's own direction, not the smoothed one (every polygon flat, every corner an edge)
@@ -282,27 +282,27 @@ void fragment() {
 		dn = mix(dn, tri_nrm(s_nrm, t, scale_s), k);
 	} else if (special_mode == 6) {
 		// root mats: dark fibrous strands running down the rock (the root-choked tunnels)
-		float fib = texture(mask_noise, vec2(p.x * 0.55 + p.z * 0.3, p.y * 0.05)).r;
+		float fib = texture(mask_noise, vec2(p.x * 0.55 + p.z * 0.3, p.y * 0.05), cel_bias()).r;
 		float strand = 1.0 - smoothstep(0.0, 0.035, abs(fract(fib * 7.0) - 0.5) - 0.44);
-		float mat = smoothstep(0.45, 0.65, texture(mask_noise, p.xy * 0.03 + vec2(0.13, 0.57)).r) * (1.0 - capness * 0.6);
+		float mat = smoothstep(0.45, 0.65, texture(mask_noise, p.xy * 0.03 + vec2(0.13, 0.57), cel_bias()).r) * (1.0 - capness * 0.6);
 		float roots_k = strand * mat * special_amount;
 		alb = mix(alb, vec3(0.2, 0.14, 0.08) * (0.8 + 0.4 * fib), roots_k * 0.85);
 		arm.g = mix(arm.g, 0.95, roots_k);
 	} else if (special_mode == 7) {
 		// sediment laid down in layers, with the bones of old things caught in it (the fossil graveyards)
-		float wob = texture(mask_noise, p.xz * 0.02).r * 2.0;
+		float wob = texture(mask_noise, p.xz * 0.02, cel_bias()).r * 2.0;
 		float layer = 0.5 + 0.5 * sin(p.y * 2.3 + wob * 3.0);
 		alb *= mix(0.78, 1.12, smoothstep(0.2, 0.8, layer));
-		float bone = smoothstep(0.86, 0.91, texture(mask_noise, vec2(p.x * 0.35, p.y * 1.1) + p.z * 0.2).r) * (1.0 - capness * 0.5);
+		float bone = smoothstep(0.86, 0.91, texture(mask_noise, vec2(p.x * 0.35, p.y * 1.1) + p.z * 0.2, cel_bias()).r) * (1.0 - capness * 0.5);
 		alb = mix(alb, vec3(0.78, 0.72, 0.6), bone * special_amount);
 		arm.g = mix(arm.g, 0.6, bone);
 	} else if (special_mode == 8) {
 		// crusts of sulphur: patches of yellow bloom over the rock, thickest where it faces up, with the odd orange stain (the sulphur springs)
-		float patch = smoothstep(0.66, 0.8, texture(mask_noise, p.xy * 0.035 + p.z * 0.02 + vec2(0.4, 0.2)).r + fine * 0.25);
+		float patch = smoothstep(0.66, 0.8, texture(mask_noise, p.xy * 0.035 + p.z * 0.02 + vec2(0.4, 0.2), cel_bias()).r + fine * 0.25);
 		float crust = clamp(patch * (0.55 + 0.45 * smoothstep(-0.2, 0.6, n.y)) * (1.0 - capness * 0.45), 0.0, 1.0) * special_amount;
-		float grain = 0.7 + 0.6 * texture(mask_noise, p.xz * 0.9 + p.y * 0.5).r;
+		float grain = 0.7 + 0.6 * texture(mask_noise, p.xz * 0.9 + p.y * 0.5, cel_bias()).r;
 		vec3 yel = vec3(0.85, 0.74, 0.12) * grain * 0.8;
-		float stain = smoothstep(0.7, 0.9, texture(mask_noise, p.xy * 0.09 + vec2(0.7, 0.1)).r);
+		float stain = smoothstep(0.7, 0.9, texture(mask_noise, p.xy * 0.09 + vec2(0.7, 0.1), cel_bias()).r);
 		yel = mix(yel, vec3(0.72, 0.3, 0.06), stain * 0.6);
 		alb = mix(alb, yel, crust);
 		arm.g = mix(arm.g, 0.5, crust);
@@ -324,7 +324,7 @@ void fragment() {
 			vec3 iron = vec3(0.26, 0.26, 0.3) * (0.8 + 0.4 * h);
 			vec3 brass = vec3(0.52, 0.37, 0.14) * (0.8 + 0.4 * h);
 			vec3 plate = mix(iron, brass, step(0.8, h));
-			float rust = smoothstep(0.45, 0.7, texture(mask_noise, p.xy * 0.15 + id * 0.1).r) * (0.35 + 0.65 * (1.0 - f.y));
+			float rust = smoothstep(0.45, 0.7, texture(mask_noise, p.xy * 0.15 + id * 0.1, cel_bias()).r) * (0.35 + 0.65 * (1.0 - f.y));
 			plate = mix(plate, vec3(0.38, 0.2, 0.1), rust * 0.65);
 			plate *= 1.0 - 0.6 * seam;
 			plate = mix(plate, vec3(0.62, 0.52, 0.32), bolt * 0.75);
@@ -378,7 +378,7 @@ void fragment() {
 		float snow_f = min(n.y - 0.62, (fine + big * 0.4) - 0.45);
 		float snow = edge_step(0.0, snow_f) * special_amount;
 		vec2 suv = p.xz * scale_s;
-		vec3 sa = texture(s_alb, suv).rgb * vec3(0.9, 0.96, 1.05) * 1.25;
+		vec3 sa = texture(s_alb, suv, cel_bias()).rgb * vec3(0.9, 0.96, 1.05) * 1.25;
 		alb = mix(alb, sa, snow);
 		rough = mix(rough, 0.55, snow);
 		float glaze = (1.0 - snow) * 0.7 * special_amount;
@@ -387,9 +387,9 @@ void fragment() {
 		spec = mix(spec, 0.7, glaze);
 	} else if (special_mode == 3) {
 		// magma veins: a few thin glowing seams in patches of the rock, hotter near the lava
-		float v = texture(mask_noise, p.xy * 0.04 + p.z * 0.025).r;
+		float v = texture(mask_noise, p.xy * 0.04 + p.z * 0.025, cel_bias()).r;
 		float seam = 1.0 - smoothstep(0.0, 0.01, abs(v - 0.5));
-		float patch = smoothstep(0.6, 0.74, texture(mask_noise, p.xy * 0.017 + vec2(0.31, 0.77)).r);
+		float patch = smoothstep(0.6, 0.74, texture(mask_noise, p.xy * 0.017 + vec2(0.31, 0.77), cel_bias()).r);
 		seam *= patch * (1.0 - capness * 0.7);
 		float heat = liquid_mode == 2 ? exp(-max(p.y - liquid_y, 0.0) / 9.0) : 0.3;
 		float pulse = 0.75 + 0.25 * sin(TIME * 1.3 + p.x * 0.7 + p.y * 0.4);
@@ -397,18 +397,18 @@ void fragment() {
 		alb *= mix(1.0, 0.7, seam);
 	} else if (special_mode == 4) {
 		// crystal flecks: tiny mirror-like facets that catch the light
-		float fleck = smoothstep(0.82, 0.95, texture(mask_noise, p.xy * 1.7 + p.z * 0.9).r);
+		float fleck = smoothstep(0.82, 0.95, texture(mask_noise, p.xy * 1.7 + p.z * 0.9, cel_bias()).r);
 		rough = mix(rough, 0.08, fleck);
 		spec = mix(spec, 0.9, fleck);
 		emit += glow_color * fleck * 0.18 * special_amount * (1.0 - capness);
 	} else if (special_mode == 6) {
 		// a few pale glowing specks in the root mats
-		float dots = smoothstep(0.9, 0.95, texture(mask_noise, p.xz * 1.1 + p.y * 0.4).r);
+		float dots = smoothstep(0.9, 0.95, texture(mask_noise, p.xz * 1.1 + p.y * 0.4, cel_bias()).r);
 		float breathe = 0.6 + 0.4 * sin(TIME * 0.7 + big * 9.0);
 		emit += glow_color * dots * max(moss, up * 0.3) * breathe * 0.8 * special_amount;
 	} else if (special_mode == 5) {
 		// bioluminescent spots in the growth
-		float dots = smoothstep(0.86, 0.93, texture(mask_noise, p.xz * 0.9 + p.y * 0.3).r);
+		float dots = smoothstep(0.86, 0.93, texture(mask_noise, p.xz * 0.9 + p.y * 0.3, cel_bias()).r);
 		float breathe = 0.6 + 0.4 * sin(TIME * 0.8 + big * 12.0);
 		emit += glow_color * dots * max(moss, up * 0.4) * breathe * 1.4 * special_amount;
 	}

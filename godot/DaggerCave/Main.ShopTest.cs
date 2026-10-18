@@ -177,6 +177,13 @@ public partial class Main
         p.Stats.ShopExtra = 1;
         int extraCount = DealCards(merchant).Count;
         ScCheck($"Overstock puts one more thing on the table ({baseCount} -> {extraCount})", extraCount == baseCount + 1);
+        // (his table is the same in every game of a party: dealt from the level's seed, not this game's dice or this hero's cards)
+        var dealA = DealCards(merchant).Select(i => i.Card.Id).ToList();
+        for (int k = 0; k < 50; k++) _rng.Next();
+        p.Stats.Stacks[dealA[0]] = p.Stats.StackOf(dealA[0]) + 1;
+        var dealB = DealCards(merchant).Select(i => i.Card.Id).ToList();
+        p.Stats.Stacks[dealA[0]] -= 1;
+        ScCheck($"his wares are the same in every game ({string.Join(",", dealA)} = {string.Join(",", dealB)})", dealA.SequenceEqual(dealB));
         p.Stats.ShopExtra = 0;
         // piles
         int pg = p.Gold; p.GainGold(5, true); int plainPile = p.Gold - pg;

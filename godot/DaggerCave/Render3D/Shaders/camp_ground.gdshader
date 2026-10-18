@@ -83,10 +83,11 @@ void fragment() {
 	vec3 c = mix(grass_a, grass_b, smoothstep(0.3, 0.7, n));
 	c = mix(c, dry, smoothstep(0.6, 0.8, fbm(v_wp.xz * 0.05 + 11.0)) * 0.55);
 	c *= 0.86 + 0.28 * fine;
-	float tuft = fbm(v_wp.xz * 7.0 + 19.0);
-	float blades = vnoise(vec2(v_wp.x * 62.0 + v_wp.z * 9.0, v_wp.z * 21.0 + v_wp.x * 5.0));
-	float strokes = vnoise(vec2(v_wp.x * 17.0 - v_wp.z * 29.0, v_wp.z * 41.0 + v_wp.x * 7.0));
-	float fleck = step(0.82, vnoise(v_wp.xz * 34.0 + 3.0));
+	// (the fine grain follows the texture blur, as the photographed textures do)
+	float tuft = cel_detail(fbm(v_wp.xz * 7.0 + 19.0), 0.5);
+	float blades = cel_detail(vnoise(vec2(v_wp.x * 62.0 + v_wp.z * 9.0, v_wp.z * 21.0 + v_wp.x * 5.0)), 0.5);
+	float strokes = cel_detail(vnoise(vec2(v_wp.x * 17.0 - v_wp.z * 29.0, v_wp.z * 41.0 + v_wp.x * 7.0)), 0.5);
+	float fleck = step(0.82, vnoise(v_wp.xz * 34.0 + 3.0)) * (1.0 - cel_soft());
 	c *= 0.78 + 0.34 * tuft + 0.22 * blades + 0.14 * strokes;
 	c = mix(c, c * vec3(1.35, 1.25, 0.8), fleck * 0.45);
 	float d = length(v_wp.xz);

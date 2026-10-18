@@ -78,6 +78,11 @@ vec3 dbg_ground(vec3 c, float z, vec3 mean_fg, vec3 mean_bg) {
 // The mip bias textures are sampled with.
 float cel_bias() { return cel_shading * cel_tex_blur; }
 
+// Detail generated in a shader (noise, grain, flecks) follows the texture blur as a sampled texture does: smoothed toward its
+// average, none at 0 and nearly all at 4 (as the creatures' skin detail is). v is the detail, mean its average value.
+float cel_soft() { return cel_shading * clamp(cel_tex_blur / 4.0, 0.0, 1.0); }
+float cel_detail(float v, float mean) { return mix(v, mean, cel_soft() * 0.9); }
+
 // A value in 0..1 divided into n soft-edged steps (n < 1.5: returned as it is).
 float cel_steps(float v, float n) {
 	if (n < 1.5) return v;

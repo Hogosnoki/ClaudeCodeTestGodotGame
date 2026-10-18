@@ -319,7 +319,7 @@ public static class Tune
         /// jabs come half as fast (OneDaggerSlow).
         /// </summary>
         public static float Damage = 9f, SwingCooldown = 0.2f, SwingWindup = 0.03f, SwingTime = 0.05f, Reach = 40f, Knockback = 70f, Lunge = 0f;
-        public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.04f, OneDaggerSlow = 2f;
+        public static float CritChance = 0.05f, CritMult = 2f, HitStop = 0.02f, OneDaggerSlow = 2f;
         /// <summary>Backstab (an upgrade): a strike from behind a creature lands this many times as hard.</summary>
         public static float BackstabMult = 1.5f;
         /// <summary>
@@ -771,6 +771,8 @@ public static class Tune
 
         /// <summary>Fuel: the most it holds and what it starts with; the share of any healing it becomes.</summary>
         public static float FuelMax = 80f, FuelStart = 40f, FuelFromHeal = 0.3f;
+        /// <summary>Every way of gaining fuel gives this much more (healing, Scrap Reclaimer, relics, the Rally's resource).</summary>
+        public static float FuelGainMult = 2f;
         /// <summary>Self-Repair (the ability button): mends RepairRate health a second, one fuel for one health, for up to
         /// RepairSeconds (or until the fuel or the damage runs out; a press stops it), moving at RepairMove x.
         /// Back after RepairCooldown s. Scrap Reclaimer: a kill gives ScrapFuel.</summary>

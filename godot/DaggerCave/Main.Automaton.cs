@@ -41,8 +41,8 @@ public partial class Main
         // ---------------------------------------------------------------- healing becomes fuel; Self-Repair spends it
         p.Hp = 100f; p.TestSetFuel(10f);
         p.Heal(50f);
-        float fuelWant = 10f + 50f * Tune.Hero.HealingMult * s.FuelFromHeal;
-        ScCheck($"healing doesn't mend it (hp {p.Hp:0.0}) but becomes {s.FuelFromHeal:0%} as much fuel ({p.Fuel:0.00}, want {fuelWant:0.00})", Math.Abs(p.Hp - 100f) < 0.01f && Math.Abs(p.Fuel - fuelWant) < 0.01f);
+        float fuelWant = 10f + 50f * Tune.Hero.HealingMult * s.FuelFromHeal * Tune.AutomatonHero.FuelGainMult;
+        ScCheck($"healing doesn't mend it (hp {p.Hp:0.0}) but becomes {s.FuelFromHeal * Tune.AutomatonHero.FuelGainMult:0%} as much fuel ({p.Fuel:0.00}, want {fuelWant:0.00})", Math.Abs(p.Hp - 100f) < 0.01f && Math.Abs(p.Fuel - fuelWant) < 0.01f);
         float fuel0 = p.Fuel;
         Tap(new PlayerInput { Ability = true });
         foreach (var _ in Wait(0.6f)) yield return null;

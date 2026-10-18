@@ -31,6 +31,7 @@ public partial class Main : Node
     private PauseMenu _pauseMenu;
     private AchievementToast _achToast;
     private AchievementsMenu _achMenu;
+    private SaveFilesMenu _saveMenu;
     private SettingsMenu _settingsMenu;
     private BugReportMenu _bugReport;
     private BuildPanel _buildPanel;
@@ -172,6 +173,8 @@ public partial class Main : Node
         // achievements: the page, and the notice when one is earned (over everything else)
         _achMenu = new AchievementsMenu { Closed = OnAchievementsClosed };
         _uiLayer.AddChild(_achMenu);
+        _saveMenu = new SaveFilesMenu { Closed = () => _mainMenu.Open(MenuFooter()), Changed = OnSaveChanged };
+        _uiLayer.AddChild(_saveMenu);
         _achToast = new AchievementToast();
         _uiLayer.AddChild(_achToast);
         _settingsMenu = new SettingsMenu { Closed = OnSettingsClosed };
@@ -808,7 +811,7 @@ public partial class Main : Node
                 // (the Automaton isn't mended by the rest: what would have healed it becomes energy)
                 float rest = Math.Min(keepStats.MaxHp - keepHp, keepStats.MaxHp * restShare);
                 player.Hp = keepHp;
-                player.Fuel = Math.Min(keepStats.FuelMax, keepFuel + (keepStats.ScrapReclaimer ? 0f : rest * keepStats.FuelFromHeal));
+                player.Fuel = Math.Min(keepStats.FuelMax, keepFuel + (keepStats.ScrapReclaimer ? 0f : rest * keepStats.FuelFromHeal * Tune.AutomatonHero.FuelGainMult));
             }
             player.Level = keepLevel; player.Xp = keepXp; player.Kills = keepKills; player.Potions = keepPotions;
             player.Keys = keepKeys;
@@ -1701,11 +1704,11 @@ public partial class Main : Node
 
     private static readonly int HeroCount = Enum.GetValues<HeroKind>().Length;
 
-    private void PickHero(HeroKind h)
+    private void PickHero(HeroKind h, bool quiet = false)
     {
         if (G.Hero == h) return;
         G.Hero = h;
-        _sfx.Play("ui", null, -6);
+        if (!quiet) _sfx.Play("ui", null, -6);
         _overlay.QueueRedraw();
     }
 
@@ -1763,6 +1766,18 @@ public partial class Main : Node
         ActiveBoss = null;
         _roomElites.Clear();
         _sfx.StopAll();
+    }
+
+    /// <summary>The main menu's footer: the save in use, and its embers.</summary>
+    private static string MenuFooter() => $"Save: {Profiles.Current?.Name}" + (Meta.Embers > 0 ? $"   ·   Embers: {Meta.Embers}" : "");
+
+    /// <summary>Another save file is in use (or this one was started over): a hero it has, and the camp as it keeps it.</summary>
+    private void OnSaveChanged()
+    {
+        if (!Meta.IsUnlocked(G.Hero)) G.Hero = Enum.GetValues<HeroKind>().First(Meta.IsUnlocked);
+        _camp.Selected = G.Hero;
+        _heroChoice?.Refresh();
+        SessionLog.Note($"save file: {Profiles.Current?.Name}");
     }
 
     /// <summary>The Ember Grid over the camp, looking at a hero's branch (or the fire).</summary>
@@ -2162,7 +2177,7 @@ public partial class Main : Node
             case State.Title:
                 _titleT += dt;
                 if (_metaShot != "") MetaShotTick();
-                if (!_grid.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && (_front != Front.Heroes || _heroChoice.InPrep) && _departT < 0f && (Input.IsActionJustPressed("meta") || (_front == Front.Heroes && Input.IsActionJustPressed("perks"))) && (HexGrid.Shown || _front == Front.Heroes)) OpenGrid(_front == Front.Heroes ? G.Hero : null);
+                if (!_grid.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && !_saveMenu.Visible && !_achMenu.Visible && (_front != Front.Heroes || _heroChoice.InPrep) && _departT < 0f && (Input.IsActionJustPressed("meta") || (_front == Front.Heroes && Input.IsActionJustPressed("perks"))) && (HexGrid.Shown || _front == Front.Heroes)) OpenGrid(_front == Front.Heroes ? G.Hero : null);
                 if (_front == Front.Heroes && _heroChoice.InPrep && !_grid.Visible && !_loadoutMenu.Visible && !_onlineMenu.Visible && _departT < 0f && Input.IsActionJustPressed("loadout")) _loadoutMenu.Open(G.Hero);
                 if (_titleShot != "" && _titleT > 1.5f)
                 {
