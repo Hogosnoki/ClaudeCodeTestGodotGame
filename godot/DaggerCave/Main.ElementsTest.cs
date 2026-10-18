@@ -150,6 +150,18 @@ public partial class Main
         float reach = Tune.Swordsman.Reach * Tune.Swordsman.HeaveReach;
         foreach (var _ in ElWait(0.6f)) yield return null;
 
+        // locked (a new save), one charge waits, and the same again puts it away
+        bool dualsWere = Tune.Testing.DualCharges, unlockedWas = Meta.DualChargesUnlocked;
+        Tune.Testing.DualCharges = false; Meta.DualChargesUnlocked = false;
+        foreach (var _ in ElPair(p, 3, 1)) yield return null;
+        ScCheck($"dual charges locked: one charge waits, the newer replacing it ({string.Join("+", p.Charges)})", p.Charges.Count == 1 && p.Infused == HeroElement.Earth && !p.DualReady);
+        foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.02f)) yield return null;
+        ScCheck($"and pressed again it is put away ({p.Charges.Count})", p.Charges.Count == 0);
+        Tune.Testing.DualCharges = dualsWere; Meta.DualChargesUnlocked = unlockedWas;
+        Meta.DualChargesUnlocked = true;
+        ScCheck($"unlocked, two charges can wait ({p.MaxCharges})", p.MaxCharges == 2);
+        Meta.DualChargesUnlocked = unlockedWas;
+
         // the queue: two charges wait; past two, the oldest goes
         p.ResetAbilityCooldowns();
         foreach (var _ in ElPair(p, 3, 3)) yield return null;

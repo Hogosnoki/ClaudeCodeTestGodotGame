@@ -707,6 +707,8 @@ public static class Tune
     {
         /// <summary>Every hero (and every side-grade) can be chosen, whatever the save says.</summary>
         public static bool UnlockEverything = true;
+        /// <summary>Dual charges are open whatever the save says (see <see cref="Meta.DualCharges"/>), while they're being tested.</summary>
+        public static bool DualCharges = true;
     }
 
     /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>

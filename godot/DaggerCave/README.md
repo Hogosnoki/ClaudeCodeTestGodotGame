@@ -1990,8 +1990,9 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
 The Swordsman and the Elementalist fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`, `Enemies/Enemy.Elements.cs`,
 `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`). Their attacks are plain until an element is readied: **1, 2, 3** on the keyboard,
 **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*. The next attack spends
-it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). Up to
-**two charges** wait readied (see *Dual charges* below; a third press drops the oldest); the charges fade 6 s after the last press. The HUD
+it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). One
+charge waits (pressed again, it's put away); once dual charges are unlocked, up to **two** (see *Dual charges* below; a third press drops
+the oldest). Charges fade 6 s after the last press. The HUD
 shows the hero's three elements over the ability squares (the readied ones lit, a second charge of one as a small second diamond), and
 each square is named for the version the readied charges would make.
 
@@ -2021,6 +2022,10 @@ Fire's Aid wasn't in the design notes; Kindling is a proposal. The cards for Fro
 card), Deep Chill and Shrapnel aren't dealt to the elemental Elementalist; Echo works with Detonate and Shatter.
 
 ### Dual charges
+
+Dual charges are **unlocked**, not there from the start, so a new player meets one element at a time (`Meta.DualCharges`, kept in each save
+as `dual_charges`); without them one charge waits and pressing it again puts it away. Where they're earned is still to be decided (likely
+the Ember Grid, when it's laid out again); for now `Tune.Testing.DualCharges` keeps them open for testing.
 
 Ready **two charges** (the same element twice, or two different) and the **Hard Swing** (the Swordsman) or **Burst** (the Elementalist)
 spends both for the pair's own ability (`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`). Every other

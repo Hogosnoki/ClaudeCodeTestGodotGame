@@ -818,7 +818,9 @@ public partial class Hud : Control
             DrawString(font, c + new Vector2(12, 4), Controls.Name(Elements.Action(k)), HorizontalAlignment.Left, -1, 9, new Color(1, 1, 1, on ? 0.85f : 0.45f));
             string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing" : "Burst";
             Tip(new Rect2(c - new Vector2(10, 10), new Vector2(40, 20)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))})",
-                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: your next attack becomes its {Elements.Name(el).ToLowerInvariant()} version. Two charges wait at once (the same twice, or two different): the {dualBtn} spends both for their dual ability.", true);
+                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: your next attack becomes its {Elements.Name(el).ToLowerInvariant()} version. " + (Meta.DualCharges
+                    ? $"Two charges wait at once (the same twice, or two different): the {dualBtn} spends both for their dual ability."
+                    : "Press again to put it away."), true);
         }
         string dual = p.DualReadyName;
         string label = dual != "" ? $"{dual.ToUpperInvariant()}: {(p.Stats.Hero == HeroKind.Swordsman ? "HARD SWING" : "BURST")}"

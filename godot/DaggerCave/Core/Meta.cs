@@ -48,6 +48,12 @@ public static class Meta
     // ---- heroes: three at the start; the others are found (caged in the caves) or won
     private static readonly HeroKind[] StarterHeroes = { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Vitalist };
     public static readonly HashSet<HeroKind> Unlocked = new(StarterHeroes);
+    // ---- dual charges (Tune.Dual): readying two elements at once is learned, so a new player meets one element at a time
+    /// <summary>Dual charges have been unlocked on this save (kept between runs).</summary>
+    public static bool DualChargesUnlocked;
+    /// <summary>The elemental heroes can ready two charges (and so the dual abilities); without it, one.</summary>
+    public static bool DualCharges => Tune.Testing.DualCharges || DualChargesUnlocked;
+
     // ---- the merchant: not a hero, but met like one (caged in the caves); once freed, a stall of his is offered after every guardian
     /// <summary>The merchant has been freed (kept between runs).</summary>
     public static bool MerchantUnlocked;
@@ -231,6 +237,7 @@ public static class Meta
             ["grid"] = HexGrid.ToDict(),
             ["unlocked"] = new Godot.Collections.Array(Unlocked.Select(x => (Variant)(int)x)),
             ["merchant"] = MerchantUnlocked,
+            ["dual_charges"] = DualChargesUnlocked,
             ["loadouts"] = LoadoutsToArray(),
         };
         return d;
@@ -255,6 +262,7 @@ public static class Meta
         else foreach (var h in Enum.GetValues<HeroKind>()) Unlocked.Add(h);
         if (Unlocked.Contains(HeroKind.Aegis)) HexGrid.Owned.Add("aegis_oath");
         MerchantUnlocked = d.ContainsKey("merchant") && (bool)d["merchant"];
+        DualChargesUnlocked = d.ContainsKey("dual_charges") && (bool)d["dual_charges"];
         Loadouts.Clear();
         if (d.ContainsKey("loadouts"))
             foreach (var v in d["loadouts"].AsGodotArray())

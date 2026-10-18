@@ -33,14 +33,18 @@ public partial class Player
     /// <summary>For the tests: elemental versions used, by name.</summary>
     public readonly List<string> ElementalUses = new();
 
+    /// <summary>How many charges can wait: two once dual charges are unlocked (<see cref="Meta.DualCharges"/>), else one.</summary>
+    public int MaxCharges => Meta.DualCharges ? Math.Max(1, Tune.Dual.MaxCharges) : 1;
+
     /// <summary>An element's button: a charge of it is readied (past the most that can wait, the oldest goes). The same twice is the
-    /// element's great version; two different, their mix.</summary>
+    /// element's great version; two different, their mix. With only one charge to hold, pressing the readied element again puts it away.</summary>
     public bool TryInfuse(int slot)
     {
         var els = Elements.Of(Stats.Hero);
         if (Dead || slot < 0 || slot >= els.Length) return false;
         var el = els[slot];
-        int most = Math.Max(1, Tune.Dual.MaxCharges);
+        int most = MaxCharges;
+        if (most == 1 && _charges.Count == 1 && _charges[0] == el) { ClearCharges(); G.Sfx.Play("ui", null, -10, 0, 0.7f); return true; }
         while (_charges.Count >= most) _charges.RemoveAt(0);
         _charges.Add(el);
         _infuseT = Tune.Elements.InfuseSeconds;
