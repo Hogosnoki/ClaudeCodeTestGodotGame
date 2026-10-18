@@ -43,9 +43,11 @@ public partial class Player
     public int LastSnapCount { get; private set; }
 
     public float AlimusRegen => Tune.Elementalist.AlimusRegen * Stats.AlimusRegenMult;
-    public float UpdraftCost => Tune.Elementalist.UpdraftCost;
-    public float BlizzardCost => Tune.Elementalist.BlizzardCost;
-    public float SnapCost => Tune.Elementalist.SnapCost;
+    public float UpdraftCost => Elemental ? Tune.ElementalStaff.LiftCost : Tune.Elementalist.UpdraftCost;
+    public float BlizzardCost => Elemental ? Tune.ElementalStaff.AidCost : Tune.Elementalist.BlizzardCost;
+    public float SnapCost => Elemental ? Tune.ElementalStaff.FixedCost : Tune.Elementalist.SnapCost;
+    /// <summary>What a bolt costs as it comes back.</summary>
+    private float BoltCost => Elemental ? Tune.ElementalStaff.BoltCost : Stats.Frostbolt ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost;
     /// <summary>For the HUD: the updraft's short recovery and the snap's, 0 = ready.</summary>
     public float UpdraftCooldownFrac => Math.Clamp(_updraftCd / Tune.Elementalist.UpdraftRecharge, 0, 1);
     public float SnapCooldownFrac => Math.Clamp(_snapCd / SnapCooldown, 0, 1);
@@ -85,7 +87,7 @@ public partial class Player
     public void TestResetUpdraft() { _updraftCd = 0; _updraftOwes = false; }
     public void TestResetBolt() { _boltCd = 0; _boltCharges = BoltChargesMax; _boltRecharge = 0; }
     /// <summary>Test aid: every spell ready again, nothing owed.</summary>
-    public void TestResetSpells() { TestResetUpdraft(); TestResetBolt(); _snapCd = 0; _snapOwes = false; for (int k = 0; k < _abilityCd.Length; k++) { _abilityCd[k] = 0; if (k < _stormOwes.Length) _stormOwes[k] = false; } }
+    public void TestResetSpells() { TestResetUpdraft(); TestResetBolt(); _snapCd = 0; _snapOwes = false; _jumpElemRest = 0; for (int k = 0; k < _abilityCd.Length; k++) { _abilityCd[k] = 0; if (k < _stormOwes.Length) _stormOwes[k] = false; } }
 
     public void SetAlimus(float value) => Alimus = Math.Clamp(value, 0, Stats.AlimusMax);
 
@@ -125,7 +127,7 @@ public partial class Player
         {
             float secs = BoltRechargeSeconds;
             _boltRecharge = Math.Min(secs, _boltRecharge + dt * Math.Max(0.2f, Stats.AttackSpeed));
-            if (_boltRecharge >= secs - Hair && SpendAlimus(Stats.Frostbolt ? Tune.Elementalist.FrostCost : Tune.Elementalist.FireCost)) { _boltCharges++; _boltRecharge = 0; }
+            if (_boltRecharge >= secs - Hair && SpendAlimus(BoltCost)) { _boltCharges++; _boltRecharge = 0; }
         }
         else _boltRecharge = 0;
         if (_snapAt >= 0 && (_snapAt -= dt) < 0) BurstSnap();
@@ -188,6 +190,7 @@ public partial class Player
             _castGlow = 0.7f;
             float dmg = (frost ? Tune.Elementalist.FrostDamage : Tune.Elementalist.FireDamage) * Stats.DamageMult * Stats.PrimaryDamageMult;
             var bolt = new ElementBolt { Position = CastPoint + dir * 6f, Dir = dir, Frost = frost, Damage = dmg, Range = range, Caster = this };
+            CastSlow();
             G.Spawn(bolt);
             NetSync.HeroVisual(bolt);
             G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);
@@ -311,11 +314,14 @@ public partial class Player
     }
 
     /// <summary>The button is let go: the column is raised at the angle aimed.</summary>
-    private void CastUpdraft(Vector2 dir)
+    private void CastUpdraft(Vector2 dir, bool spend = true)
     {
-        // (free to raise; its recharge is what costs the alimus)
-        _updraftCd = Tune.Elementalist.UpdraftRecharge;
-        _updraftOwes = true;
+        // (free to raise; its recharge is what costs the alimus; the elemental Elementalist's, raised by a jump, rests on its own)
+        if (spend)
+        {
+            _updraftCd = Tune.Elementalist.UpdraftRecharge;
+            _updraftOwes = true;
+        }
         var origin = DraftOrigin(dir);
         var draft = new Updraft
         {

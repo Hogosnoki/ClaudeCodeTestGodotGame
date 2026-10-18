@@ -176,6 +176,11 @@ public partial class Player : CharacterBody2D
     private float _abilityAimDist;
     private PlayerInput _dodgeInput;
 
+    /// <summary>Loosing a projectile, or pouring out a spell: slowed while it plays (<see cref="Tune.Hero.CastSlowMult"/>).</summary>
+    private float _castSlowT;
+    public bool CastSlowed => _castSlowT > 0f;
+    public void CastSlow(float seconds = -1f) => _castSlowT = Math.Max(_castSlowT, seconds < 0 ? Tune.Hero.CastSlowSeconds : seconds);
+
     /// <summary>Test aid: a blow's moment of grace is over.</summary>
     public void TestInvulnClear() { _invuln = 0; _iframes = 0; }
     public bool Invulnerable => _invuln > 0 || _iframes > 0 || Choosing || (IsRemote && NetInvuln);
@@ -481,7 +486,7 @@ public partial class Player : CharacterBody2D
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer + Stats.BufferBonus;
         if (inp.Potion) DrinkPotion();
-        if (inp.Infuse > 0 && Elemental) TryInfuse(inp.Infuse - 1);
+        if (inp.Infuse > 0 && Elemental) BufferInfuse(inp.Infuse - 1);
         if (inp.Interact || inp.Up) TryInteract(inp.Interact);
     }
 
@@ -603,6 +608,10 @@ public partial class Player : CharacterBody2D
         // (an elemental lift the button gave: at least this fast upward)
         if (_liftTo is float up) { v.Y = Math.Min(v.Y, up); _liftTo = null; _jumpCutDone = true; }
 
+        // (a cast being gathered: no jumping meanwhile)
+        bool slowMo = Holding && !Possessed;
+        if (slowMo) _jumpBuffer = 0;
+        var vBefore = v;
         // (a Shape Shifter in a creature's form is that creature: it goes where it goes)
         if (Possessed) v = PossessedStep(inp);
         else if (_dodgeT > 0) v = DodgeMotion(v, dt);
@@ -623,13 +632,9 @@ public partial class Player : CharacterBody2D
         }
         else if (InWater) v = Stats.Sinks ? SinkingSwim(inp, v, dt, cave) : Swim(inp, v, dt, cave);
         else v = Platform(inp, v, dt, onFloor);
-        // (a cast being gathered: slowed to a tenth, walking, swimming and falling alike, and no jumping; the rise or fall it paused is given back when it ends, see ResumeFromHold)
-        if (Holding && !Possessed)
-        {
-            float cap = RunSpeed * Stats.MoveSpeed * Tune.Hold.MoveShare;
-            v = new Vector2(Math.Clamp(v.X, -cap, cap), Math.Clamp(v.Y, -cap, MaxFall * Tune.Hold.MoveShare));
-            _jumpBuffer = 0;
-        }
+        // (a cast being gathered: the hero goes on as before, a jump rising, a fall falling, but in slow motion: every change to
+        // their motion comes at a tenth of the rate, and they move at a tenth of the speed; when it ends they carry on at full speed)
+        if (slowMo) v = vBefore + (v - vBefore) * Tune.Hold.MoveShare;
 
         if (_airDashT > 0) _airDashT -= dt;
 
@@ -644,8 +649,9 @@ public partial class Player : CharacterBody2D
         }
         else
         {
-            Velocity = v;
+            Velocity = slowMo ? v * Tune.Hold.MoveShare : v;
             MoveAndSlide();
+            if (slowMo) Velocity /= Tune.Hold.MoveShare;
             nowFloor = IsOnFloor();
             // (a belt carries whoever stands on it)
             if (Conveyor.All.Count > 0 && nowFloor)
@@ -919,7 +925,7 @@ public partial class Player : CharacterBody2D
         if (_lungeAir && _lungeT <= 0 && _hoverT <= 0) _lungeAir = false;
         _waveCd -= dt; WebbedT -= dt; _lavaTick -= dt;
         _attackBuf -= dt; _abilityBuf -= dt; _ability2Buf -= dt; _dodgeBuf -= dt;
-        _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt;
+        _drainCd -= dt; _hexCd -= dt; _healCd -= dt; _ruptureCd -= dt; _bashCd -= dt; _heaveCd -= dt; _snagT -= dt; _castSlowT -= dt;
         TickBoons(dt);
         TickStatus(dt);
         TickIndignation(dt);
@@ -973,7 +979,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (1f + Stats.SprintBonus * Math.Min(1f, _runT)) * (_adrT > 0f ? 1f + Stats.AdrenalineBonus : 1f) * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (1f + Stats.SprintBonus * Math.Min(1f, _runT)) * (_adrT > 0f ? 1f + Stats.AdrenalineBonus : 1f) * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f) * (_castSlowT > 0f ? Tune.Hero.CastSlowMult : 1f);
         if (WebbedT > 0) target *= 0.45f;
         if (Crouching) target *= Tune.Hero.CrouchSpeed;
         // planted for a heaving swing, or braced behind a shield bash

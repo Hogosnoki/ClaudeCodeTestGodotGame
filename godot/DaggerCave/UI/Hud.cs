@@ -128,7 +128,7 @@ public partial class Hud : Control
             if (p.Barriered || p.Bubbled)
                 rows.Add((Math.Clamp(soak / Math.Max(1f, p.Stats.MaxHp), 0f, 1f), $"{Num.Shown(soak)} {(p.Bubbled && !p.Barriered ? "bubble" : "barrier")}", p.Bubbled && !p.Barriered ? "Bubble" : "Barrier",
                     $"A {(p.Bubbled && !p.Barriered ? "bubble" : "barrier")} over you absorbs {Num.Shown(soak)} more damage before the health under it is touched.", light, null));
-            if (p.Stats.Hero == HeroKind.Elementalist && (p.Alimus < p.Stats.AlimusMax - 0.05f || p.BoltWaiting || p.UpdraftWaiting || p.SnapWaiting || p.StormWaiting))
+            if (p.Stats.Hero == HeroKind.Elementalist)
             {
                 float amax = Math.Max(1f, p.Stats.AlimusMax);
                 rows.Add((Math.Clamp(p.Alimus / amax, 0f, 1f), $"{Num.Shown(p.Alimus)} alimus", "Alimus",
@@ -227,9 +227,10 @@ public partial class Hud : Control
             default: DrawSwordsmanGauges(font, p, ab); break;
         }
 
-        // --- the support ability: every hero's fourth button ---
+        // --- the support ability: every hero's fourth button (after the hero's own squares) ---
         {
-            var sb = ab + new Vector2(280, 0);
+            var sb = ab + new Vector2(Math.Max(280f, _gaugeEnd), 0);
+            _gaugeEnd = 0f;
             var col = HeroColor(p.Stats.Hero);
             AbilitySquare(font, sb, p.SupportName, p.SupportCooldownFrac, p.SupportReady, col, (c, cc) => DrawArc(c, 7, 0, Mathf.Tau, 12, cc, 2f));
             KeyHint(font, sb, "support");
@@ -659,7 +660,26 @@ public partial class Hud : Control
     }
 
     /// <summary>A square ability icon with its cooldown filling it from the top, and a label.</summary>
-    private void AbilitySquare(Font font, Vector2 at, string label, float cooldownFrac, bool ready, Color col, Action<Vector2, Color> icon, string tipName = null)
+    /// <summary>Where the hero's own squares end (past which the support square goes), when they run long.</summary>
+    private float _gaugeEnd;
+
+    /// <summary>The seconds left on a cooldown, written over its square (or dial).</summary>
+    private void Secs(Font font, Vector2 center, float secs)
+    {
+        if (secs < 0.05f) return;
+        string t = secs >= 10f ? $"{secs:0}" : $"{secs:0.0}";
+        var at = center + new Vector2(-17, 5);
+        DrawStringOutline(font, at, t, HorizontalAlignment.Center, 34, 12, 4, new Color(0, 0, 0, 0.9f));
+        DrawString(font, at, t, HorizontalAlignment.Center, 34, 12, Colors.White);
+    }
+
+    private void AbilitySquare(Font font, Vector2 at, string label, float cooldownFrac, bool ready, Color col, Action<Vector2, Color> icon, string tipName = null, float secs = 0f)
+    {
+        DrawSquare(font, at, label, cooldownFrac, ready, col, icon, tipName);
+        Secs(font, at + new Vector2(17, 17), secs);
+    }
+
+    private void DrawSquare(Font font, Vector2 at, string label, float cooldownFrac, bool ready, Color col, Action<Vector2, Color> icon, string tipName)
     {
         var painted = tipName != null ? null : Icons.Get(Icons.AbilityFor(label));
         var (tt, tb) = tipName != null ? ElementTip(tipName) : AbilityTip(label);
@@ -685,14 +705,16 @@ public partial class Hud : Control
                 DrawColoredPolygon(pts.ToArray(), new Color(0, 0, 0, 0.55f));
             }
             UiArt.Outline(this, box.Grow(1), 9f, ready ? new Color(col, 0.45f + 0.3f * MathF.Sin(_t * 5)) : new Color(0.55f, 0.48f, 0.38f, 0.7f), ready ? 2f : 1.4f);
-            DrawString(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+            DrawStringOutline(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
+            DrawString(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.75f));
             return;
         }
         DrawColoredPolygon(UiArt.Rounded(new Rect2(at, new Vector2(34, 34)), 8f), new Color(0, 0, 0, 0.55f));
         icon(at + new Vector2(17, 17), ready ? col : new Color(0.45f, 0.47f, 0.52f));
         if (cooldownFrac > 0) DrawColoredPolygon(UiArt.Rounded(new Rect2(at + new Vector2(0, 34 * (1 - cooldownFrac)), new Vector2(34, MathF.Max(1f, 34 * cooldownFrac))), MathF.Min(8f, 17 * cooldownFrac)), new Color(0, 0, 0, 0.55f));
         UiArt.Outline(this, new Rect2(at - new Vector2(1, 1), new Vector2(36, 36)), 9f, ready ? new Color(col, 0.45f + 0.3f * MathF.Sin(_t * 5)) : new Color(0.55f, 0.48f, 0.38f, 0.7f), ready ? 2f : 1.4f);
-        DrawString(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawStringOutline(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
+        DrawString(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.75f));
     }
 
     /// <summary>The key or button for an action, in small print under its square.</summary>
@@ -721,7 +743,13 @@ public partial class Hud : Control
     }
 
     /// <summary>A round cooldown dial (dodges, the hex).</summary>
-    private void Dial(Vector2 c, float frac, Color readyCol, string tip = null, string tipName = null)
+    private void Dial(Vector2 c, float frac, Color readyCol, string tip = null, string tipName = null, float secs = 0f)
+    {
+        DrawDial(c, frac, readyCol, tip, tipName);
+        Secs(ThemeDB.FallbackFont, c, secs);
+    }
+
+    private void DrawDial(Vector2 c, float frac, Color readyCol, string tip, string tipName)
     {
         if (tipName != null) { var (tt, tb) = ElementTip(tipName); Tip(new Rect2(c - new Vector2(17, 17), new Vector2(34, 34)), tt, tb + " The ring fills as it recharges.", true); }
         else if (tip != null) { var (tt, tb) = AbilityTip(tip); Tip(new Rect2(c - new Vector2(17, 17), new Vector2(34, 34)), tt, tb + " The ring fills as it recharges.", true); }
@@ -799,34 +827,54 @@ public partial class Hud : Control
     }
 
     /// <summary>The elemental heroes' three elements over their ability squares: each with its button, the readied one lit (Core/Elements.cs).</summary>
+    /// <summary>
+    /// The elements on the d-pad: a half circle with one at each point of a triangle, left, up and right, as on the pad (keys 1, 2, 3).
+    /// The readied ones are lit (a second charge of one, a second diamond); in the middle, the charges in the order they'll be spent, and
+    /// the charge's cooldown going round. Beside it, what the charges make, or <paramref name="extra"/>.
+    /// </summary>
     private void DrawElementRow(Font font, Player p, Vector2 at, string extra = "")
     {
         var els = Elements.Of(p.Stats.Hero);
-        for (int k = 0; k < els.Length; k++)
+        var c = at + new Vector2(42, 8);
+        // the half circle the three sit on
+        const float R = 42f;
+        DrawColoredPolygon(Enumerable.Range(0, 17).Select(k => c + new Vector2(MathF.Cos(MathF.PI + k * MathF.PI / 16f), MathF.Sin(MathF.PI + k * MathF.PI / 16f)) * R).Append(c + new Vector2(R, 8f)).Append(c + new Vector2(-R, 8f)).ToArray(), new Color(0, 0, 0, 0.45f));
+        DrawArc(c, R, MathF.PI, MathF.Tau, 20, new Color(0.85f, 0.75f, 0.55f, 0.45f), 1.2f);
+        var spots = new[] { c + new Vector2(-28, 0), c + new Vector2(0, -28), c + new Vector2(28, 0) };
+        string[] pad = { "◀", "▲", "▶" };
+        for (int k = 0; k < els.Length && k < 3; k++)
         {
             var el = els[k];
-            int held = p.Charges.Count(c => c == el);
+            int held = p.Charges.Count(x => x == el);
             bool on = held > 0;
-            var c = at + new Vector2(10 + k * 44, 0);
+            var sc = spots[k];
             var col = Elements.ColorOf(el);
-            float r = on ? 8f + MathF.Sin(_t * 8f) : 6f;
-            var dia = new[] { c + new Vector2(0, -r), c + new Vector2(r, 0), c + new Vector2(0, r), c + new Vector2(-r, 0) };
-            if (on) DrawCircle(c, r + 5, new Color(col, 0.25f));
-            DrawColoredPolygon(dia, on ? col : new Color(col.Darkened(0.45f), 0.85f));
+            float r = on ? 8f + MathF.Sin(_t * 8f) : 6.5f;
+            var dia = new[] { sc + new Vector2(0, -r), sc + new Vector2(r, 0), sc + new Vector2(0, r), sc + new Vector2(-r, 0) };
+            if (on) DrawCircle(sc, r + 5, new Color(col, 0.25f));
+            DrawColoredPolygon(dia, on ? col : new Color(col.Darkened(0.45f), p.InfuseCooldown > 0 ? 0.5f : 0.85f));
             DrawPolyline(dia.Append(dia[0]).ToArray(), new Color(0, 0, 0, 0.7f), 1.2f);
-            // (a second charge of it: a second, smaller diamond tucked behind)
-            if (held > 1) DrawColoredPolygon(new[] { c + new Vector2(r * 0.9f, -r * 1.2f), c + new Vector2(r * 1.5f, -r * 0.6f), c + new Vector2(r * 0.9f, 0), c + new Vector2(r * 0.3f, -r * 0.6f) }, col.Lightened(0.3f));
-            DrawString(font, c + new Vector2(12, 4), Controls.Name(Elements.Action(k)), HorizontalAlignment.Left, -1, 9, new Color(1, 1, 1, on ? 0.85f : 0.45f));
-            string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing spends" : "bolt, movement and fixed-range spell spend";
-            Tip(new Rect2(c - new Vector2(10, 10), new Vector2(40, 20)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))})",
-                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: the next ability you use becomes its {Elements.Name(el).ToLowerInvariant()} version. " + (Meta.DualCharges
+            if (held > 1) DrawColoredPolygon(new[] { sc + new Vector2(r * 0.9f, -r * 1.2f), sc + new Vector2(r * 1.5f, -r * 0.6f), sc + new Vector2(r * 0.9f, 0), sc + new Vector2(r * 0.3f, -r * 0.6f) }, col.Lightened(0.3f));
+            // the pad's arrow and the key under it
+            var lab = sc + (k == 1 ? new Vector2(19, 4) : new Vector2(-17, 20));
+            DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, on ? 0.85f : 0.45f));
+            string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing spends" : "attack, jump and fixed-range spell spend";
+            Tip(new Rect2(sc - new Vector2(11, 11), new Vector2(22, 22)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))}, d-pad {(k == 0 ? "left" : k == 1 ? "up" : "right")})",
+                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: the next ability you use becomes its {Elements.Name(el).ToLowerInvariant()} version. Charges come half a second apart. " + (Meta.DualCharges
                     ? $"Two charges wait at once (the same twice, or two different): the {dualBtn} both for the pair's own ability."
                     : "Press again to put it away."), true);
         }
+        // the middle: the charges in the order they'll go, and the charge's cooldown round them
+        var mid = c + new Vector2(0, 2);
+        DrawCircle(mid, 7.5f, new Color(0, 0, 0, 0.6f));
+        if (p.InfuseCooldownFrac > 0) DrawArc(mid, 9.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * p.InfuseCooldownFrac, 16, new Color(1f, 1f, 1f, 0.75f), 2f);
+        for (int k = 0; k < p.Charges.Count; k++)
+            DrawCircle(mid + new Vector2(p.Charges.Count == 1 ? 0 : (k == 0 ? -3f : 3f), 0), 2.8f, Elements.ColorOf(p.Charges[k]));
+        Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Charges", "The readied charges, oldest first (the oldest is spent first). The ring is the half second before another can be readied.", true);
         string label = p.DualReady ? $"{Elements.Name(p.Charges[0])} + {Elements.Name(p.Charges[1])}".ToUpperInvariant()
             : p.Infused != HeroElement.None ? $"{Elements.Name(p.Infused).ToUpperInvariant()}: NEXT USE" : extra;
         var labelCol = p.DualReady ? Elements.DualColor(p.Charges[0], p.Charges[1]) : p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(1, 1, 1, 0.55f);
-        if (label != "") DrawString(font, at + new Vector2(els.Length * 44 + 4, 4), label, HorizontalAlignment.Left, -1, 10, labelCol);
+        if (label != "") DrawString(font, c + new Vector2(R + 8f, 4), label, HorizontalAlignment.Left, -1, 10, labelCol);
     }
 
     /// <summary>An elemental ability's name, short enough for its square.</summary>
@@ -838,7 +886,8 @@ public partial class Hud : Control
         "Jump" => "JUMP", "Explosive Lunge" => "LUNGE", "Glacial Vault" => "VAULT", "Earthfall" => "EARTHFALL",
         "Fire Walk" => "FIREWALK", "Frost Tower" => "TOWER", "Fire Barrier" => "FIRE RING", "Frost Barrier" => "BARRIER",
         "Force Blast" => "BLAST", "Rain of Fire" => "FIRE RAIN", "Frostfire Lance" => "LANCE", "Frost Armor" => "ARMOR", "Narrow Draft" => "DRAFT",
-        "Fire Barrage" or "Frost Barrage" => "BARRAGE",
+        "Fire Barrage" or "Frost Barrage" => "BARRAGE", "Flamebreath" => "BREATH", "Meteorite" => "METEOR", "Cryometeor" => "CRYO",
+        "Kindling" => "KINDLE", "Hailstorm" => "HAIL", "Fire Storm" => "F.STORM", "Blizzard" => "BLIZZARD",
         _ => name.ToUpperInvariant(),
     };
 
@@ -846,18 +895,39 @@ public partial class Hud : Control
     private static Color SlotColor(Player p, ElemSlot slot, Color plain)
         => p.DualNameFor(slot) != "" ? Elements.DualColor(p.Charges[0], p.Charges[1]) : p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : plain;
 
-    /// <summary>The elemental Swordsman: Dash Slash, Empower Hilt, the Hard Swing and the jump, each square named for what the readied
-    /// charges would make of it.</summary>
+    /// <summary>The elemental Swordsman, every button with its cooldown: Swing, the jump, Dash Slash, Empower Hilt and the Hard Swing,
+    /// each square named for what the readied charges would make of it; the d-pad's elements above.</summary>
     private void DrawSwordsmanElemental(Font font, Player p, Vector2 ab)
     {
-        var dc = p.DodgeCooldowns;
-        for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(1f, 0.62f, 0.25f), "DASHSLASH");
         var el = p.Infused;
         string hiltNow = p.HiltLeft > 0 ? (p.HiltElement == HeroElement.None ? "HILT" : $"{Elements.Name(p.HiltElement).ToUpperInvariant()} HILT") + $" {p.HiltLeft:0}s" : "";
-        DrawElementRow(font, p, ab + new Vector2(0, -30), hiltNow != "" ? hiltNow : p.SwingElementRest > 0 ? $"SWING ELEMENT IN {p.SwingElementRest:0.0}s" : "");
-        var cb = ab + new Vector2(dc.Length * 40 + 16, 0);
+        DrawElementRow(font, p, ab + new Vector2(0, -74), hiltNow);
+        const float step = 54f;
+        // Swing: the element's rest after an elemental swing (meanwhile swings are plain)
+        var x = ab;
+        string swing = p.SwingElementRest > 0 || el == HeroElement.None ? "Swing" : Elements.SingleName(p.Stats.Hero, ElemSlot.Attack, el);
+        AbilitySquare(font, x, Short(swing), p.SwingElementRestFrac, p.SwingElementRest <= 0, swing != "Swing" ? Elements.ColorOf(el) : new Color(0.9f, 0.9f, 0.95f), (c, col) =>
+        {
+            DrawLine(c + new Vector2(-9, 9), c + new Vector2(9, -9), col, 3f);
+            DrawLine(c + new Vector2(-12, 5), c + new Vector2(-5, 12), new Color(0.55f, 0.35f, 0.2f), 3f);
+        }, swing, p.SwingElementRest);
+        KeyHint(font, x, "attack");
+        // the jump: what the readied element would make of it (its element rests a while after)
+        x += new Vector2(step, 0);
+        string jump = el != HeroElement.None && p.JumpElementRest <= 0 ? Elements.SingleName(p.Stats.Hero, ElemSlot.Move, el) : "Jump";
+        AbilitySquare(font, x, Short(jump), p.JumpElementRestFrac, p.JumpElementRest <= 0, jump != "Jump" ? Elements.ColorOf(el) : new Color(0.85f, 0.92f, 1f), JumpIcon, jump, p.JumpElementRest);
+        KeyHint(font, x, "jump");
+        // Dash Slash
+        x += new Vector2(step, 0);
+        var dc = p.DodgeCooldowns;
+        for (int k = 0; k < dc.Length; k++)
+            Dial(x + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(1f, 0.62f, 0.25f), "DASHSLASH", null, dc[k]);
+        DrawString(font, x + new Vector2(0, -6), "DASH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        KeyHint(font, x, "dodge");
+        // Empower Hilt
+        x += new Vector2(Math.Max(step, dc.Length * 40 + 14), 0);
         var hiltCol = p.HiltLeft > 0 && p.HiltElement != HeroElement.None ? Elements.ColorOf(p.HiltElement) : el != HeroElement.None ? Elements.ColorOf(el) : new Color(1f, 0.8f, 0.45f);
-        AbilitySquare(font, cb, p.HiltLeft > 0 ? "HILT ON" : "HILT", p.HiltLeft > 0 ? 0 : p.ElementAbilityFrac, p.HiltLeft > 0 || p.AbilityChargeReady, hiltCol, (c, col) =>
+        AbilitySquare(font, x, p.HiltLeft > 0 ? "HILT ON" : "HILT", p.HiltLeft > 0 ? 0 : p.ElementAbilityFrac, p.HiltLeft > 0 || p.AbilityChargeReady, hiltCol, (c, col) =>
         {
             // a hilt with a glowing pommel
             var d = new Vector2(1, -1).Normalized();
@@ -865,82 +935,94 @@ public partial class Hud : Control
             DrawLine(c - d * 10, c + d * 2, new Color(0.55f, 0.35f, 0.2f), 3.5f);
             DrawLine(c + d * 2 + perp * 6, c + d * 2 - perp * 6, col, 2.5f);
             DrawCircle(c - d * 11, 3.5f, col);
-        }, p.NameFor(ElemSlot.Aid));
-        UsePips(cb, p, hiltCol);
-        KeyHint(font, cb, "ability");
-        var hb = cb + new Vector2(50, 0);
+        }, p.NameFor(ElemSlot.Aid), p.HiltLeft > 0 ? 0f : p.AbilitySeconds);
+        UsePips(x, p, hiltCol);
+        KeyHint(font, x, "ability");
+        // the Hard Swing
+        x += new Vector2(step, 0);
         string hard = p.NameFor(ElemSlot.Heavy);
-        AbilitySquare(font, hb, Short(hard), p.HardSwingCooldownFrac, p.HardSwingCooldownFrac <= 0, SlotColor(p, ElemSlot.Heavy, new Color(0.85f, 0.92f, 1f)), (c, col) =>
+        AbilitySquare(font, x, Short(hard), p.HardSwingCooldownFrac, p.HardSwingCooldownFrac <= 0, SlotColor(p, ElemSlot.Heavy, new Color(0.85f, 0.92f, 1f)), (c, col) =>
         {
             DrawArc(c + new Vector2(-2, 4), 12, -Mathf.Pi * 0.95f, -Mathf.Pi * 0.05f, 12, new Color(col, 0.5f), 2f);
             var d = new Vector2(0.55f, 0.83f);
             var perp = new Vector2(-d.Y, d.X);
             DrawLine(c - d * 11 + new Vector2(6, -2), c - d * 5 + new Vector2(6, -2), new Color(0.55f, 0.35f, 0.2f), 3f);
             DrawColoredPolygon(new[] { c - d * 4 + perp * 2.2f + new Vector2(6, -2), c + d * 11 + new Vector2(6, -2), c - d * 4 - perp * 2.2f + new Vector2(6, -2) }, col);
-        }, hard);
-        KeyHint(font, hb, "ability2");
-        // the jump: what the readied element would make of it (the element rests a while after)
-        var jb = hb + new Vector2(50, 0);
-        string jump = p.Infused != HeroElement.None && p.JumpElementRest <= 0 ? Elements.SingleName(p.Stats.Hero, ElemSlot.Move, p.Infused) : "Jump";
-        var jumpCol = jump != "Jump" ? Elements.ColorOf(p.Infused) : new Color(0.85f, 0.92f, 1f);
-        AbilitySquare(font, jb, Short(jump), p.JumpElementRestFrac, true, jumpCol, (c, col) =>
-        {
-            // an arc of a leap over the ground
-            DrawArc(c + new Vector2(0, 8), 11, -Mathf.Pi, 0, 12, col, 2.5f);
-            DrawLine(c + new Vector2(-13, 9), c + new Vector2(13, 9), new Color(col, 0.5f), 2f);
-            DrawColoredPolygon(new[] { c + new Vector2(11, 5), c + new Vector2(15, 9), c + new Vector2(8, 9) }, col);
-        }, jump);
-        KeyHint(font, jb, "jump");
+        }, hard, p.HardSwingSeconds);
+        KeyHint(font, x, "ability2");
+        _gaugeEnd = x.X - ab.X + step + 6f;
     }
 
-    /// <summary>The elemental Elementalist: movement (the dodge), Aid, the fixed-range spell and the bolt, each named for what the readied
-    /// charges would make of it; the bolts in the staff, coloured by their element.</summary>
+    /// <summary>An arc of a leap over the ground (the jump's square).</summary>
+    private void JumpIcon(Vector2 c, Color col)
+    {
+        DrawArc(c + new Vector2(0, 8), 11, -Mathf.Pi, 0, 12, col, 2.5f);
+        DrawLine(c + new Vector2(-13, 9), c + new Vector2(13, 9), new Color(col, 0.5f), 2f);
+        DrawColoredPolygon(new[] { c + new Vector2(11, 5), c + new Vector2(15, 9), c + new Vector2(8, 9) }, col);
+    }
+
+    /// <summary>The elemental Elementalist, every button with its cooldown: the attack (the pop, or the bolts in the staff), Lift (the dodge),
+    /// the jump (the elements' movement), Aid and the fixed-range spell, each named for what the readied charges would make of it; the
+    /// d-pad's elements above.</summary>
     private void DrawElementalistElemental(Font font, Player p, Vector2 ab)
     {
         var mel = p.MissileElement;
-        string boltNow = p.NameFor(ElemSlot.Attack);
-        string boltNote = mel != HeroElement.None ? $"{Elements.Name(mel).ToUpperInvariant()} BOLTS x{p.MissileShots}" : "";
-        DrawElementRow(font, p, ab + new Vector2(0, -30), boltNote);
-        string move = p.NameFor(ElemSlot.Move);
-        var air = SlotColor(p, ElemSlot.Move, new Color(0.8f, 0.94f, 1f));
-        bool moveReady = p.UpdraftReady;
-        Dial(ab + new Vector2(17, 17), moveReady ? 0f : p.MoveCooldownFrac, air, null, move);
+        DrawElementRow(font, p, ab + new Vector2(0, -74), mel != HeroElement.None ? $"{Elements.Name(mel).ToUpperInvariant()} BOLTS x{p.MissileShots}" : "");
+        const float step = 66f;
+        var el = p.Infused;
+        // the attack: a pop (or the elements' bolts, or the pair's)
+        var x = ab;
+        string atk = p.NameFor(ElemSlot.Attack);
+        if (p.DualNameFor(ElemSlot.Attack) == "" && el == HeroElement.None && mel != HeroElement.None) atk = Elements.SingleName(p.Stats.Hero, ElemSlot.Attack, mel);
+        bool dualAtk = p.DualNameFor(ElemSlot.Attack) != "";
+        var atkCol = SlotColor(p, ElemSlot.Attack, mel != HeroElement.None ? Elements.ColorOf(mel) : ElementBolt.PlainColor);
+        // (nothing counted: the square rests only after a pair's bolt)
+        float atkFrac = dualAtk ? p.DualBoltCooldownFrac : 0f;
+        float atkSecs = dualAtk ? p.DualBoltSeconds : 0f;
+        AbilitySquare(font, x, Short(atk), atkFrac, atkFrac <= 0, atkCol, (c, col) =>
+        {
+            DrawCircle(c, 5f, col);
+            for (int k = 0; k < 6; k++) { var d = Vector2.Right.Rotated(k * Mathf.Tau / 6 + 0.3f); DrawLine(c + d * 7, c + d * 11, col, 1.6f); }
+        }, atk, atkSecs);
+        KeyHint(font, x, "attack");
+        // Lift (the dodge)
+        x += new Vector2(step, 0);
+        var lift = new Color(0.8f, 0.94f, 1f);
+        bool liftReady = p.UpdraftReady;
+        Dial(x + new Vector2(17, 17), liftReady ? 0f : p.MoveCooldownFrac, lift, null, "Lift", p.LiftSeconds);
         for (int k = -1; k <= 1; k++)
-            DrawLine(ab + new Vector2(17 + k * 5, 25), ab + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), moveReady ? new Color(air, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
-        DrawString(font, ab + new Vector2(0, -6), Short(move), HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
-        KeyHint(font, ab, "dodge");
-        var zb = ab + new Vector2(66, 0);
+            DrawLine(x + new Vector2(17 + k * 5, 25), x + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), liftReady ? new Color(lift, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
+        DrawStringOutline(font, x + new Vector2(0, -6), $"LIFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
+        DrawString(font, x + new Vector2(0, -6), $"LIFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.75f));
+        KeyHint(font, x, "dodge");
+        // the jump: the elements' movement (it rests a while after)
+        x += new Vector2(step, 0);
+        string jump = p.JumpElementRest <= 0 ? p.NameFor(ElemSlot.Move) : "Jump";
+        AbilitySquare(font, x, Short(jump), p.JumpElementRestFrac, p.JumpElementRest <= 0, jump != "Jump" ? SlotColor(p, ElemSlot.Move, lift) : lift, JumpIcon, jump, p.JumpElementRest);
+        KeyHint(font, x, "jump");
+        // Aid (the Extended button)
+        x += new Vector2(step, 0);
         string aid = p.NameFor(ElemSlot.Aid);
-        var aidCol = p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(0.75f, 0.9f, 1f);
-        AbilitySquare(font, zb, $"{Short(aid)} {p.BlizzardCost:0}", p.ElementAbilityFrac, p.AbilityChargeReady, aidCol, (c, col) =>
+        var aidCol = el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.75f, 0.9f, 1f);
+        AbilitySquare(font, x, $"{Short(aid)} {p.BlizzardCost:0}", p.ElementAbilityFrac, p.AbilityChargeReady, aidCol, (c, col) =>
         {
             // a ring about a small figure: help for those near
             DrawArc(c, 12, 0, Mathf.Tau, 20, col, 1.8f);
             DrawCircle(c + new Vector2(0, -4), 3f, col);
             DrawLine(c + new Vector2(0, -1), c + new Vector2(0, 6), col, 2f);
-        }, aid);
-        UsePips(zb, p, aidCol);
-        KeyHint(font, zb, "ability");
-        var sb = zb + new Vector2(80, 0);
+        }, aid, p.AbilitySeconds);
+        UsePips(x, p, aidCol);
+        KeyHint(font, x, "ability");
+        // the fixed-range spell (the Burst button)
+        x += new Vector2(step, 0);
         string fix = p.NameFor(ElemSlot.Heavy);
-        var fixCol = SlotColor(p, ElemSlot.Heavy, new Color(0.8f, 0.7f, 1f));
-        AbilitySquare(font, sb, $"{Short(fix)} {p.SnapCost:0}", p.SnapReady ? 0f : p.FixedCooldownFrac, p.SnapReady, fixCol, (c, col) =>
+        AbilitySquare(font, x, $"{Short(fix)} {p.SnapCost:0}", p.SnapReady ? 0f : p.FixedCooldownFrac, p.SnapReady, SlotColor(p, ElemSlot.Heavy, new Color(0.8f, 0.7f, 1f)), (c, col) =>
         {
             for (int k = 0; k < 8; k++) { var d = Vector2.Right.Rotated(k * Mathf.Tau / 8); DrawLine(c + d * 4, c + d * 12, col, 2f); }
             DrawCircle(c, 3.5f, col);
-        }, fix);
-        KeyHint(font, sb, "ability2");
-        var bp = sb + new Vector2(80, 10);
-        var boltCol = mel != HeroElement.None ? Elements.ColorOf(mel) : ElementBolt.PlainColor;
-        for (int k = 0; k < p.BoltChargesMax; k++)
-        {
-            var c = bp + new Vector2(6 + k * 12, 23);
-            DrawCircle(c, 4.2f, new Color(0, 0, 0, 0.6f));
-            DrawCircle(c, 3.2f, k < p.BoltCharges ? boltCol : new Color(0.4f, 0.42f, 0.46f));
-        }
-        DrawString(font, bp + new Vector2(0, 12), Short(boltNow), HorizontalAlignment.Left, -1, 10, new Color(SlotColor(p, ElemSlot.Attack, Colors.White), 0.7f));
-        var (bt, bb) = ElementTip(boltNow);
-        Tip(new Rect2(bp + new Vector2(0, 16), new Vector2(Math.Max(24, p.BoltChargesMax * 12 + 6), 16)), bt, bb, true);
+        }, fix, p.FixedSeconds);
+        KeyHint(font, x, "ability2");
+        _gaugeEnd = x.X - ab.X + step + 6f;
     }
 
     private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)

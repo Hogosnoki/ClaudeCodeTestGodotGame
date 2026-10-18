@@ -6,7 +6,9 @@ namespace DaggerCave;
 /// <summary>
 /// Wind-ups. Some casts take a moment to gather before they go off (a heal 0.4 s, a Rupture 0.8 s, the Aegis's shields 0.25 s, the
 /// Elementalist's firebolt 0.2 s, frostbolt 0.1 s, Blizzard 0.5 s and Stalag-Might 1 s, the Rogue's recall 0.4 s). The cost is paid and
-/// the cooldown started when the button is pressed; then, for the wind-up, the hero is slowed to a tenth (Tune.Hold.MoveShare: walking, swimming and falling alike; a rise or fall in progress is paused, not reset: it carries on when the wind-up ends), with no jumping,
+/// the cooldown started when the button is pressed; then, for the wind-up, the hero goes on in slow motion (Tune.Hold.MoveShare: a jump keeps rising
+/// and a fall keeps falling, walking and swimming alike, all at a tenth of the speed and every change to it at a tenth of the rate; at the end
+/// they carry on at full speed from where the slow motion left them), with no jumping,
 /// no dodging, animated in the cast to show it is under way (the animation lasts as long as the wind-up does);
 /// then the cast goes off. A stun, a freeze, a web, a snag or a death cuts it short and the cast is lost.
 /// </summary>
@@ -25,10 +27,12 @@ public partial class Player
     /// <summary>The farthest the hero got from where the last wind-up began, while it lasted (for the tests: it should be nothing).</summary>
     public float LastHoldDrift { get; private set; }
     private Vector2 _holdPos;
-    private float _holdVy;
 
     /// <summary>Test aid: the resources the casts spend, full.</summary>
     public void TestFill() { VitalForce = Stats.VitalForceMax; Alimus = Stats.AlimusMax; Fuel = Tune.AutomatonHero.FuelStart; }
+
+    /// <summary>Test aid: a wind-up of <paramref name="seconds"/> that fires nothing.</summary>
+    public void TestHold(float seconds) => Hold(seconds, "cast", () => { });
 
     /// <summary>Test aid: lets a wind-up run on by <paramref name="dt"/> (a scenario that drives a cast by hand, outside the physics loop).</summary>
     public void TestHoldTick(float dt) => TickHold(dt);
@@ -48,9 +52,6 @@ public partial class Player
         _holdPos = GlobalPosition;
         _holdT = _holdTotal = seconds;
         _holdFire = fire;
-        // (it slows at once, hanging in the air if you are in it; the rise or fall you were in is kept, and given back when the wind-up ends)
-        _holdVy = Velocity.Y;
-        Velocity *= Tune.Hold.MoveShare;
         Anim.OnceFor(clip, 3, seconds);
         _castGlow = Math.Max(_castGlow, glow * 0.6f);
     }
@@ -62,11 +63,8 @@ public partial class Player
         _holdFire = null;
     }
 
-    /// <summary>The wind-up is over: the rise or fall the hero was in when it began carries on (it is paused, not reset).</summary>
-    private void ResumeFromHold()
-    {
-        if (!IsOnFloor() && !InWater) Velocity = new Vector2(Velocity.X, _holdVy);
-    }
+    /// <summary>The wind-up is over: the hero's motion was only slowed, never stopped, so it simply goes on at full speed.</summary>
+    private void ResumeFromHold() { }
 
     private void TickHold(float dt)
     {

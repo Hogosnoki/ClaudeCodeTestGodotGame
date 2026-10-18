@@ -1992,8 +1992,11 @@ The Swordsman and the Elementalist fight with **elements** (`Core/Elements.cs`, 
 **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*. The next attack spends
 it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). One
 charge waits (pressed again, it's put away); once dual charges are unlocked, up to **two** (see *Dual charges* below; a third press drops
-the oldest). Charges fade 6 s after the last press. The HUD
-shows the hero's three elements over the ability squares (the readied ones lit, a second charge of one as a small second diamond), and
+the oldest). Readied charges wait as long as it takes, and a new one can be readied half a second after the last. The HUD
+shows the hero's three elements on a half circle over the ability squares, one at each point of a triangle as they sit on the d-pad (left,
+up, right; keys 1, 2, 3), the readied ones lit (a second charge of one as a small second diamond), the charges in the middle in the order
+they'll be spent with the half-second charge cooldown going round them; every button has its square with its cooldown and the seconds left
+written over it, and
 each square is named for the version the readied charges would make.
 
 **Build-up, not chances.** An elemental blow fills a creature's meter of that element (thin coloured bars over it); full, it takes hold and
@@ -2017,14 +2020,22 @@ The cards for the Charged Strike and Swift Heave aren't dealt to the elemental S
 
 | Elementalist (fire, frost, wind) | Plain | Fire | Frost | Wind |
 |---|---|---|---|---|
-| **Bolt** (attack; an element lasts 3 bolts) | a plain bolt (85% of a firebolt) | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
-| **Movement** (dodge button) | **Lift**: a push straight up, in the air too (2.5 s) | **Fire Walk**: 30% faster for 4 s, fire burning where you walk (9 s) | **Tundra**: the ground freezes 110 px each way for 6 s: heroes on it go faster, creatures are chilled and filled with frost (10 s) | **Updraft**: the aimed column (3 s) |
-| **Fixed range** (Burst button: a spot 130 px along the aim) | **Force Blast**: force, throws creatures out (4 s) | **Burst**: an explosion, 60 fire; the burning take a full build-up (combust) (7 s) | **Snap**: the frozen shatter, the rest 60 frost (7 s) | **Cyclone**: drags light creatures in, swallows shots (9 s) |
+| **Attack** (an element lasts 3 bolts; nothing counted, it goes as often as the gap between casts allows) | **Pop**: no bolt; a small burst (9) right on the creature nearest the aim within 120 px | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
+| **Jump** (movement; the element rests the jump's version a while) | a jump | **Fire Walk**: 30% faster for 4 s, fire burning where you walk (9 s) | **Tundra**: the ground freezes 110 px each way for 6 s: heroes on it go faster, creatures are chilled and filled with frost (10 s) | **Updraft**: a column along the aim (straight up, aimed nowhere) to ride the jump on (3 s) |
+| **Lift** (dodge button) | a push straight up, in the air too (2.5 s) | | | |
+| **Fixed range** (Burst button: a spot 130 px along the aim) | **Force Blast**: a wide (100 px) weak burst (7), throws creatures out (4 s) | **Burst**: an explosion, 60 fire; the burning take a full build-up (combust) (7 s) | **Snap**: the frozen shatter, the rest 60 frost (7 s) | **Cyclone**: drags light creatures in, swallows shots (9 s) |
 | **Aid** (Extended button, 8 s) | **Ward**: a barrier for you and friends near (11 s) | **Kindling**: you and friends near add 15 fire a blow (12 s) | **Frost Armor**: melee attackers are filled with frost (12 s) | **Narrow Draft**: you and friends near move 20% faster, jump higher (10 s) |
 
-The plain names (Lift, Force Blast, Ward) and Aid on the fourth button are my fill-ins, as are the Swordsman's frost and earth jumps;
-rename or swap them freely. The cards for Frostbolt, Firestorm, Cinder Snap, Kindling (the old chance card), Deep Chill and Shrapnel aren't
+The plain names (Pop, Lift, Force Blast, Ward) and Aid on the fourth button are my fill-ins, as are the Swordsman's frost and earth jumps;
+rename or swap them freely. The elemental Elementalist's spells cost far less alimus than the classic kit's (Lift 4, the fixed-range
+spell 2, Aid 6, paid as each comes back; his attack costs nothing), his alimus is always shown, and he has no orbs about him. The cards for Frostbolt, Firestorm, Cinder Snap, Kindling (the old chance card), Deep Chill and Shrapnel aren't
 dealt to the elemental Elementalist; the storm cards (wider, longer) work on the Cyclone, the Fire Storm and the Blizzard.
+
+**Casting slows the caster.** A cast that throws a projectile (a bolt, a dagger, a ward bolt, a wave, a barrage, a breath, a meteorite)
+slows the hero to 45% of their speed while it plays (0.3 s for a single shot; a volley or a breath, as long as it lasts). A wind-up (a cast
+gathering, `Player.Hold.cs`) is slow motion now, not a pause: a jump keeps rising and a fall keeps falling, at a tenth of the speed and with
+every change to the motion at a tenth of the rate, and when it ends the hero carries on at full speed (it used to stop the rise, drop the
+hero, then hand the rise back).
 
 ### Dual charges
 
@@ -2045,7 +2056,7 @@ nothing for the pair spends only the oldest charge, as with one. Each dual is it
 | Earth + Fire | **Magma Rend** | the floor splits and magma wells up along it for 5.5 s: creatures in it are **mired** (45% slower in everything) and burn | 15 s |
 | Fire + Frost | **Thermal Shock** | on a creature already burning, chilled or frozen the blow lands 2.5x as hard, puts out its fire and ice, and bursts into a cloud of steam that hides the heroes in it; on anything else, half a build-up of each | 12 s |
 
-| Elementalist | Bolt (attack) | Movement (dodge) | Fixed range (Burst button) |
+| Elementalist | Attack | Jump (movement) | Fixed range (Burst button) |
 |---|---|---|---|
 | Fire + Fire | **Meteorite**: falls on the thickest knot of creatures, smashing every platform it passes through (they grow back); 46 fire and full fire within 92 px (15 s) | **Flamebreath**: fire pours from the staff for 1.5 s in a 50° cone, burning creatures and shots; aimed down, it holds you up (11 s) | **Rain of Fire**: fire falls over the spot for 3 s, each fireball bursting where it lands (14 s) |
 | Frost + Frost | **Cryometeor**: the same fall in ice: everything about it is frozen solid, and the ground freezes over (a Tundra) (15 s) | **Frost Tower**: you leap and a pillar of ice (72 px) rises under you to stand and cast from, for 10 s. It's solid to creatures and to your feet; your friends walk through it. Creatures within 240 px go for it instead of a hero (their blows from beside it and their shots that meet it wear it down); it has 20 health x your max health over your starting health, and doesn't attack (13 s) | **Hailstorm**: hail over the spot for 3 s: frost, and it beats flying creatures down (14 s) |

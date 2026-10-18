@@ -184,6 +184,7 @@ public partial class Player
         if (Stats.CrescentWave && _waveCd <= 0)
         {
             _waveCd = Tune.Swordsman.WaveCooldown;
+            CastSlow();
             var wave = new SwordWave
             {
                 Position = GlobalPosition + new Vector2(0, -3) + aim * (_swingReach * 0.6f),
@@ -197,6 +198,7 @@ public partial class Player
         // Storm Edge: a charged swing looses a full-strength wave of its own
         if (_swingCharged && Stats.ChargeWave)
         {
+            CastSlow();
             var wave = new SwordWave
             {
                 Position = GlobalPosition + new Vector2(0, -3) + aim * (_swingReach * 0.6f),

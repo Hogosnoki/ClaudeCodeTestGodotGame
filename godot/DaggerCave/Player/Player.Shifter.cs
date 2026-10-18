@@ -655,6 +655,7 @@ public partial class Player
                 break;
             case FormSpecial.Spit:
                 G.Spawn(new SwordWave { Position = CastPoint, Dir = dir, Damage = FormDamage(f.SpecDmg * spec), Range = f.SpecRange, Speed = 420f });
+                CastSlow();
                 G.Sfx.Play("swing", GlobalPosition, -2, 0.1f, 1.5f);
                 break;
             case FormSpecial.Leap:

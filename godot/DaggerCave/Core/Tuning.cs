@@ -39,6 +39,9 @@ public static class Tune
         /// it and jump speed by its square root. Lower = floatier, slower arcs.
         /// </summary>
         public static float JumpVelocity = 420f, Gravity = 1350f, Floatiness = 0.76f;
+        /// <summary>Loosing a projectile (or pouring out a spell) slows the hero to CastSlowMult of their speed while the cast plays
+        /// (CastSlowSeconds for a single shot; a volley or a breath, as long as it lasts).</summary>
+        public static float CastSlowMult = 0.45f, CastSlowSeconds = 0.3f;
         public static float MaxFallSpeed = 420f;
         /// <summary>The movement stick's round dead zone (a share of its throw): see Player.ReadMove.</summary>
         public static float StickDeadzone = 0.2f;
@@ -1145,8 +1148,9 @@ public static class Tune
         public static float BurnDps = 4f, BurnSeconds = 5f, CombustDamage = 22f, CombustSplash = 0.5f, CombustRadius = 56f;
         public static float ChillSlow = 0.35f, ChillSeconds = 4f, FreezeSeconds = 3f, ShatterDamage = 30f, ShatterSplash = 0.4f, ShatterRadius = 52f;
         public static float StunSeconds = 1.2f, SapSlow = 0.2f, SapSeconds = 3f;
-        /// <summary>How long a readied element waits for an attack before it fades (s).</summary>
-        public static float InfuseSeconds = 6f;
+        /// <summary>How long after readying an element before another can be (a press inside it is kept and readies once it's over).
+        /// Readied charges wait for as long as it takes.</summary>
+        public static float ChargeCooldown = 0.5f;
     }
 
     /// <summary>
@@ -1191,14 +1195,19 @@ public static class Tune
         public static int MissileShots = 3;
         public static float PlainBolt = 0.85f, FireBuild = 50f, FrostBuild = 25f, GustDamage = 0.4f, GustPush = 260f;
         public static float StormFrostBuild = 20f, StormFireBuild = 30f, CyclonePull = 70f;
-        // movement
+        /// <summary>With nothing readied the attack is a pop: no bolt, a small burst on the creature within <c>PopRange</c> px nearest the aim
+        /// (<c>PopCone</c> degrees either way), <c>PopDamage</c>.</summary>
+        public static float PopRange = 120f, PopCone = 40f, PopDamage = 9f, PopRadius = 10f;
+        /// <summary>What the elemental Elementalist's spells cost in alimus (paid as each comes back): a bolt, Lift, the fixed-range spell, Aid.</summary>
+        public static float BoltCost = 0.8f, LiftCost = 4f, FixedCost = 2f, AidCost = 6f;
+        // movement: Lift on the dodge button; the elemental versions on the jump
         public static float LiftJump = 1f, LiftRest = 2.5f;
         public static float WalkMove = 1.3f, WalkSeconds = 4f, TrailLife = 2.5f, TrailTick = 0.3f, TrailBuild = 14f, TrailDamage = 1.5f, WalkRest = 9f;
         public static float TundraSeconds = 6f, TundraHalf = 110f, TundraTick = 0.4f, TundraBuild = 12f, TundraSlow = 0.3f, TundraRest = 10f;
         public static float UpdraftRest = 3f;
         // fixed range
-        public static float FixedRange = 130f, FixedRadius = 64f;
-        public static float BlastDamage = 12f, BurstDamage = 18f, BurstBuild = 60f, SnapBuild = 60f, SnapDamage = 8f;
+        public static float FixedRange = 130f, FixedRadius = 64f, BlastRadius = 100f;
+        public static float BlastDamage = 7f, BurstDamage = 18f, BurstBuild = 60f, SnapBuild = 60f, SnapDamage = 8f;
         public static float BlastRest = 4f, BurstRest = 7f, SnapRest = 7f, CycloneRest = 9f;
         // aid
         public static float AidRange = 160f, AidSeconds = 8f, TailwindMove = 1.2f, TailwindJump = 1.1f, KindleBuild = 15f, WardBarrier = 14f;

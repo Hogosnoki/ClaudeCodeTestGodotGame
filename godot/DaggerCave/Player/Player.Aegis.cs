@@ -87,6 +87,7 @@ public partial class Player
         _castGlow = 0.7f;
         float dmg = Tune.Aegis.BoltDamage * Stats.DamageMult * Stats.PrimaryDamageMult;
         var bolt = new ElementBolt { Position = CastPoint + dir * 6f, Dir = dir, Ward = true, Damage = dmg, Range = range, Speed = Tune.Aegis.BoltSpeed, Caster = this };
+        CastSlow();
         G.Spawn(bolt);
         NetSync.HeroVisual(bolt);
         G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);

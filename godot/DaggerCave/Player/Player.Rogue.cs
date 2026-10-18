@@ -154,6 +154,7 @@ public partial class Player
 
     private void Launch(int k, Vector2 dir, Vector2 from, bool surprise)
     {
+        CastSlow();
         var d = new ThrownDagger
         {
             Position = from + dir * 6f, Dir = dir, Index = k, Thrower = this,

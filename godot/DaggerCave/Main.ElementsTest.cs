@@ -37,6 +37,9 @@ public partial class Main
     /// <summary>Presses for one frame what <paramref name="inp"/> holds, then lets go.</summary>
     private IEnumerable<object> ElPress(PlayerInput inp, float after = 0.1f)
     {
+        // (an element waits out the charge's half second, and a jump waits for the ground)
+        while (inp.Infuse != 0 && G.Player.InfuseCooldown > 0) yield return null;
+        for (int f = 0; inp.Jump && f < 120 && !G.Player.IsOnFloor(); f++) yield return null;
         _scInput = inp;
         yield return null; yield return null;
         _scInput = default;
@@ -314,14 +317,58 @@ public partial class Main
         // (a spot for the fixed-range spells: the dummy where they land)
         void AtSpot() { foe.GlobalPosition = p.CastPoint + aim * Tune.ElementalStaff.FixedRange + new Vector2(0, 8); }
 
+        // a charge every half second: a second press inside it is kept, and readies once it's over
+        _scInput = new PlayerInput { Infuse = 1 }; yield return null; _scInput = default;
+        float cdAt = p.InfuseCooldown;
+        _scInput = new PlayerInput { Infuse = 2 }; yield return null; _scInput = default;
+        int early = p.Charges.Count;
+        bool inside = p.InfuseCooldown > 0;
+        foreach (var _ in ElWait(Tune.Elements.ChargeCooldown + 0.1f)) yield return null;
+        ScCheck($"charging an element has a half-second cooldown ({cdAt:0.00} s after a press): a press inside it waits ({early} charge then{(inside ? "" : ", the frame ran long")}, {p.Charges.Count} after)",
+            cdAt > 0f && (!inside || early == 1) && p.Charges.Count == 2);
+        foreach (var _ in ElWait(7f)) yield return null;
+        ScCheck($"idle charges don't fade: 7 s on, {p.Charges.Count} still readied", p.Charges.Count == 2);
+        p.TestClearCharges();
+        // nothing to count: the attack goes as often as the gap between casts allows
+        int pops0 = p.ElementalUses.Count(u => u == "Pop");
+        for (int k = 0; k < 6; k++) { foreach (var _ in ElPress(new PlayerInput { Attack = true, Aim = new Vector2(p.Facing, 0), AimGiven = true }, Tune.Elementalist.BoltGap + 0.15f)) yield return null; }
+        ScCheck($"no bolts to count: six attacks in a row all go ({p.ElementalUses.Count(u => u == "Pop") - pops0})", p.ElementalUses.Count(u => u == "Pop") - pops0 == 6);
+        // a cast in mid-jump: the jump goes on rising, slowly, and carries on at full speed after (it isn't paused, nor turned to a fall)
+        while (!p.IsOnFloor()) yield return null;
+        _scInput = new PlayerInput { Jump = true, JumpHeld = true }; yield return null;
+        _scInput = new PlayerInput { JumpHeld = true };
+        p.TestHold(0.6f);
+        float jvy0 = p.Velocity.Y, jy0 = p.GlobalPosition.Y, jylast = jy0, jvyEnd = jvy0;
+        bool jfell = false;
+        for (int f = 0; f < 60 && p.Holding; f++)
+        {
+            if (p.GlobalPosition.Y > jylast + 0.01f) jfell = true;
+            jylast = p.GlobalPosition.Y;
+            jvyEnd = p.Velocity.Y;
+            yield return null;
+        }
+        _scInput = default;
+        ScCheck($"a cast in mid-jump slows the jump instead of stopping it: still rising through the wind-up ({jy0 - jylast:0} px up, no fall {!jfell}), and rising on as it ends ({jvy0:0} -> {jvyEnd:0} px/s)",
+            jvy0 < -100f && !jfell && jy0 - jylast > 2f && jvyEnd < -50f);
+        ScCheck($"the spells cost far less: Lift {p.UpdraftCost:0}, fixed range {p.SnapCost:0}, Aid {p.BlizzardCost:0} (were {Tune.Elementalist.UpdraftCost:0}, {Tune.Elementalist.SnapCost:0}, {Tune.Elementalist.BlizzardCost:0})",
+            p.UpdraftCost < Tune.Elementalist.UpdraftCost * 0.5f && p.BlizzardCost < Tune.Elementalist.BlizzardCost * 0.5f);
+
         // the bolt: fire on the staff lasts three bolts
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
         ScShot("elements_hud");
-        for (int k = 0; k < 2; k++) { Ready(); foreach (var _ in ElPress(Bolt(), 0.7f)) yield return null; }
+        bool slowed = false;
+        for (int k = 0; k < 2; k++)
+        {
+            Ready();
+            _scInput = Bolt(); yield return null; yield return null; _scInput = default;
+            for (float t = 0; t < 0.7f; t += (float)GetProcessDeltaTime()) { slowed |= p.CastSlowed; yield return null; }
+        }
+        ScCheck($"loosing a bolt slows the caster while it plays ({slowed})", slowed);
         ScCheck($"two Firebolts set it alight ({foe.Ignited}; {p.MissileShots} fire bolt left)", foe.Ignited && p.MissileShots == 1 && p.ElementalUses.Count(u => u == "Firebolt") == 2);
         Ready(); foreach (var _ in ElPress(Bolt(), 0.7f)) yield return null;
-        Ready(); float b0 = foe.FireBuild; foreach (var _ in ElPress(Bolt(), 0.7f)) yield return null;
-        ScCheck($"after the third the bolts are plain ({p.MissileElement}; fire {b0:0} -> {foe.FireBuild:0})", p.MissileElement == HeroElement.None && foe.FireBuild <= b0 + 0.5f);
+        Ready(); float b0 = foe.FireBuild, hp0 = foe.Hp; int pops = p.ElementalUses.Count(u => u == "Pop"); foreach (var _ in ElPress(Bolt(), 0.7f)) yield return null;
+        ScCheck($"after the third, with nothing readied, the attack is a pop: no bolt, a small burst on the creature ({hp0 - foe.Hp:0} damage, fire {b0:0} -> {foe.FireBuild:0})",
+            p.MissileElement == HeroElement.None && p.ElementalUses.Count(u => u == "Pop") > pops && foe.Hp < hp0 && foe.FireBuild <= b0 + 0.5f && hp0 - foe.Hp < Tune.Elementalist.FireDamage);
 
         // the fixed-range spell: Burst (on the burning: combust), Snap (chill, then shatter the frozen), Force Blast
         Ready(); AtSpot();
@@ -375,16 +422,16 @@ public partial class Main
         Ready();
         float sp0 = p.Stats.MoveSpeed;
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
-        foreach (var _ in ElPress(new PlayerInput { Dodge = true }, 0.1f)) yield return null;
-        ScCheck($"fire's movement is Fire Walk: quicker ({sp0:0.00} -> {p.Stats.MoveSpeed:0.00}), fire left behind ({p.LastElementSpell is FireTrail})", p.ElementalUses.Contains("Fire Walk") && p.Stats.MoveSpeed > sp0 && p.LastElementSpell is FireTrail);
+        foreach (var _ in ElPress(new PlayerInput { Jump = true, JumpHeld = true }, 0.1f)) yield return null;
+        ScCheck($"fire's jump is Fire Walk: quicker ({sp0:0.00} -> {p.Stats.MoveSpeed:0.00}), fire left behind ({p.LastElementSpell is FireTrail})", p.ElementalUses.Contains("Fire Walk") && p.Stats.MoveSpeed > sp0 && p.LastElementSpell is FireTrail);
         foreach (var _ in ElWait(Tune.ElementalStaff.WalkSeconds + 0.3f)) yield return null;
         foe.QueueFree();
         foe = ElDummy(p, 60);
         foreach (var _ in ElWait(0.2f)) yield return null;
         Ready();
         foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.05f)) yield return null;
-        foreach (var _ in ElPress(new PlayerInput { Dodge = true }, 1.4f)) yield return null;
-        ScCheck($"frost's movement is Tundra: the ground freezes, the creature on it chilled ({foe.Chilled}, {foe.FrostBuild:0} frost) and the hero quicker on it ({p.HasBuff(Player.BuffTailwind)})",
+        foreach (var _ in ElPress(new PlayerInput { Jump = true, JumpHeld = true }, 1.4f)) yield return null;
+        ScCheck($"frost's jump is Tundra: the ground freezes, the creature on it chilled ({foe.Chilled}, {foe.FrostBuild:0} frost) and the hero quicker on it ({p.HasBuff(Player.BuffTailwind)})",
             p.ElementalUses.Contains("Tundra") && foe.Chilled && p.HasBuff(Player.BuffTailwind));
         ScShot("elements_tundra");
         foreach (var _ in ElWait(Tune.ElementalStaff.TundraSeconds)) yield return null;
@@ -426,7 +473,7 @@ public partial class Main
         void Ready() { p.TestResetSpells(); p.TestResetDualBolt(); p.SetAlimus(9999); }
         PlayerInput Bolt() => new() { Attack = true, Aim = aim, AimGiven = true };
         PlayerInput Fixed() => new() { Ability2 = true, Aim = aim, AimGiven = true };
-        PlayerInput Move() => new() { Dodge = true, Aim = aim, AimGiven = true };
+        PlayerInput Move() => new() { Jump = true, JumpHeld = true, Aim = aim, AimGiven = true };
         foreach (var _ in ElWait(0.6f)) yield return null;
 
         // the names on the buttons for each pair
@@ -486,8 +533,7 @@ public partial class Main
         Ready();
         float y0 = p.GlobalPosition.Y;
         foreach (var _ in ElPair(p, 2, 2)) yield return null;
-        _scInput = Move(); yield return null; yield return null; _scInput = default;
-        foreach (var _ in ElWait(1.4f)) yield return null;
+        foreach (var _ in ElPress(Move(), 1.4f)) yield return null;
         var tower = p.LastTower;
         ScCheck($"Frost Tower: a pillar of ice ({tower?.Risen:0} px, {tower?.MaxHp:0} health) the caster stands on ({y0 - p.GlobalPosition.Y:0} px up, on the ground {p.IsOnFloor()})",
             p.ElementalUses.Contains("Frost Tower") && tower != null && tower.Standing && p.IsOnFloor() && y0 - p.GlobalPosition.Y > Tune.Dual.TowerHeight * 0.8f);
@@ -545,6 +591,7 @@ public partial class Main
         // Rain of Fire / Hailstorm (fixed range)
         Clear();
         a = Add(Tune.ElementalStaff.FixedRange);
+        a.GlobalPosition = p.CastPoint + aim * Tune.ElementalStaff.FixedRange + new Vector2(0, 8);
         foreach (var _ in ElWait(0.2f)) yield return null;
         Ready();
         foreach (var _ in ElPair(p, 1, 1)) yield return null;

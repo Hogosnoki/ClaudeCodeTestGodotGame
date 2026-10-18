@@ -53,7 +53,8 @@ public static class Elements
 
     /// <summary>
     /// What an element (or none) makes of each button. The Swordsman: Swing, the jump, the Hard Swing and Empower Hilt; the Elementalist:
-    /// the bolt, movement (the dodge button), the fixed-range spell (the Burst button) and Aid (the Extended button).
+    /// the attack (a pop; a bolt with an element), movement (the jump; Lift, on the dodge button, is always plain), the fixed-range spell
+    /// (the Burst button) and Aid (the Extended button).
     /// </summary>
     public static string SingleName(HeroKind h, ElemSlot slot, HeroElement e)
     {
@@ -67,8 +68,8 @@ public static class Elements
             };
         return slot switch
         {
-            ElemSlot.Attack => e switch { HeroElement.Fire => "Firebolt", HeroElement.Frost => "Frostbolt", HeroElement.Wind => "Gust", _ => "Bolt" },
-            ElemSlot.Move => e switch { HeroElement.Fire => "Fire Walk", HeroElement.Frost => "Tundra", HeroElement.Wind => "Updraft", _ => "Lift" },
+            ElemSlot.Attack => e switch { HeroElement.Fire => "Firebolt", HeroElement.Frost => "Frostbolt", HeroElement.Wind => "Gust", _ => "Pop" },
+            ElemSlot.Move => e switch { HeroElement.Fire => "Fire Walk", HeroElement.Frost => "Tundra", HeroElement.Wind => "Updraft", _ => "Jump" },
             ElemSlot.Heavy => e switch { HeroElement.Fire => "Burst", HeroElement.Frost => "Snap", HeroElement.Wind => "Cyclone", _ => "Force Blast" },
             _ => e switch { HeroElement.Fire => "Kindling", HeroElement.Frost => "Frost Armor", HeroElement.Wind => "Narrow Draft", _ => "Ward" },
         };

@@ -784,7 +784,8 @@ public sealed partial class HeroDesign : CreatureDesign
         {
             var orb = m.GetNodeOrNull<Node3D>(k == 0 ? "Pivot/Skeleton/StaffHand/" + OrbNames[k] : k < BoltOrbs ? "Pivot/Skeleton/OrbHandL/" + OrbNames[k] : "Pivot/Skeleton/OrbRing/" + OrbNames[k]);
             if (orb == null) continue;
-            bool on = !dead && k switch
+            // (the elemental Elementalist has no orbs: his bolts aren't counted, and his spells' readiness is on the HUD)
+            bool on = !dead && !(player?.Elemental ?? false) && k switch
             {
                 < BoltOrbs => k < max && charges > k,
                 BoltOrbs => player?.UpdraftOrb ?? true,

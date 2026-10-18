@@ -243,12 +243,14 @@ public partial class Player
             if (start.DistanceTo(target) < 60f) start = target + from * 60f;
             bool frost = a == HeroElement.Frost;
             Launch(new Meteor { Position = start, Target = target, Frost = frost, Damage = (frost ? Tune.Dual.CryoDamage : Tune.Dual.MeteorDamage) * power });
+            CastSlow(0.4f);
         }
         else
         {
             // Fire Barrage / Frost Barrage: the wind lends the staff a volley, fanned along the aim
             var el = a == HeroElement.Wind ? b : a;
             Launch(new Barrage { Position = CastPoint, El = el, Aim = aim });
+            CastSlow(Tune.Dual.BarrageBolts * Tune.Dual.BarrageEvery + 0.15f);
         }
         _dualBoltCd = _dualBoltTotal = rest;
         LastCast = a == HeroElement.Frost ? "frost" : "fire";
@@ -274,8 +276,8 @@ public partial class Player
         G.Sfx.Play(el == HeroElement.Frost ? "clink" : "throw", CastPoint, -12, 0.1f, 1.7f);
     }
 
-    /// <summary>The dodge button with two charges: Flamebreath, Frost Tower, Fire Barrier or Frost Barrier.</summary>
-    private bool DualMove(Vector2 aim)
+    /// <summary>The jump with two charges: Flamebreath, Frost Tower, Fire Barrier or Frost Barrier. Returns the jump's velocity.</summary>
+    private Vector2 DualMove(Vector2 v, float jumpV, Vector2 aim)
     {
         var (a, b) = SpendPair();
         string name = Elements.DualName(Stats.Hero, ElemSlot.Move, a, b);
@@ -284,15 +286,15 @@ public partial class Player
         {
             // Flamebreath: fire pours from the staff (aimed down, it holds you up)
             rest = Tune.Dual.BreathRest;
-            Launch(new FlameBreath { Position = CastPoint, Dir = aim });
+            Launch(new FlameBreath { Position = CastPoint, Dir = aim.Y < -0.9f ? new Vector2(Facing, 0.2f).Normalized() : aim });
+            CastSlow(Tune.Dual.BreathSeconds);
         }
         else if (a == b)
         {
             // Frost Tower: you leap, and a pillar of ice rises under you to stand and cast from
             rest = Tune.Dual.TowerRest;
             if (!Ground.Below(GlobalPosition, 60, out var floor)) floor = GlobalPosition + new Vector2(0, 13);
-            _liftTo = -BaseJumpV * Tune.Dual.TowerJump;
-            _terminalT = 0f;
+            v.Y = -jumpV * Tune.Dual.TowerJump;
             var tower = new FrostTower { Position = floor, Caster = this, MaxHp = Tune.Dual.TowerHp * Stats.MaxHp / Math.Max(1f, Tune.Elementalist.StartHp) };
             G.Spawn(tower);
             LastTower = tower;
@@ -311,11 +313,9 @@ public partial class Player
             G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 22, new Color(Elements.ColorOf(HeroElement.Frost), 0.95f), 0.4f, FxLayer.RingStyle.Burst);
             G.Fx.Burst(GlobalPosition + new Vector2(0, -4), new Color(0.9f, 0.97f, 1f), 12, 80, 2f, 0.4f, 0);
         }
-        _updraftCd = _updraftCdTotal = rest;
-        _updraftOwes = true;
-        LastCast = "updraft";
+        _jumpElemRest = _jumpRestTotal = rest;
         CastDual(name, Elements.DualColor(a, b), a);
-        return true;
+        return v;
     }
 
     /// <summary>The Burst button with two charges: Rain of Fire, Hailstorm, Fire Storm, Blizzard, Tornado or Frostfire Lance.</summary>
@@ -386,6 +386,7 @@ public partial class Player
         var dir = t != null ? (t.GlobalPosition - CastPoint).Normalized() : aim;
         CastDir = dir;
         var from = CastPoint;
+        CastSlow();
         G.Cave.Raycast(from, dir, Tune.Dual.LanceRange, out var end, 4f);
         Breakables.Spell(from, end, 8f);
         int struck = 0;
