@@ -28,6 +28,9 @@ public static class Controls
         ("ability2", "Second ability"),
         // (each dot keeps to the word after it, so a wrapped name breaks before one)
         ("dodge", "Dodge  ·\u00a0\u00a0shield  ·\u00a0\u00a0hex  ·\u00a0\u00a0updraft (hold to aim, let go to raise)  ·\u00a0\u00a0vanish"),
+        ("infuse_1", "Element 1  ·  earth (Swordsman) · fire (Elementalist)"),
+        ("infuse_2", "Element 2  ·  fire (Swordsman) · frost (Elementalist)"),
+        ("infuse_3", "Element 3  ·  frost (Swordsman) · wind (Elementalist)"),
         ("potion", "Drink a potion"),
         ("milestone", "Spend a milestone point"),
         ("support", "Support ability  ·  shout · taunt · tap · stalag · expose · mark · howl"),
@@ -44,9 +47,10 @@ public static class Controls
     /// <summary>The default bindings of every action (rebindable or not).</summary>
     private static Dictionary<string, InputEvent[]> Defaults() => new()
     {
-        ["move_left"] = new InputEvent[] { K(Key.A), K(Key.Left), Ax(JoyAxis.LeftX, -1), J(JoyButton.DpadLeft) },
-        ["move_right"] = new InputEvent[] { K(Key.D), K(Key.Right), Ax(JoyAxis.LeftX, 1), J(JoyButton.DpadRight) },
-        ["move_up"] = new InputEvent[] { K(Key.W), K(Key.Up), Ax(JoyAxis.LeftY, -1), J(JoyButton.DpadUp) },
+        // (the d-pad's left, up and right are the elements: the left stick moves)
+        ["move_left"] = new InputEvent[] { K(Key.A), K(Key.Left), Ax(JoyAxis.LeftX, -1) },
+        ["move_right"] = new InputEvent[] { K(Key.D), K(Key.Right), Ax(JoyAxis.LeftX, 1) },
+        ["move_up"] = new InputEvent[] { K(Key.W), K(Key.Up), Ax(JoyAxis.LeftY, -1) },
         ["move_down"] = new InputEvent[] { K(Key.S), K(Key.Down), Ax(JoyAxis.LeftY, 1), J(JoyButton.DpadDown) },
         ["jump"] = new InputEvent[] { K(Key.Space), J(JoyButton.A) },
         ["attack"] = new InputEvent[] { M(MouseButton.Left), K(Key.J), J(JoyButton.X) },
@@ -54,6 +58,9 @@ public static class Controls
         ["ability2"] = new InputEvent[] { K(Key.F), M(MouseButton.Middle), K(Key.I), Ax(JoyAxis.TriggerRight, 1) },
         ["dodge"] = new InputEvent[] { K(Key.Shift), K(Key.L), J(JoyButton.B), J(JoyButton.LeftShoulder) },
         ["potion"] = new InputEvent[] { K(Key.Q), J(JoyButton.Y) },
+        ["infuse_1"] = new InputEvent[] { K(Key.Key1), J(JoyButton.DpadLeft) },
+        ["infuse_2"] = new InputEvent[] { K(Key.Key2), J(JoyButton.DpadUp) },
+        ["infuse_3"] = new InputEvent[] { K(Key.Key3), J(JoyButton.DpadRight) },
         ["milestone"] = new InputEvent[] { K(Key.M), J(JoyButton.Back) },
         ["rope"] = new InputEvent[] { K(Key.C), J(JoyButton.RightStick) },
         ["support"] = new InputEvent[] { K(Key.V), M(MouseButton.Xbutton1), J(JoyButton.LeftStick) },
@@ -191,7 +198,7 @@ public static class Controls
     }
 
     /// <summary>Bumped when the defaults change in a way saved bindings should pick up.</summary>
-    private const int BindingsVersion = 4;
+    private const int BindingsVersion = 5;
 
     public static void Save(ConfigFile cfg)
     {
@@ -243,6 +250,11 @@ public static class Controls
             SetPad("rope", JoyButton.LeftStick, JoyButton.RightStick, true);
             SetPad("milestone", JoyButton.RightStick, JoyButton.Back, true);
         }
+        // version 5: the d-pad's left, up and right are the three elements (the left stick moves)
+        if (version < 5)
+            foreach (var (action, b) in new[] { ("move_left", JoyButton.DpadLeft), ("move_right", JoyButton.DpadRight), ("move_up", JoyButton.DpadUp) })
+                foreach (var e in Bindings(action, true))
+                    if (e is InputEventJoypadButton jb && jb.ButtonIndex == b) InputMap.ActionEraseEvent(action, e);
     }
 
     // ---------------------------------------------------------------- names

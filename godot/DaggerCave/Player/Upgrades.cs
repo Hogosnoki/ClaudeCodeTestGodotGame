@@ -695,7 +695,13 @@ public static partial class Upgrades
     };
 
     /// <summary>A hero's abilities, in the order their trees are shown: (key, name).</summary>
-    public static (string key, string name)[] Abilities(HeroKind h) => h switch
+    /// <summary>The cards the elemental kits leave out (<see cref="Elements"/>).</summary>
+    public static bool RetiredByElements(string id) => id is "charge_cd" or "charge2" or "cripple" or "charge_combo" or "heave_swift"
+        or "kindling" or "deepchill" or "shrapnel" or "bolt_frost" or "blizzard_fire" or "snap_cinder";
+
+    public static (string key, string name)[] Abilities(HeroKind h) => Elements.On(h) ? h == HeroKind.Swordsman
+        ? new[] { ("sword", "Swing"), ("charge", "Empower Hilt"), ("heave", "Hard Swing"), ("dodge", "Dash Slash") }
+        : new[] { ("bolt", "Missile"), ("updraft", "Aid"), ("blizzard", "Extended"), ("snap", "Burst") } : h switch
     {
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Shield"), ("dash", "Guarded Charge"), ("bash", "Shield Bash") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },
@@ -733,6 +739,8 @@ public static partial class Upgrades
         foreach (var ex in u.Excludes) if (s.StackOf(ex) > 0) return false;
         // an ability takes one alteration at most
         if (u.Alteration && AlterationOf(s, u.Ability) != null) return false;
+        // (the elemental kits have no use for what their elements replaced: the Charged Strike, chances to ignite or freeze, the old side-grades)
+        if (Elements.On(s.Hero) && RetiredByElements(u.Id)) return false;
         // ("Back to...": only while the hero has that side-grade)
         if (u.RevertOf != null && s.StackOf(u.RevertOf) == 0) return false;
         return true;

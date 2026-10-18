@@ -1127,6 +1127,66 @@ public static class Tune
         public static float FavorCardMult = 1.2f;
     }
 
+    /// <summary>
+    /// The elemental heroes (<c>Core/Elements.cs</c>, <c>Enemies/Enemy.Elements.cs</c>). A creature's build-up of an element fills to
+    /// <c>Full</c> (elites take <c>EliteTake</c> of it, guardians and bosses <c>BossTake</c>), starts to drain <c>DecayDelay</c> s after the
+    /// last that reached it, at <c>DecayRate</c> a second. Full of fire: alight (<c>BurnDps</c> x the hero's damage for <c>BurnSeconds</c>);
+    /// full again while alight: it combusts (<c>CombustDamage</c> x the hero's damage plus what the fire had left, <c>CombustSplash</c> of it
+    /// to whatever is within <c>CombustRadius</c>). Full of frost: chilled (<c>ChillSlow</c> for <c>ChillSeconds</c>); full again while
+    /// chilled: frozen solid for <c>FreezeSeconds</c> (a creature that can't be frozen is chilled harder). A frozen creature shattered by a
+    /// heavy blow takes <c>ShatterDamage</c> x the hero's damage, <c>ShatterSplash</c> of it round about. Full of earth: stunned
+    /// <c>StunSeconds</c> (one that can't be stunned is weakened instead). Sapped (earth): its attacks play <c>SapSlow</c> slower.
+    /// </summary>
+    public static class Elements
+    {
+        public static float Full = 100f, EliteTake = 0.7f, BossTake = 0.4f, DecayDelay = 2f, DecayRate = 30f;
+        public static float BurnDps = 4f, BurnSeconds = 5f, CombustDamage = 22f, CombustSplash = 0.5f, CombustRadius = 56f;
+        public static float ChillSlow = 0.35f, ChillSeconds = 4f, FreezeSeconds = 3f, ShatterDamage = 30f, ShatterSplash = 0.4f, ShatterRadius = 52f;
+        public static float StunSeconds = 1.2f, SapSlow = 0.2f, SapSeconds = 3f;
+        /// <summary>How long a readied element waits for an attack before it fades (s).</summary>
+        public static float InfuseSeconds = 6f;
+    }
+
+    /// <summary>
+    /// The elemental Swordsman (<c>Player/Player.Elemental.cs</c>). Swing: plain, or Earth = the Heaving Swing (<c>HeaveDamage</c>,
+    /// <c>EarthBuild</c>), Fire = Pyre Strike, Frost = Razor Ice (<c>MediumDamage</c>, <c>MediumBuild</c>); the element waits
+    /// <c>SwingRest</c> s (by element: earth, fire, frost) before it can be lent to a swing again. Hard Swing: plain (<c>HardDamage</c>,
+    /// <c>HardRest</c>), ThunderCrush (earth: <c>CrushDamage</c>, full earth, shatters the frozen), Pyroclasm (fire) and Ice Axe (frost),
+    /// each its own rest and a full build-up. Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
+    /// frost <c>HiltFrost</c>, fire <c>HiltFire</c> build-up a blow; rests by element.
+    /// </summary>
+    public static class ElementalSword
+    {
+        public static float HeaveDamage = 2f, EarthBuild = 60f, MediumDamage = 1.25f, MediumBuild = 50f;
+        public static float SwingRestEarth = 2.5f, SwingRestFire = 1.2f, SwingRestFrost = 1.2f;
+        public static float HardDamage = 1.6f, CrushDamage = 2.6f, PyroDamage = 2.2f, AxeDamage = 2f;
+        public static float HardRest = 5f, CrushRest = 12f, PyroRest = 10f, AxeRest = 7f, CrushWindup = 1.35f;
+        public static float HiltSeconds = 8f, HiltDamage = 0.2f, HiltFrost = 20f, HiltFire = 25f;
+        public static float HiltRest = 12f, HiltRestEarth = 14f, HiltRestFrost = 14f, HiltRestFire = 14f;
+    }
+
+    /// <summary>
+    /// The elemental Elementalist (<c>Player/Player.Elemental.cs</c>). Missile: an element lent to it lasts <c>MissileShots</c> bolts;
+    /// plain bolts deal <c>PlainBolt</c> of a firebolt; Firebolt <c>FireBuild</c>, Frostbolt <c>FrostBuild</c> a bolt; Gust deals
+    /// <c>GustDamage</c> of a firebolt and shoves light creatures <c>GustPush</c>. Burst (every creature in view; Gust within <c>GustRadius</c>):
+    /// plain pulse <c>PulseDamage</c> within <c>PulseRadius</c>; rests by element. Extended (the storm): build-up a strike by element; Cyclone
+    /// pulls light creatures <c>CyclonePull</c> a strike and swallows creatures' shots inside it; its rest scales by <c>StormRest</c>. Aid:
+    /// plain = the updraft; Narrow Draft (wind: everyone within <c>AidRange</c> moves <c>TailwindMove</c> x faster, jumps <c>TailwindJump</c> x),
+    /// Frost Armor (frost: melee attackers get a full frost build-up), Kindling (fire: everyone within range adds <c>KindleBuild</c> fire a blow),
+    /// for <c>AidSeconds</c>; rests by element.
+    /// </summary>
+    public static class ElementalStaff
+    {
+        public static int MissileShots = 3;
+        public static float PlainBolt = 0.85f, FireBuild = 50f, FrostBuild = 25f, GustDamage = 0.4f, GustPush = 260f;
+        public static float PulseDamage = 12f, PulseRadius = 90f, GustRadius = 150f, GustShove = 420f, GustBurstDamage = 4f;
+        public static float BurstRest = 4f, DetonateRest = 9f, ShatterRest = 9f, GustRest = 5f;
+        public static float StormFrostBuild = 20f, StormFireBuild = 30f, CyclonePull = 70f, PlainStormDamage = 0.6f;
+        public static float StormRestPlain = 0.8f, StormRestFire = 1.15f, StormRestFrost = 1f, StormRestWind = 0.85f;
+        public static float AidRange = 160f, AidSeconds = 8f, TailwindMove = 1.2f, TailwindJump = 1.1f, KindleBuild = 15f;
+        public static float AidRestWind = 10f, AidRestFrost = 12f, AidRestFire = 12f;
+    }
+
     /// <summary>The Nest's hornet hive (<c>Enemies/Hive.cs</c>): a tough paper nest hung from a room's ceiling. It keeps <c>Keep</c> hornets about it, and sends out a new one
     /// <c>Respawn</c> s (give or take <c>Jitter</c>) after one is lost; destroying it leaves a chest of upgrades. <c>Chance</c>: of a Nest level having one.</summary>
     public static class Hive

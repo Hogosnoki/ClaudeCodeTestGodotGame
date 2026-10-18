@@ -72,6 +72,21 @@ public partial class Hud
             "VANISH" or "SMOKE" => ("Vanish", "Slip out of sight: the creatures lose you for a moment."),
             "BUBBLE" or "WARD" => ("Bubble", "A bubble round you or the friend you aim at; its wearer breathes under water."),
             "UPDRAFT" => ("Updraft", "Hold to aim, let go to raise a column of air anyone can float in."),
+            // (the elemental kits: each square names the version the readied element would make)
+            "HILT" => ("Empower Hilt", "For 8 s every blow carries it: plain, 20% harder; earth saps a creature's attacks; frost and fire fill its build-up. Ready an element first to choose."),
+            "HARD" => ("Hard Swing", "A slow, rooted heavy blow. Ready earth for ThunderCrush, fire for Pyroclasm, frost for Ice Axe."),
+            "CRUSH" => ("ThunderCrush", "Earth's Hard Swing: slow and crushing, a full earth build-up (a stun), and it shatters the frozen. Rests a long while."),
+            "PYRO" => ("Pyroclasm", "Fire's Hard Swing: a full fire build-up (alight; alight already, it combusts). Rests a long while."),
+            "ICE" => ("Ice Axe", "Frost's Hard Swing: a full frost build-up (chilled; chilled already, frozen solid). Rests a while."),
+            "TEMPEST" => ("Tempest", "A plain storm of force at the aim. Ready fire for a Firestorm, frost for a Blizzard, wind for a Cyclone."),
+            "CYCLONE" => ("Cyclone", "Wind's storm: it drags light creatures into its middle and swallows the shots that fly into it."),
+            "PULSE" => ("Pulse", "A burst of force round you. Ready fire to Detonate, frost to Shatter, wind for a Gust."),
+            "DETONATE" => ("Detonate", "Every creature in view takes a full fire build-up: alight, or, alight already, it combusts."),
+            "SHATTER" => ("Shatter", "Every frozen creature in view shatters; every other takes a full frost build-up."),
+            "GUST" => ("Gust", "A blast of wind round you: creatures are flung away (light ones far) and shots turned back."),
+            "KINDLING" => ("Kindling", "Fire's Aid: for 8 s you and your friends near add a little fire to every blow."),
+            "FROST" => ("Frost Armor", "Frost's Aid: for 8 s a creature that strikes you in melee is filled with frost."),
+            "NARROW" => ("Narrow Draft", "Wind's Aid: for 8 s you and your friends near move 20% faster and jump higher."),
             _ => (Capital(label), "The creature's own special trick while you wear its form."),
         };
     }

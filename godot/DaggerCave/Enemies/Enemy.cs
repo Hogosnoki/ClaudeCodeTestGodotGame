@@ -369,8 +369,9 @@ public abstract partial class Enemy : CharacterBody2D
         }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
         // and animations all scale together (a hex, or a chill, slows the whole clock down).
-        float tempo = Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f);
+        float tempo = Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo;
         float dt = (float)delta * tempo;
+        TickBuild((float)delta);
         T += dt; HurtFlash -= (float)delta;
         if (_primeT > 0) _primeT -= dt;
         TickSlot(dt);
@@ -924,7 +925,7 @@ public abstract partial class Enemy : CharacterBody2D
             float hpP = Hp;
             float d = PuppetHurt(dmg, knock, hitPos);
             RunMetrics.Dealt(this, d, hpP);
-            if (d > 0 && kind != DamageKind.Raw && G.Player is Player hero0 && !hero0.Dead) hero0.Stats.On.RaiseHit(hero0, this, d, kind);
+            if (d > 0 && kind != DamageKind.Raw && G.Player is Player hero0 && !hero0.Dead) { hero0.Stats.On.RaiseHit(hero0, this, d, kind); Kindle(hero0, kind); }
             if (d >= hpP && hpP > 0 && !_metricKill) { _metricKill = true; RunMetrics.Killed(this); }
             return d;
         }
@@ -935,7 +936,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             float hpM = Hp;
             float dealt = TakeHit(dmg, knock, hitPos);
-            if (NetSync.Striker == Net.Me) { RunMetrics.Dealt(this, dealt, hpM); if (dealt > 0 && kind != DamageKind.Raw && G.Player is Player hero && !hero.Dead) hero.Stats.On.RaiseHit(hero, this, dealt, kind); }
+            if (NetSync.Striker == Net.Me) { RunMetrics.Dealt(this, dealt, hpM); if (dealt > 0 && kind != DamageKind.Raw && G.Player is Player hero && !hero.Dead) { hero.Stats.On.RaiseHit(hero, this, dealt, kind); Kindle(hero, kind); } }
             // its ward (armour, or its element's resistance) breaks once it has taken a tenth of its health
             if (HasWard && !_armorBroken && dealt > 0 && !Dead)
             {

@@ -1985,6 +1985,44 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
 
+## Elements (the Swordsman and the Elementalist)
+
+The Swordsman and the Elementalist fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`, `Enemies/Enemy.Elements.cs`,
+`Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`). Their attacks are plain until an element is readied: **1, 2, 3** on the keyboard,
+**d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*. The next attack spends
+it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). Pressing the
+same element again puts it away; a readied element fades after 6 s. The HUD shows the hero's three elements over the ability squares (the
+readied one lit), and each square is named for the version the readied element would make.
+
+**Build-up, not chances.** An elemental blow fills a creature's meter of that element (thin coloured bars over it); full, it takes hold and
+empties: **fire** sets it alight, and full again while alight it **combusts** (a burst on it and those pressed close, with what the fire had
+left); **frost** chills it, and full again while chilled it is **frozen solid** (a creature that can't be frozen is chilled harder); a heavy
+blow **shatters** the frozen; **earth** stuns it (one that can't be stunned is weakened). Earth's lighter touch **saps** (its attacks play 20%
+slower); wind **shoves** (light creatures far, heavy ones hardly). Elites take 70% of a build-up, guardians and bosses 40%; meters drain a
+while after the last that reached them. Online, the host keeps the meters (only the host's screen shows them, for now).
+
+| Swordsman (earth, fire, frost) | Plain | Earth | Fire | Frost |
+|---|---|---|---|---|
+| **Swing** (attack) | the sword combo | **Heaving Swing**: rooted, x2, 60 earth (rests 2.5 s) | **Pyre Strike**: x1.25, 50 fire (1.2 s) | **Razor Ice**: x1.25, 50 frost (1.2 s) |
+| **Hard Swing** (second ability) | heavy blow x1.6 (5 s) | **ThunderCrush**: x2.6, slower, full earth, shatters the frozen (12 s) | **Pyroclasm**: x2.2, full fire (10 s) | **Ice Axe**: x2, full frost (7 s) |
+| **Empower Hilt** (ability, 8 s) | blows +20% (12 s) | blows sap (14 s) | blows +25 fire (14 s) | blows +20 frost (14 s) |
+
+Dash Slash and Battle Shout are as they were. The cards for the Charged Strike and Swift Heave aren't dealt to the elemental Swordsman.
+
+| Elementalist (fire, frost, wind) | Plain | Fire | Frost | Wind |
+|---|---|---|---|---|
+| **Missile** (attack; an element lasts 3 bolts) | a plain bolt (85% of a firebolt) | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
+| **Extended** (ability: the storm) | **Tempest**: weak force | **Firestorm**: 30 fire a strike | **Blizzard**: 20 frost a strike | **Cyclone**: drags light creatures to its middle, swallows shots |
+| **Burst** (second ability) | **Pulse** round you (4 s) | **Detonate**: everything in view, full fire (9 s) | **Shatter**: the frozen shatter, the rest full frost (9 s) | **Gust**: flings creatures away, turns shots back (5 s) |
+| **Aid** (dodge button) | the updraft | **Kindling**: you and friends near add 15 fire a blow, 8 s | **Frost Armor**: melee attackers are filled with frost, 8 s | **Narrow Draft**: you and friends near move 20% faster, jump higher, 8 s |
+
+Fire's Aid wasn't in the design notes; Kindling is a proposal. The cards for Frostbolt, Firestorm, Cinder Snap, Kindling (the old chance
+card), Deep Chill and Shrapnel aren't dealt to the elemental Elementalist; Echo works with Detonate and Shatter.
+
+**Classic kits**: *Settings > Controls > Classic Swordsman & Elementalist* brings back their old kits (from the next run). The tests of the
+classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`) tests the elemental ones (`elements_hud.png`), and
+`--elements` runs any other test with them.
+
 ## Save files
 
 **Save files** on the main menu (`Core/Profiles.cs`, `UI/SaveFilesMenu.cs`): each save keeps its own progress (embers, the Ember Grid,

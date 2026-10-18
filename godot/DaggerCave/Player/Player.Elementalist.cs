@@ -203,6 +203,7 @@ public partial class Player
     public void BoltStruck(ElementBolt bolt, Enemy e, Vector2 at)
     {
         if (!IsInstanceValid(e) || e.Dead) return;
+        if (Elemental) { ElementBoltStruck(bolt, e, at); return; }
         // a firebolt bursts as it lands: a little of the blow splashes the creatures pressed close about it
         if (!bolt.Frost) FireBurst(bolt, e, at);
         float dealt = e.Hurt(bolt.Damage, bolt.Dir * (bolt.Frost ? 30f : 60f), at, bolt.Frost ? DamageKind.Frost : DamageKind.Fire);
@@ -436,6 +437,7 @@ public partial class Player
     public void StormStruck(Blizzard storm, Enemy e)
     {
         if (!IsInstanceValid(e) || e.Dead) return;
+        if (storm.Elemental) { ElementStormStruck(storm, e); return; }
         var from = (e.GlobalPosition - storm.GlobalPosition).Normalized();
         float dealt = e.Hurt(storm.Damage, from * 10f, e.GlobalPosition - from * e.HitRadius * 0.5f, storm.Fire ? DamageKind.Fire : DamageKind.Frost);
         if (dealt > 0) OnDealtDamage(dealt);

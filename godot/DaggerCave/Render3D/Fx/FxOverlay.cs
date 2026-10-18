@@ -49,6 +49,22 @@ public partial class FxOverlay : Control
             DrawRect(new Rect2(pos - new Vector2(1, 1), new Vector2(w + 2, 4 * zoom * 0.5f + 2)), new Color(0, 0, 0, 0.75f));
             DrawRect(new Rect2(pos, new Vector2(w * Math.Max(0, e.Hp / e.MaxHp), 4 * zoom * 0.5f)), new Color(0.95f, 0.22f, 0.25f));
         }
+        // the elemental build-ups: a thin meter of each element filling toward what it does when full (Core/Elements.cs)
+        foreach (var e in G.Enemies)
+        {
+            if (!IsInstanceValid(e) || e.Dead || (e.FireBuild < 1f && e.FrostBuild < 1f && e.EarthBuild < 1f)) continue;
+            var at = Screen(cam, e.HeadPoint(10f), 0.05f);
+            if (at == null) continue;
+            float w = 22 * zoom * 0.6f, h = Math.Max(2f, 2.4f * zoom * 0.5f);
+            var pos = at.Value + new Vector2(-w / 2, 5 * zoom * 0.5f);
+            foreach (var (v, el) in new[] { (e.FireBuild, HeroElement.Fire), (e.FrostBuild, HeroElement.Frost), (e.EarthBuild, HeroElement.Earth) })
+            {
+                if (v < 1f) continue;
+                DrawRect(new Rect2(pos - new Vector2(1, 1), new Vector2(w + 2, h + 2)), new Color(0, 0, 0, 0.7f));
+                DrawRect(new Rect2(pos, new Vector2(w * Math.Clamp(v / Tune.Elements.Full, 0f, 1f), h)), Elements.ColorOf(el));
+                pos.Y += h + 2;
+            }
+        }
 
         var font = ThemeDB.FallbackFont;
         foreach (var t in fx.Texts)

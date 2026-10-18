@@ -16,6 +16,13 @@ public partial class Blizzard : Node2D
     public float FreezeChance = Tune.Elementalist.BlizzardFreeze, IgniteChance, IgniteDps, IgniteSeconds;
     /// <summary>A Firestorm (the alteration): fire instead of frost.</summary>
     public bool Fire;
+    /// <summary>The elemental Elementalist's storm: its element (none: a plain storm of force), and what each strike adds to a creature's build-up of it.</summary>
+    public HeroElement El = HeroElement.Frost;
+    public bool Elemental;
+    public float Build;
+    /// <summary>Wind (a Cyclone): how hard each strike pulls light creatures to its middle; it swallows creatures' shots inside it.</summary>
+    public float Pull;
+    public Color Tint => Fire ? new Color(1f, 0.5f, 0.15f) : !Elemental ? new Color(0.8f, 0.94f, 1f) : Elements.ColorOf(El);
     /// <summary>Online: another player's storm, shown here (their game deals its strikes).</summary>
     public bool Harmless;
     public Player Caster;
@@ -42,6 +49,10 @@ public partial class Blizzard : Node2D
             if (!Harmless) StrikeAll();
         }
         if (_t >= Seconds) { QueueFree(); return; }
+        // (a Cyclone swallows the shots that fly into it)
+        if (Pull > 0 && !Harmless)
+            foreach (var pr in G.Main.EnemyProjectiles.ToArray())
+                if (IsInstanceValid(pr) && pr.GlobalPosition.DistanceTo(GlobalPosition) < Radius) { G.Fx.Burst(pr.GlobalPosition, new Color(Tint, 0.8f), 5, 60, 1.4f, 0.25f, 0); pr.QueueFree(); }
         Flurry(dt);
         QueueRedraw();
     }
@@ -69,7 +80,13 @@ public partial class Blizzard : Node2D
         _fxT = 0.025f;
         float s = Strength;
         var at = GlobalPosition + G.RandDir() * G.Range(0f, Radius);
-        if (Fire)
+        if (Elemental && !Fire && El != HeroElement.Frost)
+        {
+            // wind (or force) whirling round: streaks curling toward the middle
+            var tan = (at - GlobalPosition).Orthogonal().Normalized();
+            G.Fx.Directional(at, tan, 0.3f, new Color(Tint, 0.75f * s), 1, 140, 1.4f, 0.3f, 0, 0);
+        }
+        else if (Fire)
         {
             G.Fx.Ember(at, G.Chance(0.5f) ? new Color(1f, 0.5f, 0.12f) : new Color(1f, 0.8f, 0.35f));
             if (G.Chance(0.25f)) G.Fx.Burst(at, new Color(1f, 0.45f, 0.1f, 0.8f * s), 1, 40, 2.4f, 0.35f, -80);
@@ -80,7 +97,7 @@ public partial class Blizzard : Node2D
             var from = at + new Vector2(-8f, -Radius * 0.9f);
             G.Fx.Directional(from, new Vector2(0.35f, 1f).Normalized(), 0.25f, new Color(0.92f, 0.97f, 1f, 0.9f * s), 1, 150, 1.5f, 0.35f, 60, 0);
         }
-        if (G.Chance(0.015f)) G.Fx.Ring(GlobalPosition, Radius, Fire ? new Color(1f, 0.5f, 0.15f, 0.3f * s) : new Color(0.8f, 0.94f, 1f, 0.35f * s), 0.4f, FxLayer.RingStyle.Dashed);
+        if (G.Chance(0.015f)) G.Fx.Ring(GlobalPosition, Radius, new Color(Tint, 0.32f * s), 0.4f, FxLayer.RingStyle.Dashed);
     }
 
     public override void _Draw()

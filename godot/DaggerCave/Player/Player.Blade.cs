@@ -97,6 +97,7 @@ public partial class Player
     private void StartSwing(Vector2 aim, bool counter = false)
     {
         aim = aim.Normalized();
+        ClearSwingElement();
         _heave = false;
         _dashSlashSwing = false;
         _counter = counter;
@@ -331,10 +332,11 @@ public partial class Player
             dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit) * echo;
             _swingSurprise = false;
         }
-        // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst)
-        bool shatter = _heave && e.FrozenSolid;
-        float dealt = e.Hurt(dmg, dir * kb, hitPos);
-        if (shatter) ShatterFrozen(e);
+        // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst; with elements, only ThunderCrush does)
+        dmg *= HiltDamageMult;
+        bool shatter = (Elemental ? _swingShatter : _heave) && e.FrozenSolid;
+        float dealt = e.Hurt(dmg, dir * kb, hitPos, Elemental && _swingEl is HeroElement.Fire or HeroElement.Frost ? Elements.KindOf(_swingEl) : DamageKind.Physical);
+        if (shatter) { if (Elemental) e.Shatter(Stats.DamageMult * 1.5f, this); else ShatterFrozen(e); }
         if (dealt > 0 && Stats.BleedShare > 0 && !e.Dead) e.Bleed(dealt * Stats.BleedShare, Tune.Swordsman.BleedSeconds);
         if (dealt <= 0)
         {
@@ -343,6 +345,7 @@ public partial class Player
             return;
         }
         OnDealtDamage(dealt);
+        ElementalBladeHit(e);
         if (echo == 1f && Stats.EchoStrike > 0f && !e.Dead && G.Chance(Stats.EchoStrike)) EchoStrike(e);
         if (crit) CritFx(e, hitPos);
         // a charged strike saps whatever it cuts: it hits back softer for a while

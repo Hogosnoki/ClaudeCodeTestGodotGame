@@ -188,6 +188,7 @@ public partial class Main : Node
 
         ParseArgs(out bool gentest);
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
+        Elements.ClassicForTests = G.NoSave && _scenario != "elements" && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
         {

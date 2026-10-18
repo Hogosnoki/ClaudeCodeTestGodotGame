@@ -824,8 +824,8 @@ public partial class BlizzardView : PropView
     {
         var z = (Blizzard)Owner2D;
         _fire = z.Fire;
-        _col = _fire ? new Color(1f, 0.5f, 0.15f) : new Color(0.8f, 0.94f, 1f);
-        _cloud = _fire ? new Color(0.42f, 0.16f, 0.08f) : new Color(0.62f, 0.7f, 0.82f);
+        _col = z.Tint;
+        _cloud = _fire ? new Color(0.42f, 0.16f, 0.08f) : z.Elemental && z.El != HeroElement.Frost ? z.Tint.Darkened(0.45f) : new Color(0.62f, 0.7f, 0.82f);
         for (int k = 0; k < _puffs.Length; k++)
         {
             _puffs[k] = new MeshInstance3D { Mesh = PropViews.Quad, MaterialOverride = PropViews.CloudMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };

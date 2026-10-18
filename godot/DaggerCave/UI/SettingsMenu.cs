@@ -561,6 +561,8 @@ public partial class SettingsMenu : Control
         Row(g, "Controller vibration", Toggle(GameSettings.Vibration, v => GameSettings.Vibration = v));
         Row(g, "HUD tooltips", Choice(new[] { "Off", "Abilities, potions and relics", "Everything on the HUD" }, GameSettings.HudTips, i => GameSettings.HudTips = i),
             "rest the mouse on a piece of the HUD; F1 (or HUD guide in the pause menu) explains it all at once");
+        Row(g, "Classic Swordsman & Elementalist", Toggle(GameSettings.ClassicKits, v => GameSettings.ClassicKits = v),
+            "their old kits, without elements (takes effect from the next run)");
 
         var table = new GridContainer { Columns = 1 + 2 * Controls.Slots, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         table.AddThemeConstantOverride("h_separation", 6);

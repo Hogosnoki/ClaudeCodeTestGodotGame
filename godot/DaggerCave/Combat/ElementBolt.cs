@@ -18,6 +18,8 @@ public partial class ElementBolt : Node2D
     public float Damage, Range = Tune.Elementalist.BoltRange, Speed = Tune.Elementalist.BoltSpeed;
     /// <summary>Frost instead of fire.</summary>
     public bool Frost;
+    /// <summary>The elemental Elementalist's: a gust of wind, or a plain bolt with no element (neither fire nor frost).</summary>
+    public bool Wind, Plain;
     /// <summary>The Aegis's ward bolt (light, bursting on contact, weakening what it strikes).</summary>
     public bool Ward;
     /// <summary>Online: another player's bolt, shown here (their game deals its damage).</summary>
@@ -33,7 +35,11 @@ public partial class ElementBolt : Node2D
     public static Color FireColor => new(1f, 0.55f, 0.16f);
     public static Color FrostColor => new(0.62f, 0.88f, 1f);
     public static Color WardColor => new(1f, 0.9f, 0.5f);
-    public Color Tint => Ward ? WardColor : Frost ? FrostColor : FireColor;
+    public static Color WindColor => Elements.ColorOf(HeroElement.Wind);
+    public static Color PlainColor => new(0.82f, 0.72f, 1f);
+    public Color Tint => Ward ? WardColor : Wind ? WindColor : Plain ? PlainColor : Frost ? FrostColor : FireColor;
+    /// <summary>A bolt of no fire (it lights no gas, and trails no embers).</summary>
+    private bool Cold => Frost || Ward || Wind || Plain;
 
     public override void _Ready() => ZIndex = 2;
 
@@ -66,7 +72,7 @@ public partial class ElementBolt : Node2D
         if (G.Cave.IsSolid(to)) { Fizzle(from, true); return; }
         if (_traveled >= Range) { Fizzle(to, false); return; }
         GlobalPosition = to;
-        if (!Frost && !Ward && GasCloud.All.Count > 0) GasCloud.IgniteAt(to, 5f);
+        if (!Cold && GasCloud.All.Count > 0) GasCloud.IgniteAt(to, 5f);
         // a trail of sparks (or frost) behind it
         _trailT -= dt;
         if (_trailT <= 0)
@@ -74,6 +80,7 @@ public partial class ElementBolt : Node2D
             _trailT = 0.03f;
             if (Ward) { _trailT = 0.11f; if (G.Chance(0.5f)) G.Fx.Burst(GlobalPosition - Dir * 5f, new Color(1f, 0.95f, 0.75f, 0.5f), 1, 12, 1.1f, 0.25f, -30); }
             else if (Frost) G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.95f, 1f, 0.8f), 1, 20, 1.4f, 0.3f, 40);
+            else if (Wind || Plain) G.Fx.Burst(GlobalPosition - Dir * 4f, new Color(Tint, 0.7f), 1, 24, 1.3f, 0.25f, 0);
             else G.Fx.Ember(GlobalPosition - Dir * 4f, G.Chance(0.5f) ? FireColor : new Color(1f, 0.85f, 0.4f));
         }
         QueueRedraw();
@@ -144,6 +151,12 @@ public partial class ElementBolt : Node2D
             G.Fx.Burst(at, new Color(1f, 0.95f, 0.75f), (int)(6 * size) + 2, 90, 1.4f, 0.25f, -20);
             G.Fx.Bubbles(at, 2);
             G.Sfx.Play("clink", at, -10, 0.1f, 1.7f);
+        }
+        else if (Wind || Plain)
+        {
+            G.Fx.Ring(at, 8 + 10 * size, new Color(col, 0.8f), 0.22f, Wind ? FxLayer.RingStyle.Dashed : FxLayer.RingStyle.Burst);
+            G.Fx.Burst(at, col, (int)(6 * size) + 2, 100, 1.4f, 0.25f, 0);
+            G.Sfx.Play(Wind ? "dodge" : "clink", at, -12, 0.1f, Wind ? 1.4f : 1.9f);
         }
         else if (Frost)
         {

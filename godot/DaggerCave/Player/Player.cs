@@ -11,6 +11,8 @@ public struct PlayerInput
     /// <summary>With the mouse, how far away the pointer is (0: unknown, a controller's aim): where a blizzard lands.</summary>
     public float AimDist;
     public bool Jump, JumpHeld, Attack, Ability, Ability2, Dodge, Potion, Interact, Rope, Support;
+    /// <summary>An element's button pressed this frame (1-3; 0: none): see <see cref="Elements"/>.</summary>
+    public int Infuse;
     /// <summary>The rope button held down (a rope pays out while it is).</summary>
     public bool RopeHeld;
     /// <summary>The aim is a real one (the mouse, the right stick, or the move keys pushed), not just the way you face.</summary>
@@ -428,6 +430,7 @@ public partial class Player : CharacterBody2D
             InteractHeld = Input.IsActionPressed("interact"),
         };
         inp.Interact = Input.IsActionJustPressed("interact");
+        for (int k = 0; k < 3; k++) if (InputMap.HasAction(Elements.Action(k)) && Input.IsActionJustPressed(Elements.Action(k))) inp.Infuse = k + 1;
         if (p._swallow)
         {
             if (Input.IsActionPressed("attack") || Input.IsActionPressed("ability") || Input.IsActionPressed("ability2"))
@@ -476,6 +479,7 @@ public partial class Player : CharacterBody2D
         if (inp.Dodge) { _dodgeBuf = Tune.Hero.PressBuffer; _dodgeInput = inp; }
         if (inp.Jump) _jumpBuffer = Tune.Hero.JumpBuffer + Stats.BufferBonus;
         if (inp.Potion) DrinkPotion();
+        if (inp.Infuse > 0 && Elemental) TryInfuse(inp.Infuse - 1);
         if (inp.Interact || inp.Up) TryInteract(inp.Interact);
     }
 
@@ -545,6 +549,7 @@ public partial class Player : CharacterBody2D
         TickHold(dt);
         Stats.On.RaiseTick(this, dt);
         TickUpgrades(dt);
+        TickElemental(dt);
         switch (Stats.Hero)
         {
             case HeroKind.Warden: UpdateShield(inp, dt); break;
@@ -697,13 +702,13 @@ public partial class Player : CharacterBody2D
     private bool Primary(Vector2 aim, bool held = false, bool stick = false) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Vitalist => CastDrain(aim, held),
-        HeroKind.Elementalist => CastBolt(aim, held),
+        HeroKind.Elementalist => Elemental ? ElementMissile(aim, held) : CastBolt(aim, held),
         HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : !stick && TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held),
         HeroKind.Aegis => CastWardBolt(aim, held),
         HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
         HeroKind.Automaton => !Bracing && !Pressurising && TrySwing(aim, held),
-        _ => !Heaving && TrySwing(aim, held),
+        _ => !Heaving && (Elemental ? ElementSwing(aim, held) : TrySwing(aim, held)),
     };
 
     /// <summary>The ability button: charged strike, Guarded Charge, heal or blizzard. True once it fires.</summary>
@@ -711,12 +716,12 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => TryHeal(),
-        HeroKind.Elementalist => TryBlizzard(aim, _abilityAimDist),
+        HeroKind.Elementalist => Elemental ? TryStorm(aim, _abilityAimDist) : TryBlizzard(aim, _abilityAimDist),
         HeroKind.Rogue => TryThrow(aim),
         HeroKind.Aegis => TryBarrier(aim),
         HeroKind.ShapeShifter => TryShift(),
         HeroKind.Automaton => TryRepair(),
-        _ => TryCharge(),
+        _ => Elemental ? TryHilt() : TryCharge(),
     };
 
     /// <summary>The second ability button: heaving swing, shield bash, rupture or snap. True once it fires.</summary>
@@ -724,12 +729,12 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
         HeroKind.Vitalist => TryRupture(aim),
-        HeroKind.Elementalist => TrySnap(),
+        HeroKind.Elementalist => Elemental ? TryBurst() : TrySnap(),
         HeroKind.Rogue => TryRecall(),
         HeroKind.Aegis => TryBurden(aim),
         HeroKind.ShapeShifter => TrySpecial(aim),
         HeroKind.Automaton => TrySteam(aim),
-        _ => TryHeave(aim),
+        _ => Elemental ? TryHardSwing(aim) : TryHeave(aim),
     };
 
     /// <summary>The dodge button's press: a roll, a hex or an updraft (the Warden's shield reads the button itself).</summary>
@@ -737,7 +742,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Swordsman => TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
-        HeroKind.Elementalist => BeginDraftAim(inp),
+        HeroKind.Elementalist => Elemental ? ElementAid(inp) : BeginDraftAim(inp),
         HeroKind.Rogue => TryVanish(),
         HeroKind.Aegis => TryBubble(),
         HeroKind.ShapeShifter => Possessed ? TryRemember() : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
@@ -1284,6 +1289,7 @@ public partial class Player : CharacterBody2D
         if (source != null && GodotObject.IsInstanceValid(source) && !Dead) source.StrikeStatus(this, dmg);
         var striker = source != null && GodotObject.IsInstanceValid(source) ? source : null;
         Stats.On.RaiseHurt(this, striker, dmg);
+        FrostArmorStruck(striker, melee);
         _sinceHurt = 0f;
         if (Stats.AdrenalineBonus > 0f) _adrT = 2f;
         // (Barbed Hide: part of the blow falls back on what struck)

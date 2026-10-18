@@ -184,6 +184,8 @@ public static class GameSettings
     public static bool Vibration = true;
     /// <summary>HUD tooltips on mouse hover: 0 off, 1 abilities, potions and relics, 2 everything on the HUD (see <see cref="Hud.Guide"/> too).</summary>
     public static int HudTips = 1;
+    /// <summary>The Swordsman and the Elementalist fight with their old kits, without elements (<see cref="Elements"/>).</summary>
+    public static bool ClassicKits;
 
     // ---------------------------------------------------------------- online
     /// <summary>The name the others see online ("" = this computer's user name).</summary>
@@ -260,6 +262,7 @@ public static class GameSettings
         Aim = (AimMode)I("controls", "aim", (int)Aim);
         Vibration = B("controls", "vibration", Vibration);
         HudTips = Math.Clamp(I("interface", "hud_tips", HudTips), 0, 2);
+        ClassicKits = B("gameplay", "classic_kits", ClassicKits);
         PlayerName = S("online", "name", PlayerName);
         LastJoin = S("online", "last_join", LastJoin);
         Controls.Load(cfg);
@@ -303,6 +306,7 @@ public static class GameSettings
         cfg.SetValue("controls", "aim", (int)Aim);
         cfg.SetValue("controls", "vibration", Vibration);
         cfg.SetValue("interface", "hud_tips", HudTips);
+        cfg.SetValue("gameplay", "classic_kits", ClassicKits);
         cfg.SetValue("online", "name", PlayerName);
         cfg.SetValue("online", "last_join", LastJoin);
         Controls.Save(cfg);

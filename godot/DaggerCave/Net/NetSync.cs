@@ -236,9 +236,9 @@ public static class NetSync
             case SwordWave sw: w.Byte(2).Vec(sw.GlobalPosition).HVec(sw.Dir).Half(sw.Range).Half(sw.Speed); break;
             case LifeMote m: w.Byte(3).Vec(m.GlobalPosition).Half(m.Size); break;
             case HealingPool hp: w.Byte(6).Vec(hp.GlobalPosition).Half(hp.Radius).Half(hp.Rate).Half(hp.Life); break;
-            case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Ward ? 2 : b.Frost ? 1 : 0)); break;
+            case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Ward ? 2 : b.Wind ? 3 : b.Plain ? 4 : b.Frost ? 1 : 0)); break;
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life).Half(u.Angle); break;
-            case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : 0)); break;
+            case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : z.El == HeroElement.Wind ? 2 : z.El == HeroElement.None && z.Elemental ? 3 : 0)); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
             case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)).Vec(rp.DropAt ?? rp.GlobalPosition); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
@@ -385,7 +385,7 @@ public static class NetSync
                 // a friend's bolt: shown flying here (their game deals its blow)
                 var at = r.Vec(); var dir = r.HVec(); float range = r.Half(), speed = r.Half(); byte bk = r.Byte(); bool frost = bk == 1, ward = bk == 2;
                 Applying = true;
-                G.Spawn(new ElementBolt { Position = at, Dir = dir, Range = range, Speed = speed, Frost = frost, Ward = ward, Harmless = true });
+                G.Spawn(new ElementBolt { Position = at, Dir = dir, Range = range, Speed = speed, Frost = frost, Ward = ward, Wind = bk == 3, Plain = bk == 4, Harmless = true });
                 Applying = false;
                 break;
             }
@@ -512,9 +512,9 @@ public static class NetSync
             case 9:
             {
                 // a friend's blizzard: shown here (their game deals its strikes)
-                var at = r.Vec(); float radius = r.Half(), seconds = r.Half(); int ticks = r.Byte(); bool fire = r.Byte() != 0;
+                var at = r.Vec(); float radius = r.Half(), seconds = r.Half(); int ticks = r.Byte(); byte sk = r.Byte(); bool fire = sk == 1;
                 Applying = true;
-                G.Spawn(new Blizzard { Position = at, Radius = radius, Seconds = seconds, Ticks = ticks, Fire = fire, Harmless = true });
+                G.Spawn(new Blizzard { Position = at, Radius = radius, Seconds = seconds, Ticks = ticks, Fire = fire, El = sk == 2 ? HeroElement.Wind : sk == 1 ? HeroElement.Fire : HeroElement.None, Elemental = sk >= 2, Harmless = true });
                 Applying = false;
                 break;
             }
@@ -719,7 +719,7 @@ public static class NetSync
     }
 
     /// <summary>Kinds of lasting effect a hero's blow can put on a creature.</summary>
-    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark, Expose, Venom }
+    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark, Expose, Venom, Build, Sap, Shove }
 
     public static void EffectPuppet(Enemy e, Effect kind, float a, float b = 0, float c = 0, float d = 0, Vector2 v = default, string label = "")
     {
@@ -763,6 +763,9 @@ public static class NetSync
                 case Effect.Hex: e.Hex(a, b, c, d); break;
                 case Effect.Bleed: e.Bleed(a, b); break;
                 case Effect.Ignite: e.Ignite(a, b); break;
+                case Effect.Build: e.Build((HeroElement)(int)a, b, c); break;
+                case Effect.Sap: e.Sap(a); break;
+                case Effect.Shove: e.Shove(v); break;
                 case Effect.Chill: e.Chill(a, b); break;
                 case Effect.Frost: e.FreezeSolid(a); break;
                 case Effect.Thaw: e.Thaw(); break;

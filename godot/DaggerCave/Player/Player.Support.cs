@@ -101,7 +101,7 @@ public partial class Player
 
     // ---------------------------------------------------------------- timed buffs
 
-    public const int BuffShout = 1, BuffHowl = 2;
+    public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5;
     private readonly Dictionary<int, float> _buffs = new();
     public bool HasBuff(int kind) => _buffs.ContainsKey(kind);
     public float BuffLeft(int kind) => _buffs.TryGetValue(kind, out var t) ? t : 0f;
@@ -113,7 +113,13 @@ public partial class Player
         if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Buff, seconds, 0, 0, kind); return; }
         if (!_buffs.ContainsKey(kind)) ApplyBuff(kind, +1);
         _buffs[kind] = Math.Max(BuffLeft(kind), seconds);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, kind == BuffShout ? new Color(1f, 0.6f, 0.3f, 0.8f) : new Color(0.85f, 0.95f, 1f, 0.8f), 0.4f, FxLayer.RingStyle.Dashed);
+        var ring = kind switch
+        {
+            BuffShout => new Color(1f, 0.6f, 0.3f, 0.8f), BuffTailwind => new Color(Elements.ColorOf(HeroElement.Wind), 0.8f),
+            BuffKindling => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
+            _ => new Color(0.85f, 0.95f, 1f, 0.8f),
+        };
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, ring, 0.4f, FxLayer.RingStyle.Dashed);
     }
 
     private void ApplyBuff(int kind, int dir)
@@ -121,6 +127,8 @@ public partial class Player
         float m(float x) => dir > 0 ? x : 1f / x;
         if (kind == BuffShout) Stats.DamageMult *= m(Tune.Support.ShoutDamage);
         else if (kind == BuffHowl) { Stats.MoveSpeed *= m(Tune.Support.HowlMove); Stats.AttackSpeed *= m(Tune.Support.HowlAttack); }
+        // (Narrow Draft: a wind at your back; Kindling and Frost Armor change no number, they are read where blows land)
+        else if (kind == BuffTailwind) { Stats.MoveSpeed *= m(Tune.ElementalStaff.TailwindMove); Stats.JumpMult *= m(Tune.ElementalStaff.TailwindJump); }
     }
 
     private void TickBuffs(float dt)

@@ -797,8 +797,106 @@ public partial class Hud : Control
             DrawString(font, eb + new Vector2(0, eh + 18), $"PRESSURIZED  ({p.PressureLeft:0}s of fuel)", HorizontalAlignment.Left, -1, 11, hot);
     }
 
+    /// <summary>The elemental heroes' three elements over their ability squares: each with its button, the readied one lit (Core/Elements.cs).</summary>
+    private void DrawElementRow(Font font, Player p, Vector2 at, string extra = "")
+    {
+        var els = Elements.Of(p.Stats.Hero);
+        for (int k = 0; k < els.Length; k++)
+        {
+            var el = els[k];
+            bool on = p.Infused == el;
+            var c = at + new Vector2(10 + k * 44, 0);
+            var col = Elements.ColorOf(el);
+            float r = on ? 8f + MathF.Sin(_t * 8f) : 6f;
+            var dia = new[] { c + new Vector2(0, -r), c + new Vector2(r, 0), c + new Vector2(0, r), c + new Vector2(-r, 0) };
+            if (on) DrawCircle(c, r + 5, new Color(col, 0.25f));
+            DrawColoredPolygon(dia, on ? col : new Color(col.Darkened(0.45f), 0.85f));
+            DrawPolyline(dia.Append(dia[0]).ToArray(), new Color(0, 0, 0, 0.7f), 1.2f);
+            DrawString(font, c + new Vector2(12, 4), Controls.Name(Elements.Action(k)), HorizontalAlignment.Left, -1, 9, new Color(1, 1, 1, on ? 0.85f : 0.45f));
+            Tip(new Rect2(c - new Vector2(10, 10), new Vector2(40, 20)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))})",
+                $"Readies {Elements.Name(el).ToLowerInvariant()} for your next attack, which becomes its {Elements.Name(el).ToLowerInvariant()} version. Press again to put it away.", true);
+        }
+        string label = p.Infused != HeroElement.None ? $"{Elements.Name(p.Infused).ToUpperInvariant()}: NEXT ATTACK" : extra;
+        if (label != "") DrawString(font, at + new Vector2(els.Length * 44 + 4, 4), label, HorizontalAlignment.Left, -1, 10, p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(1, 1, 1, 0.55f));
+    }
+
+    /// <summary>The elemental Swordsman: Dash Slash, Empower Hilt and the Hard Swing, each square named for the version the readied element makes.</summary>
+    private void DrawSwordsmanElemental(Font font, Player p, Vector2 ab)
+    {
+        var dc = p.DodgeCooldowns;
+        for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(1f, 0.62f, 0.25f), "DASHSLASH");
+        var el = p.Infused;
+        string hiltNow = p.HiltLeft > 0 ? (p.HiltElement == HeroElement.None ? "HILT" : $"{Elements.Name(p.HiltElement).ToUpperInvariant()} HILT") + $" {p.HiltLeft:0}s" : "";
+        DrawElementRow(font, p, ab + new Vector2(0, -30), hiltNow != "" ? hiltNow : p.SwingElementRest > 0 ? $"SWING ELEMENT IN {p.SwingElementRest:0.0}s" : "");
+        var cb = ab + new Vector2(dc.Length * 40 + 16, 0);
+        var hiltCol = p.HiltLeft > 0 && p.HiltElement != HeroElement.None ? Elements.ColorOf(p.HiltElement) : el != HeroElement.None ? Elements.ColorOf(el) : new Color(1f, 0.8f, 0.45f);
+        AbilitySquare(font, cb, p.HiltLeft > 0 ? "HILT ON" : "HILT", p.HiltLeft > 0 ? 0 : p.ElementAbilityFrac, p.HiltLeft > 0 || p.AbilityChargeReady, hiltCol, (c, col) =>
+        {
+            // a hilt with a glowing pommel
+            var d = new Vector2(1, -1).Normalized();
+            var perp = new Vector2(-d.Y, d.X);
+            DrawLine(c - d * 10, c + d * 2, new Color(0.55f, 0.35f, 0.2f), 3.5f);
+            DrawLine(c + d * 2 + perp * 6, c + d * 2 - perp * 6, col, 2.5f);
+            DrawCircle(c - d * 11, 3.5f, col);
+        });
+        UsePips(cb, p, hiltCol);
+        KeyHint(font, cb, "ability");
+        var hb = cb + new Vector2(50, 0);
+        string hard = el switch { HeroElement.Earth => "CRUSH", HeroElement.Fire => "PYRO", HeroElement.Frost => "ICE AXE", _ => "HARD" };
+        AbilitySquare(font, hb, hard, p.HardSwingCooldownFrac, p.HardSwingCooldownFrac <= 0, el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.85f, 0.92f, 1f), (c, col) =>
+        {
+            DrawArc(c + new Vector2(-2, 4), 12, -Mathf.Pi * 0.95f, -Mathf.Pi * 0.05f, 12, new Color(col, 0.5f), 2f);
+            var d = new Vector2(0.55f, 0.83f);
+            var perp = new Vector2(-d.Y, d.X);
+            DrawLine(c - d * 11 + new Vector2(6, -2), c - d * 5 + new Vector2(6, -2), new Color(0.55f, 0.35f, 0.2f), 3f);
+            DrawColoredPolygon(new[] { c - d * 4 + perp * 2.2f + new Vector2(6, -2), c + d * 11 + new Vector2(6, -2), c - d * 4 - perp * 2.2f + new Vector2(6, -2) }, col);
+        });
+        KeyHint(font, hb, "ability2");
+    }
+
+    /// <summary>The elemental Elementalist: Aid, Extended (the storm) and Burst, named for the readied element's version; the bolts in the staff, coloured by its element.</summary>
+    private void DrawElementalistElemental(Font font, Player p, Vector2 ab)
+    {
+        var el = p.Infused;
+        var mel = p.MissileElement;
+        DrawElementRow(font, p, ab + new Vector2(0, -30), mel != HeroElement.None ? $"{Elements.Name(mel).ToUpperInvariant()} BOLTS x{p.MissileShots}" : "");
+        var air = el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.8f, 0.94f, 1f);
+        bool aidReady = p.UpdraftReady;
+        Dial(ab + new Vector2(17, 17), aidReady ? 0f : p.AidCooldownFrac, air, el switch { HeroElement.Fire => "KINDLING", HeroElement.Frost => "FROST ARMOR", HeroElement.Wind => "NARROW DRAFT", _ => "UPDRAFT" });
+        for (int k = -1; k <= 1; k++)
+            DrawLine(ab + new Vector2(17 + k * 5, 25), ab + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), aidReady ? new Color(air, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
+        KeyHint(font, ab, "dodge");
+        var zb = ab + new Vector2(66, 0);
+        string storm = el switch { HeroElement.Fire => "FIRE", HeroElement.Frost => "STORM", HeroElement.Wind => "CYCLONE", _ => "TEMPEST" };
+        var stormCol = el != HeroElement.None ? Elements.ColorOf(el) : ElementBolt.PlainColor;
+        AbilitySquare(font, zb, $"{storm} {p.BlizzardCost:0}", p.ElementAbilityFrac, p.AbilityChargeReady, stormCol, (c, col) =>
+        {
+            for (int k = 0; k < 3; k++) DrawArc(c, 5 + k * 4, k * 1.3f + _t * 2f, k * 1.3f + _t * 2f + 3.6f, 10, col, 1.6f);
+        });
+        UsePips(zb, p, stormCol);
+        KeyHint(font, zb, "ability");
+        var sb = zb + new Vector2(60, 0);
+        string burst = el switch { HeroElement.Fire => "DETONATE", HeroElement.Frost => "SHATTER", HeroElement.Wind => "GUST", _ => "PULSE" };
+        var burstCol = el != HeroElement.None ? Elements.ColorOf(el) : new Color(0.8f, 0.7f, 1f);
+        AbilitySquare(font, sb, $"{burst} {p.SnapCost:0}", p.SnapReady ? 0f : p.BurstCooldownFrac, p.SnapReady, burstCol, (c, col) =>
+        {
+            for (int k = 0; k < 8; k++) { var d = Vector2.Right.Rotated(k * Mathf.Tau / 8); DrawLine(c + d * 4, c + d * 12, col, 2f); }
+            DrawCircle(c, 3.5f, col);
+        });
+        KeyHint(font, sb, "ability2");
+        var bp = sb + new Vector2(60, 10);
+        var boltCol = mel != HeroElement.None ? Elements.ColorOf(mel) : ElementBolt.PlainColor;
+        for (int k = 0; k < p.BoltChargesMax; k++)
+        {
+            var c = bp + new Vector2(6 + k * 12, 23);
+            DrawCircle(c, 4.2f, new Color(0, 0, 0, 0.6f));
+            DrawCircle(c, 3.2f, k < p.BoltCharges ? boltCol : new Color(0.4f, 0.42f, 0.46f));
+        }
+    }
+
     private void DrawSwordsmanGauges(Font font, Player p, Vector2 ab)
     {
+        if (p.Elemental) { DrawSwordsmanElemental(font, p, ab); return; }
         var dc = p.DodgeCooldowns;
         for (int k = 0; k < dc.Length; k++) Dial(ab + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(1f, 0.62f, 0.25f), "DASHSLASH");
         DrawString(font, ab + new Vector2(0, -6), "DASH SLASH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
@@ -999,6 +1097,7 @@ public partial class Hud : Control
 
     private void DrawElementalistGauges(Font font, Player p, Vector2 ab)
     {
+        if (p.Elemental) { DrawElementalistElemental(font, p, ab); return; }
         var air = new Color(0.8f, 0.94f, 1f);
         bool canDraft = p.UpdraftReady;
         Dial(ab + new Vector2(17, 17), canDraft ? p.UpdraftCooldownFrac : 1f, air, "UPDRAFT");
