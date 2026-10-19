@@ -82,6 +82,8 @@ public partial class Main
         foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.05f)) yield return null;
         ScCheck($"fire is readied ({p.Infused})", p.Infused == HeroElement.Fire);
         ScShot("elements_hud");
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        ScShot("elements_glow");
         foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
         ScCheck($"the next swing is a Searing Strike ({string.Join(", ", p.ElementalUses.Skip(uses0))}), filling fire half way ({foe.FireBuild:0}) and spending the element ({p.Infused})",
             p.ElementalUses.Skip(uses0).Contains("Searing Strike") && Math.Abs(foe.FireBuild - Tune.ElementalSword.MediumBuild) < 1 && p.Infused == HeroElement.None);
@@ -363,6 +365,8 @@ public partial class Main
         // the bolt: fire on the staff lasts three bolts
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
         ScShot("elements_hud");
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        ScShot("elements_glow");
         bool slowed = false;
         for (int k = 0; k < 2; k++)
         {
@@ -382,8 +386,10 @@ public partial class Main
         int c0 = foe.Combusted;
         if (!foe.Ignited) foe.Ignite(1f, 5f);
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
+        var far = ElDummy(p, -150);
+        far.Ignite(1f, 5f);
         foreach (var _ in ElPress(Fixed(), 0.4f)) yield return null;
-        ScCheck($"fire's fixed-range spell is Burst: on the burning, it combusts ({c0} -> {foe.Combusted})", p.ElementalUses.Contains("Burst") && foe.Combusted > c0);
+        ScCheck($"fire's fixed-range spell is Burst: on the burning, it combusts ({c0} -> {foe.Combusted}), and so does a burning creature far from the spot ({far.Combusted})", p.ElementalUses.Contains("Burst") && foe.Combusted > c0 && far.Combusted > 0);
         int snaps = 0;
         for (; snaps < 5 && !foe.FrozenSolid; snaps++)
         {
@@ -397,6 +403,14 @@ public partial class Main
         foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.05f)) yield return null;
         foreach (var _ in ElPress(Fixed(), 0.3f)) yield return null;
         ScCheck($"and on the frozen it shatters ({foe.Shattered})", foe.Shattered >= 1);
+        // the frozen anywhere in view shatter, not only at the spot
+        Ready(); AtSpot();
+        far.Hp = far.MaxHp;
+        far.FreezeSolid(5f, force: true);
+        foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.05f)) yield return null;
+        foreach (var _ in ElPress(Fixed(), 0.3f)) yield return null;
+        ScCheck($"Snap shatters a frozen creature far from its spot too ({far.Shattered})", far.Shattered >= 1);
+        far.QueueFree();
         Ready(); AtSpot();
         float h0 = foe.Hp;
         foreach (var _ in ElPress(Fixed(), 0.3f)) yield return null;

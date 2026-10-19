@@ -1995,7 +1995,10 @@ charge waits (pressed again, it's put away); once dual charges are unlocked, up 
 the oldest). Readied charges wait as long as it takes, and a new one can be readied a second after the last (a press inside that
 second is kept). That second is the price of an element: **the element versions wait on no cooldown and cost no alimus** (the rests in
 the tables below apply only with `Tune.Elements.VersionsRest` turned on); the plain abilities keep theirs. A readied element shows as a
-**glow on the hero's weapon** in its colour (the sword's edge, the staff's orb), in every game online, instead of sparks. The HUD
+**glow on the hero's weapon** in its colour, bright enough to read at a glance (an aura over the whole sword blade with its edge burning
+inside; a halo about the staff's orb, the orb swollen and burning hot), in every game online, instead of sparks. As an element goes on,
+it runs across the weapon: a puff of flame along it, a sheen of ice up it from hand to tip, a crackle of grit, a twist of wind, and the
+glow flares a moment. The HUD
 shows the hero's three elements on a half circle over the ability squares, one at each point of a triangle as they sit on the d-pad (left,
 up, right; keys 1, 2, 3), the readied ones lit (a second charge of one as a small second diamond), the charges in the middle in the order
 they'll be spent with the one-second charge cooldown going round them; every button has its square with its cooldown and the seconds left
@@ -2026,7 +2029,7 @@ The cards for the Charged Strike and Swift Heave aren't dealt to the elemental S
 |---|---|---|---|---|
 | **Attack** (an element lasts 3 bolts; nothing counted, it goes as often as the gap between casts allows) | **Pop**: no bolt; a small burst (9) right on the creature nearest the aim within 120 px | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
 | **Dodge** (movement; the element rests its version a while, the dodge is Lift meanwhile) | **Lift**: a push straight up, in the air too (2.5 s) | **Fire Walk**: 30% faster for 4 s, fire burning where you walk (9 s) | **Tundra**: the ground freezes 110 px each way for 6 s: heroes on it go faster, creatures are chilled and filled with frost (10 s) | **Updraft**: a column along the aim (straight up, aimed nowhere) to ride up (3 s) |
-| **Fixed range** (Burst button: a spot 130 px along the aim) | **Force Blast**: a wide (100 px) weak burst (7), throws creatures out (4 s) | **Burst**: an explosion, 60 fire; the burning take a full build-up (combust) (7 s) | **Snap**: the frozen shatter, the rest 60 frost (7 s) | **Cyclone**: drags light creatures in, swallows shots (9 s) |
+| **Fixed range** (Burst button: a spot 130 px along the aim) | **Force Blast**: a wide (100 px) weak burst (7), throws creatures out (4 s) | **Burst**: an explosion at the spot, 60 fire; and every creature in view already burning, anywhere, takes a full build-up (combusts) (7 s) | **Snap**: every creature in view frozen solid shatters, anywhere; what's at the spot takes 60 frost (7 s) | **Cyclone**: drags light creatures in, swallows shots (9 s) |
 | **Aid** (Extended button, 8 s) | **Ward**: a barrier for you and friends near (11 s) | **Kindling**: you and friends near add 15 fire a blow (12 s) | **Frost Armor**: melee attackers are filled with frost (12 s) | **Narrow Draft**: you and friends near move 20% faster, jump higher (10 s) |
 
 The plain names (Pop, Lift, Force Blast, Ward) and Aid on the fourth button are my fill-ins, as are the Swordsman's frost and earth jumps;

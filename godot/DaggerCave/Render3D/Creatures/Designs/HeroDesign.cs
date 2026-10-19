@@ -638,6 +638,18 @@ public sealed partial class HeroDesign : CreatureDesign
                 Name = "OrbLight", LightColor = OrbFire, LightEnergy = 0.5f, OmniRange = 3.2f, OmniAttenuation = 1.4f,
                 ShadowEnabled = false, LightVolumetricFogEnergy = 0.4f, Position = orbAt,
             });
+            // a readied element: a great halo of its colour about the orb (added light, seen at a glance)
+            var haloMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1f, 0.5f, 0.2f, 0.4f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                EmissionEnabled = true, Emission = OrbFire, EmissionEnergyMultiplier = 4f,
+            };
+            hand.AddChild(new MeshInstance3D
+            {
+                Name = "OrbHalo", Mesh = new SphereMesh { Radius = 0.32f, Height = 0.64f, RadialSegments = 16, Rings = 8 }, MaterialOverride = haloMat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = orbAt, Visible = false,
+            });
         }
         else if (_rogue)
         {
@@ -667,6 +679,18 @@ public sealed partial class HeroDesign : CreatureDesign
             hand.AddChild(new MeshInstance3D
             {
                 Name = "ChargeEdge", Mesh = new BoxMesh { Size = new Vector3(0.1f, 1.04f, 0.03f) }, MaterialOverride = edgeMat,
+                CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = mid, Visible = false,
+            });
+            // a readied element: a wide aura of its colour over the whole blade (added light, seen at a glance), with the edge burning within
+            var auraMat = new StandardMaterial3D
+            {
+                AlbedoColor = new Color(1f, 0.5f, 0.2f, 0.42f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, BlendMode = BaseMaterial3D.BlendModeEnum.Add,
+                ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+                EmissionEnabled = true, Emission = new Color(1f, 0.45f, 0.15f), EmissionEnergyMultiplier = 4f,
+            };
+            hand.AddChild(new MeshInstance3D
+            {
+                Name = "ElementAura", Mesh = new CapsuleMesh { Radius = 0.16f, Height = 1.4f, RadialSegments = 12, Rings = 4 }, MaterialOverride = auraMat,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = mid, Visible = false,
             });
             // the Glacier Cleaver: a vast double-bitted axe of ice grown over the blade, shown while it swings
@@ -906,10 +930,25 @@ public sealed partial class HeroDesign : CreatureDesign
                 mat.Emission = col;
                 mat.EmissionEnergyMultiplier = dead ? 0.3f : (2.2f + 7f * glow) * live;
             }
-            orb.Scale = Vector3.One * (1f + 0.35f * glow);
+            bool elem = readied != HeroElement.None && !dead;
+            if (elem && orb.Mesh is SphereMesh sm2 && sm2.Material is StandardMaterial3D mat2) mat2.EmissionEnergyMultiplier = (9f + 4f * glow) * live;
+            orb.Scale = Vector3.One * ((elem ? 2.4f : 1f) + 0.35f * glow);
             light.LightColor = col;
-            light.LightEnergy = dead ? 0f : (0.45f + 2.8f * glow) * live;
-            light.OmniRange = 3.2f + 2.5f * glow;
+            light.LightEnergy = dead ? 0f : (elem ? 3.2f : 0.45f + 2.8f * glow) * live;
+            light.OmniRange = elem ? 4.8f : 3.2f + 2.5f * glow;
+            var halo = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/StaffHand/OrbHalo");
+            if (halo != null)
+            {
+                halo.Visible = elem;
+                if (elem && halo.MaterialOverride is StandardMaterial3D hm)
+                {
+                    float breathe = 0.85f + 0.15f * MathF.Sin(a.Time * 6f) + 2.2f * (player?.InfuseFlash ?? 0f);
+                    hm.AlbedoColor = new Color(col, 0.5f * breathe);
+                    hm.Emission = col;
+                    hm.EmissionEnergyMultiplier = 4.5f * breathe;
+                    halo.Scale = Vector3.One * (0.9f + 0.15f * breathe);
+                }
+            }
         }
         else if (_rogue)
         {
@@ -932,22 +971,40 @@ public sealed partial class HeroDesign : CreatureDesign
                 if (giant) axe.Scale = axe.Scale.Lerp(Vector3.One * (1f + 0.03f * MathF.Sin(a.Time * 17f)), 0.35f);
             }
             if (edge == null || light == null) return;
-            // the edge burns while the blade is charged, or in an element's colour while one is readied
+            // the edge burns while the blade is charged, or in an element's colour while one is readied (then an aura over the whole blade too)
             var readied = player != null && !player.Dead ? player.GlowElement : HeroElement.None;
+            var aura = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ElementAura");
+            if (aura != null)
+            {
+                aura.Visible = readied != HeroElement.None;
+                if (aura.Visible && aura.MaterialOverride is StandardMaterial3D am)
+                {
+                    var ac = Elements.ColorOf(readied);
+                    // (it flares up as the element takes)
+                    float breathe = 0.85f + 0.15f * MathF.Sin(a.Time * 6f) + 2.2f * (player?.InfuseFlash ?? 0f);
+                    am.AlbedoColor = new Color(ac, 0.5f * breathe);
+                    am.Emission = ac;
+                    am.EmissionEnergyMultiplier = 4.5f * breathe;
+                    aura.Scale = new Vector3(1f, 1f, 1f) * (0.95f + 0.08f * breathe);
+                }
+            }
             bool on = player != null && !player.Dead && (player.Charged > 0 || player.SwingCharged || readied != HeroElement.None);
             edge.Visible = on;
             light.Visible = on;
             if (!on) return;
             var tint = readied != HeroElement.None ? Elements.ColorOf(readied) : new Color(1f, 0.45f, 0.15f);
             float flick = readied is HeroElement.Frost or HeroElement.Earth ? 0.88f + 0.12f * MathF.Sin(a.Time * 2.4f) : 0.75f + 0.25f * MathF.Sin(a.Time * 23f) * MathF.Sin(a.Time * 7.3f);
+            bool elem = readied != HeroElement.None;
             if (edge.MaterialOverride is StandardMaterial3D em)
             {
-                em.EmissionEnergyMultiplier = 2.2f + 1.6f * flick;
-                em.Emission = tint;
-                em.AlbedoColor = new Color(tint, 0.5f);
+                em.EmissionEnergyMultiplier = elem ? 7f + 2f * flick : 2.2f + 1.6f * flick;
+                em.Emission = elem ? tint.Lightened(0.25f) : tint;
+                em.AlbedoColor = new Color(tint, elem ? 0.9f : 0.5f);
             }
+            edge.Scale = elem ? new Vector3(1.6f, 1.05f, 1.6f) : Vector3.One;
             light.LightColor = tint;
-            light.LightEnergy = 1.1f * flick;
+            light.LightEnergy = (elem ? 3.2f : 1.1f) * flick;
+            light.OmniRange = elem ? 4.5f : 2.8f;
         }
     }
 }

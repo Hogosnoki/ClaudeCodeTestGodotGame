@@ -81,7 +81,7 @@ public partial class Player
         while (_charges.Count >= most) _charges.RemoveAt(0);
         _charges.Add(el);
         var col = Elements.ColorOf(el);
-        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), _charges.Count > 1 ? 20 : 14, new Color(col, 0.9f), 0.25f, FxLayer.RingStyle.Burst);
+        WeaponTouch(el);
         bool dual = AnyDual;
         G.Fx.Text(GlobalPosition + new Vector2(0, -30), dual ? $"{Elements.Name(_charges[0])}+{Elements.Name(_charges[1])}".ToUpperInvariant() : Elements.Name(el).ToUpperInvariant(),
             dual ? Elements.DualColor(_charges[0], _charges[1]) : col, dual ? 11 : 10, 0.7f);
@@ -89,6 +89,58 @@ public partial class Player
         Anim.Flash(0.2f);
         Anim.FlashColor = col;
         return true;
+    }
+
+    /// <summary>For the 3D view: a moment ago an element went onto the weapon (its glow flares up as it takes).</summary>
+    public float InfuseFlash => Math.Max(0f, _infuseFlash);
+    private float _infuseFlash;
+
+    /// <summary>The element going onto the weapon: a puff of flame along it, a sheen of ice running up it, a crackle of grit, a twist of wind.</summary>
+    private void WeaponTouch(HeroElement el)
+    {
+        _infuseFlash = 0.45f;
+        // (the weapon, roughly: the sword held up and forward from the hand; the staff from the hand up to its orb)
+        Vector2 a, b;
+        if (Stats.Hero == HeroKind.Elementalist) { a = GlobalPosition + new Vector2(Facing * 7, 8); b = CastPoint; }
+        else { a = GlobalPosition + new Vector2(Facing * 6, -2); b = a + new Vector2(Facing, -0.55f).Normalized() * 28f; }
+        var col = Elements.ColorOf(el);
+        switch (el)
+        {
+            case HeroElement.Fire:
+                // a puff of flame bursting along it
+                for (int k = 0; k <= 6; k++)
+                {
+                    var at = a.Lerp(b, k / 6f);
+                    G.Fx.Directional(at, Vector2.Up, 0.5f, G.Chance(0.5f) ? new Color(1f, 0.45f, 0.1f) : new Color(1f, 0.8f, 0.3f), 3, G.Range(60, 140), G.Range(2.6f, 3.8f), 0.4f, -90, 0);
+                }
+                G.Fx.Flash(b, 12, col, 0.12f);
+                G.Fx.Smoke(b + new Vector2(0, -6), 2, new Color(0.3f, 0.27f, 0.25f, 0.4f), 25f);
+                break;
+            case HeroElement.Frost:
+                // a sheen of ice running up it from hand to tip, rime left glinting
+                for (int k = 0; k <= 7; k++)
+                {
+                    var at = a.Lerp(b, k / 7f);
+                    G.Fx.Burst(at, new Color(0.92f, 0.98f, 1f, 0.95f), 1, 12, 3f - k * 0.15f, 0.12f + k * 0.035f, 0, 0);
+                }
+                G.Fx.Glint(b, col, 9f);
+                G.Fx.Burst(b, new Color(col, 0.9f), 6, 60, 1.6f, 0.35f, 40);
+                break;
+            case HeroElement.Earth:
+                // grit and stone dust crackling along it
+                for (int k = 0; k <= 5; k++) G.Fx.Burst(a.Lerp(b, k / 5f), new Color(col.Darkened(0.2f), 0.9f), 2, 50, 1.8f, 0.35f, 300);
+                G.Fx.Dust(a, 3, 1f, new Color(0.55f, 0.46f, 0.36f, 0.6f));
+                break;
+            default:
+                // a twist of wind wound round it
+                for (int k = 0; k < 8; k++)
+                {
+                    var at = a.Lerp(b, k / 7f);
+                    var along = (b - a).Normalized();
+                    G.Fx.Directional(at, along.Orthogonal() * (k % 2 == 0 ? 1 : -1), 0.3f, new Color(col, 0.8f), 1, 120, 1.6f, 0.25f, 0, 0);
+                }
+                break;
+        }
     }
 
     /// <summary>The oldest readied charge, spent on an attack.</summary>
@@ -123,6 +175,7 @@ public partial class Player
     {
         if (!Elemental) return;
         if (_infuseCd > 0 && (_infuseCd -= dt) <= 0 && _infuseQueued >= 0) { int q = _infuseQueued; _infuseQueued = -1; TryInfuse(q); }
+        if (_infuseFlash > 0) _infuseFlash -= dt;
         if (_charges.Count > 0)
         {
             // (readied charges wait as long as it takes, glowing on the weapon (the 3D view); a fall clears them)
@@ -654,23 +707,33 @@ public partial class Player
         switch (el)
         {
             case HeroElement.Fire:
-                // Burst: an explosion at the spot; what was burning already takes a full build-up (and combusts)
+                // Burst: an explosion at the spot; and every creature in view already burning, wherever it is, takes a full build-up (and combusts)
                 rest = Tune.ElementalStaff.BurstRest;
+                var burst = new HashSet<Enemy>();
                 foreach (var e in FoesAt(spot, r))
                 {
+                    burst.Add(e);
                     bool lit = e.Ignited;
                     Strike(e, Tune.ElementalStaff.BurstDamage * power, (e.GlobalPosition - spot).Normalized() * 140f, DamageKind.Fire);
                     if (!e.Dead) e.Build(HeroElement.Fire, lit ? Tune.Elements.Full : Tune.ElementalStaff.BurstBuild, power, this);
+                }
+                foreach (var e in InView())
+                {
+                    if (burst.Contains(e) || !e.Ignited) continue;
+                    G.Fx.Converge(e.GlobalPosition, e.HitRadius + 12, col, 5, 0.12f);
+                    e.Build(HeroElement.Fire, Tune.Elements.Full, power, this);
                 }
                 GasCloud.IgniteAt(spot, r);
                 G.Fx.Explosion(spot, col, 1.1f);
                 break;
             case HeroElement.Frost:
-                // Snap: the cold closes like a fist; the frozen shatter, the rest are filled with frost
+                // Snap: the cold closes like a fist on the spot, filling what's there with frost; and every creature in view frozen solid,
+                // wherever it is, shatters
                 rest = Tune.ElementalStaff.SnapRest;
+                foreach (var e in InView()) if (e.FrozenSolid) e.Shatter(power, this);
                 foreach (var e in FoesAt(spot, r))
                 {
-                    if (e.Shatter(power, this)) continue;
+                    if (e.Dead) continue;
                     Strike(e, Tune.ElementalStaff.SnapDamage * power, Vector2.Zero, DamageKind.Frost);
                     if (!e.Dead) e.Build(HeroElement.Frost, Tune.ElementalStaff.SnapBuild, power, this);
                 }
