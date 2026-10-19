@@ -6,8 +6,8 @@ namespace DaggerCave;
 /// <summary>An element a hero can lend an attack (see <see cref="Elements"/>).</summary>
 public enum HeroElement : byte { None, Earth, Fire, Frost, Wind }
 
-/// <summary>Which of a hero's buttons an element changes: the attack, movement (the Swordsman's jump, the Elementalist's dodge), the heavy
-/// one (the Hard Swing, the fixed-range spell) and the fourth (Empower Hilt, Aid).</summary>
+/// <summary>Which of a hero's buttons an element changes: the attack, movement (the Swordsman's and Elementalist's dodge, the Warden's
+/// Guarded Charge), the heavy one (the Hard Swing, the fixed-range spell, the Warden's block) and the fourth (Empower Hilt, Aid).</summary>
 public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
 
 /// <summary>
@@ -16,21 +16,22 @@ public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
 /// version (the Swordsman's Swing with Earth is the Heaving Swing, with Fire the Searing Strike...), and the ability then rests for as
 /// long as that version asks. Elemental blows fill a creature's build-up of that element (<see cref="Enemy.Build"/>) rather than
 /// rolling chances: full, it takes hold (fire: alight, then it combusts; frost: chilled, then frozen solid; earth: stunned).
-/// The Swordsman and the Elementalist have them so far; <see cref="GameSettings.ClassicKits"/> brings back their old kits.
+/// The Swordsman, the Elementalist and the Warden have them so far; <see cref="GameSettings.ClassicKits"/> brings back their old kits.
 /// </summary>
 public static class Elements
 {
     /// <summary>The hero fights with elements (not the classic kit).</summary>
-    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist;
+    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden;
     /// <summary>The tests of the classic kits keep them (never saved): `--scenario=elements` or `--elements` tests the elemental ones.</summary>
     public static bool ClassicForTests;
 
     private static readonly HeroElement[] None = Array.Empty<HeroElement>();
     private static readonly HeroElement[] Sword = { HeroElement.Earth, HeroElement.Fire, HeroElement.Frost };
     private static readonly HeroElement[] Ele = { HeroElement.Fire, HeroElement.Frost, HeroElement.Wind };
+    private static readonly HeroElement[] Ward = { HeroElement.Earth, HeroElement.Frost, HeroElement.Wind };
 
     /// <summary>The hero's three elements, in button order (1, 2, 3).</summary>
-    public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h == HeroKind.Swordsman ? Sword : Ele;
+    public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h switch { HeroKind.Swordsman => Sword, HeroKind.Warden => Ward, _ => Ele };
 
     public static string Name(HeroElement e) => e switch { HeroElement.Earth => "Earth", HeroElement.Fire => "Fire", HeroElement.Frost => "Frost", HeroElement.Wind => "Wind", _ => "" };
 
@@ -66,6 +67,15 @@ public static class Elements
                 ElemSlot.Heavy => e switch { HeroElement.Earth => "ThunderCrush", HeroElement.Fire => "Pyroclasty", HeroElement.Frost => "Ice Axe", _ => "Hard Swing" },
                 _ => e == HeroElement.None ? "Empower Hilt" : $"{Name(e)} Hilt",
             };
+        // the Warden: the attack (his shortsword), movement (the Guarded Charge) and the block (his shield, raised); no fourth
+        if (h == HeroKind.Warden)
+            return slot switch
+            {
+                ElemSlot.Attack => e switch { HeroElement.Earth => "Stonecutter", HeroElement.Frost => "Rime Edge", HeroElement.Wind => "Gale Edge", _ => "Shortsword" },
+                ElemSlot.Move => e switch { HeroElement.Earth => "Rockslide Charge", HeroElement.Frost => "Frozen Tundra", HeroElement.Wind => "Gale Charge", _ => "Guarded Charge" },
+                ElemSlot.Heavy => e switch { HeroElement.Earth => "Stone Guard", HeroElement.Frost => "Rime Guard", HeroElement.Wind => "Gale Guard", _ => "Block" },
+                _ => "",
+            };
         return slot switch
         {
             ElemSlot.Attack => e switch { HeroElement.Fire => "Firebolt", HeroElement.Frost => "Frostbolt", HeroElement.Wind => "Gust", _ => "Pop" },
@@ -77,7 +87,8 @@ public static class Elements
 
     /// <summary>
     /// The ability two charges make on a button (<see cref="Tune.Dual"/>; "" where the pair has none there, and the button spends just the
-    /// oldest charge). The Swordsman's are on the Hard Swing; the Elementalist's on the bolt, movement and fixed-range buttons.
+    /// oldest charge). The Swordsman's are on the Hard Swing; the Elementalist's on the bolt, movement and fixed-range buttons; the Warden
+    /// has every pair on each of his three (<see cref="Tune.ElementalWarden"/>).
     /// </summary>
     public static string DualName(HeroKind h, ElemSlot slot, HeroElement x, HeroElement y)
     {
@@ -91,6 +102,41 @@ public static class Elements
                 (HeroElement.Earth, HeroElement.Frost) => "Frost Heave",
                 (HeroElement.Earth, HeroElement.Fire) => "Magma Rend",
                 (HeroElement.Fire, HeroElement.Frost) => "Thermal Shock",
+                _ => "",
+            };
+        if (h == HeroKind.Warden)
+            return slot switch
+            {
+                ElemSlot.Attack => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Boulder Strike",
+                    (HeroElement.Frost, HeroElement.Frost) => "Icicle Lance",
+                    (HeroElement.Wind, HeroElement.Wind) => "Cyclone Slash",
+                    (HeroElement.Earth, HeroElement.Frost) => "Frozen Earth",
+                    (HeroElement.Earth, HeroElement.Wind) => "Sandblast",
+                    (HeroElement.Frost, HeroElement.Wind) => "Frost Gust",
+                    _ => "",
+                },
+                ElemSlot.Move => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Avalanche",
+                    (HeroElement.Frost, HeroElement.Frost) => "Glacier Charge",
+                    (HeroElement.Wind, HeroElement.Wind) => "Tempest Charge",
+                    (HeroElement.Earth, HeroElement.Frost) => "Frostquake",
+                    (HeroElement.Earth, HeroElement.Wind) => "Duststorm",
+                    (HeroElement.Frost, HeroElement.Wind) => "Blizzard Charge",
+                    _ => "",
+                },
+                ElemSlot.Heavy => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Bastion",
+                    (HeroElement.Frost, HeroElement.Frost) => "Glacial Bulwark",
+                    (HeroElement.Wind, HeroElement.Wind) => "Eye of the Storm",
+                    (HeroElement.Earth, HeroElement.Frost) => "Permafrost Guard",
+                    (HeroElement.Earth, HeroElement.Wind) => "Dust Wall",
+                    (HeroElement.Frost, HeroElement.Wind) => "Hoarfrost Gale",
+                    _ => "",
+                },
                 _ => "",
             };
         if (h != HeroKind.Elementalist) return "";

@@ -25,7 +25,7 @@ public partial class Player
     public bool ShieldBroken => _shieldBrokenT > 0;
     public float ShieldBrokenLeft => _shieldBrokenT;
     public Vector2 ShieldDir { get; private set; } = Vector2.Right;
-    public float ShieldArc => Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
+    public float ShieldArc => GuardAllRound ? Mathf.Tau : Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
     private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _blockGrace, _coyoteShieldT;
     /// <summary>How long after the shield goes up a block still counts as perfect.</summary>
     private float PerfectWindowNow => Tune.Warden.PerfectWindow * Stats.PerfectWindowMult;
@@ -71,6 +71,8 @@ public partial class Player
         bool was = ShieldRaised;
         ShieldRaised = dashing || (bashing && !ShieldBroken) || (want && !ShieldBroken && ShieldHp > 0);
         if (ShieldRaised && !was) _shieldUpT = 0;
+        // (raised with charges readied, the shield takes their guard: see Player.WardenElements.cs)
+        if (ShieldRaised && !was && !dashing && !bashing) GuardRaised();
         if (was && !ShieldRaised) _coyoteShieldT = 0.18f;
         _shieldUpT += dt;
         // aim: right stick / mouse when given, otherwise the way you face
@@ -116,6 +118,8 @@ public partial class Player
         float stopped = b.Perfect ? dmg : dmg * (Stats.Unyielding ? Stats.UnyieldingShare : Stats.BlockShare);
         b.Through = dmg - stopped;
         float cost = dashing || Stats.Unyielding ? 0f : stopped * Tune.Warden.ShieldCost * (b.Perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
+        // (a guard of stone: nothing gets through, and the shield doesn't wear)
+        if (GuardStone) { b.Through = 0f; cost = 0f; }
         if (cost > ShieldHp)
         {
             b.Through += stopped * (cost - ShieldHp) / cost;
@@ -136,6 +140,7 @@ public partial class Player
             // a perfect block ends the attack; an ordinary one only takes the sting out of it
             if (b.Perfect) melee.Interrupt(away * 200f, Tune.Warden.PerfectStagger);
             if (Stats.ShieldThorns) melee.Hurt(dmg * 0.4f * Stats.DamageMult, away * 120f, melee.GlobalPosition - away * melee.HitRadius);
+            GuardStruck(melee);
         }
         if (ShieldHp <= 0 && !dashing) BreakShield(at, striker ?? melee);
         return b;
@@ -177,7 +182,7 @@ public partial class Player
     {
         var b = TryBlock(pr.GlobalPosition - pr.Vel.Normalized() * 10, pr.Damage, striker: pr.Source);
         if (!b.Blocked) return false;
-        if (b.Perfect && Stats.PerfectReflect) pr.Reflect(ShieldDir, Stats.DamageMult);
+        if ((b.Perfect && Stats.PerfectReflect) || GuardReflects) pr.Reflect(ShieldDir, Stats.DamageMult);
         else pr.Deflect();
         LastHitBlocked = true;
         ApplyChip(b.Through, pr.Source);
@@ -188,7 +193,8 @@ public partial class Player
 
     private bool TryShieldDash(Vector2 aim)
     {
-        if (!IsWarden || !AbilityChargeReady || _dashT > 0) return false;
+        bool free = Elemental && FreeVersion;
+        if (!IsWarden || (!AbilityChargeReady && !free) || _dashT > 0) return false;
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         float time = Stats.DashTime;
         // Guardian's Charge: to the friend nearest your aim, wrapping them in a barrier (alone, you)
@@ -212,7 +218,9 @@ public partial class Player
         _dashDir = d;
         _dashT = time;
         _dashStruck.Clear();
-        SpendAbilityCharge();
+        if (!free) SpendAbilityCharge();
+        _wDash = "";
+        if (free) WardenDashVersion();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
         _swingT = -1; // a swing still under way gives way to the charge
         _shieldUpT = 0;
@@ -231,10 +239,11 @@ public partial class Player
     private Vector2 DashMotion(Vector2 v, float dt)
     {
         if (DashCollide()) return Velocity; // stopped against something (with a rebound)
-        v = _dashDir * Tune.Warden.DashSpeed;
-        if (Engine.GetPhysicsFrames() % 2 == 0) Afterimage.Spawn(Anim, new Color(0.45f, 0.7f, 1f), 0.22f);
+        v = _dashDir * Tune.Warden.DashSpeed * (_wDash != "" ? _dashSpeedMult : 1f);
+        if (Engine.GetPhysicsFrames() % 2 == 0) Afterimage.Spawn(Anim, _wDash != "" ? Elements.ColorOf(_dashA) : new Color(0.45f, 0.7f, 1f), 0.22f);
+        if (_wDash != "") WardenDashPass(GlobalPosition + new Vector2(0, -3) + _dashDir * 12, dt);
         _dashT -= dt;
-        if (_dashT <= 0) v *= 0.35f;
+        if (_dashT <= 0) { v *= 0.35f; WardenDashEnd(); }
         return v;
     }
 
@@ -259,6 +268,8 @@ public partial class Player
             sw.Break();
             DashSwallow(at);
         }
+        // (an elemental charge runs through creatures: see WardenDashPass)
+        if (_wDash != "") return false;
         foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || (!e.AttackingNow && !Stats.Juggernaut)) continue;
@@ -495,6 +506,8 @@ public partial class Player
         g.Strength = g.Dash ? 1f : Math.Clamp(ShieldHp / Math.Max(1f, Stats.ShieldMax), 0, 1);
         bool perfectWindow = IsRemote ? (_netFlags & HfPerfect) != 0 : _shieldUpT <= PerfectWindowNow;
         g.Col = g.Dash || perfectWindow || _shieldFlash > 0 ? new Color(0.85f, 0.95f, 1f) : new Color(0.35f, 0.65f, 1f);
+        // (a guard shows in its element's colour)
+        if (_guard != "") g.Col = _guardB == HeroElement.None ? Elements.ColorOf(_guardA) : Elements.DualColor(_guardA, _guardB);
         g.Angle = ShieldDir.Angle();
         g.Half = ShieldArc * 0.5f;
         return g;

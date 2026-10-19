@@ -79,6 +79,39 @@ public partial class Hud
     /// <summary>What an elemental ability does, by its name (<see cref="Elements.SingleName"/>, <see cref="Elements.DualName"/>).</summary>
     public static (string title, string body) ElementTip(string name) => (name, name switch
     {
+        // the Warden: the attack
+        "Shortsword" => "The shortsword. Ready earth for Stonecutter, frost for Rime Edge, wind for Gale Edge; two charges make the pair's cut.",
+        "Stonecutter" => "Earth's cut: a quarter harder, 50 earth (a full meter stuns).",
+        "Rime Edge" => "Frost's cut: a quarter harder, 50 frost (full: chilled; full again: frozen solid).",
+        "Gale Edge" => "Wind's cut: reaches farther and throws what it strikes back.",
+        "Boulder Strike" => "Earth and earth: a crushing blow, more than twice as hard: stunned, tossed up, and the frozen shattered.",
+        "Icicle Lance" => "Frost and frost: the cut, and a lance of ice thrown on along your aim that freezes what it meets.",
+        "Cyclone Slash" => "Wind and wind: a whirling cut all round you, reaching far, throwing everything it strikes away.",
+        "Frozen Earth" => "Earth and frost: a hard blow of frozen stone, 60 earth and 60 frost; it shatters the frozen.",
+        "Sandblast" => "Earth and wind: the cut throws a cone of grit ahead: everything in it is nicked and its attacks slowed.",
+        "Frost Gust" => "Frost and wind: the cut looses a freezing wind ahead: everything in it is filled with frost and driven back.",
+        // the Warden: the block (the shield raised with charges readied: the guard holds while it stays up, 6 s at most)
+        "Block" => "Your shield, raised. Raise it with an element readied and it takes that element's guard while it stays up: earth Stone Guard, frost Rime Guard, wind Gale Guard; two charges, the pair's.",
+        "Stone Guard" => "Earth's guard: nothing gets through and the shield doesn't wear while it holds; a creature striking it is stunned.",
+        "Rime Guard" => "Frost's guard: a creature striking it is filled with frost.",
+        "Gale Guard" => "Wind's guard: a creature striking it is thrown back, and shots go back where they came from.",
+        "Bastion" => "Earth and earth: the guard of stone, all round you: blows from behind are stopped too.",
+        "Glacial Bulwark" => "Frost and frost: a wall of ice rises in front (creatures go for it, friends walk through), and whatever strikes your shield is frozen solid.",
+        "Eye of the Storm" => "Wind and wind: a ring of wind about you pushes creatures away and turns shots aside; shots on the shield go back.",
+        "Permafrost Guard" => "Earth and frost: the ground about you freezes (creatures on it chilled, friends quicker); strikers are stunned and filled with frost, and nothing gets through.",
+        "Dust Wall" => "Earth and wind: a cloud of dust in front hides your friends and slows the creatures in it; strikers are stunned and thrown back.",
+        "Hoarfrost Gale" => "Frost and wind: strikers are filled with frost and thrown back, and shots go back.",
+        // the Warden: the dash (every elemental charge runs through creatures instead of stopping)
+        "Guarded Charge" => "A charge behind the shield. Ready earth for a Rockslide Charge, frost for Frozen Tundra, wind for a Gale Charge; two charges, the pair's.",
+        "Rockslide Charge" => "Earth's charge: it ploughs through everything in its way and ends in a shockwave of earth that stuns.",
+        "Frozen Tundra" => "Frost's charge: it fills what it passes with frost, and the ground it crossed freezes over (creatures on it chilled, friends quicker).",
+        "Gale Charge" => "Wind's charge: farther and faster, throwing creatures aside; friends it passes get a wind at their back.",
+        "Avalanche" => "Earth and earth: the rockslide, with a great quake at its end and a fissure running on ahead.",
+        "Glacier Charge" => "Frost and frost: everything it passes is frozen solid, and the ground it crossed freezes over.",
+        "Tempest Charge" => "Wind and wind: a long charge that carries every creature it meets along in its wake, then flings them.",
+        "Frostquake" => "Earth and frost: it ploughs through, ends in a quake, and ice bursts up where it stops.",
+        "Duststorm" => "Earth and wind: a long charge leaving clouds of dust behind (friends in them hidden, creatures slowed), and a quake at its end.",
+        "Blizzard Charge" => "Frost and wind: farther and faster, filling what it passes with frost and throwing it aside; the ground it crossed freezes over.",
         // the Swordsman
         "Empower Hilt" => "For 8 s every blow lands 20% harder. Ready an element first: earth saps a creature's attacks, frost and fire fill its build-up.",
         "Earth Hilt" or "Fire Hilt" or "Frost Hilt" => "For 8 s every blow carries the element: earth saps a creature's attacks, frost and fire fill its build-up.",

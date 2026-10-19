@@ -2098,8 +2098,35 @@ everyone's copy of the Swordsman). `--scenario=elements` checks every single and
 `elements_iceaxe.png`, `duals_hud.png`, `duals_glacier.png`, `duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_breath.png`, `duals_tower.png`,
 `duals_rain.png`).
 
-**Classic kits**: *Settings > Controls > Classic Swordsman & Elementalist* brings back their old kits (from the next run). The tests of the
-classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`) tests the elemental ones (`elements_hud.png`), and
+### The elemental Warden
+
+The Warden fights with **earth, frost and wind** (`Player/Player.WardenElements.cs`, `Tune.ElementalWarden`). His three buttons are the
+**attack** (the shortsword), the **block** (the shield, raised) and the **dash** (the Guarded Charge), and each has a plain version, a
+version for each element and a version for **every pair** (two charges readied: the same twice or two different). His **Shield Bash is not
+in the elemental kit** (its cards aren't dealt); Taunt, on the support button, is as it was. As with the others, a version waits on no
+cooldown (the charge's second paces it), and his shortsword and shield glow with the readied element.
+
+| Warden (earth, frost, wind) | Plain | Earth | Frost | Wind |
+|---|---|---|---|---|
+| **Attack** | the shortsword | **Stonecutter**: x1.25, 50 earth | **Rime Edge**: x1.25, 50 frost | **Gale Edge**: 1.3x the reach, throws what it strikes back |
+| **Block** (the shield raised with charges readied takes their **guard**, which holds while it stays up, 6 s at most) | the shield | **Stone Guard**: nothing gets through, the shield doesn't wear, a striker is stunned (full earth) | **Rime Guard**: a striker is filled with frost (full) | **Gale Guard**: a striker is thrown back, shots go back where they came from |
+| **Dash** (every elemental charge runs through creatures, each struck once, instead of stopping at one) | the Guarded Charge | **Rockslide Charge**: ploughs through (x0.6 each) and ends in a shockwave of earth, 60 px (x1.4, full earth) | **Frozen Tundra**: 40 frost to what it passes; the ground it crossed (and 40 px past each end) freezes for 8 s | **Gale Charge**: 1.6x as long and 1.3x as fast, throwing creatures aside; friends it passes get a tailwind for 3 s |
+
+| Pair | Attack | Block | Dash |
+|---|---|---|---|
+| Earth + Earth | **Boulder Strike**: x2.2, full earth (stunned), tossed up, shatters the frozen | **Bastion**: the stone guard, all round (blows from behind are stopped too) | **Avalanche**: the rockslide with a 92 px quake (x2), and a fissure running on 220 px ahead |
+| Frost + Frost | **Icicle Lance**: the cut, and a lance of ice thrown on 260 px along the aim (x1.4, full frost) | **Glacial Bulwark**: a wall of ice rises in front (64 px tall, 30 health scaled to his, 10 s; creatures go for it and it takes their blows, friends walk through), and a striker is frozen solid | **Glacier Charge**: everything it passes is frozen solid; the ground it crossed freezes |
+| Wind + Wind | **Cyclone Slash**: a whirling cut all round, 1.5x the reach, x1.3, everything struck thrown away | **Eye of the Storm**: a ring of wind (58 px) pushes creatures out and turns shots aside; shots on the shield go back | **Tempest Charge**: twice as long, carrying every creature it meets along in its wake, flung at the end |
+| Earth + Frost | **Frozen Earth**: x1.5, 60 earth and 60 frost, shatters the frozen | **Permafrost Guard**: the ground about him freezes (100 px each way); stone and frost together (nothing through, strikers stunned and filled with frost) | **Frostquake**: ploughs through, the quake, and ice bursts up where it ends (x2.5, full frost) |
+| Earth + Wind | **Sandblast**: a cone of grit 120 px ahead nicks (x0.5) and saps everything in it for 3 s | **Dust Wall**: a cloud of dust in front (56 px, 6 s) hides friends and saps creatures; stone and wind together | **Duststorm**: a long charge leaving clouds of dust behind (friends hidden, creatures sapped), and the quake at its end |
+| Frost + Wind | **Frost Gust**: a freezing wind 120 px ahead: 60 frost, driven back | **Hoarfrost Gale**: strikers filled with frost and thrown back, shots go back | **Blizzard Charge**: farther and faster, 60 frost to what it passes, thrown aside; the ground it crossed freezes |
+
+The names are my fill-ins; rename or swap them freely. The HUD shows his three buttons, each named for what the readied charges would
+make of it (the block's square shows the guard while it holds, the shield's strength beside them). `--scenario=elements --hero=warden`
+checks every version (`warden_guard.png`, `warden_bulwark.png`, `warden_hud.png`).
+
+**Classic kits**: *Settings > Controls > Classic Swordsman, Elementalist & Warden* brings back their old kits (from the next run). The tests of the
+classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`) tests the elemental ones (`elements_hud.png`), and
 `--elements` runs any other test with them.
 
 ## Save files

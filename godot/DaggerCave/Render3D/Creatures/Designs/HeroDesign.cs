@@ -663,9 +663,9 @@ public sealed partial class HeroDesign : CreatureDesign
                 hand.AddChild(new MeshInstance3D { Name = "Blade", Mesh = dagger, Position = new Vector3(0.016f, -0.05f, 0f) });
             }
         }
-        else if (!_warden)
+        else
         {
-            // the Charged Strike: a burning edge along the blade, shown while the blade is charged
+            // the Charged Strike: a burning edge along the blade, shown while the blade is charged (the Warden's shortsword: a readied element)
             var hand = m.AttachTo("hand_r");
             hand.Name = "BladeHand";
             var edgeMat = new StandardMaterial3D
@@ -675,10 +675,11 @@ public sealed partial class HeroDesign : CreatureDesign
                 EmissionEnabled = true, Emission = new Color(1f, 0.45f, 0.15f), EmissionEnergyMultiplier = 3f,
             };
             // along the blade (it runs down -Y from the grip), in the hand's local space
-            var mid = new Vector3(0.016f, -0.1f - 0.03f - 0.52f, 0.2f) - new Vector3(0f, -0.05f, 0.2f);
+            float blade = _warden ? 0.73f : 1.04f;
+            var mid = new Vector3(0.016f, -0.1f - 0.03f - blade * 0.5f, 0.2f) - new Vector3(0f, -0.05f, 0.2f);
             hand.AddChild(new MeshInstance3D
             {
-                Name = "ChargeEdge", Mesh = new BoxMesh { Size = new Vector3(0.1f, 1.04f, 0.03f) }, MaterialOverride = edgeMat,
+                Name = "ChargeEdge", Mesh = new BoxMesh { Size = new Vector3(0.1f, blade, 0.03f) }, MaterialOverride = edgeMat,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = mid, Visible = false,
             });
             // a readied element: a wide aura of its colour over the whole blade (added light, seen at a glance), with the edge burning within
@@ -690,9 +691,20 @@ public sealed partial class HeroDesign : CreatureDesign
             };
             hand.AddChild(new MeshInstance3D
             {
-                Name = "ElementAura", Mesh = new CapsuleMesh { Radius = 0.16f, Height = 1.4f, RadialSegments = 12, Rings = 4 }, MaterialOverride = auraMat,
+                Name = "ElementAura", Mesh = new CapsuleMesh { Radius = 0.16f, Height = blade + 0.36f, RadialSegments = 12, Rings = 4 }, MaterialOverride = auraMat,
                 CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = mid, Visible = false,
             });
+            if (_warden)
+            {
+                // the Warden's shield: a glow of the readied element (or the guard it holds) over its face
+                var shieldHand = m.AttachTo("hand_l");
+                shieldHand.Name = "ShieldHand";
+                shieldHand.AddChild(new MeshInstance3D
+                {
+                    Name = "ShieldGlow", Mesh = new SphereMesh { Radius = 0.36f, Height = 0.72f, RadialSegments = 16, Rings = 8 }, MaterialOverride = (Material)auraMat.Duplicate(),
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0.05f, -0.12f, -0.2f), Scale = new Vector3(0.75f, 1f, 0.75f), Visible = false,
+                });
+            }
             // the Ice Axe and the Glacier Cleaver: heads of ice that grow out of the blade as they swing (HeroDesign.Axe.cs)
             BuildIceAxes(hand);
             hand.AddChild(new OmniLight3D
@@ -940,9 +952,10 @@ public sealed partial class HeroDesign : CreatureDesign
             if (r != null) r.Visible = player == null || player.DaggerInHand(0);
             if (l != null) l.Visible = player == null || player.DaggerInHand(1);
         }
-        else if (!_warden)
+        else
         {
             var edge = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ChargeEdge");
+            if (_warden) SyncShieldGlow(m, player, a.Time);
             var light = m.GetNodeOrNull<OmniLight3D>("Pivot/Skeleton/BladeHand/ChargeLight");
             SyncIceAxes(m, player, a.Time);
             if (edge == null || light == null) return;
@@ -982,5 +995,22 @@ public sealed partial class HeroDesign : CreatureDesign
             light.LightEnergy = (elem ? 3.2f : 1.1f) * flick;
             light.OmniRange = elem ? 4.5f : 2.8f;
         }
+    }
+
+    /// <summary>The Warden's shield glows with the readied element, or (brighter, steady) with the guard it holds while raised.</summary>
+    private static void SyncShieldGlow(CreatureModel m, Player player, float time)
+    {
+        var glow = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/ShieldHand/ShieldGlow");
+        if (glow == null) return;
+        bool alive = player != null && !player.Dead;
+        var guard = alive ? player.GuardElement : HeroElement.None;
+        var el = guard != HeroElement.None ? guard : alive ? player.GlowElement : HeroElement.None;
+        glow.Visible = el != HeroElement.None;
+        if (!glow.Visible || glow.MaterialOverride is not StandardMaterial3D mat) return;
+        var c = Elements.ColorOf(el);
+        float breathe = guard != HeroElement.None ? 1.25f : 0.8f + 0.15f * MathF.Sin(time * 6f) + 2f * player.InfuseFlash;
+        mat.AlbedoColor = new Color(c, 0.4f * breathe);
+        mat.Emission = c;
+        mat.EmissionEnergyMultiplier = 3.5f * breathe;
     }
 }

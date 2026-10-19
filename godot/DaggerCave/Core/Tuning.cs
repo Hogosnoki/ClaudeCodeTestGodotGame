@@ -1231,6 +1231,69 @@ public static class Tune
     }
 
     /// <summary>
+    /// The elemental Warden (<c>Player/Player.WardenElements.cs</c>): earth, frost and wind on his three buttons, the attack (the shortsword),
+    /// the block (the shield raised) and the dash (the Guarded Charge), each with a version for every element and every pair. His Shield Bash
+    /// is not in the elemental kit. Damage is a multiple of his blow (<c>Warden.Damage</c> x his damage multiplier).
+    /// </summary>
+    public static class ElementalWarden
+    {
+        // ---- the attack
+        /// <summary>Stonecutter / Rime Edge: <c>EdgeDamage</c> x, <c>EdgeBuild</c> of earth or frost. Gale Edge: reach <c>GaleReach</c> x, the cut
+        /// shoving what it strikes back <c>GaleShove</c>.</summary>
+        public static float EdgeDamage = 1.25f, EdgeBuild = 50f, GaleReach = 1.3f, GaleShove = 320f;
+        /// <summary>Boulder Strike (earth+earth): <c>BoulderDamage</c> x, a full earth build-up, shatters the frozen, tosses <c>BoulderToss</c>.</summary>
+        public static float BoulderDamage = 2.2f, BoulderToss = 300f;
+        /// <summary>Icicle Lance (frost+frost): the cut and a lance of ice thrown on along the aim, <c>LanceDamage</c> x, a full frost build-up.</summary>
+        public static float LanceDamage = 1.4f, LanceRange = 260f;
+        /// <summary>Cyclone Slash (wind+wind): a whirling cut all round, <c>CycloneReach</c> x the reach, <c>CycloneDamage</c> x, shoving all
+        /// it strikes away <c>CycloneShove</c>.</summary>
+        public static float CycloneDamage = 1.3f, CycloneReach = 1.5f, CycloneShove = 340f;
+        /// <summary>Frozen Earth (earth+frost): <c>FrozenDamage</c> x, <c>FrozenBuild</c> of earth and of frost (and it shatters the frozen).</summary>
+        public static float FrozenDamage = 1.5f, FrozenBuild = 60f;
+        /// <summary>Sandblast (earth+wind) and Frost Gust (frost+wind): the cut throws a cone of grit (or freezing wind) <c>ConeRange</c> px on,
+        /// <c>ConeHalf</c> degrees either way: grit nicks (<c>SandDamage</c> x) and saps for <c>SandSap</c> s; the gust fills with
+        /// <c>GustBuild</c> frost and shoves <c>GustShove</c>.</summary>
+        public static float ConeRange = 120f, ConeHalf = 38f, SandDamage = 0.5f, SandSap = 3f, GustBuild = 60f, GustShove = 320f;
+
+        // ---- the block (the shield raised with charges readied: the guard lasts as long as it stays up, <c>GuardSeconds</c> at most)
+        /// <summary>Stone Guard: nothing gets through and the shield doesn't wear, and a melee striker takes a full earth build-up. Rime
+        /// Guard: a melee striker takes a full frost build-up. Gale Guard: a melee striker is thrown back <c>GuardShove</c>, shots go back.</summary>
+        public static float GuardSeconds = 6f, GuardShove = 380f;
+        /// <summary>Glacial Bulwark (frost+frost): a wall of ice rises in front, <c>WallHeight</c> x 2 <c>WallHalf</c> px, <c>WallHp</c> (x his
+        /// health over his starting health), for <c>WallSeconds</c>; creatures go for it.</summary>
+        public static float WallHeight = 64f, WallHalf = 14f, WallHp = 30f, WallSeconds = 10f;
+        /// <summary>Eye of the Storm (wind+wind): a ring of wind about him: creatures within <c>StormRadius</c> are pushed out (<c>StormShove</c>),
+        /// shots inside it are turned away.</summary>
+        public static float StormRadius = 58f, StormShove = 260f;
+        /// <summary>Permafrost Guard (earth+frost): the ground about him freezes, <c>PermafrostHalf</c> px each way, for <c>GuardSeconds</c>.</summary>
+        public static float PermafrostHalf = 100f;
+        /// <summary>Dust Wall (earth+wind): a cloud of dust in front, <c>DustRadius</c>, for <c>DustSeconds</c>: friends in it are hidden,
+        /// creatures in it are sapped.</summary>
+        public static float DustRadius = 56f, DustSeconds = 6f;
+
+        // ---- the dash (the Guarded Charge)
+        /// <summary>Rockslide Charge: ploughs through what's in its way (each struck once, <c>PloughDamage</c> x) and ends in a shockwave of earth
+        /// within <c>QuakeRadius</c> (<c>QuakeDamage</c> x, a full earth build-up).</summary>
+        public static float PloughDamage = 0.6f, QuakeRadius = 60f, QuakeDamage = 1.4f;
+        /// <summary>Frozen Tundra: the ground it crossed (and <c>TundraPad</c> px past each end) freezes for <c>TundraSeconds</c>; what it passes
+        /// takes <c>PassBuild</c> frost.</summary>
+        public static float TundraSeconds = 8f, TundraPad = 40f, PassBuild = 40f;
+        /// <summary>Gale Charge: <c>GaleTime</c> x as long and <c>GaleSpeed</c> x as fast, through creatures (thrown aside <c>AsideShove</c>);
+        /// friends it passes get a tailwind for <c>TailwindSeconds</c>.</summary>
+        public static float GaleTime = 1.6f, GaleSpeed = 1.3f, AsideShove = 300f, TailwindSeconds = 3f;
+        /// <summary>Avalanche (earth+earth): a Rockslide whose quake is <c>AvalancheRadius</c> (<c>AvalancheDamage</c> x), and a fissure runs on
+        /// <c>FissureRange</c> px ahead.</summary>
+        public static float AvalancheRadius = 92f, AvalancheDamage = 2f, FissureRange = 220f;
+        /// <summary>Tempest Charge (wind+wind): <c>TempestTime</c> x as long, carrying what it passes along in its wake, flung at the end
+        /// (<c>TempestFling</c>).</summary>
+        public static float TempestTime = 2f, TempestFling = 480f;
+        /// <summary>Frostquake (earth+frost): the quake, and ice bursts up where the charge ends (<c>FrostquakeDamage</c> x, full frost).</summary>
+        public static float FrostquakeDamage = 2.5f;
+        /// <summary>Duststorm (earth+wind): clouds of dust along its path (<c>DustRadius</c>), hiding friends, sapping creatures.</summary>
+        public static float StormDustSeconds = 6f;
+    }
+
+    /// <summary>
     /// Dual charges (<c>Player/Player.Duals.cs</c>, <c>Combat/ElementalFx.cs</c>): up to <c>MaxCharges</c> elements wait readied (the oldest
     /// goes when another is pressed past that); the Swordsman's Hard Swing and the Elementalist's attack, dodge and Burst buttons spend two at
     /// once for the pair's own ability on that button (two of one element: its great version). Damage is a multiple of the hero's blow (the Swordsman) or flat (the Elementalist),

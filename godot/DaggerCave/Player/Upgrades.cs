@@ -697,11 +697,17 @@ public static partial class Upgrades
     /// <summary>A hero's abilities, in the order their trees are shown: (key, name).</summary>
     /// <summary>The cards the elemental kits leave out (<see cref="Elements"/>).</summary>
     public static bool RetiredByElements(string id) => id is "charge_cd" or "charge2" or "cripple" or "charge_combo" or "heave_swift"
-        or "kindling" or "deepchill" or "shrapnel" or "bolt_frost" or "blizzard_fire" or "snap_cinder";
+        or "kindling" or "deepchill" or "shrapnel" or "bolt_frost" or "blizzard_fire" or "snap_cinder" || BashCard(id);
 
-    public static (string key, string name)[] Abilities(HeroKind h) => Elements.On(h) ? h == HeroKind.Swordsman
-        ? new[] { ("sword", "Swing"), ("charge", "Empower Hilt"), ("heave", "Hard Swing"), ("dodge", "Dash Slash") }
-        : new[] { ("bolt", "Bolt"), ("updraft", "Movement"), ("snap", "Fixed Range"), ("blizzard", "Storms & Aid") } : h switch
+    /// <summary>The Shield Bash's cards (the elemental Warden has no bash).</summary>
+    private static bool BashCard(string id) => id is "bash_cd" or "bash_dense" or "bash_deflect" or "deflect_double";
+
+    public static (string key, string name)[] Abilities(HeroKind h) => Elements.On(h) ? h switch
+    {
+        HeroKind.Swordsman => new[] { ("sword", "Swing"), ("charge", "Empower Hilt"), ("heave", "Hard Swing"), ("dodge", "Dash Slash") },
+        HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Block"), ("dash", "Guarded Charge") },
+        _ => new[] { ("bolt", "Bolt"), ("updraft", "Movement"), ("snap", "Fixed Range"), ("blizzard", "Storms & Aid") },
+    } : h switch
     {
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Shield"), ("dash", "Guarded Charge"), ("bash", "Shield Bash") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },

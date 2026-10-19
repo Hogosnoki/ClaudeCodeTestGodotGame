@@ -858,7 +858,7 @@ public partial class Hud : Control
             // the pad's arrow and the key under it
             var lab = sc + (k == 1 ? new Vector2(19, 4) : new Vector2(-17, 20));
             DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, on ? 0.85f : 0.45f));
-            string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing spends" : "attack, dodge and fixed-range spell spend";
+            string dualBtn = p.Stats.Hero switch { HeroKind.Swordsman => "Hard Swing spends", HeroKind.Warden => "attack, block and dash spend", _ => "attack, dodge and fixed-range spell spend" };
             Tip(new Rect2(sc - new Vector2(11, 11), new Vector2(22, 22)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))}, d-pad {(k == 0 ? "left" : k == 1 ? "up" : "right")})",
                 $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: the next ability you use becomes its {Elements.Name(el).ToLowerInvariant()} version, which waits on no cooldown. Charges come a second apart. " + (Meta.DualCharges
                     ? $"Two charges wait at once (the same twice, or two different): the {dualBtn} both for the pair's own ability."
@@ -888,6 +888,12 @@ public partial class Hud : Control
         "Force Blast" => "BLAST", "Rain of Fire" => "FIRE RAIN", "Frostfire Lance" => "LANCE", "Frost Armor" => "ARMOR", "Narrow Draft" => "DRAFT",
         "Fire Barrage" or "Frost Barrage" => "BARRAGE", "Flamebreath" => "BREATH", "Meteorite" => "METEOR", "Cryometeor" => "CRYO",
         "Kindling" => "KINDLE", "Hailstorm" => "HAIL", "Fire Storm" => "F.STORM", "Blizzard" => "BLIZZARD",
+        "Shortsword" => "SWORD", "Stonecutter" => "STONE", "Rime Edge" => "RIME", "Gale Edge" => "GALE", "Boulder Strike" => "BOULDER",
+        "Icicle Lance" => "LANCE", "Cyclone Slash" => "CYCLONE", "Frozen Earth" => "FROZEN", "Sandblast" => "SAND", "Frost Gust" => "F.GUST",
+        "Stone Guard" => "STONE G.", "Rime Guard" => "RIME G.", "Gale Guard" => "GALE G.", "Glacial Bulwark" => "BULWARK", "Eye of the Storm" => "EYE",
+        "Permafrost Guard" => "PERMAFROST", "Dust Wall" => "DUST", "Hoarfrost Gale" => "HOARFROST",
+        "Guarded Charge" => "CHARGE", "Rockslide Charge" => "ROCKSLIDE", "Frozen Tundra" => "TUNDRA", "Gale Charge" => "GALE", "Glacier Charge" => "GLACIER",
+        "Tempest Charge" => "TEMPEST", "Frostquake" => "F.QUAKE", "Duststorm" => "DUST", "Blizzard Charge" => "BLIZZARD",
         _ => name.ToUpperInvariant(),
     };
 
@@ -1053,9 +1059,60 @@ public partial class Hud : Control
         KeyHint(font, hb, "ability2");
     }
 
+    /// <summary>The elemental Warden, every button with its cooldown: the attack (the shortsword or an element's cut), the block (the shield,
+    /// and the guard it takes up), the dash (the Guarded Charge or an element's), each named for what the readied charges would make of it;
+    /// the d-pad's elements above, the shield's strength after.</summary>
+    private void DrawWardenElemental(Font font, Player p, Vector2 ab)
+    {
+        DrawElementRow(font, p, ab + new Vector2(0, -74), p.GuardName != "" ? $"{p.GuardName.ToUpperInvariant()} {p.GuardLeft:0}s" : "");
+        const float step = 62f;
+        var steel = new Color(0.85f, 0.9f, 0.95f);
+        // the attack: no cooldown of its own (the swing's own pace)
+        var x = ab;
+        string atk = p.NameFor(ElemSlot.Attack);
+        AbilitySquare(font, x, Short(atk), 0f, true, SlotColor(p, ElemSlot.Attack, steel), (c, col) =>
+        {
+            DrawLine(c + new Vector2(-7, 7), c + new Vector2(7, -7), col, 3f);
+            DrawLine(c + new Vector2(-10, 3), c + new Vector2(-3, 10), new Color(0.8f, 0.65f, 0.25f), 3f);
+        }, atk, 0f);
+        KeyHint(font, x, "attack");
+        // the block: the shield raised (with charges readied, the guard it takes up)
+        x += new Vector2(step, 0);
+        string guard = p.GuardName != "" ? p.GuardName : p.NameFor(ElemSlot.Heavy);
+        var guardCol = p.GuardName != "" ? Elements.ColorOf(p.GuardElement) : SlotColor(p, ElemSlot.Heavy, new Color(0.55f, 0.8f, 1f));
+        AbilitySquare(font, x, p.ShieldBroken ? "BROKEN" : Short(guard), p.ShieldBroken ? Math.Clamp(p.ShieldBrokenLeft / Math.Max(0.01f, p.Stats.ShieldBreakTime), 0, 1) : 0f, !p.ShieldBroken, guardCol, (c, col) =>
+        {
+            DrawColoredPolygon(new[] { c + new Vector2(-8, -9), c + new Vector2(8, -9), c + new Vector2(8, 1), c + new Vector2(0, 11), c + new Vector2(-8, 1) }, col);
+            if (p.ShieldRaised) DrawArc(c, 14, -1.1f, 1.1f, 10, new Color(col, 0.8f), 2f);
+        }, guard, p.ShieldBroken ? p.ShieldBrokenLeft : 0f);
+        KeyHint(font, x, "dodge");
+        // the dash: the Guarded Charge (an elemental one waits on no cooldown)
+        x += new Vector2(step, 0);
+        string dash = p.NameFor(ElemSlot.Move);
+        bool freeDash = p.Infused != HeroElement.None;
+        AbilitySquare(font, x, Short(dash), freeDash ? 0f : p.DashCooldownFrac, freeDash || p.DashCooldownFrac <= 0, SlotColor(p, ElemSlot.Move, new Color(0.55f, 0.85f, 1f)), (c, col) =>
+        {
+            DrawColoredPolygon(new[] { c + new Vector2(-4, -9), c + new Vector2(7, -9), c + new Vector2(7, 1), c + new Vector2(1.5f, 10), c + new Vector2(-4, 1) }, col);
+            for (int k = 0; k < 3; k++) DrawLine(c + new Vector2(-8, -5 + k * 5), c + new Vector2(-14, -5 + k * 5), new Color(col, 0.7f), 1.5f);
+        }, dash, freeDash ? 0f : p.AbilitySeconds);
+        UsePips(x, p, new Color(0.55f, 0.85f, 1f));
+        KeyHint(font, x, "ability");
+        // the shield's strength
+        var sp = x + new Vector2(step, 10);
+        const float w = 110;
+        float frac = Math.Clamp(p.ShieldHp / Math.Max(1f, p.Stats.ShieldMax), 0, 1);
+        var bar = p.ShieldBroken ? new Color(0.45f, 0.45f, 0.5f) : p.ShieldRaised ? new Color(0.6f, 0.85f, 1f) : new Color(0.35f, 0.6f, 0.95f);
+        UiArt.Bar(this, new Rect2(sp, new Vector2(w, 12)), frac, bar);
+        string label = p.ShieldBroken ? $"SHIELD BROKEN  {p.ShieldBrokenLeft:0.0}s" : $"SHIELD  {Num.Shown(p.ShieldHp)} / {Num.Shown(p.Stats.ShieldMax)}";
+        DrawString(font, sp + new Vector2(0, -8), label, HorizontalAlignment.Left, -1, 10, p.ShieldBroken ? new Color(1f, 0.6f, 0.5f) : new Color(1, 1, 1, 0.6f));
+        Tip(new Rect2(sp - new Vector2(2, 18), new Vector2(w + 4, 34)), "Shield", "What your raised shield can still stop. Blows on it wear it down, and it mends while lowered. Broken, it is down for a few seconds.");
+        _gaugeEnd = sp.X - ab.X + w + 14f;
+    }
+
     /// <summary>The Guarded Charge, the shield bash and the shield's strength bar.</summary>
     private void DrawWardenGauges(Font font, Player p, Vector2 ab)
     {
+        if (p.Elemental) { DrawWardenElemental(font, p, ab); return; }
         var blue = new Color(0.55f, 0.85f, 1f);
         AbilitySquare(font, ab, "DASH", p.DashCooldownFrac, p.DashCooldownFrac <= 0, blue, (c, col) =>
         {

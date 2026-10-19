@@ -183,6 +183,7 @@ public partial class Player
         }
         TickDuals(dt);
         TickAxe(dt);
+        if (IsWarden) TickWardenElements(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
@@ -216,7 +217,7 @@ public partial class Player
     public float HardSwingSeconds => Math.Max(0f, _heaveCd - HeaveSpareTime);
     public float AbilitySeconds => AbilityChargeReady ? 0f : Math.Max(0f, AbilityCooldowns.Min());
 
-    private void ClearSwingElement() { _swingEl = HeroElement.None; _swingBuild = 0; _swingShatter = false; ClearDualSwing(); }
+    private void ClearSwingElement() { _swingEl = HeroElement.None; _swingBuild = 0; _swingShatter = false; _wSwing = ""; ClearDualSwing(); }
 
     /// <summary>The attack button: a plain swing, or with an element its version (the element rests a moment after).</summary>
     private bool ElementSwing(Vector2 aim, bool held)
@@ -426,6 +427,7 @@ public partial class Player
         if (!Elemental || e.Dead) return;
         if (_swingEl != HeroElement.None && _swingBuild > 0) e.Build(_swingEl, _swingBuild, Stats.DamageMult, this);
         DualBladeHit(e);
+        if (IsWarden) WardenBladeHit(e);
         if (_hiltT <= 0 || e.Dead) return;
         switch (_hiltEl)
         {

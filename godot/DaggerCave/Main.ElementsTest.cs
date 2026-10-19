@@ -10,13 +10,13 @@ public partial class Main
     private IEnumerator<object> _elSteps;
 
     /// <summary>
-    /// `--scenario=elements --hero=swordsman|elementalist`: the elemental kits (Core/Elements.cs). An element readied with its button
+    /// `--scenario=elements --hero=swordsman|elementalist|warden`: the elemental kits (Core/Elements.cs). An element readied with its button
     /// changes the next attack into its version; build-ups fill and take hold (alight, combust; chilled, frozen, shatter; stunned,
     /// sapped; shoved); each version rests its own time; the cards the elements replace aren't dealt; the HUD (elements_hud.png).
     /// </summary>
     private void ElementsScenario()
     {
-        if (_elSteps == null) { if (_scT < 0.8f) return; _elSteps = (G.Player.Stats.Hero == HeroKind.Elementalist ? ElementalistRun() : SwordsmanElementsRun()).GetEnumerator(); }
+        if (_elSteps == null) { if (_scT < 0.8f) return; _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator(); }
         if (!_elSteps.MoveNext()) ScEnd();
     }
 
@@ -742,5 +742,261 @@ public partial class Main
         foreach (var _ in ElPress(new PlayerInput { Ability = true }, 0.1f)) yield return null;
         ScCheck($"Aid has no pair: it spends the oldest charge (Narrow Draft) and one waits ({p.Charges.Count})", p.HasBuff(Player.BuffTailwind) && p.Charges.Count == 1);
         Clear();
+    }
+
+    /// <summary>`--scenario=elements --hero=warden`: the Warden's attack, block and dash, plain, by each element and by each pair.</summary>
+    private IEnumerable<object> WardenElementsRun()
+    {
+        var p = G.Player;
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        p.Stats.MaxHp = p.Hp = 5000;
+        p.InputOverride = () => { var i = _scInput; _scInput.Infuse = 0; _scInput.Attack = _scInput.Ability = _scInput.Ability2 = _scInput.Dodge = false; return i; };
+        foreach (var _ in ElWait(0.5f)) yield return null;
+        var start = p.GlobalPosition;
+        var aim = new Vector2(p.Facing, 0);
+        var foes = new List<Enemy>();
+        void Clear() { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); }
+        Enemy Add(float dx, bool hold = true) { var e = ElDummy(p, dx, hold); foes.Add(e); return e; }
+        void Home() { p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.RefillShield(); p.ResetAbilityCooldowns(); }
+        PlayerInput Atk() => new() { Attack = true, Aim = aim, AimGiven = true };
+        PlayerInput Dash() => new() { Ability = true, Aim = aim, AimGiven = true };
+        IEnumerable<object> Ready(int a, int b = 0)
+        {
+            p.TestClearCharges();
+            foreach (var _ in ElPress(new PlayerInput { Infuse = a }, 0.02f)) yield return null;
+            if (b > 0) foreach (var _ in ElPress(new PlayerInput { Infuse = b }, 0.02f)) yield return null;
+        }
+        // the shield up toward the creature, for a few frames
+        IEnumerable<object> Raise() { for (int f = 0; f < 4; f++) { _scInput = new PlayerInput { GuardHeld = true, GuardAim = aim }; yield return null; } }
+        IEnumerable<object> Lower() { _scInput = default; foreach (var _ in ElWait(0.3f)) yield return null; }
+
+        ScCheck($"the Warden fights with elements: {string.Join(", ", Elements.Of(p.Stats.Hero))}", p.Elemental && Elements.Of(p.Stats.Hero).SequenceEqual(new[] { HeroElement.Earth, HeroElement.Frost, HeroElement.Wind }));
+        foreach (var _ in ElPress(new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }, 0.1f)) yield return null;
+        ScCheck($"he has no Shield Bash ({p.IsShieldBashing}), and its cards aren't dealt", !p.IsShieldBashing && !Upgrades.Available(Upgrades.Get("bash_deflect"), p.Stats));
+
+        // ---- the attack: each element, then each pair
+        var foe = Add(22);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        ScCheck($"a plain cut builds nothing ({foe.EarthBuild:0} earth, {foe.FrostBuild:0} frost)", foe.Hp < foe.MaxHp && foe.EarthBuild < 1 && foe.FrostBuild < 1);
+        foreach (var _ in Ready(1)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        ScCheck($"earth on the cut: Stonecutter ({foe.EarthBuild:0} earth)", p.ElementalUses.Contains("Stonecutter") && foe.EarthBuild > 1);
+        foreach (var _ in Ready(2)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        ScCheck($"frost on the cut: Rime Edge ({foe.FrostBuild:0} frost)", p.ElementalUses.Contains("Rime Edge") && foe.FrostBuild > 1);
+        Clear(); Home();
+        foe = Add(22, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        float fx0 = foe.GlobalPosition.X;
+        foreach (var _ in Ready(3)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.4f)) yield return null;
+        ScCheck($"wind on the cut: Gale Edge throws it back ({(foe.GlobalPosition.X - fx0) * p.Facing:0} px)", p.ElementalUses.Contains("Gale Edge") && (foe.GlobalPosition.X - fx0) * p.Facing > 10f);
+
+        // the pairs on the attack
+        Clear(); Home();
+        foe = Add(22);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 1)) yield return null;
+        float hp0 = foe.Hp;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        ScCheck($"earth and earth: Boulder Strike, a crushing blow ({hp0 - foe.Hp:0}) that stuns ({foe.Reeling})", p.ElementalUses.Contains("Boulder Strike") && hp0 - foe.Hp > Tune.Warden.Damage * 1.8f);
+        Clear(); Home();
+        foe = Add(130);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2, 2)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.8f)) yield return null;
+        ScCheck($"frost and frost: Icicle Lance, ice thrown on to a creature 130 px off ({foe.MaxHp - foe.Hp:0} damage, chilled {foe.Chilled})", p.ElementalUses.Contains("Icicle Lance") && foe.Hp < foe.MaxHp && (foe.Chilled || foe.FrozenSolid));
+        Clear(); Home();
+        foe = Add(-20);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(3, 3)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        ScCheck($"wind and wind: Cyclone Slash, a cut all round strikes behind ({foe.MaxHp - foe.Hp:0})", p.ElementalUses.Contains("Cyclone Slash") && foe.Hp < foe.MaxHp);
+        Clear(); Home();
+        foe = Add(22);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 2)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        ScCheck($"earth and frost: Frozen Earth ({foe.EarthBuild:0} earth, {foe.FrostBuild:0} frost)", p.ElementalUses.Contains("Frozen Earth") && (foe.EarthBuild > 1 || foe.Reeling) && (foe.FrostBuild > 1 || foe.Chilled));
+        Clear(); Home();
+        foe = Add(80);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 3)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.3f)) yield return null;
+        ScCheck($"earth and wind: Sandblast saps a creature 80 px off ({foe.Sapped})", p.ElementalUses.Contains("Sandblast") && foe.Sapped);
+        Clear(); Home();
+        foe = Add(80);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2, 3)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.3f)) yield return null;
+        ScCheck($"frost and wind: Frost Gust fills a creature 80 px off with frost ({foe.FrostBuild:0})", p.ElementalUses.Contains("Frost Gust") && (foe.FrostBuild > 1 || foe.Chilled));
+
+        // ---- the block: the guard the shield takes up as it's raised
+        Clear(); Home();
+        foe = Add(22);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Ready(1)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        string g1 = p.GuardName;
+        float sh0 = p.ShieldHp, hpa = p.Hp;
+        p.Hurt(30f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.1f)) yield return null;
+        ScCheck($"raised with earth readied, the shield takes Stone Guard ({g1}): nothing through ({hpa - p.Hp:0}), no wear ({sh0 - p.ShieldHp:0}), the striker stunned ({foe.Reeling}, earth {foe.EarthBuild:0})",
+            g1 == "Stone Guard" && p.Hp >= hpa && p.ShieldHp >= sh0 && p.GuardAnswered > 0);
+        ScShot("warden_guard");
+        foreach (var _ in Lower()) yield return null;
+        ScCheck($"lowered, the guard is gone ({p.GuardName})", p.GuardName == "");
+        foreach (var _ in Ready(2)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        string g2 = p.GuardName;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.25f)) yield return null;
+        ScCheck($"frost: Rime Guard ({g2}) fills the striker with frost (chilled {foe.Chilled})", g2 == "Rime Guard" && (foe.Chilled || foe.FrozenSolid));
+        foreach (var _ in Lower()) yield return null;
+        Clear(); Home();
+        foe = Add(22, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(3)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        string g3 = p.GuardName; float gx0 = foe.GlobalPosition.X;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        ScCheck($"wind: Gale Guard ({g3}) throws the striker back ({(foe.GlobalPosition.X - gx0) * p.Facing:0} px)", g3 == "Gale Guard" && (foe.GlobalPosition.X - gx0) * p.Facing > 10f);
+        foreach (var _ in Lower()) yield return null;
+        // the pairs on the block
+        Clear(); Home();
+        foe = Add(-22);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 1)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        float hpb = p.Hp;
+        p.Hurt(30f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.1f)) yield return null;
+        ScCheck($"earth and earth: Bastion ({p.GuardName}) guards all round: a blow from behind is stopped ({hpb - p.Hp:0} through)", p.GuardName == "Bastion" && p.Hp >= hpb);
+        foreach (var _ in Lower()) yield return null;
+        Clear(); Home();
+        foe = Add(22);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2, 2)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        var wall = p.LastTower;
+        ScCheck($"frost and frost: Glacial Bulwark raises a wall of ice ({wall?.Standing}) that takes the blow meant for him ({wall?.Struck} on it)", p.ElementalUses.Contains("Glacial Bulwark") && wall != null && IsInstanceValid(wall) && wall.Standing && wall.Struck > 0);
+        ScShot("warden_bulwark");
+        if (wall != null && IsInstanceValid(wall)) wall.QueueFree();
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        ScCheck($"with the wall gone, a creature striking the shield is frozen solid ({foe.FrozenSolid})", foe.FrozenSolid);
+        foreach (var _ in Lower()) yield return null;
+        Clear(); Home();
+        foe = Add(30, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(3, 3)) yield return null;
+        float ex0 = Math.Abs(foe.GlobalPosition.X - p.GlobalPosition.X);
+        for (int f = 0; f < 30; f++) { _scInput = new PlayerInput { GuardHeld = true, GuardAim = aim }; yield return null; }
+        float ex1 = Math.Abs(foe.GlobalPosition.X - p.GlobalPosition.X);
+        ScCheck($"wind and wind: Eye of the Storm pushes a creature out ({ex0:0} -> {ex1:0} px)", p.ElementalUses.Contains("Eye of the Storm") && ex1 > ex0 + 10f);
+        foreach (var _ in Lower()) yield return null;
+        Clear(); Home();
+        foe = Add(22);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 2)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.6f)) yield return null;
+        ScCheck($"earth and frost: Permafrost Guard freezes the ground ({p.LastElementSpell is TundraField}) and fills the striker with frost (chilled {foe.Chilled})", p.ElementalUses.Contains("Permafrost Guard") && p.LastElementSpell is TundraField && (foe.Chilled || foe.FrozenSolid));
+        foreach (var _ in Lower()) yield return null;
+        Clear(); Home();
+        foe = Add(30);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 3)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        for (int f = 0; f < 10; f++) { _scInput = new PlayerInput { GuardHeld = true, GuardAim = aim }; yield return null; }
+        foreach (var _ in ElWait(0.7f)) yield return null;
+        ScCheck($"earth and wind: Dust Wall raises a cloud ({SmokeCloud.All.Count}) that saps the creature in it ({foe.Sapped})", p.ElementalUses.Contains("Dust Wall") && SmokeCloud.All.Count > 0 && foe.Sapped);
+        foreach (var _ in Lower()) yield return null;
+        Clear(); Home();
+        foe = Add(22, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2, 3)) yield return null;
+        foreach (var _ in Raise()) yield return null;
+        float hx0 = foe.GlobalPosition.X;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        ScCheck($"frost and wind: Hoarfrost Gale fills the striker with frost ({foe.FrostBuild:0}, chilled {foe.Chilled}) and throws it back ({(foe.GlobalPosition.X - hx0) * p.Facing:0} px)",
+            p.ElementalUses.Contains("Hoarfrost Gale") && (foe.Chilled || foe.FrozenSolid || foe.FrostBuild > 1) && (foe.GlobalPosition.X - hx0) * p.Facing > 10f);
+        foreach (var _ in Lower()) yield return null;
+
+        // ---- the dash: each element, then each pair (every elemental charge runs through creatures)
+        Clear(); Home();
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        float x0 = p.GlobalPosition.X;
+        foreach (var _ in ElPress(Dash(), 0.6f)) yield return null;
+        float plainRun = Math.Abs(p.GlobalPosition.X - x0);
+        Home();
+        foe = Add(50);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.8f)) yield return null;
+        ScCheck($"earth on the dash: Rockslide Charge ploughs through ({foe.MaxHp - foe.Hp:0} damage, earth {foe.EarthBuild:0}, reeling {foe.Reeling})", p.ElementalUses.Contains("Rockslide Charge") && foe.Hp < foe.MaxHp);
+        Clear(); Home();
+        foe = Add(50);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.8f)) yield return null;
+        ScCheck($"frost: Frozen Tundra fills what it passes with frost ({foe.FrostBuild:0}) and freezes the ground ({p.LastElementSpell is TundraField})", p.ElementalUses.Contains("Frozen Tundra") && (foe.FrostBuild > 1 || foe.Chilled) && p.LastElementSpell is TundraField);
+        Clear(); Home();
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(3)) yield return null;
+        x0 = p.GlobalPosition.X;
+        foreach (var _ in ElPress(Dash(), 0.9f)) yield return null;
+        float galeRun = Math.Abs(p.GlobalPosition.X - x0);
+        ScCheck($"wind: the Gale Charge runs farther ({plainRun:0} -> {galeRun:0} px)", p.ElementalUses.Contains("Gale Charge") && galeRun > plainRun * 1.3f);
+        // the pairs on the dash
+        Clear(); Home();
+        foe = Add(50);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 1)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.8f)) yield return null;
+        ScCheck($"earth and earth: Avalanche, the quake and a fissure on ahead ({p.LastElementSpell is Fissure})", p.ElementalUses.Contains("Avalanche") && p.LastElementSpell is Fissure && foe.Hp < foe.MaxHp);
+        Clear(); Home();
+        foe = Add(50);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2, 2)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.8f)) yield return null;
+        ScCheck($"frost and frost: Glacier Charge freezes what it passes solid ({foe.FrozenSolid})", p.ElementalUses.Contains("Glacier Charge") && foe.FrozenSolid);
+        Clear(); Home();
+        foe = Add(40, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(3, 3)) yield return null;
+        float tx0 = foe.GlobalPosition.X;
+        foreach (var _ in ElPress(Dash(), 1.2f)) yield return null;
+        ScCheck($"wind and wind: the Tempest Charge carries a creature along ({(foe.GlobalPosition.X - tx0) * p.Facing:0} px)", p.ElementalUses.Contains("Tempest Charge") && (foe.GlobalPosition.X - tx0) * p.Facing > 60f);
+        Clear(); Home();
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 2)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.8f)) yield return null;
+        ScCheck($"earth and frost: Frostquake, ice bursting up where it ends ({p.LastElementSpell is IceEruption})", p.ElementalUses.Contains("Frostquake") && p.LastElementSpell is IceEruption);
+        Clear(); Home();
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(1, 3)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.8f)) yield return null;
+        ScCheck($"earth and wind: the Duststorm leaves clouds of dust ({SmokeCloud.All.Count})", p.ElementalUses.Contains("Duststorm") && SmokeCloud.All.Count > 0);
+        Clear(); Home();
+        foe = Add(50);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in Ready(2, 3)) yield return null;
+        foreach (var _ in ElPress(Dash(), 0.9f)) yield return null;
+        ScCheck($"frost and wind: the Blizzard Charge fills what it passes with frost ({foe.FrostBuild:0}, chilled {foe.Chilled}) and freezes the ground ({p.LastElementSpell is TundraField})",
+            p.ElementalUses.Contains("Blizzard Charge") && (foe.FrostBuild > 1 || foe.Chilled) && p.LastElementSpell is TundraField);
+        Clear(); Home();
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Ready(2)) yield return null;
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        ScShot("warden_hud");
+        p.TestClearCharges();
     }
 }
