@@ -787,7 +787,7 @@ public sealed partial class HeroDesign
                 }
                 break;
             case "heave":
-                o = Heave(o, t, a.OnFloor);
+                o = player != null && player.AxeKind > 0 ? AxeHeave(o, player.AxeStage, a.OnFloor, player.AxeKind, a.Time) : Heave(o, t, a.OnFloor);
                 break;
             case "shove":
                 {

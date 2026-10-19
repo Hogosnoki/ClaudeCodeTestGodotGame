@@ -35,10 +35,11 @@ public static class Tune
         public static float DuckHeight = 6f;
 
         /// <summary>
-        /// Jump shape (JumpVelocity 420, down from 470: 20% less height). Height stays constant while you change Floatiness: gravity is multiplied by
-        /// it and jump speed by its square root. Lower = floatier, slower arcs.
+        /// Jump shape (JumpVelocity 336 and Gravity 1080, 0.8 x the 420 and 1350 before: a fifth less height, falling a fifth slower, the
+        /// rise as long as ever). Height stays constant while you change Floatiness: gravity is multiplied by it and jump speed by its square
+        /// root. Lower = floatier, slower arcs.
         /// </summary>
-        public static float JumpVelocity = 420f, Gravity = 1350f, Floatiness = 0.76f;
+        public static float JumpVelocity = 336f, Gravity = 1080f, Floatiness = 0.76f;
         /// <summary>Loosing a projectile (or pouring out a spell) slows the hero to CastSlowMult of their speed while the cast plays
         /// (CastSlowSeconds for a single shot; a volley or a breath, as long as it lasts).</summary>
         public static float CastSlowMult = 0.45f, CastSlowSeconds = 0.3f;
@@ -1162,10 +1163,11 @@ public static class Tune
     /// <c>SwingRest</c> s (by element: earth, fire, frost) before it can be lent to a swing again. Hard Swing: plain (<c>HardDamage</c>,
     /// <c>HardRest</c>), ThunderCrush (earth: <c>CrushDamage</c>, full earth, shatters the frozen), Pyroclasty (fire) and Ice Axe (frost),
     /// each its own rest and a full build-up. The jump: Explosive Lunge (fire: a blast where you leave the ground, <c>LungeDamage</c> and
-    /// <c>LungeBuild</c> within <c>LungeRadius</c>, and a long leap forward at <c>LungeSpeed</c>), Glacial Vault (frost: a spike of ice throws you
-    /// <c>VaultJump</c> x as high, <c>VaultBuild</c> frost to those beside you), Earthfall (earth: you come down like a rock, a shockwave of
-    /// <c>FallDamage</c> (more the harder you land) and <c>FallBuild</c> earth within <c>FallRadius</c>); each rests its own time. These are the dodge button's (with nothing readied it is the Dash Slash); in the air Earthfall drives you
-    /// straight down at <c>FallSlam</c>. Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
+    /// <c>LungeBuild</c> within <c>LungeRadius</c>, and a low leap forward at <c>LungeSpeed</c>), Glacial Vault (frost: you spring back at
+    /// <c>VaultBack</c>, <c>VaultJump</c> x a jump, <c>VaultBuild</c> frost to those beside you, leaving an ice decoy where you stood), Earthfall
+    /// (earth: you come down like a rock, a shockwave of <c>FallDamage</c> (more the harder you land) and <c>FallBuild</c> earth within
+    /// <c>FallRadius</c>); each rests its own time. These are the dodge button's from the ground (with nothing readied, or in the air, it is the
+    /// Dash Slash). Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
     /// frost <c>HiltFrost</c>, fire <c>HiltFire</c> build-up a blow; rests by element.
     /// </summary>
     public static class ElementalSword
@@ -1174,11 +1176,18 @@ public static class Tune
         public static float SwingRestEarth = 2.5f, SwingRestFire = 1.2f, SwingRestFrost = 1.2f;
         public static float HardDamage = 1.6f, CrushDamage = 2.6f, PyroDamage = 2.2f, AxeDamage = 2f;
         public static float HardRest = 5f, CrushRest = 12f, PyroRest = 10f, AxeRest = 7f, CrushWindup = 1.35f;
+        /// <summary>The Ice Axe: the sword goes up over the head and behind, the axe head grows out of it through a wind-up <c>AxeWindup</c> x a
+        /// Hard Swing's, and it comes down in front only (<c>AxeArcDegrees</c> of arc, not the Hard Swing's sweep from behind).</summary>
+        public static float AxeWindup = 2.4f, AxeArcDegrees = 120f;
         public static float HiltSeconds = 8f, HiltDamage = 0.2f, HiltFrost = 20f, HiltFire = 25f;
         public static float HiltRest = 12f, HiltRestEarth = 14f, HiltRestFrost = 14f, HiltRestFire = 14f;
-        public static float LungeDamage = 1.2f, LungeBuild = 50f, LungeRadius = 56f, LungeSpeed = 430f, LungeLift = 0.8f, LungeCarry = 0.42f, LungeRest = 4f;
-        public static float VaultJump = 1.45f, VaultDamage = 0.8f, VaultBuild = 50f, VaultRadius = 46f, VaultRest = 4f;
-        public static float FallDamage = 1.4f, FallBuild = 60f, FallRadius = 72f, FallToss = 220f, FallRest = 5f, FallSlam = 700f;
+        public static float LungeDamage = 1.2f, LungeBuild = 50f, LungeRadius = 56f, LungeSpeed = 340f, LungeLift = 0.6f, LungeCarry = 0.42f, LungeRest = 4f;
+        public static float VaultJump = 0.75f, VaultBack = 300f, VaultCarry = 0.3f, VaultDamage = 0.8f, VaultBuild = 50f, VaultRadius = 46f, VaultRest = 4f;
+        /// <summary>Glacial Vault's decoy: the Swordsman in ice, <c>DecoyHeight</c> x 2 <c>DecoyHalf</c> px, drawing creatures within
+        /// <c>Dual.LureRange</c>; <c>DecoyHits</c> blows (or <c>DecoySeconds</c>) and it shatters, <c>DecoyBuild</c> frost within <c>DecoyRadius</c>.</summary>
+        public static int DecoyHits = 2;
+        public static float DecoyHeight = 26f, DecoyHalf = 8f, DecoySeconds = 6f, DecoyBuild = 40f, DecoyRadius = 44f;
+        public static float FallDamage = 1.4f, FallBuild = 60f, FallRadius = 72f, FallToss = 220f, FallRest = 5f;
     }
 
     /// <summary>
@@ -1192,12 +1201,15 @@ public static class Tune
     /// combust), Snap (frost: the frozen shatter, the rest <c>SnapBuild</c> frost), Cyclone (wind: the storm that drags light creatures in,
     /// <c>CyclonePull</c>), all within <c>FixedRadius</c>. Aid (the Extended button): Ward (plain: a barrier of <c>WardBarrier</c> for you and friends
     /// within <c>AidRange</c>), Kindling (fire: <c>KindleBuild</c> fire a blow), Frost Armor (frost: melee attackers get a full frost build-up),
-    /// Narrow Draft (wind: <c>TailwindMove</c> x faster, <c>TailwindJump</c> x higher), for <c>AidSeconds</c>. Each version rests its own time.
+    /// Narrow Draft (wind: <c>TailwindMove</c> x faster, <c>TailwindJump</c> x higher, for <c>TailwindSeconds</c>), for <c>AidSeconds</c>. Each version rests its own time.
     /// </summary>
     public static class ElementalStaff
     {
-        public static int MissileShots = 3;
-        public static float PlainBolt = 0.85f, FireBuild = 50f, FrostBuild = 25f, GustDamage = 0.4f, GustPush = 260f;
+        public static int MissileShots = 1;
+        public static float PlainBolt = 0.85f, FireBuild = 50f, FrostBuild = 25f, GustDamage = 0.15f, GustPush = 480f;
+        /// <summary>The attack's pace and weight: <c>ShotGap</c> s between casts (<c>QuickGap</c> for frost and wind), each pop or bolt
+        /// <c>ShotDamage</c> x its damage.</summary>
+        public static float ShotGap = 0.625f, QuickGap = 0.5f, ShotDamage = 0.85f;
         public static float StormFrostBuild = 20f, StormFireBuild = 30f, CyclonePull = 70f;
         /// <summary>With nothing readied the attack is a pop: no bolt, a small burst on the creature within <c>PopRange</c> px nearest the aim
         /// (<c>PopCone</c> degrees either way), <c>PopDamage</c>.</summary>
@@ -1214,7 +1226,7 @@ public static class Tune
         public static float BlastDamage = 7f, BurstDamage = 18f, BurstBuild = 60f, SnapBuild = 60f, SnapDamage = 8f;
         public static float BlastRest = 4f, BurstRest = 7f, SnapRest = 7f, CycloneRest = 9f;
         // aid
-        public static float AidRange = 160f, AidSeconds = 8f, TailwindMove = 1.2f, TailwindJump = 1.1f, KindleBuild = 15f, WardBarrier = 14f;
+        public static float AidRange = 160f, AidSeconds = 8f, TailwindSeconds = 4f, TailwindMove = 1.2f, TailwindJump = 1.1f, KindleBuild = 15f, WardBarrier = 14f;
         public static float AidRestWard = 11f, AidRestWind = 10f, AidRestFrost = 12f, AidRestFire = 12f;
     }
 
@@ -1233,9 +1245,10 @@ public static class Tune
         /// <summary>Inferno Cleave (fire+fire): a wall of fire stands where the blade lands for <c>WallSeconds</c>, burning creatures in it
         /// (<c>WallBuild</c> fire every <c>WallTick</c> s) and the shots that fly into it.</summary>
         public static float WallRest = 13f, WallDamage = 2f, WallSeconds = 4.5f, WallHeight = 84f, WallHalf = 14f, WallTick = 0.4f, WallBuild = 22f, WallTickDamage = 0.18f;
-        /// <summary>Glacier Cleaver (frost+frost): the blade becomes a vast axe of ice (reach, arc, wind-up multiples), its blow <c>AxeDamage</c>
-        /// x a Hard Swing and a full frost build-up twice over; the head lands and shatters what the swing froze.</summary>
-        public static float AxeRest = 16f, AxeDamage = 4f, AxeReach = 2.2f, AxeArc = 1.25f, AxeWindup = 1.6f;
+        /// <summary>Glacier Cleaver (frost+frost): the Ice Axe's swing, but the head that grows out of the blade is vast and ornate, grows slower and
+        /// comes down later (reach, arc, wind-up multiples of a Hard Swing's), its blow <c>AxeDamage</c> x a Hard Swing and a full frost build-up
+        /// twice over; the head lands and shatters what the swing froze.</summary>
+        public static float AxeRest = 16f, AxeDamage = 4f, AxeReach = 2.2f, AxeArc = 1.25f, AxeWindup = 3.4f;
         /// <summary>Frost Heave (earth+frost): the blade is driven into the floor and the ground bursts up in ice under the nearest creature
         /// within <c>HeaveRange</c> px after <c>HeaveWarn</c> s: <c>HeaveDamage</c>, full frost, tossed up.</summary>
         public static float HeaveRest = 14f, HeaveDamage = 4.5f, HeaveRange = 280f, HeaveWarn = 0.35f, HeaveHalf = 30f, HeaveHeight = 150f, HeaveToss = 420f;
@@ -1254,6 +1267,9 @@ public static class Tune
         /// fanned <c>BarrageSpread</c> degrees, each <c>BarrageDamage</c> x a bolt.</summary>
         public static float BarrageRest = 10f, BarrageEvery = 0.07f, BarrageSpread = 14f, BarrageDamage = 0.6f;
         public static int BarrageBolts = 7;
+        /// <summary>Strong Gust (wind+wind, bolt): a little whirlwind races along the floor at <c>GustSpeed</c> for <c>GustSeconds</c>, shoving every
+        /// creature it meets back ahead of it (<c>GustShove</c>; bosses barely) and nicking them (<c>GustTick</c> damage every <c>GustEvery</c> s).</summary>
+        public static float GustRest = 8f, GustSpeed = 320f, GustSeconds = 1.3f, GustRadius = 22f, GustShove = 380f, GustTick = 2f, GustEvery = 0.2f;
         /// <summary>Flamebreath (fire+fire, movement): fire pours from the staff for <c>BreathSeconds</c> (a cone <c>BreathDegrees</c> wide, <c>BreathRange</c>
         /// px), <c>BreathBuild</c> fire a tick; aimed down, it holds you up.</summary>
         public static float BreathRest = 11f, BreathSeconds = 1.5f, BreathRange = 150f, BreathDegrees = 50f, BreathTick = 0.1f, BreathBuild = 10f, BreathDamage = 1.5f;

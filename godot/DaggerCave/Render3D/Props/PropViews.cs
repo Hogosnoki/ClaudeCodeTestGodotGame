@@ -70,6 +70,7 @@ public static class PropViews
             IceSheet => new IceSheetView(),
             StalagGrip => new StalagGripView(),
             IcePlatform => new IcePlatformView(),
+            IceDecoy => new IceDecoyView(),
             FrostTower => new FrostTowerView(),
             DraftAim => new DraftAimView(),
             _ => null,
@@ -2787,6 +2788,76 @@ public partial class StalagGripView : PropView
             _rock[k].Basis = _rest[k] * Basis.FromScale(Vector3.One * s);
             _rock[k].Visible = rise > 0.02f;
         }
+    }
+}
+
+/// <summary>
+/// Glacial Vault's decoy: the Swordsman's own body (sword and all), posed as he stood when he sprang away, made all of ice: a copy of his
+/// skeleton holding that pose, wearing his mesh in clear ice, with a cold light inside. It grows up out of the floor, flashes when struck
+/// and clouds over as it cracks.
+/// </summary>
+public partial class IceDecoyView : PropView
+{
+    protected override bool ActorLit => false;
+    private StandardMaterial3D _mat;
+    private Node3D _figure;
+    private OmniLight3D _light;
+
+    protected override void Build()
+    {
+        var d = (IceDecoy)Owner2D;
+        _mat = (StandardMaterial3D)PropViews.Ice.Duplicate();
+        _mat.AlbedoColor = new Color(0.7f, 0.9f, 1f, 0.82f);
+        _mat.EmissionEnergyMultiplier = 0.45f;
+        _figure = new Node3D();
+        AddChild(_figure);
+        var src = d.PoseOf;
+        if (src != null && IsInstanceValid(src) && d.PosePos != null && src.Skel.GetBoneCount() == d.PosePos.Length)
+        {
+            var from = src.Skel;
+            var at = new Node3D { Transform = d.PoseAt };
+            _figure.AddChild(at);
+            var skel = new Skeleton3D();
+            at.AddChild(skel);
+            int n = from.GetBoneCount();
+            for (int k = 0; k < n; k++)
+            {
+                skel.AddBone(from.GetBoneName(k));
+                skel.SetBoneParent(k, from.GetBoneParent(k));
+                skel.SetBoneRest(k, from.GetBoneRest(k));
+            }
+            for (int k = 0; k < n; k++)
+            {
+                skel.SetBonePosePosition(k, d.PosePos[k]);
+                skel.SetBonePoseRotation(k, d.PoseRot[k]);
+                skel.SetBonePoseScale(k, d.PoseScale[k]);
+            }
+            var body = new MeshInstance3D { Mesh = src.Body.Mesh, Skin = src.Body.Skin, MaterialOverride = _mat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            skel.AddChild(body);
+            body.Skeleton = new NodePath("..");
+        }
+        else
+        {
+            // (no body to copy, as on a dedicated test: a rough figure of ice, a body and a head)
+            float r = d.Half / W3.Ppu, h = d.Height / W3.Ppu;
+            _figure.AddChild(new MeshInstance3D { Mesh = new CapsuleMesh { Radius = r * 0.8f, Height = h * 0.75f }, MaterialOverride = _mat, Position = new Vector3(0, h * 0.38f, 0) });
+            _figure.AddChild(new MeshInstance3D { Mesh = new SphereMesh { Radius = r * 0.6f, Height = r * 1.2f }, MaterialOverride = _mat, Position = new Vector3(0, h * 0.85f, 0) });
+        }
+        _light = PropViews.Light(new Color(0.55f, 0.85f, 1f), 0.6f, 2.2f);
+        _light.Position = new Vector3(0, d.Height * 0.5f / W3.Ppu, 0.4f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var d = (IceDecoy)Owner2D;
+        Follow(default, 0f);
+        // (it grows up out of the floor in a moment: the figure rises from below, squashed, to its full height)
+        float up = Math.Clamp(d.Risen / Math.Max(1f, d.Height), 0f, 1f);
+        _figure.Scale = new Vector3(1f, 0.3f + 0.7f * up, 1f);
+        float worn = Math.Clamp(d.Hp / Math.Max(1f, d.MaxHp), 0f, 1f);
+        _mat.EmissionEnergyMultiplier = d.Flashing ? 1.8f : 0.45f;
+        _mat.AlbedoColor = new Color(0.7f + 0.22f * (1f - worn), 0.9f, 1f, 0.82f - 0.12f * (1f - worn));
     }
 }
 

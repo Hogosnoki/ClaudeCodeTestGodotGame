@@ -488,7 +488,11 @@ swimming, the Elementalist's narrow draft and every aimed throw or bolt when aim
 always free. (Only the keyboard's move keys are eight-way, as keys must be: aim with the mouse there.) `--scenario=stick` checks it.
 
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
-(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 420 px/s (`Hero.MaxFallSpeed`).
+(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 420 px/s (`Hero.MaxFallSpeed`). Gravity and jump
+height are both 0.8x what they were (`Hero.Gravity` 1080, `Hero.JumpVelocity` 336: a full jump rises about 52 px, the rise lasting as long
+as ever, so a jump carries as far sideways). The cave generator's climbs follow it: the coarse reach check counts a jump as three cells
+(was four), the ledge stairs and slab ladders step three cells (floating stairs were four), the arena tiers stand three apart, and the
+repairs on the way to the guardian lay a ledge every two cells of climb (were three).
 **Fall damage** counts the time spent falling at that terminal speed (at least 97% of it): past 0.3 s of it (about a 180 px drop) a
 landing takes 1% of the hero's *current* health, rising to 50% after another second (`Hero.FallTerminalShare`, `FallGraceSeconds`,
 `FallRampSeconds`, `FallShareMin`, `FallShareMax`). An ordinary jump lands just short of the terminal speed and costs nothing, and anything
@@ -2017,20 +2021,30 @@ Each line below is one button; an element readied changes the next use of whiche
 | Swordsman (earth, fire, frost) | Plain | Earth | Fire | Frost |
 |---|---|---|---|---|
 | **Swing** (attack) | the sword combo | **Heaving Swing**: rooted, x2, 60 earth (rests 2.5 s) | **Searing Strike**: x1.25, 50 fire (1.2 s) | **Razor Ice**: x1.25, 50 frost (1.2 s) |
-| **Dodge** (movement) | the Dash Slash | **Earthfall**: a leap (in the air, straight down), and you come down like a rock: a shockwave of earth, harder the harder the fall (5 s) | **Explosive Lunge**: the ground bursts behind you (fire to what's beside you) and throws you far forward (4 s) | **Glacial Vault**: a spike of ice throws you 1.45x as fast up, frost to what's beside you (4 s) |
-| **Hard Swing** (second ability) | heavy blow x1.6 (5 s) | **ThunderCrush**: x2.6, slower, full earth, shatters the frozen (12 s) | **Pyroclasty**: x2.2, full fire (10 s) | **Ice Axe**: x2, full frost (7 s) |
+| **Dodge** (movement; the leaps go only from the ground) | the Dash Slash | **Earthfall**: a leap, and you come down like a rock: a shockwave of earth, harder the harder the fall (5 s) | **Explosive Lunge**: the ground bursts behind you (fire to what's beside you) and throws you forward in a low leap (340 px/s, 0.6x a jump) (4 s) | **Glacial Vault**: you spring back off a burst of ice (frost to what's beside you), leaving your likeness in ice where you stood: an **ice decoy** creatures go for (as for a Frost Tower; anyone walks through it) that breaks after two blows or 6 s, filling those beside it with 40 frost (4 s) |
+| **Hard Swing** (second ability) | heavy blow x1.6 (5 s) | **ThunderCrush**: x2.6, slower, full earth, shatters the frozen (12 s) | **Pyroclasty**: x2.2, full fire (10 s) | **Ice Axe**: the sword goes up over the head and behind, and through a long wind-up (2.4x a Hard Swing's) an axe head of ice grows out of each side of the blade near its point (the sword is the shaft), with motes of frost drawn to it and a crack of ice at each step; then it comes down **in front only** (a 120-degree arc, not the Hard Swing's sweep from behind): x2, full frost (7 s) |
 | **Empower Hilt** (ability, 8 s) | blows +20% (12 s) | blows sap (14 s) | blows +25 fire (14 s) | blows +20 frost (14 s) |
 
-The jump is always a plain jump. The dodge's element waits for its rest (the dodge is the Dash Slash meanwhile, and the charge waits).
+The jump is always a plain jump. The dodge's element waits for its rest (the dodge is the Dash Slash meanwhile, and the charge waits), and
+in the air the dodge is the Dash Slash too: the leaps go only from the ground.
+
+**The axes of ice** (`Render3D/Creatures/Designs/HeroDesign.Axe.cs`, `Render3D/Shaders/fx_frostgrow.gdshader`): each part of a head is
+drawn by a frost-grow shader. Its ice carries a gradient out from where it grows (the blade for the bits, a crystal's foot for the spikes),
+roughened with noise; whatever lies past the growth front isn't drawn and the front itself burns white, so as the swing's growth rises the
+head builds itself out of frost from the sword outward. The Ice Axe grows a crescent bit on each side and a spike from the point; the
+Glacier Cleaver's blade first runs on in a long haft of ice, then vast horned bits flare out of its end, then a crown and studs of crystal.
+The pose (`AxeHeave`) holds the sword up behind the head, arching back and trembling as the head grows, a last haul back, then one fast
+arc down in front. `Player.AxeKind`, `AxeStage` (0-1 the wind-up, 1-2 the blow, 2-3 after) and `AxeGrow` drive it, and reach the other
+games in the hero's state.
 Battle Shout is as it was.
 The cards for the Charged Strike and Swift Heave aren't dealt to the elemental Swordsman.
 
 | Elementalist (fire, frost, wind) | Plain | Fire | Frost | Wind |
 |---|---|---|---|---|
-| **Attack** (an element lasts 3 bolts; nothing counted, it goes as often as the gap between casts allows) | **Pop**: no bolt; a small burst (9) right on the creature nearest the aim within 120 px | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: weak, shoves light creatures |
+| **Attack** (each charge makes one bolt; nothing counted, it goes as often as the gap between casts allows: 0.625 s, 0.5 s for frost and wind, 0.4x the old pace, and every pop or bolt deals 0.85x) | **Pop**: no bolt; a small burst (9) right on the creature nearest the aim within 120 px | **Firebolt**: its burst, 50 fire | **Frostbolt**: quicker, 25 frost | **Gust**: very weak (0.15x a firebolt) but shoves hard (480) |
 | **Dodge** (movement; the element rests its version a while, the dodge is Lift meanwhile) | **Lift**: a push straight up, in the air too (2.5 s) | **Fire Walk**: 30% faster for 4 s, fire burning where you walk (9 s) | **Tundra**: the ground freezes 110 px each way for 6 s: heroes on it go faster, creatures are chilled and filled with frost (10 s) | **Updraft**: a column along the aim (straight up, aimed nowhere) to ride up (3 s) |
 | **Fixed range** (Burst button: a spot 130 px along the aim) | **Force Blast**: a wide (100 px) weak burst (7), throws creatures out (4 s) | **Burst**: an explosion at the spot, 60 fire; and every creature in view already burning, anywhere, takes a full build-up (combusts) (7 s) | **Snap**: every creature in view frozen solid shatters, anywhere; what's at the spot takes 60 frost (7 s) | **Cyclone**: drags light creatures in, swallows shots (9 s) |
-| **Aid** (Extended button, 8 s) | **Ward**: a barrier for you and friends near (11 s) | **Kindling**: you and friends near add 15 fire a blow (12 s) | **Frost Armor**: melee attackers are filled with frost (12 s) | **Narrow Draft**: you and friends near move 20% faster, jump higher (10 s) |
+| **Aid** (Extended button, 8 s) | **Ward**: a barrier for you and friends near (11 s) | **Kindling**: you and friends near add 15 fire a blow (12 s) | **Frost Armor**: melee attackers are filled with frost (12 s) | **Narrow Draft**: you and friends near move 20% faster, jump higher, for 4 s (10 s) |
 
 The plain names (Pop, Lift, Force Blast, Ward) and Aid on the fourth button are my fill-ins, as are the Swordsman's frost and earth jumps;
 rename or swap them freely. The elemental Elementalist's spells cost far less alimus than the classic kit's (Lift 4, the fixed-range
@@ -2057,7 +2071,7 @@ nothing for the pair spends only the oldest charge, as with one. Each dual is it
 |---|---|---|---|
 | Earth + Earth | **Earthsplitter** | the blade splits the floor: a fissure runs 340 px along it (over steps, stopping at walls and drops), rock bursting up behind it; whatever it passes under is tossed up and fully stunned, and a rubble wall in its way comes down | 14 s |
 | Fire + Fire | **Inferno Cleave** | a wall of fire stands where the blade lands for 4.5 s: creatures in it burn (22 fire every 0.4 s), creatures' shots flying into it burn up, gas in it goes off | 13 s |
-| Frost + Frost | **Glacier Cleaver** | the blade grows into a vast double-bitted axe of ice (2.2x the reach, a wider arc, slow to raise): its blow is 4x a Hard Swing and two full frost build-ups (chilled, then frozen solid), and the head shatters what it froze as it lands | 16 s |
+| Frost + Frost | **Glacier Cleaver** | the Ice Axe's swing, but the head that grows out of the blade is vast and ornate (2.2x the reach): it grows slower and comes down later (3.4x a Hard Swing's wind-up), in front only (150 degrees): its blow is 4x a Hard Swing and two full frost build-ups (chilled, then frozen solid), and the head shatters what it froze as it lands | 16 s |
 | Earth + Frost | **Frost Heave** | the blade is driven into the ground; frost cracks the floor under the nearest creature within 280 px and a column of ice bursts up there: a great frost blow, full frost, thrown into the air | 14 s |
 | Earth + Fire | **Magma Rend** | the floor splits and magma wells up along it for 5.5 s: creatures in it are **mired** (45% slower in everything) and burn | 15 s |
 | Fire + Frost | **Thermal Shock** | on a creature already burning, chilled or frozen the blow lands 2.5x as hard, puts out its fire and ice, and bursts into a cloud of steam that hides the heroes in it; on anything else, half a build-up of each | 12 s |
@@ -2068,7 +2082,7 @@ nothing for the pair spends only the oldest charge, as with one. Each dual is it
 | Frost + Frost | **Cryometeor**: the same fall in ice: everything about it is frozen solid, and the ground freezes over (a Tundra) (15 s) | **Frost Tower**: you leap and a pillar of ice (72 px) rises under you to stand and cast from, for 10 s. It's solid to creatures and to your feet; your friends walk through it. Creatures within 240 px go for it instead of a hero (their blows from beside it and their shots that meet it wear it down); it has 20 health x your max health over your starting health, and doesn't attack (13 s) | **Hailstorm**: hail over the spot for 3 s: frost, and it beats flying creatures down (14 s) |
 | Fire + Wind | **Fire Barrage**: a volley of seven firebolts, fanned along the aim (10 s) | **Fire Barrier**: a ring of fire about you for 5 s, going where you go: creatures that touch it burn and are thrown back, shots burn up (12 s) | **Fire Storm**: the storm of fire, fanned: it pulls light creatures in and swallows shots (13 s) |
 | Frost + Wind | **Frost Barrage**: a volley of seven frostbolts (10 s) | **Frost Barrier**: frost armour: the next creature to strike you in melee is filled with 100 frost (a full meter), waiting up to 30 s (10 s) | **Blizzard**: the storm of snow, fanned: it pulls light creatures in and swallows shots (13 s) |
-| Wind + Wind | (the oldest charge: a Gust) | (the oldest charge: the Updraft) | **Tornado**: runs along the floor 4 s, carrying light creatures along inside it and swallowing shots, then flings them (13 s) |
+| Wind + Wind | **Strong Gust**: a little whirlwind races along the floor (320 px/s, 1.3 s), shoving every creature it meets back ahead of it and nicking them (2 every 0.2 s) (8 s) | (the oldest charge: the Updraft) | **Tornado**: runs along the floor 4 s, carrying light creatures along inside it and swallowing shots, then flings them (13 s) |
 | Fire + Frost | (the oldest charge) | (the oldest charge) | **Frostfire Lance**: one twin beam through a line 440 px long, half a build-up of each; the burning or chilled take 1.8x (11 s) |
 
 A pair's bolt rests on its own (meanwhile the bolts are plain and the charges wait); movement and fixed-range duals rest their button.
@@ -2081,7 +2095,7 @@ when it gets its elements.
 A **third charge** for the Elementalist (and the tri-charge abilities it would open) comes later. Online, the lasting spells live in the
 caster's game, which deals their blows; their look reaches the other games as the caster's effects (the Glacier Cleaver's axe shows on
 everyone's copy of the Swordsman). `--scenario=elements` checks every single and dual version for both heroes (`elements_hud.png`, `elements_tundra.png`,
-`duals_hud.png`, `duals_glacier.png`, `duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_breath.png`, `duals_tower.png`,
+`elements_iceaxe.png`, `duals_hud.png`, `duals_glacier.png`, `duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_breath.png`, `duals_tower.png`,
 `duals_rain.png`).
 
 **Classic kits**: *Settings > Controls > Classic Swordsman & Elementalist* brings back their old kits (from the next run). The tests of the

@@ -102,6 +102,7 @@ public static class Elements
                 (HeroElement.Frost, HeroElement.Frost) => "Cryometeor",
                 (HeroElement.Fire, HeroElement.Wind) => "Fire Barrage",
                 (HeroElement.Frost, HeroElement.Wind) => "Frost Barrage",
+                (HeroElement.Wind, HeroElement.Wind) => "Strong Gust",
                 _ => "",
             },
             ElemSlot.Move => (a, b) switch

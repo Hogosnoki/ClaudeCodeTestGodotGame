@@ -884,7 +884,7 @@ public static partial class CaveGenerator
                 // the next ledge sits off to the side (a clear gap between edges) and one short hop up
                 float halfHere = placed[^1].Z;
                 x = at.Value + side * (halfHere + 3.3f + Tune.Cave.PlatformGapCells + (float)rng.NextDouble() * 1.5f);
-                s -= 3; // 3 cells: within even the warden's jump
+                s -= 3; // 3 cells: within a hero's jump (48 px of about 52)
                 side = -side;
             }
         }
@@ -1139,7 +1139,7 @@ public static partial class CaveGenerator
     }
 
     /// <summary>
-    /// Coarse movement model over cells: walk/step-up on ground, a ~4-cell jump with sideways air
+    /// Coarse movement model over cells: walk/step-up on ground, a ~3-cell jump with sideways air
     /// control, falling with sideways drift, and free swimming in water (plus jumping out at the
     /// surface). Counts cells reachable from the start that cannot get back to it.
     /// </summary>
@@ -1194,8 +1194,8 @@ public static partial class CaveGenerator
         var first = tb.First;
         var edge = tb.Edge;
         int ne = 0;
-        // (what the slowest hero clears: about 66 px at full height, four cells with nothing to spare)
-        int jumpH = RawJump != null ? int.Parse(RawJump) : 4;
+        // (what a hero clears: about 52 px at full height, three cells with nothing to spare)
+        int jumpH = RawJump != null ? int.Parse(RawJump) : 3;
         for (int j = 0; j < H; j++)
         {
             bool wetRow = j + 0.5f > wrow, wetAbove = j - 1 + 0.5f > wrow;
@@ -1364,7 +1364,7 @@ public static partial class CaveGenerator
             float[] openBefore = null; Vector3[] iceBefore = null;
             var triedGoals = new HashSet<int>();
             int before = 0;
-            for (int it = 0; it < 5; it++)
+            for (int it = 0; it < 9; it++)
             {
                 CheckCancel();
                 var fine = Timed("fine build", () => new FineReach(cave));
@@ -1392,7 +1392,7 @@ public static partial class CaveGenerator
     /// <summary>
     /// The way on to the guardian, by the cheapest route (digging costs, open space doesn't) from
     /// anywhere a body can get to: the rock on it is cut away to a passage four cells wide, and
-    /// ledges stand every three cells of climb.
+    /// ledges stand every two cells of climb.
     /// </summary>
     internal static bool FineRepairStep(CaveData cave, FineReach fine, HashSet<int> tried)
     {
@@ -1465,7 +1465,7 @@ public static partial class CaveGenerator
 
     /// <summary>
     /// Stepping stones along a route (from its low end): one wherever the way leaves the ground for
-    /// open air and has climbed three cells or crossed four since the last footing, never across the
+    /// open air and has climbed two cells or crossed four since the last footing, never across the
     /// whole of a narrow passage (rock ledges; ice ones in frozen caverns).
     /// </summary>
     private static int FineStair(CaveData cave, List<int> path)
@@ -1477,7 +1477,7 @@ public static partial class CaveGenerator
             int ci = c % W, cj = c / W;
             if (Standing(ci, cj)) { lastI = ci; lastJ = cj; continue; }
             int rise = lastJ - cj, dx = Math.Abs(ci - lastI);
-            if (!(rise >= 3 || dx >= 4 || (rise >= 2 && dx >= 3))) continue;
+            if (!(rise >= 2 || dx >= 4)) continue;
             // (not in the start chamber, or the guardian's: they are laid out as they are)
             var here = new Vector2(ci + 0.5f, cj + 1f) * CaveData.Cell;
             bool keep = false;

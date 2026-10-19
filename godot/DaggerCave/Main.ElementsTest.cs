@@ -112,6 +112,31 @@ public partial class Main
         foreach (var _ in ElPress(new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }, 1.4f)) yield return null;
         ScCheck($"a plain Hard Swing keeps its cooldown ({p.HardSwingSeconds:0.0} s left)", p.HardSwingSeconds > 0f);
 
+        // frost's Hard Swing is the Ice Axe: raised behind the head while the axe head grows out of the blade, then down in front only
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        Ready();
+        Near();
+        var behind = ElDummy(p, -16);
+        float bh0 = behind.Hp;
+        foreach (var _ in ElPress(new PlayerInput { Infuse = 3 }, 0.05f)) yield return null;
+        Near();
+        _scInput = new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }; yield return null; _scInput = default;
+        // (watched frame by frame through the wind-up)
+        int axeKind = p.AxeKind; float grow0 = p.AxeGrow, grow1 = 0f, wound = 0f; bool untouched = true, shot = false;
+        while (p.AxeKind > 0 && p.AxeStage < 1f && wound < 3f)
+        {
+            grow1 = Math.Max(grow1, p.AxeGrow);
+            untouched &= foe.Hp >= foe.MaxHp;
+            if (!shot && p.AxeGrow > 0.6f) { shot = true; ScShot("elements_iceaxe"); }
+            wound += (float)GetProcessDeltaTime();
+            yield return null;
+        }
+        ScCheck($"the Ice Axe winds up long ({wound:0.00} s), its head growing out of the blade (kind {axeKind}, grown {grow0:0.00} -> {grow1:0.00}), nothing struck meanwhile ({untouched})",
+            p.ElementalUses.Contains("Ice Axe") && axeKind == 1 && grow0 < 0.3f && grow1 > 0.9f && wound > 0.6f && untouched);
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        ScCheck($"it comes down in front ({foe.MaxHp - foe.Hp:0} damage, frost {foe.FrostBuild:0}) and not behind ({bh0 - behind.Hp:0})", foe.Hp < foe.MaxHp && behind.Hp >= bh0 && p.AxeKind == 0);
+        behind.QueueFree();
+
         // earth on the swing: the Heaving Swing
         foreach (var _ in ElWait(1.2f)) yield return null;
         Ready();
@@ -167,12 +192,26 @@ public partial class Main
         foreach (var _ in ElJump(p, 0.3f, _ => { })) yield return null;
         ScCheck($"a jump with frost readied is a plain jump, and the frost waits ({p.Infused})", p.ElementalUses.Count(u => u == "Glacial Vault") == vaults && p.Infused == HeroElement.Frost);
         p.TestClearCharges();
-        // Glacial Vault: thrown higher, and what stands beside it filled with frost
+        // Glacial Vault: a spring back off a burst of ice (frost to what's beside it), leaving the hero's likeness in ice where it stood
         var foe = Fresh(26);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElPress(new PlayerInput { Infuse = 3 }, 0.02f)) yield return null;
+        float vx0 = p.GlobalPosition.X, face = p.Facing;
         foreach (var _ in ElJump(p, 0.5f, h => vault = h, dodge: true)) yield return null;
-        ScCheck($"frost's dodge is a Glacial Vault: thrown up faster ({plain:0} -> {vault:0} px/s), frost to what's beside it ({foe.FrostBuild:0})", p.ElementalUses.Contains("Glacial Vault") && vault > plain * 1.3f && foe.FrostBuild > 0);
+        float sprang = (vx0 - p.GlobalPosition.X) * face;
+        var decoy = p.LastDecoy;
+        ScCheck($"frost's dodge is a Glacial Vault: a spring back ({sprang:0} px, still facing on {p.Facing == face}), frost to what's beside it ({foe.FrostBuild:0}), and an ice decoy left standing ({decoy?.Standing})",
+            p.ElementalUses.Contains("Glacial Vault") && sprang > 30f && foe.FrostBuild > 0 && decoy != null && IsInstanceValid(decoy) && decoy.Standing);
+        if (decoy != null && IsInstanceValid(decoy))
+        {
+            // creatures go for it: a blow meant for the hero lands on it, and a second breaks it
+            bool lured = foe.Lure == decoy;
+            float taken = p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+            ScCheck($"the decoy draws the creature beside it ({lured}) and takes the blow meant for the hero ({taken:0} taken, {decoy.Struck} blow on it)", lured && taken <= 0f && decoy.Struck == 1 && decoy.Standing);
+            decoy.Damage(1f, foe);
+            foreach (var _ in ElWait(0.1f)) yield return null;
+            ScCheck($"a second blow shatters it ({(IsInstanceValid(decoy) ? decoy.Standing.ToString() : "gone")})", !IsInstanceValid(decoy) || !decoy.Standing);
+        }
         // Explosive Lunge: a blast where it leaves the ground, and far forward
         foreach (var _ in ElWait(0.4f)) yield return null;
         foe = Fresh(-22);
@@ -192,6 +231,21 @@ public partial class Main
         foreach (var _ in ElWait(0.15f)) yield return null;
         float lost = foe.MaxHp - foe.Hp;
         ScCheck($"earth's dodge is Earthfall: it lands in a shockwave ({lost:0} damage, earth {foe.EarthBuild:0}, reeling {foe.Reeling})", p.ElementalUses.Contains("Earthfall!") && lost > 0 && (foe.EarthBuild > 0 || foe.Reeling));
+        // the leaps go only from the ground: in the air the dodge is the Dash Slash, and the charge waits
+        foreach (var _ in ElWait(0.4f)) yield return null;
+        while (!p.IsOnFloor()) yield return null;
+        foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.02f)) yield return null;
+        int falls = p.ElementalUses.Count(u => u == "Earthfall");
+        _scInput = new PlayerInput { Jump = true, JumpHeld = true }; yield return null;
+        _scInput = new PlayerInput { JumpHeld = true };
+        foreach (var _ in ElWait(0.12f)) yield return null;
+        bool aloft = !p.IsOnFloor();
+        _scInput = new PlayerInput { Dodge = true }; yield return null;
+        _scInput = default;
+        foreach (var _ in ElWait(0.1f)) yield return null;
+        ScCheck($"in the air the dodge leaves the leap alone (aloft {aloft}): the earth waits ({p.Infused})", aloft && p.Infused == HeroElement.Earth && p.ElementalUses.Count(u => u == "Earthfall") == falls);
+        p.TestClearCharges();
+        foreach (var _ in ElWait(0.6f)) yield return null;
         foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
     }
 
@@ -241,9 +295,10 @@ public partial class Main
         foreach (var _ in ElPair(p, 3, 3)) yield return null;
         _scInput = Hard(); yield return null; yield return null; _scInput = default;
         foreach (var _ in ElWait(0.25f)) yield return null;
-        ScCheck($"Glacier Cleaver: the blade becomes a vast axe of ice ({p.GiantBlade})", p.ElementalUses.Contains("Glacier Cleaver") && p.GiantBlade);
+        ScCheck($"Glacier Cleaver: the blade becomes a vast axe of ice ({p.GiantBlade}, kind {p.AxeKind})", p.ElementalUses.Contains("Glacier Cleaver") && p.GiantBlade && p.AxeKind == 2);
+        foreach (var _ in ElWait(0.7f)) yield return null;
         ScShot("duals_glacier");
-        foreach (var _ in ElWait(1.4f)) yield return null;
+        foreach (var _ in ElWait(1.2f)) yield return null;
         float lost = foe.MaxHp - foe.Hp;
         ScCheck($"its blow reaches {reach * 1.15f:0} px, freezes and shatters ({foe.Shattered}) for a great deal ({lost:0})", foe.Shattered >= 1 && lost > Tune.Swordsman.Damage * 6f);
         ScCheck($"and it doesn't rest the Hard Swing ({p.HardSwingCooldownFrac:0.00}): the charges were its price", p.HardSwingCooldownFrac <= 0f);
@@ -340,7 +395,7 @@ public partial class Main
         p.TestClearCharges();
         // nothing to count: the attack goes as often as the gap between casts allows
         int pops0 = p.ElementalUses.Count(u => u == "Pop");
-        for (int k = 0; k < 6; k++) { foreach (var _ in ElPress(new PlayerInput { Attack = true, Aim = new Vector2(p.Facing, 0), AimGiven = true }, Tune.Elementalist.BoltGap + 0.15f)) yield return null; }
+        for (int k = 0; k < 6; k++) { foreach (var _ in ElPress(new PlayerInput { Attack = true, Aim = new Vector2(p.Facing, 0), AimGiven = true }, Tune.ElementalStaff.ShotGap + 0.15f)) yield return null; }
         ScCheck($"no bolts to count: six attacks in a row all go ({p.ElementalUses.Count(u => u == "Pop") - pops0})", p.ElementalUses.Count(u => u == "Pop") - pops0 == 6);
         // a cast in mid-jump: the jump goes on rising, slowly, and carries on at full speed after (it isn't paused, nor turned to a fall)
         while (!p.IsOnFloor()) yield return null;
@@ -362,7 +417,7 @@ public partial class Main
         ScCheck($"the spells cost far less: Lift {p.UpdraftCost:0}, fixed range {p.SnapCost:0}, Aid {p.BlizzardCost:0} (were {Tune.Elementalist.UpdraftCost:0}, {Tune.Elementalist.SnapCost:0}, {Tune.Elementalist.BlizzardCost:0})",
             p.UpdraftCost < Tune.Elementalist.UpdraftCost * 0.5f && p.BlizzardCost < Tune.Elementalist.BlizzardCost * 0.5f);
 
-        // the bolt: fire on the staff lasts three bolts
+        // the bolt: each charge of fire makes one Firebolt
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
         ScShot("elements_hud");
         foreach (var _ in ElWait(1.2f)) yield return null;
@@ -371,14 +426,14 @@ public partial class Main
         for (int k = 0; k < 2; k++)
         {
             Ready();
+            if (k > 0) foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
             _scInput = Bolt(); yield return null; yield return null; _scInput = default;
             for (float t = 0; t < 0.7f; t += (float)GetProcessDeltaTime()) { slowed |= p.CastSlowed; yield return null; }
         }
         ScCheck($"loosing a bolt slows the caster while it plays ({slowed})", slowed);
-        ScCheck($"two Firebolts set it alight ({foe.Ignited}; {p.MissileShots} fire bolt left)", foe.Ignited && p.MissileShots == 1 && p.ElementalUses.Count(u => u == "Firebolt") == 2);
-        Ready(); foreach (var _ in ElPress(Bolt(), 0.7f)) yield return null;
+        ScCheck($"two Firebolts, a charge each, set it alight ({foe.Ignited}; {p.MissileShots} fire bolts left)", foe.Ignited && p.MissileShots == 0 && p.ElementalUses.Count(u => u == "Firebolt") == 2);
         Ready(); float b0 = foe.FireBuild, hp0 = foe.Hp; int pops = p.ElementalUses.Count(u => u == "Pop"); foreach (var _ in ElPress(Bolt(), 0.7f)) yield return null;
-        ScCheck($"after the third, with nothing readied, the attack is a pop: no bolt, a small burst on the creature ({hp0 - foe.Hp:0} damage, fire {b0:0} -> {foe.FireBuild:0})",
+        ScCheck($"with the charges spent, the attack is a pop: no bolt, a small burst on the creature ({hp0 - foe.Hp:0} damage, fire {b0:0} -> {foe.FireBuild:0})",
             p.MissileElement == HeroElement.None && p.ElementalUses.Count(u => u == "Pop") > pops && foe.Hp < hp0 && foe.FireBuild <= b0 + 0.5f && hp0 - foe.Hp < Tune.Elementalist.FireDamage);
 
         // the fixed-range spell: Burst (on the burning: combust), Snap (chill, then shatter the frozen), Force Blast
@@ -466,6 +521,8 @@ public partial class Main
         foreach (var _ in ElPress(new PlayerInput { Infuse = 3 }, 0.05f)) yield return null;
         foreach (var _ in ElPress(new PlayerInput { Ability = true }, 0.1f)) yield return null;
         ScCheck($"wind's Aid is Narrow Draft: faster ({sp1:0.00} -> {p.Stats.MoveSpeed:0.00})", p.HasBuff(Player.BuffTailwind) && p.Stats.MoveSpeed > sp1);
+        foreach (var _ in ElWait(Tune.ElementalStaff.TailwindSeconds + 0.3f)) yield return null;
+        ScCheck($"and it lasts about {Tune.ElementalStaff.TailwindSeconds:0} s ({p.HasBuff(Player.BuffTailwind)} after)", !p.HasBuff(Player.BuffTailwind));
         Ready();
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
         foreach (var _ in ElPress(new PlayerInput { Ability = true }, 0.1f)) yield return null;
@@ -541,6 +598,20 @@ public partial class Main
         foreach (var _ in ElPress(Bolt(), 1.4f)) yield return null;
         var volley = p.LastElementSpell as Barrage;
         ScCheck($"Fire Barrage looses a volley ({volley?.Loosed} bolts) that sets the creature alight ({a.Ignited}, {a.MaxHp - a.Hp:0} damage)", p.ElementalUses.Contains("Fire Barrage") && volley != null && volley.Loosed >= Tune.Dual.BarrageBolts && a.Ignited);
+
+        // Strong Gust: a little whirlwind races along the floor, shoving the creatures it meets back and nicking them
+        Clear();
+        a = Add(50, hold: false);
+        var b2 = Add(80, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        Ready();
+        foreach (var _ in ElPair(p, 3, 3)) yield return null;
+        float ga0 = a.GlobalPosition.X, gb0 = b2.GlobalPosition.X, gface = p.Facing;
+        foreach (var _ in ElPress(Bolt(), 0.8f)) yield return null;
+        var gust = p.LastElementSpell as StrongGust;
+        float pa = (a.GlobalPosition.X - ga0) * gface, pb = (b2.GlobalPosition.X - gb0) * gface;
+        ScCheck($"Strong Gust drives both creatures back ({pa:0} px, {pb:0} px) and nicks them ({a.MaxHp - a.Hp:0}, {b2.MaxHp - b2.Hp:0})",
+            p.ElementalUses.Contains("Strong Gust") && gust != null && pa > 20f && pb > 20f && a.Hp < a.MaxHp && b2.Hp < b2.MaxHp);
 
         // Flamebreath (movement): fire in a cone
         Clear();

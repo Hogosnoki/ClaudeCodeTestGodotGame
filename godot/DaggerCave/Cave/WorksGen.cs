@@ -105,7 +105,7 @@ public static partial class CaveGenerator
             foreach (var (sx, l, _) in shafts)
             {
                 bool left = rng.Next(2) == 0;
-                int bottom = floor[l + 1][sx + 4] - 4, top = floor[l][sx] + 1;
+                int bottom = floor[l + 1][sx + 4] - 3, top = floor[l][sx] + 1;
                 for (int t = bottom; t > top; t -= 3)
                 {
                     if (left) f.Solid(sx - 1, t, sx + 3, t + 2); else f.Solid(sx + 5, t, sx + 9, t + 2);
@@ -116,7 +116,7 @@ public static partial class CaveGenerator
             foreach (var c in chambers.Where(c => c.Floor - c.Top >= 11))
             {
                 int x = c.X0 + 3, dir = 1;
-                for (int t = c.Floor - 4; t >= c.Top + 3; t -= 4)
+                for (int t = c.Floor - 3; t >= c.Top + 3; t -= 3)
                 {
                     if (x + 6 > c.X1 - 3) { dir = -1; x = c.X1 - 3 - 6; }
                     else if (x < c.X0 + 3) { dir = 1; x = c.X0 + 3; }

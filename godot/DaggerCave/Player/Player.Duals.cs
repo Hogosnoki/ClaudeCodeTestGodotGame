@@ -41,8 +41,8 @@ public partial class Player
 
     private void TickDuals(float dt)
     {
-        // (frost smoking off the vast axe)
-        if (GiantBlade && Engine.GetPhysicsFrames() % 2 == 0)
+        // (frost smoking off the vast axe, once it is grown)
+        if (GiantBlade && AxeGrow > 0.6f && Engine.GetPhysicsFrames() % 2 == 0)
         {
             var along = _swingDir != Vector2.Zero ? _swingDir : new Vector2(Facing, -0.3f).Normalized();
             G.Fx.Burst(GlobalPosition + new Vector2(0, -6) + along * G.Range(10f, _swingReach * 0.9f), new Color(0.85f, 0.96f, 1f, 0.8f), 1, 25, 2.2f, 0.35f, 40, 0);
@@ -81,12 +81,10 @@ public partial class Player
         _dualSwing = true; _dualA = a; _dualB = b;
         if (giant)
         {
-            // the blade grows into a vast axe of ice: far longer, wider, slower to raise
+            // the Ice Axe's swing, but the head that grows out of the blade is vast and ornate: far longer, wider, slower to grow
             _giant = true;
             _swingReach *= Tune.Dual.AxeReach;
-            _swingArc *= Tune.Dual.AxeArc;
-            float extra = _windup * (Tune.Dual.AxeWindup - 1f);
-            _windup += extra; _heaveRootT += extra;
+            StartAxe(2, Tune.Dual.AxeWindup);
             G.Fx.Burst(GlobalPosition + new Vector2(Facing * 10, -14), new Color(0.88f, 0.97f, 1f), 16, 140, 2.6f, 0.4f, -40);
             G.Sfx.Play("clink", GlobalPosition, -2, 0.05f, 0.4f);
         }
@@ -219,7 +217,7 @@ public partial class Player
         LastElementSpell = spell;
     }
 
-    /// <summary>The attack with two charges: Meteorite, Cryometeor, Fire Barrage or Frost Barrage (each rests the pair's bolt a while).</summary>
+    /// <summary>The attack with two charges: Meteorite, Cryometeor, Fire Barrage, Frost Barrage or Strong Gust (each rests the pair's bolt a while).</summary>
     private bool DualBolt(Vector2 aim)
     {
         var (a, b) = SpendPair();
@@ -230,9 +228,18 @@ public partial class Player
         Anim.Face((int)Facing, instant: true);
         float power = Stats.DamageMult;
         float rest = Tune.Dual.BarrageRest;
-        _boltCd = Tune.Elementalist.BoltGap;
+        _boltCd = Tune.ElementalStaff.ShotGap;
         AttacksStarted++;
-        if (a == b)
+        if (a == HeroElement.Wind && b == HeroElement.Wind)
+        {
+            // Strong Gust: a little whirlwind off the staff, racing along the floor and shoving everything it meets back
+            rest = Tune.Dual.GustRest;
+            float dir = Math.Abs(aim.X) > 0.15f ? Math.Sign(aim.X) : Facing;
+            if (!Ground.Below(GlobalPosition, 40, out var floor)) floor = GlobalPosition + new Vector2(0, 13);
+            Launch(new StrongGust { Position = floor + new Vector2(dir * 10f, 0), Dir = dir });
+            CastSlow(0.3f);
+        }
+        else if (a == b)
         {
             // Meteorite / Cryometeor: a rock out of the dark overhead, onto the thickest knot of creatures along the aim
             rest = Tune.Dual.MeteorRest;

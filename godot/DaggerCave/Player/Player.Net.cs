@@ -106,6 +106,8 @@ public partial class Player
         w.Byte((byte)(Math.Clamp(FormClipT, 0f, 1f) * 255));
         // (an Elementalist's bolts: how many ready, how many it holds)
         w.Byte(IsElementalist ? (byte)(Math.Min(BoltCharges, 15) | Math.Min(BoltChargesMax, 15) << 4) : (byte)0);
+        // (the Ice Axe or Glacier Cleaver under way, and where its blow is)
+        w.Byte((byte)(AxeKind & 3 | (int)(Math.Clamp(AxeStage / 3f, 0f, 1f) * 63f) << 2));
     }
 
     /// <summary>A puppet: the latest from its game.</summary>
@@ -141,6 +143,7 @@ public partial class Player
             if (Anim != null) { Anim.FormClip = FormClip; Anim.FormClipT = FormClipT; }
         }
         if (r.More) { byte b = r.Byte(); _netBolts = b & 15; _netBoltMax = b >> 4; }
+        if (r.More) { byte b = r.Byte(); _netAxe = b & 3; _netAxeStage = (b >> 2) / 63f * 3f; }
         _net.Push(now, pos, vel);
         Dead = (_netFlags & HfDead) != 0;
         ShieldRaised = (_netFlags & HfShield) != 0;

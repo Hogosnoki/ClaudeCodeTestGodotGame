@@ -264,6 +264,7 @@ public partial class Player
     private void StartHeave(bool swift = false)
     {
         ClearSwingElement();
+        _axe = 0;
         _heave = true;
         _swift = swift;
         _finisher = false;
