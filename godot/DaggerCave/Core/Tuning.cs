@@ -1150,7 +1150,10 @@ public static class Tune
         public static float StunSeconds = 1.2f, SapSlow = 0.2f, SapSeconds = 3f;
         /// <summary>How long after readying an element before another can be (a press inside it is kept and readies once it's over).
         /// Readied charges wait for as long as it takes.</summary>
-        public static float ChargeCooldown = 0.5f;
+        public static float ChargeCooldown = 1f;
+        /// <summary>Whether an element's version of an ability rests its button (and pays alimus). Off: the charge's cooldown is their pacing,
+        /// so the versions wait on nothing but the charges; only the plain abilities keep their cooldowns.</summary>
+        public static bool VersionsRest = false;
     }
 
     /// <summary>
@@ -1161,7 +1164,8 @@ public static class Tune
     /// each its own rest and a full build-up. The jump: Explosive Lunge (fire: a blast where you leave the ground, <c>LungeDamage</c> and
     /// <c>LungeBuild</c> within <c>LungeRadius</c>, and a long leap forward at <c>LungeSpeed</c>), Glacial Vault (frost: a spike of ice throws you
     /// <c>VaultJump</c> x as high, <c>VaultBuild</c> frost to those beside you), Earthfall (earth: you come down like a rock, a shockwave of
-    /// <c>FallDamage</c> (more the harder you land) and <c>FallBuild</c> earth within <c>FallRadius</c>); each rests the jump's element its own time. Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
+    /// <c>FallDamage</c> (more the harder you land) and <c>FallBuild</c> earth within <c>FallRadius</c>); each rests its own time. These are the dodge button's (with nothing readied it is the Dash Slash); in the air Earthfall drives you
+    /// straight down at <c>FallSlam</c>. Empower Hilt: <c>HiltSeconds</c> of every blow carrying it: plain +<c>HiltDamage</c>, earth saps,
     /// frost <c>HiltFrost</c>, fire <c>HiltFire</c> build-up a blow; rests by element.
     /// </summary>
     public static class ElementalSword
@@ -1174,7 +1178,7 @@ public static class Tune
         public static float HiltRest = 12f, HiltRestEarth = 14f, HiltRestFrost = 14f, HiltRestFire = 14f;
         public static float LungeDamage = 1.2f, LungeBuild = 50f, LungeRadius = 56f, LungeSpeed = 430f, LungeLift = 0.8f, LungeCarry = 0.42f, LungeRest = 4f;
         public static float VaultJump = 1.45f, VaultDamage = 0.8f, VaultBuild = 50f, VaultRadius = 46f, VaultRest = 4f;
-        public static float FallDamage = 1.4f, FallBuild = 60f, FallRadius = 72f, FallToss = 220f, FallRest = 5f;
+        public static float FallDamage = 1.4f, FallBuild = 60f, FallRadius = 72f, FallToss = 220f, FallRest = 5f, FallSlam = 700f;
     }
 
     /// <summary>
@@ -1200,7 +1204,7 @@ public static class Tune
         public static float PopRange = 120f, PopCone = 40f, PopDamage = 9f, PopRadius = 10f;
         /// <summary>What the elemental Elementalist's spells cost in alimus (paid as each comes back): a bolt, Lift, the fixed-range spell, Aid.</summary>
         public static float BoltCost = 0.8f, LiftCost = 4f, FixedCost = 2f, AidCost = 6f;
-        // movement: Lift on the dodge button; the elemental versions on the jump
+        // movement, the dodge button: Lift, or the elemental versions with a charge readied
         public static float LiftJump = 1f, LiftRest = 2.5f;
         public static float WalkMove = 1.3f, WalkSeconds = 4f, TrailLife = 2.5f, TrailTick = 0.3f, TrailBuild = 14f, TrailDamage = 1.5f, WalkRest = 9f;
         public static float TundraSeconds = 6f, TundraHalf = 110f, TundraTick = 0.4f, TundraBuild = 12f, TundraSlow = 0.3f, TundraRest = 10f;

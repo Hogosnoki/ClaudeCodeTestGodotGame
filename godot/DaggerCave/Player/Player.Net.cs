@@ -31,7 +31,8 @@ public partial class Player
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
                        HfGuarding = 128, HfSecondary = 256, HfGiant = 512, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
                        HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608,
-                       HfFire = 16777216, HfOrbWind = 33554432, HfOrbSnap = 67108864, HfOrbStorm = 134217728, HfWeb = 268435456, HfStun = 536870912;
+                       HfFire = 16777216, HfOrbWind = 33554432, HfOrbSnap = 67108864, HfOrbStorm = 134217728, HfWeb = 268435456, HfStun = 536870912,
+                       HfGlowA = 1073741824, HfGlowB = 2147483648;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : Possessed ? Ghost.OnGround : IsOnFloor();
@@ -55,6 +56,10 @@ public partial class Player
         if (Charged > 0 || SwingCharged) f |= HfCharged;
         if (Heaving) f |= HfHeaving;
         if (GiantBlade) f |= HfGiant;
+        // (the element readied, by its slot: its weapon glows with it in every game)
+        int glow = Array.IndexOf(Elements.Of(Stats.Hero), Infused) + 1;
+        if ((glow & 1) != 0) f |= HfGlowA;
+        if ((glow & 2) != 0) f |= HfGlowB;
         if (Choosing) f |= HfChoosing;
         if (Invulnerable) f |= HfInvuln;
         if (Guarding) f |= HfGuarding;

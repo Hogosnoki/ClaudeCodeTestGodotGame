@@ -52,9 +52,9 @@ public static class Elements
     public static (HeroElement a, HeroElement b) Pair(HeroElement x, HeroElement y) => x <= y ? (x, y) : (y, x);
 
     /// <summary>
-    /// What an element (or none) makes of each button. The Swordsman: Swing, the jump, the Hard Swing and Empower Hilt; the Elementalist:
-    /// the attack (a pop; a bolt with an element), movement (the jump; Lift, on the dodge button, is always plain), the fixed-range spell
-    /// (the Burst button) and Aid (the Extended button).
+    /// What an element (or none) makes of each button. The Swordsman: Swing, movement (the dodge: the Dash Slash, or an element's leap), the
+    /// Hard Swing and Empower Hilt; the Elementalist: the attack (a pop; a bolt with an element), movement (the dodge: Lift, or an element's),
+    /// the fixed-range spell (the Burst button) and Aid (the Extended button).
     /// </summary>
     public static string SingleName(HeroKind h, ElemSlot slot, HeroElement e)
     {
@@ -62,14 +62,14 @@ public static class Elements
             return slot switch
             {
                 ElemSlot.Attack => e switch { HeroElement.Earth => "Heaving Swing", HeroElement.Fire => "Searing Strike", HeroElement.Frost => "Razor Ice", _ => "Swing" },
-                ElemSlot.Move => e switch { HeroElement.Earth => "Earthfall", HeroElement.Fire => "Explosive Lunge", HeroElement.Frost => "Glacial Vault", _ => "Jump" },
+                ElemSlot.Move => e switch { HeroElement.Earth => "Earthfall", HeroElement.Fire => "Explosive Lunge", HeroElement.Frost => "Glacial Vault", _ => "Dash Slash" },
                 ElemSlot.Heavy => e switch { HeroElement.Earth => "ThunderCrush", HeroElement.Fire => "Pyroclasty", HeroElement.Frost => "Ice Axe", _ => "Hard Swing" },
                 _ => e == HeroElement.None ? "Empower Hilt" : $"{Name(e)} Hilt",
             };
         return slot switch
         {
             ElemSlot.Attack => e switch { HeroElement.Fire => "Firebolt", HeroElement.Frost => "Frostbolt", HeroElement.Wind => "Gust", _ => "Pop" },
-            ElemSlot.Move => e switch { HeroElement.Fire => "Fire Walk", HeroElement.Frost => "Tundra", HeroElement.Wind => "Updraft", _ => "Jump" },
+            ElemSlot.Move => e switch { HeroElement.Fire => "Fire Walk", HeroElement.Frost => "Tundra", HeroElement.Wind => "Updraft", _ => "Lift" },
             ElemSlot.Heavy => e switch { HeroElement.Fire => "Burst", HeroElement.Frost => "Snap", HeroElement.Wind => "Cyclone", _ => "Force Blast" },
             _ => e switch { HeroElement.Fire => "Kindling", HeroElement.Frost => "Frost Armor", HeroElement.Wind => "Narrow Draft", _ => "Ward" },
         };

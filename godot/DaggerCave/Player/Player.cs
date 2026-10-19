@@ -605,8 +605,9 @@ public partial class Player : CharacterBody2D
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
         if (_dodgeBuf > 0 && _heldRope == null && !Holding && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); Stats.On.RaiseDodge(this); }
-        // (an elemental lift the button gave: at least this fast upward)
+        // (an elemental lift the button gave: at least this fast upward; an element's movement: this motion, from here)
         if (_liftTo is float up) { v.Y = Math.Min(v.Y, up); _liftTo = null; _jumpCutDone = true; }
+        if (_moveTo is Vector2 mv) { v = mv; _moveTo = null; _jumpCutDone = true; _coyote = 0; }
 
         // (a cast being gathered: no jumping meanwhile)
         bool slowMo = Holding && !Possessed;
@@ -750,7 +751,7 @@ public partial class Player : CharacterBody2D
     /// <summary>The dodge button's press: a roll, a hex or an updraft (the Warden's shield reads the button itself).</summary>
     private bool DodgeButton(in PlayerInput inp) => Stats.Hero switch
     {
-        HeroKind.Swordsman => TryDodge(inp),
+        HeroKind.Swordsman => ElementMoveReady ? ElementDodge(inp) : TryDodge(inp),
         HeroKind.Vitalist => TryHex(),
         HeroKind.Elementalist => Elemental ? ElementMove(inp) : BeginDraftAim(inp),
         HeroKind.Rogue => TryVanish(),
@@ -1046,7 +1047,6 @@ public partial class Player : CharacterBody2D
             {
                 v.Y = -jumpV; _coyote = 0; _jumpBuffer = 0; _jumpCutDone = false;
                 _jumpedFromGround = true;
-                v = ElementJump(v, jumpV, inp);
                 G.Sfx.Play("jump", GlobalPosition, -8);
                 G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3);
             }

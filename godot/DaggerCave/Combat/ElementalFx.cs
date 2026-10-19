@@ -310,13 +310,19 @@ public partial class IceEruption : HeroSpell
 
 /// <summary>Meteorite (fire+fire, the bolt): a burning rock falls out of the dark on the thickest knot of creatures. Every platform it passes
 /// through breaks (they grow back), and where it meets the rock it bursts, setting everything about it alight. Cryometeor (frost+frost): a
-/// rock of ice that falls the same way, but bursts in frost (frozen solid) and leaves the ground about it frozen.</summary>
+/// rock of ice that falls the same way, but bursts in frost (frozen solid) and leaves the ground about it frozen. Cast standing, it falls
+/// through any rock above the caster's feet (ceilings, overhangs, walls it clips) and bursts only on ground as low as the caster stands or
+/// lower; cast in the air, on any ground it meets.</summary>
 public partial class Meteor : HeroSpell
 {
     public Vector2 Target;
     public float Speed = Tune.Dual.MeteorSpeed, Radius = Tune.Dual.MeteorRadius, Damage;
     /// <summary>A Cryometeor (ice, not fire).</summary>
     public bool Frost;
+    /// <summary>The height of the ground its caster stood on (rock above it is passed through); null: cast in the air, any ground stops it.</summary>
+    public float? GroundY;
+    /// <summary>For the tests: where it burst.</summary>
+    public Vector2 LandedAt { get; private set; }
     private Color Col => Frost ? Elements.ColorOf(HeroElement.Frost) : new Color(1f, 0.5f, 0.15f);
     private Vector2 _dir;
     private float _gone, _max, _fx;
@@ -331,6 +337,8 @@ public partial class Meteor : HeroSpell
         ZIndex = 4;
         _dir = (Target - GlobalPosition).Normalized();
         _max = GlobalPosition.DistanceTo(Target) * 1.8f + 120f;
+        // (standing, far enough to come down to the caster's ground and a way below it)
+        if (GroundY is float g && _dir.Y > 0.1f) _max = Math.Max(_max, (g - GlobalPosition.Y) / _dir.Y + 200f);
         G.Sfx.Play(Frost ? "clink" : "lava", Target, -6, 0.05f, 0.55f);
         G.Fx.Ring(Target, Radius * 0.5f, new Color(Col, 0.7f), 0.5f, FxLayer.RingStyle.Dashed);
     }
@@ -347,7 +355,7 @@ public partial class Meteor : HeroSpell
             _gone += step;
             // it goes through whatever platform it meets, and on
             Smashed += Breakables.Smash(next, 14f);
-            if (G.Cave.IsSolid(next) || _gone >= _max) { Burst(GlobalPosition); return; }
+            if ((G.Cave.IsSolid(next) && Lands(next)) || _gone >= _max) { Burst(GlobalPosition); return; }
             GlobalPosition = next;
             // (it bursts on the creatures it was sent for, even before it meets the rock)
             if (_gone > 40f && GlobalPosition.DistanceTo(Target) < 10f && Foes().Any(e => e.GlobalPosition.DistanceTo(GlobalPosition) < e.HitRadius + 12f)) { Burst(GlobalPosition); return; }
@@ -361,9 +369,13 @@ public partial class Meteor : HeroSpell
         if ((_fx -= dt) <= 0) { _fx = 0.08f; G.Fx.LightUp(at, col, 2.2f, 140f, 0.12f); }
     }
 
+    /// <summary>Rock here stops it: any, cast in the air; cast standing, only rock as low as the caster's ground or lower.</summary>
+    public bool Lands(Vector2 p) => GroundY is not float g || p.Y >= g - 4f;
+
     private void Burst(Vector2 at)
     {
         Landed = true;
+        LandedAt = at;
         var col = Col;
         if (Frost) { FrostBurst(at, col); return; }
         G.Fx.Explosion(at, col, 1.8f);

@@ -858,9 +858,9 @@ public partial class Hud : Control
             // the pad's arrow and the key under it
             var lab = sc + (k == 1 ? new Vector2(19, 4) : new Vector2(-17, 20));
             DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, on ? 0.85f : 0.45f));
-            string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing spends" : "attack, jump and fixed-range spell spend";
+            string dualBtn = p.Stats.Hero == HeroKind.Swordsman ? "Hard Swing spends" : "attack, dodge and fixed-range spell spend";
             Tip(new Rect2(sc - new Vector2(11, 11), new Vector2(22, 22)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))}, d-pad {(k == 0 ? "left" : k == 1 ? "up" : "right")})",
-                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: the next ability you use becomes its {Elements.Name(el).ToLowerInvariant()} version. Charges come half a second apart. " + (Meta.DualCharges
+                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: the next ability you use becomes its {Elements.Name(el).ToLowerInvariant()} version, which waits on no cooldown. Charges come a second apart. " + (Meta.DualCharges
                     ? $"Two charges wait at once (the same twice, or two different): the {dualBtn} both for the pair's own ability."
                     : "Press again to put it away."), true);
         }
@@ -870,7 +870,7 @@ public partial class Hud : Control
         if (p.InfuseCooldownFrac > 0) DrawArc(mid, 9.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * p.InfuseCooldownFrac, 16, new Color(1f, 1f, 1f, 0.75f), 2f);
         for (int k = 0; k < p.Charges.Count; k++)
             DrawCircle(mid + new Vector2(p.Charges.Count == 1 ? 0 : (k == 0 ? -3f : 3f), 0), 2.8f, Elements.ColorOf(p.Charges[k]));
-        Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Charges", "The readied charges, oldest first (the oldest is spent first). The ring is the half second before another can be readied.", true);
+        Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Charges", "The readied charges, oldest first (the oldest is spent first). The ring is the second before another can be readied.", true);
         string label = p.DualReady ? $"{Elements.Name(p.Charges[0])} + {Elements.Name(p.Charges[1])}".ToUpperInvariant()
             : p.Infused != HeroElement.None ? $"{Elements.Name(p.Infused).ToUpperInvariant()}: NEXT USE" : extra;
         var labelCol = p.DualReady ? Elements.DualColor(p.Charges[0], p.Charges[1]) : p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(1, 1, 1, 0.55f);
@@ -883,7 +883,7 @@ public partial class Hud : Control
         "Hard Swing" => "HARD", "ThunderCrush" => "CRUSH", "Pyroclasty" => "PYRO", "Ice Axe" => "ICE AXE",
         "Earthsplitter" => "SPLITTER", "Inferno Cleave" => "INFERNO", "Glacier Cleaver" => "GLACIER", "Frost Heave" => "F.HEAVE",
         "Magma Rend" => "MAGMA", "Thermal Shock" => "THERMAL",
-        "Jump" => "JUMP", "Explosive Lunge" => "LUNGE", "Glacial Vault" => "VAULT", "Earthfall" => "EARTHFALL",
+        "Dash Slash" => "DASH", "Explosive Lunge" => "LUNGE", "Glacial Vault" => "VAULT", "Earthfall" => "EARTHFALL",
         "Fire Walk" => "FIREWALK", "Frost Tower" => "TOWER", "Fire Barrier" => "FIRE RING", "Frost Barrier" => "BARRIER",
         "Force Blast" => "BLAST", "Rain of Fire" => "FIRE RAIN", "Frostfire Lance" => "LANCE", "Frost Armor" => "ARMOR", "Narrow Draft" => "DRAFT",
         "Fire Barrage" or "Frost Barrage" => "BARRAGE", "Flamebreath" => "BREATH", "Meteorite" => "METEOR", "Cryometeor" => "CRYO",
@@ -895,7 +895,7 @@ public partial class Hud : Control
     private static Color SlotColor(Player p, ElemSlot slot, Color plain)
         => p.DualNameFor(slot) != "" ? Elements.DualColor(p.Charges[0], p.Charges[1]) : p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : plain;
 
-    /// <summary>The elemental Swordsman, every button with its cooldown: Swing, the jump, Dash Slash, Empower Hilt and the Hard Swing,
+    /// <summary>The elemental Swordsman, every button with its cooldown: Swing, the dodge (Dash Slash or an element's leap), Empower Hilt and the Hard Swing,
     /// each square named for what the readied charges would make of it; the d-pad's elements above.</summary>
     private void DrawSwordsmanElemental(Font font, Player p, Vector2 ab)
     {
@@ -912,17 +912,13 @@ public partial class Hud : Control
             DrawLine(c + new Vector2(-12, 5), c + new Vector2(-5, 12), new Color(0.55f, 0.35f, 0.2f), 3f);
         }, swing, p.SwingElementRest);
         KeyHint(font, x, "attack");
-        // the jump: what the readied element would make of it (its element rests a while after)
-        x += new Vector2(step, 0);
-        string jump = el != HeroElement.None && p.JumpElementRest <= 0 ? Elements.SingleName(p.Stats.Hero, ElemSlot.Move, el) : "Jump";
-        AbilitySquare(font, x, Short(jump), p.JumpElementRestFrac, p.JumpElementRest <= 0, jump != "Jump" ? Elements.ColorOf(el) : new Color(0.85f, 0.92f, 1f), JumpIcon, jump, p.JumpElementRest);
-        KeyHint(font, x, "jump");
-        // Dash Slash
+        // the dodge: the Dash Slash, or with a charge readied the element's leap (which rests on its own)
         x += new Vector2(step, 0);
         var dc = p.DodgeCooldowns;
+        string move = el != HeroElement.None && p.JumpElementRest <= 0 ? Elements.SingleName(p.Stats.Hero, ElemSlot.Move, el) : "Dash Slash";
         for (int k = 0; k < dc.Length; k++)
-            Dial(x + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), new Color(1f, 0.62f, 0.25f), "DASHSLASH", null, dc[k]);
-        DrawString(font, x + new Vector2(0, -6), "DASH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+            Dial(x + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), move != "Dash Slash" ? Elements.ColorOf(el) : new Color(1f, 0.62f, 0.25f), null, move, dc[k]);
+        MoveLabel(font, p, x, move == "Dash Slash" ? "DASH" : Short(move), move != "Dash Slash" ? Elements.ColorOf(el) : (Color?)null);
         KeyHint(font, x, "dodge");
         // Empower Hilt
         x += new Vector2(Math.Max(step, dc.Length * 40 + 14), 0);
@@ -953,16 +949,17 @@ public partial class Hud : Control
         _gaugeEnd = x.X - ab.X + step + 6f;
     }
 
-    /// <summary>An arc of a leap over the ground (the jump's square).</summary>
-    private void JumpIcon(Vector2 c, Color col)
+    /// <summary>The label over the dodge's dial: its name now (an element's movement in its colour), and the element's rest, if it's resting.</summary>
+    private void MoveLabel(Font font, Player p, Vector2 x, string name, Color? col)
     {
-        DrawArc(c + new Vector2(0, 8), 11, -Mathf.Pi, 0, 12, col, 2.5f);
-        DrawLine(c + new Vector2(-13, 9), c + new Vector2(13, 9), new Color(col, 0.5f), 2f);
-        DrawColoredPolygon(new[] { c + new Vector2(11, 5), c + new Vector2(15, 9), c + new Vector2(8, 9) }, col);
+        string t = p.JumpElementRest > 0 ? $"{name}  {p.JumpElementRest:0.0}" : name;
+        var c = col ?? new Color(1, 1, 1, 0.75f);
+        DrawStringOutline(font, x + new Vector2(0, -6), t, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
+        DrawString(font, x + new Vector2(0, -6), t, HorizontalAlignment.Left, -1, 10, c);
     }
 
-    /// <summary>The elemental Elementalist, every button with its cooldown: the attack (the pop, or the bolts in the staff), Lift (the dodge),
-    /// the jump (the elements' movement), Aid and the fixed-range spell, each named for what the readied charges would make of it; the
+    /// <summary>The elemental Elementalist, every button with its cooldown: the attack (the pop or the elements' bolts), the dodge (Lift, or
+    /// an element's movement), Aid and the fixed-range spell, each named for what the readied charges would make of it; the
     /// d-pad's elements above.</summary>
     private void DrawElementalistElemental(Font font, Player p, Vector2 ab)
     {
@@ -985,21 +982,18 @@ public partial class Hud : Control
             for (int k = 0; k < 6; k++) { var d = Vector2.Right.Rotated(k * Mathf.Tau / 6 + 0.3f); DrawLine(c + d * 7, c + d * 11, col, 1.6f); }
         }, atk, atkSecs);
         KeyHint(font, x, "attack");
-        // Lift (the dodge)
+        // the dodge: Lift, or with a charge readied the element's movement (which rests on its own)
         x += new Vector2(step, 0);
         var lift = new Color(0.8f, 0.94f, 1f);
-        bool liftReady = p.UpdraftReady;
-        Dial(x + new Vector2(17, 17), liftReady ? 0f : p.MoveCooldownFrac, lift, null, "Lift", p.LiftSeconds);
+        string move = p.JumpElementRest <= 0 ? p.NameFor(ElemSlot.Move) : "Lift";
+        bool elemMove = move != "Lift";
+        var moveCol = elemMove ? SlotColor(p, ElemSlot.Move, lift) : lift;
+        bool liftReady = elemMove || p.UpdraftReady;
+        Dial(x + new Vector2(17, 17), liftReady ? 0f : p.MoveCooldownFrac, moveCol, null, move, elemMove ? 0f : p.LiftSeconds);
         for (int k = -1; k <= 1; k++)
-            DrawLine(x + new Vector2(17 + k * 5, 25), x + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), liftReady ? new Color(lift, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
-        DrawStringOutline(font, x + new Vector2(0, -6), $"LIFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
-        DrawString(font, x + new Vector2(0, -6), $"LIFT {p.UpdraftCost:0}", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.75f));
+            DrawLine(x + new Vector2(17 + k * 5, 25), x + new Vector2(17 + k * 5, 10 - Math.Abs(k) * -2), liftReady ? new Color(moveCol, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
+        MoveLabel(font, p, x, elemMove ? Short(move) : $"LIFT {p.UpdraftCost:0}", elemMove ? moveCol : (Color?)null);
         KeyHint(font, x, "dodge");
-        // the jump: the elements' movement (it rests a while after)
-        x += new Vector2(step, 0);
-        string jump = p.JumpElementRest <= 0 ? p.NameFor(ElemSlot.Move) : "Jump";
-        AbilitySquare(font, x, Short(jump), p.JumpElementRestFrac, p.JumpElementRest <= 0, jump != "Jump" ? SlotColor(p, ElemSlot.Move, lift) : lift, JumpIcon, jump, p.JumpElementRest);
-        KeyHint(font, x, "jump");
         // Aid (the Extended button)
         x += new Vector2(step, 0);
         string aid = p.NameFor(ElemSlot.Aid);

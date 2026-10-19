@@ -70,8 +70,8 @@ public partial class Player
             default: rest = Tune.Dual.ShockRest; dmg = Tune.Dual.ShockDamage; swingEl = HeroElement.Fire; build = 0f; break;
         }
         float scale = Stats.HeaveCooldown / Math.Max(0.01f, Tune.Swordsman.HeaveCooldown);
-        _heaveCdTotal = rest * scale;
-        _heaveCd = Math.Max(0f, _heaveCd) + _heaveCdTotal;
+        rest = ElemRest(rest);
+        if (rest > 0f) { _heaveCdTotal = rest * scale; _heaveCd = Math.Max(0f, _heaveCd) + _heaveCdTotal; }
         _dodgeT = 0;
         float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
         Facing = dir;
@@ -238,11 +238,20 @@ public partial class Player
             rest = Tune.Dual.MeteorRest;
             var target = MeteorTarget(aim);
             var from = new Vector2(-Facing * 0.45f, -1f).Normalized();
-            G.Cave.Raycast(target + new Vector2(0, -8), from, Tune.Dual.MeteorHeight, out var top, 4f);
-            var start = top - from * 8f;
-            if (start.DistanceTo(target) < 60f) start = target + from * 60f;
+            // standing, it falls through any rock above your feet (it comes out of the roof itself) and bursts only on ground as low as
+            // you stand or lower; in the air, any ground will do, so it starts below the roof
+            bool standing = IsOnFloor();
+            Vector2 start;
+            if (standing) start = target + from * Tune.Dual.MeteorHeight;
+            else
+            {
+                G.Cave.Raycast(target + new Vector2(0, -8), from, Tune.Dual.MeteorHeight, out var top, 4f);
+                start = top - from * 8f;
+                if (start.DistanceTo(target) < 60f) start = target + from * 60f;
+            }
             bool frost = a == HeroElement.Frost;
-            Launch(new Meteor { Position = start, Target = target, Frost = frost, Damage = (frost ? Tune.Dual.CryoDamage : Tune.Dual.MeteorDamage) * power });
+            Launch(new Meteor { Position = start, Target = target, Frost = frost, GroundY = standing ? GlobalPosition.Y + 13f : null,
+                Damage = (frost ? Tune.Dual.CryoDamage : Tune.Dual.MeteorDamage) * power });
             CastSlow(0.4f);
         }
         else
@@ -252,7 +261,7 @@ public partial class Player
             Launch(new Barrage { Position = CastPoint, El = el, Aim = aim });
             CastSlow(Tune.Dual.BarrageBolts * Tune.Dual.BarrageEvery + 0.15f);
         }
-        _dualBoltCd = _dualBoltTotal = rest;
+        _dualBoltCd = _dualBoltTotal = ElemRest(rest);
         LastCast = a == HeroElement.Frost ? "frost" : "fire";
         CastDual(name, Elements.DualColor(a, b), a);
         return true;
@@ -276,7 +285,7 @@ public partial class Player
         G.Sfx.Play(el == HeroElement.Frost ? "clink" : "throw", CastPoint, -12, 0.1f, 1.7f);
     }
 
-    /// <summary>The jump with two charges: Flamebreath, Frost Tower, Fire Barrier or Frost Barrier. Returns the jump's velocity.</summary>
+    /// <summary>The dodge with two charges: Flamebreath, Frost Tower, Fire Barrier or Frost Barrier. Returns the hero's motion from here.</summary>
     private Vector2 DualMove(Vector2 v, float jumpV, Vector2 aim)
     {
         var (a, b) = SpendPair();
@@ -313,7 +322,7 @@ public partial class Player
             G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 22, new Color(Elements.ColorOf(HeroElement.Frost), 0.95f), 0.4f, FxLayer.RingStyle.Burst);
             G.Fx.Burst(GlobalPosition + new Vector2(0, -4), new Color(0.9f, 0.97f, 1f), 12, 80, 2f, 0.4f, 0);
         }
-        _jumpElemRest = _jumpRestTotal = rest;
+        _jumpElemRest = _jumpRestTotal = ElemRest(rest);
         CastDual(name, Elements.DualColor(a, b), a);
         return v;
     }
@@ -354,8 +363,7 @@ public partial class Player
                 FrostfireLance(aim, power);
                 break;
         }
-        _snapCd = _snapCdTotal = rest;
-        _snapOwes = true;
+        if (Tune.Elements.VersionsRest) { _snapCd = _snapCdTotal = rest; _snapOwes = true; }
         LastCast = a == HeroElement.Fire ? "cinder" : "snap";
         CastDual(name, Elements.DualColor(a, b), a);
         return true;

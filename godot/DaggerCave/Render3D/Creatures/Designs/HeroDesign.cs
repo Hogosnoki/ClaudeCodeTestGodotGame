@@ -896,6 +896,9 @@ public sealed partial class HeroDesign : CreatureDesign
                 _ => rest,
             };
             var col = rest.Lerp(spell, Math.Clamp(glow * 1.6f, 0f, 1f));
+            // (an element readied: the orb burns in its colour)
+            var readied = player?.GlowElement ?? HeroElement.None;
+            if (readied != HeroElement.None) { col = Elements.ColorOf(readied); glow = Math.Max(glow, 0.45f); frost = readied == HeroElement.Frost; }
             // fire flickers; frost breathes slowly
             float live = frost ? 0.88f + 0.12f * MathF.Sin(a.Time * 1.8f) : 0.8f + 0.2f * MathF.Sin(a.Time * 13f) * MathF.Sin(a.Time * 5.1f);
             if (orb.Mesh is SphereMesh sm && sm.Material is StandardMaterial3D mat)
@@ -929,12 +932,21 @@ public sealed partial class HeroDesign : CreatureDesign
                 if (giant) axe.Scale = axe.Scale.Lerp(Vector3.One * (1f + 0.03f * MathF.Sin(a.Time * 17f)), 0.35f);
             }
             if (edge == null || light == null) return;
-            bool on = player != null && !player.Dead && (player.Charged > 0 || player.SwingCharged);
+            // the edge burns while the blade is charged, or in an element's colour while one is readied
+            var readied = player != null && !player.Dead ? player.GlowElement : HeroElement.None;
+            bool on = player != null && !player.Dead && (player.Charged > 0 || player.SwingCharged || readied != HeroElement.None);
             edge.Visible = on;
             light.Visible = on;
             if (!on) return;
-            float flick = 0.75f + 0.25f * MathF.Sin(a.Time * 23f) * MathF.Sin(a.Time * 7.3f);
-            if (edge.MaterialOverride is StandardMaterial3D em) em.EmissionEnergyMultiplier = 2.2f + 1.6f * flick;
+            var tint = readied != HeroElement.None ? Elements.ColorOf(readied) : new Color(1f, 0.45f, 0.15f);
+            float flick = readied is HeroElement.Frost or HeroElement.Earth ? 0.88f + 0.12f * MathF.Sin(a.Time * 2.4f) : 0.75f + 0.25f * MathF.Sin(a.Time * 23f) * MathF.Sin(a.Time * 7.3f);
+            if (edge.MaterialOverride is StandardMaterial3D em)
+            {
+                em.EmissionEnergyMultiplier = 2.2f + 1.6f * flick;
+                em.Emission = tint;
+                em.AlbedoColor = new Color(tint, 0.5f);
+            }
+            light.LightColor = tint;
             light.LightEnergy = 1.1f * flick;
         }
     }

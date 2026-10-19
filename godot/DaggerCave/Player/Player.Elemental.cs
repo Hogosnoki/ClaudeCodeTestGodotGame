@@ -23,6 +23,18 @@ public partial class Player
     /// pair's ability where the pair has one on that button (<see cref="Elements.DualName"/>).</summary>
     private readonly List<HeroElement> _charges = new();
     public IReadOnlyList<HeroElement> Charges => _charges;
+    /// <summary>The element the hero's weapon glows with: the one readied (a copy goes by what its game says).</summary>
+    public HeroElement GlowElement
+    {
+        get
+        {
+            if (!IsRemote) return Infused;
+            int slot = ((_netFlags & HfGlowA) != 0 ? 1 : 0) + ((_netFlags & HfGlowB) != 0 ? 2 : 0);
+            var els = Elements.Of(Stats.Hero);
+            return slot > 0 && slot <= els.Length ? els[slot - 1] : HeroElement.None;
+        }
+    }
+
     /// <summary>The element the next attack spends (none: the attack is plain).</summary>
     public HeroElement Infused => _charges.Count > 0 ? _charges[0] : HeroElement.None;
     /// <summary>Two charges are readied: the dual abilities wait on their buttons.</summary>
@@ -41,6 +53,11 @@ public partial class Player
 
     /// <summary>An element's button: a charge of it is readied (past the most that can wait, the oldest goes). The same twice is the
     /// element's great version; two different, their mix. With only one charge to hold, pressing the readied element again puts it away.</summary>
+    /// <summary>An element's version's rest: none, unless <see cref="Tune.Elements.VersionsRest"/> (the charge's cooldown paces them).</summary>
+    private static float ElemRest(float rest) => Tune.Elements.VersionsRest ? rest : 0f;
+    /// <summary>The next use spends a charge, and so waits on no cooldown (and costs no alimus).</summary>
+    private bool FreeVersion => !Tune.Elements.VersionsRest && _charges.Count > 0;
+
     /// <summary>An element's button as pressed: readied now, or (inside the charge's cooldown) as soon as it's over.</summary>
     private void BufferInfuse(int slot)
     {
@@ -108,11 +125,8 @@ public partial class Player
         if (_infuseCd > 0 && (_infuseCd -= dt) <= 0 && _infuseQueued >= 0) { int q = _infuseQueued; _infuseQueued = -1; TryInfuse(q); }
         if (_charges.Count > 0)
         {
-            // (readied charges wait as long as it takes; a fall clears them)
+            // (readied charges wait as long as it takes, glowing on the weapon (the 3D view); a fall clears them)
             if (Dead) ClearCharges();
-            // (a readied element glows about the hand; two, both of them)
-            else if (Engine.GetPhysicsFrames() % 4 == 0)
-                G.Fx.Ember(GlobalPosition + new Vector2(Facing * 8, -4) + G.RandDir() * (_charges.Count > 1 ? 7 : 4), Elements.ColorOf(_charges[(int)(Engine.GetPhysicsFrames() / 4 % (ulong)_charges.Count)]));
         }
         TickDuals(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
@@ -162,7 +176,7 @@ public partial class Player
             if (InWater || !IsOnFloor()) return TrySwing(aim, held);
             SpendElement();
             _lastEl = el;
-            _swingElemRest = _swingRestTotal = Tune.ElementalSword.SwingRestEarth;
+            _swingElemRest = _swingRestTotal = ElemRest(Tune.ElementalSword.SwingRestEarth);
             _dodgeT = 0;
             float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
             Facing = dir;
@@ -174,7 +188,7 @@ public partial class Player
         }
         SpendElement();
         _lastEl = el;
-        _swingElemRest = _swingRestTotal = el == HeroElement.Fire ? Tune.ElementalSword.SwingRestFire : Tune.ElementalSword.SwingRestFrost;
+        _swingElemRest = _swingRestTotal = ElemRest(el == HeroElement.Fire ? Tune.ElementalSword.SwingRestFire : Tune.ElementalSword.SwingRestFrost);
         if (_dodgeT > 0) _dodgeT = 0;
         StartSwing(aim);
         _swingDmg *= Tune.ElementalSword.MediumDamage;
@@ -186,7 +200,7 @@ public partial class Player
     /// <summary>The second ability: the Hard Swing, plain or by its element (ThunderCrush, Pyroclasm, Ice Axe), resting by which.</summary>
     private bool TryHardSwing(Vector2 aim)
     {
-        if (_heaveCd > HeaveSpareTime || Heaving) return false;
+        if ((_heaveCd > HeaveSpareTime && !FreeVersion) || Heaving) return false;
         if (InWater || !IsOnFloor()) { _heaveWanted = true; return false; }
         _heaveWanted = false;
         if (DualNameFor(ElemSlot.Heavy) != "") return DualSword(aim);
@@ -202,8 +216,8 @@ public partial class Player
             default: rest = Tune.ElementalSword.HardRest; dmg = Tune.ElementalSword.HardDamage; name = "Hard Swing"; break;
         }
         float scale = Stats.HeaveCooldown / Math.Max(0.01f, Tune.Swordsman.HeaveCooldown);
-        _heaveCdTotal = rest * scale;
-        _heaveCd = Math.Max(0f, _heaveCd) + _heaveCdTotal;
+        if (el != HeroElement.None) rest = ElemRest(rest);
+        if (rest > 0f) { _heaveCdTotal = rest * scale; _heaveCd = Math.Max(0f, _heaveCd) + _heaveCdTotal; }
         _dodgeT = 0;
         float dir = Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing;
         Facing = dir;
@@ -218,16 +232,20 @@ public partial class Player
     /// <summary>The ability: Empower Hilt, plain (harder blows) or lending every blow its element for a while.</summary>
     private bool TryHilt()
     {
-        if (!AbilityChargeReady || _hiltT > 0) return false;
+        bool free = FreeVersion;
+        if ((!AbilityChargeReady && !free) || _hiltT > 0) return false;
         var el = SpendElement();
         _lastEl = el;
-        SpendAbilityCharge();
-        float rest = el switch
+        if (!free)
         {
-            HeroElement.Earth => Tune.ElementalSword.HiltRestEarth, HeroElement.Frost => Tune.ElementalSword.HiltRestFrost,
-            HeroElement.Fire => Tune.ElementalSword.HiltRestFire, _ => Tune.ElementalSword.HiltRest,
-        } * Stats.AbilityCdMult;
-        SetSpentAbilityRest(rest);
+            SpendAbilityCharge();
+            float rest = el switch
+            {
+                HeroElement.Earth => Tune.ElementalSword.HiltRestEarth, HeroElement.Frost => Tune.ElementalSword.HiltRestFrost,
+                HeroElement.Fire => Tune.ElementalSword.HiltRestFire, _ => Tune.ElementalSword.HiltRest,
+            } * Stats.AbilityCdMult;
+            SetSpentAbilityRest(rest);
+        }
         _hiltEl = el;
         _hiltT = Tune.ElementalSword.HiltSeconds;
         var col = el == HeroElement.None ? new Color(1f, 0.85f, 0.5f) : Elements.ColorOf(el);
@@ -267,9 +285,9 @@ public partial class Player
     /// <summary>How much harder a blade blow lands from a plain Empower Hilt.</summary>
     private float HiltDamageMult => Elemental && _hiltT > 0 && _hiltEl == HeroElement.None ? 1f + Tune.ElementalSword.HiltDamage : 1f;
 
-    // ================================================================== the Swordsman's jump
+    // ================================================================== the elements' movement (the dodge button)
 
-    /// <summary>The jump's element rests (the next jump is plain and the charge waits), the leap's carry, and Earthfall waiting to land.</summary>
+    /// <summary>The movement's element rests (the dodge is plain meanwhile and the charge waits), the leap's carry, and Earthfall waiting to land.</summary>
     private float _jumpElemRest, _lungeLeapT, _lungeLeapVX;
     private bool _earthfall;
     private float _jumpRestTotal = 1f;
@@ -279,10 +297,31 @@ public partial class Player
     public float JumpElementRestFrac => Math.Clamp(_jumpElemRest / _jumpRestTotal, 0f, 1f);
 
     /// <summary>A jump from the ground: with an element readied (and its rest over), its version. Returns the jump's velocity.</summary>
-    private Vector2 ElementJump(Vector2 v, float jumpV, in PlayerInput inp)
+    /// <summary>The motion an element's movement set off this frame (applied before the hero's own movement).</summary>
+    private Vector2? _moveTo;
+
+    /// <summary>The dodge button would cast the readied element's movement (its rest over, out of the water).</summary>
+    private bool ElementMoveReady => Elemental && Infused != HeroElement.None && _jumpElemRest <= 0 && !InWater;
+
+    /// <summary>The dodge button with a charge readied: the element's movement. The Swordsman's leap (Explosive Lunge, Glacial Vault,
+    /// Earthfall: a leap, or in the air straight down); the Elementalist's Fire Walk, Tundra or Updraft (two charges, the pair's).</summary>
+    private bool ElementDodge(in PlayerInput inp)
     {
-        if (Elemental && Stats.Hero == HeroKind.Elementalist) return StaffJump(v, jumpV, inp);
-        if (!Elemental || Stats.Hero != HeroKind.Swordsman || Infused == HeroElement.None || _jumpElemRest > 0 || InWater) return v;
+        float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult);
+        var v = Velocity;
+        if (Stats.Hero == HeroKind.Swordsman)
+        {
+            if (Infused == HeroElement.Earth && !IsOnFloor()) v = new Vector2(v.X * 0.3f, Tune.ElementalSword.FallSlam);
+            else v = new Vector2(v.X, -jumpV);
+            v = SwordMove(v, jumpV, inp);
+        }
+        else v = StaffJump(v, jumpV, inp);
+        _moveTo = v;
+        return true;
+    }
+
+    private Vector2 SwordMove(Vector2 v, float jumpV, in PlayerInput inp)
+    {
         var el = SpendElement();
         _lastEl = el;
         float power = Stats.DamageMult, blow = BaseDamage * power;
@@ -293,7 +332,7 @@ public partial class Player
             case HeroElement.Fire:
             {
                 // Explosive Lunge: the ground bursts behind you and throws you far forward
-                _jumpElemRest = _jumpRestTotal = Tune.ElementalSword.LungeRest;
+                _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.LungeRest);
                 float dir = Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing;
                 Facing = dir;
                 Anim.Face((int)Facing, instant: true);
@@ -319,7 +358,7 @@ public partial class Player
             case HeroElement.Frost:
             {
                 // Glacial Vault: a spike of ice shoots up under you and throws you high; what stands beside you is caught by it
-                _jumpElemRest = _jumpRestTotal = Tune.ElementalSword.VaultRest;
+                _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.VaultRest);
                 v.Y = -jumpV * Tune.ElementalSword.VaultJump;
                 foreach (var e in G.Enemies.ToArray())
                 {
@@ -334,8 +373,8 @@ public partial class Player
                 break;
             }
             case HeroElement.Earth:
-                // Earthfall: an ordinary leap, but you come down like a rock (see ElementLanded)
-                _jumpElemRest = _jumpRestTotal = Tune.ElementalSword.FallRest;
+                // Earthfall: a leap (in the air, straight down), and you come down like a rock (see ElementLanded)
+                _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.FallRest);
                 _earthfall = true;
                 G.Fx.Debris(feet, col, 6, 140);
                 break;
@@ -522,9 +561,11 @@ public partial class Player
         }
     }
 
-    /// <summary>The dodge button: Lift, a push of air straight up (on the ground or in the air). The elements' movement is on the jump.</summary>
+    /// <summary>The dodge button: with a charge readied (its rest over), the element's movement; otherwise Lift, a push of air straight up
+    /// (on the ground or in the air).</summary>
     private bool ElementMove(in PlayerInput inp)
     {
+        if (ElementMoveReady) return ElementDodge(inp);
         if (!UpdraftReady) return false;
         _liftTo = -BaseJumpV * Tune.ElementalStaff.LiftJump;
         _terminalT = 0f;
@@ -541,8 +582,8 @@ public partial class Player
         return true;
     }
 
-    /// <summary>A jump from the ground with an element readied (its rest over): the element's movement, Fire Walk, Tundra or the Updraft;
-    /// two charges, the pair's. Returns the jump's velocity.</summary>
+    /// <summary>The dodge with an element readied (its rest over): the element's movement, Fire Walk, Tundra or the Updraft; two charges,
+    /// the pair's. Returns the hero's motion from here.</summary>
     private Vector2 StaffJump(Vector2 v, float jumpV, in PlayerInput inp)
     {
         if (Infused == HeroElement.None || _jumpElemRest > 0 || InWater) return v;
@@ -579,7 +620,7 @@ public partial class Player
                 CastUpdraft(aim, spend: false);
                 break;
         }
-        _jumpElemRest = _jumpRestTotal = rest;
+        _jumpElemRest = _jumpRestTotal = ElemRest(rest);
         _castGlow = 1f;
         G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : "dodge", GlobalPosition, -8, 0.05f, 1.2f);
         Used(Elements.SingleName(Stats.Hero, ElemSlot.Move, el));
@@ -597,7 +638,8 @@ public partial class Player
     /// <summary>The Burst button: the fixed-range spell. Force Blast (plain), Burst, Snap or Cyclone; two charges, the pair's.</summary>
     private bool TryFixed(Vector2 aim)
     {
-        if (!SnapReady) return false;
+        bool free = FreeVersion;
+        if (!SnapReady && !free) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         if (Math.Abs(aim.X) > 0.15f) Facing = Math.Sign(aim.X);
         CastDir = aim;
@@ -655,8 +697,7 @@ public partial class Player
                 break;
         }
         Breakables.SpellBurst(spot, r * 0.5f);
-        _snapCd = _snapCdTotal = rest;
-        _snapOwes = true;
+        if (!free) { _snapCd = _snapCdTotal = rest; _snapOwes = true; }
         LastCast = el == HeroElement.Fire ? "cinder" : "snap";
         _castGlow = 1f;
         G.Fx.Beam(CastPoint, spot, new Color(col, 0.45f));
@@ -715,18 +756,22 @@ public partial class Player
     /// <summary>The Extended button: Aid for the party. Ward (plain: a barrier), Kindling, Frost Armor or Narrow Draft (it spends one charge).</summary>
     private bool TryAid()
     {
-        if (!AbilityChargeReady) return false;
+        bool free = FreeVersion;
+        if (!AbilityChargeReady && !free) return false;
         var el = SpendElement();
         _lastEl = el;
-        SpendAbilityCharge();
-        if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
-        float rest = el switch
+        if (!free)
         {
-            HeroElement.Wind => Tune.ElementalStaff.AidRestWind, HeroElement.Frost => Tune.ElementalStaff.AidRestFrost,
-            HeroElement.Fire => Tune.ElementalStaff.AidRestFire, _ => Tune.ElementalStaff.AidRestWard,
-        } * Stats.AbilityCdMult;
-        SetSpentAbilityRest(rest);
-        for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !_stormOwes[k] && Math.Abs(_abilityCd[k] - _abilityRestTotal) < 0.001f) { _stormOwes[k] = true; break; }
+            SpendAbilityCharge();
+            if (_stormOwes.Length != _abilityCd.Length) Array.Resize(ref _stormOwes, _abilityCd.Length);
+            float rest = el switch
+            {
+                HeroElement.Wind => Tune.ElementalStaff.AidRestWind, HeroElement.Frost => Tune.ElementalStaff.AidRestFrost,
+                HeroElement.Fire => Tune.ElementalStaff.AidRestFire, _ => Tune.ElementalStaff.AidRestWard,
+            } * Stats.AbilityCdMult;
+            SetSpentAbilityRest(rest);
+            for (int k = 0; k < _abilityCd.Length; k++) if (_abilityCd[k] > 0 && !_stormOwes[k] && Math.Abs(_abilityCd[k] - _abilityRestTotal) < 0.001f) { _stormOwes[k] = true; break; }
+        }
         float secs = Tune.ElementalStaff.AidSeconds;
         var col = el == HeroElement.None ? new Color(0.75f, 0.9f, 1f) : Elements.ColorOf(el);
         switch (el)

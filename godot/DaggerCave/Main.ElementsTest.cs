@@ -87,10 +87,7 @@ public partial class Main
             p.ElementalUses.Skip(uses0).Contains("Searing Strike") && Math.Abs(foe.FireBuild - Tune.ElementalSword.MediumBuild) < 1 && p.Infused == HeroElement.None);
         foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.05f)) yield return null;
         foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
-        ScCheck($"the element rests a moment: the next swing is plain and fire waits ({p.Infused}, rest {p.SwingElementRest:0.0} s)", p.Infused == HeroElement.Fire && !foe.Ignited);
-        foreach (var _ in ElWait(Tune.ElementalSword.SwingRestFire)) yield return null;
-        foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
-        ScCheck($"full of fire: alight ({foe.Ignited})", foe.Ignited);
+        ScCheck($"a version waits on no cooldown (the charge's own second paces it): the next Searing Strike goes at once, full of fire: alight ({foe.Ignited}, rest {p.SwingElementRest:0.0} s)", foe.Ignited && p.SwingElementRest <= 0f);
         for (int k = 0; k < 2; k++) foreach (var _ in ElStrike(p, 2, Atk)) yield return null;
         ScCheck($"full again while alight: it combusts ({foe.Combusted})", foe.Combusted >= 1);
         ScShot("elements_combust");
@@ -107,7 +104,11 @@ public partial class Main
         Near();
         foreach (var _ in ElPress(new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }, 1.4f)) yield return null;
         ScCheck($"earth's Hard Swing is ThunderCrush: it shatters the frozen ({foe.Shattered}) and its full earth stuns ({foe.Reeling})", p.ElementalUses.Contains("ThunderCrush") && foe.Shattered >= 1);
-        ScCheck($"and rests a long while ({p.HardSwingCooldownFrac:0.00} of {Tune.ElementalSword.CrushRest} s left)", p.HardSwingCooldownFrac > 0.8f);
+        ScCheck($"and waits on no cooldown after ({p.HardSwingCooldownFrac:0.00}): the charge was its price", p.HardSwingCooldownFrac <= 0f);
+        // a plain Hard Swing does rest
+        Ready();
+        foreach (var _ in ElPress(new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }, 1.4f)) yield return null;
+        ScCheck($"a plain Hard Swing keeps its cooldown ({p.HardSwingSeconds:0.0} s left)", p.HardSwingSeconds > 0f);
 
         // earth on the swing: the Heaving Swing
         foreach (var _ in ElWait(1.2f)) yield return null;
@@ -129,7 +130,7 @@ public partial class Main
         foreach (var _ in ElPress(new PlayerInput { Ability = true, Aim = aim, AimGiven = true }, 0.1f)) yield return null;
         foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
         ScCheck($"an earth hilt saps what it strikes ({foe.Sapped})", foe.Sapped);
-        // the jump: Explosive Lunge, Glacial Vault, Earthfall
+        // the dodge with an element: Explosive Lunge, Glacial Vault, Earthfall
         foreach (var _ in SwordsmanJumps(p)) yield return null;
         ScCheck("the cards the elements replace aren't dealt (Twin Charge, Swift Heave, Relentless Charge)", !Upgrades.Available(Upgrades.Get("charge2"), p.Stats) && !Upgrades.Available(Upgrades.Get("heave_swift"), p.Stats) && !Upgrades.Available(Upgrades.Get("charge_combo"), p.Stats));
         foe.QueueFree();
@@ -137,12 +138,12 @@ public partial class Main
     }
 
     /// <summary>A jump held for <paramref name="hold"/> s (a full jump), the highest the hero rose above where it began (px).</summary>
-    private IEnumerable<object> ElJump(Player p, float hold, Action<float> rose)
+    private IEnumerable<object> ElJump(Player p, float hold, Action<float> rose, bool dodge = false)
     {
         // (how fast it left the ground: the roof of a low cave would cut the height short)
         float up = 0;
         while (p.JumpElementRest > 0 || !p.IsOnFloor()) yield return null;
-        _scInput = new PlayerInput { Jump = true, JumpHeld = true };
+        _scInput = dodge ? new PlayerInput { Dodge = true, JumpHeld = true } : new PlayerInput { Jump = true, JumpHeld = true };
         for (float t = 0; t < hold; t += (float)GetProcessDeltaTime()) { _scInput.JumpHeld = true; up = Math.Max(up, -p.Velocity.Y); yield return null; }
         _scInput = default;
         for (float t = 0; t < 1.2f && !(p.IsOnFloor() && t > 0.1f); t += (float)GetProcessDeltaTime()) yield return null;
@@ -158,31 +159,37 @@ public partial class Main
         float plain = 0, vault = 0;
         foreach (var _ in ElJump(p, 0.5f, h => plain = h)) yield return null;
         foreach (var _ in ElWait(0.3f)) yield return null;
+        // the jump stays a jump: a readied element waits for the dodge
+        foreach (var _ in ElPress(new PlayerInput { Infuse = 3 }, 0.02f)) yield return null;
+        int vaults = p.ElementalUses.Count(u => u == "Glacial Vault");
+        foreach (var _ in ElJump(p, 0.3f, _ => { })) yield return null;
+        ScCheck($"a jump with frost readied is a plain jump, and the frost waits ({p.Infused})", p.ElementalUses.Count(u => u == "Glacial Vault") == vaults && p.Infused == HeroElement.Frost);
+        p.TestClearCharges();
         // Glacial Vault: thrown higher, and what stands beside it filled with frost
         var foe = Fresh(26);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElPress(new PlayerInput { Infuse = 3 }, 0.02f)) yield return null;
-        foreach (var _ in ElJump(p, 0.5f, h => vault = h)) yield return null;
-        ScCheck($"frost's jump is a Glacial Vault: thrown up faster ({plain:0} -> {vault:0} px/s), frost to what's beside it ({foe.FrostBuild:0})", p.ElementalUses.Contains("Glacial Vault") && vault > plain * 1.3f && foe.FrostBuild > 0);
+        foreach (var _ in ElJump(p, 0.5f, h => vault = h, dodge: true)) yield return null;
+        ScCheck($"frost's dodge is a Glacial Vault: thrown up faster ({plain:0} -> {vault:0} px/s), frost to what's beside it ({foe.FrostBuild:0})", p.ElementalUses.Contains("Glacial Vault") && vault > plain * 1.3f && foe.FrostBuild > 0);
         // Explosive Lunge: a blast where it leaves the ground, and far forward
         foreach (var _ in ElWait(0.4f)) yield return null;
         foe = Fresh(-22);
         foreach (var _ in ElWait(0.2f)) yield return null;
         float x0 = p.GlobalPosition.X;
         foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.02f)) yield return null;
-        foreach (var _ in ElJump(p, 0.3f, _ => { })) yield return null;
+        foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
         float went = Math.Abs(p.GlobalPosition.X - x0);
-        ScCheck($"fire's jump is an Explosive Lunge: far forward ({went:0} px) and fire to what it left behind ({foe.FireBuild:0}, alight {foe.Ignited})", p.ElementalUses.Contains("Explosive Lunge") && went > 80f && (foe.FireBuild > 0 || foe.Ignited));
+        ScCheck($"fire's dodge is an Explosive Lunge: far forward ({went:0} px) and fire to what it left behind ({foe.FireBuild:0}, alight {foe.Ignited})", p.ElementalUses.Contains("Explosive Lunge") && went > 80f && (foe.FireBuild > 0 || foe.Ignited));
         // Earthfall: it lands in a shockwave
         foreach (var _ in ElWait(0.4f)) yield return null;
         foe = Fresh(30);
         foreach (var _ in ElWait(0.2f)) yield return null;
         p.GlobalPosition = foe.GlobalPosition - new Vector2(30 * p.Facing, 4);
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.02f)) yield return null;
-        foreach (var _ in ElJump(p, 0.5f, _ => { })) yield return null;
+        foreach (var _ in ElJump(p, 0.5f, _ => { }, dodge: true)) yield return null;
         foreach (var _ in ElWait(0.15f)) yield return null;
         float lost = foe.MaxHp - foe.Hp;
-        ScCheck($"earth's jump is Earthfall: it lands in a shockwave ({lost:0} damage, earth {foe.EarthBuild:0}, reeling {foe.Reeling})", p.ElementalUses.Contains("Earthfall!") && lost > 0 && (foe.EarthBuild > 0 || foe.Reeling));
+        ScCheck($"earth's dodge is Earthfall: it lands in a shockwave ({lost:0} damage, earth {foe.EarthBuild:0}, reeling {foe.Reeling})", p.ElementalUses.Contains("Earthfall!") && lost > 0 && (foe.EarthBuild > 0 || foe.Reeling));
         foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
     }
 
@@ -237,7 +244,7 @@ public partial class Main
         foreach (var _ in ElWait(1.4f)) yield return null;
         float lost = foe.MaxHp - foe.Hp;
         ScCheck($"its blow reaches {reach * 1.15f:0} px, freezes and shatters ({foe.Shattered}) for a great deal ({lost:0})", foe.Shattered >= 1 && lost > Tune.Swordsman.Damage * 6f);
-        ScCheck($"and rests long ({p.HardSwingCooldownFrac:0.00} of {Tune.Dual.AxeRest} s)", p.HardSwingCooldownFrac > 0.8f);
+        ScCheck($"and it doesn't rest the Hard Swing ({p.HardSwingCooldownFrac:0.00}): the charges were its price", p.HardSwingCooldownFrac <= 0f);
 
         // Frost Heave: ice bursts up under the nearest creature, out of the blade's reach
         foe = Fresh(reach * 2.4f);
@@ -422,16 +429,16 @@ public partial class Main
         Ready();
         float sp0 = p.Stats.MoveSpeed;
         foreach (var _ in ElPress(new PlayerInput { Infuse = 1 }, 0.05f)) yield return null;
-        foreach (var _ in ElPress(new PlayerInput { Jump = true, JumpHeld = true }, 0.1f)) yield return null;
-        ScCheck($"fire's jump is Fire Walk: quicker ({sp0:0.00} -> {p.Stats.MoveSpeed:0.00}), fire left behind ({p.LastElementSpell is FireTrail})", p.ElementalUses.Contains("Fire Walk") && p.Stats.MoveSpeed > sp0 && p.LastElementSpell is FireTrail);
+        foreach (var _ in ElPress(new PlayerInput { Dodge = true }, 0.1f)) yield return null;
+        ScCheck($"fire's dodge is Fire Walk: quicker ({sp0:0.00} -> {p.Stats.MoveSpeed:0.00}), fire left behind ({p.LastElementSpell is FireTrail})", p.ElementalUses.Contains("Fire Walk") && p.Stats.MoveSpeed > sp0 && p.LastElementSpell is FireTrail);
         foreach (var _ in ElWait(Tune.ElementalStaff.WalkSeconds + 0.3f)) yield return null;
         foe.QueueFree();
         foe = ElDummy(p, 60);
         foreach (var _ in ElWait(0.2f)) yield return null;
         Ready();
         foreach (var _ in ElPress(new PlayerInput { Infuse = 2 }, 0.05f)) yield return null;
-        foreach (var _ in ElPress(new PlayerInput { Jump = true, JumpHeld = true }, 1.4f)) yield return null;
-        ScCheck($"frost's jump is Tundra: the ground freezes, the creature on it chilled ({foe.Chilled}, {foe.FrostBuild:0} frost) and the hero quicker on it ({p.HasBuff(Player.BuffTailwind)})",
+        foreach (var _ in ElPress(new PlayerInput { Dodge = true }, 1.4f)) yield return null;
+        ScCheck($"frost's dodge is Tundra: the ground freezes, the creature on it chilled ({foe.Chilled}, {foe.FrostBuild:0} frost) and the hero quicker on it ({p.HasBuff(Player.BuffTailwind)})",
             p.ElementalUses.Contains("Tundra") && foe.Chilled && p.HasBuff(Player.BuffTailwind));
         ScShot("elements_tundra");
         foreach (var _ in ElWait(Tune.ElementalStaff.TundraSeconds)) yield return null;
@@ -473,7 +480,7 @@ public partial class Main
         void Ready() { p.TestResetSpells(); p.TestResetDualBolt(); p.SetAlimus(9999); }
         PlayerInput Bolt() => new() { Attack = true, Aim = aim, AimGiven = true };
         PlayerInput Fixed() => new() { Ability2 = true, Aim = aim, AimGiven = true };
-        PlayerInput Move() => new() { Jump = true, JumpHeld = true, Aim = aim, AimGiven = true };
+        PlayerInput Move() => new() { Dodge = true, Aim = aim, AimGiven = true };
         foreach (var _ in ElWait(0.6f)) yield return null;
 
         // the names on the buttons for each pair
@@ -495,6 +502,10 @@ public partial class Main
         foreach (var _ in ElWait(1.6f)) yield return null;
         ScCheck($"a Meteorite falls on the two creatures: both struck and alight ({a.Ignited}, {b.Ignited})", p.ElementalUses.Contains("Meteorite") && a.Ignited && b.Ignited && a.Hp < a.MaxHp && b.Hp < b.MaxHp);
         ScCheck($"and smashes the platform it passes through ({ledge.Broken})", ledge.Broken);
+        var rock = new Meteor { GroundY = 500f };
+        ScCheck("cast standing, a meteor passes through rock above the caster's ground and lands on ground as low or lower; cast in the air, on any",
+            !rock.Lands(new Vector2(0, 400f)) && rock.Lands(new Vector2(0, 500f)) && rock.Lands(new Vector2(0, 560f)) && new Meteor().Lands(new Vector2(0, 100f)));
+        rock.Free();
         ledge.QueueFree();
 
         // Cryometeor: frozen solid, the ground frozen over
