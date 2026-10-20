@@ -21,7 +21,7 @@ public partial class Main
             // (the real rules, cooldowns and all; the runs turn the testing switch on where they test it)
             Tune.Testing.NoCooldowns = false;
             if (_scT < 0.8f) return;
-            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), HeroKind.Vitalist => VitalistElementsRun(), HeroKind.Aegis => AegisElementsRun(), HeroKind.Rogue => RogueElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
+            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), HeroKind.Vitalist => VitalistElementsRun(), HeroKind.Aegis => AegisElementsRun(), HeroKind.Rogue => RogueElementsRun(), HeroKind.ShapeShifter => ShifterElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
         }
         if (!_elSteps.MoveNext()) ScEnd();
     }

@@ -165,7 +165,7 @@ public partial class Player
         G.Fx.Burst(at, new Color(0.9f, 0.93f, 1f, 0.9f), 22, 190, 2.4f, 0.5f);
         G.Fx.Ring(at, 22, new Color(0.9f, 0.93f, 1f, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);
         G.Sfx.Play("bubble", GlobalPosition, -2, 0.05f, 0.7f);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -34), f.Name.ToUpperInvariant(), new Color(0.92f, 0.95f, 1f), 11, 0.9f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -34), (Elemental ? ShapeName(f) : f.Name).ToUpperInvariant(), Elemental ? Elements.ColorOf(f.El) : new Color(0.92f, 0.95f, 1f), 11, 0.9f);
         Anim?.Flash(0.8f);
         if (Stats.ShiftHeals && !IsRemote) Heal(Stats.MaxHp * 0.07f);
         if (!IsRemote) Stats.On.RaiseShift(this);
@@ -186,7 +186,7 @@ public partial class Player
         G.Fx.Ring(at, 18, new Color(0.9f, 0.93f, 1f, 0.7f), 0.3f, FxLayer.RingStyle.Dashed);
         G.Sfx.Play("bubble", GlobalPosition, -5, 0.05f, 1.4f);
         _shiftLock = 0.3f;
-        if (cooldown && !IsRemote && !Stats.FluidShift) SpendAbilityCharge();
+        if (cooldown && !IsRemote && !Stats.FluidShift && !(Elemental && Tune.Testing.NoCooldowns)) SpendAbilityCharge();
     }
 
     /// <summary>The creature a form is, made fresh (as it would stand in the cave).</summary>
@@ -283,6 +283,7 @@ public partial class Player
 
     private void TickShifterCore(float dt)
     {
+        TickShifterElements(dt);
         if (_formSpecCd > 0) _formSpecCd -= dt;
         if (_rememberCd > 0) _rememberCd -= dt;
         if (_shiftLock > 0) _shiftLock -= dt;
@@ -346,9 +347,11 @@ public partial class Player
 
     private void Strike(Enemy e, float dmg, Vector2 knock, bool heavy)
     {
-        float dealt = e.Hurt(dmg, knock, e.GlobalPosition);
+        float dealt = e.Hurt(dmg * ShapeBlowMult, knock, e.GlobalPosition);
         if (dealt <= 0) { G.Sfx.Play("clink", GlobalPosition, -6); return; }
         OnDealtDamage(dealt);
+        // (elemental: the form's element on its blow)
+        ShapeBlowLanded(e, knock);
         if (Stats.FormBleed && !e.Dead) e.Bleed(dealt * 0.5f, 3f);
         e.HitStop(Tune.Feel.HitStopNormal);
         // (the creature that struck holds still for the same beat)
@@ -555,6 +558,8 @@ public partial class Player
     private bool TrySpecial(Vector2 aim)
     {
         if (!IsShifter) return false;
+        // (elemental, out of a form: the remembered form of the mode's element)
+        if (Form == null && Elemental) return ShifterRecall();
         if (Form == null)
         {
             // (the second button, with no form on: take the remembered one again)
@@ -563,10 +568,13 @@ public partial class Player
             return true;
         }
         // a creature with a second move of its own does that one, through its own wind-up
+        // (elemental and overcharged: the creature's greater special)
+        bool greater = Elemental && Overcharged;
         if (NativeSpecial)
         {
             if (!Ghost.MasterSpecialReady) return false;
             Ghost.MasterSpecial(aim);
+            if (greater) StartGreater();
             return true;
         }
         if (_formSpecCd > 0 || _formDashT > 0 || _seekFoe != null || _seekCritter != null) return false;
@@ -687,6 +695,7 @@ public partial class Player
                 Burst(f.SpecRange, f.SpecDmg * spec, 80f, stun: 1.0f);
                 break;
         }
+        if (greater) StartGreater();
         return true;
     }
 }

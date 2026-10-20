@@ -67,7 +67,7 @@ public partial class Player
     public string DualNameFor(ElemSlot slot) => Overcharged ? Elements.DualName(Stats.Hero, slot, Mode, Mode)
         : Attribute != HeroElement.None ? Elements.DualName(Stats.Hero, slot, Mode, Attribute) : "";
     /// <summary>What the button would do now (for the HUD): the greater version, or the mode's version.</summary>
-    public string NameFor(ElemSlot slot) { var d = DualNameFor(slot); return d != "" ? d : Elements.SingleName(Stats.Hero, slot, Infused); }
+    public string NameFor(ElemSlot slot) { if (IsShifter) return ShifterNameFor(slot); var d = DualNameFor(slot); return d != "" ? d : Elements.SingleName(Stats.Hero, slot, Infused); }
     /// <summary>For the tests: elemental versions used, by name.</summary>
     public readonly List<string> ElementalUses = new();
 
@@ -122,6 +122,8 @@ public partial class Player
             _mode = el;
             _top = HeroElement.None;
             _modeCd = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.ModeCooldown;
+            // (the Shape Shifter's element is the kind of creature she is: into the new one's remembered form)
+            if (IsShifter) ShifterModeSwitched(el);
             WeaponTouch(el);
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"{Elements.Name(el).ToUpperInvariant()} MODE", col, 12, 0.9f);
             G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 26, new Color(col, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);

@@ -30,37 +30,41 @@ public sealed class ShiftForm
     public FormSpecial Special;
     public string SpecialName = "";
     public float SpecDmg = 2f, SpecRange = 70f, SpecCd = 6f;
+    /// <summary>The elemental Shape Shifter (<c>Player/Player.ShifterElements.cs</c>): the element of its kind (nature the creatures that walk, wind
+    /// those that fly, water those of the water), and the name of its special greater (overcharged).</summary>
+    public HeroElement El = HeroElement.Nature;
+    public string GreaterName = "";
     public string Icon => "form_" + Key;
     public string SpecIcon => "spec_" + Key;
 
     public static readonly ShiftForm[] All =
     {
         new() { Id = 1, Key = "goblin", Name = "Goblin", Set = "goblin", Size = 1.3f, Move = 1.05f, Jump = 1f, Reach = 42f, Dmg = 1.0f, Cooldown = 0.65f, Wind = 0.2f, Strike = 0.2f, WindClip = "windup", StrikeClip = "strike",
-            Special = FormSpecial.Slam, SpecialName = "Club Smash", SpecDmg = 2.2f, SpecRange = 62f, SpecCd = 5f },
+            Special = FormSpecial.Slam, SpecialName = "Club Smash", SpecDmg = 2.2f, SpecRange = 62f, SpecCd = 5f , El = HeroElement.Nature, GreaterName = "Warlord's Smash" },
         new() { Id = 2, Key = "skeleton", Name = "Skeleton", Set = "skeleton", Size = 1.1f, Move = 1f, Jump = 1f, Reach = 54f, Dmg = 1.1f, Cooldown = 0.7f, Wind = 0.22f, Strike = 0.2f, WindClip = "windup", StrikeClip = "slash",
-            Special = FormSpecial.Spin, SpecialName = "Bone Spin", SpecDmg = 1.8f, SpecRange = 66f, SpecCd = 6f },
+            Special = FormSpecial.Spin, SpecialName = "Bone Spin", SpecDmg = 1.8f, SpecRange = 66f, SpecCd = 6f , El = HeroElement.Nature, GreaterName = "Bone Storm" },
         new() { Id = 3, Key = "rat", Name = "Rat", Set = "rat", Size = 1.5f, Move = 1.45f, Jump = 1.15f, Reach = 26f, Dmg = 0.6f, Cooldown = 0.32f, Wind = 0.08f, Strike = 0.12f, WindClip = "windup", StrikeClip = "bite", Knock = 70f,
-            Special = FormSpecial.Frenzy, SpecialName = "Gnaw", SpecDmg = 0.4f, SpecRange = 34f, SpecCd = 5f },
+            Special = FormSpecial.Frenzy, SpecialName = "Gnaw", SpecDmg = 0.4f, SpecRange = 34f, SpecCd = 5f , El = HeroElement.Nature, GreaterName = "Plague Gnaw" },
         new() { Id = 4, Key = "bat", Name = "Bat", Set = "bat", Size = 1.4f, Move = 1.2f, Jump = 1f, Flier = true, Reach = 30f, Dmg = 0.6f, Cooldown = 0.45f, Wind = 0.1f, Strike = 0.14f, WindClip = "fly", StrikeClip = "dive", Knock = 80f,
-            Special = FormSpecial.Latch, SpecialName = "Latch", SpecDmg = 0.72f, SpecRange = 150f, SpecCd = 8f },
+            Special = FormSpecial.Latch, SpecialName = "Latch", SpecDmg = 0.72f, SpecRange = 150f, SpecCd = 8f , El = HeroElement.Wind, GreaterName = "Vampire Latch" },
         new() { Id = 5, Key = "spider", Name = "Spider", Set = "spider", Size = 0.75f, Move = 1.25f, Jump = 1.2f, Reach = 34f, Dmg = 0.8f, Cooldown = 0.5f, Wind = 0.12f, Strike = 0.16f, WindClip = "hang", StrikeClip = "pounce", Knock = 90f,
-            Special = FormSpecial.Envenom, SpecialName = "Envenomate", SpecDmg = 0.6f, SpecRange = 140f, SpecCd = 7f },
+            Special = FormSpecial.Envenom, SpecialName = "Envenomate", SpecDmg = 0.6f, SpecRange = 140f, SpecCd = 7f , El = HeroElement.Nature, GreaterName = "Widow's Bite" },
         new() { Id = 6, Key = "frog", Name = "Frog", Set = "frog", Size = 1.4f, Move = 0.9f, Jump = 1.6f, Reach = 74f, Dmg = 0.8f, Cooldown = 0.8f, Wind = 0.16f, Strike = 0.22f, WindClip = "croak", StrikeClip = "tongue", Knock = 60f,
-            Special = FormSpecial.Leap, SpecialName = "Pounce", SpecDmg = 2.0f, SpecRange = 60f, SpecCd = 5f },
+            Special = FormSpecial.Leap, SpecialName = "Pounce", SpecDmg = 2.0f, SpecRange = 60f, SpecCd = 5f , El = HeroElement.Water, GreaterName = "Monsoon Pounce" },
         new() { Id = 7, Key = "scorpion", Name = "Scorpion", Set = "scorpion", Size = 1.2f, Move = 1f, Jump = 0.9f, Armor = 0.15f, Reach = 50f, Dmg = 1.1f, Cooldown = 0.75f, Wind = 0.22f, Strike = 0.18f, WindClip = "sting_windup", StrikeClip = "sting",
-            Special = FormSpecial.Spray, SpecialName = "Venom Spray", SpecDmg = 0.4f, SpecRange = 110f, SpecCd = 6f },
+            Special = FormSpecial.Spray, SpecialName = "Venom Spray", SpecDmg = 0.4f, SpecRange = 110f, SpecCd = 6f , El = HeroElement.Nature, GreaterName = "Deathstalker Spray" },
         new() { Id = 8, Key = "bear", Name = "Bear", Set = "bear", Size = 1.0f, Move = 0.95f, Jump = 0.9f, Armor = 0.35f, Threat = 0.5f, Reach = 52f, Dmg = 1.5f, Cooldown = 0.95f, Wind = 0.3f, Strike = 0.2f, WindClip = "rear", StrikeClip = "swipe", Knock = 280f,
-            Special = FormSpecial.Charge, SpecialName = "Maul Charge", SpecDmg = 2.4f, SpecRange = 230f, SpecCd = 7f },
+            Special = FormSpecial.Charge, SpecialName = "Maul Charge", SpecDmg = 2.4f, SpecRange = 230f, SpecCd = 7f , El = HeroElement.Nature, GreaterName = "Grizzly Rampage" },
         new() { Id = 9, Key = "golem", Name = "Golem", Set = "golem", Size = 1.7f, Move = 0.7f, Jump = 0.8f, Armor = 0.4f, Threat = 0.6f, Reach = 48f, Dmg = 1.8f, Cooldown = 1.1f, Wind = 0.35f, Strike = 0.2f, WindClip = "slam_windup", StrikeClip = "slam", Knock = 320f,
-            Special = FormSpecial.Quake, SpecialName = "Quake", SpecDmg = 2.6f, SpecRange = 120f, SpecCd = 8f },
+            Special = FormSpecial.Quake, SpecialName = "Quake", SpecDmg = 2.6f, SpecRange = 120f, SpecCd = 8f , El = HeroElement.Nature, GreaterName = "Earthshatter" },
         new() { Id = 10, Key = "hornet", Name = "Hornet", Set = "hornet", Size = 1.5f, Move = 1.25f, Jump = 1f, Flier = true, Reach = 40f, Dmg = 0.9f, Cooldown = 0.6f, Wind = 0.14f, Strike = 0.16f, WindClip = "aim", StrikeClip = "dive", Knock = 90f,
-            Special = FormSpecial.Dive, SpecialName = "Dive Sting", SpecDmg = 2.0f, SpecRange = 200f, SpecCd = 6f },
+            Special = FormSpecial.Dive, SpecialName = "Dive Sting", SpecDmg = 2.0f, SpecRange = 200f, SpecCd = 6f , El = HeroElement.Wind, GreaterName = "Swarm Sting" },
         new() { Id = 11, Key = "sporeling", Name = "Sporeling", Set = "sporeling", Size = 1.5f, Move = 0.9f, Jump = 1f, Reach = 40f, Dmg = 0.7f, Cooldown = 0.7f, Wind = 0.2f, Strike = 0.2f, WindClip = "puff_windup", StrikeClip = "puff",
-            Special = FormSpecial.Spores, SpecialName = "Spore Cloud", SpecDmg = 1.0f, SpecRange = 86f, SpecCd = 6f },
+            Special = FormSpecial.Spores, SpecialName = "Spore Cloud", SpecDmg = 1.0f, SpecRange = 86f, SpecCd = 6f , El = HeroElement.Nature, GreaterName = "Blight Bloom" },
         new() { Id = 12, Key = "crab", Name = "Crab", Set = "crab_foe", Size = 1.6f, Move = 0.9f, Jump = 0.8f, Armor = 0.3f, Threat = 0.8f, Reach = 46f, Dmg = 1.3f, Cooldown = 0.85f, Wind = 0.25f, Strike = 0.2f, WindClip = "pinch_windup", StrikeClip = "pinch",
-            Special = FormSpecial.Grip, SpecialName = "Vice Grip", SpecDmg = 2.0f, SpecRange = 54f, SpecCd = 6f },
+            Special = FormSpecial.Grip, SpecialName = "Vice Grip", SpecDmg = 2.0f, SpecRange = 54f, SpecCd = 6f , El = HeroElement.Water, GreaterName = "Crushing Tide" },
         new() { Id = 13, Key = "fish", Name = "Fish", Set = "fish", Size = 1.5f, Move = 1f, Jump = 1f, Reach = 28f, Dmg = 0.5f, Cooldown = 0.8f, Wind = 0.1f, Strike = 0.25f, WindClip = "swim", StrikeClip = "dart", Knock = 60f,
-            Special = FormSpecial.Splash, SpecialName = "Splash", SpecDmg = 1.4f, SpecRange = 64f, SpecCd = 5f },
+            Special = FormSpecial.Splash, SpecialName = "Splash", SpecDmg = 1.4f, SpecRange = 64f, SpecCd = 5f , El = HeroElement.Water, GreaterName = "Tidal Splash" },
     };
 
     public static ShiftForm ById(int id) { foreach (var f in All) if (f.Id == id) return f; return null; }

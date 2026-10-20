@@ -719,7 +719,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && (Elemental ? RogueStrike(aim, held) : TrySwing(aim, held)) : !stick && TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && (Elemental ? WardenSwing(aim, held) : TrySwing(aim, held)),
         HeroKind.Aegis => Elemental ? AegisShot(aim, held) : CastWardBolt(aim, held),
-        HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
+        HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : Elemental ? ShifterStaff(aim, held) : TrySwing(aim, held),
         HeroKind.Automaton => !Bracing && !Pressurising && TrySwing(aim, held),
         _ => !Heaving && (Elemental ? ElementSwing(aim, held) : TrySwing(aim, held)),
     };
@@ -732,7 +732,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => Elemental ? TryAid() : TryBlizzard(aim, _abilityAimDist),
         HeroKind.Rogue => Elemental ? RogueThrow(aim) : TryThrow(aim),
         HeroKind.Aegis => Elemental ? AegisBarrier(aim) : TryBarrier(aim),
-        HeroKind.ShapeShifter => TryShift(),
+        HeroKind.ShapeShifter => Elemental ? ShifterShift() : TryShift(),
         HeroKind.Automaton => TryRepair(),
         _ => Elemental ? TryHilt() : TryCharge(),
     };
@@ -759,7 +759,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Elementalist => Elemental ? ElementMove(inp) : BeginDraftAim(inp),
         HeroKind.Rogue => Elemental ? RogueEvade() : TryVanish(),
         HeroKind.Aegis => Elemental ? AegisDome() : TryBubble(),
-        HeroKind.ShapeShifter => Possessed ? TryRemember() : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
+        HeroKind.ShapeShifter => Possessed ? (Elemental ? ShifterRemember() : TryRemember()) : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
         HeroKind.Automaton => TryBrace(inp),
         _ => true,
     };

@@ -395,4 +395,108 @@ public partial class Main
         Clear(); Home();
         foreach (var _ in PairCoverageRun(p)) yield return null;
     }
+
+    private IEnumerable<object> ShifterElementsRun()
+    {
+        var p = G.Player;
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        p.Stats.MaxHp = p.Hp = 5000;
+        p.InputOverride = () => { var i = _scInput; _scInput.Infuse = 0; _scInput.Attack = _scInput.Ability = _scInput.Ability2 = _scInput.Dodge = false; return i; };
+        foreach (var _ in ElWait(0.5f)) yield return null;
+        var start = p.GlobalPosition;
+        float face = p.Facing;
+        var aim = new Vector2(face, 0);
+        var foes = new List<Enemy>();
+        void Clear() { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); }
+        Enemy Spawn(Enemy e, float dx)
+        {
+            e.Position = start + new Vector2(dx * face, -4);
+            e.SetMeta("test", true);
+            _world.AddChild(e);
+            e.Wake();
+            e.Hp = e.MaxHp = 1000000f;
+            e.Freeze(9999f, hold: true);
+            foes.Add(e);
+            return e;
+        }
+        IEnumerable<object> Drop()
+        {
+            if (p.Shifted) p.LeaveForm(false);
+            foreach (var _ in ElWait(0.45f)) yield return null;
+            p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.Facing = face;
+            p.ResetAbilityCooldowns();
+        }
+        PlayerInput Shift() => new() { Ability = true, Aim = aim, AimGiven = true };
+        PlayerInput Special() => new() { Ability2 = true, Aim = aim, AimGiven = true };
+        PlayerInput Remember() => new() { Dodge = true, Aim = aim, AimGiven = true };
+
+        ScCheck($"the Shape Shifter fights with elements: {string.Join(", ", Elements.Of(p.Stats.Hero))}, starting in nature mode",
+            p.Elemental && Elements.Of(p.Stats.Hero).SequenceEqual(new[] { HeroElement.Nature, HeroElement.Wind, HeroElement.Water }) && Elements.Signature(p.Stats.Hero) == HeroElement.Nature);
+        foreach (var _ in ModeControlsRun(p)) yield return null;
+        ShiftForm F(string k) => ShiftForm.All.First(f => f.Key == k);
+        ScCheck("the element is the kind of creature: the bat and the hornet fly (wind), the fish, the crab and the frog are of the water, the rest walk (nature)",
+            F("bat").El == HeroElement.Wind && F("hornet").El == HeroElement.Wind && F("fish").El == HeroElement.Water && F("crab").El == HeroElement.Water
+            && F("frog").El == HeroElement.Water && F("rat").El == HeroElement.Nature && F("bear").El == HeroElement.Nature && ShiftForm.All.All(f => f.GreaterName != ""));
+
+        // ---- Shift takes the mode's kind
+        foreach (var _ in Drop()) yield return null;
+        p.TestMode(HeroElement.Wind);
+        Spawn(new Rat(), 20);
+        Spawn(new Bat(), 45);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in ElPress(Shift(), 0.4f)) yield return null;
+        ScCheck($"in wind mode, with a rat nearer and a bat farther, Shift takes the bat ({p.Form?.Name}): a {Player.ShapeName(p.Form)}", p.Form?.Key == "bat");
+        foreach (var _ in ElPress(Remember(), 0.3f)) yield return null;
+        ScCheck($"the dodge button remembers it for wind ({p.RememberedFor(HeroElement.Wind)?.Name})", p.RememberedFor(HeroElement.Wind)?.Key == "bat");
+        ScShot("shifter_bat");
+        foreach (var _ in Drop()) yield return null;
+        p.TestMode(HeroElement.Nature);
+        foreach (var _ in ElPress(Shift(), 0.4f)) yield return null;
+        foreach (var _ in ElPress(Remember(), 0.3f)) yield return null;
+        ScCheck($"in nature mode it takes the rat ({p.Form?.Name}), remembered for nature ({p.RememberedFor(HeroElement.Nature)?.Name}), the bat still for wind",
+            p.Form?.Key == "rat" && p.RememberedFor(HeroElement.Nature)?.Key == "rat" && p.RememberedFor(HeroElement.Wind)?.Key == "bat");
+        // ---- switching the mode while shifted: into the new element's remembered form
+        int wind = Array.IndexOf(Elements.Of(p.Stats.Hero), HeroElement.Wind);
+        p.TestResetModeCooldowns(); p.TryInfuse(wind);
+        p.TestResetModeCooldowns(); p.TryInfuse(wind);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        ScCheck($"switched to wind mode as a rat, she becomes her remembered bat ({p.Mode}, {p.Form?.Name})", p.Mode == HeroElement.Wind && p.Form?.Key == "bat");
+        // ---- none of the mode's kind near, none remembered: another kind, and the mode follows
+        foreach (var _ in Drop()) yield return null;
+        Clear();
+        Spawn(new Rat(), 20);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.TestMode(HeroElement.Water);
+        foreach (var _ in ElPress(Shift(), 0.4f)) yield return null;
+        ScCheck($"in water mode with only a rat near (and nothing of the water remembered), Shift takes it and the mode follows ({p.Form?.Name}, {p.Mode})", p.Form?.Key == "rat" && p.Mode == HeroElement.Nature);
+        // ---- a form's blows carry its element
+        Clear();
+        var foe = Spawn(new Goblin(), 18);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        p.TestAttack();
+        foreach (var _ in ElWait(0.8f)) yield return null;
+        ScCheck($"the rat's bite carries nature ({foe.NatureBuild:0})", foe.NatureBuild > 1 || foe.Entangled > 0);
+        // ---- overcharged, the special is the creature's greater one
+        for (float t = 0; t < 4f && !p.FormSpecialReady; t += (float)GetProcessDeltaTime()) yield return null;
+        p.TestOvercharge();
+        int ent0 = foe.Entangled;
+        p.TestSpecial(aim);
+        foreach (var _ in ElWait(1.2f)) yield return null;
+        ScCheck($"overcharged, the rat's special is Plague Gnaw ({p.GreaterSpecials} greater), its bites entangling ({foe.Entangled - ent0} more)", p.ElementalUses.Contains("Plague Gnaw") && p.GreaterSpecials > 0 && foe.Entangled > ent0 && !p.Overcharged);
+        ScShot("shifter_greater");
+        // ---- out of a form, the second button takes the mode's remembered form
+        foreach (var _ in Drop()) yield return null;
+        p.TestMode(HeroElement.Wind);
+        foreach (var _ in ElPress(Special(), 0.4f)) yield return null;
+        ScCheck($"out of a form in wind mode, the second button takes the remembered bat ({p.Form?.Name})", p.Form?.Key == "bat");
+        // ---- her staff carries the mode's element
+        foreach (var _ in Drop()) yield return null;
+        p.TestMode(HeroElement.Water);
+        foreach (var _ in ElPress(new PlayerInput { Attack = true, Aim = aim, AimGiven = true }, 0.6f)) yield return null;
+        ScCheck($"out of a form, her staff in water mode is the Tide Staff ({foe.WaterBuild:0} water)", p.ElementalUses.Contains("Tide Staff") && foe.WaterBuild > 1);
+        ScShot("shifter_hud");
+        Clear();
+        foreach (var _ in Drop()) yield return null;
+        p.TestMode(Elements.Signature(p.Stats.Hero));
+    }
 }

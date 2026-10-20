@@ -1989,9 +1989,9 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
 
-## Elements (the Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis and the Rogue)
+## Elements (every hero but the Automaton)
 
-The Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis and the Rogue fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
+The Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis, the Rogue and the Shape Shifter fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
 `Enemies/Enemy.Elements.cs`, `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`, `Tune.ElementalWarden`), on **1, 2, 3** on the
 keyboard, **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*.
 
@@ -2259,8 +2259,34 @@ critical blows).
 `--scenario=elements --hero=rogue` checks the mode controls, a blinded creature, the versions on her buttons and every pair
 (`rogue_shadestep.png`, `rogue_tether.png`, `rogue_hud.png`).
 
+### The elemental Shape Shifter (nature, wind, water)
+
+`Player/Player.ShifterElements.cs`, `Tune.ElementalShifter`. For her the **element is the kind of creature she becomes** (`ShiftForm.El`):
+**nature** the creatures that walk (goblin, skeleton, rat, spider, scorpion, bear, golem, sporeling), **wind** those that fly (bat, hornet),
+**water** those of the water (fish, crab, frog). Rather than every form taking every element (nine versions times thirteen forms), each
+creature keeps its own attack and special, and the element shapes the rest:
+
+- **Shift** (the ability) copies the nearest creature of her mode's kind; with none near, she takes the form of that kind she remembers;
+  with none of those either but another kind near, she copies it and her mode follows its element. Shift again drops the form.
+- **Remember** (the dodge button, in a form) keeps it for its element: one remembered form for each (the HUD lists all three).
+- **Switching the mode while shifted** takes her into the remembered form of the new element (a rat becomes her remembered bat), or back
+  to herself if she has none. **The second button out of a form** takes the remembered form of her mode.
+- **A form's blows carry its element**: 20 nature or water build-up a blow (a venom rat entangles, a tide crab soaks), a wind form's
+  blows a shove; the attribute on top rides on them too, as for every elemental hero. Her name for the shape says its element (Venom
+  Rat, Storm Bat, Tide Crab).
+- **Overcharged, the creature's special is its greater one**: for 2.5 s its blows deal 1.5x and fill the element's meter (wind: a big
+  shove). Each creature has its own: Warlord's Smash (goblin), Bone Storm (skeleton), Plague Gnaw (rat), Widow's Bite (spider),
+  Deathstalker Spray (scorpion), Grizzly Rampage (bear), Earthshatter (golem), Blight Bloom (sporeling), Vampire Latch (bat), Swarm Sting
+  (hornet), Monsoon Pounce (frog), Crushing Tide (crab), Tidal Splash (fish).
+- **Out of a form** her staff carries the mode's element: the Bramble Staff (30 nature), the Gale Staff (a quarter more reach), the Tide
+  Staff (30 water).
+
+`--scenario=elements --hero=shifter` checks the mode controls, the kinds, Shift taking the mode's kind, remembering one form for each
+element, a mode switch changing the form, Shift taking another kind (the mode following), a form's blows carrying its element, a greater
+special, the recall, and the staff (`shifter_bat.png`, `shifter_greater.png`, `shifter_hud.png`). The Automaton keeps its own kit.
+
 **Classic kits**: *Settings > Controls > Classic kits (no elements)* brings back the elemental heroes' old kits (from the next run). The tests of the classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`,
-`vitalist`, `aegis`, `rogue`) tests the elemental ones (`elements_hud.png`), and `--elements` runs any other test with them.
+`vitalist`, `aegis`, `rogue`, `shifter`) tests the elemental ones (`elements_hud.png`), and `--elements` runs any other test with them.
 
 ## Save files
 

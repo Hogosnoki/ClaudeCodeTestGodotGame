@@ -1389,6 +1389,17 @@ public static class Tune
         public static float LongDash = 1.5f, SmokeRadius = 50f, SmokeSeconds = 4f;
     }
 
+    /// <summary>
+    /// The elemental Shape Shifter (<c>Player/Player.ShifterElements.cs</c>): a form's blows add <c>BlowBuild</c> of its element (nature,
+    /// water; a wind form's shove <c>WindShove</c>). Overcharged, the special is the greater one: for <c>GreaterSeconds</c> its blows deal
+    /// <c>GreaterDamage</c> x and fill the element's meter (a wind form's shove <c>GreaterShove</c>). Out of a form her staff adds
+    /// <c>StaffBuild</c> of the mode's element (wind: <c>GaleReach</c> x the reach).
+    /// </summary>
+    public static class ElementalShifter
+    {
+        public static float BlowBuild = 20f, WindShove = 160f, GreaterSeconds = 2.5f, GreaterDamage = 1.5f, GreaterShove = 360f, StaffBuild = 30f, GaleReach = 1.25f;
+    }
+
     public static class ElementalAegis
     {
         public static float GaleSpeed = 1.5f, GalePace = 0.75f, BurstShove = 260f, StoneDamage = 1.5f, StoneSpeed = 0.75f, StonePace = 1.3f, StoneBurst = 1.3f, ShotBuild = 40f;

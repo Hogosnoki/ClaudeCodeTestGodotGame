@@ -224,6 +224,8 @@ public sealed class PlayerStats
     public bool FreeSupplies;
     /// <summary>The Shape Shifter's remembered form (its key; null: none yet), kept for the run.</summary>
     public string RememberedForm;
+    /// <summary>The elemental Shape Shifter's: one remembered form for each element (the creatures that walk, fly, swim), kept for the run.</summary>
+    public string RememberedNature, RememberedWind, RememberedWater;
     /// <summary>The chance a melee blow that lands strikes again (the Echoing Blade relic).</summary>
     public float EchoStrike;
     /// <summary>The co-op relics: health every living ally is given when this hero falls; how much more health (a share of max) this hero rises with when a friend revives them; and how much more a friend they revive rises with.</summary>
@@ -707,6 +709,7 @@ public static partial class Upgrades
         HeroKind.Swordsman => new[] { ("sword", "Swing"), ("charge", "Empower Hilt"), ("heave", "Hard Swing"), ("dodge", "Dash Slash") },
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Block"), ("dash", "Guarded Charge") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },
+        HeroKind.ShapeShifter => new[] { ("staff", "Staff"), ("shift", "Shift"), ("form", "Forms"), ("special", "Form Specials") },
         HeroKind.Rogue => new[] { ("dagger", "Strike"), ("throw", "Throw"), ("vanish", "Evade"), ("recall", "Recall") },
         HeroKind.Aegis => new[] { ("ward", "Bubble Shot"), ("barrier", "Barrier"), ("burden", "Shared Burden"), ("bubble", "Bubble Field") },
         _ => new[] { ("bolt", "Bolt"), ("updraft", "Movement"), ("snap", "Fixed Range"), ("blizzard", "Storms & Aid") },

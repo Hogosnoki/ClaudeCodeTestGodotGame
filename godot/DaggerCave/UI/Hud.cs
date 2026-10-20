@@ -767,15 +767,33 @@ public partial class Hud : Control
         var white = HeroColor(HeroKind.ShapeShifter);
         var cb = ab + new Vector2(dc.Length * 40 + 16, 0);
         var f = p.Form;
+        // (elemental: the mode's elements above (its kind of creature), the shape named by its element, the special greater when overcharged)
+        bool el = p.Elemental;
+        if (el) DrawElementRow(font, p, ab + new Vector2(0, -74), f != null ? Player.ShapeName(f).ToUpperInvariant() : $"{p.NameFor(ElemSlot.Move).ToUpperInvariant()} TO SHIFT");
         // Shift: the creature's own icon and name while it is one (press to drop it)
-        string label = f != null ? f.Name.ToUpperInvariant() : "SHIFT";
+        string label = f != null ? (el ? Player.ShapeName(f) : f.Name).ToUpperInvariant() : "SHIFT";
         AbilitySquare(font, cb, label, f != null ? 0f : p.AbilityCooldownFrac, f != null || p.AbilityChargeReady, white, (c, col) => DrawArc(c, 8, 0, Mathf.Tau, 16, col, 2f));
         KeyHint(font, cb, "ability");
         var sb = cb + new Vector2(56, 0);
-        string spec = f != null ? f.SpecialName.ToUpperInvariant() : "SPECIAL";
-        AbilitySquare(font, sb, spec, f != null ? p.FormSpecialFrac : 1f, f != null && p.FormSpecialReady, white, (c, col) => DrawArc(c, 6, 0, Mathf.Tau, 12, col, 2f));
+        string spec = f != null ? (el ? p.NameFor(ElemSlot.Heavy) : f.SpecialName).ToUpperInvariant() : el ? "RECALL" : "SPECIAL";
+        var specCol = el && f != null && p.Overcharged ? Elements.ColorOf(f.El) : white;
+        AbilitySquare(font, sb, spec, f != null ? p.FormSpecialFrac : 1f, f != null && p.FormSpecialReady, specCol, (c, col) => DrawArc(c, 6, 0, Mathf.Tau, 12, col, 2f));
         KeyHint(font, sb, "ability2");
         // what is remembered (the dodge button, in a form, commits it; the second button, out of one, takes it again)
+        if (el)
+        {
+            // (one remembered form for each element: the creatures that walk, fly, swim)
+            var at = cb + new Vector2(0, 52);
+            foreach (var e2 in Elements.Of(p.Stats.Hero))
+            {
+                var r = p.RememberedFor(e2);
+                string txt = $"{Elements.Name(e2).ToUpperInvariant()}: {(r != null ? r.Name.ToUpperInvariant() : "-")}   ";
+                DrawString(font, at, txt, HorizontalAlignment.Left, -1, 10, new Color(Elements.ColorOf(e2), r != null ? 0.9f : 0.45f));
+                at.X += font.GetStringSize(txt, HorizontalAlignment.Left, -1, 10).X;
+            }
+            Tip(new Rect2(cb + new Vector2(-2, 42), new Vector2(240, 14)), "Memory", "Your element is the kind of creature you become: nature the ones that walk, wind the ones that fly, water those of the water. In a form, the dodge button remembers it for its element; Shift with none of your mode's kind near (or the second button out of a form) takes it again, and switching the mode while shifted takes you into that element's remembered form.");
+            return;
+        }
         var rem = p.RememberedForm;
         DrawString(font, cb + new Vector2(0, 52), rem != null ? $"REMEMBERS: {rem.Name.ToUpperInvariant()}" : f != null ? $"{Controls.Name("dodge")}: remember this form" : "no form remembered", HorizontalAlignment.Left, -1, 10, new Color(0.8f, 0.9f, 1f, rem != null ? 0.8f : 0.45f));
         Tip(new Rect2(cb + new Vector2(-2, 42), new Vector2(180, 14)), "Memory", "In a form, the dodge button commits it to memory. Out of one, the second button (or Shift with nothing to copy near) takes the remembered form again, so a bear can be had against a guardian that can't be copied.");

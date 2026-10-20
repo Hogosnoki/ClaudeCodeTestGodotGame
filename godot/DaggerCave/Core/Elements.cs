@@ -22,7 +22,7 @@ public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
 public static class Elements
 {
     /// <summary>The hero fights with elements (not the classic kit).</summary>
-    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden or HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue;
+    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden or HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue or HeroKind.ShapeShifter;
     /// <summary>The tests of the classic kits keep them (never saved): `--scenario=elements` or `--elements` tests the elemental ones.</summary>
     public static bool ClassicForTests;
 
@@ -33,16 +33,17 @@ public static class Elements
     private static readonly HeroElement[] Vital = { HeroElement.Nature, HeroElement.Wind, HeroElement.Water };
     private static readonly HeroElement[] Aeg = { HeroElement.Wind, HeroElement.Earth, HeroElement.Frost };
     private static readonly HeroElement[] Rog = { HeroElement.Dark, HeroElement.Wind, HeroElement.Nature };
+    private static readonly HeroElement[] Shift = { HeroElement.Nature, HeroElement.Wind, HeroElement.Water };
 
     /// <summary>The mode a hero starts in: the element that is most their own.</summary>
     public static HeroElement Signature(HeroKind h) => h switch
     {
         HeroKind.Warden => HeroElement.Earth, HeroKind.Swordsman or HeroKind.Elementalist => HeroElement.Fire, HeroKind.Vitalist => HeroElement.Nature,
-        HeroKind.Aegis => HeroElement.Wind, HeroKind.Rogue => HeroElement.Dark, _ => Of(h).FirstOrDefault(),
+        HeroKind.Aegis => HeroElement.Wind, HeroKind.Rogue => HeroElement.Dark, HeroKind.ShapeShifter => HeroElement.Nature, _ => Of(h).FirstOrDefault(),
     };
 
     /// <summary>The hero's three elements, in button order (1, 2, 3).</summary>
-    public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h switch { HeroKind.Swordsman => Sword, HeroKind.Warden => Ward, HeroKind.Vitalist => Vital, HeroKind.Aegis => Aeg, HeroKind.Rogue => Rog, _ => Ele };
+    public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h switch { HeroKind.Swordsman => Sword, HeroKind.Warden => Ward, HeroKind.Vitalist => Vital, HeroKind.Aegis => Aeg, HeroKind.Rogue => Rog, HeroKind.ShapeShifter => Shift, _ => Ele };
 
     public static string Name(HeroElement e) => e switch { HeroElement.Earth => "Earth", HeroElement.Fire => "Fire", HeroElement.Frost => "Frost", HeroElement.Wind => "Wind", HeroElement.Nature => "Nature", HeroElement.Water => "Water", HeroElement.Dark => "Dark", _ => "" };
 
@@ -97,6 +98,14 @@ public static class Elements
                 ElemSlot.Attack => e switch { HeroElement.Nature => "Thorn Drain", HeroElement.Wind => "Wisp Drain", HeroElement.Water => "Tide Drain", _ => "Drain" },
                 ElemSlot.Move => e switch { HeroElement.Nature => "Overgrowth", HeroElement.Wind => "Withering Gale", HeroElement.Water => "Drowning Hex", _ => "Hex" },
                 ElemSlot.Aid => e switch { HeroElement.Nature => "Regrowth", HeroElement.Wind => "Breath of Life", HeroElement.Water => "Cleansing Wave", _ => "Heal" },
+                _ => "",
+            };
+        // the Shape Shifter: her staff (attack, out of a form), the creature's special (in one; see Player.ShifterElements.cs for its names)
+        if (h == HeroKind.ShapeShifter)
+            return slot switch
+            {
+                ElemSlot.Attack => e switch { HeroElement.Nature => "Bramble Staff", HeroElement.Wind => "Gale Staff", HeroElement.Water => "Tide Staff", _ => "Staff" },
+                ElemSlot.Move => e switch { HeroElement.Nature => "Walking Shape", HeroElement.Wind => "Flying Shape", HeroElement.Water => "Water Shape", _ => "Shift" },
                 _ => "",
             };
         // the Rogue: the strike (attack, her jab), the evade (the dodge button: her vanish) and the throw (the ability)
