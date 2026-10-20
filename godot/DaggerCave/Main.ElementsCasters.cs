@@ -40,8 +40,8 @@ public partial class Main
             p.Elemental && Elements.Of(p.Stats.Hero).SequenceEqual(new[] { HeroElement.Nature, HeroElement.Wind, HeroElement.Water }) && Elements.Signature(p.Stats.Hero) == HeroElement.Nature);
         foreach (var _ in ModeControlsRun(p)) yield return null;
 
-        // ---- the new elements on a creature: nature entangles, water soaks
-        var foe = Add(60);
+        // ---- the new elements on a creature: nature entangles, water soaks (a creature free to act: a held one doesn't bleed)
+        var foe = Add(60, hold: false);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foe.Build(HeroElement.Nature, Tune.Elements.Full, 1f, p);
         foreach (var _ in ElWait(0.3f)) yield return null;
