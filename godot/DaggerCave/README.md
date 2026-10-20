@@ -2003,15 +2003,21 @@ element buttons fill it:
 | You press... | It does |
 |---|---|
 | your **mode's own** element | **Overcharge**: it goes on top, and the next ability that has a greater version (the same-element pairs below: Glacier Cleaver, Meteorite, Rain of Fire, Bastion, Avalanche...) becomes it; that element's overcharge then comes back after 18 s (`OverchargeRecharge`) |
-| **another** element | it goes on top as the **attribute** (replacing whatever was there, an overcharge too): every blow and spell adds a little of it (15 build-up; wind, a shove), until replaced |
+| **another** element | it goes on top as the **attribute** (replacing whatever was there, an overcharge too): every button that has a **mix** of the two becomes it (fire mode with wind on top: the fire-wind versions), and every blow and spell adds a little of it (15 build-up; wind, a shove), until replaced |
 | the **attribute's** element again | the **mode switches** to it (the slot empties), at most once every 4.5 s (`ModeCooldown`) |
 
 So fire, fire, wind leaves you in fire mode with wind riding on top (the overcharge is gone); wind again puts you in wind mode. Presses are
-taken 0.3 s apart (`ChargeCooldown`; one inside it is kept). In modes **every button keeps its cooldown** (`VersionsRest`, one cooldown per
+taken 0.3 s apart (`ChargeCooldown`; one inside it is kept). An attribute **stays** on top until replaced, so its mixes are there use after
+use; an overcharge goes with the one use. In modes **every button keeps its cooldown** (`VersionsRest`, one cooldown per
 button whatever the mode, so switching never refreshes one): the rests in the tables below apply. A few versions rest on their own while the
-button stays usable (the Heaving Swing, the elements' movement), and the button is plain meanwhile (a swing, the Dash Slash, Lift). The
-**mixed pairs** (Frost Heave, Thermal Shock, Fire Barrage, Frostquake...) are shelved for now. Overcharges are locked on a new save
-(`Meta.DualCharges`; `Tune.Testing.DualCharges` opens them for testing), so a new player starts with just modes.
+button stays usable (the Heaving Swing, the elements' movement), and the button is plain meanwhile (a swing, the Dash Slash, Lift).
+Overcharges are locked on a new save (`Meta.DualCharges`; `Tune.Testing.DualCharges` opens them for testing), so a new player starts with
+just modes.
+
+**No cooldowns while testing.** `Tune.Testing.NoCooldowns` (on for now) takes every cooldown off the elemental heroes while the elements are
+tried out: their abilities and every version, the support ability, the Warden's dash charge, the mode's switch and the overcharge's recharge
+all come back at once (the swing's and the bolt's own pace stay, so a button still can't fire every frame). The elements scenario turns it
+off to test the real rules, and checks that with it on a switch back goes at once and a spent overcharge is there again.
 
 The mode shows as a steady **glow on the hero's weapon** in its colour (an aura over the sword blade; a halo about the staff's orb, the
 orb swollen and burning hot; the Warden's shield too), in every game online; an attribute burns along the sword's edge (and in the staff's
@@ -2070,12 +2076,36 @@ gathering, `Player.Hold.cs`) is slow motion now, not a pause: a jump keeps risin
 every change to the motion at a tenth of the rate, and when it ends the hero carries on at full speed (it used to stop the rise, drop the
 hero, then hand the rise back).
 
-### Greater versions (overcharge) and the shelved mixed pairs
+### Greater versions (overcharge) and mixes (attribute)
 
-An **overcharge** (the mode's own element pressed again) makes the next use of a button that has one the mode's **greater version**: the
+An **overcharge** (the mode's own element pressed again) makes the next use of a button the mode's **greater version**: the
 same-element pairs in the tables below (`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`, names in
-`Elements.DualName`). A button without one uses the mode's version and the overcharge waits. The **mixed pairs** in the tables (two
-different elements) aren't reachable in modes for now: the code and the spells stay, shelved, for later (co-op or world interactions).
+`Elements.DualName`). An **attribute** (another element on top) makes every button its **mix** with the mode, the two-element pairs, for as
+long as it stays on top. Every button of all three heroes has all six pairs (three greater, three mixes), so nothing on top ever goes
+unused; the order doesn't matter (fire mode with wind on top and wind mode with fire on top both give the fire-wind versions).
+
+| Swordsman (Swing) | | What it does |
+|---|---|---|
+| Earth + Earth | **Fault Strike** | x1.5, full earth, shatters the frozen, and the floor splits on 150 px ahead of the blow |
+| Fire + Fire | **Flame Crescent** | x1.25 and a crescent of flame bursting from the tip: 0.6x the blow and 50 fire to all within 40 px |
+| Frost + Frost | **Frost Lance** | the cut, and a lance of ice thrown on along it (220 px, 1.2x, a full frost build-up) |
+| Earth + Fire | **Magma Strike** | x1.4, 50 fire and 50 earth, and a little pool of magma where it lands (2.5 s) |
+| Earth + Frost | **Permafrost Strike** | x1.4, 50 earth and 50 frost, shatters the frozen |
+| Fire + Frost | **Steam Strike** | x1.3, 30 fire and 30 frost, and a cloud of steam where it strikes (heroes in it are hidden) |
+
+| Swordsman (Dodge) | | What it does |
+|---|---|---|
+| Earth + Earth | **Meteor Fall** | the Earthfall, coming down like a falling star: a 1.6x shockwave |
+| Fire + Fire | **Blast Lunge** | the Explosive Lunge, 1.3x as far, leaving fire burning where you pass (2.5 s) |
+| Frost + Frost | **Frozen Effigy** | the Glacial Vault, but the likeness in ice takes four blows, and as it shatters it freezes those beside it solid |
+| Earth + Fire | **Magma Leap** | the Earthfall, and magma wells up where you land |
+| Earth + Frost | **Frostfall** | the Earthfall, freezing the ground where you land (a Tundra) and filling those there with frost |
+| Fire + Frost | **Steam Vault** | the spring back, and a cloud of steam where you stood |
+
+| Swordsman (Empower Hilt) | | What it does |
+|---|---|---|
+| Earth + Earth / Fire + Fire / Frost + Frost | **Stoneheart / Blazing / Glacial Hilt** | the element's hilt, twice as strong, for half again as long |
+| Earth + Fire / Earth + Frost / Fire + Frost | **Magma / Permafrost / Steam Hilt** | both elements' hilts on every blow |
 
 | Swordsman (Hard Swing) | | What it does | Rest |
 |---|---|---|---|
@@ -2092,11 +2122,19 @@ different elements) aren't reachable in modes for now: the code and the spells s
 | Frost + Frost | **Cryometeor**: the same fall in ice: everything about it is frozen solid, and the ground freezes over (a Tundra) (15 s) | **Frost Tower**: you leap and a pillar of ice (72 px) rises under you to stand and cast from, for 10 s. It's solid to creatures and to your feet; your friends walk through it. Creatures within 240 px go for it instead of a hero (their blows from beside it and their shots that meet it wear it down); it has 20 health x your max health over your starting health, and doesn't attack (13 s) | **Hailstorm**: hail over the spot for 3 s: frost, and it beats flying creatures down (14 s) |
 | Fire + Wind | **Fire Barrage**: a volley of seven firebolts, fanned along the aim (10 s) | **Fire Barrier**: a ring of fire about you for 5 s, going where you go: creatures that touch it burn and are thrown back, shots burn up (12 s) | **Fire Storm**: the storm of fire, fanned: it pulls light creatures in and swallows shots (13 s) |
 | Frost + Wind | **Frost Barrage**: a volley of seven frostbolts (10 s) | **Frost Barrier**: frost armour: the next creature to strike you in melee is filled with 100 frost (a full meter), waiting up to 30 s (10 s) | **Blizzard**: the storm of snow, fanned: it pulls light creatures in and swallows shots (13 s) |
-| Wind + Wind | **Strong Gust**: a little whirlwind races along the floor (320 px/s, 1.3 s), shoving every creature it meets back ahead of it and nicking them (2 every 0.2 s) (8 s) | (the oldest charge: the Updraft) | **Tornado**: runs along the floor 4 s, carrying light creatures along inside it and swallowing shots, then flings them (13 s) |
-| Fire + Frost | (the oldest charge) | (the oldest charge) | **Frostfire Lance**: one twin beam through a line 440 px long, half a build-up of each; the burning or chilled take 1.8x (11 s) |
+| Wind + Wind | **Strong Gust**: a little whirlwind races along the floor (320 px/s, 1.3 s), shoving every creature it meets back ahead of it and nicking them (2 every 0.2 s) (8 s) | **Sky Lift**: a great push of air carrying you high (1.7x a jump), and a wind at the back of every friend near (Narrow Draft) | **Tornado**: runs along the floor 4 s, carrying light creatures along inside it and swallowing shots, then flings them (13 s) |
+| Fire + Frost | **Frostfire Bolts**: a firebolt and a frostbolt loosed together, fanned a little apart (10 s) | **Steam Veil**: a burst of steam about you (56 px, 5 s): friends in it are hidden, creatures in the burst take 30 fire and 30 frost (12 s) | **Frostfire Lance**: one twin beam through a line 440 px long, half a build-up of each; the burning or chilled take 1.8x (11 s) |
 
-A pair's bolt rests on its own (meanwhile the bolts are plain and the charges wait); movement and fixed-range duals rest their button.
-Aid has no duals: it spends the oldest charge. The earlier Frozen Orb, Wildfire and Whiteout are gone (their pairs' slots are now
+| Elementalist (Aid) | | What it does |
+|---|---|---|
+| Fire + Fire | **Bonfire** | Kindling for half again as long, and a ring of fire bursting out about you (50 fire) |
+| Frost + Frost | **Ice Armor** | Frost Armor for half again as long, and a shell of ice (a barrier 1.5x a Ward's) |
+| Wind + Wind | **Gale Draft** | Narrow Draft for twice as long, and a gust that throws the creatures about you back |
+| Fire + Frost | **Thermal Armor** | Frost Armor on you and Kindling for you and friends near |
+| Fire + Wind | **Wildfire** | Kindling and Narrow Draft for you and friends near |
+| Frost + Wind | **Frostwind** | Frost Armor on you and Narrow Draft for you and friends near |
+
+A pair's bolt rests on its own (meanwhile the bolts are plain and the charges wait); movement and fixed-range duals rest their button. The earlier Frozen Orb, Wildfire and Whiteout are gone (their pairs' slots are now
 Hailstorm/Cryometeor, Fire Barrage/Barrier/Storm and Frost Barrage/Barrier/Blizzard).
 
 Who has which is by who would: Frost Heave is the Swordsman's (the Elementalist has no earth). The Elementalist's frost movement is now
@@ -2112,7 +2150,7 @@ everyone's copy of the Swordsman). `--scenario=elements` checks every single and
 
 The Warden fights with **earth, frost and wind** (`Player/Player.WardenElements.cs`, `Tune.ElementalWarden`). His three buttons are the
 **attack** (the shortsword), the **block** (the shield, raised) and the **dash** (the Guarded Charge), each with a version for each mode
-and a greater version when overcharged (the same-element pairs below; the mixed pairs are shelved with the others'). He starts in earth
+a greater version when overcharged and a mix with an attribute on top (the pairs below). He starts in earth
 mode. His **Shield Bash is not in the elemental kit** (its cards aren't dealt); Taunt, on the support button, is as it was. His dash keeps
 its own cooldown; his shortsword and shield glow with his mode.
 

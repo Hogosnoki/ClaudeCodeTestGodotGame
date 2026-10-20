@@ -239,6 +239,15 @@ public partial class Player
             Launch(new StrongGust { Position = floor + new Vector2(dir * 10f, 0), Dir = dir });
             CastSlow(0.3f);
         }
+        else if (a == HeroElement.Fire && b == HeroElement.Frost)
+        {
+            // Frostfire Bolts: a bolt of fire and a bolt of frost loosed together, fanned a little apart
+            rest = Tune.Dual.BarrageRest;
+            var t = FindSpellTarget(aim, Tune.Elementalist.BoltRange, Tune.Elementalist.BoltConeDegrees);
+            var dir = t != null ? (t.GlobalPosition - CastPoint).Normalized() : aim;
+            LooseBolt(dir.Rotated(-0.08f), HeroElement.Fire, Tune.ElementalStaff.ShotDamage, Tune.Elementalist.BoltRange);
+            LooseBolt(dir.Rotated(0.08f), HeroElement.Frost, Tune.ElementalStaff.ShotDamage, Tune.Elementalist.BoltRange);
+        }
         else if (a == b)
         {
             // Meteorite / Cryometeor: a rock out of the dark overhead, onto the thickest knot of creatures along the aim
@@ -292,13 +301,38 @@ public partial class Player
         G.Sfx.Play(el == HeroElement.Frost ? "clink" : "throw", CastPoint, -12, 0.1f, 1.7f);
     }
 
-    /// <summary>The dodge with two charges: Flamebreath, Frost Tower, Fire Barrier or Frost Barrier. Returns the hero's motion from here.</summary>
+    /// <summary>The dodge with something on top: Flamebreath, Frost Tower, Sky Lift (greater), Fire Barrier, Frost Barrier, Steam Veil (mixes).
+    /// Returns the hero's motion from here.</summary>
     private Vector2 DualMove(Vector2 v, float jumpV, Vector2 aim)
     {
         var (a, b) = SpendPair();
         string name = Elements.DualName(Stats.Hero, ElemSlot.Move, a, b);
         float rest;
-        if (a == b && a == HeroElement.Fire)
+        if (name == "Sky Lift")
+        {
+            // Sky Lift: a great push of air, carrying you high, and a wind at the back of every friend near
+            rest = Tune.Dual.BreathRest;
+            v.Y = -jumpV * 1.7f;
+            foreach (var h in HeroesNear(Tune.ElementalStaff.AidRange)) h.GiveBuff(BuffTailwind, Tune.ElementalStaff.TailwindSeconds);
+            G.Fx.Directional(GlobalPosition + new Vector2(0, 12), Vector2.Down, 0.7f, new Color(Elements.ColorOf(HeroElement.Wind), 0.85f), 18, 220, 2.2f, 0.4f, 0, 0);
+            G.Fx.Ring(GlobalPosition, Tune.ElementalStaff.AidRange * 0.5f, new Color(Elements.ColorOf(HeroElement.Wind), 0.7f), 0.4f, FxLayer.RingStyle.Dashed);
+        }
+        else if (name == "Steam Veil")
+        {
+            // Steam Veil: fire and frost meet about you in a burst of steam: friends in the cloud are hidden, creatures in the burst burn and chill
+            rest = Tune.Dual.BarrierRest;
+            var cloud = new SmokeCloud { Position = GlobalPosition, Radius = 56f, Life = 5f };
+            G.Spawn(cloud);
+            NetSync.HeroVisual(cloud);
+            foreach (var e in G.Enemies.ToArray())
+            {
+                if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(GlobalPosition) > 56f + e.HitRadius) continue;
+                e.Build(HeroElement.Fire, 30f, Stats.DamageMult, this);
+                if (!e.Dead) e.Build(HeroElement.Frost, 30f, Stats.DamageMult, this);
+            }
+            G.Fx.Burst(GlobalPosition, new Color(0.95f, 0.95f, 0.95f, 0.8f), 20, 160, 3.4f, 0.7f, -60);
+        }
+        else if (a == b && a == HeroElement.Fire)
         {
             // Flamebreath: fire pours from the staff (aimed down, it holds you up)
             rest = Tune.Dual.BreathRest;

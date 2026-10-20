@@ -889,6 +889,12 @@ public partial class Hud : Control
     private static string Short(string name) => name switch
     {
         "Searing Strike" => "SEARING", "Razor Ice" => "RAZOR", "Heaving Swing" => "HEAVE",
+        "Fault Strike" => "FAULT", "Flame Crescent" => "CRESCENT", "Frost Lance" => "F.LANCE", "Magma Strike" => "MAGMA", "Permafrost Strike" => "PERMA",
+        "Steam Strike" => "STEAM", "Meteor Fall" => "METEOR", "Blast Lunge" => "BLAST", "Frozen Effigy" => "EFFIGY", "Magma Leap" => "MAGMA",
+        "Frostfall" => "FROSTFALL", "Steam Vault" => "STEAM", "Stoneheart Hilt" => "STONE H.", "Blazing Hilt" => "BLAZE H.", "Glacial Hilt" => "GLACIAL H.",
+        "Magma Hilt" => "MAGMA H.", "Permafrost Hilt" => "PERMA H.", "Steam Hilt" => "STEAM H.", "Frostfire Bolts" => "FROSTFIRE", "Sky Lift" => "SKY LIFT",
+        "Steam Veil" => "VEIL", "Bonfire" => "BONFIRE", "Ice Armor" => "ICE ARMOR", "Gale Draft" => "GALE", "Thermal Armor" => "THERMAL",
+        "Wildfire" => "WILDFIRE", "Frostwind" => "FROSTWIND",
         "Hard Swing" => "HARD", "ThunderCrush" => "CRUSH", "Pyroclasty" => "PYRO", "Ice Axe" => "ICE AXE",
         "Earthsplitter" => "SPLITTER", "Inferno Cleave" => "INFERNO", "Glacier Cleaver" => "GLACIER", "Frost Heave" => "F.HEAVE",
         "Magma Rend" => "MAGMA", "Thermal Shock" => "THERMAL",

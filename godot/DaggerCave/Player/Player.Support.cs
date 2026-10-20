@@ -73,7 +73,8 @@ public partial class Player
     /// <summary>The support button.</summary>
     private bool Support(Vector2 aim)
     {
-        if (_snagT > 0 || _supportCd > 0) return false;
+        bool noCd = Elemental && Tune.Testing.NoCooldowns;
+        if (_snagT > 0 || (_supportCd > 0 && !noCd)) return false;
         bool used = SupportHero switch
         {
             HeroKind.Swordsman => TryShout(),
@@ -86,7 +87,7 @@ public partial class Player
             _ => TryHowl(),
         };
         // (an ability that starts its own wait, as Pressurize does when its pressure goes, keeps the longer one)
-        if (used) _supportCd = Math.Max(_supportCd, SupportRecharge);
+        if (used && !noCd) _supportCd = Math.Max(_supportCd, SupportRecharge);
         return used;
     }
 

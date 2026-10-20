@@ -79,6 +79,33 @@ public partial class Hud
     /// <summary>What an elemental ability does, by its name (<see cref="Elements.SingleName"/>, <see cref="Elements.DualName"/>).</summary>
     public static (string title, string body) ElementTip(string name) => (name, name switch
     {
+        // the Swordsman's greater versions and mixes (overcharged: his mode twice; an attribute on top: the two together)
+        "Fault Strike" => "Earth overcharged: a heavy blow of stone (full earth, shatters the frozen), and the floor splits on ahead of it.",
+        "Flame Crescent" => "Fire overcharged: a searing blow, and a crescent of flame bursts on from its tip, setting what it catches burning.",
+        "Frost Lance" => "Frost overcharged: the cut, and a lance of ice thrown on along it that freezes what it meets.",
+        "Magma Strike" => "Fire and earth: a blow of molten rock, fire and earth both, leaving a little pool of magma where it lands.",
+        "Permafrost Strike" => "Earth and frost: a blow of frozen stone, earth and frost both; it shatters the frozen.",
+        "Steam Strike" => "Fire and frost: they meet in the blade, and a cloud of steam bursts where it strikes (friends in it are hidden).",
+        "Meteor Fall" => "Earth overcharged: the Earthfall, but you come down like a falling star: a far greater shockwave.",
+        "Blast Lunge" => "Fire overcharged: a greater blast and a longer leap, fire burning where you pass.",
+        "Frozen Effigy" => "Frost overcharged: the Glacial Vault, but your likeness in ice takes four blows, and as it shatters it freezes those beside it solid.",
+        "Magma Leap" => "Earth and fire: the Earthfall, leaving a pool of magma where you land.",
+        "Frostfall" => "Earth and frost: the Earthfall, filling those it strikes with frost too and freezing the ground where you land.",
+        "Steam Vault" => "Frost and fire: the spring back, leaving a cloud of steam where you stood (friends in it are hidden), and your likeness in ice.",
+        "Stoneheart Hilt" => "Earth overcharged: every blow saps twice as long, for half again as long.",
+        "Blazing Hilt" => "Fire overcharged: every blow carries twice the fire, for half again as long.",
+        "Glacial Hilt" => "Frost overcharged: every blow carries twice the frost, for half again as long.",
+        "Magma Hilt" or "Permafrost Hilt" or "Steam Hilt" => "Both elements on every blow for a while.",
+        // the Elementalist's new ones
+        "Frostfire Bolts" => "Fire and frost: a bolt of fire and a bolt of frost loosed together.",
+        "Sky Lift" => "Wind overcharged: a great push of air carries you high, and every friend near gets a wind at their back.",
+        "Steam Veil" => "Fire and frost: a burst of steam about you: friends in the cloud are hidden, creatures caught in it burn and chill.",
+        "Bonfire" => "Fire overcharged: Kindling for half again as long, and a ring of fire bursts out about you.",
+        "Ice Armor" => "Frost overcharged: Frost Armor, and a shell of ice that soaks blows besides.",
+        "Gale Draft" => "Wind overcharged: Narrow Draft for twice as long, and a gust that throws the creatures about you back.",
+        "Thermal Armor" => "Fire and frost: Frost Armor for you, Kindling for you and your friends near.",
+        "Wildfire" => "Fire and wind: Kindling and a wind at the back for you and your friends near.",
+        "Frostwind" => "Frost and wind: Frost Armor for you, a wind at the back for you and your friends near.",
         // the Warden: the attack
         "Shortsword" => "The shortsword. In earth mode it is Stonecutter, in frost Rime Edge, in wind Gale Edge; overcharged, the mode's greater cut.",
         "Stonecutter" => "Earth's cut: a quarter harder, 50 earth (a full meter stuns).",

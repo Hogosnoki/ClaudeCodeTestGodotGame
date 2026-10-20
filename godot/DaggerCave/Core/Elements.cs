@@ -91,22 +91,55 @@ public static class Elements
 
     /// <summary>
     /// The ability two charges make on a button (<see cref="Tune.Dual"/>; "" where the pair has none there, and the button spends just the
-    /// oldest charge). The Swordsman's are on the Hard Swing; the Elementalist's on the bolt, movement and fixed-range buttons; the Warden
-    /// has every pair on each of his three (<see cref="Tune.ElementalWarden"/>).
+    /// oldest charge). Every hero has every pair on each elemental button: the same element twice is the mode's greater version (an
+    /// overcharge), two different the mode's mix with its attribute.
     /// </summary>
     public static string DualName(HeroKind h, ElemSlot slot, HeroElement x, HeroElement y)
     {
         var (a, b) = Pair(x, y);
         if (h == HeroKind.Swordsman)
-            return slot != ElemSlot.Heavy ? "" : (a, b) switch
+            return slot switch
             {
-                (HeroElement.Earth, HeroElement.Earth) => "Earthsplitter",
-                (HeroElement.Fire, HeroElement.Fire) => "Inferno Cleave",
-                (HeroElement.Frost, HeroElement.Frost) => "Glacier Cleaver",
-                (HeroElement.Earth, HeroElement.Frost) => "Frost Heave",
-                (HeroElement.Earth, HeroElement.Fire) => "Magma Rend",
-                (HeroElement.Fire, HeroElement.Frost) => "Thermal Shock",
-                _ => "",
+                ElemSlot.Attack => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Fault Strike",
+                    (HeroElement.Fire, HeroElement.Fire) => "Flame Crescent",
+                    (HeroElement.Frost, HeroElement.Frost) => "Frost Lance",
+                    (HeroElement.Earth, HeroElement.Fire) => "Magma Strike",
+                    (HeroElement.Earth, HeroElement.Frost) => "Permafrost Strike",
+                    (HeroElement.Fire, HeroElement.Frost) => "Steam Strike",
+                    _ => "",
+                },
+                ElemSlot.Move => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Meteor Fall",
+                    (HeroElement.Fire, HeroElement.Fire) => "Blast Lunge",
+                    (HeroElement.Frost, HeroElement.Frost) => "Frozen Effigy",
+                    (HeroElement.Earth, HeroElement.Fire) => "Magma Leap",
+                    (HeroElement.Earth, HeroElement.Frost) => "Frostfall",
+                    (HeroElement.Fire, HeroElement.Frost) => "Steam Vault",
+                    _ => "",
+                },
+                ElemSlot.Heavy => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Earthsplitter",
+                    (HeroElement.Fire, HeroElement.Fire) => "Inferno Cleave",
+                    (HeroElement.Frost, HeroElement.Frost) => "Glacier Cleaver",
+                    (HeroElement.Earth, HeroElement.Frost) => "Frost Heave",
+                    (HeroElement.Earth, HeroElement.Fire) => "Magma Rend",
+                    (HeroElement.Fire, HeroElement.Frost) => "Thermal Shock",
+                    _ => "",
+                },
+                _ => (a, b) switch
+                {
+                    (HeroElement.Earth, HeroElement.Earth) => "Stoneheart Hilt",
+                    (HeroElement.Fire, HeroElement.Fire) => "Blazing Hilt",
+                    (HeroElement.Frost, HeroElement.Frost) => "Glacial Hilt",
+                    (HeroElement.Earth, HeroElement.Fire) => "Magma Hilt",
+                    (HeroElement.Earth, HeroElement.Frost) => "Permafrost Hilt",
+                    (HeroElement.Fire, HeroElement.Frost) => "Steam Hilt",
+                    _ => "",
+                },
             };
         if (h == HeroKind.Warden)
             return slot switch
@@ -153,6 +186,7 @@ public static class Elements
                 (HeroElement.Fire, HeroElement.Wind) => "Fire Barrage",
                 (HeroElement.Frost, HeroElement.Wind) => "Frost Barrage",
                 (HeroElement.Wind, HeroElement.Wind) => "Strong Gust",
+                (HeroElement.Fire, HeroElement.Frost) => "Frostfire Bolts",
                 _ => "",
             },
             ElemSlot.Move => (a, b) switch
@@ -161,6 +195,8 @@ public static class Elements
                 (HeroElement.Frost, HeroElement.Frost) => "Frost Tower",
                 (HeroElement.Fire, HeroElement.Wind) => "Fire Barrier",
                 (HeroElement.Frost, HeroElement.Wind) => "Frost Barrier",
+                (HeroElement.Wind, HeroElement.Wind) => "Sky Lift",
+                (HeroElement.Fire, HeroElement.Frost) => "Steam Veil",
                 _ => "",
             },
             ElemSlot.Heavy => (a, b) switch
@@ -173,7 +209,16 @@ public static class Elements
                 (HeroElement.Fire, HeroElement.Frost) => "Frostfire Lance",
                 _ => "",
             },
-            _ => "",
+            _ => (a, b) switch
+            {
+                (HeroElement.Fire, HeroElement.Fire) => "Bonfire",
+                (HeroElement.Frost, HeroElement.Frost) => "Ice Armor",
+                (HeroElement.Wind, HeroElement.Wind) => "Gale Draft",
+                (HeroElement.Fire, HeroElement.Frost) => "Thermal Armor",
+                (HeroElement.Fire, HeroElement.Wind) => "Wildfire",
+                (HeroElement.Frost, HeroElement.Wind) => "Frostwind",
+                _ => "",
+            },
         };
     }
 

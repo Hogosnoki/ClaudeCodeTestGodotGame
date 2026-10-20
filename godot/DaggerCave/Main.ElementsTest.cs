@@ -16,7 +16,13 @@ public partial class Main
     /// </summary>
     private void ElementsScenario()
     {
-        if (_elSteps == null) { if (_scT < 0.8f) return; _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator(); }
+        if (_elSteps == null)
+        {
+            // (the real rules, cooldowns and all; the runs turn the testing switch on where they test it)
+            Tune.Testing.NoCooldowns = false;
+            if (_scT < 0.8f) return;
+            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
+        }
         if (!_elSteps.MoveNext()) ScEnd();
     }
 
@@ -156,6 +162,7 @@ public partial class Main
         ScCheck("the cards the elements replace aren't dealt (Twin Charge, Swift Heave, Relentless Charge)", !Upgrades.Available(Upgrades.Get("charge2"), p.Stats) && !Upgrades.Available(Upgrades.Get("heave_swift"), p.Stats) && !Upgrades.Available(Upgrades.Get("charge_combo"), p.Stats));
         foe.QueueFree();
         foreach (var _ in SwordsmanDualsRun()) yield return null;
+        foreach (var _ in PairCoverageRun(p)) yield return null;
     }
 
     /// <summary>A jump held for <paramref name="hold"/> s (a full jump), the highest the hero rose above where it began (px).</summary>
@@ -310,8 +317,83 @@ public partial class Main
         float built = rider switch { HeroElement.Fire => foe.FireBuild, HeroElement.Frost => foe.FrostBuild, _ => foe.EarthBuild };
         ScCheck($"{Elements.Name(rider).ToLowerInvariant()} on top adds its build-up to a blow ({built:0})", built > 0);
         foe.QueueFree();
+        // with cooldowns off for testing, the switch and the overcharge come back at once
+        Tune.Testing.NoCooldowns = true;
+        p.TestMode(sig); p.TestResetModeCooldowns();
+        foreach (var _ in Press(o1)) yield return null;
+        foreach (var _ in Press(o1)) yield return null;
+        foreach (var _ in Press(si)) yield return null;
+        foreach (var _ in Press(si)) yield return null;
+        bool backAtOnce = p.Mode == sig;
+        foreach (var _ in Press(si)) yield return null;
+        p.TestSpendOvercharge();
+        foreach (var _ in Press(si)) yield return null;
+        ScCheck($"with cooldowns off for testing, a switch back goes at once ({backAtOnce}) and a spent overcharge is there again ({p.Overcharged})", backAtOnce && p.Overcharged);
+        Tune.Testing.NoCooldowns = false;
+        // an attribute on top stays: the mix waits on the buttons as long as it's there
+        p.TestMode(sig); p.TestResetModeCooldowns();
+        p.TestAttribute(E(o1));
+        string mix = p.NameFor(ElemSlot.Attack);
+        ScCheck($"with {Elements.Name(E(o1)).ToLowerInvariant()} on top, the attack is the mix: {mix}", mix == Elements.DualName(p.Stats.Hero, ElemSlot.Attack, sig, E(o1)) && mix != "");
         p.TestMode(sig);
         p.TestResetModeCooldowns();
+    }
+
+    /// <summary>
+    /// Every pair on every elemental button, used once each (the same element twice: the mode overcharged; two different: the mode with
+    /// the other on top as its attribute): each has a version, and each goes off.
+    /// </summary>
+    private IEnumerable<object> PairCoverageRun(Player p)
+    {
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        var els = Elements.Of(p.Stats.Hero);
+        var start = p.GlobalPosition;
+        var aim = new Vector2(p.Facing, 0);
+        var slots = p.Stats.Hero == HeroKind.Warden ? new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy } : new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy, ElemSlot.Aid };
+        var missing = new List<string>();
+        int fired = 0, all = 0;
+        foreach (var slot in slots)
+            for (int i = 0; i < els.Length; i++)
+                for (int j = i; j < els.Length; j++)
+                {
+                    all++;
+                    string name = Elements.DualName(p.Stats.Hero, slot, els[i], els[j]);
+                    if (name == "") { missing.Add($"{slot} {els[i]}+{els[j]}: none"); continue; }
+                    // (from where it began, on its feet, every cooldown cleared)
+                    for (int f = 0; f < 200 && (p.Heaving || !p.IsOnFloor() || p.IsShieldDashing); f++) yield return null;
+                    p.GlobalPosition = start; p.Velocity = Vector2.Zero;
+                    p.ResetAbilityCooldowns();
+                    if (p.Stats.Hero == HeroKind.Elementalist) { p.TestResetSpells(); p.TestResetDualBolt(); p.SetAlimus(9999); }
+                    if (p.Stats.Hero == HeroKind.Warden) p.RefillShield();
+                    p.TestMode(els[i]);
+                    p.TestResetModeCooldowns();
+                    if (i == j) p.TestOvercharge(); else p.TestAttribute(els[j]);
+                    foreach (var _ in ElWait(0.15f)) yield return null;
+                    int had = p.ElementalUses.Count(u => u == name);
+                    if (slot == ElemSlot.Heavy && p.Stats.Hero == HeroKind.Warden)
+                    {
+                        for (int f = 0; f < 4; f++) { _scInput = new PlayerInput { GuardHeld = true, GuardAim = aim }; yield return null; }
+                        _scInput = default;
+                    }
+                    else
+                    {
+                        var press = slot switch
+                        {
+                            ElemSlot.Attack => new PlayerInput { Attack = true, Aim = aim, AimGiven = true },
+                            ElemSlot.Move => p.Stats.Hero == HeroKind.Warden ? new PlayerInput { Ability = true, Aim = aim, AimGiven = true } : new PlayerInput { Dodge = true, Aim = aim, AimGiven = true },
+                            ElemSlot.Heavy => new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true },
+                            _ => new PlayerInput { Ability = true, Aim = aim, AimGiven = true },
+                        };
+                        foreach (var _ in ElPress(press, 0.1f)) yield return null;
+                    }
+                    if (p.ElementalUses.Count(u => u == name) > had) fired++; else missing.Add($"{slot} {els[i]}+{els[j]} ({name}) didn't go");
+                    foreach (var _ in ElWait(slot == ElemSlot.Heavy && p.Stats.Hero == HeroKind.Swordsman ? 2.2f : 0.6f)) yield return null;
+                }
+        ScCheck($"every pair has a version on every elemental button, and each goes off ({fired}/{all}){(missing.Count > 0 ? ": " + string.Join("; ", missing) : "")}", fired == all);
+        p.GlobalPosition = start; p.Velocity = Vector2.Zero;
+        p.TestMode(Elements.Signature(p.Stats.Hero));
+        p.TestResetModeCooldowns();
+        p.ResetAbilityCooldowns();
     }
 
     /// <summary>Straight into the mode of element <paramref name="slot"/> (1-3), nothing on top, its cooldowns cleared.</summary>
@@ -540,6 +622,7 @@ public partial class Main
             new[] { "bolt_frost", "blizzard_fire", "snap_cinder", "kindling", "deepchill" }.All(id => !Upgrades.Available(Upgrades.Get(id), p.Stats)));
         foe.QueueFree();
         foreach (var _ in ElementalistDualsRun()) yield return null;
+        foreach (var _ in PairCoverageRun(p)) yield return null;
     }
 
     /// <summary>`--scenario=elements --hero=elementalist`, the dual charges: the pair's spell on the bolt, movement and fixed-range buttons.</summary>
@@ -877,5 +960,6 @@ public partial class Main
         foreach (var _ in Ready(2)) yield return null;
         foreach (var _ in ElWait(1.2f)) yield return null;
         ScShot("warden_hud");
+        foreach (var _ in PairCoverageRun(p)) yield return null;
     }
 }

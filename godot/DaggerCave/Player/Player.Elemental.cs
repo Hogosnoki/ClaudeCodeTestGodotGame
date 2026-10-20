@@ -60,10 +60,12 @@ public partial class Player
 
     /// <summary>The element the next ability is a version of: always the mode's.</summary>
     public HeroElement Infused => Mode;
-    /// <summary>An overcharge waits: the greater versions wait on their buttons.</summary>
-    public bool DualReady => Overcharged;
-    /// <summary>The greater version on a button now ("" without an overcharge, or where the button has none).</summary>
-    public string DualNameFor(ElemSlot slot) => Overcharged ? Elements.DualName(Stats.Hero, slot, Mode, Mode) : "";
+    /// <summary>Something's on top: the greater versions (an overcharge) or the mixes (an attribute) wait on their buttons.</summary>
+    public bool DualReady => Top != HeroElement.None;
+    /// <summary>The pair's ability on a button now: overcharged, the mode's greater version; with an attribute on top, the mix of the two
+    /// ("" with nothing on top, or where the button has none).</summary>
+    public string DualNameFor(ElemSlot slot) => Overcharged ? Elements.DualName(Stats.Hero, slot, Mode, Mode)
+        : Attribute != HeroElement.None ? Elements.DualName(Stats.Hero, slot, Mode, Attribute) : "";
     /// <summary>What the button would do now (for the HUD): the greater version, or the mode's version.</summary>
     public string NameFor(ElemSlot slot) { var d = DualNameFor(slot); return d != "" ? d : Elements.SingleName(Stats.Hero, slot, Infused); }
     /// <summary>For the tests: elemental versions used, by name.</summary>
@@ -72,10 +74,10 @@ public partial class Player
     /// <summary>Overcharges are open: once dual charges are unlocked (<see cref="Meta.DualCharges"/>).</summary>
     public bool OverchargeOpen => Meta.DualCharges;
 
-    /// <summary>An element's version's rest (<see cref="Tune.Elements.VersionsRest"/>).</summary>
-    private static float ElemRest(float rest) => Tune.Elements.VersionsRest ? rest : 0f;
-    /// <summary>The next use waits on no cooldown: never in modes (each button keeps its cooldown).</summary>
-    private bool FreeVersion => !Tune.Elements.VersionsRest && Overcharged;
+    /// <summary>An element's version's rest (<see cref="Tune.Elements.VersionsRest"/>; none while <see cref="Tune.Testing.NoCooldowns"/>).</summary>
+    private static float ElemRest(float rest) => Tune.Elements.VersionsRest && !Tune.Testing.NoCooldowns ? rest : 0f;
+    /// <summary>The next use waits on no cooldown (and costs nothing): only while cooldowns are off for testing.</summary>
+    private bool FreeVersion => Tune.Testing.NoCooldowns || (!Tune.Elements.VersionsRest && Overcharged);
 
     /// <summary>An element's button as pressed: taken now, or (inside the press's short cooldown) as soon as it's over.</summary>
     private void BufferInfuse(int slot)
@@ -119,7 +121,7 @@ public partial class Player
             if (_modeCd > 0) { SayNo($"MODE {_modeCd:0.0}s"); return false; }
             _mode = el;
             _top = HeroElement.None;
-            _modeCd = Tune.Elements.ModeCooldown;
+            _modeCd = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.ModeCooldown;
             WeaponTouch(el);
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"{Elements.Name(el).ToUpperInvariant()} MODE", col, 12, 0.9f);
             G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 26, new Color(col, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);
@@ -211,12 +213,14 @@ public partial class Player
     /// <summary>The element an ability is a version of: the mode's (nothing is spent).</summary>
     private HeroElement SpendElement() => Mode;
 
-    /// <summary>The overcharge, spent on a greater version: that element's overcharge starts coming back.</summary>
+    /// <summary>What's on top, used by a pair's ability: an overcharge is spent on the greater version (that element's overcharge starts
+    /// coming back); an attribute stays, and its mixes with the mode go on being there.</summary>
     private (HeroElement a, HeroElement b) SpendPair()
     {
         var m = Mode;
+        if (Attribute != HeroElement.None) return Elements.Pair(m, Attribute);
         _top = HeroElement.None;
-        _overCd[(int)m] = Tune.Elements.OverchargeRecharge;
+        _overCd[(int)m] = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.OverchargeRecharge;
         return (m, m);
     }
 
@@ -247,7 +251,7 @@ public partial class Player
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
         if (_dualBoltCd > 0) _dualBoltCd -= dt;
-        if (_hiltT > 0 && (_hiltT -= dt) <= 0) _hiltEl = HeroElement.None;
+        if (_hiltT > 0 && (_hiltT -= dt) <= 0) { _hiltEl = _hiltEl2 = HeroElement.None; _hiltBig = 1f; }
         if (_hiltT > 0 && Engine.GetPhysicsFrames() % 5 == 0)
         {
             var along = SwingAim != Vector2.Zero ? SwingAim : new Vector2(Facing, -0.2f).Normalized();
@@ -276,12 +280,88 @@ public partial class Player
     public float HardSwingSeconds => Math.Max(0f, _heaveCd - HeaveSpareTime);
     public float AbilitySeconds => AbilityChargeReady ? 0f : Math.Max(0f, AbilityCooldowns.Min());
 
-    private void ClearSwingElement() { _swingEl = HeroElement.None; _swingBuild = 0; _swingShatter = false; _wSwing = ""; ClearDualSwing(); }
+    private void ClearSwingElement() { _swingEl = _swingEl2 = HeroElement.None; _swingBuild = _swingBuild2 = 0; _swingShatter = false; _wSwing = ""; ClearDualSwing(); }
+    /// <summary>A pair's swing carries a second element too (its build-up on each blow).</summary>
+    private HeroElement _swingEl2;
+    private float _swingBuild2;
+
+    /// <summary>The attack with something on top: the mode's greater swing (Fault Strike, Flame Crescent, Frost Lance) or its mix with the
+    /// attribute (Magma Strike, Permafrost Strike, Steam Strike).</summary>
+    private bool DualSwing(Vector2 aim)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Attack, a, b);
+        if (_dodgeT > 0) _dodgeT = 0;
+        StartSwing(aim);
+        var dir = _swingDir;
+        var origin = GlobalPosition + new Vector2(0, -3);
+        float blow = BaseDamage * Stats.DamageMult, full = Tune.Elements.Full;
+        switch (name)
+        {
+            case "Fault Strike":
+                // a heavy blow of stone, and the floor splits on ahead of it
+                _swingDmg *= 1.5f; _swingEl = HeroElement.Earth; _swingBuild = full; _swingShatter = true;
+                Launch(new Fissure { Position = FloorAt(GlobalPosition), Dir = Math.Abs(dir.X) > 0.1f ? Math.Sign(dir.X) : Facing, Range = 150f, Damage = blow });
+                break;
+            case "Flame Crescent":
+            {
+                // a searing blow, and a crescent of flame bursting on from its tip
+                _swingDmg *= 1.25f; _swingEl = HeroElement.Fire; _swingBuild = Tune.ElementalSword.MediumBuild;
+                var at = origin + dir * 34f;
+                foreach (var e in G.Enemies.ToArray())
+                {
+                    if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(at) > 40f + e.HitRadius) continue;
+                    float d = e.Hurt(blow * 0.6f, dir * 60f, e.GlobalPosition, DamageKind.Fire);
+                    if (d > 0) OnDealtDamage(d);
+                    if (!e.Dead) e.Build(HeroElement.Fire, 50f, Stats.DamageMult, this);
+                }
+                G.Fx.Explosion(at, Elements.ColorOf(HeroElement.Fire), 0.6f);
+                break;
+            }
+            case "Frost Lance":
+            {
+                // the cut, and a lance of ice thrown on along it
+                _swingEl = HeroElement.Frost; _swingBuild = Tune.ElementalSword.MediumBuild;
+                var lance = new ElementBolt
+                {
+                    Position = origin + dir * 10f, Dir = dir, Range = 220f, Caster = this, Frost = true,
+                    BuildMult = full / Math.Max(1f, Tune.ElementalStaff.FrostBuild), Damage = blow * 1.2f,
+                };
+                G.Spawn(lance);
+                NetSync.HeroVisual(lance);
+                G.Sfx.Play("clink", origin, -4, 0.05f, 1.5f);
+                break;
+            }
+            case "Magma Strike":
+                // a blow of molten rock: fire and earth, and a little pool of magma where it lands
+                _swingDmg *= 1.4f; _swingEl = HeroElement.Fire; _swingBuild = 50f; _swingEl2 = HeroElement.Earth; _swingBuild2 = 50f;
+                Launch(new MagmaPool { Position = FloorAt(GlobalPosition + dir * 24f), Half = 30f, Seconds = 2.5f, TickDamage = blow * 0.1f });
+                break;
+            case "Permafrost Strike":
+                // frozen stone: earth and frost, shattering the frozen
+                _swingDmg *= 1.4f; _swingEl = HeroElement.Earth; _swingBuild = 50f; _swingEl2 = HeroElement.Frost; _swingBuild2 = 50f; _swingShatter = true;
+                G.Fx.Burst(origin + dir * 16f, new Color(0.9f, 0.97f, 1f), 6, 80, 1.8f, 0.3f, 40);
+                break;
+            default:
+            {
+                // Steam Strike: fire and frost meet in the blade, and a cloud of steam bursts where it strikes (friends in it are hidden)
+                _swingDmg *= 1.3f; _swingEl = HeroElement.Fire; _swingBuild = 30f; _swingEl2 = HeroElement.Frost; _swingBuild2 = 30f;
+                var cloud = new SmokeCloud { Position = origin + dir * 24f, Radius = 34f, Life = 3f };
+                G.Spawn(cloud);
+                NetSync.HeroVisual(cloud);
+                break;
+            }
+        }
+        _lastEl = a;
+        Used(name, Elements.DualColor(a, b));
+        return true;
+    }
 
     /// <summary>The attack button: a plain swing, or with an element its version (the element rests a moment after).</summary>
     private bool ElementSwing(Vector2 aim, bool held)
     {
         if (_swingCd > 0 || (held && _dodgeT > 0)) return false;
+        if (DualNameFor(ElemSlot.Attack) != "") return DualSwing(aim);
         var el = Infused;
         if (el == HeroElement.None || _swingElemRest > 0) return TrySwing(aim, held);
         if (el == HeroElement.Earth)
@@ -446,7 +526,9 @@ public partial class Player
     private bool TryHilt()
     {
         bool free = FreeVersion;
-        if ((!AbilityChargeReady && !free) || _hiltT > 0) return false;
+        if ((!AbilityChargeReady && !free) || (_hiltT > 0 && !free)) return false;
+        if (DualNameFor(ElemSlot.Aid) != "") return DualHilt(free);
+        _hiltEl2 = HeroElement.None; _hiltBig = 1f;
         var el = SpendElement();
         _lastEl = el;
         if (!free)
@@ -470,6 +552,43 @@ public partial class Player
         return true;
     }
 
+    /// <summary>A pair's hilt: a second element on every blow (the mix), or the mode's twice as strong for half again as long (overcharged).</summary>
+    private HeroElement _hiltEl2;
+    private float _hiltBig = 1f;
+
+    /// <summary>Empower Hilt with something on top: the mode's greater hilt (Stoneheart, Blazing, Glacial) or its mix with the attribute
+    /// (Magma, Permafrost, Steam: both elements on every blow).</summary>
+    private bool DualHilt(bool free)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Aid, a, b);
+        if (!free) { SpendAbilityCharge(); SetSpentAbilityRest(Tune.ElementalSword.HiltRestEarth * Stats.AbilityCdMult); }
+        _hiltEl = a;
+        _hiltEl2 = a == b ? HeroElement.None : b;
+        _hiltBig = a == b ? 2f : 1f;
+        _hiltT = Tune.ElementalSword.HiltSeconds * (a == b ? 1.5f : 1f);
+        var col = Elements.DualColor(a, b);
+        G.Fx.Flash(GlobalPosition + new Vector2(0, -6), 22, col);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), 20, new Color(col, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
+        G.Sfx.Play("levelup", GlobalPosition, -6, 0.05f, 0.65f);
+        Anim.Flash(0.35f);
+        _lastEl = a;
+        Used(name, col);
+        return true;
+    }
+
+    /// <summary>One element of the hilt on a blow (<paramref name="mult"/> x its usual).</summary>
+    private void HiltTouch(Enemy e, HeroElement el, float mult)
+    {
+        if (e.Dead) return;
+        switch (el)
+        {
+            case HeroElement.Earth: e.Sap(Tune.Elements.SapSeconds * mult); break;
+            case HeroElement.Frost: e.Build(HeroElement.Frost, Tune.ElementalSword.HiltFrost * mult, Stats.DamageMult, this); break;
+            case HeroElement.Fire: e.Build(HeroElement.Fire, Tune.ElementalSword.HiltFire * mult, Stats.DamageMult, this); break;
+        }
+    }
+
     /// <summary>The use just spent rests for <paramref name="seconds"/> (its own time, not the ability's usual one).</summary>
     private void SetSpentAbilityRest(float seconds)
     {
@@ -485,16 +604,13 @@ public partial class Player
     {
         if (!Elemental || e.Dead) return;
         if (_swingEl != HeroElement.None && _swingBuild > 0) e.Build(_swingEl, _swingBuild, Stats.DamageMult, this);
+        if (_swingEl2 != HeroElement.None && _swingBuild2 > 0 && !e.Dead) e.Build(_swingEl2, _swingBuild2, Stats.DamageMult, this);
         AttributeHit(e, GlobalPosition);
         DualBladeHit(e);
         if (IsWarden) WardenBladeHit(e);
         if (_hiltT <= 0 || e.Dead) return;
-        switch (_hiltEl)
-        {
-            case HeroElement.Earth: e.Sap(Tune.Elements.SapSeconds); break;
-            case HeroElement.Frost: e.Build(HeroElement.Frost, Tune.ElementalSword.HiltFrost, Stats.DamageMult, this); break;
-            case HeroElement.Fire: e.Build(HeroElement.Fire, Tune.ElementalSword.HiltFire, Stats.DamageMult, this); break;
-        }
+        HiltTouch(e, _hiltEl, _hiltBig);
+        if (_hiltEl2 != HeroElement.None) HiltTouch(e, _hiltEl2, 1f);
     }
 
     /// <summary>How much harder a blade blow lands from a plain Empower Hilt.</summary>
@@ -539,7 +655,70 @@ public partial class Player
 
     private Vector2 SwordMove(Vector2 v, float jumpV, in PlayerInput inp)
     {
+        if (DualNameFor(ElemSlot.Move) != "") return DualLeap(v, jumpV, inp);
         var el = SpendElement();
+        v = SwordLeap(v, jumpV, inp, el);
+        Used(Elements.SingleName(Stats.Hero, ElemSlot.Move, el));
+        return v;
+    }
+
+    /// <summary>What the Earthfall brings down where it lands besides its shockwave (a pair's leap): its strength, and magma or frost there.</summary>
+    private float _fallMult = 1f;
+    private HeroElement _fallLeaves;
+
+    /// <summary>The dodge with something on top: the mode's greater leap (Meteor Fall, Blast Lunge, Frozen Effigy) or its mix with the
+    /// attribute (Magma Leap, Frostfall, Steam Vault).</summary>
+    private Vector2 DualLeap(Vector2 v, float jumpV, in PlayerInput inp)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Move, a, b);
+        var feet = GlobalPosition + new Vector2(0, 12);
+        switch (name)
+        {
+            case "Meteor Fall":
+                // the Earthfall, but you come down like a falling star: a far greater shockwave
+                v = SwordLeap(v, jumpV, inp, HeroElement.Earth);
+                _fallMult = 1.6f;
+                break;
+            case "Blast Lunge":
+                // a greater blast and a longer leap, fire burning where you pass
+                v = SwordLeap(v, jumpV, inp, HeroElement.Fire);
+                _lungeLeapVX *= 1.3f; v.X = _lungeLeapVX;
+                Launch(new FireTrail { Position = GlobalPosition, Seconds = 2.5f });
+                break;
+            case "Frozen Effigy":
+            {
+                // the Glacial Vault, but the likeness left is harder (four blows), and as it shatters it freezes those beside it solid
+                v = SwordLeap(v, jumpV, inp, HeroElement.Frost);
+                if (LastDecoy != null && IsInstanceValid(LastDecoy)) { LastDecoy.Hits = 4; LastDecoy.MaxHp = LastDecoy.Hp = 4f; LastDecoy.Great = true; }
+                break;
+            }
+            case "Magma Leap":
+                v = SwordLeap(v, jumpV, inp, HeroElement.Earth);
+                _fallLeaves = HeroElement.Fire;
+                break;
+            case "Frostfall":
+                v = SwordLeap(v, jumpV, inp, HeroElement.Earth);
+                _fallLeaves = HeroElement.Frost;
+                break;
+            default:
+            {
+                // Steam Vault: the spring back, and a cloud of steam where you stood (friends in it are hidden)
+                v = SwordLeap(v, jumpV, inp, HeroElement.Frost);
+                var cloud = new SmokeCloud { Position = feet + new Vector2(0, -14), Radius = 46f, Life = 4f };
+                G.Spawn(cloud);
+                NetSync.HeroVisual(cloud);
+                break;
+            }
+        }
+        _lastEl = a;
+        Used(name, Elements.DualColor(a, b));
+        return v;
+    }
+
+    /// <summary>One element's leap (Explosive Lunge, Glacial Vault, Earthfall). Returns the hero's motion from here.</summary>
+    private Vector2 SwordLeap(Vector2 v, float jumpV, in PlayerInput inp, HeroElement el)
+    {
         _lastEl = el;
         float power = Stats.DamageMult, blow = BaseDamage * power;
         var feet = GlobalPosition + new Vector2(0, 12);
@@ -603,10 +782,11 @@ public partial class Player
                 // Earthfall: a leap, and you come down like a rock (see ElementLanded)
                 _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.FallRest);
                 _earthfall = true;
+                _fallMult = 1f;
+                _fallLeaves = HeroElement.None;
                 G.Fx.Debris(feet, col, 6, 140);
                 break;
         }
-        Used(Elements.SingleName(Stats.Hero, ElemSlot.Move, el));
         return v;
     }
 
@@ -632,8 +812,13 @@ public partial class Player
         _earthfall = false;
         var feet = GlobalPosition + new Vector2(0, 12);
         float power = Stats.DamageMult;
-        float hard = 1f + Math.Clamp((fallSpeed - 300f) / 600f, 0f, 1.5f);
+        float hard = (1f + Math.Clamp((fallSpeed - 300f) / 600f, 0f, 1.5f)) * _fallMult;
         float r = Tune.ElementalSword.FallRadius * (0.85f + 0.15f * hard);
+        // (a pair's leap leaves magma or frozen ground where it lands)
+        if (_fallLeaves == HeroElement.Fire) Launch(new MagmaPool { Position = FloorAt(GlobalPosition), Half = 50f, Seconds = 4f, TickDamage = BaseDamage * power * 0.12f });
+        else if (_fallLeaves == HeroElement.Frost) Launch(new TundraField { Position = FloorAt(GlobalPosition), Half = 80f, Seconds = 5f });
+        bool frostfall = _fallLeaves == HeroElement.Frost;
+        _fallMult = 1f; _fallLeaves = HeroElement.None;
         var col = Elements.ColorOf(HeroElement.Earth);
         foreach (var e in G.Enemies.ToArray())
         {
@@ -643,6 +828,7 @@ public partial class Player
             if (d > 0) OnDealtDamage(d);
             if (e.Dead) continue;
             e.Build(HeroElement.Earth, Tune.ElementalSword.FallBuild * hard, power, this);
+            if (frostfall) e.Build(HeroElement.Frost, Tune.ElementalSword.FallBuild, power, this);
             e.Shove(away * Tune.ElementalSword.FallToss);
         }
         Breakables.SpellBurst(feet, r * 0.5f);
@@ -998,6 +1184,7 @@ public partial class Player
     {
         bool free = FreeVersion;
         if (!AbilityChargeReady && !free) return false;
+        if (DualNameFor(ElemSlot.Aid) != "") return DualAid(free);
         var el = SpendElement();
         _lastEl = el;
         if (!free)
@@ -1026,6 +1213,56 @@ public partial class Player
         _castGlow = 1f;
         G.Sfx.Play("levelup", GlobalPosition, -8, 0.05f, el == HeroElement.Wind ? 1.3f : 0.9f);
         Used(Elements.SingleName(Stats.Hero, ElemSlot.Aid, el));
+        return true;
+    }
+
+    /// <summary>Aid with something on top: the mode's greater Aid (Bonfire, Ice Armor, Gale Draft) or its mix with the attribute (Thermal
+    /// Armor, Wildfire, Frostwind: both Aids at once).</summary>
+    private bool DualAid(bool free)
+    {
+        var (a, b) = SpendPair();
+        string name = Elements.DualName(Stats.Hero, ElemSlot.Aid, a, b);
+        if (!free) { SpendAbilityCharge(); SetSpentAbilityRest(Tune.ElementalStaff.AidRestWard * Stats.AbilityCdMult); }
+        float secs = Tune.ElementalStaff.AidSeconds, range = Tune.ElementalStaff.AidRange;
+        var near = HeroesNear(range);
+        switch (name)
+        {
+            case "Bonfire":
+                // Kindling for half again as long, and a ring of fire bursting out about you
+                foreach (var h in near) h.GiveBuff(BuffKindling, secs * 1.5f);
+                foreach (var e in InView(range * 0.6f)) e.Build(HeroElement.Fire, 50f, Stats.DamageMult, this);
+                G.Fx.Ring(GlobalPosition, range * 0.6f, new Color(Elements.ColorOf(HeroElement.Fire), 0.9f), 0.4f, FxLayer.RingStyle.Burst);
+                break;
+            case "Ice Armor":
+                // Frost Armor, and a shell of ice that soaks blows besides
+                GiveBuff(BuffFrostArmor, secs * 1.5f);
+                GiveBarrier(Tune.ElementalStaff.WardBarrier * 1.5f, secs);
+                break;
+            case "Gale Draft":
+                // Narrow Draft for twice as long, and a gust that throws the creatures about you back
+                foreach (var h in near) h.GiveBuff(BuffTailwind, Tune.ElementalStaff.TailwindSeconds * 2f);
+                foreach (var e in InView(range * 0.5f)) e.Shove((e.GlobalPosition - GlobalPosition).Normalized() * 380f + new Vector2(0, -60f));
+                break;
+            case "Thermal Armor":
+                GiveBuff(BuffFrostArmor, secs);
+                foreach (var h in near) h.GiveBuff(BuffKindling, secs);
+                break;
+            case "Wildfire":
+                foreach (var h in near) { h.GiveBuff(BuffKindling, secs); h.GiveBuff(BuffTailwind, Tune.ElementalStaff.TailwindSeconds); }
+                break;
+            default:
+                // Frostwind
+                GiveBuff(BuffFrostArmor, secs);
+                foreach (var h in near) h.GiveBuff(BuffTailwind, Tune.ElementalStaff.TailwindSeconds);
+                break;
+        }
+        var col = Elements.DualColor(a, b);
+        G.Fx.Ring(GlobalPosition, range * 0.6f, new Color(col, 0.7f), 0.45f, FxLayer.RingStyle.Dashed);
+        Anim.Once("heal", 3, 1.5f);
+        _castGlow = 1f;
+        G.Sfx.Play("levelup", GlobalPosition, -6, 0.05f, 0.8f);
+        _lastEl = a;
+        Used(name, col);
         return true;
     }
 

@@ -193,7 +193,7 @@ public partial class Player
 
     private bool TryShieldDash(Vector2 aim)
     {
-        if (!IsWarden || !AbilityChargeReady || _dashT > 0) return false;
+        if (!IsWarden || (!AbilityChargeReady && !(Elemental && Tune.Testing.NoCooldowns)) || _dashT > 0) return false;
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         float time = Stats.DashTime;
         // Guardian's Charge: to the friend nearest your aim, wrapping them in a barrier (alone, you)
@@ -217,7 +217,7 @@ public partial class Player
         _dashDir = d;
         _dashT = time;
         _dashStruck.Clear();
-        SpendAbilityCharge();
+        if (!(Elemental && Tune.Testing.NoCooldowns)) SpendAbilityCharge();
         _wDash = "";
         // (in a mode, every charge is the mode's version: see Player.WardenElements.cs)
         if (Elemental && Infused != HeroElement.None) WardenDashVersion();

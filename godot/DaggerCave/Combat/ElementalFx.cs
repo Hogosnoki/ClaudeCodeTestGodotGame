@@ -1003,6 +1003,8 @@ public partial class IceDecoy : FrostTower
     public Vector3[] PoseScale;
     public Transform3D PoseAt;
     public CreatureModel PoseOf;
+    /// <summary>A Frozen Effigy: as it shatters, the creatures beside it are frozen solid (two full frost build-ups).</summary>
+    public bool Great;
 
     public IceDecoy()
     {
@@ -1047,7 +1049,8 @@ public partial class IceDecoy : FrostTower
         foreach (var e in G.Enemies.ToArray())
         {
             if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(at) > Tune.ElementalSword.DecoyRadius + e.HitRadius) continue;
-            e.Build(HeroElement.Frost, Tune.ElementalSword.DecoyBuild, power, Caster);
+            e.Build(HeroElement.Frost, Great ? Tune.Elements.Full : Tune.ElementalSword.DecoyBuild, power, Caster);
+            if (Great && !e.Dead) e.Build(HeroElement.Frost, Tune.Elements.Full, power, Caster);
         }
     }
 }

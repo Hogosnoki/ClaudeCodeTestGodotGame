@@ -713,6 +713,10 @@ public static class Tune
         public static bool UnlockEverything = true;
         /// <summary>Dual charges are open whatever the save says (see <see cref="Meta.DualCharges"/>), while they're being tested.</summary>
         public static bool DualCharges = true;
+        /// <summary>No cooldowns on the elemental heroes while the elements are being tried out: their abilities and versions, the support
+        /// ability, the mode's switch and the overcharge's recharge all come back at once (the swing's and the bolt's own pace stay).
+        /// The elements scenario turns it off, to test the real rules.</summary>
+        public static bool NoCooldowns = true;
     }
 
     /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>
