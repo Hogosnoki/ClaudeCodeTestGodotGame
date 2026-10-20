@@ -1149,12 +1149,17 @@ public static class Tune
         public static float BurnDps = 4f, BurnSeconds = 5f, CombustDamage = 22f, CombustSplash = 0.5f, CombustRadius = 56f;
         public static float ChillSlow = 0.35f, ChillSeconds = 4f, FreezeSeconds = 3f, ShatterDamage = 30f, ShatterSplash = 0.4f, ShatterRadius = 52f;
         public static float StunSeconds = 1.2f, SapSlow = 0.2f, SapSeconds = 3f;
-        /// <summary>How long after readying an element before another can be (a press inside it is kept and readies once it's over).
-        /// Readied charges wait for as long as it takes.</summary>
-        public static float ChargeCooldown = 1f;
-        /// <summary>Whether an element's version of an ability rests its button (and pays alimus). Off: the charge's cooldown is their pacing,
-        /// so the versions wait on nothing but the charges; only the plain abilities keep their cooldowns.</summary>
-        public static bool VersionsRest = false;
+        /// <summary>How long after one element press before the next is taken (a press inside it is kept and taken once it's over).</summary>
+        public static float ChargeCooldown = 0.3f;
+        /// <summary>Whether an element's version of an ability rests its button (and pays alimus). In modes every use is a version, so they do:
+        /// one cooldown per button, whatever the mode.</summary>
+        public static bool VersionsRest = true;
+        /// <summary>Modes: the hero is always in one of their elements (their abilities are all its versions), starting in their signature
+        /// (<see cref="DaggerCave.Elements.Signature"/>). One slot sits on top of the mode: the mode's own element there is an overcharge (the
+        /// next ability with a greater version uses it, and that element's overcharge comes back after <c>OverchargeRecharge</c> s); another
+        /// element there is an attribute (every blow and spell adds <c>AttributeBuild</c> of it, wind a shove of <c>AttributeShove</c>), kept
+        /// until replaced. Pressing the attribute's element again switches the mode to it, at most once every <c>ModeCooldown</c> s.</summary>
+        public static float ModeCooldown = 4.5f, OverchargeRecharge = 18f, AttributeBuild = 15f, AttributeShove = 120f;
     }
 
     /// <summary>
@@ -1173,7 +1178,7 @@ public static class Tune
     public static class ElementalSword
     {
         public static float HeaveDamage = 2f, EarthBuild = 60f, MediumDamage = 1.25f, MediumBuild = 50f;
-        public static float SwingRestEarth = 2.5f, SwingRestFire = 1.2f, SwingRestFrost = 1.2f;
+        public static float SwingRestEarth = 2.5f, SwingRestFire = 0f, SwingRestFrost = 0f;
         public static float HardDamage = 1.6f, CrushDamage = 2.6f, PyroDamage = 2.2f, AxeDamage = 2f;
         public static float HardRest = 5f, CrushRest = 12f, PyroRest = 10f, AxeRest = 7f, CrushWindup = 1.35f;
         /// <summary>The Ice Axe: the sword goes up over the head and behind, the axe head grows out of it through a wind-up <c>AxeWindup</c> x a

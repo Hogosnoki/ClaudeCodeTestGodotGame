@@ -19,46 +19,65 @@ public partial class Player
 {
     /// <summary>This hero fights with elements (not the classic kit).</summary>
     public bool Elemental => Elements.On(Stats.Hero);
-    /// <summary>The readied charges, oldest first (up to <see cref="Tune.Dual.MaxCharges"/>): a button spends the oldest, or both for the
-    /// pair's ability where the pair has one on that button (<see cref="Elements.DualName"/>).</summary>
-    private readonly List<HeroElement> _charges = new();
-    public IReadOnlyList<HeroElement> Charges => _charges;
-    /// <summary>The element the hero's weapon glows with: the one readied (a copy goes by what its game says).</summary>
-    public HeroElement GlowElement
+
+    // ---------------------------------------------------------------- modes
+    // The hero is always in one of their elements (the mode): every ability is its version. One slot sits on top of the mode: the mode's
+    // own element there is an overcharge (the next ability that has a greater version spends it), another element is an attribute (its
+    // effect added to every blow and spell, until replaced). Pressing the attribute's element again switches the mode to it.
+
+    private HeroElement _mode, _top;
+    private float _modeCd;
+    private readonly float[] _overCd = new float[5];
+    private HeroElement _netMode, _netTop;
+
+    /// <summary>The element the hero is in: all their abilities are its versions.</summary>
+    public HeroElement Mode
     {
         get
         {
-            if (!IsRemote) return Infused;
-            int slot = ((_netFlags & HfGlowA) != 0 ? 1 : 0) + ((_netFlags & HfGlowB) != 0 ? 2 : 0);
+            if (IsRemote) return _netMode;
+            if (!Elemental) return HeroElement.None;
             var els = Elements.Of(Stats.Hero);
-            return slot > 0 && slot <= els.Length ? els[slot - 1] : HeroElement.None;
+            return _mode != HeroElement.None && Array.IndexOf(els, _mode) >= 0 ? _mode : Elements.Signature(Stats.Hero);
         }
     }
+    /// <summary>What sits on top of the mode (none, the mode's own element for an overcharge, or another as the attribute).</summary>
+    public HeroElement Top => IsRemote ? _netTop : _top;
+    /// <summary>The mode's own element is on top: the next ability with a greater version is that.</summary>
+    public bool Overcharged => Top != HeroElement.None && Top == Mode;
+    /// <summary>Another element is on top: its effect rides on every blow and spell.</summary>
+    public HeroElement Attribute => Top != HeroElement.None && Top != Mode ? Top : HeroElement.None;
+    /// <summary>For the HUD: the mode's switch (0..1 left), and an element's overcharge recharging (0..1 left; seconds).</summary>
+    public float ModeCooldownFrac => Math.Clamp(_modeCd / Math.Max(0.01f, Tune.Elements.ModeCooldown), 0f, 1f);
+    public float ModeCooldown => Math.Max(0f, _modeCd);
+    public float OverchargeFrac(HeroElement el) => Math.Clamp(_overCd[(int)el] / Math.Max(0.01f, Tune.Elements.OverchargeRecharge), 0f, 1f);
+    public float OverchargeSeconds(HeroElement el) => Math.Max(0f, _overCd[(int)el]);
 
-    /// <summary>The element the next attack spends (none: the attack is plain).</summary>
-    public HeroElement Infused => _charges.Count > 0 ? _charges[0] : HeroElement.None;
-    /// <summary>Two charges are readied: the dual abilities wait on their buttons.</summary>
-    public bool DualReady => _charges.Count >= 2;
-    /// <summary>The ability the readied pair makes on a button ("" without two, or where the pair has none there).</summary>
-    public string DualNameFor(ElemSlot slot) => DualReady ? Elements.DualName(Stats.Hero, slot, _charges[0], _charges[1]) : "";
-    /// <summary>What the button would do now (for the HUD): the pair's ability, or the oldest charge's version, or the plain one.</summary>
+    /// <summary>The mode and what's on top, as the HUD shows them (the mode first).</summary>
+    public IReadOnlyList<HeroElement> Charges => Mode == HeroElement.None ? Array.Empty<HeroElement>() : Top != HeroElement.None ? new[] { Mode, Top } : new[] { Mode };
+    /// <summary>The element the hero's weapon glows with: the mode's.</summary>
+    public HeroElement GlowElement => Mode;
+
+    /// <summary>The element the next ability is a version of: always the mode's.</summary>
+    public HeroElement Infused => Mode;
+    /// <summary>An overcharge waits: the greater versions wait on their buttons.</summary>
+    public bool DualReady => Overcharged;
+    /// <summary>The greater version on a button now ("" without an overcharge, or where the button has none).</summary>
+    public string DualNameFor(ElemSlot slot) => Overcharged ? Elements.DualName(Stats.Hero, slot, Mode, Mode) : "";
+    /// <summary>What the button would do now (for the HUD): the greater version, or the mode's version.</summary>
     public string NameFor(ElemSlot slot) { var d = DualNameFor(slot); return d != "" ? d : Elements.SingleName(Stats.Hero, slot, Infused); }
-    /// <summary>Some button has an ability for the readied pair.</summary>
-    private bool AnyDual => DualReady && (DualNameFor(ElemSlot.Attack) != "" || DualNameFor(ElemSlot.Move) != "" || DualNameFor(ElemSlot.Heavy) != "");
     /// <summary>For the tests: elemental versions used, by name.</summary>
     public readonly List<string> ElementalUses = new();
 
-    /// <summary>How many charges can wait: two once dual charges are unlocked (<see cref="Meta.DualCharges"/>), else one.</summary>
-    public int MaxCharges => Meta.DualCharges ? Math.Max(1, Tune.Dual.MaxCharges) : 1;
+    /// <summary>Overcharges are open: once dual charges are unlocked (<see cref="Meta.DualCharges"/>).</summary>
+    public bool OverchargeOpen => Meta.DualCharges;
 
-    /// <summary>An element's button: a charge of it is readied (past the most that can wait, the oldest goes). The same twice is the
-    /// element's great version; two different, their mix. With only one charge to hold, pressing the readied element again puts it away.</summary>
-    /// <summary>An element's version's rest: none, unless <see cref="Tune.Elements.VersionsRest"/> (the charge's cooldown paces them).</summary>
+    /// <summary>An element's version's rest (<see cref="Tune.Elements.VersionsRest"/>).</summary>
     private static float ElemRest(float rest) => Tune.Elements.VersionsRest ? rest : 0f;
-    /// <summary>The next use spends a charge, and so waits on no cooldown (and costs no alimus).</summary>
-    private bool FreeVersion => !Tune.Elements.VersionsRest && _charges.Count > 0;
+    /// <summary>The next use waits on no cooldown: never in modes (each button keeps its cooldown).</summary>
+    private bool FreeVersion => !Tune.Elements.VersionsRest && Overcharged;
 
-    /// <summary>An element's button as pressed: readied now, or (inside the charge's cooldown) as soon as it's over.</summary>
+    /// <summary>An element's button as pressed: taken now, or (inside the press's short cooldown) as soon as it's over.</summary>
     private void BufferInfuse(int slot)
     {
         if (_infuseCd > 0) { _infuseQueued = slot; return; }
@@ -66,29 +85,75 @@ public partial class Player
     }
     private float _infuseCd;
     private int _infuseQueued = -1;
-    /// <summary>For the HUD: the charge's cooldown (0..1 of it left; 0 = an element can be readied).</summary>
     public float InfuseCooldownFrac => Math.Clamp(_infuseCd / Math.Max(0.01f, Tune.Elements.ChargeCooldown), 0f, 1f);
     public float InfuseCooldown => Math.Max(0f, _infuseCd);
 
+    /// <summary>An element's button: the mode's own (an overcharge on top), another (it goes on top as the attribute, replacing what was
+    /// there), or the attribute's again (the mode switches to it).</summary>
     public bool TryInfuse(int slot)
     {
         var els = Elements.Of(Stats.Hero);
         if (Dead || slot < 0 || slot >= els.Length || _infuseCd > 0) return false;
         _infuseCd = Tune.Elements.ChargeCooldown;
         var el = els[slot];
-        int most = MaxCharges;
-        if (most == 1 && _charges.Count == 1 && _charges[0] == el) { ClearCharges(); G.Sfx.Play("ui", null, -10, 0, 0.7f); return true; }
-        while (_charges.Count >= most) _charges.RemoveAt(0);
-        _charges.Add(el);
+        var mode = Mode;
         var col = Elements.ColorOf(el);
+        if (el == mode)
+        {
+            // the mode's own element: an overcharge on top (replacing an attribute)
+            if (Overcharged) return false;
+            if (!OverchargeOpen) { SayNo($"IN {Elements.Name(el).ToUpperInvariant()} MODE"); return false; }
+            if (_overCd[(int)el] > 0) { SayNo($"OVERCHARGE {_overCd[(int)el]:0}s"); return false; }
+            _top = el;
+            WeaponTouch(el);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"{Elements.Name(el).ToUpperInvariant()} OVERCHARGED", col, 11, 0.8f);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, new Color(col, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
+            G.Sfx.Play(ElementSound(el), GlobalPosition, -6, 0.05f, 0.9f);
+            Anim.Flash(0.3f);
+            Anim.FlashColor = col;
+            return true;
+        }
+        if (_top == el)
+        {
+            // the attribute's element again: the mode switches to it
+            if (_modeCd > 0) { SayNo($"MODE {_modeCd:0.0}s"); return false; }
+            _mode = el;
+            _top = HeroElement.None;
+            _modeCd = Tune.Elements.ModeCooldown;
+            WeaponTouch(el);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"{Elements.Name(el).ToUpperInvariant()} MODE", col, 12, 0.9f);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 26, new Color(col, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);
+            G.Sfx.Play(ElementSound(el), GlobalPosition, -4, 0.05f, 0.7f);
+            Anim.Flash(0.35f);
+            Anim.FlashColor = col;
+            return true;
+        }
+        // another element: on top, as the attribute (replacing whatever was there)
+        _top = el;
         WeaponTouch(el);
-        bool dual = AnyDual;
-        G.Fx.Text(GlobalPosition + new Vector2(0, -30), dual ? $"{Elements.Name(_charges[0])}+{Elements.Name(_charges[1])}".ToUpperInvariant() : Elements.Name(el).ToUpperInvariant(),
-            dual ? Elements.DualColor(_charges[0], _charges[1]) : col, dual ? 11 : 10, 0.7f);
-        G.Sfx.Play(el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "rock", GlobalPosition, -10, 0.05f, _charges.Count > 1 ? 1.15f : 1.5f);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"+{Elements.Name(el).ToUpperInvariant()}", col, 10, 0.7f);
+        G.Sfx.Play(ElementSound(el), GlobalPosition, -10, 0.05f, 1.5f);
         Anim.Flash(0.2f);
         Anim.FlashColor = col;
         return true;
+    }
+
+    private static string ElementSound(HeroElement el) => el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "rock";
+
+    /// <summary>For the tests: straight into a mode (no cooldown), nothing on top; an overcharge on top at once.</summary>
+    public void TestMode(HeroElement el) { _mode = el; _top = HeroElement.None; _modeCd = 0; _infuseCd = 0; _infuseQueued = -1; }
+    public void TestOvercharge() { _overCd[(int)Mode] = 0; _top = Mode; }
+    public void TestResetModeCooldowns() { _modeCd = 0; _infuseCd = 0; Array.Clear(_overCd); }
+    public void TestAttribute(HeroElement el) { _top = el; }
+    public void TestSpendOvercharge() => SpendPair();
+
+    /// <summary>The attribute's effect on a creature a blow or spell of this hero reached: its element's build-up (wind: a shove).</summary>
+    public void AttributeHit(Enemy e, Vector2 from)
+    {
+        var at = Attribute;
+        if (at == HeroElement.None || e == null || !IsInstanceValid(e) || e.Dead) return;
+        if (at == HeroElement.Wind) { e.Shove((e.GlobalPosition - from).Normalized() * Tune.Elements.AttributeShove + new Vector2(0, -40f)); return; }
+        e.Build(at, Tune.Elements.AttributeBuild, Stats.DamageMult, this);
     }
 
     /// <summary>For the 3D view: a moment ago an element went onto the weapon (its glow flares up as it takes).</summary>
@@ -143,26 +208,21 @@ public partial class Player
         }
     }
 
-    /// <summary>The oldest readied charge, spent on an attack.</summary>
-    private HeroElement SpendElement()
-    {
-        if (_charges.Count == 0) return HeroElement.None;
-        var el = _charges[0];
-        _charges.RemoveAt(0);
-        return el;
-    }
+    /// <summary>The element an ability is a version of: the mode's (nothing is spent).</summary>
+    private HeroElement SpendElement() => Mode;
 
-    /// <summary>The two readied charges, spent together (in <see cref="Elements.Pair"/> order).</summary>
+    /// <summary>The overcharge, spent on a greater version: that element's overcharge starts coming back.</summary>
     private (HeroElement a, HeroElement b) SpendPair()
     {
-        var pair = Elements.Pair(_charges[0], _charges[1]);
-        _charges.RemoveRange(0, 2);
-        return pair;
+        var m = Mode;
+        _top = HeroElement.None;
+        _overCd[(int)m] = Tune.Elements.OverchargeRecharge;
+        return (m, m);
     }
 
-    /// <summary>Every readied charge goes (the hero fell).</summary>
-    private void ClearCharges() => _charges.Clear();
-    public void TestClearCharges() => ClearCharges();
+    /// <summary>What's on top goes (the hero fell); the mode stays.</summary>
+    private void ClearCharges() => _top = HeroElement.None;
+    public void TestClearCharges() { ClearCharges(); TestResetModeCooldowns(); }
 
     private void Used(string what)
     {
@@ -176,11 +236,10 @@ public partial class Player
         if (!Elemental) return;
         if (_infuseCd > 0 && (_infuseCd -= dt) <= 0 && _infuseQueued >= 0) { int q = _infuseQueued; _infuseQueued = -1; TryInfuse(q); }
         if (_infuseFlash > 0) _infuseFlash -= dt;
-        if (_charges.Count > 0)
-        {
-            // (readied charges wait as long as it takes, glowing on the weapon (the 3D view); a fall clears them)
-            if (Dead) ClearCharges();
-        }
+        if (_modeCd > 0) _modeCd -= dt;
+        for (int k = 0; k < _overCd.Length; k++) if (_overCd[k] > 0) _overCd[k] -= dt;
+        // (the mode stays; what's on top goes with a fall)
+        if (Dead && _top != HeroElement.None) ClearCharges();
         TickDuals(dt);
         TickAxe(dt);
         if (IsWarden) TickWardenElements(dt);
@@ -426,6 +485,7 @@ public partial class Player
     {
         if (!Elemental || e.Dead) return;
         if (_swingEl != HeroElement.None && _swingBuild > 0) e.Build(_swingEl, _swingBuild, Stats.DamageMult, this);
+        AttributeHit(e, GlobalPosition);
         DualBladeHit(e);
         if (IsWarden) WardenBladeHit(e);
         if (_hiltT <= 0 || e.Dead) return;
@@ -622,10 +682,8 @@ public partial class Player
     {
         if (_boltCd > 0) return false;
         if (DualNameFor(ElemSlot.Attack) != "" && _dualBoltCd <= 0) return DualBolt(aim);
-        // (no bolts to count: he casts as freely as the gap between casts allows)
-        // (two charges whose bolt is resting wait for it: the bolts stay as they are)
-        bool pairWaits = DualNameFor(ElemSlot.Attack) != "";
-        if (Infused != HeroElement.None && !pairWaits) { _missileEl = SpendElement(); _missileShots = Tune.ElementalStaff.MissileShots; }
+        // (no bolts to count: he casts as freely as the gap between casts allows; every bolt is the mode's)
+        if (Infused != HeroElement.None) { _missileEl = SpendElement(); _missileShots = Tune.ElementalStaff.MissileShots; }
         var el = _missileShots > 0 ? _missileEl : HeroElement.None;
         if (_missileShots > 0) _missileShots--;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
@@ -710,7 +768,7 @@ public partial class Player
         var el = bolt.Wind ? HeroElement.Wind : bolt.Plain ? HeroElement.None : bolt.Frost ? HeroElement.Frost : HeroElement.Fire;
         if (el == HeroElement.Fire) FireBurst(bolt, e, at);
         float dealt = e.Hurt(bolt.Damage, bolt.Dir * (el == HeroElement.Wind ? 10f : 40f), at, Elements.KindOf(el));
-        if (dealt > 0) { OnDealtDamage(dealt); e.HitStop(Tune.Feel.HitStopBolt); }
+        if (dealt > 0) { OnDealtDamage(dealt); e.HitStop(Tune.Feel.HitStopBolt); AttributeHit(e, at - bolt.Dir * 10f); }
         if (e.Dead) return;
         switch (el)
         {

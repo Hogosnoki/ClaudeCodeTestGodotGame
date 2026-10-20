@@ -49,7 +49,7 @@ public partial class Player
     public void ResetAbilityCooldowns()
     {
         _hexCd = _healCd = _drainCd = _ruptureCd = _bashCd = _heaveCd = 0;
-        _swingElemRest = 0; _hiltT = 0; _hiltEl = HeroElement.None;
+        _swingElemRest = 0; _jumpElemRest = 0; _dualBoltCd = 0; _hiltT = 0; _hiltEl = HeroElement.None;
         for (int k = 0; k < _dodgeCd.Length; k++) _dodgeCd[k] = 0;
         for (int k = 0; k < _abilityCd.Length; k++) _abilityCd[k] = 0;
         for (int k = 0; k < _stormOwes.Length; k++) _stormOwes[k] = false;

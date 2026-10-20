@@ -31,8 +31,7 @@ public partial class Player
     private const uint HfDead = 1, HfFloor = 2, HfShield = 4, HfCharged = 8, HfHeaving = 16, HfChoosing = 32, HfInvuln = 64,
                        HfGuarding = 128, HfSecondary = 256, HfGiant = 512, HfDash = 1024, HfPerfect = 2048, HfBarrier = 4096, HfMending = 8192, HfFrost = 16384,
                        HfHidden = 32768, HfDagger0Out = 65536, HfDagger1Out = 131072, HfBubble = 262144, HfPoison = 524288, HfBurn = 1048576, HfFrozen = 2097152, HfDrown = 4194304, HfTaunt = 8388608,
-                       HfFire = 16777216, HfOrbWind = 33554432, HfOrbSnap = 67108864, HfOrbStorm = 134217728, HfWeb = 268435456, HfStun = 536870912,
-                       HfGlowA = 1073741824, HfGlowB = 2147483648;
+                       HfFire = 16777216, HfOrbWind = 33554432, HfOrbSnap = 67108864, HfOrbStorm = 134217728, HfWeb = 268435456, HfStun = 536870912;
 
     /// <summary>On the ground (a puppet goes by what its game says).</summary>
     public bool OnGround => IsRemote ? (_netFlags & HfFloor) != 0 : Possessed ? Ghost.OnGround : IsOnFloor();
@@ -56,10 +55,6 @@ public partial class Player
         if (Charged > 0 || SwingCharged) f |= HfCharged;
         if (Heaving) f |= HfHeaving;
         if (GiantBlade) f |= HfGiant;
-        // (the element readied, by its slot: its weapon glows with it in every game)
-        int glow = Array.IndexOf(Elements.Of(Stats.Hero), Infused) + 1;
-        if ((glow & 1) != 0) f |= HfGlowA;
-        if ((glow & 2) != 0) f |= HfGlowB;
         if (Choosing) f |= HfChoosing;
         if (Invulnerable) f |= HfInvuln;
         if (Guarding) f |= HfGuarding;
@@ -108,6 +103,9 @@ public partial class Player
         w.Byte(IsElementalist ? (byte)(Math.Min(BoltCharges, 15) | Math.Min(BoltChargesMax, 15) << 4) : (byte)0);
         // (the Ice Axe or Glacier Cleaver under way, and where its blow is)
         w.Byte((byte)(AxeKind & 3 | (int)(Math.Clamp(AxeStage / 3f, 0f, 1f) * 63f) << 2));
+        // (the elemental mode and what's on top of it, by slot)
+        var modeEls = Elements.Of(Stats.Hero);
+        w.Byte((byte)(Array.IndexOf(modeEls, Mode) + 1 & 7 | (Array.IndexOf(modeEls, Top) + 1 & 7) << 3));
     }
 
     /// <summary>A puppet: the latest from its game.</summary>
@@ -144,6 +142,14 @@ public partial class Player
         }
         if (r.More) { byte b = r.Byte(); _netBolts = b & 15; _netBoltMax = b >> 4; }
         if (r.More) { byte b = r.Byte(); _netAxe = b & 3; _netAxeStage = (b >> 2) / 63f * 3f; }
+        if (r.More)
+        {
+            byte b = r.Byte();
+            var modeEls = Elements.Of(Stats.Hero);
+            int m = (b & 7) - 1, t = (b >> 3 & 7) - 1;
+            _netMode = m >= 0 && m < modeEls.Length ? modeEls[m] : HeroElement.None;
+            _netTop = t >= 0 && t < modeEls.Length ? modeEls[t] : HeroElement.None;
+        }
         _net.Push(now, pos, vel);
         Dead = (_netFlags & HfDead) != 0;
         ShieldRaised = (_netFlags & HfShield) != 0;

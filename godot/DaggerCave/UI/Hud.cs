@@ -826,11 +826,11 @@ public partial class Hud : Control
             DrawString(font, eb + new Vector2(0, eh + 18), $"PRESSURIZED  ({p.PressureLeft:0}s of fuel)", HorizontalAlignment.Left, -1, 11, hot);
     }
 
-    /// <summary>The elemental heroes' three elements over their ability squares: each with its button, the readied one lit (Core/Elements.cs).</summary>
     /// <summary>
     /// The elements on the d-pad: a half circle with one at each point of a triangle, left, up and right, as on the pad (keys 1, 2, 3).
-    /// The readied ones are lit (a second charge of one, a second diamond); in the middle, the charges in the order they'll be spent, and
-    /// the charge's cooldown going round. Beside it, what the charges make, or <paramref name="extra"/>.
+    /// The mode is the big lit one; what's on top of it is a small diamond beside it (the mode's own: the overcharge; another: the
+    /// attribute). Each element's overcharge recharging goes round its point; in the middle, the mode's colour with what's on top, and the
+    /// mode's switch going round it. Beside it, the mode and what's on top, or <paramref name="extra"/>.
     /// </summary>
     private void DrawElementRow(Font font, Player p, Vector2 at, string extra = "")
     {
@@ -842,44 +842,53 @@ public partial class Hud : Control
         DrawArc(c, R, MathF.PI, MathF.Tau, 20, new Color(0.85f, 0.75f, 0.55f, 0.45f), 1.2f);
         var spots = new[] { c + new Vector2(-28, 0), c + new Vector2(0, -28), c + new Vector2(28, 0) };
         string[] pad = { "◀", "▲", "▶" };
+        var mode = p.Mode;
+        var top = p.Top;
         for (int k = 0; k < els.Length && k < 3; k++)
         {
             var el = els[k];
-            int held = p.Charges.Count(x => x == el);
-            bool on = held > 0;
+            bool isMode = el == mode, isTop = el == top;
             var sc = spots[k];
             var col = Elements.ColorOf(el);
-            float r = on ? 8f + MathF.Sin(_t * 8f) : 6.5f;
+            float r = isMode ? 9.5f + 0.8f * MathF.Sin(_t * 5f) : isTop ? 7.5f + MathF.Sin(_t * 8f) : 6.5f;
             var dia = new[] { sc + new Vector2(0, -r), sc + new Vector2(r, 0), sc + new Vector2(0, r), sc + new Vector2(-r, 0) };
-            if (on) DrawCircle(sc, r + 5, new Color(col, 0.25f));
-            DrawColoredPolygon(dia, on ? col : new Color(col.Darkened(0.45f), p.InfuseCooldown > 0 ? 0.5f : 0.85f));
-            DrawPolyline(dia.Append(dia[0]).ToArray(), new Color(0, 0, 0, 0.7f), 1.2f);
-            if (held > 1) DrawColoredPolygon(new[] { sc + new Vector2(r * 0.9f, -r * 1.2f), sc + new Vector2(r * 1.5f, -r * 0.6f), sc + new Vector2(r * 0.9f, 0), sc + new Vector2(r * 0.3f, -r * 0.6f) }, col.Lightened(0.3f));
-            // the pad's arrow and the key under it
+            if (isMode) DrawCircle(sc, r + 6, new Color(col, 0.3f));
+            DrawColoredPolygon(dia, isMode || isTop ? col : new Color(col.Darkened(0.45f), 0.85f));
+            DrawPolyline(dia.Append(dia[0]).ToArray(), isMode ? new Color(1, 1, 1, 0.9f) : new Color(0, 0, 0, 0.7f), isMode ? 1.8f : 1.2f);
+            // on top of the mode: a small diamond at its corner (the mode's own, doubled: the overcharge)
+            if (isTop) DrawColoredPolygon(new[] { sc + new Vector2(r * 0.9f, -r * 1.25f), sc + new Vector2(r * 1.5f, -r * 0.65f), sc + new Vector2(r * 0.9f, -r * 0.05f), sc + new Vector2(r * 0.3f, -r * 0.65f) }, col.Lightened(0.35f));
+            // its overcharge coming back
+            float oc = p.OverchargeFrac(el);
+            if (oc > 0) DrawArc(sc, r + 3.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * oc, 14, new Color(col, 0.85f), 1.6f);
             var lab = sc + (k == 1 ? new Vector2(19, 4) : new Vector2(-17, 20));
-            DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, on ? 0.85f : 0.45f));
-            string dualBtn = p.Stats.Hero switch { HeroKind.Swordsman => "Hard Swing spends", HeroKind.Warden => "attack, block and dash spend", _ => "attack, dodge and fixed-range spell spend" };
-            Tip(new Rect2(sc - new Vector2(11, 11), new Vector2(22, 22)), $"{Elements.Name(el)} ({Controls.Name(Elements.Action(k))}, d-pad {(k == 0 ? "left" : k == 1 ? "up" : "right")})",
-                $"Readies a charge of {Elements.Name(el).ToLowerInvariant()}: the next ability you use becomes its {Elements.Name(el).ToLowerInvariant()} version, which waits on no cooldown. Charges come a second apart. " + (Meta.DualCharges
-                    ? $"Two charges wait at once (the same twice, or two different): the {dualBtn} both for the pair's own ability."
-                    : "Press again to put it away."), true);
+            DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, isMode || isTop ? 0.85f : 0.45f));
+            string name = Elements.Name(el), lower = name.ToLowerInvariant();
+            string what = isMode
+                ? $"You're in {lower} mode: every ability is its {lower} version. " + (p.OverchargeOpen ? $"Press it again to overcharge: the next ability with a greater version uses it ({Tune.Elements.OverchargeRecharge:0} s to come back)." : "")
+                : isTop ? $"{name} rides on top of your mode: every blow and spell adds a little {lower}. Press it again to switch to {lower} mode."
+                : $"Press it to put {lower} on top of your mode (every blow and spell adds a little of it); press it again to switch to {lower} mode. Modes change at most every {Tune.Elements.ModeCooldown:0.#} s.";
+            Tip(new Rect2(sc - new Vector2(11, 11), new Vector2(22, 22)), $"{name} ({Controls.Name(Elements.Action(k))}, d-pad {(k == 0 ? "left" : k == 1 ? "up" : "right")})", what, true);
         }
-        // the middle: the charges in the order they'll go, and the charge's cooldown round them
+        // the middle: the mode's colour, what's on top beside it, and the mode's switch coming back round them
         var mid = c + new Vector2(0, 2);
         DrawCircle(mid, 7.5f, new Color(0, 0, 0, 0.6f));
-        if (p.InfuseCooldownFrac > 0) DrawArc(mid, 9.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * p.InfuseCooldownFrac, 16, new Color(1f, 1f, 1f, 0.75f), 2f);
-        for (int k = 0; k < p.Charges.Count; k++)
-            DrawCircle(mid + new Vector2(p.Charges.Count == 1 ? 0 : (k == 0 ? -3f : 3f), 0), 2.8f, Elements.ColorOf(p.Charges[k]));
-        Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Charges", "The readied charges, oldest first (the oldest is spent first). The ring is the second before another can be readied.", true);
-        string label = p.DualReady ? $"{Elements.Name(p.Charges[0])} + {Elements.Name(p.Charges[1])}".ToUpperInvariant()
-            : p.Infused != HeroElement.None ? $"{Elements.Name(p.Infused).ToUpperInvariant()}: NEXT USE" : extra;
-        var labelCol = p.DualReady ? Elements.DualColor(p.Charges[0], p.Charges[1]) : p.Infused != HeroElement.None ? Elements.ColorOf(p.Infused) : new Color(1, 1, 1, 0.55f);
+        if (p.ModeCooldownFrac > 0) DrawArc(mid, 9.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * p.ModeCooldownFrac, 16, new Color(1f, 1f, 1f, 0.75f), 2f);
+        if (mode != HeroElement.None) DrawCircle(mid + new Vector2(top != HeroElement.None ? -2.5f : 0f, 0), 3.6f, Elements.ColorOf(mode));
+        if (top != HeroElement.None) DrawCircle(mid + new Vector2(3.5f, -2f), 2.4f, Elements.ColorOf(top).Lightened(0.3f));
+        Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Mode", $"Your mode and what's on top of it. The ring is the mode's switch coming back (once every {Tune.Elements.ModeCooldown:0.#} s).", true);
+        string label = mode == HeroElement.None ? extra
+            : p.Overcharged ? $"{Elements.Name(mode).ToUpperInvariant()} OVERCHARGED"
+            : p.Attribute != HeroElement.None ? $"{Elements.Name(mode).ToUpperInvariant()} + {Elements.Name(p.Attribute).ToUpperInvariant()}"
+            : $"{Elements.Name(mode).ToUpperInvariant()} MODE";
+        if (extra != "" && mode != HeroElement.None) label += $"   {extra}";
+        var labelCol = mode == HeroElement.None ? new Color(1, 1, 1, 0.55f) : Elements.ColorOf(mode);
         if (label != "") DrawString(font, c + new Vector2(R + 8f, 4), label, HorizontalAlignment.Left, -1, 10, labelCol);
     }
 
     /// <summary>An elemental ability's name, short enough for its square.</summary>
     private static string Short(string name) => name switch
     {
+        "Searing Strike" => "SEARING", "Razor Ice" => "RAZOR", "Heaving Swing" => "HEAVE",
         "Hard Swing" => "HARD", "ThunderCrush" => "CRUSH", "Pyroclasty" => "PYRO", "Ice Axe" => "ICE AXE",
         "Earthsplitter" => "SPLITTER", "Inferno Cleave" => "INFERNO", "Glacier Cleaver" => "GLACIER", "Frost Heave" => "F.HEAVE",
         "Magma Rend" => "MAGMA", "Thermal Shock" => "THERMAL",
@@ -1089,7 +1098,7 @@ public partial class Hud : Control
         // the dash: the Guarded Charge (an elemental one waits on no cooldown)
         x += new Vector2(step, 0);
         string dash = p.NameFor(ElemSlot.Move);
-        bool freeDash = p.Infused != HeroElement.None;
+        bool freeDash = false;
         AbilitySquare(font, x, Short(dash), freeDash ? 0f : p.DashCooldownFrac, freeDash || p.DashCooldownFrac <= 0, SlotColor(p, ElemSlot.Move, new Color(0.55f, 0.85f, 1f)), (c, col) =>
         {
             DrawColoredPolygon(new[] { c + new Vector2(-4, -9), c + new Vector2(7, -9), c + new Vector2(7, 1), c + new Vector2(1.5f, 10), c + new Vector2(-4, 1) }, col);

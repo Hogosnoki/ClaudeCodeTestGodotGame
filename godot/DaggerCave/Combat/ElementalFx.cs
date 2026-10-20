@@ -36,7 +36,7 @@ public abstract partial class HeroSpell : Node2D
     {
         if (e.Dead || !e.CanBeHit) return 0f;
         float dealt = e.Hurt(dmg, knock, e.GlobalPosition, kind);
-        if (dealt > 0 && Caster != null && IsInstanceValid(Caster)) Caster.OnDealtDamage(dealt);
+        if (dealt > 0 && Caster != null && IsInstanceValid(Caster)) { Caster.OnDealtDamage(dealt); Caster.AttributeHit(e, GlobalPosition); }
         return dealt;
     }
 

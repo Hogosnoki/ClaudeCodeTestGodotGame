@@ -1989,25 +1989,38 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
 
-## Elements (the Swordsman and the Elementalist)
+## Elements (the Swordsman, the Elementalist and the Warden)
 
-The Swordsman and the Elementalist fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`, `Enemies/Enemy.Elements.cs`,
-`Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`). Their attacks are plain until an element is readied: **1, 2, 3** on the keyboard,
-**d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*. The next attack spends
-it and becomes that element's version; each version rests its ability for its own time (a heavy version longer than a light one). One
-charge waits (pressed again, it's put away); once dual charges are unlocked, up to **two** (see *Dual charges* below; a third press drops
-the oldest). Readied charges wait as long as it takes, and a new one can be readied a second after the last (a press inside that
-second is kept). That second is the price of an element: **the element versions wait on no cooldown and cost no alimus** (the rests in
-the tables below apply only with `Tune.Elements.VersionsRest` turned on); the plain abilities keep theirs. A readied element shows as a
-**glow on the hero's weapon** in its colour, bright enough to read at a glance (an aura over the whole sword blade with its edge burning
-inside; a halo about the staff's orb, the orb swollen and burning hot), in every game online, instead of sparks. As an element goes on,
-it runs across the weapon: a puff of flame along it, a sheen of ice up it from hand to tip, a crackle of grit, a twist of wind, and the
-glow flares a moment. The HUD
-shows the hero's three elements on a half circle over the ability squares, one at each point of a triangle as they sit on the d-pad (left,
-up, right; keys 1, 2, 3), the readied ones lit (a second charge of one as a small second diamond), the charges in the middle in the order
-they'll be spent with the one-second charge cooldown going round them; every button has its square with its cooldown and the seconds left
-written over it, and
-each square is named for the version the readied charges would make.
+The Swordsman, the Elementalist and the Warden fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
+`Enemies/Enemy.Elements.cs`, `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`, `Tune.ElementalWarden`), on **1, 2, 3** on the
+keyboard, **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*.
+
+**Modes.** The hero is always **in one of their elements** (its mode): every ability is that element's version, so in fire mode the
+Swordsman's swings are Searing Strikes, his Hard Swing Pyroclasty, his dodge (from the ground) an Explosive Lunge. Each hero starts in their
+own element (`Elements.Signature`: the Swordsman and the Elementalist fire, the Warden earth). **One slot sits on top of the mode**, and the
+element buttons fill it:
+
+| You press... | It does |
+|---|---|
+| your **mode's own** element | **Overcharge**: it goes on top, and the next ability that has a greater version (the same-element pairs below: Glacier Cleaver, Meteorite, Rain of Fire, Bastion, Avalanche...) becomes it; that element's overcharge then comes back after 18 s (`OverchargeRecharge`) |
+| **another** element | it goes on top as the **attribute** (replacing whatever was there, an overcharge too): every blow and spell adds a little of it (15 build-up; wind, a shove), until replaced |
+| the **attribute's** element again | the **mode switches** to it (the slot empties), at most once every 4.5 s (`ModeCooldown`) |
+
+So fire, fire, wind leaves you in fire mode with wind riding on top (the overcharge is gone); wind again puts you in wind mode. Presses are
+taken 0.3 s apart (`ChargeCooldown`; one inside it is kept). In modes **every button keeps its cooldown** (`VersionsRest`, one cooldown per
+button whatever the mode, so switching never refreshes one): the rests in the tables below apply. A few versions rest on their own while the
+button stays usable (the Heaving Swing, the elements' movement), and the button is plain meanwhile (a swing, the Dash Slash, Lift). The
+**mixed pairs** (Frost Heave, Thermal Shock, Fire Barrage, Frostquake...) are shelved for now. Overcharges are locked on a new save
+(`Meta.DualCharges`; `Tune.Testing.DualCharges` opens them for testing), so a new player starts with just modes.
+
+The mode shows as a steady **glow on the hero's weapon** in its colour (an aura over the sword blade; a halo about the staff's orb, the
+orb swollen and burning hot; the Warden's shield too), in every game online; an attribute burns along the sword's edge (and in the staff's
+halo) in its colour, and an overcharge makes the glow flare and pulse. As an element goes on, it runs across the weapon: a puff of flame
+along it, a sheen of ice up it from hand to tip, a crackle of grit, a twist of wind. The HUD shows the hero's three elements on a half
+circle over the ability squares, one at each point of a triangle as they sit on the d-pad (left, up, right; keys 1, 2, 3): the mode big and
+lit, what's on top as a small diamond at its corner, each element's overcharge coming back as a ring round its point, the mode's switch
+coming back round the middle, and the mode written beside it (FIRE MODE, FIRE + WIND, FIRE OVERCHARGED); every button has its square with
+its cooldown and the seconds left, named for what it does now.
 
 **Build-up, not chances.** An elemental blow fills a creature's meter of that element (thin coloured bars over it); full, it takes hold and
 empties: **fire** sets it alight, and full again while alight it **combusts** (a burst on it and those pressed close, with what the fire had
@@ -2016,7 +2029,7 @@ blow **shatters** the frozen; **earth** stuns it (one that can't be stunned is w
 slower); wind **shoves** (light creatures far, heavy ones hardly). Elites take 70% of a build-up, guardians and bosses 40%; meters drain a
 while after the last that reached them. Online, the host keeps the meters (only the host's screen shows them, for now).
 
-Each line below is one button; an element readied changes the next use of whichever button you press (names in `Elements.SingleName`).
+Each line below is one button, by the mode the hero is in (names in `Elements.SingleName`).
 
 | Swordsman (earth, fire, frost) | Plain | Earth | Fire | Frost |
 |---|---|---|---|---|
@@ -2057,15 +2070,12 @@ gathering, `Player.Hold.cs`) is slow motion now, not a pause: a jump keeps risin
 every change to the motion at a tenth of the rate, and when it ends the hero carries on at full speed (it used to stop the rise, drop the
 hero, then hand the rise back).
 
-### Dual charges
+### Greater versions (overcharge) and the shelved mixed pairs
 
-Dual charges are **unlocked**, not there from the start, so a new player meets one element at a time (`Meta.DualCharges`, kept in each save
-as `dual_charges`); without them one charge waits and pressing it again puts it away. Where they're earned is still to be decided (likely
-the Ember Grid, when it's laid out again); for now `Tune.Testing.DualCharges` keeps them open for testing.
-
-Ready **two charges** (the same element twice, or two different) and a button that has an ability for the pair spends both on it
-(`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`, names in `Elements.DualName`). A button with
-nothing for the pair spends only the oldest charge, as with one. Each dual is its own mechanic, not a bigger version of a single:
+An **overcharge** (the mode's own element pressed again) makes the next use of a button that has one the mode's **greater version**: the
+same-element pairs in the tables below (`Player/Player.Duals.cs`, the lasting spells in `Combat/ElementalFx.cs`, `Tune.Dual`, names in
+`Elements.DualName`). A button without one uses the mode's version and the overcharge waits. The **mixed pairs** in the tables (two
+different elements) aren't reachable in modes for now: the code and the spells stay, shelved, for later (co-op or world interactions).
 
 | Swordsman (Hard Swing) | | What it does | Rest |
 |---|---|---|---|
@@ -2101,15 +2111,15 @@ everyone's copy of the Swordsman). `--scenario=elements` checks every single and
 ### The elemental Warden
 
 The Warden fights with **earth, frost and wind** (`Player/Player.WardenElements.cs`, `Tune.ElementalWarden`). His three buttons are the
-**attack** (the shortsword), the **block** (the shield, raised) and the **dash** (the Guarded Charge), and each has a plain version, a
-version for each element and a version for **every pair** (two charges readied: the same twice or two different). His **Shield Bash is not
-in the elemental kit** (its cards aren't dealt); Taunt, on the support button, is as it was. As with the others, a version waits on no
-cooldown (the charge's second paces it), and his shortsword and shield glow with the readied element.
+**attack** (the shortsword), the **block** (the shield, raised) and the **dash** (the Guarded Charge), each with a version for each mode
+and a greater version when overcharged (the same-element pairs below; the mixed pairs are shelved with the others'). He starts in earth
+mode. His **Shield Bash is not in the elemental kit** (its cards aren't dealt); Taunt, on the support button, is as it was. His dash keeps
+its own cooldown; his shortsword and shield glow with his mode.
 
 | Warden (earth, frost, wind) | Plain | Earth | Frost | Wind |
 |---|---|---|---|---|
 | **Attack** | the shortsword | **Stonecutter**: x1.25, 50 earth | **Rime Edge**: x1.25, 50 frost | **Gale Edge**: 1.3x the reach, throws what it strikes back |
-| **Block** (the shield raised with charges readied takes their **guard**, which holds while it stays up, 6 s at most) | the shield | **Stone Guard**: nothing gets through, the shield doesn't wear, a striker is stunned (full earth) | **Rime Guard**: a striker is filled with frost (full) | **Gale Guard**: a striker is thrown back, shots go back where they came from |
+| **Block** (each time the shield goes up it takes the mode's **guard**, which holds while it stays up, 6 s at most) | the shield | **Stone Guard**: nothing gets through, the shield doesn't wear, a striker is stunned (full earth) | **Rime Guard**: a striker is filled with frost (full) | **Gale Guard**: a striker is thrown back, shots go back where they came from |
 | **Dash** (every elemental charge runs through creatures, each struck once, instead of stopping at one) | the Guarded Charge | **Rockslide Charge**: ploughs through (x0.6 each) and ends in a shockwave of earth, 60 px (x1.4, full earth) | **Frozen Tundra**: 40 frost to what it passes; the ground it crossed (and 40 px past each end) freezes for 8 s | **Gale Charge**: 1.6x as long and 1.3x as fast, throwing creatures aside; friends it passes get a tailwind for 3 s |
 
 | Pair | Attack | Block | Dash |
@@ -2121,9 +2131,9 @@ cooldown (the charge's second paces it), and his shortsword and shield glow with
 | Earth + Wind | **Sandblast**: a cone of grit 120 px ahead nicks (x0.5) and saps everything in it for 3 s | **Dust Wall**: a cloud of dust in front (56 px, 6 s) hides friends and saps creatures; stone and wind together | **Duststorm**: a long charge leaving clouds of dust behind (friends hidden, creatures sapped), and the quake at its end |
 | Frost + Wind | **Frost Gust**: a freezing wind 120 px ahead: 60 frost, driven back | **Hoarfrost Gale**: strikers filled with frost and thrown back, shots go back | **Blizzard Charge**: farther and faster, 60 frost to what it passes, thrown aside; the ground it crossed freezes |
 
-The names are my fill-ins; rename or swap them freely. The HUD shows his three buttons, each named for what the readied charges would
-make of it (the block's square shows the guard while it holds, the shield's strength beside them). `--scenario=elements --hero=warden`
-checks every version (`warden_guard.png`, `warden_bulwark.png`, `warden_hud.png`).
+The names are my fill-ins; rename or swap them freely. The HUD shows his three buttons, each named for what it does in his mode (the
+block's square shows the guard while it holds, the shield's strength beside them). `--scenario=elements --hero=warden`
+checks every mode and greater version, and (for all three heroes) the mode controls (`modes_overcharged.png`, `modes_switched.png`, `warden_guard.png`, `warden_bulwark.png`, `warden_hud.png`).
 
 **Classic kits**: *Settings > Controls > Classic Swordsman, Elementalist & Warden* brings back their old kits (from the next run). The tests of the
 classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`) tests the elemental ones (`elements_hud.png`), and

@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -29,6 +30,9 @@ public static class Elements
     private static readonly HeroElement[] Sword = { HeroElement.Earth, HeroElement.Fire, HeroElement.Frost };
     private static readonly HeroElement[] Ele = { HeroElement.Fire, HeroElement.Frost, HeroElement.Wind };
     private static readonly HeroElement[] Ward = { HeroElement.Earth, HeroElement.Frost, HeroElement.Wind };
+
+    /// <summary>The mode a hero starts in: the element that is most their own.</summary>
+    public static HeroElement Signature(HeroKind h) => h switch { HeroKind.Warden => HeroElement.Earth, HeroKind.Swordsman or HeroKind.Elementalist => HeroElement.Fire, _ => Of(h).FirstOrDefault() };
 
     /// <summary>The hero's three elements, in button order (1, 2, 3).</summary>
     public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h switch { HeroKind.Swordsman => Sword, HeroKind.Warden => Ward, _ => Ele };

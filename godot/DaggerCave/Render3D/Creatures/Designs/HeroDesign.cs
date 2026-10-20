@@ -937,9 +937,11 @@ public sealed partial class HeroDesign : CreatureDesign
                 halo.Visible = elem;
                 if (elem && halo.MaterialOverride is StandardMaterial3D hm)
                 {
-                    float breathe = 0.85f + 0.15f * MathF.Sin(a.Time * 6f) + 2.2f * (player?.InfuseFlash ?? 0f);
-                    hm.AlbedoColor = new Color(col, 0.5f * breathe);
-                    hm.Emission = col;
+                    // (the mode's colour; an attribute on top, its colour; an overcharge, a flare)
+                    float breathe = (player.Overcharged ? 1.5f : 0.8f) + 0.15f * MathF.Sin(a.Time * (player.Overcharged ? 11f : 6f)) + 2.2f * player.InfuseFlash;
+                    var hc = player.Attribute != HeroElement.None ? Elements.ColorOf(player.Attribute) : col;
+                    hm.AlbedoColor = new Color(hc, 0.5f * breathe);
+                    hm.Emission = hc;
                     hm.EmissionEnergyMultiplier = 4.5f * breathe;
                     halo.Scale = Vector3.One * (0.9f + 0.15f * breathe);
                 }
@@ -969,8 +971,9 @@ public sealed partial class HeroDesign : CreatureDesign
                 if (aura.Visible && aura.MaterialOverride is StandardMaterial3D am)
                 {
                     var ac = Elements.ColorOf(readied);
-                    // (it flares up as the element takes)
-                    float breathe = 0.85f + 0.15f * MathF.Sin(a.Time * 6f) + 2.2f * (player?.InfuseFlash ?? 0f);
+                    // (the mode's colour, steady; an overcharge flares it; it flares up as an element is pressed)
+                    bool over = player != null && player.Overcharged;
+                    float breathe = (over ? 1.5f : 0.75f) + 0.15f * MathF.Sin(a.Time * (over ? 11f : 6f)) + 2.2f * (player?.InfuseFlash ?? 0f);
                     am.AlbedoColor = new Color(ac, 0.5f * breathe);
                     am.Emission = ac;
                     am.EmissionEnergyMultiplier = 4.5f * breathe;
@@ -981,7 +984,9 @@ public sealed partial class HeroDesign : CreatureDesign
             edge.Visible = on;
             light.Visible = on;
             if (!on) return;
-            var tint = readied != HeroElement.None ? Elements.ColorOf(readied) : new Color(1f, 0.45f, 0.15f);
+            // (the edge burns in the attribute's colour when one rides on top of the mode)
+            var attr = player.AxeKind > 0 ? HeroElement.None : player.Attribute;
+            var tint = attr != HeroElement.None ? Elements.ColorOf(attr) : readied != HeroElement.None ? Elements.ColorOf(readied) : new Color(1f, 0.45f, 0.15f);
             float flick = readied is HeroElement.Frost or HeroElement.Earth ? 0.88f + 0.12f * MathF.Sin(a.Time * 2.4f) : 0.75f + 0.25f * MathF.Sin(a.Time * 23f) * MathF.Sin(a.Time * 7.3f);
             bool elem = readied != HeroElement.None;
             if (edge.MaterialOverride is StandardMaterial3D em)

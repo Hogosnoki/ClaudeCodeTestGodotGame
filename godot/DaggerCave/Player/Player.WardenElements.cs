@@ -309,6 +309,7 @@ public partial class Player
             if (_guardA == HeroElement.Frost && _guardB == HeroElement.Frost && !melee.Dead) melee.Build(HeroElement.Frost, Tune.Elements.Full, power, this);
         }
         if (PairHas(_guardA, _guardB, HeroElement.Wind) && !melee.Dead) melee.Shove(away * Tune.ElementalWarden.GuardShove + new Vector2(0, -80f));
+        AttributeHit(melee, GlobalPosition);
         var col = _guardB == HeroElement.None ? Elements.ColorOf(_guardA) : Elements.DualColor(_guardA, _guardB);
         G.Fx.Ring(melee.GlobalPosition, melee.HitRadius + 8, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
         GuardAnswered++;
@@ -366,6 +367,7 @@ public partial class Player
                 if (_wDash == "Tempest Charge") _carried.Add(e);
                 else e.Shove(new Vector2(_dashDir.X * Tune.ElementalWarden.AsideShove * 0.4f, -Tune.ElementalWarden.AsideShove));
             }
+            AttributeHit(e, front - _dashDir * 10f);
             G.Fx.Spark(e.GlobalPosition, _dashDir, true, Elements.ColorOf(_dashA));
         }
         if (wind)
