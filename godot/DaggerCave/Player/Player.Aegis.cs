@@ -70,6 +70,9 @@ public partial class Player
 
     // ---------------------------------------------------------------- the ward bolt
 
+    /// <summary>For the tests: bolts the last cast loosed.</summary>
+    public int LastShotCount { get; private set; }
+
     /// <summary>The ward bolt (an elemental Aegis's bubble shot: <paramref name="ver"/> its version, <paramref name="el"/> its element, its
     /// speed, damage and burst x these, <paramref name="count"/> of them fanned).</summary>
     private bool CastWardBolt(Vector2 aim, bool held = false, string ver = "", HeroElement el = HeroElement.None, float speedMult = 1f, float dmgMult = 1f, float burstMult = 1f, int count = 1)
@@ -89,6 +92,7 @@ public partial class Player
         _castGlow = 0.7f;
         float dmg = Tune.Aegis.BoltDamage * Stats.DamageMult * Stats.PrimaryDamageMult * dmgMult;
         ElementBolt bolt = null;
+        LastShotCount = count;
         for (int k = 0; k < count; k++)
         {
             float spread = (k - (count - 1) * 0.5f) * Tune.ElementalAegis.VolleySpread;

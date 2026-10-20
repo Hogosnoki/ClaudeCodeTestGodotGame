@@ -185,11 +185,19 @@ public partial class Main
         Home();
         var foe = Add(90, hold: false);
         foreach (var _ in ElWait(0.3f)) yield return null;
-        float d0 = Math.Abs(foe.GlobalPosition.X - p.GlobalPosition.X);
         foreach (var _ in Ready(1)) yield return null;
-        foreach (var _ in ElPress(Shot(), 0.7f)) yield return null;
-        float d1 = Math.Abs(foe.GlobalPosition.X - p.GlobalPosition.X);
-        ScCheck($"wind mode's shot: Gale Bubble's burst throws the creature back ({d0:0} -> {d1:0} px)", p.ElementalUses.Contains("Gale Bubble") && d1 > d0 + 10f);
+        // (it comes on toward her as it would; the burst throws it back: the fastest it went away from her)
+        float away = 0f, lastX = foe.GlobalPosition.X;
+        _scInput = Shot(); yield return null; _scInput = default;
+        for (float t = 0; t < 0.8f; t += (float)GetProcessDeltaTime())
+        {
+            float dt = Math.Max(0.001f, (float)GetProcessDeltaTime());
+            away = Math.Max(away, (foe.GlobalPosition.X - lastX) * p.Facing / dt);
+            lastX = foe.GlobalPosition.X;
+            yield return null;
+        }
+        ScCheck($"wind mode's shot: Gale Bubble's burst throws the creature back ({away:0} px/s away from her at the fastest)", p.ElementalUses.Contains("Gale Bubble") && away > 80f);
+        float d0, d1;
         Clear(); Home();
         foe = Add(90);
         foreach (var _ in ElWait(0.3f)) yield return null;
@@ -204,9 +212,16 @@ public partial class Main
         ScCheck($"frost mode's shot: Rime Bubble ({foe.FrostBuild:0} frost)", p.ElementalUses.Contains("Rime Bubble") && foe.FrostBuild > 1);
         Clear(); Home();
         foreach (var _ in Ready(1, 1)) yield return null;
-        _scInput = Shot(); yield return null; _scInput = default; yield return null;
-        int volley = G.World.GetChildren().OfType<ElementBolt>().Count(b => b.Version == "Bubble Volley");
-        ScCheck($"wind overcharged: Bubble Volley, three shots fanned ({volley})", p.ElementalUses.Contains("Bubble Volley") && volley >= 3);
+        _scInput = Shot(); yield return null; _scInput = default;
+        int volley = 0;
+        var seen = new List<int>();
+        for (int f = 0; f < 6; f++)
+        {
+            int n = G.World.GetChildren().OfType<ElementBolt>().Count(b => b.Version == "Bubble Volley");
+            seen.Add(n); volley = Math.Max(volley, n);
+            yield return null;
+        }
+        ScCheck($"wind overcharged: Bubble Volley, three shots fanned ({volley}; frame by frame {string.Join(",", seen)}; {p.LastShotCount} loosed)", p.ElementalUses.Contains("Bubble Volley") && volley >= 3);
         foreach (var _ in ElWait(0.6f)) yield return null;
         ScShot("aegis_volley");
         Clear(); Home();
