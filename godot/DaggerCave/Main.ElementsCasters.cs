@@ -480,7 +480,9 @@ public partial class Main
         for (float t = 0; t < 4f && !p.FormSpecialReady; t += (float)GetProcessDeltaTime()) yield return null;
         p.TestOvercharge();
         int ent0 = foe.Entangled;
-        p.TestSpecial(aim);
+        // (right before the rat, wherever its bite took it)
+        foe.GlobalPosition = p.GlobalPosition + new Vector2(p.Facing * 16f, -2f);
+        p.TestSpecial(new Vector2(p.Facing, 0));
         foreach (var _ in ElWait(1.2f)) yield return null;
         ScCheck($"overcharged, the rat's special is Plague Gnaw ({p.GreaterSpecials} greater), its bites entangling ({foe.Entangled - ent0} more)", p.ElementalUses.Contains("Plague Gnaw") && p.GreaterSpecials > 0 && foe.Entangled > ent0 && !p.Overcharged);
         ScShot("shifter_greater");
@@ -492,6 +494,8 @@ public partial class Main
         // ---- her staff carries the mode's element
         foreach (var _ in Drop()) yield return null;
         p.TestMode(HeroElement.Water);
+        foe.GlobalPosition = start + new Vector2(face * 20f, -4f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElPress(new PlayerInput { Attack = true, Aim = aim, AimGiven = true }, 0.6f)) yield return null;
         ScCheck($"out of a form, her staff in water mode is the Tide Staff ({foe.WaterBuild:0} water)", p.ElementalUses.Contains("Tide Staff") && foe.WaterBuild > 1);
         ScShot("shifter_hud");

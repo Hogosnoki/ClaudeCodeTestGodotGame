@@ -334,7 +334,9 @@ public partial class Main
         p.TestMode(sig); p.TestResetModeCooldowns();
         p.TestAttribute(E(o1));
         string mix = p.NameFor(ElemSlot.Attack);
-        ScCheck($"with {Elements.Name(E(o1)).ToLowerInvariant()} on top, the attack is the mix: {mix}", mix == Elements.DualName(p.Stats.Hero, ElemSlot.Attack, sig, E(o1)) && mix != "");
+        // (the Shape Shifter has no mixes: her element is the kind of creature, and the attribute rides on its blows)
+        if (p.Stats.Hero == HeroKind.ShapeShifter) ScCheck($"with {Elements.Name(E(o1)).ToLowerInvariant()} on top it stays there, to ride on her blows ({p.Attribute})", p.Attribute == E(o1));
+        else ScCheck($"with {Elements.Name(E(o1)).ToLowerInvariant()} on top, the attack is the mix: {mix}", mix == Elements.DualName(p.Stats.Hero, ElemSlot.Attack, sig, E(o1)) && mix != "");
         p.TestMode(sig);
         p.TestResetModeCooldowns();
     }
