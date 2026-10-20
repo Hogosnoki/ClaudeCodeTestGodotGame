@@ -275,4 +275,122 @@ public partial class Main
         Clear(); Home();
         foreach (var _ in PairCoverageRun(p)) yield return null;
     }
+
+    private IEnumerable<object> RogueElementsRun()
+    {
+        var p = G.Player;
+        foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+        p.Stats.MaxHp = p.Hp = 5000;
+        p.InputOverride = () => { var i = _scInput; _scInput.Infuse = 0; _scInput.Attack = _scInput.Ability = _scInput.Ability2 = _scInput.Dodge = false; return i; };
+        foreach (var _ in ElWait(0.5f)) yield return null;
+        var start = p.GlobalPosition;
+        var aim = new Vector2(p.Facing, 0);
+        var foes = new List<Enemy>();
+        void Clear() { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); }
+        Enemy Add(float dx, bool hold = true) { var e = ElDummy(p, dx, hold); foes.Add(e); return e; }
+        void Home() { p.TestCatchDaggers(); p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.ResetAbilityCooldowns(); }
+        PlayerInput Atk() => new() { Attack = true, Aim = aim, AimGiven = true };
+        PlayerInput Throw() => new() { Ability = true, Aim = aim, AimGiven = true };
+        PlayerInput Evade() => new() { Dodge = true, Aim = aim, AimGiven = true };
+        IEnumerable<object> Ready(int a, int b = 0)
+        {
+            foreach (var _ in ElMode(a, 0.02f)) yield return null;
+            if (b == a) p.TestOvercharge();
+            else if (b > 0) p.TestAttribute(Elements.Of(p.Stats.Hero)[b - 1]);
+        }
+
+        ScCheck($"the Rogue fights with elements: {string.Join(", ", Elements.Of(p.Stats.Hero))}, starting in dark mode",
+            p.Elemental && Elements.Of(p.Stats.Hero).SequenceEqual(new[] { HeroElement.Dark, HeroElement.Wind, HeroElement.Nature }) && Elements.Signature(p.Stats.Hero) == HeroElement.Dark);
+        foreach (var _ in ModeControlsRun(p)) yield return null;
+
+        // ---- dark on a creature: blinded
+        var foe = Add(60, hold: false);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foe.Build(HeroElement.Dark, Tune.Elements.Full, 1f, p);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        ScCheck($"a full meter of dark blinds a creature ({foe.Blinded}): it loses her ({foe.LostTrack}), and it's laid open (crit bonus {foe.CritBonus:0.00})", foe.Blindings == 1 && foe.Blinded && foe.LostTrack && foe.CritBonus > 0);
+        Clear();
+
+        // ---- the strike
+        Home();
+        foe = Add(24);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Ready(1)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.4f)) yield return null;
+        ScCheck($"dark mode's strike: Shadow Strike ({foe.DarkBuild:0} dark)", p.ElementalUses.Contains("Shadow Strike") && foe.DarkBuild > 1);
+        foreach (var _ in Ready(3)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.4f)) yield return null;
+        ScCheck($"nature mode's strike: Venom Jab ({foe.NatureBuild:0} nature)", p.ElementalUses.Contains("Venom Jab") && foe.NatureBuild > 1);
+        Clear(); Home();
+        foreach (var _ in ElWait(0.4f)) yield return null;
+        foreach (var _ in Ready(1)) yield return null;
+        _scInput = Atk(); yield return null; _scInput = default;
+        float darkCd = p.SwingCooldownLeft;
+        foreach (var _ in ElWait(0.5f)) yield return null;
+        foreach (var _ in Ready(2)) yield return null;
+        _scInput = Atk(); yield return null; _scInput = default;
+        float galeCd = p.SwingCooldownLeft;
+        ScCheck($"wind mode's strike: Gale Jab comes far quicker ({galeCd:0.00} s to the next, against {darkCd:0.00})", p.ElementalUses.Contains("Gale Jab") && galeCd < darkCd * 0.85f);
+        foreach (var _ in ElWait(0.4f)) yield return null;
+        Home();
+        foe = Add(24);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Ready(1, 1)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.4f)) yield return null;
+        ScCheck($"dark overcharged: Nightfall blinds what it strikes ({foe.Blinded})", p.ElementalUses.Contains("Nightfall") && foe.Blinded);
+        Clear(); Home();
+        foe = Add(24);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        float side0 = Math.Sign(p.GlobalPosition.X - foe.GlobalPosition.X);
+        foreach (var _ in Ready(1, 2)) yield return null;
+        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
+        float side1 = Math.Sign(p.GlobalPosition.X - foe.GlobalPosition.X);
+        ScCheck($"dark with wind on top: Shade Step takes her through the creature to its far side (side {side0} -> {side1})", p.ElementalUses.Contains("Shade Step") && p.ShadeSteps > 0 && side1 == -side0);
+        ScShot("rogue_shadestep");
+
+        // ---- the throw
+        Clear(); Home();
+        foe = Add(120);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Ready(1)) yield return null;
+        foreach (var _ in ElPress(Throw(), 0.6f)) yield return null;
+        ScCheck($"dark mode's throw: Shadow Knife ({foe.DarkBuild:0} dark)", p.ElementalUses.Contains("Shadow Knife") && foe.DarkBuild > 1);
+        Clear(); Home();
+        foreach (var _ in Ready(2, 2)) yield return null;
+        foreach (var _ in ElPress(Throw(), 0.1f)) yield return null;
+        ScCheck($"wind overcharged: Fan of Knives throws both daggers at once ({2 - p.DaggersInHand} out)", p.ElementalUses.Contains("Fan of Knives") && p.DaggersInHand == 0);
+        Home();
+        foe = Add(150);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        float d0 = Math.Abs(foe.GlobalPosition.X - p.GlobalPosition.X);
+        foreach (var _ in Ready(1, 2)) yield return null;
+        foreach (var _ in ElPress(Throw(), 1.2f)) yield return null;
+        float d1 = Math.Abs(foe.GlobalPosition.X - p.GlobalPosition.X);
+        ScCheck($"dark with wind on top: Shadow Tether draws her along to her dagger ({d0:0} -> {d1:0} px)", p.ElementalUses.Contains("Shadow Tether") && d1 < d0 - 40f);
+        ScShot("rogue_tether");
+
+        // ---- the evade
+        Clear(); Home();
+        foreach (var _ in Ready(1)) yield return null;
+        foreach (var _ in ElPress(Evade(), 0.1f)) yield return null;
+        ScCheck($"dark mode's evade: Shadowmeld holds her longer ({p.VanishLeft:0.0} s, against {p.VanishTotal:0.0})", p.ElementalUses.Contains("Shadowmeld") && p.VanishLeft > p.VanishTotal * 1.2f);
+        foreach (var _ in ElPress(Atk(), 0.3f)) yield return null;
+        Home();
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        float x0 = p.GlobalPosition.X;
+        foreach (var _ in Ready(2)) yield return null;
+        foreach (var _ in ElPress(Evade(), 0.4f)) yield return null;
+        ScCheck($"wind mode's evade: Gale Step dashes her ahead ({(p.GlobalPosition.X - x0) * p.Facing:0} px)", p.ElementalUses.Contains("Gale Step") && Math.Abs(p.GlobalPosition.X - x0) > 25f);
+        foreach (var _ in ElPress(Atk(), 0.3f)) yield return null;
+        Home();
+        foe = Add(40);
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Ready(1, 1)) yield return null;
+        foreach (var _ in ElPress(Evade(), 0.3f)) yield return null;
+        ScCheck($"dark overcharged: Umbral Veil blinds the creature near ({foe.Blinded})", p.ElementalUses.Contains("Umbral Veil") && foe.Blinded);
+        ScShot("rogue_hud");
+        foreach (var _ in ElPress(Atk(), 0.3f)) yield return null;
+        Clear(); Home();
+        foreach (var _ in PairCoverageRun(p)) yield return null;
+    }
 }

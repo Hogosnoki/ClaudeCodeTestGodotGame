@@ -407,7 +407,7 @@ public abstract partial class Enemy : CharacterBody2D
         // lost track: its hero is hidden (vanished, or in smoke), or it stands in smoke itself.
         // Whatever it was already swinging plays out; then it stands there, looking about.
         // (Guardians and bosses aren't fooled.)
-        bool lost = Master == null && !IsBoss && !IsGuardian && !Attacking && (P.Hidden || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition)));
+        bool lost = Master == null && !IsBoss && !IsGuardian && !Attacking && (P.Hidden || Blinded || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition)));
         if (lost && !_lost) G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 14), "?", new Color(0.9f, 0.9f, 0.95f), 12, 0.7f);
         _lost = lost;
         if (Stun > 0)

@@ -27,7 +27,7 @@ public partial class Player
 
     private HeroElement _mode, _top;
     private float _modeCd;
-    private readonly float[] _overCd = new float[7];
+    private readonly float[] _overCd = new float[8];
     private HeroElement _netMode, _netTop;
 
     /// <summary>The element the hero is in: all their abilities are its versions.</summary>
@@ -280,7 +280,7 @@ public partial class Player
     public float HardSwingSeconds => Math.Max(0f, _heaveCd - HeaveSpareTime);
     public float AbilitySeconds => AbilityChargeReady ? 0f : Math.Max(0f, AbilityCooldowns.Min());
 
-    private void ClearSwingElement() { _swingEl = _swingEl2 = HeroElement.None; _swingBuild = _swingBuild2 = 0; _swingShatter = false; _wSwing = ""; ClearDualSwing(); }
+    private void ClearSwingElement() { _swingEl = _swingEl2 = HeroElement.None; _swingBuild = _swingBuild2 = 0; _swingShatter = false; _wSwing = ""; _rSwing = ""; ClearDualSwing(); }
     /// <summary>A pair's swing carries a second element too (its build-up on each blow).</summary>
     private HeroElement _swingEl2;
     private float _swingBuild2;
@@ -608,6 +608,7 @@ public partial class Player
         AttributeHit(e, GlobalPosition);
         DualBladeHit(e);
         if (IsWarden) WardenBladeHit(e);
+        if (IsRogue) RogueBladeHit(e);
         if (_hiltT <= 0 || e.Dead) return;
         HiltTouch(e, _hiltEl, _hiltBig);
         if (_hiltEl2 != HeroElement.None) HiltTouch(e, _hiltEl2, 1f);

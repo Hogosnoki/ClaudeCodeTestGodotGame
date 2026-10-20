@@ -125,7 +125,7 @@ public partial class Player
         var target = FindSpellTarget(aim, Tune.Rogue.ThrowRange, Tune.Rogue.ThrowConeDegrees);
         var from = GlobalPosition + new Vector2(0, -6);
         var dir = target != null ? (target.GlobalPosition - from).Normalized() : aim;
-        bool both = Stats.TwinThrow && !Stats.LoneThrow && DaggersInHand == 2;
+        bool both = (Stats.TwinThrow || _rThrowNext == "Fan of Knives") && !Stats.LoneThrow && DaggersInHand == 2;
         bool surprise = StrikeFromShadows();
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         Anim.Face((int)Facing, instant: true);
@@ -160,7 +160,10 @@ public partial class Player
             Position = from + dir * 6f, Dir = dir, Index = k, Thrower = this,
             Ricochet = Stats.Ricochet, Bounces = Stats.RicochetBounces,
             Damage = Tune.Rogue.ThrowDamage * Stats.DamageMult * Stats.ThrowDamageMult, FromShadows = surprise,
+            // (an elemental throw: its version and element, and a wind one's speed)
+            Version = _rThrowNext, El = _rThrowEl,
         };
+        if (_rThrowNext is "Gale Knife" or "Fan of Knives") d.Speed *= Tune.ElementalRogue.GaleSpeed;
         _thrown[k] = d;
         G.Spawn(d);
         NetSync.HeroVisual(d);
@@ -174,10 +177,13 @@ public partial class Player
         // (one surprise per attack: a pair thrown together share it)
         foreach (var t in _thrown) if (t != null && IsInstanceValid(t)) t.FromShadows = false;
         d.FromShadows = false;
-        float mult = RogueStrikeMult(e, GlobalPosition, surprise, out bool crit);
+        float mult = RogueStrikeMult(e, GlobalPosition, surprise, out bool crit, d.Version == "Umbral Knife");
         float dealt = e.Hurt(d.Damage * mult, d.Dir * Tune.Rogue.ThrowNudge, at);
         if (dealt <= 0) return;
         OnDealtDamage(dealt);
+        // (the elemental Rogue's knife: its version, and her attribute riding on it)
+        if (Elemental && !e.Dead) AttributeHit(e, GlobalPosition);
+        if (d.Version != "") RogueKnifeStruck(d, e, at);
         if (crit) CritFx(e, at);
         e.HitStop(Tune.Rogue.HitStop * 2f);
         G.Sfx.Play("hit", at, -4, 0.1f, 1.3f);
@@ -325,8 +331,11 @@ public partial class Player
 
     private bool TryVanish()
     {
-        if (!IsRogue || !AbilityChargeReady) return false;
-        SpendAbilityCharge();
+        // (an elemental evade while cooldowns are off for testing: free)
+        bool free = _rEvadeFree;
+        _rEvadeFree = false;
+        if (!IsRogue || (!AbilityChargeReady && !free)) return false;
+        if (!free) SpendAbilityCharge();
         _surpriseReady = Stats.SurpriseAttack;
         var foot = GlobalPosition + new Vector2(0, 8);
         if (Stats.SmokeBomb)

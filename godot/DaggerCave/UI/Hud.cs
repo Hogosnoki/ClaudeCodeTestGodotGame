@@ -920,6 +920,12 @@ public partial class Hud : Control
         "Crystal Dome" => "CRYSTAL", "Dust Dome" => "DUST", "Blizzard Dome" => "BLIZZARD", "Wind Ward" => "WIND W.", "Stone Skin" => "STONESKIN",
         "Frost Ward" => "FROST W.", "Bulwark Ward" => "BULWARK", "Glacial Ward" => "GLACIAL", "Twin Gale" => "TWIN", "Permafrost Ward" => "PERMAFROST",
         "Sandstorm Ward" => "SANDSTORM", "Winter Ward" => "WINTER",
+        "Shadow Strike" => "SHADOW", "Gale Jab" => "GALE", "Venom Jab" => "VENOM", "Nightfall" => "NIGHTFALL", "Flurry" => "FLURRY", "Deathcap" => "DEATHCAP",
+        "Thornwind" => "THORNWIND", "Shade Step" => "SHADE", "Nightshade" => "NIGHTSHADE", "Shadowmeld" => "MELD", "Gale Step" => "GALE STEP",
+        "Spore Cloud" => "SPORES", "Umbral Veil" => "UMBRAL", "Wind Walk" => "WIND WALK", "Overgrowth Veil" => "OVERGROWTH", "Leaf Storm" => "LEAVES",
+        "Shadow Dash" => "S.DASH", "Nightbloom" => "NIGHTBLOOM", "Dagger Throw" => "THROW", "Shadow Knife" => "SHADOW", "Gale Knife" => "GALE",
+        "Barbed Knife" => "BARBED", "Umbral Knife" => "UMBRAL", "Fan of Knives" => "FAN", "Thorn Knife" => "THORN", "Pollen Knife" => "POLLEN",
+        "Shadow Tether" => "TETHER", "Nightshade Knife" => "NIGHTSHADE",
         _ => name.ToUpperInvariant(),
     };
 
@@ -1232,13 +1238,17 @@ public partial class Hud : Control
     {
         var gold = Hud.HeroColor(HeroKind.Rogue);
         var shadow = new Color(0.7f, 0.62f, 0.95f);
-        Dial(ab + new Vector2(17, 17), p.Vanished ? 0f : p.AbilityCooldownFrac, shadow, "VANISH");
+        // (elemental: the mode's elements above, and each button named, and coloured, for what it does now)
+        bool el = p.Elemental;
+        if (el) { DrawElementRow(font, p, ab + new Vector2(0, -74), $"{Short(p.NameFor(ElemSlot.Attack))} ON ATTACK"); shadow = SlotColor(p, ElemSlot.Move, shadow); }
+        string evade = el ? Short(p.NameFor(ElemSlot.Move)) : p.Stats.SmokeBomb ? "SMOKE" : "VANISH";
+        Dial(ab + new Vector2(17, 17), p.Vanished ? 0f : p.AbilityCooldownFrac, shadow, evade);
         if (p.Vanished)
         {
             // the time left in the shadows, as a shrinking ring
             DrawArc(ab + new Vector2(17, 17), 15, -Mathf.Pi / 2, -Mathf.Pi / 2 + Mathf.Tau * (p.VanishLeft / p.VanishTotal), 24, new Color(shadow, 0.9f), 2f);
         }
-        DrawString(font, ab + new Vector2(0, -6), p.Stats.SmokeBomb ? "SMOKE" : "VANISH", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawString(font, ab + new Vector2(0, -6), evade, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         UsePips(ab, p, shadow);
         KeyHint(font, ab, "dodge");
         // the daggers: lit in hand, dark while thrown
@@ -1256,7 +1266,7 @@ public partial class Hud : Control
         }
         float tcd = p.ThrowCooldownFrac;
         if (tcd > 0) DrawColoredPolygon(UiArt.Rounded(new Rect2(db + new Vector2(0, 34 * (1 - tcd)), new Vector2(46, MathF.Max(1f, 34 * tcd))), MathF.Min(8f, 17 * tcd)), new Color(0, 0, 0, 0.55f));
-        DrawString(font, db + new Vector2(0, -6), "THROW", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        DrawString(font, db + new Vector2(0, -6), el ? Short(p.NameFor(ElemSlot.Aid)) : "THROW", HorizontalAlignment.Left, -1, 10, el ? SlotColor(p, ElemSlot.Aid, Colors.White) : new Color(1, 1, 1, 0.6f));
         Tip(new Rect2(db - new Vector2(4, 14), new Vector2(54, 60)), "Dagger Throw", "Your daggers in hand (a dim one is out in the world). Thrown, a dagger sticks in what it hits until recalled; one in a wall is a foothold for everyone.", true);
         DrawString(font, db + new Vector2(0, 46), Controls.Name("ability"), HorizontalAlignment.Center, 46, 9, new Color(1, 1, 1, 0.4f));
         // recall: ready whenever a dagger is out

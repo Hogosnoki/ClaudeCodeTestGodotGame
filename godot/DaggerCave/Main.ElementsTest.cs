@@ -21,7 +21,7 @@ public partial class Main
             // (the real rules, cooldowns and all; the runs turn the testing switch on where they test it)
             Tune.Testing.NoCooldowns = false;
             if (_scT < 0.8f) return;
-            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), HeroKind.Vitalist => VitalistElementsRun(), HeroKind.Aegis => AegisElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
+            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), HeroKind.Vitalist => VitalistElementsRun(), HeroKind.Aegis => AegisElementsRun(), HeroKind.Rogue => RogueElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
         }
         if (!_elSteps.MoveNext()) ScEnd();
     }
@@ -352,7 +352,7 @@ public partial class Main
         var slots = p.Stats.Hero switch
         {
             HeroKind.Warden => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy },
-            HeroKind.Vitalist or HeroKind.Aegis => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Aid },
+            HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Aid },
             _ => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy, ElemSlot.Aid },
         };
         // (something to drain, for the Vitalist: a drain at nothing is a plain wisp)
@@ -374,6 +374,7 @@ public partial class Main
                     if (p.Stats.Hero == HeroKind.Warden) p.RefillShield();
                     if (p.Stats.Hero == HeroKind.Vitalist) { p.Stats.VitalForceMax = Math.Max(p.Stats.VitalForceMax, 9999); p.SetVitalForce(9999); }
                     if (p.Stats.Hero == HeroKind.Aegis) { p.TestResetCooldowns(); p.TestClearBubble(); }
+                    if (p.Stats.Hero == HeroKind.Rogue) p.TestCatchDaggers();
                     p.TestMode(els[i]);
                     p.TestResetModeCooldowns();
                     if (i == j) p.TestOvercharge(); else p.TestAttribute(els[j]);

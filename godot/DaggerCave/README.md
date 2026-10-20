@@ -1989,9 +1989,9 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
 
-## Elements (the Swordsman, the Elementalist, the Warden, the Vitalist and the Aegis)
+## Elements (the Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis and the Rogue)
 
-The Swordsman, the Elementalist, the Warden, the Vitalist and the Aegis fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
+The Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis and the Rogue fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
 `Enemies/Enemy.Elements.cs`, `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`, `Tune.ElementalWarden`), on **1, 2, 3** on the
 keyboard, **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*.
 
@@ -2233,8 +2233,34 @@ through it, an overcharge flaring it. `--scenario=elements --hero=vitalist` (or 
 creature, the versions on every button, and every pair (`vitalist_riptide.png`, `vitalist_overgrowth.png`, `vitalist_maelstrom.png`,
 `vitalist_hud.png`, `aegis_volley.png`, `aegis_ward.png`, `aegis_airdome.png`, `aegis_hud.png`).
 
-**Classic kits**: *Settings > Controls > Classic kits (no elements)* brings back all five heroes' old kits (from the next run). The tests of the classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`,
-`vitalist`, `aegis`) tests the elemental ones (`elements_hud.png`), and `--elements` runs any other test with them.
+### The elemental Rogue (dark, wind, nature)
+
+`Player/Player.RogueElements.cs`, `Tune.ElementalRogue`. Her **strike** (the jab), her **evade** (the dodge button: the vanish) and her
+**throw** (the ability) each take her mode's version; the **recall** is as it was. She starts in dark mode. Dark blinds and lays creatures
+open, wind makes her quick and flings, nature poisons and roots. **Dark** is a new element on creatures: full, a creature is **blinded** for
+3 s (it loses every hero, as in smoke; bosses and guardians for less) and **exposed** for 4 s (1.25x the damage from everyone, and more
+critical blows).
+
+| Rogue | Plain | Dark | Wind | Nature |
+|---|---|---|---|---|
+| **Strike** | the jab | **Shadow Strike**: x1.2, 40 dark | **Gale Jab**: 0.7x the pace, x0.85, 1.2x the reach, a flick back | **Venom Jab**: 40 nature and a poison |
+| **Evade** (dodge) | the vanish | **Shadowmeld**: half again as long | **Gale Step**: vanish with a dash ahead | **Spore Cloud**: 40 nature to creatures within 70 px |
+| **Throw** (ability) | a dagger | **Shadow Knife**: 50 dark | **Gale Knife**: 1.5x as fast, knocks back | **Barbed Knife**: 50 nature and a poison |
+
+| Rogue pairs | Strike | Evade | Throw |
+|---|---|---|---|
+| Dark + Dark | **Nightfall**: x1.6, a sure critical, blinded | **Umbral Veil**: twice as long, every creature near blinded | **Umbral Knife**: a sure critical, blinded |
+| Wind + Wind | **Flurry**: 0.55x the pace, a half-round sweep, flicks all back | **Wind Walk**: the dash and a tailwind 4 s | **Fan of Knives**: both daggers, fanned, fast |
+| Nature + Nature | **Deathcap**: entangled, a double poison | **Overgrowth Veil**: creatures near entangled | **Thorn Knife**: entangled and a bleed |
+| Wind + Nature | **Thornwind**: quick, 1.4x the reach, nature and a flick | **Leaf Storm**: nature, and creatures near thrown out | **Pollen Knife**: nature to all within 60 px of the one struck |
+| Wind + Dark | **Shade Step**: dark, and she steps through what she strikes to its far side, at its back | **Shadow Dash**: a long dash, smoke where she stood | **Shadow Tether**: dark, and she's drawn along to her dagger, striking again as she lands |
+| Nature + Dark | **Nightshade**: dark, nature and a poison | **Nightbloom**: a cloud of smoke, dark and nature to creatures near | **Nightshade Knife**: dark, nature and a poison |
+
+`--scenario=elements --hero=rogue` checks the mode controls, a blinded creature, the versions on her buttons and every pair
+(`rogue_shadestep.png`, `rogue_tether.png`, `rogue_hud.png`).
+
+**Classic kits**: *Settings > Controls > Classic kits (no elements)* brings back the elemental heroes' old kits (from the next run). The tests of the classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`,
+`vitalist`, `aegis`, `rogue`) tests the elemental ones (`elements_hud.png`), and `--elements` runs any other test with them.
 
 ## Save files
 

@@ -16,13 +16,18 @@ namespace DaggerCave;
 /// </summary>
 public abstract partial class Enemy
 {
-    private float _fireBuild, _frostBuild, _earthBuild, _natureBuild, _waterBuild, _buildIdle, _sapT, _mireT, _soakT;
+    private float _fireBuild, _frostBuild, _earthBuild, _natureBuild, _waterBuild, _darkBuild, _buildIdle, _sapT, _mireT, _soakT, _blindT;
     /// <summary>The build-up meters (0..Full), for the meters over a creature and the tests.</summary>
     public float FireBuild => _fireBuild;
     public float FrostBuild => _frostBuild;
     public float EarthBuild => _earthBuild;
     public float NatureBuild => _natureBuild;
     public float WaterBuild => _waterBuild;
+    public float DarkBuild => _darkBuild;
+    /// <summary>Blinded (a full meter of dark): it has lost every hero, as in smoke.</summary>
+    public bool Blinded => _blindT > 0;
+    /// <summary>For the tests: times it has been blinded.</summary>
+    public int Blindings { get; private set; }
     /// <summary>Soaked (a full meter of water): its fire out, frost building faster in it, fire slower.</summary>
     public bool Soaked => _soakT > 0;
     /// <summary>For the tests: times it has been entangled (a full meter of nature).</summary>
@@ -90,6 +95,17 @@ public abstract partial class Enemy
                 G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "ENTANGLED", Elements.ColorOf(HeroElement.Nature), 9, 0.7f);
                 G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(Elements.ColorOf(HeroElement.Nature), 0.9f), 0.35f, FxLayer.RingStyle.Wave);
                 for (int k = 0; k < 6; k++) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-HitRadius, HitRadius), G.Range(0, HitRadius)), Elements.ColorOf(HeroElement.Nature));
+                break;
+            case HeroElement.Dark:
+                _darkBuild += amount;
+                if (_darkBuild < full) break;
+                _darkBuild = 0;
+                // blinded: it loses every hero for a while, and is laid open to blows
+                Blindings++;
+                if (_blindT <= 0) G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "BLINDED", Elements.ColorOf(HeroElement.Dark), 9, 0.7f);
+                _blindT = Math.Max(_blindT, IsBoss || IsGuardian ? Tune.Elements.BlindSeconds * 0.4f : Tune.Elements.BlindSeconds);
+                Expose(Tune.Elements.BlindExpose, Tune.Elements.ExposeSeconds);
+                G.Fx.Smoke(GlobalPosition + new Vector2(0, -HitRadius * 0.5f), 4, new Color(0.15f, 0.08f, 0.22f, 0.8f), 30f);
                 break;
             case HeroElement.Water:
                 _waterBuild += amount;
@@ -185,12 +201,17 @@ public abstract partial class Enemy
     {
         if (_sapT > 0) _sapT -= dt;
         if (_mireT > 0) _mireT -= dt;
+        if (_blindT > 0)
+        {
+            _blindT -= dt;
+            if (G.Chance(dt * 5f)) G.Fx.Smoke(HeadPoint(4f), 1, new Color(0.12f, 0.06f, 0.18f, 0.7f), 12f);
+        }
         if (_soakT > 0)
         {
             _soakT -= dt;
             if (G.Chance(dt * 6f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-HitRadius, HitRadius), -HitRadius * 0.5f), new Color(Elements.ColorOf(HeroElement.Water), 0.8f), 1, 20, 1.4f, 0.4f, 200);
         }
-        if (_fireBuild <= 0 && _frostBuild <= 0 && _earthBuild <= 0 && _natureBuild <= 0 && _waterBuild <= 0) return;
+        if (_fireBuild <= 0 && _frostBuild <= 0 && _earthBuild <= 0 && _natureBuild <= 0 && _waterBuild <= 0 && _darkBuild <= 0) return;
         _buildIdle += dt;
         if (_buildIdle < Tune.Elements.DecayDelay) return;
         float d = Tune.Elements.DecayRate * dt;
@@ -199,6 +220,7 @@ public abstract partial class Enemy
         _earthBuild = Math.Max(0, _earthBuild - d);
         _natureBuild = Math.Max(0, _natureBuild - d);
         _waterBuild = Math.Max(0, _waterBuild - d);
+        _darkBuild = Math.Max(0, _darkBuild - d);
     }
 
     /// <summary>A blow from this game's hero while an Elementalist's Kindling is on them: a little fire with it.</summary>

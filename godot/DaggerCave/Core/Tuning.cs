@@ -1157,6 +1157,9 @@ public static class Tune
         /// (<c>EntangleBleed</c> x the hero's damage over that time). Full of water: soaked for <c>SoakSeconds</c> (its fire put out; frost
         /// builds in it <c>SoakFrost</c> x as fast, fire <c>SoakFire</c> x).</summary>
         public static float EntangleSeconds = 3f, EntangleBleed = 14f, SoakSeconds = 6f, SoakFrost = 2f, SoakFire = 0.5f;
+        /// <summary>Full of dark: blinded for <c>BlindSeconds</c> (it loses every hero, as in smoke) and exposed (it takes <c>BlindExpose</c> x
+        /// the damage, and more critical blows) for <c>ExposeSeconds</c>.</summary>
+        public static float BlindSeconds = 3f, BlindExpose = 1.25f, ExposeSeconds = 4f;
         /// <summary>How long after one element press before the next is taken (a press inside it is kept and taken once it's over).</summary>
         public static float ChargeCooldown = 0.3f;
         /// <summary>Whether an element's version of an ability rests its button (and pays alimus). In modes every use is a version, so they do:
@@ -1361,6 +1364,31 @@ public static class Tune
     /// <c>HailDamage</c> x, earth and frost, shattering the frozen; Sand Bubble: a cloud of dust (<c>DustRadius</c>, <c>DustSeconds</c>) that
     /// saps (<c>SandSap</c> s); Snow Bubble: frost and a shove, burst <c>SnowBurst</c> x.
     /// </summary>
+    public static class ElementalRogue
+    {
+        /// <summary>The strike (her jab): Shadow Strike (<c>ShadowDamage</c> x, <c>JabBuild</c> dark), Gale Jab (<c>GalePace</c> x the pace,
+        /// <c>GaleDamage</c> x, reach <c>GaleReach</c> x, a shove of <c>JabShove</c>), Venom Jab (<c>JabBuild</c> nature and a poison of
+        /// <c>Venom</c> x her damage over <c>VenomSeconds</c>). Nightfall: <c>NightfallDamage</c> x, a sure crit, a full meter of dark (blinded);
+        /// Flurry: <c>FlurryPace</c> x the pace, a 180-degree sweep, <c>GaleReach</c> x; Deathcap: a full meter of nature and twice the poison;
+        /// Thornwind: reach <c>ThornReach</c> x, nature and the shove; Shade Step: she steps through the creature she strikes to its far side;
+        /// Nightshade: dark, nature and the poison.</summary>
+        public static float ShadowDamage = 1.2f, JabBuild = 40f, GalePace = 0.7f, GaleDamage = 0.85f, GaleReach = 1.2f, JabShove = 180f, Venom = 8f, VenomSeconds = 4f;
+        public static float NightfallDamage = 1.6f, FlurryPace = 0.55f, ThornReach = 1.4f;
+        /// <summary>The throw: Shadow Knife (<c>KnifeBuild</c> dark), Gale Knife (<c>GaleSpeed</c> x as fast, a shove of <c>KnifeShove</c>),
+        /// Barbed Knife (<c>KnifeBuild</c> nature and the poison). Umbral Knife: a full meter of dark and a sure crit; Fan of Knives: both
+        /// daggers fanned, fast; Thorn Knife: a full meter of nature and a bleed (<c>ThornBleed</c> x her damage); Pollen Knife: nature to all
+        /// within <c>PollenRadius</c> of the one struck; Shadow Tether: she is pulled along to the dagger, and strikes again as she lands;
+        /// Nightshade Knife: dark, nature and the poison.</summary>
+        public static float KnifeBuild = 50f, GaleSpeed = 1.5f, KnifeShove = 220f, ThornBleed = 12f, PollenRadius = 60f;
+        /// <summary>The evade (her vanish): Shadowmeld (<c>MeldTime</c> x as long), Gale Step (a dash ahead, <c>DashSpeed</c>), Spore Cloud
+        /// (<c>EvadeBuild</c> nature to creatures within <c>EvadeRadius</c>). Umbral Veil: <c>VeilTime</c> x as long, every creature within
+        /// <c>EvadeRadius</c> blinded; Wind Walk: the dash and a tailwind for <c>TailwindSeconds</c>; Overgrowth Veil: a full meter of nature to
+        /// creatures near; Leaf Storm: nature and a shove (<c>EvadeShove</c>); Shadow Dash: a longer dash (<c>LongDash</c> x), a cloud of smoke
+        /// where she stood (<c>SmokeRadius</c>, <c>SmokeSeconds</c>); Nightbloom: the smoke, and dark and nature to creatures near.</summary>
+        public static float MeldTime = 1.5f, DashSpeed = 520f, EvadeBuild = 40f, EvadeRadius = 70f, VeilTime = 2f, TailwindSeconds = 4f, EvadeShove = 260f;
+        public static float LongDash = 1.5f, SmokeRadius = 50f, SmokeSeconds = 4f;
+    }
+
     public static class ElementalAegis
     {
         public static float GaleSpeed = 1.5f, GalePace = 0.75f, BurstShove = 260f, StoneDamage = 1.5f, StoneSpeed = 0.75f, StonePace = 1.3f, StoneBurst = 1.3f, ShotBuild = 40f;

@@ -707,6 +707,7 @@ public static partial class Upgrades
         HeroKind.Swordsman => new[] { ("sword", "Swing"), ("charge", "Empower Hilt"), ("heave", "Hard Swing"), ("dodge", "Dash Slash") },
         HeroKind.Warden => new[] { ("sword", "Shortsword"), ("shield", "Block"), ("dash", "Guarded Charge") },
         HeroKind.Vitalist => new[] { ("drain", "Drain"), ("hex", "Hex"), ("heal", "Heal"), ("rupture", "Rupture") },
+        HeroKind.Rogue => new[] { ("dagger", "Strike"), ("throw", "Throw"), ("vanish", "Evade"), ("recall", "Recall") },
         HeroKind.Aegis => new[] { ("ward", "Bubble Shot"), ("barrier", "Barrier"), ("burden", "Shared Burden"), ("bubble", "Bubble Field") },
         _ => new[] { ("bolt", "Bolt"), ("updraft", "Movement"), ("snap", "Fixed Range"), ("blizzard", "Storms & Aid") },
     } : h switch

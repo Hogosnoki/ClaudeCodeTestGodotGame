@@ -716,7 +716,7 @@ public partial class Player : CharacterBody2D
     {
         HeroKind.Vitalist => Elemental ? VitalDrain(aim, held) : CastDrain(aim, held),
         HeroKind.Elementalist => Elemental ? StaffBolt(aim, held) : CastBolt(aim, held),
-        HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : !stick && TryRecall(fromAttack: true),
+        HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && (Elemental ? RogueStrike(aim, held) : TrySwing(aim, held)) : !stick && TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && (Elemental ? WardenSwing(aim, held) : TrySwing(aim, held)),
         HeroKind.Aegis => Elemental ? AegisShot(aim, held) : CastWardBolt(aim, held),
         HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
@@ -730,7 +730,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => Elemental ? VitalHeal() : TryHeal(),
         HeroKind.Elementalist => Elemental ? TryAid() : TryBlizzard(aim, _abilityAimDist),
-        HeroKind.Rogue => TryThrow(aim),
+        HeroKind.Rogue => Elemental ? RogueThrow(aim) : TryThrow(aim),
         HeroKind.Aegis => Elemental ? AegisBarrier(aim) : TryBarrier(aim),
         HeroKind.ShapeShifter => TryShift(),
         HeroKind.Automaton => TryRepair(),
@@ -757,7 +757,7 @@ public partial class Player : CharacterBody2D
         HeroKind.Swordsman => ElementMoveReady ? ElementDodge(inp) : TryDodge(inp),
         HeroKind.Vitalist => Elemental ? VitalHex() : TryHex(),
         HeroKind.Elementalist => Elemental ? ElementMove(inp) : BeginDraftAim(inp),
-        HeroKind.Rogue => TryVanish(),
+        HeroKind.Rogue => Elemental ? RogueEvade() : TryVanish(),
         HeroKind.Aegis => Elemental ? AegisDome() : TryBubble(),
         HeroKind.ShapeShifter => Possessed ? TryRemember() : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
         HeroKind.Automaton => TryBrace(inp),

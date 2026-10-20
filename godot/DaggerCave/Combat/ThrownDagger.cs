@@ -30,6 +30,9 @@ public partial class ThrownDagger : Node2D
     public bool Harmless;
     /// <summary>Thrown out of the shadows with Surprise Attack: its blow counts four times over.</summary>
     public bool FromShadows;
+    /// <summary>An elemental Rogue's throw: its version (what its blow does besides) and its element (its colour).</summary>
+    public string Version = "";
+    public HeroElement El;
     public Phase State = Phase.Flying;
     public Enemy StuckIn { get; private set; }
     /// <summary>Stuck in a wall (not a creature): its hilt is a foothold.</summary>
