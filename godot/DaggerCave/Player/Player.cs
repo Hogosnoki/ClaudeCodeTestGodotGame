@@ -714,11 +714,11 @@ public partial class Player : CharacterBody2D
     /// <paramref name="stick"/>: it is the right stick pushed over (the Rogue's aim, not a recall).</summary>
     private bool Primary(Vector2 aim, bool held = false, bool stick = false) => _snagT <= 0 && Stats.Hero switch
     {
-        HeroKind.Vitalist => CastDrain(aim, held),
+        HeroKind.Vitalist => Elemental ? VitalDrain(aim, held) : CastDrain(aim, held),
         HeroKind.Elementalist => Elemental ? StaffBolt(aim, held) : CastBolt(aim, held),
         HeroKind.Rogue => DaggersInHand > 0 ? _tetherTo == null && TrySwing(aim, held) : !stick && TryRecall(fromAttack: true),
         HeroKind.Warden => _dashT <= 0 && _bashT <= 0 && (Elemental ? WardenSwing(aim, held) : TrySwing(aim, held)),
-        HeroKind.Aegis => CastWardBolt(aim, held),
+        HeroKind.Aegis => Elemental ? AegisShot(aim, held) : CastWardBolt(aim, held),
         HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : TrySwing(aim, held),
         HeroKind.Automaton => !Bracing && !Pressurising && TrySwing(aim, held),
         _ => !Heaving && (Elemental ? ElementSwing(aim, held) : TrySwing(aim, held)),
@@ -728,10 +728,10 @@ public partial class Player : CharacterBody2D
     private bool Ability(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
     {
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
-        HeroKind.Vitalist => TryHeal(),
+        HeroKind.Vitalist => Elemental ? VitalHeal() : TryHeal(),
         HeroKind.Elementalist => Elemental ? TryAid() : TryBlizzard(aim, _abilityAimDist),
         HeroKind.Rogue => TryThrow(aim),
-        HeroKind.Aegis => TryBarrier(aim),
+        HeroKind.Aegis => Elemental ? AegisBarrier(aim) : TryBarrier(aim),
         HeroKind.ShapeShifter => TryShift(),
         HeroKind.Automaton => TryRepair(),
         _ => Elemental ? TryHilt() : TryCharge(),
@@ -755,10 +755,10 @@ public partial class Player : CharacterBody2D
     private bool DodgeButton(in PlayerInput inp) => Stats.Hero switch
     {
         HeroKind.Swordsman => ElementMoveReady ? ElementDodge(inp) : TryDodge(inp),
-        HeroKind.Vitalist => TryHex(),
+        HeroKind.Vitalist => Elemental ? VitalHex() : TryHex(),
         HeroKind.Elementalist => Elemental ? ElementMove(inp) : BeginDraftAim(inp),
         HeroKind.Rogue => TryVanish(),
-        HeroKind.Aegis => TryBubble(),
+        HeroKind.Aegis => Elemental ? AegisDome() : TryBubble(),
         HeroKind.ShapeShifter => Possessed ? TryRemember() : TryDodge(inp), // (a creature has no dodge roll: its button commits the form to memory)
         HeroKind.Automaton => TryBrace(inp),
         _ => true,

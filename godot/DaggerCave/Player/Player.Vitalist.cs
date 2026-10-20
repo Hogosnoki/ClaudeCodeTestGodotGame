@@ -43,7 +43,7 @@ public partial class Player
     /// <summary>For the 3D model: where the last spell was aimed.</summary>
     public Vector2 CastDir { get; private set; } = Vector2.Right;
 
-    private float DrainRange => Tune.Vitalist.DrainRange * Stats.DaggerReach;
+    private float DrainRange => Tune.Vitalist.DrainRange * Stats.DaggerReach * _drainReach;
     /// <summary>Where spells leave from, and stolen life returns to: the crystal atop the staff.</summary>
     public Vector2 CastPoint => GlobalPosition + new Vector2(Facing * 7, -12);
 
@@ -130,7 +130,9 @@ public partial class Player
         G.Fx.Flash(CastPoint, 12, LifeColorLight, 0.14f);
         G.Fx.Spark(CastPoint, Vector2.Right, false, LifeColorLight);
         G.Fx.Burst(CastPoint, LifeColorLight, 7, 70, 1.6f, 0.3f, -30f);
-        DrainFrom(target, dmg, 1f);
+        float drained = DrainFrom(target, dmg, 1f);
+        // (the elemental Vitalist's version of it: thorns, a current, the wind taking more)
+        if (_vDrain != "") { VitalDrainStruck(target, dmg, drained); _vDrain = ""; }
         // Many Mouths: the creatures nearest the target give up their life too
         if (Stats.DrainExtra > 0)
         {
@@ -153,7 +155,7 @@ public partial class Player
     /// Tears the life out of one creature: it's struck on the spot (tugged toward you, shuddering),
     /// bursting in a spray of crimson, and what it lost flies back to you as a mote carrying the vital force.
     /// </summary>
-    private void DrainFrom(Enemy e, float dmg, float size)
+    private float DrainFrom(Enemy e, float dmg, float size)
     {
         var toMe = (CastPoint - e.GlobalPosition).Normalized();
         var at = e.GlobalPosition + toMe * e.HitRadius * 0.5f;
@@ -162,9 +164,11 @@ public partial class Player
         {
             G.Sfx.Play("clink", at, -6);
             G.Fx.Spark(at, toMe, false, new Color(0.8f, 0.8f, 0.85f));
-            return;
+            return 0f;
         }
         OnDealtDamage(dealt, vitalForceByMote: true);
+        // (the elemental Vitalist's attribute rides on the drain)
+        if (Elemental && !e.Dead) AttributeHit(e, CastPoint);
         if (Stats.DrainHealChance > 0 && G.Chance(Stats.DrainHealChance)) Heal(1f); // (Sip of Life)
         e.HitStop(Tune.Feel.HitStopBolt);
         // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
@@ -177,6 +181,7 @@ public partial class Player
         G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f, FxLayer.RingStyle.Burst);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
         LifeCluster(at, dealt * Stats.VitalForceGain, size, (int)Math.Round(5 + 4 * size));
+        return dealt;
     }
 
     /// <summary>The life torn out of a creature: a cluster of small green orbs leaves it, scattering, and flies to the staff, the vital force split between them.</summary>
@@ -281,7 +286,7 @@ public partial class Player
             _hexCd = 0.35f;
         }
         else _hexCd = Stats.HexCooldown;
-        float r = Tune.Vitalist.HexRadius * Stats.HexRadiusMult;
+        float r = Tune.Vitalist.HexRadius * Stats.HexRadiusMult * _hexReach;
         var c = GlobalPosition + new Vector2(0, -6);
         // Blight Burst: it strikes as it spreads, but slows and weakens half as much
         float weaker = Stats.BlightBurst ? Tune.Vitalist.BlightWeaker : 0f;
@@ -322,28 +327,33 @@ public partial class Player
     /// </summary>
     private bool TryHeal()
     {
-        if (!IsVitalist || _healCd > 0 || !AbilityChargeReady) return false;
+        // (the elemental Vitalist's version, if one is being cast: its reach, strength and what else it does)
+        string ver = _vHealNext; bool free = _vHealFree;
+        _vHealNext = ""; _vHealFree = false;
+        if (!IsVitalist || _healCd > 0 || (!AbilityChargeReady && !free)) return false;
+        float range = Tune.Vitalist.HealRange * HealReach(ver);
         var hurt = new List<(Player who, float miss)>();
         float sumP = 0;
         foreach (var p in G.Players)
         {
-            if (p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Vitalist.HealRange) continue;
+            if (p.Dead || p.GlobalPosition.DistanceTo(GlobalPosition) > range) continue;
             float miss = (p.Stats.MaxHp - p.Hp) / Math.Max(1f, p.Stats.MaxHp);
             if (miss <= 0.001f) continue;
             hurt.Add((p, miss));
             sumP += miss;
         }
-        if (hurt.Count == 0) return Refuse("NO ONE IS HURT");
+        if (hurt.Count == 0 && ver == "") return Refuse("NO ONE IS HURT");
         float cost = HealCost;
         if (VitalForce < cost - 0.001f) return Refuse("NOT ENOUGH VITAL FORCE");
         VitalForce = Math.Max(0, VitalForce - cost);
-        SpendAbilityCharge();
+        if (!free) SpendAbilityCharge();
         _healCd = 0.4f; // (with a second charge, not both in the same instant)
         // (the cost is paid; the hero gathers the heal, held still and animated, and then it goes out)
         LastCast = "heal";
         Hold(Tune.Vitalist.HealDelay, "heal", () =>
         {
-            float amount = Tune.Vitalist.HealAmount * Stats.HealMult;
+            float amount = Tune.Vitalist.HealAmount * Stats.HealMult * HealAmp(ver);
+            var (now, later) = HealSpread(ver);
             // (shared among more friends, there's more of it: half again for each one past the first)
             amount *= 0.5f + 0.5f * hurt.Count;
             var from = CastPoint;
@@ -359,6 +369,8 @@ public partial class Player
                 for (int k = 0; k < 10; k++) G.Fx.Ember(p.GlobalPosition + new Vector2(G.Range(-9, 9), G.Range(-4, 12)), HealColor);
                 p.Anim.Flash(0.4f);
                 p.Anim.FlashColor = HealColorLight;
+                // (a version that gives part now and more over time: Regrowth, Rejuvenation)
+                if (later > 0f) { p.Heal(share * now); p.GiveMending(share * later, Tune.ElementalVital.MendSeconds, 0f); continue; }
                 if (!Stats.PatientMending)
                 {
                     p.Heal(share);
@@ -371,6 +383,7 @@ public partial class Player
                 p.GiveMending(share * Tune.Vitalist.PatientLater, Tune.Vitalist.PatientSeconds, Math.Max(Stats.WardingMending ? Tune.Vitalist.WardingShare : 0f, Stats.HotWard));
             }
             G.Sfx.Play("heal", from, -2, 0.05f, 1.1f);
+            if (ver != "") VitalHealStruck(ver, range);
         });
         return true;
     }

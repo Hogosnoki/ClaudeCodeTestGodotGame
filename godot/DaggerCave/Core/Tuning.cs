@@ -1153,6 +1153,10 @@ public static class Tune
         public static float BurnDps = 4f, BurnSeconds = 5f, CombustDamage = 22f, CombustSplash = 0.5f, CombustRadius = 56f;
         public static float ChillSlow = 0.35f, ChillSeconds = 4f, FreezeSeconds = 3f, ShatterDamage = 30f, ShatterSplash = 0.4f, ShatterRadius = 52f;
         public static float StunSeconds = 1.2f, SapSlow = 0.2f, SapSeconds = 3f;
+        /// <summary>Full of nature: entangled, vines about it (it moves and acts as if mired for <c>EntangleSeconds</c>) and bleeding sap
+        /// (<c>EntangleBleed</c> x the hero's damage over that time). Full of water: soaked for <c>SoakSeconds</c> (its fire put out; frost
+        /// builds in it <c>SoakFrost</c> x as fast, fire <c>SoakFire</c> x).</summary>
+        public static float EntangleSeconds = 3f, EntangleBleed = 14f, SoakSeconds = 6f, SoakFrost = 2f, SoakFire = 0.5f;
         /// <summary>How long after one element press before the next is taken (a press inside it is kept and taken once it's over).</summary>
         public static float ChargeCooldown = 0.3f;
         /// <summary>Whether an element's version of an ability rests its button (and pays alimus). In modes every use is a version, so they do:
@@ -1313,6 +1317,65 @@ public static class Tune
         public static float FrostquakeDamage = 2.5f;
         /// <summary>Duststorm (earth+wind): clouds of dust along its path (<c>DustRadius</c>), hiding friends, sapping creatures.</summary>
         public static float StormDustSeconds = 6f;
+    }
+
+    /// <summary>
+    /// The elemental Vitalist (nature, wind, water; <c>Player/Player.VitalistElements.cs</c>). Her drain, the hex about her and her heal each
+    /// take the mode's version, or a pair's. The drain: Thorn Drain (<c>ThornBuild</c> nature, <c>ThornForce</c> more vital force), Wisp
+    /// Drain (reach <c>WispReach</c> x, cast <c>WispPace</c> x as often, <c>WispDamage</c> x), Tide Drain (<c>TideBuild</c> water, mends her
+    /// <c>TideHeal</c> of what it tears out). Bramble Lash lashes up to <c>LashCount</c> creatures within <c>LashRadius</c> of the target
+    /// (<c>LashShare</c> x); Whirling Siphon drains up to <c>SiphonCount</c> more in reach (<c>SiphonShare</c> x); Riptide hauls the target
+    /// toward her (<c>RiptidePull</c>); Pollen Drain and Rain Siphon spread <c>CloudBuild</c> nature or water to all within
+    /// <c>CloudRadius</c> of it; Life Spring mends every friend near her by <c>SpringHeal</c> of what it tears out.
+    /// </summary>
+    public static class ElementalVital
+    {
+        public static float ThornBuild = 40f, ThornForce = 0.25f, WispReach = 1.4f, WispPace = 0.75f, WispDamage = 0.8f, TideBuild = 40f, TideHeal = 0.15f;
+        public static float LashRadius = 80f, LashShare = 0.6f, SiphonShare = 0.7f, RiptidePull = 320f, CloudRadius = 60f, CloudBuild = 40f, SpringHeal = 0.3f, SpringBuild = 30f;
+        public static int LashCount = 3, SiphonCount = 3;
+        /// <summary>The hex: Overgrowth (<c>OvergrowthBuild</c> nature to all in it), Withering Gale (<c>GaleReach</c> x the radius, everything
+        /// in it thrown out <c>HexShove</c>), Drowning Hex (<c>DrownBuild</c> water). Strangling Grove: <c>GroveReach</c> x, a full meter of
+        /// nature; Eye of the Tempest: <c>TempestReach</c> x, everything in it hauled in toward her (<c>TempestPull</c>); Maelstrom: a full meter
+        /// of water, and a pool of healing water at her feet (<c>PoolRadius</c>, <c>PoolRate</c> a second, <c>PoolSeconds</c>); Spore Storm:
+        /// <c>SporeReach</c> x, <c>MixBuild</c> nature and a shove; Mire Bloom: mired <c>MireSeconds</c> and <c>MixBuild</c> nature; Squall:
+        /// <c>MixBuild</c> water and a shove.</summary>
+        public static float OvergrowthBuild = 50f, GaleReach = 1.2f, HexShove = 300f, DrownBuild = 60f, GroveReach = 1.3f, TempestReach = 1.6f, TempestPull = 260f;
+        public static float PoolRadius = 80f, PoolRate = 4f, PoolSeconds = 5f, SporeReach = 1.5f, MixBuild = 40f, MireSeconds = 4f;
+        /// <summary>The heal: Regrowth (<c>RegrowNow</c> of it now, <c>RegrowLater</c> over <c>MendSeconds</c>), Breath of Life (reach
+        /// <c>BreathReach</c> x, a tailwind <c>TailwindSeconds</c>), Cleansing Wave (every affliction washed off those in reach). Bloom of Life:
+        /// <c>BloomAmp</c> x and a healing pool; Second Wind: everyone, wherever they are, and a tailwind; Wellspring: <c>WellAmp</c> x, a barrier of
+        /// <c>WellBarrier</c> of each one's health for <c>WellSeconds</c>, and cleansed; Seeds on the Wind: reach <c>BreathReach</c> x and
+        /// <c>SeedsMend</c> more over <c>MendSeconds</c>; Rejuvenation: <c>RejuvNow</c> now, <c>RejuvLater</c> over time, cleansed; Mist of Mending:
+        /// a mist about her (<c>MistRadius</c>, <c>MistSeconds</c>) that hides her friends in it.</summary>
+        public static float RegrowNow = 0.5f, RegrowLater = 0.75f, MendSeconds = 5f, BreathReach = 1.6f, TailwindSeconds = 3f, BloomAmp = 1.5f, WellAmp = 1.2f;
+        public static float WellBarrier = 0.12f, WellSeconds = 8f, SeedsMend = 12f, RejuvNow = 0.6f, RejuvLater = 1f, MistRadius = 70f, MistSeconds = 5f;
+    }
+
+    /// <summary>
+    /// The elemental Aegis (wind, earth, frost; <c>Player/Player.AegisElements.cs</c>). Her bubble shot (the ward bolt), her bubble field (the
+    /// dodge button) and her barrier each take the mode's version, or a pair's. The shot: Gale Bubble (<c>GaleSpeed</c> x as fast,
+    /// <c>GalePace</c> x as often, its burst throwing creatures back <c>BurstShove</c>), Stone Bubble (<c>StoneDamage</c> x, <c>StoneSpeed</c> x,
+    /// <c>StonePace</c> x, burst <c>StoneBurst</c> x, <c>ShotBuild</c> earth), Rime Bubble (<c>ShotBuild</c> frost to all in the burst).
+    /// Boulder Bubble: <c>BoulderDamage</c> x, burst <c>BoulderBurst</c> x, a full meter of earth on the one struck; Frost Orb: a full meter of
+    /// frost on all in the burst; Bubble Volley: <c>VolleyCount</c> shots fanned <c>VolleySpread</c> rad apart; Hail Bubble:
+    /// <c>HailDamage</c> x, earth and frost, shattering the frozen; Sand Bubble: a cloud of dust (<c>DustRadius</c>, <c>DustSeconds</c>) that
+    /// saps (<c>SandSap</c> s); Snow Bubble: frost and a shove, burst <c>SnowBurst</c> x.
+    /// </summary>
+    public static class ElementalAegis
+    {
+        public static float GaleSpeed = 1.5f, GalePace = 0.75f, BurstShove = 260f, StoneDamage = 1.5f, StoneSpeed = 0.75f, StonePace = 1.3f, StoneBurst = 1.3f, ShotBuild = 40f;
+        public static float BoulderDamage = 2.2f, BoulderBurst = 1.5f, VolleySpread = 0.22f, HailDamage = 1.5f, DustRadius = 46f, DustSeconds = 4f, SandSap = 3f, SnowBurst = 1.5f;
+        public static int VolleyCount = 3;
+        /// <summary>The bubble field: Air Dome (creatures in it thrown out <c>DomeShove</c>), Stone Dome (bubbles <c>StoneCap</c> x as strong),
+        /// Ice Dome (<c>DomeBuild</c> frost to creatures in it). Fortress: <c>FortressCap</c> x, lasting <c>FortressTime</c> x; Glacier Dome: a full
+        /// meter of frost; Gale Dome: reaching <c>GaleReach</c> x as far, and the shove; Crystal Dome: <c>CrystalCap</c> x, and frost armour on
+        /// every hero it wraps; Dust Dome: a cloud of dust and the creatures sapped; Blizzard Dome: frost and the shove.</summary>
+        public static float DomeShove = 280f, StoneCap = 1.5f, DomeBuild = 40f, FortressCap = 2.2f, FortressTime = 1.5f, GaleReach = 1.6f, CrystalCap = 1.6f;
+        /// <summary>The barrier: Wind Ward (a tailwind <c>TailwindSeconds</c>), Stone Skin (<c>StoneWard</c> x), Frost Ward (frost armour while it
+        /// lasts). Bulwark Ward: <c>BulwarkWard</c> x; Glacial Ward: <c>GlacialWard</c> x and a Frost Barrier; Twin Gale: on the friend and her
+        /// both, with a tailwind; Permafrost Ward: <c>PermafrostWard</c> x and frost armour; Sandstorm Ward: a cloud of dust about the one it wraps;
+        /// Winter Ward: frost armour and a tailwind.</summary>
+        public static float TailwindSeconds = 3f, StoneWard = 1.5f, BulwarkWard = 2.5f, GlacialWard = 1.3f, PermafrostWard = 1.8f, FrostWardSeconds = 30f;
     }
 
     /// <summary>

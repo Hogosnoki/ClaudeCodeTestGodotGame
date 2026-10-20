@@ -21,7 +21,7 @@ public partial class Main
             // (the real rules, cooldowns and all; the runs turn the testing switch on where they test it)
             Tune.Testing.NoCooldowns = false;
             if (_scT < 0.8f) return;
-            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
+            _elSteps = (G.Player.Stats.Hero switch { HeroKind.Elementalist => ElementalistRun(), HeroKind.Warden => WardenElementsRun(), HeroKind.Vitalist => VitalistElementsRun(), HeroKind.Aegis => AegisElementsRun(), _ => SwordsmanElementsRun() }).GetEnumerator();
         }
         if (!_elSteps.MoveNext()) ScEnd();
     }
@@ -314,7 +314,7 @@ public partial class Main
         var rider = els.First(x => x != sig && x != HeroElement.Wind);
         p.TestAttribute(rider);
         p.AttributeHit(foe, p.GlobalPosition);
-        float built = rider switch { HeroElement.Fire => foe.FireBuild, HeroElement.Frost => foe.FrostBuild, _ => foe.EarthBuild };
+        float built = rider switch { HeroElement.Fire => foe.FireBuild, HeroElement.Frost => foe.FrostBuild, HeroElement.Nature => foe.NatureBuild, HeroElement.Water => foe.WaterBuild, _ => foe.EarthBuild };
         ScCheck($"{Elements.Name(rider).ToLowerInvariant()} on top adds its build-up to a blow ({built:0})", built > 0);
         foe.QueueFree();
         // with cooldowns off for testing, the switch and the overcharge come back at once
@@ -349,7 +349,14 @@ public partial class Main
         var els = Elements.Of(p.Stats.Hero);
         var start = p.GlobalPosition;
         var aim = new Vector2(p.Facing, 0);
-        var slots = p.Stats.Hero == HeroKind.Warden ? new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy } : new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy, ElemSlot.Aid };
+        var slots = p.Stats.Hero switch
+        {
+            HeroKind.Warden => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy },
+            HeroKind.Vitalist or HeroKind.Aegis => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Aid },
+            _ => new[] { ElemSlot.Attack, ElemSlot.Move, ElemSlot.Heavy, ElemSlot.Aid },
+        };
+        // (something to drain, for the Vitalist: a drain at nothing is a plain wisp)
+        var target = p.Stats.Hero == HeroKind.Vitalist ? ElDummy(p, 60) : null;
         var missing = new List<string>();
         int fired = 0, all = 0;
         foreach (var slot in slots)
@@ -365,6 +372,8 @@ public partial class Main
                     p.ResetAbilityCooldowns();
                     if (p.Stats.Hero == HeroKind.Elementalist) { p.TestResetSpells(); p.TestResetDualBolt(); p.SetAlimus(9999); }
                     if (p.Stats.Hero == HeroKind.Warden) p.RefillShield();
+                    if (p.Stats.Hero == HeroKind.Vitalist) { p.Stats.VitalForceMax = Math.Max(p.Stats.VitalForceMax, 9999); p.SetVitalForce(9999); }
+                    if (p.Stats.Hero == HeroKind.Aegis) { p.TestResetCooldowns(); p.TestClearBubble(); }
                     p.TestMode(els[i]);
                     p.TestResetModeCooldowns();
                     if (i == j) p.TestOvercharge(); else p.TestAttribute(els[j]);
@@ -389,6 +398,7 @@ public partial class Main
                     if (p.ElementalUses.Count(u => u == name) > had) fired++; else missing.Add($"{slot} {els[i]}+{els[j]} ({name}) didn't go");
                     foreach (var _ in ElWait(slot == ElemSlot.Heavy && p.Stats.Hero == HeroKind.Swordsman ? 2.2f : 0.6f)) yield return null;
                 }
+        if (target != null && IsInstanceValid(target)) target.QueueFree();
         ScCheck($"every pair has a version on every elemental button, and each goes off ({fired}/{all}){(missing.Count > 0 ? ": " + string.Join("; ", missing) : "")}", fired == all);
         p.GlobalPosition = start; p.Velocity = Vector2.Zero;
         p.TestMode(Elements.Signature(p.Stats.Hero));

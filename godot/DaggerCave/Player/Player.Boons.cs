@@ -21,6 +21,9 @@ public partial class Player
     /// <summary>A heal is still mending this hero (Slow Mending).</summary>
     public bool Mended => IsRemote ? (_netFlags & HfMending) != 0 : _mendLeft > 0;
 
+    /// <summary>For the tests: no barrier.</summary>
+    public void TestClearBarrier() { BarrierHp = 0; _barrierT = 0; }
+
     /// <summary>A barrier that soaks <paramref name="amount"/> damage for <paramref name="seconds"/> (the stronger of two stays).</summary>
     public void GiveBarrier(float amount, float seconds)
     {

@@ -16,11 +16,17 @@ namespace DaggerCave;
 /// </summary>
 public abstract partial class Enemy
 {
-    private float _fireBuild, _frostBuild, _earthBuild, _buildIdle, _sapT, _mireT;
+    private float _fireBuild, _frostBuild, _earthBuild, _natureBuild, _waterBuild, _buildIdle, _sapT, _mireT, _soakT;
     /// <summary>The build-up meters (0..Full), for the meters over a creature and the tests.</summary>
     public float FireBuild => _fireBuild;
     public float FrostBuild => _frostBuild;
     public float EarthBuild => _earthBuild;
+    public float NatureBuild => _natureBuild;
+    public float WaterBuild => _waterBuild;
+    /// <summary>Soaked (a full meter of water): its fire out, frost building faster in it, fire slower.</summary>
+    public bool Soaked => _soakT > 0;
+    /// <summary>For the tests: times it has been entangled (a full meter of nature).</summary>
+    public int Entangled { get; private set; }
     public bool Sapped => _sapT > 0;
     public float ChillLeft => _chillT;
     /// <summary>For the tests: what has combusted, shattered, and been stunned by earth.</summary>
@@ -39,6 +45,8 @@ public abstract partial class Enemy
         if (Dead || amount <= 0 || el == HeroElement.None) return;
         if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Build, (float)el, amount, power); return; }
         amount *= BuildTake;
+        // (soaked: frost takes faster, fire slower)
+        if (_soakT > 0) amount *= el == HeroElement.Frost ? Tune.Elements.SoakFrost : el == HeroElement.Fire ? Tune.Elements.SoakFire : 1f;
         _buildIdle = 0f;
         float full = Tune.Elements.Full;
         switch (el)
@@ -70,6 +78,29 @@ public abstract partial class Enemy
                 if (Interruptible) Interrupt(Vector2.Zero, Tune.Elements.StunSeconds, "STUNNED");
                 else { Weaken(0.8f, Tune.Elements.StunSeconds * 2f); G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "STAGGERED", Elements.ColorOf(HeroElement.Earth), 9, 0.6f); }
                 G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(Elements.ColorOf(HeroElement.Earth), 0.9f), 0.3f, FxLayer.RingStyle.Burst);
+                break;
+            case HeroElement.Nature:
+                _natureBuild += amount;
+                if (_natureBuild < full) break;
+                _natureBuild = 0;
+                // entangled: vines about it, slowing all it does, and it bleeds sap
+                Entangled++;
+                Mire(Tune.Elements.EntangleSeconds);
+                Bleed(Tune.Elements.EntangleBleed * power, Tune.Elements.EntangleSeconds);
+                G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "ENTANGLED", Elements.ColorOf(HeroElement.Nature), 9, 0.7f);
+                G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(Elements.ColorOf(HeroElement.Nature), 0.9f), 0.35f, FxLayer.RingStyle.Wave);
+                for (int k = 0; k < 6; k++) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-HitRadius, HitRadius), G.Range(0, HitRadius)), Elements.ColorOf(HeroElement.Nature));
+                break;
+            case HeroElement.Water:
+                _waterBuild += amount;
+                if (_waterBuild < full) break;
+                _waterBuild = 0;
+                // soaked: its fire put out, frost building faster in it
+                if (_soakT <= 0) G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "SOAKED", Elements.ColorOf(HeroElement.Water), 9, 0.7f);
+                _soakT = Tune.Elements.SoakSeconds;
+                if (Ignited) Quench();
+                _fireBuild = 0;
+                G.Fx.Splash(GlobalPosition, 0.5f, new Color(Elements.ColorOf(HeroElement.Water), 0.9f));
                 break;
         }
     }
@@ -154,13 +185,20 @@ public abstract partial class Enemy
     {
         if (_sapT > 0) _sapT -= dt;
         if (_mireT > 0) _mireT -= dt;
-        if (_fireBuild <= 0 && _frostBuild <= 0 && _earthBuild <= 0) return;
+        if (_soakT > 0)
+        {
+            _soakT -= dt;
+            if (G.Chance(dt * 6f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-HitRadius, HitRadius), -HitRadius * 0.5f), new Color(Elements.ColorOf(HeroElement.Water), 0.8f), 1, 20, 1.4f, 0.4f, 200);
+        }
+        if (_fireBuild <= 0 && _frostBuild <= 0 && _earthBuild <= 0 && _natureBuild <= 0 && _waterBuild <= 0) return;
         _buildIdle += dt;
         if (_buildIdle < Tune.Elements.DecayDelay) return;
         float d = Tune.Elements.DecayRate * dt;
         _fireBuild = Math.Max(0, _fireBuild - d);
         _frostBuild = Math.Max(0, _frostBuild - d);
         _earthBuild = Math.Max(0, _earthBuild - d);
+        _natureBuild = Math.Max(0, _natureBuild - d);
+        _waterBuild = Math.Max(0, _waterBuild - d);
     }
 
     /// <summary>A blow from this game's hero while an Elementalist's Kindling is on them: a little fire with it.</summary>

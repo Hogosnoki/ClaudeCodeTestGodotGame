@@ -27,7 +27,7 @@ public partial class Player
 
     private HeroElement _mode, _top;
     private float _modeCd;
-    private readonly float[] _overCd = new float[5];
+    private readonly float[] _overCd = new float[7];
     private HeroElement _netMode, _netTop;
 
     /// <summary>The element the hero is in: all their abilities are its versions.</summary>

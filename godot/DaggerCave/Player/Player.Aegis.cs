@@ -70,7 +70,9 @@ public partial class Player
 
     // ---------------------------------------------------------------- the ward bolt
 
-    private bool CastWardBolt(Vector2 aim, bool held = false)
+    /// <summary>The ward bolt (an elemental Aegis's bubble shot: <paramref name="ver"/> its version, <paramref name="el"/> its element, its
+    /// speed, damage and burst x these, <paramref name="count"/> of them fanned).</summary>
+    private bool CastWardBolt(Vector2 aim, bool held = false, string ver = "", HeroElement el = HeroElement.None, float speedMult = 1f, float dmgMult = 1f, float burstMult = 1f, int count = 1)
     {
         if (_wardCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
@@ -85,11 +87,20 @@ public partial class Player
         Anim.Once("cast", 3, 1.6f);
         LastCast = "ward";
         _castGlow = 0.7f;
-        float dmg = Tune.Aegis.BoltDamage * Stats.DamageMult * Stats.PrimaryDamageMult;
-        var bolt = new ElementBolt { Position = CastPoint + dir * 6f, Dir = dir, Ward = true, Damage = dmg, Range = range, Speed = Tune.Aegis.BoltSpeed, Caster = this };
+        float dmg = Tune.Aegis.BoltDamage * Stats.DamageMult * Stats.PrimaryDamageMult * dmgMult;
+        ElementBolt bolt = null;
+        for (int k = 0; k < count; k++)
+        {
+            float spread = (k - (count - 1) * 0.5f) * Tune.ElementalAegis.VolleySpread;
+            bolt = new ElementBolt
+            {
+                Position = CastPoint + dir * 6f, Dir = dir.Rotated(spread), Ward = true, Damage = dmg, Range = range, Speed = Tune.Aegis.BoltSpeed * speedMult, Caster = this,
+                Version = ver, El = el, BurstMult = burstMult,
+            };
+            G.Spawn(bolt);
+            NetSync.HeroVisual(bolt);
+        }
         CastSlow();
-        G.Spawn(bolt);
-        NetSync.HeroVisual(bolt);
         G.Fx.Flash(CastPoint, 7, bolt.Tint, 0.08f);
         G.Sfx.Play("clink", CastPoint, -10, 0.1f, 1.5f);
         return true;
@@ -99,7 +110,7 @@ public partial class Player
     public void WardBoltStruck(ElementBolt bolt, Enemy e, Vector2 at)
     {
         if (!IsInstanceValid(e) || e.Dead) return;
-        float reach = Tune.Aegis.BurstRadius * Stats.BurstMult;
+        float reach = Tune.Aegis.BurstRadius * Stats.BurstMult * bolt.BurstMult;
         var struck = new List<Enemy> { e };
         foreach (var o in G.Enemies)
             if (o != e && !o.Dead && o.CanBeHit && o.GlobalPosition.DistanceTo(at) <= reach + o.HitRadius) struck.Add(o);
@@ -109,7 +120,10 @@ public partial class Player
             float dealt = t.Hurt(bolt.Damage * share, bolt.Dir * 40f, t == e ? at : t.GlobalPosition);
             if (dealt > 0) OnDealtDamage(dealt);
             if (!t.Dead) t.Weaken(Stats.DebuffMult, Stats.DebuffSeconds);
+            // (the elemental Aegis's attribute rides on the burst)
+            if (Elemental && !t.Dead) AttributeHit(t, at);
         }
+        if (bolt.Version != "") AegisShotBurst(bolt, e, at, struck);
     }
 
     // ---------------------------------------------------------------- allies
@@ -142,10 +156,13 @@ public partial class Player
 
     private bool TryBarrier(Vector2 aim)
     {
-        if (!IsAegis || !AbilityChargeReady) return false;
+        // (the elemental Aegis's version, if one is being cast: its strength and what else it gives)
+        string ver = _aBarrierNext; bool free = _aBarrierFree;
+        _aBarrierNext = ""; _aBarrierFree = false;
+        if (!IsAegis || (!AbilityChargeReady && !free)) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var ally = PickAlly(aim);
-        SpendAbilityCharge();
+        if (!free) SpendAbilityCharge();
         // (the ward is gathered first: the Aegis holds still, animated, for the shield's wind-up, then it goes up)
         LastCast = "barrier";
         Hold(Tune.Aegis.ShieldDelay, "heal", () =>
@@ -156,8 +173,9 @@ public partial class Player
             void Give(Player who, float k = 1f)
             {
                 // (a share of the receiver's health: as strong as the one it guards is tough)
-                float amount = Tune.Aegis.BarrierShare * who.Stats.MaxHp * Stats.WardMult * Stats.BarrierMult * k;
+                float amount = Tune.Aegis.BarrierShare * who.Stats.MaxHp * Stats.WardMult * Stats.BarrierMult * k * WardAmp(ver);
                 who.GiveBarrier(amount, Tune.Aegis.BarrierSeconds);
+                if (ver != "") AegisWardGiven(ver, who);
                 if (who != this) G.Fx.Beam(from, who.GlobalPosition + new Vector2(0, -6), new Color(0.75f, 0.92f, 1f, 0.9f));
             }
             if (Stats.WideBarrier)
@@ -169,8 +187,8 @@ public partial class Player
             else
             {
                 Give(ally ?? this);
-                // (Twin Barrier: the Aegis wraps itself as well)
-                if (ally != null && Stats.TwinBarrier) Give(this);
+                // (Twin Barrier, or a Twin Gale: the Aegis wraps itself as well)
+                if (ally != null && (Stats.TwinBarrier || ver == "Twin Gale")) Give(this);
             }
             G.Sfx.Play("clink", from, -4, 0.05f, 1.2f);
             _castGlow = 1f;
@@ -373,19 +391,25 @@ public partial class Player
         }
         _bubbleCd = Tune.Aegis.BubbleCooldown * Stats.BubbleCdMult;
         LastCast = "bubble";
+        // (the elemental Aegis's version, if one is being cast: its reach, strength, and what it does to the creatures in it)
+        string ver = _aDomeNext;
+        float reach = Tune.Aegis.BubbleCastRadius * DomeReach(ver);
         Hold(Tune.Aegis.ShieldDelay, "hex", () =>
         {
             if (Dead) return;
             // a field: every hero near the Aegis (herself too) is wrapped, each in a bubble the size of their own
             // health's share; where the bubbles touch they act as one
+            var wrapped = new List<Player>();
             foreach (var who in G.Players.ToArray())
             {
                 if (who == null || !IsInstanceValid(who) || who.Dead) continue;
-                if (who != this && who.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Aegis.BubbleCastRadius) continue;
-                float cap = Tune.Aegis.BubbleShare * who.Stats.MaxHp * Stats.WardMult * Stats.BubbleMult;
-                who.GiveBubble(cap, Tune.Aegis.BubbleSeconds, Stats.BubbleHeal);
+                if (who != this && who.GlobalPosition.DistanceTo(GlobalPosition) > reach) continue;
+                float cap = Tune.Aegis.BubbleShare * who.Stats.MaxHp * Stats.WardMult * Stats.BubbleMult * DomeCap(ver);
+                who.GiveBubble(cap, Tune.Aegis.BubbleSeconds * DomeTime(ver), Stats.BubbleHeal);
+                wrapped.Add(who);
                 if (who != this) G.Fx.Beam(CastPoint, who.GlobalPosition + new Vector2(0, -6), new Color(0.6f, 0.95f, 0.9f, 0.9f));
             }
+            if (ver != "") AegisDomeUp(ver, Math.Min(reach, Tune.Aegis.BurstHealRadius * 1.6f * DomeReach(ver)), wrapped);
             G.Sfx.Play("bubble", CastPoint, -4, 0.05f, 1.0f);
             _castGlow = 1f;
         });

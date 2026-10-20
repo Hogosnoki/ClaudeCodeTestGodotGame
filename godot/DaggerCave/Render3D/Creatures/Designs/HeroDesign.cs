@@ -860,6 +860,8 @@ public sealed partial class HeroDesign : CreatureDesign
                 _ => Life,
             };
             var col = Life.Lerp(spell, Math.Clamp(glow * 1.6f, 0f, 1f));
+            // (elemental: the crystal burns in the mode's colour, an attribute pulsing through it, an overcharge flaring it)
+            ModeGlow(player, dead, a.Time, ref col, ref glow, ref pulse);
             if (gem.Mesh.SurfaceGetMaterial(0) is StandardMaterial3D mat)
             {
                 mat.EmissionEnergyMultiplier = dead ? 0.4f : (1.8f + 7f * glow) * pulse;
@@ -886,6 +888,7 @@ public sealed partial class HeroDesign : CreatureDesign
                 _ => AegisGlow,
             };
             var col = AegisGlow.Lerp(spell, Math.Clamp(glow * 1.6f, 0f, 1f));
+            ModeGlow(player, dead, a.Time, ref col, ref glow, ref pulse);
             if (disc.Mesh is SphereMesh sm && sm.Material is StandardMaterial3D mat)
             {
                 mat.Emission = col;
@@ -1000,6 +1003,19 @@ public sealed partial class HeroDesign : CreatureDesign
             light.LightEnergy = (elem ? 3.2f : 1.1f) * flick;
             light.OmniRange = elem ? 4.5f : 2.8f;
         }
+    }
+
+    /// <summary>An elemental caster's focus (the Vitalist's crystal, the Aegis's disc) in its mode: the mode's colour, an attribute pulsing
+    /// through it, an overcharge flaring it; the cast's own flash still shows over it.</summary>
+    private static void ModeGlow(Player player, bool dead, float time, ref Color col, ref float glow, ref float pulse)
+    {
+        var mode = player == null || dead ? HeroElement.None : player.GlowElement;
+        if (mode == HeroElement.None) return;
+        var mc = Elements.ColorOf(mode);
+        if (player.Attribute != HeroElement.None) mc = mc.Lerp(Elements.ColorOf(player.Attribute), 0.5f + 0.5f * MathF.Sin(time * 4f));
+        col = mc.Lerp(col, Math.Clamp(glow, 0f, 1f) * 0.6f);
+        glow = Math.Max(glow, player.Overcharged ? 0.55f : 0.3f) + 0.3f * player.InfuseFlash;
+        if (player.Overcharged) pulse = 0.8f + 0.25f * MathF.Sin(time * 11f);
     }
 
     /// <summary>The Warden's shield glows with the readied element, or (brighter, steady) with the guard it holds while raised.</summary>

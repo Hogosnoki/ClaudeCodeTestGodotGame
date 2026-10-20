@@ -5,7 +5,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>An element a hero can lend an attack (see <see cref="Elements"/>).</summary>
-public enum HeroElement : byte { None, Earth, Fire, Frost, Wind }
+public enum HeroElement : byte { None, Earth, Fire, Frost, Wind, Nature, Water }
 
 /// <summary>Which of a hero's buttons an element changes: the attack, movement (the Swordsman's and Elementalist's dodge, the Warden's
 /// Guarded Charge), the heavy one (the Hard Swing, the fixed-range spell, the Warden's block) and the fourth (Empower Hilt, Aid).</summary>
@@ -22,7 +22,7 @@ public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
 public static class Elements
 {
     /// <summary>The hero fights with elements (not the classic kit).</summary>
-    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden;
+    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden or HeroKind.Vitalist or HeroKind.Aegis;
     /// <summary>The tests of the classic kits keep them (never saved): `--scenario=elements` or `--elements` tests the elemental ones.</summary>
     public static bool ClassicForTests;
 
@@ -30,14 +30,20 @@ public static class Elements
     private static readonly HeroElement[] Sword = { HeroElement.Earth, HeroElement.Fire, HeroElement.Frost };
     private static readonly HeroElement[] Ele = { HeroElement.Fire, HeroElement.Frost, HeroElement.Wind };
     private static readonly HeroElement[] Ward = { HeroElement.Earth, HeroElement.Frost, HeroElement.Wind };
+    private static readonly HeroElement[] Vital = { HeroElement.Nature, HeroElement.Wind, HeroElement.Water };
+    private static readonly HeroElement[] Aeg = { HeroElement.Wind, HeroElement.Earth, HeroElement.Frost };
 
     /// <summary>The mode a hero starts in: the element that is most their own.</summary>
-    public static HeroElement Signature(HeroKind h) => h switch { HeroKind.Warden => HeroElement.Earth, HeroKind.Swordsman or HeroKind.Elementalist => HeroElement.Fire, _ => Of(h).FirstOrDefault() };
+    public static HeroElement Signature(HeroKind h) => h switch
+    {
+        HeroKind.Warden => HeroElement.Earth, HeroKind.Swordsman or HeroKind.Elementalist => HeroElement.Fire, HeroKind.Vitalist => HeroElement.Nature,
+        HeroKind.Aegis => HeroElement.Wind, _ => Of(h).FirstOrDefault(),
+    };
 
     /// <summary>The hero's three elements, in button order (1, 2, 3).</summary>
-    public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h switch { HeroKind.Swordsman => Sword, HeroKind.Warden => Ward, _ => Ele };
+    public static HeroElement[] Of(HeroKind h) => !On(h) ? None : h switch { HeroKind.Swordsman => Sword, HeroKind.Warden => Ward, HeroKind.Vitalist => Vital, HeroKind.Aegis => Aeg, _ => Ele };
 
-    public static string Name(HeroElement e) => e switch { HeroElement.Earth => "Earth", HeroElement.Fire => "Fire", HeroElement.Frost => "Frost", HeroElement.Wind => "Wind", _ => "" };
+    public static string Name(HeroElement e) => e switch { HeroElement.Earth => "Earth", HeroElement.Fire => "Fire", HeroElement.Frost => "Frost", HeroElement.Wind => "Wind", HeroElement.Nature => "Nature", HeroElement.Water => "Water", _ => "" };
 
     public static Color ColorOf(HeroElement e) => e switch
     {
@@ -45,15 +51,17 @@ public static class Elements
         HeroElement.Fire => new Color(1f, 0.5f, 0.15f),
         HeroElement.Frost => new Color(0.65f, 0.88f, 1f),
         HeroElement.Wind => new Color(0.72f, 1f, 0.82f),
+        HeroElement.Nature => new Color(0.42f, 0.88f, 0.3f),
+        HeroElement.Water => new Color(0.3f, 0.6f, 1f),
         _ => new Color(0.85f, 0.8f, 1f),
     };
 
-    public static DamageKind KindOf(HeroElement e) => e switch { HeroElement.Fire => DamageKind.Fire, HeroElement.Frost => DamageKind.Frost, _ => DamageKind.Physical };
+    public static DamageKind KindOf(HeroElement e) => e switch { HeroElement.Fire => DamageKind.Fire, HeroElement.Frost => DamageKind.Frost, HeroElement.Nature => DamageKind.Nature, HeroElement.Water => DamageKind.Water, _ => DamageKind.Physical };
 
     /// <summary>The input action of an element slot (0-2).</summary>
     public static string Action(int slot) => $"infuse_{slot + 1}";
 
-    /// <summary>Two charges in a set order (earth, fire, frost, wind), so a pair is the same whichever was readied first.</summary>
+    /// <summary>Two charges in a set order (earth, fire, frost, wind, nature, water), so a pair is the same whichever was readied first.</summary>
     public static (HeroElement a, HeroElement b) Pair(HeroElement x, HeroElement y) => x <= y ? (x, y) : (y, x);
 
     /// <summary>
@@ -78,6 +86,24 @@ public static class Elements
                 ElemSlot.Attack => e switch { HeroElement.Earth => "Stonecutter", HeroElement.Frost => "Rime Edge", HeroElement.Wind => "Gale Edge", _ => "Shortsword" },
                 ElemSlot.Move => e switch { HeroElement.Earth => "Rockslide Charge", HeroElement.Frost => "Frozen Tundra", HeroElement.Wind => "Gale Charge", _ => "Guarded Charge" },
                 ElemSlot.Heavy => e switch { HeroElement.Earth => "Earth Shield", HeroElement.Frost => "Frost Shield", HeroElement.Wind => "Wind Barrier", _ => "Block" },
+                _ => "",
+            };
+        // the Vitalist: the drain (attack), the hex about her (the dodge button: movement's slot) and the heal (the ability: Aid's slot)
+        if (h == HeroKind.Vitalist)
+            return slot switch
+            {
+                ElemSlot.Attack => e switch { HeroElement.Nature => "Thorn Drain", HeroElement.Wind => "Wisp Drain", HeroElement.Water => "Tide Drain", _ => "Drain" },
+                ElemSlot.Move => e switch { HeroElement.Nature => "Overgrowth", HeroElement.Wind => "Withering Gale", HeroElement.Water => "Drowning Hex", _ => "Hex" },
+                ElemSlot.Aid => e switch { HeroElement.Nature => "Regrowth", HeroElement.Wind => "Breath of Life", HeroElement.Water => "Cleansing Wave", _ => "Heal" },
+                _ => "",
+            };
+        // the Aegis: the bubble shot (attack, her ward bolt), the bubble field (the dodge button) and the barrier (the ability)
+        if (h == HeroKind.Aegis)
+            return slot switch
+            {
+                ElemSlot.Attack => e switch { HeroElement.Wind => "Gale Bubble", HeroElement.Earth => "Stone Bubble", HeroElement.Frost => "Rime Bubble", _ => "Bubble Shot" },
+                ElemSlot.Move => e switch { HeroElement.Wind => "Air Dome", HeroElement.Earth => "Stone Dome", HeroElement.Frost => "Ice Dome", _ => "Bubble Field" },
+                ElemSlot.Aid => e switch { HeroElement.Wind => "Wind Ward", HeroElement.Earth => "Stone Skin", HeroElement.Frost => "Frost Ward", _ => "Barrier" },
                 _ => "",
             };
         return slot switch
@@ -173,6 +199,48 @@ public static class Elements
                     (HeroElement.Earth, HeroElement.Wind) => "Dust Wall",
                     (HeroElement.Frost, HeroElement.Wind) => "Hoarfrost Gale",
                     _ => "",
+                },
+                _ => "",
+            };
+        // (the pairs come sorted: wind, nature, water for the Vitalist; earth, frost, wind for the Aegis)
+        const HeroElement W = HeroElement.Wind, N = HeroElement.Nature, Aq = HeroElement.Water, E = HeroElement.Earth, F = HeroElement.Frost;
+        if (h == HeroKind.Vitalist)
+            return slot switch
+            {
+                ElemSlot.Attack => (a, b) switch
+                {
+                    (N, N) => "Bramble Lash", (W, W) => "Whirling Siphon", (Aq, Aq) => "Riptide",
+                    (W, N) => "Pollen Drain", (N, Aq) => "Life Spring", (W, Aq) => "Rain Siphon", _ => "",
+                },
+                ElemSlot.Move => (a, b) switch
+                {
+                    (N, N) => "Strangling Grove", (W, W) => "Eye of the Tempest", (Aq, Aq) => "Maelstrom",
+                    (W, N) => "Spore Storm", (N, Aq) => "Mire Bloom", (W, Aq) => "Squall", _ => "",
+                },
+                ElemSlot.Aid => (a, b) switch
+                {
+                    (N, N) => "Bloom of Life", (W, W) => "Second Wind", (Aq, Aq) => "Wellspring",
+                    (W, N) => "Seeds on the Wind", (N, Aq) => "Rejuvenation", (W, Aq) => "Mist of Mending", _ => "",
+                },
+                _ => "",
+            };
+        if (h == HeroKind.Aegis)
+            return slot switch
+            {
+                ElemSlot.Attack => (a, b) switch
+                {
+                    (E, E) => "Boulder Bubble", (F, F) => "Frost Orb", (W, W) => "Bubble Volley",
+                    (E, F) => "Hail Bubble", (E, W) => "Sand Bubble", (F, W) => "Snow Bubble", _ => "",
+                },
+                ElemSlot.Move => (a, b) switch
+                {
+                    (E, E) => "Fortress", (F, F) => "Glacier Dome", (W, W) => "Gale Dome",
+                    (E, F) => "Crystal Dome", (E, W) => "Dust Dome", (F, W) => "Blizzard Dome", _ => "",
+                },
+                ElemSlot.Aid => (a, b) switch
+                {
+                    (E, E) => "Bulwark Ward", (F, F) => "Glacial Ward", (W, W) => "Twin Gale",
+                    (E, F) => "Permafrost Ward", (E, W) => "Sandstorm Ward", (F, W) => "Winter Ward", _ => "",
                 },
                 _ => "",
             };

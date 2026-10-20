@@ -43,7 +43,21 @@ public partial class Player
             case NetSync.Boon.Unweb: FreeFromWeb("CUT FREE"); break;
             case NetSync.Boon.Glitch: GlitchStruck(); break;
             case NetSync.Boon.Burn: GiveBurn(a, b); break;
+            case NetSync.Boon.Cleanse: Cleansed(); break;
         }
+    }
+
+    /// <summary>A friend's cleansing water (the elemental Vitalist): every affliction washed away.</summary>
+    public void Cleanse() => Afflict(NetSync.Boon.Cleanse, 0, 0);
+
+    private void Cleansed()
+    {
+        bool any = Poisoned || Burning || Webbed || Stunned || Frozen;
+        if (Webbed) FreeFromWeb("WASHED FREE");
+        ClearStatus();
+        if (!any) return;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), "CLEANSED", Elements.ColorOf(HeroElement.Water), 9, 0.8f);
+        G.Fx.Splash(GlobalPosition, 0.4f, new Color(Elements.ColorOf(HeroElement.Water), 0.9f));
     }
 
     /// <summary>How many times the Glitch has struck this hero (it can't take them to nothing before the eighth).</summary>

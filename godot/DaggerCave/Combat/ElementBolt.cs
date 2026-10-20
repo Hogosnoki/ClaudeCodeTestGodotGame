@@ -24,6 +24,11 @@ public partial class ElementBolt : Node2D
     public float BuildMult = 1f;
     /// <summary>The Aegis's ward bolt (light, bursting on contact, weakening what it strikes).</summary>
     public bool Ward;
+    /// <summary>An elemental Aegis's bubble shot: its version (its burst does what that version does), its element (its colour) and how
+    /// wide its burst is, x the ward bolt's.</summary>
+    public string Version = "";
+    public HeroElement El;
+    public float BurstMult = 1f;
     /// <summary>Online: another player's bolt, shown here (their game deals its damage).</summary>
     public bool Harmless;
     public Player Caster;
@@ -39,7 +44,7 @@ public partial class ElementBolt : Node2D
     public static Color WardColor => new(1f, 0.9f, 0.5f);
     public static Color WindColor => Elements.ColorOf(HeroElement.Wind);
     public static Color PlainColor => new(0.82f, 0.72f, 1f);
-    public Color Tint => Ward ? WardColor : Wind ? WindColor : Plain ? PlainColor : Frost ? FrostColor : FireColor;
+    public Color Tint => Ward ? (El != HeroElement.None ? Elements.ColorOf(El).Lerp(WardColor, 0.3f) : WardColor) : Wind ? WindColor : Plain ? PlainColor : Frost ? FrostColor : FireColor;
     /// <summary>A bolt of no fire (it lights no gas, and trails no embers).</summary>
     private bool Cold => Frost || Ward || Wind || Plain;
 

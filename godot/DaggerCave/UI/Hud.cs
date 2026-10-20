@@ -909,6 +909,17 @@ public partial class Hud : Control
         "Permafrost Guard" => "PERMAFROST", "Dust Wall" => "DUST", "Hoarfrost Gale" => "HOARFROST",
         "Guarded Charge" => "CHARGE", "Rockslide Charge" => "ROCKSLIDE", "Frozen Tundra" => "TUNDRA", "Gale Charge" => "GALE", "Glacier Charge" => "GLACIER",
         "Tempest Charge" => "TEMPEST", "Frostquake" => "F.QUAKE", "Duststorm" => "DUST", "Blizzard Charge" => "BLIZZARD",
+        "Thorn Drain" => "THORN", "Wisp Drain" => "WISP", "Tide Drain" => "TIDE", "Bramble Lash" => "BRAMBLE", "Whirling Siphon" => "SIPHON",
+        "Pollen Drain" => "POLLEN", "Life Spring" => "SPRING", "Rain Siphon" => "RAIN", "Withering Gale" => "WITHER", "Drowning Hex" => "DROWN",
+        "Strangling Grove" => "GROVE", "Eye of the Tempest" => "TEMPEST", "Maelstrom" => "MAELSTROM", "Spore Storm" => "SPORES", "Mire Bloom" => "MIRE",
+        "Breath of Life" => "BREATH", "Cleansing Wave" => "CLEANSE", "Bloom of Life" => "BLOOM", "Second Wind" => "2ND WIND", "Wellspring" => "WELL",
+        "Seeds on the Wind" => "SEEDS", "Rejuvenation" => "REJUV.", "Mist of Mending" => "MIST",
+        "Bubble Shot" => "BUBBLE", "Gale Bubble" => "GALE", "Stone Bubble" => "STONE", "Rime Bubble" => "RIME", "Boulder Bubble" => "BOULDER",
+        "Frost Orb" => "F.ORB", "Bubble Volley" => "VOLLEY", "Hail Bubble" => "HAIL", "Sand Bubble" => "SAND", "Snow Bubble" => "SNOW",
+        "Bubble Field" => "FIELD", "Air Dome" => "AIR", "Stone Dome" => "STONE", "Ice Dome" => "ICE", "Glacier Dome" => "GLACIER", "Gale Dome" => "GALE",
+        "Crystal Dome" => "CRYSTAL", "Dust Dome" => "DUST", "Blizzard Dome" => "BLIZZARD", "Wind Ward" => "WIND W.", "Stone Skin" => "STONESKIN",
+        "Frost Ward" => "FROST W.", "Bulwark Ward" => "BULWARK", "Glacial Ward" => "GLACIAL", "Twin Gale" => "TWIN", "Permafrost Ward" => "PERMAFROST",
+        "Sandstorm Ward" => "SANDSTORM", "Winter Ward" => "WINTER",
         _ => name.ToUpperInvariant(),
     };
 
@@ -1175,11 +1186,15 @@ public partial class Hud : Control
     private void DrawVitalistGauges(Font font, Player p, Vector2 ab)
     {
         var green = new Color(0.55f, 1f, 0.45f);
-        Dial(ab + new Vector2(17, 17), p.HexCooldownFrac, green, "HEX");
-        DrawString(font, ab + new Vector2(0, -6), "HEX", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        // (elemental: the mode's elements above, and each button named, and coloured, for what it does now)
+        bool el = p.Elemental;
+        if (el) DrawElementRow(font, p, ab + new Vector2(0, -74), $"{Short(p.NameFor(ElemSlot.Attack))} ON ATTACK");
+        string hex = el ? Short(p.NameFor(ElemSlot.Move)) : "HEX";
+        Dial(ab + new Vector2(17, 17), p.HexCooldownFrac, el ? SlotColor(p, ElemSlot.Move, green) : green, hex);
+        DrawString(font, ab + new Vector2(0, -6), hex, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         var hb = ab + new Vector2(50, 0);
         bool affordable = p.VitalForce >= p.HealCost - 0.001f;
-        AbilitySquare(font, hb, $"HEAL ({p.HealCost:0})", p.HealCooldownFrac, affordable && p.HealCooldownFrac <= 0, Player.HealColor, (c, col) =>
+        AbilitySquare(font, hb, $"{(el ? Short(p.NameFor(ElemSlot.Aid)) : "HEAL")} ({p.HealCost:0})", p.HealCooldownFrac, affordable && p.HealCooldownFrac <= 0, el ? SlotColor(p, ElemSlot.Aid, Player.HealColor) : Player.HealColor, (c, col) =>
         {
             DrawRect(new Rect2(c - new Vector2(3, 10), new Vector2(6, 20)), col);
             DrawRect(new Rect2(c - new Vector2(10, 3), new Vector2(20, 6)), col);
@@ -1264,15 +1279,20 @@ public partial class Hud : Control
     {
         var teal = HeroColor(HeroKind.Aegis);
         var gold = new Color(1f, 0.88f, 0.5f);
+        // (elemental: the mode's elements above, and each button named, and coloured, for what it does now)
+        bool el = p.Elemental;
+        if (el) DrawElementRow(font, p, ab + new Vector2(0, -74), $"{Short(p.NameFor(ElemSlot.Attack))} ON ATTACK");
+        string field = el ? Short(p.NameFor(ElemSlot.Move)) : p.Stats.HostileBubble ? "WARD" : "BUBBLE";
         // the bubble (dodge button): a ring with a glint
-        Dial(ab + new Vector2(17, 17), p.BubbleCooldownFrac, teal, "BUBBLE");
-        DrawString(font, ab + new Vector2(0, -6), p.Stats.HostileBubble ? "WARD" : "BUBBLE", HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
+        if (el) teal = SlotColor(p, ElemSlot.Move, teal);
+        Dial(ab + new Vector2(17, 17), p.BubbleCooldownFrac, teal, field);
+        DrawString(font, ab + new Vector2(0, -6), field, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.6f));
         DrawArc(ab + new Vector2(17, 17), 8, 0, Mathf.Tau, 16, p.BubbleCooldownFrac <= 0 ? new Color(teal, 0.9f) : new Color(0.45f, 0.47f, 0.52f), 1.5f);
         DrawArc(ab + new Vector2(17, 17), 5, 3.6f, 4.8f, 6, p.BubbleCooldownFrac <= 0 ? new Color(1, 1, 1, 0.8f) : new Color(0.45f, 0.47f, 0.52f), 1.2f);
         KeyHint(font, ab, "dodge");
 
         var bb = ab + new Vector2(62, 0);
-        AbilitySquare(font, bb, "BARRIER", p.AbilityCooldownFrac, p.AbilityChargeReady, new Color(0.75f, 0.92f, 1f), (c, col) =>
+        AbilitySquare(font, bb, el ? Short(p.NameFor(ElemSlot.Aid)) : "BARRIER", p.AbilityCooldownFrac, p.AbilityChargeReady, el ? SlotColor(p, ElemSlot.Aid, new Color(0.75f, 0.92f, 1f)) : new Color(0.75f, 0.92f, 1f), (c, col) =>
         {
             // a shield-shaped ward
             DrawColoredPolygon(new[] { c + new Vector2(-9, -9), c + new Vector2(9, -9), c + new Vector2(9, 1), c + new Vector2(0, 11), c + new Vector2(-9, 1) }, col);

@@ -1989,9 +1989,9 @@ Every value, stack count and rarity in the reviewed catalogue is in the cards no
   tests the body's true width, so that layout is repaired or rejected. `--gentest --biome=nest --genseed=804912` makes that one cave.
 
 
-## Elements (the Swordsman, the Elementalist and the Warden)
+## Elements (the Swordsman, the Elementalist, the Warden, the Vitalist and the Aegis)
 
-The Swordsman, the Elementalist and the Warden fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
+The Swordsman, the Elementalist, the Warden, the Vitalist and the Aegis fight with **elements** (`Core/Elements.cs`, `Player/Player.Elemental.cs`,
 `Enemies/Enemy.Elements.cs`, `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`, `Tune.ElementalWarden`), on **1, 2, 3** on the
 keyboard, **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*.
 
@@ -2176,9 +2176,65 @@ The names are my fill-ins; rename or swap them freely. The HUD shows his three b
 block's square shows the guard while it holds, the shield's strength beside them). `--scenario=elements --hero=warden`
 checks every mode and greater version, and (for all three heroes) the mode controls (`modes_overcharged.png`, `modes_switched.png`, `warden_guard.png`, `warden_bulwark.png`, `warden_hud.png`).
 
-**Classic kits**: *Settings > Controls > Classic Swordsman, Elementalist & Warden* brings back their old kits (from the next run). The tests of the
-classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`) tests the elemental ones (`elements_hud.png`), and
-`--elements` runs any other test with them.
+### Two new elements: nature and water
+
+The Vitalist and the Aegis brought two elements of their own to creatures (`Enemies/Enemy.Elements.cs`, `Tune.Elements`), each with its
+thin meter over them: **nature** full entangles a creature (vines about it: everything it does slowed as if mired, 3 s, and it bleeds sap,
+14 x the hero's damage over that time); **water** full soaks it for 6 s (its fire put out, frost building in it twice as fast, fire half).
+A water heal's **cleanse** washes a hero's afflictions off (poison, fire, frost, webs, stuns), reaching friends' games as a boon.
+
+### The elemental Vitalist (nature, wind, water)
+
+`Player/Player.VitalistElements.cs`, `Tune.ElementalVital`. Her **drain** (the attack), the **hex** about her (the dodge button) and her
+**heal** (the ability) each take her mode's version; **Rupture** is as it was. She starts in nature mode. Nature roots and bleeds, wind
+reaches and moves, water soaks and mends; the drain's motes and the attribute's touch ride on every drain. In a mode the heal goes out
+even with no one hurt (for what else it does), still costing its vital force.
+
+| Vitalist | Plain | Nature | Wind | Water |
+|---|---|---|---|---|
+| **Drain** | the drain | **Thorn Drain**: 40 nature; a quarter more vital force comes home | **Wisp Drain**: reaches 1.4x as far, casts a quarter quicker, 0.8x | **Tide Drain**: 40 water; mends her by 15% of what it tears out |
+| **Hex** (dodge) | the hex | **Overgrowth**: vines: 50 nature to all in it | **Withering Gale**: 1.2x wider, everything in it thrown out | **Drowning Hex**: 60 water to all in it |
+| **Heal** (ability) | the heal | **Regrowth**: half now, three quarters more over 5 s | **Breath of Life**: 1.6x the reach, a tailwind for all it reaches | **Cleansing Wave**: every affliction washed off those it reaches |
+
+| Vitalist pairs | Drain | Hex | Heal |
+|---|---|---|---|
+| Nature + Nature | **Bramble Lash**: a full meter of nature; brambles lash up to 3 creatures beside it, draining them (0.6x) | **Strangling Grove**: 1.3x wider, a full meter of nature to all (entangled) | **Bloom of Life**: 1.5x, and a healing pool blooms at her feet (5 s) |
+| Wind + Wind | **Whirling Siphon**: up to 3 more creatures in reach drained too (0.7x) | **Eye of the Tempest**: 1.6x wider, everything in it hauled in toward her | **Second Wind**: every friend wherever they are, and a tailwind |
+| Water + Water | **Riptide**: a full meter of water, and the current hauls it toward her | **Maelstrom**: a full meter of water to all, and a healing pool at her feet | **Wellspring**: 1.2x, a barrier of water (12% of health, 8 s) and a cleanse for all near |
+| Wind + Nature | **Pollen Drain**: 40 nature to it and everything within 60 px | **Spore Storm**: 1.5x wider, 40 nature and a shove | **Seeds on the Wind**: 1.6x the reach, more mending over 5 s |
+| Nature + Water | **Life Spring**: 30 nature; every friend near is mended by 30% of what it tears out | **Mire Bloom**: mired 4 s, 40 nature | **Rejuvenation**: 60% now, as much again over 5 s, and cleansed |
+| Wind + Water | **Rain Siphon**: 40 water to it and everything within 60 px | **Squall**: 40 water and a shove | **Mist of Mending**: a mist about her (70 px, 5 s) hides her friends |
+
+### The elemental Aegis (wind, earth, frost)
+
+`Player/Player.AegisElements.cs`, `Tune.ElementalAegis`. Her **bubble shot** (the attack: the ward bolt, which still homes, bursts, weakens and
+mends her a little), her **bubble field** (the dodge button) and her **barrier** (the ability) each take her mode's version; **Shared Burden**
+(and Smite) is as it was. She starts in wind mode. Wind keeps creatures off and speeds her friends, earth makes her wards heavier and her
+shots hit harder, frost fills what comes near with cold. Her shots take the colour of their element.
+
+| Aegis | Plain | Wind | Earth | Frost |
+|---|---|---|---|---|
+| **Bubble Shot** | the ward bolt | **Gale Bubble**: 1.5x as fast, cast 0.75x as often, its burst throws creatures back | **Stone Bubble**: 1.5x as hard, slower, 1.3x the burst, 40 earth | **Rime Bubble**: 40 frost to all in the burst |
+| **Bubble Field** (dodge) | the bubbles | **Air Dome**: creatures near thrown out | **Stone Dome**: bubbles 1.5x as strong | **Ice Dome**: 40 frost to creatures near |
+| **Barrier** (ability) | the barrier | **Wind Ward**: and a tailwind | **Stone Skin**: 1.5x as strong | **Frost Ward**: and frost armour while it lasts |
+
+| Aegis pairs | Bubble Shot | Bubble Field | Barrier |
+|---|---|---|---|
+| Earth + Earth | **Boulder Bubble**: 2.2x, 1.5x the burst, the one it hits stunned (full earth) | **Fortress**: bubbles 2.2x as strong, lasting 1.5x | **Bulwark Ward**: 2.5x as strong |
+| Frost + Frost | **Frost Orb**: a full meter of frost to all in the burst | **Glacier Dome**: a full meter of frost to creatures near | **Glacial Ward**: 1.3x, and a Frost Barrier (the next melee striker frozen full) |
+| Wind + Wind | **Bubble Volley**: three fast shots, fanned | **Gale Dome**: reaches friends 1.6x as far, and throws creatures out | **Twin Gale**: on the friend and her both, with a tailwind |
+| Earth + Frost | **Hail Bubble**: 1.5x, earth and frost to all in it, the frozen shattered | **Crystal Dome**: bubbles 1.6x, and frost armour on all it wraps | **Permafrost Ward**: 1.8x, and frost armour |
+| Earth + Wind | **Sand Bubble**: a cloud of dust where it bursts (hides friends), creatures in it sapped | **Dust Dome**: a cloud of dust about her, creatures near sapped | **Sandstorm Ward**: a cloud of dust about the one it wraps |
+| Frost + Wind | **Snow Bubble**: 1.5x the burst, frost and a shove | **Blizzard Dome**: frost to creatures near and the wind throws them out | **Winter Ward**: frost armour and a tailwind |
+
+Every name is a fill-in, and nothing is balanced yet. The HUD names each button for what it does in her mode (the attack's version is
+written beside the element row). Their focus (the Vitalist's crystal, the Aegis's disc) burns in the mode's colour, an attribute pulsing
+through it, an overcharge flaring it. `--scenario=elements --hero=vitalist` (or `aegis`) checks the mode controls, nature and water on a
+creature, the versions on every button, and every pair (`vitalist_riptide.png`, `vitalist_overgrowth.png`, `vitalist_maelstrom.png`,
+`vitalist_hud.png`, `aegis_volley.png`, `aegis_ward.png`, `aegis_airdome.png`, `aegis_hud.png`).
+
+**Classic kits**: *Settings > Controls > Classic kits (no elements)* brings back all five heroes' old kits (from the next run). The tests of the classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`,
+`vitalist`, `aegis`) tests the elemental ones (`elements_hud.png`), and `--elements` runs any other test with them.
 
 ## Save files
 
