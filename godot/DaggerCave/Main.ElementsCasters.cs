@@ -288,7 +288,9 @@ public partial class Main
         var foes = new List<Enemy>();
         void Clear() { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); }
         Enemy Add(float dx, bool hold = true) { var e = ElDummy(p, dx, hold); foes.Add(e); return e; }
-        void Home() { p.TestCatchDaggers(); p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.ResetAbilityCooldowns(); }
+        float face = p.Facing;
+        // (a Shade Step turns her about: back as she began)
+        void Home() { p.TestCatchDaggers(); p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.ResetAbilityCooldowns(); p.Facing = face; }
         PlayerInput Atk() => new() { Attack = true, Aim = aim, AimGiven = true };
         PlayerInput Throw() => new() { Ability = true, Aim = aim, AimGiven = true };
         PlayerInput Evade() => new() { Dodge = true, Aim = aim, AimGiven = true };
