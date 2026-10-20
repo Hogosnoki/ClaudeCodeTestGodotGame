@@ -761,12 +761,12 @@ public partial class Main
         var tw = p.LastElementSpell as Tornado;
         ScCheck($"a Tornado takes up the creature ({tw?.Caught}) and carries it along ({Math.Abs(a.GlobalPosition.X - x0):0} px)", p.ElementalUses.Contains("Tornado") && tw != null && tw.Caught >= 1 && Math.Abs(a.GlobalPosition.X - x0) > 20f);
         foreach (var _ in ElWait(3f)) yield return null;
-        // a button with no greater version uses the mode's, and the overcharge waits for one that has
+        // Aid's greater wind version: the draft, and the overcharge is spent on it
         Clear();
         Ready();
         foreach (var _ in ElPair(p, 3, 3)) yield return null;
         foreach (var _ in ElPress(new PlayerInput { Ability = true }, 0.1f)) yield return null;
-        ScCheck($"Aid has no greater version: it is wind's Narrow Draft, and the overcharge waits ({p.Overcharged})", p.HasBuff(Player.BuffTailwind) && p.Overcharged);
+        ScCheck($"overcharged, Aid is wind's Gale Draft: the draft, and the overcharge is spent ({p.Overcharged})", p.ElementalUses.Contains("Gale Draft") && p.HasBuff(Player.BuffTailwind) && !p.Overcharged);
         Clear();
     }
 
