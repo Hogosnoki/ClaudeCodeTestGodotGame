@@ -2026,7 +2026,8 @@ along it, a sheen of ice up it from hand to tip, a crackle of grit, a twist of w
 circle over the ability squares, one at each point of a triangle as they sit on the d-pad (left, up, right; keys 1, 2, 3): the mode big and
 lit, what's on top as a small diamond at its corner, each element's overcharge coming back as a ring round its point, the mode's switch
 coming back round the middle, and the mode written beside it (FIRE MODE, FIRE + WIND, FIRE OVERCHARGED); every button has its square with
-its cooldown and the seconds left, named for what it does now.
+its cooldown and the seconds left, named for what it does now. Every elemental use springs its name up over the hero, the basic attacks included (a Searing
+Strike, a Stonecutter, and now the Elementalist's Firebolts, Frostbolts, Gusts and Pops too).
 
 **Build-up, not chances.** An elemental blow fills a creature's meter of that element (thin coloured bars over it); full, it takes hold and
 empties: **fire** sets it alight, and full again while alight it **combusts** (a burst on it and those pressed close, with what the fire had
@@ -2152,12 +2153,14 @@ The Warden fights with **earth, frost and wind** (`Player/Player.WardenElements.
 **attack** (the shortsword), the **block** (the shield, raised) and the **dash** (the Guarded Charge), each with a version for each mode
 a greater version when overcharged and a mix with an attribute on top (the pairs below). He starts in earth
 mode. His **Shield Bash is not in the elemental kit** (its cards aren't dealt); Taunt, on the support button, is as it was. His dash keeps
-its own cooldown; his shortsword and shield glow with his mode.
+its own cooldown; his shortsword and shield glow with his mode. The guards are in `Combat/WardenGuards.cs` (`EarthMound`, `WardShell`; their
+3D views in `PropViews.cs`, the shells drawn by `fx_wardshell.gdshader`); online, every game raises its own from the Warden's state (two
+bits beside his mode), while his own game keeps what they stop. The pairs' guards hold while the shield stays up, 6 s at most.
 
 | Warden (earth, frost, wind) | Plain | Earth | Frost | Wind |
 |---|---|---|---|---|
-| **Attack** | the shortsword | **Stonecutter**: x1.25, 50 earth | **Rime Edge**: x1.25, 50 frost | **Gale Edge**: 1.3x the reach, throws what it strikes back |
-| **Block** (each time the shield goes up it takes the mode's **guard**, which holds while it stays up, 6 s at most) | the shield | **Stone Guard**: nothing gets through, the shield doesn't wear, a striker is stunned (full earth) | **Rime Guard**: a striker is filled with frost (full) | **Gale Guard**: a striker is thrown back, shots go back where they came from |
+| **Attack** (each mode swings at its own pace: wind-up, swing and cooldown x the pace) | the shortsword | **Stonecutter**: slow (2x the pace), x2, 50 earth; the ground jolts and grit flies off the blade | **Rime Edge**: steady (1.25x), x1.2, 50 frost, a sheet of rime along the arc | **Gale Edge**: quick (0.65x), x0.6, a little more reach, throws what it strikes far back (400), a gust and an afterimage |
+| **Block** (raising the shield calls up the mode's own guard; while one stands or rests, the shield is only the shield) | the shield | **Earth Shield**: the ground in front heaves up into a great lump of rock that curls over him for 2.5 s: nothing reaches him (blows or shots, from any side) and nothing moves him, and he can't move or leap; then it sinks back (rests 6 s) | **Frost Shield**: a faceted shell of ice about him (it stays when the shield is lowered) soaks 90% of every blow; once it has soaked 30 it shatters, filling every creature within 72 px with 90 frost and dealing 10 (rests 6 s) | **Wind Barrier**: a thin shell of streaking air soaks 20% of every blow, until it has soaked 40 (rests 4 s) |
 | **Dash** (every elemental charge runs through creatures, each struck once, instead of stopping at one) | the Guarded Charge | **Rockslide Charge**: ploughs through (x0.6 each) and ends in a shockwave of earth, 60 px (x1.4, full earth) | **Frozen Tundra**: 40 frost to what it passes; the ground it crossed (and 40 px past each end) freezes for 8 s | **Gale Charge**: 1.6x as long and 1.3x as fast, throwing creatures aside; friends it passes get a tailwind for 3 s |
 
 | Pair | Attack | Block | Dash |

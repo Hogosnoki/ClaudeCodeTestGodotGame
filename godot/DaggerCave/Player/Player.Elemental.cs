@@ -885,7 +885,8 @@ public partial class Player
         Anim.Face((int)Facing, instant: true);
         LastCast = el == HeroElement.Frost ? "frost" : "fire";
         if (el == HeroElement.None) { Pop(aim); return true; }
-        ElementalUses.Add(Elements.SingleName(Stats.Hero, ElemSlot.Attack, el));
+        _lastEl = el;
+        Used(Elements.SingleName(Stats.Hero, ElemSlot.Attack, el));
         Hold(quick ? Tune.Elementalist.FrostDelay : Tune.Elementalist.FireDelay, "cast", () =>
         {
             if (Dead) return;
@@ -920,7 +921,8 @@ public partial class Player
             G.Fx.Burst(at, new Color(col, 0.9f), 6, 70, 1.8f, 0.25f, 0);
             G.Fx.Flash(CastPoint, 5, col, 0.06f);
             G.Sfx.Play("hit", at, -8, 0.1f, 1.6f);
-            ElementalUses.Add("Pop");
+            _lastEl = HeroElement.None;
+            Used("Pop");
             if (target == null || target.Dead) return;
             float d = target.Hurt(Tune.ElementalStaff.PopDamage * Tune.ElementalStaff.ShotDamage * Stats.DamageMult * Stats.PrimaryDamageMult, dir * 30f, at, DamageKind.Physical);
             if (d > 0) { OnDealtDamage(d); target.HitStop(Tune.Feel.HitStopBolt * 0.6f); }

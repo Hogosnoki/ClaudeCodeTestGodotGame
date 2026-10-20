@@ -636,6 +636,8 @@ public partial class Player : CharacterBody2D
         // (a cast being gathered: the hero goes on as before, a jump rising, a fall falling, but in slow motion: every change to
         // their motion comes at a tenth of the rate, and they move at a tenth of the speed; when it ends they carry on at full speed)
         if (slowMo) v = vBefore + (v - vBefore) * Tune.Hold.MoveShare;
+        // (behind the Earth Shield the Warden stands rooted: nothing moves him, and he doesn't move or leap)
+        if (EarthShieldUp && !Possessed) v = new Vector2(0f, Math.Max(0f, v.Y));
 
         if (_airDashT > 0) _airDashT -= dt;
 
@@ -1257,6 +1259,8 @@ public partial class Player : CharacterBody2D
     private float HurtHere(float dmg, Vector2 from, float knock, Enemy source, bool shared = false)
     {
         float raw = dmg;
+        // (the elemental Warden's Earth Shield: the earth takes it all)
+        if (EarthShieldUp) { LastHitBlocked = true; MoundStruck(from); RunMetrics.Prevented(raw, Net.Me); return 0; }
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
         var block = TryBlock(from, dmg, melee ? source : null, source);
         if (block.Blocked)
@@ -1280,6 +1284,10 @@ public partial class Player : CharacterBody2D
         if (Stats.HeaveGuard && Heaving) dmg *= 0.5f; // (Braced)
         // (what the hero's own guard took off it: armour, a brace, a form's hide)
         RunMetrics.Prevented(raw - dmg, Net.Me);
+        // (the elemental Warden's shell of ice or wind soaks its share)
+        float preShell = dmg;
+        dmg = ShellSoak(dmg);
+        RunMetrics.Prevented(preShell - dmg, Net.Me);
         // a barrier soaks what it can first (a blow it soaks whole doesn't even make you flinch)
         float preBarrier = dmg;
         dmg = Soften(dmg);

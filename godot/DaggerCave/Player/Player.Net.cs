@@ -105,7 +105,8 @@ public partial class Player
         w.Byte((byte)(AxeKind & 3 | (int)(Math.Clamp(AxeStage / 3f, 0f, 1f) * 63f) << 2));
         // (the elemental mode and what's on top of it, by slot)
         var modeEls = Elements.Of(Stats.Hero);
-        w.Byte((byte)(Array.IndexOf(modeEls, Mode) + 1 & 7 | (Array.IndexOf(modeEls, Top) + 1 & 7) << 3));
+        // (and the elemental Warden's guard up: the Earth Shield, or a shell)
+        w.Byte((byte)(Array.IndexOf(modeEls, Mode) + 1 & 7 | (Array.IndexOf(modeEls, Top) + 1 & 7) << 3 | (IsWarden ? GuardBits : 0) << 6));
     }
 
     /// <summary>A puppet: the latest from its game.</summary>
@@ -149,6 +150,7 @@ public partial class Player
             int m = (b & 7) - 1, t = (b >> 3 & 7) - 1;
             _netMode = m >= 0 && m < modeEls.Length ? modeEls[m] : HeroElement.None;
             _netTop = t >= 0 && t < modeEls.Length ? modeEls[t] : HeroElement.None;
+            if (IsWarden) ReadGuardBits(b >> 6 & 3);
         }
         _net.Push(now, pos, vel);
         Dead = (_netFlags & HfDead) != 0;

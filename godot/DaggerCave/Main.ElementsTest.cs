@@ -783,7 +783,7 @@ public partial class Main
         var foes = new List<Enemy>();
         void Clear() { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); }
         Enemy Add(float dx, bool hold = true) { var e = ElDummy(p, dx, hold); foes.Add(e); return e; }
-        void Home() { p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.RefillShield(); p.ResetAbilityCooldowns(); }
+        void Home() { p.GlobalPosition = start; p.Velocity = Vector2.Zero; p.RefillShield(); p.ResetAbilityCooldowns(); p.TestResetGuards(); }
         PlayerInput Atk() => new() { Attack = true, Aim = aim, AimGiven = true };
         PlayerInput Dash() => new() { Ability = true, Aim = aim, AimGiven = true };
         // the mode of element a (and overcharged with b the same)
@@ -807,11 +807,32 @@ public partial class Main
         var foe = Add(22);
         foreach (var _ in ElWait(0.3f)) yield return null;
         foreach (var _ in Ready(1)) yield return null;
-        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
-        ScCheck($"earth mode's cut: Stonecutter ({foe.EarthBuild:0} earth)", p.ElementalUses.Contains("Stonecutter") && foe.EarthBuild > 1);
+        float h0 = foe.Hp;
+        foreach (var _ in ElPress(Atk(), 0.8f)) yield return null;
+        float stoneDmg = h0 - foe.Hp;
+        ScCheck($"earth mode's cut: Stonecutter ({foe.EarthBuild:0} earth, {stoneDmg:0} damage)", p.ElementalUses.Contains("Stonecutter") && foe.EarthBuild > 1);
         foreach (var _ in Ready(2)) yield return null;
-        foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
-        ScCheck($"frost mode's cut: Rime Edge ({foe.FrostBuild:0} frost)", p.ElementalUses.Contains("Rime Edge") && foe.FrostBuild > 1);
+        h0 = foe.Hp;
+        foreach (var _ in ElPress(Atk(), 0.8f)) yield return null;
+        float rimeDmg = h0 - foe.Hp;
+        ScCheck($"frost mode's cut: Rime Edge ({foe.FrostBuild:0} frost, {rimeDmg:0} damage)", p.ElementalUses.Contains("Rime Edge") && foe.FrostBuild > 1);
+        foreach (var _ in Ready(3)) yield return null;
+        h0 = foe.Hp;
+        foreach (var _ in ElPress(Atk(), 0.8f)) yield return null;
+        float galeDmg = h0 - foe.Hp;
+        // (the paces, swung at nothing: a blow that lands refunds the swing's cooldown)
+        Clear();
+        float stoneCd = 0, rimeCd = 0, galeCd = 0;
+        for (int m = 1; m <= 3; m++)
+        {
+            foreach (var _ in Ready(m)) yield return null;
+            foreach (var _ in ElWait(0.8f)) yield return null;
+            _scInput = Atk(); yield return null; _scInput = default;
+            float cd = p.SwingCooldownLeft;
+            if (m == 1) stoneCd = cd; else if (m == 2) rimeCd = cd; else galeCd = cd;
+        }
+        ScCheck($"each mode swings at its own pace and weight: earth slow and heavy ({stoneCd:0.00} s, {stoneDmg:0}), frost between ({rimeCd:0.00} s, {rimeDmg:0}), wind quick and light ({galeCd:0.00} s, {galeDmg:0})",
+            stoneCd > rimeCd && rimeCd > galeCd && stoneDmg > rimeDmg && rimeDmg > galeDmg && galeDmg > 0);
         Clear(); Home();
         foe = Add(22, hold: false);
         foreach (var _ in ElWait(0.2f)) yield return null;
@@ -840,38 +861,60 @@ public partial class Main
         foreach (var _ in Ready(3, 3)) yield return null;
         foreach (var _ in ElPress(Atk(), 0.5f)) yield return null;
         ScCheck($"wind and wind: Cyclone Slash, a cut all round strikes behind ({foe.MaxHp - foe.Hp:0})", p.ElementalUses.Contains("Cyclone Slash") && foe.Hp < foe.MaxHp);
-        // ---- the block: the guard the shield takes up as it's raised
+        // ---- the block: the mode's own guard as the shield goes up
+        float wait = p.Stats.HurtInvuln + 0.1f;
+        // earth: the Earth Shield, the ground heaved up in front, nothing through and nothing moving him
         Clear(); Home();
-        foe = Add(22);
+        foe = Add(40);
         foreach (var _ in ElWait(0.3f)) yield return null;
         foreach (var _ in Ready(1)) yield return null;
         foreach (var _ in Raise()) yield return null;
-        string g1 = p.GuardName;
-        float sh0 = p.ShieldHp, hpa = p.Hp;
-        p.Hurt(30f, foe.GlobalPosition, 0f, foe);
-        foreach (var _ in ElWait(0.1f)) yield return null;
-        ScCheck($"raised with earth readied, the shield takes Stone Guard ({g1}): nothing through ({hpa - p.Hp:0}), no wear ({sh0 - p.ShieldHp:0}), the striker stunned ({foe.Reeling}, earth {foe.EarthBuild:0})",
-            g1 == "Stone Guard" && p.Hp >= hpa && p.ShieldHp >= sh0 && p.GuardAnswered > 0);
-        ScShot("warden_guard");
         foreach (var _ in Lower()) yield return null;
-        ScCheck($"lowered, the guard is gone ({p.GuardName})", p.GuardName == "");
+        var mound = G.World.GetChildren().OfType<EarthMound>().FirstOrDefault();
+        float sh0 = p.ShieldHp, hpa = p.Hp;
+        p.Hurt(30f, foe.GlobalPosition, 300f, foe);
+        p.Hurt(30f, p.GlobalPosition + new Vector2(-30f * p.Facing, 0), 300f);
+        float mx0 = p.GlobalPosition.X;
+        for (float t = 0; t < 0.4f; t += (float)GetProcessDeltaTime()) { _scInput = new PlayerInput { Move = new Vector2(-p.Facing, 0), Jump = true }; yield return null; }
+        _scInput = default;
+        ScCheck($"earth: raised, the Earth Shield heaves the ground up in front ({p.EarthShieldUp}, {(mound != null ? "mound" : "none")}), after it's lowered too", p.ElementalUses.Contains("Earth Shield") && p.EarthShieldUp && mound != null);
+        ScCheck($"behind it nothing gets through, from either side ({hpa - p.Hp:0}), the shield isn't worn ({sh0 - p.ShieldHp:0})", p.Hp >= hpa && p.ShieldHp >= sh0);
+        ScCheck($"and he can't move or leap ({Math.Abs(p.GlobalPosition.X - mx0):0} px)", Math.Abs(p.GlobalPosition.X - mx0) < 2f && p.IsOnFloor());
+        ScShot("warden_earthshield");
+        foreach (var _ in ElWait(Tune.ElementalWarden.MoundSeconds)) yield return null;
+        ScCheck($"after {Tune.ElementalWarden.MoundSeconds:0.0} s it sinks back ({p.EarthShieldUp}, gone {mound == null || !IsInstanceValid(mound)}) and rests ({p.ModeGuardRest:0.0} s)", !p.EarthShieldUp && (mound == null || !IsInstanceValid(mound)) && p.ModeGuardRest > 0);
+        foreach (var _ in Raise()) yield return null;
+        ScCheck($"raised again while it rests, the shield is only the shield ({p.EarthShieldUp})", !p.EarthShieldUp);
+        foreach (var _ in Lower()) yield return null;
+        // frost: the Frost Shield soaks 90% and shatters once it has soaked 30
+        Clear(); Home();
+        foe = Add(40);
+        foreach (var _ in ElWait(0.3f)) yield return null;
         foreach (var _ in Ready(2)) yield return null;
         foreach (var _ in Raise()) yield return null;
-        string g2 = p.GuardName;
-        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
-        foreach (var _ in ElWait(0.25f)) yield return null;
-        ScCheck($"frost: Rime Guard ({g2}) fills the striker with frost (chilled {foe.Chilled})", g2 == "Rime Guard" && (foe.Chilled || foe.FrozenSolid));
         foreach (var _ in Lower()) yield return null;
+        hpa = p.Hp;
+        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
+        float took = hpa - p.Hp;
+        ScCheck($"frost: the Frost Shield ({p.ShellElement}) stays after the shield is lowered and soaks most of a blow ({took:0.0} of 10 through, {p.ShellSoaked:0} soaked)", p.ShellElement == HeroElement.Frost && took < 2.5f && p.ShellSoaked > 5f);
+        ScShot("warden_frostshield");
+        float foeHp = foe.Hp;
+        for (int k = 0; k < 4 && p.ShellElement == HeroElement.Frost; k++) { foreach (var _ in ElWait(wait)) yield return null; p.Hurt(10f, foe.GlobalPosition, 0f, foe); }
+        ScCheck($"once it has soaked {Tune.ElementalWarden.FrostShellHold:0} it shatters ({p.ShellsShattered}): the creature about him is filled with frost ({foe.FrostBuild:0}, chilled {foe.Chilled}) and struck ({foeHp - foe.Hp:0})",
+            p.ShellElement == HeroElement.None && p.ShellsShattered > 0 && (foe.Chilled || foe.FrozenSolid || foe.FrostBuild > 1) && foe.Hp < foeHp);
+        // wind: the Wind Barrier soaks 20% and breaks once it has soaked 40
         Clear(); Home();
-        foe = Add(22, hold: false);
-        foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in Ready(3)) yield return null;
         foreach (var _ in Raise()) yield return null;
-        string g3 = p.GuardName; float gx0 = foe.GlobalPosition.X;
-        p.Hurt(10f, foe.GlobalPosition, 0f, foe);
-        foreach (var _ in ElWait(0.3f)) yield return null;
-        ScCheck($"wind: Gale Guard ({g3}) throws the striker back ({(foe.GlobalPosition.X - gx0) * p.Facing:0} px)", g3 == "Gale Guard" && (foe.GlobalPosition.X - gx0) * p.Facing > 10f);
         foreach (var _ in Lower()) yield return null;
+        hpa = p.Hp;
+        p.Hurt(10f, p.GlobalPosition + new Vector2(30f * p.Facing, 0), 0f);
+        took = hpa - p.Hp;
+        ScCheck($"wind: the Wind Barrier ({p.ShellElement}) soaks a little of a blow ({took:0.0} of 10 through)", p.ShellElement == HeroElement.Wind && took > 5f && took < 9.9f);
+        ScShot("warden_windbarrier");
+        int blows = 1;
+        for (int k = 0; k < 8 && p.ShellElement == HeroElement.Wind; k++) { foreach (var _ in ElWait(wait)) yield return null; p.Hurt(50f, p.GlobalPosition + new Vector2(30f * p.Facing, 0), 0f); blows++; }
+        ScCheck($"it breaks once it has soaked {Tune.ElementalWarden.WindShellHold:0} ({blows} blows)", p.ShellElement == HeroElement.None && blows >= 4);
         // the pairs on the block
         Clear(); Home();
         foe = Add(-22);

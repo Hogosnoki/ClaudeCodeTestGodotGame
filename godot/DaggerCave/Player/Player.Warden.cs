@@ -180,6 +180,8 @@ public partial class Player
     /// <summary>Projectiles meet the shield first; a perfect block with Riposte Guard sends them back.</summary>
     public bool TryBlockProjectile(EnemyProjectile pr)
     {
+        // (the Earth Shield: shots break on the earth)
+        if (EarthShieldUp) { pr.Deflect(); LastHitBlocked = true; MoundStruck(pr.GlobalPosition); return true; }
         var b = TryBlock(pr.GlobalPosition - pr.Vel.Normalized() * 10, pr.Damage, striker: pr.Source);
         if (!b.Blocked) return false;
         if ((b.Perfect && Stats.PerfectReflect) || GuardReflects) pr.Reflect(ShieldDir, Stats.DamageMult);
@@ -193,7 +195,7 @@ public partial class Player
 
     private bool TryShieldDash(Vector2 aim)
     {
-        if (!IsWarden || (!AbilityChargeReady && !(Elemental && Tune.Testing.NoCooldowns)) || _dashT > 0) return false;
+        if (!IsWarden || (!AbilityChargeReady && !(Elemental && Tune.Testing.NoCooldowns)) || _dashT > 0 || EarthShieldUp) return false;
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         float time = Stats.DashTime;
         // Guardian's Charge: to the friend nearest your aim, wrapping them in a barrier (alone, you)

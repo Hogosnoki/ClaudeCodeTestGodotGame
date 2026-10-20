@@ -72,6 +72,8 @@ public static class PropViews
             IcePlatform => new IcePlatformView(),
             IceDecoy => new IceDecoyView(),
             FrostTower => new FrostTowerView(),
+            EarthMound => new EarthMoundView(),
+            WardShell => new WardShellView(),
             DraftAim => new DraftAimView(),
             _ => null,
         };
@@ -2909,5 +2911,112 @@ public partial class FrostTowerView : PropView
         float worn = Math.Clamp(t.Hp / Math.Max(1f, t.MaxHp), 0f, 1f);
         _mat.EmissionEnergyMultiplier = t.Flashing ? 1.6f : 0.25f;
         _mat.AlbedoColor = new Color(0.62f + 0.25f * (1f - worn), 0.85f, 1f, 0.6f + 0.25f * (1f - worn));
+    }
+}
+
+/// <summary>
+/// The Warden's Earth Shield: a great curling lump of rock heaving up out of the floor in front of him and over his head, broad as a wall,
+/// faceted and lumpy, with boulders heaped at its foot. It grows up out of the ground (overshooting a little as it lands), trembles as it
+/// rises and settles, flashes where blows strike it, and sinks back into the floor at the end.
+/// </summary>
+public partial class EarthMoundView : PropView
+{
+    // (lit as the ground it's torn from, not as a creature: under the actor lights it glares pale)
+    protected override bool ActorLit => false;
+    private Node3D _body;
+    private StandardMaterial3D _mat;
+
+    protected override void Build()
+    {
+        var m = (EarthMound)Owner2D;
+        float s = m.Side;
+        var noise = new Noise3((int)(m.GlobalPosition.X * 3 + m.GlobalPosition.Y));
+        var rng = new Random((int)(m.GlobalPosition.X * 7 + m.GlobalPosition.Y * 13));
+        // (the curl: up out of the floor in front of him, leaning back over his head; in metres, the foot at the origin)
+        float back = W3.M(Tune.ElementalWarden.MoundReach);
+        var path = new List<Vector3>
+        {
+            new(s * 0.25f, -0.2f, 0f), new(s * 0.22f, 0.5f, 0f), new(s * 0.05f, 1.15f, 0f), new(-s * back * 0.35f, 1.7f, 0f),
+            new(-s * back * 0.85f, 2.05f, 0f), new(-s * back * 1.3f, 2.1f, 0f), new(-s * back * 1.65f, 1.9f, 0f),
+        };
+        var radii = new List<float> { 0.62f, 0.58f, 0.52f, 0.44f, 0.36f, 0.27f, 0.16f };
+        var earth = new Color(0.55f, 0.4f, 0.26f);
+        var dark = new Color(0.24f, 0.18f, 0.13f);
+        var mb = new MeshBuilder();
+        mb.Tube(path, radii, 9, dark.Lerp(earth, 0.35f), true,
+            (i, k) => 0.45f * noise.Fbm(i * 1.3f, k * 0.9f, 0.3f, 3), broad: Vector3.Back, aspect: 1.7f);
+        // (a crust of jutting rocks all over it, a knot of rock closing the tip, boulders heaped about its foot)
+        for (int i = 0; i < path.Count; i++)
+            for (int k = 0; k < 3; k++)
+            {
+                float a = (float)rng.NextDouble() * Mathf.Tau;
+                var c = path[i] + new Vector3(MathF.Cos(a) * radii[i] * 0.6f, MathF.Sin(a) * radii[i] * 0.6f, (float)(rng.NextDouble() - 0.5) * radii[i] * 1.6f);
+                mb.Blob(c, Vector3.One * radii[i] * (0.3f + 0.3f * (float)rng.NextDouble()), 3, dark.Lerp(earth, 0.1f + 0.6f * (float)rng.NextDouble()), noise, 0.45f, 1.6f);
+            }
+        mb.Blob(path[^1], Vector3.One * radii[^1] * 1.4f, 4, dark.Lerp(earth, 0.4f), noise, 0.3f, 2f);
+        for (int k = 0; k < 5; k++)
+        {
+            float x = s * (0.6f - 1.3f * (float)rng.NextDouble()), r = 0.18f + 0.22f * (float)rng.NextDouble();
+            mb.Blob(new Vector3(x, r * 0.4f, (float)(rng.NextDouble() - 0.5) * 0.9f), new Vector3(r * 1.2f, r, r), 4,
+                dark.Lerp(earth, 0.15f + 0.35f * (float)rng.NextDouble()), noise, 0.4f, 1.8f, 0.4f);
+        }
+        _mat = (StandardMaterial3D)PropViews.Rock.Duplicate();
+        _mat.EmissionEnabled = true;
+        _mat.Emission = new Color(1f, 0.85f, 0.6f);
+        _mat.EmissionEnergyMultiplier = 0f;
+        _body = new Node3D();
+        _body.AddChild(PropViews.Mesh(mb.Faceted(), _mat, true));
+        AddChild(_body);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var m = (EarthMound)Owner2D;
+        Follow(default, 0f);
+        float up = Math.Max(0.02f, m.Up);
+        float shake = 0.04f * m.Tremor;
+        _body.Scale = new Vector3(0.85f + 0.15f * up, up, 0.85f + 0.15f * up);
+        _body.Position = new Vector3(MathF.Sin(Time * 61f) * shake, 0f, MathF.Cos(Time * 47f) * shake * 0.5f);
+        _mat.EmissionEnergyMultiplier = Math.Max(0f, m.Flash) * 0.6f;
+    }
+}
+
+/// <summary>The Warden's Frost Shield (a faceted shell of ice, cracking as it wears) or Wind Barrier (a thin skin of streaking air).</summary>
+public partial class WardShellView : PropView
+{
+    private MeshInstance3D _shell;
+    private OmniLight3D _light;
+    private static ShaderMaterial _mat;
+
+    protected override void Build()
+    {
+        var w = (WardShell)Owner2D;
+        bool frost = w.El == HeroElement.Frost;
+        _mat ??= new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/fx_wardshell.gdshader") };
+        _shell = new MeshInstance3D
+        {
+            Mesh = frost ? new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 10, Rings = 6 } : new SphereMesh { Radius = 1f, Height = 2f, RadialSegments = 24, Rings = 12 },
+            MaterialOverride = _mat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        _shell.SetInstanceShaderParameter("shell_color", Elements.ColorOf(w.El));
+        _shell.SetInstanceShaderParameter("kind", frost ? 0f : 1f);
+        AddChild(_shell);
+        _light = PropViews.Light(Elements.ColorOf(w.El), frost ? 0.6f : 0.3f, 2.4f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var w = (WardShell)Owner2D;
+        bool frost = w.El == HeroElement.Frost;
+        Follow(default, 0.1f);
+        // (it snaps shut about him, then breathes a little)
+        float grow = Math.Min(1f, w.Age / 0.18f);
+        float r = W3.M(frost ? 21f : 24f) * (0.6f + 0.4f * grow) * (1f + 0.02f * MathF.Sin(Time * (frost ? 2f : 5f)));
+        _shell.Scale = new Vector3(r, r * (frost ? 1.08f : 1.12f), r * 0.8f);
+        if (!frost) _shell.RotateY(dt * 2.5f);
+        _shell.SetInstanceShaderParameter("worn", 1f - w.Left);
+        _shell.SetInstanceShaderParameter("flash", w.Flash);
+        _light.LightEnergy = (frost ? 0.6f : 0.3f) + w.Flash * 0.8f;
     }
 }

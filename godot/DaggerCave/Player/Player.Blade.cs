@@ -81,7 +81,8 @@ public partial class Player
     }
     /// <summary>True while the current swing carries a charged strike.</summary>
     public bool SwingCharged => _swingT >= 0 && _swingCharged;
-    public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed), 0, 1);
+    public float SwingCooldownLeft => Math.Max(0f, _swingCd);
+    public float SwingCooldownFrac => Math.Clamp(_swingCd / (SwingCooldownBase / Stats.AttackSpeed * _swingPace), 0, 1);
 
     /// <summary>Starts a swing if the blade is ready (a dodge in progress turns into it, when
     /// the attack is pressed: holding it down doesn't cut every roll short).</summary>
@@ -94,7 +95,10 @@ public partial class Player
         return true;
     }
 
-    private void StartSwing(Vector2 aim, bool counter = false)
+    /// <summary>The swing under way's pace: its wind-up, swing and cooldown x this (an elemental Warden's mode sets it).</summary>
+    private float _swingPace = 1f;
+
+    private void StartSwing(Vector2 aim, bool counter = false, float pace = 1f)
     {
         aim = aim.Normalized();
         ClearSwingElement();
@@ -120,9 +124,10 @@ public partial class Player
         _swingT = 0;
         _released = false;
         float speed = Math.Max(1f, Stats.AttackSpeed);
-        _windup = SwingWindup / speed * (finisher ? 1.5f : 1f);
-        _active = SwingActive / speed;
-        _swingCd = SwingCooldownBase / Stats.AttackSpeed;
+        _swingPace = pace;
+        _windup = SwingWindup / speed * (finisher ? 1.5f : 1f) * pace;
+        _active = SwingActive / speed * pace;
+        _swingCd = SwingCooldownBase / Stats.AttackSpeed * pace;
         _swingHits.Clear();
         _brokeThisSwing.Clear();
         _swingHitSomething = false;
@@ -180,6 +185,7 @@ public partial class Player
             else if (Math.Abs(aim.X) > 0.35f) { _lungeAir = false; _lungeT = lungeTime; _lungeDir = Math.Sign(aim.X); }
         }
         if (_heave) Afterimage.Spawn(Anim, _swingCharged ? new Color(1f, 0.55f, 0.3f) : new Color(0.8f, 0.9f, 1f), 0.2f);
+        if (IsWarden && _wSwing != "") WardenSwingRelease();
         Anim.Punch(new Vector2(1.22f, 0.86f));
         if (Stats.CrescentWave && _waveCd <= 0)
         {

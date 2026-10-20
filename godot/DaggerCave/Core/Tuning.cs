@@ -1246,10 +1246,12 @@ public static class Tune
     /// </summary>
     public static class ElementalWarden
     {
-        // ---- the attack
-        /// <summary>Stonecutter / Rime Edge: <c>EdgeDamage</c> x, <c>EdgeBuild</c> of earth or frost. Gale Edge: reach <c>GaleReach</c> x, the cut
-        /// shoving what it strikes back <c>GaleShove</c>.</summary>
-        public static float EdgeDamage = 1.25f, EdgeBuild = 50f, GaleReach = 1.3f, GaleShove = 320f;
+        // ---- the attack (each mode's swing has its own pace: wind-up, swing and cooldown x <c>...Pace</c>)
+        /// <summary>Stonecutter (earth): slow (<c>StonePace</c>), hard (<c>StoneDamage</c> x), <c>EdgeBuild</c> earth, a shake and grit. Rime Edge
+        /// (frost): medium (<c>RimePace</c>, <c>RimeDamage</c> x), <c>EdgeBuild</c> frost. Gale Edge (wind): fast (<c>GalePace</c>), light
+        /// (<c>GaleDamage</c> x), reach <c>GaleReach</c> x, what it strikes thrown back <c>GaleShove</c>.</summary>
+        public static float StonePace = 2f, StoneDamage = 2f, RimePace = 1.25f, RimeDamage = 1.2f, GalePace = 0.65f, GaleDamage = 0.6f,
+            EdgeBuild = 50f, GaleReach = 1.15f, GaleShove = 400f;
         /// <summary>Boulder Strike (earth+earth): <c>BoulderDamage</c> x, a full earth build-up, shatters the frozen, tosses <c>BoulderToss</c>.</summary>
         public static float BoulderDamage = 2.2f, BoulderToss = 300f;
         /// <summary>Icicle Lance (frost+frost): the cut and a lance of ice thrown on along the aim, <c>LanceDamage</c> x, a full frost build-up.</summary>
@@ -1264,9 +1266,20 @@ public static class Tune
         /// <c>GustBuild</c> frost and shoves <c>GustShove</c>.</summary>
         public static float ConeRange = 120f, ConeHalf = 38f, SandDamage = 0.5f, SandSap = 3f, GustBuild = 60f, GustShove = 320f;
 
-        // ---- the block (the shield raised with charges readied: the guard lasts as long as it stays up, <c>GuardSeconds</c> at most)
-        /// <summary>Stone Guard: nothing gets through and the shield doesn't wear, and a melee striker takes a full earth build-up. Rime
-        /// Guard: a melee striker takes a full frost build-up. Gale Guard: a melee striker is thrown back <c>GuardShove</c>, shots go back.</summary>
+        // ---- the block (the shield raised in a mode)
+        /// <summary>Earth Shield: the ground in front (<c>MoundReach</c> px on) heaves up and over him for <c>MoundSeconds</c> (rising in
+        /// <c>MoundRise</c>, sinking back in the last <c>MoundSink</c>): nothing reaches him and nothing moves him, nor does he move. It
+        /// rests <c>MoundRest</c> s after.</summary>
+        public static float MoundSeconds = 2.5f, MoundRise = 0.3f, MoundSink = 0.45f, MoundReach = 22f, MoundRest = 6f;
+        /// <summary>Frost Shield: a shell of ice about him soaks <c>FrostShellShare</c> of every blow; once it has soaked <c>FrostShellHold</c>
+        /// it shatters, filling every creature within <c>FrostShellRadius</c> with <c>FrostShellBuild</c> frost and dealing
+        /// <c>FrostShellDamage</c> (x his damage). It rests <c>FrostShellRest</c> s after.</summary>
+        public static float FrostShellShare = 0.9f, FrostShellHold = 30f, FrostShellRadius = 72f, FrostShellBuild = 90f, FrostShellDamage = 10f, FrostShellRest = 6f;
+        /// <summary>Wind Barrier: a thinner shell of wind soaks <c>WindShellShare</c> of every blow and breaks once it has soaked
+        /// <c>WindShellHold</c>. It rests <c>WindShellRest</c> s after.</summary>
+        public static float WindShellShare = 0.2f, WindShellHold = 40f, WindShellRest = 4f;
+        /// <summary>The greater and mixed guards (the pairs) last as long as the shield stays up, <c>GuardSeconds</c> at most; wind in one
+        /// throws a melee striker back <c>GuardShove</c>.</summary>
         public static float GuardSeconds = 6f, GuardShove = 380f;
         /// <summary>Glacial Bulwark (frost+frost): a wall of ice rises in front, <c>WallHeight</c> x 2 <c>WallHalf</c> px, <c>WallHp</c> (x his
         /// health over his starting health), for <c>WallSeconds</c>; creatures go for it.</summary>

@@ -77,7 +77,7 @@ public static class Elements
             {
                 ElemSlot.Attack => e switch { HeroElement.Earth => "Stonecutter", HeroElement.Frost => "Rime Edge", HeroElement.Wind => "Gale Edge", _ => "Shortsword" },
                 ElemSlot.Move => e switch { HeroElement.Earth => "Rockslide Charge", HeroElement.Frost => "Frozen Tundra", HeroElement.Wind => "Gale Charge", _ => "Guarded Charge" },
-                ElemSlot.Heavy => e switch { HeroElement.Earth => "Stone Guard", HeroElement.Frost => "Rime Guard", HeroElement.Wind => "Gale Guard", _ => "Block" },
+                ElemSlot.Heavy => e switch { HeroElement.Earth => "Earth Shield", HeroElement.Frost => "Frost Shield", HeroElement.Wind => "Wind Barrier", _ => "Block" },
                 _ => "",
             };
         return slot switch
