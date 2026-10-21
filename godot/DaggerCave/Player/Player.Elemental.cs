@@ -721,7 +721,7 @@ public partial class Player
     private float _lungeStrikeT;
     private readonly HashSet<Enemy> _lungeStruck = new();
     /// <summary>For the tests: the creatures the last lunge struck in flight, and the Blazing Charge crashed into.</summary>
-    public int LungeStrikes => _lungeStruck.Count;
+    public int LungeStrikes { get; private set; }
     public int BlazeHits => _blazeHit.Count;
     /// <summary>The Comet in flight, the Blazing Charge going (here, or as a puppet's game sent it), for the looks.</summary>
     public bool CometOn => IsRemote ? _netComet : _comet;
@@ -863,11 +863,14 @@ public partial class Player
                 _leapEl = HeroElement.Fire;
                 _lungeStrikeT = Tune.ElementalSword.LungeStrikeSeconds;
                 _lungeStruck.Clear();
+                LungeStrikes = 0;
                 v = new Vector2(_lungeLeapVX, -jumpV * Tune.ElementalSword.LungeLift);
                 foreach (var e in G.Enemies.ToArray())
                 {
                     if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(feet) > Tune.ElementalSword.LungeRadius + e.HitRadius) continue;
                     var away = (e.GlobalPosition - feet).Normalized();
+                    // (what the burst catches as he goes isn't swung at as well: the swings are for those he comes to on the way)
+                    _lungeStruck.Add(e);
                     float d = e.Hurt(blow * Tune.ElementalSword.LungeDamage, away * 160f, e.GlobalPosition, DamageKind.Fire);
                     if (d > 0) OnDealtDamage(d);
                     if (!e.Dead) e.Build(HeroElement.Fire, Tune.ElementalSword.LungeBuild, power, this);
@@ -955,6 +958,7 @@ public partial class Player
                 if (to.Length() > Tune.ElementalSword.LungeStrikeReach + BaseReach * 0.5f + e.HitRadius) continue;
                 // (a swing at it, there and then: the blow lands at once, and the blade sweeps on for any others in its arc)
                 _lungeStruck.Add(e);
+                LungeStrikes++;
                 StartSwing(to.LengthSquared() > 1 ? to.Normalized() : new Vector2(Facing, 0));
                 _swingHits.Add(e);
                 OnSwingHit(e, to);
