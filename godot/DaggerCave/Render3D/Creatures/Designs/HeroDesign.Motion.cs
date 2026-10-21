@@ -934,6 +934,8 @@ public sealed partial class HeroDesign
 
         if (DebugLog && a.Dt == 0f) GD.Print($"[hero] {c} phase {phase:0.00} SR {o.SR:0} ER {o.ER:0} WR {o.WR:0} lean {o.Lean:0} HR {o.HR:0} KR {o.KR:0} HL {o.HL:0} KL {o.KL:0}");
         Apply(p, o);
+        // (the elemental Warden's steel shield shrunk away: his mode's shield is held in its place)
+        if (shieldBone >= 0 && player != null && player.Elemental) p.Scale[shieldBone] = Vector3.One * 0.001f;
         p.Bend(cape0, cp0); p.Bend(cape1, cp1); p.Bend(cape2, cp2); p.Bend(cape3, cp3);
         p.Bend(scarf0, sf0 * 0.6f); p.Add(scarf0, 0, sf1 * 0.3f, 0); p.Bend(scarf1, sf1); p.Bend(scarf2, sf2);
     }

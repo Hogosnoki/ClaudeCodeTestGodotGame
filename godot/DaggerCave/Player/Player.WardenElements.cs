@@ -9,8 +9,9 @@ namespace DaggerCave;
 /// The elemental Warden (earth, frost, wind; <see cref="Tune.ElementalWarden"/>): his three buttons each take an element, and two charges
 /// readied make the pair's own version of any of them (every pair has one on each button, <see cref="Elements.DualName"/>).
 /// The attack (the shortsword): Stonecutter, Rime Edge, Gale Edge; Boulder Strike, Icicle Lance, Cyclone Slash, Frozen Earth, Sandblast,
-/// Frost Gust. The block (the shield raised with charges readied; the guard lasts as long as it stays up): Stone Guard, Rime Guard, Gale
-/// Guard; Bastion, Glacial Bulwark, Eye of the Storm, Permafrost Guard, Dust Wall, Hoarfrost Gale. The dash (the Guarded Charge, which in
+/// Frost Gust. The block: the shield itself takes the mode (Stone Shield, Frost Shield, Wind Shield: one pool of shield, absorbing
+/// more or less of each blow by the mode); overcharged, the mode's barrier (Earth Shield, Ice Barrier, Tenuous Barrier); with an attribute,
+/// the pair's guard while it stays up (Permafrost Guard, Dust Wall, Hoarfrost Gale). The dash (the Guarded Charge, which in
 /// every version runs through creatures instead of stopping at one): Rockslide Charge, Frozen Tundra, Gale Charge; Avalanche, Glacier
 /// Charge, Tempest Charge, Frostquake, Duststorm, Blizzard Charge. His Shield Bash isn't in the elemental kit; Taunt is as it was.
 /// </summary>
@@ -22,7 +23,7 @@ public partial class Player
     /// <summary>The guard on the shield (while it stays up), its elements and how long it can last.</summary>
     private string _guard = "";
     private HeroElement _guardA, _guardB;
-    private float _guardT, _guardTick;
+    private float _guardT;
     /// <summary>The version of the charge under way, its elements, its speed, where it began; what it carries along (the Tempest).</summary>
     private string _wDash = "";
     private HeroElement _dashA, _dashB;
@@ -263,35 +264,21 @@ public partial class Player
 
     // ================================================================== the block
 
-    /// <summary>The shield goes up in a mode: with nothing on top, the mode's own guard (Earth Shield, Frost Shield, Wind Barrier); with a
-    /// pair on top, the pair's guard, which holds while the shield stays up.</summary>
+    /// <summary>The shield goes up in a mode: with nothing on top it is the mode's shield and nothing more (<see cref="ModeShieldShare"/>);
+    /// overcharged, the mode's barrier (Earth Shield, Ice Barrier, Tenuous Barrier); with an attribute on top, the pair's guard, which holds
+    /// while the shield stays up.</summary>
     private void GuardRaised()
     {
-        if (!Elemental || Infused == HeroElement.None) return;
-        if (!DualReady) { RaiseModeGuard(); return; }
+        if (!Elemental || Infused == HeroElement.None || !DualReady) return;
+        if (Overcharged) { RaiseBarrier(); return; }
         var (name, a, b) = SpendFor(ElemSlot.Heavy);
         _guard = name; _guardA = a; _guardB = b;
         _guardT = Tune.ElementalWarden.GuardSeconds;
-        _guardTick = 0f;
         var col = b == HeroElement.None ? Elements.ColorOf(a) : Elements.DualColor(a, b);
         var front = GlobalPosition + new Vector2(0, -3) + ShieldDir * 16f;
         G.Fx.Ring(front, 16, new Color(col, 0.95f), 0.3f, FxLayer.RingStyle.Burst);
         switch (name)
         {
-            case "Glacial Bulwark":
-            {
-                // a wall of ice rises in front (creatures go for it; friends walk through it)
-                float side = Math.Abs(ShieldDir.X) > 0.2f ? Math.Sign(ShieldDir.X) : Facing;
-                var at = FloorAt(GlobalPosition + new Vector2(side * 26f, 0));
-                var wall = new FrostTower
-                {
-                    Position = at, Caster = this, Height = Tune.ElementalWarden.WallHeight, Half = Tune.ElementalWarden.WallHalf, Seconds = Tune.ElementalWarden.WallSeconds,
-                    MaxHp = Tune.ElementalWarden.WallHp * Stats.MaxHp / Math.Max(1f, Tune.Warden.StartHp),
-                };
-                G.Spawn(wall);
-                LastTower = wall;
-                break;
-            }
             case "Permafrost Guard":
                 Launch(new TundraField { Position = FloorAt(GlobalPosition), Half = Tune.ElementalWarden.PermafrostHalf, Seconds = Tune.ElementalWarden.GuardSeconds });
                 break;
@@ -305,9 +292,6 @@ public partial class Player
                 G.Fx.Dust(at, 10, 2.4f, new Color(0.62f, 0.52f, 0.4f, 0.7f));
                 break;
             }
-            case "Eye of the Storm":
-                G.Fx.Ring(GlobalPosition, Tune.ElementalWarden.StormRadius, new Color(Elements.ColorOf(HeroElement.Wind), 0.8f), 0.4f, FxLayer.RingStyle.Dashed);
-                break;
         }
         G.Sfx.Play(a == HeroElement.Frost ? "clink" : a == HeroElement.Wind ? "dodge" : "rock", GlobalPosition, -6, 0.05f, 0.8f);
         WardUsed(name, a, b);
@@ -315,10 +299,10 @@ public partial class Player
 
     private void EndGuard() { _guard = ""; _guardA = _guardB = HeroElement.None; }
 
-    // ================================================================== the mode's own guards
+    // ================================================================== the mode's shield and barriers
 
-    /// <summary>The Earth Shield's time left and its rest; the shell on him (frost or wind), what it has soaked, its rest, its flash.</summary>
-    private float _moundT, _moundRest, _shellRest, _shellSoaked, _shellFlash;
+    /// <summary>The Earth Shield standing; the barrier on him (Ice Barrier or Tenuous Barrier), what it has absorbed, its flash.</summary>
+    private float _moundT, _shellSoaked, _shellFlash;
     private HeroElement _shell;
     private EarthMound _mound;
     /// <summary>A puppet's guards, as its game last sent them.</summary>
@@ -328,39 +312,31 @@ public partial class Player
     /// <summary>The Earth Shield stands: nothing reaches him, and nothing moves him (nor does he move).</summary>
     public bool EarthShieldUp => IsRemote ? _netMound : _moundT > 0;
     public bool EarthShieldHeld => _moundT > 0;
-    /// <summary>The shell on him (Frost Shield or Wind Barrier; none), how much more it can soak (0..1), and its flash when struck.</summary>
+    /// <summary>The barrier on him (Ice Barrier or Tenuous Barrier; none), how much more it can absorb (0..1), and its flash when struck.</summary>
     public HeroElement ShellElement => IsRemote ? _netShell : _shell;
     public float ShellLeft => IsRemote ? 1f : _shell == HeroElement.None ? 0f : Math.Clamp(1f - _shellSoaked / ShellHold(_shell), 0f, 1f);
     public float ShellSoaked => _shellSoaked;
     public float ShellFlash => Math.Max(0f, _shellFlash);
-    /// <summary>For the HUD: the mode's own guard's rest (seconds left, and 0..1 of it).</summary>
-    public float ModeGuardRest => Math.Max(0f, Mode == HeroElement.Earth ? _moundRest : _shellRest);
-    public float ModeGuardRestFrac => ModeGuardRest / Math.Max(0.01f, Mode switch
-    {
-        HeroElement.Earth => Tune.ElementalWarden.MoundRest, HeroElement.Frost => Tune.ElementalWarden.FrostShellRest, _ => Tune.ElementalWarden.WindShellRest,
-    });
-    private static float ShellHold(HeroElement el) => el == HeroElement.Frost ? Tune.ElementalWarden.FrostShellHold : Tune.ElementalWarden.WindShellHold;
-    private static float ShellShare(HeroElement el) => el == HeroElement.Frost ? Tune.ElementalWarden.FrostShellShare : Tune.ElementalWarden.WindShellShare;
+    private static float ShellHold(HeroElement el) => el == HeroElement.Frost ? Tune.ElementalWarden.IceHold : Tune.ElementalWarden.TenuousHold;
+    private static float ShellShare(HeroElement el) => el == HeroElement.Frost ? Tune.ElementalWarden.IceShare : Tune.ElementalWarden.TenuousShare;
 
-    /// <summary>The shield raised in a mode with nothing on top: earth heaves up before him, or a shell of ice or wind closes about him
-    /// (neither while the last still holds or rests; the shield is only the shield meanwhile).</summary>
-    private void RaiseModeGuard()
+    /// <summary>How much of a blow the elemental Warden's raised shield absorbs in his mode: a slab of stone most, a pane of ice half, a veil
+    /// of air little.</summary>
+    public float ModeShieldShare => Mode switch
+    {
+        HeroElement.Earth => Tune.ElementalWarden.EarthShare, HeroElement.Frost => Tune.ElementalWarden.FrostShare, _ => Tune.ElementalWarden.WindShare,
+    };
+
+    /// <summary>The shield raised overcharged: the mode's barrier. Earth heaves up before him (from the ground only, and not while one stands:
+    /// then the overcharge waits); a shell of ice or wind closes about him (a fresh one in place of any still on him).</summary>
+    private void RaiseBarrier()
     {
         var el = Mode;
-        switch (el)
-        {
-            case HeroElement.Earth:
-                if (_moundT > 0 || _moundRest > 0 || InWater || !IsOnFloor()) return;
-                StartEarthShield();
-                break;
-            case HeroElement.Frost:
-            case HeroElement.Wind:
-                if (_shell != HeroElement.None || _shellRest > 0) return;
-                RaiseShell(el);
-                break;
-            default: return;
-        }
-        WardUsed(Elements.SingleName(Stats.Hero, ElemSlot.Heavy, el), el, HeroElement.None);
+        if (el == HeroElement.Earth && (_moundT > 0 || InWater || !IsOnFloor())) return;
+        var (name, a, b) = SpendFor(ElemSlot.Heavy);
+        if (el == HeroElement.Earth) StartEarthShield();
+        else RaiseShell(el);
+        WardUsed(name, a, b);
     }
 
     /// <summary>Earth Shield: the floor in front bursts and a great lump of earth heaves up and over him.</summary>
@@ -391,11 +367,10 @@ public partial class Player
         Anim.Punch(new Vector2(0.9f, 1.12f));
     }
 
-    /// <summary>The block let go (or the Warden fallen): the earth sinks back, and the guard rests.</summary>
+    /// <summary>The block let go (or the Warden fallen): the earth sinks back.</summary>
     private void EndEarthShield()
     {
         _moundT = 0f;
-        _moundRest = ElemRest(Tune.ElementalWarden.MoundRest);
         if (_mound != null && IsInstanceValid(_mound)) _mound.Release();
         _mound = null;
     }
@@ -409,12 +384,13 @@ public partial class Player
         G.Sfx.Play("rock", at, -6, 0.1f, 1.2f);
     }
 
-    /// <summary>Frost Shield or Wind Barrier: a shell closes about him.</summary>
+    /// <summary>Ice Barrier or Tenuous Barrier: a shell closes about him (a fresh one in place of any he has).</summary>
     private void RaiseShell(HeroElement el)
     {
+        bool had = _shell == el;
         _shell = el;
         _shellSoaked = 0f;
-        G.Spawn(new WardShell { Hero = this, El = el, Position = GlobalPosition + new Vector2(0, -6) });
+        if (!had) G.Spawn(new WardShell { Hero = this, El = el, Position = GlobalPosition + new Vector2(0, -6) });
         var me = GlobalPosition + new Vector2(0, -6);
         var col = Elements.ColorOf(el);
         if (el == HeroElement.Frost)
@@ -457,7 +433,6 @@ public partial class Player
         var me = GlobalPosition + new Vector2(0, -6);
         if (el == HeroElement.Frost)
         {
-            _shellRest = ElemRest(Tune.ElementalWarden.FrostShellRest);
             float r = Tune.ElementalWarden.FrostShellRadius;
             foreach (var e in G.Enemies.ToArray())
             {
@@ -477,7 +452,6 @@ public partial class Player
         }
         else
         {
-            _shellRest = ElemRest(Tune.ElementalWarden.WindShellRest);
             var col = Elements.ColorOf(HeroElement.Wind);
             for (int k = 0; k < 12; k++)
             {
@@ -488,22 +462,20 @@ public partial class Player
             G.Sfx.Play("dodge", me, 0, 0.05f, 1.3f);
         }
     }
-    /// <summary>For the tests: Frost Shields shattered.</summary>
+    /// <summary>For the tests: Ice Barriers shattered.</summary>
     public int ShellsShattered { get; private set; }
 
-    /// <summary>The mode's guards as time passes: the Earth Shield standing and sinking, the rests.</summary>
+    /// <summary>The barriers as time passes: the Earth Shield standing and sinking.</summary>
     private void TickModeGuards(float dt)
     {
         // (the Earth Shield stands for as long as the shield is held up: let go, and it sinks)
         if (_moundT > 0 && (!ShieldRaised || Dead)) EndEarthShield();
-        if (_moundRest > 0) _moundRest -= dt;
-        if (_shellRest > 0) _shellRest -= dt;
         if (_shellFlash > 0) _shellFlash -= dt * 4f;
         if (Dead && _shell != HeroElement.None) _shell = HeroElement.None;
     }
 
-    /// <summary>For the tests: the guards' rests over and nothing up.</summary>
-    public void TestResetGuards() { _moundT = _moundRest = _shellRest = _shellSoaked = 0f; _shell = HeroElement.None; }
+    /// <summary>For the tests: nothing up.</summary>
+    public void TestResetGuards() { if (_moundT > 0) EndEarthShield(); _shellSoaked = 0f; _shell = HeroElement.None; }
 
     /// <summary>The guards for the other games, in two bits (the Earth Shield first; a shell otherwise).</summary>
     private int GuardBits => _moundT > 0 ? 1 : _shell == HeroElement.Frost ? 2 : _shell == HeroElement.Wind ? 3 : 0;
@@ -531,28 +503,8 @@ public partial class Player
         var col = _guardB == HeroElement.None ? Elements.ColorOf(_guardA) : Elements.DualColor(_guardA, _guardB);
         var front = GlobalPosition + new Vector2(0, -3) + ShieldDir * 16f;
         if (Engine.GetPhysicsFrames() % 4 == 0) G.Fx.Burst(front + G.RandDir() * 6f, new Color(col, 0.7f), 1, 20, 1.6f, 0.3f, 0, 0);
-        if ((_guardTick -= dt) > 0) return;
-        _guardTick = 0.1f;
-        if (_guard != "Eye of the Storm") return;
-        var me = GlobalPosition + new Vector2(0, -4);
-        foreach (var e in G.Enemies.ToArray())
-        {
-            if (e.Dead || !e.CanBeHit) continue;
-            var to = e.GlobalPosition - me;
-            if (to.Length() > Tune.ElementalWarden.StormRadius + e.HitRadius) continue;
-            e.Shove(to.Normalized() * Tune.ElementalWarden.StormShove + new Vector2(0, -40f));
-        }
-        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
-            if (IsInstanceValid(pr) && !pr.IsQueuedForDeletion() && !pr.Reflected && pr.GlobalPosition.DistanceTo(me) < Tune.ElementalWarden.StormRadius) pr.Deflect();
-        for (int k = 0; k < 3; k++)
-        {
-            float a = G.Range(0f, Mathf.Tau);
-            G.Fx.Directional(me + Vector2.Right.Rotated(a) * Tune.ElementalWarden.StormRadius * 0.8f, Vector2.Right.Rotated(a + 1.6f), 0.2f, new Color(col, 0.6f), 1, 180, 1.5f, 0.25f, 0, 1);
-        }
     }
 
-    /// <summary>The guard covers all round (Bastion), or the shield's own arc.</summary>
-    private bool GuardAllRound => _guard == "Bastion";
     /// <summary>Stone in the guard: nothing gets through, and the shield doesn't wear.</summary>
     private bool GuardStone => _guard != "" && PairHas(_guardA, _guardB, HeroElement.Earth);
     /// <summary>Wind in the guard: shots blocked go back where they came from.</summary>
@@ -565,12 +517,7 @@ public partial class Player
         var away = (melee.GlobalPosition - GlobalPosition).Normalized();
         float power = Stats.DamageMult;
         if (PairHas(_guardA, _guardB, HeroElement.Earth)) melee.Build(HeroElement.Earth, Tune.Elements.Full, power, this);
-        if (PairHas(_guardA, _guardB, HeroElement.Frost))
-        {
-            melee.Build(HeroElement.Frost, Tune.Elements.Full, power, this);
-            // (two of frost: chilled, then frozen solid at once)
-            if (_guardA == HeroElement.Frost && _guardB == HeroElement.Frost && !melee.Dead) melee.Build(HeroElement.Frost, Tune.Elements.Full, power, this);
-        }
+        if (PairHas(_guardA, _guardB, HeroElement.Frost)) melee.Build(HeroElement.Frost, Tune.Elements.Full, power, this);
         if (PairHas(_guardA, _guardB, HeroElement.Wind) && !melee.Dead) melee.Shove(away * Tune.ElementalWarden.GuardShove + new Vector2(0, -80f));
         AttributeHit(melee, GlobalPosition);
         var col = _guardB == HeroElement.None ? Elements.ColorOf(_guardA) : Elements.DualColor(_guardA, _guardB);
@@ -598,6 +545,18 @@ public partial class Player
                 _dashT *= Tune.ElementalWarden.GaleTime; _dashSpeedMult = Tune.ElementalWarden.GaleSpeed; break;
             case "Tempest Charge":
                 _dashT *= Tune.ElementalWarden.TempestTime; _dashSpeedMult = Tune.ElementalWarden.GaleSpeed; break;
+            case "Glacier Charge":
+            {
+                // spikes of ice burst up out of the ground he charges over, tossing what stands there (frozen solid by his passing)
+                var spikes = new IceCrystals
+                {
+                    Position = FloorAt(GlobalPosition), Lay = _dashT + 0.05f, Every = Tune.ElementalWarden.GlacierSpikeEvery, Height = Tune.ElementalWarden.GlacierSpikeHeight,
+                    Stand = 0.9f, Damage = WardBlow * Tune.ElementalWarden.GlacierSpikeDamage, Toss = 200f, Seed = G.RangeI(0, 99999),
+                };
+                Launch(spikes);
+                LastCrystals = spikes;
+                break;
+            }
         }
         var col = b == HeroElement.None ? Elements.ColorOf(a) : Elements.DualColor(a, b);
         G.Fx.Directional(GlobalPosition, -_dashDir, 0.6f, new Color(col, 0.85f), 12, 220, 2f, 0.3f, 0);
@@ -696,6 +655,12 @@ public partial class Player
             var to = FloorAt(GlobalPosition);
             float half = Math.Abs(to.X - from.X) * 0.5f + Tune.ElementalWarden.TundraPad;
             Launch(new TundraField { Position = from.Lerp(to, 0.5f), Half = half, Seconds = Tune.ElementalWarden.TundraSeconds });
+        }
+        if (name == "Blizzard Charge")
+        {
+            // a blizzard whirls up where it ends, dragging in what it threw aside and filling it with frost
+            SpawnStorm(GlobalPosition + new Vector2(0, -10), HeroElement.Frost, Tune.ElementalWarden.BlizzardStormDamage, Tune.ElementalWarden.BlizzardStormBuild, Tune.ElementalWarden.BlizzardStormPull);
+            G.Sfx.Play("dodge", GlobalPosition, -2, 0.05f, 0.5f);
         }
         if (name == "Tempest Charge")
         {

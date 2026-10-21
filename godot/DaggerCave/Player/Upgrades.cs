@@ -82,8 +82,10 @@ public sealed class PlayerStats
     // warden: shield + Guarded Charge + shield bash
     /// <summary>The shield's strength and regeneration follow the Warden's maximum health (upgrades scale them).</summary>
     public float ShieldMult = 1f, ShieldRegenMult = 1f;
-    public float ShieldMax => ShieldMult * MaxHp * Tune.Warden.ShieldHpShare;
-    public float ShieldRegen => ShieldRegenMult * MaxHp * Tune.Warden.ShieldRegenShare;
+    // (the elemental Warden's shield: ElementalWarden.ShieldHp and ShieldRegen at his starting health, growing with it)
+    public float ShieldMax => ShieldMult * MaxHp * (ElementShield ? Tune.ElementalWarden.ShieldHp / Tune.Warden.StartHp : Tune.Warden.ShieldHpShare);
+    public float ShieldRegen => ShieldRegenMult * MaxHp * (ElementShield ? Tune.ElementalWarden.ShieldRegen / Tune.Warden.StartHp : Tune.Warden.ShieldRegenShare);
+    private bool ElementShield => Hero == HeroKind.Warden && Elements.On(Hero);
     public float ShieldBreakTime = Tune.Warden.ShieldBreakTime;
     public float ShieldArcMult = 1f;
     public float BlockShare = Tune.Warden.BlockShare;

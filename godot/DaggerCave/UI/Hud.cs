@@ -923,7 +923,7 @@ public partial class Hud : Control
         "Kindling" => "KINDLE", "Hailstorm" => "HAIL", "Fire Storm" => "F.STORM", "Blizzard" => "BLIZZARD",
         "Shortsword" => "SWORD", "Stonecutter" => "STONE", "Rime Edge" => "RIME", "Gale Edge" => "GALE", "Boulder Strike" => "BOULDER",
         "Icicle Lance" => "LANCE", "Cyclone Slash" => "CYCLONE", "Frozen Earth" => "FROZEN", "Sandblast" => "SAND", "Frost Gust" => "F.GUST",
-        "Earth Shield" => "EARTH SH.", "Frost Shield" => "FROST SH.", "Wind Barrier" => "WIND BAR.", "Glacial Bulwark" => "BULWARK", "Eye of the Storm" => "EYE",
+        "Stone Shield" => "STONE", "Frost Shield" => "FROST", "Wind Shield" => "WIND", "Earth Shield" => "EARTH SH.", "Ice Barrier" => "ICE BAR.", "Tenuous Barrier" => "TENUOUS",
         "Permafrost Guard" => "PERMAFROST", "Dust Wall" => "DUST", "Hoarfrost Gale" => "HOARFROST",
         "Guarded Charge" => "CHARGE", "Rockslide Charge" => "ROCKSLIDE", "Frozen Tundra" => "TUNDRA", "Gale Charge" => "GALE", "Glacier Charge" => "GLACIER",
         "Tempest Charge" => "TEMPEST", "Frostquake" => "F.QUAKE", "Duststorm" => "DUST", "Blizzard Charge" => "BLIZZARD",
@@ -1119,8 +1119,8 @@ public partial class Hud : Control
     {
         string up = p.GuardName != "" ? $"{p.GuardName.ToUpperInvariant()} {p.GuardLeft:0}s"
             : p.EarthShieldUp ? "EARTH SHIELD (HOLD)"
-            : p.ShellElement == HeroElement.Frost ? $"FROST SHIELD {p.ShellLeft * 100f:0}%"
-            : p.ShellElement == HeroElement.Wind ? $"WIND BARRIER {p.ShellLeft * 100f:0}%" : "";
+            : p.ShellElement == HeroElement.Frost ? $"ICE BARRIER {p.ShellLeft * 100f:0}%"
+            : p.ShellElement == HeroElement.Wind ? $"TENUOUS BARRIER {p.ShellLeft * 100f:0}%" : "";
         DrawElementRow(font, p, ab + new Vector2(0, -74), up);
         const float step = 62f;
         var steel = new Color(0.85f, 0.9f, 0.95f);
@@ -1137,13 +1137,13 @@ public partial class Hud : Control
         x += new Vector2(step, 0);
         string guard = p.GuardName != "" ? p.GuardName : p.NameFor(ElemSlot.Heavy);
         var guardCol = p.GuardName != "" ? Elements.ColorOf(p.GuardElement) : SlotColor(p, ElemSlot.Heavy, new Color(0.55f, 0.8f, 1f));
-        // (the mode's own guard resting: its time shows on the square, the shield itself still rises)
-        float guardRest = p.GuardName == "" && !p.DualReady ? p.ModeGuardRestFrac : 0f;
-        AbilitySquare(font, x, p.ShieldBroken ? "BROKEN" : Short(guard), p.ShieldBroken ? Math.Clamp(p.ShieldBrokenLeft / Math.Max(0.01f, p.Stats.ShieldBreakTime), 0, 1) : guardRest, !p.ShieldBroken && guardRest <= 0f, guardCol, (c, col) =>
+        // (broken: its time down shows on the square; the shield's own strength is the bar beside the health)
+        float guardRest = 0f;
+        AbilitySquare(font, x, p.ShieldBroken ? "BROKEN" : Short(guard), p.ShieldBroken ? Math.Clamp(p.ShieldBrokenLeft / Math.Max(0.01f, p.ShieldBreakTotal), 0, 1) : guardRest, !p.ShieldBroken, guardCol, (c, col) =>
         {
             DrawColoredPolygon(new[] { c + new Vector2(-8, -9), c + new Vector2(8, -9), c + new Vector2(8, 1), c + new Vector2(0, 11), c + new Vector2(-8, 1) }, col);
             if (p.ShieldRaised) DrawArc(c, 14, -1.1f, 1.1f, 10, new Color(col, 0.8f), 2f);
-        }, guard, p.ShieldBroken ? p.ShieldBrokenLeft : guardRest > 0f ? p.ModeGuardRest : 0f);
+        }, guard, p.ShieldBroken ? p.ShieldBrokenLeft : 0f);
         KeyHint(font, x, "dodge");
         // the dash: the Guarded Charge (an elemental one waits on no cooldown)
         x += new Vector2(step, 0);

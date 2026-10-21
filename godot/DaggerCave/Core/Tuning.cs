@@ -1297,27 +1297,28 @@ public static class Tune
         public static float ConeRange = 120f, ConeHalf = 38f, SandDamage = 0.5f, SandSap = 3f, GustBuild = 60f, GustShove = 320f;
 
         // ---- the block (the shield raised in a mode)
-        /// <summary>Earth Shield: the ground in front (<c>MoundReach</c> px on) heaves up and over him (rising in <c>MoundRise</c>) and stands
-        /// while he holds his shield up, a wall to creatures (<c>MoundWallWidth</c> x <c>MoundWallHeight</c> px); let go, it sinks back in
-        /// <c>MoundSink</c>. While it stands nothing reaches him and nothing moves him, nor does he move; he kneels behind it. It rests
-        /// <c>MoundRest</c> s after.</summary>
-        public static float MoundRise = 0.3f, MoundSink = 0.45f, MoundReach = 22f, MoundRest = 6f, MoundWallWidth = 22f, MoundWallHeight = 46f;
-        /// <summary>Frost Shield: a shell of ice about him soaks <c>FrostShellShare</c> of every blow; once it has soaked <c>FrostShellHold</c>
-        /// it shatters, filling every creature within <c>FrostShellRadius</c> with <c>FrostShellBuild</c> frost and dealing
-        /// <c>FrostShellDamage</c> (x his damage). It rests <c>FrostShellRest</c> s after.</summary>
-        public static float FrostShellShare = 0.9f, FrostShellHold = 30f, FrostShellRadius = 72f, FrostShellBuild = 90f, FrostShellDamage = 10f, FrostShellRest = 6f;
-        /// <summary>Wind Barrier: a thinner shell of wind soaks <c>WindShellShare</c> of every blow and breaks once it has soaked
-        /// <c>WindShellHold</c>. It rests <c>WindShellRest</c> s after.</summary>
-        public static float WindShellShare = 0.2f, WindShellHold = 40f, WindShellRest = 4f;
-        /// <summary>The greater and mixed guards (the pairs) last as long as the shield stays up, <c>GuardSeconds</c> at most; wind in one
-        /// throws a melee striker back <c>GuardShove</c>.</summary>
+        /// <summary>The elemental Warden's shield: one pool of <c>ShieldHp</c> (x his health over his starting health) whatever the mode, worn
+        /// 1:1 by what it absorbs (<c>ShieldCost</c>). Raised, it absorbs <c>EarthShare</c> of a blow in earth mode (a slab of stone),
+        /// <c>FrostShare</c> in frost (a pane of ice), <c>WindShare</c> in wind (a veil of air); a perfect block still stops it all. Broken, it
+        /// can't be raised for <c>ShieldBreakTime</c> s, but it mends from the moment it breaks, <c>ShieldRegen</c> a second (x his health over
+        /// his starting health), after <c>Tune.Warden.ShieldRegenDelay</c> once struck.</summary>
+        public static float ShieldHp = 50f, ShieldRegen = 5f, ShieldBreakTime = 4f, ShieldCost = 1f;
+        public static float EarthShare = 0.9f, FrostShare = 0.45f, WindShare = 0.2f;
+        /// <summary>Earth Shield (earth overcharged, the block): the ground in front (<c>MoundReach</c> px on) heaves up and over him (rising in
+        /// <c>MoundRise</c>) and stands while he holds his shield up, a wall to creatures (<c>MoundWallWidth</c> x <c>MoundWallHeight</c> px);
+        /// let go, it sinks back in <c>MoundSink</c>. While it stands nothing reaches him and nothing moves him, nor does he move; he kneels
+        /// behind it.</summary>
+        public static float MoundRise = 0.3f, MoundSink = 0.45f, MoundReach = 22f, MoundWallWidth = 22f, MoundWallHeight = 46f;
+        /// <summary>Ice Barrier (frost overcharged, the block): a shell of ice about him (it stays when the shield is lowered) absorbs
+        /// <c>IceShare</c> of every blow; once it has absorbed <c>IceHold</c> it shatters, filling every creature within <c>FrostShellRadius</c>
+        /// with <c>FrostShellBuild</c> frost and dealing <c>FrostShellDamage</c> (x his damage).</summary>
+        public static float IceShare = 0.8f, IceHold = 15f, FrostShellRadius = 72f, FrostShellBuild = 90f, FrostShellDamage = 10f;
+        /// <summary>Tenuous Barrier (wind overcharged, the block): a faint skin of wind absorbs <c>TenuousShare</c> of every blow and dissipates
+        /// once it has absorbed <c>TenuousHold</c>.</summary>
+        public static float TenuousShare = 0.2f, TenuousHold = 10f;
+        /// <summary>The mixed guards (the block with an attribute) last as long as the shield stays up, <c>GuardSeconds</c> at most; wind in
+        /// one throws a melee striker back <c>GuardShove</c>.</summary>
         public static float GuardSeconds = 6f, GuardShove = 380f;
-        /// <summary>Glacial Bulwark (frost+frost): a wall of ice rises in front, <c>WallHeight</c> x 2 <c>WallHalf</c> px, <c>WallHp</c> (x his
-        /// health over his starting health), for <c>WallSeconds</c>; creatures go for it.</summary>
-        public static float WallHeight = 64f, WallHalf = 14f, WallHp = 30f, WallSeconds = 10f;
-        /// <summary>Eye of the Storm (wind+wind): a ring of wind about him: creatures within <c>StormRadius</c> are pushed out (<c>StormShove</c>),
-        /// shots inside it are turned away.</summary>
-        public static float StormRadius = 58f, StormShove = 260f;
         /// <summary>Permafrost Guard (earth+frost): the ground about him freezes, <c>PermafrostHalf</c> px each way, for <c>GuardSeconds</c>.</summary>
         public static float PermafrostHalf = 100f;
         /// <summary>Dust Wall (earth+wind): a cloud of dust in front, <c>DustRadius</c>, for <c>DustSeconds</c>: friends in it are hidden,
@@ -1344,6 +1345,12 @@ public static class Tune
         public static float FrostquakeDamage = 2.5f;
         /// <summary>Duststorm (earth+wind): clouds of dust along its path (<c>DustRadius</c>), hiding friends, sapping creatures.</summary>
         public static float StormDustSeconds = 6f;
+        /// <summary>Glacier Charge (frost+frost): spikes of ice <c>GlacierSpikeHeight</c> px tall burst from the ground every <c>GlacierSpikeEvery</c>
+        /// px he charges over, <c>GlacierSpikeDamage</c> x his blow to what they meet, tossed up.</summary>
+        public static float GlacierSpikeEvery = 18f, GlacierSpikeHeight = 36f, GlacierSpikeDamage = 0.6f;
+        /// <summary>Blizzard Charge (frost+wind): where it ends a blizzard whirls up (the Elementalist's storm): each strike
+        /// <c>BlizzardStormDamage</c> (x his damage) and <c>BlizzardStormBuild</c> frost, pulling light creatures in (<c>BlizzardStormPull</c>).</summary>
+        public static float BlizzardStormDamage = 2f, BlizzardStormBuild = 18f, BlizzardStormPull = 60f;
     }
 
     /// <summary>

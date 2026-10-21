@@ -71,6 +71,9 @@ public sealed partial class HeroDesign : CreatureDesign
     private static readonly string[] OrbNames = { "OrbBolt0", "OrbBolt1", "OrbBolt2", "OrbBolt3", "OrbBolt4", "OrbBolt5", "OrbBolt6", "OrbBolt7", "OrbWind", "OrbEarth", "OrbStorm" };
 
     private int hips, spine, chest, neck, head, cape0, cape1, cape2, cape3, scarf0, scarf1, scarf2;
+    /// <summary>The Warden's shield on a bone of its own (-1 for the others): the elemental Warden's is shrunk away and his mode's shield
+    /// (a slab of stone, a pane of ice, a veil of air) held in its place.</summary>
+    private int shieldBone = -1;
     private readonly int[] clav = new int[2], uarm = new int[2], farm = new int[2], hand = new int[2], thigh = new int[2], shin = new int[2], foot = new int[2];
 
     protected override void OnBonesBound()
@@ -78,6 +81,7 @@ public sealed partial class HeroDesign : CreatureDesign
         hips = B("hips"); spine = B("spine"); chest = B("chest"); neck = B("neck"); head = B("head");
         cape0 = B("cape0"); cape1 = B("cape1"); cape2 = B("cape2"); cape3 = B("cape3");
         scarf0 = B("scarf0"); scarf1 = B("scarf1"); scarf2 = B("scarf2");
+        shieldBone = B("shield");
         for (int k = 0; k < 2; k++)
         {
             string s = k == 0 ? "_r" : "_l";
@@ -137,6 +141,8 @@ public sealed partial class HeroDesign : CreatureDesign
         int s0 = s.Bone("scarf0", neckB, new(-0.05f, 0.57f, 0));
         int s1 = s.Bone("scarf1", s0, new(-0.2f, 0.56f, 0.02f));
         int s2 = s.Bone("scarf2", s1, new(-0.35f, 0.53f, 0.03f));
+        // (the Warden's shield hangs from a bone of its own, at the shield, so it can be shrunk away for the elemental shield)
+        if (_warden) s.Bone("shield", "hand_l", ShieldAt);
 
         if (_swordsman)
         {
@@ -425,8 +431,8 @@ public sealed partial class HeroDesign : CreatureDesign
         {
             var shield = PropMeshes.KiteShield(0.62f, 0.4f, C(0.1f, 0.18f, 0.45f), gold, C(0.85f, 0.7f, 0.3f));
             var sh = new MeshBuilder();
-            sh.Append(shield, new Transform3D(Basis.Identity, new Vector3(0.05f, -0.12f, -0.2f)));
-            s.Rigid(handL, sh, Mat.Metal);
+            sh.Append(shield, new Transform3D(Basis.Identity, ShieldAt));
+            s.Rigid(s["shield"], sh, Mat.Metal);
         }
         SculptLantern(s, hipsB);
     }
@@ -706,6 +712,16 @@ public sealed partial class HeroDesign : CreatureDesign
                     Name = "ShieldGlow", Mesh = new SphereMesh { Radius = 0.36f, Height = 0.72f, RadialSegments = 16, Rings = 8 }, MaterialOverride = (Material)auraMat.Duplicate(),
                     CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0.05f, -0.12f, -0.2f), Scale = new Vector3(0.75f, 1f, 0.75f), Visible = false,
                 });
+                // the elemental Warden's shield, on the shield's own bone where the steel one is shrunk away: his mode's (see SyncModeShield)
+                var shieldAt = m.AttachTo("shield");
+                shieldAt.Name = "ShieldAt";
+                var modeShield = new MeshInstance3D
+                {
+                    Name = "ModeShield", Mesh = PropMeshes.KiteShield(0.62f, 0.4f, Colors.White, Colors.White, Colors.White).ToMesh(),
+                    MaterialOverride = new StandardMaterial3D { Transparency = BaseMaterial3D.TransparencyEnum.Alpha, RimEnabled = true },
+                    CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Scale = Vector3.One * 1.06f, Visible = false,
+                };
+                shieldAt.AddChild(modeShield);
             }
             // the Ice Axe and the Glacier Cleaver: heads of ice that grow out of the blade as they swing (HeroDesign.Axe.cs)
             BuildIceAxes(hand);
@@ -962,7 +978,7 @@ public sealed partial class HeroDesign : CreatureDesign
         else
         {
             var edge = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ChargeEdge");
-            if (_warden) SyncShieldGlow(m, player, a.Time);
+            if (_warden) { SyncShieldGlow(m, player, a.Time); SyncModeShield(m, player, a.Time); }
             var light = m.GetNodeOrNull<OmniLight3D>("Pivot/Skeleton/BladeHand/ChargeLight");
             SyncIceAxes(m, player, a.Time);
             if (edge == null || light == null) return;
@@ -1055,14 +1071,51 @@ public sealed partial class HeroDesign : CreatureDesign
         return mb.Faceted().ToMesh(mat);
     }
 
-    /// <summary>The Warden's shield glows with the readied element, or (brighter, steady) with the guard it holds while raised.</summary>
+    /// <summary>Where the Warden's shield sits (model space): its bone's head, and the steel shield's origin.</summary>
+    private static readonly Vector3 ShieldAt = new(0.05f, -0.12f, -0.2f);
+
+    /// <summary>
+    /// The elemental Warden's shield is his mode's: a slab of brown-grey stone, solid, in earth; a pane of pale blue ice, half clear, in frost;
+    /// a veil of light grey air, faint (a fifth), in wind. It flashes when struck, and it's gone while broken (the steel one beneath is shrunk
+    /// away by the shield's bone, in Animate).
+    /// </summary>
+    private static void SyncModeShield(CreatureModel m, Player player, float time)
+    {
+        var shield = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/ShieldAt/ModeShield");
+        if (shield == null) return;
+        bool on = player != null && player.Elemental && !player.Dead && !player.ShieldBroken && player.ShieldHp > 0.5f;
+        shield.Visible = on;
+        if (!on || shield.MaterialOverride is not StandardMaterial3D mat) return;
+        float flash = Math.Clamp(player.ShieldFlash * 5f, 0f, 1f);
+        switch (player.Mode)
+        {
+            case HeroElement.Earth:
+                mat.AlbedoColor = new Color(0.46f, 0.42f, 0.38f, 1f); mat.Roughness = 0.95f; mat.Metallic = 0f; mat.Rim = 0.15f;
+                mat.ShadingMode = BaseMaterial3D.ShadingModeEnum.PerPixel; mat.EmissionEnabled = flash > 0f; mat.Emission = new Color(0.7f, 0.6f, 0.45f);
+                break;
+            case HeroElement.Frost:
+                mat.AlbedoColor = new Color(0.62f, 0.84f, 1f, 0.55f); mat.Roughness = 0.08f; mat.Metallic = 0f; mat.Rim = 0.9f;
+                mat.ShadingMode = BaseMaterial3D.ShadingModeEnum.PerPixel; mat.EmissionEnabled = true; mat.Emission = new Color(0.3f, 0.55f, 0.85f);
+                break;
+            default:
+                mat.AlbedoColor = new Color(0.86f, 0.88f, 0.9f, 0.2f); mat.Roughness = 1f; mat.Metallic = 0f; mat.Rim = 0.5f;
+                mat.ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded; mat.EmissionEnabled = false;
+                break;
+        }
+        mat.EmissionEnergyMultiplier = (player.Mode == HeroElement.Frost ? 0.25f : 0f) + flash * 1.2f;
+        // (the air breathes a little)
+        if (player.Mode == HeroElement.Wind) mat.AlbedoColor = mat.AlbedoColor with { A = 0.2f + 0.04f * MathF.Sin(time * 5f) + flash * 0.2f };
+    }
+
+    /// <summary>The Warden's shield glows with the readied element, or (brighter, steady) with the guard it holds while raised; the
+    /// elemental Warden's shows its mode itself, so it glows only with a guard.</summary>
     private static void SyncShieldGlow(CreatureModel m, Player player, float time)
     {
         var glow = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/ShieldHand/ShieldGlow");
         if (glow == null) return;
         bool alive = player != null && !player.Dead;
         var guard = alive ? player.GuardElement : HeroElement.None;
-        var el = guard != HeroElement.None ? guard : alive ? player.GlowElement : HeroElement.None;
+        var el = guard != HeroElement.None ? guard : alive && !player.Elemental ? player.GlowElement : HeroElement.None;
         glow.Visible = el != HeroElement.None;
         if (!glow.Visible || glow.MaterialOverride is not StandardMaterial3D mat) return;
         var c = Elements.ColorOf(el);

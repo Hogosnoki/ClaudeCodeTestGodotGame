@@ -88,7 +88,7 @@ public static class Elements
             {
                 ElemSlot.Attack => e switch { HeroElement.Earth => "Stonecutter", HeroElement.Frost => "Rime Edge", HeroElement.Wind => "Gale Edge", _ => "Shortsword" },
                 ElemSlot.Move => e switch { HeroElement.Earth => "Rockslide Charge", HeroElement.Frost => "Frozen Tundra", HeroElement.Wind => "Gale Charge", _ => "Guarded Charge" },
-                ElemSlot.Heavy => e switch { HeroElement.Earth => "Earth Shield", HeroElement.Frost => "Frost Shield", HeroElement.Wind => "Wind Barrier", _ => "Block" },
+                ElemSlot.Heavy => e switch { HeroElement.Earth => "Stone Shield", HeroElement.Frost => "Frost Shield", HeroElement.Wind => "Wind Shield", _ => "Block" },
                 _ => "",
             };
         // the Vitalist: the drain (attack), the hex about her (the dodge button: movement's slot) and the heal (the ability: Aid's slot)
@@ -212,9 +212,9 @@ public static class Elements
                 },
                 ElemSlot.Heavy => (a, b) switch
                 {
-                    (HeroElement.Earth, HeroElement.Earth) => "Bastion",
-                    (HeroElement.Frost, HeroElement.Frost) => "Glacial Bulwark",
-                    (HeroElement.Wind, HeroElement.Wind) => "Eye of the Storm",
+                    (HeroElement.Earth, HeroElement.Earth) => "Earth Shield",
+                    (HeroElement.Frost, HeroElement.Frost) => "Ice Barrier",
+                    (HeroElement.Wind, HeroElement.Wind) => "Tenuous Barrier",
                     (HeroElement.Earth, HeroElement.Frost) => "Permafrost Guard",
                     (HeroElement.Earth, HeroElement.Wind) => "Dust Wall",
                     (HeroElement.Frost, HeroElement.Wind) => "Hoarfrost Gale",

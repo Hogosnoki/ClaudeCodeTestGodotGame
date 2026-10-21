@@ -25,7 +25,13 @@ public partial class Player
     public bool ShieldBroken => _shieldBrokenT > 0;
     public float ShieldBrokenLeft => _shieldBrokenT;
     public Vector2 ShieldDir { get; private set; } = Vector2.Right;
-    public float ShieldArc => GuardAllRound ? Mathf.Tau : Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
+    public float ShieldArc => Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
+    /// <summary>The elemental Warden's shield: one pool whatever the mode, what it absorbs by the mode (<see cref="ModeShieldShare"/>).</summary>
+    private bool ElementShield => IsWarden && Elemental;
+    /// <summary>How long a broken shield stays down (the elemental Warden's is shorter, and mends meanwhile).</summary>
+    public float ShieldBreakTotal => ElementShield ? Tune.ElementalWarden.ShieldBreakTime * Stats.ShieldBreakTime / Tune.Warden.ShieldBreakTime : Stats.ShieldBreakTime;
+    /// <summary>Just struck (for the shield's look).</summary>
+    public float ShieldFlash => Math.Max(0f, _shieldFlash);
     private float _shieldBrokenT, _shieldRegenWait, _shieldUpT, _shieldFlash, _blockGrace, _coyoteShieldT;
     /// <summary>How long after the shield goes up a block still counts as perfect.</summary>
     private float PerfectWindowNow => Tune.Warden.PerfectWindow * Stats.PerfectWindowMult;
@@ -60,8 +66,8 @@ public partial class Player
 
     private void UpdateShield(PlayerInput inp, float dt)
     {
-        // regeneration: at zero after a break for ShieldBreakTime, then back at the normal rate
-        if (_shieldBrokenT > 0) _shieldBrokenT -= dt;
+        // regeneration: at zero after a break for ShieldBreakTime, then back at the normal rate (the elemental Warden's mends from the moment it breaks)
+        if (_shieldBrokenT > 0) { _shieldBrokenT -= dt; if (ElementShield) ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt); }
         else if (_shieldRegenWait > 0) _shieldRegenWait -= dt * (Stats.QuickMend ? 4f : 1f);
         else ShieldHp = Math.Min(Stats.ShieldMax, ShieldHp + Stats.ShieldRegen * dt);
         _shieldFlash -= dt; _blockGrace -= dt; _coyoteShieldT -= dt;
@@ -115,9 +121,11 @@ public partial class Player
         bool dashing = _dashT > 0;
         b.Perfect = dashing || _shieldUpT <= PerfectWindowNow;
         // (Unyielding Shield: it stops less of each blow, but never weakens or breaks)
-        float stopped = b.Perfect ? dmg : dmg * (Stats.Unyielding ? Stats.UnyieldingShare : Stats.BlockShare);
+        // (the elemental Warden's shield absorbs its mode's share: stone most, ice half, air little; and wears 1:1 by what it absorbs)
+        float share = Stats.Unyielding ? Stats.UnyieldingShare : ElementShield ? ModeShieldShare : Stats.BlockShare;
+        float stopped = b.Perfect ? dmg : dmg * share;
         b.Through = dmg - stopped;
-        float cost = dashing || Stats.Unyielding ? 0f : stopped * Tune.Warden.ShieldCost * (b.Perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
+        float cost = dashing || Stats.Unyielding ? 0f : stopped * (ElementShield ? Tune.ElementalWarden.ShieldCost : Tune.Warden.ShieldCost) * (b.Perfect && Stats.PerfectSoak ? Tune.Warden.PerfectSoakMult : 1f);
         // (a guard of stone: nothing gets through, and the shield doesn't wear)
         if (GuardStone) { b.Through = 0f; cost = 0f; }
         if (cost > ShieldHp)
@@ -149,7 +157,7 @@ public partial class Player
     private void BreakShield(Vector2 at, Enemy striker = null)
     {
         ShieldHp = 0;
-        _shieldBrokenT = Stats.ShieldBreakTime;
+        _shieldBrokenT = ShieldBreakTotal;
         ShieldRaised = false;
         G.Sfx.Play("rock", at, 0, 0.1f, 1.4f);
         G.Fx.Burst(at, new Color(0.55f, 0.8f, 1f), 22, 180, 2.5f, 0.5f);
