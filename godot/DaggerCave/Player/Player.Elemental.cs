@@ -1061,8 +1061,8 @@ public partial class Player
         G.Fx.Shockwave(feet, r, new Color(0.9f, 0.97f, 1f, 0.8f), 0.35f);
         G.Fx.Directional(feet, Vector2.Up, 0.9f, new Color(0.92f, 0.98f, 1f), 30, 380, 3.2f, 0.5f, 300, 0);
         G.Fx.Burst(feet + new Vector2(0, -10), col, 24, 260, 2.6f, 0.5f, 200);
-        G.Fx.Flash(feet + new Vector2(0, -10), 40, new Color(0.85f, 0.95f, 1f), 0.15f);
-        G.Fx.LightUp(feet + new Vector2(0, -20), col, 2.6f, r * 2f, 0.5f);
+        G.Fx.Flash(feet + new Vector2(0, -10), 26, new Color(0.7f, 0.88f, 1f), 0.1f);
+        G.Fx.LightUp(feet + new Vector2(0, -20), new Color(0.45f, 0.7f, 1f), 1.2f, r * 1.6f, 0.4f);
         G.Fx.AddShake(6f);
         G.Main.Rumble(0.6f, 0.8f, 0.25f);
         G.Sfx.Play("slam", feet, -1, 0.05f, 0.8f);

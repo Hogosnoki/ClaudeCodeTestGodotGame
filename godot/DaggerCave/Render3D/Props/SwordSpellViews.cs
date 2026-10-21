@@ -19,14 +19,15 @@ public partial class IceCrystalsView : PropView
         {
             var mb = new MeshBuilder();
             // (one crystal a unit long, a main shard and two smaller beside it)
-            DesignKit.CrystalAt(mb, Vector3.Zero, Vector3.Up, 0.5f, 1f, new Color(0.7f, 0.88f, 1f), 0.2f);
-            DesignKit.CrystalAt(mb, new Vector3(0.3f, 0f, 0.15f), new Vector3(0.45f, 1f, 0.1f), 0.26f, 0.55f, new Color(0.78f, 0.92f, 1f), 0.6f);
-            DesignKit.CrystalAt(mb, new Vector3(-0.28f, 0f, -0.12f), new Vector3(-0.4f, 1f, -0.15f), 0.22f, 0.45f, new Color(0.78f, 0.92f, 1f), 0.9f);
+            DesignKit.CrystalAt(mb, Vector3.Zero, Vector3.Up, 0.5f, 1f, new Color(0.45f, 0.72f, 1f), 0.2f);
+            DesignKit.CrystalAt(mb, new Vector3(0.3f, 0f, 0.15f), new Vector3(0.45f, 1f, 0.1f), 0.26f, 0.55f, new Color(0.55f, 0.8f, 1f), 0.6f);
+            DesignKit.CrystalAt(mb, new Vector3(-0.28f, 0f, -0.12f), new Vector3(-0.4f, 1f, -0.15f), 0.22f, 0.45f, new Color(0.55f, 0.8f, 1f), 0.9f);
             _crystal = mb.ToMesh();
-            _mat = PropViews.Emissive(new Color(0.6f, 0.85f, 1f), 0.8f, 0.8f);
+            // (a cold blue that holds its own under the cave's warm light: a little glow, not a lamp)
+            _mat = PropViews.Emissive(new Color(0.3f, 0.6f, 1f), 0.3f, 0.82f);
             _mat.Roughness = 0.06f; _mat.RimEnabled = true; _mat.Rim = 0.9f; _mat.VertexColorUseAsAlbedo = true;
         }
-        _light = PropViews.Light(Elements.ColorOf(HeroElement.Frost), 0f, 5f);
+        _light = PropViews.Light(new Color(0.4f, 0.65f, 1f), 0f, 5f);
         _light.Position = new Vector3(0, 0.8f, 1f);
         AddChild(_light);
     }
@@ -59,7 +60,7 @@ public partial class IceCrystalsView : PropView
             at = mi.Position;
         }
         if (_spikes.Count > 0) _light.Position = at + new Vector3(0, 0.8f, 1f);
-        _light.LightEnergy = 1.2f * most;
+        _light.LightEnergy = 0.7f * most;
     }
 }
 
@@ -90,7 +91,7 @@ public partial class MagmaCracksView : PropView
                 var glow = new MeshInstance3D { Mesh = box, MaterialOverride = _magma, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
                 glow.Position = W3.P(mid, zig) - W3.P(c.GlobalPosition) + new Vector3(0, 0.02f, 0);
                 var d = W3.D(b - a);
-                glow.Basis = new Basis(Vector3.Back, MathF.Atan2(d.Y, d.X)) * new Basis(Vector3.Up, zig * 0.9f) * Basis.FromScale(new Vector3(d.Length() * 1.3f, 0.05f, width));
+                glow.Basis = new Basis(Vector3.Back, MathF.Atan2(d.Y, d.X)) * new Basis(Vector3.Up, zig * 0.9f) * Basis.FromScale(new Vector3(d.Length() * 1.3f, 0.12f, width));
                 AddChild(glow);
                 // the rock heaved up along the lip
                 var mb = new MeshBuilder();
@@ -118,7 +119,7 @@ public partial class MagmaCracksView : PropView
             glow.Visible = lip.Visible = shown;
             if (!shown) continue;
             var s = glow.Basis.Scale;
-            glow.Basis = glow.Basis.Orthonormalized() * Basis.FromScale(new Vector3(s.X, 0.05f, Math.Max(0.01f, width * open * (0.9f + 0.1f * MathF.Sin(Time * 9f + at * 20f)))));
+            glow.Basis = glow.Basis.Orthonormalized() * Basis.FromScale(new Vector3(s.X, 0.12f, Math.Max(0.01f, width * open * (0.9f + 0.1f * MathF.Sin(Time * 9f + at * 20f)))));
             lip.Scale = Vector3.One * Math.Max(0.05f, open);
         }
         _light.LightEnergy = 2.4f * open * (0.85f + 0.15f * MathF.Sin(Time * 11f));
