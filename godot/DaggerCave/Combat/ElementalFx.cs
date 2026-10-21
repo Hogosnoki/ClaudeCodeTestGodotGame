@@ -95,6 +95,8 @@ public static class Ground
 public partial class Fissure : HeroSpell
 {
     public float Dir = 1f, Range = Tune.Dual.SplitRange, Speed = Tune.Dual.SplitSpeed, Damage, Toss = Tune.Dual.SplitToss;
+    /// <summary>The Earthsplitter's (not a Fault Strike's): the ground quakes as it runs, rock flies higher, and what it strikes is held a beat.</summary>
+    public bool Dramatic;
     private float _gone, _x, _floorY, _fx;
     private readonly HashSet<Enemy> _hit = new();
     public int Struck => _hit.Count;
@@ -130,6 +132,7 @@ public partial class Fissure : HeroSpell
                 Build(e, HeroElement.Earth, Tune.Elements.Full);
                 e.Shove(new Vector2(Dir * 70f, -Toss));
                 G.Fx.Directional(e.GlobalPosition + new Vector2(0, e.HitRadius), Vector2.Up, 0.35f, col, 8, 260, 3f, 0.45f, 500, 0);
+                if (Dramatic && !e.Dead) { e.HitStop(Tune.Dual.SplitHitStop); G.Fx.Debris(e.GlobalPosition + new Vector2(0, e.HitRadius), col, 10, 320); G.Fx.AddShake(3f); }
             }
             // rock bursting up behind the crack's head
             _fx -= step;
@@ -137,8 +140,9 @@ public partial class Fissure : HeroSpell
             {
                 _fx = 9f;
                 var at = new Vector2(_x, _floorY);
-                G.Fx.Directional(at, Vector2.Up, 0.45f, G.Chance(0.5f) ? col : col.Darkened(0.35f), 3, G.Range(160, 280), 2.8f, 0.45f, 520, 0);
+                G.Fx.Directional(at, Vector2.Up, 0.45f, G.Chance(0.5f) ? col : col.Darkened(0.35f), Dramatic ? 6 : 3, G.Range(160, Dramatic ? 420 : 280), Dramatic ? 3.6f : 2.8f, 0.45f, 520, 0);
                 G.Fx.Dust(at, 2, 1.2f, new Color(0.55f, 0.46f, 0.36f, 0.6f));
+                if (Dramatic) { G.Fx.Debris(at, col.Darkened(0.2f), 3, 300); G.Fx.AddShake(1.4f); }
             }
             if (_gone >= Range) { End(col); return; }
         }

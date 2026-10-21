@@ -1188,7 +1188,8 @@ public static class Tune
     /// </summary>
     public static class ElementalSword
     {
-        public static float HeaveDamage = 2f, EarthBuild = 60f, MediumDamage = 1.25f, MediumBuild = 50f;
+        /// <summary>Searing Strike adds <c>SearBuild</c> fire, Razor Ice <c>MediumBuild</c> frost.</summary>
+        public static float HeaveDamage = 2f, EarthBuild = 60f, MediumDamage = 1.25f, MediumBuild = 50f, SearBuild = 40f;
         public static float SwingRestEarth = 2.5f, SwingRestFire = 0f, SwingRestFrost = 0f;
         public static float HardDamage = 1.6f, CrushDamage = 2.6f, PyroDamage = 2.2f, AxeDamage = 2f;
         public static float HardRest = 5f, CrushRest = 12f, PyroRest = 10f, AxeRest = 7f, CrushWindup = 1.35f;
@@ -1197,13 +1198,35 @@ public static class Tune
         public static float AxeWindup = 2.4f, AxeArcDegrees = 120f;
         public static float HiltSeconds = 8f, HiltDamage = 0.2f, HiltFrost = 20f, HiltFire = 25f;
         public static float HiltRest = 12f, HiltRestEarth = 14f, HiltRestFrost = 14f, HiltRestFire = 14f;
-        public static float LungeDamage = 1.2f, LungeBuild = 50f, LungeRadius = 56f, LungeSpeed = 340f, LungeLift = 0.6f, LungeCarry = 0.42f, LungeRest = 4f;
+        /// <summary>Explosive Lunge: the burst behind him (<c>LungeDamage</c>, <c>LungeBuild</c> fire within <c>LungeRadius</c>) throws him forward
+        /// <c>LungeSpeed</c> for <c>LungeCarry</c> s, <c>LungeLift</c> x a jump high; until he lands (at most <c>LungeStrikeSeconds</c>) he swings
+        /// at every creature he comes within <c>LungeStrikeReach</c> px of, once each.</summary>
+        public static float LungeDamage = 1.2f, LungeBuild = 50f, LungeRadius = 56f, LungeSpeed = 340f, LungeLift = 0.85f, LungeCarry = 0.42f, LungeRest = 4f;
+        public static float LungeStrikeSeconds = 1.1f, LungeStrikeReach = 20f;
         public static float VaultJump = 0.75f, VaultBack = 300f, VaultCarry = 0.3f, VaultDamage = 0.8f, VaultBuild = 50f, VaultRadius = 46f, VaultRest = 4f;
         /// <summary>Glacial Vault's decoy: the Swordsman in ice, <c>DecoyHeight</c> x 2 <c>DecoyHalf</c> px, drawing creatures within
         /// <c>Dual.LureRange</c>; <c>DecoyHits</c> blows (or <c>DecoySeconds</c>) and it shatters, <c>DecoyBuild</c> frost within <c>DecoyRadius</c>.</summary>
         public static int DecoyHits = 2;
         public static float DecoyHeight = 26f, DecoyHalf = 8f, DecoySeconds = 6f, DecoyBuild = 40f, DecoyRadius = 44f;
         public static float FallDamage = 1.4f, FallBuild = 60f, FallRadius = 72f, FallToss = 220f, FallRest = 5f;
+        /// <summary>Stalagmite Vault (frost overcharged; from the ground): he leaps back (<c>StalagBack</c>, <c>StalagJump</c> x a jump, carried
+        /// <c>StalagCarry</c> s) and a stalagmite of ice <c>SpikeHeight</c> px tall bursts from the floor every <c>SpikeEvery</c> px he passes over:
+        /// <c>SpikeDamage</c> and <c>SpikeBuild</c> frost to what it meets (once each), tossed up; they stand <c>SpikeStand</c> s and melt.</summary>
+        public static float StalagBack = 330f, StalagJump = 0.85f, StalagCarry = 0.45f, SpikeEvery = 16f, SpikeHeight = 44f, SpikeDamage = 1.1f, SpikeBuild = 50f, SpikeStand = 1.1f, SpikeToss = 260f;
+        /// <summary>Comet (earth and frost): a leap forward (<c>CometSpeed</c>, <c>CometLift</c> x a jump; in the air no jump), all blue-white; landing,
+        /// a frost explosion within <c>CometRadius</c>: <c>CometDamage</c> and a full frost build-up; <c>CometCrystals</c> crystals burst out of the
+        /// floor and melt after <c>CometStand</c> s.</summary>
+        public static float CometSpeed = 300f, CometLift = 0.8f, CometDamage = 3f, CometRadius = 84f, CometStand = 1f;
+        public static int CometCrystals = 13;
+        /// <summary>Blazing Charge (earth and fire, the dash): he charges <c>BlazeSpeed</c> for <c>BlazeSeconds</c>, sword up before him in a sphere of
+        /// fire, crashing into every creature within <c>BlazeReach</c> px once: <c>BlazeDamage</c>, a full fire build-up, thrown <c>BlazeToss</c>;
+        /// fire trails behind him.</summary>
+        public static float BlazeSpeed = 430f, BlazeSeconds = 0.42f, BlazeDamage = 1.6f, BlazeReach = 20f, BlazeToss = 300f, BlazeRest = 5f;
+        /// <summary>Steam Vault (fire and frost): the steam left behind scalds creatures in it every <c>ScaldTick</c> s, <c>ScaldDamage</c> x his
+        /// damage multiplier and <c>ScaldBuild</c> fire and frost.</summary>
+        public static float ScaldTick = 0.4f, ScaldDamage = 1.5f, ScaldBuild = 12f;
+        /// <summary>Magma Hilt (earth and fire): a blow leaves a little pool of magma under the creature, at most every <c>MagmaDripRest</c> s.</summary>
+        public static float MagmaDripRest = 1.2f;
     }
 
     /// <summary>
@@ -1274,10 +1297,11 @@ public static class Tune
         public static float ConeRange = 120f, ConeHalf = 38f, SandDamage = 0.5f, SandSap = 3f, GustBuild = 60f, GustShove = 320f;
 
         // ---- the block (the shield raised in a mode)
-        /// <summary>Earth Shield: the ground in front (<c>MoundReach</c> px on) heaves up and over him for <c>MoundSeconds</c> (rising in
-        /// <c>MoundRise</c>, sinking back in the last <c>MoundSink</c>): nothing reaches him and nothing moves him, nor does he move. It
-        /// rests <c>MoundRest</c> s after.</summary>
-        public static float MoundSeconds = 2.5f, MoundRise = 0.3f, MoundSink = 0.45f, MoundReach = 22f, MoundRest = 6f;
+        /// <summary>Earth Shield: the ground in front (<c>MoundReach</c> px on) heaves up and over him (rising in <c>MoundRise</c>) and stands
+        /// while he holds his shield up, a wall to creatures (<c>MoundWallWidth</c> x <c>MoundWallHeight</c> px); let go, it sinks back in
+        /// <c>MoundSink</c>. While it stands nothing reaches him and nothing moves him, nor does he move; he kneels behind it. It rests
+        /// <c>MoundRest</c> s after.</summary>
+        public static float MoundRise = 0.3f, MoundSink = 0.45f, MoundReach = 22f, MoundRest = 6f, MoundWallWidth = 22f, MoundWallHeight = 46f;
         /// <summary>Frost Shield: a shell of ice about him soaks <c>FrostShellShare</c> of every blow; once it has soaked <c>FrostShellHold</c>
         /// it shatters, filling every creature within <c>FrostShellRadius</c> with <c>FrostShellBuild</c> frost and dealing
         /// <c>FrostShellDamage</c> (x his damage). It rests <c>FrostShellRest</c> s after.</summary>
@@ -1429,22 +1453,28 @@ public static class Tune
         // the Swordsman (Hard Swing)
         /// <summary>Earthsplitter (earth+earth): a fissure runs along the floor <c>SplitRange</c> px at <c>SplitSpeed</c>, tossing up and stunning what it passes.</summary>
         public static float SplitRest = 14f, SplitDamage = 2.2f, SplitRange = 340f, SplitSpeed = 380f, SplitToss = 340f;
+        /// <summary>It gathers <c>SplitWindup</c> x a Hard Swing's wind-up, the ground trembling; what the crack strikes is held <c>SplitHitStop</c> s.</summary>
+        public static float SplitWindup = 3f, SplitHitStop = 0.16f;
         /// <summary>Inferno Cleave (fire+fire): a wall of fire stands where the blade lands for <c>WallSeconds</c>, burning creatures in it
         /// (<c>WallBuild</c> fire every <c>WallTick</c> s) and the shots that fly into it.</summary>
         public static float WallRest = 13f, WallDamage = 2f, WallSeconds = 4.5f, WallHeight = 84f, WallHalf = 14f, WallTick = 0.4f, WallBuild = 22f, WallTickDamage = 0.18f;
         /// <summary>Glacier Cleaver (frost+frost): the Ice Axe's swing, but the head that grows out of the blade is vast and ornate, grows slower and
         /// comes down later (reach, arc, wind-up multiples of a Hard Swing's), its blow <c>AxeDamage</c> x a Hard Swing and a full frost build-up
         /// twice over; the head lands and shatters what the swing froze.</summary>
-        public static float AxeRest = 16f, AxeDamage = 4f, AxeReach = 2.2f, AxeArc = 1.25f, AxeWindup = 3.4f;
+        public static float AxeRest = 16f, AxeDamage = 4f, AxeReach = 1.1f, AxeArc = 1.25f, AxeWindup = 3.4f;
         /// <summary>Frost Heave (earth+frost): the blade is driven into the floor and the ground bursts up in ice under the nearest creature
         /// within <c>HeaveRange</c> px after <c>HeaveWarn</c> s: <c>HeaveDamage</c>, full frost, tossed up.</summary>
         public static float HeaveRest = 14f, HeaveDamage = 4.5f, HeaveRange = 280f, HeaveWarn = 0.35f, HeaveHalf = 30f, HeaveHeight = 150f, HeaveToss = 420f;
         /// <summary>Magma Rend (earth+fire): the floor splits into a pool of magma <c>PoolHalf</c> px either side, for <c>PoolSeconds</c>:
         /// creatures in it are mired (sapped, slowed) and burn.</summary>
         public static float PoolRest = 15f, PoolDamage = 1.6f, PoolSeconds = 5.5f, PoolHalf = 70f, PoolTick = 0.5f, PoolBuild = 20f, PoolTickDamage = 0.15f, PoolSlow = 0.45f;
-        /// <summary>Thermal Shock (fire+frost): on a creature burning, chilled or frozen the blow deals <c>ShockBonus</c> x more and bursts into a
-        /// cloud of steam (<c>SteamRadius</c>, <c>SteamSeconds</c>) that hides the heroes in it; otherwise half a build-up of each.</summary>
-        public static float ShockRest = 12f, ShockDamage = 2.2f, ShockBonus = 1.5f, SteamRadius = 64f, SteamSeconds = 4f;
+        /// <summary>Thermal Shock (fire+frost): a full build-up of whichever of fire and frost the creature holds more of; then frozen solid it
+        /// shatters, burning it bursts.</summary>
+        public static float ShockRest = 12f, ShockDamage = 2.2f;
+        /// <summary>Breaking Quake (earth+fire): gathering <c>QuakeWindup</c> x a Hard Swing's wind-up, the blade (<c>QuakeDamage</c>) is driven
+        /// into the floor and cracks full of magma tear out <c>QuakeHalf</c> px either way: <c>QuakeCrackDamage</c> and a full fire build-up to
+        /// what stands over them; they close after <c>QuakeSeconds</c>.</summary>
+        public static float QuakeRest = 15f, QuakeDamage = 1.8f, QuakeWindup = 2f, QuakeHalf = 120f, QuakeSeconds = 1.6f, QuakeCrackDamage = 1.6f;
         // the Elementalist: two charges on the attack (bolt), the dodge (movement) or the Burst button (fixed range)
         /// <summary>Meteorite (fire+fire, bolt): falls on the thickest knot of creatures, smashing every platform it touches; <c>MeteorDamage</c> and
         /// full fire within <c>MeteorRadius</c>. Cryometeor (frost+frost, bolt): the same fall, but it bursts in frost (two full build-ups: frozen solid)

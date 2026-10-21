@@ -696,6 +696,8 @@ public sealed partial class HeroDesign : CreatureDesign
             });
             if (_warden)
             {
+                // the elemental Warden in earth mode: his shortsword grown into a club of packed dirt and stone (hidden otherwise)
+                hand.AddChild(new MeshInstance3D { Name = "StoneClub", Mesh = StoneClubMesh(blade), Position = new Vector3(0.016f, 0f, 0f), Visible = false });
                 // the Warden's shield: a glow of the readied element (or the guard it holds) over its face
                 var shieldHand = m.AttachTo("hand_l");
                 shieldHand.Name = "ShieldHand";
@@ -968,9 +970,13 @@ public sealed partial class HeroDesign : CreatureDesign
             // all frost while an axe of ice grows out of it)
             var readied = player == null || player.Dead ? HeroElement.None : player.AxeKind > 0 ? HeroElement.Frost : player.GlowElement;
             var aura = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/ElementAura");
+            // (the elemental Warden in earth mode swings a club of stone: no aura over it, the stone is the element)
+            var club = m.GetNodeOrNull<MeshInstance3D>("Pivot/Skeleton/BladeHand/StoneClub");
+            bool stone = _warden && club != null && player != null && !player.Dead && player.Elemental && player.Mode == HeroElement.Earth;
+            if (club != null) club.Visible = stone;
             if (aura != null)
             {
-                aura.Visible = readied != HeroElement.None;
+                aura.Visible = readied != HeroElement.None && !stone;
                 if (aura.Visible && aura.MaterialOverride is StandardMaterial3D am)
                 {
                     var ac = Elements.ColorOf(readied);
@@ -1016,6 +1022,37 @@ public sealed partial class HeroDesign : CreatureDesign
         col = mc.Lerp(col, Math.Clamp(glow, 0f, 1f) * 0.6f);
         glow = Math.Max(glow, player.Overcharged ? 0.55f : 0.3f) + 0.3f * player.InfuseFlash;
         if (player.Overcharged) pulse = 0.8f + 0.25f * MathF.Sin(time * 11f);
+    }
+
+    /// <summary>The elemental Warden's club in earth mode: a lumpy haft of packed dirt along the blade, swelling into a knot of stones at its end.</summary>
+    private static ArrayMesh StoneClubMesh(float blade)
+    {
+        var noise = new Noise3(77);
+        var rng = new Random(77);
+        var dirt = new Color(0.36f, 0.26f, 0.17f);
+        var stone = new Color(0.5f, 0.45f, 0.4f);
+        var mb = new MeshBuilder();
+        var path = new System.Collections.Generic.List<Vector3>();
+        var radii = new System.Collections.Generic.List<float>();
+        for (int i = 0; i <= 6; i++)
+        {
+            float k = i / 6f;
+            path.Add(new Vector3(0f, -0.1f - blade * k, 0f));
+            radii.Add(0.035f + 0.075f * k * k);
+        }
+        mb.Tube(path, radii, 7, dirt, true, (i, k) => 0.3f * noise.Fbm(i * 1.7f, k * 1.3f, 0.5f, 3));
+        // (stones packed into it, thickest at the head)
+        for (int n = 0; n < 9; n++)
+        {
+            float k = 0.35f + 0.65f * (float)rng.NextDouble();
+            float a = (float)rng.NextDouble() * Mathf.Tau;
+            float r = 0.035f + 0.075f * k * k;
+            var c = new Vector3(MathF.Cos(a) * r * 0.8f, -0.1f - blade * k, MathF.Sin(a) * r * 0.8f);
+            mb.Blob(c, Vector3.One * (0.025f + 0.035f * k), 3, stone.Lerp(dirt, (float)rng.NextDouble() * 0.5f), noise, 0.4f, 3f);
+        }
+        mb.Blob(path[^1], Vector3.One * 0.11f, 4, stone.Darkened(0.1f), noise, 0.35f, 2.5f);
+        var mat = MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, Roughness = 0.95f }, "stone");
+        return mb.Faceted().ToMesh(mat);
     }
 
     /// <summary>The Warden's shield glows with the readied element, or (brighter, steady) with the guard it holds while raised.</summary>

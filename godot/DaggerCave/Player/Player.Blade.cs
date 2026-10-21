@@ -341,7 +341,7 @@ public partial class Player
             _swingSurprise = false;
         }
         // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst; with elements, only ThunderCrush does)
-        dmg *= HiltDamageMult * DualBladeMult(e);
+        dmg *= HiltDamageMult;
         bool shatter = (Elemental ? _swingShatter : _heave) && e.FrozenSolid;
         float dealt = e.Hurt(dmg, dir * kb, hitPos, Elemental && _swingEl is HeroElement.Fire or HeroElement.Frost ? Elements.KindOf(_swingEl) : DamageKind.Physical);
         if (shatter) { if (Elemental) e.Shatter(Stats.DamageMult * 1.5f, this); else ShatterFrozen(e); }
@@ -381,7 +381,9 @@ public partial class Player
             // the combo stays live: the next swing may follow at once (a press during the
             // hit-stop is kept and fires the moment it ends). No combo from behind a raised shield,
             // nor out of a heave, nor out of a counter (unless Flowing Counter).
-            if (!IsRogue && _comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
+            // (the elemental Warden's stone club in earth mode has no combo: every blow at its own slow pace)
+            bool club = IsWarden && Elemental && Mode == HeroElement.Earth;
+            if (!IsRogue && !club && _comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
             // (not the Rogue: its jabs come too fast to bounce off each one)
             if (Math.Abs(to.X) > 2 && !IsRogue) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.HeroStrikeRecoil, Velocity.Y);

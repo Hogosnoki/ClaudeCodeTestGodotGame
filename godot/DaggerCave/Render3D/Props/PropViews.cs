@@ -74,6 +74,9 @@ public static class PropViews
             FrostTower => new FrostTowerView(),
             EarthMound => new EarthMoundView(),
             WardShell => new WardShellView(),
+            IceCrystals => new IceCrystalsView(),
+            MagmaCracks => new MagmaCracksView(),
+            BlazeShell => new BlazeShellView(),
             DraftAim => new DraftAimView(),
             _ => null,
         };
@@ -3012,7 +3015,7 @@ public partial class WardShellView : PropView
         Follow(default, 0.1f);
         // (it snaps shut about him, then breathes a little)
         float grow = Math.Min(1f, w.Age / 0.18f);
-        float r = W3.M(frost ? 21f : 24f) * (0.6f + 0.4f * grow) * (1f + 0.02f * MathF.Sin(Time * (frost ? 2f : 5f)));
+        float r = W3.M(frost ? 21f : 17f) * (0.6f + 0.4f * grow) * (1f + 0.02f * MathF.Sin(Time * (frost ? 2f : 5f)));
         _shell.Scale = new Vector3(r, r * (frost ? 1.08f : 1.12f), r * 0.8f);
         if (!frost) _shell.RotateY(dt * 2.5f);
         _shell.SetInstanceShaderParameter("worn", 1f - w.Left);

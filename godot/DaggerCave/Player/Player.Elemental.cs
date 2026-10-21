@@ -220,8 +220,10 @@ public partial class Player
     private (HeroElement a, HeroElement b) SpendPair()
     {
         var m = Mode;
-        if (Attribute != HeroElement.None) return Elements.Pair(m, Attribute);
+        // (a mix spends the attribute as an overcharge is spent: back to the plain mode)
+        var at = Attribute;
         _top = HeroElement.None;
+        if (at != HeroElement.None) return Elements.Pair(m, at);
         _overCd[(int)m] = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.OverchargeRecharge;
         return (m, m);
     }
@@ -233,7 +235,7 @@ public partial class Player
     private void Used(string what)
     {
         ElementalUses.Add(what);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -32), what.ToUpperInvariant(), Elements.ColorOf(_lastEl), 11, 0.7f);
+        G.Fx.AbilityName(GlobalPosition + new Vector2(0, -32), what.ToUpperInvariant(), Elements.ColorOf(_lastEl), 11, 0.7f);
     }
     private HeroElement _lastEl;
 
@@ -248,11 +250,13 @@ public partial class Player
         if (Dead && _top != HeroElement.None) ClearCharges();
         TickDuals(dt);
         TickAxe(dt);
+        if (IsSwordsman && !IsRemote) TickSwordLeaps(dt);
         if (IsWarden) TickWardenElements(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
         if (_dualBoltCd > 0) _dualBoltCd -= dt;
+        if (_magmaDripCd > 0) _magmaDripCd -= dt;
         if (_hiltT > 0 && (_hiltT -= dt) <= 0) { _hiltEl = _hiltEl2 = HeroElement.None; _hiltBig = 1f; }
         if (_hiltT > 0 && Engine.GetPhysicsFrames() % 5 == 0)
         {
@@ -282,7 +286,9 @@ public partial class Player
     public float HardSwingSeconds => Math.Max(0f, _heaveCd - HeaveSpareTime);
     public float AbilitySeconds => AbilityChargeReady ? 0f : Math.Max(0f, AbilityCooldowns.Min());
 
-    private void ClearSwingElement() { _swingEl = _swingEl2 = HeroElement.None; _swingBuild = _swingBuild2 = 0; _swingShatter = false; _wSwing = ""; _rSwing = ""; ClearDualSwing(); }
+    private void ClearSwingElement() { _swingEl = _swingEl2 = HeroElement.None; _swingBuild = _swingBuild2 = _higherBuild = 0; _swingShatter = false; _wSwing = ""; _rSwing = ""; ClearDualSwing(); }
+    /// <summary>Steam Strike: each blow adds this much of whichever of fire and frost the creature holds more of (<see cref="HigherOf"/>).</summary>
+    private float _higherBuild;
     /// <summary>A pair's swing carries a second element too (its build-up on each blow).</summary>
     private HeroElement _swingEl2;
     private float _swingBuild2;
@@ -340,14 +346,21 @@ public partial class Player
                 Launch(new MagmaPool { Position = FloorAt(GlobalPosition + dir * 24f), Half = 30f, Seconds = 2.5f, TickDamage = blow * 0.1f });
                 break;
             case "Permafrost Strike":
-                // frozen stone: earth and frost, shattering the frozen
+            {
+                // frozen stone: earth and frost, shattering the frozen; and spears of frozen rock burst up out of the floor before the blade
                 _swingDmg *= 1.4f; _swingEl = HeroElement.Earth; _swingBuild = 50f; _swingEl2 = HeroElement.Frost; _swingBuild2 = 50f; _swingShatter = true;
+                var spot = FloorAt(GlobalPosition + new Vector2((Math.Abs(dir.X) > 0.1f ? Math.Sign(dir.X) : Facing) * 30f, 0));
+                var spears = new IceCrystals { Position = spot, Burst = true, Count = 5, Half = 22f, Height = 30f, Stand = 0.6f, Seed = G.RangeI(0, 99999) };
+                Launch(spears);
+                LastCrystals = spears;
                 G.Fx.Burst(origin + dir * 16f, new Color(0.9f, 0.97f, 1f), 6, 80, 1.8f, 0.3f, 40);
                 break;
+            }
             default:
             {
-                // Steam Strike: fire and frost meet in the blade, and a cloud of steam bursts where it strikes (friends in it are hidden)
-                _swingDmg *= 1.3f; _swingEl = HeroElement.Fire; _swingBuild = 30f; _swingEl2 = HeroElement.Frost; _swingBuild2 = 30f;
+                // Steam Strike: fire and frost meet in the blade: what it strikes takes more of whichever it holds more of, and a cloud of steam
+                // bursts where it strikes (friends in it are hidden)
+                _swingDmg *= 1.3f; _higherBuild = Tune.ElementalSword.MediumBuild;
                 var cloud = new SmokeCloud { Position = origin + dir * 24f, Radius = 34f, Life = 3f };
                 G.Spawn(cloud);
                 NetSync.HeroVisual(cloud);
@@ -388,7 +401,7 @@ public partial class Player
         if (_dodgeT > 0) _dodgeT = 0;
         StartSwing(aim);
         _swingDmg *= Tune.ElementalSword.MediumDamage;
-        _swingEl = el; _swingBuild = Tune.ElementalSword.MediumBuild;
+        _swingEl = el; _swingBuild = el == HeroElement.Fire ? Tune.ElementalSword.SearBuild : Tune.ElementalSword.MediumBuild;
         Used(el == HeroElement.Fire ? "Searing Strike" : "Razor Ice");
         return true;
     }
@@ -607,14 +620,39 @@ public partial class Player
         if (!Elemental || e.Dead) return;
         if (_swingEl != HeroElement.None && _swingBuild > 0) e.Build(_swingEl, _swingBuild, Stats.DamageMult, this);
         if (_swingEl2 != HeroElement.None && _swingBuild2 > 0 && !e.Dead) e.Build(_swingEl2, _swingBuild2, Stats.DamageMult, this);
+        if (_higherBuild > 0 && !e.Dead) e.Build(HigherOf(e), _higherBuild, Stats.DamageMult, this);
         AttributeHit(e, GlobalPosition);
         DualBladeHit(e);
         if (IsWarden) WardenBladeHit(e);
         if (IsRogue) RogueBladeHit(e);
         if (_hiltT <= 0 || e.Dead) return;
+        switch ((_hiltEl, _hiltEl2))
+        {
+            case (HeroElement.Fire, HeroElement.Frost):
+                // Steam Hilt: twice the hilt's touch of whichever of fire and frost the creature holds more of
+                HiltTouch(e, HigherOf(e), 2f);
+                return;
+            case (HeroElement.Earth, HeroElement.Frost):
+                // Permafrost Hilt: frost and the sapping touch, and the frozen burst under the blade
+                HiltTouch(e, HeroElement.Earth, 1f);
+                HiltTouch(e, HeroElement.Frost, 1f);
+                if (!e.Dead && e.FrozenSolid) e.Shatter(Stats.DamageMult, this);
+                return;
+            case (HeroElement.Earth, HeroElement.Fire):
+                // Magma Hilt: fire and the sapping touch, and molten rock drips from the blade where it strikes (a little pool, now and then)
+                HiltTouch(e, HeroElement.Earth, 1f);
+                HiltTouch(e, HeroElement.Fire, 1f);
+                if (_magmaDripCd <= 0f && Ground.Below(e.GlobalPosition, 60f, out var under))
+                {
+                    _magmaDripCd = Tune.ElementalSword.MagmaDripRest;
+                    Launch(new MagmaPool { Position = under, Half = 18f, Seconds = 2f, TickDamage = BaseDamage * Stats.DamageMult * 0.08f });
+                }
+                return;
+        }
         HiltTouch(e, _hiltEl, _hiltBig);
         if (_hiltEl2 != HeroElement.None) HiltTouch(e, _hiltEl2, 1f);
     }
+    private float _magmaDripCd;
 
     /// <summary>How much harder a blade blow lands from a plain Empower Hilt.</summary>
     private float HiltDamageMult => Elemental && _hiltT > 0 && _hiltEl == HeroElement.None ? 1f + Tune.ElementalSword.HiltDamage : 1f;
@@ -637,19 +675,24 @@ public partial class Player
     /// <summary>The motion an element's movement set off this frame (applied before the hero's own movement).</summary>
     private Vector2? _moveTo;
 
-    /// <summary>The dodge button would cast the readied element's movement (its rest over, out of the water; the Swordsman's leaps only from
-    /// the ground).</summary>
-    private bool ElementMoveReady => Elemental && Infused != HeroElement.None && _jumpElemRest <= 0 && !InWater && (Stats.Hero != HeroKind.Swordsman || IsOnFloor());
+    /// <summary>The dodge button would cast the readied element's movement (its rest over, out of the water). The Swordsman's leaps go from
+    /// the ground, except those that come down on what is below (Earthfall, Meteor Fall, Comet) and the Blazing Charge, which go in the air too.</summary>
+    private bool ElementMoveReady => Elemental && Infused != HeroElement.None && _jumpElemRest <= 0 && !InWater && (Stats.Hero != HeroKind.Swordsman || IsOnFloor() || SwordAirMove);
 
-    /// <summary>The dodge button with a charge readied: the element's movement. The Swordsman's leap from the ground (Explosive Lunge,
-    /// Glacial Vault, Earthfall); the Elementalist's Fire Walk, Tundra or Updraft (two charges, the pair's).</summary>
+    /// <summary>What the Swordsman's dodge would be now goes in the air too.</summary>
+    private bool SwordAirMove => NameFor(ElemSlot.Move) is "Earthfall" or "Meteor Fall" or "Comet" or "Blazing Charge";
+
+    /// <summary>The dodge button with a charge readied: the element's movement. The Swordsman's leap (Explosive Lunge, Glacial Vault,
+    /// Earthfall: from the ground with a jump, in the air without); the Elementalist's Fire Walk, Tundra or Updraft (two charges, the pair's).</summary>
     private bool ElementDodge(in PlayerInput inp)
     {
         float jumpV = BaseJumpV * MathF.Sqrt(Stats.JumpMult);
         var v = Velocity;
         if (Stats.Hero == HeroKind.Swordsman)
         {
-            v = SwordMove(new Vector2(v.X, -jumpV), jumpV, inp);
+            // (in the air there is no jump: the leap goes on from how he is moving)
+            bool air = !IsOnFloor();
+            v = SwordMove(air ? v : new Vector2(v.X, -jumpV), air ? 0f : jumpV, inp);
         }
         else v = StaffJump(v, jumpV, inp);
         _moveTo = v;
@@ -665,17 +708,47 @@ public partial class Player
         return v;
     }
 
-    /// <summary>What the Earthfall brings down where it lands besides its shockwave (a pair's leap): its strength, and magma or frost there.</summary>
+    /// <summary>How hard the Earthfall comes down (a Meteor Fall's, harder).</summary>
     private float _fallMult = 1f;
-    private HeroElement _fallLeaves;
+    /// <summary>The Comet in flight (it bursts in frost where it comes down), and how long it has flown.</summary>
+    private bool _comet;
+    private float _cometT;
+    /// <summary>The Blazing Charge: how long it has left, its speed, and the creatures it has crashed into.</summary>
+    private float _blazeT, _blazeVX;
+    private readonly HashSet<Enemy> _blazeHit = new();
+    private bool _netBlaze, _netComet;
+    /// <summary>The Explosive Lunge's strikes in flight: how long they go on, and the creatures struck.</summary>
+    private float _lungeStrikeT;
+    private readonly HashSet<Enemy> _lungeStruck = new();
+    /// <summary>For the tests: the creatures the last lunge struck in flight, and the Blazing Charge crashed into.</summary>
+    public int LungeStrikes => _lungeStruck.Count;
+    public int BlazeHits => _blazeHit.Count;
+    /// <summary>The Comet in flight, the Blazing Charge going (here, or as a puppet's game sent it), for the looks.</summary>
+    public bool CometOn => IsRemote ? _netComet : _comet;
+    public bool BlazeOn => IsRemote ? _netBlaze : _blazeT > 0;
+    /// <summary>The last Stalagmite Vault's crystals, and the Comet's (for the tests).</summary>
+    public IceCrystals LastCrystals { get; private set; }
+    private int SwordBits => _blazeT > 0 ? 1 : _comet ? 2 : 0;
 
-    /// <summary>The dodge with something on top: the mode's greater leap (Meteor Fall, Blast Lunge, Frozen Effigy) or its mix with the
-    /// attribute (Magma Leap, Frostfall, Steam Vault).</summary>
+    /// <summary>A puppet's leap as its game sent it: the Blazing Charge's sphere of fire here too, the Comet's glow.</summary>
+    private void ReadSwordBits(int bits)
+    {
+        bool blaze = bits == 1;
+        if (blaze && !_netBlaze) G.Spawn(new BlazeShell { Hero = this, Position = GlobalPosition });
+        _netBlaze = blaze;
+        _netComet = bits == 2;
+        if (_netComet && Anim != null) { Anim.FlashColor = new Color(0.8f, 0.93f, 1f); Anim.Flash(0.95f); }
+    }
+
+    /// <summary>The dodge with something on top: the mode's greater leap (Meteor Fall, Blast Lunge, Stalagmite Vault) or its mix with the
+    /// attribute (Blazing Charge, Comet, Steam Vault).</summary>
     private Vector2 DualLeap(Vector2 v, float jumpV, in PlayerInput inp)
     {
         var (a, b) = SpendPair();
         string name = Elements.DualName(Stats.Hero, ElemSlot.Move, a, b);
         var feet = GlobalPosition + new Vector2(0, 12);
+        float power = Stats.DamageMult, blow = BaseDamage * power;
+        float dir = Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing;
         switch (name)
         {
             case "Meteor Fall":
@@ -689,37 +762,87 @@ public partial class Player
                 _lungeLeapVX *= 1.3f; v.X = _lungeLeapVX;
                 Launch(new FireTrail { Position = GlobalPosition, Seconds = 2.5f });
                 break;
-            case "Frozen Effigy":
+            case "Stalagmite Vault":
             {
-                // the Glacial Vault, but the likeness left is harder (four blows), and as it shatters it freezes those beside it solid
-                v = SwordLeap(v, jumpV, inp, HeroElement.Frost);
-                if (LastDecoy != null && IsInstanceValid(LastDecoy)) { LastDecoy.Hits = 4; LastDecoy.MaxHp = LastDecoy.Hp = 4f; LastDecoy.Great = true; }
+                // a leap back, and great stalagmites of ice burst up out of the ground he passes over
+                _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.VaultRest);
+                float back = -Facing;
+                _lungeLeapVX = back * Tune.ElementalSword.StalagBack;
+                _lungeLeapT = _leapCarry = Tune.ElementalSword.StalagCarry;
+                _leapEl = HeroElement.Frost;
+                v = new Vector2(_lungeLeapVX, -jumpV * Tune.ElementalSword.StalagJump);
+                var spikes = new IceCrystals
+                {
+                    Position = feet, Lay = Tune.ElementalSword.StalagCarry + 0.15f, Every = Tune.ElementalSword.SpikeEvery, Height = Tune.ElementalSword.SpikeHeight,
+                    Stand = Tune.ElementalSword.SpikeStand, Damage = blow * Tune.ElementalSword.SpikeDamage, Frost = Tune.ElementalSword.SpikeBuild,
+                    Toss = Tune.ElementalSword.SpikeToss, Seed = G.RangeI(0, 99999),
+                };
+                Launch(spikes);
+                LastCrystals = spikes;
+                G.Fx.Directional(feet, new Vector2(back, -0.6f).Normalized(), 0.35f, new Color(0.92f, 0.98f, 1f), 18, 320, 3f, 0.4f, 300, 0);
+                G.Sfx.Play("clink", feet, -2, 0.05f, 0.6f);
+                Afterimage.Spawn(Anim, Elements.ColorOf(HeroElement.Frost), 0.25f);
                 break;
             }
-            case "Magma Leap":
-                v = SwordLeap(v, jumpV, inp, HeroElement.Earth);
-                _fallLeaves = HeroElement.Fire;
+            case "Blazing Charge":
+            {
+                // a charge forward, sword up before him in a sphere of fire, crashing into every creature in his way; fire trails behind
+                _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.BlazeRest);
+                Facing = dir;
+                Anim.Face((int)Facing, instant: true);
+                _blazeT = Tune.ElementalSword.BlazeSeconds;
+                _blazeVX = dir * Tune.ElementalSword.BlazeSpeed;
+                _blazeHit.Clear();
+                _lungeLeapT = 0;
+                v = new Vector2(_blazeVX, 0f);
+                _lastEl = HeroElement.Fire;
+                G.Spawn(new BlazeShell { Hero = this, Position = GlobalPosition });
+                Launch(new FireTrail { Position = GlobalPosition, Seconds = Tune.ElementalSword.BlazeSeconds + 0.1f });
+                G.Fx.Explosion(GlobalPosition + new Vector2(-dir * 10, 0), new Color(1f, 0.5f, 0.12f), 0.6f);
+                G.Fx.AddShake(2f);
+                G.Sfx.Play("lava", GlobalPosition, -2, 0.05f, 1.3f);
+                G.Sfx.Play("swing_heavy", GlobalPosition, -4, 0.05f, 0.8f);
                 break;
-            case "Frostfall":
-                v = SwordLeap(v, jumpV, inp, HeroElement.Earth);
-                _fallLeaves = HeroElement.Frost;
+            }
+            case "Comet":
+            {
+                // a leap forward, all blue-white; where he comes down, a great burst of frost and ice (see CometLand)
+                _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.FallRest);
+                Facing = dir;
+                Anim.Face((int)Facing, instant: true);
+                _comet = true;
+                _cometT = 0f;
+                _earthfall = false;
+                _lungeLeapVX = dir * Tune.ElementalSword.CometSpeed;
+                _lungeLeapT = _leapCarry = 3f;
+                _leapEl = HeroElement.Frost;
+                v = new Vector2(_lungeLeapVX, jumpV > 0 ? -jumpV * Tune.ElementalSword.CometLift : Math.Min(v.Y, 0f));
+                G.Fx.Burst(feet, new Color(0.9f, 0.97f, 1f), 14, 140, 2.4f, 0.4f, 200);
+                G.Sfx.Play("clink", feet, -2, 0.05f, 0.5f);
                 break;
+            }
             default:
             {
-                // Steam Vault: the spring back, and a cloud of steam where you stood (friends in it are hidden)
+                // Steam Vault: the spring back, and a cloud of scalding steam where you stood: friends in it are hidden, creatures in it
+                // scalded (fire and frost on them each moment)
                 v = SwordLeap(v, jumpV, inp, HeroElement.Frost);
                 var cloud = new SmokeCloud { Position = feet + new Vector2(0, -14), Radius = 46f, Life = 4f };
                 G.Spawn(cloud);
                 NetSync.HeroVisual(cloud);
+                Launch(new SteamScald { Position = feet + new Vector2(0, -14), Radius = 46f, Seconds = 4f });
                 break;
             }
         }
-        _lastEl = a;
+        if (name is not ("Blazing Charge" or "Comet")) _lastEl = a;
         Used(name, Elements.DualColor(a, b));
         return v;
     }
 
-    /// <summary>One element's leap (Explosive Lunge, Glacial Vault, Earthfall). Returns the hero's motion from here.</summary>
+    /// <summary>The leap's carry, whole (each leap's own).</summary>
+    private float _leapCarry = 0.4f;
+
+    /// <summary>One element's leap (Explosive Lunge, Glacial Vault, Earthfall). Returns the hero's motion from here (in the air, jumpV is 0:
+    /// no jump).</summary>
     private Vector2 SwordLeap(Vector2 v, float jumpV, in PlayerInput inp, HeroElement el)
     {
         _lastEl = el;
@@ -730,14 +853,16 @@ public partial class Player
         {
             case HeroElement.Fire:
             {
-                // Explosive Lunge: the ground bursts behind you and throws you forward, low
+                // Explosive Lunge: the ground bursts behind you and throws you forward and up; you swing at every creature you meet on the way
                 _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.LungeRest);
                 float dir = Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing;
                 Facing = dir;
                 Anim.Face((int)Facing, instant: true);
                 _lungeLeapVX = dir * Tune.ElementalSword.LungeSpeed;
-                _lungeLeapT = Tune.ElementalSword.LungeCarry;
+                _lungeLeapT = _leapCarry = Tune.ElementalSword.LungeCarry;
                 _leapEl = HeroElement.Fire;
+                _lungeStrikeT = Tune.ElementalSword.LungeStrikeSeconds;
+                _lungeStruck.Clear();
                 v = new Vector2(_lungeLeapVX, -jumpV * Tune.ElementalSword.LungeLift);
                 foreach (var e in G.Enemies.ToArray())
                 {
@@ -758,16 +883,19 @@ public partial class Player
             case HeroElement.Frost:
             {
                 // Glacial Vault: you spring back off a burst of ice, and leave your likeness in ice where you stood (creatures go for it);
-                // what stands beside you is caught by the burst
+                // what stands beside you is caught by the burst. While a likeness still stands, no other is left.
                 _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.VaultRest);
                 float back = -Facing;
                 _lungeLeapVX = back * Tune.ElementalSword.VaultBack;
-                _lungeLeapT = Tune.ElementalSword.VaultCarry;
+                _lungeLeapT = _leapCarry = Tune.ElementalSword.VaultCarry;
                 _leapEl = HeroElement.Frost;
                 v = new Vector2(_lungeLeapVX, -jumpV * Tune.ElementalSword.VaultJump);
-                var decoy = new IceDecoy { Position = feet + new Vector2(0, 1), Caster = this };
-                G.Spawn(decoy);
-                LastDecoy = decoy;
+                if (LastDecoy == null || !IsInstanceValid(LastDecoy) || !LastDecoy.Standing)
+                {
+                    var decoy = new IceDecoy { Position = feet + new Vector2(0, 1), Caster = this };
+                    G.Spawn(decoy);
+                    LastDecoy = decoy;
+                }
                 foreach (var e in G.Enemies.ToArray())
                 {
                     if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(feet) > Tune.ElementalSword.VaultRadius + e.HitRadius) continue;
@@ -782,23 +910,24 @@ public partial class Player
                 break;
             }
             case HeroElement.Earth:
-                // Earthfall: a leap, and you come down like a rock (see ElementLanded)
+                // Earthfall: a leap (in the air, none), and you come down like a rock (see ElementLanded)
                 _jumpElemRest = _jumpRestTotal = ElemRest(Tune.ElementalSword.FallRest);
                 _earthfall = true;
                 _fallMult = 1f;
-                _fallLeaves = HeroElement.None;
+                if (jumpV <= 0f) v = new Vector2(v.X, Math.Max(v.Y, 120f));
                 G.Fx.Debris(feet, col, 6, 140);
                 break;
         }
         return v;
     }
 
-    /// <summary>The leap's carry: for a moment after an Explosive Lunge (or a Glacial Vault's spring back), it keeps its speed through the air.</summary>
+    /// <summary>The leap's carry: for a moment after an Explosive Lunge (or a Glacial Vault's spring back, a Comet's flight), it keeps its speed
+    /// through the air; the Blazing Charge drives straight on, falling not at all.</summary>
     private Vector2 LeapCarry(Vector2 v, bool onFloor)
     {
+        if (_blazeT > 0) return new Vector2(_blazeVX, 0f);
         if (_lungeLeapT <= 0) return v;
-        float carry = _leapEl == HeroElement.Frost ? Tune.ElementalSword.VaultCarry : Tune.ElementalSword.LungeCarry;
-        if (onFloor && _lungeLeapT < carry - 0.1f) { _lungeLeapT = 0; return v; }
+        if (onFloor && _lungeLeapT < _leapCarry - 0.1f) { _lungeLeapT = 0; return v; }
         // (embers streaming off the leap; frost, a glitter of ice)
         if (Engine.GetPhysicsFrames() % 2 == 0)
         {
@@ -808,20 +937,78 @@ public partial class Player
         return new Vector2(_lungeLeapVX, v.Y);
     }
 
-    /// <summary>Back on the ground: an Earthfall lands, in a shockwave the harder the fall.</summary>
+    /// <summary>The Swordsman's leaps in flight, each frame: the Explosive Lunge's swings at what it meets, the Blazing Charge crashing
+    /// through creatures, the Comet's blue-white glow.</summary>
+    private void TickSwordLeaps(float dt)
+    {
+        float power = Stats.DamageMult, blow = BaseDamage * power;
+        if (_lungeStrikeT > 0)
+        {
+            _lungeStrikeT -= dt;
+            if (IsOnFloor() && _lungeLeapT < _leapCarry - 0.1f) _lungeStrikeT = 0;
+            var body = GlobalPosition + new Vector2(0, -3);
+            foreach (var e in G.Enemies.ToArray())
+            {
+                if (_lungeStrikeT <= 0) break;
+                if (e.Dead || !e.CanBeHit || _lungeStruck.Contains(e)) continue;
+                var to = e.GlobalPosition - body;
+                if (to.Length() > Tune.ElementalSword.LungeStrikeReach + BaseReach * 0.5f + e.HitRadius) continue;
+                // (a swing at it, there and then: the blow lands at once, and the blade sweeps on for any others in its arc)
+                _lungeStruck.Add(e);
+                StartSwing(to.LengthSquared() > 1 ? to.Normalized() : new Vector2(Facing, 0));
+                _swingHits.Add(e);
+                OnSwingHit(e, to);
+                if (!e.Dead) e.Build(HeroElement.Fire, Tune.ElementalSword.LungeBuild * 0.5f, power, this);
+            }
+        }
+        if (_blazeT > 0)
+        {
+            _blazeT -= dt;
+            float dir = Math.Sign(_blazeVX);
+            var body = GlobalPosition + new Vector2(0, -3);
+            foreach (var e in G.Enemies.ToArray())
+            {
+                if (e.Dead || !e.CanBeHit || _blazeHit.Contains(e)) continue;
+                var to = e.GlobalPosition - body;
+                if (to.Length() > Tune.ElementalSword.BlazeReach + 10f + e.HitRadius) continue;
+                _blazeHit.Add(e);
+                float d = e.Hurt(blow * Tune.ElementalSword.BlazeDamage, new Vector2(dir * Tune.ElementalSword.BlazeToss, -120f), e.GlobalPosition, DamageKind.Fire);
+                if (d > 0) { OnDealtDamage(d); AttributeHit(e, body); }
+                if (!e.Dead) { e.Build(HeroElement.Fire, Tune.Elements.Full, power, this); e.Shove(new Vector2(dir * Tune.ElementalSword.BlazeToss, -140f)); e.HitStop(Tune.Feel.HitStopBolt * 1.5f); }
+                G.Fx.Explosion(e.GlobalPosition, new Color(1f, 0.5f, 0.12f), 0.45f);
+                G.Fx.AddShake(2f);
+                G.Sfx.Play("hit", e.GlobalPosition, -2, 0.1f, 0.8f);
+            }
+            // (a great trail of fire behind him)
+            G.Fx.Directional(body, new Vector2(-dir, -0.15f).Normalized(), 0.5f, new Color(1f, G.Range(0.35f, 0.6f), 0.08f), 4, 220, G.Range(3f, 4.5f), 0.45f, -60, 0);
+            G.Fx.Ember(body + new Vector2(-dir * G.Range(6, 18), G.Range(-10, 8)), new Color(1f, 0.6f, 0.2f));
+            if (Engine.GetPhysicsFrames() % 2 == 0) G.Fx.Smoke(body + new Vector2(-dir * 14, 0), 1, new Color(0.3f, 0.25f, 0.22f, 0.5f), 30f);
+            if (Engine.GetPhysicsFrames() % 3 == 0) G.Fx.LightUp(body, new Color(1f, 0.5f, 0.15f), 1.5f, 70f, 0.15f);
+            if (IsOnWall() || _blazeT <= 0) { _blazeT = 0; Velocity = new Vector2(_blazeVX * 0.3f, Velocity.Y); }
+        }
+        if (_comet)
+        {
+            _cometT += dt;
+            Anim.FlashColor = new Color(0.8f, 0.93f, 1f);
+            Anim.Flash(0.95f);
+            if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.75f, 0.9f, 1f), 0.22f);
+            G.Fx.Glint(GlobalPosition + G.RandDir() * 9, new Color(0.9f, 0.97f, 1f), 4f);
+            // (it can't fly for ever: into water, or too long, and it's spent)
+            if (InWater || _cometT > 3f) { _comet = false; _lungeLeapT = 0; }
+        }
+    }
+
+    /// <summary>Back on the ground: an Earthfall lands, in a shockwave the harder the fall; a Comet bursts in frost.</summary>
     private void ElementLanded(float fallSpeed)
     {
+        if (_comet) { _comet = false; _lungeLeapT = 0; CometLand(); }
         if (!_earthfall) return;
         _earthfall = false;
         var feet = GlobalPosition + new Vector2(0, 12);
         float power = Stats.DamageMult;
         float hard = (1f + Math.Clamp((fallSpeed - 300f) / 600f, 0f, 1.5f)) * _fallMult;
         float r = Tune.ElementalSword.FallRadius * (0.85f + 0.15f * hard);
-        // (a pair's leap leaves magma or frozen ground where it lands)
-        if (_fallLeaves == HeroElement.Fire) Launch(new MagmaPool { Position = FloorAt(GlobalPosition), Half = 50f, Seconds = 4f, TickDamage = BaseDamage * power * 0.12f });
-        else if (_fallLeaves == HeroElement.Frost) Launch(new TundraField { Position = FloorAt(GlobalPosition), Half = 80f, Seconds = 5f });
-        bool frostfall = _fallLeaves == HeroElement.Frost;
-        _fallMult = 1f; _fallLeaves = HeroElement.None;
+        _fallMult = 1f;
         var col = Elements.ColorOf(HeroElement.Earth);
         foreach (var e in G.Enemies.ToArray())
         {
@@ -831,7 +1018,6 @@ public partial class Player
             if (d > 0) OnDealtDamage(d);
             if (e.Dead) continue;
             e.Build(HeroElement.Earth, Tune.ElementalSword.FallBuild * hard, power, this);
-            if (frostfall) e.Build(HeroElement.Frost, Tune.ElementalSword.FallBuild, power, this);
             e.Shove(away * Tune.ElementalSword.FallToss);
         }
         Breakables.SpellBurst(feet, r * 0.5f);
@@ -843,6 +1029,45 @@ public partial class Player
         G.Main.Rumble(0.5f, 0.7f, 0.18f);
         G.Sfx.Play("slam", feet, -2, 0.05f, 0.85f);
         ElementalUses.Add("Earthfall!");
+    }
+
+    /// <summary>The Comet comes down: a great burst of frost (a heavy blow and a full frost build-up on all about), and crystals of ice burst
+    /// up out of the floor and outward, melting away after a moment.</summary>
+    private void CometLand()
+    {
+        var feet = GlobalPosition + new Vector2(0, 12);
+        float power = Stats.DamageMult;
+        float r = Tune.ElementalSword.CometRadius;
+        var col = Elements.ColorOf(HeroElement.Frost);
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (e.Dead || !e.CanBeHit || e.GlobalPosition.DistanceTo(feet) > r + e.HitRadius) continue;
+            var away = new Vector2(Math.Sign(e.GlobalPosition.X - feet.X), -1f).Normalized();
+            float d = e.Hurt(BaseDamage * power * Tune.ElementalSword.CometDamage, away * 140f, e.GlobalPosition, DamageKind.Frost);
+            if (d > 0) { OnDealtDamage(d); AttributeHit(e, feet); }
+            if (e.Dead) continue;
+            e.Build(HeroElement.Frost, Tune.Elements.Full, power, this);
+            e.HitStop(Tune.Feel.HitStopBolt * 2f);
+        }
+        var crystals = new IceCrystals
+        {
+            Position = FloorAt(GlobalPosition), Burst = true, Count = Tune.ElementalSword.CometCrystals, Half = r * 0.9f, Height = 46f,
+            Stand = Tune.ElementalSword.CometStand, Seed = G.RangeI(0, 99999),
+        };
+        Launch(crystals);
+        LastCrystals = crystals;
+        Breakables.SpellBurst(feet, r * 0.5f);
+        G.Fx.Ring(feet, r, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Burst);
+        G.Fx.Shockwave(feet, r, new Color(0.9f, 0.97f, 1f, 0.8f), 0.35f);
+        G.Fx.Directional(feet, Vector2.Up, 0.9f, new Color(0.92f, 0.98f, 1f), 30, 380, 3.2f, 0.5f, 300, 0);
+        G.Fx.Burst(feet + new Vector2(0, -10), col, 24, 260, 2.6f, 0.5f, 200);
+        G.Fx.Flash(feet + new Vector2(0, -10), 40, new Color(0.85f, 0.95f, 1f), 0.15f);
+        G.Fx.LightUp(feet + new Vector2(0, -20), col, 2.6f, r * 2f, 0.5f);
+        G.Fx.AddShake(6f);
+        G.Main.Rumble(0.6f, 0.8f, 0.25f);
+        G.Sfx.Play("slam", feet, -1, 0.05f, 0.8f);
+        G.Sfx.Play("clink", feet, 0, 0.05f, 0.45f);
+        ElementalUses.Add("Comet!");
     }
 
     // ================================================================== the Elementalist

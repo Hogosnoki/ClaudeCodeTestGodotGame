@@ -885,6 +885,28 @@ public sealed partial class HeroDesign
         // ---- a caster's hand holds the staff at its angle, whatever the arm is doing
         if (_caster && c != "death") o.WR = staff + o.Lean - o.SR - o.ER;
 
+        // ---- the elemental Warden behind his Earth Shield: down on one knee, the shield up before him
+        if (_warden && player != null && player.EarthShieldUp && c != "death")
+        {
+            o.Root.Y -= 0.3f;
+            o.HR = 92; o.KR = 96; o.FR = 0;
+            o.HL = 8; o.KL = 120; o.FL = 34;
+            o.Lean += 14; o.HeadPitch += 6;
+            o.SR = Math.Max(o.SR, 30);
+        }
+
+        // ---- the Swordsman's Blazing Charge: bent low into it, legs driving, the sword held up before him like a ram
+        if (_swordsman && player != null && player.BlazeOn && c != "death")
+        {
+            o.Roll = 0f;
+            o.Lean = 38; o.HeadPitch = -20; o.Twist = -6;
+            o.Root.Y = -0.06f;
+            o.SR = 55; o.ER = 70; o.WR = -20; o.AR = 6;
+            o.SL = 40; o.EL = 60; o.AL = 10;
+            o.HR = 54; o.KR = 40; o.FR = -22;
+            o.HL = -46; o.KL = 24; o.FL = -12;
+        }
+
         // ---- the warden's shield, raised toward where she guards
         if (_warden && player != null && player.ShieldRaised && !c.StartsWith("dodge") && c != "death" && c != "shove")
         {

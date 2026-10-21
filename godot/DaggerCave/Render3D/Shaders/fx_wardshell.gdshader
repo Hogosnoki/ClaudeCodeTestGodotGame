@@ -1,5 +1,6 @@
 // The elemental Warden's shells (Combat/WardenGuards.cs): kind 0 is the Frost Shield, a faceted shell of ice, clear in the middle and
-// frosted white at the rim, cracking as it wears; kind 1 is the Wind Barrier, a thin skin of streaks of air spinning about him.
+// frosted white at the rim, cracking as it wears; kind 1 is the Wind Barrier, a thin skin of streaks of air spinning about him; kind 2
+// is the Swordsman's Blazing Charge (Combat/SwordSpells.cs), a nearly opaque sphere of roaring fire.
 shader_type spatial;
 render_mode blend_mix, depth_draw_never, cull_back, unshaded, shadows_disabled;
 
@@ -39,6 +40,16 @@ void fragment() {
 		vec3 ice = mix(shell_color.rgb * vec3(0.7, 0.85, 1.05), vec3(0.9, 0.97, 1.0), rim * 0.6);
 		ALBEDO = ice + vec3(glint) * 1.5 + vec3(crack) + vec3(flash) * 0.6;
 		ALPHA = clamp(0.28 + rim * 0.6 + glint + crack * 0.8 + flash * 0.35, 0.0, 1.0);
+	} else if (kind > 1.5) {
+		// fire: nearly opaque, roiling flame licking up over him, hottest at the rim
+		float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+		float rim = pow(1.0 - ndv, 2.0);
+		float ang = atan(n.z, n.x);
+		float lick = sin(ang * 7.0 + n.y * 5.0 + TIME * 13.0) * 0.5 + 0.5;
+		float lick2 = sin(ang * 4.0 - n.y * 11.0 - TIME * 17.0 + 2.1) * 0.5 + 0.5;
+		float heat = clamp(0.35 + 0.4 * lick * lick2 + rim * 0.6 + n.y * 0.15, 0.0, 1.0);
+		ALBEDO = mix(vec3(0.9, 0.2, 0.03), vec3(1.0, 0.85, 0.45), heat) * 1.6 + vec3(flash) * 0.5;
+		ALPHA = clamp(0.78 + rim * 0.2 + lick * 0.08, 0.0, 0.96);
 	} else {
 		// wind: faint, with bright streaks running round him
 		float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
@@ -48,6 +59,6 @@ void fragment() {
 		float band2 = sin(ang * 3.0 - n.y * 9.0 - TIME * 4.3 + 1.7) * 0.5 + 0.5;
 		float streak = smoothstep(0.82, 1.0, band) + 0.6 * smoothstep(0.88, 1.0, band2);
 		ALBEDO = mix(shell_color.rgb, vec3(1.0), 0.4 + 0.4 * streak) + vec3(flash) * 0.5;
-		ALPHA = clamp((0.04 + rim * 0.4 + streak * 0.45) * (1.0 - worn * 0.5) + flash * 0.25, 0.0, 1.0);
+		ALPHA = clamp((0.015 + rim * 0.16 + streak * 0.2) * (1.0 - worn * 0.5) + flash * 0.15, 0.0, 1.0);
 	}
 }

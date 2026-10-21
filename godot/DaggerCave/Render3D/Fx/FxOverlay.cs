@@ -49,6 +49,25 @@ public partial class FxOverlay : Control
             DrawRect(new Rect2(pos - new Vector2(1, 1), new Vector2(w + 2, 4 * zoom * 0.5f + 2)), new Color(0, 0, 0, 0.75f));
             DrawRect(new Rect2(pos, new Vector2(w * Math.Max(0, e.Hp / e.MaxHp), 4 * zoom * 0.5f)), new Color(0.95f, 0.22f, 0.25f));
         }
+        // a hero's wards: a small meter over them for each (a barrier, a bubble, the elemental Warden's shell), showing how much it has left
+        foreach (var h in G.Players)
+        {
+            if (h == null || !IsInstanceValid(h) || h.Dead) continue;
+            var at = Screen(cam, h.GlobalPosition + new Vector2(0, -34), 0.05f);
+            if (at == null) continue;
+            float w = 20 * zoom * 0.6f, bh = Math.Max(2f, 2.6f * zoom * 0.5f);
+            var pos = at.Value - new Vector2(w / 2, 0);
+            void Meter(float frac, Color col)
+            {
+                if (frac <= 0.001f) return;
+                DrawRect(new Rect2(pos - new Vector2(1, 1), new Vector2(w + 2, bh + 2)), new Color(0, 0, 0, 0.7f));
+                DrawRect(new Rect2(pos, new Vector2(w * Math.Clamp(frac, 0f, 1f), bh)), col);
+                pos.Y -= bh + 3;
+            }
+            Meter(h.BarrierFrac, new Color(0.7f, 0.9f, 1f));
+            Meter(h.BubbleFrac, new Color(0.55f, 1f, 0.9f));
+            if (h.ShellElement != HeroElement.None) Meter(h.ShellLeft, Elements.ColorOf(h.ShellElement));
+        }
         // the elemental build-ups: a thin meter of each element filling toward what it does when full (Core/Elements.cs)
         foreach (var e in G.Enemies)
         {

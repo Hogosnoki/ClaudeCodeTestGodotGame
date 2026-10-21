@@ -144,6 +144,14 @@ public abstract partial class Enemy
         }
     }
 
+    /// <summary>Burning, it bursts at once (as if filled with fire again: <see cref="Combust"/>). True if it was alight.</summary>
+    public bool BurstAlight(float power, Player by = null)
+    {
+        if (Dead || !Ignited) return false;
+        Combust(power, by);
+        return true;
+    }
+
     /// <summary>A heavy blow on a creature frozen solid: the ice bursts, and it with it. True if it was frozen.</summary>
     public bool Shatter(float power, Player by = null)
     {

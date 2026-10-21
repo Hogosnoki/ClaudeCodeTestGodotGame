@@ -82,7 +82,7 @@ public partial class Main
         // the mode controls (the same for every elemental hero)
         foreach (var _ in ModeControlsRun(p)) yield return null;
 
-        // fire mode (his own): every swing a Searing Strike, twice to set it alight, twice more to combust
+        // fire mode (his own): every swing a Searing Strike (40 fire), three to set it alight, three more to combust
         int uses0 = p.ElementalUses.Count;
         foreach (var _ in ElMode(2, 0.05f)) yield return null;
         ScCheck($"in fire mode ({p.Mode})", p.Mode == HeroElement.Fire);
@@ -90,11 +90,11 @@ public partial class Main
         foreach (var _ in ElWait(1.2f)) yield return null;
         ScShot("elements_glow");
         foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
-        ScCheck($"a swing is a Searing Strike ({string.Join(", ", p.ElementalUses.Skip(uses0))}), filling fire half way ({foe.FireBuild:0}), and the mode stays ({p.Mode})",
-            p.ElementalUses.Skip(uses0).Contains("Searing Strike") && Math.Abs(foe.FireBuild - Tune.ElementalSword.MediumBuild) < 1 && p.Mode == HeroElement.Fire);
-        foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
-        ScCheck($"the next swing is one too, full of fire: alight ({foe.Ignited})", foe.Ignited);
-        for (int k = 0; k < 2; k++) foreach (var _ in ElStrike(p, 2, Atk)) yield return null;
+        ScCheck($"a swing is a Searing Strike ({string.Join(", ", p.ElementalUses.Skip(uses0))}), filling {Tune.ElementalSword.SearBuild:0} fire ({foe.FireBuild:0}), and the mode stays ({p.Mode})",
+            p.ElementalUses.Skip(uses0).Contains("Searing Strike") && Math.Abs(foe.FireBuild - Tune.ElementalSword.SearBuild) < 1 && p.Mode == HeroElement.Fire);
+        for (int k = 0; k < 2; k++) foreach (var _ in ElPress(Atk(), 0.6f)) yield return null;
+        ScCheck($"two more and it's full of fire: alight ({foe.Ignited})", foe.Ignited);
+        for (int k = 0; k < 3; k++) foreach (var _ in ElStrike(p, 2, Atk)) yield return null;
         ScCheck($"full again while alight: it combusts ({foe.Combusted})", foe.Combusted >= 1);
         ScShot("elements_combust");
 
@@ -204,6 +204,11 @@ public partial class Main
             p.ElementalUses.Contains("Glacial Vault") && sprang > 30f && foe.FrostBuild > 0 && decoy != null && IsInstanceValid(decoy) && decoy.Standing);
         if (decoy != null && IsInstanceValid(decoy))
         {
+            // while it stands, another vault leaves no other
+            foreach (var _ in ElMode(3, 0.02f)) yield return null;
+            foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
+            int decoys = G.World.GetChildren().OfType<IceDecoy>().Count(d => d.Standing);
+            ScCheck($"a second vault while the likeness stands leaves no other ({decoys} standing, the same one {p.LastDecoy == decoy})", decoys == 1 && p.LastDecoy == decoy && p.ElementalUses.Count(u => u == "Glacial Vault") >= 2);
             // creatures go for it: a blow meant for the hero lands on it, and a second breaks it
             bool lured = foe.Lure == decoy;
             float taken = p.Hurt(10f, foe.GlobalPosition, 0f, foe);
@@ -215,12 +220,15 @@ public partial class Main
         // Explosive Lunge: a blast where it leaves the ground, and far forward
         foreach (var _ in ElWait(0.4f)) yield return null;
         foe = Fresh(-22);
+        var ahead = ElDummy(p, 60);
+        foes.Add(ahead);
         foreach (var _ in ElWait(0.2f)) yield return null;
-        float x0 = p.GlobalPosition.X;
+        float x0 = p.GlobalPosition.X, y0 = p.GlobalPosition.Y, peak = 0f;
         foreach (var _ in ElMode(2, 0.02f)) yield return null;
         foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
         float went = Math.Abs(p.GlobalPosition.X - x0);
         ScCheck($"fire's dodge is an Explosive Lunge: far forward ({went:0} px) and fire to what it left behind ({foe.FireBuild:0}, alight {foe.Ignited})", p.ElementalUses.Contains("Explosive Lunge") && went > 80f && (foe.FireBuild > 0 || foe.Ignited));
+        ScCheck($"on the way he swings at the creature he meets ({p.LungeStrikes} struck, {ahead.MaxHp - ahead.Hp:0} damage)", p.LungeStrikes >= 1 && ahead.Hp < ahead.MaxHp);
         // Earthfall: it lands in a shockwave
         foreach (var _ in ElWait(0.4f)) yield return null;
         foe = Fresh(30);
@@ -231,20 +239,32 @@ public partial class Main
         foreach (var _ in ElWait(0.15f)) yield return null;
         float lost = foe.MaxHp - foe.Hp;
         ScCheck($"earth's dodge is Earthfall: it lands in a shockwave ({lost:0} damage, earth {foe.EarthBuild:0}, reeling {foe.Reeling})", p.ElementalUses.Contains("Earthfall!") && lost > 0 && (foe.EarthBuild > 0 || foe.Reeling));
-        // the leaps go only from the ground: in the air the dodge is the Dash Slash
+        // Earthfall goes in the air too, without its jump: he comes straight down; a vault goes only from the ground
         foreach (var _ in ElWait(0.4f)) yield return null;
-        while (!p.IsOnFloor()) yield return null;
+        while (!p.IsOnFloor() || p.JumpElementRest > 0) yield return null;
         foreach (var _ in ElMode(1, 0.02f)) yield return null;
-        p.ResetAbilityCooldowns();
-        int falls = p.ElementalUses.Count(u => u == "Earthfall");
+        int falls = p.ElementalUses.Count(u => u == "Earthfall"), lands = p.ElementalUses.Count(u => u == "Earthfall!");
         _scInput = new PlayerInput { Jump = true, JumpHeld = true }; yield return null;
         _scInput = new PlayerInput { JumpHeld = true };
         foreach (var _ in ElWait(0.12f)) yield return null;
         bool aloft = !p.IsOnFloor();
         _scInput = new PlayerInput { Dodge = true }; yield return null;
         _scInput = default;
+        float vyAfter = p.Velocity.Y;
+        for (float t = 0; t < 1.5f && !p.IsOnFloor(); t += (float)GetProcessDeltaTime()) yield return null;
+        yield return null;
+        ScCheck($"in the air earth's dodge is still Earthfall (aloft {aloft}), with no jump ({vyAfter:0} px/s), and it lands in its shockwave",
+            aloft && p.ElementalUses.Count(u => u == "Earthfall") == falls + 1 && vyAfter >= 0f && p.ElementalUses.Count(u => u == "Earthfall!") == lands + 1);
+        while (p.JumpElementRest > 0) yield return null;
+        foreach (var _ in ElMode(3, 0.02f)) yield return null;
+        int vaulted = p.ElementalUses.Count(u => u == "Glacial Vault");
+        _scInput = new PlayerInput { Jump = true, JumpHeld = true }; yield return null;
+        _scInput = new PlayerInput { JumpHeld = true };
+        foreach (var _ in ElWait(0.12f)) yield return null;
+        _scInput = new PlayerInput { Dodge = true }; yield return null;
+        _scInput = default;
         foreach (var _ in ElWait(0.1f)) yield return null;
-        ScCheck($"in the air the dodge isn't the leap (aloft {aloft}, still {p.Mode} mode)", aloft && p.Mode == HeroElement.Earth && p.ElementalUses.Count(u => u == "Earthfall") == falls);
+        ScCheck($"but in the air frost's dodge is nothing: the vault goes only from the ground ({p.ElementalUses.Count(u => u == "Glacial Vault") - vaulted} vaults, no Dash Slash: {p.DashSlashes})", p.ElementalUses.Count(u => u == "Glacial Vault") == vaulted && p.DashSlashes == 0);
         foreach (var _ in ElWait(0.6f)) yield return null;
         foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
     }
@@ -436,7 +456,7 @@ public partial class Main
         ScShot("duals_hud");
 
         // Glacier Cleaver: the vast axe freezes what it cuts, and the head shatters it as it lands
-        var foe = Fresh(reach * 1.15f);
+        var foe = Fresh(reach * 0.95f);
         foreach (var _ in ElWait(0.2f)) yield return null;
         p.ResetAbilityCooldowns();
         foreach (var _ in ElPair(p, 3, 3)) yield return null;
@@ -447,7 +467,7 @@ public partial class Main
         ScShot("duals_glacier");
         foreach (var _ in ElWait(1.2f)) yield return null;
         float lost = foe.MaxHp - foe.Hp;
-        ScCheck($"its blow reaches {reach * 1.15f:0} px, freezes and shatters ({foe.Shattered}) for a great deal ({lost:0})", foe.Shattered >= 1 && lost > Tune.Swordsman.Damage * 6f);
+        ScCheck($"its blow reaches {reach * 0.95f:0} px, freezes and shatters ({foe.Shattered}) for a great deal ({lost:0})", foe.Shattered >= 1 && lost > Tune.Swordsman.Damage * 6f);
         ScCheck($"the overcharge is spent ({p.Overcharged}) and frost's comes back in {p.OverchargeSeconds(HeroElement.Frost):0} s", !p.Overcharged && p.OverchargeSeconds(HeroElement.Frost) > 0f);
 
         // Earthsplitter: a fissure runs along the floor and stuns what it passes under
@@ -457,8 +477,50 @@ public partial class Main
         foreach (var _ in ElPair(p, 1, 1)) yield return null;
         foreach (var _ in ElPress(Hard(), 0.9f)) yield return null;
         lost = foe.MaxHp - foe.Hp;
-        ScCheck($"Earthsplitter's fissure reaches a creature {reach * 2.2f:0} px off and stuns it ({lost:0} damage, reeling {foe.Reeling})", p.ElementalUses.Contains("Earthsplitter") && lost > Tune.Swordsman.Damage && foe.Reeling);
+        ScCheck($"Earthsplitter gathers a long while: nothing yet 0.9 s in ({lost:0} damage)", p.ElementalUses.Contains("Earthsplitter") && lost <= 0f);
+        ScShot("duals_splitter_windup");
+        foreach (var _ in ElWait(1.6f)) yield return null;
+        lost = foe.MaxHp - foe.Hp;
+        ScCheck($"then its fissure reaches a creature {reach * 2.2f:0} px off and stuns it ({lost:0} damage, reeling {foe.Reeling})", lost > Tune.Swordsman.Damage && foe.Reeling);
         foreach (var _ in ElWait(0.6f)) yield return null;
+
+        // Breaking Quake: the blade driven into the floor, cracks of magma tearing out either way: 100 fire to what stands over them
+        foe = Fresh(reach * 2f);
+        var behind = ElDummy(p, -reach * 1.5f);
+        foes.Add(behind);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 1, 2)) yield return null;
+        foreach (var _ in ElPress(Hard(), 1.6f)) yield return null;
+        ScShot("duals_quake");
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        var cracks = p.LastElementSpell as MagmaCracks;
+        ScCheck($"Breaking Quake: cracks of magma tear out either way ({cracks?.Struck} struck): both creatures alight ({foe.Ignited}, {behind.Ignited})", p.ElementalUses.Contains("Breaking Quake") && cracks != null && foe.Ignited && behind.Ignited);
+        foreach (var _ in ElWait(1.6f)) yield return null;
+        ScCheck($"and the cracks close moments after ({(cracks != null && IsInstanceValid(cracks) ? "open" : "closed")})", cracks == null || !IsInstanceValid(cracks));
+
+        // Thermal Shock: whichever of fire and frost it holds more, full; the burning burst
+        foe = Fresh(reach * 0.8f);
+        foe.Build(HeroElement.Fire, 60f);
+        foe.Build(HeroElement.Frost, 20f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 2, 3)) yield return null;
+        int burst0 = foe.Combusted;
+        foreach (var _ in ElPress(Hard(), 1.4f)) yield return null;
+        ScCheck($"Thermal Shock on a creature fuller of fire: alight, and it bursts at once ({burst0} -> {foe.Combusted}), its frost untouched ({foe.FrostBuild:0})", p.ElementalUses.Contains("Thermal Shock") && foe.Combusted > burst0 && foe.FrostBuild < 25f);
+
+        // Steam Strike: the swing adds whichever of fire and frost it holds more of
+        foe = Fresh(reach * 0.7f);
+        foe.Build(HeroElement.Frost, 30f);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        p.ResetAbilityCooldowns();
+        foreach (var _ in ElPair(p, 2, 3)) yield return null;
+        foreach (var _ in ElPress(new PlayerInput { Attack = true, Aim = aim, AimGiven = true }, 0.6f)) yield return null;
+        ScCheck($"Steam Strike on a creature fuller of frost adds frost ({foe.FrostBuild:0}), not fire ({foe.FireBuild:0})", p.ElementalUses.Contains("Steam Strike") && foe.FrostBuild > 60f && foe.FireBuild <= 0f);
+
+        // the movement's greater leap and mixes
+        foreach (var _ in SwordsmanLeapDuals(p)) yield return null;
 
         // Inferno Cleave: a wall of fire that burns creatures and the shots flying into it
         foe = Fresh(reach * 0.75f);
@@ -477,6 +539,60 @@ public partial class Main
         ScShot("duals_inferno");
         foreach (var _ in ElWait(4f)) yield return null;
 
+        foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
+    }
+
+    /// <summary>`--scenario=elements --hero=swordsman`: the dodge with something on top: Comet, Blazing Charge, Stalagmite Vault.</summary>
+    private IEnumerable<object> SwordsmanLeapDuals(Player p)
+    {
+        var foes = new List<Enemy>();
+        Enemy Fresh(float dx) { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); var e = ElDummy(p, dx); foes.Add(e); return e; }
+        IEnumerable<object> Dodge() { while (p.JumpElementRest > 0 || !p.IsOnFloor()) yield return null; _scInput = new PlayerInput { Dodge = true, JumpHeld = true }; yield return null; _scInput = default; }
+        foreach (var _ in ElWait(0.4f)) yield return null;
+
+        // Blazing Charge (earth and fire): a charge forward in a sphere of fire, crashing into each creature: 100 fire
+        var foe = Fresh(50);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in ElPair(p, 1, 2)) yield return null;
+        foreach (var _ in Dodge()) yield return null;
+        bool shell = false;
+        for (float t = 0; t < 0.3f; t += (float)GetProcessDeltaTime()) { shell |= G.World.GetChildren().OfType<BlazeShell>().Any(); yield return null; }
+        ScShot("duals_blaze");
+        foreach (var _ in ElWait(0.5f)) yield return null;
+        ScCheck($"earth and fire: Blazing Charge crashes into the creature in its way ({p.BlazeHits} hit, {foe.MaxHp - foe.Hp:0} damage, alight {foe.Ignited}) in a sphere of fire ({shell})",
+            p.ElementalUses.Contains("Blazing Charge") && p.BlazeHits >= 1 && foe.Hp < foe.MaxHp && foe.Ignited && shell);
+        ScCheck($"the mix spends the attribute: back to the mode ({p.Mode}, on top {p.Top})", p.Top == HeroElement.None && p.Mode == HeroElement.Earth);
+
+        // Comet (earth and frost): a leap forward, all blue-white; landing, a burst of frost (100 frost) and crystals of ice
+        foreach (var _ in ElWait(0.4f)) yield return null;
+        foe = Fresh(90);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in ElPair(p, 1, 3)) yield return null;
+        foreach (var _ in Dodge()) yield return null;
+        bool glow = false;
+        for (float t = 0; t < 1.6f && !p.ElementalUses.Contains("Comet!"); t += (float)GetProcessDeltaTime()) { glow |= p.CometOn && p.Anim.FlashAmount > 0.5f; yield return null; }
+        foreach (var _ in ElWait(0.1f)) yield return null;
+        ScShot("duals_comet");
+        var crystals = p.LastCrystals;
+        ScCheck($"earth and frost: Comet flies blue-white ({glow}) and comes down in a burst of frost ({foe.MaxHp - foe.Hp:0} damage, chilled {foe.Chilled}), crystals bursting out of the floor ({crystals?.Spikes.Count})",
+            p.ElementalUses.Contains("Comet!") && glow && foe.Hp < foe.MaxHp && (foe.Chilled || foe.FrozenSolid) && crystals != null && crystals.Burst && crystals.Spikes.Count >= 5);
+        foreach (var _ in ElWait(1.8f)) yield return null;
+        ScCheck($"and the crystals melt away after a moment ({(crystals != null && IsInstanceValid(crystals) ? "standing" : "gone")})", crystals == null || !IsInstanceValid(crystals));
+
+        // Stalagmite Vault (frost overcharged): a leap back, stalagmites of ice bursting up from the ground he passes over
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        foe = Fresh(-45);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in ElPair(p, 3, 3)) yield return null;
+        int decoys0 = G.World.GetChildren().OfType<IceDecoy>().Count();
+        foreach (var _ in Dodge()) yield return null;
+        foreach (var _ in ElWait(0.6f)) yield return null;
+        ScShot("duals_stalagmite");
+        var spikes = p.LastCrystals;
+        ScCheck($"frost overcharged: Stalagmite Vault leaps back and raises stalagmites of ice where he passes ({spikes?.Spikes.Count} risen, {spikes?.Struck} struck, frost {foe.FrostBuild:0})",
+            p.ElementalUses.Contains("Stalagmite Vault") && spikes != null && !spikes.Burst && spikes.Spikes.Count >= 3 && spikes.Struck >= 1 && (foe.FrostBuild > 0 || foe.Chilled));
+        ScCheck($"and leaves no likeness ({G.World.GetChildren().OfType<IceDecoy>().Count() - decoys0} new)", G.World.GetChildren().OfType<IceDecoy>().Count() == decoys0);
+        foreach (var _ in ElWait(1.5f)) yield return null;
         foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
     }
 
@@ -876,26 +992,39 @@ public partial class Main
         ScCheck($"wind and wind: Cyclone Slash, a cut all round strikes behind ({foe.MaxHp - foe.Hp:0})", p.ElementalUses.Contains("Cyclone Slash") && foe.Hp < foe.MaxHp);
         // ---- the block: the mode's own guard as the shield goes up
         float wait = p.Stats.HurtInvuln + 0.1f;
-        // earth: the Earth Shield, the ground heaved up in front, nothing through and nothing moving him
+        // earth: the Earth Shield, the ground heaved up in front for as long as the block is held: a wall, nothing through, nothing moving him
         Clear(); Home();
-        foe = Add(40);
         foreach (var _ in ElWait(0.3f)) yield return null;
         foreach (var _ in Ready(1)) yield return null;
-        foreach (var _ in Raise()) yield return null;
-        foreach (var _ in Lower()) yield return null;
+        IEnumerable<object> Hold(float s, PlayerInput extra = default)
+        {
+            for (float t = 0; t < s; t += (float)GetProcessDeltaTime()) { var i = extra; i.GuardHeld = true; i.GuardAim = aim; _scInput = i; yield return null; }
+        }
+        foreach (var _ in Hold(0.4f)) yield return null;
         var mound = G.World.GetChildren().OfType<EarthMound>().FirstOrDefault();
+        foe = Add(70, hold: false);
         float sh0 = p.ShieldHp, hpa = p.Hp;
         p.Hurt(30f, foe.GlobalPosition, 300f, foe);
         p.Hurt(30f, p.GlobalPosition + new Vector2(-30f * p.Facing, 0), 300f);
-        float mx0 = p.GlobalPosition.X;
-        for (float t = 0; t < 0.4f; t += (float)GetProcessDeltaTime()) { _scInput = new PlayerInput { Move = new Vector2(-p.Facing, 0), Jump = true }; yield return null; }
-        _scInput = default;
-        ScCheck($"earth: raised, the Earth Shield heaves the ground up in front ({p.EarthShieldUp}, {(mound != null ? "mound" : "none")}), after it's lowered too", p.ElementalUses.Contains("Earth Shield") && p.EarthShieldUp && mound != null);
+        float mx0 = p.GlobalPosition.X, f0 = p.Facing;
+        // (held, with a push away and a leap: he stays; the creature coming on meets the wall; measured along the way he faced as it rose)
+        float closest = 999f;
+        for (float t = 0; t < 2f; t += (float)GetProcessDeltaTime())
+        {
+            _scInput = new PlayerInput { GuardHeld = true, GuardAim = aim, Move = new Vector2(-p.Facing, 0), Jump = t < 0.4f };
+            if (IsInstanceValid(foe)) closest = Math.Min(closest, (foe.GlobalPosition.X - p.GlobalPosition.X) * f0);
+            yield return null;
+        }
+        float wallAt = mound != null && IsInstanceValid(mound) ? (mound.GlobalPosition.X - p.GlobalPosition.X) * f0 : 0f;
+        ScCheck($"earth: held, the Earth Shield heaves the ground up in front ({p.EarthShieldUp}, {(mound != null ? "mound" : "none")}) and stands while it's held (2 s on: {mound != null && IsInstanceValid(mound) && !mound.Sinking})",
+            p.ElementalUses.Contains("Earth Shield") && p.EarthShieldUp && mound != null && IsInstanceValid(mound) && !mound.Sinking);
         ScCheck($"behind it nothing gets through, from either side ({hpa - p.Hp:0}), the shield isn't worn ({sh0 - p.ShieldHp:0})", p.Hp >= hpa && p.ShieldHp >= sh0);
-        ScCheck($"and he can't move or leap ({Math.Abs(p.GlobalPosition.X - mx0):0} px)", Math.Abs(p.GlobalPosition.X - mx0) < 2f && p.IsOnFloor());
+        ScCheck($"he can't move or leap ({Math.Abs(p.GlobalPosition.X - mx0):0} px), and he kneels behind it", Math.Abs(p.GlobalPosition.X - mx0) < 2f && p.IsOnFloor());
+        ScCheck($"it's a wall: the creature coming on stays beyond it (closest {closest:0} px, the wall at {wallAt:0} px)", closest > wallAt);
         ScShot("warden_earthshield");
-        foreach (var _ in ElWait(Tune.ElementalWarden.MoundSeconds)) yield return null;
-        ScCheck($"after {Tune.ElementalWarden.MoundSeconds:0.0} s it sinks back ({p.EarthShieldUp}, gone {mound == null || !IsInstanceValid(mound)}) and rests ({p.ModeGuardRest:0.0} s)", !p.EarthShieldUp && (mound == null || !IsInstanceValid(mound)) && p.ModeGuardRest > 0);
+        _scInput = default;
+        foreach (var _ in ElWait(Tune.ElementalWarden.MoundSink + 0.3f)) yield return null;
+        ScCheck($"let go, it sinks back ({p.EarthShieldUp}, gone {mound == null || !IsInstanceValid(mound)}) and rests ({p.ModeGuardRest:0.0} s)", !p.EarthShieldUp && (mound == null || !IsInstanceValid(mound)) && p.ModeGuardRest > 0);
         foreach (var _ in Raise()) yield return null;
         ScCheck($"raised again while it rests, the shield is only the shield ({p.EarthShieldUp})", !p.EarthShieldUp);
         foreach (var _ in Lower()) yield return null;

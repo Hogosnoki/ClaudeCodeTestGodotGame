@@ -242,6 +242,8 @@ public static class NetSync
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
             case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)).Vec(rp.DropAt ?? rp.GlobalPosition); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
+            case IceCrystals ic: w.Byte(23).Vec(ic.GlobalPosition).Byte((byte)(ic.Burst ? 1 : 0)).Byte((byte)ic.Count).Half(ic.Half).Half(ic.Height).Half(ic.Stand).Half(ic.Lay).Half(ic.Every).Int(ic.Seed); break;
+            case MagmaCracks mc: w.Byte(24).Vec(mc.GlobalPosition).Half(mc.Half).Half(mc.Spread).Half(mc.Seconds).Int(mc.Seed); break;
             default: return;
         }
         Net.SendAll(w, true);
@@ -419,6 +421,24 @@ public static class NetSync
                 var at = r.Vec(); float radius = r.Half(), life = r.Half();
                 Applying = true;
                 G.Spawn(new SmokeCloud { Position = at, Radius = radius, Life = life });
+                Applying = false;
+                break;
+            }
+            case 23:
+            {
+                // a friend's crystals of ice (a Comet's burst, a Stalagmite Vault's trail under them): shown here, their game deals the blows
+                var at = r.Vec(); bool burst = r.Byte() != 0; int count = r.Byte(); float half = r.Half(), height = r.Half(), stand = r.Half(), lay = r.Half(), every = r.Half(); int seed = r.Int();
+                Applying = true;
+                G.Spawn(new IceCrystals { Position = at, Burst = burst, Count = count, Half = half, Height = height, Stand = stand, Lay = lay, Every = every, Seed = seed, Caster = av, Harmless = true });
+                Applying = false;
+                break;
+            }
+            case 24:
+            {
+                // a friend's Breaking Quake: its cracks open here too
+                var at = r.Vec(); float half = r.Half(), spread = r.Half(), seconds = r.Half(); int seed = r.Int();
+                Applying = true;
+                G.Spawn(new MagmaCracks { Position = at, Half = half, Spread = spread, Seconds = seconds, Seed = seed, Caster = av, Harmless = true });
                 Applying = false;
                 break;
             }

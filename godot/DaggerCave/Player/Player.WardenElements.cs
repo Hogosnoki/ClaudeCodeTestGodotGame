@@ -61,7 +61,7 @@ public partial class Player
         _lastEl = a;
         ElementalUses.Add(name);
         var col = b == HeroElement.None ? Elements.ColorOf(a) : Elements.DualColor(a, b);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -32), name.ToUpperInvariant(), col, b == HeroElement.None ? 11 : 12, 0.8f);
+        G.Fx.AbilityName(GlobalPosition + new Vector2(0, -32), name.ToUpperInvariant(), col, b == HeroElement.None ? 11 : 12, 0.8f);
     }
 
     /// <summary>The ground under a point (or the point itself, low as the feet, where there's none near).</summary>
@@ -327,7 +327,7 @@ public partial class Player
 
     /// <summary>The Earth Shield stands: nothing reaches him, and nothing moves him (nor does he move).</summary>
     public bool EarthShieldUp => IsRemote ? _netMound : _moundT > 0;
-    public float EarthShieldLeft => Math.Max(0f, _moundT);
+    public bool EarthShieldHeld => _moundT > 0;
     /// <summary>The shell on him (Frost Shield or Wind Barrier; none), how much more it can soak (0..1), and its flash when struck.</summary>
     public HeroElement ShellElement => IsRemote ? _netShell : _shell;
     public float ShellLeft => IsRemote ? 1f : _shell == HeroElement.None ? 0f : Math.Clamp(1f - _shellSoaked / ShellHold(_shell), 0f, 1f);
@@ -367,7 +367,7 @@ public partial class Player
     private void StartEarthShield()
     {
         float side = Math.Abs(ShieldDir.X) > 0.2f ? Math.Sign(ShieldDir.X) : Facing;
-        _moundT = Tune.ElementalWarden.MoundSeconds;
+        _moundT = 1f;
         var at = FloorAt(GlobalPosition + new Vector2(side * Tune.ElementalWarden.MoundReach, 0));
         _mound = new EarthMound { Position = at, Side = side };
         G.Spawn(_mound);
@@ -389,6 +389,15 @@ public partial class Player
             e.Shove(new Vector2(side * 260f, -220f));
         }
         Anim.Punch(new Vector2(0.9f, 1.12f));
+    }
+
+    /// <summary>The block let go (or the Warden fallen): the earth sinks back, and the guard rests.</summary>
+    private void EndEarthShield()
+    {
+        _moundT = 0f;
+        _moundRest = ElemRest(Tune.ElementalWarden.MoundRest);
+        if (_mound != null && IsInstanceValid(_mound)) _mound.Release();
+        _mound = null;
     }
 
     /// <summary>A blow the Earth Shield took: the earth takes it, chips flying.</summary>
@@ -485,13 +494,8 @@ public partial class Player
     /// <summary>The mode's guards as time passes: the Earth Shield standing and sinking, the rests.</summary>
     private void TickModeGuards(float dt)
     {
-        if (_moundT > 0 && (_moundT -= dt) <= 0)
-        {
-            _moundRest = ElemRest(Tune.ElementalWarden.MoundRest);
-            var at = _mound != null && IsInstanceValid(_mound) ? _mound.GlobalPosition : GlobalPosition;
-            G.Fx.Dust(at, 10, 2.4f, new Color(0.6f, 0.5f, 0.38f, 0.7f));
-            G.Sfx.Play("rock", at, -4, 0.05f, 0.6f);
-        }
+        // (the Earth Shield stands for as long as the shield is held up: let go, and it sinks)
+        if (_moundT > 0 && (!ShieldRaised || Dead)) EndEarthShield();
         if (_moundRest > 0) _moundRest -= dt;
         if (_shellRest > 0) _shellRest -= dt;
         if (_shellFlash > 0) _shellFlash -= dt * 4f;
@@ -510,7 +514,11 @@ public partial class Player
         bool mound = bits == 1;
         var shell = bits == 2 ? HeroElement.Frost : bits == 3 ? HeroElement.Wind : HeroElement.None;
         if (mound && !_netMound)
-            G.Spawn(new EarthMound { Position = FloorAt(GlobalPosition + new Vector2(Facing * Tune.ElementalWarden.MoundReach, 0)), Side = Facing });
+        {
+            _mound = new EarthMound { Position = FloorAt(GlobalPosition + new Vector2(Facing * Tune.ElementalWarden.MoundReach, 0)), Side = Facing };
+            G.Spawn(_mound);
+        }
+        else if (!mound && _netMound && _mound != null && IsInstanceValid(_mound)) { _mound.Release(); _mound = null; }
         if (shell != HeroElement.None && shell != _netShell)
             G.Spawn(new WardShell { Hero = this, El = shell, Position = GlobalPosition + new Vector2(0, -6) });
         _netMound = mound;

@@ -754,7 +754,8 @@ public partial class Player : CharacterBody2D
     /// <summary>The dodge button's press: a roll, a hex or an updraft (the Warden's shield reads the button itself).</summary>
     private bool DodgeButton(in PlayerInput inp) => Stats.Hero switch
     {
-        HeroKind.Swordsman => ElementMoveReady ? ElementDodge(inp) : TryDodge(inp),
+        // (the elemental Swordsman has no Dash Slash: his dodge is his mode's leap, or nothing while it rests)
+        HeroKind.Swordsman => Elemental ? ElementMoveReady && ElementDodge(inp) : TryDodge(inp),
         HeroKind.Vitalist => Elemental ? VitalHex() : TryHex(),
         HeroKind.Elementalist => Elemental ? ElementMove(inp) : BeginDraftAim(inp),
         HeroKind.Rogue => Elemental ? RogueEvade() : TryVanish(),

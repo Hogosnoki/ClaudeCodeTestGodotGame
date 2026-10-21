@@ -19,9 +19,9 @@ public partial class Player
 {
     /// <summary>The swing under way is a dual (its pair), and whether what it does where it lands is done yet.</summary>
     private bool _dualSwing, _dualLanded, _giant;
+    /// <summary>An Earthsplitter or Breaking Quake winding up: the ground about him trembling, rock lifting off it.</summary>
+    private bool _quake;
     private HeroElement _dualA, _dualB;
-    /// <summary>The creature a Thermal Shock's blow found burning or chilled (it bursts into steam).</summary>
-    private Enemy _thermal;
     /// <summary>The Glacier Cleaver's vast axe of ice is in the hand (for the 3D view).</summary>
     public bool GiantBlade => IsRemote ? (_netFlags & HfGiant) != 0 : _giant && _swingT >= 0;
     /// <summary>For the tests: the last Frost Tower raised.</summary>
@@ -31,16 +31,31 @@ public partial class Player
 
     private bool DualIs(HeroElement a, HeroElement b) => _dualSwing && _dualA == a && _dualB == b;
 
-    private void ClearDualSwing() { _dualSwing = false; _dualLanded = false; _giant = false; _thermal = null; }
+    private void ClearDualSwing() { _dualSwing = false; _dualLanded = false; _giant = false; _quake = false; }
 
     private void Used(string what, Color col)
     {
         ElementalUses.Add(what);
-        G.Fx.Text(GlobalPosition + new Vector2(0, -32), what.ToUpperInvariant(), col, 12, 0.9f);
+        G.Fx.AbilityName(GlobalPosition + new Vector2(0, -32), what.ToUpperInvariant(), col, 12, 0.9f);
     }
 
     private void TickDuals(float dt)
     {
+        // (an Earthsplitter or Breaking Quake gathering: the ground trembles harder and harder, grit and stones lifting off it about him)
+        if (_quake && _swingT >= 0 && SweepT < 0)
+        {
+            float k = Math.Clamp(_swingT / Math.Max(0.01f, _windup), 0f, 1f);
+            var feet = GlobalPosition + new Vector2(0, 12);
+            G.Fx.AddShake(0.6f + 2.4f * k);
+            if (Engine.GetPhysicsFrames() % 3 == 0)
+            {
+                var spot = feet + new Vector2(G.Range(-40f, 40f) * (0.5f + k), 0);
+                var col = _dualB == HeroElement.Fire ? new Color(1f, 0.5f, 0.15f) : Elements.ColorOf(HeroElement.Earth);
+                G.Fx.Directional(spot, Vector2.Up, 0.3f, G.Chance(0.5f) ? col : col.Darkened(0.4f), 1 + (int)(2 * k), G.Range(60, 120 + 160 * k), G.Range(2f, 3.4f), 0.5f, 260, 0);
+                if (G.Chance(0.4f)) G.Fx.Dust(spot, 1, 1f + k, new Color(0.55f, 0.46f, 0.36f, 0.6f));
+            }
+            if (Engine.GetPhysicsFrames() % 20 == 0) { G.Sfx.Play("rock", feet, -10 + 6 * k, 0.1f, 0.5f + 0.2f * k); G.Main.Rumble(0.2f + 0.4f * k, 0.2f + 0.4f * k, 0.1f); }
+        }
         // (frost smoking off the vast axe, once it is grown)
         if (GiantBlade && AxeGrow > 0.6f && Engine.GetPhysicsFrames() % 2 == 0)
         {
@@ -66,7 +81,7 @@ public partial class Player
             case (HeroElement.Fire, HeroElement.Fire): rest = Tune.Dual.WallRest; dmg = Tune.Dual.WallDamage; build = 50f; break;
             case (HeroElement.Frost, HeroElement.Frost): rest = Tune.Dual.AxeRest; dmg = Tune.ElementalSword.HardDamage * Tune.Dual.AxeDamage; build = Tune.Elements.Full; giant = true; break;
             case (HeroElement.Earth, HeroElement.Frost): rest = Tune.Dual.HeaveRest; dmg = Tune.ElementalSword.HardDamage; swingEl = HeroElement.Frost; build = 30f; break;
-            case (HeroElement.Earth, HeroElement.Fire): rest = Tune.Dual.PoolRest; dmg = Tune.Dual.PoolDamage; swingEl = HeroElement.Fire; build = 30f; break;
+            case (HeroElement.Earth, HeroElement.Fire): rest = Tune.Dual.QuakeRest; dmg = Tune.Dual.QuakeDamage; swingEl = HeroElement.Fire; build = 0f; break;
             default: rest = Tune.Dual.ShockRest; dmg = Tune.Dual.ShockDamage; swingEl = HeroElement.Fire; build = 0f; break;
         }
         float scale = Stats.HeaveCooldown / Math.Max(0.01f, Tune.Swordsman.HeaveCooldown);
@@ -79,6 +94,14 @@ public partial class Player
         _swingDmg = BaseDamage * Stats.DamageMult * dmg * Stats.HeaveDamageMult;
         _swingEl = swingEl; _swingBuild = build; _swingShatter = false;
         _dualSwing = true; _dualA = a; _dualB = b;
+        if (a == HeroElement.Earth && b is HeroElement.Earth or HeroElement.Fire)
+        {
+            // Earthsplitter and Breaking Quake gather a long while (as the axe does), the ground trembling, before the blade is driven down
+            float extra = _windup * ((b == HeroElement.Earth ? Tune.Dual.SplitWindup : Tune.Dual.QuakeWindup) - 1f);
+            _windup += extra; _heaveRootT += extra;
+            _quake = true;
+            G.Sfx.Play("rock", GlobalPosition, -4, 0.05f, 0.5f);
+        }
         if (giant)
         {
             // the Ice Axe's swing, but the head that grows out of the blade is vast and ornate: far longer, wider, slower to grow
@@ -94,41 +117,37 @@ public partial class Player
         return true;
     }
 
-    /// <summary>How much more a dual's blow deals on this creature (Thermal Shock, on one burning, chilled or frozen).</summary>
-    private float DualBladeMult(Enemy e)
-    {
-        if (!DualIs(HeroElement.Fire, HeroElement.Frost)) return 1f;
-        if (!e.Ignited && !e.Chilled && !e.FrozenSolid) return 1f;
-        _thermal = e;
-        return 1f + Tune.Dual.ShockBonus;
-    }
-
     /// <summary>A dual's blow landed: what the pair does to the creature beyond the swing's own element.</summary>
     private void DualBladeHit(Enemy e)
     {
         if (!_dualSwing || e.Dead) return;
         if (DualIs(HeroElement.Frost, HeroElement.Frost)) e.Build(HeroElement.Frost, Tune.Elements.Full, Stats.DamageMult, this);
-        else if (DualIs(HeroElement.Fire, HeroElement.Frost))
-        {
-            if (_thermal == e) ThermalShock(e);
-            else { e.Build(HeroElement.Fire, Tune.Elements.Full * 0.5f, Stats.DamageMult, this); e.Build(HeroElement.Frost, Tune.Elements.Full * 0.5f, Stats.DamageMult, this); }
-        }
+        else if (DualIs(HeroElement.Fire, HeroElement.Frost)) ThermalShock(e);
     }
 
-    /// <summary>Fire meets frost in a creature: it cracks, its fire and ice go at once, and it bursts into a cloud of steam that hides the heroes in it.</summary>
+    /// <summary>Which of fire and frost a creature holds more of (Steam Strike and Thermal Shock add that one): its build-ups, burning counting
+    /// as a full meter of fire, chilled as one of frost and frozen solid as two. Even, the hero's mode decides.</summary>
+    private HeroElement HigherOf(Enemy e)
+    {
+        float full = Tune.Elements.Full;
+        float fire = e.FireBuild + (e.Ignited ? full : 0f);
+        float frost = e.FrostBuild + (e.FrozenSolid ? full * 2f : e.Chilled ? full : 0f);
+        if (Math.Abs(fire - frost) < 0.5f) return Mode == HeroElement.Frost ? HeroElement.Frost : HeroElement.Fire;
+        return fire > frost ? HeroElement.Fire : HeroElement.Frost;
+    }
+
+    /// <summary>Fire meets frost in a creature: a full build-up of whichever it holds more of, and then, frozen solid it shatters, burning it
+    /// bursts, there and then, in a puff of steam.</summary>
     private void ThermalShock(Enemy e)
     {
         var at = e.GlobalPosition;
-        e.Quench();
-        e.Thaw();
-        G.Fx.Text(at + new Vector2(0, -e.HitRadius - 16), "THERMAL SHOCK", new Color(1f, 0.85f, 0.85f), 11, 0.9f);
-        G.Fx.Burst(at, new Color(0.95f, 0.95f, 0.95f, 0.8f), 20, 160, 3.4f, 0.7f, -60);
-        G.Fx.Ring(at, Tune.Dual.SteamRadius, new Color(0.95f, 0.95f, 1f, 0.8f), 0.35f, FxLayer.RingStyle.Burst);
-        G.Sfx.Play("lava", at, -2, 0.05f, 1.4f);
-        var steam = new SmokeCloud { Position = at, Radius = Tune.Dual.SteamRadius, Life = Tune.Dual.SteamSeconds };
-        G.Spawn(steam);
-        NetSync.HeroVisual(steam);
-        ElementalUses.Add("Thermal Shock!");
+        var el = HigherOf(e);
+        e.Build(el, Tune.Elements.Full, Stats.DamageMult, this);
+        bool burst = !e.Dead && (e.FrozenSolid ? e.Shatter(Stats.DamageMult * 2f, this) : e.BurstAlight(Stats.DamageMult, this));
+        G.Fx.Burst(at, new Color(0.95f, 0.95f, 0.95f, 0.8f), 14, 140, 3.2f, 0.6f, -60);
+        G.Fx.Ring(at, e.HitRadius + 14, new Color(Elements.ColorOf(el), 0.9f), 0.3f, FxLayer.RingStyle.Burst);
+        G.Sfx.Play("lava", at, -4, 0.05f, 1.4f);
+        if (burst) ElementalUses.Add("Thermal Shock!");
     }
 
     /// <summary>A dual heave's blade meets the floor: the pair's lasting part begins there.</summary>
@@ -143,8 +162,16 @@ public partial class Player
         switch ((_dualA, _dualB))
         {
             case (HeroElement.Earth, HeroElement.Earth):
-                spell = new Fissure { Position = floor, Dir = Facing, Damage = blow * Tune.Dual.SplitDamage };
-                G.Fx.Debris(floor, Elements.ColorOf(HeroElement.Earth), 12, 260);
+                // the blade comes down at last: the whole floor jolts, rock flies, and the crack tears away along it
+                spell = new Fissure { Position = floor, Dir = Facing, Damage = blow * Tune.Dual.SplitDamage, Dramatic = true };
+                G.Fx.Debris(floor, Elements.ColorOf(HeroElement.Earth), 26, 360);
+                G.Fx.Debris(floor, Elements.ColorOf(HeroElement.Earth).Darkened(0.35f), 14, 240);
+                G.Fx.Shockwave(floor, 70, new Color(Elements.ColorOf(HeroElement.Earth), 0.75f), 0.4f);
+                G.Fx.Dust(floor, 16, 3f);
+                G.Fx.AddShake(9f);
+                G.Main.Rumble(0.9f, 1f, 0.35f);
+                G.Sfx.Play("slam", floor, 1, 0.05f, 0.6f);
+                foreach (var e in G.Enemies.ToArray()) if (!e.Dead && e.GlobalPosition.DistanceTo(floor) < 160f) e.HitStop(0.1f);
                 break;
             case (HeroElement.Fire, HeroElement.Fire):
                 spell = new FireWall { Position = floor, TickDamage = blow * Tune.Dual.WallTickDamage };
@@ -182,7 +209,10 @@ public partial class Player
                 break;
             }
             case (HeroElement.Earth, HeroElement.Fire):
-                spell = new MagmaPool { Position = floor, TickDamage = blow * Tune.Dual.PoolTickDamage };
+                // Breaking Quake: the blade is driven into the floor, and great cracks full of magma tear out from it either way
+                spell = new MagmaCracks { Position = floor, Half = Tune.Dual.QuakeHalf, Seconds = Tune.Dual.QuakeSeconds, Damage = blow * Tune.Dual.QuakeCrackDamage, Seed = G.RangeI(0, 99999) };
+                G.Fx.Flash(floor + new Vector2(0, -6), 30, new Color(1f, 0.55f, 0.15f), 0.15f);
+                foreach (var e in G.Enemies.ToArray()) if (!e.Dead && e.GlobalPosition.DistanceTo(floor) < Tune.Dual.QuakeHalf + e.HitRadius) e.HitStop(0.12f);
                 break;
             default:
                 G.Fx.Burst(floor + new Vector2(0, -6), new Color(0.95f, 0.95f, 0.95f, 0.7f), 10, 90, 3f, 0.6f, -50);
@@ -193,6 +223,8 @@ public partial class Player
         spell.Power = Stats.DamageMult;
         G.Spawn(spell);
         LastElementSpell = spell;
+        // (those with a body of their own show in the others' games too)
+        NetSync.HeroVisual(spell);
     }
 
     // ================================================================== the Elementalist
@@ -215,6 +247,8 @@ public partial class Player
         spell.Power = Stats.DamageMult;
         G.Spawn(spell);
         LastElementSpell = spell;
+        // (those with a body of their own show in the others' games too)
+        NetSync.HeroVisual(spell);
     }
 
     /// <summary>The attack with two charges: Meteorite, Cryometeor, Fire Barrage, Frost Barrage or Strong Gust (each rests the pair's bolt a while).</summary>

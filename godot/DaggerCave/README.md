@@ -2003,14 +2003,15 @@ element buttons fill it:
 | You press... | It does |
 |---|---|
 | your **mode's own** element | **Overcharge**: it goes on top, and the next ability that has a greater version (the same-element pairs below: Glacier Cleaver, Meteorite, Rain of Fire, Bastion, Avalanche...) becomes it; that element's overcharge then comes back after 18 s (`OverchargeRecharge`) |
-| **another** element | it goes on top as the **attribute** (replacing whatever was there, an overcharge too): every button that has a **mix** of the two becomes it (fire mode with wind on top: the fire-wind versions), and every blow and spell adds a little of it (15 build-up; wind, a shove), until replaced |
+| **another** element | it goes on top as the **attribute** (replacing whatever was there, an overcharge too): every button that has a **mix** of the two becomes it (fire mode with wind on top: the fire-wind versions), and every blow and spell adds a little of it (15 build-up; wind, a shove), until a mix spends it or it's replaced |
 | the **attribute's** element again | the **mode switches** to it (the slot empties), at most once every 4.5 s (`ModeCooldown`) |
 
 So fire, fire, wind leaves you in fire mode with wind riding on top (the overcharge is gone); wind again puts you in wind mode. Presses are
-taken 0.3 s apart (`ChargeCooldown`; one inside it is kept). An attribute **stays** on top until replaced, so its mixes are there use after
-use; an overcharge goes with the one use. In modes **every button keeps its cooldown** (`VersionsRest`, one cooldown per
+taken 0.3 s apart (`ChargeCooldown`; one inside it is kept). **Using a mix or an overcharged ability spends what's on top**: the hero
+is back in the plain ground state of their mode (`SpendPair` empties the slot either way), and must press the element again for another. In modes **every button keeps its cooldown** (`VersionsRest`, one cooldown per
 button whatever the mode, so switching never refreshes one): the rests in the tables below apply. A few versions rest on their own while the
-button stays usable (the Heaving Swing, the elements' movement), and the button is plain meanwhile (a swing, the Dash Slash, Lift).
+button stays usable (the Heaving Swing, the elements' movement), and the button is plain meanwhile (a swing, Lift; the elemental
+Swordsman's dodge does nothing while his leap rests).
 Overcharges are locked on a new save (`Meta.DualCharges`; `Tune.Testing.DualCharges` opens them for testing), so a new player starts with
 just modes.
 
@@ -2026,8 +2027,13 @@ along it, a sheen of ice up it from hand to tip, a crackle of grit, a twist of w
 circle over the ability squares, one at each point of a triangle as they sit on the d-pad (left, up, right; keys 1, 2, 3): the mode big and
 lit, what's on top as a small diamond at its corner, each element's overcharge coming back as a ring round its point, the mode's switch
 coming back round the middle, and the mode written beside it (FIRE MODE, FIRE + WIND, FIRE OVERCHARGED); every button has its square with
-its cooldown and the seconds left, named for what it does now. Every elemental use springs its name up over the hero, the basic attacks included (a Searing
-Strike, a Stonecutter, and now the Elementalist's Firebolts, Frostbolts, Gusts and Pops too).
+its cooldown and the seconds left, named for what it does now. Every elemental use pops its name up over the hero, the basic attacks included (a Searing
+Strike, a Stonecutter, the Elementalist's Firebolts, Frostbolts, Gusts and Pops); the name pops in place and fades there, it doesn't float
+up (`FxLayer.AbilityName`).
+
+**Barrier meters.** While a hero has a barrier, a small meter over their head shows how much of it is left (`FxOverlay`): a light blue bar
+for a barrier (`Player.BarrierFrac`, against the most it held since it was last empty), teal for the Aegis's bubble, and the Warden's Frost
+Shield or Wind Barrier in its element's colour; two at once stack upward. Every game draws them from the heroes' state, so they show online.
 
 **Build-up, not chances.** An elemental blow fills a creature's meter of that element (thin coloured bars over it); full, it takes hold and
 empties: **fire** sets it alight, and full again while alight it **combusts** (a burst on it and those pressed close, with what the fire had
@@ -2040,13 +2046,14 @@ Each line below is one button, by the mode the hero is in (names in `Elements.Si
 
 | Swordsman (earth, fire, frost) | Plain | Earth | Fire | Frost |
 |---|---|---|---|---|
-| **Swing** (attack) | the sword combo | **Heaving Swing**: rooted, x2, 60 earth (rests 2.5 s) | **Searing Strike**: x1.25, 50 fire (1.2 s) | **Razor Ice**: x1.25, 50 frost (1.2 s) |
-| **Dodge** (movement; the leaps go only from the ground) | the Dash Slash | **Earthfall**: a leap, and you come down like a rock: a shockwave of earth, harder the harder the fall (5 s) | **Explosive Lunge**: the ground bursts behind you (fire to what's beside you) and throws you forward in a low leap (340 px/s, 0.6x a jump) (4 s) | **Glacial Vault**: you spring back off a burst of ice (frost to what's beside you), leaving your likeness in ice where you stood: an **ice decoy** creatures go for (as for a Frost Tower; anyone walks through it) that breaks after two blows or 6 s, filling those beside it with 40 frost (4 s) |
+| **Swing** (attack) | the sword combo | **Heaving Swing**: rooted, x2, 60 earth (rests 2.5 s) | **Searing Strike**: x1.25, 40 fire (`SearBuild`) | **Razor Ice**: x1.25, 50 frost |
+| **Dodge** (movement; no Dash Slash in the elemental kit) | (none) | **Earthfall**: a leap (in the air, none: you come straight down), and you come down like a rock: a shockwave of earth, harder the harder the fall (5 s) | **Explosive Lunge**, from the ground: the ground bursts behind you (fire to what's beside you) and throws you forward and up (340 px/s, 0.85x a jump); until you land (1.1 s at most) you **swing at every creature you come to**, once each, with everything a strike brings and 25 fire (4 s) | **Glacial Vault**, from the ground: you spring back off a burst of ice (frost to what's beside you), leaving your likeness in ice where you stood: an **ice decoy** creatures go for (as for a Frost Tower; anyone walks through it) that breaks after two blows or 6 s, filling those beside it with 40 frost; while one still stands, a vault leaves no other (4 s) |
 | **Hard Swing** (second ability) | heavy blow x1.6 (5 s) | **ThunderCrush**: x2.6, slower, full earth, shatters the frozen (12 s) | **Pyroclasty**: x2.2, full fire (10 s) | **Ice Axe**: the sword goes up over the head and behind, and through a long wind-up (2.4x a Hard Swing's) an axe head of ice grows out of each side of the blade near its point (the sword is the shaft), with motes of frost drawn to it and a crack of ice at each step; then it comes down **in front only** (a 120-degree arc, not the Hard Swing's sweep from behind): x2, full frost (7 s) |
 | **Empower Hilt** (ability, 8 s) | blows +20% (12 s) | blows sap (14 s) | blows +25 fire (14 s) | blows +20 frost (14 s) |
 
-The jump is always a plain jump. The dodge's element waits for its rest (the dodge is the Dash Slash meanwhile, and the charge waits), and
-in the air the dodge is the Dash Slash too: the leaps go only from the ground.
+The jump is always a plain jump. The elemental Swordsman has **no Dash Slash**: his dodge is his mode's leap, and does nothing while it
+rests. The leaps that come down on what's below (Earthfall, Meteor Fall, Comet) and the Blazing Charge go in the air too (without their
+jump); the others (the lunges and vaults) only from the ground. (The classic Swordsman keeps his Dash Slash.)
 
 **The axes of ice** (`Render3D/Creatures/Designs/HeroDesign.Axe.cs`, `Render3D/Shaders/fx_frostgrow.gdshader`): each part of a head is
 drawn by a frost-grow shader. Its ice carries a gradient out from where it grows (the blade for the bits, a crystal's foot for the spikes),
@@ -2091,31 +2098,33 @@ unused; the order doesn't matter (fire mode with wind on top and wind mode with 
 | Fire + Fire | **Flame Crescent** | x1.25 and a crescent of flame bursting from the tip: 0.6x the blow and 50 fire to all within 40 px |
 | Frost + Frost | **Frost Lance** | the cut, and a lance of ice thrown on along it (220 px, 1.2x, a full frost build-up) |
 | Earth + Fire | **Magma Strike** | x1.4, 50 fire and 50 earth, and a little pool of magma where it lands (2.5 s) |
-| Earth + Frost | **Permafrost Strike** | x1.4, 50 earth and 50 frost, shatters the frozen |
-| Fire + Frost | **Steam Strike** | x1.3, 30 fire and 30 frost, and a cloud of steam where it strikes (heroes in it are hidden) |
+| Earth + Frost | **Permafrost Strike** | x1.4, 50 earth and 50 frost, shatters the frozen, and spears of frozen rock burst out of the floor before the blade (they melt away) |
+| Fire + Frost | **Steam Strike** | x1.3, 50 of **whichever of fire and frost the creature holds more of** (burning counts as a full meter of fire, chilled as one of frost, frozen as two; even, your mode decides), and a cloud of steam where it strikes (heroes in it are hidden) |
 
 | Swordsman (Dodge) | | What it does |
 |---|---|---|
 | Earth + Earth | **Meteor Fall** | the Earthfall, coming down like a falling star: a 1.6x shockwave |
 | Fire + Fire | **Blast Lunge** | the Explosive Lunge, 1.3x as far, leaving fire burning where you pass (2.5 s) |
-| Frost + Frost | **Frozen Effigy** | the Glacial Vault, but the likeness in ice takes four blows, and as it shatters it freezes those beside it solid |
-| Earth + Fire | **Magma Leap** | the Earthfall, and magma wells up where you land |
-| Earth + Frost | **Frostfall** | the Earthfall, freezing the ground where you land (a Tundra) and filling those there with frost |
-| Fire + Frost | **Steam Vault** | the spring back, and a cloud of steam where you stood |
+| Frost + Frost | **Stalagmite Vault** | from the ground: a leap back (330 px/s), and a great stalagmite of ice (44 px) bursts up out of the ground every 16 px you pass over: x1.1 and 50 frost to what it meets (once each), tossed up; they stand 1.1 s and melt away. No likeness is left |
+| Earth + Fire | **Blazing Charge** | the dash, on the ground or in the air: you charge forward (430 px/s for 0.42 s, not falling) sword up before you, wrapped in a nearly opaque sphere of fire, crashing into every creature in your way once: x1.6, **100 fire**, thrown on; a great trail of fire behind you, and fire burning on the ground you pass (5 s) |
+| Earth + Frost | **Comet** | on the ground or in the air: a leap forward, all blue-white; where you come down, a great burst of frost: x3 and **100 frost** to everything within 84 px, and 13 crystals of ice burst out of the floor and outward, melting away after a second |
+| Fire + Frost | **Steam Vault** | the spring back, and a cloud of scalding steam where you stood: friends in it are hidden, creatures in it take 12 fire and 12 frost every 0.4 s |
 
 | Swordsman (Empower Hilt) | | What it does |
 |---|---|---|
 | Earth + Earth / Fire + Fire / Frost + Frost | **Stoneheart / Blazing / Glacial Hilt** | the element's hilt, twice as strong, for half again as long |
-| Earth + Fire / Earth + Frost / Fire + Frost | **Magma / Permafrost / Steam Hilt** | both elements' hilts on every blow |
+| Earth + Fire | **Magma Hilt** | earth's and fire's hilts on every blow, and molten rock drips from the blade where it strikes (a little pool of magma, at most every 1.2 s) |
+| Earth + Frost | **Permafrost Hilt** | earth's and frost's hilts on every blow, and the frozen burst under it |
+| Fire + Frost | **Steam Hilt** | twice the hilt's touch of whichever of fire and frost the creature holds more of |
 
 | Swordsman (Hard Swing) | | What it does | Rest |
 |---|---|---|---|
-| Earth + Earth | **Earthsplitter** | the blade splits the floor: a fissure runs 340 px along it (over steps, stopping at walls and drops), rock bursting up behind it; whatever it passes under is tossed up and fully stunned, and a rubble wall in its way comes down | 14 s |
+| Earth + Earth | **Earthsplitter** | a long wind-up (3x a Hard Swing's, like the axe's) as the ground trembles harder and harder and grit and stones lift off it about you; then the blade comes down, the floor jolts (a heavy screen shake, rock flying, the creatures near held a beat) and a fissure tears 340 px along it (over steps, stopping at walls and drops), rock flying high behind it and the screen quaking as it runs; whatever it passes under is held in hit-stop, tossed up and fully stunned, and a rubble wall in its way comes down | 14 s |
 | Fire + Fire | **Inferno Cleave** | a wall of fire stands where the blade lands for 4.5 s: creatures in it burn (22 fire every 0.4 s), creatures' shots flying into it burn up, gas in it goes off | 13 s |
-| Frost + Frost | **Glacier Cleaver** | the Ice Axe's swing, but the head that grows out of the blade is vast and ornate (2.2x the reach): it grows slower and comes down later (3.4x a Hard Swing's wind-up), in front only (150 degrees): its blow is 4x a Hard Swing and two full frost build-ups (chilled, then frozen solid), and the head shatters what it froze as it lands | 16 s |
+| Frost + Frost | **Glacier Cleaver** | the Ice Axe's swing, but the head that grows out of the blade is vast and ornate (1.1x the reach): it grows slower and comes down later (3.4x a Hard Swing's wind-up), in front only (150 degrees): its blow is 4x a Hard Swing and two full frost build-ups (chilled, then frozen solid), and the head shatters what it froze as it lands | 16 s |
 | Earth + Frost | **Frost Heave** | the blade is driven into the ground; frost cracks the floor under the nearest creature within 280 px and a column of ice bursts up there: a great frost blow, full frost, thrown into the air | 14 s |
-| Earth + Fire | **Magma Rend** | the floor splits and magma wells up along it for 5.5 s: creatures in it are **mired** (45% slower in everything) and burn | 15 s |
-| Fire + Frost | **Thermal Shock** | on a creature already burning, chilled or frozen the blow lands 2.5x as hard, puts out its fire and ice, and bursts into a cloud of steam that hides the heroes in it; on anything else, half a build-up of each | 12 s |
+| Earth + Fire | **Breaking Quake** | gathering (2x a Hard Swing's wind-up, the ground trembling), you drive the blade into the floor; great gaping cracks full of magma tear out 120 px either way along it (`MagmaCracks`), and everything over them takes x1.6 and **100 fire** at once and is thrown up; they close 1.6 s later | 15 s |
+| Fire + Frost | **Thermal Shock** | a full build-up (100) of **whichever of fire and frost the creature holds more of**; then, frozen solid, it shatters at once, and burning, it bursts (combusts) at once | 12 s |
 
 | Elementalist | Attack | Dodge (movement) | Fixed range (Burst button) |
 |---|---|---|---|
@@ -2143,7 +2152,11 @@ Who has which is by who would: Frost Heave is the Swordsman's (the Elementalist 
 when it gets its elements.
 A **third charge** for the Elementalist (and the tri-charge abilities it would open) comes later. Online, the lasting spells live in the
 caster's game, which deals their blows; their look reaches the other games as the caster's effects (the Glacier Cleaver's axe shows on
-everyone's copy of the Swordsman). `--scenario=elements` checks every single and dual version for both heroes (`elements_hud.png`, `elements_tundra.png`,
+everyone's copy of the Swordsman). The Swordsman's newer ones are in `Combat/SwordSpells.cs` (`IceCrystals` for the Comet's burst, the
+Stalagmite Vault's trail and the Permafrost Strike's spears; `MagmaCracks` for Breaking Quake; `BlazeShell`, the Blazing Charge's sphere;
+`SteamScald`), drawn by `Render3D/Props/SwordSpellViews.cs` (clear glowing crystals bursting up and shrinking as they melt, jagged
+glowing rifts with heaved-up lips, a fire sphere from `fx_wardshell.gdshader`'s third kind); the crystals and cracks reach the other games
+as hero events, the charge and the Comet's blue-white glow as two bits beside his mode. `--scenario=elements` checks every single and dual version for both heroes (`elements_hud.png`, `elements_tundra.png`,
 `elements_iceaxe.png`, `duals_hud.png`, `duals_glacier.png`, `duals_inferno.png`, `duals_magma.png`, `duals_meteor.png`, `duals_breath.png`, `duals_tower.png`,
 `duals_rain.png`).
 
@@ -2159,8 +2172,8 @@ bits beside his mode), while his own game keeps what they stop. The pairs' guard
 
 | Warden (earth, frost, wind) | Plain | Earth | Frost | Wind |
 |---|---|---|---|---|
-| **Attack** (each mode swings at its own pace: wind-up, swing and cooldown x the pace) | the shortsword | **Stonecutter**: slow (2x the pace), x2, 50 earth; the ground jolts and grit flies off the blade | **Rime Edge**: steady (1.25x), x1.2, 50 frost, a sheet of rime along the arc | **Gale Edge**: quick (0.65x), x0.6, a little more reach, throws what it strikes far back (400), a gust and an afterimage |
-| **Block** (raising the shield calls up the mode's own guard; while one stands or rests, the shield is only the shield) | the shield | **Earth Shield**: the ground in front heaves up into a great lump of rock that curls over him for 2.5 s: nothing reaches him (blows or shots, from any side) and nothing moves him, and he can't move or leap; then it sinks back (rests 6 s) | **Frost Shield**: a faceted shell of ice about him (it stays when the shield is lowered) soaks 90% of every blow; once it has soaked 30 it shatters, filling every creature within 72 px with 90 frost and dealing 10 (rests 6 s) | **Wind Barrier**: a thin shell of streaking air soaks 20% of every blow, until it has soaked 40 (rests 4 s) |
+| **Attack** (each mode swings at its own pace: wind-up, swing and cooldown x the pace) | the shortsword | **Stonecutter**: slow (2x the pace), x2, 50 earth; the ground jolts and grit flies off the blade. In earth mode his sword is a club of packed dirt and stone, and **no combos**: a blow that lands never refunds the swing | **Rime Edge**: steady (1.25x), x1.2, 50 frost, a sheet of rime along the arc | **Gale Edge**: quick (0.65x), x0.6, a little more reach, throws what it strikes far back (400), a gust and an afterimage |
+| **Block** (raising the shield calls up the mode's own guard; while one stands or rests, the shield is only the shield) | the shield | **Earth Shield**: the ground in front heaves up into a great lump of rock that curls over him and stands **for as long as the block is held**: nothing reaches him (blows or shots, from any side, without limit), nothing moves him, he can't move or leap, and he **kneels** behind it with his shield up; it is a **wall** to creatures too (a body on the tower layer they can't pass). Let go and it sinks back at once (rests 6 s) | **Frost Shield**: a faceted shell of ice about him (it stays when the shield is lowered) soaks 90% of every blow; once it has soaked 30 it shatters, filling every creature within 72 px with 90 frost and dealing 10 (rests 6 s) | **Wind Barrier**: a small, nearly clear shell of streaking air (17 px) soaks 20% of every blow, until it has soaked 40 (rests 4 s) |
 | **Dash** (every elemental charge runs through creatures, each struck once, instead of stopping at one) | the Guarded Charge | **Rockslide Charge**: ploughs through (x0.6 each) and ends in a shockwave of earth, 60 px (x1.4, full earth) | **Frozen Tundra**: 40 frost to what it passes; the ground it crossed (and 40 px past each end) freezes for 8 s | **Gale Charge**: 1.6x as long and 1.3x as fast, throwing creatures aside; friends it passes get a tailwind for 3 s |
 
 | Pair | Attack | Block | Dash |

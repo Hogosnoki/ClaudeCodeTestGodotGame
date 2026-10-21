@@ -200,11 +200,14 @@ public partial class FxLayer : Node2D
         _quiet--;
     }
 
-    public void Text(Vector2 pos, string text, Color col, int size = 11, float life = 0.8f)
+    public void Text(Vector2 pos, string text, Color col, int size = 11, float life = 0.8f, float drift = -28f)
     {
         Rec(6)?.Vec(pos).Str(text).Col(col).Byte((byte)Math.Clamp(size, 0, 127)).Half(life);
-        _texts.Add(new FloatText { Pos = pos + new Vector2(G.Range(-6, 6), 0), Text = text, Col = col, Life = life, Max = life, Size = size, Drift = -28f });
+        _texts.Add(new FloatText { Pos = pos + new Vector2(G.Range(-6, 6), 0), Text = text, Col = col, Life = life, Max = life, Size = size, Drift = drift });
     }
+
+    /// <summary>An ability's name over the hero who used it: it springs up where it is and fades there (it doesn't float away).</summary>
+    public void AbilityName(Vector2 pos, string text, Color col, int size = 11, float life = 0.8f) => Text(pos, text, col, size, life, 0f);
 
     /// <summary>A number for one tick of damage over time: small, no pop, and it falls instead of rising.</summary>
     public void TickText(Vector2 pos, string text, Color col, int size = 9, float life = 0.55f)

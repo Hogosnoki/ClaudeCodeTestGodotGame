@@ -908,14 +908,14 @@ public partial class Hud : Control
     {
         "Searing Strike" => "SEARING", "Razor Ice" => "RAZOR", "Heaving Swing" => "HEAVE",
         "Fault Strike" => "FAULT", "Flame Crescent" => "CRESCENT", "Frost Lance" => "F.LANCE", "Magma Strike" => "MAGMA", "Permafrost Strike" => "PERMA",
-        "Steam Strike" => "STEAM", "Meteor Fall" => "METEOR", "Blast Lunge" => "BLAST", "Frozen Effigy" => "EFFIGY", "Magma Leap" => "MAGMA",
-        "Frostfall" => "FROSTFALL", "Steam Vault" => "STEAM", "Stoneheart Hilt" => "STONE H.", "Blazing Hilt" => "BLAZE H.", "Glacial Hilt" => "GLACIAL H.",
+        "Steam Strike" => "STEAM", "Meteor Fall" => "METEOR", "Blast Lunge" => "BLAST", "Stalagmite Vault" => "STALAG.", "Blazing Charge" => "CHARGE",
+        "Comet" => "COMET", "Steam Vault" => "STEAM", "Stoneheart Hilt" => "STONE H.", "Blazing Hilt" => "BLAZE H.", "Glacial Hilt" => "GLACIAL H.",
         "Magma Hilt" => "MAGMA H.", "Permafrost Hilt" => "PERMA H.", "Steam Hilt" => "STEAM H.", "Frostfire Bolts" => "FROSTFIRE", "Sky Lift" => "SKY LIFT",
         "Steam Veil" => "VEIL", "Bonfire" => "BONFIRE", "Ice Armor" => "ICE ARMOR", "Gale Draft" => "GALE", "Thermal Armor" => "THERMAL",
         "Wildfire" => "WILDFIRE", "Frostwind" => "FROSTWIND",
         "Hard Swing" => "HARD", "ThunderCrush" => "CRUSH", "Pyroclasty" => "PYRO", "Ice Axe" => "ICE AXE",
         "Earthsplitter" => "SPLITTER", "Inferno Cleave" => "INFERNO", "Glacier Cleaver" => "GLACIER", "Frost Heave" => "F.HEAVE",
-        "Magma Rend" => "MAGMA", "Thermal Shock" => "THERMAL",
+        "Breaking Quake" => "QUAKE", "Thermal Shock" => "THERMAL",
         "Dash Slash" => "DASH", "Explosive Lunge" => "LUNGE", "Glacial Vault" => "VAULT", "Earthfall" => "EARTHFALL",
         "Fire Walk" => "FIREWALK", "Frost Tower" => "TOWER", "Fire Barrier" => "FIRE RING", "Frost Barrier" => "BARRIER",
         "Force Blast" => "BLAST", "Rain of Fire" => "FIRE RAIN", "Frostfire Lance" => "LANCE", "Frost Armor" => "ARMOR", "Narrow Draft" => "DRAFT",
@@ -968,16 +968,19 @@ public partial class Hud : Control
             DrawLine(c + new Vector2(-12, 5), c + new Vector2(-5, 12), new Color(0.55f, 0.35f, 0.2f), 3f);
         }, swing, p.SwingElementRest);
         KeyHint(font, x, "attack");
-        // the dodge: the Dash Slash, or with a charge readied the element's leap (which rests on its own)
+        // the dodge: the mode's leap (or its greater one, or the mix), resting on its own; no Dash Slash in the elemental kit
         x += new Vector2(step, 0);
-        var dc = p.DodgeCooldowns;
-        string move = el != HeroElement.None && p.JumpElementRest <= 0 ? Elements.SingleName(p.Stats.Hero, ElemSlot.Move, el) : "Dash Slash";
-        for (int k = 0; k < dc.Length; k++)
-            Dial(x + new Vector2(k * 40 + 17, 17), Math.Clamp(dc[k] / p.DodgeCooldownTotal, 0, 1), move != "Dash Slash" ? Elements.ColorOf(el) : new Color(1f, 0.62f, 0.25f), null, move, dc[k]);
-        MoveLabel(font, p, x, move == "Dash Slash" ? "DASH" : Short(move), move != "Dash Slash" ? Elements.ColorOf(el) : (Color?)null);
+        string move = el != HeroElement.None ? p.NameFor(ElemSlot.Move) : "Dash Slash";
+        var moveCol = el != HeroElement.None ? Elements.ColorOf(el) : new Color(1f, 0.62f, 0.25f);
+        AbilitySquare(font, x, Short(move), p.JumpElementRestFrac, p.JumpElementRest <= 0, moveCol, (c, col) =>
+        {
+            // a leaping arc
+            DrawArc(c + new Vector2(0, 8), 11f, MathF.PI * 1.1f, MathF.PI * 1.9f, 10, col, 3f);
+            DrawLine(c + new Vector2(8, -2), c + new Vector2(11, 6), col, 3f);
+        }, move, p.JumpElementRest);
         KeyHint(font, x, "dodge");
         // Empower Hilt
-        x += new Vector2(Math.Max(step, dc.Length * 40 + 14), 0);
+        x += new Vector2(step, 0);
         var hiltCol = p.HiltLeft > 0 && p.HiltElement != HeroElement.None ? Elements.ColorOf(p.HiltElement) : el != HeroElement.None ? Elements.ColorOf(el) : new Color(1f, 0.8f, 0.45f);
         AbilitySquare(font, x, p.HiltLeft > 0 ? "HILT ON" : "HILT", p.HiltLeft > 0 ? 0 : p.ElementAbilityFrac, p.HiltLeft > 0 || p.AbilityChargeReady, hiltCol, (c, col) =>
         {
@@ -1115,7 +1118,7 @@ public partial class Hud : Control
     private void DrawWardenElemental(Font font, Player p, Vector2 ab)
     {
         string up = p.GuardName != "" ? $"{p.GuardName.ToUpperInvariant()} {p.GuardLeft:0}s"
-            : p.EarthShieldUp ? $"EARTH SHIELD {p.EarthShieldLeft:0.0}s"
+            : p.EarthShieldUp ? "EARTH SHIELD (HOLD)"
             : p.ShellElement == HeroElement.Frost ? $"FROST SHIELD {p.ShellLeft * 100f:0}%"
             : p.ShellElement == HeroElement.Wind ? $"WIND BARRIER {p.ShellLeft * 100f:0}%" : "";
         DrawElementRow(font, p, ab + new Vector2(0, -74), up);

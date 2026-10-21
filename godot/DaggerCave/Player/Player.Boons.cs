@@ -13,6 +13,10 @@ public partial class Player
 {
     /// <summary>Damage the barrier still soaks (0 = none).</summary>
     public float BarrierHp { get; private set; }
+    /// <summary>The barrier as it was given (what it has left is a share of this, for the meter over the hero).</summary>
+    private float _barrierCap;
+    /// <summary>For the meter over the hero: how much of the barrier is left (0..1; a puppet's, by its flag, whole or none).</summary>
+    public float BarrierFrac => IsRemote ? (Barriered ? 1f : 0f) : BarrierHp > 0.01f ? Math.Clamp(BarrierHp / Math.Max(0.01f, _barrierCap), 0f, 1f) : 0f;
     private float _barrierT, _mendRate, _mendLeft;
     private float _mendWard;
 
@@ -29,7 +33,9 @@ public partial class Player
     {
         if (Dead) return;
         if (IsRemote) { NetSync.BoonRemote(this, NetSync.Boon.Barrier, amount, seconds); return; }
+        if (BarrierHp <= 0.01f) _barrierCap = 0f;
         BarrierHp = Math.Max(BarrierHp, amount);
+        _barrierCap = Math.Max(_barrierCap, BarrierHp);
         _barrierT = Math.Max(_barrierT, seconds);
         // (whose barrier it is: its soaking is put down to them)
         _barrierBy = NetSync.Giver != 0 ? NetSync.Giver : Net.Me;
