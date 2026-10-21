@@ -230,10 +230,10 @@ public partial class Main
         foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
         float went = Math.Abs(p.GlobalPosition.X - x0);
         ScCheck($"fire's dodge is an Explosive Lunge: far forward ({went:0} px) and fire to what it left behind ({foe.FireBuild:0}, alight {foe.Ignited})", p.ElementalUses.Contains("Explosive Lunge") && went > 80f && (foe.FireBuild > 0 || foe.Ignited));
-        // and on the way he swings at the creatures he comes to
+        // and on the way he swings at the creatures he comes to (one past the reach of the burst he leaves from)
         foreach (var _ in ElWait(0.3f)) yield return null;
         foreach (var _ in Home()) yield return null;
-        var ahead = Fresh(55);
+        var ahead = Fresh(110);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElMode(2, 0.02f)) yield return null;
         foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
