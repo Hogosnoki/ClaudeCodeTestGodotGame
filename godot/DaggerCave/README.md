@@ -2175,8 +2175,9 @@ it) whatever the mode, and it carries from one mode to the next. Raised, it abso
 by what it absorbs (a perfect block still stops it all): **90%** in earth mode, **45%** in frost, **20%** in wind. Broken, it can't be
 raised for **4 s**, but it starts mending at once (5 a second at his starting health, `ShieldRegen`). It looks its mode, in every game: a
 slab of **brown-grey stone, solid** in earth; a pane of **pale blue ice**, half clear, in frost; a veil of **light grey air at 20%** in
-wind (the steel shield hangs from a bone of its own, `shield`, shrunk away while the elemental one is held in its place); it flashes when
-struck and is gone while broken. Only **overcharged** does the block call up the mode's **barrier**.
+wind (the steel shield hangs from a bone of its own, `shield`, shrunk away while the elemental one is held in its place), and raised, the
+guard before him is a curved slab of the same stuff, blended rather than glowing (`Fx3D.WardSlab`: the stone grained and solid, the ice
+and air thinning as the shield wears); it flashes when struck and is gone while broken. Only **overcharged** does the block call up the mode's **barrier**.
 
 | Warden (earth, frost, wind) | Plain | Earth | Frost | Wind |
 |---|---|---|---|---|

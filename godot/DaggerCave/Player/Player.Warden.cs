@@ -503,8 +503,10 @@ public partial class Player
     public struct Guard
     {
         public bool Shield, Dash;
-        public float Angle, Half, Strength;
+        public float Angle, Half, Strength, Flash;
         public Color Col;
+        /// <summary>The elemental Warden's shield in his mode's stuff (none: the arc of light).</summary>
+        public HeroElement Slab;
     }
 
     public Guard GetGuard()
@@ -520,6 +522,8 @@ public partial class Player
         if (_guard != "") g.Col = _guardB == HeroElement.None ? Elements.ColorOf(_guardA) : Elements.DualColor(_guardA, _guardB);
         g.Angle = ShieldDir.Angle();
         g.Half = ShieldArc * 0.5f;
+        g.Flash = ShieldFlash;
+        if (ElementShield && _guard == "" && !g.Dash) g.Slab = Mode;
         return g;
     }
 

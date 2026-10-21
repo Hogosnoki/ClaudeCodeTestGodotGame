@@ -1097,14 +1097,18 @@ public partial class Main
             float hpa = p.Hp;
             p.Hurt(10f, foe.GlobalPosition, 0f, foe);
             float took = hpa - p.Hp;
-            ScCheck($"frost overcharged: the Ice Barrier ({p.ShellElement}) stays after the shield is lowered and absorbs 80% of a blow ({took:0.0} of 10 through, {p.ShellSoaked:0.0} absorbed)",
-                p.ElementalUses.Contains("Ice Barrier") && p.ShellElement == HeroElement.Frost && took < 2.5f && Math.Abs(p.ShellSoaked - 10f * Tune.ElementalWarden.IceShare) < 0.3f);
+            // (his armour takes its part first: the barrier absorbs its share of what reaches it)
+            float reached = took + p.ShellSoaked;
+            ScCheck($"frost overcharged: the Ice Barrier ({p.ShellElement}) stays after the shield is lowered and absorbs 80% of a blow ({p.ShellSoaked:0.0} of the {reached:0.0} that reached it, {took:0.0} through)",
+                p.ElementalUses.Contains("Ice Barrier") && p.ShellElement == HeroElement.Frost && Math.Abs(p.ShellSoaked / reached - Tune.ElementalWarden.IceShare) < 0.02f);
             ScShot("warden_icebarrier");
             float foeHp = foe.Hp;
             int blows = 1;
+            float perBlow = p.ShellSoaked;
             for (int k = 0; k < 4 && p.ShellElement == HeroElement.Frost; k++) { foreach (var _ in ElWait(wait)) yield return null; p.Hurt(10f, foe.GlobalPosition, 0f, foe); blows++; }
-            ScCheck($"once it has absorbed {Tune.ElementalWarden.IceHold:0} it shatters ({blows} blows, {p.ShellsShattered}): the creature about him is filled with frost ({foe.FrostBuild:0}, chilled {foe.Chilled}) and struck ({foeHp - foe.Hp:0})",
-                p.ShellElement == HeroElement.None && blows == 2 && p.ShellsShattered > 0 && (foe.Chilled || foe.FrozenSolid || foe.FrostBuild > 1) && foe.Hp < foeHp);
+            int expect = (int)MathF.Ceiling(Tune.ElementalWarden.IceHold / perBlow - 0.001f);
+            ScCheck($"once it has absorbed {Tune.ElementalWarden.IceHold:0} it shatters ({blows} blows of {perBlow:0.0}, {p.ShellsShattered}): the creature about him is filled with frost ({foe.FrostBuild:0}, chilled {foe.Chilled}) and struck ({foeHp - foe.Hp:0})",
+                p.ShellElement == HeroElement.None && blows == expect && p.ShellsShattered > 0 && (foe.Chilled || foe.FrozenSolid || foe.FrostBuild > 1) && foe.Hp < foeHp);
         }
         // wind overcharged: the Tenuous Barrier absorbs 20% and dissipates once it has absorbed 10
         Clear(); Home();
@@ -1115,12 +1119,22 @@ public partial class Main
             float hpa = p.Hp;
             p.Hurt(10f, p.GlobalPosition + new Vector2(30f * p.Facing, 0), 0f);
             float took = hpa - p.Hp;
-            ScCheck($"wind overcharged: the Tenuous Barrier ({p.ShellElement}) absorbs 20% of a blow ({took:0.0} of 10 through, {p.ShellSoaked:0.0} absorbed)",
-                p.ElementalUses.Contains("Tenuous Barrier") && p.ShellElement == HeroElement.Wind && took > 7f && took < 9.9f && Math.Abs(p.ShellSoaked - 10f * Tune.ElementalWarden.TenuousShare) < 0.3f);
+            float reached = took + p.ShellSoaked;
+            ScCheck($"wind overcharged: the Tenuous Barrier ({p.ShellElement}) absorbs 20% of a blow ({p.ShellSoaked:0.0} of the {reached:0.0} that reached it, {took:0.0} through)",
+                p.ElementalUses.Contains("Tenuous Barrier") && p.ShellElement == HeroElement.Wind && Math.Abs(p.ShellSoaked / reached - Tune.ElementalWarden.TenuousShare) < 0.02f);
             ScShot("warden_tenuous");
             int blows = 1;
-            for (int k = 0; k < 8 && p.ShellElement == HeroElement.Wind; k++) { foreach (var _ in ElWait(wait)) yield return null; p.Hurt(20f, p.GlobalPosition + new Vector2(30f * p.Facing, 0), 0f); blows++; }
-            ScCheck($"it dissipates once it has absorbed {Tune.ElementalWarden.TenuousHold:0} ({blows} blows)", p.ShellElement == HeroElement.None && blows == 3);
+            float soaked = p.ShellSoaked, perBlow = 0f;
+            for (int k = 0; k < 8 && p.ShellElement == HeroElement.Wind; k++)
+            {
+                foreach (var _ in ElWait(wait)) yield return null;
+                float before = p.ShellSoaked;
+                p.Hurt(20f, p.GlobalPosition + new Vector2(30f * p.Facing, 0), 0f);
+                blows++;
+                if (p.ShellElement == HeroElement.Wind) { perBlow = p.ShellSoaked - before; soaked = p.ShellSoaked; }
+            }
+            ScCheck($"it dissipates once it has absorbed {Tune.ElementalWarden.TenuousHold:0} ({blows} blows; {soaked:0.0} absorbed before the last, {perBlow:0.0} a blow)",
+                p.ShellElement == HeroElement.None && perBlow > 0f && soaked < Tune.ElementalWarden.TenuousHold && soaked + perBlow >= Tune.ElementalWarden.TenuousHold - 0.01f);
         }
         // ---- the dash: each element, then each pair (every elemental charge runs through creatures)
         Clear(); Home();

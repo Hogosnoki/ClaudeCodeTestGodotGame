@@ -59,6 +59,9 @@ public partial class Fx3D : Node3D
     private MeshInstance3D _field;
     private ShaderMaterial _fieldMat;
     private ImmediateMesh _rmesh;
+    /// <summary>The elemental Warden's shield in front of him, blended (not added): solid stone, a pane of ice, a veil of air.</summary>
+    private ImmediateMesh _smesh;
+    private MeshInstance3D _slabs;
     private OmniLight3D _bladeLight;
     private ShaderMaterial _barrierMat;
     private float _time;
@@ -113,6 +116,18 @@ public partial class Fx3D : Node3D
             CustomAabb = new Aabb(new Vector3(-5000, -5000, -50), new Vector3(10000, 10000, 100)),
         };
         AddChild(_ribbon);
+        _smesh = new ImmediateMesh();
+        _slabs = new MeshInstance3D
+        {
+            Name = "WardSlabs", Mesh = _smesh, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+            MaterialOverride = new StandardMaterial3D
+            {
+                VertexColorUseAsAlbedo = true, Transparency = BaseMaterial3D.TransparencyEnum.Alpha, ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+                CullMode = BaseMaterial3D.CullModeEnum.Disabled, DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Disabled,
+            },
+            CustomAabb = new Aabb(new Vector3(-5000, -5000, -50), new Vector3(10000, 10000, 100)),
+        };
+        AddChild(_slabs);
         _bladeLight = new OmniLight3D { Visible = false, ShadowEnabled = false, OmniRange = 3.5f, LightEnergy = 0f, LightVolumetricFogEnergy = 0.8f };
         AddChild(_bladeLight);
 
@@ -394,7 +409,8 @@ public partial class Fx3D : Node3D
     private void DrawHero()
     {
         _rmesh.ClearSurfaces();
-        bool any = false, blade = false;
+        _smesh.ClearSurfaces();
+        bool any = false, blade = false, slab = false;
         int shells = 0, bubbles = 0;
         var circles = new Vector4[6];
         void Shell(Player p, float r, Color c)
@@ -412,7 +428,8 @@ public partial class Fx3D : Node3D
             // the light behind a cut is drawn from where the blade actually was (read off the hero's model)
             if (BladeRibbon(p)) { any = true; blade = true; }
             var g = p.GetGuard();
-            if (g.Shield) { GuardArc(p, g); any = true; }
+            if (g.Shield && g.Slab != HeroElement.None) { WardSlab(p, g); slab = true; }
+            else if (g.Shield) { GuardArc(p, g); any = true; }
             // the Guarded Charge: a shell of blue light around the charging Warden
             if (g.Dash) Shell(p, 17f, new Color(0.45f, 0.75f, 1f, 0.55f));
             // a barrier (Guardian's Charge): a paler, larger shell that breathes
@@ -443,7 +460,53 @@ public partial class Fx3D : Node3D
         for (int k = shells; k < _shells.Length; k++) _shells[k].Visible = false;
         if (!blade) _bladeLight.Visible = false;
         _ribbon.Visible = any;
+        _slabs.Visible = slab;
     }
+
+    /// <summary>
+    /// The elemental Warden's shield, raised: a curved slab before him over the shield's arc, in his mode's stuff. Earth: brown-grey stone,
+    /// solid, darker at its edges and grained; frost: a pane of pale blue ice, half clear, its rim frosted white; wind: a veil of light grey
+    /// air at a fifth, streaks running through it. It flashes when struck, and thins as the shield wears.
+    /// </summary>
+    private void WardSlab(Player p, Player.Guard g)
+    {
+        const int n = 18;
+        var o = p.GlobalPosition + new Vector2(0, -3);
+        var (body, rim, alpha) = g.Slab switch
+        {
+            HeroElement.Earth => (new Color(0.46f, 0.42f, 0.38f), new Color(0.3f, 0.27f, 0.24f), 1f),
+            HeroElement.Frost => (new Color(0.62f, 0.84f, 1f), new Color(0.92f, 0.97f, 1f), 0.55f),
+            _ => (new Color(0.86f, 0.88f, 0.9f), new Color(0.95f, 0.96f, 0.98f), 0.2f),
+        };
+        float flash = Math.Clamp(g.Flash * 5f, 0f, 1f);
+        // (worn, the ice and air thin out; the stone stays solid)
+        float a = g.Slab == HeroElement.Earth ? 1f : alpha * (0.6f + 0.4f * g.Strength);
+        float r0 = 13f, r1 = 19.5f;
+        _smesh.SurfaceBegin(Mesh.PrimitiveType.Triangles);
+        for (int k = 0; k < n - 1; k++)
+        {
+            float u0 = k / (float)(n - 1), u1 = (k + 1) / (float)(n - 1);
+            float a0 = g.Angle - g.Half + 2f * g.Half * u0, a1 = g.Angle - g.Half + 2f * g.Half * u1;
+            // (thicker in the middle, tapering to the ends)
+            float t0 = MathF.Sin(u0 * MathF.PI), t1 = MathF.Sin(u1 * MathF.PI);
+            float in0 = r1 - (r1 - r0) * (0.45f + 0.55f * t0), in1 = r1 - (r1 - r0) * (0.45f + 0.55f * t1);
+            // (stone is grained: each block a shade lighter or darker; air streaks; ice is even)
+            float grain0 = g.Slab == HeroElement.Earth ? 0.88f + 0.24f * Hash(k) : g.Slab == HeroElement.Wind ? 0.85f + 0.3f * (0.5f + 0.5f * MathF.Sin(k * 1.7f + _time * 9f)) : 1f;
+            var inner = Lin(body.Lerp(Colors.White, flash * 0.5f) * grain0) with { A = a };
+            var outer = Lin(rim.Lerp(Colors.White, flash * 0.5f)) with { A = Math.Min(1f, a * (g.Slab == HeroElement.Earth ? 1f : 1.5f)) };
+            var A = W3.P(o + Vector2.Right.Rotated(a0) * r1, 0.35f); var B = W3.P(o + Vector2.Right.Rotated(a1) * r1, 0.35f);
+            var C = W3.P(o + Vector2.Right.Rotated(a1) * in1, 0.35f); var D = W3.P(o + Vector2.Right.Rotated(a0) * in0, 0.35f);
+            _smesh.SurfaceSetColor(outer); _smesh.SurfaceAddVertex(A);
+            _smesh.SurfaceSetColor(outer); _smesh.SurfaceAddVertex(B);
+            _smesh.SurfaceSetColor(inner); _smesh.SurfaceAddVertex(C);
+            _smesh.SurfaceSetColor(outer); _smesh.SurfaceAddVertex(A);
+            _smesh.SurfaceSetColor(inner); _smesh.SurfaceAddVertex(C);
+            _smesh.SurfaceSetColor(inner); _smesh.SurfaceAddVertex(D);
+        }
+        _smesh.SurfaceEnd();
+    }
+
+    private static float Hash(int k) => (MathF.Sin(k * 127.1f + 311.7f) * 43758.5453f) % 1f is var f && f < 0 ? f + 1f : f;
 
     private readonly List<(Vector3 b, Vector3 d, float age)> _trailPts = new();
 
