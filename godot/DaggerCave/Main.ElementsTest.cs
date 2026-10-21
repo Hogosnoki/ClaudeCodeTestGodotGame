@@ -220,14 +220,18 @@ public partial class Main
         // Explosive Lunge: a blast where it leaves the ground, and far forward
         foreach (var _ in ElWait(0.4f)) yield return null;
         foe = Fresh(-22);
-        var ahead = ElDummy(p, 60);
-        foes.Add(ahead);
         foreach (var _ in ElWait(0.2f)) yield return null;
-        float x0 = p.GlobalPosition.X, y0 = p.GlobalPosition.Y, peak = 0f;
+        float x0 = p.GlobalPosition.X;
         foreach (var _ in ElMode(2, 0.02f)) yield return null;
         foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
         float went = Math.Abs(p.GlobalPosition.X - x0);
         ScCheck($"fire's dodge is an Explosive Lunge: far forward ({went:0} px) and fire to what it left behind ({foe.FireBuild:0}, alight {foe.Ignited})", p.ElementalUses.Contains("Explosive Lunge") && went > 80f && (foe.FireBuild > 0 || foe.Ignited));
+        // and on the way he swings at the creatures he comes to
+        foreach (var _ in ElWait(0.3f)) yield return null;
+        var ahead = Fresh(55);
+        foreach (var _ in ElWait(0.2f)) yield return null;
+        foreach (var _ in ElMode(2, 0.02f)) yield return null;
+        foreach (var _ in ElJump(p, 0.3f, _ => { }, dodge: true)) yield return null;
         ScCheck($"on the way he swings at the creature he meets ({p.LungeStrikes} struck, {ahead.MaxHp - ahead.Hp:0} damage)", p.LungeStrikes >= 1 && ahead.Hp < ahead.MaxHp);
         // Earthfall: it lands in a shockwave
         foreach (var _ in ElWait(0.4f)) yield return null;
