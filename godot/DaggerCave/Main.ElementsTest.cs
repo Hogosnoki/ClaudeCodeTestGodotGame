@@ -183,6 +183,9 @@ public partial class Main
     {
         var foes = new List<Enemy>();
         Enemy Fresh(float dx) { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); var e = ElDummy(p, dx); foes.Add(e); return e; }
+        // (the vaults carry him back toward the cave's end: he's brought home before the leaps forward, so each starts on open floor)
+        var home = p.GlobalPosition; float homeFace = p.Facing;
+        IEnumerable<object> Home() { p.GlobalPosition = home; p.Velocity = Vector2.Zero; p.Facing = homeFace; foreach (var _ in ElWait(0.3f)) yield return null; }
         foreach (var _ in ElWait(0.5f)) yield return null;
         float plain = 0, vault = 0;
         foreach (var _ in ElJump(p, 0.5f, h => plain = h)) yield return null;
@@ -219,6 +222,7 @@ public partial class Main
         }
         // Explosive Lunge: a blast where it leaves the ground, and far forward
         foreach (var _ in ElWait(0.4f)) yield return null;
+        foreach (var _ in Home()) yield return null;
         foe = Fresh(-22);
         foreach (var _ in ElWait(0.2f)) yield return null;
         float x0 = p.GlobalPosition.X;
@@ -228,6 +232,7 @@ public partial class Main
         ScCheck($"fire's dodge is an Explosive Lunge: far forward ({went:0} px) and fire to what it left behind ({foe.FireBuild:0}, alight {foe.Ignited})", p.ElementalUses.Contains("Explosive Lunge") && went > 80f && (foe.FireBuild > 0 || foe.Ignited));
         // and on the way he swings at the creatures he comes to
         foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Home()) yield return null;
         var ahead = Fresh(55);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElMode(2, 0.02f)) yield return null;
@@ -271,6 +276,7 @@ public partial class Main
         ScCheck($"but in the air frost's dodge is nothing: the vault goes only from the ground ({p.ElementalUses.Count(u => u == "Glacial Vault") - vaulted} vaults, no Dash Slash: {p.DashSlashes})", p.ElementalUses.Count(u => u == "Glacial Vault") == vaulted && p.DashSlashes == 0);
         foreach (var _ in ElWait(0.6f)) yield return null;
         foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
+        foreach (var _ in Home()) yield return null;
     }
 
     /// <summary>The mode of element <paramref name="a"/>, overcharged (<paramref name="b"/> the same): the greater version waits on the buttons
@@ -552,6 +558,8 @@ public partial class Main
     {
         var foes = new List<Enemy>();
         Enemy Fresh(float dx) { foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree(); foes.Clear(); var e = ElDummy(p, dx); foes.Add(e); return e; }
+        var home = p.GlobalPosition; float homeFace = p.Facing;
+        IEnumerable<object> Home() { p.GlobalPosition = home; p.Velocity = Vector2.Zero; p.Facing = homeFace; foreach (var _ in ElWait(0.3f)) yield return null; }
         IEnumerable<object> Dodge() { while (p.JumpElementRest > 0 || !p.IsOnFloor()) yield return null; _scInput = new PlayerInput { Dodge = true, JumpHeld = true }; yield return null; _scInput = default; }
         foreach (var _ in ElWait(0.4f)) yield return null;
 
@@ -570,6 +578,7 @@ public partial class Main
 
         // Comet (earth and frost): a leap forward, all blue-white; landing, a burst of frost (100 frost) and crystals of ice
         foreach (var _ in ElWait(0.4f)) yield return null;
+        foreach (var _ in Home()) yield return null;
         foe = Fresh(90);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElPair(p, 1, 3)) yield return null;
@@ -586,6 +595,7 @@ public partial class Main
 
         // Stalagmite Vault (frost overcharged): a leap back, stalagmites of ice bursting up from the ground he passes over
         foreach (var _ in ElWait(0.3f)) yield return null;
+        foreach (var _ in Home()) yield return null;
         foe = Fresh(-45);
         foreach (var _ in ElWait(0.2f)) yield return null;
         foreach (var _ in ElPair(p, 3, 3)) yield return null;
@@ -599,6 +609,7 @@ public partial class Main
         ScCheck($"and leaves no likeness ({G.World.GetChildren().OfType<IceDecoy>().Count() - decoys0} new)", G.World.GetChildren().OfType<IceDecoy>().Count() == decoys0);
         foreach (var _ in ElWait(1.5f)) yield return null;
         foreach (var f in foes) if (IsInstanceValid(f)) f.QueueFree();
+        foreach (var _ in Home()) yield return null;
     }
 
     private IEnumerable<object> ElementalistRun()
