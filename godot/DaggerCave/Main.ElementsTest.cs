@@ -1026,12 +1026,12 @@ public partial class Main
             if (carried >= 0f) ScCheck($"switched to {p.Mode}, the shield keeps what it had ({carried:0.0} -> {p.ShieldHp:0.0})", Math.Abs(p.ShieldHp - carried) < 0.6f);
             // (held past the perfect window: a perfect block stops it all)
             foreach (var _ in Hold(0.5f)) yield return null;
+            ScShot("warden_shield_" + p.Mode.ToString().ToLowerInvariant());
             float hpa = p.Hp, sh0 = p.ShieldHp;
             p.Hurt(10f, foe.GlobalPosition, 0f, foe);
             float took = hpa - p.Hp, absorbed = sh0 - p.ShieldHp;
             ScCheck($"{p.Mode} mode: the {name} ({p.NameFor(ElemSlot.Heavy)}) absorbs {share * 100f:0}% of a blow ({absorbed:0.0} of 10 absorbed, {took:0.0} through), worn by just that",
                 p.NameFor(ElemSlot.Heavy) == name && Math.Abs(absorbed - share * 10f) < 0.3f && took <= 10f * (1f - share) + 0.3f && took > 10f * (1f - share) * 0.5f - 0.3f);
-            ScShot("warden_shield_" + p.Mode.ToString().ToLowerInvariant());
             carried = p.ShieldHp;
             _scInput = default;
             foreach (var _ in ElWait(0.05f)) yield return null;

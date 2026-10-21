@@ -474,11 +474,12 @@ public partial class Fx3D : Node3D
         var o = p.GlobalPosition + new Vector2(0, -3);
         var (body, rim, alpha) = g.Slab switch
         {
-            HeroElement.Earth => (new Color(0.46f, 0.42f, 0.38f), new Color(0.3f, 0.27f, 0.24f), 1f),
-            HeroElement.Frost => (new Color(0.62f, 0.84f, 1f), new Color(0.92f, 0.97f, 1f), 0.55f),
+            // (cooler than they'd look on their own: the cave's light is warm)
+            HeroElement.Earth => (new Color(0.4f, 0.39f, 0.38f), new Color(0.24f, 0.23f, 0.23f), 1f),
+            HeroElement.Frost => (new Color(0.38f, 0.66f, 1f), new Color(0.7f, 0.88f, 1f), 0.55f),
             _ => (new Color(0.86f, 0.88f, 0.9f), new Color(0.95f, 0.96f, 0.98f), 0.2f),
         };
-        float flash = Math.Clamp(g.Flash * 5f, 0f, 1f);
+        float flash = Math.Clamp(g.Flash * 4f, 0f, 1f) * 0.35f;
         // (worn, the ice and air thin out; the stone stays solid)
         float a = g.Slab == HeroElement.Earth ? 1f : alpha * (0.6f + 0.4f * g.Strength);
         float r0 = 13f, r1 = 19.5f;
@@ -492,8 +493,8 @@ public partial class Fx3D : Node3D
             float in0 = r1 - (r1 - r0) * (0.45f + 0.55f * t0), in1 = r1 - (r1 - r0) * (0.45f + 0.55f * t1);
             // (stone is grained: each block a shade lighter or darker; air streaks; ice is even)
             float grain0 = g.Slab == HeroElement.Earth ? 0.88f + 0.24f * Hash(k) : g.Slab == HeroElement.Wind ? 0.85f + 0.3f * (0.5f + 0.5f * MathF.Sin(k * 1.7f + _time * 9f)) : 1f;
-            var inner = Lin(body.Lerp(Colors.White, flash * 0.5f) * grain0) with { A = a };
-            var outer = Lin(rim.Lerp(Colors.White, flash * 0.5f)) with { A = Math.Min(1f, a * (g.Slab == HeroElement.Earth ? 1f : 1.5f)) };
+            var inner = Lin(body.Lerp(Colors.White, flash) * grain0) with { A = a };
+            var outer = Lin(rim.Lerp(Colors.White, flash)) with { A = Math.Min(1f, a * (g.Slab == HeroElement.Earth ? 1f : 1.5f)) };
             var A = W3.P(o + Vector2.Right.Rotated(a0) * r1, 0.35f); var B = W3.P(o + Vector2.Right.Rotated(a1) * r1, 0.35f);
             var C = W3.P(o + Vector2.Right.Rotated(a1) * in1, 0.35f); var D = W3.P(o + Vector2.Right.Rotated(a0) * in0, 0.35f);
             _smesh.SurfaceSetColor(outer); _smesh.SurfaceAddVertex(A);
