@@ -488,9 +488,10 @@ public partial class Main
         ScCheck($"then its fissure reaches a creature {reach * 2.2f:0} px off and stuns it ({lost:0} damage, reeling {foe.Reeling})", lost > Tune.Swordsman.Damage && foe.Reeling);
         foreach (var _ in ElWait(0.6f)) yield return null;
 
-        // Breaking Quake: the blade driven into the floor, cracks of magma tearing out either way: 100 fire to what stands over them
+        // Breaking Quake: the blade driven into the floor in front, cracks of magma tearing out either way: 100 fire to what stands over them
+        // (one creature well past the blow, one just behind the hero: the cracks run back past him from where the blade went in)
         foe = Fresh(reach * 2f);
-        var behind = ElDummy(p, -reach * 1.5f);
+        var behind = ElDummy(p, -reach * 0.25f);
         foes.Add(behind);
         foreach (var _ in ElWait(0.2f)) yield return null;
         p.ResetAbilityCooldowns();
