@@ -315,15 +315,16 @@ public static class SculptMesher
             int nearest = -1;
             var nearMat = Mat.Skin;
             var near = Near(q);
+            bool crispNear = false;
             foreach (var p in near)
             {
                 if (p.Subtract || !p.Bounds.HasPoint(q)) continue;
                 float dp = p.Dist(q);
-                if (dp < dmin) { dmin = dp; nearest = p.Bone; nearMat = p.Mat; }
+                if (dp < dmin) { dmin = dp; nearest = p.Bone; nearMat = p.Mat; crispNear = p.Crisp; }
             }
             Array.Clear(boneW);
             Array.Clear(kw);
-            float wsum = 0f;
+            float wsum = 0f, csum = 0f;
             Vector3 col = Vector3.Zero;
             float rough = 0, metal = 0, sss = 0, emit = 0, detail = 0;
             foreach (var p in near)
@@ -332,25 +333,30 @@ public static class SculptMesher
                 // (only the bones near the nearest one's share the vertex: no weight from the far limb it merely touches)
                 if (nearest >= 0 && !rel[nearest, p.Bone]) continue;
                 float d = p.Dist(q) - dmin;
-                float sigma = Math.Max(p.Blend, cell) * 0.6f;
-                float w = MathF.Exp(-d / sigma);
+                float w = MathF.Exp(-d / (Math.Max(p.Blend, cell) * 0.6f));
+                // (a crisp primitive's colour and material stop hard at its edge, both ways: it neither bleeds out nor takes on its
+                // neighbours'; the bones still share the vertex smoothly, so it bends as before)
+                float wc = p.Crisp || crispNear ? MathF.Exp(-d / (cell * 0.35f)) : w;
                 if (w < 0.01f) continue;
                 wsum += w;
                 boneW[p.Bone] += w;
-                col += new Vector3(p.Col.R, p.Col.G, p.Col.B) * w;
+                if (wc < 0.001f) continue;
+                csum += wc;
+                col += new Vector3(p.Col.R, p.Col.G, p.Col.B) * wc;
                 var mi = MatInfo.Of(p.Mat);
-                rough += mi.Rough * w; metal += mi.Metal * w; sss += mi.Sss * w;
-                emit += (p.Emit >= 0 ? p.Emit : mi.Emit) * w; detail += mi.Detail * w;
-                kw[Math.Clamp((int)mi.Detail, 0, 7)] += w;
+                rough += mi.Rough * wc; metal += mi.Metal * wc; sss += mi.Sss * wc;
+                emit += (p.Emit >= 0 ? p.Emit : mi.Emit) * wc; detail += mi.Detail * wc;
+                kw[Math.Clamp((int)mi.Detail, 0, 7)] += wc;
             }
-            if (wsum <= 0f) { wsum = 1f; boneW[0] = 1f; col = Vector3.One * 0.5f; rough = 0.6f; }
-            col /= wsum;
+            if (wsum <= 0f) { wsum = 1f; boneW[0] = 1f; }
+            if (csum <= 0f) { csum = 1f; col = Vector3.One * 0.5f; rough = 0.6f; }
+            col /= csum;
             var painted = new Color(col.X, col.Y, col.Z);
             foreach (var paint in s.Paints) painted = paint(q, painted, nearMat);
-            body.C[k] = new Color(painted.R, painted.G, painted.B, rough / wsum);
-            custom.Add(metal / wsum); custom.Add(sss / wsum); custom.Add(emit / wsum); custom.Add(DominantDetail(near, q, dmin) / 8f);
-            for (int j = 0; j < 4; j++) kinds0.Add(kw[j] / wsum);
-            for (int j = 0; j < 4; j++) kinds1.Add(kw[4 + j] / wsum);
+            body.C[k] = new Color(painted.R, painted.G, painted.B, rough / csum);
+            custom.Add(metal / csum); custom.Add(sss / csum); custom.Add(emit / csum); custom.Add(DominantDetail(near, q, dmin) / 8f);
+            for (int j = 0; j < 4; j++) kinds0.Add(kw[j] / csum);
+            for (int j = 0; j < 4; j++) kinds1.Add(kw[4 + j] / csum);
             AddTop4(boneW, bones, weights);
             dominant[k] = bones[bones.Count - 4];
         }

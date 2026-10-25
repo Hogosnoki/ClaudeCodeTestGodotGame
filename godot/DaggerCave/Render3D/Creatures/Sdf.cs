@@ -63,6 +63,9 @@ public sealed class Prim
     public float Bump;            // noise displacement amplitude (m)
     public float BumpScale = 30f; // noise frequency (per m)
     public float Emit = -1f;      // override of the material's glow
+    /// <summary>A hard colour edge: this primitive keeps its own colour right to where its surface meets another's (a beard on a chin, a
+    /// mask over a face, a scarf at a throat), instead of the colours blending across the smooth union's width.</summary>
+    public bool Crisp;
     public Aabb Bounds;
 
     // round cone precomputation

@@ -183,20 +183,20 @@ public sealed partial class HeroDesign
             for (int k = 0; k < 2; k++)
             {
                 float z = k == 0 ? 1 : -1;
-                s.Limb(headB, T(0.012f, 0.716f, 0.06f * z), T(0.062f, 0.656f, 0.038f * z), (jawR + 0.006f) * sc, (jawR + 0.008f) * sc, bc, HairMat, 0.012f, 0.0025f);
+                s.Limb(headB, T(0.012f, 0.716f, 0.06f * z), T(0.062f, 0.656f, 0.038f * z), (jawR + 0.006f) * sc, (jawR + 0.008f) * sc, bc, HairMat, 0.005f, 0.0015f).Crisp = true;
                 Strand(s, headB, Along(0.003f * z, 0.026f * z * mw, 6, t => 0.6885f - 0.003f * t - 0.012f * t * t, 0.002f), Rad(new[] { 0.0042f, 0.0052f, 0.0055f, 0.005f, 0.004f, 0.0025f }, 1f), bc, HairMat);
             }
-            s.Ball(headB, T(0.096f, 0.648f, 0), 0.031f * sc * f.Chin, bc, HairMat, 0.014f, 0.0025f);
+            s.Ball(headB, T(0.096f, 0.648f, 0), 0.031f * sc * f.Chin, bc, HairMat, 0.006f, 0.0015f).Crisp = true;
         }
         if (f.Beard == Beard.Long)
         {
             // and long, falling from the chin to the chest in a tapering point
-            s.Limb(headB, T(0.09f, 0.645f, 0), T(0.112f, 0.56f, 0), 0.032f * sc, 0.02f * sc, bc, HairMat, 0.016f, 0.003f);
-            s.Limb(headB, T(0.112f, 0.56f, 0), T(0.12f, 0.5f, 0.004f), 0.02f * sc, 0.006f * sc, bc, HairMat, 0.012f, 0.002f);
+            s.Limb(headB, T(0.09f, 0.645f, 0), T(0.112f, 0.56f, 0), 0.032f * sc, 0.02f * sc, bc, HairMat, 0.006f, 0.0018f).Crisp = true;
+            s.Limb(headB, T(0.112f, 0.56f, 0), T(0.12f, 0.5f, 0.004f), 0.02f * sc, 0.006f * sc, bc, HairMat, 0.005f, 0.0015f).Crisp = true;
             for (int k = 0; k < 2; k++)
             {
                 float z = k == 0 ? 1 : -1;
-                s.Limb(headB, T(0.05f, 0.66f, 0.04f * z), T(0.085f, 0.58f, 0.022f * z), 0.022f * sc, 0.012f * sc, bc, HairMat, 0.014f, 0.003f);
+                s.Limb(headB, T(0.05f, 0.66f, 0.04f * z), T(0.085f, 0.58f, 0.022f * z), 0.022f * sc, 0.012f * sc, bc, HairMat, 0.005f, 0.0018f).Crisp = true;
             }
         }
 

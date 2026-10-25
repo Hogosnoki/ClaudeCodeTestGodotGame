@@ -723,7 +723,7 @@ All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a sty
   players in an online game see the same orbs (the state rides the hero's net flags).
   Under the tall hood is an old, weathered face: gaunt under high cheekbones, with deep-set eyes catching the orb's light under bushy grey brows, a hooked nose, the lines of age and a long grey beard.
 - The Aegis: an ivory robe and teal mantle, and a pale hood thrown back from a calm, soft-featured face. The face has a smooth brow, a straight nose, full lips at ease and a gentle near-smile, with dark hair parted under a gold circlet set with a teal stone.
-- The Shape Shifter: a grey robe, a wildwood staff with antler tines, and a lean, wild face. The face is all sharp cheekbones and narrow jaw, with pale shining eyes, a smirk, stubble, tangled ash-grey hair, a band of charcoal across the eyes and claw marks down one cheek.
+- The Shape Shifter: a young woman in a grey robe, with a wildwood staff with antler tines. She has a lean, wild face: high sharp cheekbones over a fine jaw, pale shining eyes and a sly half-smile. Long silver-grey hair falls from her hood to her collarbones and is swept across her brow. A band of charcoal crosses her eyes, with claw marks down one cheek and a red collar at her throat. (The red point that used to stick out behind her head was an old scarf tail, removed.)
 - The Automaton: a copper head under a brass dome, and no face at all: a blank, smooth faceplate (the one hero without facial features).
 
 **Faces.** Every hero's face is built on the Swordsman's carefully placed anatomy (`Designs/HeroDesign.Faces.cs`), moved, scaled and reshaped by a `Face` of the hero's own:
@@ -734,8 +734,10 @@ All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a sty
 - **Fine strands on the skin:** brows, the lids' lash lines, the lips, the mouth's line, nostrils and philtrum.
 - **Paint:** a flush on the cheeks, shadow in the sockets, warmth about the mouth, a beard's shadow, war paint.
 
-Each eye is a white, an iris and a pupil, turned in a touch, with the upper lid over its top. Every hero is now meshed at the Swordsman's 1 cm grid (about 55-75k triangles; a hero takes about half a second to bake). `--sheetclips=rest:0` poses the rig at rest for close-ups.
-- The Rogue: a plum hood, a dark mask drawn up to the bridge of the nose, dark leather, a short cape and a dagger in each hand. Above the mask is a lean face with high cheekbones and intent brows, red eyes, and a lock of pale hair fallen across one eye.
+Each eye is a white, an iris and a pupil, turned in a touch, with the upper lid over its top.
+
+**Crisp edges.** Beards, hair, bandanas, collars, helms and masks are marked `Prim.Crisp`. Their colour and material stop hard where their surface meets another's, instead of blending across the smooth union's width (which left a beard half skin, or a red scarf bleeding onto a jaw); the bones still share those vertices smoothly, so they bend as before. They are also joined with tight blends, so they read as cloth or hair with an edge. Every hero is now meshed at the Swordsman's 1 cm grid (about 55-75k triangles; a hero takes about half a second to bake). `--sheetclips=rest:0` poses the rig at rest for close-ups.
+- The Rogue: a plum hood, dark leather, a short cape and a dagger in each hand. A dark bandana is tied over his face to just under the eyes, hiding his nose, mouth and jaw; its hem is pulled taut across the bridge of the nose from cheek to cheek, with folds drawn down under the cheekbones. Above it are intent brows, red eyes, and a lock of pale hair fallen across one eye.
 
 They share every clip:
 - idle

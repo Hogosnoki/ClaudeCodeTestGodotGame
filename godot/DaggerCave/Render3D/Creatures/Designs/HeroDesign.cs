@@ -208,6 +208,9 @@ public sealed partial class HeroDesign : CreatureDesign
             s.Egg(hipsB, new(-0.075f, -0.09f, 0), new(0.045f, 0.12f, 0.12f), leather, Mat.Leather, 0.02f);
             // a strap across the chest
             s.Limb(chestB, new(0.1f, 0.43f, 0.15f), new(0.11f, 0.12f, -0.15f), 0.018f, 0.018f, leatherDk, Mat.Leather, 0.008f);
+            if (_shifter)
+                for (int k = 0; k < 2; k++)
+                    s.Egg(chestB, new(0.1f, 0.36f, (k == 0 ? 1 : -1) * 0.058f), new(0.05f, 0.046f, 0.05f), body, bodyMat, 0.03f);
         }
         s.Egg(hipsB, new(0, 0.075f, 0), new(0.14f + 0.017f * wb, 0.03f, 0.158f + 0.028f * wb), leatherDk, Mat.Leather, 0.01f);
         s.Block(hipsB, new(0.14f + 0.017f * wb, 0.075f, 0), new(0.012f, 0.022f, 0.028f), 0.004f, _vitalist ? boneWhite : gold, _vitalist ? Mat.Bone : Mat.Gold, 0.004f);
@@ -220,19 +223,19 @@ public sealed partial class HeroDesign : CreatureDesign
             // hung from it round the neck, a short red crest; and in it a broad, weathered face, square-jawed and stern under a heavy
             // brow, the nose broken once, a short auburn beard
             var helm = C(0.44f, 0.46f, 0.5f);
-            s.Egg(headB, new(0.004f, 0.77f, 0), new(0.116f, 0.112f, 0.104f), helm, Mat.Metal, 0.02f);
+            s.Egg(headB, new(0.004f, 0.77f, 0), new(0.116f, 0.112f, 0.104f), helm, Mat.Metal, 0.02f).Crisp = true;
             s.CarveBall(headB, new(0.166f, 0.69f, 0), 0.1f, 0.012f);
             var f = BaseFace(C(0.6f, 0.42f, 0.33f));
             f.Offset = new Vector3(0.012f, -0.03f, 0f); f.Scale = 1f; f.Wide = 1.12f;
             f.Chin = 1.15f; f.Cheek = 1.12f; f.Ridge = 1.35f; f.NoseLen = 1.04f; f.NoseHook = 0.7f; f.NoseWide = 1.2f;
             f.Lips = 0.9f; f.Smile = -0.6f; f.BrowTilt = -0.9f; f.BrowThick = 1.25f; f.Socket = 1.12f; f.Age = 0.45f;
-            f.Hair = C(0.23f, 0.13f, 0.075f); f.Beard = Beard.Short; f.BeardCol = C(0.23f, 0.13f, 0.075f); f.Iris = C(0.3f, 0.38f, 0.44f);
+            f.Hair = C(0.34f, 0.19f, 0.1f); f.Beard = Beard.Short; f.BeardCol = C(0.36f, 0.2f, 0.1f); f.Iris = C(0.3f, 0.38f, 0.44f);
             SculptFace(s, headB, f);
-            s.Ring(headB, new(0.004f, 0.786f, 0), 0.118f, 0.106f, 0.008f, gold, Mat.Gold, 0.004f);
+            s.Ring(headB, new(0.004f, 0.786f, 0), 0.118f, 0.106f, 0.009f, helm, Mat.Metal, 0.004f);
             s.Limb(headB, new(0.118f, 0.792f, 0), new(0.136f, 0.716f, 0), 0.0075f, 0.0065f, helm, Mat.Metal, 0.004f);
             s.Limb(headB, new(0.02f, 0.88f, 0), new(-0.1f, 0.85f, 0), 0.016f, 0.012f, helm, Mat.Metal, 0.008f);
             s.Limb(headB, new(0.0f, 0.9f, 0), new(-0.11f, 0.86f, 0), 0.026f, 0.016f, C(0.55f, 0.06f, 0.05f), Mat.Cloth, 0.016f, 0.002f);
-            s.Egg(neckB, new(-0.035f, 0.63f, 0), new(0.1f, 0.085f, 0.13f), body, Mat.Metal, 0.025f, bump: 0.0015f);
+            s.Egg(neckB, new(-0.035f, 0.63f, 0), new(0.1f, 0.085f, 0.13f), body, Mat.Metal, 0.025f, bump: 0.0015f).Crisp = true;
             s.Egg(neckB, new(-0.02f, 0.555f, 0), new(0.13f, 0.05f, 0.17f), body, Mat.Metal, 0.03f, bump: 0.0015f);
         }
         else if (_vitalist)
@@ -243,7 +246,7 @@ public sealed partial class HeroDesign : CreatureDesign
             s.Limb(headB, new(-0.07f, 0.76f, 0), new(-0.12f, 0.52f, 0), 0.09f, 0.12f, cloak, Mat.Cloth, 0.04f);
             s.Limb(headB, new(0.03f, 0.88f, 0), new(-0.08f, 0.9f, 0), 0.03f, 0.012f, cloak, Mat.Cloth, 0.03f);
             s.CarveBall(headB, new(0.17f, 0.7f, 0), 0.102f, 0.02f);
-            s.Egg(headB, new(0.036f, 0.71f, 0), new(0.088f, 0.105f, 0.076f), boneWhite, Mat.Bone, 0.012f);
+            s.Egg(headB, new(0.036f, 0.71f, 0), new(0.088f, 0.105f, 0.076f), boneWhite, Mat.Bone, 0.012f).Crisp = true;
             s.Limb(headB, new(0.1f, 0.752f, -0.05f), new(0.116f, 0.756f, 0), 0.011f, 0.012f, boneWhite, Mat.Bone, 0.01f);
             s.Limb(headB, new(0.116f, 0.756f, 0), new(0.1f, 0.752f, 0.05f), 0.012f, 0.011f, boneWhite, Mat.Bone, 0.01f);
             for (int k = 0; k < 2; k++)
@@ -265,27 +268,41 @@ public sealed partial class HeroDesign : CreatureDesign
         }
         else if (_rogue)
         {
-            // a close hood, and a dark cloth mask drawn up over the nose and mouth: above it, a lean face with high cheekbones and
-            // intent brows, red eyes, and a lock of pale hair fallen from the hood across one eye
+            // a close hood, and a dark bandana tied over his face to just under the eyes: it hides the nose, mouth and jaw, its top hem
+            // pulled taut across the bridge of the nose from cheek to cheek; above it, intent brows, red eyes, and a lock of pale hair
+            // fallen from the hood across one eye
             s.Egg(headB, new(0.004f, 0.738f, 0), new(0.126f, 0.14f, 0.116f), cloak, Mat.Cloth, 0.02f);
             s.Limb(headB, new(-0.07f, 0.75f, 0), new(-0.11f, 0.55f, 0), 0.082f, 0.1f, cloak, Mat.Cloth, 0.04f);
             s.CarveBall(headB, new(0.16f, 0.705f, 0), 0.098f, 0.02f);
             var f = BaseFace(C(0.66f, 0.5f, 0.42f));
-            f.Scale = 0.93f; f.Wide = 0.95f; f.Jaw = 0.3f; f.Chin = 0.85f; f.Cheek = 1.18f; f.CheekY = 0.003f; f.Ridge = 0.8f;
-            f.BrowTilt = -0.55f; f.BrowThick = 0.8f; f.Hair = C(0.62f, 0.52f, 0.32f); f.Iris = C(0.6f, 0.07f, 0.1f); f.EyeGlow = 0.3f;
+            f.Scale = 0.93f; f.Wide = 0.95f; f.Jaw = 0.5f; f.Chin = 0.9f; f.Cheek = 1.18f; f.CheekY = 0.003f; f.Ridge = 0.9f;
+            f.BrowTilt = -0.55f; f.BrowThick = 0.85f; f.Hair = C(0.62f, 0.52f, 0.32f); f.Iris = C(0.6f, 0.07f, 0.1f); f.EyeGlow = 0.3f;
             SculptFace(s, headB, f);
-            var mask = C(0.08f, 0.07f, 0.09f);
-            // (drawn up to the bridge of the nose, under the eyes, following the nose's line)
-            s.Limb(headB, FaceAt(f, 0.11f, 0.746f, 0), FaceAt(f, 0.129f, 0.714f, 0), 0.0118f, 0.0132f, mask, Mat.Cloth, 0.01f);
-            s.Egg(headB, new(0.052f, 0.66f, 0), new(0.084f, 0.05f, 0.086f), mask, Mat.Cloth, 0.02f);
-            s.Egg(headB, new(0.07f, 0.689f, 0), new(0.058f, 0.02f, 0.07f), mask, Mat.Cloth, 0.014f);
-            s.Egg(neckB, new(0.03f, 0.625f, 0), new(0.078f, 0.05f, 0.09f), mask, Mat.Cloth, 0.025f);
+            var band = C(0.1f, 0.085f, 0.11f);
+            var hem = band.Darkened(0.35f);
+            // (crisp, closely blended: cloth with a clean edge, not a smudge)
+            s.Egg(headB, new(0.056f, 0.654f, 0), new(0.09f, 0.064f, 0.092f), band, Mat.Cloth, 0.006f).Crisp = true;
+            s.Egg(headB, new(0.072f, 0.69f, 0), new(0.062f, 0.022f, 0.074f), band, Mat.Cloth, 0.005f).Crisp = true;
+            s.Limb(headB, FaceAt(f, 0.11f, 0.746f, 0), FaceAt(f, 0.129f, 0.714f, 0), 0.0118f, 0.0134f, band, Mat.Cloth, 0.005f).Crisp = true;
+            s.Egg(neckB, new(0.03f, 0.622f, 0), new(0.08f, 0.052f, 0.092f), band, Mat.Cloth, 0.008f).Crisp = true;
+            // the hem: across the bridge of the nose and back along each cheek under the eye to the hood
+            for (int k = 0; k < 2; k++)
+            {
+                float z = k == 0 ? 1 : -1;
+                var bridge = FaceAt(f, 0.113f, 0.744f, 0.004f * z);
+                var cheek = FaceAt(f, 0.088f, 0.732f, 0.047f * z);
+                var side = FaceAt(f, 0.035f, 0.722f, 0.072f * z);
+                s.Limb(headB, bridge, cheek, 0.0045f, 0.0045f, hem, Mat.Cloth, 0.003f).Crisp = true;
+                s.Limb(headB, cheek, side, 0.0045f, 0.004f, hem, Mat.Cloth, 0.003f).Crisp = true;
+                // a fold pulled down from under each cheekbone
+                s.Limb(headB, FaceAt(f, 0.098f, 0.712f, 0.034f * z), FaceAt(f, 0.105f, 0.672f, 0.024f * z), 0.0032f, 0.0022f, hem, Mat.Cloth, 0.003f).Crisp = true;
+            }
             var hair = C(0.78f, 0.68f, 0.45f);
-            s.Limb(headB, new(0.075f, 0.81f, -0.006f), new(0.112f, 0.748f, -0.042f), 0.012f, 0.0035f, hair, HairMat, 0.01f, 0.0015f);
+            s.Limb(headB, new(0.075f, 0.81f, -0.006f), new(0.112f, 0.748f, -0.042f), 0.012f, 0.0035f, hair, HairMat, 0.005f, 0.0012f).Crisp = true;
             for (int j = 0; j < 4; j++)
             {
                 float z = 0.012f + 0.016f * j;
-                s.Limb(headB, new(0.07f, 0.815f, z), new(0.098f, 0.79f - 0.004f * j, z * 1.1f), 0.011f, 0.004f, hair, HairMat, 0.008f, 0.0015f);
+                s.Limb(headB, new(0.07f, 0.815f, z), new(0.098f, 0.79f - 0.004f * j, z * 1.1f), 0.011f, 0.004f, hair, HairMat, 0.005f, 0.0012f).Crisp = true;
             }
         }
         else if (_elementalist)
@@ -304,7 +321,7 @@ public sealed partial class HeroDesign : CreatureDesign
             f.Hair = grey; f.Beard = Beard.Long; f.BeardCol = grey; f.Iris = C(0.85f, 0.5f, 0.18f); f.EyeGlow = 0.6f;
             SculptFace(s, headB, f);
             // an ember collar at the throat
-            s.Egg(neckB, new(0.02f, 0.625f, 0), new(0.08f, 0.048f, 0.095f), ember, Mat.Cloth, 0.025f);
+            s.Egg(neckB, new(0.02f, 0.625f, 0), new(0.08f, 0.048f, 0.095f), ember, Mat.Cloth, 0.01f).Crisp = true;
         }
         else if (_aegis)
         {
@@ -322,42 +339,43 @@ public sealed partial class HeroDesign : CreatureDesign
             for (int k = 0; k < 2; k++)
             {
                 float z = k == 0 ? 1 : -1;
-                s.Limb(headB, new(0.085f, 0.818f, 0.004f * z), new(0.07f, 0.775f, 0.07f * z), 0.016f, 0.012f, hair, HairMat, 0.01f, 0.0015f);
+                s.Limb(headB, new(0.085f, 0.818f, 0.004f * z), new(0.07f, 0.775f, 0.07f * z), 0.016f, 0.012f, hair, HairMat, 0.005f, 0.0012f).Crisp = true;
             }
             s.Limb(headB, new(0.085f, 0.795f, -0.085f), new(0.115f, 0.79f, 0), 0.011f, 0.011f, gold, Mat.Gold, 0.004f);
             s.Limb(headB, new(0.115f, 0.79f, 0), new(0.085f, 0.795f, 0.085f), 0.011f, 0.011f, gold, Mat.Gold, 0.004f);
             s.Ball(headB, new(0.12f, 0.79f, 0), 0.016f, C(0.5f, 0.95f, 0.88f), Mat.Crystal, 0.004f);
-            s.Egg(neckB, new(0.03f, 0.625f, 0), new(0.078f, 0.05f, 0.09f), cloak, Mat.Cloth, 0.025f);
+            s.Egg(neckB, new(0.03f, 0.625f, 0), new(0.078f, 0.05f, 0.09f), cloak, Mat.Cloth, 0.01f).Crisp = true;
         }
         else
         {
-            // the Shape Shifter: a hood cut open at a lean, wild face, all sharp cheekbones and narrow jaw, pale eyes that shine, a smirk,
-            // stubble, ash-grey hair tangled over the brow, a band of charcoal across the eyes and claw marks down one cheek
+            // the Shape Shifter, a young woman: a hood cut open at a lean, wild face, high sharp cheekbones over a fine jaw, pale eyes
+            // that shine, a sly half-smile, long ash-grey hair falling from the hood to her collarbones and swept across her brow, a band
+            // of charcoal across the eyes and claw marks down one cheek
             s.Egg(headB, new(0.005f, 0.735f, 0), new(0.128f, 0.142f, 0.118f), cloak, Mat.Cloth, 0.02f);
             s.Limb(headB, new(-0.07f, 0.75f, 0), new(-0.115f, 0.53f, 0), 0.085f, 0.115f, cloak, Mat.Cloth, 0.04f);
             s.CarveBall(headB, new(0.16f, 0.705f, 0), 0.098f, 0.02f);
-            var ash = C(0.36f, 0.37f, 0.39f);
-            var f = BaseFace(C(0.62f, 0.47f, 0.38f));
-            f.Wide = 0.9f; f.Jaw = 0.7f; f.Chin = 1.05f; f.Cheek = 1.35f; f.CheekY = -0.003f; f.Ridge = 1.1f; f.NoseHook = 0.3f; f.NoseTip = 0.85f; f.NoseWide = 0.9f;
-            f.Lips = 0.85f; f.Smile = 0.2f; f.BrowTilt = -0.3f; f.BrowThick = 0.85f; f.Socket = 1.1f; f.Age = 0.2f;
-            f.Hair = ash; f.Beard = Beard.Stubble; f.BeardCol = C(0.3f, 0.3f, 0.32f); f.Iris = C(0.85f, 0.9f, 0.96f); f.EyeGlow = 0.6f; f.WarPaint = true;
+            var ash = C(0.5f, 0.51f, 0.55f);
+            var f = BaseFace(C(0.66f, 0.5f, 0.41f));
+            f.Scale = 0.92f; f.Wide = 0.88f; f.Jaw = 0.3f; f.Chin = 0.82f; f.Cheek = 1.3f; f.CheekY = 0.002f; f.Ridge = 0.72f;
+            f.NoseLen = 0.9f; f.NoseTip = 0.8f; f.NoseWide = 0.82f; f.Lips = 1.12f; f.Mouth = 0.92f; f.Smile = 0.25f;
+            f.BrowTilt = -0.15f; f.BrowThick = 0.62f; f.Hair = ash; f.Iris = C(0.85f, 0.9f, 0.96f); f.EyeGlow = 0.6f; f.WarPaint = true;
+            f.LipUp = f.Skin.Darkened(0.3f).Lerp(C(0.5f, 0.2f, 0.22f), 0.18f); f.LipLow = f.Skin.Darkened(0.2f).Lerp(C(0.55f, 0.24f, 0.25f), 0.18f);
             SculptFace(s, headB, f);
-            var rngH = new Random(5);
-            for (int j = 0; j < 6; j++)
+            for (int k = 0; k < 2; k++)
             {
-                float z = -0.05f + 0.02f * j, r = (float)rngH.NextDouble();
-                s.Limb(headB, new(0.07f, 0.82f, z), new(0.1f + 0.012f * r, 0.785f - 0.012f * r, z * 1.15f + (r - 0.5f) * 0.016f), 0.012f, 0.004f, ash, HairMat, 0.008f, 0.0015f);
+                float z = k == 0 ? 1 : -1;
+                // long locks from under the hood down past the jaw, framing the face
+                s.Limb(headB, new(0.07f, 0.8f, 0.07f * z), new(0.062f, 0.67f, 0.078f * z), 0.017f, 0.015f, ash, HairMat, 0.005f, 0.0012f).Crisp = true;
+                s.Limb(headB, new(0.062f, 0.67f, 0.078f * z), new(0.072f, 0.56f, 0.07f * z), 0.015f, 0.006f, ash, HairMat, 0.005f, 0.0012f).Crisp = true;
+                s.Limb(headB, new(0.045f, 0.76f, 0.085f * z), new(0.04f, 0.6f, 0.09f * z), 0.014f, 0.006f, ash, HairMat, 0.005f, 0.0012f).Crisp = true;
             }
-            s.Egg(neckB, new(0.03f, 0.625f, 0), new(0.078f, 0.05f, 0.09f), C(0.55f, 0.07f, 0.05f), Mat.Cloth, 0.025f);
-        }
-        // scarf knot and tail (the others have none, but keep the bones)
-        var scarfCol = C(0.55f, 0.07f, 0.05f);
-        if (!_warden && !_caster && !_rogue)
-        {
-            s.Ball(s0, new(-0.07f, 0.595f, 0), 0.042f, scarfCol, Mat.Cloth, 0.02f);
-            s.Limb(s0, new(-0.07f, 0.59f, 0.005f), new(-0.2f, 0.57f, 0.025f), 0.04f, 0.034f, scarfCol, Mat.Cloth, 0.015f);
-            s.Limb(s1, new(-0.2f, 0.57f, 0.025f), new(-0.36f, 0.54f, 0.035f), 0.034f, 0.018f, scarfCol, Mat.Cloth, 0.012f);
-            s.Limb(s2, new(-0.36f, 0.54f, 0.035f), new(-0.44f, 0.51f, 0.04f), 0.018f, 0.008f, scarfCol, Mat.Cloth, 0.01f);
+            // the fringe, swept across her brow to one side
+            for (int j = 0; j < 4; j++)
+            {
+                float t = j / 3f;
+                s.Limb(headB, new(0.075f, 0.825f, 0.05f - 0.03f * t), new(0.1f, 0.792f - 0.006f * t, -0.02f - 0.03f * t), 0.011f, 0.0035f, ash, HairMat, 0.005f, 0.0012f).Crisp = true;
+            }
+            s.Egg(neckB, new(0.012f, 0.598f, 0), new(0.074f, 0.036f, 0.088f), C(0.5f, 0.07f, 0.05f), Mat.Cloth, 0.008f).Crisp = true;
         }
 
         // ---- arms
