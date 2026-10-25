@@ -62,6 +62,7 @@ public partial class Player
     /// <summary>The drain's strike landed on <paramref name="t"/>: what the version adds (<paramref name="dealt"/>: what it tore out).</summary>
     private void VitalDrainStruck(Enemy t, float dmg, float dealt)
     {
+        if (_vDrain == SimpleVer) { SimpleTouch(t, KitRole.Primary, CastPoint); return; }
         float p = Stats.DamageMult, full = Tune.Elements.Full;
         var nature = Elements.ColorOf(HeroElement.Nature);
         var water = Elements.ColorOf(HeroElement.Water);
@@ -280,6 +281,7 @@ public partial class Player
     /// <summary>The heal went out (<paramref name="range"/> its reach): what else the version does.</summary>
     private void VitalHealStruck(string ver, float range)
     {
+        if (ver == SimpleVer) return;
         var near = HeroesNear(range);
         var water = Elements.ColorOf(HeroElement.Water);
         var nature = Elements.ColorOf(HeroElement.Nature);

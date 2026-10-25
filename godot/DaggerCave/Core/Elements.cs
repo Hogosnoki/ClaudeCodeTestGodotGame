@@ -11,6 +11,10 @@ public enum HeroElement : byte { None, Earth, Fire, Frost, Wind, Nature, Water, 
 /// Guarded Charge), the heavy one (the Hard Swing, the fixed-range spell, the Warden's block) and the fourth (Empower Hilt, Aid).</summary>
 public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
 
+/// <summary>The three kinds of ability a simple kit has (<see cref="Elements.Simple"/>): the primary attack (the attack button), the
+/// defensive (the dodge button) and the special (the ability button).</summary>
+public enum KitRole : byte { Primary, Defensive, Special }
+
 /// <summary>
 /// The elemental heroes: a hero's attacks are plain until an element is added to one. Pressing an element's button (1, 2, 3; a
 /// controller's d-pad left, up, right) readies a charge of it; the next of the hero's attacks spends it and becomes that element's
@@ -25,6 +29,53 @@ public static class Elements
     public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden or HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue or HeroKind.ShapeShifter;
     /// <summary>The tests of the classic kits keep them (never saved): `--scenario=elements` or `--elements` tests the elemental ones.</summary>
     public static bool ClassicForTests;
+
+    /// <summary>
+    /// The simple kits: the elemental Swordsman, Warden, Elementalist, Vitalist, Aegis and Rogue each have three abilities (a primary
+    /// attack, a defensive and a special) and three elements; an element button switches to its element. An ability works the same in
+    /// every element (the same damage, reach, speed and cooldown): what it strikes takes the element's touch (<see cref="Player.SimpleTouch"/>:
+    /// its build-up; wind, a shove), and it looks and sounds of it. The retired systems (overcharges, attributes, the mixes, and every version
+    /// that changed what an ability does) stay in the code behind this switch, catalogued in ABILITY_ARCHIVE.md for reuse. The Shape Shifter
+    /// (whose element picks the creature she becomes) and the Automaton (no elements) keep their kits.
+    /// </summary>
+    public static bool Simple = true;
+    /// <summary>This hero has a simple kit (<see cref="Simple"/>).</summary>
+    public static bool SimpleKit(HeroKind h) => Simple && On(h) && h != HeroKind.ShapeShifter;
+
+    /// <summary>The word an element lends a simple kit's ability names: a Searing Strike, a Rime Ward, a Gale Hex.</summary>
+    public static string Adjective(HeroElement e) => e switch
+    {
+        HeroElement.Fire => "Searing", HeroElement.Frost => "Rime", HeroElement.Earth => "Stone", HeroElement.Wind => "Gale",
+        HeroElement.Nature => "Thorn", HeroElement.Water => "Tide", HeroElement.Dark => "Shadow", _ => "",
+    };
+
+    /// <summary>A simple kit's ability, whatever its element.</summary>
+    public static string Noun(HeroKind h, KitRole r) => (h, r) switch
+    {
+        (HeroKind.Swordsman, KitRole.Primary) => "Strike", (HeroKind.Swordsman, KitRole.Defensive) => "Roll", (HeroKind.Swordsman, KitRole.Special) => "Cleave",
+        (HeroKind.Warden, KitRole.Primary) => "Cut", (HeroKind.Warden, KitRole.Defensive) => "Shield", (HeroKind.Warden, KitRole.Special) => "Charge",
+        (HeroKind.Elementalist, KitRole.Primary) => "Bolt", (HeroKind.Elementalist, KitRole.Defensive) => "Ward", (HeroKind.Elementalist, KitRole.Special) => "Burst",
+        (HeroKind.Vitalist, KitRole.Primary) => "Drain", (HeroKind.Vitalist, KitRole.Defensive) => "Mending", (HeroKind.Vitalist, KitRole.Special) => "Hex",
+        (HeroKind.Aegis, KitRole.Primary) => "Bubble", (HeroKind.Aegis, KitRole.Defensive) => "Barrier", (HeroKind.Aegis, KitRole.Special) => "Dome",
+        (HeroKind.Rogue, KitRole.Primary) => "Jab", (HeroKind.Rogue, KitRole.Defensive) => "Vanish", (HeroKind.Rogue, KitRole.Special) => "Knife",
+        _ => r.ToString(),
+    };
+
+    /// <summary>A simple kit's ability in an element: "Searing Strike", "Rime Shield", "Thorn Drain".</summary>
+    public static string SimpleName(HeroKind h, KitRole r, HeroElement e) => e == HeroElement.None ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
+
+    /// <summary>What an element's touch does to what it reaches (for the tips).</summary>
+    public static string TouchText(HeroElement e) => e switch
+    {
+        HeroElement.Fire => "builds up fire (full, it burns; full again while burning, it combusts)",
+        HeroElement.Frost => "builds up frost (full, it's chilled; full again while chilled, frozen solid)",
+        HeroElement.Earth => "builds up earth (full, it's stunned)",
+        HeroElement.Wind => "shoves it away",
+        HeroElement.Nature => "builds up nature (full, it's entangled and bleeds)",
+        HeroElement.Water => "builds up water (full, it's soaked: its fire put out, frost taking faster)",
+        HeroElement.Dark => "builds up dark (full, it's blinded and laid open to blows)",
+        _ => "",
+    };
 
     private static readonly HeroElement[] None = Array.Empty<HeroElement>();
     private static readonly HeroElement[] Sword = { HeroElement.Earth, HeroElement.Fire, HeroElement.Frost };

@@ -215,7 +215,8 @@ public partial class Hud : Control
 
         // --- Ability gauges (bottom-left) ---
         var ab = new Vector2(24, vs.Y - 80);
-        switch (p.Stats.Hero)
+        if (p.SimpleKit) DrawSimpleKit(font, p, ab);
+        else switch (p.Stats.Hero)
         {
             case HeroKind.Warden: DrawWardenGauges(font, p, ab); break;
             case HeroKind.Vitalist: DrawVitalistGauges(font, p, ab); break;
@@ -881,7 +882,9 @@ public partial class Hud : Control
             var lab = sc + (k == 1 ? new Vector2(19, 4) : new Vector2(-17, 20));
             DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, isMode || isTop ? 0.85f : 0.45f));
             string name = Elements.Name(el), lower = name.ToLowerInvariant();
-            string what = isMode
+            string what = p.SimpleKit
+                ? (isMode ? $"You're in {lower}: every ability strikes with {lower} ({Elements.TouchText(el)})." : $"Press it to switch to {lower}: every ability then strikes with {lower} ({Elements.TouchText(el)}). Your abilities work the same in every element. At most one switch every {Tune.Elements.SwitchCooldown:0.#} s.")
+                : isMode
                 ? $"You're in {lower} mode: every ability is its {lower} version. " + (p.OverchargeOpen ? $"Press it again to overcharge: the next ability with a greater version uses it ({Tune.Elements.OverchargeRecharge:0} s to come back)." : "")
                 : isTop ? $"{name} rides on top of your mode: every blow and spell adds a little {lower}. Press it again to switch to {lower} mode."
                 : $"Press it to put {lower} on top of your mode (every blow and spell adds a little of it); press it again to switch to {lower} mode. Modes change at most every {Tune.Elements.ModeCooldown:0.#} s.";
@@ -893,8 +896,10 @@ public partial class Hud : Control
         if (p.ModeCooldownFrac > 0) DrawArc(mid, 9.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * p.ModeCooldownFrac, 16, new Color(1f, 1f, 1f, 0.75f), 2f);
         if (mode != HeroElement.None) DrawCircle(mid + new Vector2(top != HeroElement.None ? -2.5f : 0f, 0), 3.6f, Elements.ColorOf(mode));
         if (top != HeroElement.None) DrawCircle(mid + new Vector2(3.5f, -2f), 2.4f, Elements.ColorOf(top).Lightened(0.3f));
-        Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Mode", $"Your mode and what's on top of it. The ring is the mode's switch coming back (once every {Tune.Elements.ModeCooldown:0.#} s).", true);
+        if (p.SimpleKit) Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Element", $"The element you're in. The ring is the switch coming back (once every {Tune.Elements.SwitchCooldown:0.#} s).", true);
+        else Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Mode", $"Your mode and what's on top of it. The ring is the mode's switch coming back (once every {Tune.Elements.ModeCooldown:0.#} s).", true);
         string label = mode == HeroElement.None ? extra
+            : p.SimpleKit ? Elements.Name(mode).ToUpperInvariant()
             : p.Overcharged ? $"{Elements.Name(mode).ToUpperInvariant()} OVERCHARGED"
             : p.Attribute != HeroElement.None ? $"{Elements.Name(mode).ToUpperInvariant()} + {Elements.Name(p.Attribute).ToUpperInvariant()}"
             : $"{Elements.Name(mode).ToUpperInvariant()} MODE";

@@ -712,7 +712,7 @@ public partial class Player : CharacterBody2D
     /// <summary>The attack button: a swing, the Vitalist's drain, or the Elementalist's bolt. True once it fires.
     /// <paramref name="held"/>: the button is being held down (a drain then waits for something to drain).
     /// <paramref name="stick"/>: it is the right stick pushed over (the Rogue's aim, not a recall).</summary>
-    private bool Primary(Vector2 aim, bool held = false, bool stick = false) => _snagT <= 0 && Stats.Hero switch
+    private bool Primary(Vector2 aim, bool held = false, bool stick = false) => _snagT <= 0 && (SimpleKit ? SimplePrimary(aim, held, stick) : Stats.Hero switch
     {
         HeroKind.Vitalist => Elemental ? VitalDrain(aim, held) : CastDrain(aim, held),
         HeroKind.Elementalist => Elemental ? StaffBolt(aim, held) : CastBolt(aim, held),
@@ -722,10 +722,10 @@ public partial class Player : CharacterBody2D
         HeroKind.ShapeShifter => Shifted ? FormPrimary(aim, held) : Elemental ? ShifterStaff(aim, held) : TrySwing(aim, held),
         HeroKind.Automaton => !Bracing && !Pressurising && TrySwing(aim, held),
         _ => !Heaving && (Elemental ? ElementSwing(aim, held) : TrySwing(aim, held)),
-    };
+    });
 
     /// <summary>The ability button: charged strike, Guarded Charge, heal or blizzard. True once it fires.</summary>
-    private bool Ability(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
+    private bool Ability(Vector2 aim) => _snagT <= 0 && (SimpleKit ? SimpleSpecial(aim) : Stats.Hero switch
     {
         HeroKind.Warden => _bashT <= 0 && TryShieldDash(aim),
         HeroKind.Vitalist => Elemental ? VitalHeal() : TryHeal(),
@@ -735,10 +735,10 @@ public partial class Player : CharacterBody2D
         HeroKind.ShapeShifter => Elemental ? ShifterShift() : TryShift(),
         HeroKind.Automaton => TryRepair(),
         _ => Elemental ? TryHilt() : TryCharge(),
-    };
+    });
 
     /// <summary>The second ability button: heaving swing, shield bash, rupture or snap. True once it fires.</summary>
-    private bool Ability2(Vector2 aim) => _snagT <= 0 && Stats.Hero switch
+    private bool Ability2(Vector2 aim) => _snagT <= 0 && !SimpleKit && Stats.Hero switch
     {
         // (the elemental Warden has no Shield Bash)
         HeroKind.Warden => !Elemental && _dashT <= 0 && TryShieldBash(aim),
@@ -752,7 +752,7 @@ public partial class Player : CharacterBody2D
     };
 
     /// <summary>The dodge button's press: a roll, a hex or an updraft (the Warden's shield reads the button itself).</summary>
-    private bool DodgeButton(in PlayerInput inp) => Stats.Hero switch
+    private bool DodgeButton(in PlayerInput inp) => SimpleKit ? SimpleDefensive(inp) : Stats.Hero switch
     {
         // (the elemental Swordsman has no Dash Slash: his dodge is his mode's leap, or nothing while it rests)
         HeroKind.Swordsman => Elemental ? ElementMoveReady && ElementDodge(inp) : TryDodge(inp),

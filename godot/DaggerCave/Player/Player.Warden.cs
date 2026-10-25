@@ -27,7 +27,7 @@ public partial class Player
     public Vector2 ShieldDir { get; private set; } = Vector2.Right;
     public float ShieldArc => Mathf.DegToRad(Tune.Warden.ShieldArcDegrees) * Stats.ShieldArcMult;
     /// <summary>The elemental Warden's shield: one pool whatever the mode, what it absorbs by the mode (<see cref="ModeShieldShare"/>).</summary>
-    private bool ElementShield => IsWarden && Elemental;
+    private bool ElementShield => IsWarden && Elemental && !SimpleKit;
     /// <summary>How long a broken shield stays down (the elemental Warden's is shorter, and mends meanwhile).</summary>
     public float ShieldBreakTotal => ElementShield ? Tune.ElementalWarden.ShieldBreakTime * Stats.ShieldBreakTime / Tune.Warden.ShieldBreakTime : Stats.ShieldBreakTime;
     /// <summary>Just struck (for the shield's look).</summary>
@@ -149,6 +149,7 @@ public partial class Player
             if (b.Perfect) melee.Interrupt(away * 200f, Tune.Warden.PerfectStagger);
             if (Stats.ShieldThorns) melee.Hurt(dmg * 0.4f * Stats.DamageMult, away * 120f, melee.GlobalPosition - away * melee.HitRadius);
             GuardStruck(melee);
+            if (SimpleKit) SimpleTouch(melee, KitRole.Defensive, GlobalPosition);
         }
         if (ShieldHp <= 0 && !dashing) BreakShield(at, striker ?? melee);
         return b;
@@ -230,7 +231,7 @@ public partial class Player
         if (!(Elemental && Tune.Testing.NoCooldowns)) SpendAbilityCharge();
         _wDash = "";
         // (in a mode, every charge is the mode's version: see Player.WardenElements.cs)
-        if (Elemental && Infused != HeroElement.None) WardenDashVersion();
+        if (Elemental && !SimpleKit && Infused != HeroElement.None) WardenDashVersion();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
         _swingT = -1; // a swing still under way gives way to the charge
         _shieldUpT = 0;
@@ -336,6 +337,7 @@ public partial class Player
         float dealt = e.Hurt(Tune.Warden.DashDamage * Stats.DamageMult * Stats.DashDamageMult, _dashDir * 160f, at);
         if (dealt > 0) OnDealtDamage(dealt);
         if (Stats.DashMend) { MendShield(12f); Heal(4f); }
+        if (SimpleKit) SimpleTouch(e, KitRole.Special, at - _dashDir * 10f);
         G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));
         G.Sfx.Play("clink", at, -4, 0.1f, 0.8f);
         G.Main.Rumble(0.3f, 0.3f, 0.08f);
@@ -351,6 +353,7 @@ public partial class Player
             if (dealt > 0) OnDealtDamage(dealt);
             e.HitStop(Tune.Feel.HitStopDash);
             if (Stats.DashMend) { MendShield(12f); Heal(4f); }
+            if (SimpleKit) SimpleTouch(e, KitRole.Special, at - _dashDir * 10f);
         }
         G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));
         G.Fx.Ring(at, 14, new Color(0.6f, 0.85f, 1f, 0.9f));
@@ -523,7 +526,7 @@ public partial class Player
         g.Angle = ShieldDir.Angle();
         g.Half = ShieldArc * 0.5f;
         g.Flash = ShieldFlash;
-        if (ElementShield && _guard == "" && !g.Dash) g.Slab = Mode;
+        if (IsWarden && Elemental && _guard == "" && !g.Dash) g.Slab = Mode;
         return g;
     }
 

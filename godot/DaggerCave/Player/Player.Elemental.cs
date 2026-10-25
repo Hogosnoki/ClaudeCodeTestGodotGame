@@ -48,7 +48,7 @@ public partial class Player
     /// <summary>Another element is on top: its effect rides on every blow and spell.</summary>
     public HeroElement Attribute => Top != HeroElement.None && Top != Mode ? Top : HeroElement.None;
     /// <summary>For the HUD: the mode's switch (0..1 left), and an element's overcharge recharging (0..1 left; seconds).</summary>
-    public float ModeCooldownFrac => Math.Clamp(_modeCd / Math.Max(0.01f, Tune.Elements.ModeCooldown), 0f, 1f);
+    public float ModeCooldownFrac => Math.Clamp(_modeCd / Math.Max(0.01f, SimpleKit ? Tune.Elements.SwitchCooldown : Tune.Elements.ModeCooldown), 0f, 1f);
     public float ModeCooldown => Math.Max(0f, _modeCd);
     public float OverchargeFrac(HeroElement el) => Math.Clamp(_overCd[(int)el] / Math.Max(0.01f, Tune.Elements.OverchargeRecharge), 0f, 1f);
     public float OverchargeSeconds(HeroElement el) => Math.Max(0f, _overCd[(int)el]);
@@ -100,6 +100,22 @@ public partial class Player
         var el = els[slot];
         var mode = Mode;
         var col = Elements.ColorOf(el);
+        // (the six simple kits: a press switches to that element, nothing more; the Shape Shifter keeps her own rules below)
+        if (SimpleKit)
+        {
+            if (el == mode) { SayNo($"IN {Elements.Name(el).ToUpperInvariant()}"); return false; }
+            if (_modeCd > 0) { SayNo($"{Elements.Name(el).ToUpperInvariant()} {_modeCd:0.0}s"); return false; }
+            _mode = el;
+            _top = HeroElement.None;
+            _modeCd = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.SwitchCooldown;
+            WeaponTouch(el);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -30), Elements.Name(el).ToUpperInvariant(), col, 12, 0.8f);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 24, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Dashed);
+            G.Sfx.Element(ElementSounds.Ev.Charge, el, GlobalPosition, weight: 1f, volDb: 0f);
+            Anim.Flash(0.3f);
+            Anim.FlashColor = col;
+            return true;
+        }
         if (el == mode)
         {
             // the mode's own element: an overcharge on top (replacing an attribute)
@@ -640,6 +656,14 @@ public partial class Player
     private void ElementalBladeHit(Enemy e)
     {
         if (!Elemental || e.Dead) return;
+        // (a simple kit's blow: its element's sound and touch, nothing more)
+        if (SimpleKit)
+        {
+            if (_swingEl == HeroElement.None) return;
+            G.Sfx.Element(ElementSounds.Ev.Hit, _swingEl, e.GlobalPosition, RecentUse);
+            SimpleTouch(e, _swingRole, GlobalPosition);
+            return;
+        }
         // (an elemental blow lands with its attack's own sound: the swing's element, the Warden's cut's, or the hilt's)
         var hitEl = _swingEl != HeroElement.None ? _swingEl : IsWarden && _wSwing != "" ? _wA : _hiltT > 0 ? _hiltEl : HeroElement.None;
         if (hitEl != HeroElement.None) G.Sfx.Element(ElementSounds.Ev.Hit, hitEl, e.GlobalPosition, RecentUse, _swingEl2 != hitEl ? _swingEl2 : HeroElement.None);
@@ -1210,6 +1234,7 @@ public partial class Player
     /// <summary>An elemental bolt met a creature: the blow, then its element's build-up (or, a gust, a shove).</summary>
     private void ElementBoltStruck(ElementBolt bolt, Enemy e, Vector2 at)
     {
+        if (bolt.Version == SimpleVer) { SimpleBoltStruck(bolt, e, at); return; }
         var el = bolt.Wind ? HeroElement.Wind : bolt.Plain ? HeroElement.None : bolt.Frost ? HeroElement.Frost : HeroElement.Fire;
         if (el == HeroElement.Fire) FireBurst(bolt, e, at);
         float dealt = e.Hurt(bolt.Damage, bolt.Dir * (el == HeroElement.Wind ? 10f : 40f), at, Elements.KindOf(el));

@@ -51,6 +51,7 @@ public partial class Player
     /// <summary>An elemental bubble shot burst on <paramref name="e"/>: what its version does to everything its burst reached.</summary>
     private void AegisShotBurst(ElementBolt bolt, Enemy e, Vector2 at, List<Enemy> struck)
     {
+        if (bolt.Version == SimpleVer) { foreach (var t in struck) SimpleTouch(t, KitRole.Primary, at); return; }
         float p = Stats.DamageMult, full = Tune.Elements.Full, build = Tune.ElementalAegis.ShotBuild;
         Vector2 Away(Enemy t) => (t.GlobalPosition - at).LengthSquared() > 1 ? (t.GlobalPosition - at).Normalized() : Vector2.Up;
         var col = bolt.Tint;
@@ -189,6 +190,12 @@ public partial class Player
         float p = Stats.DamageMult, full = Tune.Elements.Full;
         var c = GlobalPosition + new Vector2(0, -6);
         var foes = G.Enemies.Where(e => !e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(c) <= r + e.HitRadius).ToList();
+        if (ver == SimpleVer)
+        {
+            foreach (var e in foes) SimpleTouch(e, KitRole.Special, c);
+            G.Fx.Ring(c, r, new Color(Elements.ColorOf(Mode), 0.75f), 0.4f, FxLayer.RingStyle.Burst);
+            return;
+        }
         Vector2 Away(Enemy e) => (e.GlobalPosition - c).LengthSquared() > 1 ? (e.GlobalPosition - c).Normalized() : Vector2.Up;
         var wind = Elements.ColorOf(HeroElement.Wind);
         void Gust() { for (int k = 0; k < 14; k++) { float a = k * Mathf.Tau / 14f; G.Fx.Directional(c + Vector2.Right.Rotated(a) * 16f, Vector2.Right.Rotated(a), 0.12f, new Color(wind, 0.75f), 1, r * 2.2f, 1.6f, 0.35f, 0, 1); } }

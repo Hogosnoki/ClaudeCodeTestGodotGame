@@ -77,7 +77,10 @@ public partial class Hud
     }
 
     /// <summary>What an elemental ability does, by its name (<see cref="Elements.SingleName"/>, <see cref="Elements.DualName"/>).</summary>
-    public static (string title, string body) ElementTip(string name) => (name, name switch
+    public static (string title, string body) ElementTip(string name) => SimpleTip(name, out var simple) ? simple : VersionTip(name);
+
+    /// <summary>What an elemental version does (the elemental kits before the simple ones; the Shape Shifter's).</summary>
+    private static (string title, string body) VersionTip(string name) => (name, name switch
     {
         // the Swordsman's greater versions and mixes (overcharged: his mode twice; an attribute on top: the two together)
         "Fault Strike" => "Earth overcharged: a heavy blow of stone (full earth, shatters the frozen), and the floor splits on ahead of it.",

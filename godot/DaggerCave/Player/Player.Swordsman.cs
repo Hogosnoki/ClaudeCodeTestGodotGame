@@ -61,7 +61,7 @@ public partial class Player
     public string DebugState => $"freeze {_freeze:0.00} swingCd {_swingCd:0.00} swingT {_swingT:0.00} dodgeT {_dodgeT:0.00} atkBuf {_attackBuf:0.00} ablBuf {_abilityBuf:0.00} abl2Buf {_ability2Buf:0.00} ability {AbilityCooldownFrac:0.00} charged {Charged} dashT {_dashT:0.00} bashT {_bashT:0.00} heave {_heaveRootT:0.00} shield {ShieldRaised}";
     public float[] DodgeCooldowns => _dodgeCd;
     /// <summary>A dodge charge's whole recharge, from the roll starting (for the HUD).</summary>
-    public float DodgeCooldownTotal => IsSwordsman ? Tune.Swordsman.DashSlashTime + Tune.Swordsman.DashSlashCooldown * Stats.DodgeCdMult : DodgeTime + Tune.Hero.DodgeCooldown * Stats.DodgeCdMult;
+    public float DodgeCooldownTotal => IsSwordsman && !SimpleKit ? Tune.Swordsman.DashSlashTime + Tune.Swordsman.DashSlashCooldown * Stats.DodgeCdMult : DodgeTime + Tune.Hero.DodgeCooldown * Stats.DodgeCdMult;
     /// <summary>Swings still empowered by the Charged Strike (0 = none).</summary>
     public int Charged { get; private set; }
     /// <summary>0 = the Charged Strike is ready, 1 = just used.</summary>
@@ -73,7 +73,8 @@ public partial class Player
         int idx = -1;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] <= 0) { idx = k; break; }
         if (idx < 0) return false;
-        bool slash = IsSwordsman;
+        // (the simple kit's Roll is a roll, not the dash-slash)
+        bool slash = IsSwordsman && !SimpleKit;
         _dodgeSlash = slash;
         _slashFoe = null;
         float dur = slash ? Tune.Swordsman.DashSlashTime : DodgeTime;

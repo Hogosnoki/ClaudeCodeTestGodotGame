@@ -1171,6 +1171,16 @@ public static class Tune
         /// element there is an attribute (every blow and spell adds <c>AttributeBuild</c> of it, wind a shove of <c>AttributeShove</c>), kept
         /// until replaced. Pressing the attribute's element again switches the mode to it, at most once every <c>ModeCooldown</c> s.</summary>
         public static float ModeCooldown = 4.5f, OverchargeRecharge = 18f, AttributeBuild = 15f, AttributeShove = 120f;
+        /// <summary>
+        /// The simple kits (the Swordsman, Warden, Elementalist, Vitalist, Aegis and Rogue): three abilities each (a primary attack, a
+        /// defensive, a special) and three elements, an element button switching to its element (at most once every <c>SwitchCooldown</c>
+        /// s). An ability works the same in every element; what it strikes takes the element's build-up (<c>PrimaryBuild</c> a blow of the
+        /// primary, <c>DefensiveBuild</c> from the defensive, <c>SpecialBuild</c> from the special), and it looks and sounds of it.
+        /// </summary>
+        public static float SwitchCooldown = 1f, PrimaryBuild = 40f, DefensiveBuild = 40f, SpecialBuild = 80f;
+        /// <summary>Wind builds nothing: it shoves, <c>ShovePerBuild</c> px/s for each point another element would build. A defensive's pulse
+        /// reaches <c>PulseRadius</c> px about the hero.</summary>
+        public static float ShovePerBuild = 4f, PulseRadius = 60f;
     }
 
     /// <summary>

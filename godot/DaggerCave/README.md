@@ -2087,6 +2087,59 @@ The Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis, the Rogue 
 `Enemies/Enemy.Elements.cs`, `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`, `Tune.ElementalWarden`), on **1, 2, 3** on the
 keyboard, **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*.
 
+### Simple kits (the elemental heroes now)
+
+The Swordsman, the Warden, the Elementalist, the Vitalist, the Aegis and the Rogue each have **three abilities and three elements**
+(`Elements.Simple`, `Player/Player.Simple.cs`). The element changes what an ability does to what it reaches, never how the ability
+works:
+
+| | Primary attack (attack) | Defensive (dodge) | Special (ability) | Elements |
+|---|---|---|---|---|
+| Swordsman | Strike: a sword swing | Roll: a dodge roll | Cleave: the Hard Swing | earth, fire, frost |
+| Warden | Cut: the shortsword | Shield: the block (held) | Charge: the Guarded Charge | earth, frost, wind |
+| Elementalist | Bolt | Ward: a barrier on you and friends near | Burst: a blast at a spot along the aim | fire, frost, wind |
+| Vitalist | Drain | Mending: the heal | Hex: the hex about her | nature, wind, water |
+| Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | Dome: the bubble field | wind, earth, frost |
+| Rogue | Jab (no dagger in hand: recall) | Vanish | Knife: the dagger throw | dark, wind, nature |
+
+* **An element button switches to its element**, and does nothing else: no overcharge, no attribute, no mixes. A switch takes
+  effect at once, at most once a second (`Tune.Elements.SwitchCooldown`). Pressing the element you're in does nothing.
+* **The same numbers in every element.** Damage, reach, speed, cooldowns, barriers and shield absorption don't change with the
+  element. The blows are plain, so no creature resists or is weak to them by element.
+* **The element's touch.** What an ability strikes takes its element's build-up: a primary's blow 40 (`PrimaryBuild`), a defensive
+  40 (`DefensiveBuild`), a special 80 (`SpecialBuild`). Fire burns, frost chills then freezes, earth stuns, nature entangles, water
+  soaks, dark blinds. Wind builds nothing: it shoves the creature away, harder the bigger the ability (`ShovePerBuild`).
+* **Every defensive pulses.** Using it sends a ring of the element out to 60 px about the hero (`PulseRadius`), touching each creature
+  in it (no blow). The Warden's shield instead touches each creature whose blow it stops.
+* **The look and sound are the element's.** Each use pops its name in the element's colour: Searing Strike, Rime Shield, Gale Hex,
+  Thorn Drain, Shadow Knife (an adjective per element, `Elements.Adjective`, before the ability's noun, `Elements.Noun`). Bolts,
+  bubbles, bursts, pulses and the sparks of each touch take the element's colour; blows land with its sound; the weapon glows with it.
+* **The second ability button does nothing** for these heroes.
+* **HUD.** The three elements on the d-pad's half circle (the one you're in big and lit, the switch's cooldown round the middle),
+  then three squares in the element's colour (primary, defensive, special) with their cooldowns. The Vitalist's vital force bar
+  follows. Hovering a square gives the ability's full name and what its element does (`UI/Hud.Simple.cs`).
+
+The Shape Shifter keeps her own rules (her element picks the creature she becomes; see below) and the Automaton has no elements. The
+classic kits (Settings) are unchanged.
+
+**The archive.** Everything the simple kits replaced is still in the code, behind `Elements.Simple`, and catalogued with what each
+ability did and where its code is in **[ABILITY_ARCHIVE.md](ABILITY_ARCHIVE.md)**. That covers the mode with its overcharge and
+attribute, all 180 elemental versions, greater versions and mixes, Empower Hilt, the element leaps, Lift, Fire Walk, Tundra, the
+Updraft, the Aid buffs, the Rupture, the Recall button and Shared Burden. Turning the switch off brings the mode kits back whole, and
+the rest of this section describes them.
+
+**Tests.** `--scenario=elements --hero=swordsman|warden|elementalist|vitalist|aegis|rogue` (`Main.SimpleKitTest.cs`) checks:
+
+* the element buttons only switch, with a switch cooldown and nothing on top;
+* every ability, in every element, gives the right build-up (wind: a shove, no build-up);
+* each defensive pulses;
+* each ability's cooldown and blow are the same in every element;
+* the second ability button does nothing.
+
+All six pass, and `--hero=shapeshifter` still runs her own test.
+
+### The mode kits (archived: `Elements.Simple = false`)
+
 **Modes.** The hero is always **in one of their elements** (its mode): every ability is that element's version, so in fire mode the
 Swordsman's swings are Searing Strikes, his Hard Swing Pyroclasty, his dodge (from the ground) an Explosive Lunge. Each hero starts in their
 own element (`Elements.Signature`: the Swordsman and the Elementalist fire, the Warden earth). **One slot sits on top of the mode**, and the
