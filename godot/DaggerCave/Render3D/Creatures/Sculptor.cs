@@ -43,6 +43,9 @@ public sealed class Sculptor
     /// <summary>Voxel size in metres (smaller = finer skin, slower build).</summary>
     public float Cell = 0.02f;
     public readonly Random Rng;
+    /// <summary>Set by <see cref="Reshape"/>: takes a finished skin's point back to where it was sculpted, for the painters (whose
+    /// measures are the sculpt's).</summary>
+    public Func<Vector3, Vector3> PaintSpace;
 
     public Sculptor(int seed) { Noise = new Noise3(seed); Rng = new Random(seed); }
 
@@ -342,6 +345,26 @@ public sealed class Sculptor
         var p = NewPart(mat, emit);
         p.Mesh.Append(geo, Transform3D.Identity);
         p.Binds.AddRange(binds);
+    }
+
+    /// <summary>
+    /// Moves everything sculpted so far (the bones' joints, every primitive, every part's points) through <paramref name="warp"/>,
+    /// which is told each point's bone: a change of proportions applied to the finished figure. Sizes (radii) are kept.
+    /// <paramref name="back"/> takes a reshaped point back, for the painters.
+    /// </summary>
+    public void Reshape(Func<Vector3, int, Vector3> warp, Func<Vector3, Vector3> back)
+    {
+        foreach (var b in Bones) b.Head = warp(b.Head, Bones.IndexOf(b));
+        foreach (var p in Prims)
+        {
+            p.A = warp(p.A, p.Bone);
+            if (p.Kind == PrimKind.RoundCone) p.B = warp(p.B, p.Bone);
+            p.Prepare();
+        }
+        foreach (var part in Parts)
+            for (int k = 0; k < part.Mesh.V.Count; k++)
+                part.Mesh.V[k] = warp(part.Mesh.V[k], k < part.Binds.Count ? part.Binds[k].a : 0);
+        PaintSpace = back;
     }
 
     /// <summary>Any MeshBuilder geometry (already in model space) bound rigidly to one bone.</summary>

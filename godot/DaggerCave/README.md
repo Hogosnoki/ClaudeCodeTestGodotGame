@@ -736,6 +736,11 @@ All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a sty
 
 Each eye is a white, an iris and a pupil, turned in a touch, with the upper lid over its top.
 
+**Proportions.** Every hero has a shorter torso and longer legs than they were sculpted with, at about the same height. `HeroDesign.Proportion` reshapes the finished figure through `Sculptor.Reshape`:
+- the trunk is squeezed 12% between the hips and the neck, and the legs are stretched 8% from hip to ankle;
+- the head and neck, the feet and soles, and each arm (with whatever it holds) move without stretching;
+- the leg solver takes the new thigh and shin lengths and hip height, and the painters see the skin in the sculpt's measures (`Sculptor.PaintSpace`).
+
 **Crisp edges.** Beards, hair, bandanas, collars, helms and masks are marked `Prim.Crisp`. Their colour and material stop hard where their surface meets another's, instead of blending across the smooth union's width (which left a beard half skin, or a red scarf bleeding onto a jaw); the bones still share those vertices smoothly, so they bend as before. They are also joined with tight blends, so they read as cloth or hair with an edge. Every hero is now meshed at the Swordsman's 1 cm grid (about 55-75k triangles; a hero takes about half a second to bake). `--sheetclips=rest:0` poses the rig at rest for close-ups.
 - The Rogue: a plum hood, dark leather, a short cape and a dagger in each hand. A dark bandana is tied over his face to just under the eyes, hiding his nose, mouth and jaw; its hem is pulled taut across the bridge of the nose from cheek to cheek, with folds drawn down under the cheekbones. Above it are intent brows, red eyes, and a lock of pale hair fallen across one eye.
 

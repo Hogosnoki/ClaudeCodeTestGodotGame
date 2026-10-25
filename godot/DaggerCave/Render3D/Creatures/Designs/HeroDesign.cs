@@ -55,7 +55,8 @@ public sealed partial class HeroDesign : CreatureDesign
         DetailScale = 34f, DetailStrength = 0.6f,
     };
 
-    private const float Floor = -0.81f;
+    // (the soles: lower than they were sculpted, the legs being lengthened, see Proportion)
+    private const float Floor = -0.81f - SoleDrop;
     private static readonly Vector3 LanternAt = new(0.02f, -0.02f, -0.19f);
     /// <summary>How far out the shoulder joints and the hips' sockets sit (rest space): the Warden is built broader than the rest.</summary>
     private float ArmZ => _warden ? 0.225f : 0.19f;
@@ -154,9 +155,10 @@ public sealed partial class HeroDesign : CreatureDesign
         {
             SculptBran(s);
             SculptLantern(s, hipsB);
+            Proportion(s);
             return;
         }
-        if (_automaton) { SculptAutomaton(s); return; }
+        if (_automaton) { SculptAutomaton(s); Proportion(s); return; }
 
         // ---- torso
         // (the Warden: a barrel chest, a broad back and heavy shoulders, thick through the waist)
@@ -530,6 +532,44 @@ public sealed partial class HeroDesign : CreatureDesign
             s.Rigid(s["shield"], sh, Mat.Metal);
         }
         SculptLantern(s, hipsB);
+        Proportion(s);
+    }
+
+    // ================================================================== proportions
+
+    /// <summary>How much the torso is shortened (hips to the base of the neck) and the legs lengthened (hip to ankle).</summary>
+    private const float TorsoK = 0.88f, LegK = 1.08f;
+    private const float NeckY = 0.5f, ShoulderY = 0.46f, AnkleY = -0.75f;
+    /// <summary>How far the ankles (and the soles under them) end up below where they were sculpted.</summary>
+    private const float SoleDrop = -AnkleY * (LegK - 1f);
+
+    /// <summary>A point of the trunk and legs, reshaped: squeezed between the hips and the neck, stretched between the hips and the ankles,
+    /// moved without stretching above the neck and below the ankles (so the head, the feet and their soles keep their shapes).</summary>
+    private static float ProportionY(float y) =>
+        y >= NeckY ? y - NeckY * (1f - TorsoK) : y >= 0f ? y * TorsoK : y >= AnkleY ? y * LegK : y - SoleDrop;
+
+    private static float UnproportionY(float y) =>
+        y >= NeckY * TorsoK ? y + NeckY * (1f - TorsoK) : y >= 0f ? y / TorsoK : y >= AnkleY * LegK ? y / LegK : y + SoleDrop;
+
+    /// <summary>
+    /// The heroes' proportions, applied to the finished figure: a shorter torso and longer legs, the height about the same. The neck and
+    /// head, and the arms (from the shoulder down, with whatever they hold), move down with the shoulders whole; the trunk, the cloak and
+    /// the legs are reshaped point by point.
+    /// </summary>
+    private static void Proportion(Sculptor s)
+    {
+        var mode = new int[s.Bones.Count];
+        for (int k = 0; k < mode.Length; k++)
+        {
+            string n = s.Bones[k].Name;
+            mode[k] = n is "neck" or "head" || n.StartsWith("scarf") ? 1
+                : n.StartsWith("clav") || n.StartsWith("uarm") || n.StartsWith("farm") || n.StartsWith("hand") || n == "shield" ? 2 : 0;
+        }
+        float headDy = -NeckY * (1f - TorsoK), armDy = ShoulderY * TorsoK - ShoulderY;
+        s.Reshape((p, bone) => bone < 0 || bone >= mode.Length || mode[bone] == 0
+                ? new Vector3(p.X, ProportionY(p.Y), p.Z)
+                : new Vector3(p.X, p.Y + (mode[bone] == 1 ? headDy : armDy), p.Z),
+            q => new Vector3(q.X, UnproportionY(q.Y), q.Z));
     }
 
     /// <summary>The lantern at the left hip: its glass glows in the look's glow colour.</summary>

@@ -151,9 +151,13 @@ public sealed partial class HeroDesign
     // ================================================================== the leg solver
 
     // (rest-space lengths: hip to knee, knee to ankle, ankle to the sole, heel and toe either side of the ankle)
-    private const float L1 = 0.3903f, L2 = 0.3606f, AnkleH = 0.071f, HeelBack = 0.066f, ToeFwd = 0.161f;
+    // (after the legs are lengthened: see Proportion)
+    private static readonly float L1 = new Vector2(0.01f, 0.39f * LegK).Length(), L2 = new Vector2(0.02f, 0.75f * LegK - 0.39f * LegK).Length();
+    private const float AnkleH = 0.071f, HeelBack = 0.066f, ToeFwd = 0.161f;
     /// <summary>The hip joint's height above the floor when the root is at rest.</summary>
-    private const float HipRest = 0.81f;
+    private const float HipRest = 0.81f + SoleDrop;
+    /// <summary>The hip heights below were set for the old, shorter legs: this scales them to the new.</summary>
+    private const float HipK = HipRest / 0.81f;
 
     /// <summary>
     /// Two-bone solve in the side plane: the thigh's bend (forward positive) and the knee's bend for an
@@ -307,7 +311,7 @@ public sealed partial class HeroDesign
             float spring = MathF.Abs(MathF.Sin(time * 4.2f));
             hipH += 0.018f * spring - 0.009f; o.Lean -= 2f * spring; o.SL += 3f * spring;
         }
-        Stance(ref o, right, left, hipH + 0.004f * b * br, _rogue ? 14f : 0f);
+        Stance(ref o, right, left, hipH * HipK + 0.004f * b * br, _rogue ? 14f : 0f);
         return o;
     }
 
@@ -348,7 +352,7 @@ public sealed partial class HeroDesign
         float tau = Mathf.Tau;
         // the body's height: compressed while a foot carries it, rising through the flight between
         float mid = MathF.Cos(2f * tau * (phase - sf * 0.5f));
-        float hipH = Mathf.Lerp(0.775f, st.Hip, Math.Min(1f, 0.35f + vn)) - st.Bounce * Ex * flight * mid + 0.02f * (1f - flight) * mid - st.Weight * flight * (0.5f + 0.5f * mid);
+        float hipH = Mathf.Lerp(0.775f, st.Hip, Math.Min(1f, 0.35f + vn)) * HipK - st.Bounce * Ex * flight * mid + 0.02f * (1f - flight) * mid - st.Weight * flight * (0.5f + 0.5f * mid);
         var o = new Body { Root = new Vector3(0, hipH - HipRest, 0), HRx = 4f, HLx = 4f };
         // (the foot goes back exactly as far as the body goes in the time it's down)
         float travel = sf * stride;

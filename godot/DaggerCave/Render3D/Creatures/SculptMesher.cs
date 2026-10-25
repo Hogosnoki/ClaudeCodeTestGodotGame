@@ -352,7 +352,8 @@ public static class SculptMesher
             if (csum <= 0f) { csum = 1f; col = Vector3.One * 0.5f; rough = 0.6f; }
             col /= csum;
             var painted = new Color(col.X, col.Y, col.Z);
-            foreach (var paint in s.Paints) painted = paint(q, painted, nearMat);
+            var pq = s.PaintSpace != null ? s.PaintSpace(q) : q;
+            foreach (var paint in s.Paints) painted = paint(pq, painted, nearMat);
             body.C[k] = new Color(painted.R, painted.G, painted.B, rough / csum);
             custom.Add(metal / csum); custom.Add(sss / csum); custom.Add(emit / csum); custom.Add(DominantDetail(near, q, dmin) / 8f);
             for (int j = 0; j < 4; j++) kinds0.Add(kw[j] / csum);
