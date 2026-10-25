@@ -128,12 +128,13 @@ public sealed partial class HeroDesign
             FreeAmp = 46f, FreeMid = 6f, FreeElbow = 84f, FreeElbowAmp = 16f,
             HoldAmp = 22f, HoldMid = 18f, HoldElbow = 84f, HoldElbowAmp = 10f, HoldAbs = 110f, HeadUp = 0f, Weight = 0.01f,
         },
-        // the Rogue: a sprinter's crouch, the longest strides, heels flicking up, both fists pumping
+        // the Rogue (after Sheik): low and pitched hard forward, the longest strides, heels flicking up, both arms swept back
+        // behind with the daggers trailing, the head up and eyes ahead
         _ => new Style
         {
-            Stance = 0.84f, Stride = 4.9f, Hip = 0.72f, Bounce = 0.045f, Clear = 0.27f, Lean = 32f, HipTwist = 11f, Counter = 20f,
-            FreeAmp = 54f, FreeMid = 8f, FreeElbow = 100f, FreeElbowAmp = 18f,
-            HoldAmp = 54f, HoldMid = 8f, HoldElbow = 100f, HoldElbowAmp = 18f, HoldAbs = 80f, HeadUp = -10f, Weight = 0.01f,
+            Stance = 0.86f, Stride = 5.0f, Hip = 0.7f, Bounce = 0.04f, Clear = 0.3f, Lean = 38f, HipTwist = 10f, Counter = 9f,
+            FreeAmp = 8f, FreeMid = -52f, FreeElbow = 22f, FreeElbowAmp = 6f,
+            HoldAmp = 8f, HoldMid = -52f, HoldElbow = 22f, HoldElbowAmp = 6f, HoldAbs = -40f, HeadUp = -14f, Weight = 0.008f,
         },
     };
 
@@ -214,13 +215,15 @@ public sealed partial class HeroDesign
     /// the left <paramref name="left"/>, the hips <paramref name="hipH"/> high: the stance is solved, so however the weight
     /// shifts over them (Root.X) the feet neither float nor sink nor slide.
     /// </summary>
-    private static void Stance(ref Body o, float right, float left, float hipH)
+    private static void Stance(ref Body o, float right, float left, float hipH, float heel = 0f)
     {
-        var ar = AnkleFrom(right - o.Root.X, -hipH, 0.45f, 0f);
+        // (with the heels up, <paramref name="heel"/> degrees, the weight rides on the balls of the feet)
+        float roll = heel > 0f ? 0.88f : 0.45f;
+        var ar = AnkleFrom(right - o.Root.X, -hipH, roll, -heel);
         LegIK(ar.X, ar.Y, out o.HR, out o.KR);
-        var al = AnkleFrom(left - o.Root.X, -hipH, 0.45f, 0f);
+        var al = AnkleFrom(left - o.Root.X, -hipH, roll, -heel);
         LegIK(al.X, al.Y, out o.HL, out o.KL);
-        o.FR = o.FL = 0f;
+        o.FR = o.FL = -heel;
         o.Root.Y = hipH - HipRest;
     }
 
@@ -246,11 +249,12 @@ public sealed partial class HeroDesign
         }
         else if (_rogue)
         {
-            // low and coiled on the balls of the feet, both daggers up before the face, eyes on the prey
-            o.Lean = 15; o.HeadPitch = -14; o.Twist = 6;
-            o.SR = 34; o.AR = 14; o.ER = 84; o.WR = 176 - (o.SR + o.ER);
-            o.SL = 46; o.AL = 14; o.EL = 80; o.WL = 4;
-            right = -0.2f; left = 0.19f; hipH = 0.7f; o.HRx = 9; o.HLx = 9;
+            // after Sheik: a ninja's crouch, very low and wide, front foot forward, pitched toward the prey with the eyes up;
+            // the front hand raised open by the face, dagger up, the rear hand low behind the hip with its dagger trailing
+            o.Lean = 20; o.HeadPitch = -16; o.Twist = 12;
+            o.SL = 74; o.AL = 12; o.EL = 76; o.WL = -10;
+            o.SR = -30; o.AR = 22; o.ER = 30; o.WR = -45;
+            right = -0.25f; left = 0.24f; hipH = 0.64f; o.HRx = 10; o.HLx = 10;
         }
         else if (_caster)
         {
@@ -294,7 +298,13 @@ public sealed partial class HeroDesign
         o.Root.X = 0.014f * w;
         o.HipTwist = -o.Twist * 0.5f;
         o.HeadYaw = -o.Twist * 0.5f;
-        Stance(ref o, right, left, hipH + 0.004f * b * br);
+        // (the Rogue never settles: a springy bounce on the balls of the feet, the knees pumping)
+        if (_rogue)
+        {
+            float spring = MathF.Abs(MathF.Sin(time * 4.2f));
+            hipH += 0.018f * spring - 0.009f; o.Lean -= 2f * spring; o.SL += 3f * spring;
+        }
+        Stance(ref o, right, left, hipH + 0.004f * b * br, _rogue ? 14f : 0f);
         return o;
     }
 
@@ -346,10 +356,10 @@ public sealed partial class HeroDesign
         o.SR = st.HoldMid + st.HoldAmp * Ex * sw;
         o.ER = st.HoldElbow + st.HoldElbowAmp * sw;
         // (the Swordsman's trailing blade is carried out from the body, clear of his legs and cape)
-        o.AR = _swordsman ? 20f : 10f;
+        o.AR = _swordsman ? 20f : _rogue ? 16f : 10f;
         o.SL = st.FreeMid - st.FreeAmp * Ex * sw;
         o.EL = st.FreeElbow - st.FreeElbowAmp * sw;
-        o.AL = 10f;
+        o.AL = _rogue ? 16f : 10f;
         // the torso: pitched into it, riding the stride, shoulders turning against the hips
         float lean = Mathf.Lerp(7f, st.Lean * (0.85f + 0.15f * Ex), vn);
         float turn = MathF.Cos(tau * (phase - 0.95f));
@@ -397,7 +407,16 @@ public sealed partial class HeroDesign
         o.AR += 6f * drift; o.AL -= 6f * drift; o.HR += 4f * drift; o.HL -= 4f * drift;
         if (_warden) { o.SL = 48; o.EL = 82; o.AL = 6; o.WL = -(o.SL + o.EL); }
         if (_caster) { o.SR = 46; o.ER = 62; o.AR = 18; }
-        if (_rogue) { o.Lean += 14; o.KR += 10; o.KL += 14; o.HL += 12; o.SR += 12; o.SL -= 26; o.EL += 40; }
+        if (_rogue)
+        {
+            // (after Sheik: balled up tight going up, both arms swept back; falling, the legs gathered under, the arms back and wide)
+            float up = W3.SmoothStep(-2f, 3f, vy);
+            o.Lean = Mathf.Lerp(8f, 22f, up); o.HeadPitch = -14f;
+            o.HR = Mathf.Lerp(46f, 92f, up); o.KR = Mathf.Lerp(64f, 128f, up); o.HL = Mathf.Lerp(22f, 76f, up); o.KL = Mathf.Lerp(58f, 120f, up);
+            o.FR = -26f; o.FL = -30f;
+            o.SR = -48f; o.ER = 30f; o.AR = Mathf.Lerp(34f, 20f, up); o.WR = -30f;
+            o.SL = -44f; o.EL = 34f; o.AL = Mathf.Lerp(34f, 20f, up); o.WL = -30f;
+        }
         if (_automaton) { o.AR *= 0.6f; o.AL *= 0.6f; o.SL = Math.Min(o.SL, 70f); }
         return o;
     }
@@ -475,7 +494,8 @@ public sealed partial class HeroDesign
         // short, hard chops behind the shield, feet planted, the weight thrown into the blow
         HeroKind.Warden => new CutStyle { CockA = 96f, OverA = -38f, CockB = -58f, OverB = 60f, CockC = 134f, OverC = -50f, BendCock = 86f, BendEnd = 24f, Wind = 22f, Through = 27f, LeanWind = -8f, LeanThrough = 20f, Lunge = 0.8f, Counter = 0.15f },
         // quick, close cuts from a crouch, one dagger then the other, the body whipping behind them
-        _ => new CutStyle { CockA = 70f, OverA = -44f, CockB = -54f, OverB = 60f, CockC = 70f, OverC = -44f, BendCock = 98f, BendEnd = 30f, Wind = 36f, Through = 40f, LeanWind = 6f, LeanThrough = 26f, Lunge = 0.6f, Counter = 0.35f },
+        // after Sheik: short, snapping strikes from the crouch that shoot out to full reach and spring straight back, the whole low body whipping behind them
+        _ => new CutStyle { CockA = 62f, OverA = -38f, CockB = -54f, OverB = 66f, CockC = 96f, OverC = -50f, BendCock = 112f, BendEnd = 8f, Wind = 30f, Through = 44f, LeanWind = 10f, LeanThrough = 30f, Lunge = 0.75f, Counter = 0.35f },
     };
 
     private static float SweepEase(float k)
@@ -541,9 +561,10 @@ public sealed partial class HeroDesign
             else if (_rogue)
             {
                 // (the idle hand tucks back and guards)
-                float guard = Mathf.Lerp(34f, -14f, sweep) + free * 0.5f * (handR ? 1f : -1f);
-                if (handR) { o.SL = guard; o.EL = 96f; o.AL = 12f; o.WL = 10f; }
-                else { o.SR = guard; o.ER = 96f; o.AR = 12f; o.WR = 10f; }
+                // (after Sheik: the other hand snaps back to guard the face as the strike shoots out)
+                float guard = Mathf.Lerp(58f, 40f, sweep) + free * 0.2f * (handR ? 1f : -1f);
+                if (handR) { o.SL = guard; o.EL = 104f; o.AL = 12f; o.WL = -10f; }
+                else { o.SR = guard; o.ER = 104f; o.AR = 12f; o.WR = -10f; }
             }
             else if (_swordsman)
             {
@@ -875,6 +896,21 @@ public sealed partial class HeroDesign
                 o = new Body { Lean = 66, HeadPitch = -42, SR = -34, ER = 30, WR = 60, AR = 12, SL = -50, EL = 20, AL = 12, HR = -20, KR = 40, FR = -30, HL = -36, KL = 18, FL = -26, HRx = 4, HLx = 4 };
                 if (_warden) { o.SL = 60; o.EL = 70; o.WL = -(o.SL + o.EL); }
                 break;
+            case "throw" when _rogue:
+                {
+                    // after Sheik's needles: crouched with both arms crossed over the chest, then both flung out at once, fanned,
+                    // the body springing forward and up behind them; the hands hang there a moment, then back to guard
+                    float load = Key(t, (0, 0), (0.32f, 1f), (0.44f, 0f));
+                    float fling = Key(t, (0.32f, 0f), (0.46f, 1f), (0.75f, 0.85f), (1f, 0f));
+                    o.SL = Mathf.Lerp(Mathf.Lerp(o.SL, 44f, load), 98f, fling); o.EL = Mathf.Lerp(Mathf.Lerp(o.EL, 124f, load), 6f, fling);
+                    o.AL = Mathf.Lerp(Mathf.Lerp(o.AL, -16f, load), 30f, fling); o.WL = Mathf.Lerp(o.WL, -6f, fling);
+                    o.SR = Mathf.Lerp(Mathf.Lerp(o.SR, 50f, load), 74f, fling); o.ER = Mathf.Lerp(Mathf.Lerp(o.ER, 124f, load), 8f, fling);
+                    o.AR = Mathf.Lerp(Mathf.Lerp(o.AR, -16f, load), 34f, fling); o.WR = Mathf.Lerp(o.WR, -6f, fling);
+                    o.Lean += 10f * load - 6f * fling; o.HeadPitch -= 6f * fling;
+                    o.Root.Y += -0.04f * load + 0.02f * fling; o.Root.X += -0.015f * load + 0.03f * fling;
+                    o.KR += 16f * load; o.KL += 16f * load; o.HR += 10f * load; o.HL += 10f * load;
+                    break;
+                }
             case "throw":
                 {
                     // the off hand flings the dagger (the sword stays ready)

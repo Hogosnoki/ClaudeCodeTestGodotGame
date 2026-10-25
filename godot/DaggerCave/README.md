@@ -849,7 +849,7 @@ Every hero moves like the main character: confident, committed, never stiff, but
 - **Standing.** No hero stands at attention. Each holds a stance of their own: feet set wide and staggered, knees soft, chest up and chin lifted, the weapon held where it can strike from. The feet are solved onto the floor (`Stance`), so the weight can drift between them without a foot floating or sliding. The breath lifts the chest and squares the shoulders; the Automaton only hums.
   - The Swordsman moves after Marth (Super Smash Bros. Melee); see below.
   - The Warden stands squared behind his shield, sword cocked over his shoulder.
-  - The Rogue crouches low on the balls of the feet, both daggers up before the face.
+  - The Rogue moves after Sheik (Super Smash Bros. Melee); see below.
   - The casters stand tall, staff planted. The Elementalist holds power ready in the free hand; the Vitalist and the Aegis open a palm.
   - The Automaton stands broad, its cleaver low and forward.
   - The Shape Shifter is loose and clawed, staff held like a blade.
@@ -871,6 +871,12 @@ Every hero moves like the main character: confident, committed, never stiff, but
   - Cuts are wide crescents thrown with a long, nearly straight arm, the body turning through them upright. The off hand reaches toward the mark in the wind-up, then sweeps back and out behind, long and open, as the blade comes through. The finisher rises overhead and comes down into a long lunge like his forward smash.
   - Jumping, both knees are drawn up neatly with the blade trailing back. His double jump is a tight forward somersault, the sword arm held out so the blade wheels round with him. (It used to show the dash-slash pose by mistake, since both play the same clip.)
   - He lands light, like a fencer.
+- **The Rogue, after Sheik.** The Rogue's reference is Sheik from Super Smash Bros. Melee: a ninja, low, springy and quick.
+  - Standing, the Rogue holds a very low, wide crouch, front foot forward, pitched toward the prey with the eyes up. The weight rides on the balls of the feet in a constant springy bounce. The front hand is raised open by the face with its dagger up; the rear hand is low behind the hip, its dagger trailing.
+  - Running, the body is pitched hard forward in long strides, both arms swept back behind with the daggers trailing.
+  - Strikes are short and snapping: they shoot out from the crouch to full reach and spring straight back, while the other hand snaps up to guard the face.
+  - Jumping, the Rogue balls up tight with both arms swept back.
+  - The dagger throw is Sheik's needles: both arms crossed over the chest in a crouch, then flung out together, fanned, the body springing forward behind them.
 - **Everything else.**
   - Running, the head stays up with the eyes ahead, however far the body pitches into it.
   - A start drives off the back foot.
