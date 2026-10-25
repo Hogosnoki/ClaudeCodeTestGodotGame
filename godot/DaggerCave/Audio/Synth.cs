@@ -356,4 +356,136 @@ public static class Synth
     }
 
     public static float NoteHz(int midi) => 440f * MathF.Pow(2f, (midi - 69) / 12f);
+
+    // ---------------------------------------------------------------- textures: the stuff of real sounds (no held pitch in any of them)
+
+    /// <summary>
+    /// Crackle: a scatter of tiny damped clicks, each a short low-Q ring at a random colour about <paramref name="hz"/>, arriving at random
+    /// (about <paramref name="density"/> a second, an envelope over the span) and mostly small with the odd loud one. Fire, ice forming,
+    /// grit, twigs snapping, gravel.
+    /// </summary>
+    public static void Crackle(float[] buf, float start, float dur, Func<float, float> density, Func<float, float> amp, float hz, int seed, float decay = 900f, float spread = 0.5f)
+    {
+        var r = new Random(seed);
+        float t = 0f;
+        while (true)
+        {
+            float d = Math.Max(0.5f, density(Math.Clamp(t / dur, 0f, 1f)));
+            t += -MathF.Log(1f - 0.999f * (float)r.NextDouble()) / d;
+            if (t >= dur) break;
+            float u = t / dur;
+            float a = amp(u) * MathF.Pow((float)r.NextDouble(), 2.2f);
+            float f = hz * (1f + spread * ((float)r.NextDouble() * 2f - 1f));
+            float fc = 2f * MathF.Sin(MathF.PI * Math.Clamp(f, 40f, Rate * 0.2f) / Rate), damp = 0.9f;
+            float dk = decay * (0.6f + 0.8f * (float)r.NextDouble());
+            int s0 = (int)((start + t) * Rate), n = (int)(Math.Min(0.05f, 6f / dk) * Rate);
+            float lo = 0f, bp = 0f;
+            for (int k = 0; k < n && s0 + k < buf.Length; k++)
+            {
+                float e = MathF.Exp(-k / (float)Rate * dk);
+                float x = (k < 2 ? 1f : 0f) + Noise() * 0.5f * e;
+                lo += fc * bp;
+                float hi = x - lo - damp * bp;
+                bp += fc * hi;
+                if (s0 + k >= 0) buf[s0 + k] += (bp + (x - lo) * 0.25f) * a * e;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Air moving: noise through a band-pass whose centre and loudness wander with turbulence (two slow random walks, <paramref name="turb"/>
+    /// deep) about their envelopes. Whooshes, gusts, a flame's roar, breath; nothing whistles in it.
+    /// </summary>
+    public static void Whoosh(float[] buf, float start, float dur, Func<float, float> hz, Func<float, float> amp, float q, float turb, int seed)
+    {
+        var r = new Random(seed);
+        int s0 = (int)(start * Rate), n = (int)(dur * Rate);
+        float lo = 0f, bp = 0f, w1 = 0f, w2 = 0f, g1 = 0f, g2 = 0f;
+        int step = Math.Max(1, Rate / 60);
+        for (int k = 0; k < n && s0 + k < buf.Length; k++)
+        {
+            if (k % step == 0) { g1 = (float)r.NextDouble() * 2f - 1f; g2 = (float)r.NextDouble() * 2f - 1f; }
+            w1 += (g1 - w1) * 0.0015f * 44100f / Rate * 8f;
+            w2 += (g2 - w2) * 0.0015f * 44100f / Rate * 5f;
+            float t = k / (float)n;
+            float f = 2f * MathF.Sin(MathF.PI * Math.Clamp(hz(t) * (1f + turb * 0.6f * w1), 30f, Rate * 0.18f) / Rate);
+            float damp = 1f / Math.Max(0.4f, q);
+            lo += f * bp;
+            float hi = Noise() * NoiseGain - lo - damp * bp;
+            bp += f * hi;
+            float a = amp(t) * Math.Max(0f, 1f + turb * w2);
+            if (float.IsNaN(a)) a = 0f;
+            if (s0 + k >= 0) buf[s0 + k] += bp * a * MathF.Sqrt(damp);
+        }
+    }
+
+    private static readonly float[][] TinyGlass = { new[] { 1f, 1f, 150f }, new[] { 2.37f, 0.45f, 210f }, new[] { 3.91f, 0.3f, 280f } };
+
+    /// <summary>Crystallization: tiny glassy tinks scattered over the span, each at its own high colour and gone in a few milliseconds
+    /// (so they sparkle rather than sing); most quiet, a few bright.</summary>
+    public static void Tinkles(float[] buf, float start, float dur, int count, float hz, float amp, int seed, float spread = 0.45f, float bunch = 0.9f)
+    {
+        var r = new Random(seed);
+        for (int k = 0; k < count; k++)
+        {
+            float t = start + dur * MathF.Pow((float)r.NextDouble(), bunch);
+            float f = hz * (1f + spread * ((float)r.NextDouble() * 2f - 1f));
+            Modes(buf, t, f, TinyGlass, 0.7f + 0.6f * (float)r.NextDouble(), amp * MathF.Pow((float)r.NextDouble(), 1.6f));
+        }
+    }
+
+    /// <summary>Rumble: noise held under <paramref name="hz"/> (two one-pole stages), its loudness on an envelope: weight, a body falling,
+    /// earth moving, a flame catching. No sine in it.</summary>
+    public static void Rumble(float[] buf, float start, float dur, float hz, Func<float, float> amp)
+    {
+        int s0 = (int)(start * Rate), n = (int)(dur * Rate);
+        float c = 1f - MathF.Exp(-MathF.Tau * hz / Rate), l1 = 0f, l2 = 0f;
+        float gain = 3.2f * MathF.Sqrt(Rate / Math.Max(40f, hz)) / 6f;
+        for (int k = 0; k < n && s0 + k < buf.Length; k++)
+        {
+            l1 += (Noise() - l1) * c;
+            l2 += (l1 - l2) * c;
+            if (s0 + k >= 0) buf[s0 + k] += l2 * gain * amp(k / (float)n);
+        }
+    }
+
+    /// <summary>Water moving in a body: a low band of noise whose centre jumps about fast (the slosh), with now and then a short blurp
+    /// (a falling band of noise, not a tone).</summary>
+    public static void Gurgle(float[] buf, float start, float dur, float hz, Func<float, float> amp, int seed, float blurps = 8f)
+    {
+        var r = new Random(seed);
+        Whoosh(buf, start, dur, t => hz * (0.8f + 0.5f * MathF.Sin(t * 37f + seed)), amp, 2.2f, 0.9f, seed);
+        int count = (int)(blurps * dur);
+        for (int k = 0; k < count; k++)
+        {
+            float t = start + dur * (float)r.NextDouble();
+            float f = hz * (1.5f + 2f * (float)r.NextDouble());
+            float a = amp(Math.Clamp((t - start) / dur, 0f, 1f)) * (0.3f + 0.7f * (float)r.NextDouble());
+            BandNoise(buf, t, 0.03f + 0.03f * (float)r.NextDouble(), u => f * (1.4f - 0.6f * u), Const(6f), u => a * MathF.Sin(u * MathF.PI));
+        }
+    }
+
+    /// <summary>A whisper: breath through a throat and mouth (noise through formants, no voice in it), its loudness on an envelope.</summary>
+    public static void Whisper(float[] buf, float start, float dur, float[] formants, Func<float, float> amp, int seed)
+        => Voice(buf, start, dur, Const(100f), formants, formants.Select(f => f * 0.18f).ToArray(), amp, 1f, seed);
+
+    /// <summary>
+    /// Crunch: the sound driven hard into a rough, asymmetric clip, with a little of the drive's grit following its loudness. Makes a
+    /// made sound bite like a real one; <paramref name="amount"/> 0..1.
+    /// </summary>
+    public static void Crunch(float[] buf, float amount)
+    {
+        if (amount <= 0f) return;
+        Normalize(buf, 1f);
+        float drive = 1.5f + 5f * amount, env = 0f;
+        float norm = MathF.Tanh(drive);
+        for (int k = 0; k < buf.Length; k++)
+        {
+            float x = buf[k];
+            env = Math.Max(Math.Abs(x), env * 0.9995f);
+            float y = MathF.Tanh(x * drive + 0.25f * amount * x * x) / norm;
+            y += Noise() * 0.015f * amount * env;
+            buf[k] = x + (y - x) * amount;
+        }
+    }
 }

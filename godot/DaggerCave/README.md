@@ -788,9 +788,9 @@ The effects are built from noise and struck-object models rather than notes (`Au
 for stressed wood), so nothing rings like a chime. What a blow on an enemy sounds like depends on
 what it is made of (`Enemy.HitSound`): a stone or armoured one *chinks*, wood, bone and roots give a
 crackling thud, ice cracks, fire hisses and spits, water slaps, and flesh thumps. Chests creak and
-knock, the hero plunges in (`splash_in`) and climbs out more gently (`splash_out`), a level-up is a
-gathering swell and a deep impact, and swords whoosh. `--sfxdump=DIR` writes every effect as a
-.wav for a listen.
+knock, the hero plunges in (`splash_in`) and climbs out more gently (`splash_out`), and swords whoosh.
+`--sfxdump=DIR` writes every effect as a .wav for a listen (the elements' too: each element's five events,
+plain and as two sample attacks, and a pair).
 
 How they are finished, so they sound made of real things in a real place rather than a synthesizer:
 - **44.1 kHz** for the effects (the music stays at 22.05 kHz). Filter settings and noise levels are converted (`Synth.K`,
@@ -801,9 +801,36 @@ How they are finished, so they sound made of real things in a real place rather 
   stay dry.
 - **Three takes** of each effect: the plain one, one a shade darker and one a shade brighter, each in a slightly different room,
   played at random (with the usual small pitch wander), so a run of blows or footsteps never sounds machine-gunned.
-- New detail in the commonest sounds: a hit on flesh has the crack of contact, a wet slap, the body's thump and a short ring of hide;
+- New detail in the commonest sounds: a hit on flesh has the crack of contact, a wet slap and the body's weight behind it;
   landing and jumping scatter grit (`Synth.Grains`); the hero's grunt when struck is a voice (`Synth.Voice`: a breathy glottal pulse
   through "uh" formants, its pitch falling) rather than a filtered tone.
+
+**Nothing tonal.** No effect plays a note or holds a sine: every thump is a **rumble** (noise held low, `Synth.Rumble`), every droplet,
+bubble and blurp a blip of filtered noise, every voice breath through a throat (a goblin's snarl, a beast's roar, a frog's croak, a
+gasp, `Synth.Whisper`). The textures that make real sounds are their own tools: **crackle** (`Synth.Crackle`: a random scatter of tiny
+damped clicks, mostly small, the odd loud one: fire, ice forming, grit, twigs, gravel, droplets), **turbulent air** (`Synth.Whoosh`:
+band noise whose centre and loudness wander like eddies: gusts, a flame's roar, whooshes, never a whistle), **crystallization**
+(`Synth.Tinkles`: glassy tinks a few milliseconds long at scattered colours, so they sparkle rather than sing), **water** (`Synth.Gurgle`)
+and **crunch** (`Synth.Crunch`: a rough asymmetric drive with a breath of grit, so blows bite). Struck stone, wood and metal ring only for
+an instant. The game's own sounds, with nothing real to copy, are textures too: a level gained is air rushing in, a deep bloom of weight
+and a shower of crystal and sparks; a milestone a rising flurry of crystal; the cards a paper riffle and a glitter; a relic a struck plate
+of old metal (a gong's inharmonic wash); experience a soft sparkle. Each blade has its own air: the sword's sweep, the Warden's short cut,
+the Rogue's jab, the Automaton's cleaver; daggers bite into flesh, chip into rock and skitter off it.
+
+**The elements' sounds** (`Audio/ElementSounds.cs`): every element has its own sound for **readying** it (`Ev.Charge`: fire a small flare
+catching with a crackle, wind the whoosh of air drawn in, frost the twinkling of crystallization over a breath of frost, earth stone
+grinding with grit in it, nature a rustle of leaves, water a slosh, shadow a whisper), for an attack **loosed** (`Ev.Cast`), **striking a
+creature** (`Ev.Hit`), **meeting rock** (`Ev.Wall`) and **dissipating** at the end of its range or life (`Ev.Fizzle`: a flame guttering,
+ice subliming, a breeze dying, pebbles trickling, drips slowing). A readying sound is smaller for an attribute, bigger for a mode switch
+and biggest for an overcharge. **Every attack sounds like itself**: its own name seeds its own variant of its element's sound (brighter
+or darker, longer or shorter, denser or sparser texture), a pair layers its second element under the first and is weightier, and the
+same seed makes its strikes, splashes on rock and dissipation, so a Firebolt and a Meteorite, or a Rime Edge and an Icicle Lance, are
+told apart by ear. Where they come from: every ability used (`Player.CastSound`, at the three places that name it), bolts and bubble shots
+(`ElementBolt`: their caster's ability), elemental throws, elemental blade blows (the swing's, the Warden's cut's or the hilt's element),
+and the lasting spells (`HeroSpell`: each kind of spell its own variant, its strikes a few times a second at most, and its own
+dissipation when it ends of itself). They are made on first hearing and kept (the elements' readying sounds at start); a sound's name
+carries everything it is made from (`@event|attack|element|element|weight`), so online the other games make the very same one, and the
+same attack's sound struck twice within a breath is played once.
 
 ## The Elementals
 

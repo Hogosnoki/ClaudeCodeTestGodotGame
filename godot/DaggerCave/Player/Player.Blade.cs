@@ -157,7 +157,9 @@ public partial class Player
     {
         _released = true;
         var aim = _swingDir;
-        G.Sfx.Play(_finisher || _swingCharged || _heave ? "swing_heavy" : "swing", GlobalPosition, _heave ? 1 : -2, 0.12f, _heave ? 0.7f : 1f + _comboStep * 0.08f);
+        // (each blade its own air: the sword's sweep, the Warden's short cut, the Rogue's jab, the Automaton's cleaver)
+        string air = _finisher || _swingCharged || _heave ? (IsAutomaton ? "swing_cleaver" : "swing_heavy") : IsWarden ? "swing_short" : IsRogue ? "swing_dagger" : IsAutomaton ? "swing_cleaver" : "swing";
+        G.Sfx.Play(air, GlobalPosition, _heave ? 1 : -2, 0.12f, _heave ? 0.85f : 1f + _comboStep * 0.05f);
         // the sword carries you forward a little (horizontal strikes, on your feet; never a heave)
         if (LungeNow > 0 && !InWater && !_heave && !_dashSlashSwing)
         {

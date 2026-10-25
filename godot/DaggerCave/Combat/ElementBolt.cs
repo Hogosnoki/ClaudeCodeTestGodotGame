@@ -32,6 +32,9 @@ public partial class ElementBolt : Node2D
     /// <summary>Online: another player's bolt, shown here (their game deals its damage).</summary>
     public bool Harmless;
     public Player Caster;
+    /// <summary>The attack it was loosed by (its own sounds of striking, splashing on rock and running out); taken from the caster's last
+    /// ability if not given.</summary>
+    public string SoundKey;
     /// <summary>How fast it can turn toward its mark (degrees a second); 0 flies straight.</summary>
     public float TurnRate = Tune.Elementalist.BoltTurnDegrees;
     private float _traveled, _t, _trailT;
@@ -48,7 +51,14 @@ public partial class ElementBolt : Node2D
     /// <summary>A bolt of no fire (it lights no gas, and trails no embers).</summary>
     private bool Cold => Frost || Ward || Wind || Plain;
 
-    public override void _Ready() => ZIndex = 2;
+    public override void _Ready()
+    {
+        ZIndex = 2;
+        SoundKey ??= Caster != null && IsInstanceValid(Caster) ? Caster.RecentUse : "";
+    }
+
+    /// <summary>Its element, for its sounds (a plain bolt, or the Aegis's plain bubble: none).</summary>
+    private HeroElement SoundEl => Ward ? El : Wind ? HeroElement.Wind : Plain ? HeroElement.None : Frost ? HeroElement.Frost : HeroElement.Fire;
 
     public override void _PhysicsProcess(double delta)
     {
@@ -137,6 +147,7 @@ public partial class ElementBolt : Node2D
         var at = e.GlobalPosition - Dir * e.HitRadius * 0.6f;
         if (!Harmless && Caster != null && IsInstanceValid(Caster)) { if (Ward) Caster.WardBoltStruck(this, e, at); else Caster.BoltStruck(this, e, at); }
         Burst(at, 1f);
+        G.Sfx.Element(ElementSounds.Ev.Hit, SoundEl, at, SoundKey);
         QueueFree();
     }
 
@@ -144,6 +155,7 @@ public partial class ElementBolt : Node2D
     private void Fizzle(Vector2 at, bool wall)
     {
         Burst(at, wall ? 0.7f : 0.4f);
+        G.Sfx.Element(wall ? ElementSounds.Ev.Wall : ElementSounds.Ev.Fizzle, SoundEl, at, SoundKey);
         QueueFree();
     }
 
@@ -157,26 +169,24 @@ public partial class ElementBolt : Node2D
             // (the bubble pops: a ring, a few droplets of light and a bubble or two)
             G.Fx.Burst(at, new Color(1f, 0.95f, 0.75f), (int)(6 * size) + 2, 90, 1.4f, 0.25f, -20);
             G.Fx.Bubbles(at, 2);
-            G.Sfx.Play("clink", at, -10, 0.1f, 1.7f);
+            // (the bubble's pop under its element's sound)
+            G.Sfx.Play("bubble", at, -8, 0.15f, 0.8f);
         }
         else if (Wind || Plain)
         {
             G.Fx.Ring(at, 8 + 10 * size, new Color(col, 0.8f), 0.22f, Wind ? FxLayer.RingStyle.Dashed : FxLayer.RingStyle.Burst);
             G.Fx.Burst(at, col, (int)(6 * size) + 2, 100, 1.4f, 0.25f, 0);
-            G.Sfx.Play(Wind ? "dodge" : "clink", at, -12, 0.1f, Wind ? 1.4f : 1.9f);
         }
         else if (Frost)
         {
             G.Fx.Burst(at, new Color(0.85f, 0.96f, 1f), (int)(8 * size) + 2, 110, 1.8f, 0.3f, 120);
             G.Fx.Ring(at, 6 + 6 * size, new Color(0.75f, 0.92f, 1f, 0.8f), 0.2f);
-            G.Sfx.Play("clink", at, -12, 0.1f, 1.6f);
         }
         else
         {
             GasCloud.IgniteAt(at, 12f + 8f * size);
             G.Fx.Burst(at, col, (int)(9 * size) + 2, 120, 2f, 0.3f, -40);
             for (int k = 0; k < 3; k++) G.Fx.Ember(at + G.RandDir() * 3f, new Color(1f, 0.8f, 0.35f));
-            G.Sfx.Play("lava", at, -12, 0.1f, 1.8f);
         }
     }
 

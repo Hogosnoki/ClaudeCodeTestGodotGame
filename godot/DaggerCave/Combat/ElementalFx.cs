@@ -27,7 +27,27 @@ public abstract partial class HeroSpell : Node2D
         NetSync.Scope++;
         try { Tick(dt); }
         finally { NetSync.Scope--; }
+        // (ending of itself, it dissipates in its element's way: a flame gutters out, ice sublimes, a gust dies, rubble trickles)
+        if (!_gone && IsQueuedForDeletion() && T > 0.25f && SoundEl != HeroElement.None)
+        {
+            _gone = true;
+            G.Sfx.Element(ElementSounds.Ev.Fizzle, SoundEl, GlobalPosition, GetType().Name, weight: 1.2f);
+        }
     }
+    private bool _gone;
+    private double _hitSoundAt = -10;
+
+    /// <summary>The spell's element, for its sounds (each kind of spell its own variant of it); none: it makes none of its own.</summary>
+    protected HeroElement SoundEl => this switch
+    {
+        FireTrail or FireWall or MagmaPool or MagmaCracks or FlameBreath or FireRing => HeroElement.Fire,
+        Meteor m => m.Frost ? HeroElement.Frost : HeroElement.Fire,
+        IceCrystals or IceEruption or TundraField => HeroElement.Frost,
+        Fissure => HeroElement.Earth,
+        Tornado or StrongGust => HeroElement.Wind,
+        SteamScald or Downpour => HeroElement.Water,
+        _ => HeroElement.None,
+    };
 
     protected abstract void Tick(float dt);
 
@@ -36,6 +56,13 @@ public abstract partial class HeroSpell : Node2D
     {
         if (e.Dead || !e.CanBeHit) return 0f;
         float dealt = e.Hurt(dmg, knock, e.GlobalPosition, kind);
+        // (its own sound of striking, not every tick of a lasting one: a few times a second at most)
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (dealt > 0 && SoundEl != HeroElement.None && now - _hitSoundAt > 0.22)
+        {
+            _hitSoundAt = now;
+            G.Sfx.Element(ElementSounds.Ev.Hit, SoundEl, e.GlobalPosition, GetType().Name, volDb: dmg < 3f ? -6f : 0f);
+        }
         if (dealt > 0 && Caster != null && IsInstanceValid(Caster)) { Caster.OnDealtDamage(dealt); Caster.AttributeHit(e, GlobalPosition); }
         return dealt;
     }

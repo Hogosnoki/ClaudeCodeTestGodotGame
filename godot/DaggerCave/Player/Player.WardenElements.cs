@@ -61,6 +61,7 @@ public partial class Player
     {
         _lastEl = a;
         ElementalUses.Add(name);
+        CastSound(name, a, b);
         var col = b == HeroElement.None ? Elements.ColorOf(a) : Elements.DualColor(a, b);
         G.Fx.AbilityName(GlobalPosition + new Vector2(0, -32), name.ToUpperInvariant(), col, b == HeroElement.None ? 11 : 12, 0.8f);
     }

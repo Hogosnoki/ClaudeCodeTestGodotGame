@@ -110,7 +110,7 @@ public partial class Player
             WeaponTouch(el);
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"{Elements.Name(el).ToUpperInvariant()} OVERCHARGED", col, 11, 0.8f);
             G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, new Color(col, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
-            G.Sfx.Play(ElementSound(el), GlobalPosition, -6, 0.05f, 0.9f);
+            G.Sfx.Element(ElementSounds.Ev.Charge, el, GlobalPosition, weight: 1.4f, volDb: 2f);
             Anim.Flash(0.3f);
             Anim.FlashColor = col;
             return true;
@@ -127,7 +127,7 @@ public partial class Player
             WeaponTouch(el);
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"{Elements.Name(el).ToUpperInvariant()} MODE", col, 12, 0.9f);
             G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 26, new Color(col, 0.9f), 0.4f, FxLayer.RingStyle.Dashed);
-            G.Sfx.Play(ElementSound(el), GlobalPosition, -4, 0.05f, 0.7f);
+            G.Sfx.Element(ElementSounds.Ev.Charge, el, GlobalPosition, weight: 1f, volDb: 1f);
             Anim.Flash(0.35f);
             Anim.FlashColor = col;
             return true;
@@ -136,13 +136,12 @@ public partial class Player
         _top = el;
         WeaponTouch(el);
         G.Fx.Text(GlobalPosition + new Vector2(0, -30), $"+{Elements.Name(el).ToUpperInvariant()}", col, 10, 0.7f);
-        G.Sfx.Play(ElementSound(el), GlobalPosition, -10, 0.05f, 1.5f);
+        G.Sfx.Element(ElementSounds.Ev.Charge, el, GlobalPosition, weight: 0.6f, volDb: -2f);
         Anim.Flash(0.2f);
         Anim.FlashColor = col;
         return true;
     }
 
-    private static string ElementSound(HeroElement el) => el == HeroElement.Fire ? "lava" : el == HeroElement.Frost ? "clink" : el == HeroElement.Wind ? "dodge" : "rock";
 
     /// <summary>For the tests: straight into a mode (no cooldown), nothing on top; an overcharge on top at once.</summary>
     public void TestMode(HeroElement el) { _mode = el; _top = HeroElement.None; _modeCd = 0; _infuseCd = 0; _infuseQueued = -1; }
@@ -223,10 +222,31 @@ public partial class Player
         // (a mix spends the attribute as an overcharge is spent: back to the plain mode)
         var at = Attribute;
         _top = HeroElement.None;
-        if (at != HeroElement.None) return Elements.Pair(m, at);
+        _spentFrame = Engine.GetPhysicsFrames();
+        if (at != HeroElement.None) return _spent = Elements.Pair(m, at);
         _overCd[(int)m] = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.OverchargeRecharge;
-        return (m, m);
+        return _spent = (m, m);
     }
+    /// <summary>The pair spent last, and on which frame (an ability used on it sounds of both).</summary>
+    private (HeroElement a, HeroElement b) _spent;
+    private ulong _spentFrame = ulong.MaxValue;
+
+    /// <summary>The last elemental ability used, and when: its blows and bolts take its own sounds (<see cref="ElementSounds"/>).</summary>
+    private string _recentUse = "";
+    private double _recentUseAt = -10;
+    public string RecentUse => Time.GetTicksMsec() / 1000.0 - _recentUseAt < 1.5 ? _recentUse : "";
+
+    /// <summary>An ability used: its own sound of loosing (its element's, or the pair's layered, bigger for a pair or an overcharge).</summary>
+    private void CastSound(string name, HeroElement a, HeroElement b)
+    {
+        _recentUse = name;
+        _recentUseAt = Time.GetTicksMsec() / 1000.0;
+        if (a == HeroElement.None) return;
+        G.Sfx.Element(ElementSounds.Ev.Cast, a, GlobalPosition, name, b == a ? HeroElement.None : b, b != HeroElement.None ? 1.4f : 1f);
+    }
+
+    /// <summary>The elements of the ability used now: the pair spent this frame, or the one element.</summary>
+    private (HeroElement a, HeroElement b) UsedElements(HeroElement single) => _spentFrame == Engine.GetPhysicsFrames() ? _spent : (single, HeroElement.None);
 
     /// <summary>What's on top goes (the hero fell); the mode stays.</summary>
     private void ClearCharges() => _top = HeroElement.None;
@@ -235,6 +255,8 @@ public partial class Player
     private void Used(string what)
     {
         ElementalUses.Add(what);
+        var (sa, sb) = UsedElements(_lastEl);
+        CastSound(what, sa, sb);
         G.Fx.AbilityName(GlobalPosition + new Vector2(0, -32), what.ToUpperInvariant(), Elements.ColorOf(_lastEl), 11, 0.7f);
     }
     private HeroElement _lastEl;
@@ -618,6 +640,9 @@ public partial class Player
     private void ElementalBladeHit(Enemy e)
     {
         if (!Elemental || e.Dead) return;
+        // (an elemental blow lands with its attack's own sound: the swing's element, the Warden's cut's, or the hilt's)
+        var hitEl = _swingEl != HeroElement.None ? _swingEl : IsWarden && _wSwing != "" ? _wA : _hiltT > 0 ? _hiltEl : HeroElement.None;
+        if (hitEl != HeroElement.None) G.Sfx.Element(ElementSounds.Ev.Hit, hitEl, e.GlobalPosition, RecentUse, _swingEl2 != hitEl ? _swingEl2 : HeroElement.None);
         if (_swingEl != HeroElement.None && _swingBuild > 0) e.Build(_swingEl, _swingBuild, Stats.DamageMult, this);
         if (_swingEl2 != HeroElement.None && _swingBuild2 > 0 && !e.Dead) e.Build(_swingEl2, _swingBuild2, Stats.DamageMult, this);
         if (_higherBuild > 0 && !e.Dead) e.Build(HigherOf(e), _higherBuild, Stats.DamageMult, this);

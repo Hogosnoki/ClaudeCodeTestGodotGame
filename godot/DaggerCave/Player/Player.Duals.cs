@@ -36,6 +36,8 @@ public partial class Player
     private void Used(string what, Color col)
     {
         ElementalUses.Add(what);
+        var (sa, sb) = UsedElements(_lastEl);
+        CastSound(what, sa, sb);
         G.Fx.AbilityName(GlobalPosition + new Vector2(0, -32), what.ToUpperInvariant(), col, 12, 0.9f);
     }
 

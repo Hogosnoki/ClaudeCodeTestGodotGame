@@ -112,7 +112,8 @@ public partial class ThrownDagger : Node2D
             var n = G.Cave.OpenGradient(c + Dir * 2f);
             if (Math.Abs(n.Y) < Tune.Rogue.FootholdMaxSlope && Math.Abs(n.X) > 0.5f) { Embed(c, n); return; }
             G.Fx.Spark(from, -Dir, false, new Color(1f, 0.9f, 0.7f));
-            G.Sfx.Play("clink", from, -8, 0.1f, 1.6f);
+            G.Sfx.Play("dagger_glance", from, -6, 0.1f, 1f);
+            if (El != HeroElement.None) G.Sfx.Element(ElementSounds.Ev.Wall, El, from, Version, volDb: -3f);
             ComeBack();
             return;
         }
@@ -128,6 +129,9 @@ public partial class ThrownDagger : Node2D
         var at = e.GlobalPosition - Dir * e.HitRadius * 0.5f;
         if (!Harmless && Thrower != null && IsInstanceValid(Thrower)) Thrower.DaggerStruck(this, e, at);
         G.Fx.Spark(at, Dir, false, new Color(1f, 0.95f, 0.8f));
+        // (the blade going in, and its element's own strike over it)
+        G.Sfx.Play("dagger_hit", at, -3, 0.1f, 1f);
+        if (El != HeroElement.None) G.Sfx.Element(ElementSounds.Ev.Hit, El, at, Version);
         if (Ricochet)
         {
             // it marks what it strikes (a recall flings a poison pin at each), and springs on to the nearest other creature in reach
@@ -139,7 +143,7 @@ public partial class ThrownDagger : Node2D
             {
                 _bounces++;
                 Dir = (next.GlobalPosition - at).Normalized();
-                G.Sfx.Play("clink", at, -6, 0.1f, 1.8f);
+                G.Sfx.Play("dagger_glance", at, -8, 0.1f, 1.2f);
                 return;
             }
             // (the last one struck: it flies on the way it was going, into a wall if one is near, or back once it has gone its distance)
@@ -165,7 +169,8 @@ public partial class ThrownDagger : Node2D
         Pointing = Dir;
         G.Fx.Spark(at, n, true, new Color(1f, 0.9f, 0.7f));
         G.Fx.Dust(at, 3, 0.8f, new Color(0.5f, 0.45f, 0.4f, 0.6f));
-        G.Sfx.Play("clink", at, -5, 0.1f, 1.2f);
+        G.Sfx.Play("dagger_wall", at, -3, 0.1f, 1f);
+        if (El != HeroElement.None) G.Sfx.Element(ElementSounds.Ev.Wall, El, at, Version, volDb: -2f);
         // the hilt: a thin ledge, one-way (stood on from above, jumped up through from below), reaching out of the wall
         float side = n.X >= 0f ? 1f : -1f;
         _foothold = new StaticBody2D { CollisionLayer = G.LayerTerrain, CollisionMask = 0, Position = new Vector2(side * (Tune.Rogue.FootholdLength * 0.5f - 1f), 1.5f) };
