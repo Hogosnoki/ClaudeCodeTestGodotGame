@@ -712,8 +712,8 @@ always comes from the upper left.
 
 All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a style switch:
 - The Swordsman (Bran): a broad, weathered warrior from the concept art, sculpted from the same signed-distance primitives as the others (`Designs/HeroDesign.Bran.cs`) at a finer grid (about 80k triangles): a heavy-browed, stubbled face with the brows, lids, lips and nostrils laid on the skin as explicit strands (they are finer than a voxel; `Sculptor.SurfaceX` finds where the skin stands under each), dark tousled hair, a slate cowl, a shaggy fur mantle over his left shoulder, bare arms in leather bracers and fingerless gloves, straps, a belt and buckles over a dark tunic, a split navy tabard following his thighs, baggy trousers into fur-cuffed boots, a ragged cloak and his longsword. Texture is painted over the finished skin (`Sculptor.Paints`: stubble, ruddy cheeks, hairline, scuffed leather, worn cloth, dusty hems), and each skin vertex carries how much of each detail kind it is (`CUSTOM1/2`), so a seam between two materials blends their textures smoothly in `creature.gdshader`. `--modelsheet=swordsman --sheetfocus=Y,H --sheetsoft` frames close-ups.
-- The Warden: a blue tabard, a gold sash, a shortsword and a buckler.
-- The Vitalist: a green robe, a bone mask with glowing eyes and a crystal-headed staff.
+- The Warden: built broader than the rest. His shoulder joints and hip sockets sit further out on the rig (`ArmZ`, `LegZ`), with a barrel chest, a broad back, great layered pauldrons, thick mailed arms in steel vambraces and gauntlets, and heavy legs. He wears a blue tabard and gold sash, and carries a shortsword and a kite shield. His helm is an open-faced bascinet with a nasal bar, a mail aventail and a short red crest; in it is a broad, square-jawed, stern face under a heavy brow, a once-broken nose and a short auburn beard.
+- The Vitalist: a green robe, a crystal-headed staff, and a bone mask carved like a skull: a heavy brow over deep sockets lit green, high cheekbones, the nose a hollow, the teeth set in a grim line, a crack down from the brow.
 - The Elementalist: a violet robe, an ember sash and a staff crowned with a burning orb.
   Its cooldowns are shown on the hero as small glowing orbs: two orange ones in its hands for the
   bolts it holds (white with Frostbolt, which holds a third), and three that circle it for the
@@ -721,7 +721,21 @@ All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a sty
   away while its spell recovers and swells back when it's ready; the bolts return one at a time,
   the last spent coming back first, and the HUD shows the bolts as pips under the alimus bar. Other
   players in an online game see the same orbs (the state rides the hero's net flags).
-- The Rogue: a plum hood, a dark mask, dark leather, a short cape and a dagger in each hand.
+  Under the tall hood is an old, weathered face: gaunt under high cheekbones, with deep-set eyes catching the orb's light under bushy grey brows, a hooked nose, the lines of age and a long grey beard.
+- The Aegis: an ivory robe and teal mantle, and a pale hood thrown back from a calm, soft-featured face. The face has a smooth brow, a straight nose, full lips at ease and a gentle near-smile, with dark hair parted under a gold circlet set with a teal stone.
+- The Shape Shifter: a grey robe, a wildwood staff with antler tines, and a lean, wild face. The face is all sharp cheekbones and narrow jaw, with pale shining eyes, a smirk, stubble, tangled ash-grey hair, a band of charcoal across the eyes and claw marks down one cheek.
+- The Automaton: a copper head under a brass dome, with a face built in plate. A riveted brow plate sits over the two porthole eyes, each with a shutter's lid; angled cheek plates, a ridge for a nose and a hinged jaw plate frame a grille of upright bars for a mouth.
+
+**Faces.** Every hero's face is built on the Swordsman's carefully placed anatomy (`Designs/HeroDesign.Faces.cs`), moved, scaled and reshaped by a `Face` of the hero's own:
+- **Bone structure:** the jaw (square to soft) and chin; the cheekbones' prominence and height; the brow ridge; the nose's length, bridge bump (a break or a hook), tip and width.
+- **Features:** the lips' fullness and the mouth's width and set (a smile or stern); the brows' tilt and weight; how deep the eyes sit.
+- **Lines of age:** folds from the nostrils to the mouth, and forehead creases.
+- **Beard:** none, stubble, short or long, with a moustache.
+- **Fine strands on the skin:** brows, the lids' lash lines, the lips, the mouth's line, nostrils and philtrum.
+- **Paint:** a flush on the cheeks, shadow in the sockets, warmth about the mouth, a beard's shadow, war paint.
+
+Each eye is a white, an iris and a pupil, turned in a touch, with the upper lid over its top. Every hero is now meshed at the Swordsman's 1 cm grid (about 55-75k triangles; a hero takes about half a second to bake). `--sheetclips=rest:0` poses the rig at rest for close-ups.
+- The Rogue: a plum hood, a dark mask drawn up to the bridge of the nose, dark leather, a short cape and a dagger in each hand. Above the mask is a lean face with high cheekbones and intent brows, red eyes, and a lock of pale hair fallen across one eye.
 
 They share every clip:
 - idle

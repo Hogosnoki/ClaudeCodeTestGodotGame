@@ -128,8 +128,8 @@ public sealed partial class HeroDesign
             s.Egg(headB, new(0.0f, 0.752f, 0.079f * z), new(0.017f, 0.033f, 0.01f), skin, Mat.Skin, 0.012f, new(0, 0, 8f * z)); // ear
             // the eye socket, with the lids over and under the eye
             s.CarveBall(headB, new(0.1f, 0.762f, 0.03f * z), 0.0155f, 0.012f);
-            s.Limb(headB, new(0.098f, 0.775f, 0.016f * z), new(0.093f, 0.773f, 0.046f * z), 0.0075f, 0.0065f, skin, Mat.Skin, 0.006f);
-            s.Limb(headB, new(0.099f, 0.749f, 0.018f * z), new(0.095f, 0.75f, 0.043f * z), 0.006f, 0.0055f, skin, Mat.Skin, 0.006f);
+            s.Limb(headB, new(0.1f, 0.7695f, 0.017f * z), new(0.095f, 0.768f, 0.045f * z), 0.0072f, 0.0062f, skin, Mat.Skin, 0.005f);
+            s.Limb(headB, new(0.1f, 0.7535f, 0.018f * z), new(0.096f, 0.7545f, 0.043f * z), 0.0055f, 0.005f, skin, Mat.Skin, 0.005f);
         }
         // the brow ridge and the nose
         s.Limb(headB, new(0.09f, 0.784f, -0.05f), new(0.097f, 0.787f, 0), 0.0095f, 0.0105f, skin, Mat.Skin, 0.014f);
@@ -140,8 +140,8 @@ public sealed partial class HeroDesign
         s.Egg(headB, new(0.114f, 0.709f, -0.01f), new(0.01f, 0.009f, 0.009f), skin, Mat.Skin, 0.01f);
         // the eyes, dark
         var iris = C(0.09f, 0.065f, 0.05f);
-        s.Eye(headB, new(0.098f, 0.762f, 0.03f), 0.0096f, iris, 0.15f);
-        s.Eye(headB, new(0.098f, 0.762f, -0.03f), 0.0096f, iris, 0.15f);
+        SculptEye(s, headB, new(0.097f, 0.7615f, 0.03f), 0.0092f, iris, 0.15f, new Vector3(1f, 0f, -0.12f).Normalized());
+        SculptEye(s, headB, new(0.097f, 0.7615f, -0.03f), 0.0092f, iris, 0.15f, new Vector3(1f, 0f, 0.12f).Normalized());
 
         // the finest features are finer than the grid's voxels, so they are laid on the skin as explicit strands, each point at the height
         // of the skin where it stands: the brows (drawn in toward the nose: calm, a little grim), the lids' lines, the lips and the mouth
@@ -158,16 +158,16 @@ public sealed partial class HeroDesign
         }
         var lashes = BrHair.Darkened(0.2f);
         var lipUp = new Color(0.42f, 0.25f, 0.21f);
-        var lipLow = new Color(0.5f, 0.31f, 0.26f);
+        var lipLow = new Color(0.45f, 0.28f, 0.22f);
         var mouthLine = new Color(0.12f, 0.06f, 0.05f);
         for (int k = 0; k < 2; k++)
         {
             float z = k == 0 ? 1 : -1;
             // brows: thick at the nose, arching, thinning out toward the temple
             Strand(s, headB, Along(0.005f * z, 0.062f * z, 7, t => 0.7835f + 0.006f * MathF.Sin(t * 2.6f) - 0.004f * t * t, -0.0035f),
-                new[] { 0.0092f, 0.0092f, 0.0088f, 0.008f, 0.0068f, 0.005f, 0.0025f }, BrHair, HairMat);
+                new[] { 0.008f, 0.0081f, 0.0077f, 0.007f, 0.006f, 0.0045f, 0.0022f }, BrHair, HairMat);
             // the upper lid's line, and the lower lid's
-            Strand(s, headB, Along(0.012f * z, 0.049f * z, 6, t => 0.7745f - 0.004f * MathF.Sin(t * 3.14f) * 0 - 0.004f * t, 0.0004f),
+            Strand(s, headB, Along(0.012f * z, 0.049f * z, 6, t => 0.7705f - 0.003f * t, 0.0004f),
                 new[] { 0.0028f, 0.0034f, 0.0034f, 0.003f, 0.0024f, 0.0012f }, lashes, Mat.Leather);
         }
         // lips: the upper, with its bow, the fuller lower; the dark line between; the nostrils

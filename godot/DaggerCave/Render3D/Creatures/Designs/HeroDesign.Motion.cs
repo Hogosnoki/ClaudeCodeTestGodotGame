@@ -799,6 +799,10 @@ public sealed partial class HeroDesign
         }
         else switch (c)
         {
+            case "rest":
+                // (the rest pose, for close-ups on the model sheet)
+                o = new Body();
+                break;
             case "sit":
                 // (at the camp: T blends from sitting, 0, to standing ready, 1)
                 o = Lerp(Sit(a.Time), Idle(a.Time), W3.Smooth01(t));
