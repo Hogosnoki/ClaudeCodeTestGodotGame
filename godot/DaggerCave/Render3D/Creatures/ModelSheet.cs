@@ -173,6 +173,8 @@ public partial class ModelSheet : Node3D
         {
             var a = new AnimInput { Clip = clip, T = t, Frame = (int)(t * 8), Frames = 8, Time = _time, Dt = dt, Facing = 1, OnFloor = true, Vel = Moving(clip) ? new Vector2(clip == "walk" ? 2.5f : clip == "run" ? _speed : 6f, 0) : Vector2.Zero, ClipTime = 0.5f };
             m.Face(1, clip, t, 1f);
+            // ("air:T" poses the body in the air: T 0 rising hard, 0.5 the apex, 1 falling fast)
+            if (clip == "air") a = a with { Clip = "jump", OnFloor = false, Vel = new Vector2(3f, (0.5f - t) * 14f) };
             if (clip == "run") m.Animate(a with { FixedGait = true, Gait = t });
             else m.Animate(a);
             m.UpdatePivot(Vector2.One, 0f, 0.8f, false);

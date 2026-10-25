@@ -92,12 +92,12 @@ public sealed partial class HeroDesign
             FreeAmp = 5f, FreeMid = 42f, FreeElbow = 82f, FreeElbowAmp = 4f,
             HoldAmp = 32f, HoldMid = 14f, HoldElbow = 90f, HoldElbowAmp = 10f, HoldAbs = 62f, HeadUp = 3f, Weight = 0.03f,
         },
-        // the Vitalist: hunched, gliding, quick short steps, the staff held close, the free hand trailing
+        // the Vitalist: low and gliding, quick short steps, the staff held close, the free hand trailing
         HeroKind.Vitalist => new Style
         {
-            Stance = 0.68f, Stride = 3.6f, Hip = 0.76f, Bounce = 0.03f, Clear = 0.18f, Lean = 24f, HipTwist = 8f, Counter = 14f,
+            Stance = 0.68f, Stride = 3.6f, Hip = 0.76f, Bounce = 0.03f, Clear = 0.18f, Lean = 18f, HipTwist = 8f, Counter = 14f,
             FreeAmp = 46f, FreeMid = -2f, FreeElbow = 68f, FreeElbowAmp = 14f,
-            HoldAmp = 12f, HoldMid = 26f, HoldElbow = 72f, HoldElbowAmp = 6f, HoldAbs = 40f, HeadUp = -6f, Weight = 0.006f,
+            HoldAmp = 12f, HoldMid = 26f, HoldElbow = 72f, HoldElbowAmp = 6f, HoldAbs = 40f, HeadUp = -2f, Weight = 0.006f,
         },
         // the Elementalist: upright and springing, long floating lopes, the free hand flowing, the staff upright
         HeroKind.Elementalist => new Style
@@ -208,19 +208,91 @@ public sealed partial class HeroDesign
 
     // ================================================================== base movements
 
+    /// <summary>
+    /// Both feet planted flat on the floor, the right <paramref name="right"/> metres ahead of the hips (behind if negative) and
+    /// the left <paramref name="left"/>, the hips <paramref name="hipH"/> high: the stance is solved, so however the weight
+    /// shifts over them (Root.X) the feet neither float nor sink nor slide.
+    /// </summary>
+    private static void Stance(ref Body o, float right, float left, float hipH)
+    {
+        var ar = AnkleFrom(right - o.Root.X, -hipH, 0.45f, 0f);
+        LegIK(ar.X, ar.Y, out o.HR, out o.KR);
+        var al = AnkleFrom(left - o.Root.X, -hipH, 0.45f, 0f);
+        LegIK(al.X, al.Y, out o.HL, out o.KL);
+        o.FR = o.FL = 0f;
+        o.Root.Y = hipH - HipRest;
+    }
+
+    /// <summary>
+    /// Standing ready: never at attention, always in a stance, the feet set wide and staggered, knees soft, the chest up,
+    /// the chin lifted and the weapon held where it can strike from. The breath lifts the chest and squares the shoulders,
+    /// and the weight drifts slowly between the feet, so a hero standing still is never a statue.
+    /// </summary>
     private Body Idle(float time)
     {
-        float b = MathF.Sin(time * 1.9f);
-        var o = new Body
+        float b = MathF.Sin(time * 1.7f), w = MathF.Sin(time * 0.53f + 0.8f);
+        // (an automaton doesn't breathe: a slow hum through the frame)
+        float br = _automaton ? 0.35f : 1f;
+        var o = new Body { HRx = 7, HLx = 8 };
+        float right, left, hipH;
+        if (_warden)
         {
-            Lean = 5 + b * 1.6f, HeadPitch = 2 - b * 1.2f, Root = new Vector3(0, -0.025f + b * 0.005f, 0),
-            SR = 24 + b * 2.5f, ER = 34, WR = 58, AR = 8,
-            SL = -2 - b * 2.5f, EL = 14, AL = 8,
-            HR = 12, KR = 16, HRx = 5, HL = -8, KL = 10, HLx = 5,
-        };
-        if (_warden) { o.SL = 36; o.EL = 78; o.AL = 4; o.WL = -(o.SL + o.EL); o.WR = 40; o.SR = 18; }
-        if (_caster) { o.SR = 20 + b * 1.5f; o.ER = 75; o.AR = 10; o.SL = -6 - b * 2; o.EL = 22; o.AL = 10; }
-        if (_rogue) { o.Lean = 12 + b; o.Root.Y -= 0.04f; o.SR = 28 + b * 2; o.ER = 78; o.WR = 70; o.SL = 34 - b * 2; o.EL = 72; o.AL = 12; o.KR += 14; o.KL += 14; o.HR += 8; o.HL += 8; }
+            // squared up behind the shield, shield foot forward, the sword cocked back over the shoulder ready to come down
+            o.Lean = 7; o.HeadPitch = -4; o.Twist = -6;
+            o.SL = 52; o.EL = 86; o.AL = 6; o.WL = -(o.SL + o.EL);
+            o.SR = 6; o.AR = 24; o.ER = 106; o.WR = 176 - (o.SR + o.ER);
+            right = -0.21f; left = 0.2f; hipH = 0.735f; o.HRx = 9; o.HLx = 10;
+        }
+        else if (_rogue)
+        {
+            // low and coiled on the balls of the feet, both daggers up before the face, eyes on the prey
+            o.Lean = 15; o.HeadPitch = -14; o.Twist = 6;
+            o.SR = 34; o.AR = 14; o.ER = 84; o.WR = 176 - (o.SR + o.ER);
+            o.SL = 46; o.AL = 14; o.EL = 80; o.WL = 4;
+            right = -0.2f; left = 0.19f; hipH = 0.7f; o.HRx = 9; o.HLx = 9;
+        }
+        else if (_caster)
+        {
+            // tall, chest out and chin up, the staff planted at the side and the free hand holding its power ready
+            o.Lean = 1; o.HeadPitch = -7;
+            o.SR = 22; o.ER = 72; o.AR = 12;
+            if (_elementalist) { o.SL = 48; o.EL = 86; o.AL = 20; o.WL = -26; }
+            else if (_vitalist) { o.SL = 28; o.EL = 44; o.AL = 22; o.WL = -22; }
+            else { o.SL = 20; o.EL = 52; o.AL = 24; o.WL = -12; }
+            right = 0.16f; left = -0.15f; hipH = 0.775f;
+        }
+        else if (_automaton)
+        {
+            // broad and planted, arms held off its great frame, the cleaver low and forward
+            o.Lean = 4; o.HeadPitch = -3;
+            o.SR = 20; o.AR = 20; o.ER = 48; o.WR = 112 - (o.SR + o.ER);
+            o.SL = 12; o.AL = 22; o.EL = 42;
+            right = 0.2f; left = -0.21f; hipH = 0.75f; o.HRx = 11; o.HLx = 11;
+        }
+        else if (_shifter)
+        {
+            // loose and low, never quite still, the staff held out like a blade and the free hand clawed
+            o.Lean = 8; o.HeadPitch = -8; o.Twist = 4;
+            o.SR = 36; o.AR = 14; o.ER = 58; o.WR = 128 - (o.SR + o.ER);
+            o.SL = 30; o.AL = 16; o.EL = 72; o.WL = -16;
+            right = 0.19f; left = -0.18f; hipH = 0.745f;
+        }
+        else
+        {
+            // the Swordsman's guard: sword foot forward, the blade held out before him, point up at the throat of whatever comes, the off hand loose and ready
+            o.Lean = 3; o.HeadPitch = -6; o.Twist = 5;
+            o.SR = 40; o.AR = 14; o.ER = 50; o.WR = 132 - (o.SR + o.ER);
+            o.SL = 14; o.AL = 18; o.EL = 34;
+            right = 0.21f; left = -0.18f; hipH = 0.755f;
+        }
+        // the breath: the chest lifts and the shoulders square on the in-breath; the weight drifts between the feet
+        o.Lean -= 1.4f * b * br; o.HeadPitch += 0.8f * b * br;
+        o.SR += 1.5f * b * br; o.SL -= 1.5f * b * br; o.AR += 1.2f * b * br; o.AL += 1.2f * b * br;
+        if (!_caster) o.WR -= 1.5f * b * br;
+        o.Root.X = 0.014f * w;
+        o.HipTwist = -o.Twist * 0.5f;
+        o.HeadYaw = -o.Twist * 0.5f;
+        Stance(ref o, right, left, hipH + 0.004f * b * br);
         return o;
     }
 
@@ -281,7 +353,8 @@ public sealed partial class HeroDesign
         o.Lean = lean + 2.2f * flight * -mid;
         o.HipTwist = st.HipTwist * Ex * turn * (0.4f + 0.6f * vn);
         o.Twist = -st.Counter * Ex * turn * (0.4f + 0.6f * vn);
-        o.HeadPitch = -lean * 0.3f + st.HeadUp + 1.5f * mid;
+        // (the head stays up, eyes on what's ahead, however far the body pitches into it)
+        o.HeadPitch = -lean * 0.55f + st.HeadUp + 1.5f * mid;
         o.HeadYaw = -o.Twist * 0.55f;
         // the shield arm is carried, not swung
         if (_warden)
@@ -298,15 +371,24 @@ public sealed partial class HeroDesign
         return o;
     }
 
+    /// <summary>
+    /// In the air. Rising, one knee is driven high and the other leg trails long, the free arm flung up with the leap and
+    /// the weapon drawn back ready; at the top the body gathers, arms out; falling, the legs reach down for the ground
+    /// and the arms spread wide for balance, the head up and the eyes on where it will land.
+    /// </summary>
     private Body Air(float vy, float time)
     {
-        var rise = new Body { Lean = 8, Root = Vector3.Zero, SR = 55, ER = 62, WR = 30, SL = 84, EL = 40, AL = 14, AR = 14, HR = 62, KR = 96, FR = -18, HL = -6, KL = 46, FL = -30, HRx = 4, HLx = 4 };
-        var apex = new Body { Lean = 12, SR = 74, ER = 55, WR = 25, AR = 22, SL = 64, EL = 50, AL = 22, HR = 64, KR = 98, FR = -14, HL = 38, KL = 82, FL = -24, HRx = 6, HLx = 6 };
-        var fall = new Body { Lean = -2, HeadPitch = 8, SR = 118, ER = 24, WR = 15, AR = 34, SL = 132, EL = 18, AL = 36, HR = 24, KR = 30, FR = 22, HL = -10, KL = 24, FL = 8, HRx = 9, HLx = 9 };
+        var rise = new Body { Lean = 5, HeadPitch = -10, SR = 62, ER = 74, WR = 30, AR = 20, SL = 128, EL = 22, AL = 16, HR = 92, KR = 104, FR = -16, HL = -24, KL = 34, FL = -42, HRx = 5, HLx = 4 };
+        var apex = new Body { Lean = 10, HeadPitch = -6, SR = 70, ER = 64, WR = 26, AR = 30, SL = 82, EL = 40, AL = 34, HR = 74, KR = 104, FR = -14, HL = 30, KL = 88, FL = -26, HRx = 7, HLx = 7 };
+        var fall = new Body { Lean = 3, HeadPitch = -3, SR = 46, ER = 34, WR = 24, AR = 56, SL = 50, EL = 26, AL = 62, HR = 34, KR = 30, FR = 12, HL = -4, KL = 36, FL = 2, HRx = 10, HLx = 10 };
         Body o = vy > 0 ? Lerp(apex, rise, W3.SmoothStep(0.5f, 5f, vy)) : Lerp(apex, fall, W3.SmoothStep(-0.5f, -6f, vy));
-        if (_warden) { o.SL = 44; o.EL = 80; o.WL = -(o.SL + o.EL); }
-        if (_caster) { o.SR = 44; o.ER = 62; o.AR = 16; }
-        if (_rogue) { o.Lean += 14; o.KR += 10; o.KL += 14; o.HL += 12; o.SR += 12; o.SL -= 20; }
+        // (a long fall: the arms and legs work a little against it, not frozen)
+        float drift = MathF.Sin(time * 5f) * W3.SmoothStep(-4f, -9f, vy);
+        o.AR += 6f * drift; o.AL -= 6f * drift; o.HR += 4f * drift; o.HL -= 4f * drift;
+        if (_warden) { o.SL = 48; o.EL = 82; o.AL = 6; o.WL = -(o.SL + o.EL); }
+        if (_caster) { o.SR = 46; o.ER = 62; o.AR = 18; }
+        if (_rogue) { o.Lean += 14; o.KR += 10; o.KL += 14; o.HL += 12; o.SR += 12; o.SL -= 26; o.EL += 40; }
+        if (_automaton) { o.AR *= 0.6f; o.AL *= 0.6f; o.SL = Math.Min(o.SL, 70f); }
         return o;
     }
 
@@ -375,13 +457,13 @@ public sealed partial class HeroDesign
     private CutStyle CutFor() => _kind switch
     {
         // wide, committed cuts from the shoulder with the whole body behind them
-        HeroKind.Swordsman or HeroKind.ShapeShifter => new CutStyle { CockA = 112f, OverA = -56f, CockB = -78f, OverB = 74f, CockC = 158f, OverC = -74f, BendCock = 74f, BendEnd = 6f, Wind = 30f, Through = 34f, LeanWind = -10f, LeanThrough = 20f, Lunge = 1f, Counter = 0.45f },
+        HeroKind.Swordsman or HeroKind.ShapeShifter => new CutStyle { CockA = 116f, OverA = -34f, CockB = -80f, OverB = 76f, CockC = 162f, OverC = -42f, BendCock = 78f, BendEnd = 6f, Wind = 36f, Through = 40f, LeanWind = -14f, LeanThrough = 26f, Lunge = 1f, Counter = 0.55f },
         // great hacking chops from high over the shoulder, the whole frame swung behind them, the feet barely moving
-        HeroKind.Automaton => new CutStyle { CockA = 124f, OverA = -62f, CockB = -72f, OverB = 70f, CockC = 168f, OverC = -82f, BendCock = 80f, BendEnd = 18f, Wind = 22f, Through = 30f, LeanWind = -6f, LeanThrough = 24f, Lunge = 0.55f, Counter = 0.2f },
+        HeroKind.Automaton => new CutStyle { CockA = 128f, OverA = -34f, CockB = -74f, OverB = 72f, CockC = 172f, OverC = -42f, BendCock = 82f, BendEnd = 18f, Wind = 28f, Through = 34f, LeanWind = -9f, LeanThrough = 28f, Lunge = 0.6f, Counter = 0.25f },
         // short, hard chops behind the shield, feet planted, the weight thrown into the blow
-        HeroKind.Warden => new CutStyle { CockA = 90f, OverA = -42f, CockB = -56f, OverB = 58f, CockC = 128f, OverC = -62f, BendCock = 84f, BendEnd = 26f, Wind = 18f, Through = 22f, LeanWind = -5f, LeanThrough = 16f, Lunge = 0.7f, Counter = 0.15f },
+        HeroKind.Warden => new CutStyle { CockA = 96f, OverA = -38f, CockB = -58f, OverB = 60f, CockC = 134f, OverC = -50f, BendCock = 86f, BendEnd = 24f, Wind = 22f, Through = 27f, LeanWind = -8f, LeanThrough = 20f, Lunge = 0.8f, Counter = 0.15f },
         // quick, close cuts from a crouch, one dagger then the other, the body whipping behind them
-        _ => new CutStyle { CockA = 66f, OverA = -40f, CockB = -50f, OverB = 56f, CockC = 66f, OverC = -40f, BendCock = 96f, BendEnd = 34f, Wind = 32f, Through = 36f, LeanWind = 4f, LeanThrough = 22f, Lunge = 0.5f, Counter = 0.3f },
+        _ => new CutStyle { CockA = 70f, OverA = -44f, CockB = -54f, OverB = 60f, CockC = 70f, OverC = -44f, BendCock = 98f, BendEnd = 30f, Wind = 36f, Through = 40f, LeanWind = 6f, LeanThrough = 26f, Lunge = 0.6f, Counter = 0.35f },
     };
 
     private static float SweepEase(float k)
@@ -393,7 +475,10 @@ public sealed partial class HeroDesign
 
     /// <summary>
     /// A sword (or dagger) cut: the blade's angle over the swing with the arm, torso and stance around
-    /// it. The wind-up, sweep and follow-through are the gameplay swing's own beats.
+    /// it. The wind-up, sweep and follow-through are the gameplay swing's own beats. Each beat is
+    /// committed: the wind-up coils the whole body and rocks the weight onto the back foot, the cut
+    /// drives it forward into a lunge behind the blade, the blade carries on past its mark, and the
+    /// finish is held a moment before the body recovers.
     /// </summary>
     private Body Cut(Body basePose, string clip, in SwingClock ck, float aim, bool grounded, float runAmount)
     {
@@ -408,84 +493,95 @@ public sealed partial class HeroDesign
         float t = ck.T, w = ck.W, u = ck.U;
         float carry0 = handR ? basePose.SR + basePose.ER + basePose.WR - 90f : basePose.SL + basePose.EL + basePose.WL - 90f;
         float bend0 = handR ? basePose.ER : basePose.EL;
-        Body At(float tt)
+        // (a finisher is thrown harder: everything goes further)
+        float big = fin ? 1.15f : 1f;
+        // how far the blade carries on past its mark, degrees
+        float carry = (fin ? 9f : 5f) * sign;
+        float legW = grounded && Math.Abs(aim) < 65f ? cs.Lunge * (1f - runAmount * 0.9f) : 0f;
+        // the body around the blade: wind (0..1, coiling), sweep (0..1, coming through)
+        Body Around(float blade, float bend, float sweep, float wind, bool winding)
         {
-            float blade, bend, sweep, wind;
-            if (tt < w)
-            {
-                float k = tt / w;
-                float e = W3.Smooth01(k);
-                // (a small dip against the cut first, so it starts from a coil)
-                blade = Mathf.Lerp(carry0, cock, e) + sign * 9f * MathF.Sin(MathF.PI * Math.Min(1f, k * 1.4f)) * (1f - k);
-                bend = Mathf.Lerp(bend0, cs.BendCock, e);
-                sweep = 0f; wind = e;
-            }
-            else
-            {
-                float k = Math.Clamp((tt - w) / (u - w), 0f, 1f);
-                float e = SweepEase(k);
-                blade = Mathf.Lerp(cock, over, e);
-                bend = Mathf.Lerp(cs.BendCock, cs.BendEnd, e);
-                sweep = e; wind = 1f - e;
-            }
             var o = basePose;
             float theta = 90f + blade;
             float wrist = -bend * 0.35f;
             float upper = theta - bend - wrist;
+            // (held against the torso's pitch: whatever the chest does, the blade keeps its line in the world)
+            float pitch = winding ? Mathf.Lerp(basePose.Lean, (sign > 0f ? cs.LeanWind : -cs.LeanWind) * big, wind) : Mathf.Lerp((sign > 0f ? cs.LeanWind : -cs.LeanWind) * big, (sign > 0f ? cs.LeanThrough : -cs.LeanThrough) * Ex * big, sweep);
+            upper += (pitch - basePose.Lean) * 0.9f;
             if (handR) { o.SR = upper; o.ER = bend; o.WR = wrist; o.AR = 12f; o.WRy = 0f; }
             else { o.SL = upper; o.EL = bend; o.WL = wrist; o.AL = 12f; o.WLy = 0f; }
-            // the torso coils against the cut and comes through it; the pelvis turns the other way
-            float wnd = cs.Wind * Ex * sign, thr = cs.Through * Ex * sign;
-            o.Twist = tt < w ? Mathf.Lerp(basePose.Twist, -wnd, wind) : Mathf.Lerp(-wnd, thr, sweep);
-            o.HipTwist = -o.Twist * 0.45f;
-            float leanWind = sign > 0f ? cs.LeanWind : -cs.LeanWind, leanThrough = (sign > 0f ? cs.LeanThrough : -cs.LeanThrough) * Ex;
-            o.Lean = tt < w ? Mathf.Lerp(basePose.Lean, leanWind, wind) : Mathf.Lerp(leanWind, leanThrough, sweep);
-            o.HeadPitch = -aim * 0.22f + (sign > 0f ? -4f * sweep : 3f * sweep);
-            o.HeadYaw = -o.Twist * 0.4f;
-            // the other arm answers the blade: forward as it goes back, back as it comes through
-            float free = Math.Clamp(0.4f * blade, -46f, 46f) * cs.Counter * 2.2f;
+            // the torso coils against the cut and comes through it; the pelvis leads the way back round
+            float wnd = cs.Wind * Ex * sign * big, thr = cs.Through * Ex * sign * big;
+            o.Twist = winding ? Mathf.Lerp(basePose.Twist, -wnd, wind) : Mathf.Lerp(-wnd, thr, sweep);
+            o.HipTwist = winding ? -o.Twist * 0.4f : Mathf.Lerp(wnd * 0.4f, -thr * 0.6f, Math.Min(1f, sweep * 1.4f));
+            float leanWind = (sign > 0f ? cs.LeanWind : -cs.LeanWind) * big, leanThrough = (sign > 0f ? cs.LeanThrough : -cs.LeanThrough) * Ex * big;
+            o.Lean = winding ? Mathf.Lerp(basePose.Lean, leanWind, wind) : Mathf.Lerp(leanWind, leanThrough, sweep);
+            // the eyes stay on the mark the whole way: the head holds against the body's turn and pitch
+            o.HeadPitch = -aim * 0.3f - o.Lean * 0.25f + (sign > 0f ? -4f * sweep : 3f * sweep);
+            o.HeadYaw = -o.Twist * 0.6f;
+            // the other arm answers the blade: forward as it goes back, flung back as it comes through
+            float free = Math.Clamp(0.4f * blade, -50f, 50f) * cs.Counter * 2.2f;
             if (_warden)
             {
-                // (the shield leads: up and forward on the wind-up, driven a little out with the blow)
-                o.SL = 48f + 22f * sweep * (second ? 1.4f : 1f); o.EL = 72f; o.AL = 4f; o.WL = -(o.SL + o.EL);
+                // (the shield leads: up and forward on the wind-up, driven out with the blow)
+                o.SL = 50f + 26f * sweep * (second ? 1.4f : 1f) + 6f * wind; o.EL = 74f - 10f * sweep; o.AL = 4f; o.WL = -(o.SL + o.EL);
             }
             else if (_rogue)
             {
                 // (the idle hand tucks back and guards)
-                float guard = Mathf.Lerp(30f, -10f, sweep) + free * 0.5f * (handR ? 1f : -1f);
-                if (handR) { o.SL = guard; o.EL = 96f; o.AL = 10f; o.WL = 10f; }
-                else { o.SR = guard; o.ER = 96f; o.AR = 10f; o.WR = 10f; }
+                float guard = Mathf.Lerp(34f, -14f, sweep) + free * 0.5f * (handR ? 1f : -1f);
+                if (handR) { o.SL = guard; o.EL = 96f; o.AL = 12f; o.WL = 10f; }
+                else { o.SR = guard; o.ER = 96f; o.AR = 12f; o.WR = 10f; }
             }
-            else { o.SL = free; o.AL = 24f; o.EL = 36f + 10f * sweep; }
-            // the feet: on the spot, a lunge (the leading foot stepping in as the blade comes through)
-            float legW = grounded && Math.Abs(aim) < 65f ? cs.Lunge * (1f - runAmount * 0.9f) : 0f;
+            else { o.SL = free; o.AL = 24f + 14f * sweep; o.EL = 36f + 10f * sweep; }
+            // the feet: the weight rocks back onto the rear foot in the coil, then the leading foot (opposite the cutting hand)
+            // steps in and the body drives forward over it as the blade comes through, the rear heel lifting off
             if (legW > 0f)
             {
-                bool leadLeft = handR;          // (the foot opposite the cutting hand leads)
-                float coil = tt < w ? W3.Smooth01(tt / w) : 1f - sweep;
-                float drive = sweep;
-                float leadH = Mathf.Lerp(Mathf.Lerp(12f, 26f, coil), 52f, drive), leadK = Mathf.Lerp(Mathf.Lerp(16f, 42f, coil), 50f, drive);
-                float rearH = Mathf.Lerp(Mathf.Lerp(-8f, -22f, coil), -34f, drive), rearK = Mathf.Lerp(Mathf.Lerp(10f, 34f, coil), 22f, drive);
-                float dip = -0.05f * coil - 0.08f * drive;
-                if (leadLeft) { o.HL = Mathf.Lerp(o.HL, leadH, legW); o.KL = Mathf.Lerp(o.KL, leadK, legW); o.HR = Mathf.Lerp(o.HR, rearH, legW); o.KR = Mathf.Lerp(o.KR, rearK, legW); o.FL = Mathf.Lerp(o.FL, 0f, legW); o.FR = Mathf.Lerp(o.FR, -22f * drive, legW); }
-                else { o.HR = Mathf.Lerp(o.HR, leadH, legW); o.KR = Mathf.Lerp(o.KR, leadK, legW); o.HL = Mathf.Lerp(o.HL, rearH, legW); o.KL = Mathf.Lerp(o.KL, rearK, legW); o.FR = Mathf.Lerp(o.FR, 0f, legW); o.FL = Mathf.Lerp(o.FL, -22f * drive, legW); }
+                bool leadLeft = handR;
+                float coil = winding ? W3.Smooth01(wind) : 1f - sweep;
+                float drive = winding ? 0f : sweep;
+                float leadH = Mathf.Lerp(Mathf.Lerp(14f, 28f, coil), 60f * big, drive), leadK = Mathf.Lerp(Mathf.Lerp(18f, 46f, coil), 58f * big, drive);
+                float rearH = Mathf.Lerp(Mathf.Lerp(-10f, -24f, coil), -40f * big, drive), rearK = Mathf.Lerp(Mathf.Lerp(12f, 38f, coil), 22f, drive);
+                float dip = -0.055f * coil - 0.11f * drive * big;
+                float rearToe = -30f * drive;
+                if (leadLeft) { o.HL = Mathf.Lerp(o.HL, leadH, legW); o.KL = Mathf.Lerp(o.KL, leadK, legW); o.HR = Mathf.Lerp(o.HR, rearH, legW); o.KR = Mathf.Lerp(o.KR, rearK, legW); o.FL = Mathf.Lerp(o.FL, 0f, legW); o.FR = Mathf.Lerp(o.FR, rearToe, legW); }
+                else { o.HR = Mathf.Lerp(o.HR, leadH, legW); o.KR = Mathf.Lerp(o.KR, leadK, legW); o.HL = Mathf.Lerp(o.HL, rearH, legW); o.KL = Mathf.Lerp(o.KL, rearK, legW); o.FR = Mathf.Lerp(o.FR, 0f, legW); o.FL = Mathf.Lerp(o.FL, rearToe, legW); }
                 o.Root.Y += dip * legW * Ex;
+                o.Root.X += (-0.03f * coil + 0.05f * drive * big) * legW;
             }
             return o;
         }
+        Body At(float tt)
+        {
+            if (tt < w)
+            {
+                float k = tt / w;
+                float e = W3.Smooth01(k);
+                // (a dip against the cut first, so it starts from a coil, and the blade drawn on past the cock: loaded)
+                float blade = Mathf.Lerp(carry0, cock, e) + sign * 13f * MathF.Sin(MathF.PI * Math.Min(1f, k * 1.4f)) * (1f - k) + sign * 8f * W3.SmoothStep(0.6f, 1f, k);
+                return Around(blade, Mathf.Lerp(bend0, cs.BendCock, e), 0f, e, true);
+            }
+            float ks = Math.Clamp((tt - w) / (u - w), 0f, 1f);
+            float es = SweepEase(ks);
+            return Around(Mathf.Lerp(cock + sign * 8f, over, es), Mathf.Lerp(cs.BendCock, cs.BendEnd, es), es, 1f - es, false);
+        }
         if (t <= u) return At(t);
-        // the follow-through: the blade settles and the body recovers into whatever it was doing
-        float rk = W3.SmoothStep(0f, 1f, (t - u) / Math.Max(0.01f, 1f - u));
-        var end = At(u);
-        // (a little carry-on past the end of the cut, then back)
-        end.Twist += sign * 4f * (1f - rk);
+        // the follow-through: the blade carries on past its mark and is held there a beat (the cut fully committed),
+        // then the body recovers into whatever it was doing
+        float fk = Math.Clamp((t - u) / Math.Max(0.01f, 1f - u), 0f, 1f);
+        float past = Key(fk, (0f, 0f), (0.22f, 1f), (0.5f, 0.8f), (1f, 0.6f));
+        var end = Around(over - carry * past, cs.BendEnd, 1f, 0f, false);
+        end.Twist += sign * 6f * past * big;
+        end.Lean += (sign > 0f ? 4f : -3f) * past;
+        float rk = W3.SmoothStep(0.38f, 1f, fk);
         return Lerp(end, basePose, rk);
     }
 
     /// <summary>
     /// The Swordsman's heaving swing: both hands on the hilt, the sword hauled up over the head and
-    /// far behind (the long wind-up, rooted), then brought over and down in one great arc into a
-    /// deep lunge, and held there a moment.
+    /// far behind, the body arched back and rising onto the toes (the long wind-up), then brought over
+    /// and down in one great arc as the whole weight drops into a deep lunge behind it, and held there.
     /// </summary>
     private static Body Heave(Body basePose, float t, bool grounded)
     {
@@ -494,39 +590,46 @@ public sealed partial class HeroDesign
         if (t < w)
         {
             float k = W3.Smooth01(t / w);
-            blade = Mathf.Lerp(basePose.SR - 90f + basePose.ER * 0.5f, 165f, k);
-            lean = Mathf.Lerp(basePose.Lean, -18f, k);
-            twist = -26f * k;
+            blade = Mathf.Lerp(basePose.SR - 90f + basePose.ER * 0.5f, 176f, k);
+            lean = Mathf.Lerp(basePose.Lean, -26f, k);
+            twist = -34f * k;
         }
         else if (t < u)
         {
             float k = (t - w) / (u - w);
             k = 1f - (1f - k) * (1f - k);
-            blade = Mathf.Lerp(165f, -68f, k);
-            lean = Mathf.Lerp(-18f, 42f, k);
-            twist = Mathf.Lerp(-26f, 30f, k);
+            blade = Mathf.Lerp(176f, -24f, k);
+            lean = Mathf.Lerp(-26f, 50f, k);
+            twist = Mathf.Lerp(-34f, 34f, k);
         }
         else
         {
-            float k = W3.SmoothStep(0.3f, 1f, (t - u) / (1f - u));
-            blade = Mathf.Lerp(-68f, -42f, k);
-            lean = Mathf.Lerp(42f, 16f, k);
-            twist = Mathf.Lerp(30f, 8f, k);
+            // (held at the bottom, then drawn back up a little as the body rises out of it)
+            float k = W3.SmoothStep(0.4f, 1f, (t - u) / (1f - u));
+            blade = Mathf.Lerp(-24f, -14f, k);
+            lean = Mathf.Lerp(50f, 18f, k);
+            twist = Mathf.Lerp(34f, 8f, k);
         }
         var o = basePose;
-        float bend = t < w ? Mathf.Lerp(40f, 76f, t / w) : t < u ? Mathf.Lerp(76f, 6f, (t - w) / (u - w)) : 10f;
-        o.SR = 90f + blade - bend * 0.35f; o.ER = bend; o.WR = -bend * 0.55f; o.AR = 14f; o.WRy = 0;
+        float bend = t < w ? Mathf.Lerp(40f, 80f, t / w) : t < u ? Mathf.Lerp(80f, 6f, (t - w) / (u - w)) : 10f;
+        // (the blade's line held against the dive of the chest, so it drives down to the floor and not through it)
+        o.SR = 90f + blade - bend * 0.35f + Math.Max(0f, lean) * 0.6f; o.ER = bend; o.WR = -bend * 0.55f; o.AR = 14f; o.WRy = 0;
         // the off hand joins the sword hand on the hilt
         o.SL = o.SR - 10f; o.EL = bend + 12f; o.AL = 26f; o.WL = o.WR;
-        o.Lean = lean; o.Twist = twist; o.HipTwist = -twist * 0.45f;
-        o.HeadPitch = t < w ? -16f * (t / w) : 8f;
+        o.Lean = lean; o.Twist = twist; o.HipTwist = -twist * 0.5f;
+        // (the eyes on the mark: up past the blade at the top, then down the line of the blow)
+        o.HeadPitch = t < w ? -6f * (t / w) - lean * 0.3f : 4f - lean * 0.2f;
+        o.HeadYaw = -twist * 0.4f;
         if (grounded)
         {
-            float low = t < w ? 0.35f * (t / w) : t < u ? Mathf.Lerp(0.35f, 1f, (t - w) / (u - w)) : Mathf.Lerp(1f, 0.6f, (t - u) / (1f - u));
-            o.HR = Mathf.Lerp(o.HR, 50f, low); o.KR = Mathf.Lerp(o.KR, 68f, low);
-            o.HL = Mathf.Lerp(o.HL, -30f, low); o.KL = Mathf.Lerp(o.KL, 24f, low);
-            o.FR = Mathf.Lerp(o.FR, 0f, low); o.FL = Mathf.Lerp(o.FL, -20f, low);
-            o.Root.Y = Mathf.Lerp(o.Root.Y, -0.15f, low);
+            float rise = t < w ? W3.SmoothStep(0.2f, 1f, t / w) : t < u ? 1f - W3.SmoothStep(0f, 0.5f, (t - w) / (u - w)) : 0f;
+            float low = t < w ? 0.2f * (t / w) : t < u ? Mathf.Lerp(0.2f, 1f, (t - w) / (u - w)) : Mathf.Lerp(1f, 0.6f, W3.SmoothStep(0.4f, 1f, (t - u) / (1f - u)));
+            o.HR = Mathf.Lerp(o.HR, 58f, low); o.KR = Mathf.Lerp(o.KR, 76f, low);
+            o.HL = Mathf.Lerp(o.HL, -36f, low); o.KL = Mathf.Lerp(o.KL, 24f, low);
+            o.FR = Mathf.Lerp(o.FR, 0f, low); o.FL = Mathf.Lerp(o.FL, -30f, low);
+            o.Root.Y = Mathf.Lerp(o.Root.Y, -0.18f, low) + 0.025f * rise;
+            o.FR -= 14f * rise; o.FL -= 14f * rise;
+            o.Root.X += -0.035f * rise + 0.06f * low;
         }
         return o;
     }
@@ -559,8 +662,10 @@ public sealed partial class HeroDesign
         o.Twist += 16f * draw - 22f * thrust; o.HipTwist -= 7f * draw - 10f * thrust;
         o.Lean += -6f * draw + 12f * thrust - aim * 0.05f * thrust;
         o.HeadPitch += -aim * 0.2f * thrust;
-        o.HR += 12f * thrust; o.KR += 14f * thrust; o.HL -= 10f * thrust;
-        o.Root.Y -= 0.05f * thrust;
+        o.HR += 18f * thrust; o.KR += 20f * thrust; o.HL -= 14f * thrust;
+        o.Root.Y -= 0.06f * thrust;
+        o.Root.X += -0.02f * draw + 0.045f * thrust;
+        o.HeadYaw = -o.Twist * 0.5f;
         return o;
     }
 
@@ -661,35 +766,48 @@ public sealed partial class HeroDesign
                 if (_caster) staff = Mathf.Lerp(92f, 78f, t);
                 break;
             case "jump_start":
-                o.Root.Y += Key(t, (0, 0), (0.45f, -0.16f), (1, 0.03f));
-                o.KR += Key(t, (0, 10), (0.45f, 70), (1, 0)); o.KL += Key(t, (0, 10), (0.45f, 70), (1, 0));
-                o.HR += Key(t, (0, 5), (0.45f, 42), (1, 0)); o.HL += Key(t, (0, 5), (0.45f, 42), (1, 0));
-                o.SR -= Key(t, (0, 0), (0.45f, 38), (1, -26)); o.SL -= Key(t, (0, 0), (0.45f, 38), (1, -26));
-                o.Lean += Key(t, (0, 0), (0.45f, 12), (1, -4));
-                break;
+                {
+                    // the take-off: a deep coil, arms swung back, eyes up at where it's going; then everything thrown upward at once, onto the toes
+                    float coil = Key(t, (0, 0), (0.45f, 1f), (0.8f, 0.2f), (1, 0));
+                    float fling = Key(t, (0.4f, 0f), (1f, 1f));
+                    o.Root.Y += -0.2f * coil + 0.05f * fling;
+                    o.KR += 80 * coil; o.KL += 80 * coil; o.HR += 50 * coil; o.HL += 50 * coil;
+                    o.FR -= 30 * fling; o.FL -= 30 * fling;
+                    o.SR += -64 * coil + 80 * fling; o.SL += -58 * coil + 100 * fling; o.ER += 10 * coil; o.EL -= 10 * fling;
+                    o.Lean += 24 * coil - 6 * fling; o.HeadPitch += -16 * coil - 6 * fling;
+                    break;
+                }
             case "land":
                 {
-                    float k = Key(t, (0, 1), (1, 0));
-                    o.Root.Y -= 0.19f * k; o.Lean += 22 * k;
-                    o.HR += 50 * k; o.KR += 82 * k; o.HL += 46 * k; o.KL += 78 * k;
-                    o.SR -= 18 * k; o.SL -= 14 * k; o.HeadPitch += 8 * k;
+                    // the hero's landing: the fall soaked up in a deep crouch, the free hand reaching for the ground, the weapon held
+                    // out wide behind for balance, the head up and the eyes already on what's next; then rising tall out of it
+                    float k = Key(t, (0, 1), (0.3f, 0.88f), (1, 0));
+                    k = k * k * (3f - 2f * k);
+                    o.Root.Y -= 0.24f * k; o.Root.X -= 0.02f * k; o.Lean += 28 * k;
+                    o.HR += 56 * k; o.KR += 94 * k; o.HL += 40 * k; o.KL += 84 * k;
+                    o.HeadPitch -= 18 * k;
+                    if (!_warden) { o.SL = Mathf.Lerp(o.SL, 34, k); o.EL = Mathf.Lerp(o.EL, 12, k); o.AL += 26 * k; }
+                    if (!_caster) { o.SR = Mathf.Lerp(o.SR, -12, k); o.AR += 34 * k; o.ER = Mathf.Lerp(o.ER, 28, k); if (!_rogue) o.WR = Mathf.Lerp(o.WR, -60, k); }
+                    // (the chest lifting a touch past upright as it stands: done, and ready)
+                    o.Lean -= 5f * MathF.Sin(MathF.PI * W3.SmoothStep(0.5f, 1f, t));
                     break;
                 }
             case "run_start":
                 {
-                    // the first step out of a stand: the weight falls forward, the arms haven't caught up
+                    // the first step out of a stand: driven off the back foot, the weight thrown forward, the arms pumping hard
                     float k = Key(t, (0, 1), (1, 0));
-                    o.Lean += 12 * k; o.SR -= 16 * k; o.SL += 10 * k;
+                    o.Lean += 16 * k; o.SR -= 22 * k; o.SL += 18 * k; o.Root.Y -= 0.03f * k; o.HeadPitch -= 8 * k;
                     break;
                 }
             case "run_stop":
                 {
                     float k = Key(t, (0, 1), (0.6f, 0.8f), (1, 0));
-                    o.Lean -= 26 * k; o.Root.Y -= 0.08f * k;
+                    o.Lean -= 26 * k; o.Root.Y -= 0.08f * k; o.HeadPitch -= 4 * k;
                     o.HR = Mathf.Lerp(o.HR, 48, k); o.KR = Mathf.Lerp(o.KR, 26, k);
                     o.HL = Mathf.Lerp(o.HL, 2, k); o.KL = Mathf.Lerp(o.KL, 44, k);
                     o.FR = Mathf.Lerp(o.FR, 18, k); o.FL = Mathf.Lerp(o.FL, 0, k);
-                    o.SL += 36 * k; o.AL += 22 * k; o.SR += 18 * k;
+                    if (!_warden) { o.SL += 36 * k; o.AL += 22 * k; }
+                    o.SR += 18 * k;
                     break;
                 }
             case "turn_r2l":
@@ -731,9 +849,12 @@ public sealed partial class HeroDesign
                     o.SL = Key(k, (0, 20), (0.35f, -72), (0.55f, 125), (1, 70));
                     o.EL = Key(k, (0, 30), (0.35f, 92), (0.55f, 4), (1, 25));
                     o.AL = 18;
-                    o.Twist = Key(k, (0, 0), (0.35f, 26), (0.55f, -24), (1, -8));
-                    o.HipTwist = -o.Twist * 0.4f;
-                    o.Lean += Key(k, (0, 0), (0.35f, -10), (0.55f, 14), (1, 4));
+                    o.Twist = Key(k, (0, 0), (0.35f, 30), (0.55f, -28), (1, -10));
+                    o.HipTwist = -o.Twist * 0.45f;
+                    o.HeadYaw = -o.Twist * 0.5f;
+                    o.Lean += Key(k, (0, 0), (0.35f, -12), (0.55f, 16), (1, 5));
+                    // (the weight goes back on the draw and forward behind the throw)
+                    o.Root.X += Key(k, (0, 0), (0.35f, -0.025f), (0.55f, 0.03f), (1, 0.01f));
                     if (_rogue) { o.HR += 16 * Key(k, (0, 0), (0.55f, 1), (1, 0)); o.KR += 20 * Key(k, (0, 0), (0.55f, 1), (1, 0)); o.Root.Y -= 0.04f * Key(k, (0, 0), (0.55f, 1), (1, 0)); }
                     break;
                 }
@@ -762,7 +883,8 @@ public sealed partial class HeroDesign
                     o.Lean += -6 * draw + 12 * thrust - aim * 0.05f * thrust;
                     o.HeadPitch += -aim * 0.2f * thrust;
                     o.SL = Mathf.Lerp(o.SL, 66 + aim * 0.5f, thrust); o.EL = Mathf.Lerp(o.EL, 16, thrust); o.AL = Mathf.Lerp(o.AL, 20, thrust);
-                    o.HR += 14 * thrust; o.KR += 16 * thrust; o.HL -= 12 * thrust; o.Root.Y -= 0.04f * thrust;
+                    o.HR += 18 * thrust; o.KR += 20 * thrust; o.HL -= 14 * thrust; o.Root.Y -= 0.05f * thrust;
+                    o.Root.X += -0.02f * draw + 0.04f * thrust; o.HeadYaw = -o.Twist * 0.5f;
                     staff = Mathf.Lerp(Mathf.Lerp(staff, 112, draw), aim + 18, thrust);
                 }
                 break;
@@ -778,7 +900,7 @@ public sealed partial class HeroDesign
                     o.EL = Mathf.Lerp(Mathf.Lerp(o.EL, 4, reach), 124, yank);
                     o.AL = Mathf.Lerp(o.AL, 24, Math.Max(reach, yank));
                     o.WL = Mathf.Lerp(-18f * reach, 44f, yank);
-                    o.SR = Mathf.Lerp(o.SR, 156, Math.Max(reach, yank)); o.ER = Mathf.Lerp(o.ER, 30, Math.Max(reach, yank));
+                    o.SR = Mathf.Lerp(o.SR, 150, Math.Max(reach, yank)); o.ER = Mathf.Lerp(o.ER, 30, Math.Max(reach, yank)); o.AR = Mathf.Lerp(o.AR, 30, Math.Max(reach, yank));
                     o.Lean += 16 * reach - 14 * yank - aim * 0.05f * reach;
                     o.Twist += -20 * reach + 24 * yank; o.HipTwist -= -8 * reach + 9 * yank;
                     o.HeadPitch += -aim * 0.25f * reach;
@@ -833,11 +955,15 @@ public sealed partial class HeroDesign
                 break;
             case "hurt":
                 {
-                    float k = Key(t, (0, 0), (0.2f, 1), (1, 0.15f));
-                    o.Lean -= 32 * k; o.HeadPitch -= 26 * k; o.Twist += 14 * k; o.HipTwist -= 6 * k;
-                    o.SR += 36 * k; o.AR += 34 * k; o.SL += 52 * k; o.AL += 40 * k;
-                    o.Root += new Vector3(-0.06f * k, -0.05f * k, 0);
-                    o.KR += 30 * k; o.KL += 24 * k;
+                    // rocked hard by the blow, but the weapon stays up and the body comes straight back at it, head first
+                    float k = Key(t, (0, 0), (0.14f, 1), (0.5f, 0.4f), (1, 0));
+                    float head = Key(t, (0, 0), (0.12f, 1), (0.36f, 0.15f), (1, 0));
+                    o.Lean -= 30 * k; o.HeadPitch -= 30 * head; o.Twist += 16 * k; o.HipTwist -= 7 * k;
+                    o.SR += 12 * k; o.AR += 16 * k;
+                    // (the Warden's shield stays between him and it)
+                    if (!_warden) { o.SL += 44 * k; o.AL += 34 * k; }
+                    o.Root += new Vector3(-0.07f * k, -0.06f * k, 0);
+                    o.KR += 32 * k; o.KL += 26 * k;
                     break;
                 }
             case "death":

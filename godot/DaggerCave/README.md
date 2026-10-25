@@ -840,7 +840,36 @@ Armoured creatures (golems, scorpions, shardlings and the colossi) take 40% less
 
 ## Motion
 
-Heroes' legs are solved, not keyframed (`HeroDesign.Motion.cs`): each foot stays planted while it carries the body and swings through an arc to land ahead, so runs never skate; each hero has a style of stride, lean and arm carriage, and their own way of cutting or casting. Swings play the gameplay swing's own timers (wind-up, sweep, follow-through), blows land as the blade crosses the aim, and the sword's light trail is read off the blade's bone each frame. `--scenario=motion --shots=DIR` records cropped frames of runs and cuts; `--modelsheet=NAME --sheetclips=run:0.25,...` lays out poses (`run:PHASE` fixes the gait phase).
+Heroes' legs are solved, not keyframed (`HeroDesign.Motion.cs`): each foot stays planted while it carries the body and swings through an arc to land ahead, so runs never skate; each hero has a style of stride, lean and arm carriage, and their own way of cutting or casting. Swings play the gameplay swing's own timers (wind-up, sweep, follow-through), blows land as the blade crosses the aim, and the sword's light trail is read off the blade's bone each frame. `--scenario=motion --shots=DIR` records cropped frames of runs and cuts; `--modelsheet=NAME --sheetclips=run:0.25,...` lays out poses (`run:PHASE` fixes the gait phase, `air:T` poses a jump from rising (0) through the apex (0.5) to falling fast (1)).
+
+### Heroic carriage
+
+Every hero moves like the main character: confident, committed, never stiff, but within what a body can really do.
+
+- **Standing.** No hero stands at attention. Each holds a stance of their own: feet set wide and staggered, knees soft, chest up and chin lifted, the weapon held where it can strike from. The feet are solved onto the floor (`Stance`), so the weight can drift between them without a foot floating or sliding. The breath lifts the chest and squares the shoulders; the Automaton only hums.
+  - The Swordsman stands in a guard, sword foot forward, point up at the throat of whatever comes.
+  - The Warden stands squared behind his shield, sword cocked over his shoulder.
+  - The Rogue crouches low on the balls of the feet, both daggers up before the face.
+  - The casters stand tall, staff planted. The Elementalist holds power ready in the free hand; the Vitalist and the Aegis open a palm.
+  - The Automaton stands broad, its cleaver low and forward.
+  - The Shape Shifter is loose and clawed, staff held like a blade.
+- **Cuts.** Every beat is committed:
+  - Wind-up: the whole body coils and rocks back onto the rear foot, the blade drawn on past its mark.
+  - Cut: the leading foot steps in and the body drives forward over it into a deep lunge, rear heel lifting. The pelvis leads the turn and the free arm flings back to balance.
+  - Follow-through: the blade carries on past its mark and is held there a beat before the body recovers.
+  - Throughout, the head holds steady with the eyes on the mark, and the arm keeps the blade's line against the chest's pitch so it ends low over the floor, not through it.
+  - A finisher goes further in everything.
+  - The heaving swing rises onto the toes as the sword goes up and back, then drops the whole weight into the blow and holds the finish.
+- **Jumps and landings.**
+  - Take-off: a deep coil with the arms swung back, then everything thrown upward onto the toes.
+  - Rising: one knee driven high, the other leg trailing long.
+  - Falling: legs reaching for the ground, arms spread wide, eyes on the landing.
+  - Landing: the fall soaked up in a deep crouch, the free hand reaching for the floor, the weapon trailed wide behind, head up. The hero then rises tall, the chest lifting a touch past upright.
+- **Everything else.**
+  - Running, the head stays up with the eyes ahead, however far the body pitches into it.
+  - A start drives off the back foot.
+  - Throws and casts step the weight back on the draw and forward behind the release.
+  - A blow rocks a hero hard, but the weapon stays up (the Warden's shield stays between him and it) and the body comes straight back.
 
 ## 3D presentation
 
