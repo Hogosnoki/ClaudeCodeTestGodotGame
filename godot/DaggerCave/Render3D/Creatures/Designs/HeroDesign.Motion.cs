@@ -78,12 +78,13 @@ public sealed partial class HeroDesign
 
     private static Style StyleFor(HeroKind kind) => kind switch
     {
-        // the Swordsman: a long, driving stride, the sword held out ahead, point forward and a little up, in a loose fist
+        // the Swordsman (after Marth): tall and light, long gliding strides, the free arm pumping, the sword arm swept back
+        // nearly straight with the blade trailing low behind him
         HeroKind.Swordsman => new Style
         {
-            Stance = 0.76f, Stride = 4.4f, Hip = 0.78f, Bounce = 0.045f, Clear = 0.28f, Lean = 21f, HipTwist = 9f, Counter = 15f,
-            FreeAmp = 50f, FreeMid = 6f, FreeElbow = 92f, FreeElbowAmp = 16f,
-            HoldAmp = 24f, HoldMid = 18f, HoldElbow = 84f, HoldElbowAmp = 10f, HoldAbs = 125f, HeadUp = 0f, Weight = 0.012f,
+            Stance = 0.78f, Stride = 4.7f, Hip = 0.79f, Bounce = 0.04f, Clear = 0.3f, Lean = 18f, HipTwist = 9f, Counter = 13f,
+            FreeAmp = 48f, FreeMid = 10f, FreeElbow = 84f, FreeElbowAmp = 18f,
+            HoldAmp = 6f, HoldMid = -46f, HoldElbow = 12f, HoldElbowAmp = 4f, HoldAbs = -62f, HeadUp = -2f, Weight = 0.008f,
         },
         // the Warden: short, heavy strides, shield tucked in front, every footfall felt
         HeroKind.Warden => new Style
@@ -232,7 +233,7 @@ public sealed partial class HeroDesign
     {
         float b = MathF.Sin(time * 1.7f), w = MathF.Sin(time * 0.53f + 0.8f);
         // (an automaton doesn't breathe: a slow hum through the frame)
-        float br = _automaton ? 0.35f : 1f;
+        float br = _automaton ? 0.35f : _swordsman ? 1.5f : 1f;
         var o = new Body { HRx = 7, HLx = 8 };
         float right, left, hipH;
         if (_warden)
@@ -279,11 +280,12 @@ public sealed partial class HeroDesign
         }
         else
         {
-            // the Swordsman's guard: sword foot forward, the blade held out before him, point up at the throat of whatever comes, the off hand loose and ready
-            o.Lean = 3; o.HeadPitch = -6; o.Twist = 5;
-            o.SR = 40; o.AR = 14; o.ER = 50; o.WR = 132 - (o.SR + o.ER);
-            o.SL = 14; o.AL = 18; o.EL = 34;
-            right = 0.21f; left = -0.18f; hipH = 0.755f;
+            // the Swordsman, after Marth: a fencer's poise, tall and side-on, chest proud and chin up, the sword held low and
+            // forward with its point toward the floor ahead, the off hand drawn back by the hip, light on his feet
+            o.Lean = -1; o.HeadPitch = -7; o.Twist = 10;
+            o.SR = 26; o.AR = 16; o.ER = 26; o.WR = 46 - (o.SR + o.ER);
+            o.SL = -18; o.AL = 20; o.EL = 26; o.WL = 10;
+            right = 0.2f; left = -0.2f; hipH = 0.77f; o.HRx = 6; o.HLx = 8;
         }
         // the breath: the chest lifts and the shoulders square on the in-breath; the weight drifts between the feet
         o.Lean -= 1.4f * b * br; o.HeadPitch += 0.8f * b * br;
@@ -343,7 +345,8 @@ public sealed partial class HeroDesign
         float sw = -MathF.Cos(tau * (phase + 0.03f));
         o.SR = st.HoldMid + st.HoldAmp * Ex * sw;
         o.ER = st.HoldElbow + st.HoldElbowAmp * sw;
-        o.AR = 10f;
+        // (the Swordsman's trailing blade is carried out from the body, clear of his legs and cape)
+        o.AR = _swordsman ? 20f : 10f;
         o.SL = st.FreeMid - st.FreeAmp * Ex * sw;
         o.EL = st.FreeElbow - st.FreeElbowAmp * sw;
         o.AL = 10f;
@@ -381,6 +384,13 @@ public sealed partial class HeroDesign
         var rise = new Body { Lean = 5, HeadPitch = -10, SR = 62, ER = 74, WR = 30, AR = 20, SL = 128, EL = 22, AL = 16, HR = 92, KR = 104, FR = -16, HL = -24, KL = 34, FL = -42, HRx = 5, HLx = 4 };
         var apex = new Body { Lean = 10, HeadPitch = -6, SR = 70, ER = 64, WR = 26, AR = 30, SL = 82, EL = 40, AL = 34, HR = 74, KR = 104, FR = -14, HL = 30, KL = 88, FL = -26, HRx = 7, HLx = 7 };
         var fall = new Body { Lean = 3, HeadPitch = -3, SR = 46, ER = 34, WR = 24, AR = 56, SL = 50, EL = 26, AL = 62, HR = 34, KR = 30, FR = 12, HL = -4, KL = 36, FL = 2, HRx = 10, HLx = 10 };
+        if (_swordsman)
+        {
+            // (after Marth: both knees drawn up neatly, the sword arm swept back with the blade trailing, the free hand leading)
+            rise = new Body { Lean = 6, HeadPitch = -8, SR = -30, ER = 14, WR = -20, AR = 22, SL = 62, EL = 34, AL = 20, HR = 72, KR = 112, FR = -20, HL = 44, KL = 98, FL = -30, HRx = 6, HLx = 6 };
+            apex = new Body { Lean = 10, HeadPitch = -6, SR = -24, ER = 16, WR = -18, AR = 28, SL = 56, EL = 40, AL = 28, HR = 70, KR = 108, FR = -14, HL = 52, KL = 100, FL = -24, HRx = 7, HLx = 7 };
+            fall = new Body { Lean = 2, HeadPitch = -4, SR = -22, ER = 12, WR = -16, AR = 36, SL = 46, EL = 24, AL = 40, HR = 26, KR = 22, FR = 10, HL = -6, KL = 30, FL = 0, HRx = 9, HLx = 9 };
+        }
         Body o = vy > 0 ? Lerp(apex, rise, W3.SmoothStep(0.5f, 5f, vy)) : Lerp(apex, fall, W3.SmoothStep(-0.5f, -6f, vy));
         // (a long fall: the arms and legs work a little against it, not frozen)
         float drift = MathF.Sin(time * 5f) * W3.SmoothStep(-4f, -9f, vy);
@@ -456,8 +466,10 @@ public sealed partial class HeroDesign
 
     private CutStyle CutFor() => _kind switch
     {
+        // after Marth: fast, wide crescents with a long, nearly straight arm, the body turning through them, upright and poised
+        HeroKind.Swordsman => new CutStyle { CockA = 124f, OverA = -34f, CockB = -84f, OverB = 80f, CockC = 170f, OverC = -42f, BendCock = 54f, BendEnd = 2f, Wind = 34f, Through = 44f, LeanWind = -10f, LeanThrough = 18f, Lunge = 1f, Counter = 0.55f },
         // wide, committed cuts from the shoulder with the whole body behind them
-        HeroKind.Swordsman or HeroKind.ShapeShifter => new CutStyle { CockA = 116f, OverA = -34f, CockB = -80f, OverB = 76f, CockC = 162f, OverC = -42f, BendCock = 78f, BendEnd = 6f, Wind = 36f, Through = 40f, LeanWind = -14f, LeanThrough = 26f, Lunge = 1f, Counter = 0.55f },
+        HeroKind.ShapeShifter => new CutStyle { CockA = 116f, OverA = -34f, CockB = -80f, OverB = 76f, CockC = 162f, OverC = -42f, BendCock = 78f, BendEnd = 6f, Wind = 36f, Through = 40f, LeanWind = -14f, LeanThrough = 26f, Lunge = 1f, Counter = 0.55f },
         // great hacking chops from high over the shoulder, the whole frame swung behind them, the feet barely moving
         HeroKind.Automaton => new CutStyle { CockA = 128f, OverA = -34f, CockB = -74f, OverB = 72f, CockC = 172f, OverC = -42f, BendCock = 82f, BendEnd = 18f, Wind = 28f, Through = 34f, LeanWind = -9f, LeanThrough = 28f, Lunge = 0.6f, Counter = 0.25f },
         // short, hard chops behind the shield, feet planted, the weight thrown into the blow
@@ -532,6 +544,12 @@ public sealed partial class HeroDesign
                 float guard = Mathf.Lerp(34f, -14f, sweep) + free * 0.5f * (handR ? 1f : -1f);
                 if (handR) { o.SL = guard; o.EL = 96f; o.AL = 12f; o.WL = 10f; }
                 else { o.SR = guard; o.ER = 96f; o.AR = 12f; o.WR = 10f; }
+            }
+            else if (_swordsman)
+            {
+                // (Marth's off hand: reaching toward the mark in the wind-up, then swept back and out behind, long and open, as the blade comes through)
+                o.SL = winding ? Mathf.Lerp(basePose.SL, 36f, wind) : Mathf.Lerp(36f, -56f, sweep);
+                o.EL = winding ? Mathf.Lerp(basePose.EL, 20f, wind) : 18f; o.AL = 22f + 18f * sweep; o.WL = 14f;
             }
             else { o.SL = free; o.AL = 24f + 14f * sweep; o.EL = 36f + 10f * sweep; }
             // the feet: the weight rocks back onto the rear foot in the coil, then the leading foot (opposite the cutting hand)
@@ -783,6 +801,8 @@ public sealed partial class HeroDesign
                     // out wide behind for balance, the head up and the eyes already on what's next; then rising tall out of it
                     float k = Key(t, (0, 1), (0.3f, 0.88f), (1, 0));
                     k = k * k * (3f - 2f * k);
+                    // (the Swordsman comes down light, like a fencer: a shallower give, the same poise)
+                    if (_swordsman) k *= 0.6f;
                     o.Root.Y -= 0.24f * k; o.Root.X -= 0.02f * k; o.Lean += 28 * k;
                     o.HR += 56 * k; o.KR += 94 * k; o.HL += 40 * k; o.KL += 84 * k;
                     o.HeadPitch -= 18 * k;
@@ -814,6 +834,19 @@ public sealed partial class HeroDesign
             case "turn_l2r":
                 o.Root.Y -= 0.04f * MathF.Sin(t * MathF.PI);
                 break;
+            case "dodge" when _swordsman && !((player != null && player.IsDodging) || a.Vel.Length() > 18f):
+                {
+                    // the Swordsman's double jump, after Marth: a tight forward somersault, knees to the chest, the sword arm
+                    // held out long so the blade wheels round with him, opening out at the end into the rise
+                    float tuck = MathF.Sin(Math.Clamp(t * 1.1f, 0f, 1f) * MathF.PI);
+                    o.Roll = -360f * W3.Smooth01(Math.Min(1f, t * 1.1f));
+                    o.Lean = 20f * tuck; o.HeadPitch = 26f * tuck;
+                    o.HR = Mathf.Lerp(o.HR, 118f, tuck); o.KR = Mathf.Lerp(o.KR, 138f, tuck); o.HL = Mathf.Lerp(o.HL, 112f, tuck); o.KL = Mathf.Lerp(o.KL, 136f, tuck);
+                    o.FR = Mathf.Lerp(o.FR, -24f, tuck); o.FL = Mathf.Lerp(o.FL, -24f, tuck);
+                    o.SR = Mathf.Lerp(o.SR, 70f, tuck); o.ER = Mathf.Lerp(o.ER, 10f, tuck); o.WR = Mathf.Lerp(o.WR, 0f, tuck); o.AR = Mathf.Lerp(o.AR, 30f, tuck);
+                    o.SL = Mathf.Lerp(o.SL, 60f, tuck); o.EL = Mathf.Lerp(o.EL, 110f, tuck); o.AL = Mathf.Lerp(o.AL, 10f, tuck);
+                    break;
+                }
             case "dodge" when _swordsman:
                 {
                     // the dash-slash: no roll, no tuck: he drops into a long lean, head up and eyes on the mark, the sword arm drawn back and cocked ready to strike, the off arm thrown forward, legs in a running lunge

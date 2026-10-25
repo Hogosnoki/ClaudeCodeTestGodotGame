@@ -847,7 +847,7 @@ Heroes' legs are solved, not keyframed (`HeroDesign.Motion.cs`): each foot stays
 Every hero moves like the main character: confident, committed, never stiff, but within what a body can really do.
 
 - **Standing.** No hero stands at attention. Each holds a stance of their own: feet set wide and staggered, knees soft, chest up and chin lifted, the weapon held where it can strike from. The feet are solved onto the floor (`Stance`), so the weight can drift between them without a foot floating or sliding. The breath lifts the chest and squares the shoulders; the Automaton only hums.
-  - The Swordsman stands in a guard, sword foot forward, point up at the throat of whatever comes.
+  - The Swordsman moves after Marth (Super Smash Bros. Melee); see below.
   - The Warden stands squared behind his shield, sword cocked over his shoulder.
   - The Rogue crouches low on the balls of the feet, both daggers up before the face.
   - The casters stand tall, staff planted. The Elementalist holds power ready in the free hand; the Vitalist and the Aegis open a palm.
@@ -865,6 +865,12 @@ Every hero moves like the main character: confident, committed, never stiff, but
   - Rising: one knee driven high, the other leg trailing long.
   - Falling: legs reaching for the ground, arms spread wide, eyes on the landing.
   - Landing: the fall soaked up in a deep crouch, the free hand reaching for the floor, the weapon trailed wide behind, head up. The hero then rises tall, the chest lifting a touch past upright.
+- **The Swordsman, after Marth.** The Swordsman's reference is Marth from Super Smash Bros. Melee: an aristocratic fencer, tall, light and poised, with fast, wide crescent cuts.
+  - Standing, he is side-on with chest proud and chin up. The sword is held low and forward, its point toward the floor ahead, and the off hand is drawn back by the hip. He bobs lightly on his feet.
+  - Running, he is tall in long gliding strides. The free arm pumps and the sword arm is swept back nearly straight, the blade trailing low behind him.
+  - Cuts are wide crescents thrown with a long, nearly straight arm, the body turning through them upright. The off hand reaches toward the mark in the wind-up, then sweeps back and out behind, long and open, as the blade comes through. The finisher rises overhead and comes down into a long lunge like his forward smash.
+  - Jumping, both knees are drawn up neatly with the blade trailing back. His double jump is a tight forward somersault, the sword arm held out so the blade wheels round with him. (It used to show the dash-slash pose by mistake, since both play the same clip.)
+  - He lands light, like a fencer.
 - **Everything else.**
   - Running, the head stays up with the eyes ahead, however far the body pitches into it.
   - A start drives off the back foot.
