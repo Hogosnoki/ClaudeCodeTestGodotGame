@@ -6,8 +6,8 @@ namespace DaggerCave;
 /// <summary>
 /// The Automaton, on the heroes' rig: a copper engine of a man, green with verdigris at the seams. A barrel chest banded in
 /// brass with a furnace glowing behind a barred window and a pressure gauge over the heart, a pair of stacks rising behind
-/// the head, great riveted pauldrons, a squared copper head under a brass dome with two porthole eyes lit amber and a
-/// grille for a mouth, pistons along the forearms, ball joints at elbow and knee, heavy iron boots, and a cleaver with a long haft. The lantern at its hip lights the cave, as every hero's does.
+/// the head, great riveted pauldrons, a squared copper head under a brass dome, faceless (a blank faceplate),
+/// pistons along the forearms, ball joints at elbow and knee, heavy iron boots, and a cleaver with a long haft. The lantern at its hip lights the cave, as every hero's does.
 /// </summary>
 public sealed partial class HeroDesign
 {
@@ -71,25 +71,8 @@ public sealed partial class HeroDesign
         // a whistle on the crown
         s.Limb(headB, new(-0.01f, 0.81f, 0), new(-0.025f, 0.865f, 0), 0.012f, 0.01f, AuBrass, Mat.Gold, 0.006f);
         s.Ball(headB, new(-0.026f, 0.872f, 0), 0.016f, AuBrass, Mat.Gold, 0.004f);
-        // a face built like one, in plate: a heavy riveted brow plate over two portholes for eyes (rimmed in brass, lit from
-        // inside, a shutter's lid over each), angled cheek plates, a ridge down the middle for a nose, a jaw plate hinged at the
-        // sides, and a grille of upright bars for a mouth
-        s.Block(headB, new(0.098f, 0.752f, 0), new(0.014f, 0.011f, 0.078f), 0.006f, AuCopperDk, Mat.Metal, 0.006f, new(0, 0, -12f));
-        foreach (float z in new[] { 0.036f, -0.036f })
-        {
-            s.CarveBall(headB, new(0.118f, 0.722f, z), 0.021f, 0.004f);
-            s.Ball(headB, new(0.1f, 0.722f, z), 0.026f, AuBrass, Mat.Gold, 0.004f);
-            s.Eye(headB, new(0.11f, 0.722f, z), 0.0175f, AuFire, 1f);
-            s.Block(headB, new(0.118f, 0.738f, z), new(0.006f, 0.005f, 0.02f), 0.003f, AuIron, Mat.Metal, 0.003f, new(0, 0, -20f));
-            float side = MathF.Sign(z);
-            s.Block(headB, new(0.092f, 0.69f, 0.058f * side), new(0.022f, 0.016f, 0.02f), 0.005f, AuCopper, Mat.Metal, 0.005f, new(0, -24f * side, -10f));
-            s.Ball(headB, new(0.07f, 0.665f, 0.078f * side), 0.011f, AuSteel, Mat.Metal, 0.003f);
-            for (int r = 0; r < 3; r++) s.Ball(headB, new(0.104f, 0.752f, (0.02f + 0.024f * r) * side), 0.0045f, AuBrass, Mat.Gold, 0.002f);
-        }
-        s.Block(headB, new(0.11f, 0.705f, 0), new(0.012f, 0.03f, 0.008f), 0.004f, AuCopperDk, Mat.Metal, 0.004f);
-        s.Block(headB, new(0.094f, 0.655f, 0), new(0.022f, 0.022f, 0.05f), 0.008f, AuCopper, Mat.Metal, 0.006f);
-        for (int k = -3; k <= 3; k++)
-            s.CarveLimb(headB, new(0.118f, 0.672f, k * 0.0105f), new(0.118f, 0.646f, k * 0.0105f), 0.0028f, 0.0028f, 0.0015f);
+        // no face at all: a blank, gently domed faceplate, polished smooth
+        s.Egg(headB, new(0.07f, 0.705f, 0), new(0.04f, 0.066f, 0.074f), AuCopper, Mat.Metal, 0.02f);
         // bolts at the temples
         foreach (float z in new[] { 0.085f, -0.085f })
             s.Ball(headB, new(0.02f, 0.71f, z), 0.016f, AuSteel, Mat.Metal, 0.004f);

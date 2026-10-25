@@ -724,7 +724,7 @@ All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a sty
   Under the tall hood is an old, weathered face: gaunt under high cheekbones, with deep-set eyes catching the orb's light under bushy grey brows, a hooked nose, the lines of age and a long grey beard.
 - The Aegis: an ivory robe and teal mantle, and a pale hood thrown back from a calm, soft-featured face. The face has a smooth brow, a straight nose, full lips at ease and a gentle near-smile, with dark hair parted under a gold circlet set with a teal stone.
 - The Shape Shifter: a grey robe, a wildwood staff with antler tines, and a lean, wild face. The face is all sharp cheekbones and narrow jaw, with pale shining eyes, a smirk, stubble, tangled ash-grey hair, a band of charcoal across the eyes and claw marks down one cheek.
-- The Automaton: a copper head under a brass dome, with a face built in plate. A riveted brow plate sits over the two porthole eyes, each with a shutter's lid; angled cheek plates, a ridge for a nose and a hinged jaw plate frame a grille of upright bars for a mouth.
+- The Automaton: a copper head under a brass dome, and no face at all: a blank, smooth faceplate (the one hero without facial features).
 
 **Faces.** Every hero's face is built on the Swordsman's carefully placed anatomy (`Designs/HeroDesign.Faces.cs`), moved, scaled and reshaped by a `Face` of the hero's own:
 - **Bone structure:** the jaw (square to soft) and chin; the cheekbones' prominence and height; the brow ridge; the nose's length, bridge bump (a break or a hook), tip and width.
@@ -1699,7 +1699,7 @@ xvfb for pictures; it looks for a clean wall and ceiling, so try another `--seed
 
 The last work of Ottoline Brass, found in the Clockwork Deep (`Player/Player.Automaton.cs`, `Tune.AutomatonHero`; its model is
 `HeroDesign.Automaton.cs`: a barrel chest banded in brass with a furnace glowing behind a barred window, two stacks behind the head,
-porthole eyes, pistons on the forearms, a long-hafted cleaver held edge first).
+a blank, faceless head, pistons on the forearms, a long-hafted cleaver held edge first).
 - **Finding him**: he is never caged. While anyone in the party still lacks him, a Clockwork Deep level (which always tries to cut
   a secret wing) has him lying disabled in a heap at the far end of the wing, past the cracked wall, and a **power cell** hidden
   somewhere in the level (`Combat/PowerCell.cs`; whoever finds it finds it for the party). With the cell, interact at the heap to
