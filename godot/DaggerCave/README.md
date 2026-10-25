@@ -737,7 +737,7 @@ All five heroes are drawn by the same rig (`tools/sprites/player.py`) with a sty
 Each eye is a white, an iris and a pupil, turned in a touch, with the upper lid over its top.
 
 **Proportions.** Every hero has a shorter torso and longer legs than they were sculpted with, at about the same height. `HeroDesign.Proportion` reshapes the finished figure through `Sculptor.Reshape`:
-- the trunk is squeezed 12% between the hips and the neck, and the legs are stretched 8% from hip to ankle;
+- the trunk is squeezed 12% between the hips and the neck, and the legs are stretched 8% from hip to ankle and made 10% thicker (`LegGirth`);
 - the head and neck, the feet and soles, and each arm (with whatever it holds) move without stretching;
 - the leg solver takes the new thigh and shin lengths and hip height, and the painters see the skin in the sculpt's measures (`Sculptor.PaintSpace`).
 
@@ -900,7 +900,7 @@ Every hero moves like the main character: confident, committed, never stiff, but
   - The dagger throw is Sheik's needles: both arms crossed over the chest in a crouch, then flung out together, fanned, the body springing forward behind them.
 - **Everything else.**
   - Running, every hero leans forward from the feet, the way a runner balances while driving against the ground. The whole body tips forward: the pelvis and everything above it pitch with it (`Body.Pitch`). The legs are turned back against that pitch, so the solved feet stay planted, and the spine bends on top of it.
-    - The lean is a little at a jog and more at a sprint, steeper still in the first strides out of a stand, while the body is accelerating.
+    - The lean is about 5° at a jog and about 15-19° at a sprint (plus the spine's own bend), steeper still in the first strides out of a stand, while the body is accelerating.
     - Braking tips the body back behind the leading foot.
     - The head stays up with the eyes ahead, however far the body pitches into it.
   - A start drives off the back foot.

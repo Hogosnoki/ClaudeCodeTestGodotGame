@@ -537,8 +537,8 @@ public sealed partial class HeroDesign : CreatureDesign
 
     // ================================================================== proportions
 
-    /// <summary>How much the torso is shortened (hips to the base of the neck) and the legs lengthened (hip to ankle).</summary>
-    private const float TorsoK = 0.88f, LegK = 1.08f;
+    /// <summary>How much the torso is shortened (hips to the base of the neck) and the legs lengthened (hip to ankle), and how much thicker the legs are made.</summary>
+    private const float TorsoK = 0.88f, LegK = 1.08f, LegGirth = 1.1f;
     private const float NeckY = 0.5f, ShoulderY = 0.46f, AnkleY = -0.75f;
     /// <summary>How far the ankles (and the soles under them) end up below where they were sculpted.</summary>
     private const float SoleDrop = -AnkleY * (LegK - 1f);
@@ -554,7 +554,7 @@ public sealed partial class HeroDesign : CreatureDesign
     /// <summary>
     /// The heroes' proportions, applied to the finished figure: a shorter torso and longer legs, the height about the same. The neck and
     /// head, and the arms (from the shoulder down, with whatever they hold), move down with the shoulders whole; the trunk, the cloak and
-    /// the legs are reshaped point by point.
+    /// the legs are reshaped point by point, and the thighs and shins made a touch thicker.
     /// </summary>
     private static void Proportion(Sculptor s)
     {
@@ -569,7 +569,8 @@ public sealed partial class HeroDesign : CreatureDesign
         s.Reshape((p, bone) => bone < 0 || bone >= mode.Length || mode[bone] == 0
                 ? new Vector3(p.X, ProportionY(p.Y), p.Z)
                 : new Vector3(p.X, p.Y + (mode[bone] == 1 ? headDy : armDy), p.Z),
-            q => new Vector3(q.X, UnproportionY(q.Y), q.Z));
+            q => new Vector3(q.X, UnproportionY(q.Y), q.Z),
+            bone => bone >= 0 && bone < mode.Length && (s.Bones[bone].Name.StartsWith("thigh") || s.Bones[bone].Name.StartsWith("shin")) ? LegGirth : 1f);
     }
 
     /// <summary>The lantern at the left hip: its glass glows in the look's glow colour.</summary>

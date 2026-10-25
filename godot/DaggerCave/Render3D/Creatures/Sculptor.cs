@@ -350,15 +350,22 @@ public sealed class Sculptor
     /// <summary>
     /// Moves everything sculpted so far (the bones' joints, every primitive, every part's points) through <paramref name="warp"/>,
     /// which is told each point's bone: a change of proportions applied to the finished figure. Sizes (radii) are kept.
-    /// <paramref name="back"/> takes a reshaped point back, for the painters.
+    /// <paramref name="back"/> takes a reshaped point back, for the painters. <paramref name="girth"/>, if given, thickens (or thins) each
+    /// bone's primitives across: their radii, and an ellipsoid's, box's or ring's front-to-back and side-to-side extents.
     /// </summary>
-    public void Reshape(Func<Vector3, int, Vector3> warp, Func<Vector3, Vector3> back)
+    public void Reshape(Func<Vector3, int, Vector3> warp, Func<Vector3, Vector3> back, Func<int, float> girth = null)
     {
         foreach (var b in Bones) b.Head = warp(b.Head, Bones.IndexOf(b));
         foreach (var p in Prims)
         {
             p.A = warp(p.A, p.Bone);
             if (p.Kind == PrimKind.RoundCone) p.B = warp(p.B, p.Bone);
+            float g = girth?.Invoke(p.Bone) ?? 1f;
+            if (g != 1f)
+            {
+                p.Ra *= g; p.Rb *= g;
+                p.Half = new Vector3(p.Half.X * g, p.Kind == PrimKind.Torus ? p.Half.Y * g : p.Half.Y, p.Half.Z * g);
+            }
             p.Prepare();
         }
         foreach (var part in Parts)

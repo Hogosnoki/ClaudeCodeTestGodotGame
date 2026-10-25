@@ -371,7 +371,7 @@ public sealed partial class HeroDesign
         float lean = Mathf.Lerp(7f, st.Lean * (0.85f + 0.15f * Ex), vn);
         // the whole body tips forward from the feet, as a runner's does: the weight carried ahead of the planted foot so each push
         // against the ground drives it on, not up (a little at a jog, more at a sprint, most of all for the low sprinters)
-        o.Pitch = Mathf.Lerp(3f, 9f + 0.15f * st.Lean, vn);
+        o.Pitch = Mathf.Lerp(5f, Math.Min(19f, 14f + 0.15f * st.Lean), vn);
         float turn = MathF.Cos(tau * (phase - 0.95f));
         o.Lean = lean + 2.2f * flight * -mid;
         o.HipTwist = st.HipTwist * Ex * turn * (0.4f + 0.6f * vn);
