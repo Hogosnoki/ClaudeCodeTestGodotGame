@@ -21,6 +21,9 @@ public sealed partial class HeroDesign
     private struct Body
     {
         public float Lean, Twist, HipTwist, Bank, HeadPitch, HeadYaw, Roll;
+        /// <summary>The whole body pitched forward from the feet (degrees): the pelvis and everything above it tip with it, and the legs are
+        /// turned back against it so the feet keep their places. Lean bends the spine on top of it.</summary>
+        public float Pitch;
         public Vector3 Root;
         public float SR, AR, ER, WR, WRy;
         public float SL, AL, EL, WL, WLy;
@@ -35,7 +38,7 @@ public sealed partial class HeroDesign
         Body r;
         r.Lean = Mathf.Lerp(a.Lean, b.Lean, t); r.Twist = Mathf.Lerp(a.Twist, b.Twist, t); r.HipTwist = Mathf.Lerp(a.HipTwist, b.HipTwist, t);
         r.Bank = Mathf.Lerp(a.Bank, b.Bank, t);
-        r.HeadPitch = Mathf.Lerp(a.HeadPitch, b.HeadPitch, t); r.HeadYaw = Mathf.Lerp(a.HeadYaw, b.HeadYaw, t); r.Roll = Mathf.Lerp(a.Roll, b.Roll, t);
+        r.HeadPitch = Mathf.Lerp(a.HeadPitch, b.HeadPitch, t); r.HeadYaw = Mathf.Lerp(a.HeadYaw, b.HeadYaw, t); r.Roll = Mathf.Lerp(a.Roll, b.Roll, t); r.Pitch = Mathf.Lerp(a.Pitch, b.Pitch, t);
         r.Root = a.Root.Lerp(b.Root, t);
         r.SR = Mathf.Lerp(a.SR, b.SR, t); r.AR = Mathf.Lerp(a.AR, b.AR, t); r.ER = Mathf.Lerp(a.ER, b.ER, t); r.WR = Mathf.Lerp(a.WR, b.WR, t); r.WRy = Mathf.Lerp(a.WRy, b.WRy, t);
         r.SL = Mathf.Lerp(a.SL, b.SL, t); r.AL = Mathf.Lerp(a.AL, b.AL, t); r.EL = Mathf.Lerp(a.EL, b.EL, t); r.WL = Mathf.Lerp(a.WL, b.WL, t); r.WLy = Mathf.Lerp(a.WLy, b.WLy, t);
@@ -89,7 +92,7 @@ public sealed partial class HeroDesign
         // the Warden: short, heavy strides, shield tucked in front, every footfall felt
         HeroKind.Warden => new Style
         {
-            Stance = 0.66f, Stride = 3.3f, Hip = 0.78f, Bounce = 0.03f, Clear = 0.18f, Lean = 11f, HipTwist = 6f, Counter = 10f,
+            Stance = 0.66f, Stride = 3.3f, Hip = 0.78f, Bounce = 0.03f, Clear = 0.18f, Lean = 14f, HipTwist = 6f, Counter = 10f,
             FreeAmp = 5f, FreeMid = 42f, FreeElbow = 82f, FreeElbowAmp = 4f,
             HoldAmp = 32f, HoldMid = 14f, HoldElbow = 90f, HoldElbowAmp = 10f, HoldAbs = 62f, HeadUp = 3f, Weight = 0.03f,
         },
@@ -103,21 +106,21 @@ public sealed partial class HeroDesign
         // the Elementalist: upright and springing, long floating lopes, the free hand flowing, the staff upright
         HeroKind.Elementalist => new Style
         {
-            Stance = 0.72f, Stride = 4.2f, Hip = 0.8f, Bounce = 0.055f, Clear = 0.26f, Lean = 10f, HipTwist = 7f, Counter = 13f,
+            Stance = 0.72f, Stride = 4.2f, Hip = 0.8f, Bounce = 0.055f, Clear = 0.26f, Lean = 14f, HipTwist = 7f, Counter = 13f,
             FreeAmp = 42f, FreeMid = 8f, FreeElbow = 62f, FreeElbowAmp = 22f,
             HoldAmp = 10f, HoldMid = 20f, HoldElbow = 76f, HoldElbowAmp = 5f, HoldAbs = 46f, HeadUp = 6f, Weight = 0.004f,
         },
         // the Aegis: calm and upright, measured steps, the staff carried close and the free hand open
         HeroKind.Aegis => new Style
         {
-            Stance = 0.7f, Stride = 3.9f, Hip = 0.78f, Bounce = 0.04f, Clear = 0.2f, Lean = 12f, HipTwist = 7f, Counter = 12f,
+            Stance = 0.7f, Stride = 3.9f, Hip = 0.78f, Bounce = 0.04f, Clear = 0.2f, Lean = 15f, HipTwist = 7f, Counter = 12f,
             FreeAmp = 40f, FreeMid = 4f, FreeElbow = 66f, FreeElbowAmp = 16f,
             HoldAmp = 11f, HoldMid = 22f, HoldElbow = 74f, HoldElbowAmp = 5f, HoldAbs = 44f, HeadUp = 2f, Weight = 0.007f,
         },
         // the Automaton: wide-set, stiff and heavy, short clanking steps, every footfall a thud, the cleaver carried low
         HeroKind.Automaton => new Style
         {
-            Stance = 0.82f, Stride = 3.0f, Hip = 0.8f, Bounce = 0.02f, Clear = 0.14f, Lean = 6f, HipTwist = 3f, Counter = 5f,
+            Stance = 0.82f, Stride = 3.0f, Hip = 0.8f, Bounce = 0.02f, Clear = 0.14f, Lean = 10f, HipTwist = 3f, Counter = 5f,
             FreeAmp = 22f, FreeMid = 10f, FreeElbow = 70f, FreeElbowAmp = 6f,
             HoldAmp = 16f, HoldMid = 14f, HoldElbow = 78f, HoldElbowAmp = 6f, HoldAbs = 100f, HeadUp = 2f, Weight = 0.035f,
         },
@@ -362,12 +365,15 @@ public sealed partial class HeroDesign
         o.AL = _rogue ? 16f : 10f;
         // the torso: pitched into it, riding the stride, shoulders turning against the hips
         float lean = Mathf.Lerp(7f, st.Lean * (0.85f + 0.15f * Ex), vn);
+        // the whole body tips forward from the feet, as a runner's does: the weight carried ahead of the planted foot so each push
+        // against the ground drives it on, not up (a little at a jog, more at a sprint, most of all for the low sprinters)
+        o.Pitch = Mathf.Lerp(3f, 9f + 0.15f * st.Lean, vn);
         float turn = MathF.Cos(tau * (phase - 0.95f));
         o.Lean = lean + 2.2f * flight * -mid;
         o.HipTwist = st.HipTwist * Ex * turn * (0.4f + 0.6f * vn);
         o.Twist = -st.Counter * Ex * turn * (0.4f + 0.6f * vn);
         // (the head stays up, eyes on what's ahead, however far the body pitches into it)
-        o.HeadPitch = -lean * 0.55f + st.HeadUp + 1.5f * mid;
+        o.HeadPitch = -lean * 0.55f - o.Pitch * 0.6f + st.HeadUp + 1.5f * mid;
         o.HeadYaw = -o.Twist * 0.55f;
         // the shield arm is carried, not swung
         if (_warden)
@@ -839,15 +845,17 @@ public sealed partial class HeroDesign
                 }
             case "run_start":
                 {
-                    // the first step out of a stand: driven off the back foot, the weight thrown forward, the arms pumping hard
+                    // the first steps out of a stand: driven off the back foot, the whole body tipped far forward to put the weight ahead of
+                    // the feet (the steeper lean of a body accelerating), the arms pumping hard, the head up
                     float k = Key(t, (0, 1), (1, 0));
-                    o.Lean += 16 * k; o.SR -= 22 * k; o.SL += 18 * k; o.Root.Y -= 0.03f * k; o.HeadPitch -= 8 * k;
+                    o.Pitch += 14 * k; o.Lean += 8 * k; o.SR -= 22 * k; o.SL += 18 * k; o.Root.Y -= 0.03f * k; o.HeadPitch -= 16 * k;
                     break;
                 }
             case "run_stop":
                 {
+                    // braking: the whole body tipped back behind the leading foot, which digs in ahead
                     float k = Key(t, (0, 1), (0.6f, 0.8f), (1, 0));
-                    o.Lean -= 26 * k; o.Root.Y -= 0.08f * k; o.HeadPitch -= 4 * k;
+                    o.Pitch = Mathf.Lerp(o.Pitch, -10f, k); o.Lean -= 16 * k; o.Root.Y -= 0.08f * k; o.HeadPitch += 4 * k;
                     o.HR = Mathf.Lerp(o.HR, 48, k); o.KR = Mathf.Lerp(o.KR, 26, k);
                     o.HL = Mathf.Lerp(o.HL, 2, k); o.KL = Mathf.Lerp(o.KL, 44, k);
                     o.FR = Mathf.Lerp(o.FR, 18, k); o.FL = Mathf.Lerp(o.FL, 0, k);
@@ -876,7 +884,7 @@ public sealed partial class HeroDesign
                 {
                     // the dash-slash: no roll, no tuck: he drops into a long lean, head up and eyes on the mark, the sword arm drawn back and cocked ready to strike, the off arm thrown forward, legs in a running lunge
                     float k = W3.SmoothStep(0f, 0.18f, t);
-                    o.Roll = 0f;
+                    o.Roll = 0f; o.Pitch = Mathf.Lerp(o.Pitch, 0f, k);
                     o.Lean = Mathf.Lerp(o.Lean, 62f, k); o.HeadPitch = Mathf.Lerp(o.HeadPitch, -32f, k); o.Twist = Mathf.Lerp(o.Twist, -14f, k);
                     o.Root.Y = Mathf.Lerp(o.Root.Y, -0.07f, k);
                     o.SR = Mathf.Lerp(o.SR, -66f, k); o.ER = Mathf.Lerp(o.ER, 72f, k); o.WR = Mathf.Lerp(o.WR, 24f, k); o.AR = Mathf.Lerp(o.AR, 10f, k);
@@ -888,7 +896,7 @@ public sealed partial class HeroDesign
             case "dodge":
                 {
                     float tuck = MathF.Sin(Math.Clamp(t * 1.15f, 0, 1) * MathF.PI);
-                    o.Roll = -360f * W3.Smooth01(t);
+                    o.Roll = -360f * W3.Smooth01(t); o.Pitch = 0f;
                     o.Root.Y = -0.3f * tuck;
                     o.HR = 20 + 105 * tuck; o.KR = 15 + 130 * tuck; o.HL = 20 + 105 * tuck; o.KL = 15 + 130 * tuck;
                     o.FR = -20 * tuck; o.FL = -20 * tuck;
@@ -1065,7 +1073,7 @@ public sealed partial class HeroDesign
         // ---- ducking: hips down, knees folded, the body hunched forward (the feet stay where they were)
         if (player != null && player.Crouching && !c.StartsWith("slash_") && c != "death" && !c.StartsWith("dodge"))
         {
-            o.Root.Y -= 0.27f;
+            o.Pitch = 0f; o.Root.Y -= 0.27f;
             o.HR = 78; o.KR = 112; o.HL = 66; o.KL = 104; o.FR = 8; o.FL = 8;
             o.Lean += 20; o.HeadPitch += 10;
             o.SR = Math.Max(o.SR, 30); o.SL = Math.Max(o.SL, 20);
@@ -1074,7 +1082,7 @@ public sealed partial class HeroDesign
         // ---- the Automaton braced: sunk on its knees, leaning in, the free forearm up across the body like a shield
         if (_automaton && player != null && player.Bracing && !c.StartsWith("slash_") && c != "death")
         {
-            o.Root.Y -= 0.1f;
+            o.Pitch = 0f; o.Root.Y -= 0.1f;
             o.HR = 52; o.KR = 74; o.HL = 26; o.KL = 50; o.FR = 6; o.FL = 6;
             o.Lean += 12;
             o.SL = 78; o.EL = 96; o.AL = 0;
@@ -1087,7 +1095,7 @@ public sealed partial class HeroDesign
         // ---- the elemental Warden behind his Earth Shield: down on one knee, the shield up before him
         if (_warden && player != null && player.EarthShieldUp && c != "death")
         {
-            o.Root.Y -= 0.3f;
+            o.Pitch = 0f; o.Root.Y -= 0.3f;
             o.HR = 92; o.KR = 96; o.FR = 0;
             o.HL = 8; o.KL = 120; o.FL = 34;
             o.Lean += 14; o.HeadPitch += 6;
@@ -1097,7 +1105,7 @@ public sealed partial class HeroDesign
         // ---- the Swordsman's Blazing Charge: bent low into it, legs driving, the sword held up before him like a ram
         if (_swordsman && player != null && player.BlazeOn && c != "death")
         {
-            o.Roll = 0f;
+            o.Roll = 0f; o.Pitch = 0f;
             o.Lean = 38; o.HeadPitch = -20; o.Twist = -6;
             o.Root.Y = -0.06f;
             o.SR = 55; o.ER = 70; o.WR = -20; o.AR = 6;
@@ -1142,7 +1150,7 @@ public sealed partial class HeroDesign
     private void Apply(CreaturePose p, Body o)
     {
         // (the pelvis turns one way and the chest the other: the chest's turn is Twist in all, whatever the pelvis does)
-        p.Set(hips, o.Bank * 0.3f, o.HipTwist + o.Twist * 0.25f, o.Roll);
+        p.Set(hips, o.Bank * 0.3f, o.HipTwist + o.Twist * 0.25f, o.Roll - o.Pitch);
         p.Move(hips, o.Root);
         p.Set(spine, o.Bank * 0.35f, o.Twist * 0.35f - o.HipTwist * 0.45f, -o.Lean * 0.45f);
         p.Set(chest, o.Bank * 0.35f, o.Twist * 0.4f - o.HipTwist * 0.55f, -o.Lean * 0.55f);
@@ -1156,10 +1164,11 @@ public sealed partial class HeroDesign
         p.Set(farm[1], 0, 0, o.EL);
         p.Set(hand[1], 0, o.WLy, o.WL);
         // legs: hip, knee, and a foot held at its pitch in the world
-        p.Rot[thigh[0]] = CreaturePose.Q(-o.HRx, 0, 0) * CreaturePose.Q(0, 0, o.HR);
+        // (the thighs turned back against the body's pitch: HR and HL are the legs' angles in the world, so the solved feet stay planted)
+        p.Rot[thigh[0]] = CreaturePose.Q(-o.HRx, 0, 0) * CreaturePose.Q(0, 0, o.HR + o.Pitch);
         p.Set(shin[0], 0, 0, -o.KR);
         p.Set(foot[0], 0, 0, o.FR - (o.HR - o.KR));
-        p.Rot[thigh[1]] = CreaturePose.Q(o.HLx, 0, 0) * CreaturePose.Q(0, 0, o.HL);
+        p.Rot[thigh[1]] = CreaturePose.Q(o.HLx, 0, 0) * CreaturePose.Q(0, 0, o.HL + o.Pitch);
         p.Set(shin[1], 0, 0, -o.KL);
         p.Set(foot[1], 0, 0, o.FL - (o.HL - o.KL));
     }

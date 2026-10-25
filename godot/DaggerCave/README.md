@@ -894,7 +894,10 @@ Every hero moves like the main character: confident, committed, never stiff, but
   - Jumping, the Rogue balls up tight with both arms swept back.
   - The dagger throw is Sheik's needles: both arms crossed over the chest in a crouch, then flung out together, fanned, the body springing forward behind them.
 - **Everything else.**
-  - Running, the head stays up with the eyes ahead, however far the body pitches into it.
+  - Running, every hero leans forward from the feet, the way a runner balances while driving against the ground. The whole body tips forward: the pelvis and everything above it pitch with it (`Body.Pitch`). The legs are turned back against that pitch, so the solved feet stay planted, and the spine bends on top of it.
+    - The lean is a little at a jog and more at a sprint, steeper still in the first strides out of a stand, while the body is accelerating.
+    - Braking tips the body back behind the leading foot.
+    - The head stays up with the eyes ahead, however far the body pitches into it.
   - A start drives off the back foot.
   - Throws and casts step the weight back on the draw and forward behind the release.
   - A blow rocks a hero hard, but the weapon stays up (the Warden's shield stays between him and it) and the body comes straight back.
