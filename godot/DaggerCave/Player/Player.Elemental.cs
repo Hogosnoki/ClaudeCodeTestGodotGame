@@ -108,6 +108,8 @@ public partial class Player
             _mode = el;
             _top = HeroElement.None;
             _modeCd = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.SwitchCooldown;
+            // (the switch's reward: the first ability in the new element lays it on twice over)
+            _primedT = Tune.Elements.PrimeSeconds;
             WeaponTouch(el);
             G.Fx.Text(GlobalPosition + new Vector2(0, -30), Elements.Name(el).ToUpperInvariant(), col, 12, 0.8f);
             G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 24, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Dashed);
@@ -160,7 +162,7 @@ public partial class Player
 
 
     /// <summary>For the tests: straight into a mode (no cooldown), nothing on top; an overcharge on top at once.</summary>
-    public void TestMode(HeroElement el) { _mode = el; _top = HeroElement.None; _modeCd = 0; _infuseCd = 0; _infuseQueued = -1; }
+    public void TestMode(HeroElement el) { _mode = el; _top = HeroElement.None; _modeCd = 0; _infuseCd = 0; _infuseQueued = -1; _primedT = 0; }
     public void TestOvercharge() { _overCd[(int)Mode] = 0; _top = Mode; }
     public void TestResetModeCooldowns() { _modeCd = 0; _infuseCd = 0; Array.Clear(_overCd); }
     public void TestAttribute(HeroElement el) { _top = el; }
@@ -292,6 +294,7 @@ public partial class Player
         if (IsWarden) TickWardenElements(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
         if (_riposteT > 0) _riposteT -= dt;
+        if (_primedT > 0) _primedT -= dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
         if (_dualBoltCd > 0) _dualBoltCd -= dt;

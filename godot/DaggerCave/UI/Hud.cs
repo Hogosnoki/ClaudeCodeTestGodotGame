@@ -896,10 +896,13 @@ public partial class Hud : Control
         if (p.ModeCooldownFrac > 0) DrawArc(mid, 9.5f, -MathF.PI / 2, -MathF.PI / 2 + MathF.Tau * p.ModeCooldownFrac, 16, new Color(1f, 1f, 1f, 0.75f), 2f);
         if (mode != HeroElement.None) DrawCircle(mid + new Vector2(top != HeroElement.None ? -2.5f : 0f, 0), 3.6f, Elements.ColorOf(mode));
         if (top != HeroElement.None) DrawCircle(mid + new Vector2(3.5f, -2f), 2.4f, Elements.ColorOf(top).Lightened(0.3f));
-        if (p.SimpleKit) Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Element", $"The element you're in. The ring is the switch coming back (once every {Tune.Elements.SwitchCooldown:0.#} s).", true);
+        // (primed: the element just switched to, its first ability laying it on twice over)
+        if (p.SimpleKit && p.Primed && mode != HeroElement.None)
+            DrawArc(mid, 12.5f + MathF.Sin(_t * 10f), 0, MathF.Tau, 20, new Color(Elements.ColorOf(mode), 0.6f + 0.35f * (p.PrimedLeft / Tune.Elements.PrimeSeconds)), 2.2f);
+        if (p.SimpleKit) Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Element", $"The element you're in. The ring is the switch coming back (once every {Tune.Elements.SwitchCooldown:0.#} s). Just after a switch the element is primed (a bright ring): the first ability you use within {Tune.Elements.PrimeSeconds:0} s lays it on {Tune.Elements.PrimeMult:0}x.", true);
         else Tip(new Rect2(mid - new Vector2(9, 9), new Vector2(18, 18)), "Mode", $"Your mode and what's on top of it. The ring is the mode's switch coming back (once every {Tune.Elements.ModeCooldown:0.#} s).", true);
         string label = mode == HeroElement.None ? extra
-            : p.SimpleKit ? Elements.Name(mode).ToUpperInvariant()
+            : p.SimpleKit ? Elements.Name(mode).ToUpperInvariant() + (p.Primed ? "  PRIMED" : "")
             : p.Overcharged ? $"{Elements.Name(mode).ToUpperInvariant()} OVERCHARGED"
             : p.Attribute != HeroElement.None ? $"{Elements.Name(mode).ToUpperInvariant()} + {Elements.Name(p.Attribute).ToUpperInvariant()}"
             : $"{Elements.Name(mode).ToUpperInvariant()} MODE";

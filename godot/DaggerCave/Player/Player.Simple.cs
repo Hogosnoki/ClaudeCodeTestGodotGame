@@ -49,6 +49,17 @@ public partial class Player
     private bool _blowTipper, _shadowSwing;
     public bool RiposteOpen => _riposteT > 0;
 
+    /// <summary>The switch's reward: seconds the new element stays primed (its first ability lays it on <see cref="Tune.Elements.PrimeMult"/>
+    /// x); the ability that spent it, and until when its touches count.</summary>
+    private float _primedT;
+    private KitRole _primedRole;
+    private double _primedUntil;
+    public bool Primed => _primedT > 0;
+    public float PrimedLeft => Math.Max(0f, _primedT);
+    /// <summary>For the tests: primed touches laid on.</summary>
+    public int PrimedTouches { get; private set; }
+    private static double Now => Time.GetTicksMsec() / 1000.0;
+
     /// <summary>A simple kit's ability, as the HUD names it ("Searing Strike").</summary>
     public string SimpleName(KitRole r) => Elements.SimpleName(Stats.Hero, r, Mode);
 
@@ -65,6 +76,9 @@ public partial class Player
         if (e == null || !IsInstanceValid(e) || e.Dead) return;
         var el = Mode;
         if (el == HeroElement.None) return;
+        // (the first ability after a switch: its touches lay the element on twice over)
+        bool primed = role == _primedRole && Now < _primedUntil;
+        if (primed) { mult *= Tune.Elements.PrimeMult; PrimedTouches++; }
         float build = RoleBuild(role) * mult;
         if (el == HeroElement.Wind)
         {
@@ -80,6 +94,13 @@ public partial class Player
     /// <summary>A simple ability went out: its name, in its element's colour and sound.</summary>
     private void SimpleUsed(KitRole r)
     {
+        if (_primedT > 0)
+        {
+            _primedT = 0f;
+            _primedRole = r;
+            _primedUntil = Now + Tune.Elements.PrimeWindow;
+            G.Fx.Text(GlobalPosition + new Vector2(0, -44), "PRIMED", Elements.ColorOf(Mode), 9, 0.6f);
+        }
         _lastEl = Mode;
         Used(SimpleName(r));
     }
@@ -182,6 +203,7 @@ public partial class Player
                 foreach (var e in G.Enemies.ToArray())
                     if (!e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(c) <= r + e.HitRadius) e.Seep(Mode, Tune.Elements.HexSeep, Stats.HexSeconds, Stats.DamageMult, this);
                 G.Fx.Ring(c, r, new Color(Elements.ColorOf(Mode), 0.7f), 0.45f, FxLayer.RingStyle.Dashed);
+                ElementWorld.Touch(Mode, c, r);
                 break;
             }
             case HeroKind.Aegis:
@@ -226,6 +248,14 @@ public partial class Player
         StartHeave();
         _swingDmg = BaseDamage * Stats.DamageMult * Tune.ElementalSword.HardDamage * Stats.HeaveDamageMult;
         SimpleSwing(KitRole.Special);
+        // (where the blade comes down, once it does: the world answers its element)
+        var el = Mode;
+        float facing = Facing, reach = Tune.Swordsman.Reach * Tune.Swordsman.HeaveReach;
+        GetTree().CreateTimer(_windup + _active * 0.6f).Timeout += () =>
+        {
+            if (!IsInstanceValid(this) || Dead) return;
+            ElementWorld.Touch(el, GlobalPosition + new Vector2(facing * reach * 0.7f, 4f), 26f, new Vector2(facing, 0));
+        };
         return true;
     }
 
@@ -318,7 +348,7 @@ public partial class Player
             Strike(e, Tune.ElementalStaff.BurstDamage * Stats.DamageMult, away * 140f, DamageKind.Physical);
             SimpleTouch(e, KitRole.Special, spot);
         }
-        if (el == HeroElement.Fire) GasCloud.IgniteAt(spot, r);
+        ElementWorld.Touch(el, spot, r, aim);
         // (the zone: the element lingers at the spot, building in all that stand in it; wind draws them in)
         var zone = new Blizzard
         {

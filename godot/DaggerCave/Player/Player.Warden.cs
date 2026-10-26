@@ -338,7 +338,7 @@ public partial class Player
         float dealt = e.Hurt(Tune.Warden.DashDamage * Stats.DamageMult * Stats.DashDamageMult, _dashDir * 160f, at);
         if (dealt > 0) OnDealtDamage(dealt);
         if (Stats.DashMend) { MendShield(12f); Heal(4f); }
-        if (SimpleKit) SimpleTouch(e, KitRole.Special, at - _dashDir * 10f);
+        if (SimpleKit) { SimpleTouch(e, KitRole.Special, at - _dashDir * 10f); ElementWorld.Touch(Mode, at, 24f, _dashDir); }
         G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));
         G.Sfx.Play("clink", at, -4, 0.1f, 0.8f);
         G.Main.Rumble(0.3f, 0.3f, 0.08f);
@@ -354,7 +354,7 @@ public partial class Player
             if (dealt > 0) OnDealtDamage(dealt);
             e.HitStop(Tune.Feel.HitStopDash);
             if (Stats.DashMend) { MendShield(12f); Heal(4f); }
-            if (SimpleKit) SimpleTouch(e, KitRole.Special, at - _dashDir * 10f);
+            if (SimpleKit) { SimpleTouch(e, KitRole.Special, at - _dashDir * 10f); ElementWorld.Touch(Mode, at, 24f, _dashDir); }
         }
         G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));
         G.Fx.Ring(at, 14, new Color(0.6f, 0.85f, 1f, 0.9f));

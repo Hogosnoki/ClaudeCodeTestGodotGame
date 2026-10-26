@@ -65,7 +65,10 @@ public abstract partial class Enemy
         if (Dead || amount <= 0 || el == HeroElement.None) return;
         if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Build, (float)el, amount, power); return; }
         amount *= BuildTake;
-        amount *= ReactionMult(el);
+        // (what it refuses by its nature: its own element, the armoured half of earth's stun, the flying the roots)
+        float take = StatusTake(el);
+        if (take <= 0f) { Refuse(el); return; }
+        amount *= take * ReactionMult(el);
         BuiltTotal[(int)el] += amount;
         _buildIdle = 0f;
         float full = Tune.Elements.Full;
@@ -298,6 +301,31 @@ public abstract partial class Enemy
         Fanned++;
         G.Fx.Text(at + new Vector2(0, -HitRadius - 24), "WILDFIRE", new Color(1f, 0.55f, 0.2f), 10, 0.8f);
         G.Fx.Burst(at, new Color(1f, 0.6f, 0.2f), 12, 180, 2.2f, 0.4f, -40);
+    }
+
+    /// <summary>
+    /// How much of an element it takes by its nature (0: it refuses it): none of its own element (a fire creature can't be set alight, a
+    /// frost one chilled, an earth one stunned by earth, a nature one entangled), half of earth for the armoured (they shrug off stuns), and
+    /// no nature for what flies or swims (no roots reach it). Water, wind and dark take everything.
+    /// </summary>
+    public float StatusTake(HeroElement el) => (Element, el) switch
+    {
+        (Element.Fire, HeroElement.Fire) or (Element.Frost, HeroElement.Frost) or (Element.Earth, HeroElement.Earth) or (Element.Nature, HeroElement.Nature) => 0f,
+        (Element.Armored, HeroElement.Earth) => Tune.Elements.ArmoredEarth,
+        _ => el == HeroElement.Nature && !UsesGravity ? 0f : 1f,
+    };
+
+    /// <summary>For the tests: build-ups it has refused.</summary>
+    public int Refused { get; private set; }
+    private double _refuseShown;
+
+    private void Refuse(HeroElement el)
+    {
+        Refused++;
+        double now = Time.GetTicksMsec() / 1000.0;
+        if (now - _refuseShown < 1.0) return;
+        _refuseShown = now;
+        G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "IMMUNE", new Color(Elements.ColorOf(el).Lerp(new Color(0.8f, 0.8f, 0.8f), 0.4f), 0.9f), 8, 0.6f);
     }
 
     /// <summary>How much faster (or slower) an element builds in it now: soaked and entangled are opposites (water: frost faster, fire

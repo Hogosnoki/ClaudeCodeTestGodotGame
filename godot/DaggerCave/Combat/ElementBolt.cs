@@ -146,6 +146,7 @@ public partial class ElementBolt : Node2D
     {
         var at = e.GlobalPosition - Dir * e.HitRadius * 0.6f;
         if (!Harmless && Caster != null && IsInstanceValid(Caster)) { if (Ward) Caster.WardBoltStruck(this, e, at); else Caster.BoltStruck(this, e, at); }
+        TouchWorld(at);
         Burst(at, 1f);
         G.Sfx.Element(ElementSounds.Ev.Hit, SoundEl, at, SoundKey);
         QueueFree();
@@ -154,9 +155,16 @@ public partial class ElementBolt : Node2D
     /// <summary>It runs out, or splashes on rock.</summary>
     private void Fizzle(Vector2 at, bool wall)
     {
+        TouchWorld(at);
         Burst(at, wall ? 0.7f : 0.4f);
         G.Sfx.Element(wall ? ElementSounds.Ev.Wall : ElementSounds.Ev.Fizzle, SoundEl, at, SoundKey);
         QueueFree();
+    }
+
+    /// <summary>A simple kit's bolt (or bubble) ends: the world answers its element where it lands (<see cref="ElementWorld"/>).</summary>
+    private void TouchWorld(Vector2 at)
+    {
+        if (Version == "simple" && !Harmless && Caster != null && IsInstanceValid(Caster)) ElementWorld.Touch(El, at, Ward ? Tune.Aegis.BurstRadius : 18f, Dir);
     }
 
     private void Burst(Vector2 at, float size)

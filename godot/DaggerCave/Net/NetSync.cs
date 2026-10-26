@@ -243,6 +243,7 @@ public static class NetSync
             case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)).Vec(rp.DropAt ?? rp.GlobalPosition); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
             case IceCrystals ic: w.Byte(23).Vec(ic.GlobalPosition).Byte((byte)(ic.Burst ? 1 : 0)).Byte((byte)ic.Count).Half(ic.Half).Half(ic.Height).Half(ic.Stand).Half(ic.Lay).Half(ic.Every).Int(ic.Seed); break;
+            case IcePlatform ip when ip.Melt > 0: w.Byte(25).Vec(ip.GlobalPosition).Half(ip.HalfW).Half(ip.Melt); break;
             case MagmaCracks mc: w.Byte(24).Vec(mc.GlobalPosition).Half(mc.Half).Half(mc.Spread).Half(mc.Seconds).Int(mc.Seed); break;
             default: return;
         }
@@ -430,6 +431,15 @@ public static class NetSync
                 var at = r.Vec(); bool burst = r.Byte() != 0; int count = r.Byte(); float half = r.Half(), height = r.Half(), stand = r.Half(), lay = r.Half(), every = r.Half(); int seed = r.Int();
                 Applying = true;
                 G.Spawn(new IceCrystals { Position = at, Burst = burst, Count = count, Half = half, Height = height, Stand = stand, Lay = lay, Every = every, Seed = seed, Caster = av, Harmless = true });
+                Applying = false;
+                break;
+            }
+            case 25:
+            {
+                // a friend's floe of ice, laid on the water by frost: it holds this game's hero too
+                var at = r.Vec(); float half = r.Half(), melt = r.Half();
+                Applying = true;
+                G.Spawn(new IcePlatform { Position = at, HalfW = half, Melt = melt });
                 Applying = false;
                 break;
             }

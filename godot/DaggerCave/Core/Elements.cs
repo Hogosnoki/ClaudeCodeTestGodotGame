@@ -80,12 +80,12 @@ public static class Elements
     /// <summary>How an element reacts with the other statuses (for the tips; <see cref="Tune.Elements"/>).</summary>
     public static string ReactionText(HeroElement e) => e switch
     {
-        HeroElement.Fire => "Fire builds faster in the entangled and slower in the soaked. On the chilled or frozen it bursts into steam (a scald, and a cloud that hides heroes). Wind fans a burning creature's fire to those beside it.",
-        HeroElement.Frost => "Frost builds faster in the soaked and slower in the entangled, and a soaked creature shatters harder. On the burning it bursts into steam.",
-        HeroElement.Earth => "Earth on the soaked sinks them in mud: stunned longer, and mired.",
-        HeroElement.Wind => "Wind on the burning fans the fire to every creature beside them.",
-        HeroElement.Nature => "Entangled, fire builds faster in them and frost slower; a fire lit in the vines burns longer.",
-        HeroElement.Water => "Soaked, frost builds faster in them and fire slower, a shatter bursts harder, and earth sinks them in mud.",
+        HeroElement.Fire => "Fire builds faster in the entangled and slower in the soaked. On the chilled or frozen it bursts into steam (a scald, and a cloud that hides heroes). Wind fans a burning creature's fire to those beside it. Fire creatures refuse it. In the world it lights gas and burns webs, roots and spores away.",
+        HeroElement.Frost => "Frost builds faster in the soaked and slower in the entangled, and a soaked creature shatters harder. On the burning it bursts into steam. Frost creatures refuse it. On water it lays a floe of ice to stand on, and it cools lava.",
+        HeroElement.Earth => "Earth on the soaked sinks them in mud: stunned longer, and mired. Earth creatures refuse it, and the armoured take half. In the world it brings down rubble.",
+        HeroElement.Wind => "Wind on the burning fans the fire to every creature beside them. In the world it scatters spores and blows gas along.",
+        HeroElement.Nature => "Entangled, fire builds faster in them and frost slower; a fire lit in the vines burns longer. Nature creatures, and anything flying or swimming, refuse it. By rock, it lets down a vine you can climb.",
+        HeroElement.Water => "Soaked, frost builds faster in them and fire slower, a shatter bursts harder, and earth sinks them in mud. In the world it douses lava and washes acid away.",
         HeroElement.Dark => "Blinded, every other element builds faster in them.",
         _ => "",
     };

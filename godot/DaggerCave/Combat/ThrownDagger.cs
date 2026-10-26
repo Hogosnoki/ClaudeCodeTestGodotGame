@@ -172,6 +172,7 @@ public partial class ThrownDagger : Node2D
         State = Phase.Stuck;
         InWall = true;
         StuckIn = null;
+        if (Version == "simple" && !Harmless) ElementWorld.Touch(El, at, 16f, Dir);
         GlobalPosition = at + Dir * 1.5f;
         Pointing = Dir;
         G.Fx.Spark(at, n, true, new Color(1f, 0.9f, 0.7f));

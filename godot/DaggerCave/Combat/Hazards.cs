@@ -472,6 +472,9 @@ public partial class IceSheet : StaticBody2D, IBreakable
 public partial class IcePlatform : StaticBody2D, IBreakable
 {
     public float HalfW = 32f;
+    /// <summary>A floe laid by frost on water (<see cref="ElementWorld"/>): seconds before it melts away (it doesn't regrow, and isn't one of
+    /// the level's numbered breakables); below 0, one of the level's platforms.</summary>
+    public float Melt = -1f;
     private int _landings, _hits;
     private bool _broken, _playerOn;
     private float _respawn, _crack, _flash;
@@ -491,7 +494,8 @@ public partial class IcePlatform : StaticBody2D, IBreakable
         _shape = new CollisionShape2D { Shape = new RectangleShape2D { Size = new Vector2(HalfW * 2, 14) }, Position = new Vector2(0, 7), OneWayCollision = true };
         AddChild(_shape);
         Breakables.All.Add(this);
-        NetId = Breakables.NextId++;
+        // (a floe is no part of the level: it takes no number, so the level's own stay the same in every game)
+        if (Melt < 0) NetId = Breakables.NextId++;
     }
 
     /// <summary>Its number in every game (see Breakables.NextId).</summary>
@@ -507,7 +511,7 @@ public partial class IcePlatform : StaticBody2D, IBreakable
     private void Hit(bool remote)
     {
         if (_broken) return;
-        if (!remote) NetSync.BreakableHit(NetId, false);
+        if (!remote && NetId >= 0) NetSync.BreakableHit(NetId, false);
         _hits++;
         _flash = 0.12f;
         G.Sfx.Play("clink", GlobalPosition, -4, 0.1f, 0.7f);
@@ -529,6 +533,13 @@ public partial class IcePlatform : StaticBody2D, IBreakable
         float dt = (float)delta;
         _flash -= dt;
         var p = G.Player;
+        // (a floe melts away, or goes as soon as it breaks)
+        if (Melt > 0 && ((Melt -= dt) <= 0 || _broken))
+        {
+            if (!_broken) G.Fx.Burst(GlobalPosition + new Vector2(0, 4), new Color(0.8f, 0.93f, 1f, 0.8f), 10, 60, 1.6f, 0.5f, 120);
+            QueueFree();
+            return;
+        }
         if (_broken)
         {
             _respawn -= dt;
@@ -595,6 +606,12 @@ public partial class GraspingRoots : Node2D, IBreakable
     public void NetHit() => Cut(true);
 
     public void Strike(Vector2 from) => Cut(false);
+
+    /// <summary>Fire: the roots burn away at once (every cut at once, each told to the other games).</summary>
+    public void Burn()
+    {
+        while (_cuts > 0 && !IsQueuedForDeletion()) { _cutCool = 0f; Cut(false); }
+    }
 
     private void Cut(bool remote)
     {

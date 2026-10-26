@@ -1171,6 +1171,9 @@ public static class Tune
         /// </summary>
         public static float SoakShatter = 1.5f, TangleFire = 1.5f, TangleFrost = 0.6f, TangleBurn = 1.5f, BlindAmp = 1.5f;
         public static float SteamDamage = 14f, SteamRadius = 44f, SteamSeconds = 3f, MudStun = 1.6f, MudSeconds = 3f, WildfireRadius = 48f;
+        /// <summary>Statuses a creature refuses by its nature (<see cref="Enemy.StatusTake"/>): its own element, none of it; the armoured take
+        /// <c>ArmoredEarth</c> x earth; what flies or swims takes no nature.</summary>
+        public static float ArmoredEarth = 0.5f;
         /// <summary>How long after one element press before the next is taken (a press inside it is kept and taken once it's over).</summary>
         public static float ChargeCooldown = 0.3f;
         /// <summary>Whether an element's version of an ability rests its button (and pays alimus). In modes every use is a version, so they do:
@@ -1212,6 +1215,17 @@ public static class Tune
         public static float ZoneSeconds = 4f, ZoneBuild = 12f, ZonePull = 60f, HexSeep = 15f, DrainCash = 1.5f, ImbueSeconds = 6f, ImbueBuild = 20f;
         public static float KnifeTouch = 20f, KnifeStore = 25f, KnifeStoreMax = 100f, ShadowJab = 2f;
         public static int ZoneTicks = 8;
+        /// <summary>The switch's reward: an element switched to is primed for <c>PrimeSeconds</c>; the first ability used meanwhile lays it on
+        /// <c>PrimeMult</c> x (its touches within <c>PrimeWindow</c> s of its use: a bolt in flight, a cleave's arc).</summary>
+        public static float PrimeSeconds = 4f, PrimeMult = 2f, PrimeWindow = 1f;
+    }
+
+    /// <summary>The world answering a simple kit's element (<see cref="DaggerCave.ElementWorld"/>): frost within <c>FloeReach</c> px of the
+    /// water's surface lays a floe <c>FloeHalf</c> px each way that melts after <c>FloeSeconds</c>; nature with rock within <c>VineReach</c> px
+    /// above lets down a vine up to <c>VineLength</c> px long for <c>VineSeconds</c>; wind blows a gas cloud <c>GasBlow</c> px along.</summary>
+    public static class ElementWorld
+    {
+        public static float FloeReach = 40f, FloeHalf = 30f, FloeSeconds = 8f, VineReach = 220f, VineLength = 260f, VineSeconds = 12f, GasBlow = 90f;
     }
 
     /// <summary>

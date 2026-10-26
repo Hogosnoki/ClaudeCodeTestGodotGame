@@ -2150,6 +2150,33 @@ in a party.
 
 The element tooltips on the HUD list each element's reactions. `--scenario=reactions` checks each one.
 
+**The switch's reward** (`Tune.Elements.PrimeSeconds`, `PrimeMult`, `PrimeWindow`). An element just switched to is **primed** for 4 s:
+a bright ring round the middle of the element row on the HUD, and PRIMED beside its name. The first ability used meanwhile lays the
+element on twice over: its touches within 1 s of its use, so a bolt in flight or a cleave's arc counts. The next ability is as usual.
+Switching is a move to time, not only a menu.
+
+**Creatures that refuse a status** (`Enemy.StatusTake`). The numbers never change with the element, but what a creature is decides
+what takes hold. A creature refuses its own element: fire elementals and lava monsters can't be set alight, frost ones can't be chilled,
+earth ones can't be stunned by earth, nature ones can't be entangled. The armoured (golems, scorpions, the clockwork) take half of earth,
+and anything flying or swimming takes no nature, since no roots reach it. A refused build-up pops IMMUNE over the creature. Water, wind
+and dark reach everything.
+
+**The world answers the element** (`Combat/ElementWorld.cs`; `Tune.ElementWorld`). Where a simple kit's bolt, bubble, knife, Burst,
+hex, Dome, Charge or Cleave lands:
+
+| Element | In the world |
+|---|---|
+| Fire | lights gas clouds (and bursts gasbags), burns webs, grasping roots and spore clouds away, melts ice |
+| Frost | lays a **floe of ice** on water, a platform to stand on that melts after 8 s, and cools lava puddles away |
+| Water | douses lava and magma pools, washes acid puddles away |
+| Wind | scatters spore clouds, blows gas clouds along |
+| Earth | brings down rubble (a blow on each pile in reach), strikes breakable ledges |
+| Nature | by rock above (within 220 px), lets down a **vine**: a climbable rope that withers after 12 s |
+| Dark | nothing in the world (its part is the creatures' blindness) |
+
+Floes, vines, webs, roots and rubble show in every game online. `--scenario=reactions` checks the refusals and the world's answers (with
+`--biome=slime` for water, the floe).
+
 **The archive.** Everything the simple kits replaced is still in the code, behind `Elements.Simple`, and catalogued with what each
 ability did and where its code is in **[ABILITY_ARCHIVE.md](ABILITY_ARCHIVE.md)**. That covers the mode with its overcharge and
 attribute, all 180 elemental versions, greater versions and mixes, Empower Hilt, the element leaps, Lift, Fire Walk, Tundra, the

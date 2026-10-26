@@ -172,6 +172,26 @@ public partial class Main
         p.TestMode(mine);
         string en = Elements.Name(mine).ToLowerInvariant();
         IEnumerable<object> Ready(float dx) { p.ResetAbilityCooldowns(); p.TestCatchDaggers(); p.TestClearBuffs(); Fresh(dx); aim = new Vector2(p.Facing, 0); foreach (var _ in ElWait(0.25f)) yield return null; }
+        // the switch's reward: the first ability after a switch lays the element on twice over (the next, as usual)
+        {
+            var role = hero == HeroKind.Warden ? KitRole.Special : KitRole.Primary;
+            int slot = Array.IndexOf(els, mine) + 1;
+            p.TestMode(els.First(x => x != mine));
+            p.TestResetModeCooldowns();
+            foreach (var _ in Press(slot)) yield return null;
+            bool primed = p.Primed;
+            foreach (var _ in Ready(Reach(role))) yield return null;
+            foreach (var _ in Use(role)) yield return null;
+            foreach (var _ in ElWait(1.4f)) yield return null;
+            float first = BuildOf(foe, mine);
+            foreach (var _ in Ready(Reach(role))) yield return null;
+            foreach (var _ in Use(role)) yield return null;
+            foreach (var _ in ElWait(1.4f)) yield return null;
+            float second = BuildOf(foe, mine);
+            float w = Want(role);
+            ScCheck($"after a switch {en} is primed ({primed}): the first {Elements.Noun(hero, role)} builds {first:0} (want {w * Tune.Elements.PrimeMult:0}), the next {second:0} (want {w:0})",
+                primed && Math.Abs(first - w * Tune.Elements.PrimeMult) < 1f && Math.Abs(second - w) < 1f);
+        }
         switch (hero)
         {
             case HeroKind.Swordsman:

@@ -196,6 +196,7 @@ public partial class Player
         {
             foreach (var e in foes) SimpleTouch(e, KitRole.Special, c);
             foreach (var h in wrapped) h.GiveBuff(BuffImbue(Mode), Tune.Elements.ImbueSeconds);
+            ElementWorld.Touch(Mode, c, r);
             G.Fx.Ring(c, r, new Color(Elements.ColorOf(Mode), 0.75f), 0.4f, FxLayer.RingStyle.Burst);
             return;
         }
