@@ -992,9 +992,7 @@ public partial class Player : CharacterBody2D
         if (Repairing) target *= Tune.AutomatonHero.RepairMove;
         if (Pressurising) target *= Tune.AutomatonHero.PressureMove;
         if (rooted) target = 0;
-        // a column of air (the Elementalist's updraft) pushes along its own lean: sideways as much as it leans
         var draft = Updraft.All.Count > 0 ? Updraft.At(GlobalPosition) : null;
-        if (draft != null && !rooted) target += draft.Up.X * Tune.Elementalist.UpdraftPushSpeed * draft.Strength;
         float accel = onFloor ? Tune.Hero.GroundAccel : (_wallJumpLock > 0 ? 350f : Tune.Hero.AirAccel * Stats.AirAccelMult);
         // (a blow's shove isn't cancelled the moment it lands)
         if (_knockT > 0) accel *= 0.1f;
@@ -1011,7 +1009,8 @@ public partial class Player : CharacterBody2D
         if (_bashT > 0) v.X = BashMotion(v.X);
         // a column of rising air (the Elementalist's updraft) slackens gravity and the speed you can fall at
         float gravMult = 1f, fallCap = MaxFall * Stats.FallCapMult;
-        if (draft != null) UpdraftEase(draft, ref gravMult, ref fallCap, ref v, dt);
+        if (draft != null && !InWater) DraftLaunch(draft, ref v, onFloor);
+        else if (draft == null) _draftLaunched = null;
         // a flier's form (a bat, a hornet): light, and a held jump beats its wings
         if (FormFlier)
         {

@@ -101,43 +101,30 @@ public partial class Main
                     u != null && IsInstanceValid(u) && Math.Abs(p.Alimus - p.Stats.AlimusMax) < 0.3f && Math.Abs(u.GlobalPosition.X - p.GlobalPosition.X) < 4);
                 break;
             }
-            case 82:
-                Check($"it lifts nobody: you're still on the ground ({_posMark.Y - p.GlobalPosition.Y:0} px up, on the floor {p.IsOnFloor()})",
-                    p.IsOnFloor() && Math.Abs(_posMark.Y - p.GlobalPosition.Y) < 3);
-                // a jump from inside it (held for its full height) goes far higher than a jump normally does
-                _posMark = p.GlobalPosition;
+            case 72:
+                // (standing in it: launched up it at once, no jump pressed)
                 _elApex = _posMark.Y;
                 _elFall = 0;
-                _heroInput = new PlayerInput { Jump = true, JumpHeld = true };
-                break;
-            case 83:
-                _heroInput = new PlayerInput { JumpHeld = true };
-                break;
-            case 90:
-                _heroInput = default;
                 break;
             case 106:
             {
-                float rose = _posMark.Y - _elApex;
-                // (a jump normally peaks at about 80 px; a ceiling can cut the column, and the jump, short)
-                Check($"a jump in it floats far higher ({rose:0} px, where one on the ground peaks near 65)", rose > 72);
-                break;
-            }
-            case 126:
-            {
+                float rose = _posMark.Y - _elApex, full = Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness * p.Stats.JumpMult);
+                Check($"the narrow draft launches you up it without a jump ({p.DraftLaunches} launch, {rose:0} px up), at the speed of a full jump ({_elFall:0} px/s, a full jump {full:0})",
+                    p.DraftLaunches >= 1 && rose > 40 && Math.Abs(_elFall - full) < full * 0.15f);
                 var u = p.LastUpdraft;
-                float cap = Tune.Hero.MaxFallSpeed * Tune.Elementalist.UpdraftFallMult;
-                Check($"it drifts down at no more than {Tune.Elementalist.UpdraftFallMult:0.0} of the usual terminal speed (fastest {_elFall:0} px/s, limit {cap:0} of {Tune.Hero.MaxFallSpeed:0})", _elFall < cap + 15f);
-                Check($"and lands you gently back on the ground (on the floor {p.IsOnFloor()})", p.IsOnFloor());
-                // (the column goes, so it doesn't ease you during what follows)
+                Check($"and it lasts {Tune.Elementalist.UpdraftSeconds:0} s ({(u != null ? u.TotalLife : 0):0.0})", u != null && Math.Abs(u.TotalLife - Tune.Elementalist.UpdraftSeconds) < 0.1f);
+                // (the column goes, so it doesn't launch you again during what follows)
                 if (IsInstanceValid(u)) u.QueueFree();
                 break;
             }
+            case 126:
+                Check($"you come back down to the ground (on the floor {p.IsOnFloor()})", p.IsOnFloor());
+                break;
             default:
-                if (s > 83 && s < 126)
+                if (s > 71 && s < 106)
                 {
                     _elApex = Math.Min(_elApex, p.GlobalPosition.Y);
-                    if (s > 100) _elFall = Math.Max(_elFall, p.Velocity.Y);
+                    _elFall = Math.Max(_elFall, -p.Velocity.Y);
                 }
                 break;
             case 128:

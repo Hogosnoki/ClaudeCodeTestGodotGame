@@ -346,28 +346,30 @@ public partial class Player
         G.Main.Rumble(0.25f, 0.1f, 0.12f);
     }
 
-    /// <summary>
-    /// Inside a column of air: gravity is a fraction of itself and so is the speed you fall at, so a
-    /// jump goes far higher and a fall is a slow drift. Nothing lifts you. A fall already faster
-    /// than the column allows is slowed to it over a moment, not snapped. A leaning column's relief
-    /// scales with how upright it is.
-    /// </summary>
-    private void UpdraftEase(Updraft draft, ref float gravMult, ref float fallCap, ref Vector2 v, float dt)
-    {
-        // (the relief from gravity is the column's upward share: all of it standing straight up, none lying flat;
-        // its sideways share is the push, in Platform)
-        float k = draft.Strength * Math.Max(0f, -draft.Up.Y);
-        // (a column pointing down is a downdraft: it drives you down it, as the upward one eases you up)
-        float down = draft.Strength * Math.Max(0f, draft.Up.Y);
-        gravMult = Mathf.Lerp(Mathf.Lerp(1f, Tune.Elementalist.DowndraftGravityMult, down), Tune.Elementalist.UpdraftGravityMult, k);
-        fallCap = MaxFall * Mathf.Lerp(Mathf.Lerp(1f, Tune.Elementalist.DowndraftFallMult, down), Tune.Elementalist.UpdraftFallMult, k);
-        if (v.Y > fallCap)
-        {
-            v.Y = Mathf.MoveToward(v.Y, fallCap, 2400f * dt);
-            fallCap = Math.Max(fallCap, v.Y);
-        }
-    }
+    /// <summary>The narrow draft's column launching this hero along it (its <see cref="Updraft.Up"/>) at the speed of their full jump.</summary>
+    private Updraft _draftLaunched;
+    private float _draftRelaunchT;
 
+    /// <summary>
+    /// In the narrow draft: launched the way the wind blows at the speed of a full jump, as they come into the column, and again
+    /// whenever they land back in it (<see cref="Tune.Elementalist.UpdraftRelaunch"/> s apart at most).
+    /// </summary>
+    private void DraftLaunch(Updraft draft, ref Vector2 v, bool onFloor)
+    {
+        if (_draftRelaunchT > 0) _draftRelaunchT -= (float)GetPhysicsProcessDeltaTime();
+        if (draft == _draftLaunched && !(onFloor && _draftRelaunchT <= 0)) return;
+        _draftLaunched = draft;
+        _draftRelaunchT = Tune.Elementalist.UpdraftRelaunch;
+        float full = BaseJumpV * MathF.Sqrt(Stats.JumpMult * FormJump);
+        v = draft.Up * full;
+        _terminalT = 0f;
+        DraftLaunches++;
+        G.Fx.Directional(GlobalPosition, draft.Up, 0.5f, new Color(0.85f, 0.95f, 1f, 0.7f), 8, 220, 1.6f, 0.3f, 0, 1);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, 8), 14, new Color(0.85f, 0.95f, 1f, 0.7f), 0.25f, FxLayer.RingStyle.Dashed);
+        G.Sfx.Play("dodge", GlobalPosition, -6, 0.08f, 1.3f);
+    }
+    /// <summary>For the tests: times the narrow draft has launched this hero.</summary>
+    public int DraftLaunches { get; private set; }
     // ---------------------------------------------------------------- blizzard
 
     private bool TryBlizzard(Vector2 aim, float aimDist)

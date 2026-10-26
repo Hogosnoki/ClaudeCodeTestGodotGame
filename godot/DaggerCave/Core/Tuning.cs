@@ -393,12 +393,12 @@ public static class Tune
         /// is chilled (ChillSlow slower for ChillSeconds), and a regular creature (not a mini-boss,
         /// guardian or boss) has FreezeChance of freezing solid for FreezeSeconds.</summary>
         public static float FrostDamage = 10f, FrostEvery = 1f, ChillSlow = 0.3f, ChillSeconds = 2f, FreezeChance = 0.2f, FreezeSeconds = 3f;
-        /// <summary>Updraft (the dodge button): hold it to aim, let go to raise it. Costs UpdraftCost alimus; a narrow column of air
-        /// UpdraftWidth px wide and UpdraftHeight px tall (18 m) for UpdraftSeconds, at the angle aimed (any direction at all).
-        /// It lifts nobody: every hero inside has gravity at UpdraftGravityMult of itself and a terminal velocity of UpdraftFallMult of
-        /// the usual (scaled by how upright it stands); a column pointing down is a downdraft instead: gravity at DowndraftGravityMult and
-        /// a terminal velocity of DowndraftFallMult, scaled by how far down it points.</summary>
-        public static float UpdraftCost = 15f, UpdraftWidth = 55f, UpdraftHeight = 296f, UpdraftSeconds = 15f;
+        /// <summary>Updraft, the narrow draft (the dodge button): hold it to aim, let go to raise it. Costs UpdraftCost alimus; a narrow
+        /// column of air UpdraftWidth px wide and UpdraftHeight px tall (18 m) for UpdraftSeconds, at the angle aimed (any direction at all).
+        /// Every hero in it is launched along it (the way the wind blows) at the speed of their own full jump: as they come into it, and
+        /// again whenever they land back in it (at most once every UpdraftRelaunch s). (UpdraftGravityMult, UpdraftFallMult and the
+        /// downdraft's two were the old float, kept for its tests' history: no longer read.)</summary>
+        public static float UpdraftCost = 15f, UpdraftWidth = 55f, UpdraftHeight = 296f, UpdraftSeconds = 4f, UpdraftRelaunch = 0.3f;
         public static float UpdraftGravityMult = 0.4f, UpdraftFallMult = 0.2f, DowndraftGravityMult = 2.2f, DowndraftFallMult = 1.7f;
         /// <summary>A leaning column also carries a hero along its lean: this speed (px/s) times how far it leans sideways.
         /// Its relief from gravity scales with how upright it is; lying flat it only blows.</summary>
