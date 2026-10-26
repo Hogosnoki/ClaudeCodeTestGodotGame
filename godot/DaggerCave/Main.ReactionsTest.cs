@@ -176,7 +176,22 @@ public partial class Main
         ElementWorld.Touch(HeroElement.Water, here + new Vector2(10, 10), 30f);
         ScCheck($"water douses lava ({lava.IsQueuedForDeletion()}) and washes acid away ({acid.IsQueuedForDeletion()})", lava.IsQueuedForDeletion() && acid.IsQueuedForDeletion());
         int vines = ElementWorld.Vines, ropes = Rope.All.Count;
-        ElementWorld.Touch(HeroElement.Nature, p.GlobalPosition, 20f);
+        // (somewhere near with rock overhead, within a vine's reach)
+        var under = p.GlobalPosition;
+        for (float dx = 0; dx < 1200; dx += 24)
+        {
+            bool found = false;
+            foreach (var sx in new[] { dx, -dx })
+            {
+                var at = p.GlobalPosition + new Vector2(sx, -20);
+                if (G.Cave.IsSolid(at)) continue;
+                for (float up = 0; up < Tune.ElementWorld.VineReach - 10; up += 8)
+                    if (G.Cave.IsSolid(at + new Vector2(0, -up))) { under = at; found = true; break; }
+                if (found) break;
+            }
+            if (found) break;
+        }
+        ElementWorld.Touch(HeroElement.Nature, under, 20f);
         yield return null;
         ScCheck($"nature lets a vine down from the rock above ({ElementWorld.Vines - vines}, ropes {ropes} -> {Rope.All.Count})", ElementWorld.Vines > vines && Rope.All.Count > ropes);
         ScShot("world_vine");

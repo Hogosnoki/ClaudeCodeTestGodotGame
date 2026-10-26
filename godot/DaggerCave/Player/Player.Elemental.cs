@@ -295,6 +295,7 @@ public partial class Player
         if (_swingElemRest > 0) _swingElemRest -= dt;
         if (_riposteT > 0) _riposteT -= dt;
         if (_primedT > 0) _primedT -= dt;
+        _kitClock += dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
         if (_dualBoltCd > 0) _dualBoltCd -= dt;

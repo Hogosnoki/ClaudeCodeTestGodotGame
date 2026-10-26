@@ -58,7 +58,9 @@ public partial class Player
     public float PrimedLeft => Math.Max(0f, _primedT);
     /// <summary>For the tests: primed touches laid on.</summary>
     public int PrimedTouches { get; private set; }
-    private static double Now => Time.GetTicksMsec() / 1000.0;
+    /// <summary>The hero's own clock (game time, so a slow frame doesn't shorten the window).</summary>
+    private double _kitClock;
+    private double Now => _kitClock;
 
     /// <summary>A simple kit's ability, as the HUD names it ("Searing Strike").</summary>
     public string SimpleName(KitRole r) => Elements.SimpleName(Stats.Hero, r, Mode);
