@@ -883,7 +883,7 @@ public partial class Hud : Control
             DrawString(font, lab, $"{pad[k]} {Controls.Name(Elements.Action(k))}", HorizontalAlignment.Center, 34, 8, new Color(1, 1, 1, isMode || isTop ? 0.85f : 0.45f));
             string name = Elements.Name(el), lower = name.ToLowerInvariant();
             string what = p.SimpleKit
-                ? (isMode ? $"You're in {lower}: every ability strikes with {lower} ({Elements.TouchText(el)})." : $"Press it to switch to {lower}: every ability then strikes with {lower} ({Elements.TouchText(el)}). Your abilities work the same in every element. At most one switch every {Tune.Elements.SwitchCooldown:0.#} s.")
+                ? (isMode ? $"You're in {lower}: every ability strikes with {lower} ({Elements.TouchText(el)}). {Elements.ReactionText(el)}" : $"Press it to switch to {lower}: every ability then strikes with {lower} ({Elements.TouchText(el)}). {Elements.ReactionText(el)} Your abilities work the same in every element. At most one switch every {Tune.Elements.SwitchCooldown:0.#} s.")
                 : isMode
                 ? $"You're in {lower} mode: every ability is its {lower} version. " + (p.OverchargeOpen ? $"Press it again to overcharge: the next ability with a greater version uses it ({Tune.Elements.OverchargeRecharge:0} s to come back)." : "")
                 : isTop ? $"{name} rides on top of your mode: every blow and spell adds a little {lower}. Press it again to switch to {lower} mode."

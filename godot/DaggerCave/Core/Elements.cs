@@ -77,6 +77,19 @@ public static class Elements
         _ => "",
     };
 
+    /// <summary>How an element reacts with the other statuses (for the tips; <see cref="Tune.Elements"/>).</summary>
+    public static string ReactionText(HeroElement e) => e switch
+    {
+        HeroElement.Fire => "Fire builds faster in the entangled and slower in the soaked. On the chilled or frozen it bursts into steam (a scald, and a cloud that hides heroes). Wind fans a burning creature's fire to those beside it.",
+        HeroElement.Frost => "Frost builds faster in the soaked and slower in the entangled, and a soaked creature shatters harder. On the burning it bursts into steam.",
+        HeroElement.Earth => "Earth on the soaked sinks them in mud: stunned longer, and mired.",
+        HeroElement.Wind => "Wind on the burning fans the fire to every creature beside them.",
+        HeroElement.Nature => "Entangled, fire builds faster in them and frost slower; a fire lit in the vines burns longer.",
+        HeroElement.Water => "Soaked, frost builds faster in them and fire slower, a shatter bursts harder, and earth sinks them in mud.",
+        HeroElement.Dark => "Blinded, every other element builds faster in them.",
+        _ => "",
+    };
+
     private static readonly HeroElement[] None = Array.Empty<HeroElement>();
     private static readonly HeroElement[] Sword = { HeroElement.Earth, HeroElement.Fire, HeroElement.Frost };
     private static readonly HeroElement[] Ele = { HeroElement.Fire, HeroElement.Frost, HeroElement.Wind };

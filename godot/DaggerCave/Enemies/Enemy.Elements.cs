@@ -16,7 +16,7 @@ namespace DaggerCave;
 /// </summary>
 public abstract partial class Enemy
 {
-    private float _fireBuild, _frostBuild, _earthBuild, _natureBuild, _waterBuild, _darkBuild, _buildIdle, _sapT, _mireT, _soakT, _blindT;
+    private float _fireBuild, _frostBuild, _earthBuild, _natureBuild, _waterBuild, _darkBuild, _buildIdle, _sapT, _mireT, _soakT, _blindT, _tangleT;
     /// <summary>The build-up meters (0..Full), for the meters over a creature and the tests.</summary>
     public float FireBuild => _fireBuild;
     public float FrostBuild => _frostBuild;
@@ -32,6 +32,12 @@ public abstract partial class Enemy
     public bool Soaked => _soakT > 0;
     /// <summary>For the tests: times it has been entangled (a full meter of nature).</summary>
     public int Entangled { get; private set; }
+    /// <summary>Entangled now: vines about it, fire building faster in it, frost slower.</summary>
+    public bool Tangled => _tangleT > 0;
+    /// <summary>For the tests: the reactions it has suffered (steam, mud, wildfire caught or spread).</summary>
+    public int Steamed { get; private set; }
+    public int Mudded { get; private set; }
+    public int Fanned { get; private set; }
     public bool Sapped => _sapT > 0;
     public float ChillLeft => _chillT;
     /// <summary>For the tests: what has combusted, shattered, and been stunned by earth.</summary>
@@ -50,8 +56,7 @@ public abstract partial class Enemy
         if (Dead || amount <= 0 || el == HeroElement.None) return;
         if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Build, (float)el, amount, power); return; }
         amount *= BuildTake;
-        // (soaked: frost takes faster, fire slower)
-        if (_soakT > 0) amount *= el == HeroElement.Frost ? Tune.Elements.SoakFrost : el == HeroElement.Fire ? Tune.Elements.SoakFire : 1f;
+        amount *= ReactionMult(el);
         _buildIdle = 0f;
         float full = Tune.Elements.Full;
         switch (el)
@@ -60,14 +65,17 @@ public abstract partial class Enemy
                 _fireBuild += amount;
                 if (_fireBuild < full) break;
                 _fireBuild = 0;
+                // (fire meeting frost: steam)
+                if (Chilled || FrozenSolid) { Steam(power, by); break; }
                 if (Ignited) Combust(power, by);
-                else Ignite(Tune.Elements.BurnDps * power, Tune.Elements.BurnSeconds);
+                else Ignite(Tune.Elements.BurnDps * power, Tune.Elements.BurnSeconds * (Tangled ? Tune.Elements.TangleBurn : 1f));
                 break;
             case HeroElement.Frost:
                 if (FrozenSolid) break;
                 _frostBuild += amount;
                 if (_frostBuild < full) break;
                 _frostBuild = 0;
+                if (Ignited) { Steam(power, by); break; }
                 if (Chilled && CanFreezeSolid) { if (!FreezeSolid(Tune.Elements.FreezeSeconds, force: true)) Chill(Tune.Elements.ChillSlow, Tune.Elements.ChillSeconds); }
                 else if (Chilled) Chill(Math.Min(0.6f, Tune.Elements.ChillSlow * 1.6f), Tune.Elements.ChillSeconds);
                 else
@@ -80,7 +88,17 @@ public abstract partial class Enemy
                 _earthBuild += amount;
                 if (_earthBuild < full) break;
                 _earthBuild = 0;
-                if (Interruptible) Interrupt(Vector2.Zero, Tune.Elements.StunSeconds, "STUNNED");
+                // (earth on the soaked: mud)
+                bool mud = Soaked;
+                if (mud)
+                {
+                    Mudded++;
+                    _soakT = 0;
+                    Mire(Tune.Elements.MudSeconds);
+                    G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 24), "MUD", new Color(0.55f, 0.42f, 0.28f), 10, 0.8f);
+                    G.Fx.Dust(GlobalPosition + new Vector2(0, HitRadius * 0.6f), 8, 2.2f, new Color(0.42f, 0.32f, 0.2f, 0.9f));
+                }
+                if (Interruptible) Interrupt(Vector2.Zero, Tune.Elements.StunSeconds * (mud ? Tune.Elements.MudStun : 1f), "STUNNED");
                 else { Weaken(0.8f, Tune.Elements.StunSeconds * 2f); G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "STAGGERED", Elements.ColorOf(HeroElement.Earth), 9, 0.6f); }
                 G.Fx.Ring(GlobalPosition, HitRadius + 8, new Color(Elements.ColorOf(HeroElement.Earth), 0.9f), 0.3f, FxLayer.RingStyle.Burst);
                 break;
@@ -90,6 +108,7 @@ public abstract partial class Enemy
                 _natureBuild = 0;
                 // entangled: vines about it, slowing all it does, and it bleeds sap
                 Entangled++;
+                _tangleT = Tune.Elements.EntangleSeconds;
                 Mire(Tune.Elements.EntangleSeconds);
                 Bleed(Tune.Elements.EntangleBleed * power, Tune.Elements.EntangleSeconds);
                 G.Fx.Text(GlobalPosition + new Vector2(0, -HitRadius - 12), "ENTANGLED", Elements.ColorOf(HeroElement.Nature), 9, 0.7f);
@@ -158,7 +177,8 @@ public abstract partial class Enemy
         if (Dead || !FrozenSolid) return false;
         Shattered++;
         Thaw();
-        float dmg = Tune.Elements.ShatterDamage * power;
+        // (soaked, the ice was thicker: it bursts harder)
+        float dmg = Tune.Elements.ShatterDamage * power * (Soaked ? Tune.Elements.SoakShatter : 1f);
         var at = GlobalPosition;
         G.Fx.Burst(at, new Color(0.85f, 0.96f, 1f), 22, 200, 2.4f, 0.5f, 220);
         G.Fx.Ring(at, Tune.Elements.ShatterRadius, new Color(0.8f, 0.95f, 1f, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
@@ -191,6 +211,63 @@ public abstract partial class Enemy
         float light = Math.Clamp(1f - KnockResist, 0.05f, 1f) * (Elite ? 0.5f : 1f);
         KnockVel = push * light;
         Stun = Math.Max(Stun, 0.25f * light);
+        if (Ignited) FanFire();
+    }
+
+    /// <summary>Wind on the burning: the fire leaps to every creature near it (the same fire, as long as is left of it).</summary>
+    private void FanFire()
+    {
+        var at = GlobalPosition;
+        bool spread = false;
+        foreach (var o in G.Enemies.ToArray())
+        {
+            if (o == this || o.Dead || !o.CanBeHit || o.Ignited || o.GlobalPosition.DistanceTo(at) > Tune.Elements.WildfireRadius + o.HitRadius) continue;
+            if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
+            o.Ignite(_burnDps, Math.Max(1.5f, _burnT));
+            o.Fanned++;
+            spread = true;
+            G.Fx.Beam(at, o.GlobalPosition, new Color(1f, 0.55f, 0.15f, 0.8f));
+        }
+        if (!spread) return;
+        Fanned++;
+        G.Fx.Text(at + new Vector2(0, -HitRadius - 24), "WILDFIRE", new Color(1f, 0.55f, 0.2f), 10, 0.8f);
+        G.Fx.Burst(at, new Color(1f, 0.6f, 0.2f), 12, 180, 2.2f, 0.4f, -40);
+    }
+
+    /// <summary>How much faster (or slower) an element builds in it now: soaked and entangled are opposites (water: frost faster, fire
+    /// slower; nature: fire faster, frost slower), and the blinded take every other element harder.</summary>
+    public float ReactionMult(HeroElement el)
+    {
+        float m = 1f;
+        if (_soakT > 0) m *= el == HeroElement.Frost ? Tune.Elements.SoakFrost : el == HeroElement.Fire ? Tune.Elements.SoakFire : 1f;
+        if (_tangleT > 0) m *= el == HeroElement.Fire ? Tune.Elements.TangleFire : el == HeroElement.Frost ? Tune.Elements.TangleFrost : 1f;
+        if (_blindT > 0 && el != HeroElement.Dark) m *= Tune.Elements.BlindAmp;
+        return m;
+    }
+
+    /// <summary>Fire and frost meet in it: both go in a burst of scalding steam that hurts what's near, and leaves a cloud heroes hide in.</summary>
+    private void Steam(float power, Player by)
+    {
+        Steamed++;
+        Thaw();
+        Quench();
+        _chillT = 0;
+        _fireBuild = _frostBuild = 0;
+        var at = GlobalPosition;
+        float r = Tune.Elements.SteamRadius, dmg = Tune.Elements.SteamDamage * power;
+        var cloud = new SmokeCloud { Position = at, Radius = r, Life = Tune.Elements.SteamSeconds };
+        G.Spawn(cloud);
+        NetSync.HeroVisual(cloud);
+        G.Fx.Burst(at, new Color(0.95f, 0.95f, 0.97f, 0.85f), 20, 150, 3.2f, 0.6f, -60);
+        G.Fx.Ring(at, r, new Color(0.92f, 0.95f, 1f, 0.8f), 0.3f, FxLayer.RingStyle.Burst);
+        G.Fx.Text(at + new Vector2(0, -HitRadius - 14), "STEAM", new Color(0.92f, 0.95f, 1f), 11, 0.8f);
+        G.Sfx.Play("lava", at, -8, 0.05f, 1.6f);
+        Credit(by, Hurt(dmg, Vector2.Zero, at, DamageKind.Raw));
+        foreach (var o in G.Enemies.ToArray())
+        {
+            if (o == this || o.Dead || !o.CanBeHit || o.GlobalPosition.DistanceTo(at) > r + o.HitRadius || !G.Cave.LineClear(at, o.GlobalPosition)) continue;
+            Credit(by, o.Hurt(dmg * 0.5f, (o.GlobalPosition - at).Normalized() * 80f, o.GlobalPosition, DamageKind.Raw));
+        }
     }
 
     /// <summary>Molten rock about its feet (a Magma Rend): for a while it moves and acts <see cref="Tune.Dual.PoolSlow"/> slower.</summary>
@@ -209,6 +286,7 @@ public abstract partial class Enemy
     {
         if (_sapT > 0) _sapT -= dt;
         if (_mireT > 0) _mireT -= dt;
+        if (_tangleT > 0) _tangleT -= dt;
         if (_blindT > 0)
         {
             _blindT -= dt;

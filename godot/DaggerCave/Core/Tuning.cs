@@ -1160,6 +1160,17 @@ public static class Tune
         /// <summary>Full of dark: blinded for <c>BlindSeconds</c> (it loses every hero, as in smoke) and exposed (it takes <c>BlindExpose</c> x
         /// the damage, and more critical blows) for <c>ExposeSeconds</c>.</summary>
         public static float BlindSeconds = 3f, BlindExpose = 1.25f, ExposeSeconds = 4f;
+        /// <summary>
+        /// Reactions between the statuses. Soaked (water) and entangled (nature) are opposites: soaked, frost builds <c>SoakFrost</c> x as
+        /// fast and fire <c>SoakFire</c> x, and a shatter deals <c>SoakShatter</c> x; entangled, fire builds <c>TangleFire</c> x and frost
+        /// <c>TangleFrost</c> x, and a fire lit in the vines burns <c>TangleBurn</c> x as long. Blinded (dark), every other element builds
+        /// <c>BlindAmp</c> x. Fire taking hold on the chilled or frozen (or frost on the burning) bursts into steam instead: both go, a
+        /// scald of <c>SteamDamage</c> within <c>SteamRadius</c>, and a cloud that hides heroes for <c>SteamSeconds</c>. Earth taking hold
+        /// on the soaked sinks it in mud: stunned <c>MudStun</c> x as long and mired for <c>MudSeconds</c>. Wind on the burning fans the fire
+        /// to every creature within <c>WildfireRadius</c>.
+        /// </summary>
+        public static float SoakShatter = 1.5f, TangleFire = 1.5f, TangleFrost = 0.6f, TangleBurn = 1.5f, BlindAmp = 1.5f;
+        public static float SteamDamage = 14f, SteamRadius = 44f, SteamSeconds = 3f, MudStun = 1.6f, MudSeconds = 3f, WildfireRadius = 48f;
         /// <summary>How long after one element press before the next is taken (a press inside it is kept and taken once it's over).</summary>
         public static float ChargeCooldown = 0.3f;
         /// <summary>Whether an element's version of an ability rests its button (and pays alimus). In modes every use is a version, so they do:

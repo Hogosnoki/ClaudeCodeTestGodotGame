@@ -2122,6 +2122,21 @@ works:
 The Shape Shifter keeps her own rules (her element picks the creature she becomes; see below) and the Automaton has no elements. The
 classic kits (Settings) are unchanged.
 
+**Reactions** (`Enemy.ReactionMult`, `Steam`, `FanFire` in `Enemies/Enemy.Elements.cs`; `Tune.Elements`). The statuses work on
+each other, so the order you apply elements in matters. Each hero's three elements can combo, and so can different heroes' elements
+in a party.
+
+| On a creature that is... | ...this happens |
+|---|---|
+| **Soaked** (water) | frost builds 2x as fast, fire 0.5x; a shatter deals 1.5x; earth taking hold sinks it in **mud** (stunned 1.6x as long, mired 3 s, the soak spent) |
+| **Entangled** (nature) | the opposite of soaked: fire builds 1.5x as fast, frost 0.6x; a fire lit in the vines burns 1.5x as long |
+| **Blinded** (dark) | every other element builds 1.5x as fast |
+| **Chilled or frozen**, and fire takes hold | **steam** instead: the frost and the fire both go, a scald hurts it and those beside it (14, half to the others), and a cloud hides heroes for 3 s |
+| **Burning**, and frost takes hold | **steam**, the same way |
+| **Burning**, and wind shoves it | **wildfire**: the fire leaps to every creature within 48 px |
+
+The element tooltips on the HUD list each element's reactions. `--scenario=reactions` checks each one.
+
 **The archive.** Everything the simple kits replaced is still in the code, behind `Elements.Simple`, and catalogued with what each
 ability did and where its code is in **[ABILITY_ARCHIVE.md](ABILITY_ARCHIVE.md)**. That covers the mode with its overcharge and
 attribute, all 180 elemental versions, greater versions and mixes, Empower Hilt, the element leaps, Lift, Fire Walk, Tundra, the

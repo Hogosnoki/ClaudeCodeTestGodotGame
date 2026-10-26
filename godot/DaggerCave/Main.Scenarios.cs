@@ -66,6 +66,7 @@ public partial class Main
         "grid" => "entrance",
         "saves" => "entrance",
         "elements" => "entrance",
+        "reactions" => "entrance",
         "cards" => "entrance",
         "report" => "entrance",
         "debugmode" => "entrance",
@@ -167,6 +168,7 @@ public partial class Main
             case "grid": GridScenario(); break;
             case "saves": SavesScenario(); break;
             case "elements": ElementsScenario(); break;
+            case "reactions": ReactionsScenario(); break;
             case "cards": CardsScenario(); break;
             case "report": ReportScenario(); break;
             case "debugmode": DebugModeScenario(); break;
