@@ -291,6 +291,7 @@ public partial class Player
         if (IsSwordsman && !IsRemote) TickSwordLeaps(dt);
         if (IsWarden) TickWardenElements(dt);
         if (_swingElemRest > 0) _swingElemRest -= dt;
+        if (_riposteT > 0) _riposteT -= dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
         if (_dualBoltCd > 0) _dualBoltCd -= dt;
@@ -661,7 +662,11 @@ public partial class Player
         {
             if (_swingEl == HeroElement.None) return;
             G.Sfx.Element(ElementSounds.Ev.Hit, _swingEl, e.GlobalPosition, RecentUse);
-            SimpleTouch(e, _swingRole, GlobalPosition);
+            // (the Warden's element is in his shield, not his cut; a tipper builds double, and a jab from hiding)
+            if (IsWarden) return;
+            float m = _blowTipper ? Tune.Elements.TipperBuild : _shadowSwing ? Tune.Elements.ShadowJab : 1f;
+            _shadowSwing = false;
+            SimpleTouch(e, _swingRole, GlobalPosition, m);
             return;
         }
         // (an elemental blow lands with its attack's own sound: the swing's element, the Warden's cut's, or the hilt's)
@@ -1456,7 +1461,8 @@ public partial class Player
     private void ElementStormStruck(Blizzard storm, Enemy e)
     {
         var from = (e.GlobalPosition - storm.GlobalPosition).Normalized();
-        float dealt = e.Hurt(storm.Damage, from * 10f, e.GlobalPosition - from * e.HitRadius * 0.5f, Elements.KindOf(storm.El));
+        // (the Elementalist's zone strikes no blow: it only builds)
+        float dealt = storm.Damage > 0 ? e.Hurt(storm.Damage, from * 10f, e.GlobalPosition - from * e.HitRadius * 0.5f, Elements.KindOf(storm.El)) : 0f;
         if (dealt > 0) OnDealtDamage(dealt);
         if (e.Dead) return;
         if (storm.Build > 0) e.Build(storm.El, storm.Build, Stats.DamageMult, this);

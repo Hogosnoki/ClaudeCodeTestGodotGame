@@ -2109,15 +2109,25 @@ works:
 * **The element's touch.** What an ability strikes takes its element's build-up: a primary's blow 40 (`PrimaryBuild`), a defensive
   40 (`DefensiveBuild`), a special 80 (`SpecialBuild`). Fire burns, frost chills then freezes, earth stuns, nature entangles, water
   soaks, dark blinds. Wind builds nothing: it shoves the creature away, harder the bigger the ability (`ShovePerBuild`).
-* **Every defensive pulses.** Using it sends a ring of the element out to 60 px about the hero (`PulseRadius`), touching each creature
-  in it (no blow). The Warden's shield instead touches each creature whose blow it stops.
+* **Each hero lays the element on in their own way** (`Player/Player.Simple.cs`; `Tune.Elements`):
+
+  | Hero | Their way | What it does |
+  |---|---|---|
+  | Swordsman | **The tipper** (Marth's) | A blow landing with the outer part of the blade (from 65% of his reach) deals 1.3x and builds double. For 1 s after a **roll**, every blow is a tipper (the riposte). The roll itself lays nothing on. |
+  | Warden | **The counter** | His cut builds nothing: his element is in his shield. A blow stopped on it builds 20 in the attacker; stopped just in time (a perfect block), 80. His Charge builds 80 in what it breaks. |
+  | Elementalist | **The zone** | Her Burst builds 80, then the element **lingers** at the spot for 4 s, building 12 more in everything in it twice a second (wind draws them to the middle instead). Her Ward lays nothing on. |
+  | Vitalist | **The seep** | Her hex **carries her element**: it seeps into each creature it reaches, 15 a second while the hex lasts (wind buffets them away from her). Her drain on a creature still seeping **tears the rest out at once**, 1.5x. Her Mending lays nothing on. |
+  | Aegis | **The imbue** | Her Barrier and her Dome **lend her element** to the heroes they wrap for 6 s: each of their blows builds 20 of it (the element she was in when she cast it). Her bubble shot builds 40; her Dome 80 in the creatures in it. |
+  | Rogue | **The stored knife** | Her Knife builds just 20 as it lands, then **stores** her element while it stays in the creature (25 a second, up to 100). Pressing the special again calls it home, and it **releases** everything at once. A jab from hiding (after her Vanish) builds double. |
+
 * **The look and sound are the element's.** Each use pops its name in the element's colour: Searing Strike, Rime Shield, Gale Hex,
   Thorn Drain, Shadow Knife (an adjective per element, `Elements.Adjective`, before the ability's noun, `Elements.Noun`). Bolts,
-  bubbles, bursts, pulses and the sparks of each touch take the element's colour; blows land with its sound; the weapon glows with it.
+  bubbles, bursts, zones and the sparks of each touch take the element's colour; blows land with its sound; the weapon glows with it.
 * **The second ability button does nothing** for these heroes.
 * **HUD.** The three elements on the d-pad's half circle (the one you're in big and lit, the switch's cooldown round the middle),
   then three squares in the element's colour (primary, defensive, special) with their cooldowns. The Vitalist's vital force bar
-  follows. Hovering a square gives the ability's full name and what its element does (`UI/Hud.Simple.cs`).
+  follows. Hovering a square gives the ability's full name, how this hero lays the element on, and what a full meter of it does
+  (`UI/Hud.Simple.cs`).
 
 The Shape Shifter keeps her own rules (her element picks the creature she becomes; see below) and the Automaton has no elements. The
 classic kits (Settings) are unchanged.
@@ -2146,10 +2156,12 @@ the rest of this section describes them.
 **Tests.** `--scenario=elements --hero=swordsman|warden|elementalist|vitalist|aegis|rogue` (`Main.SimpleKitTest.cs`) checks:
 
 * the element buttons only switch, with a switch cooldown and nothing on top;
-* every ability, in every element, gives the right build-up (wind: a shove, no build-up);
-* each defensive pulses;
+* every ability in every element builds what it should (the Warden's cut and the plain defensives nothing; wind a shove, no build-up);
 * each ability's cooldown and blow are the same in every element;
-* the second ability button does nothing.
+* the second ability button does nothing;
+* each hero's own way: the Swordsman's tipper and riposte, the Warden's late block (20) against a perfect one (80), the Elementalist's
+  zone building on, the Vitalist's drain tearing a hex's seep out, the Aegis's barrier lending her element to her own bubble, the
+  Rogue's stored knife released on its recall, and her jab from hiding building double.
 
 All six pass, and `--hero=shapeshifter` still runs her own test.
 

@@ -133,6 +133,7 @@ public partial class Player
         _swingHitSomething = false;
         _slamDone = false;
         // (a jab brings the Rogue out of the shadows as it begins)
+        _shadowSwing = IsRogue && SimpleKit && Hidden;
         _swingSurprise = IsRogue && StrikeFromShadows();
         // coil for the wind-up
         Anim.Punch(new Vector2(1.08f, 0.9f));
@@ -333,7 +334,7 @@ public partial class Player
         if (charged) kb += Tune.Hero.FinisherExtraKnockback * 0.6f;
         if (_heave) kb = Math.Max(kb, Tune.Swordsman.HeaveKnockback);
         var hitPos = e.GlobalPosition - to.Normalized() * e.HitRadius;
-        float dmg = _swingDmg * G.Range(0.9f, 1.1f) * echo;
+        float dmg = _swingDmg * G.Range(0.9f, 1.1f) * echo * TipperMult(to);
         if (Stats.Execute && e.Hp < e.MaxHp * Tune.Swordsman.ExecuteBelow) dmg *= 1f + Tune.Swordsman.ExecuteBonus;
         bool crit = false;
         if (IsRogue)

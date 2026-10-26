@@ -147,7 +147,7 @@ public partial class Player
     private void RogueKnifeStruck(ThrownDagger d, Enemy e, Vector2 at)
     {
         if (e.Dead) return;
-        if (d.Version == SimpleVer) { SimpleTouch(e, KitRole.Special, at - d.Dir * 10f); return; }
+        if (d.Version == SimpleVer) { SimpleTouch(e, KitRole.Special, at - d.Dir * 10f, Tune.Elements.KnifeTouch / Tune.Elements.SpecialBuild); return; }
         float p = Stats.DamageMult, build = Tune.ElementalRogue.KnifeBuild, full = Tune.Elements.Full;
         var col = Elements.ColorOf(d.El);
         switch (d.Version)

@@ -365,6 +365,8 @@ public abstract partial class Enemy : CharacterBody2D
         if (_freeze > 0)
         {
             _freeze -= (float)delta;
+            // (what seeps into it goes on seeping through a hit-stop)
+            TickSeep((float)delta);
             if (Anim != null)
             {
                 Anim.TimeMult = 0;
@@ -378,6 +380,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (_iceT > 0)
         {
             _iceT -= (float)delta;
+            TickSeep((float)delta);
             EnsureIceBlock();
             if (Anim != null) { Anim.TimeMult = 0; Anim.Position = Vector2.Zero; }
             Velocity = new Vector2(0, UsesGravity && !InWater ? Math.Min(Velocity.Y + 700f * (float)delta, 400f) : 0);
@@ -944,7 +947,7 @@ public abstract partial class Enemy : CharacterBody2D
             float hpP = Hp;
             float d = PuppetHurt(dmg, knock, hitPos);
             RunMetrics.Dealt(this, d, hpP);
-            if (d > 0 && kind != DamageKind.Raw && G.Player is Player hero0 && !hero0.Dead) { hero0.Stats.On.RaiseHit(hero0, this, d, kind); Kindle(hero0, kind); }
+            if (d > 0 && kind != DamageKind.Raw && G.Player is Player hero0 && !hero0.Dead) { hero0.Stats.On.RaiseHit(hero0, this, d, kind); Kindle(hero0, kind); Imbue(hero0, kind); }
             if (d >= hpP && hpP > 0 && !_metricKill) { _metricKill = true; RunMetrics.Killed(this); }
             return d;
         }
@@ -955,7 +958,7 @@ public abstract partial class Enemy : CharacterBody2D
         {
             float hpM = Hp;
             float dealt = TakeHit(dmg, knock, hitPos);
-            if (NetSync.Striker == Net.Me) { RunMetrics.Dealt(this, dealt, hpM); if (dealt > 0 && kind != DamageKind.Raw && G.Player is Player hero && !hero.Dead) { hero.Stats.On.RaiseHit(hero, this, dealt, kind); Kindle(hero, kind); } }
+            if (NetSync.Striker == Net.Me) { RunMetrics.Dealt(this, dealt, hpM); if (dealt > 0 && kind != DamageKind.Raw && G.Player is Player hero && !hero.Dead) { hero.Stats.On.RaiseHit(hero, this, dealt, kind); Kindle(hero, kind); Imbue(hero, kind); } }
             // its ward (armour, or its element's resistance) breaks once it has taken a tenth of its health
             if (HasWard && !_armorBroken && dealt > 0 && !Dead)
             {

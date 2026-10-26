@@ -33,6 +33,8 @@ public partial class ThrownDagger : Node2D
     /// <summary>An elemental Rogue's throw: its version (what its blow does besides) and its element (its colour).</summary>
     public string Version = "";
     public HeroElement El;
+    /// <summary>A simple kit's knife: the element it has stored while stuck in a creature (released when it's recalled).</summary>
+    public float Stored;
     public Phase State = Phase.Flying;
     public Enemy StuckIn { get; private set; }
     /// <summary>Stuck in a wall (not a creature): its hilt is a foothold.</summary>
@@ -75,6 +77,11 @@ public partial class ThrownDagger : Node2D
                 // it rides in the creature; if the creature dies it drops out and comes home
                 if (StuckIn == null || !IsInstanceValid(StuckIn) || StuckIn.Dead) { ComeBack(); break; }
                 GlobalPosition = StuckIn.GlobalPosition + _stuckOffset;
+                if (Version == "simple" && El != HeroElement.None && Stored < Tune.Elements.KnifeStoreMax)
+                {
+                    Stored = Math.Min(Tune.Elements.KnifeStoreMax, Stored + Tune.Elements.KnifeStore * dt);
+                    if (G.Chance(dt * (2f + Stored * 0.08f))) G.Fx.Ember(GlobalPosition, Elements.ColorOf(El));
+                }
                 break;
             case Phase.Returning: FlyHome(dt); break;
         }

@@ -103,8 +103,22 @@ public partial class Player
     // ---------------------------------------------------------------- timed buffs
 
     public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5, BuffFireWalk = 6, BuffFrostWard = 7;
+    /// <summary>An Aegis's element lent to a hero (one buff per element: <c>BuffImbueBase</c> + the element): every blow of theirs carries it.</summary>
+    public const int BuffImbueBase = 20;
+    public static int BuffImbue(HeroElement el) => BuffImbueBase + (int)el;
+    /// <summary>The element an Aegis has lent this hero (the one with the most time left), if any.</summary>
+    public bool Imbued(out HeroElement el)
+    {
+        el = HeroElement.None;
+        float best = 0f;
+        foreach (var (kind, t) in _buffs)
+            if (kind > BuffImbueBase && kind <= BuffImbueBase + (int)HeroElement.Dark && t > best) { best = t; el = (HeroElement)(kind - BuffImbueBase); }
+        return el != HeroElement.None;
+    }
     private readonly Dictionary<int, float> _buffs = new();
     public bool HasBuff(int kind) => _buffs.ContainsKey(kind);
+    /// <summary>Test aid: every timed buff off.</summary>
+    public void TestClearBuffs() { foreach (var k in _buffs.Keys.ToArray()) ApplyBuff(k, -1); _buffs.Clear(); }
     public float BuffLeft(int kind) => _buffs.TryGetValue(kind, out var t) ? t : 0f;
 
     /// <summary>A friend's call (or your own): for <paramref name="seconds"/>, hit harder (Shout) or move and strike faster (Howl).</summary>
@@ -118,6 +132,7 @@ public partial class Player
         {
             BuffShout => new Color(1f, 0.6f, 0.3f, 0.8f), BuffTailwind => new Color(Elements.ColorOf(HeroElement.Wind), 0.8f),
             BuffKindling or BuffFireWalk => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor or BuffFrostWard => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
+            > BuffImbueBase => new Color(Elements.ColorOf((HeroElement)Math.Min(kind - BuffImbueBase, (int)HeroElement.Dark)), 0.8f),
             _ => new Color(0.85f, 0.95f, 1f, 0.8f),
         };
         G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 20, ring, 0.4f, FxLayer.RingStyle.Dashed);

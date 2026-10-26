@@ -1191,7 +1191,27 @@ public static class Tune
         public static float SwitchCooldown = 1f, PrimaryBuild = 40f, DefensiveBuild = 40f, SpecialBuild = 80f;
         /// <summary>Wind builds nothing: it shoves, <c>ShovePerBuild</c> px/s for each point another element would build. A defensive's pulse
         /// reaches <c>PulseRadius</c> px about the hero.</summary>
-        public static float ShovePerBuild = 4f, PulseRadius = 60f;
+        public static float ShovePerBuild = 4f;
+        /// <summary>
+        /// How each simple kit lays its element on, beyond its abilities' touch:
+        ///  * the Swordsman's tipper: a blow landing with the outer part of the blade (from <c>TipperFrom</c> of his reach) deals
+        ///    <c>TipperDamage</c> x and builds <c>TipperBuild</c> x; for <c>RiposteWindow</c> s after a roll, every blow is a tipper;
+        ///  * the Warden's counter: his cut builds nothing; a blow stopped on his shield builds <c>CounterBuild</c> in the attacker (a perfect
+        ///    block, a special's <c>SpecialBuild</c>);
+        ///  * the Elementalist's zone: her Burst leaves the element at the spot for <c>ZoneSeconds</c>, <c>ZoneBuild</c> to all in it every
+        ///    tick (<c>ZoneTicks</c> of them; wind draws them in at <c>ZonePull</c>);
+        ///  * the Vitalist's seep: her hex carries her element, <c>HexSeep</c> a second for as long as the hex lasts; her drain on a creature
+        ///    still seeping tears the rest out at once, <c>DrainCash</c> x;
+        ///  * the Aegis's imbue: her barrier and her field lend the heroes they wrap her element for <c>ImbueSeconds</c>, every blow of theirs
+        ///    building <c>ImbueBuild</c>;
+        ///  * the Rogue's stored knife: a thrown dagger builds just <c>KnifeTouch</c> as it lands, then stores the element while it stays in
+        ///    the creature (<c>KnifeStore</c> a second, up to <c>KnifeStoreMax</c>), all of it released when it's recalled; a jab from
+        ///    hiding builds <c>ShadowJab</c> x.
+        /// </summary>
+        public static float TipperFrom = 0.65f, TipperDamage = 1.3f, TipperBuild = 2f, RiposteWindow = 1f, CounterBuild = 20f;
+        public static float ZoneSeconds = 4f, ZoneBuild = 12f, ZonePull = 60f, HexSeep = 15f, DrainCash = 1.5f, ImbueSeconds = 6f, ImbueBuild = 20f;
+        public static float KnifeTouch = 20f, KnifeStore = 25f, KnifeStoreMax = 100f, ShadowJab = 2f;
+        public static int ZoneTicks = 8;
     }
 
     /// <summary>

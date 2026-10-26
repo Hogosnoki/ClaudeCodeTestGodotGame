@@ -149,7 +149,8 @@ public partial class Player
             if (b.Perfect) melee.Interrupt(away * 200f, Tune.Warden.PerfectStagger);
             if (Stats.ShieldThorns) melee.Hurt(dmg * 0.4f * Stats.DamageMult, away * 120f, melee.GlobalPosition - away * melee.HitRadius);
             GuardStruck(melee);
-            if (SimpleKit) SimpleTouch(melee, KitRole.Defensive, GlobalPosition);
+            // (the Warden's counter: the blow stopped builds his element in the attacker; a perfect block, a special's worth)
+            if (SimpleKit) SimpleTouch(melee, b.Perfect ? KitRole.Special : KitRole.Defensive, GlobalPosition, b.Perfect ? 1f : Tune.Elements.CounterBuild / Tune.Elements.DefensiveBuild);
         }
         if (ShieldHp <= 0 && !dashing) BreakShield(at, striker ?? melee);
         return b;

@@ -9,8 +9,11 @@ namespace DaggerCave;
 /// primary attack (the attack button), a defensive (the dodge button) and a special (the ability button), and three elements to switch
 /// between. An ability works the same in every element: the same damage, reach, speed and cooldown. What it strikes takes the element's
 /// touch (<see cref="SimpleTouch"/>: its build-up, or wind's shove), and it looks and sounds of its element. Its blows are plain (no
-/// creature resists or is weak to them by element), so the numbers never change with the element. Every defensive also sends a
-/// pulse of the element out about the hero (<see cref="SimplePulse"/>).
+/// creature resists or is weak to them by element), so the numbers never change with the element. Each hero also lays the element on
+/// in their own way (<see cref="Tune.Elements"/>): the Swordsman's tipper (and the riposte after a roll), the Warden's counter (his
+/// shield, not his cut), the Elementalist's zone (her Burst lingers), the Vitalist's seep (her hex carries it; her drain tears it out),
+/// the Aegis's imbue (the heroes she wraps strike with it), and the Rogue's stored knife (released on the recall; a jab from hiding
+/// doubles it).
 /// <code>
 ///                 primary          defensive         special
 ///   Swordsman     Strike (swing)   Roll (dodge)      Cleave (Hard Swing)
@@ -33,9 +36,18 @@ public partial class Player
     /// <summary>The role of the swing under way (its blows' touch).</summary>
     private KitRole _swingRole;
 
-    /// <summary>For the tests: creatures a simple kit's ability has touched (built up or shoved), and defensive pulses sent.</summary>
+    /// <summary>For the tests: creatures a simple kit's ability has touched (built up or shoved); tippers struck; seeps torn out by the
+    /// drain; knives released by the recall.</summary>
     public int SimpleTouches { get; private set; }
-    public int SimplePulses { get; private set; }
+    public int Tippers { get; private set; }
+    public int CashIns { get; private set; }
+    public int Releases { get; private set; }
+
+    /// <summary>The Swordsman's riposte (every blow a tipper) still open after a roll; the blow landing now is a tipper; the Rogue's swing
+    /// began in hiding.</summary>
+    private float _riposteT;
+    private bool _blowTipper, _shadowSwing;
+    public bool RiposteOpen => _riposteT > 0;
 
     /// <summary>A simple kit's ability, as the HUD names it ("Searing Strike").</summary>
     public string SimpleName(KitRole r) => Elements.SimpleName(Stats.Hero, r, Mode);
@@ -48,12 +60,12 @@ public partial class Player
 
     /// <summary>The element's touch on a creature a simple ability reached: its build-up by the ability's role, or, wind, a shove away from
     /// <paramref name="from"/>.</summary>
-    private void SimpleTouch(Enemy e, KitRole role, Vector2 from)
+    private void SimpleTouch(Enemy e, KitRole role, Vector2 from, float mult = 1f)
     {
         if (e == null || !IsInstanceValid(e) || e.Dead) return;
         var el = Mode;
         if (el == HeroElement.None) return;
-        float build = RoleBuild(role);
+        float build = RoleBuild(role) * mult;
         if (el == HeroElement.Wind)
         {
             var away = e.GlobalPosition - from;
@@ -63,18 +75,6 @@ public partial class Player
         else e.Build(el, build, Stats.DamageMult, this);
         SimpleTouches++;
         G.Fx.Burst(e.GlobalPosition, new Color(Elements.ColorOf(el), 0.9f), role == KitRole.Primary ? 4 : 7, 80, 1.6f, 0.3f, 0);
-    }
-
-    /// <summary>A defensive's pulse: every creature about the hero takes the element's touch (no blow).</summary>
-    private void SimplePulse()
-    {
-        var c = GlobalPosition + new Vector2(0, -6);
-        float r = Tune.Elements.PulseRadius;
-        foreach (var e in FoesAt(c, r)) SimpleTouch(e, KitRole.Defensive, c);
-        var col = Elements.ColorOf(Mode);
-        G.Fx.Ring(c, r, new Color(col, 0.8f), 0.35f, FxLayer.RingStyle.Burst);
-        G.Fx.Burst(c, new Color(col, 0.7f), 10, 120, 1.8f, 0.35f, 0);
-        SimplePulses++;
     }
 
     /// <summary>A simple ability went out: its name, in its element's colour and sound.</summary>
@@ -134,6 +134,8 @@ public partial class Player
             case HeroKind.Warden: return true;
             case HeroKind.Swordsman:
                 if (!TryDodge(inp)) return false;
+                // (the riposte: for a moment after the roll, every blow is a tipper)
+                _riposteT = _dodgeT + Tune.Elements.RiposteWindow;
                 break;
             case HeroKind.Elementalist:
                 if (!SimpleWard()) return false;
@@ -156,7 +158,6 @@ public partial class Player
                 break;
             default: return false;
         }
-        SimplePulse();
         SimpleUsed(KitRole.Defensive);
         return true;
     }
@@ -177,8 +178,9 @@ public partial class Player
                 if (Tune.Testing.NoCooldowns) _hexCd = Math.Min(_hexCd, 0.25f);
                 var c = GlobalPosition + new Vector2(0, -6);
                 float r = Tune.Vitalist.HexRadius * Stats.HexRadiusMult;
+                // (the hex carries her element: it seeps in for as long as the hex lasts)
                 foreach (var e in G.Enemies.ToArray())
-                    if (!e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(c) <= r + e.HitRadius) SimpleTouch(e, KitRole.Special, c);
+                    if (!e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(c) <= r + e.HitRadius) e.Seep(Mode, Tune.Elements.HexSeep, Stats.HexSeconds, Stats.DamageMult, this);
                 G.Fx.Ring(c, r, new Color(Elements.ColorOf(Mode), 0.7f), 0.45f, FxLayer.RingStyle.Dashed);
                 break;
             }
@@ -191,6 +193,8 @@ public partial class Player
                 break;
             case HeroKind.Rogue:
             {
+                // (a knife already out: the button calls it home, releasing what it stored)
+                if (DaggersInHand < 2 && _thrown.Any(d => d != null && IsInstanceValid(d) && d.State != ThrownDagger.Phase.Returning)) return TryRecall();
                 if (!IsRogue || _throwCd > 0 || DaggersInHand == 0 || _tetherTo != null) return false;
                 _rThrowNext = SimpleVer; _rThrowEl = Mode;
                 bool ok;
@@ -315,6 +319,16 @@ public partial class Player
             SimpleTouch(e, KitRole.Special, spot);
         }
         if (el == HeroElement.Fire) GasCloud.IgniteAt(spot, r);
+        // (the zone: the element lingers at the spot, building in all that stand in it; wind draws them in)
+        var zone = new Blizzard
+        {
+            Position = spot, Radius = r, Seconds = Tune.Elements.ZoneSeconds, Ticks = Tune.Elements.ZoneTicks,
+            Fire = el == HeroElement.Fire, El = el, Elemental = true, Damage = 0f, FreezeChance = 0f, IgniteChance = 0f,
+            Build = el == HeroElement.Wind ? 0f : Tune.Elements.ZoneBuild, Pull = el == HeroElement.Wind ? Tune.Elements.ZonePull : 0f, Caster = this,
+        };
+        G.Spawn(zone);
+        NetSync.HeroVisual(zone);
+        LastBlizzard = zone;
         G.Fx.Converge(spot, r, new Color(col, 0.8f), 8, 0.15f);
         G.Fx.Ring(spot, r, new Color(col, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
         G.Fx.Burst(spot, new Color(col, 0.9f), 16, 140, 2.2f, 0.4f, 0);
@@ -327,6 +341,48 @@ public partial class Player
         G.Main.Rumble(0.35f, 0.3f, 0.12f);
         SimpleUsed(KitRole.Special);
         return true;
+    }
+
+    // ================================================================== the heroes' own ways
+
+    /// <summary>The Vitalist's drain landed on a creature: the touch, and whatever still seeps into it torn out at once.</summary>
+    private void SimpleDrainStruck(Enemy t)
+    {
+        SimpleTouch(t, KitRole.Primary, CastPoint);
+        var el = t.SeepElement;
+        float left = t.TakeSeep();
+        if (left <= 0f || t.Dead) return;
+        CashIns++;
+        float amount = left * Tune.Elements.DrainCash;
+        if (el == HeroElement.Wind) t.Shove((t.GlobalPosition - CastPoint).Normalized() * amount * Tune.Elements.ShovePerBuild + new Vector2(0, -60f));
+        else t.Build(el, amount, Stats.DamageMult, this);
+        G.Fx.Text(t.GlobalPosition + new Vector2(0, -t.HitRadius - 24), "TORN OUT", Elements.ColorOf(el), 10, 0.8f);
+        G.Fx.Converge(t.GlobalPosition, t.HitRadius + 14, new Color(Elements.ColorOf(el), 0.9f), 8, 0.15f);
+    }
+
+    /// <summary>The Rogue's recall pulls a dagger out of a creature: all it stored there goes in at once.</summary>
+    private void ReleaseKnife(ThrownDagger d, Enemy e)
+    {
+        if (d.Version != SimpleVer || d.Stored <= 0.5f || e.Dead) return;
+        Releases++;
+        float amount = d.Stored;
+        d.Stored = 0f;
+        if (d.El == HeroElement.Wind) e.Shove((GlobalPosition - e.GlobalPosition).Normalized() * amount * Tune.Elements.ShovePerBuild + new Vector2(0, -60f));
+        else e.Build(d.El, amount, Stats.DamageMult, this);
+        G.Fx.Text(e.GlobalPosition + new Vector2(0, -e.HitRadius - 24), "RELEASED", Elements.ColorOf(d.El), 10, 0.8f);
+        G.Fx.Burst(e.GlobalPosition, new Color(Elements.ColorOf(d.El), 0.95f), 14, 160, 2.2f, 0.4f, 0);
+    }
+
+    /// <summary>The Swordsman's blow about to land: a tipper if it lands with the outer part of the blade, or in the riposte after a roll.</summary>
+    private float TipperMult(Vector2 to)
+    {
+        _blowTipper = SimpleKit && IsSwordsman && (_riposteT > 0 || to.Length() >= _swingReach * Tune.Elements.TipperFrom);
+        if (!_blowTipper) return 1f;
+        Tippers++;
+        var at = GlobalPosition + new Vector2(0, -3) + to;
+        G.Fx.Text(at + new Vector2(0, -22), "TIPPER", new Color(1f, 0.95f, 0.7f), 9, 0.5f);
+        G.Fx.Spark(at, to.Normalized(), true, new Color(1f, 0.95f, 0.75f));
+        return Tune.Elements.TipperDamage;
     }
 
     // ================================================================== for the HUD

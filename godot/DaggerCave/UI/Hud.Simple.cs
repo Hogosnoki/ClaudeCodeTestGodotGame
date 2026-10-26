@@ -81,35 +81,36 @@ public partial class Hud
 
     private static string SimpleBody(HeroKind h, KitRole r, HeroElement el)
     {
+        string lower = Elements.Name(el).ToLowerInvariant();
+        bool wind = el == HeroElement.Wind;
+        // ("builds up fire by 40", or, wind, "shoves it away")
+        string B(float amount) => wind ? "shoves it away" : $"builds up {lower} by {amount:0}";
+        float P = Tune.Elements.PrimaryBuild, S = Tune.Elements.SpecialBuild;
         string what = (h, r) switch
         {
-            (HeroKind.Swordsman, KitRole.Primary) => "A swing of the sword.",
-            (HeroKind.Swordsman, KitRole.Defensive) => "A quick roll out of harm's way.",
-            (HeroKind.Swordsman, KitRole.Special) => "The Hard Swing: a great two-handed blow, on your feet.",
-            (HeroKind.Warden, KitRole.Primary) => "A cut of the shortsword.",
-            (HeroKind.Warden, KitRole.Defensive) => "Hold to raise the shield: it stops most of each blow from the front, wearing as it does (raised just in time, all of it).",
-            (HeroKind.Warden, KitRole.Special) => "The Guarded Charge: a shield-first rush that breaks off the attacks it meets.",
-            (HeroKind.Elementalist, KitRole.Primary) => "A bolt from the staff, flying to the creature nearest your aim.",
-            (HeroKind.Elementalist, KitRole.Defensive) => "Ward: a barrier on you and the friends near you.",
-            (HeroKind.Elementalist, KitRole.Special) => "A blast at the spot along your aim, striking everything there.",
-            (HeroKind.Vitalist, KitRole.Primary) => "Tears the life out of the creature you aim at; it becomes vital force.",
-            (HeroKind.Vitalist, KitRole.Defensive) => "Spends vital force to mend you and the hurt friends near you.",
-            (HeroKind.Vitalist, KitRole.Special) => "The hex about you: what it reaches is slowed, and takes more from every blow.",
-            (HeroKind.Aegis, KitRole.Primary) => "A bubble shot that bursts on what it hits, weakening it and those beside it.",
-            (HeroKind.Aegis, KitRole.Defensive) => "A barrier of light on the friend you aim at (or on you).",
-            (HeroKind.Aegis, KitRole.Special) => "A field of bubbles: you and every hero near you are wrapped in one.",
-            (HeroKind.Rogue, KitRole.Primary) => "A quick jab of the daggers (with none in hand, the attack calls them home).",
-            (HeroKind.Rogue, KitRole.Defensive) => "Slip out of sight: the creatures lose you for a moment.",
-            _ => "Throw a dagger at the creature nearest your aim; it sticks until the attack calls it home.",
+            (HeroKind.Swordsman, KitRole.Primary) => $"A swing of the sword: it {B(P)} in each creature it strikes. A **tipper**, a blow landing with the outer part of the blade, deals {Tune.Elements.TipperDamage:0.#}x and {(wind ? "shoves twice as hard" : "builds double")}: keep your distance.",
+            (HeroKind.Swordsman, KitRole.Defensive) => $"A quick roll out of harm's way. It lays on no element; but for {Tune.Elements.RiposteWindow:0.#} s after it, every blow is a tipper (the riposte).",
+            (HeroKind.Swordsman, KitRole.Special) => $"The Hard Swing: a great two-handed blow, on your feet. It {B(S)} in each creature it strikes (a tipper, double).",
+            (HeroKind.Warden, KitRole.Primary) => "A cut of the shortsword. The Warden's element isn't in his blade but in his shield.",
+            (HeroKind.Warden, KitRole.Defensive) => $"Hold to raise the shield: it stops most of each blow from the front, wearing as it does. A creature whose blow it stops: the shield {B(Tune.Elements.CounterBuild)}; raised just in time (a perfect block, all the blow stopped), it {B(S)}.",
+            (HeroKind.Warden, KitRole.Special) => $"The Guarded Charge: a shield-first rush that breaks off the attack it meets, and {B(S)} in that creature.",
+            (HeroKind.Elementalist, KitRole.Primary) => $"A bolt from the staff, flying to the creature nearest your aim: it {B(P)}.",
+            (HeroKind.Elementalist, KitRole.Defensive) => "Ward: a barrier on you and the friends near you. It lays on no element.",
+            (HeroKind.Elementalist, KitRole.Special) => $"A blast at the spot along your aim: it {B(S)} in everything there. Then the element **lingers** there for {Tune.Elements.ZoneSeconds:0} s, " + (wind ? "drawing what's in it to the middle." : $"building {Tune.Elements.ZoneBuild:0} more {lower} in everything in it, twice a second."),
+            (HeroKind.Vitalist, KitRole.Primary) => $"Tears the life out of the creature you aim at (it becomes vital force), and {B(P)}. On a creature your hex is seeping into, it **tears the rest out at once** ({Tune.Elements.DrainCash:0.#}x).",
+            (HeroKind.Vitalist, KitRole.Defensive) => "Spends vital force to mend you and the hurt friends near you. It lays on no element.",
+            (HeroKind.Vitalist, KitRole.Special) => "The hex about you: what it reaches is slowed, and takes more from every blow. It **carries your element**: " + (wind ? "wind buffets each creature in it, away from you, for as long as the hex lasts." : $"{lower} seeps into each creature it reaches, {Tune.Elements.HexSeep:0} a second for as long as the hex lasts (your drain tears it out at once)."),
+            (HeroKind.Aegis, KitRole.Primary) => $"A bubble shot that bursts on what it hits, weakening it and those beside it: it {B(P)} in each.",
+            (HeroKind.Aegis, KitRole.Defensive) => $"A barrier of light on the friend you aim at (or on you), and it **lends them your element** for {Tune.Elements.ImbueSeconds:0} s: each of their blows {B(Tune.Elements.ImbueBuild)}.",
+            (HeroKind.Aegis, KitRole.Special) => $"A field of bubbles: you and every hero near you are wrapped in one, and lent your element for {Tune.Elements.ImbueSeconds:0} s (each of their blows {B(Tune.Elements.ImbueBuild)}); each creature in it: it {B(S)}.",
+            (HeroKind.Rogue, KitRole.Primary) => $"A quick jab of the daggers: it {B(P)}. From hiding, {(wind ? "it shoves twice as hard" : "it builds double")}. With no dagger in hand, the attack calls them home.",
+            (HeroKind.Rogue, KitRole.Defensive) => "Slip out of sight: the creatures lose you for a moment, and your next jab, from hiding, lays on twice the element.",
+            _ => $"Throw a dagger at the creature nearest your aim: it {B(Tune.Elements.KnifeTouch)} as it lands, then **stores** {lower} while it stays in ({Tune.Elements.KnifeStore:0} a second, up to {Tune.Elements.KnifeStoreMax:0}). Press it again to call the knife home: it releases all it stored at once.",
         };
-        float amount = r switch { KitRole.Primary => Tune.Elements.PrimaryBuild, KitRole.Defensive => Tune.Elements.DefensiveBuild, _ => Tune.Elements.SpecialBuild };
-        // ("builds up fire (full, it burns...)": the amount goes after the element)
-        string touch = Elements.TouchText(el);
-        int paren = touch.IndexOf(" (", StringComparison.Ordinal);
-        if (el != HeroElement.Wind && paren > 0) touch = touch[..paren] + $" by {amount:0}" + touch[paren..];
-        string where = h == HeroKind.Warden && r == KitRole.Defensive ? "A creature whose blow it stops"
-            : r == KitRole.Defensive ? "As you use it, a pulse goes out about you: each creature it reaches"
-            : r == KitRole.Primary ? "Each creature it strikes" : "Each creature it reaches";
-        return $"{what} {where} {touch}. It works the same in every element: only what the element does to them changes.";
+        // (what a full meter does: "full, it burns; full again while burning, it combusts")
+        string tt = Elements.TouchText(el);
+        int open = tt.IndexOf('(');
+        string full = open > 0 && tt.EndsWith(")") ? $" Of {lower}: {tt[(open + 1)..^1]}." : "";
+        return $"{what.Replace("**", "")}{full} It works the same in every element: only what the element does changes.";
     }
 }

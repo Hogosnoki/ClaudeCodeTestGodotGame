@@ -740,7 +740,7 @@ public static class NetSync
     }
 
     /// <summary>Kinds of lasting effect a hero's blow can put on a creature.</summary>
-    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark, Expose, Venom, Build, Sap, Shove, Mire }
+    public enum Effect : byte { Freeze = 1, Interrupt, Weaken, Hex, Bleed, Ignite, Chill, Frost, Thaw, Quench, Ward, HealMark, Expose, Venom, Build, Sap, Shove, Mire, Seep }
 
     public static void EffectPuppet(Enemy e, Effect kind, float a, float b = 0, float c = 0, float d = 0, Vector2 v = default, string label = "")
     {
@@ -788,6 +788,7 @@ public static class NetSync
                 case Effect.Sap: e.Sap(a); break;
                 case Effect.Shove: e.Shove(v); break;
                 case Effect.Mire: e.Mire(a); break;
+                case Effect.Seep: e.Seep((HeroElement)(int)a, b, c); break;
                 case Effect.Chill: e.Chill(a, b); break;
                 case Effect.Frost: e.FreezeSolid(a); break;
                 case Effect.Thaw: e.Thaw(); break;

@@ -249,6 +249,7 @@ public partial class Player
             // a dagger in a creature tears back out through it, yanking it toward you
             if (d.State == ThrownDagger.Phase.Stuck && d.StuckIn is Enemy e && IsInstanceValid(e) && !e.Dead)
             {
+                ReleaseKnife(d, e);
                 RecallStrike(e, d.GlobalPosition, surprise);
                 surprise = false;
             }

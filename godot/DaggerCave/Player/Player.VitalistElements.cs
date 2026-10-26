@@ -62,7 +62,7 @@ public partial class Player
     /// <summary>The drain's strike landed on <paramref name="t"/>: what the version adds (<paramref name="dealt"/>: what it tore out).</summary>
     private void VitalDrainStruck(Enemy t, float dmg, float dealt)
     {
-        if (_vDrain == SimpleVer) { SimpleTouch(t, KitRole.Primary, CastPoint); return; }
+        if (_vDrain == SimpleVer) { SimpleDrainStruck(t); return; }
         float p = Stats.DamageMult, full = Tune.Elements.Full;
         var nature = Elements.ColorOf(HeroElement.Nature);
         var water = Elements.ColorOf(HeroElement.Water);

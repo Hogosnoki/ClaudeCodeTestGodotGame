@@ -132,6 +132,8 @@ public partial class Player
     /// <summary>A barrier version went on <paramref name="who"/>: what else it gives them.</summary>
     private void AegisWardGiven(string ver, Player who)
     {
+        // (the simple kit's barrier lends the hero it wraps her element)
+        if (ver == SimpleVer) { who.GiveBuff(BuffImbue(Mode), Tune.Elements.ImbueSeconds); return; }
         float secs = Tune.Aegis.BarrierSeconds;
         switch (ver)
         {
@@ -193,6 +195,7 @@ public partial class Player
         if (ver == SimpleVer)
         {
             foreach (var e in foes) SimpleTouch(e, KitRole.Special, c);
+            foreach (var h in wrapped) h.GiveBuff(BuffImbue(Mode), Tune.Elements.ImbueSeconds);
             G.Fx.Ring(c, r, new Color(Elements.ColorOf(Mode), 0.75f), 0.4f, FxLayer.RingStyle.Burst);
             return;
         }

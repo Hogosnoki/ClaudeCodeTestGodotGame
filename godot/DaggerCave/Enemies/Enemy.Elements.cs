@@ -34,6 +34,15 @@ public abstract partial class Enemy
     public int Entangled { get; private set; }
     /// <summary>Entangled now: vines about it, fire building faster in it, frost slower.</summary>
     public bool Tangled => _tangleT > 0;
+    /// <summary>For the tests: all of each element that has gone into it (by <see cref="HeroElement"/>), whatever it took hold as.</summary>
+    public readonly float[] BuiltTotal = new float[8];
+    /// <summary>An element seeping into it (the Vitalist's hex): <see cref="SeepRate"/> a second for <see cref="SeepLeft"/> s more.</summary>
+    public HeroElement SeepElement => _seepT > 0 ? _seepEl : HeroElement.None;
+    public float SeepLeft => Math.Max(0f, _seepT);
+    public float SeepRate => _seepRate;
+    private HeroElement _seepEl;
+    private float _seepRate, _seepT, _seepTick, _seepPower = 1f;
+    private Player _seepBy;
     /// <summary>For the tests: the reactions it has suffered (steam, mud, wildfire caught or spread).</summary>
     public int Steamed { get; private set; }
     public int Mudded { get; private set; }
@@ -57,6 +66,7 @@ public abstract partial class Enemy
         if (Puppet) { NetSync.EffectPuppet(this, NetSync.Effect.Build, (float)el, amount, power); return; }
         amount *= BuildTake;
         amount *= ReactionMult(el);
+        BuiltTotal[(int)el] += amount;
         _buildIdle = 0f;
         float full = Tune.Elements.Full;
         switch (el)
@@ -139,6 +149,62 @@ public abstract partial class Enemy
                 break;
         }
     }
+
+    /// <summary>An element seeps into it: <paramref name="perSecond"/> of it a second for <paramref name="seconds"/> (wind: a buffeting away
+    /// from <paramref name="by"/>), replacing any seep already there.</summary>
+    public void Seep(HeroElement el, float perSecond, float seconds, float power = 1f, Player by = null)
+    {
+        if (Dead || el == HeroElement.None) return;
+        // (a copy keeps its own count, for the drain that tears it out; the host lays it on)
+        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Seep, (float)el, perSecond, seconds);
+        _seepEl = el; _seepRate = perSecond; _seepT = seconds; _seepTick = 0f; _seepPower = power; _seepBy = by;
+    }
+
+    /// <summary>What is still to seep in, torn out at once and cleared (the build-up that was coming).</summary>
+    public float TakeSeep()
+    {
+        if (_seepT <= 0) return 0f;
+        float left = _seepRate * _seepT;
+        _seepT = 0f;
+        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Seep, (float)_seepEl, 0f, 0f);
+        return left;
+    }
+
+    private void TickSeep(float dt)
+    {
+        if (_seepT <= 0) return;
+        _seepT -= dt;
+        if ((_seepTick += dt) < 0.5f && _seepT > 0) return;
+        float amount = _seepRate * _seepTick;
+        _seepTick = 0f;
+        if (Puppet) return;
+        if (_seepEl == HeroElement.Wind)
+        {
+            var from = _seepBy != null && IsInstanceValid(_seepBy) ? _seepBy.GlobalPosition : GlobalPosition - Vector2.Right;
+            var away = (GlobalPosition - from).LengthSquared() > 1f ? (GlobalPosition - from).Normalized() : Vector2.Right;
+            Shove(away * amount * Tune.Elements.ShovePerBuild + new Vector2(0, -30f));
+        }
+        else Build(_seepEl, amount, _seepPower, _seepBy);
+        if (G.Chance(0.7f)) G.Fx.Ember(GlobalPosition + new Vector2(G.Range(-HitRadius, HitRadius), G.Range(-HitRadius, HitRadius * 0.5f)), Elements.ColorOf(_seepEl));
+    }
+
+    /// <summary>A blow from this game's hero while the Aegis's element is lent to them (imbued): their element with it.</summary>
+    private void Imbue(Player hero, DamageKind kind)
+    {
+        if (_imbuing || kind == DamageKind.Raw || Dead || !hero.Imbued(out var el)) return;
+        _imbuing = true;
+        try
+        {
+            if (el == HeroElement.Wind)
+            {
+                var away = (GlobalPosition - hero.GlobalPosition).LengthSquared() > 1f ? (GlobalPosition - hero.GlobalPosition).Normalized() : new Vector2(hero.Facing, 0);
+                Shove(away * Tune.Elements.ImbueBuild * Tune.Elements.ShovePerBuild + new Vector2(0, -40f));
+            }
+            else Build(el, Tune.Elements.ImbueBuild, hero.Stats.DamageMult, hero);
+        }
+        finally { _imbuing = false; }
+    }
+    private static bool _imbuing;
 
     /// <summary>Alight and full of fire again: it bursts, the fire's remainder with it.</summary>
     private void Combust(float power, Player by)
@@ -287,6 +353,7 @@ public abstract partial class Enemy
         if (_sapT > 0) _sapT -= dt;
         if (_mireT > 0) _mireT -= dt;
         if (_tangleT > 0) _tangleT -= dt;
+        TickSeep(dt);
         if (_blindT > 0)
         {
             _blindT -= dt;
