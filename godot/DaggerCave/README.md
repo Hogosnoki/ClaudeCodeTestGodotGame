@@ -2096,14 +2096,14 @@ The Swordsman, the Warden, the Elementalist, the Vitalist, the Aegis and the Rog
 (`Elements.Simple`, `Player/Player.Simple.cs`). The element changes what an ability does to what it reaches, never how the ability
 works:
 
-| | Primary attack (attack) | Defensive (dodge) | Special (ability) | Elements |
-|---|---|---|---|---|
-| Swordsman | Strike: a sword swing | Roll: a dodge roll | Cleave: the Hard Swing | earth, fire, frost |
-| Warden | Cut: the shortsword | Shield: the block (held) | Charge: the Guarded Charge | earth, frost, wind |
-| Elementalist | Bolt | Ward: a barrier on you and friends near | Burst: a blast at a spot along the aim | fire, frost, wind |
-| Vitalist | Drain | Mending: the heal | Hex: the hex about her | nature, wind, water |
-| Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | Dome: the bubble field | wind, earth, frost |
-| Rogue | Jab (no dagger in hand: recall) | Vanish | Knife: the dagger throw | dark, wind, nature |
+| | Primary attack (attack) | Defensive (dodge) | Special (ability) | Other (second ability; no element) | Elements |
+|---|---|---|---|---|---|
+| Swordsman | Strike: a sword swing | Roll: a dodge roll | Cleave: the Hard Swing | **Counter**: a parry stance (0.45 s); a creature's blow landing in it is turned aside and answered with a 1.5x riposte (5 s) | earth, fire, frost |
+| Warden | Cut: the shortsword | Shield: the block (held) | Charge: the Guarded Charge | **Shield Bash**: a shove that strikes and stuns what's in front | earth, frost, wind |
+| Elementalist | Bolt | Ward: a barrier on you and friends near | Burst: a blast at a spot along the aim | **Blink**: a step through the air up to 120 px along the aim, short of rock (4 s) | fire, frost, wind |
+| Vitalist | Drain | Mending: the heal | Hex: the hex about her | **Rupture**: a full reserve of vital force bursts in the creatures round her | nature, wind, water |
+| Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | Dome: the bubble field | **Humbling Light**: creatures round her hit softer for a while (in a party, **Shared Burden**) | wind, earth, frost |
+| Rogue | Jab (no dagger in hand: recall) | Vanish | Knife: the dagger throw | **Shadowstep**: to the far side of the creature nearest the aim (150 px), facing its back; the next jab within 1.5 s is a sure critical (6 s) | dark, wind, nature |
 
 * **An element button switches to its element**, and does nothing else: no overcharge, no attribute, no mixes. A switch takes
   effect at once, at most once a second (`Tune.Elements.SwitchCooldown`). Pressing the element you're in does nothing.
@@ -2126,10 +2126,12 @@ works:
 * **The look and sound are the element's.** Each use pops its name in the element's colour: Searing Strike, Rime Shield, Gale Hex,
   Thorn Drain, Shadow Knife (an adjective per element, `Elements.Adjective`, before the ability's noun, `Elements.Noun`). Bolts,
   bubbles, bursts, zones and the sparks of each touch take the element's colour; blows land with its sound; the weapon glows with it.
-* **The second ability button does nothing** for these heroes.
+* **The other ability** (the second ability button) is each class's own and carries no element: it works and looks the same whatever
+  element the hero is in (`SimpleOther`, `Tune.OtherAbility`). The Warden's Shield Bash, the Vitalist's Rupture and the Aegis's Humbling
+  Light are their classic ones; Counter, Blink and Shadowstep are new.
 * **HUD.** The three elements on the d-pad's half circle (the one you're in big and lit, the switch's cooldown round the middle),
-  then three squares in the element's colour (primary, defensive, special) with their cooldowns. The Vitalist's vital force bar
-  follows. Hovering a square gives the ability's full name, how this hero lays the element on, and what a full meter of it does
+  then three squares in the element's colour (primary, defensive, special) and a fourth in the hero's own colour (the other), with their
+  cooldowns. The Vitalist's vital force bar follows (the crimson mark is what a Rupture needs). Hovering a square gives the ability's full name, how this hero lays the element on, and what a full meter of it does
   (`UI/Hud.Simple.cs`).
 
 The Shape Shifter keeps her own rules (her element picks the creature she becomes; see below) and the Automaton has no elements. The
@@ -2188,7 +2190,9 @@ the rest of this section describes them.
 * the element buttons only switch, with a switch cooldown and nothing on top;
 * every ability in every element builds what it should (the Warden's cut and the plain defensives nothing; wind a shove, no build-up);
 * each ability's cooldown and blow are the same in every element;
-* the second ability button does nothing;
+* each class's other ability: the Counter turning a blow aside and answering it, the Shield Bash striking, the Blink's step, the
+  Rupture bursting, Humbling Light humbling, the Shadowstep landing behind and its next jab a sure critical, none of them laying an
+  element on;
 * each hero's own way: the Swordsman's tipper and riposte, the Warden's late block (20) against a perfect one (80), the Elementalist's
   zone building on, the Vitalist's drain tearing a hex's seep out, the Aegis's barrier lending her element to her own bubble, the
   Rogue's stored knife released on its recall, and her jab from hiding building double.

@@ -1220,6 +1220,21 @@ public static class Tune
         public static float PrimeSeconds = 4f, PrimeMult = 2f, PrimeWindow = 1f;
     }
 
+    /// <summary>
+    /// The simple kits' fourth, the other ability (the second ability button): each class's own, with no element in it. The Swordsman's
+    /// Counter: a parry stance for <c>ParryTime</c> s; a blow from a creature within reach that lands in it is turned aside and answered
+    /// with a riposte of <c>ParryRiposte</c> x a strike (<c>ParryCooldown</c> s). The Elementalist's Blink: a step through the air up to
+    /// <c>BlinkRange</c> px along the aim, short of rock (<c>BlinkCooldown</c> s). The Rogue's Shadowstep: to the far side of the creature
+    /// nearest the aim within <c>StepRange</c> px (<c>StepCone</c> degrees), her next jab within <c>StepCritWindow</c> s a sure critical
+    /// (<c>StepCooldown</c> s). The Warden's Shield Bash, the Vitalist's Rupture and the Aegis's Humbling Light (Shared Burden in a party)
+    /// are their classic ones.
+    /// </summary>
+    public static class OtherAbility
+    {
+        public static float ParryTime = 0.45f, ParryRiposte = 1.5f, ParryCooldown = 5f, BlinkRange = 120f, BlinkCooldown = 4f;
+        public static float StepRange = 150f, StepCone = 35f, StepCritWindow = 1.5f, StepCooldown = 6f;
+    }
+
     /// <summary>The world answering a simple kit's element (<see cref="DaggerCave.ElementWorld"/>): frost within <c>FloeReach</c> px of the
     /// water's surface lays a floe <c>FloeHalf</c> px each way that melts after <c>FloeSeconds</c>; nature with rock within <c>VineReach</c> px
     /// above lets down a vine up to <c>VineLength</c> px long for <c>VineSeconds</c>; wind blows a gas cloud <c>GasBlow</c> px along.</summary>

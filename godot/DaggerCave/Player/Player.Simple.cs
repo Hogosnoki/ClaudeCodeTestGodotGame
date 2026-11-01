@@ -417,6 +417,111 @@ public partial class Player
         return Tune.Elements.TipperDamage;
     }
 
+    // ================================================================== the other ability (each class's own, no element)
+
+    private float _parryT, _parryCd, _blinkCd, _stepCd, _stepCritT;
+    /// <summary>The Swordsman's Counter stance is up (a blow landing now is turned aside and answered).</summary>
+    public bool Parrying => _parryT > 0;
+    /// <summary>For the tests: counters from the stance, blinks, shadowsteps.</summary>
+    public int Parries { get; private set; }
+    public int Blinks { get; private set; }
+    public int Shadowsteps { get; private set; }
+
+    /// <summary>The second ability button: the class's own, the same in every element.</summary>
+    private bool SimpleOther(Vector2 aim)
+    {
+        bool ok = Stats.Hero switch
+        {
+            HeroKind.Swordsman => TryParry(aim),
+            HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
+            HeroKind.Elementalist => TryBlink(aim),
+            HeroKind.Vitalist => TryRupture(aim),
+            HeroKind.Aegis => TryBurden(aim),
+            HeroKind.Rogue => TryShadowstep(aim),
+            _ => false,
+        };
+        if (!ok) return false;
+        _lastEl = HeroElement.None;
+        Used(Stats.Hero == HeroKind.Aegis && Supporting ? "Burden" : Elements.Noun(Stats.Hero, KitRole.Other));
+        return true;
+    }
+
+    /// <summary>The Swordsman's Counter: a parry stance; the blow that lands in it is answered (see <see cref="TryCounter"/>).</summary>
+    private bool TryParry(Vector2 aim)
+    {
+        if (!IsSwordsman || _parryCd > 0 || Heaving || _dodgeT > 0 || _swingT >= 0) return false;
+        _parryT = Tune.OtherAbility.ParryTime;
+        _parryCd = Tune.OtherAbility.ParryCooldown;
+        if (Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
+        Velocity = new Vector2(0, Velocity.Y);
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("shove", 3, 1.6f);
+        var at = GlobalPosition + new Vector2(Facing * 10f, -6f);
+        G.Fx.Glint(at, new Color(0.85f, 0.95f, 1f), 10);
+        G.Fx.Ring(at, 14, new Color(0.85f, 0.95f, 1f, 0.8f), 0.25f, FxLayer.RingStyle.Dashed);
+        G.Sfx.Play("clink", at, -8, 0.05f, 1.8f);
+        return true;
+    }
+
+    /// <summary>A body fits here (the hero's middle at <paramref name="p"/>): open from head to feet, and a little each side.</summary>
+    private static bool Fits(Vector2 p)
+    {
+        var cave = G.Cave;
+        return !cave.IsSolid(p) && !cave.IsSolid(p + new Vector2(0, -11)) && !cave.IsSolid(p + new Vector2(0, 10)) && !cave.IsSolid(p + new Vector2(-6, 0)) && !cave.IsSolid(p + new Vector2(6, 0));
+    }
+
+    /// <summary>The Elementalist's Blink: a step through the air along the aim, short of rock and of rubble walls.</summary>
+    private bool TryBlink(Vector2 aim)
+    {
+        if (!IsElementalist || _blinkCd > 0) return false;
+        var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        var from = GlobalPosition;
+        G.Cave.Raycast(from, d, Tune.OtherAbility.BlinkRange, out var hit, 4f);
+        var to = hit - d * 10f;
+        while (to.DistanceTo(from) > 12f && (!Fits(to) || Breakables.Blocks(from, to))) to -= d * 6f;
+        if (to.DistanceTo(from) <= 12f) { SayNo("NO ROOM"); _blinkCd = 0.4f; return true; }
+        Afterimage.Spawn(Anim, new Color(0.75f, 0.6f, 1f), 0.3f);
+        G.Fx.Burst(from, new Color(0.8f, 0.7f, 1f, 0.8f), 12, 120, 1.8f, 0.3f, 0);
+        GlobalPosition = to;
+        Velocity = d * 80f;
+        _iframes = Math.Max(_iframes, 0.2f);
+        _blinkCd = Tune.OtherAbility.BlinkCooldown;
+        if (Math.Abs(d.X) > 0.15f) Facing = Math.Sign(d.X);
+        Anim.Face((int)Facing, instant: true);
+        G.Fx.Burst(to, new Color(0.8f, 0.7f, 1f, 0.9f), 12, 120, 1.8f, 0.3f, 0);
+        G.Fx.Ring(to, 16, new Color(0.8f, 0.7f, 1f, 0.8f), 0.25f, FxLayer.RingStyle.Burst);
+        G.Sfx.Play("dodge", to, -4, 0.05f, 1.6f);
+        Blinks++;
+        return true;
+    }
+
+    /// <summary>The Rogue's Shadowstep: to the far side of the creature nearest the aim, facing its back; her next jab is a sure critical.</summary>
+    private bool TryShadowstep(Vector2 aim)
+    {
+        if (!IsRogue || _stepCd > 0 || _tetherTo != null) return false;
+        aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
+        var t = FindSpellTarget(aim, Tune.OtherAbility.StepRange, Tune.OtherAbility.StepCone);
+        if (t == null) { SayNo("NO ONE TO STEP TO"); _stepCd = 0.4f; return true; }
+        float side = Math.Sign(t.GlobalPosition.X - GlobalPosition.X);
+        if (side == 0) side = Facing;
+        var to = t.GlobalPosition + new Vector2(side * (t.HitRadius + 12f), 0);
+        if (!Fits(to)) to = t.GlobalPosition + new Vector2(side * (t.HitRadius + 12f), -8f);
+        if (!Fits(to) || Breakables.Blocks(GlobalPosition, to)) { SayNo("NO ROOM BEHIND IT"); _stepCd = 0.4f; return true; }
+        G.Fx.Smoke(GlobalPosition, 5, new Color(0.18f, 0.12f, 0.24f, 0.75f), 30f);
+        GlobalPosition = to;
+        Velocity = Vector2.Zero;
+        Facing = -side;
+        Anim.Face((int)Facing, instant: true);
+        Anim.Once("dodge", 2, 1.6f);
+        _iframes = Math.Max(_iframes, 0.25f);
+        _stepCritT = Tune.OtherAbility.StepCritWindow;
+        _stepCd = Tune.OtherAbility.StepCooldown;
+        G.Fx.Smoke(to, 5, new Color(0.18f, 0.12f, 0.24f, 0.75f), 30f);
+        G.Sfx.Play("dodge", to, -6, 0.05f, 0.6f);
+        Shadowsteps++;
+        return true;
+    }
+
     // ================================================================== for the HUD
 
     /// <summary>A role's rest (0 = ready, 1 = just used).</summary>
@@ -429,6 +534,12 @@ public partial class Player
             (HeroKind.Vitalist, KitRole.Primary) => Math.Clamp(_drainCd / (Tune.Vitalist.DrainCooldown / atk), 0f, 1f),
             (HeroKind.Aegis, KitRole.Primary) => Math.Clamp(_wardCd / (Tune.Aegis.BoltEvery / atk), 0f, 1f),
             (_, KitRole.Primary) => SwingCooldownFrac,
+            (HeroKind.Swordsman, KitRole.Other) => Math.Clamp(_parryCd / Tune.OtherAbility.ParryCooldown, 0f, 1f),
+            (HeroKind.Warden, KitRole.Other) => BashCooldownFrac,
+            (HeroKind.Elementalist, KitRole.Other) => Math.Clamp(_blinkCd / Tune.OtherAbility.BlinkCooldown, 0f, 1f),
+            (HeroKind.Vitalist, KitRole.Other) => RuptureCooldownFrac,
+            (HeroKind.Aegis, KitRole.Other) => Supporting ? 0f : SmiteCooldownFrac,
+            (HeroKind.Rogue, KitRole.Other) => Math.Clamp(_stepCd / Tune.OtherAbility.StepCooldown, 0f, 1f),
             (HeroKind.Swordsman, KitRole.Defensive) => _dodgeCd.Length == 0 || _dodgeCd.Min() <= 0 ? 0f : Math.Clamp(_dodgeCd.Min() / Math.Max(0.01f, DodgeCooldownTotal), 0f, 1f),
             (HeroKind.Warden, KitRole.Defensive) => ShieldBroken ? Math.Clamp(_shieldBrokenT / Math.Max(0.01f, ShieldBreakTotal), 0f, 1f) : 0f,
             (HeroKind.Elementalist, KitRole.Defensive) => ElementAbilityFrac,

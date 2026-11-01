@@ -340,8 +340,9 @@ public partial class Player
         if (IsRogue)
         {
             // (a jab is exact: no spread) a critical strike, a stab in the back, a strike from the shadows
-            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit, sureCrit: _rSwing == "Nightfall") * echo;
+            dmg = _swingDmg * RogueStrikeMult(e, GlobalPosition, _swingSurprise, out crit, sureCrit: _rSwing == "Nightfall" || _stepCritT > 0) * echo;
             _swingSurprise = false;
+            _stepCritT = 0f;
         }
         // (a heaving swing shatters what is frozen solid: after the blow, the ice goes in a burst; with elements, only ThunderCrush does)
         dmg *= HiltDamageMult;

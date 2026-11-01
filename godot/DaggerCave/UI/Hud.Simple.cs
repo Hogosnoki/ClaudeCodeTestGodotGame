@@ -53,7 +53,18 @@ public partial class Hud
         }, p.SimpleName(KitRole.Special));
         if (p.Stats.Hero == HeroKind.Warden) UsePips(x, p, col);
         KeyHint(font, x, "ability");
-        _gaugeEnd = Math.Max(_gaugeEnd, step * 3f);
+        // the other: the class's own (no element, so in the hero's own colour)
+        x += new Vector2(step, 0);
+        float of = p.SimpleFrac(KitRole.Other);
+        bool oready = of <= 0 && (p.Stats.Hero != HeroKind.Vitalist || p.RuptureReady);
+        string other = p.Stats.Hero == HeroKind.Aegis && p.Supporting ? "Burden" : Elements.Noun(p.Stats.Hero, KitRole.Other);
+        AbilitySquare(font, x, other.ToUpperInvariant() + (p.Stats.Hero == HeroKind.Vitalist ? $" ({p.RuptureCost:0})" : ""), of, oready, HeroColor(p.Stats.Hero), (c, cc) =>
+        {
+            // a four-pointed star
+            DrawColoredPolygon(new[] { c + new Vector2(0, -12), c + new Vector2(3, -3), c + new Vector2(12, 0), c + new Vector2(3, 3), c + new Vector2(0, 12), c + new Vector2(-3, 3), c + new Vector2(-12, 0), c + new Vector2(-3, -3) }, cc);
+        }, other);
+        KeyHint(font, x, "ability2");
+        _gaugeEnd = Math.Max(_gaugeEnd, step * 4f);
         if (p.Stats.Hero != HeroKind.Vitalist) return;
         // the Vitalist's vital force reserve (each notch one heal)
         var bp = x + new Vector2(52, 10);
@@ -62,9 +73,11 @@ public partial class Hud
         UiArt.Bar(this, new Rect2(bp, new Vector2(w, 12)), Math.Clamp(p.VitalForce / max, 0, 1), new Color(0.42f, 0.85f, 0.4f));
         for (float v = p.HealCost; v < max - 0.01f; v += p.HealCost)
             DrawLine(bp + new Vector2(w * v / max, 0), bp + new Vector2(w * v / max, 12), new Color(0, 0, 0, 0.45f), 1f);
+        // (the crimson mark: what a Rupture needs)
+        if (p.RuptureCost <= max) DrawLine(bp + new Vector2(w * p.RuptureCost / max, -3), bp + new Vector2(w * p.RuptureCost / max, 15), Player.LifeColor, 2f);
         Tip(new Rect2(bp - new Vector2(2, 18), new Vector2(w + 4, 34)), "Vital force", "Life you have drained, held in reserve. Each notch is one Mending.");
         DrawString(font, bp + new Vector2(0, -8), $"VITAL FORCE  {Num.Shown(p.VitalForce)} / {Mathf.RoundToInt(max)}", HorizontalAlignment.Left, -1, 10, new Color(0.75f, 1f, 0.7f, 0.8f));
-        _gaugeEnd = Math.Max(_gaugeEnd, step * 3f + 52f + w);
+        _gaugeEnd = Math.Max(_gaugeEnd, step * 4f + 52f + w);
     }
 
     /// <summary>What a simple kit's ability does, by its name ("Searing Strike"): false for any other name.</summary>
@@ -72,12 +85,32 @@ public partial class Hud
     {
         tip = default;
         if (!Elements.Simple) return false;
+        // (the other ability: the class's own, no element)
+        foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
+            if (Elements.Noun(h, KitRole.Other) == name || (h == HeroKind.Aegis && name == "Burden")) { tip = (OtherTitle(h, name), OtherBody(h, name)); return true; }
         foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
             foreach (var el in Elements.Of(h))
                 foreach (var r in new[] { KitRole.Primary, KitRole.Defensive, KitRole.Special })
                     if (Elements.SimpleName(h, r, el) == name) { tip = (name, SimpleBody(h, r, el)); return true; }
         return false;
     }
+
+    private static string OtherTitle(HeroKind h, string name) => (h, name) switch
+    {
+        (HeroKind.Warden, _) => "Shield Bash", (HeroKind.Aegis, "Burden") => "Shared Burden", (HeroKind.Aegis, _) => "Humbling Light", _ => name,
+    };
+
+    /// <summary>What a class's other ability does (the second ability button; no element in it).</summary>
+    private static string OtherBody(HeroKind h, string name) => (h, name) switch
+    {
+        (HeroKind.Swordsman, _) => $"A parry stance for {Tune.OtherAbility.ParryTime:0.##} s: a creature's blow that lands in it is turned aside, and you answer at once with a riposte of {Tune.OtherAbility.ParryRiposte:0.#}x a strike. Read the attack, then press it. ({Tune.OtherAbility.ParryCooldown:0} s)",
+        (HeroKind.Warden, _) => "A shove with the shield: everything in front of you is struck and stunned, for a share of the shield.",
+        (HeroKind.Elementalist, _) => $"A step through the air: you appear up to {Tune.OtherAbility.BlinkRange:0} px along your aim, short of rock, untouchable for a moment. ({Tune.OtherAbility.BlinkCooldown:0} s)",
+        (HeroKind.Vitalist, _) => "A full reserve of vital force bursts in the creatures round you (the crimson mark on the bar is what it needs).",
+        (HeroKind.Aegis, "Burden") => "Carry part of a friend's hurt: aimed at a friend, you take a share of what they take.",
+        (HeroKind.Aegis, _) => "A burst of light round you: no blow, but every creature it reaches hits a good deal softer for a few seconds.",
+        _ => $"Melt into shadow and step out behind the creature nearest your aim (within {Tune.OtherAbility.StepRange:0} px), facing its back; your next jab within {Tune.OtherAbility.StepCritWindow:0.#} s is a sure critical. ({Tune.OtherAbility.StepCooldown:0} s)",
+    };
 
     private static string SimpleBody(HeroKind h, KitRole r, HeroElement el)
     {

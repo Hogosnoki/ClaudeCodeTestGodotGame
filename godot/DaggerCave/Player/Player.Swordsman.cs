@@ -55,6 +55,7 @@ public partial class Player
         for (int k = 0; k < _abilityCd.Length; k++) _abilityCd[k] = 0;
         for (int k = 0; k < _stormOwes.Length; k++) _stormOwes[k] = false;
         _snapOwes = false; _snapCd = 0; _updraftOwes = false; _updraftCd = 0;
+        _parryCd = _blinkCd = _stepCd = 0;
     }
 
     /// <summary>Test harness: the timers that gate the buttons.</summary>
@@ -223,7 +224,9 @@ public partial class Player
     /// </summary>
     private bool TryCounter(Enemy source)
     {
-        if (!Stats.CounterRoll || _dodgeT <= 0 || source == null || !IsInstanceValid(source) || source.Dead) return false;
+        // (Counter Roll mid-roll, or the simple kit's Counter stance)
+        bool parry = _parryT > 0;
+        if ((!parry && (!Stats.CounterRoll || _dodgeT <= 0)) || source == null || !IsInstanceValid(source) || source.Dead) return false;
         if (source.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Swordsman.CounterReach + source.HitRadius) return false;
         _dodgeT = 0;
         // the roll stops dead: you stand your ground and answer
@@ -232,6 +235,7 @@ public partial class Player
         var to = source.GlobalPosition - (GlobalPosition + new Vector2(0, -3));
         StartSwing(to.LengthSquared() > 1 ? to.Normalized() : new Vector2(Facing, 0), counter: true);
         Counters++;
+        if (parry) { _parryT = 0f; _swingDmg *= Tune.OtherAbility.ParryRiposte; Parries++; }
         var at = GlobalPosition + new Vector2(0, -4) + to.Normalized() * 10;
         G.Fx.Text(GlobalPosition + new Vector2(0, -28), "COUNTER", new Color(0.8f, 0.95f, 1f), 11, 0.7f);
         G.Fx.Spark(at, to.Normalized(), true, new Color(0.85f, 0.95f, 1f));

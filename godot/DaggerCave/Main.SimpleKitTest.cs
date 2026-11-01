@@ -11,7 +11,8 @@ public partial class Main
     /// `--scenario=elements --hero=swordsman|warden|elementalist|vitalist|aegis|rogue`, the simple kits (<see cref="Elements.Simple"/>): an
     /// element button switches to its element (nothing goes on top; one switch a second); each of the three abilities, in each element,
     /// lands with the same damage and the same cooldown and gives what it reaches the element's touch (its build-up, by the ability's role;
-    /// wind, a shove); a defensive also pulses about the hero; the second ability button does nothing; the HUD (simple_hud.png).
+    /// wind, a shove); each hero's own way of laying it on; the switch's reward; each class's other ability (the second ability button, no
+    /// element); the HUD (simple_hud.png).
     /// </summary>
     private IEnumerable<object> SimpleKitRun()
     {
@@ -295,11 +296,84 @@ public partial class Main
             ScCheck($"{Elements.Noun(hero, r)}: the same blow in every element ({string.Join(" / ", ds.Select(x => x.ToString("0.0")))})", lo > 0 && hi <= lo * spread + 0.5f);
         }
 
-        // ---- no second ability button
-        p.ResetAbilityCooldowns();
-        int u0 = p.ElementalUses.Count;
-        foreach (var _ in ElPress(new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }, 0.4f)) yield return null;
-        ScCheck($"the second ability button does nothing ({p.ElementalUses.Count - u0} uses)", p.ElementalUses.Count == u0);
+        // ---- the other ability (the second ability button): each class's own, no element
+        {
+            IEnumerable<object> Other(Vector2 a)
+            {
+                _scInput = new PlayerInput { Ability2 = true, Aim = a, AimGiven = true }; yield return null; yield return null; _scInput = default;
+            }
+            p.TestMode(mine);
+            foreach (var _ in Ready(30f)) yield return null;
+            var f = foe;
+            float hp0 = f.Hp, all0 = AllBuild(f);
+            int u0 = p.ElementalUses.Count;
+            switch (hero)
+            {
+                case HeroKind.Swordsman:
+                {
+                    // the Counter: the stance, a blow in it turned aside and answered harder
+                    foreach (var _ in Other(aim)) yield return null;
+                    bool up = p.Parrying;
+                    float me0 = p.Hp;
+                    int c0 = p.Parries;
+                    p.Hurt(30f, f.GlobalPosition, 200f, f);
+                    foreach (var _ in ElWait(0.8f)) yield return null;
+                    ScCheck($"Counter: the stance goes up ({up}); a blow in it is turned aside ({me0 - p.Hp:0} taken) and answered ({p.Parries - c0} counter, {hp0 - f.Hp:0} dealt)", up && me0 - p.Hp < 0.5f && p.Parries > c0 && f.Hp < hp0);
+                    break;
+                }
+                case HeroKind.Warden:
+                {
+                    foreach (var _ in Other(aim)) yield return null;
+                    foreach (var _ in ElWait(0.8f)) yield return null;
+                    ScCheck($"Shield Bash: it strikes the creature in front ({hp0 - f.Hp:0} dealt) and rests ({p.SimpleFrac(KitRole.Other):0.00})", f.Hp < hp0 && p.SimpleFrac(KitRole.Other) > 0f);
+                    break;
+                }
+                case HeroKind.Elementalist:
+                {
+                    var at0 = p.GlobalPosition;
+                    var away = new Vector2(-p.Facing, 0);
+                    foreach (var _ in Other(away)) yield return null;
+                    yield return null;
+                    float moved = (p.GlobalPosition - at0).Dot(away);
+                    ScCheck($"Blink: she steps through the air along the aim ({moved:0} px, {p.Blinks} blink, up to {Tune.OtherAbility.BlinkRange:0})", p.Blinks >= 1 && moved > 30f && moved <= Tune.OtherAbility.BlinkRange + 2f);
+                    break;
+                }
+                case HeroKind.Vitalist:
+                {
+                    p.SetVitalForce(p.Stats.VitalForceMax);
+                    foreach (var _ in Other(aim)) yield return null;
+                    foreach (var _ in ElWait(1.6f)) yield return null;
+                    ScCheck($"Rupture: the vital force bursts in the creature ({hp0 - f.Hp:0} dealt, {p.VitalForce:0} force left of {p.Stats.VitalForceMax:0})", f.Hp < hp0 && p.VitalForce < p.Stats.VitalForceMax);
+                    break;
+                }
+                case HeroKind.Aegis:
+                {
+                    int h0 = p.Humbled;
+                    foreach (var _ in Other(aim)) yield return null;
+                    foreach (var _ in ElWait(0.4f)) yield return null;
+                    ScCheck($"Humbling Light: the creature near her is humbled ({p.Humbled - h0})", p.Humbled > h0);
+                    break;
+                }
+                case HeroKind.Rogue:
+                {
+                    float side0 = Math.Sign(f.GlobalPosition.X - p.GlobalPosition.X);
+                    foreach (var _ in Other(aim)) yield return null;
+                    yield return null;
+                    float side1 = Math.Sign(f.GlobalPosition.X - p.GlobalPosition.X);
+                    bool facing = Math.Sign(f.GlobalPosition.X - p.GlobalPosition.X) == p.Facing;
+                    ScCheck($"Shadowstep: she steps to the creature's far side ({side0} -> {side1}, {p.Shadowsteps} step), facing it ({facing})", p.Shadowsteps >= 1 && side1 == -side0 && facing);
+                    // (and the next jab is a sure critical)
+                    float before = f.Hp;
+                    foreach (var _ in Use(KitRole.Primary)) yield return null;
+                    foreach (var _ in ElWait(0.8f)) yield return null;
+                    ScCheck($"  and her next jab is a sure critical ({before - f.Hp:0} dealt, a plain jab {dmg[(KitRole.Primary, els[0])]:0})", before - f.Hp > dmg[(KitRole.Primary, els[0])] * 1.4f);
+                    break;
+                }
+            }
+            string noun = hero == HeroKind.Aegis && p.Supporting ? "Burden" : Elements.Noun(hero, KitRole.Other);
+            ScCheck($"  it pops its name ({noun}) and lays no element on of itself ({AllBuild(f) - all0:0})", p.ElementalUses.Skip(u0).Contains(noun) && (hero == HeroKind.Rogue || AllBuild(f) - all0 < 0.5f));
+            ScShot("simple_other");
+        }
         p.GlobalPosition = home;
         foreach (var _ in ElWait(0.6f)) yield return null;
         ScShot("simple_hud");

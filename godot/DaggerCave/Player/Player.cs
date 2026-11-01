@@ -738,7 +738,7 @@ public partial class Player : CharacterBody2D
     });
 
     /// <summary>The second ability button: heaving swing, shield bash, rupture or snap. True once it fires.</summary>
-    private bool Ability2(Vector2 aim) => _snagT <= 0 && !SimpleKit && Stats.Hero switch
+    private bool Ability2(Vector2 aim) => _snagT <= 0 && (SimpleKit ? SimpleOther(aim) : Stats.Hero switch
     {
         // (the elemental Warden has no Shield Bash)
         HeroKind.Warden => !Elemental && _dashT <= 0 && TryShieldBash(aim),
@@ -749,7 +749,7 @@ public partial class Player : CharacterBody2D
         HeroKind.ShapeShifter => TrySpecial(aim),
         HeroKind.Automaton => TrySteam(aim),
         _ => Elemental ? TryHardSwing(aim) : TryHeave(aim),
-    };
+    });
 
     /// <summary>The dodge button's press: a roll, a hex or an updraft (the Warden's shield reads the button itself).</summary>
     private bool DodgeButton(in PlayerInput inp) => SimpleKit ? SimpleDefensive(inp) : Stats.Hero switch

@@ -33,8 +33,9 @@ archived.
 
 ## Retired buttons
 
-The simple kits use three buttons: attack, dodge and ability. The second ability button does nothing for them. These were on it, or
-on a button whose role changed:
+The simple kits use the attack, dodge and ability buttons for their three elemental roles, and the second ability button for each class's
+own other ability (Counter, Shield Bash, Blink, Rupture, Humbling Light / Shared Burden, Shadowstep: see the README). These were on the
+buttons whose role changed:
 
 | Hero | Ability | Was on | Now |
 |---|---|---|---|
@@ -45,10 +46,10 @@ on a button whose role changed:
 | Elementalist | The fixed-range spell (Force Blast, Burst, Snap, Cyclone and the rest) | Second ability | The special, Burst, on the ability button |
 | Elementalist | Lift, Fire Walk, Tundra, Updraft and their pairs | Dodge | Retired: the dodge button is now the Ward |
 | Elementalist | Aid buffs (Kindling, Frost Armor, Narrow Draft and their pairs) | Ability | Retired: the plain Ward is the defensive |
-| Vitalist | Rupture | Second ability | Retired from the simple kit |
+| Vitalist | Rupture | Second ability | Back on the second ability button, as her other ability |
 | Vitalist | The hex | Dodge | The special, on the ability button |
 | Vitalist | The heal | Ability | The defensive, Mending, on the dodge button |
-| Aegis | Humbling Light and Shared Burden | Second ability | Retired from the simple kit |
+| Aegis | Humbling Light and Shared Burden | Second ability | Back on the second ability button, as her other ability |
 | Aegis | The bubble field | Dodge | The special, Dome, on the ability button |
 | Aegis | The barrier | Ability | The defensive, on the dodge button |
 | Rogue | Recall (and Tether) | Second ability | The attack calls the daggers home while none is in hand |

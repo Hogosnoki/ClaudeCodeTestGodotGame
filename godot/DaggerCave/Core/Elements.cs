@@ -12,8 +12,9 @@ public enum HeroElement : byte { None, Earth, Fire, Frost, Wind, Nature, Water, 
 public enum ElemSlot : byte { Attack, Move, Heavy, Aid }
 
 /// <summary>The three kinds of ability a simple kit has (<see cref="Elements.Simple"/>): the primary attack (the attack button), the
-/// defensive (the dodge button) and the special (the ability button).</summary>
-public enum KitRole : byte { Primary, Defensive, Special }
+/// defensive (the dodge button), the special (the ability button) and the other (the second ability button: each class's own, with no
+/// element in it).</summary>
+public enum KitRole : byte { Primary, Defensive, Special, Other }
 
 /// <summary>
 /// The elemental heroes: a hero's attacks are plain until an element is added to one. Pressing an element's button (1, 2, 3; a
@@ -58,11 +59,14 @@ public static class Elements
         (HeroKind.Vitalist, KitRole.Primary) => "Drain", (HeroKind.Vitalist, KitRole.Defensive) => "Mending", (HeroKind.Vitalist, KitRole.Special) => "Hex",
         (HeroKind.Aegis, KitRole.Primary) => "Bubble", (HeroKind.Aegis, KitRole.Defensive) => "Barrier", (HeroKind.Aegis, KitRole.Special) => "Dome",
         (HeroKind.Rogue, KitRole.Primary) => "Jab", (HeroKind.Rogue, KitRole.Defensive) => "Vanish", (HeroKind.Rogue, KitRole.Special) => "Knife",
+        // (the other ability: each class's own, the same whatever the element)
+        (HeroKind.Swordsman, KitRole.Other) => "Counter", (HeroKind.Warden, KitRole.Other) => "Bash", (HeroKind.Elementalist, KitRole.Other) => "Blink",
+        (HeroKind.Vitalist, KitRole.Other) => "Rupture", (HeroKind.Aegis, KitRole.Other) => "Humble", (HeroKind.Rogue, KitRole.Other) => "Shadowstep",
         _ => r.ToString(),
     };
 
     /// <summary>A simple kit's ability in an element: "Searing Strike", "Rime Shield", "Thorn Drain".</summary>
-    public static string SimpleName(HeroKind h, KitRole r, HeroElement e) => e == HeroElement.None ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
+    public static string SimpleName(HeroKind h, KitRole r, HeroElement e) => e == HeroElement.None || r == KitRole.Other ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
 
     /// <summary>What an element's touch does to what it reaches (for the tips).</summary>
     public static string TouchText(HeroElement e) => e switch

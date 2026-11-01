@@ -296,6 +296,11 @@ public partial class Player
         if (_riposteT > 0) _riposteT -= dt;
         if (_primedT > 0) _primedT -= dt;
         _kitClock += dt;
+        if (_parryT > 0) _parryT -= dt;
+        if (_parryCd > 0) _parryCd -= dt;
+        if (_blinkCd > 0) _blinkCd -= dt;
+        if (_stepCd > 0) _stepCd -= dt;
+        if (_stepCritT > 0) _stepCritT -= dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;
         if (_lungeLeapT > 0) _lungeLeapT -= dt;
         if (_dualBoltCd > 0) _dualBoltCd -= dt;
