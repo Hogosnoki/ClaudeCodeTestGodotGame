@@ -71,6 +71,14 @@ public partial class Generator : Enemy
     {
         var mouth = GlobalPosition + new Vector2(G.Range(-8f, 8f), -4f);
         var e = Main.EntrantFor(mouth, out var pos);
+        // (a biome with nothing that comes in from outside: its own residents crawl out instead)
+        if (e == null)
+        {
+            bool wet = G.Cave.IsWater(mouth);
+            if (!G.Biome.Residents.TryGetValue(wet ? SpawnKind.Water : SpawnKind.Ground, out var table) || table.Count == 0) return;
+            e = Biomes.Pick(table).Make();
+            pos = !wet && G.Cave.FindFloor(mouth, 140, out var floor) ? floor + new Vector2(0, -12) : mouth;
+        }
         if (e == null) return;
         e.Minion = true;
         e.Position = G.Cave.IsSolid(pos) ? mouth : pos;

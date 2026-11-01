@@ -15,6 +15,8 @@ public partial class TrialSeal : StaticBody2D
     public readonly List<Vector2I> Cells = new();
     private float _t, _fade = -1f;
     public bool Opening => _fade >= 0f;
+    /// <summary>How far up the wards stand: rising over a quarter second, fading over the last.</summary>
+    public float Shown => Math.Min(1f, _t / 0.25f) * (Opening ? Math.Max(0f, 1f - _fade / 0.6f) : 1f);
 
     public override void _Ready()
     {

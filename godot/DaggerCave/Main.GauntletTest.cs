@@ -68,6 +68,8 @@ public partial class Main
         int coins = _world.GetChildren().OfType<CoinPickup>().Sum(c => c.Count), broken = Generator.Broken;
         float dmg = p.Stats.DamageMult, speed = p.Stats.MoveSpeed;
         p.GlobalPosition = gen.GlobalPosition + new Vector2(-40, 10);
+        // (its experience would level the hero up mid-test and change the numbers: none for this one)
+        gen.XpValue = 0;
         gen.Hurt(gen.MaxHp * 4f, Vector2.Zero, gen.GlobalPosition, DamageKind.Raw);
         Tune.Gauntlet.PowerChance = power;
         foreach (var _ in Wait(0.3f)) yield return null;
@@ -121,10 +123,12 @@ public partial class Main
         foreach (var _ in Wait(1.2f)) yield return null;
         Tune.Gauntlet.TrialTreasureChance = chance;
         var seal = TrialSeal.All.FirstOrDefault(s => s.RoomIndex == cave.Rooms.IndexOf(room));
+        // (the trial's own cells: the room grown out to its narrowest rim)
+        inside = TrialCells(cave, room);
         ScCheck($"walking in shuts it (trials {TrialsBegun}, wards over {seal?.Cells.Count ?? 0} cells)", TrialsBegun >= 1 && seal != null && seal.Cells.Count > 0);
         if (seal == null) yield break;
         // the wards are solid: a point in each one meets a body there
-        var space = GetWorld2D().DirectSpaceState;
+        var space = _world.GetWorld2D().DirectSpaceState;
         int solid = 0;
         foreach (var c in seal.Cells)
         {
@@ -144,6 +148,9 @@ public partial class Main
         ScCheck($"every way out is warded (leak {leak})", !leak);
         var gens = Generators.Where(g => IsInstanceValid(g) && !g.Dead && g.Trial == room).ToList();
         ScCheck($"generators rise inside ({gens.Count})", gens.Count >= Tune.Gauntlet.TrialGenerators && gens.All(g => inside.Contains((int)(g.GlobalPosition.Y / CaveData.Cell) * cave.W + (int)(g.GlobalPosition.X / CaveData.Cell))));
+        // (for the picture: the hero by one of the warded doorways)
+        var ward = new Vector2(seal.Cells[0].X + 0.5f, seal.Cells[0].Y + 0.5f) * CaveData.Cell;
+        p.GlobalPosition = Mid(inside.OrderBy(k => Mid(k).DistanceSquaredTo(ward)).Skip(2).First());
         foreach (var _ in Wait(2.5f)) yield return null;
         ScShot("trial_shut");
         // not won while a generator stands

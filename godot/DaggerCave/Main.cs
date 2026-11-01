@@ -2580,7 +2580,7 @@ public partial class Main : Node
                 // and ledges inside it used to block that, and the guardian never came.)
                 // (a trial shuts behind you: only once you're well inside it)
                 bool inside = room.Kind == RoomKind.Boss ? InRoom(cave, room, h.GlobalPosition, 0.9f)
-                    : IsTrial(cave, room) ? InRoom(cave, room, h.GlobalPosition, 0.8f)
+                    : IsTrial(cave, room) ? InTrial(cave, room, h.GlobalPosition)
                     : room.Center.DistanceTo(h.GlobalPosition) <= Math.Max(room.RxPx, room.RyPx) + 60;
                 if (inside) { p = h; break; }
             }

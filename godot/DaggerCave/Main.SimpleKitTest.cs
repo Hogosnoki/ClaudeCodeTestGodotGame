@@ -364,7 +364,11 @@ public partial class Main
                     ScCheck($"Shadowstep: she steps to the creature's far side ({side0} -> {side1}, {p.Shadowsteps} step), facing it ({facing})", p.Shadowsteps >= 1 && side1 == -side0 && facing);
                     // (and the next jab is a sure critical)
                     float before = f.Hp;
+                    // (from the far side: the jab is aimed back at the creature)
+                    var aim0 = aim;
+                    aim = new Vector2(Math.Sign(f.GlobalPosition.X - p.GlobalPosition.X), 0);
                     foreach (var _ in Use(KitRole.Primary)) yield return null;
+                    aim = aim0;
                     foreach (var _ in ElWait(0.8f)) yield return null;
                     ScCheck($"  and her next jab is a sure critical ({before - f.Hp:0} dealt, a plain jab {dmg[(KitRole.Primary, els[0])]:0})", before - f.Hp > dmg[(KitRole.Primary, els[0])] * 1.4f);
                     break;

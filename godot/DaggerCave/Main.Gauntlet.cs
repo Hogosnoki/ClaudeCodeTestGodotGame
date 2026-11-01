@@ -100,6 +100,15 @@ public partial class Main
         };
     }
 
+    /// <summary>Well inside a trial room: on one of its cells, and well in from its sides (its floor may lie near the rim of its oval: only the sideways distance counts).</summary>
+    private bool InTrial(CaveData cave, Room room, Vector2 at)
+    {
+        var cells = RoomCells(cave, room);
+        int i = (int)(at.X / CaveData.Cell), j = (int)(at.Y / CaveData.Cell);
+        if (!cells.Contains(j * cave.W + i) && !cells.Contains((j - 1) * cave.W + i)) return false;
+        return Math.Abs(at.X - room.Center.X) <= (room.RxPx + 1.5f * CaveData.Cell) * 0.7f;
+    }
+
     /// <summary>The cells to ward: every open cell just outside the room's own (the only ways in or out).</summary>
     private static List<Vector2I> RimCells(CaveData cave, HashSet<int> inside)
     {
@@ -118,9 +127,48 @@ public partial class Main
         return rim.Select(n => new Vector2I(n % cave.W, n / cave.W)).ToList();
     }
 
+    /// <summary>
+    /// A trial's own cells: the room's box grown outward step by step to where its rim is narrowest, so the wards stand in
+    /// the mouths of the tunnels into it, not across the open cave. Never so far it takes in where you arrived.
+    /// </summary>
+    private static HashSet<int> TrialCells(CaveData cave, Room room)
+    {
+        HashSet<int> best = null; int bestRim = int.MaxValue;
+        int start = (int)(cave.StartPos.Y / CaveData.Cell) * cave.W + (int)(cave.StartPos.X / CaveData.Cell);
+        int si = (int)(room.Floor.X / CaveData.Cell), sj = (int)(room.Floor.Y / CaveData.Cell) - 1;
+        for (int k = 0; k < 4 && !cave.CellOpen(si, sj); k++) sj--;
+        if (!cave.CellOpen(si, sj)) { si = (int)(room.Center.X / CaveData.Cell); sj = (int)(room.Center.Y / CaveData.Cell); }
+        if (!cave.CellOpen(si, sj)) return new HashSet<int>();
+        float ci = room.Center.X / CaveData.Cell, cj = room.Center.Y / CaveData.Cell;
+        foreach (float scale in new[] { 1f, 1.15f, 1.3f, 1.5f, 1.75f, 2f, 2.4f })
+        {
+            float rx = room.RxPx / CaveData.Cell * scale + 1.5f, ry = room.RyPx / CaveData.Cell * scale + 2f;
+            var set = new HashSet<int> { sj * cave.W + si };
+            var q = new Queue<(int, int)>();
+            q.Enqueue((si, sj));
+            while (q.Count > 0)
+            {
+                var (i, j) = q.Dequeue();
+                foreach (var (di, dj) in new[] { (1, 0), (-1, 0), (0, 1), (0, -1) })
+                {
+                    int a = i + di, c = j + dj;
+                    if (a < 0 || c < 0 || a >= cave.W || c >= cave.H || !cave.CellOpen(a, c)) continue;
+                    // (a box, not an oval: its walls cross a tunnel straight up and down, a clean column of wards)
+                    if (Math.Abs(a + 0.5f - ci) > rx || Math.Abs(c + 0.5f - cj) > ry) continue;
+                    if (set.Add(c * cave.W + a)) q.Enqueue((a, c));
+                }
+            }
+            if (set.Contains(start)) break;
+            int rim = RimCells(cave, set).Count;
+            // (a narrower rim wins; a tie goes to the smaller room)
+            if (rim < bestRim) { bestRim = rim; best = set; }
+        }
+        return best ?? new HashSet<int>();
+    }
+
     private void BeginTrial(CaveData cave, Room room)
     {
-        var inside = RoomCells(cave, room);
+        var inside = TrialCells(cave, room);
         if (inside.Count < 12) return;
         var t = new TrialState { Room = room, Index = cave.Rooms.IndexOf(room), Cells = inside, Elite = room.Kind == RoomKind.MiniBoss ? _denElite : null };
         _denElite = null;
@@ -146,13 +194,19 @@ public partial class Main
                 int i = k % cave.W, j = k / cave.W;
                 return !cave.CellOpen(i, j + 1) && inside.Contains((j - 1) * cave.W + i) && inside.Contains((j - 2) * cave.W + i);
             }).Select(k => new Vector2((k % cave.W + 0.5f) * CaveData.Cell, (k / cave.W + 1) * CaveData.Cell - 22f)).OrderBy(_ => G.Rng.Next()).ToList();
+            // (a generator floats: when the floor is crowded, one hangs in the room's open air instead)
+            var air = inside.Where(k =>
+            {
+                int i = k % cave.W, j = k / cave.W;
+                return inside.Contains(j * cave.W + i - 1) && inside.Contains(j * cave.W + i + 1) && inside.Contains((j - 1) * cave.W + i) && inside.Contains((j + 1) * cave.W + i);
+            }).Select(Mid).OrderBy(_ => G.Rng.Next());
             var spots = new List<Vector2>();
-            foreach (var at in floors)
+            foreach (var at in floors.Concat(air))
             {
                 if (spots.Count >= want) break;
                 if (cave.IsSolid(at) || cave.IsSolid(at + new Vector2(-16, 0)) || cave.IsSolid(at + new Vector2(16, 0))) continue;
-                if (G.Players.Any(h => h != null && !h.Dead && h.GlobalPosition.DistanceTo(at) < 90f)) continue;
-                if (spots.Any(s => s.DistanceTo(at) < 80f)) continue;
+                if (G.Players.Any(h => h != null && !h.Dead && h.GlobalPosition.DistanceTo(at) < 70f)) continue;
+                if (spots.Any(s => s.DistanceTo(at) < 64f)) continue;
                 spots.Add(at);
             }
             foreach (var at in spots)

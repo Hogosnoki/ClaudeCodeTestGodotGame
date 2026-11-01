@@ -78,6 +78,7 @@ public static class PropViews
             MagmaCracks => new MagmaCracksView(),
             BlazeShell => new BlazeShellView(),
             DraftAim => new DraftAimView(),
+            TrialSeal => new TrialSealView(),
             _ => null,
         };
         if (v == null) return;
@@ -3021,5 +3022,59 @@ public partial class WardShellView : PropView
         _shell.SetInstanceShaderParameter("worn", 1f - w.Left);
         _shell.SetInstanceShaderParameter("flash", w.Flash);
         _light.LightEnergy = (frost ? 0.6f : 0.3f) + w.Flash * 0.8f;
+    }
+}
+
+/// <summary>A trial room's wards (<see cref="TrialSeal"/>): a slab of violet light over each warded cell, pulsing, rising when the room shuts and fading when it's won.</summary>
+public partial class TrialSealView : PropView
+{
+    private readonly List<MeshInstance3D> _slabs = new();
+    private readonly List<OmniLight3D> _lights = new();
+    private StandardMaterial3D _mat;
+
+    protected override void Build()
+    {
+        var seal = (TrialSeal)Owner2D;
+        _mat = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+            Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            AlbedoColor = new Color(0.62f, 0.38f, 1f, 0.5f),
+            EmissionEnabled = true, Emission = new Color(0.6f, 0.35f, 1f), EmissionEnergyMultiplier = 1.5f,
+            CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
+        float s = W3.M(CaveData.Cell);
+        var mesh = new BoxMesh { Size = new Vector3(s * 0.92f, s * 0.92f, s * 0.5f) };
+        var origin = W3.P(Vector2.Zero);
+        for (int k = 0; k < seal.Cells.Count; k++)
+        {
+            var c = seal.Cells[k];
+            var at = W3.P(new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell, 0.05f) - origin;
+            var slab = new MeshInstance3D { Mesh = mesh, MaterialOverride = _mat, Position = at, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
+            AddChild(slab);
+            _slabs.Add(slab);
+            // (a light now and then along the wards, so they glow on the rock about them)
+            if (k % 6 == 0)
+            {
+                var l = PropViews.Light(new Color(0.65f, 0.4f, 1f), 0.5f, 2.2f);
+                l.Position = at + new Vector3(0, 0, 0.4f);
+                AddChild(l);
+                _lights.Add(l);
+            }
+        }
+    }
+
+    protected override void Sync(float dt)
+    {
+        var seal = (TrialSeal)Owner2D;
+        Follow();
+        float shown = seal.Shown;
+        for (int k = 0; k < _slabs.Count; k++)
+        {
+            float pulse = 0.5f + 0.5f * MathF.Sin(Time * 4f + k * 0.7f);
+            _slabs[k].Scale = new Vector3(1f, Math.Max(0.05f, shown), 1f) * (0.94f + 0.06f * pulse);
+        }
+        _mat.AlbedoColor = new Color(0.62f, 0.38f, 1f, (0.35f + 0.2f * (0.5f + 0.5f * MathF.Sin(Time * 3f))) * shown);
+        foreach (var l in _lights) l.LightEnergy = 0.5f * shown;
     }
 }

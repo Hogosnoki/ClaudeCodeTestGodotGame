@@ -859,7 +859,7 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
 
 - **Generators** (Enemies/Generator.cs; the 3D design is Render3D/Creatures/Designs/GeneratorDesign.cs). A generator is a cairn of dark stones and bones over a violet rift.
   - Placement: a level holds 3, plus 0.6 per depth, up to 9. They sit on the floor at least 360 px apart, and none within 520 px of where you arrive or in the guardian's chamber. The spots come from the seed, so every game online agrees. The host raises each one as a hero comes near.
-  - Spawning: once a hero is within 460 px it wakes and pours out the biome's own creatures, whatever suits the spot (walkers, fliers or swimmers).
+  - Spawning: once a hero is within 460 px it wakes and pours out the biome's own creatures, whatever suits the spot (walkers, fliers or swimmers). In a biome where nothing comes in from outside (the Cave Entrance), its resident creatures crawl out instead.
   - Tiers: it has three, by its health. Whole, it sends one every 2.4 s and keeps up to 5 out. Struck to two thirds, one every 3.6 s and up to 3. Under a third, one every 5 s and up to 2. Every 3 depths adds one more to each cap. It shrinks as it loses tiers.
   - Minions: what it sends have half the health of their kind, 0.6× the experience, and about a third of the gold and food chances.
 - **Breaking a generator** gives:
@@ -868,8 +868,9 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
   - 35% of the time, a 10-second power for every hero within 260 px: **Fury** (1.4× damage, a red ring) or **Haste** (1.25× movement and attack speed, a green ring).
 - **Waves and residents.** The entrance waves are off. Resident spawn points fill to 35% of what they did, so the hordes come from the generators.
 - **Trial rooms** (Main.Gauntlet.cs and Combat/TrialSeal.cs). Every ambush room, every mini-boss den and half the treasure rooms (not under water) are trials.
-  - When a hero is well inside, violet wards rise over every open cell on the room's rim. Nothing walks, flies or shoots in or out, and a hero caught in the doorway is drawn inside.
-  - A trial raises 2 generators (plus 1 every 4 depths, up to 4) on the room's floor. A den keeps its mini-boss instead.
+  - When a hero is well inside (on one of the room's cells and well in from its sides), the trial's bounds are set: the room's box is grown outward, step by step, to wherever its edge is narrowest (never so far that it takes in where you arrived).
+  - Violet wards then rise over every open cell on that edge: straight columns of light across the tunnel mouths, each with its own 3D view (TrialSealView). Nothing walks, flies or shoots in or out, and a hero caught in a doorway is drawn inside.
+  - A trial raises 2 generators (plus 1 every 4 depths, up to 4) on the room's floor, or hovering in its open air when the floor is crowded. A den keeps its mini-boss instead.
   - The trial is won when they're all down and nothing is left alive in the room. The wards fade, a chest is left (a den's mini-boss leaves its own), and **TRIAL WON** shows.
   - Online, the host tells every game which cells to ward, and when they fall.
 - **Scaling.** On top of each class's own growth, every level gives a hero 4% more damage and 3% more health, compounding, and the new health comes in healed. A hero keeps up with deeper, thicker hordes through levels, not explanations.
@@ -880,6 +881,8 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
   - struck to half, it drops a tier and shrinks;
   - broken, it gives the gold and the power, and sends no more;
   - the power wears off.
+
+The other `--scenario=` tests were written for a cave without generators or trials, so they run with the Gauntlet off; only these two turn it on.
 
 `--scenario=trial` (Main.GauntletTest.cs) walks the hero into a trial room. It checks that:
 - the wards go up and block the way out;
