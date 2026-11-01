@@ -405,7 +405,7 @@ public partial class Player
                 // (one bounce, then feet on the ground before the next)
                 _pogoSpent = true;
                 Velocity = new Vector2(Velocity.X, -BaseJumpV * Tune.Hero.PogoBounceMult * MathF.Sqrt(Stats.JumpMult));
-                _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; _jumpCutDone = true;
+                _airJumps = AirJumpsMax; _airDashes = Stats.AirDash ? 1 : 0; _jumpCutDone = true;
                 G.Fx.Ring(e.GlobalPosition, 14, new Color(1f, 1f, 0.7f, 0.9f));
             }
         }

@@ -78,6 +78,9 @@ public partial class Main
         public Enemy Elite;
         public TrialSeal Seal;
         public bool Won;
+        /// <summary>How long it has run, and whether it has been told it grows angry.</summary>
+        public float Age;
+        public bool Angry;
     }
 
     private readonly List<TrialState> _trials = new();
@@ -130,9 +133,9 @@ public partial class Main
     /// <summary>
     /// A trial's own cells: the room's box grown outward step by step (two cells sideways, one up and down, each step). Of the steps whose rim (the cells to ward) is near the narrowest
     /// (so the wards stand in tunnel mouths, not across open cave), the first at least <see cref="Tune.Gauntlet.TrialMinWidth"/> across
-    /// wins, or else the widest. Never so far it takes in where you arrived or the guardian's chamber.
+    /// wins, or else the widest. Never so far it takes in where you arrived, the guardian's chamber or another trial's ground.
     /// </summary>
-    private static HashSet<int> TrialCells(CaveData cave, Room room)
+    private static HashSet<int> TrialCells(CaveData cave, Room room, HashSet<int> taken = null)
     {
         int Cell(Vector2 p) => (int)(p.Y / CaveData.Cell) * cave.W + (int)(p.X / CaveData.Cell);
         int start = Cell(cave.StartPos);
@@ -164,7 +167,8 @@ public partial class Main
                     minX = Math.Min(minX, a); maxX = Math.Max(maxX, a);
                 }
             }
-            if (set.Contains(start) || (boss >= 0 && set.Contains(boss))) break;
+            // (nor into another trial's ground: two trials never overlap)
+            if (set.Contains(start) || (boss >= 0 && set.Contains(boss)) || (taken != null && set.Overlaps(taken))) break;
             steps.Add((set, RimCells(cave, set).Count, (maxX - minX + 1) * CaveData.Cell));
         }
         if (steps.Count == 0) return new HashSet<int>();
@@ -184,8 +188,17 @@ public partial class Main
 
     private void BeginTrial(CaveData cave, Room room)
     {
-        var inside = TrialCells(cave, room);
+        // (the ground of every trial so far, its wards included: a new one never reaches into it)
+        var taken = new HashSet<int>();
+        foreach (var other in _trials) { taken.UnionWith(other.Cells); foreach (var c in RimCells(cave, other.Cells)) taken.Add(c.Y * cave.W + c.X); }
+        var inside = TrialCells(cave, room, taken);
         if (inside.Count < 12) return;
+        // (another trial room lying in this one's ground is part of it: it won't shut a second time around the heroes)
+        foreach (var r in cave.Rooms)
+        {
+            if (r == room || r.Triggered || !IsTrial(cave, r) || TrialSeed(cave, r) is not Vector2I sd) continue;
+            if (inside.Contains(sd.Y * cave.W + sd.X)) r.Triggered = true;
+        }
         var t = new TrialState { Room = room, Index = cave.Rooms.IndexOf(room), Cells = inside, Elite = room.Kind == RoomKind.MiniBoss ? _denElite : null };
         _denElite = null;
         var rim = RimCells(cave, inside);
@@ -264,6 +277,20 @@ public partial class Main
         foreach (var t in _trials)
         {
             if (t.Won) continue;
+            // (a trial that drags on grows angry: its generators send faster and keep more out)
+            t.Age += 0.25f;
+            if (t.Age > Tune.Gauntlet.EscalateAfter)
+            {
+                float fury = Math.Min(Tune.Gauntlet.FuryMax, 1f + (t.Age - Tune.Gauntlet.EscalateAfter) / Tune.Gauntlet.EscalateStep * 0.5f);
+                foreach (var g in t.Gens) if (IsInstanceValid(g) && !g.Dead) g.Fury = fury;
+                if (!t.Angry && t.Gens.Any(g => IsInstanceValid(g) && !g.Dead))
+                {
+                    t.Angry = true;
+                    _hud.ShowBanner("THE DEEP STIRS", 1.5f);
+                    NetSync.SendBanner("THE DEEP STIRS", 1.5f);
+                    foreach (var g in t.Gens) if (IsInstanceValid(g) && !g.Dead) G.Fx.Ring(g.GlobalPosition, 40, new Color(1f, 0.3f, 0.3f, 0.8f), 0.4f, FxLayer.RingStyle.Burst);
+                }
+            }
             if (t.Gens.Any(g => IsInstanceValid(g) && !g.Dead)) continue;
             if (t.Elite != null && IsInstanceValid(t.Elite) && !t.Elite.Dead) continue;
             bool alive = false;

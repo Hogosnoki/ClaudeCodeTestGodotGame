@@ -622,7 +622,7 @@ public static partial class Upgrades
         // --- Mobility ---
         new() { Id = "sprint", Name = "Sprinter", Desc = "After a second of running, go up to 12% faster.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.SprintBonus += 0.12f },
         new() { Id = "longdash", Name = "Long Dash", Desc = "Dashes and dodges are 15% faster, and so go further.", Icon = "move", MaxStacks = 3, Tags = new[] { "mobility" }, Apply = (s, p) => s.DashSpeedMult *= 1.15f },
-        new() { Id = "grip", Name = "Sure Grip", Desc = "Slide down a wall 35% slower.", Icon = "move", MaxStacks = 2, When = s => s.WallJump, Tags = new[] { "mobility" }, Apply = (s, p) => s.WallSlideMult *= 0.65f },
+        new() { Id = "grip", Name = "Sure Grip", Desc = "Slide down a wall 35% slower.", Icon = "move", MaxStacks = 2, When = s => s.WallJump || (Tune.Gauntlet.On && Tune.Gauntlet.WallJump), Tags = new[] { "mobility" }, Apply = (s, p) => s.WallSlideMult *= 0.65f },
 
         // --- Utility and economy ---
         new() { Id = "scholar", Name = "Scholar", Desc = "Gain 15% more experience.", Icon = "life", MaxStacks = 5, Tags = new[] { "utility" }, Apply = (s, p) => s.XpMult *= 1.15f },

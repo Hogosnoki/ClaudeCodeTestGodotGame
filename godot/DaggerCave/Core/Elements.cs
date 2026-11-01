@@ -51,7 +51,7 @@ public static class Elements
     };
 
     /// <summary>A simple kit's ability, whatever its element.</summary>
-    public static string Noun(HeroKind h, KitRole r) => (h, r) switch
+    public static string Noun(HeroKind h, KitRole r) => Tune.Gauntlet.On && GauntletNoun(h, r) is string g ? g : (h, r) switch
     {
         (HeroKind.Swordsman, KitRole.Primary) => "Strike", (HeroKind.Swordsman, KitRole.Defensive) => "Roll", (HeroKind.Swordsman, KitRole.Special) => "Cleave",
         (HeroKind.Warden, KitRole.Primary) => "Cut", (HeroKind.Warden, KitRole.Defensive) => "Shield", (HeroKind.Warden, KitRole.Special) => "Charge",
@@ -65,8 +65,22 @@ public static class Elements
         _ => r.ToString(),
     };
 
-    /// <summary>A simple kit's ability in an element: "Searing Strike", "Rime Shield", "Thorn Drain".</summary>
-    public static string SimpleName(HeroKind h, KitRole r, HeroElement e) => e == HeroElement.None || r == KitRole.Other ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
+    /// <summary>The Gauntlet's specials (and the Warden's Charge, on the other button there): null where the kit's own name stands.</summary>
+    private static string GauntletNoun(HeroKind h, KitRole r) => (h, r) switch
+    {
+        (HeroKind.Swordsman, KitRole.Special) => "Whirlwind", (HeroKind.Warden, KitRole.Special) => "Great Bash", (HeroKind.Elementalist, KitRole.Special) => "Meteor",
+        (HeroKind.Vitalist, KitRole.Special) => "Bloom", (HeroKind.Aegis, KitRole.Special) => "Judgement", (HeroKind.Rogue, KitRole.Special) => "Death Blossom",
+        (HeroKind.Warden, KitRole.Other) => "Charge",
+        _ => null,
+    };
+
+    /// <summary>A simple kit's ability in an element: "Searing Strike", "Rime Shield", "Thorn Drain" (the Elementalist's meteor has a name of its own in each).</summary>
+    public static string SimpleName(HeroKind h, KitRole r, HeroElement e)
+    {
+        if (Tune.Gauntlet.On && h == HeroKind.Elementalist && r == KitRole.Special)
+            return e switch { HeroElement.Frost => "Megacryometeor", HeroElement.Wind => "Thunderstone", _ => "Meteor" };
+        return e == HeroElement.None || r == KitRole.Other ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
+    }
 
     /// <summary>What an element's touch does to what it reaches (for the tips).</summary>
     public static string TouchText(HeroElement e) => e switch

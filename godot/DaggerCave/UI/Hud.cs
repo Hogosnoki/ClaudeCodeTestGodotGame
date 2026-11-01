@@ -682,6 +682,9 @@ public partial class Hud : Control
 
     private void DrawSquare(Font font, Vector2 at, string label, float cooldownFrac, bool ready, Color col, Action<Vector2, Color> icon, string tipName)
     {
+        // (a long name is drawn smaller, so it never runs into the next square's)
+        int fs = 10;
+        while (fs > 7 && font.GetStringSize(label, HorizontalAlignment.Left, -1, fs).X > 48f) fs--;
         var painted = tipName != null ? null : Icons.Get(Icons.AbilityFor(label));
         var (tt, tb) = tipName != null ? ElementTip(tipName) : AbilityTip(label);
         Tip(painted != null ? new Rect2(at - new Vector2(5, 5), new Vector2(44, 44)) : new Rect2(at, new Vector2(34, 34)), tt, tb + (cooldownFrac > 0 ? "  (The dark part is the time left to recharge.)" : ""), true);
@@ -706,16 +709,16 @@ public partial class Hud : Control
                 DrawColoredPolygon(pts.ToArray(), new Color(0, 0, 0, 0.55f));
             }
             UiArt.Outline(this, box.Grow(1), 9f, ready ? new Color(col, 0.45f + 0.3f * MathF.Sin(_t * 5)) : new Color(0.55f, 0.48f, 0.38f, 0.7f), ready ? 2f : 1.4f);
-            DrawStringOutline(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
-            DrawString(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.75f));
+            DrawStringOutline(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, fs, 3, new Color(0, 0, 0, 0.7f));
+            DrawString(font, at + new Vector2(0, -9), label, HorizontalAlignment.Left, -1, fs, new Color(1, 1, 1, 0.75f));
             return;
         }
         DrawColoredPolygon(UiArt.Rounded(new Rect2(at, new Vector2(34, 34)), 8f), new Color(0, 0, 0, 0.55f));
         icon(at + new Vector2(17, 17), ready ? col : new Color(0.45f, 0.47f, 0.52f));
         if (cooldownFrac > 0) DrawColoredPolygon(UiArt.Rounded(new Rect2(at + new Vector2(0, 34 * (1 - cooldownFrac)), new Vector2(34, MathF.Max(1f, 34 * cooldownFrac))), MathF.Min(8f, 17 * cooldownFrac)), new Color(0, 0, 0, 0.55f));
         UiArt.Outline(this, new Rect2(at - new Vector2(1, 1), new Vector2(36, 36)), 9f, ready ? new Color(col, 0.45f + 0.3f * MathF.Sin(_t * 5)) : new Color(0.55f, 0.48f, 0.38f, 0.7f), ready ? 2f : 1.4f);
-        DrawStringOutline(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, 3, new Color(0, 0, 0, 0.7f));
-        DrawString(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.75f));
+        DrawStringOutline(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, fs, 3, new Color(0, 0, 0, 0.7f));
+        DrawString(font, at + new Vector2(0, -6), label, HorizontalAlignment.Left, -1, fs, new Color(1, 1, 1, 0.75f));
     }
 
     /// <summary>The key or button for an action, in small print under its square.</summary>

@@ -143,6 +143,12 @@ public partial class Player : CharacterBody2D
     private float _airDashT, _wallJumpLock, _hurtFlash, _bubbleT, _animT;
     private Vector2 _airDashDir;
     private int _airJumps, _airDashes;
+    /// <summary>Jumps in mid-air before landing: the Gauntlet's own (every hero's) and a Double Jump's.</summary>
+    public int AirJumpsMax => (Stats.DoubleJump ? 1 : 0) + (Tune.Gauntlet.On ? Tune.Gauntlet.AirJumps : 0);
+    /// <summary>Whether the hero slides down walls and leaps off them: a Wall Jump's, or every hero's in the Gauntlet.</summary>
+    public bool CanWallJump => Stats.WallJump || (Tune.Gauntlet.On && Tune.Gauntlet.WallJump);
+    /// <summary>For the tests: air jumps left before landing.</summary>
+    public int AirJumpsLeft => _airJumps;
     private bool _jumpCutDone, _wasOnFloor;
     private float _pauseT, _pauseNext;
     private float _lastFallSpeed, _freeze, _stuckInRock, _terminalT;
@@ -253,6 +259,7 @@ public partial class Player : CharacterBody2D
     /// <summary>Heals (pickups, potions, the vitalist). The Warden's shield takes a share too.</summary>
     public void Heal(float amount)
     {
+        amount *= _sustainScale;
         if (Dead || amount <= 0) return;
         // online, another player's hero is healed by their own game
         if (IsRemote) { NetSync.HealRemote(this, amount); return; }
@@ -600,7 +607,7 @@ public partial class Player : CharacterBody2D
         UpdateCrouch(inp, onFloor);
         // (the water's surface is no floor: a leap out of the water is the swimmer's own, from in it; see Swim)
         if (InWater && _leapT <= 0f && (HeadUnder || Velocity.Y <= 0f)) _leapReady = true;
-        if (onFloor) { _coyote = Tune.Hero.CoyoteTime + Stats.CoyoteBonus; _airJumps = Stats.DoubleJump ? 1 : 0; _airDashes = Stats.AirDash ? 1 : 0; _pogoSpent = false; }
+        if (onFloor) { _coyote = Tune.Hero.CoyoteTime + Stats.CoyoteBonus; _airJumps = AirJumpsMax; _airDashes = Stats.AirDash ? 1 : 0; _pogoSpent = false; }
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
@@ -687,6 +694,7 @@ public partial class Player : CharacterBody2D
         if (!Holding && _supportBuf > 0 && Support(_supportAim)) { _supportBuf = 0; RunMetrics.Used(this, 4); }
         if (_swingT >= 0) UpdateSwing(dt);
         TickBash(dt);
+        TickBig(dt);
 
         UpdateAnimation(nowFloor);
         QueueRedraw();
@@ -984,7 +992,7 @@ public partial class Player : CharacterBody2D
 
     private Vector2 Platform(PlayerInput inp, Vector2 v, float dt, bool onFloor)
     {
-        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (1f + Stats.SprintBonus * Math.Min(1f, _runT)) * (_adrT > 0f ? 1f + Stats.AdrenalineBonus : 1f) * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f) * (_castSlowT > 0f ? Tune.Hero.CastSlowMult : 1f);
+        float target = inp.Move.X * RunSpeed * Stats.MoveSpeed * (1f + Stats.SprintBonus * Math.Min(1f, _runT)) * (_adrT > 0f ? 1f + Stats.AdrenalineBonus : 1f) * (Shifted ? FormMove + Stats.FormSpeedAdd : 1f) * (_formAtkT >= 0 && onFloor ? 0.35f : 1f) * (onFloor ? 1f : Stats.AirSpeedMult) * (ShieldRaised && !Stats.Stalwart ? Tune.Warden.ShieldMoveMult : 1f) * (Vanished ? Tune.Rogue.VanishSpeed : 1f) * (_castSlowT > 0f ? Tune.Hero.CastSlowMult : 1f) * (_whirlT > 0f ? Tune.Big.WhirlMove : 1f);
         if (WebbedT > 0) target *= 0.45f;
         if (Crouching) target *= Tune.Hero.CrouchSpeed;
         // planted for a heaving swing, or braced behind a shield bash
@@ -1036,7 +1044,7 @@ public partial class Player : CharacterBody2D
         int wallSide = WallSide();
         bool onWall = !onFloor && wallSide != 0;
 
-        if (Stats.WallJump && onWall && v.Y > 0 && Math.Sign(inp.Move.X) == wallSide)
+        if (CanWallJump && onWall && v.Y > 0 && Math.Sign(inp.Move.X) == wallSide)
         {
             v.Y = Math.Min(v.Y, Tune.Hero.WallSlideSpeed * Stats.WallSlideMult);
             _wallSliding = true;
@@ -1053,7 +1061,7 @@ public partial class Player : CharacterBody2D
                 G.Sfx.Play("jump", GlobalPosition, -8);
                 G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3);
             }
-            else if (Stats.WallJump && onWall)
+            else if (CanWallJump && onWall)
             {
                 v = new Vector2(-wallSide * Tune.Hero.WallJumpPush, -jumpV * Tune.Hero.WallJumpMult);
                 Facing = -wallSide; _wallJumpLock = 0.16f; _jumpBuffer = 0; _jumpCutDone = false;
@@ -1062,7 +1070,7 @@ public partial class Player : CharacterBody2D
                 Anim.Once("jump_start", 2);
                 G.Fx.Burst(GlobalPosition + new Vector2(wallSide * 7, 0), new Color(0.7f, 0.65f, 0.6f, 0.8f), 6, 80, 2f, 0.3f, 100);
             }
-            else if (Stats.DoubleJump && _airJumps > 0)
+            else if (_airJumps > 0)
             {
                 _airJumps--; v.Y = -jumpV * Tune.Hero.DoubleJumpMult * Stats.AirJumpMult; _jumpBuffer = 0; _jumpCutDone = false;
                 if (Stats.Sinks)
@@ -1161,9 +1169,23 @@ public partial class Player : CharacterBody2D
         if (IsVitalist && !vitalForceByMote) GainVitalForce(dealt * Stats.VitalForceGain);
     }
 
+    /// <summary>
+    /// What heals are worth just now: a generator's minion feeds the heals its death or a drain on it gives only
+    /// <see cref="Tune.Gauntlet.MinionSustain"/> of what a creature would, so a generator can't be farmed for health.
+    /// </summary>
+    private float _sustainScale = 1f;
+    private static float SustainOf(Enemy e) => e != null && e.Minion ? Tune.Gauntlet.MinionSustain : 1f;
+
     public void OnKill(Enemy e = null)
     {
         Kills++;
+        _sustainScale = SustainOf(e);
+        try { OnKillHere(e); }
+        finally { _sustainScale = 1f; }
+    }
+
+    private void OnKillHere(Enemy e)
+    {
         Stats.On.RaiseKill(this, e);
         if (Stats.HealOnKill > 0) Heal(Stats.HealOnKill);
         // (Scrap Reclaimer: what it destroys, it salvages)

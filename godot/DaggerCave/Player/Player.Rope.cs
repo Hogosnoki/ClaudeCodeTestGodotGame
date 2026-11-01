@@ -127,7 +127,7 @@ public partial class Player
         if (IsOnFloor() && climb < 0 && _ropeS >= r.Unrolled - 1f) { LetGoOfRope(); return v; }
         r.Hold(this, _ropeS, inp.Move.X);
         _coyote = Tune.Hero.CoyoteTime;
-        _airJumps = Stats.DoubleJump ? 1 : 0;
+        _airJumps = AirJumpsMax;
         if (Math.Abs(inp.Move.X) > 0.3f) Facing = Math.Sign(inp.Move.X);
         // the hands on the rope, the body hanging below them
         var want = r.PointAt(_ropeS) + new Vector2(0, 8f);

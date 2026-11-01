@@ -169,7 +169,7 @@ public partial class Player
         OnDealtDamage(dealt, vitalForceByMote: true);
         // (the elemental Vitalist's attribute rides on the drain)
         if (Elemental && !e.Dead) AttributeHit(e, CastPoint);
-        if (Stats.DrainHealChance > 0 && G.Chance(Stats.DrainHealChance)) Heal(1f); // (Sip of Life)
+        if (Stats.DrainHealChance > 0 && G.Chance(Stats.DrainHealChance)) Heal(SustainOf(e)); // (Sip of Life)
         e.HitStop(Tune.Feel.HitStopBolt);
         // the burst: a flare and a tear of light, a spray of crimson, a ring racing out, and the
         // life streaming out of it toward you
@@ -180,7 +180,8 @@ public partial class Player
         G.Fx.Burst(at, LifeColor, (int)(20 * size), 190, 2.6f, 0.4f, 60f, 0, 3f);
         G.Fx.Ring(at, 14 + 16 * size, new Color(LifeColor, 0.95f), 0.3f, FxLayer.RingStyle.Burst);
         G.Main.Rumble(0.25f, 0.08f, 0.08f);
-        LifeCluster(at, dealt * Stats.VitalForceGain, size, (int)Math.Round(5 + 4 * size));
+        // (a minion's life is thin: it gives a third of the force)
+        LifeCluster(at, dealt * Stats.VitalForceGain * SustainOf(e), size, (int)Math.Round(5 + 4 * size));
         return dealt;
     }
 

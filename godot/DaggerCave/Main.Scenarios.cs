@@ -63,6 +63,7 @@ public partial class Main
         "hive" => "nest",
         "gauntlet" => "entrance",
         "trial" => "entrance",
+        "big" => "entrance",
         "shop" => "den",
         "achievements" => "den",
         "grid" => "entrance",
@@ -167,6 +168,7 @@ public partial class Main
             case "hive": HiveScenario(); break;
             case "gauntlet": GauntletScenario(); break;
             case "trial": TrialScenario(); break;
+            case "big": BigScenario(); break;
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;
             case "grid": GridScenario(); break;

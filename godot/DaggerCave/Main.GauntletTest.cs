@@ -47,6 +47,19 @@ public partial class Main
             float full = fresh.MaxHp;
             G.Enemies.Remove(fresh); fresh.QueueFree();
             ScCheck($"weaker than its kind ({minion.MaxHp:0.0} health against {full:0.0})", Math.Abs(minion.MaxHp - full * Tune.Gauntlet.MinionHp) < 0.6f);
+            // a minion's death feeds a heal on a kill only a share of what a creature's does
+            float hok = p.Stats.HealOnKill; p.Stats.HealOnKill = 20f;
+            var plain = (Enemy)Activator.CreateInstance(minion.GetType());
+            plain.Position = minion.GlobalPosition;
+            _world.AddChild(plain);
+            p.Hp = p.Stats.MaxHp * 0.5f; float h0 = p.Hp;
+            plain.Hurt(99999f, Vector2.Zero, plain.GlobalPosition, DamageKind.Raw);
+            float healPlain = p.Hp - h0;
+            p.Hp = p.Stats.MaxHp * 0.5f; h0 = p.Hp;
+            minion.Hurt(99999f, Vector2.Zero, minion.GlobalPosition, DamageKind.Raw);
+            float healMinion = p.Hp - h0;
+            p.Stats.HealOnKill = hok; p.Hp = p.Stats.MaxHp;
+            ScCheck($"a minion's death heals {healMinion:0.0} where a creature's heals {healPlain:0.0} (x{(healPlain > 0 ? healMinion / healPlain : 0):0.00}, want {Tune.Gauntlet.MinionSustain})", healPlain > 0 && Math.Abs(healMinion / healPlain - Tune.Gauntlet.MinionSustain) < 0.05f);
         }
         // (the minions are kept from the hero: held where they are)
         int cap = (int)Tune.Gauntlet.Cap[3] + G.Depth / Tune.Gauntlet.CapPerDepth;
@@ -123,8 +136,8 @@ public partial class Main
         foreach (var _ in Wait(1.2f)) yield return null;
         Tune.Gauntlet.TrialTreasureChance = chance;
         var seal = TrialSeal.All.FirstOrDefault(s => s.RoomIndex == cave.Rooms.IndexOf(room));
-        // (the trial's own cells: the room grown out to its narrowest rim)
-        inside = TrialCells(cave, room);
+        // (the trial's own cells: the room grown out to its narrowest rim, flooded up to its wards)
+        if (seal != null) inside = new HashSet<int>(seal.Inside);
         ScCheck($"walking in shuts it (trials {TrialsBegun}, wards over {seal?.Cells.Count ?? 0} cells)", TrialsBegun >= 1 && seal != null && seal.Cells.Count > 0);
         if (seal == null) yield break;
         // the wards are solid: a point in each one meets a body there
@@ -146,6 +159,16 @@ public partial class Main
                 if (cave.CellOpen(a, b) && !inside.Contains(n) && !rim.Contains(n)) leak = true;
             }
         ScCheck($"every way out is warded (leak {leak})", !leak);
+        // a blink or a shadowstep keeps the rule too: in, never out
+        Vector2 inPt = new Vector2(inside.First() % cave.W + 0.5f, inside.First() / cave.W + 0.5f) * CaveData.Cell, outPt = Vector2.Zero;
+        foreach (var c in seal.Cells)
+            foreach (var o in new[] { new Vector2I(1, 0), new Vector2I(-1, 0), new Vector2I(0, 1), new Vector2I(0, -1) })
+            {
+                var n = c + o;
+                int nk = n.Y * cave.W + n.X;
+                if (outPt == Vector2.Zero && cave.CellOpen(n.X, n.Y) && !inside.Contains(nk) && !seal.Cells.Contains(n)) outPt = new Vector2(n.X + 0.5f, n.Y + 0.5f) * CaveData.Cell;
+            }
+        ScCheck($"a sudden move may come in ({!TrialSeal.BlocksMove(outPt, inPt)}) but never go out ({TrialSeal.BlocksMove(inPt, outPt)})", outPt != Vector2.Zero && !TrialSeal.BlocksMove(outPt, inPt) && TrialSeal.BlocksMove(inPt, outPt));
         float width = (inside.Max(k => k % cave.W) - inside.Min(k => k % cave.W) + 1) * CaveData.Cell;
         ScCheck($"the fighting area is wide ({width:0} px across, want {Tune.Gauntlet.TrialMinWidth:0}, or the most the cave allows)", width >= Math.Min(Tune.Gauntlet.TrialMinWidth, 700f));
         var gens = Generators.Where(g => IsInstanceValid(g) && !g.Dead && g.Trial == room).ToList();
@@ -155,6 +178,14 @@ public partial class Main
         p.GlobalPosition = Mid(inside.OrderBy(k => Mid(k).DistanceSquaredTo(ward)).Skip(2).First());
         foreach (var _ in Wait(2.5f)) yield return null;
         ScShot("trial_shut");
+
+        // a trial that drags on grows angry (the wait shortened for the test)
+        float esc = Tune.Gauntlet.EscalateAfter; Tune.Gauntlet.EscalateAfter = 0.5f;
+        foreach (var _ in Wait(1.5f)) yield return null;
+        var angry = gens.Where(g => IsInstanceValid(g) && !g.Dead).ToList();
+        ScCheck($"a trial that drags on angers its generators (fury {(angry.Count > 0 ? angry.Max(g => g.Fury) : 0):0.00})", angry.Count > 0 && angry.All(g => g.Fury > 1f));
+        Tune.Gauntlet.EscalateAfter = esc;
+        foreach (var g in angry) g.Fury = 1f;
 
         // one way, for heroes: a friend outside walks in through the wards, and then can't walk back out
         Vector2 CellMid(Vector2I c) => new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
@@ -209,5 +240,19 @@ public partial class Main
         ScCheck($"cleared, it's won ({TrialsWon}) and the wards fall ({!IsInstanceValid(seal) || seal.Opening})", TrialsWon == 1 && (!IsInstanceValid(seal) || seal.Opening));
         ScCheck($"and a chest is left ({Chest.All.Count} against {chests})", Chest.All.Count > chests);
         ScShot("trial_won");
+
+        // every other trial room on the level shut at once: no two trials share ground, and no trial's wards stand in another's room
+        Tune.Gauntlet.TrialTreasureChance = 1f;
+        foreach (var r in cave.Rooms.ToList())
+            if (!r.Triggered && IsTrial(cave, r)) { r.Triggered = true; BeginTrial(cave, r); }
+        Tune.Gauntlet.TrialTreasureChance = chance;
+        int overlaps = 0, crossed = 0;
+        for (int a = 0; a < _trials.Count; a++)
+            for (int b = a + 1; b < _trials.Count; b++)
+            {
+                if (_trials[a].Cells.Overlaps(_trials[b].Cells)) overlaps++;
+                if (RimCells(cave, _trials[a].Cells).Any(c => _trials[b].Cells.Contains(c.Y * cave.W + c.X)) || RimCells(cave, _trials[b].Cells).Any(c => _trials[a].Cells.Contains(c.Y * cave.W + c.X))) crossed++;
+            }
+        ScCheck($"the level's {_trials.Count} trials never overlap ({overlaps} sharing ground, {crossed} with wards in another's room)", overlaps == 0 && crossed == 0);
     }
 }

@@ -188,6 +188,8 @@ public partial class Player
     /// <summary>The ability button.</summary>
     private bool SimpleSpecial(Vector2 aim)
     {
+        // (the Gauntlet: the special button is the hero's great stroke, Player.Big.cs)
+        if (Tune.Gauntlet.On) return BigSpecial(aim);
         switch (Stats.Hero)
         {
             case HeroKind.Swordsman: return SimpleCleave(aim);
@@ -311,6 +313,32 @@ public partial class Player
         float dealt = e.Hurt(bolt.Damage, bolt.Dir * 40f, at, DamageKind.Physical);
         if (dealt > 0) { OnDealtDamage(dealt); e.HitStop(Tune.Feel.HitStopBolt); }
         SimpleTouch(e, KitRole.Primary, at - bolt.Dir * 10f);
+        Splash(e, at, bolt.Damage, DamageKind.Physical, Elements.ColorOf(Mode));
+    }
+
+    /// <summary>Creatures a caster's splash has struck (tests).</summary>
+    public int Splashed { get; private set; }
+
+    /// <summary>
+    /// A caster's blow splashes (<see cref="Tune.Splash"/>): every other creature within its radius of where it landed (in sight of it) takes
+    /// its share of the blow, and its share of the touch. The melee heroes' swings already strike all they sweep; this is the casters' answer.
+    /// </summary>
+    private void Splash(Enemy main, Vector2 at, float dmg, DamageKind kind, Color col)
+    {
+        if (dmg <= 0f || !Tune.Gauntlet.On) return;
+        float r = Tune.Splash.Radius;
+        G.Fx.Ring(at, r, new Color(col, 0.7f), 0.22f, FxLayer.RingStyle.Burst);
+        foreach (var o in G.Enemies.ToArray())
+        {
+            if (o == main || o.Dead || !o.CanBeHit || o.GlobalPosition.DistanceTo(at) > r + o.HitRadius) continue;
+            if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
+            var away = (o.GlobalPosition - at).LengthSquared() > 1f ? (o.GlobalPosition - at).Normalized() : Vector2.Up;
+            float d = o.Hurt(dmg * Tune.Splash.Share, away * 50f, o.GlobalPosition - away * o.HitRadius, kind);
+            if (d <= 0f) continue;
+            OnDealtDamage(d);
+            Splashed++;
+            if (!o.Dead) SimpleTouch(o, KitRole.Primary, at, Tune.Splash.Share);
+        }
     }
 
     /// <summary>The Ward: a barrier on her and the friends near her.</summary>
@@ -378,9 +406,10 @@ public partial class Player
     // ================================================================== the heroes' own ways
 
     /// <summary>The Vitalist's drain landed on a creature: the touch, and whatever still seeps into it torn out at once.</summary>
-    private void SimpleDrainStruck(Enemy t)
+    private void SimpleDrainStruck(Enemy t, float dmg)
     {
         SimpleTouch(t, KitRole.Primary, CastPoint);
+        Splash(t, t.GlobalPosition, dmg, DamageKind.Nature, LifeColor);
         var el = t.SeepElement;
         float left = t.TakeSeep();
         if (left <= 0f || t.Dead) return;
@@ -433,7 +462,8 @@ public partial class Player
         bool ok = Stats.Hero switch
         {
             HeroKind.Swordsman => TryParry(aim),
-            HeroKind.Warden => _dashT <= 0 && TryShieldBash(aim),
+            // (in the Gauntlet the Great Bash is the Warden's special, and the Charge comes here)
+            HeroKind.Warden => Tune.Gauntlet.On ? _bashT <= 0 && _gbashT <= 0 && TryShieldDash(aim) : _dashT <= 0 && TryShieldBash(aim),
             HeroKind.Elementalist => TryBlink(aim),
             HeroKind.Vitalist => TryRupture(aim),
             HeroKind.Aegis => TryBurden(aim),
@@ -478,7 +508,8 @@ public partial class Player
         var from = GlobalPosition;
         G.Cave.Raycast(from, d, Tune.OtherAbility.BlinkRange, out var hit, 4f);
         var to = hit - d * 10f;
-        while (to.DistanceTo(from) > 12f && (!Fits(to) || Breakables.Blocks(from, to))) to -= d * 6f;
+        // (short of rock, rubble walls, and a trial's wards: in, never out)
+        while (to.DistanceTo(from) > 12f && (!Fits(to) || Breakables.Blocks(from, to) || TrialSeal.BlocksMove(from, to))) to -= d * 6f;
         if (to.DistanceTo(from) <= 12f) { SayNo("NO ROOM"); _blinkCd = 0.4f; return true; }
         Afterimage.Spawn(Anim, new Color(0.75f, 0.6f, 1f), 0.3f);
         G.Fx.Burst(from, new Color(0.8f, 0.7f, 1f, 0.8f), 12, 120, 1.8f, 0.3f, 0);
@@ -506,7 +537,7 @@ public partial class Player
         if (side == 0) side = Facing;
         var to = t.GlobalPosition + new Vector2(side * (t.HitRadius + 12f), 0);
         if (!Fits(to)) to = t.GlobalPosition + new Vector2(side * (t.HitRadius + 12f), -8f);
-        if (!Fits(to) || Breakables.Blocks(GlobalPosition, to)) { SayNo("NO ROOM BEHIND IT"); _stepCd = 0.4f; return true; }
+        if (!Fits(to) || Breakables.Blocks(GlobalPosition, to) || TrialSeal.BlocksMove(GlobalPosition, to)) { SayNo("NO ROOM BEHIND IT"); _stepCd = 0.4f; return true; }
         G.Fx.Smoke(GlobalPosition, 5, new Color(0.18f, 0.12f, 0.24f, 0.75f), 30f);
         GlobalPosition = to;
         Velocity = Vector2.Zero;
@@ -528,6 +559,8 @@ public partial class Player
     public float SimpleFrac(KitRole r)
     {
         float atk = Math.Max(0.2f, Stats.AttackSpeed);
+        if (Tune.Gauntlet.On && r == KitRole.Special) return BigFrac;
+        if (Tune.Gauntlet.On && r == KitRole.Other && Stats.Hero == HeroKind.Warden) return DashCooldownFrac;
         return (Stats.Hero, r) switch
         {
             (HeroKind.Elementalist, KitRole.Primary) => Math.Clamp(_boltCd / (Tune.ElementalStaff.ShotGap / atk), 0f, 1f),

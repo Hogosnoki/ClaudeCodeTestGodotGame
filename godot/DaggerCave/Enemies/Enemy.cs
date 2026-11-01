@@ -109,6 +109,8 @@ public abstract partial class Enemy : CharacterBody2D
     protected float DmgK => G.DepthDmg * RunSettings.DmgMult * (this is Dragon ? RunRelics.DragonMult : 1f) * DmgMult * (_weakT > 0 ? _weakMult : 1f);
 
     protected float T, HurtFlash, Stun;
+    /// <summary>For the tests: how long it reels yet (stunned, staggered).</summary>
+    public float StunLeft => Math.Max(0f, Stun);
     protected SpriteAnimator Anim;
     /// <summary>This creature's animator (and through it, its 3D model).</summary>
     public SpriteAnimator Animator => Anim;

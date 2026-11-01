@@ -17,6 +17,8 @@ public partial class Generator : Enemy
     private readonly List<Enemy> _brood = new();
     private float _spawnT = 0.6f;
 
+    /// <summary>A trial that drags on angers its generators (<see cref="Tune.Gauntlet.EscalateAfter"/>): x this the pace, and more kept out.</summary>
+    public float Fury = 1f;
     /// <summary>The trial room it was raised in (null: one of the level's own).</summary>
     public Room Trial;
     /// <summary>For the tests: minions sent out so far, and those alive now.</summary>
@@ -60,9 +62,9 @@ public partial class Generator : Enemy
         }
         Prune();
         int tier = Tier;
-        int cap = (int)Tune.Gauntlet.Cap[tier] + G.Depth / Math.Max(1, Tune.Gauntlet.CapPerDepth);
+        int cap = (int)Tune.Gauntlet.Cap[tier] + G.Depth / Math.Max(1, Tune.Gauntlet.CapPerDepth) + (int)((Fury - 1f) * Tune.Gauntlet.FuryCap);
         if ((_spawnT -= dt) > 0f || _brood.Count >= cap) return;
-        _spawnT = Tune.Gauntlet.SpawnEvery[tier] * G.Range(0.8f, 1.2f);
+        _spawnT = Tune.Gauntlet.SpawnEvery[tier] * G.Range(0.8f, 1.2f) / Fury;
         Release();
     }
 

@@ -61,6 +61,24 @@ public partial class TrialSeal : StaticBody2D
         }
     }
 
+    /// <summary>
+    /// Whether a sudden move (a blink, a shadowstep) from one point to another breaks a trial's rule: one way only, in and never out. From
+    /// inside a trial under way, it may not end outside it; nor may it end in a ward.
+    /// </summary>
+    public static bool BlocksMove(Vector2 from, Vector2 to)
+    {
+        var cave = G.Cave;
+        if (cave == null) return false;
+        int k = (int)(to.Y / CaveData.Cell) * cave.W + (int)(to.X / CaveData.Cell);
+        foreach (var s in All)
+        {
+            if (s.Opening || s.Inside.Count == 0) continue;
+            if (s._rim.Contains(k)) return true;
+            if (s.InRoom(from) && !s.Inside.Contains(k)) return true;
+        }
+        return false;
+    }
+
     /// <summary>Whether a point is on one of the room's cells.</summary>
     public bool InRoom(Vector2 p)
     {

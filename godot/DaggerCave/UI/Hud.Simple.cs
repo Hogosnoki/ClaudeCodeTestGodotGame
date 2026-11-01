@@ -85,6 +85,14 @@ public partial class Hud
     {
         tip = default;
         if (!Elements.Simple) return false;
+        // (the Gauntlet's specials, and the Warden's Charge on the other button there)
+        if (Tune.Gauntlet.On)
+        {
+            if (name == "Charge") { tip = ("Charge", "Shield first, a rush along the ground that bowls over whatever stands in the way."); return true; }
+            foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
+                foreach (var el in Elements.Of(h))
+                    if (Elements.SimpleName(h, KitRole.Special, el) == name || Elements.Noun(h, KitRole.Special) == name) { tip = (name, BigBody(h)); return true; }
+        }
         // (the other ability: the class's own, no element)
         foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
             if (Elements.Noun(h, KitRole.Other) == name || (h == HeroKind.Aegis && name == "Burden")) { tip = (OtherTitle(h, name), OtherBody(h, name)); return true; }
@@ -94,6 +102,18 @@ public partial class Hud
                     if (Elements.SimpleName(h, r, el) == name) { tip = (name, SimpleBody(h, r, el)); return true; }
         return false;
     }
+
+    /// <summary>What a Gauntlet special does (Player.Big.cs; <see cref="Tune.Big"/>).</summary>
+    private static string BigBody(HeroKind h) => h switch
+    {
+        HeroKind.Swordsman => $"Spin with the blade out: {Tune.Big.WhirlPulses} strokes in {Tune.Big.WhirlTime:0.#} s at everything around you. You can walk while you spin. ({Tune.Big.WhirlRest:0} s)",
+        HeroKind.Elementalist => $"Call a stone of your element down from on high onto the spot along your aim. It bursts wide and leaves the element burning there. ({Tune.Big.MeteorRest:0} s)",
+        HeroKind.Warden => $"A vast shove of the shield. Everything in a wide arc ahead is flattened and stunned, and shots in it are sent back. ({Tune.Big.BashRest:0} s)",
+        HeroKind.Vitalist => $"Life erupts from you. It tears at every creature near, seeps your element into them, and mends every friend near. ({Tune.Big.BloomRest:0} s)",
+        HeroKind.Aegis => $"A pillar of light slams onto the spot along your aim. It weakens what it strikes and wards the friends near you or it. ({Tune.Big.JudgeRest:0} s)",
+        HeroKind.Rogue => $"Leap and spin in the air, untouchable, flinging knives at every creature near and all around. ({Tune.Big.BlossomRest:0} s)",
+        _ => "",
+    };
 
     private static string OtherTitle(HeroKind h, string name) => (h, name) switch
     {

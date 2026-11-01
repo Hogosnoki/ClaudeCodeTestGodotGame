@@ -79,6 +79,7 @@ public static class PropViews
             BlazeShell => new BlazeShellView(),
             DraftAim => new DraftAimView(),
             TrialSeal => new TrialSealView(),
+            SkyStone => new SkyStoneView(),
             _ => null,
         };
         if (v == null) return;
@@ -3102,5 +3103,40 @@ public partial class TrialSealView : PropView
         float drift = (Time * 0.8f) % 1f;
         _chevMat.AlbedoColor = new Color(0.97f, 0.9f, 1f, 0.85f * shown * (1f - 0.5f * drift));
         foreach (var c in _chevs) c.Scale = Vector3.One * Math.Max(0.05f, shown);
+    }
+}
+
+/// <summary>The Elementalist's meteor: a rough glowing stone of her element, tumbling as it falls, with a hot halo and a light that lights the cave.</summary>
+public partial class SkyStoneView : PropView
+{
+    private MeshInstance3D _stone, _halo;
+    private OmniLight3D _light;
+
+    protected override void Build()
+    {
+        var m = (SkyStone)Owner2D;
+        var col = Elements.ColorOf(m.El);
+        _stone = new MeshInstance3D
+        {
+            Mesh = new SphereMesh { Radius = W3.M(13f), Height = W3.M(24f), RadialSegments = 7, Rings = 4 },
+            MaterialOverride = new StandardMaterial3D { AlbedoColor = col.Darkened(0.55f), EmissionEnabled = true, Emission = col, EmissionEnergyMultiplier = 1.4f, Roughness = 1f },
+            CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+        };
+        AddChild(_stone);
+        _halo = PropViews.Sprite(col, 0, 2.2f, 0.9f);
+        AddChild(_halo);
+        _light = PropViews.Light(col, 1.4f, 5f);
+        AddChild(_light);
+    }
+
+    protected override void Sync(float dt)
+    {
+        var m = (SkyStone)Owner2D;
+        Follow(default, 0.2f);
+        _stone.RotateX(dt * 9f);
+        _stone.RotateZ(dt * 5f);
+        float k = m.Progress;
+        _halo.Scale = Vector3.One * (0.8f + 0.5f * k);
+        _light.LightEnergy = 0.8f + 1.4f * k;
     }
 }

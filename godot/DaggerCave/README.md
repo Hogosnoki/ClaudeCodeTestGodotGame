@@ -893,6 +893,41 @@ The other `--scenario=` tests were written for a cave without generators or tria
 - generators rise inside;
 - once they're broken and the room is cleared, the wards fall and a chest is left.
 
+### The Gauntlet's heroes: great specials, mobility and splash
+
+With the Gauntlet on, every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash` and `Tune.Gauntlet` (Core/Tuning.cs); the code is Player/Player.Big.cs.
+
+- **Specials are great strokes on long rests.** The special button (the one that was Cleave, Burst, Charge, Hex, Dome or Knife) becomes one dramatic ability per hero. Each touches with the element as a special does, shared out among its blows.
+
+  | Hero | Special | What it does | Rest |
+  |---|---|---|---|
+  | Swordsman | **Whirlwind** | Spins with the blade out: 6 strokes in 1.1 s at everything within 66 px, 13 damage each. Walks at 0.7× while spinning. | 9 s |
+  | Elementalist | **Meteor** (frost: **Megacryometeor**; wind: **Thunderstone**) | Calls a glowing stone of her element down from 460 px up onto the spot along the aim. It lands 0.55 s later for 70 damage at its heart (0.55× at the edge of 92 px), flings creatures up and out, and leaves the element burning there as her old Burst zone did. | 11 s |
+  | Warden | **Great Bash** | After a 0.22 s wind-up, a vast shove of the shield. It deals 42 damage, stuns for 1.3 s and flings back everything within 120 px and 65° of ahead, and sends shots in that arc back. The Warden's **Charge** moves to the other button (Shield Bash is retired there in the Gauntlet). | 8 s |
+  | Vitalist | **Bloom** | Life erupts from her. It deals 30 damage within 120 px, seeps her element at twice the hex's rate, and mends every friend near by 12% of their health. | 12 s |
+  | Aegis | **Judgement** | A pillar of light slams onto the spot 0.35 s after it's called. It deals 46 damage within 82 px and weakens what it strikes (0.7× damage for 4 s). Friends within 150 px of the Aegis or the spot get a barrier of 15% of their health. | 12 s |
+  | Rogue | **Death Blossom** | Leaps and hangs in the air, untouchable, for 0.75 s. Three volleys of 10 knives (11 damage each) fly one at each creature within 170 px, nearest first, threading past the others; the rest fly out all around. | 10 s |
+
+- **Casters splash.** The Elementalist's bolt and the Vitalist's drain strike every other creature within 48 px of where they land for 0.4× the blow, and 0.4× the element's touch (`Tune.Splash`). The melee heroes' swings already strike all they sweep; the Aegis's bubble already bursts.
+- **Everyone climbs.** Every hero jumps once more in mid-air (`Gauntlet.AirJumps`; a Double Jump card adds another) and slides down and kicks off walls (`Gauntlet.WallJump`; Sure Grip is offered to all).
+- **Cooldowns are real again.** `Tune.Testing.NoCooldowns`, a try-out switch that brought the elemental heroes' abilities back at once, was still on; it's off now. The older scenarios, written while it was on, still turn it on.
+- **Trials never overlap.** A new trial's area stops growing where it would reach an earlier one's (wards included). Another trial room whose floor lies inside a trial's area is part of it, and won't shut a second time.
+- **Sudden moves keep the one-way rule.** Blink and Shadowstep can carry a hero into a trial but never out of one, and never into a ward (`TrialSeal.BlocksMove`).
+- **Minions feed less healing.** Heals that come from killing or draining a generator's minion (heal-on-kill, relic triggers, the Vitalist's vital force, Sip of Life) are 0.35× (`Gauntlet.MinionSustain`), so a generator can't be farmed for health. Generators and trials still give their full rewards.
+- **Stalling loses.** A trial still running after 45 s grows angry ("THE DEEP STIRS"). Its generators' pace rises by half every 20 s, up to 3×, and they keep 2 more minions out per 1× of it (`EscalateAfter`, `EscalateStep`, `FuryMax`, `FuryCap`).
+- **HUD:** ability names too long for their square are drawn smaller. The tooltips describe the new specials and the Warden's Charge.
+- **Tests:**
+  - `--scenario=big --hero=…` (Main.BigTest.cs). It checks that:
+    - the hero has the mid-air jump, which carries them higher;
+    - the special strikes a knot of five creatures, rests a long while, and a second press does nothing;
+    - each special does its own thing: the Whirlwind strikes each creature many times, the Great Bash stuns, the Bloom mends and seeps, the Judgement wards, the Death Blossom is airborne and untouchable;
+    - the casters' splash is 0.4× on creatures beside the target and nothing on one far off.
+  - `--scenario=trial` now also checks that:
+    - teleports can come in but never go out;
+    - a long trial angers its generators;
+    - none of the level's trials overlap.
+  - `--scenario=gauntlet` also checks that a minion's death heals 0.35× what a creature's does.
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

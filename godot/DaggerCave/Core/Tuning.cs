@@ -713,10 +713,10 @@ public static class Tune
         public static bool UnlockEverything = true;
         /// <summary>Dual charges are open whatever the save says (see <see cref="Meta.DualCharges"/>), while they're being tested.</summary>
         public static bool DualCharges = true;
-        /// <summary>No cooldowns on the elemental heroes while the elements are being tried out: their abilities and versions, the support
-        /// ability, the mode's switch and the overcharge's recharge all come back at once (the swing's and the bolt's own pace stay).
-        /// The elements scenario turns it off, to test the real rules.</summary>
-        public static bool NoCooldowns = true;
+        /// <summary>No cooldowns on the elemental heroes (a try-out switch): their abilities and versions, the support ability, the mode's
+        /// switch and the overcharge's recharge all come back at once (the swing's and the bolt's own pace stay). Off in the game; the
+        /// older scenarios, written while it was on, still turn it on.</summary>
+        public static bool NoCooldowns = false;
     }
 
     /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>
@@ -1232,6 +1232,38 @@ public static class Tune
     /// what they were, and the entrance waves are off. Every level a hero gains <c>LevelDamage</c> more damage and <c>LevelHp</c> more health
     /// (of what they have) on top of their class's growth.
     /// </summary>
+    /// <summary>
+    /// The Gauntlet's specials (<see cref="DaggerCave.Player"/>, Player.Big.cs): one great stroke per hero on a long rest (<c>*Rest</c> s).
+    /// Damage is before the hero's damage multiplier. Swordsman's Whirlwind: <c>WhirlPulses</c> strokes over <c>WhirlTime</c> s, each
+    /// <c>WhirlDamage</c> to all within <c>WhirlRadius</c> px (moving at <c>WhirlMove</c> x). Elementalist's Meteor: falls <c>MeteorHeight</c>
+    /// px over <c>MeteorFall</c> s, <c>MeteorDamage</c> at its heart, <c>MeteorEdge</c> x at the rim of <c>MeteorRadius</c> px. Warden's Great
+    /// Bash: after <c>BashWindup</c> s, <c>BashDamage</c> and a <c>BashStun</c> s stun to all within <c>BashRadius</c> px and <c>BashArc</c>
+    /// degrees of ahead. Vitalist's Bloom: <c>BloomDamage</c> within <c>BloomRadius</c> px, <c>BloomSeep</c> x the hex's seep, mending friends
+    /// near <c>BloomHeal</c> of their health. Aegis's Judgement: after <c>JudgeWindup</c> s, <c>JudgeDamage</c> within <c>JudgeRadius</c> px,
+    /// weakening (x<c>JudgeWeaken</c>), and a barrier of <c>JudgeBarrier</c> of max health to friends within <c>JudgeWardRange</c>. Rogue's
+    /// Death Blossom: <c>BlossomVolleys</c> volleys of <c>BlossomKnives</c> knives over <c>BlossomTime</c> s, each <c>BlossomDamage</c>.
+    /// </summary>
+    public static class Big
+    {
+        public static float WhirlRest = 9f, WhirlTime = 1.1f, WhirlDamage = 13f, WhirlRadius = 66f, WhirlMove = 0.7f;
+        public static int WhirlPulses = 6;
+        public static float MeteorRest = 11f, MeteorFall = 0.55f, MeteorHeight = 460f, MeteorDrift = 120f, MeteorDamage = 70f, MeteorEdge = 0.55f, MeteorRadius = 92f;
+        public static float BashRest = 8f, BashWindup = 0.22f, BashDamage = 42f, BashStun = 1.3f, BashRadius = 120f, BashArc = 65f, BashPush = 420f, BashLunge = 260f;
+        public static float BloomRest = 12f, BloomDamage = 30f, BloomRadius = 120f, BloomSeep = 2f, BloomHeal = 0.12f;
+        public static float JudgeRest = 12f, JudgeWindup = 0.35f, JudgeDamage = 46f, JudgeRadius = 82f, JudgeWeaken = 0.7f, JudgeWeakenSeconds = 4f, JudgeWardRange = 150f, JudgeBarrier = 0.15f, JudgeBarrierSeconds = 6f;
+        public static float BlossomRest = 10f, BlossomTime = 0.75f, BlossomDamage = 11f, BlossomRange = 170f, BlossomLeap = 0.75f;
+        public static int BlossomVolleys = 3, BlossomKnives = 10;
+    }
+
+    /// <summary>
+    /// The casters' splash: a bolt or a drain that lands strikes every other creature within <c>Radius</c> px of where it landed for
+    /// <c>Share</c> of its blow (and its element's touch), so the casters thin a horde as the melee heroes' sweeping swings do.
+    /// </summary>
+    public static class Splash
+    {
+        public static float Radius = 48f, Share = 0.4f;
+    }
+
     public static class Gauntlet
     {
         public static bool On = true;
@@ -1239,8 +1271,12 @@ public static class Tune
         public static float GeneratorsPerDepth = 0.6f, GeneratorGap = 360f, GeneratorClear = 520f, GeneratorHp = 90f, WakeRange = 460f;
         public static int GeneratorXp = 24, BonusGold = 6;
         public static float[] SpawnEvery = { 0f, 5f, 3.6f, 2.4f }, Cap = { 0f, 2f, 3f, 5f };
-        public static float MinionHp = 0.5f, MinionXp = 0.6f, MinionDropMult = 0.35f;
+        public static float MinionHp = 0.5f, MinionXp = 0.6f, MinionDropMult = 0.35f, MinionSustain = 0.35f;
         public static float FoodChance = 0.6f, PowerChance = 0.35f, PowerRange = 260f, PowerSeconds = 10f, FuryDamage = 1.4f, HasteSpeed = 1.25f;
+        /// <summary>Every hero's movement in the Gauntlet: <c>AirJumps</c> jumps in mid-air (a Double Jump adds one more), and sliding down walls
+        /// and leaping off them (a Wall Jump's, for all).</summary>
+        public static int AirJumps = 1;
+        public static bool WallJump = true;
         public static float ResidentShare = 0.35f, LevelDamage = 0.04f, LevelHp = 0.03f;
         /// <summary>
         /// Trial rooms: every ambush room, <c>TrialTreasureChance</c> of the treasure rooms (not under water) and every mini-boss's den shut
@@ -1255,6 +1291,9 @@ public static class Tune
         /// <c>TrialRimSlack</c> x the narrowest found (+2 cells), so the wards still stand in tunnel mouths, not across open cave.
         /// </summary>
         public static float TrialMinWidth = 1000f, TrialRimSlack = 1.35f;
+        /// <summary>A trial still going after <c>EscalateAfter</c> s grows angry: its generators' pace rises by half every <c>EscalateStep</c> s,
+        /// up to <c>FuryMax</c> x, keeping <c>FuryCap</c> more out per x of it. Waiting it out never wins.</summary>
+        public static float EscalateAfter = 45f, EscalateStep = 20f, FuryMax = 3f, FuryCap = 2f;
     }
 
     /// <summary>
