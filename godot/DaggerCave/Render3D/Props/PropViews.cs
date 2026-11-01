@@ -3025,12 +3025,14 @@ public partial class WardShellView : PropView
     }
 }
 
-/// <summary>A trial room's wards (<see cref="TrialSeal"/>): a slab of violet light over each warded cell, pulsing, rising when the room shuts and fading when it's won.</summary>
+/// <summary>A trial room's wards (<see cref="TrialSeal"/>): a slab of violet light over each warded cell, pulsing, with a pale chevron pointing into the room (heroes are let in, never out); rising when the room shuts and fading when it's won.</summary>
 public partial class TrialSealView : PropView
 {
     private readonly List<MeshInstance3D> _slabs = new();
     private readonly List<OmniLight3D> _lights = new();
-    private StandardMaterial3D _mat;
+    private readonly List<Node3D> _chevs = new();
+    private StandardMaterial3D _mat, _chevMat;
+    private BoxMesh _bar;
 
     protected override void Build()
     {
@@ -3045,6 +3047,12 @@ public partial class TrialSealView : PropView
         };
         float s = W3.M(CaveData.Cell);
         var mesh = new BoxMesh { Size = new Vector3(s * 0.92f, s * 0.92f, s * 0.5f) };
+        _bar = new BoxMesh { Size = new Vector3(s * 0.38f, s * 0.09f, s * 0.05f) };
+        _chevMat = new StandardMaterial3D
+        {
+            ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+            AlbedoColor = new Color(0.97f, 0.9f, 1f, 0.85f), CullMode = BaseMaterial3D.CullModeEnum.Disabled,
+        };
         var origin = W3.P(Vector2.Zero);
         for (int k = 0; k < seal.Cells.Count; k++)
         {
@@ -3053,6 +3061,20 @@ public partial class TrialSealView : PropView
             var slab = new MeshInstance3D { Mesh = mesh, MaterialOverride = _mat, Position = at, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off };
             AddChild(slab);
             _slabs.Add(slab);
+            // (a chevron on its face pointing into the room: heroes are let in, never out)
+            var inward = seal.InwardOf(c);
+            if (inward != Vector2.Zero)
+            {
+                var chev = new Node3D { Position = at + new Vector3(0, 0, s * 0.3f), Rotation = new Vector3(0, 0, MathF.Atan2(-inward.Y, inward.X)) };
+                foreach (float sgn in new[] { 1f, -1f })
+                    chev.AddChild(new MeshInstance3D
+                    {
+                        Mesh = _bar, MaterialOverride = _chevMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+                        Position = new Vector3(-s * 0.08f, sgn * s * 0.12f, 0), Rotation = new Vector3(0, 0, -sgn * 0.8f),
+                    });
+                AddChild(chev);
+                _chevs.Add(chev);
+            }
             // (a light now and then along the wards, so they glow on the rock about them)
             if (k % 6 == 0)
             {
@@ -3076,5 +3098,9 @@ public partial class TrialSealView : PropView
         }
         _mat.AlbedoColor = new Color(0.62f, 0.38f, 1f, (0.35f + 0.2f * (0.5f + 0.5f * MathF.Sin(Time * 3f))) * shown);
         foreach (var l in _lights) l.LightEnergy = 0.5f * shown;
+        // (the chevrons drift a little inward, over and over)
+        float drift = (Time * 0.8f) % 1f;
+        _chevMat.AlbedoColor = new Color(0.97f, 0.9f, 1f, 0.85f * shown * (1f - 0.5f * drift));
+        foreach (var c in _chevs) c.Scale = Vector3.One * Math.Max(0.05f, shown);
     }
 }

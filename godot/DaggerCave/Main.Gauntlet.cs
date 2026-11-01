@@ -135,10 +135,9 @@ public partial class Main
     {
         HashSet<int> best = null; int bestRim = int.MaxValue;
         int start = (int)(cave.StartPos.Y / CaveData.Cell) * cave.W + (int)(cave.StartPos.X / CaveData.Cell);
-        int si = (int)(room.Floor.X / CaveData.Cell), sj = (int)(room.Floor.Y / CaveData.Cell) - 1;
-        for (int k = 0; k < 4 && !cave.CellOpen(si, sj); k++) sj--;
-        if (!cave.CellOpen(si, sj)) { si = (int)(room.Center.X / CaveData.Cell); sj = (int)(room.Center.Y / CaveData.Cell); }
-        if (!cave.CellOpen(si, sj)) return new HashSet<int>();
+        var seed = TrialSeed(cave, room);
+        if (seed == null) return new HashSet<int>();
+        int si = seed.Value.X, sj = seed.Value.Y;
         float ci = room.Center.X / CaveData.Cell, cj = room.Center.Y / CaveData.Cell;
         foreach (float scale in new[] { 1f, 1.15f, 1.3f, 1.5f, 1.75f, 2f, 2.4f })
         {
@@ -166,6 +165,15 @@ public partial class Main
         return best ?? new HashSet<int>();
     }
 
+    /// <summary>The open cell a trial is grown from: on the room's floor (or at its middle). Every game finds the same one.</summary>
+    private static Vector2I? TrialSeed(CaveData cave, Room room)
+    {
+        int si = (int)(room.Floor.X / CaveData.Cell), sj = (int)(room.Floor.Y / CaveData.Cell) - 1;
+        for (int k = 0; k < 4 && !cave.CellOpen(si, sj); k++) sj--;
+        if (!cave.CellOpen(si, sj)) { si = (int)(room.Center.X / CaveData.Cell); sj = (int)(room.Center.Y / CaveData.Cell); }
+        return cave.CellOpen(si, sj) ? new Vector2I(si, sj) : null;
+    }
+
     private void BeginTrial(CaveData cave, Room room)
     {
         var inside = TrialCells(cave, room);
@@ -183,7 +191,7 @@ public partial class Main
             int best = inside.OrderBy(k => Mid(k).DistanceSquaredTo(h.GlobalPosition)).First();
             h.GlobalPosition = Mid(best);
         }
-        t.Seal = RaiseSeal(t.Index, rim);
+        t.Seal = RaiseSeal(t.Index, rim, TrialSeed(cave, room));
         NetSync.SendTrial(t.Index, rim);
         // the generators: on the room's floor, apart, never on top of a hero
         if (room.Kind != RoomKind.MiniBoss)
@@ -223,9 +231,9 @@ public partial class Main
         if (_autotest) GD.Print($"[autotest] trial: room {t.Index} ({room.Kind}), {rim.Count} wards, {t.Gens.Count} generators");
     }
 
-    private TrialSeal RaiseSeal(int index, List<Vector2I> cells)
+    private TrialSeal RaiseSeal(int index, List<Vector2I> cells, Vector2I? seed)
     {
-        var seal = new TrialSeal { RoomIndex = index };
+        var seal = new TrialSeal { RoomIndex = index, Seed = seed };
         seal.Cells.AddRange(cells);
         _world.AddChild(seal);
         return seal;
@@ -267,8 +275,9 @@ public partial class Main
     public void OnlineTrial(int room, List<Vector2I> cells)
     {
         if (TrialSeal.All.Any(s => s.RoomIndex == room)) return;
-        RaiseSeal(room, cells);
-        if (G.Cave != null && room >= 0 && room < G.Cave.Rooms.Count) G.Cave.Rooms[room].Triggered = true;
+        bool known = G.Cave != null && room >= 0 && room < G.Cave.Rooms.Count;
+        RaiseSeal(room, cells, known ? TrialSeed(G.Cave, G.Cave.Rooms[room]) : null);
+        if (known) G.Cave.Rooms[room].Triggered = true;
     }
 
     /// <summary>Online: the host's trial is won.</summary>

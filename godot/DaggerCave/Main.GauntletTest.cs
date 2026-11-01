@@ -153,6 +153,42 @@ public partial class Main
         p.GlobalPosition = Mid(inside.OrderBy(k => Mid(k).DistanceSquaredTo(ward)).Skip(2).First());
         foreach (var _ in Wait(2.5f)) yield return null;
         ScShot("trial_shut");
+
+        // one way, for heroes: a friend outside walks in through the wards, and then can't walk back out
+        Vector2 CellMid(Vector2I c) => new Vector2(c.X + 0.5f, c.Y + 0.5f) * CaveData.Cell;
+        bool Open(Vector2I c) => cave.CellOpen(c.X, c.Y) && !seal.InRoom(CellMid(c)) && !seal.Cells.Contains(c);
+        Vector2I door = default; Vector2 inward = default; bool found = false;
+        foreach (var c in seal.Cells)
+        {
+            var dir = seal.InwardOf(c);
+            if (dir.Y != 0 || dir.X == 0) continue;
+            // (a floor near the doorway's foot, and room to stand two cells out from it)
+            if (cave.CellOpen(c.X, c.Y + 1) && cave.CellOpen(c.X, c.Y + 2)) continue;
+            var o = new Vector2I(-(int)dir.X, 0);
+            if (!Open(c + o) || !Open(c + o * 2) || !Open(c + o * 2 + new Vector2I(0, -1))) continue;
+            door = c; inward = dir; found = true; break;
+        }
+        ScCheck($"a doorway at the floor to walk in by ({found})", found);
+        if (found)
+        {
+            p.InputOverride = () => _scInput;
+            p.GlobalPosition = CellMid(door - new Vector2I((int)inward.X, 0) * 2) + new Vector2(0, -2);
+            p.Velocity = Vector2.Zero;
+            foreach (var _ in Wait(0.4f)) yield return null;
+            ScCheck($"the friend starts outside ({!seal.InRoom(p.GlobalPosition)})", !seal.InRoom(p.GlobalPosition));
+            int joined = seal.Joined;
+            _scInput = new PlayerInput { Move = inward };
+            for (float t = 0; t < 3f && !seal.WellInside(p.GlobalPosition); t += (float)GetProcessDeltaTime()) yield return null;
+            foreach (var _ in Wait(0.3f)) yield return null;
+            ScCheck($"walking in, the wards let them through ({seal.WellInside(p.GlobalPosition)}, joined {seal.Joined - joined})", seal.WellInside(p.GlobalPosition) && seal.Joined == joined + 1);
+            ScShot("trial_joined");
+            _scInput = new PlayerInput { Move = -inward };
+            foreach (var _ in Wait(2f)) yield return null;
+            _scInput = default;
+            float past = (p.GlobalPosition.X - CellMid(door).X) * -inward.X;
+            ScCheck($"walking back out, the wards hold them (in the room {seal.InRoom(p.GlobalPosition)}, {past:0} px short of the doorway's middle)", seal.InRoom(p.GlobalPosition) && past < 0f);
+            p.InputOverride = null;
+        }
         // not won while a generator stands
         foreach (var g in gens.Skip(1)) g.Hurt(g.MaxHp * 4f, Vector2.Zero, g.GlobalPosition, DamageKind.Raw);
         foreach (var _ in Wait(0.8f)) yield return null;
