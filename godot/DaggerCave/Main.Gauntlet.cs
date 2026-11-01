@@ -128,23 +128,28 @@ public partial class Main
     }
 
     /// <summary>
-    /// A trial's own cells: the room's box grown outward step by step to where its rim is narrowest, so the wards stand in
-    /// the mouths of the tunnels into it, not across the open cave. Never so far it takes in where you arrived.
+    /// A trial's own cells: the room's box grown outward step by step (two cells sideways, one up and down, each step). Of the steps whose rim (the cells to ward) is near the narrowest
+    /// (so the wards stand in tunnel mouths, not across open cave), the first at least <see cref="Tune.Gauntlet.TrialMinWidth"/> across
+    /// wins, or else the widest. Never so far it takes in where you arrived or the guardian's chamber.
     /// </summary>
     private static HashSet<int> TrialCells(CaveData cave, Room room)
     {
-        HashSet<int> best = null; int bestRim = int.MaxValue;
-        int start = (int)(cave.StartPos.Y / CaveData.Cell) * cave.W + (int)(cave.StartPos.X / CaveData.Cell);
+        int Cell(Vector2 p) => (int)(p.Y / CaveData.Cell) * cave.W + (int)(p.X / CaveData.Cell);
+        int start = Cell(cave.StartPos);
+        int boss = cave.Boss != null && cave.Boss != room ? Cell(cave.Boss.Center) : -1;
         var seed = TrialSeed(cave, room);
         if (seed == null) return new HashSet<int>();
         int si = seed.Value.X, sj = seed.Value.Y;
         float ci = room.Center.X / CaveData.Cell, cj = room.Center.Y / CaveData.Cell;
-        foreach (float scale in new[] { 1f, 1.15f, 1.3f, 1.5f, 1.75f, 2f, 2.4f })
+        var steps = new List<(HashSet<int> set, int rim, float width)>();
+        // (grown in steps of two cells sideways and one up and down: a cave's tunnels run sideways, and its shafts are best left out)
+        for (float m = 0; m <= Tune.Gauntlet.TrialMinWidth * 0.6f; m += 2f * CaveData.Cell)
         {
-            float rx = room.RxPx / CaveData.Cell * scale + 1.5f, ry = room.RyPx / CaveData.Cell * scale + 2f;
+            float rx = (room.RxPx + m) / CaveData.Cell + 1.5f, ry = (room.RyPx + m * 0.5f) / CaveData.Cell + 2f;
             var set = new HashSet<int> { sj * cave.W + si };
             var q = new Queue<(int, int)>();
             q.Enqueue((si, sj));
+            int minX = si, maxX = si;
             while (q.Count > 0)
             {
                 var (i, j) = q.Dequeue();
@@ -154,15 +159,18 @@ public partial class Main
                     if (a < 0 || c < 0 || a >= cave.W || c >= cave.H || !cave.CellOpen(a, c)) continue;
                     // (a box, not an oval: its walls cross a tunnel straight up and down, a clean column of wards)
                     if (Math.Abs(a + 0.5f - ci) > rx || Math.Abs(c + 0.5f - cj) > ry) continue;
-                    if (set.Add(c * cave.W + a)) q.Enqueue((a, c));
+                    if (!set.Add(c * cave.W + a)) continue;
+                    q.Enqueue((a, c));
+                    minX = Math.Min(minX, a); maxX = Math.Max(maxX, a);
                 }
             }
-            if (set.Contains(start)) break;
-            int rim = RimCells(cave, set).Count;
-            // (a narrower rim wins; a tie goes to the smaller room)
-            if (rim < bestRim) { bestRim = rim; best = set; }
+            if (set.Contains(start) || (boss >= 0 && set.Contains(boss))) break;
+            steps.Add((set, RimCells(cave, set).Count, (maxX - minX + 1) * CaveData.Cell));
         }
-        return best ?? new HashSet<int>();
+        if (steps.Count == 0) return new HashSet<int>();
+        int narrowest = steps.Min(x => x.rim);
+        var ok = steps.Where(x => x.rim <= narrowest * Tune.Gauntlet.TrialRimSlack + 2).ToList();
+        return (ok.FirstOrDefault(x => x.width >= Tune.Gauntlet.TrialMinWidth).set ?? ok.OrderByDescending(x => x.width).First().set);
     }
 
     /// <summary>The open cell a trial is grown from: on the room's floor (or at its middle). Every game finds the same one.</summary>
@@ -214,7 +222,7 @@ public partial class Main
                 if (spots.Count >= want) break;
                 if (cave.IsSolid(at) || cave.IsSolid(at + new Vector2(-16, 0)) || cave.IsSolid(at + new Vector2(16, 0))) continue;
                 if (G.Players.Any(h => h != null && !h.Dead && h.GlobalPosition.DistanceTo(at) < 70f)) continue;
-                if (spots.Any(s => s.DistanceTo(at) < 64f)) continue;
+                if (spots.Any(s => s.DistanceTo(at) < 140f)) continue;
                 spots.Add(at);
             }
             foreach (var at in spots)
@@ -237,6 +245,16 @@ public partial class Main
         seal.Cells.AddRange(cells);
         _world.AddChild(seal);
         return seal;
+    }
+
+    /// <summary>Whether a point lies in a trial under way (shut, not yet won).</summary>
+    private bool InOpenTrial(Vector2 p)
+    {
+        if (_trials.Count == 0) return false;
+        var cave = G.Cave;
+        int k = (int)(p.Y / CaveData.Cell) * cave.W + (int)(p.X / CaveData.Cell);
+        foreach (var t in _trials) if (!t.Won && t.Cells.Contains(k)) return true;
+        return false;
     }
 
     /// <summary>The host's game: a trial is won once its generators (and a den's mini-boss) are down and nothing lives in the room.</summary>

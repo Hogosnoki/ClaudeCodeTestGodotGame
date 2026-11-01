@@ -868,11 +868,12 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
   - 35% of the time, a 10-second power for every hero within 260 px: **Fury** (1.4× damage, a red ring) or **Haste** (1.25× movement and attack speed, a green ring).
 - **Waves and residents.** The entrance waves are off. Resident spawn points fill to 35% of what they did, so the hordes come from the generators.
 - **Trial rooms** (Main.Gauntlet.cs and Combat/TrialSeal.cs). Every ambush room, every mini-boss den and half the treasure rooms (not under water) are trials.
-  - When a hero is well inside (on one of the room's cells and well in from its sides), the trial's bounds are set: the room's box is grown outward, step by step, to wherever its edge is narrowest (never so far that it takes in where you arrived).
+  - When a hero is well inside (on one of the room's cells and well in from its sides), the trial's fighting area is set. The room's box grows outward (two cells sideways and one up and down per step) until it's at least 1000 px across, about a screen (`TrialMinWidth`). It only keeps steps whose edge stays near the narrowest found (`TrialRimSlack`), so the walls still stand in tunnel mouths, and it never takes in where you arrived or the guardian's chamber.
+  - While a trial is under way, no resident creature spawns inside its area.
   - Violet wards then rise over every open cell on that edge: straight columns of light across the tunnel mouths, each with its own 3D view (TrialSealView). No creature and no shot passes them either way, and a hero caught in a doorway is drawn inside.
   - **One way for heroes.** A hero still outside (a friend arriving late) walks straight through the wards. Once they're a step inside the room (on its cells, with no ward beside them), the wards hold them like everyone else until the trial is won. Pale chevrons on the wards point into the room.
   - How it works: each game gives its own heroes outside a collision exception with the wards, and takes it away once they're inside. The room's cells are flooded from the room's floor up to the wards, the same way in every game.
-  - A trial raises 2 generators (plus 1 every 4 depths, up to 4) on the room's floor, or hovering in its open air when the floor is crowded. A den keeps its mini-boss instead.
+  - A trial raises 3 generators (plus 1 every 4 depths, up to 5), at least 140 px apart, on the area's floor, or hovering in its open air when the floor is crowded. A den keeps its mini-boss instead.
   - The trial is won when they're all down and nothing is left alive in the room. The wards fade, a chest is left (a den's mini-boss leaves its own), and **TRIAL WON** shows.
   - Online, the host tells every game which cells to ward, and when they fall.
 - **Scaling.** On top of each class's own growth, every level gives a hero 4% more damage and 3% more health, compounding, and the new health comes in healed. A hero keeps up with deeper, thicker hordes through levels, not explanations.
@@ -887,7 +888,7 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
 The other `--scenario=` tests were written for a cave without generators or trials, so they run with the Gauntlet off; only these two turn it on.
 
 `--scenario=trial` (Main.GauntletTest.cs) walks the hero into a trial room. It checks that:
-- the wards go up and block the way out;
+- the wards go up and block the way out, around an area at least 1000 px across where the cave allows;
 - a friend starting outside walks in through the wards, then can't walk back out;
 - generators rise inside;
 - once they're broken and the room is cleared, the wards fall and a chest is left.

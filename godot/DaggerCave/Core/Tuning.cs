@@ -1249,7 +1249,12 @@ public static class Tune
         /// and a chest is left (a den's mini-boss leaves its own).
         /// </summary>
         public static float TrialTreasureChance = 0.5f;
-        public static int TrialGenerators = 2, TrialPerDepth = 4, TrialMax = 4;
+        public static int TrialGenerators = 3, TrialPerDepth = 4, TrialMax = 5;
+        /// <summary>
+        /// A trial's fighting area: grown outward from the room until it's at least <c>TrialMinWidth</c> px across, while its rim stays within
+        /// <c>TrialRimSlack</c> x the narrowest found (+2 cells), so the wards still stand in tunnel mouths, not across open cave.
+        /// </summary>
+        public static float TrialMinWidth = 1000f, TrialRimSlack = 1.35f;
     }
 
     /// <summary>

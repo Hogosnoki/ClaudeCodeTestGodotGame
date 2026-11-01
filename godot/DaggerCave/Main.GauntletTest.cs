@@ -146,6 +146,8 @@ public partial class Main
                 if (cave.CellOpen(a, b) && !inside.Contains(n) && !rim.Contains(n)) leak = true;
             }
         ScCheck($"every way out is warded (leak {leak})", !leak);
+        float width = (inside.Max(k => k % cave.W) - inside.Min(k => k % cave.W) + 1) * CaveData.Cell;
+        ScCheck($"the fighting area is wide ({width:0} px across, want {Tune.Gauntlet.TrialMinWidth:0}, or the most the cave allows)", width >= Math.Min(Tune.Gauntlet.TrialMinWidth, 700f));
         var gens = Generators.Where(g => IsInstanceValid(g) && !g.Dead && g.Trial == room).ToList();
         ScCheck($"generators rise inside ({gens.Count})", gens.Count >= Tune.Gauntlet.TrialGenerators && gens.All(g => inside.Contains((int)(g.GlobalPosition.Y / CaveData.Cell) * cave.W + (int)(g.GlobalPosition.X / CaveData.Cell))));
         // (for the picture: the hero by one of the warded doorways)
@@ -197,9 +199,13 @@ public partial class Main
         foreach (var _ in Wait(0.8f)) yield return null;
         int left = G.Enemies.Count(e => !e.Dead && inside.Contains((int)(e.GlobalPosition.Y / CaveData.Cell) * cave.W + (int)(e.GlobalPosition.X / CaveData.Cell)));
         ScCheck($"with the generators down but {left} creatures still in the room: not won ({TrialsWon})", left == 0 || TrialsWon == 0);
-        foreach (var e in G.Enemies.ToArray())
-            if (!e.Dead && inside.Contains((int)(e.GlobalPosition.Y / CaveData.Cell) * cave.W + (int)(e.GlobalPosition.X / CaveData.Cell))) e.Hurt(99999f, Vector2.Zero, e.GlobalPosition, DamageKind.Raw);
-        foreach (var _ in Wait(1.5f)) yield return null;
+        // (everything left in the room, a few times over: a level's own generator may stand in it too, and send one more before it falls)
+        for (int round = 0; round < 3 && TrialsWon == 0; round++)
+        {
+            foreach (var e in G.Enemies.ToArray())
+                if (!e.Dead && inside.Contains((int)(e.GlobalPosition.Y / CaveData.Cell) * cave.W + (int)(e.GlobalPosition.X / CaveData.Cell))) e.Hurt(99999f, Vector2.Zero, e.GlobalPosition, DamageKind.Raw);
+            foreach (var _ in Wait(1.0f)) yield return null;
+        }
         ScCheck($"cleared, it's won ({TrialsWon}) and the wards fall ({!IsInstanceValid(seal) || seal.Opening})", TrialsWon == 1 && (!IsInstanceValid(seal) || seal.Opening));
         ScCheck($"and a chest is left ({Chest.All.Count} against {chests})", Chest.All.Count > chests);
         ScShot("trial_won");

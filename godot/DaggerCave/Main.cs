@@ -2427,6 +2427,8 @@ public partial class Main : Node
                 continue;
             }
             if (d > Tune.Spawning.ResidentMaxDistance || alive >= cap || d < Tune.Spawning.MinSpawnDistance || OnScreen(sp.Pos, Tune.Spawning.OffscreenMargin)) continue;
+            // (a trial room under way is shut off from the cave: nothing new simply turns up inside it)
+            if (InOpenTrial(sp.Pos)) continue;
             sp.Used = true;
             if (!G.Chance(fill)) { sp.Cooldown = G.Range(40, 80); continue; }
             sp.Cooldown = G.Range(Tune.Spawning.ResidentRespawnMin, Tune.Spawning.ResidentRespawnMax) / (1f + G.Pace);
