@@ -853,6 +853,39 @@ dissipation when it ends of itself). They are made on first hearing and kept (th
 carries everything it is made from (`@event|attack|element|element|weight`), so online the other games make the very same one, and the
 same attack's sound struck twice within a breath is played once.
 
+## The Gauntlet: hordes, generators and trial rooms
+
+The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in it; most come from **generators**, and the fights happen in rooms that shut behind you. It's all switched by `Tune.Gauntlet.On` (Core/Tuning.cs), with the numbers next to it.
+
+- **Generators** (Enemies/Generator.cs; the 3D design is Render3D/Creatures/Designs/GeneratorDesign.cs). A generator is a cairn of dark stones and bones over a violet rift.
+  - Placement: a level holds 3, plus 0.6 per depth, up to 9. They sit on the floor at least 360 px apart, and none within 520 px of where you arrive or in the guardian's chamber. The spots come from the seed, so every game online agrees. The host raises each one as a hero comes near.
+  - Spawning: once a hero is within 460 px it wakes and pours out the biome's own creatures, whatever suits the spot (walkers, fliers or swimmers).
+  - Tiers: it has three, by its health. Whole, it sends one every 2.4 s and keeps up to 5 out. Struck to two thirds, one every 3.6 s and up to 3. Under a third, one every 5 s and up to 2. Every 3 depths adds one more to each cap. It shrinks as it loses tiers.
+  - Minions: what it sends have half the health of their kind, 0.6× the experience, and about a third of the gold and food chances.
+- **Breaking a generator** gives:
+  - 24 experience and a pile of gold (6 + the depth);
+  - a heart 60% of the time;
+  - 35% of the time, a 10-second power for every hero within 260 px: **Fury** (1.4× damage, a red ring) or **Haste** (1.25× movement and attack speed, a green ring).
+- **Waves and residents.** The entrance waves are off. Resident spawn points fill to 35% of what they did, so the hordes come from the generators.
+- **Trial rooms** (Main.Gauntlet.cs and Combat/TrialSeal.cs). Every ambush room, every mini-boss den and half the treasure rooms (not under water) are trials.
+  - When a hero is well inside, violet wards rise over every open cell on the room's rim. Nothing walks, flies or shoots in or out, and a hero caught in the doorway is drawn inside.
+  - A trial raises 2 generators (plus 1 every 4 depths, up to 4) on the room's floor. A den keeps its mini-boss instead.
+  - The trial is won when they're all down and nothing is left alive in the room. The wards fade, a chest is left (a den's mini-boss leaves its own), and **TRIAL WON** shows.
+  - Online, the host tells every game which cells to ward, and when they fall.
+- **Scaling.** On top of each class's own growth, every level gives a hero 4% more damage and 3% more health, compounding, and the new health comes in healed. A hero keeps up with deeper, thicker hordes through levels, not explanations.
+- **Quieter screen.** Settings → Controls → **Words in the fight**. *Quiet* (the default) drops ability names and the small notes over the fight, and keeps the numbers and the big calls (LEVEL, FURY, HASTE, TRIAL). *All* shows everything. HUD tooltips now default to off.
+- **Test:** `--scenario=gauntlet` (Main.GauntletTest.cs). It checks that:
+  - the level has its generators, apart and away from the start;
+  - one raised by the hero wakes and sends minions (at half health) up to its cap;
+  - struck to half, it drops a tier and shrinks;
+  - broken, it gives the gold and the power, and sends no more;
+  - the power wears off.
+
+`--scenario=trial` (Main.GauntletTest.cs) walks the hero into a trial room. It checks that:
+- the wards go up and block the way out;
+- generators rise inside;
+- once they're broken and the room is cleared, the wards fall and a chest is left.
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

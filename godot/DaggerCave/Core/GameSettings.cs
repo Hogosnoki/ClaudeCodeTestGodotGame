@@ -183,7 +183,9 @@ public static class GameSettings
     public static AimMode Aim = AimMode.Auto;
     public static bool Vibration = true;
     /// <summary>HUD tooltips on mouse hover: 0 off, 1 abilities, potions and relics, 2 everything on the HUD (see <see cref="Hud.Guide"/> too).</summary>
-    public static int HudTips = 1;
+    public static int HudTips = 0;
+    /// <summary>Words over the fight: 0 quiet (no ability names or small notes, only numbers and the big calls), 1 all of them.</summary>
+    public static int CombatWords = 0;
     /// <summary>The Swordsman and the Elementalist fight with their old kits, without elements (<see cref="Elements"/>).</summary>
     public static bool ClassicKits;
 
@@ -262,6 +264,7 @@ public static class GameSettings
         Aim = (AimMode)I("controls", "aim", (int)Aim);
         Vibration = B("controls", "vibration", Vibration);
         HudTips = Math.Clamp(I("interface", "hud_tips", HudTips), 0, 2);
+        CombatWords = Math.Clamp(I("interface", "combat_words", CombatWords), 0, 1);
         ClassicKits = B("gameplay", "classic_kits", ClassicKits);
         PlayerName = S("online", "name", PlayerName);
         LastJoin = S("online", "last_join", LastJoin);
@@ -306,6 +309,7 @@ public static class GameSettings
         cfg.SetValue("controls", "aim", (int)Aim);
         cfg.SetValue("controls", "vibration", Vibration);
         cfg.SetValue("interface", "hud_tips", HudTips);
+        cfg.SetValue("interface", "combat_words", CombatWords);
         cfg.SetValue("gameplay", "classic_kits", ClassicKits);
         cfg.SetValue("online", "name", PlayerName);
         cfg.SetValue("online", "last_join", LastJoin);

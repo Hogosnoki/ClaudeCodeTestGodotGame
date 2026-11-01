@@ -61,6 +61,8 @@ public partial class Main
         "gold" => "slime",
         "dashslash" => "entrance",
         "hive" => "nest",
+        "gauntlet" => "entrance",
+        "trial" => "entrance",
         "shop" => "den",
         "achievements" => "den",
         "grid" => "entrance",
@@ -163,6 +165,8 @@ public partial class Main
             case "gold": GoldScenario(); break;
             case "dashslash": DashSlashScenario(); break;
             case "hive": HiveScenario(); break;
+            case "gauntlet": GauntletScenario(); break;
+            case "trial": TrialScenario(); break;
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;
             case "grid": GridScenario(); break;

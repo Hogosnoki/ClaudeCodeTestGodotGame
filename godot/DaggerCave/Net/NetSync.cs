@@ -1232,6 +1232,22 @@ public static class NetSync
         Net.SendAll(w, true);
     }
 
+    /// <summary>A trial room shut: its index and the cells of its wards (every game raises the same).</summary>
+    public static void SendTrial(int room, List<Vector2I> cells)
+    {
+        if (!Net.IsHost) return;
+        var w = new NetOut(Net.Msg.Trial);
+        w.Int(room).Int(cells.Count);
+        foreach (var c in cells) w.Short((short)c.X).Short((short)c.Y);
+        Net.SendAll(w, true);
+    }
+
+    public static void SendTrialWon(int room)
+    {
+        if (!Net.IsHost) return;
+        Net.SendAll(new NetOut(Net.Msg.TrialWon).Int(room), true);
+    }
+
     public static void SendBanner(string text, float seconds)
     {
         if (!Net.IsHost) return;
@@ -1406,6 +1422,8 @@ public static class NetSync
             case Net.Msg.ExitReady: SetAtExit(from, r.Int()); break;
             case Net.Msg.Fx: OnFx(r); break;
             case Net.Msg.Banner: G.Main?.OnlineBanner(r.Str(), r.Half()); break;
+            case Net.Msg.Trial: { int room = r.Int(), n = r.Int(); var cells = new List<Vector2I>(n); for (int k = 0; k < n; k++) cells.Add(new Vector2I(r.Short(), r.Short())); G.Main?.OnlineTrial(room, cells); break; }
+            case Net.Msg.TrialWon: G.Main?.OnlineTrialWon(r.Int()); break;
             case Net.Msg.Music: G.Sfx?.SetMusic(r.Str()); break;
             case Net.Msg.GuardianDown: { int embers = r.Int(); bool dragon = r.Bool(); string name = r.Str(); G.Main?.OnlineGuardianDown(embers, dragon, name); break; }
             case Net.Msg.RunOver: G.Main?.OnlineRunOver(r.Bool()); break;

@@ -561,6 +561,8 @@ public partial class SettingsMenu : Control
         Row(g, "Controller vibration", Toggle(GameSettings.Vibration, v => GameSettings.Vibration = v));
         Row(g, "HUD tooltips", Choice(new[] { "Off", "Abilities, potions and relics", "Everything on the HUD" }, GameSettings.HudTips, i => GameSettings.HudTips = i),
             "rest the mouse on a piece of the HUD; F1 (or HUD guide in the pause menu) explains it all at once");
+        Row(g, "Words in the fight", Choice(new[] { "Quiet", "All" }, GameSettings.CombatWords, i => GameSettings.CombatWords = i),
+            "quiet: no ability names or small notes over the fight, only numbers and the big calls");
         Row(g, "Classic kits (no elements)", Toggle(GameSettings.ClassicKits, v => GameSettings.ClassicKits = v),
             "their old kits, without elements (takes effect from the next run)");
 

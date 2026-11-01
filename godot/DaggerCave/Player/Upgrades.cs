@@ -1044,6 +1044,14 @@ public static class Progression
                 gain = "+4.5% damage";
                 break;
         }
+        // (the Gauntlet: every hero grows to meet the hordes, on top of their class's own growth, compounding)
+        if (Tune.Gauntlet.On)
+        {
+            s.DamageMult *= 1f + Tune.Gauntlet.LevelDamage;
+            float more = s.MaxHp * Tune.Gauntlet.LevelHp;
+            s.MaxHp += more;
+            if (s.Hero == HeroKind.Automaton) p.Hp += more; else p.Heal(more);
+        }
         G.Sfx.Play("levelup", p.GlobalPosition, -2);
         G.Fx.Text(p.GlobalPosition + new Vector2(0, -34), $"LEVEL {p.Level}", new Color(1f, 0.9f, 0.45f), 14, 1.3f);
         G.Fx.Text(p.GlobalPosition + new Vector2(0, -20), gain, new Color(0.9f, 0.95f, 1f), 9, 1.1f);

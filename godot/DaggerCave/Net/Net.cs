@@ -390,6 +390,8 @@ public static partial class Net
         Metrics,
         /// <summary>The trading stand: a relic given to a friend, and one given back because they couldn't carry it.</summary>
         RelicGift, RelicReturned,
+        /// <summary>A trial room shut (its room and the cells of its wards) and won (its wards fade).</summary>
+        Trial, TrialWon,
     }
 
     /// <summary>Sends to one peer.</summary>

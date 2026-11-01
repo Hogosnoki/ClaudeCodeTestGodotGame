@@ -103,6 +103,8 @@ public partial class Player
     // ---------------------------------------------------------------- timed buffs
 
     public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5, BuffFireWalk = 6, BuffFrostWard = 7;
+    /// <summary>A broken generator's powers (the Gauntlet): Fury (more damage), Haste (quicker feet and blows).</summary>
+    public const int BuffFury = 8, BuffHaste = 9;
     /// <summary>An Aegis's element lent to a hero (one buff per element: <c>BuffImbueBase</c> + the element): every blow of theirs carries it.</summary>
     public const int BuffImbueBase = 20;
     public static int BuffImbue(HeroElement el) => BuffImbueBase + (int)el;
@@ -132,6 +134,7 @@ public partial class Player
         {
             BuffShout => new Color(1f, 0.6f, 0.3f, 0.8f), BuffTailwind => new Color(Elements.ColorOf(HeroElement.Wind), 0.8f),
             BuffKindling or BuffFireWalk => new Color(Elements.ColorOf(HeroElement.Fire), 0.8f), BuffFrostArmor or BuffFrostWard => new Color(Elements.ColorOf(HeroElement.Frost), 0.8f),
+            BuffFury => new Color(1f, 0.35f, 0.2f, 0.9f), BuffHaste => new Color(0.4f, 1f, 0.6f, 0.9f),
             > BuffImbueBase => new Color(Elements.ColorOf((HeroElement)Math.Min(kind - BuffImbueBase, (int)HeroElement.Dark)), 0.8f),
             _ => new Color(0.85f, 0.95f, 1f, 0.8f),
         };
@@ -153,6 +156,8 @@ public partial class Player
         // (Narrow Draft: a wind at your back; Kindling and Frost Armor change no number, they are read where blows land)
         else if (kind == BuffTailwind) { Stats.MoveSpeed *= m(Tune.ElementalStaff.TailwindMove); Stats.JumpMult *= m(Tune.ElementalStaff.TailwindJump); }
         else if (kind == BuffFireWalk) Stats.MoveSpeed *= m(Tune.ElementalStaff.WalkMove);
+        else if (kind == BuffFury) Stats.DamageMult *= m(Tune.Gauntlet.FuryDamage);
+        else if (kind == BuffHaste) { Stats.MoveSpeed *= m(Tune.Gauntlet.HasteSpeed); Stats.AttackSpeed *= m(Tune.Gauntlet.HasteSpeed); }
     }
 
     private void TickBuffs(float dt)

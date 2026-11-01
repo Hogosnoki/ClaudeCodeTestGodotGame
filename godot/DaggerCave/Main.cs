@@ -418,7 +418,12 @@ public partial class Main : Node
             else if (a.StartsWith("--onlineshot=")) _onlineShot = a[13..];
             else if (a.StartsWith("--campshot=")) _campShot = a[11..];
             else if (a.StartsWith("--fronttest=")) _frontTest = a[12..];
-            else if (a.StartsWith("--scenario=")) _scenario = a[11..];
+            else if (a.StartsWith("--scenario="))
+            {
+                _scenario = a[11..];
+                // (the older scenarios were written for a cave without generators or trials: the Gauntlet is theirs only when they're about it)
+                if (_scenario is not ("gauntlet" or "trial")) Tune.Gauntlet.On = false;
+            }
         }
         Affinity.Off = _heroTest || _hitStopTest || _altTest;
     }
@@ -911,6 +916,7 @@ public partial class Main : Node
             PlaceCaches(cave);
             PlaceGold(cave);
             PlaceHive(cave);
+            PlaceGenerators(cave);
             PlaceBonusChests(cave);
             PlaceHeroCage(cave);
             PlaceAutomatonHeap(cave);
@@ -2245,7 +2251,7 @@ public partial class Main : Node
             {
                 _spawnT = 0.25f;
                 NetSync.Scope++;
-                try { RunSpawner(0.25f); RunRooms(); RunHive(); WatchGuardian(0.25f); WatchGlitch(0.25f); }
+                try { RunSpawner(0.25f); RunRooms(); RunHive(); RunGenerators(); RunTrials(); WatchGuardian(0.25f); WatchGlitch(0.25f); }
                 finally { NetSync.Scope--; }
             }
             if (ActiveBoss != null && (ActiveBoss.Dead || !IsInstanceValid(ActiveBoss))) ActiveBoss = null;
@@ -2409,6 +2415,8 @@ public partial class Main : Node
         float fill = biome.ResidentFill >= 0 ? biome.ResidentFill
             : Math.Min(1f, Tune.Spawning.ResidentFillStart + G.Depth * Tune.Spawning.ResidentFillPerDepth + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart)) * Math.Min(1f, biome.Density);
         fill *= Tune.Spawning.SpawnShare;
+        // (the Gauntlet: the hordes come from the generators; fewer creatures simply live here)
+        if (Tune.Gauntlet.On) fill *= Tune.Gauntlet.ResidentShare;
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -2427,7 +2435,7 @@ public partial class Main : Node
 
         // Entrances: slow at first; the rate doubles every RateDoublingMinutes, like the difficulty.
         _waveT -= dt;
-        if (biome.Waves && _waveT <= 0 && alive < cap + 4)
+        if (biome.Waves && !Tune.Gauntlet.On && _waveT <= 0 && alive < cap + 4)
         {
             float rate = MathF.Pow(2f, G.RunTime / (Tune.Spawning.RateDoublingMinutes * 60f));
             _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / rate) * Tune.Spawning.WaveGapMult * G.Range(0.8f, 1.2f);
@@ -2504,7 +2512,7 @@ public partial class Main : Node
     }
 
     /// <summary>A newcomer suited to the spot and the biome: swimmers in water, fliers where there's no floor.</summary>
-    private static Enemy EntrantFor(Vector2 at, out Vector2 pos)
+    internal static Enemy EntrantFor(Vector2 at, out Vector2 pos)
     {
         var cave = G.Cave;
         var b = G.Biome;
@@ -2570,7 +2578,9 @@ public partial class Main : Node
                 // own open cells (flooded out from its floor, so never through a wall) and a few cells
                 // in from the doorway. (A line of sight to the chamber's centre isn't needed: slabs
                 // and ledges inside it used to block that, and the guardian never came.)
+                // (a trial shuts behind you: only once you're well inside it)
                 bool inside = room.Kind == RoomKind.Boss ? InRoom(cave, room, h.GlobalPosition, 0.9f)
+                    : IsTrial(cave, room) ? InRoom(cave, room, h.GlobalPosition, 0.8f)
                     : room.Center.DistanceTo(h.GlobalPosition) <= Math.Max(room.RxPx, room.RyPx) + 60;
                 if (inside) { p = h; break; }
             }
@@ -2636,6 +2646,7 @@ public partial class Main : Node
                         }
                     };
                     _world.AddChild(elite);
+                    _denElite = elite;
                     _hud.ShowBanner(elite.DisplayName.ToUpperInvariant(), 2f);
                     NetSync.SendBanner(elite.DisplayName.ToUpperInvariant(), 2f);
                     G.Sfx.Play("roar", elite.GlobalPosition, -6, 0, 1.6f);
@@ -2643,7 +2654,8 @@ public partial class Main : Node
                 }
                 case RoomKind.Ambush:
                 {
-                    if (!Tune.Spawning.AmbushRooms) break;
+                    // (the Gauntlet: an ambush is a trial, its generators the ambush)
+                    if (!Tune.Spawning.AmbushRooms || Tune.Gauntlet.On) break;
                     int n = 3 + G.Depth;
                     for (int k = 0; k < n; k++)
                     {
@@ -2673,6 +2685,7 @@ public partial class Main : Node
                     break;
                 }
             }
+            if (IsTrial(cave, room)) BeginTrial(cave, room);
         }
     }
 

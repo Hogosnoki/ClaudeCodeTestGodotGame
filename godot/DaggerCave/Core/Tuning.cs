@@ -1221,6 +1221,38 @@ public static class Tune
     }
 
     /// <summary>
+    /// The Gauntlet: hordes from generators (<see cref="DaggerCave.Generator"/>), rooms that are trials, heroes who grow to meet them.
+    /// <c>On</c> switches it all. A level holds <c>Generators</c> + <c>GeneratorsPerDepth</c> x depth generators (at least
+    /// <c>GeneratorGap</c> px apart, none within <c>GeneratorClear</c> px of the start). A generator has <c>GeneratorHp</c> (x the depth's
+    /// scaling) in three tiers: at full it sends a creature every <c>SpawnEvery</c>[tier] s while fewer than <c>Cap</c>[tier] (+ one every
+    /// <c>CapPerDepth</c> depths) of its own live, waking once a hero is within <c>WakeRange</c> px. What it sends are minions: <c>MinionHp</c> x
+    /// the health, <c>MinionXp</c> x the experience, less gold and food. Broken, it bursts: a pile of <c>BonusGold</c> gold, food (a heart)
+    /// <c>FoodChance</c> of the time, and <c>PowerChance</c> of the time a power for every hero within <c>PowerRange</c> px: Fury (x<c>FuryDamage</c>
+    /// damage) or Haste (x<c>HasteSpeed</c> movement and attack), for <c>PowerSeconds</c> s. Resident creatures are <c>ResidentShare</c> of
+    /// what they were, and the entrance waves are off. Every level a hero gains <c>LevelDamage</c> more damage and <c>LevelHp</c> more health
+    /// (of what they have) on top of their class's growth.
+    /// </summary>
+    public static class Gauntlet
+    {
+        public static bool On = true;
+        public static int Generators = 3, GeneratorMax = 9, CapPerDepth = 3;
+        public static float GeneratorsPerDepth = 0.6f, GeneratorGap = 360f, GeneratorClear = 520f, GeneratorHp = 90f, WakeRange = 460f;
+        public static int GeneratorXp = 24, BonusGold = 6;
+        public static float[] SpawnEvery = { 0f, 5f, 3.6f, 2.4f }, Cap = { 0f, 2f, 3f, 5f };
+        public static float MinionHp = 0.5f, MinionXp = 0.6f, MinionDropMult = 0.35f;
+        public static float FoodChance = 0.6f, PowerChance = 0.35f, PowerRange = 260f, PowerSeconds = 10f, FuryDamage = 1.4f, HasteSpeed = 1.25f;
+        public static float ResidentShare = 0.35f, LevelDamage = 0.04f, LevelHp = 0.03f;
+        /// <summary>
+        /// Trial rooms: every ambush room, <c>TrialTreasureChance</c> of the treasure rooms (not under water) and every mini-boss's den shut
+        /// with wards once a hero is well inside. A trial raises <c>TrialGenerators</c> (+ one every <c>TrialPerDepth</c> depths, at most
+        /// <c>TrialMax</c>) generators; it is won once they (and a den's mini-boss) are down and nothing lives in the room. Then the wards fade
+        /// and a chest is left (a den's mini-boss leaves its own).
+        /// </summary>
+        public static float TrialTreasureChance = 0.5f;
+        public static int TrialGenerators = 2, TrialPerDepth = 4, TrialMax = 4;
+    }
+
+    /// <summary>
     /// The simple kits' fourth, the other ability (the second ability button): each class's own, with no element in it. The Swordsman's
     /// Counter: a parry stance for <c>ParryTime</c> s; a blow from a creature within reach that lands in it is turned aside and answered
     /// with a riposte of <c>ParryRiposte</c> x a strike (<c>ParryCooldown</c> s). The Elementalist's Blink: a step through the air up to
