@@ -114,8 +114,10 @@ public partial class Main
         {
             case 40: Shot("title"); OpenOnlineMenu(); break;
             case 55: Shot("online_menu"); Net.Host(); break;
-            case 110: Shot("online_lobby"); break;
-            case 112: Net.Leave(); SafeQuit.Request(this); break;
+            case 110: Shot("online_lobby"); Net.FillForShot(); break;
+            // (a full room: five friends, two on the same hero, one still choosing; their names stand on the heroes they took)
+            case 150: Shot("online_lobby_full"); break;
+            case 152: Net.Leave(); SafeQuit.Request(this); break;
         }
     }
 

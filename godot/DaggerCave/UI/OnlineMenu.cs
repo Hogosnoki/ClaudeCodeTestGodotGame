@@ -32,6 +32,8 @@ public partial class OnlineMenu : Control
     private Button _host, _start, _leave, _paste, _joinBtn, _backBtn, _copy1, _copy2, _copy3, _rejoinBtn;
     private readonly Button[] _cards = new Button[Heroes.Length];
     private readonly Label[] _cardNote = new Label[Heroes.Length];
+    /// <summary>The names of the players who took each hero, in big print laid over its portrait.</summary>
+    private readonly RichTextLabel[] _cardNames = new RichTextLabel[Heroes.Length];
     private readonly HeroPortrait[] _portraits = new HeroPortrait[Heroes.Length];
     private string _note = "";
     private bool _wasOnline;
@@ -143,7 +145,11 @@ public partial class OnlineMenu : Control
         _router.CustomMinimumSize = new Vector2(840, 0);
         _lobby.AddChild(_router);
         _lobby.AddChild(new HSeparator());
-        _players = UiKit.Label("", 14);
+        // (who's here is shown on the heroes they took; this one line only counts heads and names who's still choosing,
+        // so the lobby never grows as people join)
+        _players = UiKit.Label("", 15, UiKit.Dim, HorizontalAlignment.Center);
+        _players.TextOverrunBehavior = TextServer.OverrunBehavior.TrimEllipsis;
+        _players.CustomMinimumSize = new Vector2(840, 0);
         _lobby.AddChild(_players);
         _mismatch = UiKit.Label("", 13, new Color(1f, 0.65f, 0.45f));
         _mismatch.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -203,6 +209,20 @@ public partial class OnlineMenu : Control
                 MouseFilter = MouseFilterEnum.Ignore,
             };
             v.AddChild(pic);
+            // the names of whoever took this hero, big, over the portrait (stood on top of the character)
+            var names = new RichTextLabel
+            {
+                BbcodeEnabled = true, ScrollActive = false, MouseFilter = MouseFilterEnum.Ignore, AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            };
+            names.AddThemeFontSizeOverride("normal_font_size", 19);
+            names.AddThemeColorOverride("default_color", UiKit.Text);
+            names.AddThemeConstantOverride("outline_size", 6);
+            names.AddThemeColorOverride("font_outline_color", new Color(0.03f, 0.02f, 0.02f, 0.95f));
+            names.AddThemeConstantOverride("line_separation", -3);
+            names.SetAnchorsAndOffsetsPreset(LayoutPreset.FullRect);
+            names.OffsetLeft = 2; names.OffsetRight = -2;
+            pic.AddChild(names);
+            _cardNames[k] = names;
             var label = UiKit.Label(name.ToUpperInvariant(), 15, Hud.HeroColor(kind), HorizontalAlignment.Center);
             label.MouseFilter = MouseFilterEnum.Ignore;
             v.AddChild(label);
@@ -515,8 +535,11 @@ public partial class OnlineMenu : Control
             _codeRow.Visible = _lanRow.Visible = _vpnRow.Visible = false;
             _router.Text = _note != "" ? _note : "You're in. Pick a hero; the host starts the descent for everyone.";
         }
-        var lines = Net.Peers.Values.Select(p => $"{p.Name}{(p.Id == Net.Me ? " (you)" : "")}{(p.Id == 1 ? ", hosting" : "")}   ·   {(p.Picked ? HeroName(p.Hero) : "choosing a hero...")}");
-        _players.Text = string.Join("\n", lines) + (Net.Count < Net.MaxPlayers && Net.IsHost ? "\n(room for " + (Net.MaxPlayers - Net.Count) + " more)" : "");
+        // (one line, whatever the crowd: the names themselves stand on the heroes below)
+        var choosing = Net.Peers.Values.Where(p => !p.Picked).Select(p => p.Id == Net.Me ? "you" : p.Name).ToList();
+        _players.Text = $"{Net.Count} of {Net.MaxPlayers} here"
+                      + (choosing.Count > 0 ? "   ·   still choosing: " + string.Join(", ", choosing) : "   ·   everyone has a hero")
+                      + (Net.Count < Net.MaxPlayers && Net.IsHost ? $"   ·   room for {Net.MaxPlayers - Net.Count} more" : "");
         // different copies of the game still connect, but may not build the same caves
         var odd = Net.Peers.Values.Where(p => p.Build != "" && p.Build != Net.Build).Select(p => p.Name).ToList();
         _mismatch.Visible = odd.Count > 0;
@@ -529,8 +552,10 @@ public partial class OnlineMenu : Control
             bool mine = owners.Any(pp => pp.Id == Net.Me);
             bool have = Meta.IsUnlocked(Heroes[k].kind);
             _cards[k].Disabled = !have && !mine;
-            var others = owners.Where(pp => pp.Id != Net.Me).Select(pp => pp.Name).ToList();
-            _cardNote[k].Text = mine ? (others.Count > 0 ? "YOU  +  " + string.Join(", ", others) : "YOU") : others.Count > 0 ? string.Join(", ", others) : !have ? "not found yet" : "click to take";
+            // (the takers' names over the portrait: you first, in gold; the host marked with a crown-ish star)
+            string Tag(Net.PeerInfo pp) => (pp.Id == Net.Me ? "[color=#ffd166]YOU[/color]" : Esc(pp.Name)) + (pp.Id == 1 ? " [color=#ffd166]★[/color]" : "");
+            _cardNames[k].Text = "[center]" + string.Join("\n", owners.OrderBy(pp => pp.Id == Net.Me ? 0 : 1).Select(Tag)) + "[/center]";
+            _cardNote[k].Text = owners.Count > 0 ? (mine ? "your hero" : "taken") : !have ? "not found yet" : "click to take";
             _cardNote[k].AddThemeColorOverride("font_color", mine ? UiKit.Gold : UiKit.Dim);
             _portraits[k].Playing = mine;
         }
@@ -558,6 +583,9 @@ public partial class OnlineMenu : Control
     }
 
     private PanelContainer _panel;
+
+    /// <summary>A player's name made safe to show in rich text (a "[" can't start a tag).</summary>
+    private static string Esc(string s) => (s ?? "").Replace("[", "[lb]");
 
     public override void _Process(double delta)
     {

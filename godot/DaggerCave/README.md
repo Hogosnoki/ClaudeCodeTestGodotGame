@@ -74,6 +74,9 @@ Up to five players, one of each hero. One player hosts; the others join with the
 3. The friend pastes (or types) the code and clicks **Join**. A plain address works too
    (`192.168.1.20`, `100.101.102.103`, `my.host.name`, with `:port` if needed).
 4. In the lobby, each player takes a hero (the one you last chose at the camp fire): the heroes are in two rows of four, and
+   each player's name stands in big print over the portrait of the hero they took (yours reads YOU, in gold; the host's has a
+   gold star), so the lobby stays the same size however many join. One line above counts heads, names whoever is still
+   choosing, and (for the host) says how much room is left. Beside them,
    the panel on the right shows the hero under the cursor (a moving portrait, how they play, and what each ability and their
    support ability does). Taking one
    moves you on to a second stage, as in single player: **The Ember Grid** (at your hero's branch) and

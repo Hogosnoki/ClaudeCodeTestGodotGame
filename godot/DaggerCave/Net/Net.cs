@@ -116,6 +116,19 @@ public static partial class Net
 
     private static void Notify() => Changed?.Invoke();
 
+    /// <summary>For the lobby screenshot (--onlineshot): pretend five friends have joined (two on one hero, one still choosing).</summary>
+    public static void FillForShot()
+    {
+        var at = new (string name, HeroKind hero, bool picked)[]
+        {
+            ("Moss", HeroKind.Rogue, true), ("Juniper", HeroKind.Rogue, true), ("Bartholomew", HeroKind.Vitalist, true),
+            ("Kit", HeroKind.Aegis, true), ("Wren", HeroKind.Warden, false),
+        };
+        for (int i = 0; i < at.Length; i++)
+            Peers[100 + i] = new PeerInfo { Id = 100 + i, Name = at[i].name, Hero = at[i].hero, Picked = at[i].picked, Build = Build };
+        Notify();
+    }
+
     // ---------------------------------------------------------------- hosting and joining
 
     /// <summary>Opens a game for friends to join. False (with <see cref="Status"/> saying why) if the port can't be opened.</summary>
