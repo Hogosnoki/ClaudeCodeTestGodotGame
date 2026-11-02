@@ -478,7 +478,7 @@ public static class UiArt
     // ================================================================== what a card is for
 
     /// <summary>What an upgrade is chiefly for.</summary>
-    public enum Role { Offense, Survival, Mobility, Bargain, None }
+    public enum Role { Offense, Survival, Mobility, Bargain, None, Fortune }
 
     public static Role RoleOf(Upgrade u) => u.Icon switch
     {
@@ -486,6 +486,7 @@ public static class UiArt
         "shield" or "life" => Role.Survival,
         "move" or "dodge" => Role.Mobility,
         "risk" => Role.Bargain,
+        "fortune" => Role.Fortune,
         "skip" => Role.None,
         _ => u.Kind == UpgradeKind.Relic ? Role.None : Role.Offense,
     };
@@ -496,10 +497,11 @@ public static class UiArt
         Role.Survival => new Color(0.45f, 0.9f, 0.6f),
         Role.Mobility => new Color(0.5f, 0.8f, 1f),
         Role.Bargain => new Color(0.82f, 0.55f, 1f),
+        Role.Fortune => new Color(1f, 0.84f, 0.3f),
         _ => new Color(0.75f, 0.75f, 0.8f),
     };
 
-    public static string RoleName(Role r) => r switch { Role.Offense => "OFFENSE", Role.Survival => "SURVIVAL", Role.Mobility => "MOBILITY", Role.Bargain => "BARGAIN", _ => "" };
+    public static string RoleName(Role r) => r switch { Role.Offense => "OFFENSE", Role.Survival => "SURVIVAL", Role.Mobility => "MOBILITY", Role.Bargain => "BARGAIN", Role.Fortune => "FORTUNE", _ => "" };
 
     /// <summary>A small symbol for a role: crossed blades, a shield, a wing (two chevrons), a pair of scales.</summary>
     public static void RoleGlyph(CanvasItem ci, Vector2 c, float s, Role r, Color col)
@@ -528,6 +530,15 @@ public static class UiArt
                 ci.DrawLine(c + new Vector2(-s, -s * 0.5f), c + new Vector2(s, -s * 0.5f), col, 1.6f, true);
                 ci.DrawArc(c + new Vector2(-s, 0), s * 0.45f, 0, MathF.PI, 6, col, 1.4f, true);
                 ci.DrawArc(c + new Vector2(s, 0), s * 0.45f, 0, MathF.PI, 6, col, 1.4f, true);
+                break;
+            case Role.Fortune:
+                // a four-pointed star, a glint of treasure
+                for (int k = 0; k < 4; k++)
+                {
+                    var d = Vector2.Up.Rotated(k * MathF.PI / 2f);
+                    var side = d.Rotated(MathF.PI / 2f);
+                    ci.DrawColoredPolygon(new[] { c + d * s * 1.1f, c + side * s * 0.25f, c - side * s * 0.25f }, col);
+                }
                 break;
         }
     }

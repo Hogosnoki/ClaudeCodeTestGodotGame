@@ -96,6 +96,24 @@ public static class Boons
             Desc = x => x > 1.5f ? "Two more jumps in mid-air." : "One more jump in mid-air.",
             Apply = (s, p, x) => s.ExtraAirJumps += (int)MathF.Round(x),
             When = s => s.ExtraAirJumps < 3 },
+        new() { Key = "luck", Icon = "fortune", Tag = "economy", Weight = 2.5f,
+            Names = new[] { "Four-Leaf", "Lucky Find", "Fortune's Favour", "Treasure Sense", "Midas Touch" },
+            Steps = new[] { 0.10f, 0.18f, 0.30f, 0.45f, 0.70f },
+            Desc = x => $"Rare cards and relics come {x * 100f:0}% more often; Epic {x * 150f:0}% and Legendary {x * 200f:0}% more.",
+            Apply = (s, p, x) => s.Luck += x,
+            When = s => s.Luck < Tune.Boons.LuckCap },
+    };
+
+    /// <summary>How much more often fortune deals a card of this grade (Rare: 1+luck, Epic: 1+1.5 luck, Legendary: 1+2 luck).</summary>
+    public static float LuckFactor(CardGrade g, float luck) => g switch
+    {
+        CardGrade.Rare => 1f + luck, CardGrade.Epic => 1f + luck * 1.5f, CardGrade.Legendary => 1f + luck * 2f, _ => 1f,
+    };
+
+    /// <summary>The same for a relic's rarity.</summary>
+    public static float LuckFactor(RelicRarity r, float luck) => r switch
+    {
+        RelicRarity.Rare => 1f + luck, RelicRarity.Legendary => 1f + luck * 2f, _ => 1f,
     };
 
     /// <summary>Every ability's rest cut to this share (the special, the second ability, the dodge; the attack's own speed is Attack Rate's).</summary>
@@ -146,10 +164,10 @@ public static class Boons
     private static string FamilyOf(Upgrade u) => _family.TryGetValue(u, out var f) ? f.Key : "";
 
     /// <summary>A grade, as luck deals it (a little luckier deeper down), never below <paramref name="least"/>.</summary>
-    public static CardGrade RollGrade(Random rng, CardGrade least = CardGrade.Common)
+    public static CardGrade RollGrade(Random rng, CardGrade least = CardGrade.Common, float fortune = 0f)
     {
         float luck = 1f + Math.Max(0, G.Depth) * Tune.Boons.LuckPerDepth;
-        float[] w = Tune.Boons.GradeWeights.Select((x, k) => k >= 2 ? x * luck : x).ToArray();
+        float[] w = Tune.Boons.GradeWeights.Select((x, k) => (k >= 2 ? x * luck : x) * LuckFactor(Grades[k], fortune)).ToArray();
         for (int k = 0; k < 5; k++) if (Grades[k] < least) w[k] = 0f;
         float r = (float)rng.NextDouble() * w.Sum();
         for (int k = 0; k < 5; k++) { r -= w[k]; if (r <= 0f) return Grades[k]; }
@@ -169,7 +187,7 @@ public static class Boons
     /// <summary>A boon at a rolled grade (falling to a lower grade, then a higher one, if none of that grade can be had).</summary>
     public static Upgrade DealRolled(PlayerStats s, Random rng, HashSet<string> taken, CardGrade least = CardGrade.Common)
     {
-        var g = RollGrade(rng, least);
+        var g = RollGrade(rng, least, s.Luck);
         for (var k = g; k >= least; k--) if (Deal(s, rng, k, taken) is Upgrade u) return u;
         for (var k = g + 1; k <= CardGrade.Legendary; k++) if (Deal(s, rng, k, taken) is Upgrade u) return u;
         return null;

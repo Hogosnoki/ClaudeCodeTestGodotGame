@@ -66,6 +66,7 @@ public partial class UpgradeMenu : Control
         "shield" => new Color(0.45f, 0.7f, 1f),
         "skip" => new Color(0.6f, 0.58f, 0.55f),
         "risk" => new Color(0.86f, 0.42f, 1f),
+        "fortune" => new Color(1f, 0.84f, 0.3f),
         _ => new Color(1f, 0.45f, 0.5f),
     };
 

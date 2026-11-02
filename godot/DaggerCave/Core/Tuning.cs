@@ -1357,6 +1357,8 @@ public static class Tune
     {
         public static float[] GradeWeights = { 52f, 28f, 13f, 5.5f, 1.5f };
         public static float LuckPerDepth = 0.05f, NegateCap = 0.4f;
+        /// <summary>Fortune (the luck boons) stops being dealt once it reaches this.</summary>
+        public static float LuckCap = 2f;
         /// <summary>A level's pick: the chance each card beyond the first is the hero's own rather than a boon.</summary>
         public static float OwnShare = 0.35f;
         /// <summary>A milestone with the special's forms still on offer: the chance its third card is an Epic-or-better boon (else a great thing).</summary>

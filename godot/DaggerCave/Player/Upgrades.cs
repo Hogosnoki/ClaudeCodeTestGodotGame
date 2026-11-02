@@ -180,6 +180,8 @@ public sealed class PlayerStats
     public float AirSpeedMult = 1f;
     /// <summary>Boons (Player/Boons.cs): the chance a blow is shrugged off entirely, and jumps in mid-air beyond the usual.</summary>
     public float NegateChance;
+    /// <summary>Fortune (the luck boons): rarer cards and relics come this much more often (see <see cref="Boons.LuckFactor"/>).</summary>
+    public float Luck;
     public int ExtraAirJumps;
     /// <summary>Relic: potions carried beyond the usual, and the added chance an enemy drops one.</summary>
     public int ExtraPotions;

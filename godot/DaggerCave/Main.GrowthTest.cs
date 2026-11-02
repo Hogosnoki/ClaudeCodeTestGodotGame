@@ -58,6 +58,19 @@ public partial class Main
         ScCheck($"  boons come in every grade, the higher the rarer ({boonsSeen} dealt: {dist})",
             gradeCount.GetValueOrDefault(CardGrade.Common) > gradeCount.GetValueOrDefault(CardGrade.Uncommon) && gradeCount.GetValueOrDefault(CardGrade.Uncommon) > gradeCount.GetValueOrDefault(CardGrade.Rare)
             && gradeCount.GetValueOrDefault(CardGrade.Rare) > gradeCount.GetValueOrDefault(CardGrade.Epic) && gradeCount.GetValueOrDefault(CardGrade.Epic) > gradeCount.GetValueOrDefault(CardGrade.Legendary) && gradeCount.GetValueOrDefault(CardGrade.Legendary) > 0);
+        {
+            // (fortune: the luck boons make the rarer grades, and rarer relics, come more often)
+            int Rolls(float luck, CardGrade g) { int n = 0; for (int k = 0; k < 20000; k++) if (Boons.RollGrade(rng, CardGrade.Common, luck) >= g) n++; return n; }
+            int rare0 = Rolls(0f, CardGrade.Rare), rare1 = Rolls(1f, CardGrade.Rare), leg0 = Rolls(0f, CardGrade.Legendary), leg1 = Rolls(1f, CardGrade.Legendary);
+            var midas = Boons.All.First(u => u.Id == "b_luck_5");
+            float l0 = s.Luck; Upgrades.Apply(midas, s, p); float l1 = s.Luck;
+            int relicLeg0 = 0, relicLeg1 = 0;
+            s.Luck = 0f; for (int k = 0; k < 3000; k++) if (Upgrades.RollRelic(s, rng)?.Rarity == RelicRarity.Legendary) relicLeg0++;
+            s.Luck = 1.5f; for (int k = 0; k < 3000; k++) if (Upgrades.RollRelic(s, rng)?.Rarity == RelicRarity.Legendary) relicLeg1++;
+            s.Luck = l0;
+            ScCheck($"  fortune: {midas.Name} adds {l1 - l0:0.00} luck; at luck 1, Rare-or-better {rare0} -> {rare1} and Legendary {leg0} -> {leg1} of 20000; Legendary relics {relicLeg0} -> {relicLeg1} of 3000 (luck 1.5)",
+                l1 > l0 && rare1 > rare0 * 1.3f && leg1 > leg0 * 2f && relicLeg1 > relicLeg0);
+        }
         bool epicMile = Enumerable.Range(0, 40).All(_ => Cards.RollMilestone(s, rng).Any(u => u.Grade >= CardGrade.Epic));
         ScCheck($"  every milestone deals something of Epic grade or better ({epicMile})", epicMile);
         {

@@ -254,5 +254,5 @@ public static partial class Upgrades
 
     /// <summary>One relic for this hero's chest (null when none are left).</summary>
     public static Upgrade RollRelic(PlayerStats s, Random rng, IEnumerable<string> not = null)
-        => Pick(RelicPool(s, not), 1, rng, u => u.Weight).FirstOrDefault();
+        => Pick(RelicPool(s, not), 1, rng, u => u.Weight * Boons.LuckFactor(u.Rarity, s.Luck)).FirstOrDefault();
 }

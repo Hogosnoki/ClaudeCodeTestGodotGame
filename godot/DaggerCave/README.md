@@ -1003,9 +1003,12 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   | Critical chance (x1.5) | | +3% Keen Eye | +5% Precision | +8% Executioner | +12% Deathmark |
   | Every ability's rest | | −6% Focus | −9% Clarity | −13% Flow | −18% Timeless |
   | Speed in the air | | +8% Drifting | +12% Gliding | +18% Wind-Rider | +26% Skydancer |
+  | **Fortune**: luck for rarer drops (at most 2) | +0.10 Four-Leaf | +0.18 Lucky Find | +0.30 Fortune's Favour | +0.45 Treasure Sense | +0.70 Midas Touch |
   | Shrug a blow off entirely (at most 40%) | | 3% Lucky Charm | 5% Blessed Ward | 8% Fateweaver | 12% Untouchable |
   | Special damage | | | +15% Empowered | +25% Overcharged | +40% Cataclysmic |
   | Jumps in mid-air (at most 3 more) | | | | +1 Cloud Step | +2 Wings of Dawn |
+
+  **Fortune** (the gold star, a FORTUNE card): each point of luck makes Rare cards come (1 + luck)x as often, Epic (1 + 1.5 luck)x and Legendary (1 + 2 luck)x in level picks and milestones, and every relic dealt (chests and the rest) leans the same way: Rare x(1 + luck), Legendary x(1 + 2 luck). Infusions ride on the Legendary rolls, so fortune deals them more often too. At the 2-luck cap, Legendary cards come about 5x as often.
 
   Every milestone also deals something of Epic grade or better: beside the special's two forms, half the time an Epic-or-Legendary boon (else a great thing); after them, two great things and such a boon. The Shape Shifter's and the Automaton's milestones end with one too. The hero's own cards wear grades as well (Uncommon; *Again* Rare; milestones Epic).
 - **Infusions: the special itself changed** (Player/Infusions.cs, `Tune.Infusion`). Legendary cards that don't only make the special bigger but change what it does: it leaves its element on the ground where it landed, a zone that keeps working for about 6–7 s (two strikes a second, scaled by your damage and special damage), builds its element in all it holds, and may set alight, freeze solid or drag creatures in. Shards of the element (ice, glowing magma, thorns, shadow crystals) thrust up out of the ground in it and sink as it fades. Two per hero, and you may take both (the special then leaves both behind); a second copy of one makes it **Ascended**: 1.25x as wide, 1.3x as long, 1.5x as hard.
