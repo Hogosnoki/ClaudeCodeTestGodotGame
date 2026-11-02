@@ -84,6 +84,14 @@ public partial class Main
         p.GlobalPosition = home + new Vector2(60, 0);
         foreach (var _ in Wait(1.2f)) yield return null;
         ScShot("shrinelook_close_high");
+        // (turned well round, to show their depth)
+        ChestView.TestTurn = 1.0f;
+        foreach (var _ in Wait(0.6f)) yield return null;
+        ScShot("shrinelook_turned_high");
+        p.GlobalPosition = home + new Vector2(-60, 0);
+        foreach (var _ in Wait(1.0f)) yield return null;
+        ScShot("shrinelook_turned_low");
+        ChestView.TestTurn = 0f;
         p.GlobalPosition = home;
         _cam.Zoom /= 2.2f;
         ScCheck($"four shrines, Uncommon to Legendary, settled ({string.Join(", ", shrines.Select(c => $"{c.Grade} lift {c.ShrineLift:0}"))})", shrines.All(c => IsInstanceValid(c) && c.ShrineLift <= 0f));

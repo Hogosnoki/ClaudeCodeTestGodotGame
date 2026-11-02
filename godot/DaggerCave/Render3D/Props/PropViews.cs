@@ -1456,9 +1456,11 @@ public partial class ChestView : PropView
     /// </summary>
     /// <summary>
     /// How thick each piece of a shrine's flower is, as a share of the distance from the nearest edge: the whole thickness (front and
-    /// back together) is half that distance, so every piece is knife-sharp at its edges and swells to a ridge along its middle.
+    /// back together) equals that distance, so every piece is knife-sharp at its edges and swells to a ridge along its middle.
     /// </summary>
-    private const float ShrineThickness = 0.5f;
+    private const float ShrineThickness = 1.0f;
+    /// <summary>For pictures in tests: every shrine flower turned this far (radians) about its upright, to show its depth.</summary>
+    public static float TestTurn;
 
     private void BuildShrine(bool boss, CardGrade grade)
     {
@@ -1830,7 +1832,7 @@ public partial class ChestView : PropView
                 var to = (cam.GlobalPosition - _float.GlobalPosition).Normalized();
                 pitch = -MathF.Asin(Math.Clamp(to.Y, -0.95f, 0.95f));
             }
-            _float.Rotation = new Vector3(pitch, 0.18f * MathF.Sin(Time * 0.9f), sway);
+            _float.Rotation = new Vector3(pitch, 0.18f * MathF.Sin(Time * 0.9f) + TestTurn, sway);
             _float.Scale = Vector3.One * (c.Open ? Math.Max(0.001f, 1f - c.OpenT * 3f) : 1f);
         }
         // the web holds until it's cut (then it parts: the thread goes, and the silk)
