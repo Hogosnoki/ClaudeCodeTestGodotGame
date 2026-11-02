@@ -245,6 +245,12 @@ public partial class Main
         // ---- Bloodrush: a kill hastens the special
         var rush = Cards.Milestones.First(u => u.Id == "m_bloodrush");
         Upgrades.Apply(rush, s, p);
+        // (a short rest may have run out while the last stroke played: spend what's held so a rest is running)
+        for (int k = 0; k < 3 && p.BigCooldown <= Tune.Growth.KillRestCut; k++)
+        {
+            _scInput = new PlayerInput { Ability = true, Aim = aim, AimGiven = true }; yield return null; yield return null; _scInput = default;
+            foreach (var _ in ElWait(0.3f)) yield return null;
+        }
         float restBefore = p.BigCooldown;
         p.OnKill(knot[0]);
         ScCheck($"Bloodrush: a kill cuts the rest ({restBefore:0.00} -> {p.BigCooldown:0.00} s)", p.BigCooldown < restBefore - Tune.Growth.KillRestCut * 0.9f);
