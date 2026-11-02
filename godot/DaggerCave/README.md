@@ -1269,6 +1269,11 @@ round a random start could tip a check. The checks are timed in game seconds, so
 minute, where a software renderer would take many (with a window, use a small one,
 `--resolution 480x270`).
 
+The `--scenario=` tests run the same way: `godot --headless --path godot --fixed-fps 60 -- --scenario=crowd` checks everything a
+windowed run does (the physics and the game are the same), about three times as fast, and several can run side by side. Run
+headless, `--shots=` takes no pictures (there are none to take); run with a window when you want them. Always pass `--fixed-fps 60`
+headless: without it the frames outrun the physics ticks and a scripted button press can come and go between two of them.
+
 `--alttest` (with `--hero=...`) runs the same way through the hero's alterations: Relentless Charge
 carrying a whole combo, Swift Heave in the air, Counter Roll stopping a club and answering it (but
 not a blow from afar); the Unyielding Shield stopping 70% and never breaking, Braced, Guardian's

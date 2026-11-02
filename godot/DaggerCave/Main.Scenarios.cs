@@ -35,6 +35,8 @@ public partial class Main
     private void ScShot(string name)
     {
         if (_shotDir == "" || !_scShots.Add(name)) return;
+        // (run headless, for speed, there's no picture to take: the checks run all the same)
+        if (DisplayServer.GetName() == "headless") return;
         GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/{name}.png");
     }
 
