@@ -163,6 +163,8 @@ public partial class EnemyProjectile : Node2D
         // (a rubble wall or a rock slab stops it as the rock does)
         if (cave.IsSolid(np) || Life <= 0 || ((Rubble.All.Count > 0 || RockLedge.All.Count > 0) && Breakables.Blocks(GlobalPosition, np)))
         {
+            // (it meets the cave: a rock clacks on rock, fire sizzles, ice shatters, each on the cave's own stone)
+            if (cave.IsSolid(np) && Life > 0) G.Sfx.Play(MaterialSounds.Name(Enemy.ShotStrike(Kind), Enemy.TerrainMaterial), np, -6, 0.12f);
             Impact(np);
             return;
         }
@@ -196,6 +198,7 @@ public partial class EnemyProjectile : Node2D
         if (Kind == "pod" && G.Players.Any(h => h != null && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)) { Impact(GlobalPosition); return; }
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
         {
+            p.NextStrike = Enemy.ShotStrike(Kind);
             p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10, source: Source);
             // (a guardian spider's silk: it wraps the hero up)
             if (Kind == "web" && !p.Dead) p.GiveWeb(Tune.Spider.WebSeconds, Tune.Status.WebHoldShare * p.Stats.MaxHp);

@@ -1235,6 +1235,11 @@ public partial class Player : CharacterBody2D
     public bool LastHitBlocked { get; private set; }
 
     /// <summary>Returns the damage taken. <paramref name="source"/> is credited with it (enemy learning).</summary>
+    /// <summary>What the hero wears, for the sound of a blow: the Warden's and the Automaton's plate and iron, everyone else's leathers and skin.</summary>
+    public Body BodyMaterial => Stats.Hero is HeroKind.Warden or HeroKind.Automaton ? Body.Armor : Body.Flesh;
+    /// <summary>A shot about to strike says what it is (its blow sounds as itself, not as the creature that threw it).</summary>
+    public Strike? NextStrike;
+
     public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null, bool pooled = false)
     {
         LastHitBlocked = false;
@@ -1311,6 +1316,10 @@ public partial class Player : CharacterBody2D
             return 0;
         }
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
+        // (what struck meeting what the hero wears: claws on the Warden's plate clank, a rock on leathers thuds: Audio/MaterialSounds.cs)
+        var struckBy = NextStrike ?? (source != null && GodotObject.IsInstanceValid(source) ? source.StrikeKind : (Strike?)null);
+        NextStrike = null;
+        if (struckBy is Strike sk && raw > 0f) G.Sfx.Play(MaterialSounds.Name(sk, BodyMaterial), GlobalPosition, -3, 0.1f);
         var block = TryBlock(from, dmg, melee ? source : null, source);
         if (block.Blocked)
         {

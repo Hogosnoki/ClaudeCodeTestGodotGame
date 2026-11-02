@@ -70,6 +70,7 @@ public partial class Main
         "movers" => "entrance",
         "growth" => "entrance",
         "moves" => "entrance",
+        "meetings" => "entrance",
         "bossmoves" => "entrance",
         "shop" => "den",
         "achievements" => "den",
@@ -180,6 +181,7 @@ public partial class Main
             case "movers": MoversScenario(); break;
             case "growth": GrowthScenario(); break;
             case "moves": MovesScenario(); break;
+            case "meetings": MeetingsScenario(); break;
             case "bossmoves": BossMovesScenario(); break;
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;

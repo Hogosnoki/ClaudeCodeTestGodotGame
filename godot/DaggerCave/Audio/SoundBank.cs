@@ -76,7 +76,8 @@ public partial class SoundBank : Node
 
     public void Play(string name, Vector2? pos = null, float volDb = 0f, float pitchVar = 0.08f, float pitch = 1f)
     {
-        bool dyn = name.Length > 0 && name[0] == '@';
+        bool dyn = name.Length > 0 && (name[0] == '@' || name[0] == '%');
+        if (name.Length > 0 && name[0] == '%') { LastMeeting = name; Meetings++; }
         if (!_sfx.TryGetValue(name, out var st) && (!dyn || (st = BuildDynamic(name)) == null)) return;
         if (dyn)
         {
@@ -127,6 +128,7 @@ public partial class SoundBank : Node
     /// <summary>Makes (and keeps) a sound named by <see cref="DynName"/>; null if the name isn't one.</summary>
     private AudioStreamWav BuildDynamic(string name)
     {
+        if (name[0] == '%') return BuildMeeting(name);
         var parts = name.Substring(1).Split('|');
         if (parts.Length != 5 || !int.TryParse(parts[0], out int ev) || !int.TryParse(parts[2], out int a) || !int.TryParse(parts[3], out int b)
             || !float.TryParse(parts[4], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float w)) return null;
@@ -138,6 +140,33 @@ public partial class SoundBank : Node
         var st = ToStream(fin);
         _sfx[name] = st;
         return st;
+    }
+
+    /// <summary>One thing meeting another ("%strike|body": Audio/MaterialSounds.cs), made the first time it's heard.</summary>
+    private AudioStreamWav BuildMeeting(string name)
+    {
+        var parts = name.Substring(1).Split('|');
+        if (parts.Length != 2 || !int.TryParse(parts[0], out int s) || !int.TryParse(parts[1], out int m)
+            || !Enum.IsDefined(typeof(Strike), (byte)s) || !Enum.IsDefined(typeof(Body), (byte)m)) return null;
+        int seed = ElementSounds.StableHash(name);
+        var buf = MaterialSounds.Build((Strike)s, (Body)m, seed);
+        var fin = Finish(buf, 0.1f, seed, 0f);
+        Normalize(fin, 0.78f);
+        var st = ToStream(fin);
+        _sfx[name] = st;
+        return st;
+    }
+
+    /// <summary>For the tests: the last meeting heard ("%strike|body"), and how many.</summary>
+    public string LastMeeting = "";
+    public int Meetings;
+
+    /// <summary>For the tests: makes (or finds) a meeting's sound, and says how long it is.</summary>
+    public float MeetingSeconds(Strike s, Body b)
+    {
+        string name = MaterialSounds.Name(s, b);
+        if (!_sfx.TryGetValue(name, out var st)) st = BuildMeeting(name);
+        return st == null ? 0f : (float)st.GetLength();
     }
 
     /// <summary>A sound another game sent.</summary>

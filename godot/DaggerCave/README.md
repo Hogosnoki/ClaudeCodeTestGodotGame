@@ -1062,6 +1062,19 @@ Every creature (`Enemies/Enemy.Secondary.cs`, numbers in its table and `Tune.Sec
 - **Online:** the warnings travel as one effect each; shots are the usual creature projectiles.
 - **Test:** `--scenario=moves` sets each kind (fish and eels aside: they need water) beside a sturdy hero with its move ready, and checks it winds up, strikes, lands and recovers (a finale: is spent). It takes pictures of each kind of move mid wind-up (`moves_<kind>`). `--only=Bear,Frog` limits it to those. The older scenarios run with `Tune.Testing.NoSecondary`.
 
+## The sound of things meeting
+
+Every blow sounds like what struck meeting what it struck (`Audio/MaterialSounds.cs`, `Enemies/Enemy.Materials.cs`). Each pairing of a **strike** (a blade's edge, a dagger's point, a club, a caster's bolt, fire, frost, water, thorns) and a **body** (flesh, chitin, bone, stone, metal, wood, ice, gel, living flame, a hero's plate) is synthesized on demand from its own seed, the same in every game, and played as `%strike|body`:
+
+- **A sword on rock** rings a bright steel *chink* with grit falling; **on a shell** (scorpions, spiders, hornets, crabs, mites, urchins, bombers) it's a hollow, plastic-y *thock*; **on bone** a dry clack; **on flesh** a wet thwack; **on iron** a clang that rings on; **on wood** a knock and splinters; **on ice** a crack and a shatter.
+- **A club** is the same meeting with weight and no edge: a deep crack on stone, a dull clank on iron.
+- **Fire** whoomphs: on rock a hiss and a sizzling crack, on a shell a crackle of popping, on flesh a long sear, on ice a hiss of steam. **Frost** cracks and crunches, **water** slaps and splashes, **thorns** lash.
+- **Who strikes with what:** the Swordsman, the Shape Shifter and the Automaton cut; the Rogue pierces; the Warden clubs; the casters' plain blows are bolts; an element's blow is its element.
+- **Creatures' blows on heroes too:** bites and claws cut, fists and clubs thud, stingers and fangs pierce, elementals strike with their element. They land on the Warden's and the Automaton's plate (a clank) or everyone else's leathers. A creature's shot sounds as itself: a thrown rock thuds, spit and acid splash, fire burns, ice cuts cold.
+- **The cave answers:** a shot that hits rock clacks on the cave's own stone: ice in the frozen caves, iron in the Clockwork Deep, roots and fungus where they grow, rock elsewhere.
+- A creature whose armour has broken sounds like the flesh beneath.
+- **Test:** `--scenario=meetings` makes all 80 pairings and checks no two sound alike (from a fingerprint of loudness and brightness over time). It also checks a sword on a golem is steel on stone and on a scorpion steel on shell, fire on a golem is fire on stone, and a bear's claws on the hero are a blade on flesh.
+
 ## Bosses: great moves
 
 Every boss (a level's guardian, a colossus, the dragon) has three or four great moves beside what its kind always does and its second attack (`Enemies/Enemy.BossMoves.cs`, numbers in `Tune.BossMoves`). The first comes 3 s after it wakes, then one every 5 s or so while its hero is near and in sight, never the same twice running. Each has its own wind-up, its own warning shape, its own pose, and its name called out over the boss:

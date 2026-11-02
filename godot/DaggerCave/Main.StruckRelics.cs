@@ -85,6 +85,7 @@ public partial class Main
         float hp0 = friend.Hp;
         p.GiveUp();
         yield return null;
-        ScCheck($"Last Rites: when you fall a living friend is healed by 10 ({hp0:0} -> {friend.Hp:0}; {p.Tally("fall_healed")} healed)", p.Tally("fall_healed") == 1 && friend.Hp > hp0 + 4f && friend.Hp < hp0 + 12f);
+        float rites = Tune.Relics.FallHeal;
+        ScCheck($"Last Rites: when you fall a living friend is healed by {rites:0} ({hp0:0} -> {friend.Hp:0}; {p.Tally("fall_healed")} healed)", p.Tally("fall_healed") == 1 && friend.Hp > hp0 + rites * 0.5f && friend.Hp < hp0 + rites * 1.2f);
     }
 }

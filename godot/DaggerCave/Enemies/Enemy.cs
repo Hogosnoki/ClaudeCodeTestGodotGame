@@ -966,6 +966,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         // (online, the kill goes to whoever struck last: another game's hero, or this one's)
         LastAttacker = NetSync.Striker;
+        _strikeNow = StrikeOf(kind);
         NetSync.Scope++;
         try
         {
@@ -1093,7 +1094,8 @@ public abstract partial class Enemy : CharacterBody2D
         if (shownDmg > 0) G.Fx.Text(HeadPoint(2f), shownDmg.ToString() + (weak ? "!" : ""),
             weak ? new Color(1f, 0.5f, 0.2f) : resist ? new Color(0.65f, 0.68f, 0.72f) : big ? new Color(1f, 0.85f, 0.3f) : Colors.White, weak ? 18 : resist ? 12 : big ? 17 : 14);
         G.Fx.Directional(hitPos, knock.LengthSquared() > 1 ? knock.Normalized() : Vector2.Up, 0.8f, BloodColor, 7, 200, 2f, 0.35f, 300);
-        G.Sfx.Play(HitSound, GlobalPosition, 0, 0.12f);
+        // (what struck it meeting what it's made of: a sword's chink on stone, a thock on a shell, a sear on flesh: Audio/MaterialSounds.cs)
+        G.Sfx.Play(this is Glitch ? HitSound : MaterialSounds.Name(_strikeNow, BodyMaterial), GlobalPosition, 0, 0.12f);
         OnHurt();
         if (_wardT > 0 && _wardSoaked >= _wardCap && Hp > 0) WardBurst();
         if (Hp <= 0) Die();
