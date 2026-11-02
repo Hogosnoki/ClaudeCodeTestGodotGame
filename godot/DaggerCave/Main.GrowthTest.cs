@@ -49,6 +49,14 @@ public partial class Main
             ownSeen += roll.Count(u => u.For != null);
         }
         ScCheck($"  three cards, each the {hero}'s own or anyone's, never the old kits' ({clean}, {mine}; {ownSeen} of 180 the hero's own)", clean && mine && ownSeen >= 90);
+        // (every card can be shown: its label and its text)
+        var badLabel = new List<string>();
+        foreach (var u in Cards.All)
+        {
+            try { if (string.IsNullOrEmpty(UpgradeMenu.KindLabel(u, hero)) || string.IsNullOrEmpty(Upgrades.DescFor(u, s))) badLabel.Add(u.Id); }
+            catch (Exception) { badLabel.Add(u.Id); }
+        }
+        ScCheck($"  every new card can be shown, its label and text ({Cards.All.Count() - badLabel.Count} of {Cards.All.Count()}{(badLabel.Count > 0 ? "; not " + string.Join(", ", badLabel) : "")})", badLabel.Count == 0);
         var chestRoll = Upgrades.RollChest(s, rng, home);
         ScCheck($"  a chest's class card is one of the hero's level cards ({string.Join(", ", chestRoll.Select(u => u.Name))})", chestRoll.Any(u => Cards.Ability.Contains(u)) && !chestRoll.Any(u => u.For != null && !Cards.Ability.Contains(u)));
 

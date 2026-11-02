@@ -42,10 +42,11 @@ public partial class UpgradeMenu : Control
     };
 
     /// <summary>A card's label: its kind, and for a hero's card, the ability it grows.</summary>
-    public static string KindLabel(Upgrade u, HeroKind hero) => u.Id is "shop_supplies" or "shop_token" or "shop_potion" ? "SUPPLIES" : u.Id == "shop_reroll" ? "SERVICE" : u.Kind switch
+    public static string KindLabel(Upgrade u, HeroKind hero) => u.Id is "shop_supplies" or "shop_token" or "shop_potion" ? "SUPPLIES" : u.Id == "shop_reroll" ? "SERVICE"
+        : Cards.IsMilestone(u) ? "MILESTONE" + (u.Ability != null ? " · " + u.Ability.ToUpperInvariant() : "") : u.Kind switch
     {
-        UpgradeKind.Class => "CLASS · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
-        UpgradeKind.Alteration => "ALTERATION · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant(),
+        UpgradeKind.Class => "CLASS" + (u.Ability != null ? " · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant() : ""),
+        UpgradeKind.Alteration => "ALTERATION" + (u.Ability != null ? " · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant() : ""),
         UpgradeKind.Conditional => "CONDITIONAL",
         UpgradeKind.RiskReward => "RISK · REWARD",
         UpgradeKind.Relic => (u.For != null ? "RELIC · " + string.Join(" / ", u.For.Select(h => h.ToString().ToUpperInvariant())) : "RELIC") + "  ·  " + u.Rarity.ToString().ToUpperInvariant(),

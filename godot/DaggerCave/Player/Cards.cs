@@ -58,6 +58,9 @@ public static class Cards
 
     public static IEnumerable<Upgrade> All => Ability.Concat(Shared).Concat(Milestones);
 
+    /// <summary>A milestone's card (its label says so).</summary>
+    public static bool IsMilestone(Upgrade u) => Milestones.Contains(u);
+
     private static List<Upgrade> BuildAbility()
     {
         var list = new List<Upgrade>();
@@ -66,34 +69,34 @@ public static class Cards
             var f = new[] { h };
             string id = Slug(h), sp = SpecialOf(h), pr = PrimaryOf(h), ot = OtherOf(h), de = DefensiveOf(h);
             // the great special
-            list.Add(new() { Id = $"g_{id}_wide", Name = $"Vast {sp}", Desc = $"The {sp} reaches {Pct(Tune.Growth.WideStep)} wider.", Icon = "spell", For = f, MaxStacks = 3, Tags = new[] { "special" },
+            list.Add(new() { Id = $"g_{id}_wide", Name = $"Vast {sp}", Desc = $"The {sp} reaches {Pct(Tune.Growth.WideStep)} wider.", Icon = "spell", For = f, Ability = sp, MaxStacks = 3, Tags = new[] { "special" },
                 Apply = (s, p) => s.SpecialRadiusMult *= Tune.Growth.WideStep });
-            list.Add(new() { Id = $"g_{id}_hard", Name = $"Crushing {sp}", Desc = $"The {sp} strikes {Pct(Tune.Growth.HardStep)} harder.", Icon = "spell", For = f, MaxStacks = 3, Tags = new[] { "special" },
+            list.Add(new() { Id = $"g_{id}_hard", Name = $"Crushing {sp}", Desc = $"The {sp} strikes {Pct(Tune.Growth.HardStep)} harder.", Icon = "spell", For = f, Ability = sp, MaxStacks = 3, Tags = new[] { "special" },
                 Apply = (s, p) => s.SpecialDamageMult *= Tune.Growth.HardStep });
-            list.Add(new() { Id = $"g_{id}_soon", Name = $"Restless {sp}", Desc = $"The {sp} rests {Pct(1f / Tune.Growth.SoonStep)} less.", Icon = "charge", For = f, MaxStacks = 3, Tags = new[] { "special" },
+            list.Add(new() { Id = $"g_{id}_soon", Name = $"Restless {sp}", Desc = $"The {sp} rests {Pct(1f / Tune.Growth.SoonStep)} less.", Icon = "charge", For = f, Ability = sp, MaxStacks = 3, Tags = new[] { "special" },
                 Apply = (s, p) => s.SpecialRestMult *= Tune.Growth.SoonStep });
-            list.Add(new() { Id = $"g_{id}_again", Name = $"{sp}, Again", Desc = AgainText(h), Icon = "spell", For = f, MaxStacks = 2, Tier = UpgradeTier.Ability, Tags = new[] { "special" },
+            list.Add(new() { Id = $"g_{id}_again", Name = $"{sp}, Again", Desc = AgainText(h), Icon = "spell", For = f, Ability = sp, MaxStacks = 2, Tier = UpgradeTier.Ability, Tags = new[] { "special" },
                 Apply = (s, p) => s.SpecialExtra++ });
             // the attack
-            list.Add(new() { Id = $"g_{id}_keen", Name = $"Keen {pr}", Desc = $"Your {pr} deals {Pct(Tune.Growth.KeenStep)} more damage.", Icon = "blade", For = f, MaxStacks = 3, Tags = new[] { "offence" },
+            list.Add(new() { Id = $"g_{id}_keen", Name = $"Keen {pr}", Desc = $"Your {pr} deals {Pct(Tune.Growth.KeenStep)} more damage.", Icon = "blade", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "offence" },
                 Apply = (s, p) => s.PrimaryDamageMult *= Tune.Growth.KeenStep });
-            list.Add(new() { Id = $"g_{id}_quick", Name = $"Quick {pr}", Desc = $"Your {pr} comes {Pct(Tune.Growth.QuickStep)} quicker.", Icon = "blade", For = f, MaxStacks = 3, Tags = new[] { "offence" },
+            list.Add(new() { Id = $"g_{id}_quick", Name = $"Quick {pr}", Desc = $"Your {pr} comes {Pct(Tune.Growth.QuickStep)} quicker.", Icon = "blade", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "offence" },
                 Apply = (s, p) => s.AttackSpeed *= Tune.Growth.QuickStep });
             if (h is HeroKind.Elementalist or HeroKind.Vitalist)
             {
-                list.Add(new() { Id = $"g_{id}_splashw", Name = "Wide Splash", Desc = $"Your {pr}'s splash reaches {Pct(Tune.Growth.SplashWide)} further.", Icon = "spell", For = f, MaxStacks = 2, Tags = new[] { "offence" },
+                list.Add(new() { Id = $"g_{id}_splashw", Name = "Wide Splash", Desc = $"Your {pr}'s splash reaches {Pct(Tune.Growth.SplashWide)} further.", Icon = "spell", For = f, Ability = pr, MaxStacks = 2, Tags = new[] { "offence" },
                     Apply = (s, p) => s.SplashRadiusMult *= Tune.Growth.SplashWide });
-                list.Add(new() { Id = $"g_{id}_splashh", Name = "Heavy Splash", Desc = $"Your {pr}'s splash deals {Tune.Growth.SplashShare * 100f:0}% more of the blow to those about.", Icon = "spell", For = f, MaxStacks = 2, Tags = new[] { "offence" },
+                list.Add(new() { Id = $"g_{id}_splashh", Name = "Heavy Splash", Desc = $"Your {pr}'s splash deals {Tune.Growth.SplashShare * 100f:0}% more of the blow to those about.", Icon = "spell", For = f, Ability = pr, MaxStacks = 2, Tags = new[] { "offence" },
                     Apply = (s, p) => s.SplashShareAdd += Tune.Growth.SplashShare });
             }
             if (h is HeroKind.Swordsman or HeroKind.Warden or HeroKind.Rogue)
-                list.Add(new() { Id = $"g_{id}_reach", Name = "Long Reach", Desc = $"Your {pr} reaches {Pct(Tune.Growth.ReachStep)} further.", Icon = "blade", For = f, MaxStacks = 2, Tags = new[] { "offence" },
+                list.Add(new() { Id = $"g_{id}_reach", Name = "Long Reach", Desc = $"Your {pr} reaches {Pct(Tune.Growth.ReachStep)} further.", Icon = "blade", For = f, Ability = pr, MaxStacks = 2, Tags = new[] { "offence" },
                     Apply = (s, p) => s.DaggerReach *= Tune.Growth.ReachStep });
             // the second ability
-            list.Add(new() { Id = $"g_{id}_osoon", Name = $"Ready {ot}", Desc = OtherSoonText(h, ot), Icon = "charge", For = f, MaxStacks = 2, Tags = new[] { "utility" }, Apply = OtherSoon(h) });
-            list.Add(new() { Id = $"g_{id}_ohard", Name = $"Mighty {ot}", Desc = OtherHardText(h, ot), Icon = "spell", For = f, MaxStacks = 2, Tags = new[] { "offence" }, Apply = OtherHard(h) });
+            list.Add(new() { Id = $"g_{id}_osoon", Name = $"Ready {ot}", Desc = OtherSoonText(h, ot), Icon = "charge", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "utility" }, Apply = OtherSoon(h) });
+            list.Add(new() { Id = $"g_{id}_ohard", Name = $"Mighty {ot}", Desc = OtherHardText(h, ot), Icon = "spell", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "offence" }, Apply = OtherHard(h) });
             // the dodge
-            list.Add(new() { Id = $"g_{id}_dsoon", Name = h == HeroKind.Warden ? "Mended Shield" : $"Ready {de}", Desc = DefSoonText(h, de), Icon = h == HeroKind.Warden ? "shield" : "dodge", For = f, MaxStacks = 2, Tags = new[] { "defence" }, Apply = DefSoon(h) });
+            list.Add(new() { Id = $"g_{id}_dsoon", Name = h == HeroKind.Warden ? "Mended Shield" : $"Ready {de}", Desc = DefSoonText(h, de), Icon = h == HeroKind.Warden ? "shield" : "dodge", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" }, Apply = DefSoon(h) });
         }
         return list;
     }
@@ -163,9 +166,9 @@ public static class Cards
         void Forms(HeroKind h, string an, string ad, string bn, string bd)
         {
             string id = Slug(h);
-            list.Add(new() { Id = $"m_{id}_a", Name = an, Desc = ad, Icon = "spell", For = new[] { h }, MaxStacks = 1, Excludes = new[] { $"m_{id}_b" }, Tier = UpgradeTier.Ability, Tags = new[] { "special", "form" },
+            list.Add(new() { Id = $"m_{id}_a", Name = an, Desc = ad, Icon = "spell", For = new[] { h }, Ability = SpecialOf(h), MaxStacks = 1, Excludes = new[] { $"m_{id}_b" }, Tier = UpgradeTier.Ability, Tags = new[] { "special", "form" },
                 Apply = (s, p) => s.SpecialForm = "a" });
-            list.Add(new() { Id = $"m_{id}_b", Name = bn, Desc = bd, Icon = "spell", For = new[] { h }, MaxStacks = 1, Excludes = new[] { $"m_{id}_a" }, Tier = UpgradeTier.Ability, Tags = new[] { "special", "form" },
+            list.Add(new() { Id = $"m_{id}_b", Name = bn, Desc = bd, Icon = "spell", For = new[] { h }, Ability = SpecialOf(h), MaxStacks = 1, Excludes = new[] { $"m_{id}_a" }, Tier = UpgradeTier.Ability, Tags = new[] { "special", "form" },
                 Apply = (s, p) => s.SpecialForm = "b" });
         }
         Forms(HeroKind.Swordsman, "Cyclone", $"The Whirlwind draws creatures in as it spins, and reaches {Pct(Tune.Growth.CycloneRadius)} wider.",
