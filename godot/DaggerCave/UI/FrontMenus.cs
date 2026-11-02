@@ -39,25 +39,32 @@ public partial class MainMenu : Control
         };
         AddChild(shade);
 
-        var col = new VBoxContainer { Position = new Vector2(72, 84), CustomMinimumSize = new Vector2(380, 0) };
-        col.AddThemeConstantOverride("separation", 9);
+        // the name: the title logo carved in 3D (UI/TitleLogo.cs), its flourishes overhanging its slot a little; the old words if its
+        // pictures are missing
+        var logo = TitleLogo.Create(430f, 200f, 30f);
+        var col = new VBoxContainer { Position = new Vector2(64, logo != null ? 60 : 84), CustomMinimumSize = new Vector2(380, 0) };
+        col.AddThemeConstantOverride("separation", logo != null ? 7 : 9);
         AddChild(col);
-        var title = UiKit.Label("DAGGER DEEP", 66, UiKit.Gold);
-        title.AddThemeColorOverride("font_outline_color", new Color(0.12f, 0.07f, 0.02f));
-        title.AddThemeConstantOverride("outline_size", 7);
-        col.AddChild(title);
+        if (logo != null) col.AddChild(logo);
+        else
+        {
+            var title = UiKit.Label("DAGGER DEEP", 66, UiKit.Gold);
+            title.AddThemeColorOverride("font_outline_color", new Color(0.12f, 0.07f, 0.02f));
+            title.AddThemeConstantOverride("outline_size", 7);
+            col.AddChild(title);
+        }
         var tag = UiKit.Label("A rogue-lite descent from this sunny meadow to the dragon at the bottom of the world.", 16, new Color(0.95f, 0.95f, 0.9f));
         tag.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         tag.CustomMinimumSize = new Vector2(380, 0);
         tag.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.8f));
         tag.AddThemeConstantOverride("outline_size", 5);
         col.AddChild(tag);
-        col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
+        if (logo == null) col.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
 
         Button Add(string text, Action act)
         {
             var b = UiKit.Button(text, () => act?.Invoke(), 320);
-            b.CustomMinimumSize = new Vector2(320, 42);
+            b.CustomMinimumSize = new Vector2(320, logo != null ? 38 : 42);
             b.AddThemeFontSizeOverride("font_size", 19);
             b.Alignment = HorizontalAlignment.Left;
             col.AddChild(b);

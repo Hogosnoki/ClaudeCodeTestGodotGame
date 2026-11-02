@@ -64,16 +64,12 @@ public partial class ChestView
             var glow = GD.Load<Texture2D>($"{dir}shrine_{g}_glow.png");
             var himg = GD.Load<Texture2D>($"{dir}shrine_{g}_h.png")?.GetImage();
             if (tex == null || himg == null) return null;
-            if (himg.IsCompressed()) himg.Decompress();
             float maxDist = (float)m["maxDist"].AsDouble(), px = (float)m["pivotX"].AsDouble(), py = (float)m["pivotY"].AsDouble();
             int w = himg.GetWidth(), h = himg.GetHeight();
-            // (the height, in picture pixels, of each face above the middle at a pixel: a share of its distance to the nearest edge)
+            // (how far each face stands off the middle, in picture pixels: half the thickness the profile gives for the distance D)
             float share = ShrineThickness * 0.5f;
-            float Height(int x, int y)
+            float FaceHeight(float d)
             {
-                if (x < 0 || y < 0 || x >= w || y >= h) return 0f;
-                var c = himg.GetPixel(x, y);
-                float d = (Mathf.Round(c.R * 255f) * 256f + Mathf.Round(c.G * 255f)) / 65535f * maxDist;
                 if (Profile == ShrineProfile.Tanh) return 0.5f * CushionMax * MathF.Tanh(d / CushionUnit);
                 if (Profile == ShrineProfile.Cushion)
                 {
@@ -82,42 +78,10 @@ public partial class ChestView
                 }
                 return d * share;
             }
-            const int step = 3;
-            int nx = (w - 1) / step + 1, ny = (h - 1) / step + 1;
-            var hs = new float[nx, ny];
-            for (int i = 0; i < nx; i++) for (int j = 0; j < ny; j++) hs[i, j] = Height(i * step, j * step);
-            var mb = new MeshBuilder();
-            var idx = new int[2, nx, ny];
-            for (int s = 0; s < 2; s++) for (int i = 0; i < nx; i++) for (int j = 0; j < ny; j++) idx[s, i, j] = -1;
-            int Vert(int s, int i, int j)
-            {
-                if (idx[s, i, j] >= 0) return idx[s, i, j];
-                float sz = s == 0 ? 1f : -1f;
-                float hx = (hs[Math.Min(nx - 1, i + 1), j] - hs[Math.Max(0, i - 1), j]) / (2f * step);
-                float hy = (hs[i, Math.Min(ny - 1, j + 1)] - hs[i, Math.Max(0, j - 1)]) / (2f * step);
-                // (picture y runs down, the world's up: the slope's sign turns over)
-                var n = new Vector3(-hx * sz, hy * sz, 1f * sz).Normalized();
-                var pos = new Vector3((i * step - px) * ReliefScale, (py - j * step) * ReliefScale, hs[i, j] * ReliefScale * sz);
-                return idx[s, i, j] = mb.Add(pos, n, Colors.White, new Vector2((float)(i * step) / (w - 1), (float)(j * step) / (h - 1)));
-            }
-            for (int i = 0; i < nx - 1; i++)
-                for (int j = 0; j < ny - 1; j++)
-                {
-                    // (a cell that touches the flower at all; the picture's alpha trims it to the exact outline)
-                    if (hs[i, j] <= 0f && hs[i + 1, j] <= 0f && hs[i, j + 1] <= 0f && hs[i + 1, j + 1] <= 0f)
-                    {
-                        // (a pixel inside a cell can be solid though its corners aren't: look at its middle too)
-                        if (Height(i * step + step / 2, j * step + step / 2) <= 0f) continue;
-                    }
-                    for (int s = 0; s < 2; s++)
-                    {
-                        int a = Vert(s, i, j), b = Vert(s, i + 1, j), c = Vert(s, i + 1, j + 1), d = Vert(s, i, j + 1);
-                        if (s == 0) { mb.Tri(a, b, c); mb.Tri(a, c, d); } else { mb.Tri(a, c, b); mb.Tri(a, d, c); }
-                    }
-                }
+            var mesh = ReliefMesh.Build(himg, maxDist, FaceHeight, ReliefScale, px, py, 3);
             return _reliefs[g] = new Relief
             {
-                Mesh = mb.ToMesh(), Tex = tex, Glow = glow, W = w, H = h, PivotX = px, PivotY = py, Top = (float)m["top"].AsDouble(),
+                Mesh = mesh, Tex = tex, Glow = glow, W = w, H = h, PivotX = px, PivotY = py, Top = (float)m["top"].AsDouble(),
             };
         }
         catch (Exception ex)
