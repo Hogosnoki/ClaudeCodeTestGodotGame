@@ -396,7 +396,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
         // and animations all scale together (a hex, or a chill, slows the whole clock down).
-        float tempo = Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo;
+        float tempo = Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo * (Enraged ? Tune.BossMoves.EnrageTempo : 1f);
         float dt = (float)delta * tempo;
         TickBuild((float)delta);
         T += dt; HurtFlash -= (float)delta;
@@ -440,7 +440,7 @@ public abstract partial class Enemy : CharacterBody2D
         else
         {
             // (its second attack, when it's free for one, takes the place of its own behaviour until done: Enemy.Secondary.cs)
-            if (Master != null || !Move2Tick(dt)) { BrainDecide(dt); Think(dt); }
+            if (Master != null || !(BossTick(dt) || Move2Tick(dt))) { BrainDecide(dt); Think(dt); }
             if (Dead) return; // (a finale: it's spent)
             if (Master != null) DrivenAfterThink(dt);
             if (!ManualMove)
@@ -1043,6 +1043,8 @@ public abstract partial class Enemy : CharacterBody2D
     {
         if (Dead || !CanBeHit) return 0;
         Awake = true;
+        // (a boss on guard takes a fraction: Enemy.BossMoves.cs)
+        dmg = BossGuardBlow(dmg);
         if (_hexT > 0) dmg *= _hexVuln;
         // an exposed creature: every hero's blows may land as critical ones (a Rogue's own roll counts it already)
         if (_exposeT > 0 && dmg > 0 && StrikerHero()?.Stats.Hero != HeroKind.Rogue && G.Chance(Tune.Support.ExposeCrit))

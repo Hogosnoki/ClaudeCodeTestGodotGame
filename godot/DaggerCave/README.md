@@ -1062,6 +1062,37 @@ Every creature (`Enemies/Enemy.Secondary.cs`, numbers in its table and `Tune.Sec
 - **Online:** the warnings travel as one effect each; shots are the usual creature projectiles.
 - **Test:** `--scenario=moves` sets each kind (fish and eels aside: they need water) beside a sturdy hero with its move ready, and checks it winds up, strikes, lands and recovers (a finale: is spent). It takes pictures of each kind of move mid wind-up (`moves_<kind>`). `--only=Bear,Frog` limits it to those. The older scenarios run with `Tune.Testing.NoSecondary`.
 
+## Bosses: great moves
+
+Every boss (a level's guardian, a colossus, the dragon) has three or four great moves beside what its kind always does and its second attack (`Enemies/Enemy.BossMoves.cs`, numbers in `Tune.BossMoves`). The first comes 3 s after it wakes, then one every 5 s or so while its hero is near and in sight, never the same twice running. Each has its own wind-up, its own warning shape, its own pose, and its name called out over the boss:
+
+| Move | Warning | What it does |
+|---|---|---|
+| **Leap Slam** (moving) | crosshairs and a ring where it will land | bounds onto that spot; everything within 80 px is struck and thrown |
+| **Charge** (moving) | chevrons across the room | thunders along them, striking each hero once; meeting a wall it reels (**STAGGERED**, 1.4 s): your moment |
+| **Guard** | a turning ring of pale light | for 2.4 s takes only 15% of every blow (**GUARDED**), then answers what it took with a **RIPOSTE**: a ring of shots and a blast round it |
+| **Barrage** | a fan of aim lines | three volleys of five shots |
+| **Nova** | spines growing all round | two rings of fourteen shots, the second between the first's |
+| **Summon** | rings where its brood will rise | two (enraged, three) lesser kin with a third of their health join in, never more than four alive |
+| **Blink** (moving) | crosshairs behind the hero | vanishes in smoke, appears there and strikes |
+| **Shockwave** | chevrons both ways along the ground | slams: a wave runs out each way along the floor |
+
+Below 40% health a boss is **ENRAGED**: everything it does is 20% quicker and its great moves come 40% sooner (its wind-ups too are shorter).
+
+| Boss family | Great moves |
+|---|---|
+| The Web-Mother (spider) | Leap Slam, Nova (spit), Summon (spiders), Blink |
+| The Goblin Warchief | Charge, Barrage (rocks), Summon (goblins), Guard |
+| The bear guardians (Den Mother, Rotback, Tunnel Brute) | Leap Slam, Charge, Guard, Shockwave |
+| The Brood Queen (scorpion) | Barrage (venom), Summon (scorpions), Blink, Guard |
+| The skeleton lords (Bone Knight, Crypt Lord, Barrow King) | Blink, Barrage (bones), Summon (skeletons), Guard |
+| The golem guardians (Ore, Mossback, Prism, Basalt) | Leap Slam, Shockwave, Guard, Nova |
+| The Echo Queen (bat) | Charge, Nova, Summon (bats), Blink |
+| The colossi (Cavern, Rime, Ossuary, Molten; the Vent Colossus and the Engine-Warden in acid and fire) | Shockwave, Nova, Guard, Barrage |
+| The Elder Dragon | Nova, Barrage (fire), Guard |
+
+**Test:** `--scenario=bossmoves` sets a boss of each family (the dragon aside) beside a sturdy hero and has it do each of its great moves in turn: a striking move must hurt the hero, a Summon raise its brood, a Blink move it and strike, a Guard turn a 100-point blow down to 15. Then each is enraged at 30% health. It takes pictures of each move mid wind-up (`bossmoves_<move>`).
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

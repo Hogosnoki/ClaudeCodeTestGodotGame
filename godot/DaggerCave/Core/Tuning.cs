@@ -1362,6 +1362,21 @@ public static class Tune
         public static float IcicleDelay = 0.35f, IcicleTurn = 3.2f, IcicleSpeed = 230f;
     }
 
+    /// <summary>
+    /// Bosses' great moves (Enemies/Enemy.BossMoves.cs): the first comes <c>FirstAfter</c> s after it wakes, then one every <c>Gap</c> s or
+    /// so (x<c>EnragedGap</c> enraged) while its hero is within <c>Reach</c> and in sight. A Leap Slam strikes <c>SlamRadius</c> round where
+    /// it lands; a Charge runs at <c>ChargeSpeed</c> and a wall staggers it for <c>WallStagger</c> s; a Guard lasts <c>GuardSeconds</c>, letting
+    /// <c>GuardTaken</c> of each blow through; shots fly at <c>ShotSpeed</c>; a Summon's brood have <c>BroodHp</c> of their health, at most
+    /// <c>BroodMax</c> alive. Below <c>EnrageAt</c> of its health it is enraged: <c>EnrageTempo</c> times as quick.
+    /// </summary>
+    public static class BossMoves
+    {
+        public static float FirstAfter = 3f, Gap = 5f, EnragedGap = 0.6f, Reach = 560f;
+        public static float SlamRadius = 80f, ChargeSpeed = 470f, WallStagger = 1.4f, GuardSeconds = 2.4f, GuardTaken = 0.15f, ShotSpeed = 290f;
+        public static float BroodHp = 0.35f, EnrageAt = 0.4f, EnrageTempo = 1.2f;
+        public static int BroodMax = 4;
+    }
+
     public static class Splash
     {
         public static float Radius = 48f, Share = 0.4f;
