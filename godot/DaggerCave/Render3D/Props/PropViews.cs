@@ -1456,9 +1456,9 @@ public partial class ChestView : PropView
     /// </summary>
     /// <summary>
     /// How thick each piece of a shrine's flower is, as a share of the distance from the nearest edge: the whole thickness (front and
-    /// back together) equals that distance, so every piece is knife-sharp at its edges and swells to a ridge along its middle.
+    /// back together) is 1.2 times that distance, so every piece is knife-sharp at its edges and swells to a ridge along its middle.
     /// </summary>
-    private const float ShrineThickness = 1.0f;
+    private const float ShrineThickness = 1.2f;
     /// <summary>For pictures in tests: every shrine flower turned this far (radians) about its upright, to show its depth.</summary>
     public static float TestTurn;
     /// <summary>How fast a shrine flower spins about its upright, in radians a second (a little faster for each finer grade).</summary>
