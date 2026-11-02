@@ -75,6 +75,17 @@ public partial class Main
         ScShot("shrinelook_landing");
         foreach (var _ in Wait(2.5f)) yield return null;
         ScShot("shrinelook_settled");
+        // (close up: the plain and the Rare, then the Epic and the Legendary)
+        var home = p.GlobalPosition;
+        _cam.Zoom *= 2.2f;
+        p.GlobalPosition = home + new Vector2(-60, 0);
+        foreach (var _ in Wait(1.2f)) yield return null;
+        ScShot("shrinelook_close_low");
+        p.GlobalPosition = home + new Vector2(60, 0);
+        foreach (var _ in Wait(1.2f)) yield return null;
+        ScShot("shrinelook_close_high");
+        p.GlobalPosition = home;
+        _cam.Zoom /= 2.2f;
         ScCheck($"four shrines, Uncommon to Legendary, settled ({string.Join(", ", shrines.Select(c => $"{c.Grade} lift {c.ShrineLift:0}"))})", shrines.All(c => IsInstanceValid(c) && c.ShrineLift <= 0f));
 
         // what it deals matches its flower: the finest card is of its grade exactly (many deals, each grade)

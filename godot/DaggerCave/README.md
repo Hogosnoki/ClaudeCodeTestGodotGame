@@ -1028,10 +1028,10 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
 
   | Grade | The crystal flower |
   |---|---|
-  | Uncommon | three plain white crystal blades, a soft glow |
-  | Rare | a little bigger; crystal scrolls curl out from its heart; a red jewel at the heart and red veins down the side blades; glints |
-  | Epic | bigger still; five blades, scrolls at its crown, red jewels at every tip, a red crescent beneath, a red vein up the middle; the crystal and jewels pulse; red sparks, a faint rose ring of turning rays and a short shaft of light; it rings out as it settles |
-  | Legendary | the biggest; seven blades crowned with scrolls, a great red jewel and red tendrils; a turning golden sunburst behind it, a pillar of golden light rising from it, motes drifting up the pillar and a constant glitter of gold and red; a fanfare as it settles |
+  | Uncommon | the original glowing crystal flower: three leaf-blades fanning from one point, a brighter heart in the middle one, a soft glow |
+  | Rare | still three prongs, a little bigger: the side blades sweep into curving wings (out low, then up to their tips) with red almond inlays; a red jewel set in the middle blade; thin crystal strands drawn down to a point beneath; glints |
+  | Epic | bigger still: the wings hooked outward at their tips, crystal scrolls curling over them and under them, a framed red jewel and a pendant at the foot, a red glow edging every piece from behind; the crystal and jewels pulse; red sparks, a ring of rose rays turning around it (hollow in the middle, never covering it); it rings out as it settles |
+  | Legendary | the biggest: all of that grander, red flames crowning the middle blade, tight spirals at its shoulders, double scrolls beneath, a red vein down its heart to a long pendant, red sparks floating about it that twinkle; a ring of golden rays around it and a pillar of golden light rising above it; a fanfare as it settles |
 
   Opening one titles the pick "AN EPIC SHRINE!" or "A LEGENDARY SHRINE!" in the matching frame. **Fortune** works here too: when you first look in a shrine, each point of luck gives a 25% chance (`Tune.Shrine.BloomPerLuck`) that it blooms a grade finer on the spot ("FORTUNE!"), the flower growing into its finer form before the cards are dealt. `--scenario=shrinelook` lines up one of each grade (shrinelook_*.png) and checks that every shrine's finest card matches its flower, that the grades come from the seed, and that Fortune makes them bloom.
 - **The creatures grow faster to match**: their health grows 7.2% a level of depth (was 3.6%), and everything about them doubles every 21 minutes of play (was 27).

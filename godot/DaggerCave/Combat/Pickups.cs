@@ -439,10 +439,10 @@ public partial class Chest : Node2D, IBreakable
         var white = new Color(0.95f, 0.98f, 1f);
         var red = new Color(1f, 0.25f, 0.25f);
         var gold = new Color(1f, 0.85f, 0.4f);
-        if (G.Chance(0.03f + 0.04f * g)) G.Fx.Burst(c + new Vector2(G.Range(-w, w), G.Range(-w, w * 0.4f)), g >= 3 ? gold : white, 1, 12, 1.4f, 0.9f, -25);
-        if (g >= 1 && G.Chance(0.02f + 0.05f * g)) G.Fx.Glint(c + new Vector2(G.Range(-w, w), G.Range(-w * 1.1f, w * 0.5f)), g >= 3 && G.Chance(0.5f) ? gold : white, 5 + g);
-        if (g >= 2 && G.Chance(0.04f * g)) G.Fx.Ember(c + new Vector2(G.Range(-w * 0.6f, w * 0.6f), G.Range(-w * 0.5f, w * 0.3f)), red);
-        if (g >= 3 && G.Chance(0.12f)) G.Fx.Burst(c + new Vector2(G.Range(-3f, 3f), -G.Range(10f, 80f)), new Color(gold, 0.7f), 1, 30, 1.2f, 1.1f, -60);
+        if (G.Chance(0.02f + 0.015f * g)) G.Fx.Burst(c + new Vector2(G.Range(-w * 1.3f, w * 1.3f), G.Range(-w * 1.2f, w * 0.4f)), new Color(g >= 3 ? gold : g >= 2 ? red : white, 0.7f), 1, 12, 1.1f, 0.9f, -25);
+        if (g >= 1 && G.Chance(0.015f + 0.025f * g)) G.Fx.Glint(c + new Vector2(G.Range(-w, w), G.Range(-w * 1.1f, w * 0.5f)), g >= 3 && G.Chance(0.5f) ? gold : white, 3 + g);
+        if (g >= 2 && G.Chance(0.015f * g)) G.Fx.Ember(c + new Vector2(G.Range(-w * 0.6f, w * 0.6f), G.Range(-w * 0.5f, w * 0.3f)), red);
+        if (g >= 3 && G.Chance(0.06f)) G.Fx.Burst(c + new Vector2(G.Range(-3f, 3f), -G.Range(10f, 80f)), new Color(gold, 0.7f), 1, 30, 1.2f, 1.1f, -60);
         if (!_settled && ShrineLift <= 0f)
         {
             _settled = true;

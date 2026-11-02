@@ -60,8 +60,9 @@ void fragment() {
 		float ang = atan(uv.y, uv.x) + TIME * sprite_param;
 		float spokes = pow(max(0.0, cos(ang * 8.0)), 24.0) + 0.55 * pow(max(0.0, cos(ang * 8.0 + 3.14159)), 40.0);
 		float flick = 0.85 + 0.15 * sin(TIME * 3.0 + ang * 3.0);
-		a = spokes * flick * smoothstep(1.0, 0.12, r) * smoothstep(0.02, 0.18, r);
-		core = exp(-r * r * 24.0) * 0.5;
+		// (hollow in the middle: the rays ring what they shine from, never covering it)
+		a = spokes * flick * smoothstep(1.0, 0.6, r) * smoothstep(0.42, 0.62, r);
+		core = 0.0;
 	} else {
 		// swirl: a spiral vortex that turns
 		float r = length(uv);
