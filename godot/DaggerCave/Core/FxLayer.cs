@@ -169,9 +169,10 @@ public partial class FxLayer : Node2D
     /// The kinds of ring, so they don't all look alike: <see cref="RingStyle.Burst"/> a ragged blast front with sparks thrown off it (a
     /// blow that strikes all round), <see cref="RingStyle.Ping"/> a diamond closing in on its point with a glint (a mark, a target, a
     /// warning), <see cref="RingStyle.Dashed"/> a broken ring turning as it spreads (a blessing or an aura), <see cref="RingStyle.Wave"/> a
-    /// soft swell of light with motes rising from it (healing).
+    /// soft swell of light with motes rising from it (healing), <see cref="RingStyle.Sweep"/> a broken ring lying almost flat, spinning as it
+    /// spreads (a blade swept level all round: the Whirlwind).
     /// </summary>
-    public enum RingStyle : byte { Plain, Burst, Ping, Dashed, Wave }
+    public enum RingStyle : byte { Plain, Burst, Ping, Dashed, Wave, Sweep }
 
     public void Ring(Vector2 pos, float radius, Color col, float life, RingStyle style)
     {

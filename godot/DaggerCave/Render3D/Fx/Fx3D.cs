@@ -384,6 +384,15 @@ public partial class Fx3D : Node3D
                         _glow.Add(Quad(at, p.Rot * 0.1f + (1f - a) * 0.9f, r, r), col with { A = col.A * MathF.Min(1f, a * 1.6f) }, new Vector4(8, 2.8f, 0.05f, p.Seed));
                         break;
                     }
+                case 20: // a sweep: a broken ring lying almost flat (tipped back 80 degrees), spinning as it spreads, and a thin bright edge
+                    {
+                        float r = p.Size * (1.1f - 0.2f * a) * P * 0.5f;
+                        float spin = p.Rot + (1f - a) * 7f * (p.Spin < 0 ? -1f : 1f);
+                        var flat = new Basis(Vector3.Right, -1.4f) * new Basis(Vector3.Back, spin) * Basis.FromScale(new Vector3(r, r, 1f));
+                        _glow.Add(new Transform3D(flat, at), col with { A = col.A * a * 0.8f }, new Vector4(9, 1.8f, 0.06f, 10f));
+                        _glow.Add(new Transform3D(flat, at), col with { A = col.A * a * 0.35f }, new Vector4(2, 1.4f, 0.03f, p.Seed));
+                        break;
+                    }
                 case 18: // a broken ring, turning as it spreads
                     {
                         float r = p.Size * (1.4f - 0.55f * a) * P * 1.25f;

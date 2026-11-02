@@ -45,6 +45,8 @@ public sealed class SpriteSet
         if (name == "frog") s.AddClip("tongue_windup", 8, "idle");
         if (name == "spider") s.AddClip("pounce_windup", 8, "idle");
         if (name == "bat") s.AddClip("flare", 8, "fly");
+        // (the Swordsman's Whirlwind: the blade held out level as the body turns)
+        if (name == "swordsman") s.AddClip("whirl", 8, "idle");
         Cache[name] = s;
         return s;
     }

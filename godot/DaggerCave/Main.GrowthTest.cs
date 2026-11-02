@@ -148,7 +148,10 @@ public partial class Main
         {
             float before = knot.Sum(e => e.Hp);
             _scInput = new PlayerInput { Ability = true, Aim = aim, AimGiven = true }; yield return null; yield return null; _scInput = default;
-            foreach (var _ in ElWait(2.2f)) yield return null;
+            // (a picture of the special in the middle of it, the first time)
+            foreach (var _ in ElWait(0.3f)) yield return null;
+            ScShot($"growth_{hero.ToString().ToLowerInvariant()}_special");
+            foreach (var _ in ElWait(1.9f)) yield return null;
             dealt = before - knot.Sum(e => e.Hp);
         }
         foreach (var _ in Knot()) yield return null;

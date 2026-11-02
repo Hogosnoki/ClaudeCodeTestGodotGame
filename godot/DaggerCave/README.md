@@ -912,7 +912,7 @@ Every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash`, `T
 
   | Hero | Special | What it does | Rest |
   |---|---|---|---|
-  | Swordsman | **Whirlwind** | Spins with the blade out: 6 strokes in 1.1 s at everything within 66 px, 13 damage each. Walks at 0.7× while spinning. | 9 s |
+  | Swordsman | **Whirlwind** | Spins with the blade held straight out and level from the shoulder (the free arm flung out for balance, knees bent, the body sweeping round behind the blade each stroke): 6 strokes in 1.1 s at everything within 66 px, 13 damage each. Its light is a level sweep: a broken ring lying almost flat (tipped back 80°) round him at blade height, and glints along a flat ellipse (`FxLayer.RingStyle.Sweep`). Walks at 0.7× while spinning. | 9 s |
   | Elementalist | **Meteor** (frost: **Megacryometeor**; wind: **Thunderstone**) | Calls a glowing stone of her element down from 460 px up onto the spot along the aim. It lands 0.55 s later for 70 damage at its heart (0.55× at the edge of 92 px), flings creatures up and out, and leaves the element burning there as her old Burst zone did. | 11 s |
   | Warden | **Great Bash** | After a 0.22 s wind-up, a vast shove of the shield. It deals 42 damage, stuns for 1.3 s and flings back everything within 120 px and 65° of ahead, and sends shots in that arc back. The Warden's **Charge** moves to the other button (Shield Bash is retired). | 8 s |
   | Vitalist | **Bloom** | Life erupts from her. It deals 30 damage within 120 px, seeps her element at twice the hex's rate, and mends every friend near by 12% of their health. | 12 s |

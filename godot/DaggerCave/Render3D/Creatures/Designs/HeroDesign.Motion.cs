@@ -973,6 +973,21 @@ public sealed partial class HeroDesign
                     staff = Mathf.Lerp(Mathf.Lerp(staff, 112, draw), aim + 18, thrust);
                 }
                 break;
+            case "whirl":
+                {
+                    // the Whirlwind: the sword held straight out and level from the shoulder (the arm and blade one line), the free arm
+                    // flung out the other way for balance, knees bent low, and the body sweeping round behind the blade, a turn a stroke
+                    // (held the whole time: each stroke starts the clip again, so the pose never eases in from the rest)
+                    const float k = 1f;
+                    // (not too far round: the level blade stays across the screen, where it can be seen level)
+                    float turn = Mathf.Lerp(-45f, 45f, W3.Smooth01(t));
+                    o.SR = Mathf.Lerp(o.SR, 90f, k); o.ER = Mathf.Lerp(o.ER, 0f, k); o.WR = Mathf.Lerp(o.WR, 0f, k); o.AR = 8f; o.WRy = 0f;
+                    o.SL = Mathf.Lerp(o.SL, 75f, k); o.EL = Mathf.Lerp(o.EL, 8f, k); o.AL = 70f * k; o.WL = 0f;
+                    o.Twist = turn * k; o.HipTwist = -turn * 0.3f * k;
+                    o.Lean += 6f * k; o.HeadYaw = -o.Twist * 0.45f; o.HeadPitch += -4f * k;
+                    o.HR += 22f * k; o.KR += 30f * k; o.HL += 22f * k; o.KL += 30f * k; o.Root.Y -= 0.07f * k;
+                }
+                break;
             case "rupture":
                 if (_elementalist) { o = SnapCast(o, t, CastAim(player, a.Facing, -60f, 70f), ref staff); break; }
                 {

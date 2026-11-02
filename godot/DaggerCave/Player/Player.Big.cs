@@ -146,7 +146,7 @@ public partial class Player
         _whirlHits = 0;
         _swingT = -1;
         G.Sfx.Play("swing_heavy", GlobalPosition, -2, 0.05f, 0.8f);
-        G.Fx.Ring(GlobalPosition, WhirlRadius, new Color(Elements.ColorOf(Mode), 0.6f), 0.3f, FxLayer.RingStyle.Dashed);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -4), WhirlRadius, new Color(Elements.ColorOf(Mode), 0.6f), 0.3f, FxLayer.RingStyle.Sweep);
         G.Main.Rumble(0.3f, 0.2f, 0.2f);
         return true;
     }
@@ -160,7 +160,9 @@ public partial class Player
         // (the blade comes round: the body turns with it, each stroke the other way, a slash each time)
         Facing = -Facing;
         Anim.Face((int)Facing, instant: true);
-        Anim.Once(_whirlHits % 2 == 0 ? "slash_a_fwd" : "slash_b_fwd", 3, 3f);
+        // (the blade held straight out, level, the body sweeping round behind it: one turn a stroke)
+        float stroke = Tune.Big.WhirlTime / Tune.Big.WhirlPulses;
+        if (!Anim.Once("whirl", 3, (8f / 24f) / Math.Max(0.05f, stroke))) Anim.Once(_whirlHits % 2 == 0 ? "slash_a_fwd" : "slash_b_fwd", 3, 3f);
         var c = GlobalPosition + new Vector2(0, -4);
         var col = Elements.ColorOf(Mode);
         float r = WhirlRadius;
@@ -176,11 +178,12 @@ public partial class Player
         if (BigForm("b") && _whirlHits % 2 == 0)
             foreach (float side in new[] { 1f, -1f })
                 G.Spawn(new SwordWave { Position = c, Dir = new Vector2(side, 0), Damage = Tune.Big.WhirlDamage * Tune.Growth.BladeStormWave * Stats.DamageMult * Stats.SpecialDamageMult, Range = Tune.Growth.BladeStormRange });
-        G.Fx.Ring(c, r * 0.9f, new Color(col.Lerp(Colors.White, 0.5f), 0.8f), 0.16f, FxLayer.RingStyle.Burst);
+        // (a level sweep: a flat ring of light all round at the height of the blade, and glints along a flat ellipse)
+        G.Fx.Ring(c, r * 0.9f, new Color(col.Lerp(Colors.White, 0.5f), 0.85f), 0.2f, FxLayer.RingStyle.Sweep);
         for (int k = 0; k < 10; k++)
         {
             float a = k / 10f * Mathf.Tau + _whirlHits;
-            var p = c + new Vector2(MathF.Cos(a), MathF.Sin(a) * 0.55f) * r * 0.8f;
+            var p = c + new Vector2(MathF.Cos(a), MathF.Sin(a) * 0.16f) * r * 0.85f;
             G.Fx.Glint(p, col.Lerp(Colors.White, 0.4f), 5);
         }
         G.Sfx.Play("swing", c, -6, 0.15f, 1.1f + 0.05f * _whirlHits);

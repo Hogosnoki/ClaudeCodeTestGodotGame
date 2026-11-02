@@ -29,7 +29,7 @@ public partial class CreatureModel
             case "aim": case "flare": case "rear": case "crouch": case "curl": case "roar": return Kind.Wind;
             case "slam": case "bite": case "swipe": case "strike": case "sting": case "slash": case "pounce": case "dive": case "charge":
             case "tongue": case "tail": case "shove": case "lob": case "puff": case "breath": case "throw": case "burst": case "leap":
-            case "heave": case "bash": case "dart": case "rupture": case "hex": case "cast": case "heal": case "flop":
+            case "heave": case "bash": case "dart": case "rupture": case "hex": case "cast": case "heal": case "flop": case "whirl":
                 return Kind.Strike;
         }
         if (clip.EndsWith("windup")) return Kind.Wind;
