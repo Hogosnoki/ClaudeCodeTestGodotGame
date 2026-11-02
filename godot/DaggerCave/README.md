@@ -1024,6 +1024,16 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   | Rogue | Shadow Haze / Venom Bloom | under the Death Blossom: shadow that blinds and lays open, or venom that eats and entangles |
 
   How they're dealt: when a level's pick rolls a Legendary boon, half the time it's one of your infusions instead; a milestone's last card is one about a third of the time. Online, the zones show for everyone with their element and look.
+- **Graded shrines: the loot shows its rarity before you open it** (Combat/Pickups.cs `Chest.Grade`, Render3D/Props/PropViews.cs `BuildShrine`, `Tune.Shrine`). Each upgrade shrine (the floating crystal flower) rolls its grade when it's made, from the level's seed so everyone online sees the same flower: Uncommon about 58%, Rare 27%, Epic 11%, Legendary 3-4% (the finer ones a little likelier deeper down; a guardian's is Rare or better). When it's opened, its finest card is of exactly that grade: nothing finer is dealt, and if none of its cards is of that grade, a boon of that grade (or, for a Legendary one, sometimes one of your infusions) takes the last place. The flower grows grander with its grade:
+
+  | Grade | The crystal flower |
+  |---|---|
+  | Uncommon | three plain white crystal blades, a soft glow |
+  | Rare | a little bigger; crystal scrolls curl out from its heart; a red jewel at the heart and red veins down the side blades; glints |
+  | Epic | bigger still; five blades, scrolls at its crown, red jewels at every tip, a red crescent beneath, a red vein up the middle; the crystal and jewels pulse; red sparks, a faint rose ring of turning rays and a short shaft of light; it rings out as it settles |
+  | Legendary | the biggest; seven blades crowned with scrolls, a great red jewel and red tendrils; a turning golden sunburst behind it, a pillar of golden light rising from it, motes drifting up the pillar and a constant glitter of gold and red; a fanfare as it settles |
+
+  Opening one titles the pick "AN EPIC SHRINE!" or "A LEGENDARY SHRINE!" in the matching frame. **Fortune** works here too: when you first look in a shrine, each point of luck gives a 25% chance (`Tune.Shrine.BloomPerLuck`) that it blooms a grade finer on the spot ("FORTUNE!"), the flower growing into its finer form before the cards are dealt. `--scenario=shrinelook` lines up one of each grade (shrinelook_*.png) and checks that every shrine's finest card matches its flower, that the grades come from the seed, and that Fortune makes them bloom.
 - **The creatures grow faster to match**: their health grows 7.2% a level of depth (was 3.6%), and everything about them doubles every 21 minutes of play (was 27).
 - **Every 5 levels: a milestone.** The first one offers the special's two forms; take one and the other is gone:
 
@@ -2280,7 +2290,7 @@ its chest); `--glitch` makes the Glitch come to any level a moment after it star
 - **The Aegis's Barrier** soaks half what it did (`Tune.Aegis.BarrierShare` 14% of the receiver's max health). **Her ward bolt** is a
   golden bubble that wobbles as it flies (no fire, no ember trail) and pops on impact.
 - **Chests** carry a soft white fill light in front (on the creatures' light layer only), so their faces, bands and locks read in the dark.
-- **Prodigy's Brand** no longer stops the upgrade shrines (the three prongs) from opening: only relic chests, guardians' hoards and vaults.
+- **Prodigy's Brand** no longer stops the upgrade shrines (the crystal flowers) from opening: only relic chests, guardians' hoards and vaults.
 - **Guardians' own tricks** (`--scenario=guardians` checks each, with a picture of every wind-up), each with a wind-up clip of its own:
   - **The Web-Mother** rears back, abdomen swung up under her (`web_windup`), and spits a ball of silk (`EnemyProjectile` kind `web`). A hero
     it strikes is **webbed** (`Player.GiveWeb`): wrapped in white strands, unable to move or act, until they struggle free (every press

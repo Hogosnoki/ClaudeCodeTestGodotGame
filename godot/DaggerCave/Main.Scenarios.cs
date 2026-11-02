@@ -57,6 +57,7 @@ public partial class Main
         "ringfx" => "entrance",
         "metrics" => "entrance",
         "chestlook" => "entrance",
+        "shrinelook" => "entrance",
         "holds" => "entrance",
         "melee" => "entrance",
         "struck" => "entrance",
@@ -168,6 +169,7 @@ public partial class Main
             case "ringfx": RingFxScenario(); break;
             case "metrics": MetricsScenario(); break;
             case "chestlook": ChestLookScenario(); break;
+            case "shrinelook": ShrineLookScenario(); break;
             case "holds": HoldsScenario(); break;
             case "melee": MeleeScenario(); break;
             case "struck": StruckScenario(); break;

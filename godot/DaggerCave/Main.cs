@@ -1897,8 +1897,10 @@ public partial class Main : Node
         bool relicChoice = chest != null && chest.Tier == ChestTier.Relic;
         _sfx.Play(chest == null ? "card_reveal" : relicChoice ? "relic_reveal" : "card_reveal", null, 0, 0, chest == null ? 1.15f : 1f);
         var backdrop = chest == null ? UiArt.Surface.Night : relicChoice ? UiArt.Surface.Velvet : UiArt.Surface.Arcane;
-        var frame = chest == null ? UiArt.Rarity.Rare : relicChoice ? UiArt.Rarity.Relic : chest.Vault || chest.Tier == ChestTier.Boss ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon;
-        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Collection ? "A RELIC COLLECTION: ONE EACH!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : _pickKind == 2 ? $"LEVEL {p.Level}: CHOOSE ONE" : "MILESTONE!";
+        var frame = chest == null ? UiArt.Rarity.Rare : relicChoice ? UiArt.Rarity.Relic
+            : chest.IsShrine && chest.Grade == CardGrade.Legendary ? UiArt.Rarity.Legendary : chest.IsShrine && chest.Grade == CardGrade.Epic ? UiArt.Rarity.Epic
+            : chest.Vault || chest.Tier == ChestTier.Boss || chest.IsShrine && chest.Grade == CardGrade.Rare ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon;
+        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.IsShrine && chest.Grade == CardGrade.Legendary ? "A LEGENDARY SHRINE!" : chest.IsShrine && chest.Grade == CardGrade.Epic ? "AN EPIC SHRINE!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Collection ? "A RELIC COLLECTION: ONE EACH!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : _pickKind == 2 ? $"LEVEL {p.Level}: CHOOSE ONE" : "MILESTONE!";
         _rerollTitle = openTitle; _rerollBackdrop = backdrop; _rerollFrame = frame;
         _upgradeMenu.Open(choices, openTitle, locks, backdrop, frame);
         // (a pick from a chest or a milestone may be dealt again, as many times as the hero has earned)
@@ -2749,7 +2751,9 @@ public partial class Main : Node
         // (the Ember Grid: Relic Sense and Covetous make relic chests likelier, Collector collections)
         float chance = (Tune.Relics.RelicChestChance + Tune.Grid.RelicSense * HexGrid.Count("rel_sense")) * (HexGrid.Owns("rel_covet") ? Tune.Grid.Covetous : 1f);
         bool relic = G.Chance(chance);
-        return new Chest { Position = at, Tier = relic ? ChestTier.Relic : ChestTier.Wood, Collection = relic && G.Chance(Tune.Relics.CollectionChance * (HexGrid.Owns("rel_collect") ? 2f : 1f)) };
+        bool collection = relic && G.Chance(Tune.Relics.CollectionChance * (HexGrid.Owns("rel_collect") ? 2f : 1f));
+        // (a shrine's grade, from the seed: every game shows the same flower)
+        return new Chest { Position = at, Tier = relic ? ChestTier.Relic : ChestTier.Wood, Collection = collection, Grade = relic ? CardGrade.None : Chest.RollShrineGrade(false) };
     }
 
     /// <summary>
@@ -2769,7 +2773,7 @@ public partial class Main : Node
             {
                 float x = at.X + (k - (owners.Count - 1) * 0.5f) * 36f;
                 var spot = G.Cave.FindFloor(new Vector2(x, at.Y - 30), 240, out var f) ? f : at;
-                G.Spawn(new Chest { Position = spot, Tier = ChestTier.Boss, Owner = owners[k] });
+                G.Spawn(new Chest { Position = spot, Tier = ChestTier.Boss, Owner = owners[k], Grade = Chest.RollShrineGrade(true) });
             }
             // and one chest of relics for the whole party, to talk over or to scramble for
             var relicSpot = G.Cave.FindFloor(new Vector2(at.X + (owners.Count * 0.5f + 1.2f) * 36f, at.Y - 30), 240, out var rf) ? rf : at;

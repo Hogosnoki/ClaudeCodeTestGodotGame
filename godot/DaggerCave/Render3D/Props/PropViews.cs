@@ -1379,8 +1379,9 @@ public partial class ChestView : PropView
         // upgrades don't come in chests: a shrine, three prongs hovering over a stone (for the three choices)
         if (!_vault && (_tier == ChestTier.Wood || boss))
         {
-            _tint = boss ? new Color(1f, 0.9f, 0.45f) : new Color(0.5f, 0.92f, 1f);
-            BuildShrine(boss, _tint);
+            var grade = c0.Grade == CardGrade.None ? (boss ? CardGrade.Rare : CardGrade.Uncommon) : c0.Grade;
+            _tint = ShrineTint(grade);
+            BuildShrine(boss, grade);
             _lid = new Node3D();
             AddChild(_lid);
         }
@@ -1411,15 +1412,39 @@ public partial class ChestView : PropView
         AddChild(_owner);
     }
 
-    /// <summary>
-    /// A shrine of upgrades: nothing set on the ground. A glowing, flat, three-pronged shape floats loose in
-    /// the dungeon (a triangular body, wide at the top and tapering to a heavy point beneath, and three
-    /// spikes rising from it), sinking slowly to the floor, swinging on its heavy point like a pendulum, and
-    /// settling upright.
-    /// </summary>
-    private void BuildShrine(bool boss, Color glow)
+    private CardGrade _grade;
+    private float _sparkT;
+    private MeshInstance3D _rays, _beam, _gemGlow;
+    private StandardMaterial3D _crystalMat, _redMat;
+
+    /// <summary>The colour of a shrine's light by its grade: cool white, then rosy, then rose-violet, then gold.</summary>
+    private static Color ShrineTint(CardGrade g) => g switch
     {
-        float k = boss ? 2.6f : 1.9f;
+        CardGrade.Rare => new Color(1f, 0.8f, 0.85f), CardGrade.Epic => new Color(1f, 0.7f, 0.9f), CardGrade.Legendary => new Color(1f, 0.85f, 0.45f), _ => new Color(0.8f, 0.92f, 1f),
+    };
+
+    /// <summary>How big a shrine of each grade is.</summary>
+    private static float GradeSize(CardGrade g) => g switch { CardGrade.Rare => 1.12f, CardGrade.Epic => 1.28f, CardGrade.Legendary => 1.5f, _ => 1f };
+
+    private static int GradeStep(CardGrade g) => g switch { CardGrade.Rare => 1, CardGrade.Epic => 2, CardGrade.Legendary => 3, _ => 0 };
+
+    /// <summary>
+    /// A shrine of upgrades: nothing set on the ground. A glowing, flat crystal flower floats loose in the dungeon (three leaf-blades
+    /// fanning from one heavy point), sinking slowly to the floor, swinging on its point like a pendulum, and settling upright. It shows
+    /// the grade of the finest card it holds: plain white crystal (Uncommon); then crystal scrolls curling from its heart and a red jewel
+    /// with red veins in its blades (Rare); then five blades, scrolls at its crown, red jewels at every tip and a red crescent beneath, a
+    /// pulsing shine, sparkles, a faint ring of rays and a short shaft of light (Epic); then seven blades crowned with scrolls, a great red
+    /// jewel, a turning sunburst of golden rays and a pillar of light rising from it (Legendary).
+    /// </summary>
+    private void BuildShrine(bool boss, CardGrade grade)
+    {
+        if (_float != null) { _float.QueueFree(); _float = null; }
+        if (_rays != null) { _rays.QueueFree(); _rays = null; }
+        if (_beam != null) { _beam.QueueFree(); _beam = null; }
+        _gemGlow = null;
+        _grade = grade;
+        int g = GradeStep(grade);
+        float k = (boss ? 2.6f : 1.9f) * GradeSize(grade);
         _floatY = 0.1f * k;
         _float = new Node3D { Position = new Vector3(0, _floatY, 0) };
         AddChild(_float);
@@ -1443,28 +1468,112 @@ public partial class ChestView : PropView
                 mb.Quad(a0, b0, b1, a1); mb.Quad(a0, a1, b1, b0);
             }
         }
-        // three leaf-blades fanning from one point at the bottom (the heavy end): a tall one upright and a shorter one
-        // either side leaning out, each a long diamond, widest a little below its middle
+        // a leaf-blade: a long diamond from its base to its tip, widest a little below its middle
         void Blade(MeshBuilder mb, Vector2 baseP, Vector2 tip, float halfWidth, float widest = 0.45f)
         {
             var d = tip - baseP; var dir = d.Normalized(); var perp = new Vector2(-dir.Y, dir.X);
             var mid = baseP + d * widest;
             Poly(mb, Colors.White, baseP, mid + perp * halfWidth * -1f, tip, mid + perp * halfWidth);
         }
+        // a curling scroll: short quads along a turning path, tapering, tightening as it goes
+        void Curl(MeshBuilder mb, Vector2 start, float ang, float turn, float len, float width, int steps = 12)
+        {
+            var p = start; float a = ang, seg = len / steps;
+            for (int i = 0; i < steps; i++)
+            {
+                float w0 = width * (1f - 0.85f * i / steps), w1 = width * (1f - 0.85f * (i + 1) / steps);
+                var d0 = new Vector2(MathF.Cos(a), MathF.Sin(a));
+                a += turn / steps * (0.6f + 0.8f * i / steps);
+                var d1 = new Vector2(MathF.Cos(a), MathF.Sin(a));
+                var q = p + (d0 + d1).Normalized() * seg;
+                var n0 = new Vector2(-d0.Y, d0.X); var n1 = new Vector2(-d1.Y, d1.X);
+                Poly(mb, Colors.White, p - n0 * w0, q - n1 * w1, q + n1 * w1, p + n0 * w0);
+                p = q;
+            }
+        }
+        // a jewel: a small diamond facing out
+        void Gem(MeshBuilder mb, Vector2 at, float r) => Poly(mb, Colors.White, at + new Vector2(0, -r * 1.3f), at + new Vector2(r, 0), at + new Vector2(0, r * 1.3f), at + new Vector2(-r, 0));
+
         var body = new MeshBuilder();
+        var red = new MeshBuilder();
+        // the three blades: a tall one upright and a shorter one either side leaning out
         Blade(body, new Vector2(0f, 0f), new Vector2(0f, 0.47f), 0.085f, 0.46f);
         Blade(body, new Vector2(-0.045f, 0f), new Vector2(-0.36f, 0.34f), 0.07f);
         Blade(body, new Vector2(0.045f, 0f), new Vector2(0.36f, 0.34f), 0.07f);
-        _float.AddChild(PropViews.Mesh(body, PropViews.Emissive(glow, 1.1f), false));
+        if (g >= 1)
+        {
+            // crystal scrolls curling out from its heart, a red jewel there, and red veins down the side blades
+            foreach (float sx in new[] { 1f, -1f })
+            {
+                Curl(body, new Vector2(sx * 0.03f, 0.02f), sx > 0 ? -0.35f : MathF.PI + 0.35f, sx * 3.4f, 0.32f, 0.032f);
+                Blade(red, new Vector2(sx * 0.07f, 0.04f), new Vector2(sx * 0.27f, 0.25f), 0.018f);
+            }
+            Gem(red, new Vector2(0f, 0.12f), g >= 3 ? 0.06f : 0.042f);
+        }
+        if (g >= 2)
+        {
+            // two more blades low and wide, scrolls at the crown, a red jewel at every tip, a red crescent beneath, a red vein up the middle
+            Blade(body, new Vector2(-0.06f, 0f), new Vector2(-0.45f, 0.15f), 0.05f);
+            Blade(body, new Vector2(0.06f, 0f), new Vector2(0.45f, 0.15f), 0.05f);
+            foreach (float sx in new[] { 1f, -1f })
+            {
+                Curl(body, new Vector2(sx * 0.02f, 0.36f), MathF.PI * 0.5f - sx * 0.9f, -sx * 3.2f, 0.17f, 0.02f);
+                Gem(red, new Vector2(sx * 0.36f, 0.34f), 0.026f);
+                Gem(red, new Vector2(sx * 0.45f, 0.15f), 0.022f);
+            }
+            Gem(red, new Vector2(0f, 0.47f), 0.03f);
+            Curl(red, new Vector2(-0.16f, -0.01f), -0.75f, 1.5f, 0.34f, 0.022f, 14);
+            Blade(red, new Vector2(0f, 0.18f), new Vector2(0f, 0.4f), 0.016f, 0.5f);
+        }
+        if (g >= 3)
+        {
+            // seven blades: the last two long and low; a crown of scrolls along the side blades; red tendrils from the heart
+            Blade(body, new Vector2(-0.07f, -0.01f), new Vector2(-0.55f, 0.02f), 0.04f);
+            Blade(body, new Vector2(0.07f, -0.01f), new Vector2(0.55f, 0.02f), 0.04f);
+            foreach (float sx in new[] { 1f, -1f })
+            {
+                Curl(body, new Vector2(sx * 0.3f, 0.3f), MathF.PI * 0.5f + sx * 0.2f, sx * 3.6f, 0.15f, 0.018f);
+                Curl(body, new Vector2(sx * 0.42f, 0.13f), sx > 0 ? MathF.PI * 0.35f : MathF.PI * 0.65f, sx * 3.4f, 0.13f, 0.016f);
+                Gem(red, new Vector2(sx * 0.55f, 0.02f), 0.02f);
+                Curl(red, new Vector2(sx * 0.1f, 0.06f), sx > 0 ? 0.25f : MathF.PI - 0.25f, sx * 2.6f, 0.2f, 0.012f);
+            }
+        }
+        // the crystal: white, brighter with each grade
+        _crystalMat = PropViews.Emissive(new Color(0.9f, 0.95f, 1f), g == 0 ? 0.6f : 0.42f);
+        _float.AddChild(PropViews.Mesh(body, _crystalMat, false));
+        _redMat = null;
+        if (g >= 1)
+        {
+            _redMat = PropViews.Emissive(new Color(0.95f, 0.1f, 0.14f), 0.7f);
+            var redNode = PropViews.Mesh(red, _redMat, false);
+            // (the red stands proud of the crystal's faces)
+            redNode.Scale = new Vector3(1f, 1f, 1.3f);
+            _float.AddChild(redNode);
+            _gemGlow = PropViews.Sprite(new Color(1f, 0.2f, 0.2f), 0, 0.2f + 0.04f * g, 0.22f * k);
+            _gemGlow.Position = new Vector3(0, 0.12f * k, t * 2f);
+            _float.AddChild(_gemGlow);
+        }
         // a brighter heart in the middle blade, and a halo
         var core = new MeshBuilder();
         Blade(core, new Vector2(0f, 0.05f), new Vector2(0f, 0.34f), 0.04f, 0.46f);
-        var coreNode = PropViews.Mesh(core, PropViews.Emissive(glow.Lerp(Colors.White, 0.6f), 2.0f), false);
+        var coreNode = PropViews.Mesh(core, PropViews.Emissive(new Color(0.95f, 0.98f, 1f), g == 0 ? 1.4f : 0.9f), false);
         coreNode.Position = new Vector3(0, 0, t * 0.6f);
         _float.AddChild(coreNode);
-        var halo = PropViews.Sprite(glow, 0, 0.3f, 0.8f * k);
+        var halo = PropViews.Sprite(ShrineTint(grade), 0, g == 0 ? 0.25f : 0.12f, 0.8f * k);
         halo.Position = new Vector3(0, 0.2f * k, 0);
         _float.AddChild(halo);
+        // rays behind it (Epic faint, Legendary a turning golden sunburst), and a shaft of light (Epic short, Legendary a pillar)
+        if (g >= 2)
+        {
+            bool leg = g >= 3;
+            _rays = PropViews.Sprite(leg ? new Color(1f, 0.85f, 0.45f) : new Color(1f, 0.75f, 0.88f), 8, leg ? 0.3f : 0.12f, (leg ? 1.5f : 1.1f) * k, leg ? 0.35f : -0.2f);
+            _rays.Position = new Vector3(0, _floatY + 0.2f * k, -0.05f);
+            AddChild(_rays);
+            _beam = PropViews.Sprite(leg ? new Color(1f, 0.9f, 0.6f) : new Color(1f, 0.8f, 0.9f), 0, leg ? 0.22f : 0.08f, 1f);
+            _beam.Scale = leg ? new Vector3(0.16f * k, 8f, 1f) : new Vector3(0.1f * k, 3f, 1f);
+            _beam.Position = new Vector3(0, _floatY + (leg ? 4.2f : 1.6f), -0.1f);
+            AddChild(_beam);
+        }
     }
 
     /// <summary>A chest strung up in a web: a thread to the ceiling and a pale cocoon of silk round it.</summary>
@@ -1500,6 +1609,30 @@ public partial class ChestView : PropView
         var c = (Chest)Owner2D;
         Follow(default, 0f);
         Rotation = new Vector3(0, 0, -c.Tilt);
+        if (_float != null && c.IsShrine && c.Grade != CardGrade.None && c.Grade != _grade && !c.Open)
+        {
+            // (fortune made it bloom: it grows into its finer form)
+            BuildShrine(_tier == ChestTier.Boss, c.Grade);
+            _tint = ShrineTint(c.Grade);
+        }
+        if (_float != null && !c.Open)
+        {
+            // (the finer ones shine: the crystal and its jewels pulse; the rays turn in the shader, the pillar of light breathes)
+            int g = GradeStep(_grade);
+            float pulse = 0.5f + 0.5f * MathF.Sin(Time * (2.2f + 0.6f * g));
+            if (g >= 1 && _crystalMat != null) _crystalMat.EmissionEnergyMultiplier = 0.42f + 0.08f * g * pulse;
+            if (_redMat != null) _redMat.EmissionEnergyMultiplier = 0.6f + 0.3f * pulse;
+            float up = _floatY + W3.M(c.ShrineLift);
+            float kk = (_tier == ChestTier.Boss ? 2.6f : 1.9f) * GradeSize(_grade);
+            if (_rays != null) _rays.Position = new Vector3(0, up + 0.2f * kk, -0.05f);
+            if (_beam != null)
+            {
+                bool leg = _grade == CardGrade.Legendary;
+                _beam.Position = new Vector3(0, up + (leg ? 4.2f : 1.6f), -0.1f);
+                PropViews.SetSprite(_beam, leg ? new Color(1f, 0.9f, 0.6f) : new Color(1f, 0.8f, 0.9f), 0, (leg ? 0.2f : 0.07f) + 0.05f * pulse);
+            }
+        }
+        if (c.Open) { if (_rays != null) _rays.Visible = false; if (_beam != null) _beam.Visible = false; }
         if (_float != null)
         {
             // (the shrine's shape sinks loose from the air, swinging on its heavy point as a pendulum would,

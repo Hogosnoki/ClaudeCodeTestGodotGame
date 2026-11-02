@@ -1,6 +1,6 @@
 // A single additive glow sprite (props: fireballs, orbs, vortices, flames). Same shapes as the
 // particle glow, set per instance: shape 0 soft dot, 1 streak, 2 ring, 3 star, 4 flash,
-// 6 flame (tongue rising from the bottom edge), 7 swirl (a vortex).
+// 6 flame (tongue rising from the bottom edge), 7 swirl (a vortex), 8 rays (a turning sunburst).
 shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
 
@@ -54,6 +54,14 @@ void fragment() {
 		float x = abs(uv.x + (n - 0.5) * 0.35 * h);
 		a = smoothstep(w, w * 0.4, x) * smoothstep(1.0, 0.55, h) * smoothstep(0.0, 0.08, h);
 		core = smoothstep(w * 0.5, 0.0, x) * smoothstep(0.7, 0.1, h) * smoothstep(0.0, 0.1, h);
+	} else if (s > 7.5) {
+		// rays: a sunburst of spokes, eight long and eight short between, turning at sprite_param rad/s
+		float r = length(uv);
+		float ang = atan(uv.y, uv.x) + TIME * sprite_param;
+		float spokes = pow(max(0.0, cos(ang * 8.0)), 24.0) + 0.55 * pow(max(0.0, cos(ang * 8.0 + 3.14159)), 40.0);
+		float flick = 0.85 + 0.15 * sin(TIME * 3.0 + ang * 3.0);
+		a = spokes * flick * smoothstep(1.0, 0.12, r) * smoothstep(0.02, 0.18, r);
+		core = exp(-r * r * 24.0) * 0.5;
 	} else {
 		// swirl: a spiral vortex that turns
 		float r = length(uv);

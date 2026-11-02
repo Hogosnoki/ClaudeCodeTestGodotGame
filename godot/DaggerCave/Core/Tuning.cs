@@ -741,6 +741,8 @@ public static class Tune
     public static class Shrine
     {
         public static float StartLift = 56f, SinkSpeed = 14f;
+        /// <summary>The chance, per point of the looker's luck (Fortune), that a shrine blooms one grade finer when first looked in.</summary>
+        public static float BloomPerLuck = 0.25f;
     }
 
     /// <summary>Support abilities (the support button), one per hero, each for the others' sake.</summary>

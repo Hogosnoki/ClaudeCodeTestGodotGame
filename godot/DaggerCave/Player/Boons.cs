@@ -162,6 +162,14 @@ public static class Boons
 
     public static bool IsBoon(Upgrade u) => u.Grade != CardGrade.None && _family.ContainsKey(u);
     private static string FamilyOf(Upgrade u) => _family.TryGetValue(u, out var f) ? f.Key : "";
+    public static string FamilyKey(Upgrade u) => FamilyOf(u);
+
+    /// <summary>A boon of this grade or the nearest lower one that can be had (null if none).</summary>
+    public static Upgrade DealAtMost(PlayerStats s, Random rng, CardGrade most, HashSet<string> taken)
+    {
+        for (var g = most; g >= CardGrade.Common; g--) if (Deal(s, rng, g, taken) is Upgrade u) return u;
+        return null;
+    }
 
     /// <summary>A grade, as luck deals it (a little luckier deeper down), never below <paramref name="least"/>.</summary>
     public static CardGrade RollGrade(Random rng, CardGrade least = CardGrade.Common, float fortune = 0f)

@@ -221,6 +221,66 @@ public partial class Chest : Node2D, IBreakable
     public float LandY, Tilt, TopY;
     /// <summary>A shrine (a level's ordinary or a guardian's chest: not a vault's, not a relic chest).</summary>
     public bool IsShrine => !Vault && (Tier == ChestTier.Wood || Tier == ChestTier.Boss);
+    /// <summary>
+    /// A shrine's grade, rolled when it's made (from the level's seed, so every game sees the same): the finest card it holds is of
+    /// exactly this grade, and the crystal flower shows it (plain, then curling, then red-jewelled and sparkling, then crowned in rays).
+    /// Fortune may make it bloom a grade finer when it's first looked in.
+    /// </summary>
+    public CardGrade Grade;
+    /// <summary>Fortune made it bloom a grade when it was looked in.</summary>
+    public bool Bloomed;
+
+    /// <summary>A shrine's grade: Uncommon or better (a guardian's Rare or better), the finer ones rarer, a little likelier deeper down.</summary>
+    public static CardGrade RollShrineGrade(bool boss)
+    {
+        float luck = 1f + Math.Max(0, G.Depth) * Tune.Boons.LuckPerDepth;
+        var w = Tune.Boons.GradeWeights;
+        var least = boss ? CardGrade.Rare : CardGrade.Uncommon;
+        float total = 0f;
+        for (int k = (int)least - 1; k < 5; k++) total += k >= 2 ? w[k] * luck : w[k];
+        float r = G.Range(0f, total);
+        for (int k = (int)least - 1; k < 5; k++) { r -= k >= 2 ? w[k] * luck : w[k]; if (r <= 0f) return (CardGrade)(k + 1); }
+        return least;
+    }
+
+    private static CardGrade GradeOf(Upgrade u) => u == null ? CardGrade.None : u.Grade == CardGrade.None ? CardGrade.Common : u.Grade;
+
+    /// <summary>
+    /// A shrine's cards match its flower: nothing finer than its grade, and one card of its grade exactly (a boon of that grade, or at
+    /// Legendary now and then one of the hero's infusions). First, the looker's fortune may make it bloom a grade.
+    /// </summary>
+    private void ShapeShrine()
+    {
+        var s = G.Player.Stats;
+        var rng = G.Main.Rng;
+        if (Grade == CardGrade.None) Grade = Tier == ChestTier.Boss ? CardGrade.Rare : CardGrade.Uncommon;
+        if (Grade < CardGrade.Legendary && s.Luck > 0f && rng.NextDouble() < s.Luck * Tune.Shrine.BloomPerLuck)
+        {
+            Grade++;
+            Bloomed = true;
+            var at = GlobalPosition + new Vector2(0, -20 - ShrineLift);
+            G.Fx.Text(at + new Vector2(0, -24), "FORTUNE!", new Color(1f, 0.84f, 0.3f), 12, 1.1f);
+            G.Fx.Burst(at, new Color(1f, 0.9f, 0.5f), 26, 200, 2.4f, 0.8f, -40);
+            G.Fx.Flash(at, 40, new Color(1f, 0.92f, 0.6f));
+            G.Sfx.Play("relic_reveal", GlobalPosition, -2, 0, 1.3f);
+        }
+        var list = Cards.Select(Upgrades.Find).ToList();
+        var families = new HashSet<string>(list.Where(Boons.IsBoon).Select(Boons.FamilyKey));
+        // (nothing finer than the flower shows)
+        for (int i = 0; i < list.Count; i++)
+            if (GradeOf(list[i]) > Grade && Boons.DealAtMost(s, rng, Grade, families) is Upgrade lower) list[i] = lower;
+        // (the prize: one card of the shrine's grade exactly, in place of the last of the fillers)
+        if (!list.Any(u => GradeOf(u) == Grade))
+        {
+            Upgrade prize = Grade == CardGrade.Legendary && rng.NextDouble() < Tune.Infusion.LevelChance ? Infusions.Deal(s, rng, list) : null;
+            prize ??= Boons.Deal(s, rng, Grade, families);
+            if (prize != null) { if (list.Count >= 3) list[^1] = prize; else list.Add(prize); }
+        }
+        // (and it shows what it holds: if no card of its grade could be had, its finest)
+        var best = list.Select(GradeOf).DefaultIfEmpty(Grade).Max();
+        if (best != Grade && best >= CardGrade.Common) Grade = best;
+        Cards = list.Where(u => u != null).Select(u => u.Id).ToArray();
+    }
     /// <summary>How high (px) a shrine's shape still floats above where it will rest: it sinks slowly from the air.</summary>
     public float ShrineLift { get; private set; } = Tune.Shrine.StartLift;
     private float _liftV;
@@ -314,6 +374,13 @@ public partial class Chest : Node2D, IBreakable
         NetSync.AskChest(this);
     }
 
+    /// <summary>For tests: deal the cards as a first look would, without offering them.</summary>
+    public void DealForTest()
+    {
+        Cards = Upgrades.RollChestCards(G.Player.Stats, null, G.Main.Rng, GlobalPosition, relic: Tier == ChestTier.Relic);
+        if (IsShrine) ShapeShrine();
+    }
+
     /// <summary>This game's hero looks inside: the cards are dealt the first time, then offered.</summary>
     public void Look()
     {
@@ -327,6 +394,7 @@ public partial class Chest : Node2D, IBreakable
                   : Collection ? Upgrades.RollCollection(G.Player.Stats, Net.Online ? Math.Max(1, Net.Count) : 1, G.Main.Rng)
                   : Vault ? Upgrades.RollVaultCards(G.Player.Stats, party, G.Main.Rng)
                           : Upgrades.RollChestCards(G.Player.Stats, party, G.Main.Rng, GlobalPosition, relic: Tier == ChestTier.Relic);
+            if (IsShrine) ShapeShrine();
             // (a relic is its finder's alone; a collection's are anyone's, one each)
             if (!Collection && Cards.Any(id => Upgrades.Find(id)?.Relic == true)) RelicFor = Net.Me;
             NetSync.ChestCards(this);
@@ -349,9 +417,42 @@ public partial class Chest : Node2D, IBreakable
         }
         if (Hung && CutT >= 0) FallStep(dt);
         if (_open) { _openT += dt; QueueRedraw(); return; }
+        if (IsShrine) { ShrineSparkle(dt); QueueRedraw(); return; }
         if (G.Chance(0.05f)) G.Fx.Burst(GlobalPosition + new Vector2(G.Range(-10, 10), -14), new Color(1f, 0.9f, 0.5f), 1, 10, 1.5f, 0.8f, -20);
         if (G.Chance(0.015f)) G.Fx.Glint(GlobalPosition + new Vector2(G.Range(-10, 10), -G.Range(4, 12)), new Color(1f, 0.95f, 0.6f), 6);
         QueueRedraw();
+    }
+
+    private bool _settled;
+
+    /// <summary>
+    /// A shrine's shimmer, by its grade: a mote now and then (Uncommon); glints (Rare); glints, red sparks and a slow rain of light
+    /// (Epic); a constant glitter of gold and red, motes rising up its pillar of light (Legendary). An Epic or Legendary one rings out as
+    /// it settles on the floor.
+    /// </summary>
+    private void ShrineSparkle(float dt)
+    {
+        float size = Grade switch { CardGrade.Rare => 1.12f, CardGrade.Epic => 1.28f, CardGrade.Legendary => 1.5f, _ => 1f } * (Tier == ChestTier.Boss ? 1.37f : 1f);
+        var c = GlobalPosition + new Vector2(0, -(10f * size) - ShrineLift);
+        float w = 11f * size;
+        int g = Grade switch { CardGrade.Rare => 1, CardGrade.Epic => 2, CardGrade.Legendary => 3, _ => 0 };
+        var white = new Color(0.95f, 0.98f, 1f);
+        var red = new Color(1f, 0.25f, 0.25f);
+        var gold = new Color(1f, 0.85f, 0.4f);
+        if (G.Chance(0.03f + 0.04f * g)) G.Fx.Burst(c + new Vector2(G.Range(-w, w), G.Range(-w, w * 0.4f)), g >= 3 ? gold : white, 1, 12, 1.4f, 0.9f, -25);
+        if (g >= 1 && G.Chance(0.02f + 0.05f * g)) G.Fx.Glint(c + new Vector2(G.Range(-w, w), G.Range(-w * 1.1f, w * 0.5f)), g >= 3 && G.Chance(0.5f) ? gold : white, 5 + g);
+        if (g >= 2 && G.Chance(0.04f * g)) G.Fx.Ember(c + new Vector2(G.Range(-w * 0.6f, w * 0.6f), G.Range(-w * 0.5f, w * 0.3f)), red);
+        if (g >= 3 && G.Chance(0.12f)) G.Fx.Burst(c + new Vector2(G.Range(-3f, 3f), -G.Range(10f, 80f)), new Color(gold, 0.7f), 1, 30, 1.2f, 1.1f, -60);
+        if (!_settled && ShrineLift <= 0f)
+        {
+            _settled = true;
+            if (g >= 2)
+            {
+                G.Sfx.Play("relic_reveal", GlobalPosition, g >= 3 ? 0 : -5, 0, g >= 3 ? 1.2f : 1.4f);
+                G.Fx.Ring(c, w * 1.6f, new Color(g >= 3 ? gold : new Color(1f, 0.75f, 0.9f), 0.45f), 0.45f, FxLayer.RingStyle.Wave);
+                for (int k = 0; k < 2 + 2 * g; k++) G.Fx.Glint(c + G.RandDir() * G.Range(4f, w * 1.4f), g >= 3 ? gold : white, 4);
+            }
+        }
     }
 
     /// <summary>Falling after the web parts: down to where it lands, a bounce or two, tumbling.</summary>
