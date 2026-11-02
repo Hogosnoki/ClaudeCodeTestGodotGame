@@ -35,6 +35,21 @@ public partial class Main
 
         // ---- a jump in mid-air, for everyone
         ScCheck($"the {hero} has a jump in mid-air ({p.AirJumpsMax}) and kicks off walls ({p.CanWallJump})", p.AirJumpsMax >= 1 && p.CanWallJump);
+        // (somewhere with room overhead for two jumps, and no ledge to land on in between)
+        foreach (float dx in new[] { 0f, 40f, -40f, 80f, -80f, 120f, -120f, 160f, -160f, 200f, -200f, 260f, -260f, 320f, -320f })
+        {
+            if (!G.Cave.FindFloor(home + new Vector2(dx, -30f), 120f, out var fl)) continue;
+            var stand = fl + new Vector2(0, -12f);
+            bool open = true;
+            for (float ox = -8f; ox <= 8f && open; ox += 8f)
+            {
+                G.Cave.Raycast(stand + new Vector2(ox, 0), Vector2.Up, 200f, out var roof, 4f);
+                open = stand.Y - roof.Y >= 196f;
+            }
+            if (!open) continue;
+            p.GlobalPosition = stand; p.Velocity = Vector2.Zero;
+            break;
+        }
         for (int f = 0; f < 120 && !p.IsOnFloor(); f++) yield return null;
         float y0 = p.GlobalPosition.Y;
         // (the button held through each jump, as a player would)
