@@ -24,6 +24,30 @@ public partial class ChestView
     private static Godot.Collections.Dictionary _reliefMeta;
     /// <summary>Metres per picture pixel for a level's shrine (a guardian's is bigger).</summary>
     private const float ReliefScale = 0.0034f;
+
+    /// <summary>
+    /// The shape of a flower's cross-section. Ridge: the whole thickness equals the distance D to the nearest edge (knife edges, a
+    /// ridge down the middle). Cushion: the thickness is <c>CushionMax · (1 − 1/(D/CushionUnit + 1)²)</c>, which climbs steeply from
+    /// the edge and levels off: rounded rims and a nearly flat face, like a stamped medallion. (DC_SHRINE_PROFILE="cushion:unit:max"
+    /// picks it for a test run.)
+    /// </summary>
+    public enum ShrineProfile { Ridge, Cushion }
+    public static ShrineProfile Profile = ShrineProfile.Ridge;
+    /// <summary>For the cushion: the distance (picture pixels) that counts as 1, and the whole thickness it levels off at (pixels).</summary>
+    public static float CushionUnit = 8f, CushionMax = 26f;
+
+    static ChestView()
+    {
+        var env = System.Environment.GetEnvironmentVariable("DC_SHRINE_PROFILE");
+        if (string.IsNullOrEmpty(env)) return;
+        var parts = env.Split(':');
+        if (parts[0] == "cushion")
+        {
+            Profile = ShrineProfile.Cushion;
+            if (parts.Length > 1 && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var u)) CushionUnit = u;
+            if (parts.Length > 2 && float.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var m)) CushionMax = m;
+        }
+    }
     private float _flowerMid = -1f, _flowerTop = -1f;
 
     /// <summary>The relief for a grade (0 Uncommon .. 3 Legendary), built once and kept; null if its pictures can't be had.</summary>
@@ -49,6 +73,11 @@ public partial class ChestView
                 if (x < 0 || y < 0 || x >= w || y >= h) return 0f;
                 var c = himg.GetPixel(x, y);
                 float d = (Mathf.Round(c.R * 255f) * 256f + Mathf.Round(c.G * 255f)) / 65535f * maxDist;
+                if (Profile == ShrineProfile.Cushion)
+                {
+                    float q = 1f / (d / CushionUnit + 1f);
+                    return 0.5f * CushionMax * (1f - q * q);
+                }
                 return d * share;
             }
             const int step = 3;
@@ -112,7 +141,10 @@ public partial class ChestView
         // the relief: the picture as its colour, a little light of its own tinted by the grade's glow (so it reads in the dark)
         _crystalMat = new StandardMaterial3D
         {
-            AlbedoTexture = r.Tex, Transparency = BaseMaterial3D.TransparencyEnum.AlphaScissor, AlphaScissorThreshold = 0.5f,
+            // (drawn in the see-through pass, after the ink: the screen's edge line, found in the solid scene's depth, never traces it,
+            // so the model reads clean; it writes its own depth, so its faces still hide one another)
+            AlbedoTexture = r.Tex, Transparency = BaseMaterial3D.TransparencyEnum.Alpha, DepthDrawMode = BaseMaterial3D.DepthDrawModeEnum.Always,
+            RenderPriority = 101,
             CullMode = BaseMaterial3D.CullModeEnum.Disabled, Metallic = 0.35f, Roughness = 0.32f,
             TextureFilter = BaseMaterial3D.TextureFilterEnum.LinearWithMipmapsAnisotropic,
             EmissionEnabled = true, EmissionTexture = r.Tex, EmissionOperator = BaseMaterial3D.EmissionOperatorEnum.Multiply,
