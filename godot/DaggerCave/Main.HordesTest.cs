@@ -21,6 +21,8 @@ public partial class Main
 
     private IEnumerable<object> HordesRun()
     {
+        // (the biome's own creatures only: the swarms, delvers and bombers have --scenario=movers)
+        Tune.Testing.NoMovers = true;
         var p = G.Player;
         IEnumerable<object> Wait(float s) { for (float t = 0; t < s; t += (float)GetProcessDeltaTime()) yield return null; }
         int want = Math.Min(Tune.Hordes.GeneratorMax, Tune.Hordes.Generators + (int)(G.Depth * Tune.Hordes.GeneratorsPerDepth));

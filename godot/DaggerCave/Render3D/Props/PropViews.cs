@@ -328,6 +328,16 @@ public partial class ProjectileView : PropView
                     _light = PropViews.Light(new Color(0.45f, 0.75f, 1f), 0.5f, 2.5f);
                     break;
                 }
+            case "pod":
+                {
+                    // a bomber's pod: a pale, swollen seed-sac glowing sickly green
+                    var mb = new MeshBuilder();
+                    mb.Blob(Vector3.Zero, new Vector3(r * 1.1f, r * 1.3f, r * 1.1f), 5, Colors.White, new Noise3(rng.Next()), 0.15f, 3f);
+                    _body = PropViews.Mesh(mb, PropViews.Emissive(new Color(0.75f, 0.9f, 0.35f), 1.4f), false);
+                    _glow = PropViews.Sprite(new Color(0.75f, 0.95f, 0.3f), 0, 0.8f, r * 3.5f);
+                    _light = PropViews.Light(new Color(0.75f, 0.95f, 0.3f), 0.6f, 2.5f);
+                    break;
+                }
             case "leaf":
                 {
                     var mb = new MeshBuilder();

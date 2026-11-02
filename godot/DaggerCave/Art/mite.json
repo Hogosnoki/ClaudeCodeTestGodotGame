@@ -1,0 +1,107 @@
+{
+ "frame_w": 48,
+ "frame_h": 48,
+ "columns": 30,
+ "scale": 2.0,
+ "origin": [
+  24.0,
+  24.0
+ ],
+ "fps": 24,
+ "animations": {
+  "fly_r": {
+   "loop": true,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  "fly_l": {
+   "loop": true,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7
+   ]
+  },
+  "dive_r": {
+   "loop": true,
+   "frames": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  "dive_l": {
+   "loop": true,
+   "frames": [
+    0,
+    1,
+    2,
+    3
+   ]
+  },
+  "hurt_r": {
+   "loop": false,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "hurt_l": {
+   "loop": false,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "death_r": {
+   "loop": false,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  },
+  "death_l": {
+   "loop": false,
+   "frames": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+   ]
+  }
+ }
+}

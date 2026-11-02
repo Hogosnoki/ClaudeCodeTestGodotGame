@@ -72,6 +72,8 @@ public partial class Generator : Enemy
     private void Release()
     {
         var mouth = GlobalPosition + new Vector2(G.Range(-8f, 8f), -4f);
+        // (now and then something that keeps to another height: a swarm in the air, a delver under the floor, a bomber up high)
+        if (!Tune.Testing.NoMovers && TryMover(mouth)) return;
         var e = Main.EntrantFor(mouth, out var pos);
         // (a biome with nothing that comes in from outside: its own residents crawl out instead)
         if (e == null)
@@ -87,6 +89,50 @@ public partial class Generator : Enemy
         e.Engage();
         G.World.AddChild(e);
         // (a minion: half the health, a little less to learn from)
+        e.MaxHp *= Tune.Hordes.MinionHp;
+        e.Hp = e.MaxHp;
+        e.XpValue = Math.Max(1, (int)MathF.Round(e.XpValue * Tune.Hordes.MinionXp));
+        _brood.Add(e);
+        Released++;
+        var col = new Color(0.65f, 0.4f, 1f);
+        G.Fx.Burst(mouth, new Color(col, 0.85f), 8, 90, 1.6f, 0.35f, -40f);
+        G.Fx.Ring(mouth, 12, new Color(col, 0.7f), 0.2f, FxLayer.RingStyle.Burst);
+        G.Sfx.Play("dodge", mouth, -10, 0.15f, 0.55f);
+    }
+
+    /// <summary>Sends one of the creatures that hold other heights, if the dice and the spot allow (true if it did).</summary>
+    private bool TryMover(Vector2 mouth)
+    {
+        if (G.Depth < Tune.Movers.FromDepth || G.Cave.IsWater(mouth)) return false;
+        float r = G.Range(0f, 1f);
+        if ((r -= Tune.Movers.SwarmChance) < 0f)
+        {
+            int flock = Mite.NewFlock();
+            for (int k = 0; k < Tune.Movers.SwarmSize; k++) Send(new Mite { Flock = flock }, mouth + new Vector2(G.Range(-10, 10), G.Range(-24, -8)), mouth);
+            return true;
+        }
+        if ((r -= Tune.Movers.DelverChance) < 0f && G.Cave.FindFloor(mouth, 140f, out var floor))
+        {
+            Send(new Delver(), floor + new Vector2(0, Tune.Movers.DelverDepth), mouth);
+            return true;
+        }
+        if ((r -= Tune.Movers.BomberChance) < 0f)
+        {
+            G.Cave.Raycast(mouth, Vector2.Up, 140f, out var roof, 4f);
+            if (mouth.Y - roof.Y < 90f) return false;
+            Send(new Bomber(), mouth + new Vector2(0, -30f), mouth);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>A creature out of the rift, made a minion (half the health, a little less to learn from).</summary>
+    private void Send(Enemy e, Vector2 pos, Vector2 mouth)
+    {
+        e.Minion = true;
+        e.Position = pos;
+        e.Engage();
+        G.World.AddChild(e);
         e.MaxHp *= Tune.Hordes.MinionHp;
         e.Hp = e.MaxHp;
         e.XpValue = Math.Max(1, (int)MathF.Round(e.XpValue * Tune.Hordes.MinionXp));

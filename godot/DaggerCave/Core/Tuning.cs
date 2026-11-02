@@ -719,6 +719,8 @@ public static class Tune
         public static bool NoCooldowns = false;
         /// <summary>A test arena, never the game: no generators and no trial rooms in the cave (the older scenarios were written for one).</summary>
         public static bool NoHordes = false;
+        /// <summary>A test aid: generators send only the biome's own creatures (the hordes test counts them).</summary>
+        public static bool NoMovers = false;
     }
 
     /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>
@@ -1273,6 +1275,30 @@ public static class Tune
         /// <summary>A light walker (radius at most <c>FlankMaxRadius</c>) held at the back of a crowd for <c>FlankAfter</c> s, its hero within
         /// <c>FlankRange</c> px, leaps the crowd (<c>FlankAir</c> s in the air) to land past its hero.</summary>
         public static float FlankAfter = 1.5f, FlankMaxRadius = 13f, FlankRange = 220f, FlankAir = 0.7f;
+    }
+
+    /// <summary>
+    /// The creatures that hold other heights than the floor (Enemies/Movers.cs), sent by generators: a generator's creature is a swarm of
+    /// <c>SwarmSize</c> mites <c>SwarmChance</c> of the time, a delver <c>DelverChance</c> (on a floor) and a bomber <c>BomberChance</c>
+    /// (with room overhead), from depth <c>FromDepth</c>.
+    /// Mite: <c>MiteHp</c> health, bites for <c>MiteBite</c>, circles <c>MiteOrbit</c> px about its hero's head at <c>MiteSpeed</c>, darts at
+    /// <c>MiteDart</c> every <c>MiteDartEvery</c> s from within <c>MiteDartRange</c> px; keeps to the fellows within <c>MiteFlockRange</c> px.
+    /// Delver: <c>DelverHp</c>; runs <c>DelverDepth</c> px under the floor at <c>DelverSpeed</c> for at least <c>DelverUnder</c> s, warns
+    /// <c>DelverWarn</c> s, bursts out <c>DelverBeside</c> px from its hero (<c>DelverBurstDamage</c> within <c>DelverBurst</c> px), stays up
+    /// <c>DelverUp</c> s biting for <c>DelverBite</c> every <c>DelverBiteEvery</c> s within <c>DelverReach</c> px.
+    /// Bomber: <c>BomberHp</c>; holds <c>BomberHeight</c> px over its hero (at least <c>BomberUnderRoof</c> under the roof), sways
+    /// <c>BomberSpan</c> px each way; every <c>BomberEvery</c> s, within <c>BomberDropWithin</c> px of over its hero, lets fall a pod
+    /// (<c>PodDamage</c> within <c>PodRadius</c> px; falls at <c>PodGravity</c>).
+    /// </summary>
+    public static class Movers
+    {
+        public static float SwarmChance = 0.22f, DelverChance = 0.14f, BomberChance = 0.14f;
+        public static int SwarmSize = 5, FromDepth = 0;
+        public static float MiteHp = 4f, MiteBite = 3f, MiteSpeed = 150f, MiteOrbit = 38f, MiteDart = 320f, MiteDartEvery = 3.2f, MiteDartRange = 110f, MiteFlockRange = 130f;
+        public static float DelverHp = 34f, DelverBite = 9f, DelverSpeed = 150f, DelverDepth = 24f, DelverUnder = 1.2f, DelverWarn = 0.6f, DelverBeside = 34f;
+        public static float DelverBurst = 34f, DelverBurstDamage = 12f, DelverUp = 2.8f, DelverBiteEvery = 1.1f, DelverReach = 34f;
+        public static float BomberHp = 26f, BomberHeight = 170f, BomberUnderRoof = 26f, BomberSpan = 90f, BomberSway = 0.8f, BomberSpeed = 120f;
+        public static float BomberEvery = 3.4f, BomberDropWithin = 34f, PodDamage = 11f, PodRadius = 40f, PodGravity = 620f;
     }
 
     public static class Splash

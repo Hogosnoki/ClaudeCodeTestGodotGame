@@ -86,3 +86,99 @@ public partial class Main
         p.InputOverride = null;
     }
 }
+
+public partial class Main
+{
+    private IEnumerator<object> _mvSteps;
+
+    /// <summary>
+    /// `--scenario=movers`, the creatures that hold other heights (Enemies/Movers.cs, <see cref="Tune.Movers"/>): a swarm of mites keeps
+    /// together as one cloud about the hero's head and darts in to bite; a delver runs under the floor unseen and unhittable, and bursts out
+    /// beside the hero; a bomber holds high over the hero and lets fall pods that burst on the floor.
+    /// </summary>
+    private void MoversScenario()
+    {
+        if (_mvSteps == null) { if (_scT < 0.8f) return; _mvSteps = MoversRun().GetEnumerator(); }
+        if (!_mvSteps.MoveNext()) ScEnd();
+    }
+
+    private IEnumerable<object> MoversRun()
+    {
+        var p = G.Player;
+        foreach (var e in G.Enemies.ToArray()) { G.Enemies.Remove(e); e.QueueFree(); }
+        p.Stats.MaxHp = p.Hp = 50000;
+        p.InputOverride = () => default;
+        foreach (var _ in ElWait(0.4f)) yield return null;
+        T Add<T>(T e, Vector2 at) where T : Enemy
+        {
+            e.Position = at;
+            e.SetMeta("test", true);
+            e.Engage();
+            _world.AddChild(e);
+            e.Hp = e.MaxHp = 100000f;
+            return e;
+        }
+        var home = p.GlobalPosition;
+
+        // ---- a swarm of mites
+        int flock = Mite.NewFlock();
+        var swarm = Enumerable.Range(0, 5).Select(k => Add(new Mite { Flock = flock }, home + new Vector2(p.Facing * (160f + k * 12f), -50f - k * 6f))).ToList();
+        foreach (var _ in ElWait(2.5f)) yield return null;
+        // (how much of the time each is up over the hero's middle)
+        int up = 0, frames = 0;
+        for (float t = 0; t < 1.5f; t += (float)GetProcessDeltaTime())
+        {
+            up += swarm.Count(m => m.GlobalPosition.Y < p.GlobalPosition.Y - 4f);
+            frames += swarm.Count;
+            yield return null;
+        }
+        ScShot("movers_swarm");
+        float far = swarm.Max(m => m.GlobalPosition.DistanceTo(p.GlobalPosition));
+        float spread = 0f;
+        foreach (var a in swarm) foreach (var b in swarm) spread = Math.Max(spread, a.GlobalPosition.DistanceTo(b.GlobalPosition));
+        ScCheck($"a swarm of mites gathers about the hero (the farthest {far:0} px off) as one cloud ({spread:0} px across)", far < 130f && spread < 130f);
+        ScCheck($"  up in the air, not on the floor (above the hero's middle {100f * up / Math.Max(1, frames):0}% of the time)", up >= frames * 0.6f);
+        ScCheck($"  and darts in to bite ({swarm.Sum(m => m.Darts)} darts, {50000 - p.Hp:0} taken)", swarm.Sum(m => m.Darts) >= 1);
+        foreach (var m in swarm) m.QueueFree();
+        p.Hp = p.Stats.MaxHp;
+        foreach (var _ in ElWait(0.3f)) yield return null;
+
+        // ---- a delver under the floor
+        var start = home + new Vector2(-p.Facing * 220f, 0f);
+        if (G.Cave.FindFloor(start + new Vector2(0, -20f), 200f, out var fl)) start = fl;
+        var delver = Add(new Delver(), start + new Vector2(0, Tune.Movers.DelverDepth));
+        bool hidden = true, untouchable = true;
+        for (float t = 0; t < 1.0f; t += (float)GetProcessDeltaTime())
+        {
+            hidden &= !delver.Animator.Visible;
+            untouchable &= !delver.CanBeHit;
+            yield return null;
+        }
+        ScCheck($"a delver runs under the floor unseen ({hidden}) and can't be struck ({untouchable})", hidden && untouchable);
+        for (float t = 0; t < 5f && delver.Eruptions == 0; t += (float)GetProcessDeltaTime()) yield return null;
+        foreach (var _ in ElWait(0.15f)) yield return null;
+        ScShot("movers_delver");
+        float off = delver.GlobalPosition.DistanceTo(p.GlobalPosition);
+        ScCheck($"  it bursts out beside the hero ({delver.Eruptions} times, {off:0} px off), seen ({delver.Animator.Visible}) and open to blows ({delver.CanBeHit})",
+            delver.Eruptions >= 1 && off < 90f && delver.Animator.Visible && delver.CanBeHit);
+        delver.QueueFree();
+        p.Hp = p.Stats.MaxHp;
+        foreach (var _ in ElWait(0.3f)) yield return null;
+
+        // ---- a bomber up high
+        int bursts = EnemyProjectile.Bursts;
+        var bomber = Add(new Bomber(), home + new Vector2(p.Facing * 120f, -60f));
+        float highest = 0f;
+        bool shot = false;
+        for (float t = 0; t < 8f; t += (float)GetProcessDeltaTime())
+        {
+            highest = Math.Max(highest, p.GlobalPosition.Y - bomber.GlobalPosition.Y);
+            if (t > 2.4f && !shot) { shot = true; ScShot("movers_bomber"); }
+            yield return null;
+        }
+        ScCheck($"a bomber holds high over the hero (up to {highest:0} px over)", highest > 70f);
+        ScCheck($"  and lets fall pods ({bomber.Drops}) that burst ({EnemyProjectile.Bursts - bursts}), hurting the hero standing under ({50000 - p.Hp:0})", bomber.Drops >= 1 && EnemyProjectile.Bursts > bursts);
+        bomber.QueueFree();
+        p.InputOverride = null;
+    }
+}

@@ -28,6 +28,9 @@ public static class CreatureRegistry
         CreatureLibrary.Register("hornet", () => new HornetDesign());
         CreatureLibrary.Register("hive", () => new HiveDesign());
         CreatureLibrary.Register("generator", () => new GeneratorDesign());
+        CreatureLibrary.Register("mite", () => new MiteDesign());
+        CreatureLibrary.Register("delver", () => new DelverDesign());
+        CreatureLibrary.Register("bomber", () => new BomberDesign());
         CreatureLibrary.Register("merchant", () => new MerchantDesign());
         CreatureLibrary.Register("frog", () => new FrogDesign());
         CreatureLibrary.Register("fish", () => new FishDesign(false));
@@ -62,7 +65,7 @@ public static class CreatureRegistry
     {
         ["Bat"] = new[] { "bat" }, ["Spider"] = new[] { "spider" }, ["Goblin"] = new[] { "goblin", "slinger" }, ["Frog"] = new[] { "frog" },
         ["LavaMonster"] = new[] { "magma" }, ["Golem"] = new[] { "golem" }, ["Rat"] = new[] { "rat" }, ["Bear"] = new[] { "bear" },
-        ["Scorpion"] = new[] { "scorpion" }, ["Hornet"] = new[] { "hornet" }, ["Hive"] = new[] { "hive" }, ["Generator"] = new[] { "generator" }, ["Skeleton"] = new[] { "skeleton" }, ["Sporeling"] = new[] { "sporeling" },
+        ["Scorpion"] = new[] { "scorpion" }, ["Hornet"] = new[] { "hornet" }, ["Hive"] = new[] { "hive" }, ["Generator"] = new[] { "generator" }, ["Mite"] = new[] { "mite" }, ["Delver"] = new[] { "delver" }, ["Bomber"] = new[] { "bomber" }, ["Skeleton"] = new[] { "skeleton" }, ["Sporeling"] = new[] { "sporeling" },
         ["FrostWraith"] = new[] { "wraith" }, ["Shardling"] = new[] { "shardling" }, ["Fish"] = new[] { "fish", "fish2" }, ["Urchin"] = new[] { "urchin" },
         ["Eel"] = new[] { "eel" }, ["Crab"] = new[] { "crab_foe" }, ["EarthElemental"] = new[] { "elem_earth" }, ["FrostElemental"] = new[] { "elem_frost" }, ["NatureElemental"] = new[] { "elem_nature" },
         ["FireElemental"] = new[] { "elem_fire" }, ["WaterElemental"] = new[] { "elem_water" }, ["CavernColossus"] = new[] { "colossus" }, ["Dragon"] = new[] { "dragon" },
@@ -99,6 +102,8 @@ public static class CreatureRegistry
         if (GuardianSet.TryGetValue(b.Id, out var g)) names.Add(g);
         if (b.Id == BiomeId.Nest) names.Add("hive");
         names.Add("generator");
+        // (what generators send besides the biome's own: the swarms, the delvers, the bombers)
+        names.Add("mite"); names.Add("delver"); names.Add("bomber");
         return names;
     }
 }

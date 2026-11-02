@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -82,6 +83,8 @@ public partial class EnemyProjectile : Node2D
     public Enemy Source;
     /// <summary>Sent back by a perfect shield block: now it hurts enemies instead.</summary>
     public bool Reflected;
+    /// <summary>For the tests: bomber pods that have burst.</summary>
+    public static int Bursts;
 
     public override void _Ready()
     {
@@ -170,6 +173,8 @@ public partial class EnemyProjectile : Node2D
         // the warden's shield sits a little in front of her
         if (p != null && !p.Dead && p.ShieldRaised && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 20 && p.TryBlockProjectile(this))
             return;
+        // (a bomber's pod bursts on whatever it touches: the burst does the harm)
+        if (Kind == "pod" && G.Players.Any(h => h != null && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)) { Impact(GlobalPosition); return; }
         if (p != null && !p.Dead && p.GlobalPosition.DistanceTo(GlobalPosition) < Radius + 9)
         {
             p.Hurt(Damage, GlobalPosition - Vel.Normalized() * 10, source: Source);
@@ -187,6 +192,24 @@ public partial class EnemyProjectile : Node2D
 
     private void Impact(Vector2 at)
     {
+        if (Kind == "pod" && !Reflected)
+        {
+            // it bursts: every hero near is struck and thrown
+            foreach (var h in G.Players)
+            {
+                if (h == null || h.Dead || h.GlobalPosition.DistanceTo(at) > Tune.Movers.PodRadius + 6f) continue;
+                h.Hurt(Damage, at + new Vector2(0, 8), 220f, Source);
+            }
+            Bursts++;
+            G.Fx.Explosion(at, new Color(0.75f, 0.85f, 0.3f), 0.7f);
+            G.Fx.Burst(at, new Color(0.8f, 0.9f, 0.35f, 0.9f), 14, 160, 2.2f, 0.45f, 60);
+            G.Fx.Ring(at, Tune.Movers.PodRadius, new Color(0.8f, 0.9f, 0.35f, 0.8f), 0.25f, FxLayer.RingStyle.Burst);
+            G.Fx.AddShake(1.5f);
+            G.Sfx.Play("explode", at, -6, 0.1f, 1.3f);
+            NetSync.PropGone(this, quiet: true);
+            QueueFree();
+            return;
+        }
         if (Kind == "lava")
         {
             G.Sfx.Play("lava", at, -8);
