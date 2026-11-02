@@ -28,6 +28,16 @@ public partial class Main
         int want = Math.Min(Tune.Hordes.GeneratorMax, Tune.Hordes.Generators + (int)(G.Depth * Tune.Hordes.GeneratorsPerDepth));
         ScCheck($"the level has its generators ({_genSpots.Count} of {want}), none near the start", _genSpots.Count >= Math.Min(2, want) && _genSpots.All(s => s.DistanceTo(G.Cave.StartPos) >= Tune.Hordes.GeneratorClear));
         ScCheck($"apart from each other (closest {(_genSpots.Count > 1 ? _genSpots.SelectMany(a => _genSpots.Where(b => b != a).Select(b => a.DistanceTo(b))).Min() : 0):0} px)", _genSpots.Count < 2 || _genSpots.SelectMany(a => _genSpots.Where(b => b != a).Select(b => a.DistanceTo(b))).Min() >= Tune.Hordes.GeneratorGap);
+        {
+            var cave = G.Cave;
+            var locked = new List<Vector2>();
+            if (cave.Vault != null) locked.Add(cave.Vault.Chest);
+            if (cave.ExtraVault != null) locked.Add(cave.ExtraVault.Chest);
+            foreach (var w in cave.Wings) locked.Add(w.Bounds.GetCenter());
+            foreach (var r in cave.Rooms) if (r.Kind == RoomKind.Secret) locked.Add(r.Center);
+            ScCheck($"  none behind a locked gate or in a secret place ({_genSpots.Count(at => OffLimits(cave, at))} are); those places are off limits ({locked.Count(at => OffLimits(cave, at))} of {locked.Count})",
+                _genSpots.All(at => !OffLimits(cave, at)) && locked.All(at => OffLimits(cave, at)));
+        }
         // (the level's own are put aside: one is raised by the hero for the test)
         _genSpots.Clear();
         foreach (var e in G.Enemies.ToArray()) { G.Enemies.Remove(e); e.QueueFree(); }

@@ -32,6 +32,7 @@ public partial class Main
             if (cave.IsSolid(at) || cave.IsSolid(at + new Vector2(-20, -6)) || cave.IsSolid(at + new Vector2(20, -6)) || cave.IsSolid(at + new Vector2(0, -26))) continue;
             if (cave.IsLava(at) || cave.IsLava(floor + new Vector2(0, -4))) continue;
             if (_genSpots.Any(g => g.DistanceTo(at) < Tune.Hordes.GeneratorGap)) continue;
+            if (OffLimits(cave, at)) continue;
             _genSpots.Add(at);
         }
         if (_autotest) GD.Print($"[autotest] generators: {_genSpots.Count} of {want}");
@@ -51,6 +52,28 @@ public partial class Main
             _genMade.Add(k);
             MakeGenerator(at);
         }
+    }
+
+    /// <summary>
+    /// Somewhere no generator goes: a vault (behind its locked gate: the passage and the chamber), a secret wing (behind its breakable wall)
+    /// or a secret room. What's locked away or hidden is a reward for finding it, not a horde to come pouring out of it.
+    /// </summary>
+    public static bool OffLimits(CaveData cave, Vector2 at)
+    {
+        var c = new Vector2I((int)(at.X / CaveData.Cell), (int)(at.Y / CaveData.Cell));
+        foreach (var v in new[] { cave.Vault, cave.ExtraVault })
+        {
+            if (v == null) continue;
+            if (v.Passage.Grow(2).HasPoint(c) || v.Chamber.Grow(2).HasPoint(c) || at.DistanceTo(v.Chest) < 80f || at.DistanceTo(v.Gate) < 60f) return true;
+        }
+        foreach (var w in cave.Wings) if (w.Bounds.Grow(32f).HasPoint(at) || at.DistanceTo(w.Plug) < 60f) return true;
+        foreach (var r in cave.Rooms)
+        {
+            if (r.Kind != RoomKind.Secret) continue;
+            float ex = (at.X - r.Center.X) / (r.RxPx + 32f), ey = (at.Y - r.Center.Y) / (r.RyPx + 32f);
+            if (ex * ex + ey * ey < 1f) return true;
+        }
+        return false;
     }
 
     /// <summary>A generator at a spot (the level's, a trial room's or a test's).</summary>
@@ -236,6 +259,7 @@ public partial class Main
                 if (cave.IsSolid(at) || cave.IsSolid(at + new Vector2(-16, 0)) || cave.IsSolid(at + new Vector2(16, 0))) continue;
                 if (G.Players.Any(h => h != null && !h.Dead && h.GlobalPosition.DistanceTo(at) < 70f)) continue;
                 if (spots.Any(s => s.DistanceTo(at) < 140f)) continue;
+                if (OffLimits(cave, at)) continue;
                 spots.Add(at);
             }
             foreach (var at in spots)
