@@ -1301,6 +1301,34 @@ public static class Tune
         public static float BomberEvery = 3.4f, BomberDropWithin = 34f, PodDamage = 11f, PodRadius = 40f, PodGravity = 620f;
     }
 
+    /// <summary>
+    /// How the heroes grow (Player/Cards.cs): a pick of three cards every level, a milestone every <c>MilestoneEvery</c> levels. The level
+    /// cards' steps (<c>*Step</c>, multipliers), the specials' extra strokes and their milestone forms. See the README's growth section.
+    /// </summary>
+    public static class Growth
+    {
+        public static int MilestoneEvery = 5;
+        public static float WideStep = 1.2f, HardStep = 1.25f, SoonStep = 0.85f, KeenStep = 1.15f, QuickStep = 1.1f, ReachStep = 1.12f;
+        public static float SplashWide = 1.3f, SplashShare = 0.1f, OtherSoon = 0.8f, OtherHard = 1.3f, DefSoon = 0.82f, ShieldMend = 1.3f;
+        public static float VigorStep = 1.12f, MightStep = 1.08f, FleetStep = 1.07f, HideStep = 0.93f, ThirstHeal = 1.5f, LearnStep = 1.12f;
+        public static float KillRestCut = 0.35f, MomentumCut = 1.5f, OverwhelmDamage = 1.35f, OverwhelmRadius = 1.15f, ColossusHp = 1.25f;
+        // (the specials' extra strokes, one per "Again")
+        public static int WhirlExtraPulses = 2;
+        public static float ExtraStoneRadius = 0.6f, ExtraStoneDamage = 0.55f, AftershockGap = 0.3f, AftershockDamage = 0.5f, BloomPulseGap = 0.6f, BloomPulseDamage = 0.5f;
+        // (the milestone forms)
+        public static float CycloneRadius = 1.15f, BladeStormWave = 1.2f, BladeStormRange = 200f;
+        public static int ShowerStones = 3;
+        public static float ShowerSpread = 55f, ShowerRadius = 0.62f, ShowerDamage = 0.7f, CataclysmRadius = 1.5f, CataclysmDamage = 1.6f, CataclysmRest = 1.25f;
+        public static int ShockwaveSteps = 5;
+        public static float ShockwaveStart = 70f, ShockwaveStep = 42f, ShockwaveRadius = 30f, ShockwaveDamage = 0.55f, ShockwaveStun = 0.6f;
+        public static float BulwarkSelf = 0.25f, BulwarkAllies = 0.12f, BulwarkSeconds = 5f, BulwarkRange = 150f;
+        public static float GardenSeconds = 4f, GardenRadius = 95f, GardenHeal = 0.02f, HeartbloomHeal = 2f, HeartbloomPerFoe = 0.01f;
+        public static int ChainPillars = 3;
+        public static float ChainRange = 220f, ChainGap = 0.14f, ChainDamage = 0.6f, ChainSize = 0.65f, SanctumSeconds = 3f, SanctumDamage = 0.25f;
+        public static int SteelVolleys = 2, SteelKnives = 4;
+        public static float MarkVulnerable = 0.25f, MarkSeconds = 5f;
+    }
+
     public static class Splash
     {
         public static float Radius = 48f, Share = 0.4f;
@@ -1318,7 +1346,7 @@ public static class Tune
         /// and leaping off them (a Wall Jump's, for all).</summary>
         public static int AirJumps = 1;
         public static bool WallJump = true;
-        public static float ResidentShare = 0.35f, LevelDamage = 0.04f, LevelHp = 0.03f;
+        public static float ResidentShare = 0.35f, LevelDamage = 0.02f, LevelHp = 0.02f;
         /// <summary>
         /// Trial rooms: every ambush room, <c>TrialTreasureChance</c> of the treasure rooms (not under water) and every mini-boss's den shut
         /// with wards once a hero is well inside. A trial raises <c>TrialGenerators</c> (+ one every <c>TrialPerDepth</c> depths, at most

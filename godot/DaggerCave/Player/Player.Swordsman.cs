@@ -56,6 +56,7 @@ public partial class Player
         for (int k = 0; k < _stormOwes.Length; k++) _stormOwes[k] = false;
         _snapOwes = false; _snapCd = 0; _updraftOwes = false; _updraftCd = 0;
         _parryCd = _blinkCd = _stepCd = _novaCd = _bigCd = 0;
+        _bigHeld = Stats.SpecialCharges;
     }
 
     /// <summary>Test harness: the timers that gate the buttons.</summary>
@@ -235,7 +236,7 @@ public partial class Player
         var to = source.GlobalPosition - (GlobalPosition + new Vector2(0, -3));
         StartSwing(to.LengthSquared() > 1 ? to.Normalized() : new Vector2(Facing, 0), counter: true);
         Counters++;
-        if (parry) { _parryT = 0f; _swingDmg *= Tune.OtherAbility.ParryRiposte; Parries++; }
+        if (parry) { _parryT = 0f; _swingDmg *= Tune.OtherAbility.ParryRiposte * Stats.OtherPowerMult; Parries++; }
         var at = GlobalPosition + new Vector2(0, -4) + to.Normalized() * 10;
         G.Fx.Text(GlobalPosition + new Vector2(0, -28), "COUNTER", new Color(0.8f, 0.95f, 1f), 11, 0.7f);
         G.Fx.Spark(at, to.Normalized(), true, new Color(0.85f, 0.95f, 1f));

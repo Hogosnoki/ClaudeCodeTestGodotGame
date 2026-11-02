@@ -64,6 +64,8 @@ public partial class Player : CharacterBody2D
     public int Xp;
     /// <summary>Milestone picks waiting to be offered (every few levels).</summary>
     public int PendingMilestones;
+    /// <summary>Level picks earned and not yet taken (each a choice of three cards; taken with the milestone key, Player/Cards.cs).</summary>
+    public int PendingPicks;
     /// <summary>Potions carried (drink with Q / Y).</summary>
     public int Potions = 1;
     /// <summary>Keys carried: any opens any vault's gate (up to Tune.Vault.MaxKeys; they go on down with you).</summary>
@@ -305,7 +307,9 @@ public partial class Player : CharacterBody2D
     {
         Level++;
         Progression.AutoLevel(this);
-        if (Level % Meta.MilestoneEvery == 0)
+        // (every level a pick of three; now and then a milestone besides; neither opens by itself)
+        if (Cards.Grows(Stats.Hero)) { PendingPicks++; MilestoneAt = Time.GetTicksMsec() / 1000f; }
+        if (Cards.IsMilestoneLevel(Stats.Hero, Level))
         {
             PendingMilestones++;
             MilestoneAt = Time.GetTicksMsec() / 1000f;
@@ -1188,6 +1192,8 @@ public partial class Player : CharacterBody2D
     {
         Stats.On.RaiseKill(this, e);
         if (Stats.HealOnKill > 0) Heal(Stats.HealOnKill);
+        // (Bloodrush: a kill hastens the special; a minion's, a third as much)
+        if (Stats.KillRest > 0f) CutSpecialRest(Stats.KillRest * (e != null && e.Minion ? Tune.Hordes.MinionSustain : 1f));
         // (Scrap Reclaimer: what it destroys, it salvages)
         if (Stats.ScrapReclaimer) GainFuel(Tune.AutomatonHero.ScrapFuel);
     }

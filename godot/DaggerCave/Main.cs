@@ -188,7 +188,7 @@ public partial class Main : Node
 
         ParseArgs(out bool gentest);
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
-        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial") && !OS.GetCmdlineUserArgs().Contains("--elements");
+        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -422,7 +422,7 @@ public partial class Main : Node
             {
                 _scenario = a[11..];
                 // (the older scenarios were written for an empty cave and free abilities: their arenas hold no generators or trial rooms)
-                if (_scenario is not ("hordes" or "trial" or "big")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
+                if (_scenario is not ("hordes" or "trial" or "big" or "growth")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
             }
         }
         Affinity.Off = _heroTest || _hitStopTest || _altTest;
@@ -745,13 +745,14 @@ public partial class Main : Node
 
     private void BuildLevel(int seed, bool freshPlayer, CaveData pregenerated = null)
     {
-        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0, keepRerolls = 0, keepTrades = 0;
+        PlayerStats keepStats = null; float keepHp = 0, keepVitalForce = 0, keepAlimus = 0, keepFuel = 0; int keepLevel = 1, keepXp = 0, keepKills = 0, keepPotions = 1, keepMilestones = 0, keepPicks = 0, keepKeys = 0, keepGold = 0, keepGoldFound = 0, keepGoldSpent = 0, keepRerolls = 0, keepTrades = 0;
         if (!freshPlayer && G.Player != null)
         {
             keepStats = G.Player.Stats; keepHp = G.Player.Hp; keepLevel = G.Player.Level; keepXp = G.Player.Xp; keepKills = G.Player.Kills; keepPotions = G.Player.Potions; keepGold = G.Player.Gold; keepGoldFound = G.Player.GoldFound; keepGoldSpent = G.Player.GoldSpent; keepRerolls = G.Player.Rerolls; keepTrades = G.Player.Trades;
             // (a key goes on down only for a cell left locked behind: open every cell and you leave with none)
             keepKeys = Math.Min(G.Player.Keys, LockedCells());
             keepMilestones = G.Player.PendingMilestones;
+            keepPicks = G.Player.PendingPicks;
             keepVitalForce = G.Player.VitalForce;
             keepAlimus = G.Player.Alimus;
             keepFuel = G.Player.Fuel;
@@ -826,6 +827,7 @@ public partial class Main : Node
             if (keepStats.GoldInterest > 0f && !G.Shop && keepGold > 0) { int paid = Math.Max(1, (int)MathF.Round(keepGold * keepStats.GoldInterest)); player.Gold += paid; player.GoldFound += paid; }
             if (G.Shop && keepStats.StallGold > 0) { player.Gold += keepStats.StallGold; player.GoldFound += keepStats.StallGold; }
             player.PendingMilestones = keepMilestones;
+            player.PendingPicks = keepPicks;
             player.SetVitalForce(Math.Max(keepVitalForce, Tune.Vitalist.VitalForceStart * 0.5f));
             // (alimus comes back by itself anyway: at least half a reserve on a new level)
             player.SetAlimus(Math.Max(keepAlimus, keepStats.AlimusMax * 0.5f));
@@ -1837,8 +1839,18 @@ public partial class Main : Node
         else if (p.PendingMilestones > 0 && milestoneAsked)
         {
             p.PendingMilestones--;
-            choices = Upgrades.RollMilestone(p.Stats, _rng);
+            _pickKind = 1;
+            choices = Cards.RollMilestone(p.Stats, _rng);
             if (choices.Count == 0) { p.Heal(30); return; }
+            choices.Add(Upgrades.Skip);
+        }
+        else if (p.PendingPicks > 0 && milestoneAsked)
+        {
+            // (a level's pick: three cards that grow the hero, Player/Cards.cs)
+            p.PendingPicks--;
+            _pickKind = 2;
+            choices = Cards.RollLevel(p.Stats, _rng);
+            if (choices.Count == 0) { p.Heal(20); return; }
             choices.Add(Upgrades.Skip);
         }
         else return;
@@ -1852,7 +1864,7 @@ public partial class Main : Node
         _sfx.Play(chest == null ? "card_reveal" : relicChoice ? "relic_reveal" : "card_reveal", null, 0, 0, chest == null ? 1.15f : 1f);
         var backdrop = chest == null ? UiArt.Surface.Night : relicChoice ? UiArt.Surface.Velvet : UiArt.Surface.Arcane;
         var frame = chest == null ? UiArt.Rarity.Rare : relicChoice ? UiArt.Rarity.Relic : chest.Vault || chest.Tier == ChestTier.Boss ? UiArt.Rarity.Rare : UiArt.Rarity.Uncommon;
-        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Collection ? "A RELIC COLLECTION: ONE EACH!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : "MILESTONE!";
+        string openTitle = chest != null ? (chest.Vault ? "THE VAULT!" : chest.Tier == ChestTier.Boss ? "THE GUARDIAN'S HOARD!" : chest.Collection ? "A RELIC COLLECTION: ONE EACH!" : chest.Tier == ChestTier.Relic ? "A RELIC!" : "TREASURE!") : _pickKind == 2 ? $"LEVEL {p.Level}: CHOOSE ONE" : "MILESTONE!";
         _rerollTitle = openTitle; _rerollBackdrop = backdrop; _rerollFrame = frame;
         _upgradeMenu.Open(choices, openTitle, locks, backdrop, frame);
         // (a pick from a chest or a milestone may be dealt again, as many times as the hero has earned)
@@ -1861,6 +1873,8 @@ public partial class Main : Node
     }
 
     private string _rerollTitle = "";
+    /// <summary>What the cards on the table are for, when no chest dealt them: 1 a milestone, 2 a level's pick.</summary>
+    private int _pickKind;
     private UiArt.Surface _rerollBackdrop;
     private UiArt.Rarity _rerollFrame;
 
@@ -1891,7 +1905,7 @@ public partial class Main : Node
         }
         else
         {
-            choices = Upgrades.RollMilestone(p.Stats, _rng);
+            choices = _pickKind == 2 ? Cards.RollLevel(p.Stats, _rng) : Cards.RollMilestone(p.Stats, _rng);
             if (choices.Count == 0) { p.Rerolls++; return; }
             choices.Add(Upgrades.Skip); locks = choices.Select(_ => (string)null).ToList();
         }
@@ -2683,11 +2697,11 @@ public partial class Main : Node
         }
     }
 
-    private void SpawnChest(Vector2 at)
+    private void SpawnChest(Vector2 at, bool relic = false)
     {
         // (online, a chest made mid-level goes to every game)
         NetSync.Scope++;
-        try { G.Spawn(NewChest(at)); }
+        try { G.Spawn(relic ? new Chest { Position = at, Tier = ChestTier.Relic } : NewChest(at)); }
         finally { NetSync.Scope--; }
     }
 

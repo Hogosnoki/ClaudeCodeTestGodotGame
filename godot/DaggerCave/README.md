@@ -929,6 +929,77 @@ Every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash`, `T
     - none of the level's trials overlap.
   - `--scenario=hordes` also checks that a minion's death heals 0.35× what a creature's does.
 
+### Crowds: soft separation, queueing, flanking
+
+Creatures no longer stack into one point (Enemies/Enemy.Crowd.cs, `Tune.Crowd`). The numbers below are the defaults.
+
+- **Soft separation.** Two creatures closer than 0.7× their combined radii are eased apart each frame, the lighter giving way to the heavier. Generators, bosses, guardians and creatures frozen solid never give way. A walker is only eased sideways, and never into rock. It isn't a solid body: a crowd stays something you carve through, spread over the ground.
+- **Walkers and fliers pass over each other.** The air is the flier's.
+- **Queueing.** A walker with a crowd-mate pressed against it on the way to its hero waits behind instead of walking into them.
+- **Squeezing.** A walker pressed against a crowd while more than 140 px from its hero squeezes through after 0.5 s, so a tunnel never jams.
+- **Flanking leaps.** A light walker (radius 13 px or less) held at the back of a queue for 1.5 s, with its hero within 220 px, leaps the crowd to land just past its hero. A horde ends up around you, not in a line.
+- **Test:** `--scenario=crowd` (Main.CrowdTest.cs). It checks that:
+  - eight goblins dropped on one spot spread out, none pushed into rock;
+  - some leap the crowd to the hero's far side;
+  - a creature frozen solid isn't shoved;
+  - a walker and a flier don't push each other.
+
+### Creatures that hold other heights
+
+Generators now and then send creatures that keep off the floor (Enemies/Movers.cs, 3D looks in Render3D/Creatures/Designs/MoverDesigns.cs, numbers in `Tune.Movers`). Of a generator's creatures, 22% are a mite swarm, 14% a delver (from a spot on a floor) and 14% a bomber (with room overhead).
+
+- **Mite swarm.** Five glowing midges the size of a thumb, flying as one flock. Each keeps to the middle of the swarm and matches its fellows' flight. The cloud circles above its hero's head, and every few seconds one darts in to bite (a dart that meets rock glances back up). A mite has 4 health: a swarm is a cloud to sweep with one wide blow.
+- **Delver.** A blind, shovel-snouted digger that swims through rock. Under the floor it is unseen and can't be struck, and a ridge of dust runs along the floor above it. It picks the side of its hero away from where it set off, and cracks and dust mark the spot for 0.6 s. Then it bursts out, throwing up whatever stands there (12 damage within 34 px). It bites for 2.8 s, then digs back down.
+- **Bomber.** A bloated flying beetle with a glowing sac slung under it. It holds 170 px over its hero, just under the roof, swaying to and fro. When it is over its hero with a clear drop, it lets fall a pod every 3.4 s. A dashed ring on the floor marks where the pod will land, and it bursts there (11 damage within 40 px).
+- **Test:** `--scenario=movers` (Main.CrowdTest.cs). It checks that:
+  - the swarm gathers about the hero as one cloud, up in the air, and darts in to bite;
+  - the delver runs unseen and unhittable, then bursts out beside the hero, seen and open to blows;
+  - the bomber holds high over the hero and drops pods that burst.
+
+## Growth: level picks, milestones and relics
+
+How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers in `Tune.Growth`). It applies to the Swordsman, Elementalist, Warden, Vitalist, Aegis and Rogue. The Shape Shifter and the Automaton, whose kits are their own, keep their old cards.
+
+- **Every level: a pick of three cards.** Picks wait until you press the milestone key (they never open in a fight); the HUD shows **LEVEL UP: N PICKS**. A pick is two of the hero's own cards and one of anyone's. Each card changes something you can see:
+  - **The special:** *Vast* (+20% wider), *Crushing* (+25% harder), *Restless* (rests 15% less), each up to 3 times. *Again* (up to 2) adds a stroke:
+    - Whirlwind: 2 more spins;
+    - Meteor: one more, smaller stone;
+    - Great Bash: an aftershock at half strength;
+    - Bloom: one more pulse;
+    - Judgement: one more pillar on the nearest creature it missed;
+    - Death Blossom: one more volley.
+  - **The attack:** *Keen* (+15% damage) and *Quick* (+10% speed). Casters also get *Wide Splash* (+30% radius) and *Heavy Splash* (+10% of the blow). Melee heroes get *Long Reach* (+12%).
+  - **The second ability:** *Ready* (back 20% sooner; the Rupture needs less vital force) and *Mighty* (harder):
+    - Counter: a harder riposte;
+    - Nova: harder and a little wider;
+    - Charge: harder;
+    - Rupture: a wider burst;
+    - Humbling Light: lasts longer;
+    - Shadowstep: a longer critical window.
+  - **The dodge:** back sooner (the Warden's shield mends faster instead).
+  - **Anyone's:** Vigor (+12% health), Might (+8% damage), Fleet (+7% speed), Thick Hide (−7% damage taken), Blood Thirst (heal on kill; a minion gives a third), Quick Study (+12% experience).
+- **Every 5 levels: a milestone.** The first one offers the special's two forms; take one and the other is gone:
+
+  | Hero | Form A | Form B |
+  |---|---|---|
+  | Swordsman | **Cyclone**: draws creatures in as it spins, 15% wider | **Blade Storm**: every other stroke flings a crescent of steel out to each side |
+  | Elementalist | **Meteor Shower**: three stones across the spot | **Cataclysm**: one vast stone, 50% wider and 60% harder, resting 25% longer |
+  | Warden | **Shockwave**: a wave runs on along the ground, stunning | **Bulwark**: wards you (25% of your health) and friends beside you (12%) for 5 s |
+  | Vitalist | **Overgrowth**: leaves a garden for 4 s that mends friends and seeps her element | **Heartbloom**: mends twice as much, and 1% more per creature struck |
+  | Aegis | **Sanctum**: the light stays 3 s, searing what stands in it | **Chain of Light**: three more pillars on the nearest creatures |
+  | Rogue | **Shadow Marks**: what the knives find takes 25% more for 5 s | **Whirling Steel**: two more volleys, four more knives each |
+
+  Later milestones offer great things, once each: **Twin Stroke** (the special holds two strokes), **Bloodrush** (each kill cuts its rest by 0.35 s), **Momentum** (the second ability cuts it by 1.5 s), **Overwhelm** (+35% harder, +15% wider) and **Colossus** (+25% health, fully mended).
+- **Relics come from trials.** A trial won leaves a relic chest. Wooden chests' class card is now one of the hero's level cards.
+- **Pruned:** the old kits' class trees, alterations and techniques (Double Jump, Wall Jump: every hero has both) are never dealt to these heroes. The per-level automatic growth from the hordes is halved (2% damage, 2% health), since the picks now carry the growth.
+- **Test:** `--scenario=growth --hero=…` (Main.GrowthTest.cs). It checks that:
+  - a level brings a pick, whose cards are only the hero's own or anyone's;
+  - a chest's class card is a level card;
+  - *Crushing* makes the special hit about 25% harder, and *Again* hits harder still;
+  - the milestone offers both forms, which are gone once one is taken, and the form works (the Shower drops three stones);
+  - Twin Stroke gives two strokes back to back;
+  - Bloodrush cuts the rest on a kill.
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

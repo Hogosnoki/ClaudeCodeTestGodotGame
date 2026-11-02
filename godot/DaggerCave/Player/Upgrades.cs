@@ -246,6 +246,13 @@ public sealed class PlayerStats
     public bool LoneThrow, BleedForever;
     public float RecallBleedChance = Tune.Rogue.RecallBleedChance;
 
+    // ---- growth (Player/Cards.cs): the great special, the second ability, the dodge, a caster's splash
+    public float SpecialRadiusMult = 1f, SpecialDamageMult = 1f, SpecialRestMult = 1f, OtherPowerMult = 1f, OtherRestMult = 1f, DefensiveRestMult = 1f;
+    public float SplashRadiusMult = 1f, SplashShareAdd, KillRest, OtherFeedsSpecial;
+    public int SpecialExtra, SpecialCharges = 1;
+    /// <summary>The form a milestone gave the special ("a", "b"; "" its own).</summary>
+    public string SpecialForm = "";
+
     public readonly Dictionary<string, int> Stacks = new();
     /// <summary>What each relic changed when it was taken, so it can be given back (see RelicUndo.cs).</summary>
     public readonly Dictionary<string, Upgrades.RelicTrace> RelicTraces = new();
@@ -678,7 +685,19 @@ public static partial class Upgrades
         return cards.Select(u => u.Id).ToArray();
     }
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Append(Skip).Append(LeaveChest).Append(Salvage);
+    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Concat(Cards.All).Append(Skip).Append(LeaveChest).Append(Salvage);
+
+    /// <summary>What a chest's class card may be: the old class cards (still the Shape Shifter's and the Automaton's) and the heroes' own level cards.</summary>
+    private static IEnumerable<Upgrade> ClassPool => Chest.Concat(Cards.Ability);
+
+    private static HashSet<string> _oldKit;
+    /// <summary>A card of the old kits' trees (class cards, alterations, techniques, a kit's risk-reward): the heroes who grow by
+    /// <see cref="Cards"/> are never dealt them.</summary>
+    private static bool OldKitCard(Upgrade u)
+    {
+        _oldKit ??= Chest.Where(c => c.For != null || c.Alteration || c.Technique).Select(c => c.Id).ToHashSet();
+        return _oldKit.Contains(u.Id);
+    }
 
     /// <summary>A card by id, or null if there's no such card (a chest dealt by another version).</summary>
     public static Upgrade Find(string id) => All.FirstOrDefault(u => u.Id == id);
@@ -745,6 +764,8 @@ public static partial class Upgrades
     {
         if (u.For != null && Array.IndexOf(u.For, s.Hero) < 0) return false;
         if (u.Multi && !(Net.Online && Net.Count > 1)) return false;
+        // (the heroes that grow by the new cards are past their old trees; their double jump and wall jump are their own already)
+        if (Cards.Grows(s.Hero) && (OldKitCard(u) || u.Id is "djump" or "walljump")) return false;
         // (no lungs to deepen or drown, and a steam hop already its second jump)
         if (s.Breathless && u.Id is "breath" or "rr_lungs" or "djump") return false;
         if (s.StackOf(u.Id) >= u.MaxStacks) return false;
@@ -802,9 +823,9 @@ public static partial class Upgrades
     public static List<Upgrade> RollChest(PlayerStats s, Random rng, Vector2 at)
     {
         var weight = ChestWeight(at, s);
-        var cls = Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && Available(u, s)).ToList(), 1, rng, weight);
+        var cls = Pick(ClassPool.Where(u => u.Kind == UpgradeKind.Class && Available(u, s)).ToList(), 1, rng, weight);
         var others = Pick(Chest.Where(u => IsChestFiller(u) && Available(u, s)).ToList(), 3 - cls.Count, rng, weight);
-        if (cls.Count + others.Count < 3) cls.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cls.Contains(u) && Available(u, s)).ToList(), 3 - cls.Count - others.Count, rng, weight));
+        if (cls.Count + others.Count < 3) cls.AddRange(Pick(ClassPool.Where(u => u.Kind == UpgradeKind.Class && !cls.Contains(u) && Available(u, s)).ToList(), 3 - cls.Count - others.Count, rng, weight));
         return cls.Concat(others).ToList();
     }
 
@@ -843,7 +864,7 @@ public static partial class Upgrades
         // a friend's class card can only be judged as for a fresh hero: simple ones only
         bool Fits(Upgrade u) => u.Kind == UpgradeKind.Class && Array.IndexOf(u.For, hero) >= 0
                                 && (hero == mine.Hero ? Available(u, mine) : FriendCanTake(u, hero));
-        var cls = Pick(Chest.Where(Fits).ToList(), 1, rng, weight);
+        var cls = Pick(ClassPool.Where(Fits).ToList(), 1, rng, weight);
         // (anyone's cards: one the dealer has all of can still be dealt for a friend who hasn't)
         var others = Pick(Chest.Where(u => IsChestFiller(u) && AnyoneCanTake(u, mine)).ToList(), 3 - cls.Count, rng, weight);
         return cls.Concat(others).Select(u => u.Id).ToArray();
@@ -869,10 +890,10 @@ public static partial class Upgrades
         var hero = heroes[rng.Next(heroes.Count)];
         bool Fits(Upgrade u) => IsRare(u) && Array.IndexOf(u.For, hero) >= 0
                                 && (hero == mine.Hero ? Available(u, mine) : u.Requires == null && u.When == null && u.Excludes.Length == 0);
-        var cards = Pick(Chest.Where(Fits).ToList(), 1, rng, W);
+        var cards = Pick(ClassPool.Where(Fits).ToList(), 1, rng, W);
         cards.AddRange(sides);
-        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsRare(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
-        if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
+        if (cards.Count < 3) cards.AddRange(Pick(ClassPool.Where(u => IsRare(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
+        if (cards.Count < 3) cards.AddRange(Pick(ClassPool.Where(u => u.Kind == UpgradeKind.Class && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
         if (cards.Count < 3) cards.AddRange(Pick(Chest.Where(u => IsChestFiller(u) && !cards.Contains(u) && Available(u, mine)).ToList(), 3 - cards.Count, rng, W));
         // the Ember Grid's keys and vaults: Locksmith (one more class card), Rich Vaults (one more bargain), Master Key (a relic too)
         if (HexGrid.Owns("key_root")) cards.AddRange(Pick(Chest.Where(u => u.Kind == UpgradeKind.Class && !cards.Contains(u) && Available(u, mine)).ToList(), 1, rng, W));

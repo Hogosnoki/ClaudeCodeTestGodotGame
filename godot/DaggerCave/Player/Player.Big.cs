@@ -23,34 +23,54 @@ namespace DaggerCave;
 public partial class Player
 {
     private float _bigCd, _bigCdTotal = 1f;
+    /// <summary>Strokes ready (a Twin Stroke holds two): one comes back each time the rest runs out.</summary>
+    private int _bigHeld = 1;
     private float _whirlT, _whirlTick, _blossomT, _blossomTick, _gbashT, _judgeT;
-    private int _whirlHits, _blossomVolleys;
+    private int _whirlHits, _whirlPulses, _blossomVolleys, _blossomMax;
     private Vector2 _judgeAt, _gbashDir;
+    // (what a stroke leaves going on after it: a garden, a sanctum, and blows still to come)
+    private float _gardenT, _gardenTick, _sanctumT, _sanctumTick;
+    private Vector2 _gardenAt, _sanctumAt;
+    private readonly List<(float t, Action a)> _bigLater = new();
     /// <summary>For the tests: specials loosed, and the creatures their blows struck.</summary>
     public int BigUses { get; private set; }
     public int BigStruck { get; private set; }
     public bool Whirling => _whirlT > 0f;
     public bool Blossoming => _blossomT > 0f;
-    public float BigCooldown => Math.Max(0f, _bigCd);
-    public float BigFrac => Math.Clamp(_bigCd / Math.Max(0.01f, _bigCdTotal), 0f, 1f);
+    public float BigCooldown => _bigHeld > 0 ? 0f : Math.Max(0f, _bigCd);
+    public float BigFrac => _bigHeld > 0 ? 0f : Math.Clamp(_bigCd / Math.Max(0.01f, _bigCdTotal), 0f, 1f);
+    /// <summary>Strokes ready now.</summary>
+    public int BigHeld => _bigHeld;
     /// <summary>The last meteor called (the tests watch it fall).</summary>
     public SkyStone LastMeteor { get; private set; }
+    /// <summary>The hero's special has taken this form (a milestone's: "a" or "b"; "" its own).</summary>
+    private bool BigForm(string f) => Stats.SpecialForm == f;
+    private float SR => Stats.SpecialRadiusMult;
 
     private float BigRest => Stats.Hero switch
     {
         HeroKind.Swordsman => Tune.Big.WhirlRest,
-        HeroKind.Elementalist => Tune.Big.MeteorRest,
+        HeroKind.Elementalist => Tune.Big.MeteorRest * (BigForm("b") ? Tune.Growth.CataclysmRest : 1f),
         HeroKind.Warden => Tune.Big.BashRest,
         HeroKind.Vitalist => Tune.Big.BloomRest,
         HeroKind.Aegis => Tune.Big.JudgeRest,
         HeroKind.Rogue => Tune.Big.BlossomRest,
         _ => 10f,
-    } * Stats.AbilityCdMult;
+    } * Stats.SpecialRestMult;
 
-    /// <summary>The special button: the hero's great stroke, if it's rested.</summary>
+    /// <summary>A Twin Stroke: one more stroke held, ready now.</summary>
+    public void GainSpecialCharge() => _bigHeld = Math.Min(Stats.SpecialCharges, _bigHeld + 1);
+
+    /// <summary>The special's rest is cut short (a kill, the other ability with Momentum).</summary>
+    public void CutSpecialRest(float seconds)
+    {
+        if (_bigCd > 0f && seconds > 0f) _bigCd = Math.Max(0.001f, _bigCd - seconds);
+    }
+
+    /// <summary>The special button: the hero's great stroke, if one is ready.</summary>
     private bool BigSpecial(Vector2 aim)
     {
-        if (_bigCd > 0f && !Tune.Testing.NoCooldowns) return false;
+        if (_bigHeld <= 0 && !Tune.Testing.NoCooldowns) return false;
         if (_whirlT > 0f || _blossomT > 0f || _gbashT > 0f || _judgeT > 0f) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         bool ok = Stats.Hero switch
@@ -65,7 +85,12 @@ public partial class Player
         };
         if (!ok) return false;
         _bigCdTotal = BigRest;
-        _bigCd = Tune.Testing.NoCooldowns ? 0.25f : _bigCdTotal;
+        if (Tune.Testing.NoCooldowns) _bigCd = 0.25f;
+        else
+        {
+            _bigHeld--;
+            if (_bigCd <= 0f) _bigCd = _bigCdTotal;
+        }
         BigUses++;
         SimpleUsed(KitRole.Special);
         return true;
@@ -73,19 +98,33 @@ public partial class Player
 
     private void TickBig(float dt)
     {
-        _bigCd -= dt;
+        if (_bigCd > 0f && (_bigCd -= dt) <= 0f && !Tune.Testing.NoCooldowns)
+        {
+            // (a stroke comes back; if more are owed, the next starts resting)
+            _bigHeld = Math.Min(Stats.SpecialCharges, _bigHeld + 1);
+            if (_bigHeld < Stats.SpecialCharges) _bigCd += _bigCdTotal;
+        }
         if (_whirlT > 0f) TickWhirl(dt);
         if (_blossomT > 0f) TickBlossom(dt);
-        if (_gbashT > 0f && (_gbashT -= dt) <= 0f) GreatBashLands();
-        if (_judgeT > 0f && (_judgeT -= dt) <= 0f) JudgementLands();
+        if (_gbashT > 0f && (_gbashT -= dt) <= 0f) GreatBashLands(1f, false);
+        if (_judgeT > 0f && (_judgeT -= dt) <= 0f) JudgementLands(_judgeAt, 1f, 1f, true);
+        if (_gardenT > 0f) TickGarden(dt);
+        if (_sanctumT > 0f) TickSanctum(dt);
+        for (int k = _bigLater.Count - 1; k >= 0; k--)
+        {
+            var (t, a) = _bigLater[k];
+            if ((t -= dt) > 0f) { _bigLater[k] = (t, a); continue; }
+            _bigLater.RemoveAt(k);
+            if (!Dead) a();
+        }
     }
 
-    /// <summary>A blow of a special: damage, a shove, and its share of the special's touch.</summary>
-    private void BigHit(Enemy e, float dmg, Vector2 push, Vector2 from, float touch, DamageKind kind = DamageKind.Physical)
+    /// <summary>A blow of a special (or, <paramref name="special"/> false, of another great blow): damage, a shove, and its share of the touch.</summary>
+    private void BigHit(Enemy e, float dmg, Vector2 push, Vector2 from, float touch, DamageKind kind = DamageKind.Physical, bool special = true)
     {
         if (e.Dead || !e.CanBeHit) return;
         bool shatter = e.FrozenSolid;
-        float d = e.Hurt(dmg * Stats.DamageMult, push, e.GlobalPosition - (e.GlobalPosition - from).Normalized() * e.HitRadius, kind);
+        float d = e.Hurt(dmg * Stats.DamageMult * (special ? Stats.SpecialDamageMult : 1f), push, e.GlobalPosition - (e.GlobalPosition - from).Normalized() * e.HitRadius, kind);
         if (d > 0f) { OnDealtDamage(d); BigStruck++; }
         if (shatter && !e.Dead) ShatterFrozen(e);
         if (!e.Dead && touch > 0f) SimpleTouch(e, KitRole.Special, from, touch);
@@ -94,17 +133,20 @@ public partial class Player
     private static IEnumerable<Enemy> FoesNear(Vector2 at, float r) => G.Enemies.ToArray()
         .Where(e => !e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(at) <= r + e.HitRadius && G.Cave.LineClear(at, e.GlobalPosition));
 
-    // ---------------------------------------------------------------- the Swordsman's Whirlwind
+    // ---------------------------------------------------------------- the Swordsman's Whirlwind (Cyclone; Blade Storm)
+
+    private float WhirlRadius => Tune.Big.WhirlRadius * SR * (BigForm("a") ? Tune.Growth.CycloneRadius : 1f);
 
     private bool StartWhirl()
     {
         if (Heaving || _dodgeT > 0f) return false;
-        _whirlT = Tune.Big.WhirlTime;
+        _whirlPulses = Tune.Big.WhirlPulses + Tune.Growth.WhirlExtraPulses * Stats.SpecialExtra;
+        _whirlT = Tune.Big.WhirlTime / Tune.Big.WhirlPulses * _whirlPulses;
         _whirlTick = 0f;
         _whirlHits = 0;
         _swingT = -1;
         G.Sfx.Play("swing_heavy", GlobalPosition, -2, 0.05f, 0.8f);
-        G.Fx.Ring(GlobalPosition, Tune.Big.WhirlRadius, new Color(Elements.ColorOf(Mode), 0.6f), 0.3f, FxLayer.RingStyle.Dashed);
+        G.Fx.Ring(GlobalPosition, WhirlRadius, new Color(Elements.ColorOf(Mode), 0.6f), 0.3f, FxLayer.RingStyle.Dashed);
         G.Main.Rumble(0.3f, 0.2f, 0.2f);
         return true;
     }
@@ -121,25 +163,31 @@ public partial class Player
         Anim.Once(_whirlHits % 2 == 0 ? "slash_a_fwd" : "slash_b_fwd", 3, 3f);
         var c = GlobalPosition + new Vector2(0, -4);
         var col = Elements.ColorOf(Mode);
-        foreach (var e in FoesNear(c, Tune.Big.WhirlRadius))
+        float r = WhirlRadius;
+        foreach (var e in FoesNear(c, r))
         {
             var away = (e.GlobalPosition - c).LengthSquared() > 1f ? (e.GlobalPosition - c).Normalized() : Vector2.Up;
-            // (round and round: each stroke flings them a little along the spin, and outward)
+            // (round and round: each stroke flings them a little along the spin, and outward; a Cyclone draws them in)
             var spin = new Vector2(-away.Y, away.X) * Facing;
-            BigHit(e, Tune.Big.WhirlDamage, (away + spin * 0.6f) * 120f, c, 1f / Tune.Big.WhirlPulses);
+            var push = BigForm("a") ? (-away * 0.9f + spin * 0.6f) * 130f : (away + spin * 0.6f) * 120f;
+            BigHit(e, Tune.Big.WhirlDamage, push, c, 1f / _whirlPulses);
         }
-        G.Fx.Ring(c, Tune.Big.WhirlRadius * 0.9f, new Color(col.Lerp(Colors.White, 0.5f), 0.8f), 0.16f, FxLayer.RingStyle.Burst);
+        // (a Blade Storm: every other stroke flings a crescent of steel out each way)
+        if (BigForm("b") && _whirlHits % 2 == 0)
+            foreach (float side in new[] { 1f, -1f })
+                G.Spawn(new SwordWave { Position = c, Dir = new Vector2(side, 0), Damage = Tune.Big.WhirlDamage * Tune.Growth.BladeStormWave * Stats.DamageMult * Stats.SpecialDamageMult, Range = Tune.Growth.BladeStormRange });
+        G.Fx.Ring(c, r * 0.9f, new Color(col.Lerp(Colors.White, 0.5f), 0.8f), 0.16f, FxLayer.RingStyle.Burst);
         for (int k = 0; k < 10; k++)
         {
             float a = k / 10f * Mathf.Tau + _whirlHits;
-            var p = c + new Vector2(MathF.Cos(a), MathF.Sin(a) * 0.55f) * Tune.Big.WhirlRadius * 0.8f;
+            var p = c + new Vector2(MathF.Cos(a), MathF.Sin(a) * 0.55f) * r * 0.8f;
             G.Fx.Glint(p, col.Lerp(Colors.White, 0.4f), 5);
         }
         G.Sfx.Play("swing", c, -6, 0.15f, 1.1f + 0.05f * _whirlHits);
-        if (_whirlHits >= Tune.Big.WhirlPulses) _whirlT = 0f;
+        if (_whirlHits >= _whirlPulses) _whirlT = 0f;
     }
 
-    // ---------------------------------------------------------------- the Elementalist's Meteor
+    // ---------------------------------------------------------------- the Elementalist's Meteor (Meteor Shower; Cataclysm)
 
     private bool CallMeteor(Vector2 aim)
     {
@@ -150,13 +198,32 @@ public partial class Player
         if (G.Cave.FindFloor(spot, 160f, out var floor)) spot = floor + new Vector2(0, -6);
         var el = Mode;
         var col = Elements.ColorOf(el);
-        // (from high above, a little behind the caster, falling on a slant)
-        var from = spot + new Vector2(-Facing * Tune.Big.MeteorDrift, -Tune.Big.MeteorHeight);
-        LastMeteor = new SkyStone { Position = from, Target = spot, El = el, Caster = this, Seconds = Tune.Big.MeteorFall, Radius = Tune.Big.MeteorRadius };
-        G.Spawn(LastMeteor);
-        // (the spot is marked as it comes)
-        G.Fx.Ring(spot, Tune.Big.MeteorRadius, new Color(col, 0.6f), Tune.Big.MeteorFall, FxLayer.RingStyle.Dashed);
-        G.Fx.Converge(spot, Tune.Big.MeteorRadius * 0.7f, new Color(col, 0.7f), 10, Tune.Big.MeteorFall);
+        // (a Cataclysm is one vast stone; a Shower, several; each "again" one more, smaller)
+        bool shower = BigForm("a"), cata = BigForm("b");
+        float r = Tune.Big.MeteorRadius * SR * (cata ? Tune.Growth.CataclysmRadius : 1f);
+        float power = cata ? Tune.Growth.CataclysmDamage : 1f;
+        int stones = (shower ? Tune.Growth.ShowerStones : 1) + Stats.SpecialExtra;
+        for (int i = 0; i < stones; i++)
+        {
+            bool main = i == 0 && !shower;
+            var at = spot;
+            if (i > 0 || shower)
+            {
+                // (the others fall about the spot, to either side)
+                float off = (shower ? (i - (stones - 1) * 0.5f) * Tune.Growth.ShowerSpread : (i % 2 == 1 ? 1f : -1f) * (40f + 30f * i));
+                at = spot + new Vector2(off, -30f);
+                if (G.Cave.FindFloor(at, 200f, out var f2)) at = f2 + new Vector2(0, -6);
+            }
+            float sr = main ? r : r * (shower ? Tune.Growth.ShowerRadius : Tune.Growth.ExtraStoneRadius);
+            float sp = main ? power : (shower ? Tune.Growth.ShowerDamage : Tune.Growth.ExtraStoneDamage);
+            var from = at + new Vector2(-Facing * Tune.Big.MeteorDrift, -Tune.Big.MeteorHeight);
+            var stone = new SkyStone { Position = from, Target = at, El = el, Caster = this, Seconds = Tune.Big.MeteorFall + 0.12f * i, Radius = sr, Power = sp };
+            G.Spawn(stone);
+            if (i == 0) LastMeteor = stone;
+            // (each spot is marked as it comes)
+            G.Fx.Ring(at, sr, new Color(col, 0.6f), stone.Seconds, FxLayer.RingStyle.Dashed);
+            G.Fx.Converge(at, sr * 0.7f, new Color(col, 0.7f), 10, stone.Seconds);
+        }
         Anim.Once("rupture", 3, 1.2f);
         _castGlow = 1f;
         G.Sfx.Play("roar", spot, -10, 0.1f, 0.5f);
@@ -164,7 +231,7 @@ public partial class Player
         return true;
     }
 
-    /// <summary>The meteor strikes: a wide burst, harder at its heart; it leaves its element burning on the spot.</summary>
+    /// <summary>A meteor strikes: a wide burst, harder at its heart; it leaves its element burning on the spot.</summary>
     public void MeteorLanded(SkyStone m)
     {
         var spot = m.Target;
@@ -177,7 +244,7 @@ public partial class Player
             float d = e.GlobalPosition.DistanceTo(spot);
             float fall = Mathf.Lerp(1f, Tune.Big.MeteorEdge, Math.Clamp(d / r, 0f, 1f));
             var away = d > 1f ? (e.GlobalPosition - spot).Normalized() : Vector2.Up;
-            BigHit(e, Tune.Big.MeteorDamage * fall, (away + Vector2.Up * 0.8f).Normalized() * 260f, spot, 1f);
+            BigHit(e, Tune.Big.MeteorDamage * m.Power * fall, (away + Vector2.Up * 0.8f).Normalized() * 260f, spot, Math.Min(1f, m.Power));
         }
         ElementWorld.Touch(el, spot, r, Vector2.Down);
         Breakables.SpellBurst(spot, r * 0.6f);
@@ -190,19 +257,20 @@ public partial class Player
         G.Spawn(zone);
         NetSync.HeroVisual(zone);
         LastBlizzard = zone;
-        G.Fx.Explosion(spot, col, 2.2f);
+        float big = Math.Clamp(r / Tune.Big.MeteorRadius, 0.5f, 2f);
+        G.Fx.Explosion(spot, col, 2.2f * big);
         G.Fx.Shockwave(spot + new Vector2(0, 4), r * 1.2f, new Color(col, 0.9f));
         G.Fx.Ring(spot, r, new Color(col.Lerp(Colors.White, 0.4f), 0.95f), 0.4f, FxLayer.RingStyle.Burst);
-        G.Fx.Burst(spot, col, 40, 260, 3f, 0.7f, 300f);
+        G.Fx.Burst(spot, col, (int)(40 * big), 260, 3f, 0.7f, 300f);
         G.Fx.Dust(spot + new Vector2(0, 6), 10, 1.6f);
-        G.Fx.ScreenFlash(col, 0.25f);
-        G.Fx.AddShake(9f);
-        G.Sfx.Play("slam", spot, 2, 0.05f, 0.6f);
+        G.Fx.ScreenFlash(col, 0.25f * big);
+        G.Fx.AddShake(9f * big);
+        G.Sfx.Play("slam", spot, 2, 0.05f, 0.6f / big);
         G.Sfx.Play("rock", spot, -2, 0.1f, 0.5f);
         G.Main.Rumble(0.8f, 0.6f, 0.35f);
     }
 
-    // ---------------------------------------------------------------- the Warden's Great Bash
+    // ---------------------------------------------------------------- the Warden's Great Bash (Shockwave; Bulwark)
 
     private bool StartGreatBash(Vector2 aim)
     {
@@ -221,67 +289,129 @@ public partial class Player
         return true;
     }
 
-    private void GreatBashLands()
+    /// <summary>The shove lands (<paramref name="echo"/>: an aftershock, softer, with no step on).</summary>
+    private void GreatBashLands(float power, bool echo)
     {
         var d = _gbashDir;
         var origin = GlobalPosition + new Vector2(0, -3);
-        float r = Tune.Big.BashRadius;
+        float r = Tune.Big.BashRadius * SR * (echo ? 0.85f : 1f);
         float cos = MathF.Cos(Mathf.DegToRad(Tune.Big.BashArc));
         // (the shove carries the Warden a step on with it)
-        Velocity = new Vector2(d.X * Tune.Big.BashLunge, Velocity.Y);
+        if (!echo) Velocity = new Vector2(d.X * Tune.Big.BashLunge, Velocity.Y);
         foreach (var e in FoesNear(origin, r))
         {
             var to = e.GlobalPosition - origin;
             if (to.Length() > 12f && to.Normalized().Dot(d) < cos) continue;
-            var push = (to.Normalized() + d).Normalized() * Tune.Big.BashPush;
-            BigHit(e, Tune.Big.BashDamage, push, origin, 1f);
-            if (!e.Dead) e.Interrupt(push, Tune.Big.BashStun * (e.Elite || e.IsGuardian ? 0.5f : 1f), "STUNNED");
+            var push = (to.Normalized() + d).Normalized() * Tune.Big.BashPush * (echo ? 0.6f : 1f);
+            BigHit(e, Tune.Big.BashDamage * power, push, origin, echo ? 0.5f : 1f);
+            if (!e.Dead) e.Interrupt(push, Tune.Big.BashStun * (echo ? 0.5f : 1f) * (e.Elite || e.IsGuardian ? 0.5f : 1f), "STUNNED");
         }
-        foreach (var pr in G.Main.EnemyProjectiles.ToArray())
-            if (!pr.IsQueuedForDeletion() && (pr.GlobalPosition - origin).Length() < r && (pr.GlobalPosition - origin).Normalized().Dot(d) > cos) pr.Reflect(d, Stats.DamageMult);
+        if (!echo)
+        {
+            foreach (var pr in G.Main.EnemyProjectiles.ToArray())
+                if (!pr.IsQueuedForDeletion() && (pr.GlobalPosition - origin).Length() < r && (pr.GlobalPosition - origin).Normalized().Dot(d) > cos) pr.Reflect(d, Stats.DamageMult);
+            // (each "again": an aftershock on the heels of it)
+            for (int k = 0; k < Stats.SpecialExtra; k++) _bigLater.Add((Tune.Growth.AftershockGap * (k + 1), () => GreatBashLands(Tune.Growth.AftershockDamage, true)));
+            // (a Shockwave runs on along the ground; a Bulwark wards the Warden and those beside him)
+            if (BigForm("a"))
+                for (int k = 0; k < Tune.Growth.ShockwaveSteps; k++)
+                {
+                    float dist = Tune.Growth.ShockwaveStart + Tune.Growth.ShockwaveStep * k;
+                    var at = origin + d * dist;
+                    _bigLater.Add((0.06f * (k + 1), () => ShockwaveAt(at, d)));
+                }
+            if (BigForm("b"))
+            {
+                GiveBarrier(Stats.MaxHp * Tune.Growth.BulwarkSelf, Tune.Growth.BulwarkSeconds);
+                foreach (var h in HeroesNear(Tune.Growth.BulwarkRange)) if (h != this) h.GiveBarrier(h.Stats.MaxHp * Tune.Growth.BulwarkAllies, Tune.Growth.BulwarkSeconds);
+                G.Fx.Ring(GlobalPosition, Tune.Growth.BulwarkRange * 0.6f, new Color(0.85f, 0.9f, 1f, 0.8f), 0.4f, FxLayer.RingStyle.Wave);
+            }
+        }
         var front = origin + d * 22f;
-        G.Fx.Shockwave(front + new Vector2(0, 14), r, new Color(0.95f, 0.9f, 0.7f, 0.9f));
-        for (int k = 0; k < 3; k++) G.Fx.Directional(front, d, 0.9f, new Color(0.9f, 0.85f, 0.7f, 0.8f), 14, 320, 2.4f, 0.4f, 0, 0);
+        G.Fx.Shockwave(front + new Vector2(0, 14), r, new Color(0.95f, 0.9f, 0.7f, echo ? 0.6f : 0.9f));
+        for (int k = 0; k < (echo ? 1 : 3); k++) G.Fx.Directional(front, d, 0.9f, new Color(0.9f, 0.85f, 0.7f, 0.8f), 14, 320, 2.4f, 0.4f, 0, 0);
         G.Fx.Dust(GlobalPosition + new Vector2(d.X * 20f, 12), 8, 1.4f);
         G.Fx.Ring(front, r * 0.6f, new Color(1f, 0.95f, 0.75f, 0.9f), 0.3f, FxLayer.RingStyle.Wave);
-        G.Fx.AddShake(7f);
-        G.Sfx.Play("slam", front, 0, 0.05f, 0.75f);
+        G.Fx.AddShake(echo ? 4f : 7f);
+        G.Sfx.Play("slam", front, echo ? -4 : 0, 0.05f, echo ? 0.9f : 0.75f);
         G.Main.Rumble(0.7f, 0.5f, 0.25f);
     }
 
-    // ---------------------------------------------------------------- the Vitalist's Bloom
+    /// <summary>One step of a Shockwave running along the ground.</summary>
+    private void ShockwaveAt(Vector2 at, Vector2 d)
+    {
+        if (G.Cave.FindFloor(at + new Vector2(0, -20f), 80f, out var f)) at = f + new Vector2(0, -8f);
+        else if (G.Cave.IsSolid(at)) return;
+        foreach (var e in FoesNear(at, Tune.Growth.ShockwaveRadius))
+        {
+            var push = (d + Vector2.Up * 0.5f).Normalized() * 200f;
+            BigHit(e, Tune.Big.BashDamage * Tune.Growth.ShockwaveDamage, push, at, 0.3f);
+            if (!e.Dead) e.Interrupt(push, Tune.Growth.ShockwaveStun, "STUNNED");
+        }
+        G.Fx.Dust(at + new Vector2(0, 6), 6, 1.2f);
+        G.Fx.Debris(at, new Color(0.5f, 0.45f, 0.4f), 4, 140);
+        G.Fx.Ring(at, Tune.Growth.ShockwaveRadius, new Color(0.95f, 0.9f, 0.7f, 0.6f), 0.18f, FxLayer.RingStyle.Burst);
+        G.Sfx.Play("rock", at, -10, 0.15f, 0.9f);
+    }
+
+    // ---------------------------------------------------------------- the Vitalist's Bloom (Overgrowth; Heartbloom)
 
     private bool Bloom()
     {
         if (!IsVitalist) return false;
+        BloomPulse(1f);
+        for (int k = 0; k < Stats.SpecialExtra; k++) _bigLater.Add((Tune.Growth.BloomPulseGap * (k + 1), () => BloomPulse(Tune.Growth.BloomPulseDamage)));
+        if (BigForm("a")) { _gardenT = Tune.Growth.GardenSeconds; _gardenTick = 0f; _gardenAt = GlobalPosition + new Vector2(0, -6); }
+        Anim.Once("hex", 3, 1.2f);
+        _castGlow = 1f;
+        return true;
+    }
+
+    private void BloomPulse(float power)
+    {
         var c = GlobalPosition + new Vector2(0, -6);
-        float r = Tune.Big.BloomRadius;
+        float r = Tune.Big.BloomRadius * SR;
         var col = Elements.ColorOf(Mode);
+        int struck = 0;
         foreach (var e in FoesNear(c, r))
         {
             var away = (e.GlobalPosition - c).LengthSquared() > 1f ? (e.GlobalPosition - c).Normalized() : Vector2.Up;
-            BigHit(e, Tune.Big.BloomDamage, away * 160f + new Vector2(0, -60f), c, 0f, DamageKind.Nature);
-            if (!e.Dead) e.Seep(Mode, Tune.Elements.HexSeep * Tune.Big.BloomSeep, Stats.HexSeconds, Stats.DamageMult, this);
+            BigHit(e, Tune.Big.BloomDamage * power, away * 160f + new Vector2(0, -60f), c, 0f, DamageKind.Nature);
+            if (!e.Dead) e.Seep(Mode, Tune.Elements.HexSeep * Tune.Big.BloomSeep * power, Stats.HexSeconds, Stats.DamageMult, this);
+            struck++;
         }
-        foreach (var h in HeroesNear(r)) h.Heal(h.Stats.MaxHp * Tune.Big.BloomHeal);
+        // (a Heartbloom mends twice as much, and more for every creature it tore at)
+        float heal = Tune.Big.BloomHeal * power * (BigForm("b") ? Tune.Growth.HeartbloomHeal : 1f) + (BigForm("b") ? Tune.Growth.HeartbloomPerFoe * Math.Min(struck, 10) : 0f);
+        foreach (var h in HeroesNear(r)) h.Heal(h.Stats.MaxHp * heal);
         ElementWorld.Touch(Mode, c, r);
         G.Fx.Converge(c, r * 0.6f, new Color(LifeColor, 0.8f), 12, 0.2f);
         G.Fx.Shockwave(c + new Vector2(0, 16), r, new Color(LifeColor, 0.85f));
         G.Fx.Ring(c, r, new Color(col, 0.9f), 0.45f, FxLayer.RingStyle.Burst);
         G.Fx.Ring(c, r * 0.6f, new Color(LifeColorLight, 0.8f), 0.35f, FxLayer.RingStyle.Wave);
-        G.Fx.Burst(c, LifeColor, 36, 240, 2.6f, 0.6f, -40f);
-        G.Fx.Burst(c, col, 20, 180, 2.2f, 0.5f, 0f);
+        G.Fx.Burst(c, LifeColor, (int)(36 * power), 240, 2.6f, 0.6f, -40f);
+        G.Fx.Burst(c, col, (int)(20 * power), 180, 2.2f, 0.5f, 0f);
         G.Fx.Flash(c, r * 0.5f, LifeColorLight, 0.25f);
-        G.Fx.AddShake(5f);
-        Anim.Once("hex", 3, 1.2f);
-        _castGlow = 1f;
+        G.Fx.AddShake(5f * power);
         G.Sfx.Play("heal", c, 0, 0.05f, 0.7f);
         G.Sfx.Play("drain", c, -2, 0.05f, 0.6f);
         G.Main.Rumble(0.5f, 0.4f, 0.2f);
-        return true;
     }
 
-    // ---------------------------------------------------------------- the Aegis's Judgement
+    /// <summary>An Overgrowth's garden: friends in it mend, creatures in it take her element.</summary>
+    private void TickGarden(float dt)
+    {
+        _gardenT -= dt;
+        if ((_gardenTick -= dt) > 0f) return;
+        _gardenTick = 0.5f;
+        float r = Tune.Growth.GardenRadius * SR;
+        foreach (var h in G.Players.ToArray())
+            if (h != null && IsInstanceValid(h) && !h.Dead && h.GlobalPosition.DistanceTo(_gardenAt) <= r) h.Heal(h.Stats.MaxHp * Tune.Growth.GardenHeal);
+        foreach (var e in FoesNear(_gardenAt, r)) e.Seep(Mode, Tune.Elements.HexSeep * 0.5f, 1f, Stats.DamageMult, this);
+        G.Fx.Ring(_gardenAt, r, new Color(LifeColor, 0.45f), 0.5f, FxLayer.RingStyle.Dashed);
+        G.Fx.Burst(_gardenAt + new Vector2(G.Range(-r * 0.6f, r * 0.6f), 8f), new Color(LifeColorLight, 0.8f), 4, 50, 2f, 0.6f, -60f);
+    }
+
+    // ---------------------------------------------------------------- the Aegis's Judgement (Sanctum; Chain of Light)
 
     private bool StartJudgement(Vector2 aim)
     {
@@ -293,7 +423,7 @@ public partial class Player
         _judgeAt = spot;
         _judgeT = Tune.Big.JudgeWindup;
         var gold = new Color(1f, 0.9f, 0.5f);
-        G.Fx.Ring(spot, Tune.Big.JudgeRadius, new Color(gold, 0.6f), Tune.Big.JudgeWindup, FxLayer.RingStyle.Dashed);
+        G.Fx.Ring(spot, Tune.Big.JudgeRadius * SR, new Color(gold, 0.6f), Tune.Big.JudgeWindup, FxLayer.RingStyle.Dashed);
         G.Fx.Beam(spot + new Vector2(0, -420f), spot, new Color(gold, 0.25f));
         Anim.Once("heal", 3, 1.4f);
         _castGlow = 1f;
@@ -301,45 +431,74 @@ public partial class Player
         return true;
     }
 
-    private void JudgementLands()
+    /// <summary>A pillar of light falls on <paramref name="spot"/> (<paramref name="main"/>: the stroke's own, which wards and calls the rest).</summary>
+    private void JudgementLands(Vector2 spot, float power, float size, bool main)
     {
-        var spot = _judgeAt;
-        float r = Tune.Big.JudgeRadius;
+        float r = Tune.Big.JudgeRadius * SR * size;
         var gold = new Color(1f, 0.9f, 0.5f);
         foreach (var e in FoesNear(spot, r))
         {
             var away = (e.GlobalPosition - spot).LengthSquared() > 1f ? (e.GlobalPosition - spot).Normalized() : Vector2.Up;
-            BigHit(e, Tune.Big.JudgeDamage, away * 180f + new Vector2(0, -80f), spot, 1f);
+            BigHit(e, Tune.Big.JudgeDamage * power, away * 180f + new Vector2(0, -80f), spot, main ? 1f : 0.5f);
             if (!e.Dead) e.Weaken(Tune.Big.JudgeWeaken, Tune.Big.JudgeWeakenSeconds);
         }
-        // (the friends near the Aegis, or near where it fell, are warded)
-        foreach (var h in G.Players.ToArray())
+        if (main)
         {
-            if (h == null || !IsInstanceValid(h) || h.Dead) continue;
-            if (h.GlobalPosition.DistanceTo(spot) > Tune.Big.JudgeWardRange && h.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Big.JudgeWardRange) continue;
-            h.GiveBarrier(h.Stats.MaxHp * Tune.Big.JudgeBarrier, Tune.Big.JudgeBarrierSeconds);
+            // (the friends near the Aegis, or near where it fell, are warded)
+            foreach (var h in G.Players.ToArray())
+            {
+                if (h == null || !IsInstanceValid(h) || h.Dead) continue;
+                if (h.GlobalPosition.DistanceTo(spot) > Tune.Big.JudgeWardRange && h.GlobalPosition.DistanceTo(GlobalPosition) > Tune.Big.JudgeWardRange) continue;
+                h.GiveBarrier(h.Stats.MaxHp * Tune.Big.JudgeBarrier, Tune.Big.JudgeBarrierSeconds);
+            }
+            // (each "again", and a Chain of Light's links: more pillars, on the creatures nearest that it didn't strike)
+            int more = Stats.SpecialExtra + (BigForm("b") ? Tune.Growth.ChainPillars : 0);
+            var marks = G.Enemies.Where(e => !e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(spot) > r && e.GlobalPosition.DistanceTo(spot) < Tune.Growth.ChainRange)
+                .OrderBy(e => e.GlobalPosition.DistanceSquaredTo(spot)).Take(more).ToList();
+            for (int k = 0; k < marks.Count; k++)
+            {
+                var at = marks[k].GlobalPosition;
+                if (G.Cave.FindFloor(at, 80f, out var f)) at = f + new Vector2(0, -6);
+                _bigLater.Add((Tune.Growth.ChainGap * (k + 1), () => JudgementLands(at, Tune.Growth.ChainDamage, Tune.Growth.ChainSize, false)));
+            }
+            if (BigForm("a")) { _sanctumT = Tune.Growth.SanctumSeconds; _sanctumTick = 0.5f; _sanctumAt = spot; }
         }
-        for (int k = 0; k < 3; k++) G.Fx.Beam(spot + new Vector2(G.Range(-10, 10), -480f), spot, new Color(gold, 0.9f));
-        G.Fx.Explosion(spot, gold, 1.6f);
+        for (int k = 0; k < (main ? 3 : 1); k++) G.Fx.Beam(spot + new Vector2(G.Range(-10, 10), -480f), spot, new Color(gold, 0.9f));
+        G.Fx.Explosion(spot, gold, 1.6f * size);
         G.Fx.Shockwave(spot + new Vector2(0, 6), r * 1.1f, new Color(gold, 0.9f));
         G.Fx.Ring(spot, r, new Color(1f, 0.97f, 0.85f, 0.95f), 0.35f, FxLayer.RingStyle.Burst);
-        G.Fx.Burst(spot, gold, 30, 220, 2.6f, 0.6f, -60f);
-        G.Fx.ScreenFlash(gold, 0.2f);
-        G.Fx.AddShake(7f);
-        G.Sfx.Play("slam", spot, 0, 0.05f, 0.9f);
+        G.Fx.Burst(spot, gold, (int)(30 * size), 220, 2.6f, 0.6f, -60f);
+        if (main) G.Fx.ScreenFlash(gold, 0.2f);
+        G.Fx.AddShake(main ? 7f : 3f);
+        G.Sfx.Play("slam", spot, main ? 0 : -6, 0.05f, 0.9f);
         G.Sfx.Play("levelup", spot, -4, 0.05f, 0.6f);
         G.Main.Rumble(0.6f, 0.4f, 0.25f);
     }
 
-    // ---------------------------------------------------------------- the Rogue's Death Blossom
+    /// <summary>A Sanctum: the light stays where it fell, searing what stands in it.</summary>
+    private void TickSanctum(float dt)
+    {
+        _sanctumT -= dt;
+        if ((_sanctumTick -= dt) > 0f) return;
+        _sanctumTick = 0.5f;
+        float r = Tune.Big.JudgeRadius * SR;
+        var gold = new Color(1f, 0.9f, 0.5f);
+        foreach (var e in FoesNear(_sanctumAt, r)) BigHit(e, Tune.Big.JudgeDamage * Tune.Growth.SanctumDamage, Vector2.Zero, _sanctumAt, 0.15f);
+        G.Fx.Beam(_sanctumAt + new Vector2(G.Range(-r * 0.5f, r * 0.5f), -420f), _sanctumAt, new Color(gold, 0.5f));
+        G.Fx.Ring(_sanctumAt, r, new Color(gold, 0.5f), 0.4f, FxLayer.RingStyle.Dashed);
+    }
+
+    // ---------------------------------------------------------------- the Rogue's Death Blossom (Shadow Marks; Whirling Steel)
 
     private bool StartBlossom()
     {
         if (!IsRogue || _tetherTo != null) return false;
-        _blossomT = Tune.Big.BlossomTime;
+        _blossomMax = Tune.Big.BlossomVolleys + Stats.SpecialExtra + (BigForm("b") ? Tune.Growth.SteelVolleys : 0);
+        float tick = Tune.Big.BlossomTime / Tune.Big.BlossomVolleys;
+        _blossomT = tick * _blossomMax;
         _blossomTick = 0f;
         _blossomVolleys = 0;
-        _iframes = Math.Max(_iframes, Tune.Big.BlossomTime + 0.1f);
+        _iframes = Math.Max(_iframes, _blossomT + 0.1f);
         _swingT = -1;
         // (up into the air)
         Velocity = new Vector2(Velocity.X * 0.3f, -BaseJumpV * Tune.Big.BlossomLeap);
@@ -363,10 +522,11 @@ public partial class Player
         Anim.Once("throw", 3, 3f);
         var c = GlobalPosition + new Vector2(0, -4);
         var col = Elements.ColorOf(Mode);
-        int n = Tune.Big.BlossomKnives;
+        int n = Tune.Big.BlossomKnives + (BigForm("b") ? Tune.Growth.SteelKnives : 0);
+        float range = Tune.Big.BlossomRange * SR;
         float turn = _blossomVolleys * Mathf.Pi / n;
         // (the knives find the creatures about: one at each, nearest first, the rest flung out all around)
-        var marks = FoesNear(c, Tune.Big.BlossomRange).OrderBy(e => e.GlobalPosition.DistanceSquaredTo(c)).Take(n).ToList();
+        var marks = FoesNear(c, range).OrderBy(e => e.GlobalPosition.DistanceSquaredTo(c)).Take(n).ToList();
         for (int k = 0; k < n; k++)
         {
             float a = k / (float)n * Mathf.Tau + turn;
@@ -374,7 +534,7 @@ public partial class Player
             // (a knife thrown at a creature in sight flies to it; one flung out flies until it meets rock)
             Vector2 end;
             if (k < marks.Count) end = marks[k].GlobalPosition + dir * marks[k].HitRadius;
-            else G.Cave.Raycast(c, dir, Tune.Big.BlossomRange, out end, 2f);
+            else G.Cave.Raycast(c, dir, range, out end, 2f);
             // (a knife thrown at a creature threads past the others to it)
             Enemy hit = k < marks.Count ? marks[k] : null; float best = float.MaxValue;
             if (hit == null) foreach (var e in G.Enemies)
@@ -389,12 +549,14 @@ public partial class Player
             G.Fx.Beam(c + dir * 6f, to, new Color(col.Lerp(Colors.White, 0.6f), 0.7f));
             if (hit != null)
             {
-                BigHit(hit, Tune.Big.BlossomDamage, dir * 60f, c, 1f / (Tune.Big.BlossomVolleys * 2f));
+                BigHit(hit, Tune.Big.BlossomDamage, dir * 60f, c, 1f / (_blossomMax * 2f));
+                // (Shadow Marks: what a knife finds is laid open to every blow for a while)
+                if (BigForm("a") && !hit.Dead) hit.Expose(Tune.Growth.MarkVulnerable, Tune.Growth.MarkSeconds);
                 G.Fx.Spark(hit.GlobalPosition, -dir, true, col.Lerp(Colors.White, 0.5f));
             }
         }
         G.Sfx.Play("throw", c, -6, 0.15f, 1.2f + 0.08f * _blossomVolleys);
-        if (_blossomVolleys >= Tune.Big.BlossomVolleys) _blossomT = 0f;
+        if (_blossomVolleys >= _blossomMax) _blossomT = 0f;
     }
 }
 
@@ -408,6 +570,8 @@ public partial class SkyStone : Node2D
     public HeroElement El;
     public Player Caster;
     public float Seconds = 0.55f, Radius = 90f;
+    /// <summary>Its blow, x the meteor's own (a Cataclysm's more, a shower's stones less).</summary>
+    public float Power = 1f;
     private Vector2 _from;
     private float _t;
     public bool Landed { get; private set; }

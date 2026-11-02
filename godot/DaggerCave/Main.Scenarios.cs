@@ -66,6 +66,7 @@ public partial class Main
         "big" => "entrance",
         "crowd" => "entrance",
         "movers" => "entrance",
+        "growth" => "entrance",
         "shop" => "den",
         "achievements" => "den",
         "grid" => "entrance",
@@ -173,6 +174,7 @@ public partial class Main
             case "big": BigScenario(); break;
             case "crowd": CrowdScenario(); break;
             case "movers": MoversScenario(); break;
+            case "growth": GrowthScenario(); break;
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;
             case "grid": GridScenario(); break;

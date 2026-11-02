@@ -327,18 +327,19 @@ public partial class Player
     private void Splash(Enemy main, Vector2 at, float dmg, DamageKind kind, Color col)
     {
         if (dmg <= 0f) return;
-        float r = Tune.Splash.Radius;
+        float r = Tune.Splash.Radius * Stats.SplashRadiusMult;
+        float share = Tune.Splash.Share + Stats.SplashShareAdd;
         G.Fx.Ring(at, r, new Color(col, 0.7f), 0.22f, FxLayer.RingStyle.Burst);
         foreach (var o in G.Enemies.ToArray())
         {
             if (o == main || o.Dead || !o.CanBeHit || o.GlobalPosition.DistanceTo(at) > r + o.HitRadius) continue;
             if (!G.Cave.LineClear(at, o.GlobalPosition)) continue;
             var away = (o.GlobalPosition - at).LengthSquared() > 1f ? (o.GlobalPosition - at).Normalized() : Vector2.Up;
-            float d = o.Hurt(dmg * Tune.Splash.Share, away * 50f, o.GlobalPosition - away * o.HitRadius, kind);
+            float d = o.Hurt(dmg * share, away * 50f, o.GlobalPosition - away * o.HitRadius, kind);
             if (d <= 0f) continue;
             OnDealtDamage(d);
             Splashed++;
-            if (!o.Dead) SimpleTouch(o, KitRole.Primary, at, Tune.Splash.Share);
+            if (!o.Dead) SimpleTouch(o, KitRole.Primary, at, share);
         }
     }
 
@@ -473,6 +474,8 @@ public partial class Player
             _ => false,
         };
         if (!ok) return false;
+        // (Momentum: the second ability hastens the special)
+        CutSpecialRest(Stats.OtherFeedsSpecial);
         // (the Elementalist's Nova is of her element; the others' are the class's own, of none)
         if (Stats.Hero == HeroKind.Elementalist) { _lastEl = Mode; Used(SimpleName(KitRole.Other)); return true; }
         _lastEl = HeroElement.None;
@@ -485,7 +488,7 @@ public partial class Player
     {
         if (!IsSwordsman || _parryCd > 0 || Heaving || _dodgeT > 0 || _swingT >= 0) return false;
         _parryT = Tune.OtherAbility.ParryTime;
-        _parryCd = Tune.OtherAbility.ParryCooldown;
+        _parryCd = Tune.OtherAbility.ParryCooldown * Stats.OtherRestMult;
         if (Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
         Velocity = new Vector2(0, Velocity.Y);
         Anim.Face((int)Facing, instant: true);
@@ -520,7 +523,7 @@ public partial class Player
         GlobalPosition = to;
         Velocity = d * 80f;
         _iframes = Math.Max(_iframes, 0.2f);
-        _blinkCd = Tune.OtherAbility.BlinkCooldown;
+        _blinkCd = Tune.OtherAbility.BlinkCooldown * Stats.DefensiveRestMult;
         if (Math.Abs(d.X) > 0.15f) Facing = Math.Sign(d.X);
         Anim.Face((int)Facing, instant: true);
         G.Fx.Burst(to, new Color(0.8f, 0.7f, 1f, 0.9f), 12, 120, 1.8f, 0.3f, 0);
@@ -541,16 +544,16 @@ public partial class Player
         var el = Mode;
         var col = Elements.ColorOf(el);
         var c = GlobalPosition + new Vector2(0, -6);
-        float r = Tune.OtherAbility.NovaRadius;
+        float r = Tune.OtherAbility.NovaRadius * (1f + (Stats.OtherPowerMult - 1f) * 0.35f);
         foreach (var e in FoesNear(c, r))
         {
             var away = (e.GlobalPosition - c).LengthSquared() > 1f ? (e.GlobalPosition - c).Normalized() : new Vector2(Facing, 0);
-            BigHit(e, Tune.OtherAbility.NovaDamage, away * Tune.OtherAbility.NovaPush + new Vector2(0, -90f), c, 1f);
+            BigHit(e, Tune.OtherAbility.NovaDamage * Stats.OtherPowerMult, away * Tune.OtherAbility.NovaPush + new Vector2(0, -90f), c, 1f, special: false);
         }
         ElementWorld.Touch(el, c, r);
         Breakables.SpellBurst(c, r * 0.5f);
         _iframes = Math.Max(_iframes, 0.15f);
-        _novaCd = Tune.Testing.NoCooldowns ? 0.25f : Tune.OtherAbility.NovaRest * Stats.AbilityCdMult;
+        _novaCd = Tune.Testing.NoCooldowns ? 0.25f : Tune.OtherAbility.NovaRest * Stats.OtherRestMult;
         Novas++;
         Anim.Once("rupture", 3, 1.8f);
         _castGlow = 1f;
@@ -584,8 +587,8 @@ public partial class Player
         Anim.Face((int)Facing, instant: true);
         Anim.Once("dodge", 2, 1.6f);
         _iframes = Math.Max(_iframes, 0.25f);
-        _stepCritT = Tune.OtherAbility.StepCritWindow;
-        _stepCd = Tune.OtherAbility.StepCooldown;
+        _stepCritT = Tune.OtherAbility.StepCritWindow * Stats.OtherPowerMult;
+        _stepCd = Tune.OtherAbility.StepCooldown * Stats.OtherRestMult;
         G.Fx.Smoke(to, 5, new Color(0.18f, 0.12f, 0.24f, 0.75f), 30f);
         G.Sfx.Play("dodge", to, -6, 0.05f, 0.6f);
         Shadowsteps++;
@@ -606,15 +609,15 @@ public partial class Player
             (HeroKind.Vitalist, KitRole.Primary) => Math.Clamp(_drainCd / (Tune.Vitalist.DrainCooldown / atk), 0f, 1f),
             (HeroKind.Aegis, KitRole.Primary) => Math.Clamp(_wardCd / (Tune.Aegis.BoltEvery / atk), 0f, 1f),
             (_, KitRole.Primary) => SwingCooldownFrac,
-            (HeroKind.Swordsman, KitRole.Other) => Math.Clamp(_parryCd / Tune.OtherAbility.ParryCooldown, 0f, 1f),
+            (HeroKind.Swordsman, KitRole.Other) => Math.Clamp(_parryCd / (Tune.OtherAbility.ParryCooldown * Stats.OtherRestMult), 0f, 1f),
             (HeroKind.Warden, KitRole.Other) => BashCooldownFrac,
-            (HeroKind.Elementalist, KitRole.Other) => Math.Clamp(_novaCd / (Tune.OtherAbility.NovaRest * Stats.AbilityCdMult), 0f, 1f),
+            (HeroKind.Elementalist, KitRole.Other) => Math.Clamp(_novaCd / (Tune.OtherAbility.NovaRest * Stats.OtherRestMult), 0f, 1f),
             (HeroKind.Vitalist, KitRole.Other) => RuptureCooldownFrac,
             (HeroKind.Aegis, KitRole.Other) => Supporting ? 0f : SmiteCooldownFrac,
-            (HeroKind.Rogue, KitRole.Other) => Math.Clamp(_stepCd / Tune.OtherAbility.StepCooldown, 0f, 1f),
+            (HeroKind.Rogue, KitRole.Other) => Math.Clamp(_stepCd / (Tune.OtherAbility.StepCooldown * Stats.OtherRestMult), 0f, 1f),
             (HeroKind.Swordsman, KitRole.Defensive) => _dodgeCd.Length == 0 || _dodgeCd.Min() <= 0 ? 0f : Math.Clamp(_dodgeCd.Min() / Math.Max(0.01f, DodgeCooldownTotal), 0f, 1f),
             (HeroKind.Warden, KitRole.Defensive) => ShieldBroken ? Math.Clamp(_shieldBrokenT / Math.Max(0.01f, ShieldBreakTotal), 0f, 1f) : 0f,
-            (HeroKind.Elementalist, KitRole.Defensive) => Math.Clamp(_blinkCd / Tune.OtherAbility.BlinkCooldown, 0f, 1f),
+            (HeroKind.Elementalist, KitRole.Defensive) => Math.Clamp(_blinkCd / (Tune.OtherAbility.BlinkCooldown * Stats.DefensiveRestMult), 0f, 1f),
             (HeroKind.Vitalist, KitRole.Defensive) => HealCooldownFrac,
             (_, KitRole.Defensive) => AbilityCooldownFrac,
             (HeroKind.Swordsman, _) => HardSwingCooldownFrac,

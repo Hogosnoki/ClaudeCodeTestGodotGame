@@ -308,7 +308,8 @@ public partial class Main
             {
                 var floor = t.Room.Floor;
                 if (cave.FindFloor(t.Room.Center, 900, out var f)) floor = f;
-                SpawnChest(floor);
+                // (a trial won is where relics come from)
+                SpawnChest(floor, relic: true);
                 _hud.ShowBanner("TRIAL WON", 1.5f);
                 NetSync.SendBanner("TRIAL WON", 1.5f);
             }

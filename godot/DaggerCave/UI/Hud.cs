@@ -176,8 +176,8 @@ public partial class Hud : Control
         float xpW = hpW;
         UiArt.Bar(this, new Rect2(xpPos, new Vector2(xpW, 7)), Math.Clamp(p.Xp / (float)p.XpToNext, 0, 1), new Color(0.35f, 0.9f, 0.62f), new Color(0.4f, 0.5f, 0.45f, 0.7f));
         DrawString(font, xpPos + new Vector2(xpW + 10, 8), $"Lv {p.Level}", HorizontalAlignment.Left, -1, 14, new Color(0.6f, 1f, 0.8f));
-        Tip(new Rect2(xpPos - new Vector2(3, 4), new Vector2(xpW + 50, 14)), "Experience and level", $"Fills as creatures fall; each level makes you a little stronger, and every {Meta.MilestoneEvery} levels earns a milestone point to spend.");
-        if (p.PendingMilestones > 0)
+        Tip(new Rect2(xpPos - new Vector2(3, 4), new Vector2(xpW + 50, 14)), "Experience and level", $"Fills as creatures fall; each level makes you a little stronger and earns a pick of three cards, and every {Tune.Growth.MilestoneEvery} levels a milestone.");
+        if (p.PendingMilestones > 0 || p.PendingPicks > 0)
         {
             // (a milestone waits for a quiet moment: it never opens by itself)
             // it flashes hard when earned, then keeps a steady throb until it's spent
@@ -185,7 +185,9 @@ public partial class Hud : Control
             float flash = since < 1.6f ? (MathF.Sin(since * 22f) > 0 ? 1f : 0.25f) * (1f - since / 1.6f) : 0f;
             float pulse = 0.55f + 0.45f * MathF.Sin(now * 5f);
             float scale = 1f + 0.08f * MathF.Max(0f, MathF.Sin(now * 5f)) + 0.35f * MathF.Max(0f, 1f - since / 0.35f);
-            string text = $"MILESTONE READY{(p.PendingMilestones > 1 ? $" x{p.PendingMilestones}" : "")}  ·  press {Controls.Name("milestone")}";
+            string what = p.PendingMilestones > 0 ? $"MILESTONE READY{(p.PendingMilestones > 1 ? $" x{p.PendingMilestones}" : "")}{(p.PendingPicks > 0 ? $" + {p.PendingPicks} PICK{(p.PendingPicks > 1 ? "S" : "")}" : "")}"
+                : $"LEVEL UP: {p.PendingPicks} PICK{(p.PendingPicks > 1 ? "S" : "")}";
+            string text = $"{what}  ·  press {Controls.Name("milestone")}";
             var at = xpPos + new Vector2(xpW + 10, 26);
             var size = font.GetStringSize(text, HorizontalAlignment.Left, -1, 12);
             var col = new Color(1f, 0.85f + 0.15f * flash, 0.35f + 0.65f * flash, MathF.Max(pulse, flash));
@@ -193,7 +195,7 @@ public partial class Hud : Control
             DrawSetTransform(at, 0f, new Vector2(scale, scale));
             DrawString(font, Vector2.Zero, text, HorizontalAlignment.Left, -1, 12, col);
             DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
-            Tip(new Rect2(at + new Vector2(-6, -15), new Vector2(size.X + 12, 21)), "Milestone ready", $"A milestone point to spend: press {Controls.Name("milestone")} at a quiet moment to choose a lasting reward (it never opens by itself).");
+            Tip(new Rect2(at + new Vector2(-6, -15), new Vector2(size.X + 12, 21)), "Cards to choose", $"Each level earns a pick of three cards that grow your hero; every {Tune.Growth.MilestoneEvery} levels a milestone changes your special. Press {Controls.Name("milestone")} at a quiet moment to choose (they never open by themselves).");
         }
 
         // --- Breath ---
