@@ -1339,6 +1339,20 @@ public static class Tune
 
     /// <summary>Boons, graded growth (Player/Boons.cs): how often each grade is dealt (Common, Uncommon, Rare, Epic, Legendary), how much
     /// likelier the top three get with each level of depth, and the most a ward's chance can reach.</summary>
+    /// <summary>
+    /// Infusions (Player/Infusions.cs): Legendary cards that make a hero's special leave an element behind. The zone lasts <c>Seconds</c> s
+    /// (times the infusion's own share), strikes <c>TicksPerSecond</c> times a second for <c>TickDamage</c> (times the hero's damage and
+    /// special damage) and builds <c>TickBuild</c> of its element; an Ascended one (taken twice) reaches <c>AscendRadius</c>x as wide, lasts
+    /// <c>AscendSeconds</c>x and strikes <c>AscendDamage</c>x as hard. A level's Legendary roll is an infusion <c>LevelChance</c> of the
+    /// time; a milestone deals one <c>MilestoneChance</c> of the time.
+    /// </summary>
+    public static class Infusion
+    {
+        public static float Seconds = 7f, TicksPerSecond = 2f, TickDamage = 7f, TickBuild = 14f, IgniteDps = 10f, IgniteSeconds = 3f;
+        public static float AscendRadius = 1.25f, AscendSeconds = 1.3f, AscendDamage = 1.5f;
+        public static float LevelChance = 0.5f, MilestoneChance = 0.35f;
+    }
+
     public static class Boons
     {
         public static float[] GradeWeights = { 52f, 28f, 13f, 5.5f, 1.5f };

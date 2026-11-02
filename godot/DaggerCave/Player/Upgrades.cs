@@ -694,7 +694,7 @@ public static partial class Upgrades
         return cards.Select(u => u.Id).ToArray();
     }
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Concat(Cards.All).Concat(Boons.All).Append(Skip).Append(LeaveChest).Append(Salvage);
+    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Concat(Cards.All).Concat(Boons.All).Concat(Infusions.All).Append(Skip).Append(LeaveChest).Append(Salvage);
 
     /// <summary>What a chest's class card may be: the old class cards (still the Shape Shifter's and the Automaton's) and the heroes' own level cards.</summary>
     private static IEnumerable<Upgrade> ClassPool => Chest.Concat(Cards.Ability);

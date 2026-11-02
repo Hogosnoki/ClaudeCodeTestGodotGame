@@ -834,7 +834,7 @@ public partial class RopeView : PropView
 public partial class BlizzardView : PropView
 {
     private readonly MeshInstance3D[] _puffs = new MeshInstance3D[6];
-    private MeshInstance3D _swirl;
+    private MeshInstance3D _swirl, _shards, _ground;
     private OmniLight3D _light;
     private Color _col, _cloud;
     private bool _fire;
@@ -856,6 +856,46 @@ public partial class BlizzardView : PropView
         AddChild(_swirl);
         _light = PropViews.Light(_col, 0.7f, 3.5f);
         AddChild(_light);
+        if (z.Infusion)
+        {
+            // (an infusion is on the ground, not a storm overhead: no cloud)
+            foreach (var p in _puffs) p.Visible = false;
+            BuildInfused(z);
+        }
+    }
+
+    /// <summary>An infusion's zone stands on the ground: shards of its element rising round it (ice, glowing magma, thorns, shadow
+    /// crystals) and a glow pooled beneath.</summary>
+    private void BuildInfused(Blizzard z)
+    {
+        float r = W3.M(z.Radius);
+        float floor = -r * 0.45f;
+        _ground = PropViews.Sprite(_col, 0, 0.7f, r * 2.4f);
+        _ground.Position = new Vector3(0, floor + r * 0.05f, 0);
+        AddChild(_ground);
+        Material mat = z.El switch
+        {
+            HeroElement.Frost => PropViews.Ice,
+            HeroElement.Fire => PropViews.Emissive(new Color(1f, 0.45f, 0.12f), 2.2f),
+            HeroElement.Nature => PropViews.Emissive(new Color(0.3f, 0.6f, 0.2f), 0.5f),
+            HeroElement.Dark => PropViews.Emissive(new Color(0.35f, 0.15f, 0.55f), 0.9f),
+            _ => null,
+        };
+        if (mat == null) return;
+        var rng = new Random((int)(GetInstanceId() % 10000));
+        var mb = new MeshBuilder();
+        int n = 10 + (int)(r * 6f);
+        for (int k = 0; k < n; k++)
+        {
+            float a = (float)rng.NextDouble() * Mathf.Tau, d = r * (0.25f + 0.75f * (float)Math.Sqrt(rng.NextDouble()));
+            var at = new Vector3(MathF.Cos(a) * d, floor, MathF.Sin(a) * d * 0.45f);
+            var dir = new Vector3(((float)rng.NextDouble() - 0.5f) * 0.8f, 1f, ((float)rng.NextDouble() - 0.5f) * 0.5f).Normalized();
+            float big = 1f - 0.5f * d / r;
+            DesignKit.CrystalAt(mb, at, dir, r * 0.07f * big, r * (0.25f + 0.35f * (float)rng.NextDouble()) * big, Colors.White, (float)rng.NextDouble());
+        }
+        _shards = PropViews.Mesh(mb, mat, false);
+        _shards.Position = Vector3.Zero;
+        AddChild(_shards);
     }
 
     protected override void Sync(float dt)
@@ -873,7 +913,10 @@ public partial class BlizzardView : PropView
         }
         _swirl.Scale = Vector3.One * r * 1.2f;
         PropViews.SetSprite(_swirl, new Color(_col, 0.35f * s), 7, 0.45f);
-        _light.LightEnergy = (_fire ? 0.9f + 0.3f * MathF.Sin(z.Age * 29f) : 0.6f) * s;
+        _light.LightEnergy = (_fire ? 0.9f + 0.3f * MathF.Sin(z.Age * 29f) : 0.6f) * s * (z.Infusion ? 1.15f : 1f);
+        if (_ground != null) PropViews.SetSprite(_ground, new Color(_col, (_fire ? 0.55f + 0.1f * MathF.Sin(z.Age * 7f) : 0.4f) * s), 0, 0.7f);
+        // (the shards thrust up as it opens and sink as it fades)
+        if (_shards != null) _shards.Scale = new Vector3(1f, Math.Max(0.02f, s), 1f);
     }
 }
 

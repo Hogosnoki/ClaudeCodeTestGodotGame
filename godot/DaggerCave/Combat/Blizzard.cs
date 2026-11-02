@@ -25,6 +25,8 @@ public partial class Blizzard : Node2D
     public Color Tint => Fire ? new Color(1f, 0.5f, 0.15f) : !Elemental ? new Color(0.8f, 0.94f, 1f) : Elements.ColorOf(El);
     /// <summary>Online: another player's storm, shown here (their game deals its strikes).</summary>
     public bool Harmless;
+    /// <summary>Left by a special's infusion (Player/Infusions.cs): its strikes may set alight or freeze solid, and it looks grander.</summary>
+    public bool Infusion;
     public Player Caster;
     private float _t, _fxT;
     private int _struck;
@@ -79,8 +81,35 @@ public partial class Blizzard : Node2D
         if (_fxT > 0) return;
         _fxT = 0.025f;
         float s = Strength;
+        // (a wide zone churns with more at once)
+        int n = Math.Clamp((int)(Radius / 70f), 1, 4);
+        for (int k = 0; k < n; k++) Mote(s);
+        if (G.Chance(Infusion ? 0.03f : 0.015f)) G.Fx.Ring(GlobalPosition, Radius, new Color(Tint, 0.32f * s), 0.4f, FxLayer.RingStyle.Dashed);
+    }
+
+    /// <summary>One mote of what fills it: wind streaks, sparks, leaves, droplets, shadow or snow.</summary>
+    private void Mote(float s)
+    {
         var at = GlobalPosition + G.RandDir() * G.Range(0f, Radius);
-        if (Elemental && !Fire && El != HeroElement.Frost)
+        if (Elemental && El == HeroElement.Nature)
+        {
+            // thorns and leaves torn upward
+            G.Fx.Ember(at, G.Chance(0.5f) ? new Color(0.45f, 0.85f, 0.3f) : new Color(0.75f, 0.95f, 0.4f));
+            if (G.Chance(0.3f)) G.Fx.Directional(at, new Vector2(G.Range(-0.4f, 0.4f), -1f).Normalized(), 0.4f, new Color(0.35f, 0.7f, 0.25f, 0.9f * s), 1, 90, 2f, 0.5f, 40, 0);
+        }
+        else if (Elemental && El == HeroElement.Water)
+        {
+            // water swirling round and spraying up
+            var tan = (at - GlobalPosition).Orthogonal().Normalized();
+            G.Fx.Directional(at, tan, 0.3f, new Color(0.45f, 0.7f, 1f, 0.8f * s), 1, 110, 1.8f, 0.35f, 0, 0);
+            if (G.Chance(0.25f)) G.Fx.Burst(at, new Color(0.7f, 0.88f, 1f, 0.8f * s), 1, 70, 1.8f, 0.4f, 260);
+        }
+        else if (Elemental && El == HeroElement.Dark)
+        {
+            if (G.Chance(0.35f)) G.Fx.Smoke(at, 1, new Color(0.16f, 0.08f, 0.24f, 0.7f * s), 22f);
+            else G.Fx.Ember(at, new Color(0.55f, 0.3f, 0.8f));
+        }
+        else if (Elemental && !Fire && El != HeroElement.Frost)
         {
             // wind (or force) whirling round: streaks curling toward the middle
             var tan = (at - GlobalPosition).Orthogonal().Normalized();
@@ -97,7 +126,6 @@ public partial class Blizzard : Node2D
             var from = at + new Vector2(-8f, -Radius * 0.9f);
             G.Fx.Directional(from, new Vector2(0.35f, 1f).Normalized(), 0.25f, new Color(0.92f, 0.97f, 1f, 0.9f * s), 1, 150, 1.5f, 0.35f, 60, 0);
         }
-        if (G.Chance(0.015f)) G.Fx.Ring(GlobalPosition, Radius, new Color(Tint, 0.32f * s), 0.4f, FxLayer.RingStyle.Dashed);
     }
 
     public override void _Draw()

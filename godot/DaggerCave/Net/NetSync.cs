@@ -238,7 +238,7 @@ public static class NetSync
             case HealingPool hp: w.Byte(6).Vec(hp.GlobalPosition).Half(hp.Radius).Half(hp.Rate).Half(hp.Life); break;
             case ElementBolt b: w.Byte(7).Vec(b.GlobalPosition).HVec(b.Dir).Half(b.Range).Half(b.Speed).Byte((byte)(b.Ward ? 2 : b.Wind ? 3 : b.Plain ? 4 : b.Frost ? 1 : 0)); break;
             case Updraft u: w.Byte(8).Vec(u.GlobalPosition).Half(u.Width).Half(u.Height).Half(u.Life).Half(u.Angle); break;
-            case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)(z.Fire ? 1 : z.El == HeroElement.Wind ? 2 : z.El == HeroElement.None && z.Elemental ? 3 : 0)); break;
+            case Blizzard z: w.Byte(9).Vec(z.GlobalPosition).Half(z.Radius).Half(z.Seconds).Byte((byte)z.Ticks).Byte((byte)((byte)z.El | (z.Fire ? 0x20 : 0) | (z.Elemental ? 0x40 : 0) | (z.Infusion ? 0x80 : 0))); break;
             case ThrownDagger d: w.Byte(10).Vec(d.GlobalPosition).HVec(d.Dir).Byte((byte)d.Index).Byte((byte)(d.Ricochet ? Math.Clamp(d.Bounces, 1, 9) : 0)); break;
             case Rope rp: w.Byte(13).Vec(rp.GlobalPosition).Half(rp.Length).Half(rp.Life).Byte((byte)(rp.Holder != null ? 1 : 0)).Vec(rp.DropAt ?? rp.GlobalPosition); break;
             case SmokeCloud c: w.Byte(12).Vec(c.GlobalPosition).Half(c.Radius).Half(c.Life); break;
@@ -543,9 +543,10 @@ public static class NetSync
             case 9:
             {
                 // a friend's blizzard: shown here (their game deals its strikes)
-                var at = r.Vec(); float radius = r.Half(), seconds = r.Half(); int ticks = r.Byte(); byte sk = r.Byte(); bool fire = sk == 1;
+                var at = r.Vec(); float radius = r.Half(), seconds = r.Half(); int ticks = r.Byte(); byte sk = r.Byte();
                 Applying = true;
-                G.Spawn(new Blizzard { Position = at, Radius = radius, Seconds = seconds, Ticks = ticks, Fire = fire, El = sk == 2 ? HeroElement.Wind : sk == 1 ? HeroElement.Fire : HeroElement.None, Elemental = sk >= 2, Harmless = true });
+                G.Spawn(new Blizzard { Position = at, Radius = radius, Seconds = seconds, Ticks = ticks, Fire = (sk & 0x20) != 0, El = (HeroElement)(sk & 0x1f),
+                    Elemental = (sk & 0x40) != 0, Infusion = (sk & 0x80) != 0, Harmless = true });
                 Applying = false;
                 break;
             }

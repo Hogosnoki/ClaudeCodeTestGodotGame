@@ -237,7 +237,12 @@ public static class Cards
             double r = rng.NextDouble();
             if (r < Tune.Boons.OwnShare && TakeFrom(own) != null) continue;
             if (r > 0.9 && TakeFrom(shared) != null) continue;
-            if (Boons.DealRolled(s, rng, families) is Upgrade b) { picks.Add(b); continue; }
+            if (Boons.DealRolled(s, rng, families) is Upgrade b)
+            {
+                // (a Legendary roll may be one of the hero's infusions instead: the special itself changed)
+                if (b.Grade == CardGrade.Legendary && rng.NextDouble() < Tune.Infusion.LevelChance && Infusions.Deal(s, rng, picks) is Upgrade x) b = x;
+                picks.Add(b); continue;
+            }
             if (TakeFrom(own) == null && TakeFrom(shared) == null) break;
         }
         // (the hero's own card isn't always on the left)
@@ -265,6 +270,8 @@ public static class Cards
         picks.AddRange(Upgrades.Pick(great, (boon ? 2 : 3) - picks.Count, rng, u => u.Weight));
         while (picks.Count < 3 && Boons.DealRolled(s, rng, families, CardGrade.Epic) is Upgrade b) picks.Add(b);
         if (picks.Count < 3) picks.AddRange(Upgrades.Pick(Ability.Where(u => Upgrades.Available(u, s) && !picks.Contains(u)).ToList(), 3 - picks.Count, rng, u => u.Weight));
+        // (now and then the last card is one of the hero's infusions: the special changed, not only grown)
+        if (picks.Count >= 3 && rng.NextDouble() < Tune.Infusion.MilestoneChance && Infusions.Deal(s, rng, picks) is Upgrade x) picks[^1] = x;
         return picks;
     }
 }

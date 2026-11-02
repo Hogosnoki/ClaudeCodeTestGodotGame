@@ -1008,6 +1008,19 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   | Jumps in mid-air (at most 3 more) | | | | +1 Cloud Step | +2 Wings of Dawn |
 
   Every milestone also deals something of Epic grade or better: beside the special's two forms, half the time an Epic-or-Legendary boon (else a great thing); after them, two great things and such a boon. The Shape Shifter's and the Automaton's milestones end with one too. The hero's own cards wear grades as well (Uncommon; *Again* Rare; milestones Epic).
+- **Infusions: the special itself changed** (Player/Infusions.cs, `Tune.Infusion`). Legendary cards that don't only make the special bigger but change what it does: it leaves its element on the ground where it landed, a zone that keeps working for about 6–7 s (two strikes a second, scaled by your damage and special damage), builds its element in all it holds, and may set alight, freeze solid or drag creatures in. Shards of the element (ice, glowing magma, thorns, shadow crystals) thrust up out of the ground in it and sink as it fades. Two per hero, and you may take both (the special then leaves both behind); a second copy of one makes it **Ascended**: 1.25x as wide, 1.3x as long, 1.5x as hard.
+
+  | Hero | Infusion | What the special leaves |
+  |---|---|---|
+  | Elementalist | Scorched Earth | the Meteor's burning crater: scorches and sets alight |
+  | Elementalist | Cryo Comet | a mega cryo comet: a wide field of frost that keeps building Frost (and now and then freezes solid) |
+  | Swordsman | Flame Cyclone / Frost Vortex | where the Whirlwind ends: a cyclone of fire, or a vortex of frost that drags creatures in |
+  | Warden | Magma Fissure / Glacier Crash | before the Great Bash: a fissure of magma, or a glacier that builds Frost and may freeze |
+  | Vitalist | Thornfield / Tidepool | round the Bloom: thorns that tear and entangle, or a whirling tidepool that soaks and draws in |
+  | Aegis | Sunfire / Gale Sanctum | under every Judgement pillar: holy fire, or a gale that drags creatures in and swallows their shots |
+  | Rogue | Shadow Haze / Venom Bloom | under the Death Blossom: shadow that blinds and lays open, or venom that eats and entangles |
+
+  How they're dealt: when a level's pick rolls a Legendary boon, half the time it's one of your infusions instead; a milestone's last card is one about a third of the time. Online, the zones show for everyone with their element and look.
 - **The creatures grow faster to match**: their health grows 7.2% a level of depth (was 3.6%), and everything about them doubles every 21 minutes of play (was 27).
 - **Every 5 levels: a milestone.** The first one offers the special's two forms; take one and the other is gone:
 

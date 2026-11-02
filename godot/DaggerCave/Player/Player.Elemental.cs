@@ -1476,6 +1476,13 @@ public partial class Player
         if (dealt > 0) OnDealtDamage(dealt);
         if (e.Dead) return;
         if (storm.Build > 0) e.Build(storm.El, storm.Build, Stats.DamageMult, this);
+        if (e.Dead) return;
+        // (an infusion's zone may set alight or freeze solid outright)
+        if (storm.Infusion)
+        {
+            if (storm.IgniteChance > 0 && G.Chance(storm.IgniteChance)) e.Ignite(storm.IgniteDps, storm.IgniteSeconds);
+            if (storm.FreezeChance > 0 && !e.FrozenSolid && G.Chance(storm.FreezeChance)) e.FreezeSolid(Tune.Elementalist.FreezeSeconds);
+        }
         if (storm.Pull > 0 && e.GlobalPosition.DistanceTo(storm.GlobalPosition) > 10f) e.Shove(-from * storm.Pull * 2.2f);
     }
 

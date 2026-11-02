@@ -44,6 +44,7 @@ public partial class UpgradeMenu : Control
     /// <summary>A card's label: its kind, and for a hero's card, the ability it grows.</summary>
     public static string KindLabel(Upgrade u, HeroKind hero) => u.Id is "shop_supplies" or "shop_token" or "shop_potion" ? "SUPPLIES" : u.Id == "shop_reroll" ? "SERVICE"
         : Boons.IsBoon(u) ? "BOON"
+        : Infusions.IsInfusion(u) ? "INFUSION" + (u.Ability != null ? " · " + u.Ability.ToUpperInvariant() : "")
         : Cards.IsMilestone(u) ? "MILESTONE" + (u.Ability != null ? " · " + u.Ability.ToUpperInvariant() : "") : u.Kind switch
     {
         UpgradeKind.Class => "CLASS" + (u.Ability != null ? " · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant() : ""),

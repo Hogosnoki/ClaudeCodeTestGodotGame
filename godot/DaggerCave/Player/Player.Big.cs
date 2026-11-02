@@ -130,6 +130,46 @@ public partial class Player
         if (!e.Dead && touch > 0f) SimpleTouch(e, KitRole.Special, from, touch);
     }
 
+    /// <summary>The zones made by infusions, newest last (for tests).</summary>
+    public readonly List<Blizzard> InfusedZones = new();
+
+    /// <summary>
+    /// The special's infusions (Player/Infusions.cs): each leaves its element on the ground where the special landed, a zone that keeps
+    /// on striking, building its element, setting alight, freezing or drawing in (an Ascended one wider, longer, harder).
+    /// </summary>
+    private void Infuse(Vector2 at, float reach)
+    {
+        if (!Cards.Grows(Stats.Hero)) return;
+        // (on the ground beneath, if there is ground near: a crater, not a cloud)
+        bool grounded = G.Cave.FindFloor(at, reach * 1.2f, out var floor);
+        foreach (var (sp, n) in Infusions.Of(Stats))
+        {
+            bool up = n >= 2;
+            float r = reach * sp.Radius * (up ? Tune.Infusion.AscendRadius : 1f);
+            float secs = Tune.Infusion.Seconds * sp.Seconds * (up ? Tune.Infusion.AscendSeconds : 1f);
+            float hard = up ? Tune.Infusion.AscendDamage : 1f;
+            var spot = grounded ? floor - new Vector2(0, r * 0.45f) : at;
+            var zone = new Blizzard
+            {
+                Position = spot, Radius = r, Seconds = secs, Ticks = Math.Max(2, (int)MathF.Round(secs * Tune.Infusion.TicksPerSecond)),
+                Fire = sp.El == HeroElement.Fire, El = sp.El, Elemental = true, Infusion = true,
+                Damage = Tune.Infusion.TickDamage * sp.Damage * hard * Stats.DamageMult * Stats.SpecialDamageMult,
+                Build = Tune.Infusion.TickBuild * sp.Build * hard, Pull = sp.Pull,
+                IgniteChance = sp.Ignite, IgniteDps = Tune.Infusion.IgniteDps * hard * Stats.DamageMult, IgniteSeconds = Tune.Infusion.IgniteSeconds,
+                FreezeChance = sp.Freeze, Caster = this,
+            };
+            G.Spawn(zone);
+            NetSync.HeroVisual(zone);
+            InfusedZones.Add(zone);
+            if (InfusedZones.Count > 16) InfusedZones.RemoveAt(0);
+            var col = Elements.ColorOf(sp.El);
+            ElementWorld.Touch(sp.El, spot, r, Vector2.Down);
+            G.Fx.Ring(spot, r, new Color(col, 0.9f), 0.5f, FxLayer.RingStyle.Burst);
+            G.Fx.Burst(spot, new Color(col.Lerp(Colors.White, 0.3f), 0.9f), 18, 220, 2.6f, 0.5f, sp.El == HeroElement.Fire ? -120 : 200);
+            G.Fx.Text(spot + new Vector2(0, -r - 10), (up ? "ASCENDED " : "") + sp.Name.ToUpperInvariant(), col, 10, 0.9f);
+        }
+    }
+
     private static IEnumerable<Enemy> FoesNear(Vector2 at, float r) => G.Enemies.ToArray()
         .Where(e => !e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(at) <= r + e.HitRadius && G.Cave.LineClear(at, e.GlobalPosition));
 
@@ -187,7 +227,7 @@ public partial class Player
             G.Fx.Glint(p, col.Lerp(Colors.White, 0.4f), 5);
         }
         G.Sfx.Play("swing", c, -6, 0.15f, 1.1f + 0.05f * _whirlHits);
-        if (_whirlHits >= _whirlPulses) _whirlT = 0f;
+        if (_whirlHits >= _whirlPulses) { _whirlT = 0f; Infuse(c, r); }
     }
 
     // ---------------------------------------------------------------- the Elementalist's Meteor (Meteor Shower; Cataclysm)
@@ -260,6 +300,7 @@ public partial class Player
         G.Spawn(zone);
         NetSync.HeroVisual(zone);
         LastBlizzard = zone;
+        Infuse(spot, r);
         float big = Math.Clamp(r / Tune.Big.MeteorRadius, 0.5f, 2f);
         G.Fx.Explosion(spot, col, 2.2f * big);
         G.Fx.Shockwave(spot + new Vector2(0, 4), r * 1.2f, new Color(col, 0.9f));
@@ -311,6 +352,8 @@ public partial class Player
         }
         if (!echo)
         {
+            // (an infusion fills the ground before the Warden)
+            Infuse(origin + d * r * 0.55f, r);
             foreach (var pr in G.Main.EnemyProjectiles.ToArray())
                 if (!pr.IsQueuedForDeletion() && (pr.GlobalPosition - origin).Length() < r && (pr.GlobalPosition - origin).Normalized().Dot(d) > cos) pr.Reflect(d, Stats.DamageMult);
             // (each "again": an aftershock on the heels of it)
@@ -387,6 +430,7 @@ public partial class Player
         float heal = Tune.Big.BloomHeal * power * (BigForm("b") ? Tune.Growth.HeartbloomHeal : 1f) + (BigForm("b") ? Tune.Growth.HeartbloomPerFoe * Math.Min(struck, 10) : 0f);
         foreach (var h in HeroesNear(r)) h.Heal(h.Stats.MaxHp * heal);
         ElementWorld.Touch(Mode, c, r);
+        if (power >= 1f) Infuse(c, r);
         G.Fx.Converge(c, r * 0.6f, new Color(LifeColor, 0.8f), 12, 0.2f);
         G.Fx.Shockwave(c + new Vector2(0, 16), r, new Color(LifeColor, 0.85f));
         G.Fx.Ring(c, r, new Color(col, 0.9f), 0.45f, FxLayer.RingStyle.Burst);
@@ -439,6 +483,7 @@ public partial class Player
     {
         float r = Tune.Big.JudgeRadius * SR * size;
         var gold = new Color(1f, 0.9f, 0.5f);
+        Infuse(spot, r);
         foreach (var e in FoesNear(spot, r))
         {
             var away = (e.GlobalPosition - spot).LengthSquared() > 1f ? (e.GlobalPosition - spot).Normalized() : Vector2.Up;
@@ -565,7 +610,7 @@ public partial class Player
             }
         }
         G.Sfx.Play("throw", c, -6, 0.15f, 1.2f + 0.08f * _blossomVolleys);
-        if (_blossomVolleys >= _blossomMax) _blossomT = 0f;
+        if (_blossomVolleys >= _blossomMax) { _blossomT = 0f; Infuse(c, range * 0.6f); }
     }
 }
 

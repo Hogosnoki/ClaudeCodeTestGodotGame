@@ -197,6 +197,40 @@ public partial class Main
             ScCheck($"  {form.Name} in play: it strikes the knot ({dealt:0} dealt{extra})", dealt > 0f && (hero != HeroKind.Elementalist || stonesSeen >= Tune.Growth.ShowerStones));
         }
 
+        // ---- infusions: Legendary cards that change the special (it leaves its element behind, a zone that keeps on working)
+        var infs = Infusions.All.Where(u => u.For.Contains(hero)).ToList();
+        int infSeen = 0;
+        for (int k = 0; k < 60; k++) if (Cards.RollMilestone(s, rng).Any(Infusions.IsInfusion)) infSeen++;
+        ScCheck($"infusions: two for the {hero} ({string.Join(", ", infs.Select(u => u.Name))}), Legendary, dealt by milestones now and then ({infSeen} of 60)",
+            infs.Count == 2 && infs.All(u => u.Grade == CardGrade.Legendary) && infSeen >= 6 && infSeen <= 40);
+        foreach (var u in infs) Upgrades.Apply(u, s, p);
+        foreach (var _ in Knot()) yield return null;
+        int zones0 = p.InfusedZones.Count;
+        float[] built0 = new float[8];
+        foreach (var e in knot) for (int k = 0; k < 8; k++) built0[k] += e.BuiltTotal[k];
+        foreach (var _ in Stroke()) yield return null;
+        var made = p.InfusedZones.Skip(zones0).Where(IsInstanceValid).ToList();
+        float hpMid = knot.Where(IsInstanceValid).Sum(e => e.Hp);
+        foreach (var _ in ElWait(1.5f)) yield return null;
+        ScShot($"growth_{hero.ToString().ToLowerInvariant()}_infused");
+        float lingering = hpMid - knot.Where(IsInstanceValid).Sum(e => e.Hp);
+        var els = made.Select(z => z.El).Distinct().ToList();
+        float builtNew = 0f;
+        foreach (var e in knot) foreach (var el in els) builtNew += e.BuiltTotal[(int)el] - built0[(int)el];
+        int strikes = made.Where(IsInstanceValid).Sum(z => z.Struck);
+        ScCheck($"  both taken: the special leaves {made.Count} zones ({string.Join(", ", made.Select(z => $"{z.El} r{z.Radius:0} {z.Seconds:0}s"))}), still at work after it ({lingering:0} more dealt, {builtNew:0} built, {strikes} strikes)",
+            made.Count >= 2 && made.All(z => z.Infusion) && strikes > 0 && (lingering > 0f || builtNew > 0f));
+        float r1 = made.FirstOrDefault(z => z.El == made[0].El)?.Radius ?? 0f;
+        var firstEl = made.Count > 0 ? made[0].El : HeroElement.None;
+        var first = infs.FirstOrDefault(u => Infusions.SpecOf(u).El == firstEl) ?? infs[0];
+        Upgrades.Apply(first, s, p);
+        foreach (var _ in Knot()) yield return null;
+        int zones1 = p.InfusedZones.Count;
+        foreach (var _ in Stroke()) yield return null;
+        var asc = p.InfusedZones.Skip(zones1).Where(IsInstanceValid).FirstOrDefault(z => made.Count > 0 && z.El == made[0].El);
+        ScCheck($"  {first.Name} taken again: Ascended, wider ({r1:0} -> {asc?.Radius ?? 0:0}) and longer", asc != null && asc.Radius > r1 * 1.15f);
+        foreach (var z in p.InfusedZones.Where(IsInstanceValid)) z.QueueFree();
+
         // ---- a Twin Stroke: two strokes back to back, then it rests
         var twin = Cards.Milestones.First(u => u.Id == "m_twin");
         Upgrades.Apply(twin, s, p);
