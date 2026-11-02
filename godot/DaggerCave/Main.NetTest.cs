@@ -174,6 +174,7 @@ public partial class Main
         GameSettings.PlayerName = _netTest == "host" ? "Hosty" : "Joiner";
         GD.Print($"[nettest] {_netTest}: {(_netTest == "host" ? "hosting" : $"joining {_netAddr}")} as the {G.Hero} (build {Net.Build})");
         if (_ntShots != "") _onlineMenu.Open();
+        if (_netTest.StartsWith("rj")) { BeginRejoinTest(); return; }
         if (_netTest == "host") { if (!Net.Host()) NtFail($"hosting opens port {Net.Port} ({Net.Status})"); }
         else Net.Join(_netAddr);
     }
@@ -187,6 +188,7 @@ public partial class Main
         _ntT += dt;
         _ntPhaseT += dt;
         if (_ntT > 240) { NtFail($"everything done within four minutes (stuck in phase {_ntPhase})"); return; }
+        if (_netTest.StartsWith("rj")) { RejoinTestTick(); return; }
         // (once this game's last check is in, the other closing the connection is just the end)
         if (_ntPhase > 0 && !Net.Online)
         {

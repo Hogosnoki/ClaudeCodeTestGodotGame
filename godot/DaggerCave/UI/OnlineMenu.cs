@@ -19,6 +19,7 @@ public partial class OnlineMenu : Control
 
     private VBoxContainer _choose, _lobby;
     private LineEdit _name, _code;
+    private Label _rejoinLabel;
     private Label _title, _status, _code1, _code2, _code3, _router, _players, _wait, _mismatch;
     private HBoxContainer _codeRow, _lanRow, _vpnRow;
     private VBoxContainer _prep;
@@ -28,7 +29,7 @@ public partial class OnlineMenu : Control
     private bool _inPrep;
     private HeroKind _prepHero;
     private Control _prepFocus;
-    private Button _host, _start, _leave, _paste, _joinBtn, _backBtn, _copy1, _copy2, _copy3;
+    private Button _host, _start, _leave, _paste, _joinBtn, _backBtn, _copy1, _copy2, _copy3, _rejoinBtn;
     private readonly Button[] _cards = new Button[Heroes.Length];
     private readonly Label[] _cardNote = new Label[Heroes.Length];
     private readonly HeroPortrait[] _portraits = new HeroPortrait[Heroes.Length];
@@ -91,6 +92,14 @@ public partial class OnlineMenu : Control
         joinRow.AddChild(_paste);
         _joinBtn = UiKit.Button("Join", DoJoin, 120);
         joinRow.AddChild(_joinBtn);
+
+        // (a hero kept from a run that dropped, or a game that quit or crashed: back into that run, as they were: Main.Rejoin.cs)
+        var rejoinRow = Row(_choose);
+        rejoinRow.Alignment = BoxContainer.AlignmentMode.Center;
+        _rejoinBtn = UiKit.Button("Reconnect", () => { _note = ""; G.Main?.Reconnect(); Refresh(); }, 240);
+        rejoinRow.AddChild(_rejoinBtn);
+        _rejoinLabel = UiKit.Label("", 14, UiKit.Dim);
+        rejoinRow.AddChild(_rejoinLabel);
 
         _status = UiKit.Label("", 15, UiKit.Gold, HorizontalAlignment.Center);
         _status.AutowrapMode = TextServer.AutowrapMode.WordSmart;
@@ -457,7 +466,11 @@ public partial class OnlineMenu : Control
             _title.Text = "PLAY ONLINE";
             _status.Text = _note != "" ? _note : Net.Status;
             _host.Disabled = online;
-            if (pageChanged) _host.CallDeferred(Control.MethodName.GrabFocus);
+            string rejoin = G.Main?.RejoinCode;
+            _rejoinBtn.GetParent<Control>().Visible = !string.IsNullOrEmpty(rejoin);
+            _rejoinBtn.Disabled = online;
+            if (!string.IsNullOrEmpty(rejoin)) _rejoinLabel.Text = $"Back into the run you were in ({rejoin}), as your {G.Main.RejoinHero}.";
+            if (pageChanged) (string.IsNullOrEmpty(rejoin) || online ? (Control)_host : _rejoinBtn).CallDeferred(Control.MethodName.GrabFocus);
             return;
         }
 
@@ -595,7 +608,9 @@ public partial class OnlineMenu : Control
         }
         else
         {
-            Row(_name); Row(_host); Row(_code, _paste, _joinBtn); Row(_backBtn);
+            Row(_name); Row(_host); Row(_code, _paste, _joinBtn);
+            if (_rejoinBtn.IsVisibleInTree()) Row(_rejoinBtn);
+            Row(_backBtn);
         }
         return rows;
     }

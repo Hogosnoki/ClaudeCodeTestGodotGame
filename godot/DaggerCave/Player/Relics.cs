@@ -21,7 +21,8 @@ public static class RunRelics
     {
         Note(Net.Me, id);
         // (a relic is its bearer's alone: only the few that change the world, or the chests, are told to the others)
-        if (Worldly.Contains(id)) NetSync.SendRelic(id);
+        // (a hero put back into a run: the others still count these under the peer it was)
+        if (Worldly.Contains(id) && !Upgrades.Replaying) NetSync.SendRelic(id);
     }
 
     /// <summary>The relics whose effect reaches everyone (how the caves are built, the road to the dragon) or decides the party's chests.</summary>
@@ -31,6 +32,12 @@ public static class RunRelics
     public static void Forget(string id)
     {
         if (By.TryGetValue(Net.Me, out var set)) set.Remove(id);
+    }
+
+    /// <summary>The worldly relics the party carries, by peer (the host's word to one joining: their level must be built the same).</summary>
+    public static IEnumerable<(int Peer, string Id)> WorldlyCarried()
+    {
+        foreach (var (peer, set) in By) foreach (var id in set) if (Worldly.Contains(id)) yield return (peer, id);
     }
 
     public static void Note(int peer, string id)

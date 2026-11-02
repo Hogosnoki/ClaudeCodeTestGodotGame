@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+using System.Linq;
 using System;
 using System.Linq;
 using Godot;
@@ -86,11 +88,14 @@ public partial class Main
 
     public void OnlineBanner(string text, float seconds) => _hud.ShowBanner(text, seconds);
 
-    /// <summary>The connection closed (the host left, or never answered): back to the title, saying why.</summary>
+    /// <summary>The connection closed (the host left, or never answered): a client in a run first tries to get straight back in
+    /// (Main.Rejoin.cs); otherwise, or when that fails, back to the title, saying why.</summary>
     private void OnNetClosed(string why)
     {
         // (in the lobby, the online menu shows why by itself)
-        if (_onlineRun) ReturnToTitle(why);
+        if (!_onlineRun) return;
+        if (TryReconnect(why)) return;
+        ReturnToTitle(why);
     }
 
     /// <summary>Leaves the online game (the pause menu), back to the title.</summary>
@@ -155,6 +160,7 @@ public partial class Main
         StartOnlineRun(seed);
     }
 
+
     /// <summary>A run together begins (the host started it): the cave mouth, from the host's seed.</summary>
     public void StartOnlineRun(int seed)
     {
@@ -176,6 +182,10 @@ public partial class Main
         G.Depth = 0;
         G.Biome = Biomes.Get(BiomeId.Entrance); G.Shop = false;
         _seed = seed;
+        _runSeed = seed;
+        _levelBiome = (int)BiomeId.Entrance;
+        ForgetDropped();
+        _wasHost = Net.IsHost;
         _pendingTreasure.Clear();
         BuildLevel(seed, freshPlayer: true);
         _hud.HintTime = 10;
@@ -243,6 +253,7 @@ public partial class Main
     {
         if (!_onlineRun || !Net.InRun) return;
         Net.InRun = false;
+        ForgetDropped();
         Meta.Restore(_metaAtStart);
         _metaAtStart = null;
         BackToLobby();
@@ -335,6 +346,7 @@ public partial class Main
         if (!_onlineRun || _state == State.Dead) return;
         RunMetrics.Send();
         Net.InRun = false;
+        ForgetDropped();
         if (victory) _victory = true;
         _waitingAt = null;
         _victoryT = -1;

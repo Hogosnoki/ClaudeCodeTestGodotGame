@@ -102,6 +102,17 @@ In the cave:
 - **Pausing** opens the menu but doesn't stop the game (the others are still playing), and
   picking an upgrade keeps you safe while you choose. Leaving from the pause menu takes you
   back to the main menu; if the host leaves, the game ends for everyone.
+- **Dropping out and getting back in**: if your connection drops in the middle of a run, the game doesn't stop to tell you:
+  you stay in the level ("Connection lost: reconnecting…") while it tries the same code again by itself, over and over for
+  about twelve seconds. A short lapse is ridden out like that: the host takes you back, the level the party is in is built
+  again around you, and you carry on as the same hero, with your level, cards, relics, purse, keys, potions and health
+  ("Reconnected"). Only if that fails are you sent to the main menu, told so, and the online menu then has a
+  **Reconnect** button that tries again. Your hero is also written down every few seconds while a run together goes on,
+  so if you quit, or the game crashes, start it again and join with the same code (or press **Reconnect**): you're put
+  back into that run as you were. (A hero kept like that is forgotten when the run ends, when a new run starts, or after
+  twelve hours.)
+- **Joining a run under way**: someone new can join while the run goes on. They come in where the party is, as the hero
+  they ask for, at the party's level (the host's) with that many picks of cards to take.
 - **Walking out**: at depth 0, the tunnel you came in by leads back out to the daylight. When The tunnel now runs right out through the map's left edge (`BiomeGen.OpenMouth` opens the solid border there; an invisible wall at the edge keeps everyone in), and the daylight floods in from that edge and thins into the tunnel, so it reads as a passage to the outside rather than a glow in front of a blank wall. The way out is at the edge (1.6 cells in, `cave.Mouth`).
   everyone still standing waits there (interact at the bright end), you all walk out together:
   the run ends on the spot, keeping nothing from it, and you're back in the lobby.
@@ -1300,6 +1311,12 @@ for depth 6; and a party's chest may hold any party hero's class card, locked to
 who has every card of their own already is offered none at a milestone (it heals 30 instead).
 
 `--hero=warden`, `--hero=vitalist`, `--hero=elementalist` and `--hero=rogue` also work with `--autotest` and the other modes.
+
+**Getting back into a run**: `tools/rejointest.sh` runs three copies without a window (see `Main.RejoinTest.cs`): one hosts a
+run (`--nettest=rjhost`); one joins (`--nettest=rjjoin`), grows its hero (levels, two cards, a relic, gold, keys, a wound),
+has its connection cut, and checks it got straight back in by itself, never shown the title, as the very same hero; then it
+kills itself as a crash would. A fresh copy (`--nettest=rjback`) joins with the same address and checks it was put back into
+the run as that same hero, played back from what was written down (`JOIN_HERO=elementalist` picks the hero).
 
 **Online play**: `tools/nettest.sh` runs two copies of the game without a window on one machine,
 one hosting (`--nettest=host`) and one joining it (`--nettest=join`, `--netaddr=IP` for another

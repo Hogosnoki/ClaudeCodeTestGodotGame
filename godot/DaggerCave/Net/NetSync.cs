@@ -603,6 +603,28 @@ public static class NetSync
     {
         e.NetId = NewId();
         Enemies[e.NetId] = e;
+        Net.SendAll(SpawnMsg(e), true);
+    }
+
+    /// <summary>
+    /// Host: one who joined a run under way is brought up to date (after the level is built there): every creature of the host's alive
+    /// now, the chests already opened, the trials shut.
+    /// </summary>
+    public static void CatchUp(int peer)
+    {
+        foreach (var e in G.Enemies.ToArray())
+            if (e != null && GodotObject.IsInstanceValid(e) && !e.Puppet && !e.Dead && e.NetId != 0 && e.Master == null) Net.SendTo(peer, SpawnMsg(e), true);
+        foreach (var (id, n) in Props.ToArray())
+        {
+            if (n is not Chest c || !GodotObject.IsInstanceValid(c) || !c.Open) continue;
+            var w = new NetOut(Net.Msg.ChestOpened);
+            w.Int(id).Int(Net.Me);
+            Net.SendTo(peer, w, true);
+        }
+    }
+
+    private static NetOut SpawnMsg(Enemy e)
+    {
         var w = new NetOut(Net.Msg.EnemySpawn);
         w.Int(e.NetId);
         w.Str(e.GetType().Name);
@@ -617,7 +639,7 @@ public static class NetSync
         w.Str(e.DisplayName);
         if (e.Tint is Color t) w.Col(t);
         WriteState(w, e);
-        Net.SendAll(w, true);
+        return w;
     }
 
     private static void WriteState(NetOut w, Enemy e)
@@ -1233,13 +1255,13 @@ public static class NetSync
     }
 
     /// <summary>A trial room shut: its index and the cells of its wards (every game raises the same).</summary>
-    public static void SendTrial(int room, List<Vector2I> cells)
+    public static void SendTrial(int room, List<Vector2I> cells, int toPeer = 0)
     {
         if (!Net.IsHost) return;
         var w = new NetOut(Net.Msg.Trial);
         w.Int(room).Int(cells.Count);
         foreach (var c in cells) w.Short((short)c.X).Short((short)c.Y);
-        Net.SendAll(w, true);
+        if (toPeer != 0) Net.SendTo(toPeer, w, true); else Net.SendAll(w, true);
     }
 
     public static void SendTrialWon(int room)
@@ -1323,6 +1345,14 @@ public static class NetSync
         switch (type)
         {
             case Net.Msg.Start: G.Main?.StartOnlineRun(r.Int()); break;
+            case Net.Msg.JoinRun:
+            {
+                int runSeed = r.Int(); var b = (BiomeId)r.Byte(); int depth = r.Int(), seed = r.Int(); float rt = r.Float(); bool shop = r.Bool(), resume = r.Bool(); int lvl = r.Int();
+                int nr = r.Int(); var relics = new List<(int, string)>(nr);
+                for (int k = 0; k < nr; k++) { int who = r.Int(); relics.Add((who, r.Str())); }
+                G.Main?.JoinRunInProgress(runSeed, b, depth, seed, rt, shop, resume, lvl, relics);
+                break;
+            }
             case Net.Msg.Level: { var b = (BiomeId)r.Byte(); int depth = r.Int(), seed = r.Int(); float rt = r.Float(); bool shop = r.Bool(); G.Main?.OnlineLevel(b, depth, seed, rt, shop); break; }
             case Net.Msg.HeroState:
             {

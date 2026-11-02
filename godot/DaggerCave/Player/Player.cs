@@ -306,6 +306,7 @@ public partial class Player : CharacterBody2D
     private void LevelUpOnce()
     {
         Level++;
+        Stats.Log.Add(PlayerStats.LevelMark);
         Progression.AutoLevel(this);
         // (every level a pick of three; now and then a milestone besides; neither opens by itself)
         if (Cards.Grows(Stats.Hero)) { PendingPicks++; MilestoneAt = Time.GetTicksMsec() / 1000f; }
@@ -316,6 +317,15 @@ public partial class Player : CharacterBody2D
             if (this == G.Player) G.Sfx?.Play("milestone", null, -2, 0, 1f);
         }
         if (Stats.LevelHeal) HealHere(Stats.MaxHp * Tune.Relics.LevelHealShare);
+        Stats.On.RaiseLevel(this);
+    }
+
+    /// <summary>A level gained again, its growth only (a hero played back into a run: Main.Rejoin.cs; picks and counters are put back after).</summary>
+    public void ReplayLevelUp()
+    {
+        Level++;
+        Stats.Log.Add(PlayerStats.LevelMark);
+        Progression.AutoLevel(this);
         Stats.On.RaiseLevel(this);
     }
 

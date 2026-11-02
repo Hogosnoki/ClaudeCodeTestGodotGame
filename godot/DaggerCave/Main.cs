@@ -757,6 +757,13 @@ public partial class Main : Node
             keepAlimus = G.Player.Alimus;
             keepFuel = G.Player.Fuel;
         }
+        else if (_resumeFrom is Dropped { Stats: not null } d)
+        {
+            // (back in a run after a drop: the hero as they were: Main.Online.cs)
+            keepStats = d.Stats; keepHp = d.Hp; keepLevel = d.Level; keepXp = d.Xp; keepKills = d.Kills; keepPotions = d.Potions; keepGold = d.Gold; keepGoldFound = d.GoldFound; keepGoldSpent = d.GoldSpent; keepRerolls = d.Rerolls; keepTrades = d.Trades;
+            keepKeys = d.Keys; keepMilestones = d.Milestones; keepPicks = d.Picks; keepVitalForce = d.VitalForce; keepAlimus = d.Alimus; keepFuel = d.Fuel;
+        }
+        bool resuming = _resumeFrom != null;
         foreach (var c in _world.GetChildren()) { _world.RemoveChild(c); c.QueueFree(); }
         G.Enemies.Clear();
         NetSync.BeginLevel();
@@ -775,7 +782,9 @@ public partial class Main : Node
         ulong t0 = Time.GetTicksMsec();
         var biome = G.Biome ??= Biomes.Get(BiomeId.Entrance);
         // (a new run starts with no relics carried)
-        if (keepStats == null) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); RollStalls(); Achievements.NewRun(); }
+        if (keepStats == null || resuming) { RunRelics.Reset(); Upgrades.PartyStacks.Clear(); RunMetrics.Reset(); RollStalls(); Achievements.NewRun(); }
+        // (joining a run under way: the worldly relics the party carries, which shape the level: Main.Rejoin.cs)
+        if (_joinRelics != null) foreach (var (who, id) in _joinRelics) if (who != _resumeFrom?.OldPeer) RunRelics.Note(who, id);
         var cave = pregenerated ?? CaveGenerator.Generate(biome, seed);
         G.Cave = cave;
         Achievements.EnteredLevel(G.Depth, biome, cave, G.Shop);
@@ -803,8 +812,10 @@ public partial class Main : Node
         if (keepStats == null)
         {
             ApplyLoadout(player); player.Rerolls = Meta.RerollCharges; player.Trades = Meta.Trades;
-            // (the Ember Grid's Heirloom: a common relic to begin with)
-            if (HexGrid.Owns("rel_heirloom") && Upgrades.Pick(Upgrades.RelicPool(player.Stats).Where(u => u.Rarity == RelicRarity.Common).ToList(), 1, _rng, u => 1f).FirstOrDefault() is Upgrade heir)
+            // (the run's log starts here: what the grid and the loadout give comes again by itself)
+            player.Stats.Log.Clear();
+            // (the Ember Grid's Heirloom: a common relic to begin with; one played back into a run has it in its log)
+            if (!resuming && HexGrid.Owns("rel_heirloom") && Upgrades.Pick(Upgrades.RelicPool(player.Stats).Where(u => u.Rarity == RelicRarity.Common).ToList(), 1, _rng, u => 1f).FirstOrDefault() is Upgrade heir)
                 Upgrades.Apply(heir, player.Stats, player);
         }
         if (keepStats != null)
@@ -824,8 +835,8 @@ public partial class Main : Node
             player.Keys = keepKeys;
             player.Gold = keepGold; player.GoldFound = keepGoldFound; player.GoldSpent = keepGoldSpent; player.Rerolls = keepRerolls; player.Trades = keepTrades;
             // (interest is paid on the way down, not into the stall and out again)
-            if (keepStats.GoldInterest > 0f && !G.Shop && keepGold > 0) { int paid = Math.Max(1, (int)MathF.Round(keepGold * keepStats.GoldInterest)); player.Gold += paid; player.GoldFound += paid; }
-            if (G.Shop && keepStats.StallGold > 0) { player.Gold += keepStats.StallGold; player.GoldFound += keepStats.StallGold; }
+            if (keepStats.GoldInterest > 0f && !G.Shop && keepGold > 0 && !resuming) { int paid = Math.Max(1, (int)MathF.Round(keepGold * keepStats.GoldInterest)); player.Gold += paid; player.GoldFound += paid; }
+            if (G.Shop && keepStats.StallGold > 0 && !resuming) { player.Gold += keepStats.StallGold; player.GoldFound += keepStats.StallGold; }
             player.PendingMilestones = keepMilestones;
             player.PendingPicks = keepPicks;
             player.SetVitalForce(Math.Max(keepVitalForce, Tune.Vitalist.VitalForceStart * 0.5f));
@@ -1584,6 +1595,7 @@ public partial class Main : Node
 
     private void GoDeeper(int biome, int depth, int seed, bool shop)
     {
+        _levelBiome = biome;
         if (Brains.Training) Brains.SaveAll();
         // (what a whole depth earns, judged as the party goes on from it)
         Achievements.LeavingLevel(G.Depth, G.Biome, G.Shop, _guardianDown, G.Player);
@@ -2181,6 +2193,7 @@ public partial class Main : Node
         }
         _frameScale = (float)Engine.TimeScale;
         DebugTypingTick();
+        RejoinTick(unscaled);
         if (_state == State.Playing) SessionLog.Tick(dt);
 
         if (_padTest) PadTestTick(dt);

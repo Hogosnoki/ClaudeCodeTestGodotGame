@@ -29,7 +29,7 @@ public static partial class Net
 {
     public const int Port = 24890;
     /// <summary>Games only play together at the same version of the protocol.</summary>
-    public const int Version = 8;
+    public const int Version = 9;
     public const int MaxPlayers = 6;
 
     /// <summary>
@@ -47,8 +47,12 @@ public static partial class Net
     public static bool IsClient => State == Mode.Client;
     /// <summary>This game's peer id (the host is always 1).</summary>
     public static int Me { get; private set; } = 1;
-    /// <summary>A run has started (the lobby is closed to newcomers).</summary>
+    /// <summary>A run has started (a newcomer joins it where the party is: see <see cref="Main.LateJoiner"/>).</summary>
     public static bool InRun { get; set; }
+    /// <summary>Joining: the run this game dropped out of (its first seed), to pick up where it left off; 0 for none.</summary>
+    public static int RejoinToken;
+    /// <summary>The code (or address) this game last joined with: the quiet reconnect tries it again.</summary>
+    public static string ActiveCode = "";
 
     /// <summary>A player's name (for notices), or "SOMEONE".</summary>
     public static string NameOf(int id) => Peers.TryGetValue(id, out var p) ? p.Name.ToUpperInvariant() : "SOMEONE";
@@ -172,6 +176,9 @@ public static partial class Net
         State = Mode.Client;
         Peers.Clear();
         InRun = false;
+        ActiveCode = codeOrAddress.Trim();
+        // (a hero kept from a run joined with this same code asks to be taken back: Main.Rejoin.cs)
+        G.Main?.PrepareJoin(ActiveCode);
         _askedHero = false;
         Status = $"Connecting to {ip}:{port}…";
         Notify();
@@ -253,12 +260,18 @@ public static partial class Net
         w.Str(MyName);
         w.Str(Build);
         w.Int(MyLockedMask());
+        // (the hero this game wants, and the run it dropped out of, if any: a run under way takes it back where the party is)
+        w.Byte((byte)G.Hero);
+        w.Int(RejoinToken);
         SendTo(1, w, true);
         Notify();
     }
 
     private static void OnConnectFailed()
         => Close("Couldn't reach the host. Check the code, and that their game is hosting (and, if it said so, that their router lets you in).");
+
+    /// <summary>Tests: the connection drops as if the network went (Main.RejoinTest.cs).</summary>
+    public static void TestDrop() => Close("The connection to the host was lost.");
 
     private static void OnServerGone() => Close(InRun ? "The host left the game." : "The host closed the game.");
 
@@ -392,6 +405,8 @@ public static partial class Net
         RelicGift, RelicReturned,
         /// <summary>A trial room shut (its room and the cells of its wards) and won (its wards fade).</summary>
         Trial, TrialWon,
+        /// <summary>To one who joined a run under way: where the party is (the run, the level, how long it's been), and whether they pick up as they were.</summary>
+        JoinRun,
     }
 
     /// <summary>Sends to one peer.</summary>
@@ -463,8 +478,9 @@ public static partial class Net
         string name = Clean(r.Str());
         string build = r.More ? r.Str() : "";
         int locked = r.More ? r.Int() : 0;
+        var want = r.More ? (HeroKind)r.Byte() : HeroKind.Swordsman;
+        int token = r.More ? r.Int() : 0;
         string refuse = version != Version ? "Your game is a different version from the host's. You both need the same copy."
-            : InRun ? "That game is already under way. Ask the host to go back to the lobby."
             : Peers.Count >= MaxPlayers ? "That game is full (six heroes, six players)."
             : null;
         if (refuse != null)
@@ -476,10 +492,29 @@ public static partial class Net
             _node.GetTree().CreateTimer(1.0).Timeout += () => _peer?.DisconnectPeer(from);
             return;
         }
+        // (one coming back to this run whose old connection hasn't timed out yet: that one is a ghost of theirs, let go)
+        if (InRun && G.Main != null && G.Main.IsThisRun(token))
+            foreach (var ghost in Peers.Values.Where(p => p.Id != Me && p.Id != from && p.Name == name && p.Hero == want).ToList())
+            {
+                _peer?.DisconnectPeer(ghost.Id);
+                OnPeerDisconnected(ghost.Id);
+            }
         // two players can't share a name on screen
         string unique = name;
         for (int k = 2; Peers.Values.Any(p => p.Name == unique); k++) unique = $"{name} {k}";
         var info = new PeerInfo { Id = from, Name = unique, Build = build, Locked = locked };
+        if (InRun)
+        {
+            // (a run under way: they come in as the hero they ask for, where the party is; one coming back to this run picks up as they were)
+            info.Hero = Enum.IsDefined(want) ? want : HeroKind.Swordsman;
+            info.Picked = true;
+            Peers[from] = info;
+            SendLobby();
+            G.Main?.LateJoiner(from, token);
+            G.Main?.OnlineNotice(G.Main.IsThisRun(token) ? $"{unique} is back" : $"{unique} joined the run");
+            Notify();
+            return;
+        }
         // hand them the first hero nobody has (they can switch to another free one)
         foreach (HeroKind h in Enum.GetValues(typeof(HeroKind)))
             if (TakenBy(h) == null) { info.Hero = h; info.Picked = true; break; }
@@ -503,6 +538,8 @@ public static partial class Net
         }
         RunSettings.Difficulty = Math.Clamp(r.Float(), RunSettings.DifficultyMin, RunSettings.DifficultyMax); RunSettings.PerPlayer = Math.Clamp(r.Float(), RunSettings.PerPlayerMin, RunSettings.PerPlayerMax); RunSettings.Hard = r.Bool();
         if (IsClient && Status.StartsWith("Connect")) Status = "In the lobby.";
+        // (in a run, someone new or back: their hero in this cave too)
+        if (InRun && G.World != null && G.Cave != null && !NetSync.Building) NetSync.SpawnAvatars();
         // in: ask for the hero picked on the title, if nobody has it
         if (IsClient && !_askedHero && Mine != null)
         {

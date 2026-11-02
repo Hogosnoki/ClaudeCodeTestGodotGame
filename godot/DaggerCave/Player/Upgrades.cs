@@ -254,6 +254,10 @@ public sealed class PlayerStats
     public string SpecialForm = "";
 
     public readonly Dictionary<string, int> Stacks = new();
+    /// <summary>The run's cards and relics taken, and its levels gained (<see cref="LevelMark"/>), in order: a hero written down to get back
+    /// into a run after a restart is this, played again (Main.Rejoin.cs).</summary>
+    public readonly List<string> Log = new();
+    public const string LevelMark = "^level";
     /// <summary>What each relic changed when it was taken, so it can be given back (see RelicUndo.cs).</summary>
     public readonly Dictionary<string, Upgrades.RelicTrace> RelicTraces = new();
     /// <summary>What each side-grade (and each card grown on one) changed, so a "Back to..." card can take it off again.</summary>
@@ -994,11 +998,15 @@ public static partial class Upgrades
         return result;
     }
 
+    /// <summary>A hero's cards being played again (back in a run after a restart): nothing told to the others, no feats.</summary>
+    public static bool Replaying;
+
     public static void Apply(Upgrade u, PlayerStats s, Player p)
     {
         s.Stacks[u.Id] = s.StackOf(u.Id) + 1;
+        s.Log.Add(u.Id);
         // (the others keep count of what this hero has, so their chests aren't dealt what nobody can take again)
-        if (p != null && !p.IsRemote && p == G.Player) { NetSync.SendCard(u.Id); Achievements.CardTaken(u, s.Hero); }
+        if (p != null && !p.IsRemote && p == G.Player && !Replaying) { NetSync.SendCard(u.Id); Achievements.CardTaken(u, s.Hero); }
         if (u.Relic) ApplyTraced(u, s, p); else if (IsSideGradeCard(u)) ApplyCard(u, s, p); else u.Apply(s, p);
         if (u.Relic && p != null && !p.IsRemote) RunRelics.Take(u.Id);
     }

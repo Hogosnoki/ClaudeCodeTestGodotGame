@@ -76,6 +76,12 @@ public partial class Main
         return false;
     }
 
+    /// <summary>Host: one who joined while trials are shut gets their wards too.</summary>
+    private void SendOpenTrials(int peer)
+    {
+        foreach (var t in _trials) if (!t.Won && t.Rim != null) NetSync.SendTrial(t.Index, t.Rim, peer);
+    }
+
     /// <summary>A generator at a spot (the level's, a trial room's or a test's).</summary>
     public Generator MakeGenerator(Vector2 at, Room trial = null)
     {
@@ -100,6 +106,8 @@ public partial class Main
         public readonly List<Generator> Gens = new();
         public Enemy Elite;
         public TrialSeal Seal;
+        /// <summary>The cells of its wards (sent again to one who joins while it's shut).</summary>
+        public List<Vector2I> Rim;
         public bool Won;
         /// <summary>How long it has run, and whether it has been told it grows angry.</summary>
         public float Age;
@@ -235,6 +243,7 @@ public partial class Main
             int best = inside.OrderBy(k => Mid(k).DistanceSquaredTo(h.GlobalPosition)).First();
             h.GlobalPosition = Mid(best);
         }
+        t.Rim = rim;
         t.Seal = RaiseSeal(t.Index, rim, TrialSeed(cave, room));
         NetSync.SendTrial(t.Index, rim);
         // the generators: on the room's floor, apart, never on top of a hero
