@@ -29,9 +29,10 @@ public partial class ChestView
     /// The shape of a flower's cross-section. Ridge: the whole thickness equals the distance D to the nearest edge (knife edges, a
     /// ridge down the middle). Cushion: the thickness is <c>CushionMax · (1 − 1/(D/CushionUnit + 1)²)</c>, which climbs steeply from
     /// the edge and levels off: rounded rims and a nearly flat face, like a stamped medallion. (DC_SHRINE_PROFILE="cushion:unit:max"
-    /// picks it for a test run.)
+    /// picks it for a test run.) Tanh: the thickness is <c>CushionMax · tanh(D/CushionUnit)</c>, a straight slope off the edge that
+    /// flattens into a plateau more abruptly than the cushion ("tanh:unit:max").
     /// </summary>
-    public enum ShrineProfile { Ridge, Cushion }
+    public enum ShrineProfile { Ridge, Cushion, Tanh }
     public static ShrineProfile Profile = ShrineProfile.Ridge;
     /// <summary>For the cushion: the distance (picture pixels) that counts as 1, and the whole thickness it levels off at (pixels).</summary>
     public static float CushionUnit = 8f, CushionMax = 26f;
@@ -41,9 +42,9 @@ public partial class ChestView
         var env = System.Environment.GetEnvironmentVariable("DC_SHRINE_PROFILE");
         if (string.IsNullOrEmpty(env)) return;
         var parts = env.Split(':');
-        if (parts[0] == "cushion")
+        if (parts[0] == "cushion" || parts[0] == "tanh")
         {
-            Profile = ShrineProfile.Cushion;
+            Profile = parts[0] == "tanh" ? ShrineProfile.Tanh : ShrineProfile.Cushion;
             if (parts.Length > 1 && float.TryParse(parts[1], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var u)) CushionUnit = u;
             if (parts.Length > 2 && float.TryParse(parts[2], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var m)) CushionMax = m;
         }
@@ -73,6 +74,7 @@ public partial class ChestView
                 if (x < 0 || y < 0 || x >= w || y >= h) return 0f;
                 var c = himg.GetPixel(x, y);
                 float d = (Mathf.Round(c.R * 255f) * 256f + Mathf.Round(c.G * 255f)) / 65535f * maxDist;
+                if (Profile == ShrineProfile.Tanh) return 0.5f * CushionMax * MathF.Tanh(d / CushionUnit);
                 if (Profile == ShrineProfile.Cushion)
                 {
                     float q = 1f / (d / CushionUnit + 1f);
