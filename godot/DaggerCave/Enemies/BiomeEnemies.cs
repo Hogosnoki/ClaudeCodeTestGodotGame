@@ -39,7 +39,7 @@ public partial class Rat : Walker
     private int _s; // 0 run, 1 windup, 2 lunge, 3 recover
     private float _st, _cd = 0.5f;
 
-    public Rat() { MaxHp = Tune.Rat.Hp; BodyRadius = 6; Size = 1.3f; ContactDamage = Tune.Rat.BiteDamage; XpValue = Tune.Rat.Xp; }
+    public Rat() { LookScale = 1.45f; MaxHp = Tune.Rat.Hp; BodyRadius = 6; Size = 1.3f; ContactDamage = Tune.Rat.BiteDamage; XpValue = Tune.Rat.Xp; }
 
     protected override void Setup() { DisplayName = "Rat"; UseSprite("rat"); }
 
@@ -130,7 +130,7 @@ public partial class Bear : Walker
     private float SwipeWindupNow => _quickSwipe ? Tune.Bear.RushSwipeWindup : Tune.Bear.SwipeWindup;
     private bool _quickSwipe;
 
-    public Bear() { MaxHp = Tune.Bear.Hp; BodyRadius = 14; ContactDamage = Tune.Bear.Contact; XpValue = Tune.Bear.Xp; KnockResist = 0.6f; }
+    public Bear() { LookScale = 1.12f; MaxHp = Tune.Bear.Hp; BodyRadius = 14; ContactDamage = Tune.Bear.Contact; XpValue = Tune.Bear.Xp; KnockResist = 0.6f; }
     /// <summary>For the 3D stage: stars circle a stunned bear's head.</summary>
     public bool Stunned => _s == S.Stunned;
 
@@ -398,7 +398,7 @@ public partial class Scorpion : Walker
     public void TestReadySpray() => _sprayCd = 0f;
     public override void NetState(NetIO io) => io.Sync(ref _s);
 
-    public Scorpion() { MaxHp = Tune.Scorpion.Hp; BodyRadius = 9; ContactDamage = Tune.Scorpion.Contact; XpValue = Tune.Scorpion.Xp; KnockResist = 0.2f; }
+    public Scorpion() { LookScale = 1.15f; MaxHp = Tune.Scorpion.Hp; BodyRadius = 9; ContactDamage = Tune.Scorpion.Contact; XpValue = Tune.Scorpion.Xp; KnockResist = 0.2f; }
 
     protected override void Setup() { DisplayName = "Scorpion"; UseSprite("scorpion"); }
     protected override Color BloodColor => new(0.55f, 0.8f, 0.2f);
@@ -549,7 +549,7 @@ public partial class Hornet : Enemy
 
     protected override bool UsesGravity => false;
 
-    public Hornet() { MaxHp = Tune.Hornet.Hp; BodyRadius = 7; ContactDamage = Tune.Hornet.Contact; XpValue = Tune.Hornet.Xp; }
+    public Hornet() { LookScale = 1.45f; MaxHp = Tune.Hornet.Hp; BodyRadius = 7; ContactDamage = Tune.Hornet.Contact; XpValue = Tune.Hornet.Xp; }
 
     protected override void Setup()
     {

@@ -29,7 +29,7 @@ public partial class Mite : Enemy
     protected override bool UsesGravity => false;
     protected override bool Striking => _dartT > 0f;
 
-    public Mite() { MaxHp = Tune.Movers.MiteHp; BodyRadius = 3.5f; Size = 1.5f; ContactDamage = Tune.Movers.MiteBite; XpValue = 1; }
+    public Mite() { LookScale = 1.35f; MaxHp = Tune.Movers.MiteHp; BodyRadius = 3.5f; Size = 1.5f; ContactDamage = Tune.Movers.MiteBite; XpValue = 1; }
 
     protected override void Setup()
     {

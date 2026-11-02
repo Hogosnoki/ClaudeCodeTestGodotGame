@@ -21,7 +21,7 @@ public partial class Bat : Enemy
         if (Master != null) { _state = 1; ContactActive = true; } // (driven: on the wing from the start)
     }
 
-    public Bat() { MaxHp = Tune.Bat.Hp; BodyRadius = 7; ContactDamage = Tune.Bat.Contact; XpValue = Tune.Bat.Xp; }
+    public Bat() { LookScale = 1.25f; MaxHp = Tune.Bat.Hp; BodyRadius = 7; ContactDamage = Tune.Bat.Contact; XpValue = Tune.Bat.Xp; }
 
     /// <summary>Entrance: already on the wing, swooping in from off-screen.</summary>
     public override void Engage()
@@ -198,7 +198,7 @@ public partial class Frog : Enemy
     /// <summary>The throat swells this long before the tongue lashes.</summary>
     private const float TongueWind = 0.3f;
 
-    public Frog() { MaxHp = Tune.Frog.Hp; BodyRadius = 9; ContactDamage = Tune.Frog.Contact; XpValue = Tune.Frog.Xp; }
+    public Frog() { LookScale = 1.25f; MaxHp = Tune.Frog.Hp; BodyRadius = 9; ContactDamage = Tune.Frog.Contact; XpValue = Tune.Frog.Xp; }
 
     public override void NetState(NetIO io) { io.Sync(ref _tongueT); io.Sync(ref _tongueDir); }
 
@@ -578,7 +578,7 @@ public partial class Spider : Enemy
 
     protected override bool UsesGravity => _state == 4;
 
-    public Spider() { MaxHp = Tune.Spider.Hp; BodyRadius = 8; ContactDamage = Tune.Spider.Contact; XpValue = Tune.Spider.Xp; }
+    public Spider() { LookScale = 1.2f; MaxHp = Tune.Spider.Hp; BodyRadius = 8; ContactDamage = Tune.Spider.Contact; XpValue = Tune.Spider.Xp; }
 
     /// <summary>Lives on the ground (hunting spiders, the web-mother) instead of the ceiling.</summary>
     public bool Grounded;

@@ -78,6 +78,9 @@ public abstract partial class Enemy : CharacterBody2D
     public float KnockResist;
     public bool Elite, IsBoss;
     public float Size = 1f;
+    /// <summary>How much bigger its body is drawn than its bulk (the small creatures are drawn large, to be seen and feared): the model
+    /// only, standing on the same feet; it is struck a little further out to match, but it moves through the same gaps.</summary>
+    public float LookScale = 1f;
     public bool Dead;
     public Action<Enemy> OnDeath;
 
@@ -126,7 +129,7 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>Walks and falls (rather than flying or swimming): it can be stranded on a ledge.</summary>
     public bool Walks => UsesGravity;
     public virtual bool CanBeHit => true;
-    public virtual float HitRadius => BodyRadius * Size;
+    public virtual float HitRadius => BodyRadius * Size * (1f + (LookScale - 1f) * 0.6f);
 
     private float _topPx = -1f;
     /// <summary>How far above its centre (px) the top of its 3D body reaches: where its health bar and damage numbers belong (an elite is scaled up, and tall creatures stand well above their hit circle).</summary>
@@ -265,7 +268,7 @@ public abstract partial class Enemy : CharacterBody2D
     /// <summary>Attaches this creature's sprite sheet (call from Setup).</summary>
     protected void UseSprite(string set)
     {
-        Anim = SpriteAnimator.Create(set, Size);
+        Anim = SpriteAnimator.Create(set, Size * LookScale);
         Anim.Facing = (int)Face;
         Anim.FootOffset = BodyRadius * Size;
         AddChild(Anim);

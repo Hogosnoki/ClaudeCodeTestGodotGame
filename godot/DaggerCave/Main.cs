@@ -372,6 +372,7 @@ public partial class Main : Node
             else if (a == "--slayer") Net.ForceSlayer = true;
             else if (a.StartsWith("--gridshot=")) _metaShot = a[11..];
             else if (a.StartsWith("--lookshot=")) _lookShot = a[11..];
+            else if (a.StartsWith("--lookrow=")) _lookRow = a[10..];
             else if (a.StartsWith("--frames=")) _lookFrames = int.Parse(a[9..]);
             else if (a.StartsWith("--fxtest=")) _fxTest = int.Parse(a[9..]);
             else if (a == "--proptest") _propTest = true;
@@ -432,7 +433,7 @@ public partial class Main : Node
 
     // --lookshot=PATH [--frames=N]: build the level, stand still for N frames, save a screenshot
     // and quit (look development for the 3D presentation)
-    private string _lookShot = "";
+    private string _lookShot = "", _lookRow = "";
     // --menushot=DIR: the pause menu and each settings tab, then a chest holding a friend's cards,
     // a milestone's cards and the build page, saved as screenshots
     private string _menuShot = "";
@@ -660,6 +661,25 @@ public partial class Main : Node
                 _world.AddChild(row[k]);
                 row[k].Freeze(99f, hold: true);
                 row[k].Hp = row[k].MaxHp * 0.6f; // (hurt, so its health bar shows)
+            }
+        }
+        if (_lookRow != "" && _lookFrame == 2)
+        {
+            // Test aid (--lookrow=Goblin,Bear,Rat, with --lookshot): those creatures side by side beside the hero, held still
+            var at = G.Player.GlobalPosition;
+            foreach (var e in G.Enemies.ToArray()) e.QueueFree();
+            var names = _lookRow.Split(',', StringSplitOptions.RemoveEmptyEntries);
+            float x = 40f;
+            foreach (var n in names)
+            {
+                var type = typeof(Enemy).Assembly.GetType("DaggerCave." + n);
+                if (type == null || Activator.CreateInstance(type) is not Enemy e) continue;
+                var fl = G.Cave.FindFloor(at + new Vector2(x, -40), 200, out var f) ? f : at;
+                e.Position = fl + new Vector2(0, -24);
+                e.SetMeta("test", true);
+                _world.AddChild(e);
+                e.Freeze(99f, hold: true);
+                x += Math.Max(36f, e.HitRadius * 2.2f + 14f);
             }
         }
         if (_elementTest && _lookFrame == 2) SpawnElementTest();

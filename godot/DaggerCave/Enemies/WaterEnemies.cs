@@ -16,7 +16,7 @@ public partial class Fish : Enemy
 
     protected override bool UsesGravity => _state != 0;
 
-    public Fish() { MaxHp = Tune.Fish.Hp; BodyRadius = 6; ContactDamage = Tune.Fish.Contact; XpValue = Tune.Fish.Xp; }
+    public Fish() { LookScale = 1.25f; MaxHp = Tune.Fish.Hp; BodyRadius = 6; ContactDamage = Tune.Fish.Contact; XpValue = Tune.Fish.Xp; }
 
     protected override void Setup()
     {
@@ -180,7 +180,7 @@ public partial class Urchin : Enemy
 
     protected override bool UsesGravity => false;
 
-    public Urchin() { MaxHp = Tune.Urchin.Hp; BodyRadius = 10; ContactDamage = Tune.Urchin.Contact; XpValue = Tune.Urchin.Xp; KnockResist = 1f; }
+    public Urchin() { LookScale = 1.2f; MaxHp = Tune.Urchin.Hp; BodyRadius = 10; ContactDamage = Tune.Urchin.Contact; XpValue = Tune.Urchin.Xp; KnockResist = 1f; }
 
     protected override void Setup()
     {
@@ -394,7 +394,7 @@ public partial class Crab : Walker
     private float _st, _cd = 1f;
     private bool _wasWater;
 
-    public Crab() { MaxHp = Tune.Crab.Hp; BodyRadius = 7; Size = Tune.Crab.Size; ContactDamage = Tune.Crab.Contact; XpValue = Tune.Crab.Xp; KnockResist = 0.25f; }
+    public Crab() { LookScale = 1.4f; MaxHp = Tune.Crab.Hp; BodyRadius = 7; Size = Tune.Crab.Size; ContactDamage = Tune.Crab.Contact; XpValue = Tune.Crab.Xp; KnockResist = 0.25f; }
 
     protected override void Setup() { DisplayName = "Reef Crab"; UseSprite("crab_foe"); }
     protected override Color BloodColor => new(0.75f, 0.5f, 0.3f);
