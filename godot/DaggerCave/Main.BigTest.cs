@@ -36,20 +36,24 @@ public partial class Main
         // ---- a jump in mid-air, for everyone
         ScCheck($"the {hero} has a jump in mid-air ({p.AirJumpsMax}) and kicks off walls ({p.CanWallJump})", p.AirJumpsMax >= 1 && p.CanWallJump);
         // (somewhere with room overhead for two jumps, and no ledge to land on in between)
-        foreach (float dx in new[] { 0f, 40f, -40f, 80f, -80f, 120f, -120f, 160f, -160f, 200f, -200f, 260f, -260f, 320f, -320f })
-        {
-            if (!G.Cave.FindFloor(home + new Vector2(dx, -30f), 120f, out var fl)) continue;
-            var stand = fl + new Vector2(0, -12f);
-            bool open = true;
-            for (float ox = -8f; ox <= 8f && open; ox += 8f)
+        float bestRoom = 0f;
+        Vector2 bestAt = home;
+        for (float dx = 0f; dx <= 640f && bestRoom < 150f; dx += 20f)
+            foreach (float sgn in new[] { 1f, -1f })
             {
-                G.Cave.Raycast(stand + new Vector2(ox, 0), Vector2.Up, 200f, out var roof, 4f);
-                open = stand.Y - roof.Y >= 196f;
+                if (!G.Cave.FindFloor(home + new Vector2(dx * sgn, -40f), 160f, out var fl)) continue;
+                var stand = fl + new Vector2(0, -12f);
+                float room = float.MaxValue;
+                for (float ox = -10f; ox <= 10f; ox += 5f)
+                {
+                    G.Cave.Raycast(stand + new Vector2(ox, 0), Vector2.Up, 240f, out var roof, 3f);
+                    room = Math.Min(room, stand.Y - roof.Y);
+                }
+                if (room > bestRoom) { bestRoom = room; bestAt = stand; }
+                if (bestRoom >= 150f) break;
             }
-            if (!open) continue;
-            p.GlobalPosition = stand; p.Velocity = Vector2.Zero;
-            break;
-        }
+        p.GlobalPosition = bestAt; p.Velocity = Vector2.Zero;
+        GD.Print($"[big] jump spot {bestAt.Round()} with {bestRoom:0} px overhead");
         for (int f = 0; f < 120 && !p.IsOnFloor(); f++) yield return null;
         float y0 = p.GlobalPosition.Y;
         // (the button held through each jump, as a player would)

@@ -2697,7 +2697,10 @@ public partial class Main : Node
         }
     }
 
-    private void SpawnChest(Vector2 at, bool relic = false)
+    private void SpawnChest(Vector2 at) => SpawnChestOf(at, false);
+
+    /// <summary>A chest made mid-level (<paramref name="relic"/>: a relic chest, a trial's).</summary>
+    private void SpawnChestOf(Vector2 at, bool relic)
     {
         // (online, a chest made mid-level goes to every game)
         NetSync.Scope++;

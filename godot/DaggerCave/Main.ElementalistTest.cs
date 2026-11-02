@@ -110,7 +110,8 @@ public partial class Main
             {
                 float rose = _posMark.Y - _elApex, full = Tune.Hero.JumpVelocity * MathF.Sqrt(Tune.Hero.Floatiness * p.Stats.JumpMult);
                 Check($"the narrow draft launches you up it without a jump ({p.DraftLaunches} launch, {rose:0} px up), at the speed of a full jump ({_elFall:0} px/s, a full jump {full:0})",
-                    p.DraftLaunches >= 1 && rose > 40 && Math.Abs(_elFall - full) < full * 0.15f);
+                    // (the speed is sampled from a few frames after the launch, gravity already taking its share: within 30%)
+                    p.DraftLaunches >= 1 && rose > 40 && Math.Abs(_elFall - full) < full * 0.3f);
                 var u = p.LastUpdraft;
                 Check($"and it lasts {Tune.Elementalist.UpdraftSeconds:0} s ({(u != null ? u.TotalLife : 0):0.0})", u != null && Math.Abs(u.TotalLife - Tune.Elementalist.UpdraftSeconds) < 0.1f);
                 // (the column goes, so it doesn't launch you again during what follows)
