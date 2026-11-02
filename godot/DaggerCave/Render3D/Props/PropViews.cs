@@ -1467,6 +1467,9 @@ public partial class ChestView : PropView
         if (_beam != null) { _beam.QueueFree(); _beam = null; }
         _gemGlow = null; _motes = null;
         _grade = grade;
+        _flowerMid = _flowerTop = -1f;
+        // (made from its picture when it can be: a relief of the reference art; else built by hand below)
+        if (BuildRelief(boss, grade)) return;
         int g = GradeStep(grade);
         float k = (boss ? 2.6f : 1.9f) * GradeSize(grade);
         // (the crystal's glow by grade: cool cyan, then a touch of violet, then a touch of orange, then yellow-gold)
@@ -1798,15 +1801,16 @@ public partial class ChestView : PropView
             // (the finer ones shine: the silver and its jewels pulse, the sparks twinkle; the rays turn in the shader, the pillar breathes)
             int g = GradeStep(_grade);
             float pulse = 0.5f + 0.5f * MathF.Sin(Time * (2.2f + 0.6f * g));
-            if (g >= 1 && _crystalMat != null) _crystalMat.EmissionEnergyMultiplier = OrnGlow(g) * (1f + 0.25f * pulse);
+            if (_crystalMat != null && _flowerMid >= 0f) _crystalMat.EmissionEnergyMultiplier = ReliefGlow(g) * (1f + 0.12f * g * pulse);
+            else if (g >= 1 && _crystalMat != null) _crystalMat.EmissionEnergyMultiplier = OrnGlow(g) * (1f + 0.25f * pulse);
             if (_redMat != null) _redMat.EmissionEnergyMultiplier = 0.75f + 0.35f * pulse;
             if (_motes != null) { float tw = 0.85f + 0.25f * MathF.Sin(Time * 5.3f); _motes.Scale = new Vector3(tw, tw, 1f); }
             float up = _floatY + W3.M(c.ShrineLift);
             float kk = (_tier == ChestTier.Boss ? 2.6f : 1.9f) * GradeSize(_grade);
-            if (_rays != null) _rays.Position = new Vector3(0, up + (g >= 3 ? 0.13f : 0.18f) * kk, -0.3f);
+            if (_rays != null) _rays.Position = new Vector3(0, up + (_flowerMid >= 0f ? _flowerMid : (g >= 3 ? 0.13f : 0.18f) * kk), -0.3f);
             if (_beam != null)
             {
-                _beam.Position = new Vector3(0, up + DesignTop(g) * kk + 4.8f, -0.3f);
+                _beam.Position = new Vector3(0, up + (_flowerTop >= 0f ? _flowerTop : DesignTop(g) * kk) + 4.6f, -0.3f);
                 PropViews.SetSprite(_beam, new Color(1f, 0.88f, 0.6f), 0, 0.16f + 0.05f * pulse);
             }
         }
