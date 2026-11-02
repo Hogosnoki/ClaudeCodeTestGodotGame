@@ -1454,6 +1454,12 @@ public partial class ChestView : PropView
     /// red vein down its heart to a long pendant, and red sparks floating about it that twinkle.
     /// Then shine, sparkle and rays: the rays turn in a ring around it, hollow in the middle, so they never cover the flower.
     /// </summary>
+    /// <summary>
+    /// How thick each piece of a shrine's flower is, as a share of the distance from the nearest edge: the whole thickness (front and
+    /// back together) is half that distance, so every piece is knife-sharp at its edges and swells to a ridge along its middle.
+    /// </summary>
+    private const float ShrineThickness = 0.5f;
+
     private void BuildShrine(bool boss, CardGrade grade)
     {
         if (_float != null) { _float.QueueFree(); _float = null; }
@@ -1468,98 +1474,75 @@ public partial class ChestView : PropView
         _floatY = 0.1f * k;
         _float = new Node3D { Position = new Vector3(0, _floatY, 0) };
         AddChild(_float);
-        float t = 0.035f * k;      // the crystal's half thickness
-        float to = 0.022f * k;     // the ornaments' half thickness
-        float e = 0.005f * k;
+        float e = 0.004f;          // (how far an inlay stands proud of the crystal, in the flower's units)
+        float rk = ShrineThickness * 0.5f;   // (each face rises this share of the distance to the nearest edge)
+        bool epic = g >= 2, leg = g >= 3;
 
-        // ---- the crystal flower itself (the Uncommon shrine, and the heart of every finer one)
-        void Poly(MeshBuilder mb, Color c, params Vector2[] p)
-        {
-            // (a flat convex polygon, a front and a back, and its rim)
-            var front = new int[p.Length]; var back = new int[p.Length];
-            for (int i = 0; i < p.Length; i++)
-            {
-                front[i] = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, t), Vector3.Back, c);
-                back[i] = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, -t), Vector3.Forward, c);
-            }
-            for (int i = 1; i < p.Length - 1; i++) { mb.Tri(front[0], front[i], front[i + 1]); mb.Tri(back[0], back[i + 1], back[i]); }
-            for (int i = 0; i < p.Length; i++)
-            {
-                int j = (i + 1) % p.Length;
-                var edge = new Vector3((p[j].Y - p[i].Y), -(p[j].X - p[i].X), 0).Normalized();
-                int a0 = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, t), edge, c), a1 = mb.Add(new Vector3(p[j].X * k, p[j].Y * k, t), edge, c);
-                int b0 = mb.Add(new Vector3(p[i].X * k, p[i].Y * k, -t), edge, c), b1 = mb.Add(new Vector3(p[j].X * k, p[j].Y * k, -t), edge, c);
-                mb.Quad(a0, b0, b1, a1); mb.Quad(a0, a1, b1, b0);
-            }
-        }
-        void Blade(MeshBuilder mb, Vector2 baseP, Vector2 tip, float halfWidth, float widest = 0.45f)
-        {
-            var d = tip - baseP; var dir = d.Normalized(); var perp = new Vector2(-dir.Y, dir.X);
-            var mid = baseP + d * widest;
-            Poly(mb, Colors.White, baseP, mid + perp * halfWidth * -1f, tip, mid + perp * halfWidth);
-        }
-        var body = new MeshBuilder();
-        Blade(body, new Vector2(0f, 0f), new Vector2(0f, 0.47f), 0.085f, 0.46f);
-        if (g == 0)
-        {
-            Blade(body, new Vector2(-0.045f, 0f), new Vector2(-0.36f, 0.34f), 0.07f);
-            Blade(body, new Vector2(0.045f, 0f), new Vector2(0.36f, 0.34f), 0.07f);
-        }
-        var bodyMat = PropViews.Emissive(glowCol, BodyGlow(g));
-        bodyMat.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
-        _float.AddChild(PropViews.Mesh(body, bodyMat, false));
-        if (g == 0)
-        {
-            var core = new MeshBuilder();
-            Blade(core, new Vector2(0f, 0.05f), new Vector2(0f, 0.34f), 0.04f, 0.46f);
-            var coreNode = PropViews.Mesh(core, PropViews.Emissive(glowCol.Lerp(Colors.White, 0.6f), 1.55f), false);
-            coreNode.Position = new Vector3(0, 0, t * 0.6f);
-            _float.AddChild(coreNode);
-        }
-        var halo = PropViews.Sprite(glowCol, 0, g == 0 ? 0.22f : g == 1 ? 0.1f : 0.06f, 0.8f * k);
-        halo.Position = new Vector3(0, 0.2f * k, 0);
-        _float.AddChild(halo);
-        _crystalMat = null; _redMat = null;
-        if (g == 0) return;
-
-        // ---- the ornament: strips of quads along curves (wings, strands, scrolls), crystal like the flower, with red set into it
-        var orn = new MeshBuilder();
-        var redRim = new MeshBuilder();
-        var redCore = new MeshBuilder();
-        var glow = new MeshBuilder();
-        void Strip(MeshBuilder mb, List<Vector2> pts, List<float> ws, float zf, float zb, bool solid)
+        // ---- the one building block: a piece along a centre line with a width at each point, ridged front and back. Its faces rise
+        // from nothing at its edges to a ridge along its middle, each point standing off by its distance to the nearest edge (times rk).
+        // An inlay (parent widths given) lies on its parent's faces instead, following their slope, a hair proud of them.
+        void Ridge(MeshBuilder mb, List<Vector2> pts, List<float> ws, List<float> parent = null, float lift = 0f)
         {
             int n = pts.Count;
-            var L = new Vector3[n]; var R = new Vector3[n];
+            if (n < 2) return;
+            var L = new Vector3[n]; var C = new Vector3[n]; var R = new Vector3[n];
             for (int i = 0; i < n; i++)
             {
                 var d = (pts[Math.Min(n - 1, i + 1)] - pts[Math.Max(0, i - 1)]).Normalized();
-                var nrm = new Vector2(-d.Y, d.X) * ws[i] * 0.5f;
-                L[i] = new Vector3((pts[i].X + nrm.X) * k, (pts[i].Y + nrm.Y) * k, 0);
-                R[i] = new Vector3((pts[i].X - nrm.X) * k, (pts[i].Y - nrm.Y) * k, 0);
+                var nrm = new Vector2(-d.Y, d.X);
+                float hw = Math.Max(0.0005f, ws[i] * 0.5f), zc, ze;
+                if (parent == null) { ze = 0f; zc = rk * hw; }
+                else { float ph = Math.Max(hw, parent[i] * 0.5f); ze = rk * (ph - hw) + lift; zc = rk * ph + lift; }
+                var p = pts[i];
+                L[i] = new Vector3((p.X + nrm.X * hw) * k, (p.Y + nrm.Y * hw) * k, ze * k);
+                C[i] = new Vector3(p.X * k, p.Y * k, zc * k);
+                R[i] = new Vector3((p.X - nrm.X * hw) * k, (p.Y - nrm.Y * hw) * k, ze * k);
             }
-            void Face(float z, Vector3 normal)
+            void Quad(Vector3 a, Vector3 b, Vector3 c, Vector3 d, float sz)
             {
+                var nn = (c - a).Cross(d - b);
+                if (nn.LengthSquared() < 1e-12f) nn = new Vector3(0, 0, sz);
+                nn = nn.Normalized();
+                if (nn.Z * sz < 0f) nn = -nn;
+                int ia = mb.Add(a, nn, Colors.White), ib = mb.Add(b, nn, Colors.White), ic = mb.Add(c, nn, Colors.White), id = mb.Add(d, nn, Colors.White);
+                mb.Tri(ia, ib, ic); mb.Tri(ia, ic, id);
+            }
+            Vector3 F(Vector3 v, float sz) => new(v.X, v.Y, v.Z * sz);
+            foreach (float sz in new[] { 1f, -1f })
                 for (int i = 0; i < n - 1; i++)
                 {
-                    int a = mb.Add(L[i] + new Vector3(0, 0, z), normal, Colors.White), b = mb.Add(R[i] + new Vector3(0, 0, z), normal, Colors.White);
-                    int c = mb.Add(R[i + 1] + new Vector3(0, 0, z), normal, Colors.White), d = mb.Add(L[i + 1] + new Vector3(0, 0, z), normal, Colors.White);
-                    mb.Tri(a, b, c); mb.Tri(a, c, d);
+                    Quad(F(L[i], sz), F(C[i], sz), F(C[i + 1], sz), F(L[i + 1], sz), sz);
+                    Quad(F(C[i], sz), F(R[i], sz), F(R[i + 1], sz), F(C[i + 1], sz), sz);
                 }
-            }
-            Face(zf, Vector3.Back);
-            if (!solid) return;
-            Face(zb, Vector3.Forward);
-            void Wall(Vector3 p0, Vector3 p1)
+            if (parent != null) return;
+            // (a blunt end closed by a little diamond-shaped cap)
+            foreach (int i in new[] { 0, n - 1 })
             {
-                var ed = p1 - p0; var nn = new Vector3(ed.Y, -ed.X, 0).Normalized();
-                int a = mb.Add(p0 + new Vector3(0, 0, zf), nn, Colors.White), b = mb.Add(p1 + new Vector3(0, 0, zf), nn, Colors.White);
-                int c = mb.Add(p1 + new Vector3(0, 0, zb), nn, Colors.White), d = mb.Add(p0 + new Vector3(0, 0, zb), nn, Colors.White);
+                var dir = (i == 0 ? pts[0] - pts[1] : pts[n - 1] - pts[n - 2]).Normalized();
+                var nn = new Vector3(dir.X, dir.Y, 0f);
+                int a = mb.Add(L[i], nn, Colors.White), b = mb.Add(C[i], nn, Colors.White), c = mb.Add(R[i], nn, Colors.White), d = mb.Add(F(C[i], -1f), nn, Colors.White);
                 mb.Tri(a, b, c); mb.Tri(a, c, d);
             }
-            for (int i = 0; i < n - 1; i++) { Wall(R[i], R[i + 1]); Wall(L[i + 1], L[i]); }
-            Wall(L[0], R[0]); Wall(R[n - 1], L[n - 1]);
         }
+        // a flat sheet (for the red glow that edges the finer flowers from behind)
+        void Flat(MeshBuilder mb, List<Vector2> pts, List<float> ws, float z)
+        {
+            int n = pts.Count;
+            for (int i = 0; i < n - 1; i++)
+            {
+                Vector3 P(int j, float s)
+                {
+                    var d = (pts[Math.Min(n - 1, j + 1)] - pts[Math.Max(0, j - 1)]).Normalized();
+                    var nrm = new Vector2(-d.Y, d.X) * ws[j] * 0.5f * s;
+                    return new Vector3((pts[j].X + nrm.X) * k, (pts[j].Y + nrm.Y) * k, z * k);
+                }
+                int a = mb.Add(P(i, 1), Vector3.Back, Colors.White), b = mb.Add(P(i, -1), Vector3.Back, Colors.White);
+                int c = mb.Add(P(i + 1, -1), Vector3.Back, Colors.White), d = mb.Add(P(i + 1, 1), Vector3.Back, Colors.White);
+                mb.Tri(a, b, c); mb.Tri(a, c, d);
+            }
+        }
+
+        // ---- shapes: diamonds, sweeps along curves, swoops that roll into loops
         static float Ease(float x) => MathF.Sin(Math.Clamp(x, 0f, 1f) * MathF.PI * 0.5f);
         static float Leaf(float u, float w, float peak, float w0, float w1) => u < peak ? w0 + (w - w0) * Ease(u / peak) : w1 + (w - w1) * Ease((1f - u) / (1f - peak));
         static Vector2 Bez(Vector2 a, Vector2 b, Vector2 c, Vector2 d, float u)
@@ -1567,83 +1550,37 @@ public partial class ChestView : PropView
             float v = 1f - u;
             return v * v * v * a + 3f * v * v * u * b + 3f * v * u * u * c + u * u * u * d;
         }
-        (List<Vector2>, List<float>) Sweep(Vector2 a, Vector2 b, Vector2 c, Vector2 d, float w, float peak, float w0, float w1, float u0 = 0f, float u1 = 1f, int steps = 18)
+        static float DiamondW(float u, float w, float peak) => Math.Max(0.0005f, u < peak ? w * u / peak : w * (1f - u) / (1f - peak));
+        (List<Vector2>, List<float>) Diamond(Vector2 foot, Vector2 tip, float w, float peak)
+        {
+            var p = new List<Vector2>(); var ws = new List<float>();
+            for (int i = 0; i <= 12; i++)
+            {
+                float u = i <= 6 ? peak * i / 6f : peak + (1f - peak) * (i - 6) / 6f;
+                p.Add(foot.Lerp(tip, u));
+                ws.Add(DiamondW(u, w, peak));
+            }
+            return (p, ws);
+        }
+        // a parent diamond's width wherever these points fall along its axis (for an inlay set in it)
+        List<float> UnderDiamond(List<Vector2> pts, Vector2 foot, Vector2 tip, float w, float peak)
+        {
+            var ax = tip - foot; float len2 = ax.LengthSquared();
+            return pts.Select(q => DiamondW(Math.Clamp((q - foot).Dot(ax) / len2, 0f, 1f), w, peak)).ToList();
+        }
+        (List<Vector2>, List<float>) Sweep(Vector2 a, Vector2 b, Vector2 c, Vector2 d, float w, float peak, float w0, float w1, float u0 = 0f, float u1 = 1f, int steps = 20)
         {
             var p = new List<Vector2>(); var ws = new List<float>();
             for (int i = 0; i <= steps; i++)
             {
-                float u = u0 + (u1 - u0) * i / steps;
-                p.Add(Bez(a, b, c, d, u));
+                p.Add(Bez(a, b, c, d, u0 + (u1 - u0) * i / steps));
                 ws.Add(Leaf((float)i / steps, w, peak, w0, w1));
             }
             return (p, ws);
         }
-        (List<Vector2>, List<float>) Scroll(Vector2 start, float ang, float turn, float len, float w, int steps = 22)
-        {
-            var p = new List<Vector2> { start }; var ws = new List<float> { w * 0.7f };
-            float a = ang, seg = len / steps; var at = start;
-            for (int i = 0; i < steps; i++)
-            {
-                a += turn / steps * (0.4f + 1.2f * i / steps);
-                at += new Vector2(MathF.Cos(a), MathF.Sin(a)) * seg;
-                p.Add(at);
-                float u = (i + 1f) / steps;
-                ws.Add(w * (u < 0.25f ? 0.7f + 1.2f * u : 1f - 0.85f * (u - 0.25f) / 0.75f));
-            }
-            return (p, ws);
-        }
-        (List<Vector2>, List<float>) Diamond(Vector2 foot, Vector2 tip, float w, float peak)
-        {
-            var p = new List<Vector2>(); var ws = new List<float>();
-            for (int i = 0; i <= 8; i++)
-            {
-                float u = i / 8f;
-                p.Add(foot.Lerp(tip, u));
-                ws.Add(Math.Max(0.0005f, u < peak ? w * u / peak : w * (1f - u) / (1f - peak)));
-            }
-            return (p, ws);
-        }
-        List<float> Grow(List<float> ws, float add) => ws.Select(x => x + add).ToList();
-        float glowAdd = g >= 3 ? 0.028f : 0.02f;
-        // a crystal ornament (with the red glow edging it from behind on the finer grades)
-        void Crystal((List<Vector2> p, List<float> w) s)
-        {
-            Strip(orn, s.p, s.w, to, -to, true);
-            if (g >= 2) Strip(glow, s.p, Grow(s.w, glowAdd), -to - e, 0, false);
-        }
-        // red set into a piece (front and back): a deep rim and a glowing heart
-        void Red((List<Vector2> p, List<float> w) s, float depth)
-        {
-            Strip(redRim, s.p, s.w, depth + e, 0, false);
-            Strip(redRim, s.p, s.w, -depth - e, 0, false);
-            var heart = s.w.Select(x => x * 0.5f).ToList();
-            Strip(redCore, s.p, heart, depth + e * 1.8f, 0, false);
-            Strip(redCore, s.p, heart, -depth - e * 1.8f, 0, false);
-        }
-        void Both(Func<float, (List<Vector2>, List<float>)> make, Action<(List<Vector2>, List<float>)> put) { put(make(1f)); put(make(-1f)); }
         Vector2 V(float x, float y, float sx = 1f) => new(x * sx, y);
-        bool epic = g >= 2, leg = g >= 3;
-
-        // Rare: still three prongs, but the side blades sweep into curving wings (out low, then up to their tips) with red almond
-        // inlays; a red jewel set in the middle blade; thin strands drawn down to a point below
-        var wings = new MeshBuilder();
-        Vector2 tipW = epic ? new Vector2(0.42f, 0.37f) : new Vector2(0.39f, 0.36f);
-        float wingW = leg ? 0.17f : epic ? 0.16f : 0.15f;
-        (List<Vector2>, List<float>) Wing(float sx, float wd, float w0, float w1, float u0 = 0f, float u1 = 1f) =>
-            Sweep(V(0.045f, 0.0f, sx), V(0.17f, 0.04f, sx), V(0.3f, 0.12f, sx), V(tipW.X, tipW.Y, sx), wd, 0.45f, w0, w1, u0, u1);
-        foreach (float sx in new[] { 1f, -1f })
-        {
-            var (wp, ww) = Wing(sx, wingW, 0.03f, 0.002f);
-            Strip(wings, wp, ww, t, -t, true);
-            if (g >= 2) Strip(glow, wp, Grow(ww, glowAdd), -t - e, 0, false);
-            Red(Wing(sx, wingW * 0.45f, 0.002f, 0.002f, 0.22f, 0.72f), t);
-        }
-        _float.AddChild(PropViews.Mesh(wings, bodyMat, false));
-        if (g >= 2) Strip(glow, Diamond(V(0f, 0f), V(0f, 0.47f), 0.17f, 0.46f).Item1, Grow(Diamond(V(0f, 0f), V(0f, 0.47f), 0.17f, 0.46f).Item2, glowAdd), -t - e, 0, false);
-        Red(Diamond(V(0f, 0.11f), V(0f, 0.37f), leg ? 0.1f : 0.09f, 0.5f), t);
-        Both(sx => Sweep(V(0.16f, 0.04f, sx), V(0.08f, -0.01f, sx), V(0.02f, -0.05f, sx), V(0.0f, -0.11f, sx), 0.02f, 0.3f, 0.008f, 0.002f), Crystal);
-        // swoops: one flowing line that sweeps along a curve and rolls into a loop at its end, thick in its body and tapering away
-        (List<Vector2>, List<float>) Swoop(float sx, Vector2 a, Vector2 b, Vector2 c, Vector2 d, float turn, float loopLen, float w0, float w, float peakAt = 0.35f, int steps = 34)
+        // one flowing line that sweeps along a curve and rolls into a loop at its end, thick in its body and tapering away
+        (List<Vector2>, List<float>) Swoop(float sx, Vector2 a, Vector2 b, Vector2 c, Vector2 d, float turn, float loopLen, float w0, float w, float peakAt = 0.35f, int steps = 40)
         {
             var p = new List<Vector2>();
             int bs = steps / 2;
@@ -1657,18 +1594,85 @@ public partial class ChestView : PropView
                 at += new Vector2(MathF.Cos(ang), MathF.Sin(ang)) * seg;
                 p.Add(at);
             }
-            // (width by length along it: w0 at the root, w at peakAt, a fine point at the end)
             var len = new List<float> { 0f };
             for (int i = 1; i < p.Count; i++) len.Add(len[^1] + p[i].DistanceTo(p[i - 1]));
             var ws = len.Select(l => Leaf(l / len[^1], w, peakAt, w0, 0.003f)).ToList();
             return (p, ws);
         }
-        // a thin red thread inlaid along a crystal piece (it ties the red of the jewels into the ornament)
-        void Thread((List<Vector2> p, List<float> w) s, float share, int from, int to2)
+
+        // ---- the crystal flower itself (the Uncommon shrine, and the heart of every finer one)
+        var body = new MeshBuilder();
+        var cFoot = new Vector2(0f, 0f); var cTip = new Vector2(0f, 0.47f); const float cW = 0.17f, cPeak = 0.46f;
+        var (cp, cw) = Diamond(cFoot, cTip, cW, cPeak);
+        Ridge(body, cp, cw);
+        if (g == 0)
+            foreach (float sx in new[] { 1f, -1f })
+            {
+                var (sp, sw) = Diamond(V(0.045f, 0f, sx), V(0.36f, 0.34f, sx), 0.14f, 0.45f);
+                Ridge(body, sp, sw);
+            }
+        var bodyMat = PropViews.Emissive(glowCol, BodyGlow(g));
+        bodyMat.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+        _float.AddChild(PropViews.Mesh(body, bodyMat, false));
+        if (g == 0)
         {
-            var p = s.p.GetRange(from, to2 - from); var w = s.w.GetRange(from, to2 - from).Select(x => x * share).ToList();
-            Red((p, w), to);
+            // (the brighter heart: set into the middle blade, following its ridge)
+            var core = new MeshBuilder();
+            var (hp, hw) = Diamond(new Vector2(0f, 0.05f), new Vector2(0f, 0.34f), 0.08f, 0.46f);
+            Ridge(core, hp, hw, UnderDiamond(hp, cFoot, cTip, cW, cPeak), e);
+            var coreMat = PropViews.Emissive(glowCol.Lerp(Colors.White, 0.6f), 1.55f);
+            coreMat.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
+            _float.AddChild(PropViews.Mesh(core, coreMat, false));
         }
+        var halo = PropViews.Sprite(glowCol, 0, g == 0 ? 0.22f : g == 1 ? 0.1f : 0.06f, 0.8f * k);
+        halo.Position = new Vector3(0, 0.2f * k, 0);
+        _float.AddChild(halo);
+        _crystalMat = null; _redMat = null;
+        if (g == 0) return;
+
+        // ---- the ornament: crystal like the flower, with red set into it
+        var orn = new MeshBuilder();
+        var redRim = new MeshBuilder();
+        var redCore = new MeshBuilder();
+        var glow = new MeshBuilder();
+        float glowAdd = leg ? 0.028f : 0.02f;
+        // a crystal ornament (with the red glow edging it from behind on the finer grades)
+        void Crystal((List<Vector2> p, List<float> w) s, MeshBuilder into = null)
+        {
+            Ridge(into ?? orn, s.p, s.w);
+            if (epic) Flat(glow, s.p, s.w.Select(x => x + glowAdd).ToList(), -0.002f);
+        }
+        // red: a deep rim and a glowing heart. Set into a piece (parent widths given) it lies on that piece's faces; on its own it is a
+        // ridged piece of its own, its heart set into it
+        void Red((List<Vector2> p, List<float> w) s, List<float> parent = null)
+        {
+            Ridge(redRim, s.p, s.w, parent, e);
+            var heart = s.w.Select(x => x * 0.5f).ToList();
+            Ridge(redCore, s.p, heart, parent ?? s.w, parent != null ? e * 2f : e);
+        }
+
+        // Rare: still three prongs, but the side blades sweep into curving wings (out low, then up to their tips) with red almond
+        // inlays; a red jewel set in the middle blade; thin strands drawn down to a point below
+        var wings = new MeshBuilder();
+        Vector2 tipW = epic ? new Vector2(0.42f, 0.37f) : new Vector2(0.39f, 0.36f);
+        float wingW = leg ? 0.17f : epic ? 0.16f : 0.15f;
+        (List<Vector2>, List<float>) Wing(float sx, float wd, float w0, float w1, float u0 = 0f, float u1 = 1f) =>
+            Sweep(V(0.045f, 0.0f, sx), V(0.17f, 0.04f, sx), V(0.3f, 0.12f, sx), V(tipW.X, tipW.Y, sx), wd, 0.45f, w0, w1, u0, u1);
+        foreach (float sx in new[] { 1f, -1f })
+        {
+            Crystal(Wing(sx, wingW, 0.03f, 0.002f), wings);
+            // (the almond lies along the wing's own curve; the wing's width under each of its points, for it to follow the ridge)
+            const float a0 = 0.22f, a1 = 0.72f;
+            var almond = Wing(sx, wingW * 0.45f, 0.002f, 0.002f, a0, a1);
+            var under = Enumerable.Range(0, almond.Item1.Count).Select(i => Leaf(a0 + (a1 - a0) * i / (almond.Item1.Count - 1f), wingW, 0.45f, 0.03f, 0.002f)).ToList();
+            Red(almond, under);
+        }
+        _float.AddChild(PropViews.Mesh(wings, bodyMat, false));
+        if (epic) Flat(glow, cp, cw.Select(x => x + glowAdd).ToList(), -0.002f);
+        var jewel = Diamond(V(0f, 0.11f), V(0f, 0.37f), leg ? 0.1f : 0.09f, 0.5f);
+        Red(jewel, UnderDiamond(jewel.Item1, cFoot, cTip, cW, cPeak));
+        foreach (float sx in new[] { 1f, -1f }) Crystal(Sweep(V(0.16f, 0.04f, sx), V(0.08f, -0.01f, sx), V(0.02f, -0.05f, sx), V(0.0f, -0.11f, sx), 0.022f, 0.3f, 0.008f, 0.002f));
+
         if (epic)
         {
             // Epic: every piece grows out of the flower and sweeps into a loop: under each wing a long swoop from the foot that rolls
@@ -1677,36 +1681,44 @@ public partial class ChestView : PropView
             float big = leg ? 1.22f : 1f;
             foreach (float sx in new[] { 1f, -1f })
             {
-                var under = Swoop(sx, new Vector2(0.02f, -0.02f), new Vector2(0.14f, -0.12f * big), new Vector2(0.33f * big, -0.1f * big), new Vector2(0.43f * big, 0.03f), 4.8f, 0.2f * big, 0.03f, 0.042f * big);
+                var under = Swoop(sx, new Vector2(0.02f, -0.02f), new Vector2(0.14f, -0.12f * big), new Vector2(0.33f * big, -0.1f * big), new Vector2(0.43f * big, 0.03f), 4.8f, 0.2f * big, 0.03f, 0.046f * big);
                 Crystal(under);
-                var over = Swoop(sx, new Vector2(0.04f, 0.29f), new Vector2(0.1f, 0.42f * (leg ? 1.05f : 1f)), new Vector2(0.22f * big, 0.47f * (leg ? 1.05f : 1f)), new Vector2(0.29f * big, 0.42f), -4.6f, 0.15f * big, 0.026f, 0.034f * big);
+                var over = Swoop(sx, new Vector2(0.04f, 0.29f), new Vector2(0.1f, 0.42f * (leg ? 1.05f : 1f)), new Vector2(0.22f * big, 0.47f * (leg ? 1.05f : 1f)), new Vector2(0.29f * big, 0.42f), -4.6f, 0.15f * big, 0.026f, 0.038f * big);
                 Crystal(over);
                 var dirW = (tipW - new Vector2(0.3f, 0.12f)).Normalized();
-                var flick = Swoop(sx, tipW - dirW * 0.04f, tipW - dirW * 0.01f, tipW + dirW * 0.02f, tipW + dirW * 0.04f, -4.2f, 0.12f * big, 0.03f, 0.03f * big, 0.2f);
-                Crystal(flick);
+                Crystal(Swoop(sx, tipW - dirW * 0.04f, tipW - dirW * 0.01f, tipW + dirW * 0.02f, tipW + dirW * 0.04f, -4.2f, 0.12f * big, 0.03f, 0.032f * big, 0.2f));
                 if (leg)
                 {
-                    // red threads along the great swoops, and a second loop rising from each under-swoop into the wing's curve
-                    Thread(under, 0.35f, 2, under.Item1.Count - 6);
-                    Thread(over, 0.35f, 2, over.Item1.Count - 6);
+                    // red threads along the great swoops (lying on their ridges), and a second loop rising from each under-swoop
+                    foreach (var s in new[] { under, over })
+                    {
+                        int from = 2, to = s.Item1.Count - 8;
+                        Red((s.Item1.GetRange(from, to - from), s.Item2.GetRange(from, to - from).Select(x => x * 0.35f).ToList()), s.Item2.GetRange(from, to - from));
+                    }
                     var mid = under.Item1[under.Item1.Count / 3];
-                    var inner = Swoop(sx, new Vector2(mid.X * sx, mid.Y), new Vector2(mid.X * sx + 0.03f, mid.Y + 0.06f), new Vector2(mid.X * sx + 0.08f, mid.Y + 0.09f), new Vector2(mid.X * sx + 0.12f, mid.Y + 0.07f), -4.6f, 0.11f, 0.024f, 0.028f, 0.3f);
-                    Crystal(inner);
+                    Crystal(Swoop(sx, new Vector2(mid.X * sx, mid.Y), new Vector2(mid.X * sx + 0.03f, mid.Y + 0.06f), new Vector2(mid.X * sx + 0.08f, mid.Y + 0.09f), new Vector2(mid.X * sx + 0.12f, mid.Y + 0.07f), -4.6f, 0.11f, 0.026f, 0.03f, 0.3f));
                 }
             }
-            Crystal(Diamond(V(0f, -0.2f), V(0f, -0.08f), 0.07f, 0.5f));
-            Red(Diamond(V(0f, -0.18f), V(0f, -0.1f), 0.035f, 0.5f), to);
-            Crystal(Diamond(V(0f, leg ? -0.36f : -0.29f), V(0f, -0.19f), 0.035f, 0.72f));
+            var fFoot = new Vector2(0f, -0.2f); var fTip = new Vector2(0f, -0.08f);
+            Crystal(Diamond(fFoot, fTip, 0.075f, 0.5f));
+            var fj = Diamond(new Vector2(0f, -0.18f), new Vector2(0f, -0.1f), 0.04f, 0.5f);
+            Red(fj, UnderDiamond(fj.Item1, fFoot, fTip, 0.075f, 0.5f));
+            var pFoot = new Vector2(0f, leg ? -0.36f : -0.29f); var pTip = new Vector2(0f, -0.19f);
+            Crystal(Diamond(pFoot, pTip, 0.04f, 0.72f));
+            if (leg)
+            {
+                var drop = Diamond(new Vector2(0f, -0.34f), new Vector2(0f, -0.25f), 0.022f, 0.5f);
+                Red(drop, UnderDiamond(drop.Item1, pFoot, pTip, 0.04f, 0.72f));
+            }
         }
         if (leg)
         {
-            // Legendary: red flames rising out of the middle blade's tip and curling outward, a red vein down its heart, a red drop
-            // in the long pendant
+            // Legendary: red flames rising out of the middle blade's tip and curling outward, and a red vein down its heart
             foreach (float sx in new[] { 1f, -1f })
-                Red(Swoop(sx, new Vector2(0.01f, 0.38f), new Vector2(0.06f, 0.46f), new Vector2(0.07f, 0.53f), new Vector2(0.04f, 0.59f), -3.4f, 0.07f, 0.02f, 0.034f, 0.3f), to);
-            Red(Diamond(V(0f, 0.4f), V(0f, 0.64f), 0.034f, 0.35f), to);
-            Red(Diamond(V(0f, -0.09f), V(0f, 0.11f), 0.012f, 0.5f), t);
-            Red(Diamond(V(0f, -0.34f), V(0f, -0.25f), 0.018f, 0.5f), to);
+                Red(Swoop(sx, new Vector2(0.01f, 0.38f), new Vector2(0.06f, 0.46f), new Vector2(0.07f, 0.53f), new Vector2(0.04f, 0.59f), -3.4f, 0.07f, 0.02f, 0.036f, 0.3f));
+            Red(Diamond(V(0f, 0.4f), V(0f, 0.64f), 0.036f, 0.35f));
+            var vein = Diamond(V(0f, 0.005f), V(0f, 0.11f), 0.014f, 0.5f);
+            Red(vein, UnderDiamond(vein.Item1, cFoot, cTip, cW, cPeak));
         }
 
         // ---- materials: the ornament glows like the flower (a little softer), red jewels, the red edge glow
@@ -1725,7 +1737,7 @@ public partial class ChestView : PropView
             glowMat.CullMode = BaseMaterial3D.CullModeEnum.Disabled;
             _float.AddChild(PropViews.Mesh(glow, glowMat, false));
             _gemGlow = PropViews.Sprite(new Color(1f, 0.15f, 0.15f), 0, leg ? 0.14f : 0.09f, 1.0f * k);
-            _gemGlow.Position = new Vector3(0, 0.18f * k, -t * 3f);
+            _gemGlow.Position = new Vector3(0, 0.18f * k, -0.1f * k);
             _float.AddChild(_gemGlow);
         }
         // rays in a ring round it (hollow in the middle, so the flower stays clear), and for a Legendary a pillar of light above it
