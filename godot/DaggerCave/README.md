@@ -1010,7 +1010,13 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   - *Crushing* makes the special hit about 25% harder, and *Again* hits harder still;
   - the milestone offers both forms, which are gone once one is taken, and the form works (the Shower drops three stones);
   - Twin Stroke gives two strokes back to back;
-  - Bloodrush cuts the rest on a kill.
+  - Bloodrush cuts the rest on a kill;
+  - every card's face (label, name, text) can be made for every hero, and even a broken card is never blank;
+  - the real level-up and milestone menus, with screenshots (`growth_<hero>_menu0`…`4`).
+
+A card is never drawn blank: if its label or text can't be made (a bug), the card still shows its name (or one made from its id)
+and what it does, the trouble is logged once (`[cards] …`), and one card that fails to draw doesn't stop the rest
+(`UpgradeMenu.CardWords`).
 
 ## The Elementals
 

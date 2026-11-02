@@ -56,7 +56,40 @@ public partial class Main
             try { if (string.IsNullOrEmpty(UpgradeMenu.KindLabel(u, hero)) || string.IsNullOrEmpty(Upgrades.DescFor(u, s))) badLabel.Add(u.Id); }
             catch (Exception) { badLabel.Add(u.Id); }
         }
+        // (everything a card's face is drawn from, for every card and every hero, with and without the hero's stats)
+        var badFace = new List<string>();
+        foreach (var u in Upgrades.All.Concat(Cards.All).Distinct())
+            foreach (var h in Enum.GetValues<HeroKind>())
+            {
+                var hs = new PlayerStats(h);
+                foreach (var st in new[] { hs, null })
+                {
+                    try
+                    {
+                        _ = UiArt.RarityOf(u); _ = UiArt.RoleOf(u); _ = UiArt.CardSurface(u); _ = UpgradeMenu.KindColor(u.Kind); _ = UpgradeMenu.CategoryColor(u.Icon);
+                        _ = Icons.CategoryFor(u); _ = UiArt.RarityName(UiArt.RarityOf(u)); _ = UiArt.RoleName(UiArt.RoleOf(u));
+                        if (string.IsNullOrWhiteSpace(UpgradeMenu.KindLabel(u, st?.Hero ?? h)) || string.IsNullOrWhiteSpace(u.Name) || string.IsNullOrWhiteSpace(Upgrades.DescFor(u, st)))
+                            badFace.Add($"{u.Id}/{h}{(st == null ? "/nostats" : "")}: empty");
+                    }
+                    catch (Exception ex) { badFace.Add($"{u.Id}/{h}{(st == null ? "/nostats" : "")}: {ex.GetType().Name} {ex.Message}"); }
+                }
+            }
+        var (bl, bn, bw) = UpgradeMenu.CardWords(new Upgrade { Id = "x_broken_card" }, s, UiArt.Rarity.Common);
+        ScCheck($"  even a broken card is never blank ('{bl}' / '{bn}' / '{bw}')", bl != "" && bn != "" && bw != "");
+        ScCheck($"  every card's face can be drawn for every hero ({badFace.Count} problems{(badFace.Count > 0 ? ": " + string.Join("; ", badFace.Take(12)) : "")})", badFace.Count == 0);
         ScCheck($"  every new card can be shown, its label and text ({Cards.All.Count() - badLabel.Count} of {Cards.All.Count()}{(badLabel.Count > 0 ? "; not " + string.Join(", ", badLabel) : "")})", badLabel.Count == 0);
+        // (the real menus, as a level's pick and a milestone deal them: pictures to look at)
+        for (int k = 0; k < 5; k++)
+        {
+            bool mile = k >= 3;
+            var deal = mile ? Cards.RollMilestone(s, rng) : Cards.RollLevel(s, rng);
+            deal.Add(Upgrades.Skip);
+            _upgradeMenu.Open(deal, mile ? "MILESTONE!" : $"LEVEL {p.Level}: CHOOSE ONE", null, UiArt.Surface.Night, UiArt.Rarity.Rare);
+            foreach (var _ in ElWait(0.4f)) yield return null;
+            GD.Print($"[scenario] menu {k}: {string.Join(" | ", deal.Select(u => $"{u.Id} '{u.Name}' [{UpgradeMenu.KindLabel(u, hero)}] {Upgrades.DescFor(u, s).Length} chars"))}");
+            ScShot($"growth_{hero.ToString().ToLowerInvariant()}_menu{k}");
+        }
+        _upgradeMenu.Visible = false;
         var chestRoll = Upgrades.RollChest(s, rng, home);
         ScCheck($"  a chest's class card is one of the hero's level cards ({string.Join(", ", chestRoll.Select(u => u.Name))})", chestRoll.Any(u => Cards.Ability.Contains(u)) && !chestRoll.Any(u => u.For != null && !Cards.Ability.Contains(u)));
 

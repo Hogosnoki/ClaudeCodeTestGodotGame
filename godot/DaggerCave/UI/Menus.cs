@@ -244,7 +244,16 @@ public partial class UpgradeMenu : Control
             float shake = k == _denied && _deniedT > 0 ? MathF.Sin(_deniedT * 60f) * 6f * _deniedT : 0f;
             var r = new Rect2(x0 + wid.Take(k).Sum() * cw + k * gap + shake, y0 - (hov && locked == null ? 8 : 0), cw * wid[k], ch);
             _cards.Add(r);
-            DrawCard(font, r, u, k, hov, locked, stats);
+            // (one card that can't be drawn mustn't take the rest, or its own words, with it)
+            try { DrawCard(font, r, u, k, hov, locked, stats); }
+            catch (Exception ex)
+            {
+                CardTrouble(u, "face", ex);
+                DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+                var (_, name, words) = CardWords(u, stats, UiArt.Rarity.Common);
+                DrawString(font, r.Position + new Vector2(0, 156), name, HorizontalAlignment.Center, r.Size.X, 20, Colors.White);
+                DrawMultilineString(font, r.Position + new Vector2(16, 180), words, HorizontalAlignment.Center, r.Size.X - 32, 13, -1, new Color(0.88f, 0.88f, 0.92f));
+            }
             if (_prices != null && k < _prices.Count && !skip) DrawPrice(font, r, _prices[k], locked != null);
         }
     }
@@ -271,6 +280,32 @@ public partial class UpgradeMenu : Control
     /// for anyone's) at the top left, what it is for (offense, survival, mobility, a bargain) at the top right, and a chain at the foot
     /// if it rules out another.
     /// </summary>
+    /// <summary>
+    /// A card's label, name and words, made so that none comes out blank: a card whose label or text can't be made (a bug) still says
+    /// what it is, from its name or its id, and the trouble is logged once.
+    /// </summary>
+    public static (string Label, string Name, string Words) CardWords(Upgrade u, PlayerStats stats, UiArt.Rarity rar)
+    {
+        string label, name = u.Name, words;
+        try { label = KindLabel(u, stats?.Hero ?? G.Hero) + (rar == UiArt.Rarity.Relic || u.Kind == UpgradeKind.Technique ? "" : "  ·  " + UiArt.RarityName(rar)); }
+        catch (Exception ex) { CardTrouble(u, "label", ex); label = u.Relic ? "RELIC" : "CARD"; }
+        try { words = Upgrades.DescFor(u, stats); }
+        catch (Exception ex) { CardTrouble(u, "text", ex); words = u.Desc ?? ""; }
+        if (string.IsNullOrWhiteSpace(name)) { CardTrouble(u, "name", null); name = Humanize(u.Id); }
+        if (string.IsNullOrWhiteSpace(words)) { CardTrouble(u, "text", null); words = u.Ability != null ? $"Grows your {u.Ability}." : "(no description)"; }
+        return (label, name, words);
+    }
+
+    private static readonly HashSet<string> _cardTrouble = new();
+    private static void CardTrouble(Upgrade u, string what, Exception ex)
+    {
+        if (_cardTrouble.Add(u.Id + what)) GD.PushError($"[cards] {u.Id}: its {what} couldn't be made{(ex != null ? $" ({ex.GetType().Name}: {ex.Message})" : " (empty)")}");
+    }
+
+    /// <summary>"g_swo_wide" -> "Swo Wide": a name of last resort.</summary>
+    private static string Humanize(string id) => string.Join(" ", (id ?? "card").Split('_', StringSplitOptions.RemoveEmptyEntries).Where(w => w.Length > 1)
+        .Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
+
     private void DrawCard(Font font, Rect2 r, Upgrade u, int k, bool hov, string locked, PlayerStats stats)
     {
         const float rad = 16f;
@@ -331,15 +366,12 @@ public partial class UpgradeMenu : Control
             DrawTextureRect(mt, new Rect2(gc + new Vector2(24, 12), new Vector2(20, 20)), false, new Color(1f, 0.85f, 0.45f));
             DrawString(font, gc + new Vector2(20, 42), "PARTY", HorizontalAlignment.Left, -1, 9, new Color(1f, 0.85f, 0.45f, 0.85f));
         }
-        // the kind and rarity, the name, the words
-        if (!skip)
-        {
-            string label = KindLabel(u, stats?.Hero ?? G.Hero) + (rar == UiArt.Rarity.Relic || u.Kind == UpgradeKind.Technique ? "" : "  ·  " + UiArt.RarityName(rar));
-            DrawString(font, r.Position + new Vector2(10, 132), label, HorizontalAlignment.Center, cw - 20, 10, new Color(kind, 0.95f));
-        }
-        DrawString(font, r.Position + new Vector2(1, 157), u.Name, HorizontalAlignment.Center, cw, 20, new Color(0, 0, 0, 0.7f));
-        DrawString(font, r.Position + new Vector2(0, 156), u.Name, HorizontalAlignment.Center, cw, 20, locked != null ? new Color(0.6f, 0.6f, 0.6f) : Colors.White);
-        DrawMultilineString(font, r.Position + new Vector2(16, 180), Upgrades.DescFor(u, stats), HorizontalAlignment.Center, cw - 32, 13, -1, new Color(0.88f, 0.88f, 0.92f, locked != null ? 0.5f : 1f));
+        // the kind and rarity, the name, the words (never a blank card: see CardWords)
+        var (label, name, words) = CardWords(u, stats, rar);
+        if (!skip) DrawString(font, r.Position + new Vector2(10, 132), label, HorizontalAlignment.Center, cw - 20, 10, new Color(kind, 0.95f));
+        DrawString(font, r.Position + new Vector2(1, 157), name, HorizontalAlignment.Center, cw, 20, new Color(0, 0, 0, 0.7f));
+        DrawString(font, r.Position + new Vector2(0, 156), name, HorizontalAlignment.Center, cw, 20, locked != null ? new Color(0.6f, 0.6f, 0.6f) : Colors.White);
+        DrawMultilineString(font, r.Position + new Vector2(16, 180), words, HorizontalAlignment.Center, cw - 32, 13, -1, new Color(0.88f, 0.88f, 0.92f, locked != null ? 0.5f : 1f));
         DrawString(font, r.Position + new Vector2(12, ch - 10), $"{k + 1}", HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.35f));
         // (the merchant's services have no ranks: their "unlimited" is not drawn as thousands of pips)
         if (stats != null && u.MaxStacks > 1 && u.MaxStacks <= 12 && !skip)
