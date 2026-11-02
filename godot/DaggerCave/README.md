@@ -910,6 +910,7 @@ Every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash`, `T
 
 - **The Elementalist's buttons.** Her **Blink** is on the dodge button now: a step through the air of up to 120 px along the aim, short of rock, untouchable for a moment (4 s). Her old Ward (a small barrier) is retired, and the second ability button is the **Nova** (Searing, Rime or Gale Nova by her element): her element bursts out of her in a great ring. Everything within 115 px takes 36 damage and a full special's dose of the element, and is hurled back (8 s; `Tune.OtherAbility.Nova*`). The Blink gets her out of a horde; the Nova throws a horde off her; the **Meteor** (the ability button: right mouse, K, or the right shoulder button) breaks one open from afar.
 - **Casters splash.** The Elementalist's bolt and the Vitalist's drain strike every other creature within 48 px of where they land for 0.4× the blow, and 0.4× the element's touch (`Tune.Splash`). The melee heroes' swings already strike all they sweep; the Aegis's bubble already bursts.
+- **Higher, floatier jumps.** A jump rises about 68 px (it was 52 px), with gravity a little lower (`Tune.Hero.JumpVelocity` 370, `Gravity` 1000). Getting about is no longer something a run makes you earn.
 - **Everyone climbs.** Every hero jumps once more in mid-air (`Hordes.AirJumps`; a Double Jump card adds another) and slides down and kicks off walls (`Hordes.WallJump`; Sure Grip is offered to all).
 - **Cooldowns are real again.** `Tune.Testing.NoCooldowns`, a try-out switch that brought the elemental heroes' abilities back at once, was still on; it's off now. The older scenarios, written while it was on, still turn it on.
 - **Trials never overlap.** A new trial's area stops growing where it would reach an earlier one's (wards included). Another trial room whose floor lies inside a trial's area is part of it, and won't shut a second time.
@@ -966,7 +967,7 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
     - Meteor: one more, smaller stone;
     - Great Bash: an aftershock at half strength;
     - Bloom: one more pulse;
-    - Judgement: one more pillar on the nearest creature it missed;
+    - Judgement: one more pillar on the nearest creature it missed (or on the same spot, if it missed none);
     - Death Blossom: one more volley.
   - **The attack:** *Keen* (+15% damage) and *Quick* (+10% speed). Casters also get *Wide Splash* (+30% radius) and *Heavy Splash* (+10% of the blow). Melee heroes get *Long Reach* (+12%).
   - **The second ability:** *Ready* (back 20% sooner; the Rupture needs less vital force) and *Mighty* (harder):

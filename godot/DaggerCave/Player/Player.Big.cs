@@ -461,6 +461,12 @@ public partial class Player
                 if (G.Cave.FindFloor(at, 80f, out var f)) at = f + new Vector2(0, -6);
                 _bigLater.Add((Tune.Growth.ChainGap * (k + 1), () => JudgementLands(at, Tune.Growth.ChainDamage, Tune.Growth.ChainSize, false)));
             }
+            // (an "again" with no creature left outside the light falls on the same spot once more)
+            for (int k = marks.Count; k < Stats.SpecialExtra; k++)
+            {
+                var at = spot + new Vector2(G.Range(-12f, 12f), 0f);
+                _bigLater.Add((Tune.Growth.ChainGap * (k + 1), () => JudgementLands(at, Tune.Growth.ChainDamage, Tune.Growth.ChainSize, false)));
+            }
             if (BigForm("a")) { _sanctumT = Tune.Growth.SanctumSeconds; _sanctumTick = 0.5f; _sanctumAt = spot; }
         }
         for (int k = 0; k < (main ? 3 : 1); k++) G.Fx.Beam(spot + new Vector2(G.Range(-10, 10), -480f), spot, new Color(gold, 0.9f));

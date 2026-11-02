@@ -35,11 +35,11 @@ public static class Tune
         public static float DuckHeight = 6f;
 
         /// <summary>
-        /// Jump shape (JumpVelocity 336 and Gravity 1080, 0.8 x the 420 and 1350 before: a fifth less height, falling a fifth slower, the
-        /// rise as long as ever). Height stays constant while you change Floatiness: gravity is multiplied by it and jump speed by its square
-        /// root. Lower = floatier, slower arcs.
+        /// Jump shape: JumpVelocity 370 and Gravity 1000 give a jump about 68 px high (v^2 / 2g), a rise of 0.37 s. (It was 336 and 1080,
+        /// 52 px, while getting about was something the run made you earn; now every hero climbs freely.) Height stays constant while you
+        /// change Floatiness: gravity is multiplied by it and jump speed by its square root. Lower = floatier, slower arcs.
         /// </summary>
-        public static float JumpVelocity = 336f, Gravity = 1080f, Floatiness = 0.76f;
+        public static float JumpVelocity = 370f, Gravity = 1000f, Floatiness = 0.76f;
         /// <summary>Loosing a projectile (or pouring out a spell) slows the hero to CastSlowMult of their speed while the cast plays
         /// (CastSlowSeconds for a single shot; a volley or a breath, as long as it lasts).</summary>
         public static float CastSlowMult = 0.45f, CastSlowSeconds = 0.3f;

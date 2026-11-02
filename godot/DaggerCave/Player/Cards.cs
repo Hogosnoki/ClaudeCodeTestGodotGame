@@ -43,7 +43,7 @@ public static class Cards
         HeroKind.Elementalist => "One more, smaller stone falls beside the Meteor.",
         HeroKind.Warden => "An aftershock follows the Great Bash, at half its strength.",
         HeroKind.Vitalist => "The Bloom pulses once more, at half its strength.",
-        HeroKind.Aegis => "One more pillar falls on the nearest creature the Judgement missed.",
+        HeroKind.Aegis => "One more pillar falls on the nearest creature the Judgement missed (or on the same spot again).",
         _ => "The Death Blossom throws one more volley.",
     };
 
