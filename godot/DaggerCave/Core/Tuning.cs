@@ -1261,6 +1261,20 @@ public static class Tune
     /// The casters' splash: a bolt or a drain that lands strikes every other creature within <c>Radius</c> px of where it landed for
     /// <c>Share</c> of its blow (and its element's touch), so the casters thin a horde as the melee heroes' sweeping swings do.
     /// </summary>
+    /// <summary>
+    /// Soft separation (<see cref="DaggerCave.Enemy"/>, Enemy.Crowd.cs): two creatures closer than <c>Spacing</c> x the sum of their radii
+    /// are eased apart at <c>Stiffness</c> per second (at most <c>MaxStep</c> px a frame), the lighter giving way. One pressed against the
+    /// crowd for <c>SqueezeAfter</c> s squeezes through for <c>SqueezeFor</c> s, while more than <c>SqueezeFrom</c> px from its hero.
+    /// </summary>
+    public static class Crowd
+    {
+        public static bool On = true;
+        public static float Spacing = 0.7f, Stiffness = 10f, MaxStep = 3.5f, SqueezeAfter = 0.5f, SqueezeFor = 0.6f, SqueezeFrom = 140f;
+        /// <summary>A light walker (radius at most <c>FlankMaxRadius</c>) held at the back of a crowd for <c>FlankAfter</c> s, its hero within
+        /// <c>FlankRange</c> px, leaps the crowd (<c>FlankAir</c> s in the air) to land past its hero.</summary>
+        public static float FlankAfter = 1.5f, FlankMaxRadius = 13f, FlankRange = 220f, FlankAir = 0.7f;
+    }
+
     public static class Splash
     {
         public static float Radius = 48f, Share = 0.4f;

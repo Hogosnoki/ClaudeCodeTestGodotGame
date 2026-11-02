@@ -442,6 +442,7 @@ public abstract partial class Enemy : CharacterBody2D
             if (Master != null) DrivenAfterThink(dt);
             if (!ManualMove)
             {
+                HoldInCrowd(dt);
                 // tempo speeds the creature up; MoveScale shrinks every move it makes (speed,
                 // gravity and jump height together, with the same timing)
                 float k = tempo * MoveScale;
@@ -459,6 +460,8 @@ public abstract partial class Enemy : CharacterBody2D
                 }
             }
         }
+        // (a crowd spreads out rather than stacking in one spot)
+        Separate((float)delta);
         if (Anim != null)
         {
             Anim.TimeMult = tempo;

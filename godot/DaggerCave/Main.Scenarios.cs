@@ -64,6 +64,7 @@ public partial class Main
         "hordes" => "entrance",
         "trial" => "entrance",
         "big" => "entrance",
+        "crowd" => "entrance",
         "shop" => "den",
         "achievements" => "den",
         "grid" => "entrance",
@@ -169,6 +170,7 @@ public partial class Main
             case "hordes": HordesScenario(); break;
             case "trial": TrialScenario(); break;
             case "big": BigScenario(); break;
+            case "crowd": CrowdScenario(); break;
             case "shop": ShopScenario(); break;
             case "achievements": AchievementsScenario(); break;
             case "grid": GridScenario(); break;
