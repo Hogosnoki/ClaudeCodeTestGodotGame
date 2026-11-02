@@ -83,6 +83,7 @@ public partial class EnemyProjectile : Node2D
     public Enemy Source;
     /// <summary>Sent back by a perfect shield block: now it hurts enemies instead.</summary>
     public bool Reflected;
+    private float _age;
     /// <summary>For the tests: bomber pods that have burst.</summary>
     public static int Bursts;
 
@@ -109,7 +110,7 @@ public partial class EnemyProjectile : Node2D
     private Color KindColor => Kind switch
     {
         "lava" or "fire" => new Color(1f, 0.5f, 0.1f),
-        "ice" => new Color(0.75f, 0.95f, 1f),
+        "ice" or "icicle" => new Color(0.75f, 0.95f, 1f),
         "crystal" => new Color(0.65f, 0.85f, 1f),
         "spit" => new Color(0.5f, 0.9f, 0.3f),
         "acid" => new Color(0.78f, 0.92f, 0.2f),
@@ -137,6 +138,24 @@ public partial class EnemyProjectile : Node2D
             G.Fx.Burst(GlobalPosition, new Color(0.8f, 0.8f, 0.8f, 0.6f), 6, 60, 3f, 0.6f, -80);
             G.Sfx.Play("lava", GlobalPosition, -10);
             QueueFree(); return;
+        }
+        // (an ice spirit's icicles: after a moment flying out, each turns after the nearest hero, the same in every game)
+        if (Kind == "icicle" && !Reflected && (_age += dt) > Tune.Secondary.IcicleDelay)
+        {
+            Player near = null; float best = float.MaxValue;
+            foreach (var h in G.Players)
+            {
+                if (h == null || h.Dead) continue;
+                float d = h.GlobalPosition.DistanceSquaredTo(GlobalPosition);
+                if (d < best) { best = d; near = h; }
+            }
+            if (near != null)
+            {
+                float speed = Math.Max(Vel.Length(), Tune.Secondary.IcicleSpeed);
+                float want = (near.GlobalPosition + new Vector2(0, -6) - GlobalPosition).Angle(), have = Vel.Angle();
+                float turn = Mathf.Wrap(want - have, -MathF.PI, MathF.PI);
+                Vel = Vector2.Right.Rotated(have + Math.Clamp(turn, -Tune.Secondary.IcicleTurn * dt, Tune.Secondary.IcicleTurn * dt)) * Mathf.MoveToward(speed, Tune.Secondary.IcicleSpeed, 300f * dt);
+            }
         }
         Vel.Y += Grav * dt * (water ? 0.3f : 1f);
         if (water) Vel *= 1f / (1f + 2f * dt);
@@ -186,7 +205,7 @@ public partial class EnemyProjectile : Node2D
         }
         if (Kind == "lava" && G.Chance(0.4f)) G.Fx.Burst(GlobalPosition, new Color(1f, 0.55f, 0.1f, 0.8f), 1, 20, 2f, 0.3f, -30);
         else if (Kind == "fire" && G.Chance(0.35f)) G.Fx.Ember(GlobalPosition, new Color(1f, 0.6f, 0.2f));
-        else if ((Kind == "ice" || Kind == "crystal") && G.Chance(0.3f)) G.Fx.Trail(GlobalPosition, new Color(KindColor, 0.6f));
+        else if ((Kind == "ice" || Kind == "icicle" || Kind == "crystal") && G.Chance(0.3f)) G.Fx.Trail(GlobalPosition, new Color(KindColor, 0.6f));
         QueueRedraw();
     }
 

@@ -1037,6 +1037,31 @@ A card is never drawn blank: if its label or text can't be made (a bug), the car
 and what it does, the trouble is logged once (`[cards] …`), and one card that fails to draw doesn't stop the rest
 (`UpgradeMenu.CardWords`).
 
+## Second attacks: every creature has two
+
+Every creature (`Enemies/Enemy.Secondary.cs`, numbers in its table and `Tune.Secondary`) has a second move beside what it always did, used when it's free (not mid-attack, not stunned) and its hero is in that move's range, then rested (6–8.5 s; an elite's comes sooner and winds up quicker). A hit that stuns or freezes it cuts the move short.
+
+- **Its own warning, not the primary blow's "!" and squash.** Each kind draws its own shape in light for the length of its wind-up (`FxLayer.Tell`, rendered by `Fx3D`), in the creature's colour, and the creature takes its own pose:
+
+  | Kind | Warning | Pose | Then |
+  |---|---|---|---|
+  | **Lunge** | chevrons running out along its path | leans back, coiled | darts along it, biting what it meets |
+  | **Dive** | chevrons from it to the hero | leans back | swoops straight down at them |
+  | **Spit** | a dashed aim line and a swelling orb at its mouth | rears up | one shot (thrown high enough to drop onto the hero) |
+  | **Volley** | a fan of three aim lines | rears up | a fan of three shots |
+  | **Slam** | a ring on the ground, filling in | rises tall | leaps and comes down: everything in the ring is struck and thrown |
+  | **Burst** | a ring round itself, filling in | swells and trembles | an eruption round its body (only used with the hero inside it) |
+  | **Spin** | a broken ring turning and closing in | winds round, shudders | spins, claws out, edging toward the hero |
+  | **Pounce** | crosshairs closing on where the hero stands | crouches low | a leap that lands there |
+  | **Spines** | spines growing out all round | swells | a ring of shots in every direction |
+
+- **Who has what:** rat Leaping Bite, bear Ground Slam, scorpion Venom Spit, hornet Stinger Fan, skeleton Bone Throw, sporeling Spore Burst, shardling Shard Fan, bat Plummet, frog Pounce, goblin Rock Toss, spider Ambush Leap, lava monster Eruption, golem Quake Stomp, fish Dart, urchin Spine Volley, eel Coil Strike, crab Claw Whirl, mite Nip, delver Upheaval, earth elemental Rockfall Stomp, frost elemental Blizzard Spin, nature elemental Thorn Ring, fire elemental Flame Rush, water elemental Tidal Burst, automaton Piston Charge, boiler Steam Vent, cogwheel Runaway Roll, gasbag Gas Glob, acid newt Acid Spit. The move's name shows briefly over the creature as it winds up.
+- **Finales for the ones that are hard to reach.** Neither can hold a fight up for long:
+  - A **bomber**, once it has been awake about 14 s, rocks and glows, then **dives at a hero and blows itself up** (Kamikaze: chevrons and crosshairs show where; everything within 60 px is struck). It doesn't go off on the ceiling it leaves from, only on a hero or the rock it meets after.
+  - An **ice spirit**, after about 16 s, swells and flashes faster and faster for a second, then **shatters into seven icicles** that fly out and, after a moment, turn after the nearest hero (`Kind = "icicle"` projectiles, steering the same way in every game).
+- **Online:** the warnings travel as one effect each; shots are the usual creature projectiles.
+- **Test:** `--scenario=moves` sets each kind (fish and eels aside: they need water) beside a sturdy hero with its move ready, and checks it winds up, strikes, lands and recovers (a finale: is spent). It takes pictures of each kind of move mid wind-up (`moves_<kind>`). `--only=Bear,Frog` limits it to those. The older scenarios run with `Tune.Testing.NoSecondary`.
+
 ## The Elementals
 
 Five creatures that live where their element is (`Enemies/Elementals.cs`, looks in `Render3D/Creatures/Designs/ElementalDesigns.cs`, numbers in `Tune.Elementals`, placement in `Biomes.AddElementals`): the **Nature Elemental** (roots and fungal caves; a man of roots and leaves that looses leaf-blades and heals if left alone), the **Water Elemental** (every biome with water; drifting drops with droplets circling it, never leaves the water, spits droplets), the **Fire Elemental** (magma caverns; many small flames standing as one, quick, flings fireballs), the **Frost Elemental** (frost caverns; a crystalline golem that fans out ice shards) and the **Earth Elemental** (dens, nests, tunnels, roots, fossil graveyards; packed earth and stone with orbiting rocks, hard to knock back, hurls boulders). `--scenario=elementals` checks each winds up an attack.

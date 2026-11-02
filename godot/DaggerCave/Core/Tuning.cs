@@ -727,6 +727,8 @@ public static class Tune
         public static bool NoHordes = false;
         /// <summary>A test aid: generators send only the biome's own creatures (the hordes test counts them).</summary>
         public static bool NoMovers = false;
+        /// <summary>No creature uses its second attack (Enemy.Secondary.cs): for the older tests, written before creatures had them.</summary>
+        public static bool NoSecondary = false;
     }
 
     /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>
@@ -1345,6 +1347,19 @@ public static class Tune
         public static float OwnShare = 0.35f;
         /// <summary>A milestone with the special's forms still on offer: the chance its third card is an Epic-or-better boon (else a great thing).</summary>
         public static float MilestoneBoonChance = 0.5f;
+    }
+
+    /// <summary>
+    /// Creatures' second attacks (Enemies/Enemy.Secondary.cs). Finales for the creatures that are hard to reach: a bomber, once it has been
+    /// about <c>BomberAfter</c> s awake, dives at a hero and blows itself up (<c>KamikazeRadius</c>); an ice spirit, after
+    /// <c>WraithAfter</c> s, flashes and shatters into <c>Icicles</c> icicles that fly out, then turn after the nearest hero
+    /// (<c>IcicleDelay</c> s out, at most <c>IcicleTurn</c> rad/s, <c>IcicleSpeed</c> px/s). Neither can hold a fight up for long.
+    /// </summary>
+    public static class Secondary
+    {
+        public static float BomberAfter = 14f, KamikazeRadius = 60f, WraithAfter = 16f;
+        public static int Icicles = 7;
+        public static float IcicleDelay = 0.35f, IcicleTurn = 3.2f, IcicleSpeed = 230f;
     }
 
     public static class Splash

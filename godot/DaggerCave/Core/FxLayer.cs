@@ -108,6 +108,7 @@ public partial class FxLayer : Node2D
             case 21: Explosion(r.Vec(), r.Col(), r.Half()); break;
             case 22: Chomp(r.Vec(), r.HVec(), r.Half(), r.Col()); break;
             case 23: { var at = r.Vec(); float rad = r.Half(); var c = r.Col(); float l = r.Half(); Ring(at, rad, c, l, (RingStyle)r.Byte()); break; }
+            case 24: { var kind = (TellKind)r.Byte(); var a = r.Vec(); var b = r.Vec(); float rad = r.Half(); float l = r.Half(); Tell(kind, a, b, rad, l, r.Col()); break; }
             default: throw new InvalidOperationException($"unknown effect {op}");
         }
     }
@@ -403,7 +404,29 @@ public partial class FxLayer : Node2D
     /// <summary>The screen wash right now (alpha already faded).</summary>
     public Color ScreenWash => _screenT > 0 ? new Color(_screenCol, _screenCol.A * 0.45f * (_screenT / _screenMax)) : new Color(0, 0, 0, 0);
 
-    public void Clear() { _parts.Clear(); _texts.Clear(); Flashes.Clear(); Shake = 0; }
+    public void Clear() { _parts.Clear(); _texts.Clear(); _tells.Clear(); Flashes.Clear(); Shake = 0; }
+
+    // ---- tells: the warning shapes of a creature's second attack (Enemy.Secondary.cs), each its own, none the primary's "!"
+
+    /// <summary>
+    /// <see cref="TellKind.Charge"/> chevrons running out along the path of a lunge or a dive; <see cref="TellKind.Aim"/> a dashed line
+    /// (a fan of them, <c>radius</c> the spread) and a swelling orb where a shot will leave; <see cref="TellKind.Ground"/> a circle on the
+    /// ground filling in where a slam or a burst will land; <see cref="TellKind.Whirl"/> a broken ring turning and closing about a creature
+    /// about to spin; <see cref="TellKind.Reticle"/> crosshairs closing on where a pounce will land; <see cref="TellKind.Radial"/> spines
+    /// growing outward all round, a ring of shots to come.
+    /// </summary>
+    public enum TellKind : byte { Charge, Aim, Ground, Whirl, Reticle, Radial }
+    public struct TellMark { public TellKind Kind; public Vector2 A, B; public float Radius, Life, Max; public Color Col; }
+    private readonly List<TellMark> _tells = new();
+    /// <summary>The tells showing now (Render3D/Fx/Fx3D.cs draws them in light: the 2D world is hidden).</summary>
+    public IReadOnlyList<TellMark> Tells => _tells;
+
+    public void Tell(TellKind kind, Vector2 a, Vector2 b, float radius, float life, Color col)
+    {
+        Rec(24)?.Byte((byte)kind).Vec(a).Vec(b).Half(radius).Half(life).Col(col);
+        if (_tells.Count > 40) _tells.RemoveAt(0);
+        _tells.Add(new TellMark { Kind = kind, A = a, B = b, Radius = radius, Life = life, Max = Math.Max(0.05f, life), Col = col });
+    }
 
     public override void _Process(double delta)
     {
@@ -430,6 +453,12 @@ public partial class FxLayer : Node2D
             t.Life -= dt;
             t.Pos.Y += t.Drift * dt;
             if (t.Life <= 0) _texts.RemoveAt(k); else _texts[k] = t;
+        }
+        for (int k = _tells.Count - 1; k >= 0; k--)
+        {
+            var t = _tells[k];
+            t.Life -= dt;
+            if (t.Life <= 0) _tells.RemoveAt(k); else _tells[k] = t;
         }
         Shake = Math.Max(0, Shake - dt * 30f);
         _screenT = Math.Max(0, _screenT - dt);

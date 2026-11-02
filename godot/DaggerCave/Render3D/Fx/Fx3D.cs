@@ -165,12 +165,145 @@ public partial class Fx3D : Node3D
         if (fx != null && IsInstanceValid(fx))
         {
             DrawParticles(fx);
+            DrawTells(fx);
             TakeFlashes(fx);
         }
         DrawStunStars();
         _glow.End(); _smoke.End(); _debris.End(); _bubbles.End();
         UpdateLights(dt);
         DrawHero();
+    }
+
+    // ---- tells: the warning shapes of a creature's second attack (Enemies/Enemy.Secondary.cs), drawn in glowing strokes
+
+    /// <summary>A glowing stroke between two points of the 2D world.</summary>
+    private void Stroke(Vector2 a, Vector2 b, Color c, float widthPx)
+    {
+        var d = b - a;
+        float len = d.Length();
+        if (len < 0.5f) return;
+        const float P = 1f / W3.Ppu;
+        _glow.Add(Quad(W3.P((a + b) * 0.5f, 0.35f), MathF.Atan2(-d.Y, d.X), len * 0.5f * P + widthPx * P, widthPx * P), c, new Vector4(1, 2.6f, 0, 0));
+    }
+
+    private void Dot(Vector2 at, float rPx, Color c, float glow = 2f)
+    {
+        const float P = 1f / W3.Ppu;
+        _glow.Add(Quad(W3.P(at, 0.35f), 0, rPx * P, rPx * P), c, new Vector4(0, glow, 0, 0));
+    }
+
+    /// <summary>A ring lying on the ground (like a shockwave's), or a disc of light filling it.</summary>
+    private void GroundRing(Vector2 at, float rPx, Color c, bool filled)
+    {
+        const float P = 1f / W3.Ppu;
+        float r = rPx * P * (filled ? 0.5f : 0.46f);
+        var ground = new Basis(Vector3.Right, -MathF.PI / 2f) * Basis.FromScale(new Vector3(r, r, 1));
+        _glow.Add(new Transform3D(ground, W3.P(at, 0f)), c, filled ? new Vector4(0, 1.2f, 0, 0) : new Vector4(2, 3f, 0.06f, 0));
+    }
+
+    private void Arc(Vector2 at, float r, float a0, float a1, Color c, float w)
+    {
+        int n = Math.Max(2, (int)(MathF.Abs(a1 - a0) * r / 7f));
+        var prev = at + new Vector2(MathF.Cos(a0), MathF.Sin(a0)) * r;
+        for (int k = 1; k <= n; k++)
+        {
+            float a = a0 + (a1 - a0) * k / n;
+            var next = at + new Vector2(MathF.Cos(a), MathF.Sin(a)) * r;
+            Stroke(prev, next, c, w);
+            prev = next;
+        }
+    }
+
+    private void DrawTells(FxLayer fx)
+    {
+        foreach (var t in fx.Tells)
+        {
+            float p = Math.Clamp(1f - t.Life / t.Max, 0f, 1f); // (0 as the wind-up starts, 1 as it lands)
+            float flick = 0.75f + 0.25f * MathF.Sin(t.Life * 30f);
+            var c = Lin(t.Col) with { A = t.Col.A * flick };
+            var core = new Color(1f, 1f, 1f, 0.7f * flick);
+            switch (t.Kind)
+            {
+                case FxLayer.TellKind.Charge:
+                {
+                    // chevrons running out along the path
+                    var d = t.B - t.A;
+                    float len = d.Length();
+                    if (len < 1f) break;
+                    var dir = d / len;
+                    var side = new Vector2(-dir.Y, dir.X);
+                    int n = Math.Max(2, (int)(len / 16f));
+                    int shown = (int)MathF.Ceiling(n * Math.Min(1f, p * 1.4f));
+                    for (int k = 0; k < shown; k++)
+                    {
+                        var at = t.A + dir * (len * (k + 1) / n);
+                        var cc = k == shown - 1 ? core : c;
+                        Stroke(at - dir * 6f + side * 6f, at, cc, 1.6f);
+                        Stroke(at - dir * 6f - side * 6f, at, cc, 1.6f);
+                    }
+                    break;
+                }
+                case FxLayer.TellKind.Aim:
+                {
+                    // a dashed line (a fan of three for a volley) and a swelling orb where the shot will leave
+                    var d = t.B - t.A;
+                    float len = Math.Min(220f, d.Length());
+                    if (len < 1f) break;
+                    float baseA = MathF.Atan2(d.Y, d.X);
+                    int lines = t.Radius > 0.01f ? 3 : 1;
+                    for (int k = 0; k < lines; k++)
+                    {
+                        float a = baseA + (lines == 1 ? 0f : (k - 1) * t.Radius);
+                        var dir = new Vector2(MathF.Cos(a), MathF.Sin(a));
+                        for (float s0 = 8f; s0 < len * (0.35f + 0.65f * p); s0 += 13f)
+                            Stroke(t.A + dir * s0, t.A + dir * Math.Min(s0 + 6f, len), c, 1.2f);
+                    }
+                    Dot(t.A, 3f + 6f * p, c, 2.6f);
+                    Dot(t.A, 1.5f + 2.5f * p, core, 3f);
+                    break;
+                }
+                case FxLayer.TellKind.Ground:
+                {
+                    // the circle it will strike, on the ground, filling in
+                    GroundRing(t.B, t.Radius, c, false);
+                    GroundRing(t.B, Math.Max(2f, t.Radius * p), c with { A = c.A * 0.12f }, true);
+                    GroundRing(t.B, Math.Max(2f, t.Radius * p), core with { A = core.A * 0.6f }, false);
+                    break;
+                }
+                case FxLayer.TellKind.Whirl:
+                {
+                    // a broken ring turning and closing in
+                    float r = t.Radius * (1.2f - 0.3f * p), spin = p * 9f;
+                    for (int k = 0; k < 6; k++) { float a0 = spin + k * MathF.Tau / 6f; Arc(t.A, r, a0, a0 + 0.6f, c, 1.8f); }
+                    Arc(t.A, r * 0.8f, -spin, -spin + 1.2f, core, 1f);
+                    break;
+                }
+                case FxLayer.TellKind.Reticle:
+                {
+                    // crosshairs closing on where it will land
+                    float r = t.Radius * (1.3f - 0.5f * p);
+                    Arc(t.B, r, 0, MathF.Tau, c, 1.3f);
+                    for (int k = 0; k < 4; k++)
+                    {
+                        var dir = Vector2.Right.Rotated(k * MathF.PI / 2f + p * 0.8f);
+                        Stroke(t.B + dir * (r + 4f), t.B + dir * (r * 0.4f), c, 1.5f);
+                    }
+                    Dot(t.B, 2f + 2f * p, core, 3f);
+                    break;
+                }
+                case FxLayer.TellKind.Radial:
+                {
+                    // spines growing outward all round
+                    for (int k = 0; k < 10; k++)
+                    {
+                        var dir = Vector2.Right.Rotated(k * MathF.Tau / 10f);
+                        Stroke(t.A + dir * (t.Radius * 0.5f), t.A + dir * (t.Radius * (0.5f + 0.7f * p)), c, 1.5f);
+                    }
+                    Dot(t.A, t.Radius * 0.5f * p, c with { A = c.A * 0.3f }, 1.4f);
+                    break;
+                }
+            }
+        }
     }
 
     private void DrawParticles(FxLayer fx)

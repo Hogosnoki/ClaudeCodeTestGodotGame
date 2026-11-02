@@ -422,7 +422,9 @@ public partial class Main : Node
             {
                 _scenario = a[11..];
                 // (the older scenarios were written for an empty cave and free abilities: their arenas hold no generators or trial rooms)
-                if (_scenario is not ("hordes" or "trial" or "big" or "growth")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
+                if (_scenario is not ("hordes" or "trial" or "big" or "growth" or "moves")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
+                // (and for creatures without second attacks: Enemy.Secondary.cs)
+                if (_scenario is not ("moves" or "bossmoves")) Tune.Testing.NoSecondary = true;
             }
         }
         Affinity.Off = _heroTest || _hitStopTest || _altTest;

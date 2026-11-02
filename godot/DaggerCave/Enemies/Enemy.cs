@@ -383,6 +383,7 @@ public abstract partial class Enemy : CharacterBody2D
         // until it thaws or is shattered
         if (_iceT > 0)
         {
+            Move2Interrupt();
             _iceT -= (float)delta;
             TickSeep((float)delta);
             EnsureIceBlock();
@@ -419,6 +420,7 @@ public abstract partial class Enemy : CharacterBody2D
         _lost = lost;
         if (Stun > 0)
         {
+            Move2Interrupt();
             Stun -= dt;
             if (_dazed) { if (Stun > 0) DazeFx(dt); else _dazed = false; }
             var v = KnockVel;
@@ -437,8 +439,9 @@ public abstract partial class Enemy : CharacterBody2D
         }
         else
         {
-            BrainDecide(dt);
-            Think(dt);
+            // (its second attack, when it's free for one, takes the place of its own behaviour until done: Enemy.Secondary.cs)
+            if (Master != null || !Move2Tick(dt)) { BrainDecide(dt); Think(dt); }
+            if (Dead) return; // (a finale: it's spent)
             if (Master != null) DrivenAfterThink(dt);
             if (!ManualMove)
             {
