@@ -350,10 +350,14 @@ public static class UiArt
     // ================================================================== rarity and frames
 
     /// <summary>How rare a card is, as its frame shows it.</summary>
-    public enum Rarity { Common, Uncommon, Rare, Relic, Bargain, Plain }
+    public enum Rarity { Common, Uncommon, Rare, Relic, Bargain, Plain, Epic, Legendary }
 
     public static Rarity RarityOf(Upgrade u) =>
         u.Icon == "skip" ? Rarity.Plain :
+        u.Grade != CardGrade.None && u.Kind != UpgradeKind.Relic ? u.Grade switch
+        {
+            CardGrade.Uncommon => Rarity.Uncommon, CardGrade.Rare => Rarity.Rare, CardGrade.Epic => Rarity.Epic, CardGrade.Legendary => Rarity.Legendary, _ => Rarity.Common,
+        } :
         u.Kind == UpgradeKind.Relic ? Rarity.Relic :
         u.Kind == UpgradeKind.RiskReward ? Rarity.Bargain :
         u.Kind == UpgradeKind.Alteration || u.Tier == UpgradeTier.Rare ? Rarity.Rare :
@@ -361,14 +365,17 @@ public static class UiArt
 
     public static string RarityName(Rarity r) => r switch
     {
-        Rarity.Uncommon => "UNCOMMON", Rarity.Rare => "RARE", Rarity.Relic => "RELIC", Rarity.Bargain => "BARGAIN", Rarity.Plain => "", _ => "COMMON",
+        Rarity.Uncommon => "UNCOMMON", Rarity.Rare => "RARE", Rarity.Epic => "EPIC", Rarity.Legendary => "LEGENDARY", Rarity.Relic => "RELIC", Rarity.Bargain => "BARGAIN", Rarity.Plain => "", _ => "COMMON",
     };
 
     /// <summary>The metal of a rarity's frame: iron, bronze, gold, rose-gold with gems, a bargain's violet.</summary>
     public static Color FrameColor(Rarity r) => r switch
     {
-        Rarity.Uncommon => new Color(0.78f, 0.55f, 0.32f),
-        Rarity.Rare => new Color(1f, 0.82f, 0.4f),
+        // (the loot colours: grey, green, blue, purple, gold)
+        Rarity.Uncommon => new Color(0.42f, 0.86f, 0.46f),
+        Rarity.Rare => new Color(0.38f, 0.64f, 1f),
+        Rarity.Epic => new Color(0.78f, 0.42f, 1f),
+        Rarity.Legendary => new Color(1f, 0.82f, 0.22f),
         Rarity.Relic => new Color(1f, 0.6f, 0.62f),
         Rarity.Bargain => new Color(0.78f, 0.5f, 1f),
         Rarity.Plain => new Color(0.5f, 0.48f, 0.46f),
@@ -384,13 +391,18 @@ public static class UiArt
     {
         var c = FrameColor(rar);
         if (!bright) c = c.Darkened(0.18f);
-        float w = rar switch { Rarity.Common or Rarity.Plain => 2f, Rarity.Uncommon => 2.5f, _ => 3f } + (bright ? 0.8f : 0f);
-        if (rar == Rarity.Relic || bright)
+        float w = rar switch { Rarity.Common or Rarity.Plain => 2f, Rarity.Uncommon => 2.5f, Rarity.Legendary => 4f, _ => 3f } + (bright ? 0.8f : 0f);
+        // (an Epic or Legendary card is a relic's frame in its own metal: purple gems, or gold ones and a far brighter glow)
+        bool grand = rar is Rarity.Epic or Rarity.Legendary;
+        if (grand) gemColor ??= rar == Rarity.Legendary ? new Color(1f, 0.95f, 0.6f) : new Color(0.85f, 0.45f, 1f);
+        if (rar == Rarity.Relic || grand || bright)
         {
             // a glow outside the frame
-            float g = rar == Rarity.Relic ? 0.22f + 0.1f * MathF.Sin(t * 2.4f) : 0.18f;
-            for (int k = 1; k <= 4; k++) Outline(ci, r.Grow(k * 2.2f), rad + k * 2.2f, new Color(c, g * (1f - k / 5f)), 2.2f);
+            float g = rar == Rarity.Legendary ? 0.42f + 0.18f * MathF.Sin(t * 3f) : rar is Rarity.Relic or Rarity.Epic ? 0.22f + 0.1f * MathF.Sin(t * 2.4f) : 0.18f;
+            int rings = rar == Rarity.Legendary ? 7 : 4;
+            for (int k = 1; k <= rings; k++) Outline(ci, r.Grow(k * 2.2f), rad + k * 2.2f, new Color(c, g * (1f - k / (rings + 1f))), 2.2f);
         }
+        if (grand) rar = Rarity.Relic; // (the ornaments are a relic's)
         Outline(ci, r, rad, new Color(0, 0, 0, 0.6f), w + 2.5f);
         Outline(ci, r, rad, c, w);
         // a highlight along the top of the band
@@ -590,7 +602,11 @@ public static class UiArt
     }
 
     /// <summary>The surface a card is printed on, by its kind.</summary>
-    public static Surface CardSurface(Upgrade u) => u.Icon == "skip" ? Surface.Iron : u.Kind switch
+    public static Surface CardSurface(Upgrade u) => u.Icon == "skip" ? Surface.Iron
+        : u.Grade == CardGrade.Legendary && u.Kind != UpgradeKind.Relic ? Surface.Gold
+        : u.Grade == CardGrade.Epic && u.Kind != UpgradeKind.Relic ? Surface.Night
+        : Boons.IsBoon(u) ? Surface.Stone
+        : u.Kind switch
     {
         UpgradeKind.Class => Surface.Leather,
         UpgradeKind.Alteration => Surface.Crystal,

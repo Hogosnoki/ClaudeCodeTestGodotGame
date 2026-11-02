@@ -50,11 +50,19 @@ public static class Cards
     private static string Slug(HeroKind h) => h.ToString().ToLowerInvariant()[..3];
 
     /// <summary>The level cards for the heroes' own buttons (a chest's class card is one of these too).</summary>
-    public static readonly List<Upgrade> Ability = BuildAbility();
-    /// <summary>The level cards for anyone.</summary>
-    public static readonly List<Upgrade> Shared = BuildShared();
+    public static readonly List<Upgrade> Ability = Graded(BuildAbility(), u => u.Tier == UpgradeTier.Ability ? CardGrade.Rare : CardGrade.Uncommon);
+    /// <summary>The level cards for anyone (the plain stats among them are dealt as boons now: see <see cref="Retired"/>).</summary>
+    public static readonly List<Upgrade> Shared = Graded(BuildShared(), _ => CardGrade.Common);
     /// <summary>The milestone cards: each hero's two forms of their special, and the great things anyone may take.</summary>
-    public static readonly List<Upgrade> Milestones = BuildMilestones();
+    public static readonly List<Upgrade> Milestones = Graded(BuildMilestones(), _ => CardGrade.Epic);
+    /// <summary>Shared cards no longer dealt, their place taken by the graded boons (Player/Boons.cs); kept so a hero who has them still reads right.</summary>
+    private static readonly HashSet<string> Retired = new() { "g_vigor", "g_might", "g_fleet", "g_hide" };
+
+    private static List<Upgrade> Graded(List<Upgrade> list, Func<Upgrade, CardGrade> grade)
+    {
+        foreach (var u in list) u.Grade = grade(u);
+        return list;
+    }
 
     public static IEnumerable<Upgrade> All => Ability.Concat(Shared).Concat(Milestones);
 
@@ -205,16 +213,35 @@ public static class Cards
     /// <summary>A level brings a milestone (every <see cref="Tune.Growth.MilestoneEvery"/> levels for the heroes that grow by these cards).</summary>
     public static bool IsMilestoneLevel(HeroKind h, int level) => Grows(h) ? level % Tune.Growth.MilestoneEvery == 0 : level % Meta.MilestoneEvery == 0;
 
-    /// <summary>A level's pick: two of the hero's own cards and one of anyone's (more of either if the other runs out).</summary>
+    /// <summary>
+    /// A level's pick: one of the hero's own cards, and two more, each either another of the hero's own (<see cref="Tune.Boons.OwnShare"/>)
+    /// or a boon at a rolled grade (Player/Boons.cs), now and then one of anyone's other cards; never two boons of one family.
+    /// </summary>
     public static List<Upgrade> RollLevel(PlayerStats s, Random rng)
     {
         float W(Upgrade u) => u.Weight * Math.Max(0.05f, (u.MaxStacks - s.StackOf(u.Id)) / (float)u.MaxStacks);
         var own = Grows(s.Hero) ? Ability.Where(u => Upgrades.Available(u, s)).ToList()
                                 : Upgrades.Chest.Where(u => u.Kind == UpgradeKind.Class && Upgrades.Available(u, s)).ToList();
-        var shared = Shared.Where(u => Upgrades.Available(u, s)).ToList();
-        var picks = Upgrades.Pick(own, 2, rng, W);
-        picks.AddRange(Upgrades.Pick(shared, 3 - picks.Count, rng, W));
-        if (picks.Count < 3) picks.AddRange(Upgrades.Pick(own.Where(u => !picks.Contains(u)).ToList(), 3 - picks.Count, rng, W));
+        var shared = Shared.Where(u => !Retired.Contains(u.Id) && Upgrades.Available(u, s)).ToList();
+        var picks = new List<Upgrade>();
+        var families = new HashSet<string>();
+        Upgrade TakeFrom(List<Upgrade> pool)
+        {
+            var u = Upgrades.Pick(pool.Where(x => !picks.Contains(x)).ToList(), 1, rng, W).FirstOrDefault();
+            if (u != null) picks.Add(u);
+            return u;
+        }
+        TakeFrom(own);
+        for (int guard = 0; picks.Count < 3 && guard < 12; guard++)
+        {
+            double r = rng.NextDouble();
+            if (r < Tune.Boons.OwnShare && TakeFrom(own) != null) continue;
+            if (r > 0.9 && TakeFrom(shared) != null) continue;
+            if (Boons.DealRolled(s, rng, families) is Upgrade b) { picks.Add(b); continue; }
+            if (TakeFrom(own) == null && TakeFrom(shared) == null) break;
+        }
+        // (the hero's own card isn't always on the left)
+        for (int k = picks.Count - 1; k > 0; k--) { int j = rng.Next(k + 1); (picks[k], picks[j]) = (picks[j], picks[k]); }
         return picks;
     }
 
@@ -222,11 +249,21 @@ public static class Cards
     /// (and if those run out, the hero's own cards).</summary>
     public static List<Upgrade> RollMilestone(PlayerStats s, Random rng)
     {
-        if (!Grows(s.Hero)) return Upgrades.RollMilestone(s, rng);
+        var families = new HashSet<string>();
+        if (!Grows(s.Hero))
+        {
+            // (the heroes with their own kits keep their milestones; the last card is a boon of Epic grade or better)
+            var old = Upgrades.RollMilestone(s, rng);
+            if (Boons.DealRolled(s, rng, families, CardGrade.Epic) is Upgrade ob) { if (old.Count >= 3) old[^1] = ob; else old.Add(ob); }
+            return old;
+        }
         var forms = Milestones.Where(u => u.For != null && Upgrades.Available(u, s)).ToList();
         var great = Milestones.Where(u => u.For == null && Upgrades.Available(u, s)).ToList();
         var picks = new List<Upgrade>(forms.Take(2));
-        picks.AddRange(Upgrades.Pick(great, 3 - picks.Count, rng, u => u.Weight));
+        // (with the forms on offer: a great thing or an Epic-or-better boon beside them; after: two great things and such a boon)
+        bool boon = picks.Count < 2 || rng.NextDouble() < Tune.Boons.MilestoneBoonChance;
+        picks.AddRange(Upgrades.Pick(great, (boon ? 2 : 3) - picks.Count, rng, u => u.Weight));
+        while (picks.Count < 3 && Boons.DealRolled(s, rng, families, CardGrade.Epic) is Upgrade b) picks.Add(b);
         if (picks.Count < 3) picks.AddRange(Upgrades.Pick(Ability.Where(u => Upgrades.Available(u, s) && !picks.Contains(u)).ToList(), 3 - picks.Count, rng, u => u.Weight));
         return picks;
     }

@@ -512,10 +512,10 @@ public static class Tune
         /// <summary>Enemy health and damage grow by this factor per level of depth...</summary>
         public static float DepthGrowth = 1.09f;
         /// <summary>Enemy health grows by only this share of that per level of depth (1.036 a level, against damage's 1.09).</summary>
-        public static float HpDepthShare = 0.4f;
+        public static float HpDepthShare = 0.8f;
         /// <summary>...and double every this many minutes of play (continuous curve). (The cave gets
         /// harder more through tougher creatures than through more of them: see the pace below.)</summary>
-        public static float DoublingMinutes = 27f;
+        public static float DoublingMinutes = 21f;
         /// <summary>Enemy speed/attack rate: this share of the threat's growth, capped (1.6 = at most 60% faster).</summary>
         public static float TempoShare = 0.2f, TempoCap = 1.6f;
         /// <summary>Spawn intensity ("pace"): PacePerDepth per level of depth plus 1 per PaceMinutesPerStep minutes, capped at PaceMax.</summary>
@@ -1333,6 +1333,18 @@ public static class Tune
         public static float ChainRange = 220f, ChainGap = 0.14f, ChainDamage = 0.6f, ChainSize = 0.65f, SanctumSeconds = 3f, SanctumDamage = 0.25f;
         public static int SteelVolleys = 2, SteelKnives = 4;
         public static float MarkVulnerable = 0.25f, MarkSeconds = 5f;
+    }
+
+    /// <summary>Boons, graded growth (Player/Boons.cs): how often each grade is dealt (Common, Uncommon, Rare, Epic, Legendary), how much
+    /// likelier the top three get with each level of depth, and the most a ward's chance can reach.</summary>
+    public static class Boons
+    {
+        public static float[] GradeWeights = { 52f, 28f, 13f, 5.5f, 1.5f };
+        public static float LuckPerDepth = 0.05f, NegateCap = 0.4f;
+        /// <summary>A level's pick: the chance each card beyond the first is the hero's own rather than a boon.</summary>
+        public static float OwnShare = 0.35f;
+        /// <summary>A milestone with the special's forms still on offer: the chance its third card is an Epic-or-better boon (else a great thing).</summary>
+        public static float MilestoneBoonChance = 0.5f;
     }
 
     public static class Splash

@@ -58,7 +58,7 @@ public static class Icons
     }
 
     /// <summary>The symbol of a kind of reward.</summary>
-    public static string CategoryFor(Upgrade u) => u.Icon == "skip" ? "cat_skip" : u.Kind switch
+    public static string CategoryFor(Upgrade u) => u.Icon == "skip" ? "cat_skip" : Boons.IsBoon(u) ? "cat_generic" : u.Kind switch
     {
         UpgradeKind.Class => "cat_class",
         UpgradeKind.Alteration => "cat_alteration",

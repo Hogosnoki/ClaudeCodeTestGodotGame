@@ -44,11 +44,42 @@ public partial class Main
         for (int k = 0; k < 60; k++)
         {
             var roll = Cards.RollLevel(s, rng);
-            clean &= roll.Count == 3 && roll.All(u => Cards.Ability.Contains(u) || Cards.Shared.Contains(u));
+            clean &= roll.Count == 3 && roll.All(u => Cards.Ability.Contains(u) || Cards.Shared.Contains(u) || Boons.IsBoon(u)) && roll.Distinct().Count() == 3;
             mine &= roll.All(u => u.For == null || u.For.Contains(hero));
             ownSeen += roll.Count(u => u.For != null);
         }
-        ScCheck($"  three cards, each the {hero}'s own or anyone's, never the old kits' ({clean}, {mine}; {ownSeen} of 180 the hero's own)", clean && mine && ownSeen >= 90);
+        ScCheck($"  three different cards, each the {hero}'s own, a boon or anyone's, never the old kits' ({clean}, {mine}; {ownSeen} of 180 the hero's own)", clean && mine && ownSeen >= 70);
+        // ---- boons: graded like loot
+        var gradeCount = new Dictionary<CardGrade, int>();
+        int boonsSeen = 0;
+        for (int k = 0; k < 2000; k++)
+            foreach (var u in Cards.RollLevel(s, rng).Where(Boons.IsBoon)) { boonsSeen++; gradeCount[u.Grade] = gradeCount.GetValueOrDefault(u.Grade) + 1; }
+        string dist = string.Join(", ", Enum.GetValues<CardGrade>().Skip(1).Select(g => $"{g} {gradeCount.GetValueOrDefault(g) * 100f / Math.Max(1, boonsSeen):0.0}%"));
+        ScCheck($"  boons come in every grade, the higher the rarer ({boonsSeen} dealt: {dist})",
+            gradeCount.GetValueOrDefault(CardGrade.Common) > gradeCount.GetValueOrDefault(CardGrade.Uncommon) && gradeCount.GetValueOrDefault(CardGrade.Uncommon) > gradeCount.GetValueOrDefault(CardGrade.Rare)
+            && gradeCount.GetValueOrDefault(CardGrade.Rare) > gradeCount.GetValueOrDefault(CardGrade.Epic) && gradeCount.GetValueOrDefault(CardGrade.Epic) > gradeCount.GetValueOrDefault(CardGrade.Legendary) && gradeCount.GetValueOrDefault(CardGrade.Legendary) > 0);
+        bool epicMile = Enumerable.Range(0, 40).All(_ => Cards.RollMilestone(s, rng).Any(u => u.Grade >= CardGrade.Epic));
+        ScCheck($"  every milestone deals something of Epic grade or better ({epicMile})", epicMile);
+        {
+            // (each boon does what it says: a copy of the hero's stats, before and after)
+            var t0 = new PlayerStats(hero);
+            var t1 = new PlayerStats(hero);
+            foreach (var id in new[] { "b_def_5", "b_atk_5", "b_spd_5", "b_jmp_5", "b_crit_5", "b_ward_5", "b_leap_5", "b_rate_5" }) Upgrades.Get(id).Apply(t1, null);
+            ScCheck($"  Legendary boons: damage taken x{t1.DamageTakenMult / t0.DamageTakenMult:0.00}, damage x{t1.DamageMult / t0.DamageMult:0.00}, speed x{t1.MoveSpeed / t0.MoveSpeed:0.00}, jump x{t1.JumpMult / t0.JumpMult:0.00}, crit +{(t1.GenCritChance - t0.GenCritChance) * 100f:0}%, ward {t1.NegateChance * 100f:0}%, air jumps +{t1.ExtraAirJumps}, attack rate x{t1.AttackSpeed / t0.AttackSpeed:0.00}",
+                t1.DamageTakenMult < t0.DamageTakenMult * 0.8f && t1.DamageMult > t0.DamageMult * 1.25f && t1.MoveSpeed > t0.MoveSpeed * 1.15f && t1.JumpMult > t0.JumpMult * 1.4f
+                && t1.GenCritChance > t0.GenCritChance + 0.1f && t1.NegateChance > 0.1f && t1.ExtraAirJumps == 2 && t1.AttackSpeed > t0.AttackSpeed * 1.15f);
+            int jumps0 = p.AirJumpsMax;
+            float hp0 = p.Hp, ward0 = s.NegateChance;
+            s.NegateChance = 1f; s.ExtraAirJumps++;
+            float took = p.Hurt(50f, p.GlobalPosition + new Vector2(20, 0));
+            ScCheck($"  a ward shrugs a blow off ({took:0} taken, {hp0 - p.Hp:0} lost); an extra air jump counts ({jumps0} -> {p.AirJumpsMax})", took == 0f && p.Hp == hp0 && p.AirJumpsMax == jumps0 + 1);
+            s.NegateChance = ward0; s.ExtraAirJumps--;
+        }
+        // (every grade side by side, for the picture)
+        _upgradeMenu.Open(new[] { "b_def_1", "b_hp_2", "b_crit_3", "b_haste_4", "b_atk_5" }.Select(Upgrades.Get).ToList(), "EVERY GRADE", null, UiArt.Surface.Arcane, UiArt.Rarity.Uncommon);
+        foreach (var _ in ElWait(0.6f)) yield return null;
+        ScShot($"growth_{hero.ToString().ToLowerInvariant()}_grades");
+        _upgradeMenu.Visible = false;
         // (every card can be shown: its label and its text)
         var badLabel = new List<string>();
         foreach (var u in Cards.All)

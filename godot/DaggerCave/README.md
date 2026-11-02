@@ -972,7 +972,7 @@ Generators now and then send creatures that keep off the floor (Enemies/Movers.c
 
 How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers in `Tune.Growth`). It applies to the Swordsman, Elementalist, Warden, Vitalist, Aegis and Rogue. The Shape Shifter and the Automaton, whose kits are their own, keep their old cards.
 
-- **Every level: a pick of three cards.** Picks wait until you press the milestone key (they never open in a fight); the HUD shows **LEVEL UP: N PICKS**. A pick is two of the hero's own cards and one of anyone's. Each card changes something you can see:
+- **Every level: a pick of three cards.** Picks wait until you press the milestone key (they never open in a fight); the HUD shows **LEVEL UP: N PICKS**. A pick is one of the hero's own cards and two more, each either another of the hero's own (35%) or a **boon** (below), now and then one of anyone's other cards; the order is shuffled. The hero's own cards change something you can see:
   - **The special:** *Vast* (+20% wider), *Crushing* (+25% harder), *Restless* (rests 15% less), each up to 3 times. *Again* (up to 2) adds a stroke:
     - Whirlwind: 2 more spins;
     - Meteor: one more, smaller stone;
@@ -989,7 +989,26 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
     - Humbling Light: lasts longer;
     - Shadowstep: a longer critical window.
   - **The dodge:** back sooner (the Warden's shield mends faster instead).
-  - **Anyone's:** Vigor (+12% health), Might (+8% damage), Fleet (+7% speed), Thick Hide (−7% damage taken), Blood Thirst (heal on kill; a minion gives a third), Quick Study (+12% experience).
+  - **Anyone's:** Blood Thirst (heal on kill; a minion gives a third), Quick Study (+12% experience). (Vigor, Might, Fleet and Thick Hide are dealt as boons now.)
+- **Boons: growth graded like loot** (Player/Boons.cs, `Tune.Boons`). Each boon comes at a grade, **Common** (grey), **Uncommon** (green), **Rare** (blue), **Epic** (purple, a violet face with glints) or **Legendary** (bright gold, black words, rays behind it, a shine sweeping across it and a fanfare when it's dealt). The higher the grade, the bigger the step and the rarer it is: about 52 / 28 / 13 / 5.5 / 1.5%, the top three a little likelier with each level of depth (+5% each). Never two of one family in one pick.
+
+  | Family (most to least often) | Common | Uncommon | Rare | Epic | Legendary |
+  |---|---|---|---|---|---|
+  | Defence (damage taken) | −4% Sturdy | −7% Stalwart | −11% Ironclad | −16% Adamant | −24% Unbreakable |
+  | Health (and mended) | +5% Hale | +8% Hardy | +12% Vigorous | +17% Titanic | +25% Undying |
+  | Attack (all damage) | +5% Sharpened | +9% Honed | +14% Brutal | +20% Savage | +30% Godslayer |
+  | Run speed | +4% Brisk | +7% Swift | +10% Fleetfoot | +14% Windrunner | +20% Quicksilver |
+  | Jump height | +5% Springy | +8% Bounding | +12% Soaring | +17% Skyward | +24% Weightless |
+  | Attack rate | | +6% Quick Hands | +9% Flurry | +13% Frenzy | +18% Tempest |
+  | Critical chance (x1.5) | | +3% Keen Eye | +5% Precision | +8% Executioner | +12% Deathmark |
+  | Every ability's rest | | −6% Focus | −9% Clarity | −13% Flow | −18% Timeless |
+  | Speed in the air | | +8% Drifting | +12% Gliding | +18% Wind-Rider | +26% Skydancer |
+  | Shrug a blow off entirely (at most 40%) | | 3% Lucky Charm | 5% Blessed Ward | 8% Fateweaver | 12% Untouchable |
+  | Special damage | | | +15% Empowered | +25% Overcharged | +40% Cataclysmic |
+  | Jumps in mid-air (at most 3 more) | | | | +1 Cloud Step | +2 Wings of Dawn |
+
+  Every milestone also deals something of Epic grade or better: beside the special's two forms, half the time an Epic-or-Legendary boon (else a great thing); after them, two great things and such a boon. The Shape Shifter's and the Automaton's milestones end with one too. The hero's own cards wear grades as well (Uncommon; *Again* Rare; milestones Epic).
+- **The creatures grow faster to match**: their health grows 7.2% a level of depth (was 3.6%), and everything about them doubles every 21 minutes of play (was 27).
 - **Every 5 levels: a milestone.** The first one offers the special's two forms; take one and the other is gone:
 
   | Hero | Form A | Form B |

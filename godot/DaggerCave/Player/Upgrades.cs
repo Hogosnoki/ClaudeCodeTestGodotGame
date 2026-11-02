@@ -178,6 +178,9 @@ public sealed class PlayerStats
     // relics (see Relics.cs)
     /// <summary>Relic: horizontal speed in the air (x).</summary>
     public float AirSpeedMult = 1f;
+    /// <summary>Boons (Player/Boons.cs): the chance a blow is shrugged off entirely, and jumps in mid-air beyond the usual.</summary>
+    public float NegateChance;
+    public int ExtraAirJumps;
     /// <summary>Relic: potions carried beyond the usual, and the added chance an enemy drops one.</summary>
     public int ExtraPotions;
     public float PotionChanceBonus;
@@ -366,6 +369,8 @@ public sealed class Upgrade
     public RelicRarity Rarity = RelicRarity.Uncommon;
     /// <summary>What it is about (offence, defence, mobility, utility, economy; on-hit, on-kill, on-hurt, status, party...): for the build page, tests and future filters.</summary>
     public string[] Tags = Array.Empty<string>();
+    /// <summary>A graded card's rarity (Player/Boons.cs: a boon's grade; the hero's own cards and milestones have theirs too): its frame and look.</summary>
+    public CardGrade Grade;
 
     public UpgradeKind Kind => Relic ? UpgradeKind.Relic : Alteration || RevertOf != null ? UpgradeKind.Alteration
         : Icon == "risk" ? UpgradeKind.RiskReward
@@ -689,7 +694,7 @@ public static partial class Upgrades
         return cards.Select(u => u.Id).ToArray();
     }
 
-    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Concat(Cards.All).Append(Skip).Append(LeaveChest).Append(Salvage);
+    public static IEnumerable<Upgrade> All => Chest.Concat(Relics).Concat(Corrupted).Concat(Reverts).Concat(Cards.All).Concat(Boons.All).Append(Skip).Append(LeaveChest).Append(Salvage);
 
     /// <summary>What a chest's class card may be: the old class cards (still the Shape Shifter's and the Automaton's) and the heroes' own level cards.</summary>
     private static IEnumerable<Upgrade> ClassPool => Chest.Concat(Cards.Ability);

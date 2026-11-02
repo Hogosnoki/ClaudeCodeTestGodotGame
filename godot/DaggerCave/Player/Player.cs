@@ -146,7 +146,7 @@ public partial class Player : CharacterBody2D
     private Vector2 _airDashDir;
     private int _airJumps, _airDashes;
     /// <summary>Jumps in mid-air before landing: every hero's own and a Double Jump's.</summary>
-    public int AirJumpsMax => (Stats.DoubleJump ? 1 : 0) + Tune.Hordes.AirJumps;
+    public int AirJumpsMax => (Stats.DoubleJump ? 1 : 0) + Tune.Hordes.AirJumps + Stats.ExtraAirJumps;
     /// <summary>Whether the hero slides down walls and leaps off them (every hero does).</summary>
     public bool CanWallJump => Stats.WallJump || Tune.Hordes.WallJump;
     /// <summary>For the tests: air jumps left before landing.</summary>
@@ -1299,6 +1299,17 @@ public partial class Player : CharacterBody2D
         float raw = dmg;
         // (the elemental Warden's Earth Shield: the earth takes it all)
         if (EarthShieldUp) { LastHitBlocked = true; MoundStruck(from); RunMetrics.Prevented(raw, Net.Me); return 0; }
+        // (a ward boon: now and then a blow is shrugged off entirely)
+        if (Stats.NegateChance > 0f && G.Chance(Stats.NegateChance))
+        {
+            LastHitBlocked = true;
+            _invuln = Math.Max(_invuln, 0.25f);
+            G.Fx.Text(GlobalPosition + new Vector2(0, -26), "SHRUGGED OFF", new Color(1f, 0.92f, 0.55f), 10, 0.7f);
+            G.Fx.Ring(GlobalPosition + new Vector2(0, -8), 18, new Color(1f, 0.9f, 0.5f, 0.8f), 0.25f);
+            G.Sfx.Play("clink", GlobalPosition, -4, 0, 1.3f);
+            RunMetrics.Prevented(raw, Net.Me);
+            return 0;
+        }
         bool melee = source != null && GodotObject.IsInstanceValid(source) && source.GlobalPosition.DistanceTo(GlobalPosition) < 70;
         var block = TryBlock(from, dmg, melee ? source : null, source);
         if (block.Blocked)

@@ -43,6 +43,7 @@ public partial class UpgradeMenu : Control
 
     /// <summary>A card's label: its kind, and for a hero's card, the ability it grows.</summary>
     public static string KindLabel(Upgrade u, HeroKind hero) => u.Id is "shop_supplies" or "shop_token" or "shop_potion" ? "SUPPLIES" : u.Id == "shop_reroll" ? "SERVICE"
+        : Boons.IsBoon(u) ? "BOON"
         : Cards.IsMilestone(u) ? "MILESTONE" + (u.Ability != null ? " · " + u.Ability.ToUpperInvariant() : "") : u.Kind switch
     {
         UpgradeKind.Class => "CLASS" + (u.Ability != null ? " · " + Upgrades.AbilityTitle(u.Ability, hero).ToUpperInvariant() : ""),
@@ -95,6 +96,10 @@ public partial class UpgradeMenu : Control
         _openedAt = _t;
         _denied = -1;
         Visible = true;
+        // (an Epic or Legendary card on the table announces itself)
+        var best = choices.Where(u => u.Kind != UpgradeKind.Relic).Select(u => u.Grade).DefaultIfEmpty(CardGrade.None).Max();
+        if (best == CardGrade.Legendary) { G.Sfx?.Play("relic_reveal", null, 0, 0, 1.25f); G.Sfx?.Play("milestone", null, -2, 0, 1.1f); }
+        else if (best == CardGrade.Epic) G.Sfx?.Play("relic_reveal", null, -4, 0, 1.4f);
         QueueRedraw();
     }
 
@@ -306,6 +311,39 @@ public partial class UpgradeMenu : Control
     private static string Humanize(string id) => string.Join(" ", (id ?? "card").Split('_', StringSplitOptions.RemoveEmptyEntries).Where(w => w.Length > 1)
         .Select(w => char.ToUpperInvariant(w[0]) + w[1..]));
 
+    /// <summary>A Legendary card's shine sweeping across it and its glints; an Epic card's violet glints.</summary>
+    private void DrawGrandeur(Rect2 r, bool legend, int k)
+    {
+        float left = r.Position.X + 5f, right = r.End.X - 5f, top = r.Position.Y + 5f, bottom = r.End.Y - 5f;
+        if (legend)
+        {
+            // the shine: a slanted band of light crossing every few seconds
+            float cycle = (_t * 0.45f + k * 0.37f) % 1.6f;
+            float bx = left - 60f + cycle * (r.Size.X + 120f);
+            float Cl(float x) => Math.Clamp(x, left, right);
+            for (int band = 0; band < 2; band++)
+            {
+                float bw = band == 0 ? 26f : 8f, off = band == 0 ? 0f : 34f, a = band == 0 ? 0.32f : 0.4f;
+                var poly = new[] { new Vector2(Cl(bx + off), top), new Vector2(Cl(bx + off + bw), top), new Vector2(Cl(bx + off + bw - 70f), bottom), new Vector2(Cl(bx + off - 70f), bottom) };
+                if (poly[1].X - poly[0].X > 0.5f || poly[2].X - poly[3].X > 0.5f) DrawColoredPolygon(poly, new Color(1f, 1f, 0.9f, a));
+            }
+        }
+        // glints: little four-pointed stars that swell and fade
+        int n = legend ? 9 : 6;
+        var col = legend ? new Color(1f, 1f, 0.85f) : new Color(0.95f, 0.8f, 1f);
+        for (int g = 0; g < n; g++)
+        {
+            float seed = g * 12.9898f + k * 78.233f;
+            float fx = 0.5f + 0.5f * MathF.Sin(seed * 1.7f), fy = 0.5f + 0.5f * MathF.Sin(seed * 2.3f + 1f);
+            float life = (_t * (0.6f + 0.15f * (g % 3)) + fx * 3f) % 1.4f;
+            float sz = MathF.Max(0f, MathF.Sin(life / 1.4f * MathF.PI)) * (legend ? 5f : 3.8f);
+            if (sz < 0.4f) continue;
+            var at = new Vector2(left + fx * (right - left), top + fy * (bottom - top));
+            DrawColoredPolygon(new[] { at + new Vector2(0, -sz * 1.8f), at + new Vector2(sz * 0.35f, 0), at + new Vector2(0, sz * 1.8f), at + new Vector2(-sz * 0.35f, 0) }, new Color(col, 0.85f));
+            DrawColoredPolygon(new[] { at + new Vector2(-sz * 1.8f, 0), at + new Vector2(0, sz * 0.35f), at + new Vector2(sz * 1.8f, 0), at + new Vector2(0, -sz * 0.35f) }, new Color(col, 0.85f));
+        }
+    }
+
     private void DrawCard(Font font, Rect2 r, Upgrade u, int k, bool hov, string locked, PlayerStats stats)
     {
         const float rad = 16f;
@@ -316,8 +354,23 @@ public partial class UpgradeMenu : Control
         var kind = skip ? CategoryColor(u.Icon) : KindColor(u.Kind);
         var dim = locked != null ? new Color(0.5f, 0.5f, 0.5f) : Colors.White;
         if (locked != null) kind = kind.Darkened(0.55f);
+        // (a graded card's grandeur: Legendary is bright gold with black words, rays behind it and a shine across it; Epic is violet)
+        var grade = u.Kind == UpgradeKind.Relic || skip ? CardGrade.None : u.Grade;
+        bool legend = grade == CardGrade.Legendary, epic = grade == CardGrade.Epic;
+        if (legend && locked == null)
+        {
+            var o = r.GetCenter();
+            for (int ray = 0; ray < 16; ray++)
+            {
+                float a = ray * MathF.Tau / 16f + _t * 0.35f;
+                float len = 210f + 25f * MathF.Sin(_t * 2f + ray);
+                DrawColoredPolygon(new[] { o, o + new Vector2(MathF.Cos(a - 0.07f), MathF.Sin(a - 0.07f)) * len, o + new Vector2(MathF.Cos(a + 0.07f), MathF.Sin(a + 0.07f)) * len },
+                    new Color(1f, 0.85f, 0.35f, 0.07f));
+            }
+        }
         UiArt.Shadow(this, r, rad);
-        UiArt.FillRounded(this, r, rad, UiArt.CardSurface(u), dim, 0.8f, r.Position + new Vector2(k * 97, 0));
+        var surfaceTint = legend ? new Color(2.35f, 2.15f, 1.7f) : epic ? new Color(1.55f, 0.85f, 2f) : Colors.White;
+        UiArt.FillRounded(this, r, rad, UiArt.CardSurface(u), dim * surfaceTint, 0.8f, r.Position + new Vector2(k * 97, 0));
         // a wash of the kind's colour across the top
         var band = new Rect2(r.Position + new Vector2(3, 3), new Vector2(cw - 6, 44));
         var bp = UiArt.Rounded(band, rad - 3);
@@ -368,10 +421,15 @@ public partial class UpgradeMenu : Control
         }
         // the kind and rarity, the name, the words (never a blank card: see CardWords)
         var (label, name, words) = CardWords(u, stats, rar);
-        if (!skip) DrawString(font, r.Position + new Vector2(10, 132), label, HorizontalAlignment.Center, cw - 20, 10, new Color(kind, 0.95f));
-        DrawString(font, r.Position + new Vector2(1, 157), name, HorizontalAlignment.Center, cw, 20, new Color(0, 0, 0, 0.7f));
-        DrawString(font, r.Position + new Vector2(0, 156), name, HorizontalAlignment.Center, cw, 20, locked != null ? new Color(0.6f, 0.6f, 0.6f) : Colors.White);
-        DrawMultilineString(font, r.Position + new Vector2(16, 180), words, HorizontalAlignment.Center, cw - 32, 13, -1, new Color(0.88f, 0.88f, 0.92f, locked != null ? 0.5f : 1f));
+        var labelCol = legend ? new Color(0.3f, 0.17f, 0f) : epic ? new Color(0.92f, 0.75f, 1f) : new Color(kind, 0.95f);
+        var nameShadow = legend ? new Color(1f, 0.97f, 0.8f, 0.55f) : new Color(0, 0, 0, 0.7f);
+        var nameCol = locked != null ? new Color(0.6f, 0.6f, 0.6f) : legend ? new Color(0.04f, 0.03f, 0.01f) : Colors.White;
+        var wordsCol = legend ? new Color(0.1f, 0.07f, 0.02f, locked != null ? 0.5f : 1f) : new Color(0.88f, 0.88f, 0.92f, locked != null ? 0.5f : 1f);
+        if (!skip) DrawString(font, r.Position + new Vector2(10, 132), label, HorizontalAlignment.Center, cw - 20, 10, labelCol);
+        DrawString(font, r.Position + new Vector2(1, 157), name, HorizontalAlignment.Center, cw, legend ? 22 : 20, nameShadow);
+        DrawString(font, r.Position + new Vector2(0, 156), name, HorizontalAlignment.Center, cw, legend ? 22 : 20, nameCol);
+        DrawMultilineString(font, r.Position + new Vector2(16, 180), words, HorizontalAlignment.Center, cw - 32, 13, -1, wordsCol);
+        if ((legend || epic) && locked == null) DrawGrandeur(r, legend, k);
         DrawString(font, r.Position + new Vector2(12, ch - 10), $"{k + 1}", HorizontalAlignment.Left, -1, 11, new Color(1, 1, 1, 0.35f));
         // (the merchant's services have no ranks: their "unlimited" is not drawn as thousands of pips)
         if (stats != null && u.MaxStacks > 1 && u.MaxStacks <= 12 && !skip)
