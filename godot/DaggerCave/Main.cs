@@ -187,7 +187,7 @@ public partial class Main : Node
         SetupFrontMenus();
 
         ParseArgs(out bool gentest);
-        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
+        G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || _introShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
         Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
@@ -305,7 +305,33 @@ public partial class Main : Node
             _state = State.Title;
             _hud.Visible = false;
             ShowTitle();
+            // (a real launch opens on the title growing in on black, then fades to the camp fire)
+            if (!G.NoSave || _introShot != "") ShowIntro();
         }
+    }
+
+    private IntroSplash _intro;
+    /// <summary>--introshot=DIR: screenshots through the intro at launch, then quit.</summary>
+    private string _introShot = "";
+    private int _introShotAt;
+
+    private void ShowIntro()
+    {
+        _intro = new IntroSplash { Done = () => _intro = null };
+        AddChild(_intro);
+    }
+
+    private void IntroShotTick()
+    {
+        float[] at = { 0.3f, 1.2f, 2.0f, 2.8f, 3.5f, 4.3f, 5.6f, 6.6f, 7.6f };
+        float t = _intro != null && IsInstanceValid(_intro) ? _intro.T : 99f;
+        if (_introShotAt < at.Length && t >= at[_introShotAt])
+        {
+            GetViewport().GetTexture().GetImage().SavePng($"{_introShot}/intro_{_introShotAt}_{t:0.0}s.png");
+            GD.Print($"[introshot] {t:0.0}s");
+            _introShotAt++;
+        }
+        if (_introShotAt >= at.Length || t > 90f) SafeQuit.Request(this);
     }
 
     /// <summary>The main menu, over the camp outside the cave.</summary>
@@ -342,6 +368,7 @@ public partial class Main : Node
             else if (a.StartsWith("--duration=")) _duration = float.Parse(a[11..], System.Globalization.CultureInfo.InvariantCulture);
             else if (a.StartsWith("--start=")) _startAt = a[8..];
             else if (a.StartsWith("--titleshot=")) _titleShot = a[12..];
+            else if (a.StartsWith("--introshot=")) _introShot = a[12..];
             else if (a == "--bestiary") _bestiary = true;
             else if (a == "--animtest") _animTest = true;
             else if (a == "--herotest") _heroTest = true;
@@ -2227,6 +2254,7 @@ public partial class Main : Node
         if (_menuShot != "") MenuShotTick();
         if (_netTest != "") NetTestTick(dt);
         if (_onlineShot != "") OnlineShotTick();
+        if (_introShot != "") IntroShotTick();
         if (_scenario != "") ScenarioTick(dt);
         UpdateTitleButton();
         TickFront(dt);

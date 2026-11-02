@@ -1044,6 +1044,13 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
 
   **The title logo is made the same way** (UI/TitleLogo.cs, Render3D/ReliefMesh.cs, Art/Title from `tools/logo_prep.py`): the main menu's "DAGGER DEEP" is the title logo carved in 3D at the same depth (T = 2·D), in a little 3D view of its own (so no ink border), lit by a warm key light that drifts over it and a red rim light, the red smoke and glow drawn flat behind. It sways slowly from side to side, never far enough to stop reading. If its pictures are missing, the old words come back.
 
+  **The intro at launch** (UI/IntroSplash.cs): the game opens on black, and the title grows in. Its shader leaves out every part
+  thinner than a "vanish line" (each vertex of the relief carries its thickness), and the line sweeps down from above the thickest
+  point to nothing: the letters' thick cores form first, then the shape fills out, and the thin spikes, curls and points grow out of
+  the letters last. (The line walks down the logo's thicknesses in order, so the shown share grows evenly; the red glow comes up
+  only at the end.) It holds a moment, then the black and the big title fade away to the camp fire and the main menu. Any key,
+  click or button skips to the fade. `--introshot=DIR` saves screenshots through it.
+
   The flowers spin steadily about their own upright, like coins waiting to be picked up (slowly: `ShrineSpin` = 0.8 rad/s, about one turn every eight seconds, a touch faster for each finer grade), each from its own starting angle, tipped toward the camera and still swinging on their points as they sink.
 
   Opening one titles the pick "AN EPIC SHRINE!" or "A LEGENDARY SHRINE!" in the matching frame. **Fortune** works here too: when you first look in a shrine, each point of luck gives a 25% chance (`Tune.Shrine.BloomPerLuck`) that it blooms a grade finer on the spot ("FORTUNE!"), the flower growing into its finer form before the cards are dealt. `--scenario=shrinelook` lines up one of each grade (shrinelook_*.png) and checks that every shrine's finest card matches its flower (and takes turned close-ups, shrinelook_turned_*.png, to show their depth), that the grades come from the seed, and that Fortune makes them bloom.

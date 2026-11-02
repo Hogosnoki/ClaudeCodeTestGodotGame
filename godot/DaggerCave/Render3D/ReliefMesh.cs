@@ -8,7 +8,8 @@ namespace DaggerCave;
 /// its distance D to the nearest edge (16 bits: red the high byte, green the low). Both faces stand off from the middle by a height
 /// worked out from D, so the shape's depth comes straight from its outline: sharp at its edges, swelling along its middle. The
 /// picture itself is its texture (the UVs run over it), trimmed to the exact outline by the picture's alpha. Used by the shrine
-/// flowers (ShrineRelief.cs) and the title (UI/TitleLogo.cs).
+/// flowers (ShrineRelief.cs) and the title (UI/TitleLogo.cs). Each vertex carries its whole thickness there (picture pixels) in
+/// UV2.x, so a shader can leave out everything thinner than a line it is given (the title's grow-in).
 /// </summary>
 public static class ReliefMesh
 {
@@ -26,6 +27,13 @@ public static class ReliefMesh
     /// metres per pixel; (<paramref name="pivotX"/>, <paramref name="pivotY"/>) is the picture point placed at the origin.
     /// </summary>
     public static ArrayMesh Build(Image himg, float maxDist, Func<float, float> faceHeight, float scale, float pivotX, float pivotY, int step = 3)
+        => Build(himg, maxDist, faceHeight, scale, pivotX, pivotY, step, out _);
+
+    /// <summary>
+    /// As above; <paramref name="ranks"/> is the solid grid's thicknesses (picture pixels), thickest first, sampled at 257 even steps
+    /// through them: a vanish line walked down it uncovers the same share of the shape at every step.
+    /// </summary>
+    public static ArrayMesh Build(Image himg, float maxDist, Func<float, float> faceHeight, float scale, float pivotX, float pivotY, int step, out float[] ranks)
     {
         if (himg.IsCompressed()) himg.Decompress();
         int w = himg.GetWidth(), h = himg.GetHeight();
@@ -49,7 +57,7 @@ public static class ReliefMesh
             // (picture y runs down, the world's up: the slope's sign turns over)
             var n = new Vector3(-hx * sz, hy * sz, 1f * sz).Normalized();
             var pos = new Vector3((i * step - pivotX) * scale, (pivotY - j * step) * scale, hs[i, j] * scale * sz);
-            return idx[s, i, j] = mb.Add(pos, n, Colors.White, new Vector2((float)(i * step) / (w - 1), (float)(j * step) / (h - 1)));
+            return idx[s, i, j] = mb.Add(pos, n, Colors.White, new Vector2((float)(i * step) / (w - 1), (float)(j * step) / (h - 1)), new Vector2(hs[i, j] * 2f, 0f));
         }
         for (int i = 0; i < nx - 1; i++)
             for (int j = 0; j < ny - 1; j++)
@@ -66,6 +74,11 @@ public static class ReliefMesh
                     if (s == 0) { mb.Tri(a, b, c); mb.Tri(a, c, d); } else { mb.Tri(a, c, b); mb.Tri(a, d, c); }
                 }
             }
-        return mb.ToMesh();
+        var solid = new System.Collections.Generic.List<float>();
+        foreach (var v in hs) if (v > 0f) solid.Add(v * 2f);
+        solid.Sort((a, b) => b.CompareTo(a));
+        ranks = new float[257];
+        for (int q = 0; q <= 256; q++) ranks[q] = solid.Count > 0 ? solid[Math.Min(solid.Count - 1, (int)(q / 256f * (solid.Count - 1)))] : 0f;
+        return mb.ToMesh(null, true);
     }
 }
