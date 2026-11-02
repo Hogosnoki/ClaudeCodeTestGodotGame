@@ -47,7 +47,12 @@ public partial class Player
     private Vector2 _bashDir = Vector2.Right;
     public bool IsShieldBashing => _bashT > 0;
     /// <summary>0 = the shield bash is ready, 1 = just used.</summary>
-    public float BashCooldownFrac => Math.Clamp(_bashCd / Math.Max(0.01f, Stats.BashCooldown), 0, 1);
+    public float BashCooldownFrac => Math.Clamp(_bashCd / Math.Max(0.01f, BashRestTotal), 0, 1);
+    /// <summary>The Shield Bash's rest: the simple kit's powerful bash (the dodge button) rests <see cref="Tune.Warden.HeavyBashCooldown"/> s,
+    /// shortened as cards shorten the old one.</summary>
+    private float BashRestTotal => SimpleKit ? Tune.Warden.HeavyBashCooldown * Stats.BashCooldown / Tune.Warden.BashCooldown : Stats.BashCooldown;
+    private float BashRadiusNow => SimpleKit ? Tune.Warden.HeavyBashRadius : Tune.Warden.BashRadius;
+    private float BashLungeNow => SimpleKit ? Tune.Warden.HeavyBashLunge : Tune.Warden.BashLunge;
 
     /// <summary>Test harness: a fresh, full shield.</summary>
     public void RefillShield() { ShieldHp = Stats.ShieldMax; _shieldBrokenT = 0; }
@@ -75,7 +80,9 @@ public partial class Player
         bool dashing = _dashT > 0, bashing = _bashT > 0;
         bool want = inp.GuardHeld || inp.Dodge || inp.StickGuard;
         bool was = ShieldRaised;
-        ShieldRaised = dashing || (bashing && !ShieldBroken) || (want && !ShieldBroken && ShieldHp > 0);
+        // (the Warden of today has no shield to hold up: it is only behind him in a bash or a charge)
+        if (SimpleKit) want = false;
+        ShieldRaised = dashing || (bashing && (SimpleKit || !ShieldBroken)) || (want && !ShieldBroken && ShieldHp > 0);
         if (ShieldRaised && !was) _shieldUpT = 0;
         // (raised with charges readied, the shield takes their guard: see Player.WardenElements.cs)
         if (ShieldRaised && !was && !dashing && !bashing) GuardRaised();
@@ -282,11 +289,13 @@ public partial class Player
         }
         // (an elemental charge runs through creatures: see WardenDashPass)
         if (_wDash != "") return false;
+        // (today's Warden charges through everything in his path, striking each once)
+        bool plough = Stats.Juggernaut || SimpleKit;
         foreach (var e in G.Enemies.ToArray())
         {
-            if (e.Dead || (!e.AttackingNow && !Stats.Juggernaut)) continue;
-            if (e.GlobalPosition.DistanceTo(front) > e.HitRadius + 10) continue;
-            if (Stats.Juggernaut)
+            if (e.Dead || !e.CanBeHit || (!e.AttackingNow && !plough)) continue;
+            if (e.GlobalPosition.DistanceTo(front) > e.HitRadius + 10 + (SimpleKit ? Tune.Warden.ChargeWidth : 0f)) continue;
+            if (plough)
             {
                 // Juggernaut's Charge: everything in the way is struck once, and the charge runs on
                 if (!_dashStruck.Add(e)) continue;
@@ -330,13 +339,15 @@ public partial class Player
     }
 
     private readonly System.Collections.Generic.HashSet<Enemy> _dashStruck = new();
+    /// <summary>For the tests: creatures the charge struck on its way through.</summary>
+    public int ChargeStruck { get; private set; }
 
     /// <summary>Juggernaut's Charge meets a creature: it's struck and thrown aside, and the charge goes on.</summary>
     private void DashPlough(Enemy e, Vector2 at)
     {
         e.Interrupt(_dashDir * Tune.Warden.DashPush, Tune.Warden.DashStagger);
-        float dealt = e.Hurt(Tune.Warden.DashDamage * Stats.DamageMult * Stats.DashDamageMult, _dashDir * 160f, at);
-        if (dealt > 0) OnDealtDamage(dealt);
+        float dealt = e.Hurt((SimpleKit ? Tune.Warden.ChargeDamage : Tune.Warden.DashDamage) * Stats.DamageMult * Stats.DashDamageMult, _dashDir * 160f, at);
+        if (dealt > 0) { OnDealtDamage(dealt); ChargeStruck++; }
         if (Stats.DashMend) { MendShield(12f); Heal(4f); }
         if (SimpleKit) { SimpleTouch(e, KitRole.Special, at - _dashDir * 10f); ElementWorld.Touch(Mode, at, 24f, _dashDir); }
         G.Fx.Spark(at, _dashDir, true, new Color(0.7f, 0.9f, 1f));
@@ -375,13 +386,13 @@ public partial class Player
     private bool TryShieldBash(Vector2 aim)
     {
         if (!IsWarden || _bashCd > 0 || _bashT > 0) return false;
-        if (ShieldBroken || ShieldHp <= 0) { _bashCd = 0.5f; SayNo("SHIELD BROKEN"); return true; }
+        if (!SimpleKit && (ShieldBroken || ShieldHp <= 0)) { _bashCd = 0.5f; SayNo("SHIELD BROKEN"); return true; }
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         // on your feet it's a shove straight ahead; in the air or the water, wherever you aim
         if (!InWater && IsOnFloor()) d = new Vector2(Math.Abs(d.X) > 0.2f ? Math.Sign(d.X) : Facing, 0);
         _bashDir = d;
         _bashT = Tune.Warden.BashTime;
-        _bashCd = Stats.BashCooldown;
+        _bashCd = Tune.Testing.NoCooldowns && SimpleKit ? 0.3f : BashRestTotal;
         _bashHit = false;
         if (Stats.DeflectingBash) Deflect();
         if (Math.Abs(d.X) > 0.1f) Facing = Math.Sign(d.X);
@@ -401,7 +412,7 @@ public partial class Player
     {
         if (_bashHit) return vx;
         float k = Math.Clamp(_bashT / Tune.Warden.BashTime, 0, 1);
-        return _bashDir.X * Tune.Warden.BashLunge * k;
+        return _bashDir.X * BashLungeNow * k;
     }
 
     private void TickBash(float dt)
@@ -409,7 +420,7 @@ public partial class Player
         if (_bashT <= 0) return;
         _bashT -= dt;
         if (_bashHit) return;
-        if (InWater || !IsOnFloor()) Velocity = Velocity.Lerp(_bashDir * Tune.Warden.BashLunge * 0.6f, 0.3f);
+        if (InWater || !IsOnFloor()) Velocity = Velocity.Lerp(_bashDir * BashLungeNow * 0.6f, 0.3f);
         var origin = GlobalPosition + new Vector2(0, -3);
         var front = origin + _bashDir * 10;
         // the shield meets projectiles on the way, as it would held up (a deflecting bash sends
@@ -427,7 +438,7 @@ public partial class Player
         {
             if (e.Dead || !e.CanBeHit) continue;
             var to = e.GlobalPosition - origin;
-            if (to.Length() - e.HitRadius > Tune.Warden.BashRadius) continue;
+            if (to.Length() - e.HitRadius > BashRadiusNow) continue;
             if (_bashDir.Dot(to) < -4f) continue; // behind the shield
             if (!G.Cave.LineClear(origin, e.GlobalPosition)) continue;
             (struck ??= new List<Enemy>()).Add(e);
@@ -446,25 +457,28 @@ public partial class Player
         {
             var from = (e.GlobalPosition - GlobalPosition).Normalized();
             var hit = e.GlobalPosition - from * e.HitRadius;
-            var push = (from + _bashDir).Normalized() * Tune.Warden.BashPush;
+            var push = (from + _bashDir).Normalized() * (SimpleKit ? Tune.Warden.HeavyBashPush : Tune.Warden.BashPush);
             // (the blow first, then the stun: a hit's own short reel mustn't cut the stun short)
             // (a bash shatters what is frozen solid: after the blow, the ice goes in a burst)
             bool shatter = e.FrozenSolid;
-            float dealt = e.Hurt(Tune.Warden.BashDamage * Stats.DamageMult, push, hit);
+            float dealt = e.Hurt((SimpleKit ? Tune.Warden.HeavyBashDamage * Stats.PrimaryDamageMult : Tune.Warden.BashDamage) * Stats.DamageMult, push, hit);
             if (dealt > 0) OnDealtDamage(dealt);
             if (shatter) ShatterFrozen(e);
             // (a deflecting bash shoves, but doesn't stun)
             if (!e.Dead && !Stats.DeflectingBash)
             {
-                float stun = Tune.Warden.BashStun * (e.Elite || e.IsGuardian ? 0.5f : 1f);
+                float stun = (SimpleKit ? Tune.Warden.HeavyBashStun : Tune.Warden.BashStun) * (e.Elite || e.IsGuardian ? 0.5f : 1f);
                 e.Interrupt(push, stun, "STUNNED");
                 e.Freeze(Tune.Feel.HitStopDash);
             }
+            // (the bash carries the Warden's element: a special's worth)
+            if (SimpleKit && !e.Dead) SimpleTouch(e, KitRole.Special, GlobalPosition);
             G.Fx.Spark(hit, from, true, new Color(1f, 0.95f, 0.75f));
             G.Fx.Ring(hit, 12, new Color(0.7f, 0.9f, 1f, 0.9f));
         }
+        Bashed++;
         // the shield takes the blow too (once, however many it struck; an unyielding one never weakens)
-        if (!Stats.Unyielding) ShieldHp -= Stats.ShieldMax * Tune.Warden.BashShieldShare * Stats.BashShieldMult;
+        if (!Stats.Unyielding && !SimpleKit) ShieldHp -= Stats.ShieldMax * Tune.Warden.BashShieldShare * Stats.BashShieldMult;
         _shieldRegenWait = Tune.Warden.ShieldRegenDelay;
         _shieldFlash = 0.25f;
         G.Fx.Ring(at, 16 + 8 * Math.Min(3, struck.Count - 1), new Color(0.7f, 0.9f, 1f, 0.9f), 0.3f, FxLayer.RingStyle.Burst);
@@ -477,8 +491,11 @@ public partial class Player
         G.Main.Rumble(0.6f, 0.7f, 0.18f);
         Freeze(Tune.Feel.HitStopDash);
         Velocity = new Vector2(-_bashDir.X * 70f, Math.Min(Velocity.Y, 0f));
-        if (ShieldHp <= 0) BreakShield(at);
+        if (ShieldHp <= 0 && !SimpleKit) BreakShield(at);
     }
+
+    /// <summary>For the tests: Shield Bashes that landed.</summary>
+    public int Bashed { get; private set; }
 
     /// <summary>Projectiles sent back this run by a deflecting bash (for the tests).</summary>
     public int Deflected { get; private set; }

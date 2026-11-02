@@ -30,7 +30,6 @@ public partial class Hud
         string dl = Elements.Noun(p.Stats.Hero, KitRole.Defensive).ToUpperInvariant();
         bool dready = df <= 0;
         if (p.Stats.Hero == HeroKind.Vitalist) { dl += $" ({p.HealCost:0})"; dready &= p.VitalForce >= p.HealCost - 0.001f; }
-        if (p.Stats.Hero == HeroKind.Warden && p.ShieldRaised) dl = "RAISED";
         AbilitySquare(font, x, dl, df, dready, col, (c, cc) =>
         {
             // a shield
@@ -52,7 +51,6 @@ public partial class Hud
                 DrawLine(c + d * 7, c + d * (k % 2 == 0 ? 13 : 10), cc, 2f);
             }
         }, p.SimpleName(KitRole.Special));
-        if (p.Stats.Hero == HeroKind.Warden) UsePips(x, p, col);
         KeyHint(font, x, "ability");
         // the other: the class's own (no element, so in the hero's own colour)
         x += new Vector2(step, 0);
@@ -66,6 +64,8 @@ public partial class Hud
             // a four-pointed star
             DrawColoredPolygon(new[] { c + new Vector2(0, -12), c + new Vector2(3, -3), c + new Vector2(12, 0), c + new Vector2(3, 3), c + new Vector2(0, 12), c + new Vector2(-3, 3), c + new Vector2(-12, 0), c + new Vector2(-3, -3) }, cc);
         }, p.Stats.Hero == HeroKind.Elementalist ? p.SimpleName(KitRole.Other) : other);
+        // (the Warden's Charge runs on his ability charges)
+        if (p.Stats.Hero == HeroKind.Warden) UsePips(x, p, col);
         KeyHint(font, x, "ability2");
         _gaugeEnd = Math.Max(_gaugeEnd, step * 4f);
         if (p.Stats.Hero != HeroKind.Vitalist) return;
@@ -90,7 +90,7 @@ public partial class Hud
         if (!Elements.Simple) return false;
         // (the specials, and the Warden's Charge on the other button)
         {
-            if (name == "Charge") { tip = ("Charge", "Shield first, a rush along the ground that bowls over whatever stands in the way."); return true; }
+            if (name == "Charge") { tip = ("Charge", $"Shield first, a rush along the ground straight through everything in your path: each creature it meets takes {Tune.Warden.ChargeDamage:0}, is knocked aside and staggered, and shots in the way are swallowed."); return true; }
             foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
                 foreach (var el in Elements.Of(h))
                     if (Elements.SimpleName(h, KitRole.Special, el) == name || Elements.Noun(h, KitRole.Special) == name) { tip = (name, BigBody(h)); return true; }
@@ -146,8 +146,8 @@ public partial class Hud
             (HeroKind.Swordsman, KitRole.Primary) => $"A swing of the sword: it {B(P)} in each creature it strikes. A **tipper**, a blow landing with the outer part of the blade, deals {Tune.Elements.TipperDamage:0.#}x and {(wind ? "shoves twice as hard" : "builds double")}: keep your distance.",
             (HeroKind.Swordsman, KitRole.Defensive) => $"A quick roll out of harm's way. It lays on no element; but for {Tune.Elements.RiposteWindow:0.#} s after it, every blow is a tipper (the riposte).",
             (HeroKind.Swordsman, KitRole.Special) => $"The Hard Swing: a great two-handed blow, on your feet. It {B(S)} in each creature it strikes (a tipper, double).",
-            (HeroKind.Warden, KitRole.Primary) => "A cut of the shortsword. The Warden's element isn't in his blade but in his shield.",
-            (HeroKind.Warden, KitRole.Defensive) => $"Hold to raise the shield: it stops most of each blow from the front, wearing as it does. A creature whose blow it stops: the shield {B(Tune.Elements.CounterBuild)}; raised just in time (a perfect block, all the blow stopped), it {B(S)}.",
+            (HeroKind.Warden, KitRole.Primary) => "A cut of the shortsword. The Warden's element isn't in his blade but in his Shield Bash and his Charge.",
+            (HeroKind.Warden, KitRole.Defensive) => $"A powerful shove of the shield: everything close in front takes {Tune.Warden.HeavyBashDamage:0}, is stunned for {Tune.Warden.HeavyBashStun:0.#} s and thrown back, and shots in its way are sent back. It {B(S)} in each creature it strikes. ({Tune.Warden.HeavyBashCooldown:0.#} s)",
             (HeroKind.Warden, KitRole.Special) => $"The Guarded Charge: a shield-first rush that breaks off the attack it meets, and {B(S)} in that creature.",
             (HeroKind.Elementalist, KitRole.Primary) => $"A bolt from the staff, flying to the creature nearest your aim: it {B(P)}.",
             (HeroKind.Elementalist, KitRole.Defensive) => $"Blink: a step through the air. You appear up to {Tune.OtherAbility.BlinkRange:0} px along your aim, short of rock, untouchable for a moment. It lays on no element. ({Tune.OtherAbility.BlinkCooldown:0} s)",

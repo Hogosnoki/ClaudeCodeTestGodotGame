@@ -120,7 +120,7 @@ public partial class Hud : Control
         {
             var rows = new List<(float frac, string label, string name, string tip, Color col, float[] ticks)>();
             var light = new Color(0.93f, 0.94f, 0.97f);
-            if (p.Stats.Hero == HeroKind.Warden && (p.ShieldRaised || p.ShieldBroken || p.ShieldHp < p.Stats.ShieldMax - 0.05f))
+            if (p.Stats.Hero == HeroKind.Warden && !p.SimpleKit && (p.ShieldRaised || p.ShieldBroken || p.ShieldHp < p.Stats.ShieldMax - 0.05f))
                 rows.Add((Math.Clamp(p.ShieldHp / Math.Max(1f, p.Stats.ShieldMax), 0f, 1f), p.ShieldBroken ? "BROKEN" : $"{Num.Shown(p.ShieldHp)} shield", "Shield",
                     $"Your shield: {Num.Shown(p.ShieldHp)} of {Num.Shown(p.Stats.ShieldMax)}. What it can still stop; it wears down under blows and mends while lowered. Broken, it is down for a few seconds.",
                     p.ShieldBroken ? new Color(0.5f, 0.5f, 0.55f) : light, null));

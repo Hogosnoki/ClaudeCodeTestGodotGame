@@ -89,15 +89,6 @@ public partial class Main
         p.SetVitalForce(p.Stats.VitalForceMax);
         IEnumerable<object> Use(KitRole r, int hold = 1)
         {
-            if (r == KitRole.Defensive && hero == HeroKind.Warden)
-            {
-                // the shield: held up, and a creature's blow stopped on it
-                for (int k = 0; k < hold; k++) { _scInput = new PlayerInput { Dodge = true, GuardHeld = true, GuardAim = aim }; yield return null; }
-                var b = p.TryBlock(foe.GlobalPosition, 10f, melee: foe);
-                _scInput = default;
-                ScCheck($"  the raised shield stops the blow ({b.Blocked}, perfect {b.Perfect})", b.Blocked && b.Perfect == (hold <= 1));
-                yield break;
-            }
             var inp = r switch
             {
                 KitRole.Primary => new PlayerInput { Attack = true, Aim = aim, AimGiven = true },
@@ -137,7 +128,7 @@ public partial class Main
                 float dealt = zone ? hurtAtOnce : f.MaxHp - f.Hp, built = zone ? atOnce : BuildOf(f, el);
                 dmg[(r, el)] = dealt;
                 string name = Elements.SimpleName(hero, r, el);
-                bool used = r == KitRole.Defensive && hero == HeroKind.Warden || p.ElementalUses.Skip(uses).Contains(name);
+                bool used = p.ElementalUses.Skip(uses).Contains(name);
                 float want = Want(r);
                 if (want <= 0f)
                     ScCheck($"{name}: used ({used}); it builds nothing of itself ({AllBuild(f):0}, {p.SimpleTouches - touches} touches)", used && AllBuild(f) < 0.5f && p.SimpleTouches == touches);
@@ -223,10 +214,33 @@ public partial class Main
             }
             case HeroKind.Warden:
             {
-                // a blow stopped late on the shield builds a little
-                foreach (var _ in Ready(26f)) yield return null;
-                foreach (var _ in Use(KitRole.Defensive, 30)) yield return null;
-                ScCheck($"a blow on a shield raised a while builds only {BuildOf(foe, mine):0} {en} (want {Tune.Elements.CounterBuild:0}); raised in time, {Tune.Elements.SpecialBuild:0}", Math.Abs(BuildOf(foe, mine) - Tune.Elements.CounterBuild) < 1f);
+                // no shield to hold up any more; the dodge button is the Shield Bash: it strikes hard and stuns
+                foreach (var _ in Ready(30f)) yield return null;
+                p.ResetAbilityCooldowns();
+                var held = new PlayerInput { GuardHeld = true, GuardAim = aim };
+                _scInput = held; yield return null; yield return null; _scInput = default;
+                bool raised = p.ShieldRaised;
+                foe.Freeze(0f);
+                float h0 = foe.Hp;
+                int b0 = p.Bashed;
+                foreach (var _ in Use(KitRole.Defensive)) yield return null;
+                float stun = 0f;
+                for (int f = 0; f < 20; f++) { stun = Math.Max(stun, foe.StunLeft); yield return null; }
+                ScCheck($"no shield to hold up (raised {raised}); the Shield Bash strikes ({h0 - foe.Hp:0} dealt, {p.Bashed - b0} bash) and stuns (up to {stun:0.0} s)", !raised && p.Bashed > b0 && h0 - foe.Hp > Tune.Warden.HeavyBashDamage * 0.8f && stun > 0.5f);
+                // the Charge goes through everything in its path, striking each
+                if (foe != null && IsInstanceValid(foe)) foe.QueueFree();
+                p.GlobalPosition = home; p.Velocity = Vector2.Zero;
+                p.ResetAbilityCooldowns();
+                foreach (var _ in ElWait(0.2f)) yield return null;
+                var line = new[] { ElDummy(p, 40f), ElDummy(p, 70f), ElDummy(p, 100f) };
+                foreach (var _ in ElWait(0.2f)) yield return null;
+                float[] hp0 = line.Select(e => e.Hp).ToArray();
+                int c0 = p.ChargeStruck;
+                _scInput = new PlayerInput { Ability2 = true, Aim = aim, AimGiven = true }; yield return null; yield return null; _scInput = default;
+                foreach (var _ in ElWait(0.6f)) yield return null;
+                int hitN = Enumerable.Range(0, line.Length).Count(k => line[k].Hp < hp0[k]);
+                ScCheck($"the Charge runs through all in its path ({hitN} of {line.Length} struck, {p.ChargeStruck - c0} blows)", hitN == line.Length);
+                foreach (var e in line) e.QueueFree();
                 break;
             }
             case HeroKind.Vitalist:
@@ -344,6 +358,16 @@ public partial class Main
                     yield return null;
                     float moved = (p.GlobalPosition - at0).Dot(away);
                     ScCheck($"Blink (the dodge button): she steps through the air along the aim ({moved:0} px, {p.Blinks} blinks, up to {Tune.OtherAbility.BlinkRange:0})", p.Blinks >= 1 && moved > 30f && moved <= Tune.OtherAbility.BlinkRange + 2f);
+                    // falling fast, a blink sheds the fall
+                    p.ResetAbilityCooldowns();
+                    p.GlobalPosition = home + new Vector2(0, -120f); p.Velocity = new Vector2(0, Tune.Hero.MaxFallSpeed);
+                    for (int fr = 0; fr < 20; fr++) { p.Velocity = new Vector2(0, Tune.Hero.MaxFallSpeed); yield return null; }
+                    float fell = p.Velocity.Y, term = p.TerminalT;
+                    int bl0 = p.Blinks;
+                    _scInput = new PlayerInput { Dodge = true, Aim = away, AimGiven = true };
+                    for (int fr = 0; fr < 4 && p.Blinks == bl0; fr++) yield return null;
+                    _scInput = default;
+                    ScCheck($"  blinking mid-fall sheds the fall ({fell:0} -> {p.Velocity.Y:0} px/s down; the fall's count {term:0.00} -> {p.TerminalT:0.00} s)", p.Velocity.Y < 60f && p.TerminalT < 0.05f);
                     break;
                 }
                 case HeroKind.Vitalist:

@@ -154,7 +154,10 @@ public partial class Player
         bool free = Tune.Testing.NoCooldowns;
         switch (Stats.Hero)
         {
-            case HeroKind.Warden: return true;
+            case HeroKind.Warden:
+                // (his dodge button is the Shield Bash: a shove of the shield that strikes, stuns and turns shots back)
+                if (_dashT > 0 || _gbashT > 0 || !TryShieldBash(aim)) return false;
+                break;
             case HeroKind.Swordsman:
                 if (!TryDodge(inp)) return false;
                 // (the riposte: for a moment after the roll, every blow is a tipper)
@@ -521,7 +524,11 @@ public partial class Player
         Afterimage.Spawn(Anim, new Color(0.75f, 0.6f, 1f), 0.3f);
         G.Fx.Burst(from, new Color(0.8f, 0.7f, 1f, 0.8f), 12, 120, 1.8f, 0.3f, 0);
         GlobalPosition = to;
-        Velocity = d * 80f;
+        // (the blink sheds the fall: whatever speed she was falling at is gone, and the fall's count with it; a blink upward keeps its lift)
+        // (handed to the step under way, which would otherwise carry on with the speed it had)
+        _moveTo = new Vector2(d.X * 80f, Math.Min(0f, d.Y * 80f));
+        Velocity = _moveTo.Value;
+        _terminalT = 0f;
         _iframes = Math.Max(_iframes, 0.2f);
         _blinkCd = Tune.OtherAbility.BlinkCooldown * Stats.DefensiveRestMult;
         if (Math.Abs(d.X) > 0.15f) Facing = Math.Sign(d.X);
@@ -616,7 +623,7 @@ public partial class Player
             (HeroKind.Aegis, KitRole.Other) => Supporting ? 0f : SmiteCooldownFrac,
             (HeroKind.Rogue, KitRole.Other) => Math.Clamp(_stepCd / (Tune.OtherAbility.StepCooldown * Stats.OtherRestMult), 0f, 1f),
             (HeroKind.Swordsman, KitRole.Defensive) => _dodgeCd.Length == 0 || _dodgeCd.Min() <= 0 ? 0f : Math.Clamp(_dodgeCd.Min() / Math.Max(0.01f, DodgeCooldownTotal), 0f, 1f),
-            (HeroKind.Warden, KitRole.Defensive) => ShieldBroken ? Math.Clamp(_shieldBrokenT / Math.Max(0.01f, ShieldBreakTotal), 0f, 1f) : 0f,
+            (HeroKind.Warden, KitRole.Defensive) => BashCooldownFrac,
             (HeroKind.Elementalist, KitRole.Defensive) => Math.Clamp(_blinkCd / (Tune.OtherAbility.BlinkCooldown * Stats.DefensiveRestMult), 0f, 1f),
             (HeroKind.Vitalist, KitRole.Defensive) => HealCooldownFrac,
             (_, KitRole.Defensive) => AbilityCooldownFrac,

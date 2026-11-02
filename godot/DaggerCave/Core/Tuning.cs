@@ -43,14 +43,14 @@ public static class Tune
         /// <summary>Loosing a projectile (or pouring out a spell) slows the hero to CastSlowMult of their speed while the cast plays
         /// (CastSlowSeconds for a single shot; a volley or a breath, as long as it lasts).</summary>
         public static float CastSlowMult = 0.45f, CastSlowSeconds = 0.3f;
-        public static float MaxFallSpeed = 420f;
+        public static float MaxFallSpeed = 336f;
         /// <summary>The movement stick's round dead zone (a share of its throw): see Player.ReadMove.</summary>
         public static float StickDeadzone = 0.2f;
         /// <summary>Fall damage counts the time spent falling at the terminal speed (at least FallTerminalShare of MaxFallSpeed): past
         /// FallGraceSeconds of it a landing takes FallShareMin of the hero's current health, rising to FallShareMax after FallRampSeconds
-        /// more. Anything that slows the fall below that speed (a second jump, an updraft, a dash, a rope, the water) resets the count.
+        /// more (2 s: the climb to the worst is gentle; terminal speed is 336 px/s, 0.8x the 420 before). Anything that slows the fall below that speed (a second jump, an updraft, a dash, a rope, the water) resets the count.
         /// (An ordinary jump lands just short of the terminal speed; about 0.35 s of falling reaches it, then it covers MaxFallSpeed px/s.)</summary>
-        public static float FallTerminalShare = 0.97f, FallGraceSeconds = 0.3f, FallRampSeconds = 1.0f, FallShareMin = 0.01f, FallShareMax = 0.5f;
+        public static float FallTerminalShare = 0.97f, FallGraceSeconds = 0.3f, FallRampSeconds = 2.0f, FallShareMin = 0.01f, FallShareMax = 0.5f;
         /// <summary>Extra gravity multiplier while falling (snappier landings).</summary>
         public static float FallGravityMult = 1.2f;
         public static float CoyoteTime = 0.15f, JumpBuffer = 0.19f;
@@ -252,6 +252,12 @@ public static class Tune
         /// </summary>
         public static float BashDamage = 20f, BashStun = 1.6f, BashCooldown = 10f;
         public static float BashTime = 0.2f, BashRadius = 40f, BashLunge = 240f, BashPush = 160f;
+        /// <summary>Today's Warden (the simple kit) has no shield to hold: his dodge button is a powerful Shield Bash. HeavyBashDamage (x his
+        /// attack's damage cards), a HeavyBashStun s stun and a HeavyBashPush shove to all within HeavyBashRadius px in front, lunging at
+        /// HeavyBashLunge; it sends shots in its way back and lays on his element; every HeavyBashCooldown s. His Charge (the second ability)
+        /// runs through everything in its path (ChargeWidth px either side), each struck once for ChargeDamage.</summary>
+        public static float HeavyBashDamage = 30f, HeavyBashStun = 1.2f, HeavyBashPush = 300f, HeavyBashRadius = 58f, HeavyBashLunge = 320f, HeavyBashCooldown = 3.5f;
+        public static float ChargeDamage = 24f, ChargeWidth = 8f;
     }
 
     /// <summary>

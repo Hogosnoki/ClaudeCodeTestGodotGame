@@ -488,14 +488,14 @@ swimming, the Elementalist's narrow draft and every aimed throw or bolt when aim
 always free. (Only the keyboard's move keys are eight-way, as keys must be: aim with the mouse there.) `--scenario=stick` checks it.
 
 Movement has coyote time, jump buffering and variable jump height. Gravity is fairly floaty
-(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 420 px/s (`Hero.MaxFallSpeed`). Gravity and jump
+(`Hero.Floatiness`, which keeps jump height the same) and fall speed is capped at 336 px/s (`Hero.MaxFallSpeed`; 0.8x the 420 it was). Gravity and jump
 height are both 0.8x what they were (`Hero.Gravity` 1080, `Hero.JumpVelocity` 336: a full jump rises about 52 px, the rise lasting as long
 as ever, so a jump carries as far sideways). The cave generator's climbs follow it: the coarse reach check counts a jump as three cells
 (was four), the ledge stairs and slab ladders step three cells (floating stairs were four), the arena tiers stand three apart, and the
 repairs on the way to the guardian lay a ledge every two cells of climb (were three).
-**Fall damage** counts the time spent falling at that terminal speed (at least 97% of it): past 0.3 s of it (about a 180 px drop) a
-landing takes 1% of the hero's *current* health, rising to 50% after another second (`Hero.FallTerminalShare`, `FallGraceSeconds`,
-`FallRampSeconds`, `FallShareMin`, `FallShareMax`). An ordinary jump lands just short of the terminal speed and costs nothing, and anything
+**Fall damage** counts the time spent falling at that terminal speed (at least 97% of it): past 0.3 s of it a
+landing takes 1% of the hero's *current* health, rising to 50% after another two seconds (it was one: the climb to the worst is gentler) (`Hero.FallTerminalShare`, `FallGraceSeconds`,
+`FallRampSeconds`, `FallShareMin`, `FallShareMax`). An ordinary jump reaches the terminal speed only in its last few pixels and costs nothing, and anything
 that brakes the fall on the way down (a second jump, the Elementalist's updraft, a dash, grabbing a rope, water, a creature's form) starts
 the count afresh, so a long fall is easily softened. It never takes the last of anyone's health. `--scenario=fall` checks it.
 Swimming has a breath meter; you take drowning damage when it runs out and the audio is muffled
@@ -2252,8 +2252,8 @@ works:
 | | Primary attack (attack) | Defensive (dodge) | Special (ability; see "The heroes: great specials" above) | Other (second ability) | Elements |
 |---|---|---|---|---|---|
 | Swordsman | Strike: a sword swing | Roll: a dodge roll | **Whirlwind** | **Counter**: a parry stance (0.45 s); a creature's blow landing in it is turned aside and answered with a 1.5x riposte (5 s) | earth, fire, frost |
-| Warden | Cut: the shortsword | Shield: the block (held) | **Great Bash** | **Charge**: the Guarded Charge (it carries his element) | earth, frost, wind |
-| Elementalist | Bolt (splashes) | **Blink**: a step through the air up to 120 px along the aim, short of rock (4 s) | **Meteor** | **Nova**: her element bursts out of her, striking and hurling back all within 115 px (8 s; of her element) | fire, frost, wind |
+| Warden | Cut: the shortsword | **Shield Bash**: a powerful shove of the shield (30 damage, a 1.2 s stun and a big push to all within 58 px in front, shots sent back; 3.5 s). He has no shield to hold up any more. | **Great Bash** | **Charge**: a shield-first rush straight through everything in its path, each creature struck once for 24 (it carries his element) | earth, frost, wind |
+| Elementalist | Bolt (splashes) | **Blink**: a step through the air up to 120 px along the aim, short of rock (4 s). It sheds a fall: her falling speed and the fall's count go to nothing, so a blink just before landing saves her from a long drop. | **Meteor** | **Nova**: her element bursts out of her, striking and hurling back all within 115 px (8 s; of her element) | fire, frost, wind |
 | Vitalist | Drain (splashes) | Mending: the heal | **Bloom** | **Rupture**: a full reserve of vital force bursts in the creatures round her | nature, wind, water |
 | Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | **Judgement** | **Humbling Light**: creatures round her hit softer for a while (in a party, **Shared Burden**) | wind, earth, frost |
 | Rogue | Jab (no dagger in hand: recall) | Vanish | **Death Blossom** | **Shadowstep**: to the far side of the creature nearest the aim (150 px), facing its back; the next jab within 1.5 s is a sure critical (6 s) | dark, wind, nature |

@@ -96,7 +96,7 @@ public static class Cards
             list.Add(new() { Id = $"g_{id}_osoon", Name = $"Ready {ot}", Desc = OtherSoonText(h, ot), Icon = "charge", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "utility" }, Apply = OtherSoon(h) });
             list.Add(new() { Id = $"g_{id}_ohard", Name = $"Mighty {ot}", Desc = OtherHardText(h, ot), Icon = "spell", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "offence" }, Apply = OtherHard(h) });
             // the dodge
-            list.Add(new() { Id = $"g_{id}_dsoon", Name = h == HeroKind.Warden ? "Mended Shield" : $"Ready {de}", Desc = DefSoonText(h, de), Icon = h == HeroKind.Warden ? "shield" : "dodge", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" }, Apply = DefSoon(h) });
+            list.Add(new() { Id = $"g_{id}_dsoon", Name = $"Ready {de}", Desc = DefSoonText(h, de), Icon = "dodge", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" }, Apply = DefSoon(h) });
         }
         return list;
     }
@@ -130,14 +130,13 @@ public static class Cards
     };
     private static string DefSoonText(HeroKind h, string de) => h switch
     {
-        HeroKind.Warden => $"Your shield mends {Pct(Tune.Growth.ShieldMend)} faster.",
         HeroKind.Vitalist => $"The {de} costs {Pct(1f / Tune.Growth.DefSoon)} less vital force.",
         _ => $"The {de} comes back {Pct(1f / Tune.Growth.DefSoon)} sooner.",
     };
     private static Action<PlayerStats, Player> DefSoon(HeroKind h) => h switch
     {
         HeroKind.Swordsman => (s, p) => s.DodgeCdMult *= Tune.Growth.DefSoon,
-        HeroKind.Warden => (s, p) => s.ShieldRegenMult *= Tune.Growth.ShieldMend,
+        HeroKind.Warden => (s, p) => s.BashCooldown *= Tune.Growth.DefSoon,
         HeroKind.Vitalist => (s, p) => s.HealCostMult *= Tune.Growth.DefSoon,
         HeroKind.Aegis => (s, p) => s.BarrierCdMult *= Tune.Growth.DefSoon,
         HeroKind.Rogue => (s, p) => s.VanishCdMult *= Tune.Growth.DefSoon,
