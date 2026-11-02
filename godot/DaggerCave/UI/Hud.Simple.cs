@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Godot;
 
 namespace DaggerCave;
@@ -36,7 +37,7 @@ public partial class Hud
             DrawColoredPolygon(new[] { c + new Vector2(-9, -9), c + new Vector2(9, -9), c + new Vector2(9, 1), c + new Vector2(0, 11), c + new Vector2(-9, 1) }, cc);
             DrawColoredPolygon(new[] { c + new Vector2(-5, -5), c + new Vector2(5, -5), c + new Vector2(5, 0), c + new Vector2(0, 6), c + new Vector2(-5, 0) }, new Color(0, 0, 0, 0.35f));
         }, p.SimpleName(KitRole.Defensive));
-        if (p.Stats.Hero is HeroKind.Elementalist or HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue) UsePips(x, p, col);
+        if (p.Stats.Hero is HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue) UsePips(x, p, col);
         KeyHint(font, x, "dodge");
         // the special
         x += new Vector2(step, 0);
@@ -58,11 +59,13 @@ public partial class Hud
         float of = p.SimpleFrac(KitRole.Other);
         bool oready = of <= 0 && (p.Stats.Hero != HeroKind.Vitalist || p.RuptureReady);
         string other = p.Stats.Hero == HeroKind.Aegis && p.Supporting ? "Burden" : Elements.Noun(p.Stats.Hero, KitRole.Other);
-        AbilitySquare(font, x, other.ToUpperInvariant() + (p.Stats.Hero == HeroKind.Vitalist ? $" ({p.RuptureCost:0})" : ""), of, oready, HeroColor(p.Stats.Hero), (c, cc) =>
+        // (the Elementalist's Nova is of her element)
+        var ocol = p.Stats.Hero == HeroKind.Elementalist ? col : HeroColor(p.Stats.Hero);
+        AbilitySquare(font, x, other.ToUpperInvariant() + (p.Stats.Hero == HeroKind.Vitalist ? $" ({p.RuptureCost:0})" : ""), of, oready, ocol, (c, cc) =>
         {
             // a four-pointed star
             DrawColoredPolygon(new[] { c + new Vector2(0, -12), c + new Vector2(3, -3), c + new Vector2(12, 0), c + new Vector2(3, 3), c + new Vector2(0, 12), c + new Vector2(-3, 3), c + new Vector2(-12, 0), c + new Vector2(-3, -3) }, cc);
-        }, other);
+        }, p.Stats.Hero == HeroKind.Elementalist ? p.SimpleName(KitRole.Other) : other);
         KeyHint(font, x, "ability2");
         _gaugeEnd = Math.Max(_gaugeEnd, step * 4f);
         if (p.Stats.Hero != HeroKind.Vitalist) return;
@@ -85,8 +88,7 @@ public partial class Hud
     {
         tip = default;
         if (!Elements.Simple) return false;
-        // (the Gauntlet's specials, and the Warden's Charge on the other button there)
-        if (Tune.Gauntlet.On)
+        // (the specials, and the Warden's Charge on the other button)
         {
             if (name == "Charge") { tip = ("Charge", "Shield first, a rush along the ground that bowls over whatever stands in the way."); return true; }
             foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
@@ -95,7 +97,7 @@ public partial class Hud
         }
         // (the other ability: the class's own, no element)
         foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
-            if (Elements.Noun(h, KitRole.Other) == name || (h == HeroKind.Aegis && name == "Burden")) { tip = (OtherTitle(h, name), OtherBody(h, name)); return true; }
+            if (Elements.Noun(h, KitRole.Other) == name || (h == HeroKind.Aegis && name == "Burden") || Elements.Of(h).Any(el => Elements.SimpleName(h, KitRole.Other, el) == name)) { tip = (OtherTitle(h, name), OtherBody(h, name)); return true; }
         foreach (var h in new[] { HeroKind.Swordsman, HeroKind.Warden, HeroKind.Elementalist, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue })
             foreach (var el in Elements.Of(h))
                 foreach (var r in new[] { KitRole.Primary, KitRole.Defensive, KitRole.Special })
@@ -103,7 +105,7 @@ public partial class Hud
         return false;
     }
 
-    /// <summary>What a Gauntlet special does (Player.Big.cs; <see cref="Tune.Big"/>).</summary>
+    /// <summary>What a great special does (Player.Big.cs; <see cref="Tune.Big"/>).</summary>
     private static string BigBody(HeroKind h) => h switch
     {
         HeroKind.Swordsman => $"Spin with the blade out: {Tune.Big.WhirlPulses} strokes in {Tune.Big.WhirlTime:0.#} s at everything around you. You can walk while you spin. ({Tune.Big.WhirlRest:0} s)",
@@ -125,7 +127,7 @@ public partial class Hud
     {
         (HeroKind.Swordsman, _) => $"A parry stance for {Tune.OtherAbility.ParryTime:0.##} s: a creature's blow that lands in it is turned aside, and you answer at once with a riposte of {Tune.OtherAbility.ParryRiposte:0.#}x a strike. Read the attack, then press it. ({Tune.OtherAbility.ParryCooldown:0} s)",
         (HeroKind.Warden, _) => "A shove with the shield: everything in front of you is struck and stunned, for a share of the shield.",
-        (HeroKind.Elementalist, _) => $"A step through the air: you appear up to {Tune.OtherAbility.BlinkRange:0} px along your aim, short of rock, untouchable for a moment. ({Tune.OtherAbility.BlinkCooldown:0} s)",
+        (HeroKind.Elementalist, _) => $"Your element bursts out of you in a great ring: everything within {Tune.OtherAbility.NovaRadius:0} px takes a heavy blow and a full dose of the element, and is hurled back. For when the horde has closed in. ({Tune.OtherAbility.NovaRest:0} s)",
         (HeroKind.Vitalist, _) => "A full reserve of vital force bursts in the creatures round you (the crimson mark on the bar is what it needs).",
         (HeroKind.Aegis, "Burden") => "Carry part of a friend's hurt: aimed at a friend, you take a share of what they take.",
         (HeroKind.Aegis, _) => "A burst of light round you: no blow, but every creature it reaches hits a good deal softer for a few seconds.",
@@ -148,7 +150,7 @@ public partial class Hud
             (HeroKind.Warden, KitRole.Defensive) => $"Hold to raise the shield: it stops most of each blow from the front, wearing as it does. A creature whose blow it stops: the shield {B(Tune.Elements.CounterBuild)}; raised just in time (a perfect block, all the blow stopped), it {B(S)}.",
             (HeroKind.Warden, KitRole.Special) => $"The Guarded Charge: a shield-first rush that breaks off the attack it meets, and {B(S)} in that creature.",
             (HeroKind.Elementalist, KitRole.Primary) => $"A bolt from the staff, flying to the creature nearest your aim: it {B(P)}.",
-            (HeroKind.Elementalist, KitRole.Defensive) => "Ward: a barrier on you and the friends near you. It lays on no element.",
+            (HeroKind.Elementalist, KitRole.Defensive) => $"Blink: a step through the air. You appear up to {Tune.OtherAbility.BlinkRange:0} px along your aim, short of rock, untouchable for a moment. It lays on no element. ({Tune.OtherAbility.BlinkCooldown:0} s)",
             (HeroKind.Elementalist, KitRole.Special) => $"A blast at the spot along your aim: it {B(S)} in everything there. Then the element **lingers** there for {Tune.Elements.ZoneSeconds:0} s, " + (wind ? "drawing what's in it to the middle." : $"building {Tune.Elements.ZoneBuild:0} more {lower} in everything in it, twice a second."),
             (HeroKind.Vitalist, KitRole.Primary) => $"Tears the life out of the creature you aim at (it becomes vital force), and {B(P)}. On a creature your hex is seeping into, it **tears the rest out at once** ({Tune.Elements.DrainCash:0.#}x).",
             (HeroKind.Vitalist, KitRole.Defensive) => "Spends vital force to mend you and the hurt friends near you. It lays on no element.",

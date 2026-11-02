@@ -563,8 +563,6 @@ public partial class SettingsMenu : Control
             "rest the mouse on a piece of the HUD; F1 (or HUD guide in the pause menu) explains it all at once");
         Row(g, "Words in the fight", Choice(new[] { "Quiet", "All" }, GameSettings.CombatWords, i => GameSettings.CombatWords = i),
             "quiet: no ability names or small notes over the fight, only numbers and the big calls");
-        Row(g, "Classic kits (no elements)", Toggle(GameSettings.ClassicKits, v => GameSettings.ClassicKits = v),
-            "their old kits, without elements (takes effect from the next run)");
 
         var table = new GridContainer { Columns = 1 + 2 * Controls.Slots, SizeFlagsHorizontal = SizeFlags.ExpandFill };
         table.AddThemeConstantOverride("h_separation", 6);

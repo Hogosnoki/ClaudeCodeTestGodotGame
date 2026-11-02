@@ -22,12 +22,12 @@ public enum KitRole : byte { Primary, Defensive, Special, Other }
 /// version (the Swordsman's Swing with Earth is the Heaving Swing, with Fire the Searing Strike...), and the ability then rests for as
 /// long as that version asks. Elemental blows fill a creature's build-up of that element (<see cref="Enemy.Build"/>) rather than
 /// rolling chances: full, it takes hold (fire: alight, then it combusts; frost: chilled, then frozen solid; earth: stunned).
-/// The Swordsman, the Elementalist and the Warden have them so far; <see cref="GameSettings.ClassicKits"/> brings back their old kits.
+/// The Swordsman, the Elementalist and the Warden have them so far. (Their old kits stay in the code for the older tests only: <see cref="ClassicForTests"/>.)
 /// </summary>
 public static class Elements
 {
     /// <summary>The hero fights with elements (not the classic kit).</summary>
-    public static bool On(HeroKind h) => !GameSettings.ClassicKits && !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden or HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue or HeroKind.ShapeShifter;
+    public static bool On(HeroKind h) => !ClassicForTests && h is HeroKind.Swordsman or HeroKind.Elementalist or HeroKind.Warden or HeroKind.Vitalist or HeroKind.Aegis or HeroKind.Rogue or HeroKind.ShapeShifter;
     /// <summary>The tests of the classic kits keep them (never saved): `--scenario=elements` or `--elements` tests the elemental ones.</summary>
     public static bool ClassicForTests;
 
@@ -51,22 +51,22 @@ public static class Elements
     };
 
     /// <summary>A simple kit's ability, whatever its element.</summary>
-    public static string Noun(HeroKind h, KitRole r) => Tune.Gauntlet.On && GauntletNoun(h, r) is string g ? g : (h, r) switch
+    public static string Noun(HeroKind h, KitRole r) => SpecialNoun(h, r) ?? (h, r) switch
     {
         (HeroKind.Swordsman, KitRole.Primary) => "Strike", (HeroKind.Swordsman, KitRole.Defensive) => "Roll", (HeroKind.Swordsman, KitRole.Special) => "Cleave",
         (HeroKind.Warden, KitRole.Primary) => "Cut", (HeroKind.Warden, KitRole.Defensive) => "Shield", (HeroKind.Warden, KitRole.Special) => "Charge",
-        (HeroKind.Elementalist, KitRole.Primary) => "Bolt", (HeroKind.Elementalist, KitRole.Defensive) => "Ward", (HeroKind.Elementalist, KitRole.Special) => "Burst",
+        (HeroKind.Elementalist, KitRole.Primary) => "Bolt", (HeroKind.Elementalist, KitRole.Defensive) => "Blink", (HeroKind.Elementalist, KitRole.Special) => "Burst",
         (HeroKind.Vitalist, KitRole.Primary) => "Drain", (HeroKind.Vitalist, KitRole.Defensive) => "Mending", (HeroKind.Vitalist, KitRole.Special) => "Hex",
         (HeroKind.Aegis, KitRole.Primary) => "Bubble", (HeroKind.Aegis, KitRole.Defensive) => "Barrier", (HeroKind.Aegis, KitRole.Special) => "Dome",
         (HeroKind.Rogue, KitRole.Primary) => "Jab", (HeroKind.Rogue, KitRole.Defensive) => "Vanish", (HeroKind.Rogue, KitRole.Special) => "Knife",
         // (the other ability: each class's own, the same whatever the element)
-        (HeroKind.Swordsman, KitRole.Other) => "Counter", (HeroKind.Warden, KitRole.Other) => "Bash", (HeroKind.Elementalist, KitRole.Other) => "Blink",
+        (HeroKind.Swordsman, KitRole.Other) => "Counter", (HeroKind.Warden, KitRole.Other) => "Bash", (HeroKind.Elementalist, KitRole.Other) => "Nova",
         (HeroKind.Vitalist, KitRole.Other) => "Rupture", (HeroKind.Aegis, KitRole.Other) => "Humble", (HeroKind.Rogue, KitRole.Other) => "Shadowstep",
         _ => r.ToString(),
     };
 
-    /// <summary>The Gauntlet's specials (and the Warden's Charge, on the other button there): null where the kit's own name stands.</summary>
-    private static string GauntletNoun(HeroKind h, KitRole r) => (h, r) switch
+    /// <summary>The great specials (and the Warden's Charge, on the other button): null where the kit's own name stands.</summary>
+    private static string SpecialNoun(HeroKind h, KitRole r) => (h, r) switch
     {
         (HeroKind.Swordsman, KitRole.Special) => "Whirlwind", (HeroKind.Warden, KitRole.Special) => "Great Bash", (HeroKind.Elementalist, KitRole.Special) => "Meteor",
         (HeroKind.Vitalist, KitRole.Special) => "Bloom", (HeroKind.Aegis, KitRole.Special) => "Judgement", (HeroKind.Rogue, KitRole.Special) => "Death Blossom",
@@ -77,8 +77,11 @@ public static class Elements
     /// <summary>A simple kit's ability in an element: "Searing Strike", "Rime Shield", "Thorn Drain" (the Elementalist's meteor has a name of its own in each).</summary>
     public static string SimpleName(HeroKind h, KitRole r, HeroElement e)
     {
-        if (Tune.Gauntlet.On && h == HeroKind.Elementalist && r == KitRole.Special)
+        if (h == HeroKind.Elementalist && r == KitRole.Special)
             return e switch { HeroElement.Frost => "Megacryometeor", HeroElement.Wind => "Thunderstone", _ => "Meteor" };
+        // (her Blink is of no element; her Nova, alone of the second abilities, is of hers)
+        if (h == HeroKind.Elementalist && r == KitRole.Defensive) return Noun(h, r);
+        if (h == HeroKind.Elementalist && r == KitRole.Other && e != HeroElement.None) return $"{Adjective(e)} {Noun(h, r)}";
         return e == HeroElement.None || r == KitRole.Other ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
     }
 

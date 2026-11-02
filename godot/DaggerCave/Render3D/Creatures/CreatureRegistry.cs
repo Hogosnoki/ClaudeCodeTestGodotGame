@@ -98,7 +98,7 @@ public static class CreatureRegistry
         foreach (var m in b.WaterMiniBosses) Add(m);
         if (GuardianSet.TryGetValue(b.Id, out var g)) names.Add(g);
         if (b.Id == BiomeId.Nest) names.Add("hive");
-        if (Tune.Gauntlet.On) names.Add("generator");
+        names.Add("generator");
         return names;
     }
 }

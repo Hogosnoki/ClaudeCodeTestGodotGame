@@ -10,7 +10,7 @@ public partial class Main
     private IEnumerator<object> _bgSteps;
 
     /// <summary>
-    /// `--scenario=big --hero=swordsman|warden|elementalist|vitalist|aegis|rogue`, the Gauntlet's heroes: the special button is the hero's great
+    /// `--scenario=big --hero=swordsman|warden|elementalist|vitalist|aegis|rogue`, the heroes' great specials: the special button is the hero's great
     /// stroke (Player.Big.cs): it strikes a whole knot of creatures, rests a long while (a second press does nothing), and does its own thing
     /// besides (the Whirlwind strikes each many times, the Great Bash stuns, the Bloom mends, the Judgement wards, the Death Blossom can't be
     /// touched). Every hero jumps again in mid-air. A caster's bolt or drain splashes the creatures about the one it strikes.

@@ -103,7 +103,7 @@ public partial class Player
     // ---------------------------------------------------------------- timed buffs
 
     public const int BuffShout = 1, BuffHowl = 2, BuffTailwind = 3, BuffKindling = 4, BuffFrostArmor = 5, BuffFireWalk = 6, BuffFrostWard = 7;
-    /// <summary>A broken generator's powers (the Gauntlet): Fury (more damage), Haste (quicker feet and blows).</summary>
+    /// <summary>A broken generator's powers: Fury (more damage), Haste (quicker feet and blows).</summary>
     public const int BuffFury = 8, BuffHaste = 9;
     /// <summary>An Aegis's element lent to a hero (one buff per element: <c>BuffImbueBase</c> + the element): every blow of theirs carries it.</summary>
     public const int BuffImbueBase = 20;
@@ -156,8 +156,8 @@ public partial class Player
         // (Narrow Draft: a wind at your back; Kindling and Frost Armor change no number, they are read where blows land)
         else if (kind == BuffTailwind) { Stats.MoveSpeed *= m(Tune.ElementalStaff.TailwindMove); Stats.JumpMult *= m(Tune.ElementalStaff.TailwindJump); }
         else if (kind == BuffFireWalk) Stats.MoveSpeed *= m(Tune.ElementalStaff.WalkMove);
-        else if (kind == BuffFury) Stats.DamageMult *= m(Tune.Gauntlet.FuryDamage);
-        else if (kind == BuffHaste) { Stats.MoveSpeed *= m(Tune.Gauntlet.HasteSpeed); Stats.AttackSpeed *= m(Tune.Gauntlet.HasteSpeed); }
+        else if (kind == BuffFury) Stats.DamageMult *= m(Tune.Hordes.FuryDamage);
+        else if (kind == BuffHaste) { Stats.MoveSpeed *= m(Tune.Hordes.HasteSpeed); Stats.AttackSpeed *= m(Tune.Hordes.HasteSpeed); }
     }
 
     private void TickBuffs(float dt)

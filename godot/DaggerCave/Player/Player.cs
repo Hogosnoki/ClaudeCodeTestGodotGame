@@ -143,10 +143,10 @@ public partial class Player : CharacterBody2D
     private float _airDashT, _wallJumpLock, _hurtFlash, _bubbleT, _animT;
     private Vector2 _airDashDir;
     private int _airJumps, _airDashes;
-    /// <summary>Jumps in mid-air before landing: the Gauntlet's own (every hero's) and a Double Jump's.</summary>
-    public int AirJumpsMax => (Stats.DoubleJump ? 1 : 0) + (Tune.Gauntlet.On ? Tune.Gauntlet.AirJumps : 0);
-    /// <summary>Whether the hero slides down walls and leaps off them: a Wall Jump's, or every hero's in the Gauntlet.</summary>
-    public bool CanWallJump => Stats.WallJump || (Tune.Gauntlet.On && Tune.Gauntlet.WallJump);
+    /// <summary>Jumps in mid-air before landing: every hero's own and a Double Jump's.</summary>
+    public int AirJumpsMax => (Stats.DoubleJump ? 1 : 0) + Tune.Hordes.AirJumps;
+    /// <summary>Whether the hero slides down walls and leaps off them (every hero does).</summary>
+    public bool CanWallJump => Stats.WallJump || Tune.Hordes.WallJump;
     /// <summary>For the tests: air jumps left before landing.</summary>
     public int AirJumpsLeft => _airJumps;
     private bool _jumpCutDone, _wasOnFloor;
@@ -1171,10 +1171,10 @@ public partial class Player : CharacterBody2D
 
     /// <summary>
     /// What heals are worth just now: a generator's minion feeds the heals its death or a drain on it gives only
-    /// <see cref="Tune.Gauntlet.MinionSustain"/> of what a creature would, so a generator can't be farmed for health.
+    /// <see cref="Tune.Hordes.MinionSustain"/> of what a creature would, so a generator can't be farmed for health.
     /// </summary>
     private float _sustainScale = 1f;
-    private static float SustainOf(Enemy e) => e != null && e.Minion ? Tune.Gauntlet.MinionSustain : 1f;
+    private static float SustainOf(Enemy e) => e != null && e.Minion ? Tune.Hordes.MinionSustain : 1f;
 
     public void OnKill(Enemy e = null)
     {

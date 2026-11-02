@@ -853,9 +853,9 @@ dissipation when it ends of itself). They are made on first hearing and kept (th
 carries everything it is made from (`@event|attack|element|element|weight`), so online the other games make the very same one, and the
 same attack's sound struck twice within a breath is played once.
 
-## The Gauntlet: hordes, generators and trial rooms
+## Normal play: hordes, generators and trial rooms
 
-The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in it; most come from **generators**, and the fights happen in rooms that shut behind you. It's all switched by `Tune.Gauntlet.On` (Core/Tuning.cs), with the numbers next to it.
+This is the only way the game plays; there is no switch and no other mode. Fewer creatures simply live in the cave; most come from **generators**, and the fights happen in rooms that shut behind you. The numbers are in `Tune.Hordes` (Core/Tuning.cs).
 
 - **Generators** (Enemies/Generator.cs; the 3D design is Render3D/Creatures/Designs/GeneratorDesign.cs). A generator is a cairn of dark stones and bones over a violet rift.
   - Placement: a level holds 3, plus 0.6 per depth, up to 9. They sit on the floor at least 360 px apart, and none within 520 px of where you arrive or in the guardian's chamber. The spots come from the seed, so every game online agrees. The host raises each one as a hero comes near.
@@ -866,8 +866,8 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
   - 24 experience and a pile of gold (6 + the depth);
   - a heart 60% of the time;
   - 35% of the time, a 10-second power for every hero within 260 px: **Fury** (1.4× damage, a red ring) or **Haste** (1.25× movement and attack speed, a green ring).
-- **Waves and residents.** The entrance waves are off. Resident spawn points fill to 35% of what they did, so the hordes come from the generators.
-- **Trial rooms** (Main.Gauntlet.cs and Combat/TrialSeal.cs). Every ambush room, every mini-boss den and half the treasure rooms (not under water) are trials.
+- **Waves and residents.** There are no entrance waves. Resident spawn points fill to 35% of what they did, so the hordes come from the generators.
+- **Trial rooms** (Main.Hordes.cs and Combat/TrialSeal.cs). Every ambush room, every mini-boss den and half the treasure rooms (not under water) are trials.
   - When a hero is well inside (on one of the room's cells and well in from its sides), the trial's fighting area is set. The room's box grows outward (two cells sideways and one up and down per step) until it's at least 1000 px across, about a screen (`TrialMinWidth`). It only keeps steps whose edge stays near the narrowest found (`TrialRimSlack`), so the walls still stand in tunnel mouths, and it never takes in where you arrived or the guardian's chamber.
   - While a trial is under way, no resident creature spawns inside its area.
   - Violet wards then rise over every open cell on that edge: straight columns of light across the tunnel mouths, each with its own 3D view (TrialSealView). No creature and no shot passes them either way, and a hero caught in a doorway is drawn inside.
@@ -878,24 +878,24 @@ The cave now plays as a side-scrolling Gauntlet. Fewer creatures simply live in 
   - Online, the host tells every game which cells to ward, and when they fall.
 - **Scaling.** On top of each class's own growth, every level gives a hero 4% more damage and 3% more health, compounding, and the new health comes in healed. A hero keeps up with deeper, thicker hordes through levels, not explanations.
 - **Quieter screen.** Settings → Controls → **Words in the fight**. *Quiet* (the default) drops ability names and the small notes over the fight, and keeps the numbers and the big calls (LEVEL, FURY, HASTE, TRIAL). *All* shows everything. HUD tooltips now default to off.
-- **Test:** `--scenario=gauntlet` (Main.GauntletTest.cs). It checks that:
+- **Test:** `--scenario=hordes` (Main.HordesTest.cs). It checks that:
   - the level has its generators, apart and away from the start;
   - one raised by the hero wakes and sends minions (at half health) up to its cap;
   - struck to half, it drops a tier and shrinks;
   - broken, it gives the gold and the power, and sends no more;
   - the power wears off.
 
-The other `--scenario=` tests were written for a cave without generators or trials, so they run with the Gauntlet off; only these two turn it on.
+The older `--scenario=` tests were written for an empty cave, so their arenas hold no generators or trial rooms (`Tune.Testing.NoHordes`, a test fixture the game never sets). `hordes`, `trial` and `big` run the cave as it plays.
 
-`--scenario=trial` (Main.GauntletTest.cs) walks the hero into a trial room. It checks that:
+`--scenario=trial` (Main.HordesTest.cs) walks the hero into a trial room. It checks that:
 - the wards go up and block the way out, around an area at least 1000 px across where the cave allows;
 - a friend starting outside walks in through the wards, then can't walk back out;
 - generators rise inside;
 - once they're broken and the room is cleared, the wards fall and a chest is left.
 
-### The Gauntlet's heroes: great specials, mobility and splash
+### The heroes: great specials, mobility and splash
 
-With the Gauntlet on, every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash` and `Tune.Gauntlet` (Core/Tuning.cs); the code is Player/Player.Big.cs.
+Every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash`, `Tune.OtherAbility` and `Tune.Hordes` (Core/Tuning.cs); the code is Player/Player.Big.cs.
 
 - **Specials are great strokes on long rests.** The special button (the one that was Cleave, Burst, Charge, Hex, Dome or Knife) becomes one dramatic ability per hero. Each touches with the element as a special does, shared out among its blows.
 
@@ -903,17 +903,18 @@ With the Gauntlet on, every hero is built for hordes. The numbers are in `Tune.B
   |---|---|---|---|
   | Swordsman | **Whirlwind** | Spins with the blade out: 6 strokes in 1.1 s at everything within 66 px, 13 damage each. Walks at 0.7× while spinning. | 9 s |
   | Elementalist | **Meteor** (frost: **Megacryometeor**; wind: **Thunderstone**) | Calls a glowing stone of her element down from 460 px up onto the spot along the aim. It lands 0.55 s later for 70 damage at its heart (0.55× at the edge of 92 px), flings creatures up and out, and leaves the element burning there as her old Burst zone did. | 11 s |
-  | Warden | **Great Bash** | After a 0.22 s wind-up, a vast shove of the shield. It deals 42 damage, stuns for 1.3 s and flings back everything within 120 px and 65° of ahead, and sends shots in that arc back. The Warden's **Charge** moves to the other button (Shield Bash is retired there in the Gauntlet). | 8 s |
+  | Warden | **Great Bash** | After a 0.22 s wind-up, a vast shove of the shield. It deals 42 damage, stuns for 1.3 s and flings back everything within 120 px and 65° of ahead, and sends shots in that arc back. The Warden's **Charge** moves to the other button (Shield Bash is retired). | 8 s |
   | Vitalist | **Bloom** | Life erupts from her. It deals 30 damage within 120 px, seeps her element at twice the hex's rate, and mends every friend near by 12% of their health. | 12 s |
   | Aegis | **Judgement** | A pillar of light slams onto the spot 0.35 s after it's called. It deals 46 damage within 82 px and weakens what it strikes (0.7× damage for 4 s). Friends within 150 px of the Aegis or the spot get a barrier of 15% of their health. | 12 s |
   | Rogue | **Death Blossom** | Leaps and hangs in the air, untouchable, for 0.75 s. Three volleys of 10 knives (11 damage each) fly one at each creature within 170 px, nearest first, threading past the others; the rest fly out all around. | 10 s |
 
+- **The Elementalist's buttons.** Her **Blink** is on the dodge button now: a step through the air of up to 120 px along the aim, short of rock, untouchable for a moment (4 s). Her old Ward (a small barrier) is retired, and the second ability button is the **Nova** (Searing, Rime or Gale Nova by her element): her element bursts out of her in a great ring. Everything within 115 px takes 36 damage and a full special's dose of the element, and is hurled back (8 s; `Tune.OtherAbility.Nova*`). The Blink gets her out of a horde; the Nova throws a horde off her; the **Meteor** (the ability button: right mouse, K, or the right shoulder button) breaks one open from afar.
 - **Casters splash.** The Elementalist's bolt and the Vitalist's drain strike every other creature within 48 px of where they land for 0.4× the blow, and 0.4× the element's touch (`Tune.Splash`). The melee heroes' swings already strike all they sweep; the Aegis's bubble already bursts.
-- **Everyone climbs.** Every hero jumps once more in mid-air (`Gauntlet.AirJumps`; a Double Jump card adds another) and slides down and kicks off walls (`Gauntlet.WallJump`; Sure Grip is offered to all).
+- **Everyone climbs.** Every hero jumps once more in mid-air (`Hordes.AirJumps`; a Double Jump card adds another) and slides down and kicks off walls (`Hordes.WallJump`; Sure Grip is offered to all).
 - **Cooldowns are real again.** `Tune.Testing.NoCooldowns`, a try-out switch that brought the elemental heroes' abilities back at once, was still on; it's off now. The older scenarios, written while it was on, still turn it on.
 - **Trials never overlap.** A new trial's area stops growing where it would reach an earlier one's (wards included). Another trial room whose floor lies inside a trial's area is part of it, and won't shut a second time.
 - **Sudden moves keep the one-way rule.** Blink and Shadowstep can carry a hero into a trial but never out of one, and never into a ward (`TrialSeal.BlocksMove`).
-- **Minions feed less healing.** Heals that come from killing or draining a generator's minion (heal-on-kill, relic triggers, the Vitalist's vital force, Sip of Life) are 0.35× (`Gauntlet.MinionSustain`), so a generator can't be farmed for health. Generators and trials still give their full rewards.
+- **Minions feed less healing.** Heals that come from killing or draining a generator's minion (heal-on-kill, relic triggers, the Vitalist's vital force, Sip of Life) are 0.35× (`Hordes.MinionSustain`), so a generator can't be farmed for health. Generators and trials still give their full rewards.
 - **Stalling loses.** A trial still running after 45 s grows angry ("THE DEEP STIRS"). Its generators' pace rises by half every 20 s, up to 3×, and they keep 2 more minions out per 1× of it (`EscalateAfter`, `EscalateStep`, `FuryMax`, `FuryCap`).
 - **HUD:** ability names too long for their square are drawn smaller. The tooltips describe the new specials and the Warden's Charge.
 - **Tests:**
@@ -926,7 +927,7 @@ With the Gauntlet on, every hero is built for hordes. The numbers are in `Tune.B
     - teleports can come in but never go out;
     - a long trial angers its generators;
     - none of the level's trials overlap.
-  - `--scenario=gauntlet` also checks that a minion's death heals 0.35× what a creature's does.
+  - `--scenario=hordes` also checks that a minion's death heals 0.35× what a creature's does.
 
 ## The Elementals
 
@@ -2171,14 +2172,14 @@ The Swordsman, the Warden, the Elementalist, the Vitalist, the Aegis and the Rog
 (`Elements.Simple`, `Player/Player.Simple.cs`). The element changes what an ability does to what it reaches, never how the ability
 works:
 
-| | Primary attack (attack) | Defensive (dodge) | Special (ability) | Other (second ability; no element) | Elements |
+| | Primary attack (attack) | Defensive (dodge) | Special (ability; see "The heroes: great specials" above) | Other (second ability) | Elements |
 |---|---|---|---|---|---|
-| Swordsman | Strike: a sword swing | Roll: a dodge roll | Cleave: the Hard Swing | **Counter**: a parry stance (0.45 s); a creature's blow landing in it is turned aside and answered with a 1.5x riposte (5 s) | earth, fire, frost |
-| Warden | Cut: the shortsword | Shield: the block (held) | Charge: the Guarded Charge | **Shield Bash**: a shove that strikes and stuns what's in front | earth, frost, wind |
-| Elementalist | Bolt | Ward: a barrier on you and friends near | Burst: a blast at a spot along the aim | **Blink**: a step through the air up to 120 px along the aim, short of rock (4 s) | fire, frost, wind |
-| Vitalist | Drain | Mending: the heal | Hex: the hex about her | **Rupture**: a full reserve of vital force bursts in the creatures round her | nature, wind, water |
-| Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | Dome: the bubble field | **Humbling Light**: creatures round her hit softer for a while (in a party, **Shared Burden**) | wind, earth, frost |
-| Rogue | Jab (no dagger in hand: recall) | Vanish | Knife: the dagger throw | **Shadowstep**: to the far side of the creature nearest the aim (150 px), facing its back; the next jab within 1.5 s is a sure critical (6 s) | dark, wind, nature |
+| Swordsman | Strike: a sword swing | Roll: a dodge roll | **Whirlwind** | **Counter**: a parry stance (0.45 s); a creature's blow landing in it is turned aside and answered with a 1.5x riposte (5 s) | earth, fire, frost |
+| Warden | Cut: the shortsword | Shield: the block (held) | **Great Bash** | **Charge**: the Guarded Charge (it carries his element) | earth, frost, wind |
+| Elementalist | Bolt (splashes) | **Blink**: a step through the air up to 120 px along the aim, short of rock (4 s) | **Meteor** | **Nova**: her element bursts out of her, striking and hurling back all within 115 px (8 s; of her element) | fire, frost, wind |
+| Vitalist | Drain (splashes) | Mending: the heal | **Bloom** | **Rupture**: a full reserve of vital force bursts in the creatures round her | nature, wind, water |
+| Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | **Judgement** | **Humbling Light**: creatures round her hit softer for a while (in a party, **Shared Burden**) | wind, earth, frost |
+| Rogue | Jab (no dagger in hand: recall) | Vanish | **Death Blossom** | **Shadowstep**: to the far side of the creature nearest the aim (150 px), facing its back; the next jab within 1.5 s is a sure critical (6 s) | dark, wind, nature |
 
 * **An element button switches to its element**, and does nothing else: no overcharge, no attribute, no mixes. A switch takes
   effect at once, at most once a second (`Tune.Elements.SwitchCooldown`). Pressing the element you're in does nothing.
@@ -2210,7 +2211,7 @@ works:
   (`UI/Hud.Simple.cs`).
 
 The Shape Shifter keeps her own rules (her element picks the creature she becomes; see below) and the Automaton has no elements. The
-classic kits (Settings) are unchanged.
+old classic kits are gone from the game (see below).
 
 **Reactions** (`Enemy.ReactionMult`, `Steam`, `FanFire` in `Enemies/Enemy.Elements.cs`; `Tune.Elements`). The statuses work on
 each other, so the order you apply elements in matters. Each hero's three elements can combo, and so can different heroes' elements
@@ -2588,7 +2589,7 @@ creature keeps its own attack and special, and the element shapes the rest:
 element, a mode switch changing the form, Shift taking another kind (the mode following), a form's blows carrying its element, a greater
 special, the recall, and the staff (`shifter_bat.png`, `shifter_greater.png`, `shifter_hud.png`). The Automaton keeps its own kit.
 
-**Classic kits**: *Settings > Controls > Classic kits (no elements)* brings back the elemental heroes' old kits (from the next run). The tests of the classic kits keep them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`,
+**Classic kits**: the setting is gone; there is one way to play. The old kits stay in the code only for the older tests that were written for them; `--scenario=elements --hero=swordsman` (or `elementalist`, `warden`,
 `vitalist`, `aegis`, `rogue`, `shifter`) tests the elemental ones (`elements_hud.png`), and `--elements` runs any other test with them.
 
 ## Save files

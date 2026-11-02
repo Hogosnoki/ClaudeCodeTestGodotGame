@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// A generator (the Gauntlet, <see cref="Tune.Gauntlet"/>): a cairn of dark stones heaped over a rift, pouring out the cave's own creatures
+/// A generator (<see cref="Tune.Hordes"/>): a cairn of dark stones heaped over a rift, pouring out the cave's own creatures
 /// (the biome's walkers, fliers or swimmers, whatever suits the spot) as minions, until it is broken. It has three tiers by its health: whole,
 /// it sends them quickest and keeps the most alive; struck down a tier, slower and fewer; it shrinks as it goes. Broken, it bursts into a
 /// bonus: gold, often food, and now and then a power for every hero near (Fury or Haste).
@@ -17,7 +17,7 @@ public partial class Generator : Enemy
     private readonly List<Enemy> _brood = new();
     private float _spawnT = 0.6f;
 
-    /// <summary>A trial that drags on angers its generators (<see cref="Tune.Gauntlet.EscalateAfter"/>): x this the pace, and more kept out.</summary>
+    /// <summary>A trial that drags on angers its generators (<see cref="Tune.Hordes.EscalateAfter"/>): x this the pace, and more kept out.</summary>
     public float Fury = 1f;
     /// <summary>The trial room it was raised in (null: one of the level's own).</summary>
     public Room Trial;
@@ -31,10 +31,10 @@ public partial class Generator : Enemy
 
     public Generator()
     {
-        MaxHp = Tune.Gauntlet.GeneratorHp;
+        MaxHp = Tune.Hordes.GeneratorHp;
         BodyRadius = 18;
         ContactDamage = 0;
-        XpValue = Tune.Gauntlet.GeneratorXp;
+        XpValue = Tune.Hordes.GeneratorXp;
         KnockResist = 1f;
     }
 
@@ -57,14 +57,14 @@ public partial class Generator : Enemy
         if (!Awake)
         {
             foreach (var h in G.Players)
-                if (h != null && IsInstanceValid(h) && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) < Tune.Gauntlet.WakeRange) { Awake = true; break; }
+                if (h != null && IsInstanceValid(h) && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) < Tune.Hordes.WakeRange) { Awake = true; break; }
             if (!Awake) return;
         }
         Prune();
         int tier = Tier;
-        int cap = (int)Tune.Gauntlet.Cap[tier] + G.Depth / Math.Max(1, Tune.Gauntlet.CapPerDepth) + (int)((Fury - 1f) * Tune.Gauntlet.FuryCap);
+        int cap = (int)Tune.Hordes.Cap[tier] + G.Depth / Math.Max(1, Tune.Hordes.CapPerDepth) + (int)((Fury - 1f) * Tune.Hordes.FuryCap);
         if ((_spawnT -= dt) > 0f || _brood.Count >= cap) return;
-        _spawnT = Tune.Gauntlet.SpawnEvery[tier] * G.Range(0.8f, 1.2f) / Fury;
+        _spawnT = Tune.Hordes.SpawnEvery[tier] * G.Range(0.8f, 1.2f) / Fury;
         Release();
     }
 
@@ -87,9 +87,9 @@ public partial class Generator : Enemy
         e.Engage();
         G.World.AddChild(e);
         // (a minion: half the health, a little less to learn from)
-        e.MaxHp *= Tune.Gauntlet.MinionHp;
+        e.MaxHp *= Tune.Hordes.MinionHp;
         e.Hp = e.MaxHp;
-        e.XpValue = Math.Max(1, (int)MathF.Round(e.XpValue * Tune.Gauntlet.MinionXp));
+        e.XpValue = Math.Max(1, (int)MathF.Round(e.XpValue * Tune.Hordes.MinionXp));
         _brood.Add(e);
         Released++;
         var col = new Color(0.65f, 0.4f, 1f);
@@ -112,15 +112,15 @@ public partial class Generator : Enemy
     private void Bonus()
     {
         var at = GlobalPosition;
-        G.Spawn(new CoinPickup { Position = at, Count = Tune.Gauntlet.BonusGold + G.Depth, Dropped = true, Vel = new Vector2(G.Range(-40, 40), -160), Puppet = Net.Online && !Net.IsHost });
-        if (G.Chance(Tune.Gauntlet.FoodChance)) G.Spawn(new HeartPickup { Position = at + new Vector2(G.Range(-10, 10), -6) });
+        G.Spawn(new CoinPickup { Position = at, Count = Tune.Hordes.BonusGold + G.Depth, Dropped = true, Vel = new Vector2(G.Range(-40, 40), -160), Puppet = Net.Online && !Net.IsHost });
+        if (G.Chance(Tune.Hordes.FoodChance)) G.Spawn(new HeartPickup { Position = at + new Vector2(G.Range(-10, 10), -6) });
         Broken++;
-        if ((!Net.Online || Net.IsHost) && G.Chance(Tune.Gauntlet.PowerChance))
+        if ((!Net.Online || Net.IsHost) && G.Chance(Tune.Hordes.PowerChance))
         {
             bool fury = G.Chance(0.5f);
             int kind = fury ? Player.BuffFury : Player.BuffHaste;
             foreach (var h in G.Players.ToArray())
-                if (h != null && IsInstanceValid(h) && !h.Dead && h.GlobalPosition.DistanceTo(at) <= Tune.Gauntlet.PowerRange) h.GiveBuff(kind, Tune.Gauntlet.PowerSeconds);
+                if (h != null && IsInstanceValid(h) && !h.Dead && h.GlobalPosition.DistanceTo(at) <= Tune.Hordes.PowerRange) h.GiveBuff(kind, Tune.Hordes.PowerSeconds);
             Powers++;
             G.Fx.Text(at + new Vector2(0, -30), fury ? "FURY" : "HASTE", fury ? new Color(1f, 0.45f, 0.25f) : new Color(0.45f, 1f, 0.6f), 14, 1f);
         }

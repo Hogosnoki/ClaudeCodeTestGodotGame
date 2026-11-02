@@ -299,6 +299,7 @@ public partial class Player
         if (_parryT > 0) _parryT -= dt;
         if (_parryCd > 0) _parryCd -= dt;
         if (_blinkCd > 0) _blinkCd -= dt;
+        if (_novaCd > 0) _novaCd -= dt;
         if (_stepCd > 0) _stepCd -= dt;
         if (_stepCritT > 0) _stepCritT -= dt;
         if (_jumpElemRest > 0) _jumpElemRest -= dt;

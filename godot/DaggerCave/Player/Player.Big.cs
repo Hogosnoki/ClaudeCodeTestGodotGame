@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Gauntlet's specials (<see cref="Tune.Big"/>): with the Gauntlet on, each hero's special button is one great, dramatic stroke on a long
+/// The great specials (<see cref="Tune.Big"/>): each hero's special button is one great, dramatic stroke on a long
 /// rest, made to break a horde open.
 /// <list type="bullet">
 /// <item>Swordsman, <b>Whirlwind</b>: they spin, striking all about them again and again.</item>
@@ -47,7 +47,7 @@ public partial class Player
         _ => 10f,
     } * Stats.AbilityCdMult;
 
-    /// <summary>The special button, in the Gauntlet: the hero's great stroke, if it's rested.</summary>
+    /// <summary>The special button: the hero's great stroke, if it's rested.</summary>
     private bool BigSpecial(Vector2 aim)
     {
         if (_bigCd > 0f && !Tune.Testing.NoCooldowns) return false;

@@ -161,7 +161,8 @@ public partial class Player
                 _riposteT = _dodgeT + Tune.Elements.RiposteWindow;
                 break;
             case HeroKind.Elementalist:
-                if (!SimpleWard()) return false;
+                // (her dodge is the Blink: a step through the air)
+                if (!TryBlink(aim)) return false;
                 break;
             case HeroKind.Vitalist:
                 if (_healCd > 0 || (!AbilityChargeReady && !free)) return false;
@@ -188,8 +189,8 @@ public partial class Player
     /// <summary>The ability button.</summary>
     private bool SimpleSpecial(Vector2 aim)
     {
-        // (the Gauntlet: the special button is the hero's great stroke, Player.Big.cs)
-        if (Tune.Gauntlet.On) return BigSpecial(aim);
+        // (the special button is the hero's great stroke, Player.Big.cs)
+        return BigSpecial(aim);
         switch (Stats.Hero)
         {
             case HeroKind.Swordsman: return SimpleCleave(aim);
@@ -325,7 +326,7 @@ public partial class Player
     /// </summary>
     private void Splash(Enemy main, Vector2 at, float dmg, DamageKind kind, Color col)
     {
-        if (dmg <= 0f || !Tune.Gauntlet.On) return;
+        if (dmg <= 0f) return;
         float r = Tune.Splash.Radius;
         G.Fx.Ring(at, r, new Color(col, 0.7f), 0.22f, FxLayer.RingStyle.Burst);
         foreach (var o in G.Enemies.ToArray())
@@ -448,13 +449,14 @@ public partial class Player
 
     // ================================================================== the other ability (each class's own, no element)
 
-    private float _parryT, _parryCd, _blinkCd, _stepCd, _stepCritT;
+    private float _parryT, _parryCd, _blinkCd, _stepCd, _stepCritT, _novaCd;
     /// <summary>The Swordsman's Counter stance is up (a blow landing now is turned aside and answered).</summary>
     public bool Parrying => _parryT > 0;
     /// <summary>For the tests: counters from the stance, blinks, shadowsteps.</summary>
     public int Parries { get; private set; }
     public int Blinks { get; private set; }
     public int Shadowsteps { get; private set; }
+    public int Novas { get; private set; }
 
     /// <summary>The second ability button: the class's own, the same in every element.</summary>
     private bool SimpleOther(Vector2 aim)
@@ -462,15 +464,17 @@ public partial class Player
         bool ok = Stats.Hero switch
         {
             HeroKind.Swordsman => TryParry(aim),
-            // (in the Gauntlet the Great Bash is the Warden's special, and the Charge comes here)
-            HeroKind.Warden => Tune.Gauntlet.On ? _bashT <= 0 && _gbashT <= 0 && TryShieldDash(aim) : _dashT <= 0 && TryShieldBash(aim),
-            HeroKind.Elementalist => TryBlink(aim),
+            // (the Great Bash is the Warden's special, and the Charge comes here)
+            HeroKind.Warden => _bashT <= 0 && _gbashT <= 0 && TryShieldDash(aim),
+            HeroKind.Elementalist => TryNova(),
             HeroKind.Vitalist => TryRupture(aim),
             HeroKind.Aegis => TryBurden(aim),
             HeroKind.Rogue => TryShadowstep(aim),
             _ => false,
         };
         if (!ok) return false;
+        // (the Elementalist's Nova is of her element; the others' are the class's own, of none)
+        if (Stats.Hero == HeroKind.Elementalist) { _lastEl = Mode; Used(SimpleName(KitRole.Other)); return true; }
         _lastEl = HeroElement.None;
         Used(Stats.Hero == HeroKind.Aegis && Supporting ? "Burden" : Elements.Noun(Stats.Hero, KitRole.Other));
         return true;
@@ -526,6 +530,41 @@ public partial class Player
         return true;
     }
 
+    /// <summary>
+    /// The Elementalist's Nova (the second ability button): her element bursts out of her in a great ring. Everything within
+    /// <see cref="Tune.OtherAbility.NovaRadius"/> px takes a heavy blow and a special's worth of the element, and is hurled back (a horde
+    /// that has closed on her is thrown off). Her Blink, on the dodge button, gets her out; the Nova clears the space where she stands.
+    /// </summary>
+    private bool TryNova()
+    {
+        if (!IsElementalist || (_novaCd > 0 && !Tune.Testing.NoCooldowns)) return false;
+        var el = Mode;
+        var col = Elements.ColorOf(el);
+        var c = GlobalPosition + new Vector2(0, -6);
+        float r = Tune.OtherAbility.NovaRadius;
+        foreach (var e in FoesNear(c, r))
+        {
+            var away = (e.GlobalPosition - c).LengthSquared() > 1f ? (e.GlobalPosition - c).Normalized() : new Vector2(Facing, 0);
+            BigHit(e, Tune.OtherAbility.NovaDamage, away * Tune.OtherAbility.NovaPush + new Vector2(0, -90f), c, 1f);
+        }
+        ElementWorld.Touch(el, c, r);
+        Breakables.SpellBurst(c, r * 0.5f);
+        _iframes = Math.Max(_iframes, 0.15f);
+        _novaCd = Tune.Testing.NoCooldowns ? 0.25f : Tune.OtherAbility.NovaRest * Stats.AbilityCdMult;
+        Novas++;
+        Anim.Once("rupture", 3, 1.8f);
+        _castGlow = 1f;
+        G.Fx.Flash(c, 46, new Color(col.Lerp(Colors.White, 0.4f), 0.9f));
+        G.Fx.Shockwave(c, r, new Color(col, 0.85f));
+        G.Fx.Ring(c, r, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Burst);
+        G.Fx.Ring(c, r * 0.6f, new Color(col.Lerp(Colors.White, 0.5f), 0.8f), 0.25f, FxLayer.RingStyle.Burst);
+        G.Fx.Burst(c, new Color(col, 0.95f), 28, 260, 2.6f, 0.5f, 0);
+        G.Sfx.Play(el == HeroElement.Frost ? "clink" : "explode", c, -2, 0.05f, el == HeroElement.Frost ? 0.7f : 1.1f);
+        G.Main.Rumble(0.4f, 0.3f, 0.18f);
+        G.Fx.AddShake(5f);
+        return true;
+    }
+
     /// <summary>The Rogue's Shadowstep: to the far side of the creature nearest the aim, facing its back; her next jab is a sure critical.</summary>
     private bool TryShadowstep(Vector2 aim)
     {
@@ -559,8 +598,8 @@ public partial class Player
     public float SimpleFrac(KitRole r)
     {
         float atk = Math.Max(0.2f, Stats.AttackSpeed);
-        if (Tune.Gauntlet.On && r == KitRole.Special) return BigFrac;
-        if (Tune.Gauntlet.On && r == KitRole.Other && Stats.Hero == HeroKind.Warden) return DashCooldownFrac;
+        if (r == KitRole.Special) return BigFrac;
+        if (r == KitRole.Other && Stats.Hero == HeroKind.Warden) return DashCooldownFrac;
         return (Stats.Hero, r) switch
         {
             (HeroKind.Elementalist, KitRole.Primary) => Math.Clamp(_boltCd / (Tune.ElementalStaff.ShotGap / atk), 0f, 1f),
@@ -569,13 +608,13 @@ public partial class Player
             (_, KitRole.Primary) => SwingCooldownFrac,
             (HeroKind.Swordsman, KitRole.Other) => Math.Clamp(_parryCd / Tune.OtherAbility.ParryCooldown, 0f, 1f),
             (HeroKind.Warden, KitRole.Other) => BashCooldownFrac,
-            (HeroKind.Elementalist, KitRole.Other) => Math.Clamp(_blinkCd / Tune.OtherAbility.BlinkCooldown, 0f, 1f),
+            (HeroKind.Elementalist, KitRole.Other) => Math.Clamp(_novaCd / (Tune.OtherAbility.NovaRest * Stats.AbilityCdMult), 0f, 1f),
             (HeroKind.Vitalist, KitRole.Other) => RuptureCooldownFrac,
             (HeroKind.Aegis, KitRole.Other) => Supporting ? 0f : SmiteCooldownFrac,
             (HeroKind.Rogue, KitRole.Other) => Math.Clamp(_stepCd / Tune.OtherAbility.StepCooldown, 0f, 1f),
             (HeroKind.Swordsman, KitRole.Defensive) => _dodgeCd.Length == 0 || _dodgeCd.Min() <= 0 ? 0f : Math.Clamp(_dodgeCd.Min() / Math.Max(0.01f, DodgeCooldownTotal), 0f, 1f),
             (HeroKind.Warden, KitRole.Defensive) => ShieldBroken ? Math.Clamp(_shieldBrokenT / Math.Max(0.01f, ShieldBreakTotal), 0f, 1f) : 0f,
-            (HeroKind.Elementalist, KitRole.Defensive) => ElementAbilityFrac,
+            (HeroKind.Elementalist, KitRole.Defensive) => Math.Clamp(_blinkCd / Tune.OtherAbility.BlinkCooldown, 0f, 1f),
             (HeroKind.Vitalist, KitRole.Defensive) => HealCooldownFrac,
             (_, KitRole.Defensive) => AbilityCooldownFrac,
             (HeroKind.Swordsman, _) => HardSwingCooldownFrac,

@@ -72,7 +72,7 @@ public abstract partial class Enemy : CharacterBody2D
     public float ContactDamage = 8f;
     /// <summary>Sent out by a hive that replaces it: it drops no experience, hearts or potions (or the hive would be a spring of them).</summary>
     public bool Brood;
-    /// <summary>A generator's minion (the Gauntlet): weaker, worth less, drops gold and food less often.</summary>
+    /// <summary>A generator's minion: weaker, worth less, drops gold and food less often.</summary>
     public bool Minion;
     public int XpValue = 3;
     public float KnockResist;
@@ -1118,7 +1118,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (!Brood)
         {
             // gold now and then (a guardian leaves a pile)
-            float goldChance = (IsGuardian ? 1f : IsBoss ? 1f : Elite ? Tune.Gold.EliteDropChance : Tune.Gold.DropChance) * (Minion ? Tune.Gauntlet.MinionDropMult : 1f);
+            float goldChance = (IsGuardian ? 1f : IsBoss ? 1f : Elite ? Tune.Gold.EliteDropChance : Tune.Gold.DropChance) * (Minion ? Tune.Hordes.MinionDropMult : 1f);
             if (!G.Shop && G.Chance(goldChance))
             {
                 int worth = IsGuardian || IsBoss ? Tune.Gold.GuardianPile : G.Chance(Tune.Gold.DropPileChance + (Elite ? 0.3f : 0f)) ? G.RangeI(Tune.Gold.PileMin, Tune.Gold.PileMax) : 1;
@@ -1130,7 +1130,7 @@ public abstract partial class Enemy : CharacterBody2D
             for (int k = 0; k < orbs; k++)
                 G.Spawn(new XpOrb { Value = per, Position = GlobalPosition, Vel = G.RandDir() * G.Range(60, 180) + new Vector2(0, -60) });
             // healing is scarce: rare from regular kills, likelier from mini-bosses; potions rarer still
-            if (G.Chance((IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance + (G.Player?.Stats.HeartChanceBonus ?? 0f)) * (Minion ? Tune.Gauntlet.MinionDropMult : 1f))) G.Spawn(new HeartPickup { Position = GlobalPosition });
+            if (G.Chance((IsBoss || IsGuardian ? 1f : Elite ? Tune.Drops.HeartChanceElite : Tune.Drops.HeartChance + (G.Player?.Stats.HeartChanceBonus ?? 0f)) * (Minion ? Tune.Hordes.MinionDropMult : 1f))) G.Spawn(new HeartPickup { Position = GlobalPosition });
             if (G.Chance(Meta.PotionDropChance(P))) G.Spawn(new PotionPickup { Position = GlobalPosition + new Vector2(6, -4) });
         }
         if (Elite || IsBoss) G.Fx.Explosion(GlobalPosition, BloodColor, IsBoss ? 1.6f : 1f);

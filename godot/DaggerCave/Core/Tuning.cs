@@ -717,6 +717,8 @@ public static class Tune
         /// switch and the overcharge's recharge all come back at once (the swing's and the bolt's own pace stay). Off in the game; the
         /// older scenarios, written while it was on, still turn it on.</summary>
         public static bool NoCooldowns = false;
+        /// <summary>A test arena, never the game: no generators and no trial rooms in the cave (the older scenarios were written for one).</summary>
+        public static bool NoHordes = false;
     }
 
     /// <summary>The pre-run loadout: how many side-grades a hero can bring.</summary>
@@ -1221,8 +1223,8 @@ public static class Tune
     }
 
     /// <summary>
-    /// The Gauntlet: hordes from generators (<see cref="DaggerCave.Generator"/>), rooms that are trials, heroes who grow to meet them.
-    /// <c>On</c> switches it all. A level holds <c>Generators</c> + <c>GeneratorsPerDepth</c> x depth generators (at least
+    /// The hordes: creatures pouring from generators (<see cref="DaggerCave.Generator"/>), rooms that are trials, heroes who grow to meet them.
+    /// A level holds <c>Generators</c> + <c>GeneratorsPerDepth</c> x depth generators (at least
     /// <c>GeneratorGap</c> px apart, none within <c>GeneratorClear</c> px of the start). A generator has <c>GeneratorHp</c> (x the depth's
     /// scaling) in three tiers: at full it sends a creature every <c>SpawnEvery</c>[tier] s while fewer than <c>Cap</c>[tier] (+ one every
     /// <c>CapPerDepth</c> depths) of its own live, waking once a hero is within <c>WakeRange</c> px. What it sends are minions: <c>MinionHp</c> x
@@ -1233,7 +1235,7 @@ public static class Tune
     /// (of what they have) on top of their class's growth.
     /// </summary>
     /// <summary>
-    /// The Gauntlet's specials (<see cref="DaggerCave.Player"/>, Player.Big.cs): one great stroke per hero on a long rest (<c>*Rest</c> s).
+    /// The great specials (<see cref="DaggerCave.Player"/>, Player.Big.cs): one great stroke per hero on a long rest (<c>*Rest</c> s).
     /// Damage is before the hero's damage multiplier. Swordsman's Whirlwind: <c>WhirlPulses</c> strokes over <c>WhirlTime</c> s, each
     /// <c>WhirlDamage</c> to all within <c>WhirlRadius</c> px (moving at <c>WhirlMove</c> x). Elementalist's Meteor: falls <c>MeteorHeight</c>
     /// px over <c>MeteorFall</c> s, <c>MeteorDamage</c> at its heart, <c>MeteorEdge</c> x at the rim of <c>MeteorRadius</c> px. Warden's Great
@@ -1264,16 +1266,15 @@ public static class Tune
         public static float Radius = 48f, Share = 0.4f;
     }
 
-    public static class Gauntlet
+    public static class Hordes
     {
-        public static bool On = true;
         public static int Generators = 3, GeneratorMax = 9, CapPerDepth = 3;
         public static float GeneratorsPerDepth = 0.6f, GeneratorGap = 360f, GeneratorClear = 520f, GeneratorHp = 90f, WakeRange = 460f;
         public static int GeneratorXp = 24, BonusGold = 6;
         public static float[] SpawnEvery = { 0f, 5f, 3.6f, 2.4f }, Cap = { 0f, 2f, 3f, 5f };
         public static float MinionHp = 0.5f, MinionXp = 0.6f, MinionDropMult = 0.35f, MinionSustain = 0.35f;
         public static float FoodChance = 0.6f, PowerChance = 0.35f, PowerRange = 260f, PowerSeconds = 10f, FuryDamage = 1.4f, HasteSpeed = 1.25f;
-        /// <summary>Every hero's movement in the Gauntlet: <c>AirJumps</c> jumps in mid-air (a Double Jump adds one more), and sliding down walls
+        /// <summary>Every hero's movement: <c>AirJumps</c> jumps in mid-air (a Double Jump adds one more), and sliding down walls
         /// and leaping off them (a Wall Jump's, for all).</summary>
         public static int AirJumps = 1;
         public static bool WallJump = true;
@@ -1307,6 +1308,9 @@ public static class Tune
     /// </summary>
     public static class OtherAbility
     {
+        /// <summary>The Elementalist's Nova: <c>NovaDamage</c> (before her damage multiplier) to all within <c>NovaRadius</c> px, hurled
+        /// <c>NovaPush</c> back, every <c>NovaRest</c> s.</summary>
+        public static float NovaDamage = 36f, NovaRadius = 115f, NovaPush = 340f, NovaRest = 8f;
         public static float ParryTime = 0.45f, ParryRiposte = 1.5f, ParryCooldown = 5f, BlinkRange = 120f, BlinkCooldown = 4f;
         public static float StepRange = 150f, StepCone = 35f, StepCritWindow = 1.5f, StepCooldown = 6f;
     }

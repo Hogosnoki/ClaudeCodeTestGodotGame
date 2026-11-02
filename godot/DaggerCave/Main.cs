@@ -188,7 +188,7 @@ public partial class Main : Node
 
         ParseArgs(out bool gentest);
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
-        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "gauntlet" or "trial") && !OS.GetCmdlineUserArgs().Contains("--elements");
+        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -421,8 +421,8 @@ public partial class Main : Node
             else if (a.StartsWith("--scenario="))
             {
                 _scenario = a[11..];
-                // (the older scenarios were written for a cave without generators or trials: the Gauntlet is theirs only when they're about it)
-                if (_scenario is not ("gauntlet" or "trial" or "big")) { Tune.Gauntlet.On = false; Tune.Testing.NoCooldowns = true; }
+                // (the older scenarios were written for an empty cave and free abilities: their arenas hold no generators or trial rooms)
+                if (_scenario is not ("hordes" or "trial" or "big")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
             }
         }
         Affinity.Off = _heroTest || _hitStopTest || _altTest;
@@ -2415,8 +2415,8 @@ public partial class Main : Node
         float fill = biome.ResidentFill >= 0 ? biome.ResidentFill
             : Math.Min(1f, Tune.Spawning.ResidentFillStart + G.Depth * Tune.Spawning.ResidentFillPerDepth + G.RunTime / (Tune.Spawning.ResidentFillMinutes * 60f) * (1f - Tune.Spawning.ResidentFillStart)) * Math.Min(1f, biome.Density);
         fill *= Tune.Spawning.SpawnShare;
-        // (the Gauntlet: the hordes come from the generators; fewer creatures simply live here)
-        if (Tune.Gauntlet.On) fill *= Tune.Gauntlet.ResidentShare;
+        // (the hordes come from the generators; fewer creatures simply live here)
+        fill *= Tune.Hordes.ResidentShare;
         foreach (var sp in cave.Spawns)
         {
             float d = sp.Pos.DistanceTo(p.GlobalPosition);
@@ -2434,15 +2434,7 @@ public partial class Main : Node
             sp.Cooldown = G.Range(Tune.Spawning.ResidentRespawnMin, Tune.Spawning.ResidentRespawnMax) / (1f + G.Pace);
             alive += SpawnGroup(sp);
         }
-
-        // Entrances: slow at first; the rate doubles every RateDoublingMinutes, like the difficulty.
-        _waveT -= dt;
-        if (biome.Waves && !Tune.Gauntlet.On && _waveT <= 0 && alive < cap + 4)
-        {
-            float rate = MathF.Pow(2f, G.RunTime / (Tune.Spawning.RateDoublingMinutes * 60f));
-            _waveT = Math.Max(Tune.Spawning.IntervalMin, Tune.Spawning.IntervalStart / rate) * Tune.Spawning.WaveGapMult * G.Range(0.8f, 1.2f);
-            SpawnEntrance(p);
-        }
+        // (no waves from the screen's edges: the hordes come from the generators)
     }
 
     /// <summary>
@@ -2656,8 +2648,8 @@ public partial class Main : Node
                 }
                 case RoomKind.Ambush:
                 {
-                    // (the Gauntlet: an ambush is a trial, its generators the ambush)
-                    if (!Tune.Spawning.AmbushRooms || Tune.Gauntlet.On) break;
+                    // (an ambush room is a trial, its generators the ambush: this old ambush is off)
+                    if (!Tune.Spawning.AmbushRooms) break;
                     int n = 3 + G.Depth;
                     for (int k = 0; k < n; k++)
                     {

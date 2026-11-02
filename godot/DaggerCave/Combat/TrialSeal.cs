@@ -5,7 +5,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The wards that shut a trial room (the Gauntlet): a block of violet light over every open cell on the room's rim. No creature and no shot
+/// The wards that shut a trial room: a block of violet light over every open cell on the room's rim. No creature and no shot
 /// passes them either way until the trial is won. A hero is let in, never out: one still outside passes through them (a friend joining
 /// late), and once a step inside the room the wards hold them too. They rise when the trial begins and fade when it ends. Every game builds
 /// them from the same list of cells, and lets its own heroes through.

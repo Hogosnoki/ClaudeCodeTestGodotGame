@@ -113,7 +113,8 @@ public partial class Main
         foreach (var el in els)
         {
             p.TestMode(el);
-            foreach (var r in new[] { KitRole.Primary, KitRole.Special, KitRole.Defensive })
+            // (the special is each hero's great stroke, the same in every element: --scenario=big tests it)
+            foreach (var r in new[] { KitRole.Primary, KitRole.Defensive })
             {
                 p.ResetAbilityCooldowns();
                 p.TestCatchDaggers();
@@ -173,9 +174,11 @@ public partial class Main
         p.TestMode(mine);
         string en = Elements.Name(mine).ToLowerInvariant();
         IEnumerable<object> Ready(float dx) { p.ResetAbilityCooldowns(); p.TestCatchDaggers(); p.TestClearBuffs(); Fresh(dx); aim = new Vector2(p.Facing, 0); foreach (var _ in ElWait(0.25f)) yield return null; }
-        // the switch's reward: the first ability after a switch lays the element on twice over (the next, as usual)
+        // the switch's reward: the first ability after a switch lays the element on twice over (the next, as usual; the Warden's cut lays on
+        // none, so his isn't read here)
+        if (hero != HeroKind.Warden)
         {
-            var role = hero == HeroKind.Warden ? KitRole.Special : KitRole.Primary;
+            var role = KitRole.Primary;
             int slot = Array.IndexOf(els, mine) + 1;
             p.TestMode(els.First(x => x != mine));
             p.TestResetModeCooldowns();
@@ -226,17 +229,6 @@ public partial class Main
                 ScCheck($"a blow on a shield raised a while builds only {BuildOf(foe, mine):0} {en} (want {Tune.Elements.CounterBuild:0}); raised in time, {Tune.Elements.SpecialBuild:0}", Math.Abs(BuildOf(foe, mine) - Tune.Elements.CounterBuild) < 1f);
                 break;
             }
-            case HeroKind.Elementalist:
-            {
-                foreach (var _ in Ready(Tune.ElementalStaff.FixedRange - 6f)) yield return null;
-                foreach (var _ in Use(KitRole.Special)) yield return null;
-                yield return null;
-                float now = BuildOf(foe, mine);
-                ScShot("simple_zone");
-                foreach (var _ in ElWait(Tune.Elements.ZoneSeconds)) yield return null;
-                ScCheck($"the Burst's zone lingers: {now:0} {en} at once, {BuildOf(foe, mine):0} by the time it fades", BuildOf(foe, mine) >= now + Tune.Elements.ZoneBuild * (Tune.Elements.ZoneTicks - 1) - 1f);
-                break;
-            }
             case HeroKind.Vitalist:
             {
                 foreach (var _ in Ready(26f)) yield return null;
@@ -247,7 +239,7 @@ public partial class Main
                 p.ResetAbilityCooldowns();
                 foreach (var _ in Use(KitRole.Primary)) yield return null;
                 foreach (var _ in ElWait(0.9f)) yield return null;
-                ScCheck($"the drain on a hexed creature ({left:0.0} s of seep left, {sofar:0} {en} so far) tears the rest out at once ({p.CashIns - c0}): {BuildOf(foe, mine):0} {en}, no seep left ({foe.SeepLeft:0.0})",
+                ScCheck($"the drain on a creature her Bloom seeps into ({left:0.0} s of seep left, {sofar:0} {en} so far) tears the rest out at once ({p.CashIns - c0}): {BuildOf(foe, mine):0} {en}, no seep left ({foe.SeepLeft:0.0})",
                     p.CashIns > c0 && foe.SeepLeft <= 0f && BuildOf(foe, mine) > sofar + Tune.Elements.PrimaryBuild + 10f);
                 break;
             }
@@ -264,26 +256,11 @@ public partial class Main
                 ScCheck($"her barrier lends her {en} ({imbued}, {lent}): her blows carry it, the bubble building {BuildOf(foe, mine):0} (want {want3:0})", imbued && lent == mine && Math.Abs(BuildOf(foe, mine) - want3) < 1f);
                 break;
             }
-            case HeroKind.Rogue:
-            {
-                foreach (var _ in Ready(70f)) yield return null;
-                foreach (var _ in Use(KitRole.Special)) yield return null;
-                foreach (var _ in ElWait(2f)) yield return null;
-                float landed = BuildOf(foe, mine);
-                int r0 = p.Releases;
-                // (the knife out: the special again calls it home)
-                p.ResetAbilityCooldowns();
-                _scInput = new PlayerInput { Ability = true, Aim = aim, AimGiven = true }; yield return null; yield return null; _scInput = default;
-                foreach (var _ in ElWait(0.8f)) yield return null;
-                ScCheck($"the knife builds {landed:0} {en} as it lands; recalled after 2 s it releases what it stored ({p.Releases - r0}): {BuildOf(foe, mine):0} in all",
-                    Math.Abs(landed - Tune.Elements.KnifeTouch) < 1f && p.Releases > r0 && BuildOf(foe, mine) >= landed + Tune.Elements.KnifeStore * 1.5f);
-                break;
-            }
         }
         if (foe != null && IsInstanceValid(foe)) foe.QueueFree();
 
         // ---- the same in every element
-        foreach (var r in new[] { KitRole.Primary, KitRole.Defensive, KitRole.Special })
+        foreach (var r in new[] { KitRole.Primary, KitRole.Defensive })
         {
             var ds = els.Select(el => dmg[(r, el)]).ToArray();
             var rs = els.Select(el => rest[(r, el)]).ToArray();
@@ -323,19 +300,50 @@ public partial class Main
                 }
                 case HeroKind.Warden:
                 {
+                    // (the Charge stops only at a creature mid-attack; with Juggernaut's Charge it strikes the standing dummy too)
+                    bool jugg = p.Stats.Juggernaut;
+                    p.Stats.Juggernaut = true;
                     foreach (var _ in Other(aim)) yield return null;
                     foreach (var _ in ElWait(0.8f)) yield return null;
-                    ScCheck($"Shield Bash: it strikes the creature in front ({hp0 - f.Hp:0} dealt) and rests ({p.SimpleFrac(KitRole.Other):0.00})", f.Hp < hp0 && p.SimpleFrac(KitRole.Other) > 0f);
+                    p.Stats.Juggernaut = jugg;
+                    ScCheck($"Charge: the shield-first rush strikes the creature ahead ({hp0 - f.Hp:0} dealt) and rests ({p.SimpleFrac(KitRole.Other):0.00})", f.Hp < hp0 && p.SimpleFrac(KitRole.Other) > 0f);
                     break;
                 }
                 case HeroKind.Elementalist:
                 {
+                    // the Nova: her element bursts out of her, striking, laying it on and hurling back all near
+                    var near = new[] { f, ElDummy(p, -40f, hold: false), ElDummy(p, 70f, hold: false) };
+                    // (the creature already there is held still; the two beside it are free to be hurled)
+                    var far = ElDummy(p, Tune.OtherAbility.NovaRadius + 90f);
+                    foreach (var _ in ElWait(0.25f)) yield return null;
+                    float[] h0 = near.Select(e => e.Hp).ToArray();
+                    float[] x0 = near.Select(e => Math.Abs(e.GlobalPosition.X - p.GlobalPosition.X)).ToArray();
+                    float farHp = far.Hp, b0 = near.Sum(e => BuildOf(e, mine));
+                    int n0 = p.Novas;
+                    foreach (var _ in Other(aim)) yield return null;
+                    // (how far each is thrown at most: a free goblin walks straight back in)
+                    var xMax = (float[])x0.Clone();
+                    for (float t = 0; t < 0.5f; t += (float)GetProcessDeltaTime())
+                    {
+                        for (int k = 0; k < near.Length; k++) xMax[k] = Math.Max(xMax[k], Math.Abs(near[k].GlobalPosition.X - p.GlobalPosition.X));
+                        yield return null;
+                    }
+                    int hit = near.Count(e => e.Hp < h0[Array.IndexOf(near, e)]);
+                    int flung = Enumerable.Range(0, near.Length).Count(k => xMax[k] > x0[k] + 10f);
+                    ScCheck($"Nova: it bursts out of her ({p.Novas - n0}), striking all near ({hit} of {near.Length}, {near.Sum(e => h0[Array.IndexOf(near, e)] - e.Hp):0} dealt), hurling them back ({flung}) and laying on {en} ({near.Sum(e => BuildOf(e, mine)) - b0:0})",
+                        p.Novas > n0 && hit == near.Length && flung >= 2 && near.Sum(e => BuildOf(e, mine)) - b0 > Tune.Elements.SpecialBuild * 2f);
+                    ScCheck($"  but not one far off ({farHp - far.Hp:0.0})", far.Hp >= farHp - 0.01f);
+                    foreach (var e in near.Skip(1).Append(far)) e.QueueFree();
+                    // the Blink is on the dodge button now
+                    p.GlobalPosition = home; p.Velocity = Vector2.Zero;
+                    p.ResetAbilityCooldowns();
+                    foreach (var _ in ElWait(0.2f)) yield return null;
                     var at0 = p.GlobalPosition;
                     var away = new Vector2(-p.Facing, 0);
-                    foreach (var _ in Other(away)) yield return null;
+                    _scInput = new PlayerInput { Dodge = true, Aim = away, AimGiven = true }; yield return null; yield return null; _scInput = default;
                     yield return null;
                     float moved = (p.GlobalPosition - at0).Dot(away);
-                    ScCheck($"Blink: she steps through the air along the aim ({moved:0} px, {p.Blinks} blink, up to {Tune.OtherAbility.BlinkRange:0})", p.Blinks >= 1 && moved > 30f && moved <= Tune.OtherAbility.BlinkRange + 2f);
+                    ScCheck($"Blink (the dodge button): she steps through the air along the aim ({moved:0} px, {p.Blinks} blinks, up to {Tune.OtherAbility.BlinkRange:0})", p.Blinks >= 1 && moved > 30f && moved <= Tune.OtherAbility.BlinkRange + 2f);
                     break;
                 }
                 case HeroKind.Vitalist:
@@ -374,8 +382,8 @@ public partial class Main
                     break;
                 }
             }
-            string noun = hero == HeroKind.Aegis && p.Supporting ? "Burden" : Elements.Noun(hero, KitRole.Other);
-            ScCheck($"  it pops its name ({noun}) and lays no element on of itself ({AllBuild(f) - all0:0})", p.ElementalUses.Skip(u0).Contains(noun) && (hero == HeroKind.Rogue || AllBuild(f) - all0 < 0.5f));
+            string noun = hero == HeroKind.Aegis && p.Supporting ? "Burden" : hero == HeroKind.Elementalist ? Elements.SimpleName(hero, KitRole.Other, mine) : Elements.Noun(hero, KitRole.Other);
+            ScCheck($"  it pops its name ({noun}){(hero is HeroKind.Elementalist or HeroKind.Warden ? "" : $" and lays no element on of itself ({AllBuild(f) - all0:0})")}", p.ElementalUses.Skip(u0).Contains(noun) && (hero is HeroKind.Rogue or HeroKind.Elementalist or HeroKind.Warden || AllBuild(f) - all0 < 0.5f));
             ScShot("simple_other");
         }
         p.GlobalPosition = home;

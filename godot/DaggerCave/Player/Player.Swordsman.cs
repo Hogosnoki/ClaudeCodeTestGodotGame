@@ -55,7 +55,7 @@ public partial class Player
         for (int k = 0; k < _abilityCd.Length; k++) _abilityCd[k] = 0;
         for (int k = 0; k < _stormOwes.Length; k++) _stormOwes[k] = false;
         _snapOwes = false; _snapCd = 0; _updraftOwes = false; _updraftCd = 0;
-        _parryCd = _blinkCd = _stepCd = 0;
+        _parryCd = _blinkCd = _stepCd = _novaCd = _bigCd = 0;
     }
 
     /// <summary>Test harness: the timers that gate the buttons.</summary>

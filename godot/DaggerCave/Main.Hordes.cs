@@ -6,7 +6,7 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The Gauntlet (<see cref="Tune.Gauntlet"/>): generators set through the level, pouring out hordes until they're broken. Their spots come
+/// The hordes (<see cref="Tune.Hordes"/>): generators set through the level, pouring out hordes until they're broken. Their spots come
 /// from the seed alone (so every game online picks the same), and the host's game raises each one when a hero first comes near, as the hive is.
 /// </summary>
 public partial class Main
@@ -19,19 +19,19 @@ public partial class Main
     private void PlaceGenerators(CaveData cave)
     {
         _genSpots.Clear(); _genMade.Clear(); Generators.Clear(); _trials.Clear(); _denElite = null;
-        if (!Tune.Gauntlet.On || cave.Biome == null || cave.Biome.Id is BiomeId.Lair or BiomeId.Null) return;
+        if (Tune.Testing.NoHordes || cave.Biome == null || cave.Biome.Id is BiomeId.Lair or BiomeId.Null) return;
         var rng = new Random(cave.Seed ^ 0x6e7a);
-        int want = Math.Min(Tune.Gauntlet.GeneratorMax, Tune.Gauntlet.Generators + (int)(G.Depth * Tune.Gauntlet.GeneratorsPerDepth));
+        int want = Math.Min(Tune.Hordes.GeneratorMax, Tune.Hordes.Generators + (int)(G.Depth * Tune.Hordes.GeneratorsPerDepth));
         var spots = cave.Spawns.Where(s => s.Kind == SpawnKind.Ground).Select(s => s.Pos).OrderBy(_ => rng.Next()).ToList();
         foreach (var floor in spots)
         {
             if (_genSpots.Count >= want) break;
             var at = floor + new Vector2(0, -22);
-            if (at.DistanceTo(cave.StartPos) < Tune.Gauntlet.GeneratorClear) continue;
+            if (at.DistanceTo(cave.StartPos) < Tune.Hordes.GeneratorClear) continue;
             if (cave.Boss != null && at.DistanceTo(cave.Boss.Center) < Math.Max(cave.Boss.RxPx, cave.Boss.RyPx) + 120f) continue;
             if (cave.IsSolid(at) || cave.IsSolid(at + new Vector2(-20, -6)) || cave.IsSolid(at + new Vector2(20, -6)) || cave.IsSolid(at + new Vector2(0, -26))) continue;
             if (cave.IsLava(at) || cave.IsLava(floor + new Vector2(0, -4))) continue;
-            if (_genSpots.Any(g => g.DistanceTo(at) < Tune.Gauntlet.GeneratorGap)) continue;
+            if (_genSpots.Any(g => g.DistanceTo(at) < Tune.Hordes.GeneratorGap)) continue;
             _genSpots.Add(at);
         }
         if (_autotest) GD.Print($"[autotest] generators: {_genSpots.Count} of {want}");
@@ -64,7 +64,7 @@ public partial class Main
 }
 
 /// <summary>
-/// Trial rooms (the Gauntlet): a room that shuts behind you. Its rim is warded (<see cref="TrialSeal"/>), generators rise inside, and
+/// Trial rooms: a room that shuts behind you. Its rim is warded (<see cref="TrialSeal"/>), generators rise inside, and
 /// nobody leaves until they're broken and the room is clear. Won, the wards fade and a chest waits.
 /// </summary>
 public partial class Main
@@ -93,12 +93,12 @@ public partial class Main
     /// <summary>Whether a room is a trial: every ambush and mini-boss den, half the treasure rooms (from the seed, so every game agrees).</summary>
     private bool IsTrial(CaveData cave, Room room)
     {
-        if (!Tune.Gauntlet.On || G.Shop) return false;
+        if (Tune.Testing.NoHordes || G.Shop) return false;
         int idx = cave.Rooms.IndexOf(room);
         return room.Kind switch
         {
             RoomKind.Ambush or RoomKind.MiniBoss => true,
-            RoomKind.Treasure => !room.Underwater && new Random(cave.Seed ^ (idx * 7919 + 0x51a1)).NextDouble() < Tune.Gauntlet.TrialTreasureChance,
+            RoomKind.Treasure => !room.Underwater && new Random(cave.Seed ^ (idx * 7919 + 0x51a1)).NextDouble() < Tune.Hordes.TrialTreasureChance,
             _ => false,
         };
     }
@@ -132,7 +132,7 @@ public partial class Main
 
     /// <summary>
     /// A trial's own cells: the room's box grown outward step by step (two cells sideways, one up and down, each step). Of the steps whose rim (the cells to ward) is near the narrowest
-    /// (so the wards stand in tunnel mouths, not across open cave), the first at least <see cref="Tune.Gauntlet.TrialMinWidth"/> across
+    /// (so the wards stand in tunnel mouths, not across open cave), the first at least <see cref="Tune.Hordes.TrialMinWidth"/> across
     /// wins, or else the widest. Never so far it takes in where you arrived, the guardian's chamber or another trial's ground.
     /// </summary>
     private static HashSet<int> TrialCells(CaveData cave, Room room, HashSet<int> taken = null)
@@ -146,7 +146,7 @@ public partial class Main
         float ci = room.Center.X / CaveData.Cell, cj = room.Center.Y / CaveData.Cell;
         var steps = new List<(HashSet<int> set, int rim, float width)>();
         // (grown in steps of two cells sideways and one up and down: a cave's tunnels run sideways, and its shafts are best left out)
-        for (float m = 0; m <= Tune.Gauntlet.TrialMinWidth * 0.6f; m += 2f * CaveData.Cell)
+        for (float m = 0; m <= Tune.Hordes.TrialMinWidth * 0.6f; m += 2f * CaveData.Cell)
         {
             float rx = (room.RxPx + m) / CaveData.Cell + 1.5f, ry = (room.RyPx + m * 0.5f) / CaveData.Cell + 2f;
             var set = new HashSet<int> { sj * cave.W + si };
@@ -173,8 +173,8 @@ public partial class Main
         }
         if (steps.Count == 0) return new HashSet<int>();
         int narrowest = steps.Min(x => x.rim);
-        var ok = steps.Where(x => x.rim <= narrowest * Tune.Gauntlet.TrialRimSlack + 2).ToList();
-        return (ok.FirstOrDefault(x => x.width >= Tune.Gauntlet.TrialMinWidth).set ?? ok.OrderByDescending(x => x.width).First().set);
+        var ok = steps.Where(x => x.rim <= narrowest * Tune.Hordes.TrialRimSlack + 2).ToList();
+        return (ok.FirstOrDefault(x => x.width >= Tune.Hordes.TrialMinWidth).set ?? ok.OrderByDescending(x => x.width).First().set);
     }
 
     /// <summary>The open cell a trial is grown from: on the room's floor (or at its middle). Every game finds the same one.</summary>
@@ -217,7 +217,7 @@ public partial class Main
         // the generators: on the room's floor, apart, never on top of a hero
         if (room.Kind != RoomKind.MiniBoss)
         {
-            int want = Math.Min(Tune.Gauntlet.TrialMax, Tune.Gauntlet.TrialGenerators + G.Depth / Math.Max(1, Tune.Gauntlet.TrialPerDepth));
+            int want = Math.Min(Tune.Hordes.TrialMax, Tune.Hordes.TrialGenerators + G.Depth / Math.Max(1, Tune.Hordes.TrialPerDepth));
             var floors = inside.Where(k =>
             {
                 int i = k % cave.W, j = k / cave.W;
@@ -279,9 +279,9 @@ public partial class Main
             if (t.Won) continue;
             // (a trial that drags on grows angry: its generators send faster and keep more out)
             t.Age += 0.25f;
-            if (t.Age > Tune.Gauntlet.EscalateAfter)
+            if (t.Age > Tune.Hordes.EscalateAfter)
             {
-                float fury = Math.Min(Tune.Gauntlet.FuryMax, 1f + (t.Age - Tune.Gauntlet.EscalateAfter) / Tune.Gauntlet.EscalateStep * 0.5f);
+                float fury = Math.Min(Tune.Hordes.FuryMax, 1f + (t.Age - Tune.Hordes.EscalateAfter) / Tune.Hordes.EscalateStep * 0.5f);
                 foreach (var g in t.Gens) if (IsInstanceValid(g) && !g.Dead) g.Fury = fury;
                 if (!t.Angry && t.Gens.Any(g => IsInstanceValid(g) && !g.Dead))
                 {
