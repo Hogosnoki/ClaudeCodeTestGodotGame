@@ -75,6 +75,8 @@ public partial class Main
         ScShot("shrinelook_landing");
         foreach (var _ in Wait(2.5f)) yield return null;
         ScShot("shrinelook_settled");
+        foreach (var _ in Wait(0.35f)) yield return null;
+        ScShot("shrinelook_spin");
         // (close up: the plain and the Rare, then the Epic and the Legendary)
         var home = p.GlobalPosition;
         _cam.Zoom *= 2.2f;

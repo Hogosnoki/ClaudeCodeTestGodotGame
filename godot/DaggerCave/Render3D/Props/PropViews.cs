@@ -1461,6 +1461,9 @@ public partial class ChestView : PropView
     private const float ShrineThickness = 1.0f;
     /// <summary>For pictures in tests: every shrine flower turned this far (radians) about its upright, to show its depth.</summary>
     public static float TestTurn;
+    /// <summary>How fast a shrine flower spins about its upright, in radians a second (a little faster for each finer grade).</summary>
+    private const float ShrineSpin = 2.0f;
+    private float _spinPhase = float.NaN;
 
     private void BuildShrine(bool boss, CardGrade grade)
     {
@@ -1470,6 +1473,7 @@ public partial class ChestView : PropView
         _gemGlow = null; _motes = null;
         _grade = grade;
         _flowerMid = _flowerTop = -1f;
+        if (float.IsNaN(_spinPhase)) _spinPhase = (GetInstanceId() % 997) * 0.37f;
         // (made from its picture when it can be: a relief of the reference art; else built by hand below)
         if (BuildRelief(boss, grade)) return;
         int g = GradeStep(grade);
@@ -1832,8 +1836,11 @@ public partial class ChestView : PropView
                 var to = (cam.GlobalPosition - _float.GlobalPosition).Normalized();
                 pitch = -MathF.Asin(Math.Clamp(to.Y, -0.95f, 0.95f));
             }
-            _float.Rotation = new Vector3(pitch, 0.18f * MathF.Sin(Time * 0.9f) + TestTurn, sway);
-            _float.Scale = Vector3.One * (c.Open ? Math.Max(0.001f, 1f - c.OpenT * 3f) : 1f);
+            // (it spins steadily about its own upright, like a coin waiting to be picked up; each from its own starting angle, the
+            // finer ones a touch faster; tipped toward the camera, then swinging on its point while it sinks)
+            float spin = TestTurn != 0f ? TestTurn : _spinPhase + Time * (ShrineSpin + 0.15f * GradeStep(_grade));
+            float s = c.Open ? Math.Max(0.001f, 1f - c.OpenT * 3f) : 1f;
+            _float.Basis = new Basis(Vector3.Right, pitch) * new Basis(Vector3.Up, spin) * new Basis(Vector3.Back, sway) * Basis.FromScale(Vector3.One * s);
         }
         // the web holds until it's cut (then it parts: the thread goes, and the silk)
         if (_web != null) _web.Visible = c.Hung && c.CutT < 0;
