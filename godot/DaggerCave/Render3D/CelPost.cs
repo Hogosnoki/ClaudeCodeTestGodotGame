@@ -36,6 +36,7 @@ public partial class CelPost : CanvasLayer
     {
         if (_i == null || !IsInstanceValid(_i)) return;
         bool rgb = Math.Abs(DebugTuning.V("scr_r") - 1f) > 0.002f || Math.Abs(DebugTuning.V("scr_g") - 1f) > 0.002f || Math.Abs(DebugTuning.V("scr_b") - 1f) > 0.002f;
-        _i.Visible = rgb || (GameSettings.CelShading && (GameSettings.CelLightTones >= 1.5f || GameSettings.CelLightBlur > 0.01f));
+        bool vignette = DebugTuning.V("vignette") > 0.001f;
+        _i.Visible = rgb || vignette || (GameSettings.CelShading && (GameSettings.CelLightTones >= 1.5f || GameSettings.CelLightBlur > 0.01f));
     }
 }

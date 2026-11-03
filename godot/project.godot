@@ -219,3 +219,23 @@ dbg_scr_b={
 "type": "float",
 "value": 0.675
 }
+
+dbg_vignette={
+"type": "float",
+"value": 0.0
+}
+
+dbg_vignette_size={
+"type": "float",
+"value": 0.5
+}
+
+dbg_vignette_soft={
+"type": "float",
+"value": 0.6
+}
+
+dbg_vignette_round={
+"type": "float",
+"value": 0.0
+}

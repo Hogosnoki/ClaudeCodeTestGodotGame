@@ -1750,6 +1750,10 @@ keeps its own settings and debug tuning values (saved under `graphics` / `debug`
 title screen): the Debug tab edits the one on show (its first line says which; open Settings from the main menu for the title screen's, from
 the pause menu in a run for the cave's), and the values list shows both. Reset puts the look on show back to its defaults
 (`LookSnap.TitleDefaults` / `CaveDefaults`, and `TitleDefault` / `CaveDefault` on each tuning value).
+**Vignette** (Debug tab, *Whole picture*; `vignette`, `vignette_size`, `vignette_soft`, `vignette_round`, in the full-screen pass
+`cel_post.gdshader`): the picture darkens toward its edges and corners: how strongly (0 = off, the default for both looks, 1 = black at
+the edge), how far out from the middle it begins, how gradually, and whether it follows the screen's shape (an oval) or is round.
+Each look has its own, so the cave can have one and the title screen none.
 The cave look's defaults are the tuned look: object borders 1 px, character borders 2.15 px, no texture blur, band softness 0.5,
 light flatness 0.5, and the tuning values as settled (among them exposure 0.89, field of view 80, zoom 2.33, no cave haze, ambient
 occlusion x3, background blur from 5 m behind the play plane); project.godot's shader globals start at the same values.

@@ -13,6 +13,11 @@ global uniform float cel_band_soft;
 global uniform float dbg_scr_r;
 global uniform float dbg_scr_g;
 global uniform float dbg_scr_b;
+// debug mode: the vignette (strength, where it begins, how soft, how round)
+global uniform float dbg_vignette;
+global uniform float dbg_vignette_size;
+global uniform float dbg_vignette_soft;
+global uniform float dbg_vignette_round;
 
 uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
 
@@ -29,5 +34,14 @@ void fragment() {
 		c = mix(c, c / L * t * t, cel_shading);
 	}
 	c *= vec3(dbg_scr_r, dbg_scr_g, dbg_scr_b);
+	if (dbg_vignette > 0.0) {
+		// distance from the middle: 1 at the corners; an oval following the screen, or a circle
+		vec2 p = (SCREEN_UV - 0.5) * 2.0;
+		float aspect = SCREEN_PIXEL_SIZE.y / SCREEN_PIXEL_SIZE.x;
+		vec2 q = mix(p, vec2(p.x * aspect, p.y) / max(aspect, 1.0), dbg_vignette_round);
+		float d = length(q) * 0.70710678;
+		float v = smoothstep(dbg_vignette_size, dbg_vignette_size + dbg_vignette_soft, d);
+		c *= 1.0 - dbg_vignette * v;
+	}
 	COLOR = vec4(c, 1.0);
 }
