@@ -41,7 +41,7 @@ public static class Elements
     /// </summary>
     public static bool Simple = true;
     /// <summary>This hero has a simple kit (<see cref="Simple"/>).</summary>
-    public static bool SimpleKit(HeroKind h) => Simple && On(h) && h != HeroKind.ShapeShifter;
+    public static bool SimpleKit(HeroKind h) => Simple && On(h);
 
     /// <summary>The word an element lends a simple kit's ability names: a Searing Strike, a Rime Ward, a Gale Hex.</summary>
     public static string Adjective(HeroElement e) => e switch
@@ -62,6 +62,8 @@ public static class Elements
         // (the other ability: each class's own, the same whatever the element)
         (HeroKind.Swordsman, KitRole.Other) => "Counter", (HeroKind.Warden, KitRole.Other) => "Bash", (HeroKind.Elementalist, KitRole.Other) => "Nova",
         (HeroKind.Vitalist, KitRole.Other) => "Rupture", (HeroKind.Aegis, KitRole.Other) => "Humble", (HeroKind.Rogue, KitRole.Other) => "Shadowstep",
+        // (the Shape Shifter: her staff, her molt, and in a form the creature's own move)
+        (HeroKind.ShapeShifter, KitRole.Primary) => "Staff", (HeroKind.ShapeShifter, KitRole.Defensive) => "Molt", (HeroKind.ShapeShifter, KitRole.Other) => "Wild Move",
         _ => r.ToString(),
     };
 
@@ -70,6 +72,7 @@ public static class Elements
     {
         (HeroKind.Swordsman, KitRole.Special) => "Whirlwind", (HeroKind.Warden, KitRole.Special) => "Great Bash", (HeroKind.Elementalist, KitRole.Special) => "Meteor",
         (HeroKind.Vitalist, KitRole.Special) => "Bloom", (HeroKind.Aegis, KitRole.Special) => "Judgement", (HeroKind.Rogue, KitRole.Special) => "Death Blossom",
+        (HeroKind.ShapeShifter, KitRole.Special) => "Apex Form",
         (HeroKind.Warden, KitRole.Other) => "Charge",
         _ => null,
     };
@@ -81,6 +84,8 @@ public static class Elements
             return e switch { HeroElement.Frost => "Megacryometeor", HeroElement.Wind => "Thunderstone", _ => "Meteor" };
         // (her Blink is of no element; her Nova, alone of the second abilities, is of hers)
         if (h == HeroKind.Elementalist && r == KitRole.Defensive) return Noun(h, r);
+        // (the Shape Shifter's molt and apex are of no element: the creature she is carries it)
+        if (h == HeroKind.ShapeShifter && r != KitRole.Primary) return Noun(h, r);
         if (h == HeroKind.Elementalist && r == KitRole.Other && e != HeroElement.None) return $"{Adjective(e)} {Noun(h, r)}";
         return e == HeroElement.None || r == KitRole.Other ? Noun(h, r) : $"{Adjective(e)} {Noun(h, r)}";
     }

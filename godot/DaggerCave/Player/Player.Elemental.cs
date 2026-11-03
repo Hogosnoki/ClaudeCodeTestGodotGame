@@ -92,6 +92,23 @@ public partial class Player
 
     /// <summary>An element's button: the mode's own (an overcharge on top), another (it goes on top as the attribute, replacing what was
     /// there), or the attribute's again (the mode switches to it).</summary>
+    /// <summary>A simple kit's switch to an element: the cooldown, the switch's reward (primed), and its look and sound.</summary>
+    private void SwitchElement(HeroElement el)
+    {
+        var col = Elements.ColorOf(el);
+        _mode = el;
+        _top = HeroElement.None;
+        _modeCd = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.SwitchCooldown;
+        // (the switch's reward: the first ability in the new element lays it on twice over)
+        _primedT = Tune.Elements.PrimeSeconds;
+        WeaponTouch(el);
+        G.Fx.Text(GlobalPosition + new Vector2(0, -30), Elements.Name(el).ToUpperInvariant(), col, 12, 0.8f);
+        G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 24, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Dashed);
+        G.Sfx.Element(ElementSounds.Ev.Charge, el, GlobalPosition, weight: 1f, volDb: 0f);
+        Anim.Flash(0.3f);
+        Anim.FlashColor = col;
+    }
+
     public bool TryInfuse(int slot)
     {
         var els = Elements.Of(Stats.Hero);
@@ -100,22 +117,14 @@ public partial class Player
         var el = els[slot];
         var mode = Mode;
         var col = Elements.ColorOf(el);
-        // (the six simple kits: a press switches to that element, nothing more; the Shape Shifter keeps her own rules below)
+        // (the Shape Shifter: an element's button takes her into a creature of that kind, Player.ShifterKit.cs)
+        if (SimpleKit && IsShifter) return ShifterElement(el);
+        // (the simple kits: a press switches to that element, nothing more)
         if (SimpleKit)
         {
             if (el == mode) { SayNo($"IN {Elements.Name(el).ToUpperInvariant()}"); return false; }
             if (_modeCd > 0) { SayNo($"{Elements.Name(el).ToUpperInvariant()} {_modeCd:0.0}s"); return false; }
-            _mode = el;
-            _top = HeroElement.None;
-            _modeCd = Tune.Testing.NoCooldowns ? 0f : Tune.Elements.SwitchCooldown;
-            // (the switch's reward: the first ability in the new element lays it on twice over)
-            _primedT = Tune.Elements.PrimeSeconds;
-            WeaponTouch(el);
-            G.Fx.Text(GlobalPosition + new Vector2(0, -30), Elements.Name(el).ToUpperInvariant(), col, 12, 0.8f);
-            G.Fx.Ring(GlobalPosition + new Vector2(0, -6), 24, new Color(col, 0.9f), 0.35f, FxLayer.RingStyle.Dashed);
-            G.Sfx.Element(ElementSounds.Ev.Charge, el, GlobalPosition, weight: 1f, volDb: 0f);
-            Anim.Flash(0.3f);
-            Anim.FlashColor = col;
+            SwitchElement(el);
             return true;
         }
         if (el == mode)

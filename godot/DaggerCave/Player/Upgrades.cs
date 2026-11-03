@@ -236,6 +236,8 @@ public sealed class PlayerStats
     public string RememberedForm;
     /// <summary>The elemental Shape Shifter's: one remembered form for each element (the creatures that walk, fly, swim), kept for the run.</summary>
     public string RememberedNature, RememberedWind, RememberedWater;
+    /// <summary>The Shape Shifter's forms taken this run (Player.ShifterKit.cs): any of them hers again by its element's button.</summary>
+    public HashSet<string> KnownForms = new();
     /// <summary>The chance a melee blow that lands strikes again (the Echoing Blade relic).</summary>
     public float EchoStrike;
     /// <summary>The co-op relics: health every living ally is given when this hero falls; how much more health (a share of max) this hero rises with when a friend revives them; and how much more a friend they revive rises with.</summary>

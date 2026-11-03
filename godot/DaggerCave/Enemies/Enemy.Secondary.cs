@@ -125,7 +125,10 @@ public partial class Enemy
     public bool HasFormMove2 => Move2Of is { Finale: false };
     public bool Move2ReadyNow => HasFormMove2 && _m2Phase == 0 && _m2Cd <= 0f;
 
-    private float Move2Rest(Move2Spec m) => m.Cooldown * (Master != null ? Master.Stats.FormSpecCdMult * Master.Stats.OtherRestMult : 1f);
+    private float Move2Rest(Move2Spec m) => m.Cooldown * (Master != null ? Master.Stats.FormSpecCdMult * Master.Stats.OtherRestMult * Master.FormMoveRestMult : 1f);
+
+    /// <summary>Its second move is ready again at once (a Shape Shifter's Apex Form).</summary>
+    public void RefreshMove2() { if (_m2Phase == 0) _m2Cd = 0f; }
 
     /// <summary>The driven creature's second move, each frame: resting until asked; under way, it plays out (true: its own behaviour waits).</summary>
     private bool Move2DrivenTick(float dt)

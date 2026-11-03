@@ -25,7 +25,7 @@ public partial class Player
     public float FormMove => Form?.Move ?? 1f;
     public float FormJump => Form?.Jump ?? 1f;
     public bool FormFlier => Form?.Flier ?? false;
-    public float FormArmor => Form?.Armor ?? 0f;
+    public float FormArmor => (Form?.Armor ?? 0f) + (InApex ? Tune.Shifter.ApexArmor : 0f);
 
     /// <summary>
     /// The creature that is the body of this hero while shifted: a real creature of that kind (not one of the
@@ -60,7 +60,7 @@ public partial class Player
     public int FormMoves { get; private set; }
 
     /// <summary>Transformation: in a form, every blow of the form's deals this much more (x).</summary>
-    public float TransformMult => Form != null ? 1f + Tune.Shifter.TransformDamage : 1f;
+    public float TransformMult => Form != null ? (1f + Tune.Shifter.TransformDamage) * (InApex ? Tune.Shifter.ApexDamage * Stats.SpecialDamageMult : 1f) : 1f;
     private float _formSpecT = -1f;
 
     /// <summary>For the model of an online copy: the clip of the form's attack under way (null when none) and how far along it is.</summary>
@@ -180,6 +180,7 @@ public partial class Player
     public void LeaveForm(bool cooldown)
     {
         if (Form == null) return;
+        EndApex();
         Form = null;
         if (!IsRemote) Stats.On.RaiseUnshift(this);
         _formAtkT = -1f; _formDashT = 0; _frenzyLeft = 0; _formSpecT = -1f; _formLeapLand = false;
@@ -273,6 +274,7 @@ public partial class Player
 
     private void TickShifter(float dt)
     {
+        TickShifterKit(dt);
         TickShifterCore(dt);
         if (Anim != null) { Anim.FormClip = FormClip; Anim.FormClipT = FormClipT; }
     }
@@ -346,6 +348,7 @@ public partial class Player
         float dealt = e.Hurt(dmg * ShapeBlowMult, knock, e.GlobalPosition);
         if (dealt <= 0) { G.Sfx.Play("clink", GlobalPosition, -6); return; }
         OnDealtDamage(dealt);
+        ApexBlowLanded(e, dealt);
         // (elemental: the form's element on its blow)
         ShapeBlowLanded(e, knock);
         if (Stats.FormBleed && !e.Dead) e.Bleed(dealt * 0.5f, 3f);
@@ -563,8 +566,9 @@ public partial class Player
             SayNo(RememberedForm != null ? "NOT YET" : "SHIFT FIRST");
             return true;
         }
-        // (elemental and overcharged: the creature's greater special, the form's own trick)
-        bool greater = Elemental && Overcharged;
+        // (elemental and overcharged, or primed by a switch just now: the creature's greater special, the form's own trick)
+        bool greater = Elemental && (Overcharged || (SimpleKit && Primed));
+        if (greater && SimpleKit) _primedT = 0f;
         // the creature's own second move: the very one the creatures of its kind use, its wind-up, warning and blow, now on her foes
         if (CreatureMove && !greater)
         {

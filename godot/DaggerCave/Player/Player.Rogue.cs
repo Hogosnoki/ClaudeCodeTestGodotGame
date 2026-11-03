@@ -33,7 +33,7 @@ public partial class Player
     /// <summary>How much of the throw's cooldown is left (0-1), for the HUD.</summary>
     public float ThrowCooldownFrac => _throwCd > 0 ? Math.Clamp(_throwCd / _throwCdTotal, 0f, 1f) : 0f;
     /// <summary>Hidden from creatures: vanished, or inside a cloud of smoke (a copy goes by its game's flags).</summary>
-    public new bool Hidden => IsRemote ? (_netFlags & HfHidden) != 0 : _vanishT > 0 || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition));
+    public new bool Hidden => IsRemote ? (_netFlags & HfHidden) != 0 : _vanishT > 0 || _moltHideT > 0 || (SmokeCloud.All.Count > 0 && SmokeCloud.Covers(GlobalPosition));
     /// <summary>Vanished (the Rogue alone, not smoke): half again as fast.</summary>
     public bool Vanished => _vanishT > 0;
     public float VanishLeft => _vanishT;

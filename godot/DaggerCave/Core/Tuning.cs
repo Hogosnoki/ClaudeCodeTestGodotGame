@@ -845,6 +845,14 @@ public static class Tune
         /// <summary>A form driven generically (a creature with no driving of its own, Enemy.Driven.cs): its blow's base damage (x the form's
         /// Dmg, then her strength) and its rest (x the form's Cooldown), in line with the forms that strike as their creatures do.</summary>
         public static float GenericBlow = 6f, GenericRest = 1.25f;
+        /// <summary>Molt (her dodge button, Player.ShifterKit.cs): its rest (s), how far and how fast she slips away, how long she is untouchable,
+        /// and how long the creatures have lost her.</summary>
+        public static float MoltCooldown = 4f, MoltDistance = 90f, MoltTime = 0.16f, MoltUntouchable = 0.3f, MoltHide = 0.9f;
+        /// <summary>Apex Form (her great special): how long it lasts (s, and how much longer each "Again" card makes it), its rest (s), the
+        /// creature's blows (x), the share of blows it shrugs off besides, its size (x), the roar's reach (px) and damage (x a form's blow), and
+        /// how much its second move rests meanwhile (x).</summary>
+        public static float ApexSeconds = 7f, ApexExtraSeconds = 2f, ApexRest = 24f, ApexDamage = 1.6f, ApexArmor = 0.3f, ApexSize = 1.4f,
+            ApexRoarRadius = 80f, ApexRoarDamage = 2.4f, ApexMoveRest = 0.5f;
         /// <summary>Seconds Shift takes to come back once a form is dropped.</summary>
         public static float ShiftCooldown = 3f;
         /// <summary>How far away a hero in a form seems to the cave's creatures (x the real distance), and to creatures of its own kind: when they are looking (alone), and when they are choosing between several heroes (they then come last).</summary>
@@ -1341,6 +1349,10 @@ public static class Tune
         /// <summary>The movement and defence cards: a Dash, Blink, Charge or Shadowstep going this much further; a Shield Bash, Mending or
         /// Barrier this much stronger; a Vanish lasting this many seconds longer.</summary>
         public static float FarStep = 1.25f, DefHard = 1.25f, VanishLonger = 1f;
+        /// <summary>The Shape Shifter's Apex Form milestones: Primal Fury (each blow in her apex strikes those within <c>FuryRadius</c> px for
+        /// <c>FuryShare</c> of it) and Lifeblood (her apex blows mend her <c>LifebloodShare</c> of what they deal; a kill keeps the apex
+        /// going <c>LifebloodKill</c> s longer).</summary>
+        public static float FuryRadius = 44f, FuryShare = 0.35f, LifebloodShare = 0.12f, LifebloodKill = 1f;
         public static float VigorStep = 1.12f, MightStep = 1.08f, FleetStep = 1.07f, HideStep = 0.93f, ThirstHeal = 1.5f, LearnStep = 1.12f;
         public static float KillRestCut = 0.35f, MomentumCut = 1.5f, OverwhelmDamage = 1.35f, OverwhelmRadius = 1.15f, ColossusHp = 1.25f;
         // (the specials' extra strokes, one per "Again")

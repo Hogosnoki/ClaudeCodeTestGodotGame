@@ -63,7 +63,9 @@ public partial class Player
     private double Now => _kitClock;
 
     /// <summary>A simple kit's ability, as the HUD names it ("Searing Strike").</summary>
-    public string SimpleName(KitRole r) => Elements.SimpleName(Stats.Hero, r, Mode);
+    public string SimpleName(KitRole r) => IsShifter ? (r == KitRole.Primary && Form == null ? Elements.SimpleName(Stats.Hero, r, Mode) : ShifterLabel(r)) : Elements.SimpleName(Stats.Hero, r, Mode);
+    /// <summary>A button's short name for the HUD square (the Shape Shifter's change with the form she is).</summary>
+    public string KitLabel(KitRole r) => IsShifter ? ShifterLabel(r) : Elements.Noun(Stats.Hero, r);
 
     /// <summary>How much an ability of each role builds up (wind: how hard it shoves).</summary>
     private static float RoleBuild(KitRole r) => r switch
@@ -135,6 +137,7 @@ public partial class Player
                 if (_swingCd <= 0 && !held) CutShieldMoves();
                 ok = _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held);
                 break;
+            case HeroKind.ShapeShifter: return ShifterKitPrimary(aim, held);
             default:
                 if (_swingCd <= 0 && !held && Heaving) CutSwing();
                 ok = !Heaving && TrySwing(aim, held);
@@ -186,6 +189,9 @@ public partial class Player
                 if (!AbilityChargeReady && !free) return false;
                 _aBarrierNext = SimpleVer; _aBarrierFree = free;
                 if (!TryBarrier(aim)) { _aBarrierNext = ""; _aBarrierFree = false; return false; }
+                break;
+            case HeroKind.ShapeShifter:
+                if (!TryMolt(inp)) return false;
                 break;
             case HeroKind.Rogue:
                 if (!AbilityChargeReady && !free) return false;
@@ -483,11 +489,14 @@ public partial class Player
             HeroKind.Vitalist => TryRupture(aim),
             HeroKind.Aegis => TryBurden(aim),
             HeroKind.Rogue => TryShadowstep(aim),
+            HeroKind.ShapeShifter => TrySpecial(aim),
             _ => false,
         };
         if (!ok) return false;
         // (Momentum: the second ability hastens the special)
         CutSpecialRest(Stats.OtherFeedsSpecial);
+        // (the Shape Shifter's: the creature's own move, named as it goes)
+        if (Stats.Hero == HeroKind.ShapeShifter) return true;
         // (the Elementalist's Nova is of her element; the others' are the class's own, of none)
         if (Stats.Hero == HeroKind.Elementalist) { _lastEl = Mode; Used(SimpleName(KitRole.Other)); return true; }
         _lastEl = HeroElement.None;
@@ -619,6 +628,7 @@ public partial class Player
     /// <summary>A role's rest (0 = ready, 1 = just used).</summary>
     public float SimpleFrac(KitRole r)
     {
+        if (IsShifter) return ShifterFrac(r);
         float atk = Math.Max(0.2f, Stats.AttackSpeed);
         if (r == KitRole.Special) return BigFrac;
         if (r == KitRole.Other && Stats.Hero == HeroKind.Warden) return DashCooldownFrac;

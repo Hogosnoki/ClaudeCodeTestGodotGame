@@ -15,7 +15,7 @@ public partial class Player
 {
     /// <summary>The Swordsman's Dash (the simple kit's dodge button) rather than the old roll.</summary>
     private bool SwordDash => IsSwordsman && SimpleKit;
-    private float DodgeSpeed => SwordDash ? Tune.Swordsman.DashSpeed : Tune.Hero.DodgeSpeed;
+    private float DodgeSpeed => SwordDash ? Tune.Swordsman.DashSpeed : IsShifter && SimpleKit ? Tune.Shifter.MoltDistance * Stats.DodgeDistMult / Tune.Shifter.MoltTime : Tune.Hero.DodgeSpeed;
     private float DodgeTime => SwordDash ? Tune.Swordsman.DashTime * Stats.DodgeDistMult : Tune.Hero.DodgeTime;
 
     private float[] _dodgeCd = new float[1];

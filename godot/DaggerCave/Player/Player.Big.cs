@@ -55,6 +55,7 @@ public partial class Player
         HeroKind.Vitalist => Tune.Big.BloomRest,
         HeroKind.Aegis => Tune.Big.JudgeRest,
         HeroKind.Rogue => Tune.Big.BlossomRest,
+        HeroKind.ShapeShifter => Tune.Shifter.ApexRest,
         _ => 10f,
     } * Stats.SpecialRestMult;
 
@@ -81,6 +82,7 @@ public partial class Player
             HeroKind.Vitalist => Bloom(),
             HeroKind.Aegis => StartJudgement(aim),
             HeroKind.Rogue => StartBlossom(),
+            HeroKind.ShapeShifter => StartApex(),
             _ => false,
         };
         if (!ok) return false;

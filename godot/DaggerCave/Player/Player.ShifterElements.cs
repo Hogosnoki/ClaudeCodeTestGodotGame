@@ -112,7 +112,7 @@ public partial class Player
     {
         var f = RememberedFor(Mode);
         if (f == null || _shiftLock > 0) { SayNo(f == null ? $"NO {Elements.Name(Mode).ToUpperInvariant()} FORM REMEMBERED" : "NOT YET"); return true; }
-        if (!AbilityChargeReady && !Tune.Testing.NoCooldowns) return false;
+        if (!SimpleKit && !AbilityChargeReady && !Tune.Testing.NoCooldowns) return false;
         EnterForm(f);
         Recalled++;
         G.Fx.Text(GlobalPosition + new Vector2(0, -46), "RECALLED", new Color(0.8f, 0.95f, 1f), 9, 0.7f);
@@ -129,7 +129,7 @@ public partial class Player
     /// <summary>The overcharge spent on the creature's special: its greater one.</summary>
     private void StartGreater()
     {
-        SpendPair();
+        if (!SimpleKit) SpendPair();
         _greaterT = Tune.ElementalShifter.GreaterSeconds;
         GreaterSpecials++;
         var f = Form;

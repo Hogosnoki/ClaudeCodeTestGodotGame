@@ -17,7 +17,7 @@ public partial class Hud
         // the primary attack (the Rogue's calls her daggers home while none is in hand)
         bool recall = p.Stats.Hero == HeroKind.Rogue && p.DaggersInHand == 0;
         float pf = p.SimpleFrac(KitRole.Primary);
-        AbilitySquare(font, x, recall ? "RECALL" : Elements.Noun(p.Stats.Hero, KitRole.Primary).ToUpperInvariant(), recall ? 0f : pf, recall || pf <= 0, col, (c, cc) =>
+        AbilitySquare(font, x, recall ? "RECALL" : p.KitLabel(KitRole.Primary).ToUpperInvariant(), recall ? 0f : pf, recall || pf <= 0, col, (c, cc) =>
         {
             // a blade's stroke
             DrawLine(c + new Vector2(-9, 9), c + new Vector2(9, -9), cc, 3f);
@@ -27,7 +27,7 @@ public partial class Hud
         // the defensive (the Vitalist's heal shows its cost in vital force)
         x += new Vector2(step, 0);
         float df = p.SimpleFrac(KitRole.Defensive);
-        string dl = Elements.Noun(p.Stats.Hero, KitRole.Defensive).ToUpperInvariant();
+        string dl = p.KitLabel(KitRole.Defensive).ToUpperInvariant();
         bool dready = df <= 0;
         if (p.Stats.Hero == HeroKind.Vitalist) { dl += $" ({p.HealCost:0})"; dready &= p.VitalForce >= p.HealCost - 0.001f; }
         AbilitySquare(font, x, dl, df, dready, col, (c, cc) =>
@@ -41,7 +41,7 @@ public partial class Hud
         // the special
         x += new Vector2(step, 0);
         float sf = p.SimpleFrac(KitRole.Special);
-        AbilitySquare(font, x, Elements.Noun(p.Stats.Hero, KitRole.Special).ToUpperInvariant(), sf, sf <= 0, col, (c, cc) =>
+        AbilitySquare(font, x, p.KitLabel(KitRole.Special).ToUpperInvariant(), sf, sf <= 0, col, (c, cc) =>
         {
             // a burst
             DrawCircle(c, 4.5f, cc);
@@ -56,7 +56,7 @@ public partial class Hud
         x += new Vector2(step, 0);
         float of = p.SimpleFrac(KitRole.Other);
         bool oready = of <= 0 && (p.Stats.Hero != HeroKind.Vitalist || p.RuptureReady);
-        string other = p.Stats.Hero == HeroKind.Aegis && p.Supporting ? "Burden" : Elements.Noun(p.Stats.Hero, KitRole.Other);
+        string other = p.Stats.Hero == HeroKind.Aegis && p.Supporting ? "Burden" : p.KitLabel(KitRole.Other);
         // (the Elementalist's Nova is of her element)
         var ocol = p.Stats.Hero == HeroKind.Elementalist ? col : HeroColor(p.Stats.Hero);
         AbilitySquare(font, x, other.ToUpperInvariant() + (p.Stats.Hero == HeroKind.Vitalist ? $" ({p.RuptureCost:0})" : ""), of, oready, ocol, (c, cc) =>

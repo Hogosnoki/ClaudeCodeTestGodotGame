@@ -244,6 +244,9 @@ void fragment() {
     private string _clipKey = "";
     private Color _flashColor = Colors.White;
 
+    /// <summary>The size it is drawn at now (see <see cref="SizeMult"/>).</summary>
+    public float SizeNow => _size;
+
     public float SizeMult
     {
         set
