@@ -36,7 +36,7 @@ public partial class Main
             g.Wake();
             for (float t = 0; t < 6f && GodotObject.IsInstanceValid(g) && !g.Dead; t += (float)GetProcessDeltaTime())
             {
-                g.Freeze(0.2f, hold: true);
+                g.Pin(0.2f);
                 _scInput = (int)(t * 10) % 2 == 0 ? new PlayerInput { Attack = true, Aim = new Vector2(p.Facing, 0) } : default;
                 yield return null;
             }

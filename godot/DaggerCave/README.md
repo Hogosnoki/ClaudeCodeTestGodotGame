@@ -150,7 +150,7 @@ Handy starting points:
 | --- | --- |
 | Movement feel | `Hero.RunSpeed`, `Hero.Floatiness` (jump arc, same height), `Hero.JumpVelocity`, `Hero.CoyoteTime` |
 | Survivability | `Hero.StartHp`, `Hero.HurtInvuln`, `Drops.HeartChance`, `Combat.*` (touch damage, recoil, combo) |
-| Hit weight (a landed blow freezes both the striker and the struck for a moment (0.15 s for a normal sword hit, 0.26 s for a finisher, 0.28 s for a charged strike), and a killing blow holds 1.25 times as long (the hero and the dying creature's last pose; `Feel.HitStopKillMult`); being struck shoves you very little: `Combat.HurtKnockbackMult`, `HurtKnockLock`, `HeroStrikeRecoil`) | `Feel.HitStop*`, `Feel.Kick*` |
+| Hit weight (a landed blow slows both the striker and the struck to a fifth of their pace for a moment, easing back to full speed (0.15 s for a normal sword hit, 0.26 s for a finisher, 0.28 s for a charged strike), and a killing blow holds 1.25 times as long (the hero and the dying creature's last pose; `Feel.HitStopKillMult`); being struck shoves you very little: `Combat.HurtKnockbackMult`, `HurtKnockLock`, `HeroStrikeRecoil`) | `Feel.HitStop*`, `Feel.Kick*` |
 | The five heroes | `Swordsman.*` (sword, dodge, Charged Strike, heaving swing), `Warden.*` (shortsword, shield, Guarded Charge, shield bash), `Vitalist.*` (drain, vital force, heal, hex, rupture), `Elementalist.*` (bolts, alimus, updraft, blizzard, snap, burning and freezing), `Rogue.*` (jabs, critical strikes, thrown daggers, recall, vanish, smoke) |
 | How many enemies attack at once | `Combat.AttackerShare` (a third of those ready, rounded up), `Combat.SlotRange` |
 | Biome hazards | `Roots.*` (grasping roots), `CaveIn.*` (fossil graveyard ceilings), `Hero.Murky*` (rotting water), `Wraith.*` |
@@ -532,13 +532,23 @@ tongues, rocks, slams and spikes, plus body attacks like a bat's swoop, a fish's
 lunge, a spider's drop or pounce, and the Colossus's charge and leap. Each body attack can hit you
 at most once (`Combat.PassiveContactMult` brings back touch damage).
 
+**Slow-motion hit-stops**. When a blow lands, the hero and what it struck don't freeze: they drop
+to 20% of their pace and come back up to full speed over the hit-stop's length, slowly at first and
+then quickly (an S-curve), still moving, animating and being knocked back the whole time, with a
+faint shudder that fades as they speed up. The rest of the world carries on at full speed. There is
+no dead stop after the blow either: the slow motion eases straight back into the hero's next move.
+A dying creature's last pose, its fall and its launch play out slowed the same way. Holds that are
+part of an ability (a rupture's wind-up, the Shape Shifter's latch, a snap freeze) still hold
+stock-still (`Enemy.Pin`). Debug tab, *Hit-stop*: `hitstop_slow` (1 = slow, 0 = the old freeze)
+and `hitstop_speed` (how slow it begins, 0.2).
+
 Landing a hit bounces the attacker back a little, horizontally only. That applies both to you
 and to enemies (`Combat.StrikeRecoil`). Getting struck also pushes you sideways without
 launching you upward.
 
 **Readable wind-ups**. A creature winding up or in the middle of an attack keeps its pose and its
 timing when struck: the blow flashes it, squashes it and shows the damage, but it doesn't flinch or
-reel from the knockback. It does freeze for the hit-stop, the wind-up holding for a beat (a moment
+reel from the knockback. It does slow for the hit-stop, the wind-up dragging out for a beat (a moment
 to get ready) before carrying on. So an attack always lands as its wind-up promised, and can be
 read and blocked. Only the shield breaks an attack off: a perfect
 block, the Guarded Charge, the shield bash, or a shield broken by the blow.

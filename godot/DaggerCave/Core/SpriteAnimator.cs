@@ -474,6 +474,13 @@ void fragment() {
 
     public override void _Process(double delta)
     {
+        if (_slowLeft > 0f)
+        {
+            _slowLeft -= (float)delta;
+            float k = HitSlow.Speed(_slowLeft, _slowTotal);
+            TimeMult = k;
+            if (_deathTween != null && _deathTween.IsValid()) _deathTween.SetSpeedScale(k);
+        }
         UpdateJuice((float)delta * TimeMult);
         DeathFlight((float)delta);
         if (_flash > 0)
@@ -488,6 +495,7 @@ void fragment() {
 
     private Tween _deathTween;
     private Vector2 _deathVel;
+    private float _slowLeft, _slowTotal;
     private float _deathSpin;
 
     /// <summary>A thrown body's flight while it dies (see <see cref="PlayDeathAndFree(string,float,Vector2,Vector2)"/>): held still by a
@@ -510,6 +518,8 @@ void fragment() {
     public void HoldDeath(float seconds)
     {
         if (_deathTween == null || !_deathTween.IsValid() || seconds <= 0f || !IsInsideTree()) return;
+        // (slow-motion hit-stops: the dying pose, its fall and its flight play on slowed, easing back up)
+        if (HitSlow.On) { _slowLeft = _slowTotal = seconds; return; }
         _deathTween.Pause();
         TimeMult = 0f;
         GetTree().CreateTimer(seconds).Timeout += () =>

@@ -433,7 +433,7 @@ public partial class Player
         Anim.OnceFor("rupture", 3, Tune.Vitalist.RuptureWindup);
         // it begins at the creature: seized where it stands, its life drawn in to a point
         float r = target.HitRadius;
-        target.Freeze(Tune.Vitalist.RuptureWindup, hold: true);
+        target.Pin(Tune.Vitalist.RuptureWindup);
         G.Fx.Ring(target.GlobalPosition, r + 16, new Color(LifeColor, 0.9f), Tune.Vitalist.RuptureWindup + 0.05f, FxLayer.RingStyle.Ping);
         G.Fx.Converge(target.GlobalPosition, r + 30, LifeColor, 14, Tune.Vitalist.RuptureWindup);
         G.Fx.Flash(target.GlobalPosition, r + 6, new Color(0.5f, 0.05f, 0.1f), Tune.Vitalist.RuptureWindup);

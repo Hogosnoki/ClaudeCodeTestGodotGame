@@ -415,7 +415,7 @@ public partial class Main
             _world.AddChild(e);
             e.Wake();
             e.Hp = e.MaxHp = 1000000f;
-            e.Freeze(9999f, hold: true);
+            e.Pin(9999f);
             foes.Add(e);
             return e;
         }

@@ -60,7 +60,7 @@ public partial class Main
             var g = new Goblin { Position = p.GlobalPosition + new Vector2(dx * p.Facing, 0), Elite = elite };
             g.SetMeta("test", true);
             _world.AddChild(g);
-            g.Wake(); g.Freeze(120f, hold: true);
+            g.Wake(); g.Pin(120f);
             g.MaxHp = g.Hp = hp;
             return g;
         }

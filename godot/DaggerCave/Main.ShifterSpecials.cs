@@ -40,7 +40,7 @@ public partial class Main
             held.Add(e);
             return e;
         }
-        void Hold() { foreach (var e in held) if (GodotObject.IsInstanceValid(e) && !e.Dead) e.Freeze(99f, hold: true); }
+        void Hold() { foreach (var e in held) if (GodotObject.IsInstanceValid(e) && !e.Dead) e.Pin(99f); }
         void Clear() { foreach (var e in held) if (GodotObject.IsInstanceValid(e)) e.QueueFree(); held.Clear(); }
         IEnumerable<object> Become(string key)
         {

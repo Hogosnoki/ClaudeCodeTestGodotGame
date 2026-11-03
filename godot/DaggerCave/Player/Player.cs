@@ -153,7 +153,7 @@ public partial class Player : CharacterBody2D
     public int AirJumpsLeft => _airJumps;
     private bool _jumpCutDone, _wasOnFloor;
     private float _pauseT, _pauseNext;
-    private float _lastFallSpeed, _freeze, _stuckInRock, _terminalT;
+    private float _lastFallSpeed, _freeze, _freezeTotal, _hitSlow = 1f, _stuckInRock, _terminalT;
     private int _nullDepth = -1;
 
     /// <summary>For the tests: what the last landing took.</summary>
@@ -566,8 +566,17 @@ public partial class Player : CharacterBody2D
         var inp = ReadInput();
         BufferPresses(inp);
         TickRevive(inp, dt);
+        // hit-stop as slow motion (HitSlow): the hero's clock drops to a fifth and eases back up; everything it does, it does slowed
+        _hitSlow = 1f;
+        if (_freeze > 0 && HitSlow.On)
+        {
+            _freeze -= dt;
+            _hitSlow = HitSlow.Speed(_freeze, _freezeTotal);
+            dt *= _hitSlow;
+            Anim.Position = new Vector2(G.Range(-0.8f, 0.8f), G.Range(-0.4f, 0.4f)) * (1f - _hitSlow);
+        }
         // hit-stop: only the hero (and whoever it traded blows with) freezes, the world carries on
-        if (_freeze > 0)
+        else if (_freeze > 0)
         {
             _freeze -= dt;
             Anim.TimeMult = 0;
@@ -575,6 +584,8 @@ public partial class Player : CharacterBody2D
             QueueRedraw();
             return;
         }
+        // (with slow-motion hit-stops there is no dead stop after the blow: the slow motion eases straight back to full speed)
+        if (_pauseNext > 0f && HitSlow.On) { HitPausesRun++; _pauseNext = 0f; }
         // melee pause: the beat after a blow that landed, once its hit-stop is over (the hero holds the pose, perfectly still)
         if (_pauseNext > 0f) { _pauseT = Math.Max(_pauseT, _pauseNext); _pauseNext = 0f; HitPausesRun++; _pausePos = GlobalPosition; PauseDrift = 0f; }
         if (_pauseT > 0f)
@@ -586,8 +597,8 @@ public partial class Player : CharacterBody2D
             QueueRedraw();
             return;
         }
-        Anim.TimeMult = 1;
-        Anim.Position = Vector2.Zero;
+        Anim.TimeMult = _hitSlow;
+        if (_hitSlow >= 1f) Anim.Position = Vector2.Zero;
 
         TickTimers(dt);
         TickRope(inp, dt);
@@ -692,9 +703,10 @@ public partial class Player : CharacterBody2D
         }
         else
         {
-            Velocity = slowMo ? v * Tune.Hold.MoveShare : v;
+            float mk = (slowMo ? Tune.Hold.MoveShare : 1f) * _hitSlow;
+            Velocity = v * mk;
             MoveAndSlide();
-            if (slowMo) Velocity /= Tune.Hold.MoveShare;
+            Velocity /= mk;
             nowFloor = IsOnFloor();
             // (a belt carries whoever stands on it)
             if (Conveyor.All.Count > 0 && nowFloor)
@@ -1431,8 +1443,9 @@ public partial class Player : CharacterBody2D
     /// <summary>Freezes just the hero for a hit-stop (holding the pose from this very frame).</summary>
     public void Freeze(float seconds)
     {
+        if (seconds > _freeze) _freezeTotal = seconds;
         _freeze = Math.Max(_freeze, seconds);
-        if (Anim != null) Anim.TimeMult = 0;
+        if (Anim != null) Anim.TimeMult = HitSlow.On ? DebugTuning.V("hitstop_speed") : 0;
         if (Possessed) Ghost.Freeze(seconds, hold: true);
     }
     /// <summary>Seconds of hit-stop left.</summary>

@@ -45,7 +45,7 @@ public partial class Main
             _moFoe.SetMeta("test", true);
             _moFoe.MaxHp = _moFoe.Hp = 99999;
             _world.AddChild(_moFoe);
-            _moFoe.Freeze(60f, hold: true);
+            _moFoe.Pin(60f);
         }
         if (Edge(2.7f)) { _scInput.Attack = true; _scInput.Aim = run; Begin("cutA", 0.42f, 1); }
         if (Edge(3.3f)) { _scInput.Attack = true; _scInput.Aim = run; Begin("cutB", 0.42f, 1); }

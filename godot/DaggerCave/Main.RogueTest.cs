@@ -31,7 +31,7 @@ public partial class Main
         var golem = new Golem();
         golem.SetMeta("test", true);
         Add(golem, Floor(110) - new Vector2(0, 14));
-        golem.Freeze(999f, hold: true);
+        golem.Pin(999f);
         // (flies the last few pixels into the golem and sticks)
         Add(new ThrownDagger { Dir = new Vector2(1, -0.1f).Normalized(), Harmless = true, Thrower = G.Player, Range = 9999 }, golem.Position - new Vector2(40, 4));
         Add(new ThrownDagger { Dir = new Vector2(1, -0.25f).Normalized(), Speed = 0.01f, Range = 9999, Harmless = true, Thrower = G.Player }, p + new Vector2(45, -34));
@@ -50,7 +50,7 @@ public partial class Main
             e.SetMeta("test", true);
             _world.AddChild(e);
             e.MaxHp = e.Hp = 3000;
-            if (hold) e.Freeze(60f, hold: true);
+            if (hold) e.Pin(60f);
             return e;
         }
         float Hp(Enemy e) => IsInstanceValid(e) ? e.Hp : 0;
@@ -192,7 +192,7 @@ public partial class Main
                 Home(p);
                 // (held just long enough for the throw to go in)
                 _probeEnemy = Dummy(new Goblin(), 90, hold: false);
-                _probeEnemy.Freeze(0.5f, hold: true);
+                _probeEnemy.Pin(0.5f);
                 break;
             case 112:
                 _heroInput = new PlayerInput { Ability = true, Aim = new Vector2(_dir, 0) };

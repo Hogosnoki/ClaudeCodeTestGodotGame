@@ -82,7 +82,7 @@ public partial class Main
         var bat = new Bat { Position = p.GlobalPosition + new Vector2(80 * p.Facing, -40) };
         bat.SetMeta("test", true);
         _world.AddChild(bat);
-        bat.Wake(); bat.Freeze(99f, hold: true);
+        bat.Wake(); bat.Pin(99f);
         foreach (var _ in Wait(0.3f)) yield return null;
         p.GlobalPosition = bat.GlobalPosition - new Vector2(80 * p.Facing, -40); p.Velocity = Vector2.Zero;
         int before = p.LastAerialLunge;
@@ -100,7 +100,7 @@ public partial class Main
             var cand = p.GlobalPosition + new Vector2(off.X * p.Facing, off.Y);
             if (!G.Cave.IsSolid(cand) && !G.Cave.IsSolid(cand + new Vector2(0, -8)) && G.Cave.LineClear(p.GlobalPosition + new Vector2(0, -3), cand)) { batAt = cand; break; }
         }
-        bat.GlobalPosition = batAt; bat.Freeze(99f, hold: true);
+        bat.GlobalPosition = batAt; bat.Pin(99f);
         foreach (var _ in Wait(0.4f)) yield return null;
         var start = p.GlobalPosition; float d0 = start.DistanceTo(bat.GlobalPosition);
         // (up in the air on a jump's strength, the swing made as it goes)

@@ -31,7 +31,7 @@ public partial class Main
                 _scGob = new Goblin { Position = Floor(40) + new Vector2(0, -20) };
                 _scGob.SetMeta("test", true);
                 _world.AddChild(_scGob);
-                _scGob.MaxHp = _scGob.Hp = 900; _scGob.Freeze(99f, hold: true);
+                _scGob.MaxHp = _scGob.Hp = 900; _scGob.Pin(99f);
                 _scGobHp = _scGob.Hp;
                 // a swing of the staff, unshifted: weak
                 Pulse(new PlayerInput { Attack = true, Aim = new Vector2(1, 0) });
@@ -54,7 +54,7 @@ public partial class Main
                 ScCheck($"Shift copies the goblin ({p.Form?.Name ?? "nothing"})", p.Form != null && p.Form.Key == "goblin");
                 ScCheck("its model is the creature's (shown in a form)", p.Shifted);
                 _scGobHp = _scGob.Hp;
-                _scGob.Freeze(99f, hold: true);
+                _scGob.Pin(99f);
                 Pulse(new PlayerInput { Attack = true, Aim = new Vector2(1, 0) });
                 _scStep = 3; _scT = 0;
                 break;
@@ -66,7 +66,7 @@ public partial class Main
                 float want = Tune.Shifter.FormDamage * p.Form.Dmg;
                 ScCheck($"the form's attack hits ({hit:0.0}, want about {want:0.0})", Math.Abs(hit - want) < want * 0.3f);
                 _scGobHp = _scGob.Hp;
-                _scGob.Freeze(99f, hold: true);
+                _scGob.Pin(99f);
                 p.TestSpecial(new Vector2(1, 0));
                 _scStep = 4; _scT = 0;
                 break;

@@ -37,7 +37,7 @@ public partial class Main
         _world.AddChild(foe);
         foe.Wake();
         foe.Hp = foe.MaxHp = 1000000f;
-        if (hold) foe.Freeze(9999f, hold: true);
+        if (hold) foe.Pin(9999f);
         return foe;
     }
 

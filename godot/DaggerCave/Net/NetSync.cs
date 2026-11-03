@@ -811,7 +811,7 @@ public static class NetSync
         {
             switch (kind)
             {
-                case Effect.Freeze: e.Freeze(a, b > 0.5f); break;
+                case Effect.Freeze: if (b > 1.5f) e.Pin(a); else e.Freeze(a, b > 0.5f); break;
                 case Effect.Interrupt: e.Interrupt(v, a, label == "" ? "BROKEN" : label); break;
                 case Effect.Weaken: e.Weaken(a, b); break;
                 case Effect.Hex: e.Hex(a, b, c, d); break;

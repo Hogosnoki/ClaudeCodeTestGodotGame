@@ -30,11 +30,11 @@ public partial class Main
                 p.Stats.IgniteChance = 0f;
                 _probeEnemy = Dummy(new Golem(), 90);
                 _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
-                _probeEnemy.Freeze(60f, hold: true);
+                _probeEnemy.Pin(60f);
                 // (a goblin pressed against it, for the burst)
                 _probe2 = Dummy(new Goblin(), 90 + 16);
                 _probe2.MaxHp = _probe2.Hp = 3000;
-                _probe2.Freeze(60f, hold: true);
+                _probe2.Pin(60f);
                 break;
             case 8:
                 _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp;
@@ -203,7 +203,7 @@ public partial class Main
             case 220:
             {
                 var gob = Dummy(new Goblin(), 90 + 30, -4);
-                gob.Freeze(60f, hold: true);
+                gob.Pin(60f);
                 _probe2 = gob;
                 p.SetAlimus(p.Stats.AlimusMax);
                 _probeEnemy.FreezeSolid(10f);
@@ -244,7 +244,7 @@ public partial class Main
             case 236:
             {
                 var gob = Dummy(new Goblin(), 150, -6);
-                gob.Freeze(60f, hold: true);
+                gob.Pin(60f);
                 gob.MaxHp = gob.Hp = 500;
                 _probe2 = gob;
                 _hp2Mark = gob.Hp;
@@ -265,7 +265,7 @@ public partial class Main
             {
                 // a creature behind the caster, and none ahead
                 var gob = Dummy(new Goblin(), -90, -6);
-                gob.Freeze(60f, hold: true);
+                gob.Pin(60f);
                 gob.MaxHp = gob.Hp = 500;
                 _probe2 = gob;
                 _hp2Mark = gob.Hp;

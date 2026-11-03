@@ -50,7 +50,7 @@ public partial class Main
         _world.AddChild(foe);
         foe.Wake(); foe.ForceGround();
         foe.Hp = foe.MaxHp = 1000000f;
-        foe.Freeze(60f, hold: true);
+        foe.Pin(60f);
         foreach (var _ in Wait(0.4f)) yield return null;
         // (a plain swing at it, for what a strike does)
         float h0 = foe.Hp; int runs = p.HitPausesRun;
@@ -64,7 +64,7 @@ public partial class Main
             p.Stats.DashThrough = through;
             p.ResetAbilityCooldowns();
             p.GlobalPosition = foe.GlobalPosition - new Vector2(110 * p.Facing, 0);
-            foe.Freeze(60f, hold: true);
+            foe.Pin(60f);
             foreach (var _ in Wait(0.5f)) yield return null;
             int d1 = p.DashSlashes;
             float h1 = foe.Hp; float dir0 = p.Facing;

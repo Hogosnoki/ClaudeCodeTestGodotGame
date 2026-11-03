@@ -110,7 +110,7 @@ public partial class Main
         _world.AddChild(fe);
         fe.Wake();
         fe.Hp = fe.MaxHp = 1000000f;
-        fe.Freeze(9999f, hold: true);
+        fe.Pin(9999f);
         made.Add(fe);
         fe.Build(HeroElement.Fire, full);
         fe.Build(HeroElement.Water, 20);
@@ -121,7 +121,7 @@ public partial class Main
         _world.AddChild(bat);
         bat.Wake();
         bat.Hp = bat.MaxHp = 1000000f;
-        bat.Freeze(9999f, hold: true);
+        bat.Pin(9999f);
         made.Add(bat);
         bat.Build(HeroElement.Nature, 40);
         bat.Build(HeroElement.Frost, 20);
@@ -131,7 +131,7 @@ public partial class Main
         _world.AddChild(golem);
         golem.Wake();
         golem.Hp = golem.MaxHp = 1000000f;
-        golem.Freeze(9999f, hold: true);
+        golem.Pin(9999f);
         made.Add(golem);
         golem.Build(HeroElement.Earth, 40);
         float wantG = 40 * Tune.Elements.ArmoredEarth * (golem.Elite ? Tune.Elements.EliteTake : 1f);

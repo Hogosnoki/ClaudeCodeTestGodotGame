@@ -25,7 +25,7 @@ public partial class Main
                 Tune.Status.CreaturePoisonChance = 1f; Tune.Status.ElementalChance = 1f;
                 G.Depth = 2;
                 var frog = new Frog(); var spider = new Spider(); var frost = new FrostElemental(); var fire = new FireElemental(); var nature = new NatureElemental(); var water = new WaterElemental();
-                foreach (var e in new Enemy[] { frog, spider, frost, fire, nature, water }) { e.SetMeta("test", true); _world.AddChild(e); e.Freeze(99f, hold: true); e.QueueRedraw(); }
+                foreach (var e in new Enemy[] { frog, spider, frost, fire, nature, water }) { e.SetMeta("test", true); _world.AddChild(e); e.Pin(99f); e.QueueRedraw(); }
                 frog.StrikeStatus(p, 10f);
                 ScCheck($"a frog doesn't poison at depth {G.Depth} ({p.Poisoned})", !p.Poisoned);
                 G.Depth = Tune.Status.PoisonFromDepth;

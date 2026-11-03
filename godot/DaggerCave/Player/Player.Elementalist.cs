@@ -483,7 +483,7 @@ public partial class Player
         _snapping = marked;
         // the fist closes (the clip's clench): for a beat the hero and everything marked are held still, and then it all bursts
         _snapAt = Tune.Elementalist.SnapFreeze;
-        foreach (var m in marked) m.Freeze(Tune.Elementalist.SnapFreeze + 0.05f, hold: true);
+        foreach (var m in marked) m.Pin(Tune.Elementalist.SnapFreeze + 0.05f);
         var dir = (marked[0].GlobalPosition - CastPoint).Normalized();
         if (Math.Abs(dir.X) > 0.15f) Facing = Math.Sign(dir.X);
         CastDir = dir;

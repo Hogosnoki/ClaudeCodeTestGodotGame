@@ -493,7 +493,7 @@ public partial class Player
             _latchTick = Tune.Shifter.LatchTick;
             int bites = Math.Max(1, (int)MathF.Round(Tune.Shifter.LatchSeconds / Tune.Shifter.LatchTick));
             Blow(e, _seekDmg / bites, Vector2.Zero);
-            if (!e.Dead && !e.IsBoss && !e.IsGuardian) e.Freeze(Tune.Shifter.LatchTick + 0.05f, hold: true);
+            if (!e.Dead && !e.IsBoss && !e.IsGuardian) e.Pin(Tune.Shifter.LatchTick + 0.05f);
             G.Fx.Chomp(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), new Vector2(Facing, 0.4f), 10f + e.HitRadius * 1.3f, new Color(1f, 0.75f, 0.7f));
             G.Fx.Burst(e.GlobalPosition + new Vector2(0, -e.HitRadius * 0.3f), e.Blood, 3, 80, 1.8f, 0.4f, 300);
             Ghost.Animator?.Once(Form.StrikeClip, 3, 2f);

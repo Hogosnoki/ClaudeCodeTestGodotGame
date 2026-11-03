@@ -75,7 +75,7 @@ public partial class Main
                 _sfFoe.SetMeta("test", true);
                 _world.AddChild(_sfFoe);
                 _sfFoe.MaxHp = _sfFoe.Hp = 100000;
-                _sfFoe.Freeze(99f, hold: true);
+                _sfFoe.Pin(99f);
                 _sfHp0 = _sfFoe.Hp;
                 _sfWindAt = _sfHitAt = -1f;
                 _scInput = new PlayerInput { Attack = true, AttackHeld = true, Aim = new Vector2(1, 0) };
@@ -84,7 +84,7 @@ public partial class Main
             }
             case 4: // the wind-up, then the blow
             {
-                _sfFoe.Freeze(99f, hold: true);
+                _sfFoe.Pin(99f);
                 // a player aims at what it wants to hit
                 _scInput = new PlayerInput { Attack = true, AttackHeld = true, Aim = (_sfFoe.GlobalPosition - p.GlobalPosition).Normalized() };
                 if (_sfWindAt < 0 && p.Ghost != null && (p.Ghost.Attacking || p.Ghost.MidAction)) { _sfWindAt = _scT; ScShot($"form_{f.Key}_windup"); }

@@ -73,7 +73,7 @@ public partial class Main
         string Heard(Action act) { G.Sfx.LastMeeting = ""; act(); return G.Sfx.LastMeeting; }
         var golem = new Golem { Position = p.GlobalPosition + new Vector2(60, -20) };
         var scorp = new Scorpion { Position = p.GlobalPosition + new Vector2(-60, -20) };
-        foreach (var e in new Enemy[] { golem, scorp }) { e.SetMeta("test", true); _world.AddChild(e); e.Freeze(99f, hold: true); }
+        foreach (var e in new Enemy[] { golem, scorp }) { e.SetMeta("test", true); _world.AddChild(e); e.Pin(99f); }
         foreach (var _ in ElWait(0.3f)) yield return null;
         string swordOnGolem = Heard(() => golem.Hurt(5f, Vector2.Zero, golem.GlobalPosition));
         string fireOnGolem = Heard(() => golem.Hurt(5f, Vector2.Zero, golem.GlobalPosition, DamageKind.Fire));
@@ -81,7 +81,7 @@ public partial class Main
         ScCheck($"the {p.Stats.Hero}'s blow on a golem is {swordOnGolem} (blade on stone), fire on it {fireOnGolem} (fire on stone), the blow on a scorpion {swordOnShell} (blade on shell)",
             swordOnGolem == MaterialSounds.Name(Strike.Blade, Body.Stone) && fireOnGolem == MaterialSounds.Name(Strike.Fire, Body.Stone) && swordOnShell == MaterialSounds.Name(Strike.Blade, Body.Chitin));
         var bear = new Bear { Position = p.GlobalPosition + new Vector2(0, -40) };
-        bear.SetMeta("test", true); _world.AddChild(bear); bear.Freeze(99f, hold: true);
+        bear.SetMeta("test", true); _world.AddChild(bear); bear.Pin(99f);
         foreach (var _ in ElWait(0.3f)) yield return null;
         p.Stats.HurtInvuln = 0f;
         string clawOnHero = Heard(() => p.Hurt(5f, bear.GlobalPosition, 100f, bear));

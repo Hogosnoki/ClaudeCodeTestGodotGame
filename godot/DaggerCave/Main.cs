@@ -611,7 +611,7 @@ public partial class Main : Node
         var burning = new Goblin();
         burning.SetMeta("test", true);
         Add(burning, Floor(95) - new Vector2(0, 8));
-        burning.Freeze(999f, hold: true);
+        burning.Pin(999f);
         burning.Ignite(0.001f, 999f);
     }
 
@@ -671,7 +671,7 @@ public partial class Main : Node
             if (_lookStatus == "poison") p.GivePoison(1f, 999f); else if (_lookStatus == "burn") p.GiveBurn(1f, 999f); else p.GiveFrozen(999f);
             var burning = new Goblin(); var frozen = new Goblin();
             burning.Position = at + new Vector2(50, -6); frozen.Position = at + new Vector2(95, -6);
-            foreach (var g in new[] { burning, frozen }) { g.SetMeta("test", true); _world.AddChild(g); g.Freeze(999f, hold: true); }
+            foreach (var g in new[] { burning, frozen }) { g.SetMeta("test", true); _world.AddChild(g); g.Pin(999f); }
             burning.Ignite(0.001f, 999f); frozen.FreezeSolid(999f);
         }
         if (_elemRow && _lookFrame == 2)
@@ -686,7 +686,7 @@ public partial class Main : Node
                 row[k].Position = fl + new Vector2(0, -20);
                 row[k].SetMeta("test", true);
                 _world.AddChild(row[k]);
-                row[k].Freeze(99f, hold: true);
+                row[k].Pin(99f);
                 row[k].Hp = row[k].MaxHp * 0.6f; // (hurt, so its health bar shows)
             }
         }
@@ -705,7 +705,7 @@ public partial class Main : Node
                 e.Position = fl + new Vector2(0, -24);
                 e.SetMeta("test", true);
                 _world.AddChild(e);
-                e.Freeze(99f, hold: true);
+                e.Pin(99f);
                 x += Math.Max(36f, e.HitRadius * 2.2f + 14f);
             }
         }
@@ -3793,7 +3793,7 @@ public partial class Main : Node
                 Check($"crescent wave hits at 120 px (golem hp {_probeEnemy.Hp:0} < {_hpMark:0})", _probeEnemy.Hp < _hpMark);
                 // holding the attack down swings again and again
                 _probeEnemy.GlobalPosition = p.GlobalPosition + new Vector2(_dir * 40, -6);
-                _probeEnemy.Freeze(4f, hold: true);
+                _probeEnemy.Pin(4f);
                 _swingsMark = p.AttacksStarted;
                 _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0) };
                 break;
@@ -3925,7 +3925,7 @@ public partial class Main : Node
                 _probe2.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(_dir * 26, 0);
                 _probe3.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(_dir * 180, 0);
                 if (G.Cave.IsSolid(_probe3.GlobalPosition)) _probe3.GlobalPosition = _probeEnemy.GlobalPosition + new Vector2(-_dir * 180, -20);
-                _probe2.Freeze(1.2f, hold: true); _probe3.Freeze(1.2f, hold: true);
+                _probe2.Pin(1.2f); _probe3.Pin(1.2f);
                 _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp; _hp3 = _probe3.Hp;
                 _heroInput = new PlayerInput { Ability2 = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 break;
@@ -3959,7 +3959,7 @@ public partial class Main : Node
                 break;
             case 64:
                 // (both held where they stand: the strike lands a beat after the press, as the staff comes forward)
-                _probeEnemy.Freeze(0.5f, hold: true); _probe2.Freeze(0.5f, hold: true);
+                _probeEnemy.Pin(0.5f); _probe2.Pin(0.5f);
                 _hpMark = _probeEnemy.Hp; _hp2 = _probe2.Hp;
                 _heroInput = new PlayerInput { Attack = true, Aim = new Vector2(_dir, 0.15f).Normalized() };
                 break;
@@ -3991,7 +3991,7 @@ public partial class Main : Node
                 Check($"each use comes back in twice the time ({p.AbilityRecharge:0.0} s)", Math.Abs(p.AbilityRecharge - 2 * Tune.Vitalist.HealCooldown) < 0.01f);
                 // holding the attack down drains again and again
                 _probeEnemy = Dummy(new Golem(), 100);
-                _probeEnemy.Freeze(3f, hold: true);
+                _probeEnemy.Pin(3f);
                 _swingsMark = p.AttacksStarted;
                 _hpMark = _probeEnemy.Hp;
                 _heroInput = new PlayerInput { AttackHeld = true, Aim = new Vector2(_dir, 0.15f).Normalized() };

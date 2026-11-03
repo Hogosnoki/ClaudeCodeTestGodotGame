@@ -389,8 +389,8 @@ public partial class Player
             bool club = IsWarden && Elemental && !SimpleKit && Mode == HeroElement.Earth;
             if (!IsRogue && !club && _comboStep < Stats.ComboResets && !ShieldRaised && !_heave && (!_counter || Stats.CounterCombo)) { _swingCd = 0f; _chainLive = true; }
             // mutual bounce: you rebound slightly from what you hit (sideways only)
-            // (not the Rogue: its jabs come too fast to bounce off each one)
-            if (Math.Abs(to.X) > 2 && !IsRogue) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.HeroStrikeRecoil, Velocity.Y);
+            // (not the Rogue: its jabs come too fast to bounce off each one; nor a hero planted for a heaving swing)
+            if (Math.Abs(to.X) > 2 && !IsRogue && !Heaving) Velocity = new Vector2(Velocity.X - Math.Sign(to.X) * Tune.Combat.HeroStrikeRecoil, Velocity.Y);
             // a landed strike stops any rise or fall (a pogo, below, then bounces you up afresh)
             HitVyBefore = Velocity.Y;
             Velocity = new Vector2(Velocity.X, 0f);

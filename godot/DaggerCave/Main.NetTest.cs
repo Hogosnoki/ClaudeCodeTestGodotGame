@@ -244,7 +244,7 @@ public partial class Main
                 _ntGolem = new Golem { Position = friend.GlobalPosition + new Vector2(_ntSide * 44, -6) };
                 _ntGolem.SetMeta("test", true);
                 _world.AddChild(_ntGolem);
-                _ntGolem.Freeze(1000, hold: true);
+                _ntGolem.Pin(1000f);
                 NtSay($"golem {_ntGolem.NetId} {_ntSide}");
                 NtNext();
                 break;

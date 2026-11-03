@@ -63,7 +63,7 @@ public partial class Main
                 Take(p, "charge_combo");
                 _probeEnemy = AltDummy(p, new Golem(), 34);
                 _probeEnemy.MaxHp = _probeEnemy.Hp = 5000;
-                _probeEnemy.Freeze(8f, hold: true);
+                _probeEnemy.Pin(8f);
                 break;
             case 10:
                 _heroInput = new PlayerInput { Ability = true };
@@ -118,7 +118,7 @@ public partial class Main
                 Take(p, "dodge_counter");
                 p.ResetAbilityCooldowns();
                 _probeEnemy = AltDummy(p, new Goblin(), 26, -4);
-                _probeEnemy.Freeze(8f, hold: true);
+                _probeEnemy.Pin(8f);
                 _heroInput = new PlayerInput { Dodge = true, Move = new Vector2(_dir, 0) };
                 break;
             }
@@ -267,7 +267,7 @@ public partial class Main
                 p.Stats.MaxHp = 500; p.Hp = 500;
                 Take(p, "hex_burst");
                 _probeEnemy = AltDummy(p, new Golem(), 30);
-                _probeEnemy.Freeze(8f, hold: true);
+                _probeEnemy.Pin(8f);
                 break;
             case 8:
                 _hpMark = _probeEnemy.Hp;
@@ -376,7 +376,7 @@ public partial class Main
                 p.Stats.FreezeBonus = -1f;
                 _probeEnemy = AltDummy(p, new Golem(), 90);
                 _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
-                _probeEnemy.Freeze(60f, hold: true);
+                _probeEnemy.Pin(60f);
                 break;
             case 8:
                 _hpMark = _probeEnemy.Hp;
@@ -452,7 +452,7 @@ public partial class Main
                 p.Stats.IgniteChance = 2f;
                 _probeEnemy = AltDummy(p, new Golem(), 90);
                 _probeEnemy.MaxHp = _probeEnemy.Hp = 3000;
-                _probeEnemy.Freeze(60f, hold: true);
+                _probeEnemy.Pin(60f);
                 break;
             case 62:
                 p.Stats.BlizzardSecondsMult = 0.5f; // (the test waits out half a storm)
@@ -512,7 +512,7 @@ public partial class Main
         {
             AltDummy(p, e, dx, dy);
             e.MaxHp = e.Hp = 3000;
-            e.Freeze(60f, hold: true);
+            e.Pin(60f);
             return e;
         }
         float Hp(Enemy e) => IsInstanceValid(e) ? e.Hp : 0;

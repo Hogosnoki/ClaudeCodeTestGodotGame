@@ -125,7 +125,7 @@ public partial class Main
             g.SetMeta("test", true);
             _world.AddChild(g);
             g.MaxHp = g.Hp = 5000;
-            g.Freeze(999f, hold: true);
+            g.Pin(999f);
             return g;
         }
         var near = Foe(40);

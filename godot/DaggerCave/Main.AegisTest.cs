@@ -41,7 +41,7 @@ public partial class Main
                 _scFoe2 = new Golem { Position = _scFoe.Position + new Vector2(24, 0) };
                 _scFoe2.SetMeta("test", true);
                 _world.AddChild(_scFoe2);
-                foreach (var e in new[] { _scFoe, _scFoe2 }) { e.MaxHp = e.Hp = 900; e.Freeze(99f, hold: true); }
+                foreach (var e in new[] { _scFoe, _scFoe2 }) { e.MaxHp = e.Hp = 900; e.Pin(99f); }
                 _scStep = 1; _scT = 0;
                 break;
             }

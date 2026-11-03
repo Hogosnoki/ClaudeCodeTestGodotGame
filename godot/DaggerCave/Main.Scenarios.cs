@@ -235,7 +235,7 @@ public partial class Main
         }
         if (_scFrame < 0)
         {
-            _scFoe.Freeze(0.3f, hold: true);
+            _scFoe.Pin(0.3f);
             if (_scT < 1.2f) return;
             _scHp = _scFoe.Hp;
             _scInput = new PlayerInput { Attack = true, Aim = new Vector2(1, 0.1f).Normalized() };
@@ -766,7 +766,7 @@ public partial class Main
         var foe = new Golem { Position = p.GlobalPosition + new Vector2(-60, -10) };
         foe.SetMeta("test", true);
         _world.AddChild(foe);
-        foe.Freeze(99f, hold: true);
+        foe.Pin(99f);
         p.Stats.MaxHp = 500; p.Hp = 500; friend.Stats.MaxHp = 500; friend.Hp = 500;
         p.Stats.HurtInvuln = 0f;
         float a0 = p.Hp, b0 = friend.Hp;
@@ -809,7 +809,7 @@ public partial class Main
         if (_shotDir != "") GetViewport().GetTexture().GetImage().SavePng($"{_shotDir}/crouch.png");
         var foe = new Golem { Position = p.GlobalPosition + new Vector2(-60, -10) };
         foe.SetMeta("test", true);
-        _world.AddChild(foe); foe.Freeze(99f, hold: true);
+        _world.AddChild(foe); foe.Pin(99f);
         float hp0 = p.Hp;
         p.Hurt(20f, p.GlobalPosition + new Vector2(-20, -30), 0f, foe);
         ScCheck($"a blow from above the head misses a crouching hero ({hp0 - p.Hp:0.0} lost)", p.Hp >= hp0 - 0.01f);
@@ -835,7 +835,7 @@ public partial class Main
             var g = new Golem { Position = p.GlobalPosition + new Vector2(dx, -10) };
             g.SetMeta("test", true);
             _world.AddChild(g);
-            g.MaxHp = g.Hp = 900; g.Freeze(99f, hold: true);
+            g.MaxHp = g.Hp = 900; g.Pin(99f);
             return g;
         }
         var aim = new Vector2(1, 0);

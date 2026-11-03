@@ -378,8 +378,17 @@ public abstract partial class Enemy : CharacterBody2D
         if (!Awake && dist < 420) Awake = true;
         // (what ails it goes on through a hit-stop: a burning creature keeps burning)
         if (!TickAfflictions((float)delta)) return;
+        // hit-stop as slow motion (HitSlow): its whole clock drops to a fifth and eases back up over the hit-stop
+        float hitSlow = 1f;
+        if (_pin > 0) _pin -= (float)delta;
+        if (_freeze > 0 && HitSlow.On && _pin <= 0)
+        {
+            _freeze -= (float)delta;
+            hitSlow = HitSlow.Speed(_freeze, _freezeTotal);
+            if (Anim != null) Anim.Position = _freeze > 0 ? new Vector2(G.Range(-1f, 1f), G.Range(-0.5f, 0.5f)) * (1f - hitSlow) : Vector2.Zero;
+        }
         // hit-stop: this creature alone holds still for a beat (with a little shudder)
-        if (_freeze > 0)
+        else if (_freeze > 0)
         {
             _freeze -= (float)delta;
             // (what seeps into it goes on seeping through a hit-stop)
@@ -409,7 +418,7 @@ public abstract partial class Enemy : CharacterBody2D
         }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
         // and animations all scale together (a hex, or a chill, slows the whole clock down).
-        float tempo = Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo * (Enraged ? Tune.BossMoves.EnrageTempo : 1f);
+        float tempo = (Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo * (Enraged ? Tune.BossMoves.EnrageTempo : 1f)) * hitSlow;
         float dt = (float)delta * tempo;
         TickBuild((float)delta);
         T += dt; HurtFlash -= (float)delta;
@@ -439,7 +448,8 @@ public abstract partial class Enemy : CharacterBody2D
             var v = KnockVel;
             KnockVel *= 1f / (1f + 8f * dt);
             if (UsesGravity && !InWater) v.Y += 200;
-            Velocity = v;
+            // (knocked back in the blow's slow motion too)
+            Velocity = v * hitSlow;
             MoveAndSlide();
         }
         else if (lost)
@@ -507,7 +517,7 @@ public abstract partial class Enemy : CharacterBody2D
         QueueRedraw();
     }
 
-    private float _freeze, _bleedT, _bleedDps;
+    private float _freeze, _freezeTotal, _pin, _bleedT, _bleedDps;
 
     /// <summary>How far enemies move relative to their numbers (Tune.Difficulty.EnemyMoveScale).</summary>
     protected static float MoveScale => Tune.Difficulty.EnemyMoveScale;
@@ -527,12 +537,22 @@ public abstract partial class Enemy : CharacterBody2D
     /// by a hit-stop: its attack plays out exactly as telegraphed, so it can be read and blocked.
     /// <paramref name="hold"/> freezes it all the same (a rupture seizing it, the blow it just landed).
     /// </summary>
-    public void Freeze(float seconds, bool hold = false)
+    public void Freeze(float seconds, bool hold = false) => Freeze(seconds, hold, false);
+
+    /// <summary>
+    /// Hold this creature stock-still for <paramref name="seconds"/>, whatever hit-stops do (they may only slow it: see HitSlow):
+    /// for a hold that is part of an ability (a rupture's wind-up, a latch, a snap freeze) or a test pinning its target.
+    /// </summary>
+    public void Pin(float seconds) => Freeze(seconds, true, true);
+
+    private void Freeze(float seconds, bool hold, bool pin)
     {
         // (a creature mid-attack freezes too: the wind-up holds for a beat and then carries on as telegraphed, a moment for the player to ready themselves)
         if (Dead) return;
+        if (seconds > _freeze) _freezeTotal = seconds;
         _freeze = Math.Max(_freeze, seconds);
-        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Freeze, seconds, hold ? 1 : 0);
+        if (pin) _pin = Math.Max(_pin, seconds);
+        if (Puppet) NetSync.EffectPuppet(this, NetSync.Effect.Freeze, seconds, pin ? 2 : hold ? 1 : 0);
     }
     /// <summary>Seconds of hit-stop left.</summary>
     public float FreezeLeft => _freeze;
@@ -1228,7 +1248,7 @@ public abstract partial class Enemy : CharacterBody2D
         w.Half(Math.Clamp(Hp / Math.Max(1f, MaxHp), 0f, 1f));
         ushort f = 0;
         if (Stun > 0) f |= NfReeling;
-        if (_freeze > 0) f |= NfFrozen;
+        if (_freeze > 0 && (_pin > 0 || !HitSlow.On)) f |= NfFrozen;
         if (_dazed && Stun > 0) f |= NfDazed;
         if (_hexT > 0) f |= NfHexed;
         if (_weakT > 0) f |= NfWeak;
@@ -1283,6 +1303,7 @@ public abstract partial class Enemy : CharacterBody2D
         T += dt;
         HurtFlash -= dt;
         if (_freeze > 0) _freeze -= dt;
+        if (_pin > 0) _pin -= dt;
         if (_hexT > 0) _hexT -= dt;
         if (_weakT > 0) _weakT -= dt;
         if (_burnT > 0) _burnT -= dt;
@@ -1299,9 +1320,11 @@ public abstract partial class Enemy : CharacterBody2D
         if (Anim != null)
         {
             bool shudder = _freeze > 0 || (_netFlags & NfFrozen) != 0;
+            // (slow-motion hit-stops: a copy's pose plays on, slowed, as the host's does)
+            float slow = _freeze > 0 && HitSlow.On && _pin <= 0 ? HitSlow.Speed(_freeze, _freezeTotal) : shudder ? 0f : 1f;
             Anim.TimeMult = 1f;
-            Anim.Position = shudder ? new Vector2(G.Range(-1.5f, 1.5f), G.Range(-0.8f, 0.8f)) : Vector2.Zero;
-            if (_netAnim != "") Anim.Mirror(_netAnim, _netFrame, shudder ? 0f : _netSpeed, _netFacing);
+            Anim.Position = shudder ? new Vector2(G.Range(-1.5f, 1.5f), G.Range(-0.8f, 0.8f)) * (1f - slow) : Vector2.Zero;
+            if (_netAnim != "") Anim.Mirror(_netAnim, _netFrame, _netSpeed * slow, _netFacing);
             Anim.Motion(Velocity * MoveScale);
             PuppetAnimate();
         }
