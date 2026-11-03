@@ -87,10 +87,16 @@ public partial class EnemyProjectile : Node2D
     /// <summary>For the tests: bomber pods that have burst.</summary>
     public static int Bursts;
 
+    /// <summary>Thrown by a creature a Shape Shifter drives: it flies for her, and what it strikes takes a blow of her form's (its
+    /// <see cref="Damage"/> the kind's own, her strength put on it).</summary>
+    public Player FormOwner;
+
     public override void _Ready()
     {
         ZIndex = 2;
-        G.Main.EnemyProjectiles.Add(this);
+        // (a driven creature's shot is the Shape Shifter's: it hurts the creatures, never a hero, and is nothing to block)
+        if (Source != null && IsInstanceValid(Source) && Source.Driven) { Reflected = true; FormOwner = Source.Master; }
+        if (!Reflected) G.Main.EnemyProjectiles.Add(this);
     }
 
     public void Reflect(Vector2 dir, float damageMult)
@@ -181,7 +187,8 @@ public partial class EnemyProjectile : Node2D
         {
             foreach (var e in G.Enemies.ToArray())
             {
-                if (e.Dead || e.GlobalPosition.DistanceTo(GlobalPosition) > Radius + e.HitRadius) continue;
+                if (e.Dead || e == Source || e.GlobalPosition.DistanceTo(GlobalPosition) > Radius + e.HitRadius) continue;
+                if (FormOwner != null && IsInstanceValid(FormOwner)) { FormOwner.FormBlow(e, Damage, Vel.Normalized() * 150f); Impact(GlobalPosition); return; }
                 float dealt = e.Hurt(Damage, Vel.Normalized() * 150f, GlobalPosition);
                 if (dealt > 0) G.Player?.OnDealtDamage(dealt);
                 Impact(GlobalPosition);
@@ -237,14 +244,14 @@ public partial class EnemyProjectile : Node2D
             G.Sfx.Play("lava", at, -8);
             G.Fx.Burst(at, new Color(1f, 0.5f, 0.1f), 10, 120, 2.5f, 0.4f);
             if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
-                G.Spawn(new LavaPuddle { Position = fl, Source = Source });
+                G.Spawn(new LavaPuddle { Position = fl, Source = Source, Owner = FormOwner });
         }
         else if (Kind == "acid")
         {
             G.Sfx.Play("splash", at, -8, 0.2f, 0.8f);
             G.Fx.Burst(at, new Color(0.78f, 0.92f, 0.2f), 9, 110, 2.2f, 0.4f);
             if (G.Cave.FindFloor(GlobalPosition, 40, out var fl) && !G.Cave.IsWater(fl - new Vector2(0, 4)))
-                G.Spawn(new AcidPuddle { Position = fl, Source = Source });
+                G.Spawn(new AcidPuddle { Position = fl, Source = Source, Owner = FormOwner });
         }
         else if (Kind == "fire")
         {
@@ -319,6 +326,8 @@ public partial class LavaPuddle : Node2D
     private float _life = 3.5f, _tick, _t;
     public const float HalfW = 16f;
     public Enemy Source;
+    /// <summary>Left by a creature a Shape Shifter drives: it burns the creatures that stand in it, never a hero.</summary>
+    public Player Owner;
     public float LifeLeft => _life;
 
     public override void _Ready() { ZIndex = 3; }
@@ -329,7 +338,8 @@ public partial class LavaPuddle : Node2D
         _life -= dt; _t += dt; _tick -= dt;
         if (_life <= 0) { QueueFree(); return; }
         var p = G.Player;
-        if (p != null && _tick <= 0)
+        if (Owner != null) { if (_tick <= 0 && Puddles.BurnFoes(Owner, GlobalPosition, HalfW, Tune.Magma.PuddleDamage)) _tick = 0.5f; }
+        else if (p != null && _tick <= 0)
         {
             var d = p.GlobalPosition - GlobalPosition;
             if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6) { p.Hurt(Tune.Magma.PuddleDamage * G.DepthDmg, GlobalPosition + new Vector2(0, 10), 120, Source); _tick = 0.5f; }

@@ -83,6 +83,9 @@ public partial class Enemy
     public static IEnumerable<Type> Move2Kinds => _move2.Keys;
 
     private int _m2Phase; // 0 resting, 1 winding up, 2 striking, 3 recovering
+    // (driven by a Shape Shifter: what it goes for, and the creatures its move has struck)
+    private Enemy _m2Foe;
+    private readonly HashSet<Enemy> _m2Struck = new();
     private float _m2T, _m2Cd = -1f, _m2Spin, _m2Awake;
     private Vector2 _m2Aim, _m2Dir;
     private bool _m2Hit, _m2Left;
@@ -100,6 +103,52 @@ public partial class Enemy
     /// The second attack, each frame (before the creature's own Think): true while it is under way, so the creature's own behaviour
     /// waits. It starts only when the creature is free and its hero in range, and then rests.
     /// </summary>
+    /// <summary>
+    /// Driven by a Shape Shifter (Enemy.Driven.cs): the second button asks for its second move, toward the creature nearest the aim (or out
+    /// along it). The same wind-up, warning shape, pose and blow as the creature's own, but they land on the creatures of the cave. False
+    /// while it rests, mid-move, or with no second move a form could make (a finale spends the body).
+    /// </summary>
+    public bool MasterMove2(Vector2 aim)
+    {
+        var m = Move2Of;
+        if (Master == null || m == null || m.Finale || _m2Phase != 0 || _m2Cd > 0f || Stun > 0) return false;
+        var dir = aim.LengthSquared() > 0.04f ? aim.Normalized() : new Vector2(Face, 0);
+        _m2Foe = DrivenFoe(dir, m.MaxRange);
+        var at = _m2Foe != null ? _m2Foe.GlobalPosition : GlobalPosition + dir * Math.Max(m.MinRange + 20f, Math.Min(m.MaxRange * 0.6f, 160f));
+        _m2Struck.Clear();
+        Move2Begin(m, at);
+        return true;
+    }
+
+    /// <summary>A driven creature's second move: 0 ready .. 1 just used (and whether it has one at all).</summary>
+    public float Move2Frac => Move2Of is { } m && _m2Cd > 0f ? Math.Clamp(_m2Cd / Move2Rest(m), 0f, 1f) : 0f;
+    public bool HasFormMove2 => Move2Of is { Finale: false };
+    public bool Move2ReadyNow => HasFormMove2 && _m2Phase == 0 && _m2Cd <= 0f;
+
+    private float Move2Rest(Move2Spec m) => m.Cooldown * (Master != null ? Master.Stats.FormSpecCdMult * Master.Stats.OtherRestMult : 1f);
+
+    /// <summary>The driven creature's second move, each frame: resting until asked; under way, it plays out (true: its own behaviour waits).</summary>
+    private bool Move2DrivenTick(float dt)
+    {
+        var m = Move2Of;
+        if (m == null) return false;
+        if (_m2Phase == 0) { if (_m2Cd > 0f) _m2Cd -= dt; return false; }
+        _m2T += dt;
+        switch (_m2Phase)
+        {
+            case 1: Move2Windup(m, dt); break;
+            case 2: Move2Strike(m, dt); break;
+            case 3: Move2Recover(m, dt); break;
+        }
+        if (ManualMove && _m2Phase != 0) { Velocity *= MoveScale; MoveAndSlide(); Velocity /= MoveScale; }
+        return true;
+    }
+
+    /// <summary>Where the move goes: its hero; driven, the creature it went for (or the spot it was aimed at).</summary>
+    private Vector2 Move2Target => Master != null ? (_m2Foe != null && IsInstanceValid(_m2Foe) && !_m2Foe.Dead ? _m2Foe.GlobalPosition : _m2Aim) : P != null ? P.GlobalPosition : _m2Aim;
+    /// <summary>Its blow's damage: driven, the kind's own (the Shape Shifter's strength is put on it), never less than a form's.</summary>
+    private float Move2Damage(Move2Spec m) => Master != null ? Math.Max(ContactDamage, Tune.Shifter.FormDamage * 0.6f) * m.Damage * Master.Stats.FormSpecDmgMult : ContactDamage * DmgK * m.Damage;
+
     private bool Move2Tick(float dt)
     {
         var m = Move2Of;
@@ -116,7 +165,7 @@ public partial class Enemy
             float reach = m.Kind == Move2.Burst ? Math.Min(m.MaxRange, m.Radius * 0.85f) : m.MaxRange;
             if (d < m.MinRange || d > reach || (!SeesP && m.Kind != Move2.Shatter)) return false;
             if (UsesGravity && !InWater && m.Kind is Move2.Lunge or Move2.Slam or Move2.Pounce && !IsOnFloor()) return false;
-            Move2Begin(m);
+            Move2Begin(m, P.GlobalPosition);
         }
         _m2T += dt;
         switch (_m2Phase)
@@ -130,11 +179,11 @@ public partial class Enemy
         return true;
     }
 
-    private void Move2Begin(Move2Spec m)
+    private void Move2Begin(Move2Spec m, Vector2 aimAt)
     {
         _m2Phase = 1; _m2T = 0f; _m2Hit = false; _m2Left = false; _m2Spin = 0f;
         Move2Uses++;
-        _m2Aim = P.GlobalPosition;
+        _m2Aim = aimAt;
         _m2Dir = (_m2Aim - GlobalPosition).Normalized();
         if (_m2Dir == Vector2.Zero) _m2Dir = new Vector2(Face, 0);
         if (Math.Abs(_m2Dir.X) > 0.05f) Face = Math.Sign(_m2Dir.X);
@@ -231,7 +280,7 @@ public partial class Enemy
     /// <summary>The moment it strikes: off it goes, or out the shots fly, or the ground shakes.</summary>
     private void Move2Release(Move2Spec m)
     {
-        float dmg = ContactDamage * DmgK * m.Damage;
+        float dmg = Move2Damage(m);
         switch (m.Kind)
         {
             case Move2.Lunge:
@@ -239,14 +288,14 @@ public partial class Enemy
                 G.Sfx.Play("lunge", GlobalPosition, -4, 0, 1.1f);
                 break;
             case Move2.Dive:
-                _m2Dir = (P != null ? P.GlobalPosition - GlobalPosition : _m2Dir).Normalized();
+                _m2Dir = (Move2Target - GlobalPosition).Normalized();
                 Velocity = _m2Dir * m.Speed;
                 G.Sfx.Play("airdash", GlobalPosition, -4);
                 break;
             case Move2.Spit: case Move2.Volley:
             {
                 var from = MouthPoint;
-                var to = (P != null ? P.GlobalPosition + new Vector2(0, -6) : _m2Aim) - from;
+                var to = Move2Target + new Vector2(0, -6) - from;
                 float grav = m.Shot == "rock" ? 260f : 60f;
                 // (thrown high enough that the fall brings it onto the hero)
                 float flight = to.Length() / m.Speed;
@@ -288,7 +337,7 @@ public partial class Enemy
                 G.Sfx.Play("swing_heavy", GlobalPosition, -4, 0, 1.2f);
                 break;
             case Move2.Kamikaze:
-                _m2Dir = (P != null ? P.GlobalPosition - GlobalPosition : _m2Dir).Normalized();
+                _m2Dir = (Move2Target - GlobalPosition).Normalized();
                 Velocity = _m2Dir * m.Speed;
                 G.Sfx.Play("airdash", GlobalPosition, -2, 0, 0.8f);
                 break;
@@ -323,7 +372,7 @@ public partial class Enemy
 
     private void Move2Strike(Move2Spec m, float dt)
     {
-        float dmg = ContactDamage * DmgK * m.Damage;
+        float dmg = Move2Damage(m);
         switch (m.Kind)
         {
             case Move2.Lunge: case Move2.Dive:
@@ -367,10 +416,11 @@ public partial class Enemy
                 // (spins on, claws out, edging toward the hero)
                 _m2Spin += dt * 26f;
                 if (Anim != null) { Anim.Rotation = _m2Spin; Anim.Position = Vector2.Zero; }
-                var to = P != null ? P.GlobalPosition - GlobalPosition : Vector2.Zero;
+                var to = Move2Target - GlobalPosition;
                 Velocity = UsesGravity && !InWater ? new Vector2(Math.Sign(to.X) * 70f, Math.Min(Velocity.Y + 700f * dt, 400f)) : to.Normalized() * 60f;
                 if (G.Chance(0.5f)) G.Fx.Swoosh(GlobalPosition, m.Radius, _m2Spin, m.Col);
-                if (!_m2Hit) foreach (var h in G.Players) if (h != null && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) < m.Radius + 6f) { Move2Blow(h, dmg, 240f); break; }
+                if (Master != null) Move2FoesNear(GlobalPosition, m.Radius + 6f, dmg, 240f, flat: false);
+                else if (!_m2Hit) foreach (var h in G.Players) if (h != null && !h.Dead && h.GlobalPosition.DistanceTo(GlobalPosition) < m.Radius + 6f) { Move2Blow(h, dmg, 240f); break; }
                 if (_m2T > 0.75f) Move2End();
                 break;
             }
@@ -436,7 +486,8 @@ public partial class Enemy
     {
         var m = Move2Of;
         _m2Phase = 0; _m2T = 0f;
-        _m2Cd = (m?.Cooldown ?? 7f) * G.Range(0.8f, 1.2f) * (Elite ? 0.75f : 1f);
+        _m2Cd = Master != null && m != null ? Move2Rest(m) : (m?.Cooldown ?? 7f) * G.Range(0.8f, 1.2f) * (Elite ? 0.75f : 1f);
+        _m2Foe = null;
         if (Anim != null) { Anim.Scale = Vector2.One; Anim.Rotation = 0f; Anim.Position = Vector2.Zero; }
     }
 
@@ -460,6 +511,7 @@ public partial class Enemy
     /// <summary>Its body strikes whatever hero it reaches (once).</summary>
     private void Move2Touch(float dmg, float knock)
     {
+        if (Master != null) { Move2FoesNear(GlobalPosition, HitRadius + 10f, dmg, knock, flat: false); return; }
         foreach (var h in G.Players)
         {
             if (h == null || h.Dead || h.GlobalPosition.DistanceTo(GlobalPosition) >= HitRadius + 10f) continue;
@@ -471,6 +523,7 @@ public partial class Enemy
     /// <summary>Every hero within reach of a point takes the blow.</summary>
     private void Move2Area(Vector2 at, float radius, float dmg, float knock, bool flat = true)
     {
+        if (Master != null) { Move2FoesNear(at, radius, dmg, knock, flat); return; }
         foreach (var h in G.Players)
         {
             if (h == null || h.Dead) continue;
@@ -478,6 +531,22 @@ public partial class Enemy
             // (the ground's blow is flat: it reaches less far up than along)
             if (d.X * d.X + d.Y * d.Y * (flat ? 2.2f : 1f) > radius * radius) continue;
             Move2Blow(h, dmg, knock);
+        }
+    }
+
+    /// <summary>Driven: every creature of the cave within reach of a point takes the move's blow, once each a move.</summary>
+    private void Move2FoesNear(Vector2 at, float radius, float dmg, float knock, bool flat)
+    {
+        if (Master == null) return;
+        foreach (var e in G.Enemies.ToArray())
+        {
+            if (!IsInstanceValid(e) || e.Dead || !e.CanBeHit || _m2Struck.Contains(e)) continue;
+            var d = e.GlobalPosition - at;
+            float rr = radius + e.HitRadius;
+            if (d.X * d.X + d.Y * d.Y * (flat ? 2.2f : 1f) > rr * rr) continue;
+            _m2Struck.Add(e);
+            _m2Hit = true; Move2Hits++;
+            Master.FormBlow(e, dmg, (d.LengthSquared() < 1f ? new Vector2(Face, 0) : d.Normalized()) * knock);
         }
     }
 

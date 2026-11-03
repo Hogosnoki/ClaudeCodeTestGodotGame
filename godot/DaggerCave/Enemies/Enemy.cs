@@ -463,7 +463,12 @@ public abstract partial class Enemy : CharacterBody2D
         else
         {
             // (its second attack, when it's free for one, takes the place of its own behaviour until done: Enemy.Secondary.cs)
-            if (Master != null || !(BossTick(dt) || Move2Tick(dt))) { BrainDecide(dt); Think(dt); }
+            // (driven by a Shape Shifter: its second move, when she asks for it, likewise; a kind with no driving of its own is driven generically)
+            if (Master != null ? !Move2DrivenTick(dt) : !(BossTick(dt) || Move2Tick(dt)))
+            {
+                if (Master != null && !OwnDriving) DrivenGeneric(dt);
+                else { BrainDecide(dt); Think(dt); }
+            }
             if (Dead) return; // (a finale: it's spent)
             if (Master != null) DrivenAfterThink(dt);
             if (!ManualMove)

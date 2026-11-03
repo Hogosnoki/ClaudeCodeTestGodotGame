@@ -384,7 +384,7 @@ public partial class Main : Node
             else if (a == "--hero=elementalist") G.Hero = HeroKind.Elementalist;
             else if (a == "--hero=rogue") G.Hero = HeroKind.Rogue;
             else if (a == "--hero=aegis") G.Hero = HeroKind.Aegis;
-            else if (a == "--hero=shifter") G.Hero = HeroKind.ShapeShifter;
+            else if (a is "--hero=shifter" or "--hero=shapeshifter") G.Hero = HeroKind.ShapeShifter;
             else if (a == "--hero=automaton") G.Hero = HeroKind.Automaton;
             else if (a.StartsWith("--braindir=")) Brains.DirOverride = a[11..];
             else if (a == "--nntest") _nnTest = true;

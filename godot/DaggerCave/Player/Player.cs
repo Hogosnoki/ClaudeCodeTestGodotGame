@@ -1272,6 +1272,8 @@ public partial class Player : CharacterBody2D
 
     public float Hurt(float dmg, Vector2 from, float knock = 230f, Enemy source = null, bool pooled = false)
     {
+        // (a creature a Shape Shifter drives is hers: whatever it does, it never hurts a hero)
+        if (source != null && GodotObject.IsInstanceValid(source) && source.Driven) return 0f;
         LastHitBlocked = false;
         if (Dead) return 0;
         // (a creature drawn to a Frost Tower, striking from beside it: the tower takes the blow)

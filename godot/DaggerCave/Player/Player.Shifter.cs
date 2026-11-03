@@ -56,6 +56,8 @@ public partial class Player
     public int GnawBites { get; private set; }
     public Enemy LatchedOn => _latched && _seekFoe != null && GodotObject.IsInstanceValid(_seekFoe) ? _seekFoe : null;
     public int Envenomings { get; private set; }
+    /// <summary>For the tests: the creatures' own second moves she has made in a form.</summary>
+    public int FormMoves { get; private set; }
 
     /// <summary>Transformation: in a form, every blow of the form's deals this much more (x).</summary>
     public float TransformMult => Form != null ? 1f + Tune.Shifter.TransformDamage : 1f;
@@ -66,8 +68,12 @@ public partial class Player
     public float FormClipT { get; private set; }
 
     private bool NativeSpecial => Ghost != null && GodotObject.IsInstanceValid(Ghost) && Ghost.MasterSpecialIntentIndex >= 0;
-    public float FormSpecialFrac => Form == null ? 0f : NativeSpecial ? Ghost.MasterSpecialFrac : Math.Clamp(_formSpecCd / Math.Max(0.01f, Form.SpecCd), 0f, 1f);
-    public bool FormSpecialReady => Form != null && (NativeSpecial ? Ghost.MasterSpecialReady : _formSpecCd <= 0);
+    /// <summary>The form's second button is the creature's own second move (Enemy.Secondary.cs): the same one the cave's creatures of its kind use.</summary>
+    private bool CreatureMove => Possessed && Ghost.HasFormMove2;
+    public float FormSpecialFrac => Form == null ? 0f : CreatureMove ? Ghost.Move2Frac : NativeSpecial ? Ghost.MasterSpecialFrac : Math.Clamp(_formSpecCd / Math.Max(0.01f, Form.SpecCd), 0f, 1f);
+    public bool FormSpecialReady => Form != null && (CreatureMove ? Ghost.Move2ReadyNow : NativeSpecial ? Ghost.MasterSpecialReady : _formSpecCd <= 0);
+    /// <summary>The name of what the form's second button does now: the creature's own second move, or the form's trick.</summary>
+    public string FormMoveName => Form == null ? "" : CreatureMove ? Ghost.Move2Of.Name : Form.SpecialName;
     public float FormAttackFrac => 0f;
 
     /// <summary>Test aids: press Shift, or the special, once.</summary>
@@ -192,21 +198,9 @@ public partial class Player
     /// <summary>The creature a form is, made fresh (as it would stand in the cave).</summary>
     private static Enemy MakeCreature(ShiftForm f) => f.Key switch
     {
-        "goblin" => new Goblin(),
-        "skeleton" => new Skeleton(),
-        "rat" => new Rat(),
-        "bat" => new Bat(),
         // (a spider walks the ground, rather than hanging from the ceiling)
         "spider" => new Spider { Grounded = true },
-        "frog" => new Frog(),
-        "scorpion" => new Scorpion(),
-        "bear" => new Bear(),
-        "golem" => new Golem(),
-        "hornet" => new Hornet(),
-        "sporeling" => new Sporeling(),
-        "crab" => new Crab(),
-        "fish" => new Fish(),
-        _ => null,
+        _ => f.Kind != null ? (Enemy)Activator.CreateInstance(f.Kind) : null,
     };
 
     private void SpawnGhost(ShiftForm f)
@@ -219,6 +213,8 @@ public partial class Player
         // (it takes its turn before the hero does each frame, so the hero follows where it is now)
         g.ProcessPriority = -5;
         G.World.AddChild(g);
+        // (a kind that slips through rock in the cave, such as the eel through its water, walks on it as her body)
+        if (g.CollisionMask == 0) g.CollisionMask = G.LayerTerrain;
         g.Wake();
         g.FaceToward(Facing);
         Ghost = g;
@@ -567,9 +563,17 @@ public partial class Player
             SayNo(RememberedForm != null ? "NOT YET" : "SHIFT FIRST");
             return true;
         }
-        // a creature with a second move of its own does that one, through its own wind-up
-        // (elemental and overcharged: the creature's greater special)
+        // (elemental and overcharged: the creature's greater special, the form's own trick)
         bool greater = Elemental && Overcharged;
+        // the creature's own second move: the very one the creatures of its kind use, its wind-up, warning and blow, now on her foes
+        if (CreatureMove && !greater)
+        {
+            if (!Ghost.MasterMove2(aim)) return false;
+            if (Math.Abs(aim.X) > 0.1f) Facing = Math.Sign(aim.X);
+            FormMoves++;
+            return true;
+        }
+        // a creature with a move of its own for the button does that one, through its own wind-up
         if (NativeSpecial)
         {
             if (!Ghost.MasterSpecialReady) return false;

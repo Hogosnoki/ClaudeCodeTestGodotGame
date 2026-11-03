@@ -187,7 +187,7 @@ public partial class Player
         var f = Form;
         return slot switch
         {
-            ElemSlot.Heavy => f == null ? "Recall" : Overcharged ? f.GreaterName : f.SpecialName,
+            ElemSlot.Heavy => f == null ? "Recall" : Overcharged ? f.GreaterName : FormMoveName,
             ElemSlot.Move => f != null ? ShapeName(f) : Elements.SingleName(Stats.Hero, ElemSlot.Move, Mode),
             _ => f != null ? f.Name : Elements.SingleName(Stats.Hero, ElemSlot.Attack, Mode),
         };

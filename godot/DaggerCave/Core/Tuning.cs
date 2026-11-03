@@ -842,6 +842,9 @@ public static class Tune
         public static float StaffDamage = 5f, StaffReach = 52f, StaffCooldown = 0.55f;
         /// <summary>A form's damage (x the form's own multiplier), how far a Shift can reach, how fast a charge runs.</summary>
         public static float FormDamage = 15f, CopyRange = 110f, ChargeSpeed = 360f;
+        /// <summary>A form driven generically (a creature with no driving of its own, Enemy.Driven.cs): its blow's base damage (x the form's
+        /// Dmg, then her strength) and its rest (x the form's Cooldown), in line with the forms that strike as their creatures do.</summary>
+        public static float GenericBlow = 6f, GenericRest = 1.25f;
         /// <summary>Seconds Shift takes to come back once a form is dropped.</summary>
         public static float ShiftCooldown = 3f;
         /// <summary>How far away a hero in a form seems to the cave's creatures (x the real distance), and to creatures of its own kind: when they are looking (alone), and when they are choosing between several heroes (they then come last).</summary>

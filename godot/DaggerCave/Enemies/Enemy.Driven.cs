@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Godot;
 
 namespace DaggerCave;
@@ -153,6 +154,126 @@ public abstract partial class Enemy
         foreach (var br in Breakables.All.ToArray())
             if (br.HitSize > 0 && inReach(br.HitCenter - GlobalPosition, br.HitSize)) br.Strike(GlobalPosition);
         return n;
+    }
+
+    // ---- creatures with no driving of their own
+    private static readonly Dictionary<Type, bool> _ownDriving = new();
+    /// <summary>
+    /// This kind answers the controller itself (its own <see cref="MasterIntent"/>: footwork, wind-ups and blows of its own). The others are
+    /// driven by <see cref="DrivenGeneric"/>: the stick moves the body (it walks and jumps, flies or swims as its form says), the attack
+    /// button gives the form's blow (or shot), and the second button its own second move (Enemy.Secondary.cs) all the same.
+    /// </summary>
+    public bool OwnDriving
+    {
+        get
+        {
+            var t = GetType();
+            if (!_ownDriving.TryGetValue(t, out bool own))
+            {
+                var m = t.GetMethod("MasterIntent", BindingFlags.Instance | BindingFlags.NonPublic);
+                own = m != null && m.DeclaringType != typeof(Enemy);
+                _ownDriving[t] = own;
+            }
+            return own;
+        }
+    }
+
+    private float _gAtkT = -1f, _gAtkCd;
+    private bool _gStruck;
+    private Vector2 _gAtkDir = new(1, 0);
+    /// <summary>A generically driven creature's blow under way (its wind-up and its strike).</summary>
+    public bool GenericAttacking => _gAtkT >= 0f;
+    /// <summary>For the tests: blows and shots a generically driven creature has made.</summary>
+    public int GenericAttacks { get; private set; }
+
+    /// <summary>
+    /// A creature driven generically, each frame in place of its own thinking: the body goes where the stick points (at the form's speed,
+    /// a run like the hero's x its Move), jumps on the jump button, and the attack button winds up and strikes with the form's blow.
+    /// </summary>
+    private void DrivenGeneric(float dt)
+    {
+        var f = Master?.Form;
+        if (f == null) return;
+        float speed = Tune.Hero.RunSpeed * f.Move * Master.Stats.MoveSpeed * (1f + Master.Stats.FormSpeedAdd) / MoveScale;
+        bool free = f.Flier || (f.Swims && InWater);
+        var v = Velocity;
+        bool winding = _gAtkT >= 0f && _gAtkT < f.Wind;
+        float push = winding ? 0.25f : 1f;
+        if (free) v = v.MoveToward(MasterAim * speed * push, 1500f * dt);
+        else
+        {
+            v.X = Mathf.MoveToward(v.X, MasterAim.X * speed * push, 1800f * dt);
+            v.Y = Math.Min(v.Y + 700f * dt, 420f);
+            if (JumpWanted && IsOnFloor() && !winding) { v.Y = -JumpSpeed * f.Jump; ClearJump(); G.Sfx.Play("jump", GlobalPosition, -8, 0.1f, 0.8f); }
+        }
+        if (Math.Abs(MasterAim.X) > 0.2f && _gAtkT < 0f) Face = Math.Sign(MasterAim.X);
+        // the attack button: the form's blow, through its wind-up
+        _gAtkCd -= dt;
+        if (_gAtkT < 0f && _attackWantT > 0f && _gAtkCd <= 0f)
+        {
+            _gAtkT = 0f; _gStruck = false; _attackWantT = 0f;
+            _gAtkDir = MasterDir;
+            if (Math.Abs(_gAtkDir.X) > 0.1f) Face = Math.Sign(_gAtkDir.X);
+        }
+        if (_gAtkT >= 0f)
+        {
+            _gAtkT += dt;
+            float p = Math.Min(1f, _gAtkT / Math.Max(0.01f, f.Wind));
+            if (Anim != null && !_gStruck) { Anim.Scale = new Vector2(1f + 0.14f * p, 1f - 0.1f * p); Anim.Rotation = -Face * 0.22f * p; Anim.Flash(0.2f * p); }
+            if (!_gStruck && _gAtkT >= f.Wind)
+            {
+                _gStruck = true;
+                GenericAttacks++;
+                GenericStrike(f);
+                if (Anim != null) { Anim.Scale = new Vector2(1.25f, 0.85f); Anim.Rotation = Face * 0.2f; if (f.StrikeClip != "strike") Anim.Once(f.StrikeClip, 3); }
+            }
+            if (_gAtkT >= f.Wind + f.Strike)
+            {
+                _gAtkT = -1f;
+                _gAtkCd = f.Cooldown * Tune.Shifter.GenericRest / Math.Max(0.2f, Master.Stats.AttackSpeed);
+                if (Anim != null) { Anim.Scale = Vector2.One; Anim.Rotation = 0f; }
+            }
+        }
+        Velocity = v;
+        if (ManualMove) { Velocity *= MoveScale; MoveAndSlide(); Velocity /= MoveScale; }
+    }
+
+    /// <summary>The form's blow lands: on what is in reach before it, or (a ranged form) as a shot at what the aim points to.</summary>
+    private void GenericStrike(ShiftForm f)
+    {
+        float dmg = Tune.Shifter.GenericBlow * f.Dmg;
+        if (f.Ranged)
+        {
+            var from = GlobalPosition + new Vector2(Face * HitRadius * 0.6f, -HitRadius * 0.3f);
+            var foe = DrivenFoe(_gAtkDir, 260f);
+            var to = (foe != null ? foe.GlobalPosition : from + _gAtkDir * 200f) - from;
+            G.Spawn(new EnemyProjectile { Position = from, Vel = to.Normalized() * 340f, Grav = 40f, Damage = dmg, Kind = f.Shot, Radius = 5f, Life = 1.6f, Source = this });
+            G.Fx.Flash(from, 12, new Color(0.9f, 0.95f, 0.6f));
+            G.Sfx.Play("spider", GlobalPosition, -6, 0.1f, 1.2f);
+            return;
+        }
+        float reach = f.Reach;
+        var dir = _gAtkDir;
+        StrikeFoes((rel, r) => rel.Length() < reach + r && rel.Dot(dir.LengthSquared() > 0.01f ? dir : new Vector2(Face, 0)) > -8f, dmg, f.Knock);
+        G.Fx.Swoosh(GlobalPosition + new Vector2(Face * reach * 0.4f, -4f), Face, reach * 0.6f, new Color(0.95f, 0.97f, 1f, 0.8f));
+        G.Sfx.Play("swing", GlobalPosition, -6, 0.1f, 1.1f);
+    }
+
+    /// <summary>The creature a driven creature's move would go for: the nearest within <paramref name="range"/>, those the way it aims first.</summary>
+    public Enemy DrivenFoe(Vector2 dir, float range)
+    {
+        Enemy best = null; float bs = float.MaxValue;
+        foreach (var e in G.Enemies)
+        {
+            if (!IsInstanceValid(e) || e.Dead || !e.CanBeHit || e == this) continue;
+            var rel = e.GlobalPosition - GlobalPosition;
+            float d = rel.Length();
+            if (d > range + e.HitRadius) continue;
+            if (d > 1f && dir.LengthSquared() > 0.01f && rel.Dot(dir) / d < 0.2f) continue;
+            if (!G.Cave.LineClear(GlobalPosition + new Vector2(0, -6), e.GlobalPosition)) continue;
+            if (d < bs) { bs = d; best = e; }
+        }
+        return best;
     }
 
     private readonly HashSet<Enemy> _drivenHit = new();

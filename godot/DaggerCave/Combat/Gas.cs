@@ -159,6 +159,8 @@ public partial class AcidPuddle : Node2D
     public const float HalfW = 17f;
     public float Life = Tune.Sulphur.Newt.PuddleLife;
     public Enemy Source;
+    /// <summary>Left by a creature a Shape Shifter drives: it eats at the creatures that stand in it, never a hero.</summary>
+    public Player Owner;
     private float _t, _tick;
     public float T => _t;
     public float LifeLeft => Life - _t;
@@ -171,7 +173,8 @@ public partial class AcidPuddle : Node2D
         _t += dt; _tick -= dt;
         if (_t > Life) { QueueFree(); return; }
         var p = G.Player;
-        if (p != null && !p.Dead && _tick <= 0)
+        if (Owner != null) { if (_tick <= 0 && Puddles.BurnFoes(Owner, GlobalPosition, HalfW, Tune.Sulphur.Newt.PuddleDamage)) _tick = 0.5f; }
+        else if (p != null && !p.Dead && _tick <= 0)
         {
             var d = p.GlobalPosition - GlobalPosition;
             if (Math.Abs(d.X) < HalfW + 4 && d.Y > -22 && d.Y < 6)
