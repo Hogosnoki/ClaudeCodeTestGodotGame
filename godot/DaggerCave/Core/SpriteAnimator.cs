@@ -475,6 +475,7 @@ void fragment() {
     public override void _Process(double delta)
     {
         UpdateJuice((float)delta * TimeMult);
+        DeathFlight((float)delta);
         if (_flash > 0)
         {
             _mat.SetShaderParameter("flash", Math.Min(1f, _flash));
@@ -486,6 +487,24 @@ void fragment() {
     }
 
     private Tween _deathTween;
+    private Vector2 _deathVel;
+    private float _deathSpin;
+
+    /// <summary>A thrown body's flight while it dies (see <see cref="PlayDeathAndFree(string,float,Vector2,Vector2)"/>): held still by a
+    /// hit-stop like the rest of its death.</summary>
+    private void DeathFlight(float dt)
+    {
+        if (_deathVel == Vector2.Zero || TimeMult <= 0f) return;
+        dt *= TimeMult;
+        var next = GlobalPosition + _deathVel * dt;
+        // (it doesn't sail into rock: it stops where it meets it)
+        if (G.Cave != null && G.Cave.IsSolid(next)) { _deathVel = Vector2.Zero; return; }
+        GlobalPosition = next;
+        _deathVel.Y += Tune.Feel.DeathGravity * dt;
+        _deathVel *= MathF.Exp(-Tune.Feel.DeathDrag * dt);
+        Rotation += _deathSpin * dt;
+        _deathSpin *= MathF.Exp(-1.5f * dt);
+    }
 
     /// <summary>A dying creature's last pose holds still for the hit-stop (its fall, drift and fade wait), then carries on.</summary>
     public void HoldDeath(float seconds)
@@ -505,8 +524,18 @@ void fragment() {
     /// Hands this sprite over to the world so its death animation can finish after the gameplay
     /// node is freed, then fades it out.
     /// </summary>
-    public void PlayDeathAndFree(string anim = "death", float linger = 0.6f, Vector2 drift = default)
+    public void PlayDeathAndFree(string anim = "death", float linger = 0.6f, Vector2 drift = default) => PlayDeathAndFree(anim, linger, drift, Vector2.Zero);
+
+    /// <summary>
+    /// As above, thrown by the killing blow: it sails off at <paramref name="launch"/> (px/s: along the blow, a little up), slowing,
+    /// falling gently and turning over a little, while its death plays and it fades, stopping where it meets rock. (A cheap stand-in
+    /// for a ragdoll: no physics bodies, just the dying model carried along.)
+    /// </summary>
+    public void PlayDeathAndFree(string anim, float linger, Vector2 drift, Vector2 launch)
     {
+        _deathVel = launch;
+        _deathSpin = launch == Vector2.Zero ? 0f : Math.Sign(launch.X == 0f ? 1f : launch.X) * Math.Clamp(launch.Length() / 140f, 0.4f, 1.6f) * Tune.Feel.DeathSpin;
+        if (launch != Vector2.Zero) drift = Vector2.Zero;
         var pos = GlobalPosition;
         var rotation = GlobalRotation;
         var parent = GetParent();

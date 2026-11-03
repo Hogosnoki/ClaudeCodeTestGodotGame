@@ -515,6 +515,10 @@ upgrades and form; `Hero.FallReachShare`), so no jump, however high upgrades mak
 little farther unhurt. An ordinary jump reaches the terminal speed only in its last few pixels and costs nothing, and anything
 that brakes the fall on the way down (a second jump, the Elementalist's updraft, a dash, grabbing a rope, water, a creature's form) starts
 the count afresh, so a long fall is easily softened. It never takes the last of anyone's health. `--scenario=fall` checks it.
+**A creature's death** throws its body gently along the killing blow (a little faster for a harder one), with a little lift, turning
+over slightly as it slows and falls, while its death plays and it fades away (`Enemy.DeathLaunch`, `SpriteAnimator.DeathFlight`,
+`Tune.Feel.DeathLaunch` and the rest): a cheap stand-in for a ragdoll, with no physics bodies. A boss's heavy body moves far less; it stops
+where it meets rock; and creatures whose deaths already drift their own way (ghosts rising, things in the water) keep that.
 Swimming has a breath meter; you take drowning damage when it runs out and the audio is muffled
 while your head is underwater. Sparse air vents on the flooded cave floor release a big bubble
 every 4-9 s. Swim into one for 4 s of air (`Hero.AirBubbleBreath`, `Hero.AirVents`). Water soaks up a quarter of your speed when you plunge in and
@@ -1033,9 +1037,9 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   | Rogue | Shadow Haze / Venom Bloom | under the Death Blossom: shadow that blinds and lays open, or venom that eats and entangles |
 
   The shards of a zone's element (ice, glowing magma, thorns, shadow crystals: `BlizzardView.BuildInfused` in Render3D/Props/PropViews.cs)
-  stand along the play's own plane, where the ground is cut: spread across the zone's width but only a thin band deep, mostly behind
-  the plane and at most 0.4 m toward the camera (`InfusedFront`; 1.5 m behind, `InfusedBack`), never leaning toward it, the few in front
-  kept small. (A big zone's shards used to scatter far out toward the camera and hide the whole fight.)
+  never come out of the ground toward the camera: they stand along the play's own plane, where the ground is cut, spread across the
+  zone's width in a thin band just behind it (up to 1.5 m, `InfusedBack`), each set back by its own girth so even its nearest face
+  stays behind the plane, leaning only away from the camera. (A big zone's shards used to scatter out toward the camera and hide the fight.)
 
   How they're dealt: when a level's pick rolls a Legendary boon, half the time it's one of your infusions instead; a milestone's last card is one about a third of the time. Online, the zones show for everyone with their element and look.
 - **Graded shrines: the loot shows its rarity before you open it** (Combat/Pickups.cs `Chest.Grade`, Render3D/Props/PropViews.cs `BuildShrine`, `Tune.Shrine`). Each upgrade shrine (the floating crystal flower) rolls its grade when it's made, from the level's seed so everyone online sees the same flower: Uncommon about 58%, Rare 27%, Epic 11%, Legendary 3-4% (the finer ones a little likelier deeper down; a guardian's is Rare or better). When it's opened, its finest card is of exactly that grade: nothing finer is dealt, and if none of its cards is of that grade, a boon of that grade (or, for a Legendary one, sometimes one of your infusions) takes the last place. The flower grows grander with its grade:

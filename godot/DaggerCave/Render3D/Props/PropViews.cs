@@ -866,8 +866,8 @@ public partial class BlizzardView : PropView
 
     /// <summary>An infusion's zone stands on the ground: shards of its element rising round it (ice, glowing magma, thorns, shadow
     /// crystals) and a glow pooled beneath.</summary>
-    /// <summary>How far behind the play's plane an infusion's shards may stand, and how far in front of it (toward the camera), in metres.</summary>
-    private const float InfusedBack = 1.5f, InfusedFront = 0.4f;
+    /// <summary>How far behind the play's plane an infusion's shards may stand (metres); none stands in front of it.</summary>
+    private const float InfusedBack = 1.5f;
 
     private void BuildInfused(Blizzard z)
     {
@@ -888,19 +888,19 @@ public partial class BlizzardView : PropView
         var rng = new Random((int)(GetInstanceId() % 10000));
         var mb = new MeshBuilder();
         int n = 10 + (int)(r * 6f);
-        // (they stand along the play's own plane, where the ground is cut: spread across the zone's width, but only a thin band deep,
-        // mostly behind the plane and hardly any way toward the camera (a big zone's shards out in front hid the whole fight), and they
-        // never lean toward it; the few in front are kept small)
-        float back = Math.Min(r * 0.3f, InfusedBack), front = Math.Min(r * 0.08f, InfusedFront);
+        // (they stand along the play's own plane, where the ground is cut, and never come out of the ground toward the camera: spread
+        // across the zone's width, in a thin band just behind the plane, each set back by its own girth so even its nearest face stays
+        // behind it, leaning only away from the camera. A big zone's shards out in front once hid the whole fight.)
+        float back = Math.Min(r * 0.3f, InfusedBack);
         for (int k = 0; k < n; k++)
         {
             float x = r * (((float)rng.NextDouble() * 2f - 1f) * (0.25f + 0.75f * (float)Math.Sqrt(rng.NextDouble())));
-            float zt = (float)rng.NextDouble();
-            float dz = zt < 0.8f ? -back * (zt / 0.8f) : front * ((zt - 0.8f) / 0.2f);
+            float big = 1f - 0.5f * Math.Abs(x) / r;
+            float girth = r * 0.07f * big;
+            float dz = -girth * 1.15f - back * (float)rng.NextDouble();
             var at = new Vector3(x, floor, dz);
             var dir = new Vector3(((float)rng.NextDouble() - 0.5f) * 0.8f, 1f, -(float)rng.NextDouble() * 0.3f).Normalized();
-            float big = (1f - 0.5f * Math.Abs(x) / r) * (dz > 0f ? 0.6f : 1f);
-            DesignKit.CrystalAt(mb, at, dir, r * 0.07f * big, r * (0.25f + 0.35f * (float)rng.NextDouble()) * big, Colors.White, (float)rng.NextDouble());
+            DesignKit.CrystalAt(mb, at, dir, girth, r * (0.25f + 0.35f * (float)rng.NextDouble()) * big, Colors.White, (float)rng.NextDouble());
         }
         _shards = PropViews.Mesh(mb, mat, false);
         _shards.Position = Vector3.Zero;

@@ -957,6 +957,7 @@ public abstract partial class Enemy : CharacterBody2D
     public float Hurt(float dmg, Vector2 knock, Vector2 hitPos, DamageKind kind = DamageKind.Physical)
     {
         if (Dead || !CanBeHit) return 0;
+        NoteBlow(knock, hitPos);
         // weakness and resistance (a copy works it out before the blow goes to the host, which then takes it as it is);
         // armour that has come off no longer turns a blow
         _affinity = kind == DamageKind.Raw ? 1f : Affinity.Mult(Element, kind);
@@ -1165,8 +1166,36 @@ public abstract partial class Enemy : CharacterBody2D
         BrainFlush(terminal: true);
         if (Net.IsHost && !_goneSent) { _goneSent = true; NetSync.EnemyGone(this, true); }
         OnDeath?.Invoke(this);
-        Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
+        Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift, DeathLaunch());
         QueueFree();
+    }
+
+    private Vector2 _blowDir;
+    private float _blowForce;
+
+    /// <summary>Keeps which way the latest blow drove it, and how hard (its body is thrown that way if the blow kills it).</summary>
+    private void NoteBlow(Vector2 knock, Vector2 hitPos)
+    {
+        var d = knock.LengthSquared() > 1f ? knock : GlobalPosition - hitPos;
+        if (d.LengthSquared() < 0.01f) d = new Vector2(-Face, 0f);
+        _blowDir = d.Normalized();
+        _blowForce = knock.Length();
+    }
+
+    /// <summary>
+    /// How its body is thrown as it dies: gently along the killing blow (a little faster for a harder one), with a little lift, a
+    /// heavy boss's far less; nothing for one whose death drifts its own way (a ghost rising, a fish in the water).
+    /// </summary>
+    private Vector2 DeathLaunch()
+    {
+        if (DeathDrift != Vector2.Zero) return Vector2.Zero;
+        var dir = _blowDir == Vector2.Zero ? (Velocity.LengthSquared() > 100f ? Velocity.Normalized() : new Vector2(-Face, 0f)) : _blowDir;
+        float speed = Math.Min(Tune.Feel.DeathLaunchMax, Tune.Feel.DeathLaunch + _blowForce * 0.25f);
+        if (IsBoss || IsGuardian) speed *= Tune.Feel.DeathHeavy;
+        var v = dir * speed + new Vector2(0f, -Tune.Feel.DeathLift * (IsBoss || IsGuardian ? Tune.Feel.DeathHeavy : 1f));
+        // (never driven down into the floor it lies on)
+        if (v.Y > 0f && OnGround) v.Y = -Tune.Feel.DeathLift * 0.5f;
+        return v;
     }
 
     // ================================================================== online copies
@@ -1303,7 +1332,7 @@ public abstract partial class Enemy : CharacterBody2D
         if (Dead) return;
         Dead = true;
         OnPuppetGone(died);
-        if (died) Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift);
+        if (died) Anim?.PlayDeathAndFree("death", Elite ? 1.2f : 0.5f, DeathDrift, DeathLaunch());
         QueueFree();
     }
 
