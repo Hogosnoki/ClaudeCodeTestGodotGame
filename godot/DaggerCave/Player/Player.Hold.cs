@@ -11,11 +11,15 @@ namespace DaggerCave;
 /// they carry on at full speed from where the slow motion left them), with no jumping,
 /// no dodging, animated in the cast to show it is under way (the animation lasts as long as the wind-up does);
 /// then the cast goes off. A stun, a freeze, a web, a snag or a death cuts it short and the cast is lost.
+/// A wind-up never holds up another ability (Player.Cancel.cs): anything pressed meanwhile starts at once, and a second
+/// cast's wind-up gathers alongside the first, each going off in its own time.
 /// </summary>
 public partial class Player
 {
-    private float _holdT, _holdTotal;
-    private Action _holdFire;
+    /// <summary>The wind-ups gathering (the latest last): each its time left, its length and what it fires.</summary>
+    private readonly System.Collections.Generic.List<(float Left, float Total, Action Fire)> _holds = new();
+    private float _holdT => _holds.Count > 0 ? _holds[^1].Left : 0f;
+    private float _holdTotal => _holds.Count > 0 ? _holds[^1].Total : 0f;
 
     /// <summary>The hero is gathering a cast: slowed to a tenth (the Rupture's seizing counts too).</summary>
     public bool Holding => _holdT > 0f || _ruptureT >= 0f;
@@ -49,18 +53,16 @@ public partial class Player
         if (seconds <= 0.001f) { fire(); return; }
         LastHold = seconds;
         LastHoldDrift = 0f;
-        _holdPos = GlobalPosition;
-        _holdT = _holdTotal = seconds;
-        _holdFire = fire;
+        if (_holds.Count == 0) _holdPos = GlobalPosition;
+        _holds.Add((seconds, seconds, fire));
         Anim.OnceFor(clip, 3, seconds);
         _castGlow = Math.Max(_castGlow, glow * 0.6f);
     }
 
     private void CancelHold()
     {
-        if (_holdT > 0f) ResumeFromHold();
-        _holdT = 0f;
-        _holdFire = null;
+        if (_holds.Count > 0) ResumeFromHold();
+        _holds.Clear();
     }
 
     /// <summary>The wind-up is over: the hero's motion was only slowed, never stopped, so it simply goes on at full speed.</summary>
@@ -68,16 +70,23 @@ public partial class Player
 
     private void TickHold(float dt)
     {
-        if (_holdT <= 0f) return;
+        if (_holds.Count == 0) return;
         if (Dead || Stunned || Frozen || Webbed || _snagT > 0f) { CancelHold(); return; }
         LastHoldDrift = Math.Max(LastHoldDrift, GlobalPosition.DistanceTo(_holdPos));
-        _holdT -= dt;
         // (a faint gathering glow while it builds)
-        _castGlow = Math.Max(_castGlow, 0.25f + 0.35f * HoldProgress);
-        if (_holdT > 0f) return;
-        ResumeFromHold();
-        var fire = _holdFire;
-        _holdFire = null;
-        fire?.Invoke();
+        _castGlow = Math.Max(_castGlow, 0.25f + 0.35f * Math.Max(0f, 1f - (_holds[^1].Left - dt) / Math.Max(0.01f, _holds[^1].Total)));
+        // each wind-up runs down; those that are over go off, oldest first (one may begin another as it goes off)
+        var due = new System.Collections.Generic.List<Action>();
+        for (int k = _holds.Count - 1; k >= 0; k--)
+        {
+            var h = _holds[k];
+            h.Left -= dt;
+            if (h.Left > 0f) { _holds[k] = h; continue; }
+            _holds.RemoveAt(k);
+            due.Insert(0, h.Fire);
+        }
+        if (due.Count == 0) return;
+        if (_holds.Count == 0) ResumeFromHold();
+        foreach (var fire in due) fire?.Invoke();
     }
 }

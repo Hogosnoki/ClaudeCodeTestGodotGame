@@ -179,7 +179,8 @@ public partial class Player
 
     private bool StartWhirl()
     {
-        if (Heaving || _dodgeT > 0f) return false;
+        CutSwing();
+        CutDodge();
         _whirlPulses = Tune.Big.WhirlPulses + Tune.Growth.WhirlExtraPulses * Stats.SpecialExtra;
         _whirlT = Tune.Big.WhirlTime / Tune.Big.WhirlPulses * _whirlPulses;
         _whirlTick = 0f;
@@ -318,7 +319,8 @@ public partial class Player
 
     private bool StartGreatBash(Vector2 aim)
     {
-        if (!IsWarden || _bashT > 0 || _dashT > 0) return false;
+        if (!IsWarden) return false;
+        CutShieldMoves();
         var d = new Vector2(Math.Abs(aim.X) > 0.2f ? Math.Sign(aim.X) : Facing, 0);
         _gbashDir = d;
         Facing = d.X;
@@ -546,7 +548,8 @@ public partial class Player
 
     private bool StartBlossom()
     {
-        if (!IsRogue || _tetherTo != null) return false;
+        if (!IsRogue) return false;
+        CutTether();
         _blossomMax = Tune.Big.BlossomVolleys + Stats.SpecialExtra + (BigForm("b") ? Tune.Growth.SteelVolleys : 0);
         float tick = Tune.Big.BlossomTime / Tune.Big.BlossomVolleys;
         _blossomT = tick * _blossomMax;

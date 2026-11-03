@@ -655,7 +655,7 @@ public partial class Player : CharacterBody2D
 
         // the dodge button: the Swordsman rolls, the Vitalist hexes, the Elementalist raises an
         // updraft, the Rogue vanishes (the Warden's raises her shield)
-        if (_dodgeBuf > 0 && _heldRope == null && !Holding && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); Stats.On.RaiseDodge(this); }
+        if (_dodgeBuf > 0 && _heldRope == null && DodgeButton(_dodgeInput)) { _dodgeBuf = 0; RunMetrics.Used(this, 3); Stats.On.RaiseDodge(this); }
         // (an elemental lift the button gave: at least this fast upward; an element's movement: this motion, from here)
         if (_liftTo is float up) { v.Y = Math.Min(v.Y, up); _liftTo = null; _jumpCutDone = true; }
         if (_moveTo is Vector2 mv) { v = mv; _moveTo = null; _jumpCutDone = true; _coyote = 0; }
@@ -729,14 +729,13 @@ public partial class Player : CharacterBody2D
         else _terminalT += dt;
         _wasOnFloor = nowFloor;
 
-        // the attack button, then the two ability buttons (each fires once it's allowed); held
-        // down, the attack goes again as soon as it can, wherever you aim now
-        if (Holding) { }
-        else if (_attackBuf > 0 && Primary(_attackAim)) { _attackBuf = 0; RunMetrics.Used(this, 0); }
+        // the attack button, then the two ability buttons (each fires once its own cooldown allows: never waiting on another
+        // ability under way, Player.Cancel.cs); held down, the attack goes again as soon as it can, wherever you aim now
+        if (_attackBuf > 0 && Primary(_attackAim)) { _attackBuf = 0; RunMetrics.Used(this, 0); }
         else if (inp.AttackHeld && _attackBuf <= 0 && Primary(inp.Aim.LengthSquared() > 0.01f ? inp.Aim.Normalized() : new Vector2(Facing, 0), held: true, stick: inp.StickAttack)) RunMetrics.Used(this, 0);
-        if (!Holding && _abilityBuf > 0 && Ability(_abilityAim)) { _abilityBuf = 0; RunMetrics.Used(this, 1); }
-        if (!Holding && _ability2Buf > 0 && Ability2(_ability2Aim)) { _ability2Buf = 0; RunMetrics.Used(this, 2); }
-        if (!Holding && _supportBuf > 0 && Support(_supportAim)) { _supportBuf = 0; RunMetrics.Used(this, 4); }
+        if (_abilityBuf > 0 && Ability(_abilityAim)) { _abilityBuf = 0; RunMetrics.Used(this, 1); }
+        if (_ability2Buf > 0 && Ability2(_ability2Aim)) { _ability2Buf = 0; RunMetrics.Used(this, 2); }
+        if (_supportBuf > 0 && Support(_supportAim)) { _supportBuf = 0; RunMetrics.Used(this, 4); }
         if (_swingT >= 0) UpdateSwing(dt);
         TickBash(dt);
         TickBig(dt);

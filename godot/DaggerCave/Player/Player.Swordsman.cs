@@ -71,10 +71,12 @@ public partial class Player
 
     private bool TryDodge(in PlayerInput inp)
     {
-        if (_dodgeT > 0 || _airDashT > 0 || Heaving) return false;
+        if (_dodgeT > 0 || _airDashT > 0) return false;
         int idx = -1;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] <= 0) { idx = k; break; }
         if (idx < 0) return false;
+        // (rolling out of a heaving swing: the heave ends there)
+        if (Heaving) CutSwing();
         // (the simple kit's Roll is a roll, not the dash-slash)
         bool slash = IsSwordsman && !SimpleKit;
         _dodgeSlash = slash;

@@ -56,6 +56,22 @@ public partial class Main
                 foreach (var s in Cast("heal", new PlayerInput { Ability = true }, Tune.Vitalist.HealDelay)) yield return s;
                 foreach (var _ in Wait(0.3f)) yield return null;
                 ScCheck($"heal: the healing came after the wind-up ({hp0:0} -> {p.Hp:0})", p.Hp > hp0 + 1f);
+                // a wind-up holds up nothing else: with a long one gathering (a test's, 3 s), the drain pressed goes at once, and a heal
+                // pressed meanwhile gathers alongside it and still comes in its own time
+                foreach (var _ in Wait(Tune.Vitalist.HealCooldown + 0.5f)) yield return null;
+                p.ResetAbilityCooldowns(); p.TestFill();
+                p.Hp = p.Stats.MaxHp * 0.4f;
+                float hp1 = p.Hp;
+                p.TestHold(3f);
+                int attacks = RunMetrics.Mine.Attacks;
+                _scInput = new PlayerInput { Attack = true, Aim = new Vector2(1, 0), AimGiven = true };
+                yield return null; yield return null;
+                ScCheck($"the drain pressed during a wind-up goes at once (still gathering {p.Holding}; attacks {attacks} -> {RunMetrics.Mine.Attacks})", p.Holding && RunMetrics.Mine.Attacks > attacks);
+                _scInput = new PlayerInput { Ability = true, Aim = new Vector2(1, 0), AimGiven = true };
+                yield return null; yield return null;
+                _scInput = default;
+                foreach (var _ in Wait(Tune.Vitalist.HealDelay + 0.4f)) yield return null;
+                ScCheck($"a heal pressed during it gathers alongside and comes in its own time, before the long one is over ({hp1:0} -> {p.Hp:0}, still gathering {p.Holding})", p.Hp > hp1 + 1f && p.Holding);
                 ScCheck("rupture's wind-up is 0.8 s", Math.Abs(Tune.Vitalist.RuptureWindup - 0.8f) < 0.001f);
                 break;
             }
@@ -81,6 +97,19 @@ public partial class Main
                 foreach (var _ in Wait(0.2f)) yield return null;
                 ScCheck($"a dagger is out (in hand {p.DaggersInHand})", p.DaggersInHand < 2);
                 foreach (var s in Cast("recall", new PlayerInput { Ability2 = true }, Tune.Rogue.RecallDelay)) yield return s;
+                break;
+            }
+            case HeroKind.Swordsman:
+            {
+                // nothing gathers for him; but an action under way never holds up the next: a roll pressed in a heaving swing goes at once
+                p.ResetAbilityCooldowns();
+                _scInput = new PlayerInput { Ability2 = true, Aim = new Vector2(1, 0), AimGiven = true };
+                yield return null; yield return null;
+                bool heaving = p.Heaving;
+                _scInput = new PlayerInput { Dodge = true, Move = new Vector2(-1, 0) };
+                yield return null; yield return null;
+                ScCheck($"a roll pressed during a heaving swing starts at once and ends the heave (heaving {heaving} -> {p.Heaving}, rolling {p.IsDodging})", heaving && !p.Heaving && p.IsDodging);
+                _scInput = default;
                 break;
             }
             default:

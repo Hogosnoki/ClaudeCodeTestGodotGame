@@ -128,10 +128,17 @@ public partial class Player
             case HeroKind.Rogue:
                 // (with no dagger in hand, the attack calls them home)
                 if (DaggersInHand == 0) return !stick && TryRecall(fromAttack: true);
-                ok = _tetherTo == null && TrySwing(aim, held);
+                if (_swingCd <= 0 && !held) CutTether();
+                ok = TrySwing(aim, held);
                 break;
-            case HeroKind.Warden: ok = _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held); break;
-            default: ok = !Heaving && TrySwing(aim, held); break;
+            case HeroKind.Warden:
+                if (_swingCd <= 0 && !held) CutShieldMoves();
+                ok = _dashT <= 0 && _bashT <= 0 && TrySwing(aim, held);
+                break;
+            default:
+                if (_swingCd <= 0 && !held && Heaving) CutSwing();
+                ok = !Heaving && TrySwing(aim, held);
+                break;
         }
         if (!ok) return false;
         SimpleSwing(KitRole.Primary);
@@ -156,7 +163,9 @@ public partial class Player
         {
             case HeroKind.Warden:
                 // (his dodge button is the Shield Bash: a shove of the shield that strikes, stuns and turns shots back)
-                if (_dashT > 0 || _gbashT > 0 || !TryShieldBash(aim)) return false;
+                if (_bashCd > 0 || _bashT > 0) return false;
+                CutShieldMoves();
+                if (!TryShieldBash(aim)) return false;
                 break;
             case HeroKind.Swordsman:
                 if (!TryDodge(inp)) return false;
@@ -469,7 +478,7 @@ public partial class Player
         {
             HeroKind.Swordsman => TryParry(aim),
             // (the Great Bash is the Warden's special, and the Charge comes here)
-            HeroKind.Warden => _bashT <= 0 && _gbashT <= 0 && TryShieldDash(aim),
+            HeroKind.Warden => TryShieldDash(aim),
             HeroKind.Elementalist => TryNova(),
             HeroKind.Vitalist => TryRupture(aim),
             HeroKind.Aegis => TryBurden(aim),
@@ -489,7 +498,9 @@ public partial class Player
     /// <summary>The Swordsman's Counter: a parry stance; the blow that lands in it is answered (see <see cref="TryCounter"/>).</summary>
     private bool TryParry(Vector2 aim)
     {
-        if (!IsSwordsman || _parryCd > 0 || Heaving || _dodgeT > 0 || _swingT >= 0) return false;
+        if (!IsSwordsman || _parryCd > 0) return false;
+        CutSwing();
+        CutDodge();
         _parryT = Tune.OtherAbility.ParryTime;
         _parryCd = Tune.OtherAbility.ParryCooldown * Stats.OtherRestMult;
         if (Math.Abs(aim.X) > 0.2f) Facing = Math.Sign(aim.X);
@@ -578,7 +589,7 @@ public partial class Player
     /// <summary>The Rogue's Shadowstep: to the far side of the creature nearest the aim, facing its back; her next jab is a sure critical.</summary>
     private bool TryShadowstep(Vector2 aim)
     {
-        if (!IsRogue || _stepCd > 0 || _tetherTo != null) return false;
+        if (!IsRogue || _stepCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var t = FindSpellTarget(aim, Tune.OtherAbility.StepRange, Tune.OtherAbility.StepCone);
         if (t == null) { SayNo("NO ONE TO STEP TO"); _stepCd = 0.4f; return true; }
@@ -587,6 +598,7 @@ public partial class Player
         var to = t.GlobalPosition + new Vector2(side * (t.HitRadius + 12f), 0);
         if (!Fits(to)) to = t.GlobalPosition + new Vector2(side * (t.HitRadius + 12f), -8f);
         if (!Fits(to) || Breakables.Blocks(GlobalPosition, to) || TrialSeal.BlocksMove(GlobalPosition, to)) { SayNo("NO ROOM BEHIND IT"); _stepCd = 0.4f; return true; }
+        CutTether();
         G.Fx.Smoke(GlobalPosition, 5, new Color(0.18f, 0.12f, 0.24f, 0.75f), 30f);
         GlobalPosition = to;
         Velocity = Vector2.Zero;

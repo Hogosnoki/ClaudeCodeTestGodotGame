@@ -1787,14 +1787,31 @@ Some casts gather for a moment before they go off, to give them weight (`Player/
 (`Aegis.ShieldDelay`), the Elementalist's **firebolt** 0.2 s, **frostbolt** 0.1 s, **Blizzard** 0.5 s (`Elementalist.FireDelay` / `FrostDelay` /
 `BlizzardDelay`) and **Stalag-Might** 1 s (`Support.StalagDelay`), and the Rogue's **recall** 0.4 s (`Rogue.RecallDelay`).
 - The cost is paid and the cooldown started at the press. Then, for the wind-up, the hero is **slowed to a tenth** of its speed (`Tune.Hold.MoveShare`: walking,
-  swimming and falling alike, so the weight is felt without being frozen): no jumping, no dodging, no new attack or ability. The hero is animated in the cast
+  swimming and falling alike, so the weight is felt without being frozen), with no jumping; but any other attack, ability or dodge
+  pressed meanwhile starts at once (see *Abilities never wait on each other* below), and a second wind-up gathers alongside the first,
+  each going off in its own time. The hero is animated in the cast
   (`SpriteAnimator.OnceFor` stretches the clip to the wind-up's length) with a gathering glow; then the cast goes off, aimed where the aim
   and the nearest creature are by then.
 - A stun, freeze, web, snag or death cuts the wind-up short and the cast is lost.
 - The Rogue's dagger throw and slash have none. The **throw** now does 60% of a dagger slash (`ThrowDamage = Damage * 0.6`, was 120%) and the
   **recall** 60% as well (was 150%), so he is no longer best at range.
-- `--scenario=holds --hero=NAME` (vitalist, elementalist, aegis, rogue) checks each wind-up's length, that walking was pushed the whole time
-  and the hero crept at no more than a tenth of its speed, and that the cast went off after.
+- `--scenario=holds --hero=NAME` (vitalist, elementalist, aegis, rogue, swordsman) checks each wind-up's length, that walking was pushed the whole time
+  and the hero crept at no more than a tenth of its speed, and that the cast went off after; the Vitalist's drain pressed during the
+  heal's wind-up going off at once with the heal still coming; and the Swordsman's roll pressed in a heaving swing starting at once.
+
+### Abilities never wait on each other
+
+An attack or ability pressed while another is under way starts **at once**, so a blow can be timed to the instant without fighting
+your own last move (`Player/Player.Cancel.cs`). Only the ability's own cooldown can make it wait (a press is still remembered for
+`Hero.PressBuffer`, 0.22 s, so one made just before the cooldown ends goes the moment it does).
+- A cast's **wind-up** goes on gathering and goes off on time; whatever was pressed meanwhile happens alongside it.
+- An action that holds the hero's body gives way to the new one: a **roll** or air dash, a **swing** (a heaving swing too), the
+  Warden's **charge** and **shield bash**, the Rogue's **tether** pull (the dagger flies home by itself). The Counter, the Whirl, the
+  Great Bash, the Death Blossom and the Shadowstep each cut whatever of these is under way; a fresh swing cuts a heave, a charge or a
+  bash (holding the attack down never cuts anything); the shield bash cuts the charge and the charge the bash. The Great Bash's wind-up
+  gathers on whatever comes after it.
+- An action is cut only when the new one is sure to start (its cooldown is ready), so a press too early never costs you the move under way.
+- The Shape Shifter's forms and the Automaton's stances (bracing, pressurising) are states rather than moves and keep their own rules.
 
 The Automaton's clinking now sounds only while it is **building** pressure; once pressurized it stays quiet but glows as brightly as it did at
 the end of the build-up (shaking a little, with steam and sparks).

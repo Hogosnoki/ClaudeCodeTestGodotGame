@@ -213,6 +213,7 @@ public partial class Player
     private bool TryShieldDash(Vector2 aim)
     {
         if (!IsWarden || (!AbilityChargeReady && !(Elemental && Tune.Testing.NoCooldowns)) || _dashT > 0 || EarthShieldUp) return false;
+        _bashT = 0f; // (a shield bash under way gives way to the charge)
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         float time = Stats.DashTime;
         // Guardian's Charge: to the friend nearest your aim, wrapping them in a barrier (alone, you)
