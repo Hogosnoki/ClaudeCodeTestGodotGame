@@ -63,6 +63,7 @@ public partial class Main
         "struck" => "entrance",
         "gold" => "slime",
         "dashslash" => "entrance",
+        "dash" => "entrance",
         "hive" => "nest",
         "hordes" => "entrance",
         "trial" => "entrance",
@@ -175,6 +176,7 @@ public partial class Main
             case "struck": StruckScenario(); break;
             case "gold": GoldScenario(); break;
             case "dashslash": DashSlashScenario(); break;
+            case "dash": SwordDashScenario(); break;
             case "hive": HiveScenario(); break;
             case "hordes": HordesScenario(); break;
             case "trial": TrialScenario(); break;

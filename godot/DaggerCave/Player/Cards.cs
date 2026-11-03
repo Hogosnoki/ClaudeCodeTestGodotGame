@@ -34,7 +34,7 @@ public static class Cards
     };
     private static string DefensiveOf(HeroKind h) => h switch
     {
-        HeroKind.Swordsman => "Roll", HeroKind.Elementalist => "Blink", HeroKind.Warden => "Shield",
+        HeroKind.Swordsman => "Dash", HeroKind.Elementalist => "Blink", HeroKind.Warden => "Shield Bash",
         HeroKind.Vitalist => "Mending", HeroKind.Aegis => "Barrier", _ => "Vanish",
     };
     private static string AgainText(HeroKind h) => h switch
@@ -105,6 +105,41 @@ public static class Cards
             list.Add(new() { Id = $"g_{id}_ohard", Name = $"Mighty {ot}", Desc = OtherHardText(h, ot), Icon = "spell", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "offence" }, Apply = OtherHard(h) });
             // the dodge
             list.Add(new() { Id = $"g_{id}_dsoon", Name = $"Ready {de}", Desc = DefSoonText(h, de), Icon = "dodge", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" }, Apply = DefSoon(h) });
+            // the ways of getting about, and the defence itself, grown
+            float far = Tune.Growth.FarStep, hard = Tune.Growth.DefHard;
+            switch (h)
+            {
+                case HeroKind.Swordsman:
+                    list.Add(new() { Id = "g_swo_dfar", Name = "Far Dash", Desc = $"The Dash carries you {Pct(far)} further.", Icon = "move", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "mobility" },
+                        Apply = (s, p) => s.DodgeDistMult *= far });
+                    list.Add(new() { Id = "g_swo_dghost", Name = "Phantom Dash", Desc = "Nothing can strike you while you dash.", Icon = "dodge", For = f, Ability = de, MaxStacks = 1, Tier = UpgradeTier.Ability, Tags = new[] { "defence", "mobility" },
+                        Apply = (s, p) => s.DodgeIFrames = true });
+                    break;
+                case HeroKind.Elementalist:
+                    list.Add(new() { Id = "g_ele_dfar", Name = "Far Blink", Desc = $"The Blink carries you {Pct(far)} further.", Icon = "move", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "mobility" },
+                        Apply = (s, p) => s.BlinkRangeMult *= far });
+                    break;
+                case HeroKind.Warden:
+                    list.Add(new() { Id = "g_war_ofar", Name = "Long Charge", Desc = $"The Charge carries you {Pct(far)} further.", Icon = "move", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "mobility" },
+                        Apply = (s, p) => s.DashTime *= far });
+                    list.Add(new() { Id = "g_war_dhard", Name = "Mighty Shield Bash", Desc = $"The Shield Bash strikes {Pct(hard)} harder and stuns {Pct(hard)} longer.", Icon = "shield", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence", "offence" },
+                        Apply = (s, p) => s.BashPowerMult *= hard });
+                    break;
+                case HeroKind.Vitalist:
+                    list.Add(new() { Id = "g_vit_dhard", Name = "Rich Mending", Desc = $"The Mending mends {Pct(hard)} more.", Icon = "life", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence", "sustain" },
+                        Apply = (s, p) => s.HealMult *= hard });
+                    break;
+                case HeroKind.Aegis:
+                    list.Add(new() { Id = "g_aeg_dhard", Name = "Thick Barrier", Desc = $"The Barrier holds {Pct(hard)} more.", Icon = "shield", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" },
+                        Apply = (s, p) => s.BarrierMult *= hard });
+                    break;
+                case HeroKind.Rogue:
+                    list.Add(new() { Id = "g_rog_ofar", Name = "Long Shadowstep", Desc = $"The Shadowstep reaches creatures {Pct(far)} further off.", Icon = "move", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "mobility" },
+                        Apply = (s, p) => s.StepRangeMult *= far });
+                    list.Add(new() { Id = "g_rog_dlong", Name = "Deep Vanish", Desc = $"The Vanish lasts {Tune.Growth.VanishLonger:0.#} s longer.", Icon = "dodge", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" },
+                        Apply = (s, p) => s.VanishBonus += Tune.Growth.VanishLonger });
+                    break;
+            }
         }
         return list;
     }

@@ -221,6 +221,9 @@ public sealed class PlayerStats
     public bool DeathWard;
     /// <summary>Moving: extra seconds of coyote time and of jump buffer; air acceleration and the fastest fall (x); the speed gained after running a second (a share); dash and dodge speed (x); the wall slide's speed (x).</summary>
     public float CoyoteBonus, BufferBonus, AirAccelMult = 1f, FallCapMult = 1f, SprintBonus, DashSpeedMult = 1f, WallSlideMult = 1f;
+    /// <summary>The level cards for the heroes' movement and defence: how far the Swordsman's Dash goes, the Elementalist's Blink, the
+    /// Rogue's Shadowstep (x this), and how hard the Warden's Shield Bash strikes and stuns.</summary>
+    public float DodgeDistMult = 1f, BlinkRangeMult = 1f, StepRangeMult = 1f, BashPowerMult = 1f;
     /// <summary>Gathering: experience (x), the chance a creature drops a heart, and keys carried beyond the usual.</summary>
     public float XpMult = 1f, HeartChanceBonus, KeyCapBonus;
     /// <summary>How much gold a pick-up is worth (x), and how far past the usual a hero's pick-ups reach (px).</summary>
@@ -547,10 +550,10 @@ public static partial class Upgrades
         new() { Id = "staff_dmg", Name = "Weighted Staff", Desc = "Your staff hits 30% harder.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 3, Apply = (s, p) => s.PrimaryDamageMult *= 1f + 0.3f },
         new() { Id = "staff_reach", Name = "Long Grip", Desc = "Your staff reaches 18% farther.", Icon = "blade", For = SH, Ability = "staff", MaxStacks = 2, Apply = (s, p) => s.DaggerReach *= 1f + 0.18f },
         new() { Id = "shift_cd", Name = "Quick Change", Desc = "Shift comes back 20% sooner.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.AbilityCdMult *= 0.8f },
-        new() { Id = "shift_range", Name = "Keen Eye", Desc = "You can copy creatures 40% farther away.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.ShiftRangeMult *= 1f + 0.4f },
+        new() { Id = "shift_range", Name = "Long Gaze", Desc = "You can copy creatures 40% farther away.", Icon = "move", For = SH, Ability = "shift", MaxStacks = 2, Apply = (s, p) => s.ShiftRangeMult *= 1f + 0.4f },
         new() { Id = "shift_heal", Name = "Mending Change", Desc = "Taking a form heals you for 7% of your health.", Icon = "life", For = SH, Ability = "shift", Tier = UpgradeTier.Ability, Apply = (s, p) => s.ShiftHeals = true },
         new() { Id = "form_dmg", Name = "Honed Fangs", Desc = "Every form's attacks hit 15% harder.", Icon = "blade", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormDmgMult *= 1f + 0.15f },
-        new() { Id = "form_armor", Name = "Thick Hide", Desc = "Every form shrugs off 8% more of the blows it takes.", Icon = "shield", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormArmorAdd += 0.08f },
+        new() { Id = "form_armor", Name = "Tough Forms", Desc = "Every form shrugs off 8% more of the blows it takes.", Icon = "shield", For = SH, Ability = "form", MaxStacks = 3, Apply = (s, p) => s.FormArmorAdd += 0.08f },
         new() { Id = "form_speed", Name = "Fleet Form", Desc = "Every form moves 10% faster.", Icon = "move", For = SH, Ability = "form", MaxStacks = 2, Apply = (s, p) => s.FormSpeedAdd += 0.1f },
         new() { Id = "spec_cd", Name = "Practiced Tricks", Desc = "Form specials come back 15% sooner.", Icon = "move", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecCdMult *= 0.85f },
         new() { Id = "spec_dmg", Name = "Savage Tricks", Desc = "Form specials hit 15% harder.", Icon = "blade", For = SH, Ability = "special", MaxStacks = 3, Apply = (s, p) => s.FormSpecDmgMult *= 1f + 0.15f },
@@ -621,7 +624,7 @@ public static partial class Upgrades
         // ================= more upgrades: always a gain, a plain number or a small rule; they stack (see also: relics, which are one-offs, and bargains, which cost something)
         // --- Offence ---
         new() { Id = "crit", Name = "Keen Eye", Desc = "Your hits are 5% likelier to be critical.", Icon = "blade", MaxStacks = 5, Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritChance += 0.05f },
-        new() { Id = "critdmg", Name = "Deadly Aim", Desc = "Your critical hits land 25% harder.", Icon = "blade", MaxStacks = 3, Requires = "crit", Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritMult += 0.25f },
+        new() { Id = "critdmg", Name = "Deadly Aim", Desc = "Your critical hits land 25% harder.", Icon = "blade", MaxStacks = 3, When = s => s.GenCritChance > 0f, Tags = new[] { "offence", "crit" }, Apply = (s, p) => s.GenCritMult += 0.25f },
         new() { Id = "opportunist", Name = "Opportunist", Desc = "Hit creatures that are burning, chilled, frozen, poisoned or stunned 16% harder.", Icon = "blade", MaxStacks = 2, Tags = new[] { "offence", "status" }, Apply = (s, p) => s.VsStatusMult *= 1.16f },
         new() { Id = "slayer", Name = "Giant Slayer", Desc = "Hit mini-bosses, guardians and bosses 15% harder.", Icon = "blade", MaxStacks = 4, Tags = new[] { "offence" }, Apply = (s, p) => s.VsBigMult *= 1.15f },
         new() { Id = "firstblood", Name = "First Blood", Desc = "Hit creatures at full health 15% harder.", Icon = "blade", MaxStacks = 3, Tags = new[] { "offence" }, Apply = (s, p) => s.VsFreshMult *= 1.15f },
@@ -733,6 +736,19 @@ public static partial class Upgrades
     public static bool RetiredByElements(string id) => id is "charge_cd" or "charge2" or "cripple" or "charge_combo" or "heave_swift"
         or "kindling" or "deepchill" or "shrapnel" or "bolt_frost" or "blizzard_fire" or "snap_cinder" || BashCard(id);
 
+    /// <summary>
+    /// Cards whose ability the heroes' kits no longer have (Player/Simple.cs): the Swordsman's Charged Strike; the Warden's shield to recharge
+    /// and his Charge already running through what it meets; the Elementalist's alimus and her old chances to set alight or freeze solid
+    /// (the elements' build-up does that now); the Rogue's thrown daggers and their recall.
+    /// </summary>
+    public static bool NotInTheKits(string id) => id is "relic_s_fire" or "relic_w_siphon" or "relic_w_ram" or "relic_e_blood" or "relic_e_overload"
+        or "relic_e_burnheart" or "relic_e_rime" or "relic_r_lone" or "relic_r_hemo" or "relic_r_wound";
+
+    /// <summary>The chest's plain stats that the graded boons now deal (attack, damage, speed, jump, health, defence, criticals, air speed,
+    /// experience), and the Long Dash the Swordsman's own Far Dash replaced. Kept, so a hero who has them still reads right.</summary>
+    public static bool SupersededByBoons(string id) => id is "dmg" or "atkspd" or "speed" or "jump" or "hp" or "armor" or "crit" or "windstep"
+        or "hardy" or "relentless" or "scholar" or "longdash";
+
     /// <summary>The Shield Bash's cards (the elemental Warden has no bash).</summary>
     private static bool BashCard(string id) => id is "bash_cd" or "bash_dense" or "bash_deflect" or "deflect_double";
 
@@ -776,7 +792,9 @@ public static partial class Upgrades
         if (u.For != null && Array.IndexOf(u.For, s.Hero) < 0) return false;
         if (u.Multi && !(Net.Online && Net.Count > 1)) return false;
         // (the heroes that grow by the new cards are past their old trees; their double jump and wall jump are their own already)
-        if (Cards.Grows(s.Hero) && (OldKitCard(u) || u.Id is "djump" or "walljump")) return false;
+        if (Cards.Grows(s.Hero) && (OldKitCard(u) || u.Id is "djump" or "walljump" || NotInTheKits(u.Id))) return false;
+        // (the plain stats the graded boons deal now, for everyone: Player/Boons.cs)
+        if (SupersededByBoons(u.Id)) return false;
         // (no lungs to deepen or drown, and a steam hop already its second jump)
         if (s.Breathless && u.Id is "breath" or "rr_lungs" or "djump") return false;
         if (s.StackOf(u.Id) >= u.MaxStacks) return false;

@@ -53,7 +53,7 @@ public static class Elements
     /// <summary>A simple kit's ability, whatever its element.</summary>
     public static string Noun(HeroKind h, KitRole r) => SpecialNoun(h, r) ?? (h, r) switch
     {
-        (HeroKind.Swordsman, KitRole.Primary) => "Strike", (HeroKind.Swordsman, KitRole.Defensive) => "Roll", (HeroKind.Swordsman, KitRole.Special) => "Cleave",
+        (HeroKind.Swordsman, KitRole.Primary) => "Strike", (HeroKind.Swordsman, KitRole.Defensive) => "Dash", (HeroKind.Swordsman, KitRole.Special) => "Cleave",
         (HeroKind.Warden, KitRole.Primary) => "Cut", (HeroKind.Warden, KitRole.Defensive) => "Shield Bash", (HeroKind.Warden, KitRole.Special) => "Charge",
         (HeroKind.Elementalist, KitRole.Primary) => "Bolt", (HeroKind.Elementalist, KitRole.Defensive) => "Blink", (HeroKind.Elementalist, KitRole.Special) => "Burst",
         (HeroKind.Vitalist, KitRole.Primary) => "Drain", (HeroKind.Vitalist, KitRole.Defensive) => "Mending", (HeroKind.Vitalist, KitRole.Special) => "Hex",

@@ -1112,6 +1112,37 @@ A card is never drawn blank: if its label or text can't be made (a bug), the car
 and what it does, the trouble is logged once (`[cards] …`), and one card that fails to draw doesn't stop the rest
 (`UpgradeMenu.CardWords`).
 
+
+### The level cards, reviewed (movement and defence; what the kits no longer have)
+
+Each hero's own level cards (`Player/Cards.cs`) grow the special, the attack, the second ability and the dodge button. Besides "Ready ..."
+(sooner), the movement and defence abilities have their own now (`Tune.Growth.FarStep` 1.25, `DefHard` 1.25, `VanishLonger` 1 s):
+
+| Hero | Card | What it does |
+|---|---|---|
+| Swordsman | **Far Dash** ×2 | the Dash carries him 25% further (`DodgeDistMult`) |
+| Swordsman | **Phantom Dash** (rare) | nothing can strike him while he dashes |
+| Elementalist | **Far Blink** ×2 | the Blink carries her 25% further (`BlinkRangeMult`) |
+| Warden | **Long Charge** ×2 | the Charge carries him 25% further (`DashTime`) |
+| Warden | **Mighty Shield Bash** ×2 | the Shield Bash strikes 25% harder and stuns 25% longer (`BashPowerMult`; it used to grow with Keen Cut instead) |
+| Vitalist | **Rich Mending** ×2 | the Mending mends 25% more |
+| Aegis | **Thick Barrier** ×2 | the Barrier holds 25% more |
+| Rogue | **Long Shadowstep** ×2 | the Shadowstep reaches creatures 25% further off (`StepRangeMult`) |
+| Rogue | **Deep Vanish** ×2 | the Vanish lasts 1 s longer |
+
+The Swordsman's dodge card is **Ready Dash** (was Ready Roll), the Warden's **Ready Shield Bash** (was "Ready Shield": he has no shield to hold).
+
+**No longer dealt** (`Upgrades.NotInTheKits`, `SupersededByBoons`; kept in the data, so a hero who has one still reads right):
+- **Relics for abilities the kits don't have**: Lingering Fire (the Swordsman's Charged Strike), Siphoning Bulwark (the Warden's shield to
+  recharge), Juggernaut's Charge (his Charge already runs through everything), Blood Channeling and Overload (the Elementalist's alimus),
+  Burning Heart and Rime Heart (her old chances to set alight or freeze; the elements' build-up does it now), Lone Blade, Hemorrhage and
+  Undying Wound (the Rogue's thrown daggers and their recall).
+- **The chest's plain stats that the graded boons deal now**, for everyone: Whetstone, Quick Hands, Light Boots, Spring Step, Vitality,
+  Toughened Hide, Keen Eye, Windstep, Hardy, Relentless, Scholar (several shared a name with a boon), and Long Dash (only ever the
+  Swordsman's dodge; Far Dash replaces it). Deadly Aim now waits for any chance to strike critically, not for the Keen Eye card.
+- `--dumpdealt=PATH` writes every card each hero can be dealt today, with its text, for reviews like this one; `--scenario=dash`
+  checks the Dash (its length, a swing carrying on through it, Far Dash) and that the cards dealt fit the kits.
+
 ## Second attacks: every creature has two
 
 Every creature (`Enemies/Enemy.Secondary.cs`, numbers in its table and `Tune.Secondary`) has a second move beside what it always did, used when it's free (not mid-attack, not stunned) and its hero is in that move's range, then rested (6–8.5 s; an elite's comes sooner and winds up quicker). A hit that stuns or freezes it cuts the move short.
@@ -1797,7 +1828,7 @@ Some casts gather for a moment before they go off, to give them weight (`Player/
   **recall** 60% as well (was 150%), so he is no longer best at range.
 - `--scenario=holds --hero=NAME` (vitalist, elementalist, aegis, rogue, swordsman) checks each wind-up's length, that walking was pushed the whole time
   and the hero crept at no more than a tenth of its speed, and that the cast went off after; the Vitalist's drain pressed during the
-  heal's wind-up going off at once with the heal still coming; and the Swordsman's roll pressed in a heaving swing starting at once.
+  heal's wind-up going off at once with the heal still coming; and the old kit's Swordsman's dash-roll pressed in a heaving swing starting at once, the swing carrying on.
 
 ### Abilities never wait on each other
 
@@ -1805,12 +1836,14 @@ An attack or ability pressed while another is under way starts **at once**, so a
 your own last move (`Player/Player.Cancel.cs`). Only the ability's own cooldown can make it wait (a press is still remembered for
 `Hero.PressBuffer`, 0.22 s, so one made just before the cooldown ends goes the moment it does).
 - A cast's **wind-up** goes on gathering and goes off on time; whatever was pressed meanwhile happens alongside it.
-- An action that holds the hero's body gives way to the new one: a **roll** or air dash, a **swing** (a heaving swing too), the
+- An action that holds the hero's body gives way to the new one: a roll or air dash, a **swing** (a heaving swing too), the
   Warden's **charge** and **shield bash**, the Rogue's **tether** pull (the dagger flies home by itself). The Counter, the Whirl, the
   Great Bash, the Death Blossom and the Shadowstep each cut whatever of these is under way; a fresh swing cuts a heave, a charge or a
   bash (holding the attack down never cuts anything); the shield bash cuts the charge and the charge the bash. The Great Bash's wind-up
   gathers on whatever comes after it.
 - An action is cut only when the new one is sure to start (its cooldown is ready), so a press too early never costs you the move under way.
+- **A dash never cuts a swing.** The Swordsman's Dash (and the old kit's dodge) leaves the swing under way going, a heaving one too:
+  the blade carries on and lands where the dash takes him.
 - The Shape Shifter's forms and the Automaton's stances (bracing, pressurising) are states rather than moves and keep their own rules.
 
 The Automaton's clinking now sounds only while it is **building** pressure; once pressurized it stays quiet but glows as brightly as it did at
@@ -2482,7 +2515,7 @@ works:
 
 | | Primary attack (attack) | Defensive (dodge) | Special (ability; see "The heroes: great specials" above) | Other (second ability) | Elements |
 |---|---|---|---|---|---|
-| Swordsman | Strike: a sword swing | Roll: a dodge roll | **Whirlwind** | **Counter**: a parry stance (0.45 s); a creature's blow landing in it is turned aside and answered with a 1.5x riposte (5 s) | earth, fire, frost |
+| Swordsman | Strike: a sword swing | **Dash**: a burst along the ground (or wherever you point in the air or the water), about 150 px with its glide (`Tune.Swordsman.DashSpeed` 800 px/s for `DashTime` 0.15 s). It **never breaks off a swing**: strike, then dash, and the blade lands where he ends up, so he can strike from somewhere better; and a swing begun mid-dash doesn't stop it either | **Whirlwind** | **Counter**: a parry stance (0.45 s); a creature's blow landing in it is turned aside and answered with a 1.5x riposte (5 s) | earth, fire, frost |
 | Warden | Cut: the shortsword | **Shield Bash**: a powerful shove of the shield (30 damage, a 1.2 s stun and a big push to all within 58 px in front, shots sent back; 3.5 s). He has no shield to hold up any more. | **Great Bash** | **Charge**: a shield-first rush straight through everything in its path, each creature struck once for 24 (it carries his element) | earth, frost, wind |
 | Elementalist | Bolt (splashes) | **Blink**: a step through the air up to 120 px along the aim, short of rock (4 s). It sheds a fall: her falling speed and the fall's count go to nothing, so a blink just before landing saves her from a long drop. | **Meteor** | **Nova**: her element bursts out of her, striking and hurling back all within 115 px (8 s; of her element) | fire, frost, wind |
 | Vitalist | Drain (splashes) | Mending: the heal | **Bloom** | **Rupture**: a full reserve of vital force bursts in the creatures round her | nature, wind, water |

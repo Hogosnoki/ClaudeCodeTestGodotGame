@@ -144,7 +144,7 @@ public partial class Hud
         string what = (h, r) switch
         {
             (HeroKind.Swordsman, KitRole.Primary) => $"A swing of the sword: it {B(P)} in each creature it strikes. A **tipper**, a blow landing with the outer part of the blade, deals {Tune.Elements.TipperDamage:0.#}x and {(wind ? "shoves twice as hard" : "builds double")}: keep your distance.",
-            (HeroKind.Swordsman, KitRole.Defensive) => $"A quick roll out of harm's way. It lays on no element; but for {Tune.Elements.RiposteWindow:0.#} s after it, every blow is a tipper (the riposte).",
+            (HeroKind.Swordsman, KitRole.Defensive) => $"A quick dash, along the ground or wherever you point in the air. It never breaks off a swing: strike, then dash, and the blade lands where you end up. It lays on no element; but for {Tune.Elements.RiposteWindow:0.#} s after it, every blow is a tipper (the riposte).",
             (HeroKind.Swordsman, KitRole.Special) => $"The Hard Swing: a great two-handed blow, on your feet. It {B(S)} in each creature it strikes (a tipper, double).",
             (HeroKind.Warden, KitRole.Primary) => "A cut of the shortsword. The Warden's element isn't in his blade but in his Shield Bash and his Charge.",
             (HeroKind.Warden, KitRole.Defensive) => $"A powerful shove of the shield: everything close in front takes {Tune.Warden.HeavyBashDamage:0}, is stunned for {Tune.Warden.HeavyBashStun:0.#} s and thrown back, and shots in its way are sent back. It {B(S)} in each creature it strikes. ({Tune.Warden.HeavyBashCooldown:0.#} s)",

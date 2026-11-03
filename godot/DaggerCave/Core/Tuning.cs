@@ -102,6 +102,9 @@ public static class Tune
     /// <summary>The swordsman: medium sword, a dash-slash, and the charged strike.</summary>
     public static class Swordsman
     {
+        /// <summary>The Dash (his dodge button): a burst of <c>DashSpeed</c> px/s for <c>DashTime</c> s (about 120 px), along the ground, or
+        /// wherever the stick points in the air or the water. It never breaks off a swing: the blade carries on as he goes.</summary>
+        public static float DashSpeed = 800f, DashTime = 0.15f;
         /// <summary>Sword reach (px), damage per strike, time between swings (from one swing's start to the
         /// next's: shortening the swing itself leaves it alone), and how long the blade takes to sweep
         /// its arc (longer = heavier, slower-looking swing).</summary>
@@ -1332,6 +1335,9 @@ public static class Tune
         public static int MilestoneEvery = 5;
         public static float WideStep = 1.2f, HardStep = 1.25f, SoonStep = 0.85f, KeenStep = 1.15f, QuickStep = 1.1f, ReachStep = 1.12f;
         public static float SplashWide = 1.3f, SplashShare = 0.1f, OtherSoon = 0.8f, OtherHard = 1.3f, DefSoon = 0.82f, ShieldMend = 1.3f;
+        /// <summary>The movement and defence cards: a Dash, Blink, Charge or Shadowstep going this much further; a Shield Bash, Mending or
+        /// Barrier this much stronger; a Vanish lasting this many seconds longer.</summary>
+        public static float FarStep = 1.25f, DefHard = 1.25f, VanishLonger = 1f;
         public static float VigorStep = 1.12f, MightStep = 1.08f, FleetStep = 1.07f, HideStep = 0.93f, ThirstHeal = 1.5f, LearnStep = 1.12f;
         public static float KillRestCut = 0.35f, MomentumCut = 1.5f, OverwhelmDamage = 1.35f, OverwhelmRadius = 1.15f, ColossusHp = 1.25f;
         // (the specials' extra strokes, one per "Again")

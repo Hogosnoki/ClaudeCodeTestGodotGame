@@ -88,9 +88,9 @@ public partial class Player
     /// the attack is pressed: holding it down doesn't cut every roll short).</summary>
     private bool TrySwing(Vector2 aim, bool held = false)
     {
-        if (_swingCd > 0 || (held && _dodgeT > 0)) return false;
-        // swinging out of a roll: the roll ends but its speed carries into the strike
-        if (_dodgeT > 0) _dodgeT = 0;
+        if (_swingCd > 0 || (held && _dodgeT > 0 && !SwordDash)) return false;
+        // swinging out of a roll: the roll ends but its speed carries into the strike (the Swordsman's Dash goes on: he strikes as he goes)
+        if (_dodgeT > 0 && !SwordDash) _dodgeT = 0;
         StartSwing(aim);
         return true;
     }

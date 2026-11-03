@@ -13,8 +13,10 @@ namespace DaggerCave;
 /// </summary>
 public partial class Player
 {
-    private static float DodgeSpeed => Tune.Hero.DodgeSpeed;
-    private static float DodgeTime => Tune.Hero.DodgeTime;
+    /// <summary>The Swordsman's Dash (the simple kit's dodge button) rather than the old roll.</summary>
+    private bool SwordDash => IsSwordsman && SimpleKit;
+    private float DodgeSpeed => SwordDash ? Tune.Swordsman.DashSpeed : Tune.Hero.DodgeSpeed;
+    private float DodgeTime => SwordDash ? Tune.Swordsman.DashTime * Stats.DodgeDistMult : Tune.Hero.DodgeTime;
 
     private float[] _dodgeCd = new float[1];
     private float _dodgeT, _chargeGlowT, _heaveCd, _heaveRootT;
@@ -75,21 +77,25 @@ public partial class Player
         int idx = -1;
         for (int k = 0; k < _dodgeCd.Length; k++) if (_dodgeCd[k] <= 0) { idx = k; break; }
         if (idx < 0) return false;
-        // (rolling out of a heaving swing: the heave ends there)
-        if (Heaving) CutSwing();
-        // (the simple kit's Roll is a roll, not the dash-slash)
+        // (a dash never breaks off a swing, a heaving one included: the blade carries on as he goes, so he can move to where it should land)
+        // (the simple kit's Dash is a plain dash, not the dash-slash)
         bool slash = IsSwordsman && !SimpleKit;
         _dodgeSlash = slash;
         _slashFoe = null;
         float dur = slash ? Tune.Swordsman.DashSlashTime : DodgeTime;
         _dodgeCd[idx] = DodgeCooldownTotal;
         Vector2 d;
-        if (InWater || slash && !IsOnFloor()) d = inp.Move.LengthSquared() > 0.04f ? inp.Move.Normalized() : new Vector2(Facing, 0);
+        if (InWater || (slash || SwordDash) && !IsOnFloor()) d = inp.Move.LengthSquared() > 0.04f ? inp.Move.Normalized() : new Vector2(Facing, 0);
         else d = new Vector2(Math.Abs(inp.Move.X) > 0.2f ? Math.Sign(inp.Move.X) : Facing, 0);
         _dodgeDir = d; _dodgeT = dur;
-        if (Math.Abs(d.X) > 0.2f) Facing = Math.Sign(d.X);
-        Anim.Face((int)Facing, instant: true);
-        Anim.Once("dodge", 3, 6f / (dur * 24f));
+        bool swinging = _swingT >= 0;
+        // (mid-swing he dashes without turning round or breaking the stroke's pose: the blade keeps its aim)
+        if (!swinging)
+        {
+            if (Math.Abs(d.X) > 0.2f) Facing = Math.Sign(d.X);
+            Anim.Face((int)Facing, instant: true);
+            Anim.Once("dodge", 3, 6f / (dur * 24f));
+        }
         if (Stats.DodgeIFrames) _iframes = dur + 0.12f;
         G.Sfx.Play(slash ? "swing_heavy" : "dodge", GlobalPosition, -3, 0.05f, slash ? 1.5f : 1f);
         if (!InWater && IsOnFloor()) G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 4, 1.4f);
@@ -133,7 +139,8 @@ public partial class Player
             return v;
         }
         v = _dodgeDir * DodgeSpeed * Stats.DashSpeedMult;
-        if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.45f, 0.8f, 1f), 0.2f);
+        if (SwordDash) Afterimage.Spawn(Anim, new Color(0.55f, 0.85f, 1f), 0.22f);
+        else if (Engine.GetPhysicsFrames() % 3 == 0) Afterimage.Spawn(Anim, new Color(0.45f, 0.8f, 1f), 0.2f);
         if (_dodgeT - dt <= 0) v *= 0.45f;
         _dodgeT -= dt;
         return v;

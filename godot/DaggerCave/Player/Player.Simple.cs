@@ -527,7 +527,7 @@ public partial class Player
         if (!IsElementalist || _blinkCd > 0) return false;
         var d = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
         var from = GlobalPosition;
-        G.Cave.Raycast(from, d, Tune.OtherAbility.BlinkRange, out var hit, 4f);
+        G.Cave.Raycast(from, d, Tune.OtherAbility.BlinkRange * Stats.BlinkRangeMult, out var hit, 4f);
         var to = hit - d * 10f;
         // (short of rock, rubble walls, and a trial's wards: in, never out)
         while (to.DistanceTo(from) > 12f && (!Fits(to) || Breakables.Blocks(from, to) || TrialSeal.BlocksMove(from, to))) to -= d * 6f;
@@ -591,7 +591,7 @@ public partial class Player
     {
         if (!IsRogue || _stepCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        var t = FindSpellTarget(aim, Tune.OtherAbility.StepRange, Tune.OtherAbility.StepCone);
+        var t = FindSpellTarget(aim, Tune.OtherAbility.StepRange * Stats.StepRangeMult, Tune.OtherAbility.StepCone);
         if (t == null) { SayNo("NO ONE TO STEP TO"); _stepCd = 0.4f; return true; }
         float side = Math.Sign(t.GlobalPosition.X - GlobalPosition.X);
         if (side == 0) side = Facing;
