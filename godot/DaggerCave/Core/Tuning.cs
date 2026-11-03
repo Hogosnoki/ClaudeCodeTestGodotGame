@@ -50,7 +50,9 @@ public static class Tune
         /// FallGraceSeconds of it a landing takes FallShareMin of the hero's current health, rising to FallShareMax after FallRampSeconds
         /// more (2 s: the climb to the worst is gentle; terminal speed is 336 px/s, 0.8x the 420 before). Anything that slows the fall below that speed (a second jump, an updraft, a dash, a rope, the water) resets the count.
         /// (An ordinary jump lands just short of the terminal speed; about 0.35 s of falling reaches it, then it covers MaxFallSpeed px/s.)</summary>
-        public static float FallTerminalShare = 0.97f, FallGraceSeconds = 0.3f, FallRampSeconds = 2.0f, FallShareMin = 0.01f, FallShareMax = 0.5f;
+        /// The grace grows with the hero's own jump reach (Player.JumpReach: a full jump and every air jump on top): FallReachShare of
+        /// that height, covered at the terminal speed, is added to it, so no jump, however high upgrades make it, ever hurts.
+        public static float FallTerminalShare = 0.97f, FallGraceSeconds = 0.3f, FallRampSeconds = 2.0f, FallShareMin = 0.01f, FallShareMax = 0.5f, FallReachShare = 1.0f;
         /// <summary>Extra gravity multiplier while falling (snappier landings).</summary>
         public static float FallGravityMult = 1.2f;
         public static float CoyoteTime = 0.15f, JumpBuffer = 0.19f;
@@ -705,6 +707,10 @@ public static class Tune
         public static float XpMult = 3f;
         /// <summary>Bosses and guardians grow with depth and time by this power of the usual curve (deep ones took too long to fight).</summary>
         public static float BossGrowthPower = 0.7f;
+        /// <summary>On top of that, health grows this much more for every level down, compounding: creatures by <c>ExtraPerDepth</c>,
+        /// bosses and guardians by <c>BossExtraPerDepth</c>; the dragon takes <c>DragonStep</c> over the guardians of the stage before it
+        /// (where every other step is <c>BossExtraPerDepth</c>).</summary>
+        public static float ExtraPerDepth = 1.2f, BossExtraPerDepth = 1.3f, DragonStep = 1.5f;
     }
 
     public static class Elite
@@ -1113,7 +1119,7 @@ public static class Tune
         /// the stand trades with him instead: a relic for one of <c>TradeOffer</c> of his (kept for later; off for now).</summary>
         public static int Trades = 1, TradeOffer = 3;
         public static bool NpcTrades = false;
-        /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies; each rises <c>PerDepth</c> of itself for every level down.</summary>
+        /// <summary>Prices in gold by a card's rarity (common, uncommon, rare, relic), and his supplies, at the surface (see <c>PerDepth</c>).</summary>
         public static int PriceCommon = 8, PriceUncommon = 14, PriceRare = 24, PriceRelic = 36, PriceSupplies = 12, PriceReroll = 6, PriceToken = 14;
         /// <summary>How likely a token for dealing a choice of cards again is to be among his supplies, against the others' 1.</summary>
         public static float TokenWeight = 1.2f;
@@ -1121,7 +1127,8 @@ public static class Tune
         public static int Cards = 2, Supplies = 2;
         /// <summary>Each reroll at a stall costs this much more of its base than the one before.</summary>
         public static float RerollStep = 0.5f;
-        public static float PerDepth = 0.08f;
+        /// <summary>Every price rises this share for each level down, compounding (x1.15 a level: about x1.5 at depth 3, x3.5 at depth 9).</summary>
+        public static float PerDepth = 0.15f;
         /// <summary>His supplies: the belt of potions is filled, and <c>SuppliesHeal</c> of your health returns.</summary>
         public static float SuppliesHeal = 0.4f;
     }

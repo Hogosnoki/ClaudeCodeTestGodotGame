@@ -161,13 +161,32 @@ public partial class Player : CharacterBody2D
     /// <summary>How long it has been falling at the terminal speed.</summary>
     public float TerminalT => _terminalT;
 
+    /// <summary>
+    /// The highest this hero can get by jumping (px): a full jump and every air jump on top, as their upgrades and form have them.
+    /// A fall from no higher than that is never a hurt one.
+    /// </summary>
+    public float JumpReach
+    {
+        get
+        {
+            float g = Gravity, v = BaseJumpV * MathF.Sqrt(Math.Max(0.01f, Stats.JumpMult * FormJump));
+            float air = v * Tune.Hero.DoubleJumpMult * Stats.AirJumpMult;
+            return (v * v + AirJumpsMax * air * air) / (2f * g);
+        }
+    }
+
+    /// <summary>How long at the terminal speed a fall may last before it hurts: the base grace, plus the time it takes to fall the
+    /// hero's own jump reach at that speed (so jumping, however high, never hurts).</summary>
+    public float FallGrace => Tune.Hero.FallGraceSeconds + JumpReach * Tune.Hero.FallReachShare / (MaxFall * Math.Max(0.1f, Stats.FallCapMult));
+
     /// <summary>A hard landing after falling at the terminal speed for long enough: a share of the hero's current health (never the
     /// last of it). Anything that brakes the fall on the way down (a second jump, an updraft, a dash, a rope, the water) starts it afresh.</summary>
     private void TakeFall(float atTerminal)
     {
         LastFallDamage = 0f;
-        if (Dead || IsRemote || atTerminal <= Tune.Hero.FallGraceSeconds || Invulnerable) return;
-        float k = Math.Clamp((atTerminal - Tune.Hero.FallGraceSeconds) / Tune.Hero.FallRampSeconds, 0f, 1f);
+        float grace = FallGrace;
+        if (Dead || IsRemote || atTerminal <= grace || Invulnerable) return;
+        float k = Math.Clamp((atTerminal - grace) / Tune.Hero.FallRampSeconds, 0f, 1f);
         float dmg = Hp * Mathf.Lerp(Tune.Hero.FallShareMin, Tune.Hero.FallShareMax, k);
         if (dmg < 0.5f) return;
         LastFallDamage = dmg;
@@ -688,7 +707,7 @@ public partial class Player : CharacterBody2D
         {
             G.Sfx.Play("land", GlobalPosition, -6);
             G.Fx.Dust(GlobalPosition + new Vector2(0, 12), 3 + (int)(_lastFallSpeed / 120f), 1.2f);
-            if (_terminalT > Tune.Hero.FallGraceSeconds) G.Fx.Shockwave(GlobalPosition + new Vector2(0, 13), 26, new Color(1, 1, 1, 0.35f), 0.25f);
+            if (_terminalT > FallGrace) G.Fx.Shockwave(GlobalPosition + new Vector2(0, 13), 26, new Color(1, 1, 1, 0.35f), 0.25f);
             Anim.Once("land", 1);
         }
         // fall damage: the time spent falling at the terminal speed, taken on landing; anything that slows the fall (a second jump,

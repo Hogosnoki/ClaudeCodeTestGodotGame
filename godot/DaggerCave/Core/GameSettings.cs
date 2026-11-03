@@ -341,7 +341,8 @@ public static class GameSettings
     {
         var vp = anyNode.GetViewport();
         vp.Scaling3DMode = RenderScale < 0.99f ? Viewport.Scaling3DModeEnum.Fsr : Viewport.Scaling3DModeEnum.Bilinear;
-        vp.Scaling3DScale = Math.Clamp(RenderScale, 0.5f, 1f);
+        // (above 1: supersampling, the scene drawn larger and averaged down to the window: smoother edges)
+        vp.Scaling3DScale = Math.Clamp(RenderScale, 0.5f, 2f);
         vp.PositionalShadowAtlasSize = Shadows switch { Quality.Off => 0, Quality.Low => 2048, _ => 4096 };
         RenderingServer.PositionalSoftShadowFilterSetQuality(Shadows == Quality.High ? RenderingServer.ShadowQuality.SoftLow : RenderingServer.ShadowQuality.Hard);
         vp.ScreenSpaceAA = Aa == AntiAlias.Fxaa ? Viewport.ScreenSpaceAAEnum.Fxaa : Viewport.ScreenSpaceAAEnum.Disabled;

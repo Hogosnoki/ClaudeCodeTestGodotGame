@@ -151,6 +151,13 @@ public partial class Main
         int fair = PriceOf(cardItem.Card);
         ScCheck($"Fair Dealing III takes 15% off ({plain} -> {fair}, x{Meta.ShopPriceMult:0.00})", Math.Abs(Meta.ShopPriceMult - 0.85f) < 0.001f && Math.Abs(fair - plain * 0.85f) <= 1f);
         HexGrid.Owned.Remove("shop_price1"); HexGrid.Owned.Remove("shop_price2"); HexGrid.Owned.Remove("shop_price3");
+        // (prices compound with depth: a deep stall wants gold saved up)
+        int depthWas = G.Depth;
+        G.Depth = 2; int at2 = PriceOf(cardItem.Card);
+        G.Depth = 8; int at8 = PriceOf(cardItem.Card);
+        G.Depth = depthWas;
+        float want = MathF.Pow(1f + Tune.Merchant.PerDepth, 6);
+        ScCheck($"his prices compound with depth (depth 2: {at2}, depth 8: {at8}; x{(float)at8 / Math.Max(1, at2):0.00}, about x{want:0.00} wanted)", Math.Abs((float)at8 / Math.Max(1, at2) - want) < 0.25f * want && at8 > at2 * 2);
         int rp0 = RerollPrice(merchant);
         p.Stats.RerollMult = 0.6f;
         int rp1 = RerollPrice(merchant);

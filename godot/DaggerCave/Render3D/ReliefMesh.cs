@@ -9,7 +9,8 @@ namespace DaggerCave;
 /// worked out from D, so the shape's depth comes straight from its outline: sharp at its edges, swelling along its middle. The
 /// picture itself is its texture (the UVs run over it), trimmed to the exact outline by the picture's alpha. Used by the shrine
 /// flowers (ShrineRelief.cs) and the title (UI/TitleLogo.cs). Each vertex carries its whole thickness there (picture pixels) in
-/// UV2.x, so a shader can leave out everything thinner than a line it is given (the title's grow-in).
+/// UV2.x, so a shader can leave out everything thinner than a line it is given; with a growth map (tools/logo_grow.py), UV2.y holds
+/// when that point appears in a grow-in (0..1), and the ranks walk that instead (the title's intro).
 /// </summary>
 public static class ReliefMesh
 {
@@ -34,7 +35,15 @@ public static class ReliefMesh
     /// through them: a vanish line walked down it uncovers the same share of the shape at every step.
     /// </summary>
     public static ArrayMesh Build(Image himg, float maxDist, Func<float, float> faceHeight, float scale, float pivotX, float pivotY, int step, out float[] ranks)
+        => Build(himg, maxDist, faceHeight, scale, pivotX, pivotY, step, null, out ranks);
+
+    /// <summary>
+    /// As above, with a growth map (16 bits like the height map: when each pixel appears, 0..1) carried in UV2.y; then
+    /// <paramref name="ranks"/> is the solid grid's growth times, earliest first (else its thicknesses, thickest first).
+    /// </summary>
+    public static ArrayMesh Build(Image himg, float maxDist, Func<float, float> faceHeight, float scale, float pivotX, float pivotY, int step, Image grow, out float[] ranks)
     {
+        if (grow != null && grow.IsCompressed()) grow.Decompress();
         if (himg.IsCompressed()) himg.Decompress();
         int w = himg.GetWidth(), h = himg.GetHeight();
         float Height(int x, int y)
@@ -45,6 +54,9 @@ public static class ReliefMesh
         int nx = (w - 1) / step + 1, ny = (h - 1) / step + 1;
         var hs = new float[nx, ny];
         for (int i = 0; i < nx; i++) for (int j = 0; j < ny; j++) hs[i, j] = Height(i * step, j * step);
+        var gs = grow != null ? new float[nx, ny] : null;
+        if (gs != null)
+            for (int i = 0; i < nx; i++) for (int j = 0; j < ny; j++) gs[i, j] = DistanceAt(grow, 1f, Math.Min(i * step, grow.GetWidth() - 1), Math.Min(j * step, grow.GetHeight() - 1));
         var mb = new MeshBuilder();
         var idx = new int[2, nx, ny];
         for (int s = 0; s < 2; s++) for (int i = 0; i < nx; i++) for (int j = 0; j < ny; j++) idx[s, i, j] = -1;
@@ -57,7 +69,7 @@ public static class ReliefMesh
             // (picture y runs down, the world's up: the slope's sign turns over)
             var n = new Vector3(-hx * sz, hy * sz, 1f * sz).Normalized();
             var pos = new Vector3((i * step - pivotX) * scale, (pivotY - j * step) * scale, hs[i, j] * scale * sz);
-            return idx[s, i, j] = mb.Add(pos, n, Colors.White, new Vector2((float)(i * step) / (w - 1), (float)(j * step) / (h - 1)), new Vector2(hs[i, j] * 2f, 0f));
+            return idx[s, i, j] = mb.Add(pos, n, Colors.White, new Vector2((float)(i * step) / (w - 1), (float)(j * step) / (h - 1)), new Vector2(hs[i, j] * 2f, gs != null ? gs[i, j] : 0f));
         }
         for (int i = 0; i < nx - 1; i++)
             for (int j = 0; j < ny - 1; j++)
@@ -75,8 +87,8 @@ public static class ReliefMesh
                 }
             }
         var solid = new System.Collections.Generic.List<float>();
-        foreach (var v in hs) if (v > 0f) solid.Add(v * 2f);
-        solid.Sort((a, b) => b.CompareTo(a));
+        for (int i = 0; i < nx; i++) for (int j = 0; j < ny; j++) if (hs[i, j] > 0f) solid.Add(gs != null ? gs[i, j] : hs[i, j] * 2f);
+        if (gs != null) solid.Sort(); else solid.Sort((a, b) => b.CompareTo(a));
         ranks = new float[257];
         for (int q = 0; q <= 256; q++) ranks[q] = solid.Count > 0 ? solid[Math.Min(solid.Count - 1, (int)(q / 256f * (solid.Count - 1)))] : 0f;
         return mb.ToMesh(null, true);

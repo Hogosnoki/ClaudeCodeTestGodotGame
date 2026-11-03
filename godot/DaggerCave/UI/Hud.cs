@@ -264,19 +264,21 @@ public partial class Hud : Control
         {
             // (beside the health bar, where they stay put however many meters are showing)
             var pp = hpPos + new Vector2(hpW + 60, 8);
-            for (int k = 0; k < Meta.MaxPotions; k++)
+            // (the hero's own belt: the Ember Grid's Second Flask and a Deep Flask found on the way each add a slot)
+            int belt = p.MaxPotions;
+            for (int k = 0; k < belt; k++)
                 PotionPickup.DrawFlask(this, pp + new Vector2(k * 18, 6), 1.35f, 1f, k >= p.Potions);
             DrawString(font, pp + new Vector2(-8, 28), Controls.Name("potion"), HorizontalAlignment.Left, -1, 10, new Color(1, 1, 1, 0.5f));
-            Tip(new Rect2(pp + new Vector2(-8, -10), new Vector2(Meta.MaxPotions * 18 + 8, 42)), "Potions", $"Healing potions carried (a dark flask is an empty slot). Press {Controls.Name("potion")} to drink one: it mends you over a few seconds (\"mending\" while it works). More are found in the cave.", true);
-            if (p.Keys > 0) Tip(new Rect2(pp + new Vector2(Meta.MaxPotions * 18 + 6, -10), new Vector2(p.Keys * 22 + 4, 34)), "Keys", "Keys carried. Each opens a vault's gate (the gold lock on the map).", true);
+            Tip(new Rect2(pp + new Vector2(-8, -10), new Vector2(belt * 18 + 8, 42)), "Potions", $"Healing potions carried (a dark flask is an empty slot). Press {Controls.Name("potion")} to drink one: it mends you over a few seconds (\"mending\" while it works). More are found in the cave.", true);
+            if (p.Keys > 0) Tip(new Rect2(pp + new Vector2(belt * 18 + 6, -10), new Vector2(p.Keys * 22 + 4, 34)), "Keys", "Keys carried. Each opens a vault's gate (the gold lock on the map).", true);
             if (p.Mending) DrawString(font, pp + new Vector2(6, 28), "mending", HorizontalAlignment.Left, -1, 10, new Color(1f, 0.6f, 0.7f, 0.7f + 0.3f * MathF.Sin(_t * 6)));
             // the keys carried, beside the potions
             for (int k = 0; k < p.Keys; k++)
-                KeyPickup.DrawKey(this, pp + new Vector2(Meta.MaxPotions * 18 + 16 + k * 22, 6), 1.4f, 1f);
+                KeyPickup.DrawKey(this, pp + new Vector2(belt * 18 + 16 + k * 22, 6), 1.4f, 1f);
             // the gold in the purse, after them
             if (p.GoldFound > 0)
             {
-                var gp = pp + new Vector2(Meta.MaxPotions * 18 + 16 + Math.Max(p.Keys, 0) * 22 + 12, 6);
+                var gp = pp + new Vector2(belt * 18 + 16 + Math.Max(p.Keys, 0) * 22 + 12, 6);
                 CoinPickup.DrawCoin(this, gp, 1.5f);
                 DrawString(font, gp + new Vector2(13, 5), p.Gold.ToString(), HorizontalAlignment.Left, -1, 15, new Color(1f, 0.85f, 0.35f));
                 Tip(new Rect2(gp - new Vector2(10, 14), new Vector2(24 + p.Gold.ToString().Length * 9, 28)), "Gold", "Gold found in the dead ends of the caves (single coins, now and then a pile). It is spent with a merchant, where one is met.", true);

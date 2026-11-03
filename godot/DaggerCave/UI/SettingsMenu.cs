@@ -414,7 +414,8 @@ public partial class SettingsMenu : Control
         l.Sort();
         return l.ToArray();
     }
-    private static readonly float[] Scales = { 0.5f, 0.67f, 0.75f, 0.85f, 1f };
+    // (above 100%, the 3D view is drawn larger and scaled down: smoother, better blended edges, at a cost in speed)
+    private static readonly float[] Scales = { 0.5f, 0.67f, 0.75f, 0.85f, 1f, 1.5f, 2f };
 
     /// <summary>The graphics tab built again (a preset has moved the dials).</summary>
     private void RebuildGraphics() => Show(_tab);
@@ -468,7 +469,7 @@ public partial class SettingsMenu : Control
         Row(g, "Frame rate limit", Choice(Array.ConvertAll(FpsCaps, f => f == 0 ? "Unlimited" : $"{f} fps"), Math.Max(0, Array.IndexOf(FpsCaps, GameSettings.MaxFps)), i => { GameSettings.MaxFps = FpsCaps[i]; Display(); }), "with V-sync on, your display's own rate is the ceiling");
         int si = 0;
         for (int k = 0; k < Scales.Length; k++) if (Math.Abs(Scales[k] - GameSettings.RenderScale) < 0.02f) si = k;
-        Row(g, "Resolution scale", Choice(Array.ConvertAll(Scales, f => Pct(f)), si, i => { GameSettings.RenderScale = Scales[i]; Render(); }), "lower is faster");
+        Row(g, "Resolution scale", Choice(Array.ConvertAll(Scales, f => Pct(f)), si, i => { GameSettings.RenderScale = Scales[i]; Render(); }), "lower is faster; above 100% is smoother (slower)");
         Row(g, "Shadows", Choice(new[] { "Off", "Low", "High" }, (int)GameSettings.Shadows, i => { GameSettings.Shadows = (GameSettings.Quality)i; Render(); }));
         Row(g, "Cave haze (volumetric fog)", Toggle(GameSettings.Fog, v => { GameSettings.Fog = v; Render(); }), "the heaviest effect");
         Row(g, "Bloom", Toggle(GameSettings.Bloom, v => { GameSettings.Bloom = v; Render(); }));

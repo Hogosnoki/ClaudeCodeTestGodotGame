@@ -37,7 +37,11 @@ public partial class Main
     /// <summary>A potion for the belt.</summary>
     public static readonly Upgrade Potion = new() { Id = "shop_potion", Name = "Healing Potion", Icon = "life", MaxStacks = 1, Apply = (s, p) => { }, Desc = "One more potion for your belt (drink it with the potion key)." };
 
-    /// <summary>What a card costs here: by its rarity, a little more with every level down, and what the hero's relics make of it.</summary>
+    /// <summary>How much dearer everything is at this depth: <c>PerDepth</c> more for every level down, compounding (gold found
+    /// doesn't grow with depth, so the deeper stalls want gold saved up).</summary>
+    public static float DepthPriceMult => MathF.Pow(1f + Tune.Merchant.PerDepth, Math.Max(0, G.Depth));
+
+    /// <summary>What a card costs here: by its rarity, more with every level down (compounding), and what the hero's relics make of it.</summary>
     public static int PriceOf(Upgrade u)
     {
         var st = G.Player?.Stats;
@@ -51,7 +55,7 @@ public partial class Main
         };
         // (the Ember Grid's Merchant's Favor: his cards cost more)
         float favor = HexGrid.Owns("shop_favor") && !u.Relic && u.Id is not ("shop_supplies" or "shop_token" or "shop_potion") ? Tune.Grid.FavorCardMult : 1f;
-        return Math.Max(1, (int)MathF.Round(basePrice * favor * (1f + Tune.Merchant.PerDepth * Math.Max(0, G.Depth)) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult));
+        return Math.Max(1, (int)MathF.Round(basePrice * favor * DepthPriceMult * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult));
     }
 
     /// <summary>The stall's own free deal is still to be had (Loaded Dice).</summary>
@@ -62,7 +66,7 @@ public partial class Main
     {
         var st = G.Player?.Stats;
         if (FreeDealLeft(m) || (G.Player?.Rerolls ?? 0) > 0) return 0;
-        float price = Tune.Merchant.PriceReroll * (1f + Tune.Merchant.PerDepth * Math.Max(0, G.Depth)) * (1f + Tune.Merchant.RerollStep * m.Rerolls) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult * (st?.RerollMult ?? 1f);
+        float price = Tune.Merchant.PriceReroll * DepthPriceMult * (1f + Tune.Merchant.RerollStep * m.Rerolls) * (st?.ShopPriceMult ?? 1f) * Meta.ShopPriceMult * (st?.RerollMult ?? 1f);
         return Math.Max(1, (int)MathF.Round(price));
     }
 

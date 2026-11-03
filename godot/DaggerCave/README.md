@@ -509,7 +509,10 @@ as ever, so a jump carries as far sideways). The cave generator's climbs follow 
 repairs on the way to the guardian lay a ledge every two cells of climb (were three).
 **Fall damage** counts the time spent falling at that terminal speed (at least 97% of it): past 0.3 s of it a
 landing takes 1% of the hero's *current* health, rising to 50% after another two seconds (it was one: the climb to the worst is gentler) (`Hero.FallTerminalShare`, `FallGraceSeconds`,
-`FallRampSeconds`, `FallShareMin`, `FallShareMax`). An ordinary jump reaches the terminal speed only in its last few pixels and costs nothing, and anything
+`FallRampSeconds`, `FallShareMin`, `FallShareMax`). **The grace grows with the hero's own jumps**: on top of the 0.3 s comes the time
+it takes to fall the hero's whole jump reach at that speed (`Player.JumpReach`: a full jump and every air jump on top, with its jump
+upgrades and form; `Hero.FallReachShare`), so no jump, however high upgrades make it, ever hurts, and a hero who jumps higher can drop a
+little farther unhurt. An ordinary jump reaches the terminal speed only in its last few pixels and costs nothing, and anything
 that brakes the fall on the way down (a second jump, the Elementalist's updraft, a dash, grabbing a rope, water, a creature's form) starts
 the count afresh, so a long fall is easily softened. It never takes the last of anyone's health. `--scenario=fall` checks it.
 Swimming has a breath meter; you take drowning damage when it runs out and the audio is muffled
@@ -578,7 +581,8 @@ frame colour and the label at its top:
   shows your four ability trees side by side (every upgrade, taken or not, with its ranks; the
   alterations beneath, the one you took and its upgrades, and cards it rules out crossed through),
   then the generic, conditional and risk-reward cards you've taken.
-- **Potions**: you start with one and can carry one (two with the grid's Second Flask). Q / Y drinks it:
+- **Potions**: you start with one and can carry one (two with the grid's Second Flask, and one more with a Deep Flask found on the
+  way, which comes full; the belt under the health bar shows every slot the hero has). Q / Y drinks it:
   15% of your health at once and 15% more over 20 s. Enemies drop one 1% of the time.
 - **Hearts** heal 5% of your health and drop from 3% of kills (30% of elites).
 - **Chests** hold the real upgrades and abilities.
@@ -701,7 +705,9 @@ bite softer than orange ones.
 
 Difficulty rises with depth and, more slowly, with play time, and mostly through tougher creatures
 rather than more of them: every creature's own health is doubled at spawn (Tune.Enemy.BaseHpMult), then enemy damage is 1.15^depth x 2^(minutes/27)
-and enemy health grows at half that rate per depth, 1.075^depth x 2^(minutes/27) (`Tune.Difficulty`, `HpDepthShare`). Enemy speed, attack rate and animation speed rise by a fifth of that, capped at
+and enemy health grows at half that rate per depth, 1.075^depth x 2^(minutes/27) (`Tune.Difficulty`, `HpDepthShare`). **On top of that, health
+compounds by depth** (`Tune.Enemy.ExtraPerDepth`, `BossExtraPerDepth`, `DragonStep`; `Enemy.ExtraDepthHp`): creatures x1.2 a level,
+bosses and guardians x1.3 a level, and the dragon x1.5 over the guardians of the stage before it (where every other step is x1.3). Enemy speed, attack rate and animation speed rise by a fifth of that, capped at
 1.6x so fights stay readable. How many come (the pace) grows gently: 0.15 per level of depth plus 1
 per 20 minutes, capped at 2.4.
 
@@ -1050,6 +1056,11 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   the letters last. (The line walks down the logo's thicknesses in order, so the shown share grows evenly; the red glow comes up
   only at the end.) It holds a moment, then the black and the big title fade away to the camp fire and the main menu. Any key,
   click or button skips to the fade. `--introshot=DIR` saves screenshots through it.
+  *Growing smoothly:* thickness alone stuttered at the spikes (along a thin spike the distance to the edge is nearly the same, in whole
+  pixels, so long runs of it came in on the same frame). The grow-in now follows a growth map (`Art/Title/title_g.png`, made by
+  `tools/logo_grow.py`): growth spreads like a fire from the letters' thick cores, slower through thin parts, and thin parts can't start
+  on their own, so every spike is reached from its base and grows out along its length, each point at its own moment. The front
+  walks those times in order (the shown share growing evenly, easing off toward the end, so the last points come out slowly).
 
   The flowers spin steadily about their own upright, like coins waiting to be picked up (slowly: `ShrineSpin` = 0.8 rad/s, about one turn every eight seconds, a touch faster for each finer grade), each from its own starting angle, tipped toward the camera and still swinging on their points as they sink.
 
@@ -1644,6 +1655,9 @@ The look aims at Castle Crashers and Cuphead: flat fills, simple forms, ink bord
   meadow likewise (1,400 big tufts instead of 9,000). Dangling roots are 2.6x thicker and longer, a quarter as many.
 - **Camera** 10% closer (`Tune.Feel.CameraZoom`; since tuned to 2.502).
 - **No borders inside a texture**: grass meets wall with no line between them.
+- **Resolution scale** (Settings > Graphics, 50% to 200%; `GameSettings.RenderScale`): below 100% the 3D scene is drawn smaller and
+  sharpened back up (FSR), which is faster; at 150% or 200% it is drawn larger and averaged down to the window (supersampling), for
+  smoother, better blended edges at a cost in speed. The ink borders keep their width on screen either way.
 - **Object borders** (Settings > Graphics, 0 to 4 px, default 1; the shader global `ink_terrain_px`, `--ink=terrain,characters`): a thin
   ink line round the outline of every 3D thing (`Render3D/EdgeInk.cs`, `Shaders/edge_depth.gdshader`): a full-screen pass that finds
   where the scene steps away behind something (the depth on one side farther than here by more than 6% of the distance, more than a slope
@@ -1800,7 +1814,7 @@ stands the merchant at his table (`Combat/Merchant.cs`, `MerchantDesign`, `Merch
 (a shop flag).
 
 **Trading.** Stand at him and press interact: the cards he has are dealt for you (`Main.Shop.cs`), each with a **price in gold** on a tag under it; a card you can't pay says how much more you need. What he has (`Tune.Merchant.Cards/Supplies`, so the table stays small): **two cards** (a class card and one other), **a relic**, and **two supplies** drawn from a potion for the belt, provisions (mends 40% of your health) and a **token of Second Thoughts** (one more time a choice of cards may be dealt again; a little likelier than the others). Buying takes the card at once and lays the table out again without it;
-**Deal Again** shuffles the cards he hasn't sold (6 gold, a half more each time, the supplies stay); **Walk Away** closes the stall. Prices are by rarity (8, 14, 24 and 36 for a relic, rising 8% a level down).
+**Deal Again** shuffles the cards he hasn't sold (6 gold, a half more each time, the supplies stay); **Walk Away** closes the stall. Prices are by rarity (8, 14, 24 and 36 for a relic at the surface), **rising 15% a level down, compounding** (about x1.5 at depth 3, x3.5 at depth 9: `Tune.Merchant.PerDepth`, `Main.DepthPriceMult`). Gold found doesn't grow with depth, so the deeper stall wants gold saved up rather than spent at every chance.
 
 **Dealing a choice of cards again.** A chest's cards or a milestone's can be **dealt again** (R, a controller's Y, or the button under the cards) as many times as the hero has charges (`Player.Rerolls`): the Path's **Second Thoughts** I-III give 1, 2 or 3 a run,
 and the merchant sells tokens. A chest's new cards are the chest's from then on, for any friend who looks in after.

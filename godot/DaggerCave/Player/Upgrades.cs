@@ -616,7 +616,7 @@ public static partial class Upgrades
         new() { Id = "hp", Name = "Vitality", Desc = "+10 max HP and heal 10.", Icon = "life", MaxStacks = 5, Weight = 1.2f, Apply = (s, p) => { s.MaxHp += 10; p.Heal(10); } },
         new() { Id = "resilience", Name = "Resilience", Desc = "Stay invulnerable 0.2 s longer after being struck.", Icon = "life", MaxStacks = 3, Apply = (s, p) => s.HurtInvuln += 0.2f },
         new() { Id = "armor", Name = "Toughened Hide", Desc = "Take 10% less damage.", Icon = "life", MaxStacks = 4, Apply = (s, p) => s.DamageReduction = 1f - (1f - s.DamageReduction) * 0.9f },
-        new() { Id = "belt", Name = "Deep Flask", Desc = "Carry one more potion, and creatures are 2% likelier to drop one.", Icon = "life", MaxStacks = 1, Apply = (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.02f; } },
+        new() { Id = "belt", Name = "Deep Flask", Desc = "Carry one more potion (it comes full), and creatures are 2% likelier to drop one.", Icon = "life", MaxStacks = 1, Apply = (s, p) => { s.ExtraPotions += 1; s.PotionChanceBonus += 0.02f; } },
 
         // ================= more upgrades: always a gain, a plain number or a small rule; they stack (see also: relics, which are one-offs, and bargains, which cost something)
         // --- Offence ---
@@ -1016,6 +1016,8 @@ public static partial class Upgrades
         if (p != null && !p.IsRemote && p == G.Player && !Replaying) { NetSync.SendCard(u.Id); Achievements.CardTaken(u, s.Hero); }
         if (u.Relic) ApplyTraced(u, s, p); else if (IsSideGradeCard(u)) ApplyCard(u, s, p); else u.Apply(s, p);
         if (u.Relic && p != null && !p.IsRemote) RunRelics.Take(u.Id);
+        // (a Deep Flask comes full: the slot it adds holds a potion at once)
+        if (u.Id == "belt" && p != null && !p.IsRemote && !Replaying) p.Potions = Math.Min(p.MaxPotions, p.Potions + 1);
     }
 }
 

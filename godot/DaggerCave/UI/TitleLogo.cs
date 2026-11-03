@@ -8,10 +8,11 @@ namespace DaggerCave;
 /// a little 3D view of its own. Its thickness at every point is twice its distance to the nearest edge (T = 2·D, as the shrine
 /// flowers), the picture its texture; the red smoke and glow round it are drawn flat, added on behind. It sways slowly from side to
 /// side, never far enough to stop reading, while a light drifts over it, so the depth catches the eye.
-/// <para>It can also grow in (<see cref="Grow"/>, the intro at launch): its shader leaves out everything thinner than a vanish line,
-/// and the line sweeps down from above the thickest point to nothing, so the letters' thick cores form first and the thin spikes,
-/// curls and points grow out of them last. The line walks down the logo's thicknesses in order, so the shown share of it grows
-/// evenly; the red glow behind comes up only near the end.</para>
+/// <para>It can also grow in (<see cref="Grow"/>, the intro at launch): its shader leaves out every point not yet reached, by its
+/// time in the growth map (tools/logo_grow.py: growth spreads from the letters' thick cores, slower through thin parts, so a spike
+/// grows out along its length, each point at its own moment, its tip last). The front walks the growth times in order, so the
+/// shown share grows evenly, easing off toward the end; the red glow behind comes up only near the end. (Without the map, it falls
+/// back on the thickness: a vanish line sweeping down from the thickest point.)</para>
 /// </summary>
 public partial class TitleLogo : Control
 {
@@ -26,6 +27,7 @@ public partial class TitleLogo : Control
     private float _t;
     private static ArrayMesh _mesh;
     private static float[] _ranks;
+    private static bool _hasGrow;
     private ShaderMaterial _mat;
     private TextureRect _glowRect;
     private float _growT = -1f, _growDur;
@@ -37,13 +39,16 @@ shader_type spatial;
 render_mode cull_disabled;
 uniform sampler2D tex : source_color, filter_linear_mipmap_anisotropic;
 uniform float cut = 0.0;
+uniform float front = 2.0;
 uniform vec3 emission_tint = vec3(1.0, 0.95, 0.95);
 uniform float emission_energy = 0.36;
 varying float thick;
-void vertex() { thick = UV2.x; }
+varying float grown;
+void vertex() { thick = UV2.x; grown = UV2.y; }
 void fragment() {
     vec4 c = texture(tex, UV);
     if (cut > 0.0 && thick < cut) discard;
+    if (grown > front) discard;
     ALBEDO = c.rgb;
     ALPHA = c.a;
     ALPHA_SCISSOR_THRESHOLD = 0.5;
@@ -82,7 +87,10 @@ void fragment() {
             if (_tex == null || himg == null) return false;
             float maxDist = (float)meta["maxDist"].AsDouble();
             _w = himg.GetWidth(); _h = himg.GetHeight();
-            _mesh = ReliefMesh.Build(himg, maxDist, d => d * Thickness * 0.5f, Scale, _w * 0.5f, _h * 0.5f, 2, out _ranks);
+            // (the growth map, when there is one: when each point appears in the grow-in)
+            var gimg = ResourceLoader.Exists(Dir + "title_g.png") ? GD.Load<Texture2D>(Dir + "title_g.png")?.GetImage() : null;
+            _hasGrow = gimg != null;
+            _mesh = ReliefMesh.Build(himg, maxDist, d => d * Thickness * 0.5f, Scale, _w * 0.5f, _h * 0.5f, 2, gimg, out _ranks);
             return true;
         }
         catch (Exception ex)
@@ -164,16 +172,19 @@ void fragment() {
     {
         if (_mat == null) return;
         float t = _growT < 0f ? 1f : Math.Min(1f, _growT / _growDur);
-        float cut = 0f;
+        float cut = 0f, front = 2f;
         if (t < 1f && _ranks != null)
         {
-            // (down the thicknesses in order: the shown share grows evenly, the thinnest, the points, last)
-            float x = t * 256f;
+            // (the shown share of it grows evenly, easing off toward the end so the last points come out slowly)
+            float share = 1f - MathF.Pow(1f - t, 1.7f);
+            float x = share * 256f;
             int i = Math.Min(255, (int)x);
-            cut = t <= 0f ? _ranks[0] + 1f : Mathf.Lerp(_ranks[i], _ranks[i + 1], x - i);
-            cut = Math.Max(cut, 0.01f);
+            float v = Mathf.Lerp(_ranks[i], _ranks[i + 1], x - i);
+            if (_hasGrow) front = t <= 0f ? -1f : v;
+            else cut = Math.Max(t <= 0f ? _ranks[0] + 1f : v, 0.01f);
         }
         _mat.SetShaderParameter("cut", cut);
+        _mat.SetShaderParameter("front", front);
         if (_glowRect != null)
         {
             float g = Math.Clamp((t - 0.6f) / 0.4f, 0f, 1f);

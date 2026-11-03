@@ -66,6 +66,16 @@ public partial class Main
         foreach (var _ in SbSleep(0.2f)) yield return null;
         ScCheck($"an ordinary jump costs nothing (hp {p.Hp:0} of {p.Stats.MaxHp:0}, jumped {left})", left && p.Hp >= p.Stats.MaxHp - 0.01f);
 
+        // the highest jump it has: a full jump, then a double jump at the top (with two extra air jumps, the most upgrades give)
+        Home();
+        p.Stats.DoubleJump = true; p.Stats.ExtraAirJumps = 2; p.Stats.JumpMult = 1.4f;
+        foreach (var _ in SbSleep(0.4f)) yield return null;
+        float reach = p.JumpReach, grace = p.FallGrace;
+        // (the whole of that height covered at the terminal speed: longer at that speed than such a fall can really take)
+        foreach (var _ in Fall(reach / Tune.Hero.MaxFallSpeed, false)) yield return null;
+        ScCheck($"a fall as high as its jumps reach ({reach:0} px; grace {grace:0.00} s at the terminal speed) costs nothing ({p.LastFallDamage:0.0})", p.LastFallDamage == 0f && p.Hp >= p.Stats.MaxHp - 0.01f);
+        p.Stats.DoubleJump = false; p.Stats.ExtraAirJumps = 0; p.Stats.JumpMult = 1f;
+
         // a short drop at the terminal speed
         Home();
         foreach (var _ in Fall(0.05f, false)) yield return null;
@@ -73,19 +83,19 @@ public partial class Main
 
         // a moderate fall: a little
         Home();
-        foreach (var _ in Fall(Tune.Hero.FallGraceSeconds + 0.25f, false)) yield return null;
+        foreach (var _ in Fall(p.FallGrace + 0.25f, false)) yield return null;
         float mid = p.LastFallDamage;
         ScCheck($"a longer fall at the terminal speed costs a little ({mid:0.0} of 1000)", mid > 5f && mid < 300f);
 
         // a very long one: half of what it had
         Home();
-        foreach (var _ in Fall(Tune.Hero.FallGraceSeconds + Tune.Hero.FallRampSeconds + 0.6f, false)) yield return null;
+        foreach (var _ in Fall(p.FallGrace + Tune.Hero.FallRampSeconds + 0.6f, false)) yield return null;
         ScCheck($"a very long fall costs half the current health ({p.LastFallDamage:0.0}, hp {p.Hp:0})", Math.Abs(p.LastFallDamage - 500f) < 2f && p.Hp > 400f);
         ScShot("fall_hard");
 
         // the same, braked at the last moment
         Home();
-        foreach (var _ in Fall(Tune.Hero.FallGraceSeconds + Tune.Hero.FallRampSeconds + 0.6f, true)) yield return null;
+        foreach (var _ in Fall(p.FallGrace + Tune.Hero.FallRampSeconds + 0.6f, true)) yield return null;
         ScCheck($"braked just before the ground (a second jump, an updraft...), it costs nothing ({p.LastFallDamage:0.0}, hp {p.Hp:0})", p.LastFallDamage == 0f && p.Hp >= p.Stats.MaxHp - 0.01f);
     }
 }

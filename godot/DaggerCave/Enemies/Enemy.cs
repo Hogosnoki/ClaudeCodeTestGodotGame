@@ -109,6 +109,15 @@ public abstract partial class Enemy : CharacterBody2D
     public float DmgMult = 1f;
     /// <summary>What every hit this creature deals is multiplied by: difficulty curve times its own
     /// multiplier (and less while weakened by a charged strike).</summary>
+    /// <summary>The extra health growth with depth (Tune.Enemy.ExtraPerDepth and the rest): x1.2 a level for creatures, x1.3 for
+    /// bosses and guardians, and the dragon x1.5 over the guardians of the stage before it.</summary>
+    public static float ExtraDepthHp(bool dragon, bool boss)
+    {
+        int d = Math.Max(0, G.Depth);
+        if (dragon) return MathF.Pow(Tune.Enemy.BossExtraPerDepth, Math.Max(0, d - 1)) * Tune.Enemy.DragonStep;
+        return MathF.Pow(boss ? Tune.Enemy.BossExtraPerDepth : Tune.Enemy.ExtraPerDepth, d);
+    }
+
     protected float DmgK => G.DepthDmg * RunSettings.DmgMult * (this is Dragon ? RunRelics.DragonMult : 1f) * DmgMult * (_weakT > 0 ? _weakMult : 1f);
 
     protected float T, HurtFlash, Stun;
@@ -242,7 +251,8 @@ public abstract partial class Enemy : CharacterBody2D
         // and tempo follow it live. (A copy has the host's numbers already.)
         if (!Puppet)
         {
-            MaxHp *= Tune.Enemy.BaseHpMult * ((IsBoss || IsGuardian || this is Dragon) ? MathF.Pow(G.DepthHp, Tune.Enemy.BossGrowthPower) : G.DepthHp) * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f);
+            MaxHp *= Tune.Enemy.BaseHpMult * ((IsBoss || IsGuardian || this is Dragon) ? MathF.Pow(G.DepthHp, Tune.Enemy.BossGrowthPower) : G.DepthHp) * NetSync.HpScale * (this is Dragon ? RunRelics.DragonMult : 1f)
+                   * ExtraDepthHp(this is Dragon, IsBoss || IsGuardian);
             Hp = MaxHp;
         }
         AddChild(new CollisionShape2D { Shape = new CircleShape2D { Radius = BodyRadius * Size * 0.9f } });
