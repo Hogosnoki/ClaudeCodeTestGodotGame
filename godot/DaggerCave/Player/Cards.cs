@@ -11,31 +11,31 @@ namespace DaggerCave;
 /// again; the attack bites harder or comes quicker (a caster's splash spreads); the second ability and the dodge come back sooner or hit
 /// harder; and a few shared cards (health, damage, speed...) for anyone. Every <see cref="Tune.Growth.MilestoneEvery"/> levels a milestone
 /// changes the hero's special into one of two forms, or gives something as big (a second stroke held, kills that hasten it).
-/// The Shape Shifter and the Automaton, whose kits are their own, keep their old class cards.
+/// The Automaton, whose kit is its own, keeps its old class cards.
 /// </summary>
 public static class Cards
 {
-    private static readonly HeroKind[] Heroes = { HeroKind.Swordsman, HeroKind.Elementalist, HeroKind.Warden, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue };
+    private static readonly HeroKind[] Heroes = { HeroKind.Swordsman, HeroKind.Elementalist, HeroKind.Warden, HeroKind.Vitalist, HeroKind.Aegis, HeroKind.Rogue, HeroKind.ShapeShifter };
 
     private static string SpecialOf(HeroKind h) => h switch
     {
         HeroKind.Swordsman => "Whirlwind", HeroKind.Elementalist => "Meteor", HeroKind.Warden => "Great Bash",
-        HeroKind.Vitalist => "Bloom", HeroKind.Aegis => "Judgement", _ => "Death Blossom",
+        HeroKind.Vitalist => "Bloom", HeroKind.Aegis => "Judgement", HeroKind.ShapeShifter => "Apex Form", _ => "Death Blossom",
     };
     private static string PrimaryOf(HeroKind h) => h switch
     {
         HeroKind.Swordsman => "Strike", HeroKind.Elementalist => "Bolt", HeroKind.Warden => "Cut",
-        HeroKind.Vitalist => "Drain", HeroKind.Aegis => "Bubble", _ => "Jab",
+        HeroKind.Vitalist => "Drain", HeroKind.Aegis => "Bubble", HeroKind.ShapeShifter => "Wild Strike", _ => "Jab",
     };
     private static string OtherOf(HeroKind h) => h switch
     {
         HeroKind.Swordsman => "Counter", HeroKind.Elementalist => "Nova", HeroKind.Warden => "Charge",
-        HeroKind.Vitalist => "Rupture", HeroKind.Aegis => "Humbling Light", _ => "Shadowstep",
+        HeroKind.Vitalist => "Rupture", HeroKind.Aegis => "Humbling Light", HeroKind.ShapeShifter => "Wild Move", _ => "Shadowstep",
     };
     private static string DefensiveOf(HeroKind h) => h switch
     {
         HeroKind.Swordsman => "Dash", HeroKind.Elementalist => "Blink", HeroKind.Warden => "Shield Bash",
-        HeroKind.Vitalist => "Mending", HeroKind.Aegis => "Barrier", _ => "Vanish",
+        HeroKind.Vitalist => "Mending", HeroKind.Aegis => "Barrier", HeroKind.ShapeShifter => "Molt", _ => "Vanish",
     };
     private static string AgainText(HeroKind h) => h switch
     {
@@ -44,6 +44,7 @@ public static class Cards
         HeroKind.Warden => "An aftershock follows the Great Bash, at half its strength.",
         HeroKind.Vitalist => "The Bloom pulses once more, at half its strength.",
         HeroKind.Aegis => "One more pillar falls on the nearest creature the Judgement missed (or on the same spot again).",
+        HeroKind.ShapeShifter => $"The Apex Form lasts {Tune.Shifter.ApexExtraSeconds:0} s longer.",
         _ => "The Death Blossom throws one more volley.",
     };
 
@@ -86,9 +87,10 @@ public static class Cards
             list.Add(new() { Id = $"g_{id}_again", Name = $"{sp}, Again", Desc = AgainText(h), Icon = "spell", For = f, Ability = sp, MaxStacks = 2, Tier = UpgradeTier.Ability, Tags = new[] { "special" },
                 Apply = (s, p) => s.SpecialExtra++ });
             // the attack
-            list.Add(new() { Id = $"g_{id}_keen", Name = $"Keen {pr}", Desc = $"Your {pr} deals {Pct(Tune.Growth.KeenStep)} more damage.", Icon = "blade", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "offence" },
-                Apply = (s, p) => s.PrimaryDamageMult *= Tune.Growth.KeenStep });
-            list.Add(new() { Id = $"g_{id}_quick", Name = $"Quick {pr}", Desc = $"Your {pr} comes {Pct(Tune.Growth.QuickStep)} quicker.", Icon = "blade", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "offence" },
+            bool shifter = h == HeroKind.ShapeShifter;
+            list.Add(new() { Id = $"g_{id}_keen", Name = $"Keen {pr}", Desc = shifter ? $"Your staff and every form's blows deal {Pct(Tune.Growth.KeenStep)} more damage." : $"Your {pr} deals {Pct(Tune.Growth.KeenStep)} more damage.", Icon = "blade", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "offence" },
+                Apply = (s, p) => { s.PrimaryDamageMult *= Tune.Growth.KeenStep; if (shifter) s.FormDmgMult *= Tune.Growth.KeenStep; } });
+            list.Add(new() { Id = $"g_{id}_quick", Name = $"Quick {pr}", Desc = shifter ? $"Your staff, and every creature you become, {Pct(Tune.Growth.QuickStep)} quicker." : $"Your {pr} comes {Pct(Tune.Growth.QuickStep)} quicker.", Icon = "blade", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "offence" },
                 Apply = (s, p) => s.AttackSpeed *= Tune.Growth.QuickStep });
             if (h is HeroKind.Elementalist or HeroKind.Vitalist)
             {
@@ -133,6 +135,14 @@ public static class Cards
                     list.Add(new() { Id = "g_aeg_dhard", Name = "Thick Barrier", Desc = $"The Barrier holds {Pct(hard)} more.", Icon = "shield", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "defence" },
                         Apply = (s, p) => s.BarrierMult *= hard });
                     break;
+                case HeroKind.ShapeShifter:
+                    list.Add(new() { Id = "g_sha_dfar", Name = "Far Molt", Desc = $"The Molt carries you {Pct(far)} further.", Icon = "move", For = f, Ability = de, MaxStacks = 2, Tags = new[] { "mobility" },
+                        Apply = (s, p) => s.DodgeDistMult *= far });
+                    list.Add(new() { Id = "g_sha_hide", Name = "Tough Hide", Desc = $"Every form shrugs off {Tune.Growth.HideShare * 100f:0}% more of the blows it takes.", Icon = "shield", For = f, Ability = pr, MaxStacks = 3, Tags = new[] { "defence" },
+                        Apply = (s, p) => s.FormArmorAdd += Tune.Growth.HideShare });
+                    list.Add(new() { Id = "g_sha_gaze", Name = "Long Gaze", Desc = $"You copy creatures {Pct(Tune.Growth.GazeStep)} further away.", Icon = "move", For = f, Ability = pr, MaxStacks = 2, Tags = new[] { "utility" },
+                        Apply = (s, p) => s.ShiftRangeMult *= Tune.Growth.GazeStep });
+                    break;
                 case HeroKind.Rogue:
                     list.Add(new() { Id = "g_rog_ofar", Name = "Long Shadowstep", Desc = $"The Shadowstep reaches creatures {Pct(far)} further off.", Icon = "move", For = f, Ability = ot, MaxStacks = 2, Tags = new[] { "mobility" },
                         Apply = (s, p) => s.StepRangeMult *= far });
@@ -153,6 +163,7 @@ public static class Cards
     {
         HeroKind.Warden => (s, p) => s.DashCooldown *= Tune.Growth.OtherSoon,
         HeroKind.Vitalist => (s, p) => s.RuptureCostMult *= Tune.Growth.OtherSoon,
+        HeroKind.ShapeShifter => (s, p) => { s.OtherRestMult *= Tune.Growth.OtherSoon; s.FormSpecCdMult *= Tune.Growth.OtherSoon; },
         _ => (s, p) => s.OtherRestMult *= Tune.Growth.OtherSoon,
     };
     private static string OtherHardText(HeroKind h, string ot) => h switch
@@ -162,6 +173,7 @@ public static class Cards
         HeroKind.Warden => $"The {ot} strikes {Pct(Tune.Growth.OtherHard)} harder.",
         HeroKind.Vitalist => $"The {ot} bursts {Pct(Tune.Growth.OtherHard)} wider.",
         HeroKind.Aegis => $"The creatures the {ot} humbles stay humbled {Pct(Tune.Growth.OtherHard)} longer.",
+        HeroKind.ShapeShifter => $"The {ot} (the creature's own, or the form's trick) strikes {Pct(Tune.Growth.OtherHard)} harder.",
         _ => $"After a {ot}, your sure critical waits {Pct(Tune.Growth.OtherHard)} longer.",
     };
     private static Action<PlayerStats, Player> OtherHard(HeroKind h) => h switch
@@ -169,6 +181,7 @@ public static class Cards
         HeroKind.Warden => (s, p) => s.DashDamageMult *= Tune.Growth.OtherHard,
         HeroKind.Vitalist => (s, p) => { s.RuptureRadiusMult *= Tune.Growth.OtherHard; s.RuptureSplashMult *= Tune.Growth.OtherHard; },
         HeroKind.Aegis => (s, p) => s.DebuffSeconds *= Tune.Growth.OtherHard,
+        HeroKind.ShapeShifter => (s, p) => s.FormSpecDmgMult *= Tune.Growth.OtherHard,
         _ => (s, p) => s.OtherPowerMult *= Tune.Growth.OtherHard,
     };
     private static string DefSoonText(HeroKind h, string de) => h switch
@@ -225,6 +238,8 @@ public static class Cards
             "Chain of Light", $"{Tune.Growth.ChainPillars} more pillars fall on the creatures nearest the Judgement.");
         Forms(HeroKind.Rogue, "Shadow Marks", $"What the Death Blossom's knives find takes {Tune.Growth.MarkVulnerable * 100f:0}% more from every blow for {Tune.Growth.MarkSeconds:0} s.",
             "Whirling Steel", $"The Death Blossom throws {Tune.Growth.SteelVolleys} more volleys, {Tune.Growth.SteelKnives} more knives in each.");
+        Forms(HeroKind.ShapeShifter, "Primal Fury", $"In the Apex Form every blow strikes the creatures beside what it hits too ({Tune.Growth.FuryShare * 100f:0}% of it).",
+            "Lifeblood", $"In the Apex Form every blow mends you {Tune.Growth.LifebloodShare * 100f:0}% of what it deals, and each kill keeps the apex going {Tune.Growth.LifebloodKill:0} s longer.");
         // (anyone's, once each)
         list.Add(new() { Id = "m_twin", Name = "Twin Stroke", Desc = "Your special holds two strokes: use them back to back, and each comes back in its own time.", Icon = "spell", MaxStacks = 1, Tier = UpgradeTier.Ability, Tags = new[] { "special" },
             Apply = (s, p) => { s.SpecialCharges++; p?.GainSpecialCharge(); } });

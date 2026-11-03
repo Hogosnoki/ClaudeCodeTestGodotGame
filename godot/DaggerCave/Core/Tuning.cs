@@ -1353,6 +1353,8 @@ public static class Tune
         /// <c>FuryShare</c> of it) and Lifeblood (her apex blows mend her <c>LifebloodShare</c> of what they deal; a kill keeps the apex
         /// going <c>LifebloodKill</c> s longer).</summary>
         public static float FuryRadius = 44f, FuryShare = 0.35f, LifebloodShare = 0.12f, LifebloodKill = 1f;
+        /// <summary>The Shape Shifter's own extra cards: Tough Hide (the share of blows every form shrugs off besides) and Long Gaze (copy range, x).</summary>
+        public static float HideShare = 0.08f, GazeStep = 1.3f;
         public static float VigorStep = 1.12f, MightStep = 1.08f, FleetStep = 1.07f, HideStep = 0.93f, ThirstHeal = 1.5f, LearnStep = 1.12f;
         public static float KillRestCut = 0.35f, MomentumCut = 1.5f, OverwhelmDamage = 1.35f, OverwhelmRadius = 1.15f, ColossusHp = 1.25f;
         // (the specials' extra strokes, one per "Again")

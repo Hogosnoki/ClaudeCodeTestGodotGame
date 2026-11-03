@@ -48,6 +48,10 @@ public static class Infusions
             Desc = "The Judgement leaves a whirling gale that drags creatures to where it fell, and swallows their shots, for {s} s." },
         new() { Hero = HeroKind.Rogue, Key = "haze", Name = "Shadow Haze", El = HeroElement.Dark, Radius = 1f, Seconds = 0.9f, Damage = 0.8f, Build = 1.5f,
             Desc = "The Death Blossom leaves a haze of shadow that blinds and lays open all in it for {s} s." },
+        new() { Hero = HeroKind.ShapeShifter, Key = "thicket", Name = "Feral Thicket", El = HeroElement.Nature, Radius = 1.1f, Seconds = 0.9f, Damage = 1.1f, Build = 1.3f,
+            Desc = "The Apex Form's roar leaves a thicket of thorns about you that tears at and entangles all in it for {s} s." },
+        new() { Hero = HeroKind.ShapeShifter, Key = "gale", Name = "Howling Gale", El = HeroElement.Wind, Radius = 1.4f, Seconds = 0.9f, Damage = 0.8f, Build = 0f, Pull = 60f,
+            Desc = "The Apex Form's roar leaves a howling gale about you that drags creatures in and swallows their shots for {s} s." },
         new() { Hero = HeroKind.Rogue, Key = "venom", Name = "Venom Bloom", El = HeroElement.Nature, Radius = 1f, Seconds = 0.9f, Damage = 1.2f, Build = 1f,
             Desc = "The Death Blossom leaves a cloud of venom that eats at and entangles all in it for {s} s." },
     };
@@ -57,7 +61,7 @@ public static class Infusions
     private static string SpecialOf(HeroKind h) => h switch
     {
         HeroKind.Swordsman => "Whirlwind", HeroKind.Elementalist => "Meteor", HeroKind.Warden => "Great Bash",
-        HeroKind.Vitalist => "Bloom", HeroKind.Aegis => "Judgement", _ => "Death Blossom",
+        HeroKind.Vitalist => "Bloom", HeroKind.Aegis => "Judgement", HeroKind.ShapeShifter => "Apex Form", _ => "Death Blossom",
     };
     private static string Slug(HeroKind h) => h.ToString().ToLowerInvariant()[..3];
     public static string IdOf(Spec s) => $"x_{Slug(s.Hero)}_{s.Key}";

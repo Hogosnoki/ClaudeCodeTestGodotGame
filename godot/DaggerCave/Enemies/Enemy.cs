@@ -418,7 +418,8 @@ public abstract partial class Enemy : CharacterBody2D
         }
         // Enemies run on their own clock, sped up by the difficulty curve: movement, cooldowns
         // and animations all scale together (a hex, or a chill, slows the whole clock down).
-        float tempo = (Master != null ? 1f : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo * (Enraged ? Tune.BossMoves.EnrageTempo : 1f)) * hitSlow;
+        // (a creature a Shape Shifter drives keeps her pace: her attack speed)
+        float tempo = (Master != null ? Math.Clamp(Master.Stats.AttackSpeed, 0.5f, 2f) : G.Tempo * (_hexT > 0 ? _hexSlow : 1f) * (_chillT > 0 ? _chillSlow : 1f) * SapTempo * (Enraged ? Tune.BossMoves.EnrageTempo : 1f)) * hitSlow;
         float dt = (float)delta * tempo;
         TickBuild((float)delta);
         T += dt; HurtFlash -= (float)delta;

@@ -18,6 +18,7 @@ public partial class Main
     private void ShifterScenario()
     {
         var p = G.Player;
+        p.TestTricks = true; // (these are the forms' own tricks: the second button makes the creature's own move now)
         if (_scPulse > 0 && (_scPulse -= (float)GetProcessDeltaTime()) <= 0) { _scPulse = 0; _scInput = default; }
         switch (_scStep)
         {
@@ -67,7 +68,7 @@ public partial class Main
                 ScCheck($"the form's attack hits ({hit:0.0}, want about {want:0.0})", Math.Abs(hit - want) < want * 0.3f);
                 _scGobHp = _scGob.Hp;
                 _scGob.Pin(99f);
-                p.TestSpecial(new Vector2(1, 0));
+                p.TestTrick(new Vector2(1, 0));
                 _scStep = 4; _scT = 0;
                 break;
             }

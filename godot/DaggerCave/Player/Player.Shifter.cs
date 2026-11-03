@@ -69,7 +69,10 @@ public partial class Player
 
     private bool NativeSpecial => Ghost != null && GodotObject.IsInstanceValid(Ghost) && Ghost.MasterSpecialIntentIndex >= 0;
     /// <summary>The form's second button is the creature's own second move (Enemy.Secondary.cs): the same one the cave's creatures of its kind use.</summary>
-    private bool CreatureMove => Possessed && Ghost.HasFormMove2;
+    private bool CreatureMove => Possessed && Ghost.HasFormMove2 && !TestTricks;
+    /// <summary>Test aid: the second button is the form's own trick, as it was before it became the creature's second move (the older
+    /// scenarios that test the tricks).</summary>
+    public bool TestTricks { get; set; }
     public float FormSpecialFrac => Form == null ? 0f : CreatureMove ? Ghost.Move2Frac : NativeSpecial ? Ghost.MasterSpecialFrac : Math.Clamp(_formSpecCd / Math.Max(0.01f, Form.SpecCd), 0f, 1f);
     public bool FormSpecialReady => Form != null && (CreatureMove ? Ghost.Move2ReadyNow : NativeSpecial ? Ghost.MasterSpecialReady : _formSpecCd <= 0);
     /// <summary>The name of what the form's second button does now: the creature's own second move, or the form's trick.</summary>
@@ -81,6 +84,9 @@ public partial class Player
     /// <summary>Test aid: the dodge button, in a form (remember it).</summary>
     public bool TestRemember() => TryRemember();
     public bool TestSpecial(Vector2 aim) => TrySpecial(aim);
+    /// <summary>Test aid: the form's own trick (the bat's Latch, the rat's Gnaw...), as when primed, but not greater.</summary>
+    public bool TestTrick(Vector2 aim) { _forceTrick = true; try { return TrySpecial(aim); } finally { _forceTrick = false; } }
+    private bool _forceTrick;
     public bool TestAttack() { Ghost?.MasterAttack(new Vector2(Facing, 0)); return Ghost != null; }
 
     // ---------------------------------------------------------------- shifting
@@ -570,7 +576,7 @@ public partial class Player
         bool greater = Elemental && (Overcharged || (SimpleKit && Primed));
         if (greater && SimpleKit) _primedT = 0f;
         // the creature's own second move: the very one the creatures of its kind use, its wind-up, warning and blow, now on her foes
-        if (CreatureMove && !greater)
+        if (CreatureMove && !greater && !_forceTrick)
         {
             if (!Ghost.MasterMove2(aim)) return false;
             if (Math.Abs(aim.X) > 0.1f) Facing = Math.Sign(aim.X);

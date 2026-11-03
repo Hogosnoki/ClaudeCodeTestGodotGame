@@ -131,6 +131,8 @@ public partial class Hud
         (HeroKind.Vitalist, _) => "A full reserve of vital force bursts in the creatures round you (the crimson mark on the bar is what it needs).",
         (HeroKind.Aegis, "Burden") => "Carry part of a friend's hurt: aimed at a friend, you take a share of what they take.",
         (HeroKind.Aegis, _) => "A burst of light round you: no blow, but every creature it reaches hits a good deal softer for a few seconds.",
+        (HeroKind.ShapeShifter, "Recall") => "Out of a form: take the last creature of your element you were, again.",
+        (HeroKind.ShapeShifter, _) => $"The creature's own second move ({name}): the very one its kind uses on you, its wind-up and warning and all, now on your foes. Just after an element switch (primed), the form's own trick instead, greater: its blows lay on a full meter of its element.",
         _ => $"Melt into shadow and step out behind the creature nearest your aim (within {Tune.OtherAbility.StepRange:0} px), facing its back; your next jab within {Tune.OtherAbility.StepCritWindow:0.#} s is a sure critical. ({Tune.OtherAbility.StepCooldown:0} s)",
     };
 
@@ -158,6 +160,9 @@ public partial class Hud
             (HeroKind.Aegis, KitRole.Primary) => $"A bubble shot that bursts on what it hits, weakening it and those beside it: it {B(P)} in each.",
             (HeroKind.Aegis, KitRole.Defensive) => $"A barrier of light on the friend you aim at (or on you), and it **lends them your element** for {Tune.Elements.ImbueSeconds:0} s: each of their blows {B(Tune.Elements.ImbueBuild)}.",
             (HeroKind.Aegis, KitRole.Special) => $"A field of bubbles: you and every hero near you are wrapped in one, and lent your element for {Tune.Elements.ImbueSeconds:0} s (each of their blows {B(Tune.Elements.ImbueBuild)}); each creature in it: it {B(S)}.",
+            (HeroKind.ShapeShifter, KitRole.Primary) => $"Out of a form, a swing of the staff that {B(P)}. In a form, the creature's own attack. Your element is the kind of creature you become: nature the walkers, wind the fliers, water the swimmers; an element's button takes you into the nearest of that kind you could copy, or the last of that kind you were, and pressed again goes on to the next you know, then back to yourself.",
+            (HeroKind.ShapeShifter, KitRole.Defensive) => $"Shed your skin and slip away ({Tune.Shifter.MoltDistance:0} px, in a form or out): untouchable a moment, and the creatures near lose you for {Tune.Shifter.MoltHide:0.#} s. ({Tune.Shifter.MoltCooldown:0} s)",
+            (HeroKind.ShapeShifter, KitRole.Special) => $"The creature you are grows huge for {Tune.Shifter.ApexSeconds:0} s: its roar strikes everything within {Tune.Shifter.ApexRoarRadius:0} px, its blows land {Tune.Shifter.ApexDamage:0.#}x as hard, it shrugs off {Tune.Shifter.ApexArmor * 100f:0}% more of what strikes it, and its second move comes back twice as fast. Out of a form, the last one you were, in its apex.",
             (HeroKind.Rogue, KitRole.Primary) => $"A quick jab of the daggers: it {B(P)}. From hiding, {(wind ? "it shoves twice as hard" : "it builds double")}. With no dagger in hand, the attack calls them home.",
             (HeroKind.Rogue, KitRole.Defensive) => "Slip out of sight: the creatures lose you for a moment, and your next jab, from hiding, lays on twice the element.",
             _ => $"Throw a dagger at the creature nearest your aim: it {B(Tune.Elements.KnifeTouch)} as it lands, then **stores** {lower} while it stays in ({Tune.Elements.KnifeStore:0} a second, up to {Tune.Elements.KnifeStoreMax:0}). Press it again to call the knife home: it releases all it stored at once.",

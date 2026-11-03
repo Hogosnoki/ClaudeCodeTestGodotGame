@@ -31,8 +31,10 @@ public partial class Main
             _sfForm = 0; _sfPhase = 0; _scT = 0;
             return;
         }
-        if (_sfForm >= ShiftForm.All.Length) { ScEnd(); return; }
-        var f = ShiftForm.All[_sfForm];
+        // (the forms whose creatures answer the controller themselves; the ones driven generically: --scenario=shiftall)
+        var own = ShiftForm.All.Where(x => x.Id <= 13).ToArray();
+        if (_sfForm >= own.Length) { ScEnd(); return; }
+        var f = own[_sfForm];
         switch (_sfPhase)
         {
             case 0: // become the creature

@@ -162,6 +162,8 @@ public partial class Player
         G.Main.Rumble(0.5f, 0.4f, 0.3f);
         G.Sfx.Play("roar", GlobalPosition, 0, 0.05f, 0.8f);
         G.Fx.Text(GlobalPosition + new Vector2(0, -50), $"APEX {Form.Name.ToUpperInvariant()}", col, 12, 1f);
+        // (her infusions: what the roar leaves about her)
+        Infuse(at, r);
         return true;
     }
 

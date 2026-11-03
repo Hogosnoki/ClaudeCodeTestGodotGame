@@ -2507,6 +2507,46 @@ The Swordsman, the Elementalist, the Warden, the Vitalist, the Aegis, the Rogue 
 `Enemies/Enemy.Elements.cs`, `Tune.Elements`, `Tune.ElementalSword`, `Tune.ElementalStaff`, `Tune.ElementalWarden`), on **1, 2, 3** on the
 keyboard, **d-pad left, up, right** on a controller (the d-pad no longer moves; the left stick does), rebindable as *Element 1-3*.
 
+### The Shape Shifter, reworked to fit in
+
+She was the odd one out: a staff, a Shift button and a form's invented special, no great special, the old class cards, and only 13 of
+the cave's ~30 kinds to copy. She now has the others' frame, keeping what makes her herself (she *is* the creature: its body, gait,
+timing and blows, driven by the controller).
+
+- **Every creature that isn't a boss, a guardian or a structure can be copied**: 29 forms (`Core/ShiftForms.cs`). The 13 old ones answer
+  the controller with their own footwork and blows; the 16 new ones (acid newt, automaton, boiler, brimstone worm, cogwheel, eel, the five
+  elementals, gasbag, lava monster, mite, shardling, urchin) are **driven generically** (`Enemies/Enemy.Driven.cs`, `DrivenGeneric`): the
+  stick moves the body as its kind moves (it walks and jumps, flies, or swims; an eel walks on rock as her body), and the attack button gives
+  the form's blow, or its shot for the spitters (`Tune.Shifter.GenericBlow` 6 x the form's Dmg, resting `GenericRest` 1.25 x its Cooldown,
+  in line with the old forms). Not copied: bosses, guardians, structures, the Delver (it burrows through rock) and the bomber and frost
+  wraith (their second move spends their body).
+- **The second button is the creature's own second move** (`Enemies/Enemy.Secondary.cs`, `MasterMove2`): the Rock Toss, Leaping Bite,
+  Ground Slam, Stinger Fan... the same wind-up, warning shape, pose and blow the creatures of its kind use on you, aimed at the creature
+  nearest her aim, landing on the cave's creatures. Its rest grows with her cards (and halves in her apex). Primed (just after a switch),
+  the button makes the form's own trick instead (the bat's Latch, the spider's Envenomate, the rat's Gnaw...), greater: its blows lay on a
+  full meter of the form's element.
+- **The elements are the kinds of creature** (nature the walkers, wind the fliers, water the swimmers). An element's button takes her into
+  the nearest creature of that kind she could copy, or else the last of that kind she was; pressed again while in that kind, it goes on to
+  the next of that kind she knows, and after the last back to herself. **Every creature she copies is hers for the rest of the run**
+  (`PlayerStats.KnownForms`), so she is never stuck as a weak staff fighter waiting for something to copy. The switch's cooldown and its
+  primed reward are the others'.
+- **Molt** (dodge button, `Player/Player.ShifterKit.cs`): she sheds her skin and slips away, in a form or out: 90 px, untouchable 0.3 s,
+  and for 0.9 s the creatures near lose her (`Tune.Shifter.Molt*`). A slow golem form is no longer a trap.
+- **Apex Form** (special): the creature she is grows huge for 7 s (x1.4): its **roar** strikes everything within 80 px (2.4x a form's
+  blow), its blows land 1.6x as hard, it shrugs off 30% more, and its second move is ready at once and rests half as long. Out of a form
+  she takes the last one she was, in its apex (`Tune.Shifter.Apex*`; 24 s rest).
+- **She grows by the level cards** like everyone else (`Player/Cards.cs`): Vast / Crushing / Restless Apex Form, Apex Form Again (2 s
+  longer); Keen Wild Strike (her staff and every form's blows), Quick Wild Strike (her staff, and every creature she becomes, quicker);
+  Ready / Mighty Wild Move; Ready / Far Molt; and two of her own, **Tough Hide** (forms shrug off 8% more) and **Long Gaze** (copy 30%
+  further). Milestones: **Primal Fury** (in her apex every blow strikes those beside what it hits too, 35% of it) or **Lifeblood** (apex
+  blows mend her 12% of what they deal; each kill keeps the apex going 1 s longer). Infusions: **Feral Thicket** (the roar leaves a thicket
+  of thorns) and **Howling Gale** (a gale that drags creatures in and swallows their shots). Her old class cards are retired.
+- **Her forms never hurt a hero**: a driven creature's shots fly for her, and the lava and acid puddles they leave burn the creatures
+  (`Combat/Puddles.cs`).
+- Tests: `--scenario=shiftall --hero=shifter` takes every form beside a creature held still (its attack lands, its second move is made and
+  lands, nothing hurts her); `--scenario=shifterkit --hero=shifter` checks the element buttons, the primed trick, the creature's move, Molt,
+  Apex Form, her cards and an infusion. (`--hero=shapeshifter` is accepted too.)
+
 ### Simple kits (the elemental heroes now)
 
 The Swordsman, the Warden, the Elementalist, the Vitalist, the Aegis and the Rogue each have **three abilities and three elements**
@@ -2521,6 +2561,7 @@ works:
 | Vitalist | Drain (splashes) | Mending: the heal | **Bloom** | **Rupture**: a full reserve of vital force bursts in the creatures round her | nature, wind, water |
 | Aegis | Bubble: the bubble shot | Barrier: on the friend aimed at (or her) | **Judgement** | **Humbling Light**: creatures round her hit softer for a while (in a party, **Shared Burden**) | wind, earth, frost |
 | Rogue | Jab (no dagger in hand: recall) | Vanish | **Death Blossom** | **Shadowstep**: to the far side of the creature nearest the aim (150 px), facing its back; the next jab within 1.5 s is a sure critical (6 s) | dark, wind, nature |
+| Shape Shifter | Staff; in a form, the creature's own attack | **Molt**: she sheds her skin and slips away (90 px), untouchable a moment, and the creatures near lose her (0.9 s; 4 s) | **Apex Form** | **Wild Move**: in a form, the creature's own second move; primed, the form's own trick, greater; out of one, her last form of the element again | nature (walkers), wind (fliers), water (swimmers): the element's button takes her into a creature of that kind |
 
 * **An element button switches to its element**, and does nothing else: no overcharge, no attribute, no mixes. A switch takes
   effect at once, at most once a second (`Tune.Elements.SwitchCooldown`). Pressing the element you're in does nothing.

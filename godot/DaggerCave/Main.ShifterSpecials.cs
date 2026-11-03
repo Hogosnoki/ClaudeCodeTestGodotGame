@@ -23,6 +23,7 @@ public partial class Main
     private IEnumerable<object> ShifterSpecialsRun()
     {
         var p = G.Player;
+        p.TestTricks = true; // (these are the forms' own tricks: the second button makes the creature's own move now)
         foreach (var e in G.Enemies.ToArray()) e.QueueFree();
         p.Stats.MaxHp = 5000; p.Hp = 5000;
         p.InputOverride = () => { var i = _scInput; _scInput.Jump = false; _scInput.Attack = false; _scInput.Ability2 = false; return i; };
@@ -182,7 +183,7 @@ public partial class Main
         foreach (var _ in Wait(0.8f)) yield return null;
         ScCheck($"no longer a bear, with nothing about to copy ({p.Form == null})", p.Form == null && p.ShiftTarget() == null);
         p.ResetAbilityCooldowns();
-        p.TestSpecial(new Vector2(1, 0));
+        p.TestTrick(new Vector2(1, 0));
         ScCheck($"the second button takes the remembered form again, with no creature to copy it from ({p.Form?.Name}; {p.Recalled} recalled)", p.Form?.Key == "bear" && p.Recalled >= 1);
         // and Shift with nothing to copy does it too
         p.LeaveForm(false);

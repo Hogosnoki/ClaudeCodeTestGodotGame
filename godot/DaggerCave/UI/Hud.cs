@@ -483,8 +483,8 @@ public partial class Hud : Control
                 HeroKind.ShapeShifter => new[]
                 {
                     move,
-                    $"{atk} staff (or the form's own attack) · {a1} shift into the nearest creature (again to drop the form) · {a2} the form's special · {dg} dodge",
-                    "Each creature moves and fights its own way; your health and strength stay yours · " + pause,
+                    $"{atk} staff (or the creature's own attack) · the element buttons: become a walker, a flier or a swimmer (again: the next you know, then yourself) · {a1} Apex Form · {a2} the creature's own move · {dg} Molt",
+                    "Each creature moves and fights its own way, with its own second move; every one you copy is yours for the run; your health and strength stay yours · " + pause,
                 },
                 HeroKind.Aegis => new[]
                 {

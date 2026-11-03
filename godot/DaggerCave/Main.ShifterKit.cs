@@ -98,6 +98,22 @@ public partial class Main
         ScCheck($"Apex Form: the creature grows ({size0:0.00} -> {size1:0.00}), its roar strikes ({h0 - foe.Hp:0}), in its apex ({p.InApex}, {p.ApexLeft:0.0} s)", p.InApex && size1 > size0 * 1.2f && foe.Hp < h0);
         foreach (var _ in Wait(Tune.Shifter.ApexSeconds + 0.5f)) yield return null;
         ScCheck($"and when it ends it shrinks back ({p.Ghost?.Animator?.SizeNow ?? 0:0.00}; apex {p.InApex})", !p.InApex && Math.Abs((p.Ghost?.Animator?.SizeNow ?? size0) - size0) < 0.01f);
+        // ---- the cards: she grows as the others do
+        var st = new PlayerStats(HeroKind.ShapeShifter);
+        bool Dealt(string id) => Upgrades.Available(Upgrades.Get(id), st);
+        var hers = new[] { "g_sha_wide", "g_sha_hard", "g_sha_soon", "g_sha_again", "g_sha_keen", "g_sha_quick", "g_sha_osoon", "g_sha_ohard", "g_sha_dsoon", "g_sha_dfar", "g_sha_hide", "g_sha_gaze" };
+        var missing = hers.Where(id => !Dealt(id)).ToList();
+        ScCheck($"she grows by the level cards as the others do ({Cards.Grows(HeroKind.ShapeShifter)}; missing: {string.Join(", ", missing)})", Cards.Grows(HeroKind.ShapeShifter) && missing.Count == 0);
+        ScCheck($"and her old kit's cards are no longer dealt (Weighted Staff {Dealt("staff_dmg")}, Quick Change {Dealt("shift_cd")})", !Dealt("staff_dmg") && !Dealt("shift_cd"));
+        ScCheck($"Apex Form has its two milestone forms (Primal Fury, Lifeblood) and two infusions", Upgrades.Find("m_sha_a")?.Name == "Primal Fury" && Upgrades.Find("m_sha_b")?.Name == "Lifeblood" && Upgrades.Find("x_sha_thicket") != null && Upgrades.Find("x_sha_gale") != null);
+        // ---- an infusion: the roar leaves its thicket
+        p.ResetAbilityCooldowns();
+        Upgrades.Apply(Upgrades.Get("x_sha_thicket"), p.Stats, p);
+        int zones0 = p.InfusedZones.Count;
+        foreach (var _ in Wait(0.3f)) yield return null;
+        _scInput = new PlayerInput { Ability = true, Aim = new Vector2(dir, 0), AimGiven = true };
+        foreach (var _ in Wait(0.4f)) yield return null;
+        ScCheck($"Feral Thicket: the Apex roar leaves its thicket ({p.InfusedZones.Count - zones0} zone; apexes {p.Apexes})", p.InfusedZones.Count > zones0 && p.Apexes == 2);
         foe.QueueFree();
         p.InputOverride = null;
     }
