@@ -3351,7 +3351,7 @@ public partial class Main : Node
     private float _heroT;
     private bool _heroOk = true;
     private float _hpMark, _shieldMark;
-    private Vector2 _posMark;
+    private Vector2 _posMark, _heaveDrift;
     private EnemyProjectile _probe;
 
     private void Check(string what, bool ok)
@@ -3767,12 +3767,17 @@ public partial class Main : Node
                 _heroInput = new PlayerInput { Move = new Vector2(-_dir, 0), Jump = true, JumpHeld = true };
                 break;
             case 67: _heroInput = new PlayerInput { Move = new Vector2(-_dir, 0) }; break;
-            case 68: _posMark = p.GlobalPosition; break; // (planted by now; the golem's shove as it was set down doesn't count)
+            case 68: _posMark = p.GlobalPosition; _heaveDrift = Vector2.Zero; break; // (planted by now; the golem's shove as it was set down doesn't count)
+            // (how far it moved while still planted: a slow-motion hit-stop ends the heave sooner in real time, and once it's over the hero may move)
+            case 69: case 70: case 71: case 72:
+                if (p.Heaving) _heaveDrift = p.GlobalPosition - _posMark;
+                break;
             case 73:
             {
                 float dealt = _hpMark - _probeEnemy.Hp;
                 Check($"it lands for about three normal swings with the charge ({dealt:0} vs {_normalHit:0} a swing)", dealt > _normalHit * 2.4f);
-                Check($"and you stayed put through it ({(p.GlobalPosition.X - _posMark.X):0.0} px, {(p.GlobalPosition.Y - _posMark.Y):0.0} px)", Math.Abs(p.GlobalPosition.X - _posMark.X) < 3f && Math.Abs(p.GlobalPosition.Y - _posMark.Y) < 3f);
+                if (p.Heaving) _heaveDrift = p.GlobalPosition - _posMark;
+                Check($"and you stayed put through it ({_heaveDrift.X:0.0} px, {_heaveDrift.Y:0.0} px)", Math.Abs(_heaveDrift.X) < 3f && Math.Abs(_heaveDrift.Y) < 3f);
                 _heroInput = default;
                 break;
             }
