@@ -514,7 +514,7 @@ upgrades and form; `Hero.FallReachShare`), so no jump, however high upgrades mak
 little farther unhurt. An ordinary jump reaches the terminal speed only in its last few pixels and costs nothing, and anything
 that brakes the fall on the way down (a second jump, the Elementalist's updraft, a dash, grabbing a rope, water, a creature's form) starts
 the count afresh, so a long fall is easily softened. It never takes the last of anyone's health. `--scenario=fall` checks it.
-**A creature's death** throws its body gently along the killing blow (a little faster for a harder one), with a little lift, turning
+**A creature's death** throws its body along the killing blow (220 px/s, up to 400 for a hard blow, 140 up, falling at 1,040 px/s²), turning
 over slightly as it slows and falls, while its death plays and it fades away (`Enemy.DeathLaunch`, `SpriteAnimator.DeathFlight`,
 `Tune.Feel.DeathLaunch` and the rest): a cheap stand-in for a ragdoll, with no physics bodies. A boss's heavy body moves far less; it stops
 where it meets rock; and creatures whose deaths already drift their own way (ghosts rising, things in the water) keep that.
@@ -1751,7 +1751,7 @@ title screen): the Debug tab edits the one on show (its first line says which; o
 the pause menu in a run for the cave's), and the values list shows both. Reset puts the look on show back to its defaults
 (`LookSnap.TitleDefaults` / `CaveDefaults`, and `TitleDefault` / `CaveDefault` on each tuning value).
 **Vignette** (Debug tab, *Whole picture*; `vignette`, `vignette_size`, `vignette_soft`, `vignette_round`, in the full-screen pass
-`cel_post.gdshader`): the picture darkens toward its edges and corners: how strongly (0 = off, the default for both looks, 1 = black at
+`cel_post.gdshader`): the picture darkens toward its edges and corners: how strongly (the cave's default: 1, beginning a quarter of the way out (0.255) and fading in softly (0.841), an oval; the title screen's: off; 1 = black at
 the edge), how far out from the middle it begins, how gradually, and whether it follows the screen's shape (an oval) or is round.
 Each look has its own, so the cave can have one and the title screen none.
 The cave look's defaults are the tuned look: object borders 1 px, character borders 2.15 px, no texture blur, band softness 0.5,

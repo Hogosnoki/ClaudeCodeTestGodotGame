@@ -222,17 +222,17 @@ dbg_scr_b={
 
 dbg_vignette={
 "type": "float",
-"value": 0.0
+"value": 1.0
 }
 
 dbg_vignette_size={
 "type": "float",
-"value": 0.5
+"value": 0.255
 }
 
 dbg_vignette_soft={
 "type": "float",
-"value": 0.6
+"value": 0.841
 }
 
 dbg_vignette_round={

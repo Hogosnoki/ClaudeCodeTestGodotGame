@@ -485,7 +485,7 @@ public static class Tune
         /// <summary>A creature's body, as it dies, is thrown gently along the killing blow: <c>DeathLaunch</c> px/s (more for a harder
         /// blow, up to <c>DeathLaunchMax</c>; a boss's or guardian's heavy body <c>DeathHeavy</c> of that) and <c>DeathLift</c> px/s up,
         /// falling at <c>DeathGravity</c>, slowing by <c>DeathDrag</c> a second, turning over at up to <c>DeathSpin</c> rad/s, while it fades.</summary>
-        public static float DeathLaunch = 110f, DeathLaunchMax = 200f, DeathHeavy = 0.35f, DeathLift = 70f, DeathGravity = 260f, DeathDrag = 1.6f, DeathSpin = 1.4f;
+        public static float DeathLaunch = 220f, DeathLaunchMax = 400f, DeathHeavy = 0.35f, DeathLift = 140f, DeathGravity = 1040f, DeathDrag = 1.6f, DeathSpin = 1.4f;
 
         /// <summary>
         /// Hit-stop lengths (seconds): the hero and whatever was struck freeze on the impact pose
