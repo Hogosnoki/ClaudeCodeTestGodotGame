@@ -1032,6 +1032,11 @@ How a hero grows was rebuilt around the current kits (Player/Cards.cs, numbers i
   | Aegis | Sunfire / Gale Sanctum | under every Judgement pillar: holy fire, or a gale that drags creatures in and swallows their shots |
   | Rogue | Shadow Haze / Venom Bloom | under the Death Blossom: shadow that blinds and lays open, or venom that eats and entangles |
 
+  The shards of a zone's element (ice, glowing magma, thorns, shadow crystals: `BlizzardView.BuildInfused` in Render3D/Props/PropViews.cs)
+  stand along the play's own plane, where the ground is cut: spread across the zone's width but only a thin band deep, mostly behind
+  the plane and at most 0.4 m toward the camera (`InfusedFront`; 1.5 m behind, `InfusedBack`), never leaning toward it, the few in front
+  kept small. (A big zone's shards used to scatter far out toward the camera and hide the whole fight.)
+
   How they're dealt: when a level's pick rolls a Legendary boon, half the time it's one of your infusions instead; a milestone's last card is one about a third of the time. Online, the zones show for everyone with their element and look.
 - **Graded shrines: the loot shows its rarity before you open it** (Combat/Pickups.cs `Chest.Grade`, Render3D/Props/PropViews.cs `BuildShrine`, `Tune.Shrine`). Each upgrade shrine (the floating crystal flower) rolls its grade when it's made, from the level's seed so everyone online sees the same flower: Uncommon about 58%, Rare 27%, Epic 11%, Legendary 3-4% (the finer ones a little likelier deeper down; a guardian's is Rare or better). When it's opened, its finest card is of exactly that grade: nothing finer is dealt, and if none of its cards is of that grade, a boon of that grade (or, for a Legendary one, sometimes one of your infusions) takes the last place. The flower grows grander with its grade:
 
