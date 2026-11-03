@@ -1,6 +1,6 @@
 # Dagger Deep
 
-A side-view rogue-lite in 3D: set off from a camp in a sunny meadow, down through the cave mouth to
+A side-view rogue-lite in 3D: set off from a camp in a meadow at dusk, down through the cave mouth to
 a dragon at the bottom of the world, as a sword-swinging, dodging Swordsman, a shield-bearing
 Warden, a Vitalist who drains life from creatures and gives it to the living, an Elementalist
 who burns, freezes and shatters them, or a Rogue who strikes out of the shadows with two daggers.
@@ -321,9 +321,8 @@ and damage taken while a controller is active.
 
 ## What's in it
 
-**The camp**. The game opens on the main menu, over the camp outside the cave: a green meadow
-under a blue sky, a cooking pot over the fire, and the cave's great dark mouth in a mossy cliff (the ground and the rock
-fade into its darkness: the camp's ground and cliff shaders shade everything in and just before the mouth down to black, and the haze thins there too).
+**The camp**. The game opens on the main menu, over the camp outside the cave at dusk: a meadow under a violet and peach sky
+with the sun going down beyond misty mountains, a cooking pot over the fire, and the cave's great dark mouth in a towering cliff.
 **Single player** brings you in to the fire, where the heroes sit on logs, and getting ready goes in
 three stages (Enter / A on to the next, Esc / B back): **1 Character** (choose one; the chosen hero
 stands up), **2 Grid & loadout** (the Ember Grid and the side-grade loadout) and **3
@@ -1285,14 +1284,32 @@ screen for spawning). F7 shows the 2D world on top, for checking collisions agai
   exit is a dressed-stone doorway in a knuckle of rock; its opening is one quad whose shader traces
   each view ray into a passage behind it (`fx_stairwell.gdshader`): stone ribs, each set lower than
   the last, stepping down into the dark, and past them a faint glow of the biome below.
-- **The camp** (`Render3D/Camp/CampScene.cs`): a world of its own, drawn in a viewport behind the
-  menus (so the cave's lights and fog stay out of it) and switched off while you're below: a
-  procedural sky with a warm afternoon sun and shadows, a meadow of rolling hills with thousands
-  of swaying grass tufts and drifts of wild flowers, trees and faceted boulders, fair-weather
-  clouds, blue mountains on the horizon, a fire of billboard flames with sparks, smoke and a
-  steaming pot, and the cave mouth: an arch in the cliff whose tunnel fades to black. The heroes
-  are their in-game models on logs round the fire (a sitting pose in `HeroDesign`), their
-  lanterns unlit in daylight.
+- **The camp** (`Render3D/Camp/CampScene.cs`, `CampDusk.cs`, `CampCliff.cs`): a world of its own, drawn in a viewport behind the
+  menus (so the cave's lights and fog stay out of it) and switched off while you're below. It is rebuilt after a reference picture
+  of the scene at dusk, to look real rather than drawn (the heroes stay as they are, to be redone later; nothing out here has an
+  ink line):
+  - *Sky and light* (`camp_sky.gdshader`): the sun on the horizon to the left, the sky peach and gold round it, mauve away from it,
+    dusky violet overhead, and a drifting deck of clouds lit orange-pink from below near the sun. A low orange sun with long soft
+    shadows; a lavender ambient and a dim violet light from overhead (the sky's own light); a warm rose glow raking across from the
+    left (the sunset off the western sky); ACES tone mapping, bloom on the sun and the fire, SSAO, a violet distance haze and a thin
+    volumetric haze that the fire's light glows in.
+  - *Land*: a fine meadow round the camp and rings going out 2.6 km, with rolling ground, wooded hills and ridge after ridge of
+    ridged-noise mountains beyond (`Ground` in CampDusk.cs), the meadow in `camp_meadow.gdshader` (matted turf, worn to photographed
+    earth round the fire, along the way to the cave and out in a trodden patch toward the view), the mountains in the rock shader.
+  - *The cliff*: a massif swept from a profile that climbs crag on crag to a summit 50 m up, falling away to the left of the mouth to
+    open the view, with great ridged crags, big terraces and a broken skyline worked into it; photographed rock in
+    `camp_stone.gdshader` (projected from three sides, two scales so it never tiles, normal and roughness maps, moss and grass on
+    what faces the sky, lichen, rain streaks), and pines rooted on its ledges.
+  - *Growing things*: tens of thousands of blade-by-blade grass tufts (`camp_blades.gdshader`: tapering, curling blades, each tuft
+    its own shade, gusts rolling across the meadow, light through the blades), white umbels and lavender in drifts, pines round the
+    meadow and in their thousands on the far slopes, and a great oak framing the left (branching boughs and leaf cards cut out by a
+    generated leaf picture, `camp_foliage.gdshader`).
+  - *Rocks and mist*: lichened boulders in the meadow; soft, drifting banks of mist (`camp_mist.gdshader`) lying in the far valleys
+    and round the cave's foot, fading where they meet the ground.
+  - *The fire*: billboard flames with sparks, smoke and the pot's steam, a warm light that flickers and throws the heroes' shadows,
+    kept close round the camp; the logs, stones, tripod and pot grained by the rock shader.
+  The camera eases from the menu's view (low in the grass, the fire and the cave before you, the sunset to the left) in to the fire
+  (choosing a hero) and on toward the mouth as a run begins. `--campshot=DIR` saves the views (`DC_CAMPSHOT_WIDE=1`: the menu's only).
 - **Menus**: the hero cards in the online lobby show the heroes' 3D models idling under studio
   lights, each in a small viewport of its own (`UI/HeroPortrait.cs`).
 
@@ -1733,6 +1750,9 @@ keeps its own settings and debug tuning values (saved under `graphics` / `debug`
 title screen): the Debug tab edits the one on show (its first line says which; open Settings from the main menu for the title screen's, from
 the pause menu in a run for the cave's), and the values list shows both. Reset puts the look on show back to its defaults
 (`LookSnap.TitleDefaults` / `CaveDefaults`, and `TitleDefault` / `CaveDefault` on each tuning value).
+The cave look's defaults are the tuned look: object borders 1 px, character borders 2.15 px, no texture blur, band softness 0.5,
+light flatness 0.5, and the tuning values as settled (among them exposure 0.89, field of view 80, zoom 2.33, no cave haze, ambient
+occlusion x3, background blur from 5 m behind the play plane); project.godot's shader globals start at the same values.
 
 The camp's meadow has more grass texture (a tufted mottle, fine blade strokes and pale flecks, in `camp_ground.gdshader`) and far fewer tall
 clumps (380 and 55 dry ones, from 1,400 and 260).

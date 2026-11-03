@@ -25,7 +25,7 @@ cel_shading={
 
 cel_tex_blur={
 "type": "float",
-"value": 0.2
+"value": 0.0
 }
 cel_tex_tones={
 "type": "float",
@@ -41,11 +41,11 @@ cel_light_tones={
 }
 cel_band_soft={
 "type": "float",
-"value": 0.95
+"value": 0.5
 }
 cel_light_flat={
 "type": "float",
-"value": 0.0
+"value": 0.5
 }
 terrain_solid={
 "type": "float",
@@ -53,11 +53,11 @@ terrain_solid={
 }
 ink_terrain_px={
 "type": "float",
-"value": 1.4
+"value": 1.0
 }
 ink_actor_px={
 "type": "float",
-"value": 1.6
+"value": 2.15
 }
 light_ambient_only={
 "type": "float",
@@ -65,23 +65,23 @@ light_ambient_only={
 }
 dbg_fg_bright={
 "type": "float",
-"value": 0.916
+"value": 0.889
 }
 dbg_fg_contrast={
 "type": "float",
-"value": 1.025
+"value": 1.2
 }
 dbg_bg_bright={
 "type": "float",
-"value": 0.919
+"value": 0.626
 }
 dbg_bg_contrast={
 "type": "float",
-"value": 1.056
+"value": 1.038
 }
 dbg_back_dirt={
 "type": "float",
-"value": 0.294
+"value": 0.339
 }
 dbg_obj_bright={
 "type": "float",
@@ -89,35 +89,35 @@ dbg_obj_bright={
 }
 dbg_obj_contrast={
 "type": "float",
-"value": 2.5
+"value": 1.525
 }
 dbg_wall_gain={
 "type": "float",
-"value": 1.69
+"value": 1.753
 }
 dbg_grain_amount={
 "type": "float",
-"value": 0.338
+"value": 0.506
 }
 dbg_lump_amount={
 "type": "float",
-"value": 0.322
+"value": 0.102
 }
 dbg_crevice_amount={
 "type": "float",
-"value": 0.275
+"value": 0.265
 }
 dbg_stone_size={
 "type": "float",
-"value": 1.326
+"value": 1.664
 }
 dbg_facet_shade={
 "type": "float",
-"value": 0.0
+"value": 0.299
 }
 dbg_grass_lean={
 "type": "float",
-"value": 1.0
+"value": 0.998
 }
 dbg_ground_up={
 "type": "float",
@@ -125,51 +125,51 @@ dbg_ground_up={
 }
 dbg_obj_r={
 "type": "float",
-"value": 1.0
+"value": 1
 }
 dbg_obj_g={
 "type": "float",
-"value": 1.0
+"value": 0.995
 }
 dbg_obj_b={
 "type": "float",
-"value": 1.0
+"value": 0.99
 }
 dbg_poly_smooth={
 "type": "float",
-"value": 0.843
+"value": 0.915
 }
 dbg_trans_soft={
 "type": "float",
-"value": 0.025
+"value": 0.553
 }
 dbg_bg_fade={
 "type": "float",
-"value": 1.178
+"value": 3.488
 }
 dbg_crevice_soft={
 "type": "float",
-"value": 0.353
+"value": 0.8
 }
 dbg_edge_step={
 "type": "float",
-"value": 0.019
+"value": 0.162
 }
 dbg_edge_alpha={
 "type": "float",
-"value": 0.91
+"value": 0.552
 }
 dbg_m_dirt_r={
 "type": "float",
-"value": 1.0
+"value": 0.995
 }
 dbg_m_dirt_g={
 "type": "float",
-"value": 1.0
+"value": 0.995
 }
 dbg_m_dirt_b={
 "type": "float",
-"value": 1.0
+"value": 0.995
 }
 dbg_m_grass_r={
 "type": "float",
@@ -177,19 +177,19 @@ dbg_m_grass_r={
 }
 dbg_m_grass_g={
 "type": "float",
-"value": 1.005
+"value": 1
 }
 dbg_m_grass_b={
 "type": "float",
-"value": 0.99
+"value": 0.98
 }
 dbg_m_stone_r={
 "type": "float",
-"value": 1.0
+"value": 1
 }
 dbg_m_stone_g={
 "type": "float",
-"value": 1.125
+"value": 1.12
 }
 dbg_m_stone_b={
 "type": "float",
@@ -197,11 +197,11 @@ dbg_m_stone_b={
 }
 dbg_m_snow_r={
 "type": "float",
-"value": 0.985
+"value": 0.98
 }
 dbg_m_snow_g={
 "type": "float",
-"value": 1.005
+"value": 1
 }
 dbg_m_snow_b={
 "type": "float",
@@ -209,7 +209,7 @@ dbg_m_snow_b={
 }
 dbg_scr_r={
 "type": "float",
-"value": 1.165
+"value": 1.17
 }
 dbg_scr_g={
 "type": "float",

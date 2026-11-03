@@ -15,7 +15,7 @@ namespace DaggerCave;
 /// </summary>
 public partial class CampScene
 {
-    private const float ArchHalfW = 3.1f, ArchH = 6.3f, TunnelDepth = 12f;
+    private const float ArchHalfW = 3.8f, ArchH = 8.4f, TunnelDepth = 14f;
 
     private Vector3 CliffRight => new(MouthFacing.Z, 0, -MouthFacing.X);
     /// <summary>A point on the cliff: along the face (to the right seen from the camp), up, and back into the hill.</summary>
@@ -29,12 +29,13 @@ public partial class CampScene
         return MathF.Sqrt(a * a + dy * dy) - ArchHalfW;
     }
 
-    // the hill's profile: (metres back into the hill, metres up). Leaning back a little up the face, a
-    // shoulder, a rounded crown and a long slope down behind (nobody sees round the back).
+    // the massif's profile: (metres back into the hill, metres up). A sheer face over the mouth, then crag on crag stepping back
+    // with ledges between (where the pines take hold), up to a summit far overhead, and a long fall away behind.
     private static readonly Vector2[] Profile =
     {
-        new(-3.2f, -1.6f), new(-1.8f, -0.4f), new(-0.9f, 1.4f), new(-0.5f, 4.6f), new(-0.1f, 8.6f), new(0.5f, 11.4f), new(2.2f, 13.4f),
-        new(6f, 14.4f), new(12f, 14.2f), new(20f, 12f), new(30f, 7f), new(40f, 2f), new(48f, -2.5f),
+        new(-3.2f, -1.6f), new(-1.8f, -0.4f), new(-0.9f, 1.4f), new(-0.6f, 5f), new(-0.3f, 9f), new(0.2f, 12.4f), new(1.6f, 14.2f),
+        new(4f, 15f), new(5.2f, 19f), new(6f, 23.5f), new(8.5f, 25.5f), new(11f, 26.5f), new(12.4f, 31f), new(13.6f, 35.5f),
+        new(17f, 38f), new(21f, 39.5f), new(23f, 44f), new(26f, 48f), new(32f, 50f), new(42f, 48f), new(58f, 38f), new(75f, 20f), new(92f, -3f),
     };
 
     private static Vector2 CatmullRom(Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3, float t)
@@ -54,7 +55,7 @@ public partial class CampScene
         {
             var p0 = Profile[Math.Max(0, s - 1)]; var p1 = Profile[s]; var p2 = Profile[s + 1]; var p3 = Profile[Math.Min(Profile.Length - 1, s + 2)];
             float len = (p2 - p1).Length();
-            float spacing = s <= 5 ? 0.17f : s <= 7 ? 0.55f : 1.6f;
+            float spacing = p1.Y < 13f ? 0.17f : p1.Y < 30f ? 0.45f : 1.0f;
             int steps = Math.Max(2, (int)MathF.Ceiling(len / spacing));
             for (int k = 0; k < steps; k++)
             {
@@ -69,7 +70,7 @@ public partial class CampScene
         }
         rows.Add((Profile[^1], new Vector2(0, 1)));
 
-        const float aMax = 33f, aStep = 0.17f;
+        const float aMax = 70f, aStep = 0.2f;
         int cols = (int)(aMax * 2f / aStep) + 1;
         int nr = rows.Count;
         var mb = new MeshBuilder();
@@ -78,11 +79,16 @@ public partial class CampScene
         for (int i = 0; i < cols; i++)
         {
             float a = -aMax + i * aStep;
-            // the hill dies away into the meadow at either end
-            float k = 1f - W3.SmoothStep(15f, 32f, MathF.Abs(a));
+            // the massif dies away into the land at either end, sooner to the left, where the rock falls toward the far mountains
+            float k = 1f - (a < 0f ? W3.SmoothStep(9f, 32f, -a) : W3.SmoothStep(40f, 68f, a));
+            // (and it falls away to the left of the mouth, opening the view to the sunset and the far ridges; to the right it climbs)
+            float tall = a < 0f ? 1f - 0.9f * W3.SmoothStep(0f, 15f, -a) : 1f + 0.12f * W3.SmoothStep(10f, 40f, a);
+            // (a broken skyline: buttresses and notches along it, not one smooth slope)
+            tall *= 1f + 0.5f * noise.Fbm(a * 0.05f, 4.4f, 1.7f, 3) + 0.22f * noise.Fbm(a * 0.16f, 8.8f, 3.3f, 2);
             for (int j = 0; j < nr; j++)
             {
                 var (pt, nrm) = rows[j];
+                if (pt.Y > 13f) pt.Y = 13f + (pt.Y - 13f) * tall;
                 float back = pt.X, up = pt.Y;
                 // the mouth's edge: vertices just inside it are drawn out onto its outline, so the cut is smooth, not stair-stepped
                 bool wasHole = false;
@@ -99,15 +105,21 @@ public partial class CampScene
                 }
                 float u0 = up;
                 // what the rock does: buttresses and hollows, bedding ledges, fractures, crags (all strongest low on the face)
-                float faceness = 1f - W3.SmoothStep(10f, 14f, up);
-                float big = noise.Fbm(a * 0.10f, up * 0.085f, back * 0.09f, 4) * 2.4f;
+                float faceness = 1f - W3.SmoothStep(30f, 46f, up);
+                float big = noise.Fbm(a * 0.10f, up * 0.085f, back * 0.09f, 4) * (2.4f + up * 0.08f);
                 float mid = noise.Fbm(a * 0.42f, up * 0.42f, back * 0.42f + 3f, 4) * 0.6f;
                 float fine = noise.Fbm(a * 1.6f, up * 1.6f, back * 1.6f + 7f, 3) * 0.13f;
                 float layer = up * 0.42f + noise.Fbm(a * 0.16f, up * 0.05f, 5f, 2) * 1.5f;
                 float saw = layer - MathF.Floor(layer);
                 float ledge = (-0.55f * W3.SmoothStep(0.6f, 1f, saw) + 0.14f * saw) * faceness;
                 float fracture = -0.3f * (1f - W3.SmoothStep(0f, 0.07f, MathF.Abs(noise.Sample(a * 0.42f, up * 0.05f, 9f)))) * faceness;
-                float disp = (big * (0.55f + 0.45f * faceness) + mid + fine + ledge + fracture) * k;
+                // the massif's own build: great crags and buttresses (ridged, blocky) and big terraces stepping it back
+                float crag = (Ridged(a * 0.04f + 40f, up * 0.05f + back * 0.02f, 4, 3f) - 0.45f) * 14f * W3.SmoothStep(5f, 18f, up)
+                           + (Ridged(a * 0.13f + 7f, up * 0.15f + back * 0.05f, 3, 9f) - 0.45f) * 4.5f * W3.SmoothStep(3f, 10f, up);
+                float layer2 = up * 0.09f + noise.Fbm(a * 0.03f, 7.7f, 2f, 2) * 0.9f;
+                float saw2 = layer2 - MathF.Floor(layer2);
+                float terrace = (-2.6f * W3.SmoothStep(0.65f, 1f, saw2) + 0.8f * saw2) * W3.SmoothStep(10f, 16f, up);
+                float disp = (big * (0.55f + 0.45f * faceness) + mid + fine + ledge + fracture + crag + terrace) * k;
                 // the mouth's thick rough rim, and the brow of rock over it
                 float d = ArchDist(a, u0);
                 bool onFace = back < 3f && up < 11f;
@@ -140,6 +152,19 @@ public partial class CampScene
         // (SmoothNormals may have turned a normal wrong-way where a fold is; the shader only needs them near the truth)
         AddChild(new MeshInstance3D { Name = "Hill", Mesh = mb.ToMesh(mat), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
 
+        // ledges for the pines: rock facing the sky, up off the meadow and away from the mouth
+        var ledges = new List<Vector3>();
+        var lrng = new Random(53);
+        for (int v = 0; v < mb.Count; v += 5)
+        {
+            var p = mb.V[v];
+            if (mb.N[v].Y < 0.78f || p.Y < 5f || p.Y > 52f) continue;
+            var rel = p - MouthAt;
+            if (MathF.Abs(rel.Dot(CliffRight)) < ArchHalfW + 3.5f && p.Y < ArchH + 6f) continue;
+            if (lrng.NextDouble() < 0.05) ledges.Add(p);
+        }
+        BuildPines(ledges);
+
         BuildBoulders(noise, mat);
         BuildTunnel(noise);
         BuildRim(noise, mat);
@@ -147,13 +172,14 @@ public partial class CampScene
         BuildFoliageOnRock(noise);
     }
 
+    // (photographed rock, moss and grass on the ledges, no toon steps: see camp_stone.gdshader)
     private ShaderMaterial MakeCliffMaterial()
     {
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/camp_cliff.gdshader") };
-        mat.SetShaderParameter("wall_tex", GD.Load<Texture2D>("res://DaggerCave/Assets/Textures/rock_face/rock_face_diff.jpg"));
-        mat.SetShaderParameter("wall_nor", GD.Load<Texture2D>("res://DaggerCave/Assets/Textures/rock_face/rock_face_nor.jpg"));
-        mat.SetShaderParameter("moss_tex", GD.Load<Texture2D>("res://DaggerCave/Assets/Textures/mossy_rock/mossy_rock_diff.jpg"));
-        return mat;
+        var m = MakeStoneMaterial(0.07f, 0.012f, 0.5f, 0.45f, true, "rock_face");
+        // (grey stone with a cool cast: the sky's violet does the rest)
+        m.SetShaderParameter("tint", new Color(1.25f, 1.25f, 1.38f));
+        m.SetShaderParameter("desat", 0.7f);
+        return m;
     }
 
     // ================================================================== boulders

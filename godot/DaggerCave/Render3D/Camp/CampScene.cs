@@ -6,9 +6,10 @@ using Godot;
 namespace DaggerCave;
 
 /// <summary>
-/// The camp outside the cave, where every run begins and ends: a sunny meadow under a blue sky,
-/// a cooking fire with the heroes sitting round it on logs, and the cave's great dark mouth in a
-/// mossy cliff to the right. It is a world of its own, drawn in a viewport behind the menus (so
+/// The camp outside the cave, where every run begins and ends: a meadow at dusk under a violet and
+/// peach sky, the sun going down beyond misty mountains, a cooking fire with the heroes sitting round
+/// it on logs, and the cave's great dark mouth in a towering cliff to the right (CampDusk.cs builds
+/// the world round them, CampCliff.cs the cliff). It is a world of its own, drawn in a viewport behind the menus (so
 /// the cave's lights and fog stay out of it). The chosen hero stands up ready; the camera eases
 /// from a wide view of the meadow (the main menu) in to the fire (choosing a hero), and on toward
 /// the cave mouth as a run begins.
@@ -18,19 +19,20 @@ public partial class CampScene : SubViewport
     /// <summary>The camp, while there is one.</summary>
     public static CampScene I;
     private Godot.Environment _env;
-    private const float AmbientBase = 0.55f;
+    // (the dusk sky's light on the land: lavender, from everywhere)
+    private const float AmbientBase = 0.9f;
+    private static readonly Color AmbientColor = new(0.52f, 0.48f, 0.58f);
 
     public override void _EnterTree() => I = this;
     public override void _ExitTree() { if (I == this) I = null; }
 
-    /// <summary>Ambient light only (the setting): the sky's light raised to make up for the muted sun (see <see cref="AmbientOnly"/>).</summary>
+    /// <summary>The camp keeps its own dusk light whatever the cave's lighting setting (the sky's violet and the sun and the fire are the scene).</summary>
     public void ApplyLighting()
     {
         if (_env == null) return;
-        // (with only the ambient: a near-white light, so the meadow and the stone show their own colours, not the sky's blue)
-        _env.AmbientLightSource = GameSettings.AmbientOnly ? Godot.Environment.AmbientSource.Color : Godot.Environment.AmbientSource.Sky;
-        _env.AmbientLightColor = new Color(1f, 0.98f, 0.95f);
-        _env.AmbientLightEnergy = GameSettings.AmbientOnly ? AmbientOnly.CampEnergy * DebugTuning.V("amb_energy") : AmbientBase;
+        _env.AmbientLightSource = Godot.Environment.AmbientSource.Color;
+        _env.AmbientLightColor = AmbientColor;
+        _env.AmbientLightEnergy = AmbientBase;
     }
 
     /// <summary>The hero standing ready (the others stay sitting).</summary>
@@ -84,15 +86,15 @@ public partial class CampScene : SubViewport
     private InkOutline _ink;
     private OmniLight3D _fireLight;
     private readonly List<MeshInstance3D> _flames = new();
-    private readonly List<(Node3D node, float speed)> _clouds = new();
     private float _time, _close, _depart;
     private readonly Noise3 _noise = new(4242);
     private readonly Random _rng = new(7);
 
     private const float SeatRadius = 2.3f, LogTop = 0.42f, LogHalf = 0.6f;
+    private const float FireEnergy = 4.2f;
     // the cave mouth: where it stands and which way it faces (toward the camp)
-    private static readonly Vector3 MouthAt = new(9.8f, 0f, -7.5f);
-    private static readonly Vector3 MouthFacing = new Vector3(-0.62f, 0f, 0.78f).Normalized();
+    private static readonly Vector3 MouthAt = new(13f, 0f, -14.5f);
+    private static readonly Vector3 MouthFacing = new Vector3(-0.47f, 0f, 0.88f).Normalized();
 
     public override void _Ready()
     {
@@ -102,311 +104,22 @@ public partial class CampScene : SubViewport
         ProcessMode = ProcessModeEnum.Always;
         RenderTargetUpdateMode = UpdateMode.Always;
 
-        BuildSkyAndLight();
-        BuildGround();
-        BuildGrass();
-        BuildTrees();
-        BuildDistance();
+        BuildDuskSky();
+        BuildLand();
         BuildCliff();
+        BuildMeadow();
+        BuildMeadowRocks();
+        BuildOak();
+        BuildMist();
         BuildFire();
         BuildHeroes();
 
-        _cam = new Camera3D { Current = true, Fov = 50f, Far = 900f };
+        _cam = new Camera3D { Current = true, Fov = 56f, Far = 4000f, Near = 0.08f };
         AddChild(_cam);
+        // (the heroes keep their ink line, as everywhere in the game; the world out here has none: it is drawn as it is)
         _ink = new InkOutline(_cam);
         AddChild(_ink);
-        AddChild(new EdgeInk());
         PlaceCamera(0f);
-    }
-
-    /// <summary>Height of the meadow (flat round the camp, rolling hills further out).</summary>
-    private float Ground(float x, float z)
-    {
-        float d = MathF.Sqrt(x * x + z * z);
-        float hills = _noise.Fbm(x * 0.011f, 0.5f, z * 0.011f, 4) * 20f + _noise.Fbm(x * 0.045f, 3.3f, z * 0.045f, 3) * 3f;
-        float lumps = _noise.Fbm(x * 0.35f, 9.1f, z * 0.35f, 2) * 0.07f;
-        return hills * W3.SmoothStep(20f, 80f, d) + lumps;
-    }
-
-    // ================================================================== sky, sun, air
-
-    private void BuildSkyAndLight()
-    {
-        var sky = new ProceduralSkyMaterial
-        {
-            SkyTopColor = new Color(0.2f, 0.4f, 0.72f), SkyHorizonColor = new Color(0.72f, 0.79f, 0.86f), SkyCurve = 0.14f,
-            GroundBottomColor = new Color(0.2f, 0.27f, 0.16f), GroundHorizonColor = new Color(0.62f, 0.7f, 0.62f),
-            SunAngleMax = 22f, SunCurve = 0.1f,
-        };
-        var env = new Godot.Environment
-        {
-            BackgroundMode = Godot.Environment.BGMode.Sky, Sky = new Sky { SkyMaterial = sky },
-            AmbientLightSource = Godot.Environment.AmbientSource.Sky, AmbientLightEnergy = 0.55f,
-            ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
-            TonemapMode = Godot.Environment.ToneMapper.Filmic, TonemapExposure = 1.05f, TonemapWhite = 6f,
-            // (no screen glow: in sunlight the heroes' armour blooms into blazes; the fire has a halo of its own)
-            GlowEnabled = false,
-            FogEnabled = true, FogLightColor = new Color(0.72f, 0.78f, 0.86f), FogDensity = 0.0036f, FogSkyAffect = 0.15f, FogAerialPerspective = 0.5f,
-            SsaoEnabled = true, SsaoRadius = 1.4f, SsaoIntensity = 1.6f,
-            AdjustmentEnabled = true, AdjustmentSaturation = 0.94f, AdjustmentContrast = 1.08f,
-        };
-        AddChild(new WorldEnvironment { Environment = env });
-        _env = env;
-        ApplyLighting();
-        // afternoon sun from the upper left, warm
-        var sun = new DirectionalLight3D
-        {
-            LightColor = new Color(1f, 0.93f, 0.8f), LightEnergy = 1.5f, LightSpecular = 0.1f, ShadowEnabled = true,
-            DirectionalShadowMaxDistance = 60f, DirectionalShadowMode = DirectionalLight3D.ShadowMode.Parallel4Splits,
-        };
-        AddChild(sun);
-        sun.LookAtFromPosition(new Vector3(-32f, 38f, 22f), Vector3.Zero, Vector3.Up);
-    }
-
-    // ================================================================== the meadow
-
-    private void BuildGround()
-    {
-        const float half = 170f;
-        const int n = 136;
-        var mb = new MeshBuilder();
-        float step = half * 2f / n;
-        for (int j = 0; j <= n; j++)
-            for (int i = 0; i <= n; i++)
-            {
-                float x = -half + i * step, z = -half + j * step;
-                float h = Ground(x, z), e = 0.6f;
-                var nrm = new Vector3(Ground(x - e, z) - Ground(x + e, z), 2f * e, Ground(x, z - e) - Ground(x, z + e)).Normalized();
-                mb.Add(new Vector3(x, h, z), nrm, Colors.White);
-            }
-        for (int j = 0; j < n; j++)
-            for (int i = 0; i < n; i++)
-            {
-                int a = j * (n + 1) + i, b = a + 1, c = a + n + 1, d = c + 1;
-                // counter-clockwise seen from above
-                mb.Tri(a, c, b); mb.Tri(b, c, d);
-            }
-        var mat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/camp_ground.gdshader") };
-        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(mat), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-    }
-
-    private bool NearCliff(float x, float z) => x > 5.5f && z < -2.5f && x < 22f && z > -19f;
-
-    /// <summary>Tufts of grass and wild flowers round the camp.</summary>
-    private void BuildGrass()
-    {
-        // a tuft: a few blades fanning out, tips curling
-        var tuft = new MeshBuilder();
-        for (int k = 0; k < 6; k++)
-        {
-            float a = k / 6f * Mathf.Tau + (float)_rng.NextDouble() * 0.6f;
-            var dir = new Vector3(MathF.Cos(a), 0, MathF.Sin(a));
-            var side = new Vector3(-dir.Z, 0, dir.X);
-            float h = 0.16f + 0.3f * (float)_rng.NextDouble(), lean = 0.06f + 0.12f * (float)_rng.NextDouble(), w = 0.034f;
-            int b0 = tuft.Add(dir * 0.02f - side * w, Vector3.Up, Colors.White, new Vector2(0, 0));
-            int b1 = tuft.Add(dir * 0.02f + side * w, Vector3.Up, Colors.White, new Vector2(1, 0));
-            int m0 = tuft.Add(dir * (0.02f + lean * 0.45f) - side * w * 0.7f + Vector3.Up * h * 0.55f, Vector3.Up, Colors.White, new Vector2(0, 0.55f));
-            int m1 = tuft.Add(dir * (0.02f + lean * 0.45f) + side * w * 0.7f + Vector3.Up * h * 0.55f, Vector3.Up, Colors.White, new Vector2(1, 0.55f));
-            int tip = tuft.Add(dir * (0.02f + lean) + Vector3.Up * h, Vector3.Up, Colors.White, new Vector2(0.5f, 1f));
-            tuft.Quad(b0, b1, m1, m0);
-            tuft.Tri(m0, m1, tip);
-        }
-        var grassMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/grass.gdshader") };
-        grassMat.SetShaderParameter("root_color", new Color(0.07f, 0.13f, 0.045f));
-        grassMat.SetShaderParameter("tip_color", new Color(0.4f, 0.52f, 0.2f));
-        grassMat.SetShaderParameter("wind", 0.1f);
-        var xforms = new List<Transform3D>();
-        for (int tries = 0; tries < 50000 && xforms.Count < 380; tries++)
-        {
-            float r = 2.3f + 18f * MathF.Sqrt((float)_rng.NextDouble());
-            float a = (float)_rng.NextDouble() * Mathf.Tau;
-            float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
-            if (NearCliff(x, z)) continue;
-            float s = 1.6f + 1.4f * (float)_rng.NextDouble();
-            var basis = new Basis(Vector3.Up, (float)_rng.NextDouble() * Mathf.Tau).Scaled(new Vector3(s, s * (0.8f + 0.5f * (float)_rng.NextDouble()), s));
-            xforms.Add(new Transform3D(basis, new Vector3(x, Ground(x, z) - 0.02f, z)));
-        }
-        AddChild(Instances(tuft.ToMesh(grassMat), xforms, null, false));
-        // dry, bleached tufts among the green
-        var dryMat = (ShaderMaterial)grassMat.Duplicate();
-        dryMat.SetShaderParameter("root_color", new Color(0.16f, 0.13f, 0.06f));
-        dryMat.SetShaderParameter("tip_color", new Color(0.62f, 0.54f, 0.28f));
-        var dryX = new List<Transform3D>();
-        for (int tries = 0; tries < 20000 && dryX.Count < 55; tries++)
-        {
-            float r = 2.6f + 19f * MathF.Sqrt((float)_rng.NextDouble());
-            float a = (float)_rng.NextDouble() * Mathf.Tau;
-            float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
-            if (NearCliff(x, z) || _noise.Sample(x * 0.09f, 4.4f, z * 0.09f) < 0f) continue;
-            float s = 1.8f + 1.6f * (float)_rng.NextDouble();
-            dryX.Add(new Transform3D(new Basis(Vector3.Up, (float)_rng.NextDouble() * Mathf.Tau).Scaled(new Vector3(s, s * 1.2f, s)), new Vector3(x, Ground(x, z) - 0.02f, z)));
-        }
-        AddChild(Instances(tuft.ToMesh(dryMat), dryX, null, false));
-
-        // flowers: a stem and a little star of petals, in cheerful colours
-        var flower = new MeshBuilder();
-        flower.Tube(new List<Vector3> { Vector3.Zero, new(0.01f, 0.18f, 0) }, new List<float> { 0.006f, 0.005f }, 4, new Color(0.3f, 0.55f, 0.15f), false);
-        int ctr = flower.Add(new Vector3(0.01f, 0.19f, 0), Vector3.Up, Colors.White);
-        for (int k = 0; k < 10; k++)
-        {
-            float a0 = k / 10f * Mathf.Tau, a1 = (k + 1) / 10f * Mathf.Tau;
-            float r0 = k % 2 == 0 ? 0.055f : 0.025f, r1 = k % 2 == 0 ? 0.025f : 0.055f;
-            int p0 = flower.Add(new Vector3(0.01f + MathF.Cos(a0) * r0, 0.19f, MathF.Sin(a0) * r0), Vector3.Up, Colors.White);
-            int p1 = flower.Add(new Vector3(0.01f + MathF.Cos(a1) * r1, 0.19f, MathF.Sin(a1) * r1), Vector3.Up, Colors.White);
-            flower.Tri(ctr, p1, p0); flower.Tri(ctr, p0, p1);
-        }
-        var petals = new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.7f, CullMode = BaseMaterial3D.CullModeEnum.Disabled };
-        var palette = new[] { new Color(1f, 0.86f, 0.2f), new Color(1f, 1f, 0.94f), new Color(1f, 0.62f, 0.76f), new Color(0.74f, 0.55f, 1f), new Color(1f, 0.55f, 0.25f) };
-        var fx = new List<Transform3D>();
-        var fc = new List<Color>();
-        for (int tries = 0; tries < 6000 && fx.Count < 520; tries++)
-        {
-            float r = 2.6f + 18f * MathF.Sqrt((float)_rng.NextDouble());
-            float a = (float)_rng.NextDouble() * Mathf.Tau;
-            float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
-            if (NearCliff(x, z)) continue;
-            // in drifts: a colour holds for a patch of meadow
-            float patch = _noise.Sample(x * 0.25f, 1.7f, z * 0.25f);
-            if (patch < -0.1f) continue;
-            float s = 0.8f + 0.6f * (float)_rng.NextDouble();
-            fx.Add(new Transform3D(new Basis(Vector3.Up, (float)_rng.NextDouble() * Mathf.Tau).Scaled(Vector3.One * s), new Vector3(x, Ground(x, z) - 0.01f, z)));
-            fc.Add(palette[(int)((patch + 1f) * 3.7f + (x > 0 ? 1 : 0)) % palette.Length]);
-        }
-        AddChild(Instances(flower.ToMesh(petals), fx, fc, false));
-    }
-
-    private static MultiMeshInstance3D Instances(Mesh mesh, List<Transform3D> xforms, List<Color> colors, bool shadows)
-    {
-        var mm = new MultiMesh { TransformFormat = MultiMesh.TransformFormatEnum.Transform3D, UseColors = colors != null, Mesh = mesh, InstanceCount = xforms.Count };
-        for (int k = 0; k < xforms.Count; k++)
-        {
-            mm.SetInstanceTransform(k, xforms[k]);
-            if (colors != null) mm.SetInstanceColor(k, colors[k]);
-        }
-        return new MultiMeshInstance3D { Multimesh = mm, CastShadow = shadows ? GeometryInstance3D.ShadowCastingSetting.On : GeometryInstance3D.ShadowCastingSetting.Off };
-    }
-
-    // ================================================================== trees, hills, clouds
-
-    private void AddTree(MeshBuilder mb, Vector3 at, float height, Noise3 noise)
-    {
-        bool conifer = _rng.NextDouble() < 0.28;
-        float shade = 0.85f + 0.3f * (float)_rng.NextDouble();
-        var bark = new Color(0.27f, 0.2f, 0.14f) * shade;
-        float lean = ((float)_rng.NextDouble() - 0.5f) * 0.3f;
-        // a trunk that flares at the root and tapers, with a bend in it
-        var path = new List<Vector3>
-        {
-            at + new Vector3(0, -0.4f, 0), at + new Vector3(lean * 0.05f, height * 0.06f, 0), at + new Vector3(lean * 0.3f, height * 0.35f, 0.04f),
-            at + new Vector3(lean * 0.8f, height * 0.62f, 0.08f), at + new Vector3(lean, height * (conifer ? 0.95f : 0.72f), 0.1f),
-        };
-        mb.Tube(path, new List<float> { height * 0.075f, height * 0.06f, height * 0.042f, height * 0.03f, height * (conifer ? 0.006f : 0.02f) }, 8, bark, false,
-            (i, k) => 0.07f * noise.Sample(i * 1.7f + at.X, k * 0.9f, at.Z));
-        // roots gripping the ground
-        for (int r = 0; r < 4; r++)
-        {
-            float a = r / 4f * Mathf.Tau + (float)_rng.NextDouble();
-            var d = new Vector3(MathF.Cos(a), 0, MathF.Sin(a));
-            mb.Tube(new List<Vector3> { at + d * height * 0.02f + Vector3.Up * height * 0.05f, at + d * height * 0.06f + Vector3.Up * height * 0.015f, at + d * height * 0.13f - Vector3.Up * 0.05f },
-                new List<float> { height * 0.032f, height * 0.02f, height * 0.008f }, 5, bark * 0.9f, false);
-        }
-        var top = at + new Vector3(lean, height * 0.7f, 0.1f);
-        if (conifer)
-        {
-            // tiers of dark, ragged boughs, wide at the bottom
-            int tiers = 7;
-            for (int k = 0; k < tiers; k++)
-            {
-                float t = k / (float)(tiers - 1);
-                float r = height * (0.25f - 0.19f * t) * (0.9f + 0.2f * (float)_rng.NextDouble());
-                var c = at + new Vector3(lean * (0.3f + 0.7f * t), height * (0.24f + 0.7f * t), 0.05f + 0.05f * t);
-                var col = new Color(0.07f, 0.17f, 0.08f).Lerp(new Color(0.15f, 0.3f, 0.12f), t * 0.7f + 0.3f * (float)_rng.NextDouble()) * shade;
-                mb.Blob(c, new Vector3(r, r * 0.42f, r), 7, col, noise, 0.4f, 2.6f);
-            }
-            return;
-        }
-        // limbs out to a crown of many small clumps (dark under, lit on top, never one round ball)
-        int limbs = 4 + _rng.Next(2);
-        for (int k = 0; k < limbs; k++)
-        {
-            float a = k / (float)limbs * Mathf.Tau + (float)_rng.NextDouble();
-            var out3 = new Vector3(MathF.Cos(a) * 0.5f, 0.55f + 0.3f * (float)_rng.NextDouble(), MathF.Sin(a) * 0.5f);
-            mb.Tube(new List<Vector3> { top - Vector3.Up * height * 0.06f, top + out3 * height * 0.14f, top + out3 * height * 0.27f },
-                new List<float> { height * 0.024f, height * 0.016f, height * 0.006f }, 5, bark, false);
-        }
-        int clumps = 13 + _rng.Next(6);
-        for (int k = 0; k < clumps; k++)
-        {
-            float a = (float)_rng.NextDouble() * Mathf.Tau;
-            float rr = MathF.Sqrt((float)_rng.NextDouble());
-            var o = new Vector3(MathF.Cos(a) * rr * height * 0.3f, ((float)_rng.NextDouble() - 0.35f) * height * 0.26f + (1f - rr) * height * 0.06f, MathF.Sin(a) * rr * height * 0.3f);
-            float r = height * (0.1f + 0.075f * (float)_rng.NextDouble());
-            float lit = Math.Clamp(o.Y / (height * 0.22f) * 0.5f + 0.45f, 0f, 1f) * (0.55f + 0.45f * (float)_rng.NextDouble());
-            var green = new Color(0.1f, 0.22f, 0.07f).Lerp(new Color(0.34f, 0.48f, 0.15f), lit) * shade;
-            mb.Blob(top + o, new Vector3(r, r * 0.8f, r), 7, green, noise, 0.34f, 2.8f);
-        }
-    }
-
-    private void BuildTrees()
-    {
-        var mb = new MeshBuilder();
-        var noise = new Noise3(88);
-        // a few near the camp (left and behind), leaving the view of the cave clear
-        var near = new (float x, float z, float h)[]
-        {
-            (-9.5f, -7f, 7.5f), (-13f, -2.5f, 6.2f), (-7f, -13f, 8.4f), (-16f, -11f, 7f), (-4.5f, -19f, 7.8f),
-            (2f, -21f, 6.8f), (-21f, -5f, 8f), (-11f, 6f, 5.6f), (27f, -14f, 7.4f), (24f, -26f, 8.2f),
-        };
-        foreach (var (x, z, h) in near) AddTree(mb, new Vector3(x, Ground(x, z), z), h, noise);
-        // woods on the far hills
-        for (int k = 0; k < 70; k++)
-        {
-            float a = Mathf.DegToRad(-165f + 150f * (float)_rng.NextDouble());
-            float r = 45f + 45f * (float)_rng.NextDouble();
-            float x = MathF.Cos(a) * r, z = MathF.Sin(a) * r;
-            AddTree(mb, new Vector3(x, Ground(x, z), z), 7f + 5f * (float)_rng.NextDouble(), noise);
-        }
-        mb.SmoothNormals();
-        var mat = MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.9f }, "trees");
-        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(mat), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
-    }
-
-    private void BuildDistance()
-    {
-        // blue-green mountains on the horizon (the air softens them further)
-        var mb = new MeshBuilder();
-        var noise = new Noise3(51);
-        var peaks = new (float x, float z, float w, float h)[]
-        {
-            (-170f, -230f, 110f, 70f), (-60f, -260f, 130f, 95f), (60f, -250f, 120f, 80f), (180f, -220f, 110f, 65f), (-250f, -150f, 90f, 55f), (260f, -140f, 90f, 50f),
-        };
-        foreach (var (x, z, w, h) in peaks)
-            mb.Blob(new Vector3(x, -10f, z), new Vector3(w, h, w * 0.6f), 10, new Color(0.38f, 0.46f, 0.44f), noise, 0.32f, 2.1f, 0.5f);
-        mb.SmoothNormals();
-        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 1f }, "stone")), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off });
-
-        // fair-weather clouds drifting over
-        var cloudMat = new StandardMaterial3D { AlbedoColor = new Color(1f, 1f, 1f), Roughness = 1f, EmissionEnabled = true, Emission = new Color(0.82f, 0.86f, 0.95f), EmissionEnergyMultiplier = 0.45f };
-        for (int k = 0; k < 9; k++)
-        {
-            var cb = new MeshBuilder();
-            int puffs = 4 + _rng.Next(4);
-            float w = 14f + 14f * (float)_rng.NextDouble();
-            for (int p = 0; p < puffs; p++)
-            {
-                float t = p / (float)(puffs - 1) - 0.5f;
-                float r = w * (0.28f + 0.14f * (float)_rng.NextDouble()) * (1f - MathF.Abs(t) * 0.8f);
-                cb.Blob(new Vector3(t * w, r * 0.3f, ((float)_rng.NextDouble() - 0.5f) * w * 0.3f), new Vector3(r, r * 0.7f, r * 0.8f), 7, Colors.White, noise, 0.15f, 2f, 0.55f);
-            }
-            cb.SmoothNormals();
-            var node = new MeshInstance3D
-            {
-                Mesh = cb.ToMesh(cloudMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-                Position = new Vector3(-220f + 440f * (float)_rng.NextDouble(), 55f + 30f * (float)_rng.NextDouble(), -120f - 110f * (float)_rng.NextDouble()),
-            };
-            AddChild(node);
-            _clouds.Add((node, 0.6f + 0.8f * (float)_rng.NextDouble()));
-        }
     }
 
     // ================================================================== the camp fire
@@ -460,7 +173,10 @@ public partial class CampScene : SubViewport
             mb.Tube(new List<Vector3> { logC + along * LogHalf, logC - along * LogHalf }, new List<float> { 0.19f, 0.2f }, 9, new Color(0.62f, 0.5f, 0.34f), true);
         }
         mb.SmoothNormals();
-        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(MaterialGains.Tint(new StandardMaterial3D { VertexColorUseAsAlbedo = true, VertexColorIsSrgb = true, Roughness = 0.85f }, "wood")), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
+        // (grained and pitted, not flat colour: the stone material's photographed grain over each part's own colour)
+        var campMat = MakeStoneMaterial(2.2f, 0.4f, 0f, 0f, true, "dark_rock");
+        campMat.SetShaderParameter("tint", new Color(1.7f, 1.6f, 1.55f));
+        AddChild(new MeshInstance3D { Mesh = mb.ToMesh(campMat), CastShadow = GeometryInstance3D.ShadowCastingSetting.On });
 
         // the flames
         var flameMat = new ShaderMaterial { Shader = GD.Load<Shader>("res://DaggerCave/Render3D/Shaders/camp_fire.gdshader") };
@@ -473,25 +189,30 @@ public partial class CampScene : SubViewport
             {
                 Mesh = quad, MaterialOverride = flameMat, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
                 Position = new Vector3(MathF.Cos(a) * r, 0.05f, MathF.Sin(a) * r),
-                Scale = new Vector3(k == 0 ? 0.75f : 0.5f, k == 0 ? 1.15f : 0.7f + 0.2f * (float)_rng.NextDouble(), 1f),
+                Scale = new Vector3(k == 0 ? 1.0f : 0.68f, k == 0 ? 1.7f : 1.0f + 0.3f * (float)_rng.NextDouble(), 1f),
             };
             f.SetInstanceShaderParameter("seed", (float)_rng.NextDouble() * 10f);
             f.SetInstanceShaderParameter("energy", k == 0 ? 1.6f : 1.25f);
             AddChild(f);
             _flames.Add(f);
         }
-        // a soft warm halo round the flames (the camp has no screen glow)
+        // a soft warm halo round the flames (faint: the screen's bloom does most of it)
         var halo = new MeshInstance3D
         {
             Mesh = new QuadMesh { Size = new Vector2(2.6f, 2.6f) }, CastShadow = GeometryInstance3D.ShadowCastingSetting.Off, Position = new Vector3(0, 0.55f, 0),
             MaterialOverride = new StandardMaterial3D
             {
                 ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, BillboardMode = BaseMaterial3D.BillboardModeEnum.Enabled, BlendMode = BaseMaterial3D.BlendModeEnum.Add,
-                Transparency = BaseMaterial3D.TransparencyEnum.Alpha, AlbedoTexture = Puff, AlbedoColor = new Color(1f, 0.55f, 0.2f, 0.32f), NoDepthTest = false, DisableFog = true,
+                Transparency = BaseMaterial3D.TransparencyEnum.Alpha, AlbedoTexture = Puff, AlbedoColor = new Color(1f, 0.5f, 0.18f, 0.15f), NoDepthTest = false, DisableFog = true,
             },
         };
         AddChild(halo);
-        _fireLight = new OmniLight3D { LightColor = new Color(1f, 0.6f, 0.28f), LightEnergy = 1.1f, LightSpecular = 0f, OmniRange = 5.5f, Position = new Vector3(0, 0.7f, 0), ShadowEnabled = false };
+        // (at dusk the fire is the brightest thing near: a warm pool of light round the camp, throwing the heroes' shadows out across the grass)
+        _fireLight = new OmniLight3D
+        {
+            LightColor = new Color(1f, 0.55f, 0.24f), LightEnergy = FireEnergy, LightSpecular = 0.4f, OmniRange = 8f, OmniAttenuation = 2f, Position = new Vector3(0, 0.75f, 0),
+            ShadowEnabled = true, ShadowBlur = 1.5f, LightVolumetricFogEnergy = 2.5f,
+        };
         AddChild(_fireLight);
 
         // sparks, smoke and the steam off the pot
@@ -584,15 +305,7 @@ public partial class CampScene : SubViewport
 
         // the fire breathes
         float flick = 0.82f + 0.12f * MathF.Sin(_time * 11f) * MathF.Sin(_time * 4.3f + 1f) + 0.06f * MathF.Sin(_time * 23f);
-        _fireLight.LightEnergy = 1.1f * flick;
-
-        foreach (var (node, speed) in _clouds)
-        {
-            var p = node.Position;
-            p.X += speed * dt;
-            if (p.X > 260f) p.X = -260f;
-            node.Position = p;
-        }
+        _fireLight.LightEnergy = FireEnergy * flick;
 
         foreach (var s in _seats)
         {
@@ -631,8 +344,8 @@ public partial class CampScene : SubViewport
     private void PlaceCamera(float dt)
     {
         // wide over the meadow (the menu), in by the fire (choosing), on toward the cave (leaving)
-        var widePos = new Vector3(-6.5f, 3.3f, 12.5f);
-        var wideLook = new Vector3(3.2f, 1.8f, -3.5f);
+        var widePos = WidePos;
+        var wideLook = WideLook;
         var closePos = new Vector3(-0.25f, 1.95f, 5.1f);
         var closeLook = new Vector3(0.1f, 0.85f, -0.9f);
         float k = W3.Smooth01(_close);
@@ -646,7 +359,7 @@ public partial class CampScene : SubViewport
             look = look.Lerp(MouthAt + Vector3.Up * 2.2f - MouthFacing * 4f, d);
         }
         // a slow drift, like someone looking about
-        pos += new Vector3(MathF.Sin(_time * 0.21f) * 0.25f, MathF.Sin(_time * 0.17f + 1f) * 0.08f, 0f);
+        pos += new Vector3(MathF.Sin(_time * 0.21f) * 0.18f, MathF.Sin(_time * 0.17f + 1f) * 0.05f, 0f);
         _cam.Position = pos;
         _cam.LookAt(look, Vector3.Up);
     }

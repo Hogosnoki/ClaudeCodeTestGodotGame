@@ -296,7 +296,11 @@ public partial class Main
         void Shot(string name) => _camp.GetTexture().GetImage().SavePng($"{_campShot}/{name}.png");
         switch (_campShotStep)
         {
-            case 0 when _campShotT > 3f: Shot("camp_wide"); _camp.Close = true; _campShotStep++; _campShotT = 0; break;
+            case 0 when _campShotT > 3f:
+                Shot("camp_wide"); _camp.Close = true; _campShotStep++; _campShotT = 0;
+                // (DC_CAMPSHOT_WIDE=1: the wide view only, for quick looks while the scene is worked on)
+                if (System.Environment.GetEnvironmentVariable("DC_CAMPSHOT_WIDE") == "1") SafeQuit.Request(this);
+                break;
             case 1 when _campShotT > 3f: Shot("camp_close_swordsman"); _camp.Selected = HeroKind.Warden; _campShotStep++; _campShotT = 0; break;
             case 2 when _campShotT > 1.5f: Shot("camp_close_warden"); _camp.Selected = HeroKind.Vitalist; _campShotStep++; _campShotT = 0; break;
             case 3 when _campShotT > 1.5f: Shot("camp_close_vitalist"); _camp.Selected = HeroKind.Elementalist; _campShotStep++; _campShotT = 0; break;
