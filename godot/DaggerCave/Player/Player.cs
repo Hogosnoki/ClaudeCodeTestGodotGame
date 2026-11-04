@@ -433,6 +433,8 @@ public partial class Player : CharacterBody2D
     /// </summary>
     public static Vector2 ReadMove()
     {
+        // (the on-screen stick, on a touch screen: already shaped)
+        if (TouchControls.Shown && TouchControls.Move != Vector2.Zero) return TouchControls.Move;
         var v = new Vector2(Input.GetActionRawStrength("move_right") - Input.GetActionRawStrength("move_left"),
                             Input.GetActionRawStrength("move_down") - Input.GetActionRawStrength("move_up"));
         return ShapeStick(v);
@@ -490,6 +492,8 @@ public partial class Player : CharacterBody2D
         // stick shouldn't take you down); chests and reviving take the interact button itself
         inp.Up = Input.IsActionJustPressed("move_up") && Math.Abs(inp.Move.X) < 0.5f;
         var stick = new Vector2(Input.GetJoyAxis(0, JoyAxis.RightX), Input.GetJoyAxis(0, JoyAxis.RightY));
+        // (the on-screen attack button dragged into aim is the right stick)
+        if (TouchControls.Shown && TouchControls.AimStick != Vector2.Zero) stick = TouchControls.AimStick;
         bool stickOn = stick.Length() > 0.35f;
         // the right stick raises the Warden's shield by itself, pointing where it's pushed; for
         // everyone else, pushing it well over attacks that way (again and again while it's held)
@@ -497,7 +501,7 @@ public partial class Player : CharacterBody2D
         inp.StickGuard = stickOn && warden;
         if (!warden && stick.Length() > 0.5f) { inp.StickAttack = !inp.AttackHeld; inp.AttackHeld = true; }
         var toMouse = (p.GetGlobalMousePosition() - p.GlobalPosition).Normalized();
-        bool mouse = !G.Main.UsingPad && GameSettings.AimFromMouse;
+        bool mouse = !G.Main.UsingPad && !TouchControls.Shown && GameSettings.AimFromMouse;
         // the shield points wherever a swing would go: right stick, else the left stick on a
         // controller (else your facing), or the mouse
         if (stickOn) inp.GuardAim = stick.Normalized();

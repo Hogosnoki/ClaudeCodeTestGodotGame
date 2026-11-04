@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cjsnmbr2ighpe"
 path.s3tc="res://.godot/imported/rock_wall_08_diff.jpg-31ce8360d007e8e91a03faac818c2ffb.s3tc.ctex"
+path.etc2="res://.godot/imported/rock_wall_08_diff.jpg-31ce8360d007e8e91a03faac818c2ffb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://DaggerCave/Assets/Textures/rock_wall_08/rock_wall_08_diff.jpg"
-dest_files=["res://.godot/imported/rock_wall_08_diff.jpg-31ce8360d007e8e91a03faac818c2ffb.s3tc.ctex"]
+dest_files=["res://.godot/imported/rock_wall_08_diff.jpg-31ce8360d007e8e91a03faac818c2ffb.s3tc.ctex", "res://.godot/imported/rock_wall_08_diff.jpg-31ce8360d007e8e91a03faac818c2ffb.etc2.ctex"]
 
 [params]
 

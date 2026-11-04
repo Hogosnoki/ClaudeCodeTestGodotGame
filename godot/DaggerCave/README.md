@@ -63,6 +63,41 @@ Export Project. From a command line:
 `godot --headless --path godot --export-release "Windows" ../build/DaggerDeep-Windows/DaggerDeep.exe`.
 Keep the exported files together: the executable, `DaggerDeep.pck` and the `data_` folder.
 
+### On an Android phone or tablet
+
+The same workflow also builds **DaggerDeep-Android**: a zip holding `DaggerDeep.apk`, for 64-bit ARM
+phones and tablets (nearly every one from the last several years), Android 5 or later.
+
+1. On the phone, open the latest **Build the game** run in the browser (signed in to GitHub), download
+   **DaggerDeep-Android** and unzip it (the Files app can).
+2. Tap `DaggerDeep.apk`. Android asks to allow installing apps from that app (the browser or Files):
+   allow it, then Install. Play Protect may say it doesn't know the app: Install anyway.
+3. A newer build installs over the old one (the workflow keeps the same signing key between runs). If
+   it ever says the package conflicts, uninstall the old Dagger Deep once first.
+
+**Controls on the phone.** On-screen controls appear whenever you're playing (`UI/TouchControls.cs`);
+menus are tapped like buttons. Touch anywhere on the left half and drag for the stick (it moves, swims,
+climbs and aims as a controller's left stick does). On the right: the big **attack** button, which
+attacks where you move when tapped, and, dragged off it, aims and attacks that way again and again (the
+right stick); around it **jump**, the dodge-button ability, the great **special** and the **second
+ability**, each named for your hero; smaller buttons for **support**, **rope**, **use** (chests, exits,
+reviving) and a **potion**. Your hero's three elements run down the left edge; **pause** (and a
+milestone, when one is waiting) sit left of the minimap. Android's back button or gesture pauses.
+
+**A controller** connected to the phone (Bluetooth or USB: Xbox, PlayStation, 8BitDo and the like) works
+as it does on a computer: the on-screen controls hide the moment it's used, and come back at a touch.
+
+The first launch on a phone starts at 67% resolution with low shadows and no volumetric haze, to keep
+the frame rate up; Settings changes any of it. Phones draw with Godot's Mobile renderer (the
+Compatibility one on phones without Vulkan): the ink border round things is drawn from depth only
+there, so a block's inner corners have no line.
+
+To build the APK yourself: install the Android SDK (build-tools 34, platform 34) and a JDK 17 or later,
+set their paths in Godot (Editor Settings, Export, Android), install the export templates, then Project,
+Export, **Android**. From a command line, with your own keystore in
+`GODOT_ANDROID_KEYSTORE_RELEASE_PATH` / `_USER` / `_PASSWORD`:
+`godot --headless --path godot --export-release "Android" ../build/DaggerDeep-Android/DaggerDeep.apk`.
+
 ## Playing with friends online
 
 Up to five players, one of each hero. One player hosts; the others join with the host's code.
@@ -267,6 +302,8 @@ The panel's columns:
 | dealt | the average damage dealt to the player per decision |
 
 ## Controls
+
+(On a phone or tablet, the on-screen controls are described under [On an Android phone or tablet](#on-an-android-phone-or-tablet).)
 
 | Action | Keyboard / mouse | Controller |
 | --- | --- | --- |
@@ -1404,6 +1441,11 @@ The harness takes command-line user args after `--`:
 godot --headless --path godot -- --gentest
 # (--gencount=N makes N seeds per biome; --genprof prints where the generator's time went; set
 # GEN_LANES=1 to make caves one attempt at a time instead of on every core)
+
+# The on-screen touch controls, driven by made-up touches: the stick moves, jump jumps, a tap attacks,
+# a drag off the attack button aims, a controller hides them and a touch brings them back, pause pauses
+# (--touch shows the controls on a computer too)
+xvfb-run godot --path godot --rendering-driver vulkan -- --scenario=touch --touch --shots=/tmp/shots
 
 # The autopilot bot plays for 60 s and saves a screenshot every 3 s
 xvfb-run godot --path godot --rendering-driver vulkan -- --autotest --seed=1013 --duration=60 --shots=/tmp/shots

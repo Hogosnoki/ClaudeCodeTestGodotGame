@@ -145,6 +145,14 @@ public partial class Main : Node
 
         _uiLayer = new CanvasLayer { Layer = 10 };
         AddChild(_uiLayer);
+        // the on-screen controls (a phone or tablet: UI/TouchControls.cs), over the HUD and under the loading screen
+        TouchControls.Setup();
+        if (TouchControls.Enabled)
+        {
+            var touchLayer = new CanvasLayer { Layer = 15, ProcessMode = ProcessModeEnum.Always };
+            AddChild(touchLayer);
+            touchLayer.AddChild(new TouchControls());
+        }
         var loadLayer = new CanvasLayer { Layer = 20, ProcessMode = ProcessModeEnum.Always };
         AddChild(loadLayer);
         _loadScreen = new LoadingScreen();
@@ -188,7 +196,7 @@ public partial class Main : Node
 
         ParseArgs(out bool gentest);
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || _introShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
-        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit" or "vitalpace") && !OS.GetCmdlineUserArgs().Contains("--elements");
+        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit" or "vitalpace" or "touch") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -2138,6 +2146,12 @@ public partial class Main : Node
         // closing the window (or quitting from code) keeps what was learned
         if ((what == NotificationWMCloseRequest || what == NotificationExitTree) && Brains.Training) Brains.SaveAll();
         if (what == NotificationWMCloseRequest) SafeQuit.Request(this);
+        // (Android's back button or gesture: the pause button, never a quit mid-run)
+        if (what == NotificationWMGoBackRequest)
+        {
+            Input.ParseInputEvent(new InputEventAction { Action = "pause", Pressed = true });
+            Input.ParseInputEvent(new InputEventAction { Action = "pause", Pressed = false });
+        }
     }
 
     public override void _UnhandledInput(InputEvent e)

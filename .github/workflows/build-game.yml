@@ -1,7 +1,7 @@
-# Builds Dagger Deep for Windows and Linux on every push. Each run's page (Actions tab) has the
-# two zips under "Artifacts": download one, send it to a friend, and play together (see
-# dist/HOW-TO-PLAY.txt, which goes into each zip). Pushing a tag like v1.0 also publishes the
-# zips as a GitHub release.
+# Builds Dagger Deep for Windows, Linux and Android on every push. Each run's page (Actions tab)
+# has the builds under "Artifacts": download one, send it to a friend, and play together (see
+# dist/HOW-TO-PLAY.txt, which goes into each zip). The Android one holds DaggerDeep.apk, to
+# install on a phone. Pushing a tag like v1.0 also publishes them as a GitHub release.
 name: Build the game
 
 on:
@@ -117,3 +117,95 @@ jobs:
             build/DaggerDeep-Windows.zip
             build/DaggerDeep-Linux.zip
           body_path: dist/HOW-TO-PLAY.txt
+
+  # The Android build: one APK for 64-bit ARM phones (nearly every phone of the last several years).
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Cache Godot and its Android export templates
+        id: godot-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/godot
+            ~/.local/share/godot/export_templates
+          key: godot-${{ env.GODOT_VERSION }}-mono-android
+
+      - name: Download Godot (.NET) and the Android export templates
+        if: steps.godot-cache.outputs.cache-hit != 'true'
+        run: |
+          base=https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable
+          mkdir -p ~/godot && cd ~/godot
+          curl -sSfL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64.zip"
+          unzip -q godot.zip && rm godot.zip
+          curl -sSfL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_mono_export_templates.tpz"
+          dest=~/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono
+          mkdir -p "$dest"
+          unzip -q -j templates.tpz templates/version.txt templates/android_release.apk \
+            templates/android_debug.apk templates/android_source.zip -d "$dest"
+          rm templates.tpz
+
+      - name: Android SDK parts the export needs
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platform-tools" "build-tools;34.0.0" "platforms;android-34" > /dev/null
+
+      # One signing key, kept between runs, so each new APK installs over the last one (Android refuses an update signed by a
+      # different key). If it's ever lost, a new one is made: uninstall the old app once before installing.
+      - name: Signing key
+        id: key-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/android-keystore
+          key: dagger-deep-android-keystore-v1
+
+      - name: Make a signing key
+        if: steps.key-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p ~/android-keystore
+          keytool -genkeypair -keystore ~/android-keystore/dagger.keystore -storepass daggerdeep -keypass daggerdeep \
+            -alias daggerdeep -dname "CN=Dagger Deep" -keyalg RSA -keysize 2048 -validity 10000
+
+      - name: Export for Android
+        env:
+          GODOT_ANDROID_KEYSTORE_RELEASE_PATH: /home/runner/android-keystore/dagger.keystore
+          GODOT_ANDROID_KEYSTORE_RELEASE_USER: daggerdeep
+          GODOT_ANDROID_KEYSTORE_RELEASE_PASSWORD: daggerdeep
+        run: |
+          godot=$(ls ~/godot/Godot_v*_mono_linux_x86_64/Godot_v*_mono_linux.x86_64)
+          mkdir -p ~/.config/godot
+          printf '[gd_resource type="EditorSettings" format=3]\n\n[resource]\nexport/android/android_sdk_path = "%s"\nexport/android/java_sdk_path = "%s"\n' \
+            "$ANDROID_HOME" "$JAVA_HOME" > ~/.config/godot/editor_settings-4.4.tres
+          cd godot
+          echo "${GITHUB_SHA::7}" > build_id.txt
+          "$godot" --headless --path . --import || echo "(the import reported problems; the export below will tell)"
+          mkdir -p ../build/DaggerDeep-Android
+          "$godot" --headless --path . --export-release "Android" ../build/DaggerDeep-Android/DaggerDeep.apk
+          test -s ../build/DaggerDeep-Android/DaggerDeep.apk || { echo "no APK was made"; exit 1; }
+          rm -f ../build/DaggerDeep-Android/*.idsig
+          cp ../dist/HOW-TO-PLAY.txt ../build/DaggerDeep-Android/
+
+      - name: Upload the Android build
+        uses: actions/upload-artifact@v4
+        with:
+          name: DaggerDeep-Android
+          path: build/DaggerDeep-Android/
+          retention-days: 30
+
+      - name: Publish the APK with the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/DaggerDeep-Android/DaggerDeep.apk

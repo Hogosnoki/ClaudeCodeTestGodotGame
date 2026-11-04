@@ -215,6 +215,9 @@ public static class GameSettings
 
     public static void Load()
     {
+        // (a phone or tablet starts lighter: a smaller 3D picture sharpened up, softer shadows, no volumetric haze, which its
+        // renderer can't draw anyway; the settings menu changes any of it, and what's saved wins)
+        if (OS.HasFeature("mobile")) { RenderScale = 0.67f; Shadows = Quality.Low; Fog = false; }
         var cfg = new ConfigFile();
         if (cfg.Load(FilePath) != Error.Ok) return;
         int I(string sec, string key, int def) => cfg.HasSectionKey(sec, key) ? (int)cfg.GetValue(sec, key) : def;

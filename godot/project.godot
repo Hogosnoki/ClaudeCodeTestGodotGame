@@ -11,10 +11,20 @@ run/main_scene="res://Scenes/DaggerDeep.tscn"
 config/features=PackedStringArray("4.4", "C#", "Forward Plus")
 boot_splash/bg_color=Color(0, 0, 0, 1)
 boot_splash/show_image=false
+config/quit_on_go_back=false
+config/icon="res://icon.png"
+
+[display]
+
+window/handheld/orientation=4
 
 [dotnet]
 
 project/assembly_name="ProcGenGame"
+
+[rendering]
+
+textures/vram_compression/import_etc2_astc=true
 
 [shader_globals]
 

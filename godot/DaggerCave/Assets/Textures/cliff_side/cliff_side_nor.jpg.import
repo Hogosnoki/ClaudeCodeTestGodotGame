@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://do5d6lt456p3e"
 path.s3tc="res://.godot/imported/cliff_side_nor.jpg-e3c205fd3319b3328672c26ce9ee46e1.s3tc.ctex"
+path.etc2="res://.godot/imported/cliff_side_nor.jpg-e3c205fd3319b3328672c26ce9ee46e1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://DaggerCave/Assets/Textures/cliff_side/cliff_side_nor.jpg"
-dest_files=["res://.godot/imported/cliff_side_nor.jpg-e3c205fd3319b3328672c26ce9ee46e1.s3tc.ctex"]
+dest_files=["res://.godot/imported/cliff_side_nor.jpg-e3c205fd3319b3328672c26ce9ee46e1.s3tc.ctex", "res://.godot/imported/cliff_side_nor.jpg-e3c205fd3319b3328672c26ce9ee46e1.etc2.ctex"]
 
 [params]
 

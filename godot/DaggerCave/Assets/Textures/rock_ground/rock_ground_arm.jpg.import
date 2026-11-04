@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cm7a052h2e7hy"
 path.s3tc="res://.godot/imported/rock_ground_arm.jpg-c51ca22db244c0587dc9977750b5ef9b.s3tc.ctex"
+path.etc2="res://.godot/imported/rock_ground_arm.jpg-c51ca22db244c0587dc9977750b5ef9b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://DaggerCave/Assets/Textures/rock_ground/rock_ground_arm.jpg"
-dest_files=["res://.godot/imported/rock_ground_arm.jpg-c51ca22db244c0587dc9977750b5ef9b.s3tc.ctex"]
+dest_files=["res://.godot/imported/rock_ground_arm.jpg-c51ca22db244c0587dc9977750b5ef9b.s3tc.ctex", "res://.godot/imported/rock_ground_arm.jpg-c51ca22db244c0587dc9977750b5ef9b.etc2.ctex"]
 
 [params]
 

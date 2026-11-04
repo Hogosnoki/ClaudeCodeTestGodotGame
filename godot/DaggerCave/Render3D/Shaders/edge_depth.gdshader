@@ -10,7 +10,12 @@ render_mode unshaded, blend_mix, depth_draw_never, depth_test_disabled, cull_dis
 
 global uniform float ink_terrain_px;
 uniform sampler2D depth_tex : hint_depth_texture, filter_nearest, repeat_disable;
+// (the surface's direction is only kept by the Forward+ renderer: on a phone's Mobile or Compatibility renderer the line is drawn
+// from the depth alone, outlines without the folds)
+#if CURRENT_RENDERER == RENDERER_FORWARD_PLUS
 uniform sampler2D normal_tex : hint_normal_roughness_texture, filter_nearest, repeat_disable;
+#define EDGE_FOLDS
+#endif
 uniform vec4 ink : source_color = vec4(0.02, 0.018, 0.022, 0.9);
 // how big a step (as a share of the distance) counts as an outline
 // (debug mode: the outline sensitivity and the border's opacity)
@@ -41,8 +46,10 @@ void fragment() {
 	// the step can be up to px pixels away (a wider line); a part of a pixel at the far end of a fractional width
 	float reach = ceil(px);
 	float cover = 0.0;
+#ifdef EDGE_FOLDS
 	vec3 nc = texture(normal_tex, uv).xyz * 2.0 - 1.0;
 	float crease = cos(radians(crease_deg));
+#endif
 	for (int k = 0; k < 4; k++) {
 		vec2 dir = k == 0 ? vec2(1.0, 0.0) : k == 1 ? vec2(0.0, 1.0) : k == 2 ? vec2(0.7071, 0.7071) : vec2(0.7071, -0.7071);
 		for (float r = 1.0; r <= reach; r += 1.0) {
@@ -56,10 +63,12 @@ void fragment() {
 				cover = max(cover, clamp(px - r + 1.0, 0.0, 1.0));
 			}
 			// (a fold: looked for on one side only, so the line is drawn once, not on both faces; and only on one continuous surface)
+#ifdef EDGE_FOLDS
 			if (abs(a - d) < d * dbg_edge_step) {
 				vec3 na = texture(normal_tex, uv + o).xyz * 2.0 - 1.0;
 				if (dot(normalize(na), normalize(nc)) < crease) cover = max(cover, clamp(px - r + 1.0, 0.0, 1.0));
 			}
+#endif
 		}
 	}
 	if (cover <= 0.0) discard;

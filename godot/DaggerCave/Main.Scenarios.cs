@@ -67,6 +67,7 @@ public partial class Main
         "shiftall" => "entrance",
         "shifterkit" => "entrance",
         "vitalpace" => "entrance",
+        "touch" => "entrance",
         "hive" => "nest",
         "hordes" => "entrance",
         "trial" => "entrance",
@@ -136,7 +137,7 @@ public partial class Main
     {
         // (the cave mouth's scenario carries on after the run ends, at the title)
         // (the magma scenario opens a chest down in the lava and takes a card)
-        if (_scDone || (_state != State.Playing && _scenario != "mouth" && _scenario != "debugmode" && _scenario != "report" && _scenario != "struck" && _scenario != "shop" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
+        if (_scDone || (_state != State.Playing && _scenario != "mouth" && _scenario != "debugmode" && _scenario != "report" && _scenario != "struck" && _scenario != "shop" && _scenario != "touch" && !(_scenario is "magma" or "vault" && _upgradeMenu.Visible))) return;
         _scT += dt;
         switch (_scenario)
         {
@@ -183,6 +184,7 @@ public partial class Main
             case "shiftall": ShiftAllScenario(); break;
             case "shifterkit": ShifterKitScenario(); break;
             case "vitalpace": VitalPaceScenario(); break;
+            case "touch": TouchScenario(); break;
             case "hive": HiveScenario(); break;
             case "hordes": HordesScenario(); break;
             case "trial": TrialScenario(); break;

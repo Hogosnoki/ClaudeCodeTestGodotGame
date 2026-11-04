@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dp0p8om87q2yh"
 path.s3tc="res://.godot/imported/dark_rock_arm.jpg-ec5d3747ca956bfcd517110a04972a9e.s3tc.ctex"
+path.etc2="res://.godot/imported/dark_rock_arm.jpg-ec5d3747ca956bfcd517110a04972a9e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://DaggerCave/Assets/Textures/dark_rock/dark_rock_arm.jpg"
-dest_files=["res://.godot/imported/dark_rock_arm.jpg-ec5d3747ca956bfcd517110a04972a9e.s3tc.ctex"]
+dest_files=["res://.godot/imported/dark_rock_arm.jpg-ec5d3747ca956bfcd517110a04972a9e.s3tc.ctex", "res://.godot/imported/dark_rock_arm.jpg-ec5d3747ca956bfcd517110a04972a9e.etc2.ctex"]
 
 [params]
 
