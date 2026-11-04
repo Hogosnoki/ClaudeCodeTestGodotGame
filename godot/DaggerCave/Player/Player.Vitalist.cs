@@ -11,7 +11,7 @@ namespace DaggerCave;
 /// it flies back to you as a mote that becomes vital force when it arrives. The dodge button casts a
 /// hex: creatures around you slow down and take more damage for a while. The ability button
 /// spends vital force on a heal, shared among everyone nearby who is hurt, by how hurt each of them
-/// is. The second ability spends a full reserve on a rupture: the creature you aim at is seized
+/// is. The second ability spends a heal's worth on a rupture: the creature you aim at is seized
 /// where it stands and bursts, splashing everything around it. Its alterations: Blight Burst (the
 /// hex strikes too) or Endless Hex (vital force instead of a cooldown), Slow Mending (heals over time)
 /// and Lifebloom (the rupture blooms on a friend, healing).
@@ -56,8 +56,29 @@ public partial class Player
     /// <summary>Test harness and level changes: set the reserve directly.</summary>
     public void SetVitalForce(float value) => VitalForce = Math.Clamp(value, 0, Stats.VitalForceMax);
 
+    /// <summary>When each creature drained may be drained again (on <see cref="_drainClock"/>).</summary>
+    private readonly Dictionary<Enemy, float> _drainedUntil = new();
+    private float _drainClock;
+
+    /// <summary>Whether the drain may take this creature now (one drained lately can't be, for DrainRetarget s).</summary>
+    private bool DrainFresh(Enemy e) => !_drainedUntil.TryGetValue(e, out var t) || t <= _drainClock;
+
+    /// <summary>A creature drained: it can't be drained again for DrainRetarget s (sped by attack speed).</summary>
+    private void MarkDrained(Enemy e)
+    {
+        if (_drainedUntil.Count > 24)
+            foreach (var k in _drainedUntil.Where(kv => kv.Value <= _drainClock || !IsInstanceValid(kv.Key) || kv.Key.Dead).Select(kv => kv.Key).ToList())
+                _drainedUntil.Remove(k);
+        _drainedUntil[e] = _drainClock + Tune.Vitalist.DrainRetarget / Math.Max(0.2f, Stats.AttackSpeed);
+        TestDrained?.Invoke(e);
+    }
+
+    /// <summary>For the tests: each creature the drain takes (the target, and Many Mouths' others), as it's taken.</summary>
+    public Action<Enemy> TestDrained;
+
     private void TickVitalist(float dt)
     {
+        _drainClock += dt;
         _castGlow = Math.Max(0f, _castGlow - dt * 2.5f);
         if (VitalForce > Stats.VitalForceMax) VitalForce = Stats.VitalForceMax;
         if (_drainTarget != null)
@@ -74,7 +95,9 @@ public partial class Player
     {
         if (_drainCd > 0) return false;
         aim = aim.LengthSquared() > 0.01f ? aim.Normalized() : new Vector2(Facing, 0);
-        var target = FindSpellTarget(aim, DrainRange);
+        var target = FindSpellTarget(aim, DrainRange, accept: DrainFresh);
+        // (only creatures drained a moment ago in reach: it waits for one of them to be ready again, spending nothing)
+        if (target == null && FindSpellTarget(aim, DrainRange) != null) return false;
         // held down, it drains whatever comes into reach (without casting wisps at nothing, or at the rock)
         if (target == null && held) return false;
         // (the staff's wisp reaches a hung web too; a breakable in the way takes the cast, and the creature behind it is spared)
@@ -106,6 +129,7 @@ public partial class Player
         AttacksStarted++;
         // the strike lands as the staff comes forward (the cast's thrust), not while it's drawn back
         _drainTarget = target;
+        MarkDrained(target);
         _drainDmg = Tune.Vitalist.DrainDamage * Stats.DamageMult * Stats.PrimaryDamageMult * G.Range(0.92f, 1.08f);
         _drainAt = Tune.Vitalist.DrainStrikeDelay;
         _castGlow = 0.45f;
@@ -137,12 +161,13 @@ public partial class Player
         if (Stats.DrainExtra > 0)
         {
             var near = G.Enemies
-                .Where(e => e != target && !e.Dead && e.CanBeHit && e.GlobalPosition.DistanceTo(target.GlobalPosition) < Tune.Vitalist.MultiRadius + e.HitRadius
+                .Where(e => e != target && !e.Dead && e.CanBeHit && DrainFresh(e) && e.GlobalPosition.DistanceTo(target.GlobalPosition) < Tune.Vitalist.MultiRadius + e.HitRadius
                             && InSight(target.GlobalPosition, e))
                 .OrderBy(e => e.GlobalPosition.DistanceSquaredTo(target.GlobalPosition))
                 .Take(Stats.DrainExtra).ToList();
             foreach (var e in near)
             {
+                MarkDrained(e);
                 G.Fx.Beam(target.GlobalPosition, e.GlobalPosition, new Color(LifeColor, 0.7f));
                 DrainFrom(e, dmg * Tune.Vitalist.MultiShare, 0.7f);
             }

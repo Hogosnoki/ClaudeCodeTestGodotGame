@@ -188,7 +188,7 @@ public partial class Main : Node
 
         ParseArgs(out bool gentest);
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || _introShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
-        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit") && !OS.GetCmdlineUserArgs().Contains("--elements");
+        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit" or "vitalpace") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -3923,7 +3923,7 @@ public partial class Main : Node
                 _probeEnemy = Dummy(new Golem(), 110);
                 _probe2 = Dummy(new Goblin(), 150);   // 40 px from the golem: in the burst
                 _probe3 = Dummy(new Goblin(), 290);   // well outside it
-                p.SetVitalForce(30);
+                p.SetVitalForce(p.RuptureCost);
                 p.ResetAbilityCooldowns();
                 break;
             case 47:

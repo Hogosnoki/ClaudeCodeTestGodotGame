@@ -66,6 +66,7 @@ public partial class Main
         "dash" => "entrance",
         "shiftall" => "entrance",
         "shifterkit" => "entrance",
+        "vitalpace" => "entrance",
         "hive" => "nest",
         "hordes" => "entrance",
         "trial" => "entrance",
@@ -181,6 +182,7 @@ public partial class Main
             case "dash": SwordDashScenario(); break;
             case "shiftall": ShiftAllScenario(); break;
             case "shifterkit": ShifterKitScenario(); break;
+            case "vitalpace": VitalPaceScenario(); break;
             case "hive": HiveScenario(); break;
             case "hordes": HordesScenario(); break;
             case "trial": TrialScenario(); break;

@@ -507,7 +507,7 @@ public partial class Hud : Control
                 HeroKind.Vitalist => new[]
                 {
                     move,
-                    $"{atk} drain (hold to keep draining{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} hex · {a1} heal · {a2} rupture (a full reserve)",
+                    $"{atk} drain (hold to keep draining{(pad ? ", or push the right stick" : ", aim with the mouse")}) · {dg} hex · {a1} heal · {a2} rupture (a heal's worth)",
                     "Draining life fills your vital force · " + pause + "    —    find and slay the exit's guardian",
                 },
                 _ => new[]

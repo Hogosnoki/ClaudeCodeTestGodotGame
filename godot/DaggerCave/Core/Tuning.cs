@@ -279,8 +279,11 @@ public static class Tune
         /// comes forward, with no travel time. Damage, reach (px), time between casts, and the cone
         /// (degrees either side of your aim) it looks for a creature in. The stolen life flies back
         /// to you at MoteSpeed px/s and becomes vital force when it arrives.
+        /// A creature drained can't be drained again for DrainRetarget s (both sped by attack speed),
+        /// so on one creature the drain comes every DrainRetarget s, and among two or more it alternates
+        /// between them every DrainCooldown s.
         /// </summary>
-        public static float DrainDamage = 8f, DrainRange = 175f, DrainCooldown = 0.625f, DrainConeDegrees = 38f, MoteSpeed = 640f;
+        public static float DrainDamage = 8f, DrainRange = 175f, DrainCooldown = 0.3125f, DrainRetarget = 0.625f, DrainConeDegrees = 38f, MoteSpeed = 640f;
         /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
         public static float DrainWhiffCooldown = 0.25f;
         /// <summary>Seconds from the press to the strike: the cast's thrust (its clip is 6 frames at 24 fps, sped up 1.6x; the thrust is 30-45% in).</summary>
@@ -300,12 +303,12 @@ public static class Tune
         /// HexVulnerability x damage for HexSeconds; it recharges in HexCooldown s.</summary>
         public static float HexRadius = 110f, HexSlow = 0.55f, HexVulnerability = 1.2f, HexSeconds = 5f, HexCooldown = 6f;
         /// <summary>
-        /// Rupture (the second ability): costs RuptureCost vital force. The creature you aim at (within
+        /// Rupture (the second ability): costs RuptureCost vital force (a heal's worth) and recharges as a heal does. The creature you aim at (within
         /// RuptureRange px) is seized where it stands and, RuptureWindup s later, bursts for
         /// RuptureDamage; every other creature within RuptureRadius px of it takes RuptureSplash.
         /// </summary>
-        public static float RuptureCost = 30f, RuptureDamage = 30f, RuptureSplash = 10f, RuptureRadius = 80f, RuptureRange = 200f;
-        public static float RuptureWindup = 0.8f, RuptureCooldown = 1.5f;
+        public static float RuptureCost = 15f, RuptureDamage = 30f, RuptureSplash = 10f, RuptureRadius = 80f, RuptureRange = 200f;
+        public static float RuptureWindup = 0.8f, RuptureCooldown = 3f;
 
         /// <summary>Blight Burst (an alteration): the hex's damage, and how much weaker its slow and
         /// its extra damage taken are. Endless Hex: its vital force cost (no cooldown).</summary>
@@ -1289,7 +1292,7 @@ public static class Tune
         public static int WhirlPulses = 6;
         public static float MeteorRest = 11f, MeteorFall = 0.55f, MeteorHeight = 460f, MeteorDrift = 120f, MeteorDamage = 70f, MeteorEdge = 0.55f, MeteorRadius = 92f;
         public static float BashRest = 8f, BashWindup = 0.22f, BashDamage = 42f, BashStun = 1.3f, BashRadius = 120f, BashArc = 65f, BashPush = 420f, BashLunge = 260f;
-        public static float BloomRest = 12f, BloomDamage = 30f, BloomRadius = 120f, BloomSeep = 2f, BloomHeal = 0.12f;
+        public static float BloomRest = 12f, BloomDamage = 10f, BloomRadius = 120f, BloomSeep = 2f, BloomHeal = 0.12f;
         public static float JudgeRest = 12f, JudgeWindup = 0.35f, JudgeDamage = 46f, JudgeRadius = 82f, JudgeWeaken = 0.7f, JudgeWeakenSeconds = 4f, JudgeWardRange = 150f, JudgeBarrier = 0.15f, JudgeBarrierSeconds = 6f;
         public static float BlossomRest = 10f, BlossomTime = 0.75f, BlossomDamage = 11f, BlossomRange = 170f, BlossomLeap = 0.75f;
         public static int BlossomVolleys = 3, BlossomKnives = 10;

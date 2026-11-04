@@ -46,7 +46,7 @@ public partial class Hud
             "DASH" => ("Guarded Charge", "A shield-first rush that breaks off the attacks it meets."),
             "BASH" => ("Shield Bash", "Stuns everything in front of you, for a share of the shield (the notch on the shield bar)."),
             "HEAL" => ("Heal", "Spends vital force (the number) to mend you, or the friend you aim at."),
-            "RUPTURE" => ("Rupture", "A full reserve of vital force bursts in the creatures round you (the crimson mark on the bar)."),
+            "RUPTURE" => ("Rupture", "A heal's worth of vital force: the creature you aim at bursts from within, striking every creature round it (the crimson mark on the bar)."),
             "RECALL" => ("Recall", "Calls your thrown daggers back; they cut again on the way. With Ricochet it also flings a poison pin at every marked creature."),
             "TETHER" => ("Tether", "Recall pulls you along the line to your dagger stuck in a creature, striking it as you arrive."),
             "BARRIER" => ("Barrier", "A ward of light on you or the friend you aim at, soaking up blows."),
