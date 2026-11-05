@@ -45,6 +45,15 @@ public sealed class SkeletonDesign : BipedDesign
         var sk = Head + new Vector3(0.03f, 0.08f, 0);
         s.Egg(hd, sk, new(0.1f, 0.098f, 0.085f), Bone, Mat.Bone, 0.02f);
         s.Egg(hd, sk + new Vector3(0.05f, -0.055f, 0), new(0.065f, 0.045f, 0.07f), Bone, Mat.Bone, 0.02f);
+        // (the shape that makes it a skull and not a ball: the brow ridge jutting over the sockets, the temples flattened, the
+        // cheekbones standing out, the jaw's hinge, the bulge at the back)
+        s.Limb(hd, sk + new Vector3(0.088f, 0.022f, -0.055f), sk + new Vector3(0.098f, 0.026f, 0.055f), 0.014f, 0.014f, Bone, Mat.Bone, 0.012f);
+        s.Egg(hd, sk + new Vector3(-0.06f, -0.01f, 0), new(0.06f, 0.07f, 0.07f), Bone, Mat.Bone, 0.025f);
+        foreach (int sd in new[] { 1, -1 })
+        {
+            s.CarveBall(hd, sk + new Vector3(0.02f, 0.0f, 0.11f * sd), 0.04f, 0.03f);
+            s.Egg(hd, sk + new Vector3(0.075f, -0.035f, 0.052f * sd), new(0.024f, 0.016f, 0.018f), Bone, Mat.Bone, 0.008f);
+        }
         s.CarveBall(hd, sk + new Vector3(0.09f, -0.005f, 0.038f), 0.024f, 0.006f);
         s.CarveBall(hd, sk + new Vector3(0.09f, -0.005f, -0.038f), 0.024f, 0.006f);
         s.CarveLimb(hd, sk + new Vector3(0.105f, -0.035f, 0), sk + new Vector3(0.11f, -0.058f, 0), 0.01f, 0.013f, 0.004f);
@@ -65,7 +74,17 @@ public sealed class SkeletonDesign : BipedDesign
                 new Vector3(0, 0.3f, sd).Normalized(), 0.02f, 5, 5, emit: 0.6f);
         }
 
-        // spine: vertebrae from the pelvis to the skull
+        // spine: a continuous column from the pelvis to the skull (the vertebrae alone floated apart, beads with gaps between),
+        // with each vertebra's body and spike along it
+        {
+            var c0 = Hips + new Vector3(-0.05f, 0, 0);
+            var c1 = Chest + new Vector3(-0.05f, 0, 0);
+            var c2 = Head + new Vector3(-0.02f, -0.02f, 0);
+            s.Limb(hp, c0, c0.Lerp(c1, 0.3f), 0.013f, 0.012f, dirty, Mat.Bone, 0.008f);
+            s.Limb(sp, c0.Lerp(c1, 0.3f), c0.Lerp(c1, 0.75f), 0.012f, 0.012f, dirty, Mat.Bone, 0.008f);
+            s.Limb(ch, c0.Lerp(c1, 0.75f), c1, 0.012f, 0.011f, dirty, Mat.Bone, 0.008f);
+            s.Limb(nk, c1, c2, 0.01f, 0.009f, dirty, Mat.Bone, 0.008f);
+        }
         for (int k = 0; k <= 9; k++)
         {
             float t = k / 9f;
@@ -75,10 +94,15 @@ public sealed class SkeletonDesign : BipedDesign
             s.Ball(b, at, 0.022f - 0.006f * t, dirty, Mat.Bone, 0.012f);
             s.Horn(b, at + new Vector3(-0.015f, 0, 0), at + new Vector3(-0.045f, -0.01f, 0), 0.01f, Bone, Mat.Bone, sides: 4, rings: 2);
         }
-        // pelvis
-        s.Egg(hp, Hips + new Vector3(0, 0.02f, 0), new(0.06f, 0.06f, 0.12f), Bone, Mat.Bone, 0.02f);
-        s.CarveBall(hp, Hips + new Vector3(0.05f, 0.0f, 0.06f), 0.04f, 0.01f);
-        s.CarveBall(hp, Hips + new Vector3(0.05f, 0.0f, -0.06f), 0.04f, 0.01f);
+        // pelvis: the sacrum at the back, the two iliac wings flaring up and out from it like a bowl's rim, and below them the
+        // rings round the hip sockets, holed through in front
+        s.Egg(hp, Hips + new Vector3(-0.035f, 0.03f, 0), new(0.025f, 0.055f, 0.038f), dirty, Mat.Bone, 0.012f);
+        foreach (int sd in new[] { 1, -1 })
+        {
+            s.Egg(hp, Hips + new Vector3(0.0f, 0.06f, 0.075f * sd), new Vector3(0.055f, 0.06f, 0.014f), Bone, Mat.Bone, 0.012f, new Vector3(-28f * sd, 0, 0));
+            s.Egg(hp, Hips + new Vector3(0.025f, -0.01f, 0.06f * sd), new(0.04f, 0.035f, 0.03f), Bone, Mat.Bone, 0.012f);
+            s.CarveBall(hp, Hips + new Vector3(0.055f, -0.02f, 0.055f * sd), 0.018f, 0.006f);
+        }
         // ribcage: curved ribs from the spine round to the breastbone
         var ribs = new MeshBuilder();
         for (int k = 0; k < 5; k++)
@@ -100,9 +124,15 @@ public sealed class SkeletonDesign : BipedDesign
             }
         ribs.Tube(new[] { Chest + new Vector3(0.1f, 0.1f, 0), Chest + new Vector3(0.1f, -0.1f, 0) }, new[] { 0.014f, 0.01f }, 5, Bone, capStart: true);
         s.Rigid(ch, ribs, Mat.Bone);
-        // clavicles and shoulder blades
+        // clavicles, and the shoulder blades: flat triangles of bone on the back, their spine ridged across the top
         s.Limb(ch, Chest + new Vector3(0.06f, 0.12f, 0), Shoulder[0] + new Vector3(0, 0.02f, 0), 0.011f, 0.011f, Bone, Mat.Bone, 0.006f);
         s.Limb(ch, Chest + new Vector3(0.06f, 0.12f, 0), Shoulder[1] + new Vector3(0, 0.02f, 0), 0.011f, 0.011f, Bone, Mat.Bone, 0.006f);
+        for (int k = 0; k < 2; k++)
+        {
+            float sd = k == 0 ? 1 : -1;
+            s.Egg(ch, Chest + new Vector3(-0.07f, 0.06f, 0.075f * sd), new(0.011f, 0.065f, 0.045f), Bone, Mat.Bone, 0.008f, new(14f * sd, 0, 0));
+            s.Limb(ch, Chest + new Vector3(-0.068f, 0.11f, 0.04f * sd), Shoulder[k] + new Vector3(-0.02f, 0.015f, 0), 0.008f, 0.01f, Bone, Mat.Bone, 0.006f);
+        }
 
         // limbs: long bones with knobbled joints, twin forearm/shin bones, finger and toe bones
         for (int k = 0; k < 2; k++)
@@ -110,9 +140,14 @@ public sealed class SkeletonDesign : BipedDesign
             string sfx = k == 0 ? "_r" : "_l";
             float z = k == 0 ? 1 : -1;
             int ua = s["uarm" + sfx], fa = s["farm" + sfx], ha = s["hand" + sfx], th = s["thigh" + sfx], sh = s["shin" + sfx], ft = s["foot" + sfx];
+            // the humerus: its round head, a slender shaft, and the elbow's end flaring across into two knuckles
             s.Ball(ua, Shoulder[k], 0.026f, Bone, Mat.Bone, 0.01f);
-            s.Limb(ua, Shoulder[k], Elbow[k], 0.015f, 0.013f, Bone, Mat.Bone, 0.008f);
-            s.Ball(fa, Elbow[k], 0.02f, dirty, Mat.Bone, 0.008f);
+            s.Limb(ua, Shoulder[k], Elbow[k], 0.016f, 0.012f, Bone, Mat.Bone, 0.008f);
+            s.Egg(ua, Elbow[k] + new Vector3(0, 0.018f, 0), new(0.018f, 0.02f, 0.03f), Bone, Mat.Bone, 0.008f);
+            s.Ball(fa, Elbow[k] + new Vector3(0, -0.004f, 0.013f), 0.014f, dirty, Mat.Bone, 0.006f);
+            s.Ball(fa, Elbow[k] + new Vector3(0, -0.004f, -0.013f), 0.014f, dirty, Mat.Bone, 0.006f);
+            // (the ulna's point behind the elbow)
+            s.Egg(fa, Elbow[k] + new Vector3(-0.02f, 0.004f, 0), new(0.012f, 0.016f, 0.012f), Bone, Mat.Bone, 0.006f);
             s.Limb(fa, Elbow[k] + new Vector3(0.01f, 0, 0), Wrist[k] + new Vector3(0.01f, 0, 0), 0.01f, 0.009f, Bone, Mat.Bone, 0.004f);
             s.Limb(fa, Elbow[k] - new Vector3(0.01f, 0, 0), Wrist[k] - new Vector3(0.01f, 0, 0), 0.009f, 0.008f, Bone, Mat.Bone, 0.004f);
             s.Egg(ha, Wrist[k] + new Vector3(0.005f, -0.035f, 0), new(0.022f, 0.035f, 0.02f), Bone, Mat.Bone, 0.008f);
@@ -121,9 +156,17 @@ public sealed class SkeletonDesign : BipedDesign
                 var root = Wrist[k] + new Vector3(0.01f, -0.065f, (f - 1.5f) * 0.011f);
                 s.Limb(ha, root, root + new Vector3(0.025f, -0.05f, 0), 0.006f, 0.004f, Bone, Mat.Bone, 0.003f);
             }
-            s.Ball(th, HipJ[k], 0.028f, Bone, Mat.Bone, 0.012f);
-            s.Limb(th, HipJ[k], Knee[k], 0.02f, 0.016f, Bone, Mat.Bone, 0.01f);
-            s.Ball(sh, Knee[k], 0.026f, dirty, Mat.Bone, 0.01f);
+            // the femur: its ball set in at an angle on a short neck, the knob of the trochanter outside it, a long slender shaft,
+            // and at the knee two great rounded condyles over the shin's flat plateau
+            s.Ball(th, HipJ[k] + new Vector3(0.008f, 0.008f, -0.022f * z), 0.024f, Bone, Mat.Bone, 0.01f);
+            s.Limb(th, HipJ[k] + new Vector3(0.008f, 0.008f, -0.02f * z), HipJ[k] + new Vector3(0, -0.035f, 0.012f * z), 0.014f, 0.017f, Bone, Mat.Bone, 0.008f);
+            s.Egg(th, HipJ[k] + new Vector3(-0.004f, -0.02f, 0.028f * z), new(0.02f, 0.026f, 0.018f), Bone, Mat.Bone, 0.008f);
+            s.Limb(th, HipJ[k] + new Vector3(0, -0.035f, 0.012f * z), Knee[k] + new Vector3(0, 0.03f, 0), 0.017f, 0.015f, Bone, Mat.Bone, 0.01f);
+            s.Ball(th, Knee[k] + new Vector3(-0.004f, 0.012f, 0.015f), 0.018f, Bone, Mat.Bone, 0.008f);
+            s.Ball(th, Knee[k] + new Vector3(-0.004f, 0.012f, -0.015f), 0.018f, Bone, Mat.Bone, 0.008f);
+            s.Egg(sh, Knee[k] + new Vector3(0.0f, -0.012f, 0), new(0.026f, 0.012f, 0.032f), dirty, Mat.Bone, 0.006f);
+            // (the kneecap)
+            s.Egg(sh, Knee[k] + new Vector3(0.026f, 0.006f, 0), new(0.01f, 0.016f, 0.014f), Bone, Mat.Bone, 0.005f);
             s.Limb(sh, Knee[k] + new Vector3(0.012f, 0, 0), Ankle[k], 0.014f, 0.011f, Bone, Mat.Bone, 0.006f);
             s.Limb(sh, Knee[k] - new Vector3(0.012f, 0, 0), Ankle[k] - new Vector3(0.008f, 0, 0), 0.008f, 0.007f, Bone, Mat.Bone, 0.004f);
             s.Egg(ft, Ankle[k] + new Vector3(0.04f, -0.02f, 0), new(0.055f, 0.018f, 0.028f), Bone, Mat.Bone, 0.01f);

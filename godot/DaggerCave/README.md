@@ -1431,6 +1431,24 @@ sheets and films (`--sheetclay`, `--sheetfilm`) before and after:
 - **Darks that read.** The darkest cloth and the Rogue's leathers were nearly black (0.07 to 0.12), so nothing of their
   shapes showed in a cave; they're lifted to about 0.13 to 0.2, still dark.
 
+### The character look, pass 2: the bear and the skeleton
+
+The two weakest creatures on a lineup of the common ones (the goblin, spider, bat, rat, golem and frog held up):
+
+- **The bear** read as a toy: a box of a body on four cylinders, a ball of a head with a flat muzzle glowing like a lamp.
+  It's still a black bear (a long, level back with no hump), now with a deep chest and the belly slung low, the shoulder
+  blades as mounds at the withers, shaggier fur along the flanks, a ruff at the throat, a broad skull with full cheeks and
+  a brow, round ears cupped forward, a thick, flat-topped muzzle in a dull short-furred tan, a nose pad with nostrils, and
+  fur whose tone varies in clumps (lighter along the back, darker on the legs). It stands lower and heavier: legs about as
+  long as its body is deep, and thicker. Its legs come from the quadrupeds' new `MuscledLegs`: the shoulder blade, the
+  triceps' bulk, the elbow's point and the forearm's swell in front; the haunch, the muscle behind the lower thigh and the
+  hock's point behind; broad, flat paws with toe pads (the rat and the newt can take it up too).
+- **The skeleton** was a stick figure: every long bone a rod with a ball at each end. Its bones now flare from slender
+  shafts into broad ends: the femur's ball on an angled neck with the trochanter beside it, two condyles at the knee over the
+  shin's plateau and a kneecap, the elbow's two knuckles and the ulna's point; flared pelvic wings round a sacrum, flat
+  shoulder blades on the back, a continuous spinal column under the vertebrae (they floated apart like beads), and a
+  skull with a brow ridge, flattened temples, cheekbones and a bulge behind, so it reads as a skull and not a ball.
+
 ## How online play works
 
 `Net/Net.cs` is the session (hosting, joining, the lobby, moving messages); `Net/NetSync.cs` is

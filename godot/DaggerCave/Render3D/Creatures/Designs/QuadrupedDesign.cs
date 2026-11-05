@@ -202,6 +202,55 @@ public abstract class QuadrupedDesign : CreatureDesign
         }
     }
 
+    /// <summary>
+    /// Legs built from their masses, not one tube a bone: in front the shoulder blade over the joint, the triceps' bulk behind the
+    /// upper arm, the elbow's point, the forearm full below the elbow and slimming to the wrist, and a broad, flat paw with its
+    /// toe pads along the front; behind, the haunch's great round mass, the thigh, the muscle behind the lower thigh, the hock's
+    /// point and a long flat paw. <paramref name="fr"/> and <paramref name="hr"/> are the front and hind legs' thickness at the
+    /// elbow and the knee.
+    /// </summary>
+    protected void MuscledLegs(Sculptor s, float fr, float hr, Color col, Mat mat, Color pawCol, Color padCol, float bump = 0f, int toes = 5)
+    {
+        for (int k = 0; k < 2; k++)
+        {
+            float z = k == 0 ? 1 : -1;
+            string sfx = k == 0 ? "_r" : "_l";
+            int fu = s["fup" + sfx], fl = s["flo" + sfx], fp = s["fpaw" + sfx], hu = s["hup" + sfx], hl = s["hlo" + sfx], hp = s["hpaw" + sfx];
+            // ---- the foreleg
+            var fUpMid = (FSh[k] + FEl[k]) * 0.5f;
+            s.Egg(fu, FSh[k] + new Vector3(0.01f, 0.08f * (fr / 0.1f), -0.01f * z), new Vector3(1.45f, 1.75f, 1.05f) * fr, col, mat, 0.05f, bump: bump);
+            s.Limb(fu, FSh[k], FEl[k], fr * 1.3f, fr * 0.95f, col, mat, 0.04f, bump);
+            s.Egg(fu, fUpMid + new Vector3(-0.42f * fr, 0, 0), new Vector3(0.95f, 1.35f, 0.9f) * fr, col, mat, 0.04f, bump: bump);
+            s.Egg(fl, FEl[k] + new Vector3(-0.5f * fr, 0.04f * fr, 0), new Vector3(0.55f, 0.62f, 0.6f) * fr, col, mat, 0.025f, bump: bump);
+            s.Limb(fl, FEl[k], FWr[k], fr * 0.98f, fr * 0.68f, col, mat, 0.03f, bump);
+            s.Egg(fl, FEl[k] + (FWr[k] - FEl[k]) * 0.3f + new Vector3(0.22f * fr, 0, 0), new Vector3(0.78f, 1.25f, 0.8f) * fr, col, mat, 0.035f, bump: bump);
+            Paw(s, fp, FWr[k], FToe[k], fr * 0.95f, z, pawCol, padCol, mat, toes);
+            // ---- the hind leg
+            s.Egg(hu, HHp[k] + new Vector3(-0.02f, -0.02f, 0.01f * z), new Vector3(2.0f, 2.05f, 1.35f) * hr, col, mat, 0.06f, bump: bump);
+            s.Limb(hu, HHp[k], HKn[k], hr * 1.5f, hr * 1.0f, col, mat, 0.045f, bump);
+            s.Egg(hl, HKn[k] + (HHk[k] - HKn[k]) * 0.32f + new Vector3(-0.38f * hr, 0, 0), new Vector3(0.82f, 1.2f, 0.8f) * hr, col, mat, 0.035f, bump: bump);
+            s.Limb(hl, HKn[k], HHk[k], hr * 0.92f, hr * 0.6f, col, mat, 0.03f, bump);
+            s.Egg(hp, HHk[k] + new Vector3(-0.36f * hr, 0.05f * hr, 0), new Vector3(0.45f, 0.52f, 0.5f) * hr, col, mat, 0.02f, bump: bump);
+            Paw(s, hp, HHk[k], HToe[k], hr * 0.82f, z, pawCol, padCol, mat, toes);
+        }
+    }
+
+    /// <summary>A broad, flat paw from the wrist (or hock) to the toes, wider than deep, with toe pads along its front edge.</summary>
+    private static void Paw(Sculptor s, int bone, Vector3 wrist, Vector3 toe, float r, float z, Color col, Color pad, Mat mat, int toes)
+    {
+        var mid = (wrist + toe) * 0.5f;
+        float len = (toe - wrist).Length();
+        s.Limb(bone, wrist, mid + new Vector3(0, -0.15f * r, 0), r * 0.75f, r * 0.85f, col, mat, 0.025f);
+        s.Egg(bone, new Vector3(mid.X + 0.1f * len, toe.Y + 0.42f * r, mid.Z), new Vector3(len * 0.55f, 0.48f * r, 1.12f * r), col, mat, 0.03f);
+        for (int t = 0; t < toes; t++)
+        {
+            float f = toes == 1 ? 0f : t / (float)(toes - 1) - 0.5f;
+            var at = new Vector3(toe.X - 0.12f * r * MathF.Abs(f) * 2f, toe.Y + 0.3f * r, toe.Z + f * 1.9f * r);
+            s.Egg(bone, at, new Vector3(0.36f, 0.3f, 0.3f) * r, col, mat, 0.012f);
+        }
+        s.Egg(bone, new Vector3(mid.X + 0.12f * len, toe.Y + 0.1f * r, mid.Z), new Vector3(len * 0.32f, 0.12f * r, 0.7f * r), pad, Mat.Skin, 0.012f);
+    }
+
     /// <summary>Hooked claws on every paw.</summary>
     protected void Claws(Sculptor s, int count, float len, float r, Color col)
     {
