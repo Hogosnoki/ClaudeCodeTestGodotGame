@@ -43,9 +43,12 @@ varying vec3 v_rest;
 varying vec4 v_mat;
 varying vec4 v_kinds0;
 varying vec4 v_kinds1;
+// ambient occlusion baked into the skin (SculptMesher.Occlusion): creases, folds, armpits, under belts and cloaks
+varying float v_ao;
 
 void vertex() {
 	v_rest = vec3(UV.x, UV.y, UV2.x);
+	v_ao = UV2.y > 0.001 ? UV2.y : 1.0;
 	v_mat = CUSTOM0;
 	v_kinds0 = CUSTOM1;
 	v_kinds1 = CUSTOM2;
@@ -222,13 +225,16 @@ void fragment() {
 	// here would bloom into a blaze in bright light)
 	if (any(isnan(n)) || dot(n, n) < 0.25) n = NORMAL;
 	float ndv = clamp(dot(n, VIEW), 0.0, 1.0);
-	float fres = pow(1.0 - ndv, 4.0) * 0.6;
+	// (the rim keeps to the silhouette's edge: a broad one lay over every curve like a latex sheen)
+	float fres = pow(1.0 - ndv, 5.0) * 0.6;
+	// how matte the surface is: cloth, fur and rough leather take little shine and a softer rim, so they don't look like plastic
+	float matte = smoothstep(0.6, 0.95, rough);
 
 	vec3 emit = vec3(0.0);
 	float eye_w = kw[5] / ksum;
 	emit += eye_color * eye_energy * glow * (0.85 + 0.15 * sin(TIME * 2.0)) * eye_w;
 	emit += glow_color * glow_energy * glow * glow_boost * (1.0 - eye_w);
-	emit += rim_color * rim_energy * fres * (1.0 - v_mat.x * 0.6);
+	emit += rim_color * rim_energy * fres * (1.0 - v_mat.x * 0.6) * mix(1.0, 0.55, matte);
 	emit += burn_color * burn * 8.0;
 	// the hit flash is a quick pop, not a white-out: the frozen pose must stay readable
 	emit += flash_color.rgb * flash * 0.8;
@@ -245,10 +251,13 @@ void fragment() {
 	ROUGHNESS = max(rough, 0.08);
 	// (with ambient light only, metal has nothing to mirror but the black of the cave: mostly its own colour instead)
 	METALLIC = v_mat.x * (1.0 - 0.85 * light_ambient_only);
-	SPECULAR = 0.5;
+	SPECULAR = mix(0.5, 0.18, matte);
 	BACKLIGHT = alb * v_mat.y * 0.45;
 	NORMAL = n;
 	EMISSION = emit;
+	// (the occlusion takes the ambient light out of the creases fully, and the direct light a little, so the folds read lit too)
+	AO = v_ao;
+	AO_LIGHT_AFFECT = 0.35;
 	}
 }
 

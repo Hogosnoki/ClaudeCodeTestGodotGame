@@ -22,7 +22,7 @@ public sealed partial class HeroDesign
     private static readonly Color BrTunicBrown = new(0.2f, 0.135f, 0.095f);
     private static readonly Color BrLeather = new(0.3f, 0.185f, 0.105f);
     private static readonly Color BrLeatherDk = new(0.16f, 0.1f, 0.065f);
-    private static readonly Color BrTrouser = new(0.11f, 0.105f, 0.115f);
+    private static readonly Color BrTrouser = new(0.175f, 0.165f, 0.18f);
     private static readonly Color BrFur = new(0.8f, 0.76f, 0.68f);
     private static readonly Color BrBoot = new(0.2f, 0.135f, 0.095f);
     private static readonly Color BrGlove = new(0.15f, 0.1f, 0.075f);

@@ -38,7 +38,8 @@ public sealed class SculptData
 /// nets, and every vertex takes its colour, material and bone weights from the primitives near
 /// it, blended by how close each is, so joints bend smoothly and materials meet softly.
 /// Vertex data: COLOR = albedo + roughness, CUSTOM0 = metallic, subsurface, glow, detail kind,
-/// UV / UV2.x = rest-pose position (textures stick to the skin as it moves).
+/// UV / UV2.x = rest-pose position (textures stick to the skin as it moves), UV2.y = ambient occlusion (see
+/// <see cref="Occlusion"/>; 0 = none worked out, read as open).
 /// </summary>
 public static class SculptMesher
 {
@@ -392,14 +393,38 @@ public static class SculptMesher
             }
         }
 
-        // rest positions for texturing
+        // rest positions for texturing, and how shut in each point of the skin is
         for (int k = 0; k < body.Count; k++)
         {
             body.UV[k] = new Vector2(body.V[k].X, body.V[k].Y);
-            body.UV2[k] = new Vector2(body.V[k].Z, 0f);
+            body.UV2[k] = new Vector2(body.V[k].Z, Occlusion(Field, body.V[k], body.N[k]));
         }
 
         return new SculptData { Body = body, Custom = custom.ToArray(), Kinds0 = kinds0.ToArray(), Kinds1 = kinds1.ToArray(), BoneIdx = bones.ToArray(), Weights = weights.ToArray(), Bones = s.Bones.ToArray(), Bridges = bridges };
+    }
+
+    // (how far out along the normal the occlusion looks, and how much each step counts: near steps find creases and folds,
+    // far ones the shadow of a limb against the body or a cloak against the back)
+    private static readonly float[] AoSteps = { 0.013f, 0.035f, 0.075f };
+    private static readonly float[] AoWeights = { 1f, 0.75f, 0.45f };
+
+    /// <summary>
+    /// Ambient occlusion at a point of the skin, from the distance field itself: stepping out along the normal, on open, convex
+    /// skin the nearest surface is as far as the step; in a crease, an armpit, under a belt or a cloak's edge it's nearer. The
+    /// shortfall at each step, weighted, is how shut in the point is (stored 0.15 to 1; the shader lets it darken the ambient
+    /// light fully and the direct light a little).
+    /// </summary>
+    public static float Occlusion(Func<Vector3, float> field, Vector3 p, Vector3 n)
+    {
+        float occ = 0f, wsum = 0f;
+        for (int i = 0; i < AoSteps.Length; i++)
+        {
+            float d = AoSteps[i];
+            float f = field(p + n * d);
+            occ += AoWeights[i] * Math.Clamp((d - f) / d, 0f, 1f);
+            wsum += AoWeights[i];
+        }
+        return 1f - Math.Clamp(occ / wsum * 1.5f, 0f, 0.85f);
     }
 
     /// <summary>The surface-detail kind of the primitive closest to q (kinds don't blend).</summary>

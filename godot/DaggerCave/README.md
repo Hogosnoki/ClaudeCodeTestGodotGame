@@ -1397,7 +1397,39 @@ while any are still waiting.
 
 To look at the models without playing, `--modelsheet=goblin,bear --shots=DIR` lines each type
 up in its clips under studio lights and saves `DIR/sheet_NAME.png` (`--sheetclips=idle:0.3,run:0.6`
-picks the clips and moments, `--sheetyaw=DEG` the angle).
+picks the clips and moments, `--sheetyaw=DEG` the angle). `--sheetclay` lights it brightly and evenly on a light grey
+backdrop, for judging forms rather than mood. `--sheetfilm=CLIP:SECONDS[:FPS]` films one creature playing a clip instead:
+a second of run-in so its springs settle, then `DIR/film_NAME_NNN.png` every frame, time stepping exactly 1/FPS (24 by
+default) however slowly the machine renders (a looping clip goes round once in the seconds given). In this container the
+3D renders need Mesa's software Vulkan driver (`apt-get install mesa-vulkan-drivers`): without it Godot falls back to
+OpenGL and the 3D draws black.
+
+### The character look, pass 1
+
+The first of a series of passes bringing the heroes and creatures closer to a big studio's finish, each judged on model
+sheets and films (`--sheetclay`, `--sheetfilm`) before and after:
+
+- **The Swordsman's run.** His sword arm was held straight back and level for the whole stride (the blade's angle is kept
+  against the body, and once he pitched into the run it pointed straight behind him), and the wrist's lag spring rang at
+  nearly the stride's own rhythm, so the blade whipped. Now the arm swings back against the legs with a soft elbow, the
+  blade trails down behind him at a steady angle, and the wrist's spring is stiff enough to stay out of step with the run
+  (the Rogue's daggers too).
+- **Anatomy** (`Designs/HeroDesign.Anatomy.cs`). Arms and legs were one tapering tube each with a ball at the elbow and
+  the knee (the Rogue looked like a jointed mannequin). They're now built from the masses a body has: the deltoid draped
+  over the shoulder, biceps and triceps, a bony elbow point, the forearm full below the elbow and slimming to a wrist wider
+  than deep; the quadriceps, hamstrings and inner thigh, the teardrop above the knee, a kneecap, the calf's two heads over a
+  slim ankle. How much shows depends on what covers it (bare skin, a close suit, loose cloth, which also gathers in a fold
+  at the crook of the elbow and behind the knee). Boots have an instep, a rounded toe box, a heel block and a welted sole
+  and a turned-down cuff; shoulder guards are overlapping plates, not a ball. The Warden's mail sleeves, elbow cops and
+  vambraces, the casters' robe sleeves flaring to a hem, and the Rogue's and Shape Shifter's bracers sit over these.
+- **Ambient occlusion baked into every creature's skin** (`SculptMesher.Occlusion`, stored in `UV2.y`). Stepping out along
+  each vertex's normal through the distance field, the nearest surface is as far as the step on open skin and nearer in a
+  crease, an armpit, under a belt or a cloak's edge; that shortfall darkens the ambient light there fully and the direct
+  light a little (`creature.gdshader`: `AO`, `AO_LIGHT_AFFECT`). Every sculpted creature gets it.
+- **Less plastic.** Cloth, fur and rough leather take a weaker highlight and a softer rim, and the rim keeps to the
+  silhouette's very edge (a broad one lay over every curve like a latex sheen).
+- **Darks that read.** The darkest cloth and the Rogue's leathers were nearly black (0.07 to 0.12), so nothing of their
+  shapes showed in a cave; they're lifted to about 0.13 to 0.2, still dark.
 
 ## How online play works
 

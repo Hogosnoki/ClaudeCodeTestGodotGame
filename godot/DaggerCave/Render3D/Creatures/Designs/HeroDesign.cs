@@ -102,7 +102,8 @@ public sealed partial class HeroDesign : CreatureDesign
     public override void Sculpt(Sculptor s)
     {
         var skin = C(0.72f, 0.52f, 0.42f);
-        var dark = C(0.12f, 0.13f, 0.15f);
+        // (the darkest cloth still kept well off black, so its folds and forms read in the dark of a cave)
+        var dark = C(0.19f, 0.2f, 0.225f);
         // dark, oiled leather: well apart from the skin tone under the warm lantern light
         var leather = C(0.25f, 0.15f, 0.085f);
         var leatherDk = C(0.15f, 0.095f, 0.06f);
@@ -119,7 +120,7 @@ public sealed partial class HeroDesign : CreatureDesign
         if (_aegis) robe = C(0.5f, 0.47f, 0.4f);
         if (_shifter) robe = C(0.36f, 0.38f, 0.42f);
         var cloak = _shifter ? C(0.2f, 0.22f, 0.27f) : _warden ? C(0.1f, 0.16f, 0.4f) : _vitalist ? C(0.045f, 0.1f, 0.068f) : _elementalist ? C(0.1f, 0.06f, 0.17f) : _aegis ? C(0.05f, 0.27f, 0.27f) : _rogue ? C(0.16f, 0.08f, 0.17f) : C(0.07f, 0.27f, 0.28f);
-        if (_rogue) { leather = C(0.12f, 0.1f, 0.12f); leatherDk = C(0.07f, 0.06f, 0.075f); }
+        if (_rogue) { leather = C(0.2f, 0.17f, 0.2f); leatherDk = C(0.125f, 0.105f, 0.13f); }
         var body = _warden ? C(0.42f, 0.44f, 0.47f) : _caster || _shifter ? robe : leather; // mail, robe, jerkin
         var bodyMat = _warden ? Mat.Metal : _caster || _shifter ? Mat.Cloth : Mat.Leather;
         if (_vitalist) skin = C(0.6f, 0.5f, 0.45f); // pale, bloodless hands
@@ -388,10 +389,11 @@ public sealed partial class HeroDesign : CreatureDesign
             int ua = s["uarm" + sfx], fa = s["farm" + sfx], hd = s["hand" + sfx];
             if (_caster)
             {
+                // the mantle over the shoulder, the arm under its robe sleeve, and the sleeve flaring wide from the elbow to its hem
                 s.Egg(ua, new(0, 0.45f, 0.19f * z), new(0.08f, 0.07f, 0.074f), cloak, Mat.Cloth, 0.02f);
-                s.Limb(ua, new(0, 0.45f, 0.19f * z), new(0, 0.2f, 0.2f * z), 0.052f, 0.047f, robe, Mat.Cloth, 0.02f);
-                s.Ball(fa, new(0, 0.19f, 0.2f * z), 0.046f, robe, Mat.Cloth, 0.015f);
-                s.Limb(fa, new(0, 0.18f, 0.2f * z), new(0, -0.015f, 0.2f * z), 0.046f, 0.06f, robe, Mat.Cloth, 0.015f);
+                ArmForm(s, ua, fa, z, 0.19f * z, 0.2f * z, 1.06f, 0.25f, robe, Mat.Cloth, robe, Mat.Cloth, 0.0012f, cap: false);
+                s.Limb(fa, new(0, 0.15f, 0.2f * z), new(0.004f, -0.012f, 0.2f * z), 0.044f, 0.06f, robe, Mat.Cloth, 0.018f, 0.0014f);
+                s.Ring(fa, new(0.004f, -0.016f, 0.2f * z), 0.058f, 0.06f, 0.008f, robe.Darkened(0.25f), Mat.Cloth, 0.006f, tiltDeg: 10f);
                 s.Limb(hd, new(0.005f, -0.04f, 0.2f * z), new(0.018f, -0.125f, 0.2f * z), 0.03f, 0.024f, skin, Mat.Skin, 0.012f);
                 continue;
             }
@@ -402,16 +404,20 @@ public sealed partial class HeroDesign : CreatureDesign
                 s.Egg(ua, new(0, 0.47f, az + 0.01f * z), new(0.1f, 0.08f, 0.1f), steel, Mat.Metal, 0.02f);
                 s.Egg(ua, new(0, 0.418f, az + 0.016f * z), new(0.088f, 0.034f, 0.094f), steel, Mat.Metal, 0.012f);
                 s.Ring(ua, new(0, 0.445f, az + 0.012f * z), 0.098f, 0.098f, 0.008f, gold, Mat.Gold, 0.004f);
-                s.Limb(ua, new(0, 0.45f, az), new(0, 0.2f, fz), 0.062f, 0.054f, body, Mat.Metal, 0.02f, 0.0012f);
-                s.Ball(fa, new(0, 0.19f, fz), 0.054f, steel, Mat.Metal, 0.015f);
-                s.Limb(fa, new(0, 0.18f, fz), new(0, -0.03f, fz), 0.056f, 0.05f, steel, Mat.Metal, 0.015f);
+                // the mail sleeve over a heavy arm, a steel cop over the elbow's point, the vambrace flaring to the wrist
+                ArmForm(s, ua, fa, z, az, fz, 1.24f, 0.45f, body, Mat.Metal, steel, Mat.Metal, 0.0012f, cap: false);
+                s.Egg(fa, new(-0.03f, 0.2f, fz), new(0.032f, 0.036f, 0.036f), steel, Mat.Metal, 0.01f);
+                s.Limb(fa, new(0, 0.15f, fz), new(0, -0.03f, fz), 0.054f, 0.049f, steel, Mat.Metal, 0.012f);
+                s.Ring(fa, new(0, 0.152f, fz), 0.056f, 0.056f, 0.006f, gold, Mat.Gold, 0.003f);
                 s.Limb(hd, new(0.005f, -0.05f, fz), new(0.018f, -0.125f, fz), 0.043f, 0.036f, steel, Mat.Metal, 0.012f);
                 continue;
             }
-            s.Egg(ua, new(0, 0.45f, az), new(0.078f, 0.068f, 0.072f), leather, Mat.Leather, 0.02f);
-            s.Limb(ua, new(0, 0.45f, az), new(0, 0.2f, fz), 0.05f, 0.043f, dark, Mat.Cloth, 0.02f);
-            s.Ball(fa, new(0, 0.19f, fz), 0.043f, dark, Mat.Cloth, 0.015f);
-            s.Limb(fa, new(0, 0.18f, fz), new(0, -0.03f, fz), 0.045f, 0.039f, leather, Mat.Leather, 0.015f);
+            // a leather pauldron, the arm in a close sleeve (the Rogue's suit shows the most of it), a bracer laced over the forearm
+            ArmForm(s, ua, fa, z, az, fz, 1.04f, _rogue ? 0.7f : 0.4f, dark, Mat.Cloth, dark, Mat.Cloth, 0.001f);
+            PauldronForm(s, ua, z, az, 1f, leather, leatherDk, Mat.Leather);
+            s.Limb(fa, new(0, 0.135f, fz), new(0.003f, -0.034f, fz), 0.043f, 0.034f, leather, Mat.Leather, 0.01f, 0.0012f);
+            s.Ring(fa, new(0, 0.136f, fz), 0.045f, 0.045f, 0.0055f, leatherDk, Mat.Leather, 0.003f);
+            s.Ring(fa, new(0.002f, 0.06f, fz), 0.04f, 0.04f, 0.005f, leatherDk, Mat.Leather, 0.003f);
             s.Limb(hd, new(0.005f, -0.05f, fz), new(0.018f, -0.125f, fz), 0.036f, 0.03f, leatherDk, Mat.Leather, 0.012f);
         }
 
@@ -422,12 +428,10 @@ public sealed partial class HeroDesign : CreatureDesign
             string sfx = k == 0 ? "_r" : "_l";
             int th = s["thigh" + sfx], sh = s["shin" + sfx], ft = s["foot" + sfx];
             float lz = LegZ * z, lw = _warden ? 1.17f : 1f;
-            s.Limb(th, new(0, 0.0f, lz), new(0.012f, -0.39f, lz), 0.072f * lw, 0.055f * lw, dark, Mat.Cloth, 0.03f);
-            s.Ball(sh, new(0.022f, -0.39f, lz), 0.05f * lw, _warden ? steel : leather, _warden ? Mat.Metal : Mat.Leather, 0.012f);
-            s.Limb(sh, new(0.01f, -0.39f, lz), new(-0.01f, -0.73f, lz), 0.05f * lw, 0.04f * lw, dark, Mat.Cloth, 0.015f);
-            s.Limb(sh, new(0.002f, -0.52f, lz), new(-0.01f, -0.765f, lz), 0.058f * lw, 0.05f * lw, leatherDk, Mat.Leather, 0.012f);
-            s.Egg(sh, new(0.002f, -0.52f, lz), new Vector3(0.066f, 0.028f, 0.066f) * lw, leather, Mat.Leather, 0.01f);
-            s.Limb(ft, new(-0.03f, -0.775f, lz), new(0.115f, -0.785f, lz), 0.046f * lw, 0.036f * lw, leatherDk, Mat.Leather, 0.012f);
+            // the leg's masses under close trousers (the Rogue's suit shows the most), a guard over the knee, and a shaped boot
+            LegForm(s, th, sh, z, lz, lw * 1.04f, _rogue ? 0.65f : 0.3f, dark, Mat.Cloth, _warden ? steel : leather, _warden ? Mat.Metal : Mat.Leather, 0.0012f);
+            if (_warden) s.Egg(sh, new(0.04f, -0.39f, lz), new Vector3(0.034f, 0.044f, 0.05f) * lw, steel, Mat.Metal, 0.01f);
+            BootForm(s, sh, ft, lz, lw, leatherDk, leatherDk.Darkened(0.2f), leather, Mat.Leather);
         }
 
         // ---- cloak down the back: draped cloth, wrapping forward at the sides and flaring a

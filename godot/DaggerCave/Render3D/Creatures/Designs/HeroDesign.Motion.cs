@@ -81,13 +81,14 @@ public sealed partial class HeroDesign
 
     private static Style StyleFor(HeroKind kind) => kind switch
     {
-        // the Swordsman (after Marth): tall and light, long gliding strides, the free arm pumping, the sword arm swept back
-        // nearly straight with the blade trailing low behind him
+        // the Swordsman: tall and light, long gliding strides, the free arm pumping; the sword arm swings back against the legs,
+        // the elbow soft, and the blade trails down behind him (not held out level like a spar: once he pitches into the run
+        // that read as a stiff, locked arm)
         HeroKind.Swordsman => new Style
         {
             Stance = 0.78f, Stride = 4.7f, Hip = 0.79f, Bounce = 0.04f, Clear = 0.3f, Lean = 18f, HipTwist = 9f, Counter = 13f,
             FreeAmp = 48f, FreeMid = 10f, FreeElbow = 84f, FreeElbowAmp = 18f,
-            HoldAmp = 6f, HoldMid = -46f, HoldElbow = 12f, HoldElbowAmp = 4f, HoldAbs = -62f, HeadUp = -2f, Weight = 0.008f,
+            HoldAmp = 16f, HoldMid = -22f, HoldElbow = 26f, HoldElbowAmp = 12f, HoldAbs = -42f, HeadUp = -2f, Weight = 0.008f,
         },
         // the Warden: short, heavy strides, shield tucked in front, every footfall felt
         HeroKind.Warden => new Style
@@ -386,10 +387,12 @@ public sealed partial class HeroDesign
             o.HRx = 3f; o.HLx = 3f;
         }
         // the weapon hand hangs its weapon at its angle, with a little lag behind the arm
+        // (stiff enough to stay well above the stride's own rhythm: a softer wrist rang with the run, and the blade whipped
+        // through a huge arc with every step)
         if (!_caster)
         {
-            o.WR = p.Spring(10, st.HoldAbs - (o.SR + o.ER), a.Dt, 110f, 13f);
-            if (_rogue) o.WL = p.Spring(11, st.HoldAbs - (o.SL + o.EL), a.Dt, 110f, 13f);
+            o.WR = p.Spring(10, st.HoldAbs - (o.SR + o.ER), a.Dt, 420f, 34f);
+            if (_rogue) o.WL = p.Spring(11, st.HoldAbs - (o.SL + o.EL), a.Dt, 420f, 34f);
         }
         return o;
     }
