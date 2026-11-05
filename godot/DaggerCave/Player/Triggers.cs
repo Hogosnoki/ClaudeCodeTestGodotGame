@@ -77,6 +77,8 @@ public partial class Player
     /// <summary>The next blow dealt (before this moment, on the clock) is stronger by this much (a riposte, a retribution); both reset when it lands.</summary>
     public double NextHitUntil;
     public float NextHitMult = 1f;
+    /// <summary>Until when (seconds on the clock) no creature can dodge this hero's strikes (Second Swing and its kin, after a dodge).</summary>
+    public double UndodgeableUntil;
     /// <summary>Arms the next blow: x for seconds.</summary>
     public void ArmNextHit(float mult, float seconds) { NextHitMult = mult; NextHitUntil = Time.GetTicksMsec() / 1000.0 + seconds; }
     /// <summary>The keys this hero can carry.</summary>

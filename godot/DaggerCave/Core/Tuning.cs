@@ -724,6 +724,27 @@ public static class Tune
         public static float ExtraPerDepth = 1.2f, BossExtraPerDepth = 1.3f, DragonStep = 1.5f;
     }
 
+    /// <summary>
+    /// Creatures that defend themselves (<see cref="DaggerCave.Enemy"/>, Enemies/Enemy.Defense.cs). Quick ones dodge: a hero's blow has
+    /// <c>DodgeChance</c> of missing a quick creature that is free to move (awake, not attacking, stunned, frozen or held), which
+    /// then hops away (<c>DodgeHop</c> px/s back, <c>DodgeLift</c> up), every blow in the next <c>DodgeWindow</c> s missing it too,
+    /// and can't dodge again for <c>DodgeCooldown</c> s. Strong ones block: a blow from in front of a strong creature that is free
+    /// to move is stopped by its guard, which holds <c>GuardShare</c> of its health (<c>GuardShareBig</c> for an elite or a
+    /// guardian) before it breaks; broken, the creature reels for <c>GuardBreakStun</c> s and its guard comes back half full after
+    /// <c>GuardBreakRest</c> s. A guard not struck for <c>GuardRegenDelay</c> s fills again, <c>GuardRegenRate</c> of it a second.
+    /// From behind, nothing is blocked. The great bosses keep their own guard (Enemy.BossMoves.cs) and do neither.
+    /// </summary>
+    public static class EnemyDefense
+    {
+        /// <summary>Off in the scenarios and tests (their blows must land where they're aimed), except the defence scenario's own.</summary>
+        public static bool On = true;
+        public static float DodgeChance = 0.3f, DodgeCooldown = 3f, DodgeWindow = 0.3f, DodgeHop = 240f, DodgeLift = 120f;
+        public static float GuardShare = 0.25f, GuardShareBig = 0.15f, GuardBreakStun = 1.4f, GuardBreakRest = 4f;
+        public static float GuardRegenDelay = 3f, GuardRegenRate = 0.25f, GuardCrackShare = 0.3f;
+        /// <summary>How long a hero's answer to being blocked or dodged waits for the next strike (seconds).</summary>
+        public static float AnswerSeconds = 3f;
+    }
+
     public static class Elite
     {
         public static float SizeMult = 1.7f, HpMult = 6f, DamageMult = 1.4f, XpMult = 7f, MinKnockResist = 0.6f;

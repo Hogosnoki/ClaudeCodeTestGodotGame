@@ -368,6 +368,7 @@ public abstract partial class Enemy : CharacterBody2D
         Telegraph((float)delta);
         TickDotText((float)delta);
         TickMark((float)delta);
+        TickDefense((float)delta);
         if (_exposeT > 0) _exposeT -= (float)delta;
         _targetT -= (float)delta;
         var p = P;
@@ -1008,6 +1009,9 @@ public abstract partial class Enemy : CharacterBody2D
         try
         {
             float hpM = Hp;
+            // a quick creature may dodge it, a strong one block it (Enemy.Defense.cs)
+            dmg = Defend(dmg, knock, hitPos, kind);
+            if (dmg <= 0f) return 0f;
             float dealt = TakeHit(dmg, knock, hitPos);
             if (NetSync.Striker == Net.Me) { RunMetrics.Dealt(this, dealt, hpM); if (dealt > 0 && kind != DamageKind.Raw && G.Player is Player hero && !hero.Dead) { hero.Stats.On.RaiseHit(hero, this, dealt, kind); Kindle(hero, kind); Imbue(hero, kind); } }
             // its ward (armour, or its element's resistance) breaks once it has taken a tenth of its health

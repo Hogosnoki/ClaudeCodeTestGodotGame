@@ -1180,6 +1180,36 @@ The Swordsman's dodge card is **Ready Dash** (was Ready Roll), the Warden's **Re
 - `--dumpdealt=PATH` writes every card each hero can be dealt today, with its text, for reviews like this one; `--scenario=dash`
   checks the Dash (its length, a swing carrying on through it, Far Dash) and that the cards dealt fit the kits.
 
+## Creatures that dodge and block
+
+Quick creatures dodge, strong ones block (`Enemies/Enemy.Defense.cs`, `Tune.EnemyDefense`).
+
+- **Dodging** (the rat, bat, spider, goblin, hornet, mite, acid newt, frost wraith, eel and shardling): a hero's blow has a 30%
+  chance of missing a quick creature that is free to move. It hops back out of the way ("DODGE"), every blow in the next
+  0.3 s misses it too, and it can't dodge again for 3 s.
+- **Blocking** (the bear, golem, skeleton, automaton, crab, scorpion and boiler): a blow from in front is stopped by the
+  creature's guard ("BLOCKED"). The guard holds a quarter of its health (15% for an elite or a guardian) and no more; it
+  warns when it's low ("GUARD CRACKING"), and when a blow takes more than it has left, the rest of the blow lands, the guard
+  breaks ("GUARD BROKEN") and the creature reels for 1.4 s, its attack broken off. A broken guard comes back half full after
+  4 s; one that isn't struck for 3 s fills again, a quarter a second. From behind, nothing is blocked.
+- Neither works while the creature is attacking, stunned, frozen, held, or asleep: strike as it commits, from behind, or
+  before it has noticed you. The great bosses keep their own guard and do neither.
+
+Answers to it come as graded boons, dealt with the others at a level's pick (`Player/Boons.cs`):
+
+| Boon (grades) | What it does |
+| --- | --- |
+| Sunder, Cleave Through, Armourbane, Unstoppable | 15 / 30 / 45 / 65% of a blow a guard stops gets through it anyway |
+| Rebuke, Indignation, Retribution, Wrath | when a guard stops your blow, your next strike within 3 s lands 150 / 200 / 250 / 300% as hard |
+| Guardbreaker, Shieldsplitter, Earthshaker | your blows wear a guard down 60 / 100 / 160% faster |
+| Second Swing, Read the Feint, Hunter's Focus, Inescapable | when a foe dodges you, your next strike within 3 s can't be dodged and lands 40 / 65 / 100 / 150% harder |
+| Steady Hand, Sure Strike, Unerring, Inevitable, Fated Blow | foes are 20 / 30 / 45 / 65% less likely to dodge you; at Fated Blow, they can't |
+
+Online, the host's game decides each dodge and block, and the boons act for the host's own hero (a joining hero's blows are
+dodged and blocked the same, without their answers yet). The scenarios and tests turn it off (their blows must land where
+they're aimed); `--scenario=defense` tests it: the goblin's dodge, its window and its rest, Steady Hand and Second Swing, the
+golem's block from the front and not from behind, Sunder, Rebuke, and a guard breaking (`--defense` turns it on in any test).
+
 ## Second attacks: every creature has two
 
 Every creature (`Enemies/Enemy.Secondary.cs`, numbers in its table and `Tune.Secondary`) has a second move beside what it always did, used when it's free (not mid-attack, not stunned) and its hero is in that move's range, then rested (6–8.5 s; an elite's comes sooner and winds up quicker). A hit that stuns or freezes it cuts the move short.

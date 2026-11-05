@@ -196,6 +196,8 @@ public partial class Main : Node
 
         ParseArgs(out bool gentest);
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || _introShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
+        // (creatures dodging and blocking would turn the tests' blows aside: off in them, but for the defence scenario's own)
+        Tune.EnemyDefense.On = !G.NoSave || _scenario == "defense" || OS.GetCmdlineUserArgs().Contains("--defense");
         Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit" or "vitalpace" or "touch") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)

@@ -214,6 +214,10 @@ public sealed class PlayerStats
     /// <summary>Dealing: a chance of a critical blow and how hard (x); more against a creature that is burning, frozen, chilled or poisoned; against elites and bosses; against one at full health;
     /// standing still; airborne; in water; from above a creature; at low health; for the gold carried (a step per 25, at most +20%); with fire on a frozen creature or frost on a burning one;
     /// with the reserve nearly full (the Elementalist); and how much more a marked creature takes.</summary>
+    /// <summary>Answers to creatures that defend themselves (Enemy.Defense.cs): the share of a blow that pierces a guard, how much harder
+    /// the next strike lands after being blocked, how many times faster blows wear a guard down, how much harder (and undodgeable) the
+    /// next strike lands after a dodge, and how much less likely creatures are to dodge.</summary>
+    public float BlockPierce, BlockedNextMult, GuardCrush = 1f, DodgedNextMult, DodgeDenied;
     public float GenCritChance, GenCritMult = 1.5f, VsStatusMult = 1f, VsBigMult = 1f, VsFreshMult = 1f, StillMult = 1f, AirMult = 1f, WaterMult = 1f, HighGroundMult = 1f, LowHpDealMult = 1f, GoldDamageStep, Frostfire = 1f, ArcaneFlow = 1f, MarkBonus;
     /// <summary>Taking: the share of damage taken that falls back on a creature that struck; health mended a second out of combat (share of max); fall damage, damage over time (x); potion healing (x); the
     /// speed gained after a blow (a share); the most a single blow may take (a share of max health, 0 = no limit); the damage taken at low health (x); a once-a-depth save from a killing blow.</summary>

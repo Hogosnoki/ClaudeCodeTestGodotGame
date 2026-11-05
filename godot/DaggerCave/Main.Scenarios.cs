@@ -68,6 +68,7 @@ public partial class Main
         "shifterkit" => "entrance",
         "vitalpace" => "entrance",
         "touch" => "entrance",
+        "defense" => "entrance",
         "hive" => "nest",
         "hordes" => "entrance",
         "trial" => "entrance",
@@ -185,6 +186,7 @@ public partial class Main
             case "shifterkit": ShifterKitScenario(); break;
             case "vitalpace": VitalPaceScenario(); break;
             case "touch": TouchScenario(); break;
+            case "defense": DefenseScenario(); break;
             case "hive": HiveScenario(); break;
             case "hordes": HordesScenario(); break;
             case "trial": TrialScenario(); break;
