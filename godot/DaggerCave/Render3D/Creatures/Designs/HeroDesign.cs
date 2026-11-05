@@ -165,7 +165,15 @@ public sealed partial class HeroDesign : CreatureDesign
         // (the Warden: a barrel chest, a broad back and heavy shoulders, thick through the waist)
         float wb = _warden ? 1f : 0f;
         s.Egg(hipsB, new(0, 0.03f, 0), new(0.125f + 0.015f * wb, 0.1f + 0.01f * wb, 0.145f + 0.027f * wb), dark, Mat.Cloth, 0.04f);
-        s.Limb(spineB, new(0, 0.05f, 0), new(0, 0.26f, 0), 0.118f + 0.018f * wb, 0.138f + 0.027f * wb, body, bodyMat, 0.04f);
+        // (the waist narrower than the chest, the back's broad muscles flaring from it up to the armpits: a V, not a tube)
+        s.Limb(spineB, new(0, 0.05f, 0), new(0, 0.24f, 0), 0.11f + 0.018f * wb, 0.132f + 0.027f * wb, body, bodyMat, 0.045f);
+        foreach (int sd in new[] { 1, -1 })
+        {
+            s.Egg(chestB, new(-0.02f, 0.33f, 0.12f * sd), new Vector3(0.08f, 0.13f, 0.06f) * (1f + 0.2f * wb), body, bodyMat, 0.05f);
+            // the chest's planes in front and the shoulder blades behind (a hint under cloth, plain under the suit and the mail)
+            s.Egg(chestB, new(0.07f, 0.385f, 0.075f * sd), new Vector3(0.058f, 0.052f, 0.072f) * (1f + 0.15f * wb), body, bodyMat, 0.04f);
+            s.Egg(chestB, new(-0.09f, 0.385f, 0.08f * sd), new Vector3(0.038f, 0.068f, 0.058f) * (1f + 0.15f * wb), body, bodyMat, 0.045f);
+        }
         s.Egg(chestB, new(0.012f + 0.006f * wb, 0.36f, 0), new(0.13f + 0.02f * wb, 0.15f + 0.012f * wb, _warden ? 0.245f : 0.185f), body, bodyMat, 0.05f);
         s.Limb(chestB, new(-0.01f, 0.445f, -0.15f - 0.04f * wb), new(-0.01f, 0.445f, 0.15f + 0.04f * wb), 0.072f + 0.014f * wb, 0.072f + 0.014f * wb, body, bodyMat, 0.04f);
         if (_warden)
@@ -180,6 +188,7 @@ public sealed partial class HeroDesign : CreatureDesign
             // a heavy mantle over the shoulders, the robe falling to mid-thigh, a blood-red sash
             s.Egg(chestB, new(0f, 0.44f, 0), new(0.15f, 0.065f, 0.205f), cloak, Mat.Cloth, 0.03f);
             s.Egg(hipsB, new(0.012f, -0.15f, 0), new(0.15f, 0.21f, 0.168f), robe, Mat.Cloth, 0.03f);
+            RobeFolds(s, hipsB, robe);
             s.Limb(chestB, new(0.1f, 0.43f, 0.15f), new(0.11f, 0.1f, -0.15f), 0.024f, 0.022f, blood, Mat.Cloth, 0.008f);
             s.Limb(hipsB, new(0.14f, 0.07f, -0.1f), new(0.15f, -0.2f, -0.12f), 0.018f, 0.012f, blood, Mat.Cloth, 0.006f);
         }
@@ -188,6 +197,7 @@ public sealed partial class HeroDesign : CreatureDesign
             // a mantle over the shoulders, the robe falling to mid-thigh, an ember sash with a gold clasp
             s.Egg(chestB, new(0f, 0.44f, 0), new(0.148f, 0.06f, 0.2f), cloak, Mat.Cloth, 0.03f);
             s.Egg(hipsB, new(0.012f, -0.15f, 0), new(0.15f, 0.21f, 0.168f), robe, Mat.Cloth, 0.03f);
+            RobeFolds(s, hipsB, robe);
             s.Limb(chestB, new(0.1f, 0.43f, -0.15f), new(0.11f, 0.1f, 0.15f), 0.022f, 0.02f, ember, Mat.Cloth, 0.008f);
             s.Ball(chestB, new(0.125f, 0.27f, 0.0f), 0.018f, gold, Mat.Gold, 0.004f);
             s.Limb(hipsB, new(0.14f, 0.07f, 0.1f), new(0.15f, -0.24f, 0.12f), 0.018f, 0.01f, ember, Mat.Cloth, 0.006f);
@@ -199,6 +209,7 @@ public sealed partial class HeroDesign : CreatureDesign
             // a teal mantle over the shoulders, an ivory robe to mid-thigh, a gold sash and an emblem on the breast
             s.Egg(chestB, new(0f, 0.44f, 0), new(0.15f, 0.065f, 0.205f), cloak, Mat.Cloth, 0.03f);
             s.Egg(hipsB, new(0.012f, -0.15f, 0), new(0.15f, 0.21f, 0.168f), robe, Mat.Cloth, 0.03f);
+            RobeFolds(s, hipsB, robe);
             s.Limb(chestB, new(0.1f, 0.43f, -0.15f), new(0.11f, 0.1f, 0.15f), 0.024f, 0.022f, gold, Mat.Gold, 0.008f);
             s.Limb(hipsB, new(0.14f, 0.07f, 0.1f), new(0.15f, -0.22f, 0.12f), 0.018f, 0.012f, cloak, Mat.Cloth, 0.006f);
             s.Ball(chestB, new(0.126f, 0.3f, 0f), 0.032f, gold, Mat.Gold, 0.006f);
@@ -216,6 +227,11 @@ public sealed partial class HeroDesign : CreatureDesign
                     s.Egg(chestB, new(0.1f, 0.36f, (k == 0 ? 1 : -1) * 0.058f), new(0.05f, 0.046f, 0.05f), body, bodyMat, 0.03f);
         }
         s.Egg(hipsB, new(0, 0.075f, 0), new(0.14f + 0.017f * wb, 0.03f, 0.158f + 0.028f * wb), leatherDk, Mat.Leather, 0.01f);
+        // what hangs on the belt: a pouch on the right hip, a smaller one behind on the left, a loop for a sheath
+        s.Block(hipsB, new(0.045f, 0.035f, 0.152f + 0.026f * wb), new(0.03f, 0.034f, 0.016f), 0.009f, leather, Mat.Leather, 0.006f, bump: 0.001f);
+        s.Block(hipsB, new(0.045f, 0.064f, 0.162f + 0.026f * wb), new(0.031f, 0.008f, 0.012f), 0.004f, leatherDk, Mat.Leather, 0.004f);
+        s.Block(hipsB, new(-0.08f, 0.04f, -0.13f - 0.022f * wb), new(0.024f, 0.028f, 0.014f), 0.008f, leather, Mat.Leather, 0.006f, new(0, 38f, 0), 0.001f);
+        s.Ring(hipsB, new(0.02f, 0.03f, -0.155f - 0.026f * wb), 0.016f, 0.012f, 0.005f, leatherDk, Mat.Leather, 0.003f, 70f);
         s.Block(hipsB, new(0.14f + 0.017f * wb, 0.075f, 0), new(0.012f, 0.022f, 0.028f), 0.004f, _vitalist ? boneWhite : gold, _vitalist ? Mat.Bone : Mat.Gold, 0.004f);
 
         // ---- neck and head

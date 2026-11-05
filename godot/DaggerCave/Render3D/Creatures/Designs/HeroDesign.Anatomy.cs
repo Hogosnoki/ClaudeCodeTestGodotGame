@@ -103,4 +103,30 @@ public sealed partial class HeroDesign
         s.Egg(ua, new(0.0f, 0.43f, az + 0.02f * z), new Vector3(0.074f, 0.026f, 0.07f) * g, col, mat, 0.008f, new(0, 0, -22f * z), bump);
         s.Egg(ua, new(-0.002f, 0.402f, az + 0.028f * z), new Vector3(0.068f, 0.022f, 0.064f) * g, edge, mat, 0.008f, new(0, 0, -28f * z), bump);
     }
+
+    /// <summary>
+    /// A robe's skirt (the egg from the waist to mid-thigh, centre (0.012, -0.15), radii (0.15, 0.21, 0.168)) given its folds: soft
+    /// ridges falling from the belt to the hem round the front and sides, each a little off the vertical, and a darker hem.
+    /// </summary>
+    private static void RobeFolds(Sculptor s, int hipsB, Color robe)
+    {
+        var c = new Vector3(0.012f, -0.15f, 0);
+        float[] at = { -95f, -62f, -30f, 4f, 36f, 66f, 98f };
+        for (int k = 0; k < at.Length; k++)
+        {
+            float a = Mathf.DegToRad(at[k]);
+            // on the skirt's surface at height y (the egg narrows above and below its middle)
+            Vector3 On(float y, float out_)
+            {
+                float h = (y - c.Y) / 0.21f;
+                float w = MathF.Sqrt(Math.Max(0.05f, 1f - h * h));
+                return c + new Vector3(MathF.Cos(a) * 0.15f * w * out_, y - c.Y, MathF.Sin(a) * 0.168f * w * out_);
+            }
+            float lean = (k % 2 == 0 ? 1 : -1) * 0.012f;
+            var top = On(-0.04f, 0.97f);
+            var bot = On(-0.31f, 1.0f) + new Vector3(0, 0, lean);
+            s.Limb(hipsB, top, bot, 0.007f, 0.014f, robe, Mat.Cloth, 0.014f, 0.001f);
+        }
+        s.Ring(hipsB, new(0.012f, -0.318f, 0), 0.118f, 0.132f, 0.009f, robe.Darkened(0.28f), Mat.Cloth, 0.008f, bump: 0.001f);
+    }
 }

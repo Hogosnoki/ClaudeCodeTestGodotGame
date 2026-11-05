@@ -1449,6 +1449,15 @@ The two weakest creatures on a lineup of the common ones (the goblin, spider, ba
   shoulder blades on the back, a continuous spinal column under the vertebrae (they floated apart like beads), and a
   skull with a brow ridge, flattened temples, cheekbones and a bulge behind, so it reads as a skull and not a ball.
 
+### The character look, pass 3: torsos and clothing
+
+- **Torsos** (every hero but the Swordsman and the Automaton): the waist narrower than the chest and the back's broad
+  muscles flaring from it up to the armpits (a V, not a tube), the chest's planes in front and the shoulder blades behind
+  (a hint under cloth, plain under the Rogue's suit and the Warden's mail).
+- **The belt** carries a pouch on the right hip, a smaller one behind on the left, and a loop for a sheath.
+- **Robes** (the Vitalist, the Elementalist, the Aegis) fall in soft folds from the belt to a darker hem
+  (`HeroDesign.RobeFolds`).
+
 ## How online play works
 
 `Net/Net.cs` is the session (hosting, joining, the lobby, moving messages); `Net/NetSync.cs` is
