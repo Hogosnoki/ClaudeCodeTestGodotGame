@@ -15,7 +15,7 @@ public partial class Main
     /// <list type="bullet">
     /// <item>one: damage a second into a single creature held in reach;</item>
     /// <item>pack: damage a second into six held close round it (what its reach and its area are worth);</item>
-    /// <item>brawl: half a minute with goblins walking in from both sides, two more every few seconds: how many it kills, the
+    /// <item>brawl: twenty-four seconds with goblins walking in from both sides, two more every few seconds: how many it kills, the
     /// health it loses (net of what it heals back and soaks), as a share of its own health.</item>
     /// </list>
     /// One line of numbers, <c>[balance]</c>, to set beside the other heroes'. It checks nothing: it is a ruler.
@@ -70,7 +70,7 @@ public partial class Main
         void Fresh() { p.Hp = p.Stats.MaxHp; p.GlobalPosition = home; p.Velocity = Vector2.Zero; }
 
         // ---- one creature, held in reach
-        const float T = 14f;
+        const float T = 10f;
         var one = Dummy(home + new Vector2(38 * p.Facing, -6));
         foreach (var _ in Run(1.5f, () => { one.Pin(0.2f); Fresh(); })) yield return null;
         RunMetrics.Reset();
@@ -92,7 +92,7 @@ public partial class Main
         foreach (var _ in Run(0.5f)) yield return null;
 
         // ---- the brawl: goblins walk in from both sides
-        const float B = 30f;
+        const float B = 24f;
         Fresh();
         RunMetrics.Reset();
         guard = true;
@@ -114,7 +114,7 @@ public partial class Main
                 }
             }
             low = Math.Min(low, p.Hp / p.Stats.MaxHp);
-            // (it never dies: what it lost is counted and given back, so every hero fights the whole half minute)
+            // (it never dies: what it lost is counted and given back, so every hero fights the whole fight)
             if (p.Hp < p.Stats.MaxHp * 0.4f) { lost += p.Stats.MaxHp * 0.5f; p.Hp += p.Stats.MaxHp * 0.5f; }
             if (p.GlobalPosition.DistanceTo(home) > 120f) p.GlobalPosition = home;
         })) yield return null;

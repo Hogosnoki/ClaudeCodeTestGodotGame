@@ -169,7 +169,7 @@ public static class Tune
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
         /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal (a quarter of a percent; Mending Light and Solar Crest add more) of the damage dealt mends the Aegis.</summary>
-        public static float BoltDamage = 10.8f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
+        public static float BoltDamage = 13f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
         public static float DebuffMult = 0.9f, DebuffSeconds = 5f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
         public static float BarrierShare = 0.14f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
@@ -283,7 +283,7 @@ public static class Tune
         /// so on one creature the drain comes every DrainRetarget s, and among two or more it alternates
         /// between them every DrainCooldown s.
         /// </summary>
-        public static float DrainDamage = 8f, DrainRange = 175f, DrainCooldown = 0.3125f, DrainRetarget = 0.625f, DrainConeDegrees = 38f, MoteSpeed = 640f;
+        public static float DrainDamage = 11f, DrainRange = 175f, DrainCooldown = 0.3125f, DrainRetarget = 0.625f, DrainConeDegrees = 38f, MoteSpeed = 640f;
         /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
         public static float DrainWhiffCooldown = 0.25f;
         /// <summary>Seconds from the press to the strike: the cast's thrust (its clip is 6 frames at 24 fps, sped up 1.6x; the thrust is 30-45% in).</summary>
@@ -819,7 +819,7 @@ public static class Tune
     /// </summary>
     public static class AutomatonHero
     {
-        public static float StartHp = 300f, Armor = 0.15f, MoveMult = 0.72f, JumpMult = 0.72f;
+        public static float StartHp = 270f, Armor = 0.15f, MoveMult = 0.72f, JumpMult = 0.72f;
         /// <summary>How much of a blow's shove it takes (x).</summary>
         public static float KnockTaken = 0.45f;
         /// <summary>Its steam hop: a little air jump (x a full jump's speed), a puff from the joints.</summary>
@@ -866,7 +866,7 @@ public static class Tune
     {
         public static float StartHp = 70f, MoveMult = 1.0f, JumpMult = 1.0f;
         /// <summary>The staff: damage, reach (px: about the length of the staff ahead of the fist, 0.85 of a unit at 58 px a unit, as the sword's 68 is its blade's 1.16), seconds between swings.</summary>
-        public static float StaffDamage = 5f, StaffReach = 52f, StaffCooldown = 0.55f;
+        public static float StaffDamage = 7f, StaffReach = 52f, StaffCooldown = 0.55f;
         /// <summary>A form's damage (x the form's own multiplier), how far a Shift can reach, how fast a charge runs.</summary>
         public static float FormDamage = 15f, CopyRange = 110f, ChargeSpeed = 360f;
         /// <summary>A form driven generically (a creature with no driving of its own, Enemy.Driven.cs): its blow's base damage (x the form's

@@ -1552,6 +1552,32 @@ node (reliable and unreliable), over Godot's ENet peer.
   game), when everyone is at the same exit (and then sends the next level's seed), and when the
   run is over. Experience is shared.
 
+## The balance ruler: every hero measured the same way
+
+`--scenario=balance --hero=NAME` (`Main.BalanceTest.cs`) plays one hero with the same simple hand as every other (aim at the
+nearest creature, hold the attack, press each ability as it comes back; real cooldowns, no upgrades) and prints one line:
+damage a second into one creature held in reach, into six held close round it, and a 24 s brawl with goblins walking in from
+both sides (kills, damage a second, and the health lost net of healing, as a share of the hero's own). It checks nothing: it
+is a ruler. It plays every hero standing still, so it flatters the ones who trade blows and is hard on the ones meant to keep
+their distance or to use a deeper kit (the Shape Shifter's forms, the Vitalist's mending), and the brawl tops out near 92
+damage a second (it runs out of goblins).
+
+| Hero | Health | One | Pack | Brawl kills | Health lost in the brawl |
+|---|---|---|---|---|---|
+| Swordsman | 60 | 62/s | 302/s | 27 of 30 | 49% |
+| Warden | 110 | 49/s | 108/s | 25 of 30 | 59% |
+| Automaton | 270 | 49/s | 150/s | 23 of 30 | 11% |
+| Elementalist | 55 | 58/s | 156/s | 26 of 30 | 222% |
+| Rogue | 55 | 68/s | 89/s | 21 of 28 | 238% |
+| Aegis | 70 | 26/s | 42/s | 17 of 26 | 141% |
+| Vitalist | 55 | 21/s | 60/s | 18 of 26 | 310% |
+| Shape Shifter | 70 | 18/s | 37/s | 15 of 24 | 117% |
+
+What the first measurement changed: the three heroes whose own attack was far behind the rest got more of it (the Vitalist's
+drain 8 to 11 a pull, the Aegis's ward bolt 10.8 to 13, the Shape Shifter's staff 5 to 7), and the Automaton, who lost almost
+nothing, starts with 270 health, not 300. Still open: the Swordsman's sweep is worth far more than anyone's against a
+pack, and the Automaton still barely bleeds.
+
 ## Test harness
 
 The harness takes command-line user args after `--`:
@@ -2297,7 +2323,7 @@ a blank, faceless head, pistons on the forearms, a long-hafted cleaver held edge
   a secret wing) has him lying disabled in a heap at the far end of the wing, past the cracked wall, and a **power cell** hidden
   somewhere in the level (`Combat/PowerCell.cs`; whoever finds it finds it for the party). With the cell, interact at the heap to
   revive him: he gets up, and he's unlocked for everyone (`Main.PlaceAutomatonHeap`, `Meta.AutomatonWanted`).
-- **His make**: 300 health, 15% armour, 0.72x run speed, 0.72x jump height, and he takes only 45% of a blow's shove. His second
+- **His make**: 270 health, 15% armour, 0.72x run speed, 0.72x jump height, and he takes only 45% of a blow's shove. His second
   jump is a little steam hop from the joints (0.6x a jump).
 - **No lungs**: he never drowns, and the toxic air and the gas clouds do nothing to him. **Waterproof**: water, steam and acid do
   him no harm.
