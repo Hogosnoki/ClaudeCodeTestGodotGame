@@ -295,6 +295,7 @@ public partial class CreatureModel : Node3D
         pose.Clear();
         Design.Animate(pose, a);
         if (Design.LifeScale > 0f && a.Dt > 0f) ApplyLife(a);
+        if (a.Dt > 0f) ApplyWindup(a);
         if (pose.Glow != _glow) { _glow = pose.Glow; Body.SetInstanceShaderParameter("glow_boost", _glow); }
         // Cross-fade whenever the clip changes, or the body's footing does (ground to air, air to ground, into or out of water:
         // each is a different base pose, whatever the clip is called), so poses never snap. How long depends on what is left and

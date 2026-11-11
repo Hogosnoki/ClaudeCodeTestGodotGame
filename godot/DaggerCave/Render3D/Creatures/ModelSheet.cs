@@ -31,6 +31,8 @@ public partial class ModelSheet : Node3D
     private Camera3D _cam;
     private float _time;
     private string _filmClip;
+    private Move2 _wind;
+    private float _windSeconds = 0.7f;
     private float _filmSeconds, _filmFps = 24f;
 
     public static bool Wanted => Array.Exists(OS.GetCmdlineUserArgs(), a => a.StartsWith("--modelsheet="));
@@ -56,6 +58,13 @@ public partial class ModelSheet : Node3D
                 _filmClip = f[0];
                 _filmSeconds = f.Length > 1 ? float.Parse(f[1], CultureInfo.InvariantCulture) : 1f;
                 if (f.Length > 2) _filmFps = float.Parse(f[2], CultureInfo.InvariantCulture);
+            }
+            // (--sheetwind=KIND[:SECONDS]: with --sheetfilm, plays that second attack's wind-up, blow and recovery over the clip)
+            else if (a.StartsWith("--sheetwind="))
+            {
+                var f = a[12..].Split(':');
+                _wind = Enum.Parse<Move2>(f[0], true);
+                if (f.Length > 1) _windSeconds = float.Parse(f[1], CultureInfo.InvariantCulture);
             }
             else if (a == "--sheetdebug") { m_debug = true; HeroDesign.DebugLog = true; }
             else if (a.StartsWith("--sheetclips="))
@@ -194,6 +203,14 @@ public partial class ModelSheet : Node3D
         bool loops = Moving(_filmClip) || _filmClip is "idle" or "float" or "hover" or "fly" or "swim";
         float t = loops ? ((k % frames) + frames) % frames / (float)frames : Math.Clamp(k / (float)Math.Max(1, frames - 1), 0f, 1f);
         float time = Math.Max(0, _frame - Warm) * dt;
+        if (_wind != Move2.None)
+        {
+            float at = k * dt, blow = 0.3f;
+            CreatureModel.WindupTest = at < 0 ? (_wind, 0, 0f, 0f)
+                : at < _windSeconds ? (_wind, 1, at / _windSeconds, at)
+                : at < _windSeconds + blow ? (_wind, 2, 1f, at - _windSeconds)
+                : at < _windSeconds + blow + 0.35f ? (_wind, 3, 1f, at - _windSeconds - blow) : (_wind, 0, 0f, 0f);
+        }
         foreach (var (m, clip, _) in _row)
         {
             var a = new AnimInput { Clip = clip, T = t, Frame = (int)(t * 8), Frames = 8, Time = time, Dt = _frame > Warm ? dt : 0f, Facing = 1, OnFloor = true,

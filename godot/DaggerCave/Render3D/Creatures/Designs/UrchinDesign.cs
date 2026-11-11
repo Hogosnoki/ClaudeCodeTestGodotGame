@@ -85,6 +85,16 @@ public sealed class UrchinDesign : CreatureDesign
         return 20 - (c - 2.6f) / 0.4f * 13;
     }
 
+    /// <summary>Spine Volley: its spines draw in tight against a swelling body, shivering; then they stand out to their full length as they fly.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float puff = 1f + 0.1f * c - 0.08f * s;
+        p.Grow(_body, new Vector3(puff, puff, puff));
+        p.Grow(_spines, 1f - 0.22f * c + 0.05f * q + 0.5f * s);
+        p.Add(_spines, 0, 30f * c, 0);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "pulse";

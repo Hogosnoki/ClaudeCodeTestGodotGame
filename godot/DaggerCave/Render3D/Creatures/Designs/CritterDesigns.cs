@@ -126,6 +126,16 @@ public class CrabDesign : CreatureDesign
             }
     }
 
+    /// <summary>Claw Whirl: it squats, eyes ducked, and lifts both claws out wide and high; they drop level as it spins.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Move(_body, new Vector3(0, -0.025f * c, 0));
+        p.Add(_clawR, 0, -34f * c - 20f * s, 44f * c - 30f * s + 4f * q);
+        p.Add(_clawL, 0, 34f * c + 20f * s, 44f * c - 30f * s - 4f * q);
+        p.Add(_eyes, 0, 0, -34f * c);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";

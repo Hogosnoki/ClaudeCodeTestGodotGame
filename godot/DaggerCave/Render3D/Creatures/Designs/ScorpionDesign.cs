@@ -152,6 +152,23 @@ public sealed class ScorpionDesign : CreatureDesign
             }
     }
 
+    /// <summary>Venom Spit: the front dips between spread, open claws while the tail draws up tight over the back, the sting sighting along it; then the tail whips straight and the sting flicks.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 0, -7f * c + 6f * s);
+        p.Add(_abd, 0, 0, 5f * c);
+        p.Add(_tail[0], 0, 0, -(24f * c - 8f * s));
+        for (int k = 1; k < 5; k++) p.Add(_tail[k], 0, 0, -(14f * c - 10f * s) + (k == 4 ? 3f * q : 0f));
+        p.Add(_telson, 0, 0, -(28f * c + 46f * s) + 6f * q);
+        for (int k = 0; k < 2; k++)
+        {
+            float z = k == 0 ? 1f : -1f;
+            p.Add(_arm[k], 0, -22f * c * z, -12f * c + 8f * s);
+            p.Add(_finger[k], 0, 0, -42f * c);
+        }
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";

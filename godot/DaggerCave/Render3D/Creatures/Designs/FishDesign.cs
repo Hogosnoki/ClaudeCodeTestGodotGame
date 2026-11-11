@@ -110,6 +110,18 @@ public sealed class FishDesign : CreatureDesign
         }
     }
 
+    /// <summary>Dart: it bends into a C, tail curled round to one side and fins fanned wide to hold still; the tail whips straight and the fins clap flat as it goes.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 16f * c - 8f * s, 0);
+        p.Add(_head, 0, -12f * c, 0);
+        p.Add(_jaw, 0, 0, -(6f * c + 30f * s));
+        p.Add(_tail0, 0, -34f * c + 22f * s + 3f * q, 0);
+        p.Add(_tail1, 0, -44f * c + 30f * s + 5f * q, 0);
+        p.Add(_pecR, 0, 34f * c - 40f * s, 0); p.Add(_pecL, 0, -34f * c + 40f * s, 0);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "swim";

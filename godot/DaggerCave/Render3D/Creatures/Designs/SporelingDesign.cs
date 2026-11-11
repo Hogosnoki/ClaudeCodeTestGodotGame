@@ -105,6 +105,25 @@ public sealed class SporelingDesign : CreatureDesign
         }
     }
 
+    /// <summary>Spore Burst: it squats, arms pulled in, and its cap flattens and swells wider with every breath; then the cap balloons up and its mouth gapes as the spores go.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float breath = 0.5f - 0.5f * MathF.Cos(time * 13f);
+        float wide = 1f + (0.16f + 0.08f * breath) * c - 0.1f * s, tall = 1f - 0.24f * c + 0.5f * s;
+        p.Grow(_cap, new Vector3(wide, tall, wide));
+        p.Move(_hips, new Vector3(0, -0.045f * c + 0.02f * s, 0));
+        p.Add(_stalk, 0, 0, -8f * c + 10f * s);
+        p.Add(_cap, 0, 0, -10f * c + 14f * s + 2f * q);
+        p.Add(_jaw, 0, 0, -(6f * c + 34f * s));
+        for (int k = 0; k < 2; k++)
+        {
+            float z = k == 0 ? 1f : -1f;
+            p.Add(_thigh[k], 0, 0, 22f * c); p.Add(_shin[k], 0, 0, -40f * c);
+            p.Add(_arm[k], (-12f * c + 55f * s) * z, 0, 30f * c - 20f * s);
+        }
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";

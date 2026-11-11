@@ -108,6 +108,17 @@ public sealed class SpiderDesign : CreatureDesign
         }
     }
 
+    /// <summary>Ambush Leap: its front sinks and its abdomen lifts high behind, quivering, fangs spread and feelers up; it lets go front-first.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 0, -20f * c + 18f * s);
+        p.Add(_abdomen, 0, 0, 44f * c - 14f * s + 5f * q);
+        p.Add(_head, 0, 0, 10f * c);
+        p.Add(_fangR, 0, 0, 24f * c + 14f * s); p.Add(_fangL, 0, 0, 24f * c + 14f * s);
+        p.Add(_palpR, 0, 0, 28f * c); p.Add(_palpL, 0, 0, 28f * c);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";

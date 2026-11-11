@@ -30,6 +30,17 @@ public struct AnimInput
 }
 
 /// <summary>
+/// A second attack's wind-up and release, for <see cref="CreatureDesign.Windup"/>: which attack, how coiled the body is (0 at rest,
+/// about -0.12 in the little counter-move that starts it, 1 gathered, a shade over at the last moment), how far into the blow
+/// (1 as it lets go, easing to 0 as it recovers), and a tremble (-1..1, growing as the wind-up runs out).
+/// </summary>
+public struct WindupPose
+{
+    public Move2 Kind;
+    public float Coil, Snap, Tremble, Time;
+}
+
+/// <summary>
 /// Local bone rotations/offsets for one frame. Designs write into it; the model applies it to the
 /// skeleton. Angles are degrees; rotations are about the bone's joint in model axes (+X forward,
 /// +Y up, +Z the creature's right), applied X, then Y, then Z.
@@ -168,6 +179,12 @@ public abstract class CreatureDesign
 
     /// <summary>How long (seconds) the pose cross-fades when the clip changes to <paramref name="clip"/> (designs that blend their own transitions ask for less).</summary>
     public virtual float BlendSeconds(string clip) => 0.09f;
+
+    /// <summary>
+    /// The limbs' part in a second attack's wind-up and release, laid over the clip's pose (the whole body's part, the lean and the
+    /// coil, is <see cref="CreatureModel"/>'s). Each attack its own: an arm cocked to throw, a rear onto the hind legs to slam...
+    /// </summary>
+    public virtual void Windup(CreaturePose p, in WindupPose w) { }
 
     /// <summary>Attachments (weapons, lanterns) once the model exists.</summary>
     public virtual void Attach(CreatureModel m) { }

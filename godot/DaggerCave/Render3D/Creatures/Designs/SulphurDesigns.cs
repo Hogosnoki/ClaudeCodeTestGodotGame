@@ -172,6 +172,17 @@ public sealed class GasbagDesign : CreatureDesign
         }
     }
 
+    /// <summary>Gas Glob: its bag blows up tight, tendrils curling up under it, the valve swinging round to aim; the bag is squeezed thin as it spits.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float g = 1f + 0.24f * c + 0.02f * q - 0.2f * s;
+        p.Grow(_bag, new Vector3(g, 1f + 0.14f * c + 0.16f * s, g));
+        p.Add(_body, 0, 0, -12f * c + 10f * s);
+        p.Add(_valve, 0, 0, 30f * c - 20f * s);
+        for (int k = 0; k < 4; k++) p.Add(_tend[k], 0, 0, 38f * c - 30f * s);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "float";

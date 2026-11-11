@@ -54,6 +54,15 @@ public sealed class MiteDesign : CreatureDesign
         s.Egg(wl, new(0.0f, 0.04f, -0.05f), new(0.03f, 0.003f, 0.055f), glass, Mat.Membrane, 0.004f);
     }
 
+    /// <summary>Nip: it rears back on its wings, then tips flat and darts.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 0, 26f * c - 30f * s);
+        p.Move(_body, new Vector3(-0.03f * c + 0.03f * s, 0.02f * c, 0));
+        p.Add(_wingR, -18f * c, 0, 0); p.Add(_wingL, 18f * c, 0, 0);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         float time = a.Time;
@@ -127,6 +136,16 @@ public sealed class DelverDesign : CreatureDesign
             var hip = new Vector3(-0.16f, -0.06f, 0.09f * sd);
             s.Limb(body, hip, hip + new Vector3(0.0f, -0.08f, 0.01f * sd), 0.035f, 0.025f, fur, Mat.Fur, 0.015f);
         }
+    }
+
+    /// <summary>Upheaval: it rears out of the rock, head thrown back, both digging claws lifted high; then drives them down into the ground.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 0, 28f * c - 30f * s);
+        p.Add(_head, 0, 0, 14f * c - 10f * s);
+        p.Add(_jaw, 0, 0, -(26f * c + 8f * s));
+        p.Add(_armR, 0, 0, 62f * c - 70f * s + 4f * q); p.Add(_armL, 0, 0, 56f * c - 66f * s - 4f * q);
     }
 
     public override void Animate(CreaturePose p, in AnimInput a)
@@ -207,6 +226,16 @@ public sealed class BomberDesign : CreatureDesign
         var wing = new Color(0.55f, 0.42f, 0.28f);
         s.Egg(wr, new(-0.02f, 0.12f, 0.2f), new(0.08f, 0.006f, 0.18f), wing, Mat.Membrane, 0.006f);
         s.Egg(wl, new(-0.02f, 0.12f, -0.2f), new(0.08f, 0.006f, 0.18f), wing, Mat.Membrane, 0.006f);
+    }
+
+    /// <summary>Kamikaze: its wing cases gape and the sac of fire under them swells, throbbing faster; it tips over and comes.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float throb = 0.5f + 0.5f * MathF.Sin(time * (10f + 26f * c));
+        p.Grow(_sac, 1f + (0.25f + 0.2f * throb) * c + 0.2f * s);
+        p.Add(_caseR, -32f * c, 0, 0); p.Add(_caseL, 32f * c, 0, 0);
+        p.Add(_body, 0, 0, 12f * c - 20f * s);
     }
 
     public override void Animate(CreaturePose p, in AnimInput a)

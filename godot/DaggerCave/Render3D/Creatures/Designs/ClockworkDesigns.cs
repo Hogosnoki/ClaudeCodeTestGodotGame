@@ -227,6 +227,20 @@ public sealed class BoilerDesign : CreatureDesign
         s.Limb(tank, new(-0.14f, 0.27f, 0), new(-0.14f, 0.34f, 0), 0.02f, 0.02f, steel, Mat.Metal, 0.008f);
     }
 
+    /// <summary>Steam Vent: its tank swells and rattles on its frame as the needle swings into the red; it sags as the steam goes.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float throb = 0.5f + 0.5f * MathF.Sin(time * (9f + 22f * c));
+        float g = 1f + (0.07f + 0.06f * throb) * c - 0.08f * s;
+        p.Grow(_tank, new Vector3(g, 1f + 0.5f * (g - 1f), g));
+        p.Move(_tank, new Vector3(0.008f * q, 0.012f * c + 0.006f * q, 0));
+        p.Add(_tank, 0, 0, 3f * q);
+        p.Add(_needle, 0, 0, -90f * c + 60f * s);
+        p.Move(_body, new Vector3(0, -0.012f * c, 0));
+        p.Move(_nozzle, new Vector3(0.02f * c - 0.05f * s, 0, 0));
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";
@@ -291,6 +305,15 @@ public sealed class CogwheelDesign : CreatureDesign
         // a small iron frame it carries: two eye-slits on a plate in front of the hub
         s.Block(body, new(0.1f, 0.0f, 0.18f), new(0.04f, 0.1f, 0.012f), 0.01f, iron.Darkened(0.2f), Mat.Metal, 0.008f);
         s.Eye(body, new(0.11f, 0.03f, 0.2f), 0.022f, amber, 1f);
+    }
+
+    /// <summary>Runaway Roll: it tips back on its wheel, which spins up against the ground, sparking; it drops forward and goes.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 0, 15f * c - 14f * s);
+        p.Move(_body, new Vector3(-0.03f * c + 0.03f * s, 0.004f * q, 0));
+        p.Add(_wheel, 0, 0, -(time * 1400f * Math.Clamp(c, 0f, 1f)) % 360f);
     }
 
     public override void Animate(CreaturePose p, in AnimInput a)

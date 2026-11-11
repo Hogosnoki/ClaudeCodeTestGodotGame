@@ -120,6 +120,59 @@ public abstract class QuadrupedDesign : CreatureDesign
         return s;
     }
 
+    /// <summary>
+    /// A second attack's wind-up on four legs, over the clip's pose. Lunge and Pounce: the chest drops between the forelegs and the
+    /// haunches fold under, the tail straight up, the head low and fixed on you; it lets go long, forelegs reaching. Slam: it
+    /// rears onto its hind legs, forepaws lifted high, head thrown back and jaws wide; down come the paws. Spit: it braces, draws
+    /// its head back and up with the throat full, then whips the head forward, jaws wide. The rest: braces and bristles.
+    /// </summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble;
+        float pitch = 0, arch = 0, neckUp = 0, headUp = 0, jawOpen = 0, tailUp = 0, f = 0, fb = 0, h = 0, hb = 0;
+        var root = Vector3.Zero;
+        switch (w.Kind)
+        {
+            case Move2.Lunge: case Move2.Pounce: case Move2.Dive: case Move2.Kamikaze:
+                // (play bow: front down, rump up; the hind legs loaded)
+                pitch = -13f * c + 10f * s; arch = -8f * c + 12f * s; neckUp = 16f * c - 8f * s; headUp = 8f * c; jawOpen = 6f * c + 30f * s;
+                tailUp = 46f * c - 30f * s; f = 22f * c + 46f * s; fb = 54f * c - 10f * s; h = -6f * c - 44f * s; hb = 34f * c - 10f * s;
+                root = new Vector3(-0.05f * c + 0.05f * s, -0.05f * c, 0);
+                tailUp += 6f * q;
+                break;
+            case Move2.Slam:
+                // (reared up on the hind legs, forepaws high)
+                pitch = 50f * c - 6f * s; arch = 10f * c - 14f * s; neckUp = -30f * c + 16f * s; headUp = 10f * c; jawOpen = 30f * c + 6f * s;
+                tailUp = -18f * c; f = 78f * c + 10f * s; fb = 46f * c - 30f * s; h = -44f * c; hb = 16f * c + 22f * s;
+                root = new Vector3(-0.03f * c, 0.02f * c - 0.03f * s, 0);
+                f += 5f * q;
+                break;
+            case Move2.Spit: case Move2.Volley:
+                pitch = 7f * c - 7f * s; neckUp = 30f * c - 26f * s; headUp = 20f * c - 14f * s; jawOpen = 5f * c + 40f * s;
+                tailUp = 20f * c; f = -8f * c; h = -6f * c; hb = 14f * c; root = new Vector3(-0.035f * c + 0.03f * s, 0, 0);
+                headUp += 3f * q;
+                break;
+            case Move2.Burst: case Move2.Spines: case Move2.Spin: case Move2.Shatter:
+                arch = 16f * c - 12f * s; neckUp = -18f * c + 22f * s; jawOpen = 26f * s; tailUp = 30f * c;
+                fb = 20f * c; hb = 20f * c; root = new Vector3(0, -0.03f * c, 0);
+                break;
+            default: return;
+        }
+        p.Add(hips, 0, 0, pitch);
+        p.Move(hips, root);
+        p.Add(spine, 0, 0, arch * 0.5f);
+        p.Add(chest, 0, 0, arch * 0.5f);
+        p.Add(neck, 0, 0, neckUp - pitch * 0.5f);
+        p.Add(head, 0, 0, headUp - pitch * 0.3f);
+        p.Add(jaw, 0, 0, -jawOpen);
+        for (int k = 0; k < tail.Length; k++) p.Add(tail[k], 0, 0, tailUp * (k == 0 ? 1 : 0.35f));
+        for (int k = 0; k < 2; k++)
+        {
+            p.Add(fUp[k], 0, 0, f - pitch); p.Add(fLo[k], 0, 0, -fb); p.Add(fPaw[k], 0, 0, -(f - fb) * 0.7f + fb * 0.6f);
+            p.Add(hUp[k], 0, 0, h - pitch + hb * 0.4f); p.Add(hLo[k], 0, 0, hb * 0.8f); p.Add(hPaw[k], 0, 0, -(h + hb * 1.2f) * 0.8f);
+        }
+    }
+
     protected void Apply(CreaturePose p, Stance s)
     {
         p.Set(hips, 0, 0, s.Pitch + s.Roll);

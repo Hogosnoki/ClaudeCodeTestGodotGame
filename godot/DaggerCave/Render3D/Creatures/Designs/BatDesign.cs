@@ -96,6 +96,27 @@ public sealed class BatDesign : CreatureDesign
         }
     }
 
+    /// <summary>Plummet: it throws its wings up and wide and hangs on them, jaws open, ears back; then wraps them tight round itself and drops like a stone.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float flap = -46f * c + 4f * q + 74f * s, fold = 68f * s;
+        p.Add(_head, 0, 0, 12f * c - 16f * s);
+        p.Add(_jaw, 0, 0, -(26f * c + 10f * s));
+        for (int k = 0; k < 2; k++)
+        {
+            float z = k == 0 ? 1f : -1f;
+            p.Add(_arm[k], flap * z, -fold * 0.4f * z, 0);
+            p.Add(_fore[k], 0, fold * 0.9f * z, 0);
+            p.Add(_hand[k], flap * 0.25f * z, 0, 0);
+            p.Add(_f2[k], 0, -fold * 0.6f * z, 0);
+            p.Add(_f3[k], 0, fold * 0.2f * z, 0);
+            p.Add(_f4[k], 0, fold * 0.5f * z, 0);
+            p.Add(_leg[k], 0, 0, 30f * c);
+            p.Add(_ear[k], 0, 0, -24f * c);
+        }
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "fly";

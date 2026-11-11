@@ -95,6 +95,9 @@ public partial class Enemy
     public bool InMove2 => _m2Phase != 0;
     /// <summary>For the tests: 1 winding up, 2 striking, 3 recovering; and how far into the phase (s).</summary>
     public int Move2Phase => _m2Phase;
+    /// <summary>For its animation: the kind of second attack under way (None at rest), and how far through its wind-up (0..1).</summary>
+    public Move2 Move2Kind => _m2Phase != 0 && Move2Of is { } k ? k.Kind : Move2.None;
+    public float Move2WindFrac => _m2Phase == 1 && Move2Of is { } k ? Math.Min(1f, _m2T / Move2Windup(k)) : 0f;
     public float Move2PhaseT => _m2T;
     /// <summary>For the tests: awake, and its second attack ready now.</summary>
     public void Move2Ready() { Awake = true; _m2Cd = 0.01f; _m2Awake = Math.Max(_m2Awake, Move2Of?.After ?? 0f); }
@@ -240,37 +243,16 @@ public partial class Enemy
                     Anim.Flash(0.5f + 0.5f * MathF.Abs(MathF.Sin(_m2T * (10f + 30f * p))));
                     if (G.Chance(0.3f)) G.Fx.Glint(GlobalPosition + G.RandDir() * HitRadius, m.Col, 5);
                     break;
-                case Move2.Lunge: case Move2.Dive:
-                    // (leans back, coiled)
-                    Anim.Scale = new Vector2(1f + 0.18f * p, 1f - 0.14f * p);
-                    Anim.Rotation = -Face * 0.3f * p;
-                    Anim.Position = new Vector2(-Face * 3f * p, 0);
-                    break;
-                case Move2.Spit: case Move2.Volley:
-                    // (rears up, drawing breath)
-                    Anim.Scale = new Vector2(1f - 0.1f * p, 1f + 0.16f * p);
-                    Anim.Rotation = -Face * 0.18f * p;
-                    Anim.Position = new Vector2(-Face * 2f * p, -3f * p);
-                    break;
-                case Move2.Slam:
-                    // (rises tall)
-                    Anim.Scale = new Vector2(1f - 0.12f * p, 1f + 0.24f * p);
-                    Anim.Position = new Vector2(0, -5f * p);
-                    break;
+                // (the body's own wind-up, each attack's its own, is posed by CreatureModel.ApplyWindup and the design's Windup:
+                // here only the shudder as it runs out)
                 case Move2.Burst: case Move2.Spines:
-                    // (swells, trembling)
-                    Anim.Scale = Vector2.One * (1f + 0.28f * p);
                     Anim.Position = new Vector2(shake * 2f, 0);
                     break;
                 case Move2.Spin:
-                    // (winds round the other way, then shudders)
-                    Anim.Rotation = -Face * 0.9f * p;
                     Anim.Position = new Vector2(shake * 2.5f, 0);
                     break;
-                case Move2.Pounce:
-                    // (crouches low)
-                    Anim.Scale = new Vector2(1f + 0.22f * p, 1f - 0.28f * p);
-                    Anim.Position = new Vector2(0, 3f * p);
+                case Move2.Slam: case Move2.Lunge: case Move2.Pounce:
+                    Anim.Position = new Vector2(shake * 1.2f, 0);
                     break;
             }
             Anim.Flash(0.15f + 0.35f * p * (0.5f + 0.5f * MathF.Sin(_m2T * 24f)));
@@ -381,7 +363,7 @@ public partial class Enemy
             case Move2.Lunge: case Move2.Dive:
             {
                 if (UsesGravity && !InWater && m.Kind == Move2.Lunge) Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y + 700f * dt, 400f));
-                if (Anim != null) { Anim.Scale = new Vector2(1.28f, 0.82f); Anim.Rotation = Face * 0.25f; Anim.Position = Vector2.Zero; }
+                if (Anim != null) { Anim.Scale = new Vector2(1.08f, 0.95f); Anim.Rotation = Face * 0.08f; Anim.Position = Vector2.Zero; }
                 if (G.Chance(0.6f)) G.Fx.Trail(GlobalPosition, m.Col);
                 if (!_m2Hit) Move2Touch(dmg, 260f);
                 if (_m2T > (m.Kind == Move2.Dive ? 0.5f : 0.36f) || (IsOnWall() && _m2T > 0.1f)) Move2End();
@@ -389,18 +371,18 @@ public partial class Enemy
             }
             case Move2.Spit: case Move2.Volley: case Move2.Spines:
                 Hold(dt);
-                if (Anim != null) { Anim.Scale = new Vector2(1.12f, 0.92f); Anim.Rotation = Face * 0.15f; }
+                if (Anim != null) { Anim.Scale = new Vector2(1.03f, 0.98f); }
                 if (_m2T > 0.18f) Move2End();
                 break;
             case Move2.Burst:
                 Hold(dt);
-                if (Anim != null) Anim.Scale = Vector2.One * (1.3f - 0.3f * Math.Min(1f, _m2T / 0.2f));
+                if (Anim != null) Anim.Scale = Vector2.One * (1.08f - 0.08f * Math.Min(1f, _m2T / 0.2f));
                 if (_m2T > 0.22f) Move2End();
                 break;
             case Move2.Slam:
             {
                 if (UsesGravity && !InWater) Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y + 900f * dt, 520f));
-                if (Anim != null) { Anim.Scale = new Vector2(0.9f, 1.15f); Anim.Position = Vector2.Zero; }
+                if (Anim != null) { Anim.Scale = new Vector2(0.97f, 1.04f); Anim.Position = Vector2.Zero; }
                 bool landed = (!UsesGravity || InWater) ? _m2T > 0.25f : (_m2T > 0.15f && IsOnFloor());
                 if (landed || _m2T > 1.2f)
                 {
@@ -455,7 +437,7 @@ public partial class Enemy
             case Move2.Pounce:
             {
                 if (UsesGravity && !InWater) Velocity = new Vector2(Velocity.X, Math.Min(Velocity.Y + 700f * dt, 500f));
-                if (Anim != null) { Anim.Scale = new Vector2(0.86f, 1.18f); Anim.Rotation = Face * 0.2f; Anim.Position = Vector2.Zero; }
+                if (Anim != null) { Anim.Scale = new Vector2(0.97f, 1.04f); Anim.Rotation = Face * 0.06f; Anim.Position = Vector2.Zero; }
                 if (!_m2Hit) Move2Touch(dmg, 240f);
                 bool landed = _m2T > 0.2f && (IsOnFloor() || !UsesGravity || InWater);
                 if (landed || _m2T > 1.1f)

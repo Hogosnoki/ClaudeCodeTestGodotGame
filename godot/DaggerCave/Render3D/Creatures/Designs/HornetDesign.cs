@@ -159,6 +159,18 @@ public sealed class HornetDesign : CreatureDesign
             }
     }
 
+    /// <summary>Stinger Fan: it rears back in the air and curls its abdomen right under until the sting points at you, legs splayed, jaws wide; each shot is a jab of the abdomen.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_thorax, 0, 0, 24f * c - 10f * s);
+        p.Add(_head, 0, 0, -12f * c);
+        p.Add(_abd, 0, 0, 30f * c + 10f * s + 3f * q);
+        p.Add(_abd2, 0, 0, 36f * c + 14f * s + 4f * q);
+        p.Add(_mandR, 0, 22f * c, 0); p.Add(_mandL, 0, -22f * c, 0);
+        for (int k = 0; k < 6; k++) { p.Add(_femur[k], 0, 0, -16f * c); p.Add(_tibia[k], 0, 0, -26f * c + 20f * s); }
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "fly";

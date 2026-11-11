@@ -187,6 +187,81 @@ public abstract class BipedDesign : CreatureDesign
         return o;
     }
 
+    /// <summary>How this creature's body takes a second attack's wind-up: 1 all of it, less for a stiff one (stone, clockwork).</summary>
+    protected virtual float WindupReach => 1f;
+
+    /// <summary>
+    /// A second attack's wind-up on two legs, over the clip's pose. Thrown (Spit, Volley): turned side-on with the arm cocked back
+    /// behind the head, the other hand out sighting, weight on the back leg; the throw whips the arm through. Slam: both fists
+    /// hauled up overhead, back arched, one knee lifted to stomp; down they come. Burst: hunched, arms hugged in, knees bent, head
+    /// down; flung open, chest out. Spines: arms crossed tight over the chest, shoulders up; thrown out and up. Spin: torso wound
+    /// back, arms spread; unwinds. Lunge: a sprinter's set, low, one arm drawn back to drive.
+    /// </summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float k = WindupReach, c = w.Coil * k, s = w.Snap * k, q = w.Tremble * k;
+        float lean = 0, twist = 0, crouch = 0, sr = 0, er = 0, ar = 0, sl = 0, el = 0, al = 0, headPitch = 0, headYaw = 0, jawOpen = 0;
+        float hr = 0, kr = 0, hl = 0, kl = 0;
+        switch (w.Kind)
+        {
+            case Move2.Spit: case Move2.Volley:
+                twist = -38f * c + 34f * s; lean = -10f * c + 20f * s; crouch = 12f * c + 8f * s;
+                sr = -55f * c + 100f * s; er = 105f * c - 10f * s; ar = 25f * c;
+                sl = 72f * c - 38f * s; el = 12f * c + 30f * s;
+                headYaw = 30f * c - 20f * s; hr = -14f * c - 10f * s; hl = 16f * c + 26f * s; kl = 10f * s;
+                sr += 3f * q;
+                break;
+            case Move2.Slam:
+                lean = -15f * c + 30f * s; crouch = -2f * c + 30f * s;
+                sr = 168f * c + 60f * s; sl = 160f * c + 55f * s; er = 28f * c + 20f * s; el = 30f * c + 20f * s; ar = 8f * c; al = 8f * c;
+                hl = 58f * c; kl = 78f * c; headPitch = -14f * c + 16f * s; jawOpen = 14f * c;
+                sr += 4f * q; sl -= 4f * q;
+                break;
+            case Move2.Burst:
+                lean = 28f * c - 20f * s; crouch = 30f * c - 6f * s;
+                sr = 38f * c - 20f * s; sl = 38f * c - 20f * s; er = 118f * c + 12f * s; el = 118f * c + 12f * s;
+                ar = -6f * c + 82f * s; al = -6f * c + 82f * s; headPitch = 26f * c - 28f * s; jawOpen = 28f * s;
+                lean += 2f * q;
+                break;
+            case Move2.Spines:
+                lean = 12f * c - 14f * s; crouch = 16f * c;
+                sr = 52f * c + 60f * s; sl = 52f * c + 60f * s; er = 132f * c + 8f * s; el = 132f * c + 8f * s;
+                ar = -14f * c + 70f * s; al = -14f * c + 70f * s; headPitch = 20f * c - 22f * s;
+                ar += 3f * q; al += 3f * q;
+                break;
+            case Move2.Spin:
+                twist = -62f * c + 50f * s; crouch = 18f * c; lean = 6f * c;
+                ar = 68f * c + 18f * s; al = 68f * c + 18f * s; er = 20f * c; el = 20f * c; headYaw = 40f * c;
+                break;
+            case Move2.Lunge: case Move2.Pounce: case Move2.Dive: case Move2.Kamikaze:
+                lean = 26f * c + 30f * s; crouch = 38f * c + 6f * s;
+                sr = -62f * c + 120f * s; er = 92f * c - 60f * s; sl = 42f * c - 60f * s; el = 78f * c - 30f * s;
+                hr = -12f * c - 38f * s; hl = 14f * c + 40f * s; kl = 30f * s; headPitch = -18f * c - 20f * s;
+                sr += 3f * q;
+                break;
+            default: return;
+        }
+        p.Add(spine, 0, twist * 0.4f, -lean * 0.45f);
+        p.Add(chest, 0, twist * 0.6f, -lean * 0.55f);
+        p.Add(neck, 0, headYaw * 0.4f, lean * 0.3f - headPitch * 0.4f);
+        p.Add(head, 0, headYaw * 0.6f, lean * 0.4f - headPitch * 0.6f);
+        p.Add(jaw, 0, 0, -jawOpen);
+        if (uarm[0] >= 0) p.Rot[uarm[0]] = CreaturePose.Q(-ar, 0, 0) * p.Rot[uarm[0]] * CreaturePose.Q(0, 0, sr);
+        if (uarm[1] >= 0) p.Rot[uarm[1]] = CreaturePose.Q(al, 0, 0) * p.Rot[uarm[1]] * CreaturePose.Q(0, 0, sl);
+        p.Add(farm[0], 0, 0, er); p.Add(farm[1], 0, 0, el);
+        // the legs: a crouch folds both (the hips sink by what the fold takes off their height), then each leg's own part
+        float thighLen = (HipJ[0] - Knee[0]).Length(), shinLen = (Knee[0] - Ankle[0]).Length();
+        float cr = Mathf.DegToRad(Math.Clamp(crouch, -10f, 60f));
+        p.Move(hips, new Vector3(0, -(thighLen + shinLen) * (1f - MathF.Cos(cr)), 0));
+        for (int i = 0; i < 2; i++)
+        {
+            float h = crouch + (i == 0 ? hr : hl), kn = 2f * crouch + (i == 0 ? kr : kl);
+            p.Add(thigh[i], 0, 0, h);
+            p.Add(shin[i], 0, 0, -kn);
+            p.Add(foot[i], 0, 0, -(h - kn) * 0.9f);
+        }
+    }
+
     protected void Apply(CreaturePose p, Body o)
     {
         p.Set(hips, 0, o.Twist * 0.25f, o.Roll);

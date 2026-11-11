@@ -198,7 +198,7 @@ public partial class Main : Node
         G.NoSave = _autotest || gentest || _nnTest || _heroTest || _hitStopTest || _bestiary || _animTest || _padTest || _titleShot != "" || _introShot != "" || OS.GetCmdlineUserArgs().Contains("--metatest") || OS.GetCmdlineUserArgs().Contains("--upgradetest") || _metaShot != "" || _lookShot != "" || _menuShot != "" || _netTest != "" || _onlineShot != "" || _scenario != "" || _campShot != "" || _frontTest != "";
         // (creatures dodging and blocking would turn the tests' blows aside: off in them, but for the defence scenario's own)
         Tune.EnemyDefense.On = !G.NoSave || _scenario == "defense" || OS.GetCmdlineUserArgs().Contains("--defense");
-        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit" or "vitalpace" or "touch") && !OS.GetCmdlineUserArgs().Contains("--elements");
+        Elements.ClassicForTests = G.NoSave && _scenario is not ("elements" or "big" or "hordes" or "trial" or "growth" or "dash" or "shifterkit" or "vitalpace" or "touch" or "balance") && !OS.GetCmdlineUserArgs().Contains("--elements");
         try { Begin(gentest); }
         catch (Exception ex)
         {
@@ -461,7 +461,9 @@ public partial class Main : Node
             {
                 _scenario = a[11..];
                 // (the older scenarios were written for an empty cave and free abilities: their arenas hold no generators or trial rooms)
-                if (_scenario is not ("hordes" or "trial" or "big" or "growth" or "moves")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
+                if (_scenario is not ("hordes" or "trial" or "big" or "growth" or "moves" or "balance")) { Tune.Testing.NoHordes = true; Tune.Testing.NoCooldowns = true; }
+                // (the ruler: an empty arena, the real cooldowns)
+                if (_scenario == "balance") Tune.Testing.NoHordes = true;
                 // (and for creatures without second attacks: Enemy.Secondary.cs)
                 if (_scenario is not ("moves" or "bossmoves")) Tune.Testing.NoSecondary = true;
             }

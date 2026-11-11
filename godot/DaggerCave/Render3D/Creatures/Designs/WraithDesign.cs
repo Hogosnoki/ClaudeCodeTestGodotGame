@@ -117,6 +117,25 @@ public sealed class WraithDesign : CreatureDesign
         s.Rigid(orb, om, Mat.Ice, 2.2f);
     }
 
+    /// <summary>Shatter: its arms lift and spread, its head tips back and the light in its chest swells and flutters brighter until it breaks.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        float pulse = 0.5f + 0.5f * MathF.Sin(time * (12f + 20f * c));
+        p.Add(_body, 0, 0, 8f * c);
+        p.Add(_chest, 0, 0, 10f * c);
+        p.Add(_head, 0, 0, 22f * c);
+        p.Add(_jaw, 0, 0, -30f * c);
+        p.Add(_robe0, 0, 0, -14f * c); p.Add(_robe1, 0, 0, -22f * c + 6f * q);
+        for (int k = 0; k < 2; k++)
+        {
+            float z = k == 0 ? 1f : -1f;
+            p.Add(_uarm[k], -40f * c * z, 0, 62f * c + 4f * q);
+            p.Add(_farm[k], 0, 0, -20f * c);
+        }
+        p.Grow(_orb, 1f + (0.6f + 0.5f * pulse) * c);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "float";

@@ -95,6 +95,17 @@ public sealed class ShardlingDesign : CreatureDesign
             }
     }
 
+    /// <summary>Shard Fan: it rears its head, jaws spread, and the crystals on its back stand up and lengthen, ringing; they shrink back, spent, as the shards fly.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_body, 0, 0, 9f * c - 8f * s);
+        p.Add(_head, 0, 0, 16f * c - 12f * s);
+        p.Add(_tail, 0, 0, -18f * c);
+        p.Grow(_crystals, 1f + 0.34f * c + 0.05f * q - 0.16f * s);
+        p.Add(_mandR, 0, 22f * c, 0); p.Add(_mandL, 0, -22f * c, 0);
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";

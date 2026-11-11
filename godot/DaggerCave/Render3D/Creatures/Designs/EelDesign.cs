@@ -68,6 +68,15 @@ public class EelDesign : CreatureDesign
             new[] { neck, neck, head }, new[] { (0, 1, 2) }, 4, Skin.Darkened(0.3f), 0.003f, Mat.Membrane, new[] { (0, 1), (1, 2) }, 0.02f);
     }
 
+    /// <summary>Coil Strike: its neck draws back into an S, the head held level and the jaws just parted; then it straightens like a whip, jaws wide.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        p.Add(_neck, 0, 0, 34f * c - 26f * s);
+        p.Add(_head, 0, 0, -40f * c + 16f * s + 3f * q);
+        p.Add(_jaw, 0, 0, -(8f * c + 44f * s));
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "lurk";

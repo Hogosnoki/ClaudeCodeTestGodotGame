@@ -137,6 +137,28 @@ public sealed class FrogDesign : CreatureDesign
         }
     }
 
+    /// <summary>Pounce: it sinks onto its haunches and its throat sac swells and pulses as it sights the jump; then the long legs kick straight and the arms reach.</summary>
+    public override void Windup(CreaturePose p, in WindupPose w)
+    {
+        float c = w.Coil, s = w.Snap, q = w.Tremble, time = w.Time;
+        s *= 0.6f;
+        float sac = 1f + (0.55f + 0.2f * MathF.Sin(time * 10f)) * Math.Clamp(c, 0f, 1.1f) - 0.2f * s;
+        p.Move(_body, new Vector3(0, -0.06f * c, 0));
+        p.Add(_body, 0, 0, 8f * c - 10f * s);
+        p.Add(_head, 0, 0, 10f * c);
+        p.Add(_jaw, 0, 0, -22f * s);
+        p.Grow(_sac, sac);
+        for (int k = 0; k < 2; k++)
+        {
+            float z = k == 0 ? 1f : -1f;
+            p.Add(_thigh[k], 0, 25f * s * z, 30f * s - 12f * c);
+            p.Add(_shin[k], 0, -20f * s * z, -110f * s + 14f * c);
+            p.Add(_foot[k], 0, 0, 80f * s - 10f * c);
+            p.Add(_arm[k], 0, -10f * s * z, 45f * s + 14f * c);
+            p.Add(_fore[k], 0, 0, -25f * s);
+        }
+    }
+
     public override void Animate(CreaturePose p, in AnimInput a)
     {
         string c = a.Clip ?? "idle";
