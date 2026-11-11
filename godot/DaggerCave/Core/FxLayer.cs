@@ -116,20 +116,56 @@ public partial class FxLayer : Node2D
     public void Burst(Vector2 pos, Color col, int n, float speed, float size = 2.5f, float life = 0.5f, float grav = 300f, int kind = 0, float drag = 1.5f)
     {
         Rec(1)?.Vec(pos).Col(col).Byte((byte)Math.Clamp(n, 0, 255)).Half(speed).Half(size).Half(life).Half(grav).Byte((byte)kind).Half(drag);
+        // Nothing even about it: the bits leave in two or three uneven gouts (and a few strays), from about the spot and not all from
+        // its exact middle; most are small and slow, a few big, a few fast; each tumbles its own way and lasts its own time, and
+        // among the flecks fly a few slivers.
+        int lobes = 2 + (int)VR(0f, 1.99f);
+        Span<float> lobe = stackalloc float[3];
+        for (int j = 0; j < 3; j++) lobe[j] = VR(0f, Mathf.Tau);
+        float scatter = 1.5f + size * 1.2f + speed * 0.01f;
         for (int k = 0; k < n; k++)
         {
-            var d = G.RandDir() * speed * G.Range(0.3f, 1f);
-            _parts.Add(Deep(new Particle { Pos = pos, Vel = d, Life = life * G.Range(0.6f, 1.1f), Max = life, Size = size * G.Range(0.6f, 1.3f), Grav = grav, Drag = drag, Col = col, Kind = kind }, speed / 16f * 0.7f));
+            float ang = VR(0f, 1f) < 0.68f ? lobe[(int)VR(0f, lobes - 0.01f)] + (VR(-1f, 1f) + VR(-1f, 1f)) * 0.36f : VR(0f, Mathf.Tau);
+            float u = VR(0f, 1f);
+            float sp = speed * (0.14f + 1.0f * u * u);
+            float big = MathF.Pow(VR(0f, 1f), 2.6f);
+            float sz = size * (0.42f + 1.45f * big);
+            float l = life * VR(0.45f, 1.05f) * (0.85f + 0.4f * big);
+            int kd = kind == 0 && speed > 90f && VR(0f, 1f) < 0.22f ? 1 : kind;
+            var from = pos + Dir(VR(0f, Mathf.Tau)) * VR(0f, scatter);
+            _parts.Add(Deep(new Particle
+            {
+                Pos = from, Vel = Dir(ang) * sp, Life = l, Max = Math.Max(l, life), Size = kd == 1 ? sz * 0.7f : sz,
+                Grav = grav * VR(0.7f, 1.3f), Drag = drag * VR(0.7f, 1.5f), Col = Vary(col), Kind = kd, Rot = VR(0f, Mathf.Tau), Spin = VR(-9f, 9f),
+            }, speed / 16f * 0.7f));
         }
+    }
+
+    private static Vector2 Dir(float ang) => new(MathF.Cos(ang), MathF.Sin(ang));
+
+    /// <summary>A colour a shade lighter or darker than it was given (no two bits of a burst quite the same).</summary>
+    private Color Vary(Color c)
+    {
+        float k = VR(0.78f, 1.18f);
+        return new Color(Math.Min(1f, c.R * k), Math.Min(1f, c.G * k), Math.Min(1f, c.B * k), c.A);
     }
 
     public void Directional(Vector2 pos, Vector2 dir, float spread, Color col, int n, float speed, float size = 2f, float life = 0.4f, float grav = 200f, int kind = 1)
     {
         Rec(2)?.Vec(pos).HVec(dir).Half(spread).Col(col).Byte((byte)Math.Clamp(n, 0, 255)).Half(speed).Half(size).Half(life).Half(grav).Byte((byte)kind);
+        // (thick down the middle of the spray and thin at its edges; the bits of every size and speed, a few of them flecks)
         for (int k = 0; k < n; k++)
         {
-            var d = dir.Rotated(G.Range(-spread, spread)) * speed * G.Range(0.4f, 1f);
-            _parts.Add(Deep(new Particle { Pos = pos, Vel = d, Life = life * G.Range(0.6f, 1.1f), Max = life, Size = size, Grav = grav, Drag = 2f, Col = col, Kind = kind }, speed / 16f * 0.35f));
+            float u = VR(0f, 1f);
+            var d = dir.Rotated((VR(-1f, 1f) + VR(-1f, 1f)) * 0.55f * spread) * speed * (0.25f + 0.85f * u * u);
+            float big = MathF.Pow(VR(0f, 1f), 2.4f);
+            float l = life * VR(0.45f, 1.1f);
+            int kd = kind == 1 && VR(0f, 1f) < 0.25f ? 0 : kind;
+            _parts.Add(Deep(new Particle
+            {
+                Pos = pos + Dir(VR(0f, Mathf.Tau)) * VR(0f, 1.5f + size), Vel = d, Life = l, Max = Math.Max(l, life), Size = size * (0.5f + 1.3f * big),
+                Grav = grav * VR(0.7f, 1.3f), Drag = VR(1.4f, 2.8f), Col = Vary(col), Kind = kd, Rot = VR(0f, Mathf.Tau), Spin = VR(-8f, 8f),
+            }, speed / 16f * 0.35f));
         }
     }
 
@@ -150,12 +186,21 @@ public partial class FxLayer : Node2D
         dir = dir.Normalized();
         _parts.Add(Deep(new Particle { Pos = pos, Life = big ? 0.12f : 0.08f, Max = big ? 0.12f : 0.08f, Size = big ? 13 : 8, Col = col, Kind = 6 }, 0f));
         LightUp(pos, col, big ? 5f : 2.5f, big ? 90f : 55f, big ? 0.16f : 0.1f);
-        int n = big ? 9 : 5;
+        // (streaks of every length, most thrown along the blow; and a few hot flecks that fall away and linger a moment)
+        int n = (big ? 8 : 4) + (int)VR(0f, big ? 4.99f : 2.99f);
         for (int k = 0; k < n; k++)
         {
-            var d = (k < n / 2 + 1 ? dir.Rotated(G.Range(-0.6f, 0.6f)) : G.RandDir());
-            float sp = G.Range(250, big ? 520 : 380);
-            _parts.Add(Deep(new Particle { Pos = pos, Vel = d * sp, Life = G.Range(0.08f, 0.16f), Max = 0.16f, Size = big ? 2.2f : 1.6f, Grav = 0, Drag = 6f, Col = col, Kind = 5 }, sp / 16f * 0.5f));
+            var d = (k < n / 2 + 1 ? dir.Rotated((VR(-1f, 1f) + VR(-1f, 1f)) * 0.42f) : G.RandDir());
+            float u = VR(0f, 1f);
+            float sp = Mathf.Lerp(170f, big ? 560f : 400f, u * u * 0.6f + u * 0.4f);
+            _parts.Add(Deep(new Particle { Pos = pos + Dir(VR(0f, Mathf.Tau)) * VR(0f, big ? 3f : 1.5f), Vel = d * sp, Life = VR(0.06f, 0.2f), Max = 0.2f, Size = (big ? 2.2f : 1.6f) * VR(0.55f, 1.5f), Grav = 0, Drag = VR(4.5f, 8f), Col = col, Kind = 5 }, sp / 16f * 0.5f));
+        }
+        int flecks = (big ? 3 : 1) + (int)VR(0f, 2.99f);
+        for (int k = 0; k < flecks; k++)
+        {
+            var d = dir.Rotated(VR(-1.1f, 1.1f)) * VR(60f, big ? 210f : 150f);
+            float l = VR(0.2f, 0.45f);
+            _parts.Add(Deep(new Particle { Pos = pos, Vel = d + new Vector2(0, -40f), Life = l, Max = l, Size = VR(0.8f, big ? 2.2f : 1.6f), Grav = 420f, Drag = 1.2f, Col = Vary(col), Kind = 0, Rot = VR(0f, Mathf.Tau), Spin = VR(-10f, 10f) }, 2.5f));
         }
     }
 
@@ -254,14 +299,14 @@ public partial class FxLayer : Node2D
         if (o != null && col.HasValue) o.Col(col.Value);
         var c = col ?? new Color(0.7f, 0.64f, 0.56f, 0.55f);
         for (int k = 0; k < n; k++)
-            Add(pos + new Vector2(G.Range(-6, 6) * spread, G.Range(-2, 1)), new Vector2(G.Range(-50, 50) * spread, G.Range(-30, -8)), G.Range(0.35f, 0.6f), G.Range(3f, 5.5f), c, 9, -20, 3f, 0, 1.2f * spread);
+            Add(pos + new Vector2(G.Range(-7, 7) * spread, G.Range(-3, 1)), new Vector2(G.Range(-55, 55) * spread, G.Range(-34, -6)), G.Range(0.3f, 0.7f), 2.4f + 5.2f * MathF.Pow(VR(0f, 1f), 2f), Vary(c), 9, -20, VR(2.2f, 3.8f), VR(-1.6f, 1.6f), 1.2f * spread);
     }
 
     public void Smoke(Vector2 pos, int n, Color col, float speed = 40f)
     {
         Rec(10)?.Vec(pos).Byte((byte)Math.Clamp(n, 0, 255)).Col(col).Half(speed);
         for (int k = 0; k < n; k++)
-            Add(pos + G.RandDir() * 6, G.RandDir() * speed * G.Range(0.3f, 1f) + new Vector2(0, -20), G.Range(0.6f, 1.1f), G.Range(5, 9), col, 9, -30, 2f, 0, speed / 16f * 0.5f);
+            Add(pos + G.RandDir() * G.Range(0f, 9f), G.RandDir() * speed * G.Range(0.2f, 1f) + new Vector2(0, -20), G.Range(0.5f, 1.2f), 3.5f + 8f * MathF.Pow(VR(0f, 1f), 1.8f), Vary(col), 9, -30, VR(1.5f, 2.6f), VR(-1.2f, 1.2f), speed / 16f * 0.5f);
     }
 
     /// <summary>Tumbling chunks of rock (or bone, or crystal).</summary>
@@ -269,7 +314,7 @@ public partial class FxLayer : Node2D
     {
         Rec(11)?.Vec(pos).Col(col).Byte((byte)Math.Clamp(n, 0, 255)).Half(speed);
         for (int k = 0; k < n; k++)
-            Add(pos, G.RandDir() * speed * G.Range(0.4f, 1f) + new Vector2(0, -80), G.Range(0.5f, 0.9f), G.Range(1.8f, 3.4f), col, 10, 700, 0.6f, G.Range(-14, 14), speed / 16f * 0.45f);
+            Add(pos + G.RandDir() * G.Range(0f, 5f), G.RandDir() * speed * G.Range(0.25f, 1f) + new Vector2(0, -80), G.Range(0.45f, 1f), 1.1f + 3.6f * MathF.Pow(VR(0f, 1f), 2.4f), Vary(col), 10, VR(560f, 800f), VR(0.4f, 0.9f), G.Range(-16, 16), speed / 16f * 0.45f);
     }
 
     /// <summary>A fan of droplets thrown up where something hits the water (or lava).</summary>
@@ -280,7 +325,7 @@ public partial class FxLayer : Node2D
         for (int k = 0; k < n; k++)
         {
             float a = -Mathf.Pi / 2 + G.Range(-0.9f, 0.9f);
-            Add(pos, new Vector2(MathF.Cos(a), MathF.Sin(a)) * G.Range(80, 180 + strength * 160), G.Range(0.4f, 0.8f), G.Range(1.4f, 2.6f), col, 11, 650, 0.4f, 0, 3f + strength * 3f);
+            Add(pos + new Vector2(G.Range(-5f, 5f) * (1f + strength), 0), new Vector2(MathF.Cos(a), MathF.Sin(a)) * G.Range(60, 180 + strength * 160), G.Range(0.35f, 0.85f), 1f + 2.4f * MathF.Pow(VR(0f, 1f), 2f), Vary(col), 11, VR(560f, 720f), VR(0.3f, 0.6f), 0, 3f + strength * 3f);
         }
         _quiet++;
         Shockwave(pos, 16 + strength * 22, new Color(col, 0.7f), 0.4f);
@@ -298,7 +343,7 @@ public partial class FxLayer : Node2D
     public void Ember(Vector2 pos, Color col)
     {
         Rec(14)?.Vec(pos).Col(col);
-        Add(pos, new Vector2(G.Range(-20, 20), G.Range(-70, -30)), G.Range(0.5f, 1.1f), G.Range(1.2f, 2.2f), col, 13, -20, 0.8f, 0, 1.2f);
+        Add(pos, new Vector2(G.Range(-26, 26), G.Range(-78, -24)), G.Range(0.4f, 1.2f), 0.8f + 2f * MathF.Pow(VR(0f, 1f), 2.2f), Vary(col), 13, VR(-34f, -10f), VR(0.5f, 1.2f), VR(-4f, 4f), 1.2f);
     }
 
     /// <summary>A single fading mote left behind by something moving fast.</summary>

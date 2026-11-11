@@ -148,6 +148,8 @@ public partial class Fx3D : Node3D
         AddChild(_field);
     }
 
+    private static float Frac(float x) => x - MathF.Floor(x);
+
     private static Color Lin(Color c) => new Color(c.R, c.G, c.B).SrgbToLinear() with { A = c.A };
 
     private static Transform3D Quad(Vector3 at, float angle, float sx, float sy)
@@ -316,19 +318,22 @@ public partial class Fx3D : Node3D
             var col = Lin(p.Col);
             float velAng = MathF.Atan2(-p.Vel.Y, p.Vel.X);
             float speed = p.Vel.Length();
+            // (three numbers of the particle's own, 0..1, for whatever makes it unlike its neighbours: its proportions, its tilt)
+            float h1 = Frac(p.Seed * 7.13f + 0.11f), h2 = Frac(p.Seed * 13.71f + 0.37f), h3 = Frac(p.Seed * 29.3f + 0.59f);
             switch (p.Kind)
             {
                 case 0: // dot (also trails)
                     {
+                        // a fleck: longer one way than the other, turned as it likes, tumbling if it spins
                         float r = p.Size * (0.4f + 0.6f * a) * P * 2.2f;
-                        _glow.Add(Quad(at, 0, r, r), col with { A = col.A * a }, new Vector4(0, 2f, 0, p.Seed));
+                        _glow.Add(Quad(at, p.Rot + h3 * MathF.Tau, r * (0.8f + 0.75f * h1), r * (0.5f + 0.5f * h2)), col with { A = col.A * a }, new Vector4(0, 2f, 0, Math.Max(p.Seed, 0.001f)));
                         break;
                     }
                 case 1: // streak
                     {
                         float len = Math.Max(p.Size, speed * 0.03f) * P;
                         var dir = new Vector3(MathF.Cos(velAng), MathF.Sin(velAng), 0);
-                        _glow.Add(Quad(at - dir * len * 0.5f, velAng, len * 0.6f + p.Size * P, p.Size * P * 1.4f), col with { A = col.A * a }, new Vector4(1, 2.2f, 0, p.Seed));
+                        _glow.Add(Quad(at - dir * len * 0.5f, velAng, (len * 0.6f + p.Size * P) * (0.7f + 0.7f * h1), p.Size * P * (1f + 0.8f * h2)), col with { A = col.A * a }, new Vector4(1, 2.2f, 0, p.Seed));
                         break;
                     }
                 case 2: // bubble
@@ -339,28 +344,29 @@ public partial class Fx3D : Node3D
                     }
                 case 3: // ring of light
                     {
+                        // (a touch out of round, turned its own way)
                         float r = p.Size * (1.5f - a * 0.5f) * P * 1.25f;
-                        _glow.Add(Quad(at, 0, r, r), col with { A = col.A * a }, new Vector4(2, 2.5f, 0.06f + 0.05f * a, p.Seed));
+                        _glow.Add(Quad(at, h3 * MathF.Tau, r * (1f + 0.05f * (h1 - 0.5f)), r * (1f + 0.05f * (h2 - 0.5f))), col with { A = col.A * a }, new Vector4(2, 2.5f, 0.06f + 0.05f * a, p.Seed));
                         break;
                     }
                 case 5: // spark: a hot white streak with a coloured sheath
                     {
                         float len = Math.Max(0.05f, speed * 0.05f * P);
                         var dir = new Vector3(MathF.Cos(velAng), MathF.Sin(velAng), 0);
-                        float w = (p.Size * a + 0.6f) * P * 1.6f;
-                        _glow.Add(Quad(at - dir * len * 0.5f, velAng, len * 0.55f, w), col with { A = a }, new Vector4(1, 6f, 0, p.Seed));
+                        float w = (p.Size * a + 0.6f) * P * 1.6f * (0.7f + 0.7f * h2);
+                        _glow.Add(Quad(at - dir * len * 0.5f, velAng, len * 0.55f * (0.6f + 0.9f * h1), w), col with { A = a }, new Vector4(1, 6f, 0, p.Seed));
                         break;
                     }
                 case 6: // impact flash
                     {
-                        float r = p.Size * (1.2f - a * 0.4f) * P * 1.4f;
-                        _glow.Add(Quad(at, 0, r, r), col with { A = a }, new Vector4(4, 3f, 0, p.Seed));
+                        float r = p.Size * (1.2f - a * 0.4f) * P * 1.7f;
+                        _glow.Add(Quad(at, h3 * MathF.Tau, r * (1f + 0.3f * h1), r * (0.8f + 0.2f * h2)), col with { A = a }, new Vector4(4, 3f, 0, p.Seed));
                         break;
                     }
                 case 7: // flash
                     {
-                        float r = p.Size * (1.25f - 0.5f * a) * P * 1.3f;
-                        _glow.Add(Quad(at, 0, r, r), col with { A = a }, new Vector4(4, 1.8f, 0, p.Seed));
+                        float r = p.Size * (1.25f - 0.5f * a) * P * 1.6f;
+                        _glow.Add(Quad(at, h3 * MathF.Tau, r * (1f + 0.25f * h1), r * (0.85f + 0.15f * h2)), col with { A = a }, new Vector4(4, 1.8f, 0, p.Seed));
                         break;
                     }
                 case 8: // shockwave: a ring racing out along the ground, and a faint wall of air
@@ -402,19 +408,21 @@ public partial class Fx3D : Node3D
                 case 19: // a soft swell of light
                     {
                         float r = p.Size * (1.3f - 0.45f * a) * P * 1.25f;
-                        _glow.Add(Quad(at, 0, r, r), col with { A = col.A * a * 0.8f }, new Vector4(10, 1.6f, 0, p.Seed));
+                        _glow.Add(Quad(at, h3 * MathF.Tau, r * (1f + 0.08f * (h1 - 0.5f)), r * (1f + 0.08f * (h2 - 0.5f))), col with { A = col.A * a * 0.8f }, new Vector4(10, 1.6f, 0, p.Seed));
                         break;
                     }
                 case 9: // smoke and dust
                     {
+                        // (a puff: wider than tall or taller than wide, as it comes)
                         float r = p.Size * (1.6f - 0.6f * a) * P * 1.6f;
-                        _smoke.Add(Quad(at, p.Rot, r, r), new Color(col.R, col.G, col.B, p.Col.A * a * 0.85f), new Vector4(0, 0, 0, p.Seed));
+                        _smoke.Add(Quad(at, p.Rot, r * (0.75f + 0.6f * h1), r * (0.65f + 0.5f * h2)), new Color(col.R, col.G, col.B, p.Col.A * a * 0.85f), new Vector4(0, 0, 0, p.Seed));
                         break;
                     }
                 case 10: // debris: tumbling chunks
                     {
                         float s = p.Size * P * 1.1f;
-                        var b = new Basis(Vector3.Back, p.Rot) * new Basis(Vector3.Right, p.Rot * 0.7f + p.Seed * 6f) * Basis.FromScale(new Vector3(s, s * 0.8f, s * 0.9f));
+                        // (a chunk: a slab, a splinter or a lump, by its own proportions)
+                        var b = new Basis(Vector3.Back, p.Rot) * new Basis(Vector3.Right, p.Rot * 0.7f + p.Seed * 6f) * Basis.FromScale(new Vector3(s * (0.6f + 0.9f * h1), s * (0.4f + 0.7f * h2), s * (0.5f + 0.8f * h3)));
                         _debris.Add(new Transform3D(b, at), new Color(p.Col.R, p.Col.G, p.Col.B, 1f), Vector4.Zero);
                         break;
                     }
@@ -435,7 +443,7 @@ public partial class Fx3D : Node3D
                     {
                         float fl = 0.6f + 0.4f * MathF.Sin(p.Life * 40 + p.Rot * 5);
                         float r = p.Size * P * 3f;
-                        _glow.Add(Quad(at, 0, r, r), col with { A = a * fl }, new Vector4(0, 4f, 0, p.Seed));
+                        _glow.Add(Quad(at, p.Rot, r * (0.75f + 0.7f * h1), r * (0.5f + 0.5f * h2)), col with { A = a * fl }, new Vector4(0, 4f, 0, Math.Max(p.Seed, 0.001f)));
                         break;
                     }
                 case 14: // swoosh: a crescent sweeping from above to below on the facing side

@@ -49,6 +49,7 @@ public partial class ModelSheet : Node3D
             else if (a == "--sheetsoft") _soft = true;
             // (--sheetclay: a light grey backdrop and bright, even light, for judging forms rather than mood)
             else if (a == "--sheetclay") _clay = true;
+            else if (a == "--sheetfx") _fxSheet = true;
             else if (a.StartsWith("--sheetfilm="))
             {
                 var f = a[12..].Split(':');
@@ -99,6 +100,7 @@ public partial class ModelSheet : Node3D
         rim.LookAtFromPosition(new Vector3(-3, 2, -4), Vector3.Zero, Vector3.Up);
         _cam = new Camera3D { Fov = 30f, Current = true };
         AddChild(_cam);
+        if (_fxSheet) { SetupFx(); return; }
         Next();
     }
 
@@ -212,6 +214,7 @@ public partial class ModelSheet : Node3D
 
     public override void _Process(double delta)
     {
+        if (_fxSheet) { FxFrame(); return; }
         if (_filmClip != null) { FilmFrame(); return; }
         float dt = (float)delta;
         _time += dt;

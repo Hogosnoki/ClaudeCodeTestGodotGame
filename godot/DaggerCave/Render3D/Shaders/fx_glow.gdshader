@@ -1,6 +1,9 @@
 // Additive light particles (sparks, flashes, embers, rings, glints, swooshes), one quad per
 // particle in a MultiMesh. INSTANCE_CUSTOM: x = shape, y = intensity, z/w = shape parameters.
 // COLOR = linear colour with the particle's fade in alpha.
+// No two particles are alike: where a shape has no parameter in w, w is the particle's seed (0..1; 0 = a clean, regular
+// shape, for the marks that must read exactly), and the fleck's outline, the ring's wander and breaks, the flash's rays and
+// the swell's edge are all drawn from it.
 shader_type spatial;
 render_mode blend_add, unshaded, depth_draw_never, cull_disabled, fog_disabled, shadows_disabled;
 
@@ -17,23 +20,35 @@ void fragment() {
 	float shape = v_custom.x;
 	float a = 0.0;
 	float core = 0.0;
+	float seed = v_custom.w;
+	float irr = step(0.0005, seed);
+	float s1 = seed * 43.98, s2 = seed * 91.7 + 1.3, s3 = seed * 157.3 + 4.1;
 	if (shape < 0.5) {
-		// soft round glow with a hot centre
-		float r2 = dot(uv, uv);
-		a = exp(-r2 * 4.5);
-		core = exp(-r2 * 22.0);
+		// a fleck of light: a lopsided, faceted shard with its hot spot off-centre (round only when unseeded)
+		float ang = atan(uv.y, uv.x);
+		float reach = 1.0 - irr * (0.3 + 0.2 * sin(ang * 3.0 + s1) + 0.13 * sin(ang * 5.0 + s2) + 0.12 * sin(ang * 2.0 + s3));
+		float r = length(uv) / max(reach, 0.25);
+		a = exp(-r * r * 4.5);
+		vec2 hot = uv - irr * 0.16 * vec2(cos(s2), sin(s2));
+		core = exp(-dot(hot, hot) * 26.0);
 	} else if (shape < 1.5) {
-		// a streak: the quad runs tail (u = -1) to head (u = 1)
-		float across = exp(-uv.y * uv.y * 7.0);
+		// a streak: the quad runs tail (u = -1) to head (u = 1); it tapers to its tail like a comet, and bows a little
+		float bow = irr * (fract(seed * 7.3) - 0.5) * 0.5;
+		float y = uv.y - bow * (1.0 - uv.x * uv.x);
+		float taper = mix(1.0, 0.35 + 0.65 * smoothstep(-1.0, 0.7, uv.x), irr);
+		float across = exp(-y * y * 7.0 / (taper * taper));
 		float along = smoothstep(-1.0, 0.55, uv.x) * (1.0 - smoothstep(0.82, 1.0, uv.x));
 		a = across * along;
-		core = exp(-uv.y * uv.y * 40.0) * smoothstep(0.1, 0.85, uv.x) * (1.0 - smoothstep(0.9, 1.0, uv.x));
+		core = exp(-y * y * 40.0 / (taper * taper)) * smoothstep(0.1, 0.85, uv.x) * (1.0 - smoothstep(0.9, 1.0, uv.x));
 	} else if (shape < 2.5) {
-		// a ring of light (z = thickness)
+		// a ring of light (z = thickness): its radius wanders a little, it thickens and thins, and stretches of it burn brighter
 		float r = length(uv);
-		float th = max(v_custom.z, 0.02);
-		a = exp(-pow((r - 0.78) / th, 2.0));
-		core = exp(-pow((r - 0.78) / (th * 0.3), 2.0)) * 0.8;
+		float ang = atan(uv.y, uv.x);
+		float j = 0.78 + irr * (0.022 * sin(ang * 3.0 + s1) + 0.014 * sin(ang * 7.0 - s2));
+		float th = max(v_custom.z, 0.02) * (1.0 + irr * (0.22 * sin(ang * 2.0 + s2) + 0.16 * sin(ang * 5.0 + s3)));
+		float lit = 1.0 - irr * (0.28 + 0.26 * sin(ang * 2.0 + s3) + 0.2 * sin(ang * 3.0 - s1) + 0.14 * sin(ang * 9.0 + s2));
+		a = exp(-pow((r - j) / th, 2.0)) * lit;
+		core = exp(-pow((r - j) / (th * 0.3), 2.0)) * 0.8 * lit;
 	} else if (shape < 3.5) {
 		// a four-point star
 		float s1 = exp(-abs(uv.y) * 45.0) * max(0.0, 1.0 - abs(uv.x));
@@ -42,10 +57,19 @@ void fragment() {
 		a = max(s1, s2) + exp(-r2 * 14.0) * 0.7;
 		core = exp(-r2 * 50.0);
 	} else if (shape < 4.5) {
-		// a flash: a wide soft bloom around a white core
+		// a flash: a soft bloom around a white core, lopsided, with a few uneven rays thrown out of it
 		float r2 = dot(uv, uv);
-		a = exp(-r2 * 2.6) * 0.65 + exp(-r2 * 9.0) * 0.6;
-		core = exp(-r2 * 30.0);
+		float r = sqrt(r2);
+		float ang = atan(uv.y, uv.x);
+		float lob = 1.0 + irr * (0.1 * sin(ang * 2.0 + s1) + 0.08 * sin(ang * 3.0 + s2));
+		a = exp(-r2 * 3.6 / (lob * lob)) * 0.6 + exp(-r2 * 10.0) * 0.6;
+		float rays = pow(max(0.0, sin(ang * 2.0 + s2)), 28.0) * exp(-r * 2.6)
+			+ pow(max(0.0, sin(ang * 3.0 + s3)), 40.0) * exp(-r * 4.2) * 0.8;
+		a += irr * rays * 1.3;
+		core = exp(-r2 * 30.0) + irr * rays * 0.5;
+		// (never the quad's own square: it ends in a circle)
+		float rim = 1.0 - smoothstep(0.7, 0.98, r);
+		a *= rim; core *= rim;
 	} else if (shape < 5.5) {
 		// a crescent: an arc from angle z to angle w (radians), bright at the leading end (w)
 		float r = length(uv);
@@ -105,10 +129,13 @@ void fragment() {
 		a = exp(-pow((r - 0.76) / th, 2.0)) * seg;
 		core = exp(-pow((r - 0.76) / (th * 0.3), 2.0)) * seg * 0.8;
 	} else {
-		// a soft swell: a filled disc of light, brighter toward its rim
+		// a soft swell: a pool of light, brighter toward its rim, its edge wandering and its inside mottled
 		float r = length(uv);
-		a = (1.0 - smoothstep(0.7, 0.84, r)) * (0.2 + 0.8 * smoothstep(0.15, 0.75, r));
-		core = exp(-pow((r - 0.74) / 0.035, 2.0)) * 0.45;
+		float ang = atan(uv.y, uv.x);
+		float j = irr * (0.03 * sin(ang * 3.0 + s1) + 0.022 * sin(ang * 5.0 - s2) + 0.014 * sin(ang * 11.0 + s3));
+		float mottle = 1.0 - irr * 0.35 * (0.5 + 0.5 * sin(uv.x * 9.0 + s2) * sin(uv.y * 8.0 - s1));
+		a = (1.0 - smoothstep(0.7 + j, 0.84 + j, r)) * (0.2 + 0.8 * smoothstep(0.15, 0.75, r)) * mottle;
+		core = exp(-pow((r - 0.74 - j) / 0.035, 2.0)) * 0.45 * (1.0 - irr * (0.35 + 0.35 * sin(ang * 2.0 + s3)));
 	}
 	// fade to nothing before the quad's edge
 	float edge = 1.0 - smoothstep(0.8, 1.0, max(abs(uv.x), abs(uv.y)));
