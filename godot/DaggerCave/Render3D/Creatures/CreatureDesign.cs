@@ -152,7 +152,13 @@ public abstract class CreatureDesign
     /// <summary>Where the ground is in model space (the sole of the feet), for previews; NaN = the mesh's lowest point.</summary>
     public virtual float FloorY => float.NaN;
     /// <summary>How much the liveliness layer (breathing, anticipation, lunges, flinches) shows on this creature: 1 normally, less for heavy ones, 0 for none.</summary>
-    public virtual float LifeScale => 1f;
+/// <summary>
+    /// Seconds to cross-fade from one clip into another (<paramref name="footing"/>: the body has just left the ground, landed, or
+    /// gone into or out of water). The default is the entered clip's own <see cref="BlendSeconds(string)"/>.
+    /// </summary>
+    public virtual float BlendSeconds(string from, string to, bool footing) => BlendSeconds(to);
+
+        public virtual float LifeScale => 1f;
     public virtual int Seed => Name.GetHashCode();
 
     public abstract void Sculpt(Sculptor s);

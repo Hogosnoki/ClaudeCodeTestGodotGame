@@ -488,6 +488,9 @@ public static class Tune
     // =============================================================================== HIT FEEL
     public static class Feel
     {
+        /// <summary>How much of the old rubbery squash and stretch is kept (1 = all of it: 30% flatter on a landing, 26% longer in a
+        /// strike, 20% longer in a fall). Sculpted bodies read as solid, so only a hint of it remains: the weight shows in the pose.</summary>
+        public static float Squash = 0.3f;
         /// <summary>A creature's body, as it dies, is thrown gently along the killing blow: <c>DeathLaunch</c> px/s (more for a harder
         /// blow, up to <c>DeathLaunchMax</c>; a boss's or guardian's heavy body <c>DeathHeavy</c> of that) and <c>DeathLift</c> px/s up,
         /// falling at <c>DeathGravity</c>, slowing by <c>DeathDrag</c> a second, turning over at up to <c>DeathSpin</c> rad/s, while it fades.</summary>

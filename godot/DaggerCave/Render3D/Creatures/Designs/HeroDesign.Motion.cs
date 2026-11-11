@@ -86,9 +86,9 @@ public sealed partial class HeroDesign
         // that read as a stiff, locked arm)
         HeroKind.Swordsman => new Style
         {
-            Stance = 0.78f, Stride = 4.7f, Hip = 0.79f, Bounce = 0.04f, Clear = 0.3f, Lean = 18f, HipTwist = 9f, Counter = 13f,
+            Stance = 0.78f, Stride = 4.7f, Hip = 0.79f, Bounce = 0.03f, Clear = 0.27f, Lean = 18f, HipTwist = 8f, Counter = 8f,
             FreeAmp = 48f, FreeMid = 10f, FreeElbow = 84f, FreeElbowAmp = 18f,
-            HoldAmp = 16f, HoldMid = -22f, HoldElbow = 26f, HoldElbowAmp = 12f, HoldAbs = -42f, HeadUp = -2f, Weight = 0.008f,
+            HoldAmp = 8f, HoldMid = -8f, HoldElbow = 32f, HoldElbowAmp = 8f, HoldAbs = -24f, HeadUp = -2f, Weight = 0.008f,
         },
         // the Warden: short, heavy strides, shield tucked in front, every footfall felt
         HeroKind.Warden => new Style
@@ -100,7 +100,7 @@ public sealed partial class HeroDesign
         // the Vitalist: low and gliding, quick short steps, the staff held close, the free hand trailing
         HeroKind.Vitalist => new Style
         {
-            Stance = 0.68f, Stride = 3.6f, Hip = 0.76f, Bounce = 0.03f, Clear = 0.18f, Lean = 18f, HipTwist = 8f, Counter = 14f,
+            Stance = 0.7f, Stride = 3.9f, Hip = 0.785f, Bounce = 0.03f, Clear = 0.22f, Lean = 12f, HipTwist = 8f, Counter = 10f,
             FreeAmp = 46f, FreeMid = -2f, FreeElbow = 68f, FreeElbowAmp = 14f,
             HoldAmp = 12f, HoldMid = 26f, HoldElbow = 72f, HoldElbowAmp = 6f, HoldAbs = 40f, HeadUp = -2f, Weight = 0.006f,
         },
@@ -114,7 +114,7 @@ public sealed partial class HeroDesign
         // the Aegis: calm and upright, measured steps, the staff carried close and the free hand open
         HeroKind.Aegis => new Style
         {
-            Stance = 0.7f, Stride = 3.9f, Hip = 0.78f, Bounce = 0.04f, Clear = 0.2f, Lean = 15f, HipTwist = 7f, Counter = 12f,
+            Stance = 0.7f, Stride = 3.9f, Hip = 0.79f, Bounce = 0.035f, Clear = 0.22f, Lean = 12f, HipTwist = 7f, Counter = 10f,
             FreeAmp = 40f, FreeMid = 4f, FreeElbow = 66f, FreeElbowAmp = 16f,
             HoldAmp = 11f, HoldMid = 22f, HoldElbow = 74f, HoldElbowAmp = 5f, HoldAbs = 44f, HeadUp = 2f, Weight = 0.007f,
         },
@@ -148,6 +148,26 @@ public sealed partial class HeroDesign
 
     /// <summary>Attack clips cross-fade quickly (their own wind-up blends in from the pose before it).</summary>
     public override float BlendSeconds(string clip) => clip.StartsWith("slash_") || clip == "heave" ? 0.03f : 0.09f;
+
+    private static bool IsBlow(string c) => c != null && (c.StartsWith("slash_") || c is "heave" or "bash" or "shove" or "whirl" or "throw" or "cast" or "hex" or "heal" or "rupture");
+
+    /// <summary>
+    /// How long each change of state takes to flow into the next: a blow and a flinch cut in at once (they must land when the game
+    /// says), a landing hits quickly, and everything that follows an effort (out of a blow's follow-through, up from a landing, out
+    /// of a skid or a flinch) eases back slowly, so the body is seen to recover and never snaps to its next pose.
+    /// </summary>
+    public override float BlendSeconds(string from, string to, bool footing)
+    {
+        if (to != null && (to.StartsWith("slash_") || to == "heave")) return 0.03f;
+        if (to == "hurt") return 0.04f;
+        if (to is "land" or "jump_start") return 0.055f;
+        if (IsBlow(to)) return 0.06f;
+        if (IsBlow(from)) return 0.17f;
+        if (from is "land" or "hurt" or "run_stop" or "dodge" or "airdash") return 0.17f;
+        if (footing) return 0.11f;
+        if (to is "run_stop" or "run_start") return 0.1f;
+        return 0.12f;
+    }
 
     // ================================================================== the leg solver
 
@@ -185,11 +205,39 @@ public sealed partial class HeroDesign
         return new Vector2(contactX - (rx * cs - ry * sn), groundY - (rx * sn + ry * cs));
     }
 
+    // ================================================================== the run's key poses
+
+    /// <summary>
+    /// A value keyed at equal steps round a cycle, read at <paramref name="phase"/> (0..1) through a closed Catmull-Rom spline: the
+    /// run's motion is set down as eight key poses a stride (the right foot's contact, its down, its passing, its up; then the
+    /// left's) and flows through them, not along sine waves.
+    /// </summary>
+    private static float Cycle(float phase, ReadOnlySpan<float> k)
+    {
+        int n = k.Length;
+        float f = Mathf.PosMod(phase, 1f) * n;
+        int i = (int)f;
+        float u = f - i;
+        float p0 = k[(i - 1 + n) % n], p1 = k[i % n], p2 = k[(i + 1) % n], p3 = k[(i + 2) % n];
+        return 0.5f * (2f * p1 + (-p0 + p2) * u + (2f * p0 - 5f * p1 + 4f * p2 - p3) * u * u + (-p0 + 3f * p1 - 3f * p2 + p3) * u * u * u);
+    }
+
+    // (keys at contact, down, passing, up for the right foot, then the same four for the left)
+    /// <summary>The hips' height: sinking as the foot takes the weight, driven up off the toe, highest in the flight.</summary>
+    private static readonly float[] KeyHeight = { -0.35f, -1f, 0.1f, 1f, -0.35f, -1f, 0.1f, 1f };
+    /// <summary>How hard the footfall is felt: all at the down.</summary>
+    private static readonly float[] KeyLoad = { 0.25f, 1f, 0.2f, 0f, 0.25f, 1f, 0.2f, 0f };
+    /// <summary>The right arm's swing (-1 back, 1 forward): held a beat at each end, quick through the middle.</summary>
+    private static readonly float[] KeySwing = { -1f, -0.88f, -0.2f, 0.62f, 1f, 0.88f, 0.2f, -0.62f };
+    /// <summary>The trunk folding over the landing foot and opening out as it drives off.</summary>
+    private static readonly float[] KeyFold = { 0.35f, 1f, -0.1f, -1f, 0.35f, 1f, -0.1f, -1f };
+
     /// <summary>One leg's pose at its own phase <paramref name="q"/> (0 = the heel touches down).</summary>
     private void Leg(float q, float sf, float travel, float hipH, out float hip, out float knee, out float foot)
     {
         var st = _st;
-        float reach = 0.47f;
+        // (the foot comes down close under the body and drives off far behind it: a sprinter's stride, not a reaching heel)
+        float reach = 0.4f;
         float ground = -hipH;
         if (q < sf)
         {
@@ -197,7 +245,7 @@ public sealed partial class HeroDesign
             float u = q / sf;
             float cx = travel * (reach - u);
             float roll = W3.SmoothStep(0.1f, 0.9f, u);
-            float pitch = Key(u, (0f, 13f), (0.3f, 1f), (0.62f, -3f), (1f, -40f));
+            float pitch = Key(u, (0f, 4f), (0.3f, 0f), (0.62f, -6f), (1f, -48f));
             var ank = AnkleFrom(cx, ground, roll, pitch);
             LegIK(ank.X, ank.Y, out hip, out knee);
             foot = pitch;
@@ -205,15 +253,15 @@ public sealed partial class HeroDesign
         }
         float v = (q - sf) / (1f - sf);
         // the swing: off the toe, heel kicked up, knee driven through, the foot reaching ahead and pawing back
-        var a0 = AnkleFrom(travel * (reach - 1f), 0f, 1f, -40f);
-        var a1 = AnkleFrom(travel * reach, 0f, 0f, 13f);
+        var a0 = AnkleFrom(travel * (reach - 1f), 0f, 1f, -48f);
+        var a1 = AnkleFrom(travel * reach, 0f, 0f, 4f);
         float e = W3.Smooth01(v);
         const float paw = 0.09f;
         float x = Mathf.Lerp(a0.X, a1.X + paw, e) - paw * W3.SmoothStep(0.8f, 1f, v);
         float lift = st.Clear * MathF.Pow(MathF.Sin(MathF.PI * MathF.Pow(v, 0.7f)), 1.25f);
         float y = Mathf.Lerp(a0.Y, a1.Y, v) + lift;
         LegIK(x, ground + y, out hip, out knee);
-        foot = Key(v, (0f, -40f), (0.3f, -34f), (0.65f, -14f), (1f, 13f));
+        foot = Key(v, (0f, -48f), (0.3f, -40f), (0.65f, -18f), (1f, 4f));
     }
 
     // ================================================================== base movements
@@ -350,36 +398,40 @@ public sealed partial class HeroDesign
         float stride = StrideAt(speed);
         float sf = Math.Clamp(st.Stance / stride, 0.17f, 0.52f);
         float flight = Math.Clamp((0.5f - sf) / 0.26f, 0f, 1f);
-        float tau = Mathf.Tau;
-        // the body's height: compressed while a foot carries it, rising through the flight between
-        float mid = MathF.Cos(2f * tau * (phase - sf * 0.5f));
-        float hipH = Mathf.Lerp(0.775f, st.Hip, Math.Min(1f, 0.35f + vn)) * HipK - st.Bounce * Ex * flight * mid + 0.02f * (1f - flight) * mid - st.Weight * flight * (0.5f + 0.5f * mid);
+        // (the run's amplitudes are not blown up as the cuts' are: a sleek run is a quiet one)
+        const float ex = 1.06f;
+        // the body's height, through the stride's keys: sinking as the foot takes the weight, driven up off the toe
+        float height = Cycle(phase, KeyHeight), load = Cycle(phase, KeyLoad);
+        float hipH = Mathf.Lerp(0.775f, st.Hip, Math.Min(1f, 0.35f + vn)) * HipK + st.Bounce * (0.3f + 0.7f * flight) * height - st.Weight * (0.4f + 0.6f * flight) * load;
         var o = new Body { Root = new Vector3(0, hipH - HipRest, 0), HRx = 4f, HLx = 4f };
         // (the foot goes back exactly as far as the body goes in the time it's down)
         float travel = sf * stride;
         Leg(phase, sf, travel, hipH, out o.HR, out o.KR, out o.FR);
         Leg(Mathf.PosMod(phase + 0.5f, 1f), sf, travel, hipH, out o.HL, out o.KL, out o.FL);
-        // the arms swing against the legs: the right forward as the left foot lands (phase 0.5)
-        float sw = -MathF.Cos(tau * (phase + 0.03f));
-        o.SR = st.HoldMid + st.HoldAmp * Ex * sw;
-        o.ER = st.HoldElbow + st.HoldElbowAmp * sw;
+        // the arms swing against the legs, through their keys: the right forward as the left foot lands (phase 0.5); the elbows
+        // follow a beat behind the shoulders, folding as the arm comes forward and opening as it goes back
+        float sw = Cycle(phase, KeySwing), swLate = Cycle(phase - 0.045f, KeySwing);
+        o.SR = st.HoldMid + st.HoldAmp * ex * sw;
+        o.ER = st.HoldElbow + st.HoldElbowAmp * swLate;
         // (the Swordsman's trailing blade is carried out from the body, clear of his legs and cape)
         o.AR = _swordsman ? 20f : _rogue ? 16f : 10f;
-        o.SL = st.FreeMid - st.FreeAmp * Ex * sw;
-        o.EL = st.FreeElbow - st.FreeElbowAmp * sw;
+        o.SL = st.FreeMid - st.FreeAmp * ex * sw;
+        o.EL = st.FreeElbow - st.FreeElbowAmp * swLate;
         o.AL = _rogue ? 16f : 10f;
-        // the torso: pitched into it, riding the stride, shoulders turning against the hips
-        float lean = Mathf.Lerp(7f, st.Lean * (0.85f + 0.15f * Ex), vn);
+        // the torso: pitched into it, folding a little over each landing and opening out of each drive, shoulders turning against the hips
+        float lean = Mathf.Lerp(7f, st.Lean * (0.85f + 0.15f * ex), vn);
         // the whole body tips forward from the feet, as a runner's does: the weight carried ahead of the planted foot so each push
         // against the ground drives it on, not up (a little at a jog, more at a sprint, most of all for the low sprinters)
-        o.Pitch = Mathf.Lerp(5f, Math.Min(19f, 14f + 0.15f * st.Lean), vn);
-        float turn = MathF.Cos(tau * (phase - 0.95f));
-        o.Lean = lean + 2.2f * flight * -mid;
-        o.HipTwist = st.HipTwist * Ex * turn * (0.4f + 0.6f * vn);
-        o.Twist = -st.Counter * Ex * turn * (0.4f + 0.6f * vn);
-        // (the head stays up, eyes on what's ahead, however far the body pitches into it)
-        o.HeadPitch = -lean * 0.55f - o.Pitch * 0.6f + st.HeadUp + 1.5f * mid;
-        o.HeadYaw = -o.Twist * 0.55f;
+        o.Pitch = Mathf.Lerp(5f, Math.Min(21f, 16f + 0.15f * st.Lean), vn);
+        float turn = -Cycle(phase + 0.02f, KeySwing);
+        float fold = Cycle(phase, KeyFold) * (1.2f + 1.3f * flight);
+        o.Lean = lean + fold;
+        o.HipTwist = st.HipTwist * ex * turn * (0.4f + 0.6f * vn);
+        o.Twist = -st.Counter * ex * turn * (0.4f + 0.6f * vn);
+        // (the head is carried level and still, eyes on what's ahead, whatever the body under it does: it takes none of the
+        // trunk's folding and nearly none of its turning)
+        o.HeadPitch = -lean * 0.55f - o.Pitch * 0.6f + st.HeadUp - fold * 0.9f;
+        o.HeadYaw = -o.Twist * 0.85f;
         // the shield arm is carried, not swung
         if (_warden)
         {
@@ -841,6 +893,8 @@ public sealed partial class HeroDesign
                     k = k * k * (3f - 2f * k);
                     // (the Swordsman comes down light, like a fencer: a shallower give, the same poise)
                     if (_swordsman) k *= 0.6f;
+                    // (landing at a run, the stride carries straight on: a light dip over the leading foot, not a stop and a crouch)
+                    k *= 1f - 0.7f * runAmount;
                     o.Root.Y -= 0.24f * k; o.Root.X -= 0.02f * k; o.Lean += 28 * k;
                     o.HR += 56 * k; o.KR += 94 * k; o.HL += 40 * k; o.KL += 84 * k;
                     o.HeadPitch -= 18 * k;
@@ -872,8 +926,16 @@ public sealed partial class HeroDesign
                 }
             case "turn_r2l":
             case "turn_l2r":
-                o.Root.Y -= 0.04f * MathF.Sin(t * MathF.PI);
-                break;
+                {
+                    // turning about: the weight sinks over planted, bending knees as the body comes round, the arms swinging out
+                    // from it for balance, and the chest dips into the new way before it rises again
+                    float s = MathF.Sin(t * MathF.PI);
+                    o.Root.Y -= 0.07f * s;
+                    o.KR += 16f * s; o.KL += 16f * s; o.HR += 9f * s; o.HL += 9f * s;
+                    o.Lean += 7f * s; o.HeadPitch -= 5f * s;
+                    o.AL += 16f * s; o.AR += 10f * s;
+                    break;
+                }
             case "dodge" when _swordsman && !((player != null && player.IsDodging) || a.Vel.Length() > 18f):
                 {
                     // the Swordsman's double jump, after Marth: a tight forward somersault, knees to the chest, the sword arm
@@ -1153,10 +1215,21 @@ public sealed partial class HeroDesign
         float flutter = MathF.Sin(a.Time * 9f) * Math.Min(1f, (speed + MathF.Abs(a.Vel.Y)) / 6f) * 6f;
         // (each footfall kicks the cloak: it bounces with the stride)
         float bounce = runAmount * 8f * MathF.Cos(2f * Mathf.Tau * phase);
-        float cp0 = p.Spring(0, trail * 0.35f + o.Lean * 0.3f + bounce * 0.5f, a.Dt, 70f, 9f);
-        float cp1 = p.Spring(1, trail * 0.35f + flutter + bounce, a.Dt, 60f, 8f);
-        float cp2 = p.Spring(2, trail * 0.3f - flutter + bounce * 0.8f, a.Dt, 55f, 7f);
-        float cp3 = p.Spring(3, trail * 0.2f + flutter * 1.5f + bounce * 0.6f, a.Dt, 50f, 6f);
+        // The cloak streams down and back in a curve, not straight out behind like a board: at a sprint its collar lies close down
+        // the back (some 25 degrees from hanging) and each span below sweeps further out, to a hem near 75, whatever the body's own
+        // tilt (which the cloak, hung from the shoulders, would otherwise add to its own); and a ripple runs down it from collar to
+        // hem, each span a beat behind the one above and swinging wider, so it snakes.
+        float kTrail = Math.Clamp(-trail / 49.5f, -0.5f, 1.25f);
+        float kFast = Math.Clamp(kTrail, 0f, 1f);
+        float tilt = o.Pitch + o.Lean;
+        float rip = Math.Min(1f, (speed + MathF.Abs(a.Vel.Y)) / 6f);
+        float ripT = a.Time;
+        float Ripple(int span) => MathF.Sin(ripT * 10f - span * 1.25f) * (3f + 4f * span) * rip;
+        float cp0 = p.Spring(0, -25f * kTrail + tilt * Mathf.Lerp(0.3f, 1f, kFast) + bounce * 0.4f + Ripple(0), a.Dt, 90f, 10f);
+        float cp1 = p.Spring(1, -14f * kTrail + bounce * 0.7f + Ripple(1), a.Dt, 80f, 9f);
+        float cp2 = p.Spring(2, -18f * kTrail + bounce * 0.6f + Ripple(2), a.Dt, 75f, 8f);
+        float cp3 = p.Spring(3, -16f * kTrail + bounce * 0.5f + Ripple(3), a.Dt, 70f, 7f);
+        if (DebugLog) GD.Print($"[cape] k {kTrail:0.00} tilt {tilt:0} cp {cp0:0} {cp1:0} {cp2:0} {cp3:0} velx {a.Vel.X:0.0} facing {a.Facing}");
         float sf0 = p.Spring(4, trail * 0.4f - 6f + flutter, a.Dt, 45f, 6f);
         float sf1 = p.Spring(5, trail * 0.3f - flutter * 1.8f, a.Dt, 40f, 5f);
         float sf2 = p.Spring(6, trail * 0.2f + flutter * 2.5f, a.Dt, 35f, 4f);

@@ -127,7 +127,7 @@ public partial class SpriteAnimator : Node2D
     /// <summary>Distance from the origin down to the feet: squashes are anchored there.</summary>
     public float FootOffset = 10f;
     /// <summary>1 = normal, 0 = no squash and stretch (critters, stationary things).</summary>
-    public float Juice = 1f;
+    public float Juice = Tune.Feel.Squash;
 
     /// <summary>Kicks the springy scale (e.g. (1.3, 0.7) squashes, (0.8, 1.25) stretches); it
     /// overshoots and wobbles back.</summary>

@@ -218,7 +218,9 @@ public partial class CreatureModel : Node3D
     private Quaternion[] _prevRot;
     private Vector3[] _prevScale;
     private string _lastClip = "";
-    private float _blendT = 1f;
+    private float _blendT = 1f, _blendFor = 0.09f;
+    private int _lastFooting;
+    private Vector3[] _prevOffset;
 
     public static CreatureModel Create(string name)
     {
@@ -259,6 +261,7 @@ public partial class CreatureModel : Node3D
         Pose = new CreaturePose(bones.Length);
         _prevRot = new Quaternion[bones.Length];
         _prevScale = new Vector3[bones.Length];
+        _prevOffset = new Vector3[bones.Length];
         for (int k = 0; k < bones.Length; k++) { _prevRot[k] = Quaternion.Identity; _prevScale[k] = Vector3.One; }
         var look = kit.Design.Look;
         if (look.LightEnergy > 0f)
@@ -293,9 +296,16 @@ public partial class CreatureModel : Node3D
         Design.Animate(pose, a);
         if (Design.LifeScale > 0f && a.Dt > 0f) ApplyLife(a);
         if (pose.Glow != _glow) { _glow = pose.Glow; Body.SetInstanceShaderParameter("glow_boost", _glow); }
-        // cross-fade briefly whenever the clip changes so poses never snap
-        if (a.Clip != _lastClip) { _lastClip = a.Clip; _blendT = 0f; }
-        _blendT = Math.Min(1f, _blendT + a.Dt / Math.Max(0.005f, Design.BlendSeconds(a.Clip)));
+        // Cross-fade whenever the clip changes, or the body's footing does (ground to air, air to ground, into or out of water:
+        // each is a different base pose, whatever the clip is called), so poses never snap. How long depends on what is left and
+        // what is entered (Design.BlendSeconds(from, to)): a blow or a flinch cuts in fast, a recovery eases out slowly.
+        int footing = a.InWater ? 2 : a.OnFloor ? 0 : 1;
+        if (a.Clip != _lastClip || footing != _lastFooting)
+        {
+            _blendFor = Design.BlendSeconds(_lastClip, a.Clip, footing != _lastFooting);
+            _lastClip = a.Clip; _lastFooting = footing; _blendT = 0f;
+        }
+        _blendT = Math.Min(1f, _blendT + a.Dt / Math.Max(0.005f, _blendFor));
         float w = _blendT * _blendT * (3f - 2f * _blendT);
         var bones = Kit.Sculpt.Bones;
         for (int k = 0; k < bones.Length; k++)
@@ -305,7 +315,10 @@ public partial class CreatureModel : Node3D
             _prevRot[k] = q;
             Skel.SetBonePoseRotation(k, q);
             var local = bones[k].Head - (bones[k].Parent >= 0 ? bones[bones[k].Parent].Head : Vector3.Zero);
-            Skel.SetBonePosePosition(k, local + pose.Offset[k]);
+            // (where a bone is moved blends as its turning does: the hips don't jump to a landing's crouch, they sink into it)
+            var off = w >= 1f ? pose.Offset[k] : _prevOffset[k].Lerp(pose.Offset[k], w);
+            _prevOffset[k] = off;
+            Skel.SetBonePosePosition(k, local + off);
             var sc = w >= 1f ? pose.Scale[k] : _prevScale[k].Lerp(pose.Scale[k], w);
             _prevScale[k] = sc;
             Skel.SetBonePoseScale(k, sc);

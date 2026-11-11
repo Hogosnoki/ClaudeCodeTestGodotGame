@@ -1479,6 +1479,37 @@ The two weakest creatures on a lineup of the common ones (the goblin, spider, ba
   shoulder blades on the back, a continuous spinal column under the vertebrae (they floated apart like beads), and a
   skull with a brow ridge, flattened temples, cheekbones and a bulge behind, so it reads as a skull and not a ball.
 
+### Motion and effects, pass 4: irregular particles, a keyed run, transitions
+
+- **Particles are no longer uniform** (`Core/FxLayer.cs`, `Render3D/Fx/Fx3D.cs`, `fx_glow.gdshader`). Each particle carries a
+  seed, and its shape is drawn from it: dots are lopsided, faceted flecks with an off-centre hot spot; streaks taper like
+  comets and bow; rings wander, thicken and thin, and burn brighter in stretches; flashes are lopsided with uneven rays
+  (and no longer clipped to their quad's square); the healing swell has a wandering edge and a mottled inside. Bursts leave
+  in two or three uneven gouts with strays, from about the spot and not its exact middle; most bits are small and slow, a
+  few big or fast; each has its own spin, life, drag, gravity and shade, and slivers fly among the flecks. Sprays, sparks,
+  dust, smoke, debris (each chunk its own proportions), droplets and embers likewise. The tells (the warning marks of an
+  attack) are unseeded and stay clean. `--modelsheet=fx --sheetfx --shots=DIR` saves the effects' contact sheet at four
+  moments, the effects' clock stepped by hand.
+- **The run is keyed** (`HeroDesign.Motion.cs`: `Cycle`, `KeyHeight`, `KeyLoad`, `KeySwing`, `KeyFold`). The hips' height, the
+  footfall's weight, the arms' swing and the trunk's folding are each set down as eight key poses a stride (contact, down,
+  passing, up, for each foot) and read through a closed Catmull-Rom spline, not along sine waves: the arms hold a beat at
+  each end and pass quickly, the elbows follow a beat behind the shoulders, the trunk folds over each landing and opens out
+  of each drive, and the head is carried level and still. The feet are still solved against the ground (they must cover
+  exactly the ground the hero does), but they now land flat and close under the body and drive off far behind it on a
+  pointed toe (they reached out ahead and struck heel-first, toes up). The Swordsman's blade trails low behind him at a
+  steady angle; the robed casters run taller. These are key poses authored in code, not recorded motion.
+- **Cloaks flow.** A cloak streamed straight out behind like a board (its own trail added to the body's tilt). Now its collar
+  lies close down the back and each span below sweeps further out, whatever the body's tilt, and a ripple runs down it from
+  collar to hem, each span a beat behind and swinging wider.
+- **Transitions.** A cross-fade now starts whenever the body's footing changes (ground to air, air to ground, into or out
+  of water) as well as when the clip does, and it blends where bones are moved as well as how they turn (the hips sink into
+  a landing's crouch; they jumped to it). How long depends on what is left and entered (`BlendSeconds(from, to, footing)`):
+  a blow or a flinch cuts in at once, a landing hits quickly, and everything after an effort (a blow's follow-through, a
+  landing, a skid, a flinch) eases back over about 0.17 s. Landing at a run carries the stride on with a light dip, not a
+  stop and a crouch; turning about sinks the weight over bent knees with the arms swung out.
+- **Less rubber.** The old squash and stretch (30% flatter on a landing, 26% longer in a strike, 20% in a fall) is cut to
+  30% of itself (`Tune.Feel.Squash`): sculpted bodies read as solid, and the weight shows in the pose.
+
 ### The character look, pass 3: torsos and clothing
 
 - **Torsos** (every hero but the Swordsman and the Automaton): the waist narrower than the chest and the back's broad
