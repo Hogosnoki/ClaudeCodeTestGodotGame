@@ -930,8 +930,8 @@ This is the only way the game plays; there is no switch and no other mode. Fewer
 - **Generators** (Enemies/Generator.cs; the 3D design is Render3D/Creatures/Designs/GeneratorDesign.cs). A generator is a cairn of dark stones and bones over a violet rift.
   - Placement: a level holds 3, plus 0.6 per depth, up to 9. They sit on the floor at least 360 px apart, and none within 520 px of where you arrive or in the guardian's chamber. None ever stands behind a vault's locked gate, in a secret wing or in a secret room, the level's or a trial's (`OffLimits` in Main.Hordes.cs): what's locked away or hidden is a reward, not a horde. The spots come from the seed, so every game online agrees. The host raises each one as a hero comes near.
   - Spawning: once a hero is within 460 px it wakes and pours out the biome's own creatures, whatever suits the spot (walkers, fliers or swimmers). In a biome where nothing comes in from outside (the Cave Entrance), its resident creatures crawl out instead.
-  - Tiers: it has three, by its health. Whole, it sends one every 2.4 s and keeps up to 5 out. Struck to two thirds, one every 3.6 s and up to 3. Under a third, one every 5 s and up to 2. Every 3 depths adds one more to each cap. It shrinks as it loses tiers.
-  - Minions: what it sends have half the health of their kind, 0.6× the experience, and about a third of the gold and food chances.
+  - Tiers: it has three, by its health. Whole, it sends one every 1.6 s and keeps up to 8 out. Struck to two thirds, one every 2.3 s and up to 6. Under a third, one every 3.2 s and up to 4. Every 3 depths adds one more to each cap. It shrinks as it loses tiers.
+  - Minions: a rift pours them out, many and weak, as an arcade dungeon's spawners do. What it sends have 0.4× the health of their kind (most heroes' plain attack fells a minion goblin in one blow) and hit 0.7× as hard (`Hordes.MinionDamage`), so the danger is the crowd, not any one of them. Each is worth 0.4× the experience and a quarter of the gold and food chances, so more of them doesn't mean faster riches.
 - **Breaking a generator** gives:
   - 24 experience and a pile of gold (6 + the depth);
   - a heart 60% of the time;
@@ -985,7 +985,7 @@ Every hero is built for hordes. The numbers are in `Tune.Big`, `Tune.Splash`, `T
 - **Cooldowns are real again.** `Tune.Testing.NoCooldowns`, a try-out switch that brought the elemental heroes' abilities back at once, was still on; it's off now. The older scenarios, written while it was on, still turn it on.
 - **Trials never overlap.** A new trial's area stops growing where it would reach an earlier one's (wards included). Another trial room whose floor lies inside a trial's area is part of it, and won't shut a second time.
 - **Sudden moves keep the one-way rule.** Blink and Shadowstep can carry a hero into a trial but never out of one, and never into a ward (`TrialSeal.BlocksMove`).
-- **Minions feed less healing.** Heals that come from killing or draining a generator's minion (heal-on-kill, relic triggers, the Vitalist's vital force, Sip of Life) are 0.35× (`Hordes.MinionSustain`), so a generator can't be farmed for health. Generators and trials still give their full rewards.
+- **Minions feed less healing.** Heals that come from killing or draining a generator's minion (heal-on-kill, relic triggers, the Vitalist's vital force, Sip of Life) are 0.25× (`Hordes.MinionSustain`), so a generator can't be farmed for health. Generators and trials still give their full rewards.
 - **Stalling loses.** A trial still running after 45 s grows angry ("THE DEEP STIRS"). Its generators' pace rises by half every 20 s, up to 3×, and they keep 2 more minions out per 1× of it (`EscalateAfter`, `EscalateStep`, `FuryMax`, `FuryCap`).
 - **HUD:** ability names too long for their square are drawn smaller. The tooltips describe the new specials and the Warden's Charge.
 - **Tests:**

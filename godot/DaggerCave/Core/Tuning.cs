@@ -1467,8 +1467,11 @@ public static class Tune
         public static int Generators = 3, GeneratorMax = 9, CapPerDepth = 3;
         public static float GeneratorsPerDepth = 0.6f, GeneratorGap = 360f, GeneratorClear = 520f, GeneratorHp = 90f, WakeRange = 460f;
         public static int GeneratorXp = 24, BonusGold = 6;
-        public static float[] SpawnEvery = { 0f, 5f, 3.6f, 2.4f }, Cap = { 0f, 2f, 3f, 5f };
-        public static float MinionHp = 0.5f, MinionXp = 0.6f, MinionDropMult = 0.35f, MinionSustain = 0.35f;
+        /// <summary>A rift pours them out: many, weak, quick to fall (most heroes' plain attack fells a minion goblin in one blow), each
+        /// hitting softer than its kind, so the danger is the crowd and not any one of them. What each is worth (learning, drops, the
+        /// health a kill gives back) is cut to match their number.</summary>
+        public static float[] SpawnEvery = { 0f, 3.2f, 2.3f, 1.6f }, Cap = { 0f, 4f, 6f, 8f };
+        public static float MinionHp = 0.4f, MinionDamage = 0.7f, MinionXp = 0.4f, MinionDropMult = 0.25f, MinionSustain = 0.25f;
         public static float FoodChance = 0.6f, PowerChance = 0.35f, PowerRange = 260f, PowerSeconds = 10f, FuryDamage = 1.4f, HasteSpeed = 1.25f;
         /// <summary>Every hero's movement: <c>AirJumps</c> jumps in mid-air (a Double Jump adds one more), and sliding down walls
         /// and leaping off them (a Wall Jump's, for all).</summary>

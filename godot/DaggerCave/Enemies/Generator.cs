@@ -91,6 +91,7 @@ public partial class Generator : Enemy
         // (a minion: half the health, a little less to learn from)
         e.MaxHp *= Tune.Hordes.MinionHp;
         e.Hp = e.MaxHp;
+        e.DmgMult *= Tune.Hordes.MinionDamage;
         e.XpValue = Math.Max(1, (int)MathF.Round(e.XpValue * Tune.Hordes.MinionXp));
         _brood.Add(e);
         Released++;
@@ -135,6 +136,7 @@ public partial class Generator : Enemy
         G.World.AddChild(e);
         e.MaxHp *= Tune.Hordes.MinionHp;
         e.Hp = e.MaxHp;
+        e.DmgMult *= Tune.Hordes.MinionDamage;
         e.XpValue = Math.Max(1, (int)MathF.Round(e.XpValue * Tune.Hordes.MinionXp));
         _brood.Add(e);
         Released++;
