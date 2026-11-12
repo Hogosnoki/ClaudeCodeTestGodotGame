@@ -1564,7 +1564,7 @@ damage a second (it runs out of goblins).
 
 | Hero | Health | One | Pack | Brawl kills | Health lost in the brawl |
 |---|---|---|---|---|---|
-| Swordsman | 60 | 62/s | 302/s | 27 of 30 | 49% |
+| Swordsman | 60 | 55/s | 265/s | 25 of 30 | 16% to 65% over three runs |
 | Warden | 110 | 49/s | 108/s | 25 of 30 | 59% |
 | Automaton | 300 | 49/s | 150/s | 23 of 30 | 11% |
 | Elementalist | 55 | 58/s | 156/s | 26 of 30 | 222% |
@@ -1578,6 +1578,13 @@ drain 8 to 11 a pull, the Aegis's ward bolt 10.8 to 13, the Shape Shifter's staf
 by design and stays: he is not healed as the others are (he mends himself with only a share of the healing he is given, out of
 the same steam that drives his offence), so the health he starts with has to last. Read his low losses on the ruler with
 that in mind: it measures a short fight, and he is built for the long one.
+
+The Swordsman against a pack: his sword reaches only the creatures in its arc (three of the six), but each of those takes
+about twice what a lone creature does. Part of that is his element: every blow lays it on everything in the arc, a blow
+with the outer blade (a tipper) twice over, and the bursts that follow splash onto the neighbours and overlap. So his sweep
+now lays on 0.7x a primary's build-up a creature (`Tune.Elements.SwordBuild`) and a tipper deals 1.2x, not 1.3x. That took
+the pack figure from 302 to 265 a second: still the highest by far, and the rest of the doubling is not yet explained. The
+brawl's health figure also swings widely from run to run (16% to 65% for him), so read it as a rough guide only.
 
 ## Test harness
 

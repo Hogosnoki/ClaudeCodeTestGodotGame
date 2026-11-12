@@ -88,6 +88,8 @@ public partial class Main
         RunMetrics.Reset();
         foreach (var _ in Run(T, () => { foreach (var g in pack) g.Pin(0.2f); Fresh(); })) yield return null;
         float crowd = RunMetrics.Mine.Dealt / T;
+        // (which of the six took it: by where each stood, px from the hero, ahead positive)
+        GD.Print("[balance]   pack, by place: " + string.Join("  ", pack.Select((g, k) => $"{dx[k] * p.Facing:+0;-0}: {(1000000f - g.Hp) / T:0.0}/s (now at {(g.GlobalPosition.X - home.X) * p.Facing:+0;-0})")));
         string by2 = string.Join(" ", RunMetrics.Mine.DealtBy.OrderByDescending(kv => kv.Value).Take(4).Select(kv => $"{kv.Key}:{kv.Value / T:0.0}"));
         Clear();
         foreach (var _ in Run(0.5f)) yield return null;

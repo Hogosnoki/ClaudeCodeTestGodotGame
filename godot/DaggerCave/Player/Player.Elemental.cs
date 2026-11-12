@@ -684,6 +684,7 @@ public partial class Player
             // (the Warden's element is in his shield, not his cut; a tipper builds double, and a jab from hiding)
             if (IsWarden) return;
             float m = _blowTipper ? Tune.Elements.TipperBuild : _shadowSwing ? Tune.Elements.ShadowJab : 1f;
+            if (IsSwordsman && _swingRole == KitRole.Primary) m *= Tune.Elements.SwordBuild;
             _shadowSwing = false;
             SimpleTouch(e, _swingRole, GlobalPosition, m);
             return;

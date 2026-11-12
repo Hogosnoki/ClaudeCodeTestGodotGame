@@ -1265,7 +1265,8 @@ public static class Tune
         /// <summary>
         /// How each simple kit lays its element on, beyond its abilities' touch:
         ///  * the Swordsman's tipper: a blow landing with the outer part of the blade (from <c>TipperFrom</c> of his reach) deals
-        ///    <c>TipperDamage</c> x and builds <c>TipperBuild</c> x; for <c>RiposteWindow</c> s after a roll, every blow is a tipper;
+        ///    <c>TipperDamage</c> x and builds <c>TipperBuild</c> x (his sweep lays on only <c>SwordBuild</c> of a primary's build-up a
+        ///    creature, since it reaches every creature in its arc at once and their bursts overlap); for <c>RiposteWindow</c> s after a roll, every blow is a tipper;
         ///  * the Warden's counter: his cut builds nothing; a blow stopped on his shield builds <c>CounterBuild</c> in the attacker (a perfect
         ///    block, a special's <c>SpecialBuild</c>);
         ///  * the Elementalist's zone: her Burst leaves the element at the spot for <c>ZoneSeconds</c>, <c>ZoneBuild</c> to all in it every
@@ -1278,7 +1279,7 @@ public static class Tune
         ///    the creature (<c>KnifeStore</c> a second, up to <c>KnifeStoreMax</c>), all of it released when it's recalled; a jab from
         ///    hiding builds <c>ShadowJab</c> x.
         /// </summary>
-        public static float TipperFrom = 0.65f, TipperDamage = 1.3f, TipperBuild = 2f, RiposteWindow = 1f, CounterBuild = 20f;
+        public static float TipperFrom = 0.65f, TipperDamage = 1.2f, TipperBuild = 2f, SwordBuild = 0.7f, RiposteWindow = 1f, CounterBuild = 20f;
         public static float ZoneSeconds = 4f, ZoneBuild = 12f, ZonePull = 60f, HexSeep = 15f, DrainCash = 1.5f, ImbueSeconds = 6f, ImbueBuild = 20f;
         public static float KnifeTouch = 20f, KnifeStore = 25f, KnifeStoreMax = 100f, ShadowJab = 2f;
         public static int ZoneTicks = 8;
