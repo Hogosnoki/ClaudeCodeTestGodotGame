@@ -4145,6 +4145,7 @@ public partial class Main : Node
 
     private void RunGenTest()
     {
+        int chokedCaves = 0, chokedCells = 0;
         int fineOk = 0; int n = OS.GetCmdlineUserArgs().FirstOrDefault(a => a.StartsWith("--gencount=")) is string gc ? int.Parse(gc[11..]) : 12, cleanAll = 0, totalAll = 0, vaultsAll = 0, vaultWant = 0;
         ulong total = 0;
         CaveGenerator.Verbose = OS.GetCmdlineUserArgs().Contains("--genverbose");
@@ -4169,6 +4170,7 @@ public partial class Main : Node
                 bool fine = FineBossReachable(c, OS.GetCmdlineUserArgs().Contains("--finedump") ? $"/tmp/claude-0/fine/{b.Id}_{seed}.png" : null);
                 if (fine) { fineOk++; fineB++; }
                 bool ok = c.TrapCells <= 6 && c.Boss != null && BossReachable(c);
+                if (c.ChokedCells > 12) { chokedCaves++; chokedCells += c.ChokedCells; }
                 if (ok) clean++;
                 bool vault = VaultSound(c, out string why);
                 if (vault) vaults++;
@@ -4181,6 +4183,7 @@ public partial class Main : Node
             if (wantVault) { vaultsAll += vaults; vaultWant += n; }
         }
         if (OS.GetCmdlineUserArgs().Contains("--genprof")) foreach (var kv in CaveGenerator.Prof.OrderByDescending(k => k.Value.ticks)) GD.Print($"[genprof] {kv.Key,-16} {kv.Value.ticks * 1000.0 / System.Diagnostics.Stopwatch.Frequency / Math.Max(1, totalAll),9:0.0} ms per cave  ({kv.Value.calls} calls)");
+        GD.Print($"[gentest] passage audit: {chokedCaves} caves with a way a ledge shuts or pinches ({chokedCells} cells in all); ledges taken back out for choking: {CaveGenerator.ChokesFreed}; hidden chambers not built because their walls would have shut a tunnel: {CaveGenerator.AeriesSkipped} (built: {CaveGenerator.AeriesBuilt}){(CaveGenerator.NoChokeFix ? " (fix off)" : "")}");
         GD.Print($"[gentest] shaped or landmarked: {CaveGenerator.Shaped}, of which given up for the plain cave: {CaveGenerator.ShapedGivenUp}");
         GD.Print($"[gentest] {fineOk}/{totalAll} caves whose guardian a real hero can reach (pixel-true jumps, a body-sized fit)");
         GD.Print($"[gentest] {cleanAll}/{totalAll} trap-free, {vaultsAll}/{vaultWant} with a sound vault, avg {total / (ulong)Math.Max(1, totalAll)} ms");

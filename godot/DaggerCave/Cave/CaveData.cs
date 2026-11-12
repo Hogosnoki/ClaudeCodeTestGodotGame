@@ -167,6 +167,8 @@ public sealed class CaveData
     /// <summary>The river: whether a hero can reach the guardian without once being in the water (see FineReach's dry mode).</summary>
     public bool DryOk = true;
     public int FineRepairs;
+    /// <summary>The passage audit's count for the finished cave: cells a roomy body reaches only with the ledges lifted out (0: no ledge shuts or pinches a way).</summary>
+    public int ChokedCells;
     public int Attempts;
     public int ReachableCells;
     public bool[] TrapMask;

@@ -755,6 +755,25 @@ public static partial class CaveGenerator
                 }
         }
 
+        // (a shell is solid rock laid over whatever was there: over a tunnel, it shut the tunnel, and whatever lay beyond it was cut
+        // off for good. So a chamber is only walled in where its shell would lie in rock already: the cells it would fill that are
+        // open now, other than the hall's own (`hall`: its box, reaching up to `hallTop`), must be next to none)
+        bool ShellFree(float cx, float cy, float rx, float ry, float t, Vector4 hall, float hallTop)
+        {
+            int i0 = Math.Max(3, (int)(cx - rx - t - 2)), i1 = Math.Min(W - 3, (int)(cx + rx + t + 2));
+            int j0 = Math.Max(3, (int)(cy - ry - t - 2)), j1 = Math.Min(H - 3, (int)(cy + ry + t + 2));
+            int shut = 0;
+            for (int j = j0; j <= j1; j++)
+                for (int i = i0; i <= i1; i++)
+                {
+                    float ex = (i - cx) / (rx + t), ey = (j - cy) / (ry + t);
+                    if (ex * ex + ey * ey > 1f || open[j * stride + i] < 0.5f) continue;
+                    if (i >= hall.X - 2 && i <= hall.Z + 2 && j >= Math.Min(hall.Y, hallTop) - 1 && j <= hall.W + 1) continue;
+                    if (++shut > 8) return false;
+                }
+            return true;
+        }
+
         void CarveAeries()
         {
             open = cave.Open;
@@ -771,6 +790,8 @@ public static partial class CaveGenerator
                     float wallX = i + side;
                     float pcx = wallX + side * 4.5f;
                     if (pcx < 10 || pcx > W - 10 || row < 10) continue;
+                    if (!ShellFree(pcx, row - 1.6f, 4.2f, 2.6f, 2.2f, hc, hc.Y)) { AeriesSkipped++; continue; }
+                    AeriesBuilt++;
                     // (a shell of rock round the pocket, its floor solid under it)
                     Shell(pcx, row - 1.6f, 4.2f, 2.6f, 2.2f);
                     Dome(pcx, row, 4.2f, 3.2f, true);
@@ -790,6 +811,9 @@ public static partial class CaveGenerator
                 float gx = cx + Rnd(-6, 6), gFloor = top - 5f;
                 if (gFloor - 8 < 5 || gx < 14 || gx > W - 14) continue;
                 float hole = gx - 3f;
+                if (!ShellFree(gx, gFloor - 2.3f, 8f, 2.6f, 2.5f, hc, top)
+                    || !ShellFree(Mathf.Lerp(cx, hole, 0.5f), (top + gFloor) * 0.5f, Math.Abs(cx - hole) * 0.5f + 1.5f, (top - gFloor) * 0.5f + 0.5f, 1.8f, hc, top)) { AeriesSkipped++; continue; }
+                AeriesBuilt++;
                 // (closed in rock all round, but for the crack up into it)
                 Shell(gx, gFloor - 2.3f, 8f, 2.6f, 2.5f);
                 Shell(Mathf.Lerp(cx, hole, 0.5f), (top + gFloor) * 0.5f, Math.Abs(cx - hole) * 0.5f + 1.5f, (top - gFloor) * 0.5f + 0.5f, 1.8f);
@@ -1352,6 +1376,9 @@ public static partial class CaveGenerator
     /// The traversal check, then repairs until nothing is trapped and the guardian's floor can be
     /// reached (or no repair is left to try): ledges up out of pits, and up to the chamber.
     /// </summary>
+    /// <summary>Test aid (<c>CHOKE_OFF=1</c>): leave choking ledges in, to count what the audit finds.</summary>
+    public static readonly bool NoChokeFix = System.Environment.GetEnvironmentVariable("CHOKE_OFF") != null;
+
     internal static void ValidateAndRepair(CaveData cave, Vector2I startCell)
     {
         ValidateTraversal(cave, startCell);
@@ -1384,6 +1411,8 @@ public static partial class CaveGenerator
                 if (reaching) reachGaveUp = true;
             }
         }
+        // the passage audit: no ledge may close a way or leave it too narrow (before the strict check, which lays again any step needed)
+        if (!NoChokeFix) Timed("chokes", () => FreeChokes(cave, startCell, true));
         // then the strict check: a real body, real jumps (see FineReach), repaired where it fails
         if (cave.Boss != null)
         {
@@ -1415,6 +1444,7 @@ public static partial class CaveGenerator
             }
             ValidateTraversal(cave, startCell);
         }
+        cave.ChokedCells = FreeChokes(cave, startCell, false);
     }
 
     /// <summary>
@@ -1680,6 +1710,105 @@ public static partial class CaveGenerator
                     if (v < cave.Open[k]) cave.Open[k] = v;
                 }
         }
+    }
+
+    /// <summary>For the tests: hidden chambers not built because their shell of rock would have shut a tunnel.</summary>
+    public static int AeriesSkipped, AeriesBuilt;
+    /// <summary>For the tests: ledges taken back out because they choked a passage, over every cave made.</summary>
+    public static int ChokesFreed;
+
+    /// <summary>
+    /// The passage audit: does any ledge close a way, or leave it too narrow to get through in comfort? A body with room to spare
+    /// (two cells by two) is flooded through the cave from the start, flying free, once with the ledges standing and once with them
+    /// lifted out. Whatever it reaches only with them lifted, a ledge has shut. Each ledge is then tried in turn: one whose removal
+    /// opens more than a few cells was choking a passage and is taken back out (the rock goes back to what it was before the ledge).
+    /// Returns the cells still shut at the end (0 for a clean cave). It runs before the strict reach check, so a step that was
+    /// needed is laid again there, with the care that check takes.
+    /// </summary>
+    internal static int FreeChokes(CaveData cave, Vector2I startCell, bool fix)
+    {
+        if (cave.Ledges.Count == 0) return 0;
+        int shut = FreeChokesCore(cave, startCell, fix);
+        // (the audit looked at the cave with its ledges out: the masks are made again for the cave as it stands)
+        ValidateTraversal(cave, startCell);
+        return shut;
+    }
+
+    private static int FreeChokesCore(CaveData cave, Vector2I startCell, bool fix)
+    {
+        int stride = W + 1;
+        bool Fits(int i, int j)
+        {
+            if (i < 1 || j < 2 || i >= W - 1 || j >= H) return false;
+            if (!cave.CellOpen(i, j) || !cave.CellOpen(i, j - 1)) return false;
+            return (cave.CellOpen(i + 1, j) && cave.CellOpen(i + 1, j - 1)) || (cave.CellOpen(i - 1, j) && cave.CellOpen(i - 1, j - 1));
+        }
+        var queue = new int[W * H];
+        bool[] count = null;
+        int Flood()
+        {
+            var seen = new bool[W * H];
+            int si = startCell.X, sj = startCell.Y, head = 0, tail = 0, n = 0;
+            // (the nearest cell to the start a body fits)
+            for (int d = 0; d < 6 && tail == 0; d++)
+                for (int dj = -d; dj <= d && tail == 0; dj++)
+                    for (int di = -d; di <= d && tail == 0; di++)
+                        if (Fits(si + di, sj + dj)) { queue[tail++] = (sj + dj) * W + si + di; seen[queue[0]] = true; }
+            while (head < tail)
+            {
+                int u = queue[head++]; if (count == null || count[u]) n++;
+                int i = u % W, j = u / W;
+                void Go(int a, int b) { int v = b * W + a; if (a >= 0 && b >= 0 && a < W && b < H && !seen[v] && Fits(a, b)) { seen[v] = true; queue[tail++] = v; } }
+                Go(i + 1, j); Go(i - 1, j); Go(i, j + 1); Go(i, j - 1);
+            }
+            return n;
+        }
+        // (only the ledges standing whole: one a repair has cut through or taken back is not there to test, and must not be put back)
+        var whole = new List<LedgeRec>();
+        foreach (var l in cave.Ledges)
+        {
+            bool intact = l.Cells.Count > 0;
+            foreach (var (idx, _, now) in l.Cells) if (cave.Open[idx] > now + 0.001f) { intact = false; break; }
+            if (intact) whole.Add(l);
+        }
+        if (whole.Count == 0) return 0;
+        // (lifted and stood again exactly: the field ends as it began unless a ledge is taken out for good)
+        // (ledges overlap: each corner goes back to exactly what it held before the audit, whichever ledges cover it)
+        var held = new Dictionary<int, float>();
+        foreach (var l in whole) foreach (var (idx, _, _) in l.Cells) held[idx] = cave.Open[idx];
+        void Lift(LedgeRec l) { foreach (var (idx, old, _) in l.Cells) cave.Open[idx] = Math.Max(cave.Open[idx], old); }
+        void Stand(LedgeRec l) { foreach (var (idx, _, _) in l.Cells) cave.Open[idx] = held[idx]; }
+        // (a ledge laid over a pit to close it is a repair, not a fault: what counts is ground that was sound with the ledges out,
+        // reached and with a way back, and that a ledge has since shut. The traversal check says which that is)
+        foreach (var l in whole) Lift(l);
+        ValidateTraversal(cave, startCell);
+        var sound = new bool[W * H];
+        count = sound;
+        for (int u = 0; u < sound.Length; u++) sound[u] = cave.ReachMask != null && cave.ReachMask[u] && !(cave.TrapMask != null && cave.TrapMask[u]);
+        int without = Flood();
+        foreach (var l in whole) Stand(l);
+        int with = Flood();
+        const int Few = 12;
+        if (without - with <= Few || !fix) return Math.Max(0, without - with);
+        // which ledges are doing it: each tried alone
+        int now_ = with;
+        for (int k = whole.Count - 1; k >= 0; k--)
+        {
+            CheckCancel();
+            var l = whole[k];
+            Lift(l);
+            int n = Flood();
+            if (n - now_ > Few)
+            {
+                cave.Ledges.Remove(l); whole.RemoveAt(k); now_ = n; System.Threading.Interlocked.Increment(ref ChokesFreed);
+                // (what it shared with a ledge still standing stays that ledge's rock)
+                foreach (var (idx, old, _) in l.Cells) held[idx] = old;
+                foreach (var o in whole) foreach (var (idx, _, now) in o.Cells) if (held.TryGetValue(idx, out var hv) && now < hv) { held[idx] = now; cave.Open[idx] = Math.Min(cave.Open[idx], now); }
+            }
+            else Stand(l);
+            if (without - now_ <= Few) break;
+        }
+        return Math.Max(0, without - now_);
     }
 
     internal static void BuildSpawns(CaveData cave, List<Stamp> stamps, Vector2 startCells, Random rng, int stride = 8)
