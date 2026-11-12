@@ -486,9 +486,11 @@ public sealed partial class HeroDesign
     /// </summary>
     private Body Air(float vy, float time)
     {
-        var rise = new Body { Lean = 5, HeadPitch = -10, SR = 62, ER = 74, WR = 30, AR = 20, SL = 128, EL = 22, AL = 16, HR = 92, KR = 104, FR = -16, HL = -24, KL = 34, FL = -42, HRx = 5, HLx = 4 };
-        var apex = new Body { Lean = 10, HeadPitch = -6, SR = 70, ER = 64, WR = 26, AR = 30, SL = 82, EL = 40, AL = 34, HR = 74, KR = 104, FR = -14, HL = 30, KL = 88, FL = -26, HRx = 7, HLx = 7 };
-        var fall = new Body { Lean = 3, HeadPitch = -3, SR = 46, ER = 34, WR = 24, AR = 56, SL = 50, EL = 26, AL = 62, HR = 34, KR = 30, FR = 12, HL = -4, KL = 36, FL = 2, HRx = 10, HLx = 10 };
+        var rise = new Body { Lean = 9, HeadPitch = -10, SR = 62, ER = 74, WR = 30, AR = 20, SL = 128, EL = 22, AL = 16, HR = 92, KR = 104, FR = -16, HL = -24, KL = 34, FL = -42, HRx = 5, HLx = 4 };
+        // (every hero's leap has the same legs: the lead knee driven up and the other leg trailing long as it rises; gathered at the
+        // top but never level, which reads as sitting; reaching down one ahead of the other as it falls, the eyes on the ground)
+        var apex = new Body { Lean = 11, HeadPitch = -4, SR = 70, ER = 64, WR = 26, AR = 32, SL = 82, EL = 40, AL = 36, HR = 66, KR = 98, FR = -12, HL = 16, KL = 72, FL = -30, HRx = 8, HLx = 8 };
+        var fall = new Body { Lean = -2, HeadPitch = 6, SR = 46, ER = 34, WR = 24, AR = 56, SL = 50, EL = 26, AL = 62, HR = 30, KR = 26, FR = 14, HL = -10, KL = 38, FL = -4, HRx = 10, HLx = 10 };
         if (_swordsman)
         {
             // (a leap, not a seat: the lead knee driven up and the other leg trailing long behind, the sword arm swept back with the
@@ -509,8 +511,10 @@ rise = new Body { Lean = 9, HeadPitch = -10, SR = -34, ER = 16, WR = -22, AR = 2
             // (after Sheik: balled up tight going up, both arms swept back; falling, the legs gathered under, the arms back and wide)
             float up = W3.SmoothStep(-2f, 3f, vy);
             o.Lean = Mathf.Lerp(8f, 22f, up); o.HeadPitch = -14f;
-            o.HR = Mathf.Lerp(46f, 92f, up); o.KR = Mathf.Lerp(64f, 128f, up); o.HL = Mathf.Lerp(22f, 76f, up); o.KL = Mathf.Lerp(58f, 120f, up);
-            o.FR = -26f; o.FL = -30f;
+            // (the same leap as the rest, tighter: the lead knee pulled right up to the chest and the other leg folded behind her as
+            // she rises; falling, the legs gathered under her one ahead of the other, ready to spring again)
+            o.HR = Mathf.Lerp(42f, 98f, up); o.KR = Mathf.Lerp(54f, 126f, up); o.HL = Mathf.Lerp(2f, -16f, up); o.KL = Mathf.Lerp(62f, 84f, up);
+            o.FR = Mathf.Lerp(8f, -24f, up); o.FL = Mathf.Lerp(-8f, -40f, up);
             o.SR = -48f; o.ER = 30f; o.AR = Mathf.Lerp(34f, 20f, up); o.WR = -30f;
             o.SL = -44f; o.EL = 34f; o.AL = Mathf.Lerp(34f, 20f, up); o.WL = -30f;
         }
