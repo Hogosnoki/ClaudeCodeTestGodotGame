@@ -580,8 +580,13 @@ public sealed partial class HeroDesign : CreatureDesign
 
     // ================================================================== proportions
 
-    /// <summary>How much the torso is shortened (hips to the base of the neck) and the legs lengthened (hip to ankle), and how much thicker the legs are made.</summary>
-    private const float TorsoK = 0.88f, LegK = 1.08f, LegGirth = 1.1f;
+    /// <summary>
+    /// The figure's proportions, measured in heads against a heroic figure of about eight: the torso (hips to the base of the neck) kept
+    /// nearly its sculpted length and the legs lengthened (hip to ankle); the neck shortened (the head set down into the collar) and the
+    /// head itself made smaller; the trunk and the stance broadened, the arms carried further out, and the trunk and legs thickened.
+    /// </summary>
+    private const float TorsoK = 0.96f, LegK = 1.08f, LegGirth = 1.14f;
+    private const float NeckDrop = 0.032f, HeadK = 0.9f, TrunkWide = 1.15f, TrunkGirth = 1.08f, ArmOut = 0.03f;
     private const float NeckY = 0.5f, ShoulderY = 0.46f, AnkleY = -0.75f;
     /// <summary>How far the ankles (and the soles under them) end up below where they were sculpted.</summary>
     private const float SoleDrop = -AnkleY * (LegK - 1f);
@@ -595,25 +600,67 @@ public sealed partial class HeroDesign : CreatureDesign
         y >= NeckY * TorsoK ? y + NeckY * (1f - TorsoK) : y >= 0f ? y / TorsoK : y >= AnkleY * LegK ? y / LegK : y + SoleDrop;
 
     /// <summary>
-    /// The heroes' proportions, applied to the finished figure: a shorter torso and longer legs, the height about the same. The neck and
-    /// head, and the arms (from the shoulder down, with whatever they hold), move down with the shoulders whole; the trunk, the cloak and
-    /// the legs are reshaped point by point, and the thighs and shins made a touch thicker.
+    /// The heroes' proportions, applied to the finished figure. What was wrong, in heads: the head was large (the figure barely seven
+    /// heads tall), the neck half a head long (a third is right), the torso two and a fifth heads from crotch to collar (two and two
+    /// thirds is right), and with so big a head the shoulders and hips read as narrow. So: the neck and head move down whole, further
+    /// than the shoulders do (a shorter neck), and the head is scaled down about its joint; the arms (from the shoulder down, with
+    /// whatever they hold) move with the shoulders and out from the body; the trunk, the cloak and the legs are reshaped point by
+    /// point, broadened, and made thicker.
     /// </summary>
     private static void Proportion(Sculptor s)
     {
         var mode = new int[s.Bones.Count];
+        int head = -1;
         for (int k = 0; k < mode.Length; k++)
         {
             string n = s.Bones[k].Name;
+            if (n == "head") head = k;
             mode[k] = n is "neck" or "head" || n.StartsWith("scarf") ? 1
                 : n.StartsWith("clav") || n.StartsWith("uarm") || n.StartsWith("farm") || n.StartsWith("hand") || n == "shield" ? 2 : 0;
         }
-        float headDy = -NeckY * (1f - TorsoK), armDy = ShoulderY * TorsoK - ShoulderY;
-        s.Reshape((p, bone) => bone < 0 || bone >= mode.Length || mode[bone] == 0
-                ? new Vector3(p.X, ProportionY(p.Y), p.Z)
-                : new Vector3(p.X, p.Y + (mode[bone] == 1 ? headDy : armDy), p.Z),
-            q => new Vector3(q.X, UnproportionY(q.Y), q.Z),
-            bone => bone >= 0 && bone < mode.Length && (s.Bones[bone].Name.StartsWith("thigh") || s.Bones[bone].Name.StartsWith("shin")) ? LegGirth : 1f);
+        float headDy = -NeckY * (1f - TorsoK) - NeckDrop, armDy = ShoulderY * TorsoK - ShoulderY;
+        bool Wide(int bone)
+        {
+            if (bone < 0 || bone >= mode.Length) return false;
+            string n = s.Bones[bone].Name;
+            return n is "hips" or "spine" or "chest";
+        }
+        bool Leg(int bone) => bone >= 0 && bone < mode.Length && (s.Bones[bone].Name.StartsWith("thigh") || s.Bones[bone].Name.StartsWith("shin"));
+        s.Reshape((p, bone) =>
+            {
+                int m = bone < 0 || bone >= mode.Length ? 0 : mode[bone];
+                if (m == 0) return new Vector3(p.X, ProportionY(p.Y), p.Z * TrunkWide);
+                if (m == 1) return new Vector3(p.X, p.Y + headDy, p.Z);
+                return new Vector3(p.X, p.Y + armDy, p.Z + MathF.Sign(p.Z) * ArmOut);
+            },
+            q => new Vector3(q.X, UnproportionY(q.Y), q.Y < NeckY * TorsoK ? q.Z / TrunkWide : q.Z),
+            bone => Leg(bone) ? LegGirth : Wide(bone) ? TrunkGirth : 1f);
+        if (head < 0) return;
+        // the head, smaller about its joint: everything sculpted on it (the skull and face, hair, a hood, a helm) and its parts
+        var pivot = s.Bones[head].Head;
+        Vector3 Shrink(Vector3 v) => pivot + (v - pivot) * HeadK;
+        foreach (var p in s.Prims)
+        {
+            if (p.Bone != head) continue;
+            p.A = Shrink(p.A);
+            if (p.Kind == PrimKind.RoundCone) p.B = Shrink(p.B);
+            p.Ra *= HeadK; p.Rb *= HeadK; p.Half *= HeadK; p.Round *= HeadK; p.Blend *= HeadK; p.Bump *= HeadK;
+            p.Prepare();
+        }
+        foreach (var part in s.Parts)
+            for (int k = 0; k < part.Mesh.V.Count; k++)
+                if (k < part.Binds.Count && part.Binds[k].a == head) part.Mesh.V[k] = Shrink(part.Mesh.V[k]);
+        var back = s.PaintSpace;
+        s.PaintSpace = q =>
+        {
+            // (a point of the head goes back through the shrinking, and up the neck's shortening, before the rest)
+            if (q.Y > pivot.Y - 0.05f && MathF.Abs(q.Z) < 0.22f)
+            {
+                q = pivot + (q - pivot) / HeadK;
+                q.Y += NeckDrop;
+            }
+            return back(q);
+        };
     }
 
     /// <summary>The lantern at the left hip: its glass glows in the look's glow colour.</summary>
