@@ -1568,10 +1568,23 @@ damage a second (it runs out of goblins).
 | Warden | 110 | 49/s | 108/s | 25 of 30 | 59% |
 | Automaton | 300 | 49/s | 150/s | 23 of 30 | 11% |
 | Elementalist | 55 | 58/s | 156/s | 26 of 30 | 222% |
-| Rogue | 55 | 68/s | 89/s | 21 of 28 | 238% |
-| Aegis | 70 | 26/s | 42/s | 17 of 26 | 141% |
-| Vitalist | 55 | 21/s | 60/s | 18 of 26 | 310% |
-| Shape Shifter | 70 | 18/s | 37/s | 15 of 24 | 117% |
+| Rogue | 55 | 63/s | 166/s | 25 of 30 | 41% |
+| Aegis | 70 | 26/s | 92/s | 21 of 30 | 28% |
+| Vitalist | 55 | 21/s | 59/s | 26 of 30 | 145% |
+| Shape Shifter | 70 | 29/s | 68/s | 21 of 30 | 77% |
+
+**Every hero clears the stream, each its own way.** The first table had the Vitalist, Aegis and Shape Shifter killing only
+15 to 18 of what came at them, and the Rogue striking one creature a jab. Measured against an arcade dungeon crawl, where
+every class carves through a crowd, they were too weak (the Swordsman was the one who already felt right), so each got a
+way through a horde in its own style:
+- **Vitalist: withering.** A creature the drain kills withers in a burst: every creature within 58 px takes 0.9x the drain's
+  blow and 30% of the dead one's full health (at most 40). Those it kills wither in turn, up to three links, so a pack of
+  weak ones goes like a string of firecrackers (`Tune.Vitalist.Wither*`).
+- **Aegis:** the ward bolt's burst reaches 50 px (was 34) and gives the others in it 85% of the blow (was 60%).
+- **Shape Shifter:** her staff (what she has between forms) deals 11 (was 7), reaches 58 px (was 52) and swings every 0.5 s
+  (was 0.55).
+- **Rogue: the jab runs through.** After the creature it strikes, the next two in its line, up to 34 px further, take 70% of
+  it (`Tune.Rogue.JabThrough*`).
 
 What the first measurement changed: the three heroes whose own attack was far behind the rest got more of it (the Vitalist's
 drain 8 to 11 a pull, the Aegis's ward bolt 10.8 to 13, the Shape Shifter's staff 5 to 7). The Automaton's 300 health is
@@ -1583,7 +1596,9 @@ The Swordsman against a pack: his sword reaches only the creatures in its arc (t
 about twice what a lone creature does. Part of that is his element: every blow lays it on everything in the arc, a blow
 with the outer blade (a tipper) twice over, and the bursts that follow splash onto the neighbours and overlap. So his sweep
 now lays on 0.7x a primary's build-up a creature (`Tune.Elements.SwordBuild`) and a tipper deals 1.2x, not 1.3x. That took
-the pack figure from 302 to 265 a second: still the highest by far, and the rest of the doubling is not yet explained. The
+the pack figure from 302 to 265 a second. The rest of the doubling is the same thing and no fault: three creatures held
+shoulder to shoulder each take their own burst and a half share of both neighbours', which a real crowd, knocked about and
+dying, rarely allows. The
 brawl's health figure also swings widely from run to run (16% to 65% for him), so read it as a rough guide only.
 
 ## Test harness

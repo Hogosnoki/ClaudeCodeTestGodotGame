@@ -250,16 +250,18 @@ public partial class Player
             var foes = IsRogue ? G.Enemies.OrderBy(e => e.GlobalPosition.DistanceSquaredTo(origin)).ToArray() : G.Enemies.ToArray();
             foreach (var e in foes)
             {
-                if (IsRogue && _swingHitSomething) break;
+                if (IsRogue && _swingHits.Count > Tune.Rogue.JabThrough) break;
                 if (e.Dead || _swingHits.Contains(e)) continue;
                 var to = e.GlobalPosition - origin;
                 float dist = to.Length();
-                if (dist - e.HitRadius > _swingReach + 4) continue;
+                if (dist - e.HitRadius > _swingReach + 4 + (IsRogue && _swingHits.Count > 0 ? Tune.Rogue.JabThroughReach : 0f)) continue;
                 float tol = dist > 1 ? MathF.Atan2(e.HitRadius, dist) : MathF.PI;
                 if (dist > 12 && Math.Abs(_swingDir.AngleTo(to)) > _swingArc * 0.5f + tol) continue;
                 if (!G.Cave.LineClear(origin, e.GlobalPosition - to.Normalized() * Math.Min(dist, e.HitRadius))) continue;
                 _swingHits.Add(e);
-                OnSwingHit(e, to);
+                // (the Rogue's jab runs on through the first into those behind it, for a share)
+                if (IsRogue && _swingHits.Count > 1) OnSwingHit(e, to, Tune.Rogue.JabThroughShare);
+                else OnSwingHit(e, to);
             }
             foreach (var b in Breakables.All.ToArray())
             {

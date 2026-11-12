@@ -176,6 +176,36 @@ public partial class Player
         _castGlow = 1f;
     }
 
+    /// <summary>For the tests: withering bursts set off, and creatures they struck.</summary>
+    public int Withers, WitherStruck;
+
+    /// <summary>
+    /// The Vitalist's answer to a horde: a creature killed by the drain withers in a burst, and every creature within
+    /// <see cref="Tune.Vitalist.WitherRadius"/> px takes <see cref="Tune.Vitalist.WitherShare"/> of the drain's blow and
+    /// <see cref="Tune.Vitalist.WitherOfHealth"/> of the dead creature's full health (at most <see cref="Tune.Vitalist.WitherHealthCap"/>). Those it kills
+    /// wither in turn (up to <see cref="Tune.Vitalist.WitherChain"/> links), so a pack of weak ones goes like a string of firecrackers.
+    /// </summary>
+    private void Wither(Enemy dead, float dmg, int link)
+    {
+        Withers++;
+        var at = dead.GlobalPosition;
+        // (the more life it had, the bigger the burst)
+        float hit = dmg * Tune.Vitalist.WitherShare + Math.Min(Tune.Vitalist.WitherHealthCap, dead.MaxHp * Tune.Vitalist.WitherOfHealth);
+        G.Fx.Ring(at, Tune.Vitalist.WitherRadius, new Color(LifeColor, 0.75f), 0.28f, FxLayer.RingStyle.Burst);
+        G.Fx.Burst(at, LifeColorLight, 12, 150, 2.2f, 0.35f, 20f);
+        foreach (var o in G.Enemies.ToArray())
+        {
+            if (o == null || !IsInstanceValid(o) || o.Dead || !o.CanBeHit) continue;
+            var to = o.GlobalPosition - at;
+            if (to.Length() > Tune.Vitalist.WitherRadius + o.HitRadius) continue;
+            float d = o.Hurt(hit, to.Normalized() * 60f, o.GlobalPosition, DamageKind.Nature);
+            if (d <= 0) continue;
+            WitherStruck++;
+            OnDealtDamage(d, vitalForceByMote: true);
+            if (o.Dead && link < Tune.Vitalist.WitherChain) Wither(o, dmg, link + 1);
+        }
+    }
+
     /// <summary>
     /// Tears the life out of one creature: it's struck on the spot (tugged toward you, shuddering),
     /// bursting in a spray of crimson, and what it lost flies back to you as a mote carrying the vital force.
@@ -192,6 +222,8 @@ public partial class Player
             return 0f;
         }
         OnDealtDamage(dealt, vitalForceByMote: true);
+        // (a creature the drain kills withers in a burst that takes the life of those beside it too)
+        if (e.Dead) Wither(e, dmg, 0);
         // (the elemental Vitalist's attribute rides on the drain)
         if (Elemental && !e.Dead) AttributeHit(e, CastPoint);
         if (Stats.DrainHealChance > 0 && G.Chance(Stats.DrainHealChance)) Heal(SustainOf(e)); // (Sip of Life)

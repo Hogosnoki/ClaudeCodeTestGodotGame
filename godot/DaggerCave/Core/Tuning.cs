@@ -169,7 +169,7 @@ public static class Tune
         /// <summary>Enemies see the Aegis this far off (x the distance): it takes blows for others, so it stays out of their eyes.</summary>
         public static float ThreatDist = 1.25f;
         /// <summary>Ward Bolt (the attack button): BoltDamage every BoltEvery s, flying BoltSpeed px/s up to BoltRange px, homing as bolts do; on contact a burst of BurstRadius px: the creature struck takes the whole blow, the others in it BurstShare of it; all are weakened (DebuffMult x the damage they deal, for DebuffSeconds); Lifesteal (a quarter of a percent; Mending Light and Solar Crest add more) of the damage dealt mends the Aegis.</summary>
-        public static float BoltDamage = 13f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 34f, BurstShare = 0.6f;
+        public static float BoltDamage = 13f, BoltEvery = 0.5f, BoltSpeed = 460f, BoltRange = 250f, BurstRadius = 50f, BurstShare = 0.85f;
         public static float DebuffMult = 0.9f, DebuffSeconds = 5f;
         /// <summary>Barrier (the ability button): soaks BarrierShare of the receiver's max health (x WardMult) for BarrierSeconds; Recharge BarrierCooldown s. Reaches allies within AllyRange px.</summary>
         public static float BarrierShare = 0.14f, BarrierSeconds = 15f, BarrierCooldown = 10f, AllyRange = 260f;
@@ -283,6 +283,8 @@ public static class Tune
         /// so on one creature the drain comes every DrainRetarget s, and among two or more it alternates
         /// between them every DrainCooldown s.
         /// </summary>
+        public static float WitherRadius = 58f, WitherShare = 0.9f, WitherOfHealth = 0.3f, WitherHealthCap = 40f;
+        public static int WitherChain = 3;
         public static float DrainDamage = 11f, DrainRange = 175f, DrainCooldown = 0.3125f, DrainRetarget = 0.625f, DrainConeDegrees = 38f, MoteSpeed = 640f;
         /// <summary>A cast with nothing to drain is spent, but recharges this much sooner.</summary>
         public static float DrainWhiffCooldown = 0.25f;
@@ -327,6 +329,9 @@ public static class Tune
         /// <summary>The wind-up before a recall: the Rogue holds perfectly still, animated, for these seconds before the daggers tear home.</summary>
         public static float RecallDelay = 0.4f;
         public static float StartHp = 55f, MoveMult = 1.1f, JumpMult = 1f;
+        /// <summary>A jab runs on through: after the creature it strikes, the next <c>JabThrough</c> in its line take <c>JabThroughShare</c> of it.</summary>
+        public static int JabThrough = 2;
+        public static float JabThroughShare = 0.7f, JabThroughReach = 34f;
         /// <summary>Ricochet's marks: a creature a ricocheting dagger strikes is marked for MarkSeconds; a recall then flings a poison
         /// pin at every marked creature within PinRange px (PinDamage, and PinPoison more over PinSeconds).</summary>
         public static float MarkSeconds = 10f, PinRange = 320f, PinDamage = 6f, PinPoison = 14f, PinSeconds = 4f;
@@ -866,7 +871,7 @@ public static class Tune
     {
         public static float StartHp = 70f, MoveMult = 1.0f, JumpMult = 1.0f;
         /// <summary>The staff: damage, reach (px: about the length of the staff ahead of the fist, 0.85 of a unit at 58 px a unit, as the sword's 68 is its blade's 1.16), seconds between swings.</summary>
-        public static float StaffDamage = 7f, StaffReach = 52f, StaffCooldown = 0.55f;
+        public static float StaffDamage = 11f, StaffReach = 58f, StaffCooldown = 0.5f;
         /// <summary>A form's damage (x the form's own multiplier), how far a Shift can reach, how fast a charge runs.</summary>
         public static float FormDamage = 15f, CopyRange = 110f, ChargeSpeed = 360f;
         /// <summary>A form driven generically (a creature with no driving of its own, Enemy.Driven.cs): its blow's base damage (x the form's
