@@ -112,6 +112,14 @@ public partial class Main
             !p.HasBuff(Player.BuffFury) && !p.HasBuff(Player.BuffHaste) && Math.Abs(p.Stats.DamageMult / dmg - 1f) < 0.01f && Math.Abs(p.Stats.MoveSpeed / speed - 1f) < 0.01f);
         // a minion drops less: its gold and food chances are cut
         ScCheck($"minions drop less (x{Tune.Hordes.MinionDropMult})", Tune.Hordes.MinionDropMult < 1f);
+        // the rampage: kills in quick succession are a streak, paid at ten with haste, and over once you let up
+        foreach (var _ in Wait(Tune.Hordes.RampageWindow + 0.3f)) yield return null;
+        p.TestClearBuffs();
+        for (int k = 0; k < 10; k++) p.OnKill();
+        ScCheck($"ten quick kills are a rampage (streak {p.Streak}, hasted {p.HasBuff(Player.BuffHaste)})", p.Streak == 10 && p.HasBuff(Player.BuffHaste));
+        foreach (var _ in Wait(Tune.Hordes.RampageWindow + 0.3f)) yield return null;
+        ScCheck($"it ends when the killing stops (streak {p.Streak}, best {p.BestStreak})", p.Streak == 0 && p.BestStreak >= 10);
+        p.TestClearBuffs();
     }
 }
 

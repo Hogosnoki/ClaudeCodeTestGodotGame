@@ -1477,6 +1477,8 @@ public static class Tune
         /// hitting softer than its kind, so the danger is the crowd and not any one of them. What each is worth (learning, drops, the
         /// health a kill gives back) is cut to match their number.</summary>
         public static float[] SpawnEvery = { 0f, 3.2f, 2.3f, 1.6f }, Cap = { 0f, 4f, 6f, 8f };
+        /// <summary>The rampage (Player.Rampage.cs): a kill within <c>RampageWindow</c> s of the last keeps the streak; its rewards last <c>RampageSeconds</c> s.</summary>
+        public static float RampageWindow = 3f, RampageSeconds = 5f;
         public static float MinionHp = 0.4f, MinionDamage = 0.7f, MinionXp = 0.4f, MinionDropMult = 0.25f, MinionSustain = 0.25f;
         public static float FoodChance = 0.6f, PowerChance = 0.35f, PowerRange = 260f, PowerSeconds = 10f, FuryDamage = 1.4f, HasteSpeed = 1.25f;
         /// <summary>Every hero's movement: <c>AirJumps</c> jumps in mid-air (a Double Jump adds one more), and sliding down walls

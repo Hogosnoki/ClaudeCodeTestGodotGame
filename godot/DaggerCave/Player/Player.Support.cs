@@ -64,6 +64,7 @@ public partial class Player
             if (G.Chance(dt * 6f)) G.Fx.Ring(GlobalPosition + new Vector2(0, -8), 18, new Color(1f, 0.55f, 0.3f, 0.6f), 0.4f, FxLayer.RingStyle.Ping);
         }
         TickBuffs(dt);
+        TickRampage(dt);
     }
 
     /// <summary>Test aids: press the support button once with it ready; let buffs and a taunt run out.</summary>

@@ -1227,6 +1227,7 @@ public partial class Player : CharacterBody2D
     public void OnKill(Enemy e = null)
     {
         Kills++;
+        RampageKill();
         _sustainScale = SustainOf(e);
         try { OnKillHere(e); }
         finally { _sustainScale = 1f; }
