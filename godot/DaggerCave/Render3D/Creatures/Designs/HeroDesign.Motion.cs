@@ -288,6 +288,19 @@ public sealed partial class HeroDesign
     /// the chin lifted and the weapon held where it can strike from. The breath lifts the chest and squares the shoulders,
     /// and the weight drifts slowly between the feet, so a hero standing still is never a statue.
     /// </summary>
+    /// <summary>Holds near its ends and moves quickly between: a sway that settles, not a pendulum.</summary>
+    private static float Ease3(float x) { x = Math.Clamp(x, -1f, 1f); return x * (1.5f - 0.5f * x * x); }
+
+    /// <summary>An event that comes round every <paramref name="every"/> s (first at <paramref name="at"/>), lasting
+    /// <paramref name="length"/> s: 0 outside it, rising smoothly to 1 at its middle and back.</summary>
+    private static float Pulse(float time, float every, float at, float length)
+    {
+        float u = Mathf.PosMod(time - at, every) / length;
+        if (u >= 1f) return 0f;
+        float k = MathF.Sin(u * MathF.PI);
+        return k * k;
+    }
+
     private Body Idle(float time)
     {
         float b = MathF.Sin(time * 1.7f), w = MathF.Sin(time * 0.53f + 0.8f);
@@ -342,18 +355,35 @@ public sealed partial class HeroDesign
         {
             // the Swordsman, after Marth: a fencer's poise, tall and side-on, chest proud and chin up, the sword held low and
             // forward with its point toward the floor ahead, the off hand drawn back by the hip, light on his feet
-            o.Lean = -1; o.HeadPitch = -7; o.Twist = 10;
-            o.SR = 26; o.AR = 16; o.ER = 26; o.WR = 46 - (o.SR + o.ER);
-            o.SL = -18; o.AL = 20; o.EL = 26; o.WL = 10;
-            right = 0.2f; left = -0.2f; hipH = 0.77f; o.HRx = 6; o.HLx = 8;
+            o.Lean = 3; o.HeadPitch = -8; o.Twist = 14;
+            o.SR = 30; o.AR = 18; o.ER = 34; o.WR = 52 - (o.SR + o.ER);
+            o.SL = -22; o.AL = 24; o.EL = 38; o.WL = 10;
+            right = 0.23f; left = -0.22f; hipH = 0.748f; o.HRx = 8; o.HLx = 10;
         }
-        // the breath: the chest lifts and the shoulders square on the in-breath; the weight drifts between the feet
-        o.Lean -= 1.4f * b * br; o.HeadPitch += 0.8f * b * br;
-        o.SR += 1.5f * b * br; o.SL -= 1.5f * b * br; o.AR += 1.2f * b * br; o.AL += 1.2f * b * br;
-        if (!_caster) o.WR -= 1.5f * b * br;
-        o.Root.X = 0.014f * w;
-        o.HipTwist = -o.Twist * 0.5f;
-        o.HeadYaw = -o.Twist * 0.5f;
+        // ---- alive while standing: four things on four clocks, so the loop never shows its seam
+        // the breath: the chest lifts and opens, the shoulders rise and square, the arms float out a little, the hips ride up
+        o.Lean -= 2.4f * b * br; o.HeadPitch += 1.3f * b * br;
+        o.SR += 2.2f * b * br; o.SL -= 2.2f * b * br; o.AR += 2.4f * b * br; o.AL += 2.4f * b * br;
+        o.ER -= 3f * b * br; o.EL -= 3f * b * br;
+        if (!_caster) o.WR -= 2.5f * b * br;
+        // the weight: it settles onto one foot, holds, and shifts to the other (the hips slide over that foot, drop a shade and
+        // tip; the shoulders tip back the other way to stay level, as a standing body does)
+        float shift = _automaton ? 0.35f : 1f;
+        float sway = Ease3(MathF.Sin(time * 0.62f) + 0.35f * MathF.Sin(time * 0.23f + 1.3f)) * shift;
+        o.Root.X = 0.03f * sway;
+        o.Bank -= 3.4f * sway;
+        hipH -= 0.008f * MathF.Abs(sway);
+        o.HipTwist = -o.Twist * 0.5f + 3f * sway;
+        // the eyes: mostly ahead; now and then a look off to one side, and back
+        float glance = Pulse(time, 5.3f, 1.5f, 0.9f) - Pulse(time, 8.9f, 5.1f, 1.2f);
+        o.HeadYaw = -o.Twist * 0.5f + 20f * glance * (_automaton ? 0.6f : 1f);
+        // the hands: every so often the weapon hand resettles its grip (the point dips and comes back up, the shoulder rolls),
+        // and a caster's free hand opens and closes on its power
+        float grip = Pulse(time, 7.4f, 3.2f, 1.1f);
+        float roll = MathF.Sin(grip * MathF.PI);
+        if (!_caster) { o.WR += 16f * roll * (_rogue ? 0.5f : 1f); o.SR += 5f * roll; o.ER += 7f * roll; o.AR += 3f * roll; }
+        else { o.WL += 16f * roll; o.EL += 9f * roll; o.SL += 4f * roll; }
+        if (_swordsman) { o.SL -= 6f * roll; o.EL += 10f * roll; }
         // (the Rogue never settles: a springy bounce on the balls of the feet, the knees pumping)
         if (_rogue)
         {
@@ -461,10 +491,12 @@ public sealed partial class HeroDesign
         var fall = new Body { Lean = 3, HeadPitch = -3, SR = 46, ER = 34, WR = 24, AR = 56, SL = 50, EL = 26, AL = 62, HR = 34, KR = 30, FR = 12, HL = -4, KL = 36, FL = 2, HRx = 10, HLx = 10 };
         if (_swordsman)
         {
-            // (after Marth: both knees drawn up neatly, the sword arm swept back with the blade trailing, the free hand leading)
-            rise = new Body { Lean = 6, HeadPitch = -8, SR = -30, ER = 14, WR = -20, AR = 22, SL = 62, EL = 34, AL = 20, HR = 72, KR = 112, FR = -20, HL = 44, KL = 98, FL = -30, HRx = 6, HLx = 6 };
-            apex = new Body { Lean = 10, HeadPitch = -6, SR = -24, ER = 16, WR = -18, AR = 28, SL = 56, EL = 40, AL = 28, HR = 70, KR = 108, FR = -14, HL = 52, KL = 100, FL = -24, HRx = 7, HLx = 7 };
-            fall = new Body { Lean = 2, HeadPitch = -4, SR = -22, ER = 12, WR = -16, AR = 36, SL = 46, EL = 24, AL = 40, HR = 26, KR = 22, FR = 10, HL = -6, KL = 30, FL = 0, HRx = 9, HLx = 9 };
+            // (a leap, not a seat: the lead knee driven up and the other leg trailing long behind, the sword arm swept back with the
+            // blade trailing and the free hand thrown up; gathered at the top; falling, the legs reach down one ahead of the other,
+            // the arms out wide and the eyes on the ground)
+rise = new Body { Lean = 9, HeadPitch = -10, SR = -34, ER = 16, WR = -22, AR = 22, SL = 96, EL = 30, AL = 18, HR = 84, KR = 108, FR = -18, HL = -22, KL = 32, FL = -44, HRx = 6, HLx = 5 };
+            apex = new Body { Lean = 12, HeadPitch = -4, SR = -40, ER = 22, WR = -26, AR = 34, SL = 70, EL = 44, AL = 36, HR = 66, KR = 98, FR = -12, HL = 16, KL = 72, FL = -30, HRx = 8, HLx = 8 };
+            fall = new Body { Lean = -2, HeadPitch = 6, SR = -18, ER = 26, WR = -30, AR = 48, SL = 58, EL = 30, AL = 52, HR = 30, KR = 26, FR = 14, HL = -10, KL = 38, FL = -4, HRx = 10, HLx = 10 };
         }
         Body o = vy > 0 ? Lerp(apex, rise, W3.SmoothStep(0.5f, 5f, vy)) : Lerp(apex, fall, W3.SmoothStep(-0.5f, -6f, vy));
         // (a long fall: the arms and legs work a little against it, not frozen)

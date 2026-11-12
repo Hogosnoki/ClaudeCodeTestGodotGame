@@ -1293,6 +1293,10 @@ Armoured creatures (golems, scorpions, shardlings and the colossi) take 40% less
 
 Heroes' legs are solved, not keyframed (`HeroDesign.Motion.cs`): each foot stays planted while it carries the body and swings through an arc to land ahead, so runs never skate; each hero has a style of stride, lean and arm carriage, and their own way of cutting or casting. Swings play the gameplay swing's own timers (wind-up, sweep, follow-through), blows land as the blade crosses the aim, and the sword's light trail is read off the blade's bone each frame. `--scenario=motion --shots=DIR` records cropped frames of runs and cuts; `--modelsheet=NAME --sheetclips=run:0.25,...` lays out poses (`run:PHASE` fixes the gait phase, `air:T` poses a jump from rising (0) through the apex (0.5) to falling fast (1)).
 
+**Standing is never a statue** (`HeroDesign.Motion.cs`, `Idle`). Four things run on four clocks, so the loop never shows its seam: the breath (the chest lifts and opens, the shoulders square, the arms float out, the hips ride up); the weight (it settles onto one foot, holds, and shifts to the other, the hips sliding over that foot and the shoulders tipping back the other way to stay level); the eyes (mostly ahead, now and then a look off to one side and back); and the hands (every few seconds the weapon hand resettles its grip, the point dipping and coming back up, and a caster's free hand opens and closes on its power). The Swordsman stands lower and readier than he did: knees bent, turned further side-on, the off hand up by the hip.
+
+**A leap, not a seat** (`Air`). The Swordsman used to draw both knees up level, which read as sitting in the air. Rising, his lead knee drives up and the other leg trails long behind with the toe pointed, the sword swept back and the free hand thrown up; at the top he gathers; falling, the legs reach down one ahead of the other, the arms spread wide and the eyes go to the ground.
+
 ### Heroic carriage
 
 Every hero moves like the main character: confident, committed, never stiff, but within what a body can really do.
