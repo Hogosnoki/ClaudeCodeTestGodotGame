@@ -1566,7 +1566,7 @@ damage a second (it runs out of goblins).
 |---|---|---|---|---|---|
 | Swordsman | 60 | 62/s | 302/s | 27 of 30 | 49% |
 | Warden | 110 | 49/s | 108/s | 25 of 30 | 59% |
-| Automaton | 270 | 49/s | 150/s | 23 of 30 | 11% |
+| Automaton | 300 | 49/s | 150/s | 23 of 30 | 11% |
 | Elementalist | 55 | 58/s | 156/s | 26 of 30 | 222% |
 | Rogue | 55 | 68/s | 89/s | 21 of 28 | 238% |
 | Aegis | 70 | 26/s | 42/s | 17 of 26 | 141% |
@@ -1574,9 +1574,10 @@ damage a second (it runs out of goblins).
 | Shape Shifter | 70 | 18/s | 37/s | 15 of 24 | 117% |
 
 What the first measurement changed: the three heroes whose own attack was far behind the rest got more of it (the Vitalist's
-drain 8 to 11 a pull, the Aegis's ward bolt 10.8 to 13, the Shape Shifter's staff 5 to 7), and the Automaton, who lost almost
-nothing, starts with 270 health, not 300. Still open: the Swordsman's sweep is worth far more than anyone's against a
-pack, and the Automaton still barely bleeds.
+drain 8 to 11 a pull, the Aegis's ward bolt 10.8 to 13, the Shape Shifter's staff 5 to 7). The Automaton's 300 health is
+by design and stays: he is not healed as the others are (he mends himself with only a share of the healing he is given, out of
+the same steam that drives his offence), so the health he starts with has to last. Read his low losses on the ruler with
+that in mind: it measures a short fight, and he is built for the long one.
 
 ## Test harness
 
@@ -2323,7 +2324,7 @@ a blank, faceless head, pistons on the forearms, a long-hafted cleaver held edge
   a secret wing) has him lying disabled in a heap at the far end of the wing, past the cracked wall, and a **power cell** hidden
   somewhere in the level (`Combat/PowerCell.cs`; whoever finds it finds it for the party). With the cell, interact at the heap to
   revive him: he gets up, and he's unlocked for everyone (`Main.PlaceAutomatonHeap`, `Meta.AutomatonWanted`).
-- **His make**: 270 health, 15% armour, 0.72x run speed, 0.72x jump height, and he takes only 45% of a blow's shove. His second
+- **His make**: 300 health, 15% armour, 0.72x run speed, 0.72x jump height, and he takes only 45% of a blow's shove. His second
   jump is a little steam hop from the joints (0.6x a jump).
 - **No lungs**: he never drowns, and the toxic air and the gas clouds do nothing to him. **Waterproof**: water, steam and acid do
   him no harm.

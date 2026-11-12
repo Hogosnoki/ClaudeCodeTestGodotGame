@@ -819,7 +819,7 @@ public static class Tune
     /// </summary>
     public static class AutomatonHero
     {
-        public static float StartHp = 270f, Armor = 0.15f, MoveMult = 0.72f, JumpMult = 0.72f;
+        public static float StartHp = 300f, Armor = 0.15f, MoveMult = 0.72f, JumpMult = 0.72f;
         /// <summary>How much of a blow's shove it takes (x).</summary>
         public static float KnockTaken = 0.45f;
         /// <summary>Its steam hop: a little air jump (x a full jump's speed), a puff from the joints.</summary>

@@ -88,6 +88,7 @@ public partial class Main
         RunMetrics.Reset();
         foreach (var _ in Run(T, () => { foreach (var g in pack) g.Pin(0.2f); Fresh(); })) yield return null;
         float crowd = RunMetrics.Mine.Dealt / T;
+        string by2 = string.Join(" ", RunMetrics.Mine.DealtBy.OrderByDescending(kv => kv.Value).Take(4).Select(kv => $"{kv.Key}:{kv.Value / T:0.0}"));
         Clear();
         foreach (var _ in Run(0.5f)) yield return null;
 
@@ -120,7 +121,7 @@ public partial class Main
         })) yield return null;
         lost += p.Stats.MaxHp - p.Hp;
         var m = RunMetrics.Mine;
-        GD.Print($"[balance] {G.Hero,-13} hp {maxHp,4:0}  one {single,5:0.0}/s  pack {crowd,6:0.0}/s  brawl: kills {m.Kills,2} of {sent}  dealt {m.Dealt / B,5:0.0}/s  took {m.Taken,4:0} soaked {m.MitigatedSelf,4:0}  net lost {lost,4:0} = {lost / maxHp * 100f,4:0}% of its health  low {low * 100f:0}%   [{by1}]");
+        GD.Print($"[balance] {G.Hero,-13} hp {maxHp,4:0}  one {single,5:0.0}/s  pack {crowd,6:0.0}/s  brawl: kills {m.Kills,2} of {sent}  dealt {m.Dealt / B,5:0.0}/s  took {m.Taken,4:0} soaked {m.MitigatedSelf,4:0}  net lost {lost,4:0} = {lost / maxHp * 100f,4:0}% of its health  low {low * 100f:0}%   [{by1}]  pack [{by2}]");
         p.InputOverride = null;
         Clear();
     }
