@@ -1297,6 +1297,8 @@ Heroes' legs are solved, not keyframed (`HeroDesign.Motion.cs`): each foot stays
 
 **A leap, not a seat** (`Air`). The Swordsman used to draw both knees up level, which read as sitting in the air. Rising, his lead knee drives up and the other leg trails long behind with the toe pointed, the sword swept back and the free hand thrown up; at the top he gathers; falling, the legs reach down one ahead of the other, the arms spread wide and the eyes go to the ground.
 
+**A face in a hood keeps its own colour** (`SculptMesher.cs`, `Hollow`). The mesher colours each vertex by the primitives nearest it, and a vertex sculpted inside a hollowed-out shape (a face in the opening carved from a hood) counted as deep inside the hood, so the hood painted the face its own colour: the Rogue's face was a plum smear. For colour, a primitive a vertex sits well inside now counts as being as far away as its surface is. Every hooded hero's face reads as skin. The Rogue's hood was rebuilt with it: a rolled hem round the opening, peaked over the brow, a point fallen back off the crown, folds over the crown and down the sides, a full-size face, and a mask that covers the nose.
+
 ### Heroic carriage
 
 Every hero moves like the main character: confident, committed, never stiff, but within what a body can really do.

@@ -312,7 +312,7 @@ public static class SculptMesher
                                 Field(q + new Vector3(0, 0, h)) - Field(q - new Vector3(0, 0, h)));
             body.N[k] = g.LengthSquared() > 1e-12f ? g.Normalized() : Vector3.Up;
             // blend weights: primitives within their blend width of the closest one
-            float dmin = float.MaxValue;
+            float dmin = float.MaxValue, dminCol = float.MaxValue;
             int nearest = -1;
             var nearMat = Mat.Skin;
             var near = Near(q);
@@ -321,7 +321,12 @@ public static class SculptMesher
             {
                 if (p.Subtract || !p.Bounds.HasPoint(q)) continue;
                 float dp = p.Dist(q);
-                if (dp < dmin) { dmin = dp; nearest = p.Bone; nearMat = p.Mat; crispNear = p.Crisp; }
+                if (dp < dmin) { dmin = dp; nearest = p.Bone; nearMat = p.Mat; }
+                // (for colour, a vertex deep inside a primitive is one a carve has exposed: the cut-away primitive is as far
+                // from it as its surface is, so what was sculpted in the hollow, a face in a hood, keeps its own colour and
+                // isn't painted by the hood it sits in)
+                float dc = Hollow(dp, Math.Max(0.5f * cell, p.Blend));
+                if (dc < dminCol) { dminCol = dc; crispNear = p.Crisp; }
             }
             Array.Clear(boneW);
             Array.Clear(kw);
@@ -337,7 +342,9 @@ public static class SculptMesher
                 float w = MathF.Exp(-d / (Math.Max(p.Blend, cell) * 0.6f));
                 // (a crisp primitive's colour and material stop hard at its edge, both ways: it neither bleeds out nor takes on its
                 // neighbours'; the bones still share the vertex smoothly, so it bends as before)
-                float wc = p.Crisp || crispNear ? MathF.Exp(-d / (cell * 0.35f)) : w;
+                float dRaw = d + dmin;
+                float dCol = Hollow(dRaw, Math.Max(0.5f * cell, p.Blend)) - dminCol;
+                float wc = p.Crisp || crispNear ? MathF.Exp(-dCol / (cell * 0.35f)) : MathF.Exp(-dCol / (Math.Max(p.Blend, cell) * 0.6f));
                 if (w < 0.01f) continue;
                 wsum += w;
                 boneW[p.Bone] += w;
@@ -454,5 +461,14 @@ public static class SculptMesher
         float s = bw[0] + bw[1] + bw[2] + bw[3];
         if (s <= 0) { bw[0] = 1; s = 1; }
         for (int j = 0; j < 4; j++) { bones.Add(bi[j]); weights.Add(bw[j] / s); }
+    }
+    /// <summary>A primitive's distance from a vertex, for colour: outside or at its surface, as it is; well inside (only a carve
+    /// exposes such a vertex), as far as its surface is, easing from the one to the other over <paramref name="over"/>.</summary>
+    private static float Hollow(float d, float over)
+    {
+        if (d >= 0f) return d;
+        float k = Math.Clamp(-d / over, 0f, 1f);
+        k = k * k * (3f - 2f * k);
+        return d + (-2f * d) * k;
     }
 }

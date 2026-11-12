@@ -290,19 +290,42 @@ public sealed partial class HeroDesign : CreatureDesign
             // a close hood, and a dark bandana tied over his face to just under the eyes: it hides the nose, mouth and jaw, its top hem
             // pulled taut across the bridge of the nose from cheek to cheek; above it, intent brows, red eyes, and a lock of pale hair
             // fallen from the hood across one eye
-            s.Egg(headB, new(0.004f, 0.738f, 0), new(0.126f, 0.14f, 0.116f), cloak, Mat.Cloth, 0.02f);
-            s.Limb(headB, new(-0.07f, 0.75f, 0), new(-0.11f, 0.55f, 0), 0.082f, 0.1f, cloak, Mat.Cloth, 0.04f);
-            s.CarveBall(headB, new(0.16f, 0.705f, 0), 0.098f, 0.02f);
+            s.Egg(headB, new(0.0f, 0.742f, 0), new(0.126f, 0.142f, 0.122f), cloak, Mat.Cloth, 0.014f, bump: 0.0014f);
+            s.Limb(headB, new(-0.07f, 0.75f, 0), new(-0.11f, 0.55f, 0), 0.082f, 0.1f, cloak, Mat.Cloth, 0.04f, 0.0014f);
+            // the hood's point, fallen back off the crown, and the cloth drawn over each ear
+            s.Limb(headB, new(-0.05f, 0.862f, 0), new(-0.17f, 0.8f, 0), 0.05f, 0.012f, cloak, Mat.Cloth, 0.03f, 0.0014f);
+            for (int k = 0; k < 2; k++) s.Egg(headB, new(-0.012f, 0.728f, (k == 0 ? 1 : -1) * 0.086f), new(0.072f, 0.094f, 0.042f), cloak, Mat.Cloth, 0.02f, bump: 0.0014f);
+            s.CarveBall(headB, new(0.17f, 0.712f, 0), 0.112f, 0.008f);
+            // the hood's edge: a rolled hem round the opening, peaked forward over the brow and falling back under the jaw, and
+            // folds running back from it over the crown and down each side
+            {
+                var hoodEdge = cloak.Lightened(0.16f);
+                var hoodFold = cloak.Darkened(0.22f);
+                const int n = 16;
+                Vector3 Rim(int i)
+                {
+                    float a = i * Mathf.Tau / n, up = MathF.Cos(a), side = MathF.Sin(a);
+                    return new Vector3(0.072f + 0.034f * Math.Max(0f, up) - 0.02f * Math.Max(0f, -up) - 0.03f * side * side, 0.728f + 0.106f * up, 0.094f * side);
+                }
+                for (int i = 0; i < n; i++) s.Limb(headB, Rim(i), Rim(i + 1), 0.0115f, 0.0115f, hoodEdge, Mat.Cloth, 0.006f, 0.001f).Crisp = true;
+                for (int k = 0; k < 2; k++)
+                {
+                    float z = k == 0 ? 1 : -1;
+                    s.Limb(headB, new(0.05f, 0.845f, 0.05f * z), new(-0.09f, 0.82f, 0.06f * z), 0.006f, 0.011f, hoodFold, Mat.Cloth, 0.012f);
+                    s.Limb(headB, new(0.02f, 0.8f, 0.098f * z), new(-0.1f, 0.7f, 0.088f * z), 0.006f, 0.012f, hoodFold, Mat.Cloth, 0.012f);
+                    s.Limb(headB, new(0.0f, 0.7f, 0.112f * z), new(-0.09f, 0.6f, 0.1f * z), 0.006f, 0.012f, hoodFold, Mat.Cloth, 0.012f);
+                }
+            }
             var f = BaseFace(C(0.66f, 0.5f, 0.42f));
-            f.Scale = 0.93f; f.Wide = 0.95f; f.Jaw = 0.5f; f.Chin = 0.9f; f.Cheek = 1.18f; f.CheekY = 0.003f; f.Ridge = 0.9f;
+            f.Scale = 1f; f.Wide = 0.97f; f.Jaw = 0.5f; f.Chin = 0.9f; f.Cheek = 1.18f; f.CheekY = 0.003f; f.Ridge = 0.9f;
             f.BrowTilt = -0.55f; f.BrowThick = 0.85f; f.Hair = C(0.62f, 0.52f, 0.32f); f.Iris = C(0.6f, 0.07f, 0.1f); f.EyeGlow = 0.3f;
             SculptFace(s, headB, f);
             var band = C(0.1f, 0.085f, 0.11f);
             var hem = band.Darkened(0.35f);
             // (crisp, closely blended: cloth with a clean edge, not a smudge)
-            s.Egg(headB, new(0.056f, 0.654f, 0), new(0.09f, 0.064f, 0.092f), band, Mat.Cloth, 0.006f).Crisp = true;
-            s.Egg(headB, new(0.072f, 0.69f, 0), new(0.062f, 0.022f, 0.074f), band, Mat.Cloth, 0.005f).Crisp = true;
-            s.Limb(headB, FaceAt(f, 0.11f, 0.746f, 0), FaceAt(f, 0.129f, 0.714f, 0), 0.0118f, 0.0134f, band, Mat.Cloth, 0.005f).Crisp = true;
+            s.Egg(headB, new(0.06f, 0.654f, 0), new(0.1f, 0.066f, 0.096f), band, Mat.Cloth, 0.006f).Crisp = true;
+            s.Egg(headB, new(0.078f, 0.692f, 0), new(0.068f, 0.026f, 0.078f), band, Mat.Cloth, 0.005f).Crisp = true;
+            s.Limb(headB, FaceAt(f, 0.11f, 0.746f, 0), FaceAt(f, 0.129f, 0.714f, 0), 0.017f, 0.02f, band, Mat.Cloth, 0.005f).Crisp = true;
             s.Egg(neckB, new(0.03f, 0.622f, 0), new(0.08f, 0.052f, 0.092f), band, Mat.Cloth, 0.008f).Crisp = true;
             // the hem: across the bridge of the nose and back along each cheek under the eye to the hood
             for (int k = 0; k < 2; k++)
