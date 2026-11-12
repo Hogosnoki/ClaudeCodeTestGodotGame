@@ -38,6 +38,7 @@ public static class CaveShapes
         name = pool[h % (uint)pool.Length];
         if (name == "") return b;
         var c = b.Copy();
+        c.ShapeName = name;
         bool walk = b.Style == GenStyle.Walkers;
         switch (name)
         {

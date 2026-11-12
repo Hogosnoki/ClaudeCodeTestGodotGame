@@ -189,6 +189,7 @@ public static partial class CaveGenerator
         foreach (var st in f.Stamps) cave.DebugStamps.Add((new Vector2(st.X, st.Y), st.Kind));
         RemoveSpecks(cave);
         late?.Invoke();
+        CarveLandmarks(cave);
         if (platforms) AddPlatforms(cave, rng);
         ValidateAndRepair(cave, startCell);
         BuildSpawns(cave, spawnStamps, new Vector2(startCell.X, startCell.Y), rng, spawnStride);

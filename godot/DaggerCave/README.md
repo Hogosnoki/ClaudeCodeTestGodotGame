@@ -1853,7 +1853,21 @@ Every level of a biome used to be generated from the same tunnel width, branchin
 | The Dry Hollows | the water lies low and most of the cave is walked (water biomes) |
 | The Honeycomb | many small chambers close together at every height (chambered biomes) |
 
-The shape is a pure function of the biome and the seed, so every player of an online game makes the same cave, and the cave is checked and repaired by the same reachability tests as before. Tests keep the plain shapes (their arenas were written for them) unless run with `--shapes`. `--gentest --shapes` across all biomes, ten seeds each: 206 of 210 caves whose guardian a hero can reach against 208 without shapes, before the three combinations that did the damage were softened or removed (tall chambered caves, a too-busy Warren, too-low galleries); after that, the eight affected biomes came out level with the plain generator (77 of 80 against 78, and 75 of 80 sound vaults against 75).
+The shape is a pure function of the biome and the seed, so every player of an online game makes the same cave, and the cave is checked and repaired by the same reachability tests as before. Tests keep the plain shapes (their arenas were written for them) unless run with `--shapes`. The Deeps is not used in chambered biomes, and the Warren and Long Galleries are milder than first tried: those three hurt generation. What a shape may still cost is caught by the soundness check below.
+
+## Landmarks: how you get about a level differs too
+
+A shape changes a cave's outline; a landmark changes how you move through it (`Cave/Landmarks.cs`). One or two great structures are cut through the finished cave, after it is carved and before the ledges are laid and the reach is checked, so the checks and repairs that keep every cave sound keep these sound. Rooms that matter (the start, the guardian's, the lairs, treasure rooms, the high caverns) are left as built, and nothing is cut below the waterline. The landmark's name shows on the HUD after the shape's.
+
+| Landmark | What it is | What it does to the level |
+|---|---|---|
+| The Great Shaft | a tall well down through several floors (plumb in built places, wandering in caves) | the ledge pass strings footholds up it: a climb for the patient, a quick drop for the bold, and floors that were a long walk apart are joined |
+| The Grand Hall | one very large, level-floored chamber where tunnels meet (domed in caves, square in built places) | room to fight a horde; whatever ran above now opens into its roof |
+| The Causeway | a long, straight, level road across the cave where it lies widest | a fast way across that joins tunnels which never met: the level gets loops and a spine |
+
+The built biomes (ruins, crypts, the mine, the works), which have no shapes, draw from the seed: none, a shaft, a hall, a causeway, or a shaft and a causeway. In the wandering-tunnel and chambered biomes the landmark follows the shape: the Deeps and the Honeycomb get a shaft, the Long Galleries a causeway, the Great Halls a hall, the Dry Hollows a causeway and a shaft.
+
+**A shape or a landmark never costs a level its soundness.** The game hands the generator its own test of a finished cave (`CaveGenerator.SoundCheck`: no traps, the guardian within a real hero's reach, the vault whole). A shaped or landmarked cave that fails it is given up and the cave is made again as it always was. `--gentest --shapes`, ten seeds of every biome: 149 caves shaped or landmarked, 25 of them given up; 209 of 210 with a reachable guardian (208 with shapes off), 203 trap-free (194), 199 of 200 sound vaults (195).
 
 ## Can the guardian be reached? (generation)
 

@@ -152,6 +152,8 @@ public sealed class BiomeDef
 
     /// <summary>A copy to bend toward a cave shape (<see cref="CaveShapes"/>): the biome itself stays as it was written.</summary>
     public BiomeDef Copy() => (BiomeDef)MemberwiseClone();
+    /// <summary>The cave shape this copy was bent toward ("" for the biome as written).</summary>
+    public string ShapeName = "";
 
     /// <summary>The merchant's stall in this biome: the same palette and dressing, but a tiny map of two chambers, nothing living in it, nothing hidden, and the way on open.</summary>
     public BiomeDef ForShop()

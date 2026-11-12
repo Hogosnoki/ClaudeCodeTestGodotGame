@@ -89,6 +89,8 @@ public sealed class CaveData
     public BiomeDef Biome;
     /// <summary>This level's shape (<see cref="CaveShapes"/>): "" for the biome's plain one.</summary>
     public string Shape = "";
+    /// <summary>The great structures cut through this level (Landmarks.cs), for the HUD: "the Great Shaft and the Causeway".</summary>
+    public string Landmark = "";
     /// <summary>Breakable ice ledges (frozen caverns): centre x, top y (cells), half width.</summary>
     public readonly List<Vector3> IceLedges = new();
     /// <summary>

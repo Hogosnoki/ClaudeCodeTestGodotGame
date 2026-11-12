@@ -287,6 +287,7 @@ public partial class Hud : Control
 
         // --- Depth / biome / kills ---
         string shapeName = string.IsNullOrEmpty(G.Cave?.Shape) ? "" : $"  ·  {G.Cave.Shape.ToUpperInvariant()}";
+        if (!string.IsNullOrEmpty(G.Cave?.Landmark)) shapeName += $"  ·  {G.Cave.Landmark.ToUpperInvariant()}";
         string where = $"DEPTH {G.Depth}  ·  {G.Biome?.Name.ToUpperInvariant() ?? ""}{shapeName}  ·  {p.Kills} kills";
         var wsz = font.GetStringSize(where, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - wsz.X / 2, 22), where, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));

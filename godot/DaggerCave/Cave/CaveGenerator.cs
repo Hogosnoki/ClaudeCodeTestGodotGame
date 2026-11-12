@@ -71,10 +71,34 @@ public static partial class CaveGenerator
     }
     internal static void Timed(string what, Action f) => Timed<int>(what, () => { f(); return 0; });
 
+    /// <summary>Set by the game: whether a finished cave (its ledges back in the rock) is sound: its guardian within a real hero's
+    /// reach, no traps, its vault whole. A shaped cave that fails it is made again plain.</summary>
+    public static Func<CaveData, bool> SoundCheck;
+    /// <summary>For the tests: shaped caves made, and how many of them were given up for the plain cave.</summary>
+    public static int Shaped, ShapedGivenUp;
+
     public static CaveData Generate(BiomeDef biome, int seed)
     {
         // (each level's own shape: the biome's numbers bent toward it, from the seed)
-        biome = CaveShapes.Shape(biome, seed, out string shape);
+        var shaped = CaveShapes.Shape(biome, seed, out string shape);
+        bool landmarks = CaveShapes.On && biome.Style is GenStyle.Ruins or GenStyle.Crypt or GenStyle.Mine or GenStyle.Works;
+        if (shape == "" && !landmarks) return GenerateCore(biome, seed, "");
+        var c = GenerateCore(shaped, seed, shape);
+        System.Threading.Interlocked.Increment(ref Shaped);
+        if (SoundCheck == null) return c;
+        // (a shape or a landmark must never cost a level its soundness: one that does is given up for the cave as it always was)
+        PutLedgesBack(c);
+        bool ok = SoundCheck(c);
+        if (!KeepLedges) LiftLedges(c);
+        if (ok) return c;
+        System.Threading.Interlocked.Increment(ref ShapedGivenUp);
+        bool was = CaveShapes.On;
+        try { CaveShapes.On = false; return GenerateCore(biome, seed, ""); }
+        finally { CaveShapes.On = was; }
+    }
+
+    private static CaveData GenerateCore(BiomeDef biome, int seed, string shape)
+    {
         // (the dragon's lair is a set piece: an antechamber and one arena, as drawn)
         int w = biome.Style == GenStyle.Arena ? biome.W : (int)MathF.Round(biome.W * Tune.Cave.WidthScale);
         int h = biome.Style is GenStyle.Walkers or GenStyle.Rooms or GenStyle.LavaTube ? (int)MathF.Round(biome.H * Tune.Cave.HeightScale) : biome.H;
@@ -656,6 +680,7 @@ public static partial class CaveGenerator
                 }
             }
         }
+        Timed("landmarks", () => CarveLandmarks(cave));
         Timed("platforms", () => AddPlatforms(cave, rng));
 
         // hidden chimneys up out of the tunnels' roofs (after the ledges, so none of them gets a stair up it)
