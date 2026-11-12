@@ -783,14 +783,21 @@ public static partial class CaveGenerator
                 // the aeries, one each side (if the rock there holds one)
                 foreach (int side in rng.Next(2) == 0 ? new[] { -1, 1 } : new[] { 1, -1 })
                 {
-                    float row = floorY - ry * Rnd(0.5f, 0.75f);
-                    int j = (int)row, i = (int)cx;
-                    if (!cave.CellOpen(i, j)) continue;
-                    while (i > 4 && i < W - 4 && cave.CellOpen(i + side, j)) i += side;
-                    float wallX = i + side;
-                    float pcx = wallX + side * 4.5f;
-                    if (pcx < 10 || pcx > W - 10 || row < 10) continue;
-                    if (!ShellFree(pcx, row - 1.6f, 4.2f, 2.6f, 2.2f, hc, hc.Y)) { AeriesSkipped++; continue; }
+                    // (where its walls would shut a tunnel, another height on that wall is tried, a few times, before it is given up)
+                    float row = 0, wallX = 0, pcx = 0;
+                    bool found = false;
+                    for (int attempt = 0; attempt < 5 && !found; attempt++)
+                    {
+                        row = floorY - ry * (attempt == 0 ? Rnd(0.5f, 0.75f) : Rnd(0.3f, 0.9f));
+                        int j = (int)row, i = (int)cx;
+                        if (!cave.CellOpen(i, j)) continue;
+                        while (i > 4 && i < W - 4 && cave.CellOpen(i + side, j)) i += side;
+                        wallX = i + side;
+                        pcx = wallX + side * 4.5f;
+                        if (pcx < 10 || pcx > W - 10 || row < 10) continue;
+                        found = ShellFree(pcx, row - 1.6f, 4.2f, 2.6f, 2.2f, hc, hc.Y);
+                    }
+                    if (!found) { AeriesSkipped++; continue; }
                     AeriesBuilt++;
                     // (a shell of rock round the pocket, its floor solid under it)
                     Shell(pcx, row - 1.6f, 4.2f, 2.6f, 2.2f);
@@ -808,11 +815,19 @@ public static partial class CaveGenerator
                 // the crown: the highest open cell over the hall's middle, then a crack up out of it to a grotto
                 int top = (int)(floorY - 2);
                 while (top > 4 && cave.CellOpen((int)cx, top - 1)) top--;
-                float gx = cx + Rnd(-6, 6), gFloor = top - 5f;
-                if (gFloor - 8 < 5 || gx < 14 || gx > W - 14) continue;
-                float hole = gx - 3f;
-                if (!ShellFree(gx, gFloor - 2.3f, 8f, 2.6f, 2.5f, hc, top)
-                    || !ShellFree(Mathf.Lerp(cx, hole, 0.5f), (top + gFloor) * 0.5f, Math.Abs(cx - hole) * 0.5f + 1.5f, (top - gFloor) * 0.5f + 0.5f, 1.8f, hc, top)) { AeriesSkipped++; continue; }
+                float gx = 0, gFloor = top - 5f, hole = 0;
+                bool room = false;
+                for (int attempt = 0; attempt < 6 && !room; attempt++)
+                {
+                    // (first where it always went; then further to either side, and a little higher)
+                    gx = cx + (attempt == 0 ? Rnd(-6, 6) : Rnd(-14, 14));
+                    gFloor = top - 5f - (attempt >= 3 ? Rnd(0, 3) : 0f);
+                    if (gFloor - 8 < 5 || gx < 14 || gx > W - 14) continue;
+                    hole = gx - 3f;
+                    room = ShellFree(gx, gFloor - 2.3f, 8f, 2.6f, 2.5f, hc, top)
+                        && ShellFree(Mathf.Lerp(cx, hole, 0.5f), (top + gFloor) * 0.5f, Math.Abs(cx - hole) * 0.5f + 1.5f, (top - gFloor) * 0.5f + 0.5f, 1.8f, hc, top);
+                }
+                if (!room) { AeriesSkipped++; continue; }
                 AeriesBuilt++;
                 // (closed in rock all round, but for the crack up into it)
                 Shell(gx, gFloor - 2.3f, 8f, 2.6f, 2.5f);
@@ -1791,6 +1806,8 @@ public static partial class CaveGenerator
         const int Few = 12;
         if (without - with <= Few || !fix) return Math.Max(0, without - with);
         // which ledges are doing it: each tried alone
+        ValidateTraversal(cave, startCell);
+        int trapsStanding = cave.TrapCells;
         int now_ = with;
         for (int k = whole.Count - 1; k >= 0; k--)
         {
@@ -1798,14 +1815,22 @@ public static partial class CaveGenerator
             var l = whole[k];
             Lift(l);
             int n = Flood();
-            if (n - now_ > Few)
+            bool free = n - now_ > Few;
+            if (free)
             {
+                // (but not a step a pit needs: if taking it out leaves more of the cave a trap, it stays)
+                ValidateTraversal(cave, startCell);
+                if (cave.TrapCells > trapsStanding + 6) free = false;
+            }
+            if (!free) Stand(l);
+            else
+            {
+                trapsStanding = cave.TrapCells;
                 cave.Ledges.Remove(l); whole.RemoveAt(k); now_ = n; System.Threading.Interlocked.Increment(ref ChokesFreed);
                 // (what it shared with a ledge still standing stays that ledge's rock)
                 foreach (var (idx, old, _) in l.Cells) held[idx] = old;
                 foreach (var o in whole) foreach (var (idx, _, now) in o.Cells) if (held.TryGetValue(idx, out var hv) && now < hv) { held[idx] = now; cave.Open[idx] = Math.Min(cave.Open[idx], now); }
             }
-            else Stand(l);
             if (without - now_ <= Few) break;
         }
         return Math.Max(0, without - now_);

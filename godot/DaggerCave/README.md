@@ -1878,6 +1878,10 @@ Two things were closing ways that should be open, one in the generator and one t
 
 `--gentest`, ten seeds of every biome (210 caves): before the fix the audit found 71 caves with sound ground shut by a ledge (3,946 cells); after, 51 (2,221 cells), with the same number of trap-free caves (194) and one more reachable guardian (209). With shapes and landmarks on as well: 210 of 210 reachable guardians, 206 trap-free, 199 of 200 sound vaults. `CHOKE_OFF=1` leaves choking ledges in, to count what the audit finds. The 51 that remain are small (about 43 cells each) and are mostly steps the strict check put back because the way to the guardian needs them.
 
+Two follow-ups, measured the same way:
+- **The stair repair that stamps a step without measuring the passage was rewritten three ways and put back as it was.** Measured steps (a shelf on one wall with room to pass; none in a shaft too narrow; or the shaft opened out first) halved the caves with shut ground (to 26 to 29) but left far more of them with a pit nobody can climb out of (152 to 170 trap-free, against 194), and a pit is the worse fault. The audit is what guards against its steps now, and it keeps any step whose removal would leave more of the cave a trap.
+- **A hidden chamber whose walls would shut a tunnel is tried elsewhere before it is given up**: an aerie at up to five heights on its wall, a grotto at up to six places over the crown. That brought the share built from about 40% to about 44%: the rock over a high cavern is mostly old tunnels, and there is often nowhere sound to put one.
+
 ## Can the guardian be reached? (generation)
 
 After carving, a cave is checked twice. The first check works in 16 px cells and is kind to narrow
