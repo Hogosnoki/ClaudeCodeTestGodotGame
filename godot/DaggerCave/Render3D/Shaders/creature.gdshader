@@ -10,6 +10,10 @@ uniform vec3 glow_color : source_color = vec3(1.0, 0.5, 0.15);
 uniform float glow_energy = 3.0;
 uniform vec3 rim_color : source_color = vec3(0.55, 0.65, 0.85);
 uniform float rim_energy = 0.35;
+// standing out from the cave: an edge light in the side's colour (warm for what hunts you, cool for heroes) that reads as a lit
+// outline at the size creatures are on screen, and the body's own colours lifted and made a little richer than the rock's
+uniform vec3 standout_color : source_color = vec3(1.0, 0.45, 0.22);
+uniform float standout = 0.0;
 uniform float detail_scale = 22.0;
 uniform float detail_strength = 0.5;
 uniform float veins = 0.0;
@@ -235,6 +239,10 @@ void fragment() {
 	emit += eye_color * eye_energy * glow * (0.85 + 0.15 * sin(TIME * 2.0)) * eye_w;
 	emit += glow_color * glow_energy * glow * glow_boost * (1.0 - eye_w);
 	emit += rim_color * rim_energy * fres * (1.0 - v_mat.x * 0.6) * mix(1.0, 0.55, matte);
+	{
+		float edge = pow(1.0 - ndv, 2.6);
+		emit += standout_color * standout * edge * 0.95;
+	}
 	emit += burn_color * burn * 8.0;
 	// the hit flash is a quick pop, not a white-out: the frozen pose must stay readable
 	emit += flash_color.rgb * flash * 0.8;
@@ -244,6 +252,11 @@ void fragment() {
 	// subsurface scattering is far too blurry at this scale, so only backlight is used)
 	// (a flatter palette: each colour drawn a little toward its band)
 	// (stepped in brightness only: the hue stays its own, however few the tones)
+	{
+		float lum = dot(alb, vec3(0.299, 0.587, 0.114));
+		vec3 rich = clamp(mix(vec3(lum), alb, 1.0 + 0.4 * standout) * (1.0 + 0.2 * standout) + 0.02 * standout, 0.0, 1.0);
+		alb = rich;
+	}
 	alb = cel_tone(alb);
 	alb = dbg_adjust(alb, dbg_obj_bright, dbg_obj_contrast, body_avg, dbg_obj_rgb());
 	ALBEDO = mix(alb, flash_color.rgb, flash * 0.65);

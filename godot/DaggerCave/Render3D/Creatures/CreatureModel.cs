@@ -182,6 +182,9 @@ public static class CreatureLibrary
         mat.SetShaderParameter("glow_energy", look.GlowEnergy);
         mat.SetShaderParameter("rim_color", look.Rim);
         mat.SetShaderParameter("rim_energy", look.RimEnergy);
+        // (standing out from the cave: heroes edged in cool light, everything else in warm)
+        mat.SetShaderParameter("standout", Tune.Feel.Standout);
+        mat.SetShaderParameter("standout_color", design is HeroDesign ? new Color(0.6f, 0.82f, 1f) : new Color(1f, 0.4f, 0.18f));
         mat.SetShaderParameter("detail_scale", look.DetailScale);
         mat.SetShaderParameter("detail_strength", look.DetailStrength);
         mat.SetShaderParameter("veins", look.Veins);

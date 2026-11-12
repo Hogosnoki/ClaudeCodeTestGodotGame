@@ -520,6 +520,8 @@ public static class Tune
         /// <summary>Camera nudge (pixels) in the direction of a blow.</summary>
         public static float KickNormal = 2.5f, KickKill = 4f, KickFinisher = 6f, KickPlayerHurt = 6f;
         public static float ShakeFinisher = 5f, ShakeKill = 3f;
+        /// <summary>How strongly creatures are made to stand out from the cave (creature.gdshader): 0 none, 1 the full edge light and lift.</summary>
+        public static float Standout = 1f;
         public static float CameraZoom = 2.502f, CameraFollowSharpness = 7f;
         /// <summary>The 3D camera: vertical field of view (degrees; its distance follows from
         /// CameraZoom so it frames the same stretch of the play plane), how far above the action
