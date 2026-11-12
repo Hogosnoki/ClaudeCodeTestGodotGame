@@ -87,6 +87,8 @@ public sealed class CaveData
     public bool IsToxic(Vector2 p) => ToxicY < WaterY && p.Y >= ToxicY && p.Y < WaterY && !IsSolid(p);
     public Liquid Liquid = Liquid.Water;
     public BiomeDef Biome;
+    /// <summary>This level's shape (<see cref="CaveShapes"/>): "" for the biome's plain one.</summary>
+    public string Shape = "";
     /// <summary>Breakable ice ledges (frozen caverns): centre x, top y (cells), half width.</summary>
     public readonly List<Vector3> IceLedges = new();
     /// <summary>

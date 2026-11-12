@@ -73,6 +73,8 @@ public static partial class CaveGenerator
 
     public static CaveData Generate(BiomeDef biome, int seed)
     {
+        // (each level's own shape: the biome's numbers bent toward it, from the seed)
+        biome = CaveShapes.Shape(biome, seed, out string shape);
         // (the dragon's lair is a set piece: an antechamber and one arena, as drawn)
         int w = biome.Style == GenStyle.Arena ? biome.W : (int)MathF.Round(biome.W * Tune.Cave.WidthScale);
         int h = biome.Style is GenStyle.Walkers or GenStyle.Rooms or GenStyle.LavaTube ? (int)MathF.Round(biome.H * Tune.Cave.HeightScale) : biome.H;
@@ -100,6 +102,7 @@ public static partial class CaveGenerator
                 _ => GenerateOnce(s),
             });
             c.Attempts = attempt + 1;
+            c.Shape = shape;
             if (biome.ToxicAir > 0f && c.Liquid == Liquid.Water) c.ToxicY = c.WaterY - biome.ToxicAir * CaveData.Cell;
             return c;
         }

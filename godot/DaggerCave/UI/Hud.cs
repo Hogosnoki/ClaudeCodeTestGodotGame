@@ -286,7 +286,8 @@ public partial class Hud : Control
         }
 
         // --- Depth / biome / kills ---
-        string where = $"DEPTH {G.Depth}  ·  {G.Biome?.Name.ToUpperInvariant() ?? ""}  ·  {p.Kills} kills";
+        string shapeName = string.IsNullOrEmpty(G.Cave?.Shape) ? "" : $"  ·  {G.Cave.Shape.ToUpperInvariant()}";
+        string where = $"DEPTH {G.Depth}  ·  {G.Biome?.Name.ToUpperInvariant() ?? ""}{shapeName}  ·  {p.Kills} kills";
         var wsz = font.GetStringSize(where, HorizontalAlignment.Left, -1, 14);
         DrawString(font, new Vector2(vs.X / 2 - wsz.X / 2, 22), where, HorizontalAlignment.Left, -1, 14, new Color(1, 1, 1, 0.75f));
         // (the cave's seed, small, so a problem can be reported with it: Report a problem in the pause menu, or F6)

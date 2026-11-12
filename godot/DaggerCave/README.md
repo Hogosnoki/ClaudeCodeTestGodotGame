@@ -1839,6 +1839,22 @@ reachability checks run on flat arrays with reused buffers, the several attempts
 by side on the machine's cores (judged in order, so the result is the same as one at a time) and stragglers are
 told to stop as soon as an earlier attempt has made a sound cave.
 
+## Cave shapes: no two levels of a biome cut from the same numbers
+
+Every level of a biome used to be generated from the same tunnel width, branching, map size and share of water, so levels felt alike however the seed fell. Each level of the wandering-tunnel and chambered biomes now draws a shape from its seed (`Cave/CaveShapes.cs`), and the generator's numbers are bent toward it before it carves. About one level in five to seven keeps the biome's plain shape. The shape's name shows beside the biome's on the HUD.
+
+| Shape | What changes |
+|---|---|
+| The Warren | narrower tunnels that fork more often; smaller chambers; rougher walls |
+| The Great Halls | few, broad passages and bigger chambers, more stalactites |
+| The Long Galleries | a wider, lower map; long level runs that seldom climb |
+| The Deeps | a narrower, taller map; the way winds down (wandering-tunnel biomes only) |
+| The Flooded Reaches | the water stands much higher (water biomes) |
+| The Dry Hollows | the water lies low and most of the cave is walked (water biomes) |
+| The Honeycomb | many small chambers close together at every height (chambered biomes) |
+
+The shape is a pure function of the biome and the seed, so every player of an online game makes the same cave, and the cave is checked and repaired by the same reachability tests as before. Tests keep the plain shapes (their arenas were written for them) unless run with `--shapes`. `--gentest --shapes` across all biomes, ten seeds each: 206 of 210 caves whose guardian a hero can reach against 208 without shapes, before the three combinations that did the damage were softened or removed (tall chambered caves, a too-busy Warren, too-low galleries); after that, the eight affected biomes came out level with the plain generator (77 of 80 against 78, and 75 of 80 sound vaults against 75).
+
 ## Can the guardian be reached? (generation)
 
 After carving, a cave is checked twice. The first check works in 16 px cells and is kind to narrow

@@ -150,6 +150,9 @@ public sealed class BiomeDef
     public bool Waves = true;
     public int Critters = 60;
 
+    /// <summary>A copy to bend toward a cave shape (<see cref="CaveShapes"/>): the biome itself stays as it was written.</summary>
+    public BiomeDef Copy() => (BiomeDef)MemberwiseClone();
+
     /// <summary>The merchant's stall in this biome: the same palette and dressing, but a tiny map of two chambers, nothing living in it, nothing hidden, and the way on open.</summary>
     public BiomeDef ForShop()
     {
