@@ -28,6 +28,8 @@ public static partial class CaveGenerator
         var rng = new Random(unchecked(cave.Seed * 31 + 977));
         bool built = B.Style is GenStyle.Ruins or GenStyle.Crypt or GenStyle.Mine or GenStyle.Works;
         var want = new List<string>();
+        // (a level with a plan of its own, a mine round its pit, needs no more cut through it)
+        if (cave.Landmark != "") return;
         if (built)
         {
             switch (rng.Next(5))
@@ -139,6 +141,6 @@ public static partial class CaveGenerator
                 if (cut > 200) made.Add("the Causeway");
             }
         }
-        cave.Landmark = string.Join(" and ", made);
+        if (made.Count > 0) cave.Landmark = cave.Landmark == "" ? string.Join(" and ", made) : cave.Landmark + " and " + string.Join(" and ", made);
     }
 }

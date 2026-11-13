@@ -639,6 +639,13 @@ public static partial class CaveGenerator
         var baseRow = new int[levels];
         for (int l = 0; l < levels; l++) baseRow[l] = (int)(H * (0.3f + 0.18f * l)) + RndI(-2, 2);
         int hallW = 30, hallX0 = W - 5 - hallW;
+        // The Great Pit (about one mine in three, by the seed): the mine is dug round one great open working. The pit stands in the
+        // middle of the map from the top gallery's roof to the bottom gallery's floor, every gallery breaks out onto its rim on both
+        // sides, and timber stagings run up its walls and across it. You see the whole mine from its edge, and choose your way down.
+        bool pit = CaveShapes.On && new Random(unchecked(seed * 17 + 5)).Next(3) == 0;
+        int pitX0 = 0, pitX1 = 0;
+        if (pit) { int pw = RndI(34, 44), pc = (int)(W * 0.45f) + RndI(-12, 12); pitX0 = pc - pw / 2; pitX1 = pc + pw / 2; }
+        bool InPit(int x, int margin) => pit && x > pitX0 - margin && x < pitX1 + margin;
         // each gallery's floor, per column (it steps one or two cells now and then)
         var floor = new int[levels][];
         var chambers = new List<Chamber>();
@@ -671,6 +678,7 @@ public static partial class CaveGenerator
                 int w = RndI(14, 22), h = RndI(8, 13);
                 int x0 = RndI(lo, (l == levels - 1 ? hallX0 - 12 : W - 8) - w);
                 if (x0 + w > (l == levels - 1 ? hallX0 - 6 : W - 6) || chambers.Any(c => c.Level == l && x0 < c.X1 + 6 && x0 + w > c.X0 - 6)) continue;
+                if (pit && x0 < pitX1 + 6 && x0 + w > pitX0 - 6) continue;
                 int F = floor[l][x0 + w / 2];
                 if (F == 0 || F - h < 6) continue;
                 var c = new Chamber { X0 = x0, X1 = x0 + w, Top = F - h, Floor = F, Level = l };
@@ -688,11 +696,20 @@ public static partial class CaveGenerator
             {
                 int sx = RndI(10, (l + 1 == levels - 1 ? hallX0 - 14 : W - 18));
                 if (shafts.Any(sh => sh.l == l && Math.Abs(sh.x - sx) < 32)) continue;
+                // (the pit is the way down through the middle: the shafts are out toward the ends)
+                if (pit && sx + 8 > pitX0 - 10 && sx < pitX1 + 10) continue;
                 if (floor[l][sx] == 0 || floor[l + 1][sx + 8] == 0 || floor[l][sx + 8] == 0) continue;
                 shafts.Add((sx, l));
                 f.Rect(sx, floor[l][sx] - 2, sx + 8, floor[l + 1][sx + 4] - 2);
                 count--;
             }
+        }
+        int pitTop = 0, pitBottom = 0;
+        if (pit)
+        {
+            pitTop = baseRow[0] - 9;
+            pitBottom = floor[levels - 1][(pitX0 + pitX1) / 2] != 0 ? floor[levels - 1][(pitX0 + pitX1) / 2] : baseRow[levels - 1];
+            f.Rect(pitX0, pitTop, pitX1, pitBottom);
         }
         // rooms and spawn points
         int sc = 12;
@@ -712,7 +729,7 @@ public static partial class CaveGenerator
         var spawnStamps = new List<Stamp>();
         for (int l = 0; l < levels; l++)
             for (int x = (l == 0 ? 26 : 8); x < (l == levels - 1 ? hallX0 - 4 : W - 8); x += 9)
-                if (floor[l][x] != 0) spawnStamps.Add(new Stamp { X = x, Y = floor[l][x] - 2.5f, R = 3, Main = true, Mode = ModeAir, Kind = 7 });
+                if (floor[l][x] != 0 && !InPit(x, 2)) spawnStamps.Add(new Stamp { X = x, Y = floor[l][x] - 2.5f, R = 3, Main = true, Mode = ModeAir, Kind = 7 });
         foreach (var c in chambers)
             spawnStamps.Add(new Stamp { X = (c.X0 + c.X1) * 0.5f, Y = c.Floor - 2.5f, R = 3, Main = true, Mode = ModeAir, Kind = 7 });
 
@@ -728,6 +745,24 @@ public static partial class CaveGenerator
                     left = !left;
                 }
             }
+            // the pit's stagings: a stair of timber up each wall, three cells a step, and a bridge across at every gallery but the
+            // lowest, broken in the middle so the way down the middle stays open
+            if (pit)
+            {
+                for (int t = pitBottom - 3, k = 0; t > pitTop + 4; t -= 3, k++)
+                {
+                    int reach = 5 + (k % 2) * 4;
+                    f.Solid(pitX0 - 1, t, pitX0 + reach, t + 2);
+                    f.Solid(pitX1 - reach, t, pitX1 + 1, t + 2);
+                }
+                int mid = (pitX0 + pitX1) / 2;
+                for (int l = 0; l < levels - 1; l++)
+                {
+                    int row = floor[l][Math.Max(5, pitX0 - 2)] != 0 ? floor[l][Math.Max(5, pitX0 - 2)] : baseRow[l];
+                    f.Solid(pitX0 - 1, row, mid - 4, row + 2);
+                    f.Solid(mid + 4, row, pitX1 + 1, row + 2);
+                }
+            }
             // tall stopes get a stair of timber too
             foreach (var c in chambers.Where(c => c.Floor - c.Top >= 11))
             {
@@ -741,6 +776,7 @@ public static partial class CaveGenerator
                 }
             }
         }
+        if (pit) cave.Landmark = "the Great Pit";
         cave.Open = f.Open;
         return Finish(cave, f, rng, new Vector2I(12, startFloor - 2), spawnStamps, 1, Scaffolds, platforms: false);
     }
