@@ -24,9 +24,11 @@ namespace DaggerCave;
 /// </summary>
 public static partial class CaveGenerator
 {
-    /// <summary>The biome being generated, and its size in cells (set by Generate).</summary>
-    public static BiomeDef B;
-    public static int W, H;
+    /// <summary>The biome being generated, and its size in cells (set by Generate). Each thread has its own: attempts run side by side,
+    /// and one still finishing from the last cave must not change the size of the next one under it (which corrupted an attempt now
+    /// and then: it was thrown away and retried, unseen).</summary>
+    [ThreadStatic] public static BiomeDef B;
+    [ThreadStatic] public static int W, H;
     private static float MaxPitch => B?.MaxPitch ?? 0.6f; // ~34 degrees
     private const int ModeAir = 0, ModeShaft = 1, ModeWater = 2;
 

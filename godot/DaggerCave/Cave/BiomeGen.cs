@@ -440,6 +440,13 @@ public static partial class CaveGenerator
     /// </summary>
     private static CaveData GenerateRuins(int seed)
     {
+        // (the second plan: towers and bridges, about one ruin in two)
+        if (CaveShapes.On && B.Id == BiomeId.Ruins && new Random(unchecked(seed * 13 + 1)).Next(2) == 0) return GenerateTowers(seed);
+        return GenerateRuinsPlain(seed);
+    }
+
+    private static CaveData GenerateRuinsPlain(int seed)
+    {
         var rng = new Random(seed);
         int RndI(int a, int bIncl) => rng.Next(a, bIncl + 1);
         var f = new Field(seed, 0.6f);
